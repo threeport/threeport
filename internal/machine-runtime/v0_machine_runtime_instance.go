@@ -166,34 +166,12 @@ func v0MachineRuntimeInstanceUpdated(
 	return 0, nil
 }
 
-// v0MachineRuntimeInstanceDeleted warns when a provisioned instance still holds inventory. This pass does not reclaim provider resources.
+// v0MachineRuntimeInstanceDeleted performs reconciliation when a v0 MachineRuntimeInstance
+// has been deleted.
 func v0MachineRuntimeInstanceDeleted(
 	r *controller.Reconciler,
 	machineRuntimeInstance *v0.MachineRuntimeInstance,
 	log *logr.Logger,
 ) (int64, error) {
-	// skip imported machines with no definition
-	if machineRuntimeInstance.MachineRuntimeDefinitionID == nil {
-		return 0, nil
-	}
-
-	// skip when no inventory was recorded
-	if machineRuntimeInstance.ResourceInventory == nil {
-		return 0, nil
-	}
-
-	// warn to reclaim live provider resources, then complete delete
-	if eventErr := r.EventsRecorder.RecordEvent(
-		&v0.Event{
-			Type:   util.Ptr(event.TypeWarning),
-			Reason: util.Ptr("ProviderResourcesNotReclaimed"),
-			Note:   util.Ptr(fmt.Sprintf("machine runtime instance %s was deleted while still holding provider resources; reclaim them using the recorded resource inventory to avoid orphaned infrastructure", *machineRuntimeInstance.Name)),
-		},
-		*machineRuntimeInstance.ID,
-		machineRuntimeInstance.GetFullyQualifiedType(),
-	); eventErr != nil {
-		log.Error(eventErr, "failed to record event for unreclaimed provider resources")
-	}
-
 	return 0, nil
 }

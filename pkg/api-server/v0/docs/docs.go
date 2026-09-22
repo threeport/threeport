@@ -18692,14 +18692,6 @@ const docTemplate = `{
                     "description": "The provider region in which the machine is provisioned.",
                     "type": "string"
                 },
-                "ResourceInventory": {
-                    "description": "An inventory of all provider resources backing this machine, used for\ncrash recovery and deprovisioning.",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/datatypes.JSON"
-                        }
-                    ]
-                },
                 "SSHKey": {
                     "description": "The SSH private key for authenticating to the machine.",
                     "type": "string"
