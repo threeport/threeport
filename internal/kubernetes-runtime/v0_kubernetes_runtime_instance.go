@@ -208,32 +208,55 @@ func v0KubernetesRuntimeInstanceUpdated(
 		cpi.Opts.AgentInfo.ImageTag = agentTag
 	}
 
-	// threeport control plane components
-	if err := cpi.InstallComputeSpaceControlPlaneComponents(
-		dynamicKubeClient,
-		mapper,
-		*kubernetesRuntimeInstance.Name,
-	); err != nil {
-		return 0, fmt.Errorf("failed to insall compute space control plane components: %w", err)
-	}
+	// This function runs on every update notification for this object, and the
+	// installs below are create-or-update: re-running one is not destructive,
+	// but it is a burst of writes against a live cluster's API server, and the
+	// CRD settle below costs a reconciler worker ten seconds. So each step is
+	// skipped when the cluster already has what it would install. The checks
+	// are per step rather than one early return on Reconciled, which keeps this
+	// function usable as a repair path: a cluster missing only the support
+	// services operator still gets the operator.
 
-	// wait for kube API to persist the change and refresh the client and mapper
-	// this is necessary to have the updated REST mapping for the CRDs as the
-	// support services operator install includes one of those custom resources
-	time.Sleep(time.Second * 10)
-	dynamicKubeClient, mapper, err = kube.GetClient(
-		kubernetesRuntimeInstance,
-		false,
-		r.APIClient,
-		r.APIServer,
-		r.EncryptionKey,
-	)
+	// threeport control plane components
+	computeSpaceCurrent, err := cpi.ComputeSpaceControlPlaneComponentsCurrent(dynamicKubeClient, mapper)
 	if err != nil {
-		return 0, fmt.Errorf("failed to refresh dynamic kube API client: %w", err)
+		return 0, fmt.Errorf("failed to check compute space control plane components: %w", err)
+	}
+	if computeSpaceCurrent {
+		log.V(1).Info("compute space control plane components already current, skipping install")
+	} else {
+		if err := cpi.InstallComputeSpaceControlPlaneComponents(
+			dynamicKubeClient,
+			mapper,
+			*kubernetesRuntimeInstance.Name,
+		); err != nil {
+			return 0, fmt.Errorf("failed to insall compute space control plane components: %w", err)
+		}
+
+		// wait for kube API to persist the change and refresh the client and mapper
+		// this is necessary to have the updated REST mapping for the CRDs as the
+		// support services operator install includes one of those custom resources
+		time.Sleep(time.Second * 10)
+		dynamicKubeClient, mapper, err = kube.GetClient(
+			kubernetesRuntimeInstance,
+			false,
+			r.APIClient,
+			r.APIServer,
+			r.EncryptionKey,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to refresh dynamic kube API client: %w", err)
+		}
 	}
 
 	// support services operator
-	if err := threeport.InstallThreeportSupportServicesOperator(dynamicKubeClient, mapper); err != nil {
+	operatorInstalled, err := threeport.SupportServicesOperatorInstalled(dynamicKubeClient, mapper)
+	if err != nil {
+		return 0, fmt.Errorf("failed to check support services operator: %w", err)
+	}
+	if operatorInstalled {
+		log.V(1).Info("support services operator already installed, skipping install")
+	} else if err := threeport.InstallThreeportSupportServicesOperator(dynamicKubeClient, mapper); err != nil {
 		return 0, fmt.Errorf("failed to install support services operator: %w", err)
 	}
 
@@ -249,7 +272,13 @@ func v0KubernetesRuntimeInstanceUpdated(
 		}
 
 		// system components e.g. cluster-autoscaler
-		if err := threeport.InstallEksThreeportSystemServices(
+		systemServicesInstalled, err := threeport.EksThreeportSystemServicesInstalled(dynamicKubeClient, mapper)
+		if err != nil {
+			return 0, fmt.Errorf("failed to check EKS system services: %w", err)
+		}
+		if systemServicesInstalled {
+			log.V(1).Info("EKS system services already installed, skipping install")
+		} else if err := threeport.InstallEksThreeportSystemServices(
 			dynamicKubeClient,
 			mapper,
 			*kubernetesRuntimeInstance.Name,
@@ -276,7 +305,17 @@ func v0KubernetesRuntimeInstanceUpdated(
 			return 0, fmt.Errorf("failed to determine control plane GCP project for workload controller RBAC: %w", err)
 		}
 		if controlPlaneGcpProject != "" {
-			if err := cpi.InstallComputeSpaceWorkloadControllerRBAC(
+			rbacCurrent, err := cpi.ComputeSpaceWorkloadControllerRBACCurrent(
+				dynamicKubeClient,
+				mapper,
+				controlPlaneGcpProject,
+			)
+			if err != nil {
+				return 0, fmt.Errorf("failed to check workload controller RBAC on managed cluster: %w", err)
+			}
+			if rbacCurrent {
+				log.V(1).Info("workload controller RBAC already current on managed cluster, skipping install")
+			} else if err := cpi.InstallComputeSpaceWorkloadControllerRBAC(
 				dynamicKubeClient,
 				mapper,
 				controlPlaneGcpProject,
