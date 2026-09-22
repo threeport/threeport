@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 
 	"github.com/go-logr/logr"
 	"helm.sh/helm/v3/pkg/action"
@@ -16,6 +17,7 @@ import (
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/getter"
 	"helm.sh/helm/v3/pkg/registry"
+	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"helm.sh/helm/v3/pkg/repo"
 	"helm.sh/helm/v3/pkg/storage/driver"
@@ -305,7 +307,7 @@ func v0HelmWorkloadInstanceUpdated(
 	// compare against what the release currently holds. A release that cannot
 	// be read is not a reason to stop: the upgrade below is what would fix it.
 	deployed, err := action.NewGet(actionConf).Run(releaseName)
-	if err == nil && deployed.Manifest == previewed.Manifest {
+	if err == nil && releaseMatchesRender(deployed, previewed) {
 		log.V(1).Info("helm release already matches the rendered chart, skipping upgrade")
 
 		return 0, nil
@@ -322,6 +324,51 @@ func v0HelmWorkloadInstanceUpdated(
 	}
 
 	return 0, nil
+}
+
+// releaseMatchesRender reports whether a deployed release already holds what a
+// render would apply.
+//
+// Hooks are compared alongside the manifest because helm keeps them apart from
+// it: a chart change touching only a pre- or post-upgrade hook leaves the two
+// manifests identical, and skipping on that alone would drop the hook without
+// recording or running it.
+//
+// A hook is compared on what the chart declares, not on the whole struct. helm
+// writes each hook's LastRun when it executes, so a deployed hook always carries
+// a timestamp the freshly rendered one does not, and comparing those would find
+// a difference on every release that has ever run a hook.
+func releaseMatchesRender(deployed, previewed *release.Release) bool {
+	if deployed == nil || previewed == nil {
+		return false
+	}
+	if deployed.Manifest != previewed.Manifest {
+		return false
+	}
+	if len(deployed.Hooks) != len(previewed.Hooks) {
+		return false
+	}
+
+	for i, deployedHook := range deployed.Hooks {
+		previewedHook := previewed.Hooks[i]
+		if deployedHook == nil || previewedHook == nil {
+			if deployedHook != previewedHook {
+				return false
+			}
+			continue
+		}
+		if deployedHook.Name != previewedHook.Name ||
+			deployedHook.Kind != previewedHook.Kind ||
+			deployedHook.Path != previewedHook.Path ||
+			deployedHook.Manifest != previewedHook.Manifest ||
+			deployedHook.Weight != previewedHook.Weight ||
+			!reflect.DeepEqual(deployedHook.Events, previewedHook.Events) ||
+			!reflect.DeepEqual(deployedHook.DeletePolicies, previewedHook.DeletePolicies) {
+			return false
+		}
+	}
+
+	return true
 }
 
 // newHelmUpgrade returns an upgrade action configured for a helm workload
