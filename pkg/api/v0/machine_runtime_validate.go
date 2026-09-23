@@ -17,22 +17,17 @@ func (m *MachineRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
 }
 
 // beforeUpdate validates the MachineRuntimeDefinition before update.
-//
 // Receiver semantics depend on the GORM call shape; see
 // pkg/api/lib/v0/update_helpers.go for the full model. The simplest
 // per-field check is:
 //   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
 //     and PUT, handles the DB load internally
-//
 // Lower-level helpers, useful when IsFieldChanged doesn't fit:
 //   - lib.IncomingValues(tx): values being written
 //   - lib.IsFullReplace(tx): true on PUT (Save shape)
 //   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
-//
 // Import:
-//
 //	lib "github.com/threeport/threeport/pkg/api/lib/v0"
-//
 // InfraProvider, MachineType, and ImageID are immutable after create so
 // derived instances stay aligned with the definition template.
 func (m *MachineRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
@@ -110,22 +105,17 @@ func (m *MachineRuntimeInstance) beforeCreate(tx *gorm.DB) error {
 }
 
 // beforeUpdate validates the MachineRuntimeInstance before update.
-//
 // Receiver semantics depend on the GORM call shape; see
 // pkg/api/lib/v0/update_helpers.go for the full model. The simplest
 // per-field check is:
 //   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
 //     and PUT, handles the DB load internally
-//
 // Lower-level helpers, useful when IsFieldChanged doesn't fit:
 //   - lib.IncomingValues(tx): values being written
 //   - lib.IsFullReplace(tx): true on PUT (Save shape)
 //   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
-//
 // Import:
-//
 //	lib "github.com/threeport/threeport/pkg/api/lib/v0"
-//
 // Region, NetworkID, and SubnetID are immutable after create. Infra
 // provider, machine type, and image are guarded on the definition.
 func (m *MachineRuntimeInstance) beforeUpdate(tx *gorm.DB) error {

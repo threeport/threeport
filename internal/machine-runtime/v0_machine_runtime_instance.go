@@ -43,22 +43,26 @@ type getClientResult struct {
 	err             error
 }
 
-// getClientWithContext runs machine.GetClient until it returns or ctx ends.
-// ssh.Dial cannot be interrupted, so on abort a reaper closes a client that arrives later.
+// getClientWithContext runs machine.GetClient in the background.
+// ssh.Dial ignores ctx, so a client that connects after ctx ends is closed.
 func getClientWithContext(
 	ctx context.Context,
 	machineRuntimeInstance *v0.MachineRuntimeInstance,
 	encryptionKey string,
 ) (*ssh.Client, string, error) {
+	// dial in the background; ssh.Dial does not take a context
 	done := make(chan getClientResult, 1)
 	go func() {
 		sshClient, capturedHostKey, err := machine.GetClient(machineRuntimeInstance, encryptionKey)
 		done <- getClientResult{sshClient, capturedHostKey, err}
 	}()
+
 	select {
 	case res := <-done:
+		// dial finished inside the deadline
 		return res.client, res.capturedHostKey, res.err
 	case <-ctx.Done():
+		// close a client that connects after this return
 		go func() {
 			if res := <-done; res.client != nil {
 				res.client.Close()
@@ -68,17 +72,21 @@ func getClientWithContext(
 	}
 }
 
-// pingWithContext runs machine.Ping until it returns or ctx ends.
-// An abandoned ping unblocks when the caller closes the SSH client.
+// pingWithContext runs machine.Ping in the background.
+// Closing the SSH client unblocks a ping that is still running.
 func pingWithContext(ctx context.Context, sshClient *ssh.Client) error {
+	// ping in the background; machine.Ping does not take a context
 	done := make(chan error, 1)
 	go func() {
 		done <- machine.Ping(sshClient)
 	}()
+
 	select {
 	case err := <-done:
+		// ping finished inside the deadline
 		return err
 	case <-ctx.Done():
+		// caller closes the client, which unblocks the ping
 		return fmt.Errorf("ssh ping aborted: %w", ctx.Err())
 	}
 }
@@ -130,7 +138,8 @@ func v0MachineRuntimeInstanceCreated(
 		}
 	}
 
-	// persist a captured host key and stamp creation confirmed in one update
+	// persist a captured host key and stamp creation confirmed
+	// the generated reconciler sets Reconciled after this returns and never sets CreationConfirmed
 	if capturedHostKey != "" || machineRuntimeInstance.CreationConfirmed == nil {
 		update := &v0.MachineRuntimeInstance{
 			Common:         v0.Common{ID: machineRuntimeInstance.ID},
