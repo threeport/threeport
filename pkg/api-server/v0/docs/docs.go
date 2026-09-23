@@ -3436,14 +3436,14 @@ const docTemplate = `{
         },
         "/v0/events-filtered": {
             "get": {
-                "description": "Get all events joined with attached object references from the Threeport database.",
+                "description": "Get events from the Threeport database, narrowed by the object_type and object_id columns each event row carries.",
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
-                "summary": "gets all events joined with attached object references.",
+                "summary": "gets all events, filtered by subject.",
                 "operationId": "get-v0-events-filtered",
                 "parameters": [
                     {
@@ -3454,7 +3454,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "filter events by object type name (with objectname); CamelCase Go TypeName like 'KubernetesWorkloadInstance'",
+                        "description": "filter events by object type name; CamelCase Go TypeName like 'KubernetesWorkloadInstance'. Filters on its own, and narrows objectid, objectname, or objectnameprefix to one kind",
                         "name": "objecttypename",
                         "in": "query"
                     },
@@ -3472,8 +3472,26 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "filter events by object name (with objecttypename)",
+                        "description": "filter events by exact object name; matches every subject type carrying that name, deleted subjects included, unless objecttypename narrows it",
                         "name": "objectname",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "filter events by object name prefix; matches every subject whose name starts with this token, deleted subjects included, across every subject type unless objecttypename narrows it",
+                        "name": "objectnameprefix",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "filter events by exact Reason match (case-sensitive CamelCase, e.g. 'SuccessfulCreate')",
+                        "name": "reason",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "filter events by Reason prefix (case-sensitive CamelCase, matches Reason values starting with this token)",
+                        "name": "reasonprefix",
                         "in": "query"
                     }
                 ],
@@ -17364,6 +17382,8 @@ const docTemplate = `{
                 "Count",
                 "EventTime",
                 "LastObservedTime",
+                "ObjectID",
+                "ObjectType",
                 "Reason",
                 "ReportingController",
                 "Type"
@@ -17386,13 +17406,15 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "ObjectID": {
+                    "description": "The id of the object this event is about",
                     "type": "integer"
                 },
                 "ObjectName": {
+                    "description": "The name of the object this event is about, resolved on read",
                     "type": "string"
                 },
                 "ObjectType": {
-                    "description": "Fields carrying the event's subject - the object the event is\nabout. They flow in both directions:\n  - On create: the caller sets ObjectType (fully qualified type form) + ObjectID\n    in the request body. Event.BeforeCreate validates them;\n    Event.AfterCreate inserts the matching AttachedObjectReference\n    in the same transaction. ObjectName is ignored on write.\n  - On read: GetEventsFilteredByQueryString\n    projects the joined AOR's base object back into these\n    fields, then resolves ObjectName via the type's name resolver.\n\ngorm:\"-\" keeps them off the Event row in the schema - the AOR\nis the source of truth on disk for the subject linkage.\n\nFor an event describing a script failure on a\nMachineRuntimeInstance named \"some-host\" (id 42), these hold:\n  ObjectType = \"threeport.io/v0.MachineRuntimeInstance\"\n  ObjectID   = 42\n  ObjectName = \"some-host\"   (read only - ignored on create)\nA consumer like ` + "`" + `tptctl get events` + "`" + ` uses them to render\n\"threeport.io/machine-runtime-instance/some-host\" in the OBJECT\ncolumn.",
+                    "description": "The fully qualified type of the object this event is about",
                     "type": "string"
                 },
                 "Reason": {
@@ -18813,6 +18835,10 @@ const docTemplate = `{
                 },
                 "Status": {
                     "description": "The latest status of the workload instance as observed by the reconciler\nwhen the most recent script execution completed.",
+                    "type": "string"
+                },
+                "UpdateScriptDigest": {
+                    "description": "A digest of the inputs the update script last ran successfully with.\nThe update script is operator-authored and Threeport cannot know whether\nrunning it again is safe, so it is run when these inputs differ from the\nones recorded here and not merely because a notification arrived.",
                     "type": "string"
                 }
             }
