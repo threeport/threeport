@@ -5,10 +5,13 @@ package machineworkload
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -135,6 +138,26 @@ func v0MachineWorkloadInstanceUpdated(
 		return controller.Requeue30s, nil
 	}
 
+	// The update script is operator-authored: Threeport cannot know whether
+	// running it again is safe, and running it re-executes arbitrary code on a
+	// live machine. So it runs when the inputs it would run with differ from the
+	// ones it last succeeded with, rather than whenever a notification arrives.
+	//
+	// The instance's own Reconciled field cannot stand in for this. Nothing sets
+	// it back to false when a field is edited, and the generated reconciler sets
+	// it to true after every successful pass, so gating on it would mean a
+	// changed Env never reaches the machine.
+	digest, err := updateScriptDigest(r, mwd, machineWorkloadInstance)
+	if err != nil {
+		return controller.Done, fmt.Errorf("failed to digest the update script inputs: %w", err)
+	}
+	if machineWorkloadInstance.UpdateScriptDigest != nil &&
+		*machineWorkloadInstance.UpdateScriptDigest == digest {
+		log.V(1).Info("update script already ran with these inputs, not running it again")
+
+		return controller.Done, nil
+	}
+
 	// run the update script and record results
 	wlStatus, scriptErr := runScript(r, machineWorkloadInstance, mri, mwd, *mwd.UpdateScript, "update", log)
 
@@ -143,6 +166,12 @@ func v0MachineWorkloadInstanceUpdated(
 		Common:         v0.Common{ID: machineWorkloadInstance.ID},
 		Status:         util.Ptr(string(wlStatus)),
 		Reconciliation: v0.Reconciliation{Reconciled: util.Ptr(scriptErr == nil)},
+	}
+
+	// record the inputs only on success, so a failed run is retried rather than
+	// recorded as done
+	if scriptErr == nil {
+		patch.UpdateScriptDigest = util.Ptr(digest)
 	}
 	if _, err := client.UpdateMachineWorkloadInstance(r.APIClient, r.APIServer, &patch); err != nil {
 		return controller.Done, fmt.Errorf("failed to update machine workload instance with run result: %w", err)
@@ -324,6 +353,56 @@ func sshDialFailed(err error) bool {
 		strings.Contains(msg, "network is unreachable") ||
 		strings.Contains(msg, "i/o timeout") ||
 		strings.Contains(msg, "connection timed out")
+}
+
+// updateScriptDigest returns a digest of everything that decides what the update
+// script does: the script itself, the shell and working directory it runs in,
+// and the environment it is given.
+//
+// The environment is digested decrypted and merged, as the script receives it.
+// The stored form is encrypted, and re-encrypting the same values does not
+// produce the same bytes, so digesting that would report a change whenever the
+// instance happened to be written.
+//
+// The digest is compared, never reversed, so a hash keeps the script and its
+// environment - which may hold secrets - out of the stored value.
+func updateScriptDigest(
+	r *controller.Reconciler,
+	mwd *v0.MachineWorkloadDefinition,
+	mwi *v0.MachineWorkloadInstance,
+) (string, error) {
+	defEnv, err := machine.DecryptEnv(mwd.Env, r.EncryptionKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to decrypt definition env: %w", err)
+	}
+	instEnv, err := machine.DecryptEnv(mwi.Env, r.EncryptionKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to decrypt instance env: %w", err)
+	}
+
+	sum := sha256.New()
+
+	// a separator after each part, so that text moved from one into another
+	// cannot leave the digest unchanged
+	for _, part := range []string{
+		util.DerefString(mwd.UpdateScript),
+		util.DerefString(mwd.Shell),
+		util.DerefString(mwd.WorkingDir),
+	} {
+		sum.Write([]byte(part))
+		sum.Write([]byte{0})
+	}
+
+	// sorted, because the order entries happen to arrive in says nothing about
+	// what the script will see
+	effectiveEnv := machine.MergeEnv(defEnv, instEnv)
+	sort.Strings(effectiveEnv)
+	for _, entry := range effectiveEnv {
+		sum.Write([]byte(entry))
+		sum.Write([]byte{0})
+	}
+
+	return hex.EncodeToString(sum.Sum(nil)), nil
 }
 
 // runScript opens SSH to the machine runtime, runs the create, update, or

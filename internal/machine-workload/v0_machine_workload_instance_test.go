@@ -705,3 +705,177 @@ func TestMachineWorkloadInstanceDeleted_EventRecordFailsPastGrace(t *testing.T) 
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), delay)
 }
+
+// patchedDigests returns the UpdateScriptDigest sent in every PATCH body
+// received, in order.
+func (f *fixture) patchedDigests() []*string {
+	f.patchesMu.Lock()
+	defer f.patchesMu.Unlock()
+	out := make([]*string, 0, len(f.patches))
+	for _, body := range f.patches {
+		var mwi v0.MachineWorkloadInstance
+		require.NoError(f.t, json.Unmarshal(body, &mwi))
+		out = append(out, mwi.UpdateScriptDigest)
+	}
+	return out
+}
+
+// The update script is operator-authored code run against a live machine, and
+// Threeport cannot tell whether running it twice is safe. These cover when it
+// runs and when it does not.
+
+// TestMachineWorkloadInstanceUpdated_RecordsWhatItRanWith covers the first run:
+// the script runs and the inputs it ran with are recorded, so a later
+// invocation has something to compare against.
+func TestMachineWorkloadInstanceUpdated_RecordsWhatItRanWith(t *testing.T) {
+	f := newFixture(t, machinetest.SSHOpts{ExitCode: 0})
+	log := logr.Discard()
+
+	_, err := v0MachineWorkloadInstanceUpdated(f.r, f.mwi, &log)
+	require.NoError(t, err)
+
+	digests := f.patchedDigests()
+	require.Len(t, digests, 1)
+	require.NotNil(t, digests[0], "a successful run must record what it ran with")
+	assert.Equal(t, f.digest(), *digests[0])
+}
+
+// TestMachineWorkloadInstanceUpdated_SameInputsDoNotRerun is the case this
+// change exists for: a resync against an instance whose inputs have not moved
+// must not re-execute the operator's script on the machine.
+func TestMachineWorkloadInstanceUpdated_SameInputsDoNotRerun(t *testing.T) {
+	f := newFixture(t, machinetest.SSHOpts{ExitCode: 0})
+	log := logr.Discard()
+
+	// the instance carries the digest of the inputs it last ran with
+	f.mwi.UpdateScriptDigest = util.Ptr(f.digest())
+
+	delay, err := v0MachineWorkloadInstanceUpdated(f.r, f.mwi, &log)
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), delay)
+
+	// nothing was written, because nothing was run
+	assert.Empty(t, f.patchedStatuses(), "an unchanged instance should not be patched")
+}
+
+// a changed environment is a real change to what the script does, so it runs
+func TestMachineWorkloadInstanceUpdated_ChangedEnvReruns(t *testing.T) {
+	f := newFixture(t, machinetest.SSHOpts{ExitCode: 0})
+	log := logr.Discard()
+
+	f.mwi.UpdateScriptDigest = util.Ptr(f.digest())
+	f.mwi.Env = f.encryptedEnv("MODE=maintenance")
+
+	_, err := v0MachineWorkloadInstanceUpdated(f.r, f.mwi, &log)
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{string(wlstatus.WorkloadInstanceStatusHealthy)}, f.patchedStatuses())
+}
+
+// so is a changed script
+func TestMachineWorkloadInstanceUpdated_ChangedScriptReruns(t *testing.T) {
+	f := newFixture(t, machinetest.SSHOpts{ExitCode: 0})
+	log := logr.Discard()
+
+	f.mwi.UpdateScriptDigest = util.Ptr(f.digest())
+	f.mwd.UpdateScript = util.Ptr("echo something else")
+
+	_, err := v0MachineWorkloadInstanceUpdated(f.r, f.mwi, &log)
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{string(wlstatus.WorkloadInstanceStatusHealthy)}, f.patchedStatuses())
+}
+
+// a failed run must not be recorded as done, or the retry would be skipped and
+// the machine left in whatever state the failure put it
+func TestMachineWorkloadInstanceUpdated_FailedRunRecordsNothing(t *testing.T) {
+	f := newFixture(t, machinetest.SSHOpts{ExitCode: 1})
+	log := logr.Discard()
+
+	_, err := v0MachineWorkloadInstanceUpdated(f.r, f.mwi, &log)
+	require.Error(t, err)
+
+	digests := f.patchedDigests()
+	require.Len(t, digests, 1)
+	assert.Nil(t, digests[0], "a failed run must not record its inputs as applied")
+}
+
+// TestUpdateScriptDigest covers what counts as a change to the script's inputs.
+func TestUpdateScriptDigest(t *testing.T) {
+	f := newFixture(t, machinetest.SSHOpts{ExitCode: 0})
+
+	digest := func(script string, env ...string) string {
+		mwd := &v0.MachineWorkloadDefinition{UpdateScript: util.Ptr(script)}
+		mwi := &v0.MachineWorkloadInstance{}
+		if len(env) > 0 {
+			mwi.Env = f.encryptedEnv(env...)
+		}
+		value, err := updateScriptDigest(f.r, mwd, mwi)
+		require.NoError(t, err)
+		return value
+	}
+
+	t.Run("the same inputs give the same digest", func(t *testing.T) {
+		assert.Equal(t, digest("echo hi", "A=1", "B=2"), digest("echo hi", "A=1", "B=2"))
+	})
+
+	// the order entries arrive in says nothing about what the script sees
+	t.Run("environment order does not matter", func(t *testing.T) {
+		assert.Equal(t, digest("echo hi", "A=1", "B=2"), digest("echo hi", "B=2", "A=1"))
+	})
+
+	t.Run("a changed script changes the digest", func(t *testing.T) {
+		assert.NotEqual(t, digest("echo hi", "A=1"), digest("echo bye", "A=1"))
+	})
+
+	t.Run("a changed environment changes the digest", func(t *testing.T) {
+		assert.NotEqual(t, digest("echo hi", "A=1"), digest("echo hi", "A=2"))
+	})
+
+	// without a separator, text moved from the script into the environment
+	// would leave the digest unchanged
+	t.Run("text moved between script and environment changes the digest", func(t *testing.T) {
+		assert.NotEqual(t, digest("echo hiA=1"), digest("echo hi", "A=1"))
+	})
+
+	// the stored environment is encrypted, and encrypting the same values twice
+	// does not give the same bytes - digesting those would report a change
+	// whenever the instance was written
+	t.Run("re-encrypting the same environment keeps the digest", func(t *testing.T) {
+		mwd := &v0.MachineWorkloadDefinition{UpdateScript: util.Ptr("echo hi")}
+		first := &v0.MachineWorkloadInstance{Env: f.encryptedEnv("A=1")}
+		second := &v0.MachineWorkloadInstance{Env: f.encryptedEnv("A=1")}
+
+		firstDigest, err := updateScriptDigest(f.r, mwd, first)
+		require.NoError(t, err)
+		secondDigest, err := updateScriptDigest(f.r, mwd, second)
+		require.NoError(t, err)
+
+		assert.Equal(t, firstDigest, secondDigest)
+	})
+}
+
+// encryptedEnv returns env entries stored the way the API stores them, with the
+// value of each KEY=VALUE encrypted under the reconciler's key.
+func (f *fixture) encryptedEnv(entries ...string) *[]string {
+	f.t.Helper()
+	encrypted := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		key, value, ok := strings.Cut(entry, "=")
+		require.True(f.t, ok, "%q is not in KEY=VALUE format", entry)
+		ciphertext, err := encryption.Encrypt(f.r.EncryptionKey, value)
+		require.NoError(f.t, err)
+		encrypted = append(encrypted, key+"="+ciphertext)
+	}
+
+	return &encrypted
+}
+
+// digest returns the digest of the fixture's current definition and instance.
+func (f *fixture) digest() string {
+	f.t.Helper()
+	value, err := updateScriptDigest(f.r, f.mwd, f.mwi)
+	require.NoError(f.t, err)
+
+	return value
+}
