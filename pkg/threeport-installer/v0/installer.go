@@ -145,7 +145,8 @@ type Options struct {
 	// clusters.
 	LocalRegistry bool
 
-	// The availability and data retention level stamped on the control plane namespace
+	// The tier written on the control plane namespace when that namespace is created
+	// A later install leaves an existing namespace, and its tier label, unchanged
 	Tier ControlPlaneTier
 
 	// PaginationMode sets the REST API server's pagination strategy through

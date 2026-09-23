@@ -241,13 +241,15 @@ type ControlPlane struct {
 	Tier          ControlPlaneTier
 }
 
-// DefaultControlPlaneTierForProvider returns development for kind and production otherwise.
-// Kind clusters are disposable; cloud clusters are not.
+// DefaultControlPlaneTierForProvider returns the development tier when the
+// provider is kind and the production tier for every other value.
 func DefaultControlPlaneTierForProvider(infraProvider string) string {
+	// return the development tier for the kind provider
 	if infraProvider == v0.KubernetesRuntimeInfraProviderKind {
 		return ControlPlaneTierDev
 	}
 
+	// return the production tier for every other value
 	return ControlPlaneTierProd
 }
 

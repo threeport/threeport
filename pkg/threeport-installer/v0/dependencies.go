@@ -16,9 +16,7 @@ const (
 	dbCredsSecretName = "db-certs"
 	natsServiceName   = "nats-js"
 
-	// natsBoxImage is the nats CLI image the nats-box pod and the message
-	// broker drop job run, so both use the same client version. The registry host
-	// is required: a runtime with no default registry cannot pull a bare name.
+	// natsBoxImage is the nats CLI image shared by the nats-box pod and the stream drop job.
 	natsBoxImage = "docker.io/natsio/nats-box:0.16.0-nonroot"
 )
 
@@ -40,7 +38,7 @@ func (cpi *ControlPlaneInstaller) CreateThreeportControlPlaneNamespace(
 			},
 		},
 	}
-	// keep the installed tier from being overwritten on a later reapply
+	// leave an existing namespace so a reapply does not rewrite the tier label
 	setPersistent(namespace)
 	if err := cpi.CreateOrUpdateKubeResource(namespace, kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed to create/update control plane namespace: %w", err)
@@ -75,6 +73,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControlPlaneDependencies(
 			},
 		},
 	}
+	// keep the encryption key secret across reinstall
 	setPersistent(encryptionSecret)
 	if err := cpi.CreateOrUpdateKubeResource(encryptionSecret, kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed to create API server secret: %w", err)
@@ -556,12 +555,13 @@ store_dir: /data
 		},
 	}
 
+	// leave the message broker stateful set in place when it already exists
 	setPersistent(natsStatefulSet)
 	if err := cpi.CreateOrUpdateKubeResource(natsStatefulSet, kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed to create/update API server secret for kubernetes workload controller: %w", err)
 	}
 
-	// leave the existing db certs secret when credentials are absent
+	// leave the database certs secret unchanged when credentials are absent
 	if dbCreds != nil {
 		var dbCertsSecret = &unstructured.Unstructured{
 			Object: map[string]interface{}{
@@ -582,6 +582,7 @@ store_dir: /data
 				},
 			},
 		}
+		// keep the database certs secret across reinstall
 		setPersistent(dbCertsSecret)
 		if err := cpi.CreateOrUpdateKubeResource(dbCertsSecret, kubeClient, mapper); err != nil {
 			return fmt.Errorf("failed to create DB certs secret: %w", err)
@@ -856,6 +857,7 @@ store_dir: /data
 		},
 	}
 
+	// leave the database stateful set in place when it already exists
 	setPersistent(crdbStatefulSet)
 	if err := cpi.CreateOrUpdateKubeResource(crdbStatefulSet, kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed to create/update API server secret for kubernetes workload controller: %w", err)
@@ -894,6 +896,7 @@ store_dir: /data
 			},
 		},
 	}
+	// keep the api service so its endpoint survives reinstall
 	setPersistent(apiService)
 	if err := cpi.CreateOrUpdateKubeResource(apiService, kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed to create/update API server service: %w", err)

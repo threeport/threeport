@@ -20,18 +20,21 @@ import (
 )
 
 // moduleRegistryApiServer is a threeport API stand-in that lists registered
-// module APIs and the controller deployments belonging to each.
+// module APIs and the controller deployments that belong to each.
 type moduleRegistryApiServer struct {
-	// The controller deployment names keyed by module API ID, as namespace/name
+	// The controller deployment names keyed by module API ID, as namespace and name joined by a slash
 	controllersByApiId map[uint][]string
+	// The registered module APIs
 	apis               []v0.ModuleApi
 }
 
-// serve starts a test API server and returns a client and API address.
+// serve starts a test API server and returns a client and an API address.
 func (s *moduleRegistryApiServer) serve(t *testing.T) (*http.Client, string) {
 	t.Helper()
 
+	// serve module API and controller list routes
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// set the response content type
 		w.Header().Set("Content-Type", "application/json")
 
 		switch {
@@ -61,10 +64,12 @@ func (s *moduleRegistryApiServer) serve(t *testing.T) (*http.Client, string) {
 			}
 			s.write(t, w, data)
 		default:
+			// fail the test on an unexpected path
 			t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
 			w.WriteHeader(http.StatusNotFound)
 		}
 	}))
+	// close the server when the test ends
 	t.Cleanup(server.Close)
 
 	// strip the scheme; API requests prepend one
@@ -75,6 +80,7 @@ func (s *moduleRegistryApiServer) serve(t *testing.T) (*http.Client, string) {
 func (s *moduleRegistryApiServer) write(t *testing.T, w http.ResponseWriter, data []apiserver_lib.Object) {
 	t.Helper()
 
+	// write the ok status and the encoded object list
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(apiserver_lib.Response{Data: data}); err != nil {
 		t.Errorf("failed to encode response: %v", err)
@@ -84,10 +90,12 @@ func (s *moduleRegistryApiServer) write(t *testing.T, w http.ResponseWriter, dat
 // testModuleApi returns a module API. A true core flag marks the control
 // plane's own API; a false flag leaves Core nil.
 func testModuleApi(id uint, name string, core bool) v0.ModuleApi {
+	// set the id and the name
 	moduleApi := v0.ModuleApi{
 		Common: v0.Common{ID: &id},
 		Name:   &name,
 	}
+	// set Core only when core is true
 	if core {
 		isCore := true
 		moduleApi.Core = &isCore
@@ -97,7 +105,7 @@ func testModuleApi(id uint, name string, core bool) v0.ModuleApi {
 }
 
 // testModuleDeployment returns a namespaced Deployment with spec.replicas
-// and no ready replicas, so scale-down wait succeeds on the first poll.
+// and no ready replicas, so the scale-down wait succeeds on the first poll.
 func testModuleDeployment(name, namespace string, replicas int64) *unstructured.Unstructured {
 	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -114,11 +122,13 @@ func testModuleDeployment(name, namespace string, replicas int64) *unstructured.
 	}
 }
 
-// recordDeploymentScaling records each replica patch as namespace/name=replicas.
+// recordDeploymentScaling records each replica patch as namespace, name, and replica count.
 func recordDeploymentScaling(kubeClient *dynamicfake.FakeDynamicClient, patched *[]string) {
+	// intercept deployment patch requests
 	kubeClient.PrependReactor("patch", "deployments", func(action k8stesting.Action) (bool, runtime.Object, error) {
 		patch := action.(k8stesting.PatchAction)
 
+		// read the replica count from the patch body
 		var replicas struct {
 			Spec struct {
 				Replicas int64 `json:"replicas"`
@@ -127,12 +137,12 @@ func recordDeploymentScaling(kubeClient *dynamicfake.FakeDynamicClient, patched 
 		if err := json.Unmarshal(patch.GetPatch(), &replicas); err != nil {
 			return true, nil, err
 		}
-		// record the patched replica count
+		// record namespace, name, and replica count
 		*patched = append(*patched, fmt.Sprintf(
 			"%s/%s=%d", patch.GetNamespace(), patch.GetName(), replicas.Spec.Replicas,
 		))
 
-		// handle the patch; unstructured strategic merge fails on the fake
+		// handle the patch; strategic merge on unstructured fails in the fake client
 		return true, testModuleDeployment(patch.GetName(), patch.GetNamespace(), replicas.Spec.Replicas), nil
 	})
 }
@@ -195,7 +205,7 @@ func TestDiscoverModuleNamespacesExcludesTheControlPlane(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	// check discovery omits the control plane namespace
+	// check that discovery omits the control plane namespace
 	if len(namespaces) != 0 {
 		t.Errorf("expected the control plane's own namespace to be excluded, got %v", namespaces)
 	}
@@ -221,11 +231,11 @@ func TestScaleDownModulesAndRestore(t *testing.T) {
 		t.Fatalf("unexpected error scaling down: %v", err)
 	}
 
-	// check scale-down records both deployments
+	// check that scale-down records both deployments
 	if len(scales) != 2 {
 		t.Fatalf("expected both deployments to be recorded, got %v", scales)
 	}
-	// check scale-down patches both deployments to zero
+	// check that scale-down patches both deployments to zero
 	for _, want := range []string{
 		"example-namespace/threeport-example-rest-api=0",
 		"example-namespace/threeport-example-controller=0",
@@ -241,7 +251,7 @@ func TestScaleDownModulesAndRestore(t *testing.T) {
 		t.Fatalf("unexpected error restoring: %v", err)
 	}
 
-	// check restore puts each deployment back at its own replica count
+	// check that restore puts each deployment back at its own replica count
 	for _, want := range []string{
 		"example-namespace/threeport-example-rest-api=1",
 		"example-namespace/threeport-example-controller=2",
@@ -271,11 +281,11 @@ func TestScaleDownModulesSkipsDeploymentsAlreadyStopped(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// check scale-down records only the running deployment
+	// check that scale-down records only the running deployment
 	if len(scales) != 1 || scales[0].Name != "threeport-example-rest-api" {
 		t.Errorf("expected only the running deployment to be recorded, got %v", scales)
 	}
-	// check scale-down does not patch the stopped deployment
+	// check that scale-down does not patch the stopped deployment
 	for _, unwanted := range patched {
 		if strings.Contains(unwanted, "threeport-disabled-controller") {
 			t.Errorf("expected the stopped deployment to be left alone, got patch %s", unwanted)
@@ -295,12 +305,12 @@ func TestRestoreModuleScaleToleratesRemovedDeployment(t *testing.T) {
 	err := cpi.RestoreModuleScale(kubeClient, []ModuleDeploymentScale{
 		{Namespace: namespace, Name: "threeport-uninstalled-controller", Replicas: 1},
 	})
-	// check restore succeeds
+	// check that restore succeeds
 	if err != nil {
 		t.Fatalf("expected a removed deployment to be skipped, got: %v", err)
 	}
 
-	// check restore does not create the missing deployment
+	// check that restore does not create the missing deployment
 	if _, err := kubeClient.Resource(deploymentGVR).Namespace(namespace).Get(
 		context.Background(), "threeport-uninstalled-controller", metav1.GetOptions{},
 	); err == nil {
@@ -310,6 +320,7 @@ func TestRestoreModuleScaleToleratesRemovedDeployment(t *testing.T) {
 
 // containsString reports whether want is present in values.
 func containsString(values []string, want string) bool {
+	// return true on an exact match
 	for _, value := range values {
 		if value == want {
 			return true

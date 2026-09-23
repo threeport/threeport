@@ -14,22 +14,23 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// Module tables share the control plane database, so a drop of that
-// database wipes module schema. The records that name those module
-// deployments live in the same database and must be read first. The
-// deployments are scaled to zero before the drop so they stop writing,
-// then scaled back so the module APIs recreate schema and re-register.
+// Registered module deployment names live in the control plane database and
+// are read before that database is dropped. The deployments are scaled to
+// zero before the drop and restored after the control plane is installed again.
 
-// ModuleDeploymentScale is a recorded replica count for one module
-// deployment, used to restore that count after a scale to zero.
+// ModuleDeploymentScale is one module deployment's replica count from before
+// it was scaled to zero.
 type ModuleDeploymentScale struct {
+	// The namespace of the deployment
 	Namespace string
+	// The name of the deployment
 	Name      string
+	// The replica count recorded before the deployment was scaled to zero
 	Replicas  int64
 }
 
-// DiscoverModuleNamespaces returns the unique namespaces of registered
-// non-core module controllers, omitting the control plane namespace.
+// DiscoverModuleNamespaces returns the unique namespaces parsed from non-core
+// module controller deployment names, omitting the control plane namespace.
 func (cpi *ControlPlaneInstaller) DiscoverModuleNamespaces(
 	apiClient *http.Client,
 	apiEndpoint string,
@@ -45,7 +46,7 @@ func (cpi *ControlPlaneInstaller) DiscoverModuleNamespaces(
 	seen := map[string]bool{cpi.Opts.Namespace: true}
 
 	for _, moduleApi := range *moduleApis {
-		// skip the core threeport API
+		// skip core modules and records without an id
 		if moduleApi.Core != nil && *moduleApi.Core {
 			continue
 		}
@@ -53,7 +54,7 @@ func (cpi *ControlPlaneInstaller) DiscoverModuleNamespaces(
 			continue
 		}
 
-		// get controllers registered by this module API
+		// get controllers registered by the module API
 		controllers, err := client.GetModuleControllersByQueryString(
 			apiClient,
 			apiEndpoint,
@@ -67,10 +68,10 @@ func (cpi *ControlPlaneInstaller) DiscoverModuleNamespaces(
 		}
 
 		for _, controller := range *controllers {
+			// record each new namespace from a namespace/name deployment name
 			if controller.DeploymentName == nil {
 				continue
 			}
-			// parse namespace from namespace/name
 			namespace, _, qualified := strings.Cut(*controller.DeploymentName, "/")
 			if !qualified || namespace == "" {
 				continue
@@ -86,16 +87,16 @@ func (cpi *ControlPlaneInstaller) DiscoverModuleNamespaces(
 	return namespaces, nil
 }
 
-// ScaleDownModules scales every deployment in each module namespace to
-// zero replicas, waits until none are ready, and returns the prior counts.
+// ScaleDownModules scales each deployment with a non-zero replica count to
+// zero and returns those counts once no ready replicas remain.
 func (cpi *ControlPlaneInstaller) ScaleDownModules(
 	kubeClient dynamic.Interface,
 	namespaces []string,
 ) ([]ModuleDeploymentScale, error) {
 	var scales []ModuleDeploymentScale
 
-	// scale each running deployment to zero and record its replica count
 	for _, namespace := range namespaces {
+		// list deployments in the module namespace
 		deployList, err := kubeClient.Resource(deploymentGVR).Namespace(namespace).List(
 			context.Background(), metav1.ListOptions{},
 		)
@@ -104,13 +105,14 @@ func (cpi *ControlPlaneInstaller) ScaleDownModules(
 		}
 
 		for _, deployment := range deployList.Items {
+			// skip a deployment already at zero so it stays out of the record
 			name := deployment.GetName()
 			replicas, _, _ := util.NestedInt64OrFloat64(deployment.Object, "spec", "replicas")
-			// skip deployments already at zero so they stay out of the record
 			if replicas == 0 {
 				continue
 			}
 
+			// scale the deployment to zero and record its prior count
 			if err := cpi.setDeploymentReplicas(kubeClient, namespace, name, 0); err != nil {
 				return nil, err
 			}
@@ -122,14 +124,17 @@ func (cpi *ControlPlaneInstaller) ScaleDownModules(
 		}
 	}
 
+	// return when nothing was scaled
 	if len(scales) == 0 {
 		return scales, nil
 	}
 
+	// report the scale-down
 	fmt.Printf("Info: scaled %d module deployment(s) to 0 across %s\n", len(scales), strings.Join(namespaces, ", "))
 
 	// wait until no ready replicas remain
 	if err := util.Retry(60, 3, func() error {
+		// count ready replicas still present
 		pending := 0
 		for _, namespace := range namespaces {
 			current, err := kubeClient.Resource(deploymentGVR).Namespace(namespace).List(
@@ -156,16 +161,18 @@ func (cpi *ControlPlaneInstaller) ScaleDownModules(
 	return scales, nil
 }
 
-// RestoreModuleScale restores each recorded deployment to its original
-// replica count. It does not wait for the pods to become ready.
+// RestoreModuleScale sets each recorded deployment back to its prior replica
+// count and does not wait for pods to become ready.
 func (cpi *ControlPlaneInstaller) RestoreModuleScale(
 	kubeClient dynamic.Interface,
 	scales []ModuleDeploymentScale,
 ) error {
+	// return when there is nothing to restore
 	if len(scales) == 0 {
 		return nil
 	}
 
+	// restore each recorded replica count
 	for _, scale := range scales {
 		if err := cpi.setDeploymentReplicas(
 			kubeClient, scale.Namespace, scale.Name, scale.Replicas,
@@ -174,19 +181,21 @@ func (cpi *ControlPlaneInstaller) RestoreModuleScale(
 		}
 	}
 
+	// report the restore
 	fmt.Printf("Info: restored %d module deployment(s) to their original replica count\n", len(scales))
 
 	return nil
 }
 
-// setDeploymentReplicas patches a deployment's replica count and
-// treats a missing deployment as nothing to do.
+// setDeploymentReplicas patches a deployment to the given replica count and
+// treats a missing deployment as success.
 func (cpi *ControlPlaneInstaller) setDeploymentReplicas(
 	kubeClient dynamic.Interface,
 	namespace string,
 	name string,
 	replicas int64,
 ) error {
+	// patch the deployment replica count
 	patch := []byte(fmt.Sprintf(`{"spec":{"replicas":%d}}`, replicas))
 	_, err := kubeClient.Resource(deploymentGVR).Namespace(namespace).Patch(
 		context.Background(),

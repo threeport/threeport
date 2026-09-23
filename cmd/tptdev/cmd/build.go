@@ -304,7 +304,7 @@ func init() {
 	)
 }
 
-// detectAuthEnabled reports whether the running API server enables auth.
+// detectAuthEnabled reports whether the control plane API deployment enables auth.
 func detectAuthEnabled(kubeClient *dynamic.DynamicClient) bool {
 	return installer.DetectAuthEnabled(kubeClient, installer.ControlPlaneNamespace)
 }

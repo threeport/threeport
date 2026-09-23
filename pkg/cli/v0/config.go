@@ -130,13 +130,15 @@ func (cfg *ThreeportConfig) CheckThreeportControlPlaneExists(createThreeportCont
 	return err == nil
 }
 
-// ValidateControlPlaneName returns nil when name is a ControlPlanes entry.
-// A cluster name is refused so a caller cannot pass a kube context as a control plane.
+// ValidateControlPlaneName returns an error when name is absent from the
+// threeport config.
 func (cfg *ThreeportConfig) ValidateControlPlaneName(name string) error {
+	// return nil when a control plane has this name
 	if cfg.CheckThreeportControlPlaneExists(name) {
 		return nil
 	}
 
+	// return the error for an empty config
 	if cfg.CheckThreeportConfigEmpty() {
 		return fmt.Errorf(
 			"control plane %q not found: the threeport config holds no control planes at all",
@@ -144,6 +146,7 @@ func (cfg *ThreeportConfig) ValidateControlPlaneName(name string) error {
 		)
 	}
 
+	// list the control plane names the config does hold
 	return fmt.Errorf(
 		"control plane %q not found in the threeport config, which names the control plane rather than the cluster hosting it; available control planes: %s",
 		name,

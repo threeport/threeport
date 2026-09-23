@@ -8,58 +8,61 @@ import (
 	"sync"
 )
 
-// Image repository and tag derive from the same env vars and git state
-// so a build and an install name the same image. IMAGE_REPO and
-// IMAGE_TAG win over derivation. Under GitHub Actions the repository
-// is ghcr.io plus the lowercased owner; ghcr requires lowercase. A
-// tag-triggered run uses the ref name as the tag. Locally the
-// repository is the caller default and the tag is version.sha, naming
-// the commit instead of a mutable base. The canonical tag does not
-// read ARCH, so an exported ARCH cannot redirect a pull.
+// IMAGE_REPO and IMAGE_TAG win over derivation. Under GitHub Actions
+// the repository is ghcr.io plus the lowercased owner; ghcr requires
+// lowercase. A tag-triggered run uses the ref name as the tag. Locally
+// the repository is the caller default and the tag is version.sha,
+// naming the commit instead of a mutable base. The canonical tag does
+// not read ARCH, so an exported ARCH cannot redirect a pull.
 
-// ResolveImageRepo returns the image repository. IMAGE_REPO wins when
-// set, so a caller can target any registry. Under GitHub Actions it
+// ResolveImageRepo returns the image repository. A non-blank IMAGE_REPO
+// wins, so a caller can target any registry. Under GitHub Actions it
 // is ghcr.io plus the lowercased owner; otherwise it is devDefault.
 func ResolveImageRepo(devDefault string) string {
-	// prefer IMAGE_REPO when set
+	// prefer IMAGE_REPO when non-blank
 	if repo := strings.TrimSpace(os.Getenv("IMAGE_REPO")); repo != "" {
 		return repo
 	}
+
 	// derive the ghcr namespace from the Actions owner
 	if os.Getenv("GITHUB_ACTIONS") != "" {
 		return "ghcr.io/" + strings.ToLower(os.Getenv("GITHUB_REPOSITORY_OWNER"))
 	}
+
 	// fall back to the supplied default
 	return devDefault
 }
 
-// ResolveImageTag returns the canonical image tag with no architecture
-// suffix. IMAGE_TAG wins when set. A GitHub Actions tag build returns
-// the ref name. Otherwise the tag is versionDefault.sha, an empty
-// repoDir reads the process working directory, and outside Actions a
-// failed sha read returns versionDefault with no error.
+// ResolveImageTag returns the image tag and does not append ARCH.
+// A non-blank IMAGE_TAG wins, a GitHub Actions tag build returns the ref name, and otherwise the tag is versionDefault.sha.
+// Outside Actions a failed sha read returns versionDefault and a nil error; inside Actions the error is returned.
 func ResolveImageTag(repoDir, versionDefault string) (string, error) {
-	// prefer IMAGE_TAG when set
+	// prefer IMAGE_TAG when non-blank
 	if tag := strings.TrimSpace(os.Getenv("IMAGE_TAG")); tag != "" {
 		return tag, nil
 	}
-	// derive a local tag from HEAD
+
+	// derive a local tag when not in GitHub Actions
 	if os.Getenv("GITHUB_ACTIONS") == "" {
-		// warn that a dirty tree's sha tag does not name this code
+		// warn when uncommitted source is not go.mod or go.sum
 		warnIfDirtyOnce(repoDir)
+
 		// read the short sha
 		sha, err := gitShortSha(repoDir)
+
 		// use the bare version when the sha cannot be read
 		if err != nil {
 			return versionDefault, nil
 		}
 		return joinImageTag(versionDefault, sha), nil
 	}
-	// echo the pushed ref name on a tag build
+
+	// echo the ref name on a tag build
 	if os.Getenv("GITHUB_REF_TYPE") == "tag" {
 		return os.Getenv("GITHUB_REF_NAME"), nil
 	}
-	// suffix the version with the short sha
+
+	// suffix the version with the short sha, or return the git error
 	sha, err := gitShortSha(repoDir)
 	if err != nil {
 		return "", err
@@ -77,6 +80,7 @@ func buildImageTag(repoDir, versionDefault string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	// append -<arch> when ARCH names one architecture
 	if arch := strings.TrimSpace(os.Getenv("ARCH")); arch != "" && !strings.Contains(arch, ",") {
 		return tag + "-" + arch, nil
@@ -92,6 +96,7 @@ func ResolveImageCoordinates(repoDir, devRepo, versionDefault string) (repo, tag
 	if err != nil {
 		return "", "", err
 	}
+
 	// resolve the repository against the supplied default
 	return ResolveImageRepo(devRepo), tag, nil
 }
@@ -101,9 +106,9 @@ func joinImageTag(version, sha string) string {
 	return version + "." + sha
 }
 
-// gitShortSha returns the seven-character HEAD sha of repoDir.
+// gitShortSha returns the abbreviated HEAD sha of repoDir, at least seven characters.
 func gitShortSha(repoDir string) (string, error) {
-	// read HEAD as a seven-character sha
+	// read the abbreviated HEAD sha
 	out, err := gitCommand(repoDir, "rev-parse", "--short=7", "HEAD").Output()
 	if err != nil {
 		return "", fmt.Errorf("failed to read short commit sha: %w", err)
@@ -112,7 +117,7 @@ func gitShortSha(repoDir string) (string, error) {
 }
 
 // gitCommand returns a git command that runs in repoDir when set.
-// An empty repoDir omits -C and reads the process working directory.
+// An empty repoDir omits -C.
 func gitCommand(repoDir string, args ...string) *exec.Cmd {
 	// prefix -C so git runs in repoDir rather than the process directory
 	if repoDir != "" {
@@ -122,32 +127,36 @@ func gitCommand(repoDir string, args ...string) *exec.Cmd {
 }
 
 // dirtyWarnOnce limits the dirty-tree warning to one print per process
-// so a multi-component build does not repeat it.
+// so a later resolve does not print it again.
 var dirtyWarnOnce sync.Once
 
-// warnIfDirtyOnce prints a warning on stderr the first time repoDir
-// has uncommitted source. go.mod and go.sum do not count; a local
-// replace directive keeps them modified. Any other dirty file means
-// the sha tag names HEAD, not the code compiled into the image.
+// warnIfDirtyOnce prints at most one stderr warning per process, on the first call.
+// go.mod and go.sum do not count. A git status failure skips the warning.
 func warnIfDirtyOnce(repoDir string) {
+	// warn at most once per process
 	dirtyWarnOnce.Do(func() {
 		// list uncommitted paths
 		out, err := gitCommand(repoDir, "status", "--porcelain").Output()
+
 		// skip the warning when status cannot be read
 		if err != nil {
 			return
 		}
+
 		for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
 			fields := strings.Fields(line)
 			if len(fields) == 0 {
 				continue
 			}
+
 			// take the last field, the path or rename destination
 			path := fields[len(fields)-1]
+
 			// skip go.mod and go.sum
 			if path == "go.mod" || path == "go.sum" {
 				continue
 			}
+
 			// print the warning and stop scanning
 			fmt.Fprintln(os.Stderr, "warning: building a dev image from a tree with uncommitted code; commit first so the .<sha> tag names the exact code (go.mod / go.sum excluded)")
 			return
@@ -155,8 +164,10 @@ func warnIfDirtyOnce(repoDir string) {
 	})
 }
 
-// ImageWithoutTag returns the image reference with a :tag stripped. A digest is left alone.
+// ImageWithoutTag returns the image reference with a :tag stripped.
+// A digest is left alone.
 func ImageWithoutTag(image string) string {
+	// leave a digest reference unchanged
 	if strings.Contains(image, "@") {
 		return image
 	}
@@ -167,5 +178,6 @@ func ImageWithoutTag(image string) string {
 		return image
 	}
 
+	// drop the tag
 	return image[:colon]
 }

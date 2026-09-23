@@ -80,7 +80,7 @@ control planes if they are used to create or are created by another control plan
 			cliArgs.ClusterName = provider.ThreeportRuntimeName(cliArgs.ControlPlaneName)
 		}
 
-		// default the tier from the provider when the flag is empty
+		// default --tier from the infra provider when empty
 		if cliArgs.Tier == "" {
 			cliArgs.Tier = threeport.DefaultControlPlaneTierForProvider(cliArgs.InfraProvider)
 		}

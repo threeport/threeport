@@ -8,7 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// testControllers returns controllers covering the group-to-controller name mapping.
+// testControllers returns controllers that cover group-to-controller name mapping.
 func testControllers() []*v0.ControlPlaneComponent {
 	return []*v0.ControlPlaneComponent{
 		{Name: "kubernetes-workload-controller"},
@@ -18,18 +18,24 @@ func testControllers() []*v0.ControlPlaneComponent {
 	}
 }
 
-// TestSelectControllersByGroup covers matching API object groups to
-// controllers, including empty input and a group with no match.
+// TestSelectControllersByGroup covers matching groups to controllers, including
+// empty input and a group with no match.
 func TestSelectControllersByGroup(t *testing.T) {
-	// seed the controller list
+	// build the shared controller list
 	allControllers := testControllers()
 
+	// define the selection cases
 	tests := []struct {
-		name        string
-		groupNames  []string
+		// The subtest name
+		name string
+		// The API object group names passed in
+		groupNames []string
+		// The controllers the selection searches
 		controllers []*v0.ControlPlaneComponent
-		wantNames   []string
-		wantErrSub  string
+		// The controller names expected in order
+		wantNames []string
+		// The error text that must appear, or empty for success
+		wantErrSub string
 	}{
 		{
 			name:        "empty group names returns all controllers unchanged",
@@ -86,12 +92,14 @@ func TestSelectControllersByGroup(t *testing.T) {
 		},
 	}
 
+	// run each case
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			// select controllers by group
+			// select controllers for the case
 			got, err := SelectControllersByGroup(tc.groupNames, tc.controllers)
+
+			// check the expected error text
 			if tc.wantErrSub != "" {
-				// check the unknown-group error
 				if err == nil {
 					t.Fatalf("expected error containing %q, got nil", tc.wantErrSub)
 				}
@@ -100,13 +108,18 @@ func TestSelectControllersByGroup(t *testing.T) {
 				}
 				return
 			}
-			// check selected controller names in order
+
+			// check the call returned no error
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
+
+			// check the controller count
 			if len(got) != len(tc.wantNames) {
 				t.Fatalf("got %d controllers, want %d", len(got), len(tc.wantNames))
 			}
+
+			// check each controller name in order
 			for i, controller := range got {
 				if controller.Name != tc.wantNames[i] {
 					t.Errorf("position %d: got %q, want %q", i, controller.Name, tc.wantNames[i])
@@ -116,17 +129,18 @@ func TestSelectControllersByGroup(t *testing.T) {
 	}
 }
 
-// TestSelectControllersByGroupErrorListsValidNames covers an unknown group
-// error listing the valid API object group names.
+// TestSelectControllersByGroupErrorListsValidNames covers an unknown group error
+// that includes the four fixture group names.
 func TestSelectControllersByGroupErrorListsValidNames(t *testing.T) {
-	// select with an unknown group
+	// select an unknown group
 	_, err := SelectControllersByGroup([]string{"bogus"}, testControllers())
 
-	// check the unknown group returns an error
+	// check the call returned an error
 	if err == nil {
 		t.Fatal("expected error for unknown group, got nil")
 	}
-	// check the error lists valid group names
+
+	// check these group names appear in the error
 	for _, expected := range []string{"aws", "gateway", "kubernetes_runtime", "kubernetes_workload"} {
 		if !strings.Contains(err.Error(), expected) {
 			t.Errorf("error %q missing expected group %q", err.Error(), expected)
@@ -137,60 +151,73 @@ func TestSelectControllersByGroupErrorListsValidNames(t *testing.T) {
 // TestSelectControllersForReinstallFallsBackWhenNoneLabeled covers no labeled
 // deployments, an API-server-only cluster, and one labeled controller.
 func TestSelectControllersForReinstallFallsBackWhenNoneLabeled(t *testing.T) {
-	// seed the controller list and namespace
+	// build the shared controller list and namespace
 	allControllers := testControllers()
 	namespace := "threeport-control-plane"
 
+	// run the empty-cluster case
 	t.Run("no labeled deployments keeps the full controller set", func(t *testing.T) {
-		// seed an empty cluster
+		// build a client with no deployments
 		kubeClient := testKubeClient()
 
-		// select controllers for reinstall
+		// select with no explicit groups
 		selected, names, autoDetected, err := SelectControllersForReinstall(
 			kubeClient, namespace, nil, allControllers,
 		)
+
+		// check the call returned no error
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
+
 		// check auto-detected is true
 		if !autoDetected {
 			t.Error("expected auto-detected to be true")
 		}
-		// check selected controller count
+
+		// check the selected count
 		if len(selected) != len(allControllers) {
 			t.Fatalf("got %d controllers, want %d", len(selected), len(allControllers))
 		}
-		// check selected name count
+
+		// check the name count
 		if len(names) != len(allControllers) {
 			t.Fatalf("got %d names, want %d", len(names), len(allControllers))
 		}
 	})
 
+	// run the API-server-only case
 	t.Run("labeled api server only keeps zero optional controllers", func(t *testing.T) {
 		// seed an installer-managed API server only
 		kubeClient := testKubeClient(testManagedDeployment(ThreeportAPIServiceResourceName, namespace))
 
-		// select controllers for reinstall
+		// select with no explicit groups
 		selected, names, autoDetected, err := SelectControllersForReinstall(
 			kubeClient, namespace, nil, allControllers,
 		)
+
+		// check the call returned no error
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
+
 		// check auto-detected is true
 		if !autoDetected {
 			t.Error("expected auto-detected to be true")
 		}
-		// check selected controller count
+
+		// check the selected count
 		if len(selected) != 0 {
 			t.Fatalf("got %d controllers, want 0", len(selected))
 		}
-		// check selected name count
+
+		// check the name count
 		if len(names) != 0 {
 			t.Fatalf("got %d names, want 0", len(names))
 		}
 	})
 
+	// run the labeled-controller case
 	t.Run("labeled controller is selected", func(t *testing.T) {
 		// seed an installer-managed API server and gateway controller
 		objects := []runtime.Object{
@@ -199,18 +226,22 @@ func TestSelectControllersForReinstallFallsBackWhenNoneLabeled(t *testing.T) {
 		}
 		kubeClient := testKubeClient(objects...)
 
-		// select controllers for reinstall
+		// select with no explicit groups
 		selected, names, autoDetected, err := SelectControllersForReinstall(
 			kubeClient, namespace, nil, allControllers,
 		)
+
+		// check the call returned no error
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
+
 		// check auto-detected is true
 		if !autoDetected {
 			t.Error("expected auto-detected to be true")
 		}
-		// check the labeled controller is selected
+
+		// check only the gateway controller is selected
 		if len(selected) != 1 || selected[0].Name != "gateway-controller" {
 			t.Fatalf("got %#v, want gateway-controller", names)
 		}

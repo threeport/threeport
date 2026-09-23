@@ -12,16 +12,21 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
-// An API object group name such as kubernetes_workload maps onto
-// the controller name kubernetes-workload-controller. Reinstall
-// with no groups keeps only the controllers already installed.
+// An API object group such as kubernetes_workload maps to the controller
+// kubernetes-workload-controller.
 
-// ParseApis splits a comma-separated list of API object group names.
+// ParseApis splits a comma-separated list of API object group names and drops
+// blank entries. An empty string returns nil.
 func ParseApis(value string) []string {
+	// return nil for an empty value
 	if value == "" {
 		return nil
 	}
+
+	// split on commas
 	parts := strings.Split(value, ",")
+
+	// keep trimmed non-empty entries
 	out := make([]string, 0, len(parts))
 	for _, part := range parts {
 		trimmed := strings.TrimSpace(part)
@@ -32,16 +37,18 @@ func ParseApis(value string) []string {
 	return out
 }
 
-// SelectControllersByGroup returns the controllers for the named
-// API object groups. An empty list returns allControllers unchanged.
+// SelectControllersByGroup returns the controllers for the named groups, in
+// that order. No names returns allControllers unchanged. The single name none returns none.
 func SelectControllersByGroup(
 	groupNames []string,
 	allControllers []*v0.ControlPlaneComponent,
 ) ([]*v0.ControlPlaneComponent, error) {
+	// return every controller when no groups are named
 	if len(groupNames) == 0 {
 		return allControllers, nil
 	}
-	// select no controllers for group none
+
+	// return no controllers when the only group is none
 	if len(groupNames) == 1 && groupNames[0] == "none" {
 		return []*v0.ControlPlaneComponent{}, nil
 	}
@@ -70,16 +77,15 @@ func SelectControllersByGroup(
 	return selected, nil
 }
 
-// DetectInstalledControllerNames returns the names of installer-managed
-// controllers in the namespace. labeledCount includes the API server and
-// agent that names omits, so an API-only cluster still counts as labeled.
+// DetectInstalledControllerNames returns controller names from installer-managed
+// deployments. labeledCount includes the API server and agent that names omits.
 func DetectInstalledControllerNames(
 	kubeClient dynamic.Interface,
 	namespace string,
 ) (names []string, labeledCount int, err error) {
+	// list installer-managed deployments
 	selector := fmt.Sprintf("%s=%s", LabelManagedBy, LabelManagedByValue)
 
-	// list installer-managed deployments
 	list, err := kubeClient.Resource(deploymentGVR).Namespace(namespace).List(
 		context.Background(),
 		metav1.ListOptions{LabelSelector: selector},
@@ -94,30 +100,30 @@ func DetectInstalledControllerNames(
 	names = make([]string, 0, len(list.Items))
 	for _, item := range list.Items {
 		deployName := item.GetName()
-		// skip the API server and agent, which are not group-scoped controllers
+		// skip the API server and the agent
 		if deployName == ThreeportAPIServiceResourceName || deployName == ThreeportAgentDeployName {
 			continue
 		}
-		// strip the threeport- prefix to match controller names
+		// drop the threeport- prefix so the name matches a controller
 		stripped := strings.TrimPrefix(deployName, "threeport-")
 		names = append(names, stripped)
 	}
 
-	// sort the names
+	// sort the names and return the unfiltered list length
 	sort.Strings(names)
 	return names, len(list.Items), nil
 }
 
-// SelectControllersForReinstall returns the controllers to reinstall.
-// An empty group list detects the installed set from the cluster.
+// SelectControllersForReinstall returns the controllers to reinstall and
+// whether that set was read from the cluster. A supplied group list wins.
 func SelectControllersForReinstall(
 	kubeClient dynamic.Interface,
 	namespace string,
 	explicitGroups []string,
 	allControllers []*v0.ControlPlaneComponent,
 ) ([]*v0.ControlPlaneComponent, []string, bool, error) {
+	// use the supplied groups when any are set
 	if len(explicitGroups) > 0 {
-		// select controllers for explicitGroups
 		selected, err := SelectControllersByGroup(explicitGroups, allControllers)
 		if err != nil {
 			return nil, nil, false, err
@@ -125,7 +131,7 @@ func SelectControllersForReinstall(
 		return selected, controllerNames(selected), false, nil
 	}
 
-	// detect installed controller names from the cluster
+	// read installed controller names
 	detectedNames, labeledCount, err := DetectInstalledControllerNames(kubeClient, namespace)
 	if err != nil {
 		return nil, nil, true, fmt.Errorf("failed to detect installed controllers: %w", err)
@@ -157,6 +163,7 @@ func SelectControllersForReinstall(
 
 // controllerNames returns each controller's name in the same order.
 func controllerNames(controllers []*v0.ControlPlaneComponent) []string {
+	// collect controller names
 	names := make([]string, 0, len(controllers))
 	for _, controller := range controllers {
 		names = append(names, controller.Name)

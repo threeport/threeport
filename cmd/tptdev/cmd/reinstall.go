@@ -19,23 +19,19 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// reinstallApis holds the --apis flag: sdk-config api object group names
-// to reinstall, or empty to auto-detect from the cluster.
+// reinstallApis holds the --apis group names. Empty auto-detects them from the cluster.
 var reinstallApis string
 
-// reinstallDropDatabase holds the --drop-database flag: whether to drop
-// the database schema before reapplying the install.
+// reinstallDropDatabase drops the schema before the install reapplies.
 var reinstallDropDatabase bool
 
-// reinstallConfirm holds the --confirm flag: the control plane name
-// typed back to authorize dropping the database.
+// reinstallConfirm holds the name typed back to authorize a database drop.
 var reinstallConfirm string
 
-// reinstallRestoreBootstrap holds the --restore-bootstrap flag: whether
-// to restore the API records the control plane needs to accept work.
+// reinstallRestoreBootstrap recreates missing runtime and control plane records.
 var reinstallRestoreBootstrap bool
 
-// reinstallCmd represents the reinstall command
+// reinstallCmd reinstalls the stateless side of a dev control plane.
 var reinstallCmd = &cobra.Command{
 	Use:   "reinstall",
 	Short: "Sweep and reapply stateless control plane resources",
@@ -88,22 +84,24 @@ Intended for dev environments only. The reinstall command does not
 build images; run 'tptdev build --push' first if the image needs to
 change.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		// update cli args based on env vars
+		// apply control plane environment variables
 		cliArgs.GetControlPlaneEnvVars()
 
-		// refuse an unknown control plane name
+		// get the threeport config
 		threeportConfig, requestedControlPlane, err := cli.GetThreeportConfig(cliArgs.ControlPlaneName)
 		if err != nil {
 			cli.Error("failed to get threeport config", err)
 			os.Exit(1)
 		}
+		// reject a name the config does not list
 		if err := threeportConfig.ValidateControlPlaneName(requestedControlPlane); err != nil {
 			cli.Error("cannot reinstall", err)
 			os.Exit(1)
 		}
+		// keep the resolved control plane name
 		cliArgs.ControlPlaneName = requestedControlPlane
 
-		// require --confirm to match the control plane name when dropping the database
+		// refuse a drop unless --confirm matches the name
 		if reinstallDropDatabase && reinstallConfirm != cliArgs.ControlPlaneName {
 			cli.Error(fmt.Sprintf(
 				"--drop-database destroys the database of control plane %q and its data cannot be recovered; re-run with --confirm %s to proceed",
@@ -112,33 +110,36 @@ change.`,
 			os.Exit(1)
 		}
 
-		// default image tag to match the build command's default
+		// fill an empty image tag
 		if cliArgs.ControlPlaneImageTag == "" {
+			// resolve the tag from the repo and the version
 			tag, err := util.ResolveImageTag(cliArgs.ThreeportPath, version.GetVersion())
 			if err != nil {
 				cli.Error(fmt.Sprintf("failed to resolve default image tag: %s\nspecify a tag explicitly with --tag/-t", err), nil)
 				os.Exit(1)
 			}
+			// use the resolved tag
 			cliArgs.ControlPlaneImageTag = tag
 		}
 
-		// create threeport control plane installer
+		// create the installer
 		cpi, err := cliArgs.CreateInstaller()
 		if err != nil {
 			cli.Error("failed to create threeport control plane installer", err)
 			os.Exit(1)
 		}
+		// set the namespace and debug mode
 		cpi.Opts.Namespace = installer.ControlPlaneNamespace
 		cpi.Opts.Debug = cliArgs.Debug
 
-		// create kube client
+		// get a kubernetes client and rest mapper
 		kubeClient, mapper, err := client_lib.GetKubeDynamicClientAndMapper(cliArgs.KubeconfigPath)
 		if err != nil {
 			cli.Error("failed to create kube client", err)
 			os.Exit(1)
 		}
 
-		// select controllers to reinstall
+		// select the controllers to reinstall
 		selected, selectedNames, autoDetected, err := installer.SelectControllersForReinstall(
 			kubeClient,
 			cpi.Opts.Namespace,
@@ -149,21 +150,25 @@ change.`,
 			cli.Error("failed to select controllers for reinstall", err)
 			os.Exit(1)
 		}
+		// record whether --apis or the cluster supplied the set
 		source := "specified via --apis"
 		if autoDetected {
 			source = "auto-detected from cluster"
 		}
+		// report the controllers this run reinstalls
 		cli.Info(fmt.Sprintf(
 			"reinstalling %d controller(s) (%s): %s",
 			len(selected), source, strings.Join(selectedNames, ", "),
 		))
+		// install only the selected controllers
 		cpi.Opts.ControllerList = selected
 
-		// detect auth state from the running API server deployment
+		// read auth from rest-api args; only -auth-enabled=false turns it off
 		cpi.Opts.AuthEnabled = installer.DetectAuthEnabled(kubeClient, cpi.Opts.Namespace)
 
-		// load existing CA so newly added controllers get certs signed by it
+		// leave the auth config unset until auth is enabled
 		var authConfig *auth.AuthConfig
+		// load the cluster CA so controller certs are signed by it
 		if cpi.Opts.AuthEnabled {
 			authConfig, err = cpi.LoadAuthConfigFromCluster(kubeClient, &mapper)
 			if err != nil {
@@ -172,25 +177,30 @@ change.`,
 			}
 		}
 
-		// scale down modules before the drop, reading namespaces from the database first
+		// hold module replica counts so they can be restored after reinstall
 		var moduleScales []installer.ModuleDeploymentScale
+		// read module namespaces from the api before the drop scales it down
 		if reinstallDropDatabase {
+			// get an api client
 			apiClient, err := threeportConfig.GetHTTPClient(requestedControlPlane)
 			if err != nil {
 				cli.Error("failed to get threeport API client", err)
 				os.Exit(1)
 			}
+			// get the control plane config
 			controlPlaneConfig, err := threeportConfig.GetControlPlaneConfig(requestedControlPlane)
 			if err != nil {
 				cli.Error("failed to get threeport control plane config", err)
 				os.Exit(1)
 			}
 
+			// discover namespaces of registered modules
 			moduleNamespaces, err := cpi.DiscoverModuleNamespaces(apiClient, controlPlaneConfig.APIServer)
 			if err != nil {
 				cli.Error("failed to discover registered module namespaces", err)
 				os.Exit(1)
 			}
+			// log module namespaces before scale-down
 			if len(moduleNamespaces) > 0 {
 				cli.Info(fmt.Sprintf(
 					"scaling down %d module namespace(s): %s",
@@ -198,6 +208,7 @@ change.`,
 				))
 			}
 
+			// scale module deployments to zero and keep their replica counts
 			moduleScales, err = cpi.ScaleDownModules(kubeClient, moduleNamespaces)
 			if err != nil {
 				cli.Error("failed to scale down module deployments", err)
@@ -205,8 +216,9 @@ change.`,
 			}
 		}
 
-		// drop the control plane database
+		// drop the schema and the message broker when requested
 		if reinstallDropDatabase {
+			// drop the control plane database
 			if err := cpi.DropDatabase(kubeClient, &mapper); err != nil {
 				cli.Error("failed to drop control plane database", err)
 				os.Exit(1)
@@ -219,13 +231,13 @@ change.`,
 			}
 		}
 
-		// reinstall threeport control plane
+		// reinstall stateless resources
 		if err := cpi.Reinstall(kubeClient, &mapper, authConfig); err != nil {
 			cli.Error("failed to reinstall threeport control plane", err)
 			os.Exit(1)
 		}
 
-		// restore control plane bootstrap objects
+		// restore bootstrap records once the api is back up
 		if reinstallDropDatabase || reinstallRestoreBootstrap {
 			if err := cli.EnsureBootstrapObjects(cpi); err != nil {
 				cli.Error("failed to restore control plane bootstrap objects", err)
@@ -233,51 +245,63 @@ change.`,
 			}
 		}
 
-		// restore module deployments after the API is back
+		// restore saved module replica counts, or no-op when none were saved
 		if err := cpi.RestoreModuleScale(kubeClient, moduleScales); err != nil {
 			cli.Error("failed to restore module deployments", err)
 			os.Exit(1)
 		}
 
+		// report that the control plane is reinstalled
 		cli.Complete("threeport control plane reinstalled")
 	},
 }
 
+// init adds the reinstall command and its flags.
 func init() {
+	// add the reinstall command
 	rootCmd.AddCommand(reinstallCmd)
 
+	// register the name flag
 	reinstallCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"name", "n", tptdev.DefaultInstanceName, "Name of dev genesis control plane.",
 	)
+	// register the kubeconfig flag
 	reinstallCmd.Flags().StringVarP(
 		&cliArgs.KubeconfigPath,
 		"kubeconfig", "k", "", "Path to kubeconfig (default is $KUBECONFIG, then ~/.kube/config).",
 	)
+	// register the image-namespace flag
 	reinstallCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneImageRepo,
 		"control-plane-image-namespace", "r", "", "Image namespace to pull threeport control plane images from.",
 	)
+	// register the image-tag flag
 	reinstallCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneImageTag,
 		"control-plane-image-tag", "t", "", "Image tag for threeport control plane images. Defaults to the current git branch name.",
 	)
+	// register the debug flag
 	reinstallCmd.Flags().BoolVar(
 		&cliArgs.Debug,
 		"debug", false, "If true, pod imagePullPolicy is set to Always so each rollout re-pulls the tag.",
 	)
+	// register the apis flag
 	reinstallCmd.Flags().StringVar(
 		&reinstallApis,
 		"apis", "", "Optional. Comma-separated list of sdk-config api object group names (e.g. kubernetes_workload,gateway) to install as the resulting controller set. Controllers not named are deleted and not recreated. Use none to install zero optional controllers. Defaults to empty, which auto-detects the controller subset from the cluster's installer-managed deployments.",
 	)
+	// register the drop-database flag
 	reinstallCmd.Flags().BoolVar(
 		&reinstallDropDatabase,
 		"drop-database", false, "Drop the database schema before reapplying, so the migrations run from scratch. Requires --confirm and a control plane installed at the development tier. The data cannot be recovered.",
 	)
+	// register the confirm flag
 	reinstallCmd.Flags().StringVar(
 		&reinstallConfirm,
 		"confirm", "", "Name of the control plane whose database is being dropped. Must match --name. Required with --drop-database.",
 	)
+	// register the restore-bootstrap flag
 	reinstallCmd.Flags().BoolVar(
 		&reinstallRestoreBootstrap,
 		"restore-bootstrap", false, "Recreate the kubernetes runtime and control plane records the API needs in order to accept work, for a database emptied outside this command. Creates only the records that are missing. Implied by --drop-database.",
