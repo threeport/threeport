@@ -879,3 +879,92 @@ func (f *fixture) digest() string {
 
 	return value
 }
+
+// TestMachineWorkloadInstanceUpdated_MovedRuntimeReruns covers an instance
+// pointed at a different machine. The script and its environment are unchanged,
+// but the new machine has never run it, so skipping would leave that machine
+// without the workload the instance says is on it.
+func TestMachineWorkloadInstanceUpdated_MovedRuntimeReruns(t *testing.T) {
+	f := newFixture(t, machinetest.SSHOpts{ExitCode: 0})
+	log := logr.Discard()
+
+	// the digest of where it is now, before the move
+	f.mwi.UpdateScriptDigest = util.Ptr(f.digest())
+
+	// serve the machine it moves to, so the move is reached rather than failing
+	// on a lookup before the decision this covers
+	movedTo := *f.mri.ID + 1
+	f.api.Mux.HandleFunc(
+		fmt.Sprintf("%s/%d", v0.PathMachineRuntimeInstances, movedTo),
+		func(w http.ResponseWriter, r *http.Request) {
+			require.Equal(t, http.MethodGet, r.Method)
+			moved := *f.mri
+			moved.ID = util.Ptr(movedTo)
+			machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{moved})
+		},
+	)
+	f.mwi.MachineRuntimeInstanceID = util.Ptr(movedTo)
+
+	_, err := v0MachineWorkloadInstanceUpdated(f.r, f.mwi, &log)
+	require.NoError(t, err)
+
+	// the script ran on the machine it moved to
+	assert.Equal(t, []string{string(wlstatus.WorkloadInstanceStatusHealthy)}, f.patchedStatuses())
+}
+
+// TestUpdateScriptDigest_ShellDefaultIsCanonical covers the difference between
+// leaving the shell unset and setting it to the default it resolves to. Both run
+// the same command, so re-running operator-authored code over that is exactly
+// what this digest is here to avoid.
+func TestUpdateScriptDigest_ShellDefaultIsCanonical(t *testing.T) {
+	f := newFixture(t, machinetest.SSHOpts{ExitCode: 0})
+
+	unset := &v0.MachineWorkloadDefinition{UpdateScript: util.Ptr("echo hi")}
+	explicit := &v0.MachineWorkloadDefinition{
+		UpdateScript: util.Ptr("echo hi"),
+		Shell:        util.Ptr(defaultShell),
+	}
+	mwi := &v0.MachineWorkloadInstance{}
+
+	unsetDigest, err := updateScriptDigest(f.r, unset, mwi)
+	require.NoError(t, err)
+	explicitDigest, err := updateScriptDigest(f.r, explicit, mwi)
+	require.NoError(t, err)
+
+	assert.Equal(t, unsetDigest, explicitDigest)
+}
+
+// a different shell is a different command, so it is a real change
+func TestUpdateScriptDigest_AnotherShellChangesTheDigest(t *testing.T) {
+	f := newFixture(t, machinetest.SSHOpts{ExitCode: 0})
+
+	bash := &v0.MachineWorkloadDefinition{UpdateScript: util.Ptr("echo hi")}
+	sh := &v0.MachineWorkloadDefinition{
+		UpdateScript: util.Ptr("echo hi"),
+		Shell:        util.Ptr("/bin/sh"),
+	}
+	mwi := &v0.MachineWorkloadInstance{}
+
+	bashDigest, err := updateScriptDigest(f.r, bash, mwi)
+	require.NoError(t, err)
+	shDigest, err := updateScriptDigest(f.r, sh, mwi)
+	require.NoError(t, err)
+
+	assert.NotEqual(t, bashDigest, shDigest)
+}
+
+// the machine is part of what the script runs against
+func TestUpdateScriptDigest_AnotherRuntimeChangesTheDigest(t *testing.T) {
+	f := newFixture(t, machinetest.SSHOpts{ExitCode: 0})
+
+	mwd := &v0.MachineWorkloadDefinition{UpdateScript: util.Ptr("echo hi")}
+	here := &v0.MachineWorkloadInstance{MachineRuntimeInstanceID: util.Ptr(uint(100))}
+	there := &v0.MachineWorkloadInstance{MachineRuntimeInstanceID: util.Ptr(uint(101))}
+
+	hereDigest, err := updateScriptDigest(f.r, mwd, here)
+	require.NoError(t, err)
+	thereDigest, err := updateScriptDigest(f.r, mwd, there)
+	require.NoError(t, err)
+
+	assert.NotEqual(t, hereDigest, thereDigest)
+}

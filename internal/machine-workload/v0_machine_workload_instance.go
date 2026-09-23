@@ -355,6 +355,17 @@ func sshDialFailed(err error) bool {
 		strings.Contains(msg, "connection timed out")
 }
 
+// effectiveShell returns the shell a workload's scripts run in. The definition
+// may leave it unset, in which case the default stands in - so the resolved
+// value, not the field, is what describes the command that runs.
+func effectiveShell(mwd *v0.MachineWorkloadDefinition) string {
+	if shell := util.DerefString(mwd.Shell); shell != "" {
+		return shell
+	}
+
+	return defaultShell
+}
+
 // updateScriptDigest returns a digest of everything that decides what the update
 // script does: the script itself, the shell and working directory it runs in,
 // and the environment it is given.
@@ -382,12 +393,21 @@ func updateScriptDigest(
 
 	sum := sha256.New()
 
+	// The machine is part of the inputs. Moving an instance to another runtime
+	// leaves the script unchanged but puts it in front of a machine it has never
+	// run on, which is exactly when it needs to run.
+	//
+	// The shell is the resolved one, not the field: leaving it unset and setting
+	// it to the default it resolves to are the same command, and re-running
+	// operator-authored code over that difference is what this is here to avoid.
+	//
 	// a separator after each part, so that text moved from one into another
 	// cannot leave the digest unchanged
 	for _, part := range []string{
 		util.DerefString(mwd.UpdateScript),
-		util.DerefString(mwd.Shell),
+		effectiveShell(mwd),
 		util.DerefString(mwd.WorkingDir),
+		fmt.Sprint(util.Deref(mwi.MachineRuntimeInstanceID)),
 	} {
 		sum.Write([]byte(part))
 		sum.Write([]byte{0})
@@ -451,10 +471,7 @@ func runScript(
 	effectiveEnv := machine.MergeEnv(defEnv, instEnv)
 
 	// resolve shell and working dir defaults
-	shell := util.DerefString(mwd.Shell)
-	if shell == "" {
-		shell = defaultShell
-	}
+	shell := effectiveShell(mwd)
 	workDir := util.DerefString(mwd.WorkingDir)
 
 	// run the script on the remote machine
