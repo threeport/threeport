@@ -21,9 +21,8 @@ on the first successful connection and stores it for subsequent identity
 verification.
 
 An instance can also carry the region, the network and the subnet.  Those
-three cannot change after create.  Hostname is unique among live instances
-once it is set.  A definition with an infrastructure provider requires the
-instance region at create.
+three cannot change after create.  A definition with an infrastructure
+provider requires the instance region at create.
 
 ## Next Steps
 
