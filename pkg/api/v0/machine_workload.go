@@ -51,4 +51,10 @@ type MachineWorkloadInstance struct {
 
 	// The environment variables set for the workload as KEY=VALUE entries.
 	Env *[]string `validate:"optional" gorm:"type:jsonb;serializer:json" encrypt:"true"`
+
+	// A digest of the inputs the update script last ran successfully with.
+	// The update script is operator-authored and Threeport cannot know whether
+	// running it again is safe, so it is run when these inputs differ from the
+	// ones recorded here and not merely because a notification arrived.
+	UpdateScriptDigest *string `validate:"optional"`
 }
