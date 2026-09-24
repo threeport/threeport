@@ -129,9 +129,16 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						).Op(",").Op("*").Id("notifPayload")),
 					))
 
-					notifyControllersUpdateHandler = Comment("notify controller if reconciliation is required and the update is notifiable")
+					// The object's Reconciled field is deliberately not part of this
+					// condition. Nothing sets it back to false when a spec field is
+					// edited, so gating on it swallowed the notification for every
+					// object already marked reconciled - leaving no way to make a
+					// controller revisit one that is marked reconciled but is not.
+					// Reconcilers are expected to be safe to invoke on an object
+					// that needs nothing, and to do nothing when that is the case.
+					notifyControllersUpdateHandler = Comment("notify controller if the update is notifiable")
 					notifyControllersUpdateHandler.Line()
-					notifyControllersUpdateHandler.If(Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("Reconciled").Op("!=").Nil().Op("&&").Op("!*").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("Reconciled").Op("&&").Line().Qual(
+					notifyControllersUpdateHandler.If(Qual(
 						"github.com/threeport/threeport/pkg/api/v0",
 						"ReconciliationUpdateNotifiable",
 					).Call(

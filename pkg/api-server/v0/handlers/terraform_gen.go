@@ -346,9 +346,8 @@ func (h Handler) UpdateTerraformDefinition(c echo.Context) error {
 		)
 	}
 
-	// notify controller if reconciliation is required and the update is notifiable
-	if existingTerraformDefinition.Reconciled != nil && !*existingTerraformDefinition.Reconciled &&
-		api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingTerraformDefinition.Reconciliation) {
+	// notify controller if the update is notifiable
+	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingTerraformDefinition.Reconciliation) {
 		notifPayload, err := existingTerraformDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -459,9 +458,8 @@ func (h Handler) ReplaceTerraformDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
 	}
 
-	// notify controller if reconciliation is required and the update is notifiable
-	if existingTerraformDefinition.Reconciled != nil && !*existingTerraformDefinition.Reconciled &&
-		api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingTerraformDefinition.Reconciliation) {
+	// notify controller if the update is notifiable
+	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingTerraformDefinition.Reconciliation) {
 		notifPayload, err := existingTerraformDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -944,9 +942,8 @@ func (h Handler) UpdateTerraformInstance(c echo.Context) error {
 		)
 	}
 
-	// notify controller if reconciliation is required and the update is notifiable
-	if existingTerraformInstance.Reconciled != nil && !*existingTerraformInstance.Reconciled &&
-		api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingTerraformInstance.Reconciliation) {
+	// notify controller if the update is notifiable
+	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingTerraformInstance.Reconciliation) {
 		notifPayload, err := existingTerraformInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -1057,9 +1054,8 @@ func (h Handler) ReplaceTerraformInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
 	}
 
-	// notify controller if reconciliation is required and the update is notifiable
-	if existingTerraformInstance.Reconciled != nil && !*existingTerraformInstance.Reconciled &&
-		api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingTerraformInstance.Reconciliation) {
+	// notify controller if the update is notifiable
+	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingTerraformInstance.Reconciliation) {
 		notifPayload, err := existingTerraformInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,

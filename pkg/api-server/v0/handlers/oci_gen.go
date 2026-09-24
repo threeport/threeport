@@ -838,9 +838,8 @@ func (h Handler) UpdateOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 		)
 	}
 
-	// notify controller if reconciliation is required and the update is notifiable
-	if existingOciOkeKubernetesRuntimeInstance.Reconciled != nil && !*existingOciOkeKubernetesRuntimeInstance.Reconciled &&
-		api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingOciOkeKubernetesRuntimeInstance.Reconciliation) {
+	// notify controller if the update is notifiable
+	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingOciOkeKubernetesRuntimeInstance.Reconciliation) {
 		notifPayload, err := existingOciOkeKubernetesRuntimeInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -951,9 +950,8 @@ func (h Handler) ReplaceOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
 	}
 
-	// notify controller if reconciliation is required and the update is notifiable
-	if existingOciOkeKubernetesRuntimeInstance.Reconciled != nil && !*existingOciOkeKubernetesRuntimeInstance.Reconciled &&
-		api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingOciOkeKubernetesRuntimeInstance.Reconciliation) {
+	// notify controller if the update is notifiable
+	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingOciOkeKubernetesRuntimeInstance.Reconciliation) {
 		notifPayload, err := existingOciOkeKubernetesRuntimeInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,

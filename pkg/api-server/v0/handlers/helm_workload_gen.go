@@ -346,9 +346,8 @@ func (h Handler) UpdateHelmWorkloadDefinition(c echo.Context) error {
 		)
 	}
 
-	// notify controller if reconciliation is required and the update is notifiable
-	if existingHelmWorkloadDefinition.Reconciled != nil && !*existingHelmWorkloadDefinition.Reconciled &&
-		api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingHelmWorkloadDefinition.Reconciliation) {
+	// notify controller if the update is notifiable
+	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingHelmWorkloadDefinition.Reconciliation) {
 		notifPayload, err := existingHelmWorkloadDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -459,9 +458,8 @@ func (h Handler) ReplaceHelmWorkloadDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
 	}
 
-	// notify controller if reconciliation is required and the update is notifiable
-	if existingHelmWorkloadDefinition.Reconciled != nil && !*existingHelmWorkloadDefinition.Reconciled &&
-		api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingHelmWorkloadDefinition.Reconciliation) {
+	// notify controller if the update is notifiable
+	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingHelmWorkloadDefinition.Reconciliation) {
 		notifPayload, err := existingHelmWorkloadDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -944,9 +942,8 @@ func (h Handler) UpdateHelmWorkloadInstance(c echo.Context) error {
 		)
 	}
 
-	// notify controller if reconciliation is required and the update is notifiable
-	if existingHelmWorkloadInstance.Reconciled != nil && !*existingHelmWorkloadInstance.Reconciled &&
-		api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingHelmWorkloadInstance.Reconciliation) {
+	// notify controller if the update is notifiable
+	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingHelmWorkloadInstance.Reconciliation) {
 		notifPayload, err := existingHelmWorkloadInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -1057,9 +1054,8 @@ func (h Handler) ReplaceHelmWorkloadInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
 	}
 
-	// notify controller if reconciliation is required and the update is notifiable
-	if existingHelmWorkloadInstance.Reconciled != nil && !*existingHelmWorkloadInstance.Reconciled &&
-		api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingHelmWorkloadInstance.Reconciliation) {
+	// notify controller if the update is notifiable
+	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingHelmWorkloadInstance.Reconciliation) {
 		notifPayload, err := existingHelmWorkloadInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
