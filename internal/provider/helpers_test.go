@@ -122,10 +122,9 @@ func TestVerifyState_DeploymentFormat(t *testing.T) {
 	assert.NoError(t, verifyState(state, newTestLogger()))
 }
 
-// TestVerifyState_NoResources rejects state whose checkpoint and
-// deployment resource lists are both empty or absent.
-func TestVerifyState_NoResources(t *testing.T) {
-	// cases with no countable resources
+// TestVerifyState_UnrecognizedSchema_Rejected rejects JSON missing both
+// formats, and a format whose resources field is not a list.
+func TestVerifyState_UnrecognizedSchema_Rejected(t *testing.T) {
 	cases := []struct {
 		name  string
 		state *datatypes.JSON
@@ -134,6 +133,31 @@ func TestVerifyState_NoResources(t *testing.T) {
 			name:  "both formats missing",
 			state: jsonPtr(`{"other":"content"}`),
 		},
+		{
+			name:  "checkpoint present but resources not a list",
+			state: jsonPtr(`{"checkpoint":{"latest":{"resources":{}}}}`),
+		},
+		{
+			name:  "deployment present but resources not a list",
+			state: jsonPtr(`{"deployment":{"resources":"oops"}}`),
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := verifyState(tc.state, newTestLogger())
+			assert.ErrorContains(t, err, "known Pulumi stack schema")
+		})
+	}
+}
+
+// TestVerifyState_EmptyStack_Accepted accepts checkpoint and deployment
+// states whose resource lists are present but empty.
+func TestVerifyState_EmptyStack_Accepted(t *testing.T) {
+	cases := []struct {
+		name  string
+		state *datatypes.JSON
+	}{
 		{
 			name:  "checkpoint format with empty resources",
 			state: jsonPtr(`{"checkpoint":{"latest":{"resources":[]}}}`),
@@ -151,10 +175,7 @@ func TestVerifyState_NoResources(t *testing.T) {
 	// reject each empty-resource state
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			// verify the empty-resource state
-			err := verifyState(tc.state, newTestLogger())
-			// assert the error names the missing resources
-			assert.ErrorContains(t, err, "state contains no resources")
+			assert.NoError(t, verifyState(tc.state, newTestLogger()))
 		})
 	}
 }
@@ -309,16 +330,15 @@ func TestDefaultLifecycleConfig_ProductionValues(t *testing.T) {
 	// assert production defaults
 	assert.Equal(t, 240*time.Second, defaultLifecycleConfig.StaleAckThreshold)
 	assert.Equal(t, 60*time.Second, defaultLifecycleConfig.RefreshInterval)
-	assert.Equal(t, 5, defaultLifecycleConfig.SemaphoreCapacity)
+	assert.Equal(t, 20, defaultLifecycleConfig.SemaphoreCapacity)
 	assert.Equal(t, 30, defaultLifecycleConfig.PersistRetries)
 	assert.Equal(t, 10*time.Second, defaultLifecycleConfig.PersistRetryDelay)
 }
 
-// TestInfraSemaphore_CapacityMatchesDefaultConfig asserts the live
-// semaphore capacity matches the production default.
-func TestInfraSemaphore_CapacityMatchesDefaultConfig(t *testing.T) {
-	// assert live semaphore capacity matches the default
-	assert.Equal(t, defaultLifecycleConfig.SemaphoreCapacity, cap(currentSemaphore()))
+// TestInfraSemaphore_CapacityMatchesActiveConfig asserts the live
+// semaphore capacity matches the active config.
+func TestInfraSemaphore_CapacityMatchesActiveConfig(t *testing.T) {
+	assert.Equal(t, currentConfig().SemaphoreCapacity, cap(currentSemaphore()))
 }
 
 // TestCheckStaleAck_RealClock covers stale detection on the real clock:

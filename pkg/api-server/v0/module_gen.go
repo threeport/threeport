@@ -564,6 +564,95 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 		return fmt.Errorf("failed to register gcp-controller: %w", result.Error)
 	}
 
+	// registering object GcpGceMachineRuntimeDefinition
+	object = api_v0.ModuleObject{
+		Description: util.Ptr("GcpGceMachineRuntimeDefinition provides the provisioning template for GCE machine runtime instances. It mirrors GcpGkeKubernetesRuntimeDefinition: the machine-shaping directives live here so every instance derived from the definition is provisioned identically."),
+		ModuleApiID: moduleApi.ID,
+		Name:        util.Ptr("GcpGceMachineRuntimeDefinition"),
+		Version:     util.Ptr("v0"),
+	}
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register GcpGceMachineRuntimeDefinition: %w", result.Error)
+	}
+
+	// registering routes for GcpGceMachineRuntimeDefinition
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathGcpGceMachineRuntimeDefinitionVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for GcpGceMachineRuntimeDefinition: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathGcpGceMachineRuntimeDefinitions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for GcpGceMachineRuntimeDefinition: %w", result.Error)
+	}
+
+	// registering object GcpGceMachineRuntimeInstance
+	object = api_v0.ModuleObject{
+		Description:        util.Ptr("GcpGceMachineRuntimeInstance is a deployed GCE virtual machine provisioned through Threeport's durable infrastructure lifecycle. Network attachment, ingress rules, network CIDRs, and public-IP assignment live on the abstract MachineRuntimeInstance; the GCE reconciler reads them there so the shape is provider-agnostic."),
+		ModuleApiID:        moduleApi.ID,
+		ModuleControllerID: controller.ID,
+		Name:               util.Ptr("GcpGceMachineRuntimeInstance"),
+		Version:            util.Ptr("v0"),
+	}
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register GcpGceMachineRuntimeInstance: %w", result.Error)
+	}
+
+	// registering routes for GcpGceMachineRuntimeInstance
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathGcpGceMachineRuntimeInstanceVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for GcpGceMachineRuntimeInstance: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathGcpGceMachineRuntimeInstances),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for GcpGceMachineRuntimeInstance: %w", result.Error)
+	}
+
 	// registering object GcpGkeKubernetesRuntimeDefinition
 	object = api_v0.ModuleObject{
 		Description: util.Ptr("GcpGkeKubernetesRuntimeDefinition provides the configuration for GKE cluster instances."),
@@ -1255,10 +1344,11 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object MachineRuntimeDefinition
 	object = api_v0.ModuleObject{
-		Description: util.Ptr("MachineRuntimeDefinition is the configuration for a machine runtime. It serves as a template for provisioning machine runtime instances."),
-		ModuleApiID: moduleApi.ID,
-		Name:        util.Ptr("MachineRuntimeDefinition"),
-		Version:     util.Ptr("v0"),
+		Description:        util.Ptr("MachineRuntimeDefinition is the configuration for a machine runtime. It serves as a template for provisioning machine runtime instances."),
+		ModuleApiID:        moduleApi.ID,
+		ModuleControllerID: controller.ID,
+		Name:               util.Ptr("MachineRuntimeDefinition"),
+		Version:            util.Ptr("v0"),
 	}
 	result = db.Where(api_v0.ModuleObject{
 		ModuleApiID: moduleApi.ID,

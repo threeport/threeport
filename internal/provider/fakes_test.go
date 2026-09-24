@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -514,9 +515,8 @@ type fakeLifecycle struct {
 	// The index of the next snapshot, held on the last
 	snapIndex int
 
-	// The InfraProvider BuildInfra returns
-	infra InfraProvider
-	// The value IsCreateComplete returns
+	stackKey       string
+	infra          InfraProvider
 	createComplete bool
 
 	// The arguments passed to SaveState, in call order
@@ -525,13 +525,20 @@ type fakeLifecycle struct {
 	createOutputState *datatypes.JSON
 }
 
-// newFakeLifecycle returns a fake that serves snaps in order.
+// fakeLifecycleCounter is incremented to give each fake a unique default
+// stack key so two fakes do not contend on the per-stack lock.
+var fakeLifecycleCounter int64
+
+// newFakeLifecycle returns a lifecycle fake that serves snaps and assigns
+// a unique stack key.
 func newFakeLifecycle(snaps ...*ReconciliationSnapshot) *fakeLifecycle {
+	id := atomic.AddInt64(&fakeLifecycleCounter, 1)
 	return &fakeLifecycle{
-		calls: make(map[string]int),
-		errs:  make(map[string]error),
-		snaps: snaps,
-		infra: newFakeInfra(),
+		calls:    make(map[string]int),
+		errs:     make(map[string]error),
+		snaps:    snaps,
+		stackKey: fmt.Sprintf("fake-lifecycle-%d", id),
+		infra:    newFakeInfra(),
 	}
 }
 
@@ -544,9 +551,23 @@ func (f *fakeLifecycle) recordSimple(method string) error {
 	return f.errs[method]
 }
 
-// GetReconciliation returns queued snapshots in order and holds on
-// the last. An empty queue yields an empty snapshot. An error does
-// not advance, and the snapshot is not copied.
+// StackKey returns the programmed stack identity.
+func (f *fakeLifecycle) StackKey() string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.stackKey
+}
+
+// setStackKey sets the stack key so tests can share one key across fakes.
+func (f *fakeLifecycle) setStackKey(key string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.stackKey = key
+}
+
+// GetReconciliation records the call and returns queued snapshots in order,
+// holding on the last. An injected error does not advance. The snapshot is
+// not copied.
 func (f *fakeLifecycle) GetReconciliation() (*ReconciliationSnapshot, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -636,7 +657,12 @@ func (f *fakeLifecycle) ConfirmCreation() error {
 	return f.recordSimple("ConfirmCreation")
 }
 
-// AckDeletion records the call and returns any configured error.
+// RecordSuccessfulCreate counts the call and returns its injected error.
+func (f *fakeLifecycle) RecordSuccessfulCreate() error {
+	return f.recordSimple("RecordSuccessfulCreate")
+}
+
+// AckDeletion counts the call and returns its injected error.
 func (f *fakeLifecycle) AckDeletion() error {
 	return f.recordSimple("AckDeletion")
 }
@@ -644,6 +670,11 @@ func (f *fakeLifecycle) AckDeletion() error {
 // RefreshDeletionAck records the call and returns any configured error.
 func (f *fakeLifecycle) RefreshDeletionAck() error {
 	return f.recordSimple("RefreshDeletionAck")
+}
+
+// SetDeletionFailed records the call and returns any configured error.
+func (f *fakeLifecycle) SetDeletionFailed() error {
+	return f.recordSimple("SetDeletionFailed")
 }
 
 // ConfirmDeletion records the call and returns any configured error.

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -18,9 +19,8 @@ import (
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 )
 
-// TODO: will become a variable once production-ready control plane instances are
-// available.
-const tier = threeport.ControlPlaneTierDev
+// upApis is the --apis value: comma-separated sdk-config API object group names, or none.
+var upApis string
 
 // UpCmd represents the create threeport command
 var UpCmd = &cobra.Command{
@@ -84,10 +84,16 @@ control planes if they are used to create or are created by another control plan
 			cliArgs.ClusterName = provider.ThreeportRuntimeName(cliArgs.ControlPlaneName)
 		}
 
+		// default --tier from the infra provider when empty
+		if cliArgs.Tier == "" {
+			cliArgs.Tier = threeport.DefaultControlPlaneTierForProvider(cliArgs.InfraProvider)
+		}
+
 		// flag validation
 		if err := cli.ValidateCreateGenesisControlPlaneFlags(
 			cliArgs.ControlPlaneName,
 			cliArgs.InfraProvider,
+			cliArgs.Tier,
 			cliArgs.CreateRootDomain,
 			cliArgs.AuthEnabled,
 			cliArgs.KindPortMappings,
@@ -103,6 +109,31 @@ control planes if they are used to create or are created by another control plan
 		if err != nil {
 			cli.Error("failed to create threeport control plane installer", err)
 			os.Exit(1)
+		}
+
+		// limit the install to the named API groups, or skip optional controllers
+		switch {
+		case upApis == "none":
+			cli.Info("installing zero optional controllers")
+			cpi.Opts.ControllerList = nil
+		case upApis != "":
+			selected, err := threeport.SelectControllersByGroup(
+				threeport.ParseApis(upApis),
+				cpi.Opts.ControllerList,
+			)
+			if err != nil {
+				cli.Error("failed to select controllers", err)
+				os.Exit(1)
+			}
+			selectedNames := make([]string, 0, len(selected))
+			for _, controller := range selected {
+				selectedNames = append(selectedNames, controller.Name)
+			}
+			cli.Info(fmt.Sprintf(
+				"limiting install to %d controller(s): %s",
+				len(selected), strings.Join(selectedNames, ", "),
+			))
+			cpi.Opts.ControllerList = selected
 		}
 
 		err = cli.CreateGenesisControlPlane(cpi)
@@ -129,12 +160,15 @@ func init() {
 		&cliArgs.InfraProvider,
 		"provider", "p", "kind", fmt.Sprintf("The infrasture provider to install upon. Supported infra providers: %s", v0.SupportedInfraProviders()),
 	)
-	// this flag will be enabled once production-ready control plane instances
-	// are available.
-	//UpCmd.Flags().StringVarP(
-	//	&tier,
-	//	"tier", "t", threeport.ControlPlaneTierDev, "Determines the level of availability and data retention for the control plane.",
-	//)
+	UpCmd.Flags().StringVar(
+		&cliArgs.Tier,
+		"tier", "", fmt.Sprintf(
+			"Determines the level of availability and data retention for the control plane. One of: [%s, %s]. Defaults to %s on the kind provider and %s on every cloud provider. Pass %s explicitly for a cloud-backed dev or test control plane whose database may be dropped.",
+			threeport.ControlPlaneTierDev, threeport.ControlPlaneTierProd,
+			threeport.ControlPlaneTierDev, threeport.ControlPlaneTierProd,
+			threeport.ControlPlaneTierDev,
+		),
+	)
 	UpCmd.Flags().StringVar(
 		&cliArgs.KubeconfigPath,
 		"kind-kubeconfig", "", "Path to kubeconfig used for kind provider installs (default is $KUBECONFIG, then ~/.kube/config).",
@@ -222,6 +256,16 @@ func init() {
 	UpCmd.Flags().StringSliceVar(
 		&cliArgs.KindPortMappings,
 		"kind-port-mappings", []string{}, "Port mappings for kind provider. Format: <container-port>:<host-port>,<container-port>:<host-port>,...",
+	)
+	UpCmd.Flags().StringVar(
+		&upApis,
+		"apis", "", "Optional. Comma-separated list of sdk-config api object group names (e.g. kubernetes_workload,gateway) to limit the install to those apis' controllers. Use \"none\" to install zero optional controllers. Defaults to empty, which installs all controllers.",
+	)
+	UpCmd.Flags().IntVar(
+		&cliArgs.ConcurrentReconciles,
+		"concurrent-reconciles",
+		threeport.DefaultConcurrentReconciles,
+		"Number of concurrent reconcile workers per object type.",
 	)
 	UpCmd.Flags().IntVar(
 		&cliArgs.ApiPort,

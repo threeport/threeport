@@ -259,8 +259,8 @@ func TestHandleInfraCreate_DeletionScheduledBeforeLaunch_Aborts(t *testing.T) {
 	// assert ack and build ran, then create aborted without deploy
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), requeue)
-	assert.Equal(t, 1, fl.callCount("AckCreation"))
-	assert.Equal(t, 1, fl.callCount("BuildInfra"))
+	assert.Equal(t, 0, fl.callCount("AckCreation"))
+	assert.Equal(t, 0, fl.callCount("BuildInfra"))
 	assert.Equal(t, 2, fl.callCount("GetReconciliation"))
 	assert.Equal(t, 0, fi.deployCallCount())
 	assert.Equal(t, int64(0), inFlightCount())
