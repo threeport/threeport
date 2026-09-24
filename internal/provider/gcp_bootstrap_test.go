@@ -257,3 +257,27 @@ func TestGcpServiceAccountDeletable_MissingAccountCannotBeVouchedFor(t *testing.
 	require.NoError(t, err)
 	assert.False(t, deletable)
 }
+
+// TestRequireServiceAccountEmail covers the guard in front of the workload
+// identity binding.
+//
+// Without it an empty email builds "projects/<project>/serviceAccounts/" and
+// GCP answers 404 about a resource that names nothing - after the cluster's
+// network, control plane and node pool are already provisioned.
+func TestRequireServiceAccountEmail(t *testing.T) {
+	t.Run("a known account passes", func(t *testing.T) {
+		infra := &KubernetesRuntimeInfraGKE{
+			ProjectID:           "a-project",
+			ServiceAccountEmail: "threeport@a-project.iam.gserviceaccount.com",
+		}
+		require.NoError(t, infra.requireServiceAccountEmail())
+	})
+
+	t.Run("an unknown account says so rather than asking GCP", func(t *testing.T) {
+		infra := &KubernetesRuntimeInfraGKE{ProjectID: "a-project"}
+
+		err := infra.requireServiceAccountEmail()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no account to name")
+	})
+}
