@@ -321,7 +321,8 @@ func (h Handler) UpdateLoggingDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before the update so the notify block can skip publishing when no state marker changed
+	// snapshot reconciliation state before update so the notify block
+	// can skip publishing when the update did not touch any state marker
 	prevReconciliation := existingLoggingDefinition.Reconciliation
 
 	// update object in database
@@ -918,7 +919,8 @@ func (h Handler) UpdateLoggingInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before the update so the notify block can skip publishing when no state marker changed
+	// snapshot reconciliation state before update so the notify block
+	// can skip publishing when the update did not touch any state marker
 	prevReconciliation := existingLoggingInstance.Reconciliation
 
 	// update object in database
@@ -1509,7 +1511,8 @@ func (h Handler) UpdateMetricsDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before the update so the notify block can skip publishing when no state marker changed
+	// snapshot reconciliation state before update so the notify block
+	// can skip publishing when the update did not touch any state marker
 	prevReconciliation := existingMetricsDefinition.Reconciliation
 
 	// update object in database
@@ -2106,7 +2109,8 @@ func (h Handler) UpdateMetricsInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before the update so the notify block can skip publishing when no state marker changed
+	// snapshot reconciliation state before update so the notify block
+	// can skip publishing when the update did not touch any state marker
 	prevReconciliation := existingMetricsInstance.Reconciliation
 
 	// update object in database
@@ -2697,7 +2701,8 @@ func (h Handler) UpdateObservabilityDashboardDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before the update so the notify block can skip publishing when no state marker changed
+	// snapshot reconciliation state before update so the notify block
+	// can skip publishing when the update did not touch any state marker
 	prevReconciliation := existingObservabilityDashboardDefinition.Reconciliation
 
 	// update object in database
@@ -3294,7 +3299,8 @@ func (h Handler) UpdateObservabilityDashboardInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before the update so the notify block can skip publishing when no state marker changed
+	// snapshot reconciliation state before update so the notify block
+	// can skip publishing when the update did not touch any state marker
 	prevReconciliation := existingObservabilityDashboardInstance.Reconciliation
 
 	// update object in database
@@ -3885,7 +3891,8 @@ func (h Handler) UpdateObservabilityStackDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before the update so the notify block can skip publishing when no state marker changed
+	// snapshot reconciliation state before update so the notify block
+	// can skip publishing when the update did not touch any state marker
 	prevReconciliation := existingObservabilityStackDefinition.Reconciliation
 
 	// update object in database
@@ -4482,7 +4489,8 @@ func (h Handler) UpdateObservabilityStackInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before the update so the notify block can skip publishing when no state marker changed
+	// snapshot reconciliation state before update so the notify block
+	// can skip publishing when the update did not touch any state marker
 	prevReconciliation := existingObservabilityStackInstance.Reconciliation
 
 	// update object in database

@@ -1,6 +1,6 @@
 # Native go build + thin Docker layer.
 #
-# Compilation happens via `mage build:allImages` on the runner, NOT
+# Compilation happens via `mage build:allImagesDev` on the runner, NOT
 # inside a Dockerfile RUN. Go's content-addressed build cache
 # (~/.cache/go-build, restored by actions/cache below) invalidates per
 # package, so a single-file edit only recompiles that package. Inside a
@@ -18,9 +18,6 @@ on:
       - edited
       - synchronize
       - reopened
-  # fork integration branch: run unit, cockroach, and integration on every push
-  push:
-    branches: [dev]
 
 permissions:
   contents: read
@@ -28,18 +25,40 @@ permissions:
 jobs:
   unit-tests:
     name: Unit Tests
-    runs-on: ${{ vars.CI_RUNS_ON || 'ubuntu-24.04' }}
+    runs-on: ubuntu-24.04
+    env:
+      GOPATH: /home/runner/go
     steps:
     - name: Checkout
-      uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
-    - name: Go setup
-      uses: ./.github/actions/go-setup
+    - name: Set up Go
+      uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+      with:
+        go-version: '1.27'
+        cache: false
+
+    # Primary cache for the workflow. Restoring Go's build + module cache
+    # is what makes warm runs fast; the Docker layer cache further down
+    # (integration-tests job) only covers the cheap COPY+alpine tail.
+    - name: Cache Go build + module cache
+      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: go-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          go-${{ runner.os }}-
+
+    - name: Install mage
+      run: go install github.com/magefile/mage@v1.17.2
+
     - name: Install threeport-sdk
       run: mage install:sdk
 
     - name: Run threeport-sdk
-      run: threeport-sdk gen --config sdk-config.yaml
+      run: ${{ env.GOPATH }}/bin/threeport-sdk gen --config sdk-config.yaml
 
     - name: Verify codegen is idempotent
       run: git diff --exit-code
@@ -86,33 +105,51 @@ jobs:
 
   integration-tests:
     name: Integration Tests
-    runs-on: ${{ vars.CI_RUNS_ON || 'ubuntu-24.04' }}
+    runs-on: ubuntu-24.04
     env:
-      # target the local registry for both the image build and the install
-      # step; mage self-derives the base tag (no per-arch suffix), so build and
-      # install resolve the same localhost:5001/<image>:<tag>.
-      IMAGE_REPO: localhost:5001
+      GOPATH: /home/runner/go
     steps:
     - name: Checkout
-      uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
-    - name: Go setup
-      uses: ./.github/actions/go-setup
-
-    - name: Docker setup
-      uses: ./.github/actions/docker-setup
+    - name: Set up Go
+      uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
       with:
-        # share host network so buildx reaches the local registry started in
-        # the next step.
-        driver-opts: network=host # buildx reaches the local registry
+        go-version: '1.27'
+        cache: false
+
+    # Primary cache for the workflow. Restoring Go's build + module cache
+    # is what makes warm runs fast; the Docker layer cache further down
+    # (integration-tests job) only covers the cheap COPY+alpine tail.
+    - name: Cache Go build + module cache
+      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: go-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          go-${{ runner.os }}-
+
+    - name: Install mage
+      run: go install github.com/magefile/mage@v1.17.2
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
+      with:
+        # share host network so buildx reaches the local registry in the
+        # next step.
+        driver-opts: network=host
 
     - name: Create local container registry
       run: mage dev:localRegistryUp
 
-    # Native compile via mage (uses the warm Go cache restored by the composite),
-    # then package the images.
+    # Native compile via mage (uses the warm Go cache restored above),
+    # then PARALLEL_IMAGE_BUILD workers package images.
     - name: Build and push control plane component images
-      run: mage build:allImages
+      env:
+        PARALLEL_IMAGE_BUILD: "4"
+      run: mage build:allImagesDev
 
     - name: Build tptctl
       run: mage build:tptctl
@@ -125,11 +162,3 @@ jobs:
 
     - name: Generate, build and install a module
       run: mage test:moduleInstall
-
-    # Always run: tear down the kind cluster + tptctl state + local registry
-    # so a failed run doesn't leave orphaned containers/networks in the
-    # shared /opt/dind-storage hostPath that would trip the next run on the
-    # same node with a "node(s) already exist for a cluster" error.
-    - name: Teardown
-      if: always()
-      run: mage ci:teardown

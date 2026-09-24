@@ -96,20 +96,6 @@ func (h Handler) AddMachineRuntimeDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
 	}
 
-	// notify controller if reconciliation is required
-	if !*machineRuntimeDefinition.Reconciled {
-		notifPayload, err := machineRuntimeDefinition.NotificationPayload(
-			notifications.NotificationOperationCreated,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.MachineRuntimeDefinitionCreateSubject, *notifPayload)
-	}
-
 	response, err := apiserver_lib.CreateResponse(
 		apiserver_lib.SingleObjectMeta(),
 		machineRuntimeDefinition,
@@ -321,9 +307,6 @@ func (h Handler) UpdateMachineRuntimeDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before the update so the notify block can skip publishing when no state marker changed
-	prevReconciliation := existingMachineRuntimeDefinition.Reconciliation
-
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
 		return db.Model(&existingMachineRuntimeDefinition).Updates(&updatedMachineRuntimeDefinition)
@@ -343,21 +326,6 @@ func (h Handler) UpdateMachineRuntimeDefinition(c echo.Context) error {
 			new(api_v0.MachineRuntimeDefinition),
 			fullyQualifiedType,
 		)
-	}
-
-	// notify controller if reconciliation is required and the update is notifiable
-	if existingMachineRuntimeDefinition.Reconciled != nil && !*existingMachineRuntimeDefinition.Reconciled &&
-		api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingMachineRuntimeDefinition.Reconciliation) {
-		notifPayload, err := existingMachineRuntimeDefinition.NotificationPayload(
-			notifications.NotificationOperationUpdated,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.MachineRuntimeDefinitionUpdateSubject, *notifPayload)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -423,10 +391,6 @@ func (h Handler) ReplaceMachineRuntimeDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before replace so the notify block
-	// can skip publishing when the replace did not touch any state marker
-	prevReconciliation := existingMachineRuntimeDefinition.Reconciliation
-
 	// persist provided data
 	updatedMachineRuntimeDefinition.ID = existingMachineRuntimeDefinition.ID
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -456,21 +420,6 @@ func (h Handler) ReplaceMachineRuntimeDefinition(c echo.Context) error {
 		}
 		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
-	}
-
-	// notify controller if reconciliation is required and the update is notifiable
-	if existingMachineRuntimeDefinition.Reconciled != nil && !*existingMachineRuntimeDefinition.Reconciled &&
-		api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingMachineRuntimeDefinition.Reconciliation) {
-		notifPayload, err := existingMachineRuntimeDefinition.NotificationPayload(
-			notifications.NotificationOperationUpdated,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.MachineRuntimeDefinitionUpdateSubject, *notifPayload)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -515,82 +464,28 @@ func (h Handler) DeleteMachineRuntimeDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatus409(c, nil, err, fullyQualifiedType)
 	}
 
-	// pre-check synchronously so the client sees the 409 - without this, reconciled types only surface the block to the reconciler
-	if checkErr := api_v0.CheckBlockingAttachedObjectReferences(h.RequestDB(c), &machineRuntimeDefinition); checkErr != nil {
+	// delete object
+	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+		return db.Delete(&machineRuntimeDefinition)
+	}); result.Error != nil {
+		h.Logger.Error("handler error: error deleting object", zap.Error(result.Error))
+		// surface BlockedDeleteError from gorm hook - sole blocking check for non-reconciled types
 		var blockedErr *api_v0.BlockedDeleteError
-		if errors.As(checkErr, &blockedErr) {
+		if errors.As(result.Error, &blockedErr) {
 			return RespondBlockedDelete(
 				c,
 				h.RequestDB(c),
 				blockedErr,
 			)
 		}
-		return apiserver_lib.ResponseStatus500(c, nil, checkErr, fullyQualifiedType)
-	}
-	// schedule for deletion if not already scheduled
-	// if scheduled and reconciled, delete object from DB
-	// if scheduled but not reconciled, return 409 (controller is working on it)
-	if machineRuntimeDefinition.DeletionScheduled == nil {
-		// schedule for deletion
-		reconciled := false
-		timestamp := time.Now().UTC()
-		scheduledMachineRuntimeDefinition := api_v0.MachineRuntimeDefinition{
-			Reconciliation: api_v0.Reconciliation{
-				DeletionScheduled: &timestamp,
-				Reconciled:        &reconciled,
-			}}
-		if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-			return db.Model(&machineRuntimeDefinition).Updates(&scheduledMachineRuntimeDefinition)
-		}); result.Error != nil {
-			h.Logger.Error("handler error: error creating scheduled deletion", zap.Error(result.Error))
-			return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, fullyQualifiedType,
+			)
 		}
-		// notify controller
-		notifPayload, err := machineRuntimeDefinition.NotificationPayload(
-			notifications.NotificationOperationDeleted,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.MachineRuntimeDefinitionDeleteSubject, *notifPayload)
-	} else {
-		if machineRuntimeDefinition.DeletionConfirmed == nil {
-			// if deletion scheduled but not reconciled, return 409 - deletion
-			// already underway
-			return apiserver_lib.ResponseStatus409(c, nil, errors.New(fmt.Sprintf(
-				"object with ID %d %s",
-				*machineRuntimeDefinition.ID,
-				api_v0.ErrMsgAlreadyBeingDeleted,
-			)), fullyQualifiedType)
-		} else {
-			// object scheduled for deletion and confirmed - it can be deleted
-			// from DB
-			if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-				return db.Delete(&machineRuntimeDefinition)
-			}); result.Error != nil {
-				h.Logger.Error("handler error: error deleting object", zap.Error(result.Error))
-				// surface BlockedDeleteError from gorm hook - backstop in case an attached object reference was created after the pre-check
-				var blockedErr *api_v0.BlockedDeleteError
-				if errors.As(result.Error, &blockedErr) {
-					return RespondBlockedDelete(
-						c,
-						h.RequestDB(c),
-						blockedErr,
-					)
-				}
-				// check if this is a custom HTTP error with specific status code
-				var httpErr *util_v0.HttpError
-				if errors.As(result.Error, &httpErr) {
-					return apiserver_lib.ResponseStatusErr(
-						httpErr.GetStatusCode(), c, nil, result.Error, fullyQualifiedType,
-					)
-				}
-				return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
-			}
-		}
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
 	}
 
 	// the delete has committed; drop any process state that mirrored the
@@ -918,7 +813,8 @@ func (h Handler) UpdateMachineRuntimeInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before the update so the notify block can skip publishing when no state marker changed
+	// snapshot reconciliation state before update so the notify block
+	// can skip publishing when the update did not touch any state marker
 	prevReconciliation := existingMachineRuntimeInstance.Reconciliation
 
 	// update object in database

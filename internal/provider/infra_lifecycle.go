@@ -1,14 +1,11 @@
 package provider
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -37,18 +34,11 @@ type LifecycleConfig struct {
 	PersistRetryDelay time.Duration
 }
 
-// defaultSemaphoreCapacity is the worker-pool size used when
-// PULUMI_CONCURRENCY is unset or not an integer.
-const defaultSemaphoreCapacity = 20
-
-// maxSemaphoreCapacity is the upper bound for PULUMI_CONCURRENCY.
-const maxSemaphoreCapacity = 100
-
-// defaultLifecycleConfig is the production timing, persist budget, and capacity.
+// defaultLifecycleConfig is the production timing and capacity.
 var defaultLifecycleConfig = LifecycleConfig{
 	StaleAckThreshold: 240 * time.Second,
 	RefreshInterval:   60 * time.Second,
-	SemaphoreCapacity: defaultSemaphoreCapacity,
+	SemaphoreCapacity: 5,
 	PersistRetries:    30,
 	PersistRetryDelay: 10 * time.Second,
 }
@@ -60,81 +50,9 @@ var lifecycleMu sync.RWMutex
 // lifecycleConfig is the live timing and capacity.
 var lifecycleConfig = defaultLifecycleConfig
 
-// infraSemaphore is the process-wide worker pool for create and delete
-// across every stack.
-var infraSemaphore chan struct{}
-
-// init sets SemaphoreCapacity from PULUMI_CONCURRENCY.
-func init() {
-	// size the worker pool from PULUMI_CONCURRENCY
-	lifecycleConfig.SemaphoreCapacity = resolveSemaphoreCapacity()
-	infraSemaphore = make(chan struct{}, lifecycleConfig.SemaphoreCapacity)
-}
-
-// resolveSemaphoreCapacity returns this process's worker-pool size from
-// PULUMI_CONCURRENCY, not Pulumi's PULUMI_PARALLEL resource limit.
-func resolveSemaphoreCapacity() int {
-	raw := os.Getenv("PULUMI_CONCURRENCY")
-	if raw == "" {
-		return defaultSemaphoreCapacity
-	}
-	parsed, err := strconv.Atoi(raw)
-	if err != nil {
-		log.Printf("PULUMI_CONCURRENCY=%q is not a valid integer, using default %d", raw, defaultSemaphoreCapacity)
-		return defaultSemaphoreCapacity
-	}
-	if parsed < 1 {
-		log.Printf("PULUMI_CONCURRENCY=%d is below minimum, using 1", parsed)
-		return 1
-	}
-	if parsed > maxSemaphoreCapacity {
-		log.Printf("PULUMI_CONCURRENCY=%d exceeds maximum, using %d", parsed, maxSemaphoreCapacity)
-		return maxSemaphoreCapacity
-	}
-	return parsed
-}
-
-// stackLocksMu guards stackLocks.
-var stackLocksMu sync.Mutex
-
-// stackLocks holds the exclusive lock for each in-flight stack key.
-// Two operations on one key would race on the local state file and on
-// Pulumi's stack lock.
-var stackLocks = make(map[string]*stackLock)
-
-// stackLock is the in-process exclusive lock for one stack.
-// A second acquire for the same key returns false without waiting.
-type stackLock struct {
-	mu       sync.Mutex
-	refCount int
-}
-
-// tryAcquireStackLock records key as in flight and returns the lock.
-// A second call for the same key returns false without blocking.
-func tryAcquireStackLock(key string) (*stackLock, bool) {
-	stackLocksMu.Lock()
-	defer stackLocksMu.Unlock()
-	if _, ok := stackLocks[key]; ok {
-		return nil, false
-	}
-	sl := &stackLock{refCount: 1}
-	sl.mu.Lock()
-	stackLocks[key] = sl
-	return sl, true
-}
-
-// releaseStackLock unlocks the stack and removes it from stackLocks
-// when its reference count reaches zero.
-func releaseStackLock(key string, sl *stackLock) {
-	sl.mu.Unlock()
-
-	stackLocksMu.Lock()
-	sl.refCount--
-	if sl.refCount == 0 {
-		delete(stackLocks, key)
-	}
-	stackLocksMu.Unlock()
-}
+// infraSemaphore limits concurrent infrastructure create and delete goroutines.
+// Capacity matches defaultLifecycleConfig.SemaphoreCapacity.
+var infraSemaphore = make(chan struct{}, defaultLifecycleConfig.SemaphoreCapacity)
 
 // currentConfig returns the live lifecycle config.
 func currentConfig() LifecycleConfig {
@@ -249,7 +167,6 @@ type ReconciliationSnapshot struct {
 	DeletionScheduled    *time.Time
 	DeletionAcknowledged *time.Time
 	DeletionConfirmed    *time.Time
-	DeletionFailed       bool
 	ResourceInventory    *datatypes.JSON
 }
 
@@ -258,9 +175,6 @@ type ReconciliationSnapshot struct {
 // provider implements this interface; the lifecycle handler does everything
 // else (ack/confirm checks, stale detection, goroutine wiring).
 type InfraLifecycleProvider interface {
-	// StackKey returns a stable identity that serializes operations on one stack.
-	StackKey() string
-
 	// GetReconciliation fetches the latest reconciliation state and resource
 	// inventory from the API.
 	GetReconciliation() (*ReconciliationSnapshot, error)
@@ -292,19 +206,11 @@ type InfraLifecycleProvider interface {
 	// ConfirmCreation sets CreationConfirmed and Reconciled=true in the API.
 	ConfirmCreation() error
 
-	// RecordSuccessfulCreate emits a CreateSuccessful event for the provider's
-	// object. The OnSuccess path calls it after ConfirmCreation because the
-	// reconciler wrapper's wasReconciled gate suppresses its own emit.
-	RecordSuccessfulCreate() error
-
 	// AckDeletion sets DeletionAcknowledged in the API.
 	AckDeletion() error
 
 	// RefreshDeletionAck updates DeletionAcknowledged to prevent stale detection.
 	RefreshDeletionAck() error
-
-	// SetDeletionFailed marks DeletionFailed=true in the API.
-	SetDeletionFailed() error
 
 	// ConfirmDeletion sets DeletionConfirmed in the API.
 	ConfirmDeletion() error
@@ -346,22 +252,13 @@ func HandleInfraCreate(p InfraLifecycleProvider, log *logr.Logger) (int64, error
 		}
 
 		if complete {
-			// skip a second OnCreateConfirmed when CreationConfirmed is already set
-			confirmSnap, err := p.GetReconciliation()
-			if err != nil {
-				return 0, fmt.Errorf("failed to re-check reconciliation before confirmation: %w", err)
-			}
-			if confirmSnap.CreationConfirmed != nil {
-				return 0, nil
-			}
-
 			// build infra for post-creation work (e.g., GetConnection)
 			infra, err := p.BuildInfra()
 			if err != nil {
 				return 0, fmt.Errorf("failed to build infra for create confirmation: %w", err)
 			}
 
-			// run post-creation work then confirm
+			// perform provider-specific post-creation work
 			if err := p.OnCreateConfirmed(infra); err != nil {
 				return 0, fmt.Errorf("failed to run post-creation work: %w", err)
 			}
@@ -369,12 +266,6 @@ func HandleInfraCreate(p InfraLifecycleProvider, log *logr.Logger) (int64, error
 			// confirm creation
 			if err := p.ConfirmCreation(); err != nil {
 				return 0, fmt.Errorf("failed to confirm creation: %w", err)
-			}
-
-			// emit provisioning-complete after ConfirmCreation so PersistFailure
-			// cannot mark a confirmed create as failed
-			if err := p.RecordSuccessfulCreate(); err != nil {
-				log.Error(err, "failed to record SuccessfulCreate event")
 			}
 
 			log.Info("creation confirmed")
@@ -387,15 +278,10 @@ func HandleInfraCreate(p InfraLifecycleProvider, log *logr.Logger) (int64, error
 		}
 	}
 
-	// check deletion before ack so a new ack cannot stall delete
-	snap, err = p.GetReconciliation()
-	if err != nil {
-		return 0, fmt.Errorf("failed to check deletion status before create: %w", err)
-	}
-	if snap.DeletionScheduled != nil {
-		log.Info("deletion scheduled, aborting create to let delete handler proceed")
-		return 0, nil
-	}
+	// one of the following is true:
+	// 1. creation has not been acknowledged — new create request
+	// 2. creation has previously failed — time to retry
+	// 3. the last acknowledgement is stale — creation was interrupted
 
 	// acknowledge creation
 	if err := p.AckCreation(); err != nil {
@@ -406,6 +292,16 @@ func HandleInfraCreate(p InfraLifecycleProvider, log *logr.Logger) (int64, error
 	infra, err := p.BuildInfra()
 	if err != nil {
 		return 0, fmt.Errorf("failed to build infra for create: %w", err)
+	}
+
+	// check if deletion was scheduled while we were preparing to create
+	snap, err = p.GetReconciliation()
+	if err != nil {
+		return 0, fmt.Errorf("failed to check deletion status before create: %w", err)
+	}
+	if snap.DeletionScheduled != nil {
+		log.Info("deletion scheduled, aborting create to let delete handler proceed")
+		return 0, nil
 	}
 
 	// wire callbacks and launch goroutine
@@ -421,57 +317,21 @@ func HandleInfraCreate(p InfraLifecycleProvider, log *logr.Logger) (int64, error
 
 			// check if deletion was scheduled during the create operation
 			latestSnap, err := p.GetReconciliation()
-			if err != nil {
-				return fmt.Errorf("failed to re-check reconciliation before confirmation: %w", err)
-			}
-			if latestSnap.DeletionScheduled != nil {
-				log.Info("deletion was scheduled during create, skipping confirmation to let delete proceed")
+			if err == nil && latestSnap.DeletionScheduled != nil {
+				log.Info("deletion was scheduled during create, skipping create notification to let delete proceed")
 				return nil
 			}
 
-			// short-circuit if a concurrent path already confirmed
-			if latestSnap.CreationConfirmed != nil {
-				return nil
-			}
-
-			// publish create notification
+			// publish notification
 			if err := p.PublishCreateNotification(); err != nil {
-				return fmt.Errorf("failed to publish create notification: %w", err)
+				log.Error(err, "failed to publish create notification")
 			}
 
-			// confirmation runs inline here so Reconciled flips as soon
-			// as Pulumi completes rather than waiting for the original
-			// NATS message to redeliver. The wrapper Nak-redelivers the
-			// original create message anyway; when it hits
-			// IsCreateComplete the CreationConfirmed short-circuit above
-			// catches it. The wrapper's wasReconciled gate then
-			// suppresses its own SuccessfulCreate emit, so this callback
-			// records the event directly via RecordSuccessfulCreate
-			// below to surface provisioning completion to the reader.
-			infra, err := p.BuildInfra()
-			if err != nil {
-				return fmt.Errorf("failed to build infra for create confirmation: %w", err)
-			}
-			if err := p.OnCreateConfirmed(infra); err != nil {
-				return fmt.Errorf("failed to run post-creation work: %w", err)
-			}
-			if err := p.ConfirmCreation(); err != nil {
-				return fmt.Errorf("failed to confirm creation: %w", err)
-			}
-
-			// emit provisioning-complete; log emit failures after ConfirmCreation
-			// so PersistFailure cannot mark a confirmed create as failed
-			if err := p.RecordSuccessfulCreate(); err != nil {
-				log.Error(err, "failed to record SuccessfulCreate event")
-			}
-
-			log.Info("creation confirmed")
 			return nil
 		},
 	}
 
 	return launchInfraCreate(infraConfig{
-		StackKey:      p.StackKey(),
 		Infra:         infra,
 		ExistingState: snap.ResourceInventory,
 		Callbacks:     callbacks,
@@ -508,8 +368,9 @@ func HandleInfraDelete(p InfraLifecycleProvider, log *logr.Logger) (int64, error
 		return 60, nil
 	}
 
-	// confirm a cleared inventory even when DeletionFailed is still set
+	// check if previously acknowledged
 	if snap.DeletionAcknowledged != nil {
+		// re-fetch to check if inventory has been cleared
 		latestSnap, err := p.GetReconciliation()
 		if err != nil {
 			return 0, fmt.Errorf("failed to check deletion status: %w", err)
@@ -542,11 +403,10 @@ func HandleInfraDelete(p InfraLifecycleProvider, log *logr.Logger) (int64, error
 			return 0, nil
 		}
 
-		// relaunch a failed or stale destroy; wait on a fresh ack
-		if snap.DeletionFailed {
-			log.Info("previous deletion failed, re-launching delete goroutine")
-		} else if checkStaleAck(*snap.DeletionAcknowledged) {
+		// resources not yet destroyed — check if ack is stale
+		if checkStaleAck(*snap.DeletionAcknowledged) {
 			log.Info("deletion acknowledgement is stale, re-launching delete goroutine")
+			// fall through to re-launch
 		} else {
 			return 60, nil
 		}
@@ -571,43 +431,29 @@ func HandleInfraDelete(p InfraLifecycleProvider, log *logr.Logger) (int64, error
 
 	// wire callbacks and launch goroutine
 	callbacks := infraCallbacks{
-		RefreshAck:     p.RefreshDeletionAck,
-		SaveState:      p.SaveState,
-		PersistFailure: p.SetDeletionFailed,
+		RefreshAck: p.RefreshDeletionAck,
+		SaveState:  p.SaveState,
 		OnSuccess: func(_ *datatypes.JSON) error {
 			// clear inventory to signal destroy complete
 			if err := p.ClearInventory(); err != nil {
 				log.Error(err, "failed to clear resource inventory after deletion")
 			}
 
-			// publish delete notification
+			// publish notification
 			if err := p.PublishDeleteNotification(); err != nil {
-				return fmt.Errorf("failed to publish delete notification: %w", err)
+				log.Error(err, "failed to publish delete notification")
 			}
 
 			return nil
 		},
 	}
 
-	requeue, err := launchInfraDelete(infraConfig{
-		StackKey:      p.StackKey(),
+	return launchInfraDelete(infraConfig{
 		Infra:         infra,
 		ExistingState: snap.ResourceInventory,
 		Callbacks:     callbacks,
 		Log:           log,
 	})
-	if err != nil {
-		return 0, err
-	}
-
-	// AckDeletion cleared DeletionFailed; restore it when the goroutine did not start
-	if requeue == 30 {
-		if failErr := p.SetDeletionFailed(); failErr != nil {
-			return 0, fmt.Errorf("failed to restore deletion failed after a skipped launch: %w", failErr)
-		}
-	}
-
-	return requeue, nil
 }
 
 // infraCallbacks contains callback functions invoked at various points during
@@ -620,8 +466,8 @@ type infraCallbacks struct {
 	// SaveState persists intermediate state to the API for crash recovery.
 	SaveState func(state *datatypes.JSON) error
 
-	// PersistFailure marks the operation failed in the API so the
-	// next reconcile retries.
+	// PersistFailure marks the operation as failed in the API so the
+	// reconciler knows to retry. Set for create operations, nil for delete.
 	PersistFailure func() error
 
 	// OnSuccess is called after successful infrastructure create or delete.
@@ -632,10 +478,6 @@ type infraCallbacks struct {
 // infraConfig contains all parameters needed to launch an infrastructure
 // create or delete operation in a background goroutine.
 type infraConfig struct {
-	// StackKey is the identity that serializes operations on one stack
-	// in this process. A second operation on the same key requeues.
-	StackKey string
-
 	// Infra is the provider's infrastructure object that implements InfraProvider.
 	Infra InfraProvider
 
@@ -657,30 +499,22 @@ func checkStaleAck(ackTimestamp time.Time) bool {
 	return duration > currentConfig().StaleAckThreshold
 }
 
-// launchInfraCreate starts a create goroutine when the stack lock and a
-// semaphore slot are free. A contended stack or full pool requeues at 30.
+// launchInfraCreate acquires the concurrency semaphore, then launches
+// executeInfraCreate in a background goroutine. Returns a requeue delay
+// for the reconciler.
 func launchInfraCreate(config infraConfig) (int64, error) {
-	// take the per-stack lock without waiting
-	sl, ok := tryAcquireStackLock(config.StackKey)
-	if !ok {
-		config.Log.V(1).Info("stack operation already in flight, requeuing")
-		return 30, nil
-	}
-
-	// capture the semaphore so a config swap cannot move the release
+	// capture the semaphore channel
 	sem := currentSemaphore()
 	select {
 	case sem <- struct{}{}:
 		// acquired slot
 	default:
-		releaseStackLock(config.StackKey, sl)
-		config.Log.V(1).Info("infrastructure worker pool full, requeuing")
+		config.Log.Info("infrastructure worker pool full, requeuing")
 		return 30, nil
 	}
 
-	// run create in a goroutine
+	// launch creation in background goroutine
 	go func() {
-		defer releaseStackLock(config.StackKey, sl)
 		defer func() { <-sem }()
 		defer func() {
 			if r := recover(); r != nil {
@@ -691,39 +525,30 @@ func launchInfraCreate(config infraConfig) (int64, error) {
 		executeInfraCreate(config)
 	}()
 
-	// return the in-flight requeue interval
 	return 120, nil
 }
 
-// launchInfraDelete starts a delete goroutine when the stack lock and a
-// semaphore slot are free. A contended stack or full pool requeues at 30.
+// launchInfraDelete acquires the concurrency semaphore, then launches
+// executeInfraDelete in a background goroutine. Returns a requeue delay
+// for the reconciler.
 func launchInfraDelete(config infraConfig) (int64, error) {
-	// take the per-stack lock without waiting
-	sl, ok := tryAcquireStackLock(config.StackKey)
-	if !ok {
-		config.Log.V(1).Info("stack operation already in flight, requeuing")
-		return 30, nil
-	}
-
-	// capture the semaphore so a config swap cannot move the release
+	// capture the semaphore channel
 	sem := currentSemaphore()
 	select {
 	case sem <- struct{}{}:
 		// acquired slot
 	default:
-		releaseStackLock(config.StackKey, sl)
-		config.Log.V(1).Info("infrastructure worker pool full, requeuing")
+		config.Log.Info("infrastructure worker pool full, requeuing")
 		return 30, nil
 	}
 
-	// run delete in a goroutine
+	// launch deletion in background goroutine
 	go func() {
-		defer releaseStackLock(config.StackKey, sl)
 		defer func() { <-sem }()
+		// recover a panic without marking the operation failed
 		defer func() {
 			if r := recover(); r != nil {
 				config.Log.Error(fmt.Errorf("panic: %v", r), "recovered panic in infrastructure delete goroutine")
-				persistFailure(config.Callbacks.PersistFailure, config.Log)
 			}
 		}()
 		executeInfraDelete(config)
@@ -806,12 +631,6 @@ func executeInfraCreate(config infraConfig) {
 			}
 		}
 
-		// leave CreationFailed unset so the next pass does not re-launch
-		if isTransientPulumiError(err) {
-			config.Log.Info("treating create error as transient; deferring to next reconcile pass")
-			return
-		}
-
 		persistFailure(config.Callbacks.PersistFailure, config.Log)
 		return
 	}
@@ -831,8 +650,7 @@ func executeInfraCreate(config infraConfig) {
 		return
 	}
 
-	// run the create success callback; do not mark CreationFailed, which
-	// would re-launch deploy against infrastructure that already exists
+	// call provider-specific success handler
 	if err := config.Callbacks.OnSuccess(stateJSON); err != nil {
 		config.Log.Error(err, "failed to execute success callback")
 	}
@@ -892,20 +710,18 @@ func executeInfraDelete(config infraConfig) {
 				config.Log.Error(saveErr, "failed to save state after failed deletion")
 			}
 		}
-
-		persistFailure(config.Callbacks.PersistFailure, config.Log)
 		return
 	}
 
-	// run the delete success callback; persist failure if it errors
+	// call provider-specific success handler
 	if err := config.Callbacks.OnSuccess(nil); err != nil {
 		config.Log.Error(err, "failed to execute delete success callback")
-		persistFailure(config.Callbacks.PersistFailure, config.Log)
 	}
 }
 
-// streamState watches the provider state file and persists complete JSON
-// for crash recovery.
+// streamState watches the state file via fsnotify and pushes changes to the
+// API using the saveState callback on every Write/Create event. Only called
+// for providers that implement StreamableProvider.
 func streamState(
 	provider StreamableProvider,
 	saveState func(state *datatypes.JSON) error,
@@ -939,9 +755,6 @@ func streamState(
 	}
 
 	stateFileName := filepath.Base(stateFilePath)
-
-	// last uploaded payload; skip a write that has not changed
-	var lastSaved []byte
 
 	for {
 		select {
@@ -977,17 +790,10 @@ func streamState(
 				continue
 			}
 
-			// skip an unchanged payload
-			if bytes.Equal([]byte(*state), lastSaved) {
-				continue
-			}
-
 			// push state via callback
 			if err := saveState(state); err != nil {
 				log.Error(err, "failed to update resource inventory during state streaming")
-				continue
 			}
-			lastSaved = append(lastSaved[:0], (*state)...)
 
 		case err, ok := <-watcher.Errors:
 			if !ok {
@@ -1038,7 +844,7 @@ func persistFailure(
 			break
 		}
 
-		log.Error(lastErr, "failed to persist operation failure, retrying",
+		log.Error(lastErr, "failed to persist creation failure, retrying",
 			"attempt", attempt+1, "maxRetries", maxRetries,
 			"retryDelay", cfg.PersistRetryDelay)
 		time.Sleep(cfg.PersistRetryDelay)
@@ -1050,19 +856,19 @@ func persistFailure(
 	}
 	log.Error(
 		exhausted,
-		"failed to persist operation failure, stale ack detection will recover",
+		"failed to persist creation failure, stale ack detection will recover",
 	)
 }
 
-// verifyState accepts Pulumi checkpoint and deployment JSON.
-// A known schema with no resources still succeeds so an empty stack does not retry forever.
+// verifyState checks the integrity of a state JSON object to ensure it
+// represents a valid deployment with resources.
 func verifyState(state *datatypes.JSON, log *logr.Logger) error {
 	// reject a missing state
 	if state == nil {
-		return errors.New("state is nil")
+		return fmt.Errorf("state is nil")
 	}
 	if len(*state) == 0 {
-		return errors.New("state is empty")
+		return fmt.Errorf("state is empty")
 	}
 
 	// parse as generic JSON
@@ -1071,13 +877,13 @@ func verifyState(state *datatypes.JSON, log *logr.Logger) error {
 		return fmt.Errorf("state is not valid JSON: %w", err)
 	}
 
-	// recognizedSchema is true for a known layout even when the resource list is empty
-	recognizedSchema := false
+	// check for resources in either format:
+	// - checkpoint format: checkpoint.latest.resources
+	// - deployment format: deployment.resources
 	resourceCount := 0
 	if checkpoint, ok := parsed["checkpoint"].(map[string]interface{}); ok {
 		if latest, ok := checkpoint["latest"].(map[string]interface{}); ok {
 			if resources, ok := latest["resources"].([]interface{}); ok {
-				recognizedSchema = true
 				resourceCount = len(resources)
 			}
 		}
@@ -1085,15 +891,14 @@ func verifyState(state *datatypes.JSON, log *logr.Logger) error {
 	if resourceCount == 0 {
 		if deployment, ok := parsed["deployment"].(map[string]interface{}); ok {
 			if resources, ok := deployment["resources"].([]interface{}); ok {
-				recognizedSchema = true
 				resourceCount = len(resources)
 			}
 		}
 	}
 
-	// reject a payload that is not a known stack schema
-	if !recognizedSchema {
-		return errors.New("state does not match a known Pulumi stack schema")
+	// reject state with no resources
+	if resourceCount == 0 {
+		return fmt.Errorf("state contains no resources")
 	}
 
 	// log the verified resource count

@@ -26,10 +26,9 @@ provider requires the instance region at create.
 
 ## Next Steps
 
-A definition that names an infrastructure provider is how the controller
-creates the provider machine.  You can still import a machine that is
-already SSH-reachable by creating an instance with a credential and no
-location fields.
+Threeport currently supports importing machines that have already been
+deployed by registering an existing SSH-reachable host as a Machine Runtime
+Instance.  Provisioning new hosts via Threeport is not yet supported.
 
 Once a host is registered, see the [Machine Workloads
 introduction](machine-workload-intro.md) to define and deploy workloads on

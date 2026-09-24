@@ -6,7 +6,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
 	"gorm.io/gorm"
 
 	util "github.com/threeport/threeport/pkg/util/v0"

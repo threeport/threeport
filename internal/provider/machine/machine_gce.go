@@ -21,7 +21,6 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"golang.org/x/crypto/ssh"
-	"google.golang.org/api/option"
 	"gorm.io/datatypes"
 
 	"github.com/threeport/threeport/internal/provider"
@@ -39,19 +38,6 @@ var (
 // gceNameRe is GCE's RFC1035 instance-name pattern, 1 to 59 characters.
 // The SSH firewall name is {name}-ssh and is also capped at 63.
 var gceNameRe = regexp.MustCompile(`^[a-z]([-a-z0-9]{0,57}[a-z0-9])?$`)
-
-// GceIngressRule describes a single firewall ingress rule in the shape the
-// GCE provider consumes.
-type GceIngressRule struct {
-	// Protocol is the L4 protocol name ("tcp", "udp", "icmp") or a protocol number.
-	Protocol string
-	// Ports are the destination ports the rule allows. Empty means all ports.
-	Ports []string
-	// SourceRanges are the source CIDR blocks the rule allows.
-	SourceRanges []string
-	// Description is an optional human-readable note attached to the rule.
-	Description string
-}
 
 // GceMachineInfra is the Google Compute Engine backend for a machine runtime.
 // Machine-runtime constructs this with NewGceMachineInfra() and calls DeployInfra().
@@ -75,21 +61,6 @@ type GceMachineInfra struct {
 
 	// The VPC network self-link or name the instance attaches to
 	NetworkID string
-
-	// SubnetID is the subnetwork selfLink or name the VM's primary interface attaches to.
-	SubnetID string
-
-	// IngressRules are additional firewall ingress rules to open on the VM's network.
-	IngressRules []GceIngressRule
-
-	// NetworkCIDR, when non-empty, drives creation of a custom-mode VPC network.
-	NetworkCIDR string
-
-	// SubnetCIDR, when non-empty, drives creation of a subnetwork with that CIDR.
-	SubnetCIDR string
-
-	// AssignPublicIP controls whether the primary network interface gets an ephemeral external IP.
-	AssignPublicIP bool
 
 	// The JSON key for a GCP service account when ADC is not already valid
 	ServiceAccountCredentials string
@@ -121,23 +92,6 @@ func NewGceMachineInfra(name string, opts ...provider.PulumiWorkspaceOption) *Gc
 	return &GceMachineInfra{
 		PulumiWorkspace: *provider.NewPulumiWorkspace(name, "gce", opts...),
 	}
-}
-
-// BuildResourceInventory returns the provider resource names captured after deploy.
-func (i *GceMachineInfra) BuildResourceInventory() map[string]any {
-	return map[string]any{
-		"external_ip": i.externalIP,
-		"zone":        i.Zone,
-		"region":      i.Region,
-	}
-}
-
-// GcpClientOptions returns the GCP SDK client options for this instance.
-func (i *GceMachineInfra) GcpClientOptions(base ...option.ClientOption) []option.ClientOption {
-	if i.ServiceAccountCredentials == "" {
-		return base
-	}
-	return append(base, option.WithCredentialsJSON([]byte(i.ServiceAccountCredentials)))
 }
 
 // ensurePulumiProjectDefaults sets Pulumi project metadata when not provided by callers.
@@ -303,15 +257,14 @@ func (i *GceMachineInfra) pulumiProgram() pulumi.RunFunc {
 	return func(pctx *pulumi.Context) error {
 		// create GCP provider
 		gcpProvider, err := gcp.NewProvider(pctx, "gcp-provider", &gcp.ProviderArgs{
-			Project:     pulumi.String(i.ProjectID),
-			Region:      pulumi.String(i.gcpRegion()),
-			Credentials: pulumi.String(i.ServiceAccountCredentials),
+			Project: pulumi.String(i.ProjectID),
+			Region:  pulumi.String(i.gcpRegion()),
 		})
 		if err != nil {
 			return fmt.Errorf("failed to create GCP provider: %w", err)
 		}
 
-		// allow SSH ingress from the configured source ranges
+		// create SSH firewall rule scoped to this instance's network tag
 		sshTag := i.RuntimeInstanceName
 		sourceRanges := pulumi.ToStringArray(i.sshSourceRanges())
 		_, err = compute.NewFirewall(pctx, fmt.Sprintf("%s-ssh", i.RuntimeInstanceName), &compute.FirewallArgs{

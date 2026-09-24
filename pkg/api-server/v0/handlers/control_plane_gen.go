@@ -322,7 +322,8 @@ func (h Handler) UpdateControlPlaneDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before the update so the notify block can skip publishing when no state marker changed
+	// snapshot reconciliation state before update so the notify block
+	// can skip publishing when the update did not touch any state marker
 	prevReconciliation := existingControlPlaneDefinition.Reconciliation
 
 	// update object in database
@@ -919,7 +920,8 @@ func (h Handler) UpdateControlPlaneInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before the update so the notify block can skip publishing when no state marker changed
+	// snapshot reconciliation state before update so the notify block
+	// can skip publishing when the update did not touch any state marker
 	prevReconciliation := existingControlPlaneInstance.Reconciliation
 
 	// update object in database

@@ -89,16 +89,6 @@ func GenDbMigratorMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		Line(),
 
 		Id("args").Op(":=").Qual("flag", "Args").Call(),
-		Line(),
-
-		Comment("a command is required before it can be read"),
-		If(Len(Id("args")).Op("==").Lit(0)).Block(
-			Id("returnErr").Call(
-				Lit(""), Qual("fmt", "Errorf").Call(Lit("no command provided")),
-			),
-		),
-		Line(),
-
 		Id("command").Op(":=").Id("args").Index(Lit(0)),
 		Id("arguments").Op(":=").Index().String().Values(),
 		If(Len(Id("args")).Op(">").Lit(1)).Block(
@@ -316,7 +306,7 @@ examples:
 
 	Run database migrations to apply database schema:
 	database-migrator -env-file=/etc/threeport/env up
-`), Id("args"),
+}\n`), Id("args"),
 		),
 	)
 	f.Line()

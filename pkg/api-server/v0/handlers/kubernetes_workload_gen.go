@@ -321,7 +321,8 @@ func (h Handler) UpdateKubernetesWorkloadDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before the update so the notify block can skip publishing when no state marker changed
+	// snapshot reconciliation state before update so the notify block
+	// can skip publishing when the update did not touch any state marker
 	prevReconciliation := existingKubernetesWorkloadDefinition.Reconciliation
 
 	// update object in database
@@ -918,7 +919,8 @@ func (h Handler) UpdateKubernetesWorkloadInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before the update so the notify block can skip publishing when no state marker changed
+	// snapshot reconciliation state before update so the notify block
+	// can skip publishing when the update did not touch any state marker
 	prevReconciliation := existingKubernetesWorkloadInstance.Reconciliation
 
 	// update object in database

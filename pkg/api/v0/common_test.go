@@ -90,32 +90,31 @@ func TestChangeDetection(t *testing.T) {
 	}
 	t.Logf("byte-slice pair with differing ciphertexts: no helper on Reconciliation; naive DeepEqual = false")
 
-	// two independent copies of the same value: different memory, same fields
-	base := makeReconciliation(true, false, false, instant, instant, instant, instant, instant)
-	copyOf := makeReconciliation(true, false, false, instant, instant, instant, instant, instant)
+	// check identical Reconciliations
+	base := makeReconciliation(true, false, instant, instant, instant, instant, instant)
+	copyOf := makeReconciliation(true, false, instant, instant, instant, instant, instant)
 	if got := ReconciliationStateChanged(base, copyOf); got {
 		t.Errorf("ReconciliationStateChanged(identical copies) = true, want false")
 	}
 
-	// the monotonic-versus-stripped pair on every marker, which is the whole
-	// object read back from the database
-	fresh := makeReconciliation(true, false, false, withMono, withMono, withMono, withMono, withMono)
-	fromDB := makeReconciliation(true, false, false, stripped, stripped, stripped, stripped, stripped)
+	// check fresh vs Round(0) instants
+	fresh := makeReconciliation(true, false, withMono, withMono, withMono, withMono, withMono)
+	fromDB := makeReconciliation(true, false, stripped, stripped, stripped, stripped, stripped)
 	if got := ReconciliationStateChanged(fresh, fromDB); got {
 		t.Errorf("ReconciliationStateChanged(fresh vs DB-round-trip) = true, want false")
 	}
 
-	// the same instant expressed in two locations, on every marker
-	utc := makeReconciliation(true, false, false, instant, instant, instant, instant, instant)
-	local := makeReconciliation(true, false, false, sameInstantLocal, sameInstantLocal, sameInstantLocal, sameInstantLocal, sameInstantLocal)
+	// check UTC vs Local at the same instant
+	utc := makeReconciliation(true, false, instant, instant, instant, instant, instant)
+	local := makeReconciliation(true, false, sameInstantLocal, sameInstantLocal, sameInstantLocal, sameInstantLocal, sameInstantLocal)
 	if got := ReconciliationStateChanged(utc, local); got {
 		t.Errorf("ReconciliationStateChanged(UTC vs Local same instant) = true, want false")
 	}
 
 	// check an acknowledgement re-stamp
 	later := instant.Add(1 * time.Second)
-	prev := makeReconciliation(true, false, false, instant, instant, instant, instant, instant)
-	restamped := makeReconciliation(true, false, false, later, instant, instant, later, instant)
+	prev := makeReconciliation(true, false, instant, instant, instant, instant, instant)
+	restamped := makeReconciliation(true, false, later, instant, instant, later, instant)
 	if got := ReconciliationStateChanged(prev, restamped); got {
 		t.Errorf("ReconciliationStateChanged(ack re-stamp) = true, want false")
 	}
@@ -144,7 +143,7 @@ func TestChangeDetection(t *testing.T) {
 
 // makeReconciliation sets every field ReconciliationStateChanged compares.
 func makeReconciliation(
-	reconciled, creationFailed, deletionFailed bool,
+	reconciled, creationFailed bool,
 	creationAck, creationConfirmed, deletionScheduled, deletionAck, deletionConfirmed time.Time,
 ) Reconciliation {
 	return Reconciliation{
@@ -155,6 +154,5 @@ func makeReconciliation(
 		DeletionScheduled:    util.Ptr(deletionScheduled),
 		DeletionAcknowledged: util.Ptr(deletionAck),
 		DeletionConfirmed:    util.Ptr(deletionConfirmed),
-		DeletionFailed:       util.Ptr(deletionFailed),
 	}
 }
