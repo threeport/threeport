@@ -1,6 +1,7 @@
 package gcp
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	notif "github.com/threeport/threeport/internal/gcp/notif"
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	gcpauth "github.com/threeport/threeport/pkg/auth/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -390,11 +392,27 @@ func buildGkeInfra(
 		MaxNodeCount:           int32(*definition.DefaultNodeGroupMaximumSize),
 	}
 
+	// The workload identity binding made after the cluster is created names this
+	// account, so it has to be known before any of the cluster is provisioned -
+	// not discovered missing once the network, control plane and node pool are
+	// already up.
 	if gcpProvider.ServiceAccountCredentials != nil && *gcpProvider.ServiceAccountCredentials != "" {
 		infraGKE.ServiceAccountCredentials = *gcpProvider.ServiceAccountCredentials
 		email, err := serviceAccountEmailFromCredentials(infraGKE.ServiceAccountCredentials)
 		if err != nil {
 			return nil, fmt.Errorf("failed to extract service account email: %w", err)
+		}
+		infraGKE.ServiceAccountEmail = email
+	} else {
+		// No stored key: this controller authenticates with the ambient identity
+		// GCP gives it, and that identity is the account to bind.
+		email, err := gcpauth.AmbientServiceAccountEmail(context.Background())
+		if err != nil {
+			return nil, fmt.Errorf(
+				"GCP provider %s stores no service account credentials and no ambient service account could be resolved, so the workload identity binding has no account to name: %w",
+				*gcpProvider.Name,
+				err,
+			)
 		}
 		infraGKE.ServiceAccountEmail = email
 	}

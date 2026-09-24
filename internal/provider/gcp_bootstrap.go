@@ -147,7 +147,31 @@ func (i *KubernetesRuntimeInfraGKE) grantServiceAccountRoles(crmService *cloudre
 // configureWorkloadIdentityBinding creates the IAM binding that allows Kubernetes
 // service accounts to impersonate the GCP service account via Workload Identity.
 // This should be called after the GKE cluster is created.
+// requireServiceAccountEmail reports whether the account a workload identity
+// binding names is known.
+//
+// It is derived when the infra is built, from the provider's stored credentials
+// or from the ambient identity this controller runs as. Reaching here without it
+// means neither was available, and the binding would otherwise be attempted
+// against a resource path with nothing in it.
+func (i *KubernetesRuntimeInfraGKE) requireServiceAccountEmail() error {
+	if i.ServiceAccountEmail == "" {
+		return errors.New(
+			"no GCP service account is known for this runtime, so the workload identity binding has no account to name",
+		)
+	}
+
+	return nil
+}
+
 func (i *KubernetesRuntimeInfraGKE) configureWorkloadIdentityBinding(iamService *iam.Service) error {
+	// An empty email builds "projects/<project>/serviceAccounts/" and asks GCP
+	// about a resource that does not name anything, which comes back as a 404
+	// describing nothing. Say what is actually missing instead.
+	if err := i.requireServiceAccountEmail(); err != nil {
+		return err
+	}
+
 	// Get the current IAM policy for the service account
 	serviceAccountResource := fmt.Sprintf("projects/%s/serviceAccounts/%s", i.ProjectID, i.ServiceAccountEmail)
 

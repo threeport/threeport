@@ -74,9 +74,15 @@ func TestBuildGkeInfra_MapsDefinitionNodePoolFields(t *testing.T) {
 	projectID := "some-project"
 	gcpProviderID := uint(1)
 
+	// credentials are part of a provider that can provision: the workload
+	// identity binding made after the cluster is created names the account they
+	// belong to, and buildGkeInfra refuses to build infra it could not bind
+	serviceAccountCredentials := `{"type":"service_account","project_id":"some-project","client_email":"threeport@some-project.iam.gserviceaccount.com"}`
+
 	gcpProvider := api_v0.GcpProvider{
-		Common:    api_v0.Common{ID: &gcpProviderID},
-		ProjectID: &projectID,
+		Common:                    api_v0.Common{ID: &gcpProviderID},
+		ProjectID:                 &projectID,
+		ServiceAccountCredentials: &serviceAccountCredentials,
 	}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -122,4 +128,63 @@ func TestBuildGkeInfra_MapsDefinitionNodePoolFields(t *testing.T) {
 	assert.Equal(t, int32(2), infra.WorkerNodeInitialCount)
 	assert.Equal(t, int32(3), infra.MinNodeCount)
 	assert.Equal(t, int32(7), infra.MaxNodeCount)
+}
+
+// TestBuildGkeInfra_RefusesWithoutAnAccountToBind covers a provider with no
+// stored credentials, built somewhere with no ambient identity either.
+//
+// The workload identity binding made after the cluster exists names a service
+// account. With neither source for it, that binding cannot be made - and
+// finding that out afterwards means the network, control plane and node pool
+// have already been provisioned. It fails here instead.
+func TestBuildGkeInfra_RefusesWithoutAnAccountToBind(t *testing.T) {
+	projectID := "some-project"
+	providerName := "some-provider"
+	gcpProviderID := uint(1)
+
+	gcpProvider := api_v0.GcpProvider{
+		Common:    api_v0.Common{ID: &gcpProviderID},
+		Name:      &providerName,
+		ProjectID: &projectID,
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := json.Marshal(apiserver_lib.Response{
+			Status: apiserver_lib.Status{Code: http.StatusOK, Message: "OK"},
+			Data:   []apiserver_lib.Object{gcpProvider},
+		})
+		require.NoError(t, err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+
+	r := &controller.Reconciler{
+		APIClient: &http.Client{},
+		APIServer: strings.TrimPrefix(srv.URL, "http://"),
+	}
+
+	instanceName := "test-instance"
+	region := "us-east1"
+	instance := &api_v0.GcpGkeKubernetesRuntimeInstance{
+		Instance:      api_v0.Instance{Name: &instanceName},
+		Region:        &region,
+		GcpProviderID: &gcpProviderID,
+	}
+
+	machineType := "e2-standard-4"
+	initialSize := 2
+	minSize := 3
+	maxSize := 7
+	definition := &api_v0.GcpGkeKubernetesRuntimeDefinition{
+		DefaultNodeGroupInstanceType: &machineType,
+		DefaultNodeGroupInitialSize:  &initialSize,
+		DefaultNodeGroupMinimumSize:  &minSize,
+		DefaultNodeGroupMaximumSize:  &maxSize,
+	}
+
+	_, err := buildGkeInfra(r, instance, definition, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no ambient service account could be resolved")
 }
