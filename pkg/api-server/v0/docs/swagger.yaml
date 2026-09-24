@@ -612,32 +612,13 @@ definitions:
         description: A human-readable description of the status of this operation.
         type: string
       ObjectID:
+        description: The id of the object this event is about
         type: integer
       ObjectName:
+        description: The name of the object this event is about, resolved on read
         type: string
       ObjectType:
-        description: |-
-          Fields carrying the event's subject - the object the event is
-          about. They flow in both directions:
-            - On create: the caller sets ObjectType (fully qualified type form) + ObjectID
-              in the request body. Event.BeforeCreate validates them;
-              Event.AfterCreate inserts the matching AttachedObjectReference
-              in the same transaction. ObjectName is ignored on write.
-            - On read: GetEventsFilteredByQueryString
-              projects the joined AOR's base object back into these
-              fields, then resolves ObjectName via the type's name resolver.
-
-          gorm:"-" keeps them off the Event row in the schema - the AOR
-          is the source of truth on disk for the subject linkage.
-
-          For an event describing a script failure on a
-          MachineRuntimeInstance named "some-host" (id 42), these hold:
-            ObjectType = "threeport.io/v0.MachineRuntimeInstance"
-            ObjectID   = 42
-            ObjectName = "some-host"   (read only - ignored on create)
-          A consumer like `tptctl get events` uses them to render
-          "threeport.io/machine-runtime-instance/some-host" in the OBJECT
-          column.
+        description: The fully qualified type of the object this event is about
         type: string
       Reason:
         description: A short, machine understandable string that gives the reason
@@ -654,6 +635,8 @@ definitions:
     - Count
     - EventTime
     - LastObservedTime
+    - ObjectID
+    - ObjectType
     - Reason
     - ReportingController
     - Type
@@ -2000,6 +1983,13 @@ definitions:
         description: |-
           The latest status of the workload instance as observed by the reconciler
           when the most recent script execution completed.
+        type: string
+      UpdateScriptDigest:
+        description: |-
+          A digest of the inputs the update script last ran successfully with.
+          The update script is operator-authored and Threeport cannot know whether
+          running it again is safe, so it is run when these inputs differ from the
+          ones recorded here and not merely because a notification arrived.
         type: string
     required:
     - MachineRuntimeInstanceID
@@ -5590,16 +5580,17 @@ paths:
     get:
       consumes:
       - application/json
-      description: Get all events joined with attached object references from the
-        Threeport database.
+      description: Get events from the Threeport database, narrowed by the object_type
+        and object_id columns each event row carries.
       operationId: get-v0-events-filtered
       parameters:
       - description: filter events by object ID
         in: query
         name: objectid
         type: string
-      - description: filter events by object type name (with objectname); CamelCase
-          Go TypeName like 'KubernetesWorkloadInstance'
+      - description: filter events by object type name; CamelCase Go TypeName like
+          'KubernetesWorkloadInstance'. Filters on its own, and narrows objectid,
+          objectname, or objectnameprefix to one kind
         in: query
         name: objecttypename
         type: string
@@ -5611,9 +5602,27 @@ paths:
         in: query
         name: objectnamespace
         type: string
-      - description: filter events by object name (with objecttypename)
+      - description: filter events by exact object name; matches every subject type
+          carrying that name, deleted subjects included, unless objecttypename narrows
+          it
         in: query
         name: objectname
+        type: string
+      - description: filter events by object name prefix; matches every subject whose
+          name starts with this token, deleted subjects included, across every subject
+          type unless objecttypename narrows it
+        in: query
+        name: objectnameprefix
+        type: string
+      - description: filter events by exact Reason match (case-sensitive CamelCase,
+          e.g. 'SuccessfulCreate')
+        in: query
+        name: reason
+        type: string
+      - description: filter events by Reason prefix (case-sensitive CamelCase, matches
+          Reason values starting with this token)
+        in: query
+        name: reasonprefix
         type: string
       produces:
       - application/json
@@ -5630,7 +5639,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/v0.Response'
-      summary: gets all events joined with attached object references.
+      summary: gets all events, filtered by subject.
   /v0/events/{id}:
     delete:
       consumes:
