@@ -7,6 +7,7 @@ import (
 
 	"gorm.io/gorm"
 
+	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -22,12 +23,15 @@ func (g *GcpProvider) beforeCreate(tx *gorm.DB) error {
 // per-field check is:
 //   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
 //     and PUT, handles the DB load internally
+//
 // Lower-level helpers, useful when IsFieldChanged doesn't fit:
 //   - lib.IncomingValues(tx): values being written
 //   - lib.IsFullReplace(tx): true on PUT (Save shape)
 //   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
+//
 // Import:
-//   lib "github.com/threeport/threeport/pkg/api/lib/v0"
+//
+//	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (g *GcpProvider) beforeUpdate(tx *gorm.DB) error {
 	return nil
 }
@@ -35,7 +39,8 @@ func (g *GcpProvider) beforeUpdate(tx *gorm.DB) error {
 // beforeDelete validates the GcpProvider before delete.
 //
 // Why: a GcpProvider may not be removed while any GKE runtime instance
-// still references it. Returns 400 with the count of dependents.
+// or GCE machine runtime instance still references it. Returns 400 with
+// the count of dependents.
 func (g *GcpProvider) beforeDelete(tx *gorm.DB) error {
 	var gcpGkeKubernetesRuntimeInstances []GcpGkeKubernetesRuntimeInstance
 	if result := tx.Where(
@@ -55,6 +60,24 @@ func (g *GcpProvider) beforeDelete(tx *gorm.DB) error {
 			),
 		)
 	}
+
+	var gcpGceMachineRuntimeInstances []GcpGceMachineRuntimeInstance
+	if result := tx.Where(
+		&GcpGceMachineRuntimeInstance{GcpProviderID: g.ID},
+	).Find(&gcpGceMachineRuntimeInstances); result.Error != nil {
+		return fmt.Errorf(
+			"failed to query gcp gce machine runtime instances for gcp provider %s",
+			*g.Name,
+		)
+	}
+	if len(gcpGceMachineRuntimeInstances) > 0 {
+		return util.NewBadRequestError(
+			fmt.Sprintf(
+				"gcp provider %s has related gcp gce machine runtime instances - cannot be deleted",
+				*g.Name,
+			),
+		)
+	}
 	return nil
 }
 
@@ -70,12 +93,15 @@ func (g *GcpGkeKubernetesRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
 // per-field check is:
 //   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
 //     and PUT, handles the DB load internally
+//
 // Lower-level helpers, useful when IsFieldChanged doesn't fit:
 //   - lib.IncomingValues(tx): values being written
 //   - lib.IsFullReplace(tx): true on PUT (Save shape)
 //   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
+//
 // Import:
-//   lib "github.com/threeport/threeport/pkg/api/lib/v0"
+//
+//	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (g *GcpGkeKubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
 	return nil
 }
@@ -97,18 +123,78 @@ func (g *GcpGkeKubernetesRuntimeInstance) beforeCreate(tx *gorm.DB) error {
 // per-field check is:
 //   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
 //     and PUT, handles the DB load internally
+//
 // Lower-level helpers, useful when IsFieldChanged doesn't fit:
 //   - lib.IncomingValues(tx): values being written
 //   - lib.IsFullReplace(tx): true on PUT (Save shape)
 //   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
+//
 // Import:
-//   lib "github.com/threeport/threeport/pkg/api/lib/v0"
+//
+//	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (g *GcpGkeKubernetesRuntimeInstance) beforeUpdate(tx *gorm.DB) error {
 	return nil
 }
 
-// beforeDelete validates the GcpGkeKubernetesRuntimeInstance before delete.
+// beforeDelete runs before the GcpGkeKubernetesRuntimeInstance is deleted.
 func (g *GcpGkeKubernetesRuntimeInstance) beforeDelete(tx *gorm.DB) error {
+	return nil
+}
+
+// beforeCreate runs before the GcpGceMachineRuntimeDefinition is created.
+func (g *GcpGceMachineRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
+	return nil
+}
+
+// beforeUpdate runs before the GcpGceMachineRuntimeDefinition is updated.
+func (g *GcpGceMachineRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
+	return nil
+}
+
+// beforeDelete runs before the GcpGceMachineRuntimeDefinition is deleted.
+func (g *GcpGceMachineRuntimeDefinition) beforeDelete(tx *gorm.DB) error {
+	return nil
+}
+
+// beforeCreate runs before the GcpGceMachineRuntimeInstance is created.
+func (g *GcpGceMachineRuntimeInstance) beforeCreate(tx *gorm.DB) error {
+	return nil
+}
+
+// beforeUpdate rejects changes to the immutable placement and association
+// fields. It checks each through lib.IsFieldChanged so immutability is enforced
+// under both PATCH and PUT; the region, zone, definition, and provider are
+// fixed once the VM is provisioned, while the ssh user stays mutable so a
+// pulumi up can apply it in place.
+func (g *GcpGceMachineRuntimeInstance) beforeUpdate(tx *gorm.DB) error {
+	immutableFields := []struct {
+		column string
+		name   string
+	}{
+		{"Region", "region"},
+		{"Zone", "zone"},
+		{"GcpGceMachineRuntimeDefinitionID", "definition"},
+		{"GcpProviderID", "provider"},
+	}
+	for _, field := range immutableFields {
+		changed, err := lib.IsFieldChanged(tx, field.column)
+		if err != nil {
+			return fmt.Errorf("failed to check %s for changes: %w", field.name, err)
+		}
+		if changed {
+			return util.NewBadRequestError(
+				fmt.Sprintf(
+					"gcp gce machine runtime instance %s cannot be changed after creation",
+					field.name,
+				),
+			)
+		}
+	}
+	return nil
+}
+
+// beforeDelete runs before the GcpGceMachineRuntimeInstance is deleted.
+func (g *GcpGceMachineRuntimeInstance) beforeDelete(tx *gorm.DB) error {
 	return nil
 }
 
@@ -156,3 +242,34 @@ func (g *GcpGkeKubernetesRuntimeInstance) afterUpdate(tx *gorm.DB) error {
 func (g *GcpGkeKubernetesRuntimeInstance) afterDelete(tx *gorm.DB) error {
 	return nil
 }
+
+// afterCreate runs after the GcpGceMachineRuntimeDefinition is created.
+func (g *GcpGceMachineRuntimeDefinition) afterCreate(tx *gorm.DB) error {
+	return nil
+}
+
+// afterUpdate runs after the GcpGceMachineRuntimeDefinition is updated.
+func (g *GcpGceMachineRuntimeDefinition) afterUpdate(tx *gorm.DB) error {
+	return nil
+}
+
+// afterDelete runs after the GcpGceMachineRuntimeDefinition is deleted.
+func (g *GcpGceMachineRuntimeDefinition) afterDelete(tx *gorm.DB) error {
+	return nil
+}
+
+// afterCreate runs after the GcpGceMachineRuntimeInstance is created.
+func (g *GcpGceMachineRuntimeInstance) afterCreate(tx *gorm.DB) error {
+	return nil
+}
+
+// afterUpdate runs after the GcpGceMachineRuntimeInstance is updated.
+func (g *GcpGceMachineRuntimeInstance) afterUpdate(tx *gorm.DB) error {
+	return nil
+}
+
+// afterDelete runs after the GcpGceMachineRuntimeInstance is deleted.
+func (g *GcpGceMachineRuntimeInstance) afterDelete(tx *gorm.DB) error {
+	return nil
+}
+

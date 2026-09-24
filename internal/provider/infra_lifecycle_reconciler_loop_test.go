@@ -73,7 +73,7 @@ func (w *peakWatcher) stopAndPeak() int64 {
 }
 
 // waitForInFlightZero fatals if in-flight operations have not drained
-// to zero within the given duration.
+// to zero before the wait expires.
 func waitForInFlightZero(t *testing.T, within time.Duration) {
 	t.Helper()
 	// bound the wait at within
