@@ -362,6 +362,17 @@ func (i *KubernetesRuntimeInfraGKE) DeleteGCPResources() error {
 		return fmt.Errorf("failed to create Cloud Resource Manager service client: %w", err)
 	}
 
+	// Revoke the workload identity grant when it was made on an account this
+	// delete does not remove. The account below is derived from the runtime's
+	// name, and deleting it takes its policy with it - but a runtime whose
+	// provider stored no credentials was bound to the identity this control
+	// plane runs as, which outlives the runtime. Left in place, that grant still
+	// names a principal in a cluster of this name, and would apply again to the
+	// next cluster given it.
+	if err := i.revokeWorkloadIdentityBinding(iamService); err != nil {
+		return fmt.Errorf("failed to revoke workload identity binding: %w", err)
+	}
+
 	// Remove IAM role bindings
 	if err := i.removeServiceAccountRoles(crmService); err != nil {
 		return fmt.Errorf("failed to remove IAM roles: %w", err)
