@@ -6,24 +6,16 @@ import (
 	"fmt"
 
 	gorm "gorm.io/gorm"
-	clause "gorm.io/gorm/clause"
 
 	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// eventDedupColumns is the column list ON CONFLICT uses to find an existing Event.
-var eventDedupColumns = []clause.Column{
-	{Name: "reason"},
-	{Name: "note"},
-	{Name: "type"},
-	{Name: "reporting_controller"},
-	{Name: "object_type"},
-	{Name: "object_id"},
-}
-
-// beforeCreate validates the Event subject and attaches an on-conflict upsert
-// so a repeated event updates the row already on file.
+// beforeCreate runs before the Event is created. Validates that the
+// caller supplied both subject fields (ObjectType + ObjectID) and that
+// ObjectType is in the fully-qualified form. afterCreate consumes
+// these to insert the matching AttachedObjectReference, so missing or
+// malformed values must fail before the Event row is written.
 func (e *Event) beforeCreate(tx *gorm.DB) error {
 	if e.ObjectType == nil || e.ObjectID == nil {
 		return util.NewBadRequestError(
@@ -36,35 +28,6 @@ func (e *Event) beforeCreate(tx *gorm.DB) error {
 			*e.ObjectType,
 		))
 	}
-
-	// store empty string; NULL notes do not collide in a unique index
-	if e.Note == nil {
-		e.Note = util.Ptr("")
-	}
-
-	// on a repeat increment count and last_observed_time and leave event_time as
-	// first seen, listing the unique-index columns and repeating deleted_at IS NULL
-	// because CockroachDB will not take that index by name in ON CONFLICT
-	tx.Statement.AddClause(clause.OnConflict{
-		Columns:     eventDedupColumns,
-		TargetWhere: clause.Where{Exprs: []clause.Expression{gorm.Expr("deleted_at IS NULL")}},
-		DoUpdates: clause.Assignments(map[string]interface{}{
-			"count":              gorm.Expr("v0_events.count + 1"),
-			"last_observed_time": gorm.Expr("excluded.last_observed_time"),
-			"updated_at":         gorm.Expr("excluded.updated_at"),
-		}),
-	})
-	// gorm's create returning list is only columns with database defaults, so
-	// count and last_observed_time stay at the insert values unless named here
-	tx.Statement.AddClause(clause.Returning{Columns: []clause.Column{
-		{Name: "id"},
-		{Name: "count"},
-		{Name: "last_observed_time"},
-		{Name: "event_time"},
-		{Name: "created_at"},
-		{Name: "updated_at"},
-	}})
-
 	return nil
 }
 
@@ -75,15 +38,12 @@ func (e *Event) beforeCreate(tx *gorm.DB) error {
 // per-field check is:
 //   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
 //     and PUT, handles the DB load internally
-//
 // Lower-level helpers, useful when IsFieldChanged doesn't fit:
 //   - lib.IncomingValues(tx): values being written
 //   - lib.IsFullReplace(tx): true on PUT (Save shape)
 //   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
-//
 // Import:
-//
-//	lib "github.com/threeport/threeport/pkg/api/lib/v0"
+//   lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (e *Event) beforeUpdate(tx *gorm.DB) error {
 	return nil
 }
@@ -93,9 +53,17 @@ func (e *Event) beforeDelete(tx *gorm.DB) error {
 	return nil
 }
 
-// afterCreate runs after the Event is created.
+// afterCreate inserts the AttachedObjectReference linking this event
+// (attached side) to its subject (base side), using ObjectType and
+// ObjectID validated in beforeCreate.
 func (e *Event) afterCreate(tx *gorm.DB) error {
-	return nil
+	return tx.Create(&AttachedObjectReference{
+		ObjectType:         e.ObjectType,
+		ObjectID:           e.ObjectID,
+		AttachedObjectType: util.Ptr(e.GetFullyQualifiedType()),
+		AttachedObjectID:   e.ID,
+		Relationship:       util.Ptr(RelationshipDescribes),
+	}).Error
 }
 
 // afterUpdate runs after the Event is updated.

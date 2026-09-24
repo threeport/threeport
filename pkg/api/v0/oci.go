@@ -9,7 +9,7 @@ type OciProvider struct {
 	Common `swaggerignore:"true" mapstructure:",squash"`
 
 	// The unique name of an OCI provider.
-	Name *string `validate:"required" gorm:"not null;uniqueIndex:,where:deleted_at IS NULL"`
+	Name *string `validate:"required" gorm:"not null"`
 
 	// The user OCID credentials for the OCI provider.
 	UserOCID *string `validate:"required" gorm:"not null"`

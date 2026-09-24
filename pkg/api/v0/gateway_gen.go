@@ -90,11 +90,6 @@ func (dnd *DomainNameDefinition) GetFullyQualifiedType() string {
 	return "threeport.io/v0.DomainNameDefinition"
 }
 
-// AssociationRequiredByTypes returns the fully-qualified type names of children referenced via has-many association slices on DomainNameDefinition.
-func (d *DomainNameDefinition) AssociationRequiredByTypes() []string {
-	return []string{new(DomainNameInstance).GetFullyQualifiedType()}
-}
-
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
@@ -243,11 +238,6 @@ func (gd *GatewayDefinition) GetFullyQualifiedType() string {
 // if scheduled for deletion or nil if not scheduled for deletion.
 func (gd *GatewayDefinition) ScheduledForDeletion() *time.Time {
 	return gd.DeletionScheduled
-}
-
-// AssociationRequiredByTypes returns the fully-qualified type names of children referenced via has-many association slices on GatewayDefinition.
-func (g *GatewayDefinition) AssociationRequiredByTypes() []string {
-	return []string{new(GatewayInstance).GetFullyQualifiedType()}
 }
 
 // NotificationPayload returns the notification payload that is delivered to the

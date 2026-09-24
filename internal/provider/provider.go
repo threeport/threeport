@@ -2,9 +2,7 @@ package provider
 
 import (
 	"fmt"
-	"strings"
 
-	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 )
 
@@ -36,70 +34,4 @@ func ThreeportRuntimeName(threeportInstanceName string) string {
 // infrastructure resources to properly identify them.
 func ThreeportProviderTags() map[string]string {
 	return map[string]string{"ProvisionedBy": "threeport"}
-}
-
-const (
-	// GcpLabelProvisionedBy is the GCP label key for Threeport ownership.
-	GcpLabelProvisionedBy = "provisioned-by"
-	// GcpLabelThreeportName is the GCP label key for the owning object name.
-	GcpLabelThreeportName = "threeport-name"
-	// GcpLabelProvisionedByValue is the GCP label value for Threeport ownership.
-	GcpLabelProvisionedByValue = "threeport"
-)
-
-// GcpResourceLabels returns Compute-safe labels for a GCP resource owned by
-// the named Threeport object. Keys are lowercase; values are at most 63
-// characters of [a-z0-9_-].
-func GcpResourceLabels(ownerName string) map[string]string {
-	return map[string]string{
-		GcpLabelProvisionedBy: GcpLabelProvisionedByValue,
-		GcpLabelThreeportName: gcpLabelValue(ownerName),
-	}
-}
-
-// gcpLabelValue maps a Threeport object name onto a GCP label value.
-func gcpLabelValue(name string) string {
-	var b strings.Builder
-	prevDash := false
-	for _, r := range strings.ToLower(name) {
-		ok := (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '_' || r == '-'
-		if !ok {
-			if prevDash {
-				continue
-			}
-			r = '-'
-			prevDash = true
-		} else {
-			prevDash = r == '-'
-		}
-		b.WriteRune(r)
-		if b.Len() >= 63 {
-			break
-		}
-	}
-	s := strings.Trim(b.String(), "-")
-	if s == "" {
-		return "unnamed"
-	}
-	return s
-}
-
-// GcpOwnershipDescription is the IAM description suffix that records the same
-// ownership pair as GcpResourceLabels. IAM service accounts have no labels.
-func GcpOwnershipDescription(ownerName string) string {
-	labels := GcpResourceLabels(ownerName)
-	return fmt.Sprintf("%s=%s %s=%s",
-		GcpLabelProvisionedBy, labels[GcpLabelProvisionedBy],
-		GcpLabelThreeportName, labels[GcpLabelThreeportName],
-	)
-}
-
-// GcpLabelsInput maps GcpResourceLabels onto a Pulumi string map.
-func GcpLabelsInput(ownerName string) pulumi.StringMap {
-	labels := GcpResourceLabels(ownerName)
-	out := make(pulumi.StringMap, len(labels))
-	for k, v := range labels {
-		out[k] = pulumi.String(v)
-	}
-	return out
 }

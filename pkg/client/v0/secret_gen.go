@@ -5,7 +5,6 @@ package v0
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -78,10 +77,6 @@ func GetSecretDefinitionByID(apiClient *http.Client, apiAddr string, id uint) (*
 	)
 	if err != nil {
 		return &secretDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return &secretDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -185,10 +180,6 @@ func CreateSecretDefinition(apiClient *http.Client, apiAddr string, secretDefini
 		return secretDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	if len(response.Data) == 0 {
-		return secretDefinition, errors.New("threeport API returned no object in response data")
-	}
-
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return secretDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -229,10 +220,6 @@ func UpdateSecretDefinition(apiClient *http.Client, apiAddr string, secretDefini
 	)
 	if err != nil {
 		return secretDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return secretDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -278,10 +265,6 @@ func ReplaceSecretDefinition(apiClient *http.Client, apiAddr string, secretDefin
 		return secretDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	if len(response.Data) == 0 {
-		return secretDefinition, errors.New("threeport API returned no object in response data")
-	}
-
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return secretDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -311,10 +294,6 @@ func DeleteSecretDefinition(apiClient *http.Client, apiAddr string, id uint) (*v
 	)
 	if err != nil {
 		return &secretDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return &secretDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -395,10 +374,6 @@ func GetSecretInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*v0
 	)
 	if err != nil {
 		return &secretInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return &secretInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -502,10 +477,6 @@ func CreateSecretInstance(apiClient *http.Client, apiAddr string, secretInstance
 		return secretInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	if len(response.Data) == 0 {
-		return secretInstance, errors.New("threeport API returned no object in response data")
-	}
-
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return secretInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -546,10 +517,6 @@ func UpdateSecretInstance(apiClient *http.Client, apiAddr string, secretInstance
 	)
 	if err != nil {
 		return secretInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return secretInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -595,10 +562,6 @@ func ReplaceSecretInstance(apiClient *http.Client, apiAddr string, secretInstanc
 		return secretInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	if len(response.Data) == 0 {
-		return secretInstance, errors.New("threeport API returned no object in response data")
-	}
-
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return secretInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -628,10 +591,6 @@ func DeleteSecretInstance(apiClient *http.Client, apiAddr string, id uint) (*v0.
 	)
 	if err != nil {
 		return &secretInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return &secretInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])

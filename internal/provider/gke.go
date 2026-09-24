@@ -13,7 +13,6 @@ import (
 	gkecontainer "github.com/pulumi/pulumi-gcp/sdk/v8/go/gcp/container"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/cloudresourcemanager/v1"
 	"google.golang.org/api/iam/v1"
@@ -45,17 +44,6 @@ type KubernetesRuntimeInfraGKE struct {
 
 	// The number of nodes initially created for the worker node pool.
 	WorkerNodeInitialCount int32
-
-	// The GCP machine type for the worker node pool (e.g. "e2-standard-2").
-	MachineType string
-
-	// The minimum number of nodes the worker node pool's autoscaler will
-	// scale down to.
-	MinNodeCount int32
-
-	// The maximum number of nodes the worker node pool's autoscaler will
-	// scale up to.
-	MaxNodeCount int32
 
 	// The email address of the GCP service account created for Threeport.
 	// This service account is used with Workload Identity to allow
@@ -102,6 +90,9 @@ func (i *KubernetesRuntimeInfraGKE) Create() (*kube.KubeConnectionInfo, error) {
 	// ensure GCP authentication is in place
 	if err := gcpauth.EnsureGCPAuth(i.ServiceAccountCredentials); err != nil {
 		return nil, fmt.Errorf("failed to ensure GCP authentication: %w", err)
+	}
+	if i.ServiceAccountCredentials != "" {
+		defer gcpauth.CleanupGCPCredentials()
 	}
 
 	// load GCP configuration to ensure ProjectID is set
@@ -168,17 +159,10 @@ func (i *KubernetesRuntimeInfraGKE) DestroyInfra() error {
 // pulumiProgram defines the Pulumi resources for the GKE stack.
 func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 	return func(ctx *pulumi.Context) error {
-
-		// create GCP provider with instance credentials JSON when set
-		providerArgs := &gcp.ProviderArgs{
+		gcpProvider, err := gcp.NewProvider(ctx, "gcp-provider", &gcp.ProviderArgs{
 			Project: pulumi.String(i.ProjectID),
 			Region:  pulumi.String(i.Region),
-		}
-		if i.ServiceAccountCredentials != "" {
-			providerArgs.Credentials = pulumi.String(i.ServiceAccountCredentials)
-		}
-
-		gcpProvider, err := gcp.NewProvider(ctx, "gcp-provider", providerArgs)
+		})
 		if err != nil {
 			return fmt.Errorf("failed to create GCP provider: %w", err)
 		}
@@ -240,11 +224,10 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 		}
 
 		cluster, err := gkecontainer.NewCluster(ctx, i.RuntimeInstanceName, &gkecontainer.ClusterArgs{
-			Name:           pulumi.String(i.RuntimeInstanceName),
-			Location:       pulumi.String(i.Region),
-			Network:        network.Name,
-			Subnetwork:     subnet.Name,
-			ResourceLabels: GcpLabelsInput(i.RuntimeInstanceName),
+			Name:       pulumi.String(i.RuntimeInstanceName),
+			Location:   pulumi.String(i.Region),
+			Network:    network.Name,
+			Subnetwork: subnet.Name,
 
 			IpAllocationPolicy: &gkecontainer.ClusterIpAllocationPolicyArgs{
 				ClusterSecondaryRangeName:  pulumi.String("pods"),
@@ -284,7 +267,7 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 			NodeCount: pulumi.Int(int(i.WorkerNodeInitialCount)),
 
 			NodeConfig: &gkecontainer.NodePoolNodeConfigArgs{
-				MachineType: pulumi.String(i.MachineType),
+				MachineType: pulumi.String("e2-medium"),
 				DiskSizeGb:  pulumi.Int(50),
 				DiskType:    pulumi.String("pd-standard"),
 				OauthScopes: pulumi.StringArray{
@@ -293,15 +276,14 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 				Labels: pulumi.StringMap{
 					kube.ThreeportManagedByLabelKey: pulumi.String(kube.ThreeportManagedByLabelValue),
 				},
-				ResourceLabels: GcpLabelsInput(i.RuntimeInstanceName),
 				WorkloadMetadataConfig: &gkecontainer.NodePoolNodeConfigWorkloadMetadataConfigArgs{
 					Mode: pulumi.String("GKE_METADATA"),
 				},
 			},
 
 			Autoscaling: &gkecontainer.NodePoolAutoscalingArgs{
-				MinNodeCount:   pulumi.Int(int(i.MinNodeCount)),
-				MaxNodeCount:   pulumi.Int(int(i.MaxNodeCount)),
+				MinNodeCount:   pulumi.Int(1),
+				MaxNodeCount:   pulumi.Int(10),
 				LocationPolicy: pulumi.String("ANY"),
 			},
 
@@ -323,6 +305,9 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 func (i *KubernetesRuntimeInfraGKE) Delete() error {
 	if err := gcpauth.EnsureGCPAuth(i.ServiceAccountCredentials); err != nil {
 		return fmt.Errorf("failed to ensure GCP authentication: %w", err)
+	}
+	if i.ServiceAccountCredentials != "" {
+		defer gcpauth.CleanupGCPCredentials()
 	}
 
 	if err := i.loadGCPConfig(); err != nil {
@@ -353,13 +338,13 @@ func (i *KubernetesRuntimeInfraGKE) DeleteGCPResources() error {
 	ctx := context.Background()
 
 	// Create IAM service client
-	iamService, err := iam.NewService(ctx, i.gcpClientOptions(option.WithScopes(iam.CloudPlatformScope))...)
+	iamService, err := iam.NewService(ctx, option.WithScopes(iam.CloudPlatformScope))
 	if err != nil {
 		return fmt.Errorf("failed to create IAM service client: %w", err)
 	}
 
 	// Create Cloud Resource Manager service client for IAM bindings
-	crmService, err := cloudresourcemanager.NewService(ctx, i.gcpClientOptions(option.WithScopes(cloudresourcemanager.CloudPlatformScope))...)
+	crmService, err := cloudresourcemanager.NewService(ctx, option.WithScopes(cloudresourcemanager.CloudPlatformScope))
 	if err != nil {
 		return fmt.Errorf("failed to create Cloud Resource Manager service client: %w", err)
 	}
@@ -383,6 +368,9 @@ func (i *KubernetesRuntimeInfraGKE) GetConnection() (*kube.KubeConnectionInfo, e
 	if err := gcpauth.EnsureGCPAuth(i.ServiceAccountCredentials); err != nil {
 		return nil, fmt.Errorf("failed to ensure GCP authentication: %w", err)
 	}
+	if i.ServiceAccountCredentials != "" {
+		defer gcpauth.CleanupGCPCredentials()
+	}
 
 	// load GCP configuration from gcloud CLI config or environment variables
 	if err := i.loadGCPConfig(); err != nil {
@@ -391,8 +379,9 @@ func (i *KubernetesRuntimeInfraGKE) GetConnection() (*kube.KubeConnectionInfo, e
 
 	ctx := context.Background()
 
-	// create cluster manager client
-	clusterManagerClient, err := container.NewClusterManagerClient(ctx, i.gcpClientOptions()...)
+	// create GKE cluster manager client
+	// This uses Application Default Credentials (ADC)
+	clusterManagerClient, err := container.NewClusterManagerClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create cluster manager client: %w", err)
 	}
@@ -419,8 +408,10 @@ func (i *KubernetesRuntimeInfraGKE) GetConnection() (*kube.KubeConnectionInfo, e
 		return nil, fmt.Errorf("failed to decode CA certificate: %w", err)
 	}
 
-	// get token source
-	tokenSource, err := i.tokenSource(ctx, "https://www.googleapis.com/auth/cloud-platform")
+	// get an access token for authentication
+	// TODO: Implement token refresh mechanism for long-running operations
+	// The token has a limited lifetime (typically 1 hour)
+	tokenSource, err := google.DefaultTokenSource(ctx, "https://www.googleapis.com/auth/cloud-platform")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get token source: %w", err)
 	}
@@ -497,8 +488,8 @@ func (i *KubernetesRuntimeInfraGKE) SetStackState(state *datatypes.JSON) error {
 func (i *KubernetesRuntimeInfraGKE) configureWorkloadIdentityBindingPostCreate() error {
 	ctx := context.Background()
 
-	// create IAM service client
-	iamService, err := gcpiam.NewService(ctx, i.gcpClientOptions(gcpoption.WithScopes(gcpiam.CloudPlatformScope))...)
+	// Create IAM service client
+	iamService, err := gcpiam.NewService(ctx, gcpoption.WithScopes(gcpiam.CloudPlatformScope))
 	if err != nil {
 		return fmt.Errorf("failed to create IAM service client: %w", err)
 	}
@@ -583,24 +574,3 @@ func (i *KubernetesRuntimeInfraGKE) loadGCPConfigFromFile() error {
 	return nil
 }
 
-// gcpClientOptions appends WithCredentialsJSON when ServiceAccountCredentials
-// is set. Otherwise it returns the base options.
-func (i *KubernetesRuntimeInfraGKE) gcpClientOptions(base ...gcpoption.ClientOption) []gcpoption.ClientOption {
-	if i.ServiceAccountCredentials == "" {
-		return base
-	}
-	return append(base, gcpoption.WithCredentialsJSON([]byte(i.ServiceAccountCredentials)))
-}
-
-// tokenSource returns an OAuth2 token source from this instance's service
-// account JSON when set, otherwise Application Default Credentials.
-func (i *KubernetesRuntimeInfraGKE) tokenSource(ctx context.Context, scopes ...string) (oauth2.TokenSource, error) {
-	if i.ServiceAccountCredentials == "" {
-		return google.DefaultTokenSource(ctx, scopes...)
-	}
-	creds, err := google.CredentialsFromJSON(ctx, []byte(i.ServiceAccountCredentials), scopes...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build credentials from service account JSON: %w", err)
-	}
-	return creds.TokenSource, nil
-}

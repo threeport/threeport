@@ -5,7 +5,6 @@ package v0
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -78,10 +77,6 @@ func GetLogBackendByID(apiClient *http.Client, apiAddr string, id uint) (*v0.Log
 	)
 	if err != nil {
 		return &logBackend, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return &logBackend, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -185,10 +180,6 @@ func CreateLogBackend(apiClient *http.Client, apiAddr string, logBackend *v0.Log
 		return logBackend, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	if len(response.Data) == 0 {
-		return logBackend, errors.New("threeport API returned no object in response data")
-	}
-
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return logBackend, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -229,10 +220,6 @@ func UpdateLogBackend(apiClient *http.Client, apiAddr string, logBackend *v0.Log
 	)
 	if err != nil {
 		return logBackend, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return logBackend, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -278,10 +265,6 @@ func ReplaceLogBackend(apiClient *http.Client, apiAddr string, logBackend *v0.Lo
 		return logBackend, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	if len(response.Data) == 0 {
-		return logBackend, errors.New("threeport API returned no object in response data")
-	}
-
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return logBackend, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -311,10 +294,6 @@ func DeleteLogBackend(apiClient *http.Client, apiAddr string, id uint) (*v0.LogB
 	)
 	if err != nil {
 		return &logBackend, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return &logBackend, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -395,10 +374,6 @@ func GetLogStorageDefinitionByID(apiClient *http.Client, apiAddr string, id uint
 	)
 	if err != nil {
 		return &logStorageDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return &logStorageDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -502,10 +477,6 @@ func CreateLogStorageDefinition(apiClient *http.Client, apiAddr string, logStora
 		return logStorageDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	if len(response.Data) == 0 {
-		return logStorageDefinition, errors.New("threeport API returned no object in response data")
-	}
-
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return logStorageDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -546,10 +517,6 @@ func UpdateLogStorageDefinition(apiClient *http.Client, apiAddr string, logStora
 	)
 	if err != nil {
 		return logStorageDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return logStorageDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -595,10 +562,6 @@ func ReplaceLogStorageDefinition(apiClient *http.Client, apiAddr string, logStor
 		return logStorageDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	if len(response.Data) == 0 {
-		return logStorageDefinition, errors.New("threeport API returned no object in response data")
-	}
-
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return logStorageDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -628,10 +591,6 @@ func DeleteLogStorageDefinition(apiClient *http.Client, apiAddr string, id uint)
 	)
 	if err != nil {
 		return &logStorageDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return &logStorageDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -712,10 +671,6 @@ func GetLogStorageInstanceByID(apiClient *http.Client, apiAddr string, id uint) 
 	)
 	if err != nil {
 		return &logStorageInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return &logStorageInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -819,10 +774,6 @@ func CreateLogStorageInstance(apiClient *http.Client, apiAddr string, logStorage
 		return logStorageInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	if len(response.Data) == 0 {
-		return logStorageInstance, errors.New("threeport API returned no object in response data")
-	}
-
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return logStorageInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -863,10 +814,6 @@ func UpdateLogStorageInstance(apiClient *http.Client, apiAddr string, logStorage
 	)
 	if err != nil {
 		return logStorageInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return logStorageInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -912,10 +859,6 @@ func ReplaceLogStorageInstance(apiClient *http.Client, apiAddr string, logStorag
 		return logStorageInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	if len(response.Data) == 0 {
-		return logStorageInstance, errors.New("threeport API returned no object in response data")
-	}
-
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return logStorageInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -945,10 +888,6 @@ func DeleteLogStorageInstance(apiClient *http.Client, apiAddr string, id uint) (
 	)
 	if err != nil {
 		return &logStorageInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return &logStorageInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])

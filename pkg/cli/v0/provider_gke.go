@@ -1,13 +1,10 @@
 package v0
 
 import (
-	"errors"
-	"fmt"
 	"net/http"
 
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -37,13 +34,13 @@ func ConfigureControlPlaneWithGkeConfig(
 		DefaultProvider: util.Ptr(true),
 		DefaultRegion:   &kubernetesRuntimeInfraGKE.Region,
 	}
-	createdGcpProvider, err := ensureGcpProvider(
+	createdGcpProvider, err := client.CreateGcpProvider(
 		apiClient,
 		threeportAPIEndpoint,
 		&gcpProvider,
 	)
 	if err != nil {
-		return uninstaller.cleanOnCreateError("failed to register default GCP provider", err)
+		return uninstaller.cleanOnCreateError("failed to create new default GCP provider", err)
 	}
 
 	// create GCP GKE kubernetes runtime definition
@@ -61,21 +58,19 @@ func ConfigureControlPlaneWithGkeConfig(
 		DefaultNodeGroupMaximumSize:   util.Ptr(int(kubernetesRuntimeInfraGKE.WorkerNodeInitialCount)),
 		KubernetesRuntimeDefinitionID: kubernetesRuntimeDefResult.ID,
 	}
-	createdGcpGkeKubernetesRuntimeDef, err := ensureGcpGkeKubernetesRuntimeDefinition(
+	createdGcpGkeKubernetesRuntimeDef, err := client.CreateGcpGkeKubernetesRuntimeDefinition(
 		apiClient,
 		threeportAPIEndpoint,
 		&gcpGkeKubernetesRuntimeDef,
 	)
 	if err != nil {
-		return uninstaller.cleanOnCreateError("failed to register GCP GKE kubernetes runtime definition for control plane cluster", err)
+		return uninstaller.cleanOnCreateError("failed to create new GCP GKE kubernetes runtime definition for control plane cluster", err)
 	}
 
-	// get resource inventory from pulumi state unless control-plane-only
+	// get resource inventory from Pulumi state
 	var resourceInventory *datatypes.JSON
-	if !cpi.Opts.ControlPlaneOnly {
-		if resourceInventory, err = kubernetesRuntimeInfraGKE.GetStackState(); err != nil {
-			return uninstaller.cleanOnCreateError("failed to get stack state: %w", err)
-		}
+	if resourceInventory, err = kubernetesRuntimeInfraGKE.GetStackState(); err != nil {
+		return uninstaller.cleanOnCreateError("failed to get stack state: %w", err)
 	}
 
 	// create GCP GKE kubernetes runtime instance
@@ -93,90 +88,14 @@ func ConfigureControlPlaneWithGkeConfig(
 		KubernetesRuntimeInstanceID:         kubernetesRuntimeInstResult.ID,
 		ResourceInventory:                   resourceInventory,
 	}
-	if _, err = ensureGcpGkeKubernetesRuntimeInstance(
+	_, err = client.CreateGcpGkeKubernetesRuntimeInstance(
 		apiClient,
 		threeportAPIEndpoint,
 		&gcpGkeKubernetesRuntimeInstance,
-	); err != nil {
-		return uninstaller.cleanOnCreateError("failed to register GCP GKE kubernetes runtime instance for control plane cluster", err)
+	)
+	if err != nil {
+		return uninstaller.cleanOnCreateError("failed to create new GCP GKE kubernetes runtime instance for control plane cluster", err)
 	}
 
 	return nil
-}
-
-// ensureGcpProvider returns the named GCP provider, creating it when
-// the API has no row for that name.
-func ensureGcpProvider(
-	apiClient *http.Client,
-	apiEndpoint string,
-	gcpProvider *v0.GcpProvider,
-) (*v0.GcpProvider, error) {
-	existing, err := client.GetGcpProviderByName(apiClient, apiEndpoint, *gcpProvider.Name)
-	if err == nil {
-		return existing, nil
-	}
-	if !errors.Is(err, client_lib.ErrObjectNotFound) {
-		return nil, fmt.Errorf("failed to look up gcp provider by name: %w", err)
-	}
-
-	created, err := client.CreateGcpProvider(apiClient, apiEndpoint, gcpProvider)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create gcp provider: %w", err)
-	}
-
-	return created, nil
-}
-
-// ensureGcpGkeKubernetesRuntimeDefinition returns the named GKE
-// runtime definition, creating it when the API has no row for that name.
-func ensureGcpGkeKubernetesRuntimeDefinition(
-	apiClient *http.Client,
-	apiEndpoint string,
-	definition *v0.GcpGkeKubernetesRuntimeDefinition,
-) (*v0.GcpGkeKubernetesRuntimeDefinition, error) {
-	existing, err := client.GetGcpGkeKubernetesRuntimeDefinitionByName(
-		apiClient,
-		apiEndpoint,
-		*definition.Name,
-	)
-	if err == nil {
-		return existing, nil
-	}
-	if !errors.Is(err, client_lib.ErrObjectNotFound) {
-		return nil, fmt.Errorf("failed to look up gcp gke kubernetes runtime definition by name: %w", err)
-	}
-
-	created, err := client.CreateGcpGkeKubernetesRuntimeDefinition(apiClient, apiEndpoint, definition)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create gcp gke kubernetes runtime definition: %w", err)
-	}
-
-	return created, nil
-}
-
-// ensureGcpGkeKubernetesRuntimeInstance returns the named GKE runtime
-// instance, creating it when the API has no row for that name.
-func ensureGcpGkeKubernetesRuntimeInstance(
-	apiClient *http.Client,
-	apiEndpoint string,
-	instance *v0.GcpGkeKubernetesRuntimeInstance,
-) (*v0.GcpGkeKubernetesRuntimeInstance, error) {
-	existing, err := client.GetGcpGkeKubernetesRuntimeInstanceByName(
-		apiClient,
-		apiEndpoint,
-		*instance.Name,
-	)
-	if err == nil {
-		return existing, nil
-	}
-	if !errors.Is(err, client_lib.ErrObjectNotFound) {
-		return nil, fmt.Errorf("failed to look up gcp gke kubernetes runtime instance by name: %w", err)
-	}
-
-	created, err := client.CreateGcpGkeKubernetesRuntimeInstance(apiClient, apiEndpoint, instance)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create gcp gke kubernetes runtime instance: %w", err)
-	}
-
-	return created, nil
 }

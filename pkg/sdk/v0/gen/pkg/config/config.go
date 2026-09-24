@@ -331,24 +331,6 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						).Values(),
 						Line(),
 
-						Comment("the instance and the definition are declared together because"),
-						Comment("the definition's create hands its new ID to the instance below,"),
-						Comment("which spares the instance a lookup by name - and with it a way for"),
-						Comment("a committed definition to be left without one"),
-						Comment("TODO: add appropriate fields to instance values object"),
-						Id(instConfigVar).Op(":=").Id(instConfigObjectName).Values(Dict{
-							Line().Id(instObject): Id(instValuesObjectName).Values(
-								Dict{
-									Id("Name"): Id(defInstValuesVar).Dot("Name"),
-									Id(defObject): Op("&").Id(defValuesObjectName).Values(Dict{
-										Id("Name"): Id(defInstValuesVar).Dot("Name"),
-									}),
-									Id("Age"): Id(defInstValuesVar).Dot("Age"),
-								},
-							).Op(",").Line(),
-						}),
-						Line(),
-
 						Commentf("add %s definition operation", defInstObjectHuman),
 						Comment("TODO: add appropriate fields to definition values object"),
 						Id(defConfigVar).Op(":=").Id(defConfigObjectName).Values(Dict{
@@ -409,12 +391,6 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 										Id(operatedDefsVar),
 										Op("*").Id(defVar),
 									),
-									Comment("hand the new ID to the instance created next, so it does"),
-									Comment("not read back the definition that was just written - a call"),
-									Comment("that can fail on its own and leave this definition without"),
-									Comment("its instance"),
-									Id(instConfigVar).Dot(instObject).Dot(defObject).Dot("ID").Op("=").
-										Id(defVar).Dot(defObject).Dot("ID"),
 									Return(Nil()),
 								),
 								Id("Replace"): Func().Params(Id("name").String()).Error().Block(
@@ -440,11 +416,6 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 										Id(operatedDefsVar),
 										Op("*").Id(defVar),
 									),
-									Comment("as in the create above: the instance replaced next is given"),
-									Comment("the ID rather than a lookup that could fail and leave the"),
-									Comment("definition replaced and the instance not"),
-									Id(instConfigVar).Dot(instObject).Dot(defObject).Dot("ID").Op("=").
-										Id(defVar).Dot(defObject).Dot("ID"),
 									Return(Nil()),
 								),
 								Id("Delete"): Func().Params().Error().Block(
@@ -475,6 +446,15 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						Line(),
 
 						Commentf("add %s instance operation", defInstObjectHuman),
+						Comment("TODO: add appropriate fields to instance values object"),
+						Id(instConfigVar).Op(":=").Id(instConfigObjectName).Values(Dict{
+							Line().Id(instObject): Id(instValuesObjectName).Values(
+								Dict{
+									Id("Name"): Id(defInstValuesVar).Dot("Name"),
+									Id("Age"):  Id(defInstValuesVar).Dot("Age"),
+								},
+							).Op(",").Line(),
+						}),
 						Id("operations").Dot("AppendOperation").Call(Qual(
 							"github.com/threeport/threeport/pkg/util/v0",
 							"Operation",
@@ -603,30 +583,12 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							fmt.Sprintf("%sConfigs", strcase.ToLowerCamel(defInstObject)),
 						).Index().Id(defInstConfigObjectName),
 						For(List(Op("_"), Id("inst")).Op(":=").Range().Op("*").Id(instsVar)).Block(
-							Comment("an instance with no name is not half of a defined instance, and"),
-							Comment("reading the name below would panic on it"),
-							If(Id("inst").Dot(instObject).Dot("Name").Op("==").Nil()).Block(
-								Continue(),
-							),
 							For(List(Op("_"), Id("def")).Op(":=").Range().Op("*").Id(defsVar)).Block(
-								If(Id("def").Dot(defObject).Dot("Name").Op("==").Nil()).Block(
-									Continue(),
-								),
 								Id("instName").Op(":=").Op("*").Id("inst").Dot(instObject).Dot("Name"),
 								Id("defName").Op(":=").Op("*").Id("def").Dot(defObject).Dot("Name"),
-								Comment("a defined instance is a definition and an instance sharing a"),
-								Comment("name, and the instance agreeing about which definition that is."),
-								Comment("The reference is checked rather than trusted: two objects can"),
-								Comment("carry one name while the instance belongs to another definition,"),
-								Comment("and pairing them would report a relationship that is not there."),
-								Comment("An instance Get leaves the reference nil only when the row has no"),
-								Comment("definition, which is not a defined instance either."),
-								If(
-									Id("instName").Op("==").Id("defName").Op("&&").
-										Id("inst").Dot(instObject).Dot(defObject).Op("!=").Nil().Op("&&").
-										Id("inst").Dot(instObject).Dot(defObject).Dot("Name").Op("!=").Nil().Op("&&").
-										Op("*").Id("inst").Dot(instObject).Dot(defObject).Dot("Name").Op("==").Id("defName"),
-								).Block(
+								Comment("a defined instance must have matching names for definition and instance"),
+								Comment("and the definition must be associated with the instance"),
+								If(Id("instName").Op("==").Id("defName").Op("&&").Op("*").Id("inst").Dot(instObject).Dot(defObject).Dot("Name").Op("==").Op("*").Id("def").Dot(defObject).Dot("Name")).Block(
 									Commentf(
 										"TODO: add fields needed for user to manage a %s and %s together",
 										defObject,
@@ -752,15 +714,6 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 								Id(defObject).Op("*").Id(defValuesObject),
 								Id("Age").Op("*").String(),
 							)
-						} else if apiObject.DefinedInstanceDefinition {
-							f.Type().Id(valuesObjectName).Struct(
-								Comment(configFieldTodoComment),
-								Id("Name").Op("*").String(),
-								Comment("the definition's ID, carried so an instance created alongside it"),
-								Comment("does not have to look the definition up by name again"),
-								Id("ID").Op("*").Uint(),
-								Id("Age").Op("*").String(),
-							)
 						} else {
 							f.Type().Id(valuesObjectName).Struct(
 								Comment(configFieldTodoComment),
@@ -882,75 +835,43 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						// Generate second phase: assemble config objects from API objects
 						g.Comment("assemble config objects from API objects")
 						g.Var().Id(fmt.Sprintf("%sConfigs", strcase.ToLowerCamel(apiObject.TypeName))).Index().Id(configObjectName)
-						if apiObject.DefinedInstanceInstance {
-							g.Comment("instances commonly share a definition, so a name once resolved")
-							g.Comment("is kept rather than fetched again for every row")
-							g.Id("definitionNames").Op(":=").Make(Map(Uint()).Op("*").String())
-						}
 						g.For(List(Op("_"), Id(objectVar)).Op(":=").Range().Op("*").Id(
 							fmt.Sprintf("%ss", strcase.ToLowerCamel(apiObject.TypeName)),
-						)).BlockFunc(func(b *Group) {
-							if apiObject.DefinedInstanceInstance {
-								b.Comment("the config abstraction names the definition an instance")
-								b.Comment("belongs to; the API object carries only its key")
-								b.Var().Id("definitionValues").Op("*").Id(defValuesObject)
-								b.If(Id(objectVar).Dot(fmt.Sprintf("%sID", defObject)).Op("!=").Nil()).BlockFunc(func(d *Group) {
-									d.Id("definitionKey").Op(":=").Op("*").Id(objectVar).Dot(fmt.Sprintf("%sID", defObject))
-									d.List(Id("definitionName"), Id("cached")).Op(":=").Id("definitionNames").Index(Id("definitionKey"))
-									d.If(Op("!").Id("cached")).Block(
-										List(Id("definition"), Id("err")).Op(":=").Qual(
-											clientImportPath, fmt.Sprintf("Get%sByID", defObject),
-										).Call(
-											Line().Id("apiClient"),
-											Line().Id("apiEndpoint"),
-											Line().Id("definitionKey"),
-											Line(),
-										),
-										If(Id("err").Op("!=").Nil()).Block(
-											Return(Nil(), Qual("fmt", "Errorf").Call(
-												Lit(fmt.Sprintf(
-													"failed to get %s with ID %%d: %%w",
-													strcase.ToDelimited(defObject, ' '),
-												)),
-												Id("definitionKey"),
-												Id("err"),
-											)),
-										),
-										Id("definitionName").Op("=").Id("definition").Dot("Name"),
-										Id("definitionNames").Index(Id("definitionKey")).Op("=").Id("definitionName"),
-									)
-									d.Id("definitionValues").Op("=").Op("&").Id(defValuesObject).Values(Dict{
-										Id("Name"): Id("definitionName"),
-										Id("ID"):   Op("&").Id("definitionKey"),
-									})
-								})
-								b.Line()
-							}
-							b.Comment(configFieldTodoComment)
-							b.Id(fmt.Sprintf("%sConfig", strcase.ToLowerCamel(apiObject.TypeName))).Op(":=").Id(configObjectName).ValuesFunc(func(h *Group) {
-								values := Dict{}
+						)).Block(
+							Comment(configFieldTodoComment),
+							Id(fmt.Sprintf("%sConfig", strcase.ToLowerCamel(apiObject.TypeName))).Op(":=").Id(configObjectName).ValuesFunc(func(h *Group) {
 								if apiObject.NameField {
-									values[Id("Name")] = Id(objectVar).Dot("Name")
+									h.Add(Dict{
+										Line().Id(apiObject.TypeName): Id(valuesObjectName).Values(
+											Dict{
+												Id("Name"): Id(objectVar).Dot("Name"),
+												Id("Age"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
+													Qual("github.com/threeport/threeport/pkg/util/v0", "GetAgeFormatted").Call(
+														Id(objectVar).Dot("CreatedAt"),
+													),
+												),
+											},
+										).Op(",").Line(),
+									})
+								} else {
+									h.Add(Dict{
+										Line().Id(apiObject.TypeName): Id(valuesObjectName).Values(
+											Dict{
+												Line().Id("Age"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
+													Qual("github.com/threeport/threeport/pkg/util/v0", "GetAgeFormatted").Call(
+														Id(objectVar).Dot("CreatedAt"),
+													),
+												),
+											},
+										).Op(",").Line(),
+									})
 								}
-								if apiObject.DefinedInstanceInstance {
-									values[Id(defObject)] = Id("definitionValues")
-								}
-								values[Id("Age")] = Qual(
-									"github.com/threeport/threeport/pkg/util/v0", "Ptr",
-								).Call(
-									Qual(
-										"github.com/threeport/threeport/pkg/util/v0", "GetAgeFormatted",
-									).Call(Id(objectVar).Dot("CreatedAt")),
-								)
-								h.Add(Dict{
-									Line().Id(apiObject.TypeName): Id(valuesObjectName).Values(values).Op(",").Line(),
-								})
-							})
-							b.Id(fmt.Sprintf("%sConfigs", strcase.ToLowerCamel(apiObject.TypeName))).Op("=").Id("append").Call(
+							}),
+							Id(fmt.Sprintf("%sConfigs", strcase.ToLowerCamel(apiObject.TypeName))).Op("=").Id("append").Call(
 								Id(fmt.Sprintf("%sConfigs", strcase.ToLowerCamel(apiObject.TypeName))),
 								Id(fmt.Sprintf("%sConfig", strcase.ToLowerCamel(apiObject.TypeName))),
-							)
-						})
+							),
+						)
 						g.Line()
 
 						g.Return(Op("&").Id(fmt.Sprintf("%sConfigs", strcase.ToLowerCamel(apiObject.TypeName))), Nil())
@@ -995,16 +916,6 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						}
 						g.Line()
 
-						if apiObject.DefinedInstanceInstance {
-							for _, statement := range definitionIdResolution(
-								fmt.Sprintf("%sValues", strcase.ToLowerCamel(apiObject.TypeName)),
-								defObject,
-								clientImportPath,
-							) {
-								g.Add(statement)
-							}
-						}
-
 						g.Comment(fmt.Sprintf("construct %s object", objectHuman))
 						g.Comment(apiObjFieldTodoComment)
 						g.Id(objectVar).Op(":=").Qual(
@@ -1033,8 +944,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 											Dict{
 												Line().Id("Name"): Id(fmt.Sprintf("%sValues", strcase.ToLowerCamel(apiObject.TypeName))).Dot("Name").Op(",").Line(),
 											},
-										),
-										Line().Id(fmt.Sprintf("%sID", defObject)): Id("definitionId"),
+										).Op(",").Line(),
 									})
 								default:
 									h.Add(Dict{
@@ -1073,22 +983,14 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							Dict{
 								Line().Id(apiObject.TypeName): Id(valuesObjectName).ValuesFunc(func(h *Group) {
 									if apiObject.NameField {
-										created := Dict{
+										h.Add(Dict{
 											Id("Name"): Id(fmt.Sprintf("created%s", apiObject.TypeName)).Dot("Name"),
 											Id("Age"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
 												Qual("github.com/threeport/threeport/pkg/util/v0", "GetAgeFormatted").Call(
 													Id(fmt.Sprintf("created%s", apiObject.TypeName)).Dot("CreatedAt"),
 												),
 											),
-										}
-										if apiObject.DefinedInstanceDefinition {
-											// the caller creating an instance next needs this
-											// rather than a second lookup by name
-											created[Id("ID")] = Id(
-												fmt.Sprintf("created%s", apiObject.TypeName),
-											).Dot("ID")
-										}
-										h.Add(created)
+										})
 									} else {
 										h.Add(Dict{
 											Line().Id("Age"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
@@ -1210,16 +1112,6 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						}
 						g.Line()
 
-						if apiObject.DefinedInstanceInstance {
-							for _, statement := range definitionIdResolution(
-								fmt.Sprintf("%sValues", strcase.ToLowerCamel(apiObject.TypeName)),
-								defObject,
-								clientImportPath,
-							) {
-								g.Add(statement)
-							}
-						}
-
 						g.Comment(fmt.Sprintf("construct updated %s object", objectHuman))
 						g.Comment(apiObjFieldTodoComment)
 						g.Id(fmt.Sprintf("updated%s", apiObject.TypeName)).Op(":=").Op("&").Qual(
@@ -1265,7 +1157,6 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 												Line().Id("Name"): Id(fmt.Sprintf("%sValues", strcase.ToLowerCamel(apiObject.TypeName))).Dot("Name").Op(",").Line(),
 											},
 										),
-										Id(fmt.Sprintf("%sID", defObject)): Id("definitionId"),
 									})
 								default:
 									h.Add(Dict{
@@ -1319,20 +1210,14 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							Dict{
 								Line().Id(apiObject.TypeName): Id(valuesObjectName).ValuesFunc(func(g *Group) {
 									if apiObject.NameField {
-										replaced := Dict{
+										g.Add(Dict{
 											Id("Name"): Id(fmt.Sprintf("replaced%s", apiObject.TypeName)).Dot("Name"),
 											Id("Age"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
 												Qual("github.com/threeport/threeport/pkg/util/v0", "GetAgeFormatted").Call(
 													Id(fmt.Sprintf("replaced%s", apiObject.TypeName)).Dot("CreatedAt"),
 												),
 											),
-										}
-										if apiObject.DefinedInstanceDefinition {
-											replaced[Id("ID")] = Id(
-												fmt.Sprintf("replaced%s", apiObject.TypeName),
-											).Dot("ID")
-										}
-										g.Add(replaced)
+										})
 									} else {
 										g.Add(Dict{
 											Line().Id("Age"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
@@ -1532,63 +1417,4 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	}
 
 	return nil
-}
-
-// definitionIdResolution emits the lookup that turns the definition a config
-// names into the foreign key the API object requires.
-//
-// An instance belongs to a definition, and the API rejects one without that
-// key. The config layer only carries the definition's name, so it has to be
-// resolved here - unless the caller already has the ID, which the combined
-// defined-instance flow does: it creates the definition first and passes the
-// ID straight through rather than reading back what it just wrote.
-func definitionIdResolution(
-	valuesVar string,
-	defObject string,
-	clientImportPath string,
-) []Code {
-	return []Code{
-		Comment(fmt.Sprintf(
-			"resolve the %s this instance belongs to", strcase.ToDelimited(defObject, ' '),
-		)),
-		Var().Id("definitionId").Op("*").Uint(),
-		Switch().BlockFunc(func(sw *Group) {
-			sw.Case(
-				Id(valuesVar).Dot(defObject).Op("!=").Nil().Op("&&").
-					Id(valuesVar).Dot(defObject).Dot("ID").Op("!=").Nil(),
-			).Block(
-				Id("definitionId").Op("=").Id(valuesVar).Dot(defObject).Dot("ID"),
-			)
-			sw.Case(
-				Id(valuesVar).Dot(defObject).Op("!=").Nil().Op("&&").
-					Id(valuesVar).Dot(defObject).Dot("Name").Op("!=").Nil(),
-			).BlockFunc(func(c *Group) {
-				c.List(Id("definition"), Id("err")).Op(":=").Qual(
-					clientImportPath, fmt.Sprintf("Get%sByName", defObject),
-				).Call(
-					Line().Id("apiClient"),
-					Line().Id("apiEndpoint"),
-					Line().Op("*").Id(valuesVar).Dot(defObject).Dot("Name"),
-					Line(),
-				)
-				c.If(Id("err").Op("!=").Nil()).Block(
-					Return(Nil(), Qual("fmt", "Errorf").Call(
-						Lit(fmt.Sprintf(
-							"failed to find %s with name %%s: %%w",
-							strcase.ToDelimited(defObject, ' '),
-						)),
-						Op("*").Id(valuesVar).Dot(defObject).Dot("Name"),
-						Id("err"),
-					)),
-				)
-				c.Id("definitionId").Op("=").Id("definition").Dot("ID")
-			})
-			sw.Default().Block(
-				Return(Nil(), Qual("errors", "New").Call(Lit(fmt.Sprintf(
-					"missing required field in config: %s", defObject,
-				)))),
-			)
-		}),
-		Line(),
-	}
 }

@@ -221,7 +221,9 @@ func sendThreeportUpdates(
 		ReportingController: "agent",
 	}
 	for _, evt := range *pendingEvents {
-		// skip a nil subject; retrying cannot fill it
+		// skip events that did not match any of the recognized subject
+		// types in the caller's switch; ObjectType/ObjectID are required
+		// to attach the AttachedObjectReference on create.
 		if evt.ObjectType == nil || evt.ObjectID == nil {
 			continue
 		}

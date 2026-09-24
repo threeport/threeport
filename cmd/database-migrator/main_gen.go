@@ -46,12 +46,6 @@ func main() {
 	}
 
 	args := flag.Args()
-
-	// a command is required before it can be read
-	if len(args) == 0 {
-		returnErr("", fmt.Errorf("no command provided"))
-	}
-
 	command := args[0]
 	arguments := []string{}
 	if len(args) > 1 {
@@ -197,7 +191,7 @@ func returnErr(msg string, err error) {
 // usage prints the usage info for database-migrator
 func usage() {
 	args := validArgs()
-	fmt.Printf("database-migrator initializes and manages the database schema for the Threeport API\n\nusage: database-migrator [-env-file /path/to/environment_file] <arguments>\n\nvalid arguments: %s\n\nexamples:\n\tInitialize the database by creating database and user:\n\tdatabase-migrator -env-file=/etc/threeport/env initialize\n\n\tRun database migrations to apply database schema:\n\tdatabase-migrator -env-file=/etc/threeport/env up\n", args)
+	fmt.Printf("database-migrator initializes and manages the database schema for the Threeport API\n\nusage: database-migrator [-env-file /path/to/environment_file] <arguments>\n\nvalid arguments: %s\n\nexamples:\n\tInitialize the database by creating database and user:\n\tdatabase-migrator -env-file=/etc/threeport/env initialize\n\n\tRun database migrations to apply database schema:\n\tdatabase-migrator -env-file=/etc/threeport/env up\n}\\n", args)
 }
 
 // validArgs returns all valid arguments to database-migrator

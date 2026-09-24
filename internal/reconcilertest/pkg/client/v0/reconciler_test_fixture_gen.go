@@ -5,7 +5,6 @@ package v0
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	v0 "github.com/threeport/threeport/internal/reconcilertest/pkg/api/v0"
 	tpapiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
@@ -78,10 +77,6 @@ func GetReconcilerTestInstanceByID(apiClient *http.Client, apiAddr string, id ui
 	)
 	if err != nil {
 		return &reconcilerTestInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return &reconcilerTestInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -185,10 +180,6 @@ func CreateReconcilerTestInstance(apiClient *http.Client, apiAddr string, reconc
 		return reconcilerTestInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	if len(response.Data) == 0 {
-		return reconcilerTestInstance, errors.New("threeport API returned no object in response data")
-	}
-
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return reconcilerTestInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -229,10 +220,6 @@ func UpdateReconcilerTestInstance(apiClient *http.Client, apiAddr string, reconc
 	)
 	if err != nil {
 		return reconcilerTestInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return reconcilerTestInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -278,10 +265,6 @@ func ReplaceReconcilerTestInstance(apiClient *http.Client, apiAddr string, recon
 		return reconcilerTestInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	if len(response.Data) == 0 {
-		return reconcilerTestInstance, errors.New("threeport API returned no object in response data")
-	}
-
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return reconcilerTestInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -311,10 +294,6 @@ func DeleteReconcilerTestInstance(apiClient *http.Client, apiAddr string, id uin
 	)
 	if err != nil {
 		return &reconcilerTestInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return &reconcilerTestInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -395,10 +374,6 @@ func GetReconcilerTestVolatileInstanceByID(apiClient *http.Client, apiAddr strin
 	)
 	if err != nil {
 		return &reconcilerTestVolatileInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return &reconcilerTestVolatileInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -502,10 +477,6 @@ func CreateReconcilerTestVolatileInstance(apiClient *http.Client, apiAddr string
 		return reconcilerTestVolatileInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	if len(response.Data) == 0 {
-		return reconcilerTestVolatileInstance, errors.New("threeport API returned no object in response data")
-	}
-
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return reconcilerTestVolatileInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -546,10 +517,6 @@ func UpdateReconcilerTestVolatileInstance(apiClient *http.Client, apiAddr string
 	)
 	if err != nil {
 		return reconcilerTestVolatileInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return reconcilerTestVolatileInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -595,10 +562,6 @@ func ReplaceReconcilerTestVolatileInstance(apiClient *http.Client, apiAddr strin
 		return reconcilerTestVolatileInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	if len(response.Data) == 0 {
-		return reconcilerTestVolatileInstance, errors.New("threeport API returned no object in response data")
-	}
-
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return reconcilerTestVolatileInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -628,10 +591,6 @@ func DeleteReconcilerTestVolatileInstance(apiClient *http.Client, apiAddr string
 	)
 	if err != nil {
 		return &reconcilerTestVolatileInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return &reconcilerTestVolatileInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])

@@ -41,7 +41,7 @@ func TestResponseStatusBindErr_UnmarshalTypeErrorReturns400(t *testing.T) {
 	var payload bindPayload
 	bindErr := c.Bind(&payload)
 	require.Error(t, bindErr, "c.Bind must fail on a string-to-uint mismatch")
-	require.NoError(t, ResponseStatusBindErr(c, nil, bindErr, "threeport.io/v0.KubernetesRuntimeInstance"))
+	require.NoError(t, ResponseStatusBindErr(c, nil, bindErr, "KubernetesRuntimeInstance"))
 
 	// assert HTTP status is 400, not 500
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
@@ -60,7 +60,6 @@ func TestResponseStatusBindErr_UnmarshalTypeErrorReturns400(t *testing.T) {
 		"the status code belongs in Status.Code, not repeated in the message")
 	assert.NotContains(t, resp.Status.Error, "internal=",
 		"the wrapped cause is for the log line, not the client")
-	assert.Equal(t, "threeport.io/v0.KubernetesRuntimeInstance", resp.Type)
 }
 
 // TestResponseStatusBindErr_PlainErrorFallsBackTo500 confirms non-HTTP

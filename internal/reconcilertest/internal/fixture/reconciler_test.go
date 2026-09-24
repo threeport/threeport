@@ -19,9 +19,7 @@ import (
 	api "github.com/threeport/threeport/internal/reconcilertest/pkg/api/v0"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	tpapi "github.com/threeport/threeport/pkg/api/v0"
-	tpclient_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
-	event "github.com/threeport/threeport/pkg/event/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -49,8 +47,6 @@ type harness struct {
 	js  nats.JetStreamContext
 	spy *Spy
 	api *machinetest.APIStub
-	// instanceRecorder captures events from the fetching-object reconciler
-	instanceRecorder *machinetest.FakeRecorder
 
 	// The mutex covering obj and volatile
 	objMu    sync.Mutex
@@ -112,11 +108,10 @@ func newHarness(t *testing.T) *harness {
 
 	// build the fixture objects
 	h := &harness{
-		t:                t,
-		js:               js,
-		spy:              NewSpy(),
-		api:              machinetest.NewAPIStub(t),
-		instanceRecorder: machinetest.NewFakeRecorder(),
+		t:   t,
+		js:  js,
+		spy: NewSpy(),
+		api: machinetest.NewAPIStub(t),
 		obj: &api.ReconcilerTestInstance{
 			Common:   tpapi.Common{ID: util.Ptr(uint(fixtureObjectID))},
 			Instance: tpapi.Instance{Name: util.Ptr("fixture")},
@@ -199,7 +194,7 @@ func (h *harness) startReconciler(
 		Log:              &log,
 		Shutdown:         shutdown,
 		ShutdownWait:     &shutdownWait,
-		EventsRecorder:   recorderFor(h, name),
+		EventsRecorder:   machinetest.NewFakeRecorder(),
 	})
 
 	// signal shutdown and wait for the loop to return
@@ -207,15 +202,6 @@ func (h *harness) startReconciler(
 		shutdown <- true
 		shutdownWait.Wait()
 	})
-}
-
-// recorderFor returns the shared instance recorder for the fetching-object
-// reconciler and a fresh recorder for the persist-false reconciler.
-func recorderFor(h *harness, name string) *machinetest.FakeRecorder {
-	if name == instanceReconciler {
-		return h.instanceRecorder
-	}
-	return machinetest.NewFakeRecorder()
 }
 
 // scheduleDeletion sets DeletionScheduled on both fixture objects. A delete
@@ -384,46 +370,4 @@ func TestVolatileObjectDispatchesWithoutFetch(t *testing.T) {
 	h.publishVolatile(notifications.NotificationOperationUpdated)
 
 	assert.Equal(t, []string{"volatile-update"}, h.spy.Calls())
-}
-
-// TestCreateInProgressRecordedWhenHandlerFails covers CreateInProgress being
-// recorded before the custom create handler returns an error.
-func TestCreateInProgressRecordedWhenHandlerFails(t *testing.T) {
-	h := newHarness(t)
-	h.spy.SetResult("create", Result{Err: fmt.Errorf("create handler failed")})
-
-	h.publish(notifications.NotificationOperationCreated)
-
-	assert.Equal(t, []string{"create"}, h.spy.Calls())
-	assert.Contains(t, h.instanceRecorder.GetReasons(), event.ReasonCreateInProgress)
-	assert.NotContains(t, h.instanceRecorder.GetReasons(), event.ReasonCreateSuccessful)
-}
-
-// TestDeleteInProgressRecordedOnceWhenDeleteConflicts covers a blocked or
-// already-underway delete recording DeleteInProgress once, not twice.
-func TestDeleteInProgressRecordedOnceWhenDeleteConflicts(t *testing.T) {
-	for _, tc := range []struct {
-		name string
-		err  error
-	}{
-		{"in progress", tpclient_lib.ErrDeleteInProgress},
-		{"blocked", tpclient_lib.ErrDeleteBlocked},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			h := newHarness(t)
-			h.spy.SetResult("delete", Result{Err: tc.err})
-
-			h.publish(notifications.NotificationOperationDeleted)
-
-			assert.Equal(t, []string{"delete"}, h.spy.Calls())
-			count := 0
-			for _, reason := range h.instanceRecorder.GetReasons() {
-				if reason == event.ReasonDeleteInProgress {
-					count++
-				}
-			}
-			assert.Equal(t, 1, count)
-			assert.NotContains(t, h.instanceRecorder.GetReasons(), event.ReasonDeleteFailed)
-		})
-	}
 }

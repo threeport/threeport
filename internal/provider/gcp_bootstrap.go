@@ -34,12 +34,8 @@ const (
 var threeportServiceAccountRoles = []string{
 	// GKE cluster management
 	"roles/container.admin",
-	// VPC, subnets, and routes
+	// Compute Engine resources (for VPC, subnets, firewalls)
 	"roles/compute.networkAdmin",
-	// GCE VMs for the machine provider
-	"roles/compute.instanceAdmin.v1",
-	// firewall rules; networkAdmin does not grant them
-	"roles/compute.securityAdmin",
 	// IAM management for creating service accounts for workloads
 	"roles/iam.serviceAccountAdmin",
 	"roles/iam.serviceAccountUser",
@@ -115,23 +111,12 @@ func (i *KubernetesRuntimeInfraGKE) createGCPServiceAccountAndCredentials() erro
 
 // createGCPServiceAccount creates a new GCP service account for Threeport operations.
 func (i *KubernetesRuntimeInfraGKE) createGCPServiceAccount(iamService *iam.Service) error {
-	// reject a runtime name that would collide after service-account ID truncation
-	if !canonicalGCPAccountName(i.RuntimeInstanceName) {
-		return fmt.Errorf("GCP runtime instance name %q is not a unique service-account identity; use lowercase letters, digits, and hyphens", i.RuntimeInstanceName)
-	}
-
 	serviceAccountID := i.getServiceAccountID()
 	displayName := fmt.Sprintf(serviceAccountDisplayFormat, i.RuntimeInstanceName)
-	description := gkeServiceAccountDescription(i.RuntimeInstanceName)
+	description := fmt.Sprintf("Service account for Threeport instance %s to manage GCP resources", i.RuntimeInstanceName)
 
-	// create or reuse the named account
-	account, existed, err := createServiceAccountForProject(iamService, i.ProjectID, serviceAccountID, displayName, description)
+	account, err := createServiceAccountForProject(iamService, i.ProjectID, serviceAccountID, displayName, description)
 	if err != nil {
-		return err
-	}
-
-	// refuse an existing account this runtime did not create
-	if err := refuseUnownedExistingGCPServiceAccount(account, existed, i.RuntimeInstanceName); err != nil {
 		return err
 	}
 
@@ -468,34 +453,22 @@ func CreateGCPServiceAccountWithKey(projectID, accountName string) (*GCPServiceA
 		return nil, fmt.Errorf("failed to create Cloud Resource Manager service client: %w", err)
 	}
 
-	if !canonicalGCPAccountName(accountName) {
-		return nil, fmt.Errorf("GCP provider name %q is not a unique service-account identity; use lowercase letters, digits, and hyphens", accountName)
-	}
-
 	// Generate service account ID and create the service account
 	serviceAccountID := generateServiceAccountID(accountName)
 	displayName := fmt.Sprintf(serviceAccountDisplayFormat, accountName)
-	description := fmt.Sprintf(
-		"Service account for Threeport GcpProvider %s to manage GCP resources; %s",
-		accountName,
-		GcpOwnershipDescription(accountName),
-	)
+	description := fmt.Sprintf("Service account for Threeport GcpProvider %s to manage GCP resources", accountName)
 
-	account, existed, err := createServiceAccountForProject(iamService, projectID, serviceAccountID, displayName, description)
+	account, err := createServiceAccountForProject(iamService, projectID, serviceAccountID, displayName, description)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create service account: %w", err)
 	}
 
-	if err := refuseUnownedExistingGCPServiceAccount(account, existed, accountName); err != nil {
-		return nil, err
-	}
-
-	// grant IAM roles to the service account
+	// Grant IAM roles to the service account
 	if err := grantServiceAccountRolesForProject(crmService, projectID, account.Email); err != nil {
 		return nil, fmt.Errorf("failed to grant IAM roles: %w", err)
 	}
 
-	// create JSON key for controllers running outside GCP
+	// Create and export a key for the service account
 	keyRequest := &iam.CreateServiceAccountKeyRequest{
 		PrivateKeyType: "TYPE_GOOGLE_CREDENTIALS_FILE",
 	}
@@ -566,30 +539,33 @@ func DeleteGCPServiceAccountWithKey(projectID, accountName string) error {
 	return nil
 }
 
-// createServiceAccountForProject returns the named service account, creating it
-// when Get reports not found. The bool is true when the account already existed.
+// createServiceAccountForProject creates a GCP service account in the specified project.
+// This is the common implementation used by both the KubernetesRuntimeInfraGKE method
+// and the standalone CreateGCPServiceAccountWithKey function.
 func createServiceAccountForProject(
 	iamService *iam.Service,
 	projectID string,
 	serviceAccountID string,
 	displayName string,
 	description string,
-) (*iam.ServiceAccount, bool, error) {
+) (*iam.ServiceAccount, error) {
 	serviceAccountEmail := fmt.Sprintf("%s@%s.iam.gserviceaccount.com", serviceAccountID, projectID)
 	serviceAccountResource := fmt.Sprintf("projects/%s/serviceAccounts/%s", projectID, serviceAccountEmail)
 
-	// report an existing account; CreateGCPServiceAccountWithKey reuses an owned one
+	// Check if service account already exists
 	existingAccount, err := iamService.Projects.ServiceAccounts.Get(serviceAccountResource).Do()
 	if err == nil {
-		return existingAccount, true, nil
+		// Service account exists, return it
+		fmt.Printf("Using existing GCP service account: %s\n", existingAccount.Email)
+		return existingAccount, nil
 	}
 
-	// treat only not-found as a create; other Get errors fail the call
+	// Check if error is "not found" - if so, create the account
 	if !isNotFoundError(err) {
-		return nil, false, fmt.Errorf("failed to check for existing service account: %w", err)
+		return nil, fmt.Errorf("failed to check for existing service account: %w", err)
 	}
 
-	// create the service account
+	// Create new service account
 	createRequest := &iam.CreateServiceAccountRequest{
 		AccountId: serviceAccountID,
 		ServiceAccount: &iam.ServiceAccount{
@@ -603,46 +579,12 @@ func createServiceAccountForProject(
 		createRequest,
 	).Do()
 	if err != nil {
-		return nil, false, wrapIAMServiceAccountCreateError(projectID, err)
+		return nil, wrapIAMServiceAccountCreateError(projectID, err)
 	}
 
 	fmt.Printf("Created GCP service account: %s\n", account.Email)
 
-	return account, false, nil
-}
-
-// serviceAccountOwnedBy reports whether the account description records the
-// same ownership pair GcpResourceLabels would put on a Compute resource.
-func serviceAccountOwnedBy(account *iam.ServiceAccount, ownerName string) bool {
-	if account == nil {
-		return false
-	}
-	return strings.HasSuffix(account.Description, GcpOwnershipDescription(ownerName))
-}
-
-// gkeServiceAccountDescription is the IAM description written for a GKE bootstrap account.
-func gkeServiceAccountDescription(runtimeInstanceName string) string {
-	return fmt.Sprintf(
-		"Service account for Threeport instance %s to manage GCP resources; %s",
-		runtimeInstanceName,
-		GcpOwnershipDescription(runtimeInstanceName),
-	)
-}
-
-// refuseUnownedExistingGCPServiceAccount rejects reuse of an account this owner did not create.
-func refuseUnownedExistingGCPServiceAccount(account *iam.ServiceAccount, existed bool, ownerName string) error {
-	if !existed {
-		return nil
-	}
-	if serviceAccountOwnedBy(account, ownerName) {
-		return nil
-	}
-
-	email := ""
-	if account != nil {
-		email = account.Email
-	}
-	return fmt.Errorf("GCP service account %s already exists; pick a different name", email)
+	return account, nil
 }
 
 // removeServiceAccountRolesForProject removes all IAM roles granted to a service account.
@@ -788,23 +730,6 @@ func isNotFoundError(err error) bool {
 // This is used when creating service accounts via tptctl create gcp-provider.
 func generateServiceAccountID(name string) string {
 	return formatServiceAccountID(serviceAccountNameFormat, name)
-}
-
-// canonicalGCPAccountName reports whether name is already the unique
-// lowercase [a-z0-9-] form, and whether generateServiceAccountID keeps it
-// without truncating to 30 characters.
-func canonicalGCPAccountName(name string) bool {
-	if name == "" {
-		return false
-	}
-	for _, r := range name {
-		if (r < 'a' || r > 'z') && (r < '0' || r > '9') && r != '-' {
-			return false
-		}
-	}
-	id := generateServiceAccountID(name)
-	full := strings.ToLower(fmt.Sprintf(serviceAccountNameFormat, name))
-	return id == full
 }
 
 // grantServiceAccountRolesForProject grants the necessary IAM roles to a service account.

@@ -1,8 +1,6 @@
 package gcp
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
@@ -12,13 +10,9 @@ import (
 	notif "github.com/threeport/threeport/internal/gcp/notif"
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
-	encryption "github.com/threeport/threeport/pkg/encryption/v0"
-	event "github.com/threeport/threeport/pkg/event/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
-	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // gkeLifecycle implements provider.InfraLifecycleProvider for GCP GKE
@@ -28,17 +22,6 @@ type gkeLifecycle struct {
 	instanceID uint
 	instance   *v0.GcpGkeKubernetesRuntimeInstance
 	log        *logr.Logger
-}
-
-var _ provider.InfraLifecycleProvider = (*gkeLifecycle)(nil)
-
-// StackKey returns the runtime-instance name so the shared state machine
-// serializes pulumi operations against one local state directory.
-func (g *gkeLifecycle) StackKey() string {
-	if g.instance == nil || g.instance.Name == nil {
-		return ""
-	}
-	return *g.instance.Name
 }
 
 // newGkeLifecycleProvider constructs an InfraLifecycleProvider for GKE.
@@ -175,49 +158,8 @@ func (g *gkeLifecycle) SaveCreateOutputs(_ provider.InfraProvider, state *dataty
 	return nil
 }
 
-// OnDeleteConfirmed triggers deletion of the parent KubernetesRuntimeInstance
-// if it has not already been scheduled for deletion.  This handles the case
-// where a GcpGkeKubernetesRuntimeInstance is deleted directly (not via the
-// KRI deletion flow), leaving the parent KRI orphaned.  In the normal KRI
-// deletion flow the parent is already hard-deleted by the time this runs, so
-// a not-found response is treated as a no-op.
+// OnDeleteConfirmed performs provider-specific post-deletion cleanup.
 func (g *gkeLifecycle) OnDeleteConfirmed(_ provider.InfraProvider) error {
-	latest, err := client.GetGcpGkeKubernetesRuntimeInstanceByID(
-		g.r.APIClient,
-		g.r.APIServer,
-		g.instanceID,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to get GKE instance for parent KRI cleanup: %w", err)
-	}
-
-	kri, err := client.GetKubernetesRuntimeInstanceByID(
-		g.r.APIClient,
-		g.r.APIServer,
-		*latest.KubernetesRuntimeInstanceID,
-	)
-	if err != nil {
-		if errors.Is(err, client_lib.ErrObjectNotFound) {
-			// KRI already deleted - normal flow where KRI deletion completes
-			// before the GKE cluster destroy finishes
-			return nil
-		}
-		return fmt.Errorf("failed to get parent KRI: %w", err)
-	}
-
-	if kri.DeletionScheduled != nil {
-		// deletion already in progress via the normal KRI flow
-		return nil
-	}
-
-	if _, err = client.DeleteKubernetesRuntimeInstance(
-		g.r.APIClient,
-		g.r.APIServer,
-		*kri.ID,
-	); err != nil {
-		return fmt.Errorf("failed to trigger parent KRI deletion: %w", err)
-	}
-
 	return nil
 }
 
@@ -260,34 +202,6 @@ func (g *gkeLifecycle) SetCreationFailed() error {
 	}
 	_, err := client.UpdateGcpGkeKubernetesRuntimeInstance(g.r.APIClient, g.r.APIServer, &failedUpdate)
 	return err
-}
-
-// SetDeletionFailed marks DeletionFailed=true in the API.
-func (g *gkeLifecycle) SetDeletionFailed() error {
-	deletionFailed := true
-	failedUpdate := v0.GcpGkeKubernetesRuntimeInstance{
-		Common: v0.Common{ID: &g.instanceID},
-		Reconciliation: v0.Reconciliation{
-			DeletionFailed: &deletionFailed,
-		},
-	}
-	_, err := client.UpdateGcpGkeKubernetesRuntimeInstance(g.r.APIClient, g.r.APIServer, &failedUpdate)
-	return err
-}
-
-// RecordSuccessfulCreate records a CreateSuccessful event for provisioning
-// completion. ConfirmCreation sets Reconciled=true first, so the generated
-// reconciler's wasReconciled gate skips its own emit on redelivery.
-func (g *gkeLifecycle) RecordSuccessfulCreate() error {
-	return g.r.EventsRecorder.RecordEvent(
-		&v0.Event{
-			Type:   util.Ptr(event.TypeNormal),
-			Reason: util.Ptr(event.ReasonCreateSuccessful),
-			Note:   util.Ptr("provisioning complete"),
-		},
-		g.instance.GetId(),
-		g.instance.GetFullyQualifiedType(),
-	)
 }
 
 // ConfirmCreation sets CreationConfirmed and Reconciled=true.
@@ -427,38 +341,11 @@ func buildGkeInfra(
 		ProjectID:              *gcpProvider.ProjectID,
 		Region:                 *instance.Region,
 		WorkerNodeInitialCount: int32(*definition.DefaultNodeGroupInitialSize),
-		MachineType:            *definition.DefaultNodeGroupInstanceType,
-		MinNodeCount:           int32(*definition.DefaultNodeGroupMinimumSize),
-		MaxNodeCount:           int32(*definition.DefaultNodeGroupMaximumSize),
 	}
 
 	if gcpProvider.ServiceAccountCredentials != nil && *gcpProvider.ServiceAccountCredentials != "" {
-		decryptedCredentials, err := encryption.Decrypt(r.EncryptionKey, *gcpProvider.ServiceAccountCredentials)
-		if err != nil {
-			return nil, fmt.Errorf("failed to decrypt gcp provider service account credentials: %w", err)
-		}
-		infraGKE.ServiceAccountCredentials = decryptedCredentials
-		email, err := serviceAccountEmailFromCredentials(decryptedCredentials)
-		if err != nil {
-			return nil, fmt.Errorf("failed to extract service account email: %w", err)
-		}
-		infraGKE.ServiceAccountEmail = email
+		infraGKE.ServiceAccountCredentials = *gcpProvider.ServiceAccountCredentials
 	}
 
 	return infraGKE, nil
-}
-
-// serviceAccountEmailFromCredentials extracts the client_email field from a
-// GCP service account key JSON blob.
-func serviceAccountEmailFromCredentials(credentialsJSON string) (string, error) {
-	var key struct {
-		ClientEmail string `json:"client_email"`
-	}
-	if err := json.Unmarshal([]byte(credentialsJSON), &key); err != nil {
-		return "", fmt.Errorf("failed to parse service account credentials JSON: %w", err)
-	}
-	if key.ClientEmail == "" {
-		return "", fmt.Errorf("service account credentials JSON has no client_email field")
-	}
-	return key.ClientEmail, nil
 }

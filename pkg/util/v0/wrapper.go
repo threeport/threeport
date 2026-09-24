@@ -20,10 +20,6 @@ func Retry(
 			return nil
 		}
 		attempts++
-		// skip the wait after the final attempt
-		if attempts == attemptsMax {
-			break
-		}
 		time.Sleep(time.Second * time.Duration(waitDurationSeconds))
 	}
 	return fmt.Errorf("failed after %d attempts: %w", attemptsMax, err)

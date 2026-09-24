@@ -5,7 +5,6 @@ package v0
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -78,10 +77,6 @@ func GetMachineWorkloadDefinitionByID(apiClient *http.Client, apiAddr string, id
 	)
 	if err != nil {
 		return &machineWorkloadDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return &machineWorkloadDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -185,10 +180,6 @@ func CreateMachineWorkloadDefinition(apiClient *http.Client, apiAddr string, mac
 		return machineWorkloadDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	if len(response.Data) == 0 {
-		return machineWorkloadDefinition, errors.New("threeport API returned no object in response data")
-	}
-
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return machineWorkloadDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -229,10 +220,6 @@ func UpdateMachineWorkloadDefinition(apiClient *http.Client, apiAddr string, mac
 	)
 	if err != nil {
 		return machineWorkloadDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return machineWorkloadDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -278,10 +265,6 @@ func ReplaceMachineWorkloadDefinition(apiClient *http.Client, apiAddr string, ma
 		return machineWorkloadDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	if len(response.Data) == 0 {
-		return machineWorkloadDefinition, errors.New("threeport API returned no object in response data")
-	}
-
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return machineWorkloadDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -311,10 +294,6 @@ func DeleteMachineWorkloadDefinition(apiClient *http.Client, apiAddr string, id 
 	)
 	if err != nil {
 		return &machineWorkloadDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return &machineWorkloadDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -395,10 +374,6 @@ func GetMachineWorkloadInstanceByID(apiClient *http.Client, apiAddr string, id u
 	)
 	if err != nil {
 		return &machineWorkloadInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return &machineWorkloadInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -502,10 +477,6 @@ func CreateMachineWorkloadInstance(apiClient *http.Client, apiAddr string, machi
 		return machineWorkloadInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	if len(response.Data) == 0 {
-		return machineWorkloadInstance, errors.New("threeport API returned no object in response data")
-	}
-
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return machineWorkloadInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -546,10 +517,6 @@ func UpdateMachineWorkloadInstance(apiClient *http.Client, apiAddr string, machi
 	)
 	if err != nil {
 		return machineWorkloadInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return machineWorkloadInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -595,10 +562,6 @@ func ReplaceMachineWorkloadInstance(apiClient *http.Client, apiAddr string, mach
 		return machineWorkloadInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	if len(response.Data) == 0 {
-		return machineWorkloadInstance, errors.New("threeport API returned no object in response data")
-	}
-
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return machineWorkloadInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -628,10 +591,6 @@ func DeleteMachineWorkloadInstance(apiClient *http.Client, apiAddr string, id ui
 	)
 	if err != nil {
 		return &machineWorkloadInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return &machineWorkloadInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])

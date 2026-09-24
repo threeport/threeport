@@ -5,7 +5,6 @@ package v0
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -78,10 +77,6 @@ func GetProfileByID(apiClient *http.Client, apiAddr string, id uint) (*v0.Profil
 	)
 	if err != nil {
 		return &profile, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return &profile, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -185,10 +180,6 @@ func CreateProfile(apiClient *http.Client, apiAddr string, profile *v0.Profile) 
 		return profile, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	if len(response.Data) == 0 {
-		return profile, errors.New("threeport API returned no object in response data")
-	}
-
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return profile, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -229,10 +220,6 @@ func UpdateProfile(apiClient *http.Client, apiAddr string, profile *v0.Profile) 
 	)
 	if err != nil {
 		return profile, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return profile, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -278,10 +265,6 @@ func ReplaceProfile(apiClient *http.Client, apiAddr string, profile *v0.Profile)
 		return profile, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	if len(response.Data) == 0 {
-		return profile, errors.New("threeport API returned no object in response data")
-	}
-
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return profile, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -311,10 +294,6 @@ func DeleteProfile(apiClient *http.Client, apiAddr string, id uint) (*v0.Profile
 	)
 	if err != nil {
 		return &profile, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return &profile, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -395,10 +374,6 @@ func GetTierByID(apiClient *http.Client, apiAddr string, id uint) (*v0.Tier, err
 	)
 	if err != nil {
 		return &tier, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return &tier, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -502,10 +477,6 @@ func CreateTier(apiClient *http.Client, apiAddr string, tier *v0.Tier) (*v0.Tier
 		return tier, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	if len(response.Data) == 0 {
-		return tier, errors.New("threeport API returned no object in response data")
-	}
-
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return tier, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -546,10 +517,6 @@ func UpdateTier(apiClient *http.Client, apiAddr string, tier *v0.Tier) (*v0.Tier
 	)
 	if err != nil {
 		return tier, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return tier, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -595,10 +562,6 @@ func ReplaceTier(apiClient *http.Client, apiAddr string, tier *v0.Tier) (*v0.Tie
 		return tier, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	if len(response.Data) == 0 {
-		return tier, errors.New("threeport API returned no object in response data")
-	}
-
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return tier, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -628,10 +591,6 @@ func DeleteTier(apiClient *http.Client, apiAddr string, id uint) (*v0.Tier, erro
 	)
 	if err != nil {
 		return &tier, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return &tier, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])

@@ -5,7 +5,7 @@ type Profile struct {
 	Common `swaggerignore:"true" mapstructure:",squash"`
 
 	// The unique name of a profile
-	Name *string `validate:"required" gorm:"not null;uniqueIndex:,where:deleted_at IS NULL"`
+	Name *string `validate:"required" gorm:"not null"`
 }
 
 // Tier is a level of criticality for access control.  Common tiers would be
@@ -16,7 +16,7 @@ type Tier struct {
 	Common `swaggerignore:"true" mapstructure:",squash"`
 
 	// The unique name of a tier.
-	Name *string `validate:"required" gorm:"not null;uniqueIndex:,where:deleted_at IS NULL"`
+	Name *string `validate:"required" gorm:"not null"`
 
 	// The relative rank of criticality between tiers.  The higher the number,
 	// the greater the criticality.  For example, a development tier could have

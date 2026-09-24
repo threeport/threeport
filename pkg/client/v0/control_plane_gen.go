@@ -5,7 +5,6 @@ package v0
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -78,10 +77,6 @@ func GetControlPlaneDefinitionByID(apiClient *http.Client, apiAddr string, id ui
 	)
 	if err != nil {
 		return &controlPlaneDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return &controlPlaneDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -185,10 +180,6 @@ func CreateControlPlaneDefinition(apiClient *http.Client, apiAddr string, contro
 		return controlPlaneDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	if len(response.Data) == 0 {
-		return controlPlaneDefinition, errors.New("threeport API returned no object in response data")
-	}
-
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return controlPlaneDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -229,10 +220,6 @@ func UpdateControlPlaneDefinition(apiClient *http.Client, apiAddr string, contro
 	)
 	if err != nil {
 		return controlPlaneDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return controlPlaneDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -278,10 +265,6 @@ func ReplaceControlPlaneDefinition(apiClient *http.Client, apiAddr string, contr
 		return controlPlaneDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	if len(response.Data) == 0 {
-		return controlPlaneDefinition, errors.New("threeport API returned no object in response data")
-	}
-
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return controlPlaneDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -311,10 +294,6 @@ func DeleteControlPlaneDefinition(apiClient *http.Client, apiAddr string, id uin
 	)
 	if err != nil {
 		return &controlPlaneDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return &controlPlaneDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -395,10 +374,6 @@ func GetControlPlaneInstanceByID(apiClient *http.Client, apiAddr string, id uint
 	)
 	if err != nil {
 		return &controlPlaneInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return &controlPlaneInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -502,10 +477,6 @@ func CreateControlPlaneInstance(apiClient *http.Client, apiAddr string, controlP
 		return controlPlaneInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	if len(response.Data) == 0 {
-		return controlPlaneInstance, errors.New("threeport API returned no object in response data")
-	}
-
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return controlPlaneInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -546,10 +517,6 @@ func UpdateControlPlaneInstance(apiClient *http.Client, apiAddr string, controlP
 	)
 	if err != nil {
 		return controlPlaneInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return controlPlaneInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -595,10 +562,6 @@ func ReplaceControlPlaneInstance(apiClient *http.Client, apiAddr string, control
 		return controlPlaneInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	if len(response.Data) == 0 {
-		return controlPlaneInstance, errors.New("threeport API returned no object in response data")
-	}
-
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return controlPlaneInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -628,10 +591,6 @@ func DeleteControlPlaneInstance(apiClient *http.Client, apiAddr string, id uint)
 	)
 	if err != nil {
 		return &controlPlaneInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return &controlPlaneInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])

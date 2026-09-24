@@ -37,10 +37,6 @@ type KubernetesRuntimeInfraKind struct {
 	// True if Threeport API is served via HTTPs.
 	AuthEnabled bool
 
-	// The host port to publish the Threeport API on. Zero means the default for
-	// the auth setting applies.
-	ApiPort int
-
 	// Addition ports to expose on the kind cluster.
 	// The key is the container port and value is the Host Port.
 	// The protocol is assumed TCP
@@ -64,7 +60,6 @@ func (i *KubernetesRuntimeInfraKind) Create() (*kube.KubeConnectionInfo, error) 
 			getKindConfig(
 				i.AuthEnabled,
 				i.DevEnvironment,
-				i.ApiPort,
 				i.ThreeportPath,
 				i.NumWorkerNodes,
 				i.PortMappings,
@@ -101,7 +96,6 @@ func (i *KubernetesRuntimeInfraKind) Delete() error {
 func getKindConfig(
 	authEnabled,
 	devEnvironment bool,
-	apiPort int,
 	threeportPath string,
 	numWorkerNodes int,
 	portMappings map[int32]int32,
@@ -139,10 +133,10 @@ func getKindConfig(
 			goCache = homeDir + "/.cache/go-build"
 		}
 
-		controlPlaneNode = *kindControlPlaneNode(authEnabled, apiPort, threeportPath, goPath, goCache, portMappings)
+		controlPlaneNode = *kindControlPlaneNode(authEnabled, threeportPath, goPath, goCache, portMappings)
 		workerNodes = *kindWorkers(numWorkerNodes, threeportPath, goPath, goCache)
 	} else {
-		controlPlaneNode = *kindControlPlaneNode(authEnabled, apiPort, "", "", "", portMappings)
+		controlPlaneNode = *kindControlPlaneNode(authEnabled, "", "", "", portMappings)
 		workerNodes = *kindWorkers(numWorkerNodes, "", "", "")
 	}
 	clusterConfig.Nodes = []v1alpha4.Node{controlPlaneNode}
@@ -154,13 +148,12 @@ func getKindConfig(
 // kindControlPlaneNode returns a control plane node
 func kindControlPlaneNode(
 	authEnabled bool,
-	apiPort int,
 	threeportPath string,
 	goPath string,
 	goCache string,
 	portMappings map[int32]int32,
 ) *v1alpha4.Node {
-	extraPortMappings := getPortMapping(authEnabled, apiPort, portMappings)
+	extraPortMappings := getPortMapping(authEnabled, portMappings)
 	controlPlaneNode := v1alpha4.Node{
 		Role:  v1alpha4.ControlPlaneRole,
 		Image: kindImage,
@@ -233,43 +226,24 @@ func kindWorkers(numWorkerNodes int, threeportPath, goPath, goCache string) *[]v
 	return &nodes
 }
 
-// ThreeportAPINodePort is the NodePort the threeport API server's service is
-// published on inside the cluster, and so the container port the host mapping
-// points at.
-const ThreeportAPINodePort = int32(30000)
-
-// getPortMapping returns port mappings for the kind cluster.
-//
-// A mapping the user supplied for the API's container port replaces the default
-// rather than joining it. Two mappings for one container port is not a way to
-// say "use this one instead" - kind writes both into the cluster config and the
-// result is a conflict, which is why --kind-port-mappings could not move the
-// API off its default port before.
-func getPortMapping(
-	authEnabled bool,
-	apiPort int,
-	portMappings map[int32]int32,
-) []v1alpha4.PortMapping {
-	hostPort := int32(threeport.GetLocalThreeportAPIPort(authEnabled, apiPort))
-	if userHostPort, ok := portMappings[ThreeportAPINodePort]; ok {
-		hostPort = userHostPort
-	}
-
-	extraPortMappings := []v1alpha4.PortMapping{{
-		ContainerPort: ThreeportAPINodePort,
-		HostPort:      hostPort,
-		Protocol:      v1alpha4.PortMappingProtocolTCP,
-	}}
+// getPortMapping returns port mappings for the kind cluster
+func getPortMapping(authEnabled bool, portMappings map[int32]int32) []v1alpha4.PortMapping {
+	hostPort := threeport.GetThreeportAPIPort(authEnabled)
+	extraPortMappings := make([]v1alpha4.PortMapping, 0)
+	extraPortMappings = append(
+		extraPortMappings,
+		v1alpha4.PortMapping{
+			ContainerPort: int32(30000),
+			HostPort:      int32(hostPort),
+			Protocol:      v1alpha4.PortMappingProtocolTCP,
+		})
 
 	for cPort, hPort := range portMappings {
-		if cPort == ThreeportAPINodePort {
-			continue
-		}
 		extraPortMappings = append(
 			extraPortMappings,
 			v1alpha4.PortMapping{
-				ContainerPort: cPort,
-				HostPort:      hPort,
+				ContainerPort: int32(cPort),
+				HostPort:      int32(hPort),
 				Protocol:      v1alpha4.PortMappingProtocolTCP,
 			})
 	}

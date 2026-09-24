@@ -5,7 +5,6 @@ package v0
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -78,10 +77,6 @@ func GetModuleApiByID(apiClient *http.Client, apiAddr string, id uint) (*v0.Modu
 	)
 	if err != nil {
 		return &moduleApi, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return &moduleApi, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -185,10 +180,6 @@ func CreateModuleApi(apiClient *http.Client, apiAddr string, moduleApi *v0.Modul
 		return moduleApi, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	if len(response.Data) == 0 {
-		return moduleApi, errors.New("threeport API returned no object in response data")
-	}
-
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return moduleApi, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -229,10 +220,6 @@ func UpdateModuleApi(apiClient *http.Client, apiAddr string, moduleApi *v0.Modul
 	)
 	if err != nil {
 		return moduleApi, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return moduleApi, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -278,10 +265,6 @@ func ReplaceModuleApi(apiClient *http.Client, apiAddr string, moduleApi *v0.Modu
 		return moduleApi, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	if len(response.Data) == 0 {
-		return moduleApi, errors.New("threeport API returned no object in response data")
-	}
-
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return moduleApi, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -311,10 +294,6 @@ func DeleteModuleApi(apiClient *http.Client, apiAddr string, id uint) (*v0.Modul
 	)
 	if err != nil {
 		return &moduleApi, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return &moduleApi, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -395,10 +374,6 @@ func GetModuleApiRouteByID(apiClient *http.Client, apiAddr string, id uint) (*v0
 	)
 	if err != nil {
 		return &moduleApiRoute, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return &moduleApiRoute, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -502,10 +477,6 @@ func CreateModuleApiRoute(apiClient *http.Client, apiAddr string, moduleApiRoute
 		return moduleApiRoute, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	if len(response.Data) == 0 {
-		return moduleApiRoute, errors.New("threeport API returned no object in response data")
-	}
-
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return moduleApiRoute, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -546,10 +517,6 @@ func UpdateModuleApiRoute(apiClient *http.Client, apiAddr string, moduleApiRoute
 	)
 	if err != nil {
 		return moduleApiRoute, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return moduleApiRoute, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -595,10 +562,6 @@ func ReplaceModuleApiRoute(apiClient *http.Client, apiAddr string, moduleApiRout
 		return moduleApiRoute, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	if len(response.Data) == 0 {
-		return moduleApiRoute, errors.New("threeport API returned no object in response data")
-	}
-
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return moduleApiRoute, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -628,10 +591,6 @@ func DeleteModuleApiRoute(apiClient *http.Client, apiAddr string, id uint) (*v0.
 	)
 	if err != nil {
 		return &moduleApiRoute, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return &moduleApiRoute, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -712,10 +671,6 @@ func GetModuleControllerByID(apiClient *http.Client, apiAddr string, id uint) (*
 	)
 	if err != nil {
 		return &moduleController, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return &moduleController, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -819,10 +774,6 @@ func CreateModuleController(apiClient *http.Client, apiAddr string, moduleContro
 		return moduleController, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	if len(response.Data) == 0 {
-		return moduleController, errors.New("threeport API returned no object in response data")
-	}
-
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return moduleController, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -863,10 +814,6 @@ func UpdateModuleController(apiClient *http.Client, apiAddr string, moduleContro
 	)
 	if err != nil {
 		return moduleController, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return moduleController, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -912,10 +859,6 @@ func ReplaceModuleController(apiClient *http.Client, apiAddr string, moduleContr
 		return moduleController, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	if len(response.Data) == 0 {
-		return moduleController, errors.New("threeport API returned no object in response data")
-	}
-
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return moduleController, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -945,10 +888,6 @@ func DeleteModuleController(apiClient *http.Client, apiAddr string, id uint) (*v
 	)
 	if err != nil {
 		return &moduleController, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return &moduleController, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -1029,10 +968,6 @@ func GetModuleObjectByID(apiClient *http.Client, apiAddr string, id uint) (*v0.M
 	)
 	if err != nil {
 		return &moduleObject, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return &moduleObject, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -1136,10 +1071,6 @@ func CreateModuleObject(apiClient *http.Client, apiAddr string, moduleObject *v0
 		return moduleObject, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	if len(response.Data) == 0 {
-		return moduleObject, errors.New("threeport API returned no object in response data")
-	}
-
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return moduleObject, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -1180,10 +1111,6 @@ func UpdateModuleObject(apiClient *http.Client, apiAddr string, moduleObject *v0
 	)
 	if err != nil {
 		return moduleObject, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return moduleObject, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -1229,10 +1156,6 @@ func ReplaceModuleObject(apiClient *http.Client, apiAddr string, moduleObject *v
 		return moduleObject, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	if len(response.Data) == 0 {
-		return moduleObject, errors.New("threeport API returned no object in response data")
-	}
-
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return moduleObject, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -1262,10 +1185,6 @@ func DeleteModuleObject(apiClient *http.Client, apiAddr string, id uint) (*v0.Mo
 	)
 	if err != nil {
 		return &moduleObject, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return &moduleObject, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])

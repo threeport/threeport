@@ -1,7 +1,5 @@
 basePath: /
 definitions:
-  datatypes.JSON:
-    type: object
   v0.ApiObjectVersions:
     properties:
       API:
@@ -45,19 +43,20 @@ definitions:
         allOf:
         - $ref: '#/definitions/v0.Relationship'
         description: |-
-          Relationship classifies this reference:
+          Relationship classifies this reference and drives lifecycle behavior
+          via gorm hooks and generated code that reveals information about a
+          type's foreign keys:
             - "describes": informational; does not block delete or update of the base.
             - "requires": blocks any caller from deleting the base while this
-              reference exists, control plane callers included.
-            - "owns": blocks both delete and update of the base, except for a
-              caller whose mTLS certificate carries the control plane
-              organizational unit. That exemption covers every control plane
-              component, not only the controller registered for the attached
-              object's type.
-              An owned base has at most one owner; an owner may own many bases.
+              reference exists.
+            - "owns": blocks both delete and update of the base for any caller
+              except the controller registered for the attached object's type,
+              identified by its mTLS peer common name.
+              An owned base has at most one owner (enforced by the partial
+              index idx_aor_owns_base above); an owner may own many bases.
             - "marries": enforces 1-to-1 cardinality between base and attacher
-              and blocks both delete and update of the base under the same
-              control plane exemption as "owns".
+              via the partial indexes above; blocks both delete and update of
+              the base for any caller except the partner's controller.
     required:
     - AttachedObjectID
     - AttachedObjectType
@@ -65,8 +64,123 @@ definitions:
     - ObjectType
     type: object
   v0.AwsEksKubernetesRuntimeDefinition:
+    properties:
+      AwsEksKubernetesRuntimeInstances:
+        description: The AWS EKS kubernetes runtime instances derived from this definition.
+        items:
+          $ref: '#/definitions/v0.AwsEksKubernetesRuntimeInstance'
+        type: array
+      DefaultNodeGroupInitialSize:
+        description: The number of nodes in the default initial node group.
+        type: integer
+      DefaultNodeGroupInstanceType:
+        description: The AWS instance type for the default initial node group.
+        type: string
+      DefaultNodeGroupMaximumSize:
+        description: The maximum number of nodes the default initial node group should
+          have.
+        type: integer
+      DefaultNodeGroupMinimumSize:
+        description: The minimum number of nodes the default initial node group should
+          have.
+        type: integer
+      KubernetesRuntimeDefinitionID:
+        description: The kubernetes runtime definition for an EKS cluster in AWS.
+        type: integer
+      Name:
+        description: An arbitrary name for the definition.
+        type: string
+      ProfileID:
+        description: |-
+          The profile to associate with the definition.  Profile is a named
+          standard configuration for a definition object.
+        type: integer
+      TierID:
+        description: |-
+          The tier to associate with the definition.  Tier is a level of
+          criticality for access control.
+        type: integer
+      ZoneCount:
+        description: The number of zones the cluster should span for availability.
+        type: integer
+    required:
+    - DefaultNodeGroupInitialSize
+    - DefaultNodeGroupInstanceType
+    - DefaultNodeGroupMaximumSize
+    - DefaultNodeGroupMinimumSize
+    - KubernetesRuntimeDefinitionID
+    - Name
+    - ZoneCount
     type: object
   v0.AwsEksKubernetesRuntimeInstance:
+    properties:
+      AwsEksKubernetesRuntimeDefinitionID:
+        description: The definition that configures this instance.
+        type: integer
+      AwsProviderID:
+        description: The AWS provider in which the EKS cluster is provisioned.
+        type: integer
+      CreationAcknowledged:
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
+        type: string
+      CreationConfirmed:
+        description: Used by controllers to confirm deletion of an object.
+        type: string
+      CreationFailed:
+        description: Gets set to true if creation process fails.
+        type: boolean
+      DeletionAcknowledged:
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
+        type: string
+      DeletionConfirmed:
+        description: Used by controllers to confirm deletion of an object.
+        type: string
+      DeletionScheduled:
+        description: |-
+          Used to inform reconcilers that an object is being deleted so they may
+          complete delete reconciliation before actually deleting the object from the database.
+        type: string
+      InterruptReconciliation:
+        description: |-
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
+          spinning up more infrastructure when there is a unresolved problem.
+        type: boolean
+      KubernetesRuntimeInstanceID:
+        description: The kubernetes runtime instance associated with the AWS EKS cluster.
+        type: integer
+      Name:
+        description: An arbitrary name the instance
+        type: string
+      Reconciled:
+        description: Indicates if object is considered to be reconciled by the object's
+          controller.
+        type: boolean
+      Region:
+        description: The AWS region in which the cluster is provisioned.
+        type: string
+      ResourceInventory:
+        description: An inventory of all AWS resources for the EKS cluster.
+        items:
+          type: integer
+        type: array
+      Status:
+        description: |-
+          The status of the instance.
+          TODO: use a custom type
+        type: string
+    required:
+    - AwsEksKubernetesRuntimeDefinitionID
+    - AwsProviderID
+    - KubernetesRuntimeInstanceID
+    - Name
     type: object
   v0.AwsProvider:
     properties:
@@ -109,20 +223,23 @@ definitions:
   v0.ControlPlaneComponent:
     properties:
       AdditionalEnvRef:
-        allOf:
-        - $ref: '#/definitions/datatypes.JSON'
         description: The additional env reference to be added to the environment variables
           of the component.
+        items:
+          type: integer
+        type: array
       AdditionalVolumeMounts:
-        allOf:
-        - $ref: '#/definitions/datatypes.JSON'
         description: The additional volume mounts to be added to the deployment spec
           of the component.
+        items:
+          type: integer
+        type: array
       AdditionalVolumes:
-        allOf:
-        - $ref: '#/definitions/datatypes.JSON'
         description: The additional volumes to be added to the deployment spec of
           the component.
+        items:
+          type: integer
+        type: array
       BinaryName:
         description: The binary name of the component.
         type: string
@@ -181,10 +298,13 @@ definitions:
           $ref: '#/definitions/v0.ControlPlaneInstance'
         type: array
       CreationAcknowledged:
-        description: The last time creation was acknowledged as begun
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       CreationConfirmed:
-        description: Used by controllers to confirm creation of an object.
+        description: Used by controllers to confirm deletion of an object.
         type: string
       CreationFailed:
         description: Gets set to true if creation process fails.
@@ -192,14 +312,12 @@ definitions:
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun.
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       DeletionConfirmed:
         description: Used by controllers to confirm deletion of an object.
         type: string
-      DeletionFailed:
-        description: A flag set to true if deletion of the object fails
-        type: boolean
       DeletionScheduled:
         description: |-
           Used to inform reconcilers that an object is being deleted so they may
@@ -207,9 +325,9 @@ definitions:
         type: string
       InterruptReconciliation:
         description: |-
-          InterruptReconciliation is used by the controller to indicate that future
-          reconciliation should be interrupted. Useful in cases where there is a
-          situation where future reconciliation could be destructive such as
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
           spinning up more infrastructure when there is a unresolved problem.
         type: boolean
       Name:
@@ -260,10 +378,13 @@ definitions:
         description: The definition used to configure the control plane instance.
         type: integer
       CreationAcknowledged:
-        description: The last time creation was acknowledged as begun
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       CreationConfirmed:
-        description: Used by controllers to confirm creation of an object.
+        description: Used by controllers to confirm deletion of an object.
         type: string
       CreationFailed:
         description: Gets set to true if creation process fails.
@@ -280,14 +401,12 @@ definitions:
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun.
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       DeletionConfirmed:
         description: Used by controllers to confirm deletion of an object.
         type: string
-      DeletionFailed:
-        description: A flag set to true if deletion of the object fails
-        type: boolean
       DeletionScheduled:
         description: |-
           Used to inform reconcilers that an object is being deleted so they may
@@ -299,9 +418,9 @@ definitions:
         type: boolean
       InterruptReconciliation:
         description: |-
-          InterruptReconciliation is used by the controller to indicate that future
-          reconciliation should be interrupted. Useful in cases where there is a
-          situation where future reconciliation could be destructive such as
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
           spinning up more infrastructure when there is a unresolved problem.
         type: boolean
       IsSelf:
@@ -346,10 +465,13 @@ definitions:
         description: The email address of the domain administrator.
         type: string
       CreationAcknowledged:
-        description: The last time creation was acknowledged as begun
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       CreationConfirmed:
-        description: Used by controllers to confirm creation of an object.
+        description: Used by controllers to confirm deletion of an object.
         type: string
       CreationFailed:
         description: Gets set to true if creation process fails.
@@ -357,14 +479,12 @@ definitions:
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun.
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       DeletionConfirmed:
         description: Used by controllers to confirm deletion of an object.
         type: string
-      DeletionFailed:
-        description: A flag set to true if deletion of the object fails
-        type: boolean
       DeletionScheduled:
         description: |-
           Used to inform reconcilers that an object is being deleted so they may
@@ -383,9 +503,9 @@ definitions:
         type: array
       InterruptReconciliation:
         description: |-
-          InterruptReconciliation is used by the controller to indicate that future
-          reconciliation should be interrupted. Useful in cases where there is a
-          situation where future reconciliation could be destructive such as
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
           spinning up more infrastructure when there is a unresolved problem.
         type: boolean
       Name:
@@ -417,10 +537,13 @@ definitions:
   v0.DomainNameInstance:
     properties:
       CreationAcknowledged:
-        description: The last time creation was acknowledged as begun
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       CreationConfirmed:
-        description: Used by controllers to confirm creation of an object.
+        description: Used by controllers to confirm deletion of an object.
         type: string
       CreationFailed:
         description: Gets set to true if creation process fails.
@@ -428,14 +551,12 @@ definitions:
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun.
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       DeletionConfirmed:
         description: Used by controllers to confirm deletion of an object.
         type: string
-      DeletionFailed:
-        description: A flag set to true if deletion of the object fails
-        type: boolean
       DeletionScheduled:
         description: |-
           Used to inform reconcilers that an object is being deleted so they may
@@ -446,9 +567,9 @@ definitions:
         type: integer
       InterruptReconciliation:
         description: |-
-          InterruptReconciliation is used by the controller to indicate that future
-          reconciliation should be interrupted. Useful in cases where there is a
-          situation where future reconciliation could be destructive such as
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
           spinning up more infrastructure when there is a unresolved problem.
         type: boolean
       KubernetesRuntimeInstanceID:
@@ -492,13 +613,32 @@ definitions:
         description: A human-readable description of the status of this operation.
         type: string
       ObjectID:
-        description: The id of the object this event is about
         type: integer
       ObjectName:
-        description: The name of the object this event is about, resolved on read
         type: string
       ObjectType:
-        description: The fully qualified type of the object this event is about
+        description: |-
+          Fields carrying the event's subject - the object the event is
+          about. They flow in both directions:
+            - On create: the caller sets ObjectType (fully qualified type form) + ObjectID
+              in the request body. Event.BeforeCreate validates them;
+              Event.AfterCreate inserts the matching AttachedObjectReference
+              in the same transaction. ObjectName is ignored on write.
+            - On read: GetEventsJoinAttachedObjectReferenceByQueryString
+              projects the joined AOR's base object back into these
+              fields, then resolves ObjectName via the type's name resolver.
+
+          gorm:"-" keeps them off the Event row in the schema - the AOR
+          is the source of truth on disk for the subject linkage.
+
+          For an event describing a script failure on a
+          MachineRuntimeInstance named "some-host" (id 42), these hold:
+            ObjectType = "threeport.io/v0.MachineRuntimeInstance"
+            ObjectID   = 42
+            ObjectName = "some-host"   (read only - ignored on create)
+          A consumer like `tptctl get events` uses them to render
+          "threeport.io/machine-runtime-instance/some-host" in the OBJECT
+          column.
         type: string
       Reason:
         description: A short, machine understandable string that gives the reason
@@ -515,8 +655,6 @@ definitions:
     - Count
     - EventTime
     - LastObservedTime
-    - ObjectID
-    - ObjectType
     - Reason
     - ReportingController
     - Type
@@ -524,10 +662,13 @@ definitions:
   v0.GatewayDefinition:
     properties:
       CreationAcknowledged:
-        description: The last time creation was acknowledged as begun
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       CreationConfirmed:
-        description: Used by controllers to confirm creation of an object.
+        description: Used by controllers to confirm deletion of an object.
         type: string
       CreationFailed:
         description: Gets set to true if creation process fails.
@@ -535,14 +676,12 @@ definitions:
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun.
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       DeletionConfirmed:
         description: Used by controllers to confirm deletion of an object.
         type: string
-      DeletionFailed:
-        description: A flag set to true if deletion of the object fails
-        type: boolean
       DeletionScheduled:
         description: |-
           Used to inform reconcilers that an object is being deleted so they may
@@ -564,9 +703,9 @@ definitions:
         type: array
       InterruptReconciliation:
         description: |-
-          InterruptReconciliation is used by the controller to indicate that future
-          reconciliation should be interrupted. Useful in cases where there is a
-          situation where future reconciliation could be destructive such as
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
           spinning up more infrastructure when there is a unresolved problem.
         type: boolean
       KubernetesWorkloadDefinitionID:
@@ -628,10 +767,13 @@ definitions:
   v0.GatewayInstance:
     properties:
       CreationAcknowledged:
-        description: The last time creation was acknowledged as begun
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       CreationConfirmed:
-        description: Used by controllers to confirm creation of an object.
+        description: Used by controllers to confirm deletion of an object.
         type: string
       CreationFailed:
         description: Gets set to true if creation process fails.
@@ -639,14 +781,12 @@ definitions:
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun.
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       DeletionConfirmed:
         description: Used by controllers to confirm deletion of an object.
         type: string
-      DeletionFailed:
-        description: A flag set to true if deletion of the object fails
-        type: boolean
       DeletionScheduled:
         description: |-
           Used to inform reconcilers that an object is being deleted so they may
@@ -658,9 +798,9 @@ definitions:
         type: integer
       InterruptReconciliation:
         description: |-
-          InterruptReconciliation is used by the controller to indicate that future
-          reconciliation should be interrupted. Useful in cases where there is a
-          situation where future reconciliation could be destructive such as
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
           spinning up more infrastructure when there is a unresolved problem.
         type: boolean
       KubernetesRuntimeInstanceID:
@@ -702,123 +842,6 @@ definitions:
     required:
     - GatewayDefinitionID
     - Port
-    type: object
-  v0.GcpGceMachineRuntimeDefinition:
-    properties:
-      GcpGceMachineRuntimeInstances:
-        description: The GCP GCE machine runtime instances derived from this definition.
-        items:
-          $ref: '#/definitions/v0.GcpGceMachineRuntimeInstance'
-        type: array
-      ImageID:
-        description: The boot image identifier.
-        type: string
-      MachineRuntimeDefinitionID:
-        description: |-
-          The machine runtime definition for a GCE machine in GCP. Optional because
-          imported machines may not have an associated definition.
-        type: integer
-      MachineType:
-        description: The GCE machine type (e.g. e2-medium).
-        type: string
-      Name:
-        description: An arbitrary name for the definition.
-        type: string
-      ProfileID:
-        description: |-
-          The profile to associate with the definition.  Profile is a named
-          standard configuration for a definition object.
-        type: integer
-      TierID:
-        description: |-
-          The tier to associate with the definition.  Tier is a level of
-          criticality for access control.
-        type: integer
-    required:
-    - Name
-    type: object
-  v0.GcpGceMachineRuntimeInstance:
-    properties:
-      CreationAcknowledged:
-        description: The last time creation was acknowledged as begun
-        type: string
-      CreationConfirmed:
-        description: Used by controllers to confirm creation of an object.
-        type: string
-      CreationFailed:
-        description: Gets set to true if creation process fails.
-        type: boolean
-      DeletionAcknowledged:
-        description: |-
-          Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun.
-        type: string
-      DeletionConfirmed:
-        description: Used by controllers to confirm deletion of an object.
-        type: string
-      DeletionFailed:
-        description: A flag set to true if deletion of the object fails
-        type: boolean
-      DeletionScheduled:
-        description: |-
-          Used to inform reconcilers that an object is being deleted so they may
-          complete delete reconciliation before actually deleting the object from the database.
-        type: string
-      ExternalIP:
-        description: The external IP surfaced after provisioning.
-        type: string
-      GcpGceMachineRuntimeDefinitionID:
-        description: The definition that configures this instance.
-        type: integer
-      GcpProviderID:
-        description: The GCP provider in which the VM is provisioned.
-        type: integer
-      Hostname:
-        description: The hostname surfaced after provisioning.
-        type: string
-      InterruptReconciliation:
-        description: |-
-          InterruptReconciliation is used by the controller to indicate that future
-          reconciliation should be interrupted. Useful in cases where there is a
-          situation where future reconciliation could be destructive such as
-          spinning up more infrastructure when there is a unresolved problem.
-        type: boolean
-      MachineRuntimeInstanceID:
-        description: The machine runtime instance associated with the GCE machine.
-        type: integer
-      Name:
-        description: An arbitrary name the instance
-        type: string
-      Reconciled:
-        description: Indicates if object is considered to be reconciled by the object's
-          controller.
-        type: boolean
-      Region:
-        description: The GCP region in which the VM is provisioned.
-        type: string
-      ResourceInventory:
-        allOf:
-        - $ref: '#/definitions/datatypes.JSON'
-        description: An inventory of all GCP resources backing this VM.
-      SSHKey:
-        description: The generated SSH private key, surfaced once after provisioning.
-        type: string
-      SSHUser:
-        description: The SSH username provisioned on the VM.
-        type: string
-      Status:
-        description: |-
-          The status of the instance.
-          TODO: use a custom type
-        type: string
-      Zone:
-        description: The GCP zone in which the VM is provisioned.
-        type: string
-    required:
-    - GcpGceMachineRuntimeDefinitionID
-    - GcpProviderID
-    - MachineRuntimeInstanceID
-    - Name
     type: object
   v0.GcpGkeKubernetesRuntimeDefinition:
     properties:
@@ -872,10 +895,13 @@ definitions:
   v0.GcpGkeKubernetesRuntimeInstance:
     properties:
       CreationAcknowledged:
-        description: The last time creation was acknowledged as begun
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       CreationConfirmed:
-        description: Used by controllers to confirm creation of an object.
+        description: Used by controllers to confirm deletion of an object.
         type: string
       CreationFailed:
         description: Gets set to true if creation process fails.
@@ -883,14 +909,12 @@ definitions:
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun.
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       DeletionConfirmed:
         description: Used by controllers to confirm deletion of an object.
         type: string
-      DeletionFailed:
-        description: A flag set to true if deletion of the object fails
-        type: boolean
       DeletionScheduled:
         description: |-
           Used to inform reconcilers that an object is being deleted so they may
@@ -904,9 +928,9 @@ definitions:
         type: integer
       InterruptReconciliation:
         description: |-
-          InterruptReconciliation is used by the controller to indicate that future
-          reconciliation should be interrupted. Useful in cases where there is a
-          situation where future reconciliation could be destructive such as
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
           spinning up more infrastructure when there is a unresolved problem.
         type: boolean
       KubernetesRuntimeInstanceID:
@@ -923,9 +947,10 @@ definitions:
         description: The GCP region in which the cluster is provisioned.
         type: string
       ResourceInventory:
-        allOf:
-        - $ref: '#/definitions/datatypes.JSON'
         description: An inventory of all GCP resources for the GKE cluster.
+        items:
+          type: integer
+        type: array
       Status:
         description: |-
           The status of the instance.
@@ -975,7 +1000,9 @@ definitions:
           Complete kubernetes resources that will be appended to the provided
           helm chart.
         items:
-          $ref: '#/definitions/datatypes.JSON'
+          items:
+            type: integer
+          type: array
         type: array
       Chart:
         description: The name of the helm chart to use from the helm repo, e.g. wordpress
@@ -985,10 +1012,13 @@ definitions:
           1.2.3
         type: string
       CreationAcknowledged:
-        description: The last time creation was acknowledged as begun
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       CreationConfirmed:
-        description: Used by controllers to confirm creation of an object.
+        description: Used by controllers to confirm deletion of an object.
         type: string
       CreationFailed:
         description: Gets set to true if creation process fails.
@@ -996,14 +1026,12 @@ definitions:
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun.
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       DeletionConfirmed:
         description: Used by controllers to confirm deletion of an object.
         type: string
-      DeletionFailed:
-        description: A flag set to true if deletion of the object fails
-        type: boolean
       DeletionScheduled:
         description: |-
           Used to inform reconcilers that an object is being deleted so they may
@@ -1017,9 +1045,9 @@ definitions:
         type: array
       InterruptReconciliation:
         description: |-
-          InterruptReconciliation is used by the controller to indicate that future
-          reconciliation should be interrupted. Useful in cases where there is a
-          situation where future reconciliation could be destructive such as
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
           spinning up more infrastructure when there is a unresolved problem.
         type: boolean
       Name:
@@ -1064,13 +1092,18 @@ definitions:
           Complete kubernetes resources that will be appended to the provided
           helm chart.
         items:
-          $ref: '#/definitions/datatypes.JSON'
+          items:
+            type: integer
+          type: array
         type: array
       CreationAcknowledged:
-        description: The last time creation was acknowledged as begun
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       CreationConfirmed:
-        description: Used by controllers to confirm creation of an object.
+        description: Used by controllers to confirm deletion of an object.
         type: string
       CreationFailed:
         description: Gets set to true if creation process fails.
@@ -1078,14 +1111,12 @@ definitions:
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun.
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       DeletionConfirmed:
         description: Used by controllers to confirm deletion of an object.
         type: string
-      DeletionFailed:
-        description: A flag set to true if deletion of the object fails
-        type: boolean
       DeletionScheduled:
         description: |-
           Used to inform reconcilers that an object is being deleted so they may
@@ -1096,9 +1127,9 @@ definitions:
         type: integer
       InterruptReconciliation:
         description: |-
-          InterruptReconciliation is used by the controller to indicate that future
-          reconciliation should be interrupted. Useful in cases where there is a
-          situation where future reconciliation could be destructive such as
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
           spinning up more infrastructure when there is a unresolved problem.
         type: boolean
       KubernetesRuntimeInstanceID:
@@ -1132,10 +1163,13 @@ definitions:
   v0.KubernetesRuntimeDefinition:
     properties:
       CreationAcknowledged:
-        description: The last time creation was acknowledged as begun
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       CreationConfirmed:
-        description: Used by controllers to confirm creation of an object.
+        description: Used by controllers to confirm deletion of an object.
         type: string
       CreationFailed:
         description: Gets set to true if creation process fails.
@@ -1143,14 +1177,12 @@ definitions:
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun.
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       DeletionConfirmed:
         description: Used by controllers to confirm deletion of an object.
         type: string
-      DeletionFailed:
-        description: A flag set to true if deletion of the object fails
-        type: boolean
       DeletionScheduled:
         description: |-
           Used to inform reconcilers that an object is being deleted so they may
@@ -1174,9 +1206,9 @@ definitions:
         type: string
       InterruptReconciliation:
         description: |-
-          InterruptReconciliation is used by the controller to indicate that future
-          reconciliation should be interrupted. Useful in cases where there is a
-          situation where future reconciliation could be destructive such as
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
           spinning up more infrastructure when there is a unresolved problem.
         type: boolean
       KubernetesRuntimeInstances:
@@ -1252,10 +1284,13 @@ definitions:
           $ref: '#/definitions/v0.ControlPlaneInstance'
         type: array
       CreationAcknowledged:
-        description: The last time creation was acknowledged as begun
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       CreationConfirmed:
-        description: Used by controllers to confirm creation of an object.
+        description: Used by controllers to confirm deletion of an object.
         type: string
       CreationFailed:
         description: Gets set to true if creation process fails.
@@ -1268,14 +1303,12 @@ definitions:
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun.
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       DeletionConfirmed:
         description: Used by controllers to confirm deletion of an object.
         type: string
-      DeletionFailed:
-        description: A flag set to true if deletion of the object fails
-        type: boolean
       DeletionScheduled:
         description: |-
           Used to inform reconcilers that an object is being deleted so they may
@@ -1289,9 +1322,9 @@ definitions:
         type: integer
       InterruptReconciliation:
         description: |-
-          InterruptReconciliation is used by the controller to indicate that future
-          reconciliation should be interrupted. Useful in cases where there is a
-          situation where future reconciliation could be destructive such as
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
           spinning up more infrastructure when there is a unresolved problem.
         type: boolean
       KubernetesRuntimeDefinitionID:
@@ -1344,10 +1377,13 @@ definitions:
   v0.KubernetesWorkloadDefinition:
     properties:
       CreationAcknowledged:
-        description: The last time creation was acknowledged as begun
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       CreationConfirmed:
-        description: Used by controllers to confirm creation of an object.
+        description: Used by controllers to confirm deletion of an object.
         type: string
       CreationFailed:
         description: Gets set to true if creation process fails.
@@ -1355,14 +1391,12 @@ definitions:
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun.
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       DeletionConfirmed:
         description: Used by controllers to confirm deletion of an object.
         type: string
-      DeletionFailed:
-        description: A flag set to true if deletion of the object fails
-        type: boolean
       DeletionScheduled:
         description: |-
           Used to inform reconcilers that an object is being deleted so they may
@@ -1370,9 +1404,9 @@ definitions:
         type: string
       InterruptReconciliation:
         description: |-
-          InterruptReconciliation is used by the controller to indicate that future
-          reconciliation should be interrupted. Useful in cases where there is a
-          situation where future reconciliation could be destructive such as
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
           spinning up more infrastructure when there is a unresolved problem.
         type: boolean
       KubernetesWorkloadInstances:
@@ -1414,10 +1448,13 @@ definitions:
   v0.KubernetesWorkloadInstance:
     properties:
       CreationAcknowledged:
-        description: The last time creation was acknowledged as begun
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       CreationConfirmed:
-        description: Used by controllers to confirm creation of an object.
+        description: Used by controllers to confirm deletion of an object.
         type: string
       CreationFailed:
         description: Gets set to true if creation process fails.
@@ -1425,14 +1462,12 @@ definitions:
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun.
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       DeletionConfirmed:
         description: Used by controllers to confirm deletion of an object.
         type: string
-      DeletionFailed:
-        description: A flag set to true if deletion of the object fails
-        type: boolean
       DeletionScheduled:
         description: |-
           Used to inform reconcilers that an object is being deleted so they may
@@ -1440,9 +1475,9 @@ definitions:
         type: string
       InterruptReconciliation:
         description: |-
-          InterruptReconciliation is used by the controller to indicate that future
-          reconciliation should be interrupted. Useful in cases where there is a
-          situation where future reconciliation could be destructive such as
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
           spinning up more infrastructure when there is a unresolved problem.
         type: boolean
       KubernetesRuntimeInstanceID:
@@ -1475,9 +1510,10 @@ definitions:
   v0.KubernetesWorkloadResourceDefinition:
     properties:
       JSONDefinition:
-        allOf:
-        - $ref: '#/definitions/datatypes.JSON'
         description: The individual manifest in JSON format.
+        items:
+          type: integer
+        type: array
       KubernetesWorkloadDefinitionID:
         description: The kubernetes workload definition this resource belongs to.
         type: integer
@@ -1488,13 +1524,14 @@ definitions:
   v0.KubernetesWorkloadResourceInstance:
     properties:
       JSONDefinition:
-        allOf:
-        - $ref: '#/definitions/datatypes.JSON'
         description: |-
           The individual manifest in JSON format.  This field is a superset of
           KubernetesWorkloadResourceDefinition.JSONDefinition in that it has
           namespace management and other configuration — such as resource
           allocation management — added.
+        items:
+          type: integer
+        type: array
       KubernetesWorkloadInstanceID:
         description: The kubernetes workload instance this resource belongs to.
         type: integer
@@ -1509,11 +1546,12 @@ definitions:
           kubernetes workload controller.
         type: boolean
       RuntimeDefinition:
-        allOf:
-        - $ref: '#/definitions/datatypes.JSON'
         description: |-
           The JSON definition of a Kubernetes resource as stored in etcd in the
           kubernetes runtime.
+        items:
+          type: integer
+        type: array
       ScheduledForDeletion:
         description: Whether another controller has scheduled this resource for deletion
         type: string
@@ -1591,10 +1629,13 @@ definitions:
   v0.LoggingDefinition:
     properties:
       CreationAcknowledged:
-        description: The last time creation was acknowledged as begun
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       CreationConfirmed:
-        description: Used by controllers to confirm creation of an object.
+        description: Used by controllers to confirm deletion of an object.
         type: string
       CreationFailed:
         description: Gets set to true if creation process fails.
@@ -1602,14 +1643,12 @@ definitions:
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun.
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       DeletionConfirmed:
         description: Used by controllers to confirm deletion of an object.
         type: string
-      DeletionFailed:
-        description: A flag set to true if deletion of the object fails
-        type: boolean
       DeletionScheduled:
         description: |-
           Used to inform reconcilers that an object is being deleted so they may
@@ -1617,9 +1656,9 @@ definitions:
         type: string
       InterruptReconciliation:
         description: |-
-          InterruptReconciliation is used by the controller to indicate that future
-          reconciliation should be interrupted. Useful in cases where there is a
-          situation where future reconciliation could be destructive such as
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
           spinning up more infrastructure when there is a unresolved problem.
         type: boolean
       LoggingInstances:
@@ -1675,10 +1714,13 @@ definitions:
   v0.LoggingInstance:
     properties:
       CreationAcknowledged:
-        description: The last time creation was acknowledged as begun
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       CreationConfirmed:
-        description: Used by controllers to confirm creation of an object.
+        description: Used by controllers to confirm deletion of an object.
         type: string
       CreationFailed:
         description: Gets set to true if creation process fails.
@@ -1686,14 +1728,12 @@ definitions:
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun.
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       DeletionConfirmed:
         description: Used by controllers to confirm deletion of an object.
         type: string
-      DeletionFailed:
-        description: A flag set to true if deletion of the object fails
-        type: boolean
       DeletionScheduled:
         description: |-
           Used to inform reconcilers that an object is being deleted so they may
@@ -1701,9 +1741,9 @@ definitions:
         type: string
       InterruptReconciliation:
         description: |-
-          InterruptReconciliation is used by the controller to indicate that future
-          reconciliation should be interrupted. Useful in cases where there is a
-          situation where future reconciliation could be destructive such as
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
           spinning up more infrastructure when there is a unresolved problem.
         type: boolean
       KubernetesRuntimeInstanceID:
@@ -1747,53 +1787,6 @@ definitions:
     type: object
   v0.MachineRuntimeDefinition:
     properties:
-      CreationAcknowledged:
-        description: The last time creation was acknowledged as begun
-        type: string
-      CreationConfirmed:
-        description: Used by controllers to confirm creation of an object.
-        type: string
-      CreationFailed:
-        description: Gets set to true if creation process fails.
-        type: boolean
-      DeletionAcknowledged:
-        description: |-
-          Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun.
-        type: string
-      DeletionConfirmed:
-        description: Used by controllers to confirm deletion of an object.
-        type: string
-      DeletionFailed:
-        description: A flag set to true if deletion of the object fails
-        type: boolean
-      DeletionScheduled:
-        description: |-
-          Used to inform reconcilers that an object is being deleted so they may
-          complete delete reconciliation before actually deleting the object from the database.
-        type: string
-      ImageID:
-        description: The provider image identifier used to boot the machine
-        type: string
-      InfraProvider:
-        description: The infrastructure provider that provisions machines from this
-          definition
-        type: string
-      InfraProviderAccountName:
-        description: |-
-          The provider account name that selects which account the machine is
-          provisioned on, empty falling back to the default provider account
-        type: string
-      InterruptReconciliation:
-        description: |-
-          InterruptReconciliation is used by the controller to indicate that future
-          reconciliation should be interrupted. Useful in cases where there is a
-          situation where future reconciliation could be destructive such as
-          spinning up more infrastructure when there is a unresolved problem.
-        type: boolean
-      MachineProfile:
-        description: The CPU-to-memory ratio of the machine
-        type: string
       MachineRuntimeInstances:
         description: |-
           The associated machine runtime instances that are deployed from this
@@ -1801,12 +1794,6 @@ definitions:
         items:
           $ref: '#/definitions/v0.MachineRuntimeInstance'
         type: array
-      MachineSize:
-        description: The compute capacity of the machine
-        type: string
-      MachineType:
-        description: The provider-specific machine type
-        type: string
       Name:
         description: An arbitrary name for the definition.
         type: string
@@ -1815,10 +1802,6 @@ definitions:
           The profile to associate with the definition.  Profile is a named
           standard configuration for a definition object.
         type: integer
-      Reconciled:
-        description: Indicates if object is considered to be reconciled by the object's
-          controller.
-        type: boolean
       TierID:
         description: |-
           The tier to associate with the definition.  Tier is a level of
@@ -1830,10 +1813,13 @@ definitions:
   v0.MachineRuntimeInstance:
     properties:
       CreationAcknowledged:
-        description: The last time creation was acknowledged as begun
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       CreationConfirmed:
-        description: Used by controllers to confirm creation of an object.
+        description: Used by controllers to confirm deletion of an object.
         type: string
       CreationFailed:
         description: Gets set to true if creation process fails.
@@ -1841,14 +1827,12 @@ definitions:
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun.
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       DeletionConfirmed:
         description: Used by controllers to confirm deletion of an object.
         type: string
-      DeletionFailed:
-        description: A flag set to true if deletion of the object fails
-        type: boolean
       DeletionScheduled:
         description: |-
           Used to inform reconcilers that an object is being deleted so they may
@@ -1860,32 +1844,15 @@ definitions:
           connection. If not provided, captured on first connection.
         type: string
       Hostname:
-        description: |-
-          The hostname or IP address used to reach the machine. Optional at
-          create so the abstract instance can exist before the machine is
-          provisioned; populated once the machine is reachable.
-
-          idx_machine_runtime_instance_hostname is a partial unique index that
-          allows at most one live instance per hostname, so a single machine
-          cannot be represented by two records that each drive their own
-          reconciliation against it. The deleted_at predicate keeps
-          soft-deleted rows out of the unique slot, so the hostname of a
-          deleted instance is available to a new one right away. CockroachDB
-          treats every NULL as distinct in a unique index, so any number of
-          instances may hold no hostname while they wait on provisioning.
-          An empty string is excluded the same way, because it is not a
-          hostname either.
+        description: The hostname or IP address used to reach the machine.
         type: string
       InterruptReconciliation:
         description: |-
-          InterruptReconciliation is used by the controller to indicate that future
-          reconciliation should be interrupted. Useful in cases where there is a
-          situation where future reconciliation could be destructive such as
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
           spinning up more infrastructure when there is a unresolved problem.
         type: boolean
-      Location:
-        description: The abstract threeport location for the machine
-        type: string
       MachineRuntimeDefinitionID:
         description: |-
           The machine runtime definition for this instance.  Optional because
@@ -1900,9 +1867,6 @@ definitions:
       Name:
         description: An arbitrary name the instance
         type: string
-      NetworkID:
-        description: The provider network identifier the machine attaches to.
-        type: string
       Port:
         description: The SSH port on the machine.
         type: integer
@@ -1910,13 +1874,6 @@ definitions:
         description: Indicates if object is considered to be reconciled by the object's
           controller.
         type: boolean
-      Region:
-        description: The provider region in which the machine is provisioned
-        type: string
-      ResourceInventory:
-        allOf:
-        - $ref: '#/definitions/datatypes.JSON'
-        description: An inventory of all provider resources backing this machine
       SSHKey:
         description: The SSH private key for authenticating to the machine.
         type: string
@@ -1924,21 +1881,17 @@ definitions:
         description: The SSH password for authenticating to the machine.
         type: string
       SSHUser:
-        description: |-
-          The SSH username for authenticating to the machine. Optional at create
-          for the same reason as the hostname; populated once the machine is
-          provisioned.
+        description: The SSH username for authenticating to the machine.
         type: string
       Status:
         description: |-
           The status of the instance.
           TODO: use a custom type
         type: string
-      SubnetID:
-        description: The provider subnet identifier the machine attaches to
-        type: string
     required:
+    - Hostname
     - Name
+    - SSHUser
     type: object
   v0.MachineWorkloadDefinition:
     properties:
@@ -1994,10 +1947,13 @@ definitions:
   v0.MachineWorkloadInstance:
     properties:
       CreationAcknowledged:
-        description: The last time creation was acknowledged as begun
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       CreationConfirmed:
-        description: Used by controllers to confirm creation of an object.
+        description: Used by controllers to confirm deletion of an object.
         type: string
       CreationFailed:
         description: Gets set to true if creation process fails.
@@ -2005,14 +1961,12 @@ definitions:
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun.
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       DeletionConfirmed:
         description: Used by controllers to confirm deletion of an object.
         type: string
-      DeletionFailed:
-        description: A flag set to true if deletion of the object fails
-        type: boolean
       DeletionScheduled:
         description: |-
           Used to inform reconcilers that an object is being deleted so they may
@@ -2025,9 +1979,9 @@ definitions:
         type: array
       InterruptReconciliation:
         description: |-
-          InterruptReconciliation is used by the controller to indicate that future
-          reconciliation should be interrupted. Useful in cases where there is a
-          situation where future reconciliation could be destructive such as
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
           spinning up more infrastructure when there is a unresolved problem.
         type: boolean
       MachineRuntimeInstanceID:
@@ -2068,10 +2022,13 @@ definitions:
   v0.MetricsDefinition:
     properties:
       CreationAcknowledged:
-        description: The last time creation was acknowledged as begun
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       CreationConfirmed:
-        description: Used by controllers to confirm creation of an object.
+        description: Used by controllers to confirm deletion of an object.
         type: string
       CreationFailed:
         description: Gets set to true if creation process fails.
@@ -2079,14 +2036,12 @@ definitions:
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun.
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       DeletionConfirmed:
         description: Used by controllers to confirm deletion of an object.
         type: string
-      DeletionFailed:
-        description: A flag set to true if deletion of the object fails
-        type: boolean
       DeletionScheduled:
         description: |-
           Used to inform reconcilers that an object is being deleted so they may
@@ -2094,9 +2049,9 @@ definitions:
         type: string
       InterruptReconciliation:
         description: |-
-          InterruptReconciliation is used by the controller to indicate that future
-          reconciliation should be interrupted. Useful in cases where there is a
-          situation where future reconciliation could be destructive such as
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
           spinning up more infrastructure when there is a unresolved problem.
         type: boolean
       KubePrometheusStackHelmChartVersion:
@@ -2141,10 +2096,13 @@ definitions:
   v0.MetricsInstance:
     properties:
       CreationAcknowledged:
-        description: The last time creation was acknowledged as begun
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       CreationConfirmed:
-        description: Used by controllers to confirm creation of an object.
+        description: Used by controllers to confirm deletion of an object.
         type: string
       CreationFailed:
         description: Gets set to true if creation process fails.
@@ -2152,14 +2110,12 @@ definitions:
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun.
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       DeletionConfirmed:
         description: Used by controllers to confirm deletion of an object.
         type: string
-      DeletionFailed:
-        description: A flag set to true if deletion of the object fails
-        type: boolean
       DeletionScheduled:
         description: |-
           Used to inform reconcilers that an object is being deleted so they may
@@ -2167,9 +2123,9 @@ definitions:
         type: string
       InterruptReconciliation:
         description: |-
-          InterruptReconciliation is used by the controller to indicate that future
-          reconciliation should be interrupted. Useful in cases where there is a
-          situation where future reconciliation could be destructive such as
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
           spinning up more infrastructure when there is a unresolved problem.
         type: boolean
       KubePrometheusStackHelmValuesDocument:
@@ -2312,10 +2268,13 @@ definitions:
   v0.ObservabilityDashboardDefinition:
     properties:
       CreationAcknowledged:
-        description: The last time creation was acknowledged as begun
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       CreationConfirmed:
-        description: Used by controllers to confirm creation of an object.
+        description: Used by controllers to confirm deletion of an object.
         type: string
       CreationFailed:
         description: Gets set to true if creation process fails.
@@ -2323,14 +2282,12 @@ definitions:
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun.
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       DeletionConfirmed:
         description: Used by controllers to confirm deletion of an object.
         type: string
-      DeletionFailed:
-        description: A flag set to true if deletion of the object fails
-        type: boolean
       DeletionScheduled:
         description: |-
           Used to inform reconcilers that an object is being deleted so they may
@@ -2350,9 +2307,9 @@ definitions:
         type: integer
       InterruptReconciliation:
         description: |-
-          InterruptReconciliation is used by the controller to indicate that future
-          reconciliation should be interrupted. Useful in cases where there is a
-          situation where future reconciliation could be destructive such as
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
           spinning up more infrastructure when there is a unresolved problem.
         type: boolean
       Name:
@@ -2384,10 +2341,13 @@ definitions:
   v0.ObservabilityDashboardInstance:
     properties:
       CreationAcknowledged:
-        description: The last time creation was acknowledged as begun
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       CreationConfirmed:
-        description: Used by controllers to confirm creation of an object.
+        description: Used by controllers to confirm deletion of an object.
         type: string
       CreationFailed:
         description: Gets set to true if creation process fails.
@@ -2395,14 +2355,12 @@ definitions:
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun.
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       DeletionConfirmed:
         description: Used by controllers to confirm deletion of an object.
         type: string
-      DeletionFailed:
-        description: A flag set to true if deletion of the object fails
-        type: boolean
       DeletionScheduled:
         description: |-
           Used to inform reconcilers that an object is being deleted so they may
@@ -2418,9 +2376,9 @@ definitions:
         type: integer
       InterruptReconciliation:
         description: |-
-          InterruptReconciliation is used by the controller to indicate that future
-          reconciliation should be interrupted. Useful in cases where there is a
-          situation where future reconciliation could be destructive such as
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
           spinning up more infrastructure when there is a unresolved problem.
         type: boolean
       KubernetesRuntimeInstanceID:
@@ -2449,10 +2407,13 @@ definitions:
   v0.ObservabilityStackDefinition:
     properties:
       CreationAcknowledged:
-        description: The last time creation was acknowledged as begun
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       CreationConfirmed:
-        description: Used by controllers to confirm creation of an object.
+        description: Used by controllers to confirm deletion of an object.
         type: string
       CreationFailed:
         description: Gets set to true if creation process fails.
@@ -2460,14 +2421,12 @@ definitions:
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun.
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       DeletionConfirmed:
         description: Used by controllers to confirm deletion of an object.
         type: string
-      DeletionFailed:
-        description: A flag set to true if deletion of the object fails
-        type: boolean
       DeletionScheduled:
         description: |-
           Used to inform reconcilers that an object is being deleted so they may
@@ -2484,9 +2443,9 @@ definitions:
         type: string
       InterruptReconciliation:
         description: |-
-          InterruptReconciliation is used by the controller to indicate that future
-          reconciliation should be interrupted. Useful in cases where there is a
-          situation where future reconciliation could be destructive such as
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
           spinning up more infrastructure when there is a unresolved problem.
         type: boolean
       KubePrometheusStackHelmChartVersion:
@@ -2560,10 +2519,13 @@ definitions:
   v0.ObservabilityStackInstance:
     properties:
       CreationAcknowledged:
-        description: The last time creation was acknowledged as begun
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       CreationConfirmed:
-        description: Used by controllers to confirm creation of an object.
+        description: Used by controllers to confirm deletion of an object.
         type: string
       CreationFailed:
         description: Gets set to true if creation process fails.
@@ -2571,14 +2533,12 @@ definitions:
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun.
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       DeletionConfirmed:
         description: Used by controllers to confirm deletion of an object.
         type: string
-      DeletionFailed:
-        description: A flag set to true if deletion of the object fails
-        type: boolean
       DeletionScheduled:
         description: |-
           Used to inform reconcilers that an object is being deleted so they may
@@ -2591,9 +2551,9 @@ definitions:
         type: string
       InterruptReconciliation:
         description: |-
-          InterruptReconciliation is used by the controller to indicate that future
-          reconciliation should be interrupted. Useful in cases where there is a
-          situation where future reconciliation could be destructive such as
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
           spinning up more infrastructure when there is a unresolved problem.
         type: boolean
       KubePrometheusStackHelmValuesDocument:
@@ -2697,10 +2657,13 @@ definitions:
           cluster creation.
         type: string
       CreationAcknowledged:
-        description: The last time creation was acknowledged as begun
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       CreationConfirmed:
-        description: Used by controllers to confirm creation of an object.
+        description: Used by controllers to confirm deletion of an object.
         type: string
       CreationFailed:
         description: Gets set to true if creation process fails.
@@ -2708,14 +2671,12 @@ definitions:
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun.
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       DeletionConfirmed:
         description: Used by controllers to confirm deletion of an object.
         type: string
-      DeletionFailed:
-        description: A flag set to true if deletion of the object fails
-        type: boolean
       DeletionScheduled:
         description: |-
           Used to inform reconcilers that an object is being deleted so they may
@@ -2723,9 +2684,9 @@ definitions:
         type: string
       InterruptReconciliation:
         description: |-
-          InterruptReconciliation is used by the controller to indicate that future
-          reconciliation should be interrupted. Useful in cases where there is a
-          situation where future reconciliation could be destructive such as
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
           spinning up more infrastructure when there is a unresolved problem.
         type: boolean
       KubernetesRuntimeInstanceID:
@@ -2751,9 +2712,10 @@ definitions:
           definition will not move a cluster.
         type: string
       ResourceInventory:
-        allOf:
-        - $ref: '#/definitions/datatypes.JSON'
         description: An inventory of all OCI resources for the OKE cluster.
+        items:
+          type: integer
+        type: array
       Status:
         description: |-
           The status of the instance.
@@ -2867,9 +2829,8 @@ definitions:
         - $ref: '#/definitions/v0.Status'
         description: Status represents an error that occurred while handling a request.
       Type:
-        description: Type is <api-namespace>/<version>.<TypeName>, set even when Data
-          is empty.
-        example: threeport.io/v0.KubernetesWorkloadInstance
+        description: Type contains ObjectType of returned Data elements.
+        example: KubernetesWorkloadInstance
         type: string
     type: object
   v0.SecretDefinition:
@@ -2878,29 +2839,31 @@ definitions:
         description: The AWS account ID, if the provider is AWS.
         type: integer
       CreationAcknowledged:
-        description: The last time creation was acknowledged as begun
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       CreationConfirmed:
-        description: Used by controllers to confirm creation of an object.
+        description: Used by controllers to confirm deletion of an object.
         type: string
       CreationFailed:
         description: Gets set to true if creation process fails.
         type: boolean
       Data:
-        allOf:
-        - $ref: '#/definitions/datatypes.JSON'
         description: The secret value to be stored in the provider.
+        items:
+          type: integer
+        type: array
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun.
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       DeletionConfirmed:
         description: Used by controllers to confirm deletion of an object.
         type: string
-      DeletionFailed:
-        description: A flag set to true if deletion of the object fails
-        type: boolean
       DeletionScheduled:
         description: |-
           Used to inform reconcilers that an object is being deleted so they may
@@ -2908,9 +2871,9 @@ definitions:
         type: string
       InterruptReconciliation:
         description: |-
-          InterruptReconciliation is used by the controller to indicate that future
-          reconciliation should be interrupted. Useful in cases where there is a
-          situation where future reconciliation could be destructive such as
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
           spinning up more infrastructure when there is a unresolved problem.
         type: boolean
       Name:
@@ -2942,10 +2905,13 @@ definitions:
   v0.SecretInstance:
     properties:
       CreationAcknowledged:
-        description: The last time creation was acknowledged as begun
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       CreationConfirmed:
-        description: Used by controllers to confirm creation of an object.
+        description: Used by controllers to confirm deletion of an object.
         type: string
       CreationFailed:
         description: Gets set to true if creation process fails.
@@ -2953,14 +2919,12 @@ definitions:
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun.
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       DeletionConfirmed:
         description: Used by controllers to confirm deletion of an object.
         type: string
-      DeletionFailed:
-        description: A flag set to true if deletion of the object fails
-        type: boolean
       DeletionScheduled:
         description: |-
           Used to inform reconcilers that an object is being deleted so they may
@@ -2971,9 +2935,9 @@ definitions:
         type: integer
       InterruptReconciliation:
         description: |-
-          InterruptReconciliation is used by the controller to indicate that future
-          reconciliation should be interrupted. Useful in cases where there is a
-          situation where future reconciliation could be destructive such as
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
           spinning up more infrastructure when there is a unresolved problem.
         type: boolean
       KubernetesRuntimeInstanceID:
@@ -3027,10 +2991,13 @@ definitions:
           extension.
         type: string
       CreationAcknowledged:
-        description: The last time creation was acknowledged as begun
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       CreationConfirmed:
-        description: Used by controllers to confirm creation of an object.
+        description: Used by controllers to confirm deletion of an object.
         type: string
       CreationFailed:
         description: Gets set to true if creation process fails.
@@ -3038,14 +3005,12 @@ definitions:
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun.
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       DeletionConfirmed:
         description: Used by controllers to confirm deletion of an object.
         type: string
-      DeletionFailed:
-        description: A flag set to true if deletion of the object fails
-        type: boolean
       DeletionScheduled:
         description: |-
           Used to inform reconcilers that an object is being deleted so they may
@@ -3053,9 +3018,9 @@ definitions:
         type: string
       InterruptReconciliation:
         description: |-
-          InterruptReconciliation is used by the controller to indicate that future
-          reconciliation should be interrupted. Useful in cases where there is a
-          situation where future reconciliation could be destructive such as
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
           spinning up more infrastructure when there is a unresolved problem.
         type: boolean
       Name:
@@ -3091,10 +3056,13 @@ definitions:
         description: The AWS provider in which the resources will be provisioned.
         type: integer
       CreationAcknowledged:
-        description: The last time creation was acknowledged as begun
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       CreationConfirmed:
-        description: Used by controllers to confirm creation of an object.
+        description: Used by controllers to confirm deletion of an object.
         type: string
       CreationFailed:
         description: Gets set to true if creation process fails.
@@ -3102,14 +3070,12 @@ definitions:
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun.
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       DeletionConfirmed:
         description: Used by controllers to confirm deletion of an object.
         type: string
-      DeletionFailed:
-        description: A flag set to true if deletion of the object fails
-        type: boolean
       DeletionScheduled:
         description: |-
           Used to inform reconcilers that an object is being deleted so they may
@@ -3117,9 +3083,9 @@ definitions:
         type: string
       InterruptReconciliation:
         description: |-
-          InterruptReconciliation is used by the controller to indicate that future
-          reconciliation should be interrupted. Useful in cases where there is a
-          situation where future reconciliation could be destructive such as
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
           spinning up more infrastructure when there is a unresolved problem.
         type: boolean
       Name:
@@ -3181,7 +3147,7 @@ info:
   description: Core API server for the Threeport application orchestration control
     plane.
   title: Threeport RESTful API
-  version: v0.7.0-rc.0
+  version: v0.7.0-dev
 paths:
   /attached-object-references/versions:
     get:
@@ -3351,32 +3317,6 @@ paths:
             $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetGatewayTcpPortVersions gets the supported versions for the gateway
         tcp port API.
-  /gcp-gce-machine-runtime-definitions/versions:
-    get:
-      description: Get the supported API versions for gcp gce machine runtime definitions.
-      operationId: gcpGceMachineRuntimeDefinition-get-versions
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.ApiObjectVersions'
-      summary: GetGcpGceMachineRuntimeDefinitionVersions gets the supported versions
-        for the gcp gce machine runtime definition API.
-  /gcp-gce-machine-runtime-instances/versions:
-    get:
-      description: Get the supported API versions for gcp gce machine runtime instances.
-      operationId: gcpGceMachineRuntimeInstance-get-versions
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.ApiObjectVersions'
-      summary: GetGcpGceMachineRuntimeInstanceVersions gets the supported versions
-        for the gcp gce machine runtime instance API.
   /gcp-gke-kubernetes-runtime-definitions/versions:
     get:
       description: Get the supported API versions for gcp gke kubernetes runtime definitions.
@@ -3934,10 +3874,6 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -4039,10 +3975,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -4084,10 +4016,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -4147,10 +4075,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -4255,10 +4179,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -4301,10 +4221,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -4364,10 +4280,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -4471,10 +4383,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -4517,10 +4425,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -4577,10 +4481,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -4684,10 +4584,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -4729,10 +4625,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -4788,10 +4680,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -4895,10 +4783,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -4940,10 +4824,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -5000,10 +4880,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -5107,10 +4983,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -5152,10 +5024,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -5212,10 +5080,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -5319,10 +5183,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -5364,10 +5224,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -5424,10 +5280,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -5531,10 +5383,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -5576,10 +5424,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -5637,30 +5481,25 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/v0.Response'
       summary: adds a new event.
-  /v0/events-filtered:
+  /v0/events-join-attached-object-references:
     get:
       consumes:
       - application/json
-      description: Get events from the Threeport database, narrowed by the object_type
-        and object_id columns each event row carries.
-      operationId: get-v0-events-filtered
+      description: Get all events joined with attached object references from the
+        Threeport database.
+      operationId: get-v0-events-join-attached-object-references
       parameters:
       - description: filter events by object ID
         in: query
         name: objectid
         type: string
-      - description: filter events by object type name; CamelCase Go TypeName like
-          'KubernetesWorkloadInstance'. Filters on its own, and narrows objectid,
-          objectname, or objectnameprefix to one kind
+      - description: filter events by object type name (with objectname); CamelCase
+          Go TypeName like 'KubernetesWorkloadInstance'
         in: query
         name: objecttypename
         type: string
@@ -5672,27 +5511,9 @@ paths:
         in: query
         name: objectnamespace
         type: string
-      - description: filter events by exact object name; matches every subject type
-          carrying that name, deleted subjects included, unless objecttypename narrows
-          it
+      - description: filter events by object name (with objecttypename)
         in: query
         name: objectname
-        type: string
-      - description: filter events by object name prefix; matches every subject whose
-          name starts with this token, deleted subjects included, across every subject
-          type unless objecttypename narrows it
-        in: query
-        name: objectnameprefix
-        type: string
-      - description: filter events by exact Reason match (case-sensitive CamelCase,
-          e.g. 'SuccessfulCreate')
-        in: query
-        name: reason
-        type: string
-      - description: filter events by Reason prefix (case-sensitive CamelCase, matches
-          Reason values starting with this token)
-        in: query
-        name: reasonprefix
         type: string
       produces:
       - application/json
@@ -5709,7 +5530,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/v0.Response'
-      summary: gets all events, filtered by subject.
+      summary: gets all events joined with attached object references.
   /v0/events/{id}:
     delete:
       consumes:
@@ -5806,10 +5627,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -5851,10 +5668,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -5910,10 +5723,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -6017,10 +5826,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -6062,10 +5867,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -6121,10 +5922,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -6228,10 +6025,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -6273,10 +6066,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -6332,10 +6121,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -6439,10 +6224,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -6484,10 +6265,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -6543,10 +6320,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -6650,10 +6423,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -6697,441 +6466,11 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing gateway tcp port by replacing the entire object.
-  /v0/gcp-gce-machine-runtime-definitions:
-    get:
-      consumes:
-      - application/json
-      description: Get all gcp gce machine runtime definitions from the Threeport
-        database.
-      operationId: get-v0-gcpGceMachineRuntimeDefinitions
-      parameters:
-      - description: filter by exact gcp gce machine runtime definition name (case
-          sensitive)
-        in: query
-        name: name
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: gets all gcp gce machine runtime definitions.
-    post:
-      consumes:
-      - application/json
-      description: Add a new gcp gce machine runtime definition to the Threeport database.
-      operationId: add-v0-gcpGceMachineRuntimeDefinition
-      parameters:
-      - description: GcpGceMachineRuntimeDefinition object
-        in: body
-        name: gcpGceMachineRuntimeDefinition
-        required: true
-        schema:
-          $ref: '#/definitions/v0.GcpGceMachineRuntimeDefinition'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: adds a new gcp gce machine runtime definition.
-  /v0/gcp-gce-machine-runtime-definitions/{id}:
-    delete:
-      consumes:
-      - application/json
-      description: Delete a gcp gce machine runtime definition by ID from the database.
-      operationId: delete-v0-gcpGceMachineRuntimeDefinition
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: deletes a gcp gce machine runtime definition.
-    get:
-      consumes:
-      - application/json
-      description: Get a particular gcp gce machine runtime definition from the database.
-      operationId: get-v0-gcpGceMachineRuntimeDefinition
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: gets a gcp gce machine runtime definition.
-    patch:
-      consumes:
-      - application/json
-      description: |-
-        Update a gcp gce machine runtime definition in the database.  Provide one or more fields to update.
-        Note: This API endpint is for updating gcp gce machine runtime definition objects only.
-        Request bodies that include related objects will be accepted, however
-        the related objects will not be changed.  Call the patch or put method for
-        each particular existing object to change them.
-      operationId: update-v0-gcpGceMachineRuntimeDefinition
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: GcpGceMachineRuntimeDefinition object
-        in: body
-        name: gcpGceMachineRuntimeDefinition
-        required: true
-        schema:
-          $ref: '#/definitions/v0.GcpGceMachineRuntimeDefinition'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: updates specific fields for an existing gcp gce machine runtime definition.
-    put:
-      consumes:
-      - application/json
-      description: |-
-        Replace a gcp gce machine runtime definition in the database.  All required fields must be provided.
-        If any optional fields are not provided, they will be null post-update.
-        Note: This API endpint is for updating gcp gce machine runtime definition objects only.
-        Request bodies that include related objects will be accepted, however
-        the related objects will not be changed.  Call the patch or put method for
-        each particular existing object to change them.
-      operationId: replace-v0-gcpGceMachineRuntimeDefinition
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: GcpGceMachineRuntimeDefinition object
-        in: body
-        name: gcpGceMachineRuntimeDefinition
-        required: true
-        schema:
-          $ref: '#/definitions/v0.GcpGceMachineRuntimeDefinition'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: updates an existing gcp gce machine runtime definition by replacing
-        the entire object.
-  /v0/gcp-gce-machine-runtime-instances:
-    get:
-      consumes:
-      - application/json
-      description: Get all gcp gce machine runtime instances from the Threeport database.
-      operationId: get-v0-gcpGceMachineRuntimeInstances
-      parameters:
-      - description: filter by exact gcp gce machine runtime instance name (case sensitive)
-        in: query
-        name: name
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: gets all gcp gce machine runtime instances.
-    post:
-      consumes:
-      - application/json
-      description: Add a new gcp gce machine runtime instance to the Threeport database.
-      operationId: add-v0-gcpGceMachineRuntimeInstance
-      parameters:
-      - description: GcpGceMachineRuntimeInstance object
-        in: body
-        name: gcpGceMachineRuntimeInstance
-        required: true
-        schema:
-          $ref: '#/definitions/v0.GcpGceMachineRuntimeInstance'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: adds a new gcp gce machine runtime instance.
-  /v0/gcp-gce-machine-runtime-instances/{id}:
-    delete:
-      consumes:
-      - application/json
-      description: Delete a gcp gce machine runtime instance by ID from the database.
-      operationId: delete-v0-gcpGceMachineRuntimeInstance
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: deletes a gcp gce machine runtime instance.
-    get:
-      consumes:
-      - application/json
-      description: Get a particular gcp gce machine runtime instance from the database.
-      operationId: get-v0-gcpGceMachineRuntimeInstance
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: gets a gcp gce machine runtime instance.
-    patch:
-      consumes:
-      - application/json
-      description: |-
-        Update a gcp gce machine runtime instance in the database.  Provide one or more fields to update.
-        Note: This API endpint is for updating gcp gce machine runtime instance objects only.
-        Request bodies that include related objects will be accepted, however
-        the related objects will not be changed.  Call the patch or put method for
-        each particular existing object to change them.
-      operationId: update-v0-gcpGceMachineRuntimeInstance
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: GcpGceMachineRuntimeInstance object
-        in: body
-        name: gcpGceMachineRuntimeInstance
-        required: true
-        schema:
-          $ref: '#/definitions/v0.GcpGceMachineRuntimeInstance'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: updates specific fields for an existing gcp gce machine runtime instance.
-    put:
-      consumes:
-      - application/json
-      description: |-
-        Replace a gcp gce machine runtime instance in the database.  All required fields must be provided.
-        If any optional fields are not provided, they will be null post-update.
-        Note: This API endpint is for updating gcp gce machine runtime instance objects only.
-        Request bodies that include related objects will be accepted, however
-        the related objects will not be changed.  Call the patch or put method for
-        each particular existing object to change them.
-      operationId: replace-v0-gcpGceMachineRuntimeInstance
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: GcpGceMachineRuntimeInstance object
-        in: body
-        name: gcpGceMachineRuntimeInstance
-        required: true
-        schema:
-          $ref: '#/definitions/v0.GcpGceMachineRuntimeInstance'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: updates an existing gcp gce machine runtime instance by replacing the
-        entire object.
   /v0/gcp-gke-kubernetes-runtime-definitions:
     get:
       consumes:
@@ -7183,10 +6522,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -7291,10 +6626,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -7337,10 +6668,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -7400,10 +6727,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -7507,10 +6830,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -7553,10 +6872,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -7613,10 +6928,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -7720,10 +7031,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -7765,10 +7072,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -7824,10 +7127,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -7931,10 +7230,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -7976,10 +7271,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -8036,10 +7327,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -8143,10 +7430,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -8188,10 +7471,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -8248,10 +7527,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -8355,10 +7630,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -8400,10 +7671,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -8460,10 +7727,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -8567,10 +7830,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -8612,10 +7871,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -8672,10 +7927,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -8779,10 +8030,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -8824,10 +8071,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -8884,10 +8127,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -8991,10 +8230,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -9036,10 +8271,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -9131,10 +8362,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -9240,10 +8467,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -9286,10 +8509,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -9349,10 +8568,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -9457,10 +8672,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -9503,10 +8714,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -9563,10 +8770,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -9670,10 +8873,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -9715,10 +8914,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -9774,10 +8969,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -9881,10 +9072,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -9926,10 +9113,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -9986,10 +9169,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -10093,10 +9272,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -10138,10 +9313,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -10197,10 +9368,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -10304,10 +9471,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -10349,10 +9512,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -10408,10 +9567,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -10515,10 +9670,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -10560,10 +9711,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -10619,10 +9766,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -10726,10 +9869,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -10771,10 +9910,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -10831,10 +9966,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -10938,10 +10069,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -10983,10 +10110,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -11043,10 +10166,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -11150,10 +10269,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -11195,10 +10310,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -11255,10 +10366,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -11362,10 +10469,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -11407,10 +10510,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -11467,10 +10566,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -11574,10 +10669,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -11619,10 +10710,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -11678,10 +10765,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -11785,10 +10868,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -11830,10 +10909,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -11922,10 +10997,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -12029,10 +11100,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -12074,10 +11141,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -12133,10 +11196,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -12240,10 +11299,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -12285,10 +11340,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -12344,10 +11395,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -12451,10 +11498,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -12496,10 +11539,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -12555,10 +11594,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -12719,10 +11754,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -12764,10 +11795,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -12825,10 +11852,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -12932,10 +11955,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -12977,10 +11996,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -13037,10 +12052,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -13144,10 +12155,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -13189,10 +12196,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -13249,10 +12252,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -13356,10 +12355,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -13401,10 +12396,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -13461,10 +12452,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -13568,10 +12555,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -13613,10 +12596,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -13676,10 +12655,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -13784,10 +12759,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -13830,10 +12801,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -13893,10 +12860,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -14000,10 +12963,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -14046,10 +13005,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -14106,10 +13061,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -14213,10 +13164,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -14258,10 +13205,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -14317,10 +13260,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -14424,10 +13363,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -14469,10 +13404,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -14528,10 +13459,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -14635,10 +13562,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -14680,10 +13603,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -14739,10 +13658,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -14846,10 +13761,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -14891,10 +13802,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -14950,10 +13857,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -15057,10 +13960,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -15102,10 +14001,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -15161,10 +14056,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -15268,10 +14159,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -15313,10 +14200,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -15372,10 +14255,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":
@@ -15479,10 +14358,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -15524,10 +14399,6 @@ paths:
             $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/v0.Response'
         "500":

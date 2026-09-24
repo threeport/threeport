@@ -5,6 +5,7 @@ package handlers
 import (
 	"errors"
 	"fmt"
+	crdbgorm "github.com/cockroachdb/cockroach-go/v2/crdb/crdbgorm"
 	echo "github.com/labstack/echo/v4"
 	notif "github.com/threeport/threeport/internal/secret/notif"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
@@ -39,61 +40,70 @@ func (h Handler) GetSecretDefinitionVersions(c echo.Context) error {
 // @Param secretDefinition body api_v0.SecretDefinition true "SecretDefinition object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
-// @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/secret-definitions [POST]
 func (h Handler) AddSecretDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeSecretDefinition
-	fullyQualifiedType := new(api_v0.SecretDefinition).GetFullyQualifiedType()
 	var secretDefinition api_v0.SecretDefinition
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, secretDefinition); err != nil {
 		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	if err := c.Bind(&secretDefinition); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, secretDefinition, objectType); err != nil {
 		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
-	// persist to DB
-	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-		// clear id so a retried create does not reuse a rolled-back key
-		secretDefinition.ID = nil
-		return db.Create(&secretDefinition)
-	}); result.Error != nil {
-		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
+	// the create runs inside a retryable transaction. Under
+	// SERIALIZABLE isolation CockroachDB answers a write conflict with
+	// SQLSTATE 40001 and expects the client to re-run the transaction.
+	// the duplicate-name read joins it: a restart has to re-check the
+	// name, and checking outside the transaction leaves a window where
+	// two concurrent creates both find the name free.
+	nameUsed := false
+	if err := crdbgorm.ExecuteTx(
+		c.Request().Context(), h.DB, nil,
+		func(tx *gorm.DB) error {
+			// the database assigns the primary key, so a retried attempt
+			// must not carry the one a rolled-back attempt was given
+			secretDefinition.ID = nil
+			nameUsed = true
+			var existingSecretDefinition api_v0.SecretDefinition
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", secretDefinition.Name).First(&existingSecretDefinition); result.Error != nil {
+				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+					return result.Error
+				}
+				nameUsed = false
+			}
+			// the name is taken; leave the transaction without writing
+			// and let the caller answer 409
+			if nameUsed {
+				return nil
+			}
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&secretDefinition).Error
+		},
+	); err != nil {
+		h.Logger.Error("handler error: error creating object", zap.Error(err))
 		// check if this is a custom HTTP error with specific status code
 		var httpErr *util_v0.HttpError
-		if errors.As(result.Error, &httpErr) {
+		if errors.As(err, &httpErr) {
 			return apiserver_lib.ResponseStatusErr(
-				httpErr.GetStatusCode(), c, nil, result.Error, fullyQualifiedType,
+				httpErr.GetStatusCode(), c, nil, err, objectType,
 			)
 		}
-		return apiserver_lib.RespondWriteError(
-			c,
-			h.Logger,
-			result.Error,
-			new(api_v0.SecretDefinition),
-			fullyQualifiedType,
-		)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
-
-	// the write has committed; bring any process state that mirrors the
-	// database in line before answering, so a caller that gets a 200 can
-	// rely on it. A persist hook cannot do this: it runs inside the
-	// transaction, so it would act on a write that may never commit.
-	if err := apiserver_lib.AfterCommitCreate(h.DB, &secretDefinition); err != nil {
-		h.Logger.Error("handler error: error reconciling process state after commit", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
+	if nameUsed {
+		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
 	}
 
 	// notify controller if reconciliation is required
@@ -105,7 +115,7 @@ func (h Handler) AddSecretDefinition(c echo.Context) error {
 		)
 		if err != nil {
 			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
+			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 		}
 		h.JS.Publish(notif.SecretDefinitionCreateSubject, *notifPayload)
 	}
@@ -113,11 +123,11 @@ func (h Handler) AddSecretDefinition(c echo.Context) error {
 	response, err := apiserver_lib.CreateResponse(
 		apiserver_lib.SingleObjectMeta(),
 		secretDefinition,
-		fullyQualifiedType,
+		objectType,
 	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	return apiserver_lib.ResponseStatus201(c, *response)
@@ -134,19 +144,19 @@ func (h Handler) AddSecretDefinition(c echo.Context) error {
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/secret-definitions [GET]
 func (h Handler) GetSecretDefinitions(c echo.Context) error {
-	fullyQualifiedType := new(api_v0.SecretDefinition).GetFullyQualifiedType()
+	objectType := api_v0.ObjectTypeSecretDefinition
 
 	// get pagination parameters
 	pageParams, err := c.(*apiserver_lib.CustomContext).GetPaginationParams()
 	if err != nil {
-		return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
+		return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
 	}
 
 	// bind filter
 	var filter api_v0.SecretDefinition
 	if err := c.Bind(&filter); err != nil {
 		h.Logger.Error("handler error: error binding filter", zap.Error(err))
-		return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
+		return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
 	}
 
 	pagination := new(apiserver_lib.Pagination)
@@ -162,7 +172,7 @@ func (h Handler) GetSecretDefinitions(c echo.Context) error {
 		var totalCount int64
 		if result := h.RequestDB(c).Model(&api_v0.SecretDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
 			h.Logger.Error("handler error: error counting objects", zap.Error(result.Error))
-			return apiserver_lib.ResponseStatus500(c, pageParams, result.Error, fullyQualifiedType)
+			return apiserver_lib.ResponseStatus500(c, pageParams, result.Error, objectType)
 		}
 
 		// see if total count is greater than the limit
@@ -173,7 +183,7 @@ func (h Handler) GetSecretDefinitions(c echo.Context) error {
 			// if we don't have to paginate, return all records
 			if result := h.RequestDB(c).Order("ID asc").Where(&filter).Find(records); result.Error != nil {
 				h.Logger.Error("handler error: error finding objects", zap.Error(result.Error))
-				return apiserver_lib.ResponseStatus500(c, pageParams, result.Error, fullyQualifiedType)
+				return apiserver_lib.ResponseStatus500(c, pageParams, result.Error, objectType)
 			}
 			returnedCount = int64(len(*records))
 		case true:
@@ -182,10 +192,10 @@ func (h Handler) GetSecretDefinitions(c echo.Context) error {
 			queryId, count, err := h.DispatchGetPaginatedRecords(h.RequestDB(c).Model(&api_v0.SecretDefinition{}).Where(&filter), records, queryTable, pageParams)
 			if err != nil {
 				if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
-					return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
+					return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
 				}
 				h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
-				return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
+				return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
 			}
 			pagination.QueryId = queryId
 			returnedCount = count
@@ -199,17 +209,17 @@ func (h Handler) GetSecretDefinitions(c echo.Context) error {
 		}
 	case pageParams.QueryId != "" && pageParams.Cursor == 0:
 		// client provided a query ID but no cursor, so we cannot fetch the next page of results
-		return apiserver_lib.ResponseStatus400(c, pageParams, errors.New("cursor is required when query ID is provided"), fullyQualifiedType)
+		return apiserver_lib.ResponseStatus400(c, pageParams, errors.New("cursor is required when query ID is provided"), objectType)
 	case pageParams.QueryId != "" && pageParams.Cursor != 0:
 		// continuation: dispatch to the configured pagination strategy to fetch the next page
 		queryTable := filter.TableName()
 		queryId, count, err := h.DispatchGetPaginatedRecords(h.RequestDB(c).Model(&api_v0.SecretDefinition{}).Where(&filter), records, queryTable, pageParams)
 		if err != nil {
 			if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
-				return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
+				return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
 			}
 			h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
+			return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
 		}
 		pagination.QueryId = queryId
 		returnedCount = count
@@ -232,11 +242,11 @@ func (h Handler) GetSecretDefinitions(c echo.Context) error {
 			Pagination:  *pagination,
 		},
 		*records,
-		fullyQualifiedType,
+		objectType,
 	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
+		return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
 	}
 
 	return apiserver_lib.ResponseStatus200(c, *response)
@@ -253,26 +263,26 @@ func (h Handler) GetSecretDefinitions(c echo.Context) error {
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/secret-definitions/{id} [GET]
 func (h Handler) GetSecretDefinition(c echo.Context) error {
-	fullyQualifiedType := new(api_v0.SecretDefinition).GetFullyQualifiedType()
+	objectType := api_v0.ObjectTypeSecretDefinition
 	secretDefinitionID := c.Param("id")
 	var secretDefinition api_v0.SecretDefinition
 	if result := h.RequestDB(c).
 		First(&secretDefinition, secretDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, fullyQualifiedType)
+			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
 		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
 		apiserver_lib.SingleObjectMeta(),
 		secretDefinition,
-		fullyQualifiedType,
+		objectType,
 	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	return apiserver_lib.ResponseStatus200(c, *response)
@@ -292,62 +302,58 @@ func (h Handler) GetSecretDefinition(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
-// @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/secret-definitions/{id} [PATCH]
 func (h Handler) UpdateSecretDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeSecretDefinition
-	fullyQualifiedType := new(api_v0.SecretDefinition).GetFullyQualifiedType()
 	secretDefinitionID := c.Param("id")
 	var existingSecretDefinition api_v0.SecretDefinition
-	if result := h.RequestDB(c).First(&existingSecretDefinition, secretDefinitionID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, fullyQualifiedType)
-		}
-		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
-	}
-
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingSecretDefinition); err != nil {
 		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// bind payload
 	var updatedSecretDefinition api_v0.SecretDefinition
 	if err := c.Bind(&updatedSecretDefinition); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
 	}
 
-	// snapshot reconciliation state before the update so the notify block can skip publishing when no state marker changed
-	prevReconciliation := existingSecretDefinition.Reconciliation
-
-	// update object in database
-	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-		return db.Model(&existingSecretDefinition).Updates(&updatedSecretDefinition)
-	}); result.Error != nil {
-		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
+	// the read and the write retry together. Under SERIALIZABLE
+	// isolation CockroachDB answers a conflict with SQLSTATE 40001 and
+	// expects the client to re-run the transaction; a restart that
+	// re-ran only the write would land it on a stale row. RequestDB is
+	// not used because ExecuteTx opens the transaction itself, so the
+	// query scopes it would have applied go on tx instead.
+	if err := crdbgorm.ExecuteTx(
+		c.Request().Context(), h.DB, nil,
+		func(tx *gorm.DB) error {
+			// a retried attempt must not read into the previous one's leftovers
+			existingSecretDefinition = api_v0.SecretDefinition{}
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingSecretDefinition, secretDefinitionID); result.Error != nil {
+				return result.Error
+			}
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingSecretDefinition).Updates(&updatedSecretDefinition).Error
+		},
+	); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, err, objectType)
+		}
+		h.Logger.Error("handler error: error updating object", zap.Error(err))
 		// check if this is a custom HTTP error with specific status code
 		var httpErr *util_v0.HttpError
-		if errors.As(result.Error, &httpErr) {
+		if errors.As(err, &httpErr) {
 			return apiserver_lib.ResponseStatusErr(
-				httpErr.GetStatusCode(), c, nil, result.Error, fullyQualifiedType,
+				httpErr.GetStatusCode(), c, nil, err, objectType,
 			)
 		}
-		return apiserver_lib.RespondWriteError(
-			c,
-			h.Logger,
-			result.Error,
-			new(api_v0.SecretDefinition),
-			fullyQualifiedType,
-		)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
-	// notify controller if reconciliation is required and the update is notifiable
-	if existingSecretDefinition.Reconciled != nil && !*existingSecretDefinition.Reconciled &&
-		api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingSecretDefinition.Reconciliation) {
+	// notify controller if reconciliation is required
+	if !*existingSecretDefinition.Reconciled {
 		notifPayload, err := existingSecretDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -355,7 +361,7 @@ func (h Handler) UpdateSecretDefinition(c echo.Context) error {
 		)
 		if err != nil {
 			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
+			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 		}
 		h.JS.Publish(notif.SecretDefinitionUpdateSubject, *notifPayload)
 	}
@@ -363,11 +369,11 @@ func (h Handler) UpdateSecretDefinition(c echo.Context) error {
 	response, err := apiserver_lib.CreateResponse(
 		apiserver_lib.SingleObjectMeta(),
 		existingSecretDefinition,
-		fullyQualifiedType,
+		objectType,
 	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	return apiserver_lib.ResponseStatus200(c, *response)
@@ -388,99 +394,80 @@ func (h Handler) UpdateSecretDefinition(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
-// @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/secret-definitions/{id} [PUT]
 func (h Handler) ReplaceSecretDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeSecretDefinition
-	fullyQualifiedType := new(api_v0.SecretDefinition).GetFullyQualifiedType()
 	secretDefinitionID := c.Param("id")
 	var existingSecretDefinition api_v0.SecretDefinition
 	if result := h.RequestDB(c).First(&existingSecretDefinition, secretDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, fullyQualifiedType)
+			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
 		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingSecretDefinition); err != nil {
 		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// bind payload
 	var updatedSecretDefinition api_v0.SecretDefinition
 	if err := c.Bind(&updatedSecretDefinition); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, updatedSecretDefinition, objectType); err != nil {
 		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
-
-	// snapshot reconciliation state before replace so the notify block
-	// can skip publishing when the replace did not touch any state marker
-	prevReconciliation := existingSecretDefinition.Reconciliation
 
 	// persist provided data
 	updatedSecretDefinition.ID = existingSecretDefinition.ID
-	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-		return db.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedSecretDefinition)
-	}); result.Error != nil {
-		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
+	// the save runs inside a retryable transaction. Under SERIALIZABLE
+	// isolation CockroachDB answers a write conflict with SQLSTATE 40001
+	// and expects the client to re-run it. Only the write is retried: the
+	// read above contributes the primary key, which the URL fixes, so it
+	// cannot go stale between attempts.
+	if err := crdbgorm.ExecuteTx(
+		c.Request().Context(), h.DB, nil,
+		func(tx *gorm.DB) error {
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedSecretDefinition).Error
+		},
+	); err != nil {
+		h.Logger.Error("handler error: error persisting object", zap.Error(err))
 		// check if this is a custom HTTP error with specific status code
 		var httpErr *util_v0.HttpError
-		if errors.As(result.Error, &httpErr) {
+		if errors.As(err, &httpErr) {
 			return apiserver_lib.ResponseStatusErr(
-				httpErr.GetStatusCode(), c, nil, result.Error, fullyQualifiedType,
+				httpErr.GetStatusCode(), c, nil, err, objectType,
 			)
 		}
-		return apiserver_lib.RespondWriteError(
-			c,
-			h.Logger,
-			result.Error,
-			new(api_v0.SecretDefinition),
-			fullyQualifiedType,
-		)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// reload updated data from DB
 	if result := h.RequestDB(c).First(&existingSecretDefinition, secretDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, fullyQualifiedType)
+			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
 		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
-	}
-
-	// notify controller if reconciliation is required and the update is notifiable
-	if existingSecretDefinition.Reconciled != nil && !*existingSecretDefinition.Reconciled &&
-		api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingSecretDefinition.Reconciliation) {
-		notifPayload, err := existingSecretDefinition.NotificationPayload(
-			notifications.NotificationOperationUpdated,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.SecretDefinitionUpdateSubject, *notifPayload)
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
 		apiserver_lib.SingleObjectMeta(),
 		existingSecretDefinition,
-		fullyQualifiedType,
+		objectType,
 	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	return apiserver_lib.ResponseStatus200(c, *response)
@@ -498,21 +485,21 @@ func (h Handler) ReplaceSecretDefinition(c echo.Context) error {
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/secret-definitions/{id} [DELETE]
 func (h Handler) DeleteSecretDefinition(c echo.Context) error {
-	fullyQualifiedType := new(api_v0.SecretDefinition).GetFullyQualifiedType()
+	objectType := api_v0.ObjectTypeSecretDefinition
 	secretDefinitionID := c.Param("id")
 	var secretDefinition api_v0.SecretDefinition
 	if result := h.RequestDB(c).Preload("SecretInstances").First(&secretDefinition, secretDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, fullyQualifiedType)
+			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
 		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// check to make sure no dependent instances exist for this definition
 	if len(secretDefinition.SecretInstances) != 0 {
-		err := errors.New("secret definition has related secret instances - " + api_v0.ErrMsgDeleteBlocked)
-		return apiserver_lib.ResponseStatus409(c, nil, err, fullyQualifiedType)
+		err := errors.New("secret definition has related secret instances - cannot be deleted")
+		return apiserver_lib.ResponseStatus409(c, nil, err, objectType)
 	}
 
 	// pre-check synchronously so the client sees the 409 - without this, reconciled types only surface the block to the reconciler
@@ -525,7 +512,7 @@ func (h Handler) DeleteSecretDefinition(c echo.Context) error {
 				blockedErr,
 			)
 		}
-		return apiserver_lib.ResponseStatus500(c, nil, checkErr, fullyQualifiedType)
+		return apiserver_lib.ResponseStatus500(c, nil, checkErr, objectType)
 	}
 	// schedule for deletion if not already scheduled
 	// if scheduled and reconciled, delete object from DB
@@ -539,11 +526,14 @@ func (h Handler) DeleteSecretDefinition(c echo.Context) error {
 				DeletionScheduled: &timestamp,
 				Reconciled:        &reconciled,
 			}}
-		if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-			return db.Model(&secretDefinition).Updates(&scheduledSecretDefinition)
-		}); result.Error != nil {
-			h.Logger.Error("handler error: error creating scheduled deletion", zap.Error(result.Error))
-			return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
+		if err := crdbgorm.ExecuteTx(
+			c.Request().Context(), h.DB, nil,
+			func(tx *gorm.DB) error {
+				return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&secretDefinition).Updates(&scheduledSecretDefinition).Error
+			},
+		); err != nil {
+			h.Logger.Error("handler error: error creating scheduled deletion", zap.Error(err))
+			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 		}
 		// notify controller
 		notifPayload, err := secretDefinition.NotificationPayload(
@@ -553,7 +543,7 @@ func (h Handler) DeleteSecretDefinition(c echo.Context) error {
 		)
 		if err != nil {
 			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
+			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 		}
 		h.JS.Publish(notif.SecretDefinitionDeleteSubject, *notifPayload)
 	} else {
@@ -561,20 +551,22 @@ func (h Handler) DeleteSecretDefinition(c echo.Context) error {
 			// if deletion scheduled but not reconciled, return 409 - deletion
 			// already underway
 			return apiserver_lib.ResponseStatus409(c, nil, errors.New(fmt.Sprintf(
-				"object with ID %d %s",
+				"object with ID %d already being deleted",
 				*secretDefinition.ID,
-				api_v0.ErrMsgAlreadyBeingDeleted,
-			)), fullyQualifiedType)
+			)), objectType)
 		} else {
 			// object scheduled for deletion and confirmed - it can be deleted
 			// from DB
-			if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-				return db.Delete(&secretDefinition)
-			}); result.Error != nil {
-				h.Logger.Error("handler error: error deleting object", zap.Error(result.Error))
+			if err := crdbgorm.ExecuteTx(
+				c.Request().Context(), h.DB, nil,
+				func(tx *gorm.DB) error {
+					return tx.Scopes(apiserver_lib.QueryScopes(c)...).Delete(&secretDefinition).Error
+				},
+			); err != nil {
+				h.Logger.Error("handler error: error deleting object", zap.Error(err))
 				// surface BlockedDeleteError from gorm hook - backstop in case an attached object reference was created after the pre-check
 				var blockedErr *api_v0.BlockedDeleteError
-				if errors.As(result.Error, &blockedErr) {
+				if errors.As(err, &blockedErr) {
 					return RespondBlockedDelete(
 						c,
 						h.RequestDB(c),
@@ -583,32 +575,24 @@ func (h Handler) DeleteSecretDefinition(c echo.Context) error {
 				}
 				// check if this is a custom HTTP error with specific status code
 				var httpErr *util_v0.HttpError
-				if errors.As(result.Error, &httpErr) {
+				if errors.As(err, &httpErr) {
 					return apiserver_lib.ResponseStatusErr(
-						httpErr.GetStatusCode(), c, nil, result.Error, fullyQualifiedType,
+						httpErr.GetStatusCode(), c, nil, err, objectType,
 					)
 				}
-				return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
+				return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 			}
 		}
-	}
-
-	// the delete has committed; drop any process state that mirrored the
-	// row before answering. A persist hook cannot do this: a rollback
-	// would have dropped state for a row that survived.
-	if err := apiserver_lib.AfterCommitDelete(h.DB, &secretDefinition); err != nil {
-		h.Logger.Error("handler error: error reconciling process state after commit", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
 		apiserver_lib.SingleObjectMeta(),
 		secretDefinition,
-		fullyQualifiedType,
+		objectType,
 	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	return apiserver_lib.ResponseStatus200(c, *response)
@@ -636,61 +620,70 @@ func (h Handler) GetSecretInstanceVersions(c echo.Context) error {
 // @Param secretInstance body api_v0.SecretInstance true "SecretInstance object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
-// @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/secret-instances [POST]
 func (h Handler) AddSecretInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeSecretInstance
-	fullyQualifiedType := new(api_v0.SecretInstance).GetFullyQualifiedType()
 	var secretInstance api_v0.SecretInstance
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, secretInstance); err != nil {
 		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	if err := c.Bind(&secretInstance); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, secretInstance, objectType); err != nil {
 		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
-	// persist to DB
-	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-		// clear id so a retried create does not reuse a rolled-back key
-		secretInstance.ID = nil
-		return db.Create(&secretInstance)
-	}); result.Error != nil {
-		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
+	// the create runs inside a retryable transaction. Under
+	// SERIALIZABLE isolation CockroachDB answers a write conflict with
+	// SQLSTATE 40001 and expects the client to re-run the transaction.
+	// the duplicate-name read joins it: a restart has to re-check the
+	// name, and checking outside the transaction leaves a window where
+	// two concurrent creates both find the name free.
+	nameUsed := false
+	if err := crdbgorm.ExecuteTx(
+		c.Request().Context(), h.DB, nil,
+		func(tx *gorm.DB) error {
+			// the database assigns the primary key, so a retried attempt
+			// must not carry the one a rolled-back attempt was given
+			secretInstance.ID = nil
+			nameUsed = true
+			var existingSecretInstance api_v0.SecretInstance
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", secretInstance.Name).First(&existingSecretInstance); result.Error != nil {
+				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+					return result.Error
+				}
+				nameUsed = false
+			}
+			// the name is taken; leave the transaction without writing
+			// and let the caller answer 409
+			if nameUsed {
+				return nil
+			}
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&secretInstance).Error
+		},
+	); err != nil {
+		h.Logger.Error("handler error: error creating object", zap.Error(err))
 		// check if this is a custom HTTP error with specific status code
 		var httpErr *util_v0.HttpError
-		if errors.As(result.Error, &httpErr) {
+		if errors.As(err, &httpErr) {
 			return apiserver_lib.ResponseStatusErr(
-				httpErr.GetStatusCode(), c, nil, result.Error, fullyQualifiedType,
+				httpErr.GetStatusCode(), c, nil, err, objectType,
 			)
 		}
-		return apiserver_lib.RespondWriteError(
-			c,
-			h.Logger,
-			result.Error,
-			new(api_v0.SecretInstance),
-			fullyQualifiedType,
-		)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
-
-	// the write has committed; bring any process state that mirrors the
-	// database in line before answering, so a caller that gets a 200 can
-	// rely on it. A persist hook cannot do this: it runs inside the
-	// transaction, so it would act on a write that may never commit.
-	if err := apiserver_lib.AfterCommitCreate(h.DB, &secretInstance); err != nil {
-		h.Logger.Error("handler error: error reconciling process state after commit", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
+	if nameUsed {
+		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
 	}
 
 	// notify controller if reconciliation is required
@@ -702,7 +695,7 @@ func (h Handler) AddSecretInstance(c echo.Context) error {
 		)
 		if err != nil {
 			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
+			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 		}
 		h.JS.Publish(notif.SecretInstanceCreateSubject, *notifPayload)
 	}
@@ -710,11 +703,11 @@ func (h Handler) AddSecretInstance(c echo.Context) error {
 	response, err := apiserver_lib.CreateResponse(
 		apiserver_lib.SingleObjectMeta(),
 		secretInstance,
-		fullyQualifiedType,
+		objectType,
 	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	return apiserver_lib.ResponseStatus201(c, *response)
@@ -731,19 +724,19 @@ func (h Handler) AddSecretInstance(c echo.Context) error {
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/secret-instances [GET]
 func (h Handler) GetSecretInstances(c echo.Context) error {
-	fullyQualifiedType := new(api_v0.SecretInstance).GetFullyQualifiedType()
+	objectType := api_v0.ObjectTypeSecretInstance
 
 	// get pagination parameters
 	pageParams, err := c.(*apiserver_lib.CustomContext).GetPaginationParams()
 	if err != nil {
-		return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
+		return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
 	}
 
 	// bind filter
 	var filter api_v0.SecretInstance
 	if err := c.Bind(&filter); err != nil {
 		h.Logger.Error("handler error: error binding filter", zap.Error(err))
-		return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
+		return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
 	}
 
 	pagination := new(apiserver_lib.Pagination)
@@ -759,7 +752,7 @@ func (h Handler) GetSecretInstances(c echo.Context) error {
 		var totalCount int64
 		if result := h.RequestDB(c).Model(&api_v0.SecretInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
 			h.Logger.Error("handler error: error counting objects", zap.Error(result.Error))
-			return apiserver_lib.ResponseStatus500(c, pageParams, result.Error, fullyQualifiedType)
+			return apiserver_lib.ResponseStatus500(c, pageParams, result.Error, objectType)
 		}
 
 		// see if total count is greater than the limit
@@ -770,7 +763,7 @@ func (h Handler) GetSecretInstances(c echo.Context) error {
 			// if we don't have to paginate, return all records
 			if result := h.RequestDB(c).Order("ID asc").Where(&filter).Find(records); result.Error != nil {
 				h.Logger.Error("handler error: error finding objects", zap.Error(result.Error))
-				return apiserver_lib.ResponseStatus500(c, pageParams, result.Error, fullyQualifiedType)
+				return apiserver_lib.ResponseStatus500(c, pageParams, result.Error, objectType)
 			}
 			returnedCount = int64(len(*records))
 		case true:
@@ -779,10 +772,10 @@ func (h Handler) GetSecretInstances(c echo.Context) error {
 			queryId, count, err := h.DispatchGetPaginatedRecords(h.RequestDB(c).Model(&api_v0.SecretInstance{}).Where(&filter), records, queryTable, pageParams)
 			if err != nil {
 				if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
-					return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
+					return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
 				}
 				h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
-				return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
+				return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
 			}
 			pagination.QueryId = queryId
 			returnedCount = count
@@ -796,17 +789,17 @@ func (h Handler) GetSecretInstances(c echo.Context) error {
 		}
 	case pageParams.QueryId != "" && pageParams.Cursor == 0:
 		// client provided a query ID but no cursor, so we cannot fetch the next page of results
-		return apiserver_lib.ResponseStatus400(c, pageParams, errors.New("cursor is required when query ID is provided"), fullyQualifiedType)
+		return apiserver_lib.ResponseStatus400(c, pageParams, errors.New("cursor is required when query ID is provided"), objectType)
 	case pageParams.QueryId != "" && pageParams.Cursor != 0:
 		// continuation: dispatch to the configured pagination strategy to fetch the next page
 		queryTable := filter.TableName()
 		queryId, count, err := h.DispatchGetPaginatedRecords(h.RequestDB(c).Model(&api_v0.SecretInstance{}).Where(&filter), records, queryTable, pageParams)
 		if err != nil {
 			if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
-				return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
+				return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
 			}
 			h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
+			return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
 		}
 		pagination.QueryId = queryId
 		returnedCount = count
@@ -829,11 +822,11 @@ func (h Handler) GetSecretInstances(c echo.Context) error {
 			Pagination:  *pagination,
 		},
 		*records,
-		fullyQualifiedType,
+		objectType,
 	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
+		return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
 	}
 
 	return apiserver_lib.ResponseStatus200(c, *response)
@@ -850,26 +843,26 @@ func (h Handler) GetSecretInstances(c echo.Context) error {
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/secret-instances/{id} [GET]
 func (h Handler) GetSecretInstance(c echo.Context) error {
-	fullyQualifiedType := new(api_v0.SecretInstance).GetFullyQualifiedType()
+	objectType := api_v0.ObjectTypeSecretInstance
 	secretInstanceID := c.Param("id")
 	var secretInstance api_v0.SecretInstance
 	if result := h.RequestDB(c).
 		First(&secretInstance, secretInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, fullyQualifiedType)
+			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
 		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
 		apiserver_lib.SingleObjectMeta(),
 		secretInstance,
-		fullyQualifiedType,
+		objectType,
 	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	return apiserver_lib.ResponseStatus200(c, *response)
@@ -889,62 +882,58 @@ func (h Handler) GetSecretInstance(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
-// @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/secret-instances/{id} [PATCH]
 func (h Handler) UpdateSecretInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeSecretInstance
-	fullyQualifiedType := new(api_v0.SecretInstance).GetFullyQualifiedType()
 	secretInstanceID := c.Param("id")
 	var existingSecretInstance api_v0.SecretInstance
-	if result := h.RequestDB(c).First(&existingSecretInstance, secretInstanceID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, fullyQualifiedType)
-		}
-		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
-	}
-
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingSecretInstance); err != nil {
 		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// bind payload
 	var updatedSecretInstance api_v0.SecretInstance
 	if err := c.Bind(&updatedSecretInstance); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
 	}
 
-	// snapshot reconciliation state before the update so the notify block can skip publishing when no state marker changed
-	prevReconciliation := existingSecretInstance.Reconciliation
-
-	// update object in database
-	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-		return db.Model(&existingSecretInstance).Updates(&updatedSecretInstance)
-	}); result.Error != nil {
-		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
+	// the read and the write retry together. Under SERIALIZABLE
+	// isolation CockroachDB answers a conflict with SQLSTATE 40001 and
+	// expects the client to re-run the transaction; a restart that
+	// re-ran only the write would land it on a stale row. RequestDB is
+	// not used because ExecuteTx opens the transaction itself, so the
+	// query scopes it would have applied go on tx instead.
+	if err := crdbgorm.ExecuteTx(
+		c.Request().Context(), h.DB, nil,
+		func(tx *gorm.DB) error {
+			// a retried attempt must not read into the previous one's leftovers
+			existingSecretInstance = api_v0.SecretInstance{}
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingSecretInstance, secretInstanceID); result.Error != nil {
+				return result.Error
+			}
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingSecretInstance).Updates(&updatedSecretInstance).Error
+		},
+	); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, err, objectType)
+		}
+		h.Logger.Error("handler error: error updating object", zap.Error(err))
 		// check if this is a custom HTTP error with specific status code
 		var httpErr *util_v0.HttpError
-		if errors.As(result.Error, &httpErr) {
+		if errors.As(err, &httpErr) {
 			return apiserver_lib.ResponseStatusErr(
-				httpErr.GetStatusCode(), c, nil, result.Error, fullyQualifiedType,
+				httpErr.GetStatusCode(), c, nil, err, objectType,
 			)
 		}
-		return apiserver_lib.RespondWriteError(
-			c,
-			h.Logger,
-			result.Error,
-			new(api_v0.SecretInstance),
-			fullyQualifiedType,
-		)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
-	// notify controller if reconciliation is required and the update is notifiable
-	if existingSecretInstance.Reconciled != nil && !*existingSecretInstance.Reconciled &&
-		api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingSecretInstance.Reconciliation) {
+	// notify controller if reconciliation is required
+	if !*existingSecretInstance.Reconciled {
 		notifPayload, err := existingSecretInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -952,7 +941,7 @@ func (h Handler) UpdateSecretInstance(c echo.Context) error {
 		)
 		if err != nil {
 			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
+			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 		}
 		h.JS.Publish(notif.SecretInstanceUpdateSubject, *notifPayload)
 	}
@@ -960,11 +949,11 @@ func (h Handler) UpdateSecretInstance(c echo.Context) error {
 	response, err := apiserver_lib.CreateResponse(
 		apiserver_lib.SingleObjectMeta(),
 		existingSecretInstance,
-		fullyQualifiedType,
+		objectType,
 	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	return apiserver_lib.ResponseStatus200(c, *response)
@@ -985,99 +974,80 @@ func (h Handler) UpdateSecretInstance(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
-// @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/secret-instances/{id} [PUT]
 func (h Handler) ReplaceSecretInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeSecretInstance
-	fullyQualifiedType := new(api_v0.SecretInstance).GetFullyQualifiedType()
 	secretInstanceID := c.Param("id")
 	var existingSecretInstance api_v0.SecretInstance
 	if result := h.RequestDB(c).First(&existingSecretInstance, secretInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, fullyQualifiedType)
+			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
 		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingSecretInstance); err != nil {
 		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// bind payload
 	var updatedSecretInstance api_v0.SecretInstance
 	if err := c.Bind(&updatedSecretInstance); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, updatedSecretInstance, objectType); err != nil {
 		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
-
-	// snapshot reconciliation state before replace so the notify block
-	// can skip publishing when the replace did not touch any state marker
-	prevReconciliation := existingSecretInstance.Reconciliation
 
 	// persist provided data
 	updatedSecretInstance.ID = existingSecretInstance.ID
-	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-		return db.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedSecretInstance)
-	}); result.Error != nil {
-		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
+	// the save runs inside a retryable transaction. Under SERIALIZABLE
+	// isolation CockroachDB answers a write conflict with SQLSTATE 40001
+	// and expects the client to re-run it. Only the write is retried: the
+	// read above contributes the primary key, which the URL fixes, so it
+	// cannot go stale between attempts.
+	if err := crdbgorm.ExecuteTx(
+		c.Request().Context(), h.DB, nil,
+		func(tx *gorm.DB) error {
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedSecretInstance).Error
+		},
+	); err != nil {
+		h.Logger.Error("handler error: error persisting object", zap.Error(err))
 		// check if this is a custom HTTP error with specific status code
 		var httpErr *util_v0.HttpError
-		if errors.As(result.Error, &httpErr) {
+		if errors.As(err, &httpErr) {
 			return apiserver_lib.ResponseStatusErr(
-				httpErr.GetStatusCode(), c, nil, result.Error, fullyQualifiedType,
+				httpErr.GetStatusCode(), c, nil, err, objectType,
 			)
 		}
-		return apiserver_lib.RespondWriteError(
-			c,
-			h.Logger,
-			result.Error,
-			new(api_v0.SecretInstance),
-			fullyQualifiedType,
-		)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// reload updated data from DB
 	if result := h.RequestDB(c).First(&existingSecretInstance, secretInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, fullyQualifiedType)
+			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
 		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
-	}
-
-	// notify controller if reconciliation is required and the update is notifiable
-	if existingSecretInstance.Reconciled != nil && !*existingSecretInstance.Reconciled &&
-		api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingSecretInstance.Reconciliation) {
-		notifPayload, err := existingSecretInstance.NotificationPayload(
-			notifications.NotificationOperationUpdated,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.SecretInstanceUpdateSubject, *notifPayload)
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
 		apiserver_lib.SingleObjectMeta(),
 		existingSecretInstance,
-		fullyQualifiedType,
+		objectType,
 	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	return apiserver_lib.ResponseStatus200(c, *response)
@@ -1095,15 +1065,15 @@ func (h Handler) ReplaceSecretInstance(c echo.Context) error {
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/secret-instances/{id} [DELETE]
 func (h Handler) DeleteSecretInstance(c echo.Context) error {
-	fullyQualifiedType := new(api_v0.SecretInstance).GetFullyQualifiedType()
+	objectType := api_v0.ObjectTypeSecretInstance
 	secretInstanceID := c.Param("id")
 	var secretInstance api_v0.SecretInstance
 	if result := h.RequestDB(c).First(&secretInstance, secretInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, fullyQualifiedType)
+			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
 		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// pre-check synchronously so the client sees the 409 - without this, reconciled types only surface the block to the reconciler
@@ -1116,7 +1086,7 @@ func (h Handler) DeleteSecretInstance(c echo.Context) error {
 				blockedErr,
 			)
 		}
-		return apiserver_lib.ResponseStatus500(c, nil, checkErr, fullyQualifiedType)
+		return apiserver_lib.ResponseStatus500(c, nil, checkErr, objectType)
 	}
 	// schedule for deletion if not already scheduled
 	// if scheduled and reconciled, delete object from DB
@@ -1130,11 +1100,14 @@ func (h Handler) DeleteSecretInstance(c echo.Context) error {
 				DeletionScheduled: &timestamp,
 				Reconciled:        &reconciled,
 			}}
-		if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-			return db.Model(&secretInstance).Updates(&scheduledSecretInstance)
-		}); result.Error != nil {
-			h.Logger.Error("handler error: error creating scheduled deletion", zap.Error(result.Error))
-			return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
+		if err := crdbgorm.ExecuteTx(
+			c.Request().Context(), h.DB, nil,
+			func(tx *gorm.DB) error {
+				return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&secretInstance).Updates(&scheduledSecretInstance).Error
+			},
+		); err != nil {
+			h.Logger.Error("handler error: error creating scheduled deletion", zap.Error(err))
+			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 		}
 		// notify controller
 		notifPayload, err := secretInstance.NotificationPayload(
@@ -1144,7 +1117,7 @@ func (h Handler) DeleteSecretInstance(c echo.Context) error {
 		)
 		if err != nil {
 			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
+			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 		}
 		h.JS.Publish(notif.SecretInstanceDeleteSubject, *notifPayload)
 	} else {
@@ -1152,20 +1125,22 @@ func (h Handler) DeleteSecretInstance(c echo.Context) error {
 			// if deletion scheduled but not reconciled, return 409 - deletion
 			// already underway
 			return apiserver_lib.ResponseStatus409(c, nil, errors.New(fmt.Sprintf(
-				"object with ID %d %s",
+				"object with ID %d already being deleted",
 				*secretInstance.ID,
-				api_v0.ErrMsgAlreadyBeingDeleted,
-			)), fullyQualifiedType)
+			)), objectType)
 		} else {
 			// object scheduled for deletion and confirmed - it can be deleted
 			// from DB
-			if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-				return db.Delete(&secretInstance)
-			}); result.Error != nil {
-				h.Logger.Error("handler error: error deleting object", zap.Error(result.Error))
+			if err := crdbgorm.ExecuteTx(
+				c.Request().Context(), h.DB, nil,
+				func(tx *gorm.DB) error {
+					return tx.Scopes(apiserver_lib.QueryScopes(c)...).Delete(&secretInstance).Error
+				},
+			); err != nil {
+				h.Logger.Error("handler error: error deleting object", zap.Error(err))
 				// surface BlockedDeleteError from gorm hook - backstop in case an attached object reference was created after the pre-check
 				var blockedErr *api_v0.BlockedDeleteError
-				if errors.As(result.Error, &blockedErr) {
+				if errors.As(err, &blockedErr) {
 					return RespondBlockedDelete(
 						c,
 						h.RequestDB(c),
@@ -1174,32 +1149,24 @@ func (h Handler) DeleteSecretInstance(c echo.Context) error {
 				}
 				// check if this is a custom HTTP error with specific status code
 				var httpErr *util_v0.HttpError
-				if errors.As(result.Error, &httpErr) {
+				if errors.As(err, &httpErr) {
 					return apiserver_lib.ResponseStatusErr(
-						httpErr.GetStatusCode(), c, nil, result.Error, fullyQualifiedType,
+						httpErr.GetStatusCode(), c, nil, err, objectType,
 					)
 				}
-				return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
+				return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 			}
 		}
-	}
-
-	// the delete has committed; drop any process state that mirrored the
-	// row before answering. A persist hook cannot do this: a rollback
-	// would have dropped state for a row that survived.
-	if err := apiserver_lib.AfterCommitDelete(h.DB, &secretInstance); err != nil {
-		h.Logger.Error("handler error: error reconciling process state after commit", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
 		apiserver_lib.SingleObjectMeta(),
 		secretInstance,
-		fullyQualifiedType,
+		objectType,
 	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	return apiserver_lib.ResponseStatus200(c, *response)

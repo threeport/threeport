@@ -5,7 +5,6 @@ package v0
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -78,10 +77,6 @@ func GetKubernetesRuntimeDefinitionByID(apiClient *http.Client, apiAddr string, 
 	)
 	if err != nil {
 		return &kubernetesRuntimeDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return &kubernetesRuntimeDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -185,10 +180,6 @@ func CreateKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr string, k
 		return kubernetesRuntimeDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	if len(response.Data) == 0 {
-		return kubernetesRuntimeDefinition, errors.New("threeport API returned no object in response data")
-	}
-
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return kubernetesRuntimeDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -229,10 +220,6 @@ func UpdateKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr string, k
 	)
 	if err != nil {
 		return kubernetesRuntimeDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return kubernetesRuntimeDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -278,10 +265,6 @@ func ReplaceKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr string, 
 		return kubernetesRuntimeDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	if len(response.Data) == 0 {
-		return kubernetesRuntimeDefinition, errors.New("threeport API returned no object in response data")
-	}
-
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return kubernetesRuntimeDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -311,10 +294,6 @@ func DeleteKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr string, i
 	)
 	if err != nil {
 		return &kubernetesRuntimeDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return &kubernetesRuntimeDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -395,10 +374,6 @@ func GetKubernetesRuntimeInstanceByID(apiClient *http.Client, apiAddr string, id
 	)
 	if err != nil {
 		return &kubernetesRuntimeInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return &kubernetesRuntimeInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -502,10 +477,6 @@ func CreateKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string, kub
 		return kubernetesRuntimeInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	if len(response.Data) == 0 {
-		return kubernetesRuntimeInstance, errors.New("threeport API returned no object in response data")
-	}
-
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return kubernetesRuntimeInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -546,10 +517,6 @@ func UpdateKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string, kub
 	)
 	if err != nil {
 		return kubernetesRuntimeInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return kubernetesRuntimeInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -595,10 +562,6 @@ func ReplaceKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string, ku
 		return kubernetesRuntimeInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	if len(response.Data) == 0 {
-		return kubernetesRuntimeInstance, errors.New("threeport API returned no object in response data")
-	}
-
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return kubernetesRuntimeInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -628,10 +591,6 @@ func DeleteKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string, id 
 	)
 	if err != nil {
 		return &kubernetesRuntimeInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
-		return &kubernetesRuntimeInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])

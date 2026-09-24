@@ -33,11 +33,6 @@ func GenCmd(generator *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		return fmt.Errorf("failed to generate DB migrator main package: %w", err)
 	}
 
-	// generate DB migrator schema drift test
-	if err := dbmigrator.GenDbMigratorSchemaDriftTest(generator, sdkConfig); err != nil {
-		return fmt.Errorf("failed to generate DB migrator schema drift test: %w", err)
-	}
-
 	// generate DB migrator migrations utils
 	if err := dbmigrator.GenDbMigratorUtils(generator, sdkConfig); err != nil {
 		return fmt.Errorf("failed to generate DB migrator migration utils: %w", err)

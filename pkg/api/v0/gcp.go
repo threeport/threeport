@@ -7,7 +7,7 @@ type GcpProvider struct {
 	Common `swaggerignore:"true" mapstructure:",squash"`
 
 	// The unique name of a GCP provider.
-	Name *string `validate:"required" gorm:"not null;uniqueIndex:,where:deleted_at IS NULL"`
+	Name *string `validate:"required" gorm:"not null"`
 
 	// The GCP project ID for the Google Cloud account.
 	ProjectID *string `validate:"required" gorm:"not null"`

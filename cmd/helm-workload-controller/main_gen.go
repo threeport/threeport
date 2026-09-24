@@ -90,19 +90,9 @@ func main() {
 		*msgBrokerHost,
 		*msgBrokerPort,
 	)
-
-	// the broker address without the credentials, for logging. The
-	// connection string carries the broker password, and a controller's
-	// container logs are readable by anyone who can read pods in the
-	// control plane namespace.
-	natsEndpoint := fmt.Sprintf(
-		"%s:%s",
-		*msgBrokerHost,
-		*msgBrokerPort,
-	)
 	nc, err := natsgo.Connect(natsConn)
 	if err != nil {
-		log.Error(err, "failed to connect to NATS message broker", "NATSEndpoint", natsEndpoint)
+		log.Error(err, "failed to connect to NATS message broker", "NATSConnection", natsConn)
 		os.Exit(1)
 	}
 
@@ -215,7 +205,7 @@ func main() {
 		"helm-workload controller started",
 		"version", version.GetVersion(),
 		"controllerID", controllerID.String(),
-		"NATSEndpoint", natsEndpoint,
+		"NATSConnection", natsConn,
 		"lockBucketName", helmworkload.LockBucketName,
 	)
 

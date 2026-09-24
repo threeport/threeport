@@ -126,10 +126,6 @@ type Options struct {
 	// Port mappings for kind infra provider
 	KindPortMappings []string
 
-	// The host port to publish the Threeport API on for a local control plane.
-	// Zero means the default for the auth setting applies.
-	ApiPort int
-
 	// If true, a cloud load balancer is provisioned for the threeport API.
 	RestApiLoadBalancer bool
 

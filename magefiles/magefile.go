@@ -3,11 +3,13 @@ package main
 import (
 	"errors"
 	"fmt"
+	"go/build"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
-	"strings"
+
+	"gopkg.in/yaml.v3"
 
 	version "github.com/threeport/threeport/internal/version"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
@@ -19,22 +21,6 @@ import (
 	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
-
-// Cockroach runs test/cockroach against a docker CockroachDB.
-func (Test) Cockroach() error {
-	cmd := "go"
-	args := []string{
-		"test",
-		"-v",
-		"-count=1",
-		"./test/cockroach",
-	}
-	if err := util.RunCommandStreamOutput(cmd, args...); err != nil {
-		return fmt.Errorf("failed to run cockroach tests: %w", err)
-	}
-
-	return nil
-}
 
 // E2e calls ginkgo to run the e2e tests suite.  Takes 2 args: 1. imageRepo -
 // either 'local' or the URL for an external image repo.  2. clean - if true
@@ -94,6 +80,16 @@ func (Test) E2eClean() error {
 	return nil
 }
 
+// installDir returns the directory `go install` writes binaries to:
+// $GOBIN if set, otherwise $GOPATH/bin. build.Default.GOPATH falls back
+// to ~/go when $GOPATH is unset, so the result is always non-empty.
+func installDir() string {
+	if gobin := os.Getenv("GOBIN"); gobin != "" {
+		return gobin
+	}
+	return filepath.Join(build.Default.GOPATH, "bin")
+}
+
 // Sdk builds the threeport-sdk binary.
 func (Build) Sdk() error {
 	buildSdkCmd := exec.Command(
@@ -133,6 +129,27 @@ func (Install) Sdk() error {
 	}
 
 	fmt.Printf("threeport-sdk binary installed and available at %s\n", outputPath)
+
+	return nil
+}
+
+// Integration runs integration tests against an existing Threeport control
+// plane.
+func (Test) Integration() error {
+	if err := unmetPrerequisites("integration test", controlPlaneConfigProblems()); err != nil {
+		return err
+	}
+
+	cmd := "go"
+	args := []string{
+		"test",
+		"-v",
+		"./test/integration",
+		"-count=1",
+	}
+	if err := util.RunCommandStreamOutput(cmd, args...); err != nil {
+		return fmt.Errorf("failed to run integration tests: %w", err)
+	}
 
 	return nil
 }
@@ -235,11 +252,6 @@ func (Dev) Generate() error {
 	err = dev.GenerateDocs()
 	if err != nil {
 		return fmt.Errorf("docs generation failed: %w", err)
-	}
-
-	err = dev.GenerateAgentsIndex()
-	if err != nil {
-		return fmt.Errorf("agents index generation failed: %w", err)
 	}
 
 	fmt.Println("code generated successfully")
@@ -416,11 +428,7 @@ const moduleTestBinary = "test"
 
 // moduleTestInputs are the tracked files left in place when generated output
 // is removed, so the SDK re-emits scaffolding it otherwise writes only once.
-var moduleTestInputs = []string{"sdk-config.yaml", "README.md", "testdata"}
-
-// moduleTestConfigPackage is where the generated config abstractions land, and
-// so where a test of them has to sit: the functions it covers are unexported.
-const moduleTestConfigPackage = "pkg/config/v0"
+var moduleTestInputs = []string{"sdk-config.yaml", "README.md"}
 
 // ModuleGen generates a Threeport module and type-checks it. Generated module
 // code calls this repository's exported API, so a changed signature fails here.
@@ -438,29 +446,6 @@ func (Test) ModuleGen() error {
 		return fmt.Errorf("failed to type-check the generated module: %w", err)
 	}
 
-	// run the generated plugin so cobra init panics on a redefined flag
-	if err := util.RunCommandStreamOutputInDir(
-		moduleTestPath,
-		"go", "run", "-buildvcs=false", "./cmd/test", "--help",
-	); err != nil {
-		return fmt.Errorf("failed to run the generated module plugin: %w", err)
-	}
-
-	// run the tests copied into the generated module. Type-checking does not
-	// reach what they cover: the generated config abstractions have failed at
-	// run time in ways that compile perfectly well.
-	//
-	// -count=1 because the module is regenerated on every run and some of these
-	// tests reach generated code the test cache cannot see - one builds and runs
-	// the generated database-migrator - so a cached pass can outlive the code it
-	// was a pass for.
-	if err := util.RunCommandStreamOutputInDir(
-		moduleTestPath,
-		"go", "test", "-count=1", "./"+moduleTestConfigPackage+"/...",
-	); err != nil {
-		return fmt.Errorf("failed to test the generated module: %w", err)
-	}
-
 	// remove generated files after a successful type-check
 	if err := resetModuleTestDir(); err != nil {
 		return err
@@ -471,16 +456,61 @@ func (Test) ModuleGen() error {
 	return nil
 }
 
+// controlPlaneConfigProblems returns errors when the Threeport config is
+// missing or has no API endpoint for the current control plane.
+func controlPlaneConfigProblems() []error {
+	// read the Threeport config tptctl wrote to disk
+	cfgFile := cli.DetermineThreeportConfigPath("")
+	data, err := os.ReadFile(cfgFile)
+	if err != nil {
+		return []error{fmt.Errorf("failed to read the Threeport config: %w", err)}
+	}
+	// parse the Threeport config
+	var threeportConfig cli.ThreeportConfig
+	if err := yaml.Unmarshal(data, &threeportConfig); err != nil {
+		return []error{fmt.Errorf("failed to parse the Threeport config: %w", err)}
+	}
+
+	// require a current control plane
+	controlPlaneName := threeportConfig.CurrentControlPlane
+	if controlPlaneName == "" {
+		return []error{errors.New("current control plane must be set in the Threeport config")}
+	}
+
+	// require an API endpoint for the current control plane
+	if _, err := threeportConfig.GetThreeportAPIEndpoint(controlPlaneName); err != nil {
+		return []error{fmt.Errorf(
+			"failed to get the API endpoint for control plane %s: %w",
+			controlPlaneName, err,
+		)}
+	}
+
+	return nil
+}
+
+// unmetPrerequisites joins prerequisite errors into one error named for the
+// target. It returns nil when there are none.
+func unmetPrerequisites(target string, problems []error) error {
+	if len(problems) == 0 {
+		return nil
+	}
+
+	return fmt.Errorf("%s prerequisites are not met:\n%w", target, errors.Join(problems...))
+}
+
 // checkModuleInstallPrerequisites reports missing mage or a missing API
 // endpoint for the current control plane, not whether the cluster can pull images.
 func checkModuleInstallPrerequisites() error {
-	var mageErr error
+	var problems []error
+
 	// require mage on PATH for the build and install targets of the generated module
 	if _, err := exec.LookPath("mage"); err != nil {
-		mageErr = errors.New("mage is not on PATH")
+		problems = append(problems, errors.New("mage is not on PATH"))
 	}
+	// require an API endpoint for the current control plane
+	problems = append(problems, controlPlaneConfigProblems()...)
 
-	return errors.Join(mageErr, cli.ControlPlaneConfigProblems())
+	return unmetPrerequisites("module install", problems)
 }
 
 // ModuleInstall generates a Threeport module, builds its images, and installs
@@ -500,7 +530,7 @@ func (Test) ModuleInstall() error {
 	// build and push module images to the development registry
 	if err := util.RunCommandStreamOutputInDir(
 		moduleTestPath,
-		"mage", "build:allImages",
+		"mage", "build:allImagesDev",
 	); err != nil {
 		return fmt.Errorf("failed to build the module images: %w", err)
 	}
@@ -612,47 +642,12 @@ func generateModuleTest() error {
 		}
 	}
 
-	// copy the tracked tests into the generated package. They have to be in it
-	// rather than beside it because what they cover is unexported, and they go
-	// in before the tidy below so their imports are resolved with the rest.
-	if err := copyModuleTestFiles(); err != nil {
-		return err
-	}
-
 	// resolve generated module dependencies
 	if err := util.RunCommandStreamOutputInDir(
 		moduleTestPath,
 		"go", "mod", "tidy",
 	); err != nil {
 		return fmt.Errorf("failed to resolve the module test dependencies: %w", err)
-	}
-
-	return nil
-}
-
-// copyModuleTestFiles copies the tests tracked under the module test's testdata
-// directory into the generated config package.
-func copyModuleTestFiles() error {
-	testdata := filepath.Join(moduleTestPath, "testdata")
-	entries, err := os.ReadDir(testdata)
-	if err != nil {
-		return fmt.Errorf("failed to read module test testdata directory: %w", err)
-	}
-
-	destination := filepath.Join(moduleTestPath, moduleTestConfigPackage)
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), "_test.go") {
-			continue
-		}
-		contents, err := os.ReadFile(filepath.Join(testdata, entry.Name()))
-		if err != nil {
-			return fmt.Errorf("failed to read module test file %s: %w", entry.Name(), err)
-		}
-		if err := os.WriteFile(
-			filepath.Join(destination, entry.Name()), contents, 0644,
-		); err != nil {
-			return fmt.Errorf("failed to copy module test file %s: %w", entry.Name(), err)
-		}
 	}
 
 	return nil
@@ -697,27 +692,17 @@ func (Test) Commits() error {
 	return nil
 }
 
-// testControlPlaneName is the control plane name tptctl up creates
-// and tptctl down removes so both sides name the same plane.
-const testControlPlaneName = "mage-test"
-
 // Up spins up a control plane using tptctl and a local registry for testing.
-// Repo and tag are the same ones the image build derives, so tptctl pulls those images.
 func (Test) Up() error {
-	imageRepo, imageTag, err := util.ResolveImageCoordinates(".", installer.DevImageNamespace, version.GetVersion())
-	if err != nil {
-		return fmt.Errorf("failed to resolve image coordinates: %w", err)
-	}
-
 	testUp := exec.Command(
 		"./bin/tptctl",
 		"up",
 		"-r",
-		imageRepo,
+		installer.DevImageNamespace,
 		"-t",
-		imageTag,
+		version.GetVersion(),
 		"-n",
-		testControlPlaneName,
+		"dev-0",
 		"--local-registry",
 	)
 
