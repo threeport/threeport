@@ -14,6 +14,7 @@ import (
 	client "github.com/threeport/threeport/pkg/client/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	kubemetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -247,7 +248,7 @@ func updateImageTagInDeployment(deployment *unstructured.Unstructured, imageTag 
 		}
 
 		// retag the database migrator and write init containers back
-		db_migrator["image"] = retagImage(db_migrator["image"], imageTag)
+		db_migrator["image"] = retagImage(db_migrator["image"], updateImageTag)
 		initContainersList[1] = db_migrator
 		templateSpec["initContainers"] = initContainersList
 	}
@@ -268,7 +269,7 @@ func updateImageTagInDeployment(deployment *unstructured.Unstructured, imageTag 
 	}
 
 	// retag the selected container
-	container["image"] = retagImage(container["image"], imageTag)
+	container["image"] = retagImage(container["image"], updateImageTag)
 	containerSpec[containerIndex] = container
 	templateSpec["containers"] = containerSpec
 	template["spec"] = templateSpec

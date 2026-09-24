@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -17,6 +18,9 @@ import (
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 )
+
+// upApis is the --apis value: comma-separated sdk-config API object group names, or none.
+var upApis string
 
 // UpCmd represents the create threeport command
 var UpCmd = &cobra.Command{
@@ -104,6 +108,31 @@ control planes if they are used to create or are created by another control plan
 		if err != nil {
 			cli.Error("failed to create threeport control plane installer", err)
 			os.Exit(1)
+		}
+
+		// limit the install to the named API groups, or skip optional controllers
+		switch {
+		case upApis == "none":
+			cli.Info("installing zero optional controllers")
+			cpi.Opts.ControllerList = nil
+		case upApis != "":
+			selected, err := threeport.SelectControllersByGroup(
+				threeport.ParseApis(upApis),
+				cpi.Opts.ControllerList,
+			)
+			if err != nil {
+				cli.Error("failed to select controllers", err)
+				os.Exit(1)
+			}
+			selectedNames := make([]string, 0, len(selected))
+			for _, controller := range selected {
+				selectedNames = append(selectedNames, controller.Name)
+			}
+			cli.Info(fmt.Sprintf(
+				"limiting install to %d controller(s): %s",
+				len(selected), strings.Join(selectedNames, ", "),
+			))
+			cpi.Opts.ControllerList = selected
 		}
 
 		err = cli.CreateGenesisControlPlane(cpi)
@@ -226,5 +255,23 @@ func init() {
 	UpCmd.Flags().StringSliceVar(
 		&cliArgs.KindPortMappings,
 		"kind-port-mappings", []string{}, "Port mappings for kind provider. Format: <container-port>:<host-port>,<container-port>:<host-port>,...",
+	)
+	UpCmd.Flags().StringVar(
+		&upApis,
+		"apis", "", "Optional. Comma-separated list of sdk-config api object group names (e.g. kubernetes_workload,gateway) to limit the install to those apis' controllers. Use \"none\" to install zero optional controllers. Defaults to empty, which installs all controllers.",
+	)
+	UpCmd.Flags().IntVar(
+		&cliArgs.ConcurrentReconciles,
+		"concurrent-reconciles",
+		threeport.DefaultConcurrentReconciles,
+		"Number of concurrent reconcile workers per object type.",
+	)
+	UpCmd.Flags().IntVar(
+		&cliArgs.ApiPort,
+		"api-port", 0, fmt.Sprintf(
+			"Host port to serve the Threeport API on.  Only applicable with provider 'kind'.  Defaults to %d with auth enabled and %d without.  Ports below 1024 need a host that permits binding them.",
+			threeport.DefaultLocalAPIPortAuthEnabled,
+			threeport.DefaultLocalAPIPortAuthDisabled,
+		),
 	)
 }
