@@ -567,13 +567,17 @@ func DeleteGCPServiceAccountWithKey(projectID, accountName string) error {
 	if err != nil {
 		return err
 	}
-	if !deletable {
-		return nil
-	}
 
-	// Remove IAM role bindings for the service account
+	// Remove IAM role bindings for the service account. This runs even when the
+	// account is already gone: a delete interrupted between the two steps, or an
+	// account removed by hand, leaves the project's bindings behind, and they
+	// are removed by member name rather than through the account.
 	if err := removeServiceAccountRolesForProject(crmService, projectID, serviceAccountEmail); err != nil {
 		return fmt.Errorf("failed to remove IAM roles: %w", err)
+	}
+
+	if !deletable {
+		return nil
 	}
 
 	// Delete the service account
@@ -624,6 +628,21 @@ func getServiceAccountForProject(
 	serviceAccountResource := fmt.Sprintf("projects/%s/serviceAccounts/%s", projectID, serviceAccountEmail)
 
 	account, err := iamService.Projects.ServiceAccounts.Get(serviceAccountResource).Do()
+
+	return classifyServiceAccountGet(account, err)
+}
+
+// classifyServiceAccountGet turns the result of reading a service account into
+// the account, whether it is there, and any failure.
+//
+// Only a not-found means absent. Any other failure is returned, because a caller
+// that took it for absence would carry on against an account it could not read -
+// which on the delete path means stripping a project's bindings without having
+// checked who owns them.
+func classifyServiceAccountGet(
+	account *iam.ServiceAccount,
+	err error,
+) (*iam.ServiceAccount, bool, error) {
 	if err == nil {
 		return account, true, nil
 	}
@@ -685,7 +704,22 @@ func serviceAccountOwnedBy(account *iam.ServiceAccount, ownerName string) bool {
 	if account == nil {
 		return false
 	}
-	return strings.HasSuffix(account.Description, GcpOwnershipDescription(ownerName))
+	if strings.HasSuffix(account.Description, GcpOwnershipDescription(ownerName)) {
+		return true
+	}
+
+	// Accounts created before the ownership marker existed carry only the
+	// description below. It names the provider it was created for, so it
+	// identifies the owner as precisely as the marker does - and without
+	// recognising it, a provider created by an earlier version could never be
+	// deleted, stranding the account and its project bindings.
+	return account.Description == legacyGcpServiceAccountDescription(ownerName)
+}
+
+// legacyGcpServiceAccountDescription is the description the create path wrote
+// before it began marking ownership.
+func legacyGcpServiceAccountDescription(ownerName string) string {
+	return fmt.Sprintf("Service account for Threeport GcpProvider %s to manage GCP resources", ownerName)
 }
 
 // gkeServiceAccountDescription is the IAM description written for a GKE bootstrap account.

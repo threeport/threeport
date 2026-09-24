@@ -1,12 +1,15 @@
 package provider
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/api/iam/v1"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // TestThreeportServiceAccountRoles_AssertsInstanceAdminRole asserts
@@ -166,4 +169,67 @@ func TestGcpServiceAccountDeletable_TruncationCollision(t *testing.T) {
 	)
 	require.Error(t, err)
 	assert.False(t, deletable)
+}
+
+// TestServiceAccountOwnedBy_RecognizesLegacyDescription covers accounts created
+// before the ownership marker existed.
+//
+// Their description names the provider but carries no marker. Without
+// recognizing it, a provider created by an earlier version could never be
+// deleted: the check would refuse its own account and leave it, and the
+// project's bindings, in place.
+func TestServiceAccountOwnedBy_RecognizesLegacyDescription(t *testing.T) {
+	legacy := &iam.ServiceAccount{
+		Description: "Service account for Threeport GcpProvider my-provider to manage GCP resources",
+	}
+
+	assert.True(t, serviceAccountOwnedBy(legacy, "my-provider"))
+
+	// it still names one provider, so it does not vouch for another
+	assert.False(t, serviceAccountOwnedBy(legacy, "other-provider"))
+}
+
+// TestGcpServiceAccountDeletable_LegacyAccount covers deleting one end to end
+// through the gate.
+func TestGcpServiceAccountDeletable_LegacyAccount(t *testing.T) {
+	legacy := &iam.ServiceAccount{
+		Email:       "my-provider@a-project.iam.gserviceaccount.com",
+		Description: "Service account for Threeport GcpProvider my-provider to manage GCP resources",
+	}
+
+	deletable, err := gcpServiceAccountDeletable(legacy, true, "my-provider", legacy.Email)
+	require.NoError(t, err)
+	assert.True(t, deletable)
+}
+
+// TestClassifyServiceAccountGet covers how a read of the account is taken.
+func TestClassifyServiceAccountGet(t *testing.T) {
+	account := &iam.ServiceAccount{Email: "my-provider@a-project.iam.gserviceaccount.com"}
+
+	t.Run("a successful read is present", func(t *testing.T) {
+		got, found, err := classifyServiceAccountGet(account, nil)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, account, got)
+	})
+
+	t.Run("a not found is absent rather than a failure", func(t *testing.T) {
+		_, found, err := classifyServiceAccountGet(nil, status.Error(codes.NotFound, "no such account"))
+		require.NoError(t, err)
+		assert.False(t, found)
+	})
+
+	// taking this for absence would carry the delete on against an account it
+	// could not check, which is the whole thing the read is there to prevent
+	t.Run("any other failure is returned, not read as absent", func(t *testing.T) {
+		_, found, err := classifyServiceAccountGet(nil, errors.New("the IAM API is unreachable"))
+		require.Error(t, err)
+		assert.False(t, found)
+	})
+
+	t.Run("a permission denied is a failure, not absence", func(t *testing.T) {
+		_, found, err := classifyServiceAccountGet(nil, status.Error(codes.PermissionDenied, "denied"))
+		require.Error(t, err)
+		assert.False(t, found)
+	})
 }
