@@ -149,6 +149,7 @@ func (m *MachineRuntimeInstance) beforeUpdate(tx *gorm.DB) error {
 		{"Region", "region"},
 		{"NetworkID", "network id"},
 		{"SubnetID", "subnet id"},
+		{"Location", "location"},
 	}
 	for _, field := range immutableFields {
 		changed, err := lib.IsFieldChanged(tx, field.column)
