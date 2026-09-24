@@ -20,15 +20,18 @@ If the host key is not supplied at create time, the controller captures it
 on the first successful connection and stores it for subsequent identity
 verification.
 
-An instance can also carry the region, the network and the subnet.  Those
-three cannot change after create.  A definition with an infrastructure
-provider requires the instance region at create.
+An instance that a provider will provision also carries the region, the
+network, the subnet and a resource inventory.  Region, network and subnet
+cannot change after create.  A definition with an infrastructure provider
+requires the instance region at create.
 
 ## Next Steps
 
-Threeport currently supports importing machines that have already been
-deployed by registering an existing SSH-reachable host as a Machine Runtime
-Instance.  Provisioning new hosts via Threeport is not yet supported.
+You can still import a machine that is already SSH-reachable by creating an
+instance with a credential and no location fields.  A definition that names
+an infrastructure provider is the path for a provider to provision the
+host.  Deleting that instance deletes the provider machine and waits until
+it is gone.
 
 Once a host is registered, see the [Machine Workloads
 introduction](machine-workload-intro.md) to define and deploy workloads on
