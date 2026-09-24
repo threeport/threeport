@@ -95,3 +95,75 @@ func TestRefuseUnownedExistingGCPServiceAccount_AllowsOwnedReuse(t *testing.T) {
 	require.NoError(t, refuseUnownedExistingGCPServiceAccount(owned, true, name))
 	require.Error(t, refuseUnownedExistingGCPServiceAccount(owned, true, "other-runtime"))
 }
+
+// The delete path finds its service account by deriving the name from the
+// provider's, which is not proof that Threeport created it. These cover what it
+// does before stripping a project's IAM bindings and deleting the account.
+
+// ownedServiceAccount returns a service account carrying Threeport's ownership
+// marker for a provider, as the create path writes it.
+func ownedServiceAccount(ownerName string) *iam.ServiceAccount {
+	return &iam.ServiceAccount{
+		Email: fmt.Sprintf("%s@a-project.iam.gserviceaccount.com", generateServiceAccountID(ownerName)),
+		Description: fmt.Sprintf(
+			"Service account for Threeport GcpProvider %s to manage GCP resources; %s",
+			ownerName,
+			GcpOwnershipDescription(ownerName),
+		),
+	}
+}
+
+func TestGcpServiceAccountDeletable_OwnedAccount(t *testing.T) {
+	deletable, err := gcpServiceAccountDeletable(
+		ownedServiceAccount("my-provider"), true, "my-provider", "my-provider@a-project.iam.gserviceaccount.com",
+	)
+	require.NoError(t, err)
+	assert.True(t, deletable)
+}
+
+// a delete re-run after a partial one has to be able to finish
+func TestGcpServiceAccountDeletable_MissingAccountIsNothingToDo(t *testing.T) {
+	deletable, err := gcpServiceAccountDeletable(
+		nil, false, "my-provider", "my-provider@a-project.iam.gserviceaccount.com",
+	)
+	require.NoError(t, err)
+	assert.False(t, deletable)
+}
+
+// an account Threeport did not create is refused rather than stripped
+func TestGcpServiceAccountDeletable_UnownedAccountIsRefused(t *testing.T) {
+	unowned := &iam.ServiceAccount{
+		Email:       "my-provider@a-project.iam.gserviceaccount.com",
+		Description: "created by hand for the data team",
+	}
+
+	deletable, err := gcpServiceAccountDeletable(
+		unowned, true, "my-provider", unowned.Email,
+	)
+	require.Error(t, err)
+	assert.False(t, deletable)
+	assert.Contains(t, err.Error(), "not created by Threeport")
+}
+
+// TestGcpServiceAccountDeletable_TruncationCollision covers the case the derived
+// name cannot distinguish.
+//
+// Two provider names longer than the thirty characters a service account id
+// allows can derive the same id, so deleting one would find the other's account.
+// The ownership marker carries the full provider name, which is what separates
+// them.
+func TestGcpServiceAccountDeletable_TruncationCollision(t *testing.T) {
+	first := "a-very-long-threeport-provider-name-one"
+	second := "a-very-long-threeport-provider-name-two"
+	require.Equal(
+		t, generateServiceAccountID(first), generateServiceAccountID(second),
+		"this test is meaningless unless the two names derive the same account id",
+	)
+
+	// deleting the second must not touch the account the first owns
+	deletable, err := gcpServiceAccountDeletable(
+		ownedServiceAccount(first), true, second, "shared@a-project.iam.gserviceaccount.com",
+	)
+	require.Error(t, err)
+	assert.False(t, deletable)
+}
