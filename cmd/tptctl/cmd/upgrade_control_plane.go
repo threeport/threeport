@@ -248,7 +248,8 @@ func updateImageTagInDeployment(deployment *unstructured.Unstructured, imageTag 
 		}
 
 		// retag the database migrator and write init containers back
-		db_migrator["image"] = retagImage(db_migrator["image"], updateImageTag)
+		currentImage := db_migrator["image"].(string)
+		db_migrator["image"] = fmt.Sprintf("%s:%s", util.ImageWithoutTag(currentImage), updateImageTag)
 		initContainersList[1] = db_migrator
 		templateSpec["initContainers"] = initContainersList
 	}
@@ -269,7 +270,8 @@ func updateImageTagInDeployment(deployment *unstructured.Unstructured, imageTag 
 	}
 
 	// retag the selected container
-	container["image"] = retagImage(container["image"], updateImageTag)
+	currentImage := container["image"].(string)
+	container["image"] = fmt.Sprintf("%s:%s", util.ImageWithoutTag(currentImage), updateImageTag)
 	containerSpec[containerIndex] = container
 	templateSpec["containers"] = containerSpec
 	template["spec"] = templateSpec

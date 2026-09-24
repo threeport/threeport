@@ -164,7 +164,7 @@ change.`,
 		cpi.Opts.ControllerList = selected
 
 		// read auth from rest-api args; only -auth-enabled=false turns it off
-		cpi.Opts.AuthEnabled = installer.DetectAuthEnabled(kubeClient, cpi.Opts.Namespace)
+		cpi.Opts.AuthEnabled = detectAuthEnabled(kubeClient)
 
 		// leave the auth config unset until auth is enabled
 		var authConfig *auth.AuthConfig
