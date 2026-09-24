@@ -148,7 +148,7 @@ func v0HelmWorkloadInstanceCreated(
 			Name: threeportWorkloadName,
 		},
 		Spec: agentapi.ThreeportWorkloadSpec{
-			WorkloadType:       agent.HelmWorkloadInstanceType,
+			WorkloadType:                 agent.HelmWorkloadInstanceType,
 			KubernetesWorkloadInstanceID: *helmWorkloadInstance.ID,
 		},
 	}
@@ -486,8 +486,11 @@ func getHelmActionConfig(
 		customGetter,
 		releaseNamespace,
 		os.Getenv("HELM_DRIVER"),
+		// helm hands its debug output to this. Formatting it and dropping the
+		// result threw all of it away, and v was passed as one argument rather
+		// than spread, so the string it built was malformed as well.
 		func(format string, v ...interface{}) {
-			fmt.Sprintf(format, v)
+			r.Log.V(1).Info(fmt.Sprintf(format, v...))
 		}); err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("failed to initialize action config: %w", err)
 	}
