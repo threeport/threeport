@@ -275,14 +275,38 @@ func v0KubernetesRuntimeInstanceUpdated(
 		if err != nil {
 			return 0, fmt.Errorf("failed to determine control plane GCP project for workload controller RBAC: %w", err)
 		}
-		if controlPlaneGcpProject != "" {
-			if err := cpi.InstallComputeSpaceWorkloadControllerRBAC(
-				dynamicKubeClient,
-				mapper,
-				controlPlaneGcpProject,
-			); err != nil {
-				return 0, fmt.Errorf("failed to install workload controller RBAC on managed cluster: %w", err)
-			}
+
+		// Ask the connection path who it arrives as rather than deciding here.
+		// A control plane with ambient Google credentials reaches this cluster as
+		// its own Workload Identity principal; one without reaches it as the
+		// provider's service account. Working that out separately would let the
+		// binding name an identity no request is made under.
+		serviceAccountEmail, err := kube.GkeAuthSubject(
+			kubernetesRuntimeInstance,
+			r.APIClient,
+			r.APIServer,
+			r.EncryptionKey,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to determine the identity for workload controller RBAC: %w", err)
+		}
+
+		// A Workload Identity principal only exists when the control plane is
+		// itself GKE-hosted. Without either, there is nothing this cluster could
+		// authorize, and installing nothing would read as success.
+		if serviceAccountEmail == "" && controlPlaneGcpProject == "" {
+			return 0, errors.New(
+				"control plane authenticates with ambient Google credentials but is not GKE-hosted, so it presents no identity this cluster can be told to authorize",
+			)
+		}
+
+		if err := cpi.InstallComputeSpaceWorkloadControllerRBAC(
+			dynamicKubeClient,
+			mapper,
+			controlPlaneGcpProject,
+			serviceAccountEmail,
+		); err != nil {
+			return 0, fmt.Errorf("failed to install workload controller RBAC on managed cluster: %w", err)
 		}
 	}
 
