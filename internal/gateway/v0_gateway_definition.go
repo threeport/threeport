@@ -137,7 +137,7 @@ func v0GatewayDefinitionDeleted(
 	}
 	_, err := client.DeleteKubernetesWorkloadDefinition(r.APIClient, r.APIServer, *gatewayDefinition.KubernetesWorkloadDefinitionID)
 	if err != nil {
-		return 0, nil
+		return 0, fmt.Errorf("failed to delete kubernetes workload definition: %w", err)
 	}
 
 	// get gateway http and tcp ports

@@ -21,13 +21,11 @@ type Reconciliation struct {
 	// Indicates if object is considered to be reconciled by the object's controller.
 	Reconciled *bool `validate:"optional" gorm:"default:false"`
 
-	// Used by controllers to acknowledge deletion and indicate that deletion
-	// reconciliation has begun so that subsequent reconciliation attempts can
-	// act accordingly.
+	// The last time creation was acknowledged as begun
 	CreationAcknowledged *time.Time `validate:"optional"`
 
-	// Used by controllers to confirm deletion of an object.
-	CreationConfirmed *time.Time `validate:"optional"`
+	// Used by controllers to confirm creation of an object.
+	CreationConfirmed *time.Time `json:",omitempty" validate:"optional"`
 
 	// Gets set to true if creation process fails.
 	CreationFailed *bool `validate:"optional" gorm:"default:false"`
@@ -37,23 +35,26 @@ type Reconciliation struct {
 	DeletionScheduled *time.Time `validate:"optional"`
 
 	// Used by controllers to acknowledge deletion and indicate that deletion
-	// reconciliation has begun so that subsequent reconciliation attempts can
-	// act accordingly.
+	// reconciliation has begun.
 	DeletionAcknowledged *time.Time `validate:"optional"`
 
 	// Used by controllers to confirm deletion of an object.
 	DeletionConfirmed *time.Time `validate:"optional"`
 
-	// InterruptReconciliation is used by the controller to indicated that future
-	// reconcilation should be interrupted.  Useful in cases where there is a
-	// situation where future reconciliation could be descructive such as
+	// A flag set to true if deletion of the object fails
+	DeletionFailed *bool `validate:"optional" gorm:"default:false"`
+
+	// InterruptReconciliation is used by the controller to indicate that future
+	// reconciliation should be interrupted. Useful in cases where there is a
+	// situation where future reconciliation could be destructive such as
 	// spinning up more infrastructure when there is a unresolved problem.
 	InterruptReconciliation *bool `validate:"optional" gorm:"default:false"`
 }
 
 // ReconciliationStateChanged reports whether progress markers differ.
 // Acknowledgement timestamps count as set or unset only. InterruptReconciliation
-// is ignored; it is a gate, not progress.
+// is ignored; it is a gate, not progress. CreationFailed and DeletionFailed
+// compare by value.
 func ReconciliationStateChanged(a, b Reconciliation) bool {
 	return !boolPtrEqual(a.Reconciled, b.Reconciled) ||
 		!timePtrSet(a.CreationAcknowledged, b.CreationAcknowledged) ||
@@ -61,7 +62,8 @@ func ReconciliationStateChanged(a, b Reconciliation) bool {
 		!boolPtrEqual(a.CreationFailed, b.CreationFailed) ||
 		!timePtrEqual(a.DeletionScheduled, b.DeletionScheduled) ||
 		!timePtrSet(a.DeletionAcknowledged, b.DeletionAcknowledged) ||
-		!timePtrEqual(a.DeletionConfirmed, b.DeletionConfirmed)
+		!timePtrEqual(a.DeletionConfirmed, b.DeletionConfirmed) ||
+		!boolPtrEqual(a.DeletionFailed, b.DeletionFailed)
 }
 
 // ReconciliationUpdateNotifiable reports whether an update should notify the
@@ -103,6 +105,7 @@ func timePtrEqual(a, b *time.Time) bool {
 }
 
 // timePtrSet reports whether a and b are both set or both unset.
+// A liveness re-stamp is not a state change.
 func timePtrSet(a, b *time.Time) bool {
 	return (a == nil) == (b == nil)
 }
