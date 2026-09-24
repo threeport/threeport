@@ -414,6 +414,13 @@ func openBrowser(url string) error {
 // It reports an error off GCP, where there is no metadata server and so no
 // ambient identity to name.
 func AmbientServiceAccountEmail(ctx context.Context) (string, error) {
+	return ambientServiceAccountEmail(ctx)
+}
+
+// ambientServiceAccountEmail is the metadata lookup, in a variable so a test can
+// stand in for it. Left as the real thing, a test asserting what happens with no
+// ambient identity passes on a laptop and fails on a GCE runner, which has one.
+var ambientServiceAccountEmail = func(ctx context.Context) (string, error) {
 	if !metadata.OnGCEWithContext(ctx) {
 		return "", errors.New("not running on GCP, so there is no ambient service account to resolve")
 	}
@@ -427,4 +434,13 @@ func AmbientServiceAccountEmail(ctx context.Context) (string, error) {
 	}
 
 	return email, nil
+}
+
+// SetAmbientServiceAccountEmailForTest replaces the metadata lookup and returns
+// a function restoring it.
+func SetAmbientServiceAccountEmailForTest(lookup func(context.Context) (string, error)) func() {
+	previous := ambientServiceAccountEmail
+	ambientServiceAccountEmail = lookup
+
+	return func() { ambientServiceAccountEmail = previous }
 }

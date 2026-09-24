@@ -1,6 +1,7 @@
 package gcp
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +13,7 @@ import (
 
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
+	gcpauth "github.com/threeport/threeport/pkg/auth/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 )
 
@@ -187,4 +189,105 @@ func TestBuildGkeInfra_RefusesWithoutAnAccountToBind(t *testing.T) {
 	_, err := buildGkeInfra(r, instance, definition, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no ambient service account could be resolved")
+}
+
+// TestRequireSameProject covers the project a workload identity binding is
+// addressed through.
+//
+// The binding is made at projects/<project>/serviceAccounts/<account>, so an
+// account from another project is not named by that path - and the failure
+// lands after the cluster is provisioned.
+func TestRequireSameProject(t *testing.T) {
+	t.Run("an account in the runtime's project passes", func(t *testing.T) {
+		require.NoError(t, requireSameProject(
+			"threeport@some-project.iam.gserviceaccount.com", "some-project", "a-provider",
+		))
+	})
+
+	t.Run("an account in another project is refused", func(t *testing.T) {
+		err := requireSameProject(
+			"threeport@control-plane-project.iam.gserviceaccount.com", "runtime-project", "a-provider",
+		)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "control-plane-project")
+		assert.Contains(t, err.Error(), "runtime-project")
+	})
+
+	// an address whose project cannot be read is refused rather than guessed at
+	t.Run("an account that is not a project service account is refused", func(t *testing.T) {
+		require.Error(t, requireSameProject("someone@example.com", "some-project", "a-provider"))
+		require.Error(t, requireSameProject("not-an-email", "some-project", "a-provider"))
+	})
+}
+
+// gkeProviderServer serves a GcpProvider, so buildGkeInfra can be driven end to
+// end.
+func gkeProviderServer(t *testing.T, gcpProvider api_v0.GcpProvider) *httptest.Server {
+	t.Helper()
+
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := json.Marshal(apiserver_lib.Response{
+			Status: apiserver_lib.Status{Code: http.StatusOK, Message: "OK"},
+			Data:   []apiserver_lib.Object{gcpProvider},
+		})
+		require.NoError(t, err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(body)
+	}))
+}
+
+// TestBuildGkeInfra_RefusesAnAmbientAccountFromAnotherProject drives the project
+// check through buildGkeInfra rather than calling it directly.
+//
+// Testing the check alone would pass whether or not anything calls it, which is
+// the failure this is guarding: a control plane in one project creating runtimes
+// in another binds at a path that does not name its account, and finds out after
+// the cluster exists.
+func TestBuildGkeInfra_RefusesAnAmbientAccountFromAnotherProject(t *testing.T) {
+	restore := gcpauth.SetAmbientServiceAccountEmailForTest(func(context.Context) (string, error) {
+		return "threeport@control-plane-project.iam.gserviceaccount.com", nil
+	})
+	defer restore()
+
+	projectID := "runtime-project"
+	providerName := "some-provider"
+	gcpProviderID := uint(1)
+
+	srv := gkeProviderServer(t, api_v0.GcpProvider{
+		Common:    api_v0.Common{ID: &gcpProviderID},
+		Name:      &providerName,
+		ProjectID: &projectID,
+	})
+	defer srv.Close()
+
+	instanceName := "test-instance"
+	region := "us-east1"
+	machineType := "e2-standard-4"
+	initialSize := 2
+	minSize := 3
+	maxSize := 7
+
+	_, err := buildGkeInfra(
+		&controller.Reconciler{
+			APIClient: &http.Client{},
+			APIServer: strings.TrimPrefix(srv.URL, "http://"),
+		},
+		&api_v0.GcpGkeKubernetesRuntimeInstance{
+			Instance:      api_v0.Instance{Name: &instanceName},
+			Region:        &region,
+			GcpProviderID: &gcpProviderID,
+		},
+		&api_v0.GcpGkeKubernetesRuntimeDefinition{
+			DefaultNodeGroupInstanceType: &machineType,
+			DefaultNodeGroupInitialSize:  &initialSize,
+			DefaultNodeGroupMinimumSize:  &minSize,
+			DefaultNodeGroupMaximumSize:  &maxSize,
+		},
+		nil,
+	)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "control-plane-project")
+	assert.Contains(t, err.Error(), "runtime-project")
 }

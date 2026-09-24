@@ -119,3 +119,52 @@ func TestRequireServiceAccountEmail(t *testing.T) {
 		assert.Contains(t, err.Error(), "no account to name")
 	})
 }
+
+// A runtime's own service account is deleted with it and its policy goes too.
+// An account bound because the provider stored no credentials is the identity
+// the control plane runs as, and it stays - so the grant has to be taken off it.
+
+func TestWorkloadIdentityBindingOutlivesRuntime(t *testing.T) {
+	infra := &KubernetesRuntimeInfraGKE{
+		RuntimeInstanceName: "some-runtime",
+		ProjectID:           "a-project",
+	}
+
+	t.Run("the runtime's own account does not outlive it", func(t *testing.T) {
+		infra.ServiceAccountEmail = infra.getServiceAccountEmail()
+		assert.False(t, infra.workloadIdentityBindingOutlivesRuntime())
+	})
+
+	t.Run("the control plane's own account does", func(t *testing.T) {
+		infra.ServiceAccountEmail = "threeport-control-plane@a-project.iam.gserviceaccount.com"
+		assert.True(t, infra.workloadIdentityBindingOutlivesRuntime())
+	})
+
+	// nothing was bound, so there is nothing to revoke
+	t.Run("an unknown account is nothing to revoke", func(t *testing.T) {
+		infra.ServiceAccountEmail = ""
+		assert.False(t, infra.workloadIdentityBindingOutlivesRuntime())
+	})
+}
+
+// TestRemoveWorkloadIdentityMembers covers taking one runtime's members off a
+// shared account without disturbing another's.
+func TestRemoveWorkloadIdentityMembers(t *testing.T) {
+	mine := "serviceAccount:a-project.svc.id.goog[threeport-control-plane/helm-workload-controller]"
+	theirs := "serviceAccount:a-project.svc.id.goog[threeport-control-plane/another-controller]"
+
+	policy := &iam.Policy{
+		Bindings: []*iam.Binding{
+			{Role: "roles/iam.workloadIdentityUser", Members: []string{mine, theirs}},
+			{Role: "roles/viewer", Members: []string{mine}},
+		},
+	}
+
+	assert.True(t, removeWorkloadIdentityMembers(policy, []string{mine}))
+
+	assert.Equal(t, []string{theirs}, policy.Bindings[0].Members, "another runtime's grant is left alone")
+	assert.Equal(t, []string{mine}, policy.Bindings[1].Members, "only the workload identity role is touched")
+
+	// nothing of ours left, so nothing to write back
+	assert.False(t, removeWorkloadIdentityMembers(policy, []string{mine}))
+}

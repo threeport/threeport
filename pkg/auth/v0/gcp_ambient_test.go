@@ -2,26 +2,37 @@ package v0
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// TestAmbientServiceAccountEmail_OffGcp covers resolving the ambient identity
-// where there is none.
-//
-// A control plane inside GCP has no stored key to read an account from, so the
-// metadata server names it instead. Everywhere else there is no metadata server,
-// and the caller has to hear that rather than carry on with an empty account -
-// which is how this failed before: an empty email built a resource path that
-// named nothing, and GCP answered 404.
-//
-// This runs off GCP, which is what makes it the case worth pinning: the error
-// path is the one a developer machine and CI both take.
-func TestAmbientServiceAccountEmail_OffGcp(t *testing.T) {
-	email, err := AmbientServiceAccountEmail(context.Background())
+// The metadata lookup is stood in for here rather than called. Left real, a test
+// asserting what happens without an ambient identity passes on a laptop and
+// fails on a GCE runner, which has one.
 
+func TestAmbientServiceAccountEmail_Resolved(t *testing.T) {
+	restore := SetAmbientServiceAccountEmailForTest(func(context.Context) (string, error) {
+		return "threeport@a-project.iam.gserviceaccount.com", nil
+	})
+	defer restore()
+
+	email, err := AmbientServiceAccountEmail(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, "threeport@a-project.iam.gserviceaccount.com", email)
+}
+
+// the caller has to hear this rather than carry on with an empty account, which
+// is how this failed before: an empty email built a resource path naming nothing
+func TestAmbientServiceAccountEmail_Unresolved(t *testing.T) {
+	restore := SetAmbientServiceAccountEmailForTest(func(context.Context) (string, error) {
+		return "", errors.New("no metadata server")
+	})
+	defer restore()
+
+	email, err := AmbientServiceAccountEmail(context.Background())
 	require.Error(t, err)
-	assert.Empty(t, email, "no account may be returned when none could be resolved")
+	assert.Empty(t, email)
 }

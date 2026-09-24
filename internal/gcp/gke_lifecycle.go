@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -364,6 +365,40 @@ func (g *gkeLifecycle) PublishDeleteNotification() error {
 }
 
 // buildGkeInfra constructs a KubernetesRuntimeInfraGKE from API objects.
+// requireSameProject reports whether a service account belongs to the project a
+// runtime is being created in.
+//
+// A workload identity binding is addressed as projects/<project>/serviceAccounts
+// /<account>, so an account from elsewhere is not named by that path - and the
+// failure would land after the cluster's network, control plane and node pool
+// are provisioned. An account whose project cannot be read from its address is
+// refused for the same reason: the binding would be attempted blind.
+func requireSameProject(serviceAccountEmail, projectID, providerName string) error {
+	const domainSuffix = ".iam.gserviceaccount.com"
+
+	at := strings.Index(serviceAccountEmail, "@")
+	if at < 0 || !strings.HasSuffix(serviceAccountEmail, domainSuffix) {
+		return fmt.Errorf(
+			"the ambient service account %s is not addressable as a project service account, so the workload identity binding for GCP provider %s cannot name it",
+			serviceAccountEmail,
+			providerName,
+		)
+	}
+
+	accountProject := strings.TrimSuffix(serviceAccountEmail[at+1:], domainSuffix)
+	if accountProject != projectID {
+		return fmt.Errorf(
+			"this control plane runs as %s in project %s, but GCP provider %s creates runtimes in project %s: the workload identity binding is made in the runtime's project and cannot name an account from another one",
+			serviceAccountEmail,
+			accountProject,
+			providerName,
+			projectID,
+		)
+	}
+
+	return nil
+}
+
 func buildGkeInfra(
 	r *controller.Reconciler,
 	instance *v0.GcpGkeKubernetesRuntimeInstance,
@@ -414,6 +449,14 @@ func buildGkeInfra(
 				err,
 			)
 		}
+
+		// The binding addresses the account through the cluster's project. An
+		// ambient identity belonging to another project is not reachable at that
+		// path, and the binding would fail once the cluster already exists.
+		if err := requireSameProject(email, infraGKE.ProjectID, *gcpProvider.Name); err != nil {
+			return nil, err
+		}
+
 		infraGKE.ServiceAccountEmail = email
 	}
 
