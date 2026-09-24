@@ -5,6 +5,7 @@ package v0
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -77,6 +78,10 @@ func GetKubernetesWorkloadDefinitionByID(apiClient *http.Client, apiAddr string,
 	)
 	if err != nil {
 		return &kubernetesWorkloadDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &kubernetesWorkloadDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -180,6 +185,10 @@ func CreateKubernetesWorkloadDefinition(apiClient *http.Client, apiAddr string, 
 		return kubernetesWorkloadDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return kubernetesWorkloadDefinition, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return kubernetesWorkloadDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -220,6 +229,10 @@ func UpdateKubernetesWorkloadDefinition(apiClient *http.Client, apiAddr string, 
 	)
 	if err != nil {
 		return kubernetesWorkloadDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return kubernetesWorkloadDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -265,6 +278,10 @@ func ReplaceKubernetesWorkloadDefinition(apiClient *http.Client, apiAddr string,
 		return kubernetesWorkloadDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return kubernetesWorkloadDefinition, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return kubernetesWorkloadDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -294,6 +311,10 @@ func DeleteKubernetesWorkloadDefinition(apiClient *http.Client, apiAddr string, 
 	)
 	if err != nil {
 		return &kubernetesWorkloadDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &kubernetesWorkloadDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -374,6 +395,10 @@ func GetKubernetesWorkloadInstanceByID(apiClient *http.Client, apiAddr string, i
 	)
 	if err != nil {
 		return &kubernetesWorkloadInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &kubernetesWorkloadInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -477,6 +502,10 @@ func CreateKubernetesWorkloadInstance(apiClient *http.Client, apiAddr string, ku
 		return kubernetesWorkloadInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return kubernetesWorkloadInstance, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return kubernetesWorkloadInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -517,6 +546,10 @@ func UpdateKubernetesWorkloadInstance(apiClient *http.Client, apiAddr string, ku
 	)
 	if err != nil {
 		return kubernetesWorkloadInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return kubernetesWorkloadInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -562,6 +595,10 @@ func ReplaceKubernetesWorkloadInstance(apiClient *http.Client, apiAddr string, k
 		return kubernetesWorkloadInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return kubernetesWorkloadInstance, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return kubernetesWorkloadInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -591,6 +628,10 @@ func DeleteKubernetesWorkloadInstance(apiClient *http.Client, apiAddr string, id
 	)
 	if err != nil {
 		return &kubernetesWorkloadInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &kubernetesWorkloadInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -671,6 +712,10 @@ func GetKubernetesWorkloadResourceDefinitionByID(apiClient *http.Client, apiAddr
 	)
 	if err != nil {
 		return &kubernetesWorkloadResourceDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &kubernetesWorkloadResourceDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -774,6 +819,10 @@ func CreateKubernetesWorkloadResourceDefinition(apiClient *http.Client, apiAddr 
 		return kubernetesWorkloadResourceDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return kubernetesWorkloadResourceDefinition, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return kubernetesWorkloadResourceDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -814,6 +863,10 @@ func UpdateKubernetesWorkloadResourceDefinition(apiClient *http.Client, apiAddr 
 	)
 	if err != nil {
 		return kubernetesWorkloadResourceDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return kubernetesWorkloadResourceDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -859,6 +912,10 @@ func ReplaceKubernetesWorkloadResourceDefinition(apiClient *http.Client, apiAddr
 		return kubernetesWorkloadResourceDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return kubernetesWorkloadResourceDefinition, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return kubernetesWorkloadResourceDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -888,6 +945,10 @@ func DeleteKubernetesWorkloadResourceDefinition(apiClient *http.Client, apiAddr 
 	)
 	if err != nil {
 		return &kubernetesWorkloadResourceDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &kubernetesWorkloadResourceDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -968,6 +1029,10 @@ func GetKubernetesWorkloadResourceInstanceByID(apiClient *http.Client, apiAddr s
 	)
 	if err != nil {
 		return &kubernetesWorkloadResourceInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &kubernetesWorkloadResourceInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -1071,6 +1136,10 @@ func CreateKubernetesWorkloadResourceInstance(apiClient *http.Client, apiAddr st
 		return kubernetesWorkloadResourceInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return kubernetesWorkloadResourceInstance, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return kubernetesWorkloadResourceInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -1111,6 +1180,10 @@ func UpdateKubernetesWorkloadResourceInstance(apiClient *http.Client, apiAddr st
 	)
 	if err != nil {
 		return kubernetesWorkloadResourceInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return kubernetesWorkloadResourceInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -1156,6 +1229,10 @@ func ReplaceKubernetesWorkloadResourceInstance(apiClient *http.Client, apiAddr s
 		return kubernetesWorkloadResourceInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return kubernetesWorkloadResourceInstance, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return kubernetesWorkloadResourceInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -1185,6 +1262,10 @@ func DeleteKubernetesWorkloadResourceInstance(apiClient *http.Client, apiAddr st
 	)
 	if err != nil {
 		return &kubernetesWorkloadResourceInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &kubernetesWorkloadResourceInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])

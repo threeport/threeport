@@ -216,6 +216,16 @@ func GenControllerMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					Line().Op("*").Id("msgBrokerPort"),
 					Line(),
 				),
+				Line().Comment("the broker address without the credentials, for logging. The"),
+				Comment("connection string carries the broker password, and a controller's"),
+				Comment("container logs are readable by anyone who can read pods in the"),
+				Comment("control plane namespace."),
+				Id("natsEndpoint").Op(":=").Qual("fmt", "Sprintf").Call(
+					Line().Lit("%s:%s"),
+					Line().Op("*").Id("msgBrokerHost"),
+					Line().Op("*").Id("msgBrokerPort"),
+					Line(),
+				),
 				List(Id("nc"), Id("err")).Op(":=").Qual(
 					"github.com/nats-io/nats.go",
 					"Connect",
@@ -224,8 +234,8 @@ func GenControllerMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					Id("log").Dot("Error").Call(
 						Err(),
 						Lit("failed to connect to NATS message broker"),
-						Lit("NATSConnection"),
-						Id("natsConn"),
+						Lit("NATSEndpoint"),
+						Id("natsEndpoint"),
 					),
 					Qual("os", "Exit").Call(Lit(1)),
 				),
@@ -371,7 +381,7 @@ func GenControllerMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						"GetVersion",
 					).Call(),
 					Line().Lit("controllerID"), Id("controllerID").Dot("String").Call(),
-					Line().Lit("NATSConnection"), Id("natsConn"),
+					Line().Lit("NATSEndpoint"), Id("natsEndpoint"),
 					Line().Lit("lockBucketName"), Qual(
 						fmt.Sprintf(
 							"%s/internal/%s",

@@ -11,3 +11,6 @@ __debug_bin*
 test/module/*
 !test/module/sdk-config.yaml
 !test/module/README.md
+# tests of the generated config abstractions, copied into the generated
+# package by mage before the module is built
+!test/module/testdata/
