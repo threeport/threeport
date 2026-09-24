@@ -568,16 +568,19 @@ func DeleteGCPServiceAccountWithKey(projectID, accountName string) error {
 		return err
 	}
 
-	// Remove IAM role bindings for the service account. This runs even when the
-	// account is already gone: a delete interrupted between the two steps, or an
-	// account removed by hand, leaves the project's bindings behind, and they
-	// are removed by member name rather than through the account.
-	if err := removeServiceAccountRolesForProject(crmService, projectID, serviceAccountEmail); err != nil {
-		return fmt.Errorf("failed to remove IAM roles: %w", err)
-	}
-
+	// Nothing is touched when the account is not there. Its bindings may still
+	// be in the project, but with no account there is nothing to read ownership
+	// from, and the derived email is not proof: two provider names can derive
+	// the same one, so removing them could take access away from a provider that
+	// still has it. Leaving a dangling binding is recoverable; removing the
+	// wrong one is not.
 	if !deletable {
 		return nil
+	}
+
+	// Remove IAM role bindings for the service account
+	if err := removeServiceAccountRolesForProject(crmService, projectID, serviceAccountEmail); err != nil {
+		return fmt.Errorf("failed to remove IAM roles: %w", err)
 	}
 
 	// Delete the service account

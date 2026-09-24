@@ -233,3 +233,27 @@ func TestClassifyServiceAccountGet(t *testing.T) {
 		assert.False(t, found)
 	})
 }
+
+// TestGcpServiceAccountDeletable_MissingAccountCannotBeVouchedFor states what
+// the gate refuses to assume.
+//
+// With no account there is nothing to read ownership from, and the derived email
+// is not proof of it: two provider names can derive the same one. So a missing
+// account is not deletable and not something to strip bindings from either -
+// leaving a dangling binding is recoverable, removing another provider's is not.
+func TestGcpServiceAccountDeletable_MissingAccountCannotBeVouchedFor(t *testing.T) {
+	first := "a-very-long-threeport-provider-name-one"
+	second := "a-very-long-threeport-provider-name-two"
+	require.Equal(
+		t, generateServiceAccountID(first), generateServiceAccountID(second),
+		"this test is meaningless unless the two names derive the same account id",
+	)
+
+	// deleting the second finds no account, and must not conclude the shared
+	// email's bindings are its to remove
+	deletable, err := gcpServiceAccountDeletable(
+		nil, false, second, "shared@a-project.iam.gserviceaccount.com",
+	)
+	require.NoError(t, err)
+	assert.False(t, deletable)
+}
