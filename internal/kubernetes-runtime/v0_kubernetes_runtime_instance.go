@@ -14,7 +14,6 @@ import (
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
-	"github.com/threeport/threeport/pkg/encryption/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	mapping "github.com/threeport/threeport/pkg/mapping/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
@@ -277,67 +276,41 @@ func v0KubernetesRuntimeInstanceUpdated(
 			return 0, fmt.Errorf("failed to determine control plane GCP project for workload controller RBAC: %w", err)
 		}
 
-		// A control plane hosted elsewhere has no Workload Identity to present.
-		// It reaches this cluster with the GCP provider's stored service account
-		// credentials instead, so that account is what needs authorizing.
-		var serviceAccountEmail string
-		if controlPlaneGcpProject == "" {
-			serviceAccountEmail, err = gcpProviderServiceAccountEmail(r, kubernetesRuntimeInstance)
-			if err != nil {
-				return 0, fmt.Errorf("failed to determine the service account for workload controller RBAC: %w", err)
-			}
+		// Ask the connection path who it arrives as rather than deciding here.
+		// A control plane with ambient Google credentials reaches this cluster as
+		// its own Workload Identity principal; one without reaches it as the
+		// provider's service account. Working that out separately would let the
+		// binding name an identity no request is made under.
+		serviceAccountEmail, err := kube.GkeAuthSubject(
+			kubernetesRuntimeInstance,
+			r.APIClient,
+			r.APIServer,
+			r.EncryptionKey,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to determine the identity for workload controller RBAC: %w", err)
 		}
 
-		if controlPlaneGcpProject != "" || serviceAccountEmail != "" {
-			if err := cpi.InstallComputeSpaceWorkloadControllerRBAC(
-				dynamicKubeClient,
-				mapper,
-				controlPlaneGcpProject,
-				serviceAccountEmail,
-			); err != nil {
-				return 0, fmt.Errorf("failed to install workload controller RBAC on managed cluster: %w", err)
-			}
+		// A Workload Identity principal only exists when the control plane is
+		// itself GKE-hosted. Without either, there is nothing this cluster could
+		// authorize, and installing nothing would read as success.
+		if serviceAccountEmail == "" && controlPlaneGcpProject == "" {
+			return 0, errors.New(
+				"control plane authenticates with ambient Google credentials but is not GKE-hosted, so it presents no identity this cluster can be told to authorize",
+			)
+		}
+
+		if err := cpi.InstallComputeSpaceWorkloadControllerRBAC(
+			dynamicKubeClient,
+			mapper,
+			controlPlaneGcpProject,
+			serviceAccountEmail,
+		); err != nil {
+			return 0, fmt.Errorf("failed to install workload controller RBAC on managed cluster: %w", err)
 		}
 	}
 
 	return 0, nil
-}
-
-// gcpProviderServiceAccountEmail returns the service account a control plane
-// without Workload Identity reaches a managed GKE cluster as: the one whose
-// credentials are stored on the provider that owns the cluster.
-//
-// It is read from the credentials rather than stored separately so that it
-// cannot describe a different account than the one actually authenticating.
-func gcpProviderServiceAccountEmail(
-	r *controller.Reconciler,
-	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
-) (string, error) {
-	gkeRuntimeInstance, err := client.GetGcpGkeKubernetesRuntimeInstanceByK8sRuntimeInst(
-		r.APIClient,
-		r.APIServer,
-		*kubernetesRuntimeInstance.ID,
-	)
-	if err != nil {
-		return "", fmt.Errorf("failed to get GCP GKE kubernetes runtime instance: %w", err)
-	}
-	gcpProvider, err := client.GetGcpProviderByID(
-		r.APIClient,
-		r.APIServer,
-		*gkeRuntimeInstance.GcpProviderID,
-	)
-	if err != nil {
-		return "", fmt.Errorf("failed to get GCP provider: %w", err)
-	}
-	if gcpProvider.ServiceAccountCredentials == nil {
-		return "", nil
-	}
-	decryptedCredentials, err := encryption.Decrypt(r.EncryptionKey, *gcpProvider.ServiceAccountCredentials)
-	if err != nil {
-		return "", fmt.Errorf("failed to decrypt GCP provider service account credentials: %w", err)
-	}
-
-	return util.GcpServiceAccountEmail(decryptedCredentials)
 }
 
 // v0KubernetesRuntimeInstanceDeleted performs reconciliation when a v0 KubernetesRuntimeInstance
