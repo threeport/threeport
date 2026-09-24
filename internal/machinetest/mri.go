@@ -42,6 +42,7 @@ type MRIInfraOpts struct {
 
 	// MachineRuntimeDefinitionID, when non-zero, links the instance to a definition.
 	MachineRuntimeDefinitionID uint
+
 }
 
 // NewMRIWithInfra builds a *v0.MachineRuntimeInstance like MRIFromAddr,
@@ -66,6 +67,7 @@ func NewMRIWithInfra(
 	if opts.MachineRuntimeDefinitionID != 0 {
 		mri.MachineRuntimeDefinitionID = util.Ptr(opts.MachineRuntimeDefinitionID)
 	}
+
 	return mri
 }
 

@@ -321,8 +321,7 @@ func (h Handler) UpdateTerraformDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before update so the notify block
-	// can skip publishing when the update did not touch any state marker
+	// snapshot reconciliation state before the update so the notify block can skip publishing when no state marker changed
 	prevReconciliation := existingTerraformDefinition.Reconciliation
 
 	// update object in database
@@ -919,8 +918,7 @@ func (h Handler) UpdateTerraformInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before update so the notify block
-	// can skip publishing when the update did not touch any state marker
+	// snapshot reconciliation state before the update so the notify block can skip publishing when no state marker changed
 	prevReconciliation := existingTerraformInstance.Reconciliation
 
 	// update object in database

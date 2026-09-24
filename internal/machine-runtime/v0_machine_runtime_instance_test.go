@@ -2,6 +2,7 @@ package machineruntime
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,11 +17,13 @@ import (
 	logr "github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/ssh"
 
 	"github.com/threeport/threeport/internal/machinetest"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	event "github.com/threeport/threeport/pkg/event/v0"
 	tp_errors "github.com/threeport/threeport/pkg/errors/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -35,10 +38,28 @@ func TestMachineRuntimeInstanceCreated_HappyPath(t *testing.T) {
 
 	// store the server's host key so the connect verifies rather than captures
 	mri := machinetest.MRIFromAddr(t, 42, "mri-happy", addr, "u", "p", key)
-	mri.HostKey = util.Ptr(machinetest.HostKeyFromSigner(signer))
+	mri.HostKey = util.Ptr(hostKeyBase64(signer))
 
+	// mock the PATCH the reconciler issues to stamp creation_confirmed and
+	// record every request body so the test can assert exactly one fires
 	api := machinetest.NewAPIStub(t)
-	patches := registerPatchCounter(t, api, 42)
+	var (
+		patches   [][]byte
+		patchesMu sync.Mutex
+		patchPath = fmt.Sprintf("%s/%d", v0.PathMachineRuntimeInstances, 42)
+	)
+	api.Mux.HandleFunc(patchPath, func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, http.MethodPatch, r.Method)
+		body, _ := io.ReadAll(r.Body)
+		patchesMu.Lock()
+		patches = append(patches, body)
+		patchesMu.Unlock()
+		var updated v0.MachineRuntimeInstance
+		require.NoError(t, json.Unmarshal(body, &updated))
+		updated.ID = util.Ptr(uint(42))
+		machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{updated})
+	})
+
 	recorder := machinetest.NewFakeRecorder()
 	log := logr.Discard()
 
@@ -52,17 +73,20 @@ func TestMachineRuntimeInstanceCreated_HappyPath(t *testing.T) {
 	// reconcile create
 	delay, err := v0MachineRuntimeInstanceCreated(r, mri, &log)
 
-	// check success with no requeue, and one stamp of creation confirmed
+	// check success with no requeue
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), delay)
-	assert.Equal(t, int64(1), atomic.LoadInt64(patches), "a reachable instance with no creation stamp is patched once")
 
 	// check the handler records no event
 	assert.Empty(t, recorder.GetReasons(), "reconciler emits no Normal event on the success path; the wrapper covers the outcome and reachability is a log line")
 }
 
 // TestMachineRuntimeInstanceCreated_NoHostname_RequeuesWithoutDialing covers
-// a Created reconcile whose hostname is nil or empty.
+// the deferred-dial path: an instance whose hostname is not yet populated
+// requeues with the unpopulated delay, returns no error, dials no SSH server,
+// records nothing beyond the CreateInProgress lifecycle marker, and persists
+// no update, so Reconciled stays unset until the machine is reachable. Both a
+// nil and an empty-string hostname take this path.
 func TestMachineRuntimeInstanceCreated_NoHostname_RequeuesWithoutDialing(t *testing.T) {
 	// shrink the unpopulated requeue delay
 	overrideUnpopulatedRequeueDelay(t, 3)
@@ -108,7 +132,10 @@ func TestMachineRuntimeInstanceCreated_NoHostname_RequeuesWithoutDialing(t *test
 			// assert requeue without error, event, or patch
 			require.NoError(t, err, "an unpopulated instance must requeue without erroring")
 			assert.Equal(t, int64(3), delay, "an unpopulated instance requeues with the unpopulated delay")
-			assert.Empty(t, recorder.GetReasons(), "no event may be recorded before the machine is reachable")
+			// verify only the lifecycle marker fires; nothing may claim
+			// reachability before the machine has been dialed
+			assert.Equal(t, []string{event.ReasonCreateInProgress}, recorder.GetReasons(), "no reachability event may be recorded before the machine is reachable")
+			// verify nothing is persisted so Reconciled stays unset until reachable
 			assert.Equal(t, int64(0), atomic.LoadInt64(patchCount), "no update may be persisted, so Reconciled stays unset")
 		})
 	}
@@ -218,7 +245,7 @@ func TestMachineRuntimeInstanceCreated_HostKeyMismatch(t *testing.T) {
 	// store a host key that does not match the server
 	wrongSigner := machinetest.NewSigner(t)
 	mri := machinetest.MRIFromAddr(t, 11, "mri-mismatch", addr, "u", "p", key)
-	mri.HostKey = util.Ptr(machinetest.HostKeyFromSigner(wrongSigner))
+	mri.HostKey = util.Ptr(hostKeyBase64(wrongSigner))
 
 	api := machinetest.NewAPIStub(t)
 	recorder := machinetest.NewFakeRecorder()
@@ -245,14 +272,6 @@ func TestMachineRuntimeInstanceCreated_HostKeyMismatch(t *testing.T) {
 
 	// check the handler records no event
 	assert.Empty(t, recorder.GetReasons(), "failure path should not call RecordEvent directly; the wrapper substitutes the event")
-}
-
-// overrideRetryDelay sets sshRetryDelaySeconds for one test.
-func overrideRetryDelay(t *testing.T, seconds int64) {
-	t.Helper()
-	prev := sshRetryDelaySeconds
-	sshRetryDelaySeconds = seconds
-	t.Cleanup(func() { sshRetryDelaySeconds = prev })
 }
 
 // overrideUnpopulatedRequeueDelay sets unpopulatedRequeueDelaySeconds for one test.
@@ -296,8 +315,31 @@ func registerPatchCounter(t *testing.T, api *machinetest.APIStub, id uint) *int6
 	return &count
 }
 
-// TestMachineRuntimeInstanceCreated_IdempotentOnDoubleCall covers a second
-// Created reconcile that already holds the captured host key.
+// registerMachineRuntimeDefinition registers a GET handler for the machine
+// runtime definition with the given id that answers with a GCE-provisioned
+// definition, so a reconcile that loads the parent to name the married
+// provider kind finds one instead of a missing object.
+func registerMachineRuntimeDefinition(t *testing.T, api *machinetest.APIStub, id uint) {
+	t.Helper()
+	api.Mux.HandleFunc(fmt.Sprintf("%s/%d", v0.PathMachineRuntimeDefinitions, id), func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, http.MethodGet, r.Method)
+		machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{
+			&v0.MachineRuntimeDefinition{
+				Common:        v0.Common{ID: util.Ptr(id)},
+				Definition:    v0.Definition{Name: util.Ptr("mrd-married")},
+				InfraProvider: util.Ptr(v0.MachineRuntimeInfraProviderGCE),
+			},
+		})
+	})
+}
+
+// TestMachineRuntimeInstanceCreated_IdempotentOnDoubleCall asserts a
+// re-reconcile of an instance whose first-reachability write already landed
+// does not write again. Leg one runs in capture mode with creation_confirmed
+// unset, so exactly one PATCH persists the captured host key and the
+// confirmation stamp together; leg two carries the server's real host key and
+// a stamped creation_confirmed, so GetClient runs in verification mode, the
+// write guard finds nothing new to record, and no second PATCH lands.
 func TestMachineRuntimeInstanceCreated_IdempotentOnDoubleCall(t *testing.T) {
 	key := machinetest.NewEncryptionKey(t)
 	signer := machinetest.NewSigner(t)
@@ -308,7 +350,8 @@ func TestMachineRuntimeInstanceCreated_IdempotentOnDoubleCall(t *testing.T) {
 	patchCount := registerPatchCounter(t, api, 21)
 	log := logr.Discard()
 
-	// capture the host key on the first created pass
+	// leg one: no host key and no confirmation stamp, so the reachable pass
+	// has both to record and issues the single combined PATCH
 	first := machinetest.MRIFromAddr(t, 21, "mri-idem", addr, "u", "p", key)
 	firstRecorder := machinetest.NewFakeRecorder()
 	r := &controller.Reconciler{
@@ -324,12 +367,12 @@ func TestMachineRuntimeInstanceCreated_IdempotentOnDoubleCall(t *testing.T) {
 	assert.Empty(t, firstRecorder.GetReasons(), "host key capture is a log line, not a recorded event")
 	require.Equal(t, int64(1), atomic.LoadInt64(patchCount), "first reconcile persists the captured host key with one PATCH")
 
-	// run created again with the persisted host key
-	confirmed := time.Now().UTC()
+	// leg two: the state leg one persisted, so the write guard has nothing
+	// left to record
 	second := machinetest.NewMRIWithInfra(t, 21, "mri-idem", addr, "u", "p", key, machinetest.MRIInfraOpts{
-		HostKey: machinetest.HostKeyFromSigner(signer),
+		HostKey: hostKeyBase64(signer),
 	})
-	second.CreationConfirmed = &confirmed
+	second.CreationConfirmed = util.Ptr(time.Now().UTC())
 	secondRecorder := machinetest.NewFakeRecorder()
 	r.EventsRecorder = secondRecorder
 
@@ -338,20 +381,22 @@ func TestMachineRuntimeInstanceCreated_IdempotentOnDoubleCall(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), delay)
 	assert.Empty(t, secondRecorder.GetReasons(), "reachability is a log line, not a recorded event")
-	assert.Equal(t, int64(1), atomic.LoadInt64(patchCount), "second reconcile must not patch once the host key and creation stamp are stored")
+	assert.Equal(t, int64(1), atomic.LoadInt64(patchCount), "second reconcile must not re-PATCH the host key")
 }
 
-// TestMachineRuntimeInstanceCreated_SSHPingFails_Retries covers a connect
-// that succeeds and a ping that exits non-zero.
+// TestMachineRuntimeInstanceCreated_SSHPingFails_Retries drives a connect
+// that succeeds and a ping that fails (non-zero exit), asserting the
+// configurable retry delay is returned, the error carries the SSHPingFailed
+// event the wrapper substitutes for the generic FailedCreate row, and no
+// update is persisted.
 func TestMachineRuntimeInstanceCreated_SSHPingFails_Retries(t *testing.T) {
-	overrideRetryDelay(t, 7)
 	key := machinetest.NewEncryptionKey(t)
 	signer := machinetest.NewSigner(t)
 	addr, stop := machinetest.StartSSHServer(t, signer, "u", "p", machinetest.SSHOpts{ExitCode: 1})
 	defer stop()
 
 	mri := machinetest.NewMRIWithInfra(t, 31, "mri-pingfail", addr, "u", "p", key, machinetest.MRIInfraOpts{
-		HostKey: machinetest.HostKeyFromSigner(signer),
+		HostKey: hostKeyBase64(signer),
 	})
 
 	api := machinetest.NewAPIStub(t)
@@ -365,8 +410,11 @@ func TestMachineRuntimeInstanceCreated_SSHPingFails_Retries(t *testing.T) {
 		EventsRecorder: recorder,
 	}
 
+	// drive the Created reconciler against a host whose ping fails
 	delay, err := v0MachineRuntimeInstanceCreated(r, mri, &log)
-	// assert retry delay, SSHPingFailed, and no patch
+
+	// the first failure on this instance requeues at the base delay, before
+	// the backoff has had a chance to double it
 	require.Error(t, err)
 	assert.Equal(t, int64(7), delay, "ping failures requeue with the configurable delay")
 	var errWithEvent *tp_errors.ErrWithEvent
@@ -377,7 +425,12 @@ func TestMachineRuntimeInstanceCreated_SSHPingFails_Retries(t *testing.T) {
 	assert.Equal(t, int64(0), atomic.LoadInt64(patchCount), "no update may be persisted on ping failure")
 }
 
-// TestMachineRuntimeInstanceCreated_HostKeyPatchFails_Retries covers a host-key PATCH that RetryOnNetworkErr treats as a network error.
+// TestMachineRuntimeInstanceCreated_HostKeyPatchFails_Retries closes the
+// API stub before the reconcile so the single first-reachability PATCH,
+// which persists the captured host key and stamps creation_confirmed, hits a
+// refused connection. A transport-level failure must requeue (non-zero delay,
+// non-nil error) so the failed persist is retried rather than the object
+// being silently marked reconciled.
 func TestMachineRuntimeInstanceCreated_HostKeyPatchFails_Retries(t *testing.T) {
 	key := machinetest.NewEncryptionKey(t)
 	signer := machinetest.NewSigner(t)
@@ -399,14 +452,23 @@ func TestMachineRuntimeInstanceCreated_HostKeyPatchFails_Retries(t *testing.T) {
 		EventsRecorder: recorder,
 	}
 
+	// drive the Created reconciler with the API unreachable
 	delay, err := v0MachineRuntimeInstanceCreated(r, mri, &log)
-	// assert requeue with no events
+
+	// a refused connection is a network-class error, so the persist retries
 	require.Error(t, err)
-	assert.Equal(t, int64(30), delay, "transport failures on the host-key PATCH requeue after 30s")
-	assert.Empty(t, recorder.GetReasons(), "no events may be recorded when the capture PATCH fails")
+	assert.Equal(t, int64(30), delay, "transport failures on the first-reachability PATCH requeue after 30s")
+
+	// the only event is the lifecycle marker at the top of the run; a
+	// reconcile whose persist failed records nothing about reachability
+	assert.Equal(t, []string{event.ReasonCreateInProgress}, recorder.GetReasons(), "a failed persist records nothing beyond the lifecycle marker")
 }
 
-// TestMachineRuntimeInstanceCreated_HostKeyPatchHTTP500_TerminalError covers a host-key PATCH that RetryOnNetworkErr treats as terminal.
+// TestMachineRuntimeInstanceCreated_HostKeyPatchHTTP500_TerminalError is
+// the sibling of the transport-failure case: an HTTP 500 on the
+// first-reachability PATCH is not a network error, so the delay is 0, but the
+// error must still be non-nil so the dispatch requeues instead of marking the
+// object reconciled.
 func TestMachineRuntimeInstanceCreated_HostKeyPatchHTTP500_TerminalError(t *testing.T) {
 	key := machinetest.NewEncryptionKey(t)
 	signer := machinetest.NewSigner(t)
@@ -429,15 +491,19 @@ func TestMachineRuntimeInstanceCreated_HostKeyPatchHTTP500_TerminalError(t *test
 		EventsRecorder: recorder,
 	}
 
+	// drive the Created reconciler against an API that rejects the persist
 	delay, err := v0MachineRuntimeInstanceCreated(r, mri, &log)
-	// assert error with zero delay
+
+	// a server-side rejection is terminal for this pass, but still an error
 	require.Error(t, err)
 	assert.Equal(t, int64(0), delay, "an http 500 is not a network error, so no requeue delay")
-	assert.Empty(t, recorder.GetReasons())
+	assert.Equal(t, []string{event.ReasonCreateInProgress}, recorder.GetReasons(), "a rejected persist records nothing beyond the lifecycle marker")
 }
 
-// TestMachineRuntimeInstanceCreated_EventRecordingFailure_Continues covers a
-// Created reconcile whose event recorder fails.
+// TestMachineRuntimeInstanceCreated_EventRecordingFailure_Continues sets
+// the recorder to fail every call and asserts a happy-path reconcile still
+// succeeds and still persists its first-reachability write; event persistence
+// must never block reconciliation.
 func TestMachineRuntimeInstanceCreated_EventRecordingFailure_Continues(t *testing.T) {
 	key := machinetest.NewEncryptionKey(t)
 	signer := machinetest.NewSigner(t)
@@ -445,11 +511,11 @@ func TestMachineRuntimeInstanceCreated_EventRecordingFailure_Continues(t *testin
 	defer stop()
 
 	mri := machinetest.NewMRIWithInfra(t, 71, "mri-eventfail", addr, "u", "p", key, machinetest.MRIInfraOpts{
-		HostKey: machinetest.HostKeyFromSigner(signer),
+		HostKey: hostKeyBase64(signer),
 	})
 
 	api := machinetest.NewAPIStub(t)
-	registerPatchCounter(t, api, 71)
+	patchCount := registerPatchCounter(t, api, 71)
 	recorder := machinetest.NewFakeRecorder()
 	recorder.RecordErr = errors.New("event store down")
 	log := logr.Discard()
@@ -460,17 +526,22 @@ func TestMachineRuntimeInstanceCreated_EventRecordingFailure_Continues(t *testin
 		EventsRecorder: recorder,
 	}
 
+	// drive the Created reconciler with every RecordEvent call failing
 	delay, err := v0MachineRuntimeInstanceCreated(r, mri, &log)
+	assert.Equal(t, int64(1), atomic.LoadInt64(patchCount), "the first-reachability write still persists when event recording fails")
 	// assert created still succeeds
 	require.NoError(t, err, "a failing recorder must not block reconciliation")
 	assert.Equal(t, int64(0), delay)
 	assert.Empty(t, recorder.GetReasons(), "the success path does not record an event")
 }
 
-// TestMachineRuntimeInstanceCreated_ContextCancellation_AbortsSSH covers a
-// Created reconcile whose context is already canceled.
+// TestMachineRuntimeInstanceCreated_ContextCancellation_AbortsSSH injects
+// an already-canceled reconcile context and asserts the handler returns
+// promptly with the configurable retry delay, that the failure names the
+// cancellation and carries the SSHConnectFailed event, and that the abandoned
+// connect's client is closed behind it so no connection or goroutine is
+// left hanging.
 func TestMachineRuntimeInstanceCreated_ContextCancellation_AbortsSSH(t *testing.T) {
-	overrideRetryDelay(t, 5)
 	overrideReconcileContext(t, func() (context.Context, context.CancelFunc) {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
@@ -504,7 +575,7 @@ func TestMachineRuntimeInstanceCreated_ContextCancellation_AbortsSSH(t *testing.
 	delay, err := v0MachineRuntimeInstanceCreated(r, mri, &log)
 	elapsed := time.Since(start)
 
-	// assert canceled error, retry delay, and a prompt return
+	// the canceled context aborts the connect instead of waiting it out
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), context.Canceled.Error())
 	var errWithEvent *tp_errors.ErrWithEvent
@@ -523,7 +594,6 @@ func TestMachineRuntimeInstanceCreated_ContextCancellation_AbortsSSH(t *testing.
 // TestMachineRuntimeInstanceCreated_SSHOperationTimeout_ReturnsErrorWithDelay
 // covers a ping session held past sshOperationTimeout.
 func TestMachineRuntimeInstanceCreated_SSHOperationTimeout_ReturnsErrorWithDelay(t *testing.T) {
-	overrideRetryDelay(t, 9)
 	overrideSSHTimeout(t, 100*time.Millisecond)
 
 	key := machinetest.NewEncryptionKey(t)
@@ -532,7 +602,7 @@ func TestMachineRuntimeInstanceCreated_SSHOperationTimeout_ReturnsErrorWithDelay
 	defer stop()
 
 	mri := machinetest.NewMRIWithInfra(t, 91, "mri-timeout", addr, "u", "p", key, machinetest.MRIInfraOpts{
-		HostKey: machinetest.HostKeyFromSigner(signer),
+		HostKey: hostKeyBase64(signer),
 	})
 
 	api := machinetest.NewAPIStub(t)
@@ -549,7 +619,7 @@ func TestMachineRuntimeInstanceCreated_SSHOperationTimeout_ReturnsErrorWithDelay
 	delay, err := v0MachineRuntimeInstanceCreated(r, mri, &log)
 	elapsed := time.Since(start)
 
-	// assert deadline exceeded with retry delay before the hold ends
+	// the operation timeout fires and reports the expired deadline as the cause
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), context.DeadlineExceeded.Error())
 	var pingEvent *tp_errors.ErrWithEvent
@@ -564,7 +634,6 @@ func TestMachineRuntimeInstanceCreated_SSHOperationTimeout_ReturnsErrorWithDelay
 // TestMachineRuntimeInstanceCreated_SSHConnectTimeout_ReturnsErrorWithDelay
 // covers a handshake held past sshOperationTimeout.
 func TestMachineRuntimeInstanceCreated_SSHConnectTimeout_ReturnsErrorWithDelay(t *testing.T) {
-	overrideRetryDelay(t, 11)
 	overrideSSHTimeout(t, 100*time.Millisecond)
 
 	key := machinetest.NewEncryptionKey(t)
@@ -588,16 +657,19 @@ func TestMachineRuntimeInstanceCreated_SSHConnectTimeout_ReturnsErrorWithDelay(t
 	delay, err := v0MachineRuntimeInstanceCreated(r, mri, &log)
 	elapsed := time.Since(start)
 
-	// assert deadline exceeded with retry delay before the hold ends
+	// the operation timeout fires and reports the expired deadline as the cause
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), context.DeadlineExceeded.Error())
-	var connectEvent *tp_errors.ErrWithEvent
-	require.ErrorAs(t, err, &connectEvent)
-	require.NotNil(t, connectEvent.Event.Reason)
-	assert.Equal(t, "SSHConnectFailed", *connectEvent.Event.Reason)
-	assert.Equal(t, int64(11), delay)
+	assert.Contains(t, err.Error(), context.DeadlineExceeded.Error(), "the aborted connect must name the expired deadline in its message")
+	assert.Equal(t, int64(0), delay)
 	assert.Less(t, elapsed, 5*time.Second, "timeout must fire well before the held handshake would release")
-	assert.Empty(t, recorder.GetReasons())
+
+	// the abort surfaces as a connect failure the wrapper can substitute for
+	// the generic FailedCreate row
+	var errWithEvent *tp_errors.ErrWithEvent
+	require.ErrorAs(t, err, &errWithEvent, "reconciler should return *tp_errors.ErrWithEvent so the wrapper can substitute the specific reason")
+	require.NotNil(t, errWithEvent.Event.Reason)
+	assert.Equal(t, "SSHConnectFailed", *errWithEvent.Event.Reason)
+	assert.Equal(t, []string{event.ReasonCreateInProgress}, recorder.GetReasons(), "failure path should not call RecordEvent directly for the failure; the wrapper substitutes it")
 }
 
 // TestMachineRuntimeInstanceCreated_ConcurrentReconciles_NoRace covers concurrent
@@ -611,7 +683,8 @@ func TestMachineRuntimeInstanceCreated_ConcurrentReconciles_NoRace(t *testing.T)
 
 	api := machinetest.NewAPIStub(t)
 	log := logr.Discard()
-	hostKey := machinetest.HostKeyFromSigner(signer)
+	hostKey := hostKeyBase64(signer)
+	confirmed := time.Now().UTC()
 
 	// build inputs on the test goroutine; require helpers are not goroutine-safe
 	mris := make([]*v0.MachineRuntimeInstance, n)
@@ -620,7 +693,9 @@ func TestMachineRuntimeInstanceCreated_ConcurrentReconciles_NoRace(t *testing.T)
 		mris[i] = machinetest.NewMRIWithInfra(t, uint(1000+i), fmt.Sprintf("mri-conc-%d", i), addr, "u", "p", key, machinetest.MRIInfraOpts{
 			HostKey: hostKey,
 		})
-		registerPatchCounter(t, api, uint(1000+i))
+		// pre-stamp the confirmation so a reachable pass has nothing new to
+		// record, keeping the burst on the ssh path with no api traffic
+		mris[i].CreationConfirmed = util.Ptr(confirmed)
 		recorders[i] = machinetest.NewFakeRecorder()
 	}
 
@@ -664,7 +739,8 @@ func TestMachineRuntimeInstanceCreated_ManyConcurrent_NoConnLeak(t *testing.T) {
 
 	api := machinetest.NewAPIStub(t)
 	log := logr.Discard()
-	hostKey := machinetest.HostKeyFromSigner(signer)
+	hostKey := hostKeyBase64(signer)
+	confirmed := time.Now().UTC()
 
 	mris := make([]*v0.MachineRuntimeInstance, n)
 	recorders := make([]*machinetest.FakeRecorder, n)
@@ -672,7 +748,9 @@ func TestMachineRuntimeInstanceCreated_ManyConcurrent_NoConnLeak(t *testing.T) {
 		mris[i] = machinetest.NewMRIWithInfra(t, uint(2000+i), fmt.Sprintf("mri-leak-%d", i), addr, "u", "p", key, machinetest.MRIInfraOpts{
 			HostKey: hostKey,
 		})
-		registerPatchCounter(t, api, uint(2000+i))
+		// pre-stamp the confirmation so the burst issues no api calls, whose
+		// pooled connections and goroutines would blur the leak assertion
+		mris[i].CreationConfirmed = util.Ptr(confirmed)
 		recorders[i] = machinetest.NewFakeRecorder()
 	}
 
@@ -708,4 +786,10 @@ func TestMachineRuntimeInstanceCreated_ManyConcurrent_NoConnLeak(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return runtime.NumGoroutine() <= baseline+10
 	}, 10*time.Second, 20*time.Millisecond, "goroutines must return to baseline after the burst")
+}
+
+// hostKeyBase64 returns the base64-encoded marshalled public key matching
+// buildHostKeyCallback's verification-mode encoding.
+func hostKeyBase64(signer interface{ PublicKey() ssh.PublicKey }) string {
+	return base64.StdEncoding.EncodeToString(signer.PublicKey().Marshal())
 }

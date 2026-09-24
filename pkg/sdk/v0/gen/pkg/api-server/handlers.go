@@ -129,6 +129,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						).Op(",").Op("*").Id("notifPayload")),
 					))
 
+					// update notifications: publish when the object is still unreconciled and the update is notifiable
 					notifyControllersUpdateHandler = Comment("notify controller if reconciliation is required and the update is notifiable")
 					notifyControllersUpdateHandler.Line()
 					notifyControllersUpdateHandler.If(Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("Reconciled").Op("!=").Nil().Op("&&").Op("!*").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("Reconciled").Op("&&").Line().Qual(
@@ -1499,13 +1500,12 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("fullyQualifiedType")))
 						}),
 					)
-					if apiObject.Reconciler {
-						g.Line()
-						g.Comment("snapshot reconciliation state before update so the notify block")
-						g.Comment("can skip publishing when the update did not touch any state marker")
-						g.Id("prevReconciliation").Op(":=").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("Reconciliation")
-					}
 					g.Line()
+					if apiObject.Reconciler {
+						g.Comment("snapshot reconciliation state before the update so the notify block can skip publishing when no state marker changed")
+						g.Id("prevReconciliation").Op(":=").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("Reconciliation")
+						g.Line()
+					}
 					g.Comment("update object in database")
 					g.If(
 						Id("result").Op(":=").Add(wrapSerializationRetry(gen.Module, Id("db").Dot("Model").Call(
@@ -2221,7 +2221,81 @@ func emitBlockedDeleteCheck(h *Group, module bool, role blockedDeleteCheckRole) 
 	)
 }
 
-// emitWriteErrorResponse emits 409 for a unique-index conflict and 500 otherwise.
+// emitBlockedByChildrenCheck emits the delete-blocked branch for a
+// defined-instance-definition type: when the preloaded child slice is
+// non-empty, build a BlockedDeleteError anchored on the parent with one
+// AttachedObjectReference per child and hand it to RespondBlockedDelete
+// so the 409 body lists each blocker by <api-namespace>/<kind>/<name>.
+func emitBlockedByChildrenCheck(s *Statement, objVar, instancesField string, module bool) {
+	requestDB := func() *Statement {
+		return Do(func(g *Statement) {
+			if module {
+				g.Id("h").Dot("Handler")
+			} else {
+				g.Id("h")
+			}
+		}).Dot("RequestDB").Call(Id("c"))
+	}
+	respondBlocked := func() *Statement {
+		return Do(func(g *Statement) {
+			if module {
+				g.Qual(
+					"github.com/threeport/threeport/pkg/api-server/v0/handlers",
+					"RespondBlockedDelete",
+				)
+			} else {
+				g.Id("RespondBlockedDelete")
+			}
+		})
+	}
+
+	s.If(Len(Id(objVar).Dot(instancesField)).Op("!=").Lit(0)).Block(
+		// collect blocking children as FullyQualifiedTypeProvider so the
+		// constructor can pull each child's type and id via reflection
+		Id("blockingChildren").Op(":=").Make(
+			Index().Qual(
+				"github.com/threeport/threeport/pkg/api/lib/v0",
+				"FullyQualifiedTypeProvider",
+			),
+			Lit(0),
+			Len(Id(objVar).Dot(instancesField)),
+		),
+		For(Id("i").Op(":=").Range().Id(objVar).Dot(instancesField)).Block(
+			Id("blockingChildren").Op("=").Append(
+				Id("blockingChildren"),
+				Id(objVar).Dot(instancesField).Index(Id("i")),
+			),
+		),
+		Return(respondBlocked().Call(
+			Line().Id("c"),
+			Line().Add(requestDB()),
+			Line().Qual(
+				"github.com/threeport/threeport/pkg/api/v0",
+				"NewBlockedDeleteErrorFromChildren",
+			).Call(
+				Op("&").Id(objVar),
+				Id("blockingChildren"),
+			),
+			Line(),
+		)),
+	)
+}
+
+// emitWriteErrorResponse appends the return that answers a write the database
+// refused. It runs after the check for an explicitly chosen status code, so a
+// hook that picked one still wins, and it decides the remaining two outcomes
+// itself: a conflict when a unique index rejected the write, and a server
+// fault for anything else.
+//
+// The conflict response names the fields the index covers, resolved from the
+// columns the driver reported against the object's own schema. The index name
+// stays in the log: index names are chosen per object and get renamed, so a
+// client that read one would be reading something the server never promised to
+// keep, while a field name is part of the API the client already writes
+// against.
+//
+// A zero value of the object supplies that schema, since resolving a column
+// needs the type and not the values the request carried.
 func emitWriteErrorResponse(h *Group, module bool, apiTypePath, typeName string) {
 	logger := Id("h").Dot("Logger")
 	if module {
@@ -2295,23 +2369,6 @@ func emitPreCheckBlockingRefs(s *Statement, objVar string, module bool) {
 	s.Line()
 }
 
-// wrapSerializationRetry wraps writeChain in Handler.Write so 40001 is retried.
-func wrapSerializationRetry(module bool, writeChain *Statement) *Statement {
-	handler := Id("h")
-	if module {
-		handler = Id("h").Dot("Handler")
-	}
-
-	return handler.Dot("Write").Call(
-		Id("c"),
-		Func().Params(
-			Id("db").Op("*").Qual("gorm.io/gorm", "DB"),
-		).Op("*").Qual("gorm.io/gorm", "DB").Block(
-			Return(writeChain),
-		),
-	)
-}
-
 // wrapCreateRetry is wrapSerializationRetry for Create.
 // It emits:
 //
@@ -2333,6 +2390,23 @@ func wrapCreateRetry(module bool, objName string) *Statement {
 			Comment("clear id so a retried create does not reuse a rolled-back key"),
 			Id(objName).Dot("ID").Op("=").Nil(),
 			Return(Id("db").Dot("Create").Call(Op("&").Id(objName))),
+		),
+	)
+}
+
+// wrapSerializationRetry wraps writeChain in Handler.Write so 40001 is retried.
+func wrapSerializationRetry(module bool, writeChain *Statement) *Statement {
+	handler := Id("h")
+	if module {
+		handler = Id("h").Dot("Handler")
+	}
+
+	return handler.Dot("Write").Call(
+		Id("c"),
+		Func().Params(
+			Id("db").Op("*").Qual("gorm.io/gorm", "DB"),
+		).Op("*").Qual("gorm.io/gorm", "DB").Block(
+			Return(writeChain),
 		),
 	)
 }
