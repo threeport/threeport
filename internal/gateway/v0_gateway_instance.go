@@ -115,25 +115,33 @@ func v0GatewayInstanceUpdated(
 		return 0, fmt.Errorf("failed to get gateway instance objects: %w", err)
 	}
 
-	for _, resource := range gatewayInstanceObjects {
+	// Marking a resource unreconciled makes the kubernetes workload controller
+	// push its manifest to the live cluster again. That is what this function is
+	// for when the gateway's configuration has changed, and is worth nothing
+	// when it has not: re-applying an identical manifest churns its
+	// resourceVersion, re-fires admission webhooks, and briefly reconfigures
+	// networking resources. So only resources whose definition actually differs
+	// are written, and when none do, the dependents are left alone entirely.
+	changedWorkloadResourceInstances, err := changedGatewayResourceInstances(
+		gatewayInstanceObjects,
+		existingWorkloadResourceInstances,
+		updatedWorkloadResourceInstances,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to determine which gateway resources changed: %w", err)
+	}
 
-		// get kubernetes workload resource instance for virtual service
-		existingWorkloadResourceInstance, err := workload_util.GetUniqueKubernetesWorkloadResourceInstance(existingWorkloadResourceInstances, resource)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get kubernetes workload resource instance: %w", err)
-		}
+	if len(changedWorkloadResourceInstances) == 0 {
+		log.V(1).Info(
+			"gateway instance resources unchanged, leaving dependent objects alone",
+			"gatewayResourceInstanceID", gatewayInstance.ID,
+		)
 
-		// get kubernetes workload resource instance for virtual service
-		updatedWorkloadResourceInstance, err := workload_util.GetUniqueKubernetesWorkloadResourceInstance(updatedWorkloadResourceInstances, resource)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get kubernetes workload resource instance: %w", err)
-		}
+		return 0, nil
+	}
 
-		// update the kubernetes workload resource instance
-		workloadResourceInstanceReconciled := false
-		existingWorkloadResourceInstance.Reconciled = &workloadResourceInstanceReconciled
-		existingWorkloadResourceInstance.JSONDefinition = updatedWorkloadResourceInstance.JSONDefinition
-		_, err = client.UpdateKubernetesWorkloadResourceInstance(r.APIClient, r.APIServer, existingWorkloadResourceInstance)
+	for _, workloadResourceInstance := range changedWorkloadResourceInstances {
+		_, err = client.UpdateKubernetesWorkloadResourceInstance(r.APIClient, r.APIServer, &workloadResourceInstance)
 		if err != nil {
 			return 0, fmt.Errorf("failed to update kubernetes workload resource instance: %w", err)
 		}
@@ -161,6 +169,60 @@ func v0GatewayInstanceUpdated(
 	)
 
 	return 0, nil
+}
+
+// changedGatewayResourceInstances returns the stored resource instances that
+// need writing back, ready to write: the ones whose configured definition
+// differs from what is stored, carrying the new definition and marked
+// unreconciled so the kubernetes workload controller re-applies them.
+//
+// Resources whose definition already matches are left out. Writing one of those
+// back would mark it unreconciled and re-apply an identical manifest to the
+// cluster for nothing.
+//
+// metadata.namespace is set aside when comparing. Nothing configured here sets
+// it: the kubernetes workload reconciler writes a namespace into every
+// namespaced resource and persists that, so the stored copy always carries one
+// and the configured copy never does. Comparing it would find a difference on
+// every invocation and leave this function doing exactly what it did before.
+// The namespace is that reconciler's to decide, not this one's.
+func changedGatewayResourceInstances(
+	gatewayInstanceObjects []string,
+	existingWorkloadResourceInstances *[]v0.KubernetesWorkloadResourceInstance,
+	updatedWorkloadResourceInstances *[]v0.KubernetesWorkloadResourceInstance,
+) ([]v0.KubernetesWorkloadResourceInstance, error) {
+	var changed []v0.KubernetesWorkloadResourceInstance
+
+	for _, resource := range gatewayInstanceObjects {
+		existingWorkloadResourceInstance, err := workload_util.GetUniqueKubernetesWorkloadResourceInstance(existingWorkloadResourceInstances, resource)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get kubernetes workload resource instance: %w", err)
+		}
+
+		updatedWorkloadResourceInstance, err := workload_util.GetUniqueKubernetesWorkloadResourceInstance(updatedWorkloadResourceInstances, resource)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get kubernetes workload resource instance: %w", err)
+		}
+
+		unchanged, err := util.JSONDefinitionsEqualIgnoring(
+			existingWorkloadResourceInstance.JSONDefinition,
+			updatedWorkloadResourceInstance.JSONDefinition,
+			[]string{"metadata", "namespace"},
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to compare kubernetes workload resource instance definitions: %w", err)
+		}
+		if unchanged {
+			continue
+		}
+
+		workloadResourceInstanceReconciled := false
+		existingWorkloadResourceInstance.Reconciled = &workloadResourceInstanceReconciled
+		existingWorkloadResourceInstance.JSONDefinition = updatedWorkloadResourceInstance.JSONDefinition
+		changed = append(changed, *existingWorkloadResourceInstance)
+	}
+
+	return changed, nil
 }
 
 // v0GatewayInstanceDeleted performs reconciliation when a v0 GatewayInstance
