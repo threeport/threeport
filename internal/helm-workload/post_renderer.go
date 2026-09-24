@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"sort"
 
 	"gorm.io/datatypes"
 	"helm.sh/helm/v3/pkg/releaseutil"
@@ -28,8 +29,23 @@ type ThreeportPostRenderer struct {
 // threeport agent to monitor the workload.
 func (p *ThreeportPostRenderer) Run(renderedManifests *bytes.Buffer) (*bytes.Buffer, error) {
 	splitManifests := releaseutil.SplitManifests(renderedManifests.String())
+
+	// SplitManifests returns a map, and ranging over a map visits its keys in a
+	// random order. Left unsorted, the same chart post-renders to a different
+	// manifest on every run: helm records a new revision for an upgrade that
+	// changed nothing, and anything comparing a render against the deployed
+	// release sees a difference that is not there. The keys it hands back are
+	// integer-sortable for exactly this, and sorting them restores the order the
+	// chart was rendered in.
+	manifestKeys := make([]string, 0, len(splitManifests))
+	for key := range splitManifests {
+		manifestKeys = append(manifestKeys, key)
+	}
+	sort.Sort(releaseutil.BySplitManifestsOrder(manifestKeys))
+
 	var postRenderedManifests string
-	for _, manifest := range splitManifests {
+	for _, manifestKey := range manifestKeys {
+		manifest := splitManifests[manifestKey]
 		// Skip completely empty manifests
 		trimmedManifest := bytes.TrimSpace([]byte(manifest))
 		if len(trimmedManifest) == 0 {

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 
 	"github.com/go-logr/logr"
 	"helm.sh/helm/v3/pkg/action"
@@ -16,6 +17,7 @@ import (
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/getter"
 	"helm.sh/helm/v3/pkg/registry"
+	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"helm.sh/helm/v3/pkg/repo"
 	"helm.sh/helm/v3/pkg/storage/driver"
@@ -270,7 +272,113 @@ func v0HelmWorkloadInstanceUpdated(
 		return 0, fmt.Errorf("failed to configure chart repository: %w", err)
 	}
 
-	// upgrade the chart
+	releaseName := helmReleaseName(helmWorkloadInstance)
+
+	// Render what an upgrade would apply, without applying it. helm's upgrade
+	// does not skip an upgrade that changes nothing: it re-applies the rendered
+	// manifests and records a new revision every time it is called. Rendering
+	// first is what lets an invocation with nothing to do cost nothing.
+	preview := newHelmUpgrade(actionConf, helmWorkloadDefinition, helmWorkloadInstance)
+	preview.DryRun = true
+
+	// "server" so the render still reaches the cluster. A plain dry run does
+	// not, and a chart whose templates call lookup would then render one way
+	// here and another way in the upgrade below - leaving this comparison
+	// deciding on a manifest that is not the one that would be applied.
+	preview.DryRunOption = "server"
+
+	// configure chart
+	chart, helmValues, err := configureChart(
+		helmWorkloadDefinition,
+		helmWorkloadInstance,
+		preview,
+		settings,
+		helmRepoName,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to configure helm chart: %w", err)
+	}
+
+	previewed, err := preview.Run(releaseName, chart, helmValues)
+	if err != nil {
+		return 0, fmt.Errorf("failed to render the helm chart: %w", err)
+	}
+
+	// compare against what the release currently holds. A release that cannot
+	// be read is not a reason to stop: the upgrade below is what would fix it.
+	deployed, err := action.NewGet(actionConf).Run(releaseName)
+	if err == nil && releaseMatchesRender(deployed, previewed) {
+		log.V(1).Info("helm release already matches the rendered chart, skipping upgrade")
+
+		return 0, nil
+	}
+
+	// deploy the helm workload
+	upgrade := newHelmUpgrade(actionConf, helmWorkloadDefinition, helmWorkloadInstance)
+	if _, err = upgrade.Run(
+		releaseName,
+		chart,
+		helmValues,
+	); err != nil {
+		return 0, fmt.Errorf("failed to upgrade helm chart: %w", err)
+	}
+
+	return 0, nil
+}
+
+// releaseMatchesRender reports whether a deployed release already holds what a
+// render would apply.
+//
+// Hooks are compared alongside the manifest because helm keeps them apart from
+// it: a chart change touching only a pre- or post-upgrade hook leaves the two
+// manifests identical, and skipping on that alone would drop the hook without
+// recording or running it.
+//
+// A hook is compared on what the chart declares, not on the whole struct. helm
+// writes each hook's LastRun when it executes, so a deployed hook always carries
+// a timestamp the freshly rendered one does not, and comparing those would find
+// a difference on every release that has ever run a hook.
+func releaseMatchesRender(deployed, previewed *release.Release) bool {
+	if deployed == nil || previewed == nil {
+		return false
+	}
+	if deployed.Manifest != previewed.Manifest {
+		return false
+	}
+	if len(deployed.Hooks) != len(previewed.Hooks) {
+		return false
+	}
+
+	for i, deployedHook := range deployed.Hooks {
+		previewedHook := previewed.Hooks[i]
+		if deployedHook == nil || previewedHook == nil {
+			if deployedHook != previewedHook {
+				return false
+			}
+			continue
+		}
+		if deployedHook.Name != previewedHook.Name ||
+			deployedHook.Kind != previewedHook.Kind ||
+			deployedHook.Path != previewedHook.Path ||
+			deployedHook.Manifest != previewedHook.Manifest ||
+			deployedHook.Weight != previewedHook.Weight ||
+			!reflect.DeepEqual(deployedHook.Events, previewedHook.Events) ||
+			!reflect.DeepEqual(deployedHook.DeletePolicies, previewedHook.DeletePolicies) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// newHelmUpgrade returns an upgrade action configured for a helm workload
+// instance. The rendered preview and the upgrade that follows it are built the
+// same way from here, so what is compared is what gets applied.
+func newHelmUpgrade(
+	actionConf *action.Configuration,
+	helmWorkloadDefinition *v0.HelmWorkloadDefinition,
+	helmWorkloadInstance *v0.HelmWorkloadInstance,
+) *action.Upgrade {
 	upgrade := action.NewUpgrade(actionConf)
 
 	// configure version if it is supplied by the kubernetes workload definition
@@ -285,28 +393,7 @@ func v0HelmWorkloadInstanceUpdated(
 		HelmWorkloadInstance:   helmWorkloadInstance,
 	}
 
-	// configure chart
-	chart, helmValues, err := configureChart(
-		helmWorkloadDefinition,
-		helmWorkloadInstance,
-		upgrade,
-		settings,
-		helmRepoName,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to configure helm chart: %w", err)
-	}
-
-	// deploy the helm workload
-	if _, err = upgrade.Run(
-		helmReleaseName(helmWorkloadInstance),
-		chart,
-		helmValues,
-	); err != nil {
-		return 0, fmt.Errorf("failed to upgrade helm chart: %w", err)
-	}
-
-	return 0, nil
+	return upgrade
 }
 
 // v0HelmWorkloadInstanceDeleted performs reconciliation when a v0 HelmWorkloadInstance
