@@ -553,6 +553,31 @@ func DeleteGCPServiceAccountWithKey(projectID, accountName string) error {
 	serviceAccountID := generateServiceAccountID(accountName)
 	serviceAccountEmail := fmt.Sprintf("%s@%s.iam.gserviceaccount.com", serviceAccountID, projectID)
 
+	// The account to delete is found by deriving its name from the provider's,
+	// and two provider names can derive the same one - truncation to thirty
+	// characters collides, and a freed name can be taken by something else. So
+	// the account is read and checked before anything is done to it: stripping a
+	// project's IAM bindings and deleting an account Threeport never created is
+	// not recoverable by re-running anything.
+	account, found, err := getServiceAccountForProject(iamService, projectID, serviceAccountEmail)
+	if err != nil {
+		return fmt.Errorf("failed to check for the service account: %w", err)
+	}
+	deletable, err := gcpServiceAccountDeletable(account, found, accountName, serviceAccountEmail)
+	if err != nil {
+		return err
+	}
+
+	// Nothing is touched when the account is not there. Its bindings may still
+	// be in the project, but with no account there is nothing to read ownership
+	// from, and the derived email is not proof: two provider names can derive
+	// the same one, so removing them could take access away from a provider that
+	// still has it. Leaving a dangling binding is recoverable; removing the
+	// wrong one is not.
+	if !deletable {
+		return nil
+	}
+
 	// Remove IAM role bindings for the service account
 	if err := removeServiceAccountRolesForProject(crmService, projectID, serviceAccountEmail); err != nil {
 		return fmt.Errorf("failed to remove IAM roles: %w", err)
@@ -564,6 +589,71 @@ func DeleteGCPServiceAccountWithKey(projectID, accountName string) error {
 	}
 
 	return nil
+}
+
+// gcpServiceAccountDeletable reports whether a service account derived from a
+// provider name may have its roles stripped and be deleted.
+//
+// An account that is not there is nothing to do rather than a failure - a delete
+// re-run after a partial one has to be able to finish. An account that is there
+// but carries no Threeport ownership for this provider belongs to something
+// else, and is refused: the derived name is not proof of ownership, since two
+// provider names can truncate to the same one.
+func gcpServiceAccountDeletable(
+	account *iam.ServiceAccount,
+	found bool,
+	ownerName string,
+	serviceAccountEmail string,
+) (bool, error) {
+	if !found {
+		return false, nil
+	}
+	if !serviceAccountOwnedBy(account, ownerName) {
+		return false, fmt.Errorf(
+			"GCP service account %s was not created by Threeport for %s, so it will not be deleted",
+			serviceAccountEmail,
+			ownerName,
+		)
+	}
+
+	return true, nil
+}
+
+// getServiceAccountForProject returns a service account and whether it is there.
+// An account that does not exist is an answer rather than a failure; any other
+// error is returned, since taking it for absence would let a delete proceed
+// against an account it could not read.
+func getServiceAccountForProject(
+	iamService *iam.Service,
+	projectID string,
+	serviceAccountEmail string,
+) (*iam.ServiceAccount, bool, error) {
+	serviceAccountResource := fmt.Sprintf("projects/%s/serviceAccounts/%s", projectID, serviceAccountEmail)
+
+	account, err := iamService.Projects.ServiceAccounts.Get(serviceAccountResource).Do()
+
+	return classifyServiceAccountGet(account, err)
+}
+
+// classifyServiceAccountGet turns the result of reading a service account into
+// the account, whether it is there, and any failure.
+//
+// Only a not-found means absent. Any other failure is returned, because a caller
+// that took it for absence would carry on against an account it could not read -
+// which on the delete path means stripping a project's bindings without having
+// checked who owns them.
+func classifyServiceAccountGet(
+	account *iam.ServiceAccount,
+	err error,
+) (*iam.ServiceAccount, bool, error) {
+	if err == nil {
+		return account, true, nil
+	}
+	if isNotFoundError(err) {
+		return nil, false, nil
+	}
+
+	return nil, false, err
 }
 
 // createServiceAccountForProject returns the named service account, creating it
@@ -617,7 +707,22 @@ func serviceAccountOwnedBy(account *iam.ServiceAccount, ownerName string) bool {
 	if account == nil {
 		return false
 	}
-	return strings.HasSuffix(account.Description, GcpOwnershipDescription(ownerName))
+	if strings.HasSuffix(account.Description, GcpOwnershipDescription(ownerName)) {
+		return true
+	}
+
+	// Accounts created before the ownership marker existed carry only the
+	// description below. It names the provider it was created for, so it
+	// identifies the owner as precisely as the marker does - and without
+	// recognising it, a provider created by an earlier version could never be
+	// deleted, stranding the account and its project bindings.
+	return account.Description == legacyGcpServiceAccountDescription(ownerName)
+}
+
+// legacyGcpServiceAccountDescription is the description the create path wrote
+// before it began marking ownership.
+func legacyGcpServiceAccountDescription(ownerName string) string {
+	return fmt.Sprintf("Service account for Threeport GcpProvider %s to manage GCP resources", ownerName)
 }
 
 // gkeServiceAccountDescription is the IAM description written for a GKE bootstrap account.
