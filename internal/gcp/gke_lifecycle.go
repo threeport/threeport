@@ -1,9 +1,11 @@
 package gcp
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -12,6 +14,7 @@ import (
 	notif "github.com/threeport/threeport/internal/gcp/notif"
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	gcpauth "github.com/threeport/threeport/pkg/auth/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -362,6 +365,40 @@ func (g *gkeLifecycle) PublishDeleteNotification() error {
 }
 
 // buildGkeInfra constructs a KubernetesRuntimeInfraGKE from API objects.
+// requireSameProject reports whether a service account belongs to the project a
+// runtime is being created in.
+//
+// A workload identity binding is addressed as projects/<project>/serviceAccounts
+// /<account>, so an account from elsewhere is not named by that path - and the
+// failure would land after the cluster's network, control plane and node pool
+// are provisioned. An account whose project cannot be read from its address is
+// refused for the same reason: the binding would be attempted blind.
+func requireSameProject(serviceAccountEmail, projectID, providerName string) error {
+	const domainSuffix = ".iam.gserviceaccount.com"
+
+	at := strings.Index(serviceAccountEmail, "@")
+	if at < 0 || !strings.HasSuffix(serviceAccountEmail, domainSuffix) {
+		return fmt.Errorf(
+			"the ambient service account %s is not addressable as a project service account, so the workload identity binding for GCP provider %s cannot name it",
+			serviceAccountEmail,
+			providerName,
+		)
+	}
+
+	accountProject := strings.TrimSuffix(serviceAccountEmail[at+1:], domainSuffix)
+	if accountProject != projectID {
+		return fmt.Errorf(
+			"this control plane runs as %s in project %s, but GCP provider %s creates runtimes in project %s: the workload identity binding is made in the runtime's project and cannot name an account from another one",
+			serviceAccountEmail,
+			accountProject,
+			providerName,
+			projectID,
+		)
+	}
+
+	return nil
+}
+
 func buildGkeInfra(
 	r *controller.Reconciler,
 	instance *v0.GcpGkeKubernetesRuntimeInstance,
@@ -390,12 +427,36 @@ func buildGkeInfra(
 		MaxNodeCount:           int32(*definition.DefaultNodeGroupMaximumSize),
 	}
 
+	// The workload identity binding made after the cluster is created names this
+	// account, so it has to be known before any of the cluster is provisioned -
+	// not discovered missing once the network, control plane and node pool are
+	// already up.
 	if gcpProvider.ServiceAccountCredentials != nil && *gcpProvider.ServiceAccountCredentials != "" {
 		infraGKE.ServiceAccountCredentials = *gcpProvider.ServiceAccountCredentials
 		email, err := serviceAccountEmailFromCredentials(infraGKE.ServiceAccountCredentials)
 		if err != nil {
 			return nil, fmt.Errorf("failed to extract service account email: %w", err)
 		}
+		infraGKE.ServiceAccountEmail = email
+	} else {
+		// No stored key: this controller authenticates with the ambient identity
+		// GCP gives it, and that identity is the account to bind.
+		email, err := gcpauth.AmbientServiceAccountEmail(context.Background())
+		if err != nil {
+			return nil, fmt.Errorf(
+				"GCP provider %s stores no service account credentials and no ambient service account could be resolved, so the workload identity binding has no account to name: %w",
+				*gcpProvider.Name,
+				err,
+			)
+		}
+
+		// The binding addresses the account through the cluster's project. An
+		// ambient identity belonging to another project is not reachable at that
+		// path, and the binding would fail once the cluster already exists.
+		if err := requireSameProject(email, infraGKE.ProjectID, *gcpProvider.Name); err != nil {
+			return nil, err
+		}
+
 		infraGKE.ServiceAccountEmail = email
 	}
 

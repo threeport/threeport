@@ -95,3 +95,52 @@ func TestRefuseUnownedExistingGCPServiceAccount_AllowsOwnedReuse(t *testing.T) {
 	require.NoError(t, refuseUnownedExistingGCPServiceAccount(owned, true, name))
 	require.Error(t, refuseUnownedExistingGCPServiceAccount(owned, true, "other-runtime"))
 }
+
+// TestRequireServiceAccountEmail covers the guard in front of the workload
+// identity binding.
+//
+// Without it an empty email builds "projects/<project>/serviceAccounts/" and
+// GCP answers 404 about a resource that names nothing - after the cluster's
+// network, control plane and node pool are already provisioned.
+func TestRequireServiceAccountEmail(t *testing.T) {
+	t.Run("a known account passes", func(t *testing.T) {
+		infra := &KubernetesRuntimeInfraGKE{
+			ProjectID:           "a-project",
+			ServiceAccountEmail: "threeport@a-project.iam.gserviceaccount.com",
+		}
+		require.NoError(t, infra.requireServiceAccountEmail())
+	})
+
+	t.Run("an unknown account says so rather than asking GCP", func(t *testing.T) {
+		infra := &KubernetesRuntimeInfraGKE{ProjectID: "a-project"}
+
+		err := infra.requireServiceAccountEmail()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no account to name")
+	})
+}
+
+// TestWorkloadIdentityMembers_NameNoRuntime states why deleting a runtime does
+// not revoke the workload identity grant.
+//
+// The member names the project, the control plane namespace and the controller's
+// service account - nothing about the runtime. Two runtimes in one project
+// produce the same member, so revoking on a delete would take the grant away
+// from the ones still running. The grant belongs to the control plane, which
+// outlives any runtime it creates.
+func TestWorkloadIdentityMembers_NameNoRuntime(t *testing.T) {
+	first := &KubernetesRuntimeInfraGKE{RuntimeInstanceName: "runtime-one", ProjectID: "a-project"}
+	second := &KubernetesRuntimeInfraGKE{RuntimeInstanceName: "runtime-two", ProjectID: "a-project"}
+
+	pool := fmt.Sprintf(workloadIdentityPoolFormat, "a-project")
+	assert.Equal(
+		t,
+		first.getWorkloadIdentityMembers(pool),
+		second.getWorkloadIdentityMembers(pool),
+		"two runtimes in one project share the grant, so it is not one runtime's to revoke",
+	)
+
+	for _, member := range first.getWorkloadIdentityMembers(pool) {
+		assert.NotContains(t, member, "runtime-one")
+	}
+}
