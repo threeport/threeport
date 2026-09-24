@@ -195,6 +195,7 @@ func (cpi *ControlPlaneInstaller) ComputeSpaceWorkloadControllerRBACCurrent(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	gcpProjectID string,
+	serviceAccountEmail string,
 ) (bool, error) {
 	for _, controllerName := range computeSpaceWorkloadControllers() {
 		binding, present, err := resourceInstalled(
@@ -226,7 +227,7 @@ func (cpi *ControlPlaneInstaller) ComputeSpaceWorkloadControllerRBACCurrent(
 
 		matches, err := bindingGrants(
 			binding,
-			cpi.computeSpaceWorkloadControllerBinding(controllerName, gcpProjectID),
+			cpi.computeSpaceWorkloadControllerBinding(controllerName, gcpProjectID, serviceAccountEmail),
 		)
 		if err != nil {
 			return false, fmt.Errorf(
