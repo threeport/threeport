@@ -1,5 +1,7 @@
 package v0
 
+import "gorm.io/datatypes"
+
 // MachineRuntimeDefinition is the configuration for a machine runtime.  It
 // serves as a template for provisioning machine runtime instances.
 type MachineRuntimeDefinition struct {
@@ -57,6 +59,10 @@ type MachineRuntimeInstance struct {
 
 	// The provider subnet identifier the machine attaches to
 	SubnetID *string `validate:"optional"`
+
+	// An inventory of all provider resources backing this machine, used for
+	// crash recovery and deprovisioning.
+	ResourceInventory *datatypes.JSON `validate:"optional"`
 
 	// The machine runtime definition for this instance.  Optional because
 	// imported machines may not have an associated definition.
