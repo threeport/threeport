@@ -99,6 +99,7 @@ control planes if they are used to create or are created by another control plan
 			cliArgs.KindPortMappings,
 			cliArgs.ControlPlaneOnly,
 			cliArgs.ClusterName,
+			cliArgs.ApiPort,
 		); err != nil {
 			cli.Error("flag validation failed:", err)
 			os.Exit(1)

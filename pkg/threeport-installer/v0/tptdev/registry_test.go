@@ -4,16 +4,69 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/docker/docker/api/types/container"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-// TestResolveKubeconfigPath covers the defect where the local registry step
-// ignored --kind-kubeconfig. The path the rest of the command resolved has to
-// win; re-resolving here sent the configmap to whatever cluster happened to be
-// active in the default kubeconfig, which with --control-plane-only against a
-// pre-existing kind cluster is a different cluster or none at all.
+func TestRegistryNeedsStart(t *testing.T) {
+	tests := []struct {
+		name   string
+		status string
+		want   bool
+	}{
+		{
+			name:   "an exited container is started",
+			status: container.StateExited,
+			want:   true,
+		},
+		{
+			name:   "a container that never ran is started",
+			status: container.StateCreated,
+			want:   true,
+		},
+		{
+			name:   "a running container is left alone",
+			status: container.StateRunning,
+			want:   false,
+		},
+		{
+			name:   "a paused container needs an unpause rather than a start",
+			status: container.StatePaused,
+			want:   false,
+		},
+		{
+			name:   "a restarting container is already on its way up",
+			status: container.StateRestarting,
+			want:   false,
+		},
+		{
+			name:   "a container being removed cannot be started",
+			status: container.StateRemoving,
+			want:   false,
+		},
+		{
+			name:   "a dead container cannot be started",
+			status: container.StateDead,
+			want:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := registryNeedsStart(tt.status); got != tt.want {
+				t.Errorf(
+					"registryNeedsStart(%q) = %v, want %v",
+					tt.status,
+					got,
+					tt.want,
+				)
+			}
+		})
+	}
+}
+
 func TestResolveKubeconfigPath(t *testing.T) {
 	t.Run("a supplied path is used as given", func(t *testing.T) {
 		const supplied = "/tmp/kind-cluster.kubeconfig"
