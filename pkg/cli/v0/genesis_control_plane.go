@@ -36,9 +36,24 @@ import (
 
 var ErrThreeportConfigAlreadyExists = errors.New("threeport config already contains a control plane with the requested name")
 
-// localRuntimeLocation is the location recorded for a kubernetes runtime that
-// has no region to derive one from. Rebuilds use it too: the config never stores location.
+// localRuntimeLocation is the location recorded for a kind kubernetes runtime.
 const localRuntimeLocation = "Local"
+
+// restoredRuntimeLocation picks the location written back after a database drop.
+// Kind has none. GKE takes the region from this command so the record is not Local.
+func restoredRuntimeLocation(providerName, gcpRegion string) (string, error) {
+	if providerName != v0.KubernetesRuntimeInfraProviderGKE {
+		return localRuntimeLocation, nil
+	}
+	if gcpRegion == "" {
+		return "", errors.New("gcp region must be set to restore a gke kubernetes runtime")
+	}
+	location, err := mapping.GetLocationForGcpRegion(gcpRegion)
+	if err != nil {
+		return "", fmt.Errorf("failed to map gcp region to a location: %w", err)
+	}
+	return location, nil
+}
 
 // GenesisControlPlaneCLIArgs is the set of control plane arguments passed to one of
 // the CLI tools.
@@ -1568,7 +1583,7 @@ func EnsureBootstrapObjects(cpi *threeport.ControlPlaneInstaller) error {
 	}
 
 	// build the kubernetes runtime instance from the stored kube api config
-	kubernetesRuntimeInstance, err := bootstrapKubernetesRuntimeInstance(controlPlaneConfig)
+	kubernetesRuntimeInstance, err := bootstrapKubernetesRuntimeInstance(controlPlaneConfig, cpi.Opts.GcpRegion)
 	if err != nil {
 		return fmt.Errorf("failed to build kubernetes runtime instance from threeport config: %w", err)
 	}
@@ -1607,7 +1622,7 @@ func EnsureBootstrapObjects(cpi *threeport.ControlPlaneInstaller) error {
 
 // bootstrapKubernetesRuntimeInstance builds a kubernetes runtime instance
 // from the stored kube api config. It refuses eks and oke.
-func bootstrapKubernetesRuntimeInstance(controlPlaneConfig *ControlPlane) (*v0.KubernetesRuntimeInstance, error) {
+func bootstrapKubernetesRuntimeInstance(controlPlaneConfig *ControlPlane, gcpRegion string) (*v0.KubernetesRuntimeInstance, error) {
 	// refuse eks; the config cannot supply the token that provider uses
 	if controlPlaneConfig.Provider == v0.KubernetesRuntimeInfraProviderEKS {
 		return nil, fmt.Errorf(
@@ -1641,9 +1656,12 @@ func bootstrapKubernetesRuntimeInstance(controlPlaneConfig *ControlPlane) (*v0.K
 		return nil, fmt.Errorf("failed to decode kubernetes API connection token: %w", err)
 	}
 
-	// mark the existing cluster reconciled and record Local; the config stores no location
+	// kind has no region. gke uses the region from this command.
+	location, err := restoredRuntimeLocation(controlPlaneConfig.Provider, gcpRegion)
+	if err != nil {
+		return nil, err
+	}
 	name := provider.ThreeportRuntimeName(controlPlaneConfig.Name)
-	location := localRuntimeLocation
 	instReconciled := true
 	controlPlaneHost := true
 	defaultRuntime := true

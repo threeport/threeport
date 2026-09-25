@@ -141,7 +141,9 @@ func updateDeploymentImageTag(imageTag string, namespace string, dynamicKubeClie
 		return fmt.Errorf("failed to get kubernetes deployment for %s: %w", installer.ThreeportAgent.Name, err)
 	}
 
-	updateImageTagInDeployment(deployment, imageTag, installer.ThreeportAgent.Name)
+	if err := updateImageTagInDeployment(deployment, imageTag, installer.ThreeportAgent.Name); err != nil {
+		return err
+	}
 	deployment.SetName(installer.ThreeportAgentDeployName)
 
 	_, err = dynamicKubeClient.

@@ -7,6 +7,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -520,6 +521,10 @@ func (cpi *ControlPlaneInstaller) deleteForReinstall(
 
 		for _, obj := range list.Items {
 			name := obj.GetName()
+			// cluster bindings are named with this control plane's namespace
+			if !target.namespaced && !strings.HasPrefix(name, namespace+"-") {
+				continue
+			}
 			if err := ri.Delete(context.Background(), name, deleteOpts); err != nil && !k8serrors.IsNotFound(err) {
 				return fmt.Errorf(
 					"failed to delete %s/%s: %w",
@@ -547,12 +552,17 @@ func (cpi *ControlPlaneInstaller) deleteForReinstall(
 			if err != nil {
 				return fmt.Errorf("failed to list %s while waiting for delete: %w", target.gvr.Resource, err)
 			}
-			if n := len(list.Items); n > 0 {
-				pending += n
+			owned := 0
+			for _, obj := range list.Items {
+				if !target.namespaced && !strings.HasPrefix(obj.GetName(), namespace+"-") {
+					continue
+				}
+				owned++
 				if sample == "" {
-					sample = fmt.Sprintf("%s/%s", target.gvr.Resource, list.Items[0].GetName())
+					sample = fmt.Sprintf("%s/%s", target.gvr.Resource, obj.GetName())
 				}
 			}
+			pending += owned
 		}
 		if pending > 0 {
 			return fmt.Errorf("%d resource(s) still terminating (e.g. %s)", pending, sample)

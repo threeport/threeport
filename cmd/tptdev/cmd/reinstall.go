@@ -279,7 +279,7 @@ func init() {
 	// register the image-tag flag
 	reinstallCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneImageTag,
-		"control-plane-image-tag", "t", "", "Image tag for threeport control plane images. Defaults to the current git branch name.",
+		"control-plane-image-tag", "t", "", "Image tag for threeport control plane images. Defaults to the resolved git and build version.",
 	)
 	// register the debug flag
 	reinstallCmd.Flags().BoolVar(
