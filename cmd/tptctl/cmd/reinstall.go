@@ -124,6 +124,13 @@ Use this for any spec, RBAC, or configmap change. Use
 
 		// refuse a gke restore that has no region before changing the cluster
 		if tptctlReinstallDropDatabase || tptctlReinstallRestoreBootstrap {
+			// the stored control plane carries the provider; the flag default does not
+			controlPlaneConfig, err := config.GetControlPlaneConfig(requestedControlPlane)
+			if err != nil {
+				cli.Error("failed to get threeport config", err)
+				os.Exit(1)
+			}
+			cpi.Opts.InfraProvider = controlPlaneConfig.Provider
 			if err := cli.RequireRestoredRuntimeLocation(cpi.Opts.InfraProvider, cpi.Opts.GcpRegion); err != nil {
 				cli.Error("cannot reinstall", err)
 				os.Exit(1)
@@ -166,6 +173,14 @@ Use this for any spec, RBAC, or configmap change. Use
 
 		// hold module replica counts for the restore after reinstall
 		var moduleScales []installer.ModuleDeploymentScale
+		restoreScaledModules := func() {
+			if len(moduleScales) == 0 {
+				return
+			}
+			if err := cpi.RestoreModuleScale(dynamicKubeClient, moduleScales); err != nil {
+				cli.Error("failed to restore module deployments", err)
+			}
+		}
 		// drop stored state when requested
 		if tptctlReinstallDropDatabase {
 			// refuse a non-development tier before any deployment is scaled down
@@ -203,12 +218,14 @@ Use this for any spec, RBAC, or configmap change. Use
 
 			// drop the control plane database
 			if err := cpi.DropDatabase(dynamicKubeClient, mapper); err != nil {
+				restoreScaledModules()
 				cli.Error("failed to drop control plane database", err)
 				os.Exit(1)
 			}
 
 			// drop message broker state
 			if err := cpi.DropMessageBrokerState(dynamicKubeClient, mapper); err != nil {
+				restoreScaledModules()
 				cli.Error("failed to drop control plane message broker state", err)
 				os.Exit(1)
 			}
@@ -216,6 +233,7 @@ Use this for any spec, RBAC, or configmap change. Use
 
 		// reinstall the control plane
 		if err := cpi.Reinstall(dynamicKubeClient, mapper, authConfig); err != nil {
+			restoreScaledModules()
 			cli.Error("failed to reinstall threeport control plane", err)
 			os.Exit(1)
 		}
@@ -223,6 +241,7 @@ Use this for any spec, RBAC, or configmap change. Use
 		// restore bootstrap objects when the database was emptied
 		if tptctlReinstallDropDatabase || tptctlReinstallRestoreBootstrap {
 			if err := cli.EnsureBootstrapObjects(cpi); err != nil {
+				restoreScaledModules()
 				cli.Error("failed to restore control plane bootstrap objects", err)
 				os.Exit(1)
 			}

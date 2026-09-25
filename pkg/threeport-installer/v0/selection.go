@@ -68,7 +68,7 @@ func SelectControllersByGroup(
 			return nil, fmt.Errorf(
 				"unknown api object group %q: valid choices are %s",
 				groupName,
-				strings.Join(ApiObjectGroupNames, ", "),
+				strings.Join(controllerGroupNames(allControllers), ", "),
 			)
 		}
 		selected = append(selected, controller)
@@ -167,6 +167,21 @@ func controllerNames(controllers []*v0.ControlPlaneComponent) []string {
 	names := make([]string, 0, len(controllers))
 	for _, controller := range controllers {
 		names = append(names, controller.Name)
+	}
+	return names
+}
+
+// controllerGroupNames lists the API object groups that have a controller here.
+func controllerGroupNames(allControllers []*v0.ControlPlaneComponent) []string {
+	byName := make(map[string]bool, len(allControllers))
+	for _, controller := range allControllers {
+		byName[controller.Name] = true
+	}
+	var names []string
+	for _, groupName := range ApiObjectGroupNames {
+		if byName[controllerNameForGroup(groupName)] {
+			names = append(names, groupName)
+		}
 	}
 	return names
 }

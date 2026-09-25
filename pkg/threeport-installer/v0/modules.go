@@ -24,9 +24,9 @@ type ModuleDeploymentScale struct {
 	// The namespace of the deployment
 	Namespace string
 	// The name of the deployment
-	Name      string
+	Name string
 	// The replica count recorded before the deployment was scaled to zero
-	Replicas  int64
+	Replicas int64
 }
 
 // DiscoverModuleNamespaces returns the unique namespaces parsed from non-core
@@ -105,6 +105,10 @@ func (cpi *ControlPlaneInstaller) ScaleDownModules(
 		}
 
 		for _, deployment := range deployList.Items {
+			// leave a deployment the installer does not own at its current replica count
+			if deployment.GetLabels()[LabelManagedBy] != LabelManagedByValue {
+				continue
+			}
 			// skip a deployment already at zero so it stays out of the record
 			name := deployment.GetName()
 			replicas, _, _ := util.NestedInt64OrFloat64(deployment.Object, "spec", "replicas")

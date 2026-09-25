@@ -508,6 +508,11 @@ func (cpi *ControlPlaneInstaller) deleteForReinstall(
 	deletePolicy := metav1.DeletePropagationForeground
 	deleteOpts := metav1.DeleteOptions{PropagationPolicy: &deletePolicy}
 
+	controlPlaneNamespaces, err := controlPlaneNamespaceNames(kubeClient)
+	if err != nil {
+		return err
+	}
+
 	count := 0
 	for _, target := range deleteTargets {
 		var ri dynamic.ResourceInterface
@@ -527,8 +532,8 @@ func (cpi *ControlPlaneInstaller) deleteForReinstall(
 
 		for _, obj := range list.Items {
 			name := obj.GetName()
-			// cluster bindings are named with this control plane's namespace
-			if !target.namespaced && !strings.HasPrefix(name, namespace+"-") {
+			// a longer sibling namespace owns the binding when its name is the longer prefix
+			if !target.namespaced && !clusterBindingFor(name, namespace, controlPlaneNamespaces) {
 				continue
 			}
 			if err := ri.Delete(context.Background(), name, deleteOpts); err != nil && !k8serrors.IsNotFound(err) {
@@ -560,7 +565,7 @@ func (cpi *ControlPlaneInstaller) deleteForReinstall(
 			}
 			owned := 0
 			for _, obj := range list.Items {
-				if !target.namespaced && !strings.HasPrefix(obj.GetName(), namespace+"-") {
+				if !target.namespaced && !clusterBindingFor(obj.GetName(), namespace, controlPlaneNamespaces) {
 					continue
 				}
 				owned++
@@ -579,6 +584,39 @@ func (cpi *ControlPlaneInstaller) deleteForReinstall(
 	}
 
 	return nil
+}
+
+// clusterBindingFor reports whether a cluster role or binding belongs to this namespace.
+// A longer sibling namespace wins when the name starts with that sibling too.
+func clusterBindingFor(name, namespace string, namespaces []string) bool {
+	if !strings.HasPrefix(name, namespace+"-") {
+		return false
+	}
+	if !strings.HasSuffix(name, "-threeportworkloads") && !strings.HasSuffix(name, "-cluster-admin") {
+		return false
+	}
+	for _, other := range namespaces {
+		if other != namespace && len(other) > len(namespace) && strings.HasPrefix(name, other+"-") {
+			return false
+		}
+	}
+	return true
+}
+
+// controlPlaneNamespaceNames lists namespaces the installer manages.
+func controlPlaneNamespaceNames(kubeClient dynamic.Interface) ([]string, error) {
+	list, err := kubeClient.Resource(schema.GroupVersionResource{Version: "v1", Resource: "namespaces"}).List(
+		context.Background(),
+		metav1.ListOptions{LabelSelector: LabelManagedBy + "=" + LabelManagedByValue},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list control plane namespaces: %w", err)
+	}
+	names := make([]string, 0, len(list.Items))
+	for _, item := range list.Items {
+		names = append(names, item.GetName())
+	}
+	return names, nil
 }
 
 // scaleDownDeployments sets non-persistent installer-managed deployments to

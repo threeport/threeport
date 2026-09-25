@@ -187,6 +187,14 @@ change.`,
 
 		// hold module replica counts so they can be restored after reinstall
 		var moduleScales []installer.ModuleDeploymentScale
+		restoreScaledModules := func() {
+			if len(moduleScales) == 0 {
+				return
+			}
+			if err := cpi.RestoreModuleScale(kubeClient, moduleScales); err != nil {
+				cli.Error("failed to restore module deployments", err)
+			}
+		}
 		// read module namespaces from the api before the drop scales it down
 		if reinstallDropDatabase {
 			// refuse a non-development tier before any deployment is scaled down
@@ -225,6 +233,7 @@ change.`,
 			// scale module deployments to zero and keep their replica counts
 			moduleScales, err = cpi.ScaleDownModules(kubeClient, moduleNamespaces)
 			if err != nil {
+				restoreScaledModules()
 				cli.Error("failed to scale down module deployments", err)
 				os.Exit(1)
 			}
@@ -234,12 +243,14 @@ change.`,
 		if reinstallDropDatabase {
 			// drop the control plane database
 			if err := cpi.DropDatabase(kubeClient, &mapper); err != nil {
+				restoreScaledModules()
 				cli.Error("failed to drop control plane database", err)
 				os.Exit(1)
 			}
 
 			// drop message broker state so streams do not outlive the schema
 			if err := cpi.DropMessageBrokerState(kubeClient, &mapper); err != nil {
+				restoreScaledModules()
 				cli.Error("failed to drop control plane message broker state", err)
 				os.Exit(1)
 			}
@@ -247,6 +258,7 @@ change.`,
 
 		// reinstall stateless resources
 		if err := cpi.Reinstall(kubeClient, &mapper, authConfig); err != nil {
+			restoreScaledModules()
 			cli.Error("failed to reinstall threeport control plane", err)
 			os.Exit(1)
 		}
@@ -254,6 +266,7 @@ change.`,
 		// restore bootstrap records once the api is back up
 		if reinstallDropDatabase || reinstallRestoreBootstrap {
 			if err := cli.EnsureBootstrapObjects(cpi); err != nil {
+				restoreScaledModules()
 				cli.Error("failed to restore control plane bootstrap objects", err)
 				os.Exit(1)
 			}

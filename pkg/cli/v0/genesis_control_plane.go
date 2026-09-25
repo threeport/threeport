@@ -48,7 +48,20 @@ func RequireRestoredRuntimeLocation(providerName, gcpRegion string) error {
 // restoredRuntimeLocation picks the location written back after a database drop.
 // Kind has none. GKE takes the region from this command so the record is not Local.
 func restoredRuntimeLocation(providerName, gcpRegion string) (string, error) {
-	if providerName != v0.KubernetesRuntimeInfraProviderGKE {
+	switch providerName {
+	case v0.KubernetesRuntimeInfraProviderEKS:
+		return "", fmt.Errorf(
+			"eks is not supported for a threeport-managed kubernetes runtime, provider: %s",
+			providerName,
+		)
+	case v0.KubernetesRuntimeInfraProviderOKE:
+		return "", fmt.Errorf(
+			"oke is not supported for a threeport-managed kubernetes runtime, provider: %s",
+			providerName,
+		)
+	case v0.KubernetesRuntimeInfraProviderGKE:
+		// gke is handled below
+	default:
 		return localRuntimeLocation, nil
 	}
 	if gcpRegion == "" {
@@ -171,12 +184,8 @@ func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneI
 	if a.ControlPlaneImageTag != "" {
 		cpi.SetAllImageTags(a.ControlPlaneImageTag)
 	} else {
-		// default the tag the way a build names it
-		devTag, err := util.ResolveImageTag(a.ThreeportPath, version.GetVersion())
-		if err != nil {
-			return nil, fmt.Errorf("failed to resolve default image tag: %w", err)
-		}
-		cpi.SetAllImageTags(devTag)
+		// an empty tag is the release version; tptdev sets a dev tag before this
+		cpi.SetAllImageTags(version.GetVersion())
 	}
 
 	cpi.Opts.AuthEnabled = a.AuthEnabled

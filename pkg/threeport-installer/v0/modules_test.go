@@ -25,7 +25,7 @@ type moduleRegistryApiServer struct {
 	// The controller deployment names keyed by module API ID, as namespace and name joined by a slash
 	controllersByApiId map[uint][]string
 	// The registered module APIs
-	apis               []v0.ModuleApi
+	apis []v0.ModuleApi
 }
 
 // serve starts a test API server and returns a client and an API address.
@@ -114,6 +114,9 @@ func testModuleDeployment(name, namespace string, replicas int64) *unstructured.
 			"metadata": map[string]interface{}{
 				"name":      name,
 				"namespace": namespace,
+				"labels": map[string]interface{}{
+					LabelManagedBy: LabelManagedByValue,
+				},
 			},
 			"spec": map[string]interface{}{
 				"replicas": replicas,
