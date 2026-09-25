@@ -483,20 +483,12 @@ func moduleProxyTransport(authEnabled bool) (http.RoundTripper, error) {
 		return nil, fmt.Errorf("failed to parse certificate authority")
 	}
 
-	tlsConf := &tls.Config{
-		Certificates: []tls.Certificate{cert},
-		RootCAs:      caCertPool,
-		GetClientCertificate: func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			return &cert, nil
-		},
-	}
-
-	// HTTP/2 can omit Certificates on the CertificateRequest; pin HTTP/1.1
-	// so the module API's RequireAndVerifyClientCert always sees the cert.
+	// return a transport that presents the client certificate
 	return &http.Transport{
-		TLSClientConfig:   tlsConf,
-		ForceAttemptHTTP2: false,
-		TLSNextProto:      map[string]func(authority string, c *tls.Conn) http.RoundTripper{},
+		TLSClientConfig: &tls.Config{
+			Certificates: []tls.Certificate{cert},
+			RootCAs:      caCertPool,
+		},
 	}, nil
 }
 

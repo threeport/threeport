@@ -6,7 +6,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -217,20 +216,4 @@ func TestMachineRuntimeInstance_BeforeCreate_AcceptsNilDefinitionID(t *testing.T
 	mri := newValidMRI("mri-no-def-id")
 
 	require.NoError(t, db.Create(mri).Error)
-}
-
-// TestMachineRuntimeInstance_ResourceInventory_RoundTrips covers create and reload of ResourceInventory.
-func TestMachineRuntimeInstance_ResourceInventory_RoundTrips(t *testing.T) {
-	db := setupMachineWorkloadValidateDB(t)
-
-	inventory := datatypes.JSON([]byte(`{"vmId":"i-123"}`))
-	mri := newValidMRI("mri-inventory")
-	mri.Region = util.Ptr("us-central1")
-	mri.ResourceInventory = &inventory
-	require.NoError(t, db.Create(mri).Error)
-
-	var loaded MachineRuntimeInstance
-	require.NoError(t, db.First(&loaded, *mri.ID).Error)
-	require.NotNil(t, loaded.ResourceInventory)
-	assert.JSONEq(t, `{"vmId":"i-123"}`, string(*loaded.ResourceInventory))
 }

@@ -11,20 +11,6 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-const (
-	// MachineRuntimeInfraProviderGCE selects Google Compute Engine as the
-	// machine runtime InfraProvider value.
-	MachineRuntimeInfraProviderGCE = "gce"
-)
-
-// RelationshipTaggedForeignKeys returns the relationship-tagged foreign keys on
-// MachineRuntimeDefinition. The definition has no relationship-tagged foreign
-// keys, so this satisfies the interface with an empty list so lifecycle emit
-// sites can pass the object as the note owner.
-func (m *MachineRuntimeDefinition) RelationshipTaggedForeignKeys() []RelationshipTaggedForeignKey {
-	return nil
-}
-
 // beforeCreate validates the MachineRuntimeDefinition before create.
 func (m *MachineRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
 	return nil
@@ -36,16 +22,12 @@ func (m *MachineRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
 // per-field check is:
 //   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
 //     and PUT, handles the DB load internally
-//
 // Lower-level helpers, useful when IsFieldChanged doesn't fit:
 //   - lib.IncomingValues(tx): values being written
 //   - lib.IsFullReplace(tx): true on PUT (Save shape)
 //   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
-//
 // Import:
-//
 //	lib "github.com/threeport/threeport/pkg/api/lib/v0"
-//
 // InfraProvider, MachineType, and ImageID are immutable after create so
 // derived instances stay aligned with the definition template.
 func (m *MachineRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
@@ -128,16 +110,12 @@ func (m *MachineRuntimeInstance) beforeCreate(tx *gorm.DB) error {
 // per-field check is:
 //   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
 //     and PUT, handles the DB load internally
-//
 // Lower-level helpers, useful when IsFieldChanged doesn't fit:
 //   - lib.IncomingValues(tx): values being written
 //   - lib.IsFullReplace(tx): true on PUT (Save shape)
 //   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
-//
 // Import:
-//
 //	lib "github.com/threeport/threeport/pkg/api/lib/v0"
-//
 // Region, NetworkID, and SubnetID are immutable after create. Infra
 // provider, machine type, and image are guarded on the definition.
 func (m *MachineRuntimeInstance) beforeUpdate(tx *gorm.DB) error {
@@ -149,7 +127,6 @@ func (m *MachineRuntimeInstance) beforeUpdate(tx *gorm.DB) error {
 		{"Region", "region"},
 		{"NetworkID", "network id"},
 		{"SubnetID", "subnet id"},
-		{"Location", "location"},
 	}
 	for _, field := range immutableFields {
 		changed, err := lib.IsFieldChanged(tx, field.column)
@@ -201,15 +178,4 @@ func (m *MachineRuntimeInstance) afterUpdate(tx *gorm.DB) error {
 // afterDelete runs after the MachineRuntimeInstance is deleted.
 func (m *MachineRuntimeInstance) afterDelete(tx *gorm.DB) error {
 	return nil
-}
-
-// MachineRuntimeMarriedKind returns the kebab-case married attached-object
-// kind for infraProvider and suffix ("definition" or "instance").
-// Returns "" when CloudProviderForInfraProvider fails.
-func MachineRuntimeMarriedKind(infraProvider, suffix string) string {
-	cloud, err := CloudProviderForInfraProvider(infraProvider)
-	if err != nil {
-		return ""
-	}
-	return cloud + "-" + infraProvider + "-machine-runtime-" + suffix
 }
