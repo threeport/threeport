@@ -54,13 +54,16 @@ jobs:
     - name: Install mage
       run: go install github.com/magefile/mage@v1.17.2
 
+    - name: Install swag
+      run: go install github.com/swaggo/swag/cmd/swag@v1.16.4
+
     - name: Install threeport-sdk
       run: mage install:sdk
 
-    - name: Run threeport-sdk
-      run: ${{ env.GOPATH }}/bin/threeport-sdk gen --config sdk-config.yaml
+    - name: Run code and swagger docs generation
+      run: mage dev:generate
 
-    - name: Verify codegen is idempotent
+    - name: Verify generation is idempotent
       run: git diff --exit-code
 
     - name: Unit tests
