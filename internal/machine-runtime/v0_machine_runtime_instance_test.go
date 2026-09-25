@@ -377,6 +377,65 @@ func TestMachineRuntimeInstanceCreated_SSHPingFails_Retries(t *testing.T) {
 	assert.Equal(t, int64(0), atomic.LoadInt64(patchCount), "no update may be persisted on ping failure")
 }
 
+// TestMachineRuntimeInstanceCreated_PingFails_PersistsCapturedHostKey covers a
+// first connect with no stored host key whose ping then fails.
+func TestMachineRuntimeInstanceCreated_PingFails_PersistsCapturedHostKey(t *testing.T) {
+	overrideRetryDelay(t, 7)
+	key := machinetest.NewEncryptionKey(t)
+	signer := machinetest.NewSigner(t)
+	addr, stop := machinetest.StartSSHServer(t, signer, "u", "p", machinetest.SSHOpts{ExitCode: 1})
+	defer stop()
+
+	mri := machinetest.MRIFromAddr(t, 32, "mri-pingfail-capture", addr, "u", "p", key)
+	mri.HostKey = nil
+
+	api := machinetest.NewAPIStub(t)
+	var (
+		patches   [][]byte
+		patchesMu sync.Mutex
+		patchPath = fmt.Sprintf("%s/%d", v0.PathMachineRuntimeInstances, 32)
+	)
+	api.Mux.HandleFunc(patchPath, func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, http.MethodPatch, r.Method)
+		body, _ := io.ReadAll(r.Body)
+		patchesMu.Lock()
+		patches = append(patches, body)
+		patchesMu.Unlock()
+		var updated v0.MachineRuntimeInstance
+		require.NoError(t, json.Unmarshal(body, &updated))
+		updated.ID = util.Ptr(uint(32))
+		machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{updated})
+	})
+
+	recorder := machinetest.NewFakeRecorder()
+	log := logr.Discard()
+	r := &controller.Reconciler{
+		APIClient:      api.Client,
+		APIServer:      api.Addr,
+		EncryptionKey:  key,
+		EventsRecorder: recorder,
+	}
+
+	delay, err := v0MachineRuntimeInstanceCreated(r, mri, &log)
+
+	// assert the ping failure still retries
+	require.Error(t, err)
+	assert.Equal(t, int64(7), delay)
+	var errWithEvent *tp_errors.ErrWithEvent
+	require.ErrorAs(t, err, &errWithEvent)
+	require.NotNil(t, errWithEvent.Event.Reason)
+	assert.Equal(t, "SSHPingFailed", *errWithEvent.Event.Reason)
+	assert.Empty(t, recorder.GetReasons())
+
+	// check the captured key is stored without confirming creation
+	patchesMu.Lock()
+	defer patchesMu.Unlock()
+	require.Len(t, patches, 1)
+	assert.Contains(t, string(patches[0]), "HostKey")
+	assert.NotContains(t, string(patches[0]), "CreationConfirmed")
+	assert.NotContains(t, string(patches[0]), "Reconciled")
+}
+
 // TestMachineRuntimeInstanceCreated_HostKeyPatchFails_Retries covers a host-key PATCH that RetryOnNetworkErr treats as a network error.
 func TestMachineRuntimeInstanceCreated_HostKeyPatchFails_Retries(t *testing.T) {
 	key := machinetest.NewEncryptionKey(t)

@@ -126,6 +126,21 @@ func v0MachineRuntimeInstanceCreated(
 
 	// verify the connection is usable
 	if err := pingWithContext(ctx, sshClient); err != nil {
+		// persist a captured host key before the ping failure returns
+		if capturedHostKey != "" {
+			update := &v0.MachineRuntimeInstance{
+				Common:  v0.Common{ID: machineRuntimeInstance.ID},
+				HostKey: &capturedHostKey,
+			}
+			if _, err := client.UpdateMachineRuntimeInstance(r.APIClient, r.APIServer, update); err != nil {
+				return controller.RetryOnNetworkErr(err, "failed to persist captured host key on machine runtime instance")
+			}
+			log.Info(
+				"captured ssh host key",
+				"machineRuntimeInstance", *machineRuntimeInstance.Name,
+				"id", *machineRuntimeInstance.ID,
+			)
+		}
 		// retry: the host may become reachable without changing this object.
 		note := fmt.Sprintf("failed to ping machine runtime instance: %s", err)
 		return sshRetryDelaySeconds, &tp_errors.ErrWithEvent{
