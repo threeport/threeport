@@ -51,8 +51,6 @@ jobs:
         restore-keys: |
           go-${{ runner.os }}-
 
-    # Installs the CLI tools for CI. Versions come from the tool lines
-    # in go.mod, so this workflow does not list or pin them.
     - name: Install CLI tools
       run: go install tool
 
@@ -99,8 +97,6 @@ jobs:
         restore-keys: |
           go-${{ runner.os }}-
 
-    # Installs the CLI tools for CI. Versions come from the tool lines
-    # in go.mod, so this workflow does not list or pin them.
     - name: Install CLI tools
       run: go install tool
 
@@ -135,8 +131,6 @@ jobs:
         restore-keys: |
           go-${{ runner.os }}-
 
-    # Installs the CLI tools for CI. Versions come from the tool lines
-    # in go.mod, so this workflow does not list or pin them.
     - name: Install CLI tools
       run: go install tool
 
