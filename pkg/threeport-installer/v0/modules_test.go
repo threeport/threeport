@@ -104,6 +104,39 @@ func testModuleApi(id uint, name string, core bool) v0.ModuleApi {
 	return moduleApi
 }
 
+// testControllerDeployment returns a module controller deployment.
+// It omits the installer managed-by label.
+func testControllerDeployment(name, namespace string, replicas int64) *unstructured.Unstructured {
+	return &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "apps/v1",
+			"kind":       "Deployment",
+			"metadata": map[string]interface{}{
+				"name":      name,
+				"namespace": namespace,
+			},
+			"spec": map[string]interface{}{
+				"replicas": replicas,
+				"template": map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"labels": map[string]interface{}{
+							"app.kubernetes.io/name": name,
+						},
+					},
+					"spec": map[string]interface{}{
+						"containers": []interface{}{
+							map[string]interface{}{
+								"name":    "controller",
+								"command": []interface{}{"/example-controller"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 // testModuleDeployment returns a namespaced Deployment with spec.replicas
 // and no ready replicas, so the scale-down wait succeeds on the first poll.
 func testModuleDeployment(name, namespace string, replicas int64) *unstructured.Unstructured {
@@ -222,7 +255,7 @@ func TestScaleDownModulesAndRestore(t *testing.T) {
 	kubeClient := testKubeClient(
 		// the module API server is not a registered controller
 		testModuleDeployment("threeport-example-rest-api", namespace, 1),
-		testModuleDeployment("threeport-example-controller", namespace, 2),
+		testControllerDeployment("threeport-example-controller", namespace, 2),
 	)
 	var patched []string
 	recordDeploymentScaling(kubeClient, &patched)
@@ -265,11 +298,11 @@ func TestScaleDownModulesAndRestore(t *testing.T) {
 // TestScaleDownModulesSkipsDeploymentsAlreadyStopped covers scale-down
 // skipping a zero-replica deployment.
 func TestScaleDownModulesSkipsDeploymentsAlreadyStopped(t *testing.T) {
-	// seed a running deployment and a zero-replica deployment
+	// seed a running controller and a zero-replica controller
 	namespace := "example-namespace"
 	kubeClient := testKubeClient(
-		testModuleDeployment("threeport-example-rest-api", namespace, 1),
-		testModuleDeployment("threeport-disabled-controller", namespace, 0),
+		testControllerDeployment("threeport-example-controller", namespace, 1),
+		testControllerDeployment("threeport-disabled-controller", namespace, 0),
 	)
 	var patched []string
 	recordDeploymentScaling(kubeClient, &patched)
@@ -277,7 +310,7 @@ func TestScaleDownModulesSkipsDeploymentsAlreadyStopped(t *testing.T) {
 
 	// scale the named deployments to zero
 	scales, err := cpi.ScaleDownModules(kubeClient, []ModuleDeploymentScale{
-		{Namespace: namespace, Name: "threeport-example-rest-api"},
+		{Namespace: namespace, Name: "threeport-example-controller"},
 		{Namespace: namespace, Name: "threeport-disabled-controller"},
 	})
 	if err != nil {
@@ -285,13 +318,51 @@ func TestScaleDownModulesSkipsDeploymentsAlreadyStopped(t *testing.T) {
 	}
 
 	// check that scale-down records only the running deployment
-	if len(scales) != 1 || scales[0].Name != "threeport-example-rest-api" {
+	if len(scales) != 1 || scales[0].Name != "threeport-example-controller" {
 		t.Errorf("expected only the running deployment to be recorded, got %v", scales)
 	}
 	// check that scale-down does not patch the stopped deployment
 	for _, unwanted := range patched {
 		if strings.Contains(unwanted, "threeport-disabled-controller") {
 			t.Errorf("expected the stopped deployment to be left alone, got patch %s", unwanted)
+		}
+	}
+}
+
+// TestScaleDownModulesLeavesOtherWorkloadsRunning covers a registered name
+// that points at a workload other than a module controller.
+func TestScaleDownModulesLeavesOtherWorkloadsRunning(t *testing.T) {
+	// seed a controller and two workloads that are not controllers
+	namespace := "example-namespace"
+	kubeClient := testKubeClient(
+		testControllerDeployment("threeport-example-controller", namespace, 2),
+		testModuleDeployment("threeport-example-rest-api", namespace, 1),
+		testModuleDeployment("payments-controller", namespace, 1),
+	)
+	var patched []string
+	recordDeploymentScaling(kubeClient, &patched)
+	cpi := &ControlPlaneInstaller{Opts: Options{Namespace: "threeport-control-plane"}}
+
+	// scale the registered names
+	scales, err := cpi.ScaleDownModules(kubeClient, []ModuleDeploymentScale{
+		{Namespace: namespace, Name: "threeport-example-controller"},
+		{Namespace: namespace, Name: "threeport-example-rest-api"},
+		{Namespace: namespace, Name: "payments-controller"},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// check that scale-down records only the controller
+	if len(scales) != 1 || scales[0].Name != "threeport-example-controller" || scales[0].Replicas != 2 {
+		t.Fatalf("expected only the controller to be recorded, got %v", scales)
+	}
+	if !containsString(patched, "example-namespace/threeport-example-controller=0") {
+		t.Errorf("expected scale-down patch for the controller, got %v", patched)
+	}
+	for _, unwanted := range patched {
+		if strings.Contains(unwanted, "threeport-example-rest-api") || strings.Contains(unwanted, "payments-controller") {
+			t.Errorf("expected the other workload to be left alone, got patch %s", unwanted)
 		}
 	}
 }

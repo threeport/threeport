@@ -8,6 +8,7 @@ import (
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
 
 	client "github.com/threeport/threeport/pkg/client/v0"
@@ -148,6 +149,12 @@ func (cpi *ControlPlaneInstaller) ScaleDownModules(
 			continue
 		}
 
+		// skip a live deployment that is not a module controller
+		if !moduleControllerDeployment(deployment) {
+			fmt.Printf("Info: left %s/%s running because it is not a module controller\n", target.Namespace, target.Name)
+			continue
+		}
+
 		// scale the deployment to zero and record its prior count
 		if err := cpi.setDeploymentReplicas(kubeClient, target.Namespace, target.Name, 0); err != nil {
 			return nil, err
@@ -167,11 +174,11 @@ func (cpi *ControlPlaneInstaller) ScaleDownModules(
 	// report the scale-down
 	fmt.Printf("Info: scaled %d module deployment(s) to 0\n", len(scales))
 
-	// wait until no ready replicas remain on the named deployments
+	// wait until no ready replicas remain on the scaled deployments
 	if err := util.Retry(60, 3, func() error {
 		// count ready replicas still present
 		pending := 0
-		for _, target := range targets {
+		for _, target := range scales {
 			current, err := kubeClient.Resource(deploymentGVR).Namespace(target.Namespace).Get(
 				context.Background(), target.Name, metav1.GetOptions{},
 			)
@@ -198,6 +205,38 @@ func (cpi *ControlPlaneInstaller) ScaleDownModules(
 	}
 
 	return scales, nil
+}
+
+// moduleControllerDeployment reports whether the deployment is a module
+// controller. Module installers do not stamp the managed-by label.
+func moduleControllerDeployment(deployment *unstructured.Unstructured) bool {
+	// require the -controller name suffix
+	name := deployment.GetName()
+	if !strings.HasSuffix(name, "-controller") {
+		return false
+	}
+
+	// require the pod label to match that name
+	labels, _, _ := unstructured.NestedStringMap(deployment.Object, "spec", "template", "metadata", "labels")
+	if labels["app.kubernetes.io/name"] != name {
+		return false
+	}
+
+	// require a -controller container command
+	containers, _, _ := unstructured.NestedSlice(deployment.Object, "spec", "template", "spec", "containers")
+	for _, raw := range containers {
+		container, ok := raw.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		command, _, _ := unstructured.NestedStringSlice(container, "command")
+		for _, entry := range command {
+			if strings.HasSuffix(entry, "-controller") {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // RestoreModuleScale sets each recorded deployment back to its prior replica
