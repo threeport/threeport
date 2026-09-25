@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
+	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -38,6 +39,8 @@ func init() {
 
 		cliArgs.InfraProvider = "kind"
 		cliArgs.DevEnvironment = true
+		// set the development tier the installer writes onto the namespace, since tptdev has no tier flag
+		cliArgs.Tier = installer.ControlPlaneTierDev
 	})
 }
 

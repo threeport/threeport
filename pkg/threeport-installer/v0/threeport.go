@@ -15,40 +15,40 @@ const (
 	DevImageNamespace = "localhost:5001"
 
 	// Official image names for threeport control plane components
-	ThreeportAPIImage                         = "threeport-rest-api"
-	ThreeportDatabaseMigratorImage            = "threeport-database-migrator"
-	ThreeportKubernetesWorkloadControllerImage          = "threeport-kubernetes-workload-controller"
-	ThreeportKubernetesRuntimeControllerImage = "threeport-kubernetes-runtime-controller"
-	ThreeportControlPlaneControllerImage      = "threeport-control-plane-controller"
-	ThreeportAwsControllerImage               = "threeport-aws-controller"
-	ThreeportOciControllerImage               = "threeport-oci-controller"
-	ThreeportGcpControllerImage               = "threeport-gcp-controller"
-	ThreeportGatewayControllerImage           = "threeport-gateway-controller"
-	ThreeportHelmWorkloadControllerImage      = "threeport-helm-workload-controller"
-	ThreeportTerraformControllerImage         = "threeport-terraform-controller"
-	ThreeportObservabilityControllerImage     = "threeport-observability-controller"
-	ThreeportSecretControllerImage            = "threeport-secret-controller"
-	ThreeportMachineRuntimeControllerImage   = "threeport-machine-runtime-controller"
-	ThreeportMachineWorkloadControllerImage  = "threeport-machine-workload-controller"
-	ThreeportAgentImage                      = "threeport-agent"
+	ThreeportAPIImage                          = "threeport-rest-api"
+	ThreeportDatabaseMigratorImage             = "threeport-database-migrator"
+	ThreeportKubernetesWorkloadControllerImage = "threeport-kubernetes-workload-controller"
+	ThreeportKubernetesRuntimeControllerImage  = "threeport-kubernetes-runtime-controller"
+	ThreeportControlPlaneControllerImage       = "threeport-control-plane-controller"
+	ThreeportAwsControllerImage                = "threeport-aws-controller"
+	ThreeportOciControllerImage                = "threeport-oci-controller"
+	ThreeportGcpControllerImage                = "threeport-gcp-controller"
+	ThreeportGatewayControllerImage            = "threeport-gateway-controller"
+	ThreeportHelmWorkloadControllerImage       = "threeport-helm-workload-controller"
+	ThreeportTerraformControllerImage          = "threeport-terraform-controller"
+	ThreeportObservabilityControllerImage      = "threeport-observability-controller"
+	ThreeportSecretControllerImage             = "threeport-secret-controller"
+	ThreeportMachineRuntimeControllerImage     = "threeport-machine-runtime-controller"
+	ThreeportMachineWorkloadControllerImage    = "threeport-machine-workload-controller"
+	ThreeportAgentImage                        = "threeport-agent"
 
 	// Name of threeport control plane components
-	ThreeportRestApiName                     = "rest-api"
-	ThreeportDatabaseMigratorName            = "database-migrator"
-	ThreeportKubernetesWorkloadControllerName          = "kubernetes-workload-controller"
-	ThreeportKubernetesRuntimeControllerName = "kubernetes-runtime-controller"
-	ThreeportControlPlaneControllerName      = "control-plane-controller"
-	ThreeportAwsControllerName               = "aws-controller"
-	ThreeportOciControllerName               = "oci-controller"
-	ThreeportGcpControllerName               = "gcp-controller"
-	ThreeportGatewayControllerName           = "gateway-controller"
-	ThreeportHelmWorkloadControllerName      = "helm-workload-controller"
-	ThreeportTerraformControllerName         = "terraform-controller"
-	ThreeportObservabilityControllerName     = "observability-controller"
+	ThreeportRestApiName                      = "rest-api"
+	ThreeportDatabaseMigratorName             = "database-migrator"
+	ThreeportKubernetesWorkloadControllerName = "kubernetes-workload-controller"
+	ThreeportKubernetesRuntimeControllerName  = "kubernetes-runtime-controller"
+	ThreeportControlPlaneControllerName       = "control-plane-controller"
+	ThreeportAwsControllerName                = "aws-controller"
+	ThreeportOciControllerName                = "oci-controller"
+	ThreeportGcpControllerName                = "gcp-controller"
+	ThreeportGatewayControllerName            = "gateway-controller"
+	ThreeportHelmWorkloadControllerName       = "helm-workload-controller"
+	ThreeportTerraformControllerName          = "terraform-controller"
+	ThreeportObservabilityControllerName      = "observability-controller"
 	ThreeportSecretControllerName             = "secret-controller"
-	ThreeportMachineRuntimeControllerName    = "machine-runtime-controller"
-	ThreeportMachineWorkloadControllerName   = "machine-workload-controller"
-	ThreeportAgentName                       = "agent"
+	ThreeportMachineRuntimeControllerName     = "machine-runtime-controller"
+	ThreeportMachineWorkloadControllerName    = "machine-workload-controller"
+	ThreeportAgentName                        = "agent"
 
 	// Endpoint for threeport API when running locally
 	ThreeportLocalAPIEndpoint = "localhost"
@@ -239,6 +239,18 @@ type ControlPlaneTier string
 type ControlPlane struct {
 	InfraProvider v0.KubernetesRuntimeInfraProvider
 	Tier          ControlPlaneTier
+}
+
+// DefaultControlPlaneTierForProvider returns the development tier when the
+// provider is kind and the production tier for every other value.
+func DefaultControlPlaneTierForProvider(infraProvider string) string {
+	// return the development tier for the kind provider
+	if infraProvider == v0.KubernetesRuntimeInfraProviderKind {
+		return ControlPlaneTierDev
+	}
+
+	// return the production tier for every other value
+	return ControlPlaneTierProd
 }
 
 // AllControlPlaneComponents returns a list of all control plane components.

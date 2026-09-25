@@ -34,9 +34,7 @@ func dockerClient() (*client.Client, error) {
 	return client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 }
 
-// CreateLocalRegistry starts a Docker container to serve as a local container
-// registry.  If a local registry already exists with the <registryName> name,
-// it will return without error
+// CreateLocalRegistry starts the local registry container, reusing a leftover one when it is already present.
 func CreateLocalRegistry() error {
 	ctx := context.Background()
 	cli, err := dockerClient()
@@ -45,9 +43,15 @@ func CreateLocalRegistry() error {
 	}
 	defer cli.Close()
 
-	_, err = cli.ContainerInspect(ctx, registryName)
+	existing, err := cli.ContainerInspect(ctx, registryName)
 	if err == nil {
-		// registry already exists
+		// start a leftover registry that is created or exited
+		if registryNeedsStart(existing.State.Status) {
+			if err := cli.ContainerStart(ctx, existing.ID, container.StartOptions{}); err != nil {
+				return fmt.Errorf("failed to start the existing registry container: %w", err)
+			}
+		}
+
 		return nil
 	}
 
@@ -94,6 +98,16 @@ func CreateLocalRegistry() error {
 	}
 
 	return nil
+}
+
+// registryNeedsStart reports whether a leftover registry container can be started.
+func registryNeedsStart(status string) bool {
+	switch status {
+	case container.StateCreated, container.StateExited:
+		return true
+	default:
+		return false
+	}
 }
 
 // ConnectLocalRegistry connects a local Docker container registry to a kind cluster.
@@ -160,7 +174,12 @@ func DeleteLocalRegistry() error {
 		return fmt.Errorf("failed to stop registry docker container: %w", err)
 	}
 
-	if err := cli.ContainerRemove(ctx, registryName, container.RemoveOptions{}); err != nil {
+	// remove the registry container and the anonymous volume docker created
+	// from the image's /var/lib/registry path. that volume outlives the
+	// container, holds every pushed image, and is not attached later
+	if err := cli.ContainerRemove(ctx, registryName, container.RemoveOptions{
+		RemoveVolumes: true,
+	}); err != nil {
 		return fmt.Errorf("failed to remove registry docker container: %w", err)
 	}
 
