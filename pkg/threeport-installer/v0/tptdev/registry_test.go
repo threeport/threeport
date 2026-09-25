@@ -10,7 +10,9 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+// TestRegistryNeedsStart reports which leftover registry states get started.
 func TestRegistryNeedsStart(t *testing.T) {
+	// compare each docker state to the start decision
 	tests := []struct {
 		name   string
 		status string

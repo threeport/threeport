@@ -38,7 +38,7 @@ var deploymentGVR = schema.GroupVersionResource{
 // A cluster-scoped kind is listed without a namespace.
 type deleteTarget struct {
 	// The group, version, and resource to list and delete
-	gvr        schema.GroupVersionResource
+	gvr schema.GroupVersionResource
 	// Whether the resource is listed inside the control plane namespace
 	namespaced bool
 }
@@ -652,7 +652,7 @@ func (cpi *ControlPlaneInstaller) waitForRestAPIReady(
 				return nil
 			}
 		}
-		return fmt.Errorf("rest-api deployment not yet ready")
+		return errors.New("rest-api deployment must be ready")
 	})
 }
 
@@ -675,11 +675,11 @@ func (cpi *ControlPlaneInstaller) LoadAuthConfigFromCluster(
 	// read the cert and key fields
 	caB64, _, err := unstructured.NestedString(secret.Object, "data", "tls.crt")
 	if err != nil || caB64 == "" {
-		return nil, fmt.Errorf("api-ca secret missing data.tls.crt")
+		return nil, errors.New("tls.crt not found in api-ca secret")
 	}
 	keyB64, _, err := unstructured.NestedString(secret.Object, "data", "tls.key")
 	if err != nil || keyB64 == "" {
-		return nil, fmt.Errorf("api-ca secret missing data.tls.key")
+		return nil, errors.New("tls.key not found in api-ca secret")
 	}
 
 	// decode the cert and key
@@ -695,7 +695,7 @@ func (cpi *ControlPlaneInstaller) LoadAuthConfigFromCluster(
 	// parse the certificate
 	caBlock, _ := pem.Decode(caPem)
 	if caBlock == nil {
-		return nil, fmt.Errorf("ca cert pem block missing")
+		return nil, errors.New("ca cert pem block not found")
 	}
 	caCert, err := x509.ParseCertificate(caBlock.Bytes)
 	if err != nil {
@@ -705,7 +705,7 @@ func (cpi *ControlPlaneInstaller) LoadAuthConfigFromCluster(
 	// parse the private key
 	keyBlock, _ := pem.Decode(keyPem)
 	if keyBlock == nil {
-		return nil, fmt.Errorf("ca key pem block missing")
+		return nil, errors.New("ca key pem block not found")
 	}
 	caKey, err := x509.ParsePKCS1PrivateKey(keyBlock.Bytes)
 	if err != nil {

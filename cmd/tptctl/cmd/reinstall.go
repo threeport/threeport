@@ -231,7 +231,6 @@ func init() {
 	rootCmd.AddCommand(ReinstallCmd)
 
 	// register reinstall flags
-
 	ReinstallCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"name", "n", "", "Name of genesis control plane.",
