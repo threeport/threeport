@@ -120,8 +120,7 @@ func (cpi *ControlPlaneInstaller) DiscoverModuleNamespaces(
 }
 
 // ScaleDownModules scales each named module controller deployment with a
-// non-zero replica count to zero and returns those counts once no ready
-// replicas remain.
+// non-zero replica count to zero. An error still returns counts already scaled.
 func (cpi *ControlPlaneInstaller) ScaleDownModules(
 	kubeClient dynamic.Interface,
 	targets []ModuleDeploymentScale,
@@ -137,7 +136,7 @@ func (cpi *ControlPlaneInstaller) ScaleDownModules(
 			continue
 		}
 		if err != nil {
-			return nil, fmt.Errorf(
+			return scales, fmt.Errorf(
 				"failed to get module deployment %s/%s: %w",
 				target.Namespace, target.Name, err,
 			)
@@ -157,7 +156,7 @@ func (cpi *ControlPlaneInstaller) ScaleDownModules(
 
 		// scale the deployment to zero and record its prior count
 		if err := cpi.setDeploymentReplicas(kubeClient, target.Namespace, target.Name, 0); err != nil {
-			return nil, err
+			return scales, err
 		}
 		scales = append(scales, ModuleDeploymentScale{
 			Namespace: target.Namespace,
@@ -201,7 +200,7 @@ func (cpi *ControlPlaneInstaller) ScaleDownModules(
 		}
 		return nil
 	}); err != nil {
-		return nil, fmt.Errorf("module deployments did not scale to zero: %w", err)
+		return scales, fmt.Errorf("module deployments did not scale to zero: %w", err)
 	}
 
 	return scales, nil

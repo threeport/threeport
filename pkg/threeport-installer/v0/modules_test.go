@@ -367,6 +367,76 @@ func TestScaleDownModulesLeavesOtherWorkloadsRunning(t *testing.T) {
 	}
 }
 
+// TestScaleDownModulesReturnsCountsWhenALaterScaleFails covers an error after
+// an earlier controller was already scaled to zero.
+func TestScaleDownModulesReturnsCountsWhenALaterScaleFails(t *testing.T) {
+	// seed two controllers and fail the second replica patch
+	namespace := "example-namespace"
+	kubeClient := testKubeClient(
+		testControllerDeployment("threeport-example-controller", namespace, 2),
+		testControllerDeployment("threeport-second-controller", namespace, 3),
+	)
+	var patched []string
+	recordDeploymentScaling(kubeClient, &patched)
+	kubeClient.PrependReactor("patch", "deployments", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		patch := action.(k8stesting.PatchAction)
+		if patch.GetName() == "threeport-second-controller" {
+			return true, nil, fmt.Errorf("patch failed")
+		}
+		return false, nil, nil
+	})
+	cpi := &ControlPlaneInstaller{Opts: Options{Namespace: "threeport-control-plane"}}
+
+	// scale both controllers
+	scales, err := cpi.ScaleDownModules(kubeClient, []ModuleDeploymentScale{
+		{Namespace: namespace, Name: "threeport-example-controller"},
+		{Namespace: namespace, Name: "threeport-second-controller"},
+	})
+
+	// check that the error still returns the earlier count
+	if err == nil {
+		t.Fatal("expected scale-down to fail")
+	}
+	if len(scales) != 1 || scales[0].Name != "threeport-example-controller" || scales[0].Replicas != 2 {
+		t.Fatalf("expected the earlier controller count, got %v", scales)
+	}
+}
+
+// TestScaleDownModulesReturnsCountsWhenALaterReadFails covers an error reading
+// a later deployment after an earlier controller was scaled to zero.
+func TestScaleDownModulesReturnsCountsWhenALaterReadFails(t *testing.T) {
+	// seed two controllers and fail the second read
+	namespace := "example-namespace"
+	kubeClient := testKubeClient(
+		testControllerDeployment("threeport-example-controller", namespace, 2),
+		testControllerDeployment("threeport-second-controller", namespace, 3),
+	)
+	var patched []string
+	recordDeploymentScaling(kubeClient, &patched)
+	kubeClient.PrependReactor("get", "deployments", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		get := action.(k8stesting.GetAction)
+		if get.GetName() == "threeport-second-controller" {
+			return true, nil, fmt.Errorf("get failed")
+		}
+		return false, nil, nil
+	})
+	cpi := &ControlPlaneInstaller{Opts: Options{Namespace: "threeport-control-plane"}}
+
+	// scale both controllers
+	scales, err := cpi.ScaleDownModules(kubeClient, []ModuleDeploymentScale{
+		{Namespace: namespace, Name: "threeport-example-controller"},
+		{Namespace: namespace, Name: "threeport-second-controller"},
+	})
+
+	// check that the error still returns the earlier count
+	if err == nil {
+		t.Fatal("expected scale-down to fail")
+	}
+	if len(scales) != 1 || scales[0].Name != "threeport-example-controller" || scales[0].Replicas != 2 {
+		t.Fatalf("expected the earlier controller count, got %v", scales)
+	}
+}
+
 // TestRestoreModuleScaleToleratesRemovedDeployment covers restore skipping
 // a missing deployment.
 func TestRestoreModuleScaleToleratesRemovedDeployment(t *testing.T) {

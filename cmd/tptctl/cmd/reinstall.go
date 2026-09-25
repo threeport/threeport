@@ -209,6 +209,7 @@ Use this for any spec, RBAC, or configmap change. Use
 			// scale module deployments to zero
 			moduleScales, err = cpi.ScaleDownModules(dynamicKubeClient, moduleDeployments)
 			if err != nil {
+				restoreScaledModules()
 				cli.Error("failed to scale down module deployments", err)
 				os.Exit(1)
 			}
