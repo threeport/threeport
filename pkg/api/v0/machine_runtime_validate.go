@@ -3,6 +3,7 @@
 package v0
 
 import (
+	"errors"
 	"fmt"
 
 	"gorm.io/gorm"
@@ -79,7 +80,9 @@ func (m *MachineRuntimeInstance) beforeCreate(tx *gorm.DB) error {
 	// load referenced definition when present
 	if m.MachineRuntimeDefinitionID != nil {
 		var def MachineRuntimeDefinition
-		if err := tx.First(&def, *m.MachineRuntimeDefinitionID).Error; err != nil {
+		err := tx.First(&def, *m.MachineRuntimeDefinitionID).Error
+		// return a missing definition as a bad request and leave other errors for the handler
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return util.NewBadRequestError(
 				fmt.Sprintf(
 					"machine runtime instance %s references machine runtime definition %d which does not exist",
@@ -87,6 +90,9 @@ func (m *MachineRuntimeInstance) beforeCreate(tx *gorm.DB) error {
 					*m.MachineRuntimeDefinitionID,
 				),
 			)
+		}
+		if err != nil {
+			return err
 		}
 		// require region when the definition has an infra provider
 		if def.InfraProvider != nil && *def.InfraProvider != "" {
