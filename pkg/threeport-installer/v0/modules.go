@@ -29,21 +29,22 @@ type ModuleDeploymentScale struct {
 	Replicas int64
 }
 
-// DiscoverModuleNamespaces returns the unique namespaces parsed from non-core
-// module controller deployment names, omitting the control plane namespace.
-func (cpi *ControlPlaneInstaller) DiscoverModuleNamespaces(
+// DiscoverModuleDeployments returns the non-core module controller deployments
+// registered in the control plane, omitting the control plane namespace.
+func (cpi *ControlPlaneInstaller) DiscoverModuleDeployments(
 	apiClient *http.Client,
 	apiEndpoint string,
-) ([]string, error) {
+) ([]ModuleDeploymentScale, error) {
 	// get registered module APIs
 	moduleApis, err := client.GetModuleApis(apiClient, apiEndpoint)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get registered module APIs: %w", err)
 	}
 
-	var namespaces []string
-	// exclude the control plane namespace
-	seen := map[string]bool{cpi.Opts.Namespace: true}
+	var deployments []ModuleDeploymentScale
+	// exclude the control plane namespace and repeated deployment names
+	seenNamespace := map[string]bool{cpi.Opts.Namespace: true}
+	seenDeployment := map[string]bool{}
 
 	for _, moduleApi := range *moduleApis {
 		// skip core modules and records without an id
@@ -68,64 +69,94 @@ func (cpi *ControlPlaneInstaller) DiscoverModuleNamespaces(
 		}
 
 		for _, controller := range *controllers {
-			// record each new namespace from a namespace/name deployment name
+			// record each namespace/name deployment outside the control plane
 			if controller.DeploymentName == nil {
 				continue
 			}
-			namespace, _, qualified := strings.Cut(*controller.DeploymentName, "/")
-			if !qualified || namespace == "" {
+			namespace, name, qualified := strings.Cut(*controller.DeploymentName, "/")
+			if !qualified || namespace == "" || name == "" {
 				continue
 			}
-			if seen[namespace] {
+			if seenNamespace[namespace] && namespace == cpi.Opts.Namespace {
 				continue
 			}
-			seen[namespace] = true
-			namespaces = append(namespaces, namespace)
+			key := namespace + "/" + name
+			if seenDeployment[key] {
+				continue
+			}
+			seenDeployment[key] = true
+			deployments = append(deployments, ModuleDeploymentScale{
+				Namespace: namespace,
+				Name:      name,
+			})
 		}
 	}
 
+	return deployments, nil
+}
+
+// DiscoverModuleNamespaces returns the unique namespaces of non-core module
+// controller deployments, omitting the control plane namespace.
+func (cpi *ControlPlaneInstaller) DiscoverModuleNamespaces(
+	apiClient *http.Client,
+	apiEndpoint string,
+) ([]string, error) {
+	// collect namespaces from the registered deployments
+	deployments, err := cpi.DiscoverModuleDeployments(apiClient, apiEndpoint)
+	if err != nil {
+		return nil, err
+	}
+	var namespaces []string
+	seen := map[string]bool{}
+	for _, deployment := range deployments {
+		if seen[deployment.Namespace] {
+			continue
+		}
+		seen[deployment.Namespace] = true
+		namespaces = append(namespaces, deployment.Namespace)
+	}
 	return namespaces, nil
 }
 
-// ScaleDownModules scales each deployment with a non-zero replica count to
-// zero and returns those counts once no ready replicas remain.
+// ScaleDownModules scales each named module controller deployment with a
+// non-zero replica count to zero and returns those counts once no ready
+// replicas remain.
 func (cpi *ControlPlaneInstaller) ScaleDownModules(
 	kubeClient dynamic.Interface,
-	namespaces []string,
+	targets []ModuleDeploymentScale,
 ) ([]ModuleDeploymentScale, error) {
 	var scales []ModuleDeploymentScale
 
-	for _, namespace := range namespaces {
-		// list deployments in the module namespace
-		deployList, err := kubeClient.Resource(deploymentGVR).Namespace(namespace).List(
-			context.Background(), metav1.ListOptions{},
+	for _, target := range targets {
+		// read the registered deployment
+		deployment, err := kubeClient.Resource(deploymentGVR).Namespace(target.Namespace).Get(
+			context.Background(), target.Name, metav1.GetOptions{},
 		)
+		if k8serrors.IsNotFound(err) {
+			continue
+		}
 		if err != nil {
-			return nil, fmt.Errorf("failed to list deployments in module namespace %s: %w", namespace, err)
+			return nil, fmt.Errorf(
+				"failed to get module deployment %s/%s: %w",
+				target.Namespace, target.Name, err,
+			)
 		}
 
-		for _, deployment := range deployList.Items {
-			// leave a deployment the installer does not own at its current replica count
-			if deployment.GetLabels()[LabelManagedBy] != LabelManagedByValue {
-				continue
-			}
-			// skip a deployment already at zero so it stays out of the record
-			name := deployment.GetName()
-			replicas, _, _ := util.NestedInt64OrFloat64(deployment.Object, "spec", "replicas")
-			if replicas == 0 {
-				continue
-			}
-
-			// scale the deployment to zero and record its prior count
-			if err := cpi.setDeploymentReplicas(kubeClient, namespace, name, 0); err != nil {
-				return nil, err
-			}
-			scales = append(scales, ModuleDeploymentScale{
-				Namespace: namespace,
-				Name:      name,
-				Replicas:  replicas,
-			})
+		// skip a deployment already at zero so it stays out of the record
+		replicas, _, _ := util.NestedInt64OrFloat64(deployment.Object, "spec", "replicas")
+		if replicas == 0 {
+			continue
 		}
+
+		// scale the deployment to zero and record its prior count
+		if err := cpi.setDeploymentReplicas(kubeClient, target.Namespace, target.Name, 0); err != nil {
+			return nil, err
+		}
+		scales = append(scales, ModuleDeploymentScale{
+			Namespace: target.Namespace,
+			Name:      target.Name,
+			Replicas:  replicas,
+		})
 	}
 
 	// return when nothing was scaled
@@ -134,24 +165,28 @@ func (cpi *ControlPlaneInstaller) ScaleDownModules(
 	}
 
 	// report the scale-down
-	fmt.Printf("Info: scaled %d module deployment(s) to 0 across %s\n", len(scales), strings.Join(namespaces, ", "))
+	fmt.Printf("Info: scaled %d module deployment(s) to 0\n", len(scales))
 
-	// wait until no ready replicas remain
+	// wait until no ready replicas remain on the named deployments
 	if err := util.Retry(60, 3, func() error {
 		// count ready replicas still present
 		pending := 0
-		for _, namespace := range namespaces {
-			current, err := kubeClient.Resource(deploymentGVR).Namespace(namespace).List(
-				context.Background(), metav1.ListOptions{},
+		for _, target := range targets {
+			current, err := kubeClient.Resource(deploymentGVR).Namespace(target.Namespace).Get(
+				context.Background(), target.Name, metav1.GetOptions{},
 			)
-			if err != nil {
-				return fmt.Errorf("failed to list deployments while waiting for module scale-down: %w", err)
+			if k8serrors.IsNotFound(err) {
+				continue
 			}
-			for _, deployment := range current.Items {
-				ready, _, _ := util.NestedInt64OrFloat64(deployment.Object, "status", "readyReplicas")
-				if ready > 0 {
-					pending += int(ready)
-				}
+			if err != nil {
+				return fmt.Errorf(
+					"failed to get module deployment %s/%s while waiting for scale-down: %w",
+					target.Namespace, target.Name, err,
+				)
+			}
+			ready, _, _ := util.NestedInt64OrFloat64(current.Object, "status", "readyReplicas")
+			if ready > 0 {
+				pending += int(ready)
 			}
 		}
 		if pending > 0 {

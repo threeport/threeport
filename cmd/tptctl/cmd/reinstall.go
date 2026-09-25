@@ -196,21 +196,18 @@ Use this for any spec, RBAC, or configmap change. Use
 				os.Exit(1)
 			}
 
-			// discover registered module namespaces
-			moduleNamespaces, err := cpi.DiscoverModuleNamespaces(apiClient, controlPlaneConfig.APIServer)
+			// discover registered module controller deployments
+			moduleDeployments, err := cpi.DiscoverModuleDeployments(apiClient, controlPlaneConfig.APIServer)
 			if err != nil {
-				cli.Error("failed to discover registered module namespaces", err)
+				cli.Error("failed to discover registered module deployments", err)
 				os.Exit(1)
 			}
-			if len(moduleNamespaces) > 0 {
-				cli.Info(fmt.Sprintf(
-					"scaling down %d module namespace(s): %s",
-					len(moduleNamespaces), strings.Join(moduleNamespaces, ", "),
-				))
+			if len(moduleDeployments) > 0 {
+				cli.Info(fmt.Sprintf("scaling down %d module deployment(s)", len(moduleDeployments)))
 			}
 
 			// scale module deployments to zero
-			moduleScales, err = cpi.ScaleDownModules(dynamicKubeClient, moduleNamespaces)
+			moduleScales, err = cpi.ScaleDownModules(dynamicKubeClient, moduleDeployments)
 			if err != nil {
 				cli.Error("failed to scale down module deployments", err)
 				os.Exit(1)

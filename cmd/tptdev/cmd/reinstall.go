@@ -216,22 +216,18 @@ change.`,
 				os.Exit(1)
 			}
 
-			// discover namespaces of registered modules
-			moduleNamespaces, err := cpi.DiscoverModuleNamespaces(apiClient, controlPlaneConfig.APIServer)
+			// discover registered module controller deployments
+			moduleDeployments, err := cpi.DiscoverModuleDeployments(apiClient, controlPlaneConfig.APIServer)
 			if err != nil {
-				cli.Error("failed to discover registered module namespaces", err)
+				cli.Error("failed to discover registered module deployments", err)
 				os.Exit(1)
 			}
-			// log module namespaces before scale-down
-			if len(moduleNamespaces) > 0 {
-				cli.Info(fmt.Sprintf(
-					"scaling down %d module namespace(s): %s",
-					len(moduleNamespaces), strings.Join(moduleNamespaces, ", "),
-				))
+			if len(moduleDeployments) > 0 {
+				cli.Info(fmt.Sprintf("scaling down %d module deployment(s)", len(moduleDeployments)))
 			}
 
 			// scale module deployments to zero and keep their replica counts
-			moduleScales, err = cpi.ScaleDownModules(kubeClient, moduleNamespaces)
+			moduleScales, err = cpi.ScaleDownModules(kubeClient, moduleDeployments)
 			if err != nil {
 				restoreScaledModules()
 				cli.Error("failed to scale down module deployments", err)

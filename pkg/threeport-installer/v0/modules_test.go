@@ -214,8 +214,8 @@ func TestDiscoverModuleNamespacesExcludesTheControlPlane(t *testing.T) {
 	}
 }
 
-// TestScaleDownModulesAndRestore covers scaling every deployment in a
-// namespace to zero and restoring each recorded replica count.
+// TestScaleDownModulesAndRestore covers scaling a registered module controller
+// to zero and restoring its recorded replica count.
 func TestScaleDownModulesAndRestore(t *testing.T) {
 	// seed a module API server and a controller in the same namespace
 	namespace := "example-namespace"
@@ -228,23 +228,25 @@ func TestScaleDownModulesAndRestore(t *testing.T) {
 	recordDeploymentScaling(kubeClient, &patched)
 	cpi := &ControlPlaneInstaller{Opts: Options{Namespace: "threeport-control-plane"}}
 
-	// scale module deployments to zero
-	scales, err := cpi.ScaleDownModules(kubeClient, []string{namespace})
+	// scale the registered controller to zero
+	scales, err := cpi.ScaleDownModules(kubeClient, []ModuleDeploymentScale{{
+		Namespace: namespace,
+		Name:      "threeport-example-controller",
+	}})
 	if err != nil {
 		t.Fatalf("unexpected error scaling down: %v", err)
 	}
 
-	// check that scale-down records both deployments
-	if len(scales) != 2 {
-		t.Fatalf("expected both deployments to be recorded, got %v", scales)
+	// check that scale-down records only the registered controller
+	if len(scales) != 1 || scales[0].Name != "threeport-example-controller" || scales[0].Replicas != 2 {
+		t.Fatalf("expected the registered controller to be recorded, got %v", scales)
 	}
-	// check that scale-down patches both deployments to zero
-	for _, want := range []string{
-		"example-namespace/threeport-example-rest-api=0",
-		"example-namespace/threeport-example-controller=0",
-	} {
-		if !containsString(patched, want) {
-			t.Errorf("expected scale-down patch %s, got %v", want, patched)
+	if !containsString(patched, "example-namespace/threeport-example-controller=0") {
+		t.Errorf("expected scale-down patch for the controller, got %v", patched)
+	}
+	for _, unwanted := range patched {
+		if strings.Contains(unwanted, "threeport-example-rest-api") {
+			t.Errorf("expected the unregistered deployment to be left alone, got patch %s", unwanted)
 		}
 	}
 
@@ -254,14 +256,9 @@ func TestScaleDownModulesAndRestore(t *testing.T) {
 		t.Fatalf("unexpected error restoring: %v", err)
 	}
 
-	// check that restore puts each deployment back at its own replica count
-	for _, want := range []string{
-		"example-namespace/threeport-example-rest-api=1",
-		"example-namespace/threeport-example-controller=2",
-	} {
-		if !containsString(patched, want) {
-			t.Errorf("expected restore patch %s, got %v", want, patched)
-		}
+	// check that restore puts the controller back at its replica count
+	if !containsString(patched, "example-namespace/threeport-example-controller=2") {
+		t.Errorf("expected restore patch for the controller, got %v", patched)
 	}
 }
 
@@ -278,8 +275,11 @@ func TestScaleDownModulesSkipsDeploymentsAlreadyStopped(t *testing.T) {
 	recordDeploymentScaling(kubeClient, &patched)
 	cpi := &ControlPlaneInstaller{Opts: Options{Namespace: "threeport-control-plane"}}
 
-	// scale module deployments to zero
-	scales, err := cpi.ScaleDownModules(kubeClient, []string{namespace})
+	// scale the named deployments to zero
+	scales, err := cpi.ScaleDownModules(kubeClient, []ModuleDeploymentScale{
+		{Namespace: namespace, Name: "threeport-example-rest-api"},
+		{Namespace: namespace, Name: "threeport-disabled-controller"},
+	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
