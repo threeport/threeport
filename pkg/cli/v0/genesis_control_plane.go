@@ -51,12 +51,12 @@ func restoredRuntimeLocation(providerName, gcpRegion string) (string, error) {
 	switch providerName {
 	case v0.KubernetesRuntimeInfraProviderEKS:
 		return "", fmt.Errorf(
-			"eks is not supported for a threeport-managed kubernetes runtime, provider: %s",
+			"cannot rebuild kubernetes runtime instance for control plane on provider %s: it authenticates to the kube API with a stored token that the threeport config cannot supply",
 			providerName,
 		)
 	case v0.KubernetesRuntimeInfraProviderOKE:
 		return "", fmt.Errorf(
-			"oke is not supported for a threeport-managed kubernetes runtime, provider: %s",
+			"cannot rebuild kubernetes runtime instance for control plane on provider %s: it mints kube API tokens from oci provider rows a database drop removes, and the threeport config cannot rebuild those rows",
 			providerName,
 		)
 	case v0.KubernetesRuntimeInfraProviderGKE:
@@ -1636,23 +1636,8 @@ func EnsureBootstrapObjects(cpi *threeport.ControlPlaneInstaller) error {
 }
 
 // bootstrapKubernetesRuntimeInstance builds a kubernetes runtime instance
-// from the stored kube api config. It refuses eks and oke.
+// from the stored kube api config.
 func bootstrapKubernetesRuntimeInstance(controlPlaneConfig *ControlPlane, gcpRegion string) (*v0.KubernetesRuntimeInstance, error) {
-	// refuse eks; the config cannot supply the token that provider uses
-	if controlPlaneConfig.Provider == v0.KubernetesRuntimeInfraProviderEKS {
-		return nil, fmt.Errorf(
-			"cannot rebuild kubernetes runtime instance for control plane on provider %s: it authenticates to the kube API with a stored token that the threeport config cannot supply",
-			controlPlaneConfig.Provider,
-		)
-	}
-	// refuse oke; a database drop removes the rows that mint its tokens
-	if controlPlaneConfig.Provider == v0.KubernetesRuntimeInfraProviderOKE {
-		return nil, fmt.Errorf(
-			"cannot rebuild kubernetes runtime instance for control plane on provider %s: it mints kube API tokens from oci provider rows a database drop removes, and the threeport config cannot rebuild those rows",
-			controlPlaneConfig.Provider,
-		)
-	}
-
 	// decode the kube api credentials; the config stores them base64 encoded
 	caCertificate, err := util.Base64Decode(controlPlaneConfig.KubeAPI.CACertificate)
 	if err != nil {
