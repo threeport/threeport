@@ -375,6 +375,14 @@ func TestMachineRuntimeInstanceCreated_SSHPingFails_Retries(t *testing.T) {
 	assert.Equal(t, "SSHPingFailed", *errWithEvent.Event.Reason)
 	assert.Empty(t, recorder.GetReasons(), "the wrapper records the event from the returned error")
 	assert.Equal(t, int64(0), atomic.LoadInt64(patchCount), "no update may be persisted on ping failure")
+
+	// an update of an unreachable machine must not report success
+	delay, err = v0MachineRuntimeInstanceUpdated(r, mri, &log)
+	require.Error(t, err)
+	assert.Equal(t, int64(7), delay)
+	require.ErrorAs(t, err, &errWithEvent)
+	require.NotNil(t, errWithEvent.Event.Reason)
+	assert.Equal(t, "SSHPingFailed", *errWithEvent.Event.Reason)
 }
 
 // TestMachineRuntimeInstanceCreated_PingFails_PersistsCapturedHostKey covers a

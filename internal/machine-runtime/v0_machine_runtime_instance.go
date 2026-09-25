@@ -189,14 +189,14 @@ func v0MachineRuntimeInstanceCreated(
 	return 0, nil
 }
 
-// v0MachineRuntimeInstanceUpdated performs reconciliation when a v0 MachineRuntimeInstance
-// has been updated.
+// v0MachineRuntimeInstanceUpdated rechecks reachability after an update. A
+// success here is what marks the instance reconciled.
 func v0MachineRuntimeInstanceUpdated(
 	r *controller.Reconciler,
 	machineRuntimeInstance *v0.MachineRuntimeInstance,
 	log *logr.Logger,
 ) (int64, error) {
-	return 0, nil
+	return v0MachineRuntimeInstanceCreated(r, machineRuntimeInstance, log)
 }
 
 // v0MachineRuntimeInstanceDeleted performs reconciliation when a v0 MachineRuntimeInstance
