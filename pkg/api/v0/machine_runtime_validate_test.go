@@ -217,3 +217,116 @@ func TestMachineRuntimeInstance_BeforeCreate_AcceptsNilDefinitionID(t *testing.T
 
 	require.NoError(t, db.Create(mri).Error)
 }
+
+// TestMachineRuntimeInstance_BeforeCreate_RejectsMissingDefinition rejects an
+// MRI whose definition id does not match a row.
+func TestMachineRuntimeInstance_BeforeCreate_RejectsMissingDefinition(t *testing.T) {
+	db := setupMachineWorkloadValidateDB(t)
+
+	mri := newValidMRI("mri-missing-def")
+	mri.MachineRuntimeDefinitionID = util.Ptr(uint(99999))
+
+	err := db.Create(mri).Error
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "which does not exist")
+}
+
+// TestMachineRuntimeInstance_BeforeCreate_ReturnsLookupFailure returns a
+// database failure instead of the missing-definition message.
+func TestMachineRuntimeInstance_BeforeCreate_ReturnsLookupFailure(t *testing.T) {
+	db := setupMachineWorkloadValidateDB(t)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	require.NoError(t, sqlDB.Close())
+
+	mri := newValidMRI("mri-db-down")
+	mri.MachineRuntimeDefinitionID = util.Ptr(uint(1))
+
+	err = db.Create(mri).Error
+	require.Error(t, err)
+	assert.NotContains(t, err.Error(), "which does not exist")
+}
+
+// TestMachineRuntimeInstance_BeforeUpdate_AllowsHostnameChange accepts an
+// update of a mutable field on an imported MRI.
+func TestMachineRuntimeInstance_BeforeUpdate_AllowsHostnameChange(t *testing.T) {
+	db := setupMachineWorkloadValidateDB(t)
+	mri := newValidMRI("mri-hostname")
+	require.NoError(t, db.Create(mri).Error)
+
+	var loaded MachineRuntimeInstance
+	require.NoError(t, db.First(&loaded, *mri.ID).Error)
+
+	err := db.Model(&loaded).Updates(&MachineRuntimeInstance{
+		Hostname: util.Ptr("other.example"),
+	}).Error
+	require.NoError(t, err)
+}
+
+// TestMachineRuntimeInstance_BeforeUpdate_RejectsAttachingProviderWithoutRegion
+// rejects attaching a provider definition to an imported MRI that has no region.
+func TestMachineRuntimeInstance_BeforeUpdate_RejectsAttachingProviderWithoutRegion(t *testing.T) {
+	db := setupMachineWorkloadValidateDB(t)
+	mri := newValidMRI("mri-attach-no-region")
+	require.NoError(t, db.Create(mri).Error)
+
+	mrd := &MachineRuntimeDefinition{
+		Definition:    Definition{Name: util.Ptr("mrd-attach-provider")},
+		InfraProvider: util.Ptr("gce"),
+	}
+	require.NoError(t, db.Create(mrd).Error)
+
+	var loaded MachineRuntimeInstance
+	require.NoError(t, db.First(&loaded, *mri.ID).Error)
+
+	err := db.Model(&loaded).Updates(&MachineRuntimeInstance{
+		MachineRuntimeDefinitionID: mrd.ID,
+	}).Error
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "must have a region when the definition specifies an infra provider")
+}
+
+// TestMachineRuntimeInstance_BeforeUpdate_AcceptsAttachingProviderWithRegion
+// accepts attaching a provider definition when the MRI already has a region.
+func TestMachineRuntimeInstance_BeforeUpdate_AcceptsAttachingProviderWithRegion(t *testing.T) {
+	db := setupMachineWorkloadValidateDB(t)
+	mri := newValidMRI("mri-attach-region")
+	mri.Region = util.Ptr("us-central1")
+	require.NoError(t, db.Create(mri).Error)
+
+	mrd := &MachineRuntimeDefinition{
+		Definition:    Definition{Name: util.Ptr("mrd-attach-provider-2")},
+		InfraProvider: util.Ptr("gce"),
+	}
+	require.NoError(t, db.Create(mrd).Error)
+
+	var loaded MachineRuntimeInstance
+	require.NoError(t, db.First(&loaded, *mri.ID).Error)
+
+	err := db.Model(&loaded).Updates(&MachineRuntimeInstance{
+		MachineRuntimeDefinitionID: mrd.ID,
+	}).Error
+	require.NoError(t, err)
+}
+
+// TestMachineRuntimeInstance_BeforeUpdate_RejectsSaveAttachingProviderWithoutRegion
+// rejects a PUT that attaches a provider definition when the MRI has no region.
+func TestMachineRuntimeInstance_BeforeUpdate_RejectsSaveAttachingProviderWithoutRegion(t *testing.T) {
+	db := setupMachineWorkloadValidateDB(t)
+	mri := newValidMRI("mri-save-attach-no-region")
+	require.NoError(t, db.Create(mri).Error)
+
+	mrd := &MachineRuntimeDefinition{
+		Definition:    Definition{Name: util.Ptr("mrd-save-attach-provider")},
+		InfraProvider: util.Ptr("gce"),
+	}
+	require.NoError(t, db.Create(mrd).Error)
+
+	var loaded MachineRuntimeInstance
+	require.NoError(t, db.First(&loaded, *mri.ID).Error)
+	loaded.MachineRuntimeDefinitionID = mrd.ID
+
+	err := db.Save(&loaded).Error
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "must have a region when the definition specifies an infra provider")
+}

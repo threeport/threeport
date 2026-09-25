@@ -78,35 +78,53 @@ func (m *MachineRuntimeInstance) beforeCreate(tx *gorm.DB) error {
 	}
 
 	// load referenced definition when present
-	if m.MachineRuntimeDefinitionID != nil {
-		var def MachineRuntimeDefinition
-		err := tx.First(&def, *m.MachineRuntimeDefinitionID).Error
-		// return a missing definition as a bad request and leave other errors for the handler
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+	return requireRegionWhenDefinitionHasProvider(
+		tx,
+		m.Name,
+		m.MachineRuntimeDefinitionID,
+		m.Region,
+	)
+}
+
+// requireRegionWhenDefinitionHasProvider loads the definition when id is set
+// and requires a region when that definition has an infra provider.
+func requireRegionWhenDefinitionHasProvider(
+	tx *gorm.DB,
+	name *string,
+	definitionID *uint,
+	region *string,
+) error {
+	if definitionID == nil {
+		return nil
+	}
+
+	// return a missing definition as a bad request and leave other errors for the handler
+	var def MachineRuntimeDefinition
+	err := tx.First(&def, *definitionID).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return util.NewBadRequestError(
+			fmt.Sprintf(
+				"machine runtime instance %s references machine runtime definition %d which does not exist",
+				*name,
+				*definitionID,
+			),
+		)
+	}
+	if err != nil {
+		return err
+	}
+
+	// require region when the definition has an infra provider
+	if def.InfraProvider != nil && *def.InfraProvider != "" {
+		if region == nil || *region == "" {
 			return util.NewBadRequestError(
 				fmt.Sprintf(
-					"machine runtime instance %s references machine runtime definition %d which does not exist",
-					*m.Name,
-					*m.MachineRuntimeDefinitionID,
+					"machine runtime instance %s must have a region when the definition specifies an infra provider",
+					*name,
 				),
 			)
 		}
-		if err != nil {
-			return err
-		}
-		// require region when the definition has an infra provider
-		if def.InfraProvider != nil && *def.InfraProvider != "" {
-			if m.Region == nil || *m.Region == "" {
-				return util.NewBadRequestError(
-					fmt.Sprintf(
-						"machine runtime instance %s must have a region when the definition specifies an infra provider",
-						*m.Name,
-					),
-				)
-			}
-		}
 	}
-
 	return nil
 }
 
@@ -148,7 +166,22 @@ func (m *MachineRuntimeInstance) beforeUpdate(tx *gorm.DB) error {
 			)
 		}
 	}
-	return nil
+
+	// re-check region only when this update sets or changes the definition
+	changed, err := lib.IsFieldChanged(tx, "MachineRuntimeDefinitionID")
+	if err != nil {
+		return err
+	}
+	if !changed {
+		return nil
+	}
+	incoming := lib.IncomingValues(tx).(*MachineRuntimeInstance)
+	return requireRegionWhenDefinitionHasProvider(
+		tx,
+		m.Name,
+		incoming.MachineRuntimeDefinitionID,
+		m.Region,
+	)
 }
 
 // beforeDelete is a no-op for MachineRuntimeInstance.
