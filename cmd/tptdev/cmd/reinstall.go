@@ -189,6 +189,12 @@ change.`,
 		var moduleScales []installer.ModuleDeploymentScale
 		// read module namespaces from the api before the drop scales it down
 		if reinstallDropDatabase {
+			// refuse a non-development tier before any deployment is scaled down
+			if err := cpi.RequireDevelopmentTier(kubeClient, &mapper); err != nil {
+				cli.Error("cannot drop database", err)
+				os.Exit(1)
+			}
+
 			// get an api client
 			apiClient, err := threeportConfig.GetHTTPClient(requestedControlPlane)
 			if err != nil {

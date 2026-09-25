@@ -100,18 +100,9 @@ func (cpi *ControlPlaneInstaller) DropDatabase(
 ) error {
 	namespace := cpi.Opts.Namespace
 
-	// read the installed tier
-	tier, err := cpi.getInstalledTier(kubeClient, mapper)
-	if err != nil {
+	// refuse anything that is not the development tier before the drop
+	if err := cpi.RequireDevelopmentTier(kubeClient, mapper); err != nil {
 		return err
-	}
-
-	// refuse a control plane that is not development
-	if tier != ControlPlaneTierDev {
-		return fmt.Errorf(
-			"%w: namespace %s reports tier %q, refusing to drop its database",
-			ErrControlPlaneNotDevelopment, namespace, tier,
-		)
 	}
 
 	// scale control plane deployments to zero
@@ -138,18 +129,9 @@ func (cpi *ControlPlaneInstaller) DropMessageBrokerState(
 ) error {
 	namespace := cpi.Opts.Namespace
 
-	// read the installed tier
-	tier, err := cpi.getInstalledTier(kubeClient, mapper)
-	if err != nil {
+	// refuse anything that is not the development tier before the drop
+	if err := cpi.RequireDevelopmentTier(kubeClient, mapper); err != nil {
 		return err
-	}
-
-	// refuse a control plane that is not development
-	if tier != ControlPlaneTierDev {
-		return fmt.Errorf(
-			"%w: namespace %s reports tier %q, refusing to drop its message broker state",
-			ErrControlPlaneNotDevelopment, namespace, tier,
-		)
 	}
 
 	// run the stream removal job
@@ -395,6 +377,30 @@ func (cpi *ControlPlaneInstaller) deleteDropJob(
 		return nil
 	}); err != nil {
 		return fmt.Errorf("%s drop job did not finish terminating: %w", subject, err)
+	}
+
+	return nil
+}
+
+// RequireDevelopmentTier reads threeport.io/tier on the control plane namespace.
+// A drop proceeds only when that label is development. Any other value, including
+// a missing label, is refused before stored state is changed.
+func (cpi *ControlPlaneInstaller) RequireDevelopmentTier(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+) error {
+	// read the installed tier
+	tier, err := cpi.getInstalledTier(kubeClient, mapper)
+	if err != nil {
+		return err
+	}
+
+	// refuse a control plane that is not development
+	if tier != ControlPlaneTierDev {
+		return fmt.Errorf(
+			"%w: namespace %s reports tier %q",
+			ErrControlPlaneNotDevelopment, cpi.Opts.Namespace, tier,
+		)
 	}
 
 	return nil

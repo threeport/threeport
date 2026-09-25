@@ -168,6 +168,12 @@ Use this for any spec, RBAC, or configmap change. Use
 		var moduleScales []installer.ModuleDeploymentScale
 		// drop stored state when requested
 		if tptctlReinstallDropDatabase {
+			// refuse a non-development tier before any deployment is scaled down
+			if err := cpi.RequireDevelopmentTier(dynamicKubeClient, mapper); err != nil {
+				cli.Error("cannot drop database", err)
+				os.Exit(1)
+			}
+
 			// get the control plane config
 			controlPlaneConfig, err := config.GetControlPlaneConfig(requestedControlPlane)
 			if err != nil {
