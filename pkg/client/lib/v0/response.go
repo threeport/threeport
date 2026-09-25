@@ -21,6 +21,13 @@ var ErrBadRequest = errors.New("bad request")
 var ErrObjectOwned = errors.New("object owned externally")
 var ErrMisdirectedRequest = errors.New("misdirected request")
 
+// ErrDeleteInProgress is a conflict for a delete already underway.
+var ErrDeleteInProgress = fmt.Errorf("%w: delete in progress", ErrConflict)
+
+// ErrDeleteBlocked is a conflict for a delete rejected by attached
+// objects or related instances.
+var ErrDeleteBlocked = fmt.Errorf("%w: delete blocked", ErrConflict)
+
 // GetResponse calls the threeport API and returns a response.
 func GetResponse(
 	client *http.Client,
@@ -105,6 +112,12 @@ func GetResponse(
 		case http.StatusForbidden:
 			return nil, fmt.Errorf("%w: %s", ErrForbidden, errMessage)
 		case http.StatusConflict:
+			if strings.Contains(errMessage, api_v0.ErrMsgAlreadyBeingDeleted) {
+				return nil, fmt.Errorf("%w: %s", ErrDeleteInProgress, errMessage)
+			}
+			if strings.Contains(errMessage, api_v0.ErrMsgDeleteBlocked) {
+				return nil, fmt.Errorf("%w: %s", ErrDeleteBlocked, errMessage)
+			}
 			return nil, fmt.Errorf("%w: %s", ErrConflict, errMessage)
 		default:
 			return nil, fmt.Errorf(

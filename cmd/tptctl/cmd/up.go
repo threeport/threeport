@@ -262,12 +262,6 @@ func init() {
 		"apis", "", "Optional. Comma-separated list of sdk-config api object group names (e.g. kubernetes_workload,gateway) to limit the install to those apis' controllers. Use \"none\" to install zero optional controllers. Defaults to empty, which installs all controllers.",
 	)
 	UpCmd.Flags().IntVar(
-		&cliArgs.ConcurrentReconciles,
-		"concurrent-reconciles",
-		threeport.DefaultConcurrentReconciles,
-		"Number of concurrent reconcile workers per object type.",
-	)
-	UpCmd.Flags().IntVar(
 		&cliArgs.ApiPort,
 		"api-port", 0, fmt.Sprintf(
 			"Host port to serve the Threeport API on.  Only applicable with provider 'kind'.  Defaults to %d with auth enabled and %d without.  Ports below 1024 need a host that permits binding them.",

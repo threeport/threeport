@@ -428,3 +428,150 @@ func TestHasFieldWithTagValue_NoMatch(t *testing.T) {
 	assert.False(t, group.HasFieldWithTagValue("Foo", "encrypt", "true"), "tag key absent")
 	assert.False(t, group.HasFieldWithTagValue("Foo", "persist", "false"), "tag present with wrong value")
 }
+
+// namedFixture builds a Generator with one named object carrying gormTag.
+func namedFixture(gormTag string) *Generator {
+	g := fixture(
+		map[string]map[string]map[string]string{
+			"Foo": {"Name": tag("json", ",omitempty", "validate", "required", "gorm", gormTag)},
+		},
+		nil, nil, nil,
+	)
+	g.ApiObjectGroups[0].ApiObjects[0].NameField = true
+	return g
+}
+
+// TestValidateTags_AcceptsScopedUniqueNameIndex covers a Name uniqueIndex scoped to undeleted rows.
+func TestValidateTags_AcceptsScopedUniqueNameIndex(t *testing.T) {
+	assert.NoError(t, namedFixture(nameIndexTag).ValidateTags())
+}
+
+// TestValidateTags_RejectsUnscopedNameIndex covers a Name uniqueIndex without a where clause.
+func TestValidateTags_RejectsUnscopedNameIndex(t *testing.T) {
+	err := namedFixture("not null;uniqueIndex").ValidateTags()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Foo.Name")
+	assert.Contains(t, err.Error(), "undeleted")
+}
+
+// TestValidateTags_AcceptsNameFieldWithNoIndex covers a Name field with no uniqueIndex.
+func TestValidateTags_AcceptsNameFieldWithNoIndex(t *testing.T) {
+	assert.NoError(t, namedFixture("not null").ValidateTags())
+}
+
+// TestValidateTags_RejectsNameIndexMissingTheColon covers uniqueIndex without a colon.
+func TestValidateTags_RejectsNameIndexMissingTheColon(t *testing.T) {
+	err := namedFixture("not null;uniqueIndex,where:deleted_at IS NULL").ValidateTags()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Foo.Name")
+}
+
+// TestValidateTags_AcceptsCompositeScopedNameIndex covers a named unique index.
+func TestValidateTags_AcceptsCompositeScopedNameIndex(t *testing.T) {
+	tagValue := "not null;uniqueIndex:idx_identity,where:deleted_at IS NULL"
+	assert.NoError(t, namedFixture(tagValue).ValidateTags())
+}
+
+// TestValidateTags_RejectsUniqueIndexWithUnrelatedWhere covers a uniqueIndex whose where is not undeleted rows.
+func TestValidateTags_RejectsUniqueIndexWithUnrelatedWhere(t *testing.T) {
+	err := namedFixture("not null;uniqueIndex:,where:active = true").ValidateTags()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Foo.Name")
+	assert.Contains(t, err.Error(), "undeleted")
+}
+
+// TestValidateTags_AcceptsUniqueIndexWithExtraAndCondition covers a uniqueIndex with an extra AND condition.
+func TestValidateTags_AcceptsUniqueIndexWithExtraAndCondition(t *testing.T) {
+	tagValue := "not null;uniqueIndex:idx_marries,where:relationship = 'marries' AND deleted_at IS NULL"
+	assert.NoError(t, namedFixture(tagValue).ValidateTags())
+}
+
+// TestValidateTags_RejectsMixedScopedAndUnscopedUniqueIndex covers a field with one unscoped uniqueIndex among scoped ones.
+func TestValidateTags_RejectsMixedScopedAndUnscopedUniqueIndex(t *testing.T) {
+	tagValue := "not null;uniqueIndex:idx_a,where:deleted_at IS NULL;uniqueIndex:idx_b"
+	err := namedFixture(tagValue).ValidateTags()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Foo.Name")
+	assert.Contains(t, err.Error(), "undeleted")
+}
+
+// TestValidateTags_AcceptsModuleObjectWithoutNameIndex covers ModuleObject with no uniqueIndex.
+func TestValidateTags_AcceptsModuleObjectWithoutNameIndex(t *testing.T) {
+	g := fixture(
+		map[string]map[string]map[string]string{
+			"ModuleObject": {"Name": tag("json", ",omitempty", "validate", "required", "gorm", "not null")},
+		},
+		nil, nil, nil,
+	)
+	assert.NoError(t, g.ValidateTags())
+}
+
+// TestValidateTags_AcceptsScopedUniqueIndexOnPath covers Path uniqueIndex scoped to undeleted rows.
+func TestValidateTags_AcceptsScopedUniqueIndexOnPath(t *testing.T) {
+	g := fixture(
+		map[string]map[string]map[string]string{
+			"ModuleApiRoute": {"Path": tag("validate", "required", "gorm", nameIndexTag)},
+		},
+		nil, nil, nil,
+	)
+	assert.NoError(t, g.ValidateTags())
+}
+
+// TestValidateTags_RejectsUnscopedUniqueIndexOnPath covers Path uniqueIndex without a where clause.
+func TestValidateTags_RejectsUnscopedUniqueIndexOnPath(t *testing.T) {
+	g := fixture(
+		map[string]map[string]map[string]string{
+			"ModuleApiRoute": {"Path": tag("validate", "required", "gorm", "not null;uniqueIndex")},
+		},
+		nil, nil, nil,
+	)
+	err := g.ValidateTags()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "ModuleApiRoute.Path")
+	assert.Contains(t, err.Error(), "undeleted")
+}
+
+// TestValidateTags_RejectsUnscopedUniqueIndexOnEmbed covers uniqueIndex on an embed field.
+func TestValidateTags_RejectsUnscopedUniqueIndexOnEmbed(t *testing.T) {
+	g := fixture(
+		map[string]map[string]map[string]string{
+			"Foo": {},
+		},
+		map[string][]string{"Foo": {"Definition"}},
+		nil,
+		map[string]map[string]map[string]string{
+			"Definition": {"Name": tag("validate", "required", "gorm", "not null;uniqueIndex")},
+		},
+	)
+	err := g.ValidateTags()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Definition.Name")
+}
+
+// TestValidateTags_AcceptsEmbedWithoutUniqueIndex covers an embed Name with no uniqueIndex.
+func TestValidateTags_AcceptsEmbedWithoutUniqueIndex(t *testing.T) {
+	g := fixture(
+		map[string]map[string]map[string]string{
+			"Foo": {},
+		},
+		map[string][]string{"Foo": {"Definition"}},
+		nil,
+		map[string]map[string]map[string]string{
+			"Definition": {"Name": tag("validate", "required", "gorm", "not null")},
+		},
+	)
+	assert.NoError(t, g.ValidateTags())
+}
+
+// TestValidateTags_SkipsUnresolvableNameField covers a Name field outside the parsed tree.
+func TestValidateTags_SkipsUnresolvableNameField(t *testing.T) {
+	g := fixture(
+		map[string]map[string]map[string]string{
+			"Foo": {"Description": tag("json", ",omitempty", "validate", "optional")},
+		},
+		nil, nil, nil,
+	)
+	g.Module = true
+	g.ApiObjectGroups[0].ApiObjects[0].NameField = true
+	assert.NoError(t, g.ValidateTags())
+}

@@ -19,33 +19,53 @@ const (
 	// tcpMaxRetries is the maximum number of TCP connection retries before
 	// the process exits.
 	tcpMaxRetries = 60
-
-	// tcpAPIPort is the port used for the threeport API service.
-	tcpAPIPort = 443
 )
 
-// WaitForAPI waits for the threeport API server to become reachable on port
-// 443. It retries up to 60 times with a 2-second dial timeout and 2-second
-// sleep between attempts (~4 minutes total). If the endpoint is not reachable
-// after all retries, the process exits with code 1 to trigger a pod restart.
-func WaitForAPI(host string, log logr.Logger) {
-	addr := fmt.Sprintf("%s:%d", host, tcpAPIPort)
-	log.Info("waiting for API server", "address", addr)
+// tcpAPIPorts is the API service ports: 443 when TLS is on, 80 when it is not.
+var tcpAPIPorts = []int{443, 80}
 
-	for i := 0; i < tcpMaxRetries; i++ {
-		conn, err := net.DialTimeout("tcp", addr, tcpDialTimeout)
-		if err == nil {
-			conn.Close()
-			log.Info("API server is reachable", "address", addr)
-			return
-		}
-		time.Sleep(tcpRetryInterval)
+// WaitForAPI dials host until the API accepts a TCP connection on 443 or 80.
+// It retries 60 times with a 2s dial timeout and 2s sleep, then exits with
+// code 1 so the pod restarts.
+func WaitForAPI(host string, log logr.Logger) {
+	addrs := make([]string, 0, len(tcpAPIPorts))
+	for _, port := range tcpAPIPorts {
+		addrs = append(addrs, fmt.Sprintf("%s:%d", host, port))
+	}
+	log.Info("waiting for API server", "addresses", addrs)
+
+	addr, err := waitForAPI(host, tcpAPIPorts, tcpDialTimeout, tcpRetryInterval, tcpMaxRetries)
+	if err != nil {
+		log.Error(err, "failed to connect to API server", "addresses", addrs)
+		os.Exit(1)
 	}
 
-	log.Error(
-		fmt.Errorf("API server not reachable after %d retries", tcpMaxRetries),
-		"failed to connect to API server",
-		"address", addr,
-	)
-	os.Exit(1)
+	log.Info("API server is reachable", "address", addr)
+}
+
+// waitForAPI dials each host:port until one accepts a TCP connection.
+func waitForAPI(
+	host string,
+	ports []int,
+	dialTimeout time.Duration,
+	retryInterval time.Duration,
+	maxRetries int,
+) (string, error) {
+	addrs := make([]string, 0, len(ports))
+	for _, port := range ports {
+		addrs = append(addrs, fmt.Sprintf("%s:%d", host, port))
+	}
+
+	for i := 0; i < maxRetries; i++ {
+		for _, addr := range addrs {
+			conn, err := net.DialTimeout("tcp", addr, dialTimeout)
+			if err == nil {
+				conn.Close()
+				return addr, nil
+			}
+		}
+		time.Sleep(retryInterval)
+	}
+
+	return "", fmt.Errorf("API server not reachable after %d retries: %v", maxRetries, addrs)
 }

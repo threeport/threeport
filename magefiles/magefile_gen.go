@@ -32,6 +32,22 @@ type Dev mg.Namespace
 // Package provides a type for methods that implement package targets.
 type Package mg.Namespace
 
+// Unit runs the unit tests across the threeport packages.
+func (Test) Unit() error {
+	if err := util.RunUnitTests(); err != nil {
+		return fmt.Errorf("failed to run unit tests: %w", err)
+	}
+	return nil
+}
+
+// Race runs go test -race on packages that contain *_race_test.go files.
+func (Test) Race() error {
+	if err := util.RunRaceTests(); err != nil {
+		return fmt.Errorf("failed to run race tests: %w", err)
+	}
+	return nil
+}
+
 // ApiBin builds the REST API binary.
 func (Build) ApiBin(arch string) error {
 	workingDir, _, err := getBuildVals()

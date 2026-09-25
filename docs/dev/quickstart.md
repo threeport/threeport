@@ -81,10 +81,13 @@ This will start a local kind cluster and install the control plane.  You can now
 make calls to the API server.
 
 Call the API.  Note this is a different port than the local container registry
-(`localhost:5001`) - the API is served on the default http port:
+(`localhost:5001`).  A local control plane serves its API on an unprivileged
+port: `8080` without auth, as installed above, and `8443` with it.  `--api-port`
+chooses a different one, and whichever is in use is recorded as `apiserver` in
+`~/.threeport/config.yaml`:
 
 ```bash
-curl localhost/swagger/index.html
+curl localhost:8080/swagger/index.html
 ```
 
 Uninstall the local dev control plane:
