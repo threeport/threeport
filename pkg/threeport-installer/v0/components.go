@@ -79,10 +79,35 @@ func (cpi *ControlPlaneInstaller) InstallComputeSpaceControlPlaneComponents(
 // token, so a kind:ServiceAccount subject would never match.  gcpProjectID is the
 // project of the GKE cluster hosting the control plane (where the controller pods
 // run), which determines the Workload Identity pool in the principal name.
+// computeSpaceWorkloadControllerSubject returns the workload identity principal
+// a control plane controller presents to a managed GKE cluster.
+//
+// The namespace is the one the controller runs in on the control plane host,
+// which a genesis install can place anywhere - not the namespace this installer
+// puts components into on the managed cluster. Naming the wrong one authorizes a
+// principal that never connects, and leaves every operation refused.
+func computeSpaceWorkloadControllerSubject(
+	gcpProjectID string,
+	controlPlaneNamespace string,
+	controllerName string,
+) string {
+	return fmt.Sprintf(
+		"serviceAccount:%s.svc.id.goog[%s/%s]",
+		gcpProjectID,
+		controlPlaneNamespace,
+		controllerName,
+	)
+}
+
+// controlPlaneNamespace is the namespace the control plane's own controllers run
+// in, on the host that runs them - not a namespace on this managed cluster. It
+// is part of the workload identity principal GKE presents when those controllers
+// connect here, so it has to be the namespace they are actually installed in.
 func (cpi *ControlPlaneInstaller) InstallComputeSpaceWorkloadControllerRBAC(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	gcpProjectID string,
+	controlPlaneNamespace string,
 ) error {
 	workloadControllers := []string{
 		ThreeportHelmWorkloadControllerName,
@@ -106,7 +131,7 @@ func (cpi *ControlPlaneInstaller) InstallComputeSpaceWorkloadControllerRBAC(
 				"subjects": []interface{}{
 					map[string]interface{}{
 						"kind":     "User",
-						"name":     fmt.Sprintf("serviceAccount:%s.svc.id.goog[%s/%s]", gcpProjectID, cpi.Opts.Namespace, controllerName),
+						"name":     computeSpaceWorkloadControllerSubject(gcpProjectID, controlPlaneNamespace, controllerName),
 						"apiGroup": "rbac.authorization.k8s.io",
 					},
 				},
