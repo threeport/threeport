@@ -15,18 +15,19 @@ import (
 // module does not reach it: the failure it guards is a panic at run time.
 
 // TestMapToDefinedInstances_PairsByName covers the pairing every
-// defined-instance Get performs.
-//
-// The instance values are exactly what the generated Get produces - a name and
-// an age, and no reference to the definition, because the generated Get does
-// not set one. Reading that reference is what used to panic here.
+// defined-instance Get performs. The instance values are what the generated
+// Get produces: a name, an age, and the definition the row belongs to.
 func TestMapToDefinedInstances_PairsByName(t *testing.T) {
 	definitions := []WidgetDefinitionConfig{
 		{WidgetDefinition: WidgetDefinitionValues{Name: util.Ptr("first")}},
 		{WidgetDefinition: WidgetDefinitionValues{Name: util.Ptr("second")}},
 	}
 	instances := []WidgetInstanceConfig{
-		{WidgetInstance: WidgetInstanceValues{Name: util.Ptr("second"), Age: util.Ptr("2d")}},
+		{WidgetInstance: WidgetInstanceValues{
+			Name:             util.Ptr("second"),
+			WidgetDefinition: &WidgetDefinitionValues{Name: util.Ptr("second")},
+			Age:              util.Ptr("2d"),
+		}},
 	}
 
 	var configs *[]WidgetConfig
@@ -50,6 +51,10 @@ func TestMapToDefinedInstances_SkipsNilNames(t *testing.T) {
 	instances := []WidgetInstanceConfig{
 		{WidgetInstance: WidgetInstanceValues{}},
 		{WidgetInstance: WidgetInstanceValues{Name: util.Ptr("no-definition-for-this")}},
+		{WidgetInstance: WidgetInstanceValues{
+			Name:             util.Ptr("named"),
+			WidgetDefinition: &WidgetDefinitionValues{},
+		}},
 	}
 
 	var configs *[]WidgetConfig
@@ -67,9 +72,31 @@ func TestMapToDefinedInstances_TakesOneDefinitionPerInstance(t *testing.T) {
 		{WidgetDefinition: WidgetDefinitionValues{Name: util.Ptr("dup")}},
 	}
 	instances := []WidgetInstanceConfig{
-		{WidgetInstance: WidgetInstanceValues{Name: util.Ptr("dup")}},
+		{WidgetInstance: WidgetInstanceValues{
+			Name:             util.Ptr("dup"),
+			WidgetDefinition: &WidgetDefinitionValues{Name: util.Ptr("dup")},
+		}},
 	}
 
 	configs := mapToWidgetDefinedInstances(&definitions, &instances)
 	assert.Len(t, *configs, 1)
+}
+
+// TestMapToDefinedInstances_RejectsAMismatchedReference is what checking the
+// reference buys. Two objects can carry one name while the instance belongs to
+// a different definition, and pairing them would report a relationship the
+// database does not have.
+func TestMapToDefinedInstances_RejectsAMismatchedReference(t *testing.T) {
+	definitions := []WidgetDefinitionConfig{
+		{WidgetDefinition: WidgetDefinitionValues{Name: util.Ptr("shared")}},
+	}
+	instances := []WidgetInstanceConfig{
+		{WidgetInstance: WidgetInstanceValues{
+			Name:             util.Ptr("shared"),
+			WidgetDefinition: &WidgetDefinitionValues{Name: util.Ptr("somewhere-else")},
+		}},
+	}
+
+	configs := mapToWidgetDefinedInstances(&definitions, &instances)
+	assert.Empty(t, *configs, "a name in common is not a relationship")
 }

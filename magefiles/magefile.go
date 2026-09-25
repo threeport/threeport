@@ -470,9 +470,14 @@ func (Test) ModuleGen() error {
 	// run the tests copied into the generated module. Type-checking does not
 	// reach what they cover: the generated config abstractions have failed at
 	// run time in ways that compile perfectly well.
+	//
+	// -count=1 because the module is regenerated on every run and some of these
+	// tests reach generated code the test cache cannot see - one builds and runs
+	// the generated database-migrator - so a cached pass can outlive the code it
+	// was a pass for.
 	if err := util.RunCommandStreamOutputInDir(
 		moduleTestPath,
-		"go", "test", "./"+moduleTestConfigPackage+"/...",
+		"go", "test", "-count=1", "./"+moduleTestConfigPackage+"/...",
 	); err != nil {
 		return fmt.Errorf("failed to test the generated module: %w", err)
 	}
