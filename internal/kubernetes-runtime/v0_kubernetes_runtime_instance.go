@@ -276,10 +276,20 @@ func v0KubernetesRuntimeInstanceUpdated(
 			return 0, fmt.Errorf("failed to determine control plane GCP project for workload controller RBAC: %w", err)
 		}
 		if controlPlaneGcpProject != "" {
+			// The principal names the namespace the control plane's controllers
+			// actually run in, which a genesis install can place anywhere. The
+			// installer's own namespace is where components go on this managed
+			// cluster and is a different thing, so it cannot stand in.
+			hostNamespace, err := controlPlaneHostNamespace(r)
+			if err != nil {
+				return 0, fmt.Errorf("failed to determine control plane namespace for workload controller RBAC: %w", err)
+			}
+
 			if err := cpi.InstallComputeSpaceWorkloadControllerRBAC(
 				dynamicKubeClient,
 				mapper,
 				controlPlaneGcpProject,
+				hostNamespace,
 			); err != nil {
 				return 0, fmt.Errorf("failed to install workload controller RBAC on managed cluster: %w", err)
 			}
@@ -375,6 +385,35 @@ func v0KubernetesRuntimeInstanceDeleted(
 // It is used to construct the Workload Identity principals of the control-plane
 // controllers when granting them access to managed clusters. The control-plane
 // host is the KubernetesRuntimeInstance marked ThreeportControlPlaneHost.
+// controlPlaneHostNamespace returns the namespace the genesis control plane's
+// controllers run in.
+//
+// A genesis install can be given any namespace, and the workload identity
+// principal a managed cluster is told to authorize has to name the one the
+// controllers are really in. Reading it from the control plane instance rather
+// than assuming the default is what keeps a custom install working: the wrong
+// namespace authorizes a principal that never connects, and every operation the
+// controllers make against that cluster is refused.
+func controlPlaneHostNamespace(r *controller.Reconciler) (string, error) {
+	controlPlaneInstances, err := client.GetControlPlaneInstances(r.APIClient, r.APIServer)
+	if err != nil {
+		return "", fmt.Errorf("failed to list control plane instances: %w", err)
+	}
+
+	for _, controlPlaneInstance := range *controlPlaneInstances {
+		if controlPlaneInstance.Genesis == nil || !*controlPlaneInstance.Genesis {
+			continue
+		}
+		if controlPlaneInstance.Namespace == nil || *controlPlaneInstance.Namespace == "" {
+			return "", errors.New("the genesis control plane instance has no namespace recorded")
+		}
+
+		return *controlPlaneInstance.Namespace, nil
+	}
+
+	return "", errors.New("no genesis control plane instance found")
+}
+
 func controlPlaneGkeProject(r *controller.Reconciler) (string, error) {
 	instances, err := client.GetKubernetesRuntimeInstances(r.APIClient, r.APIServer)
 	if err != nil {
