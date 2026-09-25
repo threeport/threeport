@@ -1,84 +1,52 @@
 package kubernetesruntime
 
 import (
-	"net/http"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/threeport/threeport/internal/machinetest"
-	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
-	v0 "github.com/threeport/threeport/pkg/api/v0"
-	controller "github.com/threeport/threeport/pkg/controller/v0"
-	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// controlPlaneInstancesServer serves the given control plane instances.
-func controlPlaneInstancesServer(t *testing.T, instances ...v0.ControlPlaneInstance) *controller.Reconciler {
+// setControlPlaneNamespace stands in for the pod's namespace file and returns a
+// function restoring it. Read for real, these tests would depend on whether they
+// happen to run inside a pod.
+func setControlPlaneNamespace(t *testing.T, read func() (string, error)) {
 	t.Helper()
-	api := machinetest.NewAPIStub(t)
+	previous := readControlPlaneNamespace
+	readControlPlaneNamespace = read
+	t.Cleanup(func() { readControlPlaneNamespace = previous })
+}
 
-	api.Mux.HandleFunc(v0.PathControlPlaneInstances, func(w http.ResponseWriter, r *http.Request) {
-		objects := make([]apiserver_lib.Object, 0, len(instances))
-		for _, instance := range instances {
-			objects = append(objects, instance)
-		}
-		machinetest.WriteResponse(t, w, http.StatusOK, objects)
+// The identity a managed cluster is told to authorize is the one these
+// controllers present, which is decided by where they are actually running.
+// A child control plane's controllers run in the child's namespace, while its
+// API still holds a record of the genesis control plane - so the record cannot
+// answer this and the pod has to.
+
+func TestControlPlaneNamespace_ReadsWhereThisControllerRuns(t *testing.T) {
+	setControlPlaneNamespace(t, func() (string, error) { return "a-child-namespace", nil })
+
+	namespace, err := controlPlaneNamespace()
+	require.NoError(t, err)
+	assert.Equal(t, "a-child-namespace", namespace)
+}
+
+// guessing here authorizes a principal that never connects, so it says so
+func TestControlPlaneNamespace_UnreadableIsAnError(t *testing.T) {
+	setControlPlaneNamespace(t, func() (string, error) {
+		return "", errors.New("no namespace file")
 	})
 
-	return &controller.Reconciler{APIClient: api.Client, APIServer: api.Addr}
+	_, err := controlPlaneNamespace()
+	require.Error(t, err)
 }
 
-// controlPlaneInstance builds an instance with the given namespace.
-func controlPlaneInstance(name, namespace string, genesis bool) v0.ControlPlaneInstance {
-	return v0.ControlPlaneInstance{
-		Instance:  v0.Instance{Name: util.Ptr(name)},
-		Namespace: util.Ptr(namespace),
-		Genesis:   util.Ptr(genesis),
+// TestReadControlPlaneNamespace_OutsideAPod covers the real read where there is
+// no pod to read from, which is where this repository's tests and a developer
+// machine both are.
+func TestReadControlPlaneNamespace_OutsideAPod(t *testing.T) {
+	if _, err := readControlPlaneNamespace(); err == nil {
+		t.Skip("running inside a pod, where the namespace file exists")
 	}
-}
-
-// The workload identity principal a managed cluster is told to authorize names
-// the namespace the control plane's controllers run in. A genesis install can be
-// given any namespace, and assuming the default authorizes a principal that
-// never connects.
-
-func TestControlPlaneHostNamespace_ReadsTheGenesisNamespace(t *testing.T) {
-	r := controlPlaneInstancesServer(t, controlPlaneInstance("genesis", "a-custom-namespace", true))
-
-	namespace, err := controlPlaneHostNamespace(r)
-	require.NoError(t, err)
-	assert.Equal(t, "a-custom-namespace", namespace)
-}
-
-// a child control plane has its own namespace, which is not where the
-// controllers doing this work run
-func TestControlPlaneHostNamespace_IgnoresChildControlPlanes(t *testing.T) {
-	r := controlPlaneInstancesServer(
-		t,
-		controlPlaneInstance("a-child", "child-namespace", false),
-		controlPlaneInstance("genesis", "a-custom-namespace", true),
-	)
-
-	namespace, err := controlPlaneHostNamespace(r)
-	require.NoError(t, err)
-	assert.Equal(t, "a-custom-namespace", namespace)
-}
-
-// guessing here would authorize a principal that never connects, so it says so
-func TestControlPlaneHostNamespace_WithoutAGenesisInstance(t *testing.T) {
-	r := controlPlaneInstancesServer(t, controlPlaneInstance("a-child", "child-namespace", false))
-
-	_, err := controlPlaneHostNamespace(r)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "no genesis control plane instance")
-}
-
-func TestControlPlaneHostNamespace_WithoutARecordedNamespace(t *testing.T) {
-	instance := controlPlaneInstance("genesis", "", true)
-	r := controlPlaneInstancesServer(t, instance)
-
-	_, err := controlPlaneHostNamespace(r)
-	require.Error(t, err)
 }
