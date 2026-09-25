@@ -1,7 +1,5 @@
 basePath: /
 definitions:
-  datatypes.JSON:
-    type: object
   v0.ApiObjectVersions:
     properties:
       API:
@@ -65,8 +63,123 @@ definitions:
     - ObjectType
     type: object
   v0.AwsEksKubernetesRuntimeDefinition:
+    properties:
+      AwsEksKubernetesRuntimeInstances:
+        description: The AWS EKS kubernetes runtime instances derived from this definition.
+        items:
+          $ref: '#/definitions/v0.AwsEksKubernetesRuntimeInstance'
+        type: array
+      DefaultNodeGroupInitialSize:
+        description: The number of nodes in the default initial node group.
+        type: integer
+      DefaultNodeGroupInstanceType:
+        description: The AWS instance type for the default initial node group.
+        type: string
+      DefaultNodeGroupMaximumSize:
+        description: The maximum number of nodes the default initial node group should
+          have.
+        type: integer
+      DefaultNodeGroupMinimumSize:
+        description: The minimum number of nodes the default initial node group should
+          have.
+        type: integer
+      KubernetesRuntimeDefinitionID:
+        description: The kubernetes runtime definition for an EKS cluster in AWS.
+        type: integer
+      Name:
+        description: An arbitrary name for the definition.
+        type: string
+      ProfileID:
+        description: |-
+          The profile to associate with the definition.  Profile is a named
+          standard configuration for a definition object.
+        type: integer
+      TierID:
+        description: |-
+          The tier to associate with the definition.  Tier is a level of
+          criticality for access control.
+        type: integer
+      ZoneCount:
+        description: The number of zones the cluster should span for availability.
+        type: integer
+    required:
+    - DefaultNodeGroupInitialSize
+    - DefaultNodeGroupInstanceType
+    - DefaultNodeGroupMaximumSize
+    - DefaultNodeGroupMinimumSize
+    - KubernetesRuntimeDefinitionID
+    - Name
+    - ZoneCount
     type: object
   v0.AwsEksKubernetesRuntimeInstance:
+    properties:
+      AwsEksKubernetesRuntimeDefinitionID:
+        description: The definition that configures this instance.
+        type: integer
+      AwsProviderID:
+        description: The AWS provider in which the EKS cluster is provisioned.
+        type: integer
+      CreationAcknowledged:
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
+        type: string
+      CreationConfirmed:
+        description: Used by controllers to confirm deletion of an object.
+        type: string
+      CreationFailed:
+        description: Gets set to true if creation process fails.
+        type: boolean
+      DeletionAcknowledged:
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
+        type: string
+      DeletionConfirmed:
+        description: Used by controllers to confirm deletion of an object.
+        type: string
+      DeletionScheduled:
+        description: |-
+          Used to inform reconcilers that an object is being deleted so they may
+          complete delete reconciliation before actually deleting the object from the database.
+        type: string
+      InterruptReconciliation:
+        description: |-
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
+          spinning up more infrastructure when there is a unresolved problem.
+        type: boolean
+      KubernetesRuntimeInstanceID:
+        description: The kubernetes runtime instance associated with the AWS EKS cluster.
+        type: integer
+      Name:
+        description: An arbitrary name the instance
+        type: string
+      Reconciled:
+        description: Indicates if object is considered to be reconciled by the object's
+          controller.
+        type: boolean
+      Region:
+        description: The AWS region in which the cluster is provisioned.
+        type: string
+      ResourceInventory:
+        description: An inventory of all AWS resources for the EKS cluster.
+        items:
+          type: integer
+        type: array
+      Status:
+        description: |-
+          The status of the instance.
+          TODO: use a custom type
+        type: string
+    required:
+    - AwsEksKubernetesRuntimeDefinitionID
+    - AwsProviderID
+    - KubernetesRuntimeInstanceID
+    - Name
     type: object
   v0.AwsProvider:
     properties:
@@ -109,20 +222,23 @@ definitions:
   v0.ControlPlaneComponent:
     properties:
       AdditionalEnvRef:
-        allOf:
-        - $ref: '#/definitions/datatypes.JSON'
         description: The additional env reference to be added to the environment variables
           of the component.
+        items:
+          type: integer
+        type: array
       AdditionalVolumeMounts:
-        allOf:
-        - $ref: '#/definitions/datatypes.JSON'
         description: The additional volume mounts to be added to the deployment spec
           of the component.
+        items:
+          type: integer
+        type: array
       AdditionalVolumes:
-        allOf:
-        - $ref: '#/definitions/datatypes.JSON'
         description: The additional volumes to be added to the deployment spec of
           the component.
+        items:
+          type: integer
+        type: array
       BinaryName:
         description: The binary name of the component.
         type: string
@@ -813,9 +929,10 @@ definitions:
         description: The GCP region in which the cluster is provisioned.
         type: string
       ResourceInventory:
-        allOf:
-        - $ref: '#/definitions/datatypes.JSON'
         description: An inventory of all GCP resources for the GKE cluster.
+        items:
+          type: integer
+        type: array
       Status:
         description: |-
           The status of the instance.
@@ -865,7 +982,9 @@ definitions:
           Complete kubernetes resources that will be appended to the provided
           helm chart.
         items:
-          $ref: '#/definitions/datatypes.JSON'
+          items:
+            type: integer
+          type: array
         type: array
       Chart:
         description: The name of the helm chart to use from the helm repo, e.g. wordpress
@@ -955,7 +1074,9 @@ definitions:
           Complete kubernetes resources that will be appended to the provided
           helm chart.
         items:
-          $ref: '#/definitions/datatypes.JSON'
+          items:
+            type: integer
+          type: array
         type: array
       CreationAcknowledged:
         description: |-
@@ -1371,9 +1492,10 @@ definitions:
   v0.KubernetesWorkloadResourceDefinition:
     properties:
       JSONDefinition:
-        allOf:
-        - $ref: '#/definitions/datatypes.JSON'
         description: The individual manifest in JSON format.
+        items:
+          type: integer
+        type: array
       KubernetesWorkloadDefinitionID:
         description: The kubernetes workload definition this resource belongs to.
         type: integer
@@ -1384,13 +1506,14 @@ definitions:
   v0.KubernetesWorkloadResourceInstance:
     properties:
       JSONDefinition:
-        allOf:
-        - $ref: '#/definitions/datatypes.JSON'
         description: |-
           The individual manifest in JSON format.  This field is a superset of
           KubernetesWorkloadResourceDefinition.JSONDefinition in that it has
           namespace management and other configuration — such as resource
           allocation management — added.
+        items:
+          type: integer
+        type: array
       KubernetesWorkloadInstanceID:
         description: The kubernetes workload instance this resource belongs to.
         type: integer
@@ -1405,11 +1528,12 @@ definitions:
           kubernetes workload controller.
         type: boolean
       RuntimeDefinition:
-        allOf:
-        - $ref: '#/definitions/datatypes.JSON'
         description: |-
           The JSON definition of a Kubernetes resource as stored in etcd in the
           kubernetes runtime.
+        items:
+          type: integer
+        type: array
       ScheduledForDeletion:
         description: Whether another controller has scheduled this resource for deletion
         type: string
@@ -2593,9 +2717,10 @@ definitions:
           definition will not move a cluster.
         type: string
       ResourceInventory:
-        allOf:
-        - $ref: '#/definitions/datatypes.JSON'
         description: An inventory of all OCI resources for the OKE cluster.
+        items:
+          type: integer
+        type: array
       Status:
         description: |-
           The status of the instance.
@@ -2732,9 +2857,10 @@ definitions:
         description: Gets set to true if creation process fails.
         type: boolean
       Data:
-        allOf:
-        - $ref: '#/definitions/datatypes.JSON'
         description: The secret value to be stored in the provider.
+        items:
+          type: integer
+        type: array
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
