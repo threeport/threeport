@@ -1,5 +1,7 @@
 basePath: /
 definitions:
+  datatypes.JSON:
+    type: object
   v0.ApiObjectVersions:
     properties:
       API:
@@ -63,123 +65,8 @@ definitions:
     - ObjectType
     type: object
   v0.AwsEksKubernetesRuntimeDefinition:
-    properties:
-      AwsEksKubernetesRuntimeInstances:
-        description: The AWS EKS kubernetes runtime instances derived from this definition.
-        items:
-          $ref: '#/definitions/v0.AwsEksKubernetesRuntimeInstance'
-        type: array
-      DefaultNodeGroupInitialSize:
-        description: The number of nodes in the default initial node group.
-        type: integer
-      DefaultNodeGroupInstanceType:
-        description: The AWS instance type for the default initial node group.
-        type: string
-      DefaultNodeGroupMaximumSize:
-        description: The maximum number of nodes the default initial node group should
-          have.
-        type: integer
-      DefaultNodeGroupMinimumSize:
-        description: The minimum number of nodes the default initial node group should
-          have.
-        type: integer
-      KubernetesRuntimeDefinitionID:
-        description: The kubernetes runtime definition for an EKS cluster in AWS.
-        type: integer
-      Name:
-        description: An arbitrary name for the definition.
-        type: string
-      ProfileID:
-        description: |-
-          The profile to associate with the definition.  Profile is a named
-          standard configuration for a definition object.
-        type: integer
-      TierID:
-        description: |-
-          The tier to associate with the definition.  Tier is a level of
-          criticality for access control.
-        type: integer
-      ZoneCount:
-        description: The number of zones the cluster should span for availability.
-        type: integer
-    required:
-    - DefaultNodeGroupInitialSize
-    - DefaultNodeGroupInstanceType
-    - DefaultNodeGroupMaximumSize
-    - DefaultNodeGroupMinimumSize
-    - KubernetesRuntimeDefinitionID
-    - Name
-    - ZoneCount
     type: object
   v0.AwsEksKubernetesRuntimeInstance:
-    properties:
-      AwsEksKubernetesRuntimeDefinitionID:
-        description: The definition that configures this instance.
-        type: integer
-      AwsProviderID:
-        description: The AWS provider in which the EKS cluster is provisioned.
-        type: integer
-      CreationAcknowledged:
-        description: |-
-          Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun so that subsequent reconciliation attempts can
-          act accordingly.
-        type: string
-      CreationConfirmed:
-        description: Used by controllers to confirm deletion of an object.
-        type: string
-      CreationFailed:
-        description: Gets set to true if creation process fails.
-        type: boolean
-      DeletionAcknowledged:
-        description: |-
-          Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun so that subsequent reconciliation attempts can
-          act accordingly.
-        type: string
-      DeletionConfirmed:
-        description: Used by controllers to confirm deletion of an object.
-        type: string
-      DeletionScheduled:
-        description: |-
-          Used to inform reconcilers that an object is being deleted so they may
-          complete delete reconciliation before actually deleting the object from the database.
-        type: string
-      InterruptReconciliation:
-        description: |-
-          InterruptReconciliation is used by the controller to indicated that future
-          reconcilation should be interrupted.  Useful in cases where there is a
-          situation where future reconciliation could be descructive such as
-          spinning up more infrastructure when there is a unresolved problem.
-        type: boolean
-      KubernetesRuntimeInstanceID:
-        description: The kubernetes runtime instance associated with the AWS EKS cluster.
-        type: integer
-      Name:
-        description: An arbitrary name the instance
-        type: string
-      Reconciled:
-        description: Indicates if object is considered to be reconciled by the object's
-          controller.
-        type: boolean
-      Region:
-        description: The AWS region in which the cluster is provisioned.
-        type: string
-      ResourceInventory:
-        description: An inventory of all AWS resources for the EKS cluster.
-        items:
-          type: integer
-        type: array
-      Status:
-        description: |-
-          The status of the instance.
-          TODO: use a custom type
-        type: string
-    required:
-    - AwsEksKubernetesRuntimeDefinitionID
-    - AwsProviderID
-    - KubernetesRuntimeInstanceID
-    - Name
     type: object
   v0.AwsProvider:
     properties:
@@ -222,23 +109,20 @@ definitions:
   v0.ControlPlaneComponent:
     properties:
       AdditionalEnvRef:
+        allOf:
+        - $ref: '#/definitions/datatypes.JSON'
         description: The additional env reference to be added to the environment variables
           of the component.
-        items:
-          type: integer
-        type: array
       AdditionalVolumeMounts:
+        allOf:
+        - $ref: '#/definitions/datatypes.JSON'
         description: The additional volume mounts to be added to the deployment spec
           of the component.
-        items:
-          type: integer
-        type: array
       AdditionalVolumes:
+        allOf:
+        - $ref: '#/definitions/datatypes.JSON'
         description: The additional volumes to be added to the deployment spec of
           the component.
-        items:
-          type: integer
-        type: array
       BinaryName:
         description: The binary name of the component.
         type: string
@@ -612,32 +496,13 @@ definitions:
         description: A human-readable description of the status of this operation.
         type: string
       ObjectID:
+        description: The id of the object this event is about
         type: integer
       ObjectName:
+        description: The name of the object this event is about, resolved on read
         type: string
       ObjectType:
-        description: |-
-          Fields carrying the event's subject - the object the event is
-          about. They flow in both directions:
-            - On create: the caller sets ObjectType (fully qualified type form) + ObjectID
-              in the request body. Event.BeforeCreate validates them;
-              Event.AfterCreate inserts the matching AttachedObjectReference
-              in the same transaction. ObjectName is ignored on write.
-            - On read: GetEventsFilteredByQueryString
-              projects the joined AOR's base object back into these
-              fields, then resolves ObjectName via the type's name resolver.
-
-          gorm:"-" keeps them off the Event row in the schema - the AOR
-          is the source of truth on disk for the subject linkage.
-
-          For an event describing a script failure on a
-          MachineRuntimeInstance named "some-host" (id 42), these hold:
-            ObjectType = "threeport.io/v0.MachineRuntimeInstance"
-            ObjectID   = 42
-            ObjectName = "some-host"   (read only - ignored on create)
-          A consumer like `tptctl get events` uses them to render
-          "threeport.io/machine-runtime-instance/some-host" in the OBJECT
-          column.
+        description: The fully qualified type of the object this event is about
         type: string
       Reason:
         description: A short, machine understandable string that gives the reason
@@ -654,6 +519,8 @@ definitions:
     - Count
     - EventTime
     - LastObservedTime
+    - ObjectID
+    - ObjectType
     - Reason
     - ReportingController
     - Type
@@ -946,10 +813,9 @@ definitions:
         description: The GCP region in which the cluster is provisioned.
         type: string
       ResourceInventory:
+        allOf:
+        - $ref: '#/definitions/datatypes.JSON'
         description: An inventory of all GCP resources for the GKE cluster.
-        items:
-          type: integer
-        type: array
       Status:
         description: |-
           The status of the instance.
@@ -999,9 +865,7 @@ definitions:
           Complete kubernetes resources that will be appended to the provided
           helm chart.
         items:
-          items:
-            type: integer
-          type: array
+          $ref: '#/definitions/datatypes.JSON'
         type: array
       Chart:
         description: The name of the helm chart to use from the helm repo, e.g. wordpress
@@ -1091,9 +955,7 @@ definitions:
           Complete kubernetes resources that will be appended to the provided
           helm chart.
         items:
-          items:
-            type: integer
-          type: array
+          $ref: '#/definitions/datatypes.JSON'
         type: array
       CreationAcknowledged:
         description: |-
@@ -1509,10 +1371,9 @@ definitions:
   v0.KubernetesWorkloadResourceDefinition:
     properties:
       JSONDefinition:
+        allOf:
+        - $ref: '#/definitions/datatypes.JSON'
         description: The individual manifest in JSON format.
-        items:
-          type: integer
-        type: array
       KubernetesWorkloadDefinitionID:
         description: The kubernetes workload definition this resource belongs to.
         type: integer
@@ -1523,14 +1384,13 @@ definitions:
   v0.KubernetesWorkloadResourceInstance:
     properties:
       JSONDefinition:
+        allOf:
+        - $ref: '#/definitions/datatypes.JSON'
         description: |-
           The individual manifest in JSON format.  This field is a superset of
           KubernetesWorkloadResourceDefinition.JSONDefinition in that it has
           namespace management and other configuration — such as resource
           allocation management — added.
-        items:
-          type: integer
-        type: array
       KubernetesWorkloadInstanceID:
         description: The kubernetes workload instance this resource belongs to.
         type: integer
@@ -1545,12 +1405,11 @@ definitions:
           kubernetes workload controller.
         type: boolean
       RuntimeDefinition:
+        allOf:
+        - $ref: '#/definitions/datatypes.JSON'
         description: |-
           The JSON definition of a Kubernetes resource as stored in etcd in the
           kubernetes runtime.
-        items:
-          type: integer
-        type: array
       ScheduledForDeletion:
         description: Whether another controller has scheduled this resource for deletion
         type: string
@@ -1787,12 +1646,11 @@ definitions:
   v0.MachineRuntimeDefinition:
     properties:
       ImageID:
-        description: The provider image identifier used to boot the machine.
+        description: The provider image identifier used to boot the machine
         type: string
       InfraProvider:
-        description: |-
-          The infrastructure provider that provisions machines from this
-          definition. Empty for imported machines that already exist.
+        description: The infrastructure provider that provisions machines from this
+          definition
         type: string
       MachineRuntimeInstances:
         description: |-
@@ -1802,7 +1660,7 @@ definitions:
           $ref: '#/definitions/v0.MachineRuntimeInstance'
         type: array
       MachineType:
-        description: The provider-specific machine/instance type to provision.
+        description: The provider-specific machine type to provision
         type: string
       Name:
         description: An arbitrary name for the definition.
@@ -1881,7 +1739,7 @@ definitions:
         description: An arbitrary name the instance
         type: string
       NetworkID:
-        description: The provider network identifier the machine attaches to.
+        description: The provider network identifier the machine attaches to
         type: string
       Port:
         description: The SSH port on the machine.
@@ -1891,7 +1749,7 @@ definitions:
           controller.
         type: boolean
       Region:
-        description: The provider region in which the machine is provisioned.
+        description: The provider region in which the machine is provisioned
         type: string
       SSHKey:
         description: The SSH private key for authenticating to the machine.
@@ -1909,6 +1767,9 @@ definitions:
         description: |-
           The status of the instance.
           TODO: use a custom type
+        type: string
+      SubnetID:
+        description: The provider subnet identifier the machine attaches to
         type: string
     required:
     - Name
@@ -2732,10 +2593,9 @@ definitions:
           definition will not move a cluster.
         type: string
       ResourceInventory:
+        allOf:
+        - $ref: '#/definitions/datatypes.JSON'
         description: An inventory of all OCI resources for the OKE cluster.
-        items:
-          type: integer
-        type: array
       Status:
         description: |-
           The status of the instance.
@@ -2872,10 +2732,9 @@ definitions:
         description: Gets set to true if creation process fails.
         type: boolean
       Data:
+        allOf:
+        - $ref: '#/definitions/datatypes.JSON'
         description: The secret value to be stored in the provider.
-        items:
-          type: integer
-        type: array
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
@@ -5611,16 +5470,17 @@ paths:
     get:
       consumes:
       - application/json
-      description: Get all events joined with attached object references from the
-        Threeport database.
+      description: Get events from the Threeport database, narrowed by the object_type
+        and object_id columns each event row carries.
       operationId: get-v0-events-filtered
       parameters:
       - description: filter events by object ID
         in: query
         name: objectid
         type: string
-      - description: filter events by object type name (with objectname); CamelCase
-          Go TypeName like 'KubernetesWorkloadInstance'
+      - description: filter events by object type name; CamelCase Go TypeName like
+          'KubernetesWorkloadInstance'. Filters on its own, and narrows objectid,
+          objectname, or objectnameprefix to one kind
         in: query
         name: objecttypename
         type: string
@@ -5632,9 +5492,27 @@ paths:
         in: query
         name: objectnamespace
         type: string
-      - description: filter events by object name (with objecttypename)
+      - description: filter events by exact object name; matches every subject type
+          carrying that name, deleted subjects included, unless objecttypename narrows
+          it
         in: query
         name: objectname
+        type: string
+      - description: filter events by object name prefix; matches every subject whose
+          name starts with this token, deleted subjects included, across every subject
+          type unless objecttypename narrows it
+        in: query
+        name: objectnameprefix
+        type: string
+      - description: filter events by exact Reason match (case-sensitive CamelCase,
+          e.g. 'SuccessfulCreate')
+        in: query
+        name: reason
+        type: string
+      - description: filter events by Reason prefix (case-sensitive CamelCase, matches
+          Reason values starting with this token)
+        in: query
+        name: reasonprefix
         type: string
       produces:
       - application/json
@@ -5651,7 +5529,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/v0.Response'
-      summary: gets all events joined with attached object references.
+      summary: gets all events, filtered by subject.
   /v0/events/{id}:
     delete:
       consumes:
