@@ -3,9 +3,12 @@
 package machineruntime
 
 import (
+	"context"
 	"fmt"
+	"time"
 
 	logr "github.com/go-logr/logr"
+	"golang.org/x/crypto/ssh"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
@@ -16,6 +19,78 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
+// sshRetryDelaySeconds is the requeue delay after an SSH connect or ping failure.
+// A bad credential or unreachable host can be fixed without changing this object.
+var sshRetryDelaySeconds int64 = 30
+
+// unpopulatedRequeueDelaySeconds is the requeue delay when Hostname is still empty.
+// Returning no error leaves Reconciled unset while provisioning fills the field.
+var unpopulatedRequeueDelaySeconds int64 = 15
+
+// sshOperationTimeout bounds GetClient and Ping so a hung handshake cannot hold the reconcile.
+var sshOperationTimeout = 30 * time.Second
+
+// newReconcileContext builds the per-pass timeout. Tests replace it to inject cancellation.
+var newReconcileContext = func() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), sshOperationTimeout)
+}
+
+// getClientResult is the outcome of a GetClient call run in a goroutine.
+// It carries the client, any captured host key, and the connect error.
+type getClientResult struct {
+	client          *ssh.Client
+	capturedHostKey string
+	err             error
+}
+
+// getClientWithContext runs machine.GetClient in the background.
+// ssh.Dial ignores ctx, so a client that connects after ctx ends is closed.
+func getClientWithContext(
+	ctx context.Context,
+	machineRuntimeInstance *v0.MachineRuntimeInstance,
+	encryptionKey string,
+) (*ssh.Client, string, error) {
+	// dial in the background; ssh.Dial does not take a context
+	done := make(chan getClientResult, 1)
+	go func() {
+		sshClient, capturedHostKey, err := machine.GetClient(machineRuntimeInstance, encryptionKey)
+		done <- getClientResult{sshClient, capturedHostKey, err}
+	}()
+
+	select {
+	case res := <-done:
+		// dial finished inside the deadline
+		return res.client, res.capturedHostKey, res.err
+	case <-ctx.Done():
+		// close a client that connects after this return
+		go func() {
+			if res := <-done; res.client != nil {
+				res.client.Close()
+			}
+		}()
+		return nil, "", fmt.Errorf("ssh connect aborted: %w", ctx.Err())
+	}
+}
+
+// pingWithContext runs machine.Ping in the background.
+// Closing the SSH client unblocks a ping that is still running.
+func pingWithContext(ctx context.Context, sshClient *ssh.Client) error {
+	// ping in the background; machine.Ping does not take a context
+	done := make(chan error, 1)
+	go func() {
+		done <- machine.Ping(sshClient)
+	}()
+
+	select {
+	case err := <-done:
+		// ping finished inside the deadline
+		return err
+	case <-ctx.Done():
+		// caller closes the client, which unblocks the ping
+		return fmt.Errorf("ssh ping aborted: %w", ctx.Err())
+	}
+}
+
 // v0MachineRuntimeInstanceCreated performs reconciliation when a v0 MachineRuntimeInstance
 // has been created.  It verifies the machine is reachable via SSH and records
 // an event reflecting the result.
@@ -24,12 +99,21 @@ func v0MachineRuntimeInstanceCreated(
 	machineRuntimeInstance *v0.MachineRuntimeInstance,
 	log *logr.Logger,
 ) (int64, error) {
+	// requeue without error until hostname is populated
+	if machineRuntimeInstance.Hostname == nil || *machineRuntimeInstance.Hostname == "" {
+		return unpopulatedRequeueDelaySeconds, nil
+	}
+
+	// bound ssh connect and ping for this pass
+	ctx, cancel := newReconcileContext()
+	defer cancel()
+
 	// establish an ssh connection to the machine
-	sshClient, capturedHostKey, err := machine.GetClient(machineRuntimeInstance, r.EncryptionKey)
+	sshClient, capturedHostKey, err := getClientWithContext(ctx, machineRuntimeInstance, r.EncryptionKey)
 	if err != nil {
 		// retry: a credential or host may be fixed without changing this object.
 		note := fmt.Sprintf("failed to connect to machine runtime instance via ssh: %s", err)
-		return 30, &tp_errors.ErrWithEvent{
+		return sshRetryDelaySeconds, &tp_errors.ErrWithEvent{
 			Message: note,
 			Event: v0.Event{
 				Type:   util.Ptr(event.TypeWarning),
@@ -40,35 +124,58 @@ func v0MachineRuntimeInstanceCreated(
 	}
 	defer sshClient.Close()
 
-	// save captured host key if this is the first connection; set
-	// Reconciled=true on the update so the resulting update
-	// notification does not trigger another reconciliation pass
-	if capturedHostKey != "" {
-		if _, err := client.UpdateMachineRuntimeInstance(r.APIClient, r.APIServer, &v0.MachineRuntimeInstance{
-			Common:         v0.Common{ID: machineRuntimeInstance.ID},
-			Reconciliation: v0.Reconciliation{Reconciled: util.Ptr(true)},
-			HostKey:        &capturedHostKey,
-		}); err != nil {
-			return controller.RetryOnNetworkErr(err, "failed to save captured host key")
-		}
-		log.Info(
-			"captured ssh host key",
-			"machineRuntimeInstance", *machineRuntimeInstance.Name,
-			"id", *machineRuntimeInstance.ID,
-		)
-	}
-
 	// verify the connection is usable
-	if err := machine.Ping(sshClient); err != nil {
+	if err := pingWithContext(ctx, sshClient); err != nil {
+		// persist a captured host key before the ping failure returns
+		if capturedHostKey != "" {
+			update := &v0.MachineRuntimeInstance{
+				Common:  v0.Common{ID: machineRuntimeInstance.ID},
+				HostKey: &capturedHostKey,
+			}
+			if _, err := client.UpdateMachineRuntimeInstance(r.APIClient, r.APIServer, update); err != nil {
+				return controller.RetryOnNetworkErr(err, "failed to persist captured host key on machine runtime instance")
+			}
+			log.Info(
+				"captured ssh host key",
+				"machineRuntimeInstance", *machineRuntimeInstance.Name,
+				"id", *machineRuntimeInstance.ID,
+			)
+		}
 		// retry: the host may become reachable without changing this object.
 		note := fmt.Sprintf("failed to ping machine runtime instance: %s", err)
-		return 30, &tp_errors.ErrWithEvent{
+		return sshRetryDelaySeconds, &tp_errors.ErrWithEvent{
 			Message: note,
 			Event: v0.Event{
 				Type:   util.Ptr(event.TypeWarning),
 				Reason: util.Ptr("SSHPingFailed"),
 				Note:   util.Ptr(note),
 			},
+		}
+	}
+
+	// persist a captured host key and stamp creation confirmed
+	// the generated reconciler sets Reconciled after this returns and never sets CreationConfirmed
+	if capturedHostKey != "" || machineRuntimeInstance.CreationConfirmed == nil {
+		update := &v0.MachineRuntimeInstance{
+			Common:         v0.Common{ID: machineRuntimeInstance.ID},
+			Reconciliation: v0.Reconciliation{Reconciled: util.Ptr(true)},
+		}
+		if capturedHostKey != "" {
+			update.HostKey = &capturedHostKey
+		}
+		if machineRuntimeInstance.CreationConfirmed == nil {
+			timestamp := time.Now().UTC()
+			update.CreationConfirmed = &timestamp
+		}
+		if _, err := client.UpdateMachineRuntimeInstance(r.APIClient, r.APIServer, update); err != nil {
+			return controller.RetryOnNetworkErr(err, "failed to persist host key and creation confirmed on machine runtime instance")
+		}
+		if capturedHostKey != "" {
+			log.Info(
+				"captured ssh host key",
+				"machineRuntimeInstance", *machineRuntimeInstance.Name,
+				"id", *machineRuntimeInstance.ID,
+			)
 		}
 	}
 
@@ -82,14 +189,14 @@ func v0MachineRuntimeInstanceCreated(
 	return 0, nil
 }
 
-// v0MachineRuntimeInstanceUpdated performs reconciliation when a v0 MachineRuntimeInstance
-// has been updated.
+// v0MachineRuntimeInstanceUpdated rechecks reachability after an update. A
+// success here is what marks the instance reconciled.
 func v0MachineRuntimeInstanceUpdated(
 	r *controller.Reconciler,
 	machineRuntimeInstance *v0.MachineRuntimeInstance,
 	log *logr.Logger,
 ) (int64, error) {
-	return 0, nil
+	return v0MachineRuntimeInstanceCreated(r, machineRuntimeInstance, log)
 }
 
 // v0MachineRuntimeInstanceDeleted performs reconciliation when a v0 MachineRuntimeInstance

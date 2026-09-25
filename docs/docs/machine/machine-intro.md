@@ -8,9 +8,8 @@ defined as shell scripts that run over the existing SSH connection.
 ## Machine Runtime Definition
 
 The definition holds template-level configuration shared across machine
-runtime instances.  Today it is a thin record used to group instances under
-a common name; provisioning is not yet automated, so each instance is
-registered against an already-reachable host.
+runtime instances: the infrastructure provider, the machine type and the
+image.  Those fields cannot change after create.
 
 ## Machine Runtime Instance
 
@@ -20,6 +19,10 @@ and an optional host key.  The SSH key and password are encrypted at rest.
 If the host key is not supplied at create time, the controller captures it
 on the first successful connection and stores it for subsequent identity
 verification.
+
+An instance can also carry the region, the network and the subnet.  Those
+three cannot change after create.  A definition with an infrastructure
+provider requires the instance region at create.
 
 ## Next Steps
 

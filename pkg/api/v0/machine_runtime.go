@@ -6,6 +6,15 @@ type MachineRuntimeDefinition struct {
 	Common     `swaggerignore:"true" mapstructure:",squash"`
 	Definition `mapstructure:",squash"`
 
+	// The infrastructure provider that provisions machines from this definition
+	InfraProvider *string `validate:"optional"`
+
+	// The provider-specific machine type to provision
+	MachineType *string `validate:"optional"`
+
+	// The provider image identifier used to boot the machine
+	ImageID *string `validate:"optional"`
+
 	// The associated machine runtime instances that are deployed from this
 	// definition.
 	MachineRuntimeInstances []*MachineRuntimeInstance `validate:"optional,association"`
@@ -17,11 +26,15 @@ type MachineRuntimeInstance struct {
 	Instance       `mapstructure:",squash"`
 	Reconciliation `mapstructure:",squash"`
 
-	// The hostname or IP address used to reach the machine.
-	Hostname *string `validate:"required" gorm:"not null"`
+	// The hostname or IP address used to reach the machine. Optional at
+	// create so the abstract instance can exist before the machine is
+	// provisioned; populated once the machine is reachable.
+	Hostname *string `validate:"optional"`
 
-	// The SSH username for authenticating to the machine.
-	SSHUser *string `validate:"required" gorm:"not null"`
+	// The SSH username for authenticating to the machine. Optional at create
+	// for the same reason as the hostname; populated once the machine is
+	// provisioned.
+	SSHUser *string `validate:"optional"`
 
 	// The SSH private key for authenticating to the machine.
 	SSHKey *string `validate:"optional" encrypt:"true"`
@@ -35,6 +48,15 @@ type MachineRuntimeInstance struct {
 	// The remote machine's SSH public host key, used to verify identity on
 	// connection. If not provided, captured on first connection.
 	HostKey *string `validate:"optional"`
+
+	// The provider region in which the machine is provisioned
+	Region *string `validate:"optional"`
+
+	// The provider network identifier the machine attaches to
+	NetworkID *string `validate:"optional"`
+
+	// The provider subnet identifier the machine attaches to
+	SubnetID *string `validate:"optional"`
 
 	// The machine runtime definition for this instance.  Optional because
 	// imported machines may not have an associated definition.
