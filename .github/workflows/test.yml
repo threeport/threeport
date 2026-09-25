@@ -55,7 +55,7 @@ jobs:
       run: go install github.com/magefile/mage@v1.17.2
 
     - name: Install swag
-      run: go install github.com/swaggo/swag/cmd/swag@v1.16.6
+      run: go install tool
 
     - name: Install threeport-sdk
       run: mage install:sdk

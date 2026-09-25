@@ -408,6 +408,8 @@ func (Dev) GenerateFixture() error {
 func (Dev) GenerateDocs() error {
 	docsDestination := "pkg/api-server/v0/docs"
 	generateSwaggerDocs := exec.Command(
+		"go",
+		"tool",
 		"swag",
 		"init",
 		"--dir",
