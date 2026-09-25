@@ -122,6 +122,14 @@ Use this for any spec, RBAC, or configmap change. Use
 		cpi.Opts.ControlPlaneName = requestedControlPlane
 		cpi.Opts.Debug = cliArgs.Debug
 
+		// refuse a gke restore that has no region before changing the cluster
+		if tptctlReinstallDropDatabase || tptctlReinstallRestoreBootstrap {
+			if err := cli.RequireRestoredRuntimeLocation(cpi.Opts.InfraProvider, cpi.Opts.GcpRegion); err != nil {
+				cli.Error("cannot reinstall", err)
+				os.Exit(1)
+			}
+		}
+
 		// select the controllers to reinstall
 		selected, selectedNames, autoDetected, err := installer.SelectControllersForReinstall(
 			dynamicKubeClient,

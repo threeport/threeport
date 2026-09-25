@@ -132,6 +132,14 @@ change.`,
 		cpi.Opts.Namespace = installer.ControlPlaneNamespace
 		cpi.Opts.Debug = cliArgs.Debug
 
+		// refuse a gke restore that has no region before changing the cluster
+		if reinstallDropDatabase || reinstallRestoreBootstrap {
+			if err := cli.RequireRestoredRuntimeLocation(cpi.Opts.InfraProvider, cpi.Opts.GcpRegion); err != nil {
+				cli.Error("cannot reinstall", err)
+				os.Exit(1)
+			}
+		}
+
 		// get a kubernetes client and rest mapper
 		kubeClient, mapper, err := client_lib.GetKubeDynamicClientAndMapper(cliArgs.KubeconfigPath)
 		if err != nil {

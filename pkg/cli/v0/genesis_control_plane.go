@@ -39,6 +39,12 @@ var ErrThreeportConfigAlreadyExists = errors.New("threeport config already conta
 // localRuntimeLocation is the location recorded for a kind kubernetes runtime.
 const localRuntimeLocation = "Local"
 
+// RequireRestoredRuntimeLocation fails before a drop when the restore cannot record a location.
+func RequireRestoredRuntimeLocation(providerName, gcpRegion string) error {
+	_, err := restoredRuntimeLocation(providerName, gcpRegion)
+	return err
+}
+
 // restoredRuntimeLocation picks the location written back after a database drop.
 // Kind has none. GKE takes the region from this command so the record is not Local.
 func restoredRuntimeLocation(providerName, gcpRegion string) (string, error) {
