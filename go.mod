@@ -29,7 +29,7 @@ require (
 	github.com/labstack/gommon v0.5.0
 	github.com/lib/pq v1.10.9
 	github.com/logrusorgru/aurora v2.0.3+incompatible
-	github.com/magefile/mage v1.15.0
+	github.com/magefile/mage v1.17.2
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/namsral/flag v1.7.4-pre
 	github.com/nats-io/nats-server/v2 v2.10.29
@@ -318,4 +318,7 @@ require (
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.2-0.20260122202528-d9cc6641c482 // indirect
 )
 
-tool github.com/swaggo/swag/cmd/swag
+tool (
+	github.com/magefile/mage
+	github.com/swaggo/swag/cmd/swag
+)
