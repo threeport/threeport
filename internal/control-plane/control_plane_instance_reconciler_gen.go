@@ -153,7 +153,8 @@ func ControlPlaneInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationCreated:
 				if controlPlaneInstance.ScheduledForDeletion() != nil {
 					log.Info("control plane instance scheduled for deletion - skipping create")
-					break
+					r.ReleaseLock(controlPlaneInstance, lockReleased, msg, true)
+					continue
 				}
 				// record in-progress before the custom handler so a later failure still has a start event
 				progressNote := "creating"
@@ -221,7 +222,8 @@ func ControlPlaneInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationUpdated:
 				if controlPlaneInstance.ScheduledForDeletion() != nil {
 					log.Info("control plane instance scheduled for deletion - skipping update")
-					break
+					r.ReleaseLock(controlPlaneInstance, lockReleased, msg, true)
+					continue
 				}
 				// record in-progress before the custom handler so a later failure still has a start event
 				progressNote := event.UpdateNote()

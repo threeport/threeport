@@ -153,7 +153,8 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationCreated:
 				if kubernetesRuntimeDefinition.ScheduledForDeletion() != nil {
 					log.Info("kubernetes runtime definition scheduled for deletion - skipping create")
-					break
+					r.ReleaseLock(kubernetesRuntimeDefinition, lockReleased, msg, true)
+					continue
 				}
 				// record in-progress before the custom handler so a later failure still has a start event
 				progressNote := "creating"
@@ -221,7 +222,8 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationUpdated:
 				if kubernetesRuntimeDefinition.ScheduledForDeletion() != nil {
 					log.Info("kubernetes runtime definition scheduled for deletion - skipping update")
-					break
+					r.ReleaseLock(kubernetesRuntimeDefinition, lockReleased, msg, true)
+					continue
 				}
 				// record in-progress before the custom handler so a later failure still has a start event
 				progressNote := event.UpdateNote()

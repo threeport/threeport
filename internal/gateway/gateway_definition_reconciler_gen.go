@@ -153,7 +153,8 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationCreated:
 				if gatewayDefinition.ScheduledForDeletion() != nil {
 					log.Info("gateway definition scheduled for deletion - skipping create")
-					break
+					r.ReleaseLock(gatewayDefinition, lockReleased, msg, true)
+					continue
 				}
 				// record in-progress before the custom handler so a later failure still has a start event
 				progressNote := "creating"
@@ -221,7 +222,8 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationUpdated:
 				if gatewayDefinition.ScheduledForDeletion() != nil {
 					log.Info("gateway definition scheduled for deletion - skipping update")
-					break
+					r.ReleaseLock(gatewayDefinition, lockReleased, msg, true)
+					continue
 				}
 				// record in-progress before the custom handler so a later failure still has a start event
 				progressNote := event.UpdateNote()

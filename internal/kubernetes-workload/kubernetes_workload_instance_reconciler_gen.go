@@ -153,7 +153,8 @@ func KubernetesWorkloadInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationCreated:
 				if kubernetesWorkloadInstance.ScheduledForDeletion() != nil {
 					log.Info("kubernetes workload instance scheduled for deletion - skipping create")
-					break
+					r.ReleaseLock(kubernetesWorkloadInstance, lockReleased, msg, true)
+					continue
 				}
 				// record in-progress before the custom handler so a later failure still has a start event
 				progressNote := "creating"
@@ -221,7 +222,8 @@ func KubernetesWorkloadInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationUpdated:
 				if kubernetesWorkloadInstance.ScheduledForDeletion() != nil {
 					log.Info("kubernetes workload instance scheduled for deletion - skipping update")
-					break
+					r.ReleaseLock(kubernetesWorkloadInstance, lockReleased, msg, true)
+					continue
 				}
 				// record in-progress before the custom handler so a later failure still has a start event
 				progressNote := event.UpdateNote()

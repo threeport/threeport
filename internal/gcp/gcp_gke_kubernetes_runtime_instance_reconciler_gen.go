@@ -153,7 +153,8 @@ func GcpGkeKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationCreated:
 				if gcpGkeKubernetesRuntimeInstance.ScheduledForDeletion() != nil {
 					log.Info("gcp gke kubernetes runtime instance scheduled for deletion - skipping create")
-					break
+					r.ReleaseLock(gcpGkeKubernetesRuntimeInstance, lockReleased, msg, true)
+					continue
 				}
 				// record in-progress before the custom handler so a later failure still has a start event
 				progressNote := "creating"
@@ -221,7 +222,8 @@ func GcpGkeKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationUpdated:
 				if gcpGkeKubernetesRuntimeInstance.ScheduledForDeletion() != nil {
 					log.Info("gcp gke kubernetes runtime instance scheduled for deletion - skipping update")
-					break
+					r.ReleaseLock(gcpGkeKubernetesRuntimeInstance, lockReleased, msg, true)
+					continue
 				}
 				// record in-progress before the custom handler so a later failure still has a start event
 				progressNote := event.UpdateNote()

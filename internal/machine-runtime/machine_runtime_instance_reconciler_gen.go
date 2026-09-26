@@ -153,7 +153,8 @@ func MachineRuntimeInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationCreated:
 				if machineRuntimeInstance.ScheduledForDeletion() != nil {
 					log.Info("machine runtime instance scheduled for deletion - skipping create")
-					break
+					r.ReleaseLock(machineRuntimeInstance, lockReleased, msg, true)
+					continue
 				}
 				// record in-progress before the custom handler so a later failure still has a start event
 				progressNote := "creating"
@@ -221,7 +222,8 @@ func MachineRuntimeInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationUpdated:
 				if machineRuntimeInstance.ScheduledForDeletion() != nil {
 					log.Info("machine runtime instance scheduled for deletion - skipping update")
-					break
+					r.ReleaseLock(machineRuntimeInstance, lockReleased, msg, true)
+					continue
 				}
 				// record in-progress before the custom handler so a later failure still has a start event
 				progressNote := event.UpdateNote()
