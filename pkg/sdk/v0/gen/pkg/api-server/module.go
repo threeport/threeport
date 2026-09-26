@@ -604,9 +604,11 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 	// emit the controller create-then-rebind helper
 	f.Comment("upsertModuleController creates the module controller. When the create")
-	f.Comment("hits a name conflict, it looks up the existing row by name alone and, if")
-	f.Comment("that row points at a different module_api_id, updates it to the current")
-	f.Comment("one so the module claims the controller instead of colliding with it.")
+	f.Comment("hits a name conflict, it looks up the existing row by name alone. If that")
+	f.Comment("row belongs to a different module api that is still active, the name")
+	f.Comment("collision is a genuine conflict and an error is returned. Otherwise the")
+	f.Comment("prior owner no longer exists, so the row is orphaned and is reclaimed")
+	f.Comment("for the current module.")
 	f.Func().Id("upsertModuleController").Params(
 		Id("tpApiClient").Op("*").Qual("net/http", "Client"),
 		Id("tpApiAddr").String(),
@@ -662,18 +664,45 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			),
 			Return(Id("existing"), Nil()),
 		),
-		// render the prior module API id as text, none when unset
-		Id("priorModuleApi").Op(":=").Lit("none"),
+		// a name collision with a still-active module api is a genuine
+		// conflict, not an orphaned row to adopt - confirm the prior owner
+		// is actually gone before reclaiming this row
 		If(Id("existing").Dot("ModuleApiID").Op("!=").Nil()).Block(
-			Id("priorModuleApi").Op("=").Qual("fmt", "Sprintf").Call(
-				Lit("%d"),
+			List(Id("_"), Id("getErr")).Op(":=").Qual(
+				"github.com/threeport/threeport/pkg/client/v0",
+				"GetModuleApiByID",
+			).Call(
+				Id("tpApiClient"),
+				Id("tpApiAddr"),
 				Op("*").Id("existing").Dot("ModuleApiID"),
+			),
+			If(Id("getErr").Op("==").Nil()).Block(
+				Qual("log", "Printf").Call(
+					Lit("register-module: controller %q is claimed by active module api %d; registration will stay incomplete until the name collision is resolved and the module restarts"),
+					Op("*").Id("controller").Dot("Name"),
+					Op("*").Id("existing").Dot("ModuleApiID"),
+				),
+				Return(Nil(), Qual("fmt", "Errorf").Call(
+					Lit("controller %q is already owned by a different, active module api %d"),
+					Op("*").Id("controller").Dot("Name"),
+					Op("*").Id("existing").Dot("ModuleApiID"),
+				)),
+			),
+			If(Op("!").Qual("errors", "Is").Call(
+				Id("getErr"),
+				Qual("github.com/threeport/threeport/pkg/client/lib/v0", "ErrObjectNotFound"),
+			)).Block(
+				Return(Nil(), Qual("fmt", "Errorf").Call(
+					Lit("failed to check owning module api %d for controller %q: %w"),
+					Op("*").Id("existing").Dot("ModuleApiID"),
+					Op("*").Id("controller").Dot("Name"),
+					Id("getErr"),
+				)),
 			),
 		),
 		Qual("log", "Printf").Call(
-			Lit("register-module: rebinding controller %q from module api %s to %d"),
+			Lit("register-module: reclaiming orphaned controller %q for module api %d"),
 			Op("*").Id("controller").Dot("Name"),
-			Id("priorModuleApi"),
 			Op("*").Id("moduleApiID"),
 		),
 		Id("existing").Dot("ModuleApiID").Op("=").Id("moduleApiID"),
@@ -691,6 +720,33 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				Lit("failed to rebind controller %q to current module api: %w"),
 				Op("*").Id("controller").Dot("Name"),
 				Id("upErr"),
+			)),
+		),
+		Line(),
+		// the owner check and the rebind above are separate calls, not one
+		// atomic operation - a concurrent claim on the same orphaned row can
+		// land its write between them, so re-read the row to confirm this
+		// module api still owns it before trusting the rebind
+		List(Id("reread"), Id("rereadErr")).Op(":=").Qual(
+			"github.com/threeport/threeport/pkg/client/v0",
+			"GetModuleControllerByName",
+		).Call(
+			Id("tpApiClient"),
+			Id("tpApiAddr"),
+			Op("*").Id("controller").Dot("Name"),
+		),
+		If(Id("rereadErr").Op("!=").Nil()).Block(
+			Return(Nil(), Qual("fmt", "Errorf").Call(
+				Lit("failed to verify controller %q ownership after rebind: %w"),
+				Op("*").Id("controller").Dot("Name"),
+				Id("rereadErr"),
+			)),
+		),
+		If(Id("reread").Dot("ModuleApiID").Op("==").Nil().Op("||").
+			Op("*").Id("reread").Dot("ModuleApiID").Op("!=").Op("*").Id("moduleApiID")).Block(
+			Return(Nil(), Qual("fmt", "Errorf").Call(
+				Lit("controller %q was concurrently claimed by another module api while rebinding"),
+				Op("*").Id("controller").Dot("Name"),
 			)),
 		),
 		Return(Id("updated"), Nil()),
