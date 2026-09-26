@@ -620,7 +620,10 @@ func operationCase(
 		fmt.Sprintf("NotificationOperation%s", upperOpPast),
 	)).BlockFunc(func(i *Group) {
 		// skip create and update when deletion is scheduled
-		// a handler error requeues that notification instead of completing it
+		// continue (not break) so the fall-through "mark reconciled" and
+		// "successfully reconciled" bookkeeping below the switch is also
+		// skipped, and release the lock taken earlier since none of the
+		// code that would otherwise release it will run
 		if op == "create" || op == "update" {
 			h.If(Id(varObjectName).Dot("ScheduledForDeletion").Call().Op("!=").Nil()).Block(
 				Id("log").Dot("Info").Call(
@@ -630,7 +633,8 @@ func operationCase(
 						op,
 					)),
 				),
-				Break(),
+				Id("r").Dot("ReleaseLock").Call(Id(varObjectName), Id("lockReleased"), Id("msg"), Lit(true)),
+				Continue(),
 			)
 		}
 		emitInProgressEvent(h, op, varObjectName)

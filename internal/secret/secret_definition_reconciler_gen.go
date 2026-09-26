@@ -124,7 +124,8 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationCreated:
 				if secretDefinition.ScheduledForDeletion() != nil {
 					log.Info("secret definition scheduled for deletion - skipping create")
-					break
+					r.ReleaseLock(secretDefinition, lockReleased, msg, true)
+					continue
 				}
 				// record in-progress before the custom handler so a later failure still has a start event
 				progressNote := "creating"
@@ -192,7 +193,8 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationUpdated:
 				if secretDefinition.ScheduledForDeletion() != nil {
 					log.Info("secret definition scheduled for deletion - skipping update")
-					break
+					r.ReleaseLock(secretDefinition, lockReleased, msg, true)
+					continue
 				}
 				// record in-progress before the custom handler so a later failure still has a start event
 				progressNote := event.UpdateNote()
