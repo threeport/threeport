@@ -677,6 +677,11 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				Op("*").Id("existing").Dot("ModuleApiID"),
 			),
 			If(Id("getErr").Op("==").Nil()).Block(
+				Qual("log", "Printf").Call(
+					Lit("register-module: controller %q is claimed by active module api %d; registration will stay incomplete until the name collision is resolved and the module restarts"),
+					Op("*").Id("controller").Dot("Name"),
+					Op("*").Id("existing").Dot("ModuleApiID"),
+				),
 				Return(Nil(), Qual("fmt", "Errorf").Call(
 					Lit("controller %q is already owned by a different, active module api %d"),
 					Op("*").Id("controller").Dot("Name"),
