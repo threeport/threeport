@@ -717,6 +717,33 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				Id("upErr"),
 			)),
 		),
+		Line(),
+		// the owner check and the rebind above are separate calls, not one
+		// atomic operation - a concurrent claim on the same orphaned row can
+		// land its write between them, so re-read the row to confirm this
+		// module api still owns it before trusting the rebind
+		List(Id("reread"), Id("rereadErr")).Op(":=").Qual(
+			"github.com/threeport/threeport/pkg/client/v0",
+			"GetModuleControllerByName",
+		).Call(
+			Id("tpApiClient"),
+			Id("tpApiAddr"),
+			Op("*").Id("controller").Dot("Name"),
+		),
+		If(Id("rereadErr").Op("!=").Nil()).Block(
+			Return(Nil(), Qual("fmt", "Errorf").Call(
+				Lit("failed to verify controller %q ownership after rebind: %w"),
+				Op("*").Id("controller").Dot("Name"),
+				Id("rereadErr"),
+			)),
+		),
+		If(Id("reread").Dot("ModuleApiID").Op("==").Nil().Op("||").
+			Op("*").Id("reread").Dot("ModuleApiID").Op("!=").Op("*").Id("moduleApiID")).Block(
+			Return(Nil(), Qual("fmt", "Errorf").Call(
+				Lit("controller %q was concurrently claimed by another module api while rebinding"),
+				Op("*").Id("controller").Dot("Name"),
+			)),
+		),
 		Return(Id("updated"), Nil()),
 	)
 	f.Line()
