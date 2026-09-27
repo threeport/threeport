@@ -6,10 +6,12 @@ package machinetest
 import (
 	"crypto/rand"
 	"crypto/rsa"
+	"encoding/base64"
 	"errors"
 	"io"
 	"net"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -36,6 +38,18 @@ type SSHOpts struct {
 	// HoldSession, when non-zero, holds the session open without replying
 	// past this duration. Used to drive timeout tests.
 	HoldSession time.Duration
+
+	// HoldHandshake, when non-zero, holds each accepted connection open
+	// before sending SSH protocol bytes.
+	HoldHandshake time.Duration
+
+	// OpenConns, when non-nil, counts accepted connections still being served.
+	OpenConns *atomic.Int64
+}
+
+// HostKeyFromSigner returns the signer's public key as base64 of the SSH wire-format blob.
+func HostKeyFromSigner(signer ssh.Signer) string {
+	return base64.StdEncoding.EncodeToString(signer.PublicKey().Marshal())
 }
 
 // StartSSHServer starts an in-process SSH server bound to 127.0.0.1 on a
@@ -73,10 +87,16 @@ func StartSSHServer(
 			if acceptErr != nil {
 				return
 			}
+			if opts.OpenConns != nil {
+				opts.OpenConns.Add(1)
+			}
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
 				serveSSHConn(conn, config, opts, stopped)
+				if opts.OpenConns != nil {
+					opts.OpenConns.Add(-1)
+				}
 			}()
 		}
 	}()
@@ -93,6 +113,14 @@ func StartSSHServer(
 // and process session channels per opts.
 func serveSSHConn(nConn net.Conn, config *ssh.ServerConfig, opts SSHOpts, stopped <-chan struct{}) {
 	defer nConn.Close()
+	// hold before sending protocol bytes
+	if opts.HoldHandshake > 0 {
+		select {
+		case <-time.After(opts.HoldHandshake):
+		case <-stopped:
+			return
+		}
+	}
 	_, chans, reqs, err := ssh.NewServerConn(nConn, config)
 	if err != nil {
 		return

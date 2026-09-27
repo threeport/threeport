@@ -3436,14 +3436,14 @@ const docTemplate = `{
         },
         "/v0/events-filtered": {
             "get": {
-                "description": "Get all events joined with attached object references from the Threeport database.",
+                "description": "Get events from the Threeport database, narrowed by the object_type and object_id columns each event row carries.",
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
-                "summary": "gets all events joined with attached object references.",
+                "summary": "gets all events, filtered by subject.",
                 "operationId": "get-v0-events-filtered",
                 "parameters": [
                     {
@@ -3454,7 +3454,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "filter events by object type name (with objectname); CamelCase Go TypeName like 'KubernetesWorkloadInstance'",
+                        "description": "filter events by object type name; CamelCase Go TypeName like 'KubernetesWorkloadInstance'. Filters on its own, and narrows objectid, objectname, or objectnameprefix to one kind",
                         "name": "objecttypename",
                         "in": "query"
                     },
@@ -3472,8 +3472,26 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "filter events by object name (with objecttypename)",
+                        "description": "filter events by exact object name; matches every subject type carrying that name, deleted subjects included, unless objecttypename narrows it",
                         "name": "objectname",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "filter events by object name prefix; matches every subject whose name starts with this token, deleted subjects included, across every subject type unless objecttypename narrows it",
+                        "name": "objectnameprefix",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "filter events by exact Reason match (case-sensitive CamelCase, e.g. 'SuccessfulCreate')",
+                        "name": "reason",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "filter events by Reason prefix (case-sensitive CamelCase, matches Reason values starting with this token)",
+                        "name": "reasonprefix",
                         "in": "query"
                     }
                 ],
@@ -17364,6 +17382,8 @@ const docTemplate = `{
                 "Count",
                 "EventTime",
                 "LastObservedTime",
+                "ObjectID",
+                "ObjectType",
                 "Reason",
                 "ReportingController",
                 "Type"
@@ -17386,13 +17406,15 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "ObjectID": {
+                    "description": "The id of the object this event is about",
                     "type": "integer"
                 },
                 "ObjectName": {
+                    "description": "The name of the object this event is about, resolved on read",
                     "type": "string"
                 },
                 "ObjectType": {
-                    "description": "Fields carrying the event's subject - the object the event is\nabout. They flow in both directions:\n  - On create: the caller sets ObjectType (fully qualified type form) + ObjectID\n    in the request body. Event.BeforeCreate validates them;\n    Event.AfterCreate inserts the matching AttachedObjectReference\n    in the same transaction. ObjectName is ignored on write.\n  - On read: GetEventsFilteredByQueryString\n    projects the joined AOR's base object back into these\n    fields, then resolves ObjectName via the type's name resolver.\n\ngorm:\"-\" keeps them off the Event row in the schema - the AOR\nis the source of truth on disk for the subject linkage.\n\nFor an event describing a script failure on a\nMachineRuntimeInstance named \"some-host\" (id 42), these hold:\n  ObjectType = \"threeport.io/v0.MachineRuntimeInstance\"\n  ObjectID   = 42\n  ObjectName = \"some-host\"   (read only - ignored on create)\nA consumer like ` + "`" + `tptctl get events` + "`" + ` uses them to render\n\"threeport.io/machine-runtime-instance/some-host\" in the OBJECT\ncolumn.",
+                    "description": "The fully qualified type of the object this event is about",
                     "type": "string"
                 },
                 "Reason": {
@@ -18586,12 +18608,24 @@ const docTemplate = `{
                 "Name"
             ],
             "properties": {
+                "ImageID": {
+                    "description": "The provider image identifier used to boot the machine",
+                    "type": "string"
+                },
+                "InfraProvider": {
+                    "description": "The infrastructure provider that provisions machines from this definition",
+                    "type": "string"
+                },
                 "MachineRuntimeInstances": {
                     "description": "The associated machine runtime instances that are deployed from this\ndefinition.",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/v0.MachineRuntimeInstance"
                     }
+                },
+                "MachineType": {
+                    "description": "The provider-specific machine type to provision",
+                    "type": "string"
                 },
                 "Name": {
                     "description": "An arbitrary name for the definition.",
@@ -18610,9 +18644,7 @@ const docTemplate = `{
         "v0.MachineRuntimeInstance": {
             "type": "object",
             "required": [
-                "Hostname",
-                "Name",
-                "SSHUser"
+                "Name"
             ],
             "properties": {
                 "CreationAcknowledged": {
@@ -18644,7 +18676,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "Hostname": {
-                    "description": "The hostname or IP address used to reach the machine.",
+                    "description": "The hostname or IP address used to reach the machine. Optional at\ncreate so the abstract instance can exist before the machine is\nprovisioned; populated once the machine is reachable.",
                     "type": "string"
                 },
                 "InterruptReconciliation": {
@@ -18666,6 +18698,10 @@ const docTemplate = `{
                     "description": "An arbitrary name the instance",
                     "type": "string"
                 },
+                "NetworkID": {
+                    "description": "The provider network identifier the machine attaches to",
+                    "type": "string"
+                },
                 "Port": {
                     "description": "The SSH port on the machine.",
                     "type": "integer"
@@ -18673,6 +18709,10 @@ const docTemplate = `{
                 "Reconciled": {
                     "description": "Indicates if object is considered to be reconciled by the object's controller.",
                     "type": "boolean"
+                },
+                "Region": {
+                    "description": "The provider region in which the machine is provisioned",
+                    "type": "string"
                 },
                 "SSHKey": {
                     "description": "The SSH private key for authenticating to the machine.",
@@ -18683,11 +18723,15 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "SSHUser": {
-                    "description": "The SSH username for authenticating to the machine.",
+                    "description": "The SSH username for authenticating to the machine. Optional at create\nfor the same reason as the hostname; populated once the machine is\nprovisioned.",
                     "type": "string"
                 },
                 "Status": {
                     "description": "The status of the instance.\nTODO: use a custom type",
+                    "type": "string"
+                },
+                "SubnetID": {
+                    "description": "The provider subnet identifier the machine attaches to",
                     "type": "string"
                 }
             }

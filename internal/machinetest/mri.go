@@ -30,6 +30,45 @@ func encryptOrFail(t *testing.T, key, plaintext string) string {
 	return ct
 }
 
+// MRIInfraOpts carries optional host-key and infra fields for NewMRIWithInfra.
+// Zero-value fields are left unset on the instance.
+type MRIInfraOpts struct {
+	// HostKey, when non-empty, is set so GetClient verifies instead of capturing.
+	// Use HostKeyFromSigner; the value is base64 of the SSH wire-format public key.
+	HostKey string
+
+	Region    string
+	NetworkID string
+
+	// MachineRuntimeDefinitionID, when non-zero, links the instance to a definition.
+	MachineRuntimeDefinitionID uint
+}
+
+// NewMRIWithInfra builds a *v0.MachineRuntimeInstance like MRIFromAddr,
+// then sets any non-zero fields from opts.
+func NewMRIWithInfra(
+	t *testing.T,
+	id uint,
+	name, addr, user, password, key string,
+	opts MRIInfraOpts,
+) *v0.MachineRuntimeInstance {
+	t.Helper()
+	mri := MRIFromAddr(t, id, name, addr, user, password, key)
+	if opts.HostKey != "" {
+		mri.HostKey = util.Ptr(opts.HostKey)
+	}
+	if opts.Region != "" {
+		mri.Region = util.Ptr(opts.Region)
+	}
+	if opts.NetworkID != "" {
+		mri.NetworkID = util.Ptr(opts.NetworkID)
+	}
+	if opts.MachineRuntimeDefinitionID != 0 {
+		mri.MachineRuntimeDefinitionID = util.Ptr(opts.MachineRuntimeDefinitionID)
+	}
+	return mri
+}
+
 // MRIFromAddr builds a *v0.MachineRuntimeInstance pointing at addr (a
 // "host:port" string from StartSSHServer) with the given user + password.
 // The password is encrypted with key. Reconciled defaults to true and
