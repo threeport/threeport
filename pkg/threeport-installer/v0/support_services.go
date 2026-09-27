@@ -36,6 +36,12 @@ const (
 	// the config for github.com/nukleros/aws-builder to create the attached IAM role.
 	ClusterAutoscalerServiceAccountName = "cluster-autoscaler"
 	ClusterAutoscalerNamespace          = "kube-system"
+
+	// the deployments and CRD named here are what the installs in this package
+	// create, and what the checks that guard those installs look up
+	ClusterAutoscalerDeployName       = "cluster-autoscaler"
+	SupportServicesOperatorDeployName = "support-services-operator-controller-manager"
+	ThreeportCertManagerCRDName       = "certmanagers.certificates.support-services.nukleros.io"
 )
 
 // InstallThreeportCRDs installs all CRDs needed by threeport in the target
@@ -53,7 +59,7 @@ func InstallThreeportCRDs(
 					"controller-gen.kubebuilder.io/version": "v0.9.0",
 				},
 				"creationTimestamp": nil,
-				"name":              "certmanagers.certificates.support-services.nukleros.io",
+				"name":              ThreeportCertManagerCRDName,
 			},
 			"spec": map[string]interface{}{
 				"group": "certificates.support-services.nukleros.io",
@@ -2916,7 +2922,7 @@ func InstallThreeportSupportServicesOperator(
 					"app.kubernetes.io/part-of":    "support-services-operator",
 					"control-plane":                "controller-manager",
 				},
-				"name":      "support-services-operator-controller-manager",
+				"name":      SupportServicesOperatorDeployName,
 				"namespace": ControlPlaneNamespace,
 			},
 			"spec": map[string]interface{}{
@@ -3428,7 +3434,7 @@ func InstallEksThreeportSystemServices(
 			"apiVersion": "apps/v1",
 			"kind":       "Deployment",
 			"metadata": map[string]interface{}{
-				"name":      "cluster-autoscaler",
+				"name":      ClusterAutoscalerDeployName,
 				"namespace": ClusterAutoscalerNamespace,
 				"labels": map[string]interface{}{
 					"app": "cluster-autoscaler",
