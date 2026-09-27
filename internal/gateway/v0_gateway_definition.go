@@ -86,6 +86,25 @@ func v0GatewayDefinitionUpdated(
 		return 0, fmt.Errorf("failed to get kubernetes workload definition by kubernetes workload definition ID: %w", err)
 	}
 
+	// This function runs on every update notification, and what it generates is
+	// determined by the gateway definition: given the same definition it
+	// produces the same document. Writing that back when it has not changed
+	// costs two database writes, and hands the workload definition an update it
+	// has no work to do for - harmless only because that object's own update
+	// reconciler is still a stub, which is an accident rather than a guarantee.
+	//
+	// The document is compared as bytes. It is stored as text and comes back as
+	// written, and both sides come from the same generator, so there is no
+	// re-serialisation between them to see through.
+	if workloadDefinition.YAMLDocument != nil && *workloadDefinition.YAMLDocument == yamlDocument {
+		log.V(1).Info(
+			"gateway definition manifests unchanged, leaving the workload definition alone",
+			"gatewayDefinitionID", gatewayDefinition.ID,
+		)
+
+		return 0, nil
+	}
+
 	// update kubernetes workload definition
 	workloadDefinition.YAMLDocument = &yamlDocument
 	_, err = client.UpdateKubernetesWorkloadDefinition(r.APIClient, r.APIServer, workloadDefinition)
