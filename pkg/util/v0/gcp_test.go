@@ -30,6 +30,12 @@ func TestGcpServiceAccountEmail(t *testing.T) {
 		require.Error(t, err)
 	})
 
+	// a provider with nothing stored reaches here as an empty string
+	t.Run("no credentials at all are an error", func(t *testing.T) {
+		_, err := GcpServiceAccountEmail("")
+		require.Error(t, err)
+	})
+
 	// an authorized_user credential authenticates as whoever owns its refresh
 	// token. Taking a client_email that happens to be alongside it would name an
 	// account that makes no request - and in a cluster role binding, hand that
