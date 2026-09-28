@@ -458,7 +458,8 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 			continue
 		}
 
-		// generate controller client certs when auth is configured
+		// if auth is enabled on API, generate client cert and key and store in
+		// secrets
 		if authConfig != nil {
 			certificate, privateKey, err := auth.GenerateCertificate(
 				authConfig.CAConfig,
@@ -742,7 +743,8 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAgent(
 	authConfig *auth.AuthConfig,
 ) error {
 
-	// generate the agent client cert when auth is configured
+	// if auth is enabled on API, generate client cert and key and store in
+	// secrets
 	if authConfig != nil {
 		agentCertificate, agentPrivateKey, err := auth.GenerateCertificate(
 			authConfig.CAConfig,
