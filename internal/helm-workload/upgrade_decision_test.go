@@ -13,6 +13,15 @@ import (
 // the workload for nothing; getting it wrong in the other silently drops a
 // change the chart asked for.
 
+// deployedRelease returns a release helm considers deployed, as one that
+// actually made it onto the cluster is.
+func deployedRelease(manifest string) *release.Release {
+	return &release.Release{
+		Manifest: manifest,
+		Info:     &release.Info{Status: release.StatusDeployed},
+	}
+}
+
 // hook returns a hook as a freshly rendered release carries it.
 func hook(name, manifest string, events ...release.HookEvent) *release.Hook {
 	return &release.Hook{
@@ -26,14 +35,14 @@ func hook(name, manifest string, events ...release.HookEvent) *release.Hook {
 }
 
 func TestReleaseMatchesRender_UnchangedRelease(t *testing.T) {
-	deployed := &release.Release{Manifest: "kind: ConfigMap\n"}
+	deployed := deployedRelease("kind: ConfigMap\n")
 	previewed := &release.Release{Manifest: "kind: ConfigMap\n"}
 
 	assert.True(t, releaseMatchesRender(deployed, previewed))
 }
 
 func TestReleaseMatchesRender_ChangedManifest(t *testing.T) {
-	deployed := &release.Release{Manifest: "kind: ConfigMap\n"}
+	deployed := deployedRelease("kind: ConfigMap\n")
 	previewed := &release.Release{Manifest: "kind: ConfigMap\ndata: {}\n"}
 
 	assert.False(t, releaseMatchesRender(deployed, previewed))
@@ -46,6 +55,7 @@ func TestReleaseMatchesRender_ChangedHookOnly(t *testing.T) {
 	manifest := "kind: ConfigMap\n"
 	deployed := &release.Release{
 		Manifest: manifest,
+		Info:     &release.Info{Status: release.StatusDeployed},
 		Hooks:    []*release.Hook{hook("migrate", "image: app:v1", release.HookPreUpgrade)},
 	}
 	previewed := &release.Release{
@@ -60,9 +70,10 @@ func TestReleaseMatchesRender_AddedAndRemovedHooks(t *testing.T) {
 	manifest := "kind: ConfigMap\n"
 	withHook := &release.Release{
 		Manifest: manifest,
+		Info:     &release.Info{Status: release.StatusDeployed},
 		Hooks:    []*release.Hook{hook("migrate", "image: app:v1", release.HookPreUpgrade)},
 	}
-	withoutHook := &release.Release{Manifest: manifest}
+	withoutHook := deployedRelease(manifest)
 
 	assert.False(t, releaseMatchesRender(withHook, withoutHook))
 	assert.False(t, releaseMatchesRender(withoutHook, withHook))
@@ -72,6 +83,7 @@ func TestReleaseMatchesRender_ChangedHookEvents(t *testing.T) {
 	manifest := "kind: ConfigMap\n"
 	deployed := &release.Release{
 		Manifest: manifest,
+		Info:     &release.Info{Status: release.StatusDeployed},
 		Hooks:    []*release.Hook{hook("migrate", "image: app:v1", release.HookPreUpgrade)},
 	}
 	previewed := &release.Release{
@@ -95,7 +107,11 @@ func TestReleaseMatchesRender_ExecutedHookStillMatches(t *testing.T) {
 		Phase:       release.HookPhaseSucceeded,
 	}
 
-	deployed := &release.Release{Manifest: manifest, Hooks: []*release.Hook{executed}}
+	deployed := &release.Release{
+		Manifest: manifest,
+		Info:     &release.Info{Status: release.StatusDeployed},
+		Hooks:    []*release.Hook{executed},
+	}
 	previewed := &release.Release{
 		Manifest: manifest,
 		Hooks:    []*release.Hook{hook("migrate", "image: app:v1", release.HookPreUpgrade)},
@@ -111,4 +127,48 @@ func TestReleaseMatchesRender_MissingReleaseIsNotAMatch(t *testing.T) {
 
 	assert.False(t, releaseMatchesRender(nil, previewed))
 	assert.False(t, releaseMatchesRender(previewed, nil))
+}
+
+// TestReleaseMatchesRender_OnlyADeployedReleaseCounts covers the status of the
+// release being compared against.
+//
+// helm writes an upgrade to storage before applying it, and marks that same
+// record failed when the apply does not land - leaving it the newest release,
+// carrying a manifest that never reached the cluster. Matching on contents alone
+// would skip the upgrade on the retry that was meant to fix it, and the
+// reconciler would mark the object reconciled: a transient failure turned into a
+// silent success.
+func TestReleaseMatchesRender_OnlyADeployedReleaseCounts(t *testing.T) {
+	manifest := "kind: ConfigMap\n"
+	previewed := deployedRelease(manifest)
+
+	for name, status := range map[string]release.Status{
+		"a failed upgrade":      release.StatusFailed,
+		"an upgrade in flight":  release.StatusPendingUpgrade,
+		"an install in flight":  release.StatusPendingInstall,
+		"a superseded revision": release.StatusSuperseded,
+		"an uninstalled one":    release.StatusUninstalled,
+	} {
+		t.Run(name+" is not a match", func(t *testing.T) {
+			notDeployed := &release.Release{
+				Manifest: manifest,
+				Info:     &release.Info{Status: status},
+			}
+
+			assert.False(
+				t, releaseMatchesRender(notDeployed, previewed),
+				"identical contents, but this release is not on the cluster",
+			)
+		})
+	}
+
+	t.Run("a deployed one is", func(t *testing.T) {
+		assert.True(t, releaseMatchesRender(deployedRelease(manifest), previewed))
+	})
+
+	// a release with no status recorded says nothing about what is on the
+	// cluster, so it is not something to skip an upgrade over
+	t.Run("one with no status is not", func(t *testing.T) {
+		assert.False(t, releaseMatchesRender(&release.Release{Manifest: manifest}, previewed))
+	})
 }

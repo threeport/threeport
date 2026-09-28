@@ -327,7 +327,15 @@ func v0HelmWorkloadInstanceUpdated(
 }
 
 // releaseMatchesRender reports whether a deployed release already holds what a
-// render would apply.
+// render would apply, and actually holds it.
+//
+// Only a release helm considers deployed counts. helm writes an upgrade to
+// storage before applying it and, when the apply fails, marks that same record
+// failed and leaves it as the newest one - carrying the manifest it never got
+// onto the cluster. Comparing contents alone would match it, skip the upgrade,
+// and let the reconciler mark the object reconciled: a transient failure turned
+// into a silent success with the cluster never brought into line. Anything other
+// than deployed falls through to the upgrade, which is what retries it.
 //
 // Hooks are compared alongside the manifest because helm keeps them apart from
 // it: a chart change touching only a pre- or post-upgrade hook leaves the two
@@ -340,6 +348,9 @@ func v0HelmWorkloadInstanceUpdated(
 // a difference on every release that has ever run a hook.
 func releaseMatchesRender(deployed, previewed *release.Release) bool {
 	if deployed == nil || previewed == nil {
+		return false
+	}
+	if deployed.Info == nil || deployed.Info.Status != release.StatusDeployed {
 		return false
 	}
 	if deployed.Manifest != previewed.Manifest {
