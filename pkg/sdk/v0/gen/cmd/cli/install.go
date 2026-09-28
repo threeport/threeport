@@ -50,10 +50,7 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			"Install the %s module to an existing Threeport control plane",
 			sdkConfig.ModuleName,
 		)),
-		Id("PreRun"): Qual(
-			"github.com/threeport/threeport/cmd/tptctl/cmd",
-			"CommandPreRunFunc",
-		),
+		Id("PreRun"): Id("CommandPreRunFunc"),
 		Id("SilenceUsage"): Lit(true),
 		Id("Run"): Func().Params(Id("cmd").Op("*").Qual(
 			"github.com/spf13/cobra",
