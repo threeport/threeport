@@ -19,6 +19,7 @@ import (
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // gkeLifecycle implements provider.InfraLifecycleProvider for GCP GKE
@@ -368,6 +369,10 @@ func (g *gkeLifecycle) PublishDeleteNotification() error {
 // requireSameProject reports whether a service account belongs to the project a
 // runtime is being created in.
 //
+// Where the account came from makes no difference to this: a credential stored
+// on the provider naming another project reaches the same binding path as an
+// ambient identity would, so both go through here.
+//
 // A workload identity binding is addressed as projects/<project>/serviceAccounts
 // /<account>, so an account from elsewhere is not named by that path - and the
 // failure would land after the cluster's network, control plane and node pool
@@ -438,6 +443,10 @@ func buildGkeInfra(
 			return nil, fmt.Errorf("failed to extract service account email: %w", err)
 		}
 
+		if err := requireSameProject(email, infraGKE.ProjectID, util.DerefString(gcpProvider.Name)); err != nil {
+			return nil, err
+		}
+
 		infraGKE.ServiceAccountEmail = email
 	} else {
 		// No stored key: this controller authenticates with the ambient identity
@@ -451,10 +460,7 @@ func buildGkeInfra(
 			)
 		}
 
-		// The binding addresses the account through the cluster's project. An
-		// ambient identity belonging to another project is not reachable at that
-		// path, and the binding would fail once the cluster already exists.
-		if err := requireSameProject(email, infraGKE.ProjectID, *gcpProvider.Name); err != nil {
+		if err := requireSameProject(email, infraGKE.ProjectID, util.DerefString(gcpProvider.Name)); err != nil {
 			return nil, err
 		}
 

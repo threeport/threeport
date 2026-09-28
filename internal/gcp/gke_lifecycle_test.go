@@ -291,3 +291,55 @@ func TestBuildGkeInfra_RefusesAnAmbientAccountFromAnotherProject(t *testing.T) {
 	assert.Contains(t, err.Error(), "control-plane-project")
 	assert.Contains(t, err.Error(), "runtime-project")
 }
+
+// TestBuildGkeInfra_RefusesStoredCredentialsFromAnotherProject covers a provider
+// whose stored credentials name an account in a different project.
+//
+// The binding is addressed through the runtime's project whatever the account's
+// source, so this reaches the same path that never names it - and the same
+// failure after the cluster is already provisioned. Only the ambient route was
+// checked before.
+func TestBuildGkeInfra_RefusesStoredCredentialsFromAnotherProject(t *testing.T) {
+	projectID := "runtime-project"
+	providerName := "some-provider"
+	gcpProviderID := uint(1)
+	credentials := `{"type":"service_account","project_id":"another-project","client_email":"threeport@another-project.iam.gserviceaccount.com"}`
+
+	srv := gkeProviderServer(t, api_v0.GcpProvider{
+		Common:                    api_v0.Common{ID: &gcpProviderID},
+		Name:                      &providerName,
+		ProjectID:                 &projectID,
+		ServiceAccountCredentials: &credentials,
+	})
+	defer srv.Close()
+
+	instanceName := "test-instance"
+	region := "us-east1"
+	machineType := "e2-standard-4"
+	initialSize := 2
+	minSize := 3
+	maxSize := 7
+
+	_, err := buildGkeInfra(
+		&controller.Reconciler{
+			APIClient: &http.Client{},
+			APIServer: strings.TrimPrefix(srv.URL, "http://"),
+		},
+		&api_v0.GcpGkeKubernetesRuntimeInstance{
+			Instance:      api_v0.Instance{Name: &instanceName},
+			Region:        &region,
+			GcpProviderID: &gcpProviderID,
+		},
+		&api_v0.GcpGkeKubernetesRuntimeDefinition{
+			DefaultNodeGroupInstanceType: &machineType,
+			DefaultNodeGroupInitialSize:  &initialSize,
+			DefaultNodeGroupMinimumSize:  &minSize,
+			DefaultNodeGroupMaximumSize:  &maxSize,
+		},
+		nil,
+	)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "another-project")
+	assert.Contains(t, err.Error(), "runtime-project")
+}
