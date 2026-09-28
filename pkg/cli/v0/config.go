@@ -67,6 +67,9 @@ type ControlPlane struct {
 	// Provider configuration for OKE-hosted threeport control planes.
 	OKEProviderConfig OKEProviderConfig
 
+	// Provider configuration for GKE-hosted threeport control planes.
+	GKEProviderConfig GKEProviderConfig
+
 	// Client authentication credentials to threeport API.
 	Credentials []Credential
 
@@ -98,6 +101,13 @@ type OKEProviderConfig struct {
 	OciRegion          string
 	OciConfigProfile   string
 	OciCompartmentOcid string
+}
+
+// GKEProviderConfig is the set of provider config information needed to manage
+// GKE clusters on GCP.
+type GKEProviderConfig struct {
+	GcpProjectId string
+	GcpRegion    string
 }
 
 // Credential is a client certificate and key pair for authenticating to a Threeport instance.

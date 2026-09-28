@@ -121,7 +121,7 @@ with the control plane name and a development-tier installation. Use
 				os.Exit(1)
 			}
 			cpi.Opts.InfraProvider = controlPlaneConfig.Provider
-			if err := cli.RequireRestoredRuntimeLocation(cpi.Opts.InfraProvider, cpi.Opts.GcpRegion); err != nil {
+			if err := cli.RequireRestoredRuntimeLocation(cpi.Opts.InfraProvider, controlPlaneConfig.GKEProviderConfig.GcpRegion); err != nil {
 				cli.Error("cannot reinstall", err)
 				os.Exit(1)
 			}

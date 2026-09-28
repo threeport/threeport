@@ -98,7 +98,14 @@ Dev environments only. Does not build images; run 'tptdev build
 
 		// refuse a gke restore that has no region before changing the cluster
 		if reinstallDropDatabase {
-			if err := cli.RequireRestoredRuntimeLocation(cpi.Opts.InfraProvider, cpi.Opts.GcpRegion); err != nil {
+			// the stored control plane carries the provider; the flag default does not
+			controlPlaneConfig, err := threeportConfig.GetControlPlaneConfig(requestedControlPlane)
+			if err != nil {
+				cli.Error("failed to get threeport control plane config", err)
+				os.Exit(1)
+			}
+			cpi.Opts.InfraProvider = controlPlaneConfig.Provider
+			if err := cli.RequireRestoredRuntimeLocation(cpi.Opts.InfraProvider, controlPlaneConfig.GKEProviderConfig.GcpRegion); err != nil {
 				cli.Error("cannot reinstall", err)
 				os.Exit(1)
 			}

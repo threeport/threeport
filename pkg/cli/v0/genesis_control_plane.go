@@ -46,7 +46,7 @@ func RequireRestoredRuntimeLocation(providerName, gcpRegion string) error {
 }
 
 // restoredRuntimeLocation picks the location written back after a database drop.
-// Kind has none. GKE takes the region from this command so the record is not Local.
+// Kind has none. GKE maps its region into a location so the record is not Local.
 func restoredRuntimeLocation(providerName, gcpRegion string) (string, error) {
 	switch providerName {
 	case v0.KubernetesRuntimeInfraProviderEKS:
@@ -370,6 +370,16 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		}
 		kubernetesRuntimeInfra = &kubernetesRuntimeInfraGKE
 		uninstaller.kubernetesRuntimeInfra = &kubernetesRuntimeInfraGKE
+
+		// update threeport config with gke provider info
+		if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *ControlPlane) {
+			c.GKEProviderConfig = GKEProviderConfig{
+				GcpProjectId: cpi.Opts.GcpProjectId,
+				GcpRegion:    cpi.Opts.GcpRegion,
+			}
+		}); err != nil {
+			return fmt.Errorf("failed to update threeport config: %w", err)
+		}
 
 		if cpi.Opts.ControlPlaneOnly {
 			kubeConnectionInfo, err = kubernetesRuntimeInfraGKE.GetConnection()
@@ -1597,7 +1607,7 @@ func EnsureBootstrapObjects(cpi *threeport.ControlPlaneInstaller) error {
 	}
 
 	// build the kubernetes runtime instance from the stored kube api config
-	kubernetesRuntimeInstance, err := bootstrapKubernetesRuntimeInstance(controlPlaneConfig, cpi.Opts.GcpRegion)
+	kubernetesRuntimeInstance, err := bootstrapKubernetesRuntimeInstance(controlPlaneConfig)
 	if err != nil {
 		return fmt.Errorf("failed to build kubernetes runtime instance from threeport config: %w", err)
 	}
@@ -1636,7 +1646,7 @@ func EnsureBootstrapObjects(cpi *threeport.ControlPlaneInstaller) error {
 
 // bootstrapKubernetesRuntimeInstance builds a kubernetes runtime instance
 // from the stored kube api config.
-func bootstrapKubernetesRuntimeInstance(controlPlaneConfig *ControlPlane, gcpRegion string) (*v0.KubernetesRuntimeInstance, error) {
+func bootstrapKubernetesRuntimeInstance(controlPlaneConfig *ControlPlane) (*v0.KubernetesRuntimeInstance, error) {
 	// decode the kube api credentials; the config stores them base64 encoded
 	caCertificate, err := util.Base64Decode(controlPlaneConfig.KubeAPI.CACertificate)
 	if err != nil {
@@ -1655,8 +1665,8 @@ func bootstrapKubernetesRuntimeInstance(controlPlaneConfig *ControlPlane, gcpReg
 		return nil, fmt.Errorf("failed to decode kubernetes API connection token: %w", err)
 	}
 
-	// kind has no region. gke uses the region from this command.
-	location, err := restoredRuntimeLocation(controlPlaneConfig.Provider, gcpRegion)
+	// kind has no region. gke reads it from the local threeport config.
+	location, err := restoredRuntimeLocation(controlPlaneConfig.Provider, controlPlaneConfig.GKEProviderConfig.GcpRegion)
 	if err != nil {
 		return nil, err
 	}
