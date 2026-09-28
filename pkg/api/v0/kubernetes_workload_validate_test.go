@@ -72,35 +72,45 @@ func TestValidateKustomizeOverlaySize_Create(t *testing.T) {
 	}
 }
 
-// TestValidateKustomizeOverlaySize_Update covers the two GORM call shapes a
-// PATCH/PUT can take (see pkg/api/lib/v0/update_helpers.go): Updates
-// (partial, PATCH) and Save (full replace, PUT). Both must read the inbound
-// KustomizeOverlay via lib.IncomingValues, not the stored row, or an
-// oversized patch would slip through validation.
-func TestValidateKustomizeOverlaySize_Update(t *testing.T) {
-	oversized := strings.Repeat("a", MaxKustomizeOverlayBytes+1)
-	withinLimit := strings.Repeat("a", 10)
+// TestValidateKustomizeOverlayImmutable_Update covers the two GORM call
+// shapes a PATCH/PUT can take (see pkg/api/lib/v0/update_helpers.go):
+// Updates (partial, PATCH) and Save (full replace, PUT). KustomizeOverlay
+// must be rejected as immutable under both shapes whenever it actually
+// changes - the reconciler only renders it once, at instance creation
+// (v0KubernetesWorkloadInstanceCreated), and never re-renders on update, so
+// an accepted change would otherwise persist in the database while never
+// reaching the cluster.
+func TestValidateKustomizeOverlayImmutable_Update(t *testing.T) {
+	original := strings.Repeat("a", 10)
+	different := strings.Repeat("b", 10)
 
-	t.Run("PATCH (Updates) rejects an oversized overlay", func(t *testing.T) {
+	t.Run("PATCH (Updates) rejects changing an existing overlay", func(t *testing.T) {
 		db := setupKubernetesWorkloadInstanceDB(t)
 		instance := newTestKubernetesWorkloadInstance()
-		instance.KustomizeOverlay = &withinLimit
+		instance.KustomizeOverlay = &original
 		require.NoError(t, db.Create(instance).Error)
 
 		err := db.Model(instance).
-			Updates(&KubernetesWorkloadInstance{KustomizeOverlay: &oversized}).Error
+			Updates(&KubernetesWorkloadInstance{KustomizeOverlay: &different}).Error
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "exceeds the")
+		require.Contains(t, err.Error(), "immutable")
 	})
 
-	t.Run("PATCH (Updates) leaving KustomizeOverlay unset is unaffected by an existing oversized value", func(t *testing.T) {
-		// KustomizeOverlay can only reach an oversized stored value via a
-		// bug elsewhere (this validation runs on every write), but the
-		// hook must still key off the inbound patch, not the stored row,
-		// so an update to an unrelated field never trips over a
-		// pre-existing value it isn't touching.
+	t.Run("PATCH (Updates) rejects setting a previously-nil overlay", func(t *testing.T) {
 		db := setupKubernetesWorkloadInstanceDB(t)
 		instance := newTestKubernetesWorkloadInstance()
+		require.NoError(t, db.Create(instance).Error)
+
+		err := db.Model(instance).
+			Updates(&KubernetesWorkloadInstance{KustomizeOverlay: &original}).Error
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "immutable")
+	})
+
+	t.Run("PATCH (Updates) leaving KustomizeOverlay unset does not trip the immutability check", func(t *testing.T) {
+		db := setupKubernetesWorkloadInstanceDB(t)
+		instance := newTestKubernetesWorkloadInstance()
+		instance.KustomizeOverlay = &original
 		require.NoError(t, db.Create(instance).Error)
 
 		newName := "renamed"
@@ -109,24 +119,25 @@ func TestValidateKustomizeOverlaySize_Update(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("PUT (Save) rejects an oversized overlay", func(t *testing.T) {
+	t.Run("PUT (Save) rejects changing an existing overlay", func(t *testing.T) {
 		db := setupKubernetesWorkloadInstanceDB(t)
 		instance := newTestKubernetesWorkloadInstance()
-		instance.KustomizeOverlay = &withinLimit
+		instance.KustomizeOverlay = &original
 		require.NoError(t, db.Create(instance).Error)
 
-		instance.KustomizeOverlay = &oversized
+		instance.KustomizeOverlay = &different
 		err := db.Save(instance).Error
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "exceeds the")
+		require.Contains(t, err.Error(), "immutable")
 	})
 
-	t.Run("PUT (Save) accepts an overlay within the limit", func(t *testing.T) {
+	t.Run("PUT (Save) accepts resending the same overlay value unchanged", func(t *testing.T) {
 		db := setupKubernetesWorkloadInstanceDB(t)
 		instance := newTestKubernetesWorkloadInstance()
+		instance.KustomizeOverlay = &original
 		require.NoError(t, db.Create(instance).Error)
 
-		instance.KustomizeOverlay = &withinLimit
+		instance.Name = util.Ptr("renamed")
 		err := db.Save(instance).Error
 		require.NoError(t, err)
 	})

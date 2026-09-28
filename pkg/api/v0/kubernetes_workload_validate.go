@@ -71,16 +71,27 @@ func (w *KubernetesWorkloadInstance) beforeCreate(tx *gorm.DB) error {
 }
 
 // beforeUpdate runs before the KubernetesWorkloadInstance is updated.
-// KustomizeOverlay is read via lib.IncomingValues rather than off the
-// receiver because under PATCH the receiver is the loaded DB row, not the
-// inbound patch - reading w.KustomizeOverlay directly would validate the
-// old value (or miss a newly-set one) instead of what the caller sent.
+// KustomizeOverlay is immutable once the instance is created: the
+// reconciler only renders it into resource instances at create time
+// (v0KubernetesWorkloadInstanceCreated) and never re-renders on update, so
+// a changed value would otherwise be accepted and persisted while silently
+// never reaching the cluster. Rejecting the change here surfaces that gap
+// as an explicit error instead of a misleading success. Re-rendering on
+// update is tracked as a known follow-on limitation (see the doc comment
+// on v0KubernetesWorkloadInstanceUpdated).
 func (w *KubernetesWorkloadInstance) beforeUpdate(tx *gorm.DB) error {
-	incoming, ok := lib.IncomingValues(tx).(*KubernetesWorkloadInstance)
-	if !ok {
-		return nil
+	changed, err := lib.IsFieldChanged(tx, "KustomizeOverlay")
+	if err != nil {
+		return err
 	}
-	return validateKustomizeOverlaySize(incoming.KustomizeOverlay)
+	if changed {
+		return util.NewBadRequestError(
+			"KustomizeOverlay is immutable once set: changing it does not currently re-render or " +
+				"re-apply the instance's resources, so the change is rejected rather than silently " +
+				"accepted and ignored - delete and recreate the instance to change it",
+		)
+	}
+	return nil
 }
 
 // validateKustomizeOverlaySize enforces MaxKustomizeOverlayBytes with an

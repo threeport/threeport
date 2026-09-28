@@ -2,6 +2,7 @@ package v0
 
 import (
 	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -61,8 +62,11 @@ func TestRenderKustomizeOverlay_EmptyOverlayPassesThrough(t *testing.T) {
 	if len(got) != len(want) {
 		t.Fatalf("expected %d resources, got %d", len(want), len(got))
 	}
-	if got[0]["spec"] == nil || want[0]["spec"] == nil {
-		t.Fatalf("expected both resources to have a spec: got=%v want=%v", got[0], want[0])
+	if !reflect.DeepEqual(got[0], want[0]) {
+		t.Fatalf(
+			"expected an empty overlay to reproduce the base resource unchanged, but it differs:\ngot=%#v\nwant=%#v",
+			got[0], want[0],
+		)
 	}
 }
 
