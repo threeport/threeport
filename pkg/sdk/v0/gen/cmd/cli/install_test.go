@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -64,8 +65,16 @@ func TestGenPluginInstallCmd_PreRunUsesLocalFunc(t *testing.T) {
 				"local CommandPreRunFunc instead, matching every other generated command (see command.go)",
 		)
 	}
-	if !strings.Contains(text, "PreRun:") || !strings.Contains(text, "CommandPreRunFunc") {
-		t.Fatalf("generated install.go does not appear to wire PreRun to CommandPreRunFunc at all - generator output may have changed shape:\n%s", text)
+	// checked as its own exact assignment, not just "both substrings appear
+	// somewhere in the file": PreRun: other.CommandPreRunFunc would satisfy
+	// two independent Contains checks just as well as the correct,
+	// unqualified assignment would, without actually fixing anything. The
+	// whitespace after the colon isn't a single space in the real output -
+	// gofmt aligns Dict keys in this struct literal against the longest one
+	// (SilenceUsage:), so PreRun: renders with extra padding - hence \s+
+	// rather than a literal single space.
+	if !regexp.MustCompile(`PreRun:\s+CommandPreRunFunc,`).MatchString(text) {
+		t.Fatalf("generated install.go does not wire PreRun to the unqualified local CommandPreRunFunc - generator output may have changed shape:\n%s", text)
 	}
 
 	// tptctl_cmd must remain imported and used for GetClientContext in Run -
