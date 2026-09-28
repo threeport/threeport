@@ -13,6 +13,7 @@ import (
 	gkecontainer "github.com/pulumi/pulumi-gcp/sdk/v8/go/gcp/container"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
+	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/cloudresourcemanager/v1"
 	"google.golang.org/api/iam/v1"
@@ -170,10 +171,22 @@ func (i *KubernetesRuntimeInfraGKE) DestroyInfra() error {
 // pulumiProgram defines the Pulumi resources for the GKE stack.
 func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 	return func(ctx *pulumi.Context) error {
-		gcpProvider, err := gcp.NewProvider(ctx, "gcp-provider", &gcp.ProviderArgs{
+		// Pass ServiceAccountCredentials directly to the GCP provider when
+		// available so this provider's calls always use the credentials tied
+		// to this specific GcpProvider object, rather than falling back to
+		// whatever ambient credentials the process happens to have valid
+		// (e.g. a genesis control plane's own Workload Identity, which is
+		// scoped to a different GCP project). When no explicit credentials
+		// are supplied, Pulumi falls back to its own default ADC resolution,
+		// matching prior behavior for that case.
+		providerArgs := &gcp.ProviderArgs{
 			Project: pulumi.String(i.ProjectID),
 			Region:  pulumi.String(i.Region),
-		})
+		}
+		if i.ServiceAccountCredentials != "" {
+			providerArgs.Credentials = pulumi.String(i.ServiceAccountCredentials)
+		}
+		gcpProvider, err := gcp.NewProvider(ctx, "gcp-provider", providerArgs)
 		if err != nil {
 			return fmt.Errorf("failed to create GCP provider: %w", err)
 		}
@@ -350,14 +363,27 @@ func (i *KubernetesRuntimeInfraGKE) Delete() error {
 func (i *KubernetesRuntimeInfraGKE) DeleteGCPResources() error {
 	ctx := context.Background()
 
+	// Use ServiceAccountCredentials directly when available, for the same
+	// reason as the Pulumi GCP provider and the Workload Identity IAM
+	// client: cleanup must act as the service account tied to this
+	// GcpProvider, not whatever ambient credentials the process happens to
+	// have - otherwise, in a cross-project setup, this silently runs (and
+	// fails, only as a logged warning) against the wrong project's identity.
+	iamClientOpts := []option.ClientOption{option.WithScopes(iam.CloudPlatformScope)}
+	crmClientOpts := []option.ClientOption{option.WithScopes(cloudresourcemanager.CloudPlatformScope)}
+	if i.ServiceAccountCredentials != "" {
+		iamClientOpts = append(iamClientOpts, option.WithCredentialsJSON([]byte(i.ServiceAccountCredentials)))
+		crmClientOpts = append(crmClientOpts, option.WithCredentialsJSON([]byte(i.ServiceAccountCredentials)))
+	}
+
 	// Create IAM service client
-	iamService, err := iam.NewService(ctx, option.WithScopes(iam.CloudPlatformScope))
+	iamService, err := iam.NewService(ctx, iamClientOpts...)
 	if err != nil {
 		return fmt.Errorf("failed to create IAM service client: %w", err)
 	}
 
 	// Create Cloud Resource Manager service client for IAM bindings
-	crmService, err := cloudresourcemanager.NewService(ctx, option.WithScopes(cloudresourcemanager.CloudPlatformScope))
+	crmService, err := cloudresourcemanager.NewService(ctx, crmClientOpts...)
 	if err != nil {
 		return fmt.Errorf("failed to create Cloud Resource Manager service client: %w", err)
 	}
@@ -392,9 +418,17 @@ func (i *KubernetesRuntimeInfraGKE) GetConnection() (*kube.KubeConnectionInfo, e
 
 	ctx := context.Background()
 
+	// Use ServiceAccountCredentials directly when available, for the same
+	// reason as the other GCP clients constructed in this file: this call
+	// must act as the service account tied to this GcpProvider, not
+	// whatever ambient credentials the process happens to have.
+	clusterManagerClientOpts := []option.ClientOption{}
+	if i.ServiceAccountCredentials != "" {
+		clusterManagerClientOpts = append(clusterManagerClientOpts, option.WithCredentialsJSON([]byte(i.ServiceAccountCredentials)))
+	}
+
 	// create GKE cluster manager client
-	// This uses Application Default Credentials (ADC)
-	clusterManagerClient, err := container.NewClusterManagerClient(ctx)
+	clusterManagerClient, err := container.NewClusterManagerClient(ctx, clusterManagerClientOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create cluster manager client: %w", err)
 	}
@@ -424,9 +458,23 @@ func (i *KubernetesRuntimeInfraGKE) GetConnection() (*kube.KubeConnectionInfo, e
 	// get an access token for authentication
 	// TODO: Implement token refresh mechanism for long-running operations
 	// The token has a limited lifetime (typically 1 hour)
-	tokenSource, err := google.DefaultTokenSource(ctx, "https://www.googleapis.com/auth/cloud-platform")
-	if err != nil {
-		return nil, fmt.Errorf("failed to get token source: %w", err)
+	const cloudPlatformScope = "https://www.googleapis.com/auth/cloud-platform"
+	var tokenSource oauth2.TokenSource
+	if i.ServiceAccountCredentials != "" {
+		// google.DefaultTokenSource has no credentials parameter, so explicit
+		// credentials are threaded through google.CredentialsFromJSON
+		// instead - same "explicit creds override, ambient is the fallback"
+		// shape used for the other GCP clients in this file.
+		creds, err := google.CredentialsFromJSON(ctx, []byte(i.ServiceAccountCredentials), cloudPlatformScope)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load service account credentials: %w", err)
+		}
+		tokenSource = creds.TokenSource
+	} else {
+		tokenSource, err = google.DefaultTokenSource(ctx, cloudPlatformScope)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get token source: %w", err)
+		}
 	}
 
 	token, err := tokenSource.Token()
@@ -501,8 +549,17 @@ func (i *KubernetesRuntimeInfraGKE) SetStackState(state *datatypes.JSON) error {
 func (i *KubernetesRuntimeInfraGKE) configureWorkloadIdentityBindingPostCreate() error {
 	ctx := context.Background()
 
+	// Use ServiceAccountCredentials directly when available, for the same
+	// reason as the Pulumi GCP provider above: this call must act as the
+	// service account tied to this GcpProvider, not whatever ambient
+	// credentials the process happens to have.
+	clientOpts := []gcpoption.ClientOption{gcpoption.WithScopes(gcpiam.CloudPlatformScope)}
+	if i.ServiceAccountCredentials != "" {
+		clientOpts = append(clientOpts, gcpoption.WithCredentialsJSON([]byte(i.ServiceAccountCredentials)))
+	}
+
 	// Create IAM service client
-	iamService, err := gcpiam.NewService(ctx, gcpoption.WithScopes(gcpiam.CloudPlatformScope))
+	iamService, err := gcpiam.NewService(ctx, clientOpts...)
 	if err != nil {
 		return fmt.Errorf("failed to create IAM service client: %w", err)
 	}
