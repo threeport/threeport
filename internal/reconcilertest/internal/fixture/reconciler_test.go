@@ -59,6 +59,10 @@ type harness struct {
 
 	// The HTTP status the fetching object's GET handler returns
 	apiStatus atomic.Int64
+
+	// patchCount counts PATCH requests against the fetching object, i.e.
+	// the "mark reconciled" update issued after the operation switch
+	patchCount atomic.Int64
 }
 
 // startNatsServer starts an in-process JetStream server on a free loopback port.
@@ -134,6 +138,9 @@ func newHarness(t *testing.T) *harness {
 	h.api.Mux.HandleFunc(
 		fmt.Sprintf("%s/%d", api.PathReconcilerTestInstances, fixtureObjectID),
 		func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodPatch {
+				h.patchCount.Add(1)
+			}
 			status := int(h.apiStatus.Load())
 			if status != http.StatusOK {
 				w.WriteHeader(status)
@@ -237,12 +244,16 @@ func (h *harness) publish(operation notifications.NotificationOperation) {
 	h.objMu.Unlock()
 	require.NoError(h.t, err)
 
+	// snapshot the delivery count so settle can tell this message was
+	// actually pulled off the queue, not just that no lock happens to be held yet
+	before := h.delivered(instanceReconciler)
+
 	// publish it
 	_, err = h.js.Publish(instanceSubject, *payload)
 	require.NoError(h.t, err)
 
 	// wait until the loop is idle
-	h.settle(instanceReconciler)
+	h.settle(instanceReconciler, before)
 }
 
 // publishVolatile sends operation for the persist-false object and waits until that reconciler is idle.
@@ -255,22 +266,39 @@ func (h *harness) publishVolatile(operation notifications.NotificationOperation)
 	h.objMu.Unlock()
 	require.NoError(h.t, err)
 
+	// snapshot the delivery count so settle can tell this message was
+	// actually pulled off the queue, not just that no lock happens to be held yet
+	before := h.delivered(volatileReconciler)
+
 	// publish it
 	_, err = h.js.Publish(volatileSubject, *payload)
 	require.NoError(h.t, err)
 
 	// wait until the loop is idle
-	h.settle(volatileReconciler)
+	h.settle(volatileReconciler, before)
 }
 
-// settle waits until reconcilerName holds no lock on the fixture object.
-// A skipped create or update never records a spy call, so the lock is the
-// completion signal.
-func (h *harness) settle(reconcilerName string) {
+// settle waits until reconcilerName has pulled a message beyond the
+// before count and holds no lock on the fixture object. The lock alone
+// cannot prove the loop is done: it is absent both before the message is
+// delivered and after a skipped create/update releases it (with no I/O in
+// between, so a poll can miss it being held at all). Requiring the
+// delivery count to advance first rules out the "not started yet" case,
+// so "no lock" afterward can only mean this pass finished.
+func (h *harness) settle(reconcilerName string, before uint64) {
 	h.t.Helper()
 
-	// poll until the lock is gone
 	deadline := time.Now().Add(15 * time.Second)
+
+	// wait until this message has actually been pulled off the queue
+	for h.delivered(reconcilerName) <= before {
+		if !time.Now().Before(deadline) {
+			h.t.Fatalf("%s never pulled the published message within 15s", reconcilerName)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	// poll until the lock is gone
 	for time.Now().Before(deadline) {
 		time.Sleep(25 * time.Millisecond)
 		if h.locked(reconcilerName) {
@@ -283,6 +311,17 @@ func (h *harness) settle(reconcilerName string) {
 		}
 	}
 	h.t.Fatalf("%s did not finish within 15s", reconcilerName)
+}
+
+// delivered returns the number of times reconcilerName's consumer has ever
+// had a message delivered to it, a monotonically increasing count that
+// advances on every fetch, including redeliveries.
+func (h *harness) delivered(reconcilerName string) uint64 {
+	h.t.Helper()
+
+	info, err := h.js.ConsumerInfo(fixtureStream, reconcilerName+"Consumer")
+	require.NoError(h.t, err)
+	return info.Delivered.Consumer
 }
 
 // locked reports whether reconcilerName currently holds the fixture object's lock.
@@ -328,6 +367,9 @@ func TestUpdateSkippedWhenDeletionScheduled(t *testing.T) {
 	h.publish(notifications.NotificationOperationUpdated)
 
 	assert.Empty(t, h.spy.Calls(), "update ran on an object already scheduled for deletion")
+	assert.Zero(t, h.patchCount.Load(), "skipped update still marked the object reconciled")
+	assert.NotContains(t, h.instanceRecorder.GetReasons(), event.ReasonUpdateSuccessful,
+		"skipped update still recorded a successful-reconciliation event")
 
 	// delete still must
 	h.publish(notifications.NotificationOperationDeleted)
@@ -345,6 +387,9 @@ func TestCreateSkippedWhenDeletionScheduled(t *testing.T) {
 	h.publish(notifications.NotificationOperationCreated)
 
 	assert.Empty(t, h.spy.Calls(), "create ran on an object already scheduled for deletion")
+	assert.Zero(t, h.patchCount.Load(), "skipped create still marked the object reconciled")
+	assert.NotContains(t, h.instanceRecorder.GetReasons(), event.ReasonCreateSuccessful,
+		"skipped create still recorded a successful-reconciliation event")
 }
 
 // TestDeleteRunsWhenDeletionScheduled covers a delete that still runs when

@@ -153,7 +153,8 @@ func DomainNameInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationCreated:
 				if domainNameInstance.ScheduledForDeletion() != nil {
 					log.Info("domain name instance scheduled for deletion - skipping create")
-					break
+					r.ReleaseLock(domainNameInstance, lockReleased, msg, true)
+					continue
 				}
 				// record in-progress before the custom handler so a later failure still has a start event
 				progressNote := "creating"
@@ -221,7 +222,8 @@ func DomainNameInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationUpdated:
 				if domainNameInstance.ScheduledForDeletion() != nil {
 					log.Info("domain name instance scheduled for deletion - skipping update")
-					break
+					r.ReleaseLock(domainNameInstance, lockReleased, msg, true)
+					continue
 				}
 				// record in-progress before the custom handler so a later failure still has a start event
 				progressNote := event.UpdateNote()

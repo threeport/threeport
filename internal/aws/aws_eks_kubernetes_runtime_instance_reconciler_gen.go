@@ -153,7 +153,8 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationCreated:
 				if awsEksKubernetesRuntimeInstance.ScheduledForDeletion() != nil {
 					log.Info("aws eks kubernetes runtime instance scheduled for deletion - skipping create")
-					break
+					r.ReleaseLock(awsEksKubernetesRuntimeInstance, lockReleased, msg, true)
+					continue
 				}
 				// record in-progress before the custom handler so a later failure still has a start event
 				progressNote := "creating"
@@ -221,7 +222,8 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationUpdated:
 				if awsEksKubernetesRuntimeInstance.ScheduledForDeletion() != nil {
 					log.Info("aws eks kubernetes runtime instance scheduled for deletion - skipping update")
-					break
+					r.ReleaseLock(awsEksKubernetesRuntimeInstance, lockReleased, msg, true)
+					continue
 				}
 				// record in-progress before the custom handler so a later failure still has a start event
 				progressNote := event.UpdateNote()

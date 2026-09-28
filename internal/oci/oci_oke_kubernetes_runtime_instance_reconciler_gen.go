@@ -153,7 +153,8 @@ func OciOkeKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationCreated:
 				if ociOkeKubernetesRuntimeInstance.ScheduledForDeletion() != nil {
 					log.Info("oci oke kubernetes runtime instance scheduled for deletion - skipping create")
-					break
+					r.ReleaseLock(ociOkeKubernetesRuntimeInstance, lockReleased, msg, true)
+					continue
 				}
 				// record in-progress before the custom handler so a later failure still has a start event
 				progressNote := "creating"
@@ -221,7 +222,8 @@ func OciOkeKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationUpdated:
 				if ociOkeKubernetesRuntimeInstance.ScheduledForDeletion() != nil {
 					log.Info("oci oke kubernetes runtime instance scheduled for deletion - skipping update")
-					break
+					r.ReleaseLock(ociOkeKubernetesRuntimeInstance, lockReleased, msg, true)
+					continue
 				}
 				// record in-progress before the custom handler so a later failure still has a start event
 				progressNote := event.UpdateNote()
