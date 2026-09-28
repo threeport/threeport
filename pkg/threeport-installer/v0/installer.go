@@ -149,6 +149,10 @@ type Options struct {
 	// clusters.
 	LocalRegistry bool
 
+	// The tier written on the control plane namespace when that namespace is created
+	// A later install leaves an existing namespace, and its tier label, unchanged
+	Tier ControlPlaneTier
+
 	// PaginationMode sets the REST API server's pagination strategy through
 	// the `-pagination-mode` flag. Accepted values are `as-of-system-time`
 	// and `materialized-view`. A nil or empty value omits the flag, so the
