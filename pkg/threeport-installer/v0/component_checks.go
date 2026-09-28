@@ -115,21 +115,29 @@ func (cpi *ControlPlaneInstaller) ComputeSpaceControlPlaneComponentsCurrent(
 	}
 
 	// the CRDs are installed with these components, and the support services
-	// operator install that follows needs them registered
-	_, present, err = resourceInstalled(
-		kubeClient,
-		mapper,
-		"apiextensions.k8s.io",
-		"v1",
-		"CustomResourceDefinition",
-		"",
-		ThreeportCertManagerCRDName,
-	)
-	if err != nil {
-		return false, fmt.Errorf("failed to check for the threeport CRDs: %w", err)
+	// operator install that follows needs them registered. Every one is checked:
+	// with any of them missing that install has no definition to register
+	// against, and reporting the set current on the strength of one would leave
+	// the gap in place.
+	for _, crdName := range ThreeportCRDNames() {
+		_, present, err = resourceInstalled(
+			kubeClient,
+			mapper,
+			"apiextensions.k8s.io",
+			"v1",
+			"CustomResourceDefinition",
+			"",
+			crdName,
+		)
+		if err != nil {
+			return false, fmt.Errorf("failed to check for the %s CRD: %w", crdName, err)
+		}
+		if !present {
+			return false, nil
+		}
 	}
 
-	return present, nil
+	return true, nil
 }
 
 // SupportServicesOperatorInstalled reports whether the support services
