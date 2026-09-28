@@ -112,7 +112,10 @@ with the control plane name and a development-tier installation. Use
 		cpi.Opts.ControlPlaneName = requestedControlPlane
 		cpi.Opts.Debug = cliArgs.Debug
 
-		// refuse a gke restore that has no region before changing the cluster
+		// sweeping deployments, dropping the database, and reapplying the
+		// install are the same kubernetes api calls on every provider; only
+		// rebuilding a location after a drop is provider-specific, and that
+		// check lives inside RequireRestoredRuntimeLocation.
 		if tptctlReinstallDropDatabase {
 			// the stored control plane carries the provider; the flag default does not
 			controlPlaneConfig, err := config.GetControlPlaneConfig(requestedControlPlane)

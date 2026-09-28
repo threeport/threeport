@@ -96,7 +96,10 @@ Dev environments only. Does not build images; run 'tptdev build
 		cpi.Opts.Namespace = installer.ControlPlaneNamespace
 		cpi.Opts.Debug = cliArgs.Debug
 
-		// refuse a gke restore that has no region before changing the cluster
+		// sweeping deployments, dropping the database, and reapplying the
+		// install are the same kubernetes api calls on every provider; only
+		// rebuilding a location after a drop is provider-specific, and that
+		// check lives inside RequireRestoredRuntimeLocation.
 		if reinstallDropDatabase {
 			// the stored control plane carries the provider; the flag default does not
 			controlPlaneConfig, err := threeportConfig.GetControlPlaneConfig(requestedControlPlane)
