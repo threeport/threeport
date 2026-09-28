@@ -26,9 +26,6 @@ var tptctlReinstallDropDatabase bool
 // The control plane name required before a database drop proceeds
 var tptctlReinstallConfirm string
 
-// A flag that recreates the records the API needs after an emptied database
-var tptctlReinstallRestoreBootstrap bool
-
 // ReinstallCmd deletes installer-managed control plane resources and reapplies the install.
 var ReinstallCmd = &cobra.Command{
 	Use:   "reinstall",
@@ -123,7 +120,7 @@ Use this for any spec, RBAC, or configmap change. Use
 		cpi.Opts.Debug = cliArgs.Debug
 
 		// refuse a gke restore that has no region before changing the cluster
-		if tptctlReinstallDropDatabase || tptctlReinstallRestoreBootstrap {
+		if tptctlReinstallDropDatabase {
 			// the stored control plane carries the provider; the flag default does not
 			controlPlaneConfig, err := config.GetControlPlaneConfig(requestedControlPlane)
 			if err != nil {
@@ -237,7 +234,7 @@ Use this for any spec, RBAC, or configmap change. Use
 		}
 
 		// restore bootstrap objects when the database was emptied
-		if tptctlReinstallDropDatabase || tptctlReinstallRestoreBootstrap {
+		if tptctlReinstallDropDatabase {
 			if err := cli.EnsureBootstrapObjects(cpi); err != nil {
 				restoreScaledModules()
 				cli.Error("failed to restore control plane bootstrap objects", err)
@@ -289,9 +286,5 @@ func init() {
 	ReinstallCmd.Flags().StringVar(
 		&tptctlReinstallConfirm,
 		"confirm", "", "Name of the control plane whose database is being dropped. Must match --name. Required with --drop-database.",
-	)
-	ReinstallCmd.Flags().BoolVar(
-		&tptctlReinstallRestoreBootstrap,
-		"restore-bootstrap", false, "Recreate the kubernetes runtime and control plane records the API needs in order to accept work, for a database emptied outside this command. Implied by --drop-database.",
 	)
 }

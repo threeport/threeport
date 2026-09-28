@@ -28,9 +28,6 @@ var reinstallDropDatabase bool
 // reinstallConfirm holds the name typed back to authorize a database drop.
 var reinstallConfirm string
 
-// reinstallRestoreBootstrap recreates missing runtime and control plane records.
-var reinstallRestoreBootstrap bool
-
 // reinstallCmd reinstalls the stateless side of a dev control plane.
 var reinstallCmd = &cobra.Command{
 	Use:   "reinstall",
@@ -72,13 +69,6 @@ credentials need to be re-issued or re-downloaded afterward. The
 kubernetes runtime and control plane records the API needs in order to
 accept work go out with the schema and are recreated from the local
 threeport config once the API is back up.
-
-Pass --restore-bootstrap to recreate those same records without
-dropping anything. Use it when the database was emptied by something
-other than this command, such as a database dropped by hand so that
-renumbered migrations reapply from scratch. It creates only the records
-that are missing, so running it against a control plane that still has
-them changes nothing.
 
 Intended for dev environments only. The reinstall command does not
 build images; run 'tptdev build --push' first if the image needs to
@@ -133,7 +123,7 @@ change.`,
 		cpi.Opts.Debug = cliArgs.Debug
 
 		// refuse a gke restore that has no region before changing the cluster
-		if reinstallDropDatabase || reinstallRestoreBootstrap {
+		if reinstallDropDatabase {
 			if err := cli.RequireRestoredRuntimeLocation(cpi.Opts.InfraProvider, cpi.Opts.GcpRegion); err != nil {
 				cli.Error("cannot reinstall", err)
 				os.Exit(1)
@@ -260,7 +250,7 @@ change.`,
 		}
 
 		// restore bootstrap records once the api is back up
-		if reinstallDropDatabase || reinstallRestoreBootstrap {
+		if reinstallDropDatabase {
 			if err := cli.EnsureBootstrapObjects(cpi); err != nil {
 				restoreScaledModules()
 				cli.Error("failed to restore control plane bootstrap objects", err)
@@ -323,10 +313,5 @@ func init() {
 	reinstallCmd.Flags().StringVar(
 		&reinstallConfirm,
 		"confirm", "", "Name of the control plane whose database is being dropped. Must match --name. Required with --drop-database.",
-	)
-	// register the restore-bootstrap flag
-	reinstallCmd.Flags().BoolVar(
-		&reinstallRestoreBootstrap,
-		"restore-bootstrap", false, "Recreate the kubernetes runtime and control plane records the API needs in order to accept work, for a database emptied outside this command. Creates only the records that are missing. Implied by --drop-database.",
 	)
 }
