@@ -183,9 +183,9 @@ func recordDeploymentScaling(kubeClient *dynamicfake.FakeDynamicClient, patched 
 	})
 }
 
-// TestDiscoverModuleNamespacesReadsTheRegistry covers unique namespaces the
+// TestDiscoverModuleDeploymentsReadsTheRegistry covers the deployments the
 // registry lists for non-core module controllers.
-func TestDiscoverModuleNamespacesReadsTheRegistry(t *testing.T) {
+func TestDiscoverModuleDeploymentsReadsTheRegistry(t *testing.T) {
 	// seed registered module APIs and controller deployments
 	apiServer := &moduleRegistryApiServer{
 		apis: []v0.ModuleApi{
@@ -205,27 +205,31 @@ func TestDiscoverModuleNamespacesReadsTheRegistry(t *testing.T) {
 	apiClient, apiAddr := apiServer.serve(t)
 	cpi := &ControlPlaneInstaller{Opts: Options{Namespace: "threeport-control-plane"}}
 
-	// discover module namespaces
-	namespaces, err := cpi.DiscoverModuleNamespaces(apiClient, apiAddr)
+	// discover module deployments
+	deployments, err := cpi.DiscoverModuleDeployments(apiClient, apiAddr)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// check unique non-core namespaces in registry order
-	want := []string{"example-namespace", "other-namespace"}
-	if len(namespaces) != len(want) {
-		t.Fatalf("expected namespaces %v, got %v", want, namespaces)
+	// check non-core deployments in registry order
+	want := []string{
+		"example-namespace/threeport-example-controller",
+		"example-namespace/threeport-second-controller",
+		"other-namespace/threeport-other-controller",
 	}
-	for i, namespace := range want {
-		if namespaces[i] != namespace {
-			t.Errorf("expected namespace %s at position %d, got %s", namespace, i, namespaces[i])
+	if len(deployments) != len(want) {
+		t.Fatalf("expected deployments %v, got %v", want, deployments)
+	}
+	for i, deployment := range deployments {
+		if got := deployment.Namespace + "/" + deployment.Name; got != want[i] {
+			t.Errorf("expected deployment %s at position %d, got %s", want[i], i, got)
 		}
 	}
 }
 
-// TestDiscoverModuleNamespacesExcludesTheControlPlane covers discovery
+// TestDiscoverModuleDeploymentsExcludesTheControlPlane covers discovery
 // omitting a non-core controller in the control plane namespace.
-func TestDiscoverModuleNamespacesExcludesTheControlPlane(t *testing.T) {
+func TestDiscoverModuleDeploymentsExcludesTheControlPlane(t *testing.T) {
 	// seed a non-core controller in the control plane namespace
 	apiServer := &moduleRegistryApiServer{
 		apis: []v0.ModuleApi{testModuleApi(2, "example-module", false)},
@@ -236,14 +240,14 @@ func TestDiscoverModuleNamespacesExcludesTheControlPlane(t *testing.T) {
 	apiClient, apiAddr := apiServer.serve(t)
 	cpi := &ControlPlaneInstaller{Opts: Options{Namespace: "threeport-control-plane"}}
 
-	// discover module namespaces
-	namespaces, err := cpi.DiscoverModuleNamespaces(apiClient, apiAddr)
+	// discover module deployments
+	deployments, err := cpi.DiscoverModuleDeployments(apiClient, apiAddr)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	// check that discovery omits the control plane namespace
-	if len(namespaces) != 0 {
-		t.Errorf("expected the control plane's own namespace to be excluded, got %v", namespaces)
+	if len(deployments) != 0 {
+		t.Errorf("expected the control plane's own namespace to be excluded, got %v", deployments)
 	}
 }
 

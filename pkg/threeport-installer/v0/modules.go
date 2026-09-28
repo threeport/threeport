@@ -96,29 +96,6 @@ func (cpi *ControlPlaneInstaller) DiscoverModuleDeployments(
 	return deployments, nil
 }
 
-// DiscoverModuleNamespaces returns the unique namespaces of non-core module
-// controller deployments, omitting the control plane namespace.
-func (cpi *ControlPlaneInstaller) DiscoverModuleNamespaces(
-	apiClient *http.Client,
-	apiEndpoint string,
-) ([]string, error) {
-	// collect namespaces from the registered deployments
-	deployments, err := cpi.DiscoverModuleDeployments(apiClient, apiEndpoint)
-	if err != nil {
-		return nil, err
-	}
-	var namespaces []string
-	seen := map[string]bool{}
-	for _, deployment := range deployments {
-		if seen[deployment.Namespace] {
-			continue
-		}
-		seen[deployment.Namespace] = true
-		namespaces = append(namespaces, deployment.Namespace)
-	}
-	return namespaces, nil
-}
-
 // ScaleDownModules scales each named module controller deployment with a
 // non-zero replica count to zero. An error still returns counts already scaled.
 func (cpi *ControlPlaneInstaller) ScaleDownModules(
