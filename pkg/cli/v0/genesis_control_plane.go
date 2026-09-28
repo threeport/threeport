@@ -50,15 +50,15 @@ func RequireRestoredRuntimeLocation(providerName, gcpRegion string) error {
 func restoredRuntimeLocation(providerName, gcpRegion string) (string, error) {
 	switch providerName {
 	case v0.KubernetesRuntimeInfraProviderEKS:
-		return "", fmt.Errorf(
-			"cannot rebuild kubernetes runtime instance for control plane on provider %s: it authenticates to the kube API with a stored token that the threeport config cannot supply",
-			providerName,
-		)
+		// TODO: mint a fresh connection instead of refusing. EKSProviderConfig
+		// in the local threeport config already carries what DeployEksInfra
+		// and RefreshEKSConnectionWithLocalConfig use to do that.
+		return "", fmt.Errorf("reinstall --drop-database does not yet support provider %s", providerName)
 	case v0.KubernetesRuntimeInfraProviderOKE:
-		return "", fmt.Errorf(
-			"cannot rebuild kubernetes runtime instance for control plane on provider %s: it mints kube API tokens from oci provider rows a database drop removes, and the threeport config cannot rebuild those rows",
-			providerName,
-		)
+		// TODO: mint a fresh connection instead of refusing. OKEProviderConfig
+		// in the local threeport config already carries what DeployOkeInfra's
+		// control-plane-only path uses to do that via GetConnection.
+		return "", fmt.Errorf("reinstall --drop-database does not yet support provider %s", providerName)
 	case v0.KubernetesRuntimeInfraProviderGKE:
 		if gcpRegion == "" {
 			return "", errors.New("gcp region must be set to restore a gke kubernetes runtime")
