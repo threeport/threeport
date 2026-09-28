@@ -423,11 +423,6 @@ func v0KubernetesRuntimeInstanceDeleted(
 	return 0, nil
 }
 
-// controlPlaneGkeProject returns the GCP project ID of the GKE cluster hosting
-// the threeport control plane, or "" if the control plane is not hosted on GKE.
-// It is used to construct the Workload Identity principals of the control-plane
-// controllers when granting them access to managed clusters. The control-plane
-// host is the KubernetesRuntimeInstance marked ThreeportControlPlaneHost.
 // serviceAccountNamespacePath is where Kubernetes mounts a pod's own namespace.
 const serviceAccountNamespacePath = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
 
@@ -458,6 +453,11 @@ var readControlPlaneNamespace = func() (string, error) {
 	return trimmed, nil
 }
 
+// controlPlaneGkeProject returns the GCP project ID of the GKE cluster hosting
+// the threeport control plane, or "" if the control plane is not hosted on GKE.
+// It is used to construct the Workload Identity principals of the control-plane
+// controllers when granting them access to managed clusters. The control-plane
+// host is the KubernetesRuntimeInstance marked ThreeportControlPlaneHost.
 func controlPlaneGkeProject(r *controller.Reconciler) (string, error) {
 	instances, err := client.GetKubernetesRuntimeInstances(r.APIClient, r.APIServer)
 	if err != nil {

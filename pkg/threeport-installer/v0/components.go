@@ -64,21 +64,6 @@ func (cpi *ControlPlaneInstaller) InstallComputeSpaceControlPlaneComponents(
 	return nil
 }
 
-// InstallComputeSpaceWorkloadControllerRBAC grants the control-plane workload
-// controllers cluster-admin on a managed (compute space) GKE cluster.  The
-// helm-workload-controller, kubernetes-workload-controller, and
-// control-plane-controller (deploying a child control plane's own workloads
-// onto the managed cluster) all deploy arbitrary resources to managed
-// clusters and connect to them as their own GKE Workload Identity principals
-// (via per-request ADC tokens), so the managed cluster must authorize those
-// principals directly.  This mirrors the bindings created on the
-// control-plane cluster in InstallThreeportControllers.
-//
-// Only the kind:User Workload Identity subject is bound: on a remote managed
-// cluster the controllers never authenticate with an in-cluster ServiceAccount
-// token, so a kind:ServiceAccount subject would never match.  gcpProjectID is the
-// project of the GKE cluster hosting the control plane (where the controller pods
-// run), which determines the Workload Identity pool in the principal name.
 // computeSpaceWorkloadControllerSubject returns the workload identity principal
 // a control plane controller presents to a managed GKE cluster.
 //
@@ -99,6 +84,22 @@ func computeSpaceWorkloadControllerSubject(
 	)
 }
 
+// InstallComputeSpaceWorkloadControllerRBAC grants the control-plane workload
+// controllers cluster-admin on a managed (compute space) GKE cluster.  The
+// helm-workload-controller, kubernetes-workload-controller, and
+// control-plane-controller (deploying a child control plane's own workloads
+// onto the managed cluster) all deploy arbitrary resources to managed
+// clusters and connect to them as their own GKE Workload Identity principals
+// (via per-request ADC tokens), so the managed cluster must authorize those
+// principals directly.  This mirrors the bindings created on the
+// control-plane cluster in InstallThreeportControllers.
+//
+// Only the kind:User Workload Identity subject is bound: on a remote managed
+// cluster the controllers never authenticate with an in-cluster ServiceAccount
+// token, so a kind:ServiceAccount subject would never match.  gcpProjectID is the
+// project of the GKE cluster hosting the control plane (where the controller pods
+// run), which determines the Workload Identity pool in the principal name.
+//
 // controlPlaneNamespace is the namespace the control plane's own controllers run
 // in, on the host that runs them - not a namespace on this managed cluster. It
 // is part of the workload identity principal GKE presents when those controllers
