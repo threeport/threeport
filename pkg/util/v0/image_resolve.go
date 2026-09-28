@@ -8,30 +8,10 @@ import (
 	"sync"
 )
 
-// IMAGE_REPO and IMAGE_TAG win over derivation. Under GitHub Actions
-// the repository is ghcr.io plus the lowercased owner; ghcr requires
-// lowercase. A tag-triggered run uses the ref name as the tag. Locally
-// the repository is the caller default and the tag is version.sha,
-// naming the commit instead of a mutable base. The canonical tag does
-// not read ARCH, so an exported ARCH cannot redirect a pull.
-
-// ResolveImageRepo returns the image repository. A non-blank IMAGE_REPO
-// wins, so a caller can target any registry. Under GitHub Actions it
-// is ghcr.io plus the lowercased owner; otherwise it is devDefault.
-func ResolveImageRepo(devDefault string) string {
-	// prefer IMAGE_REPO when non-blank
-	if repo := strings.TrimSpace(os.Getenv("IMAGE_REPO")); repo != "" {
-		return repo
-	}
-
-	// derive the ghcr namespace from the Actions owner
-	if os.Getenv("GITHUB_ACTIONS") != "" {
-		return "ghcr.io/" + strings.ToLower(os.Getenv("GITHUB_REPOSITORY_OWNER"))
-	}
-
-	// fall back to the supplied default
-	return devDefault
-}
+// IMAGE_TAG wins over derivation. A tag-triggered GitHub Actions run
+// uses the ref name as the tag. Locally the tag is version.sha, naming
+// the commit instead of a mutable base. The tag does not read ARCH, so
+// an exported ARCH cannot redirect a pull.
 
 // ResolveImageTag returns the image tag and does not append ARCH.
 // A non-blank IMAGE_TAG wins, a GitHub Actions tag build returns the ref name, and otherwise the tag is versionDefault.sha.
@@ -68,37 +48,6 @@ func ResolveImageTag(repoDir, versionDefault string) (string, error) {
 		return "", err
 	}
 	return joinImageTag(versionDefault, sha), nil
-}
-
-// buildImageTag returns the tag used to push an image. A single-arch
-// ARCH value appends -<arch> so each arch is a distinct tag. A
-// comma-list names a multi-arch push under the canonical tag, and an
-// empty ARCH is left bare too.
-func buildImageTag(repoDir, versionDefault string) (string, error) {
-	// start from the canonical tag
-	tag, err := ResolveImageTag(repoDir, versionDefault)
-	if err != nil {
-		return "", err
-	}
-
-	// append -<arch> when ARCH names one architecture
-	if arch := strings.TrimSpace(os.Getenv("ARCH")); arch != "" && !strings.Contains(arch, ",") {
-		return tag + "-" + arch, nil
-	}
-	return tag, nil
-}
-
-// ResolveImageCoordinates returns the image repository and the tag
-// used to push, including a single-arch suffix when ARCH names one.
-func ResolveImageCoordinates(repoDir, devRepo, versionDefault string) (repo, tag string, err error) {
-	// resolve the push tag
-	tag, err = buildImageTag(repoDir, versionDefault)
-	if err != nil {
-		return "", "", err
-	}
-
-	// resolve the repository against the supplied default
-	return ResolveImageRepo(devRepo), tag, nil
 }
 
 // joinImageTag joins a version and a short sha into version.sha.

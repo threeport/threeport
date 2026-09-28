@@ -7,47 +7,6 @@ import (
 	"testing"
 )
 
-// TestResolveImageRepoPrefersExplicitOverride covers a set IMAGE_REPO winning
-// over the GitHub Actions derivation.
-func TestResolveImageRepoPrefersExplicitOverride(t *testing.T) {
-	// set IMAGE_REPO while Actions is on
-	t.Setenv("IMAGE_REPO", "localhost:5001")
-	t.Setenv("GITHUB_ACTIONS", "true")
-	t.Setenv("GITHUB_REPOSITORY_OWNER", "AcmeCorp")
-
-	// assert the explicit repo is returned
-	if got := ResolveImageRepo("localhost:5001"); got != "localhost:5001" {
-		t.Errorf("ResolveImageRepo = %q, want the IMAGE_REPO override", got)
-	}
-}
-
-// TestResolveImageRepoDerivesGhcrInCI covers the ghcr.io namespace built from
-// the lowercased Actions owner when IMAGE_REPO is blank.
-func TestResolveImageRepoDerivesGhcrInCI(t *testing.T) {
-	// clear IMAGE_REPO and set the Actions owner
-	t.Setenv("IMAGE_REPO", "")
-	t.Setenv("GITHUB_ACTIONS", "true")
-	t.Setenv("GITHUB_REPOSITORY_OWNER", "AcmeCorp")
-
-	// assert the lowercased ghcr namespace
-	if got := ResolveImageRepo("localhost:5001"); got != "ghcr.io/acmecorp" {
-		t.Errorf("ResolveImageRepo = %q, want ghcr.io/acmecorp", got)
-	}
-}
-
-// TestResolveImageRepoFallsBackToDevDefault covers the caller default when
-// IMAGE_REPO is blank and the process is not under Actions.
-func TestResolveImageRepoFallsBackToDevDefault(t *testing.T) {
-	// clear IMAGE_REPO and Actions
-	t.Setenv("IMAGE_REPO", "")
-	t.Setenv("GITHUB_ACTIONS", "")
-
-	// assert the supplied default
-	if got := ResolveImageRepo("localhost:5001"); got != "localhost:5001" {
-		t.Errorf("ResolveImageRepo = %q, want localhost:5001", got)
-	}
-}
-
 // TestResolveImageTagPrefersExplicitOverride covers a set IMAGE_TAG winning
 // over Actions and ARCH.
 func TestResolveImageTagPrefersExplicitOverride(t *testing.T) {
@@ -194,75 +153,6 @@ func TestResolveImageTagIgnoresArch(t *testing.T) {
 	// assert the tag has no arch suffix
 	if got != "v9.9.9" {
 		t.Errorf("ResolveImageTag = %q, want the undecorated v9.9.9", got)
-	}
-}
-
-// TestBuildImageTagDecoratesSingleArch covers a one-value ARCH appending
-// -<arch> to the canonical tag.
-func TestBuildImageTagDecoratesSingleArch(t *testing.T) {
-	// set IMAGE_TAG and a single ARCH
-	t.Setenv("IMAGE_TAG", "v9.9.9")
-	t.Setenv("GITHUB_ACTIONS", "true")
-	t.Setenv("ARCH", "arm64")
-
-	// build the push tag
-	got, err := buildImageTag("", "v0.1.0-dev")
-
-	// assert a nil error
-	if err != nil {
-		t.Fatalf("buildImageTag returned error: %v", err)
-	}
-
-	// assert the arch suffix
-	if got != "v9.9.9-arm64" {
-		t.Errorf("buildImageTag = %q, want v9.9.9-arm64", got)
-	}
-}
-
-// TestBuildImageTagSingleArchDecoratesFallbackVersion covers a single ARCH
-// appended to the bare version when no checkout supplies a sha.
-func TestBuildImageTagSingleArchDecoratesFallbackVersion(t *testing.T) {
-	// set a single ARCH outside Actions
-	t.Setenv("IMAGE_TAG", "")
-	t.Setenv("GITHUB_ACTIONS", "")
-	t.Setenv("ARCH", "amd64")
-
-	// leave any checkout
-	isolateFromGit(t)
-
-	// build the push tag
-	got, err := buildImageTag("", "v0.1.0-dev")
-
-	// assert a nil error
-	if err != nil {
-		t.Fatalf("buildImageTag returned error: %v", err)
-	}
-
-	// assert version plus arch and no sha
-	if got != "v0.1.0-dev-amd64" {
-		t.Errorf("buildImageTag = %q, want v0.1.0-dev-amd64", got)
-	}
-}
-
-// TestBuildImageTagCommaListArchIsBare covers a comma-separated ARCH, the
-// multi-arch value, leaving the canonical tag undecorated.
-func TestBuildImageTagCommaListArchIsBare(t *testing.T) {
-	// set a comma-separated multi-arch ARCH
-	t.Setenv("IMAGE_TAG", "v9.9.9")
-	t.Setenv("GITHUB_ACTIONS", "true")
-	t.Setenv("ARCH", "amd64,arm64")
-
-	// build the push tag
-	got, err := buildImageTag("", "v0.1.0-dev")
-
-	// assert a nil error
-	if err != nil {
-		t.Fatalf("buildImageTag returned error: %v", err)
-	}
-
-	// assert the bare canonical tag
-	if got != "v9.9.9" {
-		t.Errorf("buildImageTag = %q, want v9.9.9", got)
 	}
 }
 
