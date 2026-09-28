@@ -122,7 +122,11 @@ func (cpi *ControlPlaneInstaller) DropDatabase(
 }
 
 // DropMessageBrokerState removes every message broker stream on a development
-// installation. Key-value buckets are streams, so the pass also clears reconciliation locks.
+// installation. Key-value buckets are streams, so the pass also clears
+// reconciliation locks. A stream carries notifications and locks keyed by row
+// identifier and a durable consumer's own delivery configuration, so it goes
+// out with the schema rather than surviving to point at rows the drop
+// already removed.
 func (cpi *ControlPlaneInstaller) DropMessageBrokerState(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,

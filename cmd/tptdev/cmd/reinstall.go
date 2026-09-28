@@ -32,47 +32,21 @@ var reinstallConfirm string
 var reinstallCmd = &cobra.Command{
 	Use:   "reinstall",
 	Short: "Sweep and reapply stateless control plane resources",
-	Long: `Reinstall the stateless side of a dev threeport control plane.
+	Long: `Reinstall the stateless side of a dev Threeport control plane.
 
-Sweeps every installer-managed Deployment in the control plane
-namespace, then reapplies the install path so the pods come back with
-the current images and specs from source.
+Sweeps every installer-managed Deployment, then reapplies the install
+with current images and specs from source. Preserves cockroachdb
+data, nats data, the certificate authority, and the rest-api's
+external service ip; recreates everything else.
 
-Preserved across reinstall: cockroachdb data, nats data, the
-certificate authority and signed certs, and the rest-api's external
-service ip. Everything else (controller and api-server pods, their
-configmaps, rbac) is recreated.
+Pass --drop-database to also reset that state: the control plane
+scales down, its schema and nats streams drop, the install reapplies,
+and migrations run from scratch. Requires --confirm with the control
+plane name and a development-tier installation, which a cloud-hosted
+control plane gets from 'tptctl up --tier development'.
 
-Pass --drop-database to reset the stored state as well, taking the whole
-control plane from running to running with an empty schema in one
-command: the control plane is scaled down, its schema is dropped by a
-statement issued against the running database, every nats stream is
-removed, the install reapplies, and the migrations run from scratch.
-
-The nats streams go with the schema rather than as a separate choice.
-They carry notifications naming rows by identifier, and the key-value
-buckets carry reconciliation locks keyed the same way, so keeping them
-across a drop leaves both pointing at rows that no longer exist. A
-durable consumer also keeps whatever configuration created it, so a
-delivery limit set by an older release would otherwise outlive every
-later install with nothing reporting the divergence.
-
-That data is not recoverable, so
-the flag also requires --confirm with the control plane name, and the
-target cluster must record itself as a development installation, which
-a cloud-hosted control plane does by being installed with 'tptctl up
---tier development'.
-
-The database's data volume, its certificates and the certificate
-authority all survive a drop, so no volume is reprovisioned and no
-credentials need to be re-issued or re-downloaded afterward. The
-kubernetes runtime and control plane records the API needs in order to
-accept work go out with the schema and are recreated from the local
-threeport config once the API is back up.
-
-Intended for dev environments only. The reinstall command does not
-build images; run 'tptdev build --push' first if the image needs to
-change.`,
+Dev environments only. Does not build images; run 'tptdev build
+--push' first if the image needs to change.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// apply control plane environment variables
 		cliArgs.GetControlPlaneEnvVars()

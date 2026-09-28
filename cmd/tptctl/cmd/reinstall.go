@@ -32,21 +32,14 @@ var ReinstallCmd = &cobra.Command{
 	Short: "Sweep and reapply stateless control plane resources",
 	Long: `Reinstall the stateless side of a Threeport control plane.
 
-Sweeps every installer-managed Deployment in the control plane
-namespace, then reapplies the install path so the pods come back with
-the current images and specs.
+Sweeps every installer-managed Deployment, then reapplies the install
+with current images and specs. Preserves cockroachdb data, nats data,
+the certificate authority, and the rest-api's external service ip;
+recreates everything else.
 
-Preserved across reinstall: cockroachdb data, nats data, the
-certificate authority and signed certs, and the rest-api's external
-service ip. Everything else (controller and api-server pods, their
-configmaps, rbac) is recreated.
-
-Pass --drop-database to reset the stored state as well. That flag
-requires --confirm with the control plane name, and the target cluster
-must record itself as a development installation.
-
-Use this for any spec, RBAC, or configmap change. Use
-'tptctl upgrade control-plane' to change Deployment image tags only.`,
+Pass --drop-database to also reset that state. Requires --confirm
+with the control plane name and a development-tier installation. Use
+'tptctl upgrade control-plane' instead to change image tags only.`,
 	SilenceUsage: true,
 	PreRun:       CommandPreRunFunc,
 	Run: func(cmd *cobra.Command, args []string) {
