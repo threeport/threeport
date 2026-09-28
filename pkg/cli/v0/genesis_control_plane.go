@@ -60,18 +60,17 @@ func restoredRuntimeLocation(providerName, gcpRegion string) (string, error) {
 			providerName,
 		)
 	case v0.KubernetesRuntimeInfraProviderGKE:
-		// gke is handled below
+		if gcpRegion == "" {
+			return "", errors.New("gcp region must be set to restore a gke kubernetes runtime")
+		}
+		location, err := mapping.GetLocationForGcpRegion(gcpRegion)
+		if err != nil {
+			return "", fmt.Errorf("failed to map gcp region to a location: %w", err)
+		}
+		return location, nil
 	default:
 		return localRuntimeLocation, nil
 	}
-	if gcpRegion == "" {
-		return "", errors.New("gcp region must be set to restore a gke kubernetes runtime")
-	}
-	location, err := mapping.GetLocationForGcpRegion(gcpRegion)
-	if err != nil {
-		return "", fmt.Errorf("failed to map gcp region to a location: %w", err)
-	}
-	return location, nil
 }
 
 // GenesisControlPlaneCLIArgs is the set of control plane arguments passed to one of
