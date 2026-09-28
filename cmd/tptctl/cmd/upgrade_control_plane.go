@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/spf13/cobra"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
@@ -251,7 +250,7 @@ func updateImageTagInDeployment(deployment *unstructured.Unstructured, imageTag 
 
 		// retag the database migrator and write init containers back
 		currentImage := db_migrator["image"].(string)
-		db_migrator["image"] = fmt.Sprintf("%s:%s", util.ImageWithoutTag(currentImage), updateImageTag)
+		db_migrator["image"] = fmt.Sprintf("%s:%s", util.ImageWithoutTag(currentImage), imageTag)
 		initContainersList[1] = db_migrator
 		templateSpec["initContainers"] = initContainersList
 	}
@@ -273,7 +272,7 @@ func updateImageTagInDeployment(deployment *unstructured.Unstructured, imageTag 
 
 	// retag the selected container
 	currentImage := container["image"].(string)
-	container["image"] = fmt.Sprintf("%s:%s", util.ImageWithoutTag(currentImage), updateImageTag)
+	container["image"] = fmt.Sprintf("%s:%s", util.ImageWithoutTag(currentImage), imageTag)
 	containerSpec[containerIndex] = container
 	templateSpec["containers"] = containerSpec
 	template["spec"] = templateSpec
@@ -282,20 +281,6 @@ func updateImageTagInDeployment(deployment *unstructured.Unstructured, imageTag 
 	deployment.SetUnstructuredContent(deploymentContent)
 
 	return nil
-}
-
-// retagImage keeps the text before the first colon and appends the tag.
-// A value that is not a string is returned as the tag alone.
-func retagImage(current interface{}, tag string) string {
-	// return the tag when the current value is not a string
-	image, ok := current.(string)
-	if !ok {
-		return tag
-	}
-
-	// keep the text before the first colon
-	parts := strings.Split(image, ":")
-	return fmt.Sprintf("%s:%s", parts[0], tag)
 }
 
 func init() {
