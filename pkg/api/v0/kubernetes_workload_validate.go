@@ -2,7 +2,23 @@
 
 package v0
 
-import gorm "gorm.io/gorm"
+import (
+	"fmt"
+
+	gorm "gorm.io/gorm"
+
+	lib "github.com/threeport/threeport/pkg/api/lib/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
+)
+
+// MaxKustomizeOverlayBytes is the maximum size, in bytes, permitted for
+// KubernetesWorkloadInstance.KustomizeOverlay. The field is meant to carry a
+// small patch on top of the workload definition's base manifests - a
+// handful of env vars, replica counts, resource limits, or an image tag -
+// not a second copy of the manifest set, so this is sized an order of
+// magnitude above a deliberately padded worst-case legitimate overlay
+// rather than against what the database column can hold (see threeport#556).
+const MaxKustomizeOverlayBytes = 64 * 1024
 
 // beforeCreate runs before the KubernetesWorkloadDefinition is created.
 func (w *KubernetesWorkloadDefinition) beforeCreate(tx *gorm.DB) error {
@@ -46,25 +62,40 @@ func (w *KubernetesWorkloadDefinition) afterDelete(tx *gorm.DB) error {
 	return nil
 }
 
-// beforeCreate runs before the KubernetesWorkloadInstance is created.
+// beforeCreate runs before the KubernetesWorkloadInstance is created. The
+// receiver already holds every field on create (see the call-shape table in
+// pkg/api/lib/v0/update_helpers.go), so KustomizeOverlay can be read
+// directly off w.
 func (w *KubernetesWorkloadInstance) beforeCreate(tx *gorm.DB) error {
-	return nil
+	return validateKustomizeOverlaySize(w.KustomizeOverlay)
 }
 
 // beforeUpdate runs before the KubernetesWorkloadInstance is updated.
-//
-// Receiver semantics depend on the GORM call shape; see
-// pkg/api/lib/v0/update_helpers.go for the full model. The simplest
-// per-field check is:
-//   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
-//     and PUT, handles the DB load internally
-// Lower-level helpers, useful when IsFieldChanged doesn't fit:
-//   - lib.IncomingValues(tx): values being written
-//   - lib.IsFullReplace(tx): true on PUT (Save shape)
-//   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
-// Import:
-//   lib "github.com/threeport/threeport/pkg/api/lib/v0"
+// KustomizeOverlay is read via lib.IncomingValues rather than off the
+// receiver because under PATCH the receiver is the loaded DB row, not the
+// inbound patch - reading w.KustomizeOverlay directly would validate the
+// old value (or miss a newly-set one) instead of what the caller sent.
 func (w *KubernetesWorkloadInstance) beforeUpdate(tx *gorm.DB) error {
+	incoming, ok := lib.IncomingValues(tx).(*KubernetesWorkloadInstance)
+	if !ok {
+		return nil
+	}
+	return validateKustomizeOverlaySize(incoming.KustomizeOverlay)
+}
+
+// validateKustomizeOverlaySize enforces MaxKustomizeOverlayBytes with an
+// exact byte count. go-playground/validator's "max" tag counts runes, not
+// bytes, so this is a hand-written check rather than a validate struct tag.
+func validateKustomizeOverlaySize(overlay *string) error {
+	if overlay == nil {
+		return nil
+	}
+	if size := len(*overlay); size > MaxKustomizeOverlayBytes {
+		return util.NewBadRequestError(fmt.Sprintf(
+			"KustomizeOverlay is %d bytes, which exceeds the %d byte limit",
+			size, MaxKustomizeOverlayBytes,
+		))
+	}
 	return nil
 }
 

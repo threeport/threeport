@@ -55,6 +55,14 @@ type KubernetesWorkloadInstance struct {
 
 	// The latest status of a kubernetes workload instance.
 	Status *string `validate:"optional"`
+
+	// KustomizeOverlay is the body of a kustomization.yaml applied on top of
+	// the workload definition's base manifests for this instance alone -
+	// patches, configMapGenerator, secretGenerator, images, replicas, etc.
+	// The `resources:` key is injected automatically from the definition's
+	// YAMLDocument and must not be set here. Capped at
+	// MaxKustomizeOverlayBytes.
+	KustomizeOverlay *string `validate:"optional"`
 }
 
 // KubernetesWorkloadResourceInstance is a Kubernetes resource instance.
