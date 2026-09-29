@@ -1661,10 +1661,16 @@ func bootstrapKubernetesRuntimeInstance(controlPlaneConfig *ControlPlane) (*v0.K
 		return nil, fmt.Errorf("failed to decode kubernetes API connection token: %w", err)
 	}
 
-	// kind has no region. gke reads it from the local threeport config.
-	location, err := restoredRuntimeLocation(controlPlaneConfig.Provider, controlPlaneConfig.GKEProviderConfig.GcpRegion)
-	if err != nil {
-		return nil, err
+	// kind has no region. a gke config with no region stays Local; drop-database
+	// reinstall still refuses that config before bootstrap.
+	region := controlPlaneConfig.GKEProviderConfig.GcpRegion
+	location := localRuntimeLocation
+	if controlPlaneConfig.Provider != v0.KubernetesRuntimeInfraProviderGKE || region != "" {
+		var locErr error
+		location, locErr = restoredRuntimeLocation(controlPlaneConfig.Provider, region)
+		if locErr != nil {
+			return nil, locErr
+		}
 	}
 	name := provider.ThreeportRuntimeName(controlPlaneConfig.Name)
 	instReconciled := true
