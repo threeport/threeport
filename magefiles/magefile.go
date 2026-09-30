@@ -413,7 +413,7 @@ func (Dev) GenerateDocs() error {
 		"swag",
 		"init",
 		"--dir",
-		"cmd/rest-api,pkg/api-server/v0,pkg/api-server/v0",
+		"cmd/rest-api,pkg/api-server/v0",
 		"--parseDependency",
 		"--propertyStrategy",
 		"pascalcase",
