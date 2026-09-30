@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -305,10 +307,21 @@ func v0KubernetesRuntimeInstanceUpdated(
 			return 0, fmt.Errorf("failed to determine control plane GCP project for workload controller RBAC: %w", err)
 		}
 		if controlPlaneGcpProject != "" {
+			// The principal names the namespace these controllers run in, which
+			// an install can place anywhere and which differs between a genesis
+			// control plane and a child. The installer's own namespace is where
+			// components go on this managed cluster - a different thing, and not
+			// something that can stand in for it.
+			hostNamespace, err := controlPlaneNamespace()
+			if err != nil {
+				return 0, fmt.Errorf("failed to determine control plane namespace for workload controller RBAC: %w", err)
+			}
+
 			rbacCurrent, err := cpi.ComputeSpaceWorkloadControllerRBACCurrent(
 				dynamicKubeClient,
 				mapper,
 				controlPlaneGcpProject,
+				hostNamespace,
 			)
 			if err != nil {
 				return 0, fmt.Errorf("failed to check workload controller RBAC on managed cluster: %w", err)
@@ -319,6 +332,7 @@ func v0KubernetesRuntimeInstanceUpdated(
 				dynamicKubeClient,
 				mapper,
 				controlPlaneGcpProject,
+				hostNamespace,
 			); err != nil {
 				return 0, fmt.Errorf("failed to install workload controller RBAC on managed cluster: %w", err)
 			}
@@ -407,6 +421,36 @@ func v0KubernetesRuntimeInstanceDeleted(
 	}
 
 	return 0, nil
+}
+
+// serviceAccountNamespacePath is where Kubernetes mounts a pod's own namespace.
+const serviceAccountNamespacePath = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
+
+// controlPlaneNamespace returns the namespace this controller runs in.
+//
+// It is read from the pod rather than from a control plane record. The identity
+// a managed cluster has to authorize is the one these controllers present, which
+// is decided by where they are actually running - and a child control plane's
+// controllers run in the child's namespace while its API still holds a record of
+// the genesis control plane. Asking the record would answer for the wrong one.
+func controlPlaneNamespace() (string, error) {
+	return readControlPlaneNamespace()
+}
+
+// readControlPlaneNamespace is in a variable so a test can stand in for it;
+// outside a pod there is no namespace file to read.
+var readControlPlaneNamespace = func() (string, error) {
+	namespace, err := os.ReadFile(serviceAccountNamespacePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read this controller's namespace: %w", err)
+	}
+
+	trimmed := strings.TrimSpace(string(namespace))
+	if trimmed == "" {
+		return "", errors.New("this controller's namespace is recorded as empty")
+	}
+
+	return trimmed, nil
 }
 
 // controlPlaneGkeProject returns the GCP project ID of the GKE cluster hosting

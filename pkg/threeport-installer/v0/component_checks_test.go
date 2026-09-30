@@ -265,7 +265,7 @@ func TestComputeSpaceWorkloadControllerRBACCurrent(t *testing.T) {
 
 	t.Run("current when every binding names this project", func(t *testing.T) {
 		current, err := cpi.ComputeSpaceWorkloadControllerRBACCurrent(
-			testClient(allBindings()...), testMapper(), project,
+			testClient(allBindings()...), testMapper(), project, cpi.Opts.Namespace,
 		)
 		require.NoError(t, err)
 		assert.True(t, current)
@@ -276,7 +276,7 @@ func TestComputeSpaceWorkloadControllerRBACCurrent(t *testing.T) {
 		require.Greater(t, len(bindings), 1)
 
 		current, err := cpi.ComputeSpaceWorkloadControllerRBACCurrent(
-			testClient(bindings[1:]...), testMapper(), project,
+			testClient(bindings[1:]...), testMapper(), project, cpi.Opts.Namespace,
 		)
 		require.NoError(t, err)
 		assert.False(t, current)
@@ -290,7 +290,7 @@ func TestComputeSpaceWorkloadControllerRBACCurrent(t *testing.T) {
 		defer func() { updating.Opts.CreateOrUpdateKubeResources = false }()
 
 		current, err := updating.ComputeSpaceWorkloadControllerRBACCurrent(
-			testClient(allBindings()...), testMapper(), "a-different-project",
+			testClient(allBindings()...), testMapper(), "a-different-project", cpi.Opts.Namespace,
 		)
 		require.NoError(t, err)
 		assert.False(t, current)
@@ -303,7 +303,7 @@ func TestComputeSpaceWorkloadControllerRBACCurrent(t *testing.T) {
 		require.False(t, cpi.Opts.CreateOrUpdateKubeResources)
 
 		current, err := cpi.ComputeSpaceWorkloadControllerRBACCurrent(
-			testClient(allBindings()...), testMapper(), "a-different-project",
+			testClient(allBindings()...), testMapper(), "a-different-project", cpi.Opts.Namespace,
 		)
 		require.NoError(t, err)
 		assert.True(t, current)
@@ -329,7 +329,7 @@ func TestComputeSpaceWorkloadControllerRBACCurrent(t *testing.T) {
 		}
 
 		current, err := updating.ComputeSpaceWorkloadControllerRBACCurrent(
-			testClient(objects...), testMapper(), project,
+			testClient(objects...), testMapper(), project, cpi.Opts.Namespace,
 		)
 		require.NoError(t, err)
 		assert.False(t, current)
@@ -354,7 +354,7 @@ func TestComputeSpaceWorkloadControllerRBACCurrent(t *testing.T) {
 		}
 
 		current, err := updating.ComputeSpaceWorkloadControllerRBACCurrent(
-			testClient(objects...), testMapper(), project,
+			testClient(objects...), testMapper(), project, cpi.Opts.Namespace,
 		)
 		require.NoError(t, err)
 		assert.False(t, current)
