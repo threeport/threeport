@@ -18291,7 +18291,7 @@ const docTemplate = `{
                     }
                 },
                 "KustomizeOverlay": {
-                    "description": "KustomizeOverlay is the body of a kustomization.yaml applied on top of\nthe workload definition's base manifests for this instance alone -\npatches, configMapGenerator, secretGenerator, images, replicas, etc.\nThe ` + "`" + `resources:` + "`" + ` key is injected automatically from the definition's\nYAMLDocument and must not be set here. Capped at\nMaxKustomizeOverlayBytes.",
+                    "description": "KustomizeOverlay is the body of a kustomization.yaml applied on top of\nthe workload definition's base manifests for this instance alone -\npatches, configMapGenerator, secretGenerator, images, replicas, etc.\nThe ` + "`" + `resources:` + "`" + ` key is injected automatically from the definition's\nresource definitions (not its raw YAMLDocument - reconciliation\nalways renders from the same resource definitions a plain instance\nof this workload would use) and must not be set here. Limited to 64\nKiB (65536 bytes). Immutable once set: it is only ever rendered at\ninstance creation, so a later request that changes it is rejected\nrather than silently accepted and never applied.",
                     "type": "string"
                 },
                 "Name": {
