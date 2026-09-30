@@ -18290,6 +18290,10 @@ const docTemplate = `{
                         "$ref": "#/definitions/v0.KubernetesWorkloadResourceInstance"
                     }
                 },
+                "KustomizeOverlay": {
+                    "description": "KustomizeOverlay is the body of a kustomization.yaml applied on top of\nthe workload definition's base manifests for this instance alone -\npatches, configMapGenerator, secretGenerator, images, replicas, etc.\nThe ` + "`" + `resources:` + "`" + ` key is injected automatically from the definition's\nYAMLDocument and must not be set here. Capped at\nMaxKustomizeOverlayBytes.",
+                    "type": "string"
+                },
                 "Name": {
                     "description": "An arbitrary name the instance",
                     "type": "string"

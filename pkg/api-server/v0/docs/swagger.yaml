@@ -1474,6 +1474,15 @@ definitions:
         items:
           $ref: '#/definitions/v0.KubernetesWorkloadResourceInstance'
         type: array
+      KustomizeOverlay:
+        description: |-
+          KustomizeOverlay is the body of a kustomization.yaml applied on top of
+          the workload definition's base manifests for this instance alone -
+          patches, configMapGenerator, secretGenerator, images, replicas, etc.
+          The `resources:` key is injected automatically from the definition's
+          YAMLDocument and must not be set here. Capped at
+          MaxKustomizeOverlayBytes.
+        type: string
       Name:
         description: An arbitrary name the instance
         type: string
