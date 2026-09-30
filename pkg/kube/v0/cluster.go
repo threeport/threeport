@@ -13,6 +13,7 @@ import (
 	builder_config "github.com/nukleros/aws-builder/pkg/config"
 	"github.com/nukleros/aws-builder/pkg/eks/connection"
 	"github.com/oracle/oci-go-sdk/v65/common"
+	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -25,6 +26,7 @@ import (
 	"k8s.io/client-go/restmapper"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	auth "github.com/threeport/threeport/pkg/auth/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	"github.com/threeport/threeport/pkg/encryption/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -183,7 +185,7 @@ func GetRestConfig(
 				return nil, fmt.Errorf("failed to build OKE token generator: %w", err)
 			}
 		case v0.KubernetesRuntimeInfraProviderGKE:
-			tokenGenerator, err = buildGKETokenGenerator()
+			tokenGenerator, err = buildGKETokenGenerator(runtime, threeportAPIClient, threeportAPIEndpoint, encryptionKey)
 			if err != nil {
 				return nil, fmt.Errorf("failed to build GKE token generator: %w", err)
 			}
@@ -423,7 +425,6 @@ func checkTokenExpiring(
 	return expiring, nil
 }
 
-
 // refreshEKSConnection retrieves a new EKS token when it expires.
 func refreshEKSConnection(
 	runtimeInstance *v0.KubernetesRuntimeInstance,
@@ -502,19 +503,28 @@ func refreshEKSConnection(
 // write-back to the shared runtime instance row, eliminating a source of
 // transaction contention.
 //
-// TODO(#470): this relies on ambient Google ADC, so it only works from a
-// GKE-hosted control plane.  To support a non-GKE-hosted control plane managing
-// a GKE cluster, fall back to google.CredentialsFromJSON using the runtime's
-// GcpProvider.ServiceAccountCredentials (as EKS/OKE do with their stored
-// provider credentials).
-func buildGKETokenGenerator() (func() (string, error), error) {
-	tokenSource, err := google.DefaultTokenSource(
-		context.Background(),
-		"https://www.googleapis.com/auth/cloud-platform",
+// Ambient ADC is only present on a GKE-hosted control plane.  From one hosted
+// anywhere else there is none, and the stored GcpProvider credentials stand in -
+// the same shape EKS and OKE use.  That is a fallback rather than the first
+// choice: a GSA credential is one identity shared by every controller, which
+// gives up the per-controller identity described above, so it is used only where
+// there is no ADC to use instead.
+func buildGKETokenGenerator(
+	runtime *v0.KubernetesRuntimeInstance,
+	threeportAPIClient *http.Client,
+	threeportAPIEndpoint string,
+	encryptionKey string,
+) (func() (string, error), error) {
+	tokenSource, _, err := gkeAuthSource(
+		runtime,
+		threeportAPIClient,
+		threeportAPIEndpoint,
+		encryptionKey,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get Google token source: %w", err)
+		return nil, err
 	}
+
 	return func() (string, error) {
 		token, err := tokenSource.Token()
 		if err != nil {
@@ -522,6 +532,111 @@ func buildGKETokenGenerator() (func() (string, error), error) {
 		}
 		return token.AccessToken, nil
 	}, nil
+}
+
+// GkeAuthSubject returns the identity this process presents to a managed GKE
+// cluster: empty when it authenticates with ambient ADC, and the service
+// account's email when it falls back to the provider's stored credentials.
+//
+// A managed cluster has to authorize the identity that actually arrives, and
+// deciding that separately from how the token is minted lets the two disagree -
+// binding an identity no request is made under, which reads as a correct install
+// and leaves the controllers locked out. Both come from gkeAuthSource so they
+// cannot.
+func GkeAuthSubject(
+	runtime *v0.KubernetesRuntimeInstance,
+	threeportAPIClient *http.Client,
+	threeportAPIEndpoint string,
+	encryptionKey string,
+) (string, error) {
+	_, subject, err := gkeAuthSource(
+		runtime,
+		threeportAPIClient,
+		threeportAPIEndpoint,
+		encryptionKey,
+	)
+
+	return subject, err
+}
+
+// gkeAuthSource decides how this process authenticates to a GKE cluster, and
+// returns both the token source and the identity it arrives as.
+func gkeAuthSource(
+	runtime *v0.KubernetesRuntimeInstance,
+	threeportAPIClient *http.Client,
+	threeportAPIEndpoint string,
+	encryptionKey string,
+) (oauth2.TokenSource, string, error) {
+	tokenSource, err := google.DefaultTokenSource(
+		context.Background(),
+		auth.GcpOAuthScopes...,
+	)
+	if err == nil {
+		// ambient ADC: this process arrives as its own Workload Identity
+		// principal, which the caller names rather than an email
+		return tokenSource, "", nil
+	}
+
+	return gcpProviderTokenSource(
+		runtime,
+		threeportAPIClient,
+		threeportAPIEndpoint,
+		encryptionKey,
+	)
+}
+
+// gcpProviderTokenSource builds a token source from the service account
+// credentials stored on the GCP provider that owns a runtime, and returns the
+// account it authenticates as.
+//
+// The scopes include userinfo.email because the identity is the account's email:
+// without it a token can be resolved by the account's numeric id instead, and a
+// binding naming the email would authorize nobody.
+func gcpProviderTokenSource(
+	runtime *v0.KubernetesRuntimeInstance,
+	threeportAPIClient *http.Client,
+	threeportAPIEndpoint string,
+	encryptionKey string,
+) (oauth2.TokenSource, string, error) {
+	gkeRuntimeInstance, err := client.GetGcpGkeKubernetesRuntimeInstanceByK8sRuntimeInst(
+		threeportAPIClient,
+		threeportAPIEndpoint,
+		*runtime.ID,
+	)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to get GCP GKE kubernetes runtime instance: %w", err)
+	}
+	gcpProvider, err := client.GetGcpProviderByID(
+		threeportAPIClient,
+		threeportAPIEndpoint,
+		*gkeRuntimeInstance.GcpProviderID,
+	)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to get GCP provider: %w", err)
+	}
+	if gcpProvider.ServiceAccountCredentials == nil {
+		return nil, "", errors.New(
+			"no ambient Google credentials and the GCP provider has none stored: cannot authenticate to this cluster",
+		)
+	}
+	decryptedCredentials, err := encryption.Decrypt(encryptionKey, *gcpProvider.ServiceAccountCredentials)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to decrypt GCP provider service account credentials: %w", err)
+	}
+	credentials, err := google.CredentialsFromJSON(
+		context.Background(),
+		[]byte(decryptedCredentials),
+		auth.GcpOAuthScopes...,
+	)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to build Google credentials from the GCP provider: %w", err)
+	}
+	serviceAccountEmail, err := util.GcpServiceAccountEmail(decryptedCredentials)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to read the GCP provider's service account: %w", err)
+	}
+
+	return credentials.TokenSource, serviceAccountEmail, nil
 }
 
 // GetAwsConfigFromAwsProvider returns an aws config from an aws account.

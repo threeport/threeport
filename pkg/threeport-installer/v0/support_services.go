@@ -44,6 +44,21 @@ const (
 	ThreeportCertManagerCRDName       = "certmanagers.certificates.support-services.nukleros.io"
 )
 
+// ThreeportCRDNames are the custom resource definitions InstallThreeportCRDs
+// creates. The install and the check that guards it read the same list, so a CRD
+// added to one is not missed by the other - and a check that missed one would
+// report a cluster ready while the support services operator install that
+// follows has no definition to register against.
+func ThreeportCRDNames() []string {
+	return []string{
+		ThreeportCertManagerCRDName,
+		"externaldns.gateway.support-services.nukleros.io",
+		"glooedges.gateway.support-services.nukleros.io",
+		"supportservices.orchestration.support-services.nukleros.io",
+		"externalsecrets.secrets.support-services.nukleros.io",
+	}
+}
+
 // InstallThreeportCRDs installs all CRDs needed by threeport in the target
 // cluster.
 func InstallThreeportCRDs(

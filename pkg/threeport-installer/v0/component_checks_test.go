@@ -79,6 +79,17 @@ func deployment(namespace, name string, images ...string) *unstructured.Unstruct
 	}
 }
 
+// installedCRDs returns every CRD the compute space install creates, as a
+// cluster that install completed on holds them.
+func installedCRDs() []runtime.Object {
+	var objects []runtime.Object
+	for _, name := range ThreeportCRDNames() {
+		objects = append(objects, crd(name))
+	}
+
+	return objects
+}
+
 // crd builds a custom resource definition with the given name.
 func crd(name string) *unstructured.Unstructured {
 	return &unstructured.Unstructured{
@@ -132,10 +143,10 @@ func TestComputeSpaceControlPlaneComponentsCurrent(t *testing.T) {
 	installed := agentImageFor(cpi)
 
 	t.Run("current when the agent runs the image that would be installed", func(t *testing.T) {
-		client := testClient(
-			deployment(cpi.Opts.Namespace, ThreeportAgentDeployName, "kube-rbac-proxy:v0.22.0", installed),
-			crd(ThreeportCertManagerCRDName),
-		)
+		client := testClient(append(
+			[]runtime.Object{deployment(cpi.Opts.Namespace, ThreeportAgentDeployName, "kube-rbac-proxy:v0.22.0", installed)},
+			installedCRDs()...,
+		)...)
 
 		current, err := cpi.ComputeSpaceControlPlaneComponentsCurrent(client, testMapper())
 		require.NoError(t, err)
@@ -158,10 +169,10 @@ func TestComputeSpaceControlPlaneComponentsCurrent(t *testing.T) {
 		updating.Opts.CreateOrUpdateKubeResources = true
 		defer func() { updating.Opts.CreateOrUpdateKubeResources = false }()
 
-		client := testClient(
-			deployment(updating.Opts.Namespace, ThreeportAgentDeployName, "ghcr.io/threeport/threeport-agent:v0.0.1"),
-			crd(ThreeportCertManagerCRDName),
-		)
+		client := testClient(append(
+			[]runtime.Object{deployment(updating.Opts.Namespace, ThreeportAgentDeployName, "ghcr.io/threeport/threeport-agent:v0.0.1")},
+			installedCRDs()...,
+		)...)
 
 		current, err := updating.ComputeSpaceControlPlaneComponentsCurrent(client, testMapper())
 		require.NoError(t, err)
@@ -175,14 +186,38 @@ func TestComputeSpaceControlPlaneComponentsCurrent(t *testing.T) {
 	t.Run("current despite a different image when the install only creates", func(t *testing.T) {
 		require.False(t, cpi.Opts.CreateOrUpdateKubeResources)
 
-		client := testClient(
-			deployment(cpi.Opts.Namespace, ThreeportAgentDeployName, "localhost:5001/threeport-agent:v0.7.0-rc.0"),
-			crd(ThreeportCertManagerCRDName),
-		)
+		client := testClient(append(
+			[]runtime.Object{deployment(cpi.Opts.Namespace, ThreeportAgentDeployName, "localhost:5001/threeport-agent:v0.7.0-rc.0")},
+			installedCRDs()...,
+		)...)
 
 		current, err := cpi.ComputeSpaceControlPlaneComponentsCurrent(client, testMapper())
 		require.NoError(t, err)
 		assert.True(t, current)
+	})
+
+	// TestComputeSpaceControlPlaneComponentsCurrent covers a cluster holding only
+	// some of the CRDs the install creates.
+	//
+	// The support services operator install that follows registers against them,
+	// so any one missing leaves it nothing to register against. Checking a single
+	// CRD would call such a cluster ready and skip the install that would put the
+	// rest there.
+	t.Run("not current when any one CRD is missing", func(t *testing.T) {
+		for _, missing := range ThreeportCRDNames() {
+			present := []runtime.Object{
+				deployment(cpi.Opts.Namespace, ThreeportAgentDeployName, installed),
+			}
+			for _, name := range ThreeportCRDNames() {
+				if name != missing {
+					present = append(present, crd(name))
+				}
+			}
+
+			current, err := cpi.ComputeSpaceControlPlaneComponentsCurrent(testClient(present...), testMapper())
+			require.NoError(t, err)
+			assert.False(t, current, "%s is missing, so the set is not current", missing)
+		}
 	})
 
 	// the support services operator install that follows needs these
@@ -265,7 +300,7 @@ func TestComputeSpaceWorkloadControllerRBACCurrent(t *testing.T) {
 
 	t.Run("current when every binding names this project", func(t *testing.T) {
 		current, err := cpi.ComputeSpaceWorkloadControllerRBACCurrent(
-			testClient(allBindings()...), testMapper(), project,
+			testClient(allBindings()...), testMapper(), project, "",
 		)
 		require.NoError(t, err)
 		assert.True(t, current)
@@ -276,7 +311,7 @@ func TestComputeSpaceWorkloadControllerRBACCurrent(t *testing.T) {
 		require.Greater(t, len(bindings), 1)
 
 		current, err := cpi.ComputeSpaceWorkloadControllerRBACCurrent(
-			testClient(bindings[1:]...), testMapper(), project,
+			testClient(bindings[1:]...), testMapper(), project, "",
 		)
 		require.NoError(t, err)
 		assert.False(t, current)
@@ -290,7 +325,7 @@ func TestComputeSpaceWorkloadControllerRBACCurrent(t *testing.T) {
 		defer func() { updating.Opts.CreateOrUpdateKubeResources = false }()
 
 		current, err := updating.ComputeSpaceWorkloadControllerRBACCurrent(
-			testClient(allBindings()...), testMapper(), "a-different-project",
+			testClient(allBindings()...), testMapper(), "a-different-project", "",
 		)
 		require.NoError(t, err)
 		assert.False(t, current)
@@ -303,7 +338,7 @@ func TestComputeSpaceWorkloadControllerRBACCurrent(t *testing.T) {
 		require.False(t, cpi.Opts.CreateOrUpdateKubeResources)
 
 		current, err := cpi.ComputeSpaceWorkloadControllerRBACCurrent(
-			testClient(allBindings()...), testMapper(), "a-different-project",
+			testClient(allBindings()...), testMapper(), "a-different-project", "",
 		)
 		require.NoError(t, err)
 		assert.True(t, current)
@@ -329,7 +364,7 @@ func TestComputeSpaceWorkloadControllerRBACCurrent(t *testing.T) {
 		}
 
 		current, err := updating.ComputeSpaceWorkloadControllerRBACCurrent(
-			testClient(objects...), testMapper(), project,
+			testClient(objects...), testMapper(), project, "",
 		)
 		require.NoError(t, err)
 		assert.False(t, current)
@@ -354,7 +389,7 @@ func TestComputeSpaceWorkloadControllerRBACCurrent(t *testing.T) {
 		}
 
 		current, err := updating.ComputeSpaceWorkloadControllerRBACCurrent(
-			testClient(objects...), testMapper(), project,
+			testClient(objects...), testMapper(), project, "",
 		)
 		require.NoError(t, err)
 		assert.False(t, current)
