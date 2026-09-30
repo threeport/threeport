@@ -326,24 +326,27 @@ func getKubernetesRuntimeInstanceByNameOrDefault(
 }
 
 // getKubernetesRuntimeInstanceAndCheckId retrieves a kubernetes runtime instance by name if provided
-// and checks that the ID matches the provided ID.  It returns false if they do not match.
-// If no kubernetes runtime instance name is provided, it returns the kubernetes runtime instance
-// with the provided ID and returns true.
+// and checks that the ID matches the provided ID. It returns true if a name was provided and it
+// resolves to a runtime instance other than the one identified by id - i.e. the object would be
+// moved to a different runtime. It returns false when no name is provided (falling back to the
+// runtime already referenced by id, which is by definition not a move) or when the resolved name
+// matches id.
 // This function is intended to be used for Replace operations where the object should not be moved
-// from one runtime to another.
+// from one runtime to another; callers should treat a true result as an error condition.
 func getKubernetesRuntimeInstanceAndCheckId(
 	apiClient *http.Client,
 	apiEndpoint string,
 	kubernetesRuntimeInstance *KubernetesRuntimeInstanceValues,
 	id *uint,
 ) (*api_v0.KubernetesRuntimeInstance, bool, error) {
-	// get by ID if no name provided
+	// get by ID if no name provided - this is always the runtime already in
+	// use, so it is never a move
 	if kubernetesRuntimeInstance == nil || kubernetesRuntimeInstance.Name == nil || *kubernetesRuntimeInstance.Name == "" {
 		kri, err := client_v0.GetKubernetesRuntimeInstanceByID(apiClient, apiEndpoint, *id)
 		if err != nil {
 			return nil, false, fmt.Errorf("failed to get kubernetes runtime instance by ID: %w", err)
 		}
-		return kri, true, nil
+		return kri, false, nil
 	}
 
 	// get by name if name provided and check to see if ID matches provided ID
@@ -352,7 +355,10 @@ func getKubernetesRuntimeInstanceAndCheckId(
 		return nil, false, fmt.Errorf("failed to get kubernetes runtime instance by name: %w", err)
 	}
 	if *kri.ID != *id {
-		return nil, false, nil // ID does not match, return false
+		// ID does not match the existing FK: this is a move. kri is
+		// returned (not nil) so callers can still reference its Name when
+		// constructing an error message about the attempted move.
+		return kri, true, nil
 	}
-	return kri, true, nil
+	return kri, false, nil
 }

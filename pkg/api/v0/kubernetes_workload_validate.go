@@ -2,7 +2,23 @@
 
 package v0
 
-import gorm "gorm.io/gorm"
+import (
+	"fmt"
+
+	gorm "gorm.io/gorm"
+
+	lib "github.com/threeport/threeport/pkg/api/lib/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
+)
+
+// MaxKustomizeOverlayBytes is the maximum size, in bytes, permitted for
+// KubernetesWorkloadInstance.KustomizeOverlay. The field is meant to carry a
+// small patch on top of the workload definition's base manifests - a
+// handful of env vars, replica counts, resource limits, or an image tag -
+// not a second copy of the manifest set, so this is sized an order of
+// magnitude above a deliberately padded worst-case legitimate overlay
+// rather than against what the database column can hold (see threeport#556).
+const MaxKustomizeOverlayBytes = 64 * 1024
 
 // beforeCreate runs before the KubernetesWorkloadDefinition is created.
 func (w *KubernetesWorkloadDefinition) beforeCreate(tx *gorm.DB) error {
@@ -46,25 +62,51 @@ func (w *KubernetesWorkloadDefinition) afterDelete(tx *gorm.DB) error {
 	return nil
 }
 
-// beforeCreate runs before the KubernetesWorkloadInstance is created.
+// beforeCreate runs before the KubernetesWorkloadInstance is created. The
+// receiver already holds every field on create (see the call-shape table in
+// pkg/api/lib/v0/update_helpers.go), so KustomizeOverlay can be read
+// directly off w.
 func (w *KubernetesWorkloadInstance) beforeCreate(tx *gorm.DB) error {
-	return nil
+	return validateKustomizeOverlaySize(w.KustomizeOverlay)
 }
 
 // beforeUpdate runs before the KubernetesWorkloadInstance is updated.
-//
-// Receiver semantics depend on the GORM call shape; see
-// pkg/api/lib/v0/update_helpers.go for the full model. The simplest
-// per-field check is:
-//   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
-//     and PUT, handles the DB load internally
-// Lower-level helpers, useful when IsFieldChanged doesn't fit:
-//   - lib.IncomingValues(tx): values being written
-//   - lib.IsFullReplace(tx): true on PUT (Save shape)
-//   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
-// Import:
-//   lib "github.com/threeport/threeport/pkg/api/lib/v0"
+// KustomizeOverlay is immutable once the instance is created: the
+// reconciler only renders it into resource instances at create time
+// (v0KubernetesWorkloadInstanceCreated) and never re-renders on update, so
+// a changed value would otherwise be accepted and persisted while silently
+// never reaching the cluster. Rejecting the change here surfaces that gap
+// as an explicit error instead of a misleading success. Re-rendering on
+// update is tracked as a known follow-on limitation (see the doc comment
+// on v0KubernetesWorkloadInstanceUpdated).
 func (w *KubernetesWorkloadInstance) beforeUpdate(tx *gorm.DB) error {
+	changed, err := lib.IsFieldChanged(tx, "KustomizeOverlay")
+	if err != nil {
+		return err
+	}
+	if changed {
+		return util.NewBadRequestError(
+			"KustomizeOverlay is immutable once set: changing it does not currently re-render or " +
+				"re-apply the instance's resources, so the change is rejected rather than silently " +
+				"accepted and ignored - delete and recreate the instance to change it",
+		)
+	}
+	return nil
+}
+
+// validateKustomizeOverlaySize enforces MaxKustomizeOverlayBytes with an
+// exact byte count. go-playground/validator's "max" tag counts runes, not
+// bytes, so this is a hand-written check rather than a validate struct tag.
+func validateKustomizeOverlaySize(overlay *string) error {
+	if overlay == nil {
+		return nil
+	}
+	if size := len(*overlay); size > MaxKustomizeOverlayBytes {
+		return util.NewBadRequestError(fmt.Sprintf(
+			"KustomizeOverlay is %d bytes, which exceeds the %d byte limit",
+			size, MaxKustomizeOverlayBytes,
+		))
+	}
 	return nil
 }
 
