@@ -282,13 +282,23 @@ func (w *KubernetesWorkloadInstanceConfig) Replace(
 		return nil, fmt.Errorf("failed to get kubernetes workload definition by name %s: %w", *k8sWorkloadInstanceValues.KubernetesWorkloadDefinition.Name, err)
 	}
 
-	// construct updated kubernetes workload instance object. KustomizeOverlay
-	// is carried over from the existing instance rather than left unset:
-	// Replace sends a PUT (full replace), and KustomizeOverlay is immutable
-	// once set (pkg/api/v0/kubernetes_workload_validate.go) - an omitted
-	// value here would be sent as an explicit clear and rejected, so a
-	// caller replacing an overlaid instance to change an unrelated field
-	// (e.g. renaming it) would be unable to do so at all.
+	// construct updated kubernetes workload instance object. Several fields
+	// are carried over from the existing instance rather than left unset,
+	// because Replace sends a PUT (full replace): every field on the
+	// outgoing object is written, including a nil one, which clears
+	// whatever the server previously had.
+	//   - KustomizeOverlay is immutable once set
+	//     (pkg/api/v0/kubernetes_workload_validate.go) - an omitted value
+	//     here would be sent as an explicit clear and rejected, so a caller
+	//     replacing an overlaid instance to change an unrelated field (e.g.
+	//     renaming it) would be unable to do so at all.
+	//   - Status and Reconciled are controller-owned state, not something a
+	//     caller of Replace is trying to set. Omitting them would silently
+	//     clear an instance's reconciliation progress on every replace, and
+	//     Status specifically is dereferenced below after the call
+	//     succeeds - omitting it here made every replace panic once the
+	//     server actually cleared it, rather than returning whatever
+	//     (possibly stale) value the instance already had.
 	updatedK8sWorkloadInstance := &api_v0.KubernetesWorkloadInstance{
 		Common: api_v0.Common{
 			ID: existingK8sWorkloadInstance.ID,
@@ -296,9 +306,13 @@ func (w *KubernetesWorkloadInstanceConfig) Replace(
 		Instance: api_v0.Instance{
 			Name: k8sWorkloadInstanceValues.Name,
 		},
+		Reconciliation: api_v0.Reconciliation{
+			Reconciled: existingK8sWorkloadInstance.Reconciled,
+		},
 		KubernetesRuntimeInstanceID:    kubernetesRuntimeInstance.ID,
 		KubernetesWorkloadDefinitionID: k8sWorkloadDefinition.ID,
 		KustomizeOverlay:               existingK8sWorkloadInstance.KustomizeOverlay,
+		Status:                         existingK8sWorkloadInstance.Status,
 	}
 
 	// replace kubernetes workload instance
@@ -311,13 +325,18 @@ func (w *KubernetesWorkloadInstanceConfig) Replace(
 		return nil, fmt.Errorf("failed to replace kubernetes workload instance in threeport API: %w", err)
 	}
 
-	// construct updated kubernetes workload instance config
+	// construct updated kubernetes workload instance config. Status is
+	// passed through directly rather than re-wrapped via
+	// util.Ptr(string(*replacedK8sWorkloadInstance.Status)) - besides being
+	// a redundant copy of an already-matching *string, that form panics if
+	// Status is ever nil, which is exactly what an unpreserved Status above
+	// would have caused on every call.
 	updatedK8sWorkloadInstanceConfig := &KubernetesWorkloadInstanceConfig{
 		KubernetesWorkloadInstance: KubernetesWorkloadInstanceValues{
 			Name:                         replacedK8sWorkloadInstance.Name,
 			KubernetesRuntimeInstance:    k8sWorkloadInstanceValues.KubernetesRuntimeInstance,
 			KubernetesWorkloadDefinition: k8sWorkloadInstanceValues.KubernetesWorkloadDefinition,
-			Status:                       util.Ptr(string(*replacedK8sWorkloadInstance.Status)),
+			Status:                       replacedK8sWorkloadInstance.Status,
 			Age:                          util.Ptr(util.GetAgeFormatted(replacedK8sWorkloadInstance.CreatedAt)),
 		},
 	}

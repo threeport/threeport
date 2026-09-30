@@ -116,17 +116,27 @@ func TestGetKubernetesRuntimeInstanceAndCheckId(t *testing.T) {
 	})
 }
 
-// TestKubernetesWorkloadInstanceConfig_Replace_PreservesKustomizeOverlay is a
-// regression test for a bug where Replace() never set KustomizeOverlay on
-// the outgoing PUT payload. Since Replace sends a full replacement and
-// KustomizeOverlay is immutable once set (kubernetes_workload_validate.go),
-// an omitted value was sent as an explicit clear and rejected by the API -
-// so replacing an overlaid instance to change an unrelated field (e.g.
-// renaming it) was impossible. This also exercises the
-// getKubernetesRuntimeInstanceAndCheckId fix above end to end: Replace()
-// would have failed with "may not be moved" before ever reaching the PUT
-// if that bug were still present.
-func TestKubernetesWorkloadInstanceConfig_Replace_PreservesKustomizeOverlay(t *testing.T) {
+// TestKubernetesWorkloadInstanceConfig_Replace_PreservesInstanceState is a
+// regression test covering two related bugs in Replace(), both stemming
+// from the same root cause: Replace sends a PUT (full replace), so any
+// field left unset on the outgoing object is written as nil, clearing
+// whatever the server previously had.
+//
+//   - KustomizeOverlay: an omitted value was sent as an explicit clear and
+//     rejected by the API, since KustomizeOverlay is immutable once set
+//     (kubernetes_workload_validate.go) - so replacing an overlaid instance
+//     to change an unrelated field (e.g. renaming it) was impossible.
+//   - Status and Reconciled: these are controller-owned state, not
+//     something Replace's caller is trying to set. An omitted value
+//     silently cleared an instance's reconciliation progress on every
+//     replace, and since Replace dereferences the response's Status
+//     immediately afterward, an omitted Status also made every replace
+//     panic once the server actually cleared it.
+//
+// This also exercises the getKubernetesRuntimeInstanceAndCheckId fix above
+// end to end: Replace() would have failed with "may not be moved" before
+// ever reaching the PUT if that bug were still present.
+func TestKubernetesWorkloadInstanceConfig_Replace_PreservesInstanceState(t *testing.T) {
 	existingID := uint(1)
 	runtimeInstanceID := uint(2)
 	definitionID := uint(3)
@@ -139,6 +149,7 @@ func TestKubernetesWorkloadInstanceConfig_Replace_PreservesKustomizeOverlay(t *t
 	existing := api_v0.KubernetesWorkloadInstance{
 		Common:                         api_v0.Common{ID: &existingID, CreatedAt: &createdAt},
 		Instance:                       api_v0.Instance{Name: &name},
+		Reconciliation:                 api_v0.Reconciliation{Reconciled: util.Ptr(true)},
 		KubernetesRuntimeInstanceID:    &runtimeInstanceID,
 		KubernetesWorkloadDefinitionID: &definitionID,
 		KustomizeOverlay:               &overlay,
@@ -179,13 +190,23 @@ func TestKubernetesWorkloadInstanceConfig_Replace_PreservesKustomizeOverlay(t *t
 
 			assert.Equal(t, &overlay, payload.KustomizeOverlay, "KustomizeOverlay must be preserved in the replace payload")
 			assert.Equal(t, &newName, payload.Name, "Name must reflect the requested rename")
+			// Status and Reconciled are controller-owned state, not
+			// something Replace's caller is trying to set - PUT is a full
+			// replace, so omitting them here would clear them server-side,
+			// and Status is dereferenced by Replace after this call
+			// returns, so an omitted (nil) Status also used to panic.
+			assert.Equal(t, existing.Status, payload.Status, "Status must be preserved in the replace payload, not cleared")
+			assert.Equal(t, existing.Reconciled, payload.Reconciled, "Reconciled must be preserved in the replace payload, not cleared")
 
-			// the client strips ID/CreatedAt/UpdatedAt from the outgoing PUT
-			// payload and doesn't set Status at all; a real API response
-			// would still include all of these.
+			// echo back exactly what was received, plus only the fields the
+			// client legitimately strips from the outgoing payload itself
+			// (ID/CreatedAt/UpdatedAt) - a real API response would still
+			// include these. Deliberately NOT force-setting Status/Reconciled
+			// here: doing so would let Replace's own bug (never setting them
+			// on the request) go uncaught, since the response would show the
+			// right value regardless of what was actually sent.
 			payload.ID = &existingID
 			payload.CreatedAt = &createdAt
-			payload.Status = util.Ptr("Up")
 			respondWithObject(t, w, payload)
 
 		default:
