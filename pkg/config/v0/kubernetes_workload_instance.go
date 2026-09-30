@@ -282,7 +282,13 @@ func (w *KubernetesWorkloadInstanceConfig) Replace(
 		return nil, fmt.Errorf("failed to get kubernetes workload definition by name %s: %w", *k8sWorkloadInstanceValues.KubernetesWorkloadDefinition.Name, err)
 	}
 
-	// construct updated kubernetes workload instance object
+	// construct updated kubernetes workload instance object. KustomizeOverlay
+	// is carried over from the existing instance rather than left unset:
+	// Replace sends a PUT (full replace), and KustomizeOverlay is immutable
+	// once set (pkg/api/v0/kubernetes_workload_validate.go) - an omitted
+	// value here would be sent as an explicit clear and rejected, so a
+	// caller replacing an overlaid instance to change an unrelated field
+	// (e.g. renaming it) would be unable to do so at all.
 	updatedK8sWorkloadInstance := &api_v0.KubernetesWorkloadInstance{
 		Common: api_v0.Common{
 			ID: existingK8sWorkloadInstance.ID,
@@ -292,6 +298,7 @@ func (w *KubernetesWorkloadInstanceConfig) Replace(
 		},
 		KubernetesRuntimeInstanceID:    kubernetesRuntimeInstance.ID,
 		KubernetesWorkloadDefinitionID: k8sWorkloadDefinition.ID,
+		KustomizeOverlay:               existingK8sWorkloadInstance.KustomizeOverlay,
 	}
 
 	// replace kubernetes workload instance
