@@ -17,6 +17,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	tpaws "github.com/threeport/threeport/pkg/aws/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
+	"github.com/threeport/threeport/pkg/encryption/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	mapping "github.com/threeport/threeport/pkg/mapping/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
@@ -32,9 +33,13 @@ func DeployEksInfra(
 	kubeConnectionInfo *kube.KubeConnectionInfo,
 	uninstaller *Uninstaller,
 	awsConfigUser *aws.Config,
-	callerIdentity *sts.GetCallerIdentityOutput,
+	// the caller reads this back - it installs system services with the
+	// account ID - so it is an out parameter rather than a value to rebind
+	callerIdentityOut **sts.GetCallerIdentityOutput,
 	awsConfigResourceManager *aws.Config,
 ) error {
+	var callerIdentity *sts.GetCallerIdentityOutput
+
 	// create AWS config
 	awsConf, err := tpaws.LoadAwsConfig(
 		cpi.Opts.AwsConfigProfile,
@@ -43,12 +48,17 @@ func DeployEksInfra(
 	if err != nil {
 		return fmt.Errorf("failed to load AWS configuration with local config: %w", err)
 	}
-	awsConfigUser = awsConf
+	// write through the pointer rather than rebinding it: the caller holds a
+	// config this function is expected to fill in, and later steps - the
+	// trust policy update, and the teardown that runs when a later step
+	// fails - read it from there
+	*awsConfigUser = *awsConf
 
 	// get account ID
 	if callerIdentity, err = provider.GetCallerIdentity(awsConf); err != nil {
 		return fmt.Errorf("failed to get caller identity: %w", err)
 	}
+	*callerIdentityOut = callerIdentity
 	Info(fmt.Sprintf("Successfully authenticated to account %s as %s", *callerIdentity.Account, *callerIdentity.Arn))
 
 	// update threeport config with eks provider info
@@ -93,7 +103,7 @@ func DeployEksInfra(
 	}
 
 	// assume IAM role for resource management
-	awsConfigResourceManager, err = tpaws.AssumeRole(
+	assumedConfig, err := tpaws.AssumeRole(
 		*awsConfigUser,
 		provider.GetResourceManagerRoleArn(
 			cpi.Opts.ControlPlaneName,
@@ -101,6 +111,9 @@ func DeployEksInfra(
 		),
 		cpi.Opts.AwsRegion,
 	)
+	if err == nil {
+		*awsConfigResourceManager = *assumedConfig
+	}
 	if err != nil {
 		deleteErr := provider.DeleteResourceManagerRole(cpi.Opts.ControlPlaneName, *awsConfigUser)
 		if deleteErr != nil {
@@ -116,6 +129,7 @@ func DeployEksInfra(
 			if callerIdentity, err = provider.GetCallerIdentity(awsConfigResourceManager); err != nil {
 				return fmt.Errorf("failed to get caller identity: %w", err)
 			}
+			*callerIdentityOut = callerIdentity
 			Info(fmt.Sprintf("Successfully authenticated to account %s as %s", *callerIdentity.Account, *callerIdentity.Arn))
 
 			// wait 5 seconds to allow IAM resources to become available
@@ -135,10 +149,20 @@ func DeployEksInfra(
 	// TODO: add flags to tptctl command for high availability, etc to
 	// deterimine these values
 	// construct eks kubernetes runtime infra object
+	// the Pulumi AWS provider is pointed at the same config profile this
+	// command used and at the role to assume, rather than being handed
+	// credentials already resolved here, so that it can renew them over a
+	// provisioning run that outlasts any session
+	providerCredentials := tpaws.ProviderCredentialsFromProfile(
+		cpi.Opts.AwsConfigProfile,
+		provider.GetResourceManagerRoleArn(cpi.Opts.ControlPlaneName, *callerIdentity.Account),
+	)
+
 	kubernetesRuntimeInfraEKS := provider.KubernetesRuntimeInfraEKS{
 		RuntimeInstanceName:          runtimeInstanceName(cpi.Opts),
 		AwsAccountID:                 *callerIdentity.Account,
 		AwsConfig:                    awsConfigResourceManager,
+		ProviderCredentials:          providerCredentials,
 		Region:                       awsConfigResourceManager.Region,
 		ZoneCount:                    int32(2),
 		DefaultNodeGroupInstanceType: "t3.medium",
@@ -187,7 +211,9 @@ func ConfigureEksKubernetesRuntimeInstance(
 	awsConfigUser *aws.Config,
 	callerIdentity *sts.GetCallerIdentityOutput,
 	awsConfigResourceManager *aws.Config,
-	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
+	// the caller builds its Kubernetes client from this, so it is an out
+	// parameter rather than a value to rebind
+	kubernetesRuntimeInstanceOut **v0.KubernetesRuntimeInstance,
 	kubernetesRuntimeInstName string,
 	instReconciled bool,
 	controlPlaneHost bool,
@@ -220,7 +246,7 @@ func ConfigureEksKubernetesRuntimeInstance(
 		return uninstaller.cleanOnCreateError(fmt.Sprintf("failed to get threeport location for AWS region %s", awsConfigResourceManager.Region), err)
 	}
 
-	kubernetesRuntimeInstance = &v0.KubernetesRuntimeInstance{
+	*kubernetesRuntimeInstanceOut = &v0.KubernetesRuntimeInstance{
 		Instance: v0.Instance{
 			Name: &kubernetesRuntimeInstName,
 		},
@@ -371,26 +397,35 @@ func PrepForEksDeletion(
 	cpi *threeport.ControlPlaneInstaller,
 	threeportControlPlaneConfig *ControlPlane,
 	threeportConfig *ThreeportConfig,
-	awsConfigUser *aws.Config,
-	awsConfigResourceManager *aws.Config,
+	// the caller reads both back - it refreshes the cluster's auth token with
+	// the resource manager config, and deletes IAM with the user config - so
+	// these are out parameters rather than values to rebind
+	awsConfigUserOut **aws.Config,
+	awsConfigResourceManagerOut **aws.Config,
 	requestedControlPlane string,
 ) (*provider.KubernetesRuntimeInfraEKS, error) {
 	// AwsConfigProfile and AwsRegion cannot be passed in through the CLI for a
 	// deletion operation, as these are stored in threeport config
-	var accountId string
-	var err error
-	awsConfigUser, awsConfigResourceManager, accountId, err = threeportConfig.GetAwsConfigs(requestedControlPlane)
+	awsConfigUser, awsConfigResourceManager, accountId, err := threeportConfig.GetAwsConfigs(requestedControlPlane)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get AWS configs from threeport config: %w", err)
 	}
+	*awsConfigUserOut = awsConfigUser
+	*awsConfigResourceManagerOut = awsConfigResourceManager
 
 	// construct eks kubernetes runtime infra object - Pulumi reads the state
 	// of what it provisioned from its own state directory, so no inventory
 	// needs to be supplied here
+	providerCredentials := tpaws.ProviderCredentialsFromProfile(
+		threeportControlPlaneConfig.EKSProviderConfig.AwsConfigProfile,
+		provider.GetResourceManagerRoleArn(threeportControlPlaneConfig.Name, accountId),
+	)
+
 	kubernetesRuntimeInfraEKS := &provider.KubernetesRuntimeInfraEKS{
 		RuntimeInstanceName: provider.ThreeportRuntimeName(threeportControlPlaneConfig.Name),
 		AwsAccountID:        accountId,
 		AwsConfig:           awsConfigResourceManager,
+		ProviderCredentials: providerCredentials,
 		Region:              awsConfigResourceManager.Region,
 	}
 
@@ -403,8 +438,7 @@ func PrepForEksDeletion(
 func RefreshEKSConnectionWithLocalConfig(
 	awsConfig *aws.Config,
 	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
-	apiClient *http.Client,
-	threeportAPIEndpoint string,
+	encryptionKey string,
 ) (*v0.KubernetesRuntimeInstance, error) {
 	// use local AWS config to get EKS cluster connection info
 	eksClusterConn := tpaws.EksClusterConnectionInfo{ClusterName: *kubernetesRuntimeInstance.Name}
@@ -412,15 +446,24 @@ func RefreshEKSConnectionWithLocalConfig(
 		return nil, fmt.Errorf("failed to get EKS cluster connection info: %w", err)
 	}
 
-	kubernetesRuntimeInstance.ConnectionToken = &eksClusterConn.Token
-	kubernetesRuntimeInstance.ConnectionTokenExpiration = &eksClusterConn.TokenExpiration
-	updatedKubernetesRuntimeInst, err := client.UpdateKubernetesRuntimeInstance(
-		apiClient,
-		threeportAPIEndpoint,
-		kubernetesRuntimeInstance,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to update EKS token on kubernetes runtime instance: %w", err)
+	// The refreshed token is set on the instance in memory rather than
+	// written back to the API.  The only caller is the teardown, which needs
+	// the token to reach the cluster it is about to delete, and the runtime
+	// instance is owned by the AwsEksKubernetesRuntimeInstance - the API
+	// rejects an external update to it with "tear down the owner first".
+	//
+	// It is encrypted here because that is how a token read back from the API
+	// arrives, and what reads it next decrypts with this same key.
+	connectionToken := eksClusterConn.Token
+	if encryptionKey != "" {
+		encryptedToken, err := encryption.Encrypt(encryptionKey, eksClusterConn.Token)
+		if err != nil {
+			return nil, fmt.Errorf("failed to encrypt refreshed EKS connection token: %w", err)
+		}
+		connectionToken = encryptedToken
 	}
-	return updatedKubernetesRuntimeInst, nil
+	kubernetesRuntimeInstance.ConnectionToken = &connectionToken
+	kubernetesRuntimeInstance.ConnectionTokenExpiration = &eksClusterConn.TokenExpiration
+
+	return kubernetesRuntimeInstance, nil
 }
