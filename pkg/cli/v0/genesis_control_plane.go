@@ -293,7 +293,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			kubeConnectionInfo,
 			uninstaller,
 			&awsConfigUser,
-			callerIdentity,
+			&callerIdentity,
 			awsConfigResourceManager,
 		); err != nil {
 			return fmt.Errorf("failed to deploy eks infrastructure: %w", err)
@@ -409,7 +409,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			&awsConfigUser,
 			callerIdentity,
 			awsConfigResourceManager,
-			kubernetesRuntimeInstance,
+			&kubernetesRuntimeInstance,
 			kubernetesRuntimeInstName,
 			instReconciled,
 			controlPlaneHost,
@@ -1003,8 +1003,8 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			cpi,
 			threeportControlPlaneConfig,
 			threeportConfig,
-			awsConfigUser,
-			awsConfigResourceManager,
+			&awsConfigUser,
+			&awsConfigResourceManager,
 			requestedControlPlane,
 		); err != nil {
 			return fmt.Errorf("")
@@ -1146,7 +1146,11 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		// for providers that use auth tokens, ensure we have the latest token
 		switch threeportControlPlaneConfig.Provider {
 		case v0.KubernetesRuntimeInfraProviderEKS:
-			kubernetesRuntimeInstance, err = RefreshEKSConnectionWithLocalConfig(awsConfigResourceManager, kubernetesRuntimeInstance, apiClient, threeportControlPlaneConfig.APIServer)
+			kubernetesRuntimeInstance, err = RefreshEKSConnectionWithLocalConfig(
+				awsConfigResourceManager,
+				kubernetesRuntimeInstance,
+				threeportControlPlaneConfig.EncryptionKey,
+			)
 			if err != nil {
 				return fmt.Errorf("failed to refresh EKS connection with local config: %w", err)
 			}
