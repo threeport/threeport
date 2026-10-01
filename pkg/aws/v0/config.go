@@ -129,6 +129,62 @@ func awsConfigOptions(configProfile, region string) []func(*config.LoadOptions) 
 	return configOptions
 }
 
+// AwsProviderCredentials are the credentials an out-of-process tool such as
+// the Pulumi AWS provider authenticates with.
+//
+// It holds the long-lived credentials and the role to assume rather than the
+// already-assumed ones, because a tool running in its own process cannot be
+// handed a refreshing credential chain - only values.  Assumed-role
+// credentials are good for an hour, and provisioning an EKS cluster and its
+// node group routinely takes longer than that, so freezing them produces a
+// half-built cluster partway through.  Given the role instead, the tool
+// assumes it itself and renews as it goes.
+type AwsProviderCredentials struct {
+	// AccessKeyId and SecretAccessKey are the long-lived credentials.  Both
+	// empty means the tool resolves credentials from its own environment,
+	// which is what a control plane running in EKS wants: there the pod is
+	// authenticated through IRSA, and that identity refreshes on its own.
+	AccessKeyId     string
+	SecretAccessKey string
+
+	// SessionToken is set when the credentials above are themselves
+	// temporary.  They expire on their own schedule, which bounds how long an
+	// operation using them can run.
+	SessionToken string
+
+	// Profile is a shared config profile the tool resolves credentials from,
+	// used instead of the fields above when the credentials come from the
+	// local AWS configuration rather than from stored API keys.  Naming the
+	// profile rather than passing values is what lets the tool refresh an SSO
+	// or credential_process session, which otherwise expires mid-operation
+	// the same way an assumed role does.
+	Profile string
+
+	// AssumeRoleArn is the role the tool assumes, empty to use the
+	// credentials directly.
+	AssumeRoleArn string
+
+	// ExternalId is required by roles whose trust policy asks for one.
+	ExternalId string
+}
+
+// ProviderCredentialsFromProfile returns credentials that point an
+// out-of-process tool at a shared config profile and a role to assume.  This
+// is the bootstrap path, where credentials come from the local AWS
+// configuration rather than from stored API keys.
+//
+// The profile is named rather than resolved here on purpose.  Resolving it
+// would produce values frozen at that moment, and a profile backed by SSO or
+// by a credential_process hands out credentials that live minutes - far less
+// than provisioning a cluster takes.  Reading the profile itself, the tool
+// renews them as it goes.
+func ProviderCredentialsFromProfile(profile, assumeRoleArn string) AwsProviderCredentials {
+	return AwsProviderCredentials{
+		Profile:       profile,
+		AssumeRoleArn: assumeRoleArn,
+	}
+}
+
 // IamTags returns tags for an IAM resource, identifying it by name alongside
 // any caller-supplied tags.
 func IamTags(name string, customTags map[string]string) []types.Tag {

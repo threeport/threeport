@@ -711,3 +711,38 @@ func GetAwsConfigFromAwsProvider(encryptionKey, region string, awsProvider *v0.A
 
 	return awsConfig, nil
 }
+
+// GetAwsProviderCredentialsFromAwsProvider returns the credentials a tool
+// running in its own process, such as the Pulumi AWS provider, should
+// authenticate with for an AwsProvider.  It resolves the same inputs as
+// GetAwsConfigFromAwsProvider but hands back the long-lived credentials and
+// the role to assume rather than an already-assumed config, so that the tool
+// can renew them over an operation that outlasts a role session.
+func GetAwsProviderCredentialsFromAwsProvider(
+	encryptionKey string,
+	awsProvider *v0.AwsProvider,
+) (*tpaws.AwsProviderCredentials, error) {
+	providerCredentials := tpaws.AwsProviderCredentials{}
+
+	if awsProvider.AccessKeyID != nil && awsProvider.SecretAccessKey != nil {
+		accessKeyId, err := encryption.Decrypt(encryptionKey, *awsProvider.AccessKeyID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decrypt access key id: %w", err)
+		}
+		secretAccessKey, err := encryption.Decrypt(encryptionKey, *awsProvider.SecretAccessKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decrypt secret access key: %w", err)
+		}
+		providerCredentials.AccessKeyId = accessKeyId
+		providerCredentials.SecretAccessKey = secretAccessKey
+	}
+
+	if awsProvider.RoleArn != nil {
+		providerCredentials.AssumeRoleArn = *awsProvider.RoleArn
+		if awsProvider.ExternalId != nil {
+			providerCredentials.ExternalId = *awsProvider.ExternalId
+		}
+	}
+
+	return &providerCredentials, nil
+}

@@ -1,7 +1,6 @@
 package provider
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/pulumi/pulumi-aws/sdk/v6/go/aws"
@@ -109,22 +108,43 @@ func (i *KubernetesRuntimeInfraEKS) resourceTags(name string) pulumi.StringMap {
 // matching how the GCP and OCI providers keep their IAM work out of Pulumi.
 func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 	return func(ctx *pulumi.Context) error {
-		// Pass the credentials from this provider's AWS config to the Pulumi
-		// AWS provider explicitly rather than letting it resolve whatever
-		// ambient credentials the process happens to hold.  The config
-		// commonly carries an assumed resource manager role scoped to the
-		// account this cluster belongs to, which is not the identity the
-		// ambient environment would supply.
-		credentials, err := i.AwsConfig.Credentials.Retrieve(context.Background())
-		if err != nil {
-			return fmt.Errorf("failed to retrieve credentials from AWS config: %w", err)
+		// Give the Pulumi AWS provider the long-lived credentials and the
+		// role to assume rather than credentials already assumed by this
+		// process.  The provider runs out of process and can only be handed
+		// values, so assumed-role credentials would be frozen at the moment
+		// they were read - and an assumed role lasts an hour while creating
+		// a cluster and its node group routinely takes longer, which strands
+		// the stack half built and leaves the destroy unable to authenticate
+		// either.  Given the role, the provider renews as it goes.
+		providerArgs := aws.ProviderArgs{Region: pulumi.String(i.Region)}
+		if i.ProviderCredentials.Profile != "" {
+			// the provider reads the profile from the shared config itself,
+			// so an SSO or credential_process session is renewed rather than
+			// captured
+			providerArgs.Profile = pulumi.String(i.ProviderCredentials.Profile)
 		}
-		awsProvider, err := aws.NewProvider(ctx, "aws-provider", &aws.ProviderArgs{
-			Region:    pulumi.String(i.Region),
-			AccessKey: pulumi.String(credentials.AccessKeyID),
-			SecretKey: pulumi.String(credentials.SecretAccessKey),
-			Token:     pulumi.String(credentials.SessionToken),
-		})
+		if i.ProviderCredentials.AccessKeyId != "" {
+			providerArgs.AccessKey = pulumi.String(i.ProviderCredentials.AccessKeyId)
+			providerArgs.SecretKey = pulumi.String(i.ProviderCredentials.SecretAccessKey)
+			if i.ProviderCredentials.SessionToken != "" {
+				providerArgs.Token = pulumi.String(i.ProviderCredentials.SessionToken)
+			}
+		}
+		// with no credentials configured the provider resolves them from its
+		// own environment, which is what a control plane running in EKS
+		// wants: there the pod is authenticated through IRSA and that
+		// identity refreshes on its own
+		if i.ProviderCredentials.AssumeRoleArn != "" {
+			assumeRole := aws.ProviderAssumeRoleArgs{
+				RoleArn: pulumi.String(i.ProviderCredentials.AssumeRoleArn),
+			}
+			if i.ProviderCredentials.ExternalId != "" {
+				assumeRole.ExternalId = pulumi.String(i.ProviderCredentials.ExternalId)
+			}
+			providerArgs.AssumeRole = assumeRole
+		}
+
+		awsProvider, err := aws.NewProvider(ctx, "aws-provider", &providerArgs)
 		if err != nil {
 			return fmt.Errorf("failed to create AWS provider: %w", err)
 		}

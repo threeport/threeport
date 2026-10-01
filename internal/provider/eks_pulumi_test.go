@@ -11,6 +11,8 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	tpaws "github.com/threeport/threeport/pkg/aws/v0"
 )
 
 const (
@@ -97,8 +99,13 @@ func testEksInfra(zoneCount int32) *KubernetesRuntimeInfraEKS {
 			RuntimeInstanceName: "eks-test",
 			ProjectName:         "eks",
 		},
-		AwsAccountID:                 "123456789012",
-		AwsConfig:                    &awsConfig,
+		AwsAccountID: "123456789012",
+		AwsConfig:    &awsConfig,
+		ProviderCredentials: tpaws.AwsProviderCredentials{
+			AccessKeyId:     "AKIAIOSFODNN7EXAMPLE",
+			SecretAccessKey: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+			AssumeRoleArn:   "arn:aws:iam::123456789012:role/resource-manager-threeport",
+		},
 		Region:                       "us-east-1",
 		ClusterRoleArn:               "arn:aws:iam::123456789012:role/eks-test-cluster-role",
 		NodeRoleArn:                  "arn:aws:iam::123456789012:role/eks-test-node-role",
@@ -331,9 +338,9 @@ func TestEksPulumiProgram_ClusterAndNodeGroup(t *testing.T) {
 }
 
 // TestEksPulumiProgram_UsesConfiguredCredentials checks the AWS provider is
-// given the credentials from this object's AWS config.  Those commonly belong
-// to an assumed resource manager role scoped to the cluster's account, which
-// is not the identity Pulumi would pick up from the ambient environment.
+// given the configured credentials rather than resolving whatever the ambient
+// environment holds, which for a cluster in another account is the wrong
+// identity.
 func TestEksPulumiProgram_UsesConfiguredCredentials(t *testing.T) {
 	infra := testEksInfra(2)
 	mocks := runEksPulumiProgram(t, infra)
@@ -342,10 +349,87 @@ func TestEksPulumiProgram_UsesConfiguredCredentials(t *testing.T) {
 	require.Len(t, providers, 1)
 	provider := providers[0]
 
-	configuredCredentials, err := infra.AwsConfig.Credentials.Retrieve(t.Context())
-	require.NoError(t, err)
-	assert.Equal(t, configuredCredentials.AccessKeyID, secretValue(t, provider.inputs["accessKey"]))
-	assert.Equal(t, configuredCredentials.SecretAccessKey, secretValue(t, provider.inputs["secretKey"]))
-	assert.Equal(t, configuredCredentials.SessionToken, secretValue(t, provider.inputs["token"]))
+	assert.Equal(t, infra.ProviderCredentials.AccessKeyId, secretValue(t, provider.inputs["accessKey"]))
+	assert.Equal(t, infra.ProviderCredentials.SecretAccessKey, secretValue(t, provider.inputs["secretKey"]))
+	assert.Equal(t, infra.Region, provider.inputs["region"])
+}
+
+// TestEksPulumiProgram_AssumesRoleRatherThanFreezingCredentials checks the
+// provider is given the role to assume, not credentials already assumed by
+// this process.
+//
+// The provider runs out of process, so anything handed to it is frozen at that
+// value.  An assumed role lasts an hour and provisioning a cluster and its
+// node group routinely takes longer, so freezing assumed credentials fails
+// partway through with ExpiredToken - and leaves the destroy unable to
+// authenticate either, because the stack state holds the same dead
+// credentials.
+func TestEksPulumiProgram_AssumesRoleRatherThanFreezingCredentials(t *testing.T) {
+	infra := testEksInfra(2)
+	mocks := runEksPulumiProgram(t, infra)
+
+	providers := mocks.byType(eksProviderTypeToken)
+	require.Len(t, providers, 1)
+	provider := providers[0]
+
+	assumeRole, ok := provider.inputs["assumeRole"].(map[string]any)
+	require.True(t, ok, "the provider must be given a role to assume, got %#v", provider.inputs["assumeRole"])
+	assert.Equal(t, infra.ProviderCredentials.AssumeRoleArn, assumeRole["roleArn"])
+
+	// the credentials handed over must be the long-lived ones the role is
+	// assumed with, never a session token from an assumption this process
+	// already did
+	assert.NotContains(
+		t,
+		provider.inputs,
+		"token",
+		"a session token means already-assumed credentials were frozen into the provider",
+	)
+}
+
+// TestEksPulumiProgram_UsesConfigProfile checks that a named shared config
+// profile is passed through to the provider rather than resolved here.  The
+// bootstrap path uses this: resolving the profile would capture whatever an
+// SSO or credential_process session hands out at that instant, which lives
+// minutes, where naming it lets the provider renew as it goes.
+func TestEksPulumiProgram_UsesConfigProfile(t *testing.T) {
+	infra := testEksInfra(2)
+	infra.ProviderCredentials = tpaws.ProviderCredentialsFromProfile(
+		"some-profile",
+		"arn:aws:iam::123456789012:role/resource-manager-threeport",
+	)
+	mocks := runEksPulumiProgram(t, infra)
+
+	providers := mocks.byType(eksProviderTypeToken)
+	require.Len(t, providers, 1)
+	provider := providers[0]
+
+	assert.Equal(t, "some-profile", provider.inputs["profile"])
+	assumeRole, ok := provider.inputs["assumeRole"].(map[string]any)
+	require.True(t, ok, "the provider must still be given the role to assume")
+	assert.Equal(t, "arn:aws:iam::123456789012:role/resource-manager-threeport", assumeRole["roleArn"])
+
+	// no captured values alongside the profile
+	assert.NotContains(t, provider.inputs, "accessKey")
+	assert.NotContains(t, provider.inputs, "token")
+}
+
+// TestEksPulumiProgram_AmbientCredentialsWhenNoneConfigured checks that with
+// no credentials configured the provider is left to resolve its own.  That is
+// what a control plane running inside EKS needs: the pod is authenticated
+// through IRSA, and that identity refreshes on its own.
+func TestEksPulumiProgram_AmbientCredentialsWhenNoneConfigured(t *testing.T) {
+	infra := testEksInfra(2)
+	infra.ProviderCredentials = tpaws.AwsProviderCredentials{}
+	mocks := runEksPulumiProgram(t, infra)
+
+	providers := mocks.byType(eksProviderTypeToken)
+	require.Len(t, providers, 1)
+	provider := providers[0]
+
+	assert.NotContains(t, provider.inputs, "accessKey")
+	assert.NotContains(t, provider.inputs, "secretKey")
+	assert.NotContains(t, provider.inputs, "assumeRole")
+	assert.NotContains(t, provider.inputs, "profile")
 	assert.Equal(t, infra.Region, provider.inputs["region"])
 }

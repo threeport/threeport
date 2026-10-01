@@ -3,6 +3,7 @@ package v0
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"time"
 
@@ -63,6 +64,12 @@ type EksClusterConnectionInfo struct {
 
 // Get retrieves connection info for a given EKS cluster by name.
 func (c *EksClusterConnectionInfo) Get(awsConfig *aws.Config) error {
+	// a caller that failed to resolve a config reaches here with nil, and a
+	// nil dereference buries the real problem under a stack trace
+	if awsConfig == nil {
+		return errors.New("cannot get EKS cluster connection info without an AWS config")
+	}
+
 	ctx := context.Background()
 
 	// get the cluster's API endpoint and certificate authority
@@ -103,6 +110,10 @@ func (c *EksClusterConnectionInfo) Get(awsConfig *aws.Config) error {
 // trust policy of every role bound that way.  It carries an ID assigned at
 // cluster creation, so it can only be read from AWS.
 func EksOidcIssuerUrl(awsConfig *aws.Config, clusterName string) (string, error) {
+	if awsConfig == nil {
+		return "", errors.New("cannot get the EKS OIDC issuer without an AWS config")
+	}
+
 	eksClient := eks.NewFromConfig(*awsConfig)
 	describeClusterOutput, err := eksClient.DescribeCluster(
 		context.Background(),
