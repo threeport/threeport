@@ -3,11 +3,11 @@ package v0
 import (
 	"fmt"
 
-	"github.com/nukleros/aws-builder/pkg/eks"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
 
+	tpaws "github.com/threeport/threeport/pkg/aws/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -3121,10 +3121,8 @@ func InstallEksThreeportSystemServices(
 				"name":      ClusterAutoscalerServiceAccountName,
 				"namespace": ClusterAutoscalerNamespace,
 				"annotations": map[string]interface{}{
-					"eks.amazonaws.com/role-arn": fmt.Sprintf(
-						"arn:aws:iam::%s:role/%s-%s",
+					"eks.amazonaws.com/role-arn": tpaws.EksClusterAutoscalingRoleArn(
 						accountId,
-						eks.ClusterAutoscalingRoleName,
 						clusterName,
 					),
 				},
