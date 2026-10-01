@@ -12,6 +12,7 @@ import (
 	notif "github.com/threeport/threeport/internal/aws/notif"
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	tpaws "github.com/threeport/threeport/pkg/aws/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -409,7 +410,22 @@ func buildEksInfra(
 		return nil, fmt.Errorf("failed to create AWS config: %w", err)
 	}
 
-	return eksInfraFromApiObjects(instance, definition, *awsProvider.AccountID, awsConfig, log), nil
+	providerCredentials, err := kube.GetAwsProviderCredentialsFromAwsProvider(
+		r.EncryptionKey,
+		awsProvider,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve AWS provider credentials: %w", err)
+	}
+
+	return eksInfraFromApiObjects(
+		instance,
+		definition,
+		*awsProvider.AccountID,
+		awsConfig,
+		*providerCredentials,
+		log,
+	), nil
 }
 
 // eksInfraFromApiObjects maps the runtime instance and definition onto the
@@ -419,6 +435,7 @@ func eksInfraFromApiObjects(
 	definition *v0.AwsEksKubernetesRuntimeDefinition,
 	awsAccountId string,
 	awsConfig *aws.Config,
+	providerCredentials tpaws.AwsProviderCredentials,
 	log *logr.Logger,
 ) *provider.KubernetesRuntimeInfraEKS {
 	return &provider.KubernetesRuntimeInfraEKS{
@@ -428,6 +445,7 @@ func eksInfraFromApiObjects(
 		},
 		AwsAccountID:                 awsAccountId,
 		AwsConfig:                    awsConfig,
+		ProviderCredentials:          providerCredentials,
 		Region:                       *instance.Region,
 		ZoneCount:                    int32(*definition.ZoneCount),
 		DefaultNodeGroupInstanceType: *definition.DefaultNodeGroupInstanceType,

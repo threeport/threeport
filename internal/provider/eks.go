@@ -49,7 +49,14 @@ type KubernetesRuntimeInfraEKS struct {
 	NodeRoleArn string
 
 	// The configuration containing credentials to connect to an AWS account.
+	// Used for the SDK calls this process makes directly.
 	AwsConfig *aws.Config
+
+	// ProviderCredentials are what the Pulumi AWS provider authenticates
+	// with.  It runs in its own process and cannot be handed AwsConfig's
+	// refreshing credential chain, so it gets the long-lived credentials and
+	// the role to assume and renews them itself.
+	ProviderCredentials tpaws.AwsProviderCredentials
 
 	// The number of availability zones the EKS cluster will be deployed across.
 	ZoneCount int32
@@ -736,18 +743,15 @@ const (
 				"Sid": "EC2Permissions",
 				"Effect": "Allow",
 				"Action": [
+					"ec2:Describe*",
 					"ec2:CreateVpc",
 					"ec2:DeleteVpc",
-					"ec2:DescribeVpcs",
 					"ec2:ModifyVpcAttribute",
-					"ec2:DescribeVpcAttribute",
 					"ec2:CreateSubnet",
 					"ec2:DeleteSubnet",
 					"ec2:ModifySubnetAttribute",
-					"ec2:DescribeSubnets",
 					"ec2:CreateRouteTable",
 					"ec2:DeleteRouteTable",
-					"ec2:DescribeRouteTables",
 					"ec2:AssociateRouteTable",
 					"ec2:CreateRoute",
 					"ec2:DeleteRoute",
@@ -756,22 +760,16 @@ const (
 					"ec2:ReleaseAddress",
 					"ec2:AssociateAddress",
 					"ec2:DisassociateAddress",
-					"ec2:DescribeAddresses",
 					"ec2:CreateInternetGateway",
 					"ec2:DeleteInternetGateway",
 					"ec2:AttachInternetGateway",
 					"ec2:DetachInternetGateway",
-					"ec2:DescribeInternetGateways",
 					"ec2:CreateNatGateway",
 					"ec2:DeleteNatGateway",
-					"ec2:DescribeNatGateways",
 					"ec2:CreateTags",
 					"ec2:DeleteTags",
-					"ec2:DescribeTags",
-					"ec2:DescribeAvailabilityZones",
 					"ec2:CreateSecurityGroup",
 					"ec2:DeleteSecurityGroup",
-					"ec2:DescribeSecurityGroups",
 					"ec2:AuthorizeSecurityGroupIngress",
 					"ec2:AuthorizeSecurityGroupEgress"
 				],
@@ -781,16 +779,16 @@ const (
 				"Sid": "EKSPermissions",
 				"Effect": "Allow",
 				"Action": [
+					"eks:Describe*",
+					"eks:List*",
 					"eks:CreateCluster",
 					"eks:DeleteCluster",
 					"eks:UpdateClusterConfig",
 					"eks:CreateNodegroup",
 					"eks:DeleteNodegroup",
 					"eks:UpdateNodegroupConfig",
-					"eks:DescribeNodegroup",
 					"eks:TagResource",
 					"eks:UntagResource",
-					"eks:DescribeCluster",
 					"eks:CreateAddon",
 					"eks:DeleteAddon",
 					"eks:UpdateAddon"
@@ -836,19 +834,17 @@ const (
 				"Sid": "IAMPermissions",
 				"Effect": "Allow",
 				"Action": [
-					"iam:ListOpenIDConnectProviders",
+					"iam:Get*",
+					"iam:List*",
 					"iam:CreateOpenIDConnectProvider",
 					"iam:DeleteOpenIDConnectProvider",
 					"iam:UpdateOpenIDConnectProviderThumbprint",
+					"iam:TagOpenIDConnectProvider",
 					"iam:CreatePolicy",
 					"iam:DeletePolicy",
-					"iam:ListPolicies",
-					"iam:ListRolePolicies",
-					"iam:ListInstanceProfilesForRole",
 					"iam:CreatePolicyVersion",
 					"iam:DeletePolicyVersion",
 					"iam:SetDefaultPolicyVersion",
-					"iam:GetRole",
 					"iam:CreateRole",
 					"iam:DeleteRole",
 					"iam:UpdateRole",
@@ -858,7 +854,6 @@ const (
 					"iam:DetachRolePolicy",
 					"iam:TagRole",
 					"iam:UntagRole",
-					"iam:ListAttachedRolePolicies",
 					"iam:CreateServiceLinkedRole",
 					"iam:TagPolicy",
 					"iam:UpdateAssumeRolePolicy"
