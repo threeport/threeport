@@ -41,6 +41,7 @@ require (
 	github.com/onsi/gomega v1.38.2
 	github.com/oracle/oci-go-sdk/v65 v65.101.0
 	github.com/pressly/goose/v3 v3.24.1
+	github.com/pulumi/pulumi-aws/sdk/v6 v6.83.4
 	github.com/pulumi/pulumi-gcp/sdk/v8 v8.41.1
 	github.com/pulumi/pulumi-oci/sdk/v3 v3.16.0
 	github.com/pulumi/pulumi/sdk/v3 v3.213.0

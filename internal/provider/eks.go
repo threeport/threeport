@@ -27,11 +27,27 @@ import (
 // KubernetesRuntimeInfraEKS represents the infrastructure for a threeport-managed EKS
 // cluster.
 type KubernetesRuntimeInfraEKS struct {
-	// The unique name of the kubernetes runtime instance managed by threeport.
-	RuntimeInstanceName string
+	// PulumiWorkspace provides workspace, stack, state, and automation API
+	// helpers (aligned with KubernetesRuntimeInfraGKE and
+	// KubernetesRuntimeInfraOKE).  It carries RuntimeInstanceName.
+	PulumiWorkspace
 
 	// The AWS account ID where the cluster infra is provisioned.
 	AwsAccountID string
+
+	// The AWS region where the cluster infra is provisioned.
+	Region string
+
+	// Kubernetes version of the EKS cluster.
+	KubernetesVersion string
+
+	// The ARN of the IAM role the EKS control plane assumes.  Created by the
+	// IAM bootstrap that runs outside the Pulumi program.
+	ClusterRoleArn string
+
+	// The ARN of the IAM role the worker nodes assume.  Created by the IAM
+	// bootstrap that runs outside the Pulumi program.
+	NodeRoleArn string
 
 	// The configuration containing credentials to connect to an AWS account.
 	AwsConfig *aws.Config
