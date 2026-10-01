@@ -14,6 +14,9 @@ our [Install tptctl guide](install-tptctl.md) to install if you haven't already.
 
 ## Install Threeport
 
+> Requirement: You need to have the [Pulumi CLI](https://www.pulumi.com/docs/install/)
+> installed locally when using `tptctl` to install Threeport on AWS.
+
 This section assumes you already have an AWS account and credentials configured on
 your local machine with a profile named "default".  Follow the AWS
 [quickstart page](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-quickstart.html)
