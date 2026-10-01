@@ -15,7 +15,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
-	"github.com/nukleros/aws-builder/pkg/eks"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/clientcmd"
@@ -1206,12 +1205,6 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		switch threeportControlPlaneConfig.Provider {
 		case v0.KubernetesRuntimeInfraProviderEKS:
 
-			// remove inventory file
-			invFile := provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName)
-			if err := os.Remove(invFile); err != nil {
-				Warning(fmt.Sprintf("failed to remove inventory file %s", invFile))
-			}
-
 			// delete AWS IAM resources
 			err = provider.DeleteResourceManagerRole(cpi.Opts.ControlPlaneName, *awsConfigUser)
 			if err != nil {
@@ -1385,21 +1378,6 @@ func (u *Uninstaller) cleanOnCreateError(
 		return createErr
 	}
 
-	// if eks provider, load inventory for deletion
-	switch u.controlPlane.InfraProvider {
-	case v0.KubernetesRuntimeInfraProviderEKS:
-
-		// allow 2 seconds for pending inventory writes to complete
-		time.Sleep(time.Second * 2)
-		var inventory eks.EksInventory
-		if invErr := inventory.Load(
-			provider.EKSInventoryFilepath(u.cpi.Opts.ProviderConfigDir, u.cpi.Opts.ControlPlaneName),
-		); invErr != nil {
-			return fmt.Errorf("failed to create control plane infra for threeport: %w\nfailed to read eks kubernetes runtime inventory for resource deletion: %w", createErr, invErr)
-		}
-		u.kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS).ResourceInventory = &inventory
-	}
-
 	// delete infra
 	if deleteErr := u.kubernetesRuntimeInfra.Delete(); deleteErr != nil {
 		return fmt.Errorf("failed to create control plane infra for threeport: %w\nfailed to delete control plane infra, you may have dangling kubernetes runtime infra resources still running: %w", createErr, deleteErr)
@@ -1414,12 +1392,6 @@ func (u *Uninstaller) cleanOnCreateError(
 			return fmt.Errorf("failed to delete threeport AWS IAM resources: %w", err)
 		}
 		Info("Threeport AWS IAM resources deleted")
-
-		// remove inventory file
-		invFile := provider.EKSInventoryFilepath(u.cpi.Opts.ProviderConfigDir, u.cpi.Opts.ControlPlaneName)
-		if err := os.Remove(invFile); err != nil {
-			Warning(fmt.Sprintf("failed to remove inventory file %s", invFile))
-		}
 	case v0.KubernetesRuntimeInfraProviderOKE:
 		Info("Deleting Threeport OCI IAM resources")
 		kubernetesRuntimeInfraOKE := u.kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraOKE)

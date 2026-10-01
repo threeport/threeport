@@ -97,6 +97,29 @@ func (c *EksClusterConnectionInfo) Get(awsConfig *aws.Config) error {
 	return nil
 }
 
+// EksOidcIssuerUrl returns the URL of the OIDC issuer EKS stands up with a
+// cluster.  The issuer is registered as an IAM identity provider so that the
+// cluster's service accounts can assume IAM roles, and its URL is part of the
+// trust policy of every role bound that way.  It carries an ID assigned at
+// cluster creation, so it can only be read from AWS.
+func EksOidcIssuerUrl(awsConfig *aws.Config, clusterName string) (string, error) {
+	eksClient := eks.NewFromConfig(*awsConfig)
+	describeClusterOutput, err := eksClient.DescribeCluster(
+		context.Background(),
+		&eks.DescribeClusterInput{Name: aws.String(clusterName)},
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to describe EKS cluster: %w", err)
+	}
+	cluster := describeClusterOutput.Cluster
+	if cluster == nil || cluster.Identity == nil || cluster.Identity.Oidc == nil ||
+		cluster.Identity.Oidc.Issuer == nil {
+		return "", fmt.Errorf("EKS cluster %s reports no OIDC issuer", clusterName)
+	}
+
+	return *cluster.Identity.Oidc.Issuer, nil
+}
+
 // GetEksToken returns a bearer token that authenticates the caller to an EKS
 // cluster's Kubernetes API along with the time at which it expires.  The token
 // is a presigned STS GetCallerIdentity URL that carries the cluster name as a
