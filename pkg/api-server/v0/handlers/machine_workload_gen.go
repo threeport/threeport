@@ -838,9 +838,8 @@ func (h Handler) UpdateMachineWorkloadInstance(c echo.Context) error {
 		)
 	}
 
-	// notify controller if reconciliation is required and the update is notifiable
-	if existingMachineWorkloadInstance.Reconciled != nil && !*existingMachineWorkloadInstance.Reconciled &&
-		api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingMachineWorkloadInstance.Reconciliation) {
+	// notify controller if the update is notifiable
+	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingMachineWorkloadInstance.Reconciliation) {
 		notifPayload, err := existingMachineWorkloadInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -951,9 +950,8 @@ func (h Handler) ReplaceMachineWorkloadInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
 	}
 
-	// notify controller if reconciliation is required and the update is notifiable
-	if existingMachineWorkloadInstance.Reconciled != nil && !*existingMachineWorkloadInstance.Reconciled &&
-		api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingMachineWorkloadInstance.Reconciliation) {
+	// notify controller if the update is notifiable
+	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingMachineWorkloadInstance.Reconciliation) {
 		notifPayload, err := existingMachineWorkloadInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,

@@ -347,9 +347,8 @@ func (h Handler) UpdateControlPlaneDefinition(c echo.Context) error {
 		)
 	}
 
-	// notify controller if reconciliation is required and the update is notifiable
-	if existingControlPlaneDefinition.Reconciled != nil && !*existingControlPlaneDefinition.Reconciled &&
-		api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingControlPlaneDefinition.Reconciliation) {
+	// notify controller if the update is notifiable
+	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingControlPlaneDefinition.Reconciliation) {
 		notifPayload, err := existingControlPlaneDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -460,9 +459,8 @@ func (h Handler) ReplaceControlPlaneDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
 	}
 
-	// notify controller if reconciliation is required and the update is notifiable
-	if existingControlPlaneDefinition.Reconciled != nil && !*existingControlPlaneDefinition.Reconciled &&
-		api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingControlPlaneDefinition.Reconciliation) {
+	// notify controller if the update is notifiable
+	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingControlPlaneDefinition.Reconciliation) {
 		notifPayload, err := existingControlPlaneDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -945,9 +943,8 @@ func (h Handler) UpdateControlPlaneInstance(c echo.Context) error {
 		)
 	}
 
-	// notify controller if reconciliation is required and the update is notifiable
-	if existingControlPlaneInstance.Reconciled != nil && !*existingControlPlaneInstance.Reconciled &&
-		api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingControlPlaneInstance.Reconciliation) {
+	// notify controller if the update is notifiable
+	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingControlPlaneInstance.Reconciliation) {
 		notifPayload, err := existingControlPlaneInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -1058,9 +1055,8 @@ func (h Handler) ReplaceControlPlaneInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
 	}
 
-	// notify controller if reconciliation is required and the update is notifiable
-	if existingControlPlaneInstance.Reconciled != nil && !*existingControlPlaneInstance.Reconciled &&
-		api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingControlPlaneInstance.Reconciliation) {
+	// notify controller if the update is notifiable
+	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingControlPlaneInstance.Reconciliation) {
 		notifPayload, err := existingControlPlaneInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,

@@ -838,9 +838,8 @@ func (h Handler) UpdateGcpGkeKubernetesRuntimeInstance(c echo.Context) error {
 		)
 	}
 
-	// notify controller if reconciliation is required and the update is notifiable
-	if existingGcpGkeKubernetesRuntimeInstance.Reconciled != nil && !*existingGcpGkeKubernetesRuntimeInstance.Reconciled &&
-		api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingGcpGkeKubernetesRuntimeInstance.Reconciliation) {
+	// notify controller if the update is notifiable
+	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingGcpGkeKubernetesRuntimeInstance.Reconciliation) {
 		notifPayload, err := existingGcpGkeKubernetesRuntimeInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -951,9 +950,8 @@ func (h Handler) ReplaceGcpGkeKubernetesRuntimeInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
 	}
 
-	// notify controller if reconciliation is required and the update is notifiable
-	if existingGcpGkeKubernetesRuntimeInstance.Reconciled != nil && !*existingGcpGkeKubernetesRuntimeInstance.Reconciled &&
-		api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingGcpGkeKubernetesRuntimeInstance.Reconciliation) {
+	// notify controller if the update is notifiable
+	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingGcpGkeKubernetesRuntimeInstance.Reconciliation) {
 		notifPayload, err := existingGcpGkeKubernetesRuntimeInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,

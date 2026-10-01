@@ -68,6 +68,13 @@ func GenReconcilerOperations(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error
 					obj.Name,
 				))
 				f.Comment("has been updated.")
+				f.Comment("")
+				f.Comment("This is called for any notifiable update, including one against an")
+				f.Comment("object that is already reconciled and unchanged - the API does not")
+				f.Comment("withhold those, so that a controller can be asked to revisit an object")
+				f.Comment("that is marked reconciled but is not. It must therefore be safe to")
+				f.Comment("invoke redundantly: check what actually needs doing and do nothing when")
+				f.Comment("the answer is nothing, rather than acting on the notification itself.")
 				f.Func().Id(updatedFuncName).Params(
 					reconcilerParam,
 					objectParam,
