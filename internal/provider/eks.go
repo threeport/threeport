@@ -381,7 +381,7 @@ func DeleteServiceAccount(
 // management.
 func CreateResourceManagerRole(
 	namespace string,
-	tags *[]types.Tag,
+	tags []types.Tag,
 	roleName,
 	accountId,
 	externalAccountId,
@@ -407,7 +407,7 @@ func CreateResourceManagerRole(
 	createResourceManagerRoleInput := iam.CreateRoleInput{
 		AssumeRolePolicyDocument: &resourceManagerTrustPolicyDocument,
 		RoleName:                 &roleName,
-		Tags:                     *tags,
+		Tags:                     tags,
 	}
 
 	// create the role

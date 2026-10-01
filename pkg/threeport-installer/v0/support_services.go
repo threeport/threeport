@@ -16,8 +16,8 @@ const (
 	SupportServicesOperatorImage = "ghcr.io/nukleros/support-services-operator:v0.7.0"
 	RBACProxyImage               = "ghcr.io/kube-rbac-proxy/kube-rbac-proxy:v0.22.0"
 
-	// links the service account delcared in the IngressComponent resource to the
-	// resource config for github.com/nukleros/aws-builder to create the attached IAM role.
+	// links the service account declared in the IngressComponent resource to
+	// the IRSA role internal/provider creates for it on EKS.
 	DNSManagerServiceAccountName     = "external-dns"
 	DNSManagerServiceAccountNamepace = "nukleros-gateway-system"
 
@@ -27,13 +27,13 @@ const (
 	SecretsManagerServiceAccountName      = "external-secrets"
 	SecretsManagerServiceAccountNamespace = "nukleros-secrets-system"
 
-	// links the service account used by the EBS CSI driver to the resource
-	// config for github.com/nukleros/aws-builder to create the attached IAM role.
+	// links the service account used by the EBS CSI driver to the IRSA role
+	// internal/provider creates for it on EKS.
 	StorageManagerServiceAccountName      = "ebs-csi-controller-sa"
 	StorageManagerServiceAccountNamespace = "kube-system"
 
 	// links the service account used by the cluster autoscaler installation to
-	// the config for github.com/nukleros/aws-builder to create the attached IAM role.
+	// the IRSA role internal/provider creates for it on EKS.
 	ClusterAutoscalerServiceAccountName = "cluster-autoscaler"
 	ClusterAutoscalerNamespace          = "kube-system"
 
