@@ -73,8 +73,6 @@ github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.29 h1:6e8a71X+9GfghragVe
 github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.29/go.mod h1:c4jkZiQ+BWpNqq7VtrxjwISrLrt/VvPq3XiopkUIolI=
 github.com/aws/aws-sdk-go-v2/internal/ini v1.8.2 h1:Pg9URiobXy85kgFev3og2CuOZ8JZUBENF+dcgWBaYNk=
 github.com/aws/aws-sdk-go-v2/internal/ini v1.8.2/go.mod h1:FbtygfRFze9usAadmnGJNc8KsP346kEe+y2/oyhGAGc=
-github.com/aws/aws-sdk-go-v2/service/ec2 v1.202.0 h1:/kB9Uf7fgpYNLvwhAW0YiDSg7xQyxB6MbEYoC0yXtjs=
-github.com/aws/aws-sdk-go-v2/service/ec2 v1.202.0/go.mod h1:cRD0Fhzj0YD+uAh16NChQAv9/BB0S9x3YK9hLx1jb/k=
 github.com/aws/aws-sdk-go-v2/service/eks v1.57.0 h1:+g6K3PF6xeCqGr2MJT8CnwrluWQv0BlHO9RrwivHwWk=
 github.com/aws/aws-sdk-go-v2/service/eks v1.57.0/go.mod h1:XXCcNup2LhXfIllxo6fCyHY31J8RLU3d3sM/lGGnO/s=
 github.com/aws/aws-sdk-go-v2/service/iam v1.38.8 h1:+PjS9gfr15U+MaUafN89dWxhbsvVrJg2D1umkc8R4uA=
@@ -488,8 +486,6 @@ github.com/nats-io/nuid v1.0.1 h1:5iA8DT8V7q8WK2EScv2padNa/rTESc1KdnPw4TC2paw=
 github.com/nats-io/nuid v1.0.1/go.mod h1:19wcPz3Ph3q0Jbyiqsd0kePYG7A95tJPxeL+1OSON2c=
 github.com/ncruces/go-strftime v0.1.9 h1:bY0MQC28UADQmHmaF5dgpLmImcShSi2kHU9XLdhx/f4=
 github.com/ncruces/go-strftime v0.1.9/go.mod h1:Fwc5htZGVVkseilnfgOVb9mKy6w1naJmn9CehxcKcls=
-github.com/nukleros/aws-builder v0.4.9 h1:8XgQE/GipFcPSCc5uWrAvtVPocjhPUUFP0T8qMiREtQ=
-github.com/nukleros/aws-builder v0.4.9/go.mod h1:lip2G6OH4aatc/vHAqR1f5yLFQ8i+3JjUU6QcjWkiSk=
 github.com/nxadm/tail v1.4.11 h1:8feyoE3OzPrcshW5/MJ4sGESc5cqmGkGCWlco4l0bqY=
 github.com/nxadm/tail v1.4.11/go.mod h1:OTaG3NK980DZzxbRq6lEuzgU+mug70nY11sMd4JXXHc=
 github.com/onsi/ginkgo/v2 v2.27.2 h1:LzwLj0b89qtIy6SSASkzlNvX6WktqurSHwkk2ipF/Ns=

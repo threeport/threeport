@@ -12,12 +12,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/aws/smithy-go/ptr"
-	aws_config "github.com/nukleros/aws-builder/pkg/config"
-	builder_iam "github.com/nukleros/aws-builder/pkg/iam"
 	"github.com/spf13/cobra"
 
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	tpaws "github.com/threeport/threeport/pkg/aws/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
@@ -45,13 +44,9 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 		apiClient, _, apiEndpoint, requestedControlPlane := GetClientContext(cmd)
 
 		// load AWS configuration
-		awsConf, err := aws_config.LoadAWSConfig(
-			false,
+		awsConf, err := tpaws.LoadAwsConfig(
 			awsProfile,
 			providerRegion,
-			"",
-			"",
-			"",
 		)
 		if err != nil {
 			cli.Error("failed to load AWS configuration with local config", err)
@@ -115,7 +110,7 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 		// create resource manager role
 		role, err := provider.CreateResourceManagerRole(
 			threeport.ControlPlaneNamespace,
-			builder_iam.CreateIamTags(
+			tpaws.IamTags(
 				requestedControlPlane,
 				map[string]string{},
 			),

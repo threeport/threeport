@@ -13,8 +13,6 @@ import (
 	aws_iam "github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/go-logr/logr"
-	builder_config "github.com/nukleros/aws-builder/pkg/config"
-	"github.com/nukleros/aws-builder/pkg/iam"
 	"github.com/oracle/oci-go-sdk/v65/common"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -215,7 +213,7 @@ func v0ControlPlaneInstanceCreated(
 		resourceManagerRoleName := provider.GetResourceManagerRoleName(cpi.Opts.ControlPlaneName)
 		_, err = provider.CreateResourceManagerRole(
 			cpi.Opts.Namespace,
-			iam.CreateIamTags(
+			tpaws.IamTags(
 				cpi.Opts.ControlPlaneName,
 				map[string]string{},
 			),
@@ -941,7 +939,7 @@ func v0ControlPlaneInstanceDeleted(
 	switch *kubernetesRuntimeDefinition.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
 		// create AWS config
-		awsConf, err := builder_config.LoadAWSConfig(false, "", "", "", "", "")
+		awsConf, err := tpaws.LoadAwsConfig("", "")
 		if err != nil {
 			return 0, fmt.Errorf("failed to load AWS configuration with local config: %w", err)
 		}

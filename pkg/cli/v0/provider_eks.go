@@ -9,10 +9,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	aws_config "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
-	builder_config "github.com/nukleros/aws-builder/pkg/config"
-	builder_iam "github.com/nukleros/aws-builder/pkg/iam"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/dynamic"
 
@@ -39,13 +36,9 @@ func DeployEksInfra(
 	awsConfigResourceManager *aws.Config,
 ) error {
 	// create AWS config
-	awsConf, err := builder_config.LoadAWSConfig(
-		cpi.Opts.AwsConfigEnv,
+	awsConf, err := tpaws.LoadAwsConfig(
 		cpi.Opts.AwsConfigProfile,
 		cpi.Opts.AwsRegion,
-		"",
-		"",
-		"",
 	)
 	if err != nil {
 		return fmt.Errorf("failed to load AWS configuration with local config: %w", err)
@@ -76,7 +69,7 @@ func DeployEksInfra(
 		resourceManagerRoleName := provider.GetResourceManagerRoleName(cpi.Opts.ControlPlaneName)
 		_, err = provider.CreateResourceManagerRole(
 			cpi.Opts.Namespace,
-			builder_iam.CreateIamTags(
+			tpaws.IamTags(
 				cpi.Opts.Name,
 				map[string]string{},
 			),
@@ -100,18 +93,13 @@ func DeployEksInfra(
 	}
 
 	// assume IAM role for resource management
-	awsConfigResourceManager, err = builder_config.AssumeRole(
+	awsConfigResourceManager, err = tpaws.AssumeRole(
+		*awsConfigUser,
 		provider.GetResourceManagerRoleArn(
 			cpi.Opts.ControlPlaneName,
 			*callerIdentity.Account,
 		),
-		"",
-		"",
-		3600,
-		*awsConfigUser,
-		[]func(*aws_config.LoadOptions) error{
-			aws_config.WithRegion(cpi.Opts.AwsRegion),
-		},
+		cpi.Opts.AwsRegion,
 	)
 	if err != nil {
 		deleteErr := provider.DeleteResourceManagerRole(cpi.Opts.ControlPlaneName, *awsConfigUser)
@@ -387,13 +375,8 @@ func PrepForEksDeletion(
 	awsConfigResourceManager *aws.Config,
 	requestedControlPlane string,
 ) (*provider.KubernetesRuntimeInfraEKS, error) {
-	// create AWS config
-	// * AwsConfigEnv is always passed in from CLI args as it is not
-	//   persisted in threeport config
-	// * AwsConfigProfile and AwsRegion cannot be passed in through CLI for
-	// deletion opertion as these are stored in threeport config
-	// create a resource client to delete EKS resources
-
+	// AwsConfigProfile and AwsRegion cannot be passed in through the CLI for a
+	// deletion operation, as these are stored in threeport config
 	var accountId string
 	var err error
 	awsConfigUser, awsConfigResourceManager, accountId, err = threeportConfig.GetAwsConfigs(requestedControlPlane)
