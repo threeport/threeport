@@ -23,6 +23,7 @@ import (
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	auth "github.com/threeport/threeport/pkg/auth/v0"
+	tpaws "github.com/threeport/threeport/pkg/aws/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
@@ -176,15 +177,6 @@ func v0ControlPlaneInstanceCreated(
 	var tokenGenerator func() (string, error)
 	switch *kubernetesRuntimeDefinition.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
-		resourceInventory, err := client.GetResourceInventoryByK8sRuntimeInst(
-			r.APIClient,
-			r.APIServer,
-			controlPlaneInstance.KubernetesRuntimeInstanceID,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get resource inventory: %w", err)
-		}
-
 		// Get AWS EKS runtime instance
 		awsEksKubernetesRuntimeInstance, err := client.GetAwsEksKubernetesRuntimeInstanceByK8sRuntimeInst(
 			r.APIClient,
@@ -264,12 +256,23 @@ func v0ControlPlaneInstanceCreated(
 			return 0, fmt.Errorf("failed to wait for IAM resources to be available: %w", err)
 		}
 
+		// the trust policy binds the role to the cluster's OIDC provider, whose
+		// URL carries an ID assigned when the cluster was created and so can
+		// only be read from AWS
+		oidcIssuerUrl, err := tpaws.EksOidcIssuerUrl(
+			awsConfig,
+			*awsEksKubernetesRuntimeInstance.Name,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to get EKS cluster OIDC issuer URL: %w", err)
+		}
+
 		if err = provider.UpdateResourceManagerRoleTrustPolicy(
 			cpi.Opts.Namespace,
 			cpi.Opts.ControlPlaneName,
 			*callerIdentity.Account,
 			"",
-			resourceInventory.Cluster.OidcProviderUrl,
+			oidcIssuerUrl,
 			*awsConfig,
 			cpi.Opts.AdditionalAwsIrsaConditions,
 		); err != nil {

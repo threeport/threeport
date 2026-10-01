@@ -16,6 +16,7 @@ import (
 	runtime "github.com/threeport/threeport/internal/kubernetes-runtime"
 	workload_util "github.com/threeport/threeport/internal/kubernetes-workload/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	tpaws "github.com/threeport/threeport/pkg/aws/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -468,12 +469,14 @@ func confirmGatewayControllerDeployed(
 	switch *infraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
 
-		resourceInventory, err := client.GetResourceInventoryByK8sRuntimeInst(r.APIClient, r.APIServer, kubernetesRuntimeInstance.ID)
+		clusterIdentity, err := client.GetAwsEksClusterIdentityByK8sRuntimeInst(r.APIClient, r.APIServer, kubernetesRuntimeInstance.ID)
 		if err != nil {
-			return fmt.Errorf("failed to get dns management iam role arn: %w", err)
+			return fmt.Errorf("failed to get EKS cluster identity: %w", err)
 		}
 
-		certManager, err = getCertManagerYaml(resourceInventory.Dns01ChallengeRole.RoleArn)
+		certManager, err = getCertManagerYaml(
+			tpaws.EksDns01ChallengeRoleArn(clusterIdentity.AccountId, clusterIdentity.ClusterName),
+		)
 		if err != nil {
 			return fmt.Errorf("failed to create cert manager resource: %w", err)
 		}

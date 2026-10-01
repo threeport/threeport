@@ -11,11 +11,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	aws_config "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
-	builder_client "github.com/nukleros/aws-builder/pkg/client"
 	builder_config "github.com/nukleros/aws-builder/pkg/config"
-	"github.com/nukleros/aws-builder/pkg/eks"
 	builder_iam "github.com/nukleros/aws-builder/pkg/iam"
-	"gorm.io/datatypes"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/dynamic"
 
@@ -147,13 +144,6 @@ func DeployEksInfra(
 		}
 	}
 
-	// create a resource client to create EKS resources
-	eksInventoryChan := make(chan eks.EksInventory)
-	eksClient := eks.EksClient{
-		*builder_client.CreateResourceClient(awsConfigResourceManager),
-		&eksInventoryChan,
-	}
-
 	// TODO: add flags to tptctl command for high availability, etc to
 	// deterimine these values
 	// construct eks kubernetes runtime infra object
@@ -161,7 +151,7 @@ func DeployEksInfra(
 		RuntimeInstanceName:          runtimeInstanceName(cpi.Opts),
 		AwsAccountID:                 *callerIdentity.Account,
 		AwsConfig:                    awsConfigResourceManager,
-		ResourceClient:               &eksClient,
+		Region:                       awsConfigResourceManager.Region,
 		ZoneCount:                    int32(2),
 		DefaultNodeGroupInstanceType: "t3.medium",
 		DefaultNodeGroupInitialNodes: int32(3),
@@ -170,24 +160,6 @@ func DeployEksInfra(
 	}
 	*kubernetesRuntimeInfra = &kubernetesRuntimeInfraEKS
 	uninstaller.kubernetesRuntimeInfra = *kubernetesRuntimeInfra
-
-	// capture messages as resources are created and return to user
-	go func() {
-		for msg := range *eksClient.MessageChan {
-			Info(msg)
-		}
-	}()
-
-	// capture inventory and write to file as it is created
-	go func() {
-		for inventory := range *eksClient.InventoryChan {
-			if err := inventory.Write(
-				provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName),
-			); err != nil {
-				Error("failed to write inventory file", err)
-			}
-		}
-	}()
 
 	// delete eks kubernetes runtime resources if interrupted
 	sigs := make(chan os.Signal, 1)
@@ -236,18 +208,19 @@ func ConfigureEksKubernetesRuntimeInstance(
 	var err error
 
 	// update resource manager role to allow pods to assume it
-	var inventory eks.EksInventory
-	if err := inventory.Load(
-		provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName),
-	); err != nil {
-		return uninstaller.cleanOnCreateError("failed to read eks kubernetes runtime inventory for inventory update", err)
+	oidcIssuerUrl, err := tpaws.EksOidcIssuerUrl(
+		awsConfigResourceManager,
+		provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
+	)
+	if err != nil {
+		return uninstaller.cleanOnCreateError("failed to get EKS cluster OIDC issuer URL", err)
 	}
 	if err = provider.UpdateResourceManagerRoleTrustPolicy(
 		cpi.Opts.Namespace,
 		cpi.Opts.ControlPlaneName,
 		*callerIdentity.Account,
 		"",
-		inventory.Cluster.OidcProviderUrl,
+		oidcIssuerUrl,
 		*awsConfigUser,
 		cpi.Opts.AdditionalAwsIrsaConditions,
 	); err != nil {
@@ -368,18 +341,14 @@ func ConfigureControlPlaneWithEksConfig(
 		return uninstaller.cleanOnCreateError("failed to create new AWS EKS kubernetes runtime definition for control plane cluster", err)
 	}
 
-	// create aws eks k8s runtime instance
-	var inventory eks.EksInventory
-	if err := inventory.Load(
-		provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName),
-	); err != nil {
-		return uninstaller.cleanOnCreateError("failed to read eks kubernetes runtime inventory for inventory update", err)
-	}
-	inventoryJson, err := inventory.Marshal()
+	// create aws eks k8s runtime instance - its resource inventory is the
+	// Pulumi stack state, read back from the local state directory the stack
+	// was provisioned into
+	stackState, err := kubernetesRuntimeInfraEKS.GetStackState()
 	if err != nil {
-		return uninstaller.cleanOnCreateError("failed to marshal eks kubernetes runtime inventory for inventory update", err)
+		return uninstaller.cleanOnCreateError("failed to get EKS Pulumi stack state", err)
 	}
-	dbInventory := datatypes.JSON(inventoryJson)
+	dbInventory := *stackState
 	eksRuntimeInstName := provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName)
 	reconciled := true
 	awsEksKubernetesRuntimeInstance := v0.AwsEksKubernetesRuntimeInstance{
@@ -432,45 +401,14 @@ func PrepForEksDeletion(
 		return nil, fmt.Errorf("failed to get AWS configs from threeport config: %w", err)
 	}
 
-	eksInventoryChan := make(chan eks.EksInventory)
-	eksClient := eks.EksClient{
-		*builder_client.CreateResourceClient(awsConfigResourceManager),
-		&eksInventoryChan,
-	}
-
-	// capture messages as resources are created and return to user
-	go func() {
-		for msg := range *eksClient.MessageChan {
-			Info(msg)
-		}
-	}()
-
-	// capture inventory and write to file as it is updated
-	go func() {
-		for inventory := range *eksClient.InventoryChan {
-			if err := inventory.Write(
-				provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName),
-			); err != nil {
-				Error("failed to write inventory file", err)
-			}
-		}
-	}()
-
-	// read inventory to delete
-	var inventory eks.EksInventory
-	if err := inventory.Load(
-		provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName),
-	); err != nil {
-		return nil, fmt.Errorf("failed to read inventory file for deleting eks kubernetes runtime resources: %w", err)
-	}
-
-	// construct eks kubernetes runtime infra object
+	// construct eks kubernetes runtime infra object - Pulumi reads the state
+	// of what it provisioned from its own state directory, so no inventory
+	// needs to be supplied here
 	kubernetesRuntimeInfraEKS := &provider.KubernetesRuntimeInfraEKS{
 		RuntimeInstanceName: provider.ThreeportRuntimeName(threeportControlPlaneConfig.Name),
 		AwsAccountID:        accountId,
 		AwsConfig:           awsConfigResourceManager,
-		ResourceClient:      &eksClient,
-		ResourceInventory:   &inventory,
+		Region:              awsConfigResourceManager.Region,
 	}
 
 	return kubernetesRuntimeInfraEKS, nil

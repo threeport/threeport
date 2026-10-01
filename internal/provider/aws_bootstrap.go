@@ -345,7 +345,7 @@ func (i *KubernetesRuntimeInfraEKS) CreateClusterIam() error {
 // the EBS CSI addon bound to the storage management role.  It runs after the
 // stack because the issuer URL only exists once the cluster does.
 func (i *KubernetesRuntimeInfraEKS) CreateIrsaIam() error {
-	oidcIssuerUrl, err := i.getOidcIssuerUrl()
+	oidcIssuerUrl, err := tpaws.EksOidcIssuerUrl(i.AwsConfig, i.RuntimeInstanceName)
 	if err != nil {
 		return err
 	}
@@ -439,26 +439,6 @@ func (i *KubernetesRuntimeInfraEKS) DeleteEksIam() error {
 	}
 
 	return errors.Join(deleteErrors...)
-}
-
-// getOidcIssuerUrl returns the URL of the cluster's OIDC issuer, which EKS
-// stands up with the cluster.
-func (i *KubernetesRuntimeInfraEKS) getOidcIssuerUrl() (string, error) {
-	eksClient := awseks.NewFromConfig(*i.AwsConfig)
-	describeClusterOutput, err := eksClient.DescribeCluster(
-		context.Background(),
-		&awseks.DescribeClusterInput{Name: aws.String(i.RuntimeInstanceName)},
-	)
-	if err != nil {
-		return "", fmt.Errorf("failed to describe EKS cluster: %w", err)
-	}
-	cluster := describeClusterOutput.Cluster
-	if cluster == nil || cluster.Identity == nil || cluster.Identity.Oidc == nil ||
-		cluster.Identity.Oidc.Issuer == nil {
-		return "", fmt.Errorf("EKS cluster %s reports no OIDC issuer", i.RuntimeInstanceName)
-	}
-
-	return *cluster.Identity.Oidc.Issuer, nil
 }
 
 // createIamRole creates a role with the given trust policy, returning the
