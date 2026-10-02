@@ -202,7 +202,7 @@ func (t *TerraformInstanceConfig) Create(
 			VarsDocument:        terraformInstanceValues.VarsDocument,
 			TerraformDefinition: terraformInstanceValues.TerraformDefinition,
 			TerraformConfigPath: terraformInstanceValues.TerraformConfigPath,
-			Status:              util.Ptr(string(*createdTerraformInstance.Status)),
+			Status:              util.Ptr(string(util.Deref(createdTerraformInstance.Status))),
 			Age:                 util.Ptr(util.GetAgeFormatted(createdTerraformInstance.CreatedAt)),
 		},
 	}
@@ -300,7 +300,7 @@ func (t *TerraformInstanceConfig) Replace(
 			VarsDocument:        terraformInstanceValues.VarsDocument,
 			TerraformDefinition: terraformInstanceValues.TerraformDefinition,
 			TerraformConfigPath: terraformInstanceValues.TerraformConfigPath,
-			Status:              util.Ptr(string(*replacedTerraformInstance.Status)),
+			Status:              util.Ptr(string(util.Deref(replacedTerraformInstance.Status))),
 			Age:                 util.Ptr(util.GetAgeFormatted(replacedTerraformInstance.CreatedAt)),
 		},
 	}
