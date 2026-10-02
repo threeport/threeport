@@ -3,15 +3,27 @@ package e2e_test
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 
+	"gopkg.in/yaml.v3"
+
+	api_v0 "github.com/threeport/threeport/pkg/api/v0"
+	cli "github.com/threeport/threeport/pkg/cli/v0"
+	client_v0 "github.com/threeport/threeport/pkg/client/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 const (
 	threeportConfig = "/tmp/e2e-threeport-config.yaml"
+
+	// threeportName is the control plane the suite installs.  It lives here
+	// rather than in a _test.go file because this file is compiled on its own
+	// by `go build`, which does not see test files.
+	threeportName = "e2e-test"
 )
 
 type WorkloadTestCase struct {
@@ -41,7 +53,7 @@ type WorkloadTestCase struct {
 var workloadTestCases = []WorkloadTestCase{
 	{
 		Name:           "defined instance wordpress workload",
-		Object:         "workload",
+		Object:         "kubernetes-workload",
 		ObjectName:     "wordpress",
 		ConfigPath:     filepath.Join("test", "e2e", "configs", "wordpress-kubernetes-workload-local.yaml"),
 		DeploymentName: "getting-started-wordpress",
@@ -49,7 +61,7 @@ var workloadTestCases = []WorkloadTestCase{
 	},
 	{
 		Name:       "duplicate defined instance wordpress workload",
-		Object:     "workload",
+		Object:     "kubernetes-workload",
 		ConfigPath: filepath.Join("test", "e2e", "configs", "wordpress-kubernetes-workload-local.yaml"),
 		ShouldWork: false,
 	},
@@ -104,7 +116,13 @@ func (w *WorkloadTestCase) Create(threeportPath string) error {
 	return nil
 }
 
-// Describe uses tptctl to describe all the kubernetes workload instance test cases.
+// Describe reads back a kubernetes workload instance to pick up the ID the
+// API assigned it, which later steps use to find the namespace its resources
+// were deployed into.
+//
+// It uses `tptctl get` because the describe command this once used was
+// removed in #371 and the suite was never updated, so every run failed here
+// with "unknown flag: --name".
 func (w *WorkloadTestCase) Describe(
 	threeportPath string,
 	testCases *[]WorkloadTestCase,
@@ -114,57 +132,19 @@ func (w *WorkloadTestCase) Describe(
 		return nil
 	}
 
-	command := tptctlCommand(threeportPath)
-	cmdArgs := []string{
-		"describe",
-		"kubernetes-workload-instance",
-		"--name",
-		w.ObjectName,
-		"--threeport-config",
-		threeportConfig,
-		"--output",
-		"json",
-	}
-	cmd := exec.Command(command, cmdArgs...)
-	output, err := cmd.CombinedOutput()
-
+	// Ask the API for the instance rather than parsing CLI output: `tptctl
+	// get` prints the config view of an object, which carries no ID, and the
+	// describe command that used to print one was removed in #371.
+	instance, err := getKubernetesWorkloadInstanceByName(w.ObjectName)
 	if err != nil {
 		return fmt.Errorf(
-			"failed to describe kubernetes workload instance %s with output %s: %w",
-			w.ObjectName,
-			output,
-			err,
-		)
-	}
-
-	decoder := json.NewDecoder(bytes.NewReader(output))
-	decoder.UseNumber()
-	var workloadInstanceMap map[string]interface{}
-	if err := decoder.Decode(&workloadInstanceMap); err != nil {
-		return fmt.Errorf(
-			"failed to unmarshal kubernetes workload instance %s: %w",
+			"failed to get kubernetes workload instance %s: %w",
 			w.ObjectName,
 			err,
 		)
 	}
 
-	var objectId int64
-	if idNum, ok := workloadInstanceMap["ID"].(json.Number); ok {
-		idInt64, err := idNum.Int64()
-		if err != nil {
-			return fmt.Errorf(
-				"failed to convert ID for kubernetes workload instance %s to int64: %w",
-				w.ObjectName,
-				err,
-			)
-		}
-		objectId = idInt64
-	} else {
-		return fmt.Errorf(
-			"failed to find object ID in describe output for kubernetes workload instance %s",
-			w.ObjectName,
-		)
-	}
+	objectId := int64(*instance.ID)
 
 	// update test case so the object ID is available for validation
 	for i, testCase := range *testCases {
@@ -284,4 +264,66 @@ func (w *WorkloadTestCase) Worked(err error) bool {
 
 func tptctlCommand(threeportPath string) string {
 	return filepath.Join(threeportPath, "bin", "tptctl")
+}
+
+// decodeSingleObject reads one object out of tptctl's JSON output, which
+// returns either the object itself or a list holding it depending on the
+// command.
+func decodeSingleObject(output []byte) (map[string]interface{}, error) {
+	decoder := json.NewDecoder(bytes.NewReader(output))
+	decoder.UseNumber()
+
+	var decoded interface{}
+	if err := decoder.Decode(&decoded); err != nil {
+		return nil, fmt.Errorf("failed to decode JSON output: %w", err)
+	}
+
+	switch typed := decoded.(type) {
+	case map[string]interface{}:
+		return typed, nil
+	case []interface{}:
+		if len(typed) == 0 {
+			return nil, errors.New("JSON output holds no objects")
+		}
+		object, ok := typed[0].(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("first element of JSON output is %T, not an object", typed[0])
+		}
+		return object, nil
+	}
+
+	return nil, fmt.Errorf("JSON output is %T, not an object or a list", decoded)
+}
+
+// getKubernetesWorkloadInstanceByName looks a workload instance up in the
+// Threeport API, using the config the suite told tptctl to write.
+func getKubernetesWorkloadInstanceByName(name string) (*api_v0.KubernetesWorkloadInstance, error) {
+	configBytes, err := os.ReadFile(threeportConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the test threeport config: %w", err)
+	}
+
+	var suiteConfig cli.ThreeportConfig
+	if err := yaml.Unmarshal(configBytes, &suiteConfig); err != nil {
+		return nil, fmt.Errorf("failed to parse the test threeport config: %w", err)
+	}
+
+	apiClient, err := suiteConfig.GetHTTPClient(threeportName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build a threeport API client: %w", err)
+	}
+	apiEndpoint, err := suiteConfig.GetThreeportAPIEndpoint(threeportName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the threeport API endpoint: %w", err)
+	}
+
+	instance, err := client_v0.GetKubernetesWorkloadInstanceByName(apiClient, apiEndpoint, name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve the instance from the threeport API: %w", err)
+	}
+	if instance.ID == nil {
+		return nil, fmt.Errorf("the threeport API returned instance %s without an ID", name)
+	}
+
+	return instance, nil
 }

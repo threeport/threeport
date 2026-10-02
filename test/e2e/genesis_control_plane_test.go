@@ -1,22 +1,29 @@
 package e2e_test
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	provider_lib "github.com/threeport/threeport/internal/provider"
+	tpaws "github.com/threeport/threeport/pkg/aws/v0"
 	"github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 const (
-	threeportName = "e2e-test"
-	imageTag      = "test"
+	imageTag = "test"
 )
 
 // setup operations
@@ -27,18 +34,34 @@ var _ = BeforeSuite(func() {
 	err := buildCli()
 	Expect(err).NotTo(HaveOccurred(), "failed to build tptctl and tptdev")
 
-	By("creating the local container registry")
-	err = createLocalRegistry()
-	Expect(err).NotTo(HaveOccurred(), "failed to create local container registry")
+	if usingLocalRegistry() {
+		By("creating the local container registry")
+		err = createLocalRegistry()
+		Expect(err).NotTo(HaveOccurred(), "failed to create local container registry")
+	}
 
-	By("building the container images")
-	err = buildContainerImages()
-	Expect(err).NotTo(HaveOccurred(), "failed to build and push container images")
+	if buildingImages() {
+		By("building the container images")
+		err = buildContainerImages()
+		Expect(err).NotTo(HaveOccurred(), "failed to build and push container images")
+	}
+
+	if provider == eksProvider {
+		By("recording the AWS resources present before the install")
+		err = recordAwsResourcesBefore()
+		Expect(err).NotTo(HaveOccurred(), "failed to record AWS resources before install")
+	}
 
 	By("provisioning genesis control plane")
 	GinkgoWriter.Write([]byte("provisioning control plane..."))
 	err = provisionControlPlane()
 	Expect(err).NotTo(HaveOccurred(), "failed to provision genesis control plane")
+
+	if provider == eksProvider {
+		By("checking IAM roles for service accounts works on the cluster")
+		err = verifyIrsaOnControlPlaneCluster()
+		Expect(err).NotTo(HaveOccurred(), "IRSA is not working on the provisioned cluster")
+	}
 })
 
 // cleanup operations
@@ -50,9 +73,26 @@ var _ = AfterSuite(func() {
 		err := removeControlPlane()
 		Expect(err).NotTo(HaveOccurred(), "failed to remove control plane")
 
-		By("remove the local container registry")
-		err = removeLocalRegistry()
-		Expect(err).NotTo(HaveOccurred(), "failed to create local container registry")
+		if usingLocalRegistry() {
+			By("remove the local container registry")
+			err = removeLocalRegistry()
+			Expect(err).NotTo(HaveOccurred(), "failed to remove local container registry")
+		}
+
+		if provider == eksProvider {
+			// A teardown that reports success while leaving a NAT gateway or a
+			// load balancer behind bills by the hour and shows up on nobody's
+			// screen, so the suite fails on anything the install added and did
+			// not remove.
+			By("checking the teardown left no AWS resources behind")
+			leaked, err := leakedAwsResourcesAfterTeardown()
+			Expect(err).NotTo(HaveOccurred(), "failed to check for leaked AWS resources")
+			Expect(leaked).To(
+				BeEmpty(),
+				"the teardown left AWS resources behind:\n  %s",
+				strings.Join(leaked, "\n  "),
+			)
+		}
 	}
 })
 
@@ -71,12 +111,13 @@ var _ = Describe("GenesisControlPlane", func() {
 				Expect(
 					testCase.Worked(err)).To(Equal(true),
 					fmt.Sprintf(
-						"\nTest case name: %s\nTest case object: %s\nTest case config file path: %s\nTest case deployment name: %s\nTest case expected to work: %t\n",
+						"\nTest case name: %s\nTest case object: %s\nTest case config file path: %s\nTest case deployment name: %s\nTest case expected to work: %t\nError: %v\n",
 						testCase.Name,
 						testCase.Object,
 						testCase.ConfigPath,
 						testCase.DeploymentName,
 						testCase.ShouldWork,
+						err,
 					),
 				)
 			}
@@ -250,7 +291,12 @@ func provisionControlPlane() error {
 	}
 
 	var wg sync.WaitGroup
-	errCh := make(chan error)
+
+	// One slot per goroutine started below.  With an unbuffered channel a
+	// goroutine that fails blocks forever on the send - nothing reads the
+	// channel until after wg.Wait(), and its deferred wg.Done() never runs -
+	// so the suite hangs instead of reporting why provisioning failed.
+	errCh := make(chan error, 2)
 
 	wg.Add(1)
 	go func() {
@@ -273,8 +319,17 @@ func provisionControlPlane() error {
 	wg.Wait()
 	close(errCh)
 
-	if err, ok := <-errCh; ok && err != nil {
-		return fmt.Errorf("failed to run tptctl to provision genesis control plane: %w", err)
+	var provisionErrors []error
+	for err := range errCh {
+		if err != nil {
+			provisionErrors = append(provisionErrors, err)
+		}
+	}
+	if len(provisionErrors) > 0 {
+		return fmt.Errorf(
+			"failed to run tptctl to provision genesis control plane: %w",
+			errors.Join(provisionErrors...),
+		)
 	}
 
 	return nil
@@ -289,12 +344,28 @@ func runTptctlUp() error {
 		threeportName,
 		"--provider",
 		provider,
-		"--control-plane-image-namespace",
-		getImageRepo(imageRepo),
-		"--control-plane-image-tag",
-		imageTag,
 		"--threeport-config",
 		threeportConfig,
+	}
+	if buildingImages() {
+		cmdArgs = append(
+			cmdArgs,
+			"--control-plane-image-namespace", getImageRepo(imageRepo),
+			"--control-plane-image-tag", imageTag,
+		)
+	}
+	if provider == "kind" && apiPort != 0 {
+		cmdArgs = append(cmdArgs, "--api-port", strconv.Itoa(apiPort))
+	}
+	if provider == eksProvider {
+		cmdArgs = append(
+			cmdArgs,
+			"--aws-region", awsRegion,
+			"--aws-config-profile", awsConfigProfile,
+			// a failure part way through otherwise leaves a half-built cluster
+			// for somebody to find later
+			"--teardown-on-failure",
+		)
 	}
 	cmd := exec.Command(tptctlCmd, cmdArgs...)
 	output, err := cmd.CombinedOutput()
@@ -340,6 +411,9 @@ func removeControlPlane() error {
 		threeportName,
 		"--threeport-config",
 		threeportConfig,
+		// without this the command waits on a confirmation that never comes,
+		// prints "Aborted." and tears nothing down
+		"--yes",
 	}
 	cmd := exec.Command(tptctlCmd, cmdArgs...)
 	output, err := cmd.CombinedOutput()
@@ -359,4 +433,82 @@ func removeLocalRegistry() error {
 	}
 
 	return nil
+}
+
+// eksProvider is the infrastructure provider name for AWS EKS.
+const eksProvider = "eks"
+
+// awsResourcesBeforeInstall is what the account held before the suite
+// provisioned anything, so that the teardown can be held to putting it back.
+var awsResourcesBeforeInstall tpaws.AwsResourceInventory
+
+// usingLocalRegistry reports whether the suite runs its own container
+// registry.  Only a local cluster can pull from one.
+func usingLocalRegistry() bool {
+	return imageRepo == "local" && provider == "kind"
+}
+
+// buildingImages reports whether the suite builds the control plane images.
+// With no repo given it installs the released images instead, which is what a
+// remote provider needs unless its nodes can reach a repo you control.
+func buildingImages() bool {
+	return imageRepo != ""
+}
+
+// e2eAwsConfig returns the AWS config the suite inspects the account with.
+func e2eAwsConfig() (aws.Config, error) {
+	awsConfig, err := tpaws.LoadAwsConfig(awsConfigProfile, awsRegion)
+	if err != nil {
+		return aws.Config{}, fmt.Errorf("failed to load AWS config: %w", err)
+	}
+
+	return *awsConfig, nil
+}
+
+// recordAwsResourcesBefore records the AWS resources present before the
+// install.
+func recordAwsResourcesBefore() error {
+	awsConfig, err := e2eAwsConfig()
+	if err != nil {
+		return err
+	}
+
+	inventory, err := tpaws.GetAwsResourceInventory(context.Background(), awsConfig)
+	if err != nil {
+		return err
+	}
+	awsResourcesBeforeInstall = inventory
+
+	return nil
+}
+
+// leakedAwsResourcesAfterTeardown returns the AWS resources the install added
+// and the teardown did not remove.
+func leakedAwsResourcesAfterTeardown() ([]string, error) {
+	awsConfig, err := e2eAwsConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	inventory, err := tpaws.GetAwsResourceInventory(context.Background(), awsConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return tpaws.LeakedResources(awsResourcesBeforeInstall, inventory), nil
+}
+
+// verifyIrsaOnControlPlaneCluster checks the provisioned cluster can give its
+// add-ons AWS credentials through IAM roles for service accounts.
+func verifyIrsaOnControlPlaneCluster() error {
+	awsConfig, err := e2eAwsConfig()
+	if err != nil {
+		return err
+	}
+
+	return verifyEksIrsa(
+		context.Background(),
+		awsConfig,
+		provider_lib.ThreeportRuntimeName(threeportName),
+	)
 }
