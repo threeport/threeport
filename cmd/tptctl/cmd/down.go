@@ -23,17 +23,22 @@ var DownCmd = &cobra.Command{
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
 		// confirm with user before tearing down
-		if cliArgs.ControlPlaneOnly {
-			fmt.Printf("This will tear down the threeport control plane '%s' (infrastructure will be left intact).\n", cliArgs.ControlPlaneName)
-		} else {
-			fmt.Printf("This will tear down the threeport control plane '%s' and its underlying infrastructure.\n", cliArgs.ControlPlaneName)
-		}
-		fmt.Print("Are you sure? (y/N): ")
-		reader := bufio.NewReader(os.Stdin)
-		response, _ := reader.ReadString('\n')
-		if strings.TrimSpace(strings.ToLower(response)) != "y" {
-			fmt.Println("Aborted.")
-			return
+		if !downSkipConfirmation {
+			if cliArgs.ControlPlaneOnly {
+				fmt.Printf("This will tear down the threeport control plane '%s' (infrastructure will be left intact).\n", cliArgs.ControlPlaneName)
+			} else {
+				fmt.Printf("This will tear down the threeport control plane '%s' and its underlying infrastructure.\n", cliArgs.ControlPlaneName)
+			}
+			fmt.Print("Are you sure? (y/N): ")
+			reader := bufio.NewReader(os.Stdin)
+			response, _ := reader.ReadString('\n')
+			if strings.TrimSpace(strings.ToLower(response)) != "y" {
+				// a caller with nothing on stdin, such as a test harness,
+				// lands here too - exit non-zero so that a teardown which did
+				// not happen is not mistaken for one that did
+				fmt.Println("Aborted.")
+				os.Exit(1)
+			}
 		}
 
 		cpi, err := cliArgs.CreateInstaller()
@@ -50,8 +55,17 @@ var DownCmd = &cobra.Command{
 	},
 }
 
+// downSkipConfirmation bypasses the interactive confirmation so that the
+// command can be driven by a script or a test harness.
+var downSkipConfirmation bool
+
 func init() {
 	rootCmd.AddCommand(DownCmd)
+
+	DownCmd.Flags().BoolVarP(
+		&downSkipConfirmation,
+		"yes", "y", false, "Tear down without asking for confirmation.",
+	)
 
 	DownCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
