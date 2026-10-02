@@ -232,7 +232,7 @@ func (w *KubernetesWorkloadInstanceConfig) Create(
 			Name:                         createdK8sWorkloadInstance.Name,
 			KubernetesRuntimeInstance:    k8sWorkloadInstanceValues.KubernetesRuntimeInstance,
 			KubernetesWorkloadDefinition: k8sWorkloadInstanceValues.KubernetesWorkloadDefinition,
-			Status:                       util.Ptr(string(*createdK8sWorkloadInstance.Status)),
+			Status:                       util.Ptr(string(util.Deref(createdK8sWorkloadInstance.Status))),
 			Age:                          util.Ptr(util.GetAgeFormatted(createdK8sWorkloadInstance.CreatedAt)),
 			KustomizeOverlay:             createdK8sWorkloadInstance.KustomizeOverlay,
 		},
