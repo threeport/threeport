@@ -75,6 +75,36 @@ func (Test) E2eLocal() error {
 	return test.E2e("local", true)
 }
 
+// E2eAws runs the end-to-end tests against a real Threeport install on AWS
+// EKS.  It provisions a cluster and a control plane, checks that IAM roles for
+// service accounts work on it, runs the workload tests, tears everything down
+// and fails if any AWS resource the install created is still there afterwards.
+//
+// It uses the released control plane images, since nodes in EKS cannot pull
+// from a registry on the machine running the tests.  It creates real
+// infrastructure that costs real money for as long as it runs.
+func (Test) E2eAws(region string, clean bool) error {
+	threeportPath, err := os.Getwd() // mage must be run from repo root
+	if err != nil {
+		return fmt.Errorf("failed to get path to Threeport repo: %w", err)
+	}
+
+	cmd := "ginkgo"
+	args := []string{
+		"test/e2e",
+		"--",
+		"-provider=eks",
+		fmt.Sprintf("-aws-region=%s", region),
+		fmt.Sprintf("-threeport-path=%s", threeportPath),
+		fmt.Sprintf("-clean=%t", clean),
+	}
+	if err := util.RunCommandStreamOutput(cmd, args...); err != nil {
+		return fmt.Errorf("failed to run e2e tests on AWS: %w", err)
+	}
+
+	return nil
+}
+
 // E2eClean removes the kind cluster and local container registry for e2e
 // testing.
 func (Test) E2eClean() error {
