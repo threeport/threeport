@@ -28,15 +28,26 @@ const (
 	// authenticator rejects a token whose presigned URL is missing it.
 	eksPresignExpiresParam = "X-Amz-Expires"
 
-	// eksPresignExpiresSeconds is the lifetime we ask for when presigning.
-	// The authenticator only accepts a value greater than zero and no more
-	// than 900 seconds.
+	// eksPresignExpiresSeconds is the lifetime asked for when presigning, and
+	// it does not bound how long the token is good for.
+	//
+	// STS ignores this value on a presigned GetCallerIdentity URL: the request
+	// is valid for fifteen minutes from the x-amz-date it was signed at, no
+	// matter what is asked for here.  The value exists because the
+	// authenticator in the EKS control plane rejects a URL whose x-amz-expires
+	// is missing or outside 0 to 900 seconds, and because authenticators at
+	// 0.3.0 and older required one in that range.  Sixty seconds is what
+	// sigs.k8s.io/aws-iam-authenticator has always sent, so it is what we send.
+	//
+	// This is why EksTokenExpiration below is fourteen minutes rather than one:
+	// the two numbers describe different things, not the same thing twice.
 	eksPresignExpiresSeconds = "60"
 
-	// EksTokenExpiration is how long we consider an EKS token good for.  AWS
-	// expires these tokens 15 minutes after the request is signed no matter
-	// what expiry was asked for when presigning, so we report a minute less to
-	// avoid handing out a token that is about to go stale.
+	// EksTokenExpiration is how long an EKS token is good for: fifteen minutes
+	// from signing, less a minute so that a token handed to a caller is not
+	// about to go stale in their hands.  See eksPresignExpiresSeconds above
+	// for why the presigned URL asks for sixty seconds and this is still
+	// correct.
 	EksTokenExpiration = 14 * time.Minute
 )
 
