@@ -413,7 +413,7 @@ func (i *KubernetesRuntimeInfraEKS) DeleteEksIam() error {
 	var deleteErrors []error
 
 	for _, irsaRole := range i.irsaRoles() {
-		if err := deleteIamRole(iamClient, irsaRole.roleName); err != nil {
+		if err := deleteIamRole(iamClient, irsaRole.roleName, i.iamTags(irsaRole.roleName)); err != nil {
 			deleteErrors = append(deleteErrors, err)
 		}
 		if irsaRole.policyName == "" {
@@ -433,7 +433,7 @@ func (i *KubernetesRuntimeInfraEKS) DeleteEksIam() error {
 		tpaws.EksNodeRoleName(i.RuntimeInstanceName),
 		tpaws.EksClusterRoleName(i.RuntimeInstanceName),
 	} {
-		if err := deleteIamRole(iamClient, roleName); err != nil {
+		if err := deleteIamRole(iamClient, roleName, i.iamTags(roleName)); err != nil {
 			deleteErrors = append(deleteErrors, err)
 		}
 	}
@@ -477,8 +477,34 @@ func (i *KubernetesRuntimeInfraEKS) createIamRole(
 	if err != nil {
 		return nil, fmt.Errorf("failed to get existing role %s: %w", roleName, err)
 	}
+	if err := refuseUnownedRole(getRoleOutput.Role, i.iamTags(roleName)); err != nil {
+		return nil, err
+	}
 
 	return getRoleOutput.Role, nil
+}
+
+// refuseUnownedRole rejects an existing role that threeport did not create.
+//
+// Role names are derived from the cluster name, so one can collide with a role
+// that happens to be named the same.  Reusing it would attach this cluster's
+// add-on policies to whatever principals that role already trusts - the
+// secrets manager role grants account-wide Secrets Manager access - and the
+// teardown would later delete somebody else's role.  The GCP bootstrap refuses
+// an unowned service account for the same reason.
+func refuseUnownedRole(role *types.Role, wantTags []types.Tag) error {
+	if role == nil {
+		return errors.New("IAM returned no role to check ownership of")
+	}
+	if iamTagsMatch(role.Tags, wantTags) {
+		return nil
+	}
+
+	return fmt.Errorf(
+		"IAM role %s already exists and was not created by threeport; "+
+			"rename the kubernetes runtime instance or remove the role",
+		aws.ToString(role.RoleName),
+	)
 }
 
 // iamPolicyArn returns the ARN of the customer managed policy for an IRSA
@@ -747,8 +773,28 @@ func listAttachedPolicies(iamClient *iam.Client, roleName string) ([]types.Attac
 }
 
 // deleteIamRole detaches every policy attached to a role and deletes it.  A
-// role that is already gone is not an error.
-func deleteIamRole(iamClient *iam.Client, roleName string) error {
+// role that is already gone is not an error, and a role threeport did not
+// create is left alone rather than deleted out from under its owner.
+func deleteIamRole(iamClient *iam.Client, roleName string, wantTags []types.Tag) error {
+	getRoleOutput, err := iamClient.GetRole(
+		context.Background(),
+		&iam.GetRoleInput{RoleName: aws.String(roleName)},
+	)
+	if err != nil {
+		if isIamNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to get role %s before deleting it: %w", roleName, err)
+	}
+	if err := refuseUnownedRole(getRoleOutput.Role, wantTags); err != nil {
+		return err
+	}
+
+	return deleteOwnedIamRole(iamClient, roleName)
+}
+
+// deleteOwnedIamRole removes a role once its ownership has been established.
+func deleteOwnedIamRole(iamClient *iam.Client, roleName string) error {
 	attachedPolicies, err := listAttachedPolicies(iamClient, roleName)
 	if err != nil {
 		if isIamNotFound(err) {

@@ -285,3 +285,56 @@ func TestIamTags(t *testing.T) {
 		assert.Equal(t, value, tags[key])
 	}
 }
+
+// TestRefuseUnownedRole checks that a role threeport did not create is
+// refused rather than reused or deleted.
+//
+// Role names are derived from the cluster name, so one can collide with an
+// existing role. Reusing it would attach this cluster's add-on policies to
+// whatever that role already trusts — the secrets manager role carries
+// account-wide Secrets Manager access — and the teardown would delete it.
+func TestRefuseUnownedRole(t *testing.T) {
+	infra := testEksIamInfra()
+	wantTags := infra.iamTags("secrets-manager-role-my-cluster")
+
+	t.Run("a role we created is reused", func(t *testing.T) {
+		ours := &types.Role{
+			RoleName: aws.String("secrets-manager-role-my-cluster"),
+			Tags:     wantTags,
+		}
+		assert.NoError(t, refuseUnownedRole(ours, wantTags))
+	})
+
+	t.Run("a role carrying extra tags is still ours", func(t *testing.T) {
+		ours := &types.Role{
+			RoleName: aws.String("secrets-manager-role-my-cluster"),
+			Tags: append(
+				infra.iamTags("secrets-manager-role-my-cluster"),
+				types.Tag{Key: aws.String("CostCenter"), Value: aws.String("platform")},
+			),
+		}
+		assert.NoError(t, refuseUnownedRole(ours, wantTags))
+	})
+
+	t.Run("somebody else's role of the same name is refused", func(t *testing.T) {
+		theirs := &types.Role{
+			RoleName: aws.String("secrets-manager-role-my-cluster"),
+			Tags: []types.Tag{
+				{Key: aws.String("Owner"), Value: aws.String("platform-team")},
+			},
+		}
+		err := refuseUnownedRole(theirs, wantTags)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not created by threeport")
+	})
+
+	t.Run("an untagged role of the same name is refused", func(t *testing.T) {
+		require.Error(t, refuseUnownedRole(&types.Role{
+			RoleName: aws.String("secrets-manager-role-my-cluster"),
+		}, wantTags))
+	})
+
+	t.Run("no role at all is an error, not an approval", func(t *testing.T) {
+		require.Error(t, refuseUnownedRole(nil, wantTags))
+	})
+}

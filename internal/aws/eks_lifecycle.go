@@ -92,7 +92,17 @@ func (e *eksLifecycle) BuildInfra() (provider.InfraProvider, error) {
 	return buildEksInfra(e.r, latest, definition, e.log)
 }
 
-// IsCreateComplete checks whether resource inventory has been persisted.
+// IsCreateComplete reports whether the whole create finished, not just the
+// Pulumi stack.
+//
+// Stack state is streamed to ResourceInventory while the stack is still being
+// built, so a non-empty inventory only says that provisioning started.  A
+// create interrupted after the stack but before the IRSA roles and the EBS CSI
+// addon would otherwise be confirmed, leaving a cluster that looks ready while
+// none of its add-ons can assume an IAM role.
+//
+// The addon is the last thing CreateInfra does, so its presence stands for
+// everything before it.
 func (e *eksLifecycle) IsCreateComplete() (bool, error) {
 	latest, err := client.GetAwsEksKubernetesRuntimeInstanceByID(
 		e.r.APIClient,
@@ -106,8 +116,22 @@ func (e *eksLifecycle) IsCreateComplete() (bool, error) {
 		return false, nil
 	}
 	inventory := *latest.ResourceInventory
+	if len(inventory) == 0 || string(inventory) == "{}" || string(inventory) == "null" {
+		return false, nil
+	}
 
-	return len(inventory) > 0 && string(inventory) != "{}" && string(inventory) != "null", nil
+	infra, err := e.BuildInfra()
+	if err != nil {
+		return false, fmt.Errorf("failed to build infra to check EKS creation status: %w", err)
+	}
+	infraEKS := infra.(*provider.KubernetesRuntimeInfraEKS)
+
+	complete, err := tpaws.EksStorageAddonActive(infraEKS.AwsConfig, infraEKS.RuntimeInstanceName)
+	if err != nil {
+		return false, fmt.Errorf("failed to check whether the EKS storage addon is active: %w", err)
+	}
+
+	return complete, nil
 }
 
 // OnCreateConfirmed gets connection info and updates the kubernetes runtime
