@@ -9,6 +9,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/eks"
+	ekstypes "github.com/aws/aws-sdk-go-v2/service/eks/types"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
@@ -129,6 +130,39 @@ func EksOidcIssuerUrl(awsConfig *aws.Config, clusterName string) (string, error)
 	}
 
 	return *cluster.Identity.Oidc.Issuer, nil
+}
+
+// EksStorageAddonActive reports whether the EBS CSI addon is installed and
+// running on a cluster.  It is the last thing the EKS create does, so it
+// stands for the create having finished rather than merely started.
+//
+// A cluster that does not exist, or an addon that was never created, reads as
+// not complete rather than as an error: both are ordinary states partway
+// through a create.
+func EksStorageAddonActive(awsConfig *aws.Config, clusterName string) (bool, error) {
+	if awsConfig == nil {
+		return false, errors.New("cannot check the EKS storage addon without an AWS config")
+	}
+
+	describeAddonOutput, err := eks.NewFromConfig(*awsConfig).DescribeAddon(
+		context.Background(),
+		&eks.DescribeAddonInput{
+			ClusterName: aws.String(clusterName),
+			AddonName:   aws.String(EksEbsStorageAddonName),
+		},
+	)
+	if err != nil {
+		var notFound *ekstypes.ResourceNotFoundException
+		if errors.As(err, &notFound) {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to describe the %s addon: %w", EksEbsStorageAddonName, err)
+	}
+	if describeAddonOutput.Addon == nil {
+		return false, nil
+	}
+
+	return describeAddonOutput.Addon.Status == ekstypes.AddonStatusActive, nil
 }
 
 // GetEksToken returns a bearer token that authenticates the caller to an EKS

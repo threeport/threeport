@@ -99,11 +99,20 @@ func GetAwsResourceInventory(
 		inventory["load-balancer"] = append(inventory["load-balancer"], aws.ToString(loadBalancer.LoadBalancerArn))
 	}
 
-	clusters, err := eks.NewFromConfig(awsConfig).ListClusters(ctx, &eks.ListClustersInput{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to list EKS clusters: %w", err)
+	// paginated like the IAM listings below: a cluster on a later page that
+	// the teardown left running would otherwise be missing from the
+	// comparison, and the leak check would pass while it kept billing
+	clusterPaginator := eks.NewListClustersPaginator(
+		eks.NewFromConfig(awsConfig),
+		&eks.ListClustersInput{},
+	)
+	for clusterPaginator.HasMorePages() {
+		page, err := clusterPaginator.NextPage(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list EKS clusters: %w", err)
+		}
+		inventory["eks-cluster"] = append(inventory["eks-cluster"], page.Clusters...)
 	}
-	inventory["eks-cluster"] = append(inventory["eks-cluster"], clusters.Clusters...)
 
 	iamClient := iam.NewFromConfig(awsConfig)
 

@@ -179,6 +179,19 @@ func (w *PulumiWorkspace) SetStackState(state *datatypes.JSON) error {
 		return nil
 	}
 
+	// Anything that is neither an export nor a checkpoint is not Pulumi state
+	// and must not reach the state file.  An EKS instance provisioned before
+	// this engine holds an aws-builder inventory in the same column; writing
+	// those bytes through would corrupt the stack rather than report the
+	// mismatch.
+	if !isPulumiCheckpoint(*state) {
+		return errors.New(
+			"stored state is not Pulumi state and cannot be restored; " +
+				"it predates this provisioning engine, so the resources it " +
+				"describes have to be removed by hand",
+		)
+	}
+
 	// checkpoint format (from ReadStateFile) — write directly to state file
 	stateFilePath, err := w.GetStateFilePath()
 	if err != nil {
@@ -199,6 +212,23 @@ func (w *PulumiWorkspace) SetStackState(state *datatypes.JSON) error {
 	}
 
 	return nil
+}
+
+// isPulumiCheckpoint reports whether bytes look like a Pulumi checkpoint.  A
+// checkpoint carries a version and a checkpoint or latest object; an
+// aws-builder inventory, which is the other thing that has lived in this
+// column, carries neither.
+func isPulumiCheckpoint(state []byte) bool {
+	var checkpoint struct {
+		Version    *int             `json:"version"`
+		Checkpoint *json.RawMessage `json:"checkpoint"`
+		Latest     *json.RawMessage `json:"latest"`
+	}
+	if err := json.Unmarshal(state, &checkpoint); err != nil {
+		return false
+	}
+
+	return checkpoint.Version != nil && (checkpoint.Checkpoint != nil || checkpoint.Latest != nil)
 }
 
 // GetStateFilePath returns the path to the Pulumi state JSON file on disk.
