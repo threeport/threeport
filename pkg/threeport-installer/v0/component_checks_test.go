@@ -279,10 +279,16 @@ func TestComputeSpaceWorkloadControllerRBACCurrent(t *testing.T) {
 	cpi := NewInstaller()
 	const project = "a-gcp-project"
 
+	// deliberately not cpi.Opts.Namespace: the principal names where the
+	// control plane's controllers run, and the installer's namespace is where
+	// components go on the managed cluster. Using the same string for both
+	// would let the two be confused without any test noticing.
+	const controlPlaneNS = "a-custom-control-plane-namespace"
+
 	subjectFor := func(controllerName string) string {
 		return fmt.Sprintf(
 			"serviceAccount:%s.svc.id.goog[%s/%s]",
-			project, cpi.Opts.Namespace, controllerName,
+			project, controlPlaneNS, controllerName,
 		)
 	}
 
@@ -300,7 +306,7 @@ func TestComputeSpaceWorkloadControllerRBACCurrent(t *testing.T) {
 
 	t.Run("current when every binding names this project", func(t *testing.T) {
 		current, err := cpi.ComputeSpaceWorkloadControllerRBACCurrent(
-			testClient(allBindings()...), testMapper(), project, "",
+			testClient(allBindings()...), testMapper(), project, "", controlPlaneNS,
 		)
 		require.NoError(t, err)
 		assert.True(t, current)
@@ -311,7 +317,7 @@ func TestComputeSpaceWorkloadControllerRBACCurrent(t *testing.T) {
 		require.Greater(t, len(bindings), 1)
 
 		current, err := cpi.ComputeSpaceWorkloadControllerRBACCurrent(
-			testClient(bindings[1:]...), testMapper(), project, "",
+			testClient(bindings[1:]...), testMapper(), project, "", controlPlaneNS,
 		)
 		require.NoError(t, err)
 		assert.False(t, current)
@@ -325,7 +331,7 @@ func TestComputeSpaceWorkloadControllerRBACCurrent(t *testing.T) {
 		defer func() { updating.Opts.CreateOrUpdateKubeResources = false }()
 
 		current, err := updating.ComputeSpaceWorkloadControllerRBACCurrent(
-			testClient(allBindings()...), testMapper(), "a-different-project", "",
+			testClient(allBindings()...), testMapper(), "a-different-project", "", controlPlaneNS,
 		)
 		require.NoError(t, err)
 		assert.False(t, current)
@@ -338,7 +344,7 @@ func TestComputeSpaceWorkloadControllerRBACCurrent(t *testing.T) {
 		require.False(t, cpi.Opts.CreateOrUpdateKubeResources)
 
 		current, err := cpi.ComputeSpaceWorkloadControllerRBACCurrent(
-			testClient(allBindings()...), testMapper(), "a-different-project", "",
+			testClient(allBindings()...), testMapper(), "a-different-project", "", controlPlaneNS,
 		)
 		require.NoError(t, err)
 		assert.True(t, current)
@@ -364,7 +370,7 @@ func TestComputeSpaceWorkloadControllerRBACCurrent(t *testing.T) {
 		}
 
 		current, err := updating.ComputeSpaceWorkloadControllerRBACCurrent(
-			testClient(objects...), testMapper(), project, "",
+			testClient(objects...), testMapper(), project, "", controlPlaneNS,
 		)
 		require.NoError(t, err)
 		assert.False(t, current)
@@ -389,7 +395,7 @@ func TestComputeSpaceWorkloadControllerRBACCurrent(t *testing.T) {
 		}
 
 		current, err := updating.ComputeSpaceWorkloadControllerRBACCurrent(
-			testClient(objects...), testMapper(), project, "",
+			testClient(objects...), testMapper(), project, "", controlPlaneNS,
 		)
 		require.NoError(t, err)
 		assert.False(t, current)
