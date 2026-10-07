@@ -6,8 +6,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
+	"gorm.io/datatypes"
 	kubeerr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -83,14 +85,63 @@ func v0KubernetesWorkloadInstanceCreated(
 		},
 	}
 
-	// construct kubernetes workload resource instances
+	// construct kubernetes workload resource instances - each is normally a
+	// copy of its resource definition's JSONDefinition, but if this
+	// instance carries a KustomizeOverlay, the overlay is rendered on top
+	// of the definition's base manifests and the resulting resources are
+	// used instead, so a definition can keep owning a single shared set of
+	// manifests while this instance patches or augments them (see
+	// threeport#556).
+	//
+	// The overlay is rendered against k8sWorkloadResourceDefinitions (the
+	// same WRDs the non-overlay branch below copies verbatim), not
+	// k8sWorkloadDefinition.YAMLDocument. v0KubernetesWorkloadDefinitionUpdated
+	// does not regenerate the WRDs when a definition's YAMLDocument is
+	// edited, so YAMLDocument can already be ahead of the WRDs at the time
+	// an instance is created. Rendering from YAMLDocument would let an
+	// overlaid instance deploy a different base than a plain instance of
+	// the same definition, for reasons unrelated to the overlay itself.
+	// Rendering from the WRDs instead guarantees both branches always
+	// start from the identical base, whatever state it happens to be in.
 	var k8sWorkloadResourceInstances []v0.KubernetesWorkloadResourceInstance
-	for _, wrd := range *k8sWorkloadResourceDefinitions {
-		wri := v0.KubernetesWorkloadResourceInstance{
-			JSONDefinition:               wrd.JSONDefinition,
-			KubernetesWorkloadInstanceID: k8sWorkloadInstance.ID,
+	if k8sWorkloadInstance.KustomizeOverlay != nil {
+		var baseDocs []string
+		for _, wrd := range *k8sWorkloadResourceDefinitions {
+			baseDocs = append(baseDocs, string(*wrd.JSONDefinition))
 		}
-		k8sWorkloadResourceInstances = append(k8sWorkloadResourceInstances, wri)
+		renderedResources, err := kube.RenderKustomizeOverlay(
+			strings.Join(baseDocs, "\n---\n"),
+			*k8sWorkloadInstance.KustomizeOverlay,
+		)
+		if err != nil {
+			return 0, &tp_errors.ErrWithEvent{
+				Message: fmt.Sprintf("failed to render kustomize overlay: %s", err),
+				Event: v0.Event{
+					Type:   util.Ptr(event.TypeWarning),
+					Reason: util.Ptr("KustomizeOverlayError"),
+					Note:   util.Ptr(fmt.Sprintf("failed to render kustomize overlay for kubernetes workload instance: %s", err)),
+				},
+			}
+		}
+		for _, jsonContent := range renderedResources {
+			var jsonDefinition datatypes.JSON
+			if err := jsonDefinition.UnmarshalJSON(jsonContent); err != nil {
+				return 0, fmt.Errorf("failed to unmarshal rendered kustomize resource to datatypes.JSON: %w", err)
+			}
+			wri := v0.KubernetesWorkloadResourceInstance{
+				JSONDefinition:               &jsonDefinition,
+				KubernetesWorkloadInstanceID: k8sWorkloadInstance.ID,
+			}
+			k8sWorkloadResourceInstances = append(k8sWorkloadResourceInstances, wri)
+		}
+	} else {
+		for _, wrd := range *k8sWorkloadResourceDefinitions {
+			wri := v0.KubernetesWorkloadResourceInstance{
+				JSONDefinition:               wrd.JSONDefinition,
+				KubernetesWorkloadInstanceID: k8sWorkloadInstance.ID,
+			}
+			k8sWorkloadResourceInstances = append(k8sWorkloadResourceInstances, wri)
+		}
 	}
 
 	// get kubernetes runtime instance info
@@ -248,6 +299,22 @@ func v0KubernetesWorkloadInstanceCreated(
 
 // v0KubernetesWorkloadInstanceUpdated performs reconciliation when a v0 KubernetesWorkloadInstance
 // has been updated.
+//
+// Scope decision (threeport#556): this function does not re-render from the
+// kubernetes workload definition's base manifests plus KustomizeOverlay. It
+// only replays whatever KubernetesWorkloadResourceInstances already exist,
+// deleting ones marked ScheduledForDeletion and re-applying the rest as
+// stored - the same behavior as before KustomizeOverlay was added. The
+// overlay is only ever applied once, at instance creation.
+// KustomizeOverlay.beforeUpdate (pkg/api/v0/kubernetes_workload_validate.go)
+// enforces this at the API layer by rejecting any change to
+// KustomizeOverlay once an instance exists, so this gap surfaces as an
+// explicit error rather than a silently ignored change. Reconciling a
+// changed overlay against the existing WRI set requires diffing the newly
+// rendered resources against the stored ones by GVK/namespace/name to
+// determine which to create, update, or delete - deliberately scoped out
+// here as a known follow-on limitation rather than bundled into the
+// initial feature.
 func v0KubernetesWorkloadInstanceUpdated(
 	r *controller.Reconciler,
 	k8sWorkloadInstance *v0.KubernetesWorkloadInstance,
