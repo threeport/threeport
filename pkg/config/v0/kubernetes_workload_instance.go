@@ -33,6 +33,14 @@ type KubernetesWorkloadInstanceValues struct {
 	KubernetesWorkloadDefinition *KubernetesWorkloadDefinitionValues
 	Status                       *string
 	Age                          *string
+	// KustomizeOverlay is the body of a kustomization.yaml applied on top
+	// of the workload definition's base manifests for this instance alone.
+	// Only meaningful on Create - it is immutable once set
+	// (pkg/api/v0/kubernetes_workload_validate.go), so Replace preserves
+	// the existing value rather than reading this field, unless it is
+	// explicitly set to something different (in which case the API
+	// rejects the change with its own immutability error).
+	KustomizeOverlay *string
 }
 
 // Get gets kubernetes workload instances from the Threeport API.
@@ -108,6 +116,7 @@ func (w *KubernetesWorkloadInstanceConfig) Get(
 				KubernetesWorkloadDefinition: k8sWorkloadDefinition,
 				Status:                       util.Ptr(string(instanceStatusDetail.Status)),
 				Age:                          util.Ptr(util.GetAgeFormatted(k8sWorkloadInstance.CreatedAt)),
+				KustomizeOverlay:             k8sWorkloadInstance.KustomizeOverlay,
 			},
 		}
 		k8sWorkloadInstanceConfigs = append(k8sWorkloadInstanceConfigs, k8sWorkloadInstanceConfig)
@@ -204,6 +213,7 @@ func (w *KubernetesWorkloadInstanceConfig) Create(
 		},
 		KubernetesRuntimeInstanceID:    kubernetesRuntimeInstance.ID,
 		KubernetesWorkloadDefinitionID: k8sWorkloadDefinition.ID,
+		KustomizeOverlay:               k8sWorkloadInstanceValues.KustomizeOverlay,
 	}
 
 	// create kubernetes workload instance
@@ -224,6 +234,7 @@ func (w *KubernetesWorkloadInstanceConfig) Create(
 			KubernetesWorkloadDefinition: k8sWorkloadInstanceValues.KubernetesWorkloadDefinition,
 			Status:                       util.Ptr(string(*createdK8sWorkloadInstance.Status)),
 			Age:                          util.Ptr(util.GetAgeFormatted(createdK8sWorkloadInstance.CreatedAt)),
+			KustomizeOverlay:             createdK8sWorkloadInstance.KustomizeOverlay,
 		},
 	}
 
@@ -282,16 +293,23 @@ func (w *KubernetesWorkloadInstanceConfig) Replace(
 		return nil, fmt.Errorf("failed to get kubernetes workload definition by name %s: %w", *k8sWorkloadInstanceValues.KubernetesWorkloadDefinition.Name, err)
 	}
 
+	// KustomizeOverlay is immutable once set
+	// (pkg/api/v0/kubernetes_workload_validate.go). Config values are
+	// round-tripped from Get (see above), so the common case - editing an
+	// unrelated field and re-applying - carries the existing value forward
+	// unchanged here. A config that explicitly sets a different value is
+	// passed through as-is and left to the API's own immutability check,
+	// rather than duplicating that rule on the client side.
+	kustomizeOverlay := existingK8sWorkloadInstance.KustomizeOverlay
+	if k8sWorkloadInstanceValues.KustomizeOverlay != nil {
+		kustomizeOverlay = k8sWorkloadInstanceValues.KustomizeOverlay
+	}
+
 	// construct updated kubernetes workload instance object. Several fields
 	// are carried over from the existing instance rather than left unset,
 	// because Replace sends a PUT (full replace): every field on the
 	// outgoing object is written, including a nil one, which clears
 	// whatever the server previously had.
-	//   - KustomizeOverlay is immutable once set
-	//     (pkg/api/v0/kubernetes_workload_validate.go) - an omitted value
-	//     here would be sent as an explicit clear and rejected, so a caller
-	//     replacing an overlaid instance to change an unrelated field (e.g.
-	//     renaming it) would be unable to do so at all.
 	//   - Status and Reconciled are controller-owned state, not something a
 	//     caller of Replace is trying to set. Omitting them would silently
 	//     clear an instance's reconciliation progress on every replace, and
@@ -311,7 +329,7 @@ func (w *KubernetesWorkloadInstanceConfig) Replace(
 		},
 		KubernetesRuntimeInstanceID:    kubernetesRuntimeInstance.ID,
 		KubernetesWorkloadDefinitionID: k8sWorkloadDefinition.ID,
-		KustomizeOverlay:               existingK8sWorkloadInstance.KustomizeOverlay,
+		KustomizeOverlay:               kustomizeOverlay,
 		Status:                         existingK8sWorkloadInstance.Status,
 	}
 
@@ -338,6 +356,7 @@ func (w *KubernetesWorkloadInstanceConfig) Replace(
 			KubernetesWorkloadDefinition: k8sWorkloadInstanceValues.KubernetesWorkloadDefinition,
 			Status:                       replacedK8sWorkloadInstance.Status,
 			Age:                          util.Ptr(util.GetAgeFormatted(replacedK8sWorkloadInstance.CreatedAt)),
+			KustomizeOverlay:             replacedK8sWorkloadInstance.KustomizeOverlay,
 		},
 	}
 

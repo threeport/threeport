@@ -18,16 +18,25 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// respondWithObject writes obj as a single-item apiserver_lib.Response.
+// respondWithObject writes obj as a single-item apiserver_lib.Response with a
+// 200 status.
 func respondWithObject(t *testing.T, w http.ResponseWriter, obj apiserver_lib.Object) {
 	t.Helper()
+	respondWithObjectStatus(t, w, obj, http.StatusOK)
+}
+
+// respondWithObjectStatus writes obj as a single-item apiserver_lib.Response
+// with the given status code - needed for Create, which the client only
+// accepts as a 201.
+func respondWithObjectStatus(t *testing.T, w http.ResponseWriter, obj apiserver_lib.Object, statusCode int) {
+	t.Helper()
 	body, err := json.Marshal(apiserver_lib.Response{
-		Status: apiserver_lib.Status{Code: http.StatusOK, Message: "OK"},
+		Status: apiserver_lib.Status{Code: statusCode, Message: http.StatusText(statusCode)},
 		Data:   []apiserver_lib.Object{obj},
 	})
 	require.NoError(t, err)
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(statusCode)
 	_, _ = w.Write(body)
 }
 
@@ -235,4 +244,177 @@ func TestKubernetesWorkloadInstanceConfig_Replace_PreservesInstanceState(t *test
 	}
 
 	require.NoError(t, err, "Replace should succeed and preserve the existing KustomizeOverlay")
+}
+
+// TestKubernetesWorkloadInstanceConfig_Create_SetsKustomizeOverlay is a
+// regression test for a review finding on PR #564: KustomizeOverlay was
+// reachable only via a direct client_v0.CreateKubernetesWorkloadInstance
+// call, not from KubernetesWorkloadInstanceValues - a config file following
+// the documented tptctl apply -f pattern (e.g.
+// samples/kubernetes-workload/wordpress-kubernetes-workload-instance-local.yaml)
+// had no way to set it; the field was silently dropped with no error.
+func TestKubernetesWorkloadInstanceConfig_Create_SetsKustomizeOverlay(t *testing.T) {
+	definitionID := uint(1)
+	runtimeInstanceID := uint(2)
+	createdID := uint(3)
+	name := "test-instance"
+	definitionName := "test-definition"
+	runtimeName := "default-runtime"
+	overlay := "patches:\n  - target:\n      kind: Deployment\n      name: myapp\n"
+	yamlDoc := "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: myapp\n"
+
+	createdAt := time.Now()
+	handlerErrCh := make(chan error, 1)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == api_v0.PathKubernetesRuntimeInstances && r.URL.Query().Get("defaultruntime") == "true":
+			// no KubernetesRuntimeInstance given in the config, so Create
+			// falls back to the control plane's default runtime.
+			respondWithObject(t, w, api_v0.KubernetesRuntimeInstance{
+				Common:   api_v0.Common{ID: &runtimeInstanceID},
+				Instance: api_v0.Instance{Name: &runtimeName},
+			})
+
+		case r.Method == http.MethodGet && r.URL.Path == api_v0.PathKubernetesWorkloadDefinitions:
+			require.Equal(t, definitionName, r.URL.Query().Get("name"))
+			respondWithObject(t, w, api_v0.KubernetesWorkloadDefinition{
+				Common:       api_v0.Common{ID: &definitionID},
+				YAMLDocument: &yamlDoc,
+			})
+
+		case r.Method == http.MethodPost && r.URL.Path == api_v0.PathKubernetesWorkloadInstances:
+			var payload api_v0.KubernetesWorkloadInstance
+			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+				handlerErrCh <- fmt.Errorf("failed to decode POST request body: %w", err)
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			assert.Equal(t, &overlay, payload.KustomizeOverlay, "KustomizeOverlay must be set on the create payload")
+
+			payload.ID = &createdID
+			payload.CreatedAt = &createdAt
+			payload.Status = util.Ptr("Pending")
+			respondWithObjectStatus(t, w, payload, http.StatusCreated)
+
+		default:
+			err := fmt.Errorf("unexpected request: %s %s", r.Method, r.URL.String())
+			handlerErrCh <- err
+			http.Error(w, err.Error(), http.StatusMethodNotAllowed)
+		}
+	}))
+	defer srv.Close()
+
+	config := &KubernetesWorkloadInstanceConfig{
+		KubernetesWorkloadInstance: KubernetesWorkloadInstanceValues{
+			Name: &name,
+			KubernetesWorkloadDefinition: &KubernetesWorkloadDefinitionValues{
+				Name: &definitionName,
+			},
+			KustomizeOverlay: &overlay,
+		},
+	}
+
+	created, err := config.Create(&http.Client{}, strings.TrimPrefix(srv.URL, "http://"))
+
+	select {
+	case handlerErr := <-handlerErrCh:
+		t.Fatalf("mock server handler error: %v", handlerErr)
+	default:
+	}
+
+	require.NoError(t, err)
+	require.NotNil(t, created)
+	assert.Equal(t, &overlay, created.KubernetesWorkloadInstance.KustomizeOverlay, "KustomizeOverlay must be returned in the created config")
+}
+
+// TestKubernetesWorkloadInstanceConfig_Replace_PassesThroughExplicitOverlayChange
+// covers the other half of the Replace() KustomizeOverlay logic: when a
+// config does explicitly set a different value (as opposed to leaving the
+// field unset, covered by TestKubernetesWorkloadInstanceConfig_Replace_PreservesInstanceState),
+// that new value is sent through as-is rather than silently overridden back
+// to the existing one - the API's own immutability check is what rejects it,
+// not client-side logic duplicating that rule.
+func TestKubernetesWorkloadInstanceConfig_Replace_PassesThroughExplicitOverlayChange(t *testing.T) {
+	existingID := uint(1)
+	runtimeInstanceID := uint(2)
+	definitionID := uint(3)
+	name := "test-instance"
+	definitionName := "test-definition"
+	existingOverlay := "patches:\n  - target:\n      kind: Deployment\n      name: myapp\n"
+	newOverlay := "patches:\n  - target:\n      kind: Deployment\n      name: other\n"
+
+	createdAt := time.Now()
+	existing := api_v0.KubernetesWorkloadInstance{
+		Common:                         api_v0.Common{ID: &existingID, CreatedAt: &createdAt},
+		Instance:                       api_v0.Instance{Name: &name},
+		Reconciliation:                 api_v0.Reconciliation{Reconciled: util.Ptr(true)},
+		KubernetesRuntimeInstanceID:    &runtimeInstanceID,
+		KubernetesWorkloadDefinitionID: &definitionID,
+		KustomizeOverlay:               &existingOverlay,
+		Status:                         util.Ptr("Up"),
+	}
+
+	handlerErrCh := make(chan error, 1)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == api_v0.PathKubernetesWorkloadInstances:
+			require.Equal(t, name, r.URL.Query().Get("name"))
+			respondWithObject(t, w, existing)
+
+		case r.Method == http.MethodGet && r.URL.Path == fmt.Sprintf("%s/%s", api_v0.PathKubernetesRuntimeInstances, strconv.Itoa(int(runtimeInstanceID))):
+			respondWithObject(t, w, api_v0.KubernetesRuntimeInstance{
+				Common:   api_v0.Common{ID: &runtimeInstanceID},
+				Instance: api_v0.Instance{Name: util.Ptr("some-runtime")},
+			})
+
+		case r.Method == http.MethodGet && r.URL.Path == api_v0.PathKubernetesWorkloadDefinitions:
+			require.Equal(t, definitionName, r.URL.Query().Get("name"))
+			respondWithObject(t, w, api_v0.KubernetesWorkloadDefinition{
+				Common: api_v0.Common{ID: &definitionID},
+			})
+
+		case r.Method == http.MethodPut:
+			var payload api_v0.KubernetesWorkloadInstance
+			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+				handlerErrCh <- fmt.Errorf("failed to decode PUT request body: %w", err)
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			assert.Equal(t, &newOverlay, payload.KustomizeOverlay, "an explicitly-set new overlay value must be sent through, not silently replaced with the existing one")
+
+			payload.ID = &existingID
+			payload.CreatedAt = &createdAt
+			respondWithObject(t, w, payload)
+
+		default:
+			err := fmt.Errorf("unexpected request: %s %s", r.Method, r.URL.String())
+			handlerErrCh <- err
+			http.Error(w, err.Error(), http.StatusMethodNotAllowed)
+		}
+	}))
+	defer srv.Close()
+
+	config := &KubernetesWorkloadInstanceConfig{
+		KubernetesWorkloadInstance: KubernetesWorkloadInstanceValues{
+			Name: &name,
+			KubernetesWorkloadDefinition: &KubernetesWorkloadDefinitionValues{
+				Name: &definitionName,
+			},
+			KustomizeOverlay: &newOverlay,
+		},
+	}
+
+	_, err := config.Replace(&http.Client{}, strings.TrimPrefix(srv.URL, "http://"), name)
+
+	select {
+	case handlerErr := <-handlerErrCh:
+		t.Fatalf("mock server handler error: %v", handlerErr)
+	default:
+	}
+
+	require.NoError(t, err)
 }
