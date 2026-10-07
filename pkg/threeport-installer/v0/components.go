@@ -64,6 +64,29 @@ func (cpi *ControlPlaneInstaller) InstallComputeSpaceControlPlaneComponents(
 	return nil
 }
 
+// computeSpaceWorkloadControllerSubject returns the identity a control plane
+// workload controller presents to a managed GKE cluster.
+//
+// A control plane hosted on GKE reaches the cluster as each controller's own
+// Workload Identity principal, so the binding names that principal. A control
+// plane hosted anywhere else has no Workload Identity to present: it
+// authenticates with the GCP provider's stored service account credentials, and
+// every controller arrives as that one service account. Binding a Workload
+// Identity principal in that case would authorize a principal that does not
+// exist, leaving the controllers with no access at all.
+func computeSpaceWorkloadControllerSubject(
+	gcpProjectID string,
+	namespace string,
+	controllerName string,
+	serviceAccountEmail string,
+) string {
+	if serviceAccountEmail != "" {
+		return serviceAccountEmail
+	}
+
+	return fmt.Sprintf("serviceAccount:%s.svc.id.goog[%s/%s]", gcpProjectID, namespace, controllerName)
+}
+
 // InstallComputeSpaceWorkloadControllerRBAC grants the control-plane workload
 // controllers cluster-admin on a managed (compute space) GKE cluster.  The
 // helm-workload-controller, kubernetes-workload-controller, and
@@ -83,9 +106,14 @@ func (cpi *ControlPlaneInstaller) InstallComputeSpaceWorkloadControllerRBAC(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	gcpProjectID string,
+	serviceAccountEmail string,
 ) error {
 	for _, controllerName := range computeSpaceWorkloadControllers() {
-		clusterAdminBinding := cpi.computeSpaceWorkloadControllerBinding(controllerName, gcpProjectID)
+		clusterAdminBinding := cpi.computeSpaceWorkloadControllerBinding(
+			controllerName,
+			gcpProjectID,
+			serviceAccountEmail,
+		)
 		if err := cpi.CreateOrUpdateKubeResource(clusterAdminBinding, kubeClient, mapper); err != nil {
 			return fmt.Errorf("failed to create %s cluster-admin binding on managed cluster: %w", controllerName, err)
 		}
@@ -2068,6 +2096,7 @@ func computeSpaceWorkloadControllers() []string {
 func (cpi *ControlPlaneInstaller) computeSpaceWorkloadControllerBinding(
 	controllerName string,
 	gcpProjectID string,
+	serviceAccountEmail string,
 ) *unstructured.Unstructured {
 	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -2084,7 +2113,7 @@ func (cpi *ControlPlaneInstaller) computeSpaceWorkloadControllerBinding(
 			"subjects": []interface{}{
 				map[string]interface{}{
 					"kind":     "User",
-					"name":     fmt.Sprintf("serviceAccount:%s.svc.id.goog[%s/%s]", gcpProjectID, cpi.Opts.Namespace, controllerName),
+					"name":     computeSpaceWorkloadControllerSubject(gcpProjectID, cpi.Opts.Namespace, controllerName, serviceAccountEmail),
 					"apiGroup": "rbac.authorization.k8s.io",
 				},
 			},
