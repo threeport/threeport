@@ -196,6 +196,38 @@ func TestGenModuleRegistrationGuardsControllerReclaim(t *testing.T) {
 		t.Errorf("upsertModuleController does not distinguish an orphaned owner (ErrObjectNotFound) from a still-active one:\n%s", funcBody)
 	}
 
+	// Checking for the guard conditions above isn't enough on its own - a
+	// `return` could be dropped from either branch's body, leaving a dead
+	// check that never stops the rebind, and the assertions above would
+	// still pass. Isolate each branch's own body (non-greedy up to its
+	// closing brace, one indent level deeper than the enclosing "if
+	// existing.ModuleApiID != nil {" block) and require it to actually
+	// return, so a live owner or an unexpected lookup error can't fall
+	// through to the reclaim logic below.
+	liveOwnerBranch := regexp.MustCompile(`(?s)if getErr == nil \{(.*?)\n\t\t\}`).FindStringSubmatch(funcBody)
+	if liveOwnerBranch == nil {
+		t.Fatalf("could not find the \"getErr == nil\" (owner still active) branch in upsertModuleController:\n%s", funcBody)
+	}
+	if !strings.Contains(liveOwnerBranch[1], "return nil,") {
+		t.Errorf(
+			"the \"getErr == nil\" branch (the conflicting row's prior owner is still a live module api) "+
+				"must return without reclaiming the controller, got:\n%s",
+			liveOwnerBranch[1],
+		)
+	}
+
+	lookupErrBranch := regexp.MustCompile(`(?s)if !errors\.Is\(getErr,\s*tp_client_lib\.ErrObjectNotFound\) \{(.*?)\n\t\t\}`).FindStringSubmatch(funcBody)
+	if lookupErrBranch == nil {
+		t.Fatalf("could not find the \"!errors.Is(getErr, ErrObjectNotFound)\" (unexpected lookup error) branch in upsertModuleController:\n%s", funcBody)
+	}
+	if !strings.Contains(lookupErrBranch[1], "return nil,") {
+		t.Errorf(
+			"the \"!errors.Is(getErr, ErrObjectNotFound)\" branch (the owner lookup failed for an unexpected reason) "+
+				"must return without reclaiming the controller, got:\n%s",
+			lookupErrBranch[1],
+		)
+	}
+
 	rebindIdx := strings.Index(funcBody, "existing.ModuleApiID = moduleApiID")
 	if rebindIdx == -1 {
 		t.Fatalf("upsertModuleController no longer reassigns existing.ModuleApiID - generator output may have changed shape:\n%s", funcBody)
