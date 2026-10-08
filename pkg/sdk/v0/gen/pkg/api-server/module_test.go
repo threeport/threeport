@@ -3,6 +3,7 @@ package apiserver
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -152,5 +153,59 @@ func TestGenModuleRegistrationHonorsExcludeFiles(t *testing.T) {
 	// check the excluded file was not written
 	if _, err := os.Stat(generatedPath); !os.IsNotExist(err) {
 		t.Errorf("excluded file %s was written anyway", generatedPath)
+	}
+}
+
+// upsertModuleControllerFuncPattern isolates the generated
+// upsertModuleController function body: from its signature to the next
+// line starting with a bare "}" - the closing brace gofmt puts at column 0
+// for a top-level function.
+var upsertModuleControllerFuncPattern = regexp.MustCompile(
+	`(?s)func upsertModuleController\(.*?\n\}`,
+)
+
+// TestGenModuleRegistrationGuardsControllerReclaim is a regression test for
+// threeport#558: a ModuleController name conflict was resolved by
+// unconditionally rebinding the existing row to the registering module,
+// without checking whether the row's current owner (ModuleApiID) was a
+// still-active ModuleApi or an orphaned one left behind by a deleted
+// module. That let one module silently steal a still-active module's
+// controller registration by picking the same controller name.
+//
+// This checks more than "the right substrings appear somewhere in the
+// file" - a loose Contains check would pass even if the ownership check
+// were on the wrong variable, or placed after the rebind instead of before
+// it. It isolates the upsertModuleController function body and asserts the
+// GetModuleApiByID ownership check appears strictly before the
+// existing.ModuleApiID reassignment within it.
+func TestGenModuleRegistrationGuardsControllerReclaim(t *testing.T) {
+	// generate the module registration source
+	generated := generateModuleRegistration(t)
+
+	funcBody := upsertModuleControllerFuncPattern.FindString(generated)
+	if funcBody == "" {
+		t.Fatalf("could not find upsertModuleController function body in generated source:\n%s", generated)
+	}
+
+	ownershipCheckIdx := strings.Index(funcBody, "tp_client.GetModuleApiByID(")
+	if ownershipCheckIdx == -1 {
+		t.Fatalf("upsertModuleController does not check the conflicting row's owner via GetModuleApiByID:\n%s", funcBody)
+	}
+
+	if !regexp.MustCompile(`errors\.Is\(getErr,\s*tp_client_lib\.ErrObjectNotFound\)`).MatchString(funcBody) {
+		t.Errorf("upsertModuleController does not distinguish an orphaned owner (ErrObjectNotFound) from a still-active one:\n%s", funcBody)
+	}
+
+	rebindIdx := strings.Index(funcBody, "existing.ModuleApiID = moduleApiID")
+	if rebindIdx == -1 {
+		t.Fatalf("upsertModuleController no longer reassigns existing.ModuleApiID - generator output may have changed shape:\n%s", funcBody)
+	}
+
+	if ownershipCheckIdx >= rebindIdx {
+		t.Errorf(
+			"the GetModuleApiByID ownership check must run before the existing.ModuleApiID reassignment, "+
+				"or a conflicting row owned by a still-active module api would be rebound before its owner is checked:\n%s",
+			funcBody,
+		)
 	}
 }
