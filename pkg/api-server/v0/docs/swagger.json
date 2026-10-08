@@ -18855,6 +18855,10 @@
                 "Status": {
                     "description": "The latest status of the workload instance as observed by the reconciler\nwhen the most recent script execution completed.",
                     "type": "string"
+                },
+                "UpdateScriptDigest": {
+                    "description": "A digest of the inputs the update script last ran successfully with.\nThe update script is operator-authored and Threeport cannot know whether\nrunning it again is safe, so it is run when these inputs differ from the\nones recorded here and not merely because a notification arrived.",
+                    "type": "string"
                 }
             }
         },

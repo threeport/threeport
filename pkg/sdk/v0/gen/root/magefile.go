@@ -659,8 +659,13 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			Line().Lit("swag"),
 			Line().Lit("init"),
 			Line().Lit("--dir"),
-			Line().Lit("cmd/rest-api,pkg/api,pkg/api-server/v0"),
+			Line().Lit("cmd/rest-api,pkg/api-server/v0"),
 			Line().Lit("--parseDependency"),
+			// pascalcase: the API objects use Go field names, and swag
+			// lower-cases the first letter of every property without this,
+			// renaming every field in the documented schema
+			Line().Lit("--propertyStrategy"),
+			Line().Lit("pascalcase"),
 			Line().Lit("--generalInfo"),
 			Line().Lit("main_gen.go"),
 			Line().Lit("--output"),
