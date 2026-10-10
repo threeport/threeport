@@ -8,6 +8,8 @@ require (
 	cloud.google.com/go/container v1.45.0
 	github.com/aws/aws-sdk-go-v2 v1.34.0
 	github.com/aws/aws-sdk-go-v2/config v1.29.2
+	github.com/aws/aws-sdk-go-v2/credentials v1.17.55
+	github.com/aws/aws-sdk-go-v2/service/eks v1.57.0
 	github.com/aws/aws-sdk-go-v2/service/iam v1.38.8
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.34.14
 	github.com/aws/aws-sdk-go-v2/service/sts v1.33.10
@@ -96,14 +98,11 @@ require (
 	github.com/apparentlymart/go-textseg/v15 v15.0.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
-	github.com/aws/aws-sdk-go v1.55.6 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.17.55 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.25 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.29 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.29 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.2 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.202.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/eks v1.57.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.12.2 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.12.10 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.24.12 // indirect
@@ -312,7 +311,6 @@ require (
 	k8s.io/utils v0.0.0-20251002143259-bc988d571ff4 // indirect
 	lukechampine.com/frand v1.4.2 // indirect
 	oras.land/oras-go/v2 v2.6.0 // indirect
-	sigs.k8s.io/aws-iam-authenticator v0.6.29 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.2-0.20260122202528-d9cc6641c482 // indirect
