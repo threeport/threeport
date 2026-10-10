@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -20,6 +21,8 @@ import (
 	"golang.org/x/oauth2/google"
 
 	util "github.com/threeport/threeport/pkg/util/v0"
+
+	"cloud.google.com/go/compute/metadata"
 )
 
 // GCP OAuth2 configuration for Application Default Credentials.
@@ -397,4 +400,47 @@ func openBrowser(url string) error {
 	}
 
 	return cmd.Start()
+}
+
+// AmbientServiceAccountEmail returns the service account the ambient Google
+// credentials belong to.
+//
+// A control plane running inside GCP authenticates through Workload Identity
+// rather than a stored key, so there is no credential JSON to read an account
+// out of. The metadata server names it instead, and that account - the one the
+// controller actually acts as - is the one a managed resource has to be bound
+// to.
+//
+// It reports an error off GCP, where there is no metadata server and so no
+// ambient identity to name.
+func AmbientServiceAccountEmail(ctx context.Context) (string, error) {
+	return ambientServiceAccountEmail(ctx)
+}
+
+// ambientServiceAccountEmail is the metadata lookup, in a variable so a test can
+// stand in for it. Left as the real thing, a test asserting what happens with no
+// ambient identity passes on a laptop and fails on a GCE runner, which has one.
+var ambientServiceAccountEmail = func(ctx context.Context) (string, error) {
+	if !metadata.OnGCEWithContext(ctx) {
+		return "", errors.New("not running on GCP, so there is no ambient service account to resolve")
+	}
+
+	email, err := metadata.EmailWithContext(ctx, "default")
+	if err != nil {
+		return "", fmt.Errorf("failed to read the ambient service account from the GCP metadata server: %w", err)
+	}
+	if email == "" {
+		return "", errors.New("the GCP metadata server named no ambient service account")
+	}
+
+	return email, nil
+}
+
+// SetAmbientServiceAccountEmailForTest replaces the metadata lookup and returns
+// a function restoring it.
+func SetAmbientServiceAccountEmailForTest(lookup func(context.Context) (string, error)) func() {
+	previous := ambientServiceAccountEmail
+	ambientServiceAccountEmail = lookup
+
+	return func() { ambientServiceAccountEmail = previous }
 }
