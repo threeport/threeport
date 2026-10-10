@@ -5,13 +5,19 @@ package cmd
 
 import (
 	"errors"
+	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	cli "github.com/threeport/threeport/pkg/cli/v0"
+	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	"github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
 )
+
+// upApis is the --apis value: comma-separated sdk-config API object group names.
+var upApis string
 
 // upCmd represents the up command
 var upCmd = &cobra.Command{
@@ -28,6 +34,27 @@ var upCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		cpi.Opts.Debug = cliArgs.Debug
+
+		// limit the install to the named API groups
+		if upApis != "" {
+			selected, err := installer.SelectControllersByGroup(
+				installer.ParseApis(upApis),
+				cpi.Opts.ControllerList,
+			)
+			if err != nil {
+				cli.Error("failed to select controllers", err)
+				os.Exit(1)
+			}
+			selectedNames := make([]string, 0, len(selected))
+			for _, controller := range selected {
+				selectedNames = append(selectedNames, controller.Name)
+			}
+			cli.Info(fmt.Sprintf(
+				"limiting install to %d controller(s): %s",
+				len(selected), strings.Join(selectedNames, ", "),
+			))
+			cpi.Opts.ControllerList = selected
+		}
 
 		err = cli.CreateGenesisControlPlane(cpi)
 		if err != nil {
@@ -107,6 +134,10 @@ func init() {
 	upCmd.Flags().BoolVar(
 		&cliArgs.LocalRegistry,
 		"local-registry", false, "Connects a local container registry to Threeport control plane cluster.  Only applicable with provider 'kind'.",
+	)
+	upCmd.Flags().StringVar(
+		&upApis,
+		"apis", "", "Optional. Comma-separated list of sdk-config api object group names (e.g. kubernetes_workload,gateway) to limit the install to those apis' controllers. Use none to install zero optional controllers. Defaults to empty, which installs all controllers.",
 	)
 	cobra.OnInitialize(func() {
 		cli.InitConfig(upCmd, cliArgs.CfgFile)
