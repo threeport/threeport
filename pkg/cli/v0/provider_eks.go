@@ -9,20 +9,15 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	aws_config "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
-	builder_client "github.com/nukleros/aws-builder/pkg/client"
-	builder_config "github.com/nukleros/aws-builder/pkg/config"
-	"github.com/nukleros/aws-builder/pkg/eks"
-	"github.com/nukleros/aws-builder/pkg/eks/connection"
-	builder_iam "github.com/nukleros/aws-builder/pkg/iam"
-	"gorm.io/datatypes"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/dynamic"
 
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	tpaws "github.com/threeport/threeport/pkg/aws/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
+	"github.com/threeport/threeport/pkg/encryption/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	mapping "github.com/threeport/threeport/pkg/mapping/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
@@ -38,27 +33,32 @@ func DeployEksInfra(
 	kubeConnectionInfo *kube.KubeConnectionInfo,
 	uninstaller *Uninstaller,
 	awsConfigUser *aws.Config,
-	callerIdentity *sts.GetCallerIdentityOutput,
+	// the caller reads this back - it installs system services with the
+	// account ID - so it is an out parameter rather than a value to rebind
+	callerIdentityOut **sts.GetCallerIdentityOutput,
 	awsConfigResourceManager *aws.Config,
 ) error {
+	var callerIdentity *sts.GetCallerIdentityOutput
+
 	// create AWS config
-	awsConf, err := builder_config.LoadAWSConfig(
-		cpi.Opts.AwsConfigEnv,
+	awsConf, err := tpaws.LoadAwsConfig(
 		cpi.Opts.AwsConfigProfile,
 		cpi.Opts.AwsRegion,
-		"",
-		"",
-		"",
 	)
 	if err != nil {
 		return fmt.Errorf("failed to load AWS configuration with local config: %w", err)
 	}
-	awsConfigUser = awsConf
+	// write through the pointer rather than rebinding it: the caller holds a
+	// config this function is expected to fill in, and later steps - the
+	// trust policy update, and the teardown that runs when a later step
+	// fails - read it from there
+	*awsConfigUser = *awsConf
 
 	// get account ID
 	if callerIdentity, err = provider.GetCallerIdentity(awsConf); err != nil {
 		return fmt.Errorf("failed to get caller identity: %w", err)
 	}
+	*callerIdentityOut = callerIdentity
 	Info(fmt.Sprintf("Successfully authenticated to account %s as %s", *callerIdentity.Account, *callerIdentity.Arn))
 
 	// update threeport config with eks provider info
@@ -79,7 +79,7 @@ func DeployEksInfra(
 		resourceManagerRoleName := provider.GetResourceManagerRoleName(cpi.Opts.ControlPlaneName)
 		_, err = provider.CreateResourceManagerRole(
 			cpi.Opts.Namespace,
-			builder_iam.CreateIamTags(
+			tpaws.IamTags(
 				cpi.Opts.Name,
 				map[string]string{},
 			),
@@ -103,19 +103,17 @@ func DeployEksInfra(
 	}
 
 	// assume IAM role for resource management
-	awsConfigResourceManager, err = builder_config.AssumeRole(
+	assumedConfig, err := tpaws.AssumeRole(
+		*awsConfigUser,
 		provider.GetResourceManagerRoleArn(
 			cpi.Opts.ControlPlaneName,
 			*callerIdentity.Account,
 		),
-		"",
-		"",
-		3600,
-		*awsConfigUser,
-		[]func(*aws_config.LoadOptions) error{
-			aws_config.WithRegion(cpi.Opts.AwsRegion),
-		},
+		cpi.Opts.AwsRegion,
 	)
+	if err == nil {
+		*awsConfigResourceManager = *assumedConfig
+	}
 	if err != nil {
 		deleteErr := provider.DeleteResourceManagerRole(cpi.Opts.ControlPlaneName, *awsConfigUser)
 		if deleteErr != nil {
@@ -131,6 +129,7 @@ func DeployEksInfra(
 			if callerIdentity, err = provider.GetCallerIdentity(awsConfigResourceManager); err != nil {
 				return fmt.Errorf("failed to get caller identity: %w", err)
 			}
+			*callerIdentityOut = callerIdentity
 			Info(fmt.Sprintf("Successfully authenticated to account %s as %s", *callerIdentity.Account, *callerIdentity.Arn))
 
 			// wait 5 seconds to allow IAM resources to become available
@@ -147,21 +146,24 @@ func DeployEksInfra(
 		}
 	}
 
-	// create a resource client to create EKS resources
-	eksInventoryChan := make(chan eks.EksInventory)
-	eksClient := eks.EksClient{
-		*builder_client.CreateResourceClient(awsConfigResourceManager),
-		&eksInventoryChan,
-	}
-
 	// TODO: add flags to tptctl command for high availability, etc to
 	// deterimine these values
 	// construct eks kubernetes runtime infra object
+	// the Pulumi AWS provider is pointed at the same config profile this
+	// command used and at the role to assume, rather than being handed
+	// credentials already resolved here, so that it can renew them over a
+	// provisioning run that outlasts any session
+	providerCredentials := tpaws.ProviderCredentialsFromProfile(
+		cpi.Opts.AwsConfigProfile,
+		provider.GetResourceManagerRoleArn(cpi.Opts.ControlPlaneName, *callerIdentity.Account),
+	)
+
 	kubernetesRuntimeInfraEKS := provider.KubernetesRuntimeInfraEKS{
 		RuntimeInstanceName:          runtimeInstanceName(cpi.Opts),
 		AwsAccountID:                 *callerIdentity.Account,
 		AwsConfig:                    awsConfigResourceManager,
-		ResourceClient:               &eksClient,
+		ProviderCredentials:          providerCredentials,
+		Region:                       awsConfigResourceManager.Region,
 		ZoneCount:                    int32(2),
 		DefaultNodeGroupInstanceType: "t3.medium",
 		DefaultNodeGroupInitialNodes: int32(3),
@@ -170,24 +172,6 @@ func DeployEksInfra(
 	}
 	*kubernetesRuntimeInfra = &kubernetesRuntimeInfraEKS
 	uninstaller.kubernetesRuntimeInfra = *kubernetesRuntimeInfra
-
-	// capture messages as resources are created and return to user
-	go func() {
-		for msg := range *eksClient.MessageChan {
-			Info(msg)
-		}
-	}()
-
-	// capture inventory and write to file as it is created
-	go func() {
-		for inventory := range *eksClient.InventoryChan {
-			if err := inventory.Write(
-				provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName),
-			); err != nil {
-				Error("failed to write inventory file", err)
-			}
-		}
-	}()
 
 	// delete eks kubernetes runtime resources if interrupted
 	sigs := make(chan os.Signal, 1)
@@ -227,7 +211,9 @@ func ConfigureEksKubernetesRuntimeInstance(
 	awsConfigUser *aws.Config,
 	callerIdentity *sts.GetCallerIdentityOutput,
 	awsConfigResourceManager *aws.Config,
-	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
+	// the caller builds its Kubernetes client from this, so it is an out
+	// parameter rather than a value to rebind
+	kubernetesRuntimeInstanceOut **v0.KubernetesRuntimeInstance,
 	kubernetesRuntimeInstName string,
 	instReconciled bool,
 	controlPlaneHost bool,
@@ -236,18 +222,19 @@ func ConfigureEksKubernetesRuntimeInstance(
 	var err error
 
 	// update resource manager role to allow pods to assume it
-	var inventory eks.EksInventory
-	if err := inventory.Load(
-		provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName),
-	); err != nil {
-		return uninstaller.cleanOnCreateError("failed to read eks kubernetes runtime inventory for inventory update", err)
+	oidcIssuerUrl, err := tpaws.EksOidcIssuerUrl(
+		awsConfigResourceManager,
+		provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
+	)
+	if err != nil {
+		return uninstaller.cleanOnCreateError("failed to get EKS cluster OIDC issuer URL", err)
 	}
 	if err = provider.UpdateResourceManagerRoleTrustPolicy(
 		cpi.Opts.Namespace,
 		cpi.Opts.ControlPlaneName,
 		*callerIdentity.Account,
 		"",
-		inventory.Cluster.OidcProviderUrl,
+		oidcIssuerUrl,
 		*awsConfigUser,
 		cpi.Opts.AdditionalAwsIrsaConditions,
 	); err != nil {
@@ -259,7 +246,7 @@ func ConfigureEksKubernetesRuntimeInstance(
 		return uninstaller.cleanOnCreateError(fmt.Sprintf("failed to get threeport location for AWS region %s", awsConfigResourceManager.Region), err)
 	}
 
-	kubernetesRuntimeInstance = &v0.KubernetesRuntimeInstance{
+	*kubernetesRuntimeInstanceOut = &v0.KubernetesRuntimeInstance{
 		Instance: v0.Instance{
 			Name: &kubernetesRuntimeInstName,
 		},
@@ -368,18 +355,14 @@ func ConfigureControlPlaneWithEksConfig(
 		return uninstaller.cleanOnCreateError("failed to create new AWS EKS kubernetes runtime definition for control plane cluster", err)
 	}
 
-	// create aws eks k8s runtime instance
-	var inventory eks.EksInventory
-	if err := inventory.Load(
-		provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName),
-	); err != nil {
-		return uninstaller.cleanOnCreateError("failed to read eks kubernetes runtime inventory for inventory update", err)
-	}
-	inventoryJson, err := inventory.Marshal()
+	// create aws eks k8s runtime instance - its resource inventory is the
+	// Pulumi stack state, read back from the local state directory the stack
+	// was provisioned into
+	stackState, err := kubernetesRuntimeInfraEKS.GetStackState()
 	if err != nil {
-		return uninstaller.cleanOnCreateError("failed to marshal eks kubernetes runtime inventory for inventory update", err)
+		return uninstaller.cleanOnCreateError("failed to get EKS Pulumi stack state", err)
 	}
-	dbInventory := datatypes.JSON(inventoryJson)
+	dbInventory := *stackState
 	eksRuntimeInstName := provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName)
 	reconciled := true
 	awsEksKubernetesRuntimeInstance := v0.AwsEksKubernetesRuntimeInstance{
@@ -414,63 +397,36 @@ func PrepForEksDeletion(
 	cpi *threeport.ControlPlaneInstaller,
 	threeportControlPlaneConfig *ControlPlane,
 	threeportConfig *ThreeportConfig,
-	awsConfigUser *aws.Config,
-	awsConfigResourceManager *aws.Config,
+	// the caller reads both back - it refreshes the cluster's auth token with
+	// the resource manager config, and deletes IAM with the user config - so
+	// these are out parameters rather than values to rebind
+	awsConfigUserOut **aws.Config,
+	awsConfigResourceManagerOut **aws.Config,
 	requestedControlPlane string,
 ) (*provider.KubernetesRuntimeInfraEKS, error) {
-	// create AWS config
-	// * AwsConfigEnv is always passed in from CLI args as it is not
-	//   persisted in threeport config
-	// * AwsConfigProfile and AwsRegion cannot be passed in through CLI for
-	// deletion opertion as these are stored in threeport config
-	// create a resource client to delete EKS resources
-
-	var accountId string
-	var err error
-	awsConfigUser, awsConfigResourceManager, accountId, err = threeportConfig.GetAwsConfigs(requestedControlPlane)
+	// AwsConfigProfile and AwsRegion cannot be passed in through the CLI for a
+	// deletion operation, as these are stored in threeport config
+	awsConfigUser, awsConfigResourceManager, accountId, err := threeportConfig.GetAwsConfigs(requestedControlPlane)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get AWS configs from threeport config: %w", err)
 	}
+	*awsConfigUserOut = awsConfigUser
+	*awsConfigResourceManagerOut = awsConfigResourceManager
 
-	eksInventoryChan := make(chan eks.EksInventory)
-	eksClient := eks.EksClient{
-		*builder_client.CreateResourceClient(awsConfigResourceManager),
-		&eksInventoryChan,
-	}
+	// construct eks kubernetes runtime infra object - Pulumi reads the state
+	// of what it provisioned from its own state directory, so no inventory
+	// needs to be supplied here
+	providerCredentials := tpaws.ProviderCredentialsFromProfile(
+		threeportControlPlaneConfig.EKSProviderConfig.AwsConfigProfile,
+		provider.GetResourceManagerRoleArn(threeportControlPlaneConfig.Name, accountId),
+	)
 
-	// capture messages as resources are created and return to user
-	go func() {
-		for msg := range *eksClient.MessageChan {
-			Info(msg)
-		}
-	}()
-
-	// capture inventory and write to file as it is updated
-	go func() {
-		for inventory := range *eksClient.InventoryChan {
-			if err := inventory.Write(
-				provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName),
-			); err != nil {
-				Error("failed to write inventory file", err)
-			}
-		}
-	}()
-
-	// read inventory to delete
-	var inventory eks.EksInventory
-	if err := inventory.Load(
-		provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName),
-	); err != nil {
-		return nil, fmt.Errorf("failed to read inventory file for deleting eks kubernetes runtime resources: %w", err)
-	}
-
-	// construct eks kubernetes runtime infra object
 	kubernetesRuntimeInfraEKS := &provider.KubernetesRuntimeInfraEKS{
 		RuntimeInstanceName: provider.ThreeportRuntimeName(threeportControlPlaneConfig.Name),
 		AwsAccountID:        accountId,
 		AwsConfig:           awsConfigResourceManager,
-		ResourceClient:      &eksClient,
-		ResourceInventory:   &inventory,
+		ProviderCredentials: providerCredentials,
+		Region:              awsConfigResourceManager.Region,
 	}
 
 	return kubernetesRuntimeInfraEKS, nil
@@ -482,24 +438,32 @@ func PrepForEksDeletion(
 func RefreshEKSConnectionWithLocalConfig(
 	awsConfig *aws.Config,
 	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
-	apiClient *http.Client,
-	threeportAPIEndpoint string,
+	encryptionKey string,
 ) (*v0.KubernetesRuntimeInstance, error) {
 	// use local AWS config to get EKS cluster connection info
-	eksClusterConn := connection.EksClusterConnectionInfo{ClusterName: *kubernetesRuntimeInstance.Name}
+	eksClusterConn := tpaws.EksClusterConnectionInfo{ClusterName: *kubernetesRuntimeInstance.Name}
 	if err := eksClusterConn.Get(awsConfig); err != nil {
 		return nil, fmt.Errorf("failed to get EKS cluster connection info: %w", err)
 	}
 
-	kubernetesRuntimeInstance.ConnectionToken = &eksClusterConn.Token
-	kubernetesRuntimeInstance.ConnectionTokenExpiration = &eksClusterConn.TokenExpiration
-	updatedKubernetesRuntimeInst, err := client.UpdateKubernetesRuntimeInstance(
-		apiClient,
-		threeportAPIEndpoint,
-		kubernetesRuntimeInstance,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to update EKS token on kubernetes runtime instance: %w", err)
+	// The refreshed token is set on the instance in memory rather than
+	// written back to the API.  The only caller is the teardown, which needs
+	// the token to reach the cluster it is about to delete, and the runtime
+	// instance is owned by the AwsEksKubernetesRuntimeInstance - the API
+	// rejects an external update to it with "tear down the owner first".
+	//
+	// It is encrypted here because that is how a token read back from the API
+	// arrives, and what reads it next decrypts with this same key.
+	connectionToken := eksClusterConn.Token
+	if encryptionKey != "" {
+		encryptedToken, err := encryption.Encrypt(encryptionKey, eksClusterConn.Token)
+		if err != nil {
+			return nil, fmt.Errorf("failed to encrypt refreshed EKS connection token: %w", err)
+		}
+		connectionToken = encryptedToken
 	}
-	return updatedKubernetesRuntimeInst, nil
+	kubernetesRuntimeInstance.ConnectionToken = &connectionToken
+	kubernetesRuntimeInstance.ConnectionTokenExpiration = &eksClusterConn.TokenExpiration
+
+	return kubernetesRuntimeInstance, nil
 }

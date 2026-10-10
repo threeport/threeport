@@ -28,14 +28,16 @@ import (
 
 // imageBuildTarget returns the Dockerfile target for a component.
 // terraform-controller needs the terraform CLI on PATH at runtime;
-// oci-controller and gcp-controller both need the pulumi CLI. Those
-// route to the `release-terraform` / `release-pulumi` targets;
+// aws-controller, oci-controller and gcp-controller all need the pulumi
+// CLI. Those route to the `release-terraform` / `release-pulumi` targets;
 // everything else uses the distroless `release` target.
 func imageBuildTarget(componentName string) string {
 	switch componentName {
 	case installer.ThreeportTerraformControllerName:
 		return "release-terraform"
-	case installer.ThreeportOciControllerName, installer.ThreeportGcpControllerName:
+	case installer.ThreeportAwsControllerName,
+		installer.ThreeportOciControllerName,
+		installer.ThreeportGcpControllerName:
 		return "release-pulumi"
 	}
 	return "release"

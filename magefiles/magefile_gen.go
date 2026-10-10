@@ -633,7 +633,7 @@ func (Build) awsControllerImagePackage(
 	if err := util.BuildImage(
 		workingDir,
 		"Dockerfile",
-		"release",
+		"release-pulumi",
 		arch,
 		"aws-controller",
 		"bin",
@@ -2602,6 +2602,7 @@ func (Dev) LoadImage(kindClusterName string, component string) error {
 
 	// components that require a non-standard Dockerfile target; all others use "release".
 	componentTargets := map[string]string{
+		"aws-controller":           "release-pulumi",
 		"gcp-controller":           "release-pulumi",
 		"helm-workload-controller": "release-helm",
 		"oci-controller":           "release-pulumi",

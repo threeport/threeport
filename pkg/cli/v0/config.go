@@ -8,15 +8,14 @@ import (
 	"path/filepath"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	aws_config "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/mitchellh/go-homedir"
-	builder_config "github.com/nukleros/aws-builder/pkg/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	tpaws "github.com/threeport/threeport/pkg/aws/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -291,13 +290,9 @@ func (cfg *ThreeportConfig) GetAwsConfigs(requestedControlPlane string) (*aws.Co
 	if err != nil {
 		return nil, nil, "", fmt.Errorf("failed to get control plane config: %w", err)
 	}
-	awsConfigUser, err := builder_config.LoadAWSConfig(
-		false,
+	awsConfigUser, err := tpaws.LoadAwsConfig(
 		controlPlane.EKSProviderConfig.AwsConfigProfile,
 		controlPlane.EKSProviderConfig.AwsRegion,
-		"",
-		"",
-		"",
 	)
 	if err != nil {
 		return nil, nil, "", fmt.Errorf("failed to load AWS configuration with local config: %w", err)
@@ -311,18 +306,13 @@ func (cfg *ThreeportConfig) GetAwsConfigs(requestedControlPlane string) (*aws.Co
 	fmt.Printf("Successfully authenticated to account %s as %s\n", *callerIdentity.Account, *callerIdentity.Arn)
 
 	// assume role for AWS resource manager for infra teardown
-	awsConfigResourceManager, err := builder_config.AssumeRole(
+	awsConfigResourceManager, err := tpaws.AssumeRole(
+		*awsConfigUser,
 		provider.GetResourceManagerRoleArn(
 			controlPlane.Name,
 			controlPlane.EKSProviderConfig.AwsAccountID,
 		),
-		"",
-		"",
-		3600,
-		*awsConfigUser,
-		[]func(*aws_config.LoadOptions) error{
-			aws_config.WithRegion(controlPlane.EKSProviderConfig.AwsRegion),
-		},
+		controlPlane.EKSProviderConfig.AwsRegion,
 	)
 	if err != nil {
 		return nil, nil, "", fmt.Errorf("failed to assume role for AWS resource manager: %w", err)

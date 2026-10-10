@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"path/filepath"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -14,11 +13,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/aws/smithy-go"
-	"github.com/nukleros/aws-builder/pkg/eks"
-	"github.com/nukleros/aws-builder/pkg/eks/connection"
+	"gorm.io/datatypes"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	tpaws "github.com/threeport/threeport/pkg/aws/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -27,25 +26,37 @@ import (
 // KubernetesRuntimeInfraEKS represents the infrastructure for a threeport-managed EKS
 // cluster.
 type KubernetesRuntimeInfraEKS struct {
-	// The unique name of the kubernetes runtime instance managed by threeport.
-	RuntimeInstanceName string
+	// PulumiWorkspace provides workspace, stack, state, and automation API
+	// helpers (aligned with KubernetesRuntimeInfraGKE and
+	// KubernetesRuntimeInfraOKE).  It carries RuntimeInstanceName.
+	PulumiWorkspace
 
 	// The AWS account ID where the cluster infra is provisioned.
 	AwsAccountID string
 
+	// The AWS region where the cluster infra is provisioned.
+	Region string
+
+	// Kubernetes version of the EKS cluster.
+	KubernetesVersion string
+
+	// The ARN of the IAM role the EKS control plane assumes.  Created by the
+	// IAM bootstrap that runs outside the Pulumi program.
+	ClusterRoleArn string
+
+	// The ARN of the IAM role the worker nodes assume.  Created by the IAM
+	// bootstrap that runs outside the Pulumi program.
+	NodeRoleArn string
+
 	// The configuration containing credentials to connect to an AWS account.
+	// Used for the SDK calls this process makes directly.
 	AwsConfig *aws.Config
 
-	// The eks-clutser client used to create AWS EKS resources.
-	ResourceClient *eks.EksClient
-
-	// A record of AWS resources created for the EKS cluster resource stack.
-	ResourceInventory *eks.EksInventory
-
-	// A pre-existing set of AWS resources.  When provided, the EKS cluster
-	// resource stack will use these pre-existing resources and incorporate
-	// them into the final EKS resource stack.
-	ExistingResourceInventory *eks.EksInventory
+	// ProviderCredentials are what the Pulumi AWS provider authenticates
+	// with.  It runs in its own process and cannot be handed AwsConfig's
+	// refreshing credential chain, so it gets the long-lived credentials and
+	// the role to assume and renews them itself.
+	ProviderCredentials tpaws.AwsProviderCredentials
 
 	// The number of availability zones the EKS cluster will be deployed across.
 	ZoneCount int32
@@ -63,68 +74,100 @@ type KubernetesRuntimeInfraEKS struct {
 	DefaultNodeGroupMaxNodes int32
 }
 
-// Create installs a Kubernetes cluster using AWS EKS for threeport workloads.
+// Create provisions an AWS EKS cluster for threeport workloads and returns the
+// connection info for its Kubernetes API.
 func (i *KubernetesRuntimeInfraEKS) Create() (*kube.KubeConnectionInfo, error) {
-	// create a new resource config to configure Kubernetes cluster
-	resourceConfig := eks.NewEksConfig()
-	resourceConfig.Name = i.RuntimeInstanceName
-	resourceConfig.AwsAccountId = i.AwsAccountID
-	resourceConfig.DesiredAzCount = i.ZoneCount
-	resourceConfig.InstanceTypes = []string{i.DefaultNodeGroupInstanceType}
-	resourceConfig.InitialNodes = i.DefaultNodeGroupInitialNodes
-	resourceConfig.MinNodes = i.DefaultNodeGroupMinNodes
-	resourceConfig.MaxNodes = i.DefaultNodeGroupMaxNodes
-	resourceConfig.DnsManagement = true
-	resourceConfig.DnsManagementServiceAccount = eks.ServiceAccountConfig{
-		Name:      threeport.DNSManagerServiceAccountName,
-		Namespace: threeport.DNSManagerServiceAccountNamepace,
-	}
-	resourceConfig.Dns01Challenge = true
-	resourceConfig.Dns01ChallengeServiceAccount = eks.ServiceAccountConfig{
-		Name:      threeport.DNS01ChallengeServiceAccountName,
-		Namespace: threeport.DNS01ChallengeServiceAccountNamepace,
-	}
-	resourceConfig.SecretsManager = true
-	resourceConfig.SecretsManagerServiceAccount = eks.ServiceAccountConfig{
-		Name:      threeport.SecretsManagerServiceAccountName,
-		Namespace: threeport.SecretsManagerServiceAccountNamespace,
-	}
-	resourceConfig.ClusterAutoscaling = true
-	resourceConfig.ClusterAutoscalingServiceAccount = eks.ServiceAccountConfig{
-		Name:      threeport.ClusterAutoscalerServiceAccountName,
-		Namespace: threeport.ClusterAutoscalerNamespace,
-	}
-	resourceConfig.StorageManagementServiceAccount = eks.ServiceAccountConfig{
-		Name:      threeport.StorageManagerServiceAccountName,
-		Namespace: threeport.StorageManagerServiceAccountNamespace,
-	}
-	resourceConfig.Tags = ThreeportProviderTags()
+	return i.CreateInfra()
+}
 
-	// create EKS cluster resource stack in AWS
-	if err := i.ResourceClient.CreateEksResourceStack(
-		resourceConfig,
-		i.ExistingResourceInventory,
-	); err != nil {
-		return nil, fmt.Errorf("failed to create eks resource stack: %w", err)
+// CreateInfra creates the IAM the cluster needs, provisions the cluster's
+// networking, the cluster and its node group with Pulumi, and then creates the
+// IAM that only exists once the cluster does.
+func (i *KubernetesRuntimeInfraEKS) CreateInfra() (*kube.KubeConnectionInfo, error) {
+	i.ensurePulumiProjectDefaults()
+	i.syncStackConfigs()
+
+	// EKS will not create a cluster or a node group without the roles they
+	// assume, so these come before the stack
+	if err := i.CreateClusterIam(); err != nil {
+		return nil, fmt.Errorf("failed to create EKS cluster IAM roles: %w", err)
+	}
+
+	stack, err := i.SetupStack(i.pulumiProgram())
+	if err != nil {
+		return nil, fmt.Errorf("failed to set up Pulumi workspace: %w", err)
+	}
+	if _, err := i.RunUp(context.Background(), stack); err != nil {
+		return nil, fmt.Errorf("failed to deploy stack: %w", err)
+	}
+
+	// the OIDC issuer the add-ons' roles are bound to is stood up with the
+	// cluster, so these come after the stack
+	if err := i.CreateIrsaIam(); err != nil {
+		return nil, fmt.Errorf("failed to create IRSA IAM resources: %w", err)
 	}
 
 	return i.GetConnection()
 }
 
-// Delete deletes an AWS EKS cluster.
+// DeployInfra runs CreateInfra and discards the connection info.  It satisfies
+// InfraProvider for the shared infrastructure lifecycle.
+func (i *KubernetesRuntimeInfraEKS) DeployInfra() error {
+	_, err := i.CreateInfra()
+
+	return err
+}
+
+// DestroyInfra tears down EKS infrastructure via Delete.  It satisfies
+// InfraProvider.
+func (i *KubernetesRuntimeInfraEKS) DestroyInfra() error {
+	return i.Delete()
+}
+
+// Delete destroys an AWS EKS cluster and the IAM resources created alongside
+// it.
 func (i *KubernetesRuntimeInfraEKS) Delete() error {
-	// delete EKS cluster resources
-	if err := i.ResourceClient.DeleteEksResourceStack(i.ResourceInventory); err != nil {
-		return fmt.Errorf("failed to delete eks cluster resource stack: %w", err)
+	i.ensurePulumiProjectDefaults()
+	i.syncStackConfigs()
+
+	if err := i.DestroyStack(); err != nil {
+		return fmt.Errorf("failed to destroy EKS stack: %w", err)
+	}
+
+	// IAM is created outside the stack, so it is removed outside it too.
+	// Unlike GKE, which logs a cleanup failure and confirms the delete anyway,
+	// this returns the error so that deletion is not confirmed while roles,
+	// policies and an identity provider are still in the account.  Both this
+	// and the stack destroy tolerate resources that are already gone, so the
+	// lifecycle engine retrying costs nothing.
+	if err := i.DeleteEksIam(); err != nil {
+		return fmt.Errorf("failed to delete EKS IAM resources: %w", err)
 	}
 
 	return nil
 }
 
+// GetStackState returns the state of the EKS stack as a JSON object.
+func (i *KubernetesRuntimeInfraEKS) GetStackState() (*datatypes.JSON, error) {
+	i.ensurePulumiProjectDefaults()
+	i.syncStackConfigs()
+
+	return i.PulumiWorkspace.GetStackState()
+}
+
+// SetStackState restores Pulumi state from a JSON object (export or checkpoint
+// format).
+func (i *KubernetesRuntimeInfraEKS) SetStackState(state *datatypes.JSON) error {
+	i.ensurePulumiProjectDefaults()
+	i.syncStackConfigs()
+
+	return i.PulumiWorkspace.SetStackState(state)
+}
+
 // GetConnection gets the latest connection infor for authentication to an EKS cluster.
 func (i *KubernetesRuntimeInfraEKS) GetConnection() (*kube.KubeConnectionInfo, error) {
 	// get connection info
-	eksClusterConn := connection.EksClusterConnectionInfo{
+	eksClusterConn := tpaws.EksClusterConnectionInfo{
 		ClusterName: i.RuntimeInstanceName,
 	}
 	if err := eksClusterConn.Get(i.AwsConfig); err != nil {
@@ -140,13 +183,6 @@ func (i *KubernetesRuntimeInfraEKS) GetConnection() (*kube.KubeConnectionInfo, e
 	}
 
 	return &kubeConnInfo, nil
-}
-
-// EKSInventoryFilepath returns a standardized filename and path for the EKS
-// inventory file.
-func EKSInventoryFilepath(providerConfigDir, instanceName string) string {
-	inventoryFilename := fmt.Sprintf("eks-inventory-%s.json", instanceName)
-	return filepath.Join(providerConfigDir, inventoryFilename)
 }
 
 // DeleteResourceManagerRole deletes the IAM resources created by threeport
@@ -352,7 +388,7 @@ func DeleteServiceAccount(
 // management.
 func CreateResourceManagerRole(
 	namespace string,
-	tags *[]types.Tag,
+	tags []types.Tag,
 	roleName,
 	accountId,
 	externalAccountId,
@@ -366,7 +402,7 @@ func CreateResourceManagerRole(
 	svc := iam.NewFromConfig(awsConfig)
 
 	// ensure role name is valid
-	if err := eks.CheckRoleName(roleName); err != nil {
+	if err := tpaws.CheckIamRoleName(roleName); err != nil {
 		return nil, err
 	}
 
@@ -378,7 +414,7 @@ func CreateResourceManagerRole(
 	createResourceManagerRoleInput := iam.CreateRoleInput{
 		AssumeRolePolicyDocument: &resourceManagerTrustPolicyDocument,
 		RoleName:                 &roleName,
-		Tags:                     *tags,
+		Tags:                     tags,
 	}
 
 	// create the role
@@ -707,18 +743,15 @@ const (
 				"Sid": "EC2Permissions",
 				"Effect": "Allow",
 				"Action": [
+					"ec2:Describe*",
 					"ec2:CreateVpc",
 					"ec2:DeleteVpc",
-					"ec2:DescribeVpcs",
 					"ec2:ModifyVpcAttribute",
-					"ec2:DescribeVpcAttribute",
 					"ec2:CreateSubnet",
 					"ec2:DeleteSubnet",
 					"ec2:ModifySubnetAttribute",
-					"ec2:DescribeSubnets",
 					"ec2:CreateRouteTable",
 					"ec2:DeleteRouteTable",
-					"ec2:DescribeRouteTables",
 					"ec2:AssociateRouteTable",
 					"ec2:CreateRoute",
 					"ec2:DeleteRoute",
@@ -727,22 +760,16 @@ const (
 					"ec2:ReleaseAddress",
 					"ec2:AssociateAddress",
 					"ec2:DisassociateAddress",
-					"ec2:DescribeAddresses",
 					"ec2:CreateInternetGateway",
 					"ec2:DeleteInternetGateway",
 					"ec2:AttachInternetGateway",
 					"ec2:DetachInternetGateway",
-					"ec2:DescribeInternetGateways",
 					"ec2:CreateNatGateway",
 					"ec2:DeleteNatGateway",
-					"ec2:DescribeNatGateways",
 					"ec2:CreateTags",
 					"ec2:DeleteTags",
-					"ec2:DescribeTags",
-					"ec2:DescribeAvailabilityZones",
 					"ec2:CreateSecurityGroup",
 					"ec2:DeleteSecurityGroup",
-					"ec2:DescribeSecurityGroups",
 					"ec2:AuthorizeSecurityGroupIngress",
 					"ec2:AuthorizeSecurityGroupEgress"
 				],
@@ -752,16 +779,16 @@ const (
 				"Sid": "EKSPermissions",
 				"Effect": "Allow",
 				"Action": [
+					"eks:Describe*",
+					"eks:List*",
 					"eks:CreateCluster",
 					"eks:DeleteCluster",
 					"eks:UpdateClusterConfig",
 					"eks:CreateNodegroup",
 					"eks:DeleteNodegroup",
 					"eks:UpdateNodegroupConfig",
-					"eks:DescribeNodegroup",
 					"eks:TagResource",
 					"eks:UntagResource",
-					"eks:DescribeCluster",
 					"eks:CreateAddon",
 					"eks:DeleteAddon",
 					"eks:UpdateAddon"
@@ -807,19 +834,17 @@ const (
 				"Sid": "IAMPermissions",
 				"Effect": "Allow",
 				"Action": [
-					"iam:ListOpenIDConnectProviders",
+					"iam:Get*",
+					"iam:List*",
 					"iam:CreateOpenIDConnectProvider",
 					"iam:DeleteOpenIDConnectProvider",
 					"iam:UpdateOpenIDConnectProviderThumbprint",
+					"iam:TagOpenIDConnectProvider",
 					"iam:CreatePolicy",
 					"iam:DeletePolicy",
-					"iam:ListPolicies",
-					"iam:ListRolePolicies",
-					"iam:ListInstanceProfilesForRole",
 					"iam:CreatePolicyVersion",
 					"iam:DeletePolicyVersion",
 					"iam:SetDefaultPolicyVersion",
-					"iam:GetRole",
 					"iam:CreateRole",
 					"iam:DeleteRole",
 					"iam:UpdateRole",
@@ -829,7 +854,6 @@ const (
 					"iam:DetachRolePolicy",
 					"iam:TagRole",
 					"iam:UntagRole",
-					"iam:ListAttachedRolePolicies",
 					"iam:CreateServiceLinkedRole",
 					"iam:TagPolicy",
 					"iam:UpdateAssumeRolePolicy"

@@ -34,6 +34,7 @@ ApiObjectGroups:
       Tptctl:
         Enabled: true
 - Name: aws
+  DockerfileTarget: release-pulumi
   Objects:
     - Name: AwsProvider
       Versions:
