@@ -204,6 +204,7 @@ func (cpi *ControlPlaneInstaller) ComputeSpaceWorkloadControllerRBACCurrent(
 	mapper *meta.RESTMapper,
 	gcpProjectID string,
 	serviceAccountEmail string,
+	controlPlaneNamespace string,
 ) (bool, error) {
 	for _, controllerName := range computeSpaceWorkloadControllers() {
 		binding, present, err := resourceInstalled(
@@ -235,7 +236,9 @@ func (cpi *ControlPlaneInstaller) ComputeSpaceWorkloadControllerRBACCurrent(
 
 		matches, err := bindingGrants(
 			binding,
-			cpi.computeSpaceWorkloadControllerBinding(controllerName, gcpProjectID, serviceAccountEmail),
+			cpi.computeSpaceWorkloadControllerBinding(
+				controllerName, gcpProjectID, serviceAccountEmail, controlPlaneNamespace,
+			),
 		)
 		if err != nil {
 			return false, fmt.Errorf(

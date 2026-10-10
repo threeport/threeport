@@ -102,17 +102,26 @@ func computeSpaceWorkloadControllerSubject(
 // token, so a kind:ServiceAccount subject would never match.  gcpProjectID is the
 // project of the GKE cluster hosting the control plane (where the controller pods
 // run), which determines the Workload Identity pool in the principal name.
+//
+// controlPlaneNamespace is the namespace the control plane's own controllers run
+// in, on the host that runs them - not a namespace on this managed cluster, and
+// not cpi.Opts.Namespace, which is where this installer puts components here. It
+// is part of the Workload Identity principal those controllers present when they
+// connect, so it has to be the namespace they are actually installed in. It has
+// no bearing on the service account path, where the subject is an email.
 func (cpi *ControlPlaneInstaller) InstallComputeSpaceWorkloadControllerRBAC(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	gcpProjectID string,
 	serviceAccountEmail string,
+	controlPlaneNamespace string,
 ) error {
 	for _, controllerName := range computeSpaceWorkloadControllers() {
 		clusterAdminBinding := cpi.computeSpaceWorkloadControllerBinding(
 			controllerName,
 			gcpProjectID,
 			serviceAccountEmail,
+			controlPlaneNamespace,
 		)
 		if err := cpi.CreateOrUpdateKubeResource(clusterAdminBinding, kubeClient, mapper); err != nil {
 			return fmt.Errorf("failed to create %s cluster-admin binding on managed cluster: %w", controllerName, err)
@@ -2097,6 +2106,7 @@ func (cpi *ControlPlaneInstaller) computeSpaceWorkloadControllerBinding(
 	controllerName string,
 	gcpProjectID string,
 	serviceAccountEmail string,
+	controlPlaneNamespace string,
 ) *unstructured.Unstructured {
 	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -2113,7 +2123,7 @@ func (cpi *ControlPlaneInstaller) computeSpaceWorkloadControllerBinding(
 			"subjects": []interface{}{
 				map[string]interface{}{
 					"kind":     "User",
-					"name":     computeSpaceWorkloadControllerSubject(gcpProjectID, cpi.Opts.Namespace, controllerName, serviceAccountEmail),
+					"name":     computeSpaceWorkloadControllerSubject(gcpProjectID, controlPlaneNamespace, controllerName, serviceAccountEmail),
 					"apiGroup": "rbac.authorization.k8s.io",
 				},
 			},
