@@ -14,7 +14,6 @@ import (
 	builder_client "github.com/nukleros/aws-builder/pkg/client"
 	builder_config "github.com/nukleros/aws-builder/pkg/config"
 	"github.com/nukleros/aws-builder/pkg/eks"
-	"github.com/nukleros/aws-builder/pkg/eks/connection"
 	builder_iam "github.com/nukleros/aws-builder/pkg/iam"
 	"gorm.io/datatypes"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -22,6 +21,7 @@ import (
 
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	tpaws "github.com/threeport/threeport/pkg/aws/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	mapping "github.com/threeport/threeport/pkg/mapping/v0"
@@ -486,7 +486,7 @@ func RefreshEKSConnectionWithLocalConfig(
 	threeportAPIEndpoint string,
 ) (*v0.KubernetesRuntimeInstance, error) {
 	// use local AWS config to get EKS cluster connection info
-	eksClusterConn := connection.EksClusterConnectionInfo{ClusterName: *kubernetesRuntimeInstance.Name}
+	eksClusterConn := tpaws.EksClusterConnectionInfo{ClusterName: *kubernetesRuntimeInstance.Name}
 	if err := eksClusterConn.Get(awsConfig); err != nil {
 		return nil, fmt.Errorf("failed to get EKS cluster connection info: %w", err)
 	}

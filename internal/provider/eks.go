@@ -15,10 +15,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/aws/smithy-go"
 	"github.com/nukleros/aws-builder/pkg/eks"
-	"github.com/nukleros/aws-builder/pkg/eks/connection"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	tpaws "github.com/threeport/threeport/pkg/aws/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -124,7 +124,7 @@ func (i *KubernetesRuntimeInfraEKS) Delete() error {
 // GetConnection gets the latest connection infor for authentication to an EKS cluster.
 func (i *KubernetesRuntimeInfraEKS) GetConnection() (*kube.KubeConnectionInfo, error) {
 	// get connection info
-	eksClusterConn := connection.EksClusterConnectionInfo{
+	eksClusterConn := tpaws.EksClusterConnectionInfo{
 		ClusterName: i.RuntimeInstanceName,
 	}
 	if err := eksClusterConn.Get(i.AwsConfig); err != nil {
