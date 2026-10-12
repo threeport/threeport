@@ -22,13 +22,13 @@ type Common struct {
 // The create writes the owns reference and sets Field on that object in the same transaction.
 type OwnerRef struct {
 	// The fully qualified type of the owning object.
-	Type *string `validate:"optional"`
+	Type *string `validate:"required"`
 
 	// The id of the owning object.
-	ID *uint `validate:"optional"`
+	ID *uint `validate:"required"`
 
 	// The field on the owning object that stores this row's id.
-	Field *string `validate:"optional"`
+	Field *string `validate:"required"`
 }
 
 // GetOwner returns the owner named by a create request.

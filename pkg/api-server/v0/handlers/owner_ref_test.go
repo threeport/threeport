@@ -54,6 +54,43 @@ func TestGetRuntimeShowsWorkloadOwner(t *testing.T) {
 	assert.Equal(t, created, *got.GatewayControllerInstanceID)
 }
 
+// TestCreateRejectsPartialOwner covers a create whose owner omits a field.
+// The handler rejects it before any workload row is written.
+func TestCreateRejectsPartialOwner(t *testing.T) {
+	registerTaggedFields(api.ObjectTypeKubernetesWorkloadInstance, new(api.KubernetesWorkloadInstance))
+	h := newOwnerHandler(t)
+
+	// post an owner that names a type and an id and leaves the field unset
+	raw, err := json.Marshal(map[string]any{
+		"Name":                           "partial",
+		"Reconciled":                     true,
+		"KubernetesRuntimeInstanceID":    uint(1),
+		"KubernetesWorkloadDefinitionID": uint(2),
+		"Owner": map[string]any{
+			"Type": "KubernetesRuntimeInstance",
+			"ID":   uint(1),
+		},
+	})
+	require.NoError(t, err)
+	e := echo.New()
+	validate := validator.New()
+	require.NoError(t, validate.RegisterValidation("optional", apiserver_lib.IsOptional))
+	require.NoError(t, validate.RegisterValidation("association", apiserver_lib.IsAssociation))
+	e.Validator = &apiserver_lib.CustomValidator{Validator: validate}
+	req := httptest.NewRequest(http.MethodPost, api.PathKubernetesWorkloadInstances, bytes.NewReader(raw))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetPath(api.PathKubernetesWorkloadInstances)
+
+	// the handler returns the missing-field status and writes nothing
+	require.NoError(t, h.AddKubernetesWorkloadInstance(&apiserver_lib.CustomContext{Context: c}))
+	assert.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
+	var count int64
+	require.NoError(t, h.DB.Model(&api.KubernetesWorkloadInstance{}).Count(&count).Error)
+	assert.Equal(t, int64(0), count)
+}
+
 // newOwnerHandler returns a handler whose sqlite database holds a runtime, a
 // workload, and the reference rows a create writes with them.
 func newOwnerHandler(t *testing.T) Handler {
