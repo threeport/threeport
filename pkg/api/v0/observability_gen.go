@@ -117,6 +117,28 @@ func (l *LoggingDefinition) RelationshipTaggedForeignKeys() []RelationshipTagged
 	}}
 }
 
+// OwnLokiHelmWorkloadDefinition returns the owner reference for this object's LokiHelmWorkloadDefinitionID field.
+func (l *LoggingDefinition) OwnLokiHelmWorkloadDefinition() *OwnerRef {
+	objectType := l.GetFullyQualifiedType()
+	field := "LokiHelmWorkloadDefinitionID"
+	return &OwnerRef{
+		Field: &field,
+		ID:    l.ID,
+		Type:  &objectType,
+	}
+}
+
+// OwnPromtailHelmWorkloadDefinition returns the owner reference for this object's PromtailHelmWorkloadDefinitionID field.
+func (l *LoggingDefinition) OwnPromtailHelmWorkloadDefinition() *OwnerRef {
+	objectType := l.GetFullyQualifiedType()
+	field := "PromtailHelmWorkloadDefinitionID"
+	return &OwnerRef{
+		Field: &field,
+		ID:    l.ID,
+		Type:  &objectType,
+	}
+}
+
 // AssociationRequiredByTypes returns the fully-qualified type names of children referenced via has-many association slices on LoggingDefinition.
 func (l *LoggingDefinition) AssociationRequiredByTypes() []string {
 	return []string{new(LoggingInstance).GetFullyQualifiedType()}
@@ -212,6 +234,28 @@ func (l *LoggingInstance) RelationshipTaggedForeignKeys() []RelationshipTaggedFo
 	}}
 }
 
+// OwnLokiHelmWorkloadInstance returns the owner reference for this object's LokiHelmWorkloadInstanceID field.
+func (l *LoggingInstance) OwnLokiHelmWorkloadInstance() *OwnerRef {
+	objectType := l.GetFullyQualifiedType()
+	field := "LokiHelmWorkloadInstanceID"
+	return &OwnerRef{
+		Field: &field,
+		ID:    l.ID,
+		Type:  &objectType,
+	}
+}
+
+// OwnPromtailHelmWorkloadInstance returns the owner reference for this object's PromtailHelmWorkloadInstanceID field.
+func (l *LoggingInstance) OwnPromtailHelmWorkloadInstance() *OwnerRef {
+	objectType := l.GetFullyQualifiedType()
+	field := "PromtailHelmWorkloadInstanceID"
+	return &OwnerRef{
+		Field: &field,
+		ID:    l.ID,
+		Type:  &objectType,
+	}
+}
+
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
@@ -285,6 +329,17 @@ func (m *MetricsDefinition) RelationshipTaggedForeignKeys() []RelationshipTagged
 		ObjectType:   new(HelmWorkloadDefinition).GetFullyQualifiedType(),
 		Relationship: RelationshipOwns,
 	}}
+}
+
+// OwnKubePrometheusStackHelmWorkloadDefinition returns the owner reference for this object's KubePrometheusStackHelmWorkloadDefinitionID field.
+func (m *MetricsDefinition) OwnKubePrometheusStackHelmWorkloadDefinition() *OwnerRef {
+	objectType := m.GetFullyQualifiedType()
+	field := "KubePrometheusStackHelmWorkloadDefinitionID"
+	return &OwnerRef{
+		Field: &field,
+		ID:    m.ID,
+		Type:  &objectType,
+	}
 }
 
 // AssociationRequiredByTypes returns the fully-qualified type names of children referenced via has-many association slices on MetricsDefinition.
@@ -377,6 +432,17 @@ func (m *MetricsInstance) RelationshipTaggedForeignKeys() []RelationshipTaggedFo
 	}}
 }
 
+// OwnKubePrometheusStackHelmWorkloadInstance returns the owner reference for this object's KubePrometheusStackHelmWorkloadInstanceID field.
+func (m *MetricsInstance) OwnKubePrometheusStackHelmWorkloadInstance() *OwnerRef {
+	objectType := m.GetFullyQualifiedType()
+	field := "KubePrometheusStackHelmWorkloadInstanceID"
+	return &OwnerRef{
+		Field: &field,
+		ID:    m.ID,
+		Type:  &objectType,
+	}
+}
+
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
@@ -450,6 +516,17 @@ func (o *ObservabilityDashboardDefinition) RelationshipTaggedForeignKeys() []Rel
 		ObjectType:   new(HelmWorkloadDefinition).GetFullyQualifiedType(),
 		Relationship: RelationshipOwns,
 	}}
+}
+
+// OwnGrafanaHelmWorkloadDefinition returns the owner reference for this object's GrafanaHelmWorkloadDefinitionID field.
+func (o *ObservabilityDashboardDefinition) OwnGrafanaHelmWorkloadDefinition() *OwnerRef {
+	objectType := o.GetFullyQualifiedType()
+	field := "GrafanaHelmWorkloadDefinitionID"
+	return &OwnerRef{
+		Field: &field,
+		ID:    o.ID,
+		Type:  &objectType,
+	}
 }
 
 // AssociationRequiredByTypes returns the fully-qualified type names of children referenced via has-many association slices on ObservabilityDashboardDefinition.
@@ -542,6 +619,17 @@ func (o *ObservabilityDashboardInstance) RelationshipTaggedForeignKeys() []Relat
 	}}
 }
 
+// OwnGrafanaHelmWorkloadInstance returns the owner reference for this object's GrafanaHelmWorkloadInstanceID field.
+func (o *ObservabilityDashboardInstance) OwnGrafanaHelmWorkloadInstance() *OwnerRef {
+	objectType := o.GetFullyQualifiedType()
+	field := "GrafanaHelmWorkloadInstanceID"
+	return &OwnerRef{
+		Field: &field,
+		ID:    o.ID,
+		Type:  &objectType,
+	}
+}
+
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
@@ -625,6 +713,39 @@ func (o *ObservabilityStackDefinition) RelationshipTaggedForeignKeys() []Relatio
 		ObjectType:   new(ObservabilityDashboardDefinition).GetFullyQualifiedType(),
 		Relationship: RelationshipOwns,
 	}}
+}
+
+// OwnLoggingDefinition returns the owner reference for this object's LoggingDefinitionID field.
+func (o *ObservabilityStackDefinition) OwnLoggingDefinition() *OwnerRef {
+	objectType := o.GetFullyQualifiedType()
+	field := "LoggingDefinitionID"
+	return &OwnerRef{
+		Field: &field,
+		ID:    o.ID,
+		Type:  &objectType,
+	}
+}
+
+// OwnMetricsDefinition returns the owner reference for this object's MetricsDefinitionID field.
+func (o *ObservabilityStackDefinition) OwnMetricsDefinition() *OwnerRef {
+	objectType := o.GetFullyQualifiedType()
+	field := "MetricsDefinitionID"
+	return &OwnerRef{
+		Field: &field,
+		ID:    o.ID,
+		Type:  &objectType,
+	}
+}
+
+// OwnObservabilityDashboardDefinition returns the owner reference for this object's ObservabilityDashboardDefinitionID field.
+func (o *ObservabilityStackDefinition) OwnObservabilityDashboardDefinition() *OwnerRef {
+	objectType := o.GetFullyQualifiedType()
+	field := "ObservabilityDashboardDefinitionID"
+	return &OwnerRef{
+		Field: &field,
+		ID:    o.ID,
+		Type:  &objectType,
+	}
 }
 
 // AssociationRequiredByTypes returns the fully-qualified type names of children referenced via has-many association slices on ObservabilityStackDefinition.
@@ -725,4 +846,37 @@ func (o *ObservabilityStackInstance) RelationshipTaggedForeignKeys() []Relations
 		ObjectType:   new(ObservabilityStackDefinition).GetFullyQualifiedType(),
 		Relationship: RelationshipRequires,
 	}}
+}
+
+// OwnLoggingInstance returns the owner reference for this object's LoggingInstanceID field.
+func (o *ObservabilityStackInstance) OwnLoggingInstance() *OwnerRef {
+	objectType := o.GetFullyQualifiedType()
+	field := "LoggingInstanceID"
+	return &OwnerRef{
+		Field: &field,
+		ID:    o.ID,
+		Type:  &objectType,
+	}
+}
+
+// OwnMetricsInstance returns the owner reference for this object's MetricsInstanceID field.
+func (o *ObservabilityStackInstance) OwnMetricsInstance() *OwnerRef {
+	objectType := o.GetFullyQualifiedType()
+	field := "MetricsInstanceID"
+	return &OwnerRef{
+		Field: &field,
+		ID:    o.ID,
+		Type:  &objectType,
+	}
+}
+
+// OwnObservabilityDashboardInstance returns the owner reference for this object's ObservabilityDashboardInstanceID field.
+func (o *ObservabilityStackInstance) OwnObservabilityDashboardInstance() *OwnerRef {
+	objectType := o.GetFullyQualifiedType()
+	field := "ObservabilityDashboardInstanceID"
+	return &OwnerRef{
+		Field: &field,
+		ID:    o.ID,
+		Type:  &objectType,
+	}
 }
