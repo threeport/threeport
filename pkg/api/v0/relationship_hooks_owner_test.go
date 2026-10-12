@@ -91,6 +91,54 @@ func TestRecordOwnerOnCreateSetsColumnAndReference(t *testing.T) {
 	assert.Equal(t, *owner.ID, *refs[0].AttachedObjectID)
 }
 
+// TestRecordOwnerOnCreateRejectsOwnedRow covers a create that names an owner another object owns.
+// An external caller is rejected and a control-plane caller is allowed.
+func TestRecordOwnerOnCreateRejectsOwnedRow(t *testing.T) {
+	db := setupOwnerTestDB(t)
+	owner := &testAcmeWidget{}
+	require.NoError(t, db.Create(owner).Error)
+	holderType := "acme.corp/v0.Parent"
+	holderID := uint(7)
+	require.NoError(t, db.Create(&AttachedObjectReference{
+		ObjectID:           owner.ID,
+		ObjectType:         strPtr(testAcmeWidgetFQT),
+		AttachedObjectID:   &holderID,
+		AttachedObjectType: &holderType,
+		Relationship:       relPtr(RelationshipOwns),
+	}).Error)
+
+	// an external create names that owned row
+	err := db.Create(&testHolder{
+		Name: strPtr("blocked"),
+		owner: &OwnerRef{
+			Type:  strPtr(testAcmeWidgetFQT),
+			ID:    owner.ID,
+			Field: strPtr("WorkloadID"),
+		},
+	}).Error
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), ErrMsgExternalUpdateBlocked)
+
+	// the create rolled back, so the owner column is still empty
+	var stored testAcmeWidget
+	require.NoError(t, db.First(&stored, *owner.ID).Error)
+	assert.Nil(t, stored.WorkloadID)
+
+	// a control-plane caller writes the same owner
+	require.NoError(t, withControlPlaneCaller(db).Create(&testHolder{
+		Name: strPtr("allowed"),
+		owner: &OwnerRef{
+			Type:  strPtr(testAcmeWidgetFQT),
+			ID:    owner.ID,
+			Field: strPtr("WorkloadID"),
+		},
+	}).Error)
+	require.NoError(t, db.First(&stored, *owner.ID).Error)
+	require.NotNil(t, stored.WorkloadID)
+}
+
+func relPtr(r Relationship) *Relationship { return &r }
+
 func TestRecordOwnerOnCreateSkipsWhenUnset(t *testing.T) {
 	db := setupOwnerTestDB(t)
 	holder := &testHolder{Name: strPtr("plain")}

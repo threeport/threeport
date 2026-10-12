@@ -128,8 +128,8 @@ type ownerReader interface {
 	GetOwner() *OwnerRef
 }
 
-// recordOwnerOnCreate inserts the owns reference and sets the owner's field.
-// Both writes use the create transaction. The owner's beforeUpdate hook does not run.
+// recordOwnerOnCreate inserts the owns reference and sets the owner's field in the create transaction.
+// It runs the owned-row check and does not run the owner's before-update hook.
 func recordOwnerOnCreate(tx *gorm.DB, obj interface{}) error {
 	reader, ok := obj.(ownerReader)
 	if !ok || reader.GetOwner() == nil {
@@ -155,6 +155,9 @@ func recordOwnerOnCreate(tx *gorm.DB, obj interface{}) error {
 		return err
 	}
 	if err := requireOwnerColumn(tx, table, column); err != nil {
+		return err
+	}
+	if err := rejectExternalOwnedUpdate(tx, *owner.Type, *owner.ID); err != nil {
 		return err
 	}
 	if err := tx.Create(&AttachedObjectReference{
@@ -319,12 +322,15 @@ func processRelationshipTaggedFieldsBeforeUpdate(tx *gorm.DB, obj interface{}) e
 		}
 	}
 
-	// Done with the FK immutability check; the rest of this function
-	// is the caller-authorization check. A row may have incoming
-	// "owns" or "marries" AORs, meaning another object holds its
-	// lifecycle. External callers can't mutate such a row.
+	// the rest of this function is the caller-authorization check
+	return rejectExternalOwnedUpdate(tx, objType, *objID)
+}
+
+// rejectExternalOwnedUpdate rejects an update when another object owns or marries the row.
+// A control-plane caller is allowed through.
+func rejectExternalOwnedUpdate(tx *gorm.DB, objType string, objID uint) error {
 	var ownedOrMarriedRefs []AttachedObjectReference
-	if err := tx.
+	if err := lib.NewCleanSession(tx).
 		Where(
 			"object_type = ? AND object_id = ? AND relationship IN ?",
 			objType, objID, []Relationship{RelationshipOwns, RelationshipMarries},
@@ -332,25 +338,21 @@ func processRelationshipTaggedFieldsBeforeUpdate(tx *gorm.DB, obj interface{}) e
 		Find(&ownedOrMarriedRefs).Error; err != nil {
 		return fmt.Errorf(
 			"failed to look up owning attached object references for %s/%d: %w",
-			objType, *objID, err,
+			objType, objID, err,
 		)
 	}
 
-	// No incoming owns/marries refs → this row isn't owned by another
-	// object; anyone can update it.
+	// no incoming owns or marries reference, so any caller may update the row
 	if len(ownedOrMarriedRefs) == 0 {
 		return nil
 	}
 
-	// Control-plane callers bypass the block; they're the
-	// owner/partner controllers (or internal reconcilers) that are
-	// supposed to maintain owned rows.
+	// control-plane callers maintain owned rows
 	if lib.Caller(tx.Statement.Context).OrganizationalUnit == auth.OUControlPlane {
 		return nil
 	}
 
-	// external caller hit a row that's owned or married; reject the update
-	// and tell them which object holds the lifecycle
+	// name the object that holds the lifecycle
 	owner := "another object"
 	if ownedOrMarriedRefs[0].AttachedObjectType != nil && ownedOrMarriedRefs[0].AttachedObjectID != nil {
 		owner = fmt.Sprintf("%s/%d", *ownedOrMarriedRefs[0].AttachedObjectType, *ownedOrMarriedRefs[0].AttachedObjectID)
