@@ -2,13 +2,20 @@ package v0
 
 import (
 	"fmt"
+	"regexp"
+	"strings"
 
+	"github.com/gertd/go-pluralize"
+	"github.com/iancoleman/strcase"
 	"gorm.io/gorm"
 
 	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 	auth "github.com/threeport/threeport/pkg/auth/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
+
+// sqlIdent is the shape of a table or column name this hook will interpolate.
+var sqlIdent = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 
 // ErrMsgExternalUpdateBlocked is the substring present in any 400 error
 // returned when an object cannot be updated because it is owned by a
@@ -91,27 +98,158 @@ func insertAttachedObjectReference(
 }
 
 // processRelationshipTaggedFieldsAfterCreate inserts an attached object
-// reference for each foreign key that has a value.
+// reference for each foreign key that has a value, then records an owner
+// when the create request names one.
 func processRelationshipTaggedFieldsAfterCreate(tx *gorm.DB, obj interface{}) error {
 	foreignKeys := relationshipTaggedForeignKeysFor(obj)
-	if len(foreignKeys) == 0 {
+	if len(foreignKeys) > 0 {
+		objType := obj.(lib.FullyQualifiedTypeProvider).GetFullyQualifiedType()
+		objID := util.ObjectID(obj)
+		if objID == nil {
+			return fmt.Errorf(
+				"cannot create attached object reference for %s: ID is nil after create",
+				objType,
+			)
+		}
+		for _, foreignKey := range foreignKeys {
+			if foreignKey.ObjectID == nil {
+				continue
+			}
+			if err := insertAttachedObjectReference(tx, foreignKey, objType, *objID); err != nil {
+				return err
+			}
+		}
+	}
+	return recordOwnerOnCreate(tx, obj)
+}
+
+// ownerReader is the create-request owner. Common implements it.
+type ownerReader interface {
+	GetOwner() *OwnerRef
+}
+
+// recordOwnerOnCreate inserts the owns reference and sets the owner's field.
+// Both writes use the create transaction. The owner's beforeUpdate hook does not run.
+func recordOwnerOnCreate(tx *gorm.DB, obj interface{}) error {
+	reader, ok := obj.(ownerReader)
+	if !ok || reader.GetOwner() == nil {
 		return nil
 	}
+	owner := reader.GetOwner()
+	if owner.Type == nil || owner.ID == nil || owner.Field == nil {
+		return fmt.Errorf("owner requires a type, an id, and a field")
+	}
+
+	// the new row is the owned object
 	objType := obj.(lib.FullyQualifiedTypeProvider).GetFullyQualifiedType()
 	objID := util.ObjectID(obj)
 	if objID == nil {
+		return fmt.Errorf("cannot record owner for %s: ID is nil after create", objType)
+	}
+	table, err := tableForQualifiedType(*owner.Type)
+	if err != nil {
+		return err
+	}
+	column, err := columnForOwnerField(*owner.Field)
+	if err != nil {
+		return err
+	}
+	if err := requireOwnerColumn(tx, table, column); err != nil {
+		return err
+	}
+	if err := tx.Create(&AttachedObjectReference{
+		ObjectID:           objID,
+		ObjectType:         &objType,
+		AttachedObjectID:   owner.ID,
+		AttachedObjectType: owner.Type,
+		Relationship:       util.Ptr(RelationshipOwns),
+	}).Error; err != nil {
+		return fmt.Errorf("failed to create owner reference for %s/%d: %w", objType, *objID, err)
+	}
+
+	// set the owner's column only when it is empty or already this id
+	result := lib.NewCleanSession(tx).Exec(
+		fmt.Sprintf(
+			"UPDATE %s SET %s = ? WHERE id = ? AND deleted_at IS NULL AND (%s IS NULL OR %s = ?)",
+			table, column, column, column,
+		),
+		*objID, *owner.ID, *objID,
+	)
+	if result.Error != nil {
+		return fmt.Errorf("failed to set %s.%s for owner %d: %w", table, column, *owner.ID, result.Error)
+	}
+	if result.RowsAffected != 1 {
 		return fmt.Errorf(
-			"cannot create attached object reference for %s: ID is nil after create",
-			objType,
+			"owner update for %s.%s id %d changed %d rows",
+			table, column, *owner.ID, result.RowsAffected,
 		)
 	}
-	for _, foreignKey := range foreignKeys {
-		if foreignKey.ObjectID == nil {
-			continue
-		}
-		if err := insertAttachedObjectReference(tx, foreignKey, objType, *objID); err != nil {
-			return err
-		}
+	return nil
+}
+
+// tableForQualifiedType maps a fully qualified type to its database table.
+// A threeport.io type drops the namespace. Any other namespace stays.
+// The rest of the name matches TableName().
+func tableForQualifiedType(objectType string) (string, error) {
+	namespace, version, typeName, ok := lib.ParseQualifiedType(objectType)
+	if !ok {
+		return "", fmt.Errorf("owner type %q is not a fully qualified type", objectType)
+	}
+	plural := pluralize.NewClient().Pluralize(strcase.ToSnake(typeName), 2, false)
+	raw := version + "_" + plural
+	if namespace != lib.CoreApiNamespace {
+		raw = namespace + "_" + raw
+	}
+	table := sanitizeIdent(raw)
+	if !sqlIdent.MatchString(table) {
+		return "", fmt.Errorf("owner type %q does not name a table", objectType)
+	}
+	return table, nil
+}
+
+// columnForOwnerField maps the owner's Go field to its column.
+func columnForOwnerField(field string) (string, error) {
+	column := sanitizeIdent(strcase.ToSnake(field))
+	if !sqlIdent.MatchString(column) {
+		return "", fmt.Errorf("owner field %q is not a column name", field)
+	}
+	return column, nil
+}
+
+// sanitizeIdent matches sdk util.TableName without importing that package.
+func sanitizeIdent(input string) string {
+	input = strings.ToLower(input)
+	re := regexp.MustCompile(`[^a-z0-9_]`)
+	output := re.ReplaceAllString(input, "_")
+	output = strings.Trim(output, "_")
+	if len(output) > 63 {
+		output = output[:63]
+	}
+	return output
+}
+
+// requireOwnerColumn rejects a table or column the database does not have.
+// SQLite has no information_schema, so that driver reads pragma_table_info.
+func requireOwnerColumn(tx *gorm.DB, table, column string) error {
+	var n int64
+	session := lib.NewCleanSession(tx)
+	var err error
+	if session.Dialector.Name() == "sqlite" {
+		err = session.Raw(
+			"SELECT COUNT(*) FROM pragma_table_info(?) WHERE name = ?",
+			table, column,
+		).Scan(&n).Error
+	} else {
+		err = session.Raw(
+			"SELECT COUNT(*) FROM information_schema.columns WHERE table_name = ? AND column_name = ?",
+			table, column,
+		).Scan(&n).Error
+	}
+	if err != nil {
+		return fmt.Errorf("failed to look up %s.%s: %w", table, column, err)
+	}
+	if n != 1 {
+		return fmt.Errorf("owner column %s.%s does not exist", table, column)
 	}
 	return nil
 }

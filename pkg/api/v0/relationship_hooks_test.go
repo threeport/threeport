@@ -26,6 +26,7 @@ type testHolder struct {
 	MarriesFK   *uint  `relationship:"marries"`
 	DescribesFK *uint  `relationship:"describes"`
 	UntaggedFK  *uint
+	owner       *OwnerRef `gorm:"-"`
 }
 
 const (
@@ -37,6 +38,8 @@ const (
 )
 
 func (h *testHolder) GetFullyQualifiedType() string { return testHolderFQT }
+
+func (h *testHolder) GetOwner() *OwnerRef { return h.owner }
 
 // RelationshipTaggedForeignKeys gives each FK its own synthetic
 // ObjectType. Production types do this naturally (different FKs point
