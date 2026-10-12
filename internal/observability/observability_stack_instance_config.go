@@ -62,7 +62,7 @@ func (c *ObservabilityStackInstanceConfig) getObservabilityStackInstanceOperatio
 // createObservabilityDashboardInstance creates an observability dashboard instance
 func (c *ObservabilityStackInstanceConfig) createObservabilityDashboardInstance() error {
 	// create observability dashboard instance
-	observabilityDashboardInstance, err := client.CreateObservabilityDashboardInstance(
+	_, err := client.CreateObservabilityDashboardInstance(
 		c.r.APIClient,
 		c.r.APIServer,
 		&v0.ObservabilityDashboardInstance{
@@ -80,14 +80,19 @@ func (c *ObservabilityStackInstanceConfig) createObservabilityDashboardInstance(
 		return fmt.Errorf("failed to create observability dashboard instance: %w", err)
 	}
 
-	// update observability dashboard instance id
-	c.observabilityStackInstance.ObservabilityDashboardInstanceID = observabilityDashboardInstance.ID
-
 	return nil
 }
 
 // deleteObservabilityDashboardInstance deletes an observability dashboard instance
 func (c *ObservabilityStackInstanceConfig) deleteObservabilityDashboardInstance() error {
+	if c.observabilityStackInstance.ObservabilityDashboardInstanceID == nil {
+		current, err := client.GetObservabilityStackInstanceByID(c.r.APIClient, c.r.APIServer, *c.observabilityStackInstance.ID)
+		if err != nil {
+			return fmt.Errorf("failed to get observability stack instance: %w", err)
+		}
+		c.observabilityStackInstance.ObservabilityDashboardInstanceID = current.ObservabilityDashboardInstanceID
+	}
+
 	// delete observability dashboard instance
 	if _, err := client.DeleteObservabilityDashboardInstance(
 		c.r.APIClient,
@@ -103,7 +108,7 @@ func (c *ObservabilityStackInstanceConfig) deleteObservabilityDashboardInstance(
 // createMetricsInstance creates a metrics instance
 func (c *ObservabilityStackInstanceConfig) createMetricsInstance() error {
 	// create metrics instance
-	metricsInstance, err := client.CreateMetricsInstance(
+	_, err := client.CreateMetricsInstance(
 		c.r.APIClient,
 		c.r.APIServer,
 		&v0.MetricsInstance{
@@ -121,14 +126,19 @@ func (c *ObservabilityStackInstanceConfig) createMetricsInstance() error {
 		return fmt.Errorf("failed to create metrics instance: %w", err)
 	}
 
-	// update metrics instance id
-	c.observabilityStackInstance.MetricsInstanceID = metricsInstance.ID
-
 	return nil
 }
 
 // deleteMetricsInstance deletes a metrics instance
 func (c *ObservabilityStackInstanceConfig) deleteMetricsInstance() error {
+	if c.observabilityStackInstance.MetricsInstanceID == nil {
+		current, err := client.GetObservabilityStackInstanceByID(c.r.APIClient, c.r.APIServer, *c.observabilityStackInstance.ID)
+		if err != nil {
+			return fmt.Errorf("failed to get observability stack instance: %w", err)
+		}
+		c.observabilityStackInstance.MetricsInstanceID = current.MetricsInstanceID
+	}
+
 	// delete metrics instance
 	if _, err := client.DeleteMetricsInstance(
 		c.r.APIClient,
@@ -144,7 +154,7 @@ func (c *ObservabilityStackInstanceConfig) deleteMetricsInstance() error {
 // createLoggingInstance creates a logging instance
 func (c *ObservabilityStackInstanceConfig) createLoggingInstance() error {
 	// create logging instance
-	loggingInstance, err := client.CreateLoggingInstance(
+	_, err := client.CreateLoggingInstance(
 		c.r.APIClient,
 		c.r.APIServer,
 		&v0.LoggingInstance{
@@ -163,14 +173,19 @@ func (c *ObservabilityStackInstanceConfig) createLoggingInstance() error {
 		return fmt.Errorf("failed to create logging instance: %w", err)
 	}
 
-	// update logging instance id
-	c.observabilityStackInstance.LoggingInstanceID = loggingInstance.ID
-
 	return nil
 }
 
 // deleteLoggingInstance deletes a logging instance
 func (c *ObservabilityStackInstanceConfig) deleteLoggingInstance() error {
+	if c.observabilityStackInstance.LoggingInstanceID == nil {
+		current, err := client.GetObservabilityStackInstanceByID(c.r.APIClient, c.r.APIServer, *c.observabilityStackInstance.ID)
+		if err != nil {
+			return fmt.Errorf("failed to get observability stack instance: %w", err)
+		}
+		c.observabilityStackInstance.LoggingInstanceID = current.LoggingInstanceID
+	}
+
 	// delete logging instance
 	if _, err := client.DeleteLoggingInstance(
 		c.r.APIClient,

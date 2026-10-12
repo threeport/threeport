@@ -46,7 +46,7 @@ func v0ObservabilityDashboardInstanceCreated(
 	}
 
 	// create grafana helm workload instance
-	grafanaHelmWorkloadInstance, err := client.CreateHelmWorkloadInstance(
+	_, err = client.CreateHelmWorkloadInstance(
 		r.APIClient,
 		r.APIServer,
 		&v0.HelmWorkloadInstance{
@@ -64,9 +64,6 @@ func v0ObservabilityDashboardInstanceCreated(
 	if err != nil {
 		return 0, fmt.Errorf("failed to create grafana helm workload instance: %w", err)
 	}
-
-	// update grafana helm workload instance
-	observabilityDashboardInstance.GrafanaHelmWorkloadInstanceID = grafanaHelmWorkloadInstance.ID
 
 	// update observability dashboard instance
 	observabilityDashboardInstance.Reconciled = util.Ptr(true)
@@ -98,6 +95,15 @@ func v0ObservabilityDashboardInstanceDeleted(
 	observabilityDashboardInstance *v0.ObservabilityDashboardInstance,
 	log *logr.Logger,
 ) (int64, error) {
+	// read the id the create stored on the dashboard
+	if observabilityDashboardInstance.GrafanaHelmWorkloadInstanceID == nil {
+		current, err := client.GetObservabilityDashboardInstanceByID(r.APIClient, r.APIServer, *observabilityDashboardInstance.ID)
+		if err != nil {
+			return 0, fmt.Errorf("failed to get observability dashboard instance: %w", err)
+		}
+		observabilityDashboardInstance.GrafanaHelmWorkloadInstanceID = current.GrafanaHelmWorkloadInstanceID
+	}
+
 	// delete grafana helm workload instance
 	if _, err := client.DeleteHelmWorkloadInstance(
 		r.APIClient,
