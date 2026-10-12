@@ -257,6 +257,9 @@ func columnForOwnerField(field string) (string, error) {
 	if !sqlIdent.MatchString(column) {
 		return "", fmt.Errorf("owner field %q is not a column name", field)
 	}
+	if column == "id" {
+		return "", fmt.Errorf("owner field %q names the primary key", field)
+	}
 	return column, nil
 }
 

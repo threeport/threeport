@@ -63,6 +63,10 @@ func TestColumnForOwnerField(t *testing.T) {
 
 	_, err = columnForOwnerField("1Field")
 	require.Error(t, err)
+
+	_, err = columnForOwnerField("ID")
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "primary key")
 }
 
 func TestRecordOwnerOnCreateSetsColumnAndReference(t *testing.T) {
@@ -351,8 +355,13 @@ func TestWorkloadOwnedByRuntimeWritesTheRowsTogether(t *testing.T) {
 
 func TestWorkloadOwnerConflictRollsBackTheRows(t *testing.T) {
 	db := setupWorkloadOwnerDB(t)
-	taken := uint(99)
-	owner := &testAcmeWidget{WorkloadID: &taken}
+	live := &KubernetesWorkloadInstance{
+		Instance:                       Instance{Name: strPtr("live")},
+		KubernetesRuntimeInstanceID:    uintPtr(1),
+		KubernetesWorkloadDefinitionID: uintPtr(2),
+	}
+	require.NoError(t, db.Session(&gorm.Session{SkipHooks: true}).Create(live).Error)
+	owner := &testAcmeWidget{WorkloadID: live.ID}
 	require.NoError(t, db.Create(owner).Error)
 	before := rowCount(t, db)
 
