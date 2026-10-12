@@ -336,23 +336,21 @@ func GenApiObjectMethods(gen *sdkgen.Generator, sdkConfig *sdk.SdkConfig) error 
 							if api.Relationship(fk.relationship) != api.RelationshipOwns {
 								continue
 							}
-							commonType := Qual("github.com/threeport/threeport/pkg/api/v0", "Common")
 							ownerType := Qual("github.com/threeport/threeport/pkg/api/v0", "OwnerRef")
+							methodName := "Own" + strings.TrimSuffix(fk.fieldName, "ID")
 							f.Comment(fmt.Sprintf(
-								"Own%s returns the common fields that record this object as the owner.",
-								fk.objectType,
+								"%s returns the owner reference for this object's %s field.",
+								methodName, fk.fieldName,
 							))
 							f.Func().Params(
 								Id(receiver).Op("*").Id(apiObj.TypeName),
-							).Id("Own"+fk.objectType).Params().Add(commonType).Block(
+							).Id(methodName).Params().Op("*").Add(ownerType).Block(
 								Id("objectType").Op(":=").Id(receiver).Dot("GetFullyQualifiedType").Call(),
 								Id("field").Op(":=").Lit(fk.fieldName),
-								Return(commonType.Clone().Values(Dict{
-									Id("Owner"): Op("&").Add(ownerType.Clone()).Values(Dict{
-										Id("Type"):  Op("&").Id("objectType"),
-										Id("ID"):    Id(receiver).Dot("ID"),
-										Id("Field"): Op("&").Id("field"),
-									}),
+								Return(Op("&").Add(ownerType.Clone()).Values(Dict{
+									Id("Type"):  Op("&").Id("objectType"),
+									Id("ID"):    Id(receiver).Dot("ID"),
+									Id("Field"): Op("&").Id("field"),
 								})),
 							)
 							f.Line()
