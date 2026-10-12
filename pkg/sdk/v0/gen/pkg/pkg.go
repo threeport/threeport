@@ -115,6 +115,11 @@ func GenPkg(generator *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	}
 
 	//////////////////////////// pkg/installer /////////////////////////////////
+	// generate sdk-config API object group names so a module installer can select a subset of controllers
+	if err := installer.GenApiObjectGroupNames(generator, sdkConfig); err != nil {
+		return fmt.Errorf("failed to generate API object group names: %w", err)
+	}
+
 	// install extension API and controller and register with an existing
 	// Threeport control plane
 	if generator.Module {

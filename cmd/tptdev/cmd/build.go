@@ -4,7 +4,6 @@ Copyright © 2023 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -15,21 +14,20 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/threeport/threeport/internal/provider"
+	"github.com/threeport/threeport/internal/version"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 )
 
 // imageBuildTarget returns the Dockerfile target for a component.
 // terraform-controller needs the terraform CLI on PATH at runtime;
-// oci-controller and gcp-controller both need the pulumi CLI. Those
-// route to the `release-terraform` / `release-pulumi` targets;
+// oci-controller and gcp-controller both need the pulumi CLI;
+// helm-workload-controller needs a writable helm cache the distroless
+// release target does not provide;
 // everything else uses the distroless `release` target.
 func imageBuildTarget(componentName string) string {
 	switch componentName {
@@ -37,6 +35,8 @@ func imageBuildTarget(componentName string) string {
 		return "release-terraform"
 	case installer.ThreeportOciControllerName, installer.ThreeportGcpControllerName:
 		return "release-pulumi"
+	case installer.ThreeportHelmWorkloadControllerName:
+		return "release-helm"
 	}
 	return "release"
 }
@@ -77,14 +77,14 @@ var buildCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// default tag to current git branch name if not specified
+		// default tag the same way reinstall does when the flag is empty
 		if cliArgs.ControlPlaneImageTag == "" {
-			branch, err := gitBranchName()
+			tag, err := util.ResolveImageTag(cliArgs.ThreeportPath, version.GetVersion())
 			if err != nil {
-				cli.Error(fmt.Sprintf("failed to determine git branch for default tag: %s\nspecify a tag explicitly with --tag/-t", err), nil)
+				cli.Error("failed to resolve control plane image tag", err)
 				os.Exit(1)
 			}
-			cliArgs.ControlPlaneImageTag = branch
+			cliArgs.ControlPlaneImageTag = tag
 		}
 
 		// create list of buildable components, including database-migrator
@@ -234,36 +234,6 @@ var buildCmd = &cobra.Command{
 	},
 }
 
-// gitBranchName returns the current git branch name by reading .git/HEAD directly.
-func gitBranchName() (string, error) {
-	// walk up from current directory to find .git/HEAD
-	dir, err := os.Getwd()
-	if err != nil {
-		return "", fmt.Errorf("failed to get working directory: %w", err)
-	}
-
-	for {
-		headPath := filepath.Join(dir, ".git", "HEAD")
-		data, err := os.ReadFile(headPath)
-		if err == nil {
-			ref := strings.TrimSpace(string(data))
-			// .git/HEAD contains "ref: refs/heads/<branch>"
-			if strings.HasPrefix(ref, "ref: refs/heads/") {
-				return strings.TrimPrefix(ref, "ref: refs/heads/"), nil
-			}
-			return "", fmt.Errorf("git HEAD is detached or has unexpected format: %s", ref)
-		}
-
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			break
-		}
-		dir = parent
-	}
-
-	return "", fmt.Errorf("not inside a git repository")
-}
-
 func init() {
 	rootCmd.AddCommand(buildCmd)
 	buildCmd.Flags().StringVar(
@@ -308,37 +278,7 @@ func init() {
 	)
 }
 
-// detectAuthEnabled checks the running API server deployment to determine if
-// auth is enabled. Returns true (auth enabled) if the deployment doesn't have
-// -auth-enabled=false in its args, or if the deployment can't be read.
+// detectAuthEnabled reports whether the control plane API deployment enables auth.
 func detectAuthEnabled(kubeClient *dynamic.DynamicClient) bool {
-	deployRes := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
-	deploy, err := kubeClient.Resource(deployRes).Namespace(installer.ControlPlaneNamespace).Get(
-		context.Background(),
-		"threeport-api-server",
-		metav1.GetOptions{},
-	)
-	if err != nil {
-		// if we can't read the deployment, default to auth enabled (safe default)
-		return true
-	}
-
-	containers, found, err := unstructured.NestedSlice(deploy.Object, "spec", "template", "spec", "containers")
-	if err != nil || !found || len(containers) == 0 {
-		return true
-	}
-
-	container := containers[0].(map[string]interface{})
-	args, found, err := unstructured.NestedStringSlice(container, "args")
-	if err != nil || !found {
-		return true
-	}
-
-	for _, arg := range args {
-		if arg == "-auth-enabled=false" {
-			return false
-		}
-	}
-
-	return true
+	return installer.DetectAuthEnabled(kubeClient, installer.ControlPlaneNamespace)
 }

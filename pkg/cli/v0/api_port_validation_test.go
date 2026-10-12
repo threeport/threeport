@@ -5,6 +5,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 )
 
 // TestValidateCreateGenesisControlPlaneFlags_ApiPort covers the ways --api-port
@@ -77,6 +79,7 @@ func TestValidateCreateGenesisControlPlaneFlags_ApiPort(t *testing.T) {
 			err := ValidateCreateGenesisControlPlaneFlags(
 				"test",
 				test.infraProvider,
+				threeport.ControlPlaneTierDev,
 				"",
 				true,
 				test.kindPortMappings,

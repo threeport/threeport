@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	aws_config "github.com/aws/aws-sdk-go-v2/config"
@@ -66,6 +67,9 @@ type ControlPlane struct {
 	// Provider configuration for OKE-hosted threeport control planes.
 	OKEProviderConfig OKEProviderConfig
 
+	// Provider configuration for GKE-hosted threeport control planes.
+	GKEProviderConfig GKEProviderConfig
+
 	// Client authentication credentials to threeport API.
 	Credentials []Credential
 
@@ -99,6 +103,13 @@ type OKEProviderConfig struct {
 	OciCompartmentOcid string
 }
 
+// GKEProviderConfig is the set of provider config information needed to manage
+// GKE clusters on GCP.
+type GKEProviderConfig struct {
+	GcpProjectId string
+	GcpRegion    string
+}
+
 // Credential is a client certificate and key pair for authenticating to a Threeport instance.
 type Credential struct {
 	Name       string
@@ -127,6 +138,30 @@ func (cfg *ThreeportConfig) CheckThreeportConfigEmpty() bool {
 func (cfg *ThreeportConfig) CheckThreeportControlPlaneExists(createThreeportControlPlaneName string) bool {
 	_, err := cfg.GetControlPlaneConfig(createThreeportControlPlaneName)
 	return err == nil
+}
+
+// ValidateControlPlaneName returns an error when name is absent from the
+// threeport config.
+func (cfg *ThreeportConfig) ValidateControlPlaneName(name string) error {
+	// return nil when a control plane has this name
+	if cfg.CheckThreeportControlPlaneExists(name) {
+		return nil
+	}
+
+	// return the error for an empty config
+	if cfg.CheckThreeportConfigEmpty() {
+		return fmt.Errorf(
+			"control plane %q not found: the threeport config holds no control planes at all",
+			name,
+		)
+	}
+
+	// list the control plane names the config does hold
+	return fmt.Errorf(
+		"control plane %q not found in the threeport config, which names the control plane rather than the cluster hosting it; available control planes: %s",
+		name,
+		strings.Join(cfg.GetAllControlPlaneNames(), ", "),
+	)
 }
 
 // GetThreeportAPIEndpoint returns the threeport API endpoint from threeport

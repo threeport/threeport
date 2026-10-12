@@ -7,13 +7,14 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/spf13/cobra"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	kubemetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -28,8 +29,10 @@ var UpgradeControlPlaneCmd = &cobra.Command{
 	Use:     "control-plane",
 	Example: "tptctl upgrade control-plane --version=v0.5.0",
 	Short:   "Upgrades the version of the Threeport control plane",
-	Long: `Upgrades the version of the Threeport control plane. The version should be a valid
-	image tag.`,
+	Long: `Update the image tag on existing control plane Deployments only.
+
+Does not recreate manifests, RBAC, or configmaps. Use tptctl reinstall
+for those.`,
 	SilenceUsage: true,
 	PreRun:       CommandPreRunFunc,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -100,7 +103,10 @@ func updateDeploymentImageTag(imageTag string, namespace string, dynamicKubeClie
 		return fmt.Errorf("failed to get kubernetes deployment for rest-api: %w", err)
 	}
 
-	updateImageTagInDeployment(deployment, imageTag, installer.ThreeportRestApi.Name)
+	// return the rest-api image update error
+	if err := updateImageTagInDeployment(deployment, imageTag, installer.ThreeportRestApi.Name); err != nil {
+		return err
+	}
 	deployment.SetName(installer.ThreeportRestApi.ServiceResourceName)
 
 	gk := schema.GroupKind{
@@ -134,7 +140,9 @@ func updateDeploymentImageTag(imageTag string, namespace string, dynamicKubeClie
 		return fmt.Errorf("failed to get kubernetes deployment for %s: %w", installer.ThreeportAgent.Name, err)
 	}
 
-	updateImageTagInDeployment(deployment, imageTag, installer.ThreeportAgent.Name)
+	if err := updateImageTagInDeployment(deployment, imageTag, installer.ThreeportAgent.Name); err != nil {
+		return err
+	}
 	deployment.SetName(installer.ThreeportAgentDeployName)
 
 	_, err = dynamicKubeClient.
@@ -160,10 +168,17 @@ func updateDeploymentImageTag(imageTag string, namespace string, dynamicKubeClie
 			*mapper,
 		)
 		if err != nil {
+			// skip a controller deployment that is not found
+			if k8serrors.IsNotFound(err) {
+				continue
+			}
 			return fmt.Errorf("failed to get kubernetes deployment for controller %s: %w", c.Name, err)
 		}
 
-		updateImageTagInDeployment(deployment, imageTag, c.Name)
+		// return the controller image update error
+		if err := updateImageTagInDeployment(deployment, imageTag, c.Name); err != nil {
+			return err
+		}
 		deployment.SetName(deploymentResourceName)
 
 		gk := schema.GroupKind{
@@ -222,8 +237,6 @@ func updateImageTagInDeployment(deployment *unstructured.Unstructured, imageTag 
 		return fmt.Errorf("could not find containers in controller deployment for: %s", name)
 	}
 
-	initContainerSpec := []interface{}{}
-	// If modifying the rest-api we need to ensure we update the database-migrator version as well
 	if name == installer.ThreeportRestApi.Name {
 		initContainersList, ok := templateSpec["initContainers"].([]interface{})
 		if !ok {
@@ -235,11 +248,11 @@ func updateImageTagInDeployment(deployment *unstructured.Unstructured, imageTag 
 			return fmt.Errorf("could not type convert database init container for: %s", name)
 		}
 
+		// retag the database migrator and write init containers back
 		currentImage := db_migrator["image"].(string)
-		imageSlice := strings.Split(currentImage, ":")
-		db_migrator["image"] = fmt.Sprintf("%s:%s", imageSlice[0], updateImageTag)
+		db_migrator["image"] = fmt.Sprintf("%s:%s", util.ImageWithoutTag(currentImage), imageTag)
 		initContainersList[1] = db_migrator
-		initContainerSpec = initContainersList
+		templateSpec["initContainers"] = initContainersList
 	}
 
 	containerSpec, ok := templateSpec["containers"].([]interface{})
@@ -257,12 +270,11 @@ func updateImageTagInDeployment(deployment *unstructured.Unstructured, imageTag 
 		return fmt.Errorf("could not type convert container in deployment for: %s", name)
 	}
 
+	// retag the selected container
 	currentImage := container["image"].(string)
-	imageSlice := strings.Split(currentImage, ":")
-	container["image"] = fmt.Sprintf("%s:%s", imageSlice[0], updateImageTag)
+	container["image"] = fmt.Sprintf("%s:%s", util.ImageWithoutTag(currentImage), imageTag)
 	containerSpec[containerIndex] = container
 	templateSpec["containers"] = containerSpec
-	templateSpec["initContainers"] = initContainerSpec
 	template["spec"] = templateSpec
 	deploymentSpec["template"] = template
 	deploymentContent["spec"] = deploymentSpec
