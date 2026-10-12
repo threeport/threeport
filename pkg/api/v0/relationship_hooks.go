@@ -1,6 +1,7 @@
 package v0
 
 import (
+	"database/sql"
 	"fmt"
 	"regexp"
 	"strings"
@@ -173,13 +174,23 @@ func recordOwnerOnCreate(tx *gorm.DB, obj interface{}) error {
 		return fmt.Errorf("failed to create owner reference for %s/%d: %w", objType, *objID, err)
 	}
 
-	// set the owner's column only when it is empty or already this id
+	// replace a saved id when that child is gone or scheduled for deletion
+	held, err := ownerColumnHoldsOtherLiveChild(tx, table, column, *owner.ID, *objID, tx.Statement.Table)
+	if err != nil {
+		return err
+	}
+	predicate := ""
+	args := []any{*objID, *owner.ID}
+	if held {
+		predicate = fmt.Sprintf(" AND (%s IS NULL OR %s = ?)", column, column)
+		args = append(args, *objID)
+	}
 	result := lib.NewCleanSession(tx).Exec(
 		fmt.Sprintf(
-			"UPDATE %s SET %s = ? WHERE id = ? AND deleted_at IS NULL AND (%s IS NULL OR %s = ?)",
-			table, column, column, column,
+			"UPDATE %s SET %s = ? WHERE id = ? AND deleted_at IS NULL%s",
+			table, column, predicate,
 		),
-		*objID, *owner.ID, *objID,
+		args...,
 	)
 	if result.Error != nil {
 		return fmt.Errorf("failed to set %s.%s for owner %d: %w", table, column, *owner.ID, result.Error)
@@ -191,6 +202,33 @@ func recordOwnerOnCreate(tx *gorm.DB, obj interface{}) error {
 		)
 	}
 	return nil
+}
+
+// ownerColumnHoldsOtherLiveChild reports that the owner column stores a different id whose row is still live.
+func ownerColumnHoldsOtherLiveChild(tx *gorm.DB, ownerTable, column string, ownerID, newID uint, childTable string) (bool, error) {
+	var current sql.NullInt64
+	row := lib.NewCleanSession(tx).Raw(
+		fmt.Sprintf("SELECT %s FROM %s WHERE id = ? AND deleted_at IS NULL", column, ownerTable),
+		ownerID,
+	).Row()
+	if err := row.Scan(&current); err != nil {
+		return false, fmt.Errorf("failed to read %s.%s for owner %d: %w", ownerTable, column, ownerID, err)
+	}
+	if !current.Valid || uint(current.Int64) == newID {
+		return false, nil
+	}
+	var live int64
+	err := lib.NewCleanSession(tx).Raw(
+		fmt.Sprintf(
+			"SELECT COUNT(*) FROM %s WHERE id = ? AND deleted_at IS NULL AND deletion_scheduled IS NULL",
+			childTable,
+		),
+		current.Int64,
+	).Scan(&live).Error
+	if err != nil {
+		return false, fmt.Errorf("failed to read child %d from %s: %w", current.Int64, childTable, err)
+	}
+	return live > 0, nil
 }
 
 // tableForQualifiedType maps a fully qualified type to its database table.

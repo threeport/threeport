@@ -3,6 +3,7 @@ package v0
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -190,8 +191,9 @@ func TestRecordOwnerOnCreateSkipsWhenUnset(t *testing.T) {
 
 func TestRecordOwnerOnCreateRollsBackWhenColumnHoldsAnotherID(t *testing.T) {
 	db := setupOwnerTestDB(t)
-	other := uint(99)
-	owner := &testAcmeWidget{WorkloadID: &other}
+	live := &testHolder{Name: strPtr("live")}
+	require.NoError(t, db.Create(live).Error)
+	owner := &testAcmeWidget{WorkloadID: live.ID}
 	require.NoError(t, db.Create(owner).Error)
 
 	holder := &testHolder{
@@ -211,7 +213,55 @@ func TestRecordOwnerOnCreateRollsBackWhenColumnHoldsAnotherID(t *testing.T) {
 
 	var stored testAcmeWidget
 	require.NoError(t, db.First(&stored, *owner.ID).Error)
-	assert.Equal(t, other, *stored.WorkloadID)
+	assert.Equal(t, *live.ID, *stored.WorkloadID)
+}
+
+// TestRecordOwnerOnCreateReplacesStaleChild covers a saved id whose child is gone or scheduled for deletion.
+func TestRecordOwnerOnCreateReplacesStaleChild(t *testing.T) {
+	db := setupOwnerTestDB(t)
+	gone := &testHolder{Name: strPtr("gone")}
+	require.NoError(t, db.Create(gone).Error)
+	require.NoError(t, db.Delete(gone).Error)
+	owner := &testAcmeWidget{WorkloadID: gone.ID}
+	require.NoError(t, db.Create(owner).Error)
+
+	// create a holder while the saved child is deleted
+	holder := &testHolder{
+		Name: strPtr("retry"),
+		owner: &OwnerRef{
+			Type:  strPtr(testAcmeWidgetFQT),
+			ID:    owner.ID,
+			Field: strPtr("WorkloadID"),
+		},
+	}
+	require.NoError(t, db.Create(holder).Error)
+	var stored testAcmeWidget
+	require.NoError(t, db.First(&stored, *owner.ID).Error)
+	require.NotNil(t, stored.WorkloadID)
+	assert.Equal(t, *holder.ID, *stored.WorkloadID)
+
+	// a deletion-scheduled child lets the next create set the column
+	scheduled := &testHolder{Name: strPtr("scheduled")}
+	require.NoError(t, db.Create(scheduled).Error)
+	require.NoError(t, db.Exec(
+		"UPDATE test_holders SET deletion_scheduled = ? WHERE id = ?",
+		time.Now(), *scheduled.ID,
+	).Error)
+	require.NoError(t, db.Exec(
+		"UPDATE acme_corp_v0_widgets SET workload_id = ? WHERE id = ?",
+		*scheduled.ID, *owner.ID,
+	).Error)
+	again := &testHolder{
+		Name: strPtr("retry-scheduled"),
+		owner: &OwnerRef{
+			Type:  strPtr(testAcmeWidgetFQT),
+			ID:    owner.ID,
+			Field: strPtr("WorkloadID"),
+		},
+	}
+	require.NoError(t, db.Create(again).Error)
+	require.NoError(t, db.First(&stored, *owner.ID).Error)
+	assert.Equal(t, *again.ID, *stored.WorkloadID)
 }
 
 func TestRecordOwnerOnCreateAllowsColumnAlreadySetToThisID(t *testing.T) {
