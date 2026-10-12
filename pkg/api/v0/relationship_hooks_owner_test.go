@@ -148,6 +148,121 @@ func TestRecordOwnerOnCreateAllowsColumnAlreadySetToThisID(t *testing.T) {
 	assert.Equal(t, already, *holder.ID)
 }
 
+func TestWorkloadOwnedByModuleTypeWritesTheRowsTogether(t *testing.T) {
+	db := setupWorkloadOwnerDB(t)
+	owner := &testAcmeWidget{}
+	require.NoError(t, db.Create(owner).Error)
+	before := rowCount(t, db)
+
+	workload := &KubernetesWorkloadInstance{
+		Common: Common{
+			Owner: &OwnerRef{
+				Type:  strPtr(testAcmeWidgetFQT),
+				ID:    owner.ID,
+				Field: strPtr("WorkloadID"),
+			},
+		},
+		Instance:                       Instance{Name: strPtr("owned")},
+		KubernetesRuntimeInstanceID:    uintPtr(1),
+		KubernetesWorkloadDefinitionID: uintPtr(2),
+	}
+	require.NoError(t, db.Create(workload).Error)
+
+	// the workload, its two requires references, and the owns reference
+	assert.Equal(t, before+4, rowCount(t, db))
+	var stored testAcmeWidget
+	require.NoError(t, db.First(&stored, *owner.ID).Error)
+	require.NotNil(t, stored.WorkloadID)
+	assert.Equal(t, *workload.ID, *stored.WorkloadID)
+
+	var owns int64
+	require.NoError(t, db.Model(&AttachedObjectReference{}).Where(
+		"object_type = ? AND object_id = ? AND relationship = ? AND attached_object_type = ?",
+		workload.GetFullyQualifiedType(), *workload.ID, RelationshipOwns, testAcmeWidgetFQT,
+	).Count(&owns).Error)
+	assert.Equal(t, int64(1), owns)
+}
+
+func TestWorkloadOwnedByRuntimeWritesTheRowsTogether(t *testing.T) {
+	db := setupWorkloadOwnerDB(t)
+	runtime := &KubernetesRuntimeInstance{
+		Instance:                      Instance{Name: strPtr("runtime")},
+		Location:                      strPtr("local"),
+		KubernetesRuntimeDefinitionID: uintPtr(1),
+	}
+	require.NoError(t, db.Session(&gorm.Session{SkipHooks: true}).Create(runtime).Error)
+	before := rowCount(t, db)
+
+	workload := &KubernetesWorkloadInstance{
+		Common: Common{
+			Owner: &OwnerRef{
+				Type:  strPtr(runtime.GetFullyQualifiedType()),
+				ID:    runtime.ID,
+				Field: strPtr("GatewayControllerInstanceID"),
+			},
+		},
+		Instance:                       Instance{Name: strPtr("owned")},
+		KubernetesRuntimeInstanceID:    runtime.ID,
+		KubernetesWorkloadDefinitionID: uintPtr(2),
+	}
+	require.NoError(t, db.Create(workload).Error)
+
+	assert.Equal(t, before+4, rowCount(t, db))
+	var stored KubernetesRuntimeInstance
+	require.NoError(t, db.First(&stored, *runtime.ID).Error)
+	require.NotNil(t, stored.GatewayControllerInstanceID)
+	assert.Equal(t, *workload.ID, *stored.GatewayControllerInstanceID)
+}
+
+func TestWorkloadOwnerConflictRollsBackTheRows(t *testing.T) {
+	db := setupWorkloadOwnerDB(t)
+	taken := uint(99)
+	owner := &testAcmeWidget{WorkloadID: &taken}
+	require.NoError(t, db.Create(owner).Error)
+	before := rowCount(t, db)
+
+	workload := &KubernetesWorkloadInstance{
+		Common: Common{
+			Owner: &OwnerRef{
+				Type:  strPtr(testAcmeWidgetFQT),
+				ID:    owner.ID,
+				Field: strPtr("WorkloadID"),
+			},
+		},
+		Instance:                       Instance{Name: strPtr("conflict")},
+		KubernetesRuntimeInstanceID:    uintPtr(1),
+		KubernetesWorkloadDefinitionID: uintPtr(2),
+	}
+	require.Error(t, db.Create(workload).Error)
+	assert.Equal(t, before, rowCount(t, db))
+}
+
+func setupWorkloadOwnerDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(
+		&KubernetesWorkloadInstance{},
+		&KubernetesRuntimeInstance{},
+		&AttachedObjectReference{},
+		&testAcmeWidget{},
+	))
+	return db
+}
+
+func rowCount(t *testing.T, db *gorm.DB) int64 {
+	t.Helper()
+	var workloads int64
+	var runtimes int64
+	var refs int64
+	var owners int64
+	require.NoError(t, db.Model(&KubernetesWorkloadInstance{}).Count(&workloads).Error)
+	require.NoError(t, db.Model(&KubernetesRuntimeInstance{}).Count(&runtimes).Error)
+	require.NoError(t, db.Model(&AttachedObjectReference{}).Count(&refs).Error)
+	require.NoError(t, db.Model(&testAcmeWidget{}).Count(&owners).Error)
+	return workloads + runtimes + refs + owners
+}
+
 func TestRecordOwnerOnCreateRejectsMissingColumn(t *testing.T) {
 	db := setupOwnerTestDB(t)
 	owner := &testAcmeWidget{}
