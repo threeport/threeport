@@ -12190,6 +12190,56 @@ const docTemplate = `{
                 }
             }
         },
+        "/v0/module-controller-reclaim": {
+            "post": {
+                "description": "Rebinds the module controller with the provided name to the provided module api, but only when the module api that currently owns it no longer exists. The ownership check and the rebind run in one database transaction, so an owner that re-registers between the two cannot lose its controller. If the current owner still exists the request is rejected with a 409. If the controller is already bound to the provided module api the existing object is returned unchanged. If no controller with that name exists it is created.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "reclaims a module controller whose owning module api is gone.",
+                "operationId": "reclaim-v0-moduleController",
+                "parameters": [
+                    {
+                        "description": "ModuleController object",
+                        "name": "moduleController",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.ModuleController"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/v0/module-controllers": {
             "get": {
                 "description": "Get all module controllers from the Threeport database.",

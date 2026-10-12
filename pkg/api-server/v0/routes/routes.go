@@ -95,6 +95,24 @@ func CustomRoutes(h *handlers.Handler) *[]CustomRoute {
 			},
 		},
 
+		// Reclaims a module controller whose owning module api is gone, checking
+		// the owner and rebinding the row in one transaction.
+		{
+			Path:    v0.PathModuleControllerReclaim,
+			Method:  "POST",
+			Handler: util.Ptr(h.ReclaimModuleController),
+			ApiObjects: &[]ApiObject{
+				{
+					Name:    v0.ObjectTypeModuleController,
+					Version: "v0",
+				},
+				{
+					Name:    v0.ObjectTypeModuleApi,
+					Version: "v0",
+				},
+			},
+		},
+
 		// Gets module objects with associated module api routes.
 		// Includes a handler function for a single module object by ID
 		// with associated module api routes.

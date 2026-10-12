@@ -57,6 +57,58 @@ func CreateModuleApiRouteWithModuleObjectReferences(
 	return moduleApiRoute, nil
 }
 
+// ReclaimModuleController asks the Threeport API to rebind the module controller
+// with the provided name to the module api in moduleController.ModuleApiID. The
+// API server checks that the controller's current owner is gone and rebinds the
+// row in a single transaction, so the check cannot go stale before the write. A
+// controller still owned by an active module api returns an error that wraps
+// client_lib.ErrConflict. A controller that is already bound to the provided
+// module api is returned as is.
+func ReclaimModuleController(
+	apiClient *http.Client,
+	apiAddr string,
+	moduleController *v0.ModuleController,
+) (*v0.ModuleController, error) {
+	payload := *moduleController
+	payload.ID = nil
+	payload.CreatedAt = nil
+	payload.UpdatedAt = nil
+	jsonModuleController, err := util.MarshalObject(payload)
+	if err != nil {
+		return moduleController, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s", apiAddr, v0.PathModuleControllerReclaim),
+		http.MethodPost,
+		bytes.NewBuffer(jsonModuleController),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return moduleController, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) < 1 {
+		return moduleController, fmt.Errorf("threeport API returned no object for the reclaimed module controller")
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return moduleController, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	var reclaimed v0.ModuleController
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&reclaimed); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &reclaimed, nil
+}
+
 // GetModuleObjectsWithModuleApiRoutes fetches all module objects with associated module api routes.
 func GetModuleObjectsWithModuleApiRoutes(apiClient *http.Client, apiAddr string) (*[]v0.ModuleObject, error) {
 	var moduleObjects []v0.ModuleObject
