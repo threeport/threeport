@@ -226,4 +226,18 @@ func TestGenModuleRegistrationReclaimsControllerAtomically(t *testing.T) {
 	if !strings.Contains(failureBranch[1], "return nil,") || !strings.Contains(failureBranch[1], "%w") {
 		t.Errorf("a failed reclaim must return a wrapped error, got:\n%s", failureBranch[1])
 	}
+
+	// the permanent collision is the one case that needs operator action, so
+	// it must log before returning (threeport#576) - the module crash loops
+	// on restart and the error alone can get buried in the crash-loop noise
+	conflictBranch := regexp.MustCompile(`(?s)if errors\.Is\(reclaimErr,\s*tp_client_lib\.ErrConflict\) \{(.*?)\n\t\t\}`).FindStringSubmatch(failureBranch[1])
+	if conflictBranch == nil {
+		t.Fatalf("could not find the \"errors.Is(reclaimErr, ErrConflict)\" (active owner) branch in the reclaim failure path:\n%s", failureBranch[1])
+	}
+	if !strings.Contains(conflictBranch[1], "log.Printf(") {
+		t.Errorf("the active-owner collision branch must log before the error is returned, got:\n%s", conflictBranch[1])
+	}
+	if strings.Contains(conflictBranch[1], "return") {
+		t.Errorf("the collision log branch must fall through to the wrapped error return, got:\n%s", conflictBranch[1])
+	}
 }
