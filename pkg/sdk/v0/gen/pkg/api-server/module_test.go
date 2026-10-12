@@ -164,21 +164,18 @@ var upsertModuleControllerFuncPattern = regexp.MustCompile(
 	`(?s)func upsertModuleController\(.*?\n\}`,
 )
 
-// TestGenModuleRegistrationGuardsControllerReclaim is a regression test for
-// threeport#558: a ModuleController name conflict was resolved by
-// unconditionally rebinding the existing row to the registering module,
-// without checking whether the row's current owner (ModuleApiID) was a
-// still-active ModuleApi or an orphaned one left behind by a deleted
-// module. That let one module silently steal a still-active module's
-// controller registration by picking the same controller name.
+// TestGenModuleRegistrationReclaimsControllerAtomically is a regression test
+// for threeport#575, a follow-up to threeport#558. #558 was a ModuleController
+// name conflict resolved by rebinding the existing row without checking its
+// owner. The fix for that checked the owner with GetModuleApiByID and then
+// rebound with UpdateModuleController, two separate round-trips, so the owner
+// could change between the check and the write.
 //
-// This checks more than "the right substrings appear somewhere in the
-// file" - a loose Contains check would pass even if the ownership check
-// were on the wrong variable, or placed after the rebind instead of before
-// it. It isolates the upsertModuleController function body and asserts the
-// GetModuleApiByID ownership check appears strictly before the
-// existing.ModuleApiID reassignment within it.
-func TestGenModuleRegistrationGuardsControllerReclaim(t *testing.T) {
+// The generated upsertModuleController must resolve the conflict through the
+// single ReclaimModuleController call, which checks and rebinds in one server
+// transaction. It must not read or write the conflicting row itself, because
+// any of those calls reopens the gap.
+func TestGenModuleRegistrationReclaimsControllerAtomically(t *testing.T) {
 	// generate the module registration source
 	generated := generateModuleRegistration(t)
 
@@ -187,57 +184,46 @@ func TestGenModuleRegistrationGuardsControllerReclaim(t *testing.T) {
 		t.Fatalf("could not find upsertModuleController function body in generated source:\n%s", generated)
 	}
 
-	ownershipCheckIdx := strings.Index(funcBody, "tp_client.GetModuleApiByID(")
-	if ownershipCheckIdx == -1 {
-		t.Fatalf("upsertModuleController does not check the conflicting row's owner via GetModuleApiByID:\n%s", funcBody)
+	// a plain create is still tried first, so the common path is unchanged
+	createIdx := strings.Index(funcBody, "tp_client.CreateModuleController(")
+	reclaimIdx := strings.Index(funcBody, "tp_client.ReclaimModuleController(")
+	if createIdx == -1 {
+		t.Fatalf("upsertModuleController does not try a plain create first:\n%s", funcBody)
+	}
+	if reclaimIdx == -1 {
+		t.Fatalf("upsertModuleController does not reclaim through ReclaimModuleController:\n%s", funcBody)
+	}
+	if createIdx >= reclaimIdx {
+		t.Errorf("the plain create must run before the reclaim call:\n%s", funcBody)
 	}
 
-	if !regexp.MustCompile(`errors\.Is\(getErr,\s*tp_client_lib\.ErrObjectNotFound\)`).MatchString(funcBody) {
-		t.Errorf("upsertModuleController does not distinguish an orphaned owner (ErrObjectNotFound) from a still-active one:\n%s", funcBody)
+	// the reclaim runs only when the create reports a name conflict
+	if !regexp.MustCompile(`errors\.Is\(createErr,\s*tp_client_lib\.ErrConflict\)`).MatchString(funcBody) {
+		t.Errorf("upsertModuleController does not limit the reclaim to a name conflict:\n%s", funcBody)
 	}
 
-	// Checking for the guard conditions above isn't enough on its own - a
-	// `return` could be dropped from either branch's body, leaving a dead
-	// check that never stops the rebind, and the assertions above would
-	// still pass. Isolate each branch's own body (non-greedy up to its
-	// closing brace, one indent level deeper than the enclosing "if
-	// existing.ModuleApiID != nil {" block) and require it to actually
-	// return, so a live owner or an unexpected lookup error can't fall
-	// through to the reclaim logic below.
-	liveOwnerBranch := regexp.MustCompile(`(?s)if getErr == nil \{(.*?)\n\t\t\}`).FindStringSubmatch(funcBody)
-	if liveOwnerBranch == nil {
-		t.Fatalf("could not find the \"getErr == nil\" (owner still active) branch in upsertModuleController:\n%s", funcBody)
-	}
-	if !strings.Contains(liveOwnerBranch[1], "return nil,") {
-		t.Errorf(
-			"the \"getErr == nil\" branch (the conflicting row's prior owner is still a live module api) "+
-				"must return without reclaiming the controller, got:\n%s",
-			liveOwnerBranch[1],
-		)
+	// no separate check or write against the conflicting row
+	for _, call := range []string{
+		"tp_client.GetModuleApiByID(",
+		"tp_client.GetModuleControllerByName(",
+		"tp_client.UpdateModuleController(",
+		"tp_client.ReplaceModuleController(",
+	} {
+		if strings.Contains(funcBody, call) {
+			t.Errorf(
+				"upsertModuleController calls %s; the owner check and the reclaim must be one server-side "+
+					"transaction, not separate round-trips:\n%s",
+				call, funcBody,
+			)
+		}
 	}
 
-	lookupErrBranch := regexp.MustCompile(`(?s)if !errors\.Is\(getErr,\s*tp_client_lib\.ErrObjectNotFound\) \{(.*?)\n\t\t\}`).FindStringSubmatch(funcBody)
-	if lookupErrBranch == nil {
-		t.Fatalf("could not find the \"!errors.Is(getErr, ErrObjectNotFound)\" (unexpected lookup error) branch in upsertModuleController:\n%s", funcBody)
+	// a failed reclaim, including a 409 for an active owner, must not be swallowed
+	failureBranch := regexp.MustCompile(`(?s)if reclaimErr != nil \{(.*?)\n\t\}`).FindStringSubmatch(funcBody)
+	if failureBranch == nil {
+		t.Fatalf("could not find the \"reclaimErr != nil\" branch in upsertModuleController:\n%s", funcBody)
 	}
-	if !strings.Contains(lookupErrBranch[1], "return nil,") {
-		t.Errorf(
-			"the \"!errors.Is(getErr, ErrObjectNotFound)\" branch (the owner lookup failed for an unexpected reason) "+
-				"must return without reclaiming the controller, got:\n%s",
-			lookupErrBranch[1],
-		)
-	}
-
-	rebindIdx := strings.Index(funcBody, "existing.ModuleApiID = moduleApiID")
-	if rebindIdx == -1 {
-		t.Fatalf("upsertModuleController no longer reassigns existing.ModuleApiID - generator output may have changed shape:\n%s", funcBody)
-	}
-
-	if ownershipCheckIdx >= rebindIdx {
-		t.Errorf(
-			"the GetModuleApiByID ownership check must run before the existing.ModuleApiID reassignment, "+
-				"or a conflicting row owned by a still-active module api would be rebound before its owner is checked:\n%s",
-			funcBody,
-		)
+	if !strings.Contains(failureBranch[1], "return nil,") || !strings.Contains(failureBranch[1], "%w") {
+		t.Errorf("a failed reclaim must return a wrapped error, got:\n%s", failureBranch[1])
 	}
 }

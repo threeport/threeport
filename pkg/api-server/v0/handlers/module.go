@@ -89,6 +89,198 @@ func (h Handler) AddModuleApiRouteWithModuleObjectReferences(c echo.Context) err
 	return apiserver_lib.ResponseStatus201(c, *response)
 }
 
+// moduleControllerConflictError reports that a module controller cannot be
+// reclaimed because another module api holds it. It maps to a 409.
+type moduleControllerConflictError struct {
+	message string
+}
+
+func (e *moduleControllerConflictError) Error() string {
+	return e.message
+}
+
+// @Summary reclaims a module controller whose owning module api is gone.
+// @Description Rebinds the module controller with the provided name to the provided module api, but only when the module api that currently owns it no longer exists. The ownership check and the rebind run in one database transaction, so an owner that re-registers between the two cannot lose its controller. If the current owner still exists the request is rejected with a 409. If the controller is already bound to the provided module api the existing object is returned unchanged. If no controller with that name exists it is created.
+// @ID reclaim-v0-moduleController
+// @Accept json
+// @Produce json
+// @Param moduleController body api_v0.ModuleController true "ModuleController object"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 409 {object} v0.Response "Conflict"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/module-controller-reclaim [POST]
+func (h Handler) ReclaimModuleController(c echo.Context) error {
+	objectType := api_v0.ObjectTypeModuleController
+	fullyQualifiedType := new(api_v0.ModuleController).GetFullyQualifiedType()
+	var moduleController api_v0.ModuleController
+
+	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
+	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, moduleController); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
+	}
+
+	if err := c.Bind(&moduleController); err != nil {
+		h.Logger.Error("handler error: error binding object", zap.Error(err))
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
+	}
+
+	// check for missing required fields
+	if id, err := apiserver_lib.ValidateBoundData(c, moduleController, objectType); err != nil {
+		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
+	}
+
+	// The owner check and the rebind share one transaction. Under serializable
+	// isolation the database aborts one side of a concurrent conflict with
+	// SQLSTATE 40001 and RetryWrite reruns it against the committed state. This
+	// does not use Write: request query scopes such as includedeleted must not
+	// change which owners count as live.
+	ctx := c.Request().Context()
+	var reclaimed api_v0.ModuleController
+	result := apiserver_lib.RetryWrite(ctx, func() *gorm.DB {
+		db := h.DB.WithContext(ctx)
+		// drop the result of an aborted attempt if the write retries
+		reclaimed = api_v0.ModuleController{}
+		err := db.Transaction(func(tx *gorm.DB) error {
+			return reclaimModuleController(tx, &moduleController, &reclaimed)
+		})
+		if err != nil {
+			_ = db.AddError(err)
+		}
+		return db
+	})
+	if result.Error != nil {
+		var conflictErr *moduleControllerConflictError
+		if errors.As(result.Error, &conflictErr) {
+			h.Logger.Info("handler error: module controller reclaim rejected", zap.Error(result.Error))
+			return apiserver_lib.ResponseStatus409(c, nil, result.Error, fullyQualifiedType)
+		}
+		h.Logger.Error("handler error: error reclaiming module controller", zap.Error(result.Error))
+		return apiserver_lib.RespondWriteError(
+			c,
+			h.Logger,
+			result.Error,
+			new(api_v0.ModuleController),
+			fullyQualifiedType,
+		)
+	}
+
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		reclaimed,
+		fullyQualifiedType,
+	)
+	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
+	}
+
+	return apiserver_lib.ResponseStatus200(c, *response)
+}
+
+// reclaimModuleController binds the module controller named in requested to
+// requested.ModuleApiID, if its current owner is gone, and stores the resulting
+// row in out. It must run inside one transaction. The final update names the
+// owner it observed, so a rebind that lands between the read and the write
+// changes no rows and the call fails with a conflict even where the database
+// does not abort the transaction itself.
+//
+// ModuleApiID is a `requires` foreign key, which the model's update hook treats
+// as immutable once set, so an ordinary update cannot move it. Reclaiming a row
+// from a vanished owner is the one sanctioned change, so the rebind skips the
+// hooks and swaps the attached object reference itself, in the same
+// transaction as the owner check.
+func reclaimModuleController(
+	tx *gorm.DB,
+	requested *api_v0.ModuleController,
+	out *api_v0.ModuleController,
+) error {
+	var existing api_v0.ModuleController
+	err := tx.Where("name = ?", *requested.Name).First(&existing).Error
+	switch {
+	case errors.Is(err, gorm.ErrRecordNotFound):
+		// the row that conflicted with the caller's create is gone, so there is
+		// nothing to reclaim; create it for the caller
+		created := *requested
+		created.ID = nil
+		if err := tx.Create(&created).Error; err != nil {
+			return err
+		}
+		*out = created
+		return nil
+	case err != nil:
+		return err
+	}
+
+	// the registering module already holds the controller
+	if existing.ModuleApiID != nil && *existing.ModuleApiID == *requested.ModuleApiID {
+		*out = existing
+		return nil
+	}
+
+	// a different module api holds it; only an owner that is gone can be replaced
+	if existing.ModuleApiID != nil {
+		var owners int64
+		if err := tx.Model(&api_v0.ModuleApi{}).
+			Where("id = ?", *existing.ModuleApiID).
+			Count(&owners).Error; err != nil {
+			return err
+		}
+		if owners > 0 {
+			return &moduleControllerConflictError{message: fmt.Sprintf(
+				"module controller %q is already owned by a different, active module api %d",
+				*requested.Name, *existing.ModuleApiID,
+			)}
+		}
+	}
+
+	// rebind only if the row still has the owner we just checked
+	update := tx.Session(&gorm.Session{SkipHooks: true}).Model(&existing).Where("id = ?", *existing.ID)
+	if existing.ModuleApiID != nil {
+		update = update.Where("module_api_id = ?", *existing.ModuleApiID)
+	} else {
+		update = update.Where("module_api_id IS NULL")
+	}
+	update = update.Updates(map[string]interface{}{
+		"module_api_id":   *requested.ModuleApiID,
+		"deployment_name": *requested.DeploymentName,
+	})
+	if update.Error != nil {
+		return update.Error
+	}
+	if update.RowsAffected == 0 {
+		return &moduleControllerConflictError{message: fmt.Sprintf(
+			"module controller %q was changed by another request during the reclaim",
+			*requested.Name,
+		)}
+	}
+
+	// point the `requires` reference at the new owner and drop the one that
+	// named the owner that is gone
+	moduleApiType := new(api_v0.ModuleApi).GetFullyQualifiedType()
+	controllerType := new(api_v0.ModuleController).GetFullyQualifiedType()
+	requires := api_v0.RelationshipRequires
+	if err := tx.Where(
+		"object_type = ? AND attached_object_type = ? AND attached_object_id = ? AND relationship = ?",
+		moduleApiType, controllerType, *existing.ID, requires,
+	).Delete(&api_v0.AttachedObjectReference{}).Error; err != nil {
+		return fmt.Errorf("failed to drop the reference to the prior module api: %w", err)
+	}
+	if err := tx.Create(&api_v0.AttachedObjectReference{
+		ObjectType:         &moduleApiType,
+		ObjectID:           requested.ModuleApiID,
+		AttachedObjectType: &controllerType,
+		AttachedObjectID:   existing.ID,
+		Relationship:       &requires,
+	}).Error; err != nil {
+		return fmt.Errorf("failed to reference the new module api: %w", err)
+	}
+
+	return tx.First(out, *existing.ID).Error
+}
+
 // fetchModuleObjectPage fetches one page of module objects through the
 // configured pagination strategy, then reloads that page's rows together with
 // their api-route associations. It stamps the queryId and next cursor onto

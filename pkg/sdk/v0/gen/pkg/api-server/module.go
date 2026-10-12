@@ -602,14 +602,16 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	)
 	f.Line()
 
-	// emit the controller create-then-rebind helper
+	// emit the controller create-then-reclaim helper
 	f.Comment("upsertModuleController creates the module controller. When the create")
-	f.Comment("hits a name conflict, it looks up the existing row by name alone. If that")
-	f.Comment("row's module_api_id no longer resolves to a module API (the prior owner")
-	f.Comment("was deleted/recreated), the row is reclaimed for the current module.")
-	f.Comment("Otherwise the row is still owned by a different, active module - this is a")
-	f.Comment("genuine name collision, not an orphaned row, so it errors out rather than")
-	f.Comment("silently stealing that module's controller registration.")
+	f.Comment("hits a name conflict, the row is reclaimed for the current module through a")
+	f.Comment("single Threeport API call. The API server checks that the row's prior owner")
+	f.Comment("is gone and rebinds the row in one transaction, so the check cannot go stale")
+	f.Comment("before the write. A row still owned by a different, active module is a")
+	f.Comment("genuine name collision, not an orphaned row, and the call returns an error")
+	f.Comment("rather than silently stealing that module's controller registration.")
+	f.Comment("The reclaim endpoint must exist on the core control plane this module")
+	f.Comment("registers with; an older control plane answers it with a 404.")
 	f.Func().Id("upsertModuleController").Params(
 		Id("tpApiClient").Op("*").Qual("net/http", "Client"),
 		Id("tpApiAddr").String(),
@@ -638,102 +640,28 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		),
 		Line(),
 		Qual("log", "Printf").Call(
-			Lit("register-module: controller %q create hit conflict; checking which module api owns it"),
+			Lit("register-module: controller %q create hit conflict; asking the API server to reclaim it for module api %d"),
 			Op("*").Id("controller").Dot("Name"),
-		),
-		List(Id("existing"), Id("lookupErr")).Op(":=").Qual(
-			"github.com/threeport/threeport/pkg/client/v0",
-			"GetModuleControllerByName",
-		).Call(
-			Id("tpApiClient"),
-			Id("tpApiAddr"),
-			Op("*").Id("controller").Dot("Name"),
-		),
-		If(Id("lookupErr").Op("!=").Nil()).Block(
-			Return(Nil(), Qual("fmt", "Errorf").Call(
-				Lit("failed to look up conflicting controller %q by name: %w"),
-				Op("*").Id("controller").Dot("Name"),
-				Id("lookupErr"),
-			)),
-		),
-		If(Id("existing").Dot("ModuleApiID").Op("!=").Nil().Op("&&").
-			Op("*").Id("existing").Dot("ModuleApiID").Op("==").Op("*").Id("moduleApiID")).Block(
-			Qual("log", "Printf").Call(
-				Lit("register-module: controller %q already bound to current module api %d"),
-				Op("*").Id("controller").Dot("Name"),
-				Op("*").Id("moduleApiID"),
-			),
-			Return(Id("existing"), Nil()),
-		),
-		// the conflicting row is owned by a different module api - only reclaim
-		// it once that owner is confirmed gone, so a name collision with a
-		// still-active module errors out instead of silently stealing its
-		// controller registration
-		If(Id("existing").Dot("ModuleApiID").Op("!=").Nil()).Block(
-			List(Id("_"), Id("getErr")).Op(":=").Qual(
-				"github.com/threeport/threeport/pkg/client/v0",
-				"GetModuleApiByID",
-			).Call(
-				Id("tpApiClient"),
-				Id("tpApiAddr"),
-				Op("*").Id("existing").Dot("ModuleApiID"),
-			),
-			If(Id("getErr").Op("==").Nil()).Block(
-				Return(Nil(), Qual("fmt", "Errorf").Call(
-					Lit("controller %q is already owned by a different, active module api %d"),
-					Op("*").Id("controller").Dot("Name"),
-					Op("*").Id("existing").Dot("ModuleApiID"),
-				)),
-			),
-			If(Op("!").Qual("errors", "Is").Call(
-				Id("getErr"),
-				Qual("github.com/threeport/threeport/pkg/client/lib/v0", "ErrObjectNotFound"),
-			)).Block(
-				Return(Nil(), Qual("fmt", "Errorf").Call(
-					Lit("failed to check owning module api %d for controller %q: %w"),
-					Op("*").Id("existing").Dot("ModuleApiID"),
-					Op("*").Id("controller").Dot("Name"),
-					Id("getErr"),
-				)),
-			),
-			Qual("log", "Printf").Call(
-				Lit("register-module: controller %q's prior module api %d no longer exists; reclaiming"),
-				Op("*").Id("controller").Dot("Name"),
-				Op("*").Id("existing").Dot("ModuleApiID"),
-			),
-		),
-		// render the prior module API id as text, none when unset
-		Id("priorModuleApi").Op(":=").Lit("none"),
-		If(Id("existing").Dot("ModuleApiID").Op("!=").Nil()).Block(
-			Id("priorModuleApi").Op("=").Qual("fmt", "Sprintf").Call(
-				Lit("%d"),
-				Op("*").Id("existing").Dot("ModuleApiID"),
-			),
-		),
-		Qual("log", "Printf").Call(
-			Lit("register-module: rebinding controller %q from module api %s to %d"),
-			Op("*").Id("controller").Dot("Name"),
-			Id("priorModuleApi"),
 			Op("*").Id("moduleApiID"),
 		),
-		Id("existing").Dot("ModuleApiID").Op("=").Id("moduleApiID"),
-		Id("existing").Dot("DeploymentName").Op("=").Id("controller").Dot("DeploymentName"),
-		List(Id("updated"), Id("upErr")).Op(":=").Qual(
+		Id("reclaim").Op(":=").Op("*").Id("controller"),
+		Id("reclaim").Dot("ModuleApiID").Op("=").Id("moduleApiID"),
+		List(Id("reclaimed"), Id("reclaimErr")).Op(":=").Qual(
 			"github.com/threeport/threeport/pkg/client/v0",
-			"UpdateModuleController",
+			"ReclaimModuleController",
 		).Call(
 			Id("tpApiClient"),
 			Id("tpApiAddr"),
-			Id("existing"),
+			Op("&").Id("reclaim"),
 		),
-		If(Id("upErr").Op("!=").Nil()).Block(
+		If(Id("reclaimErr").Op("!=").Nil()).Block(
 			Return(Nil(), Qual("fmt", "Errorf").Call(
-				Lit("failed to rebind controller %q to current module api: %w"),
+				Lit("failed to reclaim controller %q for the current module api: %w"),
 				Op("*").Id("controller").Dot("Name"),
-				Id("upErr"),
+				Id("reclaimErr"),
 			)),
 		),
-		Return(Id("updated"), Nil()),
+		Return(Id("reclaimed"), Nil()),
 	)
 	f.Line()
 

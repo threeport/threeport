@@ -10,6 +10,7 @@ package v0
 const (
 	PathModuleApiRouteWithModuleObjectReferences = "/v0/module-api-route-with-module-object-references"
 	PathModuleObjectsWithModuleApiRoutes         = "/v0/module-objects-with-module-api-routes"
+	PathModuleControllerReclaim                  = "/v0/module-controller-reclaim"
 )
 
 // ModuleApi represents an API server for a Threeport module. The
