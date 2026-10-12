@@ -50,6 +50,9 @@ func v0ObservabilityDashboardInstanceCreated(
 		r.APIClient,
 		r.APIServer,
 		&v0.HelmWorkloadInstance{
+			Common: v0.Common{
+				Owner: observabilityDashboardInstance.OwnGrafanaHelmWorkloadInstance(),
+			},
 			Instance: v0.Instance{
 				Name: util.Ptr(GrafanaChartName(*observabilityDashboardInstance.Name)),
 			},

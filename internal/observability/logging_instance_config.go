@@ -52,6 +52,9 @@ func (c *LoggingInstanceConfig) createLokiHelmWorkloadInstance() error {
 		c.r.APIClient,
 		c.r.APIServer,
 		&v0.HelmWorkloadInstance{
+			Common: v0.Common{
+				Owner: c.loggingInstance.OwnLokiHelmWorkloadInstance(),
+			},
 			Instance: v0.Instance{
 				Name: util.Ptr(LokiHelmChartName(*c.loggingInstance.Name)),
 			},
@@ -93,6 +96,9 @@ func (c *LoggingInstanceConfig) createPromtailHelmWorkloadInstance() error {
 		c.r.APIClient,
 		c.r.APIServer,
 		&v0.HelmWorkloadInstance{
+			Common: v0.Common{
+				Owner: c.loggingInstance.OwnPromtailHelmWorkloadInstance(),
+			},
 			Instance: v0.Instance{
 				Name: util.Ptr(PromtailHelmChartName(*c.loggingInstance.Name)),
 			},

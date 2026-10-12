@@ -50,6 +50,9 @@ func (c *LoggingDefinitionConfig) createLokiHelmWorkloadDefinition() error {
 		c.r.APIClient,
 		c.r.APIServer,
 		&v0.HelmWorkloadDefinition{
+			Common: v0.Common{
+				Owner: c.loggingDefinition.OwnLokiHelmWorkloadDefinition(),
+			},
 			Definition: v0.Definition{
 				Name: util.Ptr(LokiHelmChartName(*c.loggingDefinition.Name)),
 			},
@@ -89,6 +92,9 @@ func (c *LoggingDefinitionConfig) createPromtailHelmWorkloadDefinition() error {
 		c.r.APIClient,
 		c.r.APIServer,
 		&v0.HelmWorkloadDefinition{
+			Common: v0.Common{
+				Owner: c.loggingDefinition.OwnPromtailHelmWorkloadDefinition(),
+			},
 			Definition: v0.Definition{
 				Name: util.Ptr(PromtailHelmChartName(*c.loggingDefinition.Name)),
 			},

@@ -50,6 +50,9 @@ func v0MetricsInstanceCreated(
 		r.APIClient,
 		r.APIServer,
 		&v0.HelmWorkloadInstance{
+			Common: v0.Common{
+				Owner: metricsInstance.OwnKubePrometheusStackHelmWorkloadInstance(),
+			},
 			Instance: v0.Instance{
 				Name: util.Ptr(KubePrometheusStackChartName(*metricsInstance.Name)),
 			},

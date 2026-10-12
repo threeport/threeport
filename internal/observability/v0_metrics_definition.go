@@ -52,6 +52,9 @@ func v0MetricsDefinitionCreated(
 		r.APIClient,
 		r.APIServer,
 		&v0.HelmWorkloadDefinition{
+			Common: v0.Common{
+				Owner: metricsDefinition.OwnKubePrometheusStackHelmWorkloadDefinition(),
+			},
 			Definition: v0.Definition{
 				Name: util.Ptr(KubePrometheusStackChartName(*metricsDefinition.Name)),
 			},

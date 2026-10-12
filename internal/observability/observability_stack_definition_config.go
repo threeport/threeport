@@ -53,6 +53,9 @@ func (c *ObservabilityStackDefinitionConfig) getObservabilityStackDefinitionOper
 func (c *ObservabilityStackDefinitionConfig) createObservabilityDashboardDefinition() error {
 	// create observability dashboard definition
 	observabilityDashboardDefinition := &v0.ObservabilityDashboardDefinition{
+		Common: v0.Common{
+			Owner: c.observabilityStackDefinition.OwnObservabilityDashboardDefinition(),
+		},
 		Definition: v0.Definition{
 			Name: util.Ptr(ObservabilityDashboardName(*c.observabilityStackDefinition.Name)),
 		},
@@ -98,6 +101,9 @@ func (c *ObservabilityStackDefinitionConfig) deleteObservabilityDashboardDefinit
 func (c *ObservabilityStackDefinitionConfig) createLoggingDefinition() error {
 	// create logging definition
 	loggingDefinition := &v0.LoggingDefinition{
+		Common: v0.Common{
+			Owner: c.observabilityStackDefinition.OwnLoggingDefinition(),
+		},
 		Definition: v0.Definition{
 			Name: util.Ptr(LoggingName(*c.observabilityStackDefinition.Name)),
 		},
@@ -149,6 +155,9 @@ func (c *ObservabilityStackDefinitionConfig) deleteLoggingDefinition() error {
 func (c *ObservabilityStackDefinitionConfig) createMetricsDefinition() error {
 	// create metrics definition
 	metricsDefinition := &v0.MetricsDefinition{
+		Common: v0.Common{
+			Owner: c.observabilityStackDefinition.OwnMetricsDefinition(),
+		},
 		Definition: v0.Definition{
 			Name: util.Ptr(MetricsName(*c.observabilityStackDefinition.Name)),
 		},

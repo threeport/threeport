@@ -66,6 +66,9 @@ func (c *ObservabilityStackInstanceConfig) createObservabilityDashboardInstance(
 		c.r.APIClient,
 		c.r.APIServer,
 		&v0.ObservabilityDashboardInstance{
+			Common: v0.Common{
+				Owner: c.observabilityStackInstance.OwnObservabilityDashboardInstance(),
+			},
 			Instance: v0.Instance{
 				Name: util.Ptr(ObservabilityDashboardName(*c.observabilityStackInstance.Name)),
 			},
@@ -104,6 +107,9 @@ func (c *ObservabilityStackInstanceConfig) createMetricsInstance() error {
 		c.r.APIClient,
 		c.r.APIServer,
 		&v0.MetricsInstance{
+			Common: v0.Common{
+				Owner: c.observabilityStackInstance.OwnMetricsInstance(),
+			},
 			Instance: v0.Instance{
 				Name: util.Ptr(MetricsName(*c.observabilityStackInstance.Name)),
 			},
@@ -142,6 +148,9 @@ func (c *ObservabilityStackInstanceConfig) createLoggingInstance() error {
 		c.r.APIClient,
 		c.r.APIServer,
 		&v0.LoggingInstance{
+			Common: v0.Common{
+				Owner: c.observabilityStackInstance.OwnLoggingInstance(),
+			},
 			Instance: v0.Instance{
 				Name: util.Ptr(LoggingName(*c.observabilityStackInstance.Name)),
 			},

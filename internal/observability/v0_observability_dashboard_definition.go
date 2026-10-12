@@ -61,6 +61,9 @@ func v0ObservabilityDashboardDefinitionCreated(
 		r.APIClient,
 		r.APIServer,
 		&v0.HelmWorkloadDefinition{
+			Common: v0.Common{
+				Owner: observabilityDashboardDefinition.OwnGrafanaHelmWorkloadDefinition(),
+			},
 			Definition: v0.Definition{
 				Name: util.Ptr(GrafanaChartName(*observabilityDashboardDefinition.Name)),
 			},
