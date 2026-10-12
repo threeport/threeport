@@ -129,7 +129,7 @@ type ownerReader interface {
 }
 
 // recordOwnerOnCreate inserts the owns reference and sets the owner's field in the create transaction.
-// It runs the owned-row check and does not run the owner's before-update hook.
+// It checks the caller organization and the owned row, and does not run the owner's before-update hook.
 func recordOwnerOnCreate(tx *gorm.DB, obj interface{}) error {
 	reader, ok := obj.(ownerReader)
 	if !ok || reader.GetOwner() == nil {
@@ -138,6 +138,9 @@ func recordOwnerOnCreate(tx *gorm.DB, obj interface{}) error {
 	owner := reader.GetOwner()
 	if owner.Type == nil || owner.ID == nil || owner.Field == nil {
 		return fmt.Errorf("owner requires a type, an id, and a field")
+	}
+	if err := rejectOwnerOutsideCallerNamespace(tx, *owner.Type); err != nil {
+		return err
 	}
 
 	// the new row is the owned object
@@ -324,6 +327,27 @@ func processRelationshipTaggedFieldsBeforeUpdate(tx *gorm.DB, obj interface{}) e
 
 	// the rest of this function is the caller-authorization check
 	return rejectExternalOwnedUpdate(tx, objType, *objID)
+}
+
+// rejectOwnerOutsideCallerNamespace rejects an owner whose type namespace differs from the caller organization.
+// An empty organization skips the check.
+func rejectOwnerOutsideCallerNamespace(tx *gorm.DB, ownerType string) error {
+	organization := lib.Caller(tx.Statement.Context).Organization
+	if organization == "" {
+		return nil
+	}
+	namespace, _, _, ok := lib.ParseQualifiedType(ownerType)
+	if !ok {
+		return fmt.Errorf("owner type %q is not a fully qualified type", ownerType)
+	}
+	if namespace != organization {
+		return util.NewBadRequestError(fmt.Sprintf(
+			"owner type %s is outside caller organization %s",
+			ownerType,
+			organization,
+		))
+	}
+	return nil
 }
 
 // rejectExternalOwnedUpdate rejects an update when another object owns or marries the row.

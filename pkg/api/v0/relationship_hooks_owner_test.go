@@ -1,12 +1,15 @@
 package v0
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+
+	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 )
 
 const testAcmeWidgetFQT = "acme.corp/v0.Widget"
@@ -138,6 +141,40 @@ func TestRecordOwnerOnCreateRejectsOwnedRow(t *testing.T) {
 }
 
 func relPtr(r Relationship) *Relationship { return &r }
+
+// TestRecordOwnerOnCreateMatchesCallerOrganization covers the certificate organization.
+// A different organization is rejected and the same organization is allowed.
+func TestRecordOwnerOnCreateMatchesCallerOrganization(t *testing.T) {
+	db := setupOwnerTestDB(t)
+	owner := &testAcmeWidget{}
+	require.NoError(t, db.Create(owner).Error)
+	ref := &OwnerRef{
+		Type:  strPtr(testAcmeWidgetFQT),
+		ID:    owner.ID,
+		Field: strPtr("WorkloadID"),
+	}
+
+	// a caller from another namespace cannot name this owner
+	other := db.WithContext(lib.WithCaller(context.Background(), lib.CallerIdentity{
+		CommonName:   "other-threeport-module",
+		Organization: "other.corp",
+	}))
+	err := other.Create(&testHolder{Name: strPtr("other"), owner: ref}).Error
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "outside caller organization")
+	var stored testAcmeWidget
+	require.NoError(t, db.First(&stored, *owner.ID).Error)
+	assert.Nil(t, stored.WorkloadID)
+
+	// the module that owns the type can set the column
+	same := db.WithContext(lib.WithCaller(context.Background(), lib.CallerIdentity{
+		CommonName:   "acme-corp-threeport-module",
+		Organization: "acme.corp",
+	}))
+	require.NoError(t, same.Create(&testHolder{Name: strPtr("same-org"), owner: ref}).Error)
+	require.NoError(t, db.First(&stored, *owner.ID).Error)
+	require.NotNil(t, stored.WorkloadID)
+}
 
 func TestRecordOwnerOnCreateSkipsWhenUnset(t *testing.T) {
 	db := setupOwnerTestDB(t)
