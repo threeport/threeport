@@ -17,7 +17,9 @@ import (
 	"gorm.io/gorm"
 
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
+	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 	api "github.com/threeport/threeport/pkg/api/v0"
+	auth "github.com/threeport/threeport/pkg/auth/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -122,6 +124,9 @@ func postWorkload(t *testing.T, h Handler, body map[string]any) uint {
 
 	req := httptest.NewRequest(http.MethodPost, api.PathKubernetesWorkloadInstances, bytes.NewReader(raw))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req = req.WithContext(lib.WithCaller(req.Context(), lib.CallerIdentity{
+		OrganizationalUnit: auth.OUControlPlane,
+	}))
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 	c.SetPath(api.PathKubernetesWorkloadInstances)

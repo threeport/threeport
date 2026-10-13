@@ -11,6 +11,7 @@ import (
 	"gorm.io/gorm"
 
 	lib "github.com/threeport/threeport/pkg/api/lib/v0"
+	auth "github.com/threeport/threeport/pkg/auth/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -224,6 +225,40 @@ func TestRecordOwnerOnCreateAllowsThreeportOwner(t *testing.T) {
 
 	// the tptctl certificate sets the column
 	require.NoError(t, withThreeportOwner(db).Create(&testHolder{Name: strPtr("cli"), owner: ref}).Error)
+	require.NoError(t, db.First(&stored, *owner.ID).Error)
+	require.NotNil(t, stored.WorkloadID)
+}
+
+// TestRecordOwnerOnCreateAllowsAuthOffCaller covers the identity CaptureCaller writes when authentication is off.
+// That caller may set the column. A controller certificate with an organization may not cross namespaces.
+func TestRecordOwnerOnCreateAllowsAuthOffCaller(t *testing.T) {
+	db := setupOwnerTestDB(t)
+	owner := &testAcmeWidget{}
+	require.NoError(t, db.Create(owner).Error)
+	ref := &OwnerRef{
+		Type:  strPtr(testAcmeWidgetFQT),
+		ID:    owner.ID,
+		Field: strPtr("WorkloadID"),
+	}
+
+	// a controller certificate stays inside its organization
+	controller := db.WithContext(lib.WithCaller(context.Background(), lib.CallerIdentity{
+		CommonName:         "workload-controller",
+		Organization:       "threeport.io",
+		OrganizationalUnit: auth.OUControlPlane,
+	}))
+	err := controller.Create(&testHolder{Name: strPtr("controller"), owner: ref}).Error
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "outside caller organization")
+	var stored testAcmeWidget
+	require.NoError(t, db.First(&stored, *owner.ID).Error)
+	assert.Nil(t, stored.WorkloadID)
+
+	// the authentication-off identity sets the column
+	authOff := db.WithContext(lib.WithCaller(context.Background(), lib.CallerIdentity{
+		OrganizationalUnit: auth.OUControlPlane,
+	}))
+	require.NoError(t, authOff.Create(&testHolder{Name: strPtr("auth-off"), owner: ref}).Error)
 	require.NoError(t, db.First(&stored, *owner.ID).Error)
 	require.NotNil(t, stored.WorkloadID)
 }
