@@ -378,11 +378,16 @@ func processRelationshipTaggedFieldsBeforeUpdate(tx *gorm.DB, obj interface{}) e
 }
 
 // rejectOwnerOutsideCallerNamespace rejects an owner whose type namespace differs from the caller organization.
-// An empty organization skips the check.
+// The threeport-owner certificate has no organization and may name any owner.
 func rejectOwnerOutsideCallerNamespace(tx *gorm.DB, ownerType string) error {
-	organization := lib.Caller(tx.Statement.Context).Organization
-	if organization == "" {
+	caller := lib.Caller(tx.Statement.Context)
+	// allow the threeport-owner certificate
+	if caller.CommonName == "threeport-owner" {
 		return nil
+	}
+	organization := caller.Organization
+	if organization == "" {
+		return util.NewBadRequestError("owner requires a caller organization")
 	}
 	namespace, _, _, ok := lib.ParseQualifiedType(ownerType)
 	if !ok {

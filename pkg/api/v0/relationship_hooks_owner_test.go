@@ -82,7 +82,7 @@ func TestRecordOwnerOnCreateSetsColumnAndReference(t *testing.T) {
 			Field: strPtr("WorkloadID"),
 		},
 	}
-	require.NoError(t, db.Create(holder).Error)
+	require.NoError(t, withThreeportOwner(db).Create(holder).Error)
 
 	var stored testAcmeWidget
 	require.NoError(t, db.First(&stored, *owner.ID).Error)
@@ -116,7 +116,11 @@ func TestRecordOwnerOnCreateRejectsOwnedRow(t *testing.T) {
 	}).Error)
 
 	// an external create names that owned row
-	err := db.Create(&testHolder{
+	external := db.WithContext(lib.WithCaller(context.Background(), lib.CallerIdentity{
+		CommonName:   "acme-corp-threeport-module",
+		Organization: "acme.corp",
+	}))
+	err := external.Create(&testHolder{
 		Name: strPtr("blocked"),
 		owner: &OwnerRef{
 			Type:  strPtr(testAcmeWidgetFQT),
@@ -132,8 +136,13 @@ func TestRecordOwnerOnCreateRejectsOwnedRow(t *testing.T) {
 	require.NoError(t, db.First(&stored, *owner.ID).Error)
 	assert.Nil(t, stored.WorkloadID)
 
-	// a control-plane caller writes the same owner
-	require.NoError(t, withControlPlaneCaller(db).Create(&testHolder{
+	// a control-plane caller in this organization writes the same owner
+	allowed := db.WithContext(lib.WithCaller(context.Background(), lib.CallerIdentity{
+		CommonName:         "workload-controller",
+		Organization:       "acme.corp",
+		OrganizationalUnit: "controlplane",
+	}))
+	require.NoError(t, allowed.Create(&testHolder{
 		Name: strPtr("allowed"),
 		owner: &OwnerRef{
 			Type:  strPtr(testAcmeWidgetFQT),
@@ -146,6 +155,14 @@ func TestRecordOwnerOnCreateRejectsOwnedRow(t *testing.T) {
 }
 
 func relPtr(r Relationship) *Relationship { return &r }
+
+// withThreeportOwner returns a session for the tptctl client certificate.
+// That certificate has no organization.
+func withThreeportOwner(db *gorm.DB) *gorm.DB {
+	return db.WithContext(lib.WithCaller(context.Background(), lib.CallerIdentity{
+		CommonName: "threeport-owner",
+	}))
+}
 
 // TestRecordOwnerOnCreateMatchesCallerOrganization covers the certificate organization.
 // A different organization is rejected and the same organization is allowed.
@@ -181,6 +198,35 @@ func TestRecordOwnerOnCreateMatchesCallerOrganization(t *testing.T) {
 	require.NotNil(t, stored.WorkloadID)
 }
 
+// TestRecordOwnerOnCreateAllowsThreeportOwner covers a caller with no organization.
+// The threeport-owner certificate may set the column. Another common name may not.
+func TestRecordOwnerOnCreateAllowsThreeportOwner(t *testing.T) {
+	db := setupOwnerTestDB(t)
+	owner := &testAcmeWidget{}
+	require.NoError(t, db.Create(owner).Error)
+	ref := &OwnerRef{
+		Type:  strPtr(testAcmeWidgetFQT),
+		ID:    owner.ID,
+		Field: strPtr("WorkloadID"),
+	}
+
+	// another certificate with no organization cannot name the owner
+	blank := db.WithContext(lib.WithCaller(context.Background(), lib.CallerIdentity{
+		CommonName: "other-client",
+	}))
+	err := blank.Create(&testHolder{Name: strPtr("blank"), owner: ref}).Error
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "caller organization")
+	var stored testAcmeWidget
+	require.NoError(t, db.First(&stored, *owner.ID).Error)
+	assert.Nil(t, stored.WorkloadID)
+
+	// the tptctl certificate sets the column
+	require.NoError(t, withThreeportOwner(db).Create(&testHolder{Name: strPtr("cli"), owner: ref}).Error)
+	require.NoError(t, db.First(&stored, *owner.ID).Error)
+	require.NotNil(t, stored.WorkloadID)
+}
+
 func TestRecordOwnerOnCreateSkipsWhenUnset(t *testing.T) {
 	db := setupOwnerTestDB(t)
 	holder := &testHolder{Name: strPtr("plain")}
@@ -208,7 +254,7 @@ func TestRecordOwnerOnCreateRollsBackWhenColumnHoldsAnotherID(t *testing.T) {
 			Field: strPtr("WorkloadID"),
 		},
 	}
-	err := db.Create(holder).Error
+	err := withThreeportOwner(db).Create(holder).Error
 	require.Error(t, err)
 
 	var n int64
@@ -238,7 +284,7 @@ func TestRecordOwnerOnCreateReplacesStaleChild(t *testing.T) {
 			Field: strPtr("WorkloadID"),
 		},
 	}
-	require.NoError(t, db.Create(holder).Error)
+	require.NoError(t, withThreeportOwner(db).Create(holder).Error)
 	var stored testAcmeWidget
 	require.NoError(t, db.First(&stored, *owner.ID).Error)
 	require.NotNil(t, stored.WorkloadID)
@@ -263,7 +309,7 @@ func TestRecordOwnerOnCreateReplacesStaleChild(t *testing.T) {
 			Field: strPtr("WorkloadID"),
 		},
 	}
-	require.NoError(t, db.Create(again).Error)
+	require.NoError(t, withThreeportOwner(db).Create(again).Error)
 	require.NoError(t, db.First(&stored, *owner.ID).Error)
 	assert.Equal(t, *again.ID, *stored.WorkloadID)
 }
@@ -283,7 +329,7 @@ func TestRecordOwnerOnCreateAllowsColumnAlreadySetToThisID(t *testing.T) {
 			Field: strPtr("WorkloadID"),
 		},
 	}
-	require.NoError(t, db.Create(holder).Error)
+	require.NoError(t, withThreeportOwner(db).Create(holder).Error)
 	assert.Equal(t, already, *holder.ID)
 }
 
@@ -305,7 +351,7 @@ func TestWorkloadOwnedByModuleTypeWritesTheRowsTogether(t *testing.T) {
 		KubernetesRuntimeInstanceID:    uintPtr(1),
 		KubernetesWorkloadDefinitionID: uintPtr(2),
 	}
-	require.NoError(t, db.Create(workload).Error)
+	require.NoError(t, withThreeportOwner(db).Create(workload).Error)
 
 	// the workload, its two requires references, and the owns reference
 	assert.Equal(t, before+4, rowCount(t, db))
@@ -344,7 +390,7 @@ func TestWorkloadOwnedByRuntimeWritesTheRowsTogether(t *testing.T) {
 		KubernetesRuntimeInstanceID:    runtime.ID,
 		KubernetesWorkloadDefinitionID: uintPtr(2),
 	}
-	require.NoError(t, db.Create(workload).Error)
+	require.NoError(t, withThreeportOwner(db).Create(workload).Error)
 
 	assert.Equal(t, before+4, rowCount(t, db))
 	var stored KubernetesRuntimeInstance
@@ -377,7 +423,7 @@ func TestWorkloadOwnerConflictRollsBackTheRows(t *testing.T) {
 		KubernetesRuntimeInstanceID:    uintPtr(1),
 		KubernetesWorkloadDefinitionID: uintPtr(2),
 	}
-	require.Error(t, db.Create(workload).Error)
+	require.Error(t, withThreeportOwner(db).Create(workload).Error)
 	assert.Equal(t, before, rowCount(t, db))
 }
 
@@ -419,5 +465,5 @@ func TestRecordOwnerOnCreateRejectsMissingColumn(t *testing.T) {
 			Field: strPtr("NotAColumn"),
 		},
 	}
-	require.Error(t, db.Create(holder).Error)
+	require.Error(t, withThreeportOwner(db).Create(holder).Error)
 }
