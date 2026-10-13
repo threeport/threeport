@@ -138,7 +138,7 @@ func recordOwnerOnCreate(tx *gorm.DB, obj interface{}) error {
 	}
 	owner := reader.GetOwner()
 	if owner.Type == nil || owner.ID == nil || owner.Field == nil {
-		return fmt.Errorf("owner requires a type, an id, and a field")
+		return util.NewBadRequestError("owner requires a type, an id, and a field")
 	}
 	if err := rejectOwnerOutsideCallerNamespace(tx, *owner.Type); err != nil {
 		return err
@@ -197,10 +197,10 @@ func recordOwnerOnCreate(tx *gorm.DB, obj interface{}) error {
 		return fmt.Errorf("failed to set %s.%s for owner %d: %w", table, column, *owner.ID, result.Error)
 	}
 	if result.RowsAffected != 1 {
-		return fmt.Errorf(
+		return util.NewBadRequestError(fmt.Sprintf(
 			"owner update for %s.%s id %d changed %d rows",
 			table, column, *owner.ID, result.RowsAffected,
-		)
+		))
 	}
 	return nil
 }
@@ -244,7 +244,7 @@ func ownerColumnHoldsOtherLiveChild(tx *gorm.DB, ownerTable, column string, owne
 func tableForQualifiedType(objectType string) (string, error) {
 	namespace, version, typeName, ok := lib.ParseQualifiedType(objectType)
 	if !ok {
-		return "", fmt.Errorf("owner type %q is not a fully qualified type", objectType)
+		return "", util.NewBadRequestError(fmt.Sprintf("owner type %q is not a fully qualified type", objectType))
 	}
 	plural := pluralize.NewClient().Pluralize(strcase.ToSnake(typeName), 2, false)
 	raw := version + "_" + plural
@@ -253,7 +253,7 @@ func tableForQualifiedType(objectType string) (string, error) {
 	}
 	table := sanitizeIdent(raw)
 	if !sqlIdent.MatchString(table) {
-		return "", fmt.Errorf("owner type %q does not name a table", objectType)
+		return "", util.NewBadRequestError(fmt.Sprintf("owner type %q does not name a table", objectType))
 	}
 	return table, nil
 }
@@ -262,10 +262,10 @@ func tableForQualifiedType(objectType string) (string, error) {
 func columnForOwnerField(field string) (string, error) {
 	column := sanitizeIdent(strcase.ToSnake(field))
 	if !sqlIdent.MatchString(column) {
-		return "", fmt.Errorf("owner field %q is not a column name", field)
+		return "", util.NewBadRequestError(fmt.Sprintf("owner field %q is not a column name", field))
 	}
 	if column == "id" {
-		return "", fmt.Errorf("owner field %q names the primary key", field)
+		return "", util.NewBadRequestError(fmt.Sprintf("owner field %q names the primary key", field))
 	}
 	return column, nil
 }
@@ -303,7 +303,7 @@ func requireOwnerColumn(tx *gorm.DB, table, column string) error {
 		return fmt.Errorf("failed to look up %s.%s: %w", table, column, err)
 	}
 	if n != 1 {
-		return fmt.Errorf("owner column %s.%s does not exist", table, column)
+		return util.NewBadRequestError(fmt.Sprintf("owner column %s.%s does not exist", table, column))
 	}
 	return nil
 }
@@ -391,7 +391,7 @@ func rejectOwnerOutsideCallerNamespace(tx *gorm.DB, ownerType string) error {
 	}
 	namespace, _, _, ok := lib.ParseQualifiedType(ownerType)
 	if !ok {
-		return fmt.Errorf("owner type %q is not a fully qualified type", ownerType)
+		return util.NewBadRequestError(fmt.Sprintf("owner type %q is not a fully qualified type", ownerType))
 	}
 	if namespace != organization {
 		return util.NewBadRequestError(fmt.Sprintf(

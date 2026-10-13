@@ -11,6 +11,7 @@ import (
 	"gorm.io/gorm"
 
 	lib "github.com/threeport/threeport/pkg/api/lib/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 const testAcmeWidgetFQT = "acme.corp/v0.Widget"
@@ -465,5 +466,9 @@ func TestRecordOwnerOnCreateRejectsMissingColumn(t *testing.T) {
 			Field: strPtr("NotAColumn"),
 		},
 	}
-	require.Error(t, withThreeportOwner(db).Create(holder).Error)
+	err := withThreeportOwner(db).Create(holder).Error
+	require.Error(t, err)
+	var httpErr *util.HttpError
+	require.ErrorAs(t, err, &httpErr)
+	assert.Equal(t, 400, httpErr.StatusCode)
 }
