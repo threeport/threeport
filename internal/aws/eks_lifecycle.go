@@ -27,6 +27,15 @@ type eksLifecycle struct {
 	instanceID uint
 	instance   *v0.AwsEksKubernetesRuntimeInstance
 	log        *logr.Logger
+
+	// infra is built once per reconciliation attempt and reused.
+	//
+	// HandleInfraCreate polls IsCreateComplete every two minutes for the ten
+	// to twenty a create takes, and building this from scratch each time meant
+	// four Threeport round trips, a fresh credential cache, and - whenever a
+	// role ARN is configured, which is the normal EKS case - a new
+	// sts:AssumeRole that threw away the previous hour-long session.
+	infra provider.InfraProvider
 }
 
 // newEksLifecycleProvider constructs an InfraLifecycleProvider for EKS.
@@ -72,6 +81,10 @@ func (e *eksLifecycle) GetReconciliation() (*provider.ReconciliationSnapshot, er
 
 // BuildInfra constructs the EKS infrastructure provider from API objects.
 func (e *eksLifecycle) BuildInfra() (provider.InfraProvider, error) {
+	if e.infra != nil {
+		return e.infra, nil
+	}
+
 	latest, err := client.GetAwsEksKubernetesRuntimeInstanceByID(
 		e.r.APIClient,
 		e.r.APIServer,
@@ -80,6 +93,19 @@ func (e *eksLifecycle) BuildInfra() (provider.InfraProvider, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get EKS instance for infra build: %w", err)
 	}
+
+	return e.buildInfraFrom(latest)
+}
+
+// buildInfraFrom builds the infra from an instance the caller already has, so
+// a caller that just fetched it does not fetch it again.
+func (e *eksLifecycle) buildInfraFrom(
+	latest *v0.AwsEksKubernetesRuntimeInstance,
+) (provider.InfraProvider, error) {
+	if e.infra != nil {
+		return e.infra, nil
+	}
+
 	definition, err := client.GetAwsEksKubernetesRuntimeDefinitionByID(
 		e.r.APIClient,
 		e.r.APIServer,
@@ -89,7 +115,13 @@ func (e *eksLifecycle) BuildInfra() (provider.InfraProvider, error) {
 		return nil, fmt.Errorf("failed to get EKS definition: %w", err)
 	}
 
-	return buildEksInfra(e.r, latest, definition, e.log)
+	infra, err := buildEksInfra(e.r, latest, definition, e.log)
+	if err != nil {
+		return nil, err
+	}
+	e.infra = infra
+
+	return infra, nil
 }
 
 // IsCreateComplete reports whether the whole create finished, not just the
@@ -120,7 +152,9 @@ func (e *eksLifecycle) IsCreateComplete() (bool, error) {
 		return false, nil
 	}
 
-	infra, err := e.BuildInfra()
+	// the instance fetched above is the one the infra needs, so it is not
+	// fetched a second time
+	infra, err := e.buildInfraFrom(latest)
 	if err != nil {
 		return false, fmt.Errorf("failed to build infra to check EKS creation status: %w", err)
 	}
@@ -462,7 +496,7 @@ func eksInfraFromApiObjects(
 	providerCredentials tpaws.AwsProviderCredentials,
 	log *logr.Logger,
 ) *provider.KubernetesRuntimeInfraEKS {
-	return &provider.KubernetesRuntimeInfraEKS{
+	return (&provider.KubernetesRuntimeInfraEKS{
 		PulumiWorkspace: provider.PulumiWorkspace{
 			RuntimeInstanceName: *instance.Name,
 			Logger:              log,
@@ -476,5 +510,5 @@ func eksInfraFromApiObjects(
 		DefaultNodeGroupInitialNodes: int32(*definition.DefaultNodeGroupInitialSize),
 		DefaultNodeGroupMinNodes:     int32(*definition.DefaultNodeGroupMinimumSize),
 		DefaultNodeGroupMaxNodes:     int32(*definition.DefaultNodeGroupMaximumSize),
-	}
+	}).InitPulumiProject()
 }

@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -87,4 +88,50 @@ func TestEksLifecycleSatisfiesInfraLifecycleProvider(t *testing.T) {
 
 	_, ok := lifecycle.(provider.InfraLifecycleProvider)
 	require.True(t, ok, "must implement InfraLifecycleProvider")
+}
+
+// TestEksInfraFromApiObjects_PulumiProjectSetAtConstruction covers the state
+// file path the crash-recovery watcher is built from.
+//
+// executeInfraCreate starts the fsnotify watcher that streams partial state to
+// the API before it calls DeployInfra, and GetStateFilePath builds the watched
+// path from ProjectName. Filling that in later - from CreateInfra, as it used
+// to be - leaves the watcher reading an empty name, so it watches one directory
+// above where Pulumi writes and never fires. A controller that then crashes
+// mid-provision has persisted nothing, and the retry starts over with the first
+// attempt's resources still in the account.
+func TestEksInfraFromApiObjects_PulumiProjectSetAtConstruction(t *testing.T) {
+	infra := eksInfraFromApiObjects(
+		&v0.AwsEksKubernetesRuntimeInstance{
+			Instance: v0.Instance{Name: util.Ptr("test-instance")},
+			Region:   util.Ptr("us-east-1"),
+		},
+		&v0.AwsEksKubernetesRuntimeDefinition{
+			ZoneCount:                    util.Ptr(2),
+			DefaultNodeGroupInstanceType: util.Ptr("t3.medium"),
+			DefaultNodeGroupInitialSize:  util.Ptr(3),
+			DefaultNodeGroupMinimumSize:  util.Ptr(3),
+			DefaultNodeGroupMaximumSize:  util.Ptr(5),
+		},
+		"123456789012",
+		&aws.Config{Region: "us-east-1"},
+		tpaws.AwsProviderCredentials{},
+		nil,
+	)
+
+	require.NotEmpty(
+		t, infra.ProjectName,
+		"the project name has to be set before the lifecycle starts watching for state",
+	)
+
+	statePath, err := infra.GetStateFilePath()
+	require.NoError(t, err)
+	assert.Contains(
+		t, statePath, filepath.Join("stacks", infra.ProjectName, "test-instance.json"),
+		"the watched path must name the project directory Pulumi writes into",
+	)
+
+	// the region reaches the stack config at construction too, for the same
+	// reason: nothing may write to the infra once the watcher is reading it
+	assert.Equal(t, "us-east-1", infra.StackConfigs["aws:region"])
 }

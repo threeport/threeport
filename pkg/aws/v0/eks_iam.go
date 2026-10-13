@@ -142,11 +142,28 @@ func EksClusterAutoscalingPolicyName(clusterName string) string {
 // a service account with a role ARN derives it here, so a change to a name or
 // a path cannot leave one of them pointing at a role that does not exist.
 func IamRoleArn(accountId, path, roleName string) string {
+	return iamArn(accountId, "role", path, roleName)
+}
+
+// IamPolicyArn returns the ARN of a customer managed policy, with the same
+// path handling as IamRoleArn.
+//
+// It sits here beside IamRoleArn for the reason that comment gives: assembling
+// the format in more than one place is how a change to a name or a path ends up
+// pointing at something that does not exist. A policy ARN differs from a role
+// ARN by one word.
+func IamPolicyArn(accountId, path, policyName string) string {
+	return iamArn(accountId, "policy", path, policyName)
+}
+
+// iamArn assembles an IAM ARN. An empty or root path yields the unpathed form,
+// which is what IAM reports back for a resource created without one.
+func iamArn(accountId, resourceType, path, name string) string {
 	if path == "" || path == "/" {
-		return fmt.Sprintf("arn:aws:iam::%s:role/%s", accountId, roleName)
+		return fmt.Sprintf("arn:aws:iam::%s:%s/%s", accountId, resourceType, name)
 	}
 
-	return fmt.Sprintf("arn:aws:iam::%s:role%s%s", accountId, path, roleName)
+	return fmt.Sprintf("arn:aws:iam::%s:%s%s%s", accountId, resourceType, path, name)
 }
 
 // EksDnsManagementRoleArn returns the ARN annotated onto the external-dns

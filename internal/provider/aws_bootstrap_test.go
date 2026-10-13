@@ -259,24 +259,22 @@ func TestClusterAutoscalingPolicyIsScopedToCluster(t *testing.T) {
 // reports tags this code did not set.
 func TestIamTagsMatch(t *testing.T) {
 	infra := testEksIamInfra()
-	want := infra.iamTags(infra.RuntimeInstanceName)
+	want := tpaws.IamTags(infra.RuntimeInstanceName, ThreeportProviderTags())
 
 	have := append(
-		infra.iamTags(infra.RuntimeInstanceName),
+		tpaws.IamTags(infra.RuntimeInstanceName, ThreeportProviderTags()),
 		types.Tag{Key: aws.String("CostCenter"), Value: aws.String("platform")},
 	)
 	assert.True(t, iamTagsMatch(have, want))
 
-	assert.False(t, iamTagsMatch(infra.iamTags("some-other-cluster"), want))
+	assert.False(t, iamTagsMatch(tpaws.IamTags("some-other-cluster", ThreeportProviderTags()), want))
 	assert.False(t, iamTagsMatch(nil, want))
 }
 
 // TestIamTags checks the tags carry the resource name and threeport ownership.
 func TestIamTags(t *testing.T) {
-	infra := testEksIamInfra()
-
 	tags := map[string]string{}
-	for _, tag := range infra.iamTags("some-role") {
+	for _, tag := range tpaws.IamTags("some-role", ThreeportProviderTags()) {
 		tags[*tag.Key] = *tag.Value
 	}
 
@@ -294,8 +292,7 @@ func TestIamTags(t *testing.T) {
 // whatever that role already trusts — the secrets manager role carries
 // account-wide Secrets Manager access — and the teardown would delete it.
 func TestRefuseUnownedRole(t *testing.T) {
-	infra := testEksIamInfra()
-	wantTags := infra.iamTags("secrets-manager-role-my-cluster")
+	wantTags := tpaws.IamTags("secrets-manager-role-my-cluster", ThreeportProviderTags())
 
 	t.Run("a role we created is reused", func(t *testing.T) {
 		ours := &types.Role{
@@ -309,7 +306,7 @@ func TestRefuseUnownedRole(t *testing.T) {
 		ours := &types.Role{
 			RoleName: aws.String("secrets-manager-role-my-cluster"),
 			Tags: append(
-				infra.iamTags("secrets-manager-role-my-cluster"),
+				tpaws.IamTags("secrets-manager-role-my-cluster", ThreeportProviderTags()),
 				types.Tag{Key: aws.String("CostCenter"), Value: aws.String("platform")},
 			),
 		}
@@ -337,4 +334,33 @@ func TestRefuseUnownedRole(t *testing.T) {
 	t.Run("no role at all is an error, not an approval", func(t *testing.T) {
 		require.Error(t, refuseUnownedRole(nil, wantTags))
 	})
+}
+
+// TestRefuseUnownedIamResource covers the check that guards every IAM resource
+// this file reuses or deletes, not only roles.
+//
+// The names, paths and tags are deterministic per cluster, so a policy or an
+// OIDC provider left by an unrelated process sits exactly where a new one would
+// go. Reusing it attaches a stranger's permissions to this cluster's
+// identities, and teardown then deletes it out from under its real owner.
+func TestRefuseUnownedIamResource(t *testing.T) {
+	want := tpaws.IamTags("some-policy", ThreeportProviderTags())
+
+	assert.NoError(
+		t, refuseUnownedIamResource("policy", "some-policy", want, want),
+		"a resource carrying threeport's tags is ours to use",
+	)
+
+	// the same key with a different value is the dangerous case: another
+	// threeport install, or another cluster of a different name
+	foreign := []types.Tag{{Key: aws.String("Name"), Value: aws.String("someone-elses")}}
+	err := refuseUnownedIamResource("policy", "some-policy", foreign, want)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "policy")
+	assert.Contains(t, err.Error(), "not created by threeport")
+
+	assert.Error(
+		t, refuseUnownedIamResource("OIDC provider", "arn:aws:iam::1:oidc-provider/x", nil, want),
+		"an untagged resource is not ours either",
+	)
 }

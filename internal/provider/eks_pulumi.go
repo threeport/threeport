@@ -45,21 +45,43 @@ func eksSubnetCidrs() []string {
 	}
 }
 
-// ensurePulumiProjectDefaults sets Pulumi project metadata when not provided by callers.
-func (i *KubernetesRuntimeInfraEKS) ensurePulumiProjectDefaults() {
+// InitPulumiProject fills in the Pulumi project identity and stack config, and
+// returns the receiver so a caller can set it at construction.
+//
+// It has to be called before the infra is handed to the lifecycle, not from
+// CreateInfra. executeInfraCreate starts the fsnotify watcher that streams
+// partial state to the API before it calls DeployInfra, and the watched path is
+// built from ProjectName: setting it later means the watcher reads an empty
+// name, watches one directory above where Pulumi writes, and never fires - so a
+// controller that crashes mid-provision has persisted nothing and a retry
+// starts over, leaving the first attempt's resources behind. Setting it here
+// also keeps the two goroutines from racing on the same field.
+const (
+	eksPulumiProjectName        = "eks"
+	eksPulumiProjectDescription = "Elastic Kubernetes Service (EKS) cluster for Threeport"
+)
+
+// InitPulumiProject fills in the Pulumi project identity and stack config, and
+// returns the receiver so a caller can set it at construction.
+//
+// It has to be called before the infra is handed to the lifecycle, not from
+// CreateInfra. executeInfraCreate starts the fsnotify watcher that streams
+// partial state to the API before it calls DeployInfra, and the watched path is
+// built from ProjectName: setting it later means the watcher reads an empty
+// name, watches one directory above where Pulumi writes, and never fires - so a
+// controller that crashes mid-provision has persisted nothing and a retry
+// starts over, leaving the first attempt's resources behind. Setting it here
+// also keeps the two goroutines from racing on the same field.
+func (i *KubernetesRuntimeInfraEKS) InitPulumiProject() *KubernetesRuntimeInfraEKS {
 	if i.ProjectName == "" {
-		i.ProjectName = "eks"
+		i.ProjectName = eksPulumiProjectName
 	}
 	if i.ProjectDescription == "" {
-		i.ProjectDescription = "Elastic Kubernetes Service (EKS) cluster for Threeport"
+		i.ProjectDescription = eksPulumiProjectDescription
 	}
-}
+	i.StackConfigs = map[string]string{"aws:region": i.Region}
 
-// syncStackConfigs updates stack config keys from the current region.
-func (i *KubernetesRuntimeInfraEKS) syncStackConfigs() {
-	i.StackConfigs = map[string]string{
-		"aws:region": i.Region,
-	}
+	return i
 }
 
 // zoneCount returns how many availability zones the cluster spans, bounded by

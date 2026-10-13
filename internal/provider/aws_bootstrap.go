@@ -6,8 +6,10 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awseks "github.com/aws/aws-sdk-go-v2/service/eks"
@@ -282,26 +284,24 @@ func (i *KubernetesRuntimeInfraEKS) irsaRoles() []eksIrsaRole {
 	}
 }
 
-// iamTags returns the tags applied to the IAM resources created for the
-// cluster.
-func (i *KubernetesRuntimeInfraEKS) iamTags(name string) []types.Tag {
-	tags := []types.Tag{{Key: aws.String("Name"), Value: aws.String(name)}}
-	for key, value := range ThreeportProviderTags() {
-		tags = append(tags, types.Tag{Key: aws.String(key), Value: aws.String(value)})
-	}
-
-	return tags
-}
-
 // CreateClusterIam creates the IAM roles the EKS cluster and its worker nodes
 // assume, and records their ARNs on the infra object for the Pulumi program to
 // provision with.  It runs before the stack because EKS will not create a
 // cluster without them.
 func (i *KubernetesRuntimeInfraEKS) CreateClusterIam() error {
+	if i.AwsConfig == nil {
+		return fmt.Errorf("cannot create the cluster IAM roles without an AWS config")
+	}
+
+	// a deadline for the whole bootstrap, not per call: there is no context to
+	// inherit, and without one a single stuck IAM call hangs the reconciler
+	ctx, cancel := context.WithTimeout(context.Background(), iamBootstrapTimeout)
+	defer cancel()
+
 	iamClient := iam.NewFromConfig(*i.AwsConfig)
 
 	clusterRoleName := tpaws.EksClusterRoleName(i.RuntimeInstanceName)
-	clusterRole, err := i.createIamRole(
+	clusterRole, err := i.createIamRole(ctx,
 		iamClient,
 		clusterRoleName,
 		"",
@@ -310,13 +310,13 @@ func (i *KubernetesRuntimeInfraEKS) CreateClusterIam() error {
 	if err != nil {
 		return fmt.Errorf("failed to create EKS cluster role: %w", err)
 	}
-	if err := attachIamPolicy(iamClient, clusterRoleName, tpaws.EksClusterPolicyArn); err != nil {
+	if err := attachIamPolicy(ctx, iamClient, clusterRoleName, tpaws.EksClusterPolicyArn); err != nil {
 		return err
 	}
 	i.ClusterRoleArn = *clusterRole.Arn
 
 	nodeRoleName := tpaws.EksNodeRoleName(i.RuntimeInstanceName)
-	nodeRole, err := i.createIamRole(
+	nodeRole, err := i.createIamRole(ctx,
 		iamClient,
 		nodeRoleName,
 		"",
@@ -331,7 +331,7 @@ func (i *KubernetesRuntimeInfraEKS) CreateClusterIam() error {
 		tpaws.EksCniPolicyArn,
 	}
 	for _, policyArn := range nodePolicyArns {
-		if err := attachIamPolicy(iamClient, nodeRoleName, policyArn); err != nil {
+		if err := attachIamPolicy(ctx, iamClient, nodeRoleName, policyArn); err != nil {
 			return err
 		}
 	}
@@ -345,13 +345,22 @@ func (i *KubernetesRuntimeInfraEKS) CreateClusterIam() error {
 // the EBS CSI addon bound to the storage management role.  It runs after the
 // stack because the issuer URL only exists once the cluster does.
 func (i *KubernetesRuntimeInfraEKS) CreateIrsaIam() error {
+	if i.AwsConfig == nil {
+		return fmt.Errorf("cannot create the IRSA roles without an AWS config")
+	}
+
+	// a deadline for the whole bootstrap, not per call: there is no context to
+	// inherit, and without one a single stuck IAM call hangs the reconciler
+	ctx, cancel := context.WithTimeout(context.Background(), iamBootstrapTimeout)
+	defer cancel()
+
 	oidcIssuerUrl, err := tpaws.EksOidcIssuerUrl(i.AwsConfig, i.RuntimeInstanceName)
 	if err != nil {
 		return err
 	}
 
 	iamClient := iam.NewFromConfig(*i.AwsConfig)
-	if _, err := i.createOidcProvider(iamClient, oidcIssuerUrl); err != nil {
+	if _, err := i.createOidcProvider(ctx, iamClient, oidcIssuerUrl); err != nil {
 		return fmt.Errorf("failed to create OIDC identity provider: %w", err)
 	}
 
@@ -367,7 +376,7 @@ func (i *KubernetesRuntimeInfraEKS) CreateIrsaIam() error {
 			irsaRole.serviceAccountNamespace,
 			irsaRole.serviceAccountName,
 		)
-		role, err := i.createIamRole(
+		role, err := i.createIamRole(ctx,
 			iamClient,
 			irsaRole.roleName,
 			irsaRole.rolePath,
@@ -379,12 +388,12 @@ func (i *KubernetesRuntimeInfraEKS) CreateIrsaIam() error {
 
 		policyArn := irsaRole.managedPolicyArn
 		if policyArn == "" {
-			policyArn, err = i.createIamPolicy(iamClient, irsaRole)
+			policyArn, err = i.createIamPolicy(ctx, iamClient, irsaRole)
 			if err != nil {
 				return fmt.Errorf("failed to create policy %s: %w", irsaRole.policyName, err)
 			}
 		}
-		if err := attachIamPolicy(iamClient, irsaRole.roleName, policyArn); err != nil {
+		if err := attachIamPolicy(ctx, iamClient, irsaRole.roleName, policyArn); err != nil {
 			return err
 		}
 
@@ -393,7 +402,7 @@ func (i *KubernetesRuntimeInfraEKS) CreateIrsaIam() error {
 		}
 	}
 
-	if err := i.createEbsStorageAddon(storageManagementRoleArn); err != nil {
+	if err := i.createEbsStorageAddon(ctx, storageManagementRoleArn); err != nil {
 		return fmt.Errorf("failed to create EBS storage addon: %w", err)
 	}
 
@@ -405,6 +414,15 @@ func (i *KubernetesRuntimeInfraEKS) CreateIrsaIam() error {
 // the cluster and node roles.  The EBS CSI addon needs no cleanup of its own
 // because deleting the cluster takes its addons with it.
 func (i *KubernetesRuntimeInfraEKS) DeleteEksIam() error {
+	if i.AwsConfig == nil {
+		return fmt.Errorf("cannot delete the EKS IAM resources without an AWS config")
+	}
+
+	// a deadline for the whole bootstrap, not per call: there is no context to
+	// inherit, and without one a single stuck IAM call hangs the reconciler
+	ctx, cancel := context.WithTimeout(context.Background(), iamBootstrapTimeout)
+	defer cancel()
+
 	iamClient := iam.NewFromConfig(*i.AwsConfig)
 
 	// collect failures rather than returning on the first one, so that one
@@ -413,19 +431,19 @@ func (i *KubernetesRuntimeInfraEKS) DeleteEksIam() error {
 	var deleteErrors []error
 
 	for _, irsaRole := range i.irsaRoles() {
-		if err := deleteIamRole(iamClient, irsaRole.roleName, i.iamTags(irsaRole.roleName)); err != nil {
+		if err := deleteIamRole(ctx, iamClient, irsaRole.roleName, tpaws.IamTags(irsaRole.roleName, ThreeportProviderTags())); err != nil {
 			deleteErrors = append(deleteErrors, err)
 		}
 		if irsaRole.policyName == "" {
 			continue
 		}
 		policyArn := i.iamPolicyArn(irsaRole)
-		if err := deleteIamPolicy(iamClient, policyArn); err != nil {
+		if err := deleteIamPolicy(ctx, iamClient, policyArn, tpaws.IamTags(irsaRole.policyName, ThreeportProviderTags())); err != nil {
 			deleteErrors = append(deleteErrors, err)
 		}
 	}
 
-	if err := i.deleteOidcProvider(iamClient); err != nil {
+	if err := i.deleteOidcProvider(ctx, iamClient); err != nil {
 		deleteErrors = append(deleteErrors, err)
 	}
 
@@ -433,7 +451,7 @@ func (i *KubernetesRuntimeInfraEKS) DeleteEksIam() error {
 		tpaws.EksNodeRoleName(i.RuntimeInstanceName),
 		tpaws.EksClusterRoleName(i.RuntimeInstanceName),
 	} {
-		if err := deleteIamRole(iamClient, roleName, i.iamTags(roleName)); err != nil {
+		if err := deleteIamRole(ctx, iamClient, roleName, tpaws.IamTags(roleName, ThreeportProviderTags())); err != nil {
 			deleteErrors = append(deleteErrors, err)
 		}
 	}
@@ -443,8 +461,7 @@ func (i *KubernetesRuntimeInfraEKS) DeleteEksIam() error {
 
 // createIamRole creates a role with the given trust policy, returning the
 // existing role when one by that name is already there.
-func (i *KubernetesRuntimeInfraEKS) createIamRole(
-	iamClient *iam.Client,
+func (i *KubernetesRuntimeInfraEKS) createIamRole(ctx context.Context, iamClient *iam.Client,
 	roleName string,
 	rolePath string,
 	trustPolicyDocument string,
@@ -456,32 +473,65 @@ func (i *KubernetesRuntimeInfraEKS) createIamRole(
 	createRoleInput := iam.CreateRoleInput{
 		RoleName:                 aws.String(roleName),
 		AssumeRolePolicyDocument: aws.String(trustPolicyDocument),
-		Tags:                     i.iamTags(roleName),
+		Tags:                     tpaws.IamTags(roleName, ThreeportProviderTags()),
 	}
 	if rolePath != "" {
 		createRoleInput.Path = aws.String(rolePath)
 	}
 
-	createRoleOutput, err := iamClient.CreateRole(context.Background(), &createRoleInput)
+	createRoleOutput, err := iamClient.CreateRole(ctx, &createRoleInput)
 	if err == nil {
 		return createRoleOutput.Role, nil
 	}
-	if !isAwsErrorCode(err, "EntityAlreadyExists") {
+	if !IsAwsErrorCode(err, "EntityAlreadyExists") {
 		return nil, fmt.Errorf("failed to create role %s: %w", roleName, err)
 	}
 
 	getRoleOutput, err := iamClient.GetRole(
-		context.Background(),
+		ctx,
 		&iam.GetRoleInput{RoleName: aws.String(roleName)},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get existing role %s: %w", roleName, err)
 	}
-	if err := refuseUnownedRole(getRoleOutput.Role, i.iamTags(roleName)); err != nil {
+	if err := refuseUnownedRole(getRoleOutput.Role, tpaws.IamTags(roleName, ThreeportProviderTags())); err != nil {
 		return nil, err
 	}
 
 	return getRoleOutput.Role, nil
+}
+
+// oidcIssuerDialTimeout bounds the TLS dial to the cluster's OIDC issuer.
+const oidcIssuerDialTimeout = 10 * time.Second
+
+// iamBootstrapTimeout bounds a whole IAM bootstrap or teardown.
+//
+// None of CreateInfra, Delete, DeployInfra or DestroyInfra takes a context -
+// that is the shared InfraProvider interface GCP and OCI implement too - so
+// there is no external cancellation to propagate. Deriving a deadline at each
+// entry point is the part that can be done without changing that interface,
+// and it keeps a stuck AWS call from hanging the reconciler forever: DeleteEksIam
+// alone makes fifteen to twenty sequential IAM calls.
+const iamBootstrapTimeout = 10 * time.Minute
+
+// refuseUnownedIamResource reports whether an IAM resource that already exists
+// carries threeport's tags, and refuses it when it does not.
+//
+// The names and paths this file builds are deterministic per cluster, so a
+// resource left by an unrelated process - or by a partially torn down cluster
+// of the same name - sits exactly where a new one would go. Reusing it attaches
+// a stranger's permissions to this cluster's identities, and the teardown then
+// deletes it out from under whoever does own it.
+func refuseUnownedIamResource(kind, name string, have, want []types.Tag) error {
+	if iamTagsMatch(have, want) {
+		return nil
+	}
+
+	return fmt.Errorf(
+		"IAM %s %s already exists and was not created by threeport; "+
+			"rename the kubernetes runtime instance or remove it",
+		kind, name,
+	)
 }
 
 // refuseUnownedRole rejects an existing role that threeport did not create.
@@ -510,8 +560,7 @@ func refuseUnownedRole(role *types.Role, wantTags []types.Tag) error {
 // iamPolicyArn returns the ARN of the customer managed policy for an IRSA
 // role.
 func (i *KubernetesRuntimeInfraEKS) iamPolicyArn(irsaRole eksIrsaRole) string {
-	return fmt.Sprintf(
-		"arn:aws:iam::%s:policy%s%s",
+	return tpaws.IamPolicyArn(
 		i.AwsAccountID,
 		tpaws.EksIamPath(i.RuntimeInstanceName),
 		irsaRole.policyName,
@@ -521,62 +570,79 @@ func (i *KubernetesRuntimeInfraEKS) iamPolicyArn(irsaRole eksIrsaRole) string {
 // createIamPolicy creates the customer managed policy for an IRSA role,
 // returning the ARN of the existing policy when one by that name is already
 // there.
-func (i *KubernetesRuntimeInfraEKS) createIamPolicy(
-	iamClient *iam.Client,
+func (i *KubernetesRuntimeInfraEKS) createIamPolicy(ctx context.Context, iamClient *iam.Client,
 	irsaRole eksIrsaRole,
 ) (string, error) {
-	createPolicyOutput, err := iamClient.CreatePolicy(context.Background(), &iam.CreatePolicyInput{
+	createPolicyOutput, err := iamClient.CreatePolicy(ctx, &iam.CreatePolicyInput{
 		PolicyName:     aws.String(irsaRole.policyName),
 		Path:           aws.String(tpaws.EksIamPath(i.RuntimeInstanceName)),
 		Description:    aws.String(irsaRole.policyDescription),
 		PolicyDocument: aws.String(irsaRole.policyDocument),
-		Tags:           i.iamTags(irsaRole.policyName),
+		Tags:           tpaws.IamTags(irsaRole.policyName, ThreeportProviderTags()),
 	})
 	if err == nil {
 		return *createPolicyOutput.Policy.Arn, nil
 	}
-	if !isAwsErrorCode(err, "EntityAlreadyExists") {
+	if !IsAwsErrorCode(err, "EntityAlreadyExists") {
 		return "", err
 	}
 
-	return i.iamPolicyArn(irsaRole), nil
+	// a policy already at this name is only safe to attach if threeport put it
+	// there; otherwise this would hand the new IRSA role whatever permissions a
+	// stranger's policy carries
+	policyArn := i.iamPolicyArn(irsaRole)
+	getPolicyOutput, err := iamClient.GetPolicy(
+		ctx,
+		&iam.GetPolicyInput{PolicyArn: aws.String(policyArn)},
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to check ownership of existing policy %s: %w", policyArn, err)
+	}
+	if getPolicyOutput.Policy == nil {
+		return "", fmt.Errorf("IAM returned no policy to check ownership of at %s", policyArn)
+	}
+	if err := refuseUnownedIamResource(
+		"policy", irsaRole.policyName, getPolicyOutput.Policy.Tags, tpaws.IamTags(irsaRole.policyName, ThreeportProviderTags()),
+	); err != nil {
+		return "", err
+	}
+
+	return policyArn, nil
 }
 
 // createOidcProvider registers the cluster's OIDC issuer as an identity
 // provider in IAM, which is what lets a Kubernetes service account assume an
 // IAM role.
-func (i *KubernetesRuntimeInfraEKS) createOidcProvider(
-	iamClient *iam.Client,
+func (i *KubernetesRuntimeInfraEKS) createOidcProvider(ctx context.Context, iamClient *iam.Client,
 	oidcIssuerUrl string,
 ) (string, error) {
-	thumbprint, err := oidcIssuerThumbprint(oidcIssuerUrl)
+	thumbprint, err := oidcIssuerThumbprint(ctx, oidcIssuerUrl)
 	if err != nil {
 		return "", err
 	}
 
 	createProviderOutput, err := iamClient.CreateOpenIDConnectProvider(
-		context.Background(),
+		ctx,
 		&iam.CreateOpenIDConnectProviderInput{
 			Url:            aws.String(oidcIssuerUrl),
 			ClientIDList:   []string{"sts.amazonaws.com"},
 			ThumbprintList: []string{thumbprint},
-			Tags:           i.iamTags(i.RuntimeInstanceName),
+			Tags:           tpaws.IamTags(i.RuntimeInstanceName, ThreeportProviderTags()),
 		},
 	)
 	if err == nil {
 		return *createProviderOutput.OpenIDConnectProviderArn, nil
 	}
-	if !isAwsErrorCode(err, "EntityAlreadyExists") {
+	if !IsAwsErrorCode(err, "EntityAlreadyExists") {
 		return "", err
 	}
 
-	return i.findOidcProviderArn(iamClient, oidcIssuerUrl)
+	return i.findOidcProviderArn(ctx, iamClient, oidcIssuerUrl)
 }
 
 // findOidcProviderArn returns the ARN of the identity provider registered for
 // an issuer URL.
-func (i *KubernetesRuntimeInfraEKS) findOidcProviderArn(
-	iamClient *iam.Client,
+func (i *KubernetesRuntimeInfraEKS) findOidcProviderArn(ctx context.Context, iamClient *iam.Client,
 	oidcIssuerUrl string,
 ) (string, error) {
 	// the provider's ARN ends in the issuer URL without its scheme, so the
@@ -584,7 +650,7 @@ func (i *KubernetesRuntimeInfraEKS) findOidcProviderArn(
 	oidcProvider := strings.TrimPrefix(oidcIssuerUrl, "https://")
 
 	listProvidersOutput, err := iamClient.ListOpenIDConnectProviders(
-		context.Background(),
+		ctx,
 		&iam.ListOpenIDConnectProvidersInput{},
 	)
 	if err != nil {
@@ -599,37 +665,44 @@ func (i *KubernetesRuntimeInfraEKS) findOidcProviderArn(
 	return "", fmt.Errorf("failed to find OIDC identity provider for issuer %s", oidcIssuerUrl)
 }
 
-// findOidcProviderArnByTag returns the ARN of the identity provider tagged as
-// belonging to this cluster, or an empty string when there is none.
-func (i *KubernetesRuntimeInfraEKS) findOidcProviderArnByTag(iamClient *iam.Client) (string, error) {
+// findOidcProviderArnsByTag returns the ARNs of every identity provider tagged
+// as belonging to this cluster.
+//
+// All of them, not the first: OIDC providers have no names, only tags, so a
+// cluster recreated after an incomplete teardown can leave two carrying the
+// same tags. Returning one would delete one and orphan the other - which the
+// leak detection in pkg/aws/v0/inventory.go exists to catch, and which it
+// would then report on every run with nothing able to clear it.
+func (i *KubernetesRuntimeInfraEKS) findOidcProviderArnsByTag(ctx context.Context, iamClient *iam.Client) ([]string, error) {
 	listProvidersOutput, err := iamClient.ListOpenIDConnectProviders(
-		context.Background(),
+		ctx,
 		&iam.ListOpenIDConnectProvidersInput{},
 	)
 	if err != nil {
-		return "", fmt.Errorf("failed to list OIDC identity providers: %w", err)
+		return nil, fmt.Errorf("failed to list OIDC identity providers: %w", err)
 	}
 
+	var arns []string
 	for _, provider := range listProvidersOutput.OpenIDConnectProviderList {
 		if provider.Arn == nil {
 			continue
 		}
 		getProviderOutput, err := iamClient.GetOpenIDConnectProvider(
-			context.Background(),
+			ctx,
 			&iam.GetOpenIDConnectProviderInput{OpenIDConnectProviderArn: provider.Arn},
 		)
 		if err != nil {
 			if isIamNotFound(err) {
 				continue
 			}
-			return "", fmt.Errorf("failed to get OIDC identity provider %s: %w", *provider.Arn, err)
+			return nil, fmt.Errorf("failed to get OIDC identity provider %s: %w", *provider.Arn, err)
 		}
-		if iamTagsMatch(getProviderOutput.Tags, i.iamTags(i.RuntimeInstanceName)) {
-			return *provider.Arn, nil
+		if iamTagsMatch(getProviderOutput.Tags, tpaws.IamTags(i.RuntimeInstanceName, ThreeportProviderTags())) {
+			arns = append(arns, *provider.Arn)
 		}
 	}
 
-	return "", nil
+	return arns, nil
 }
 
 // iamTagsMatch reports whether every tag in want is present in have with the
@@ -659,42 +732,52 @@ func iamTagsMatch(have, want []types.Tag) bool {
 // The provider is found by its tags rather than by the cluster's issuer URL,
 // because by the time IAM is cleaned up the cluster that would report that URL
 // is usually already destroyed.
-func (i *KubernetesRuntimeInfraEKS) deleteOidcProvider(iamClient *iam.Client) error {
-	oidcProviderArn, err := i.findOidcProviderArnByTag(iamClient)
+func (i *KubernetesRuntimeInfraEKS) deleteOidcProvider(ctx context.Context, iamClient *iam.Client) error {
+	oidcProviderArns, err := i.findOidcProviderArnsByTag(ctx, iamClient)
 	if err != nil {
 		return err
 	}
-	if oidcProviderArn == "" {
-		// nothing was registered for this cluster, or it is already gone
-		return nil
+
+	// every match, so an earlier incomplete teardown cannot leave one behind
+	var deleteErrors []error
+	for _, oidcProviderArn := range oidcProviderArns {
+		_, err := iamClient.DeleteOpenIDConnectProvider(
+			ctx,
+			&iam.DeleteOpenIDConnectProviderInput{OpenIDConnectProviderArn: aws.String(oidcProviderArn)},
+		)
+		if err != nil && !isIamNotFound(err) {
+			deleteErrors = append(deleteErrors, fmt.Errorf(
+				"failed to delete OIDC identity provider %s: %w", oidcProviderArn, err,
+			))
+		}
 	}
 
-	_, err = iamClient.DeleteOpenIDConnectProvider(
-		context.Background(),
-		&iam.DeleteOpenIDConnectProviderInput{OpenIDConnectProviderArn: aws.String(oidcProviderArn)},
-	)
-	if err != nil && !isIamNotFound(err) {
-		return fmt.Errorf("failed to delete OIDC identity provider %s: %w", oidcProviderArn, err)
-	}
-
-	return nil
+	return errors.Join(deleteErrors...)
 }
 
 // createEbsStorageAddon installs the EBS CSI driver on the cluster, running as
 // the storage management role.
-func (i *KubernetesRuntimeInfraEKS) createEbsStorageAddon(storageManagementRoleArn string) error {
+func (i *KubernetesRuntimeInfraEKS) createEbsStorageAddon(ctx context.Context, storageManagementRoleArn string) error {
+	if i.AwsConfig == nil {
+		return errors.New("cannot create the EBS storage addon without an AWS config")
+	}
+
+	// a deadline for the whole bootstrap, not per call: there is no context to
+	// inherit, and without one a single stuck IAM call hangs the reconciler
+	ctx, cancel := context.WithTimeout(context.Background(), iamBootstrapTimeout)
+	defer cancel()
 	if storageManagementRoleArn == "" {
 		return errors.New("no storage management role to bind the EBS storage addon to")
 	}
 
 	eksClient := awseks.NewFromConfig(*i.AwsConfig)
-	_, err := eksClient.CreateAddon(context.Background(), &awseks.CreateAddonInput{
+	_, err := eksClient.CreateAddon(ctx, &awseks.CreateAddonInput{
 		AddonName:             aws.String(tpaws.EksEbsStorageAddonName),
 		ClusterName:           aws.String(i.RuntimeInstanceName),
 		ServiceAccountRoleArn: aws.String(storageManagementRoleArn),
 		Tags:                  ThreeportProviderTags(),
 	})
-	if err != nil && !isAwsErrorCode(err, "ResourceInUseException") {
+	if err != nil && !IsAwsErrorCode(err, "ResourceInUseException") {
 		return err
 	}
 
@@ -704,13 +787,21 @@ func (i *KubernetesRuntimeInfraEKS) createEbsStorageAddon(storageManagementRoleA
 // oidcIssuerThumbprint returns the SHA1 thumbprint of the root certificate the
 // OIDC issuer presents, which IAM requires to register the issuer as an
 // identity provider.
-func oidcIssuerThumbprint(oidcIssuerUrl string) (string, error) {
+func oidcIssuerThumbprint(ctx context.Context, oidcIssuerUrl string) (string, error) {
 	issuerUrl, err := url.Parse(oidcIssuerUrl)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse OIDC issuer URL: %w", err)
 	}
 
-	conn, err := tls.Dial("tcp", fmt.Sprintf("%s:443", issuerUrl.Hostname()), &tls.Config{})
+	// bounded: an unreachable issuer - a security group or route that black
+	// holes egress - otherwise hangs for the OS's full TCP retransmit timeout,
+	// stalling the whole cluster create with nothing able to cancel it
+	conn, err := tls.DialWithDialer(
+		&net.Dialer{Timeout: oidcIssuerDialTimeout},
+		"tcp",
+		fmt.Sprintf("%s:443", issuerUrl.Hostname()),
+		&tls.Config{},
+	)
 	if err != nil {
 		return "", fmt.Errorf("failed to connect to OIDC issuer %s: %w", issuerUrl.Hostname(), err)
 	}
@@ -731,8 +822,8 @@ func oidcIssuerThumbprint(oidcIssuerUrl string) (string, error) {
 // AWS does not document AttachRolePolicy as idempotent, and its own examples
 // check before attaching, so a role that already carries the policy is left
 // alone rather than relying on the call being harmless.
-func attachIamPolicy(iamClient *iam.Client, roleName, policyArn string) error {
-	attachedPolicies, err := listAttachedPolicies(iamClient, roleName)
+func attachIamPolicy(ctx context.Context, iamClient *iam.Client, roleName, policyArn string) error {
+	attachedPolicies, err := listAttachedPolicies(ctx, iamClient, roleName)
 	if err != nil {
 		return err
 	}
@@ -742,7 +833,7 @@ func attachIamPolicy(iamClient *iam.Client, roleName, policyArn string) error {
 		}
 	}
 
-	_, err = iamClient.AttachRolePolicy(context.Background(), &iam.AttachRolePolicyInput{
+	_, err = iamClient.AttachRolePolicy(ctx, &iam.AttachRolePolicyInput{
 		RoleName:  aws.String(roleName),
 		PolicyArn: aws.String(policyArn),
 	})
@@ -754,7 +845,7 @@ func attachIamPolicy(iamClient *iam.Client, roleName, policyArn string) error {
 }
 
 // listAttachedPolicies returns every managed policy attached to a role.
-func listAttachedPolicies(iamClient *iam.Client, roleName string) ([]types.AttachedPolicy, error) {
+func listAttachedPolicies(ctx context.Context, iamClient *iam.Client, roleName string) ([]types.AttachedPolicy, error) {
 	var attachedPolicies []types.AttachedPolicy
 
 	paginator := iam.NewListAttachedRolePoliciesPaginator(
@@ -762,7 +853,7 @@ func listAttachedPolicies(iamClient *iam.Client, roleName string) ([]types.Attac
 		&iam.ListAttachedRolePoliciesInput{RoleName: aws.String(roleName)},
 	)
 	for paginator.HasMorePages() {
-		page, err := paginator.NextPage(context.Background())
+		page, err := paginator.NextPage(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to list policies attached to role %s: %w", roleName, err)
 		}
@@ -775,9 +866,9 @@ func listAttachedPolicies(iamClient *iam.Client, roleName string) ([]types.Attac
 // deleteIamRole detaches every policy attached to a role and deletes it.  A
 // role that is already gone is not an error, and a role threeport did not
 // create is left alone rather than deleted out from under its owner.
-func deleteIamRole(iamClient *iam.Client, roleName string, wantTags []types.Tag) error {
+func deleteIamRole(ctx context.Context, iamClient *iam.Client, roleName string, wantTags []types.Tag) error {
 	getRoleOutput, err := iamClient.GetRole(
-		context.Background(),
+		ctx,
 		&iam.GetRoleInput{RoleName: aws.String(roleName)},
 	)
 	if err != nil {
@@ -790,12 +881,12 @@ func deleteIamRole(iamClient *iam.Client, roleName string, wantTags []types.Tag)
 		return err
 	}
 
-	return deleteOwnedIamRole(iamClient, roleName)
+	return deleteOwnedIamRole(ctx, iamClient, roleName)
 }
 
 // deleteOwnedIamRole removes a role once its ownership has been established.
-func deleteOwnedIamRole(iamClient *iam.Client, roleName string) error {
-	attachedPolicies, err := listAttachedPolicies(iamClient, roleName)
+func deleteOwnedIamRole(ctx context.Context, iamClient *iam.Client, roleName string) error {
+	attachedPolicies, err := listAttachedPolicies(ctx, iamClient, roleName)
 	if err != nil {
 		if isIamNotFound(err) {
 			return nil
@@ -807,7 +898,7 @@ func deleteOwnedIamRole(iamClient *iam.Client, roleName string) error {
 	// attached set is read from AWS rather than from a record of what was
 	// attached, so a policy added out of band does not block the delete
 	for _, attachedPolicy := range attachedPolicies {
-		_, err := iamClient.DetachRolePolicy(context.Background(), &iam.DetachRolePolicyInput{
+		_, err := iamClient.DetachRolePolicy(ctx, &iam.DetachRolePolicyInput{
 			RoleName:  aws.String(roleName),
 			PolicyArn: attachedPolicy.PolicyArn,
 		})
@@ -820,7 +911,7 @@ func deleteOwnedIamRole(iamClient *iam.Client, roleName string) error {
 	}
 
 	_, err = iamClient.DeleteRole(
-		context.Background(),
+		ctx,
 		&iam.DeleteRoleInput{RoleName: aws.String(roleName)},
 	)
 	if err != nil && !isIamNotFound(err) {
@@ -832,9 +923,31 @@ func deleteOwnedIamRole(iamClient *iam.Client, roleName string) error {
 
 // deleteIamPolicy deletes a customer managed policy along with any versions
 // it accumulated.  A policy that is already gone is not an error.
-func deleteIamPolicy(iamClient *iam.Client, policyArn string) error {
+func deleteIamPolicy(ctx context.Context, iamClient *iam.Client, policyArn string, wantTags []types.Tag) error {
+	// the ARN is deterministic per cluster, so a policy sitting at it may not
+	// be the one this cluster created - deleting that would take a policy away
+	// from whoever does own it
+	getPolicyOutput, err := iamClient.GetPolicy(
+		ctx,
+		&iam.GetPolicyInput{PolicyArn: aws.String(policyArn)},
+	)
+	if err != nil {
+		if isIamNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to check ownership of policy %s: %w", policyArn, err)
+	}
+	if getPolicyOutput.Policy == nil {
+		return fmt.Errorf("IAM returned no policy to check ownership of at %s", policyArn)
+	}
+	if err := refuseUnownedIamResource(
+		"policy", policyArn, getPolicyOutput.Policy.Tags, wantTags,
+	); err != nil {
+		return err
+	}
+
 	listVersionsOutput, err := iamClient.ListPolicyVersions(
-		context.Background(),
+		ctx,
 		&iam.ListPolicyVersionsInput{PolicyArn: aws.String(policyArn)},
 	)
 	if err != nil {
@@ -850,7 +963,7 @@ func deleteIamPolicy(iamClient *iam.Client, policyArn string) error {
 		if policyVersion.IsDefaultVersion {
 			continue
 		}
-		_, err := iamClient.DeletePolicyVersion(context.Background(), &iam.DeletePolicyVersionInput{
+		_, err := iamClient.DeletePolicyVersion(ctx, &iam.DeletePolicyVersionInput{
 			PolicyArn: aws.String(policyArn),
 			VersionId: policyVersion.VersionId,
 		})
@@ -863,7 +976,7 @@ func deleteIamPolicy(iamClient *iam.Client, policyArn string) error {
 	}
 
 	_, err = iamClient.DeletePolicy(
-		context.Background(),
+		ctx,
 		&iam.DeletePolicyInput{PolicyArn: aws.String(policyArn)},
 	)
 	if err != nil && !isIamNotFound(err) {
@@ -873,8 +986,8 @@ func deleteIamPolicy(iamClient *iam.Client, policyArn string) error {
 	return nil
 }
 
-// isAwsErrorCode reports whether an error is the named AWS API error.
-func isAwsErrorCode(err error, code string) bool {
+// IsAwsErrorCode reports whether an error is the named AWS API error.
+func IsAwsErrorCode(err error, code string) bool {
 	var apiErr smithy.APIError
 	if errors.As(err, &apiErr) {
 		return apiErr.ErrorCode() == code

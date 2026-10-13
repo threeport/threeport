@@ -33,20 +33,17 @@ func DeployEksInfra(
 	kubeConnectionInfo *kube.KubeConnectionInfo,
 	uninstaller *Uninstaller,
 	awsConfigUser *aws.Config,
-	// the caller reads this back - it installs system services with the
-	// account ID - so it is an out parameter rather than a value to rebind
-	callerIdentityOut **sts.GetCallerIdentityOutput,
 	awsConfigResourceManager *aws.Config,
-) error {
+) (*sts.GetCallerIdentityOutput, error) {
 	var callerIdentity *sts.GetCallerIdentityOutput
 
 	// create AWS config
 	awsConf, err := tpaws.LoadAwsConfig(
-		cpi.Opts.AwsConfigProfile,
+		awsConfigProfile(cpi.Opts),
 		cpi.Opts.AwsRegion,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to load AWS configuration with local config: %w", err)
+		return nil, fmt.Errorf("failed to load AWS configuration with local config: %w", err)
 	}
 	// write through the pointer rather than rebinding it: the caller holds a
 	// config this function is expected to fill in, and later steps - the
@@ -56,9 +53,8 @@ func DeployEksInfra(
 
 	// get account ID
 	if callerIdentity, err = provider.GetCallerIdentity(awsConf); err != nil {
-		return fmt.Errorf("failed to get caller identity: %w", err)
+		return nil, fmt.Errorf("failed to get caller identity: %w", err)
 	}
-	*callerIdentityOut = callerIdentity
 	Info(fmt.Sprintf("Successfully authenticated to account %s as %s", *callerIdentity.Account, *callerIdentity.Arn))
 
 	// update threeport config with eks provider info
@@ -69,7 +65,7 @@ func DeployEksInfra(
 			AwsAccountID:     *callerIdentity.Account,
 		}
 	}); err != nil {
-		return fmt.Errorf("failed to update threeport config: %w", err)
+		return nil, fmt.Errorf("failed to update threeport config: %w", err)
 	}
 
 	if !cpi.Opts.ControlPlaneOnly {
@@ -96,9 +92,9 @@ func DeployEksInfra(
 		if err != nil {
 			deleteErr := provider.DeleteResourceManagerRole(cpi.Opts.ControlPlaneName, *awsConfigUser)
 			if deleteErr != nil {
-				return fmt.Errorf("failed to create runtime manager role: %w, failed to delete IAM resources: %w", err, deleteErr)
+				return nil, fmt.Errorf("failed to create runtime manager role: %w, failed to delete IAM resources: %w", err, deleteErr)
 			}
-			return fmt.Errorf("failed to create runtime manager role: %w", err)
+			return nil, fmt.Errorf("failed to create runtime manager role: %w", err)
 		}
 	}
 
@@ -117,9 +113,9 @@ func DeployEksInfra(
 	if err != nil {
 		deleteErr := provider.DeleteResourceManagerRole(cpi.Opts.ControlPlaneName, *awsConfigUser)
 		if deleteErr != nil {
-			return fmt.Errorf("failed to assume role for AWS resource manager: %w, failed to delete IAM resources: %w", err, deleteErr)
+			return nil, fmt.Errorf("failed to assume role for AWS resource manager: %w, failed to delete IAM resources: %w", err, deleteErr)
 		}
-		return fmt.Errorf("failed to assume role for AWS resource manager: %w", err)
+		return nil, fmt.Errorf("failed to assume role for AWS resource manager: %w", err)
 	}
 
 	if !cpi.Opts.ControlPlaneOnly {
@@ -129,20 +125,20 @@ func DeployEksInfra(
 			if callerIdentity, err = provider.GetCallerIdentity(awsConfigResourceManager); err != nil {
 				return fmt.Errorf("failed to get caller identity: %w", err)
 			}
-			*callerIdentityOut = callerIdentity
 			Info(fmt.Sprintf("Successfully authenticated to account %s as %s", *callerIdentity.Account, *callerIdentity.Arn))
 
 			// wait 5 seconds to allow IAM resources to become available
 			time.Sleep(time.Second * 5)
 
 			Info("IAM resources created")
+
 			return nil
 		}); err != nil {
 			deleteErr := provider.DeleteResourceManagerRole(cpi.Opts.ControlPlaneName, *awsConfigUser)
 			if deleteErr != nil {
-				return fmt.Errorf("failed to wait for IAM resources to be available: %w, failed to delete IAM resources: %w", err, deleteErr)
+				return nil, fmt.Errorf("failed to wait for IAM resources to be available: %w, failed to delete IAM resources: %w", err, deleteErr)
 			}
-			return fmt.Errorf("failed to wait for IAM resources to be available: %w", err)
+			return nil, fmt.Errorf("failed to wait for IAM resources to be available: %w", err)
 		}
 	}
 
@@ -158,7 +154,7 @@ func DeployEksInfra(
 		provider.GetResourceManagerRoleArn(cpi.Opts.ControlPlaneName, *callerIdentity.Account),
 	)
 
-	kubernetesRuntimeInfraEKS := provider.KubernetesRuntimeInfraEKS{
+	kubernetesRuntimeInfraEKS := (&provider.KubernetesRuntimeInfraEKS{
 		RuntimeInstanceName:          runtimeInstanceName(cpi.Opts),
 		AwsAccountID:                 *callerIdentity.Account,
 		AwsConfig:                    awsConfigResourceManager,
@@ -169,8 +165,8 @@ func DeployEksInfra(
 		DefaultNodeGroupInitialNodes: int32(3),
 		DefaultNodeGroupMinNodes:     int32(3),
 		DefaultNodeGroupMaxNodes:     int32(250),
-	}
-	*kubernetesRuntimeInfra = &kubernetesRuntimeInfraEKS
+	}).InitPulumiProject()
+	*kubernetesRuntimeInfra = kubernetesRuntimeInfraEKS
 	uninstaller.kubernetesRuntimeInfra = *kubernetesRuntimeInfra
 
 	// delete eks kubernetes runtime resources if interrupted
@@ -190,17 +186,18 @@ func DeployEksInfra(
 	if cpi.Opts.ControlPlaneOnly {
 		connectionInfo, err := kubernetesRuntimeInfraEKS.GetConnection()
 		if err != nil {
-			return fmt.Errorf("failed to get connection info for eks kubernetes runtime: %w", err)
+			return nil, fmt.Errorf("failed to get connection info for eks kubernetes runtime: %w", err)
 		}
 		*kubeConnectionInfo = *connectionInfo
 	} else {
 		connectionInfo, err := (*kubernetesRuntimeInfra).Create()
 		if err != nil {
-			return uninstaller.cleanOnCreateError("failed to create control plane infra for threeport", err)
+			return nil, uninstaller.cleanOnCreateError("failed to create control plane infra for threeport", err)
 		}
 		*kubeConnectionInfo = *connectionInfo
 	}
-	return nil
+
+	return callerIdentity, nil
 }
 
 // ConfigureEksKubernetesRuntimeInstance configures the kubernetes runtime instance for the eks provider.
@@ -211,14 +208,11 @@ func ConfigureEksKubernetesRuntimeInstance(
 	awsConfigUser *aws.Config,
 	callerIdentity *sts.GetCallerIdentityOutput,
 	awsConfigResourceManager *aws.Config,
-	// the caller builds its Kubernetes client from this, so it is an out
-	// parameter rather than a value to rebind
-	kubernetesRuntimeInstanceOut **v0.KubernetesRuntimeInstance,
 	kubernetesRuntimeInstName string,
 	instReconciled bool,
 	controlPlaneHost bool,
 	defaultRuntime bool,
-) error {
+) (*v0.KubernetesRuntimeInstance, error) {
 	var err error
 
 	// update resource manager role to allow pods to assume it
@@ -227,7 +221,7 @@ func ConfigureEksKubernetesRuntimeInstance(
 		provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
 	)
 	if err != nil {
-		return uninstaller.cleanOnCreateError("failed to get EKS cluster OIDC issuer URL", err)
+		return nil, uninstaller.cleanOnCreateError("failed to get EKS cluster OIDC issuer URL", err)
 	}
 	if err = provider.UpdateResourceManagerRoleTrustPolicy(
 		cpi.Opts.Namespace,
@@ -238,15 +232,15 @@ func ConfigureEksKubernetesRuntimeInstance(
 		*awsConfigUser,
 		cpi.Opts.AdditionalAwsIrsaConditions,
 	); err != nil {
-		return uninstaller.cleanOnCreateError("failed to update resource manager role", err)
+		return nil, uninstaller.cleanOnCreateError("failed to update resource manager role", err)
 	}
 
 	location, err := mapping.GetLocationForAwsRegion(awsConfigResourceManager.Region)
 	if err != nil {
-		return uninstaller.cleanOnCreateError(fmt.Sprintf("failed to get threeport location for AWS region %s", awsConfigResourceManager.Region), err)
+		return nil, uninstaller.cleanOnCreateError(fmt.Sprintf("failed to get threeport location for AWS region %s", awsConfigResourceManager.Region), err)
 	}
 
-	*kubernetesRuntimeInstanceOut = &v0.KubernetesRuntimeInstance{
+	kubernetesRuntimeInstance := &v0.KubernetesRuntimeInstance{
 		Instance: v0.Instance{
 			Name: &kubernetesRuntimeInstName,
 		},
@@ -262,7 +256,7 @@ func ConfigureEksKubernetesRuntimeInstance(
 		DefaultRuntime:            &defaultRuntime,
 	}
 
-	return nil
+	return kubernetesRuntimeInstance, nil
 }
 
 // InstallEksKubernetesResources installs the kubernetes resources for the eks provider.
@@ -393,25 +387,34 @@ func ConfigureControlPlaneWithEksConfig(
 // PrepForEksDeletion prepares the control plane for deletion by deleting
 // the EKS kubernetes runtime instance and the AWS EKS kubernetes runtime
 // definition.
+// EksDeletionPrep is what PrepForEksDeletion resolves before a teardown can
+// start: the infra to destroy, and the two AWS configs the caller needs after
+// it - the resource manager's to refresh the cluster's auth token, and the
+// user's to delete the IAM resources.
+//
+// They are returned rather than written through out parameters. The earlier
+// shape needed a dedicated regression test because an assignment that looked
+// right - x = y instead of *x = *y - silently dropped the result, and the same
+// mistake was made four times across three functions. With real return values
+// there is no parameter left to shadow.
+type EksDeletionPrep struct {
+	Infra                    *provider.KubernetesRuntimeInfraEKS
+	AwsConfigUser            *aws.Config
+	AwsConfigResourceManager *aws.Config
+}
+
 func PrepForEksDeletion(
 	cpi *threeport.ControlPlaneInstaller,
 	threeportControlPlaneConfig *ControlPlane,
 	threeportConfig *ThreeportConfig,
-	// the caller reads both back - it refreshes the cluster's auth token with
-	// the resource manager config, and deletes IAM with the user config - so
-	// these are out parameters rather than values to rebind
-	awsConfigUserOut **aws.Config,
-	awsConfigResourceManagerOut **aws.Config,
 	requestedControlPlane string,
-) (*provider.KubernetesRuntimeInfraEKS, error) {
+) (*EksDeletionPrep, error) {
 	// AwsConfigProfile and AwsRegion cannot be passed in through the CLI for a
 	// deletion operation, as these are stored in threeport config
 	awsConfigUser, awsConfigResourceManager, accountId, err := threeportConfig.GetAwsConfigs(requestedControlPlane)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get AWS configs from threeport config: %w", err)
 	}
-	*awsConfigUserOut = awsConfigUser
-	*awsConfigResourceManagerOut = awsConfigResourceManager
 
 	// construct eks kubernetes runtime infra object - Pulumi reads the state
 	// of what it provisioned from its own state directory, so no inventory
@@ -421,15 +424,19 @@ func PrepForEksDeletion(
 		provider.GetResourceManagerRoleArn(threeportControlPlaneConfig.Name, accountId),
 	)
 
-	kubernetesRuntimeInfraEKS := &provider.KubernetesRuntimeInfraEKS{
+	kubernetesRuntimeInfraEKS := (&provider.KubernetesRuntimeInfraEKS{
 		RuntimeInstanceName: provider.ThreeportRuntimeName(threeportControlPlaneConfig.Name),
 		AwsAccountID:        accountId,
 		AwsConfig:           awsConfigResourceManager,
 		ProviderCredentials: providerCredentials,
 		Region:              awsConfigResourceManager.Region,
-	}
+	}).InitPulumiProject()
 
-	return kubernetesRuntimeInfraEKS, nil
+	return &EksDeletionPrep{
+		Infra:                    kubernetesRuntimeInfraEKS,
+		AwsConfigUser:            awsConfigUser,
+		AwsConfigResourceManager: awsConfigResourceManager,
+	}, nil
 
 }
 
@@ -466,4 +473,21 @@ func RefreshEKSConnectionWithLocalConfig(
 	kubernetesRuntimeInstance.ConnectionTokenExpiration = &eksClusterConn.TokenExpiration
 
 	return kubernetesRuntimeInstance, nil
+}
+
+// awsConfigProfile returns the shared config profile to load credentials from,
+// or an empty string when the user asked for environment credentials.
+//
+// --aws-config-env is documented as "retrieve AWS credentials from environment
+// variables", and a named profile defeats that: the SDK prefers the profile's
+// credentials over the environment's, and when the named profile is not on disk
+// - the ordinary case in CI, where nobody writes ~/.aws/config - the load fails
+// outright instead of falling back. Since --aws-config-profile defaults to
+// "default", one is always named unless this clears it.
+func awsConfigProfile(opts threeport.Options) string {
+	if opts.AwsConfigEnv {
+		return ""
+	}
+
+	return opts.AwsConfigProfile
 }

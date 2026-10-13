@@ -78,7 +78,7 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 			&iam.GetRoleInput{
 				RoleName: &roleName,
 			},
-		); err != nil && !provider.IsException(&err, nse.ErrorCode()) {
+		); err != nil && !provider.IsAwsErrorCode(err, nse.ErrorCode()) {
 			cli.Error("failed to get role", err)
 			os.Exit(1)
 		}

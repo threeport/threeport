@@ -322,7 +322,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return fmt.Errorf("failed to deploy kind infrastructure: %w", err)
 		}
 	case v0.KubernetesRuntimeInfraProviderEKS:
-		if err := DeployEksInfra(
+		deployedCallerIdentity, err := DeployEksInfra(
 			cpi,
 			threeportControlPlaneConfig,
 			threeportConfig,
@@ -330,11 +330,12 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			kubeConnectionInfo,
 			uninstaller,
 			&awsConfigUser,
-			&callerIdentity,
 			awsConfigResourceManager,
-		); err != nil {
+		)
+		if err != nil {
 			return fmt.Errorf("failed to deploy eks infrastructure: %w", err)
 		}
+		callerIdentity = deployedCallerIdentity
 	case v0.KubernetesRuntimeInfraProviderOKE:
 		if err := DeployOkeInfra(
 			cpi,
@@ -449,21 +450,22 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			Location:                  &location,
 		}
 	case v0.KubernetesRuntimeInfraProviderEKS:
-		if err := ConfigureEksKubernetesRuntimeInstance(
+		configuredRuntimeInstance, err := ConfigureEksKubernetesRuntimeInstance(
 			cpi,
 			kubeConnectionInfo,
 			uninstaller,
 			&awsConfigUser,
 			callerIdentity,
 			awsConfigResourceManager,
-			&kubernetesRuntimeInstance,
 			kubernetesRuntimeInstName,
 			instReconciled,
 			controlPlaneHost,
 			defaultRuntime,
-		); err != nil {
+		)
+		if err != nil {
 			return uninstaller.cleanOnCreateError("failed to configure eks kubernetes runtime instance", err)
 		}
+		kubernetesRuntimeInstance = configuredRuntimeInstance
 	case v0.KubernetesRuntimeInfraProviderOKE:
 		kubernetesRuntimeInfraOKE := kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraOKE)
 
@@ -1026,18 +1028,18 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		}
 		kubernetesRuntimeInfra = &kubernetesRuntimeInfraKind
 	case v0.KubernetesRuntimeInfraProviderEKS:
-		var kubernetesRuntimeInfraEKS *provider.KubernetesRuntimeInfraEKS
-		if kubernetesRuntimeInfraEKS, err = PrepForEksDeletion(
+		eksPrep, err := PrepForEksDeletion(
 			cpi,
 			threeportControlPlaneConfig,
 			threeportConfig,
-			&awsConfigUser,
-			&awsConfigResourceManager,
 			requestedControlPlane,
-		); err != nil {
-			return fmt.Errorf("")
+		)
+		if err != nil {
+			return fmt.Errorf("failed to prepare for eks deletion: %w", err)
 		}
-		kubernetesRuntimeInfra = kubernetesRuntimeInfraEKS
+		awsConfigUser = eksPrep.AwsConfigUser
+		awsConfigResourceManager = eksPrep.AwsConfigResourceManager
+		kubernetesRuntimeInfra = eksPrep.Infra
 	case v0.KubernetesRuntimeInfraProviderOKE:
 		kubernetesRuntimeInfraOKE := provider.KubernetesRuntimeInfraOKE{
 			PulumiWorkspace: provider.PulumiWorkspace{

@@ -18,7 +18,13 @@ import (
 const AssumeRoleSessionDuration = time.Hour
 
 // LoadAwsConfig loads an AWS config from the environment or a shared config
-// profile, overriding the region when one is given.
+// LoadAwsConfig builds an AWS config from a shared config profile and region.
+//
+// An empty configProfile means no profile is named at all, so the SDK resolves
+// credentials through its own chain - environment variables first. That is what
+// a caller passes when the user asked for environment credentials explicitly:
+// naming a profile would otherwise win over them, and naming one that is not on
+// disk fails the load outright rather than falling back.
 func LoadAwsConfig(configProfile, region string) (*aws.Config, error) {
 	awsConfig, err := config.LoadDefaultConfig(
 		context.Background(),

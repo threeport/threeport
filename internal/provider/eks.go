@@ -3,16 +3,13 @@ package provider
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/url"
-	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
-	"github.com/aws/smithy-go"
 	"gorm.io/datatypes"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
@@ -84,8 +81,6 @@ func (i *KubernetesRuntimeInfraEKS) Create() (*kube.KubeConnectionInfo, error) {
 // networking, the cluster and its node group with Pulumi, and then creates the
 // IAM that only exists once the cluster does.
 func (i *KubernetesRuntimeInfraEKS) CreateInfra() (*kube.KubeConnectionInfo, error) {
-	i.ensurePulumiProjectDefaults()
-	i.syncStackConfigs()
 
 	// EKS will not create a cluster or a node group without the roles they
 	// assume, so these come before the stack
@@ -127,8 +122,6 @@ func (i *KubernetesRuntimeInfraEKS) DestroyInfra() error {
 // Delete destroys an AWS EKS cluster and the IAM resources created alongside
 // it.
 func (i *KubernetesRuntimeInfraEKS) Delete() error {
-	i.ensurePulumiProjectDefaults()
-	i.syncStackConfigs()
 
 	if err := i.DestroyStack(); err != nil {
 		return fmt.Errorf("failed to destroy EKS stack: %w", err)
@@ -149,8 +142,6 @@ func (i *KubernetesRuntimeInfraEKS) Delete() error {
 
 // GetStackState returns the state of the EKS stack as a JSON object.
 func (i *KubernetesRuntimeInfraEKS) GetStackState() (*datatypes.JSON, error) {
-	i.ensurePulumiProjectDefaults()
-	i.syncStackConfigs()
 
 	return i.PulumiWorkspace.GetStackState()
 }
@@ -158,8 +149,6 @@ func (i *KubernetesRuntimeInfraEKS) GetStackState() (*datatypes.JSON, error) {
 // SetStackState restores Pulumi state from a JSON object (export or checkpoint
 // format).
 func (i *KubernetesRuntimeInfraEKS) SetStackState(state *datatypes.JSON) error {
-	i.ensurePulumiProjectDefaults()
-	i.syncStackConfigs()
 
 	return i.PulumiWorkspace.SetStackState(state)
 }
@@ -193,33 +182,11 @@ func DeleteResourceManagerRole(instanceName string, awsConfig aws.Config) error 
 	if err = deleteRole(
 		GetResourceManagerRoleName(instanceName),
 		awsConfig,
-	); err != nil && !IsException(&err, nse.ErrorCode()) {
+	); err != nil && !IsAwsErrorCode(err, nse.ErrorCode()) {
 		return fmt.Errorf("failed to delete role: %w", err)
 	}
 
 	return nil
-}
-
-// IsException returns true if the error is a specific exception,
-// otherwise it returns false and updates the error with additional context.
-func IsException(err *error, exception string) bool {
-	var ae smithy.APIError
-	var oe *smithy.OperationError
-	if errors.As(*err, &ae) {
-		if exception != "" && strings.Contains((*err).Error(), exception) {
-			return true
-		}
-		newError := fmt.Errorf("code: %s, message: %s, fault: %s", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
-		*err = newError
-	}
-	if errors.As(*err, &oe) {
-		if exception != "" && strings.Contains((*err).Error(), exception) {
-			return true
-		}
-		newError := fmt.Errorf("failed to call service: %s, operation: %s, error: %v", oe.Service(), oe.Operation(), oe.Unwrap())
-		*err = newError
-	}
-	return false
 }
 
 // CreateResourceManagerRole creates the IAM role needed for resource

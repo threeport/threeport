@@ -102,16 +102,22 @@ func (w *PulumiWorkspace) logError(err error, msg string) {
 // This clears stale pending operations and updates drifted resource properties.
 func (w *PulumiWorkspace) RefreshStack() error {
 	// set up Pulumi workspace and get stack
-	stack, err := w.SetupStack(func(ctx *pulumi.Context) error {
+	stack, refreshed, err := w.setupStack(func(ctx *pulumi.Context) error {
 		return nil
 	})
 	if err != nil {
 		return fmt.Errorf("failed to set up Pulumi workspace for refresh: %w", err)
 	}
 
-	ctx := context.Background()
+	// setupStack refreshes whenever the state file holds anything, which on
+	// this path it always does - executeInfraDelete writes ExistingState to
+	// disk before calling here. Refreshing again would read every resource in
+	// the stack from AWS a second time with nothing changed in between.
+	if refreshed {
+		return nil
+	}
 
-	// refresh the stack
+	ctx := context.Background()
 	if _, err := w.runRefresh(ctx, stack); err != nil {
 		return fmt.Errorf("failed to refresh stack: %w", err)
 	}
@@ -271,9 +277,22 @@ func (w *PulumiWorkspace) ReadStateFile() (*datatypes.JSON, error) {
 // from a previous run, it refreshes the stack to reconcile with cloud state
 // and clear pending operations from interrupted runs.
 func (w *PulumiWorkspace) SetupStack(program pulumi.RunFunc) (auto.Stack, error) {
+	stack, _, err := w.setupStack(program)
+
+	return stack, err
+}
+
+// setupStack is SetupStack, and additionally reports whether it refreshed the
+// stack on the way.
+//
+// A refresh issues a read to AWS for every resource the stack tracks - VPC,
+// subnets, NAT gateways, cluster, node group - so a caller that refreshes again
+// straight afterwards pays for the whole thing twice with nothing having
+// changed in between.
+func (w *PulumiWorkspace) setupStack(program pulumi.RunFunc) (auto.Stack, bool, error) {
 	workspace, err := w.initWorkspace(auto.Program(program))
 	if err != nil {
-		return auto.Stack{}, fmt.Errorf("failed to initialize Pulumi workspace: %w", err)
+		return auto.Stack{}, false, fmt.Errorf("failed to initialize Pulumi workspace: %w", err)
 	}
 
 	ctx := context.Background()
@@ -281,13 +300,13 @@ func (w *PulumiWorkspace) SetupStack(program pulumi.RunFunc) (auto.Stack, error)
 	// create or select a stack
 	stack, err := auto.UpsertStack(ctx, w.getStackName(), workspace)
 	if err != nil {
-		return auto.Stack{}, fmt.Errorf("failed to create/select stack: %w", err)
+		return auto.Stack{}, false, fmt.Errorf("failed to create/select stack: %w", err)
 	}
 
 	// set up stack configuration from provider-specific config map
 	for key, value := range w.StackConfigs {
 		if err := stack.SetConfig(ctx, key, auto.ConfigValue{Value: value}); err != nil {
-			return auto.Stack{}, fmt.Errorf("failed to set stack config %q: %w", key, err)
+			return auto.Stack{}, false, fmt.Errorf("failed to set stack config %q: %w", key, err)
 		}
 	}
 
@@ -295,6 +314,7 @@ func (w *PulumiWorkspace) SetupStack(program pulumi.RunFunc) (auto.Stack, error)
 	// cloud state to clear pending operations from interrupted runs before
 	// deploying. UpsertStack creates an empty state file, so check file
 	// size to distinguish real state from a freshly-initialized stack.
+	refreshed := false
 	stateFilePath, _ := w.GetStateFilePath()
 	if fi, err := os.Stat(stateFilePath); err == nil && fi.Size() > 0 {
 		w.logInfo("existing Pulumi state detected, reconciling with cloud state")
@@ -302,9 +322,10 @@ func (w *PulumiWorkspace) SetupStack(program pulumi.RunFunc) (auto.Stack, error)
 			// log but don't fail — the subsequent up may still succeed
 			w.logInfo("warning: failed to reconcile stack state", "error", refreshErr)
 		}
+		refreshed = true
 	}
 
-	return stack, nil
+	return stack, refreshed, nil
 }
 
 // RunUp runs Pulumi stack.Up with either structured logging or progress streams.
@@ -333,7 +354,7 @@ func (w *PulumiWorkspace) RunDestroy(ctx context.Context, stack auto.Stack) (aut
 // destroys resources, and removes the local state directory.
 func (w *PulumiWorkspace) DestroyStack() error {
 	// set up Pulumi workspace and get stack
-	stack, err := w.SetupStack(func(ctx *pulumi.Context) error {
+	stack, refreshed, err := w.setupStack(func(ctx *pulumi.Context) error {
 		return nil
 	})
 	if err != nil {
@@ -343,10 +364,14 @@ func (w *PulumiWorkspace) DestroyStack() error {
 	ctx := context.Background()
 
 	// refresh state before destroy to clear stale pending operations and
-	// ensure Pulumi knows the current state of all cloud resources
-	if _, err := w.runRefresh(ctx, stack); err != nil {
-		// log but don't fail - destroy may still succeed without refresh
-		w.logError(err, "failed to refresh stack before destroy, proceeding with destroy")
+	// ensure Pulumi knows the current state of all cloud resources - unless
+	// setupStack already did it, which it does whenever the state file holds
+	// anything, as it does on every real delete
+	if !refreshed {
+		if _, err := w.runRefresh(ctx, stack); err != nil {
+			// log but don't fail - destroy may still succeed without refresh
+			w.logError(err, "failed to refresh stack before destroy, proceeding with destroy")
+		}
 	}
 
 	// destroy the stack
