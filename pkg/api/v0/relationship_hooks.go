@@ -174,7 +174,7 @@ func recordOwnerOnCreate(tx *gorm.DB, obj interface{}) error {
 		return fmt.Errorf("failed to create owner reference for %s/%d: %w", objType, *objID, err)
 	}
 
-	// replace a saved id when that child is gone or scheduled for deletion
+	// overwrite a saved id whose child is gone, and block the write while that child is live
 	held, err := ownerColumnHoldsOtherLiveChild(tx, table, column, *owner.ID, *objID, tx.Statement.Table)
 	if err != nil {
 		return err
@@ -182,6 +182,7 @@ func recordOwnerOnCreate(tx *gorm.DB, obj interface{}) error {
 	predicate := ""
 	args := []any{*objID, *owner.ID}
 	if held {
+		// zero rows makes the create roll back, so two live children cannot share the column
 		predicate = fmt.Sprintf(" AND (%s IS NULL OR %s = ?)", column, column)
 		args = append(args, *objID)
 	}
@@ -205,7 +206,9 @@ func recordOwnerOnCreate(tx *gorm.DB, obj interface{}) error {
 }
 
 // ownerColumnHoldsOtherLiveChild reports that the owner column stores a different id whose row is still live.
+// A deleted or deletion-scheduled child is not live, so the caller overwrites that saved id.
 func ownerColumnHoldsOtherLiveChild(tx *gorm.DB, ownerTable, column string, ownerID, newID uint, childTable string) (bool, error) {
+	// read the id the owner column already stores
 	var current sql.NullInt64
 	row := lib.NewCleanSession(tx).Raw(
 		fmt.Sprintf("SELECT %s FROM %s WHERE id = ? AND deleted_at IS NULL", column, ownerTable),
@@ -214,9 +217,13 @@ func ownerColumnHoldsOtherLiveChild(tx *gorm.DB, ownerTable, column string, owne
 	if err := row.Scan(&current); err != nil {
 		return false, fmt.Errorf("failed to read %s.%s for owner %d: %w", ownerTable, column, ownerID, err)
 	}
+
+	// an empty column or this same child needs no live-row check
 	if !current.Valid || uint(current.Int64) == newID {
 		return false, nil
 	}
+
+	// count that saved id only while its row is present and not scheduled for deletion
 	var live int64
 	err := lib.NewCleanSession(tx).Raw(
 		fmt.Sprintf(
