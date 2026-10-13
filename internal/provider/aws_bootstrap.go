@@ -6,6 +6,8 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"net"
 	"net/url"
 	"strings"
@@ -1001,4 +1003,100 @@ func isIamNotFound(err error) bool {
 	var noSuchEntityErr *types.NoSuchEntityException
 
 	return errors.As(err, &noSuchEntityErr)
+}
+
+// releaseOrphanedNetworkInterfaces deletes detached network interfaces in the
+// cluster's VPC and reports how many it removed.
+//
+// The VPC CNI allocates secondary interfaces on worker nodes to hand pod
+// addresses out of the subnet. They belong to the cluster rather than to the
+// Pulumi stack, so a destroy does not account for them, and AWS does not
+// always reap them before the subnets they sit in are deleted - which fails
+// with DependencyViolation and leaves the stack half torn down.
+//
+// Only detached interfaces are touched. One still in use belongs to something
+// that is meant to be there, and removing it would break whatever that is
+// rather than unblock anything.
+func (i *KubernetesRuntimeInfraEKS) releaseOrphanedNetworkInterfaces() (int, error) {
+	if i.AwsConfig == nil {
+		return 0, errors.New("cannot release network interfaces without an AWS config")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), iamBootstrapTimeout)
+	defer cancel()
+
+	ec2Client := ec2.NewFromConfig(*i.AwsConfig)
+	describeOutput, err := ec2Client.DescribeNetworkInterfaces(ctx, &ec2.DescribeNetworkInterfacesInput{
+		Filters: []ec2types.Filter{
+			{Name: aws.String("tag:Name"), Values: []string{i.RuntimeInstanceName}},
+			{Name: aws.String("status"), Values: []string{"available"}},
+		},
+	})
+	if err != nil {
+		// the interfaces carry the cluster's tags only when the CNI set them;
+		// fall back to the VPC the stack built, which is what actually blocks
+		describeOutput, err = i.describeAvailableVpcInterfaces(ctx, ec2Client)
+		if err != nil {
+			return 0, err
+		}
+	}
+	if len(describeOutput.NetworkInterfaces) == 0 {
+		var fallbackErr error
+		describeOutput, fallbackErr = i.describeAvailableVpcInterfaces(ctx, ec2Client)
+		if fallbackErr != nil {
+			return 0, fallbackErr
+		}
+	}
+
+	var released int
+	var releaseErrors []error
+	for _, networkInterface := range describeOutput.NetworkInterfaces {
+		if networkInterface.NetworkInterfaceId == nil {
+			continue
+		}
+		if _, err := ec2Client.DeleteNetworkInterface(ctx, &ec2.DeleteNetworkInterfaceInput{
+			NetworkInterfaceId: networkInterface.NetworkInterfaceId,
+		}); err != nil {
+			// one that went away on its own between the describe and here is
+			// the outcome wanted, not a failure
+			if IsAwsErrorCode(err, "InvalidNetworkInterfaceID.NotFound") {
+				continue
+			}
+			releaseErrors = append(releaseErrors, fmt.Errorf(
+				"failed to delete network interface %s: %w", *networkInterface.NetworkInterfaceId, err,
+			))
+
+			continue
+		}
+		released++
+	}
+
+	return released, errors.Join(releaseErrors...)
+}
+
+// describeAvailableVpcInterfaces returns the detached interfaces in the VPC the
+// cluster's subnets belong to.
+func (i *KubernetesRuntimeInfraEKS) describeAvailableVpcInterfaces(
+	ctx context.Context,
+	ec2Client *ec2.Client,
+) (*ec2.DescribeNetworkInterfacesOutput, error) {
+	vpcOutput, err := ec2Client.DescribeVpcs(ctx, &ec2.DescribeVpcsInput{
+		Filters: []ec2types.Filter{
+			{Name: aws.String("tag:Name"), Values: []string{fmt.Sprintf("%s-vpc", i.RuntimeInstanceName)}},
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to find the cluster's VPC: %w", err)
+	}
+	if len(vpcOutput.Vpcs) == 0 || vpcOutput.Vpcs[0].VpcId == nil {
+		// the VPC is already gone, so nothing in it can be blocking anything
+		return &ec2.DescribeNetworkInterfacesOutput{}, nil
+	}
+
+	return ec2Client.DescribeNetworkInterfaces(ctx, &ec2.DescribeNetworkInterfacesInput{
+		Filters: []ec2types.Filter{
+			{Name: aws.String("vpc-id"), Values: []string{*vpcOutput.Vpcs[0].VpcId}},
+			{Name: aws.String("status"), Values: []string{"available"}},
+		},
+	})
 }

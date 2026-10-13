@@ -337,99 +337,119 @@ func TestEksPulumiProgram_ClusterAndNodeGroup(t *testing.T) {
 	assert.EqualValues(t, infra.DefaultNodeGroupMaxNodes, scalingConfig["maxSize"])
 }
 
-// TestEksPulumiProgram_UsesConfiguredCredentials checks the AWS provider is
-// given the configured credentials rather than resolving whatever the ambient
-// environment holds, which for a cluster in another account is the wrong
-// identity.
-func TestEksPulumiProgram_UsesConfiguredCredentials(t *testing.T) {
-	infra := testEksInfra(2)
-	mocks := runEksPulumiProgram(t, infra)
+// TestInitPulumiProject_ConfiguresTheProviderFromStackConfig checks where the
+// AWS provider's credentials live.
+//
+// They are stack config rather than inputs on a provider resource declared in
+// the program, because a destroy and a refresh do not run the program: a
+// provider resource is read back from state with whatever it was built with,
+// so a rotated and revoked key would leave the cluster impossible to delete.
+// SetupStack rewrites stack config on every operation.
+func TestInitPulumiProject_ConfiguresTheProviderFromStackConfig(t *testing.T) {
+	infra := testEksInfra(2).InitPulumiProject()
 
-	providers := mocks.byType(eksProviderTypeToken)
-	require.Len(t, providers, 1)
-	provider := providers[0]
+	assert.Equal(t, infra.Region, infra.StackConfigs["aws:region"])
+	assert.Equal(t, infra.ProviderCredentials.AccessKeyId, infra.StackConfigs["aws:accessKey"])
 
-	assert.Equal(t, infra.ProviderCredentials.AccessKeyId, secretValue(t, provider.inputs["accessKey"]))
-	assert.Equal(t, infra.ProviderCredentials.SecretAccessKey, secretValue(t, provider.inputs["secretKey"]))
-	assert.Equal(t, infra.Region, provider.inputs["region"])
+	// the secret never goes in the clear: Pulumi encrypts a secret config in
+	// the state file, and the state file is persisted to the Threeport API
+	assert.Equal(
+		t, infra.ProviderCredentials.SecretAccessKey, infra.StackSecretConfigs["aws:secretKey"],
+	)
+	assert.NotContains(
+		t, infra.StackConfigs, "aws:secretKey",
+		"the secret key must be set as a secret, not as plain config",
+	)
 }
 
-// TestEksPulumiProgram_AssumesRoleRatherThanFreezingCredentials checks the
+// TestInitPulumiProject_AssumesRoleRatherThanFreezingCredentials checks the
 // provider is given the role to assume, not credentials already assumed by
 // this process.
 //
 // The provider runs out of process, so anything handed to it is frozen at that
-// value.  An assumed role lasts an hour and provisioning a cluster and its
-// node group routinely takes longer, so freezing assumed credentials fails
-// partway through with ExpiredToken - and leaves the destroy unable to
-// authenticate either, because the stack state holds the same dead
-// credentials.
-func TestEksPulumiProgram_AssumesRoleRatherThanFreezingCredentials(t *testing.T) {
-	infra := testEksInfra(2)
-	mocks := runEksPulumiProgram(t, infra)
+// value. An assumed role lasts an hour and provisioning a cluster and its node
+// group routinely takes longer, so freezing assumed credentials fails partway
+// through with ExpiredToken - and leaves the destroy unable to authenticate
+// either.
+func TestInitPulumiProject_AssumesRoleRatherThanFreezingCredentials(t *testing.T) {
+	infra := testEksInfra(2).InitPulumiProject()
 
-	providers := mocks.byType(eksProviderTypeToken)
-	require.Len(t, providers, 1)
-	provider := providers[0]
+	assert.Equal(
+		t, infra.ProviderCredentials.AssumeRoleArn,
+		infra.StackPathConfigs["aws:assumeRole.roleArn"],
+	)
 
-	assumeRole, ok := provider.inputs["assumeRole"].(map[string]any)
-	require.True(t, ok, "the provider must be given a role to assume, got %#v", provider.inputs["assumeRole"])
-	assert.Equal(t, infra.ProviderCredentials.AssumeRoleArn, assumeRole["roleArn"])
-
-	// the credentials handed over must be the long-lived ones the role is
-	// assumed with, never a session token from an assumption this process
-	// already did
+	// the credentials configured must be the long-lived ones the role is
+	// assumed with, never a session token from an assumption already done here
 	assert.NotContains(
-		t,
-		provider.inputs,
-		"token",
-		"a session token means already-assumed credentials were frozen into the provider",
+		t, infra.StackSecretConfigs, "aws:token",
+		"a session token means already-assumed credentials were frozen into the config",
 	)
 }
 
-// TestEksPulumiProgram_UsesConfigProfile checks that a named shared config
-// profile is passed through to the provider rather than resolved here.  The
-// bootstrap path uses this: resolving the profile would capture whatever an
-// SSO or credential_process session hands out at that instant, which lives
-// minutes, where naming it lets the provider renew as it goes.
-func TestEksPulumiProgram_UsesConfigProfile(t *testing.T) {
+// TestInitPulumiProject_UsesConfigProfile checks that a named shared config
+// profile is passed through rather than resolved here. Resolving it would
+// capture whatever an SSO or credential_process session hands out at that
+// instant, which lives minutes, where naming it lets the provider renew as it
+// goes.
+func TestInitPulumiProject_UsesConfigProfile(t *testing.T) {
 	infra := testEksInfra(2)
 	infra.ProviderCredentials = tpaws.ProviderCredentialsFromProfile(
 		"some-profile",
 		"arn:aws:iam::123456789012:role/resource-manager-threeport",
 	)
-	mocks := runEksPulumiProgram(t, infra)
+	infra.InitPulumiProject()
 
-	providers := mocks.byType(eksProviderTypeToken)
-	require.Len(t, providers, 1)
-	provider := providers[0]
-
-	assert.Equal(t, "some-profile", provider.inputs["profile"])
-	assumeRole, ok := provider.inputs["assumeRole"].(map[string]any)
-	require.True(t, ok, "the provider must still be given the role to assume")
-	assert.Equal(t, "arn:aws:iam::123456789012:role/resource-manager-threeport", assumeRole["roleArn"])
-
-	// no captured values alongside the profile
-	assert.NotContains(t, provider.inputs, "accessKey")
-	assert.NotContains(t, provider.inputs, "token")
+	assert.Equal(t, "some-profile", infra.StackConfigs["aws:profile"])
+	assert.Equal(
+		t, "arn:aws:iam::123456789012:role/resource-manager-threeport",
+		infra.StackPathConfigs["aws:assumeRole.roleArn"],
+	)
+	assert.NotContains(
+		t, infra.StackConfigs, "aws:accessKey",
+		"a profile and static keys are alternatives, not both",
+	)
 }
 
-// TestEksPulumiProgram_AmbientCredentialsWhenNoneConfigured checks that with
-// no credentials configured the provider is left to resolve its own.  That is
-// what a control plane running inside EKS needs: the pod is authenticated
-// through IRSA, and that identity refreshes on its own.
-func TestEksPulumiProgram_AmbientCredentialsWhenNoneConfigured(t *testing.T) {
+// TestInitPulumiProject_AmbientCredentialsWhenNoneConfigured checks that with
+// no credentials configured nothing is set, so the provider resolves its own.
+// That is what a control plane running inside EKS needs: the pod is
+// authenticated through IRSA, and that identity refreshes on its own.
+func TestInitPulumiProject_AmbientCredentialsWhenNoneConfigured(t *testing.T) {
 	infra := testEksInfra(2)
 	infra.ProviderCredentials = tpaws.AwsProviderCredentials{}
-	mocks := runEksPulumiProgram(t, infra)
+	infra.InitPulumiProject()
 
-	providers := mocks.byType(eksProviderTypeToken)
-	require.Len(t, providers, 1)
-	provider := providers[0]
+	for _, key := range []string{"aws:accessKey", "aws:profile"} {
+		assert.NotContains(t, infra.StackConfigs, key)
+	}
+	assert.Empty(t, infra.StackSecretConfigs)
+	assert.Empty(t, infra.StackPathConfigs)
+	assert.Equal(t, infra.Region, infra.StackConfigs["aws:region"])
+}
 
-	assert.NotContains(t, provider.inputs, "accessKey")
-	assert.NotContains(t, provider.inputs, "secretKey")
-	assert.NotContains(t, provider.inputs, "assumeRole")
-	assert.NotContains(t, provider.inputs, "profile")
-	assert.Equal(t, infra.Region, provider.inputs["region"])
+// TestInitPulumiProject_ClearsCredentialConfigItDoesNotSet covers the keys that
+// have to be removed rather than merely left unwritten.
+//
+// Stack config persists on disk between operations, so a key that is not set
+// keeps whatever the last run put in it. A control plane moved from a named
+// profile to environment credentials would go on being handed the old profile
+// - and in CI, the setting that switch is made for, that profile does not
+// exist, so it fails rather than differs. A live run caught exactly this.
+func TestInitPulumiProject_ClearsCredentialConfigItDoesNotSet(t *testing.T) {
+	infra := testEksInfra(2)
+	infra.ProviderCredentials = tpaws.AwsProviderCredentials{}
+	infra.InitPulumiProject()
+
+	for _, key := range []string{
+		"aws:profile", "aws:accessKey", "aws:secretKey", "aws:token", "aws:assumeRole",
+	} {
+		assert.Contains(
+			t, infra.StackConfigRemovals, key,
+			key+" has to be cleared, since leaving it keeps the previous run's value",
+		)
+	}
+
+	// the region is always written, so it has nothing to clear
+	assert.NotContains(t, infra.StackConfigRemovals, "aws:region")
 }

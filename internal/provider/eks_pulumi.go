@@ -79,7 +79,50 @@ func (i *KubernetesRuntimeInfraEKS) InitPulumiProject() *KubernetesRuntimeInfraE
 	if i.ProjectDescription == "" {
 		i.ProjectDescription = eksPulumiProjectDescription
 	}
+	// The AWS provider is configured through stack config rather than through
+	// a provider resource declared in the program. A destroy or a refresh does
+	// not run the program, so credentials baked into a provider resource are
+	// read back from state as they were when the stack was built - and a
+	// rotated, revoked key then leaves the cluster impossible to delete. Stack
+	// config is rewritten on every operation.
 	i.StackConfigs = map[string]string{"aws:region": i.Region}
+	i.StackSecretConfigs = map[string]string{}
+	i.StackPathConfigs = map[string]string{}
+
+	// every key this function can write, cleared first. Stack config persists
+	// between operations, so one left unwritten keeps whatever the last run
+	// put there: a control plane moved from a named profile to environment
+	// credentials would go on being handed the old profile, and in CI, where
+	// that profile does not exist, that is a failure rather than a difference.
+	i.StackConfigRemovals = []string{
+		"aws:profile", "aws:accessKey", "aws:secretKey", "aws:token", "aws:assumeRole",
+	}
+
+	if i.ProviderCredentials.Profile != "" {
+		// the provider reads the profile from the shared config itself, so an
+		// SSO or credential_process session is renewed rather than captured
+		i.StackConfigs["aws:profile"] = i.ProviderCredentials.Profile
+	}
+	if i.ProviderCredentials.AccessKeyId != "" {
+		i.StackConfigs["aws:accessKey"] = i.ProviderCredentials.AccessKeyId
+		i.StackSecretConfigs["aws:secretKey"] = i.ProviderCredentials.SecretAccessKey
+		if i.ProviderCredentials.SessionToken != "" {
+			i.StackSecretConfigs["aws:token"] = i.ProviderCredentials.SessionToken
+		}
+	}
+	// with nothing configured the provider resolves credentials from its own
+	// environment, which is what a control plane running in EKS wants: there
+	// the pod is authenticated through IRSA and that identity refreshes itself
+	if i.ProviderCredentials.AssumeRoleArn != "" {
+		// the role rather than credentials already assumed from it: a session
+		// lasts an hour and creating a cluster and its node group routinely
+		// takes longer, which would strand the stack half built and leave the
+		// destroy unable to authenticate either
+		i.StackPathConfigs["aws:assumeRole.roleArn"] = i.ProviderCredentials.AssumeRoleArn
+		if i.ProviderCredentials.ExternalId != "" {
+			i.StackPathConfigs["aws:assumeRole.externalId"] = i.ProviderCredentials.ExternalId
+		}
+	}
 
 	return i
 }
@@ -138,43 +181,9 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 		// a cluster and its node group routinely takes longer, which strands
 		// the stack half built and leaves the destroy unable to authenticate
 		// either.  Given the role, the provider renews as it goes.
-		providerArgs := aws.ProviderArgs{Region: pulumi.String(i.Region)}
-		if i.ProviderCredentials.Profile != "" {
-			// the provider reads the profile from the shared config itself,
-			// so an SSO or credential_process session is renewed rather than
-			// captured
-			providerArgs.Profile = pulumi.String(i.ProviderCredentials.Profile)
-		}
-		if i.ProviderCredentials.AccessKeyId != "" {
-			providerArgs.AccessKey = pulumi.String(i.ProviderCredentials.AccessKeyId)
-			providerArgs.SecretKey = pulumi.String(i.ProviderCredentials.SecretAccessKey)
-			if i.ProviderCredentials.SessionToken != "" {
-				providerArgs.Token = pulumi.String(i.ProviderCredentials.SessionToken)
-			}
-		}
-		// with no credentials configured the provider resolves them from its
-		// own environment, which is what a control plane running in EKS
-		// wants: there the pod is authenticated through IRSA and that
-		// identity refreshes on its own
-		if i.ProviderCredentials.AssumeRoleArn != "" {
-			assumeRole := aws.ProviderAssumeRoleArgs{
-				RoleArn: pulumi.String(i.ProviderCredentials.AssumeRoleArn),
-			}
-			if i.ProviderCredentials.ExternalId != "" {
-				assumeRole.ExternalId = pulumi.String(i.ProviderCredentials.ExternalId)
-			}
-			providerArgs.AssumeRole = assumeRole
-		}
-
-		awsProvider, err := aws.NewProvider(ctx, "aws-provider", &providerArgs)
-		if err != nil {
-			return fmt.Errorf("failed to create AWS provider: %w", err)
-		}
-
 		availabilityZones, err := aws.GetAvailabilityZones(
 			ctx,
 			&aws.GetAvailabilityZonesArgs{State: pulumi.StringRef("available")},
-			pulumi.Provider(awsProvider),
 		)
 		if err != nil {
 			return fmt.Errorf("failed to get availability zones for region %s: %w", i.Region, err)
@@ -195,7 +204,7 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 			EnableDnsSupport:   pulumi.Bool(true),
 			EnableDnsHostnames: pulumi.Bool(true),
 			Tags:               i.resourceTags(fmt.Sprintf("%s-vpc", i.RuntimeInstanceName)),
-		}, pulumi.Provider(awsProvider))
+		})
 		if err != nil {
 			return fmt.Errorf("failed to create VPC: %w", err)
 		}
@@ -207,7 +216,6 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 				VpcId: vpc.ID(),
 				Tags:  i.resourceTags(fmt.Sprintf("%s-igw", i.RuntimeInstanceName)),
 			},
-			pulumi.Provider(awsProvider),
 		)
 		if err != nil {
 			return fmt.Errorf("failed to create internet gateway: %w", err)
@@ -228,7 +236,6 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 				},
 				Tags: i.resourceTags(fmt.Sprintf("%s-public-route-table", i.RuntimeInstanceName)),
 			},
-			pulumi.Provider(awsProvider),
 		)
 		if err != nil {
 			return fmt.Errorf("failed to create public route table: %w", err)
@@ -248,7 +255,7 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 				CidrBlock:           pulumi.String(subnetCidrs[zoneIndex*2]),
 				MapPublicIpOnLaunch: pulumi.Bool(true),
 				Tags:                publicSubnetTags,
-			}, pulumi.Provider(awsProvider))
+			})
 			if err != nil {
 				return fmt.Errorf("failed to create public subnet in zone %s: %w", zone, err)
 			}
@@ -260,7 +267,6 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 					SubnetId:     publicSubnet.ID(),
 					RouteTableId: publicRouteTable.ID(),
 				},
-				pulumi.Provider(awsProvider),
 			); err != nil {
 				return fmt.Errorf("failed to associate public route table in zone %s: %w", zone, err)
 			}
@@ -275,7 +281,7 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 				AvailabilityZone: pulumi.String(zone),
 				CidrBlock:        pulumi.String(subnetCidrs[zoneIndex*2+1]),
 				Tags:             privateSubnetTags,
-			}, pulumi.Provider(awsProvider))
+			})
 			if err != nil {
 				return fmt.Errorf("failed to create private subnet in zone %s: %w", zone, err)
 			}
@@ -287,7 +293,7 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 			elasticIp, err := ec2.NewEip(ctx, elasticIpName, &ec2.EipArgs{
 				Domain: pulumi.String("vpc"),
 				Tags:   i.resourceTags(elasticIpName),
-			}, pulumi.Provider(awsProvider))
+			})
 			if err != nil {
 				return fmt.Errorf("failed to create elastic IP in zone %s: %w", zone, err)
 			}
@@ -297,7 +303,7 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 				AllocationId: elasticIp.ID(),
 				SubnetId:     publicSubnet.ID(),
 				Tags:         i.resourceTags(natGatewayName),
-			}, pulumi.Provider(awsProvider), pulumi.DependsOn([]pulumi.Resource{internetGateway}))
+			}, pulumi.DependsOn([]pulumi.Resource{internetGateway}))
 			if err != nil {
 				return fmt.Errorf("failed to create NAT gateway in zone %s: %w", zone, err)
 			}
@@ -312,7 +318,7 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 					},
 				},
 				Tags: i.resourceTags(privateRouteTableName),
-			}, pulumi.Provider(awsProvider))
+			})
 			if err != nil {
 				return fmt.Errorf("failed to create private route table in zone %s: %w", zone, err)
 			}
@@ -324,7 +330,6 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 					SubnetId:     privateSubnet.ID(),
 					RouteTableId: privateRouteTable.ID(),
 				},
-				pulumi.Provider(awsProvider),
 			); err != nil {
 				return fmt.Errorf("failed to associate private route table in zone %s: %w", zone, err)
 			}
@@ -344,7 +349,7 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 				EndpointPublicAccess:  pulumi.Bool(true),
 			},
 			Tags: i.resourceTags(i.RuntimeInstanceName),
-		}, pulumi.Provider(awsProvider))
+		})
 		if err != nil {
 			return fmt.Errorf("failed to create EKS cluster: %w", err)
 		}
@@ -363,7 +368,7 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 				MaxSize:     pulumi.Int(i.DefaultNodeGroupMaxNodes),
 			},
 			Tags: i.resourceTags(nodeGroupName),
-		}, pulumi.Provider(awsProvider)); err != nil {
+		}); err != nil {
 			return fmt.Errorf("failed to create EKS node group: %w", err)
 		}
 

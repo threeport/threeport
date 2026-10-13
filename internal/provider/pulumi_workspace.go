@@ -40,6 +40,26 @@ type PulumiWorkspace struct {
 	// {"oci:region": "us-ashburn-1"}).
 	StackConfigs map[string]string
 
+	// StackSecretConfigs are set the same way but marked secret, so Pulumi
+	// encrypts them in the state file rather than writing them in the clear.
+	StackSecretConfigs map[string]string
+
+	// StackPathConfigs are set with path semantics, for a provider setting
+	// that is an object rather than a scalar - "aws:assumeRole.roleArn"
+	// addresses a field inside aws:assumeRole rather than naming a key with a
+	// dot in it.
+	StackPathConfigs map[string]string
+
+	// StackConfigRemovals are keys cleared before the others are written.
+	//
+	// Stack config persists on disk between operations, so a key that is
+	// simply not set keeps whatever a previous run left in it. A control plane
+	// that moves from a named profile to environment credentials would go on
+	// being handed the old profile, and in the setting that switch is made for
+	// - CI, where no profile exists - that is a failure rather than a
+	// difference. Naming what must be absent is the only way to make it so.
+	StackConfigRemovals []string
+
 	// stateDir is the path to the Pulumi state directory on disk.
 	stateDir string
 
@@ -303,10 +323,31 @@ func (w *PulumiWorkspace) setupStack(program pulumi.RunFunc) (auto.Stack, bool, 
 		return auto.Stack{}, false, fmt.Errorf("failed to create/select stack: %w", err)
 	}
 
-	// set up stack configuration from provider-specific config map
+	// Stack configuration is written on every operation, not only on create.
+	// That is what keeps a destroy or a refresh from authenticating with
+	// whatever credentials were current when the stack was first built: those
+	// operations do not run the program, so anything configured on a provider
+	// resource inside it would be read back from state instead.
+	for _, key := range w.StackConfigRemovals {
+		if err := stack.RemoveConfig(ctx, key); err != nil {
+			return auto.Stack{}, false, fmt.Errorf("failed to clear stack config %q: %w", key, err)
+		}
+	}
 	for key, value := range w.StackConfigs {
 		if err := stack.SetConfig(ctx, key, auto.ConfigValue{Value: value}); err != nil {
 			return auto.Stack{}, false, fmt.Errorf("failed to set stack config %q: %w", key, err)
+		}
+	}
+	for key, value := range w.StackSecretConfigs {
+		if err := stack.SetConfig(ctx, key, auto.ConfigValue{Value: value, Secret: true}); err != nil {
+			return auto.Stack{}, false, fmt.Errorf("failed to set secret stack config %q: %w", key, err)
+		}
+	}
+	for key, value := range w.StackPathConfigs {
+		if err := stack.SetConfigWithOptions(
+			ctx, key, auto.ConfigValue{Value: value}, &auto.ConfigOptions{Path: true},
+		); err != nil {
+			return auto.Stack{}, false, fmt.Errorf("failed to set stack config path %q: %w", key, err)
 		}
 	}
 

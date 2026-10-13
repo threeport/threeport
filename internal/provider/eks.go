@@ -122,9 +122,36 @@ func (i *KubernetesRuntimeInfraEKS) DestroyInfra() error {
 // Delete destroys an AWS EKS cluster and the IAM resources created alongside
 // it.
 func (i *KubernetesRuntimeInfraEKS) Delete() error {
-
 	if err := i.DestroyStack(); err != nil {
-		return fmt.Errorf("failed to destroy EKS stack: %w", err)
+		// A destroy that leaves subnets behind is usually the VPC CNI's doing:
+		// it allocates secondary interfaces on the worker nodes for pod
+		// addresses, Pulumi never knew about them, and AWS does not always
+		// reap them before the subnets they sit in are deleted. The subnet
+		// delete then fails with DependencyViolation and the stack is left
+		// half torn down - which tptctl cannot pick up again afterwards,
+		// because its next run asks the Threeport API that lived in the
+		// cluster this destroy already removed.
+		//
+		// Releasing the orphans and destroying again is the whole repair.
+		// Anything the stack already deleted is tolerated on the second pass.
+		releasedCount, releaseErr := i.releaseOrphanedNetworkInterfaces()
+		if releaseErr != nil {
+			return fmt.Errorf(
+				"failed to destroy EKS stack: %w (and failed to release orphaned network interfaces: %v)",
+				err, releaseErr,
+			)
+		}
+		if releasedCount == 0 {
+			return fmt.Errorf("failed to destroy EKS stack: %w", err)
+		}
+
+		i.logInfo(
+			"released network interfaces left by the cluster and retrying the destroy",
+			"count", releasedCount,
+		)
+		if retryErr := i.DestroyStack(); retryErr != nil {
+			return fmt.Errorf("failed to destroy EKS stack after releasing orphaned network interfaces: %w", retryErr)
+		}
 	}
 
 	// IAM is created outside the stack, so it is removed outside it too.

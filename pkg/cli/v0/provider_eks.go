@@ -60,7 +60,10 @@ func DeployEksInfra(
 	// update threeport config with eks provider info
 	if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *ControlPlane) {
 		c.EKSProviderConfig = EKSProviderConfig{
-			AwsConfigProfile: cpi.Opts.AwsConfigProfile,
+			// the resolved profile, not the raw flag: a teardown has no
+			// --aws-config-env of its own to consult, so an install that ran
+			// on environment credentials has to record that it did
+			AwsConfigProfile: awsConfigProfile(cpi.Opts),
 			AwsRegion:        cpi.Opts.AwsRegion,
 			AwsAccountID:     *callerIdentity.Account,
 		}
@@ -150,7 +153,7 @@ func DeployEksInfra(
 	// credentials already resolved here, so that it can renew them over a
 	// provisioning run that outlasts any session
 	providerCredentials := tpaws.ProviderCredentialsFromProfile(
-		cpi.Opts.AwsConfigProfile,
+		awsConfigProfile(cpi.Opts),
 		provider.GetResourceManagerRoleArn(cpi.Opts.ControlPlaneName, *callerIdentity.Account),
 	)
 

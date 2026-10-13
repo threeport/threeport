@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -363,4 +364,37 @@ func TestRefuseUnownedIamResource(t *testing.T) {
 		t, refuseUnownedIamResource("OIDC provider", "arn:aws:iam::1:oidc-provider/x", nil, want),
 		"an untagged resource is not ours either",
 	)
+}
+
+// TestIamEntryPointsGuardTheAwsConfig covers the four entry points that build
+// an IAM or EKS client from *i.AwsConfig.
+//
+// Nothing stops a wiring bug from leaving that nil - commit 175b6fc in this
+// same branch fixed four of exactly that class - and dereferencing it gives a
+// bare panic from inside the SDK constructor rather than something a reader can
+// act on.
+func TestIamEntryPointsGuardTheAwsConfig(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		call func(*KubernetesRuntimeInfraEKS) error
+	}{
+		{"CreateClusterIam", func(i *KubernetesRuntimeInfraEKS) error { return i.CreateClusterIam() }},
+		{"CreateIrsaIam", func(i *KubernetesRuntimeInfraEKS) error { return i.CreateIrsaIam() }},
+		{"DeleteEksIam", func(i *KubernetesRuntimeInfraEKS) error { return i.DeleteEksIam() }},
+		{"createEbsStorageAddon", func(i *KubernetesRuntimeInfraEKS) error {
+			return i.createEbsStorageAddon(context.Background(), "arn:aws:iam::1:role/x")
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			infra := &KubernetesRuntimeInfraEKS{RuntimeInstanceName: "my-cluster"}
+
+			var err error
+			require.NotPanics(t, func() { err = test.call(infra) }, "a nil config must not panic")
+			require.Error(t, err)
+			assert.Contains(
+				t, err.Error(), "AWS config",
+				"the error has to name what is missing",
+			)
+		})
+	}
 }

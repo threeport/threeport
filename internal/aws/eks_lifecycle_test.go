@@ -135,3 +135,36 @@ func TestEksInfraFromApiObjects_PulumiProjectSetAtConstruction(t *testing.T) {
 	// reason: nothing may write to the infra once the watcher is reading it
 	assert.Equal(t, "us-east-1", infra.StackConfigs["aws:region"])
 }
+
+// TestBuildInfraIsCachedForTheAttempt covers the short circuit that keeps
+// IsCreateComplete from rebuilding everything on every poll.
+//
+// HandleInfraCreate polls roughly every two minutes for the ten to twenty a
+// create takes, and each rebuild cost four Threeport round trips, a fresh
+// credential cache and - whenever a role ARN is configured, which is the normal
+// EKS case - a new sts:AssumeRole that discarded the previous hour-long
+// session. The reconciler here is nil on purpose: a cache miss would have to
+// reach for it, so returning cleanly is the whole assertion.
+func TestBuildInfraIsCachedForTheAttempt(t *testing.T) {
+	cached := &provider.KubernetesRuntimeInfraEKS{
+		PulumiWorkspace: provider.PulumiWorkspace{RuntimeInstanceName: "already-built"},
+	}
+	lifecycle := &eksLifecycle{infra: cached}
+
+	for _, call := range []string{"first", "second"} {
+		var built provider.InfraProvider
+		var err error
+		require.NotPanics(
+			t, func() { built, err = lifecycle.BuildInfra() },
+			call+" call must not reach the API",
+		)
+		require.NoError(t, err)
+		assert.Same(t, cached, built, call+" call must hand back the cached infra")
+	}
+
+	// the same short circuit guards the path IsCreateComplete takes, which
+	// passes the instance it already fetched rather than fetching it again
+	fromInstance, err := lifecycle.buildInfraFrom(nil)
+	require.NoError(t, err)
+	assert.Same(t, cached, fromInstance)
+}
