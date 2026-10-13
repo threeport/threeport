@@ -601,7 +601,8 @@ const (
 					"ec2:CreateSecurityGroup",
 					"ec2:DeleteSecurityGroup",
 					"ec2:AuthorizeSecurityGroupIngress",
-					"ec2:AuthorizeSecurityGroupEgress"
+					"ec2:AuthorizeSecurityGroupEgress",
+					"ec2:DeleteNetworkInterface"
 				],
 				"Resource": "*"
 			},

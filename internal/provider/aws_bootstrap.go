@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha1"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -1006,13 +1007,18 @@ func isIamNotFound(err error) bool {
 }
 
 // releaseOrphanedNetworkInterfaces deletes detached network interfaces in the
-// cluster's VPC and reports how many it removed.
+// VPC this stack created, and reports how many it removed.
 //
 // The VPC CNI allocates secondary interfaces on worker nodes to hand pod
 // addresses out of the subnet. They belong to the cluster rather than to the
 // Pulumi stack, so a destroy does not account for them, and AWS does not
 // always reap them before the subnets they sit in are deleted - which fails
 // with DependencyViolation and leaves the stack half torn down.
+//
+// The VPC is read out of the stack's own state rather than looked up by tag.
+// A tag is a label anyone can reuse, and this deletes things: searching the
+// account by name would reach another workload's interfaces, where a VPC
+// recorded in this stack's state is one this stack created.
 //
 // Only detached interfaces are touched. One still in use belongs to something
 // that is meant to be there, and removing it would break whatever that is
@@ -1022,30 +1028,27 @@ func (i *KubernetesRuntimeInfraEKS) releaseOrphanedNetworkInterfaces() (int, err
 		return 0, errors.New("cannot release network interfaces without an AWS config")
 	}
 
+	vpcId, err := i.vpcIdFromStackState()
+	if err != nil {
+		return 0, err
+	}
+	if vpcId == "" {
+		// the VPC is gone, or the state records none, so nothing in it blocks
+		return 0, nil
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), iamBootstrapTimeout)
 	defer cancel()
 
 	ec2Client := ec2.NewFromConfig(*i.AwsConfig)
 	describeOutput, err := ec2Client.DescribeNetworkInterfaces(ctx, &ec2.DescribeNetworkInterfacesInput{
 		Filters: []ec2types.Filter{
-			{Name: aws.String("tag:Name"), Values: []string{i.RuntimeInstanceName}},
+			{Name: aws.String("vpc-id"), Values: []string{vpcId}},
 			{Name: aws.String("status"), Values: []string{"available"}},
 		},
 	})
 	if err != nil {
-		// the interfaces carry the cluster's tags only when the CNI set them;
-		// fall back to the VPC the stack built, which is what actually blocks
-		describeOutput, err = i.describeAvailableVpcInterfaces(ctx, ec2Client)
-		if err != nil {
-			return 0, err
-		}
-	}
-	if len(describeOutput.NetworkInterfaces) == 0 {
-		var fallbackErr error
-		describeOutput, fallbackErr = i.describeAvailableVpcInterfaces(ctx, ec2Client)
-		if fallbackErr != nil {
-			return 0, fallbackErr
-		}
+		return 0, fmt.Errorf("failed to list network interfaces in VPC %s: %w", vpcId, err)
 	}
 
 	var released int
@@ -1074,29 +1077,39 @@ func (i *KubernetesRuntimeInfraEKS) releaseOrphanedNetworkInterfaces() (int, err
 	return released, errors.Join(releaseErrors...)
 }
 
-// describeAvailableVpcInterfaces returns the detached interfaces in the VPC the
-// cluster's subnets belong to.
-func (i *KubernetesRuntimeInfraEKS) describeAvailableVpcInterfaces(
-	ctx context.Context,
-	ec2Client *ec2.Client,
-) (*ec2.DescribeNetworkInterfacesOutput, error) {
-	vpcOutput, err := ec2Client.DescribeVpcs(ctx, &ec2.DescribeVpcsInput{
-		Filters: []ec2types.Filter{
-			{Name: aws.String("tag:Name"), Values: []string{fmt.Sprintf("%s-vpc", i.RuntimeInstanceName)}},
-		},
-	})
+// eksVpcResourceType is the Pulumi type token of the VPC the program creates.
+const eksVpcResourceType = "aws:ec2/vpc:Vpc"
+
+// vpcIdFromStackState returns the id of the VPC this stack created, or an empty
+// string when the state records none.
+func (i *KubernetesRuntimeInfraEKS) vpcIdFromStackState() (string, error) {
+	state, err := i.ReadStateFile()
 	if err != nil {
-		return nil, fmt.Errorf("failed to find the cluster's VPC: %w", err)
+		return "", fmt.Errorf("failed to read stack state to find the cluster's VPC: %w", err)
 	}
-	if len(vpcOutput.Vpcs) == 0 || vpcOutput.Vpcs[0].VpcId == nil {
-		// the VPC is already gone, so nothing in it can be blocking anything
-		return &ec2.DescribeNetworkInterfacesOutput{}, nil
+	if state == nil {
+		return "", nil
 	}
 
-	return ec2Client.DescribeNetworkInterfaces(ctx, &ec2.DescribeNetworkInterfacesInput{
-		Filters: []ec2types.Filter{
-			{Name: aws.String("vpc-id"), Values: []string{*vpcOutput.Vpcs[0].VpcId}},
-			{Name: aws.String("status"), Values: []string{"available"}},
-		},
-	})
+	var checkpoint struct {
+		Checkpoint struct {
+			Latest struct {
+				Resources []struct {
+					Type string `json:"type"`
+					ID   string `json:"id"`
+				} `json:"resources"`
+			} `json:"latest"`
+		} `json:"checkpoint"`
+	}
+	if err := json.Unmarshal(*state, &checkpoint); err != nil {
+		return "", fmt.Errorf("failed to parse stack state to find the cluster's VPC: %w", err)
+	}
+
+	for _, resource := range checkpoint.Checkpoint.Latest.Resources {
+		if resource.Type == eksVpcResourceType && resource.ID != "" {
+			return resource.ID, nil
+		}
+	}
+
+	return "", nil
 }

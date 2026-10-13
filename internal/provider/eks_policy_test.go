@@ -81,6 +81,11 @@ func TestResourceManagerPolicyCoversProvisioning(t *testing.T) {
 		// find it without the cluster, which is the only thing that knows its
 		// issuer URL.
 		"iam:TagOpenIDConnectProvider",
+		// the teardown releases the network interfaces the VPC CNI leaves
+		// behind on the worker nodes, which otherwise block subnet deletion.
+		// Without this the repair is refused and the stack stays half torn
+		// down, with nothing able to finish it.
+		"ec2:DeleteNetworkInterface",
 		"iam:TagRole",
 		"iam:TagPolicy",
 		"eks:TagResource",

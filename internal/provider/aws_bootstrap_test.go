@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -397,4 +399,53 @@ func TestIamEntryPointsGuardTheAwsConfig(t *testing.T) {
 			)
 		})
 	}
+}
+
+// TestVpcIdFromStackState covers where the VPC to clean up comes from.
+//
+// It is read out of the stack's own state rather than looked up by tag,
+// because this deletes network interfaces: a tag is a label anyone can reuse,
+// so searching the account by name would reach another workload's, while a VPC
+// recorded in this stack's state is one this stack created.
+func TestVpcIdFromStackState(t *testing.T) {
+	infra := testEksIamInfra()
+	dir := t.TempDir()
+	infra.stateDirRoot = dir
+
+	t.Run("no state file means nothing to clean", func(t *testing.T) {
+		vpcId, err := infra.vpcIdFromStackState()
+		require.NoError(t, err)
+		assert.Empty(t, vpcId)
+	})
+
+	statePath, err := infra.GetStateFilePath()
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Dir(statePath), 0o755))
+
+	t.Run("the VPC the stack recorded", func(t *testing.T) {
+		require.NoError(t, os.WriteFile(statePath, []byte(`{
+			"version": 3,
+			"checkpoint": {"latest": {"resources": [
+				{"type": "aws:ec2/subnet:Subnet", "id": "subnet-notthisone"},
+				{"type": "aws:ec2/vpc:Vpc", "id": "vpc-0123456789abcdef0"}
+			]}}
+		}`), 0o600))
+
+		vpcId, err := infra.vpcIdFromStackState()
+		require.NoError(t, err)
+		assert.Equal(t, "vpc-0123456789abcdef0", vpcId)
+	})
+
+	t.Run("state with no VPC leaves nothing to scope to", func(t *testing.T) {
+		require.NoError(t, os.WriteFile(statePath, []byte(`{
+			"version": 3,
+			"checkpoint": {"latest": {"resources": [
+				{"type": "aws:ec2/subnet:Subnet", "id": "subnet-abc"}
+			]}}
+		}`), 0o600))
+
+		vpcId, err := infra.vpcIdFromStackState()
+		require.NoError(t, err)
+		assert.Empty(t, vpcId, "an empty id must not widen the search to the whole account")
+	})
 }
