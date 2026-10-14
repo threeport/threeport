@@ -33,6 +33,12 @@ type ReconciledThreeportApiObject interface {
 	ScheduledForDeletion() *time.Time
 }
 
+// AlreadyReconciled reports whether obj embeds Reconciliation and that field is already true.
+func AlreadyReconciled(obj any) bool {
+	marker, ok := obj.(interface{ AlreadyReconciled() bool })
+	return ok && marker.AlreadyReconciled()
+}
+
 // FullyQualifiedTypeProvider is implemented by every API object. The
 // returned string is "<api-namespace>/<version>.<TypeName>" - core
 // types use "threeport.io" as the namespace, modules use their
@@ -59,7 +65,8 @@ func NewCleanSession(tx *gorm.DB) *gorm.DB {
 // "threeport.io" namespace, modules use their own).
 //
 // For "example.com/v0.Widget":
-//   namespace = "example.com", version = "v0", typeName = "Widget", ok = true
+//
+//	namespace = "example.com", version = "v0", typeName = "Widget", ok = true
 func ParseQualifiedType(objectType string) (namespace, version, typeName string, ok bool) {
 	// find the slash that separates the namespace from the rest.
 	// for "example.com/v0.Widget" this is at index 11

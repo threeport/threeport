@@ -403,6 +403,23 @@ func TestDeleteRunsWhenDeletionScheduled(t *testing.T) {
 	assert.Equal(t, []string{"delete"}, h.spy.Calls())
 }
 
+// TestUpdateDoesNotRestampReconciled covers an update whose fetched object is already reconciled.
+// The handler still runs, and the reconciler must not patch Reconciled again.
+func TestUpdateDoesNotRestampReconciled(t *testing.T) {
+	h := newHarness(t)
+
+	// the fetched object is already reconciled
+	h.objMu.Lock()
+	h.obj.Reconciled = util.Ptr(true)
+	h.objMu.Unlock()
+
+	// the update still reaches the handler
+	h.publish(notifications.NotificationOperationUpdated)
+
+	assert.Equal(t, []string{"update"}, h.spy.Calls())
+	assert.Zero(t, h.patchCount.Load(), "already reconciled object was patched again")
+}
+
 // TestHaltsWhenObjectNoLongerExists covers an update whose object GET fails
 // before the handler runs.
 func TestHaltsWhenObjectNoLongerExists(t *testing.T) {

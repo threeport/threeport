@@ -51,6 +51,11 @@ type Reconciliation struct {
 	InterruptReconciliation *bool `validate:"optional" gorm:"default:false"`
 }
 
+// AlreadyReconciled reports whether Reconciled is set to true.
+func (r Reconciliation) AlreadyReconciled() bool {
+	return r.Reconciled != nil && *r.Reconciled
+}
+
 // ReconciliationStateChanged reports whether progress markers differ.
 // Acknowledgement timestamps count as set or unset only. InterruptReconciliation
 // is ignored; it is a gate, not progress.

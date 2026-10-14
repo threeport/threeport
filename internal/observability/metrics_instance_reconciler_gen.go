@@ -419,8 +419,8 @@ func MetricsInstanceReconciler(r *controller.Reconciler) {
 				continue
 			}
 
-			// set the object's Reconciled field to true if not deleted
-			if notif.Operation != notifications.NotificationOperationDeleted {
+			// mark reconciled unless it is already true
+			if notif.Operation != notifications.NotificationOperationDeleted && !tpapi_lib.AlreadyReconciled(metricsInstance) {
 				reconciledMetricsInstance := api_v0.MetricsInstance{
 					Common:         api_v0.Common{ID: util.Ptr(metricsInstance.GetId())},
 					Reconciliation: api_v0.Reconciliation{Reconciled: util.Ptr(true)},

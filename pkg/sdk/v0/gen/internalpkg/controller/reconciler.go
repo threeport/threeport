@@ -279,11 +279,14 @@ func GenReconcilers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							})
 							g.Line()
 
-							g.Comment("set the object's Reconciled field to true if not deleted")
+							g.Comment("mark reconciled unless it is already true")
 							g.If(Id("notif").Dot("Operation").Op("!=").Qual(
 								"github.com/threeport/threeport/pkg/notifications/v0",
 								"NotificationOperationDeleted",
-							).Block(
+							).Op("&&").Op("!").Qual(
+								"github.com/threeport/threeport/pkg/api/lib/v0",
+								"AlreadyReconciled",
+							).Call(Id(varObjectName)).Block(
 								Id(fmt.Sprintf(
 									"reconciled%s",
 									obj.Name,

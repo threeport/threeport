@@ -419,8 +419,8 @@ func MachineWorkloadInstanceReconciler(r *controller.Reconciler) {
 				continue
 			}
 
-			// set the object's Reconciled field to true if not deleted
-			if notif.Operation != notifications.NotificationOperationDeleted {
+			// mark reconciled unless it is already true
+			if notif.Operation != notifications.NotificationOperationDeleted && !tpapi_lib.AlreadyReconciled(machineWorkloadInstance) {
 				reconciledMachineWorkloadInstance := api_v0.MachineWorkloadInstance{
 					Common:         api_v0.Common{ID: util.Ptr(machineWorkloadInstance.GetId())},
 					Reconciliation: api_v0.Reconciliation{Reconciled: util.Ptr(true)},

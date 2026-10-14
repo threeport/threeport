@@ -419,8 +419,8 @@ func DomainNameInstanceReconciler(r *controller.Reconciler) {
 				continue
 			}
 
-			// set the object's Reconciled field to true if not deleted
-			if notif.Operation != notifications.NotificationOperationDeleted {
+			// mark reconciled unless it is already true
+			if notif.Operation != notifications.NotificationOperationDeleted && !tpapi_lib.AlreadyReconciled(domainNameInstance) {
 				reconciledDomainNameInstance := api_v0.DomainNameInstance{
 					Common:         api_v0.Common{ID: util.Ptr(domainNameInstance.GetId())},
 					Reconciliation: api_v0.Reconciliation{Reconciled: util.Ptr(true)},
