@@ -125,6 +125,30 @@ func (w *KubernetesWorkloadInstanceConfig) Get(
 	return &k8sWorkloadInstanceConfigs, nil
 }
 
+// validateKustomizeOverlay renders an overlay against the definition's base
+// manifests, so an overlay that cannot produce resources is rejected here
+// rather than accepted and left to fail later.
+//
+// The API stores the overlay as opaque text, and the only thing that proves it
+// valid is running it. Without this, a mistyped target selector or a malformed
+// patch is accepted, written, and surfaces as a Kubernetes event on an object
+// that already exists and will not reconcile - a failure the caller has to go
+// looking for, about input they could have been told about before anything was
+// created.
+func validateKustomizeOverlay(overlay *string, yamlDocument *string) error {
+	if overlay == nil {
+		return nil
+	}
+	if yamlDocument == nil {
+		return errors.New("the kubernetes workload definition has no YAMLDocument to render the overlay against")
+	}
+	if _, err := kube.RenderKustomizeOverlay(*yamlDocument, *overlay); err != nil {
+		return fmt.Errorf("invalid KustomizeOverlay: %w", err)
+	}
+
+	return nil
+}
+
 // Create creates a kubernetes workload instance in the Threeport API.
 func (w *KubernetesWorkloadInstanceConfig) Create(
 	apiClient *http.Client,
@@ -154,6 +178,16 @@ func (w *KubernetesWorkloadInstanceConfig) Create(
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kubernetes workload definition by name %s: %w", *k8sWorkloadInstanceValues.KubernetesWorkloadDefinition.Name, err)
+	}
+
+	// reject an overlay that cannot render before anything is submitted,
+	// alongside the namespace check below - both need the definition's
+	// manifests, which Validate() runs too early to have
+	if err := validateKustomizeOverlay(
+		k8sWorkloadInstanceValues.KustomizeOverlay,
+		k8sWorkloadDefinition.YAMLDocument,
+	); err != nil {
+		return nil, err
 	}
 
 	// check to see if threeport is managing namespace
@@ -303,6 +337,13 @@ func (w *KubernetesWorkloadInstanceConfig) Replace(
 	kustomizeOverlay := existingK8sWorkloadInstance.KustomizeOverlay
 	if k8sWorkloadInstanceValues.KustomizeOverlay != nil {
 		kustomizeOverlay = k8sWorkloadInstanceValues.KustomizeOverlay
+	}
+
+	// what will be sent is what has to render, which is not always what the
+	// caller wrote: a config that leaves the field unset carries the existing
+	// overlay forward, and that is the one this replace puts back
+	if err := validateKustomizeOverlay(kustomizeOverlay, k8sWorkloadDefinition.YAMLDocument); err != nil {
+		return nil, err
 	}
 
 	// construct updated kubernetes workload instance object. Several fields

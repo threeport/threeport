@@ -146,13 +146,14 @@ func TestGetKubernetesRuntimeInstanceAndCheckId(t *testing.T) {
 // end to end: Replace() would have failed with "may not be moved" before
 // ever reaching the PUT if that bug were still present.
 func TestKubernetesWorkloadInstanceConfig_Replace_PreservesInstanceState(t *testing.T) {
+	yamlDoc := "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: myapp\nspec:\n  replicas: 1\n"
 	existingID := uint(1)
 	runtimeInstanceID := uint(2)
 	definitionID := uint(3)
 	name := "test-instance"
 	newName := "renamed-instance"
 	definitionName := "test-definition"
-	overlay := "patches:\n  - target:\n      kind: Deployment\n      name: myapp\n"
+	overlay := "patches:\n  - target:\n      kind: Deployment\n      name: myapp\n    patch: |-\n      apiVersion: apps/v1\n      kind: Deployment\n      metadata:\n        name: myapp\n      spec:\n        replicas: 3\n"
 
 	createdAt := time.Now()
 	existing := api_v0.KubernetesWorkloadInstance{
@@ -186,7 +187,8 @@ func TestKubernetesWorkloadInstanceConfig_Replace_PreservesInstanceState(t *test
 		case r.Method == http.MethodGet && r.URL.Path == api_v0.PathKubernetesWorkloadDefinitions:
 			require.Equal(t, definitionName, r.URL.Query().Get("name"))
 			respondWithObject(t, w, api_v0.KubernetesWorkloadDefinition{
-				Common: api_v0.Common{ID: &definitionID},
+				Common:       api_v0.Common{ID: &definitionID},
+				YAMLDocument: &yamlDoc,
 			})
 
 		case r.Method == http.MethodPut:
@@ -260,7 +262,7 @@ func TestKubernetesWorkloadInstanceConfig_Create_SetsKustomizeOverlay(t *testing
 	name := "test-instance"
 	definitionName := "test-definition"
 	runtimeName := "default-runtime"
-	overlay := "patches:\n  - target:\n      kind: Deployment\n      name: myapp\n"
+	overlay := "patches:\n  - target:\n      kind: Deployment\n      name: myapp\n    patch: |-\n      apiVersion: apps/v1\n      kind: Deployment\n      metadata:\n        name: myapp\n      spec:\n        replicas: 3\n"
 	yamlDoc := "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: myapp\n"
 
 	createdAt := time.Now()
@@ -337,13 +339,14 @@ func TestKubernetesWorkloadInstanceConfig_Create_SetsKustomizeOverlay(t *testing
 // to the existing one - the API's own immutability check is what rejects it,
 // not client-side logic duplicating that rule.
 func TestKubernetesWorkloadInstanceConfig_Replace_PassesThroughExplicitOverlayChange(t *testing.T) {
+	yamlDoc := "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: myapp\nspec:\n  replicas: 1\n"
 	existingID := uint(1)
 	runtimeInstanceID := uint(2)
 	definitionID := uint(3)
 	name := "test-instance"
 	definitionName := "test-definition"
-	existingOverlay := "patches:\n  - target:\n      kind: Deployment\n      name: myapp\n"
-	newOverlay := "patches:\n  - target:\n      kind: Deployment\n      name: other\n"
+	existingOverlay := "patches:\n  - target:\n      kind: Deployment\n      name: myapp\n    patch: |-\n      apiVersion: apps/v1\n      kind: Deployment\n      metadata:\n        name: myapp\n      spec:\n        replicas: 3\n"
+	newOverlay := "patches:\n  - target:\n      kind: Deployment\n      name: myapp\n    patch: |-\n      apiVersion: apps/v1\n      kind: Deployment\n      metadata:\n        name: myapp\n      spec:\n        replicas: 5\n"
 
 	createdAt := time.Now()
 	existing := api_v0.KubernetesWorkloadInstance{
@@ -373,7 +376,8 @@ func TestKubernetesWorkloadInstanceConfig_Replace_PassesThroughExplicitOverlayCh
 		case r.Method == http.MethodGet && r.URL.Path == api_v0.PathKubernetesWorkloadDefinitions:
 			require.Equal(t, definitionName, r.URL.Query().Get("name"))
 			respondWithObject(t, w, api_v0.KubernetesWorkloadDefinition{
-				Common: api_v0.Common{ID: &definitionID},
+				Common:       api_v0.Common{ID: &definitionID},
+				YAMLDocument: &yamlDoc,
 			})
 
 		case r.Method == http.MethodPut:
@@ -417,4 +421,181 @@ func TestKubernetesWorkloadInstanceConfig_Replace_PassesThroughExplicitOverlayCh
 	}
 
 	require.NoError(t, err)
+}
+
+// validOverlay renders against baseManifests below.
+const (
+	baseManifests = "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: myapp\nspec:\n  replicas: 1\n"
+	validOverlay  = "patches:\n  - target:\n      kind: Deployment\n      name: myapp\n" +
+		"    patch: |-\n      apiVersion: apps/v1\n      kind: Deployment\n" +
+		"      metadata:\n        name: myapp\n      spec:\n        replicas: 3\n"
+	malformedOverlay = "patches:\n  - target:\n   kind: [unclosed\n"
+	unrenderable     = "patches:\n  - target:\n      kind: Deployment\n      name: myapp\n"
+)
+
+// definitionServer serves the records Create and Replace read, and records
+// whether anything was written.
+func definitionServer(t *testing.T, existing *api_v0.KubernetesWorkloadInstance, wrote *bool) *httptest.Server {
+	t.Helper()
+
+	definitionID, runtimeInstanceID := uint(1), uint(2)
+	runtimeName, definitionName := "default-runtime", "test-definition"
+	yamlDoc := baseManifests
+	createdAt := time.Now()
+
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, api_v0.PathKubernetesRuntimeInstances):
+			// by default, by name, or by ID - Replace resolves the runtime
+			// through the last of those
+			respondWithObject(t, w, api_v0.KubernetesRuntimeInstance{
+				Common:   api_v0.Common{ID: &runtimeInstanceID},
+				Instance: api_v0.Instance{Name: &runtimeName},
+			})
+
+		case r.Method == http.MethodGet && r.URL.Path == api_v0.PathKubernetesWorkloadDefinitions:
+			require.Equal(t, definitionName, r.URL.Query().Get("name"))
+			respondWithObject(t, w, api_v0.KubernetesWorkloadDefinition{
+				Common:       api_v0.Common{ID: &definitionID},
+				YAMLDocument: &yamlDoc,
+			})
+
+		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, api_v0.PathKubernetesWorkloadInstances):
+			require.NotNil(t, existing, "no existing instance was set up for this test")
+			respondWithObject(t, w, *existing)
+
+		case r.Method == http.MethodPost || r.Method == http.MethodPut:
+			*wrote = true
+			var payload api_v0.KubernetesWorkloadInstance
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&payload))
+			payload.CreatedAt = &createdAt
+			payload.Status = util.Ptr("Pending")
+			status := http.StatusOK
+			if r.Method == http.MethodPost {
+				status = http.StatusCreated
+			}
+			respondWithObjectStatus(t, w, payload, status)
+
+		default:
+			http.Error(w, "unexpected request "+r.URL.String(), http.StatusMethodNotAllowed)
+		}
+	}))
+}
+
+// TestKustomizeOverlayIsRejectedBeforeAnythingIsWritten covers where an
+// unusable overlay is caught.
+//
+// The API stores it as opaque text and only the reconciler ever renders it, so
+// an overlay that cannot produce resources is accepted, written, and then
+// surfaces as a Kubernetes event on an object that already exists and will not
+// reconcile. The caller has to go looking for a failure about input they wrote,
+// which a CLI can reject outright - so the test is that nothing reaches the API
+// at all, not merely that an error comes back.
+func TestKustomizeOverlayIsRejectedBeforeAnythingIsWritten(t *testing.T) {
+	name, definitionName := "test-instance", "test-definition"
+	existingID, runtimeInstanceID, definitionID := uint(1), uint(2), uint(3)
+
+	for _, testCase := range []struct {
+		name    string
+		overlay string
+		message string
+	}{
+		{
+			name:    "malformed overlay yaml",
+			overlay: malformedOverlay,
+			message: "invalid Kustomization",
+		},
+		{
+			name:    "a patch kustomize cannot apply",
+			overlay: unrenderable,
+			message: "PatchTransformer",
+		},
+	} {
+		t.Run(testCase.name+", on create", func(t *testing.T) {
+			wrote := false
+			srv := definitionServer(t, nil, &wrote)
+			defer srv.Close()
+
+			config := &KubernetesWorkloadInstanceConfig{
+				KubernetesWorkloadInstance: KubernetesWorkloadInstanceValues{
+					Name:                         &name,
+					KubernetesWorkloadDefinition: &KubernetesWorkloadDefinitionValues{Name: &definitionName},
+					KustomizeOverlay:             util.Ptr(testCase.overlay),
+				},
+			}
+
+			_, err := config.Create(&http.Client{}, strings.TrimPrefix(srv.URL, "http://"))
+
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "invalid KustomizeOverlay")
+			assert.Contains(t, err.Error(), testCase.message)
+			assert.False(t, wrote, "the instance must not reach the API")
+		})
+
+		t.Run(testCase.name+", on replace", func(t *testing.T) {
+			wrote := false
+			existing := &api_v0.KubernetesWorkloadInstance{
+				Common:                         api_v0.Common{ID: &existingID},
+				Instance:                       api_v0.Instance{Name: &name},
+				KubernetesRuntimeInstanceID:    &runtimeInstanceID,
+				KubernetesWorkloadDefinitionID: &definitionID,
+				Status:                         util.Ptr("Running"),
+			}
+			srv := definitionServer(t, existing, &wrote)
+			defer srv.Close()
+
+			config := &KubernetesWorkloadInstanceConfig{
+				KubernetesWorkloadInstance: KubernetesWorkloadInstanceValues{
+					Name:                         &name,
+					KubernetesWorkloadDefinition: &KubernetesWorkloadDefinitionValues{Name: &definitionName},
+					KustomizeOverlay:             util.Ptr(testCase.overlay),
+				},
+			}
+
+			_, err := config.Replace(&http.Client{}, strings.TrimPrefix(srv.URL, "http://"), name)
+
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "invalid KustomizeOverlay")
+			assert.False(t, wrote, "the replace must not reach the API")
+		})
+	}
+
+	t.Run("a valid overlay is written", func(t *testing.T) {
+		wrote := false
+		srv := definitionServer(t, nil, &wrote)
+		defer srv.Close()
+
+		config := &KubernetesWorkloadInstanceConfig{
+			KubernetesWorkloadInstance: KubernetesWorkloadInstanceValues{
+				Name:                         &name,
+				KubernetesWorkloadDefinition: &KubernetesWorkloadDefinitionValues{Name: &definitionName},
+				KustomizeOverlay:             util.Ptr(validOverlay),
+			},
+		}
+
+		created, err := config.Create(&http.Client{}, strings.TrimPrefix(srv.URL, "http://"))
+
+		require.NoError(t, err)
+		assert.True(t, wrote)
+		assert.Equal(t, validOverlay, *created.KubernetesWorkloadInstance.KustomizeOverlay)
+	})
+
+	t.Run("no overlay is unaffected", func(t *testing.T) {
+		wrote := false
+		srv := definitionServer(t, nil, &wrote)
+		defer srv.Close()
+
+		config := &KubernetesWorkloadInstanceConfig{
+			KubernetesWorkloadInstance: KubernetesWorkloadInstanceValues{
+				Name:                         &name,
+				KubernetesWorkloadDefinition: &KubernetesWorkloadDefinitionValues{Name: &definitionName},
+			},
+		}
+
+		created, err := config.Create(&http.Client{}, strings.TrimPrefix(srv.URL, "http://"))
+
+		require.NoError(t, err)
+		assert.True(t, wrote)
+		assert.Nil(t, created.KubernetesWorkloadInstance.KustomizeOverlay)
+	})
 }
