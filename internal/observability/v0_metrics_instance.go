@@ -46,10 +46,13 @@ func v0MetricsInstanceCreated(
 	}
 
 	// create kube-prometheus-stack helm workload instance
-	kubePrometheusStackHelmWorkloadInstance, err := client.CreateHelmWorkloadInstance(
+	_, err = client.CreateHelmWorkloadInstance(
 		r.APIClient,
 		r.APIServer,
 		&v0.HelmWorkloadInstance{
+			Common: v0.Common{
+				Owner: metricsInstance.OwnKubePrometheusStackHelmWorkloadInstance(),
+			},
 			Instance: v0.Instance{
 				Name: util.Ptr(KubePrometheusStackChartName(*metricsInstance.Name)),
 			},
@@ -61,9 +64,6 @@ func v0MetricsInstanceCreated(
 	if err != nil {
 		return 0, fmt.Errorf("failed to create kube-prometheus-stack helm workload instance: %w", err)
 	}
-
-	// update kube-prometheus-stack helm workload instance
-	metricsInstance.KubePrometheusStackHelmWorkloadInstanceID = kubePrometheusStackHelmWorkloadInstance.ID
 
 	// update metrics instance
 	metricsInstance.Reconciled = util.Ptr(true)
@@ -95,6 +95,15 @@ func v0MetricsInstanceDeleted(
 	metricsInstance *v0.MetricsInstance,
 	log *logr.Logger,
 ) (int64, error) {
+	// read the id the create stored on the metrics instance
+	if metricsInstance.KubePrometheusStackHelmWorkloadInstanceID == nil {
+		current, err := client.GetMetricsInstanceByID(r.APIClient, r.APIServer, *metricsInstance.ID)
+		if err != nil {
+			return 0, fmt.Errorf("failed to get metrics instance: %w", err)
+		}
+		metricsInstance.KubePrometheusStackHelmWorkloadInstanceID = current.KubePrometheusStackHelmWorkloadInstanceID
+	}
+
 	// delete kube-prometheus-stack helm workload instance
 	if _, err := client.DeleteHelmWorkloadInstance(
 		r.APIClient,

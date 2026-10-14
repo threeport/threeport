@@ -3,6 +3,7 @@ package v0
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,13 +20,16 @@ import (
 // testHolder rows (self-referential) so the test only has to migrate
 // one table beyond AttachedObjectReference.
 type testHolder struct {
-	ID          *uint  `gorm:"primaryKey"`
-	Name        *string
-	RequiresFK  *uint  `relationship:"requires"`
-	OwnsFK      *uint  `relationship:"owns"`
-	MarriesFK   *uint  `relationship:"marries"`
-	DescribesFK *uint  `relationship:"describes"`
-	UntaggedFK  *uint
+	ID                *uint `gorm:"primaryKey"`
+	Name              *string
+	DeletedAt         gorm.DeletedAt
+	DeletionScheduled *time.Time
+	RequiresFK        *uint `relationship:"requires"`
+	OwnsFK            *uint `relationship:"owns"`
+	MarriesFK         *uint `relationship:"marries"`
+	DescribesFK       *uint `relationship:"describes"`
+	UntaggedFK        *uint
+	owner             *OwnerRef `gorm:"-"`
 }
 
 const (
@@ -37,6 +41,8 @@ const (
 )
 
 func (h *testHolder) GetFullyQualifiedType() string { return testHolderFQT }
+
+func (h *testHolder) GetOwner() *OwnerRef { return h.owner }
 
 // RelationshipTaggedForeignKeys gives each FK its own synthetic
 // ObjectType. Production types do this naturally (different FKs point
@@ -77,7 +83,7 @@ func setupRelTestDB(t *testing.T) *gorm.DB {
 	return db
 }
 
-func uintPtr(v uint) *uint { return &v }
+func uintPtr(v uint) *uint    { return &v }
 func strPtr(s string) *string { return &s }
 
 // withControlPlaneCaller returns a DB session whose context carries a
@@ -205,9 +211,9 @@ func TestRelationshipHooks_AfterCreate_AllFourRelationships(t *testing.T) {
 // untagged FK is a negative control, freely mutable.
 func TestRelationshipHooks_BeforeUpdate_FKImmutability(t *testing.T) {
 	type transition struct {
-		name        string
-		preFK       *uint
-		inbound     func(target1ID, target2ID uint) *testHolder
+		name          string
+		preFK         *uint
+		inbound       func(target1ID, target2ID uint) *testHolder
 		wantErrSubstr string // empty = expect success
 	}
 
@@ -607,10 +613,10 @@ func TestRelationshipHooks_BeforeDelete_CleansUpOutgoingAORs(t *testing.T) {
 // attached_object_id) - it does NOT filter by object_id - so all FKs
 // that share an ObjectType collapse onto the same count.
 type testCollider struct {
-	ID         *uint `gorm:"primaryKey"`
-	Name       *string
-	GrafanaID  *uint `relationship:"owns"`
-	LokiID     *uint `relationship:"owns"`
+	ID        *uint `gorm:"primaryKey"`
+	Name      *string
+	GrafanaID *uint `relationship:"owns"`
+	LokiID    *uint `relationship:"owns"`
 }
 
 const testColliderFQT = "test.local/v0.TestCollider"

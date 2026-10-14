@@ -53,6 +53,9 @@ func (c *ObservabilityStackDefinitionConfig) getObservabilityStackDefinitionOper
 func (c *ObservabilityStackDefinitionConfig) createObservabilityDashboardDefinition() error {
 	// create observability dashboard definition
 	observabilityDashboardDefinition := &v0.ObservabilityDashboardDefinition{
+		Common: v0.Common{
+			Owner: c.observabilityStackDefinition.OwnObservabilityDashboardDefinition(),
+		},
 		Definition: v0.Definition{
 			Name: util.Ptr(ObservabilityDashboardName(*c.observabilityStackDefinition.Name)),
 		},
@@ -65,7 +68,7 @@ func (c *ObservabilityStackDefinitionConfig) createObservabilityDashboardDefinit
 	observabilityDashboardDefinition.GrafanaHelmValuesDocument = c.observabilityStackDefinition.GrafanaHelmValuesDocument
 
 	// create observability dashboard definition
-	createdObservabilityDashboardDefinition, err := client.CreateObservabilityDashboardDefinition(
+	_, err := client.CreateObservabilityDashboardDefinition(
 		c.r.APIClient,
 		c.r.APIServer,
 		observabilityDashboardDefinition,
@@ -74,14 +77,19 @@ func (c *ObservabilityStackDefinitionConfig) createObservabilityDashboardDefinit
 		return fmt.Errorf("failed to create observability dashboard definition: %w", err)
 	}
 
-	// update observability stack definition with observability dashboard definition id
-	c.observabilityStackDefinition.ObservabilityDashboardDefinitionID = createdObservabilityDashboardDefinition.ID
-
 	return nil
 }
 
 // deleteObservabilityDashboardDefinition deletes an observability dashboard definition.
 func (c *ObservabilityStackDefinitionConfig) deleteObservabilityDashboardDefinition() error {
+	if c.observabilityStackDefinition.ObservabilityDashboardDefinitionID == nil {
+		current, err := client.GetObservabilityStackDefinitionByID(c.r.APIClient, c.r.APIServer, *c.observabilityStackDefinition.ID)
+		if err != nil {
+			return fmt.Errorf("failed to get observability stack definition: %w", err)
+		}
+		c.observabilityStackDefinition.ObservabilityDashboardDefinitionID = current.ObservabilityDashboardDefinitionID
+	}
+
 	// delete observability dashboard definition
 	if _, err := client.DeleteObservabilityDashboardDefinition(
 		c.r.APIClient,
@@ -98,6 +106,9 @@ func (c *ObservabilityStackDefinitionConfig) deleteObservabilityDashboardDefinit
 func (c *ObservabilityStackDefinitionConfig) createLoggingDefinition() error {
 	// create logging definition
 	loggingDefinition := &v0.LoggingDefinition{
+		Common: v0.Common{
+			Owner: c.observabilityStackDefinition.OwnLoggingDefinition(),
+		},
 		Definition: v0.Definition{
 			Name: util.Ptr(LoggingName(*c.observabilityStackDefinition.Name)),
 		},
@@ -116,7 +127,7 @@ func (c *ObservabilityStackDefinitionConfig) createLoggingDefinition() error {
 	loggingDefinition.LokiHelmValuesDocument = c.observabilityStackDefinition.LokiHelmValuesDocument
 
 	// create logging definition
-	createdLoggingDefinition, err := client.CreateLoggingDefinition(
+	_, err := client.CreateLoggingDefinition(
 		c.r.APIClient,
 		c.r.APIServer,
 		loggingDefinition,
@@ -125,14 +136,19 @@ func (c *ObservabilityStackDefinitionConfig) createLoggingDefinition() error {
 		return fmt.Errorf("failed to create logging definition: %w", err)
 	}
 
-	// update observability stack definition with logging definition id
-	c.observabilityStackDefinition.LoggingDefinitionID = createdLoggingDefinition.ID
-
 	return nil
 }
 
 // deleteLoggingDefinition deletes a logging definition.
 func (c *ObservabilityStackDefinitionConfig) deleteLoggingDefinition() error {
+	if c.observabilityStackDefinition.LoggingDefinitionID == nil {
+		current, err := client.GetObservabilityStackDefinitionByID(c.r.APIClient, c.r.APIServer, *c.observabilityStackDefinition.ID)
+		if err != nil {
+			return fmt.Errorf("failed to get observability stack definition: %w", err)
+		}
+		c.observabilityStackDefinition.LoggingDefinitionID = current.LoggingDefinitionID
+	}
+
 	// delete logging definition
 	if _, err := client.DeleteLoggingDefinition(
 		c.r.APIClient,
@@ -149,6 +165,9 @@ func (c *ObservabilityStackDefinitionConfig) deleteLoggingDefinition() error {
 func (c *ObservabilityStackDefinitionConfig) createMetricsDefinition() error {
 	// create metrics definition
 	metricsDefinition := &v0.MetricsDefinition{
+		Common: v0.Common{
+			Owner: c.observabilityStackDefinition.OwnMetricsDefinition(),
+		},
 		Definition: v0.Definition{
 			Name: util.Ptr(MetricsName(*c.observabilityStackDefinition.Name)),
 		},
@@ -161,7 +180,7 @@ func (c *ObservabilityStackDefinitionConfig) createMetricsDefinition() error {
 	metricsDefinition.KubePrometheusStackHelmValuesDocument = c.observabilityStackDefinition.KubePrometheusStackHelmValuesDocument
 
 	// create metrics definition
-	createdMetricsDefinition, err := client.CreateMetricsDefinition(
+	_, err := client.CreateMetricsDefinition(
 		c.r.APIClient,
 		c.r.APIServer,
 		metricsDefinition,
@@ -170,14 +189,19 @@ func (c *ObservabilityStackDefinitionConfig) createMetricsDefinition() error {
 		return fmt.Errorf("failed to create metrics definition: %w", err)
 	}
 
-	// update observability stack definition with metrics definition id
-	c.observabilityStackDefinition.MetricsDefinitionID = createdMetricsDefinition.ID
-
 	return nil
 }
 
 // deleteMetricsDefinition deletes a metrics definition.
 func (c *ObservabilityStackDefinitionConfig) deleteMetricsDefinition() error {
+	if c.observabilityStackDefinition.MetricsDefinitionID == nil {
+		current, err := client.GetObservabilityStackDefinitionByID(c.r.APIClient, c.r.APIServer, *c.observabilityStackDefinition.ID)
+		if err != nil {
+			return fmt.Errorf("failed to get observability stack definition: %w", err)
+		}
+		c.observabilityStackDefinition.MetricsDefinitionID = current.MetricsDefinitionID
+	}
+
 	// delete metrics definition
 	if _, err := client.DeleteMetricsDefinition(
 		c.r.APIClient,

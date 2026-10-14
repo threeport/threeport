@@ -12,6 +12,28 @@ type Common struct {
 	CreatedAt *time.Time
 	UpdatedAt *time.Time
 	DeletedAt *gorm.DeletedAt `gorm:"index"`
+
+	// The object that owns the row being created, and the field on that object that stores this row's id.
+	// The value is read during create and is not stored on this row.
+	Owner *OwnerRef `validate:"optional" gorm:"-"`
+}
+
+// OwnerRef names an existing object that owns the row a create request is inserting.
+// The create writes the owns reference and sets Field on that object in the same transaction.
+type OwnerRef struct {
+	// The fully qualified type of the owning object.
+	Type *string `validate:"required"`
+
+	// The id of the owning object.
+	ID *uint `validate:"required"`
+
+	// The field on the owning object that stores this row's id.
+	Field *string `validate:"required"`
+}
+
+// GetOwner returns the owner named by a create request.
+func (c Common) GetOwner() *OwnerRef {
+	return c.Owner
 }
 
 // Reconciliation includes the fields for reconciled objects.  These are
