@@ -86,14 +86,45 @@ func TestReconcilerLogsNameWhatTheyLog(t *testing.T) {
 }
 
 // isLogInfoCall reports whether a call is one of the logger's Info calls,
-// whether or not a verbosity was set on it.
+// whether or not a verbosity or any other option was set on it.
+//
+// The bare logger counts as much as a chained one. Matching only the chained
+// form would let dropping a .V(1) take the checks below off a log line along
+// with it, which is the opposite of what a test written against copied code
+// should do.
 func isLogInfoCall(call *ast.CallExpr) bool {
 	selector, ok := call.Fun.(*ast.SelectorExpr)
 	if !ok || selector.Sel.Name != "Info" {
 		return false
 	}
+	receiver := render(selector.X)
 
-	return strings.HasPrefix(render(selector.X), "log.")
+	return receiver == "log" || strings.HasPrefix(receiver, "log.")
+}
+
+// TestIsLogInfoCallMatchesEitherForm covers the matcher the checks above rest
+// on, since a matcher that silently matches nothing makes them pass.
+func TestIsLogInfoCallMatchesEitherForm(t *testing.T) {
+	for _, testCase := range []struct {
+		source  string
+		matches bool
+	}{
+		{source: `log.Info("plain")`, matches: true},
+		{source: `log.V(1).Info("with a verbosity")`, matches: true},
+		{source: `log.V(1).WithValues("k", v).Info("with values")`, matches: true},
+		{source: `log.Error(err, "not an info call")`},
+		{source: `fmt.Println("not a log call")`},
+		{source: `logger.Info("a different logger")`},
+	} {
+		t.Run(testCase.source, func(t *testing.T) {
+			expr, err := parser.ParseExpr(testCase.source)
+			require.NoError(t, err)
+			call, ok := expr.(*ast.CallExpr)
+			require.True(t, ok)
+
+			assert.Equal(t, testCase.matches, isLogInfoCall(call))
+		})
+	}
 }
 
 func stringLiteral(expr ast.Expr) (string, bool) {
