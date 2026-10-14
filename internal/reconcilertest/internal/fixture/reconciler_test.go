@@ -1,7 +1,9 @@
 package fixture
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"sync"
 	"sync/atomic"
@@ -63,6 +65,8 @@ type harness struct {
 	// patchCount counts PATCH requests against the fetching object, i.e.
 	// the "mark reconciled" update issued after the operation switch
 	patchCount atomic.Int64
+	// lastPatch is the body of the latest PATCH against the fetching object
+	lastPatch []byte
 }
 
 // startNatsServer starts an in-process JetStream server on a free loopback port.
@@ -139,6 +143,11 @@ func newHarness(t *testing.T) *harness {
 		fmt.Sprintf("%s/%d", api.PathReconcilerTestInstances, fixtureObjectID),
 		func(w http.ResponseWriter, r *http.Request) {
 			if r.Method == http.MethodPatch {
+				body, err := io.ReadAll(r.Body)
+				require.NoError(t, err)
+				h.objMu.Lock()
+				h.lastPatch = body
+				h.objMu.Unlock()
 				h.patchCount.Add(1)
 			}
 			status := int(h.apiStatus.Load())
@@ -418,6 +427,41 @@ func TestUpdateDoesNotRestampReconciled(t *testing.T) {
 
 	assert.Equal(t, []string{"update"}, h.spy.Calls())
 	assert.Zero(t, h.patchCount.Load(), "already reconciled object was patched again")
+}
+
+// TestUpdateStampsReconciledWhenNotTrue covers the first stamp.
+// An unset or false Reconciled still gets one patch that sets it true.
+func TestUpdateStampsReconciledWhenNotTrue(t *testing.T) {
+	cases := []struct {
+		name       string
+		reconciled *bool
+	}{
+		{name: "nil"},
+		{name: "false", reconciled: util.Ptr(false)},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newHarness(t)
+
+			// the fetched object is not yet reconciled
+			h.objMu.Lock()
+			h.obj.Reconciled = tc.reconciled
+			h.objMu.Unlock()
+
+			// the update reaches the handler and stamps Reconciled
+			h.publish(notifications.NotificationOperationUpdated)
+
+			assert.Equal(t, []string{"update"}, h.spy.Calls())
+			assert.Equal(t, int64(1), h.patchCount.Load())
+			h.objMu.Lock()
+			body := append([]byte(nil), h.lastPatch...)
+			h.objMu.Unlock()
+			var patched api.ReconcilerTestInstance
+			require.NoError(t, json.Unmarshal(body, &patched))
+			require.NotNil(t, patched.Reconciled)
+			assert.True(t, *patched.Reconciled)
+		})
+	}
 }
 
 // TestHaltsWhenObjectNoLongerExists covers an update whose object GET fails
