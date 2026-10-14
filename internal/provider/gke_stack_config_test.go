@@ -3,6 +3,7 @@ package provider
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -20,9 +21,12 @@ import (
 // cluster is left running.
 func TestLoadGCPConfigRecordsTheResolvedLocation(t *testing.T) {
 	// a home with no gcloud configuration, so the environment is the only
-	// source unless a test writes one
+	// source unless a test writes one. Both variables are set because
+	// os.UserHomeDir reads a different one per platform, and leaving the
+	// other would send the loader to the developer's real configuration.
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	for _, unrelated := range []string{
 		"GOOGLE_CLOUD_PROJECT",
 		"CLOUDSDK_CORE_PROJECT",
@@ -45,7 +49,18 @@ func TestLoadGCPConfigRecordsTheResolvedLocation(t *testing.T) {
 	})
 
 	t.Run("resolved from the gcloud configuration", func(t *testing.T) {
-		gcloudConfig := filepath.Join(home, ".config", "gcloud", "configurations")
+		// asking the loader where it reads from, rather than naming the path
+		// again here, so a fixture cannot drift to somewhere nothing reads
+		configDir, err := gcloudConfigDir()
+		require.NoError(t, err)
+		// however deep that is on this platform, it has to be under the
+		// temporary home, or the fixture is not what gets read
+		require.True(
+			t, strings.HasPrefix(configDir, home),
+			"the loader reads %s, outside the test's home %s", configDir, home,
+		)
+
+		gcloudConfig := filepath.Join(configDir, "configurations")
 		require.NoError(t, os.MkdirAll(gcloudConfig, 0755))
 		require.NoError(t, os.WriteFile(
 			filepath.Join(gcloudConfig, "config_default"),
