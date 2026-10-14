@@ -125,6 +125,14 @@ func (w *KubernetesWorkloadInstanceConfig) Get(
 	return &k8sWorkloadInstanceConfigs, nil
 }
 
+// How long validateKustomizeOverlay waits for a definition's resources to be
+// written by its reconciler. Variables rather than constants so tests need not
+// spend the wait.
+var (
+	resourceDefinitionAttempts    = 10
+	resourceDefinitionWaitSeconds = 1
+)
+
 // validateKustomizeOverlay renders an overlay against the base manifests the
 // controller will render it against, so an overlay that cannot produce
 // resources is rejected here rather than accepted and left to fail later.
@@ -152,14 +160,39 @@ func validateKustomizeOverlay(
 		return errors.New("cannot validate a KustomizeOverlay without a kubernetes workload definition")
 	}
 
-	resourceDefinitions, err := client_v0.GetKubernetesWorkloadResourceDefinitionsByID(
-		apiClient,
-		apiEndpoint,
-		*kubernetesWorkloadDefinitionID,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to get kubernetes workload resource definitions to validate the KustomizeOverlay against: %w", err)
+	// The definition's resources are written by its reconciler, after the
+	// definition row exists, so a workload config that creates both finds none
+	// here. Kustomize renders an empty base to no resources without
+	// complaining, which would pass every overlay in the one flow this
+	// validation is for - so the resources are waited for rather than read
+	// once. Only an instance carrying an overlay waits at all.
+	var resourceDefinitions *[]api_v0.KubernetesWorkloadResourceDefinition
+	if err := util.Retry(
+		resourceDefinitionAttempts,
+		resourceDefinitionWaitSeconds,
+		func() error {
+			found, err := client_v0.GetKubernetesWorkloadResourceDefinitionsByID(
+				apiClient,
+				apiEndpoint,
+				*kubernetesWorkloadDefinitionID,
+			)
+			if err != nil {
+				return err
+			}
+			if len(*found) == 0 {
+				return errors.New("the kubernetes workload definition has no resources yet")
+			}
+			resourceDefinitions = found
+
+			return nil
+		},
+	); err != nil {
+		return fmt.Errorf(
+			"cannot validate the KustomizeOverlay: no resources for kubernetes workload definition %d - it may not have reconciled: %w",
+			*kubernetesWorkloadDefinitionID, err,
+		)
 	}
+
 	if _, err := kube.RenderKustomizeOverlay(
 		kube.KustomizeBase(*resourceDefinitions),
 		*overlay,

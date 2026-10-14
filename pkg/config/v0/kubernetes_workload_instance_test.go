@@ -467,6 +467,10 @@ const (
 		"      metadata:\n        name: myapp\n      spec:\n        replicas: 3\n"
 	malformedOverlay = "patches:\n  - target:\n   kind: [unclosed\n"
 	unrenderable     = "patches:\n  - target:\n      kind: Deployment\n      name: myapp\n"
+	// invalid only against the real base: an empty one has nothing to apply
+	// it to, so kustomize skips it and reports no error
+	baseDependentOverlay = "patches:\n  - target:\n      kind: Deployment\n      name: myapp\n" +
+		"    patch: |-\n      - op: replace\n        path: /spec/strategy/type\n        value: Recreate\n"
 )
 
 // definitionServer serves the records Create and Replace read, and records
@@ -705,4 +709,115 @@ func TestKustomizeOverlayIsValidatedAgainstTheDeployedBase(t *testing.T) {
 
 	require.NoError(t, err, "the overlay renders against the deployed base, so it must be accepted")
 	assert.True(t, wrote, "the instance must reach the API")
+}
+
+// TestKustomizeOverlayWaitsForTheDefinitionsResources covers the window
+// between a definition existing and its resources being written.
+//
+// A workload config creates the definition and the instance one after the
+// other, while the resources are written by the definition's reconciler, so
+// that window is the ordinary path rather than a race worth ignoring.
+// Kustomize renders an empty base to no resources and reports no error, so
+// reading the resources once would pass every overlay exactly where a
+// hand-written one most needs checking.
+func TestKustomizeOverlayWaitsForTheDefinitionsResources(t *testing.T) {
+	previousAttempts, previousWait := resourceDefinitionAttempts, resourceDefinitionWaitSeconds
+	resourceDefinitionAttempts, resourceDefinitionWaitSeconds = 3, 1
+	defer func() {
+		resourceDefinitionAttempts, resourceDefinitionWaitSeconds = previousAttempts, previousWait
+	}()
+
+	definitionID, runtimeInstanceID := uint(1), uint(2)
+	name, definitionName, runtimeName := "test-instance", "test-definition", "default-runtime"
+	yamlDoc := baseManifests
+
+	// the definition's resources appear only after a delay, as its reconciler
+	// writes them. The gate is wall-clock rather than a request count because
+	// the client pages, so one call to it makes several requests.
+	newServer := func(appearAfter time.Duration, wrote *bool) *httptest.Server {
+		started := time.Now()
+		createdAt := time.Now()
+
+		return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch {
+			case strings.HasPrefix(r.URL.Path, api_v0.PathKubernetesWorkloadResourceDefinitions):
+				if time.Since(started) < appearAfter {
+					respondWithObjects(t, w, nil)
+					return
+				}
+				respondWithObjects(t, w, resourceDefinitions(definitionID))
+
+			case strings.HasPrefix(r.URL.Path, api_v0.PathKubernetesWorkloadDefinitions):
+				respondWithObject(t, w, api_v0.KubernetesWorkloadDefinition{
+					Common:       api_v0.Common{ID: &definitionID},
+					YAMLDocument: &yamlDoc,
+				})
+
+			case strings.HasPrefix(r.URL.Path, api_v0.PathKubernetesRuntimeInstances):
+				respondWithObject(t, w, api_v0.KubernetesRuntimeInstance{
+					Common:   api_v0.Common{ID: &runtimeInstanceID},
+					Instance: api_v0.Instance{Name: &runtimeName},
+				})
+
+			case r.Method == http.MethodPost:
+				*wrote = true
+				var payload api_v0.KubernetesWorkloadInstance
+				require.NoError(t, json.NewDecoder(r.Body).Decode(&payload))
+				payload.CreatedAt = &createdAt
+				payload.Status = util.Ptr("Pending")
+				respondWithObjectStatus(t, w, payload, http.StatusCreated)
+
+			default:
+				http.Error(w, "unexpected request "+r.URL.String(), http.StatusMethodNotAllowed)
+			}
+		}))
+	}
+
+	configWith := func(overlay string) *KubernetesWorkloadInstanceConfig {
+		return &KubernetesWorkloadInstanceConfig{
+			KubernetesWorkloadInstance: KubernetesWorkloadInstanceValues{
+				Name:                         &name,
+				KubernetesWorkloadDefinition: &KubernetesWorkloadDefinitionValues{Name: &definitionName},
+				KustomizeOverlay:             util.Ptr(overlay),
+			},
+		}
+	}
+
+	t.Run("an overlay only the real base rejects is caught", func(t *testing.T) {
+		// against an empty base this renders without complaint, so reading
+		// the resources once would accept it and leave it to fail in the
+		// controller - the case this whole wait exists for
+		wrote := false
+		srv := newServer(1500*time.Millisecond, &wrote)
+		defer srv.Close()
+
+		_, err := configWith(baseDependentOverlay).Create(&http.Client{}, strings.TrimPrefix(srv.URL, "http://"))
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid KustomizeOverlay")
+		assert.False(t, wrote, "the instance must not reach the API")
+	})
+
+	t.Run("a valid overlay is written once the resources arrive", func(t *testing.T) {
+		wrote := false
+		srv := newServer(1500*time.Millisecond, &wrote)
+		defer srv.Close()
+
+		_, err := configWith(validOverlay).Create(&http.Client{}, strings.TrimPrefix(srv.URL, "http://"))
+
+		require.NoError(t, err)
+		assert.True(t, wrote)
+	})
+
+	t.Run("resources that never arrive say so rather than pass", func(t *testing.T) {
+		wrote := false
+		srv := newServer(time.Hour, &wrote)
+		defer srv.Close()
+
+		_, err := configWith(baseDependentOverlay).Create(&http.Client{}, strings.TrimPrefix(srv.URL, "http://"))
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "may not have reconciled")
+		assert.False(t, wrote, "an unvalidated overlay must not reach the API")
+	})
 }
