@@ -13,6 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gorm.io/datatypes"
+
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -37,6 +39,31 @@ func respondWithObjectStatus(t *testing.T, w http.ResponseWriter, obj apiserver_
 	require.NoError(t, err)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
+	_, _ = w.Write(body)
+}
+
+// resourceDefinitions is what the controller renders an overlay against: the
+// definition's stored resource definitions, not its YAMLDocument.
+func resourceDefinitions(definitionID uint) []apiserver_lib.Object {
+	jsonDefinition := datatypes.JSON(`{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"myapp"},"spec":{"replicas":1}}`)
+
+	return []apiserver_lib.Object{
+		api_v0.KubernetesWorkloadResourceDefinition{
+			JSONDefinition:                 &jsonDefinition,
+			KubernetesWorkloadDefinitionID: &definitionID,
+		},
+	}
+}
+
+// respondWithObjects writes several objects as one 200 response.
+func respondWithObjects(t *testing.T, w http.ResponseWriter, objects []apiserver_lib.Object) {
+	t.Helper()
+	body, err := json.Marshal(apiserver_lib.Response{
+		Status: apiserver_lib.Status{Code: http.StatusOK, Message: http.StatusText(http.StatusOK)},
+		Data:   objects,
+	})
+	require.NoError(t, err)
+	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write(body)
 }
 
@@ -184,6 +211,9 @@ func TestKubernetesWorkloadInstanceConfig_Replace_PreservesInstanceState(t *test
 				Instance: api_v0.Instance{Name: util.Ptr("some-runtime")},
 			})
 
+		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, api_v0.PathKubernetesWorkloadResourceDefinitions):
+			respondWithObjects(t, w, resourceDefinitions(definitionID))
+
 		case r.Method == http.MethodGet && r.URL.Path == api_v0.PathKubernetesWorkloadDefinitions:
 			require.Equal(t, definitionName, r.URL.Query().Get("name"))
 			respondWithObject(t, w, api_v0.KubernetesWorkloadDefinition{
@@ -277,6 +307,9 @@ func TestKubernetesWorkloadInstanceConfig_Create_SetsKustomizeOverlay(t *testing
 				Common:   api_v0.Common{ID: &runtimeInstanceID},
 				Instance: api_v0.Instance{Name: &runtimeName},
 			})
+
+		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, api_v0.PathKubernetesWorkloadResourceDefinitions):
+			respondWithObjects(t, w, resourceDefinitions(definitionID))
 
 		case r.Method == http.MethodGet && r.URL.Path == api_v0.PathKubernetesWorkloadDefinitions:
 			require.Equal(t, definitionName, r.URL.Query().Get("name"))
@@ -373,6 +406,9 @@ func TestKubernetesWorkloadInstanceConfig_Replace_PassesThroughExplicitOverlayCh
 				Instance: api_v0.Instance{Name: util.Ptr("some-runtime")},
 			})
 
+		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, api_v0.PathKubernetesWorkloadResourceDefinitions):
+			respondWithObjects(t, w, resourceDefinitions(definitionID))
+
 		case r.Method == http.MethodGet && r.URL.Path == api_v0.PathKubernetesWorkloadDefinitions:
 			require.Equal(t, definitionName, r.URL.Query().Get("name"))
 			respondWithObject(t, w, api_v0.KubernetesWorkloadDefinition{
@@ -452,6 +488,9 @@ func definitionServer(t *testing.T, existing *api_v0.KubernetesWorkloadInstance,
 				Common:   api_v0.Common{ID: &runtimeInstanceID},
 				Instance: api_v0.Instance{Name: &runtimeName},
 			})
+
+		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, api_v0.PathKubernetesWorkloadResourceDefinitions):
+			respondWithObjects(t, w, resourceDefinitions(definitionID))
 
 		case r.Method == http.MethodGet && r.URL.Path == api_v0.PathKubernetesWorkloadDefinitions:
 			require.Equal(t, definitionName, r.URL.Query().Get("name"))
@@ -598,4 +637,72 @@ func TestKustomizeOverlayIsRejectedBeforeAnythingIsWritten(t *testing.T) {
 		assert.True(t, wrote)
 		assert.Nil(t, created.KubernetesWorkloadInstance.KustomizeOverlay)
 	})
+}
+
+// TestKustomizeOverlayIsValidatedAgainstTheDeployedBase covers which manifests
+// an overlay is checked against.
+//
+// The controller renders it against the definition's stored resource
+// definitions, and editing a definition's YAMLDocument does not regenerate
+// those, so the two diverge in ordinary use. Checking against YAMLDocument
+// would then answer a question nobody asked: it rejects an overlay that
+// renders against what is actually deployed, blocking the creation or renaming
+// of a healthy instance, and accepts one that does not, which is the failure
+// this validation exists to prevent.
+//
+// Here the resource definitions carry spec.replicas and the YAMLDocument no
+// longer does, and the overlay replaces that path.
+func TestKustomizeOverlayIsValidatedAgainstTheDeployedBase(t *testing.T) {
+	definitionID, runtimeInstanceID := uint(1), uint(2)
+	name, definitionName, runtimeName := "test-instance", "test-definition", "default-runtime"
+	// no spec.replicas, unlike the resource definitions
+	staleYamlDoc := "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: myapp\n"
+	overlay := "patches:\n  - target:\n      kind: Deployment\n      name: myapp\n" +
+		"    patch: |-\n      - op: replace\n        path: /spec/replicas\n        value: 3\n"
+
+	wrote := false
+	createdAt := time.Now()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasPrefix(r.URL.Path, api_v0.PathKubernetesWorkloadResourceDefinitions):
+			respondWithObjects(t, w, resourceDefinitions(definitionID))
+
+		case strings.HasPrefix(r.URL.Path, api_v0.PathKubernetesWorkloadDefinitions):
+			respondWithObject(t, w, api_v0.KubernetesWorkloadDefinition{
+				Common:       api_v0.Common{ID: &definitionID},
+				YAMLDocument: &staleYamlDoc,
+			})
+
+		case strings.HasPrefix(r.URL.Path, api_v0.PathKubernetesRuntimeInstances):
+			respondWithObject(t, w, api_v0.KubernetesRuntimeInstance{
+				Common:   api_v0.Common{ID: &runtimeInstanceID},
+				Instance: api_v0.Instance{Name: &runtimeName},
+			})
+
+		case r.Method == http.MethodPost:
+			wrote = true
+			var payload api_v0.KubernetesWorkloadInstance
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&payload))
+			payload.CreatedAt = &createdAt
+			payload.Status = util.Ptr("Pending")
+			respondWithObjectStatus(t, w, payload, http.StatusCreated)
+
+		default:
+			http.Error(w, "unexpected request "+r.URL.String(), http.StatusMethodNotAllowed)
+		}
+	}))
+	defer srv.Close()
+
+	config := &KubernetesWorkloadInstanceConfig{
+		KubernetesWorkloadInstance: KubernetesWorkloadInstanceValues{
+			Name:                         &name,
+			KubernetesWorkloadDefinition: &KubernetesWorkloadDefinitionValues{Name: &definitionName},
+			KustomizeOverlay:             &overlay,
+		},
+	}
+
+	_, err := config.Create(&http.Client{}, strings.TrimPrefix(srv.URL, "http://"))
+
+	require.NoError(t, err, "the overlay renders against the deployed base, so it must be accepted")
+	assert.True(t, wrote, "the instance must reach the API")
 }

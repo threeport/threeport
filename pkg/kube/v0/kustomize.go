@@ -2,10 +2,34 @@ package v0
 
 import (
 	"fmt"
+	"strings"
 
 	"sigs.k8s.io/kustomize/api/krusty"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
+
+	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
+
+// KustomizeBase joins a workload definition's stored resource definitions into
+// the base manifests an overlay is rendered against.
+//
+// The resource definitions are the base, not the definition's YAMLDocument.
+// Editing a YAMLDocument does not regenerate them, so the two can disagree, and
+// an overlay checked against one while rendered against the other is checked
+// against manifests nothing deploys - which rejects overlays that work and
+// accepts overlays that do not. Both callers go through here so they cannot
+// drift apart.
+func KustomizeBase(resourceDefinitions []v0.KubernetesWorkloadResourceDefinition) string {
+	var baseDocs []string
+	for _, resourceDefinition := range resourceDefinitions {
+		if resourceDefinition.JSONDefinition == nil {
+			continue
+		}
+		baseDocs = append(baseDocs, string(*resourceDefinition.JSONDefinition))
+	}
+
+	return strings.Join(baseDocs, "\n---\n")
+}
 
 // RenderKustomizeOverlay applies overlay (the body of a kustomization.yaml,
 // without a resources: key) to baseYAML (a multi-document YAML string) and

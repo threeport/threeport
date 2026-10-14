@@ -125,24 +125,45 @@ func (w *KubernetesWorkloadInstanceConfig) Get(
 	return &k8sWorkloadInstanceConfigs, nil
 }
 
-// validateKustomizeOverlay renders an overlay against the definition's base
-// manifests, so an overlay that cannot produce resources is rejected here
-// rather than accepted and left to fail later.
+// validateKustomizeOverlay renders an overlay against the base manifests the
+// controller will render it against, so an overlay that cannot produce
+// resources is rejected here rather than accepted and left to fail later.
 //
 // The API stores the overlay as opaque text, and the only thing that proves it
-// valid is running it. Without this, a mistyped target selector or a malformed
-// patch is accepted, written, and surfaces as a Kubernetes event on an object
-// that already exists and will not reconcile - a failure the caller has to go
-// looking for, about input they could have been told about before anything was
-// created.
-func validateKustomizeOverlay(overlay *string, yamlDocument *string) error {
+// valid is running it. Without this, a malformed patch is accepted, written,
+// and surfaces as a Kubernetes event on an object that already exists and will
+// not reconcile - a failure the caller has to go looking for, about input they
+// could have been told about before anything was created.
+//
+// The base is the definition's stored resource definitions, which is what
+// v0KubernetesWorkloadInstanceCreated renders against. Its YAMLDocument is not
+// the same thing: editing one does not regenerate the others, so checking
+// against it would reject overlays that work and accept overlays that do not.
+func validateKustomizeOverlay(
+	apiClient *http.Client,
+	apiEndpoint string,
+	overlay *string,
+	kubernetesWorkloadDefinitionID *uint,
+) error {
 	if overlay == nil {
 		return nil
 	}
-	if yamlDocument == nil {
-		return errors.New("the kubernetes workload definition has no YAMLDocument to render the overlay against")
+	if kubernetesWorkloadDefinitionID == nil {
+		return errors.New("cannot validate a KustomizeOverlay without a kubernetes workload definition")
 	}
-	if _, err := kube.RenderKustomizeOverlay(*yamlDocument, *overlay); err != nil {
+
+	resourceDefinitions, err := client_v0.GetKubernetesWorkloadResourceDefinitionsByID(
+		apiClient,
+		apiEndpoint,
+		*kubernetesWorkloadDefinitionID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get kubernetes workload resource definitions to validate the KustomizeOverlay against: %w", err)
+	}
+	if _, err := kube.RenderKustomizeOverlay(
+		kube.KustomizeBase(*resourceDefinitions),
+		*overlay,
+	); err != nil {
 		return fmt.Errorf("invalid KustomizeOverlay: %w", err)
 	}
 
@@ -184,8 +205,10 @@ func (w *KubernetesWorkloadInstanceConfig) Create(
 	// alongside the namespace check below - both need the definition's
 	// manifests, which Validate() runs too early to have
 	if err := validateKustomizeOverlay(
+		apiClient,
+		apiEndpoint,
 		k8sWorkloadInstanceValues.KustomizeOverlay,
-		k8sWorkloadDefinition.YAMLDocument,
+		k8sWorkloadDefinition.ID,
 	); err != nil {
 		return nil, err
 	}
@@ -342,7 +365,12 @@ func (w *KubernetesWorkloadInstanceConfig) Replace(
 	// what will be sent is what has to render, which is not always what the
 	// caller wrote: a config that leaves the field unset carries the existing
 	// overlay forward, and that is the one this replace puts back
-	if err := validateKustomizeOverlay(kustomizeOverlay, k8sWorkloadDefinition.YAMLDocument); err != nil {
+	if err := validateKustomizeOverlay(
+		apiClient,
+		apiEndpoint,
+		kustomizeOverlay,
+		k8sWorkloadDefinition.ID,
+	); err != nil {
 		return nil, err
 	}
 
