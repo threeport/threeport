@@ -606,6 +606,7 @@ func (i *KubernetesRuntimeInfraGKE) loadGCPConfig() error {
 	}
 
 	if i.ProjectID != "" && i.Region != "" {
+		i.InitPulumiProject()
 		return nil
 	}
 
@@ -617,6 +618,14 @@ func (i *KubernetesRuntimeInfraGKE) loadGCPConfig() error {
 			return fmt.Errorf("GCP region not found in environment variables or gcloud config: %w", err)
 		}
 	}
+
+	// the stack config is derived from the two values this resolves, so it is
+	// rebuilt here rather than left holding whatever construction saw. A
+	// caller that omits both GCP flags constructs with neither, and the stack
+	// would record an empty project and region while the cluster is built in
+	// the resolved ones - leaving a later delete to read nothing back and fall
+	// through to whatever the environment says at that point, or to nothing.
+	i.InitPulumiProject()
 
 	return nil
 }
