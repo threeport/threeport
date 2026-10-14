@@ -204,6 +204,10 @@ func (m *MachineWorkloadInstanceConfig) Replace(
 	}
 
 	// construct updated machine workload instance object
+	// Replace sends a PUT, a full replace: every field on the outgoing object
+	// is written, a nil one included, so a field left off this literal is
+	// cleared server-side rather than left alone. Status and Reconciled are
+	// the reconciler's, not something a caller of Replace is setting.
 	updatedMachineWorkloadInstance := &api_v0.MachineWorkloadInstance{
 		Common: api_v0.Common{
 			ID: existingMachineWorkloadInstance.ID,
@@ -211,9 +215,13 @@ func (m *MachineWorkloadInstanceConfig) Replace(
 		Instance: api_v0.Instance{
 			Name: machineWorkloadInstanceValues.Name,
 		},
+		Reconciliation: api_v0.Reconciliation{
+			Reconciled: existingMachineWorkloadInstance.Reconciled,
+		},
 		MachineWorkloadDefinitionID: existingMachineWorkloadInstance.MachineWorkloadDefinitionID,
 		MachineRuntimeInstanceID:    existingMachineWorkloadInstance.MachineRuntimeInstanceID,
 		Env:                         &machineWorkloadInstanceValues.Env,
+		Status:                      existingMachineWorkloadInstance.Status,
 	}
 
 	// replace machine workload instance
