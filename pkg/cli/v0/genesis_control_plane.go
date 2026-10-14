@@ -348,7 +348,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return fmt.Errorf("failed to deploy oke infrastructure: %w", err)
 		}
 	case v0.KubernetesRuntimeInfraProviderGKE:
-		kubernetesRuntimeInfraGKE := provider.KubernetesRuntimeInfraGKE{
+		kubernetesRuntimeInfraGKE := (&provider.KubernetesRuntimeInfraGKE{
 			PulumiWorkspace: provider.PulumiWorkspace{
 				RuntimeInstanceName: runtimeInstanceName(cpi.Opts),
 			},
@@ -363,9 +363,9 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			MaxNodeCount: int32(10),
 			ProjectID:    cpi.Opts.GcpProjectId,
 			Region:       cpi.Opts.GcpRegion,
-		}
-		kubernetesRuntimeInfra = &kubernetesRuntimeInfraGKE
-		uninstaller.kubernetesRuntimeInfra = &kubernetesRuntimeInfraGKE
+		}).InitPulumiProject()
+		kubernetesRuntimeInfra = kubernetesRuntimeInfraGKE
+		uninstaller.kubernetesRuntimeInfra = kubernetesRuntimeInfraGKE
 
 		// update threeport config with gke provider info
 		if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *ControlPlane) {
@@ -1103,11 +1103,11 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			}
 		}
 	case v0.KubernetesRuntimeInfraProviderGKE:
-		kubernetesRuntimeInfraGKE := provider.KubernetesRuntimeInfraGKE{
+		kubernetesRuntimeInfraGKE := (&provider.KubernetesRuntimeInfraGKE{
 			PulumiWorkspace: provider.PulumiWorkspace{
 				RuntimeInstanceName: provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
 			},
-		}
+		}).InitPulumiProject()
 		// load the GCP project ID and region from the existing Pulumi stack configuration
 		if err := kubernetesRuntimeInfraGKE.LoadConfigFromStack(); err != nil {
 			return fmt.Errorf("failed to load GKE config from Pulumi stack: %w", err)
@@ -1115,7 +1115,7 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		if kubeConnection, err = kubernetesRuntimeInfraGKE.GetConnection(); err != nil {
 			return fmt.Errorf("failed to get connection for GKE kubernetes runtime infra: %w", err)
 		}
-		kubernetesRuntimeInfra = &kubernetesRuntimeInfraGKE
+		kubernetesRuntimeInfra = kubernetesRuntimeInfraGKE
 
 		// pull GKE stack state from GKE runtime instance
 		// if not infra-only, as this flag implies the user

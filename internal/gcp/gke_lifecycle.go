@@ -418,7 +418,7 @@ func buildGkeInfra(
 		return nil, fmt.Errorf("failed to retrieve GCP provider by ID: %w", err)
 	}
 
-	infraGKE := &provider.KubernetesRuntimeInfraGKE{
+	infraGKE := (&provider.KubernetesRuntimeInfraGKE{
 		PulumiWorkspace: provider.PulumiWorkspace{
 			RuntimeInstanceName: *instance.Name,
 			Logger:              log,
@@ -429,7 +429,7 @@ func buildGkeInfra(
 		MachineType:            *definition.DefaultNodeGroupInstanceType,
 		MinNodeCount:           int32(*definition.DefaultNodeGroupMinimumSize),
 		MaxNodeCount:           int32(*definition.DefaultNodeGroupMaximumSize),
-	}
+	}).InitPulumiProject()
 
 	// The workload identity binding made after the cluster is created names this
 	// account, so it has to be known before any of the cluster is provisioned -
