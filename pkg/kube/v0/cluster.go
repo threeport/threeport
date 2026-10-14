@@ -604,22 +604,52 @@ func gkeAuthSource(
 		return nil, "", err
 	}
 	if ambientApplies {
-		tokenSource, err := google.DefaultTokenSource(
-			context.Background(),
-			auth.GcpOAuthScopes...,
-		)
-		if err == nil {
-			// ambient ADC: this process arrives as its own Workload Identity
-			// principal, which the caller names rather than an email
+		tokenSource, err := ambientWorkloadIdentity(context.Background())
+		if err == nil && tokenSource != nil {
+			// this process arrives as its own Workload Identity principal,
+			// which the caller names rather than an email
 			return tokenSource, "", nil
 		}
-		// GKE-hosted in this cluster's project, yet no ambient credential
-		// resolved - Workload Identity may not be set up on the host. The
-		// stored credential is the remaining identity, so try it rather than
-		// failing with one available.
+		// GKE-hosted in this cluster's project, yet this process does not
+		// arrive as a Workload Identity principal - none is set up on the
+		// host, or a credentials file stands in front of it. The stored
+		// credential is the remaining identity, so try it rather than failing
+		// with one available.
 	}
 
 	return gcpProviderTokenSource(gcpProvider, encryptionKey)
+}
+
+// ambientWorkloadIdentity returns a token source for this process's own Workload
+// Identity principal, or nil when its ambient credentials are not that.
+func ambientWorkloadIdentity(ctx context.Context) (oauth2.TokenSource, error) {
+	credentials, err := google.FindDefaultCredentials(ctx, auth.GcpOAuthScopes...)
+	if err != nil {
+		return nil, err
+	}
+	if !credentialsAreWorkloadIdentity(credentials) {
+		return nil, nil
+	}
+
+	return credentials.TokenSource, nil
+}
+
+// credentialsAreWorkloadIdentity reports whether resolved ambient credentials are
+// the process's own Workload Identity principal.
+//
+// Google's resolution keeps the raw file bytes in JSON when it read a credentials
+// file - GOOGLE_APPLICATION_CREDENTIALS, or a gcloud application-default login -
+// and leaves it nil when the token comes from the metadata server, which on GKE
+// is the only source that yields the pod's own principal.
+//
+// The distinction decides an identity, not just a source. A credentials file on
+// a GKE-hosted control plane names some other service account, and that account
+// is what arrives at the cluster - while the binding, told this is the Workload
+// Identity path, names a principal nothing authenticates as. Both halves agree
+// on an identity no request is made under, which is the failure this whole path
+// is arranged to prevent.
+func credentialsAreWorkloadIdentity(credentials *google.Credentials) bool {
+	return credentials != nil && credentials.JSON == nil
 }
 
 // ambientIdentityReachesCluster reports whether this process's ambient Google
@@ -694,20 +724,22 @@ func ControlPlaneGkeProject(
 		*hostDefinition.InfraProvider != v0.KubernetesRuntimeInfraProviderGKE {
 		return "", nil
 	}
-	if hostDefinition.InfraProviderAccountName == nil {
-		return "", errors.New("control plane host runtime definition has no infra provider account name")
-	}
 
-	gcpProvider, err := client.GetGcpProviderByName(
+	// The project is read through the host's own GKE runtime instance rather
+	// than the definition's InfraProviderAccountName, which a genesis install
+	// never writes: CreateGenesisControlPlane builds the definition from a name
+	// and a provider alone. Naming the provider that way would fail on every
+	// control plane bootstrapped normally.
+	gcpProvider, err := runtimeGcpProvider(
+		hostInstance,
 		threeportAPIClient,
 		threeportAPIEndpoint,
-		*hostDefinition.InfraProviderAccountName,
 	)
 	if err != nil {
-		return "", fmt.Errorf("failed to get GCP provider %q: %w", *hostDefinition.InfraProviderAccountName, err)
+		return "", fmt.Errorf("failed to get the control plane host's GCP provider: %w", err)
 	}
 	if gcpProvider.ProjectID == nil {
-		return "", fmt.Errorf("GCP provider %q has no project ID", *hostDefinition.InfraProviderAccountName)
+		return "", errors.New("the control plane host's GCP provider has no project ID")
 	}
 
 	return *gcpProvider.ProjectID, nil

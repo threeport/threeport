@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/oauth2/google"
 
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -53,8 +55,12 @@ func serviceAccountCredentials(t *testing.T, project, email string) string {
 	return string(credentials)
 }
 
-// threeportAPI serves the records gkeAuthSource reads: the control plane host
-// runtime and its provider, and the managed runtime's own provider.
+// threeportAPI serves the records the GKE auth path reads: the control plane
+// host runtime and the managed runtime, each with its own GCP provider.
+//
+// Both projects are reached the same way - runtime instance, its GKE record,
+// then that record's provider - so the fake routes on which instance is asked
+// about rather than serving one provider for every lookup.
 func threeportAPI(
 	t *testing.T,
 	hostProvider string,
@@ -65,9 +71,9 @@ func threeportAPI(
 	t.Helper()
 
 	hostInstanceId, hostDefinitionId := uint(1), uint(1)
-	hostInstanceName, hostAccountName := "control-plane-host", "host-account"
+	hostInstanceName := "control-plane-host"
 	isHost := true
-	managedProviderId := uint(2)
+	hostProviderId, managedProviderId := uint(1), uint(2)
 
 	respond := func(w http.ResponseWriter, objects ...apiserver_lib.Object) {
 		body, err := json.Marshal(apiserver_lib.Response{
@@ -89,17 +95,24 @@ func threeportAPI(
 				KubernetesRuntimeDefinitionID: &hostDefinitionId,
 			})
 		case strings.HasPrefix(r.URL.Path, v0.PathKubernetesRuntimeDefinitions):
+			// a name and a provider, and no InfraProviderAccountName - the
+			// shape CreateGenesisControlPlane writes for every bootstrapped
+			// control plane
 			respond(w, v0.KubernetesRuntimeDefinition{
-				InfraProvider:            &hostProvider,
-				InfraProviderAccountName: &hostAccountName,
+				Definition:    v0.Definition{Name: &hostInstanceName},
+				InfraProvider: &hostProvider,
 			})
 		case strings.Contains(r.URL.Path, "gcp-gke-kubernetes-runtime-instances"):
-			respond(w, v0.GcpGkeKubernetesRuntimeInstance{GcpProviderID: &managedProviderId})
-		case r.URL.Path == v0.PathGcpProviders:
-			// by name: the control plane host's provider
-			respond(w, v0.GcpProvider{ProjectID: &hostProject})
+			providerId := managedProviderId
+			if r.URL.Query().Get("kubernetesruntimeinstanceid") == fmt.Sprint(hostInstanceId) {
+				providerId = hostProviderId
+			}
+			respond(w, v0.GcpGkeKubernetesRuntimeInstance{GcpProviderID: &providerId})
 		case strings.HasPrefix(r.URL.Path, v0.PathGcpProviders):
-			// by id: the managed runtime's provider
+			if strings.HasSuffix(r.URL.Path, fmt.Sprint(hostProviderId)) {
+				respond(w, v0.GcpProvider{ProjectID: &hostProject})
+				return
+			}
 			provider := v0.GcpProvider{ProjectID: &managedProject}
 			if storedCredentials != "" {
 				provider.ServiceAccountCredentials = &storedCredentials
@@ -154,49 +167,128 @@ func TestGkeAuthSourceIgnoresAmbientCredentialsTheClusterCannotAuthorize(t *test
 		hostProvider   string
 		hostProject    string
 		managedProject string
-		subject        string
 	}{
 		{
 			name:           "control plane hosted outside GKE has no workload identity to present",
 			hostProvider:   v0.KubernetesRuntimeInfraProviderEKS,
 			hostProject:    "",
 			managedProject: managedProject,
-			subject:        storedEmail,
-		},
-		{
-			// "not GKE-hosted" is recorded as an empty project, so a managed
-			// provider missing its own project would otherwise match it and
-			// hand a control plane with no Workload Identity the ambient one
-			name:           "an unrecorded project is not the same project",
-			hostProvider:   v0.KubernetesRuntimeInfraProviderEKS,
-			hostProject:    "",
-			managedProject: "",
-			subject:        storedEmail,
 		},
 		{
 			name:           "a workload identity principal from another project reaches nothing here",
 			hostProvider:   v0.KubernetesRuntimeInfraProviderGKE,
 			hostProject:    "a-different-project",
 			managedProject: managedProject,
-			subject:        storedEmail,
 		},
 		{
-			name:           "same project: the principal the cluster was told to authorize",
+			// the case a project comparison alone gets wrong: this process is
+			// where a Workload Identity principal would come from, but a
+			// credentials file stands in front of it and names another account
+			name:           "same project, yet a credentials file is not the principal",
 			hostProvider:   v0.KubernetesRuntimeInfraProviderGKE,
 			hostProject:    managedProject,
 			managedProject: managedProject,
-			subject:        "",
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			srv := threeportAPI(t, testCase.hostProvider, testCase.hostProject, testCase.managedProject, stored)
 			defer srv.Close()
 
-			subject, err := GkeAuthSubject(runtime, &http.Client{}, strings.TrimPrefix(srv.URL, "http://"), encryptionKey)
+			subject, err := GkeAuthSubject(
+				runtime,
+				&http.Client{},
+				strings.TrimPrefix(srv.URL, "http://"),
+				encryptionKey,
+			)
 			require.NoError(t, err)
-			assert.Equal(t, testCase.subject, subject)
+			assert.Equal(
+				t, storedEmail, subject,
+				"the stored account is the identity this cluster can authorize",
+			)
 		})
 	}
+}
+
+// TestAmbientIdentityReachesCluster covers which control planes could present a
+// Workload Identity principal this cluster is able to authorize.
+//
+// The binding a managed cluster is given names a principal of the control
+// plane's Workload Identity pool, and a GKE API server authenticates pod tokens
+// against its own project's pool. From another project, or from a control plane
+// not hosted on GKE at all, no request can arrive as that principal, so the
+// binding authorizes nobody.
+func TestAmbientIdentityReachesCluster(t *testing.T) {
+	const managedProject = "the-managed-project"
+
+	for _, testCase := range []struct {
+		name           string
+		hostProvider   string
+		hostProject    string
+		managedProject string
+		reaches        bool
+	}{
+		{
+			name:           "hosted outside GKE",
+			hostProvider:   v0.KubernetesRuntimeInfraProviderEKS,
+			hostProject:    "",
+			managedProject: managedProject,
+		},
+		{
+			// "not GKE-hosted" is recorded as an empty project, so a managed
+			// provider missing its own project would otherwise match it
+			name:           "an unrecorded project is not the same project",
+			hostProvider:   v0.KubernetesRuntimeInfraProviderEKS,
+			hostProject:    "",
+			managedProject: "",
+		},
+		{
+			name:           "GKE-hosted in another project",
+			hostProvider:   v0.KubernetesRuntimeInfraProviderGKE,
+			hostProject:    "a-different-project",
+			managedProject: managedProject,
+		},
+		{
+			name:           "GKE-hosted in this cluster's project",
+			hostProvider:   v0.KubernetesRuntimeInfraProviderGKE,
+			hostProject:    managedProject,
+			managedProject: managedProject,
+			reaches:        true,
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			srv := threeportAPI(t, testCase.hostProvider, testCase.hostProject, testCase.managedProject, "")
+			defer srv.Close()
+
+			reaches, err := ambientIdentityReachesCluster(
+				&v0.GcpProvider{ProjectID: &testCase.managedProject},
+				&http.Client{},
+				strings.TrimPrefix(srv.URL, "http://"),
+			)
+			require.NoError(t, err)
+			assert.Equal(t, testCase.reaches, reaches)
+		})
+	}
+}
+
+// TestCredentialsAreWorkloadIdentity covers the second half of that decision:
+// whether this process arrives as a Workload Identity principal at all.
+//
+// Only the metadata server yields the pod's own principal. A credentials file
+// names some other service account, and that account is what reaches the
+// cluster - while a binding told this is the Workload Identity path names a
+// principal nothing authenticates as.
+func TestCredentialsAreWorkloadIdentity(t *testing.T) {
+	assert.True(
+		t, credentialsAreWorkloadIdentity(&google.Credentials{}),
+		"no file was read, so the token came from the metadata server",
+	)
+	assert.False(
+		t, credentialsAreWorkloadIdentity(&google.Credentials{
+			JSON: []byte(serviceAccountCredentials(t, "a-project", "someone@a-project.iam.gserviceaccount.com")),
+		}),
+		"a credentials file names an account, not this pod's principal",
+	)
+	assert.False(t, credentialsAreWorkloadIdentity(nil))
 }
 
 // TestGkeAuthSourceSaysSoWhenNoIdentityApplies covers the case where the stored
