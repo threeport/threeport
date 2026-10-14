@@ -125,8 +125,8 @@ func v0GatewayDefinitionUpdated(
 	}
 
 	log.V(1).Info(
-		"gateway definition created",
-		"gatewayDefinitionID", workloadDefinition.ID,
+		"gateway definition updated",
+		"gatewayDefinitionID", gatewayDefinition.ID,
 	)
 
 	return 0, nil
