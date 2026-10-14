@@ -71,20 +71,31 @@ services not supported by core Threeport, a module can be built that manages
 those services as a part of an app instance deployment.
 
 This example extends the previous to add a controller to manage AWS ElastiCache
-and CloudFront instances that are used in the app stack. We encourage software
-engineers to use the [AWS Go SDK](https://github.com/aws/aws-sdk-go-v2) in use
-cases such as this by creating a library for services your organization manages.
-We follow a similar approach with the
-[aws-builder](https://github.com/nukleros/aws-builder) project that we maintain
-to support Threeport.
+and CloudFront instances that are used in the app stack.
+
+Core Threeport provisions its EKS clusters with [Pulumi](https://github.com/pulumi/pulumi),
+driven from Go through its Automation API, and falls back to the [AWS Go
+SDK](https://github.com/aws/aws-sdk-go-v2) for the IAM work that has to happen
+before and after the stack runs.  That is a reasonable model to follow: declare
+the resources that form a graph, and reach for the SDK where ordering or a
+cloud API's own semantics make a declarative resource awkward.  The relevant
+code lives in `internal/provider` — `eks_pulumi.go` for the resource graph and
+`aws_bootstrap.go` for the SDK calls — alongside the equivalents for GCP and
+OCI.
+
+Either approach fits a custom controller.  A module that manages a handful of
+services may find the SDK alone simpler than a stack; one that manages a
+network of related resources will get more out of Pulumi, which also gives you
+state and drift detection without having to build them.
 
 Platform engineers have other Kubernetes-based solutions that may also be
 appropriate such as the [AWS Controllers for
 Kubernetes](https://aws-controllers-k8s.github.io/community/docs/community/overview/).
 
-We generally do not recommend using an infrastructure-as-code solution such as
-Terraform or CloudFormation. These do not offer the flexibility and
-sophistication that direct integrations or Kubernetes-based abstractions do.
+We generally do not recommend driving infrastructure from static
+infrastructure-as-code files such as Terraform configurations or CloudFormation
+templates.  A controller reconciles continuously against a desired state it
+reads from the Threeport API, which a file-driven workflow does not give you.
 
 ![Custom AWS Services](../img/ThreeportExtensionCustomAWSServices.drawio.svg)
 

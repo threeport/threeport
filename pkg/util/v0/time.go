@@ -24,6 +24,12 @@ const (
 // - 1 month to 1 year: round to nearest week
 // - More than 1 year: round to nearest month (30 days)
 func GetAge(timestamp *time.Time) *time.Duration {
+	// an object the API has not timestamped has no age; callers display this
+	// alongside other fields and should not be taken down by a missing one
+	if timestamp == nil {
+		return nil
+	}
+
 	now := time.Now()
 	duration := now.Sub(*timestamp)
 
@@ -80,6 +86,9 @@ func GetAgeFormattedPrecise(timestamp *time.Time) string {
 func GetAgeFormatted(timestamp *time.Time) string {
 	// Use GetAge to get the properly rounded duration
 	roundedDuration := GetAge(timestamp)
+	if roundedDuration == nil {
+		return ""
+	}
 	duration := *roundedDuration
 
 	switch {

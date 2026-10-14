@@ -13,6 +13,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/threeport/threeport/pkg/encryption/v0"
 )
 
 // testAwsConfig returns an AWS config with static credentials so that tokens
@@ -144,4 +146,39 @@ func TestGetEksTokenExpiration(t *testing.T) {
 	assert.False(t, expiration.After(after.Add(EksTokenExpiration)))
 	// AWS invalidates the token 15 minutes after it is signed
 	assert.Less(t, EksTokenExpiration, 15*time.Minute)
+}
+
+// TestEksConnectionRejectsNilConfig checks a nil AWS config is reported rather
+// than dereferenced.  A caller that failed to resolve one reaches here with
+// nil, and a segfault hides which caller it was.
+func TestEksConnectionRejectsNilConfig(t *testing.T) {
+	connectionInfo := EksClusterConnectionInfo{ClusterName: "some-cluster"}
+	err := connectionInfo.Get(nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "without an AWS config")
+
+	_, err = EksOidcIssuerUrl(nil, "some-cluster")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "without an AWS config")
+}
+
+// TestEksTokenRoundTripsThroughEncryption checks a generated token survives
+// the encrypt/decrypt round trip the teardown puts it through.  A token read
+// back from the API arrives encrypted, so one refreshed locally has to be
+// encrypted the same way or the reader fails decoding it rather than
+// authenticating with it.
+func TestEksTokenRoundTripsThroughEncryption(t *testing.T) {
+	token, _, err := GetEksToken(context.Background(), testAwsConfig(), "my-eks-cluster")
+	require.NoError(t, err)
+
+	encryptionKey, err := encryption.GenerateKey()
+	require.NoError(t, err)
+
+	encryptedToken, err := encryption.Encrypt(encryptionKey, token)
+	require.NoError(t, err)
+	assert.NotEqual(t, token, encryptedToken)
+
+	decryptedToken, err := encryption.Decrypt(encryptionKey, encryptedToken)
+	require.NoError(t, err)
+	assert.Equal(t, token, decryptedToken)
 }

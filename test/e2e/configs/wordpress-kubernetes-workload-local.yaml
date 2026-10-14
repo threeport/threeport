@@ -1,4 +1,4 @@
-Workload:
+KubernetesWorkload:
   Name: "wordpress"
   YAMLDocument: "wordpress-manifest-local.yaml"
 

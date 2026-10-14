@@ -82,18 +82,33 @@ AWS:
   deploy user workloads.  The EKS recource along with all the necessary services
   needed for a working EKS cluster are managed for the user.
 
-We use a library called [aws-builder](https://github.com/nukleros/aws-builder)
-that was developed for use by Threeport.  It uses the [v2
-SDK for the Go programming language](https://github.com/aws/aws-sdk-go-v2) to
-manage AWS resources.  We do not use any intermediate toolchains or libraries
-such as [Pulumi](https://github.com/pulumi/pulumi), [ACK](https://github.com/aws-controllers-k8s/community),
-[Crossplane](https://github.com/crossplane/crossplane) or [Terraform](https://github.com/crossplane/crossplane).
-These are capable tools for certain
-use cases.  However, using the AWS SDK directly gives us the most flexibility
-and ensures we don't encounter any unsupported operations we might need to
-perform in managing cloud resources for Threeport users.  It also serves as a
-reference implementation for platform engineers that extend Threeport and wish
-to use a similar approach.
+The cluster's networking, the EKS cluster itself and its node groups are
+provisioned with [Pulumi](https://github.com/pulumi/pulumi), through its
+Automation API with an inline program.  This is the same mechanism the GCP and
+OCI controllers use, and it means all three cloud providers share the
+reconciliation engine in `internal/provider`: the same create and delete state
+machines, the same stack state persisted to the API, and the same recovery
+behavior when a provisioning run is interrupted.
+
+IAM is handled separately, with direct calls to the [v2 SDK for the Go
+programming language](https://github.com/aws/aws-sdk-go-v2).  That covers the
+roles the cluster and its worker nodes assume, the OIDC identity provider that
+backs IAM Roles for Service Accounts (IRSA), and the roles the cluster's
+add-ons assume through it.  The GCP and OCI controllers draw the same line,
+keeping service account and compartment work outside their Pulumi programs.
+
+The split follows from ordering rather than preference.  EKS will not create a
+cluster without the role it assumes, so those roles have to exist before the
+stack runs; and the OIDC issuer the add-on roles are bound to is created with
+the cluster, so those roles can only be created after it.  Pulumi manages what
+sits in between, where a declarative resource graph is worth having.
+
+We do not use [ACK](https://github.com/aws-controllers-k8s/community),
+[Crossplane](https://github.com/crossplane/crossplane) or
+[Terraform](https://github.com/hashicorp/terraform) for cluster provisioning.
+These are capable tools for certain use cases, but Pulumi's Automation API lets
+us drive provisioning from Go in the controller process, with no separate
+toolchain or cluster-side component to operate.
 
 ### Control Plane Controller
 

@@ -13,8 +13,6 @@ import (
 	aws_iam "github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/go-logr/logr"
-	builder_config "github.com/nukleros/aws-builder/pkg/config"
-	"github.com/nukleros/aws-builder/pkg/iam"
 	"github.com/oracle/oci-go-sdk/v65/common"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -23,6 +21,7 @@ import (
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	auth "github.com/threeport/threeport/pkg/auth/v0"
+	tpaws "github.com/threeport/threeport/pkg/aws/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
@@ -176,15 +175,6 @@ func v0ControlPlaneInstanceCreated(
 	var tokenGenerator func() (string, error)
 	switch *kubernetesRuntimeDefinition.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
-		resourceInventory, err := client.GetResourceInventoryByK8sRuntimeInst(
-			r.APIClient,
-			r.APIServer,
-			controlPlaneInstance.KubernetesRuntimeInstanceID,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get resource inventory: %w", err)
-		}
-
 		// Get AWS EKS runtime instance
 		awsEksKubernetesRuntimeInstance, err := client.GetAwsEksKubernetesRuntimeInstanceByK8sRuntimeInst(
 			r.APIClient,
@@ -223,7 +213,7 @@ func v0ControlPlaneInstanceCreated(
 		resourceManagerRoleName := provider.GetResourceManagerRoleName(cpi.Opts.ControlPlaneName)
 		_, err = provider.CreateResourceManagerRole(
 			cpi.Opts.Namespace,
-			iam.CreateIamTags(
+			tpaws.IamTags(
 				cpi.Opts.ControlPlaneName,
 				map[string]string{},
 			),
@@ -264,12 +254,23 @@ func v0ControlPlaneInstanceCreated(
 			return 0, fmt.Errorf("failed to wait for IAM resources to be available: %w", err)
 		}
 
+		// the trust policy binds the role to the cluster's OIDC provider, whose
+		// URL carries an ID assigned when the cluster was created and so can
+		// only be read from AWS
+		oidcIssuerUrl, err := tpaws.EksOidcIssuerUrl(
+			awsConfig,
+			*awsEksKubernetesRuntimeInstance.Name,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to get EKS cluster OIDC issuer URL: %w", err)
+		}
+
 		if err = provider.UpdateResourceManagerRoleTrustPolicy(
 			cpi.Opts.Namespace,
 			cpi.Opts.ControlPlaneName,
 			*callerIdentity.Account,
 			"",
-			resourceInventory.Cluster.OidcProviderUrl,
+			oidcIssuerUrl,
 			*awsConfig,
 			cpi.Opts.AdditionalAwsIrsaConditions,
 		); err != nil {
@@ -938,7 +939,7 @@ func v0ControlPlaneInstanceDeleted(
 	switch *kubernetesRuntimeDefinition.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
 		// create AWS config
-		awsConf, err := builder_config.LoadAWSConfig(false, "", "", "", "", "")
+		awsConf, err := tpaws.LoadAwsConfig("", "")
 		if err != nil {
 			return 0, fmt.Errorf("failed to load AWS configuration with local config: %w", err)
 		}
