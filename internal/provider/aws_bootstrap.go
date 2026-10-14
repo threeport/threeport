@@ -764,11 +764,6 @@ func (i *KubernetesRuntimeInfraEKS) createEbsStorageAddon(ctx context.Context, s
 	if i.AwsConfig == nil {
 		return errors.New("cannot create the EBS storage addon without an AWS config")
 	}
-
-	// a deadline for the whole bootstrap, not per call: there is no context to
-	// inherit, and without one a single stuck IAM call hangs the reconciler
-	ctx, cancel := context.WithTimeout(context.Background(), iamBootstrapTimeout)
-	defer cancel()
 	if storageManagementRoleArn == "" {
 		return errors.New("no storage management role to bind the EBS storage addon to")
 	}
