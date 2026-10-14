@@ -3,11 +3,13 @@ package v0
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/eks"
+	ekstypes "github.com/aws/aws-sdk-go-v2/service/eks/types"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
@@ -63,6 +65,12 @@ type EksClusterConnectionInfo struct {
 
 // Get retrieves connection info for a given EKS cluster by name.
 func (c *EksClusterConnectionInfo) Get(awsConfig *aws.Config) error {
+	// a caller that failed to resolve a config reaches here with nil, and a
+	// nil dereference buries the real problem under a stack trace
+	if awsConfig == nil {
+		return errors.New("cannot get EKS cluster connection info without an AWS config")
+	}
+
 	ctx := context.Background()
 
 	// get the cluster's API endpoint and certificate authority
@@ -95,6 +103,66 @@ func (c *EksClusterConnectionInfo) Get(awsConfig *aws.Config) error {
 	c.TokenExpiration = tokenExpiration
 
 	return nil
+}
+
+// EksOidcIssuerUrl returns the URL of the OIDC issuer EKS stands up with a
+// cluster.  The issuer is registered as an IAM identity provider so that the
+// cluster's service accounts can assume IAM roles, and its URL is part of the
+// trust policy of every role bound that way.  It carries an ID assigned at
+// cluster creation, so it can only be read from AWS.
+func EksOidcIssuerUrl(awsConfig *aws.Config, clusterName string) (string, error) {
+	if awsConfig == nil {
+		return "", errors.New("cannot get the EKS OIDC issuer without an AWS config")
+	}
+
+	eksClient := eks.NewFromConfig(*awsConfig)
+	describeClusterOutput, err := eksClient.DescribeCluster(
+		context.Background(),
+		&eks.DescribeClusterInput{Name: aws.String(clusterName)},
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to describe EKS cluster: %w", err)
+	}
+	cluster := describeClusterOutput.Cluster
+	if cluster == nil || cluster.Identity == nil || cluster.Identity.Oidc == nil ||
+		cluster.Identity.Oidc.Issuer == nil {
+		return "", fmt.Errorf("EKS cluster %s reports no OIDC issuer", clusterName)
+	}
+
+	return *cluster.Identity.Oidc.Issuer, nil
+}
+
+// EksStorageAddonActive reports whether the EBS CSI addon is installed and
+// running on a cluster.  It is the last thing the EKS create does, so it
+// stands for the create having finished rather than merely started.
+//
+// A cluster that does not exist, or an addon that was never created, reads as
+// not complete rather than as an error: both are ordinary states partway
+// through a create.
+func EksStorageAddonActive(awsConfig *aws.Config, clusterName string) (bool, error) {
+	if awsConfig == nil {
+		return false, errors.New("cannot check the EKS storage addon without an AWS config")
+	}
+
+	describeAddonOutput, err := eks.NewFromConfig(*awsConfig).DescribeAddon(
+		context.Background(),
+		&eks.DescribeAddonInput{
+			ClusterName: aws.String(clusterName),
+			AddonName:   aws.String(EksEbsStorageAddonName),
+		},
+	)
+	if err != nil {
+		var notFound *ekstypes.ResourceNotFoundException
+		if errors.As(err, &notFound) {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to describe the %s addon: %w", EksEbsStorageAddonName, err)
+	}
+	if describeAddonOutput.Addon == nil {
+		return false, nil
+	}
+
+	return describeAddonOutput.Addon.Status == ekstypes.AddonStatusActive, nil
 }
 
 // GetEksToken returns a bearer token that authenticates the caller to an EKS

@@ -90,3 +90,16 @@ func TestGetAgeFormatted(t *testing.T) {
 		})
 	}
 }
+
+// TestGetAgeWithoutTimestamp checks the age helpers tolerate an object the
+// API has not timestamped.  They are called while building output from an API
+// response, where a missing field should leave a blank column rather than
+// take the command down.
+func TestGetAgeWithoutTimestamp(t *testing.T) {
+	if age := GetAge(nil); age != nil {
+		t.Errorf("GetAge(nil) = %v, want nil", age)
+	}
+	if formatted := GetAgeFormatted(nil); formatted != "" {
+		t.Errorf("GetAgeFormatted(nil) = %q, want empty", formatted)
+	}
+}

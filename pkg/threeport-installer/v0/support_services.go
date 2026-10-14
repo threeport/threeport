@@ -3,11 +3,11 @@ package v0
 import (
 	"fmt"
 
-	"github.com/nukleros/aws-builder/pkg/eks"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
 
+	tpaws "github.com/threeport/threeport/pkg/aws/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -16,8 +16,8 @@ const (
 	SupportServicesOperatorImage = "ghcr.io/nukleros/support-services-operator:v0.7.0"
 	RBACProxyImage               = "ghcr.io/kube-rbac-proxy/kube-rbac-proxy:v0.22.0"
 
-	// links the service account delcared in the IngressComponent resource to the
-	// resource config for github.com/nukleros/aws-builder to create the attached IAM role.
+	// links the service account declared in the IngressComponent resource to
+	// the IRSA role internal/provider creates for it on EKS.
 	DNSManagerServiceAccountName     = "external-dns"
 	DNSManagerServiceAccountNamepace = "nukleros-gateway-system"
 
@@ -27,13 +27,13 @@ const (
 	SecretsManagerServiceAccountName      = "external-secrets"
 	SecretsManagerServiceAccountNamespace = "nukleros-secrets-system"
 
-	// links the service account used by the EBS CSI driver to the resource
-	// config for github.com/nukleros/aws-builder to create the attached IAM role.
+	// links the service account used by the EBS CSI driver to the IRSA role
+	// internal/provider creates for it on EKS.
 	StorageManagerServiceAccountName      = "ebs-csi-controller-sa"
 	StorageManagerServiceAccountNamespace = "kube-system"
 
 	// links the service account used by the cluster autoscaler installation to
-	// the config for github.com/nukleros/aws-builder to create the attached IAM role.
+	// the IRSA role internal/provider creates for it on EKS.
 	ClusterAutoscalerServiceAccountName = "cluster-autoscaler"
 	ClusterAutoscalerNamespace          = "kube-system"
 
@@ -3121,10 +3121,8 @@ func InstallEksThreeportSystemServices(
 				"name":      ClusterAutoscalerServiceAccountName,
 				"namespace": ClusterAutoscalerNamespace,
 				"annotations": map[string]interface{}{
-					"eks.amazonaws.com/role-arn": fmt.Sprintf(
-						"arn:aws:iam::%s:role/%s-%s",
+					"eks.amazonaws.com/role-arn": tpaws.EksClusterAutoscalingRoleArn(
 						accountId,
-						eks.ClusterAutoscalingRoleName,
 						clusterName,
 					),
 				},

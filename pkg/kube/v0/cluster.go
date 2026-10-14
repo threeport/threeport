@@ -10,7 +10,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
-	builder_config "github.com/nukleros/aws-builder/pkg/config"
 	"github.com/oracle/oci-go-sdk/v65/common"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -660,7 +659,7 @@ func GetAwsConfigFromAwsProvider(encryptionKey, region string, awsProvider *v0.A
 	}
 
 	// load aws config via API key credentials
-	awsConfig, err := builder_config.LoadAWSConfigFromAPIKeys(accessKeyId, secretAccessKey, "", region, "", "", "")
+	awsConfig, err := tpaws.LoadAwsConfigFromApiKeys(accessKeyId, secretAccessKey, region, "", "")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AWS config from API keys: %w", err)
 	}
@@ -699,13 +698,11 @@ func GetAwsConfigFromAwsProvider(encryptionKey, region string, awsProvider *v0.A
 	}
 
 	// construct aws config given values
-	awsConfig, err = builder_config.LoadAWSConfigFromAPIKeys(
+	awsConfig, err = tpaws.LoadAwsConfigFromApiKeys(
 		accessKeyId,
 		secretAccessKey,
-		"",
 		region,
 		roleArn,
-		"",
 		externalId,
 	)
 	if err != nil {
@@ -713,4 +710,39 @@ func GetAwsConfigFromAwsProvider(encryptionKey, region string, awsProvider *v0.A
 	}
 
 	return awsConfig, nil
+}
+
+// GetAwsProviderCredentialsFromAwsProvider returns the credentials a tool
+// running in its own process, such as the Pulumi AWS provider, should
+// authenticate with for an AwsProvider.  It resolves the same inputs as
+// GetAwsConfigFromAwsProvider but hands back the long-lived credentials and
+// the role to assume rather than an already-assumed config, so that the tool
+// can renew them over an operation that outlasts a role session.
+func GetAwsProviderCredentialsFromAwsProvider(
+	encryptionKey string,
+	awsProvider *v0.AwsProvider,
+) (*tpaws.AwsProviderCredentials, error) {
+	providerCredentials := tpaws.AwsProviderCredentials{}
+
+	if awsProvider.AccessKeyID != nil && awsProvider.SecretAccessKey != nil {
+		accessKeyId, err := encryption.Decrypt(encryptionKey, *awsProvider.AccessKeyID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decrypt access key id: %w", err)
+		}
+		secretAccessKey, err := encryption.Decrypt(encryptionKey, *awsProvider.SecretAccessKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decrypt secret access key: %w", err)
+		}
+		providerCredentials.AccessKeyId = accessKeyId
+		providerCredentials.SecretAccessKey = secretAccessKey
+	}
+
+	if awsProvider.RoleArn != nil {
+		providerCredentials.AssumeRoleArn = *awsProvider.RoleArn
+		if awsProvider.ExternalId != nil {
+			providerCredentials.ExternalId = *awsProvider.ExternalId
+		}
+	}
+
+	return &providerCredentials, nil
 }
