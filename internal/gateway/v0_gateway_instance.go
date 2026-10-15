@@ -577,9 +577,17 @@ func confirmGatewayPortsExposed(
 	}
 	for _, target := range targets {
 		object, err := workload_util.GetUniqueKubernetesWorkloadResourceInstanceByName(workloadResourceInstances, target.kind, target.name)
-		if err != nil && target.kind == "Service" && strings.Contains(err.Error(), "not found") {
-			// create the load balancer once a gateway has real tcp ports
-			if err := createNginxTcpService(r, kubernetesRuntimeInstance, target.values); err != nil {
+		if err != nil && strings.Contains(err.Error(), "not found") {
+			// create the shared object when this runtime's controller workload predates it
+			switch target.kind {
+			case "Service":
+				err = createNginxTcpService(r, kubernetesRuntimeInstance, target.values)
+			case "GlobalConfiguration":
+				err = createGlobalConfiguration(r, kubernetesRuntimeInstance, target.values)
+			default:
+				return fmt.Errorf("failed to get %s %s: %w", target.kind, target.name, err)
+			}
+			if err != nil {
 				return err
 			}
 			continue
@@ -680,6 +688,37 @@ func createNginxTcpService(
 	return nil
 }
 
+// createGlobalConfiguration stores the nginx tcp listener config on the gateway controller workload.
+func createGlobalConfiguration(
+	r *controller.Reconciler,
+	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
+	listeners []interface{},
+) error {
+	// read the embedded object and set the listeners this gateway asked for
+	global, err := newManifest(assets.GlobalConfiguration)
+	if err != nil {
+		return fmt.Errorf("failed to read global configuration: %w", err)
+	}
+	if err := global.setSlice(listeners, "spec", "listeners"); err != nil {
+		return fmt.Errorf("failed to set global configuration listeners: %w", err)
+	}
+	body, err := util.MarshalJSON(global.object.Object)
+	if err != nil {
+		return fmt.Errorf("failed to marshal global configuration: %w", err)
+	}
+	// store it on the gateway controller workload
+	_, err = client.CreateKubernetesWorkloadResourceInstance(r.APIClient, r.APIServer, &v0.KubernetesWorkloadResourceInstance{
+		JSONDefinition:               &body,
+		KubernetesWorkloadInstanceID: kubernetesRuntimeInstance.GatewayControllerInstanceID,
+		Reconciled:                   util.Ptr(false),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create global configuration: %w", err)
+	}
+	return nil
+}
+
+// configureGatewayManifests renders the ingress, transport, and certificate objects for a gateway instance.
 func configureGatewayManifests(
 	r *controller.Reconciler,
 	gatewayDefinition *v0.GatewayDefinition,
