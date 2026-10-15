@@ -80,7 +80,10 @@ func (m *manifest) setTransportBackend(service string, port int64) error {
 	upstream := upstreams[0].(map[string]interface{})
 	upstream["service"] = service
 	upstream["port"] = port
-	return m.setSlice(upstreams, "spec", "upstreams")
+	if err := m.setSlice(upstreams, "spec", "upstreams"); err != nil {
+		return err
+	}
+	return unstructured.SetNestedField(m.object.Object, fmt.Sprintf("tcp-%d", port), "spec", "listener", "name")
 }
 
 // manifestFromObject wraps an existing object so setters can change it.
@@ -99,7 +102,27 @@ func getIngressComponentYaml() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return component.yaml()
+	componentYaml, err := component.yaml()
+	if err != nil {
+		return "", err
+	}
+	global, err := newManifest(assets.GlobalConfiguration)
+	if err != nil {
+		return "", err
+	}
+	globalYaml, err := global.yaml()
+	if err != nil {
+		return "", err
+	}
+	service, err := newManifest(assets.NginxTcpService)
+	if err != nil {
+		return "", err
+	}
+	serviceYaml, err := service.yaml()
+	if err != nil {
+		return "", err
+	}
+	return componentYaml + "\n---\n" + globalYaml + "\n---\n" + serviceYaml, nil
 }
 
 // getExternalDnsYaml creates an ingress component that installs external-dns.

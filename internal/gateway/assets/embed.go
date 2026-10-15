@@ -5,6 +5,12 @@ import _ "embed"
 //go:embed ingress-component.yaml
 var IngressComponent []byte
 
+//go:embed global-configuration.yaml
+var GlobalConfiguration []byte
+
+//go:embed nginx-tcp-service.yaml
+var NginxTcpService []byte
+
 //go:embed external-dns.yaml
 var ExternalDNS []byte
 

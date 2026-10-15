@@ -1,0 +1,7 @@
+apiVersion: k8s.nginx.org/v1alpha1
+kind: GlobalConfiguration
+metadata:
+  name: nginx-ingress
+  namespace: nukleros-ingress-system
+spec:
+  listeners: []

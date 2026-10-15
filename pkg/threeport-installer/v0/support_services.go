@@ -95,13 +95,19 @@ func InstallThreeportCRDs(
 func InstallEksThreeportSystemServices(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
-	_, _ string,
+	awsAccountID string,
+	eksClusterName string,
 ) error {
 	// install the definitions, then the operator that reconciles them
 	if err := InstallThreeportCRDs(kubeClient, mapper); err != nil {
 		return err
 	}
-	return InstallThreeportSupportServicesOperator(kubeClient, mapper)
+	if err := InstallThreeportSupportServicesOperator(kubeClient, mapper); err != nil {
+		return err
+	}
+
+	// the autoscaler is not part of the operator manifest
+	return installEksClusterAutoscaler(kubeClient, mapper, awsAccountID, eksClusterName)
 }
 
 // InstallThreeportSupportServicesOperator installs the support services operator.

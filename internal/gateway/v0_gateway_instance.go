@@ -535,8 +535,6 @@ func confirmGatewayPortsExposed(
 		return fmt.Errorf("failed to get kubernetes workload resource instances: %w", err)
 	}
 
-	// nginx exposes 80 and 443 on its service. confirm the definition has ports.
-	_ = workloadResourceInstances
 	gatewayHttpPorts, gatewayTcpPorts, err := client.GetGatewayHttpAndTcpPortsByGatewayDefinitionId(r.APIClient, r.APIServer, *gatewayInstance.GatewayDefinitionID)
 	if err != nil {
 		return fmt.Errorf("failed to get gateway http ports: %w", err)
@@ -544,7 +542,59 @@ func confirmGatewayPortsExposed(
 	if len(*gatewayHttpPorts) == 0 && len(*gatewayTcpPorts) == 0 {
 		return fmt.Errorf("no ports found for gateway definition %d", *gatewayInstance.GatewayDefinitionID)
 	}
-	log.V(1).Info("nginx ingress exposes 80 and 443")
+	if len(*gatewayTcpPorts) == 0 {
+		return nil
+	}
+
+	// open each TCP port on the nginx listener and the load balancer service
+	var listeners []interface{}
+	var servicePorts []interface{}
+	for _, tcpPort := range *gatewayTcpPorts {
+		name := fmt.Sprintf("tcp-%d", *tcpPort.Port)
+		listeners = append(listeners, map[string]interface{}{
+			"name":     name,
+			"port":     int64(*tcpPort.Port),
+			"protocol": "TCP",
+		})
+		servicePorts = append(servicePorts, map[string]interface{}{
+			"name":       name,
+			"port":       int64(*tcpPort.Port),
+			"targetPort": int64(*tcpPort.Port),
+			"protocol":   "TCP",
+		})
+	}
+	for _, kind := range []string{"GlobalConfiguration", "Service"} {
+		object, err := workload_util.GetUniqueKubernetesWorkloadResourceInstance(workloadResourceInstances, kind)
+		if err != nil {
+			return fmt.Errorf("failed to get %s resource instance: %w", kind, err)
+		}
+		jsonObject, err := util.UnmarshalJSON(*object.JSONDefinition)
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal %s: %w", kind, err)
+		}
+		field := "ports"
+		values := servicePorts
+		if kind == "GlobalConfiguration" {
+			field = "listeners"
+			values = listeners
+		}
+		if err := unstructured.SetNestedSlice(jsonObject, values, "spec", field); err != nil {
+			return fmt.Errorf("failed to set %s %s: %w", kind, field, err)
+		}
+		jsonDefinition, err := util.MarshalJSON(jsonObject)
+		if err != nil {
+			return fmt.Errorf("failed to marshal %s: %w", kind, err)
+		}
+		resourceInstance := v0.KubernetesWorkloadResourceInstance{
+			Common:         v0.Common{ID: object.ID},
+			JSONDefinition: &jsonDefinition,
+			Reconciled:     util.Ptr(false),
+		}
+		if _, err := client.UpdateKubernetesWorkloadResourceInstance(r.APIClient, r.APIServer, &resourceInstance); err != nil {
+			return fmt.Errorf("failed to update %s resource instance: %w", kind, err)
+		}
+	}
+
 	return nil
 }
 
