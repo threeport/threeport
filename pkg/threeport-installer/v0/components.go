@@ -324,6 +324,14 @@ THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 		},
 	}
 
+	// an init container needs the same writable paths as the containers it
+	// runs before; the additional ones below are the caller's to describe
+	for _, container := range initContainers {
+		spec := container.(map[string]interface{})
+		mounts, _ := spec["volumeMounts"].([]interface{})
+		spec["volumeMounts"] = append(mounts, writableVolumeMounts()...)
+	}
+
 	// configure additional init containers
 	for _, ic := range cpi.Opts.RestApiAdditionalInitContainers {
 		initContainers = append(initContainers, ic)
@@ -1391,6 +1399,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 									},
 								},
 								"securityContext": restrictedContainerSecurityContext(),
+								"volumeMounts":    writableVolumeMounts(),
 							},
 							map[string]interface{}{
 								"args":            agentArgs,
@@ -1765,6 +1774,10 @@ func (cpi *ControlPlaneInstaller) getAPIVolumes() ([]interface{}, []interface{},
 		volMounts = append(volMounts, certVolMount)
 	}
 
+	// the paths a read-only root filesystem has to leave writable
+	vols = append(vols, writableVolume())
+	volMounts = append(volMounts, writableVolumeMounts()...)
+
 	return vols, volMounts, nil
 }
 
@@ -1825,6 +1838,10 @@ func (cpi *ControlPlaneInstaller) getControllerVolumes(controller v0.ControlPlan
 	for _, vm := range additionalVolumeMounts {
 		volMounts = append(volMounts, vm)
 	}
+
+	// the paths a read-only root filesystem has to leave writable
+	vols = append(vols, writableVolume())
+	volMounts = append(volMounts, writableVolumeMounts()...)
 
 	return vols, volMounts, nil
 }

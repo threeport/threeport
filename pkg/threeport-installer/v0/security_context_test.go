@@ -40,9 +40,9 @@ func TestTheRestrictedContextMeetsTheStandard(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []string{"ALL"}, dropped, "restricted requires every capability dropped")
 
-	assert.NotContains(
-		t, container, "readOnlyRootFilesystem",
-		"several components write to their own filesystem; it is not part of restricted and cannot be set uniformly",
+	assert.Equal(
+		t, true, container["readOnlyRootFilesystem"],
+		"the image is immutable for the life of the pod except where writableVolumeMounts allows",
 	)
 
 	pod := restrictedPodSecurityContext()
@@ -89,6 +89,72 @@ func TestAControllerDeploymentIsHardened(t *testing.T) {
 		context, found := container["securityContext"]
 		require.True(t, found, "container %s carries no security context", name)
 		assert.Equal(t, restrictedContainerSecurityContext(), context, "container %s", name)
+
+		mounts, found := container["volumeMounts"].([]interface{})
+		require.True(t, found, "container %s mounts nothing, so it can write nowhere", name)
+		for _, writable := range writableVolumeMounts() {
+			assert.Contains(
+				t, mounts, writable,
+				"container %s has a read-only root and no mount at %s",
+				name, writable.(map[string]interface{})["mountPath"],
+			)
+		}
+	}
+
+	volumes, found, err := unstructured.NestedFieldNoCopy(
+		deployment.Object, "spec", "template", "spec", "volumes",
+	)
+	require.NoError(t, err)
+	require.True(t, found, "the pod declares no volumes")
+	assert.Contains(
+		t, volumes.([]interface{}), writableVolume(),
+		"the mounts above need the volume behind them",
+	)
+}
+
+// TestTheWritablePathsCoverWhatTheComponentsWrite covers the other half of a
+// read-only root filesystem.
+//
+// Setting the flag without leaving the right paths writable does not fail at
+// install. The container starts, reports ready, and fails the first time it
+// writes - which for the terraform and pulumi controllers is the first
+// reconcile of a real workload, and for helm is the first chart.
+func TestTheWritablePathsCoverWhatTheComponentsWrite(t *testing.T) {
+	paths := map[string]string{}
+	for _, raw := range writableVolumeMounts() {
+		mount := raw.(map[string]interface{})
+		assert.Equal(
+			t, writableVolumeName, mount["name"],
+			"every writable path shares one volume",
+		)
+		assert.NotEmpty(t, mount["subPath"], "each path needs its own subPath within that volume")
+		paths[mount["mountPath"].(string)] = mount["subPath"].(string)
+	}
+
+	for path, why := range map[string]string{
+		"/tmp":          "terraform working directories, helm's rendered values, Go temporary files",
+		"/home/nonroot": "pulumi state and plugin cache, gcloud application default credentials, the OCI config",
+		"/var/helm":     "helm's repository config, which is written here and not under the cache or data directory",
+	} {
+		assert.Contains(t, paths, path, "%s has to stay writable: %s", path, why)
+	}
+
+	// a live install caught this: mounting only /var/helm/.cache/helm and
+	// /var/helm/.local/share/helm left HelmRepoConfigFile on the read-only
+	// root, and the controller failed at its first chart rather than at
+	// install
+	for _, leaf := range []string{"/var/helm/.cache/helm", "/var/helm/.local/share/helm"} {
+		assert.NotContains(
+			t, paths, leaf,
+			"%s is covered by mounting /var/helm; mounting the leaves instead leaves the repository config read-only",
+			leaf,
+		)
+	}
+
+	subPaths := map[string]bool{}
+	for path, subPath := range paths {
+		assert.False(t, subPaths[subPath], "%s reuses a subPath, so two paths would share storage", path)
+		subPaths[subPath] = true
 	}
 }
 
