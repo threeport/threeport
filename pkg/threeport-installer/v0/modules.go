@@ -250,7 +250,7 @@ func (cpi *ControlPlaneInstaller) setDeploymentReplicas(
 	replicas int64,
 ) error {
 	// patch the deployment replica count
-	patch := []byte(fmt.Sprintf(`{"spec":{"replicas":%d}}`, replicas))
+	patch := fmt.Appendf(nil, `{"spec":{"replicas":%d}}`, replicas)
 	_, err := kubeClient.Resource(deploymentGVR).Namespace(namespace).Patch(
 		context.Background(),
 		name,
