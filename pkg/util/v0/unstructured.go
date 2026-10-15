@@ -6,6 +6,7 @@ import (
 	ghodss_yaml "github.com/ghodss/yaml"
 	"gorm.io/datatypes"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/yaml"
 )
 
 // NestedInt64OrFloat64 returns the int64 value of the nested field in the unstructured
@@ -38,6 +39,72 @@ func UnstructuredToYaml(input *unstructured.Unstructured) (string, error) {
 		return "", fmt.Errorf("failed to convert json to yaml: %v", err)
 	}
 	return string(yaml), nil
+}
+
+// UnstructuredFromYaml decodes one YAML document into a fresh object.
+func UnstructuredFromYaml(asset []byte) (*unstructured.Unstructured, error) {
+	// convert the document, then decode a new object
+	jsonBytes, err := yaml.YAMLToJSON(asset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert yaml to json: %w", err)
+	}
+	object := &unstructured.Unstructured{}
+	if err := object.UnmarshalJSON(jsonBytes); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal json into unstructured object: %w", err)
+	}
+	return object, nil
+}
+
+// SetNestedField sets one field on an object map.
+func SetNestedField(object map[string]interface{}, value interface{}, path ...string) error {
+	if err := unstructured.SetNestedField(object, value, path...); err != nil {
+		return fmt.Errorf("failed to set field %v: %w", path, err)
+	}
+	return nil
+}
+
+// SetNestedSlice sets one list field on an object map.
+func SetNestedSlice(object map[string]interface{}, value []interface{}, path ...string) error {
+	if err := unstructured.SetNestedSlice(object, value, path...); err != nil {
+		return fmt.Errorf("failed to set field %v: %w", path, err)
+	}
+	return nil
+}
+
+// RemoveNestedField drops one field from an object map.
+func RemoveNestedField(object map[string]interface{}, path ...string) {
+	unstructured.RemoveNestedField(object, path...)
+}
+
+// MergeNamedEntries keeps entries already stored and adds or replaces by name.
+func MergeNamedEntries(current, wanted []interface{}) []interface{} {
+	// keep the stored entries, then replace or append by name
+	merged := append([]interface{}{}, current...)
+	for _, want := range wanted {
+		wantMap, ok := want.(map[string]interface{})
+		if !ok {
+			merged = append(merged, want)
+			continue
+		}
+		wantName, _, _ := unstructured.NestedString(wantMap, "name")
+		replaced := false
+		for i, have := range merged {
+			haveMap, ok := have.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			haveName, _, _ := unstructured.NestedString(haveMap, "name")
+			if wantName != "" && haveName == wantName {
+				merged[i] = want
+				replaced = true
+				break
+			}
+		}
+		if !replaced {
+			merged = append(merged, want)
+		}
+	}
+	return merged
 }
 
 // UnstructuredToDatatypesJson converts an unstructured object to a datatypes.JSON object

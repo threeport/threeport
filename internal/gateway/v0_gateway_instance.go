@@ -601,14 +601,14 @@ func confirmGatewayPortsExposed(
 		}
 		current, _, _ := unstructured.NestedSlice(jsonObject, "spec", target.field)
 		// keep ports already stored for other gateways on this runtime
-		merged := mergeNamedEntries(current, target.values)
+		merged := util.MergeNamedEntries(current, target.values)
 		// compare as json so stored port numbers match the values written above
 		currentJSON, _ := json.Marshal(current)
 		desiredJSON, _ := json.Marshal(merged)
 		if string(currentJSON) == string(desiredJSON) {
 			continue
 		}
-		if err := unstructured.SetNestedSlice(jsonObject, merged, "spec", target.field); err != nil {
+		if err := util.SetNestedSlice(jsonObject, merged, "spec", target.field); err != nil {
 			return fmt.Errorf("failed to set %s %s: %w", target.kind, target.field, err)
 		}
 		jsonDefinition, err := util.MarshalJSON(jsonObject)
@@ -626,36 +626,6 @@ func confirmGatewayPortsExposed(
 	}
 
 	return nil
-}
-
-// mergeNamedEntries keeps entries already stored and adds or replaces by name.
-func mergeNamedEntries(current, wanted []interface{}) []interface{} {
-	merged := append([]interface{}{}, current...)
-	for _, want := range wanted {
-		wantMap, ok := want.(map[string]interface{})
-		if !ok {
-			merged = append(merged, want)
-			continue
-		}
-		wantName, _, _ := unstructured.NestedString(wantMap, "name")
-		replaced := false
-		for i, have := range merged {
-			haveMap, ok := have.(map[string]interface{})
-			if !ok {
-				continue
-			}
-			haveName, _, _ := unstructured.NestedString(haveMap, "name")
-			if wantName != "" && haveName == wantName {
-				merged[i] = want
-				replaced = true
-				break
-			}
-		}
-		if !replaced {
-			merged = append(merged, want)
-		}
-	}
-	return merged
 }
 
 // createControllerObject stores one embedded object on the gateway controller workload.

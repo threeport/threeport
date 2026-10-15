@@ -6,7 +6,6 @@ import (
 
 	"github.com/iancoleman/strcase"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/yaml"
 
 	"github.com/threeport/threeport/internal/gateway/assets"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -22,38 +21,27 @@ type manifest struct {
 
 // newManifest decodes an embedded manifest.
 func newManifest(asset []byte) (*manifest, error) {
-	jsonBytes, err := yaml.YAMLToJSON(asset)
+	// decode a fresh object so setters cannot share one decode
+	object, err := util.UnstructuredFromYaml(asset)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert yaml asset to json: %w", err)
+		return nil, err
 	}
-
-	object := &unstructured.Unstructured{}
-	if err := object.UnmarshalJSON(jsonBytes); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal json into unstructured object: %w", err)
-	}
-
 	return &manifest{object: object}, nil
 }
 
 // setField sets one field on the embedded object.
 func (m *manifest) setField(value interface{}, path ...string) error {
-	if err := unstructured.SetNestedField(m.object.Object, value, path...); err != nil {
-		return fmt.Errorf("failed to set field %v: %w", path, err)
-	}
-	return nil
+	return util.SetNestedField(m.object.Object, value, path...)
 }
 
 // setSlice sets one list field on the embedded object.
 func (m *manifest) setSlice(value []interface{}, path ...string) error {
-	if err := unstructured.SetNestedSlice(m.object.Object, value, path...); err != nil {
-		return fmt.Errorf("failed to set field %v: %w", path, err)
-	}
-	return nil
+	return util.SetNestedSlice(m.object.Object, value, path...)
 }
 
 // removeField drops one field from the embedded object.
 func (m *manifest) removeField(path ...string) {
-	unstructured.RemoveNestedField(m.object.Object, path...)
+	util.RemoveNestedField(m.object.Object, path...)
 }
 
 // setIngressBackend sets the service and port an ingress sends traffic to.

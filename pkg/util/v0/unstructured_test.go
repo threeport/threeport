@@ -116,3 +116,39 @@ func TestUnstructuredToYaml(t *testing.T) {
 	}
 }
 
+// TestMergeNamedEntries keeps a stored port and adds the new one.
+func TestMergeNamedEntries(t *testing.T) {
+	// keep a stored port and add the new one
+	current := []interface{}{
+		map[string]interface{}{"name": "tcp-5432", "port": int64(5432)},
+	}
+	wanted := []interface{}{
+		map[string]interface{}{"name": "tcp-6379", "port": int64(6379)},
+	}
+	merged := MergeNamedEntries(current, wanted)
+	if len(merged) != 2 {
+		t.Fatalf("got %d entries, want 2", len(merged))
+	}
+	if merged[0].(map[string]interface{})["name"] != "tcp-5432" {
+		t.Fatalf("stored entry was dropped: %#v", merged[0])
+	}
+	if merged[1].(map[string]interface{})["name"] != "tcp-6379" {
+		t.Fatalf("new entry was not added: %#v", merged[1])
+	}
+}
+
+// TestSetNestedField decodes one object and renames it.
+func TestSetNestedField(t *testing.T) {
+	// decode a config map and rename it
+	object, err := UnstructuredFromYaml([]byte("apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: old\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := SetNestedField(object.Object, "new", "metadata", "name"); err != nil {
+		t.Fatal(err)
+	}
+	name, _, _ := unstructured.NestedString(object.Object, "metadata", "name")
+	if name != "new" {
+		t.Fatalf("name = %q, want new", name)
+	}
+}
