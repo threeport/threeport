@@ -172,9 +172,6 @@ func getIngressesYaml(r *controller.Reconciler, gatewayDefinition *v0.GatewayDef
 	}
 	for _, httpPort := range *gatewayHttpPorts {
 		host := domain
-		if host == "" {
-			host = "*"
-		}
 
 		// copy the embedded ingress and set this port
 		ingress, err := newManifest(assets.Ingress)
@@ -189,7 +186,11 @@ func getIngressesYaml(r *controller.Reconciler, gatewayDefinition *v0.GatewayDef
 			return nil, fmt.Errorf("ingress has no rules: %w", err)
 		}
 		rule := rules[0].(map[string]interface{})
-		rule["host"] = host
+		if host == "" {
+			delete(rule, "host")
+		} else {
+			rule["host"] = host
+		}
 		paths := rule["http"].(map[string]interface{})["paths"].([]interface{})
 		paths[0].(map[string]interface{})["path"] = *httpPort.Path
 		if err := ingress.setSlice(rules, "spec", "rules"); err != nil {

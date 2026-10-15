@@ -664,7 +664,11 @@ func configureVirtualServiceRuntimeParameters(
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal ingress kubernetes workload resource definition: %w", err)
 		}
-		if err := manifestFromObject(ingress).setIngressBackend(name, int64(*httpPort.Port)); err != nil {
+		servicePort := int64(*httpPort.Port)
+		if httpPort.TLSEnabled != nil && *httpPort.TLSEnabled {
+			servicePort = 80
+		}
+		if err := manifestFromObject(ingress).setIngressBackend(name, servicePort); err != nil {
 			return nil, err
 		}
 		virtualServiceMarshaled, err := util.MarshalJSON(ingress)
@@ -883,15 +887,32 @@ func getGatewayInstanceObjects(r *controller.Reconciler, gatewayInstance *v0.Gat
 		return nil, fmt.Errorf("failed to get gateway definition: %w", err)
 	}
 
+	httpPorts, err := client.GetGatewayHttpPortsByGatewayDefinitionId(r.APIClient, r.APIServer, *gatewayDefinition.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get gateway http ports: %w", err)
+	}
+	tcpPorts, err := client.GetGatewayTcpPortsByGatewayDefinitionId(r.APIClient, r.APIServer, *gatewayDefinition.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get gateway tcp ports: %w", err)
+	}
+
+	var objects []string
+	if len(*httpPorts) > 0 {
+		objects = append(objects, "Ingress")
+	}
+	if len(*tcpPorts) > 0 {
+		objects = append(objects, "TransportServer")
+	}
+
 	tlsEnabled, err := getTlsEnabled(r, gatewayDefinition)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get tls enabled: %w", err)
 	}
 	if tlsEnabled {
-		return []string{"Ingress", "TransportServer", "Issuer", "Certificate"}, nil
+		objects = append(objects, "Issuer", "Certificate")
 	}
 
-	return []string{"Ingress", "TransportServer"}, nil
+	return objects, nil
 }
 
 // configureGatewayKubernetesWorkloadResourceInstances configures the kubernetes workload resource instances

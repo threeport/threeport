@@ -153,7 +153,7 @@ func confirmDnsControllerDeployed(
 
 		externalDnsYaml, err = getExternalDnsYaml(
 			*domainNameDefinition.Domain,
-			"aws",
+			"route53",
 			tpaws.EksDnsManagementRoleArn(clusterIdentity.AccountId, clusterIdentity.ClusterName),
 			"",
 			kubernetesRuntimeInstanceID,

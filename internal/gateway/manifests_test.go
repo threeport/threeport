@@ -63,14 +63,15 @@ func TestGetExternalDnsYamlOmitsProviderNone(t *testing.T) {
 	}
 }
 
-// TestGetExternalDnsYamlSetsAws checks the provider, role, and owner args.
-func TestGetExternalDnsYamlSetsAws(t *testing.T) {
-	rendered, err := getExternalDnsYaml("example.com", "aws", "arn:role", "", "7")
+// TestGetExternalDnsYamlSetsRoute53 checks the provider, role, and owner args.
+func TestGetExternalDnsYamlSetsRoute53(t *testing.T) {
+	// render the external dns component and check the route53 fields
+	rendered, err := getExternalDnsYaml("example.com", "route53", "arn:role", "", "7")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(rendered, "provider: aws") || !strings.Contains(rendered, "arn:role") || !strings.Contains(rendered, "txt-owner-id=7-") {
-		t.Fatalf("aws fields missing:\n%s", rendered)
+	if !strings.Contains(rendered, "provider: route53") || !strings.Contains(rendered, "arn:role") || !strings.Contains(rendered, "txt-owner-id=7-") {
+		t.Fatalf("route53 fields missing:\n%s", rendered)
 	}
 }
 

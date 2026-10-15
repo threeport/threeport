@@ -11,7 +11,7 @@ spec:
     include: false
     proxyServiceName: kong-proxy
   externalDNS:
-    provider: aws
+    provider: route53
     zoneType: public
     iamRoleArn: ""
     image: registry.k8s.io/external-dns/external-dns

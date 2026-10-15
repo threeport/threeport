@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"embed"
 	"fmt"
+	"reflect"
 
+	kubeerr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
@@ -117,6 +119,12 @@ func InstallThreeportSupportServicesOperator(
 		if object.GetKind() == "CustomResourceDefinition" || object.GetKind() == "Namespace" {
 			continue
 		}
+		if object.GetKind() == "Deployment" {
+			if err := installDeployment(object, kubeClient, mapper); err != nil {
+				return fmt.Errorf("failed to install support services operator deployment: %w", err)
+			}
+			continue
+		}
 		// an existing cluster role is updated so its rules match this manifest
 		install := kube.CreateResource
 		if object.GetKind() == "ClusterRole" || object.GetKind() == "ClusterRoleBinding" {
@@ -143,6 +151,42 @@ func InstallThreeportSupportServicesOperator(
 	}
 	if _, err := kube.CreateResource(supportServices, kubeClient, *mapper); err != nil {
 		return fmt.Errorf("failed to create SupportServices object: %w", err)
+	}
+
+	return nil
+}
+
+// installDeployment applies a deployment, replacing it when the selector changed.
+// A deployment selector is immutable, so the v0.4 operator cannot be updated in place.
+func installDeployment(object *unstructured.Unstructured, kubeClient dynamic.Interface, mapper *meta.RESTMapper) error {
+	// read the deployment that is already installed
+	existing, err := kube.GetResource(
+		object.GroupVersionKind().Group,
+		object.GroupVersionKind().Version,
+		object.GetKind(),
+		object.GetNamespace(),
+		object.GetName(),
+		kubeClient,
+		*mapper,
+	)
+	if err != nil && !kubeerr.IsNotFound(err) {
+		return fmt.Errorf("failed to get deployment %s: %w", object.GetName(), err)
+	}
+
+	// delete it when the selector does not match this manifest
+	if err == nil {
+		existingSelector, _, _ := unstructured.NestedMap(existing.Object, "spec", "selector")
+		desiredSelector, _, _ := unstructured.NestedMap(object.Object, "spec", "selector")
+		if !reflect.DeepEqual(existingSelector, desiredSelector) {
+			if err := kube.DeleteResource(object, kubeClient, *mapper); err != nil {
+				return fmt.Errorf("failed to replace deployment %s: %w", object.GetName(), err)
+			}
+		}
+	}
+
+	// apply the manifest
+	if _, err := kube.CreateOrUpdateResource(object, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to apply deployment %s: %w", object.GetName(), err)
 	}
 
 	return nil
