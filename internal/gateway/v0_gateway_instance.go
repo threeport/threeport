@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -13,6 +14,7 @@ import (
 	"gorm.io/datatypes"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
+	"github.com/threeport/threeport/internal/gateway/assets"
 	runtime "github.com/threeport/threeport/internal/kubernetes-runtime"
 	workload_util "github.com/threeport/threeport/internal/kubernetes-workload/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -575,6 +577,13 @@ func confirmGatewayPortsExposed(
 	}
 	for _, target := range targets {
 		object, err := workload_util.GetUniqueKubernetesWorkloadResourceInstanceByName(workloadResourceInstances, target.kind, target.name)
+		if err != nil && target.kind == "Service" && strings.Contains(err.Error(), "not found") {
+			// create the load balancer once a gateway has real tcp ports
+			if err := createNginxTcpService(r, kubernetesRuntimeInstance, target.values); err != nil {
+				return err
+			}
+			continue
+		}
 		if err != nil {
 			return fmt.Errorf("failed to get %s %s: %w", target.kind, target.name, err)
 		}
@@ -583,13 +592,15 @@ func confirmGatewayPortsExposed(
 			return fmt.Errorf("failed to unmarshal %s: %w", target.kind, err)
 		}
 		current, _, _ := unstructured.NestedSlice(jsonObject, "spec", target.field)
+		// keep ports already stored for other gateways on this runtime
+		merged := mergeNamedEntries(current, target.values)
 		// compare as json so stored port numbers match the values written above
 		currentJSON, _ := json.Marshal(current)
-		desiredJSON, _ := json.Marshal(target.values)
+		desiredJSON, _ := json.Marshal(merged)
 		if string(currentJSON) == string(desiredJSON) {
 			continue
 		}
-		if err := unstructured.SetNestedSlice(jsonObject, target.values, "spec", target.field); err != nil {
+		if err := unstructured.SetNestedSlice(jsonObject, merged, "spec", target.field); err != nil {
 			return fmt.Errorf("failed to set %s %s: %w", target.kind, target.field, err)
 		}
 		jsonDefinition, err := util.MarshalJSON(jsonObject)
@@ -606,6 +617,66 @@ func confirmGatewayPortsExposed(
 		}
 	}
 
+	return nil
+}
+
+// mergeNamedEntries keeps entries already stored and adds or replaces by name.
+func mergeNamedEntries(current, wanted []interface{}) []interface{} {
+	merged := append([]interface{}{}, current...)
+	for _, want := range wanted {
+		wantMap, ok := want.(map[string]interface{})
+		if !ok {
+			merged = append(merged, want)
+			continue
+		}
+		wantName, _, _ := unstructured.NestedString(wantMap, "name")
+		replaced := false
+		for i, have := range merged {
+			haveMap, ok := have.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			haveName, _, _ := unstructured.NestedString(haveMap, "name")
+			if wantName != "" && haveName == wantName {
+				merged[i] = want
+				replaced = true
+				break
+			}
+		}
+		if !replaced {
+			merged = append(merged, want)
+		}
+	}
+	return merged
+}
+
+// createNginxTcpService stores the tcp load balancer on the gateway controller workload.
+func createNginxTcpService(
+	r *controller.Reconciler,
+	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
+	ports []interface{},
+) error {
+	// read the embedded service and set the ports this gateway asked for
+	service, err := newManifest(assets.NginxTcpService)
+	if err != nil {
+		return fmt.Errorf("failed to read nginx tcp service: %w", err)
+	}
+	if err := service.setSlice(ports, "spec", "ports"); err != nil {
+		return fmt.Errorf("failed to set nginx tcp service ports: %w", err)
+	}
+	body, err := util.MarshalJSON(service.object.Object)
+	if err != nil {
+		return fmt.Errorf("failed to marshal nginx tcp service: %w", err)
+	}
+	// store it on the gateway controller workload
+	_, err = client.CreateKubernetesWorkloadResourceInstance(r.APIClient, r.APIServer, &v0.KubernetesWorkloadResourceInstance{
+		JSONDefinition:               &body,
+		KubernetesWorkloadInstanceID: kubernetesRuntimeInstance.GatewayControllerInstanceID,
+		Reconciled:                   util.Ptr(false),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create nginx tcp service: %w", err)
+	}
 	return nil
 }
 

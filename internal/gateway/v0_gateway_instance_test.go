@@ -21,6 +21,20 @@ import (
 //go:embed assets/service_test.yaml
 var serviceTest []byte
 
+// TestMergeNamedEntries keeps a port that belongs to another gateway.
+func TestMergeNamedEntries(t *testing.T) {
+	current := []interface{}{
+		map[string]interface{}{"name": "tcp-5432", "port": int64(5432)},
+	}
+	wanted := []interface{}{
+		map[string]interface{}{"name": "tcp-6379", "port": int64(6379)},
+	}
+	merged := mergeNamedEntries(current, wanted)
+	require.Len(t, merged, 2)
+	require.Equal(t, "tcp-5432", merged[0].(map[string]interface{})["name"])
+	require.Equal(t, "tcp-6379", merged[1].(map[string]interface{})["name"])
+}
+
 // TestConfigureIssuerKindUsesSelfSigned covers a kind runtime.
 func TestConfigureIssuerKindUsesSelfSigned(t *testing.T) {
 	// serve the issuer document and a kind runtime definition

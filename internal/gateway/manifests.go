@@ -114,15 +114,7 @@ func getIngressComponentYaml() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	service, err := newManifest(assets.NginxTcpService)
-	if err != nil {
-		return "", err
-	}
-	serviceYaml, err := service.yaml()
-	if err != nil {
-		return "", err
-	}
-	return componentYaml + "\n---\n" + globalYaml + "\n---\n" + serviceYaml, nil
+	return componentYaml + "\n---\n" + globalYaml, nil
 }
 
 // getExternalDnsYaml creates an ingress component that installs external-dns.

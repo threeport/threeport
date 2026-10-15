@@ -7,8 +7,4 @@ spec:
   type: LoadBalancer
   selector:
     app.kubernetes.io/name: nginx
-  ports:
-    - name: placeholder
-      port: 1
-      targetPort: 1
-      protocol: TCP
+  ports: []
