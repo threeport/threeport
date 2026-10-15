@@ -1,0 +1,18 @@
+# Vulnerabilities accepted against the component images.
+#
+# Every entry needs the identifier, who accepted it, when, and why. An entry
+# with no reason is indistinguishable from one added to make a build go green,
+# and the point of this file is that the difference stays visible.
+#
+# The scan already passes --ignore-unfixed, so anything with no fix available
+# is out of scope here and does not need an entry. This file is only for
+# findings that could be fixed and are deliberately not being fixed yet.
+#
+# Format:
+#
+#   # <why this is accepted, and what would change it>
+#   # accepted by: <name>, <date>
+#   CVE-0000-00000
+#
+# Entries are reviewed when the weekly scan runs. An entry whose reason no
+# longer holds should be removed rather than left to age.
