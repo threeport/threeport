@@ -96,7 +96,8 @@ func (m *manifest) yaml() (string, error) {
 	return util.UnstructuredToYaml(m.object)
 }
 
-// getIngressComponentYaml creates the nginx ingress component.
+// getIngressComponentYaml returns the nginx operator component.
+// The tcp listener object waits until that operator has installed its CRDs.
 func getIngressComponentYaml() (string, error) {
 	component, err := newManifest(assets.IngressComponent)
 	if err != nil {
@@ -106,15 +107,7 @@ func getIngressComponentYaml() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	global, err := newManifest(assets.GlobalConfiguration)
-	if err != nil {
-		return "", err
-	}
-	globalYaml, err := global.yaml()
-	if err != nil {
-		return "", err
-	}
-	return componentYaml + "\n---\n" + globalYaml, nil
+	return componentYaml, nil
 }
 
 // getExternalDnsYaml creates an ingress component that installs external-dns.
