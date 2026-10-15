@@ -690,8 +690,8 @@ func createControllerObject(
 	}
 	// trigger a reconciliation of the gateway controller workload
 	_, err = client.UpdateKubernetesWorkloadInstance(r.APIClient, r.APIServer, &v0.KubernetesWorkloadInstance{
-		Common:     v0.Common{ID: kubernetesRuntimeInstance.GatewayControllerInstanceID},
-		Reconciled: util.Ptr(false),
+		Common:         v0.Common{ID: kubernetesRuntimeInstance.GatewayControllerInstanceID},
+		Reconciliation: v0.Reconciliation{Reconciled: util.Ptr(false)},
 	})
 	if err != nil {
 		return fmt.Errorf("failed to update gateway controller workload: %w", err)
