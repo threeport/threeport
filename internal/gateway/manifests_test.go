@@ -11,28 +11,6 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// TestSetIndexedField writes through a list and rejects a missing index.
-func TestSetIndexedField(t *testing.T) {
-	// write the service name on the first rule
-	object := map[string]interface{}{
-		"spec": map[string]interface{}{
-			"rules": []interface{}{
-				map[string]interface{}{"host": "app.example.com"},
-			},
-		},
-	}
-	if err := setIndexedField(object, "web", "spec", "rules", 0, "host"); err != nil {
-		t.Fatal(err)
-	}
-	rules := object["spec"].(map[string]interface{})["rules"].([]interface{})
-	if rules[0].(map[string]interface{})["host"] != "web" {
-		t.Fatalf("host %#v", rules[0])
-	}
-	if err := setIndexedField(object, "x", "spec", "rules", 1, "host"); err == nil {
-		t.Fatal("expected an out of range index to fail")
-	}
-}
-
 // TestSetIngressBackend checks the service and port the setter writes.
 func TestSetIngressBackend(t *testing.T) {
 	ingress, err := util.UnstructuredFromYaml(assets.Ingress)

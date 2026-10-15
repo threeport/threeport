@@ -14,67 +14,22 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// setIndexedField writes one field through maps and list indexes.
-// unstructured.SetNestedField only accepts map keys.
-func setIndexedField(object map[string]interface{}, value interface{}, path ...interface{}) error {
-	// walk each path entry, then write the last one
-	if len(path) == 0 {
-		return fmt.Errorf("failed to set field: empty path")
-	}
-	var current interface{} = object
-	for i, entry := range path {
-		last := i == len(path)-1
-		switch key := entry.(type) {
-		case string:
-			fields, ok := current.(map[string]interface{})
-			if !ok {
-				return fmt.Errorf("failed to set field %v: expected a map", path)
-			}
-			if last {
-				fields[key] = value
-				return nil
-			}
-			next, ok := fields[key]
-			if !ok {
-				return fmt.Errorf("failed to set field %v: missing %s", path, key)
-			}
-			current = next
-		case int:
-			list, ok := current.([]interface{})
-			if !ok {
-				return fmt.Errorf("failed to set field %v: expected a list", path)
-			}
-			if key < 0 || key >= len(list) {
-				return fmt.Errorf("failed to set field %v: index %d out of range", path, key)
-			}
-			if last {
-				list[key] = value
-				return nil
-			}
-			current = list[key]
-		default:
-			return fmt.Errorf("failed to set field %v: path entry is not a string or an int", path)
-		}
-	}
-	return nil
-}
-
 // setIngressBackend sets the service and port an ingress sends traffic to.
 func setIngressBackend(object map[string]interface{}, service string, port int64) error {
 	// set the service name and port on the first path
-	if err := setIndexedField(object, service, "spec", "rules", 0, "http", "paths", 0, "backend", "service", "name"); err != nil {
+	if err := util.SetIndexedField(object, service, "spec", "rules", 0, "http", "paths", 0, "backend", "service", "name"); err != nil {
 		return fmt.Errorf("ingress has no rules: %w", err)
 	}
-	return setIndexedField(object, port, "spec", "rules", 0, "http", "paths", 0, "backend", "service", "port", "number")
+	return util.SetIndexedField(object, port, "spec", "rules", 0, "http", "paths", 0, "backend", "service", "port", "number")
 }
 
 // setTransportBackend sets the service and port a transport server sends traffic to.
 func setTransportBackend(object map[string]interface{}, service string, port int64) error {
 	// set the upstream, then name the listener for this port
-	if err := setIndexedField(object, service, "spec", "upstreams", 0, "service"); err != nil {
+	if err := util.SetIndexedField(object, service, "spec", "upstreams", 0, "service"); err != nil {
 		return fmt.Errorf("transport server has no upstreams: %w", err)
 	}
-	if err := setIndexedField(object, port, "spec", "upstreams", 0, "port"); err != nil {
+	if err := util.SetIndexedField(object, port, "spec", "upstreams", 0, "port"); err != nil {
 		return err
 	}
 	return unstructured.SetNestedField(object, fmt.Sprintf("tcp-%d", port), "spec", "listener", "name")
