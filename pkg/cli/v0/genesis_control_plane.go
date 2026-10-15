@@ -751,6 +751,14 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	}
 	Info("Threeport API is running")
 
+	// Restrict traffic within the namespace once its components are running.
+	// A default-deny applied earlier would be enforced while they are still
+	// starting, on a cluster whose CNI enforces it, and the install would be
+	// refused its own connections.
+	if err := cpi.InstallThreeportNetworkPolicies(dynamicKubeClient, mapper); err != nil {
+		return uninstaller.cleanOnCreateError("failed to install threeport network policies", err)
+	}
+
 	// install support services CRDs separately (package-level function)
 	if err = threeport.InstallThreeportCRDs(dynamicKubeClient, mapper); err != nil {
 		return uninstaller.cleanOnCreateError("failed to install threeport support services CRDs", err)

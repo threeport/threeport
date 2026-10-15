@@ -725,12 +725,7 @@ func (cpi *ControlPlaneInstaller) UpdateControllerDeployment(
 	controller v0.ControlPlaneComponent,
 ) error {
 
-	var deployName string
-	if cpi.isThreeportManagedController(controller) {
-		deployName = fmt.Sprintf("threeport-%s", controller.Name)
-	} else {
-		deployName = fmt.Sprintf("%s-%s", cpi.Opts.Name, controller.Name)
-	}
+	deployName := cpi.ControllerDeployName(controller)
 
 	controllerDeployment, err := cpi.getControllerDeployment(
 		deployName,
@@ -1983,6 +1978,21 @@ func (cpi *ControlPlaneInstaller) getImagePullPolicy() string {
 
 // getControllerDeployment returns the Kubernetes deployment resource for a
 // controller.
+// ControllerDeployName returns the deployment name a controller is installed
+// under, which is also the value of its app.kubernetes.io/name pod label.
+//
+// Network policies select controllers by that label, so the name is derived
+// here rather than spelled out again: a child control plane prefixes its own
+// name, and a policy naming the genesis form would select nothing and silently
+// deny the traffic it was written to allow.
+func (cpi *ControlPlaneInstaller) ControllerDeployName(controller v0.ControlPlaneComponent) string {
+	if cpi.isThreeportManagedController(controller) {
+		return fmt.Sprintf("threeport-%s", controller.Name)
+	}
+
+	return fmt.Sprintf("%s-%s", cpi.Opts.Name, controller.Name)
+}
+
 func (cpi *ControlPlaneInstaller) getControllerDeployment(
 	deployName string,
 	namespace string,
