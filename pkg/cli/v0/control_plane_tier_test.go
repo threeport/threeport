@@ -85,8 +85,14 @@ func TestDefaultTierForProviderIsRecordedNotInferred(t *testing.T) {
 // to remove, so the check is that every construction site sets it.
 func TestEveryControlPlaneDefinitionRecordsItsTier(t *testing.T) {
 	fileSet := token.NewFileSet()
-	files, err := filepath.Glob("*.go")
-	require.NoError(t, err)
+	var files []string
+	// every package that builds a definition, not only this one: the combined
+	// control-plane config builds one too, and shipped without a tier
+	for _, dir := range []string{".", filepath.Join("..", "..", "config", "v0")} {
+		found, err := filepath.Glob(filepath.Join(dir, "*.go"))
+		require.NoError(t, err)
+		files = append(files, found...)
+	}
 
 	constructed := 0
 	for _, path := range files {
@@ -101,22 +107,46 @@ func TestEveryControlPlaneDefinitionRecordsItsTier(t *testing.T) {
 			if !ok {
 				return true
 			}
-			selector, ok := literal.Type.(*ast.SelectorExpr)
-			if !ok || selector.Sel.Name != "ControlPlaneDefinition" {
+			// api_v0.ControlPlaneDefinition{...} or the config layer's
+			// ControlPlaneDefinitionValues{...}, both of which decide what
+			// reaches the API
+			name := ""
+			switch typed := literal.Type.(type) {
+			case *ast.SelectorExpr:
+				name = typed.Sel.Name
+			case *ast.Ident:
+				name = typed.Name
+			}
+			if name != "ControlPlaneDefinition" && name != "ControlPlaneDefinitionValues" {
 				return true
 			}
-			constructed++
 
-			setsTier := false
+			setsTier, setsAuthEnabled := false, false
 			for _, element := range literal.Elts {
 				keyed, ok := element.(*ast.KeyValueExpr)
 				if !ok {
 					continue
 				}
-				if key, ok := keyed.Key.(*ast.Ident); ok && key.Name == "Tier" {
+				key, ok := keyed.Key.(*ast.Ident)
+				if !ok {
+					continue
+				}
+				switch key.Name {
+				case "Tier":
 					setsTier = true
+				case "AuthEnabled":
+					setsAuthEnabled = true
 				}
 			}
+
+			// a literal naming only the definition refers to one that exists,
+			// which is a different thing from describing a new one: the
+			// configuration a definition carries is what marks a construction,
+			// and AuthEnabled is the one every such site sets
+			if !setsAuthEnabled {
+				return true
+			}
+			constructed++
 			assert.True(
 				t, setsTier,
 				"%s: a control plane definition is created without recording its tier",
