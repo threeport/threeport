@@ -123,24 +123,33 @@ func restrictedPodSecurityContext() map[string]interface{} {
 // The caller's mount wins where they overlap. It was asked for explicitly,
 // and it is already writable storage, which is the whole requirement.
 func addWritablePaths(vols, volMounts []interface{}) ([]interface{}, []interface{}) {
-	missing := missingWritableMounts(volMounts)
-	if len(missing) == 0 {
-		return vols, volMounts
-	}
-
-	// the caller may already have a volume under this name, in which case
-	// the mounts below use theirs rather than declaring a second one
+	// The volume is declared whether or not this container needs a mount from
+	// it. It belongs to the pod, and the other containers in that pod mount
+	// it on their own account: the api server's init containers and the
+	// agent's vendored sidecar both do. Tying the declaration to one
+	// container's needs leaves those mounts naming a volume that is not
+	// there, which Kubernetes refuses with Not found: "writable" - so a
+	// component that mounted all three paths itself would take the whole
+	// deployment down with it.
+	//
+	// A caller that already has a volume under this name keeps theirs; the
+	// mounts then use it.
+	declared := false
 	for _, raw := range vols {
 		volume, ok := raw.(map[string]interface{})
 		if !ok {
 			continue
 		}
 		if name, ok := volume["name"].(string); ok && name == writableVolumeName {
-			return vols, append(volMounts, missing...)
+			declared = true
+			break
 		}
 	}
+	if !declared {
+		vols = append(vols, writableVolume())
+	}
 
-	return append(vols, writableVolume()), append(volMounts, missing...)
+	return vols, append(volMounts, missingWritableMounts(volMounts)...)
 }
 
 // missingWritableMounts returns the writable mounts a container does not

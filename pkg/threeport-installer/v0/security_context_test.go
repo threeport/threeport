@@ -216,6 +216,94 @@ func jsonDocument(document string) *datatypes.JSON {
 	return &raw
 }
 
+// TestEveryMountNamesAVolumeThePodDeclares covers the pairing between a mount
+// and the volume behind it.
+//
+// A mount naming a volume the pod does not declare is refused outright -
+// `Not found: "writable"` - so this is not a degraded filesystem, it is a
+// deployment that never installs.
+//
+// The case that matters is a component that mounts every writable path
+// itself. The volume is the pod's, and other containers in the same pod take
+// mounts from it on their own account: the api server's init containers and
+// the agent's vendored sidecar both do. Deciding whether to declare it from
+// one container's needs leaves those mounts pointing at nothing.
+func TestEveryMountNamesAVolumeThePodDeclares(t *testing.T) {
+	coversEveryWritablePath := `[
+		{"name":"scratch","mountPath":"/tmp"},
+		{"name":"scratch","mountPath":"/home/nonroot"},
+		{"name":"scratch","mountPath":"/var/helm"}
+	]`
+
+	for name, component := range map[string]v0.ControlPlaneComponent{
+		"a controller that brings nothing": {
+			Name:               "plain-controller",
+			BinaryName:         "plain-controller",
+			ServiceAccountName: "plain-controller",
+		},
+		"a controller that mounts every writable path itself": {
+			Name:                   "crowded-controller",
+			BinaryName:             "crowded-controller",
+			ServiceAccountName:     "crowded-controller",
+			AdditionalVolumes:      jsonDocument(`[{"name":"scratch","emptyDir":{}}]`),
+			AdditionalVolumeMounts: jsonDocument(coversEveryWritablePath),
+		},
+		// a volume name has to be unique within a pod, so a caller who
+		// happens to use this name must not get a second one
+		"a controller that brings a volume of the same name": {
+			Name:               "colliding-controller",
+			BinaryName:         "colliding-controller",
+			ServiceAccountName: "colliding-controller",
+			AdditionalVolumes:  jsonDocument(`[{"name":"writable","emptyDir":{}}]`),
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			deployment, err := installerForHardeningTests().getControllerDeployment(
+				"threeport-"+component.Name, "threeport-control-plane", component,
+			)
+			require.NoError(t, err)
+
+			declared := map[string]bool{}
+			volumes, found, err := unstructured.NestedFieldNoCopy(
+				deployment.Object, "spec", "template", "spec", "volumes",
+			)
+			require.NoError(t, err)
+			require.True(t, found, "the pod declares no volumes at all")
+			for _, raw := range volumes.([]interface{}) {
+				volumeName := raw.(map[string]interface{})["name"].(string)
+				assert.False(
+					t, declared[volumeName],
+					"%s is declared twice; Kubernetes refuses the deployment with Duplicate value",
+					volumeName,
+				)
+				declared[volumeName] = true
+			}
+
+			assert.True(
+				t, declared[writableVolumeName],
+				"the writable volume has to be declared even when this container needs no mount from it, "+
+					"because the init containers and the agent's sidecar mount it on their own",
+			)
+
+			containers, _, err := unstructured.NestedFieldNoCopy(
+				deployment.Object, "spec", "template", "spec", "containers",
+			)
+			require.NoError(t, err)
+			for _, raw := range containers.([]interface{}) {
+				container := raw.(map[string]interface{})
+				for _, rawMount := range container["volumeMounts"].([]interface{}) {
+					mount := rawMount.(map[string]interface{})
+					assert.True(
+						t, declared[mount["name"].(string)],
+						"%s mounts %s at %s, which the pod does not declare",
+						container["name"], mount["name"], mount["mountPath"],
+					)
+				}
+			}
+		})
+	}
+}
+
 // TestEveryContainerThisInstallerWritesIsHardened covers the containers a
 // behavioural test cannot reach.
 //
