@@ -581,9 +581,9 @@ func confirmGatewayPortsExposed(
 			// create the shared object when this runtime's controller workload predates it
 			switch target.kind {
 			case "Service":
-				err = createNginxTcpService(r, kubernetesRuntimeInstance, target.values)
+				err = createControllerObject(r, kubernetesRuntimeInstance, assets.NginxTcpService, "ports", target.values, "nginx tcp service")
 			case "GlobalConfiguration":
-				err = createGlobalConfiguration(r, kubernetesRuntimeInstance, target.values)
+				err = createControllerObject(r, kubernetesRuntimeInstance, assets.GlobalConfiguration, "listeners", target.values, "global configuration")
 			default:
 				return fmt.Errorf("failed to get %s %s: %w", target.kind, target.name, err)
 			}
@@ -658,23 +658,26 @@ func mergeNamedEntries(current, wanted []interface{}) []interface{} {
 	return merged
 }
 
-// createNginxTcpService stores the tcp load balancer on the gateway controller workload.
-func createNginxTcpService(
+// createControllerObject stores one embedded object on the gateway controller workload.
+func createControllerObject(
 	r *controller.Reconciler,
 	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
-	ports []interface{},
+	source []byte,
+	field string,
+	values []interface{},
+	label string,
 ) error {
-	// read the embedded service and set the ports this gateway asked for
-	service, err := newManifest(assets.NginxTcpService)
+	// read the embedded object and set the named slice
+	object, err := newManifest(source)
 	if err != nil {
-		return fmt.Errorf("failed to read nginx tcp service: %w", err)
+		return fmt.Errorf("failed to read %s: %w", label, err)
 	}
-	if err := service.setSlice(ports, "spec", "ports"); err != nil {
-		return fmt.Errorf("failed to set nginx tcp service ports: %w", err)
+	if err := object.setSlice(values, "spec", field); err != nil {
+		return fmt.Errorf("failed to set %s %s: %w", label, field, err)
 	}
-	body, err := util.MarshalJSON(service.object.Object)
+	body, err := util.MarshalJSON(object.object.Object)
 	if err != nil {
-		return fmt.Errorf("failed to marshal nginx tcp service: %w", err)
+		return fmt.Errorf("failed to marshal %s: %w", label, err)
 	}
 	// store it on the gateway controller workload
 	_, err = client.CreateKubernetesWorkloadResourceInstance(r.APIClient, r.APIServer, &v0.KubernetesWorkloadResourceInstance{
@@ -683,42 +686,12 @@ func createNginxTcpService(
 		Reconciled:                   util.Ptr(false),
 	})
 	if err != nil {
-		return fmt.Errorf("failed to create nginx tcp service: %w", err)
+		return fmt.Errorf("failed to create %s: %w", label, err)
 	}
 	return nil
 }
 
-// createGlobalConfiguration stores the nginx tcp listener config on the gateway controller workload.
-func createGlobalConfiguration(
-	r *controller.Reconciler,
-	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
-	listeners []interface{},
-) error {
-	// read the embedded object and set the listeners this gateway asked for
-	global, err := newManifest(assets.GlobalConfiguration)
-	if err != nil {
-		return fmt.Errorf("failed to read global configuration: %w", err)
-	}
-	if err := global.setSlice(listeners, "spec", "listeners"); err != nil {
-		return fmt.Errorf("failed to set global configuration listeners: %w", err)
-	}
-	body, err := util.MarshalJSON(global.object.Object)
-	if err != nil {
-		return fmt.Errorf("failed to marshal global configuration: %w", err)
-	}
-	// store it on the gateway controller workload
-	_, err = client.CreateKubernetesWorkloadResourceInstance(r.APIClient, r.APIServer, &v0.KubernetesWorkloadResourceInstance{
-		JSONDefinition:               &body,
-		KubernetesWorkloadInstanceID: kubernetesRuntimeInstance.GatewayControllerInstanceID,
-		Reconciled:                   util.Ptr(false),
-	})
-	if err != nil {
-		return fmt.Errorf("failed to create global configuration: %w", err)
-	}
-	return nil
-}
-
-// configureGatewayManifests renders the ingress, transport, and certificate objects for a gateway instance.
+// configureGatewayManifests renders the ingress and transport objects for a gateway instance.
 func configureGatewayManifests(
 	r *controller.Reconciler,
 	gatewayDefinition *v0.GatewayDefinition,
