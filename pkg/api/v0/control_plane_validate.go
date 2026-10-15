@@ -7,6 +7,7 @@ import (
 
 	gorm "gorm.io/gorm"
 
+	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -68,7 +69,31 @@ func (c *ControlPlaneDefinition) beforeCreate(tx *gorm.DB) error {
 //
 //	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (c *ControlPlaneDefinition) beforeUpdate(tx *gorm.DB) error {
-	return validateTier(c.Tier)
+	return validateTier(incomingTier(tx, c))
+}
+
+// incomingTier returns the tier this update is writing.
+//
+// Under PATCH the receiver is the row as stored and the values being written
+// are a separate object, so reading the receiver checks what is already there:
+// a bad tier would be accepted because the stored one is good, and then every
+// later update would be refused because the stored one is now bad - including
+// the one trying to correct it. Under PUT the two are the same object, and the
+// receiver is the incoming value.
+//
+// A PATCH that does not mention the tier reports none, so it is not held to a
+// value it is not setting.
+func incomingTier(tx *gorm.DB, stored *ControlPlaneDefinition) *string {
+	if lib.IsPartialUpdate(tx) {
+		incoming, ok := lib.IncomingValues(tx).(*ControlPlaneDefinition)
+		if !ok {
+			return nil
+		}
+
+		return incoming.Tier
+	}
+
+	return stored.Tier
 }
 
 // beforeDelete runs before the ControlPlaneDefinition is deleted.

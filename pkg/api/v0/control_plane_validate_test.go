@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	gorm "gorm.io/gorm"
 
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -51,12 +52,72 @@ func TestTierHooksRejectAnUnknownValue(t *testing.T) {
 		t, (&ControlPlaneDefinition{Tier: &unknown}).beforeCreate(nil),
 		"a create carrying an unknown tier must be rejected",
 	)
+	// an update reads the values being written off the statement, so it is
+	// called with one rather than a bare nil - which shape it is decides
+	// which object is checked, covered by TestTierIsValidatedOnThePatchShape
+	unknownUpdate := &ControlPlaneDefinition{Tier: &unknown}
 	assert.Error(
-		t, (&ControlPlaneDefinition{Tier: &unknown}).beforeUpdate(nil),
+		t, unknownUpdate.beforeUpdate(fullReplace(unknownUpdate)),
 		"an update carrying an unknown tier must be rejected",
 	)
 
+	knownUpdate := &ControlPlaneDefinition{Tier: &known}
 	assert.NoError(t, (&ControlPlaneDefinition{Tier: &known}).beforeCreate(nil))
-	assert.NoError(t, (&ControlPlaneDefinition{Tier: &known}).beforeUpdate(nil))
+	assert.NoError(t, knownUpdate.beforeUpdate(fullReplace(knownUpdate)))
 	assert.NoError(t, (&ControlPlaneDefinition{}).beforeCreate(nil))
+}
+
+// fullReplace is the call shape a PUT reaches GORM as: one object, written
+// whole, so the hook's receiver is the incoming value.
+func fullReplace(object *ControlPlaneDefinition) *gorm.DB {
+	return &gorm.DB{Statement: &gorm.Statement{Model: object, Dest: object}}
+}
+
+// TestTierIsValidatedOnThePatchShape covers which object the update hook reads.
+//
+// A PATCH reaches GORM as Model(stored).Updates(incoming), so the hook's
+// receiver is the row as stored and the values being written are a separate
+// object. Checking the receiver asks whether the tier already recorded is
+// valid, which is the wrong question twice over: a bad tier is accepted
+// because the stored one is good, and once stored, every later update is
+// refused because the stored one is bad - including the one correcting it.
+func TestTierIsValidatedOnThePatchShape(t *testing.T) {
+	storedWith := func(tier string) *ControlPlaneDefinition {
+		return &ControlPlaneDefinition{Tier: &tier}
+	}
+	// the call shape the generated PATCH handler uses
+	patch := func(stored, incoming *ControlPlaneDefinition) *gorm.DB {
+		return &gorm.DB{Statement: &gorm.Statement{Model: stored, Dest: incoming}}
+	}
+
+	t.Run("an invalid tier is rejected even when the stored one is valid", func(t *testing.T) {
+		stored := storedWith(ControlPlaneTierProduction)
+		err := stored.beforeUpdate(patch(stored, &ControlPlaneDefinition{Tier: util.Ptr("banana")}))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "banana")
+	})
+
+	t.Run("a correcting update is accepted even when the stored one is invalid", func(t *testing.T) {
+		stored := storedWith("banana")
+		assert.NoError(
+			t, stored.beforeUpdate(patch(stored, &ControlPlaneDefinition{Tier: util.Ptr(ControlPlaneTierProduction)})),
+			"an update that fixes a bad stored tier must not be refused by it",
+		)
+	})
+
+	t.Run("a patch that does not mention the tier is left alone", func(t *testing.T) {
+		stored := storedWith("banana")
+		assert.NoError(
+			t, stored.beforeUpdate(patch(stored, &ControlPlaneDefinition{AuthEnabled: util.Ptr(true)})),
+			"a patch setting something else is not held to a tier it is not writing",
+		)
+	})
+
+	t.Run("a full replace reads the incoming object, which is the receiver", func(t *testing.T) {
+		incoming := storedWith("banana")
+		assert.Error(
+			t, incoming.beforeUpdate(fullReplace(incoming)),
+			"under PUT the receiver is what is being written",
+		)
+	})
 }
