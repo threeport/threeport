@@ -51,12 +51,17 @@ const LabelMaintenance = "threeport.io/maintenance"
 // at install denies every later arrival, and denies it silently - the pod
 // starts, reports ready and cannot talk to anything.
 //
-// A NetworkPolicy is only enforced by a CNI that implements it. Of the
-// supported providers, GKE does today, because the cluster is created with
-// Calico enabled. On EKS, OKE and kind these objects are accepted and stored
-// and nothing acts on them. They are installed everywhere regardless: an inert
-// policy costs nothing and is already correct when a cluster gains enforcement,
-// whereas one installed per provider is a second thing to remember.
+// A NetworkPolicy is only enforced by a CNI that implements it, and two of
+// the supported providers do. GKE creates the cluster with Calico. kind
+// enforces as well: the node image internal/provider/kind.go pins carries a
+// kindnetd that implements NetworkPolicy, so a local development cluster and
+// the integration tests are both held to these rules - which is where the
+// first version of this file was caught denying a module its own controller.
+// On EKS and OKE it depends on the CNI the cluster was created with.
+//
+// They are installed everywhere regardless: an inert policy costs nothing and
+// is already correct when a cluster gains enforcement, whereas one installed
+// per provider is a second thing to remember.
 func (cpi *ControlPlaneInstaller) InstallThreeportNetworkPolicies(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
