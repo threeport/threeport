@@ -84,7 +84,7 @@ func TestSetSelfSignedIssuer(t *testing.T) {
 	if err := setSelfSignedIssuer(issuer.object.Object); err != nil {
 		t.Fatal(err)
 	}
-	rendered, err := issuer.yaml()
+	rendered, err := util.UnstructuredToYaml(issuer.object)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -642,7 +642,7 @@ func createControllerObject(
 	if err != nil {
 		return fmt.Errorf("failed to read %s: %w", label, err)
 	}
-	if err := object.setSlice(values, "spec", field); err != nil {
+	if err := util.SetNestedSlice(object.object.Object, values, "spec", field); err != nil {
 		return fmt.Errorf("failed to set %s %s: %w", label, field, err)
 	}
 	body, err := util.MarshalJSON(object.object.Object)

@@ -116,7 +116,7 @@ func namedDefinition(t *testing.T, asset []byte, name string) v0.KubernetesWorkl
 	// set the name, then store the document the same way as a plain asset
 	decoded, err := newManifest(asset)
 	require.NoError(t, err)
-	require.NoError(t, decoded.setField(name, "metadata", "name"))
+	require.NoError(t, util.SetNestedField(decoded.object.Object, name, "metadata", "name"))
 	raw, err := decoded.object.MarshalJSON()
 	require.NoError(t, err)
 	body := datatypes.JSON(raw)

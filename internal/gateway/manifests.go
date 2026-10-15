@@ -29,21 +29,6 @@ func newManifest(asset []byte) (*manifest, error) {
 	return &manifest{object: object}, nil
 }
 
-// setField sets one field on the embedded object.
-func (m *manifest) setField(value interface{}, path ...string) error {
-	return util.SetNestedField(m.object.Object, value, path...)
-}
-
-// setSlice sets one list field on the embedded object.
-func (m *manifest) setSlice(value []interface{}, path ...string) error {
-	return util.SetNestedSlice(m.object.Object, value, path...)
-}
-
-// removeField drops one field from the embedded object.
-func (m *manifest) removeField(path ...string) {
-	util.RemoveNestedField(m.object.Object, path...)
-}
-
 // setIngressBackend sets the service and port an ingress sends traffic to.
 func (m *manifest) setIngressBackend(service string, port int64) error {
 	rules, _, err := unstructured.NestedSlice(m.object.Object, "spec", "rules")
@@ -56,7 +41,7 @@ func (m *manifest) setIngressBackend(service string, port int64) error {
 	svc := backend["service"].(map[string]interface{})
 	svc["name"] = service
 	svc["port"].(map[string]interface{})["number"] = port
-	return m.setSlice(rules, "spec", "rules")
+	return util.SetNestedSlice(m.object.Object, rules, "spec", "rules")
 }
 
 // setTransportBackend sets the service and port a transport server sends traffic to.
@@ -68,20 +53,15 @@ func (m *manifest) setTransportBackend(service string, port int64) error {
 	upstream := upstreams[0].(map[string]interface{})
 	upstream["service"] = service
 	upstream["port"] = port
-	if err := m.setSlice(upstreams, "spec", "upstreams"); err != nil {
+	if err := util.SetNestedSlice(m.object.Object, upstreams, "spec", "upstreams"); err != nil {
 		return err
 	}
-	return unstructured.SetNestedField(m.object.Object, fmt.Sprintf("tcp-%d", port), "spec", "listener", "name")
+	return util.SetNestedField(m.object.Object, fmt.Sprintf("tcp-%d", port), "spec", "listener", "name")
 }
 
 // manifestFromObject wraps an existing object so setters can change it.
 func manifestFromObject(object map[string]interface{}) *manifest {
 	return &manifest{object: &unstructured.Unstructured{Object: object}}
-}
-
-// yaml renders the object.
-func (m *manifest) yaml() (string, error) {
-	return util.UnstructuredToYaml(m.object)
 }
 
 // getIngressComponentYaml returns the nginx operator component.
@@ -91,7 +71,7 @@ func getIngressComponentYaml() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	componentYaml, err := component.yaml()
+	componentYaml, err := util.UnstructuredToYaml(component.object)
 	if err != nil {
 		return "", err
 	}
@@ -112,19 +92,19 @@ func getExternalDnsYaml(
 	}
 
 	// set the zone this install manages
-	if err := component.setField(domain, "spec", "domainName"); err != nil {
+	if err := util.SetNestedField(component.object.Object, domain, "spec", "domainName"); err != nil {
 		return "", err
 	}
 	if provider == "" || provider == "none" {
-		component.removeField("spec", "externalDNS")
-		return component.yaml()
+		util.RemoveNestedField(component.object.Object, "spec", "externalDNS")
+		return util.UnstructuredToYaml(component.object)
 	}
 
 	// set the provider and the ownership args
-	if err := component.setField(provider, "spec", "externalDNS", "provider"); err != nil {
+	if err := util.SetNestedField(component.object.Object, provider, "spec", "externalDNS", "provider"); err != nil {
 		return "", err
 	}
-	if err := component.setField(iamRoleArn, "spec", "externalDNS", "iamRoleArn"); err != nil {
+	if err := util.SetNestedField(component.object.Object, iamRoleArn, "spec", "externalDNS", "iamRoleArn"); err != nil {
 		return "", err
 	}
 	extraArgs := []interface{}{
@@ -134,11 +114,11 @@ func getExternalDnsYaml(
 	if provider == "google" && gcpProject != "" {
 		extraArgs = append(extraArgs, "--google-project="+gcpProject)
 	}
-	if err := component.setSlice(extraArgs, "spec", "externalDNS", "extraArgs"); err != nil {
+	if err := util.SetNestedSlice(component.object.Object, extraArgs, "spec", "externalDNS", "extraArgs"); err != nil {
 		return "", err
 	}
 
-	return component.yaml()
+	return util.UnstructuredToYaml(component.object)
 }
 
 // getCertificatesComponentYaml creates the cert-manager component.
@@ -147,7 +127,7 @@ func getCertificatesComponentYaml() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return component.yaml()
+	return util.UnstructuredToYaml(component.object)
 }
 
 // getCleanedDomain returns a cleaned domain.
@@ -174,7 +154,7 @@ func getIngressesYaml(r *controller.Reconciler, gatewayDefinition *v0.GatewayDef
 		if err != nil {
 			return nil, err
 		}
-		if err := ingress.setField(getIngressName(gatewayDefinition, domain, *httpPort.Port), "metadata", "name"); err != nil {
+		if err := util.SetNestedField(ingress.object.Object, getIngressName(gatewayDefinition, domain, *httpPort.Port), "metadata", "name"); err != nil {
 			return nil, err
 		}
 		rules, _, err := unstructured.NestedSlice(ingress.object.Object, "spec", "rules")
@@ -189,11 +169,11 @@ func getIngressesYaml(r *controller.Reconciler, gatewayDefinition *v0.GatewayDef
 		}
 		paths := rule["http"].(map[string]interface{})["paths"].([]interface{})
 		paths[0].(map[string]interface{})["path"] = *httpPort.Path
-		if err := ingress.setSlice(rules, "spec", "rules"); err != nil {
+		if err := util.SetNestedSlice(ingress.object.Object, rules, "spec", "rules"); err != nil {
 			return nil, err
 		}
 		if httpPort.HTTPSRedirect != nil && *httpPort.HTTPSRedirect {
-			if err := ingress.setField("true", "metadata", "annotations", "nginx.org/redirect-to-https"); err != nil {
+			if err := util.SetNestedField(ingress.object.Object, "true", "metadata", "annotations", "nginx.org/redirect-to-https"); err != nil {
 				return nil, fmt.Errorf("failed to set https redirect on ingress: %w", err)
 			}
 		}
@@ -204,12 +184,12 @@ func getIngressesYaml(r *controller.Reconciler, gatewayDefinition *v0.GatewayDef
 					"secretName": strcase.ToKebab(domain) + "-tls",
 				},
 			}
-			if err := ingress.setSlice(tls, "spec", "tls"); err != nil {
+			if err := util.SetNestedSlice(ingress.object.Object, tls, "spec", "tls"); err != nil {
 				return nil, fmt.Errorf("failed to set tls on ingress: %w", err)
 			}
 		}
 
-		rendered, err := ingress.yaml()
+		rendered, err := util.UnstructuredToYaml(ingress.object)
 		if err != nil {
 			return []string{}, fmt.Errorf("error marshaling YAML: %w", err)
 		}
@@ -232,7 +212,7 @@ func getTransportServersYaml(r *controller.Reconciler, gatewayDefinition *v0.Gat
 		if err != nil {
 			return nil, err
 		}
-		if err := server.setField(fmt.Sprintf("%s-%d", *gatewayDefinition.Name, *tcpPort.Port), "metadata", "name"); err != nil {
+		if err := util.SetNestedField(server.object.Object, fmt.Sprintf("%s-%d", *gatewayDefinition.Name, *tcpPort.Port), "metadata", "name"); err != nil {
 			return nil, err
 		}
 		listener, _, err := unstructured.NestedMap(server.object.Object, "spec", "listener")
@@ -247,7 +227,7 @@ func getTransportServersYaml(r *controller.Reconciler, gatewayDefinition *v0.Gat
 			return nil, err
 		}
 
-		rendered, err := server.yaml()
+		rendered, err := util.UnstructuredToYaml(server.object)
 		if err != nil {
 			return []string{}, fmt.Errorf("error marshaling YAML: %w", err)
 		}
@@ -279,10 +259,10 @@ func getIssuerYaml(gatewayDefinition *v0.GatewayDefinition, domain, adminEmail s
 	if err != nil {
 		return "", err
 	}
-	if err := issuer.setField(strcase.ToKebab(domain), "metadata", "name"); err != nil {
+	if err := util.SetNestedField(issuer.object.Object, strcase.ToKebab(domain), "metadata", "name"); err != nil {
 		return "", err
 	}
-	if err := issuer.setField(adminEmail, "spec", "acme", "email"); err != nil {
+	if err := util.SetNestedField(issuer.object.Object, adminEmail, "spec", "acme", "email"); err != nil {
 		return "", err
 	}
 	solvers, _, err := unstructured.NestedSlice(issuer.object.Object, "spec", "acme", "solvers")
@@ -291,10 +271,10 @@ func getIssuerYaml(gatewayDefinition *v0.GatewayDefinition, domain, adminEmail s
 	}
 	selector := solvers[0].(map[string]interface{})["selector"].(map[string]interface{})
 	selector["dnsZones"] = []interface{}{domain}
-	if err := issuer.setSlice(solvers, "spec", "acme", "solvers"); err != nil {
+	if err := util.SetNestedSlice(issuer.object.Object, solvers, "spec", "acme", "solvers"); err != nil {
 		return "", err
 	}
-	return issuer.yaml()
+	return util.UnstructuredToYaml(issuer.object)
 }
 
 // getCertificateYaml creates a certificate for the given domain.
@@ -304,17 +284,17 @@ func getCertificateYaml(gatewayDefinition *v0.GatewayDefinition, domain string) 
 	if err != nil {
 		return "", err
 	}
-	if err := certificate.setField(strcase.ToKebab(domain), "metadata", "name"); err != nil {
+	if err := util.SetNestedField(certificate.object.Object, strcase.ToKebab(domain), "metadata", "name"); err != nil {
 		return "", err
 	}
-	if err := certificate.setField(strcase.ToKebab(domain)+"-tls", "spec", "secretName"); err != nil {
+	if err := util.SetNestedField(certificate.object.Object, strcase.ToKebab(domain)+"-tls", "spec", "secretName"); err != nil {
 		return "", err
 	}
-	if err := certificate.setSlice([]interface{}{domain}, "spec", "dnsNames"); err != nil {
+	if err := util.SetNestedSlice(certificate.object.Object, []interface{}{domain}, "spec", "dnsNames"); err != nil {
 		return "", err
 	}
-	if err := certificate.setField(strcase.ToKebab(domain), "spec", "issuerRef", "name"); err != nil {
+	if err := util.SetNestedField(certificate.object.Object, strcase.ToKebab(domain), "spec", "issuerRef", "name"); err != nil {
 		return "", err
 	}
-	return certificate.yaml()
+	return util.UnstructuredToYaml(certificate.object)
 }
