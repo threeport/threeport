@@ -1313,15 +1313,10 @@ func ValidateCreateGenesisControlPlaneFlags(
 		)
 	}
 
-	// reject a production tier on kind, which is a local, single-node,
-	// ephemeral cluster - the tier gates replica counts, database topology and
-	// backups, none of which kind can honour, so accepting it would promise a
-	// production control plane and install a development one
-	if infraProvider == v0.KubernetesRuntimeInfraProviderKind && tier == threeport.ControlPlaneTierProd {
-		return fmt.Errorf(
-			"the %s provider cannot run a %s tier control plane - it is a local, single-node cluster",
-			v0.KubernetesRuntimeInfraProviderKind, threeport.ControlPlaneTierProd,
-		)
+	// reject a provider and tier that cannot go together, before any
+	// infrastructure is created
+	if err := threeport.ValidateTierForProvider(infraProvider, tier); err != nil {
+		return err
 	}
 
 	// ensure name length doesn't exceed maximum
