@@ -608,7 +608,7 @@ func confirmGatewayPortsExposed(
 		if string(currentJSON) == string(desiredJSON) {
 			continue
 		}
-		if err := util.SetNestedSlice(jsonObject, merged, "spec", target.field); err != nil {
+		if err := unstructured.SetNestedSlice(jsonObject, merged, "spec", target.field); err != nil {
 			return fmt.Errorf("failed to set %s %s: %w", target.kind, target.field, err)
 		}
 		jsonDefinition, err := util.MarshalJSON(jsonObject)
@@ -642,7 +642,7 @@ func createControllerObject(
 	if err != nil {
 		return fmt.Errorf("failed to read %s: %w", label, err)
 	}
-	if err := util.SetNestedSlice(object.Object, values, "spec", field); err != nil {
+	if err := unstructured.SetNestedSlice(object.Object, values, "spec", field); err != nil {
 		return fmt.Errorf("failed to set %s %s: %w", label, field, err)
 	}
 	body, err := util.MarshalJSON(object.Object)

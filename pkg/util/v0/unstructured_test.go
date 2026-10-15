@@ -136,19 +136,3 @@ func TestMergeNamedEntries(t *testing.T) {
 		t.Fatalf("new entry was not added: %#v", merged[1])
 	}
 }
-
-// TestSetNestedField decodes one object and renames it.
-func TestSetNestedField(t *testing.T) {
-	// decode a config map and rename it
-	object, err := UnstructuredFromYaml([]byte("apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: old\n"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := SetNestedField(object.Object, "new", "metadata", "name"); err != nil {
-		t.Fatal(err)
-	}
-	name, _, _ := unstructured.NestedString(object.Object, "metadata", "name")
-	if name != "new" {
-		t.Fatalf("name = %q, want new", name)
-	}
-}

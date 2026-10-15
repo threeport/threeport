@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gorm.io/datatypes"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/threeport/threeport/internal/gateway/assets"
 	"github.com/threeport/threeport/internal/machinetest"
@@ -116,7 +117,7 @@ func namedDefinition(t *testing.T, asset []byte, name string) v0.KubernetesWorkl
 	// set the name, then store the document the same way as a plain asset
 	decoded, err := util.UnstructuredFromYaml(asset)
 	require.NoError(t, err)
-	require.NoError(t, util.SetNestedField(decoded.Object, name, "metadata", "name"))
+	require.NoError(t, unstructured.SetNestedField(decoded.Object, name, "metadata", "name"))
 	raw, err := decoded.MarshalJSON()
 	require.NoError(t, err)
 	body := datatypes.JSON(raw)

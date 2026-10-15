@@ -55,64 +55,6 @@ func UnstructuredFromYaml(asset []byte) (*unstructured.Unstructured, error) {
 	return object, nil
 }
 
-// SetNestedField sets one field on an object map.
-// A path entry that is an int indexes a list. A string indexes a map.
-func SetNestedField(object map[string]interface{}, value interface{}, path ...interface{}) error {
-	// walk each path entry, then write the last one
-	if len(path) == 0 {
-		return fmt.Errorf("failed to set field: empty path")
-	}
-	var current interface{} = object
-	for i, entry := range path {
-		last := i == len(path)-1
-		switch key := entry.(type) {
-		case string:
-			fields, ok := current.(map[string]interface{})
-			if !ok {
-				return fmt.Errorf("failed to set field %v: expected a map", path)
-			}
-			if last {
-				fields[key] = value
-				return nil
-			}
-			next, ok := fields[key]
-			if !ok {
-				return fmt.Errorf("failed to set field %v: missing %s", path, key)
-			}
-			current = next
-		case int:
-			list, ok := current.([]interface{})
-			if !ok {
-				return fmt.Errorf("failed to set field %v: expected a list", path)
-			}
-			if key < 0 || key >= len(list) {
-				return fmt.Errorf("failed to set field %v: index %d out of range", path, key)
-			}
-			if last {
-				list[key] = value
-				return nil
-			}
-			current = list[key]
-		default:
-			return fmt.Errorf("failed to set field %v: path entry is not a string or an int", path)
-		}
-	}
-	return nil
-}
-
-// SetNestedSlice sets one list field on an object map.
-func SetNestedSlice(object map[string]interface{}, value []interface{}, path ...string) error {
-	if err := unstructured.SetNestedSlice(object, value, path...); err != nil {
-		return fmt.Errorf("failed to set field %v: %w", path, err)
-	}
-	return nil
-}
-
-// RemoveNestedField drops one field from an object map.
-func RemoveNestedField(object map[string]interface{}, path ...string) {
-	unstructured.RemoveNestedField(object, path...)
-}
-
 // MergeNamedEntries keeps entries already stored and adds or replaces by name.
 func MergeNamedEntries(current, wanted []interface{}) []interface{} {
 	// keep the stored entries, then replace or append by name
