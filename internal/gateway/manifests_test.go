@@ -13,14 +13,14 @@ import (
 
 // TestSetIngressBackend checks the service and port the setter writes.
 func TestSetIngressBackend(t *testing.T) {
-	ingress, err := newManifest(assets.Ingress)
+	ingress, err := util.UnstructuredFromYaml(assets.Ingress)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := ingress.setIngressBackend("web", 8080); err != nil {
+	if err := setIngressBackend(ingress.Object, "web", 8080); err != nil {
 		t.Fatal(err)
 	}
-	rules, _, err := unstructured.NestedSlice(ingress.object.Object, "spec", "rules")
+	rules, _, err := unstructured.NestedSlice(ingress.Object, "spec", "rules")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,14 +32,14 @@ func TestSetIngressBackend(t *testing.T) {
 
 // TestSetTransportBackend checks the service and port the setter writes.
 func TestSetTransportBackend(t *testing.T) {
-	server, err := newManifest(assets.TransportServer)
+	server, err := util.UnstructuredFromYaml(assets.TransportServer)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := server.setTransportBackend("db", 5432); err != nil {
+	if err := setTransportBackend(server.Object, "db", 5432); err != nil {
 		t.Fatal(err)
 	}
-	upstreams, _, err := unstructured.NestedSlice(server.object.Object, "spec", "upstreams")
+	upstreams, _, err := unstructured.NestedSlice(server.Object, "spec", "upstreams")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,14 +77,14 @@ func TestGetExternalDnsYamlSetsRoute53(t *testing.T) {
 
 // TestSetSelfSignedIssuer writes selfSigned.
 func TestSetSelfSignedIssuer(t *testing.T) {
-	issuer, err := newManifest(assets.Issuer)
+	issuer, err := util.UnstructuredFromYaml(assets.Issuer)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := setSelfSignedIssuer(issuer.object.Object); err != nil {
+	if err := setSelfSignedIssuer(issuer.Object); err != nil {
 		t.Fatal(err)
 	}
-	rendered, err := util.UnstructuredToYaml(issuer.object)
+	rendered, err := util.UnstructuredToYaml(issuer)
 	if err != nil {
 		t.Fatal(err)
 	}

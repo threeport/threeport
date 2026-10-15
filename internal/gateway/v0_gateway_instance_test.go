@@ -114,10 +114,10 @@ func TestConfigureGatewayManifestsSetsBackends(t *testing.T) {
 // namedDefinition stores an embedded manifest under the name the install step writes.
 func namedDefinition(t *testing.T, asset []byte, name string) v0.KubernetesWorkloadResourceDefinition {
 	// set the name, then store the document the same way as a plain asset
-	decoded, err := newManifest(asset)
+	decoded, err := util.UnstructuredFromYaml(asset)
 	require.NoError(t, err)
-	require.NoError(t, util.SetNestedField(decoded.object.Object, name, "metadata", "name"))
-	raw, err := decoded.object.MarshalJSON()
+	require.NoError(t, util.SetNestedField(decoded.Object, name, "metadata", "name"))
+	raw, err := decoded.MarshalJSON()
 	require.NoError(t, err)
 	body := datatypes.JSON(raw)
 	return v0.KubernetesWorkloadResourceDefinition{JSONDefinition: &body}
@@ -140,9 +140,9 @@ func resourceInstance(t *testing.T, asset []byte) v0.KubernetesWorkloadResourceI
 // manifestJSON converts an embedded yaml manifest to json.
 func manifestJSON(t *testing.T, asset []byte) datatypes.JSON {
 	// decode the same way the reconciler does
-	decoded, err := newManifest(asset)
+	decoded, err := util.UnstructuredFromYaml(asset)
 	require.NoError(t, err)
-	raw, err := decoded.object.MarshalJSON()
+	raw, err := decoded.MarshalJSON()
 	require.NoError(t, err)
 	return datatypes.JSON(raw)
 }

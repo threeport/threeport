@@ -638,14 +638,14 @@ func createControllerObject(
 	label string,
 ) error {
 	// read the embedded object and set the named slice
-	object, err := newManifest(source)
+	object, err := util.UnstructuredFromYaml(source)
 	if err != nil {
 		return fmt.Errorf("failed to read %s: %w", label, err)
 	}
-	if err := util.SetNestedSlice(object.object.Object, values, "spec", field); err != nil {
+	if err := util.SetNestedSlice(object.Object, values, "spec", field); err != nil {
 		return fmt.Errorf("failed to set %s %s: %w", label, field, err)
 	}
-	body, err := util.MarshalJSON(object.object.Object)
+	body, err := util.MarshalJSON(object.Object)
 	if err != nil {
 		return fmt.Errorf("failed to marshal %s: %w", label, err)
 	}
@@ -790,7 +790,7 @@ func configureVirtualServiceRuntimeParameters(
 		if httpPort.TLSEnabled != nil && *httpPort.TLSEnabled {
 			servicePort = 80
 		}
-		if err := manifestFromObject(ingress).setIngressBackend(name, servicePort); err != nil {
+		if err := setIngressBackend(ingress, name, servicePort); err != nil {
 			return nil, err
 		}
 		virtualServiceMarshaled, err := util.MarshalJSON(ingress)
@@ -831,7 +831,7 @@ func configureTcpGatewayRuntimeParameters(
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal transport server kubernetes workload resource definition: %w", err)
 		}
-		if err := manifestFromObject(server).setTransportBackend(name, int64(*tcpPort.Port)); err != nil {
+		if err := setTransportBackend(server, name, int64(*tcpPort.Port)); err != nil {
 			return nil, err
 		}
 		tcpGatewayMarshaled, err := util.MarshalJSON(server)
