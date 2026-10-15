@@ -179,10 +179,13 @@ func v0KubernetesRuntimeInstanceUpdated(
 		return 0, fmt.Errorf("failed to retrieve kubernetes runtime definition by ID: %w", err)
 	}
 
+	// use the in-cluster endpoint when this runtime hosts the control plane
+	controlPlaneHost := kube.HostsControlPlane(kubernetesRuntimeInstance)
+
 	// get kube client to install compute space control plane components
 	dynamicKubeClient, mapper, err := kube.GetClient(
 		kubernetesRuntimeInstance,
-		false,
+		controlPlaneHost,
 		r.APIClient,
 		r.APIServer,
 		r.EncryptionKey,
@@ -241,7 +244,7 @@ func v0KubernetesRuntimeInstanceUpdated(
 		time.Sleep(time.Second * 10)
 		dynamicKubeClient, mapper, err = kube.GetClient(
 			kubernetesRuntimeInstance,
-			false,
+			controlPlaneHost,
 			r.APIClient,
 			r.APIServer,
 			r.EncryptionKey,
@@ -298,8 +301,7 @@ func v0KubernetesRuntimeInstanceUpdated(
 	// both this managed cluster and the control-plane host run on GKE; the host
 	// instance is skipped because its bindings are created at control-plane
 	// install time.
-	isControlPlaneHost := kubernetesRuntimeInstance.ThreeportControlPlaneHost != nil &&
-		*kubernetesRuntimeInstance.ThreeportControlPlaneHost
+	isControlPlaneHost := kube.HostsControlPlane(kubernetesRuntimeInstance)
 	if !isControlPlaneHost &&
 		*kubernetesRuntimeDefinition.InfraProvider == v0.KubernetesRuntimeInfraProviderGKE {
 		controlPlaneGcpProject, err := controlPlaneGkeProject(r)
@@ -492,7 +494,7 @@ func controlPlaneGkeProject(r *controller.Reconciler) (string, error) {
 
 	var hostInstance *v0.KubernetesRuntimeInstance
 	for i := range *instances {
-		if (*instances)[i].ThreeportControlPlaneHost != nil && *(*instances)[i].ThreeportControlPlaneHost {
+		if kube.HostsControlPlane(&(*instances)[i]) {
 			hostInstance = &(*instances)[i]
 			break
 		}

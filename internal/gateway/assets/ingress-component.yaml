@@ -1,0 +1,12 @@
+apiVersion: platform.addons.nukleros.io/v1alpha1
+kind: IngressComponent
+metadata:
+  name: ingress
+spec:
+  domainName: threeport.local
+  namespace: nukleros-ingress-system
+  nginx:
+    include: true
+  kong:
+    include: false
+    proxyServiceName: kong-proxy
