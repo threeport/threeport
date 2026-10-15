@@ -1312,6 +1312,12 @@ func ValidateCreateGenesisControlPlaneFlags(
 		)
 	}
 
+	// reject auth being disabled anywhere but kind, before any infrastructure
+	// is created
+	if err := v0.ValidateAuthEnabledForProvider(infraProvider, authEnabled); err != nil {
+		return err
+	}
+
 	// ensure name length doesn't exceed maximum
 	if utf8.RuneCountInString(instanceName) > threeport.InstanceNameMaxLength {
 		return fmt.Errorf(
