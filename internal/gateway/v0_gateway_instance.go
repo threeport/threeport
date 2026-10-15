@@ -3,6 +3,7 @@
 package gateway
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -563,27 +564,37 @@ func confirmGatewayPortsExposed(
 			"protocol":   "TCP",
 		})
 	}
-	for _, kind := range []string{"GlobalConfiguration", "Service"} {
-		object, err := workload_util.GetUniqueKubernetesWorkloadResourceInstance(workloadResourceInstances, kind)
+	targets := []struct {
+		kind   string
+		name   string
+		field  string
+		values []interface{}
+	}{
+		{kind: "GlobalConfiguration", name: "nginx-ingress", field: "listeners", values: listeners},
+		{kind: "Service", name: "nginx-tcp", field: "ports", values: servicePorts},
+	}
+	for _, target := range targets {
+		object, err := workload_util.GetUniqueKubernetesWorkloadResourceInstanceByName(workloadResourceInstances, target.kind, target.name)
 		if err != nil {
-			return fmt.Errorf("failed to get %s resource instance: %w", kind, err)
+			return fmt.Errorf("failed to get %s %s: %w", target.kind, target.name, err)
 		}
 		jsonObject, err := util.UnmarshalJSON(*object.JSONDefinition)
 		if err != nil {
-			return fmt.Errorf("failed to unmarshal %s: %w", kind, err)
+			return fmt.Errorf("failed to unmarshal %s: %w", target.kind, err)
 		}
-		field := "ports"
-		values := servicePorts
-		if kind == "GlobalConfiguration" {
-			field = "listeners"
-			values = listeners
+		current, _, _ := unstructured.NestedSlice(jsonObject, "spec", target.field)
+		// compare as json so stored port numbers match the values written above
+		currentJSON, _ := json.Marshal(current)
+		desiredJSON, _ := json.Marshal(target.values)
+		if string(currentJSON) == string(desiredJSON) {
+			continue
 		}
-		if err := unstructured.SetNestedSlice(jsonObject, values, "spec", field); err != nil {
-			return fmt.Errorf("failed to set %s %s: %w", kind, field, err)
+		if err := unstructured.SetNestedSlice(jsonObject, target.values, "spec", target.field); err != nil {
+			return fmt.Errorf("failed to set %s %s: %w", target.kind, target.field, err)
 		}
 		jsonDefinition, err := util.MarshalJSON(jsonObject)
 		if err != nil {
-			return fmt.Errorf("failed to marshal %s: %w", kind, err)
+			return fmt.Errorf("failed to marshal %s: %w", target.kind, err)
 		}
 		resourceInstance := v0.KubernetesWorkloadResourceInstance{
 			Common:         v0.Common{ID: object.ID},
@@ -591,7 +602,7 @@ func confirmGatewayPortsExposed(
 			Reconciled:     util.Ptr(false),
 		}
 		if _, err := client.UpdateKubernetesWorkloadResourceInstance(r.APIClient, r.APIServer, &resourceInstance); err != nil {
-			return fmt.Errorf("failed to update %s resource instance: %w", kind, err)
+			return fmt.Errorf("failed to update %s resource instance: %w", target.kind, err)
 		}
 	}
 
