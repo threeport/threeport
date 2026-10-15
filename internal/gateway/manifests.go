@@ -16,30 +16,20 @@ import (
 
 // setIngressBackend sets the service and port an ingress sends traffic to.
 func setIngressBackend(object map[string]interface{}, service string, port int64) error {
-	rules, _, err := unstructured.NestedSlice(object, "spec", "rules")
-	if err != nil || len(rules) == 0 {
+	// set the service name and port on the first path
+	if err := util.SetNestedField(object, service, "spec", "rules", 0, "http", "paths", 0, "backend", "service", "name"); err != nil {
 		return fmt.Errorf("ingress has no rules: %w", err)
 	}
-	rule := rules[0].(map[string]interface{})
-	paths := rule["http"].(map[string]interface{})["paths"].([]interface{})
-	backend := paths[0].(map[string]interface{})["backend"].(map[string]interface{})
-	svc := backend["service"].(map[string]interface{})
-	svc["name"] = service
-	svc["port"].(map[string]interface{})["number"] = port
-	return util.SetNestedSlice(object, rules, "spec", "rules")
+	return util.SetNestedField(object, port, "spec", "rules", 0, "http", "paths", 0, "backend", "service", "port", "number")
 }
 
 // setTransportBackend sets the service and port a transport server sends traffic to.
 func setTransportBackend(object map[string]interface{}, service string, port int64) error {
 	// set the upstream, then name the listener for this port
-	upstreams, _, err := unstructured.NestedSlice(object, "spec", "upstreams")
-	if err != nil || len(upstreams) == 0 {
+	if err := util.SetNestedField(object, service, "spec", "upstreams", 0, "service"); err != nil {
 		return fmt.Errorf("transport server has no upstreams: %w", err)
 	}
-	upstream := upstreams[0].(map[string]interface{})
-	upstream["service"] = service
-	upstream["port"] = port
-	if err := util.SetNestedSlice(object, upstreams, "spec", "upstreams"); err != nil {
+	if err := util.SetNestedField(object, port, "spec", "upstreams", 0, "port"); err != nil {
 		return err
 	}
 	return util.SetNestedField(object, fmt.Sprintf("tcp-%d", port), "spec", "listener", "name")
