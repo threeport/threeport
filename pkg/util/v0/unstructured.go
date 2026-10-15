@@ -58,7 +58,17 @@ func UnstructuredFromYaml(asset []byte) (*unstructured.Unstructured, error) {
 // SetIndexedField writes one field through maps and list indexes.
 // unstructured.SetNestedField only accepts map keys.
 func SetIndexedField(object map[string]interface{}, value interface{}, path ...interface{}) error {
-	// walk each path entry, then write the last one
+	return writeIndexedField(object, value, false, path...)
+}
+
+// RemoveIndexedField drops one field through maps and list indexes.
+func RemoveIndexedField(object map[string]interface{}, path ...interface{}) error {
+	return writeIndexedField(object, nil, true, path...)
+}
+
+// writeIndexedField walks a path and writes or deletes the last entry.
+func writeIndexedField(object map[string]interface{}, value interface{}, remove bool, path ...interface{}) error {
+	// walk each path entry, then write or delete the last one
 	if len(path) == 0 {
 		return fmt.Errorf("failed to set field: empty path")
 	}
@@ -72,6 +82,10 @@ func SetIndexedField(object map[string]interface{}, value interface{}, path ...i
 				return fmt.Errorf("failed to set field %v: expected a map", path)
 			}
 			if last {
+				if remove {
+					delete(fields, key)
+					return nil
+				}
 				fields[key] = value
 				return nil
 			}
@@ -89,6 +103,9 @@ func SetIndexedField(object map[string]interface{}, value interface{}, path ...i
 				return fmt.Errorf("failed to set field %v: index %d out of range", path, key)
 			}
 			if last {
+				if remove {
+					return fmt.Errorf("failed to set field %v: cannot delete a list entry", path)
+				}
 				list[key] = value
 				return nil
 			}
