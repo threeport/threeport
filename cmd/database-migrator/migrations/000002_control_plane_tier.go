@@ -17,10 +17,13 @@ func init() {
 
 // Up000002 adds Tier to ControlPlaneDefinition.
 //
-// AutoMigrate against the same type the init migration used: gorm compares the
-// struct to the table and adds what is missing, so an installation that has
-// already run 000001 gains the column and a fresh one is unaffected, having
-// been created from the current struct in the first place.
+// The column is added on its own rather than through AutoMigrate. AutoMigrate
+// reconciles the whole table, and on a fresh install - where 000001 already
+// created it from the current struct, Tier included - it goes looking for a
+// unique constraint named uni_v0_control_plane_definitions_name that
+// CockroachDB never created, because a unique field there becomes a unique
+// index instead. The migration then fails and the control plane does not
+// start, on exactly the installs that had nothing to migrate.
 //
 // Editing 000001 instead would work on a fresh install and do nothing on an
 // existing one, because goose records it as applied and never runs it again.
@@ -35,8 +38,11 @@ func Up000002(ctx context.Context, db *sql.DB) error {
 		return err
 	}
 
-	if err := gormDb.AutoMigrate(&v0.ControlPlaneDefinition{}); err != nil {
-		return fmt.Errorf("could not run gorm AutoMigrate for control plane definition: %w", err)
+	if gormDb.Migrator().HasColumn(&v0.ControlPlaneDefinition{}, "Tier") {
+		return nil
+	}
+	if err := gormDb.Migrator().AddColumn(&v0.ControlPlaneDefinition{}, "Tier"); err != nil {
+		return fmt.Errorf("could not add the tier column to control plane definitions: %w", err)
 	}
 
 	return nil
@@ -49,7 +55,10 @@ func Down000002(ctx context.Context, db *sql.DB) error {
 		return err
 	}
 
-	if err := gormDb.Migrator().DropColumn(&v0.ControlPlaneDefinition{}, "tier"); err != nil {
+	if !gormDb.Migrator().HasColumn(&v0.ControlPlaneDefinition{}, "Tier") {
+		return nil
+	}
+	if err := gormDb.Migrator().DropColumn(&v0.ControlPlaneDefinition{}, "Tier"); err != nil {
 		return fmt.Errorf("could not drop column tier: %w", err)
 	}
 
