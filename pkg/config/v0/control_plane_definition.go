@@ -153,8 +153,20 @@ func (c *ControlPlaneDefinitionConfig) Replace(
 	// back to development, it would leave the definition with no tier at all.
 	// A caller editing an unrelated field is not changing what the control
 	// plane is, so the recorded value is carried forward.
+	//
+	// A config that names a different tier is refused. The tier is decided at
+	// creation and the deployment is built from it; rewriting the record
+	// reconfigures nothing. The API refuses this too - the check is repeated
+	// here so the message names the config being applied rather than arriving
+	// as a 400 from a request the caller did not write.
 	tier := existingControlPlaneDefinition.Tier
 	if controlPlaneDefinitionValues.Tier != nil {
+		if tier != nil && *controlPlaneDefinitionValues.Tier != *tier {
+			return nil, fmt.Errorf(
+				"cannot change the tier of control plane definition %s from %s to %s: the tier is set at creation and cannot be changed",
+				name, *tier, *controlPlaneDefinitionValues.Tier,
+			)
+		}
 		tier = controlPlaneDefinitionValues.Tier
 	}
 

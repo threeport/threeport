@@ -69,7 +69,41 @@ func (c *ControlPlaneDefinition) beforeCreate(tx *gorm.DB) error {
 //
 //	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (c *ControlPlaneDefinition) beforeUpdate(tx *gorm.DB) error {
-	return validateTier(incomingTier(tx, c))
+	// the value check runs first so a bad tier is reported as a bad tier
+	// rather than as an immutable one, which is the more useful message of
+	// the two and the only thing separating them: an unknown value is also
+	// a change, so the immutability check alone would reject it anyway.
+	if err := validateTier(incomingTier(tx, c)); err != nil {
+		return err
+	}
+
+	return rejectTierChange(tx)
+}
+
+// rejectTierChange keeps the tier as it was recorded at creation.
+//
+// Tier describes what the control plane was built as: replica counts,
+// database topology and backup configuration are decided from it at install
+// time. Rewriting the field afterwards does not go back and reconfigure any
+// of that, so a changed tier would describe a deployment that does not exist
+// - and everything reading the field would act on the description rather than
+// the deployment. Recreating the control plane is the way to change it.
+//
+// Omitting the tier from a full replace is a change too, to no tier at all.
+// The config layer carries the recorded value forward for a config that does
+// not mention it, so that case does not arrive here as a clear.
+func rejectTierChange(tx *gorm.DB) error {
+	changed, err := lib.IsFieldChanged(tx, "Tier")
+	if err != nil {
+		return err
+	}
+	if changed {
+		return util.NewBadRequestError(
+			"control plane definition tier cannot be changed after creation",
+		)
+	}
+
+	return nil
 }
 
 // incomingTier returns the tier this update is writing.
