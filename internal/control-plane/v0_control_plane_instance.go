@@ -343,6 +343,17 @@ func v0ControlPlaneInstanceCreated(
 		return 0, fmt.Errorf("failed to create dynamic kube API client: %w", err)
 	}
 
+	// A child control plane takes the tier recorded on its definition, which
+	// is what tier-dependent install behavior reads. Without this it would
+	// install at the installer's zero value whatever its definition says, and
+	// a production child would come up as a development one.
+	cpi.Opts.Tier = threeport.ControlPlaneTier(util.Deref(controlPlaneDefinition.Tier))
+	if cpi.Opts.Tier == "" {
+		cpi.Opts.Tier = threeport.ControlPlaneTier(threeport.DefaultControlPlaneTierForProvider(
+			*kubernetesRuntimeDefinition.InfraProvider,
+		))
+	}
+
 	// Determine auth enabled and create config if needed
 	var authConfig *auth.AuthConfig
 	var newApiClient *http.Client

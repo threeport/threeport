@@ -8,6 +8,7 @@ import (
 	"text/tabwriter"
 
 	config_v0 "github.com/threeport/threeport/pkg/config/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // outputGetv0ControlPlanesCmd produces the tabular output for the
@@ -49,7 +50,7 @@ func outputGetv0ControlPlaneDefinitionsCmd(
 	controlPlaneDefinitions *[]config_v0.ControlPlaneDefinitionConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "NAME\t AUTH ENABLED\t AGE")
+	fmt.Fprintln(writer, "NAME\t AUTH ENABLED\t TIER\t AGE")
 	for _, controlPlaneDefinition := range *controlPlaneDefinitions {
 		age := ""
 		if controlPlaneDefinition.ControlPlaneDefinition.Age != nil {
@@ -59,6 +60,7 @@ func outputGetv0ControlPlaneDefinitionsCmd(
 			writer,
 			*controlPlaneDefinition.ControlPlaneDefinition.Name, "\t",
 			*controlPlaneDefinition.ControlPlaneDefinition.AuthEnabled, "\t",
+			util.Deref(controlPlaneDefinition.ControlPlaneDefinition.Tier), "\t",
 			age,
 		)
 	}

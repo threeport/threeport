@@ -17176,6 +17176,10 @@ const docTemplate = `{
                     "description": "Indicates if object is considered to be reconciled by the object's controller.",
                     "type": "boolean"
                 },
+                "Tier": {
+                    "description": "Whether this control plane is run as a development or a production\ndeployment. Tier-dependent behavior - replica counts, resource limits,\ndatabase topology, backups - is read from here rather than decided again\nper component, so a control plane answers what it is instead of each\ncaller inferring it from the infrastructure provider.",
+                    "type": "string"
+                },
                 "TierID": {
                     "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
                     "type": "integer"

@@ -902,6 +902,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			Reconciled: &reconciled,
 		},
 		AuthEnabled: &cpi.Opts.AuthEnabled,
+		Tier:        util.Ptr(string(cpi.Opts.Tier)),
 	}
 	_, err = client.CreateControlPlaneDefinition(apiClient, threeportAPIEndpoint, &controlPlaneDefinition)
 	if err != nil {
@@ -1312,6 +1313,17 @@ func ValidateCreateGenesisControlPlaneFlags(
 		)
 	}
 
+	// reject a production tier on kind, which is a local, single-node,
+	// ephemeral cluster - the tier gates replica counts, database topology and
+	// backups, none of which kind can honour, so accepting it would promise a
+	// production control plane and install a development one
+	if infraProvider == v0.KubernetesRuntimeInfraProviderKind && tier == threeport.ControlPlaneTierProd {
+		return fmt.Errorf(
+			"the %s provider cannot run a %s tier control plane - it is a local, single-node cluster",
+			v0.KubernetesRuntimeInfraProviderKind, threeport.ControlPlaneTierProd,
+		)
+	}
+
 	// ensure name length doesn't exceed maximum
 	if utf8.RuneCountInString(instanceName) > threeport.InstanceNameMaxLength {
 		return fmt.Errorf(
@@ -1711,6 +1723,7 @@ func ensureBootstrapControlPlane(
 				Reconciled: &reconciled,
 			},
 			AuthEnabled: &cpi.Opts.AuthEnabled,
+			Tier:        util.Ptr(string(cpi.Opts.Tier)),
 		}
 		definition, err = client.CreateControlPlaneDefinition(
 			apiClient,

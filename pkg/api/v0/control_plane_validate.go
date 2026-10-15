@@ -2,11 +2,53 @@
 
 package v0
 
-import gorm "gorm.io/gorm"
+import (
+	"fmt"
+
+	gorm "gorm.io/gorm"
+
+	util "github.com/threeport/threeport/pkg/util/v0"
+)
+
+// The values ControlPlaneDefinition.Tier accepts.
+//
+// They are defined here, the lower layer, and aliased by
+// pkg/threeport-installer rather than the other way round: that package
+// imports this one, and two spellings of the same set would drift.
+const (
+	ControlPlaneTierDevelopment = "development"
+	ControlPlaneTierProduction  = "production"
+)
+
+// ControlPlaneTiers is every value Tier accepts.
+var ControlPlaneTiers = []string{ControlPlaneTierDevelopment, ControlPlaneTierProduction}
+
+// validateTier rejects a tier outside the known set.
+//
+// The CLI checks --tier, but that is one of the doors into this field, and
+// anything reaching the API directly bypasses it. Tier gates production-only
+// behavior - database topology, replica counts, backups - so an unrecognised
+// value does not fail, it quietly takes the development branch everywhere:
+// a control plane recorded as something nobody can act on, which reads as
+// configured and behaves as if it were not.
+func validateTier(tier *string) error {
+	if tier == nil {
+		return nil
+	}
+	for _, known := range ControlPlaneTiers {
+		if *tier == known {
+			return nil
+		}
+	}
+
+	return util.NewBadRequestError(fmt.Sprintf(
+		"invalid tier value '%s' - must be one of %v", *tier, ControlPlaneTiers,
+	))
+}
 
 // beforeCreate runs before the ControlPlaneDefinition is created.
 func (c *ControlPlaneDefinition) beforeCreate(tx *gorm.DB) error {
-	return nil
+	return validateTier(c.Tier)
 }
 
 // beforeUpdate runs before the ControlPlaneDefinition is updated.
@@ -16,14 +58,17 @@ func (c *ControlPlaneDefinition) beforeCreate(tx *gorm.DB) error {
 // per-field check is:
 //   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
 //     and PUT, handles the DB load internally
+//
 // Lower-level helpers, useful when IsFieldChanged doesn't fit:
 //   - lib.IncomingValues(tx): values being written
 //   - lib.IsFullReplace(tx): true on PUT (Save shape)
 //   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
+//
 // Import:
-//   lib "github.com/threeport/threeport/pkg/api/lib/v0"
+//
+//	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (c *ControlPlaneDefinition) beforeUpdate(tx *gorm.DB) error {
-	return nil
+	return validateTier(c.Tier)
 }
 
 // beforeDelete runs before the ControlPlaneDefinition is deleted.
@@ -58,12 +103,15 @@ func (c *ControlPlaneInstance) beforeCreate(tx *gorm.DB) error {
 // per-field check is:
 //   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
 //     and PUT, handles the DB load internally
+//
 // Lower-level helpers, useful when IsFieldChanged doesn't fit:
 //   - lib.IncomingValues(tx): values being written
 //   - lib.IsFullReplace(tx): true on PUT (Save shape)
 //   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
+//
 // Import:
-//   lib "github.com/threeport/threeport/pkg/api/lib/v0"
+//
+//	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (c *ControlPlaneInstance) beforeUpdate(tx *gorm.DB) error {
 	return nil
 }

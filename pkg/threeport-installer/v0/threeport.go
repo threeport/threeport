@@ -76,8 +76,9 @@ const (
 	// * Allow 10 chars for "threeport-" prefix
 	InstanceNameMaxLength = 30
 
-	ControlPlaneTierDev  = "development"
-	ControlPlaneTierProd = "production"
+	// the canonical values live on the API object these describe
+	ControlPlaneTierDev  = v0.ControlPlaneTierDevelopment
+	ControlPlaneTierProd = v0.ControlPlaneTierProduction
 )
 
 var enabled bool = true

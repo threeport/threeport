@@ -14,6 +14,13 @@ type ControlPlaneDefinition struct {
 	// a clean DB.
 	OnboardParent *bool `validate:"optional" gorm:"default:true"`
 
+	// Whether this control plane is run as a development or a production
+	// deployment. Tier-dependent behavior - replica counts, resource limits,
+	// database topology, backups - is read from here rather than decided again
+	// per component, so a control plane answers what it is instead of each
+	// caller inferring it from the infrastructure provider.
+	Tier *string `validate:"optional" gorm:"default:development"`
+
 	// The associated control plane instances that are deployed from this definition.
 	ControlPlaneInstances []*ControlPlaneInstance `validate:"optional,association"`
 }

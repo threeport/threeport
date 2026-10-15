@@ -347,6 +347,14 @@ definitions:
         description: Indicates if object is considered to be reconciled by the object's
           controller.
         type: boolean
+      Tier:
+        description: |-
+          Whether this control plane is run as a development or a production
+          deployment. Tier-dependent behavior - replica counts, resource limits,
+          database topology, backups - is read from here rather than decided again
+          per component, so a control plane answers what it is instead of each
+          caller inferring it from the infrastructure provider.
+        type: string
       TierID:
         description: |-
           The tier to associate with the definition.  Tier is a level of
