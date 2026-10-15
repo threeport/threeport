@@ -122,7 +122,7 @@ func clearedFields(function *ast.FuncDecl, typeName string) []string {
 		return []string{"Reconciled", "Status"}
 	}
 
-	if typeEmbeds(typeName, "Reconciliation") && !setsField(payload, "Reconciliation") {
+	if typeEmbeds(typeName, "Reconciliation") && !setsReconciled(payload) {
 		cleared = append(cleared, "Reconciled")
 	}
 	if typeHasStatus(typeName) && !setsStatus(payload) {
@@ -155,20 +155,33 @@ func payloadLiteral(function *ast.FuncDecl, typeName string) *ast.CompositeLit {
 // setsStatus reports whether a payload carries Status, whether the type
 // declares its own or takes the one promoted from the embedded Instance.
 func setsStatus(payload *ast.CompositeLit) bool {
-	if setsField(payload, "Status") {
-		return true
-	}
-	for _, element := range payload.Elts {
+	return setsField(payload, "Status") || setsNestedField(payload, "Instance", "Status")
+}
+
+// setsReconciled reports whether a payload carries Reconciled.
+//
+// Naming the Reconciliation struct is not the same as setting the field in it:
+// an empty literal writes the zero value, which is what clears the saved
+// progress. The field is also writable directly, since it is promoted, so both
+// spellings count.
+func setsReconciled(payload *ast.CompositeLit) bool {
+	return setsField(payload, "Reconciled") || setsNestedField(payload, "Reconciliation", "Reconciled")
+}
+
+// setsNestedField reports whether a payload sets inner inside an outer struct
+// literal it names.
+func setsNestedField(literal *ast.CompositeLit, outer, inner string) bool {
+	for _, element := range literal.Elts {
 		keyed, ok := element.(*ast.KeyValueExpr)
 		if !ok {
 			continue
 		}
 		key, ok := keyed.Key.(*ast.Ident)
-		if !ok || key.Name != "Instance" {
+		if !ok || key.Name != outer {
 			continue
 		}
 		if nested, ok := keyed.Value.(*ast.CompositeLit); ok {
-			return setsField(nested, "Status")
+			return setsField(nested, inner)
 		}
 	}
 
@@ -292,4 +305,64 @@ func isReconcilable(typeName string) bool {
 	}
 
 	return typeEmbeds(typeName, "Reconciliation") || typeHasStatus(typeName)
+}
+
+// TestClearedFieldsSeesAnEmptyStructLiteral covers the matcher the checklist
+// rests on, since one that silently matches makes the whole list pass.
+//
+// Both fields live inside an embedded struct, so naming that struct is not the
+// same as setting the field in it: an empty literal writes the zero value,
+// which is exactly what clears the saved value on a PUT.
+func TestClearedFieldsSeesAnEmptyStructLiteral(t *testing.T) {
+	for _, testCase := range []struct {
+		name    string
+		payload string
+		cleared []string
+	}{
+		{
+			name:    "both carried over",
+			payload: `Instance: api_v0.Instance{Name: n, Status: existing.Status}, Reconciliation: api_v0.Reconciliation{Reconciled: existing.Reconciled}`,
+		},
+		{
+			name:    "an empty Reconciliation literal clears it",
+			payload: `Instance: api_v0.Instance{Name: n, Status: existing.Status}, Reconciliation: api_v0.Reconciliation{}`,
+			cleared: []string{"Reconciled"},
+		},
+		{
+			name:    "an Instance literal with only a Name clears Status",
+			payload: `Instance: api_v0.Instance{Name: n}, Reconciliation: api_v0.Reconciliation{Reconciled: existing.Reconciled}`,
+			cleared: []string{"Status"},
+		},
+		{
+			name:    "neither named at all",
+			payload: `Instance: api_v0.Instance{Name: n}`,
+			cleared: []string{"Reconciled", "Status"},
+		},
+		{
+			name:    "promoted fields written directly",
+			payload: `Name: n, Status: existing.Status, Reconciled: existing.Reconciled`,
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			source := "package p\nfunc (c *TerraformInstanceConfig) Replace() { x := &api.TerraformInstance{" +
+				testCase.payload + "} ; _ = x }"
+			file, err := parser.ParseFile(token.NewFileSet(), "payload.go", source, 0)
+			require.NoError(t, err)
+			function, ok := file.Decls[0].(*ast.FuncDecl)
+			require.True(t, ok)
+
+			cleared := clearedFields(function, "TerraformInstance")
+
+			sort.Strings(cleared)
+			assert.Equal(t, testCase.cleared, nilIfEmpty(cleared))
+		})
+	}
+}
+
+func nilIfEmpty(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+
+	return values
 }
