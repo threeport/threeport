@@ -15,9 +15,20 @@ const (
 	natsClientPort       = 4222
 	natsClusterPort      = 6222
 	threeportApiPort     = 1323
-	kubernetesApiPort    = 443
 	dnsPort              = 53
 )
+
+// Ports a Kubernetes API server is reached on. GKE and EKS publish 443; OKE
+// publishes 6443. A remote runtime's endpoint is a provider address rather
+// than a name a selector can describe, so the port is all there is to go on.
+const (
+	kubernetesApiPort    = 443
+	kubernetesApiAltPort = 6443
+)
+
+// LabelMaintenance marks a pod that performs maintenance on the control
+// plane's own data, which is the one thing the database policy opens up for.
+const LabelMaintenance = "threeport.io/maintenance"
 
 // InstallThreeportNetworkPolicies restricts traffic within the control plane
 // namespace to the paths its components actually use.
@@ -26,6 +37,19 @@ const (
 // Kubernetes API. Three of the controllers hold cluster-admin on the cluster
 // they run in, so a foothold in any pod - including ones that exist only to
 // talk to the API server - reaches the database and those controllers directly.
+//
+// The namespace is treated as one unit rather than as a list of components.
+// Anything running in it may reach the API server, the message broker and a
+// Kubernetes API; nothing may reach the database except the API server. That
+// is where the value is: the database holds every credential and every piece
+// of state, and the components that hold cluster-admin have no route to it.
+//
+// The alternative was an allow rule per named component, which is tighter and
+// wrong by construction: the namespace's population changes after install. A
+// module brings its own controller, reinstall can enable a different set, and
+// maintenance jobs appear and finish. A policy naming the components present
+// at install denies every later arrival, and denies it silently - the pod
+// starts, reports ready and cannot talk to anything.
 //
 // A NetworkPolicy is only enforced by a CNI that implements it. Of the
 // supported providers, GKE does today, because the cluster is created with
@@ -52,33 +76,15 @@ func (cpi *ControlPlaneInstaller) InstallThreeportNetworkPolicies(
 // threeportNetworkPolicies returns every policy the control plane namespace
 // gets, in the order they are applied.
 func (cpi *ControlPlaneInstaller) threeportNetworkPolicies() []*unstructured.Unstructured {
-	controllers := cpi.controllerPodNames()
-
 	return []*unstructured.Unstructured{
 		cpi.denyAllPolicy(),
 		cpi.dnsEgressPolicy(),
-		cpi.apiServerPolicy(controllers),
+		cpi.namespaceEgressPolicy(),
+		cpi.apiServerPolicy(),
 		cpi.databasePolicy(),
-		cpi.messageBrokerPolicy(controllers),
-		cpi.controllerPolicy(controllers),
-		cpi.supportServicesOperatorPolicy(),
-		cpi.messageBrokerUtilityPolicy(),
+		cpi.messageBrokerPolicy(),
+		cpi.maintenancePolicy(),
 	}
-}
-
-// controllerPodNames returns the app.kubernetes.io/name value of every
-// controller this install deploys, plus the agent, which talks to the API
-// server the same way.
-func (cpi *ControlPlaneInstaller) controllerPodNames() []interface{} {
-	names := []interface{}{ThreeportAgentDeployName}
-	for _, controller := range cpi.Opts.ControllerList {
-		if controller == nil {
-			continue
-		}
-		names = append(names, cpi.ControllerDeployName(*controller))
-	}
-
-	return names
 }
 
 // networkPolicy wraps the boilerplate every policy here shares.
@@ -112,12 +118,17 @@ func podsNamed(names ...interface{}) map[string]interface{} {
 	}
 }
 
-// podsLabelled selects pods by a label other than app.kubernetes.io/name,
-// which not everything in the namespace carries.
+// podsLabelled selects pods by one label.
 func podsLabelled(key, value string) map[string]interface{} {
 	return map[string]interface{}{
 		"matchLabels": map[string]interface{}{key: value},
 	}
+}
+
+// everyPodInTheNamespace selects every pod alongside this one. An empty pod
+// selector in a rule means the policy's own namespace, not the cluster.
+func everyPodInTheNamespace() map[string]interface{} {
+	return map[string]interface{}{}
 }
 
 func tcpPort(port int) map[string]interface{} {
@@ -164,6 +175,50 @@ func (cpi *ControlPlaneInstaller) dnsEgressPolicy() *unstructured.Unstructured {
 	})
 }
 
+// namespaceEgressPolicy is what every pod in the namespace is allowed to
+// reach.
+//
+// It selects pods by being in the namespace rather than by name, so a
+// controller added by a module, a controller enabled by a later reinstall and
+// a maintenance job that did not exist at install time are all covered without
+// anything being added here.
+//
+// The destinations are the two services the control plane talks to itself
+// through and a Kubernetes API. The Kubernetes API has no address a selector
+// can name - its endpoint is a node or a provider address - so it is expressed
+// as the ports one is served on, which also covers the cloud provider APIs the
+// infrastructure controllers call.
+//
+// The database is deliberately absent. Egress to it is denied here and ingress
+// to it is denied by the database policy, so the restriction holds from both
+// ends rather than resting on one rule.
+func (cpi *ControlPlaneInstaller) namespaceEgressPolicy() *unstructured.Unstructured {
+	return cpi.networkPolicy("threeport-namespace-egress", map[string]interface{}{
+		"podSelector": map[string]interface{}{},
+		"policyTypes": []interface{}{"Egress"},
+		"egress": []interface{}{
+			map[string]interface{}{
+				"to": []interface{}{
+					map[string]interface{}{"podSelector": podsNamed(ThreeportAPIServiceResourceName)},
+				},
+				"ports": []interface{}{tcpPort(threeportApiPort)},
+			},
+			map[string]interface{}{
+				"to": []interface{}{
+					map[string]interface{}{"podSelector": podsNamed("nats")},
+				},
+				"ports": []interface{}{tcpPort(natsClientPort)},
+			},
+			map[string]interface{}{
+				"ports": []interface{}{
+					tcpPort(kubernetesApiPort),
+					tcpPort(kubernetesApiAltPort),
+				},
+			},
+		},
+	})
+}
+
 // apiServerPolicy covers the one component reached from outside the cluster.
 //
 // Ingress is left open to any source because tptctl, and a parent control
@@ -171,7 +226,7 @@ func (cpi *ControlPlaneInstaller) dnsEgressPolicy() *unstructured.Unstructured {
 // selector that describes them. Authentication is what restricts that path;
 // this restricts where the API server can reach, which is the database and the
 // message broker and nothing else.
-func (cpi *ControlPlaneInstaller) apiServerPolicy(controllers []interface{}) *unstructured.Unstructured {
+func (cpi *ControlPlaneInstaller) apiServerPolicy() *unstructured.Unstructured {
 	return cpi.networkPolicy("threeport-api-server", map[string]interface{}{
 		"podSelector": podsNamed(ThreeportAPIServiceResourceName),
 		"policyTypes": []interface{}{"Ingress", "Egress"},
@@ -201,7 +256,12 @@ func (cpi *ControlPlaneInstaller) apiServerPolicy(controllers []interface{}) *un
 //
 // No controller talks to it directly - they go through the API server - so
 // this is the rule that matters most: a foothold in any other pod has no path
-// to the data.
+// to the data. It is the one place the namespace is not treated as a unit.
+//
+// Maintenance pods are the exception, and are labelled rather than named so
+// the rule says what it is for. Dropping the database is the one operation
+// that has to reach past the API server, because it runs while the API server
+// is scaled to zero.
 func (cpi *ControlPlaneInstaller) databasePolicy() *unstructured.Unstructured {
 	return cpi.networkPolicy("threeport-database", map[string]interface{}{
 		"podSelector": podsNamed("cockroachdb"),
@@ -213,6 +273,7 @@ func (cpi *ControlPlaneInstaller) databasePolicy() *unstructured.Unstructured {
 					// the nodes of the cluster itself, which replicate and
 					// serve the console
 					map[string]interface{}{"podSelector": podsNamed("cockroachdb")},
+					map[string]interface{}{"podSelector": podsLabelled(LabelMaintenance, "true")},
 				},
 				"ports": []interface{}{tcpPort(cockroachSqlPort), tcpPort(cockroachConsolePort)},
 			},
@@ -228,18 +289,23 @@ func (cpi *ControlPlaneInstaller) databasePolicy() *unstructured.Unstructured {
 	})
 }
 
-// messageBrokerPolicy lets the API server and the controllers use NATS, and
-// NATS nodes reach each other.
-func (cpi *ControlPlaneInstaller) messageBrokerPolicy(controllers []interface{}) *unstructured.Unstructured {
-	clients := append([]interface{}{ThreeportAPIServiceResourceName}, controllers...)
-
+// messageBrokerPolicy lets the namespace use NATS, and NATS nodes reach each
+// other.
+//
+// The clients are every pod in the namespace rather than a list: the API
+// server and the controllers are the expected ones, but a module's controller
+// subscribes the same way, and so does the utility pod that exists to inspect
+// the broker by hand. Naming them would have left each of those denied - and
+// the egress half allowed, which reads as working until the connection is
+// refused at this end.
+func (cpi *ControlPlaneInstaller) messageBrokerPolicy() *unstructured.Unstructured {
 	return cpi.networkPolicy("threeport-message-broker", map[string]interface{}{
 		"podSelector": podsNamed("nats"),
 		"policyTypes": []interface{}{"Ingress", "Egress"},
 		"ingress": []interface{}{
 			map[string]interface{}{
 				"from": []interface{}{
-					map[string]interface{}{"podSelector": podsNamed(clients...)},
+					map[string]interface{}{"podSelector": everyPodInTheNamespace()},
 				},
 				"ports": []interface{}{tcpPort(natsClientPort)},
 			},
@@ -261,77 +327,21 @@ func (cpi *ControlPlaneInstaller) messageBrokerPolicy(controllers []interface{})
 	})
 }
 
-// controllerPolicy covers what a controller is allowed to reach.
+// maintenancePolicy gives the labelled maintenance pods the database egress
+// the namespace policy withholds.
 //
-// The API server and the message broker are in-cluster and named. The two
-// outside destinations are the Kubernetes API, which the controllers deploying
-// workloads need, and the cloud provider APIs, which the infrastructure
-// controllers call. Neither has a stable address that a selector can name - the
-// Kubernetes API's endpoint is a node address, and a cloud API is a public one -
-// so both are expressed as egress to 443, with the cluster's own pod and
-// service ranges left to the rules above.
-//
-// Controllers accept no connections, so there is no ingress rule: the
-// default-deny policy already covers that, and saying it again here would read
-// as a decision taken twice.
-func (cpi *ControlPlaneInstaller) controllerPolicy(controllers []interface{}) *unstructured.Unstructured {
-	return cpi.networkPolicy("threeport-controllers", map[string]interface{}{
-		"podSelector": podsNamed(controllers...),
+// Its counterpart is the ingress exception in databasePolicy; a path needs
+// both ends and these are the two halves of the same decision.
+func (cpi *ControlPlaneInstaller) maintenancePolicy() *unstructured.Unstructured {
+	return cpi.networkPolicy("threeport-maintenance", map[string]interface{}{
+		"podSelector": podsLabelled(LabelMaintenance, "true"),
 		"policyTypes": []interface{}{"Egress"},
 		"egress": []interface{}{
 			map[string]interface{}{
 				"to": []interface{}{
-					map[string]interface{}{"podSelector": podsNamed(ThreeportAPIServiceResourceName)},
+					map[string]interface{}{"podSelector": podsNamed("cockroachdb")},
 				},
-				"ports": []interface{}{tcpPort(threeportApiPort)},
-			},
-			map[string]interface{}{
-				"to": []interface{}{
-					map[string]interface{}{"podSelector": podsNamed("nats")},
-				},
-				"ports": []interface{}{tcpPort(natsClientPort)},
-			},
-			map[string]interface{}{
-				"ports": []interface{}{tcpPort(kubernetesApiPort)},
-			},
-		},
-	})
-}
-
-// supportServicesOperatorPolicy covers the operator installed alongside the
-// control plane.
-//
-// It carries none of the labels the policies above select on, so the
-// default-deny would leave it with no network at all - and it reconciles the
-// support services a gateway depends on, so that failure would show up as
-// gateways never becoming ready rather than as anything about networking.
-func (cpi *ControlPlaneInstaller) supportServicesOperatorPolicy() *unstructured.Unstructured {
-	return cpi.networkPolicy("threeport-support-services-operator", map[string]interface{}{
-		"podSelector": podsLabelled("control-plane", "controller-manager"),
-		"policyTypes": []interface{}{"Egress"},
-		"egress": []interface{}{
-			map[string]interface{}{
-				"ports": []interface{}{tcpPort(kubernetesApiPort)},
-			},
-		},
-	})
-}
-
-// messageBrokerUtilityPolicy covers the NATS utility pod.
-//
-// It exists to inspect the broker by hand, which is the one thing a default
-// deny would stop it doing, and it is reached for when something is already
-// wrong.
-func (cpi *ControlPlaneInstaller) messageBrokerUtilityPolicy() *unstructured.Unstructured {
-	return cpi.networkPolicy("threeport-message-broker-utility", map[string]interface{}{
-		"podSelector": podsLabelled("app", "nats-js-box"),
-		"policyTypes": []interface{}{"Egress"},
-		"egress": []interface{}{
-			map[string]interface{}{
-				"to": []interface{}{
-					map[string]interface{}{"podSelector": podsNamed("nats")},
-				},
-				"ports": []interface{}{tcpPort(natsClientPort)},
+				"ports": []interface{}{tcpPort(cockroachSqlPort)},
 			},
 		},
 	})

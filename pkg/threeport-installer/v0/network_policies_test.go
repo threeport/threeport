@@ -1,6 +1,9 @@
 package v0
 
 import (
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"slices"
 	"testing"
 
@@ -25,6 +28,20 @@ func testInstaller(controlPlaneName string, controllers ...string) *ControlPlane
 	return installer
 }
 
+// The pods a control plane namespace holds, by the labels they carry. The
+// last three are the ones a policy set written from the component list gets
+// wrong: they arrive after the install, or carry labels of their own.
+var (
+	apiServerPod   = map[string]string{"app.kubernetes.io/name": ThreeportAPIServiceResourceName}
+	databasePod    = map[string]string{"app.kubernetes.io/name": "cockroachdb"}
+	brokerPod      = map[string]string{"app.kubernetes.io/name": "nats"}
+	controllerPod  = map[string]string{"app.kubernetes.io/name": "threeport-kubernetes-workload-controller"}
+	modulePod      = map[string]string{"app.kubernetes.io/name": "dev-0-spring-boot-controller"}
+	brokerUtility  = map[string]string{"app": "nats-js-box"}
+	supportStack   = map[string]string{"control-plane": "controller-manager"}
+	maintenanceJob = map[string]string{LabelMaintenance: "true"}
+)
+
 // policyNamed returns one policy by name, and the names of all of them.
 func policyNamed(t *testing.T, policies []*unstructured.Unstructured, name string) *unstructured.Unstructured {
 	t.Helper()
@@ -40,244 +57,14 @@ func policyNamed(t *testing.T, policies []*unstructured.Unstructured, name strin
 	return nil
 }
 
-// selectedNames returns the app.kubernetes.io/name values a selector matches.
-func selectedNames(t *testing.T, selector map[string]interface{}) []string {
-	t.Helper()
-	expressions, ok, err := unstructured.NestedSlice(selector, "matchExpressions")
-	require.NoError(t, err)
-	if !ok {
-		return nil
-	}
-	var values []string
-	for _, expression := range expressions {
-		list, _, err := unstructured.NestedStringSlice(expression.(map[string]interface{}), "values")
-		require.NoError(t, err)
-		values = append(values, list...)
-	}
-
-	return values
-}
-
-// TestDefaultDenyIsPresent covers the policy the others depend on.
-//
-// A NetworkPolicy only grants: a pod no policy selects is unrestricted, so
-// without one selecting every pod in both directions, the allow rules describe
-// paths that were already open and the whole set is decoration.
-func TestDefaultDenyIsPresent(t *testing.T) {
-	policies := testInstaller("threeport", "kubernetes-workload-controller").threeportNetworkPolicies()
-
-	denyAll := policyNamed(t, policies, "threeport-default-deny")
-
-	selector, _, err := unstructured.NestedMap(denyAll.Object, "spec", "podSelector")
-	require.NoError(t, err)
-	assert.Empty(t, selector, "the default deny has to select every pod")
-
-	types, _, err := unstructured.NestedStringSlice(denyAll.Object, "spec", "policyTypes")
-	require.NoError(t, err)
-	assert.ElementsMatch(t, []string{"Ingress", "Egress"}, types)
-
-	for _, direction := range []string{"ingress", "egress"} {
-		rules, found, err := unstructured.NestedSlice(denyAll.Object, "spec", direction)
-		require.NoError(t, err)
-		assert.False(t, found && len(rules) > 0, "a rule in the default deny would grant %s", direction)
-	}
-
-	assert.Equal(t, "threeport-default-deny", policies[0].GetName(), "the deny is applied first")
-}
-
-// TestControllerSelectorsFollowTheDeploymentNames covers the link between a
-// policy and the pods it is meant to select.
-//
-// A controller's pod label is its deployment name, and that name is not the
-// controller's name: a module's controller is prefixed with the control plane
-// it belongs to, while the built-in ones keep the threeport prefix on every
-// control plane. A policy spelling either form out would select nothing for
-// the other - and selecting nothing is not an error, it is a policy that
-// silently denies the traffic it was written to allow.
-func TestControllerSelectorsFollowTheDeploymentNames(t *testing.T) {
-	const moduleController = "springboot-controller"
-
-	for _, testCase := range []struct {
-		name             string
-		controlPlaneName string
-		controller       string
-		expected         string
-	}{
-		{
-			name:             "a built-in controller keeps the threeport prefix",
-			controlPlaneName: "child-one",
-			controller:       ThreeportKubernetesWorkloadControllerName,
-			expected:         "threeport-" + ThreeportKubernetesWorkloadControllerName,
-		},
-		{
-			name:             "a module's controller takes the control plane's name",
-			controlPlaneName: "child-one",
-			controller:       moduleController,
-			expected:         "child-one-" + moduleController,
-		},
-	} {
-		t.Run(testCase.name, func(t *testing.T) {
-			installer := testInstaller(testCase.controlPlaneName, testCase.controller)
-			policies := installer.threeportNetworkPolicies()
-
-			controllerPolicy := policyNamed(t, policies, "threeport-controllers")
-			selector, _, err := unstructured.NestedMap(controllerPolicy.Object, "spec", "podSelector")
-			require.NoError(t, err)
-
-			assert.Contains(t, selectedNames(t, selector), testCase.expected)
-		})
-	}
-}
-
-// TestEveryInstalledControllerReachesWhatItNeeds covers the gap between the
-// controllers an install deploys and the ones its policies name.
-//
-// The set is chosen per install, so a policy built from a fixed list would
-// leave whichever controllers were added since unable to reach the API server
-// or the message broker - and a denied controller does not fail at install, it
-// fails later, intermittently, while reconciling.
-func TestEveryInstalledControllerReachesWhatItNeeds(t *testing.T) {
-	controllers := []string{
-		"kubernetes-workload-controller",
-		"helm-workload-controller",
-		"control-plane-controller",
-		"gateway-controller",
-	}
-	installer := testInstaller("threeport", controllers...)
-	policies := installer.threeportNetworkPolicies()
-
-	selectedByControllerPolicy := func(policyName string) []string {
-		policy := policyNamed(t, policies, policyName)
-		selector, _, err := unstructured.NestedMap(policy.Object, "spec", "podSelector")
-		require.NoError(t, err)
-
-		return selectedNames(t, selector)
-	}
-
-	egressSelected := selectedByControllerPolicy("threeport-controllers")
-	for _, controller := range controllers {
-		assert.Contains(t, egressSelected, "threeport-"+controller)
-	}
-	assert.Contains(t, egressSelected, ThreeportAgentDeployName, "the agent reaches the API server too")
-
-	// and the broker has to accept them
-	broker := policyNamed(t, policies, "threeport-message-broker")
-	ingress, _, err := unstructured.NestedSlice(broker.Object, "spec", "ingress")
-	require.NoError(t, err)
-	from, _, err := unstructured.NestedSlice(ingress[0].(map[string]interface{}), "from")
-	require.NoError(t, err)
-	selector, _, err := unstructured.NestedMap(from[0].(map[string]interface{}), "podSelector")
-	require.NoError(t, err)
-	brokerClients := selectedNames(t, selector)
-	for _, controller := range controllers {
-		assert.Contains(t, brokerClients, "threeport-"+controller)
-	}
-	assert.Contains(t, brokerClients, ThreeportAPIServiceResourceName)
-}
-
-// TestOnlyTheApiServerReachesTheDatabase covers the restriction that carries
-// most of the value here.
-//
-// Three controllers hold cluster-admin on the cluster they run in, and every
-// component reads through the API server rather than the database. So the
-// database accepting anything else is a path that exists for no caller.
-func TestOnlyTheApiServerReachesTheDatabase(t *testing.T) {
-	policies := testInstaller("threeport", "kubernetes-workload-controller").threeportNetworkPolicies()
-
-	database := policyNamed(t, policies, "threeport-database")
-	ingress, _, err := unstructured.NestedSlice(database.Object, "spec", "ingress")
-	require.NoError(t, err)
-	from, _, err := unstructured.NestedSlice(ingress[0].(map[string]interface{}), "from")
-	require.NoError(t, err)
-
-	var allowed []string
-	for _, source := range from {
-		selector, _, err := unstructured.NestedMap(source.(map[string]interface{}), "podSelector")
-		require.NoError(t, err)
-		allowed = append(allowed, selectedNames(t, selector)...)
-	}
-
-	assert.ElementsMatch(
-		t, []string{ThreeportAPIServiceResourceName, "cockroachdb"}, allowed,
-		"only the API server and the database's own nodes reach the database",
-	)
-	assert.NotContains(t, allowed, "threeport-kubernetes-workload-controller")
-}
-
-// TestEveryWorkloadInTheNamespaceIsCovered covers the pods a policy set is
-// easy to write without noticing.
-//
-// The default deny applies to the namespace, not to the components these
-// policies were written for. Anything else installed there - the support
-// services operator, the broker's utility pod - carries none of the labels the
-// component policies select on, so it loses its network entirely. That failure
-// does not look like a networking one: the operator reconciles the services a
-// gateway depends on, so it shows up as gateways never becoming ready.
-//
-// The labels here are the ones those workloads are installed with, so a change
-// to either side has to be made on both.
-func TestEveryWorkloadInTheNamespaceIsCovered(t *testing.T) {
-	installer := testInstaller("threeport", ThreeportControlPlaneControllerName)
-	policies := installer.threeportNetworkPolicies()
-
-	for _, workload := range []struct {
-		name   string
-		labels map[string]string
-	}{
-		{
-			name:   "the API server",
-			labels: map[string]string{"app.kubernetes.io/name": ThreeportAPIServiceResourceName},
-		},
-		{
-			name:   "the database",
-			labels: map[string]string{"app.kubernetes.io/name": "cockroachdb"},
-		},
-		{
-			name:   "the message broker",
-			labels: map[string]string{"app.kubernetes.io/name": "nats"},
-		},
-		{
-			name:   "a controller",
-			labels: map[string]string{"app.kubernetes.io/name": "threeport-" + ThreeportControlPlaneControllerName},
-		},
-		{
-			name:   "the agent",
-			labels: map[string]string{"app.kubernetes.io/name": ThreeportAgentDeployName},
-		},
-		{
-			name:   "the support services operator",
-			labels: map[string]string{"control-plane": "controller-manager"},
-		},
-		{
-			name:   "the message broker's utility pod",
-			labels: map[string]string{"app": "nats-js-box"},
-		},
-	} {
-		t.Run(workload.name, func(t *testing.T) {
-			var granting []string
-			for _, policy := range policies {
-				name := policy.GetName()
-				if name == "threeport-default-deny" || name == "threeport-allow-dns" {
-					continue
-				}
-				selector, _, err := unstructured.NestedMap(policy.Object, "spec", "podSelector")
-				require.NoError(t, err)
-				if selectorMatches(t, selector, workload.labels) {
-					granting = append(granting, name)
-				}
-			}
-
-			assert.NotEmpty(
-				t, granting,
-				"nothing but the default deny applies to this pod, so it has no network at all",
-			)
-		})
-	}
-}
-
-// selectorMatches reports whether a pod selector matches a set of labels.
+// selectorMatches reports whether a pod selector matches a pod's labels. An
+// empty selector matches every pod in the namespace, which is what the
+// namespace-scoped rules rely on.
 func selectorMatches(t *testing.T, selector map[string]interface{}, labels map[string]string) bool {
 	t.Helper()
+	if len(selector) == 0 {
+		return true
+	}
 
 	matchLabels, _, err := unstructured.NestedStringMap(selector, "matchLabels")
 	require.NoError(t, err)
@@ -290,7 +77,7 @@ func selectorMatches(t *testing.T, selector map[string]interface{}, labels map[s
 	expressions, found, err := unstructured.NestedSlice(selector, "matchExpressions")
 	require.NoError(t, err)
 	if !found {
-		return len(matchLabels) > 0
+		return true
 	}
 	for _, raw := range expressions {
 		expression := raw.(map[string]interface{})
@@ -304,4 +91,343 @@ func selectorMatches(t *testing.T, selector map[string]interface{}, labels map[s
 	}
 
 	return true
+}
+
+// ruleReaches reports whether one ingress or egress rule covers a peer on a
+// port. A rule with no peer list covers every peer, which is how the rules for
+// a Kubernetes API endpoint are written.
+func ruleReaches(
+	t *testing.T,
+	rule map[string]interface{},
+	peerKey string,
+	peer map[string]string,
+	port int,
+) bool {
+	t.Helper()
+
+	ports, found, err := unstructured.NestedSlice(rule, "ports")
+	require.NoError(t, err)
+	if found {
+		matched := false
+		for _, raw := range ports {
+			number, _, err := unstructured.NestedInt64(raw.(map[string]interface{}), "port")
+			require.NoError(t, err)
+			if number == int64(port) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
+	}
+
+	peers, found, err := unstructured.NestedSlice(rule, peerKey)
+	require.NoError(t, err)
+	if !found {
+		// no peer list at all: every destination, which is only used for
+		// ports that identify what is being reached
+		return true
+	}
+	for _, raw := range peers {
+		entry := raw.(map[string]interface{})
+		// a peer in another namespace cannot be one of this namespace's pods
+		if _, isRemote, _ := unstructured.NestedMap(entry, "namespaceSelector"); isRemote {
+			continue
+		}
+		selector, found, err := unstructured.NestedMap(entry, "podSelector")
+		require.NoError(t, err)
+		if found && selectorMatches(t, selector, peer) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// allows reports whether any policy selecting the pod permits the rule.
+func allows(
+	t *testing.T,
+	policies []*unstructured.Unstructured,
+	pod map[string]string,
+	direction string,
+	peerKey string,
+	peer map[string]string,
+	port int,
+) bool {
+	t.Helper()
+
+	for _, policy := range policies {
+		selector, _, err := unstructured.NestedMap(policy.Object, "spec", "podSelector")
+		require.NoError(t, err)
+		if !selectorMatches(t, selector, pod) {
+			continue
+		}
+		rules, found, err := unstructured.NestedSlice(policy.Object, "spec", direction)
+		require.NoError(t, err)
+		if !found {
+			continue
+		}
+		for _, raw := range rules {
+			if ruleReaches(t, raw.(map[string]interface{}), peerKey, peer, port) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// canReach answers the question a policy set is actually for: may this pod
+// open this connection?
+//
+// It checks both ends, because a NetworkPolicy only ever adds permission and
+// the two directions are separate decisions. Allowing the egress and
+// forgetting the ingress reads as a working rule and denies the connection -
+// which is how the broker's utility pod was granted a path it never had.
+func canReach(
+	t *testing.T,
+	policies []*unstructured.Unstructured,
+	from, to map[string]string,
+	port int,
+) bool {
+	t.Helper()
+
+	return allows(t, policies, from, "egress", "to", to, port) &&
+		allows(t, policies, to, "ingress", "from", from, port)
+}
+
+// TestDefaultDenyIsPresent covers the policy the others depend on.
+//
+// A NetworkPolicy only adds permission, so without one selecting every pod in
+// both directions the allow rules describe paths that were already open and
+// the whole set means nothing.
+func TestDefaultDenyIsPresent(t *testing.T) {
+	policies := testInstaller("dev-0", "kubernetes-workload").threeportNetworkPolicies()
+	deny := policyNamed(t, policies, "threeport-default-deny")
+
+	selector, _, err := unstructured.NestedMap(deny.Object, "spec", "podSelector")
+	require.NoError(t, err)
+	assert.Empty(t, selector, "the default deny has to select every pod")
+
+	types, _, err := unstructured.NestedStringSlice(deny.Object, "spec", "policyTypes")
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"Ingress", "Egress"}, types)
+
+	for _, direction := range []string{"ingress", "egress"} {
+		_, found, err := unstructured.NestedSlice(deny.Object, "spec", direction)
+		require.NoError(t, err)
+		assert.False(t, found, "the default deny must carry no %s rule", direction)
+	}
+}
+
+// TestEveryPodInTheNamespaceReachesWhatItNeeds covers the reason these rules
+// select by namespace rather than by component.
+//
+// The namespace's population changes after the install: a module brings its
+// own controller, a reinstall can enable a different set, and maintenance jobs
+// appear and finish. A rule naming the components present at install denies
+// every later arrival, and denies it silently - the pod starts, reports ready,
+// and cannot talk to anything. The pods below include three that no component
+// list contains.
+func TestEveryPodInTheNamespaceReachesWhatItNeeds(t *testing.T) {
+	policies := testInstaller("dev-0", "kubernetes-workload").threeportNetworkPolicies()
+
+	for name, pod := range map[string]map[string]string{
+		"a controller this install deployed": controllerPod,
+		"a controller a module brought":      modulePod,
+		"the broker's utility pod":           brokerUtility,
+		"the support services operator":      supportStack,
+		"a maintenance job":                  maintenanceJob,
+	} {
+		t.Run(name, func(t *testing.T) {
+			assert.True(
+				t, canReach(t, policies, pod, apiServerPod, threeportApiPort),
+				"%s must reach the API server", name,
+			)
+			assert.True(
+				t, canReach(t, policies, pod, brokerPod, natsClientPort),
+				"%s must reach the message broker", name,
+			)
+		})
+	}
+}
+
+// TestOnlyTheApiServerReachesTheDatabase covers the restriction that carries
+// the value.
+//
+// The controllers hold cluster-admin on the cluster they run in. None of them
+// talks to the database - they go through the API server - so a foothold in
+// one has no path to the credentials and state the database holds. This is the
+// one place the namespace is not treated as a unit, and it is the reason the
+// rest of it can be.
+func TestOnlyTheApiServerReachesTheDatabase(t *testing.T) {
+	policies := testInstaller("dev-0", "kubernetes-workload").threeportNetworkPolicies()
+
+	assert.True(
+		t, canReach(t, policies, apiServerPod, databasePod, cockroachSqlPort),
+		"the API server is the component that reads the database",
+	)
+	assert.True(
+		t, canReach(t, policies, maintenanceJob, databasePod, cockroachSqlPort),
+		"a drop runs while the API server is scaled to zero, so it reaches the database itself",
+	)
+
+	for name, pod := range map[string]map[string]string{
+		"a controller this install deployed": controllerPod,
+		"a controller a module brought":      modulePod,
+		"the broker's utility pod":           brokerUtility,
+		"the support services operator":      supportStack,
+	} {
+		assert.False(
+			t, canReach(t, policies, pod, databasePod, cockroachSqlPort),
+			"%s must have no path to the database", name,
+		)
+	}
+}
+
+// TestTheDatabaseIsClosedFromBothEnds covers the claim separately from the
+// reachability it produces.
+//
+// The database is unreachable because the egress is withheld and the ingress
+// is restricted. Either alone makes it unreachable, which is the point -
+// but it also means a test that only asks whether a pod can reach the
+// database keeps passing when one of the two halves is opened up, and the
+// restriction then rests on a single rule without anything saying so.
+func TestTheDatabaseIsClosedFromBothEnds(t *testing.T) {
+	policies := testInstaller("dev-0", "kubernetes-workload").threeportNetworkPolicies()
+
+	for name, pod := range map[string]map[string]string{
+		"a controller this install deployed": controllerPod,
+		"a controller a module brought":      modulePod,
+		"the broker's utility pod":           brokerUtility,
+		"the support services operator":      supportStack,
+	} {
+		t.Run(name, func(t *testing.T) {
+			assert.False(
+				t, allows(t, policies, pod, "egress", "to", databasePod, cockroachSqlPort),
+				"%s must not be granted egress to the database", name,
+			)
+			assert.False(
+				t, allows(t, policies, databasePod, "ingress", "from", pod, cockroachSqlPort),
+				"the database must not admit %s", name,
+			)
+		})
+	}
+}
+
+// TestARemoteKubernetesApiIsReachable covers the destination that has no
+// selector.
+//
+// The controllers deploy workloads to runtimes other than their own, and a
+// remote cluster's endpoint is a provider address rather than anything a
+// selector describes - so the port is all the rule has to go on. GKE and EKS
+// publish 443; OKE publishes 6443, and leaving it out denies every workload
+// deployment and child control plane on that provider.
+func TestARemoteKubernetesApiIsReachable(t *testing.T) {
+	policies := testInstaller("dev-0", "kubernetes-workload").threeportNetworkPolicies()
+	somewhereOutside := map[string]string{"app.kubernetes.io/name": "a-remote-kubernetes-api"}
+
+	for _, port := range []int{kubernetesApiPort, kubernetesApiAltPort} {
+		assert.True(
+			t, allows(t, policies, controllerPod, "egress", "to", somewhereOutside, port),
+			"a controller must reach a Kubernetes API on %d", port,
+		)
+	}
+}
+
+// TestMaintenanceJobsCarryTheLabelTheDatabasePolicyAdmits covers the two
+// halves of one decision.
+//
+// databasePolicy admits pods carrying LabelMaintenance. A drop job that does
+// not set it is denied the database, and the drop runs after the control plane
+// has been scaled to zero - so the failure leaves the installation down rather
+// than refusing to start.
+func TestMaintenanceJobsCarryTheLabelTheDatabasePolicyAdmits(t *testing.T) {
+	file, err := parser.ParseFile(token.NewFileSet(), "reinstall.go", nil, 0)
+	require.NoError(t, err)
+
+	jobs, labelled := 0, 0
+	ast.Inspect(file, func(node ast.Node) bool {
+		literal, ok := node.(*ast.CompositeLit)
+		if !ok {
+			return true
+		}
+		// the pod template of a Job: a map literal with a "spec" holding a
+		// restartPolicy, which only a pod spec carries
+		source := literalKeys(literal)
+		if !slices.Contains(source, "\"template\"") {
+			return true
+		}
+		jobs++
+		if containsIdent(literal, "LabelMaintenance") {
+			labelled++
+		}
+
+		return true
+	})
+
+	require.NotZero(t, jobs, "no job template found to check")
+	assert.Equal(
+		t, jobs, labelled,
+		"every maintenance job must carry the label the database policy admits",
+	)
+}
+
+// TestReinstallReappliesTheNetworkPolicies covers the install path a
+// behavioural test cannot reach.
+//
+// Reinstall deletes installer-managed resources and installs again, and it can
+// enable a different set of controllers than the one running before. The
+// policies describe the namespace rather than a component list, so they do not
+// go stale - but they do get deleted, and a namespace left with no default
+// deny is unrestricted rather than broken, which nothing would report.
+func TestReinstallReappliesTheNetworkPolicies(t *testing.T) {
+	file, err := parser.ParseFile(token.NewFileSet(), "reinstall.go", nil, 0)
+	require.NoError(t, err)
+
+	called := false
+	ast.Inspect(file, func(node ast.Node) bool {
+		call, ok := node.(*ast.CallExpr)
+		if !ok {
+			return true
+		}
+		if selector, ok := call.Fun.(*ast.SelectorExpr); ok {
+			called = called || selector.Sel.Name == "InstallThreeportNetworkPolicies"
+		}
+
+		return true
+	})
+
+	assert.True(t, called, "reinstall must reapply the network policies")
+}
+
+// literalKeys returns the source text of a composite literal's keys.
+func literalKeys(literal *ast.CompositeLit) []string {
+	var keys []string
+	for _, element := range literal.Elts {
+		keyed, ok := element.(*ast.KeyValueExpr)
+		if !ok {
+			continue
+		}
+		if basic, ok := keyed.Key.(*ast.BasicLit); ok {
+			keys = append(keys, basic.Value)
+		}
+	}
+
+	return keys
+}
+
+// containsIdent reports whether the named identifier appears anywhere inside.
+func containsIdent(node ast.Node, name string) bool {
+	found := false
+	ast.Inspect(node, func(inner ast.Node) bool {
+		if ident, ok := inner.(*ast.Ident); ok && ident.Name == name {
+			found = true
+		}
+
+		return !found
+	})
+
+	return found
 }
