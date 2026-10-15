@@ -58,50 +58,46 @@ func UnstructuredFromYaml(asset []byte) (*unstructured.Unstructured, error) {
 // SetNestedField sets one field on an object map.
 // A path entry that is an int indexes a list. A string indexes a map.
 func SetNestedField(object map[string]interface{}, value interface{}, path ...interface{}) error {
-	// walk the object in the same shape as the path, then set the leaf
-	if err := setNested(object, value, path); err != nil {
-		return fmt.Errorf("failed to set field %v: %w", path, err)
+	// walk each path entry, then write the last one
+	if len(path) == 0 {
+		return fmt.Errorf("failed to set field: empty path")
+	}
+	var current interface{} = object
+	for i, entry := range path {
+		last := i == len(path)-1
+		switch key := entry.(type) {
+		case string:
+			fields, ok := current.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("failed to set field %v: expected a map", path)
+			}
+			if last {
+				fields[key] = value
+				return nil
+			}
+			next, ok := fields[key]
+			if !ok {
+				return fmt.Errorf("failed to set field %v: missing %s", path, key)
+			}
+			current = next
+		case int:
+			list, ok := current.([]interface{})
+			if !ok {
+				return fmt.Errorf("failed to set field %v: expected a list", path)
+			}
+			if key < 0 || key >= len(list) {
+				return fmt.Errorf("failed to set field %v: index %d out of range", path, key)
+			}
+			if last {
+				list[key] = value
+				return nil
+			}
+			current = list[key]
+		default:
+			return fmt.Errorf("failed to set field %v: path entry is not a string or an int", path)
+		}
 	}
 	return nil
-}
-
-// setNested walks one path and writes the leaf.
-func setNested(current interface{}, value interface{}, path []interface{}) error {
-	// follow one map key or list index, and write the leaf
-	if len(path) == 0 {
-		return fmt.Errorf("empty path")
-	}
-	switch key := path[0].(type) {
-	case string:
-		object, ok := current.(map[string]interface{})
-		if !ok {
-			return fmt.Errorf("expected a map at %v", path)
-		}
-		if len(path) == 1 {
-			object[key] = value
-			return nil
-		}
-		next, ok := object[key]
-		if !ok {
-			return fmt.Errorf("missing %s", key)
-		}
-		return setNested(next, value, path[1:])
-	case int:
-		list, ok := current.([]interface{})
-		if !ok {
-			return fmt.Errorf("expected a list at %v", path)
-		}
-		if key < 0 || key >= len(list) {
-			return fmt.Errorf("index %d out of range", key)
-		}
-		if len(path) == 1 {
-			list[key] = value
-			return nil
-		}
-		return setNested(list[key], value, path[1:])
-	default:
-		return fmt.Errorf("path entry %v is not a string or an int", path[0])
-	}
 }
 
 // SetNestedSlice sets one list field on an object map.
