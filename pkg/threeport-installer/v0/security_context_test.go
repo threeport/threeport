@@ -10,6 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
+	"gorm.io/datatypes"
+
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
@@ -158,6 +160,62 @@ func TestTheWritablePathsCoverWhatTheComponentsWrite(t *testing.T) {
 	}
 }
 
+// TestACallerSOwnMountIsNotMountedTwice covers a component that brings a
+// volume at one of the writable paths.
+//
+// A mount path has to be unique within a container. Two mounts at /tmp is not
+// something Kubernetes resolves - it refuses the deployment with "must be
+// unique" - so a module controller that mounts /tmp would not get a worse
+// filesystem, it would fail to install at all.
+func TestACallerSOwnMountIsNotMountedTwice(t *testing.T) {
+	deployment, err := installerForHardeningTests().getControllerDeployment(
+		"threeport-custom-controller",
+		"threeport-control-plane",
+		v0.ControlPlaneComponent{
+			Name:                   "custom-controller",
+			BinaryName:             "custom-controller",
+			ImageName:              "threeport-custom-controller",
+			ServiceAccountName:     "custom-controller",
+			AdditionalVolumes:      jsonDocument(`[{"name":"scratch","emptyDir":{}}]`),
+			AdditionalVolumeMounts: jsonDocument(`[{"name":"scratch","mountPath":"/tmp"}]`),
+		},
+	)
+	require.NoError(t, err)
+
+	containers, _, err := unstructured.NestedFieldNoCopy(
+		deployment.Object, "spec", "template", "spec", "containers",
+	)
+	require.NoError(t, err)
+
+	for _, raw := range containers.([]interface{}) {
+		container := raw.(map[string]interface{})
+		seen := map[string]string{}
+		for _, rawMount := range container["volumeMounts"].([]interface{}) {
+			mount := rawMount.(map[string]interface{})
+			path := mount["mountPath"].(string)
+			name := mount["name"].(string)
+			if previous, repeated := seen[path]; repeated {
+				t.Errorf(
+					"%s is mounted twice, by %s and by %s; kubernetes refuses the deployment",
+					path, previous, name,
+				)
+			}
+			seen[path] = name
+		}
+		assert.Equal(t, "scratch", seen["/tmp"], "the caller asked for this path, so their volume keeps it")
+		for _, path := range []string{"/home/nonroot", "/var/helm"} {
+			assert.NotEmpty(t, seen[path], "%s is still needed and nobody else mounted it", path)
+		}
+	}
+}
+
+// jsonDocument is the shape the installer is handed additional volumes in.
+func jsonDocument(document string) *datatypes.JSON {
+	raw := datatypes.JSON(document)
+
+	return &raw
+}
+
 // TestEveryContainerThisInstallerWritesIsHardened covers the containers a
 // behavioural test cannot reach.
 //
@@ -184,9 +242,12 @@ func TestEveryContainerThisInstallerWritesIsHardened(t *testing.T) {
 			return true
 		}
 		containers++
+		// the helper, not any security context: a literal written here could
+		// say securityContext: {} and satisfy a check for the key alone,
+		// which is a weaker container than no check would have produced
 		assert.True(
-			t, keys[`"securityContext"`],
-			"%s: a container is declared without a security context",
+			t, callsHelper(keyedValue(literal, `"securityContext"`), "restrictedContainerSecurityContext"),
+			"%s: a container does not take its security context from restrictedContainerSecurityContext",
 			fileSet.Position(literal.Pos()),
 		)
 
@@ -230,9 +291,15 @@ func TestEveryPodThisInstallerWritesSetsASeccompProfile(t *testing.T) {
 				) {
 					return true
 				}
+				// either the helper, or a literal that names the profile
+				// itself - support_services.go writes one out by hand. The
+				// value matters, not the key: seccompProfile set to
+				// Unconfined is the regression this is here to catch.
 				assert.True(
-					t, mentions(securityContext, "restrictedPodSecurityContext", "seccompProfile"),
-					"%s: a pod is declared without a seccomp profile",
+					t,
+					callsHelper(securityContext, "restrictedPodSecurityContext") ||
+						mentions(securityContext, "RuntimeDefault"),
+					"%s: a pod does not set a RuntimeDefault seccomp profile",
 					fileSet.Position(literal.Pos()),
 				)
 
@@ -300,4 +367,21 @@ func mentions(node ast.Node, names ...string) bool {
 	})
 
 	return found
+}
+
+// callsHelper reports whether an expression is a call to the named function.
+//
+// Checking for the call rather than for the fields it returns is what makes
+// these source checks mean anything: the helper's values are asserted in
+// TestTheRestrictedContextMeetsTheStandard, so a site that uses it inherits
+// them, and a site that writes its own literal is reported here rather than
+// silently setting something weaker.
+func callsHelper(expr ast.Expr, name string) bool {
+	call, ok := expr.(*ast.CallExpr)
+	if !ok {
+		return false
+	}
+	function, ok := call.Fun.(*ast.Ident)
+
+	return ok && function.Name == name
 }

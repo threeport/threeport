@@ -110,3 +110,61 @@ func restrictedPodSecurityContext() map[string]interface{} {
 		},
 	}
 }
+
+// addWritablePaths adds the writable volume and whichever of its mounts the
+// caller has not already provided.
+//
+// A component can bring its own volumes through AdditionalVolumes and
+// AdditionalVolumeMounts, and a mount path has to be unique within a
+// container. Two mounts at /tmp is not a conflict Kubernetes resolves, it is
+// a deployment it refuses outright - so a module that mounts one of these
+// paths would not get a worse filesystem, it would fail to install at all.
+//
+// The caller's mount wins where they overlap. It was asked for explicitly,
+// and it is already writable storage, which is the whole requirement.
+func addWritablePaths(vols, volMounts []interface{}) ([]interface{}, []interface{}) {
+	missing := missingWritableMounts(volMounts)
+	if len(missing) == 0 {
+		return vols, volMounts
+	}
+
+	// the caller may already have a volume under this name, in which case
+	// the mounts below use theirs rather than declaring a second one
+	for _, raw := range vols {
+		volume, ok := raw.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if name, ok := volume["name"].(string); ok && name == writableVolumeName {
+			return vols, append(volMounts, missing...)
+		}
+	}
+
+	return append(vols, writableVolume()), append(volMounts, missing...)
+}
+
+// missingWritableMounts returns the writable mounts a container does not
+// already have, so a path the caller mounted is not mounted twice.
+func missingWritableMounts(volMounts []interface{}) []interface{} {
+	mounted := map[string]bool{}
+	for _, raw := range volMounts {
+		mount, ok := raw.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if path, ok := mount["mountPath"].(string); ok {
+			mounted[path] = true
+		}
+	}
+
+	var missing []interface{}
+	for _, raw := range writableVolumeMounts() {
+		path, _ := raw.(map[string]interface{})["mountPath"].(string)
+		if mounted[path] {
+			continue
+		}
+		missing = append(missing, raw)
+	}
+
+	return missing
+}

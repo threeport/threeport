@@ -329,7 +329,7 @@ THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 	for _, container := range initContainers {
 		spec := container.(map[string]interface{})
 		mounts, _ := spec["volumeMounts"].([]interface{})
-		spec["volumeMounts"] = append(mounts, writableVolumeMounts()...)
+		spec["volumeMounts"] = append(mounts, missingWritableMounts(mounts)...)
 	}
 
 	// configure additional init containers
@@ -1775,8 +1775,7 @@ func (cpi *ControlPlaneInstaller) getAPIVolumes() ([]interface{}, []interface{},
 	}
 
 	// the paths a read-only root filesystem has to leave writable
-	vols = append(vols, writableVolume())
-	volMounts = append(volMounts, writableVolumeMounts()...)
+	vols, volMounts = addWritablePaths(vols, volMounts)
 
 	return vols, volMounts, nil
 }
@@ -1840,8 +1839,7 @@ func (cpi *ControlPlaneInstaller) getControllerVolumes(controller v0.ControlPlan
 	}
 
 	// the paths a read-only root filesystem has to leave writable
-	vols = append(vols, writableVolume())
-	volMounts = append(volMounts, writableVolumeMounts()...)
+	vols, volMounts = addWritablePaths(vols, volMounts)
 
 	return vols, volMounts, nil
 }
