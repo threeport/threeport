@@ -55,6 +55,48 @@ func UnstructuredFromYaml(asset []byte) (*unstructured.Unstructured, error) {
 	return object, nil
 }
 
+// FieldAt reads one field through maps and list indexes.
+func FieldAt(object map[string]interface{}, path ...interface{}) (interface{}, error) {
+	// walk each path entry and return the last one
+	if len(path) == 0 {
+		return nil, fmt.Errorf("failed to read field: empty path")
+	}
+	var current interface{} = object
+	for i, entry := range path {
+		last := i == len(path)-1
+		switch key := entry.(type) {
+		case string:
+			fields, ok := current.(map[string]interface{})
+			if !ok {
+				return nil, fmt.Errorf("failed to read field %v: expected a map", path)
+			}
+			next, ok := fields[key]
+			if !ok {
+				return nil, fmt.Errorf("failed to read field %v: missing %s", path, key)
+			}
+			if last {
+				return next, nil
+			}
+			current = next
+		case int:
+			list, ok := current.([]interface{})
+			if !ok {
+				return nil, fmt.Errorf("failed to read field %v: expected a list", path)
+			}
+			if key < 0 || key >= len(list) {
+				return nil, fmt.Errorf("failed to read field %v: index %d out of range", path, key)
+			}
+			if last {
+				return list[key], nil
+			}
+			current = list[key]
+		default:
+			return nil, fmt.Errorf("failed to read field %v: path entry is not a string or an int", path)
+		}
+	}
+	return nil, fmt.Errorf("failed to read field %v", path)
+}
+
 // SetIndexedField writes one field through maps and list indexes.
 // unstructured.SetNestedField only accepts map keys.
 func SetIndexedField(object map[string]interface{}, value interface{}, path ...interface{}) error {

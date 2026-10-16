@@ -4,8 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
 	"github.com/threeport/threeport/internal/gateway/assets"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -20,13 +18,39 @@ func TestSetIngressBackend(t *testing.T) {
 	if err := setIngressBackend(ingress.Object, "web", 8080); err != nil {
 		t.Fatal(err)
 	}
-	rules, _, err := unstructured.NestedSlice(ingress.Object, "spec", "rules")
+	name, err := util.FieldAt(
+		ingress.Object,
+		"spec",
+		"rules",
+		0,
+		"http",
+		"paths",
+		0,
+		"backend",
+		"service",
+		"name",
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	svc := rules[0].(map[string]interface{})["http"].(map[string]interface{})["paths"].([]interface{})[0].(map[string]interface{})["backend"].(map[string]interface{})["service"].(map[string]interface{})
-	if svc["name"] != "web" || svc["port"].(map[string]interface{})["number"] != int64(8080) {
-		t.Fatalf("backend %#v", svc)
+	port, err := util.FieldAt(
+		ingress.Object,
+		"spec",
+		"rules",
+		0,
+		"http",
+		"paths",
+		0,
+		"backend",
+		"service",
+		"port",
+		"number",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if name != "web" || port != int64(8080) {
+		t.Fatalf("backend name %v port %v", name, port)
 	}
 }
 
@@ -39,13 +63,28 @@ func TestSetTransportBackend(t *testing.T) {
 	if err := setTransportBackend(server.Object, "db", 5432); err != nil {
 		t.Fatal(err)
 	}
-	upstreams, _, err := unstructured.NestedSlice(server.Object, "spec", "upstreams")
+	service, err := util.FieldAt(
+		server.Object,
+		"spec",
+		"upstreams",
+		0,
+		"service",
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	upstream := upstreams[0].(map[string]interface{})
-	if upstream["service"] != "db" || upstream["port"] != int64(5432) {
-		t.Fatalf("upstream %#v", upstream)
+	port, err := util.FieldAt(
+		server.Object,
+		"spec",
+		"upstreams",
+		0,
+		"port",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if service != "db" || port != int64(5432) {
+		t.Fatalf("upstream service %v port %v", service, port)
 	}
 }
 
