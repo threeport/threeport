@@ -11,13 +11,8 @@ import (
 
 // This file is named unstructured.go because it uses the same object shape as k8s.io/apimachinery/pkg/apis/meta/v1/unstructured.
 // An unstructured object is a Kubernetes resource held as nested maps and lists, with no generated Go type.
-// NestedFieldCopy, NestedString, NestedInt64, SetNestedField, and RemoveNestedField accept only string keys.
-// The library states that no array or slice syntax is supported on that path.
-// FieldAt, SetIndexedField, and RemoveIndexedField take an int path entry and address one list item.
-// NestedInt64 returns an error when the value is a float64, which is how encoding/json decodes a JSON number.
-// NestedInt64OrFloat64 reads that float64 and returns an int64.
-// UnstructuredToYaml, UnstructuredFromYaml, and the datatypes.JSON helpers convert that object for an API record.
-// MergeNamedEntries writes one list entry whose name matches.
+// The client-go helpers address map keys.
+// This file also addresses a list index, a JSON number decoded as float64, and conversion to YAML and datatypes.JSON.
 
 // NestedInt64OrFloat64 returns the int64 value of the nested field in the unstructured
 // object and gracefully handles the case where the value is a float64
