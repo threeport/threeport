@@ -463,14 +463,16 @@ func TestUpdateStampsReconciledWhenNotTrue(t *testing.T) {
 			assert.True(t, *patched.Reconciled)
 			after := before
 			after.Reconciled = patched.Reconciled
-			assert.False(t, tpapi.ObjectUpdateNotifiable(before, after),
-				"the stamp the reconciler wrote must not schedule another reconcile")
+			notify, changed := tpapi.ObjectUpdateNotifiable(before, after)
+			assert.False(t, notify, "the stamp the reconciler wrote must not schedule another reconcile")
+			assert.Empty(t, changed)
 
-			// a body that also changes another field must notify
+			// a body that also changes another field still must not notify
 			withStatus := after
 			withStatus.Status = util.Ptr("changed")
-			assert.True(t, tpapi.ObjectUpdateNotifiable(before, withStatus),
-				"a stamp that also changes another field must schedule a reconcile")
+			notify, changed = tpapi.ObjectUpdateNotifiable(before, withStatus)
+			assert.False(t, notify, "Reconciled becoming true must not schedule a reconcile")
+			assert.Equal(t, []string{"Status"}, changed)
 		})
 	}
 }

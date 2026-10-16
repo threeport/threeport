@@ -43,9 +43,11 @@ func TestHandlerTemplate_UpdateNotificationDoesNotGateOnReconciled(t *testing.T)
 	assert.Empty(t, gated.FindAllString(text, -1),
 		"the update notification must not be gated on the object's Reconciled field")
 
-	reconcileOnly := regexp.MustCompile(`notifyControllersUpdateHandler\.If\([\s\S]{0,500}Dot\("Reconciliation"\)`)
-	assert.Empty(t, reconcileOnly.FindAllString(text, -1),
-		"the update notification must see the saved object, not only reconciliation state")
+	warnAt := strings.Index(text, `Lit("reconciled became true with other fields changed")`)
+	publishAt := strings.Index(text, `If(Id("notify")).Block(`)
+	assert.Greater(t, warnAt, 0)
+	assert.Greater(t, publishAt, warnAt)
+	assert.Contains(t, text, `Qual("go.uber.org/zap", "Strings").Call(Lit("fields"), Id("changed"))`)
 }
 
 // the check that is meant to be there still is: a write that changes nothing

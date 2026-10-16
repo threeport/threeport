@@ -346,7 +346,12 @@ func (h Handler) UpdateHelmWorkloadDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevHelmWorkloadDefinition, existingHelmWorkloadDefinition) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevHelmWorkloadDefinition, existingHelmWorkloadDefinition)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingHelmWorkloadDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -457,7 +462,12 @@ func (h Handler) ReplaceHelmWorkloadDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevHelmWorkloadDefinition, existingHelmWorkloadDefinition) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevHelmWorkloadDefinition, existingHelmWorkloadDefinition)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingHelmWorkloadDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -940,7 +950,12 @@ func (h Handler) UpdateHelmWorkloadInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevHelmWorkloadInstance, existingHelmWorkloadInstance) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevHelmWorkloadInstance, existingHelmWorkloadInstance)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingHelmWorkloadInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -1051,7 +1066,12 @@ func (h Handler) ReplaceHelmWorkloadInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevHelmWorkloadInstance, existingHelmWorkloadInstance) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevHelmWorkloadInstance, existingHelmWorkloadInstance)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingHelmWorkloadInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,

@@ -346,7 +346,12 @@ func (h Handler) UpdateLoggingDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevLoggingDefinition, existingLoggingDefinition) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevLoggingDefinition, existingLoggingDefinition)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingLoggingDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -457,7 +462,12 @@ func (h Handler) ReplaceLoggingDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevLoggingDefinition, existingLoggingDefinition) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevLoggingDefinition, existingLoggingDefinition)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingLoggingDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -940,7 +950,12 @@ func (h Handler) UpdateLoggingInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevLoggingInstance, existingLoggingInstance) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevLoggingInstance, existingLoggingInstance)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingLoggingInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -1051,7 +1066,12 @@ func (h Handler) ReplaceLoggingInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevLoggingInstance, existingLoggingInstance) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevLoggingInstance, existingLoggingInstance)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingLoggingInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -1528,7 +1548,12 @@ func (h Handler) UpdateMetricsDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevMetricsDefinition, existingMetricsDefinition) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevMetricsDefinition, existingMetricsDefinition)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingMetricsDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -1639,7 +1664,12 @@ func (h Handler) ReplaceMetricsDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevMetricsDefinition, existingMetricsDefinition) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevMetricsDefinition, existingMetricsDefinition)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingMetricsDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -2122,7 +2152,12 @@ func (h Handler) UpdateMetricsInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevMetricsInstance, existingMetricsInstance) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevMetricsInstance, existingMetricsInstance)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingMetricsInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -2233,7 +2268,12 @@ func (h Handler) ReplaceMetricsInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevMetricsInstance, existingMetricsInstance) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevMetricsInstance, existingMetricsInstance)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingMetricsInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -2710,7 +2750,12 @@ func (h Handler) UpdateObservabilityDashboardDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevObservabilityDashboardDefinition, existingObservabilityDashboardDefinition) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevObservabilityDashboardDefinition, existingObservabilityDashboardDefinition)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingObservabilityDashboardDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -2821,7 +2866,12 @@ func (h Handler) ReplaceObservabilityDashboardDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevObservabilityDashboardDefinition, existingObservabilityDashboardDefinition) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevObservabilityDashboardDefinition, existingObservabilityDashboardDefinition)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingObservabilityDashboardDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -3304,7 +3354,12 @@ func (h Handler) UpdateObservabilityDashboardInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevObservabilityDashboardInstance, existingObservabilityDashboardInstance) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevObservabilityDashboardInstance, existingObservabilityDashboardInstance)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingObservabilityDashboardInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -3415,7 +3470,12 @@ func (h Handler) ReplaceObservabilityDashboardInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevObservabilityDashboardInstance, existingObservabilityDashboardInstance) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevObservabilityDashboardInstance, existingObservabilityDashboardInstance)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingObservabilityDashboardInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -3892,7 +3952,12 @@ func (h Handler) UpdateObservabilityStackDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevObservabilityStackDefinition, existingObservabilityStackDefinition) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevObservabilityStackDefinition, existingObservabilityStackDefinition)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingObservabilityStackDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -4003,7 +4068,12 @@ func (h Handler) ReplaceObservabilityStackDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevObservabilityStackDefinition, existingObservabilityStackDefinition) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevObservabilityStackDefinition, existingObservabilityStackDefinition)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingObservabilityStackDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -4486,7 +4556,12 @@ func (h Handler) UpdateObservabilityStackInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevObservabilityStackInstance, existingObservabilityStackInstance) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevObservabilityStackInstance, existingObservabilityStackInstance)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingObservabilityStackInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -4597,7 +4672,12 @@ func (h Handler) ReplaceObservabilityStackInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevObservabilityStackInstance, existingObservabilityStackInstance) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevObservabilityStackInstance, existingObservabilityStackInstance)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingObservabilityStackInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,

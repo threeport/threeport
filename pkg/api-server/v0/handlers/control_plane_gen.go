@@ -347,7 +347,12 @@ func (h Handler) UpdateControlPlaneDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevControlPlaneDefinition, existingControlPlaneDefinition) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevControlPlaneDefinition, existingControlPlaneDefinition)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingControlPlaneDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -458,7 +463,12 @@ func (h Handler) ReplaceControlPlaneDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevControlPlaneDefinition, existingControlPlaneDefinition) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevControlPlaneDefinition, existingControlPlaneDefinition)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingControlPlaneDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -941,7 +951,12 @@ func (h Handler) UpdateControlPlaneInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevControlPlaneInstance, existingControlPlaneInstance) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevControlPlaneInstance, existingControlPlaneInstance)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingControlPlaneInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -1052,7 +1067,12 @@ func (h Handler) ReplaceControlPlaneInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevControlPlaneInstance, existingControlPlaneInstance) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevControlPlaneInstance, existingControlPlaneInstance)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingControlPlaneInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,

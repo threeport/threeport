@@ -838,7 +838,12 @@ func (h Handler) UpdateAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevAwsEksKubernetesRuntimeInstance, existingAwsEksKubernetesRuntimeInstance) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevAwsEksKubernetesRuntimeInstance, existingAwsEksKubernetesRuntimeInstance)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingAwsEksKubernetesRuntimeInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -949,7 +954,12 @@ func (h Handler) ReplaceAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevAwsEksKubernetesRuntimeInstance, existingAwsEksKubernetesRuntimeInstance) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevAwsEksKubernetesRuntimeInstance, existingAwsEksKubernetesRuntimeInstance)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingAwsEksKubernetesRuntimeInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,

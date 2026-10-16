@@ -346,7 +346,12 @@ func (h Handler) UpdateSecretDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevSecretDefinition, existingSecretDefinition) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevSecretDefinition, existingSecretDefinition)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingSecretDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -457,7 +462,12 @@ func (h Handler) ReplaceSecretDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevSecretDefinition, existingSecretDefinition) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevSecretDefinition, existingSecretDefinition)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingSecretDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -940,7 +950,12 @@ func (h Handler) UpdateSecretInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevSecretInstance, existingSecretInstance) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevSecretInstance, existingSecretInstance)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingSecretInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -1051,7 +1066,12 @@ func (h Handler) ReplaceSecretInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevSecretInstance, existingSecretInstance) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevSecretInstance, existingSecretInstance)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingSecretInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,

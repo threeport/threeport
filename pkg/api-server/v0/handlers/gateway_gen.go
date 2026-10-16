@@ -838,7 +838,12 @@ func (h Handler) UpdateDomainNameInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevDomainNameInstance, existingDomainNameInstance) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevDomainNameInstance, existingDomainNameInstance)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingDomainNameInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -949,7 +954,12 @@ func (h Handler) ReplaceDomainNameInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevDomainNameInstance, existingDomainNameInstance) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevDomainNameInstance, existingDomainNameInstance)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingDomainNameInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -1426,7 +1436,12 @@ func (h Handler) UpdateGatewayDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevGatewayDefinition, existingGatewayDefinition) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevGatewayDefinition, existingGatewayDefinition)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingGatewayDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -1537,7 +1552,12 @@ func (h Handler) ReplaceGatewayDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevGatewayDefinition, existingGatewayDefinition) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevGatewayDefinition, existingGatewayDefinition)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingGatewayDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -2506,7 +2526,12 @@ func (h Handler) UpdateGatewayInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevGatewayInstance, existingGatewayInstance) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevGatewayInstance, existingGatewayInstance)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingGatewayInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -2617,7 +2642,12 @@ func (h Handler) ReplaceGatewayInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevGatewayInstance, existingGatewayInstance) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevGatewayInstance, existingGatewayInstance)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingGatewayInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
