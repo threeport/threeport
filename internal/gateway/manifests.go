@@ -32,6 +32,8 @@ func setIngressBackend(object map[string]interface{}, service string, port int64
 	); err != nil {
 		return fmt.Errorf("ingress has no rules: %w", err)
 	}
+
+	// set the service port on that same path
 	return util.SetIndexedField(
 		object,
 		port,
@@ -50,7 +52,7 @@ func setIngressBackend(object map[string]interface{}, service string, port int64
 
 // setTransportBackend sets the service and port a transport server sends traffic to.
 func setTransportBackend(object map[string]interface{}, service string, port int64) error {
-	// set the upstream, then name the listener for this port
+	// set the upstream service
 	if err := util.SetIndexedField(
 		object,
 		service,
@@ -71,6 +73,8 @@ func setTransportBackend(object map[string]interface{}, service string, port int
 	); err != nil {
 		return err
 	}
+
+	// name the listener for this port
 	return unstructured.SetNestedField(
 		object,
 		fmt.Sprintf("tcp-%d", port),
@@ -83,6 +87,7 @@ func setTransportBackend(object map[string]interface{}, service string, port int
 // getIngressComponentYaml returns the nginx operator component.
 // The tcp listener object waits until that operator has installed its CRDs.
 func getIngressComponentYaml() (string, error) {
+	// decode the embedded component
 	component, err := util.UnstructuredFromYaml(assets.IngressComponent)
 	if err != nil {
 		return "", err
@@ -166,6 +171,7 @@ func getExternalDnsYaml(
 
 // getCertificatesComponentYaml creates the cert-manager component.
 func getCertificatesComponentYaml() (string, error) {
+	// decode the embedded component
 	component, err := util.UnstructuredFromYaml(assets.Certificates)
 	if err != nil {
 		return "", err
@@ -175,6 +181,7 @@ func getCertificatesComponentYaml() (string, error) {
 
 // getCleanedDomain returns a cleaned domain.
 func getCleanedDomain(domain string) string {
+	// strip a scheme prefix
 	cleanedDomain := strings.TrimPrefix(domain, "http://")
 	cleanedDomain = strings.TrimPrefix(cleanedDomain, "https://")
 	return cleanedDomain
@@ -184,6 +191,7 @@ func getCleanedDomain(domain string) string {
 func getIngressesYaml(r *controller.Reconciler, gatewayDefinition *v0.GatewayDefinition, domain string) ([]string, error) {
 	var manifests []string
 
+	// clean the domain and load the http ports
 	domain = getCleanedDomain(domain)
 	gatewayHttpPorts, err := client.GetGatewayHttpPortsByGatewayDefinitionId(r.APIClient, r.APIServer, *gatewayDefinition.ID)
 	if err != nil {
@@ -192,7 +200,7 @@ func getIngressesYaml(r *controller.Reconciler, gatewayDefinition *v0.GatewayDef
 	for _, httpPort := range *gatewayHttpPorts {
 		host := domain
 
-		// copy the embedded ingress and set this port
+		// copy the embedded ingress and name it for this port
 		ingress, err := util.UnstructuredFromYaml(assets.Ingress)
 		if err != nil {
 			return nil, err
@@ -205,6 +213,7 @@ func getIngressesYaml(r *controller.Reconciler, gatewayDefinition *v0.GatewayDef
 		); err != nil {
 			return nil, err
 		}
+		// drop the host when the domain is empty
 		if host == "" {
 			if err := util.RemoveIndexedField(
 				ingress.Object,
@@ -225,6 +234,7 @@ func getIngressesYaml(r *controller.Reconciler, gatewayDefinition *v0.GatewayDef
 		); err != nil {
 			return nil, fmt.Errorf("ingress has no rules: %w", err)
 		}
+		// set the path
 		if err := util.SetIndexedField(
 			ingress.Object,
 			*httpPort.Path,
@@ -238,6 +248,7 @@ func getIngressesYaml(r *controller.Reconciler, gatewayDefinition *v0.GatewayDef
 		); err != nil {
 			return nil, fmt.Errorf("ingress has no rules: %w", err)
 		}
+		// redirect http when the port asks for it
 		if httpPort.HTTPSRedirect != nil && *httpPort.HTTPSRedirect {
 			if err := unstructured.SetNestedField(
 				ingress.Object,
@@ -249,6 +260,7 @@ func getIngressesYaml(r *controller.Reconciler, gatewayDefinition *v0.GatewayDef
 				return nil, fmt.Errorf("failed to set https redirect on ingress: %w", err)
 			}
 		}
+		// terminate tls at the ingress when the port enables it
 		if httpPort.TLSEnabled != nil && *httpPort.TLSEnabled {
 			tls := []interface{}{
 				map[string]interface{}{
@@ -266,6 +278,7 @@ func getIngressesYaml(r *controller.Reconciler, gatewayDefinition *v0.GatewayDef
 			}
 		}
 
+		// render the ingress
 		rendered, err := util.UnstructuredToYaml(ingress)
 		if err != nil {
 			return []string{}, fmt.Errorf("error marshaling YAML: %w", err)
@@ -280,11 +293,13 @@ func getIngressesYaml(r *controller.Reconciler, gatewayDefinition *v0.GatewayDef
 func getTransportServersYaml(r *controller.Reconciler, gatewayDefinition *v0.GatewayDefinition) ([]string, error) {
 	var manifests []string
 
+	// load the tcp ports
 	gatewayTcpPorts, err := client.GetGatewayTcpPortsByGatewayDefinitionId(r.APIClient, r.APIServer, *gatewayDefinition.ID)
 	if err != nil {
 		return []string{}, fmt.Errorf("failed to get gateway tcp ports: %w", err)
 	}
 	for _, tcpPort := range *gatewayTcpPorts {
+		// copy the embedded server and name it for this port
 		server, err := util.UnstructuredFromYaml(assets.TransportServer)
 		if err != nil {
 			return nil, err
@@ -297,6 +312,7 @@ func getTransportServersYaml(r *controller.Reconciler, gatewayDefinition *v0.Gat
 		); err != nil {
 			return nil, err
 		}
+		// name the listener for this port
 		listener, _, err := unstructured.NestedMap(
 			server.Object,
 			"spec",
@@ -314,10 +330,12 @@ func getTransportServersYaml(r *controller.Reconciler, gatewayDefinition *v0.Gat
 		); err != nil {
 			return nil, err
 		}
+		// point the upstream at this port
 		if err := setTransportBackend(server.Object, "placeholder", int64(*tcpPort.Port)); err != nil {
 			return nil, err
 		}
 
+		// render the server
 		rendered, err := util.UnstructuredToYaml(server)
 		if err != nil {
 			return []string{}, fmt.Errorf("error marshaling YAML: %w", err)
@@ -330,6 +348,7 @@ func getTransportServersYaml(r *controller.Reconciler, gatewayDefinition *v0.Gat
 
 // getIngressName returns the name of an ingress.
 func getIngressName(gatewayDefinition *v0.GatewayDefinition, domain string, port int) string {
+	// use the domain, or the gateway name when the domain is empty
 	domain = getCleanedDomain(domain)
 	if domain == "" {
 		return fmt.Sprintf("%s-%d", *gatewayDefinition.Name, port)
@@ -355,6 +374,7 @@ func setSelfSignedIssuer(object map[string]interface{}) error {
 
 // getIssuerYaml creates an issuer for the given domain.
 func getIssuerYaml(gatewayDefinition *v0.GatewayDefinition, domain, adminEmail string) (string, error) {
+	// name the issuer, then set the account email and the zone
 	issuer, err := util.UnstructuredFromYaml(assets.Issuer)
 	if err != nil {
 		return "", err
@@ -393,7 +413,7 @@ func getIssuerYaml(gatewayDefinition *v0.GatewayDefinition, domain, adminEmail s
 
 // getCertificateYaml creates a certificate for the given domain.
 func getCertificateYaml(gatewayDefinition *v0.GatewayDefinition, domain string) (string, error) {
-	// set the domain on the embedded certificate
+	// decode the embedded certificate
 	certificate, err := util.UnstructuredFromYaml(assets.Certificate)
 	if err != nil {
 		return "", err
@@ -406,6 +426,7 @@ func getCertificateYaml(gatewayDefinition *v0.GatewayDefinition, domain string) 
 	); err != nil {
 		return "", err
 	}
+	// name the secret the certificate writes
 	if err := unstructured.SetNestedField(
 		certificate.Object,
 		strcase.ToKebab(domain)+"-tls",
@@ -414,6 +435,7 @@ func getCertificateYaml(gatewayDefinition *v0.GatewayDefinition, domain string) 
 	); err != nil {
 		return "", err
 	}
+	// set the dns name
 	if err := unstructured.SetNestedSlice(
 		certificate.Object,
 		[]interface{}{domain},
@@ -422,6 +444,7 @@ func getCertificateYaml(gatewayDefinition *v0.GatewayDefinition, domain string) 
 	); err != nil {
 		return "", err
 	}
+	// point the certificate at the issuer for this domain
 	if err := unstructured.SetNestedField(
 		certificate.Object,
 		strcase.ToKebab(domain),

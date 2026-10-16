@@ -116,7 +116,6 @@ func TestUnstructuredToYaml(t *testing.T) {
 	}
 }
 
-// TestMergeNamedEntries keeps a stored port and adds the new one.
 // TestSetIndexedField writes through a list and rejects a missing index.
 func TestSetIndexedField(t *testing.T) {
 	// write the service name on the first rule

@@ -11,12 +11,14 @@ import (
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 )
 
+// installEksClusterAutoscaler installs the cluster autoscaler RBAC and deployment.
 func installEksClusterAutoscaler(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	clusterName string,
 	accountId string,
 ) error {
+	// create the service account
 	var clusterAutoscalerServiceAcct = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "v1",
@@ -41,6 +43,7 @@ func installEksClusterAutoscaler(
 		return fmt.Errorf("failed to create cluster autoscaler service account: %w", err)
 	}
 
+	// create the cluster role
 	var clusterAutoscalerClusterRole = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "rbac.authorization.k8s.io/v1",
@@ -240,6 +243,7 @@ func installEksClusterAutoscaler(
 		return fmt.Errorf("failed to create cluster autoscaler cluster role: %w", err)
 	}
 
+	// create the role
 	var clusterAutoscalerRole = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "rbac.authorization.k8s.io/v1",
@@ -291,6 +295,7 @@ func installEksClusterAutoscaler(
 		return fmt.Errorf("failed to create cluster autoscaler role: %w", err)
 	}
 
+	// bind the cluster role
 	var clusterAutoscalerClusterRoleBinding = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "rbac.authorization.k8s.io/v1",
@@ -320,6 +325,7 @@ func installEksClusterAutoscaler(
 		return fmt.Errorf("failed to create cluster autoscaler cluster role binding: %w", err)
 	}
 
+	// bind the role
 	var clusterAutoscalerRoleBinding = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "rbac.authorization.k8s.io/v1",
@@ -350,6 +356,7 @@ func installEksClusterAutoscaler(
 		return fmt.Errorf("failed to create cluster autoscaler role binding: %w", err)
 	}
 
+	// create the deployment
 	var clusterAutoscalerDeployment = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "apps/v1",
