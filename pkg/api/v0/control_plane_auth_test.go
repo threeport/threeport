@@ -192,3 +192,101 @@ func TestTheApiRefusesAnUnauthenticatedControlPlaneOffKind(t *testing.T) {
 		}).Error, "the column default is auth on, so an unset field is not a refusal")
 	})
 }
+
+// instanceOf creates a control plane instance bound to a definition and a
+// runtime, bypassing the create hook so an update can be tested against a
+// pairing that the create path would have refused.
+func instanceOf(t *testing.T, db *gorm.DB, name string, definitionID, runtimeID *uint) {
+	t.Helper()
+	require.NoError(t, db.Session(&gorm.Session{SkipHooks: true}).Create(&ControlPlaneInstance{
+		Instance:                    Instance{Name: util.Ptr(name)},
+		Namespace:                   util.Ptr("threeport-control-plane"),
+		ControlPlaneDefinitionID:    definitionID,
+		KubernetesRuntimeInstanceID: runtimeID,
+	}).Error)
+}
+
+// TestAuthCannotBeTurnedOffAfterTheInstanceExists covers the window between
+// creating an instance and installing it.
+//
+// The create hook checks the pairing when the instance is created, and the
+// control-plane-controller reads the definition again when it installs. Those
+// are different moments. An instance created on EKS with auth on passes the
+// first check; patching its definition to auth off before the controller
+// reaches it means the install reads the changed value and brings the child
+// up without auth, with every check it passed still true of when it passed.
+func TestAuthCannotBeTurnedOffAfterTheInstanceExists(t *testing.T) {
+	// the shape a PATCH reaches GORM as
+	patch := func(db *gorm.DB, stored *ControlPlaneDefinition, incoming *ControlPlaneDefinition) error {
+		return db.Model(stored).Updates(incoming).Error
+	}
+
+	t.Run("an instance on a cloud provider refuses the update", func(t *testing.T) {
+		db := setupControlPlaneAuthDB(t)
+		runtime := runtimeOn(t, db, KubernetesRuntimeInfraProviderEKS, "eks-runtime")
+		definitionID := controlPlaneDefinitionWithAuth(t, db, "cp", true)
+		instanceOf(t, db, "cp", definitionID, runtime)
+
+		var stored ControlPlaneDefinition
+		require.NoError(t, db.First(&stored, *definitionID).Error)
+
+		err := patch(db, &stored, &ControlPlaneDefinition{AuthEnabled: util.Ptr(false)})
+		require.Error(t, err, "this is the bypass: create with auth, then patch it away")
+		assert.Contains(t, err.Error(), "auth cannot be disabled")
+	})
+
+	t.Run("an instance on kind allows it", func(t *testing.T) {
+		db := setupControlPlaneAuthDB(t)
+		runtime := runtimeOn(t, db, KubernetesRuntimeInfraProviderKind, "kind-runtime")
+		definitionID := controlPlaneDefinitionWithAuth(t, db, "cp", true)
+		instanceOf(t, db, "cp", definitionID, runtime)
+
+		var stored ControlPlaneDefinition
+		require.NoError(t, db.First(&stored, *definitionID).Error)
+
+		assert.NoError(
+			t, patch(db, &stored, &ControlPlaneDefinition{AuthEnabled: util.Ptr(false)}),
+			"local development can still turn it off",
+		)
+	})
+
+	t.Run("a definition with no instances allows it", func(t *testing.T) {
+		db := setupControlPlaneAuthDB(t)
+		definitionID := controlPlaneDefinitionWithAuth(t, db, "cp", true)
+
+		var stored ControlPlaneDefinition
+		require.NoError(t, db.First(&stored, *definitionID).Error)
+
+		assert.NoError(
+			t, patch(db, &stored, &ControlPlaneDefinition{AuthEnabled: util.Ptr(false)}),
+			"nothing runs from it yet, and the create hook covers whatever does later",
+		)
+	})
+
+	t.Run("an update that does not mention auth is left alone", func(t *testing.T) {
+		db := setupControlPlaneAuthDB(t)
+		runtime := runtimeOn(t, db, KubernetesRuntimeInfraProviderEKS, "eks-runtime")
+		definitionID := controlPlaneDefinitionWithAuth(t, db, "cp", true)
+		instanceOf(t, db, "cp", definitionID, runtime)
+
+		var stored ControlPlaneDefinition
+		require.NoError(t, db.First(&stored, *definitionID).Error)
+
+		assert.NoError(
+			t, patch(db, &stored, &ControlPlaneDefinition{OnboardParent: util.Ptr(false)}),
+			"an update setting something else is not held to a value it is not writing",
+		)
+	})
+
+	t.Run("turning auth on is always allowed", func(t *testing.T) {
+		db := setupControlPlaneAuthDB(t)
+		runtime := runtimeOn(t, db, KubernetesRuntimeInfraProviderEKS, "eks-runtime")
+		definitionID := controlPlaneDefinitionWithAuth(t, db, "cp", true)
+		instanceOf(t, db, "cp", definitionID, runtime)
+
+		var stored ControlPlaneDefinition
+		require.NoError(t, db.First(&stored, *definitionID).Error)
+
+		assert.NoError(t, patch(db, &stored, &ControlPlaneDefinition{AuthEnabled: util.Ptr(true)}))
+	})
+}

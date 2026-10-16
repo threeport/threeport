@@ -8,6 +8,7 @@ import (
 
 	gorm "gorm.io/gorm"
 
+	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -59,7 +60,100 @@ func (c *ControlPlaneDefinition) beforeCreate(tx *gorm.DB) error {
 //
 //	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (c *ControlPlaneDefinition) beforeUpdate(tx *gorm.DB) error {
+	return rejectAuthBeingTurnedOffForACloudInstance(tx, c)
+}
+
+// rejectAuthBeingTurnedOffForACloudInstance closes the gap between creating
+// an instance and installing it.
+//
+// The instance hook checks the pairing when the instance is created, and the
+// control-plane-controller reads the definition again when it installs. Those
+// are not the same moment: an instance can be created on EKS with auth on,
+// pass that check, and have its definition patched to auth off before the
+// controller gets to it. The install then reads the changed value and brings
+// the child up without auth, with every check it passed still true of the
+// moment it passed them.
+//
+// So an update that would turn auth off is refused while any instance of the
+// definition runs somewhere that requires it.
+func rejectAuthBeingTurnedOffForACloudInstance(tx *gorm.DB, stored *ControlPlaneDefinition) error {
+	incoming := incomingAuthEnabled(tx, stored)
+	if incoming == nil || *incoming {
+		return nil
+	}
+
+	if stored.ID == nil {
+		return nil
+	}
+
+	var instances []ControlPlaneInstance
+	if err := tx.Where("control_plane_definition_id = ?", *stored.ID).Find(&instances).Error; err != nil {
+		return err
+	}
+
+	for _, instance := range instances {
+		if instance.KubernetesRuntimeInstanceID == nil {
+			continue
+		}
+		provider, err := providerOfRuntimeInstance(tx, *instance.KubernetesRuntimeInstanceID)
+		if err != nil {
+			return err
+		}
+		if provider == nil {
+			continue
+		}
+		if err := ValidateAuthEnabledForProvider(*provider, false); err != nil {
+			return err
+		}
+	}
+
 	return nil
+}
+
+// incomingAuthEnabled returns the auth setting this update is writing.
+//
+// Under PATCH the receiver is the row as stored and the values being written
+// are a separate object, so reading the receiver checks what is already
+// there. Under PUT the two are the same object. An update that does not
+// mention auth reports none, so it is not held to a value it is not setting.
+func incomingAuthEnabled(tx *gorm.DB, stored *ControlPlaneDefinition) *bool {
+	if lib.IsPartialUpdate(tx) {
+		incoming, ok := lib.IncomingValues(tx).(*ControlPlaneDefinition)
+		if !ok {
+			return nil
+		}
+
+		return incoming.AuthEnabled
+	}
+
+	return stored.AuthEnabled
+}
+
+// providerOfRuntimeInstance resolves the infra provider behind a runtime
+// instance, or nil when the chain does not resolve.
+func providerOfRuntimeInstance(tx *gorm.DB, runtimeInstanceID uint) (*string, error) {
+	var runtimeInstance KubernetesRuntimeInstance
+	if err := tx.First(&runtimeInstance, runtimeInstanceID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+
+		return nil, err
+	}
+	if runtimeInstance.KubernetesRuntimeDefinitionID == nil {
+		return nil, nil
+	}
+
+	var runtimeDefinition KubernetesRuntimeDefinition
+	if err := tx.First(&runtimeDefinition, *runtimeInstance.KubernetesRuntimeDefinitionID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+
+		return nil, err
+	}
+
+	return runtimeDefinition.InfraProvider, nil
 }
 
 // beforeDelete runs before the ControlPlaneDefinition is deleted.
@@ -116,31 +210,15 @@ func validateAuthAgainstRuntime(tx *gorm.DB, instance *ControlPlaneInstance) err
 		return nil
 	}
 
-	var runtimeInstance KubernetesRuntimeInstance
-	if err := tx.First(&runtimeInstance, *instance.KubernetesRuntimeInstanceID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil
-		}
-
+	provider, err := providerOfRuntimeInstance(tx, *instance.KubernetesRuntimeInstanceID)
+	if err != nil {
 		return err
 	}
-	if runtimeInstance.KubernetesRuntimeDefinitionID == nil {
+	if provider == nil {
 		return nil
 	}
 
-	var runtimeDefinition KubernetesRuntimeDefinition
-	if err := tx.First(&runtimeDefinition, *runtimeInstance.KubernetesRuntimeDefinitionID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil
-		}
-
-		return err
-	}
-	if runtimeDefinition.InfraProvider == nil {
-		return nil
-	}
-
-	return ValidateAuthEnabledForProvider(*runtimeDefinition.InfraProvider, false)
+	return ValidateAuthEnabledForProvider(*provider, false)
 }
 
 // beforeUpdate runs before the ControlPlaneInstance is updated.

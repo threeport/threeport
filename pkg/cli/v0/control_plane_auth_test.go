@@ -1,6 +1,10 @@
 package v0
 
 import (
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -50,4 +54,36 @@ func TestAuthCannotBeDisabledOffKindFromTheCli(t *testing.T) {
 		"kind can still disable auth for local development",
 	)
 	assert.NoError(t, validate(v0.KubernetesRuntimeInfraProviderKind, true))
+}
+
+// TestTheChildInstallChecksTheProviderAgain covers the last moment before a
+// child control plane exists.
+//
+// The API refuses the pairing when an instance is created and when its
+// definition is updated, but the install reads the definition again, later
+// than either. A check that stopped happening here would not fail: the child
+// would come up serving its API over plain HTTP, which is a working control
+// plane, just not the one that was asked for.
+func TestTheChildInstallChecksTheProviderAgain(t *testing.T) {
+	path := filepath.Join("..", "..", "..", "internal", "control-plane", "v0_control_plane_instance.go")
+	file, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
+	require.NoError(t, err)
+
+	called := false
+	ast.Inspect(file, func(node ast.Node) bool {
+		call, ok := node.(*ast.CallExpr)
+		if !ok {
+			return true
+		}
+		if selector, ok := call.Fun.(*ast.SelectorExpr); ok {
+			called = called || selector.Sel.Name == "ValidateAuthEnabledForProvider"
+		}
+
+		return true
+	})
+
+	assert.True(
+		t, called,
+		"%s installs a child without checking the auth setting against the provider", path,
+	)
 }
