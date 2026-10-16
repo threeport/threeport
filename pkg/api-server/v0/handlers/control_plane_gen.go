@@ -322,9 +322,8 @@ func (h Handler) UpdateControlPlaneDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before update so the notify block
-	// can skip publishing when the update did not touch any state marker
-	prevReconciliation := existingControlPlaneDefinition.Reconciliation
+	// snapshot the object before the update so a later stamp can be compared to it
+	prevControlPlaneDefinition := api_v0.NotifySnapshot(existingControlPlaneDefinition)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -348,7 +347,7 @@ func (h Handler) UpdateControlPlaneDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingControlPlaneDefinition.Reconciliation) {
+	if api_v0.ObjectUpdateNotifiable(prevControlPlaneDefinition, existingControlPlaneDefinition) {
 		notifPayload, err := existingControlPlaneDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -424,9 +423,8 @@ func (h Handler) ReplaceControlPlaneDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before replace so the notify block
-	// can skip publishing when the replace did not touch any state marker
-	prevReconciliation := existingControlPlaneDefinition.Reconciliation
+	// snapshot the object before the replace so a later stamp can be compared to it
+	prevControlPlaneDefinition := api_v0.NotifySnapshot(existingControlPlaneDefinition)
 
 	// persist provided data
 	updatedControlPlaneDefinition.ID = existingControlPlaneDefinition.ID
@@ -460,7 +458,7 @@ func (h Handler) ReplaceControlPlaneDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingControlPlaneDefinition.Reconciliation) {
+	if api_v0.ObjectUpdateNotifiable(prevControlPlaneDefinition, existingControlPlaneDefinition) {
 		notifPayload, err := existingControlPlaneDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -918,9 +916,8 @@ func (h Handler) UpdateControlPlaneInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before update so the notify block
-	// can skip publishing when the update did not touch any state marker
-	prevReconciliation := existingControlPlaneInstance.Reconciliation
+	// snapshot the object before the update so a later stamp can be compared to it
+	prevControlPlaneInstance := api_v0.NotifySnapshot(existingControlPlaneInstance)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -944,7 +941,7 @@ func (h Handler) UpdateControlPlaneInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingControlPlaneInstance.Reconciliation) {
+	if api_v0.ObjectUpdateNotifiable(prevControlPlaneInstance, existingControlPlaneInstance) {
 		notifPayload, err := existingControlPlaneInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -1020,9 +1017,8 @@ func (h Handler) ReplaceControlPlaneInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before replace so the notify block
-	// can skip publishing when the replace did not touch any state marker
-	prevReconciliation := existingControlPlaneInstance.Reconciliation
+	// snapshot the object before the replace so a later stamp can be compared to it
+	prevControlPlaneInstance := api_v0.NotifySnapshot(existingControlPlaneInstance)
 
 	// persist provided data
 	updatedControlPlaneInstance.ID = existingControlPlaneInstance.ID
@@ -1056,7 +1052,7 @@ func (h Handler) ReplaceControlPlaneInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingControlPlaneInstance.Reconciliation) {
+	if api_v0.ObjectUpdateNotifiable(prevControlPlaneInstance, existingControlPlaneInstance) {
 		notifPayload, err := existingControlPlaneInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,

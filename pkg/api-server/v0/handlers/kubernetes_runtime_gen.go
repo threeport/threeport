@@ -321,9 +321,8 @@ func (h Handler) UpdateKubernetesRuntimeDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before update so the notify block
-	// can skip publishing when the update did not touch any state marker
-	prevReconciliation := existingKubernetesRuntimeDefinition.Reconciliation
+	// snapshot the object before the update so a later stamp can be compared to it
+	prevKubernetesRuntimeDefinition := api_v0.NotifySnapshot(existingKubernetesRuntimeDefinition)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -347,7 +346,7 @@ func (h Handler) UpdateKubernetesRuntimeDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingKubernetesRuntimeDefinition.Reconciliation) {
+	if api_v0.ObjectUpdateNotifiable(prevKubernetesRuntimeDefinition, existingKubernetesRuntimeDefinition) {
 		notifPayload, err := existingKubernetesRuntimeDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -423,9 +422,8 @@ func (h Handler) ReplaceKubernetesRuntimeDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before replace so the notify block
-	// can skip publishing when the replace did not touch any state marker
-	prevReconciliation := existingKubernetesRuntimeDefinition.Reconciliation
+	// snapshot the object before the replace so a later stamp can be compared to it
+	prevKubernetesRuntimeDefinition := api_v0.NotifySnapshot(existingKubernetesRuntimeDefinition)
 
 	// persist provided data
 	updatedKubernetesRuntimeDefinition.ID = existingKubernetesRuntimeDefinition.ID
@@ -459,7 +457,7 @@ func (h Handler) ReplaceKubernetesRuntimeDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingKubernetesRuntimeDefinition.Reconciliation) {
+	if api_v0.ObjectUpdateNotifiable(prevKubernetesRuntimeDefinition, existingKubernetesRuntimeDefinition) {
 		notifPayload, err := existingKubernetesRuntimeDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -917,9 +915,8 @@ func (h Handler) UpdateKubernetesRuntimeInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before update so the notify block
-	// can skip publishing when the update did not touch any state marker
-	prevReconciliation := existingKubernetesRuntimeInstance.Reconciliation
+	// snapshot the object before the update so a later stamp can be compared to it
+	prevKubernetesRuntimeInstance := api_v0.NotifySnapshot(existingKubernetesRuntimeInstance)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -943,7 +940,7 @@ func (h Handler) UpdateKubernetesRuntimeInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingKubernetesRuntimeInstance.Reconciliation) {
+	if api_v0.ObjectUpdateNotifiable(prevKubernetesRuntimeInstance, existingKubernetesRuntimeInstance) {
 		notifPayload, err := existingKubernetesRuntimeInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -1019,9 +1016,8 @@ func (h Handler) ReplaceKubernetesRuntimeInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before replace so the notify block
-	// can skip publishing when the replace did not touch any state marker
-	prevReconciliation := existingKubernetesRuntimeInstance.Reconciliation
+	// snapshot the object before the replace so a later stamp can be compared to it
+	prevKubernetesRuntimeInstance := api_v0.NotifySnapshot(existingKubernetesRuntimeInstance)
 
 	// persist provided data
 	updatedKubernetesRuntimeInstance.ID = existingKubernetesRuntimeInstance.ID
@@ -1055,7 +1051,7 @@ func (h Handler) ReplaceKubernetesRuntimeInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingKubernetesRuntimeInstance.Reconciliation) {
+	if api_v0.ObjectUpdateNotifiable(prevKubernetesRuntimeInstance, existingKubernetesRuntimeInstance) {
 		notifPayload, err := existingKubernetesRuntimeInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,

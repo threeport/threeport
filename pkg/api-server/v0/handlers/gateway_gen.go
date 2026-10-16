@@ -813,9 +813,8 @@ func (h Handler) UpdateDomainNameInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before update so the notify block
-	// can skip publishing when the update did not touch any state marker
-	prevReconciliation := existingDomainNameInstance.Reconciliation
+	// snapshot the object before the update so a later stamp can be compared to it
+	prevDomainNameInstance := api_v0.NotifySnapshot(existingDomainNameInstance)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -839,7 +838,7 @@ func (h Handler) UpdateDomainNameInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingDomainNameInstance.Reconciliation) {
+	if api_v0.ObjectUpdateNotifiable(prevDomainNameInstance, existingDomainNameInstance) {
 		notifPayload, err := existingDomainNameInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -915,9 +914,8 @@ func (h Handler) ReplaceDomainNameInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before replace so the notify block
-	// can skip publishing when the replace did not touch any state marker
-	prevReconciliation := existingDomainNameInstance.Reconciliation
+	// snapshot the object before the replace so a later stamp can be compared to it
+	prevDomainNameInstance := api_v0.NotifySnapshot(existingDomainNameInstance)
 
 	// persist provided data
 	updatedDomainNameInstance.ID = existingDomainNameInstance.ID
@@ -951,7 +949,7 @@ func (h Handler) ReplaceDomainNameInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingDomainNameInstance.Reconciliation) {
+	if api_v0.ObjectUpdateNotifiable(prevDomainNameInstance, existingDomainNameInstance) {
 		notifPayload, err := existingDomainNameInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -1403,9 +1401,8 @@ func (h Handler) UpdateGatewayDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before update so the notify block
-	// can skip publishing when the update did not touch any state marker
-	prevReconciliation := existingGatewayDefinition.Reconciliation
+	// snapshot the object before the update so a later stamp can be compared to it
+	prevGatewayDefinition := api_v0.NotifySnapshot(existingGatewayDefinition)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -1429,7 +1426,7 @@ func (h Handler) UpdateGatewayDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingGatewayDefinition.Reconciliation) {
+	if api_v0.ObjectUpdateNotifiable(prevGatewayDefinition, existingGatewayDefinition) {
 		notifPayload, err := existingGatewayDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -1505,9 +1502,8 @@ func (h Handler) ReplaceGatewayDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before replace so the notify block
-	// can skip publishing when the replace did not touch any state marker
-	prevReconciliation := existingGatewayDefinition.Reconciliation
+	// snapshot the object before the replace so a later stamp can be compared to it
+	prevGatewayDefinition := api_v0.NotifySnapshot(existingGatewayDefinition)
 
 	// persist provided data
 	updatedGatewayDefinition.ID = existingGatewayDefinition.ID
@@ -1541,7 +1537,7 @@ func (h Handler) ReplaceGatewayDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingGatewayDefinition.Reconciliation) {
+	if api_v0.ObjectUpdateNotifiable(prevGatewayDefinition, existingGatewayDefinition) {
 		notifPayload, err := existingGatewayDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -2485,9 +2481,8 @@ func (h Handler) UpdateGatewayInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before update so the notify block
-	// can skip publishing when the update did not touch any state marker
-	prevReconciliation := existingGatewayInstance.Reconciliation
+	// snapshot the object before the update so a later stamp can be compared to it
+	prevGatewayInstance := api_v0.NotifySnapshot(existingGatewayInstance)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -2511,7 +2506,7 @@ func (h Handler) UpdateGatewayInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingGatewayInstance.Reconciliation) {
+	if api_v0.ObjectUpdateNotifiable(prevGatewayInstance, existingGatewayInstance) {
 		notifPayload, err := existingGatewayInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -2587,9 +2582,8 @@ func (h Handler) ReplaceGatewayInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before replace so the notify block
-	// can skip publishing when the replace did not touch any state marker
-	prevReconciliation := existingGatewayInstance.Reconciliation
+	// snapshot the object before the replace so a later stamp can be compared to it
+	prevGatewayInstance := api_v0.NotifySnapshot(existingGatewayInstance)
 
 	// persist provided data
 	updatedGatewayInstance.ID = existingGatewayInstance.ID
@@ -2623,7 +2617,7 @@ func (h Handler) ReplaceGatewayInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingGatewayInstance.Reconciliation) {
+	if api_v0.ObjectUpdateNotifiable(prevGatewayInstance, existingGatewayInstance) {
 		notifPayload, err := existingGatewayInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,

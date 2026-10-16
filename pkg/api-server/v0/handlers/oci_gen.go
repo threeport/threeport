@@ -813,9 +813,8 @@ func (h Handler) UpdateOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before update so the notify block
-	// can skip publishing when the update did not touch any state marker
-	prevReconciliation := existingOciOkeKubernetesRuntimeInstance.Reconciliation
+	// snapshot the object before the update so a later stamp can be compared to it
+	prevOciOkeKubernetesRuntimeInstance := api_v0.NotifySnapshot(existingOciOkeKubernetesRuntimeInstance)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -839,7 +838,7 @@ func (h Handler) UpdateOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingOciOkeKubernetesRuntimeInstance.Reconciliation) {
+	if api_v0.ObjectUpdateNotifiable(prevOciOkeKubernetesRuntimeInstance, existingOciOkeKubernetesRuntimeInstance) {
 		notifPayload, err := existingOciOkeKubernetesRuntimeInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -915,9 +914,8 @@ func (h Handler) ReplaceOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before replace so the notify block
-	// can skip publishing when the replace did not touch any state marker
-	prevReconciliation := existingOciOkeKubernetesRuntimeInstance.Reconciliation
+	// snapshot the object before the replace so a later stamp can be compared to it
+	prevOciOkeKubernetesRuntimeInstance := api_v0.NotifySnapshot(existingOciOkeKubernetesRuntimeInstance)
 
 	// persist provided data
 	updatedOciOkeKubernetesRuntimeInstance.ID = existingOciOkeKubernetesRuntimeInstance.ID
@@ -951,7 +949,7 @@ func (h Handler) ReplaceOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingOciOkeKubernetesRuntimeInstance.Reconciliation) {
+	if api_v0.ObjectUpdateNotifiable(prevOciOkeKubernetesRuntimeInstance, existingOciOkeKubernetesRuntimeInstance) {
 		notifPayload, err := existingOciOkeKubernetesRuntimeInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,

@@ -140,10 +140,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					notifyControllersUpdateHandler.Line()
 					notifyControllersUpdateHandler.If(Qual(
 						"github.com/threeport/threeport/pkg/api/v0",
-						"ReconciliationUpdateNotifiable",
+						"ObjectUpdateNotifiable",
 					).Call(
-						Id("prevReconciliation"),
-						Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("Reconciliation"),
+						Id("prev"+apiObject.TypeName),
+						Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
 					).Block(
 						Id("notifPayload").Op(",").Id("err").Op(":=").Id(
 							fmt.Sprintf("existing%s", apiObject.TypeName),
@@ -1508,9 +1508,13 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					)
 					if apiObject.Reconciler {
 						g.Line()
-						g.Comment("snapshot reconciliation state before update so the notify block")
-						g.Comment("can skip publishing when the update did not touch any state marker")
-						g.Id("prevReconciliation").Op(":=").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("Reconciliation")
+						g.Comment("snapshot the object before the update so a later stamp can be compared to it")
+						g.Id("prev"+apiObject.TypeName).Op(":=").Qual(
+							"github.com/threeport/threeport/pkg/api/v0",
+							"NotifySnapshot",
+						).Call(
+							Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
+						)
 					}
 					g.Line()
 					g.Comment("update object in database")
@@ -1839,9 +1843,13 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					)
 					if apiObject.Reconciler {
 						g.Line()
-						g.Comment("snapshot reconciliation state before replace so the notify block")
-						g.Comment("can skip publishing when the replace did not touch any state marker")
-						g.Id("prevReconciliation").Op(":=").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("Reconciliation")
+						g.Comment("snapshot the object before the replace so a later stamp can be compared to it")
+						g.Id("prev"+apiObject.TypeName).Op(":=").Qual(
+							"github.com/threeport/threeport/pkg/api/v0",
+							"NotifySnapshot",
+						).Call(
+							Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
+						)
 					}
 					g.Line()
 					g.Comment("persist provided data")
