@@ -1,0 +1,2274 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: support-services-operator
+    control-plane: controller-manager
+  name: support-services-operator-system
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: (unknown)
+  name: certificatescomponents.platform.addons.nukleros.io
+spec:
+  group: platform.addons.nukleros.io
+  names:
+    kind: CertificatesComponent
+    listKind: CertificatesComponentList
+    plural: certificatescomponents
+    singular: certificatescomponent
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: CertificatesComponent is the Schema for the certificatescomponents
+          API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: CertificatesComponentSpec defines the desired state of CertificatesComponent.
+            properties:
+              certManager:
+                properties:
+                  cainjector:
+                    properties:
+                      image:
+                        default: quay.io/jetstack/cert-manager-cainjector
+                        description: |-
+                          (Default: "quay.io/jetstack/cert-manager-cainjector")
+
+                          Image repo and name to use for cert-manager cainjector.
+                        type: string
+                      replicas:
+                        default: 2
+                        description: |-
+                          (Default: 2)
+
+                          Number of replicas to use for the cert-manager cainjector deployment.
+                        type: integer
+                    type: object
+                  contactEmail:
+                    description: |-
+                      Contact e-mail address for receiving updates about certificates from
+                      LetsEncrypt.
+                    type: string
+                  controller:
+                    properties:
+                      image:
+                        default: quay.io/jetstack/cert-manager-controller
+                        description: |-
+                          (Default: "quay.io/jetstack/cert-manager-controller")
+
+                          Image repo and name to use for cert-manager controller.
+                        type: string
+                      replicas:
+                        default: 2
+                        description: |-
+                          (Default: 2)
+
+                          Number of replicas to use for the cert-manager controller deployment.
+                        type: integer
+                    type: object
+                  version:
+                    default: v1.9.1
+                    description: |-
+                      (Default: "v1.9.1")
+
+                      Version of cert-manager to use.
+                    type: string
+                  webhook:
+                    properties:
+                      image:
+                        default: quay.io/jetstack/cert-manager-webhook
+                        description: |-
+                          (Default: "quay.io/jetstack/cert-manager-webhook")
+
+                          Image repo and name to use for cert-manager webhook.
+                        type: string
+                      replicas:
+                        default: 2
+                        description: |-
+                          (Default: 2)
+
+                          Number of replicas to use for the cert-manager webhook deployment.
+                        type: integer
+                    type: object
+                required:
+                - contactEmail
+                type: object
+              collection:
+                description: |-
+                  Specifies a reference to the collection to use for this workload.
+                  Requires the name and namespace input to find the collection.
+                  If no collection field is set, default to selecting the only
+                  workload collection in the cluster, which will result in an error
+                  if not exactly one collection is found.
+                properties:
+                  name:
+                    description: |-
+                      Required if specifying collection.  The name of the collection
+                      within a specific collection.namespace to reference.
+                    type: string
+                  namespace:
+                    description: |-
+                      (Default: "") The namespace where the collection exists.  Required only if
+                      the collection is namespace scoped and not cluster scoped.
+                    type: string
+                required:
+                - name
+                type: object
+              namespace:
+                default: nukleros-certs-system
+                description: |-
+                  (Default: "nukleros-certs-system")
+
+                  Namespace to use for certificate support services.
+                type: string
+            type: object
+          status:
+            description: CertificatesComponentStatus defines the observed state of
+              CertificatesComponent.
+            properties:
+              conditions:
+                items:
+                  description: |-
+                    PhaseCondition describes an event that has occurred during a phase
+                    of the controller reconciliation loop.
+                  properties:
+                    lastModified:
+                      description: LastModified defines the time in which this component
+                        was updated.
+                      type: string
+                    message:
+                      description: Message defines a helpful message from the phase.
+                      type: string
+                    phase:
+                      description: Phase defines the phase in which the condition
+                        was set.
+                      type: string
+                    state:
+                      description: PhaseState defines the current state of the phase.
+                      enum:
+                      - Complete
+                      - Reconciling
+                      - Failed
+                      - Pending
+                      type: string
+                  required:
+                  - lastModified
+                  - message
+                  - phase
+                  - state
+                  type: object
+                type: array
+              created:
+                type: boolean
+              dependenciesSatisfied:
+                type: boolean
+              resources:
+                items:
+                  description: ChildResource is the resource and its condition as
+                    stored on the workload custom resource's status field.
+                  properties:
+                    condition:
+                      description: ResourceCondition defines the current condition
+                        of this resource.
+                      properties:
+                        created:
+                          description: Created defines whether this object has been
+                            successfully created or not.
+                          type: boolean
+                        lastModified:
+                          description: LastModified defines the time in which this
+                            resource was updated.
+                          type: string
+                        message:
+                          description: Message defines a helpful message from the
+                            resource phase.
+                          type: string
+                      required:
+                      - created
+                      type: object
+                    group:
+                      description: Group defines the API Group of the resource.
+                      type: string
+                    kind:
+                      description: Kind defines the kind of the resource.
+                      type: string
+                    name:
+                      description: Name defines the name of the resource from the
+                        metadata.name field.
+                      type: string
+                    namespace:
+                      description: Namespace defines the namespace in which this resource
+                        exists in.
+                      type: string
+                    version:
+                      description: Version defines the API Version of the resource.
+                      type: string
+                  required:
+                  - group
+                  - kind
+                  - name
+                  - namespace
+                  - version
+                  type: object
+                type: array
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: (unknown)
+  name: databasecomponents.application.addons.nukleros.io
+spec:
+  group: application.addons.nukleros.io
+  names:
+    kind: DatabaseComponent
+    listKind: DatabaseComponentList
+    plural: databasecomponents
+    singular: databasecomponent
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: DatabaseComponent is the Schema for the databasecomponents API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: DatabaseComponentSpec defines the desired state of DatabaseComponent.
+            properties:
+              collection:
+                description: |-
+                  Specifies a reference to the collection to use for this workload.
+                  Requires the name and namespace input to find the collection.
+                  If no collection field is set, default to selecting the only
+                  workload collection in the cluster, which will result in an error
+                  if not exactly one collection is found.
+                properties:
+                  name:
+                    description: |-
+                      Required if specifying collection.  The name of the collection
+                      within a specific collection.namespace to reference.
+                    type: string
+                  namespace:
+                    description: |-
+                      (Default: "") The namespace where the collection exists.  Required only if
+                      the collection is namespace scoped and not cluster scoped.
+                    type: string
+                required:
+                - name
+                type: object
+              namespace:
+                default: nukleros-database-system
+                description: |-
+                  (Default: "nukleros-database-system")
+
+                  Namespace to use for database support services.
+                type: string
+              zalandoPostgres:
+                properties:
+                  image:
+                    default: registry.opensource.zalan.do/acid/postgres-operator
+                    description: |-
+                      (Default: "registry.opensource.zalan.do/acid/postgres-operator")
+
+                      Image repo and name to use for postgres operator.
+                    type: string
+                  replicas:
+                    default: 1
+                    description: |-
+                      (Default: 1)
+
+                      Number of replicas to use for the postgres-operator deployment.
+                    type: integer
+                  version:
+                    default: v1.8.2
+                    description: |-
+                      (Default: "v1.8.2")
+
+                      Version of postgres operator to use.
+                    type: string
+                type: object
+            type: object
+          status:
+            description: DatabaseComponentStatus defines the observed state of DatabaseComponent.
+            properties:
+              conditions:
+                items:
+                  description: |-
+                    PhaseCondition describes an event that has occurred during a phase
+                    of the controller reconciliation loop.
+                  properties:
+                    lastModified:
+                      description: LastModified defines the time in which this component
+                        was updated.
+                      type: string
+                    message:
+                      description: Message defines a helpful message from the phase.
+                      type: string
+                    phase:
+                      description: Phase defines the phase in which the condition
+                        was set.
+                      type: string
+                    state:
+                      description: PhaseState defines the current state of the phase.
+                      enum:
+                      - Complete
+                      - Reconciling
+                      - Failed
+                      - Pending
+                      type: string
+                  required:
+                  - lastModified
+                  - message
+                  - phase
+                  - state
+                  type: object
+                type: array
+              created:
+                type: boolean
+              dependenciesSatisfied:
+                type: boolean
+              resources:
+                items:
+                  description: ChildResource is the resource and its condition as
+                    stored on the workload custom resource's status field.
+                  properties:
+                    condition:
+                      description: ResourceCondition defines the current condition
+                        of this resource.
+                      properties:
+                        created:
+                          description: Created defines whether this object has been
+                            successfully created or not.
+                          type: boolean
+                        lastModified:
+                          description: LastModified defines the time in which this
+                            resource was updated.
+                          type: string
+                        message:
+                          description: Message defines a helpful message from the
+                            resource phase.
+                          type: string
+                      required:
+                      - created
+                      type: object
+                    group:
+                      description: Group defines the API Group of the resource.
+                      type: string
+                    kind:
+                      description: Kind defines the kind of the resource.
+                      type: string
+                    name:
+                      description: Name defines the name of the resource from the
+                        metadata.name field.
+                      type: string
+                    namespace:
+                      description: Namespace defines the namespace in which this resource
+                        exists in.
+                      type: string
+                    version:
+                      description: Version defines the API Version of the resource.
+                      type: string
+                  required:
+                  - group
+                  - kind
+                  - name
+                  - namespace
+                  - version
+                  type: object
+                type: array
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: (unknown)
+  name: ingresscomponents.platform.addons.nukleros.io
+spec:
+  group: platform.addons.nukleros.io
+  names:
+    kind: IngressComponent
+    listKind: IngressComponentList
+    plural: ingresscomponents
+    singular: ingresscomponent
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: IngressComponent is the Schema for the ingresscomponents API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: IngressComponentSpec defines the desired state of IngressComponent.
+            properties:
+              collection:
+                description: |-
+                  Specifies a reference to the collection to use for this workload.
+                  Requires the name and namespace input to find the collection.
+                  If no collection field is set, default to selecting the only
+                  workload collection in the cluster, which will result in an error
+                  if not exactly one collection is found.
+                properties:
+                  name:
+                    description: |-
+                      Required if specifying collection.  The name of the collection
+                      within a specific collection.namespace to reference.
+                    type: string
+                  namespace:
+                    description: |-
+                      (Default: "") The namespace where the collection exists.  Required only if
+                      the collection is namespace scoped and not cluster scoped.
+                    type: string
+                required:
+                - name
+                type: object
+              domainName:
+                type: string
+              externalDNS:
+                properties:
+                  extraArgs:
+                    default:
+                    - '{}'
+                    description: |-
+                      (Default: ["{}"])
+
+                      Extra arguments to pass to the external-dns deployment.
+                    items:
+                      type: string
+                    type: array
+                  iamRoleArn:
+                    description: On AWS, the IAM Role ARN that gives external-dns
+                      access to Route53
+                    type: string
+                  image:
+                    default: k8s.gcr.io/external-dns/external-dns
+                    description: |-
+                      (Default: "k8s.gcr.io/external-dns/external-dns")
+
+                      Image repo and name to use for external-dns.
+                    type: string
+                  provider:
+                    default: none
+                    description: |-
+                      (Default: "none")
+
+                      The DNS provider to use for setting DNS records with external-dns.  One of: none
+                      | active-directory | google | route53.
+                    enum:
+                    - none
+                    - active-directory
+                    - google
+                    - route53
+                    type: string
+                  serviceAccountName:
+                    default: external-dns
+                    description: |-
+                      (Default: "external-dns")
+
+                      The name of the external-dns service account which is referenced in role policy
+                      doc for AWS.
+                    type: string
+                  version:
+                    default: v0.12.2
+                    description: |-
+                      (Default: "v0.12.2")
+
+                      Version of external-dns to use.
+                    type: string
+                  zoneType:
+                    default: private
+                    description: |-
+                      (Default: "private")
+
+                      Type of DNS hosted zone to manage.
+                    enum:
+                    - private
+                    - public
+                    type: string
+                required:
+                - iamRoleArn
+                type: object
+              kong:
+                properties:
+                  gateway:
+                    properties:
+                      image:
+                        default: kong/kong-gateway
+                        description: |-
+                          (Default: "kong/kong-gateway")
+
+                          Image repo and name to use for kong gateway.
+                        type: string
+                      version:
+                        default: "2.8"
+                        description: |-
+                          (Default: "2.8")
+
+                          Version of kong gateway to use.
+                        type: string
+                    type: object
+                  include:
+                    default: true
+                    description: |-
+                      (Default: true)
+
+                      Include the Kong ingress controller when installing ingress components.
+                    type: boolean
+                  ingressController:
+                    properties:
+                      image:
+                        default: kong/kubernetes-ingress-controller
+                        description: |-
+                          (Default: "kong/kubernetes-ingress-controller")
+
+                          Image repo and name to use for kong ingress controller.
+                        type: string
+                      version:
+                        default: 2.5.0
+                        description: |-
+                          (Default: "2.5.0")
+
+                          Version of kong ingress controller to use.
+                        type: string
+                    type: object
+                  proxyServiceName:
+                    type: string
+                  replicas:
+                    default: 2
+                    description: |-
+                      (Default: 2)
+
+                      Number of replicas to use for the kong ingress deployment.
+                    type: integer
+                required:
+                - proxyServiceName
+                type: object
+              namespace:
+                default: nukleros-ingress-system
+                description: |-
+                  (Default: "nukleros-ingress-system")
+
+                  Namespace to use for ingress support services.
+                type: string
+              nginx:
+                properties:
+                  image:
+                    default: nginx/nginx-ingress
+                    description: |-
+                      (Default: "nginx/nginx-ingress")
+
+                      Image repo and name to use for nginx.
+                    type: string
+                  include:
+                    default: false
+                    description: |-
+                      (Default: false)
+
+                      Include the Nginx ingress controller when installing ingress components.
+                    type: boolean
+                  installType:
+                    default: deployment
+                    description: |-
+                      (Default: "deployment")
+
+                      Method of install nginx ingress controller.  One of: deployment | daemonset.
+                    enum:
+                    - deployment
+                    - daemonset
+                    type: string
+                  replicas:
+                    default: 2
+                    description: |-
+                      (Default: 2)
+
+                      Number of replicas to use for the nginx ingress controller deployment.
+                    type: integer
+                  version:
+                    default: 5.5.4
+                    description: |-
+                      (Default: "5.5.4")
+
+                      Version of nginx to use.
+                    type: string
+                type: object
+            required:
+            - domainName
+            type: object
+          status:
+            description: IngressComponentStatus defines the observed state of IngressComponent.
+            properties:
+              conditions:
+                items:
+                  description: |-
+                    PhaseCondition describes an event that has occurred during a phase
+                    of the controller reconciliation loop.
+                  properties:
+                    lastModified:
+                      description: LastModified defines the time in which this component
+                        was updated.
+                      type: string
+                    message:
+                      description: Message defines a helpful message from the phase.
+                      type: string
+                    phase:
+                      description: Phase defines the phase in which the condition
+                        was set.
+                      type: string
+                    state:
+                      description: PhaseState defines the current state of the phase.
+                      enum:
+                      - Complete
+                      - Reconciling
+                      - Failed
+                      - Pending
+                      type: string
+                  required:
+                  - lastModified
+                  - message
+                  - phase
+                  - state
+                  type: object
+                type: array
+              created:
+                type: boolean
+              dependenciesSatisfied:
+                type: boolean
+              resources:
+                items:
+                  description: ChildResource is the resource and its condition as
+                    stored on the workload custom resource's status field.
+                  properties:
+                    condition:
+                      description: ResourceCondition defines the current condition
+                        of this resource.
+                      properties:
+                        created:
+                          description: Created defines whether this object has been
+                            successfully created or not.
+                          type: boolean
+                        lastModified:
+                          description: LastModified defines the time in which this
+                            resource was updated.
+                          type: string
+                        message:
+                          description: Message defines a helpful message from the
+                            resource phase.
+                          type: string
+                      required:
+                      - created
+                      type: object
+                    group:
+                      description: Group defines the API Group of the resource.
+                      type: string
+                    kind:
+                      description: Kind defines the kind of the resource.
+                      type: string
+                    name:
+                      description: Name defines the name of the resource from the
+                        metadata.name field.
+                      type: string
+                    namespace:
+                      description: Namespace defines the namespace in which this resource
+                        exists in.
+                      type: string
+                    version:
+                      description: Version defines the API Version of the resource.
+                      type: string
+                  required:
+                  - group
+                  - kind
+                  - name
+                  - namespace
+                  - version
+                  type: object
+                type: array
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: (unknown)
+  name: secretscomponents.platform.addons.nukleros.io
+spec:
+  group: platform.addons.nukleros.io
+  names:
+    kind: SecretsComponent
+    listKind: SecretsComponentList
+    plural: secretscomponents
+    singular: secretscomponent
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: SecretsComponent is the Schema for the secretscomponents API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: SecretsComponentSpec defines the desired state of SecretsComponent.
+            properties:
+              collection:
+                description: |-
+                  Specifies a reference to the collection to use for this workload.
+                  Requires the name and namespace input to find the collection.
+                  If no collection field is set, default to selecting the only
+                  workload collection in the cluster, which will result in an error
+                  if not exactly one collection is found.
+                properties:
+                  name:
+                    description: |-
+                      Required if specifying collection.  The name of the collection
+                      within a specific collection.namespace to reference.
+                    type: string
+                  namespace:
+                    description: |-
+                      (Default: "") The namespace where the collection exists.  Required only if
+                      the collection is namespace scoped and not cluster scoped.
+                    type: string
+                required:
+                - name
+                type: object
+              externalSecrets:
+                properties:
+                  certController:
+                    properties:
+                      replicas:
+                        default: 1
+                        description: |-
+                          (Default: 1)
+
+                          Number of replicas to use for the external-secrets cert-controller deployment.
+                        type: integer
+                    type: object
+                  controller:
+                    properties:
+                      replicas:
+                        default: 2
+                        description: |-
+                          (Default: 2)
+
+                          Number of replicas to use for the external-secrets controller deployment.
+                        type: integer
+                    type: object
+                  image:
+                    default: ghcr.io/external-secrets/external-secrets
+                    description: |-
+                      (Default: "ghcr.io/external-secrets/external-secrets")
+
+                      Image repo and name to use for external-secrets.
+                    type: string
+                  version:
+                    default: v2.12.0
+                    description: |-
+                      (Default: "v2.12.0")
+
+                      Version of external-secrets to use.
+                    type: string
+                  webhook:
+                    properties:
+                      replicas:
+                        default: 2
+                        description: |-
+                          (Default: 2)
+
+                          Number of replicas to use for the external-secrets webhook deployment.
+                        type: integer
+                    type: object
+                type: object
+              namespace:
+                default: nukleros-secrets-system
+                description: |-
+                  (Default: "nukleros-secrets-system")
+
+                  Namespace to use for secrets support services.
+                type: string
+              openbao:
+                properties:
+                  image:
+                    default: quay.io/openbao/openbao
+                    description: |-
+                      (Default: "quay.io/openbao/openbao")
+
+                      Image repo and name to use for OpenBao.
+                    type: string
+                  injector:
+                    properties:
+                      image:
+                        default: docker.io/hashicorp/vault-k8s
+                        description: |-
+                          (Default: "docker.io/hashicorp/vault-k8s")
+
+                          Image repo and name to use for the OpenBao Agent Injector sidecar.
+                        type: string
+                      imageVersion:
+                        default: 1.7.2
+                        description: |-
+                          (Default: "1.7.2")
+
+                          Version of the OpenBao Agent Injector sidecar image to use.
+                        type: string
+                      include:
+                        default: true
+                        description: |-
+                          (Default: true)
+
+                          Include the OpenBao Agent Injector (its mutating webhook, Deployment, and RBAC).
+                          Disable if you only need the OpenBao server itself, without automatic secret
+                          injection into other pods.
+                        type: boolean
+                      replicas:
+                        default: 2
+                        description: |-
+                          (Default: 2)
+
+                          Number of replicas to use for the OpenBao Agent Injector deployment.
+                        type: integer
+                    type: object
+                  replicas:
+                    default: 3
+                    description: |-
+                      (Default: 3)
+
+                      Number of replicas to use for the OpenBao server statefulset.
+                    type: integer
+                  storage:
+                    properties:
+                      audit:
+                        properties:
+                          class:
+                            default: ""
+                            description: |-
+                              (Default: "")
+
+                              StorageClass to use for OpenBao's audit log volume.  Leave empty to use the
+                              cluster's default StorageClass.
+                            type: string
+                          size:
+                            default: 10Gi
+                            description: |-
+                              (Default: "10Gi")
+
+                              Size of the PVC used for OpenBao's audit log storage.
+                            type: string
+                        type: object
+                      data:
+                        properties:
+                          class:
+                            default: ""
+                            description: |-
+                              (Default: "")
+
+                              StorageClass to use for OpenBao's raft data volume.  Leave empty to use the
+                              cluster's default StorageClass.
+                            type: string
+                          size:
+                            default: 10Gi
+                            description: |-
+                              (Default: "10Gi")
+
+                              Size of the PVC used for OpenBao's raft data storage.
+                            type: string
+                        type: object
+                    type: object
+                  unsealKey:
+                    properties:
+                      secret:
+                        properties:
+                          name:
+                            default: openbao-unseal-key
+                            description: |-
+                              (Default: "openbao-unseal-key")
+
+                              Name of the secret which contains the unseal key.  The secret must contain the
+                              key 'unseal-key.key'.
+
+                              Only relevant when openbao.unsealKey.secret.type is not managed.
+                            type: string
+                          namespace:
+                            default: ""
+                            description: |-
+                              (Default: "")
+
+                              Namespace of the secret which contains the unseal key at
+                              openbao.unsealKey.secret.name.
+
+                              Only relevant when openbao.unsealKey.secret.type is not managed.
+                            type: string
+                          type:
+                            default: managed
+                            description: |-
+                              (Default: "managed")
+
+                              Type of secret.  One of 'managed' or 'unmanaged'.
+                            enum:
+                            - managed
+                            - unmanaged
+                            type: string
+                        type: object
+                    type: object
+                  version:
+                    default: 2.6.2
+                    description: |-
+                      (Default: "2.6.2")
+
+                      Version of OpenBao to use.
+                    type: string
+                type: object
+              reloader:
+                properties:
+                  image:
+                    default: stakater/reloader
+                    description: |-
+                      (Default: "stakater/reloader")
+
+                      Image repo and name to use for reloader.
+                    type: string
+                  replicas:
+                    default: 1
+                    description: |-
+                      (Default: 1)
+
+                      Number of replicas to use for the reloader deployment.
+                    type: integer
+                  version:
+                    default: v0.0.119
+                    description: |-
+                      (Default: "v0.0.119")
+
+                      Version of reloader to use.
+                    type: string
+                type: object
+            type: object
+          status:
+            description: SecretsComponentStatus defines the observed state of SecretsComponent.
+            properties:
+              conditions:
+                items:
+                  description: |-
+                    PhaseCondition describes an event that has occurred during a phase
+                    of the controller reconciliation loop.
+                  properties:
+                    lastModified:
+                      description: LastModified defines the time in which this component
+                        was updated.
+                      type: string
+                    message:
+                      description: Message defines a helpful message from the phase.
+                      type: string
+                    phase:
+                      description: Phase defines the phase in which the condition
+                        was set.
+                      type: string
+                    state:
+                      description: PhaseState defines the current state of the phase.
+                      enum:
+                      - Complete
+                      - Reconciling
+                      - Failed
+                      - Pending
+                      type: string
+                  required:
+                  - lastModified
+                  - message
+                  - phase
+                  - state
+                  type: object
+                type: array
+              created:
+                type: boolean
+              dependenciesSatisfied:
+                type: boolean
+              resources:
+                items:
+                  description: ChildResource is the resource and its condition as
+                    stored on the workload custom resource's status field.
+                  properties:
+                    condition:
+                      description: ResourceCondition defines the current condition
+                        of this resource.
+                      properties:
+                        created:
+                          description: Created defines whether this object has been
+                            successfully created or not.
+                          type: boolean
+                        lastModified:
+                          description: LastModified defines the time in which this
+                            resource was updated.
+                          type: string
+                        message:
+                          description: Message defines a helpful message from the
+                            resource phase.
+                          type: string
+                      required:
+                      - created
+                      type: object
+                    group:
+                      description: Group defines the API Group of the resource.
+                      type: string
+                    kind:
+                      description: Kind defines the kind of the resource.
+                      type: string
+                    name:
+                      description: Name defines the name of the resource from the
+                        metadata.name field.
+                      type: string
+                    namespace:
+                      description: Namespace defines the namespace in which this resource
+                        exists in.
+                      type: string
+                    version:
+                      description: Version defines the API Version of the resource.
+                      type: string
+                  required:
+                  - group
+                  - kind
+                  - name
+                  - namespace
+                  - version
+                  type: object
+                type: array
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: (unknown)
+  name: supportservices.setup.addons.nukleros.io
+spec:
+  group: setup.addons.nukleros.io
+  names:
+    kind: SupportServices
+    listKind: SupportServicesList
+    plural: supportservices
+    singular: supportservices
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: SupportServices is the Schema for the supportservices API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: SupportServicesSpec defines the desired state of SupportServices.
+            properties:
+              cloud:
+                default: local
+                description: |-
+                  (Default: "local")
+
+                  Cloud that this operator is running on.  One of: local | google | aws.
+                enum:
+                - local
+                - google
+                - aws
+                type: string
+              defaultIngressController:
+                default: nginx
+                description: |-
+                  (Default: "nginx")
+
+                  The default ingress for setting TLS certs.  One of: kong | nginx.
+                enum:
+                - kong
+                - nginx
+                type: string
+              tier:
+                default: development
+                description: |-
+                  (Default: "development")
+
+                  The tier of cluster being used.  One of: development | staging | production.
+                enum:
+                - development
+                - staging
+                - production
+                type: string
+            type: object
+          status:
+            description: SupportServicesStatus defines the observed state of SupportServices.
+            properties:
+              conditions:
+                items:
+                  description: |-
+                    PhaseCondition describes an event that has occurred during a phase
+                    of the controller reconciliation loop.
+                  properties:
+                    lastModified:
+                      description: LastModified defines the time in which this component
+                        was updated.
+                      type: string
+                    message:
+                      description: Message defines a helpful message from the phase.
+                      type: string
+                    phase:
+                      description: Phase defines the phase in which the condition
+                        was set.
+                      type: string
+                    state:
+                      description: PhaseState defines the current state of the phase.
+                      enum:
+                      - Complete
+                      - Reconciling
+                      - Failed
+                      - Pending
+                      type: string
+                  required:
+                  - lastModified
+                  - message
+                  - phase
+                  - state
+                  type: object
+                type: array
+              created:
+                type: boolean
+              dependenciesSatisfied:
+                type: boolean
+              resources:
+                items:
+                  description: ChildResource is the resource and its condition as
+                    stored on the workload custom resource's status field.
+                  properties:
+                    condition:
+                      description: ResourceCondition defines the current condition
+                        of this resource.
+                      properties:
+                        created:
+                          description: Created defines whether this object has been
+                            successfully created or not.
+                          type: boolean
+                        lastModified:
+                          description: LastModified defines the time in which this
+                            resource was updated.
+                          type: string
+                        message:
+                          description: Message defines a helpful message from the
+                            resource phase.
+                          type: string
+                      required:
+                      - created
+                      type: object
+                    group:
+                      description: Group defines the API Group of the resource.
+                      type: string
+                    kind:
+                      description: Kind defines the kind of the resource.
+                      type: string
+                    name:
+                      description: Name defines the name of the resource from the
+                        metadata.name field.
+                      type: string
+                    namespace:
+                      description: Namespace defines the namespace in which this resource
+                        exists in.
+                      type: string
+                    version:
+                      description: Version defines the API Version of the resource.
+                      type: string
+                  required:
+                  - group
+                  - kind
+                  - name
+                  - namespace
+                  - version
+                  type: object
+                type: array
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: support-services-operator
+  name: support-services-operator-controller-manager
+  namespace: support-services-operator-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: support-services-operator
+  name: support-services-operator-leader-election-role
+  namespace: support-services-operator-system
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: support-services-operator-manager-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - leases
+  - namespaces
+  - pods
+  - secrets
+  - serviceaccounts
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - endpoints
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - endpoints/status
+  - secrets/status
+  - services/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - persistentvolumeclaims
+  verbs:
+  - delete
+  - get
+  - list
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - persistentvolumes
+  verbs:
+  - get
+  - list
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - pods/exec
+  - serviceaccounts/token
+  verbs:
+  - create
+- apiGroups:
+  - acid.zalan.do
+  resources:
+  - operatorconfigurations
+  - postgresqls
+  - postgresqls/status
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - acid.zalan.do
+  resources:
+  - postgresteams
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - acme.cert-manager.io
+  resources:
+  - challenges
+  - orders
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - acme.cert-manager.io
+  resources:
+  - challenges/finalizers
+  - orders/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - acme.cert-manager.io
+  resources:
+  - challenges/status
+  - orders/status
+  verbs:
+  - patch
+  - update
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - mutatingwebhookconfigurations
+  - validatingwebhookconfigurations
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apiregistration.k8s.io
+  resources:
+  - apiservices
+  verbs:
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - application.addons.nukleros.io
+  resources:
+  - databasecomponents
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - application.addons.nukleros.io
+  resources:
+  - databasecomponents/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - apps
+  resources:
+  - daemonsets
+  - deployments
+  - statefulsets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - replicasets
+  verbs:
+  - get
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+- apiGroups:
+  - batch
+  resources:
+  - cronjobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+- apiGroups:
+  - cert-manager.io
+  resources:
+  - certificaterequests
+  - certificates
+  - issuers
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - cert-manager.io
+  resources:
+  - certificaterequests/finalizers
+  - certificates/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - cert-manager.io
+  resources:
+  - certificaterequests/status
+  - certificates/status
+  - clusterissuers/status
+  - issuers/status
+  verbs:
+  - patch
+  - update
+- apiGroups:
+  - cert-manager.io
+  resources:
+  - clusterissuers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - cert-manager.io
+  resources:
+  - signers
+  verbs:
+  - approve
+- apiGroups:
+  - certificates.k8s.io
+  resources:
+  - certificatesigningrequests
+  verbs:
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - certificates.k8s.io
+  resources:
+  - certificatesigningrequests/status
+  verbs:
+  - patch
+  - update
+- apiGroups:
+  - certificates.k8s.io
+  resources:
+  - signers
+  verbs:
+  - sign
+- apiGroups:
+  - cis.f5.com
+  resources:
+  - ingresslinks
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - configuration.konghq.com
+  resources:
+  - kongclusterplugins
+  - kongconsumers
+  - kongingresses
+  - kongplugins
+  - tcpingresses
+  - udpingresses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - configuration.konghq.com
+  resources:
+  - kongclusterplugins/status
+  - kongconsumers/status
+  - kongingresses/status
+  - kongplugins/status
+  - tcpingresses/status
+  - udpingresses/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - configmaps
+  - leases
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - discovery.k8s.io
+  resources:
+  - endpointslices
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - events.k8s.io
+  resources:
+  - events
+  verbs:
+  - create
+  - get
+  - patch
+  - update
+- apiGroups:
+  - extensions
+  resources:
+  - daemonsets
+  - deployments
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+- apiGroups:
+  - extensions
+  - networking.internal.knative.dev
+  resources:
+  - ingresses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - extensions
+  - networking.internal.knative.dev
+  - networking.k8s.io
+  resources:
+  - ingresses/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - external-secrets.io
+  resources:
+  - clusterexternalsecrets
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - external-secrets.io
+  resources:
+  - clusterexternalsecrets/finalizers
+  - clusterexternalsecrets/status
+  - clusterpushsecrets/finalizers
+  - clusterpushsecrets/status
+  - clustersecretstores/finalizers
+  - clustersecretstores/status
+  - externalsecrets/finalizers
+  - externalsecrets/status
+  - pushsecrets/finalizers
+  - pushsecrets/status
+  - secretstores/finalizers
+  - secretstores/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - external-secrets.io
+  resources:
+  - clusterpushsecrets
+  - clustersecretstores
+  - externalsecrets
+  - pushsecrets
+  - secretstores
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - externaldns.nginx.org
+  resources:
+  - dnsendpoints
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - externaldns.nginx.org
+  resources:
+  - dnsendpoints/status
+  verbs:
+  - update
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - gatewayclasses
+  - tcproutes
+  - tlsroutes
+  - udproutes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - gatewayclasses/status
+  - gateways/status
+  - httproutes/status
+  - tcproutes/status
+  - tlsroutes/status
+  - udproutes/status
+  verbs:
+  - get
+  - update
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - gateways
+  verbs:
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - gateways/finalizers
+  - httproutes/finalizers
+  - referencepolicies/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - httproutes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - referencepolicies
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - referencepolicies/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - generators.external-secrets.io
+  resources:
+  - acraccesstokens
+  - beyondtrustworkloadcredentialsdynamicsecrets
+  - cloudsmithaccesstokens
+  - clustergenerators
+  - ecrauthorizationtokens
+  - fakes
+  - gcraccesstokens
+  - generatorstates
+  - githubaccesstokens
+  - gitlabdeploytokens
+  - grafanas
+  - mfas
+  - passwords
+  - quayaccesstokens
+  - sshkeys
+  - uuids
+  - vaultdynamicsecrets
+  - webhooks
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - generators.external-secrets.io
+  resources:
+  - stssessiontokens
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - k8s.nginx.org
+  resources:
+  - dnsendpoints/status
+  - policies/status
+  - transportservers/status
+  - virtualserverroutes/status
+  - virtualservers/status
+  verbs:
+  - update
+- apiGroups:
+  - k8s.nginx.org
+  resources:
+  - globalconfigurations
+  - policies
+  - transportservers
+  - virtualserverroutes
+  - virtualservers
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingressclasses
+  - networkpolicies
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - platform.addons.nukleros.io
+  resources:
+  - certificatescomponents
+  - ingresscomponents
+  - secretscomponents
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - platform.addons.nukleros.io
+  resources:
+  - certificatescomponents/status
+  - ingresscomponents/status
+  - secretscomponents/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - policy
+  resources:
+  - poddisruptionbudgets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterrolebindings
+  - clusterroles
+  - rolebindings
+  - roles
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - route.openshift.io
+  resources:
+  - routes/custom-host
+  verbs:
+  - create
+- apiGroups:
+  - setup.addons.nukleros.io
+  resources:
+  - supportservices
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - setup.addons.nukleros.io
+  resources:
+  - supportservices/status
+  verbs:
+  - get
+  - patch
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: support-services-operator-metrics-auth-role
+rules:
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: support-services-operator-metrics-reader
+rules:
+- nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: support-services-operator
+  name: support-services-operator-setup-supportservices-admin-role
+rules:
+- apiGroups:
+  - setup.addons.nukleros.io
+  resources:
+  - supportservices
+  verbs:
+  - '*'
+- apiGroups:
+  - setup.addons.nukleros.io
+  resources:
+  - supportservices/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: support-services-operator
+  name: support-services-operator-setup-supportservices-editor-role
+rules:
+- apiGroups:
+  - setup.addons.nukleros.io
+  resources:
+  - supportservices
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - setup.addons.nukleros.io
+  resources:
+  - supportservices/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: support-services-operator
+  name: support-services-operator-setup-supportservices-viewer-role
+rules:
+- apiGroups:
+  - setup.addons.nukleros.io
+  resources:
+  - supportservices
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - setup.addons.nukleros.io
+  resources:
+  - supportservices/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: support-services-operator
+  name: support-services-operator-leader-election-rolebinding
+  namespace: support-services-operator-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: support-services-operator-leader-election-role
+subjects:
+- kind: ServiceAccount
+  name: support-services-operator-controller-manager
+  namespace: support-services-operator-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: support-services-operator
+  name: support-services-operator-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: support-services-operator-manager-role
+subjects:
+- kind: ServiceAccount
+  name: support-services-operator-controller-manager
+  namespace: support-services-operator-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: support-services-operator-metrics-auth-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: support-services-operator-metrics-auth-role
+subjects:
+- kind: ServiceAccount
+  name: support-services-operator-controller-manager
+  namespace: support-services-operator-system
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: support-services-operator
+    control-plane: controller-manager
+  name: support-services-operator-controller-manager-metrics-service
+  namespace: support-services-operator-system
+spec:
+  ports:
+  - name: https
+    port: 8443
+    protocol: TCP
+    targetPort: 8443
+  selector:
+    app.kubernetes.io/name: support-services-operator
+    control-plane: controller-manager
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: support-services-operator
+    control-plane: controller-manager
+  name: support-services-operator-controller-manager
+  namespace: support-services-operator-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: support-services-operator
+      control-plane: controller-manager
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+      labels:
+        app.kubernetes.io/name: support-services-operator
+        control-plane: controller-manager
+    spec:
+      containers:
+      - args:
+        - --metrics-bind-address=:8443
+        - --leader-elect
+        - --health-probe-bind-address=:8081
+        command:
+        - /manager
+        image: controller:latest
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        name: manager
+        ports: []
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 10m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+        volumeMounts: []
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: support-services-operator-controller-manager
+      terminationGracePeriodSeconds: 10
+      volumes: []

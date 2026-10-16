@@ -1,0 +1,14 @@
+apiVersion: k8s.nginx.org/v1
+kind: TransportServer
+metadata:
+  name: transport
+spec:
+  listener:
+    name: tcp
+    protocol: TCP
+  upstreams:
+    - name: backend
+      service: placeholder
+      port: 1
+  action:
+    pass: backend

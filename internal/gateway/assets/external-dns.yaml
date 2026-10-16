@@ -1,0 +1,19 @@
+apiVersion: platform.addons.nukleros.io/v1alpha1
+kind: IngressComponent
+metadata:
+  name: externaldns
+spec:
+  domainName: example.com
+  namespace: nukleros-ingress-system
+  nginx:
+    include: false
+  kong:
+    include: false
+    proxyServiceName: kong-proxy
+  externalDNS:
+    provider: route53
+    zoneType: public
+    iamRoleArn: ""
+    image: registry.k8s.io/external-dns/external-dns
+    version: v0.13.5
+    extraArgs: []

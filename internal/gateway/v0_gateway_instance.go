@@ -3,9 +3,10 @@
 package gateway
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
-	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -13,10 +14,10 @@ import (
 	"gorm.io/datatypes"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
+	"github.com/threeport/threeport/internal/gateway/assets"
 	runtime "github.com/threeport/threeport/internal/kubernetes-runtime"
 	workload_util "github.com/threeport/threeport/internal/kubernetes-workload/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	tpaws "github.com/threeport/threeport/pkg/aws/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -380,16 +381,9 @@ func validateThreeportState(
 		return fmt.Errorf("failed to reconcile gateway controller: %w", err)
 	}
 
-	// ensure gateway controller instance is reconciled
-	if kubernetesRuntimeInstance.GatewayControllerInstanceID == nil {
-		return fmt.Errorf("failed to determine if gateway controller instance is reconciled, gateway controller instance ID is nil")
-	}
-	gatewayControllerInstanceReconciled, err := confirmWorkloadInstanceReconciled(r, *kubernetesRuntimeInstance.GatewayControllerInstanceID)
-	if err != nil {
-		return fmt.Errorf("failed to determine if gateway controller instance is reconciled: %w", err)
-	}
-	if !gatewayControllerInstanceReconciled {
-		return errors.New("gateway controller instance not reconciled")
+	// the issuer is an API record. it does not wait for the controller pods.
+	if err := gatewayControllerPresent(kubernetesRuntimeInstance); err != nil {
+		return err
 	}
 
 	// confirm requested ports are exposed
@@ -398,6 +392,15 @@ func validateThreeportState(
 		return fmt.Errorf("failed to confirm requested port is exposed: %w", err)
 	}
 
+	return nil
+}
+
+// gatewayControllerPresent reports that the runtime stores a controller workload.
+// The issuer is an API record and does not wait for that workload to reconcile.
+func gatewayControllerPresent(kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance) error {
+	if kubernetesRuntimeInstance.GatewayControllerInstanceID == nil {
+		return fmt.Errorf("gateway controller instance ID is nil")
+	}
 	return nil
 }
 
@@ -452,10 +455,10 @@ func confirmGatewayControllerDeployed(
 		return nil
 	}
 
-	// generate gloo edge manifest
-	glooEdge, err := getGlooEdgeYaml()
+	// generate nginx ingress and cert-manager manifests
+	ingressComponent, err := getIngressComponentYaml()
 	if err != nil {
-		return fmt.Errorf("failed to create gloo edge resource: %w", err)
+		return fmt.Errorf("failed to create ingress component: %w", err)
 	}
 
 	// get infra provider
@@ -464,39 +467,23 @@ func confirmGatewayControllerDeployed(
 		return fmt.Errorf("failed to get infra provider: %w", err)
 	}
 
-	// generate cert manager manifest based on infra provider
-	var certManager string
+	// generate the certificates component for providers that install it
+	var certificates string
 	switch *infraProvider {
-	case v0.KubernetesRuntimeInfraProviderEKS:
-
-		clusterIdentity, err := client.GetAwsEksClusterIdentityByK8sRuntimeInst(r.APIClient, r.APIServer, kubernetesRuntimeInstance.ID)
+	case v0.KubernetesRuntimeInfraProviderEKS, v0.KubernetesRuntimeInfraProviderKind:
+		certificates, err = getCertificatesComponentYaml()
 		if err != nil {
-			return fmt.Errorf("failed to get EKS cluster identity: %w", err)
+			return fmt.Errorf("failed to create certificates component: %w", err)
 		}
-
-		certManager, err = getCertManagerYaml(
-			tpaws.EksDns01ChallengeRoleArn(clusterIdentity.AccountId, clusterIdentity.ClusterName),
-		)
-		if err != nil {
-			return fmt.Errorf("failed to create cert manager resource: %w", err)
-		}
-
-	case v0.KubernetesRuntimeInfraProviderKind:
-
-		certManager, err = getCertManagerYaml("")
-		if err != nil {
-			return fmt.Errorf("failed to create cert manager resource: %w", err)
-		}
-
 	default:
 		break
 	}
 
-	// concatenate gloo edge, support services collection, and cert manager manifests
-	manifest := fmt.Sprintf("---\n%s\n---\n%s\n", certManager, glooEdge)
+	// concatenate the certificates component and the ingress component
+	manifest := fmt.Sprintf("---\n%s\n---\n%s\n", certificates, ingressComponent)
 
 	// create gateway controller kubernetes workload definition
-	workloadDefName := fmt.Sprintf("%s-%s", "gloo-edge", *kubernetesRuntimeInstance.Name)
+	workloadDefName := fmt.Sprintf("%s-%s", "ingress", *kubernetesRuntimeInstance.Name)
 	glooEdgeWorkloadDefinition := v0.KubernetesWorkloadDefinition{
 		Definition:   v0.Definition{Name: &workloadDefName},
 		YAMLDocument: &manifest,
@@ -527,7 +514,7 @@ func confirmGatewayControllerDeployed(
 	}
 
 	log.V(1).Info(
-		"gloo edge deployed",
+		"nginx ingress deployed",
 		"workloadInstanceID", glooEdgeWorkloadInstance.ID,
 	)
 
@@ -553,140 +540,138 @@ func confirmGatewayPortsExposed(
 		return fmt.Errorf("failed to get kubernetes workload resource instances: %w", err)
 	}
 
-	// unmarshal gloo edge custom resource
-	gateway, err := workload_util.UnmarshalUniqueKubernetesWorkloadResourceInstance(workloadResourceInstances, "GlooEdge")
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal gloo edge kubernetes workload resource instance: %w", err)
-	}
-
-	// get ports from gloo edge custom resource
-	ports, found, err := unstructured.NestedSlice(gateway, "spec", "ports")
-	if err != nil || !found {
-		return fmt.Errorf("failed to get tcp ports from from gloo edge custom resource: %v", err)
-	}
-
-	// get gateway http and tcp ports
 	gatewayHttpPorts, gatewayTcpPorts, err := client.GetGatewayHttpAndTcpPortsByGatewayDefinitionId(r.APIClient, r.APIServer, *gatewayInstance.GatewayDefinitionID)
 	if err != nil {
 		return fmt.Errorf("failed to get gateway http ports: %w", err)
 	}
 	if len(*gatewayHttpPorts) == 0 && len(*gatewayTcpPorts) == 0 {
-		return fmt.Errorf("no ports found")
+		return fmt.Errorf("no ports found for gateway definition %d", *gatewayInstance.GatewayDefinitionID)
+	}
+	if len(*gatewayTcpPorts) == 0 {
+		return nil
 	}
 
-	// ensure http ports are exposed
-	for _, httpPort := range *gatewayHttpPorts {
-		ports, err = ensureGlooEdgePortExists("http", *httpPort.Port, *httpPort.TLSEnabled, ports, log)
-		if err != nil {
-			return fmt.Errorf("failed to ensure gloo edge port exists: %w", err)
-		}
-	}
-
-	// ensure tcp ports are exposed
+	// open each TCP port on the nginx listener and the load balancer service
+	var listeners []interface{}
+	var servicePorts []interface{}
 	for _, tcpPort := range *gatewayTcpPorts {
-		ports, err = ensureGlooEdgePortExists("tcp", *tcpPort.Port, *tcpPort.TLSEnabled, ports, log)
+		name := fmt.Sprintf("tcp-%d", *tcpPort.Port)
+		listeners = append(listeners, map[string]interface{}{
+			"name":     name,
+			"port":     int64(*tcpPort.Port),
+			"protocol": "TCP",
+		})
+		servicePorts = append(servicePorts, map[string]interface{}{
+			"name":       name,
+			"port":       int64(*tcpPort.Port),
+			"targetPort": int64(*tcpPort.Port),
+			"protocol":   "TCP",
+		})
+	}
+	targets := []struct {
+		kind   string
+		name   string
+		field  string
+		values []interface{}
+	}{
+		{kind: "GlobalConfiguration", name: "nginx-ingress", field: "listeners", values: listeners},
+		{kind: "Service", name: "nginx-tcp", field: "ports", values: servicePorts},
+	}
+	for _, target := range targets {
+		object, err := workload_util.GetUniqueKubernetesWorkloadResourceInstanceByName(workloadResourceInstances, target.kind, target.name)
+		if err != nil && strings.Contains(err.Error(), "not found") {
+			// create the shared object when this runtime's controller workload predates it
+			switch target.kind {
+			case "Service":
+				err = createControllerObject(r, kubernetesRuntimeInstance, assets.NginxTcpService, "ports", target.values, "nginx tcp service")
+			case "GlobalConfiguration":
+				err = createControllerObject(r, kubernetesRuntimeInstance, assets.GlobalConfiguration, "listeners", target.values, "global configuration")
+			default:
+				return fmt.Errorf("failed to get %s %s: %w", target.kind, target.name, err)
+			}
+			if err != nil {
+				return err
+			}
+			continue
+		}
 		if err != nil {
-			return fmt.Errorf("failed to ensure gloo edge port exists: %w", err)
+			return fmt.Errorf("failed to get %s %s: %w", target.kind, target.name, err)
+		}
+		jsonObject, err := util.UnmarshalJSON(*object.JSONDefinition)
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal %s: %w", target.kind, err)
+		}
+		current, _, _ := unstructured.NestedSlice(jsonObject, "spec", target.field)
+		// keep ports already stored for other gateways on this runtime
+		merged := util.MergeNamedEntries(current, target.values)
+		// compare as json so stored port numbers match the values written above
+		currentJSON, _ := json.Marshal(current)
+		desiredJSON, _ := json.Marshal(merged)
+		if string(currentJSON) == string(desiredJSON) {
+			continue
+		}
+		if err := unstructured.SetNestedSlice(jsonObject, merged, "spec", target.field); err != nil {
+			return fmt.Errorf("failed to set %s %s: %w", target.kind, target.field, err)
+		}
+		jsonDefinition, err := util.MarshalJSON(jsonObject)
+		if err != nil {
+			return fmt.Errorf("failed to marshal %s: %w", target.kind, err)
+		}
+		resourceInstance := v0.KubernetesWorkloadResourceInstance{
+			Common:         v0.Common{ID: object.ID},
+			JSONDefinition: &jsonDefinition,
+			Reconciled:     util.Ptr(false),
+		}
+		if _, err := client.UpdateKubernetesWorkloadResourceInstance(r.APIClient, r.APIServer, &resourceInstance); err != nil {
+			return fmt.Errorf("failed to update %s resource instance: %w", target.kind, err)
 		}
 	}
-
-	// set the ports slice on the gloo edge object
-	err = unstructured.SetNestedSlice(gateway, ports, "spec", "ports")
-	if err != nil {
-		return fmt.Errorf("failed to set ports on gloo edge custom resource: %v", err)
-	}
-
-	jsonDefinition, err := util.MarshalJSON(gateway)
-	if err != nil {
-		return fmt.Errorf("failed to marshal json: %w", err)
-	}
-
-	// update the gloo edge kubernetes workload resource object
-	glooEdgeObject, err := workload_util.GetUniqueKubernetesWorkloadResourceInstance(workloadResourceInstances, "GlooEdge")
-	if err != nil {
-		return fmt.Errorf("failed to get gloo edge kubernetes workload resource instance: %w", err)
-	}
-	glooEdgeObject.Reconciled = util.Ptr(false)
-	glooEdgeObject.JSONDefinition = &jsonDefinition
-	_, err = client.UpdateKubernetesWorkloadResourceInstance(r.APIClient, r.APIServer, glooEdgeObject)
-	if err != nil {
-		return fmt.Errorf("failed to update gloo edge kubernetes workload resource instance: %w", err)
-	}
-
-	// trigger a reconciliation of the gateway controller kubernetes workload instance
-	updatedGatewayControllerWorkloadInstance := v0.KubernetesWorkloadInstance{
-		Common:         v0.Common{ID: kubernetesRuntimeInstance.GatewayControllerInstanceID},
-		Reconciliation: v0.Reconciliation{Reconciled: util.Ptr(false)},
-	}
-	_, err = client.UpdateKubernetesWorkloadInstance(r.APIClient, r.APIServer, &updatedGatewayControllerWorkloadInstance)
-	if err != nil {
-		return fmt.Errorf("failed to update gateway controller kubernetes workload instance: %w", err)
-	}
-
-	// log the ports that are exposed
-	gatewayPorts, err := client.GetGatewayPortsAsString(r.APIClient, r.APIServer, *gatewayInstance.GatewayDefinitionID)
-	if err != nil {
-		return fmt.Errorf("failed to get gateway ports as string: %w", err)
-	}
-	log.V(1).Info(
-		"updated gateway controller instance to expose requested port",
-		"ports", fmt.Sprintf("%s", gatewayPorts),
-	)
 
 	return nil
-
 }
 
-// ensureGlooEdgePortExists ensures a gloo edge port exists
-// for a given protocol, port and tls state.
-func ensureGlooEdgePortExists(protocol string, port int, tlsEnabled bool, ports []interface{}, log *logr.Logger) ([]interface{}, error) {
-
-	// check existing gateways for requested ports
-	for _, portSpec := range ports {
-		spec := portSpec.(map[string]interface{})
-		var portCurrent int64
-		portCurrent, portNumberFound, err := util.NestedInt64OrFloat64(spec, "port")
-		if err != nil {
-			return nil, fmt.Errorf("failed to get port from from gloo edge custom resource: %v", err)
-		}
-
-		tlsEnabledCurrent, sslFound, err := unstructured.NestedBool(spec, "ssl")
-		if err != nil {
-			return nil, fmt.Errorf("failed to get ssl from from gloo edge custom resource: %v", err)
-		}
-
-		protocolCurrent, protocolFound, err := unstructured.NestedString(spec, "protocol")
-		if err != nil {
-			return nil, fmt.Errorf("failed to get protocol from from gloo edge custom resource: %v", err)
-		}
-
-		// check if current port matches requested port
-		if portNumberFound && sslFound && protocolFound &&
-			tlsEnabledCurrent == tlsEnabled &&
-			int(portCurrent) == port &&
-			protocolCurrent == protocol {
-			log.V(1).Info(
-				"port already exposed",
-				"port", fmt.Sprintf("%d", port),
-			)
-			return ports, nil
-		}
+// createControllerObject stores one embedded object on the gateway controller workload.
+func createControllerObject(
+	r *controller.Reconciler,
+	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
+	source []byte,
+	field string,
+	values []interface{},
+	label string,
+) error {
+	// read the embedded object and set the named slice
+	object, err := util.UnstructuredFromYaml(source)
+	if err != nil {
+		return fmt.Errorf("failed to read %s: %w", label, err)
 	}
-
-	// otherwise, update gloo edge configuration
-
-	// create a new gloo edge port object
-	portNumber := int64(port)
-	portString := strconv.Itoa(int(port))
-	glooEdgePort := getGlooEdgePort(protocol, portString, portNumber, tlsEnabled)
-
-	ports = append(ports, glooEdgePort.Object)
-
-	return ports, nil
+	if err := unstructured.SetNestedSlice(object.Object, values, "spec", field); err != nil {
+		return fmt.Errorf("failed to set %s %s: %w", label, field, err)
+	}
+	body, err := util.MarshalJSON(object.Object)
+	if err != nil {
+		return fmt.Errorf("failed to marshal %s: %w", label, err)
+	}
+	// store it on the gateway controller workload
+	_, err = client.CreateKubernetesWorkloadResourceInstance(r.APIClient, r.APIServer, &v0.KubernetesWorkloadResourceInstance{
+		JSONDefinition:               &body,
+		KubernetesWorkloadInstanceID: kubernetesRuntimeInstance.GatewayControllerInstanceID,
+		Reconciled:                   util.Ptr(false),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create %s: %w", label, err)
+	}
+	// trigger a reconciliation of the gateway controller workload
+	_, err = client.UpdateKubernetesWorkloadInstance(r.APIClient, r.APIServer, &v0.KubernetesWorkloadInstance{
+		Common:         v0.Common{ID: kubernetesRuntimeInstance.GatewayControllerInstanceID},
+		Reconciliation: v0.Reconciliation{Reconciled: util.Ptr(false)},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to update gateway controller workload: %w", err)
+	}
+	return nil
 }
 
-// configureGatewayManifests configures a VirtualService custom resource
-// based on the configuration of the gateway kubernetes workload definition
+// configureGatewayManifests renders the ingress and transport objects for a gateway instance.
 func configureGatewayManifests(
 	r *controller.Reconciler,
 	gatewayDefinition *v0.GatewayDefinition,
@@ -792,103 +777,30 @@ func configureVirtualServiceRuntimeParameters(
 		return nil, fmt.Errorf("failed to get gateway http and tcp ports: %w", err)
 	}
 
-	// configure virtual service runtime parameters
+	// configure ingress runtime parameters
 	var virtualServices []*datatypes.JSON
 	for _, httpPort := range *gatewayHttpPorts {
-		// unmarshal virtual service
-
-		virtualService, err := workload_util.UnmarshalUniqueKubernetesWorkloadResourceDefinitionByName(
+		ingress, err := workload_util.UnmarshalUniqueKubernetesWorkloadResourceDefinitionByName(
 			gatewayWorkloadResourceDefinitions,
-			"VirtualService",
-			getVirtualServiceName(gatewayDefinition, domain, *httpPort.Port),
+			"Ingress",
+			getIngressName(gatewayDefinition, domain, *httpPort.Port),
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal virtual service kubernetes workload resource definition: %w", err)
+			return nil, fmt.Errorf("failed to unmarshal ingress kubernetes workload resource definition: %w", err)
 		}
-
-		// if we're not redirecting HTTPS, set the upstream name
-		// and namespace fields
-		if !*httpPort.HTTPSRedirect {
-			// get route array
-			routes, found, err := unstructured.NestedSlice(virtualService, "spec", "virtualHost", "routes")
-			if err != nil || !found {
-				return nil, fmt.Errorf("failed to get virtualservice route: %w", err)
-			}
-			if len(routes) == 0 {
-				return nil, fmt.Errorf("no routes found")
-			}
-
-			// set upstream port to 80 if tls is enabled
-			// otherwise, use the port provided
-			servicePort := *httpPort.Port
-			if *httpPort.TLSEnabled {
-				servicePort = 80
-			}
-
-			// set virtual service upstream name field
-			err = unstructured.SetNestedField(
-				routes[0].(map[string]interface{}),
-				fmt.Sprintf("%s-%s-%d", namespace, name, servicePort), // $namespace-$name-$port is convention for gloo edge upstream names
-				"routeAction",
-				"single",
-				"upstream",
-				"name",
-			)
-			if err != nil {
-				return nil, fmt.Errorf("failed to set upstream name on virtual service: %w", err)
-			}
-
-			// get gloo edge namespace
-			glooEdgeNamespace, err := getGlooEdgeNamespace(r, kubernetesRuntimeInstance.GatewayControllerInstanceID)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get gloo edge namespace: %w", err)
-			}
-
-			// set virtual service upstream namespace field
-			err = unstructured.SetNestedField(
-				routes[0].(map[string]interface{}),
-				glooEdgeNamespace,
-				"routeAction",
-				"single",
-				"upstream",
-				"namespace",
-			)
-			if err != nil {
-				return nil, fmt.Errorf("failed to set upstream name on virtual service: %w", err)
-			}
-
-			// set route field
-			err = unstructured.SetNestedSlice(virtualService, routes, "spec", "virtualHost", "routes")
-			if err != nil {
-				return nil, fmt.Errorf("failed to set route on virtual service: %w", err)
-			}
+		servicePort := int64(*httpPort.Port)
+		if httpPort.TLSEnabled != nil && *httpPort.TLSEnabled {
+			servicePort = 80
 		}
-
-		if *httpPort.TLSEnabled {
-
-			// set secret ref namespace
-			err = unstructured.SetNestedField(
-				virtualService,
-				namespace,
-				"spec",
-				"sslConfig",
-				"secretRef",
-				"namespace",
-			)
-			if err != nil {
-				return nil, fmt.Errorf("failed to set secret ref name on virtual service: %w", err)
-			}
-
+		if err := setIngressBackend(ingress, name, servicePort); err != nil {
+			return nil, err
 		}
-
-		// marshal virtual service
-		virtualServiceMarshaled, err := util.MarshalJSON(virtualService)
+		virtualServiceMarshaled, err := util.MarshalJSON(ingress)
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal virtual service: %w", err)
+			return nil, fmt.Errorf("failed to marshal ingress: %w", err)
 		}
 		virtualServices = append(virtualServices, &virtualServiceMarshaled)
 	}
-
 	return virtualServices, nil
 }
 
@@ -910,74 +822,23 @@ func configureTcpGatewayRuntimeParameters(
 		return nil, fmt.Errorf("failed to get gateway http ports: %w", err)
 	}
 
-	// configure tcp gateway runtime parameters
+	// configure transport server runtime parameters
 	var tcpGateways []*datatypes.JSON
 	for _, tcpPort := range *gatewayTcpPorts {
-		// unmarshal tcp gateway
-		virtualService, err := workload_util.UnmarshalUniqueKubernetesWorkloadResourceDefinitionByName(
+		server, err := workload_util.UnmarshalUniqueKubernetesWorkloadResourceDefinitionByName(
 			gatewayWorkloadResourceDefinitions,
-			"Gateway",
+			"TransportServer",
 			fmt.Sprintf("%s-%d", *gatewayDefinition.Name, *tcpPort.Port),
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal tcp gateway kubernetes workload resource definition: %w", err)
+			return nil, fmt.Errorf("failed to unmarshal transport server kubernetes workload resource definition: %w", err)
 		}
-
-		// get tcp hosts array
-		tcpHosts, found, err := unstructured.NestedSlice(virtualService, "spec", "tcpGateway", "tcpHosts")
-		if err != nil || !found {
-			return nil, fmt.Errorf("failed to get tcp gateway hosts: %w", err)
+		if err := setTransportBackend(server, name, int64(*tcpPort.Port)); err != nil {
+			return nil, err
 		}
-		if len(tcpHosts) == 0 {
-			return nil, fmt.Errorf("no tcp gateway hosts found")
-		}
-
-		// set tcp gateway upstream name field
-		err = unstructured.SetNestedField(
-			tcpHosts[0].(map[string]interface{}),
-			fmt.Sprintf("%s-%s-%d", namespace, name, *tcpPort.Port), // $namespace-$name-$port is convention for gloo edge upstream names
-			"destination",
-			"single",
-			"upstream",
-			"name",
-		)
+		tcpGatewayMarshaled, err := util.MarshalJSON(server)
 		if err != nil {
-			return nil, fmt.Errorf("failed to set upstream name on tcp gateway: %w", err)
-		}
-
-		// get gloo edge namespace
-		glooEdgeNamespace, err := getGlooEdgeNamespace(r, kubernetesRuntimeInstance.GatewayControllerInstanceID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get gloo edge namespace: %w", err)
-		}
-
-		// set virtual service upstream namespace field
-		err = unstructured.SetNestedField(
-			tcpHosts[0].(map[string]interface{}),
-			glooEdgeNamespace,
-			"destination",
-			"single",
-			"upstream",
-			"namespace",
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to set upstream name on tcp gateway: %w", err)
-		}
-
-		// set tcp host field
-		err = unstructured.SetNestedSlice(virtualService, tcpHosts, "spec", "tcpGateway", "tcpHosts")
-		if err != nil {
-			return nil, fmt.Errorf("failed to set host on tcp gateway: %w", err)
-		}
-
-		// TODO: configure ssl
-		// if *tcpPort.TLSEnabled {
-		// }
-
-		// marshal virtual service
-		tcpGatewayMarshaled, err := util.MarshalJSON(virtualService)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal virtual service: %w", err)
+			return nil, fmt.Errorf("failed to marshal transport server: %w", err)
 		}
 		tcpGateways = append(tcpGateways, &tcpGatewayMarshaled)
 	}
@@ -1032,6 +893,18 @@ func configureIssuer(
 	kubernetesRuntimeDefinition, err := client.GetKubernetesRuntimeDefinitionByID(r.APIClient, r.APIServer, *kubernetesRuntimeInstance.KubernetesRuntimeDefinitionID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kubernetes runtime definition by kubernetes runtime definition ID: %w", err)
+	}
+
+	// kind has no dns provider, so cert-manager issues a local certificate
+	if util.PtrEqual(kubernetesRuntimeDefinition.InfraProvider, v0.KubernetesRuntimeInfraProviderKind) {
+		if err := setSelfSignedIssuer(issuer); err != nil {
+			return nil, fmt.Errorf("failed to set self-signed issuer: %w", err)
+		}
+		issuerMarshaled, err := util.MarshalJSON(issuer)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal issuer: %w", err)
+		}
+		return &issuerMarshaled, nil
 	}
 
 	// get infra provider region
@@ -1138,15 +1011,32 @@ func getGatewayInstanceObjects(r *controller.Reconciler, gatewayInstance *v0.Gat
 		return nil, fmt.Errorf("failed to get gateway definition: %w", err)
 	}
 
+	httpPorts, err := client.GetGatewayHttpPortsByGatewayDefinitionId(r.APIClient, r.APIServer, *gatewayDefinition.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get gateway http ports: %w", err)
+	}
+	tcpPorts, err := client.GetGatewayTcpPortsByGatewayDefinitionId(r.APIClient, r.APIServer, *gatewayDefinition.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get gateway tcp ports: %w", err)
+	}
+
+	var objects []string
+	if len(*httpPorts) > 0 {
+		objects = append(objects, "Ingress")
+	}
+	if len(*tcpPorts) > 0 {
+		objects = append(objects, "TransportServer")
+	}
+
 	tlsEnabled, err := getTlsEnabled(r, gatewayDefinition)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get tls enabled: %w", err)
 	}
 	if tlsEnabled {
-		return []string{"VirtualService", "Issuer", "Certificate"}, nil
+		objects = append(objects, "Issuer", "Certificate")
 	}
 
-	return []string{"VirtualService"}, nil
+	return objects, nil
 }
 
 // configureGatewayKubernetesWorkloadResourceInstances configures the kubernetes workload resource instances

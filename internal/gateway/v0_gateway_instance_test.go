@@ -2,177 +2,148 @@ package gateway
 
 import (
 	"fmt"
+	"net/http"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	_ "embed"
+
 	"github.com/stretchr/testify/require"
 	"gorm.io/datatypes"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
+	"github.com/threeport/threeport/internal/gateway/assets"
+	"github.com/threeport/threeport/internal/machinetest"
+	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	controller "github.com/threeport/threeport/pkg/controller/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// v0GatewayInstanceUpdated marks its dependent objects unreconciled, which
-// makes the kubernetes workload controller re-apply their manifests to a live
-// cluster. These cover the decision of which resources that is worth doing for,
-// because doing it for a resource that has not changed re-applies an identical
-// manifest for nothing.
+//go:embed assets/service_test.yaml
+var serviceTest []byte
 
-// configuredInstance builds a resource instance as the gateway configures it.
-// Nothing here sets metadata.namespace, matching what this package generates.
-func configuredInstance(t *testing.T, id uint, kind, host string) v0.KubernetesWorkloadResourceInstance {
-	t.Helper()
-	definition := datatypes.JSON(fmt.Sprintf(
-		`{"kind":%q,"metadata":{"name":"a-gateway"},"spec":{"hosts":[%q]}}`, kind, host,
-	))
+// TestConfigureIssuerKindUsesSelfSigned covers a kind runtime.
+func TestConfigureIssuerKindUsesSelfSigned(t *testing.T) {
+	// serve the issuer document and a kind runtime definition
+	api := machinetest.NewAPIStub(t)
+	r := &controller.Reconciler{APIClient: api.Client, APIServer: api.Addr}
+	issuer := resourceDefinition(t, assets.Issuer)
+	api.Mux.HandleFunc(v0.PathKubernetesWorkloadResourceDefinitions, func(w http.ResponseWriter, req *http.Request) {
+		machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{issuer})
+	})
+	kind := v0.KubernetesRuntimeInfraProviderKind
+	runtimeDef := v0.KubernetesRuntimeDefinition{InfraProvider: &kind}
+	api.Mux.HandleFunc(fmt.Sprintf("%s/9", v0.PathKubernetesRuntimeDefinitions), func(w http.ResponseWriter, req *http.Request) {
+		machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{runtimeDef})
+	})
+	gatewayDef := &v0.GatewayDefinition{KubernetesWorkloadDefinitionID: util.Ptr(uint(2))}
+	runtime := &v0.KubernetesRuntimeInstance{KubernetesRuntimeDefinitionID: util.Ptr(uint(9))}
+	domain := &v0.DomainNameDefinition{Definition: v0.Definition{Name: util.Ptr("example")}, Domain: util.Ptr("example.com")}
 
-	return v0.KubernetesWorkloadResourceInstance{
-		Common:         v0.Common{ID: util.Ptr(id)},
-		JSONDefinition: &definition,
-		Reconciled:     util.Ptr(true),
-	}
-}
-
-// storedInstance builds a resource instance as it comes back from the API,
-// carrying the namespace the kubernetes workload reconciler wrote into it and
-// persisted. Comparing against anything else is comparing against a state that
-// does not occur.
-func storedInstance(t *testing.T, id uint, kind, host string) v0.KubernetesWorkloadResourceInstance {
-	t.Helper()
-	definition := datatypes.JSON(fmt.Sprintf(
-		`{"kind":%q,"metadata":{"name":"a-gateway","namespace":"a-workload-xk39dl2p01"},"spec":{"hosts":[%q]}}`,
-		kind, host,
-	))
-
-	return v0.KubernetesWorkloadResourceInstance{
-		Common:         v0.Common{ID: util.Ptr(id)},
-		JSONDefinition: &definition,
-		Reconciled:     util.Ptr(true),
-	}
-}
-
-func TestChangedGatewayResourceInstances_NothingChanged(t *testing.T) {
-	existing := []v0.KubernetesWorkloadResourceInstance{
-		storedInstance(t, 1, "VirtualService", "example.com"),
-		storedInstance(t, 2, "Gateway", "example.com"),
-	}
-	updated := []v0.KubernetesWorkloadResourceInstance{
-		configuredInstance(t, 1, "VirtualService", "example.com"),
-		configuredInstance(t, 2, "Gateway", "example.com"),
-	}
-
-	changed, err := changedGatewayResourceInstances(
-		[]string{"VirtualService", "Gateway"}, &existing, &updated,
-	)
+	// the kind path returns before the region lookup
+	got, err := configureIssuer(r, gatewayDef, nil, runtime, domain)
 	require.NoError(t, err)
-	assert.Empty(t, changed, "an unchanged gateway should leave its dependents alone")
+	require.Contains(t, string(*got), "selfSigned")
+	require.NotContains(t, string(*got), "acme")
 }
 
-// a definition read back from the database is not guaranteed to return
-// byte-identical to what went in, so a resource that differs only in
-// serialization must still count as unchanged - otherwise the cascade fires on
-// every invocation and this check does nothing
-func TestChangedGatewayResourceInstances_ReserializedIsUnchanged(t *testing.T) {
-	existing := []v0.KubernetesWorkloadResourceInstance{
-		storedInstance(t, 1, "VirtualService", "example.com"),
-	}
-	reordered := datatypes.JSON(
-		"{\n  \"spec\": {\"hosts\": [\"example.com\"]},\n  \"metadata\": {\"name\": \"a-gateway\"},\n  \"kind\": \"VirtualService\"\n}",
-	)
-	updated := []v0.KubernetesWorkloadResourceInstance{
-		{Common: v0.Common{ID: util.Ptr(uint(1))}, JSONDefinition: &reordered},
+// TestConfigureCertificateSetsDnsName covers the certificate rewrite.
+func TestConfigureCertificateSetsDnsName(t *testing.T) {
+	// serve one certificate document
+	api := machinetest.NewAPIStub(t)
+	r := &controller.Reconciler{APIClient: api.Client, APIServer: api.Addr}
+	certificate := resourceDefinition(t, assets.Certificate)
+	api.Mux.HandleFunc(v0.PathKubernetesWorkloadResourceDefinitions, func(w http.ResponseWriter, req *http.Request) {
+		machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{certificate})
+	})
+	gatewayDef := &v0.GatewayDefinition{KubernetesWorkloadDefinitionID: util.Ptr(uint(2))}
+	domain := &v0.DomainNameDefinition{
+		Definition: v0.Definition{Name: util.Ptr("example")},
+		Domain:     util.Ptr("example.com"),
 	}
 
-	changed, err := changedGatewayResourceInstances(
-		[]string{"VirtualService"}, &existing, &updated,
-	)
+	// the certificate names the domain and the issuer
+	got, err := configureCertificate(r, gatewayDef, nil, nil, domain)
 	require.NoError(t, err)
-	assert.Empty(t, changed)
+	require.Contains(t, string(*got), "example.com")
+	require.Contains(t, string(*got), `"name":"example"`)
 }
 
-func TestChangedGatewayResourceInstances_OnlyTheChangedOne(t *testing.T) {
-	existing := []v0.KubernetesWorkloadResourceInstance{
-		storedInstance(t, 1, "VirtualService", "example.com"),
-		storedInstance(t, 2, "Gateway", "example.com"),
+// TestConfigureGatewayManifestsSetsBackends covers both port kinds.
+func TestConfigureGatewayManifestsSetsBackends(t *testing.T) {
+	// serve the service, the gateway documents, and one port of each kind
+	api := machinetest.NewAPIStub(t)
+	r := &controller.Reconciler{APIClient: api.Client, APIServer: api.Addr}
+	service := resourceInstance(t, serviceTest)
+	api.Mux.HandleFunc(v0.PathKubernetesWorkloadResourceInstances, func(w http.ResponseWriter, req *http.Request) {
+		machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{service})
+	})
+	gatewayDef := &v0.GatewayDefinition{
+		Common:                         v0.Common{ID: util.Ptr(uint(1))},
+		Definition:                     v0.Definition{Name: util.Ptr("example-com")},
+		DomainNameDefinitionID:         util.Ptr(uint(4)),
+		KubernetesWorkloadDefinitionID: util.Ptr(uint(2)),
 	}
-	updated := []v0.KubernetesWorkloadResourceInstance{
-		configuredInstance(t, 1, "VirtualService", "moved.example.com"),
-		configuredInstance(t, 2, "Gateway", "example.com"),
-	}
+	// name the documents the install step writes
+	ingress := namedDefinition(t, assets.Ingress, getIngressName(gatewayDef, "example.com", 80))
+	transport := namedDefinition(t, assets.TransportServer, fmt.Sprintf("%s-%d", *gatewayDef.Name, 443))
+	api.Mux.HandleFunc(v0.PathKubernetesWorkloadResourceDefinitions, func(w http.ResponseWriter, req *http.Request) {
+		machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{ingress, transport})
+	})
+	httpPort := v0.GatewayHttpPort{Port: util.Ptr(80)}
+	tcpPort := v0.GatewayTcpPort{Port: util.Ptr(443)}
+	api.Mux.HandleFunc(v0.PathGatewayHttpPorts, func(w http.ResponseWriter, req *http.Request) {
+		machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{httpPort})
+	})
+	api.Mux.HandleFunc(v0.PathGatewayTcpPorts, func(w http.ResponseWriter, req *http.Request) {
+		machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{tcpPort})
+	})
+	domain := v0.DomainNameDefinition{Definition: v0.Definition{Name: util.Ptr("example")}, Domain: util.Ptr("example.com"), AdminEmail: util.Ptr("admin@example.com")}
+	api.Mux.HandleFunc(fmt.Sprintf("%s/4", v0.PathDomainNameDefinitions), func(w http.ResponseWriter, req *http.Request) {
+		machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{domain})
+	})
+	workload := &v0.KubernetesWorkloadInstance{Common: v0.Common{ID: util.Ptr(uint(3))}}
 
-	changed, err := changedGatewayResourceInstances(
-		[]string{"VirtualService", "Gateway"}, &existing, &updated,
-	)
+	// each document points at the service and its port
+	got, err := configureGatewayManifests(r, gatewayDef, workload, nil)
 	require.NoError(t, err)
-	require.Len(t, changed, 1, "only the virtual service changed")
-
-	assert.Equal(t, uint(1), *changed[0].ID)
-
-	// it carries the new definition and is marked unreconciled, which is what
-	// makes the workload controller apply it
-	require.NotNil(t, changed[0].Reconciled)
-	assert.False(t, *changed[0].Reconciled)
-	equal, err := util.JSONDefinitionsEqual(changed[0].JSONDefinition, updated[0].JSONDefinition)
-	require.NoError(t, err)
-	assert.True(t, equal)
+	require.Len(t, got, 2)
+	require.Contains(t, string(*got[0]), `"name":"app"`)
+	require.Contains(t, string(*got[1]), `"service":"app"`)
 }
 
-func TestChangedGatewayResourceInstances_MissingResourceIsAnError(t *testing.T) {
-	existing := []v0.KubernetesWorkloadResourceInstance{
-		storedInstance(t, 1, "VirtualService", "example.com"),
-	}
-	updated := []v0.KubernetesWorkloadResourceInstance{
-		configuredInstance(t, 1, "VirtualService", "example.com"),
-	}
-
-	_, err := changedGatewayResourceInstances(
-		[]string{"VirtualService", "Gateway"}, &existing, &updated,
-	)
-	require.Error(t, err)
+// namedDefinition stores an embedded manifest under the name the install step writes.
+func namedDefinition(t *testing.T, asset []byte, name string) v0.KubernetesWorkloadResourceDefinition {
+	// set the name, then store the document the same way as a plain asset
+	decoded, err := util.UnstructuredFromYaml(asset)
+	require.NoError(t, err)
+	require.NoError(t, unstructured.SetNestedField(decoded.Object, name, "metadata", "name"))
+	raw, err := decoded.MarshalJSON()
+	require.NoError(t, err)
+	body := datatypes.JSON(raw)
+	return v0.KubernetesWorkloadResourceDefinition{JSONDefinition: &body}
 }
 
-// TestChangedGatewayResourceInstances_StoredNamespaceIsNotAChange is the case
-// that decides whether any of this works.
-//
-// Nothing in the gateway configuration sets metadata.namespace. The kubernetes
-// workload reconciler writes one into every namespaced resource and persists
-// it, so the stored copy always carries a namespace the configured copy never
-// has. Treating that as a difference marks every resource unreconciled on every
-// invocation, and the cascade this function is meant to stop fires exactly as
-// before.
-func TestChangedGatewayResourceInstances_StoredNamespaceIsNotAChange(t *testing.T) {
-	existing := []v0.KubernetesWorkloadResourceInstance{
-		storedInstance(t, 1, "VirtualService", "example.com"),
-		storedInstance(t, 2, "Issuer", "example.com"),
-		storedInstance(t, 3, "Certificate", "example.com"),
-	}
-	updated := []v0.KubernetesWorkloadResourceInstance{
-		configuredInstance(t, 1, "VirtualService", "example.com"),
-		configuredInstance(t, 2, "Issuer", "example.com"),
-		configuredInstance(t, 3, "Certificate", "example.com"),
-	}
-
-	changed, err := changedGatewayResourceInstances(
-		[]string{"VirtualService", "Issuer", "Certificate"}, &existing, &updated,
-	)
-	require.NoError(t, err)
-	assert.Empty(t, changed, "a namespace only the stored copy carries is not a gateway change")
+// resourceDefinition stores an embedded manifest as a definition.
+func resourceDefinition(t *testing.T, asset []byte) v0.KubernetesWorkloadResourceDefinition {
+	// convert the yaml into the stored json document
+	body := manifestJSON(t, asset)
+	return v0.KubernetesWorkloadResourceDefinition{JSONDefinition: &body}
 }
 
-// the namespace being set aside must not hide a real difference elsewhere in
-// the same resource
-func TestChangedGatewayResourceInstances_NamespaceAsideStillSeesRealChanges(t *testing.T) {
-	existing := []v0.KubernetesWorkloadResourceInstance{
-		storedInstance(t, 1, "VirtualService", "example.com"),
-	}
-	updated := []v0.KubernetesWorkloadResourceInstance{
-		configuredInstance(t, 1, "VirtualService", "moved.example.com"),
-	}
+// resourceInstance stores an embedded manifest as an instance.
+func resourceInstance(t *testing.T, asset []byte) v0.KubernetesWorkloadResourceInstance {
+	// convert the yaml into the stored json document
+	body := manifestJSON(t, asset)
+	return v0.KubernetesWorkloadResourceInstance{JSONDefinition: &body}
+}
 
-	changed, err := changedGatewayResourceInstances(
-		[]string{"VirtualService"}, &existing, &updated,
-	)
+// manifestJSON converts an embedded yaml manifest to json.
+func manifestJSON(t *testing.T, asset []byte) datatypes.JSON {
+	// decode the same way the reconciler does
+	decoded, err := util.UnstructuredFromYaml(asset)
 	require.NoError(t, err)
-	require.Len(t, changed, 1)
-	assert.Equal(t, uint(1), *changed[0].ID)
+	raw, err := decoded.MarshalJSON()
+	require.NoError(t, err)
+	return datatypes.JSON(raw)
 }

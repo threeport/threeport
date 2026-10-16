@@ -1,0 +1,8 @@
+apiVersion: platform.addons.nukleros.io/v1alpha1
+kind: CertificatesComponent
+metadata:
+  name: certificates
+spec:
+  namespace: nukleros-certs-system
+  certManager:
+    contactEmail: admin@nukleros.io
