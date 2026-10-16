@@ -1408,6 +1408,19 @@ func (u *Uninstaller) cleanOnCreateError(
 		return createErr
 	}
 
+	// A namespace that was already there when this install started is not
+	// this install's to remove. Uninstalling the components deletes the whole
+	// namespace, so on a reapply - which is what --control-plane-only does
+	// against a running control plane - this would take the API, the database
+	// and its data with it. Nobody asked for that by not passing a flag.
+	if u.cpi.Opts.NamespacePreexisted {
+		return fmt.Errorf(
+			"%w\n(the %s namespace was already present, so it was left alone; "+
+				"anything this install added to it is still there)",
+			createErr, u.cpi.Opts.Namespace,
+		)
+	}
+
 	// if needed, delete control plane workloads to remove related infra, e.g. load
 	// balancers, that will prevent runtime infra deletion
 	if u.dynamicKubeClient != nil && u.mapper != nil {

@@ -10,6 +10,7 @@ import (
 	"github.com/threeport/threeport/pkg/api-server/v0/database"
 	auth "github.com/threeport/threeport/pkg/auth/v0"
 	"github.com/threeport/threeport/pkg/encryption/v0"
+	kube "github.com/threeport/threeport/pkg/kube/v0"
 )
 
 const (
@@ -38,6 +39,15 @@ func (cpi *ControlPlaneInstaller) CreateThreeportControlPlaneNamespace(
 			},
 		},
 	}
+	// Whether the namespace was already there decides what a failed install
+	// may remove. Tearing down deletes the namespace, and deleting one this
+	// install did not create takes whatever was in it - on a reapply against
+	// a running control plane, that is the database and its data.
+	existing, err := kube.GetResource(
+		"", "v1", "Namespace", "", cpi.Opts.Namespace, kubeClient, *mapper,
+	)
+	cpi.Opts.NamespacePreexisted = err == nil && existing != nil
+
 	// leave an existing namespace so a reapply does not rewrite the tier label
 	setPersistent(namespace)
 	if err := cpi.CreateOrUpdateKubeResource(namespace, kubeClient, mapper); err != nil {
