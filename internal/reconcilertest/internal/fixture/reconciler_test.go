@@ -455,11 +455,16 @@ func TestUpdateStampsReconciledWhenNotTrue(t *testing.T) {
 			assert.Equal(t, int64(1), h.patchCount.Load())
 			h.objMu.Lock()
 			body := append([]byte(nil), h.lastPatch...)
+			before := h.obj.Reconciliation
 			h.objMu.Unlock()
 			var patched api.ReconcilerTestInstance
 			require.NoError(t, json.Unmarshal(body, &patched))
 			require.NotNil(t, patched.Reconciled)
 			assert.True(t, *patched.Reconciled)
+			after := before
+			after.Reconciled = patched.Reconciled
+			assert.False(t, tpapi.ReconciliationUpdateNotifiable(before, after),
+				"the stamp the reconciler wrote must not schedule another reconcile")
 		})
 	}
 }

@@ -71,12 +71,29 @@ func ReconciliationStateChanged(a, b Reconciliation) bool {
 
 // ReconciliationUpdateNotifiable reports whether an update should notify the
 // controller. Spec edits notify even when markers are unchanged. A restamped
-// acknowledgement does not.
+// acknowledgement does not, and neither does the controller's own stamp of
+// Reconciled to true.
 func ReconciliationUpdateNotifiable(a, b Reconciliation) bool {
+	if reconciledStampOnly(a, b) {
+		return false
+	}
 	if ReconciliationStateChanged(a, b) {
 		return true
 	}
 	return !acknowledgementRefreshed(a, b)
+}
+
+// reconciledStampOnly reports a write whose only marker change is Reconciled
+// becoming true.
+func reconciledStampOnly(a, b Reconciliation) bool {
+	if !b.AlreadyReconciled() || a.AlreadyReconciled() {
+		return false
+	}
+
+	// compare the other markers with Reconciled held equal
+	same := a
+	same.Reconciled = b.Reconciled
+	return !ReconciliationStateChanged(same, b)
 }
 
 // acknowledgementRefreshed reports a restamped creation or deletion acknowledgement.
