@@ -9,6 +9,7 @@ import (
 	notif "github.com/threeport/threeport/internal/machine-runtime/notif"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
+	api_v0_lib "github.com/threeport/threeport/pkg/api/v0/lib"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util_v0 "github.com/threeport/threeport/pkg/util/v0"
 	zap "go.uber.org/zap"
@@ -813,9 +814,8 @@ func (h Handler) UpdateMachineRuntimeInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before update so the notify block
-	// can skip publishing when the update did not touch any state marker
-	prevReconciliation := existingMachineRuntimeInstance.Reconciliation
+	// snapshot the object before the update so a later stamp can be compared to it
+	prevMachineRuntimeInstance := api_v0_lib.NotifySnapshot(existingMachineRuntimeInstance)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -839,7 +839,12 @@ func (h Handler) UpdateMachineRuntimeInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingMachineRuntimeInstance.Reconciliation) {
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevMachineRuntimeInstance, existingMachineRuntimeInstance)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingMachineRuntimeInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -915,9 +920,8 @@ func (h Handler) ReplaceMachineRuntimeInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before replace so the notify block
-	// can skip publishing when the replace did not touch any state marker
-	prevReconciliation := existingMachineRuntimeInstance.Reconciliation
+	// snapshot the object before the replace so a later stamp can be compared to it
+	prevMachineRuntimeInstance := api_v0_lib.NotifySnapshot(existingMachineRuntimeInstance)
 
 	// persist provided data
 	updatedMachineRuntimeInstance.ID = existingMachineRuntimeInstance.ID
@@ -951,7 +955,12 @@ func (h Handler) ReplaceMachineRuntimeInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingMachineRuntimeInstance.Reconciliation) {
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevMachineRuntimeInstance, existingMachineRuntimeInstance)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingMachineRuntimeInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,

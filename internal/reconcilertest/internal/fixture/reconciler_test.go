@@ -1,7 +1,9 @@
 package fixture
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"sync"
 	"sync/atomic"
@@ -19,6 +21,7 @@ import (
 	api "github.com/threeport/threeport/internal/reconcilertest/pkg/api/v0"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	tpapi "github.com/threeport/threeport/pkg/api/v0"
+	tpapi_lib "github.com/threeport/threeport/pkg/api/v0/lib"
 	tpclient_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	event "github.com/threeport/threeport/pkg/event/v0"
@@ -63,6 +66,8 @@ type harness struct {
 	// patchCount counts PATCH requests against the fetching object, i.e.
 	// the "mark reconciled" update issued after the operation switch
 	patchCount atomic.Int64
+	// lastPatch is the body of the latest PATCH against the fetching object
+	lastPatch []byte
 }
 
 // startNatsServer starts an in-process JetStream server on a free loopback port.
@@ -139,6 +144,11 @@ func newHarness(t *testing.T) *harness {
 		fmt.Sprintf("%s/%d", api.PathReconcilerTestInstances, fixtureObjectID),
 		func(w http.ResponseWriter, r *http.Request) {
 			if r.Method == http.MethodPatch {
+				body, err := io.ReadAll(r.Body)
+				require.NoError(t, err)
+				h.objMu.Lock()
+				h.lastPatch = body
+				h.objMu.Unlock()
 				h.patchCount.Add(1)
 			}
 			status := int(h.apiStatus.Load())
@@ -401,6 +411,71 @@ func TestDeleteRunsWhenDeletionScheduled(t *testing.T) {
 	h.publish(notifications.NotificationOperationDeleted)
 
 	assert.Equal(t, []string{"delete"}, h.spy.Calls())
+}
+
+// TestUpdateDoesNotRestampReconciled covers an update whose fetched object is already reconciled.
+// The handler still runs, and the reconciler must not patch Reconciled again.
+func TestUpdateDoesNotRestampReconciled(t *testing.T) {
+	h := newHarness(t)
+
+	// the fetched object is already reconciled
+	h.objMu.Lock()
+	h.obj.Reconciled = util.Ptr(true)
+	h.objMu.Unlock()
+
+	// the update still reaches the handler
+	h.publish(notifications.NotificationOperationUpdated)
+
+	assert.Equal(t, []string{"update"}, h.spy.Calls())
+	assert.Zero(t, h.patchCount.Load(), "already reconciled object was patched again")
+}
+
+// TestUpdateStampsReconciledWhenNotTrue covers the first stamp.
+// An unset or false Reconciled still gets one patch that sets it true.
+func TestUpdateStampsReconciledWhenNotTrue(t *testing.T) {
+	cases := []struct {
+		name       string
+		reconciled *bool
+	}{
+		{name: "nil"},
+		{name: "false", reconciled: util.Ptr(false)},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newHarness(t)
+
+			// the fetched object is not yet reconciled
+			h.objMu.Lock()
+			h.obj.Reconciled = tc.reconciled
+			h.objMu.Unlock()
+
+			// the update reaches the handler and stamps Reconciled
+			h.publish(notifications.NotificationOperationUpdated)
+
+			assert.Equal(t, []string{"update"}, h.spy.Calls())
+			assert.Equal(t, int64(1), h.patchCount.Load())
+			h.objMu.Lock()
+			body := append([]byte(nil), h.lastPatch...)
+			before := *h.obj
+			h.objMu.Unlock()
+			var patched api.ReconcilerTestInstance
+			require.NoError(t, json.Unmarshal(body, &patched))
+			require.NotNil(t, patched.Reconciled)
+			assert.True(t, *patched.Reconciled)
+			after := before
+			after.Reconciled = patched.Reconciled
+			notify, changed := tpapi_lib.ObjectUpdateNotifiable(before, after)
+			assert.False(t, notify, "the stamp the reconciler wrote must not schedule another reconcile")
+			assert.Empty(t, changed)
+
+			// a body that also changes another field still must not notify
+			withStatus := after
+			withStatus.Status = util.Ptr("changed")
+			notify, changed = tpapi_lib.ObjectUpdateNotifiable(before, withStatus)
+			assert.False(t, notify, "Reconciled becoming true must not schedule a reconcile")
+			assert.Equal(t, []string{"Status"}, changed)
+		})
+	}
 }
 
 // TestHaltsWhenObjectNoLongerExists covers an update whose object GET fails

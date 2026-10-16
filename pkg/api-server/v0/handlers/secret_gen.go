@@ -9,6 +9,7 @@ import (
 	notif "github.com/threeport/threeport/internal/secret/notif"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
+	api_v0_lib "github.com/threeport/threeport/pkg/api/v0/lib"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util_v0 "github.com/threeport/threeport/pkg/util/v0"
 	zap "go.uber.org/zap"
@@ -321,9 +322,8 @@ func (h Handler) UpdateSecretDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before update so the notify block
-	// can skip publishing when the update did not touch any state marker
-	prevReconciliation := existingSecretDefinition.Reconciliation
+	// snapshot the object before the update so a later stamp can be compared to it
+	prevSecretDefinition := api_v0_lib.NotifySnapshot(existingSecretDefinition)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -347,7 +347,12 @@ func (h Handler) UpdateSecretDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingSecretDefinition.Reconciliation) {
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevSecretDefinition, existingSecretDefinition)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingSecretDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -423,9 +428,8 @@ func (h Handler) ReplaceSecretDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before replace so the notify block
-	// can skip publishing when the replace did not touch any state marker
-	prevReconciliation := existingSecretDefinition.Reconciliation
+	// snapshot the object before the replace so a later stamp can be compared to it
+	prevSecretDefinition := api_v0_lib.NotifySnapshot(existingSecretDefinition)
 
 	// persist provided data
 	updatedSecretDefinition.ID = existingSecretDefinition.ID
@@ -459,7 +463,12 @@ func (h Handler) ReplaceSecretDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingSecretDefinition.Reconciliation) {
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevSecretDefinition, existingSecretDefinition)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingSecretDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -917,9 +926,8 @@ func (h Handler) UpdateSecretInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before update so the notify block
-	// can skip publishing when the update did not touch any state marker
-	prevReconciliation := existingSecretInstance.Reconciliation
+	// snapshot the object before the update so a later stamp can be compared to it
+	prevSecretInstance := api_v0_lib.NotifySnapshot(existingSecretInstance)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -943,7 +951,12 @@ func (h Handler) UpdateSecretInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingSecretInstance.Reconciliation) {
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevSecretInstance, existingSecretInstance)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingSecretInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -1019,9 +1032,8 @@ func (h Handler) ReplaceSecretInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before replace so the notify block
-	// can skip publishing when the replace did not touch any state marker
-	prevReconciliation := existingSecretInstance.Reconciliation
+	// snapshot the object before the replace so a later stamp can be compared to it
+	prevSecretInstance := api_v0_lib.NotifySnapshot(existingSecretInstance)
 
 	// persist provided data
 	updatedSecretInstance.ID = existingSecretInstance.ID
@@ -1055,7 +1067,12 @@ func (h Handler) ReplaceSecretInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingSecretInstance.Reconciliation) {
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevSecretInstance, existingSecretInstance)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingSecretInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
