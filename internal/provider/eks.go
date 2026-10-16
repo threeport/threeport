@@ -250,30 +250,90 @@ func CreateResourceManagerRole(
 	}
 
 	// create the role
-	resourceManagerRoleResp, err := svc.CreateRole(context.Background(), &createResourceManagerRoleInput)
+	role, err := createRoleIfAbsent(svc, &createResourceManagerRoleInput, tags)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create role %s: %w", roleName, err)
+		return nil, err
 	}
 
 	// attach assume any role policy
 	if attachAssumeAnyRolePolicy {
-		if err := AttachPolicy(AssumeAnyRolePolicyDocument, roleName, "assume-any-role", svc); err != nil {
-			return resourceManagerRoleResp.Role, fmt.Errorf("failed to attach policy to role %s: %w", roleName, err)
+		if err := AttachPolicy(AssumeAnyRolePolicyDocument, roleName, "assume-any-role", accountId, svc); err != nil {
+			return role, fmt.Errorf("failed to attach policy to role %s: %w", roleName, err)
 		}
 	}
 
 	// attach resource manager policy if requested
 	if attachResourceManagerPolicy {
-		if err := AttachPolicy(ResourceManagerPolicyDocument, roleName, "resource-manager", svc); err != nil {
-			return resourceManagerRoleResp.Role, fmt.Errorf("failed to attach policy to role %s: %w", roleName, err)
+		if err := AttachPolicy(ResourceManagerPolicyDocument, roleName, "resource-manager", accountId, svc); err != nil {
+			return role, fmt.Errorf("failed to attach policy to role %s: %w", roleName, err)
 		}
 	}
 
-	return resourceManagerRoleResp.Role, nil
+	return role, nil
+}
+
+// iamRoleClient is the part of the IAM API this file uses.
+//
+// It is an interface so a retry can be exercised without an AWS account: the
+// behaviour being added here only shows up on the second attempt, which is
+// the attempt nobody runs by hand.
+type iamRoleClient interface {
+	CreateRole(context.Context, *iam.CreateRoleInput, ...func(*iam.Options)) (*iam.CreateRoleOutput, error)
+	GetRole(context.Context, *iam.GetRoleInput, ...func(*iam.Options)) (*iam.GetRoleOutput, error)
+	CreatePolicy(context.Context, *iam.CreatePolicyInput, ...func(*iam.Options)) (*iam.CreatePolicyOutput, error)
+	AttachRolePolicy(context.Context, *iam.AttachRolePolicyInput, ...func(*iam.Options)) (*iam.AttachRolePolicyOutput, error)
+}
+
+// createRoleIfAbsent creates the role, or adopts the one already there.
+//
+// The role name is derived from the control plane's, so it is the same on
+// every attempt. An install that failed after creating it - at the node
+// group, or while installing the control plane itself - could not be retried:
+// the second run asked for a role that existed and AWS refused, permanently,
+// until somebody deleted it by hand in a console.
+//
+// An existing role is only adopted if it carries the tags this install would
+// have given it. A name is not proof of ownership, and taking over somebody
+// else's role would be worse than refusing.
+//
+// This follows createIamRole in aws_bootstrap.go, which the EKS refactor got
+// right on the path it introduced while this one was left as it was.
+func createRoleIfAbsent(
+	svc iamRoleClient,
+	input *iam.CreateRoleInput,
+	wantTags []types.Tag,
+) (*types.Role, error) {
+	roleName := aws.ToString(input.RoleName)
+
+	created, err := svc.CreateRole(context.Background(), input)
+	if err == nil {
+		return created.Role, nil
+	}
+	if !IsAwsErrorCode(err, "EntityAlreadyExists") {
+		return nil, fmt.Errorf("failed to create role %s: %w", roleName, err)
+	}
+
+	existing, err := svc.GetRole(context.Background(), &iam.GetRoleInput{RoleName: input.RoleName})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get existing role %s: %w", roleName, err)
+	}
+	if err := refuseUnownedRole(existing.Role, wantTags); err != nil {
+		return nil, err
+	}
+
+	return existing.Role, nil
 }
 
 // AttachPolicy attaches a given document to a role.
-func AttachPolicy(document, roleName, policyName string, svc *iam.Client) error {
+//
+// The policy is created if it is not there and adopted if it is, for the same
+// reason the role is: the name is derived and a retry asks for it again.
+//
+// There is no ownership check on the policy itself. Its name is the role's
+// with a suffix, and the role it hangs off has already been checked, so a
+// policy by this name belongs to a role this install owns. Attaching a policy
+// a role already has is a no-op at AWS, so the attach needs nothing.
+func AttachPolicy(document, roleName, policyName, accountId string, svc iamRoleClient) error {
 	policyInputName := fmt.Sprintf("%s-%s", roleName, policyName)
 	// create role policy
 	rolePolicyInput := iam.CreatePolicyInput{
@@ -281,19 +341,27 @@ func AttachPolicy(document, roleName, policyName string, svc *iam.Client) error 
 		Description:    &roleName,
 		PolicyDocument: &document,
 	}
+
+	var policyArn string
 	createdRolePolicy, err := svc.CreatePolicy(context.Background(), &rolePolicyInput)
-	if err != nil {
-		return fmt.Errorf("failed to create role policy %s: %w", roleName, err)
+	switch {
+	case err == nil:
+		policyArn = aws.ToString(createdRolePolicy.Policy.Arn)
+	case IsAwsErrorCode(err, "EntityAlreadyExists"):
+		// the policy is already there from an earlier attempt; its ARN is
+		// derived from the account and the name, which have not changed
+		policyArn = tpaws.IamPolicyArn(accountId, "", policyInputName)
+	default:
+		return fmt.Errorf("failed to create role policy %s: %w", policyInputName, err)
 	}
 
 	// attach role policy
 	attachResourceManagerRolePolicyInput := iam.AttachRolePolicyInput{
-		PolicyArn: createdRolePolicy.Policy.Arn,
+		PolicyArn: &policyArn,
 		RoleName:  &roleName,
 	}
-	_, err = svc.AttachRolePolicy(context.Background(), &attachResourceManagerRolePolicyInput)
-	if err != nil {
-		return fmt.Errorf("failed to attach role policy %s to %s: %w", *createdRolePolicy.Policy.Arn, roleName, err)
+	if _, err := svc.AttachRolePolicy(context.Background(), &attachResourceManagerRolePolicyInput); err != nil {
+		return fmt.Errorf("failed to attach role policy %s to %s: %w", policyArn, roleName, err)
 	}
 
 	return nil
