@@ -98,7 +98,6 @@ func FieldAt(object map[string]interface{}, path ...interface{}) (interface{}, e
 }
 
 // SetIndexedField writes one field through maps and list indexes.
-// unstructured.SetNestedField only accepts map keys.
 func SetIndexedField(object map[string]interface{}, value interface{}, path ...interface{}) error {
 	return writeIndexedField(object, value, false, path...)
 }
