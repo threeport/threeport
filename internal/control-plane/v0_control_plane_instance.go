@@ -584,22 +584,12 @@ func v0ControlPlaneInstanceCreated(
 
 	clonedKubernetesRuntimeInstance := *kubernetesRuntimeInstance
 	clonedKubernetesRuntimeInstance.Common = v0.Common{}
-	if clonedKubernetesRuntimeInstance.CertificateKey != nil && *clonedKubernetesRuntimeInstance.CertificateKey != "" {
-		decryptedKey, err := encryption.Decrypt(r.EncryptionKey, *clonedKubernetesRuntimeInstance.CertificateKey)
-		if err != nil {
-			return 0, fmt.Errorf("failed to decrypt kubernetes runtime instance certificate key: %w", err)
-		}
-
-		clonedKubernetesRuntimeInstance.CertificateKey = &decryptedKey
+	if err := decryptField(r.EncryptionKey, &clonedKubernetesRuntimeInstance.CertificateKey, "kubernetes runtime instance certificate key"); err != nil {
+		return 0, err
 	}
 
-	if clonedKubernetesRuntimeInstance.ConnectionToken != nil && *clonedKubernetesRuntimeInstance.ConnectionToken != "" {
-		decryptedToken, err := encryption.Decrypt(r.EncryptionKey, *clonedKubernetesRuntimeInstance.ConnectionToken)
-		if err != nil {
-			return 0, fmt.Errorf("failed to decrypt kubernetes runtime instance connection token: %w", err)
-		}
-
-		clonedKubernetesRuntimeInstance.ConnectionToken = &decryptedToken
+	if err := decryptField(r.EncryptionKey, &clonedKubernetesRuntimeInstance.ConnectionToken, "kubernetes runtime instance connection token"); err != nil {
+		return 0, err
 	}
 
 	clonedKubernetesRuntimeInstance.KubernetesRuntimeDefinitionID = createdKubeDef.ID
@@ -632,22 +622,12 @@ func v0ControlPlaneInstanceCreated(
 		}
 
 		awsProvider.Common = v0.Common{}
-		if awsProvider.AccessKeyID != nil && *awsProvider.AccessKeyID != "" {
-			decryptedKey, err := encryption.Decrypt(r.EncryptionKey, *awsProvider.AccessKeyID)
-			if err != nil {
-				return 0, fmt.Errorf("failed to decrypt access key id on aws account: %w", err)
-			}
-
-			awsProvider.AccessKeyID = &decryptedKey
+		if err := decryptField(r.EncryptionKey, &awsProvider.AccessKeyID, "access key id on aws account"); err != nil {
+			return 0, err
 		}
 
-		if awsProvider.SecretAccessKey != nil && *awsProvider.SecretAccessKey != "" {
-			decryptedKey, err := encryption.Decrypt(r.EncryptionKey, *awsProvider.SecretAccessKey)
-			if err != nil {
-				return 0, fmt.Errorf("failed to decrypt secret access key on aws account: %w", err)
-			}
-
-			awsProvider.SecretAccessKey = &decryptedKey
+		if err := decryptField(r.EncryptionKey, &awsProvider.SecretAccessKey, "secret access key on aws account"); err != nil {
+			return 0, err
 		}
 
 		createdAwsProvider, err := client.CreateAwsProvider(newApiClient, threeportAPIEndpoint, awsProvider)
@@ -691,12 +671,8 @@ func v0ControlPlaneInstanceCreated(
 
 		// decrypt private key
 		ociProvider.Common = v0.Common{}
-		if ociProvider.PrivateKey != nil && *ociProvider.PrivateKey != "" {
-			decryptedKey, err := encryption.Decrypt(r.EncryptionKey, *ociProvider.PrivateKey)
-			if err != nil {
-				return 0, fmt.Errorf("failed to decrypt OCI provider private key: %w", err)
-			}
-			ociProvider.PrivateKey = &decryptedKey
+		if err := decryptField(r.EncryptionKey, &ociProvider.PrivateKey, "OCI provider private key"); err != nil {
+			return 0, err
 		}
 
 		// create OCI provider in child control plane
