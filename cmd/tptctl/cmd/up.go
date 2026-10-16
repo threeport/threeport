@@ -233,9 +233,14 @@ func init() {
 		&cliArgs.Debug,
 		"debug", false, "Enable debug mode. Defaults to false.",
 	)
+	// Defaults to true. A failed install leaves whatever it got as far as
+	// creating - a VPC, an IAM role, a cluster - running and billing, and the
+	// operator has to know to go and remove it. Pass
+	// --teardown-on-failure=false to keep the partial state for inspection.
 	UpCmd.Flags().BoolVar(
 		&cliArgs.TeardownOnFailure,
-		"teardown-on-failure", false, "Automatically tear down control plane resources if an error is encountered.",
+		"teardown-on-failure", true,
+		"Tear down control plane resources if the install fails. Pass =false to leave partial state in place for debugging.",
 	)
 	UpCmd.Flags().BoolVar(
 		&cliArgs.ControlPlaneOnly,

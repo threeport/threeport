@@ -71,6 +71,11 @@ type Reconciler struct {
 	// ControllerID is the unique identifier for each controller instance.
 	ControllerID uuid.UUID
 
+	// heartbeats stops the goroutine keeping each held lock alive, keyed by
+	// lock key. See Lock.
+	heartbeats   map[string]chan struct{}
+	heartbeatsMu sync.Mutex
+
 	// Log is the logger used to write logs.
 	Log *logr.Logger
 
@@ -239,6 +244,8 @@ func (r *Reconciler) Lock(object apilib.ReconciledThreeportApiObject) bool {
 		)
 		return false
 	}
+	r.startHeartbeat(lockKey)
+
 	r.Log.V(1).Info(
 		"object locked for reconciliation",
 		"keyValueRevision", rev,
@@ -250,11 +257,92 @@ func (r *Reconciler) Lock(object apilib.ReconciledThreeportApiObject) bool {
 	return true
 }
 
+// LockTTL is how long a lock survives without being refreshed, and
+// LockRefreshInterval is how often a held lock is refreshed.
+//
+// The TTL is a backstop for a controller that dies without releasing its
+// locks - a kill, an out-of-memory, a node going away. A graceful shutdown
+// already releases them: the reconcilers run a handler on SIGINT and SIGTERM
+// that unlocks and requeues.
+//
+// It used to be twenty minutes, long enough to cover the longest reconcile,
+// because a lock that expired underneath a running reconcile would let a
+// second worker pick up the same object. The cost was that a crash held every
+// lock it had for twenty minutes, and with one worker that is twenty minutes
+// in which nothing else of that kind reconciles at all - including deletes.
+//
+// Refreshing the lock while the reconcile is alive separates the two. The TTL
+// no longer has to cover how long work takes, only how long a dead controller
+// goes unnoticed, so it is short. A reconcile that runs for an hour keeps its
+// lock for an hour.
+// They are variables rather than constants so a test can run the refresh in
+// milliseconds instead of waiting out a real interval.
+var (
+	LockTTL             = time.Minute
+	LockRefreshInterval = LockTTL / 3
+)
+
+// startHeartbeat keeps a held lock alive until stopHeartbeat is called.
+//
+// The refresh interval is a third of the TTL, so two refreshes have to be
+// missed before a live reconcile loses its lock.
+func (r *Reconciler) startHeartbeat(lockKey string) {
+	stop := make(chan struct{})
+
+	r.heartbeatsMu.Lock()
+	if r.heartbeats == nil {
+		r.heartbeats = make(map[string]chan struct{})
+	}
+	// a lock already being refreshed is left alone rather than given a
+	// second goroutine writing the same key
+	if _, running := r.heartbeats[lockKey]; running {
+		r.heartbeatsMu.Unlock()
+		return
+	}
+	r.heartbeats[lockKey] = stop
+	r.heartbeatsMu.Unlock()
+
+	go func() {
+		ticker := time.NewTicker(LockRefreshInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-stop:
+				return
+			case <-ticker.C:
+				if _, err := r.KeyValue.Put(lockKey, []byte(r.ControllerID.String())); err != nil {
+					// the lock is lost when the TTL runs out, and the
+					// reconcile carries on unaware; say so rather than let it
+					// be inferred from a second controller picking the object
+					// up
+					r.Log.Error(
+						err, "failed to refresh the lock on an object being reconciled",
+						"lockKey", lockKey,
+						"bucket", r.KeyValue.Bucket(),
+					)
+				}
+			}
+		}
+	}()
+}
+
+// stopHeartbeat ends the refresh goroutine for a lock, if one is running.
+func (r *Reconciler) stopHeartbeat(lockKey string) {
+	r.heartbeatsMu.Lock()
+	defer r.heartbeatsMu.Unlock()
+
+	if stop, running := r.heartbeats[lockKey]; running {
+		close(stop)
+		delete(r.heartbeats, lockKey)
+	}
+}
+
 // ReleaseLock deletes the kev-value key so that future reconciliation will no
 // longer be locked.  Rerturns true if successful.  If the lock fails to be
 // released it will remain locked until the TTL expires in NATS.
 func (r *Reconciler) ReleaseLock(object apilib.ReconciledThreeportApiObject, lockReleased chan bool, msg *nats.Msg, reconcileSuccess bool) bool {
 	lockKey := r.lockKey(object.GetId())
+	r.stopHeartbeat(lockKey)
 
 	if err := r.KeyValue.Delete(lockKey); err != nil {
 		r.Log.Error(

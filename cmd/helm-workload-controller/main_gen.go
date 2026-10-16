@@ -23,7 +23,6 @@ import (
 	"os"
 	"sync"
 	"sync/atomic"
-	"time"
 )
 
 func main() {
@@ -117,7 +116,7 @@ func main() {
 	kvConfig := natsgo.KeyValueConfig{
 		Bucket:      helmworkload.LockBucketName,
 		Description: helmworkload.LockBucketDescr,
-		TTL:         time.Minute * 20,
+		TTL:         controller.LockTTL,
 	}
 	kv, err := controller.CreateLockBucketIfNotExists(js, &kvConfig)
 	if err != nil {
