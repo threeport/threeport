@@ -894,7 +894,7 @@ func configureIssuer(
 	}
 
 	// kind has no dns provider, so cert-manager issues a local certificate
-	if util.Equal(kubernetesRuntimeDefinition.InfraProvider, v0.KubernetesRuntimeInfraProviderKind) {
+	if util.PtrEqual(kubernetesRuntimeDefinition.InfraProvider, v0.KubernetesRuntimeInfraProviderKind) {
 		if err := setSelfSignedIssuer(issuer); err != nil {
 			return nil, fmt.Errorf("failed to set self-signed issuer: %w", err)
 		}
