@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
@@ -104,7 +105,8 @@ func updateDeploymentImageTag(imageTag string, namespace string, dynamicKubeClie
 	}
 
 	// return the rest-api image update error
-	if err := updateImageTagInDeployment(deployment, imageTag, installer.ThreeportRestApi.Name); err != nil {
+	apiReplaced, err := updateImageTagInDeployment(deployment, imageTag, installer.ThreeportRestApi.Name)
+	if err != nil {
 		return err
 	}
 	deployment.SetName(installer.ThreeportRestApi.ServiceResourceName)
@@ -125,7 +127,7 @@ func updateDeploymentImageTag(imageTag string, namespace string, dynamicKubeClie
 	if err != nil {
 		return fmt.Errorf("failed to update deployment for %s: %w", installer.ThreeportRestApi.Name, err)
 	}
-	rolledOut := []string{deployment.GetName()}
+	rolledOut := []retagged{{name: deployment.GetName(), previous: apiReplaced}}
 
 	// Update Agent
 	deployment, err = kube.GetResource(
@@ -141,7 +143,8 @@ func updateDeploymentImageTag(imageTag string, namespace string, dynamicKubeClie
 		return fmt.Errorf("failed to get kubernetes deployment for %s: %w", installer.ThreeportAgent.Name, err)
 	}
 
-	if err := updateImageTagInDeployment(deployment, imageTag, installer.ThreeportAgent.Name); err != nil {
+	agentReplaced, err := updateImageTagInDeployment(deployment, imageTag, installer.ThreeportAgent.Name)
+	if err != nil {
 		return err
 	}
 	deployment.SetName(installer.ThreeportAgentDeployName)
@@ -153,7 +156,7 @@ func updateDeploymentImageTag(imageTag string, namespace string, dynamicKubeClie
 	if err != nil {
 		return fmt.Errorf("failed to update deployment for %s: %w", installer.ThreeportAgent.Name, err)
 	}
-	rolledOut = append(rolledOut, installer.ThreeportAgentDeployName)
+	rolledOut = append(rolledOut, retagged{name: installer.ThreeportAgentDeployName, previous: agentReplaced})
 
 	// Update controller deployments
 	controllerList := installer.ThreeportControllerList
@@ -178,7 +181,8 @@ func updateDeploymentImageTag(imageTag string, namespace string, dynamicKubeClie
 		}
 
 		// return the controller image update error
-		if err := updateImageTagInDeployment(deployment, imageTag, c.Name); err != nil {
+		controllerReplaced, err := updateImageTagInDeployment(deployment, imageTag, c.Name)
+		if err != nil {
 			return err
 		}
 		deployment.SetName(deploymentResourceName)
@@ -200,7 +204,7 @@ func updateDeploymentImageTag(imageTag string, namespace string, dynamicKubeClie
 		if err != nil {
 			return fmt.Errorf("failed to update deployment for controller %s: %w", c.Name, err)
 		}
-		rolledOut = append(rolledOut, deploymentResourceName)
+		rolledOut = append(rolledOut, retagged{name: deploymentResourceName, previous: controllerReplaced})
 	}
 
 	// An Update that does not error means the API server accepted the new
@@ -209,13 +213,23 @@ func updateDeploymentImageTag(imageTag string, namespace string, dynamicKubeClie
 	// to start at all - and an upgrade that says it worked is the one nobody
 	// goes back to check.
 	fmt.Printf("Info: waiting for %d workload(s) to roll out\n", len(rolledOut))
-	for _, name := range rolledOut {
-		if err := waitForRollout(dynamicKubeClient, mapping.Resource, namespace, name); err != nil {
+	for _, workload := range rolledOut {
+		if err := waitForRollout(
+			dynamicKubeClient, mapping.Resource, namespace, workload.name, workload.previous,
+		); err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+// retagged is a workload this upgrade changed, and the images it was running
+// before. The previous images are carried along so a failed rollout can say
+// what to go back to - by then the cluster holds only the new ones.
+type retagged struct {
+	name     string
+	previous []string
 }
 
 // rolloutAttempts and rolloutPollSeconds bound how long a single workload is
@@ -239,6 +253,7 @@ func waitForRollout(
 	resource schema.GroupVersionResource,
 	namespace string,
 	name string,
+	previous []string,
 ) error {
 	if err := util.Retry(rolloutAttempts, rolloutPollSeconds, func() error {
 		current, err := kubeClient.Resource(resource).Namespace(namespace).Get(
@@ -252,91 +267,102 @@ func waitForRollout(
 		generation, _, _ := util.NestedInt64OrFloat64(current.Object, "metadata", "generation")
 		observed, _, _ := util.NestedInt64OrFloat64(current.Object, "status", "observedGeneration")
 		updated, _, _ := util.NestedInt64OrFloat64(current.Object, "status", "updatedReplicas")
-		ready, _, _ := util.NestedInt64OrFloat64(current.Object, "status", "readyReplicas")
+		total, _, _ := util.NestedInt64OrFloat64(current.Object, "status", "replicas")
+		available, _, _ := util.NestedInt64OrFloat64(current.Object, "status", "availableReplicas")
 
 		switch {
 		case observed < generation:
 			return fmt.Errorf("%s has not been observed at generation %d yet", name, generation)
 		case updated < desired:
 			return fmt.Errorf("%s has %d of %d replica(s) on the new image", name, updated, desired)
-		case ready < desired:
-			return fmt.Errorf("%s has %d of %d replica(s) ready", name, ready, desired)
+		case total > updated:
+			return fmt.Errorf("%s still has %d replica(s) on the old image", name, total-updated)
+		case available < updated:
+			return fmt.Errorf("%s has %d of %d new replica(s) available", name, available, updated)
 		}
 
 		return nil
 	}); err != nil {
 		return fmt.Errorf(
-			"%s did not roll out within %d seconds; the control plane is part upgraded and the previous image tag is what to roll back to: %w",
-			name, rolloutAttempts*rolloutPollSeconds, err,
+			"%s did not roll out within %d seconds; the control plane is part upgraded and it was running %s: %w",
+			name, rolloutAttempts*rolloutPollSeconds, strings.Join(previous, ", "), err,
 		)
 	}
 
 	return nil
 }
 
-func updateImageTagInDeployment(deployment *unstructured.Unstructured, imageTag string, name string) error {
+// updateImageTagInDeployment retags the containers this command owns and
+// returns the images they were on, so a failed rollout can say what to go
+// back to.
+func updateImageTagInDeployment(deployment *unstructured.Unstructured, imageTag string, name string) ([]string, error) {
+	var replaced []string
 	deploymentContent := deployment.UnstructuredContent()
 
 	if _, ok := deploymentContent["spec"]; !ok {
-		return fmt.Errorf("could not find spec in deployment for controller %s", name)
+		return nil, fmt.Errorf("could not find spec in deployment for controller %s", name)
 	}
 
 	deploymentSpec, ok := deploymentContent["spec"].(map[string]interface{})
 	if !ok {
-		return fmt.Errorf("could not type convert deployment spec for controller: %s", name)
+		return nil, fmt.Errorf("could not type convert deployment spec for controller: %s", name)
 	}
 
 	if _, ok := deploymentSpec["template"]; !ok {
-		return fmt.Errorf("could not find template in deployment spec for controller %s", name)
+		return nil, fmt.Errorf("could not find template in deployment spec for controller %s", name)
 	}
 
 	template, ok := deploymentSpec["template"].(map[string]interface{})
 	if !ok {
-		return fmt.Errorf("could not type convert template for controller: %s", name)
+		return nil, fmt.Errorf("could not type convert template for controller: %s", name)
 	}
 
 	if _, ok := template["spec"]; !ok {
-		return fmt.Errorf("could not find spec in template for controller deployment for: %s", name)
+		return nil, fmt.Errorf("could not find spec in template for controller deployment for: %s", name)
 	}
 
 	templateSpec, ok := template["spec"].(map[string]interface{})
 	if !ok {
-		return fmt.Errorf("could not type convert template spec for controller deployment for: %s", name)
+		return nil, fmt.Errorf("could not type convert template spec for controller deployment for: %s", name)
 	}
 
 	if _, ok := templateSpec["containers"]; !ok {
-		return fmt.Errorf("could not find containers in controller deployment for: %s", name)
+		return nil, fmt.Errorf("could not find containers in controller deployment for: %s", name)
 	}
 
 	if name == installer.ThreeportRestApi.Name {
 		initContainersList, ok := templateSpec["initContainers"].([]interface{})
 		if !ok {
-			return fmt.Errorf("could not type convert init container list in deployment for: %s", name)
+			return nil, fmt.Errorf("could not type convert init container list in deployment for: %s", name)
 		}
 
 		migrator, err := containerNamed(initContainersList, installer.ThreeportDatabaseMigratorContainerName)
 		if err != nil {
-			return fmt.Errorf("could not find the init container to retag for %s: %w", name, err)
+			return nil, fmt.Errorf("could not find the init container to retag for %s: %w", name, err)
 		}
-		if err := retagContainer(migrator, imageTag); err != nil {
-			return fmt.Errorf("could not retag the init container for %s: %w", name, err)
+		previous, err := retagContainer(migrator, imageTag)
+		if err != nil {
+			return nil, fmt.Errorf("could not retag the init container for %s: %w", name, err)
 		}
+		replaced = append(replaced, previous)
 
 		templateSpec["initContainers"] = initContainersList
 	}
 
 	containerSpec, ok := templateSpec["containers"].([]interface{})
 	if !ok {
-		return fmt.Errorf("could not type convert container list in deployment for: %s", name)
+		return nil, fmt.Errorf("could not type convert container list in deployment for: %s", name)
 	}
 
 	container, err := containerNamed(containerSpec, imageContainerName(name))
 	if err != nil {
-		return fmt.Errorf("could not find the container to retag for %s: %w", name, err)
+		return nil, fmt.Errorf("could not find the container to retag for %s: %w", name, err)
 	}
-	if err := retagContainer(container, imageTag); err != nil {
-		return fmt.Errorf("could not retag the container for %s: %w", name, err)
+	previous, err := retagContainer(container, imageTag)
+	if err != nil {
+		return nil, fmt.Errorf("could not retag the container for %s: %w", name, err)
 	}
+	replaced = append(replaced, previous)
 
 	templateSpec["containers"] = containerSpec
 	template["spec"] = templateSpec
@@ -344,7 +370,7 @@ func updateImageTagInDeployment(deployment *unstructured.Unstructured, imageTag 
 	deploymentContent["spec"] = deploymentSpec
 	deployment.SetUnstructuredContent(deploymentContent)
 
-	return nil
+	return replaced, nil
 }
 
 func init() {
@@ -406,13 +432,18 @@ func containerNamed(containers []interface{}, name string) (map[string]interface
 	return nil, fmt.Errorf("no container named %s; the pod has %v", name, found)
 }
 
-// retagContainer points a container at the same image with a new tag.
-func retagContainer(container map[string]interface{}, imageTag string) error {
+// retagContainer points a container at the same image with a new tag, and
+// returns the image it replaced.
+//
+// The previous image is returned rather than discarded because the only
+// advice worth giving when a rollout fails is what to go back to, and by then
+// it has been overwritten in the cluster.
+func retagContainer(container map[string]interface{}, imageTag string) (string, error) {
 	currentImage, ok := container["image"].(string)
 	if !ok {
-		return fmt.Errorf("container %v has no image to retag", container["name"])
+		return "", fmt.Errorf("container %v has no image to retag", container["name"])
 	}
 	container["image"] = fmt.Sprintf("%s:%s", util.ImageWithoutTag(currentImage), imageTag)
 
-	return nil
+	return currentImage, nil
 }
