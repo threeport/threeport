@@ -12,6 +12,7 @@ import (
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"net/http"
+	neturl "net/url"
 )
 
 // GetAwsEksKubernetesRuntimeDefinitions fetches all aws eks kubernetes runtime definitions.
@@ -25,7 +26,7 @@ func GetAwsEksKubernetesRuntimeDefinitions(apiClient *http.Client, apiAddr strin
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathAwsEksKubernetesRuntimeDefinitions)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathAwsEksKubernetesRuntimeDefinitions, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathAwsEksKubernetesRuntimeDefinitions, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -134,7 +135,7 @@ func GetAwsEksKubernetesRuntimeDefinitionByName(apiClient *http.Client, apiAddr,
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathAwsEksKubernetesRuntimeDefinitions, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathAwsEksKubernetesRuntimeDefinitions, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -342,7 +343,7 @@ func GetAwsEksKubernetesRuntimeInstances(apiClient *http.Client, apiAddr string)
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathAwsEksKubernetesRuntimeInstances)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathAwsEksKubernetesRuntimeInstances, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathAwsEksKubernetesRuntimeInstances, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -451,7 +452,7 @@ func GetAwsEksKubernetesRuntimeInstanceByName(apiClient *http.Client, apiAddr, n
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathAwsEksKubernetesRuntimeInstances, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathAwsEksKubernetesRuntimeInstances, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -659,7 +660,7 @@ func GetAwsProviders(apiClient *http.Client, apiAddr string) (*[]v0.AwsProvider,
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathAwsProviders)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathAwsProviders, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathAwsProviders, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -768,7 +769,7 @@ func GetAwsProviderByName(apiClient *http.Client, apiAddr, name string) (*v0.Aws
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathAwsProviders, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathAwsProviders, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},

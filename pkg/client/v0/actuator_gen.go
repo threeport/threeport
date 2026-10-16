@@ -12,6 +12,7 @@ import (
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"net/http"
+	neturl "net/url"
 )
 
 // GetProfiles fetches all profiles.
@@ -25,7 +26,7 @@ func GetProfiles(apiClient *http.Client, apiAddr string) (*[]v0.Profile, error) 
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathProfiles)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathProfiles, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathProfiles, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -134,7 +135,7 @@ func GetProfileByName(apiClient *http.Client, apiAddr, name string) (*v0.Profile
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathProfiles, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathProfiles, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -342,7 +343,7 @@ func GetTiers(apiClient *http.Client, apiAddr string) (*[]v0.Tier, error) {
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathTiers)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathTiers, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathTiers, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -451,7 +452,7 @@ func GetTierByName(apiClient *http.Client, apiAddr, name string) (*v0.Tier, erro
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathTiers, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathTiers, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},

@@ -12,6 +12,7 @@ import (
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"net/http"
+	neturl "net/url"
 )
 
 // GetDomainNameDefinitions fetches all domain name definitions.
@@ -25,7 +26,7 @@ func GetDomainNameDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.Dom
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathDomainNameDefinitions)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathDomainNameDefinitions, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathDomainNameDefinitions, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -134,7 +135,7 @@ func GetDomainNameDefinitionByName(apiClient *http.Client, apiAddr, name string)
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathDomainNameDefinitions, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathDomainNameDefinitions, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -342,7 +343,7 @@ func GetDomainNameInstances(apiClient *http.Client, apiAddr string) (*[]v0.Domai
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathDomainNameInstances)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathDomainNameInstances, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathDomainNameInstances, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -451,7 +452,7 @@ func GetDomainNameInstanceByName(apiClient *http.Client, apiAddr, name string) (
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathDomainNameInstances, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathDomainNameInstances, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -659,7 +660,7 @@ func GetGatewayDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.Gatewa
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathGatewayDefinitions)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathGatewayDefinitions, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathGatewayDefinitions, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -768,7 +769,7 @@ func GetGatewayDefinitionByName(apiClient *http.Client, apiAddr, name string) (*
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathGatewayDefinitions, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathGatewayDefinitions, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -976,7 +977,7 @@ func GetGatewayHttpPorts(apiClient *http.Client, apiAddr string) (*[]v0.GatewayH
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathGatewayHttpPorts)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathGatewayHttpPorts, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathGatewayHttpPorts, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -1085,7 +1086,7 @@ func GetGatewayHttpPortByName(apiClient *http.Client, apiAddr, name string) (*v0
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathGatewayHttpPorts, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathGatewayHttpPorts, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1293,7 +1294,7 @@ func GetGatewayInstances(apiClient *http.Client, apiAddr string) (*[]v0.GatewayI
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathGatewayInstances)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathGatewayInstances, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathGatewayInstances, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -1402,7 +1403,7 @@ func GetGatewayInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathGatewayInstances, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathGatewayInstances, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1610,7 +1611,7 @@ func GetGatewayTcpPorts(apiClient *http.Client, apiAddr string) (*[]v0.GatewayTc
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathGatewayTcpPorts)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathGatewayTcpPorts, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathGatewayTcpPorts, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -1719,7 +1720,7 @@ func GetGatewayTcpPortByName(apiClient *http.Client, apiAddr, name string) (*v0.
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathGatewayTcpPorts, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathGatewayTcpPorts, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},

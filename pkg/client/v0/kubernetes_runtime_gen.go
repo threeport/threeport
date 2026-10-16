@@ -12,6 +12,7 @@ import (
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"net/http"
+	neturl "net/url"
 )
 
 // GetKubernetesRuntimeDefinitions fetches all kubernetes runtime definitions.
@@ -25,7 +26,7 @@ func GetKubernetesRuntimeDefinitions(apiClient *http.Client, apiAddr string) (*[
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathKubernetesRuntimeDefinitions)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathKubernetesRuntimeDefinitions, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathKubernetesRuntimeDefinitions, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -134,7 +135,7 @@ func GetKubernetesRuntimeDefinitionByName(apiClient *http.Client, apiAddr, name 
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathKubernetesRuntimeDefinitions, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathKubernetesRuntimeDefinitions, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -342,7 +343,7 @@ func GetKubernetesRuntimeInstances(apiClient *http.Client, apiAddr string) (*[]v
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathKubernetesRuntimeInstances)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathKubernetesRuntimeInstances, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathKubernetesRuntimeInstances, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -451,7 +452,7 @@ func GetKubernetesRuntimeInstanceByName(apiClient *http.Client, apiAddr, name st
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathKubernetesRuntimeInstances, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathKubernetesRuntimeInstances, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},

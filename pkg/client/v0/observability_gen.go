@@ -12,6 +12,7 @@ import (
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"net/http"
+	neturl "net/url"
 )
 
 // GetLoggingDefinitions fetches all logging definitions.
@@ -25,7 +26,7 @@ func GetLoggingDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.Loggin
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathLoggingDefinitions)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathLoggingDefinitions, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathLoggingDefinitions, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -134,7 +135,7 @@ func GetLoggingDefinitionByName(apiClient *http.Client, apiAddr, name string) (*
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathLoggingDefinitions, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathLoggingDefinitions, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -342,7 +343,7 @@ func GetLoggingInstances(apiClient *http.Client, apiAddr string) (*[]v0.LoggingI
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathLoggingInstances)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathLoggingInstances, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathLoggingInstances, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -451,7 +452,7 @@ func GetLoggingInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathLoggingInstances, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathLoggingInstances, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -659,7 +660,7 @@ func GetMetricsDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.Metric
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathMetricsDefinitions)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathMetricsDefinitions, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathMetricsDefinitions, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -768,7 +769,7 @@ func GetMetricsDefinitionByName(apiClient *http.Client, apiAddr, name string) (*
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathMetricsDefinitions, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathMetricsDefinitions, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -976,7 +977,7 @@ func GetMetricsInstances(apiClient *http.Client, apiAddr string) (*[]v0.MetricsI
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathMetricsInstances)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathMetricsInstances, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathMetricsInstances, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -1085,7 +1086,7 @@ func GetMetricsInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathMetricsInstances, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathMetricsInstances, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1293,7 +1294,7 @@ func GetObservabilityDashboardDefinitions(apiClient *http.Client, apiAddr string
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathObservabilityDashboardDefinitions)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathObservabilityDashboardDefinitions, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathObservabilityDashboardDefinitions, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -1402,7 +1403,7 @@ func GetObservabilityDashboardDefinitionByName(apiClient *http.Client, apiAddr, 
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathObservabilityDashboardDefinitions, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathObservabilityDashboardDefinitions, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1610,7 +1611,7 @@ func GetObservabilityDashboardInstances(apiClient *http.Client, apiAddr string) 
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathObservabilityDashboardInstances)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathObservabilityDashboardInstances, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathObservabilityDashboardInstances, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -1719,7 +1720,7 @@ func GetObservabilityDashboardInstanceByName(apiClient *http.Client, apiAddr, na
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathObservabilityDashboardInstances, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathObservabilityDashboardInstances, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1927,7 +1928,7 @@ func GetObservabilityStackDefinitions(apiClient *http.Client, apiAddr string) (*
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathObservabilityStackDefinitions)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathObservabilityStackDefinitions, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathObservabilityStackDefinitions, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -2036,7 +2037,7 @@ func GetObservabilityStackDefinitionByName(apiClient *http.Client, apiAddr, name
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathObservabilityStackDefinitions, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathObservabilityStackDefinitions, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -2244,7 +2245,7 @@ func GetObservabilityStackInstances(apiClient *http.Client, apiAddr string) (*[]
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathObservabilityStackInstances)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathObservabilityStackInstances, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathObservabilityStackInstances, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -2353,7 +2354,7 @@ func GetObservabilityStackInstanceByName(apiClient *http.Client, apiAddr, name s
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathObservabilityStackInstances, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathObservabilityStackInstances, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},

@@ -12,6 +12,7 @@ import (
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"net/http"
+	neturl "net/url"
 )
 
 // GetHelmWorkloadDefinitions fetches all helm workload definitions.
@@ -25,7 +26,7 @@ func GetHelmWorkloadDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.H
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathHelmWorkloadDefinitions)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathHelmWorkloadDefinitions, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathHelmWorkloadDefinitions, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -134,7 +135,7 @@ func GetHelmWorkloadDefinitionByName(apiClient *http.Client, apiAddr, name strin
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathHelmWorkloadDefinitions, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathHelmWorkloadDefinitions, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -342,7 +343,7 @@ func GetHelmWorkloadInstances(apiClient *http.Client, apiAddr string) (*[]v0.Hel
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathHelmWorkloadInstances)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathHelmWorkloadInstances, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathHelmWorkloadInstances, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -451,7 +452,7 @@ func GetHelmWorkloadInstanceByName(apiClient *http.Client, apiAddr, name string)
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathHelmWorkloadInstances, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathHelmWorkloadInstances, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},

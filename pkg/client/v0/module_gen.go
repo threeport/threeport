@@ -12,6 +12,7 @@ import (
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"net/http"
+	neturl "net/url"
 )
 
 // GetModuleApis fetches all module apis.
@@ -25,7 +26,7 @@ func GetModuleApis(apiClient *http.Client, apiAddr string) (*[]v0.ModuleApi, err
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathModuleApis)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathModuleApis, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathModuleApis, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -134,7 +135,7 @@ func GetModuleApiByName(apiClient *http.Client, apiAddr, name string) (*v0.Modul
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathModuleApis, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathModuleApis, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -342,7 +343,7 @@ func GetModuleApiRoutes(apiClient *http.Client, apiAddr string) (*[]v0.ModuleApi
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathModuleApiRoutes)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathModuleApiRoutes, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathModuleApiRoutes, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -451,7 +452,7 @@ func GetModuleApiRouteByName(apiClient *http.Client, apiAddr, name string) (*v0.
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathModuleApiRoutes, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathModuleApiRoutes, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -659,7 +660,7 @@ func GetModuleControllers(apiClient *http.Client, apiAddr string) (*[]v0.ModuleC
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathModuleControllers)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathModuleControllers, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathModuleControllers, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -768,7 +769,7 @@ func GetModuleControllerByName(apiClient *http.Client, apiAddr, name string) (*v
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathModuleControllers, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathModuleControllers, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -976,7 +977,7 @@ func GetModuleObjects(apiClient *http.Client, apiAddr string) (*[]v0.ModuleObjec
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathModuleObjects)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathModuleObjects, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathModuleObjects, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -1085,7 +1086,7 @@ func GetModuleObjectByName(apiClient *http.Client, apiAddr, name string) (*v0.Mo
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathModuleObjects, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathModuleObjects, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
