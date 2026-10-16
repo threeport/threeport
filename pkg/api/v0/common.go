@@ -138,25 +138,57 @@ func deepCopy(value reflect.Value) reflect.Value {
 }
 
 // ObjectUpdateNotifiable reports whether a saved object should notify the controller.
-// A field outside reconciliation state notifies even when Reconciled becomes true.
-func ObjectUpdateNotifiable(before, after any) bool {
+// changed names the other persisted fields when Reconciled becomes true, which does not notify.
+func ObjectUpdateNotifiable(before, after any) (bool, []string) {
 	left, right, ok := persistedStructs(before, after)
 	if !ok {
-		return true
+		return true, nil
+	}
+
+	// honor a client write that sets Reconciled true
+	beforeState, beforeOK := reconciliationFrom(left)
+	afterState, afterOK := reconciliationFrom(right)
+	if beforeOK && afterOK && afterState.AlreadyReconciled() && !beforeState.AlreadyReconciled() {
+		return false, changedPersistedFields(left, right)
 	}
 
 	// notify when a field outside reconciliation state changed
 	if persistedFieldsChanged(left, right) {
-		return true
+		return true, nil
 	}
-
-	// compare reconciliation state when the rest of the object is unchanged
-	beforeState, beforeOK := reconciliationFrom(left)
-	afterState, afterOK := reconciliationFrom(right)
 	if !beforeOK || !afterOK {
-		return true
+		return true, nil
 	}
-	return ReconciliationUpdateNotifiable(beforeState, afterState)
+	return ReconciliationUpdateNotifiable(beforeState, afterState), nil
+}
+
+// changedPersistedFields names persisted fields that differ.
+// UpdatedAt and Reconciled are omitted.
+func changedPersistedFields(left, right reflect.Value) []string {
+	return changedStructFields(left, right)
+}
+
+// changedStructFields names exported fields that differ, descending into embeds.
+func changedStructFields(left, right reflect.Value) []string {
+	// name each exported field that differs, except UpdatedAt and Reconciled
+	var names []string
+	objectType := left.Type()
+	for index := 0; index < objectType.NumField(); index++ {
+		field := objectType.Field(index)
+		if !field.IsExported() || field.Name == "UpdatedAt" || field.Name == "Reconciled" {
+			continue
+		}
+		leftField := left.Field(index)
+		rightField := right.Field(index)
+		if field.Anonymous && leftField.Kind() == reflect.Struct {
+			names = append(names, changedStructFields(leftField, rightField)...)
+			continue
+		}
+		if !fieldValuesEqual(leftField, rightField) {
+			names = append(names, field.Name)
+		}
+	}
+	return names
 }
 
 // persistedFieldsChanged reports a saved-field change outside reconciliation state.

@@ -346,7 +346,12 @@ func (h Handler) UpdateKubernetesWorkloadDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevKubernetesWorkloadDefinition, existingKubernetesWorkloadDefinition) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevKubernetesWorkloadDefinition, existingKubernetesWorkloadDefinition)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingKubernetesWorkloadDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -457,7 +462,12 @@ func (h Handler) ReplaceKubernetesWorkloadDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevKubernetesWorkloadDefinition, existingKubernetesWorkloadDefinition) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevKubernetesWorkloadDefinition, existingKubernetesWorkloadDefinition)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingKubernetesWorkloadDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -940,7 +950,12 @@ func (h Handler) UpdateKubernetesWorkloadInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevKubernetesWorkloadInstance, existingKubernetesWorkloadInstance) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevKubernetesWorkloadInstance, existingKubernetesWorkloadInstance)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingKubernetesWorkloadInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -1051,7 +1066,12 @@ func (h Handler) ReplaceKubernetesWorkloadInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevKubernetesWorkloadInstance, existingKubernetesWorkloadInstance) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevKubernetesWorkloadInstance, existingKubernetesWorkloadInstance)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingKubernetesWorkloadInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,

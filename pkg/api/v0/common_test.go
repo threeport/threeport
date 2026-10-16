@@ -32,54 +32,72 @@ func TestObjectUpdateNotifiable(t *testing.T) {
 		ValuesDocument: &oldValues,
 	}
 
-	// a spec change in the same write as the stamp must notify
+	// a spec change in the same write as the stamp must not notify
 	stampedWithValues := before
 	stampedWithValues.Reconciled = &yes
 	stampedWithValues.ValuesDocument = &newValues
-	if !ObjectUpdateNotifiable(before, stampedWithValues) {
-		t.Errorf("a field change alongside Reconciled becoming true must notify")
-	}
+	assertUpdate(t, before, stampedWithValues, false, "ValuesDocument")
 
 	// the controller's stamp of Reconciled to true must not notify
 	stamped := before
 	stamped.Reconciled = &yes
-	if ObjectUpdateNotifiable(before, stamped) {
-		t.Errorf("a Reconciled stamp must not schedule another reconcile")
-	}
+	assertUpdate(t, before, stamped, false)
 
 	// UpdatedAt moves on every write and must not turn a stamp into a notification
 	stampedAt := stamped
 	stampedAt.UpdatedAt = &later
-	if ObjectUpdateNotifiable(before, stampedAt) {
-		t.Errorf("UpdatedAt moving with a Reconciled stamp must not notify")
-	}
+	assertUpdate(t, before, stampedAt, false)
+
+	// a marker that moves with the stamp is named and still does not notify
+	failed := true
+	stampedAndFailed := stampedWithValues
+	stampedAndFailed.CreationFailed = &failed
+	assertUpdate(t, before, stampedAndFailed, false, "CreationFailed", "ValuesDocument")
+
+	// an unset Reconciled that becomes true is the same transition
+	unset := before
+	unset.Reconciled = nil
+	assertUpdate(t, unset, stampedWithValues, false, "ValuesDocument")
 
 	// notify when both snapshots are equal
 	unchanged := before
-	if !ObjectUpdateNotifiable(before, unchanged) {
-		t.Errorf("a spec edit leaves reconciliation state equal and must still notify")
-	}
+	assertUpdate(t, before, unchanged, true)
 
 	// a restamped acknowledgement is not a state change
 	restamp := unchanged
 	restamp.CreationAcknowledged = &later
-	if ObjectUpdateNotifiable(unchanged, restamp) {
-		t.Errorf("a restamped acknowledgement must not schedule another reconcile")
-	}
+	assertUpdate(t, unchanged, restamp, false)
 
 	// moving another marker is a state change
-	failed := true
 	moved := unchanged
 	moved.CreationFailed = &failed
-	if !ObjectUpdateNotifiable(unchanged, moved) {
-		t.Errorf("a CreationFailed stamp must schedule a reconcile")
-	}
+	assertUpdate(t, unchanged, moved, true)
 
 	// clearing Reconciled is a state change
 	cleared := stamped
 	cleared.Reconciled = &no
-	if !ObjectUpdateNotifiable(stamped, cleared) {
-		t.Errorf("clearing Reconciled must schedule a reconcile")
+	assertUpdate(t, stamped, cleared, true)
+
+	// a spec edit while Reconciled stays true still notifies
+	edited := stamped
+	edited.ValuesDocument = &newValues
+	assertUpdate(t, stamped, edited, true)
+}
+
+// assertUpdate checks the notify decision and the fields named for a warning.
+func assertUpdate(t *testing.T, before, after any, wantNotify bool, wantChanged ...string) {
+	t.Helper()
+
+	// compare the decision and the warning names
+	notify, changed := ObjectUpdateNotifiable(before, after)
+	if notify != wantNotify {
+		t.Errorf("notify = %v, want %v", notify, wantNotify)
+	}
+	if len(wantChanged) == 0 {
+		wantChanged = nil
+	}
+	if !reflect.DeepEqual(changed, wantChanged) {
+		t.Errorf("changed = %v, want %v", changed, wantChanged)
 	}
 }
 
@@ -99,9 +117,7 @@ func TestNotifySnapshotIsolatesPointerFields(t *testing.T) {
 	if *snapshot.ValuesDocument != "old" || snapshot.Reconciled == nil || *snapshot.Reconciled {
 		t.Errorf("snapshot must keep the values from before the write")
 	}
-	if !ObjectUpdateNotifiable(snapshot, saved) {
-		t.Errorf("a field change alongside Reconciled becoming true must notify")
-	}
+	assertUpdate(t, snapshot, saved, false, "ValuesDocument")
 
 	// a stamp that only flips the shared bool must not notify
 	stampValues := "old"
@@ -112,9 +128,7 @@ func TestNotifySnapshotIsolatesPointerFields(t *testing.T) {
 	}
 	stampSnapshot := NotifySnapshot(stampSaved)
 	stampReconciled = true
-	if ObjectUpdateNotifiable(stampSnapshot, stampSaved) {
-		t.Errorf("a Reconciled stamp must not schedule another reconcile")
-	}
+	assertUpdate(t, stampSnapshot, stampSaved, false)
 }
 
 // TestReconciliationUpdateNotifiable covers when an update notifies the controller.

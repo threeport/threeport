@@ -138,13 +138,30 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					// that needs nothing, and to do nothing when that is the case.
 					notifyControllersUpdateHandler = Comment("notify controller if the update is notifiable")
 					notifyControllersUpdateHandler.Line()
-					notifyControllersUpdateHandler.If(Qual(
+					notifyControllersUpdateHandler.List(Id("notify"), Id("changed")).Op(":=").Qual(
 						"github.com/threeport/threeport/pkg/api/v0",
 						"ObjectUpdateNotifiable",
 					).Call(
 						Id("prev"+apiObject.TypeName),
 						Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
-					).Block(
+					)
+					notifyControllersUpdateHandler.Line()
+					notifyControllersUpdateHandler.Comment("log other fields changed when reconciled becomes true")
+					notifyControllersUpdateHandler.Line()
+					notifyControllersUpdateHandler.If(Len(Id("changed")).Op(">").Lit(0)).Block(
+						Do(func(s *Statement) {
+							if gen.Module {
+								s.Id("h").Dot("Handler")
+							} else {
+								s.Id("h")
+							}
+						}).Dot("Logger").Dot("Warn").Call(
+							Lit("reconciled became true with other fields changed"),
+							Qual("go.uber.org/zap", "Strings").Call(Lit("fields"), Id("changed")),
+						),
+					)
+					notifyControllersUpdateHandler.Line()
+					notifyControllersUpdateHandler.If(Id("notify")).Block(
 						Id("notifPayload").Op(",").Id("err").Op(":=").Id(
 							fmt.Sprintf("existing%s", apiObject.TypeName),
 						).Dot("NotificationPayload").Call(
@@ -187,7 +204,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							),
 							apiObject.UpdateSubject,
 						).Op(",").Op("*").Id("notifPayload")),
-					))
+					)
 
 					// schedule for deletion
 					deleteObjectExecution = &Statement{}

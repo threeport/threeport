@@ -838,7 +838,12 @@ func (h Handler) UpdateGcpGkeKubernetesRuntimeInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevGcpGkeKubernetesRuntimeInstance, existingGcpGkeKubernetesRuntimeInstance) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevGcpGkeKubernetesRuntimeInstance, existingGcpGkeKubernetesRuntimeInstance)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingGcpGkeKubernetesRuntimeInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -949,7 +954,12 @@ func (h Handler) ReplaceGcpGkeKubernetesRuntimeInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ObjectUpdateNotifiable(prevGcpGkeKubernetesRuntimeInstance, existingGcpGkeKubernetesRuntimeInstance) {
+	notify, changed := api_v0.ObjectUpdateNotifiable(prevGcpGkeKubernetesRuntimeInstance, existingGcpGkeKubernetesRuntimeInstance)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingGcpGkeKubernetesRuntimeInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
