@@ -616,14 +616,21 @@ func v0ControlPlaneInstanceCreated(
 
 	cloneKubernetesRuntimeDefinition := *kubernetesRuntimeDefinition
 	cloneKubernetesRuntimeDefinition.Common = v0.Common{}
-	createdKubeDef, err := client.CreateKubernetesRuntimeDefinition(
-		newApiClient,
-		threeportAPIEndpoint,
-		&cloneKubernetesRuntimeDefinition,
+	createdKubeDef, err := getOrCreate(
+		"kubernetes runtime definition on the new threeport api",
+		func() (*v0.KubernetesRuntimeDefinition, error) {
+			return client.GetKubernetesRuntimeDefinitionByName(
+				newApiClient, threeportAPIEndpoint, *cloneKubernetesRuntimeDefinition.Name,
+			)
+		},
+		func() (*v0.KubernetesRuntimeDefinition, error) {
+			return client.CreateKubernetesRuntimeDefinition(
+				newApiClient, threeportAPIEndpoint, &cloneKubernetesRuntimeDefinition,
+			)
+		},
 	)
-
 	if err != nil {
-		return 0, fmt.Errorf("failed to create kubernetes runtime definition on new threeport api: %w", err)
+		return 0, err
 	}
 
 	clonedKubernetesRuntimeInstance := *kubernetesRuntimeInstance
@@ -637,10 +644,18 @@ func v0ControlPlaneInstanceCreated(
 	}
 
 	clonedKubernetesRuntimeInstance.KubernetesRuntimeDefinitionID = createdKubeDef.ID
-	createdKubeInstance, err := client.CreateKubernetesRuntimeInstance(
-		newApiClient,
-		threeportAPIEndpoint,
-		&clonedKubernetesRuntimeInstance,
+	createdKubeInstance, err := getOrCreate(
+		"kubernetes runtime instance on the new threeport api",
+		func() (*v0.KubernetesRuntimeInstance, error) {
+			return client.GetKubernetesRuntimeInstanceByName(
+				newApiClient, threeportAPIEndpoint, *clonedKubernetesRuntimeInstance.Name,
+			)
+		},
+		func() (*v0.KubernetesRuntimeInstance, error) {
+			return client.CreateKubernetesRuntimeInstance(
+				newApiClient, threeportAPIEndpoint, &clonedKubernetesRuntimeInstance,
+			)
+		},
 	)
 
 	if err != nil {
@@ -674,23 +689,47 @@ func v0ControlPlaneInstanceCreated(
 			return 0, err
 		}
 
-		createdAwsProvider, err := client.CreateAwsProvider(newApiClient, threeportAPIEndpoint, awsProvider)
+		createdAwsProvider, err := getOrCreate(
+			"aws provider on the new threeport api",
+			func() (*v0.AwsProvider, error) {
+				return client.GetAwsProviderByName(newApiClient, threeportAPIEndpoint, *awsProvider.Name)
+			},
+			func() (*v0.AwsProvider, error) {
+				return client.CreateAwsProvider(newApiClient, threeportAPIEndpoint, awsProvider)
+			},
+		)
 		if err != nil {
-			return 0, fmt.Errorf("failed to create AwsProvider: %w", err)
+			return 0, err
 		}
 
 		awsRuntimeDef.Common = v0.Common{}
-		createdAwsRuntimDef, err := client.CreateAwsEksKubernetesRuntimeDefinition(newApiClient, threeportAPIEndpoint, awsRuntimeDef)
+		createdAwsRuntimDef, err := getOrCreate(
+			"aws eks runtime definition on the new threeport api",
+			func() (*v0.AwsEksKubernetesRuntimeDefinition, error) {
+				return client.GetAwsEksKubernetesRuntimeDefinitionByName(newApiClient, threeportAPIEndpoint, *awsRuntimeDef.Name)
+			},
+			func() (*v0.AwsEksKubernetesRuntimeDefinition, error) {
+				return client.CreateAwsEksKubernetesRuntimeDefinition(newApiClient, threeportAPIEndpoint, awsRuntimeDef)
+			},
+		)
 		if err != nil {
-			return 0, fmt.Errorf("failed to create AwsEksKubernetesRuntimeDefinition: %w", err)
+			return 0, err
 		}
 
 		awsRuntimeInstance.Common = v0.Common{}
 		awsRuntimeInstance.AwsProviderID = createdAwsProvider.ID
 		awsRuntimeInstance.AwsEksKubernetesRuntimeDefinitionID = createdAwsRuntimDef.ID
-		_, err = client.CreateAwsEksKubernetesRuntimeInstance(newApiClient, threeportAPIEndpoint, awsRuntimeInstance)
+		_, err = getOrCreate(
+			"aws eks runtime instance on the new threeport api",
+			func() (*v0.AwsEksKubernetesRuntimeInstance, error) {
+				return client.GetAwsEksKubernetesRuntimeInstanceByName(newApiClient, threeportAPIEndpoint, *awsRuntimeInstance.Name)
+			},
+			func() (*v0.AwsEksKubernetesRuntimeInstance, error) {
+				return client.CreateAwsEksKubernetesRuntimeInstance(newApiClient, threeportAPIEndpoint, awsRuntimeInstance)
+			},
+		)
 		if err != nil {
-			return 0, fmt.Errorf("failed to create AwsEksKubernetesRuntimeInstance: %w", err)
+			return 0, err
 		}
 
 	case v0.KubernetesRuntimeInfraProviderOKE:
@@ -720,40 +759,70 @@ func v0ControlPlaneInstanceCreated(
 		}
 
 		// create OCI provider in child control plane
-		createdOciProvider, err := client.CreateOciProvider(newApiClient, threeportAPIEndpoint, ociProvider)
+		createdOciProvider, err := getOrCreate(
+			"oci provider on the new threeport api",
+			func() (*v0.OciProvider, error) {
+				return client.GetOciProviderByName(newApiClient, threeportAPIEndpoint, *ociProvider.Name)
+			},
+			func() (*v0.OciProvider, error) {
+				return client.CreateOciProvider(newApiClient, threeportAPIEndpoint, ociProvider)
+			},
+		)
 		if err != nil {
-			return 0, fmt.Errorf("failed to create OciProvider: %w", err)
+			return 0, err
 		}
 
 		// create OCI runtime definition in child control plane
 		ociRuntimeDef.Common = v0.Common{}
-		createdOciRuntimeDef, err := client.CreateOciOkeKubernetesRuntimeDefinition(
-			newApiClient, threeportAPIEndpoint, ociRuntimeDef)
+		createdOciRuntimeDef, err := getOrCreate(
+			"oci oke runtime definition on the new threeport api",
+			func() (*v0.OciOkeKubernetesRuntimeDefinition, error) {
+				return client.GetOciOkeKubernetesRuntimeDefinitionByName(newApiClient, threeportAPIEndpoint, *ociRuntimeDef.Name)
+			},
+			func() (*v0.OciOkeKubernetesRuntimeDefinition, error) {
+				return client.CreateOciOkeKubernetesRuntimeDefinition(newApiClient, threeportAPIEndpoint, ociRuntimeDef)
+			},
+		)
 		if err != nil {
-			return 0, fmt.Errorf("failed to create OciOkeKubernetesRuntimeDefinition: %w", err)
+			return 0, err
 		}
 
 		// create OCI runtime instance in child control plane
 		ociRuntimeInstance.Common = v0.Common{}
 		ociRuntimeInstance.OciProviderID = createdOciProvider.ID
 		ociRuntimeInstance.OciOkeKubernetesRuntimeDefinitionID = createdOciRuntimeDef.ID
-		_, err = client.CreateOciOkeKubernetesRuntimeInstance(
-			newApiClient, threeportAPIEndpoint, ociRuntimeInstance)
+		_, err = getOrCreate(
+			"oci oke runtime instance on the new threeport api",
+			func() (*v0.OciOkeKubernetesRuntimeInstance, error) {
+				return client.GetOciOkeKubernetesRuntimeInstanceByName(newApiClient, threeportAPIEndpoint, *ociRuntimeInstance.Name)
+			},
+			func() (*v0.OciOkeKubernetesRuntimeInstance, error) {
+				return client.CreateOciOkeKubernetesRuntimeInstance(newApiClient, threeportAPIEndpoint, ociRuntimeInstance)
+			},
+		)
 		if err != nil {
-			return 0, fmt.Errorf("failed to create OciOkeKubernetesRuntimeInstance: %w", err)
+			return 0, err
 		}
 	}
 
 	// onboard control plane definition and instance to new control plane
 	controlPlaneDefinition.Common = v0.Common{}
 
-	createdControlPlaneDef, err := client.CreateControlPlaneDefinition(
-		newApiClient,
-		threeportAPIEndpoint,
-		controlPlaneDefinition,
+	createdControlPlaneDef, err := getOrCreate(
+		"control plane definition on the new threeport api",
+		func() (*v0.ControlPlaneDefinition, error) {
+			return client.GetControlPlaneDefinitionByName(
+				newApiClient, threeportAPIEndpoint, *controlPlaneDefinition.Name,
+			)
+		},
+		func() (*v0.ControlPlaneDefinition, error) {
+			return client.CreateControlPlaneDefinition(
+				newApiClient, threeportAPIEndpoint, controlPlaneDefinition,
+			)
+		},
 	)
 	if err != nil {
-		return 0, fmt.Errorf("failed to create control plane definition on new threeport api: %w", err)
+		return 0, err
 	}
 
 	reconciled := true
@@ -766,13 +835,21 @@ func v0ControlPlaneInstanceCreated(
 	clonedRuntimeInstance.KubernetesRuntimeInstanceID = createdKubeInstance.ID
 	clonedRuntimeInstance.Reconciled = &reconciled
 
-	_, err = client.CreateControlPlaneInstance(
-		newApiClient,
-		threeportAPIEndpoint,
-		&clonedRuntimeInstance,
+	_, err = getOrCreate(
+		"control plane instance on the new threeport api",
+		func() (*v0.ControlPlaneInstance, error) {
+			return client.GetControlPlaneInstanceByName(
+				newApiClient, threeportAPIEndpoint, *clonedRuntimeInstance.Name,
+			)
+		},
+		func() (*v0.ControlPlaneInstance, error) {
+			return client.CreateControlPlaneInstance(
+				newApiClient, threeportAPIEndpoint, &clonedRuntimeInstance,
+			)
+		},
 	)
 	if err != nil {
-		return 0, fmt.Errorf("failed to create new control plane instance on new threeport api: %w", err)
+		return 0, err
 	}
 
 	// Ensure the new control plane has genesis control plane registered
@@ -789,9 +866,17 @@ func v0ControlPlaneInstanceCreated(
 	var genDefID uint
 	if *genesisDef.ID != *controlPlaneInstance.ControlPlaneDefinitionID {
 		genesisDef.Common = v0.Common{}
-		createdDef, err := client.CreateControlPlaneDefinition(newApiClient, threeportAPIEndpoint, genesisDef)
+		createdDef, err := getOrCreate(
+			"genesis control plane definition on the new threeport api",
+			func() (*v0.ControlPlaneDefinition, error) {
+				return client.GetControlPlaneDefinitionByName(newApiClient, threeportAPIEndpoint, *genesisDef.Name)
+			},
+			func() (*v0.ControlPlaneDefinition, error) {
+				return client.CreateControlPlaneDefinition(newApiClient, threeportAPIEndpoint, genesisDef)
+			},
+		)
 		if err != nil {
-			return 0, fmt.Errorf("failed to create genesis control plane definition in new threeport api: %w", err)
+			return 0, err
 		}
 		genDefID = *createdDef.ID
 	} else {
@@ -813,9 +898,17 @@ func v0ControlPlaneInstanceCreated(
 			}
 
 			genesisK8Def.Common = v0.Common{}
-			newK8Def, err := client.CreateKubernetesRuntimeDefinition(newApiClient, threeportAPIEndpoint, genesisK8Def)
+			newK8Def, err := getOrCreate(
+				"genesis kubernetes runtime definition on the new threeport api",
+				func() (*v0.KubernetesRuntimeDefinition, error) {
+					return client.GetKubernetesRuntimeDefinitionByName(newApiClient, threeportAPIEndpoint, *genesisK8Def.Name)
+				},
+				func() (*v0.KubernetesRuntimeDefinition, error) {
+					return client.CreateKubernetesRuntimeDefinition(newApiClient, threeportAPIEndpoint, genesisK8Def)
+				},
+			)
 			if err != nil {
-				return 0, fmt.Errorf("failed to create genesis control plane kubernetes runtime def: %w", err)
+				return 0, err
 			}
 
 			genesisK8DefID = *newK8Def.ID
@@ -826,9 +919,17 @@ func v0ControlPlaneInstanceCreated(
 		genesisK8Instance.Common = v0.Common{}
 		genesisK8Instance.KubernetesRuntimeDefinitionID = &genesisK8DefID
 
-		newK8Instance, err := client.CreateKubernetesRuntimeInstance(newApiClient, threeportAPIEndpoint, genesisK8Instance)
+		newK8Instance, err := getOrCreate(
+			"genesis kubernetes runtime instance on the new threeport api",
+			func() (*v0.KubernetesRuntimeInstance, error) {
+				return client.GetKubernetesRuntimeInstanceByName(newApiClient, threeportAPIEndpoint, *genesisK8Instance.Name)
+			},
+			func() (*v0.KubernetesRuntimeInstance, error) {
+				return client.CreateKubernetesRuntimeInstance(newApiClient, threeportAPIEndpoint, genesisK8Instance)
+			},
+		)
 		if err != nil {
-			return 0, fmt.Errorf("failed to create genesis kubernetes runtime instance: %w", err)
+			return 0, err
 		}
 
 		genKubeRuntimeInstanceID = *newK8Instance.ID
@@ -841,9 +942,17 @@ func v0ControlPlaneInstanceCreated(
 	genesisInstance.IsSelf = &self
 	genesisInstance.ControlPlaneDefinitionID = &genDefID
 	genesisInstance.KubernetesRuntimeInstanceID = &genKubeRuntimeInstanceID
-	_, err = client.CreateControlPlaneInstance(newApiClient, threeportAPIEndpoint, genesisInstance)
+	_, err = getOrCreate(
+		"genesis control plane instance on the new threeport api",
+		func() (*v0.ControlPlaneInstance, error) {
+			return client.GetControlPlaneInstanceByName(newApiClient, threeportAPIEndpoint, *genesisInstance.Name)
+		},
+		func() (*v0.ControlPlaneInstance, error) {
+			return client.CreateControlPlaneInstance(newApiClient, threeportAPIEndpoint, genesisInstance)
+		},
+	)
 	if err != nil {
-		return 0, fmt.Errorf("failed to create genesis control plane instance in new threeport api: %w", err)
+		return 0, err
 	}
 
 	return 0, nil
