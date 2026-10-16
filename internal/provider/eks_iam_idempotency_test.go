@@ -25,7 +25,8 @@ type fakeIam struct {
 	policyExists bool
 	existingTags []types.Tag
 
-	getRoleErr error
+	createRoleErr error
+	getRoleErr    error
 
 	creates, gets, policies, attaches int
 	attachedArn                       string
@@ -33,6 +34,9 @@ type fakeIam struct {
 
 func (f *fakeIam) CreateRole(context.Context, *iam.CreateRoleInput, ...func(*iam.Options)) (*iam.CreateRoleOutput, error) {
 	f.creates++
+	if f.createRoleErr != nil {
+		return nil, f.createRoleErr
+	}
 	if f.roleExists {
 		return nil, alreadyExists()
 	}
@@ -106,14 +110,24 @@ func TestARetryAdoptsTheRoleTheFirstAttemptCreated(t *testing.T) {
 		assert.Contains(t, err.Error(), "not created by threeport")
 	})
 
-	t.Run("an error that is not 'already exists' is still an error", func(t *testing.T) {
-		client := &fakeIam{}
-		client.roleExists = true
-		client.getRoleErr = errors.New("access denied")
+	t.Run("a create that failed for another reason is not an adoption", func(t *testing.T) {
+		client := &fakeIam{createRoleErr: errors.New("access denied")}
 
 		_, err := createRoleIfAbsent(client, &iam.CreateRoleInput{RoleName: aws.String("the-role")}, ours)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "access denied")
+		assert.Zero(
+			t, client.gets,
+			"only 'already exists' means there is something to look up; anything else has to surface as it is",
+		)
+	})
+
+	t.Run("a role that exists but cannot be read is an error", func(t *testing.T) {
+		client := &fakeIam{roleExists: true, getRoleErr: errors.New("could not read it")}
+
+		_, err := createRoleIfAbsent(client, &iam.CreateRoleInput{RoleName: aws.String("the-role")}, ours)
+		require.Error(t, err, "not being able to check ownership is not permission to proceed")
+		assert.Contains(t, err.Error(), "could not read it")
 	})
 }
 
