@@ -16,7 +16,7 @@ Unless otherwise specified with the `--provider-config` flag when running `tptct
 
 ```bash
 export PULUMI_STACK_NAME=[directory name]
-cd $PULUMI_STACK_NAME
+cd ~/.threeport/pulumi-state/$PULUMI_STACK_NAME
 ```
 
 ## Delete Infrastructure
