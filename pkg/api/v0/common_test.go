@@ -8,6 +8,115 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
+// notifiableObject is a saved object with one field outside reconciliation state.
+type notifiableObject struct {
+	Common
+	Reconciliation
+	ValuesDocument *string
+}
+
+// TestObjectUpdateNotifiable covers when a saved object notifies the controller.
+func TestObjectUpdateNotifiable(t *testing.T) {
+	yes := true
+	no := false
+	earlier := time.Now().Add(-time.Minute)
+	later := time.Now()
+	oldValues := "old"
+	newValues := "new"
+
+	before := notifiableObject{
+		Reconciliation: Reconciliation{
+			Reconciled:           &no,
+			CreationAcknowledged: &earlier,
+		},
+		ValuesDocument: &oldValues,
+	}
+
+	// a spec change in the same write as the stamp must notify
+	stampedWithValues := before
+	stampedWithValues.Reconciled = &yes
+	stampedWithValues.ValuesDocument = &newValues
+	if !ObjectUpdateNotifiable(before, stampedWithValues) {
+		t.Errorf("a field change alongside Reconciled becoming true must notify")
+	}
+
+	// the controller's stamp of Reconciled to true must not notify
+	stamped := before
+	stamped.Reconciled = &yes
+	if ObjectUpdateNotifiable(before, stamped) {
+		t.Errorf("a Reconciled stamp must not schedule another reconcile")
+	}
+
+	// UpdatedAt moves on every write and must not turn a stamp into a notification
+	stampedAt := stamped
+	stampedAt.UpdatedAt = &later
+	if ObjectUpdateNotifiable(before, stampedAt) {
+		t.Errorf("UpdatedAt moving with a Reconciled stamp must not notify")
+	}
+
+	// notify when both snapshots are equal
+	unchanged := before
+	if !ObjectUpdateNotifiable(before, unchanged) {
+		t.Errorf("a spec edit leaves reconciliation state equal and must still notify")
+	}
+
+	// a restamped acknowledgement is not a state change
+	restamp := unchanged
+	restamp.CreationAcknowledged = &later
+	if ObjectUpdateNotifiable(unchanged, restamp) {
+		t.Errorf("a restamped acknowledgement must not schedule another reconcile")
+	}
+
+	// moving another marker is a state change
+	failed := true
+	moved := unchanged
+	moved.CreationFailed = &failed
+	if !ObjectUpdateNotifiable(unchanged, moved) {
+		t.Errorf("a CreationFailed stamp must schedule a reconcile")
+	}
+
+	// clearing Reconciled is a state change
+	cleared := stamped
+	cleared.Reconciled = &no
+	if !ObjectUpdateNotifiable(stamped, cleared) {
+		t.Errorf("clearing Reconciled must schedule a reconcile")
+	}
+}
+
+// TestNotifySnapshotIsolatesPointerFields covers a write that mutates the saved object's pointers.
+func TestNotifySnapshotIsolatesPointerFields(t *testing.T) {
+	values := "old"
+	reconciled := false
+	saved := notifiableObject{
+		Reconciliation: Reconciliation{Reconciled: &reconciled},
+		ValuesDocument: &values,
+	}
+	snapshot := NotifySnapshot(saved)
+
+	// write through the pointers the way a database scan does
+	values = "new"
+	reconciled = true
+	if *snapshot.ValuesDocument != "old" || snapshot.Reconciled == nil || *snapshot.Reconciled {
+		t.Errorf("snapshot must keep the values from before the write")
+	}
+	if !ObjectUpdateNotifiable(snapshot, saved) {
+		t.Errorf("a field change alongside Reconciled becoming true must notify")
+	}
+
+	// a stamp that only flips the shared bool must not notify
+	stampValues := "old"
+	stampReconciled := false
+	stampSaved := notifiableObject{
+		Reconciliation: Reconciliation{Reconciled: &stampReconciled},
+		ValuesDocument: &stampValues,
+	}
+	stampSnapshot := NotifySnapshot(stampSaved)
+	stampReconciled = true
+	if ObjectUpdateNotifiable(stampSnapshot, stampSaved) {
+		t.Errorf("a Reconciled stamp must not schedule another reconcile")
+	}
+}
+
 // TestReconciliationUpdateNotifiable covers when an update notifies the controller.
 func TestReconciliationUpdateNotifiable(t *testing.T) {
 	earlier := time.Date(2026, 8, 13, 12, 0, 0, 0, time.UTC)

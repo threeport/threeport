@@ -455,7 +455,7 @@ func TestUpdateStampsReconciledWhenNotTrue(t *testing.T) {
 			assert.Equal(t, int64(1), h.patchCount.Load())
 			h.objMu.Lock()
 			body := append([]byte(nil), h.lastPatch...)
-			before := h.obj.Reconciliation
+			before := *h.obj
 			h.objMu.Unlock()
 			var patched api.ReconcilerTestInstance
 			require.NoError(t, json.Unmarshal(body, &patched))
@@ -463,8 +463,14 @@ func TestUpdateStampsReconciledWhenNotTrue(t *testing.T) {
 			assert.True(t, *patched.Reconciled)
 			after := before
 			after.Reconciled = patched.Reconciled
-			assert.False(t, tpapi.ReconciliationUpdateNotifiable(before, after),
+			assert.False(t, tpapi.ObjectUpdateNotifiable(before, after),
 				"the stamp the reconciler wrote must not schedule another reconcile")
+
+			// a body that also changes another field must notify
+			withStatus := after
+			withStatus.Status = util.Ptr("changed")
+			assert.True(t, tpapi.ObjectUpdateNotifiable(before, withStatus),
+				"a stamp that also changes another field must schedule a reconcile")
 		})
 	}
 }

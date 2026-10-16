@@ -321,9 +321,8 @@ func (h Handler) UpdateTerraformDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before update so the notify block
-	// can skip publishing when the update did not touch any state marker
-	prevReconciliation := existingTerraformDefinition.Reconciliation
+	// snapshot the object before the update so a later stamp can be compared to it
+	prevTerraformDefinition := api_v0.NotifySnapshot(existingTerraformDefinition)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -347,7 +346,7 @@ func (h Handler) UpdateTerraformDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingTerraformDefinition.Reconciliation) {
+	if api_v0.ObjectUpdateNotifiable(prevTerraformDefinition, existingTerraformDefinition) {
 		notifPayload, err := existingTerraformDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -423,9 +422,8 @@ func (h Handler) ReplaceTerraformDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before replace so the notify block
-	// can skip publishing when the replace did not touch any state marker
-	prevReconciliation := existingTerraformDefinition.Reconciliation
+	// snapshot the object before the replace so a later stamp can be compared to it
+	prevTerraformDefinition := api_v0.NotifySnapshot(existingTerraformDefinition)
 
 	// persist provided data
 	updatedTerraformDefinition.ID = existingTerraformDefinition.ID
@@ -459,7 +457,7 @@ func (h Handler) ReplaceTerraformDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingTerraformDefinition.Reconciliation) {
+	if api_v0.ObjectUpdateNotifiable(prevTerraformDefinition, existingTerraformDefinition) {
 		notifPayload, err := existingTerraformDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -917,9 +915,8 @@ func (h Handler) UpdateTerraformInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before update so the notify block
-	// can skip publishing when the update did not touch any state marker
-	prevReconciliation := existingTerraformInstance.Reconciliation
+	// snapshot the object before the update so a later stamp can be compared to it
+	prevTerraformInstance := api_v0.NotifySnapshot(existingTerraformInstance)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -943,7 +940,7 @@ func (h Handler) UpdateTerraformInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingTerraformInstance.Reconciliation) {
+	if api_v0.ObjectUpdateNotifiable(prevTerraformInstance, existingTerraformInstance) {
 		notifPayload, err := existingTerraformInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -1019,9 +1016,8 @@ func (h Handler) ReplaceTerraformInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before replace so the notify block
-	// can skip publishing when the replace did not touch any state marker
-	prevReconciliation := existingTerraformInstance.Reconciliation
+	// snapshot the object before the replace so a later stamp can be compared to it
+	prevTerraformInstance := api_v0.NotifySnapshot(existingTerraformInstance)
 
 	// persist provided data
 	updatedTerraformInstance.ID = existingTerraformInstance.ID
@@ -1055,7 +1051,7 @@ func (h Handler) ReplaceTerraformInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingTerraformInstance.Reconciliation) {
+	if api_v0.ObjectUpdateNotifiable(prevTerraformInstance, existingTerraformInstance) {
 		notifPayload, err := existingTerraformInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,

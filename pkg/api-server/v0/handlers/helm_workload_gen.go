@@ -321,9 +321,8 @@ func (h Handler) UpdateHelmWorkloadDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before update so the notify block
-	// can skip publishing when the update did not touch any state marker
-	prevReconciliation := existingHelmWorkloadDefinition.Reconciliation
+	// snapshot the object before the update so a later stamp can be compared to it
+	prevHelmWorkloadDefinition := api_v0.NotifySnapshot(existingHelmWorkloadDefinition)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -347,7 +346,7 @@ func (h Handler) UpdateHelmWorkloadDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingHelmWorkloadDefinition.Reconciliation) {
+	if api_v0.ObjectUpdateNotifiable(prevHelmWorkloadDefinition, existingHelmWorkloadDefinition) {
 		notifPayload, err := existingHelmWorkloadDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -423,9 +422,8 @@ func (h Handler) ReplaceHelmWorkloadDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before replace so the notify block
-	// can skip publishing when the replace did not touch any state marker
-	prevReconciliation := existingHelmWorkloadDefinition.Reconciliation
+	// snapshot the object before the replace so a later stamp can be compared to it
+	prevHelmWorkloadDefinition := api_v0.NotifySnapshot(existingHelmWorkloadDefinition)
 
 	// persist provided data
 	updatedHelmWorkloadDefinition.ID = existingHelmWorkloadDefinition.ID
@@ -459,7 +457,7 @@ func (h Handler) ReplaceHelmWorkloadDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingHelmWorkloadDefinition.Reconciliation) {
+	if api_v0.ObjectUpdateNotifiable(prevHelmWorkloadDefinition, existingHelmWorkloadDefinition) {
 		notifPayload, err := existingHelmWorkloadDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -917,9 +915,8 @@ func (h Handler) UpdateHelmWorkloadInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before update so the notify block
-	// can skip publishing when the update did not touch any state marker
-	prevReconciliation := existingHelmWorkloadInstance.Reconciliation
+	// snapshot the object before the update so a later stamp can be compared to it
+	prevHelmWorkloadInstance := api_v0.NotifySnapshot(existingHelmWorkloadInstance)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -943,7 +940,7 @@ func (h Handler) UpdateHelmWorkloadInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingHelmWorkloadInstance.Reconciliation) {
+	if api_v0.ObjectUpdateNotifiable(prevHelmWorkloadInstance, existingHelmWorkloadInstance) {
 		notifPayload, err := existingHelmWorkloadInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -1019,9 +1016,8 @@ func (h Handler) ReplaceHelmWorkloadInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before replace so the notify block
-	// can skip publishing when the replace did not touch any state marker
-	prevReconciliation := existingHelmWorkloadInstance.Reconciliation
+	// snapshot the object before the replace so a later stamp can be compared to it
+	prevHelmWorkloadInstance := api_v0.NotifySnapshot(existingHelmWorkloadInstance)
 
 	// persist provided data
 	updatedHelmWorkloadInstance.ID = existingHelmWorkloadInstance.ID
@@ -1055,7 +1051,7 @@ func (h Handler) ReplaceHelmWorkloadInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingHelmWorkloadInstance.Reconciliation) {
+	if api_v0.ObjectUpdateNotifiable(prevHelmWorkloadInstance, existingHelmWorkloadInstance) {
 		notifPayload, err := existingHelmWorkloadInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,

@@ -321,9 +321,8 @@ func (h Handler) UpdateSecretDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before update so the notify block
-	// can skip publishing when the update did not touch any state marker
-	prevReconciliation := existingSecretDefinition.Reconciliation
+	// snapshot the object before the update so a later stamp can be compared to it
+	prevSecretDefinition := api_v0.NotifySnapshot(existingSecretDefinition)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -347,7 +346,7 @@ func (h Handler) UpdateSecretDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingSecretDefinition.Reconciliation) {
+	if api_v0.ObjectUpdateNotifiable(prevSecretDefinition, existingSecretDefinition) {
 		notifPayload, err := existingSecretDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -423,9 +422,8 @@ func (h Handler) ReplaceSecretDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before replace so the notify block
-	// can skip publishing when the replace did not touch any state marker
-	prevReconciliation := existingSecretDefinition.Reconciliation
+	// snapshot the object before the replace so a later stamp can be compared to it
+	prevSecretDefinition := api_v0.NotifySnapshot(existingSecretDefinition)
 
 	// persist provided data
 	updatedSecretDefinition.ID = existingSecretDefinition.ID
@@ -459,7 +457,7 @@ func (h Handler) ReplaceSecretDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingSecretDefinition.Reconciliation) {
+	if api_v0.ObjectUpdateNotifiable(prevSecretDefinition, existingSecretDefinition) {
 		notifPayload, err := existingSecretDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -917,9 +915,8 @@ func (h Handler) UpdateSecretInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before update so the notify block
-	// can skip publishing when the update did not touch any state marker
-	prevReconciliation := existingSecretInstance.Reconciliation
+	// snapshot the object before the update so a later stamp can be compared to it
+	prevSecretInstance := api_v0.NotifySnapshot(existingSecretInstance)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -943,7 +940,7 @@ func (h Handler) UpdateSecretInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingSecretInstance.Reconciliation) {
+	if api_v0.ObjectUpdateNotifiable(prevSecretInstance, existingSecretInstance) {
 		notifPayload, err := existingSecretInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -1019,9 +1016,8 @@ func (h Handler) ReplaceSecretInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before replace so the notify block
-	// can skip publishing when the replace did not touch any state marker
-	prevReconciliation := existingSecretInstance.Reconciliation
+	// snapshot the object before the replace so a later stamp can be compared to it
+	prevSecretInstance := api_v0.NotifySnapshot(existingSecretInstance)
 
 	// persist provided data
 	updatedSecretInstance.ID = existingSecretInstance.ID
@@ -1055,7 +1051,7 @@ func (h Handler) ReplaceSecretInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingSecretInstance.Reconciliation) {
+	if api_v0.ObjectUpdateNotifiable(prevSecretInstance, existingSecretInstance) {
 		notifPayload, err := existingSecretInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,

@@ -1,6 +1,7 @@
 package v0
 
 import (
+	"reflect"
 	"time"
 
 	"gorm.io/gorm"
@@ -67,6 +68,193 @@ func ReconciliationStateChanged(a, b Reconciliation) bool {
 		!timePtrEqual(a.DeletionScheduled, b.DeletionScheduled) ||
 		!timePtrSet(a.DeletionAcknowledged, b.DeletionAcknowledged) ||
 		!timePtrEqual(a.DeletionConfirmed, b.DeletionConfirmed)
+}
+
+// NotifySnapshot returns a copy of a saved object.
+// GORM writes new column values through the object's existing pointers, so the copy must own its own.
+func NotifySnapshot[T any](object T) T {
+	copied := deepCopy(reflect.ValueOf(object))
+	value, ok := copied.Interface().(T)
+	if !ok {
+		return object
+	}
+	return value
+}
+
+// deepCopy returns a copy that does not share pointers with value.
+func deepCopy(value reflect.Value) reflect.Value {
+	if !value.IsValid() {
+		return value
+	}
+	if value.Type() == reflect.TypeOf(time.Time{}) {
+		return value
+	}
+
+	// copy each kind that can share a pointer
+	switch value.Kind() {
+	case reflect.Pointer:
+		if value.IsNil() {
+			return reflect.Zero(value.Type())
+		}
+		copied := reflect.New(value.Type().Elem())
+		copied.Elem().Set(deepCopy(value.Elem()))
+		return copied
+	case reflect.Struct:
+		copied := reflect.New(value.Type()).Elem()
+		for index := 0; index < value.NumField(); index++ {
+			if !value.Type().Field(index).IsExported() {
+				continue
+			}
+			copied.Field(index).Set(deepCopy(value.Field(index)))
+		}
+		return copied
+	case reflect.Slice:
+		if value.IsNil() {
+			return reflect.Zero(value.Type())
+		}
+		copied := reflect.MakeSlice(value.Type(), value.Len(), value.Len())
+		for index := 0; index < value.Len(); index++ {
+			copied.Index(index).Set(deepCopy(value.Index(index)))
+		}
+		return copied
+	case reflect.Array:
+		copied := reflect.New(value.Type()).Elem()
+		for index := 0; index < value.Len(); index++ {
+			copied.Index(index).Set(deepCopy(value.Index(index)))
+		}
+		return copied
+	case reflect.Map:
+		if value.IsNil() {
+			return reflect.Zero(value.Type())
+		}
+		copied := reflect.MakeMapWithSize(value.Type(), value.Len())
+		for _, key := range value.MapKeys() {
+			copied.SetMapIndex(deepCopy(key), deepCopy(value.MapIndex(key)))
+		}
+		return copied
+	default:
+		return value
+	}
+}
+
+// ObjectUpdateNotifiable reports whether a saved object should notify the controller.
+// A field outside reconciliation state notifies even when Reconciled becomes true.
+func ObjectUpdateNotifiable(before, after any) bool {
+	left, right, ok := persistedStructs(before, after)
+	if !ok {
+		return true
+	}
+
+	// notify when a field outside reconciliation state changed
+	if persistedFieldsChanged(left, right) {
+		return true
+	}
+
+	// compare reconciliation state when the rest of the object is unchanged
+	beforeState, beforeOK := reconciliationFrom(left)
+	afterState, afterOK := reconciliationFrom(right)
+	if !beforeOK || !afterOK {
+		return true
+	}
+	return ReconciliationUpdateNotifiable(beforeState, afterState)
+}
+
+// persistedFieldsChanged reports a saved-field change outside reconciliation state.
+// UpdatedAt moves on every write, so it is not one of those fields.
+func persistedFieldsChanged(left, right reflect.Value) bool {
+	return structFieldsChanged(left, right, true)
+}
+
+// structFieldsChanged reports an exported-field change.
+// skipReconciliation drops the embedded reconciliation state.
+func structFieldsChanged(left, right reflect.Value, skipReconciliation bool) bool {
+	// skip reconciliation state and UpdatedAt, then compare the other fields
+	objectType := left.Type()
+	for index := 0; index < objectType.NumField(); index++ {
+		field := objectType.Field(index)
+		if !field.IsExported() {
+			continue
+		}
+		if skipReconciliation && field.Type == reflect.TypeOf(Reconciliation{}) {
+			continue
+		}
+		if field.Name == "UpdatedAt" {
+			continue
+		}
+		if !fieldValuesEqual(left.Field(index), right.Field(index)) {
+			return true
+		}
+	}
+	return false
+}
+
+// fieldValuesEqual reports whether two saved field values match.
+func fieldValuesEqual(left, right reflect.Value) bool {
+	if !left.IsValid() || !right.IsValid() {
+		return left.IsValid() == right.IsValid()
+	}
+	if left.Type() != right.Type() {
+		return false
+	}
+
+	// compare instants without the monotonic clock or the location
+	if left.Type() == reflect.TypeOf(time.Time{}) {
+		return left.Interface().(time.Time).Equal(right.Interface().(time.Time))
+	}
+	if left.Type() == reflect.TypeOf((*time.Time)(nil)) {
+		return timePtrEqual(left.Interface().(*time.Time), right.Interface().(*time.Time))
+	}
+
+	// compare pointers and structs by their fields
+	switch left.Kind() {
+	case reflect.Pointer:
+		if left.IsNil() || right.IsNil() {
+			return left.IsNil() == right.IsNil()
+		}
+		return fieldValuesEqual(left.Elem(), right.Elem())
+	case reflect.Struct:
+		return !structFieldsChanged(left, right, false)
+	default:
+		return reflect.DeepEqual(left.Interface(), right.Interface())
+	}
+}
+
+// persistedStructs returns the struct values of the two saved objects.
+func persistedStructs(before, after any) (reflect.Value, reflect.Value, bool) {
+	left, leftOK := persistedStruct(before)
+	right, rightOK := persistedStruct(after)
+	if !leftOK || !rightOK || left.Type() != right.Type() {
+		return reflect.Value{}, reflect.Value{}, false
+	}
+	return left, right, true
+}
+
+// persistedStruct returns the struct a saved object value points at.
+func persistedStruct(object any) (reflect.Value, bool) {
+	value := reflect.ValueOf(object)
+	if !value.IsValid() {
+		return reflect.Value{}, false
+	}
+	for value.Kind() == reflect.Pointer {
+		if value.IsNil() {
+			return reflect.Value{}, false
+		}
+		value = value.Elem()
+	}
+	if value.Kind() != reflect.Struct {
+		return reflect.Value{}, false
+	}
+	return value, true
+}
+
+// reconciliationFrom returns the embedded reconciliation state.
+func reconciliationFrom(object reflect.Value) (Reconciliation, bool) {
+	field := object.FieldByName("Reconciliation")
+	if !field.IsValid() || field.Type() != reflect.TypeOf(Reconciliation{}) {
+		return Reconciliation{}, false
+	}
+	state, ok := field.Interface().(Reconciliation)
+	return state, ok
 }
 
 // ReconciliationUpdateNotifiable reports whether an update should notify the
