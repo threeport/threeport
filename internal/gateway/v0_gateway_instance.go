@@ -381,16 +381,9 @@ func validateThreeportState(
 		return fmt.Errorf("failed to reconcile gateway controller: %w", err)
 	}
 
-	// ensure gateway controller instance is reconciled
-	if kubernetesRuntimeInstance.GatewayControllerInstanceID == nil {
-		return fmt.Errorf("failed to determine if gateway controller instance is reconciled, gateway controller instance ID is nil")
-	}
-	gatewayControllerInstanceReconciled, err := confirmWorkloadInstanceReconciled(r, *kubernetesRuntimeInstance.GatewayControllerInstanceID)
-	if err != nil {
-		return fmt.Errorf("failed to determine if gateway controller instance is reconciled: %w", err)
-	}
-	if !gatewayControllerInstanceReconciled {
-		return errors.New("gateway controller instance not reconciled")
+	// the issuer is an API record. it does not wait for the controller pods.
+	if err := gatewayControllerPresent(kubernetesRuntimeInstance); err != nil {
+		return err
 	}
 
 	// confirm requested ports are exposed
@@ -399,6 +392,15 @@ func validateThreeportState(
 		return fmt.Errorf("failed to confirm requested port is exposed: %w", err)
 	}
 
+	return nil
+}
+
+// gatewayControllerPresent reports that the runtime stores a controller workload.
+// The issuer is an API record and does not wait for that workload to reconcile.
+func gatewayControllerPresent(kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance) error {
+	if kubernetesRuntimeInstance.GatewayControllerInstanceID == nil {
+		return fmt.Errorf("gateway controller instance ID is nil")
+	}
 	return nil
 }
 

@@ -169,6 +169,20 @@ func TestConfirmGatewayControllerDeployedAlreadySet(t *testing.T) {
 	}
 }
 
+// TestGatewayControllerPresentRequiresID accepts a stored controller id.
+func TestGatewayControllerPresentRequiresID(t *testing.T) {
+	err := gatewayControllerPresent(&v0.KubernetesRuntimeInstance{
+		GatewayControllerInstanceID: util.Ptr(uint(7)),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = gatewayControllerPresent(&v0.KubernetesRuntimeInstance{})
+	if err == nil {
+		t.Fatal("expected an error")
+	}
+}
+
 // TestConfirmGatewayPortsExposedRequiresController covers the missing controller id.
 func TestConfirmGatewayPortsExposedRequiresController(t *testing.T) {
 	err := confirmGatewayPortsExposed(nil, &v0.GatewayInstance{}, &v0.KubernetesRuntimeInstance{}, &v0.GatewayDefinition{}, nil)
