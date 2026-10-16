@@ -27,7 +27,7 @@ func CreateLockBucketIfNotExists(js nats.JetStreamContext, config *nats.KeyValue
 	//
 	// A key-value bucket is a stream named KV_<bucket>, and its TTL is that
 	// stream's MaxAge, so the alignment goes through the stream.
-	if err := alignLockBucketTTL(js, config); err != nil {
+	if err := alignLockBucketTTL(js, kv, config); err != nil {
 		return nil, err
 	}
 
@@ -36,7 +36,7 @@ func CreateLockBucketIfNotExists(js nats.JetStreamContext, config *nats.KeyValue
 
 // alignLockBucketTTL brings an existing bucket's expiry to the configured
 // one, and leaves everything else about the stream alone.
-func alignLockBucketTTL(js nats.JetStreamContext, config *nats.KeyValueConfig) error {
+func alignLockBucketTTL(js nats.JetStreamContext, kv nats.KeyValue, config *nats.KeyValueConfig) error {
 	streamName := fmt.Sprintf("KV_%s", config.Bucket)
 
 	info, err := js.StreamInfo(streamName)
@@ -45,6 +45,31 @@ func alignLockBucketTTL(js nats.JetStreamContext, config *nats.KeyValueConfig) e
 	}
 	if info.Config.MaxAge == config.TTL {
 		return nil
+	}
+
+	// Shortening the expiry is only safe when nothing is locked.
+	//
+	// The bucket is shared by every replica of a controller, and during a
+	// rolling upgrade that includes pods running the version before this one
+	// - which do not refresh what they hold. Shortening the expiry underneath
+	// one of those takes its lock away mid-reconcile, and a second worker
+	// picks up the same object; worse, the first one's release deletes by key
+	// and would take the second one's lock with it.
+	//
+	// So a shortening waits for a moment when the bucket is empty. Every
+	// controller start tries again, and the locks held during an upgrade are
+	// transient, so that moment arrives on its own. Lengthening is always
+	// safe and is not held back.
+	if config.TTL < info.Config.MaxAge {
+		held, err := kv.Keys()
+		if err != nil && !errors.Is(err, nats.ErrNoKeysFound) {
+			return fmt.Errorf("failed to check the lock bucket %s for held locks: %w", config.Bucket, err)
+		}
+		if len(held) > 0 {
+			// not an error: the next controller to start will find the bucket
+			// empty and shorten it then
+			return nil
+		}
 	}
 
 	updated := info.Config
