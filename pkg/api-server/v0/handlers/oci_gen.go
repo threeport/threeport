@@ -9,6 +9,7 @@ import (
 	notif "github.com/threeport/threeport/internal/oci/notif"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
+	api_v0_lib "github.com/threeport/threeport/pkg/api/v0/lib"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util_v0 "github.com/threeport/threeport/pkg/util/v0"
 	zap "go.uber.org/zap"
@@ -814,7 +815,7 @@ func (h Handler) UpdateOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 	}
 
 	// snapshot the object before the update so a later stamp can be compared to it
-	prevOciOkeKubernetesRuntimeInstance := api_v0.NotifySnapshot(existingOciOkeKubernetesRuntimeInstance)
+	prevOciOkeKubernetesRuntimeInstance := api_v0_lib.NotifySnapshot(existingOciOkeKubernetesRuntimeInstance)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -838,7 +839,7 @@ func (h Handler) UpdateOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevOciOkeKubernetesRuntimeInstance, existingOciOkeKubernetesRuntimeInstance)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevOciOkeKubernetesRuntimeInstance, existingOciOkeKubernetesRuntimeInstance)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
@@ -920,7 +921,7 @@ func (h Handler) ReplaceOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 	}
 
 	// snapshot the object before the replace so a later stamp can be compared to it
-	prevOciOkeKubernetesRuntimeInstance := api_v0.NotifySnapshot(existingOciOkeKubernetesRuntimeInstance)
+	prevOciOkeKubernetesRuntimeInstance := api_v0_lib.NotifySnapshot(existingOciOkeKubernetesRuntimeInstance)
 
 	// persist provided data
 	updatedOciOkeKubernetesRuntimeInstance.ID = existingOciOkeKubernetesRuntimeInstance.ID
@@ -954,7 +955,7 @@ func (h Handler) ReplaceOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevOciOkeKubernetesRuntimeInstance, existingOciOkeKubernetesRuntimeInstance)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevOciOkeKubernetesRuntimeInstance, existingOciOkeKubernetesRuntimeInstance)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))

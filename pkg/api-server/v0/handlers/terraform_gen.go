@@ -9,6 +9,7 @@ import (
 	notif "github.com/threeport/threeport/internal/terraform/notif"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
+	api_v0_lib "github.com/threeport/threeport/pkg/api/v0/lib"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util_v0 "github.com/threeport/threeport/pkg/util/v0"
 	zap "go.uber.org/zap"
@@ -322,7 +323,7 @@ func (h Handler) UpdateTerraformDefinition(c echo.Context) error {
 	}
 
 	// snapshot the object before the update so a later stamp can be compared to it
-	prevTerraformDefinition := api_v0.NotifySnapshot(existingTerraformDefinition)
+	prevTerraformDefinition := api_v0_lib.NotifySnapshot(existingTerraformDefinition)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -346,7 +347,7 @@ func (h Handler) UpdateTerraformDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevTerraformDefinition, existingTerraformDefinition)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevTerraformDefinition, existingTerraformDefinition)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
@@ -428,7 +429,7 @@ func (h Handler) ReplaceTerraformDefinition(c echo.Context) error {
 	}
 
 	// snapshot the object before the replace so a later stamp can be compared to it
-	prevTerraformDefinition := api_v0.NotifySnapshot(existingTerraformDefinition)
+	prevTerraformDefinition := api_v0_lib.NotifySnapshot(existingTerraformDefinition)
 
 	// persist provided data
 	updatedTerraformDefinition.ID = existingTerraformDefinition.ID
@@ -462,7 +463,7 @@ func (h Handler) ReplaceTerraformDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevTerraformDefinition, existingTerraformDefinition)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevTerraformDefinition, existingTerraformDefinition)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
@@ -926,7 +927,7 @@ func (h Handler) UpdateTerraformInstance(c echo.Context) error {
 	}
 
 	// snapshot the object before the update so a later stamp can be compared to it
-	prevTerraformInstance := api_v0.NotifySnapshot(existingTerraformInstance)
+	prevTerraformInstance := api_v0_lib.NotifySnapshot(existingTerraformInstance)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -950,7 +951,7 @@ func (h Handler) UpdateTerraformInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevTerraformInstance, existingTerraformInstance)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevTerraformInstance, existingTerraformInstance)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
@@ -1032,7 +1033,7 @@ func (h Handler) ReplaceTerraformInstance(c echo.Context) error {
 	}
 
 	// snapshot the object before the replace so a later stamp can be compared to it
-	prevTerraformInstance := api_v0.NotifySnapshot(existingTerraformInstance)
+	prevTerraformInstance := api_v0_lib.NotifySnapshot(existingTerraformInstance)
 
 	// persist provided data
 	updatedTerraformInstance.ID = existingTerraformInstance.ID
@@ -1066,7 +1067,7 @@ func (h Handler) ReplaceTerraformInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevTerraformInstance, existingTerraformInstance)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevTerraformInstance, existingTerraformInstance)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))

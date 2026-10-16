@@ -1,17 +1,18 @@
-package v0
+package lib
 
 import (
 	"reflect"
 	"testing"
 	"time"
 
+	api "github.com/threeport/threeport/pkg/api/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // notifiableObject is a saved object with one field outside reconciliation state.
 type notifiableObject struct {
-	Common
-	Reconciliation
+	api.Common
+	api.Reconciliation
 	ValuesDocument *string
 }
 
@@ -25,7 +26,7 @@ func TestObjectUpdateNotifiable(t *testing.T) {
 	newValues := "new"
 
 	before := notifiableObject{
-		Reconciliation: Reconciliation{
+		Reconciliation: api.Reconciliation{
 			Reconciled:           &no,
 			CreationAcknowledged: &earlier,
 		},
@@ -106,8 +107,8 @@ func TestNotifySnapshotIsolatesPointerFields(t *testing.T) {
 	values := "old"
 	reconciled := false
 	saved := notifiableObject{
-		Reconciliation: Reconciliation{Reconciled: &reconciled},
-		ValuesDocument: &values,
+		Reconciliation: api.Reconciliation{Reconciled: &reconciled},
+		ValuesDocument:     &values,
 	}
 	snapshot := NotifySnapshot(saved)
 
@@ -123,8 +124,8 @@ func TestNotifySnapshotIsolatesPointerFields(t *testing.T) {
 	stampValues := "old"
 	stampReconciled := false
 	stampSaved := notifiableObject{
-		Reconciliation: Reconciliation{Reconciled: &stampReconciled},
-		ValuesDocument: &stampValues,
+		Reconciliation: api.Reconciliation{Reconciled: &stampReconciled},
+		ValuesDocument:     &stampValues,
 	}
 	stampSnapshot := NotifySnapshot(stampSaved)
 	stampReconciled = true
@@ -138,29 +139,29 @@ func TestReconciliationUpdateNotifiable(t *testing.T) {
 	no := false
 
 	// a restamped acknowledgement must not notify
-	restamped := Reconciliation{Reconciled: &no, CreationAcknowledged: &earlier}
-	after := Reconciliation{Reconciled: &no, CreationAcknowledged: &later}
+	restamped := api.Reconciliation{Reconciled: &no, CreationAcknowledged: &earlier}
+	after := api.Reconciliation{Reconciled: &no, CreationAcknowledged: &later}
 	if ReconciliationUpdateNotifiable(restamped, after) {
 		t.Errorf("a refreshed acknowledgement alone must not notify; that is the publish loop")
 	}
 
 	// notify when both snapshots are equal
-	unchanged := Reconciliation{Reconciled: &no, CreationAcknowledged: &earlier}
+	unchanged := api.Reconciliation{Reconciled: &no, CreationAcknowledged: &earlier}
 	if !ReconciliationUpdateNotifiable(unchanged, unchanged) {
 		t.Errorf("a spec edit leaves reconciliation state equal and must still notify")
 	}
 
 	// a moved state marker must notify
-	failed := Reconciliation{Reconciled: &no, CreationAcknowledged: &earlier}
+	failed := api.Reconciliation{Reconciled: &no, CreationAcknowledged: &earlier}
 	yes := true
-	nowFailed := Reconciliation{Reconciled: &no, CreationAcknowledged: &earlier, CreationFailed: &yes}
+	nowFailed := api.Reconciliation{Reconciled: &no, CreationAcknowledged: &earlier, CreationFailed: &yes}
 	if !ReconciliationUpdateNotifiable(failed, nowFailed) {
 		t.Errorf("a moved state marker must notify")
 	}
 
 	// the controller's stamp of Reconciled to true must not notify
-	unstamped := Reconciliation{Reconciled: &no, CreationAcknowledged: &earlier}
-	stamped := Reconciliation{Reconciled: &yes, CreationAcknowledged: &earlier}
+	unstamped := api.Reconciliation{Reconciled: &no, CreationAcknowledged: &earlier}
+	stamped := api.Reconciliation{Reconciled: &yes, CreationAcknowledged: &earlier}
 	if ReconciliationUpdateNotifiable(unstamped, stamped) {
 		t.Errorf("a Reconciled stamp must not schedule another reconcile")
 	}
@@ -171,7 +172,7 @@ func TestReconciliationUpdateNotifiable(t *testing.T) {
 	}
 
 	// a stamp that also moves another marker must notify
-	stampedAndFailed := Reconciliation{Reconciled: &yes, CreationAcknowledged: &earlier, CreationFailed: &yes}
+	stampedAndFailed := api.Reconciliation{Reconciled: &yes, CreationAcknowledged: &earlier, CreationFailed: &yes}
 	if !ReconciliationUpdateNotifiable(unstamped, stampedAndFailed) {
 		t.Errorf("a stamp that also moves another marker must notify")
 	}
@@ -229,7 +230,7 @@ func TestChangeDetection(t *testing.T) {
 	if reflect.DeepEqual(cipherA, cipherB) {
 		t.Fatalf("test setup: expected differing ciphertexts")
 	}
-	t.Logf("byte-slice pair with differing ciphertexts: no helper on Reconciliation; naive DeepEqual = false")
+	t.Logf("byte-slice pair with differing ciphertexts: no helper on api.Reconciliation; naive DeepEqual = false")
 
 	// check identical Reconciliations
 	base := makeReconciliation(true, false, instant, instant, instant, instant, instant)
@@ -261,11 +262,11 @@ func TestChangeDetection(t *testing.T) {
 	}
 
 	// check unset to set CreationConfirmed
-	noConfirm := Reconciliation{
+	noConfirm := api.Reconciliation{
 		Reconciled:           util.Ptr(true),
 		CreationAcknowledged: util.Ptr(instant),
 	}
-	withConfirm := Reconciliation{
+	withConfirm := api.Reconciliation{
 		Reconciled:           util.Ptr(true),
 		CreationAcknowledged: util.Ptr(instant),
 		CreationConfirmed:    util.Ptr(instant),
@@ -275,8 +276,8 @@ func TestChangeDetection(t *testing.T) {
 	}
 
 	// check a Reconciled flip
-	unreconciled := Reconciliation{Reconciled: util.Ptr(false)}
-	reconciled := Reconciliation{Reconciled: util.Ptr(true)}
+	unreconciled := api.Reconciliation{Reconciled: util.Ptr(false)}
+	reconciled := api.Reconciliation{Reconciled: util.Ptr(true)}
 	if got := ReconciliationStateChanged(unreconciled, reconciled); !got {
 		t.Errorf("ReconciliationStateChanged(Reconciled flip) = false, want true")
 	}
@@ -286,8 +287,8 @@ func TestChangeDetection(t *testing.T) {
 func makeReconciliation(
 	reconciled, creationFailed bool,
 	creationAck, creationConfirmed, deletionScheduled, deletionAck, deletionConfirmed time.Time,
-) Reconciliation {
-	return Reconciliation{
+) api.Reconciliation {
+	return api.Reconciliation{
 		Reconciled:           util.Ptr(reconciled),
 		CreationAcknowledged: util.Ptr(creationAck),
 		CreationConfirmed:    util.Ptr(creationConfirmed),

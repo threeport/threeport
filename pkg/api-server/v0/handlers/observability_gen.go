@@ -9,6 +9,7 @@ import (
 	notif "github.com/threeport/threeport/internal/observability/notif"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
+	api_v0_lib "github.com/threeport/threeport/pkg/api/v0/lib"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util_v0 "github.com/threeport/threeport/pkg/util/v0"
 	zap "go.uber.org/zap"
@@ -322,7 +323,7 @@ func (h Handler) UpdateLoggingDefinition(c echo.Context) error {
 	}
 
 	// snapshot the object before the update so a later stamp can be compared to it
-	prevLoggingDefinition := api_v0.NotifySnapshot(existingLoggingDefinition)
+	prevLoggingDefinition := api_v0_lib.NotifySnapshot(existingLoggingDefinition)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -346,7 +347,7 @@ func (h Handler) UpdateLoggingDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevLoggingDefinition, existingLoggingDefinition)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevLoggingDefinition, existingLoggingDefinition)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
@@ -428,7 +429,7 @@ func (h Handler) ReplaceLoggingDefinition(c echo.Context) error {
 	}
 
 	// snapshot the object before the replace so a later stamp can be compared to it
-	prevLoggingDefinition := api_v0.NotifySnapshot(existingLoggingDefinition)
+	prevLoggingDefinition := api_v0_lib.NotifySnapshot(existingLoggingDefinition)
 
 	// persist provided data
 	updatedLoggingDefinition.ID = existingLoggingDefinition.ID
@@ -462,7 +463,7 @@ func (h Handler) ReplaceLoggingDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevLoggingDefinition, existingLoggingDefinition)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevLoggingDefinition, existingLoggingDefinition)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
@@ -926,7 +927,7 @@ func (h Handler) UpdateLoggingInstance(c echo.Context) error {
 	}
 
 	// snapshot the object before the update so a later stamp can be compared to it
-	prevLoggingInstance := api_v0.NotifySnapshot(existingLoggingInstance)
+	prevLoggingInstance := api_v0_lib.NotifySnapshot(existingLoggingInstance)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -950,7 +951,7 @@ func (h Handler) UpdateLoggingInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevLoggingInstance, existingLoggingInstance)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevLoggingInstance, existingLoggingInstance)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
@@ -1032,7 +1033,7 @@ func (h Handler) ReplaceLoggingInstance(c echo.Context) error {
 	}
 
 	// snapshot the object before the replace so a later stamp can be compared to it
-	prevLoggingInstance := api_v0.NotifySnapshot(existingLoggingInstance)
+	prevLoggingInstance := api_v0_lib.NotifySnapshot(existingLoggingInstance)
 
 	// persist provided data
 	updatedLoggingInstance.ID = existingLoggingInstance.ID
@@ -1066,7 +1067,7 @@ func (h Handler) ReplaceLoggingInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevLoggingInstance, existingLoggingInstance)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevLoggingInstance, existingLoggingInstance)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
@@ -1524,7 +1525,7 @@ func (h Handler) UpdateMetricsDefinition(c echo.Context) error {
 	}
 
 	// snapshot the object before the update so a later stamp can be compared to it
-	prevMetricsDefinition := api_v0.NotifySnapshot(existingMetricsDefinition)
+	prevMetricsDefinition := api_v0_lib.NotifySnapshot(existingMetricsDefinition)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -1548,7 +1549,7 @@ func (h Handler) UpdateMetricsDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevMetricsDefinition, existingMetricsDefinition)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevMetricsDefinition, existingMetricsDefinition)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
@@ -1630,7 +1631,7 @@ func (h Handler) ReplaceMetricsDefinition(c echo.Context) error {
 	}
 
 	// snapshot the object before the replace so a later stamp can be compared to it
-	prevMetricsDefinition := api_v0.NotifySnapshot(existingMetricsDefinition)
+	prevMetricsDefinition := api_v0_lib.NotifySnapshot(existingMetricsDefinition)
 
 	// persist provided data
 	updatedMetricsDefinition.ID = existingMetricsDefinition.ID
@@ -1664,7 +1665,7 @@ func (h Handler) ReplaceMetricsDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevMetricsDefinition, existingMetricsDefinition)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevMetricsDefinition, existingMetricsDefinition)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
@@ -2128,7 +2129,7 @@ func (h Handler) UpdateMetricsInstance(c echo.Context) error {
 	}
 
 	// snapshot the object before the update so a later stamp can be compared to it
-	prevMetricsInstance := api_v0.NotifySnapshot(existingMetricsInstance)
+	prevMetricsInstance := api_v0_lib.NotifySnapshot(existingMetricsInstance)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -2152,7 +2153,7 @@ func (h Handler) UpdateMetricsInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevMetricsInstance, existingMetricsInstance)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevMetricsInstance, existingMetricsInstance)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
@@ -2234,7 +2235,7 @@ func (h Handler) ReplaceMetricsInstance(c echo.Context) error {
 	}
 
 	// snapshot the object before the replace so a later stamp can be compared to it
-	prevMetricsInstance := api_v0.NotifySnapshot(existingMetricsInstance)
+	prevMetricsInstance := api_v0_lib.NotifySnapshot(existingMetricsInstance)
 
 	// persist provided data
 	updatedMetricsInstance.ID = existingMetricsInstance.ID
@@ -2268,7 +2269,7 @@ func (h Handler) ReplaceMetricsInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevMetricsInstance, existingMetricsInstance)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevMetricsInstance, existingMetricsInstance)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
@@ -2726,7 +2727,7 @@ func (h Handler) UpdateObservabilityDashboardDefinition(c echo.Context) error {
 	}
 
 	// snapshot the object before the update so a later stamp can be compared to it
-	prevObservabilityDashboardDefinition := api_v0.NotifySnapshot(existingObservabilityDashboardDefinition)
+	prevObservabilityDashboardDefinition := api_v0_lib.NotifySnapshot(existingObservabilityDashboardDefinition)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -2750,7 +2751,7 @@ func (h Handler) UpdateObservabilityDashboardDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevObservabilityDashboardDefinition, existingObservabilityDashboardDefinition)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevObservabilityDashboardDefinition, existingObservabilityDashboardDefinition)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
@@ -2832,7 +2833,7 @@ func (h Handler) ReplaceObservabilityDashboardDefinition(c echo.Context) error {
 	}
 
 	// snapshot the object before the replace so a later stamp can be compared to it
-	prevObservabilityDashboardDefinition := api_v0.NotifySnapshot(existingObservabilityDashboardDefinition)
+	prevObservabilityDashboardDefinition := api_v0_lib.NotifySnapshot(existingObservabilityDashboardDefinition)
 
 	// persist provided data
 	updatedObservabilityDashboardDefinition.ID = existingObservabilityDashboardDefinition.ID
@@ -2866,7 +2867,7 @@ func (h Handler) ReplaceObservabilityDashboardDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevObservabilityDashboardDefinition, existingObservabilityDashboardDefinition)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevObservabilityDashboardDefinition, existingObservabilityDashboardDefinition)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
@@ -3330,7 +3331,7 @@ func (h Handler) UpdateObservabilityDashboardInstance(c echo.Context) error {
 	}
 
 	// snapshot the object before the update so a later stamp can be compared to it
-	prevObservabilityDashboardInstance := api_v0.NotifySnapshot(existingObservabilityDashboardInstance)
+	prevObservabilityDashboardInstance := api_v0_lib.NotifySnapshot(existingObservabilityDashboardInstance)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -3354,7 +3355,7 @@ func (h Handler) UpdateObservabilityDashboardInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevObservabilityDashboardInstance, existingObservabilityDashboardInstance)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevObservabilityDashboardInstance, existingObservabilityDashboardInstance)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
@@ -3436,7 +3437,7 @@ func (h Handler) ReplaceObservabilityDashboardInstance(c echo.Context) error {
 	}
 
 	// snapshot the object before the replace so a later stamp can be compared to it
-	prevObservabilityDashboardInstance := api_v0.NotifySnapshot(existingObservabilityDashboardInstance)
+	prevObservabilityDashboardInstance := api_v0_lib.NotifySnapshot(existingObservabilityDashboardInstance)
 
 	// persist provided data
 	updatedObservabilityDashboardInstance.ID = existingObservabilityDashboardInstance.ID
@@ -3470,7 +3471,7 @@ func (h Handler) ReplaceObservabilityDashboardInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevObservabilityDashboardInstance, existingObservabilityDashboardInstance)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevObservabilityDashboardInstance, existingObservabilityDashboardInstance)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
@@ -3928,7 +3929,7 @@ func (h Handler) UpdateObservabilityStackDefinition(c echo.Context) error {
 	}
 
 	// snapshot the object before the update so a later stamp can be compared to it
-	prevObservabilityStackDefinition := api_v0.NotifySnapshot(existingObservabilityStackDefinition)
+	prevObservabilityStackDefinition := api_v0_lib.NotifySnapshot(existingObservabilityStackDefinition)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -3952,7 +3953,7 @@ func (h Handler) UpdateObservabilityStackDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevObservabilityStackDefinition, existingObservabilityStackDefinition)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevObservabilityStackDefinition, existingObservabilityStackDefinition)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
@@ -4034,7 +4035,7 @@ func (h Handler) ReplaceObservabilityStackDefinition(c echo.Context) error {
 	}
 
 	// snapshot the object before the replace so a later stamp can be compared to it
-	prevObservabilityStackDefinition := api_v0.NotifySnapshot(existingObservabilityStackDefinition)
+	prevObservabilityStackDefinition := api_v0_lib.NotifySnapshot(existingObservabilityStackDefinition)
 
 	// persist provided data
 	updatedObservabilityStackDefinition.ID = existingObservabilityStackDefinition.ID
@@ -4068,7 +4069,7 @@ func (h Handler) ReplaceObservabilityStackDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevObservabilityStackDefinition, existingObservabilityStackDefinition)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevObservabilityStackDefinition, existingObservabilityStackDefinition)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
@@ -4532,7 +4533,7 @@ func (h Handler) UpdateObservabilityStackInstance(c echo.Context) error {
 	}
 
 	// snapshot the object before the update so a later stamp can be compared to it
-	prevObservabilityStackInstance := api_v0.NotifySnapshot(existingObservabilityStackInstance)
+	prevObservabilityStackInstance := api_v0_lib.NotifySnapshot(existingObservabilityStackInstance)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -4556,7 +4557,7 @@ func (h Handler) UpdateObservabilityStackInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevObservabilityStackInstance, existingObservabilityStackInstance)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevObservabilityStackInstance, existingObservabilityStackInstance)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
@@ -4638,7 +4639,7 @@ func (h Handler) ReplaceObservabilityStackInstance(c echo.Context) error {
 	}
 
 	// snapshot the object before the replace so a later stamp can be compared to it
-	prevObservabilityStackInstance := api_v0.NotifySnapshot(existingObservabilityStackInstance)
+	prevObservabilityStackInstance := api_v0_lib.NotifySnapshot(existingObservabilityStackInstance)
 
 	// persist provided data
 	updatedObservabilityStackInstance.ID = existingObservabilityStackInstance.ID
@@ -4672,7 +4673,7 @@ func (h Handler) ReplaceObservabilityStackInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevObservabilityStackInstance, existingObservabilityStackInstance)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevObservabilityStackInstance, existingObservabilityStackInstance)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))

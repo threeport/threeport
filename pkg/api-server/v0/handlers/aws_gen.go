@@ -9,6 +9,7 @@ import (
 	notif "github.com/threeport/threeport/internal/aws/notif"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
+	api_v0_lib "github.com/threeport/threeport/pkg/api/v0/lib"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util_v0 "github.com/threeport/threeport/pkg/util/v0"
 	zap "go.uber.org/zap"
@@ -814,7 +815,7 @@ func (h Handler) UpdateAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 	}
 
 	// snapshot the object before the update so a later stamp can be compared to it
-	prevAwsEksKubernetesRuntimeInstance := api_v0.NotifySnapshot(existingAwsEksKubernetesRuntimeInstance)
+	prevAwsEksKubernetesRuntimeInstance := api_v0_lib.NotifySnapshot(existingAwsEksKubernetesRuntimeInstance)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -838,7 +839,7 @@ func (h Handler) UpdateAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevAwsEksKubernetesRuntimeInstance, existingAwsEksKubernetesRuntimeInstance)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevAwsEksKubernetesRuntimeInstance, existingAwsEksKubernetesRuntimeInstance)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
@@ -920,7 +921,7 @@ func (h Handler) ReplaceAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 	}
 
 	// snapshot the object before the replace so a later stamp can be compared to it
-	prevAwsEksKubernetesRuntimeInstance := api_v0.NotifySnapshot(existingAwsEksKubernetesRuntimeInstance)
+	prevAwsEksKubernetesRuntimeInstance := api_v0_lib.NotifySnapshot(existingAwsEksKubernetesRuntimeInstance)
 
 	// persist provided data
 	updatedAwsEksKubernetesRuntimeInstance.ID = existingAwsEksKubernetesRuntimeInstance.ID
@@ -954,7 +955,7 @@ func (h Handler) ReplaceAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevAwsEksKubernetesRuntimeInstance, existingAwsEksKubernetesRuntimeInstance)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevAwsEksKubernetesRuntimeInstance, existingAwsEksKubernetesRuntimeInstance)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
