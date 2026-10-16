@@ -21,6 +21,7 @@ import (
 	api "github.com/threeport/threeport/internal/reconcilertest/pkg/api/v0"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	tpapi "github.com/threeport/threeport/pkg/api/v0"
+	tpapi_lib "github.com/threeport/threeport/pkg/api/v0/lib"
 	tpclient_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	event "github.com/threeport/threeport/pkg/event/v0"
@@ -463,14 +464,14 @@ func TestUpdateStampsReconciledWhenNotTrue(t *testing.T) {
 			assert.True(t, *patched.Reconciled)
 			after := before
 			after.Reconciled = patched.Reconciled
-			notify, changed := tpapi.ObjectUpdateNotifiable(before, after)
+			notify, changed := tpapi_lib.ObjectUpdateNotifiable(before, after)
 			assert.False(t, notify, "the stamp the reconciler wrote must not schedule another reconcile")
 			assert.Empty(t, changed)
 
 			// a body that also changes another field still must not notify
 			withStatus := after
 			withStatus.Status = util.Ptr("changed")
-			notify, changed = tpapi.ObjectUpdateNotifiable(before, withStatus)
+			notify, changed = tpapi_lib.ObjectUpdateNotifiable(before, withStatus)
 			assert.False(t, notify, "Reconciled becoming true must not schedule a reconcile")
 			assert.Equal(t, []string{"Status"}, changed)
 		})

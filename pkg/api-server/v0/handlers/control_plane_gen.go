@@ -9,6 +9,7 @@ import (
 	notif "github.com/threeport/threeport/internal/control-plane/notif"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
+	api_v0_lib "github.com/threeport/threeport/pkg/api/v0/lib"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util_v0 "github.com/threeport/threeport/pkg/util/v0"
 	zap "go.uber.org/zap"
@@ -323,7 +324,7 @@ func (h Handler) UpdateControlPlaneDefinition(c echo.Context) error {
 	}
 
 	// snapshot the object before the update so a later stamp can be compared to it
-	prevControlPlaneDefinition := api_v0.NotifySnapshot(existingControlPlaneDefinition)
+	prevControlPlaneDefinition := api_v0_lib.NotifySnapshot(existingControlPlaneDefinition)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -347,7 +348,7 @@ func (h Handler) UpdateControlPlaneDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevControlPlaneDefinition, existingControlPlaneDefinition)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevControlPlaneDefinition, existingControlPlaneDefinition)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
@@ -429,7 +430,7 @@ func (h Handler) ReplaceControlPlaneDefinition(c echo.Context) error {
 	}
 
 	// snapshot the object before the replace so a later stamp can be compared to it
-	prevControlPlaneDefinition := api_v0.NotifySnapshot(existingControlPlaneDefinition)
+	prevControlPlaneDefinition := api_v0_lib.NotifySnapshot(existingControlPlaneDefinition)
 
 	// persist provided data
 	updatedControlPlaneDefinition.ID = existingControlPlaneDefinition.ID
@@ -463,7 +464,7 @@ func (h Handler) ReplaceControlPlaneDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevControlPlaneDefinition, existingControlPlaneDefinition)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevControlPlaneDefinition, existingControlPlaneDefinition)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
@@ -927,7 +928,7 @@ func (h Handler) UpdateControlPlaneInstance(c echo.Context) error {
 	}
 
 	// snapshot the object before the update so a later stamp can be compared to it
-	prevControlPlaneInstance := api_v0.NotifySnapshot(existingControlPlaneInstance)
+	prevControlPlaneInstance := api_v0_lib.NotifySnapshot(existingControlPlaneInstance)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -951,7 +952,7 @@ func (h Handler) UpdateControlPlaneInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevControlPlaneInstance, existingControlPlaneInstance)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevControlPlaneInstance, existingControlPlaneInstance)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
@@ -1033,7 +1034,7 @@ func (h Handler) ReplaceControlPlaneInstance(c echo.Context) error {
 	}
 
 	// snapshot the object before the replace so a later stamp can be compared to it
-	prevControlPlaneInstance := api_v0.NotifySnapshot(existingControlPlaneInstance)
+	prevControlPlaneInstance := api_v0_lib.NotifySnapshot(existingControlPlaneInstance)
 
 	// persist provided data
 	updatedControlPlaneInstance.ID = existingControlPlaneInstance.ID
@@ -1067,7 +1068,7 @@ func (h Handler) ReplaceControlPlaneInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevControlPlaneInstance, existingControlPlaneInstance)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevControlPlaneInstance, existingControlPlaneInstance)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))

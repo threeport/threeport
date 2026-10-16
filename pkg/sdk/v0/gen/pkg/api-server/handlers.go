@@ -60,6 +60,12 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				gen.Module,
 			))
 			f.ImportAlias(util.SetImportAlias(
+				"github.com/threeport/threeport/pkg/api/v0/lib",
+				"api_v0_lib",
+				"tpapi_v0_lib",
+				gen.Module,
+			))
+			f.ImportAlias(util.SetImportAlias(
 				"github.com/threeport/threeport/pkg/util/v0",
 				"util_v0",
 				"tputil_v0",
@@ -139,7 +145,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					notifyControllersUpdateHandler = Comment("notify controller if the update is notifiable")
 					notifyControllersUpdateHandler.Line()
 					notifyControllersUpdateHandler.List(Id("notify"), Id("changed")).Op(":=").Qual(
-						"github.com/threeport/threeport/pkg/api/v0",
+						"github.com/threeport/threeport/pkg/api/v0/lib",
 						"ObjectUpdateNotifiable",
 					).Call(
 						Id("prev"+apiObject.TypeName),
@@ -1527,7 +1533,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						g.Line()
 						g.Comment("snapshot the object before the update so a later stamp can be compared to it")
 						g.Id("prev"+apiObject.TypeName).Op(":=").Qual(
-							"github.com/threeport/threeport/pkg/api/v0",
+							"github.com/threeport/threeport/pkg/api/v0/lib",
 							"NotifySnapshot",
 						).Call(
 							Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
@@ -1862,7 +1868,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						g.Line()
 						g.Comment("snapshot the object before the replace so a later stamp can be compared to it")
 						g.Id("prev"+apiObject.TypeName).Op(":=").Qual(
-							"github.com/threeport/threeport/pkg/api/v0",
+							"github.com/threeport/threeport/pkg/api/v0/lib",
 							"NotifySnapshot",
 						).Call(
 							Id(fmt.Sprintf("existing%s", apiObject.TypeName)),

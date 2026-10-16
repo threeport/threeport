@@ -9,6 +9,7 @@ import (
 	notif "github.com/threeport/threeport/internal/kubernetes-runtime/notif"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
+	api_v0_lib "github.com/threeport/threeport/pkg/api/v0/lib"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util_v0 "github.com/threeport/threeport/pkg/util/v0"
 	zap "go.uber.org/zap"
@@ -322,7 +323,7 @@ func (h Handler) UpdateKubernetesRuntimeDefinition(c echo.Context) error {
 	}
 
 	// snapshot the object before the update so a later stamp can be compared to it
-	prevKubernetesRuntimeDefinition := api_v0.NotifySnapshot(existingKubernetesRuntimeDefinition)
+	prevKubernetesRuntimeDefinition := api_v0_lib.NotifySnapshot(existingKubernetesRuntimeDefinition)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -346,7 +347,7 @@ func (h Handler) UpdateKubernetesRuntimeDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevKubernetesRuntimeDefinition, existingKubernetesRuntimeDefinition)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevKubernetesRuntimeDefinition, existingKubernetesRuntimeDefinition)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
@@ -428,7 +429,7 @@ func (h Handler) ReplaceKubernetesRuntimeDefinition(c echo.Context) error {
 	}
 
 	// snapshot the object before the replace so a later stamp can be compared to it
-	prevKubernetesRuntimeDefinition := api_v0.NotifySnapshot(existingKubernetesRuntimeDefinition)
+	prevKubernetesRuntimeDefinition := api_v0_lib.NotifySnapshot(existingKubernetesRuntimeDefinition)
 
 	// persist provided data
 	updatedKubernetesRuntimeDefinition.ID = existingKubernetesRuntimeDefinition.ID
@@ -462,7 +463,7 @@ func (h Handler) ReplaceKubernetesRuntimeDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevKubernetesRuntimeDefinition, existingKubernetesRuntimeDefinition)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevKubernetesRuntimeDefinition, existingKubernetesRuntimeDefinition)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
@@ -926,7 +927,7 @@ func (h Handler) UpdateKubernetesRuntimeInstance(c echo.Context) error {
 	}
 
 	// snapshot the object before the update so a later stamp can be compared to it
-	prevKubernetesRuntimeInstance := api_v0.NotifySnapshot(existingKubernetesRuntimeInstance)
+	prevKubernetesRuntimeInstance := api_v0_lib.NotifySnapshot(existingKubernetesRuntimeInstance)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -950,7 +951,7 @@ func (h Handler) UpdateKubernetesRuntimeInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevKubernetesRuntimeInstance, existingKubernetesRuntimeInstance)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevKubernetesRuntimeInstance, existingKubernetesRuntimeInstance)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
@@ -1032,7 +1033,7 @@ func (h Handler) ReplaceKubernetesRuntimeInstance(c echo.Context) error {
 	}
 
 	// snapshot the object before the replace so a later stamp can be compared to it
-	prevKubernetesRuntimeInstance := api_v0.NotifySnapshot(existingKubernetesRuntimeInstance)
+	prevKubernetesRuntimeInstance := api_v0_lib.NotifySnapshot(existingKubernetesRuntimeInstance)
 
 	// persist provided data
 	updatedKubernetesRuntimeInstance.ID = existingKubernetesRuntimeInstance.ID
@@ -1066,7 +1067,7 @@ func (h Handler) ReplaceKubernetesRuntimeInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevKubernetesRuntimeInstance, existingKubernetesRuntimeInstance)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevKubernetesRuntimeInstance, existingKubernetesRuntimeInstance)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))

@@ -1,14 +1,16 @@
-package v0
+package lib
 
 import (
 	"reflect"
 	"time"
+
+	api "github.com/threeport/threeport/pkg/api/v0"
 )
 
 // ReconciliationStateChanged reports whether progress markers differ.
 // Acknowledgement timestamps count as set or unset only. InterruptReconciliation
 // is ignored; it is a gate, not progress.
-func ReconciliationStateChanged(a, b Reconciliation) bool {
+func ReconciliationStateChanged(a, b api.Reconciliation) bool {
 	return !boolPtrEqual(a.Reconciled, b.Reconciled) ||
 		!timePtrSet(a.CreationAcknowledged, b.CreationAcknowledged) ||
 		!timePtrEqual(a.CreationConfirmed, b.CreationConfirmed) ||
@@ -144,7 +146,7 @@ func structFieldsChanged(left, right reflect.Value, skipReconciliation bool) boo
 		if !field.IsExported() {
 			continue
 		}
-		if skipReconciliation && field.Type == reflect.TypeOf(Reconciliation{}) {
+		if skipReconciliation && field.Type == reflect.TypeOf(api.Reconciliation{}) {
 			continue
 		}
 		if field.Name == "UpdatedAt" {
@@ -217,12 +219,12 @@ func persistedStruct(object any) (reflect.Value, bool) {
 }
 
 // reconciliationFrom returns the embedded reconciliation state.
-func reconciliationFrom(object reflect.Value) (Reconciliation, bool) {
+func reconciliationFrom(object reflect.Value) (api.Reconciliation, bool) {
 	field := object.FieldByName("Reconciliation")
-	if !field.IsValid() || field.Type() != reflect.TypeOf(Reconciliation{}) {
-		return Reconciliation{}, false
+	if !field.IsValid() || field.Type() != reflect.TypeOf(api.Reconciliation{}) {
+		return api.Reconciliation{}, false
 	}
-	state, ok := field.Interface().(Reconciliation)
+	state, ok := field.Interface().(api.Reconciliation)
 	return state, ok
 }
 
@@ -230,7 +232,7 @@ func reconciliationFrom(object reflect.Value) (Reconciliation, bool) {
 // controller. Spec edits notify even when markers are unchanged. A restamped
 // acknowledgement does not, and neither does the controller's own stamp of
 // Reconciled to true.
-func ReconciliationUpdateNotifiable(a, b Reconciliation) bool {
+func ReconciliationUpdateNotifiable(a, b api.Reconciliation) bool {
 	if reconciledStampOnly(a, b) {
 		return false
 	}
@@ -242,7 +244,7 @@ func ReconciliationUpdateNotifiable(a, b Reconciliation) bool {
 
 // reconciledStampOnly reports a write whose only marker change is Reconciled
 // becoming true.
-func reconciledStampOnly(a, b Reconciliation) bool {
+func reconciledStampOnly(a, b api.Reconciliation) bool {
 	if !b.AlreadyReconciled() || a.AlreadyReconciled() {
 		return false
 	}
@@ -254,7 +256,7 @@ func reconciledStampOnly(a, b Reconciliation) bool {
 }
 
 // acknowledgementRefreshed reports a restamped creation or deletion acknowledgement.
-func acknowledgementRefreshed(a, b Reconciliation) bool {
+func acknowledgementRefreshed(a, b api.Reconciliation) bool {
 	return timePtrRefreshed(a.CreationAcknowledged, b.CreationAcknowledged) ||
 		timePtrRefreshed(a.DeletionAcknowledged, b.DeletionAcknowledged)
 }

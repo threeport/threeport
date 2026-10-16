@@ -9,6 +9,7 @@ import (
 	notif "github.com/threeport/threeport/internal/gateway/notif"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
+	api_v0_lib "github.com/threeport/threeport/pkg/api/v0/lib"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util_v0 "github.com/threeport/threeport/pkg/util/v0"
 	zap "go.uber.org/zap"
@@ -814,7 +815,7 @@ func (h Handler) UpdateDomainNameInstance(c echo.Context) error {
 	}
 
 	// snapshot the object before the update so a later stamp can be compared to it
-	prevDomainNameInstance := api_v0.NotifySnapshot(existingDomainNameInstance)
+	prevDomainNameInstance := api_v0_lib.NotifySnapshot(existingDomainNameInstance)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -838,7 +839,7 @@ func (h Handler) UpdateDomainNameInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevDomainNameInstance, existingDomainNameInstance)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevDomainNameInstance, existingDomainNameInstance)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
@@ -920,7 +921,7 @@ func (h Handler) ReplaceDomainNameInstance(c echo.Context) error {
 	}
 
 	// snapshot the object before the replace so a later stamp can be compared to it
-	prevDomainNameInstance := api_v0.NotifySnapshot(existingDomainNameInstance)
+	prevDomainNameInstance := api_v0_lib.NotifySnapshot(existingDomainNameInstance)
 
 	// persist provided data
 	updatedDomainNameInstance.ID = existingDomainNameInstance.ID
@@ -954,7 +955,7 @@ func (h Handler) ReplaceDomainNameInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevDomainNameInstance, existingDomainNameInstance)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevDomainNameInstance, existingDomainNameInstance)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
@@ -1412,7 +1413,7 @@ func (h Handler) UpdateGatewayDefinition(c echo.Context) error {
 	}
 
 	// snapshot the object before the update so a later stamp can be compared to it
-	prevGatewayDefinition := api_v0.NotifySnapshot(existingGatewayDefinition)
+	prevGatewayDefinition := api_v0_lib.NotifySnapshot(existingGatewayDefinition)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -1436,7 +1437,7 @@ func (h Handler) UpdateGatewayDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevGatewayDefinition, existingGatewayDefinition)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevGatewayDefinition, existingGatewayDefinition)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
@@ -1518,7 +1519,7 @@ func (h Handler) ReplaceGatewayDefinition(c echo.Context) error {
 	}
 
 	// snapshot the object before the replace so a later stamp can be compared to it
-	prevGatewayDefinition := api_v0.NotifySnapshot(existingGatewayDefinition)
+	prevGatewayDefinition := api_v0_lib.NotifySnapshot(existingGatewayDefinition)
 
 	// persist provided data
 	updatedGatewayDefinition.ID = existingGatewayDefinition.ID
@@ -1552,7 +1553,7 @@ func (h Handler) ReplaceGatewayDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevGatewayDefinition, existingGatewayDefinition)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevGatewayDefinition, existingGatewayDefinition)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
@@ -2502,7 +2503,7 @@ func (h Handler) UpdateGatewayInstance(c echo.Context) error {
 	}
 
 	// snapshot the object before the update so a later stamp can be compared to it
-	prevGatewayInstance := api_v0.NotifySnapshot(existingGatewayInstance)
+	prevGatewayInstance := api_v0_lib.NotifySnapshot(existingGatewayInstance)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -2526,7 +2527,7 @@ func (h Handler) UpdateGatewayInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevGatewayInstance, existingGatewayInstance)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevGatewayInstance, existingGatewayInstance)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
@@ -2608,7 +2609,7 @@ func (h Handler) ReplaceGatewayInstance(c echo.Context) error {
 	}
 
 	// snapshot the object before the replace so a later stamp can be compared to it
-	prevGatewayInstance := api_v0.NotifySnapshot(existingGatewayInstance)
+	prevGatewayInstance := api_v0_lib.NotifySnapshot(existingGatewayInstance)
 
 	// persist provided data
 	updatedGatewayInstance.ID = existingGatewayInstance.ID
@@ -2642,7 +2643,7 @@ func (h Handler) ReplaceGatewayInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevGatewayInstance, existingGatewayInstance)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevGatewayInstance, existingGatewayInstance)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))

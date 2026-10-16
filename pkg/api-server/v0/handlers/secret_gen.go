@@ -9,6 +9,7 @@ import (
 	notif "github.com/threeport/threeport/internal/secret/notif"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
+	api_v0_lib "github.com/threeport/threeport/pkg/api/v0/lib"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util_v0 "github.com/threeport/threeport/pkg/util/v0"
 	zap "go.uber.org/zap"
@@ -322,7 +323,7 @@ func (h Handler) UpdateSecretDefinition(c echo.Context) error {
 	}
 
 	// snapshot the object before the update so a later stamp can be compared to it
-	prevSecretDefinition := api_v0.NotifySnapshot(existingSecretDefinition)
+	prevSecretDefinition := api_v0_lib.NotifySnapshot(existingSecretDefinition)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -346,7 +347,7 @@ func (h Handler) UpdateSecretDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevSecretDefinition, existingSecretDefinition)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevSecretDefinition, existingSecretDefinition)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
@@ -428,7 +429,7 @@ func (h Handler) ReplaceSecretDefinition(c echo.Context) error {
 	}
 
 	// snapshot the object before the replace so a later stamp can be compared to it
-	prevSecretDefinition := api_v0.NotifySnapshot(existingSecretDefinition)
+	prevSecretDefinition := api_v0_lib.NotifySnapshot(existingSecretDefinition)
 
 	// persist provided data
 	updatedSecretDefinition.ID = existingSecretDefinition.ID
@@ -462,7 +463,7 @@ func (h Handler) ReplaceSecretDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevSecretDefinition, existingSecretDefinition)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevSecretDefinition, existingSecretDefinition)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
@@ -926,7 +927,7 @@ func (h Handler) UpdateSecretInstance(c echo.Context) error {
 	}
 
 	// snapshot the object before the update so a later stamp can be compared to it
-	prevSecretInstance := api_v0.NotifySnapshot(existingSecretInstance)
+	prevSecretInstance := api_v0_lib.NotifySnapshot(existingSecretInstance)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -950,7 +951,7 @@ func (h Handler) UpdateSecretInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevSecretInstance, existingSecretInstance)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevSecretInstance, existingSecretInstance)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
@@ -1032,7 +1033,7 @@ func (h Handler) ReplaceSecretInstance(c echo.Context) error {
 	}
 
 	// snapshot the object before the replace so a later stamp can be compared to it
-	prevSecretInstance := api_v0.NotifySnapshot(existingSecretInstance)
+	prevSecretInstance := api_v0_lib.NotifySnapshot(existingSecretInstance)
 
 	// persist provided data
 	updatedSecretInstance.ID = existingSecretInstance.ID
@@ -1066,7 +1067,7 @@ func (h Handler) ReplaceSecretInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	notify, changed := api_v0.ObjectUpdateNotifiable(prevSecretInstance, existingSecretInstance)
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevSecretInstance, existingSecretInstance)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
