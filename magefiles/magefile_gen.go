@@ -10,7 +10,6 @@ import (
 	tptdev "github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"os"
-	"os/exec"
 	"runtime"
 	"strconv"
 )
@@ -2630,33 +2629,6 @@ func (Dev) LoadImage(kindClusterName string, component string) error {
 	); err != nil {
 		return fmt.Errorf("failed to build and load image: %w", err)
 	}
-
-	return nil
-}
-
-// GenerateSwaggerDocs generates the API server swagger documentation served by the API.
-func (Dev) GenerateSwaggerDocs() error {
-	docsDestination := "pkg/api-server/v0/docs"
-	swagCmd := exec.Command(
-		"swag",
-		"init",
-		"--dir",
-		"cmd/rest-api,pkg/api-server/v0",
-		"--parseDependency",
-		"--propertyStrategy",
-		"pascalcase",
-		"--generalInfo",
-		"main_gen.go",
-		"--output",
-		docsDestination,
-	)
-
-	output, err := swagCmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("API docs generation failed with output '%s': %w", output, err)
-	}
-
-	fmt.Printf("API docs generated in %s\n", docsDestination)
 
 	return nil
 }

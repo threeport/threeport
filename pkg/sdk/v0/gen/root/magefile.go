@@ -651,42 +651,6 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		f.Line()
 	}
 
-	// API docs generation
-	f.Comment("GenerateSwaggerDocs generates the API server swagger documentation served by the API.")
-	f.Func().Params(Id("Dev")).Id("GenerateSwaggerDocs").Params().Error().Block(
-		Id("docsDestination").Op(":=").Lit("pkg/api-server/v0/docs"),
-		Id("swagCmd").Op(":=").Qual("os/exec", "Command").Call(
-			Line().Lit("swag"),
-			Line().Lit("init"),
-			Line().Lit("--dir"),
-			Line().Lit("cmd/rest-api,pkg/api-server/v0"),
-			Line().Lit("--parseDependency"),
-			// pascalcase: the API objects use Go field names, and swag
-			// lower-cases the first letter of every property without this,
-			// renaming every field in the documented schema
-			Line().Lit("--propertyStrategy"),
-			Line().Lit("pascalcase"),
-			Line().Lit("--generalInfo"),
-			Line().Lit("main_gen.go"),
-			Line().Lit("--output"),
-			Line().Id("docsDestination"),
-			Line(),
-		),
-		Line(),
-
-		List(Id("output"), Err()).Op(":=").Id("swagCmd").Dot("CombinedOutput").Call(),
-		If(Err().Op("!=").Nil()).Block(
-			Return(Qual("fmt", "Errorf").Call(Lit("API docs generation failed with output '%s': %w"), Id("output"), Err())),
-		),
-		Line(),
-
-		Qual("fmt", "Printf").Call(Lit("API docs generated in %s\n"), Id("docsDestination")),
-		Line(),
-
-		Return(Nil()),
-	)
-	f.Line()
-
 	// local registry creation
 	f.Comment("LocalRegistryUp starts a docker container to serve as a local container registry.")
 	f.Func().Params(Id("Dev")).Id("LocalRegistryUp").Params().Error().Block(
