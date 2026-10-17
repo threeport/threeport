@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/go-logr/logr"
 	"gorm.io/datatypes"
@@ -105,12 +104,8 @@ func v0KubernetesWorkloadInstanceCreated(
 	// start from the identical base, whatever state it happens to be in.
 	var k8sWorkloadResourceInstances []v0.KubernetesWorkloadResourceInstance
 	if k8sWorkloadInstance.KustomizeOverlay != nil {
-		var baseDocs []string
-		for _, wrd := range *k8sWorkloadResourceDefinitions {
-			baseDocs = append(baseDocs, string(*wrd.JSONDefinition))
-		}
 		renderedResources, err := kube.RenderKustomizeOverlay(
-			strings.Join(baseDocs, "\n---\n"),
+			kube.KustomizeBase(*k8sWorkloadResourceDefinitions),
 			*k8sWorkloadInstance.KustomizeOverlay,
 		)
 		if err != nil {
