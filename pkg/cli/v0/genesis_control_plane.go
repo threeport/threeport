@@ -902,6 +902,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			Reconciled: &reconciled,
 		},
 		AuthEnabled: &cpi.Opts.AuthEnabled,
+		Tier:        util.Ptr(string(cpi.Opts.Tier)),
 	}
 	_, err = client.CreateControlPlaneDefinition(apiClient, threeportAPIEndpoint, &controlPlaneDefinition)
 	if err != nil {
@@ -1312,6 +1313,12 @@ func ValidateCreateGenesisControlPlaneFlags(
 		)
 	}
 
+	// reject a provider and tier that cannot go together, before any
+	// infrastructure is created
+	if err := threeport.ValidateTierForProvider(infraProvider, tier); err != nil {
+		return err
+	}
+
 	// ensure name length doesn't exceed maximum
 	if utf8.RuneCountInString(instanceName) > threeport.InstanceNameMaxLength {
 		return fmt.Errorf(
@@ -1711,6 +1718,7 @@ func ensureBootstrapControlPlane(
 				Reconciled: &reconciled,
 			},
 			AuthEnabled: &cpi.Opts.AuthEnabled,
+			Tier:        util.Ptr(string(cpi.Opts.Tier)),
 		}
 		definition, err = client.CreateControlPlaneDefinition(
 			apiClient,
