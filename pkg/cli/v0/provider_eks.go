@@ -80,7 +80,7 @@ func DeployEksInfra(
 			cpi.Opts.Namespace,
 			tpaws.IamTags(
 				cpi.Opts.Name,
-				map[string]string{},
+				provider.ThreeportProviderTags(),
 			),
 			resourceManagerRoleName,
 			*callerIdentity.Account,

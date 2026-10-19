@@ -11,6 +11,7 @@ import (
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"net"
 	"net/url"
+	"reflect"
 	"strings"
 	"time"
 
@@ -464,6 +465,10 @@ func (i *KubernetesRuntimeInfraEKS) DeleteEksIam() error {
 
 // createIamRole creates a role with the given trust policy, returning the
 // existing role when one by that name is already there.
+//
+// The create-or-adopt decision itself lives in createRoleIfAbsent, which the
+// EKS resource manager role goes through too; this adds the name check and the
+// path and tags this bootstrap gives its roles.
 func (i *KubernetesRuntimeInfraEKS) createIamRole(ctx context.Context, iamClient *iam.Client,
 	roleName string,
 	rolePath string,
@@ -482,26 +487,7 @@ func (i *KubernetesRuntimeInfraEKS) createIamRole(ctx context.Context, iamClient
 		createRoleInput.Path = aws.String(rolePath)
 	}
 
-	createRoleOutput, err := iamClient.CreateRole(ctx, &createRoleInput)
-	if err == nil {
-		return createRoleOutput.Role, nil
-	}
-	if !IsAwsErrorCode(err, "EntityAlreadyExists") {
-		return nil, fmt.Errorf("failed to create role %s: %w", roleName, err)
-	}
-
-	getRoleOutput, err := iamClient.GetRole(
-		ctx,
-		&iam.GetRoleInput{RoleName: aws.String(roleName)},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get existing role %s: %w", roleName, err)
-	}
-	if err := refuseUnownedRole(getRoleOutput.Role, tpaws.IamTags(roleName, ThreeportProviderTags())); err != nil {
-		return nil, err
-	}
-
-	return getRoleOutput.Role, nil
+	return createRoleIfAbsent(ctx, iamClient, &createRoleInput, createRoleInput.Tags)
 }
 
 // oidcIssuerDialTimeout bounds the TLS dial to the cluster's OIDC issuer.
@@ -586,7 +572,7 @@ func (i *KubernetesRuntimeInfraEKS) createIamPolicy(ctx context.Context, iamClie
 	if err == nil {
 		return *createPolicyOutput.Policy.Arn, nil
 	}
-	if !IsAwsErrorCode(err, "EntityAlreadyExists") {
+	if !IsAwsErrorCode(err, errCodeEntityAlreadyExists) {
 		return "", err
 	}
 
@@ -610,7 +596,164 @@ func (i *KubernetesRuntimeInfraEKS) createIamPolicy(ctx context.Context, iamClie
 		return "", err
 	}
 
+	// the policy predates this run, so its document is whatever the release
+	// that created it asked for
+	if err := syncIamPolicyDocument(ctx, iamClient, policyArn, irsaRole.policyDocument); err != nil {
+		return "", err
+	}
+
 	return policyArn, nil
+}
+
+// iamPolicyMaxVersions is IAM's limit on versions of a customer managed
+// policy. The sixth CreatePolicyVersion is refused, so room has to be made
+// before adding one.
+const iamPolicyMaxVersions = 5
+
+// iamPolicyVersionClient is the part of the IAM API syncIamPolicyDocument
+// uses. It is an interface so the adopt path can be exercised without an AWS
+// account; that path only runs on a second install, which nobody runs by hand.
+type iamPolicyVersionClient interface {
+	GetPolicy(context.Context, *iam.GetPolicyInput, ...func(*iam.Options)) (*iam.GetPolicyOutput, error)
+	GetPolicyVersion(context.Context, *iam.GetPolicyVersionInput, ...func(*iam.Options)) (*iam.GetPolicyVersionOutput, error)
+	ListPolicyVersions(context.Context, *iam.ListPolicyVersionsInput, ...func(*iam.Options)) (*iam.ListPolicyVersionsOutput, error)
+	CreatePolicyVersion(context.Context, *iam.CreatePolicyVersionInput, ...func(*iam.Options)) (*iam.CreatePolicyVersionOutput, error)
+	DeletePolicyVersion(context.Context, *iam.DeletePolicyVersionInput, ...func(*iam.Options)) (*iam.DeletePolicyVersionOutput, error)
+}
+
+// syncIamPolicyDocument brings an adopted policy's document in line with the
+// one threeport would have created it with.
+//
+// A policy at a derived name is only ever created once. Every later run finds
+// it there and adopts it, so without this a change to a policy document would
+// never reach an account installed before the change: the install would report
+// success and the role would quietly be missing the permission, surfacing much
+// later as an AccessDenied with nothing pointing back here.
+//
+// The comparison is on the parsed JSON rather than the text. IAM reformats
+// what it stores, so comparing bytes would find a difference on every run and
+// write a new version until the five-version limit stopped it.
+func syncIamPolicyDocument(
+	ctx context.Context,
+	iamClient iamPolicyVersionClient,
+	policyArn string,
+	document string,
+) error {
+	policy, err := iamClient.GetPolicy(ctx, &iam.GetPolicyInput{PolicyArn: aws.String(policyArn)})
+	if err != nil {
+		return fmt.Errorf("failed to read policy %s to compare its document: %w", policyArn, err)
+	}
+	if policy.Policy == nil || policy.Policy.DefaultVersionId == nil {
+		return fmt.Errorf("IAM reported no version in force for policy %s", policyArn)
+	}
+	versionInForce := aws.ToString(policy.Policy.DefaultVersionId)
+
+	current, err := iamClient.GetPolicyVersion(ctx, &iam.GetPolicyVersionInput{
+		PolicyArn: aws.String(policyArn),
+		VersionId: aws.String(versionInForce),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to read version %s of policy %s: %w", versionInForce, policyArn, err)
+	}
+	if current.PolicyVersion == nil || current.PolicyVersion.Document == nil {
+		return fmt.Errorf("IAM returned no document for version %s of policy %s", versionInForce, policyArn)
+	}
+
+	match, err := iamPolicyDocumentsMatch(aws.ToString(current.PolicyVersion.Document), document)
+	if err != nil {
+		return fmt.Errorf("failed to compare the document of policy %s: %w", policyArn, err)
+	}
+	if match {
+		return nil
+	}
+
+	if err := pruneIamPolicyVersions(ctx, iamClient, policyArn, versionInForce); err != nil {
+		return err
+	}
+
+	if _, err := iamClient.CreatePolicyVersion(ctx, &iam.CreatePolicyVersionInput{
+		PolicyArn:      aws.String(policyArn),
+		PolicyDocument: aws.String(document),
+		SetAsDefault:   true,
+	}); err != nil {
+		return fmt.Errorf("failed to update the document of policy %s: %w", policyArn, err)
+	}
+
+	return nil
+}
+
+// iamPolicyDocumentsMatch reports whether a document IAM is storing says the
+// same thing as one this package would create.
+//
+// What IAM returns is percent-encoded, and reformatted from whatever was sent
+// to it, so the two have to be decoded and parsed before they can be compared.
+// PathUnescape rather than QueryUnescape: a literal '+' appears in IAM ARNs
+// and conditions, and QueryUnescape would read it as a space.
+func iamPolicyDocumentsMatch(stored, want string) (bool, error) {
+	decoded, err := url.PathUnescape(stored)
+	if err != nil {
+		return false, fmt.Errorf("failed to decode the stored document: %w", err)
+	}
+
+	var storedDocument, wantDocument any
+	if err := json.Unmarshal([]byte(decoded), &storedDocument); err != nil {
+		return false, fmt.Errorf("failed to parse the stored document: %w", err)
+	}
+	if err := json.Unmarshal([]byte(want), &wantDocument); err != nil {
+		return false, fmt.Errorf("failed to parse the document to compare against: %w", err)
+	}
+
+	return reflect.DeepEqual(storedDocument, wantDocument), nil
+}
+
+// pruneIamPolicyVersions removes the oldest version that is not in force, so
+// a new one can be added to a policy already at the limit.
+func pruneIamPolicyVersions(
+	ctx context.Context,
+	iamClient iamPolicyVersionClient,
+	policyArn string,
+	versionInForce string,
+) error {
+	versions, err := iamClient.ListPolicyVersions(ctx, &iam.ListPolicyVersionsInput{
+		PolicyArn: aws.String(policyArn),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list the versions of policy %s: %w", policyArn, err)
+	}
+	if len(versions.Versions) < iamPolicyMaxVersions {
+		return nil
+	}
+
+	var oldest *types.PolicyVersion
+	for i := range versions.Versions {
+		version := &versions.Versions[i]
+		if version.IsDefaultVersion || aws.ToString(version.VersionId) == versionInForce {
+			continue
+		}
+		if oldest == nil || (version.CreateDate != nil && oldest.CreateDate != nil &&
+			version.CreateDate.Before(*oldest.CreateDate)) {
+			oldest = version
+		}
+	}
+	if oldest == nil {
+		return fmt.Errorf(
+			"policy %s holds its %d version limit with nothing but the version in force; "+
+				"remove an old version of it by hand",
+			policyArn, iamPolicyMaxVersions,
+		)
+	}
+
+	if _, err := iamClient.DeletePolicyVersion(ctx, &iam.DeletePolicyVersionInput{
+		PolicyArn: aws.String(policyArn),
+		VersionId: oldest.VersionId,
+	}); err != nil {
+		return fmt.Errorf(
+			"failed to remove version %s of policy %s to make room for a new one: %w",
+			aws.ToString(oldest.VersionId), policyArn, err,
+		)
+	}
+
+	return nil
 }
 
 // createOidcProvider registers the cluster's OIDC issuer as an identity
@@ -636,7 +779,7 @@ func (i *KubernetesRuntimeInfraEKS) createOidcProvider(ctx context.Context, iamC
 	if err == nil {
 		return *createProviderOutput.OpenIDConnectProviderArn, nil
 	}
-	if !IsAwsErrorCode(err, "EntityAlreadyExists") {
+	if !IsAwsErrorCode(err, errCodeEntityAlreadyExists) {
 		return "", err
 	}
 
@@ -821,11 +964,17 @@ func oidcIssuerThumbprint(ctx context.Context, oidcIssuerUrl string) (string, er
 	return fmt.Sprintf("%x", thumbprint), nil
 }
 
+// iamPolicyAttacher is the part of the IAM API attachIamPolicy uses.
+type iamPolicyAttacher interface {
+	iam.ListAttachedRolePoliciesAPIClient
+	AttachRolePolicy(context.Context, *iam.AttachRolePolicyInput, ...func(*iam.Options)) (*iam.AttachRolePolicyOutput, error)
+}
+
 // attachIamPolicy attaches a policy to a role unless it is attached already.
 // AWS does not document AttachRolePolicy as idempotent, and its own examples
 // check before attaching, so a role that already carries the policy is left
 // alone rather than relying on the call being harmless.
-func attachIamPolicy(ctx context.Context, iamClient *iam.Client, roleName, policyArn string) error {
+func attachIamPolicy(ctx context.Context, iamClient iamPolicyAttacher, roleName, policyArn string) error {
 	attachedPolicies, err := listAttachedPolicies(ctx, iamClient, roleName)
 	if err != nil {
 		return err
@@ -848,7 +997,11 @@ func attachIamPolicy(ctx context.Context, iamClient *iam.Client, roleName, polic
 }
 
 // listAttachedPolicies returns every managed policy attached to a role.
-func listAttachedPolicies(ctx context.Context, iamClient *iam.Client, roleName string) ([]types.AttachedPolicy, error) {
+func listAttachedPolicies(
+	ctx context.Context,
+	iamClient iam.ListAttachedRolePoliciesAPIClient,
+	roleName string,
+) ([]types.AttachedPolicy, error) {
 	var attachedPolicies []types.AttachedPolicy
 
 	paginator := iam.NewListAttachedRolePoliciesPaginator(
@@ -988,6 +1141,14 @@ func deleteIamPolicy(ctx context.Context, iamClient *iam.Client, policyArn strin
 
 	return nil
 }
+
+// errCodeEntityAlreadyExists is what IAM answers when the name is taken.
+//
+// Every create in this package is retryable by name, so each one tests for
+// this code. A typo in a literal would compile and simply never match, which
+// would quietly return that one path to failing on retry - the exact bug this
+// package has had. One constant makes a mistake break all of them at once.
+const errCodeEntityAlreadyExists = "EntityAlreadyExists"
 
 // IsAwsErrorCode reports whether an error is the named AWS API error.
 func IsAwsErrorCode(err error, code string) bool {

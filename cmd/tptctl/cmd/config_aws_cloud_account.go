@@ -112,7 +112,7 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 			threeport.ControlPlaneNamespace,
 			tpaws.IamTags(
 				requestedControlPlane,
-				map[string]string{},
+				provider.ThreeportProviderTags(),
 			),
 			roleName,
 			*callerIdentity.Account,

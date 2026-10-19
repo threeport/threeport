@@ -3,7 +3,10 @@ package provider
 import (
 	"context"
 	"errors"
+	"net/url"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
@@ -11,29 +14,66 @@ import (
 	"github.com/aws/smithy-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	tpaws "github.com/threeport/threeport/pkg/aws/v0"
 )
 
 // alreadyExists is what IAM answers when the name is taken.
 func alreadyExists() error {
-	return &smithy.GenericAPIError{Code: "EntityAlreadyExists", Message: "already exists"}
+	return &smithy.GenericAPIError{Code: errCodeEntityAlreadyExists, Message: "already exists"}
 }
 
-// fakeIam answers the four calls this path makes. Anything else is not
+// iamEncoded is how IAM hands a policy document back: percent-encoded per RFC
+// 3986, which is not the same as form encoding - a space is %20, never '+'.
+func iamEncoded(document string) string {
+	return strings.ReplaceAll(url.QueryEscape(document), "+", "%20")
+}
+
+// ownedTags are the tags an install gives what it creates, built the way the
+// call sites build them rather than by hand, so that a change to IamTags or to
+// ThreeportProviderTags reaches this test instead of passing against a
+// fixture that no longer resembles production.
+func ownedTags(name string) []types.Tag {
+	return tpaws.IamTags(name, ThreeportProviderTags())
+}
+
+// fakeIam answers the calls this path makes. Anything else is not
 // implemented, so a change that starts calling something else shows up.
+//
+// It records the input of every call. Returning a canned answer regardless of
+// what was asked would let a refactor that dropped the tags, the trust policy
+// or the policy document pass the whole suite.
 type fakeIam struct {
 	roleExists   bool
 	policyExists bool
-	existingTags []types.Tag
 
-	createRoleErr error
-	getRoleErr    error
+	existingRoleTags   []types.Tag
+	existingPolicyTags []types.Tag
 
-	creates, gets, policies, attaches int
-	attachedArn                       string
+	// storedDocument is what IAM holds for an existing policy, in the encoded
+	// form it answers with.
+	storedDocument string
+	storedVersions []types.PolicyVersion
+	attachedArns   []string
+
+	createRoleErr   error
+	getRoleErr      error
+	getPolicyErr    error
+	createPolicyErr error
+
+	creates, gets, policies, attaches, lists int
+
+	createRoleInput    *iam.CreateRoleInput
+	createPolicyInput  *iam.CreatePolicyInput
+	newVersions        []string
+	deletedVersionIds  []string
+	setDefaultVersions []bool
+	attachedArn        string
 }
 
-func (f *fakeIam) CreateRole(context.Context, *iam.CreateRoleInput, ...func(*iam.Options)) (*iam.CreateRoleOutput, error) {
+func (f *fakeIam) CreateRole(_ context.Context, in *iam.CreateRoleInput, _ ...func(*iam.Options)) (*iam.CreateRoleOutput, error) {
 	f.creates++
+	f.createRoleInput = in
 	if f.createRoleErr != nil {
 		return nil, f.createRoleErr
 	}
@@ -41,7 +81,10 @@ func (f *fakeIam) CreateRole(context.Context, *iam.CreateRoleInput, ...func(*iam
 		return nil, alreadyExists()
 	}
 
-	return &iam.CreateRoleOutput{Role: &types.Role{RoleName: aws.String("the-role")}}, nil
+	return &iam.CreateRoleOutput{Role: &types.Role{
+		RoleName: in.RoleName,
+		Tags:     in.Tags,
+	}}, nil
 }
 
 func (f *fakeIam) GetRole(_ context.Context, in *iam.GetRoleInput, _ ...func(*iam.Options)) (*iam.GetRoleOutput, error) {
@@ -50,18 +93,69 @@ func (f *fakeIam) GetRole(_ context.Context, in *iam.GetRoleInput, _ ...func(*ia
 		return nil, f.getRoleErr
 	}
 
-	return &iam.GetRoleOutput{Role: &types.Role{RoleName: in.RoleName, Tags: f.existingTags}}, nil
+	return &iam.GetRoleOutput{Role: &types.Role{RoleName: in.RoleName, Tags: f.existingRoleTags}}, nil
 }
 
 func (f *fakeIam) CreatePolicy(_ context.Context, in *iam.CreatePolicyInput, _ ...func(*iam.Options)) (*iam.CreatePolicyOutput, error) {
 	f.policies++
+	f.createPolicyInput = in
+	if f.createPolicyErr != nil {
+		return nil, f.createPolicyErr
+	}
 	if f.policyExists {
 		return nil, alreadyExists()
 	}
 
 	return &iam.CreatePolicyOutput{Policy: &types.Policy{
-		Arn: aws.String("arn:aws:iam::123456789012:policy/" + aws.ToString(in.PolicyName)),
+		Arn:  aws.String("arn:aws:iam::123456789012:policy/" + aws.ToString(in.PolicyName)),
+		Tags: in.Tags,
 	}}, nil
+}
+
+func (f *fakeIam) GetPolicy(_ context.Context, in *iam.GetPolicyInput, _ ...func(*iam.Options)) (*iam.GetPolicyOutput, error) {
+	if f.getPolicyErr != nil {
+		return nil, f.getPolicyErr
+	}
+
+	return &iam.GetPolicyOutput{Policy: &types.Policy{
+		Arn:              in.PolicyArn,
+		Tags:             f.existingPolicyTags,
+		DefaultVersionId: aws.String("v1"),
+	}}, nil
+}
+
+func (f *fakeIam) GetPolicyVersion(_ context.Context, in *iam.GetPolicyVersionInput, _ ...func(*iam.Options)) (*iam.GetPolicyVersionOutput, error) {
+	return &iam.GetPolicyVersionOutput{PolicyVersion: &types.PolicyVersion{
+		VersionId: in.VersionId,
+		Document:  aws.String(f.storedDocument),
+	}}, nil
+}
+
+func (f *fakeIam) ListPolicyVersions(context.Context, *iam.ListPolicyVersionsInput, ...func(*iam.Options)) (*iam.ListPolicyVersionsOutput, error) {
+	return &iam.ListPolicyVersionsOutput{Versions: f.storedVersions}, nil
+}
+
+func (f *fakeIam) CreatePolicyVersion(_ context.Context, in *iam.CreatePolicyVersionInput, _ ...func(*iam.Options)) (*iam.CreatePolicyVersionOutput, error) {
+	f.newVersions = append(f.newVersions, aws.ToString(in.PolicyDocument))
+	f.setDefaultVersions = append(f.setDefaultVersions, in.SetAsDefault)
+
+	return &iam.CreatePolicyVersionOutput{}, nil
+}
+
+func (f *fakeIam) DeletePolicyVersion(_ context.Context, in *iam.DeletePolicyVersionInput, _ ...func(*iam.Options)) (*iam.DeletePolicyVersionOutput, error) {
+	f.deletedVersionIds = append(f.deletedVersionIds, aws.ToString(in.VersionId))
+
+	return &iam.DeletePolicyVersionOutput{}, nil
+}
+
+func (f *fakeIam) ListAttachedRolePolicies(context.Context, *iam.ListAttachedRolePoliciesInput, ...func(*iam.Options)) (*iam.ListAttachedRolePoliciesOutput, error) {
+	f.lists++
+	attached := make([]types.AttachedPolicy, 0, len(f.attachedArns))
+	for _, arn := range f.attachedArns {
+		attached = append(attached, types.AttachedPolicy{PolicyArn: aws.String(arn)})
+	}
+
+	return &iam.ListAttachedRolePoliciesOutput{AttachedPolicies: attached}, nil
 }
 
 func (f *fakeIam) AttachRolePolicy(_ context.Context, in *iam.AttachRolePolicyInput, _ ...func(*iam.Options)) (*iam.AttachRolePolicyOutput, error) {
@@ -69,6 +163,16 @@ func (f *fakeIam) AttachRolePolicy(_ context.Context, in *iam.AttachRolePolicyIn
 	f.attachedArn = aws.ToString(in.PolicyArn)
 
 	return &iam.AttachRolePolicyOutput{}, nil
+}
+
+// roleInput is the input the production path builds, so the assertions below
+// are about what reaches IAM rather than about a literal written twice.
+func roleInput() *iam.CreateRoleInput {
+	return &iam.CreateRoleInput{
+		RoleName:                 aws.String("the-role"),
+		AssumeRolePolicyDocument: aws.String(`{"Version":"2012-10-17"}`),
+		Tags:                     ownedTags("the-role"),
+	}
 }
 
 // TestARetryAdoptsTheRoleTheFirstAttemptCreated covers the retry nobody can
@@ -79,33 +183,63 @@ func (f *fakeIam) AttachRolePolicy(_ context.Context, in *iam.AttachRolePolicyIn
 // again: the second attempt asked for a role that existed, AWS refused, and
 // it kept refusing until somebody deleted the role in a console.
 func TestARetryAdoptsTheRoleTheFirstAttemptCreated(t *testing.T) {
-	ours := []types.Tag{{Key: aws.String("threeport"), Value: aws.String("the-role")}}
+	ours := ownedTags("the-role")
 
 	t.Run("a first attempt creates it", func(t *testing.T) {
 		client := &fakeIam{}
 
-		role, err := createRoleIfAbsent(client, &iam.CreateRoleInput{RoleName: aws.String("the-role")}, ours)
+		role, err := createRoleIfAbsent(context.Background(), client, roleInput(), ours)
 		require.NoError(t, err)
 		assert.Equal(t, "the-role", aws.ToString(role.RoleName))
 		assert.Zero(t, client.gets, "nothing to look up when the create worked")
 	})
 
-	t.Run("a retry adopts what the first attempt left", func(t *testing.T) {
-		client := &fakeIam{roleExists: true, existingTags: ours}
+	t.Run("what the caller asked for is what reaches IAM", func(t *testing.T) {
+		client := &fakeIam{}
 
-		role, err := createRoleIfAbsent(client, &iam.CreateRoleInput{RoleName: aws.String("the-role")}, ours)
+		_, err := createRoleIfAbsent(context.Background(), client, roleInput(), ours)
+		require.NoError(t, err)
+		require.NotNil(t, client.createRoleInput)
+		assert.Equal(
+			t, ours, client.createRoleInput.Tags,
+			"the tags are what later proves the role is ours; a create that drops them makes every retry refuse it",
+		)
+		assert.Equal(
+			t, `{"Version":"2012-10-17"}`, aws.ToString(client.createRoleInput.AssumeRolePolicyDocument),
+			"the trust policy is who may assume the role, so it cannot be silently replaced",
+		)
+	})
+
+	t.Run("a retry adopts what the first attempt left", func(t *testing.T) {
+		client := &fakeIam{roleExists: true, existingRoleTags: ours}
+
+		role, err := createRoleIfAbsent(context.Background(), client, roleInput(), ours)
 		require.NoError(t, err, "this is the retry that used to need a console to unblock")
 		assert.Equal(t, "the-role", aws.ToString(role.RoleName))
 		assert.Equal(t, 1, client.gets)
 	})
 
-	t.Run("a role somebody else owns is refused", func(t *testing.T) {
+	t.Run("a role carrying only a name tag is refused", func(t *testing.T) {
 		client := &fakeIam{
-			roleExists:   true,
-			existingTags: []types.Tag{{Key: aws.String("owner"), Value: aws.String("someone-else")}},
+			roleExists:       true,
+			existingRoleTags: tpaws.IamTags("the-role", map[string]string{}),
 		}
 
-		_, err := createRoleIfAbsent(client, &iam.CreateRoleInput{RoleName: aws.String("the-role")}, ours)
+		_, err := createRoleIfAbsent(context.Background(), client, roleInput(), ours)
+		require.Error(
+			t, err,
+			"a Name tag is a convention half the tooling in an account follows; ownership is the ProvisionedBy marker",
+		)
+		assert.Contains(t, err.Error(), "not created by threeport")
+	})
+
+	t.Run("a role somebody else owns is refused", func(t *testing.T) {
+		client := &fakeIam{
+			roleExists:       true,
+			existingRoleTags: []types.Tag{{Key: aws.String("owner"), Value: aws.String("someone-else")}},
+		}
+
+		_, err := createRoleIfAbsent(context.Background(), client, roleInput(), ours)
 		require.Error(t, err, "a name is not proof of ownership")
 		assert.Contains(t, err.Error(), "not created by threeport")
 	})
@@ -113,7 +247,7 @@ func TestARetryAdoptsTheRoleTheFirstAttemptCreated(t *testing.T) {
 	t.Run("a create that failed for another reason is not an adoption", func(t *testing.T) {
 		client := &fakeIam{createRoleErr: errors.New("access denied")}
 
-		_, err := createRoleIfAbsent(client, &iam.CreateRoleInput{RoleName: aws.String("the-role")}, ours)
+		_, err := createRoleIfAbsent(context.Background(), client, roleInput(), ours)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "access denied")
 		assert.Zero(
@@ -125,10 +259,20 @@ func TestARetryAdoptsTheRoleTheFirstAttemptCreated(t *testing.T) {
 	t.Run("a role that exists but cannot be read is an error", func(t *testing.T) {
 		client := &fakeIam{roleExists: true, getRoleErr: errors.New("could not read it")}
 
-		_, err := createRoleIfAbsent(client, &iam.CreateRoleInput{RoleName: aws.String("the-role")}, ours)
+		_, err := createRoleIfAbsent(context.Background(), client, roleInput(), ours)
 		require.Error(t, err, "not being able to check ownership is not permission to proceed")
 		assert.Contains(t, err.Error(), "could not read it")
 	})
+}
+
+const (
+	policyArn      = "arn:aws:iam::123456789012:policy/the-role-resource-manager"
+	policyDocument = `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"eks:*","Resource":"*"}]}`
+)
+
+// attachPolicy runs the production entry point with this file's fixtures.
+func attachPolicy(client *fakeIam, document string) error {
+	return AttachPolicy(context.Background(), document, "the-role", "resource-manager", "123456789012", client)
 }
 
 // TestARetryAdoptsThePolicyToo covers the other half of the same attempt.
@@ -136,25 +280,196 @@ func TestARetryAdoptsTheRoleTheFirstAttemptCreated(t *testing.T) {
 // The policy is created between the role and the attach, so a failure can
 // leave it behind just as easily - and its name is derived the same way.
 func TestARetryAdoptsThePolicyToo(t *testing.T) {
+	ours := ownedTags("the-role-resource-manager")
+
 	t.Run("a first attempt creates and attaches it", func(t *testing.T) {
 		client := &fakeIam{}
 
-		require.NoError(t, AttachPolicy("{}", "the-role", "resource-manager", "123456789012", client))
+		require.NoError(t, attachPolicy(client, policyDocument))
 		assert.Equal(t, 1, client.attaches)
 		assert.Contains(t, client.attachedArn, "the-role-resource-manager")
 	})
 
+	t.Run("what the caller asked for is what reaches IAM", func(t *testing.T) {
+		client := &fakeIam{}
+
+		require.NoError(t, attachPolicy(client, policyDocument))
+		require.NotNil(t, client.createPolicyInput)
+		assert.Equal(
+			t, policyDocument, aws.ToString(client.createPolicyInput.PolicyDocument),
+			"the document is the permissions themselves",
+		)
+		assert.Equal(
+			t, ours, client.createPolicyInput.Tags,
+			"an untagged policy is one no later run can prove it owns, so every retry would refuse it",
+		)
+	})
+
 	t.Run("a retry attaches the policy already there", func(t *testing.T) {
-		client := &fakeIam{policyExists: true}
+		client := &fakeIam{
+			policyExists:       true,
+			existingPolicyTags: ours,
+			storedDocument:     iamEncoded(policyDocument),
+		}
 
 		require.NoError(
-			t, AttachPolicy("{}", "the-role", "resource-manager", "123456789012", client),
+			t, attachPolicy(client, policyDocument),
 			"the policy existing is what a retry finds, not a reason to stop",
 		)
 		assert.Equal(t, 1, client.attaches, "it still has to be attached to the role")
 		assert.Equal(
-			t, "arn:aws:iam::123456789012:policy/the-role-resource-manager", client.attachedArn,
+			t, policyArn, client.attachedArn,
 			"the arn is derived from the account and the name, which a retry has",
 		)
+	})
+
+	t.Run("a policy somebody else owns is refused", func(t *testing.T) {
+		client := &fakeIam{
+			policyExists:       true,
+			existingPolicyTags: []types.Tag{{Key: aws.String("owner"), Value: aws.String("someone-else")}},
+			storedDocument:     iamEncoded(policyDocument),
+		}
+
+		err := attachPolicy(client, policyDocument)
+		require.Error(
+			t, err,
+			"the role being ours says nothing about a separate account-level resource that happens to sit at this name",
+		)
+		assert.Contains(t, err.Error(), "not created by threeport")
+		assert.Zero(t, client.attaches, "a stranger's permissions must not reach the role")
+	})
+
+	t.Run("a policy that exists but cannot be read is an error", func(t *testing.T) {
+		client := &fakeIam{policyExists: true, getPolicyErr: errors.New("could not read it")}
+
+		err := attachPolicy(client, policyDocument)
+		require.Error(t, err, "not being able to check ownership is not permission to proceed")
+		assert.Contains(t, err.Error(), "could not read it")
+		assert.Zero(t, client.attaches)
+	})
+
+	t.Run("a policy already attached is left alone", func(t *testing.T) {
+		client := &fakeIam{
+			policyExists:       true,
+			existingPolicyTags: ours,
+			storedDocument:     iamEncoded(policyDocument),
+			attachedArns:       []string{policyArn},
+		}
+
+		require.NoError(t, attachPolicy(client, policyDocument))
+		assert.Equal(t, 1, client.lists, "what is attached has to be read before deciding")
+		assert.Zero(
+			t, client.attaches,
+			"AttachRolePolicy is not documented as idempotent, so an attach that is not needed is not made",
+		)
+	})
+}
+
+// TestAnAdoptedPolicyIsBroughtUpToDate covers the gap that outlives the retry.
+//
+// A policy at a derived name is created once and adopted by every run after
+// it. Without this, a release that adds a permission would never reach an
+// account installed before it: the install would report success and the role
+// would be missing the permission, surfacing later as an AccessDenied with
+// nothing pointing back at the install.
+func TestAnAdoptedPolicyIsBroughtUpToDate(t *testing.T) {
+	ours := ownedTags("the-role-resource-manager")
+
+	adopted := func(stored string) *fakeIam {
+		return &fakeIam{
+			policyExists:       true,
+			existingPolicyTags: ours,
+			storedDocument:     stored,
+		}
+	}
+
+	t.Run("a document that changed is written as the new default", func(t *testing.T) {
+		client := adopted(iamEncoded(`{"Version":"2012-10-17","Statement":[]}`))
+
+		require.NoError(t, attachPolicy(client, policyDocument))
+		require.Len(t, client.newVersions, 1, "the release asked for permissions the stored policy does not grant")
+		assert.Equal(t, policyDocument, client.newVersions[0])
+		assert.Equal(
+			t, []bool{true}, client.setDefaultVersions,
+			"a version that is not the default grants nothing",
+		)
+	})
+
+	t.Run("a document IAM only reformatted is left alone", func(t *testing.T) {
+		reformatted := `{
+  "Statement": [ { "Action": "eks:*", "Effect": "Allow", "Resource": "*" } ],
+  "Version": "2012-10-17"
+}`
+		client := adopted(iamEncoded(reformatted))
+
+		require.NoError(t, attachPolicy(client, policyDocument))
+		assert.Empty(
+			t, client.newVersions,
+			"IAM reformats what it stores; comparing text would write a version every run until the limit stopped it",
+		)
+	})
+
+	t.Run("a literal plus survives the round trip", func(t *testing.T) {
+		withPlus := `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"s3:*","Resource":"arn:aws:s3:::a+b"}]}`
+		// '+' is a sub-delimiter RFC 3986 allows unencoded, so a document can
+		// come back from IAM carrying one as itself rather than as %2B.
+		stored := strings.ReplaceAll(iamEncoded(withPlus), "%2B", "+")
+		require.Contains(t, stored, "a+b", "this case is only worth anything if the '+' is left raw")
+		client := adopted(stored)
+
+		require.NoError(t, attachPolicy(client, withPlus))
+		assert.Empty(
+			t, client.newVersions,
+			"form decoding would read the '+' in this ARN as a space, call an unchanged policy changed, "+
+				"and write a new version on every run until the limit stopped it",
+		)
+	})
+
+	t.Run("the oldest version makes room when the policy is at the limit", func(t *testing.T) {
+		client := adopted(iamEncoded(`{"Version":"2012-10-17","Statement":[]}`))
+		base := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+		client.storedVersions = []types.PolicyVersion{
+			{VersionId: aws.String("v5"), CreateDate: aws.Time(base.Add(4 * time.Hour))},
+			{VersionId: aws.String("v2"), CreateDate: aws.Time(base.Add(1 * time.Hour))},
+			{VersionId: aws.String("v4"), CreateDate: aws.Time(base.Add(3 * time.Hour))},
+			{VersionId: aws.String("v1"), CreateDate: aws.Time(base), IsDefaultVersion: true},
+			{VersionId: aws.String("v3"), CreateDate: aws.Time(base.Add(2 * time.Hour))},
+		}
+
+		require.NoError(t, attachPolicy(client, policyDocument))
+		assert.Equal(
+			t, []string{"v2"}, client.deletedVersionIds,
+			"the oldest that is not in force goes; IAM refuses a sixth version",
+		)
+		require.Len(t, client.newVersions, 1)
+	})
+
+	t.Run("the version in force is never the one removed", func(t *testing.T) {
+		client := adopted(iamEncoded(`{"Version":"2012-10-17","Statement":[]}`))
+		base := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+		// v1 is both the oldest and the one in force
+		client.storedVersions = []types.PolicyVersion{
+			{VersionId: aws.String("v1"), CreateDate: aws.Time(base), IsDefaultVersion: true},
+			{VersionId: aws.String("v2"), CreateDate: aws.Time(base.Add(1 * time.Hour))},
+			{VersionId: aws.String("v3"), CreateDate: aws.Time(base.Add(2 * time.Hour))},
+			{VersionId: aws.String("v4"), CreateDate: aws.Time(base.Add(3 * time.Hour))},
+			{VersionId: aws.String("v5"), CreateDate: aws.Time(base.Add(4 * time.Hour))},
+		}
+
+		require.NoError(t, attachPolicy(client, policyDocument))
+		assert.Equal(
+			t, []string{"v2"}, client.deletedVersionIds,
+			"removing the version in force would strip the role of its permissions mid-install",
+		)
+	})
+
+	t.Run("a policy with fewer versions than the limit loses none", func(t *testing.T) {
+		client := adopted(iamEncoded(`{"Version":"2012-10-17","Statement":[]}`))
+		client.storedVersions = []types.PolicyVersion{
+			{VersionId: aws.String("v1"), IsDefaultVersion: true},
+		}
+
+		require.NoError(t, attachPolicy(client, policyDocument))
+		assert.Empty(t, client.deletedVersionIds, "there is room, so nothing has to go")
 	})
 }
