@@ -1,6 +1,7 @@
 package v0
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -261,4 +262,189 @@ func makeReconciliation(
 		DeletionAcknowledged: util.Ptr(deletionAck),
 		DeletionConfirmed:    util.Ptr(deletionConfirmed),
 	}
+}
+
+// savedWithEmbed embeds CommonLike and Reconciliation. changedStructFields descends into each one.
+type savedWithEmbed struct {
+	UpdatedAt  *time.Time
+	Reconciled *bool
+	CommonLike
+	Reconciliation
+	ValuesDocument *string
+}
+
+// CommonLike has one named field and no embed, which is the shape of Common.
+type CommonLike struct {
+	DeletedAt *string
+}
+
+// namedBox is a struct field that must be reported by its own name.
+type namedBox struct {
+	Name *string
+}
+
+// savedWithNamed holds a named struct beside the reconciliation embed.
+type savedWithNamed struct {
+	UpdatedAt *time.Time
+	Nested    namedBox
+	Reconciliation
+}
+
+// TestNotificationHelpers covers each helper branch the notify decision calls.
+func TestNotificationHelpers(t *testing.T) {
+	check := func(name string, got, want bool) {
+		t.Helper()
+		if got != want {
+			t.Errorf("%s = %v, want %v", name, got, want)
+		}
+	}
+	instant := time.Date(2026, 7, 3, 12, 0, 0, 0, time.UTC)
+	later := instant.Add(time.Hour)
+
+	// name an embed field, and skip UpdatedAt and Reconciled
+	left := savedWithEmbed{
+		UpdatedAt:      util.Ptr(instant),
+		Reconciled:     util.Ptr(false),
+		CommonLike:     CommonLike{DeletedAt: util.Ptr("old")},
+		Reconciliation: Reconciliation{CreationFailed: util.Ptr(false)},
+		ValuesDocument: util.Ptr("old"),
+	}
+	right := left
+	right.UpdatedAt = util.Ptr(later)
+	right.Reconciled = util.Ptr(true)
+	right.CreationFailed = util.Ptr(true)
+	right.DeletedAt = util.Ptr("new")
+	names := changedStructFields(reflect.ValueOf(left), reflect.ValueOf(right))
+	if got, want := fmt.Sprint(names), "[DeletedAt CreationFailed]"; got != want {
+		t.Errorf("changedStructFields(embed) = %s, want %s", got, want)
+	}
+
+	// report a named struct as one field
+	namedLeft := savedWithNamed{Nested: namedBox{Name: util.Ptr("old")}}
+	namedRight := savedWithNamed{Nested: namedBox{Name: util.Ptr("new")}}
+	named := changedStructFields(reflect.ValueOf(namedLeft), reflect.ValueOf(namedRight))
+	if got, want := fmt.Sprint(named), "[Nested]"; got != want {
+		t.Errorf("changedStructFields(named struct) = %s, want %s", got, want)
+	}
+
+	// UpdatedAt alone is not a spec change, and a skipped embed hides its marker
+	updatedOnly := right
+	updatedOnly.CreationFailed = left.CreationFailed
+	updatedOnly.DeletedAt = left.DeletedAt
+	updatedOnly.Reconciled = left.Reconciled
+	check("structFieldsChanged(UpdatedAt)", structFieldsChanged(reflect.ValueOf(left), reflect.ValueOf(updatedOnly), true), false)
+	failed := left
+	failed.CreationFailed = util.Ptr(true)
+	check("structFieldsChanged(skip embed)", structFieldsChanged(reflect.ValueOf(left), reflect.ValueOf(failed), true), false)
+	check("structFieldsChanged(read embed)", structFieldsChanged(reflect.ValueOf(left), reflect.ValueOf(failed), false), true)
+
+	// compare pointers, instants, and a slice through reflect.DeepEqual
+	check("fieldValuesEqual(*bool)", fieldValuesEqual(reflect.ValueOf(util.Ptr(true)), reflect.ValueOf(util.Ptr(true))), true)
+	check("fieldValuesEqual(nil *bool)", fieldValuesEqual(reflect.ValueOf((*bool)(nil)), reflect.ValueOf(util.Ptr(true))), false)
+	withMono := time.Now().UTC()
+	check("fieldValuesEqual(*time.Time)", fieldValuesEqual(reflect.ValueOf(&withMono), reflect.ValueOf(util.Ptr(withMono.Round(0)))), true)
+	check("fieldValuesEqual([]string)", fieldValuesEqual(reflect.ValueOf([]string{"a"}), reflect.ValueOf([]string{"a"})), true)
+	check("fieldValuesEqual(different len)", fieldValuesEqual(reflect.ValueOf([]string{"a"}), reflect.ValueOf([]string{"a", "b"})), false)
+
+	// peel a pointer, and reject nil, a non-struct, and two types
+	same := notifiableObject{ValuesDocument: util.Ptr("old")}
+	_, _, sameOK := persistedStructs(&same, same)
+	check("persistedStructs(pointer and value)", sameOK, true)
+	_, _, nilOK := persistedStructs(nil, nil)
+	check("persistedStructs(nil)", nilOK, false)
+	_, _, textOK := persistedStructs("old", "new")
+	check("persistedStructs(string)", textOK, false)
+	_, _, typeOK := persistedStructs(same, struct{ N int }{})
+	check("persistedStructs(two types)", typeOK, false)
+	notify, changed := ObjectUpdateNotifiable(nil, nil)
+	check("ObjectUpdateNotifiable(nil)", notify, true)
+	if changed != nil {
+		t.Errorf("ObjectUpdateNotifiable(nil) names = %v, want nil", changed)
+	}
+
+	// copy a pointer, a nil pointer, and a time.Time by value
+	text := "old"
+	copiedText := deepCopy(reflect.ValueOf(&text))
+	text = "new"
+	if copiedText.Elem().String() != "old" {
+		t.Errorf("deepCopy(*string) = %s, want old", copiedText.Elem().String())
+	}
+	var nilText *string
+	if !deepCopy(reflect.ValueOf(nilText)).IsNil() {
+		t.Errorf("deepCopy(nil *string) is non-nil")
+	}
+	zone := time.FixedZone("Test", 3600)
+	copiedTime := deepCopy(reflect.ValueOf(instant.In(zone))).Interface().(time.Time)
+	if copiedTime.Location().String() != zone.String() {
+		t.Errorf("deepCopy(time.Time) location = %s, want %s", copiedTime.Location(), zone)
+	}
+	snapshot := NotifySnapshot(&same)
+	*same.ValuesDocument = "new"
+	if got := *snapshot.ValuesDocument; got != "old" {
+		t.Errorf("NotifySnapshot(*object) = %s, want old", got)
+	}
+
+	// read reconciliation state, including a missing embed and a pointer embed
+	_, haveState := reconciliationFrom(reflect.ValueOf(same))
+	check("reconciliationFrom(embed)", haveState, true)
+	_, missingState := reconciliationFrom(reflect.ValueOf(struct{ N int }{}))
+	check("reconciliationFrom(missing)", missingState, false)
+	_, pointerState := reconciliationFrom(reflect.ValueOf(struct{ Reconciliation *Reconciliation }{}))
+	check("reconciliationFrom(pointer)", pointerState, false)
+	check("alreadyReconciled(nil)", alreadyReconciled(nil), false)
+	check("alreadyReconciled(false)", alreadyReconciled(Reconciliation{Reconciled: util.Ptr(false)}), false)
+	check("alreadyReconciled(true)", alreadyReconciled(Reconciliation{Reconciled: util.Ptr(true)}), true)
+
+	// copy a set field, and treat a missing or non-pointer field as unset
+	if got := boolField(Reconciliation{Reconciled: util.Ptr(true)}, "Reconciled"); got == nil || !*got {
+		t.Errorf("boolField(true) = %v, want true", got)
+	}
+	if got := boolField(Reconciliation{}, "Reconciled"); got != nil {
+		t.Errorf("boolField(unset) = %v, want nil", got)
+	}
+	if got := boolField(struct{ Reconciled bool }{}, "Reconciled"); got != nil {
+		t.Errorf("boolField(non-pointer) = %v, want nil", got)
+	}
+	if got := timeField(Reconciliation{CreationAcknowledged: util.Ptr(instant)}, "CreationAcknowledged"); got == nil || !got.Equal(instant) {
+		t.Errorf("timeField(set) = %v, want %s", got, instant)
+	}
+	if got := timeField(Reconciliation{}, "CreationAcknowledged"); got != nil {
+		t.Errorf("timeField(unset) = %v, want nil", got)
+	}
+
+	// compare presence and instants for the pointer helpers
+	check("boolPtrEqual(nil, set)", boolPtrEqual(nil, util.Ptr(true)), false)
+	check("boolPtrEqual(false, false)", boolPtrEqual(util.Ptr(false), util.Ptr(false)), true)
+	check("boolPtrEqual(false, true)", boolPtrEqual(util.Ptr(false), util.Ptr(true)), false)
+	check("timePtrSet(nil, nil)", timePtrSet(nil, nil), true)
+	check("timePtrSet(nil, set)", timePtrSet(nil, &instant), false)
+	check("timePtrSet(different instants)", timePtrSet(&instant, &later), true)
+	check("timePtrEqual(nil, set)", timePtrEqual(nil, &instant), false)
+	check("timePtrRefreshed(nil)", timePtrRefreshed(nil, nil), false)
+	check("timePtrRefreshed(one nil)", timePtrRefreshed(nil, &instant), false)
+	check("timePtrRefreshed(same)", timePtrRefreshed(&instant, util.Ptr(instant)), false)
+	check("timePtrRefreshed(different)", timePtrRefreshed(&instant, &later), true)
+
+	// acknowledgementRefreshed reports a moved creation or deletion acknowledgement.
+	// ReconciliationStateChanged ignores InterruptReconciliation.
+	check("acknowledgementRefreshed(same)", acknowledgementRefreshed(
+		Reconciliation{CreationAcknowledged: util.Ptr(instant)},
+		Reconciliation{CreationAcknowledged: util.Ptr(instant)},
+	), false)
+	check("acknowledgementRefreshed(creation)", acknowledgementRefreshed(
+		Reconciliation{CreationAcknowledged: util.Ptr(instant)},
+		Reconciliation{CreationAcknowledged: util.Ptr(later)},
+	), true)
+	check("acknowledgementRefreshed(deletion)", acknowledgementRefreshed(
+		Reconciliation{DeletionAcknowledged: util.Ptr(instant)},
+		Reconciliation{DeletionAcknowledged: util.Ptr(later)},
+	), true)
+	type gated struct {
+		Reconciled              *bool
+		InterruptReconciliation *bool
+	}
+	check("ReconciliationStateChanged(interrupt)", ReconciliationStateChanged(
+		gated{Reconciled: util.Ptr(true), InterruptReconciliation: util.Ptr(false)},
+		gated{Reconciled: util.Ptr(true), InterruptReconciliation: util.Ptr(true)},
+	), false)
 }

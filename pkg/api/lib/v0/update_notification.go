@@ -91,7 +91,8 @@ func deepCopy(value reflect.Value) reflect.Value {
 func ObjectUpdateNotifiable(before, after any) (bool, []string) {
 	left, right, ok := persistedStructs(before, after)
 
-	// notify when the snapshots are not comparable structs
+	// notify when the values are nil, not structs, or different types.
+	// The comparison cannot check the suppressions, and the row is already written.
 	if !ok {
 		return true, nil
 	}
@@ -115,7 +116,8 @@ func ObjectUpdateNotifiable(before, after any) (bool, []string) {
 		return false, nil
 	}
 
-	// notify every other write
+	// notify every remaining write, including equal snapshots.
+	// Only Reconciled becoming true and an acknowledgement restamp skip the controller.
 	return true, nil
 }
 
@@ -131,6 +133,8 @@ func changedStructFields(left, right reflect.Value) []string {
 		}
 		leftField := left.Field(index)
 		rightField := right.Field(index)
+		// recurse into the Common, Definition, Instance, and Reconciliation embeds.
+		// Each contains no further embed, so the recursion stays one call deep.
 		if field.Anonymous && leftField.Kind() == reflect.Struct {
 			names = append(names, changedStructFields(leftField, rightField)...)
 			continue
@@ -166,6 +170,7 @@ func structFieldsChanged(left, right reflect.Value, skipReconciliation bool) boo
 }
 
 // fieldValuesEqual reports whether two saved field values match.
+// time.Time uses Equal so a database round trip does not count as a change.
 func fieldValuesEqual(left, right reflect.Value) bool {
 	if !left.IsValid() || !right.IsValid() {
 		return left.IsValid() == right.IsValid()
@@ -191,6 +196,7 @@ func fieldValuesEqual(left, right reflect.Value) bool {
 		return fieldValuesEqual(left.Elem(), right.Elem())
 	case reflect.Struct:
 		return !structFieldsChanged(left, right, false)
+	// reflect.DeepEqual covers slices, maps, and plain values
 	default:
 		return reflect.DeepEqual(left.Interface(), right.Interface())
 	}
