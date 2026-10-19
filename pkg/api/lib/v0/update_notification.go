@@ -90,36 +90,32 @@ func deepCopy(value reflect.Value) reflect.Value {
 // When Reconciled becomes true, the other changed fields are named and the write does not notify.
 func ObjectUpdateNotifiable(before, after any) (bool, []string) {
 	left, right, ok := persistedStructs(before, after)
+
+	// notify when the snapshots are not comparable structs
 	if !ok {
 		return true, nil
 	}
 
-	// suppress a write that sets Reconciled true
+	// classify the write
 	beforeState, beforeOK := reconciliationFrom(left)
 	afterState, afterOK := reconciliationFrom(right)
-	if beforeOK && afterOK && alreadyReconciled(afterState) && !alreadyReconciled(beforeState) {
+	haveState := beforeOK && afterOK
+	specChanged := structFieldsChanged(left, right, true)
+	markersChanged := haveState && ReconciliationStateChanged(beforeState, afterState)
+	restamped := haveState && acknowledgementRefreshed(beforeState, afterState)
+	reconciledBecomesTrue := haveState && alreadyReconciled(afterState) && !alreadyReconciled(beforeState)
+
+	// suppress the write that sets Reconciled true
+	if reconciledBecomesTrue {
 		return false, changedStructFields(left, right)
 	}
 
-	// notify when a field outside reconciliation state changed
-	if structFieldsChanged(left, right, true) {
-		return true, nil
-	}
-	if !beforeOK || !afterOK {
-		return true, nil
-	}
-
-	// notify when a reconciliation marker changed
-	if ReconciliationStateChanged(beforeState, afterState) {
-		return true, nil
-	}
-
-	// skip a restamped acknowledgement
-	if acknowledgementRefreshed(beforeState, afterState) {
+	// suppress an acknowledgement restamp that changes nothing else
+	if restamped && !specChanged && !markersChanged {
 		return false, nil
 	}
 
-	// notify when the snapshots are otherwise equal
+	// notify every other write
 	return true, nil
 }
 
