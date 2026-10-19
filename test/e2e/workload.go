@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -298,23 +299,9 @@ func decodeSingleObject(output []byte) (map[string]interface{}, error) {
 // getKubernetesWorkloadInstanceByName looks a workload instance up in the
 // Threeport API, using the config the suite told tptctl to write.
 func getKubernetesWorkloadInstanceByName(name string) (*api_v0.KubernetesWorkloadInstance, error) {
-	configBytes, err := os.ReadFile(threeportConfig)
+	_, apiClient, apiEndpoint, err := suiteThreeportAPI()
 	if err != nil {
-		return nil, fmt.Errorf("failed to read the test threeport config: %w", err)
-	}
-
-	var suiteConfig cli.ThreeportConfig
-	if err := yaml.Unmarshal(configBytes, &suiteConfig); err != nil {
-		return nil, fmt.Errorf("failed to parse the test threeport config: %w", err)
-	}
-
-	apiClient, err := suiteConfig.GetHTTPClient(threeportName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build a threeport API client: %w", err)
-	}
-	apiEndpoint, err := suiteConfig.GetThreeportAPIEndpoint(threeportName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get the threeport API endpoint: %w", err)
+		return nil, err
 	}
 
 	instance, err := client_v0.GetKubernetesWorkloadInstanceByName(apiClient, apiEndpoint, name)
@@ -326,4 +313,62 @@ func getKubernetesWorkloadInstanceByName(name string) (*api_v0.KubernetesWorkloa
 	}
 
 	return instance, nil
+}
+
+// suiteThreeportAPI returns the config the suite told tptctl to write, and a
+// client and endpoint for the Threeport API it describes.
+func suiteThreeportAPI() (*cli.ThreeportConfig, *http.Client, string, error) {
+	configBytes, err := os.ReadFile(threeportConfig)
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("failed to read the test threeport config: %w", err)
+	}
+
+	var suiteConfig cli.ThreeportConfig
+	if err := yaml.Unmarshal(configBytes, &suiteConfig); err != nil {
+		return nil, nil, "", fmt.Errorf("failed to parse the test threeport config: %w", err)
+	}
+
+	apiClient, err := suiteConfig.GetHTTPClient(threeportName)
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("failed to build a threeport API client: %w", err)
+	}
+	apiEndpoint, err := suiteConfig.GetThreeportAPIEndpoint(threeportName)
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("failed to get the threeport API endpoint: %w", err)
+	}
+
+	return &suiteConfig, apiClient, apiEndpoint, nil
+}
+
+// removeLeftoverWorkloadInstances deletes every kubernetes workload instance
+// still in the Threeport API.  tptctl down refuses to remove a control plane
+// that has one, so a test that fails before its own cleanup would otherwise
+// leave the whole install running - on a cloud provider, billing.
+func removeLeftoverWorkloadInstances() error {
+	_, apiClient, apiEndpoint, err := suiteThreeportAPI()
+	if err != nil {
+		return err
+	}
+
+	instances, err := client_v0.GetKubernetesWorkloadInstances(apiClient, apiEndpoint)
+	if err != nil {
+		return fmt.Errorf("failed to list kubernetes workload instances: %w", err)
+	}
+
+	for _, instance := range *instances {
+		if _, err := client_v0.DeleteKubernetesWorkloadInstance(apiClient, apiEndpoint, *instance.ID); err != nil {
+			return fmt.Errorf("failed to delete kubernetes workload instance %d: %w", *instance.ID, err)
+		}
+	}
+
+	return util.Retry(60, 1, func() error {
+		remaining, err := client_v0.GetKubernetesWorkloadInstances(apiClient, apiEndpoint)
+		if err != nil {
+			return fmt.Errorf("failed to list kubernetes workload instances: %w", err)
+		}
+		if len(*remaining) > 0 {
+			return fmt.Errorf("%d kubernetes workload instances not deleted yet", len(*remaining))
+		}
+		return nil
+	})
 }

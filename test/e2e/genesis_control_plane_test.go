@@ -69,8 +69,14 @@ var _ = AfterSuite(func() {
 	if clean {
 		GinkgoWriter.Write([]byte("beginning cleanup for test suite"))
 
+		By("remove workload instances a failed test left behind")
+		leftoverErr := removeLeftoverWorkloadInstances()
+
+		// attempted even when the step above failed, since it can fail after
+		// every instance is already gone
 		By("remove genesis control plane")
 		err := removeControlPlane()
+		Expect(leftoverErr).NotTo(HaveOccurred(), "failed to remove leftover workload instances")
 		Expect(err).NotTo(HaveOccurred(), "failed to remove control plane")
 
 		if usingLocalRegistry() {
@@ -269,6 +275,8 @@ func buildContainerImages() error {
 		getImageRepo(imageRepo),
 		"-t",
 		imageTag,
+		"--arch",
+		imageArch,
 		"--push",
 	}
 	if err := runCommandStreamOutput(
