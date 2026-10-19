@@ -29,7 +29,7 @@ func NotifySnapshot[T any](object T) T {
 	return value
 }
 
-// deepCopy returns a copy that does not share pointers with value.
+// deepCopy returns a copy that does not share pointers with its input argument.
 func deepCopy(value reflect.Value) reflect.Value {
 	if !value.IsValid() {
 		return value
