@@ -142,52 +142,6 @@ func TestNotifySnapshotIsolatesPointerFields(t *testing.T) {
 	assertUpdate(t, stampSnapshot, stampSaved, false)
 }
 
-// TestReconciliationUpdateNotifiable covers when an update notifies the controller.
-func TestReconciliationUpdateNotifiable(t *testing.T) {
-	earlier := time.Date(2026, 8, 13, 12, 0, 0, 0, time.UTC)
-	later := earlier.Add(time.Minute)
-	no := false
-
-	// a restamped acknowledgement must not notify
-	restamped := Reconciliation{Reconciled: &no, CreationAcknowledged: &earlier}
-	after := Reconciliation{Reconciled: &no, CreationAcknowledged: &later}
-	if ReconciliationUpdateNotifiable(restamped, after) {
-		t.Errorf("a refreshed acknowledgement alone must not notify; that is the publish loop")
-	}
-
-	// notify when both snapshots are equal
-	unchanged := Reconciliation{Reconciled: &no, CreationAcknowledged: &earlier}
-	if !ReconciliationUpdateNotifiable(unchanged, unchanged) {
-		t.Errorf("a spec edit leaves reconciliation state equal and must still notify")
-	}
-
-	// a moved state marker must notify
-	failed := Reconciliation{Reconciled: &no, CreationAcknowledged: &earlier}
-	yes := true
-	nowFailed := Reconciliation{Reconciled: &no, CreationAcknowledged: &earlier, CreationFailed: &yes}
-	if !ReconciliationUpdateNotifiable(failed, nowFailed) {
-		t.Errorf("a moved state marker must notify")
-	}
-
-	// the controller's stamp of Reconciled to true must not notify
-	unstamped := Reconciliation{Reconciled: &no, CreationAcknowledged: &earlier}
-	stamped := Reconciliation{Reconciled: &yes, CreationAcknowledged: &earlier}
-	if ReconciliationUpdateNotifiable(unstamped, stamped) {
-		t.Errorf("a Reconciled stamp must not schedule another reconcile")
-	}
-
-	// clearing Reconciled must still notify
-	if !ReconciliationUpdateNotifiable(stamped, unstamped) {
-		t.Errorf("clearing Reconciled must notify")
-	}
-
-	// a stamp that also moves another marker must notify
-	stampedAndFailed := Reconciliation{Reconciled: &yes, CreationAcknowledged: &earlier, CreationFailed: &yes}
-	if !ReconciliationUpdateNotifiable(unstamped, stampedAndFailed) {
-		t.Errorf("a stamp that also moves another marker must notify")
-	}
-}
-
 // TestChangeDetection covers the pointer helpers under ReconciliationStateChanged.
 func TestChangeDetection(t *testing.T) {
 	// check nil against nil

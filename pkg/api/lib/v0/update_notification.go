@@ -108,7 +108,19 @@ func ObjectUpdateNotifiable(before, after any) (bool, []string) {
 	if !beforeOK || !afterOK {
 		return true, nil
 	}
-	return ReconciliationUpdateNotifiable(beforeState, afterState), nil
+
+	// notify when a reconciliation marker changed
+	if ReconciliationStateChanged(beforeState, afterState) {
+		return true, nil
+	}
+
+	// skip a restamped acknowledgement
+	if acknowledgementRefreshed(beforeState, afterState) {
+		return false, nil
+	}
+
+	// notify when the snapshots are otherwise equal
+	return true, nil
 }
 
 // changedStructFields names exported fields that differ, descending into embeds.
@@ -224,31 +236,6 @@ func reconciliationFrom(object reflect.Value) (any, bool) {
 		return nil, false
 	}
 	return field.Interface(), true
-}
-
-// ReconciliationUpdateNotifiable reports whether an update should notify the controller.
-// Equal markers still notify. A restamped acknowledgement does not, and neither does a stamp of Reconciled to true.
-func ReconciliationUpdateNotifiable(a, b any) bool {
-	if reconciledStampOnly(a, b) {
-		return false
-	}
-	if ReconciliationStateChanged(a, b) {
-		return true
-	}
-	return !acknowledgementRefreshed(a, b)
-}
-
-// reconciledStampOnly reports a write whose only marker change is Reconciled becoming true.
-func reconciledStampOnly(a, b any) bool {
-	if !alreadyReconciled(b) || alreadyReconciled(a) {
-		return false
-	}
-
-	// compare the other markers with Reconciled held equal
-	same := reflect.New(reflect.TypeOf(a)).Elem()
-	same.Set(reflect.ValueOf(a))
-	same.FieldByName("Reconciled").Set(fieldByName(b, "Reconciled"))
-	return !ReconciliationStateChanged(same.Interface(), b)
 }
 
 // acknowledgementRefreshed reports a restamped creation or deletion acknowledgement.
