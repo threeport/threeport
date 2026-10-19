@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -34,13 +35,19 @@ func handlerTemplateSource(t *testing.T) string {
 func TestHandlerTemplate_UpdateNotificationDoesNotGateOnReconciled(t *testing.T) {
 	text := handlerTemplateSource(t)
 
-	notifiable := regexp.MustCompile(`notifyControllersUpdateHandler\.If\(Qual\(`)
+	notifiable := regexp.MustCompile(`"ObjectUpdateNotifiable"`)
 	assert.Len(t, notifiable.FindAllString(text, -1), 1,
-		"the update notification condition is a single call to ReconciliationUpdateNotifiable")
+		"the update notification condition is a single call to ObjectUpdateNotifiable")
 
 	gated := regexp.MustCompile(`notifyControllersUpdateHandler\.If\([\s\S]{0,200}Dot\("Reconciled"\)`)
 	assert.Empty(t, gated.FindAllString(text, -1),
 		"the update notification must not be gated on the object's Reconciled field")
+
+	warnAt := strings.Index(text, `Lit("reconciled became true with other fields changed")`)
+	publishAt := strings.Index(text, `If(Id("notify")).Block(`)
+	assert.Greater(t, warnAt, 0)
+	assert.Greater(t, publishAt, warnAt)
+	assert.Contains(t, text, `Qual("go.uber.org/zap", "Strings").Call(Lit("fields"), Id("changed"))`)
 }
 
 // the check that is meant to be there still is: a write that changes nothing
@@ -48,5 +55,7 @@ func TestHandlerTemplate_UpdateNotificationDoesNotGateOnReconciled(t *testing.T)
 func TestHandlerTemplate_UpdateNotificationKeepsNotifiableCheck(t *testing.T) {
 	text := handlerTemplateSource(t)
 
-	assert.Contains(t, text, `"ReconciliationUpdateNotifiable"`)
+	assert.Contains(t, text, `"ObjectUpdateNotifiable"`)
+	assert.Equal(t, 2, strings.Count(text, `"NotifySnapshot"`))
+	assert.NotContains(t, text, "prevReconciliation")
 }

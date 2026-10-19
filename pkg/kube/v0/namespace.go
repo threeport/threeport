@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"gorm.io/datatypes"
 	kubemetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,7 +46,7 @@ func SetNamespaces(
 	if clientManagedNS == "" {
 		// we are managing namespaces for the client - create namespace and add to
 		// array of processed kubernetes workload resource instances
-		namespace = fmt.Sprintf("%s-%s", *workloadInstanceName, util.RandomAlphaNumericString(10))
+		namespace = managedNamespaceName(*workloadInstanceName, *workloadInstanceID)
 	} else {
 		namespace = clientManagedNS
 	}
@@ -95,6 +97,19 @@ func SetNamespaces(
 		processedWRIs[0] = *namespaceWRI
 	}
 	return &processedWRIs, nil
+}
+
+// managedNamespaceName returns the namespace threeport creates for a workload
+// instance. The name comes from the instance, so a retry uses the same one.
+func managedNamespaceName(instanceName string, instanceID uint) string {
+	// keep the instance id, and shorten the name so the label fits 63 characters
+	suffix := strconv.FormatUint(uint64(instanceID), 10)
+	maxName := 63 - len(suffix) - 1
+	name := strings.ToLower(instanceName)
+	if len(name) > maxName {
+		name = strings.TrimRight(name[:maxName], "-")
+	}
+	return name + "-" + suffix
 }
 
 // GetManagedNamespaceNames returns the names of the namespaces created and manged
@@ -166,9 +181,9 @@ func CreateNamespaceWorkloadResourceInstance(
 	JSONDef = namespaceJSON
 	reconciled := false
 	workloadResourceInstance := v0.KubernetesWorkloadResourceInstance{
-		JSONDefinition:     &JSONDef,
+		JSONDefinition:               &JSONDef,
 		KubernetesWorkloadInstanceID: &workloadInstanceID,
-		Reconciled:         &reconciled,
+		Reconciled:                   &reconciled,
 	}
 
 	return &workloadResourceInstance, nil

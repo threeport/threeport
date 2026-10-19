@@ -8,6 +8,7 @@ import (
 	echo "github.com/labstack/echo/v4"
 	notif "github.com/threeport/threeport/internal/observability/notif"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
+	api_v0_lib "github.com/threeport/threeport/pkg/api/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util_v0 "github.com/threeport/threeport/pkg/util/v0"
@@ -321,9 +322,8 @@ func (h Handler) UpdateLoggingDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before update so the notify block
-	// can skip publishing when the update did not touch any state marker
-	prevReconciliation := existingLoggingDefinition.Reconciliation
+	// snapshot the loaded row before this update.
+	prevLoggingDefinition := api_v0_lib.NotifySnapshot(existingLoggingDefinition)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -347,7 +347,12 @@ func (h Handler) UpdateLoggingDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingLoggingDefinition.Reconciliation) {
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevLoggingDefinition, existingLoggingDefinition)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingLoggingDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -423,9 +428,8 @@ func (h Handler) ReplaceLoggingDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before replace so the notify block
-	// can skip publishing when the replace did not touch any state marker
-	prevReconciliation := existingLoggingDefinition.Reconciliation
+	// snapshot the loaded row before this replace.
+	prevLoggingDefinition := api_v0_lib.NotifySnapshot(existingLoggingDefinition)
 
 	// persist provided data
 	updatedLoggingDefinition.ID = existingLoggingDefinition.ID
@@ -459,7 +463,12 @@ func (h Handler) ReplaceLoggingDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingLoggingDefinition.Reconciliation) {
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevLoggingDefinition, existingLoggingDefinition)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingLoggingDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -917,9 +926,8 @@ func (h Handler) UpdateLoggingInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before update so the notify block
-	// can skip publishing when the update did not touch any state marker
-	prevReconciliation := existingLoggingInstance.Reconciliation
+	// snapshot the loaded row before this update.
+	prevLoggingInstance := api_v0_lib.NotifySnapshot(existingLoggingInstance)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -943,7 +951,12 @@ func (h Handler) UpdateLoggingInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingLoggingInstance.Reconciliation) {
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevLoggingInstance, existingLoggingInstance)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingLoggingInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -1019,9 +1032,8 @@ func (h Handler) ReplaceLoggingInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before replace so the notify block
-	// can skip publishing when the replace did not touch any state marker
-	prevReconciliation := existingLoggingInstance.Reconciliation
+	// snapshot the loaded row before this replace.
+	prevLoggingInstance := api_v0_lib.NotifySnapshot(existingLoggingInstance)
 
 	// persist provided data
 	updatedLoggingInstance.ID = existingLoggingInstance.ID
@@ -1055,7 +1067,12 @@ func (h Handler) ReplaceLoggingInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingLoggingInstance.Reconciliation) {
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevLoggingInstance, existingLoggingInstance)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingLoggingInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -1507,9 +1524,8 @@ func (h Handler) UpdateMetricsDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before update so the notify block
-	// can skip publishing when the update did not touch any state marker
-	prevReconciliation := existingMetricsDefinition.Reconciliation
+	// snapshot the loaded row before this update.
+	prevMetricsDefinition := api_v0_lib.NotifySnapshot(existingMetricsDefinition)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -1533,7 +1549,12 @@ func (h Handler) UpdateMetricsDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingMetricsDefinition.Reconciliation) {
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevMetricsDefinition, existingMetricsDefinition)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingMetricsDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -1609,9 +1630,8 @@ func (h Handler) ReplaceMetricsDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before replace so the notify block
-	// can skip publishing when the replace did not touch any state marker
-	prevReconciliation := existingMetricsDefinition.Reconciliation
+	// snapshot the loaded row before this replace.
+	prevMetricsDefinition := api_v0_lib.NotifySnapshot(existingMetricsDefinition)
 
 	// persist provided data
 	updatedMetricsDefinition.ID = existingMetricsDefinition.ID
@@ -1645,7 +1665,12 @@ func (h Handler) ReplaceMetricsDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingMetricsDefinition.Reconciliation) {
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevMetricsDefinition, existingMetricsDefinition)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingMetricsDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -2103,9 +2128,8 @@ func (h Handler) UpdateMetricsInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before update so the notify block
-	// can skip publishing when the update did not touch any state marker
-	prevReconciliation := existingMetricsInstance.Reconciliation
+	// snapshot the loaded row before this update.
+	prevMetricsInstance := api_v0_lib.NotifySnapshot(existingMetricsInstance)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -2129,7 +2153,12 @@ func (h Handler) UpdateMetricsInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingMetricsInstance.Reconciliation) {
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevMetricsInstance, existingMetricsInstance)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingMetricsInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -2205,9 +2234,8 @@ func (h Handler) ReplaceMetricsInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before replace so the notify block
-	// can skip publishing when the replace did not touch any state marker
-	prevReconciliation := existingMetricsInstance.Reconciliation
+	// snapshot the loaded row before this replace.
+	prevMetricsInstance := api_v0_lib.NotifySnapshot(existingMetricsInstance)
 
 	// persist provided data
 	updatedMetricsInstance.ID = existingMetricsInstance.ID
@@ -2241,7 +2269,12 @@ func (h Handler) ReplaceMetricsInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingMetricsInstance.Reconciliation) {
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevMetricsInstance, existingMetricsInstance)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingMetricsInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -2693,9 +2726,8 @@ func (h Handler) UpdateObservabilityDashboardDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before update so the notify block
-	// can skip publishing when the update did not touch any state marker
-	prevReconciliation := existingObservabilityDashboardDefinition.Reconciliation
+	// snapshot the loaded row before this update.
+	prevObservabilityDashboardDefinition := api_v0_lib.NotifySnapshot(existingObservabilityDashboardDefinition)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -2719,7 +2751,12 @@ func (h Handler) UpdateObservabilityDashboardDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingObservabilityDashboardDefinition.Reconciliation) {
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevObservabilityDashboardDefinition, existingObservabilityDashboardDefinition)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingObservabilityDashboardDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -2795,9 +2832,8 @@ func (h Handler) ReplaceObservabilityDashboardDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before replace so the notify block
-	// can skip publishing when the replace did not touch any state marker
-	prevReconciliation := existingObservabilityDashboardDefinition.Reconciliation
+	// snapshot the loaded row before this replace.
+	prevObservabilityDashboardDefinition := api_v0_lib.NotifySnapshot(existingObservabilityDashboardDefinition)
 
 	// persist provided data
 	updatedObservabilityDashboardDefinition.ID = existingObservabilityDashboardDefinition.ID
@@ -2831,7 +2867,12 @@ func (h Handler) ReplaceObservabilityDashboardDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingObservabilityDashboardDefinition.Reconciliation) {
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevObservabilityDashboardDefinition, existingObservabilityDashboardDefinition)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingObservabilityDashboardDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -3289,9 +3330,8 @@ func (h Handler) UpdateObservabilityDashboardInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before update so the notify block
-	// can skip publishing when the update did not touch any state marker
-	prevReconciliation := existingObservabilityDashboardInstance.Reconciliation
+	// snapshot the loaded row before this update.
+	prevObservabilityDashboardInstance := api_v0_lib.NotifySnapshot(existingObservabilityDashboardInstance)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -3315,7 +3355,12 @@ func (h Handler) UpdateObservabilityDashboardInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingObservabilityDashboardInstance.Reconciliation) {
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevObservabilityDashboardInstance, existingObservabilityDashboardInstance)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingObservabilityDashboardInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -3391,9 +3436,8 @@ func (h Handler) ReplaceObservabilityDashboardInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before replace so the notify block
-	// can skip publishing when the replace did not touch any state marker
-	prevReconciliation := existingObservabilityDashboardInstance.Reconciliation
+	// snapshot the loaded row before this replace.
+	prevObservabilityDashboardInstance := api_v0_lib.NotifySnapshot(existingObservabilityDashboardInstance)
 
 	// persist provided data
 	updatedObservabilityDashboardInstance.ID = existingObservabilityDashboardInstance.ID
@@ -3427,7 +3471,12 @@ func (h Handler) ReplaceObservabilityDashboardInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingObservabilityDashboardInstance.Reconciliation) {
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevObservabilityDashboardInstance, existingObservabilityDashboardInstance)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingObservabilityDashboardInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -3879,9 +3928,8 @@ func (h Handler) UpdateObservabilityStackDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before update so the notify block
-	// can skip publishing when the update did not touch any state marker
-	prevReconciliation := existingObservabilityStackDefinition.Reconciliation
+	// snapshot the loaded row before this update.
+	prevObservabilityStackDefinition := api_v0_lib.NotifySnapshot(existingObservabilityStackDefinition)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -3905,7 +3953,12 @@ func (h Handler) UpdateObservabilityStackDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingObservabilityStackDefinition.Reconciliation) {
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevObservabilityStackDefinition, existingObservabilityStackDefinition)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingObservabilityStackDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -3981,9 +4034,8 @@ func (h Handler) ReplaceObservabilityStackDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before replace so the notify block
-	// can skip publishing when the replace did not touch any state marker
-	prevReconciliation := existingObservabilityStackDefinition.Reconciliation
+	// snapshot the loaded row before this replace.
+	prevObservabilityStackDefinition := api_v0_lib.NotifySnapshot(existingObservabilityStackDefinition)
 
 	// persist provided data
 	updatedObservabilityStackDefinition.ID = existingObservabilityStackDefinition.ID
@@ -4017,7 +4069,12 @@ func (h Handler) ReplaceObservabilityStackDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingObservabilityStackDefinition.Reconciliation) {
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevObservabilityStackDefinition, existingObservabilityStackDefinition)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingObservabilityStackDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -4475,9 +4532,8 @@ func (h Handler) UpdateObservabilityStackInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before update so the notify block
-	// can skip publishing when the update did not touch any state marker
-	prevReconciliation := existingObservabilityStackInstance.Reconciliation
+	// snapshot the loaded row before this update.
+	prevObservabilityStackInstance := api_v0_lib.NotifySnapshot(existingObservabilityStackInstance)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -4501,7 +4557,12 @@ func (h Handler) UpdateObservabilityStackInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingObservabilityStackInstance.Reconciliation) {
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevObservabilityStackInstance, existingObservabilityStackInstance)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingObservabilityStackInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -4577,9 +4638,8 @@ func (h Handler) ReplaceObservabilityStackInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before replace so the notify block
-	// can skip publishing when the replace did not touch any state marker
-	prevReconciliation := existingObservabilityStackInstance.Reconciliation
+	// snapshot the loaded row before this replace.
+	prevObservabilityStackInstance := api_v0_lib.NotifySnapshot(existingObservabilityStackInstance)
 
 	// persist provided data
 	updatedObservabilityStackInstance.ID = existingObservabilityStackInstance.ID
@@ -4613,7 +4673,12 @@ func (h Handler) ReplaceObservabilityStackInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingObservabilityStackInstance.Reconciliation) {
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevObservabilityStackInstance, existingObservabilityStackInstance)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingObservabilityStackInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,

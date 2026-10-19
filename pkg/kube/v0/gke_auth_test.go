@@ -47,8 +47,8 @@ func TestGkeTokenAndSubjectShareOneDecision(t *testing.T) {
 		assert.Contains(t, body, "gkeAuthSource(", "%s must not decide the identity itself", caller)
 	}
 
-	// and only that one function reads ambient credentials
-	defaultTokenSource := regexp.MustCompile(`google\.DefaultTokenSource\(`)
-	assert.Len(t, defaultTokenSource.FindAllString(text, -1), 1,
+	// and only one function resolves ambient credentials
+	resolvesAmbient := regexp.MustCompile(`google\.(DefaultTokenSource|FindDefaultCredentials)\(`)
+	assert.Len(t, resolvesAmbient.FindAllString(text, -1), 1,
 		"ambient credentials are read in one place, so the two cannot diverge")
 }

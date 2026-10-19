@@ -226,4 +226,24 @@ func TestGenModuleRegistrationReclaimsControllerAtomically(t *testing.T) {
 	if !strings.Contains(failureBranch[1], "return nil,") || !strings.Contains(failureBranch[1], "%w") {
 		t.Errorf("a failed reclaim must return a wrapped error, got:\n%s", failureBranch[1])
 	}
+
+	// a name collision with an active module is the case that needs operator
+	// action, so a conflict must log before returning (threeport#576) - the
+	// module crash loops on restart and the error alone can get buried in the
+	// crash-loop noise. The server also returns a 409 for a transient
+	// concurrent change, so the log must carry the server's error rather than
+	// assert a permanent collision.
+	conflictBranch := regexp.MustCompile(`(?s)if errors\.Is\(reclaimErr,\s*tp_client_lib\.ErrConflict\) \{(.*?)\n\t\t\}`).FindStringSubmatch(failureBranch[1])
+	if conflictBranch == nil {
+		t.Fatalf("could not find the \"errors.Is(reclaimErr, ErrConflict)\" (active owner) branch in the reclaim failure path:\n%s", failureBranch[1])
+	}
+	if !strings.Contains(conflictBranch[1], "log.Printf(") {
+		t.Errorf("the active-owner collision branch must log before the error is returned, got:\n%s", conflictBranch[1])
+	}
+	if !strings.Contains(conflictBranch[1], "reclaimErr") {
+		t.Errorf("the collision log must include the server's reclaim error to tell an active owner from a concurrent change, got:\n%s", conflictBranch[1])
+	}
+	if strings.Contains(conflictBranch[1], "return") {
+		t.Errorf("the collision log branch must fall through to the wrapped error return, got:\n%s", conflictBranch[1])
+	}
 }

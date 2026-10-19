@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -293,4 +294,79 @@ func TestBuildGkeInfra_RefusesStoredCredentialsFromAnotherProject(t *testing.T) 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "another-project")
 	assert.Contains(t, err.Error(), "runtime-project")
+}
+
+// TestBuildGkeInfra_PulumiProjectSetAtConstruction covers the state file path
+// the crash-recovery watcher is built from.
+//
+// executeInfraCreate starts the fsnotify watcher that streams partial state to
+// the API before it calls DeployInfra, and GetStateFilePath builds the watched
+// path from ProjectName. Filling that in later - from CreateInfra, as it used
+// to be - leaves the watcher reading an empty name, so it watches one directory
+// above where Pulumi writes and never fires. A controller that then crashes
+// mid-provision has persisted nothing, and the retry starts over with the first
+// attempt's resources still in the project. Fixed for EKS in #572; this is the
+// same pattern.
+func TestBuildGkeInfra_PulumiProjectSetAtConstruction(t *testing.T) {
+	projectID := "some-project"
+	gcpProviderID := uint(1)
+	serviceAccountCredentials := `{"type":"service_account","project_id":"some-project","client_email":"threeport@some-project.iam.gserviceaccount.com"}`
+
+	gcpProvider := api_v0.GcpProvider{
+		Common:                    api_v0.Common{ID: &gcpProviderID},
+		ProjectID:                 &projectID,
+		ServiceAccountCredentials: &serviceAccountCredentials,
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := json.Marshal(apiserver_lib.Response{
+			Status: apiserver_lib.Status{Code: http.StatusOK, Message: "OK"},
+			Data:   []apiserver_lib.Object{gcpProvider},
+		})
+		require.NoError(t, err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+
+	instanceName := "test-instance"
+	region := "us-east1"
+	machineType := "e2-standard-4"
+	size := 2
+	infra, err := buildGkeInfra(
+		&controller.Reconciler{
+			APIClient: &http.Client{},
+			APIServer: strings.TrimPrefix(srv.URL, "http://"),
+		},
+		&api_v0.GcpGkeKubernetesRuntimeInstance{
+			Instance:      api_v0.Instance{Name: &instanceName},
+			Region:        &region,
+			GcpProviderID: &gcpProviderID,
+		},
+		&api_v0.GcpGkeKubernetesRuntimeDefinition{
+			DefaultNodeGroupInstanceType: &machineType,
+			DefaultNodeGroupInitialSize:  &size,
+			DefaultNodeGroupMinimumSize:  &size,
+			DefaultNodeGroupMaximumSize:  &size,
+		},
+		nil,
+	)
+	require.NoError(t, err)
+
+	require.NotEmpty(
+		t, infra.ProjectName,
+		"the project name has to be set before the lifecycle starts watching for state",
+	)
+
+	statePath, err := infra.GetStateFilePath()
+	require.NoError(t, err)
+	assert.Contains(
+		t, statePath, filepath.Join("stacks", infra.ProjectName),
+		"the watched path must name the project directory Pulumi writes into",
+	)
+
+	// the project and region reach the stack config at construction too, for
+	// the same reason: nothing may write to the infra once the watcher reads it
+	assert.Equal(t, infra.ProjectID, infra.StackConfigs["gcp:project"])
+	assert.Equal(t, infra.Region, infra.StackConfigs["gcp:region"])
 }

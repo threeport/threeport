@@ -76,8 +76,9 @@ const (
 	// * Allow 10 chars for "threeport-" prefix
 	InstanceNameMaxLength = 30
 
-	ControlPlaneTierDev  = "development"
-	ControlPlaneTierProd = "production"
+	// the canonical values live on the API object these describe
+	ControlPlaneTierDev  = v0.ControlPlaneTierDevelopment
+	ControlPlaneTierProd = v0.ControlPlaneTierProduction
 )
 
 var enabled bool = true
@@ -251,6 +252,31 @@ func DefaultControlPlaneTierForProvider(infraProvider string) string {
 
 	// return the production tier for every other value
 	return ControlPlaneTierProd
+}
+
+// ValidateTierForProvider rejects a provider and tier that cannot go together.
+//
+// kind is a local, single-node, ephemeral cluster. The tier gates replica
+// counts, database topology and backups, none of which kind can honour, so
+// accepting production there would report a production control plane and
+// install a development one.
+//
+// Both install paths reach this. The genesis path arrives from command flags,
+// before any infrastructure exists; a child control plane arrives from the
+// tier recorded on its definition and the runtime it is being installed onto,
+// which are two values that were never compared until they met here. It is
+// one rule either way, so it is written once - a second copy is a second
+// thing to keep in step, and the pairing it describes does not change with
+// the path that found it.
+func ValidateTierForProvider(infraProvider, tier string) error {
+	if infraProvider == v0.KubernetesRuntimeInfraProviderKind && tier == ControlPlaneTierProd {
+		return fmt.Errorf(
+			"the %s provider cannot run a %s tier control plane - it is a local, single-node cluster",
+			v0.KubernetesRuntimeInfraProviderKind, ControlPlaneTierProd,
+		)
+	}
+
+	return nil
 }
 
 // AllControlPlaneComponents returns a list of all control plane components.

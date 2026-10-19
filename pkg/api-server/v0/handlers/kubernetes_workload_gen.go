@@ -8,6 +8,7 @@ import (
 	echo "github.com/labstack/echo/v4"
 	notif "github.com/threeport/threeport/internal/kubernetes-workload/notif"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
+	api_v0_lib "github.com/threeport/threeport/pkg/api/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util_v0 "github.com/threeport/threeport/pkg/util/v0"
@@ -321,9 +322,8 @@ func (h Handler) UpdateKubernetesWorkloadDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before update so the notify block
-	// can skip publishing when the update did not touch any state marker
-	prevReconciliation := existingKubernetesWorkloadDefinition.Reconciliation
+	// snapshot the loaded row before this update.
+	prevKubernetesWorkloadDefinition := api_v0_lib.NotifySnapshot(existingKubernetesWorkloadDefinition)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -347,7 +347,12 @@ func (h Handler) UpdateKubernetesWorkloadDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingKubernetesWorkloadDefinition.Reconciliation) {
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevKubernetesWorkloadDefinition, existingKubernetesWorkloadDefinition)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingKubernetesWorkloadDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -423,9 +428,8 @@ func (h Handler) ReplaceKubernetesWorkloadDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before replace so the notify block
-	// can skip publishing when the replace did not touch any state marker
-	prevReconciliation := existingKubernetesWorkloadDefinition.Reconciliation
+	// snapshot the loaded row before this replace.
+	prevKubernetesWorkloadDefinition := api_v0_lib.NotifySnapshot(existingKubernetesWorkloadDefinition)
 
 	// persist provided data
 	updatedKubernetesWorkloadDefinition.ID = existingKubernetesWorkloadDefinition.ID
@@ -459,7 +463,12 @@ func (h Handler) ReplaceKubernetesWorkloadDefinition(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingKubernetesWorkloadDefinition.Reconciliation) {
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevKubernetesWorkloadDefinition, existingKubernetesWorkloadDefinition)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingKubernetesWorkloadDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -917,9 +926,8 @@ func (h Handler) UpdateKubernetesWorkloadInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before update so the notify block
-	// can skip publishing when the update did not touch any state marker
-	prevReconciliation := existingKubernetesWorkloadInstance.Reconciliation
+	// snapshot the loaded row before this update.
+	prevKubernetesWorkloadInstance := api_v0_lib.NotifySnapshot(existingKubernetesWorkloadInstance)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -943,7 +951,12 @@ func (h Handler) UpdateKubernetesWorkloadInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingKubernetesWorkloadInstance.Reconciliation) {
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevKubernetesWorkloadInstance, existingKubernetesWorkloadInstance)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingKubernetesWorkloadInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -1019,9 +1032,8 @@ func (h Handler) ReplaceKubernetesWorkloadInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before replace so the notify block
-	// can skip publishing when the replace did not touch any state marker
-	prevReconciliation := existingKubernetesWorkloadInstance.Reconciliation
+	// snapshot the loaded row before this replace.
+	prevKubernetesWorkloadInstance := api_v0_lib.NotifySnapshot(existingKubernetesWorkloadInstance)
 
 	// persist provided data
 	updatedKubernetesWorkloadInstance.ID = existingKubernetesWorkloadInstance.ID
@@ -1055,7 +1067,12 @@ func (h Handler) ReplaceKubernetesWorkloadInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingKubernetesWorkloadInstance.Reconciliation) {
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevKubernetesWorkloadInstance, existingKubernetesWorkloadInstance)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingKubernetesWorkloadInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,

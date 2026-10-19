@@ -26,6 +26,7 @@ type ControlPlaneValues struct {
 	Namespace                 *string
 	AuthEnabled               *bool
 	OnboardParent             *bool
+	Tier                      *string
 	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues
 	CustomComponentInfo       []*api_v0.ControlPlaneComponent
 	Genesis                   *bool
@@ -151,6 +152,7 @@ func (c *ControlPlaneConfig) GetOperations(
 			Name:          c.ControlPlane.Name,
 			AuthEnabled:   c.ControlPlane.AuthEnabled,
 			OnboardParent: c.ControlPlane.OnboardParent,
+			Tier:          c.ControlPlane.Tier,
 		},
 	}
 	operations.AppendOperation(util.Operation{
@@ -258,6 +260,7 @@ func mapToControlPlaneDefinedInstances(
 						Namespace:                 inst.ControlPlaneInstance.Namespace,
 						AuthEnabled:               def.ControlPlaneDefinition.AuthEnabled,
 						OnboardParent:             def.ControlPlaneDefinition.OnboardParent,
+						Tier:                      def.ControlPlaneDefinition.Tier,
 						KubernetesRuntimeInstance: inst.ControlPlaneInstance.KubernetesRuntimeInstance,
 						CustomComponentInfo:       inst.ControlPlaneInstance.CustomComponentInfo,
 						Genesis:                   inst.ControlPlaneInstance.Genesis,

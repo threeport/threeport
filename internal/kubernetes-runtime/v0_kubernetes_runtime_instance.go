@@ -481,61 +481,14 @@ var readControlPlaneNamespace = func() (string, error) {
 	return trimmed, nil
 }
 
-// controlPlaneGkeProject returns the GCP project ID of the GKE cluster hosting
-// the threeport control plane, or "" if the control plane is not hosted on GKE.
-// It is used to construct the Workload Identity principals of the control-plane
-// controllers when granting them access to managed clusters. The control-plane
-// host is the KubernetesRuntimeInstance marked ThreeportControlPlaneHost.
+// controlPlaneGkeProject returns the GCP project of the cluster hosting the
+// control plane, or an empty string when the control plane is not GKE-hosted.
+//
+// The connection path decides which identity reaches a managed cluster from the
+// same project, so it is read from there rather than worked out again here -
+// the principal this binds and the one requests arrive as are the same thing.
 func controlPlaneGkeProject(r *controller.Reconciler) (string, error) {
-	instances, err := client.GetKubernetesRuntimeInstances(r.APIClient, r.APIServer)
-	if err != nil {
-		return "", fmt.Errorf("failed to list kubernetes runtime instances: %w", err)
-	}
-
-	var hostInstance *v0.KubernetesRuntimeInstance
-	for i := range *instances {
-		if kube.HostsControlPlane(&(*instances)[i]) {
-			hostInstance = &(*instances)[i]
-			break
-		}
-	}
-	if hostInstance == nil {
-		return "", fmt.Errorf("no control plane host kubernetes runtime instance found")
-	}
-
-	hostDefinition, err := client.GetKubernetesRuntimeDefinitionByID(
-		r.APIClient,
-		r.APIServer,
-		*hostInstance.KubernetesRuntimeDefinitionID,
-	)
-	if err != nil {
-		return "", fmt.Errorf("failed to get control plane host runtime definition: %w", err)
-	}
-
-	// Only GKE-hosted control planes present Workload Identity principals to
-	// managed clusters; for any other host provider there is no WI principal to
-	// bind, so signal "not applicable" with an empty project.
-	if hostDefinition.InfraProvider == nil ||
-		*hostDefinition.InfraProvider != v0.KubernetesRuntimeInfraProviderGKE {
-		return "", nil
-	}
-	if hostDefinition.InfraProviderAccountName == nil {
-		return "", fmt.Errorf("control plane host runtime definition has no infra provider account name")
-	}
-
-	gcpProvider, err := client.GetGcpProviderByName(
-		r.APIClient,
-		r.APIServer,
-		*hostDefinition.InfraProviderAccountName,
-	)
-	if err != nil {
-		return "", fmt.Errorf("failed to get GCP provider %q: %w", *hostDefinition.InfraProviderAccountName, err)
-	}
-	if gcpProvider.ProjectID == nil {
-		return "", fmt.Errorf("GCP provider %q has no project ID", *hostDefinition.InfraProviderAccountName)
-	}
-
-	return *gcpProvider.ProjectID, nil
+	return kube.ControlPlaneGkeProject(r.APIClient, r.APIServer)
 }
 
 // GetCloudProviderForInfraProvider returns the cloud provider for a given

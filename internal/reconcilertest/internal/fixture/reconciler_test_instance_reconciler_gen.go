@@ -420,8 +420,8 @@ func ReconcilerTestInstanceReconciler(r *controller.Reconciler) {
 				continue
 			}
 
-			// set the object's Reconciled field to true if not deleted
-			if notif.Operation != notifications.NotificationOperationDeleted {
+			// mark reconciled unless it is already true
+			if notif.Operation != notifications.NotificationOperationDeleted && !tpapi_lib.AlreadyReconciled(reconcilerTestInstance) {
 				reconciledReconcilerTestInstance := api_v0.ReconcilerTestInstance{
 					Common:         tpapi_v0.Common{ID: util.Ptr(reconcilerTestInstance.GetId())},
 					Reconciliation: tpapi_v0.Reconciliation{Reconciled: util.Ptr(true)},
