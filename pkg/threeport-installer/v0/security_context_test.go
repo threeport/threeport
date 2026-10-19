@@ -4,6 +4,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -399,6 +400,92 @@ func TestEveryPodThisInstallerWritesSetsASeccompProfile(t *testing.T) {
 	}
 }
 
+// TestNatsBoxPinsTheNumericUserItsImageDeclaresByName covers the check a
+// named USER defeats on its own.
+//
+// A review on #618 found nats-box set runAsNonRoot with no runAsUser: the
+// kubelet does not resolve a named USER against the image's /etc/passwd, so
+// runAsNonRoot alone refuses every container in the pod with
+// CreateContainerConfigError, "image has non-numeric user (nats), cannot
+// verify user is non-root" - confirmed on a running kind cluster, not assumed
+// from the image's declared USER. That failure is invisible to every other
+// check here: the security context is present, drops every capability, and
+// sets RuntimeDefault - it just names a requirement the kubelet cannot
+// enforce on its own.
+//
+// This is deliberately not a blanket rule that every hand-written
+// runAsNonRoot needs a sibling runAsUser: two containers in
+// support_services.go set runAsNonRoot with none, and both of their images
+// were confirmed, the same way nats-box was, to already declare a numeric
+// USER - which the kubelet can resolve unaided, and pinning one here would
+// only let that image's default drift from what the manifest claims. Whether
+// a container needs the numeric id is a fact about its image, not about the
+// source, and nothing here can see that - so this checks only the one site
+// that was confirmed to need it.
+func TestNatsBoxPinsTheNumericUserItsImageDeclaresByName(t *testing.T) {
+	fileSet := token.NewFileSet()
+	file, err := parser.ParseFile(fileSet, "dependencies.go", nil, 0)
+	require.NoError(t, err)
+
+	var found *ast.CompositeLit
+	ast.Inspect(file, func(node ast.Node) bool {
+		literal, ok := node.(*ast.CompositeLit)
+		if !ok {
+			return true
+		}
+		if mentions(keyedValue(literal, `"image"`), "natsBoxImage") {
+			found = literal
+		}
+
+		return true
+	})
+	require.NotNil(t, found, "no container literal naming natsBoxImage found")
+
+	// the securityContext is on the pod sibling to this container, not on
+	// this literal: nats-box's pod sets it, not its one container
+	podLiteral := enclosingPodLiteral(file, found)
+	require.NotNil(t, podLiteral, "nats-box container is not inside a pod spec")
+
+	securityContext := keyedValue(podLiteral, `"securityContext"`)
+	require.NotNil(t, securityContext, "nats-box pod has no security context")
+
+	assert.True(t, mentions(securityContext, "true"), "nats-box pod does not set runAsNonRoot")
+	assert.True(
+		t, mentions(securityContext, "natsBoxUID"),
+		"nats-box pod sets runAsNonRoot with no numeric runAsUser - its image declares USER nats:nats "+
+			"by name, which the kubelet cannot resolve on its own",
+	)
+	assert.True(t, mentions(securityContext, "natsBoxGID"), "nats-box pod has no runAsGroup to match")
+
+	// the AST check above only sees that the identifier is referenced, not
+	// what it is worth - confirmed against the image with
+	// `docker run --entrypoint id natsio/nats-box:0.16.0-nonroot`
+	assert.Equal(t, int64(1000), natsBoxUID, "this is nats-box's actual uid, not a placeholder")
+	assert.Equal(t, int64(1000), natsBoxGID, "this is nats-box's actual gid, not a placeholder")
+}
+
+// enclosingPodLiteral returns the nearest composite literal that lists
+// containers and contains the given one.
+func enclosingPodLiteral(file *ast.File, inner *ast.CompositeLit) *ast.CompositeLit {
+	var pods []*ast.CompositeLit
+	ast.Inspect(file, func(node ast.Node) bool {
+		literal, ok := node.(*ast.CompositeLit)
+		if ok && keyedStrings(literal)[`"containers"`] {
+			pods = append(pods, literal)
+		}
+
+		return true
+	})
+
+	for _, pod := range pods {
+		if pod.Pos() <= inner.Pos() && inner.End() <= pod.End() {
+			return pod
+		}
+	}
+
+	return nil
+}
+
 // keyedStrings returns the string keys of a composite literal, as written.
 func keyedStrings(literal *ast.CompositeLit) map[string]bool {
 	keys := map[string]bool{}
@@ -434,6 +521,15 @@ func keyedValue(literal *ast.CompositeLit, key string) ast.Expr {
 // or as a string literal - the security context is either built by a helper
 // or written out, and both have to count.
 func mentions(node ast.Node, names ...string) bool {
+	// ast.Walk panics on a nil node rather than reporting no match. keyedValue
+	// returns nil for a key that is not there, which every caller treats as
+	// "nothing to check" - a panic here would mean a literal that simply
+	// lacks the key crashes the whole file's checks instead of failing just
+	// the one assertion that cares.
+	if node == nil || reflect.ValueOf(node).IsNil() {
+		return false
+	}
+
 	found := false
 	ast.Inspect(node, func(inner ast.Node) bool {
 		switch typed := inner.(type) {
