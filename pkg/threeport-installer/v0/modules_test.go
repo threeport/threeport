@@ -9,9 +9,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	k8stesting "k8s.io/client-go/testing"
 
@@ -476,4 +480,122 @@ func containsString(values []string, want string) bool {
 	}
 
 	return false
+}
+
+// recordNamespaceLabelling records each namespace patch as name and the
+// labels it carried, and optionally fails one of them.
+func recordNamespaceLabelling(
+	kubeClient *dynamicfake.FakeDynamicClient,
+	patched *map[string]string,
+	failFor string,
+) {
+	kubeClient.PrependReactor("patch", "namespaces", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		patch := action.(k8stesting.PatchAction)
+		if patch.GetName() == failFor {
+			return true, nil, fmt.Errorf("namespaces %q is forbidden", failFor)
+		}
+
+		var labels struct {
+			Metadata struct {
+				Labels map[string]string `json:"labels"`
+			} `json:"metadata"`
+		}
+		if err := json.Unmarshal(patch.GetPatch(), &labels); err != nil {
+			return true, nil, err
+		}
+		for key, value := range labels.Metadata.Labels {
+			(*patched)[patch.GetName()] = key + "=" + value
+		}
+
+		return true, &unstructured.Unstructured{Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Namespace",
+			"metadata":   map[string]interface{}{"name": patch.GetName()},
+		}}, nil
+	})
+}
+
+// TestLabelModuleNamespacesMarksWhatThePolicyAdmits covers the modules that
+// were installed before the database network policy existed.
+//
+// The SDK stamps the label onto namespaces it creates, so a module generated
+// against a current SDK carries it. One installed before does not, and nothing
+// regenerates it on its own - so applying the policy would cut it away from
+// its own database, and the module would fail long after the install reported
+// success.
+func TestLabelModuleNamespacesMarksWhatThePolicyAdmits(t *testing.T) {
+	cpi := testInstaller("dev-0")
+	want := LabelModule + "=" + LabelModuleValue
+
+	t.Run("every module namespace is marked", func(t *testing.T) {
+		kubeClient := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
+		patched := map[string]string{}
+		recordNamespaceLabelling(kubeClient, &patched, "")
+
+		require.NoError(t, cpi.LabelModuleNamespaces(kubeClient, []ModuleDeploymentScale{
+			{Namespace: "threeport-test", Name: "test-controller"},
+			{Namespace: "threeport-other", Name: "other-controller"},
+		}))
+		assert.Equal(t, map[string]string{
+			"threeport-test":  want,
+			"threeport-other": want,
+		}, patched)
+	})
+
+	t.Run("a namespace holding two controllers is patched once", func(t *testing.T) {
+		kubeClient := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
+		patches := 0
+		kubeClient.PrependReactor("patch", "namespaces", func(k8stesting.Action) (bool, runtime.Object, error) {
+			patches++
+
+			return true, &unstructured.Unstructured{Object: map[string]interface{}{
+				"apiVersion": "v1", "kind": "Namespace",
+			}}, nil
+		})
+
+		require.NoError(t, cpi.LabelModuleNamespaces(kubeClient, []ModuleDeploymentScale{
+			{Namespace: "threeport-test", Name: "one-controller"},
+			{Namespace: "threeport-test", Name: "another-controller"},
+		}))
+		assert.Equal(t, 1, patches, "a module registering two controllers is still one namespace")
+	})
+
+	t.Run("a namespace that is gone is not a failure", func(t *testing.T) {
+		kubeClient := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
+		kubeClient.PrependReactor("patch", "namespaces", func(action k8stesting.Action) (bool, runtime.Object, error) {
+			return true, nil, k8serrors.NewNotFound(
+				schema.GroupResource{Resource: "namespaces"}, action.(k8stesting.PatchAction).GetName(),
+			)
+		})
+
+		require.NoError(
+			t, cpi.LabelModuleNamespaces(kubeClient, []ModuleDeploymentScale{
+				{Namespace: "threeport-gone", Name: "controller"},
+			}),
+			"the registry outlives what it describes, and a namespace already removed needs no label",
+		)
+	})
+
+	t.Run("one namespace that cannot be labelled does not hide the others", func(t *testing.T) {
+		kubeClient := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
+		patched := map[string]string{}
+		recordNamespaceLabelling(kubeClient, &patched, "threeport-forbidden")
+
+		err := cpi.LabelModuleNamespaces(kubeClient, []ModuleDeploymentScale{
+			{Namespace: "threeport-forbidden", Name: "controller"},
+			{Namespace: "threeport-fine", Name: "controller"},
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "threeport-forbidden")
+		assert.Equal(
+			t, map[string]string{"threeport-fine": want}, patched,
+			"stopping at the first refusal would leave the rest unlabelled and unreported",
+		)
+	})
+
+	t.Run("no modules is not an error", func(t *testing.T) {
+		kubeClient := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
+
+		assert.NoError(t, cpi.LabelModuleNamespaces(kubeClient, nil))
+	})
 }

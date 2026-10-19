@@ -92,11 +92,29 @@ func (cpi *ControlPlaneInstaller) databasePolicy() *unstructured.Unstructured {
 							// the nodes of the cluster itself, which replicate
 							// and serve the console
 							map[string]interface{}{"podSelector": podsNamed("cockroachdb")},
-							map[string]interface{}{"podSelector": podsLabelled(LabelMaintenance, "true")},
+							map[string]interface{}{"podSelector": labelled(LabelMaintenance, "true")},
 						},
 						"ports": []interface{}{
 							tcpPort(cockroachSqlPort),
 							tcpPort(cockroachConsolePort),
+						},
+					},
+					map[string]interface{}{
+						// A module keeps its own database inside this cluster
+						// and talks to it directly: its db-init, its
+						// database-migrator and its API server all connect on
+						// the SQL port. That is intended - lander2k2 confirmed
+						// it on #617 - so the namespace a module installs into
+						// is admitted, by a label rather than by name.
+						//
+						// Only the SQL port. A module has no business on the
+						// console, and naming the narrower thing costs nothing
+						// here.
+						"from": []interface{}{
+							map[string]interface{}{"namespaceSelector": labelled(LabelModule, LabelModuleValue)},
+						},
+						"ports": []interface{}{
+							tcpPort(cockroachSqlPort),
 						},
 					},
 				},
@@ -118,8 +136,9 @@ func podsNamed(names ...interface{}) map[string]interface{} {
 	}
 }
 
-// podsLabelled selects pods by one label.
-func podsLabelled(key, value string) map[string]interface{} {
+// labelled selects by one label. It serves a podSelector and a
+// namespaceSelector alike - both are a LabelSelector.
+func labelled(key, value string) map[string]interface{} {
 	return map[string]interface{}{
 		"matchLabels": map[string]interface{}{key: value},
 	}

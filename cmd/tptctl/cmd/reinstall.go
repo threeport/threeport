@@ -174,6 +174,28 @@ with the control plane name and a development-tier installation. Use
 				cli.Error("failed to restore module deployments", err)
 			}
 		}
+		// label the namespaces of modules installed before the database
+		// network policy existed
+		//
+		// The SDK stamps this label on namespaces it creates, so a module
+		// generated against a current SDK carries it already. One installed
+		// before does not, and nothing regenerates it on its own - without
+		// this, reapplying the policy below would cut a running module away
+		// from its own database, and the first anyone would hear of it is the
+		// module failing well after the reinstall reported success.
+		//
+		// This runs before the database is dropped, because afterwards the
+		// registry that says which namespaces those are is gone.
+		moduleNamespaces, err := cpi.DiscoverModuleDeployments(apiClient, apiEndpoint)
+		if err != nil {
+			cli.Error("failed to discover module namespaces to label", err)
+			os.Exit(1)
+		}
+		if err := cpi.LabelModuleNamespaces(dynamicKubeClient, moduleNamespaces); err != nil {
+			cli.Error("failed to label module namespaces", err)
+			os.Exit(1)
+		}
+
 		// drop stored state when requested
 		if tptctlReinstallDropDatabase {
 			// refuse a non-development tier before any deployment is scaled down

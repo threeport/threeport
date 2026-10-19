@@ -5,6 +5,8 @@ import (
 	"go/parser"
 	"go/token"
 	"slices"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -41,6 +43,9 @@ var (
 	supportStack   = map[string]string{"control-plane": "controller-manager"}
 	maintenanceJob = map[string]string{LabelMaintenance: "true"}
 	modulePod      = map[string]string{"app.kubernetes.io/name": "threeport-test-api-server"}
+
+	moduleNamespace     = map[string]string{LabelModule: LabelModuleValue}
+	unlabelledNamespace = map[string]string{"kubernetes.io/metadata.name": "someone-elses"}
 )
 
 // selectorMatches reports whether a pod selector matches a pod's labels.
@@ -77,7 +82,25 @@ func selectorMatches(t *testing.T, selector map[string]interface{}, labels map[s
 	return true
 }
 
-// admits reports whether the policy lets a pod open a connection on a port.
+// ruleCoversPort reports whether an ingress rule names a port.
+func ruleCoversPort(t *testing.T, rule map[string]interface{}, port int) bool {
+	t.Helper()
+
+	ports, _, err := unstructured.NestedSlice(rule, "ports")
+	require.NoError(t, err)
+	for _, rawPort := range ports {
+		number, _, err := unstructured.NestedInt64(rawPort.(map[string]interface{}), "port")
+		require.NoError(t, err)
+		if number == int64(port) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// admits reports whether the policy lets a pod of this namespace open a
+// connection on a port.
 func admits(t *testing.T, policy *unstructured.Unstructured, pod map[string]string, port int) bool {
 	t.Helper()
 
@@ -87,19 +110,7 @@ func admits(t *testing.T, policy *unstructured.Unstructured, pod map[string]stri
 
 	for _, rawRule := range rules {
 		rule := rawRule.(map[string]interface{})
-
-		ports, _, err := unstructured.NestedSlice(rule, "ports")
-		require.NoError(t, err)
-		onPort := false
-		for _, rawPort := range ports {
-			number, _, err := unstructured.NestedInt64(rawPort.(map[string]interface{}), "port")
-			require.NoError(t, err)
-			if number == int64(port) {
-				onPort = true
-				break
-			}
-		}
-		if !onPort {
+		if !ruleCoversPort(t, rule, port) {
 			continue
 		}
 
@@ -111,6 +122,47 @@ func admits(t *testing.T, policy *unstructured.Unstructured, pod map[string]stri
 			if found && selectorMatches(t, selector, pod) {
 				return true
 			}
+		}
+	}
+
+	return false
+}
+
+// admitsNamespace reports whether the policy lets a pod in a namespace
+// carrying these labels open a connection on a port.
+//
+// This is a separate question from admits: a peer naming a namespaceSelector
+// and no podSelector admits every pod in a matching namespace, wherever it
+// runs, while a peer naming only a podSelector admits pods of this namespace.
+// Reading one as the other is how a cross-namespace rule looks correct and
+// is not.
+func admitsNamespace(t *testing.T, policy *unstructured.Unstructured, namespace map[string]string, port int) bool {
+	t.Helper()
+	rules, _, err := unstructured.NestedSlice(policy.Object, "spec", "ingress")
+	require.NoError(t, err)
+
+	for _, rawRule := range rules {
+		rule := rawRule.(map[string]interface{})
+		if !ruleCoversPort(t, rule, port) {
+			continue
+		}
+
+		peers, _, err := unstructured.NestedSlice(rule, "from")
+		require.NoError(t, err)
+		for _, rawPeer := range peers {
+			peer := rawPeer.(map[string]interface{})
+			selector, found, err := unstructured.NestedMap(peer, "namespaceSelector")
+			require.NoError(t, err)
+			if !found || !selectorMatches(t, selector, namespace) {
+				continue
+			}
+			// a podSelector alongside it narrows the namespace to some of its
+			// pods, which is not what this asks about
+			if _, hasPods, err := unstructured.NestedMap(peer, "podSelector"); err == nil && hasPods {
+				continue
+			}
+
+			return true
 		}
 	}
 
@@ -144,13 +196,88 @@ func TestOnlyTheApiServerReachesTheDatabase(t *testing.T) {
 		"the message broker":            brokerPod,
 		"the broker's utility pod":      brokerUtility,
 		"the support services operator": supportStack,
-		"a module's API server":         modulePod,
 	} {
 		assert.False(
 			t, admits(t, policy, pod, cockroachSqlPort),
 			"%s must have no path to the database", name,
 		)
 	}
+
+	assert.False(
+		t, admits(t, policy, modulePod, cockroachSqlPort),
+		"a module is admitted by its namespace, not by a pod of this one wearing its name",
+	)
+}
+
+// TestAModuleReachesTheDatabaseFromItsOwnNamespace covers the exception that
+// three attempts at this policy broke.
+//
+// A module keeps its own database inside the control plane's CockroachDB and
+// connects to it directly - db-init, the database-migrator and the module's
+// API server all do - and lander2k2 confirmed on #617 that this is intended
+// rather than something to route through the API server. A module installs
+// into a namespace of its own, so the namespace is what the policy admits.
+func TestAModuleReachesTheDatabaseFromItsOwnNamespace(t *testing.T) {
+	policy := testInstaller("dev-0", "kubernetes-workload").databasePolicy()
+
+	assert.True(
+		t, admitsNamespace(t, policy, moduleNamespace, cockroachSqlPort),
+		"a module that cannot reach the database installs and then fails, which is what this policy did three times",
+	)
+	assert.False(
+		t, admitsNamespace(t, policy, unlabelledNamespace, cockroachSqlPort),
+		"admitting any namespace would leave the database open to the whole cluster, which is what the issue was about",
+	)
+	assert.False(
+		t, admitsNamespace(t, policy, moduleNamespace, cockroachConsolePort),
+		"a module has no business on the console, and the narrower rule costs nothing",
+	)
+}
+
+// TestTheLabelTheSdkWritesIsTheOneThePolicyAdmits covers the half of this
+// that lives in another repository.
+//
+// The generator stamps the label onto the namespace it creates for a module,
+// and the policy admits that label. They are written in different packages and
+// nothing but this ties them together: a rename on either side compiles, and
+// the module installs and then cannot reach its own data.
+func TestTheLabelTheSdkWritesIsTheOneThePolicyAdmits(t *testing.T) {
+	generator, err := parser.ParseFile(
+		token.NewFileSet(),
+		"../../sdk/v0/gen/pkg/installer/installer.go",
+		nil,
+		parser.ParseComments,
+	)
+	require.NoError(t, err)
+
+	// the generator emits code rather than running it, so the reference is a
+	// Qual("<this package>", "LabelModule") naming the constant by string
+	var writesLabel bool
+	ast.Inspect(generator, func(node ast.Node) bool {
+		call, ok := node.(*ast.CallExpr)
+		if !ok || len(call.Args) != 2 {
+			return true
+		}
+		if calledFunc(call.Fun) != "Qual" {
+			return true
+		}
+
+		pkg, pkgOk := stringLit(call.Args[0])
+		name, nameOk := stringLit(call.Args[1])
+		if pkgOk && nameOk &&
+			strings.HasSuffix(pkg, "pkg/threeport-installer/v0") &&
+			name == "LabelModule" {
+			writesLabel = true
+		}
+
+		return true
+	})
+
+	assert.True(
+		t, writesLabel,
+		"the SDK no longer writes LabelModule onto the module namespace, so every module generated "+
+			"from it installs and then cannot reach its own database",
+	)
 }
 
 // TestNothingButTheDatabaseIsRestricted covers the property that makes one
@@ -281,4 +408,27 @@ func containsIdent(node ast.Node, name string) bool {
 	})
 
 	return found
+}
+
+// calledFunc returns the name of the function a call expression calls.
+func calledFunc(fun ast.Expr) string {
+	switch called := fun.(type) {
+	case *ast.Ident:
+		return called.Name
+	case *ast.SelectorExpr:
+		return called.Sel.Name
+	}
+
+	return ""
+}
+
+// stringLit returns the value of a string literal expression.
+func stringLit(expr ast.Expr) (string, bool) {
+	lit, ok := expr.(*ast.BasicLit)
+	if !ok || lit.Kind != token.STRING {
+		return "", false
+	}
+	value, err := strconv.Unquote(lit.Value)
+
+	return value, err == nil
 }

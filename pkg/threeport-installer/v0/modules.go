@@ -2,6 +2,7 @@ package v0
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -9,6 +10,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 
 	client "github.com/threeport/threeport/pkg/client/v0"
@@ -260,6 +262,76 @@ func (cpi *ControlPlaneInstaller) setDeploymentReplicas(
 	)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return fmt.Errorf("failed to scale deployment %s/%s to %d: %w", namespace, name, replicas, err)
+	}
+
+	return nil
+}
+
+// namespaceGVR is the v1 namespaces resource, used to label the namespaces
+// modules are installed into.
+var namespaceGVR = schema.GroupVersionResource{
+	Group:    "",
+	Version:  "v1",
+	Resource: "namespaces",
+}
+
+// LabelModuleNamespaces marks the namespaces of registered modules so the
+// database network policy admits them.
+//
+// New modules carry the label from the moment they are created: the SDK
+// generates it onto the namespace. Modules installed before that do not, and
+// nothing regenerates them on their own - so without this, installing the
+// policy would cut every module already running away from its own database,
+// and the first anyone would hear of it is a module failing long after the
+// control plane reported success.
+//
+// It takes the modules the caller has already discovered rather than reading
+// the registry itself. Reinstall drops the control plane database between
+// discovering them and reaching here, so by this point there is no registry
+// left to ask - and the control plane namespace is already excluded from what
+// discovery returns.
+//
+// One module that cannot be labelled does not stop the others. A module whose
+// namespace has already been removed is not a failure, and a module this has
+// no permission to label is better reported at the end with the rest than as
+// the one error that hid them.
+func (cpi *ControlPlaneInstaller) LabelModuleNamespaces(
+	kubeClient dynamic.Interface,
+	modules []ModuleDeploymentScale,
+) error {
+	deployments := modules
+	labelled := map[string]bool{}
+	var failures []error
+	for _, deployment := range deployments {
+		if labelled[deployment.Namespace] {
+			continue
+		}
+		labelled[deployment.Namespace] = true
+
+		if err := cpi.labelNamespace(kubeClient, deployment.Namespace); err != nil {
+			failures = append(failures, err)
+		}
+	}
+
+	return errors.Join(failures...)
+}
+
+// labelNamespace marks one namespace as a module's. A namespace that is no
+// longer there is not an error: the registry outlives what it describes.
+func (cpi *ControlPlaneInstaller) labelNamespace(
+	kubeClient dynamic.Interface,
+	namespace string,
+) error {
+	patch := fmt.Appendf(nil, `{"metadata":{"labels":{%q:%q}}}`, LabelModule, LabelModuleValue)
+	_, err := kubeClient.Resource(namespaceGVR).Patch(
+		context.Background(),
+		namespace,
+		"application/strategic-merge-patch+json",
+		patch,
+		metav1.PatchOptions{},
+	)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return fmt.Errorf("failed to label module namespace %s: %w", namespace, err)
 	}
 
 	return nil

@@ -169,6 +169,37 @@ Dev environments only. Does not build images; run 'tptdev build
 				cli.Error("failed to restore module deployments", err)
 			}
 		}
+		// label the namespaces of modules installed before the database
+		// network policy existed
+		//
+		// The SDK stamps this label on namespaces it creates, so a module
+		// generated against a current SDK carries it already. One installed
+		// before does not, and nothing regenerates it on its own - without
+		// this, reapplying the policy during the reinstall would cut a running
+		// module away from its own database, and the first anyone would hear
+		// of it is the module failing well after the reinstall reported
+		// success.
+		//
+		// It runs before the drop below, because afterwards the registry that
+		// says which namespaces those are is gone.
+		if labelClient, err := threeportConfig.GetHTTPClient(requestedControlPlane); err != nil {
+			cli.Error("failed to get threeport API client", err)
+			os.Exit(1)
+		} else if labelConfig, err := threeportConfig.GetControlPlaneConfig(requestedControlPlane); err != nil {
+			cli.Error("failed to get threeport control plane config", err)
+			os.Exit(1)
+		} else {
+			moduleNamespaces, err := cpi.DiscoverModuleDeployments(labelClient, labelConfig.APIServer)
+			if err != nil {
+				cli.Error("failed to discover module namespaces to label", err)
+				os.Exit(1)
+			}
+			if err := cpi.LabelModuleNamespaces(kubeClient, moduleNamespaces); err != nil {
+				cli.Error("failed to label module namespaces", err)
+				os.Exit(1)
+			}
+		}
+
 		// read module namespaces from the api before the drop scales it down
 		if reinstallDropDatabase {
 			// refuse a non-development tier before any deployment is scaled down

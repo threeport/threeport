@@ -178,6 +178,13 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		Id("i").Op("*").Id("Installer"),
 	).Id(installFuncName).Params().Error().BlockFunc(func(g *Group) {
 		g.Comment("create namespace")
+		g.Comment("")
+		g.Comment("The label is what the control plane's database network")
+		g.Comment("policy admits on the SQL port. A module keeps its own")
+		g.Comment("database inside the control plane's CockroachDB and")
+		g.Comment("connects to it directly - db-init, the database-migrator")
+		g.Comment("and this module's API server all do - so without it the")
+		g.Comment("module installs and then cannot reach its own data.")
 		g.Var().Id("namespace").Op("=").Op("&").Qual(
 			"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured",
 			"Unstructured",
@@ -186,7 +193,10 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				Lit("apiVersion"): Lit("v1"),
 				Lit("kind"):       Lit("Namespace"),
 				Lit("metadata"): Map(String()).Interface().Values(Dict{
-					Line().Lit("name"): Id("i.ModuleNamespace").Op(",").Line(),
+					Line().Lit("name"): Id("i.ModuleNamespace").Op(","),
+					Line().Lit("labels"): Map(String()).Interface().Values(Dict{
+						Line().Qual("github.com/threeport/threeport/pkg/threeport-installer/v0", "LabelModule"): Qual("github.com/threeport/threeport/pkg/threeport-installer/v0", "LabelModuleValue").Op(",").Line(),
+					}).Op(",").Line(),
 				}),
 			}).Op(",").Line(),
 		})
