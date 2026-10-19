@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/url"
 	"strings"
 	"testing"
@@ -217,7 +218,7 @@ func TestARetryAdoptsTheRoleTheFirstAttemptCreated(t *testing.T) {
 	t.Run("a first attempt creates it", func(t *testing.T) {
 		client := &fakeIam{}
 
-		role, err := createRoleIfAbsent(context.Background(), client, roleInput(), ours)
+		role, err := createRoleIfAbsent(context.Background(), client, roleInput(), ours, remediateControlPlaneNameCollision)
 		require.NoError(t, err)
 		assert.Equal(t, "the-role", aws.ToString(role.RoleName))
 		assert.Zero(t, client.gets, "nothing to look up when the create worked")
@@ -226,7 +227,7 @@ func TestARetryAdoptsTheRoleTheFirstAttemptCreated(t *testing.T) {
 	t.Run("what the caller asked for is what reaches IAM", func(t *testing.T) {
 		client := &fakeIam{}
 
-		_, err := createRoleIfAbsent(context.Background(), client, roleInput(), ours)
+		_, err := createRoleIfAbsent(context.Background(), client, roleInput(), ours, remediateControlPlaneNameCollision)
 		require.NoError(t, err)
 		require.NotNil(t, client.createRoleInput)
 		assert.Equal(
@@ -242,7 +243,7 @@ func TestARetryAdoptsTheRoleTheFirstAttemptCreated(t *testing.T) {
 	t.Run("a retry adopts what the first attempt left", func(t *testing.T) {
 		client := &fakeIam{roleExists: true, existingRoleTags: ours}
 
-		role, err := createRoleIfAbsent(context.Background(), client, roleInput(), ours)
+		role, err := createRoleIfAbsent(context.Background(), client, roleInput(), ours, remediateControlPlaneNameCollision)
 		require.NoError(t, err, "this is the retry that used to need a console to unblock")
 		assert.Equal(t, "the-role", aws.ToString(role.RoleName))
 		assert.Equal(t, 1, client.gets)
@@ -254,7 +255,7 @@ func TestARetryAdoptsTheRoleTheFirstAttemptCreated(t *testing.T) {
 			existingRoleTags: tpaws.IamTags("the-role", map[string]string{}),
 		}
 
-		_, err := createRoleIfAbsent(context.Background(), client, roleInput(), ours)
+		_, err := createRoleIfAbsent(context.Background(), client, roleInput(), ours, remediateControlPlaneNameCollision)
 		require.Error(
 			t, err,
 			"a Name tag is a convention half the tooling in an account follows; ownership is the ProvisionedBy marker",
@@ -268,7 +269,7 @@ func TestARetryAdoptsTheRoleTheFirstAttemptCreated(t *testing.T) {
 			existingRoleTags: []types.Tag{{Key: aws.String("owner"), Value: aws.String("someone-else")}},
 		}
 
-		_, err := createRoleIfAbsent(context.Background(), client, roleInput(), ours)
+		_, err := createRoleIfAbsent(context.Background(), client, roleInput(), ours, remediateControlPlaneNameCollision)
 		require.Error(t, err, "a name is not proof of ownership")
 		assert.Contains(t, err.Error(), "not created by threeport")
 	})
@@ -276,7 +277,7 @@ func TestARetryAdoptsTheRoleTheFirstAttemptCreated(t *testing.T) {
 	t.Run("a create that failed for another reason is not an adoption", func(t *testing.T) {
 		client := &fakeIam{createRoleErr: errors.New("access denied")}
 
-		_, err := createRoleIfAbsent(context.Background(), client, roleInput(), ours)
+		_, err := createRoleIfAbsent(context.Background(), client, roleInput(), ours, remediateControlPlaneNameCollision)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "access denied")
 		assert.Zero(
@@ -288,7 +289,7 @@ func TestARetryAdoptsTheRoleTheFirstAttemptCreated(t *testing.T) {
 	t.Run("a role that exists but cannot be read is an error", func(t *testing.T) {
 		client := &fakeIam{roleExists: true, getRoleErr: errors.New("could not read it")}
 
-		_, err := createRoleIfAbsent(context.Background(), client, roleInput(), ours)
+		_, err := createRoleIfAbsent(context.Background(), client, roleInput(), ours, remediateControlPlaneNameCollision)
 		require.Error(t, err, "not being able to check ownership is not permission to proceed")
 		assert.Contains(t, err.Error(), "could not read it")
 	})
@@ -574,5 +575,128 @@ func TestTearingDownARoleClearsThePolicyVersionsFirst(t *testing.T) {
 		require.NoError(t, deleteRoleAndItsPolicies(context.Background(), client, "the-role"))
 		assert.Empty(t, client.deletedVersionIds, "there is nothing in the way")
 		assert.Equal(t, policyArn, client.deletedPolicyArn)
+	})
+}
+
+// TestTheRefusalSurvivesEveryWrapping covers what the caller's rollback
+// depends on.
+//
+// pkg/cli/v0/provider_eks.go rolls a failed create back by deleting the role
+// by name, and skips that only when the error is ErrUnownedIamResource. The
+// refusal travels up through several fmt.Errorf calls to get there, so one of
+// them using %v instead of %w would not fail to compile, would not fail any
+// other test, and would quietly go back to deleting a stranger's role.
+func TestTheRefusalSurvivesEveryWrapping(t *testing.T) {
+	ours := ownedTags("the-role")
+	theirs := []types.Tag{{Key: aws.String("Owner"), Value: aws.String("someone-else")}}
+
+	t.Run("refusing a role", func(t *testing.T) {
+		client := &fakeIam{roleExists: true, existingRoleTags: theirs}
+
+		_, err := createRoleIfAbsent(
+			context.Background(), client, roleInput(), ours, remediateControlPlaneNameCollision,
+		)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, ErrUnownedIamResource)
+	})
+
+	t.Run("refusing a policy, through AttachPolicy", func(t *testing.T) {
+		client := &fakeIam{
+			policyExists:       true,
+			existingPolicyTags: theirs,
+			storedDocument:     iamEncoded(policyDocument),
+		}
+
+		err := attachPolicy(client, policyDocument)
+		require.Error(t, err)
+		assert.ErrorIs(
+			t, err, ErrUnownedIamResource,
+			"AttachPolicy returns this through createPolicyIfAbsent, and CreateResourceManagerRole "+
+				"wraps it again before the caller sees it",
+		)
+	})
+
+	t.Run("an ordinary failure is not mistaken for a refusal", func(t *testing.T) {
+		client := &fakeIam{createRoleErr: errors.New("access denied")}
+
+		_, err := createRoleIfAbsent(
+			context.Background(), client, roleInput(), ours, remediateControlPlaneNameCollision,
+		)
+		require.Error(t, err)
+		assert.NotErrorIs(
+			t, err, ErrUnownedIamResource,
+			"a real failure that skipped its rollback would leave the role it just created behind",
+		)
+	})
+
+	t.Run("the hint names what this role is actually derived from", func(t *testing.T) {
+		client := &fakeIam{roleExists: true, existingRoleTags: theirs}
+
+		_, err := createRoleIfAbsent(
+			context.Background(), client, roleInput(), ours, remediateControlPlaneNameCollision,
+		)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "rename the control plane")
+		assert.NotContains(
+			t, err.Error(), "kubernetes runtime instance",
+			"the resource manager role is named after a control plane, or given with --role-name",
+		)
+	})
+}
+
+// TestTheRollbackLeavesAStrangersRoleAlone covers the decision pkg/cli/v0
+// used to make for itself and get wrong.
+//
+// That caller deletes the resource manager role by name whenever the create
+// fails, and a refusal to adopt is one of those failures - so the check that
+// refuses to touch a role threeport did not create was followed, three lines
+// later, by deleting it. Putting the decision here means a caller cannot
+// forget it, and it can be exercised without an AWS account because the
+// refusal path returns before any client is built.
+func TestTheRollbackLeavesAStrangersRoleAlone(t *testing.T) {
+	t.Run("a refusal is not rolled back", func(t *testing.T) {
+		refusal := fmt.Errorf(
+			"failed to create runtime manager role: %w",
+			fmt.Errorf("IAM role the-role already exists and was %w; %s",
+				ErrUnownedIamResource, remediateControlPlaneNameCollision),
+		)
+
+		require.NoError(
+			t, RollBackResourceManagerRole("the-control-plane", aws.Config{}, refusal),
+			"deleting the role the check just refused to adopt is worse than the collision",
+		)
+	})
+
+	t.Run("the refusal is recognised however deep it is wrapped", func(t *testing.T) {
+		client := &fakeIam{
+			policyExists:       true,
+			existingPolicyTags: []types.Tag{{Key: aws.String("Owner"), Value: aws.String("someone-else")}},
+			storedDocument:     iamEncoded(policyDocument),
+		}
+
+		// the path CreateResourceManagerRole takes: AttachPolicy, through
+		// createPolicyIfAbsent, wrapped again on the way out
+		err := attachResourceManagerPolicies(
+			context.Background(), client, "the-role", "123456789012", false, true,
+		)
+		require.Error(t, err)
+		assert.ErrorIs(
+			t, err, ErrUnownedIamResource,
+			"a %v anywhere on this path compiles and reads the same, and silently turns the rollback back on",
+		)
+		require.NoError(t, RollBackResourceManagerRole("the-control-plane", aws.Config{}, err))
+	})
+
+	t.Run("an ordinary failure is still rolled back", func(t *testing.T) {
+		// no AWS config to talk to, so reaching the delete is the observable
+		// outcome: the point is that it does not short-circuit
+		err := RollBackResourceManagerRole(
+			"the-control-plane", aws.Config{}, errors.New("access denied"),
+		)
+		require.Error(
+			t, err,
+			"a real failure that skipped its rollback would leave behind the role it just created",
+		)
+		assert.NotContains(t, err.Error(), "access denied", "the rollback reports its own failure")
 	})
 }

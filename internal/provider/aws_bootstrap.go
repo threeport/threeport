@@ -487,7 +487,7 @@ func (i *KubernetesRuntimeInfraEKS) createIamRole(ctx context.Context, iamClient
 		createRoleInput.Path = aws.String(rolePath)
 	}
 
-	return createRoleIfAbsent(ctx, iamClient, &createRoleInput, createRoleInput.Tags)
+	return createRoleIfAbsent(ctx, iamClient, &createRoleInput, createRoleInput.Tags, remediateRuntimeNameCollision)
 }
 
 // oidcIssuerDialTimeout bounds the TLS dial to the cluster's OIDC issuer.
@@ -506,22 +506,45 @@ const iamBootstrapTimeout = 10 * time.Minute
 // refuseUnownedIamResource reports whether an IAM resource that already exists
 // carries threeport's tags, and refuses it when it does not.
 //
+// The remediation is the caller's because the way out depends on where the
+// name came from. A cluster role is named after a kubernetes runtime instance;
+// the resource manager role is named after a control plane, or given outright
+// on the command line. Telling someone to rename something that does not exist
+// in their situation is worse than saying nothing.
+//
 // The names and paths this file builds are deterministic per cluster, so a
 // resource left by an unrelated process - or by a partially torn down cluster
 // of the same name - sits exactly where a new one would go. Reusing it attaches
 // a stranger's permissions to this cluster's identities, and the teardown then
 // deletes it out from under whoever does own it.
-func refuseUnownedIamResource(kind, name string, have, want []types.Tag) error {
+func refuseUnownedIamResource(kind, name string, have, want []types.Tag, remediation string) error {
 	if iamTagsMatch(have, want) {
 		return nil
 	}
 
 	return fmt.Errorf(
-		"IAM %s %s already exists and was not created by threeport; "+
-			"rename the kubernetes runtime instance or remove it",
-		kind, name,
+		"IAM %s %s already exists and was %w; %s",
+		kind, name, ErrUnownedIamResource, remediation,
 	)
 }
+
+// Remediation hints for a name collision. They differ because the names do:
+// the bootstrap's roles and policies are derived from a kubernetes runtime
+// instance, while the resource manager role is derived from a control plane
+// or given outright with --role-name.
+const (
+	remediateRuntimeNameCollision      = "rename the kubernetes runtime instance or remove it"
+	remediateControlPlaneNameCollision = "rename the control plane, pass a different role name, or remove it"
+)
+
+// ErrUnownedIamResource marks the refusal to touch an IAM resource sitting at
+// a name this install derives but carrying tags it did not write.
+//
+// It is a sentinel because the callers that roll back a failed create delete
+// by name. Running that rollback after a refusal would delete the very
+// resource the refusal was protecting, so those callers have to be able to
+// tell this apart from every other failure.
+var ErrUnownedIamResource = errors.New("not created by threeport")
 
 // refuseUnownedRole rejects an existing role that threeport did not create.
 //
@@ -531,7 +554,7 @@ func refuseUnownedIamResource(kind, name string, have, want []types.Tag) error {
 // secrets manager role grants account-wide Secrets Manager access - and the
 // teardown would later delete somebody else's role.  The GCP bootstrap refuses
 // an unowned service account for the same reason.
-func refuseUnownedRole(role *types.Role, wantTags []types.Tag) error {
+func refuseUnownedRole(role *types.Role, wantTags []types.Tag, remediation string) error {
 	if role == nil {
 		return errors.New("IAM returned no role to check ownership of")
 	}
@@ -540,9 +563,8 @@ func refuseUnownedRole(role *types.Role, wantTags []types.Tag) error {
 	}
 
 	return fmt.Errorf(
-		"IAM role %s already exists and was not created by threeport; "+
-			"rename the kubernetes runtime instance or remove the role",
-		aws.ToString(role.RoleName),
+		"IAM role %s already exists and was %w; %s",
+		aws.ToString(role.RoleName), ErrUnownedIamResource, remediation,
 	)
 }
 
@@ -591,7 +613,8 @@ func (i *KubernetesRuntimeInfraEKS) createIamPolicy(ctx context.Context, iamClie
 		return "", fmt.Errorf("IAM returned no policy to check ownership of at %s", policyArn)
 	}
 	if err := refuseUnownedIamResource(
-		"policy", irsaRole.policyName, getPolicyOutput.Policy.Tags, tpaws.IamTags(irsaRole.policyName, ThreeportProviderTags()),
+		"policy", irsaRole.policyName, getPolicyOutput.Policy.Tags,
+		tpaws.IamTags(irsaRole.policyName, ThreeportProviderTags()), remediateRuntimeNameCollision,
 	); err != nil {
 		return "", err
 	}
@@ -1033,7 +1056,7 @@ func deleteIamRole(ctx context.Context, iamClient *iam.Client, roleName string, 
 		}
 		return fmt.Errorf("failed to get role %s before deleting it: %w", roleName, err)
 	}
-	if err := refuseUnownedRole(getRoleOutput.Role, wantTags); err != nil {
+	if err := refuseUnownedRole(getRoleOutput.Role, wantTags, remediateRuntimeNameCollision); err != nil {
 		return err
 	}
 
@@ -1097,7 +1120,7 @@ func deleteIamPolicy(ctx context.Context, iamClient *iam.Client, policyArn strin
 		return fmt.Errorf("IAM returned no policy to check ownership of at %s", policyArn)
 	}
 	if err := refuseUnownedIamResource(
-		"policy", policyArn, getPolicyOutput.Policy.Tags, wantTags,
+		"policy", policyArn, getPolicyOutput.Policy.Tags, wantTags, remediateRuntimeNameCollision,
 	); err != nil {
 		return err
 	}

@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 
@@ -216,6 +217,22 @@ func DeleteResourceManagerRole(instanceName string, awsConfig aws.Config) error 
 	return nil
 }
 
+// RollBackResourceManagerRole undoes a failed CreateResourceManagerRole,
+// unless the failure was a refusal to adopt.
+//
+// The teardown deletes by name and checks nothing. Running it after a refusal
+// would delete the role the refusal was protecting - a worse outcome than the
+// collision it refused over. Callers pass the error that sent them here rather
+// than deciding for themselves, because there is no way to tell by reading the
+// call site that the decision was needed at all.
+func RollBackResourceManagerRole(instanceName string, awsConfig aws.Config, createErr error) error {
+	if errors.Is(createErr, ErrUnownedIamResource) {
+		return nil
+	}
+
+	return DeleteResourceManagerRole(instanceName, awsConfig)
+}
+
 // CreateResourceManagerRole creates the IAM role needed for resource
 // management.
 //
@@ -258,26 +275,52 @@ func CreateResourceManagerRole(
 	}
 
 	// create the role
-	role, err := createRoleIfAbsent(ctx, svc, &createResourceManagerRoleInput, tags)
+	role, err := createRoleIfAbsent(ctx, svc, &createResourceManagerRoleInput, tags, remediateControlPlaneNameCollision)
 	if err != nil {
 		return nil, err
 	}
 
+	if err := attachResourceManagerPolicies(
+		ctx, svc, roleName, accountId, attachAssumeAnyRolePolicy, attachResourceManagerPolicy,
+	); err != nil {
+		return role, err
+	}
+
+	return role, nil
+}
+
+// attachResourceManagerPolicies attaches the policies the resource manager
+// role is asked for.
+//
+// It is separate from CreateResourceManagerRole, which builds its own IAM
+// client from an aws.Config and so cannot be exercised without an account.
+// What has to be exercised is the wrapping: a refusal to adopt a policy
+// reaches pkg/cli/v0 through here, and that is where it decides whether
+// deleting the role by name is safe. A %v in place of a %w on this path
+// compiles, reads the same, and turns that decision off.
+func attachResourceManagerPolicies(
+	ctx context.Context,
+	svc iamRoleClient,
+	roleName string,
+	accountId string,
+	attachAssumeAnyRolePolicy bool,
+	attachResourceManagerPolicy bool,
+) error {
 	// attach assume any role policy
 	if attachAssumeAnyRolePolicy {
 		if err := AttachPolicy(ctx, AssumeAnyRolePolicyDocument, roleName, "assume-any-role", accountId, svc); err != nil {
-			return role, fmt.Errorf("failed to attach policy to role %s: %w", roleName, err)
+			return fmt.Errorf("failed to attach policy to role %s: %w", roleName, err)
 		}
 	}
 
 	// attach resource manager policy if requested
 	if attachResourceManagerPolicy {
 		if err := AttachPolicy(ctx, ResourceManagerPolicyDocument, roleName, "resource-manager", accountId, svc); err != nil {
-			return role, fmt.Errorf("failed to attach policy to role %s: %w", roleName, err)
+			return fmt.Errorf("failed to attach policy to role %s: %w", roleName, err)
 		}
 	}
 
-	return role, nil
+	return nil
 }
 
 // iamRoleClient is the part of the IAM API this file uses.
@@ -314,6 +357,7 @@ func createRoleIfAbsent(
 	svc iamRoleClient,
 	input *iam.CreateRoleInput,
 	wantTags []types.Tag,
+	remediation string,
 ) (*types.Role, error) {
 	roleName := aws.ToString(input.RoleName)
 
@@ -329,7 +373,7 @@ func createRoleIfAbsent(
 	if err != nil {
 		return nil, fmt.Errorf("failed to get existing role %s: %w", roleName, err)
 	}
-	if err := refuseUnownedRole(existing.Role, wantTags); err != nil {
+	if err := refuseUnownedRole(existing.Role, wantTags, remediation); err != nil {
 		return nil, err
 	}
 
@@ -363,7 +407,7 @@ func AttachPolicy(ctx context.Context, document, roleName, policyName, accountId
 		rolePolicyInput.Path = aws.String(resourceManagerPolicyPath)
 	}
 
-	policyArn, err := createPolicyIfAbsent(ctx, svc, &rolePolicyInput, accountId)
+	policyArn, err := createPolicyIfAbsent(ctx, svc, &rolePolicyInput, accountId, remediateControlPlaneNameCollision)
 	if err != nil {
 		return err
 	}
@@ -392,6 +436,7 @@ func createPolicyIfAbsent(
 	svc iamRoleClient,
 	input *iam.CreatePolicyInput,
 	accountId string,
+	remediation string,
 ) (string, error) {
 	policyName := aws.ToString(input.PolicyName)
 
@@ -417,7 +462,7 @@ func createPolicyIfAbsent(
 	if existing.Policy == nil {
 		return "", fmt.Errorf("IAM returned no policy to check ownership of at %s", policyArn)
 	}
-	if err := refuseUnownedIamResource("policy", policyName, existing.Policy.Tags, input.Tags); err != nil {
+	if err := refuseUnownedIamResource("policy", policyName, existing.Policy.Tags, input.Tags, remediation); err != nil {
 		return "", err
 	}
 

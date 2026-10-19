@@ -113,3 +113,56 @@ func render(fileSet *token.FileSet, source []byte, expr ast.Expr) string {
 
 	return string(source[start:end])
 }
+
+// TestTheRefusalHintMatchesHowTheNameIsDerived guards advice that is only
+// wrong in a way nobody notices.
+//
+// A collision refusal tells the operator how to get out of it, and the way out
+// depends on where the colliding name came from: the bootstrap's roles are
+// named after a kubernetes runtime instance, the resource manager role after a
+// control plane or a --role-name flag. Passing the wrong constant compiles,
+// returns an error, passes every test that only looks for "not created by
+// threeport", and ships advice pointing at something the operator does not
+// have.
+//
+// The callers build their own IAM clients, so which constant each one passes
+// is not reachable from a unit test.
+func TestTheRefusalHintMatchesHowTheNameIsDerived(t *testing.T) {
+	expected := map[string]string{
+		"eks.go":           "remediateControlPlaneNameCollision",
+		"aws_bootstrap.go": "remediateRuntimeNameCollision",
+	}
+	guarded := map[string]bool{
+		"createRoleIfAbsent":   true,
+		"createPolicyIfAbsent": true,
+	}
+
+	checked := 0
+	for file, want := range expected {
+		source, err := os.ReadFile(file)
+		require.NoError(t, err)
+
+		fileSet := token.NewFileSet()
+		parsed, err := parser.ParseFile(fileSet, file, source, 0)
+		require.NoError(t, err)
+
+		ast.Inspect(parsed, func(node ast.Node) bool {
+			call, ok := node.(*ast.CallExpr)
+			if !ok || len(call.Args) == 0 || !guarded[calledName(call.Fun)] {
+				return true
+			}
+
+			checked++
+			last := render(fileSet, source, call.Args[len(call.Args)-1])
+			assert.Equal(
+				t, want, last,
+				"%s passes the wrong remediation: a name derived here cannot be fixed the way %s says",
+				fileSet.Position(call.Pos()), last,
+			)
+
+			return true
+		})
+	}
+
+	assert.NotZero(t, checked, "this test found nothing to check, so it guards nothing")
+}
