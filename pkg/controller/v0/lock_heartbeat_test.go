@@ -278,3 +278,46 @@ func TestTheLockTtlIsShortEnoughToMatter(t *testing.T) {
 		"two refreshes have to be missable before a live reconcile loses its lock",
 	)
 }
+
+// TestARelockAfterLosingItStartsANewRefresher covers what lander2k2 found on
+// #625: the dedup check in startHeartbeat only asked whether an entry
+// existed in the map, not whether its refresher was still alive.
+//
+// A refresher that loses its lock sets lost and returns without removing
+// itself from the map - only stopHeartbeat does that, and that is reached
+// through ReleaseLock. If the same object is locked again by this controller
+// before the dead reconcile gets there - NATS redelivering an unacked message
+// while the first attempt is still blocked in a long synchronous retry - the
+// newly acquired lock found a stale-but-present entry and was left with no
+// refresher at all, unguarded until LockTTL expired it on its own.
+func TestARelockAfterLosingItStartsANewRefresher(t *testing.T) {
+	keyValue := &fakeKeyValue{}
+	reconciler := reconcilerFor(t, keyValue)
+	object := &lockTestObject{id: 1}
+
+	require.True(t, reconciler.Lock(object))
+
+	// simulate the key's TTL expiring in NATS: the next refresh finds
+	// nothing there to update and the heartbeat marks itself lost
+	keyValue.mu.Lock()
+	keyValue.present = false
+	keyValue.mu.Unlock()
+
+	// long enough for that refresh to fire and fail
+	time.Sleep(20 * time.Millisecond)
+
+	// a redelivered message reaches this controller again before the dead
+	// heartbeat's own reconcile calls ReleaseLock - the same object, locked a
+	// second time in the same process while the stale entry is still there
+	require.True(t, reconciler.Lock(object))
+
+	_, updatesBefore, _ := keyValue.counts()
+	time.Sleep(60 * time.Millisecond)
+	_, updatesAfter, _ := keyValue.counts()
+
+	assert.Greater(
+		t, updatesAfter, updatesBefore,
+		"the relocked object has no refresher without this fix, and sits unguarded until "+
+			"LockTTL expires it on its own",
+	)
+}

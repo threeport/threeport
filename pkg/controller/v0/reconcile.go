@@ -315,10 +315,21 @@ func (r *Reconciler) startHeartbeat(lockKey string, revision uint64) {
 		r.heartbeats = make(map[string]*lockHeartbeat)
 	}
 	// a lock already being refreshed is left alone rather than given a
-	// second goroutine writing the same key
-	if _, running := r.heartbeats[lockKey]; running {
-		r.heartbeatsMu.Unlock()
-		return
+	// second goroutine writing the same key - unless the entry there is one
+	// whose refresher already lost the lock and exited. That can still be in
+	// the map: only stopHeartbeat removes an entry, and the goroutine that
+	// loses a lock returns without calling it. If this object's lock was then
+	// reacquired by a fresh reconcile before the dead one finished and called
+	// ReleaseLock, skipping here would leave that reacquired lock with no
+	// refresher at all, unguarded until LockTTL expires it on its own.
+	if existing, running := r.heartbeats[lockKey]; running {
+		existing.mu.Lock()
+		lost := existing.lost
+		existing.mu.Unlock()
+		if !lost {
+			r.heartbeatsMu.Unlock()
+			return
+		}
 	}
 	r.heartbeats[lockKey] = beat
 	r.heartbeatsMu.Unlock()
