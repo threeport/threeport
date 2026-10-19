@@ -1102,6 +1102,37 @@ func deleteIamPolicy(ctx context.Context, iamClient *iam.Client, policyArn strin
 		return err
 	}
 
+	if err := deleteIamPolicyVersions(ctx, iamClient, policyArn); err != nil {
+		return err
+	}
+
+	_, err = iamClient.DeletePolicy(
+		ctx,
+		&iam.DeletePolicyInput{PolicyArn: aws.String(policyArn)},
+	)
+	if err != nil && !isIamNotFound(err) {
+		return fmt.Errorf("failed to delete policy %s: %w", policyArn, err)
+	}
+
+	return nil
+}
+
+// iamPolicyVersionDeleter is the part of the IAM API deleteIamPolicyVersions
+// uses.
+type iamPolicyVersionDeleter interface {
+	ListPolicyVersions(context.Context, *iam.ListPolicyVersionsInput, ...func(*iam.Options)) (*iam.ListPolicyVersionsOutput, error)
+	DeletePolicyVersion(context.Context, *iam.DeletePolicyVersionInput, ...func(*iam.Options)) (*iam.DeletePolicyVersionOutput, error)
+}
+
+// deleteIamPolicyVersions removes every version of a policy but the one in
+// force, which is what DeletePolicy needs before it will accept the policy.
+//
+// IAM refuses to delete a policy that still has other versions, so a policy
+// whose document was ever updated - which syncIamPolicyDocument does on an
+// adopted policy - cannot be torn down without this. The teardown detaches it
+// first, so a failure here leaves a detached policy behind that no later run
+// looks at.
+func deleteIamPolicyVersions(ctx context.Context, iamClient iamPolicyVersionDeleter, policyArn string) error {
 	listVersionsOutput, err := iamClient.ListPolicyVersions(
 		ctx,
 		&iam.ListPolicyVersionsInput{PolicyArn: aws.String(policyArn)},
@@ -1126,17 +1157,9 @@ func deleteIamPolicy(ctx context.Context, iamClient *iam.Client, policyArn strin
 		if err != nil && !isIamNotFound(err) {
 			return fmt.Errorf(
 				"failed to delete version %s of policy %s: %w",
-				*policyVersion.VersionId, policyArn, err,
+				aws.ToString(policyVersion.VersionId), policyArn, err,
 			)
 		}
-	}
-
-	_, err = iamClient.DeletePolicy(
-		ctx,
-		&iam.DeletePolicyInput{PolicyArn: aws.String(policyArn)},
-	)
-	if err != nil && !isIamNotFound(err) {
-		return fmt.Errorf("failed to delete policy %s: %w", policyArn, err)
 	}
 
 	return nil

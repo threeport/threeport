@@ -63,12 +63,19 @@ type fakeIam struct {
 
 	creates, gets, policies, attaches, lists int
 
+	// calls is the order things happened in, which is the whole point on the
+	// teardown path: a policy still holding versions is refused.
+	calls []string
+
 	createRoleInput    *iam.CreateRoleInput
 	createPolicyInput  *iam.CreatePolicyInput
 	newVersions        []string
 	deletedVersionIds  []string
 	setDefaultVersions []bool
 	attachedArn        string
+	detachedArn        string
+	deletedPolicyArn   string
+	roleDeleted        bool
 }
 
 func (f *fakeIam) CreateRole(_ context.Context, in *iam.CreateRoleInput, _ ...func(*iam.Options)) (*iam.CreateRoleOutput, error) {
@@ -144,8 +151,30 @@ func (f *fakeIam) CreatePolicyVersion(_ context.Context, in *iam.CreatePolicyVer
 
 func (f *fakeIam) DeletePolicyVersion(_ context.Context, in *iam.DeletePolicyVersionInput, _ ...func(*iam.Options)) (*iam.DeletePolicyVersionOutput, error) {
 	f.deletedVersionIds = append(f.deletedVersionIds, aws.ToString(in.VersionId))
+	f.calls = append(f.calls, "DeletePolicyVersion:"+aws.ToString(in.VersionId))
 
 	return &iam.DeletePolicyVersionOutput{}, nil
+}
+
+func (f *fakeIam) DetachRolePolicy(_ context.Context, in *iam.DetachRolePolicyInput, _ ...func(*iam.Options)) (*iam.DetachRolePolicyOutput, error) {
+	f.calls = append(f.calls, "DetachRolePolicy")
+	f.detachedArn = aws.ToString(in.PolicyArn)
+
+	return &iam.DetachRolePolicyOutput{}, nil
+}
+
+func (f *fakeIam) DeletePolicy(_ context.Context, in *iam.DeletePolicyInput, _ ...func(*iam.Options)) (*iam.DeletePolicyOutput, error) {
+	f.calls = append(f.calls, "DeletePolicy")
+	f.deletedPolicyArn = aws.ToString(in.PolicyArn)
+
+	return &iam.DeletePolicyOutput{}, nil
+}
+
+func (f *fakeIam) DeleteRole(context.Context, *iam.DeleteRoleInput, ...func(*iam.Options)) (*iam.DeleteRoleOutput, error) {
+	f.calls = append(f.calls, "DeleteRole")
+	f.roleDeleted = true
+
+	return &iam.DeleteRoleOutput{}, nil
 }
 
 func (f *fakeIam) ListAttachedRolePolicies(context.Context, *iam.ListAttachedRolePoliciesInput, ...func(*iam.Options)) (*iam.ListAttachedRolePoliciesOutput, error) {
@@ -471,5 +500,79 @@ func TestAnAdoptedPolicyIsBroughtUpToDate(t *testing.T) {
 
 		require.NoError(t, attachPolicy(client, policyDocument))
 		assert.Empty(t, client.deletedVersionIds, "there is room, so nothing has to go")
+	})
+}
+
+// TestTearingDownARoleClearsThePolicyVersionsFirst covers what updating an
+// adopted policy costs on the way out.
+//
+// IAM refuses to delete a policy that still holds versions other than the one
+// in force. These policies used to have exactly one - they were created once
+// and never touched - so the teardown could delete them directly. Now that an
+// adopted policy's document is brought up to date, a control plane that has
+// been upgraded holds policies with several, and the teardown detaches them
+// before it tries to delete them: a failure there leaves a detached policy
+// behind, and the next teardown does not look at it because it is no longer
+// attached to anything.
+func TestTearingDownARoleClearsThePolicyVersionsFirst(t *testing.T) {
+	t.Run("a policy whose document was updated is still deleted", func(t *testing.T) {
+		client := &fakeIam{
+			attachedArns: []string{policyArn},
+			storedVersions: []types.PolicyVersion{
+				{VersionId: aws.String("v1")},
+				{VersionId: aws.String("v2")},
+				{VersionId: aws.String("v3"), IsDefaultVersion: true},
+			},
+		}
+
+		require.NoError(t, deleteRoleAndItsPolicies(context.Background(), client, "the-role"))
+		assert.Equal(t, []string{"v1", "v2"}, client.deletedVersionIds)
+		assert.Equal(t, policyArn, client.deletedPolicyArn, "the policy itself still has to go")
+		assert.True(t, client.roleDeleted)
+	})
+
+	t.Run("the version in force goes with the policy, not before it", func(t *testing.T) {
+		client := &fakeIam{
+			attachedArns: []string{policyArn},
+			storedVersions: []types.PolicyVersion{
+				{VersionId: aws.String("v1"), IsDefaultVersion: true},
+				{VersionId: aws.String("v2")},
+			},
+		}
+
+		require.NoError(t, deleteRoleAndItsPolicies(context.Background(), client, "the-role"))
+		assert.NotContains(
+			t, client.deletedVersionIds, "v1",
+			"IAM refuses to delete the version in force on its own",
+		)
+	})
+
+	t.Run("the versions go before the policy does", func(t *testing.T) {
+		client := &fakeIam{
+			attachedArns: []string{policyArn},
+			storedVersions: []types.PolicyVersion{
+				{VersionId: aws.String("v1")},
+				{VersionId: aws.String("v2"), IsDefaultVersion: true},
+			},
+		}
+
+		require.NoError(t, deleteRoleAndItsPolicies(context.Background(), client, "the-role"))
+		assert.Equal(
+			t,
+			[]string{"DetachRolePolicy", "DeletePolicyVersion:v1", "DeletePolicy", "DeleteRole"},
+			client.calls,
+			"deleting the policy before its versions is the call IAM refuses",
+		)
+	})
+
+	t.Run("a policy that was never updated loses no versions", func(t *testing.T) {
+		client := &fakeIam{
+			attachedArns:   []string{policyArn},
+			storedVersions: []types.PolicyVersion{{VersionId: aws.String("v1"), IsDefaultVersion: true}},
+		}
+
+		require.NoError(t, deleteRoleAndItsPolicies(context.Background(), client, "the-role"))
+		assert.Empty(t, client.deletedVersionIds, "there is nothing in the way")
+		assert.Equal(t, policyArn, client.deletedPolicyArn)
 	})
 }

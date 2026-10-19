@@ -459,9 +459,31 @@ func deleteRole(
 	roleName string,
 	awsConfig aws.Config,
 ) error {
-	svc := iam.NewFromConfig(awsConfig)
+	return deleteRoleAndItsPolicies(context.Background(), iam.NewFromConfig(awsConfig), roleName)
+}
+
+// iamRoleDeleteClient is the part of the IAM API the teardown uses.
+type iamRoleDeleteClient interface {
+	iamPolicyVersionDeleter
+	ListAttachedRolePolicies(context.Context, *iam.ListAttachedRolePoliciesInput, ...func(*iam.Options)) (*iam.ListAttachedRolePoliciesOutput, error)
+	DetachRolePolicy(context.Context, *iam.DetachRolePolicyInput, ...func(*iam.Options)) (*iam.DetachRolePolicyOutput, error)
+	DeletePolicy(context.Context, *iam.DeletePolicyInput, ...func(*iam.Options)) (*iam.DeletePolicyOutput, error)
+	DeleteRole(context.Context, *iam.DeleteRoleInput, ...func(*iam.Options)) (*iam.DeleteRoleOutput, error)
+}
+
+// deleteRoleAndItsPolicies detaches and deletes everything on a role, then the
+// role.
+//
+// Every version but the one in force has to go before IAM will delete a
+// policy. That used to be moot here - these policies were created once and
+// never changed - but syncIamPolicyDocument adds a version whenever an
+// adopted policy's document has moved on, so a control plane that was
+// upgraded has policies this would otherwise refuse to delete. The policy is
+// already detached by then, so the failure would leave it behind with nothing
+// pointing at it.
+func deleteRoleAndItsPolicies(ctx context.Context, svc iamRoleDeleteClient, roleName string) error {
 	roles, err := svc.ListAttachedRolePolicies(
-		context.Background(),
+		ctx,
 		&iam.ListAttachedRolePoliciesInput{
 			RoleName: &roleName,
 		},
@@ -471,7 +493,7 @@ func deleteRole(
 	}
 	for _, role := range roles.AttachedPolicies {
 		_, err := svc.DetachRolePolicy(
-			context.Background(),
+			ctx,
 			&iam.DetachRolePolicyInput{
 				PolicyArn: role.PolicyArn,
 				RoleName:  &roleName,
@@ -479,8 +501,11 @@ func deleteRole(
 		if err != nil {
 			return fmt.Errorf("failed to detach role policy: %s", err)
 		}
+		if err := deleteIamPolicyVersions(ctx, svc, aws.ToString(role.PolicyArn)); err != nil {
+			return err
+		}
 		_, err = svc.DeletePolicy(
-			context.Background(),
+			ctx,
 			&iam.DeletePolicyInput{
 				PolicyArn: role.PolicyArn,
 			})
@@ -490,7 +515,7 @@ func deleteRole(
 	}
 
 	_, err = svc.DeleteRole(
-		context.Background(),
+		ctx,
 		&iam.DeleteRoleInput{
 			RoleName: &roleName,
 		})
