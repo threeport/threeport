@@ -193,10 +193,10 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				Lit("apiVersion"): Lit("v1"),
 				Lit("kind"):       Lit("Namespace"),
 				Lit("metadata"): Map(String()).Interface().Values(Dict{
-					Line().Lit("name"): Id("i.ModuleNamespace").Op(","),
-					Line().Lit("labels"): Map(String()).Interface().Values(Dict{
-						Line().Qual("github.com/threeport/threeport/pkg/threeport-installer/v0", "LabelModule"): Qual("github.com/threeport/threeport/pkg/threeport-installer/v0", "LabelModuleValue").Op(",").Line(),
-					}).Op(",").Line(),
+					Lit("name"): Id("i.ModuleNamespace"),
+					Lit("labels"): Map(String()).Interface().Values(Dict{
+						Qual("github.com/threeport/threeport/pkg/threeport-installer/v0", "LabelModule"): Qual("github.com/threeport/threeport/pkg/threeport-installer/v0", "LabelModuleValue"),
+					}),
 				}),
 			}).Op(",").Line(),
 		})
