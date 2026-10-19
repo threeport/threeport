@@ -682,7 +682,7 @@ func syncIamPolicyDocument(
 		return fmt.Errorf("IAM returned no document for version %s of policy %s", versionInForce, policyArn)
 	}
 
-	match, err := iamPolicyDocumentsMatch(aws.ToString(current.PolicyVersion.Document), document)
+	match, err := iamDocumentsMatch(aws.ToString(current.PolicyVersion.Document), document)
 	if err != nil {
 		return fmt.Errorf("failed to compare the document of policy %s: %w", policyArn, err)
 	}
@@ -705,14 +705,15 @@ func syncIamPolicyDocument(
 	return nil
 }
 
-// iamPolicyDocumentsMatch reports whether a document IAM is storing says the
-// same thing as one this package would create.
+// iamDocumentsMatch reports whether a document IAM is storing says the same
+// thing as one this package would create. It serves both policy documents and
+// the trust policy a role carries.
 //
 // What IAM returns is percent-encoded, and reformatted from whatever was sent
 // to it, so the two have to be decoded and parsed before they can be compared.
 // PathUnescape rather than QueryUnescape: a literal '+' appears in IAM ARNs
 // and conditions, and QueryUnescape would read it as a space.
-func iamPolicyDocumentsMatch(stored, want string) (bool, error) {
+func iamDocumentsMatch(stored, want string) (bool, error) {
 	decoded, err := url.PathUnescape(stored)
 	if err != nil {
 		return false, fmt.Errorf("failed to decode the stored document: %w", err)

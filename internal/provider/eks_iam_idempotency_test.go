@@ -68,15 +68,17 @@ type fakeIam struct {
 	// teardown path: a policy still holding versions is refused.
 	calls []string
 
-	createRoleInput    *iam.CreateRoleInput
-	createPolicyInput  *iam.CreatePolicyInput
-	newVersions        []string
-	deletedVersionIds  []string
-	setDefaultVersions []bool
-	attachedArn        string
-	detachedArn        string
-	deletedPolicyArn   string
-	roleDeleted        bool
+	createRoleInput      *iam.CreateRoleInput
+	createPolicyInput    *iam.CreatePolicyInput
+	newVersions          []string
+	deletedVersionIds    []string
+	setDefaultVersions   []bool
+	attachedArn          string
+	detachedArn          string
+	trustPoliciesWritten []string
+	existingTrustPolicy  string
+	deletedPolicyArn     string
+	roleDeleted          bool
 }
 
 func (f *fakeIam) CreateRole(_ context.Context, in *iam.CreateRoleInput, _ ...func(*iam.Options)) (*iam.CreateRoleOutput, error) {
@@ -95,13 +97,23 @@ func (f *fakeIam) CreateRole(_ context.Context, in *iam.CreateRoleInput, _ ...fu
 	}}, nil
 }
 
+func (f *fakeIam) UpdateAssumeRolePolicy(_ context.Context, in *iam.UpdateAssumeRolePolicyInput, _ ...func(*iam.Options)) (*iam.UpdateAssumeRolePolicyOutput, error) {
+	f.trustPoliciesWritten = append(f.trustPoliciesWritten, aws.ToString(in.PolicyDocument))
+
+	return &iam.UpdateAssumeRolePolicyOutput{}, nil
+}
+
 func (f *fakeIam) GetRole(_ context.Context, in *iam.GetRoleInput, _ ...func(*iam.Options)) (*iam.GetRoleOutput, error) {
 	f.gets++
 	if f.getRoleErr != nil {
 		return nil, f.getRoleErr
 	}
 
-	return &iam.GetRoleOutput{Role: &types.Role{RoleName: in.RoleName, Tags: f.existingRoleTags}}, nil
+	return &iam.GetRoleOutput{Role: &types.Role{
+		RoleName:                 in.RoleName,
+		Tags:                     f.existingRoleTags,
+		AssumeRolePolicyDocument: aws.String(f.existingTrustPolicy),
+	}}, nil
 }
 
 func (f *fakeIam) CreatePolicy(_ context.Context, in *iam.CreatePolicyInput, _ ...func(*iam.Options)) (*iam.CreatePolicyOutput, error) {
@@ -241,10 +253,15 @@ func TestARetryAdoptsTheRoleTheFirstAttemptCreated(t *testing.T) {
 	})
 
 	t.Run("a retry adopts what the first attempt left", func(t *testing.T) {
-		client := &fakeIam{roleExists: true, existingRoleTags: ours}
+		client := &fakeIam{
+			roleExists:          true,
+			existingRoleTags:    ours,
+			existingTrustPolicy: iamEncoded(`{"Version":"2012-10-17"}`),
+		}
 
 		role, err := createRoleIfAbsent(context.Background(), client, roleInput(), ours, remediateControlPlaneNameCollision)
 		require.NoError(t, err, "this is the retry that used to need a console to unblock")
+		assert.Empty(t, client.trustPoliciesWritten, "nothing about who may assume it has changed")
 		assert.Equal(t, "the-role", aws.ToString(role.RoleName))
 		assert.Equal(t, 1, client.gets)
 	})
@@ -698,5 +715,108 @@ func TestTheRollbackLeavesAStrangersRoleAlone(t *testing.T) {
 			"a real failure that skipped its rollback would leave behind the role it just created",
 		)
 		assert.NotContains(t, err.Error(), "access denied", "the rollback reports its own failure")
+	})
+}
+
+// TestAnAdoptedRoleStopsTrustingTheAttemptThatFailed covers the half of the
+// retry that is not about names.
+//
+// tptctl config aws-cloud-account creates an AwsProvider record first, and the
+// external ID it generates goes into the role's trust policy as an
+// sts:ExternalId condition. An attempt that fails after the role is created -
+// while attaching its policies - deletes that record and leaves the role
+// behind. The retry generates a new external ID and adopts the role, so
+// without this the role still demands the external ID of the attempt that
+// failed. Nothing fails at install time: the command reports success and every
+// cross-account request afterwards is denied, with nothing pointing back here.
+func TestAnAdoptedRoleStopsTrustingTheAttemptThatFailed(t *testing.T) {
+	ours := ownedTags("the-role")
+
+	trustPolicy := func(externalId string) string {
+		return `{"Version":"2012-10-17","Statement":[{"Effect":"Allow",` +
+			`"Action":"sts:AssumeRole","Condition":{"StringEquals":` +
+			`{"sts:ExternalId":"` + externalId + `"}}}]}`
+	}
+
+	adopted := func(stored string) (*fakeIam, *iam.CreateRoleInput) {
+		client := &fakeIam{
+			roleExists:          true,
+			existingRoleTags:    ours,
+			existingTrustPolicy: stored,
+		}
+		input := roleInput()
+		input.AssumeRolePolicyDocument = aws.String(trustPolicy("the-new-id"))
+
+		return client, input
+	}
+
+	t.Run("a role trusting the previous external id is brought up to date", func(t *testing.T) {
+		client, input := adopted(iamEncoded(trustPolicy("the-id-from-the-failed-attempt")))
+
+		_, err := createRoleIfAbsent(
+			context.Background(), client, input, ours, remediateControlPlaneNameCollision,
+		)
+		require.NoError(t, err)
+		require.Len(t, client.trustPoliciesWritten, 1, "the role still demanded the old external id")
+		assert.Contains(t, client.trustPoliciesWritten[0], "the-new-id")
+		assert.NotContains(t, client.trustPoliciesWritten[0], "the-id-from-the-failed-attempt")
+	})
+
+	t.Run("a trust policy IAM only reformatted is left alone", func(t *testing.T) {
+		reformatted := `{
+  "Statement": [ { "Action": "sts:AssumeRole", "Condition": { "StringEquals": { "sts:ExternalId": "the-new-id" } }, "Effect": "Allow" } ],
+  "Version": "2012-10-17"
+}`
+		client, input := adopted(iamEncoded(reformatted))
+
+		_, err := createRoleIfAbsent(
+			context.Background(), client, input, ours, remediateControlPlaneNameCollision,
+		)
+		require.NoError(t, err)
+		assert.Empty(
+			t, client.trustPoliciesWritten,
+			"IAM reformats what it stores, so comparing text would rewrite this on every run",
+		)
+	})
+
+	t.Run("a role somebody else owns is refused before its trust policy is touched", func(t *testing.T) {
+		client, input := adopted(iamEncoded(trustPolicy("whatever-they-use")))
+		client.existingRoleTags = []types.Tag{{Key: aws.String("Owner"), Value: aws.String("someone-else")}}
+
+		_, err := createRoleIfAbsent(
+			context.Background(), client, input, ours, remediateControlPlaneNameCollision,
+		)
+		require.Error(t, err)
+		assert.Empty(
+			t, client.trustPoliciesWritten,
+			"rewriting who may assume a stranger's role is worse than adopting it",
+		)
+	})
+
+	t.Run("a role IAM reports no trust policy for is written, not failed on", func(t *testing.T) {
+		client, input := adopted("")
+
+		_, err := createRoleIfAbsent(
+			context.Background(), client, input, ours, remediateControlPlaneNameCollision,
+		)
+		require.NoError(
+			t, err,
+			"an empty document is nothing to compare against, not a role that trusts nobody; "+
+				"parsing it as JSON would fail the retry this whole branch exists to allow",
+		)
+		require.Len(t, client.trustPoliciesWritten, 1, "the only way to be sure it is not stale")
+		assert.Contains(t, client.trustPoliciesWritten[0], "the-new-id")
+	})
+
+	t.Run("a freshly created role is not rewritten", func(t *testing.T) {
+		client := &fakeIam{}
+		input := roleInput()
+		input.AssumeRolePolicyDocument = aws.String(trustPolicy("the-new-id"))
+
+		_, err := createRoleIfAbsent(
+			context.Background(), client, input, ours, remediateControlPlaneNameCollision,
+		)
+		require.NoError(t, err)
+		assert.Empty(t, client.trustPoliciesWritten, "it was created with this document a moment ago")
 	})
 }

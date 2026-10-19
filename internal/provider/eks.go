@@ -334,6 +334,7 @@ type iamRoleClient interface {
 	CreateRole(context.Context, *iam.CreateRoleInput, ...func(*iam.Options)) (*iam.CreateRoleOutput, error)
 	GetRole(context.Context, *iam.GetRoleInput, ...func(*iam.Options)) (*iam.GetRoleOutput, error)
 	CreatePolicy(context.Context, *iam.CreatePolicyInput, ...func(*iam.Options)) (*iam.CreatePolicyOutput, error)
+	UpdateAssumeRolePolicy(context.Context, *iam.UpdateAssumeRolePolicyInput, ...func(*iam.Options)) (*iam.UpdateAssumeRolePolicyOutput, error)
 }
 
 // createRoleIfAbsent creates the role, or adopts the one already there.
@@ -376,8 +377,60 @@ func createRoleIfAbsent(
 	if err := refuseUnownedRole(existing.Role, wantTags, remediation); err != nil {
 		return nil, err
 	}
+	if err := syncIamRoleTrustPolicy(
+		ctx, svc, existing.Role, aws.ToString(input.AssumeRolePolicyDocument),
+	); err != nil {
+		return nil, err
+	}
 
 	return existing.Role, nil
+}
+
+// syncIamRoleTrustPolicy brings an adopted role's trust policy in line with
+// the one this attempt asked for.
+//
+// Who may assume the role is not fixed the way its name is. tptctl config
+// aws-cloud-account puts a freshly generated external ID in it, and an attempt
+// that failed after creating the role - while attaching its policies, say -
+// deletes the AwsProvider record and leaves the role. The retry generates a
+// new external ID, adopts the role, and without this the role still demands
+// the one from the attempt that failed: the install reports success and every
+// cross-account request is denied afterwards, with nothing pointing back here.
+//
+// The same holds for the bootstrap's roles whenever a release changes what
+// their trust policy says.
+func syncIamRoleTrustPolicy(
+	ctx context.Context,
+	svc iamRoleClient,
+	role *types.Role,
+	want string,
+) error {
+	roleName := aws.ToString(role.RoleName)
+	if want == "" {
+		return nil
+	}
+
+	// IAM always answers with one, so an empty document means there is nothing
+	// to compare against rather than that the role trusts nobody; writing it
+	// is the answer that cannot leave a stale one in place
+	if stored := aws.ToString(role.AssumeRolePolicyDocument); stored != "" {
+		match, err := iamDocumentsMatch(stored, want)
+		if err != nil {
+			return fmt.Errorf("failed to compare the trust policy of role %s: %w", roleName, err)
+		}
+		if match {
+			return nil
+		}
+	}
+
+	if _, err := svc.UpdateAssumeRolePolicy(ctx, &iam.UpdateAssumeRolePolicyInput{
+		RoleName:       role.RoleName,
+		PolicyDocument: aws.String(want),
+	}); err != nil {
+		return fmt.Errorf("failed to update the trust policy of role %s: %w", roleName, err)
+	}
+
+	return nil
 }
 
 // resourceManagerPolicyPath is the IAM path the resource manager's policies
