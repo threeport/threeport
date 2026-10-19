@@ -182,22 +182,28 @@ Dev environments only. Does not build images; run 'tptdev build
 		//
 		// It runs before the drop below, because afterwards the registry that
 		// says which namespaces those are is gone.
+		//
+		// It is best-effort rather than fatal: reaching the Threeport API is
+		// exactly what a reinstall with no other flags exists to repair, and
+		// this ran unconditionally before this comment was written, which
+		// meant a broken API deployment could no longer be replaced by the
+		// command that replaces it - kubectl was the only way out. A module
+		// install predating the policy is the much narrower case, and it can
+		// be labelled by hand or by running reinstall again once the API is
+		// back.
 		if labelClient, err := threeportConfig.GetHTTPClient(requestedControlPlane); err != nil {
-			cli.Error("failed to get threeport API client", err)
-			os.Exit(1)
+			cli.Warning(fmt.Sprintf("could not get a Threeport API client to label module namespaces: %s", err))
 		} else if labelConfig, err := threeportConfig.GetControlPlaneConfig(requestedControlPlane); err != nil {
-			cli.Error("failed to get threeport control plane config", err)
-			os.Exit(1)
-		} else {
-			moduleNamespaces, err := cpi.DiscoverModuleDeployments(labelClient, labelConfig.APIServer)
-			if err != nil {
-				cli.Error("failed to discover module namespaces to label", err)
-				os.Exit(1)
-			}
-			if err := cpi.LabelModuleNamespaces(kubeClient, moduleNamespaces); err != nil {
-				cli.Error("failed to label module namespaces", err)
-				os.Exit(1)
-			}
+			cli.Warning(fmt.Sprintf("could not get the threeport control plane config to label module namespaces: %s", err))
+		} else if moduleNamespaces, err := cpi.DiscoverModuleNamespaces(labelClient, labelConfig.APIServer); err != nil {
+			cli.Warning(fmt.Sprintf(
+				"could not reach the Threeport API to find modules to label (%s) - "+
+					"a module installed before the database network policy existed may lose "+
+					"access to its own database; run reinstall again once the API is reachable",
+				err,
+			))
+		} else if err := cpi.LabelModuleNamespaces(kubeClient, moduleNamespaces); err != nil {
+			cli.Warning(fmt.Sprintf("failed to label module namespaces: %s", err))
 		}
 
 		// read module namespaces from the api before the drop scales it down

@@ -186,14 +186,24 @@ with the control plane name and a development-tier installation. Use
 		//
 		// This runs before the database is dropped, because afterwards the
 		// registry that says which namespaces those are is gone.
-		moduleNamespaces, err := cpi.DiscoverModuleDeployments(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to discover module namespaces to label", err)
-			os.Exit(1)
-		}
-		if err := cpi.LabelModuleNamespaces(dynamicKubeClient, moduleNamespaces); err != nil {
-			cli.Error("failed to label module namespaces", err)
-			os.Exit(1)
+		//
+		// It is best-effort rather than fatal: reaching the Threeport API is
+		// exactly what a reinstall with no other flags exists to repair, and
+		// this ran unconditionally before this comment was written, which
+		// meant a broken API deployment could no longer be replaced by the
+		// command that replaces it - kubectl was the only way out. A module
+		// install predating the policy is the much narrower case, and it can
+		// be labelled by hand or by running reinstall again once the API is
+		// back.
+		if moduleNamespaces, err := cpi.DiscoverModuleNamespaces(apiClient, apiEndpoint); err != nil {
+			cli.Warning(fmt.Sprintf(
+				"could not reach the Threeport API to find modules to label (%s) - "+
+					"a module installed before the database network policy existed may lose "+
+					"access to its own database; run reinstall again once the API is reachable",
+				err,
+			))
+		} else if err := cpi.LabelModuleNamespaces(dynamicKubeClient, moduleNamespaces); err != nil {
+			cli.Warning(fmt.Sprintf("failed to label module namespaces: %s", err))
 		}
 
 		// drop stored state when requested

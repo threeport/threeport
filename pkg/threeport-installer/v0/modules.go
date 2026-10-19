@@ -98,6 +98,74 @@ func (cpi *ControlPlaneInstaller) DiscoverModuleDeployments(
 	return deployments, nil
 }
 
+// DiscoverModuleNamespaces returns the namespace of every registered,
+// non-core module, independent of whether it has any controllers.
+//
+// DiscoverModuleDeployments finds namespaces through ModuleController rows,
+// and the SDK supports a module with no reconcilable objects at all - one
+// that registers no ModuleController. Its namespace would never surface
+// through that path, and its API server would be left unlabelled and cut off
+// from its own database the moment the network policy applies.
+//
+// Every module registers exactly one ModuleApi, controllers or not, and the
+// installer always writes its Endpoint as <service>.<namespace>.svc.cluster.local
+// (see MODULE_API_ENDPOINT in the generated installer package) - so the
+// namespace is read from there instead of inferred from a controller.
+func (cpi *ControlPlaneInstaller) DiscoverModuleNamespaces(
+	apiClient *http.Client,
+	apiEndpoint string,
+) ([]string, error) {
+	moduleApis, err := client.GetModuleApis(apiClient, apiEndpoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get registered module APIs: %w", err)
+	}
+
+	seen := map[string]bool{}
+	var namespaces []string
+	for _, moduleApi := range *moduleApis {
+		if moduleApi.Core != nil && *moduleApi.Core {
+			continue
+		}
+
+		namespace, ok := moduleNamespaceFromEndpoint(moduleApi.Endpoint)
+		if !ok || namespace == cpi.Opts.Namespace || seen[namespace] {
+			continue
+		}
+		seen[namespace] = true
+		namespaces = append(namespaces, namespace)
+	}
+
+	return namespaces, nil
+}
+
+// clusterLocalSuffix is what the installer appends after a module's
+// namespace when it writes MODULE_API_ENDPOINT.
+const clusterLocalSuffix = ".svc.cluster.local"
+
+// moduleNamespaceFromEndpoint reads the namespace out of a module's
+// registered endpoint, which the installer always writes as
+// <service>.<namespace>.svc.cluster.local.
+//
+// A nil endpoint, or one not shaped this way - an external endpoint, say, or
+// the core API's own - reports false rather than guessing: admitting the
+// wrong namespace to the database is worse than leaving one unlabelled.
+func moduleNamespaceFromEndpoint(endpoint *string) (string, bool) {
+	if endpoint == nil {
+		return "", false
+	}
+	host, hasSuffix := strings.CutSuffix(*endpoint, clusterLocalSuffix)
+	if !hasSuffix {
+		return "", false
+	}
+
+	parts := strings.Split(host, ".")
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return "", false
+	}
+
+	return parts[1], true
+}
+
 // ScaleDownModules scales each named module controller deployment with a
 // non-zero replica count to zero. An error still returns counts already scaled.
 func (cpi *ControlPlaneInstaller) ScaleDownModules(
@@ -285,30 +353,30 @@ var namespaceGVR = schema.GroupVersionResource{
 // and the first anyone would hear of it is a module failing long after the
 // control plane reported success.
 //
-// It takes the modules the caller has already discovered rather than reading
-// the registry itself. Reinstall drops the control plane database between
-// discovering them and reaching here, so by this point there is no registry
-// left to ask - and the control plane namespace is already excluded from what
-// discovery returns.
+// It takes the namespaces the caller has already discovered - with
+// DiscoverModuleNamespaces, not DiscoverModuleDeployments, which only sees a
+// module through its controllers and misses one that registers none - rather
+// than reading the registry itself. Reinstall drops the control plane
+// database between discovering them and reaching here, so by this point
+// there is no registry left to ask.
 //
-// One module that cannot be labelled does not stop the others. A module whose
-// namespace has already been removed is not a failure, and a module this has
+// One namespace that cannot be labelled does not stop the others. A
+// namespace that has already been removed is not a failure, and one this has
 // no permission to label is better reported at the end with the rest than as
 // the one error that hid them.
 func (cpi *ControlPlaneInstaller) LabelModuleNamespaces(
 	kubeClient dynamic.Interface,
-	modules []ModuleDeploymentScale,
+	namespaces []string,
 ) error {
-	deployments := modules
 	labelled := map[string]bool{}
 	var failures []error
-	for _, deployment := range deployments {
-		if labelled[deployment.Namespace] {
+	for _, namespace := range namespaces {
+		if labelled[namespace] {
 			continue
 		}
-		labelled[deployment.Namespace] = true
+		labelled[namespace] = true
 
-		if err := cpi.labelNamespace(kubeClient, deployment.Namespace); err != nil {
+		if err := cpi.labelNamespace(kubeClient, namespace); err != nil {
 			failures = append(failures, err)
 		}
 	}

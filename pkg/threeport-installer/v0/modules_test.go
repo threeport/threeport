@@ -108,6 +108,24 @@ func testModuleApi(id uint, name string, core bool) v0.ModuleApi {
 	return moduleApi
 }
 
+// testModuleApiWithEndpoint is testModuleApi plus the cluster-local endpoint
+// the installer writes for a real module, in the same
+// <service>.<namespace>.svc.cluster.local shape.
+func testModuleApiWithEndpoint(id uint, name, serviceName, namespace string) v0.ModuleApi {
+	return testModuleApiWithEndpointAndCore(id, name, serviceName, namespace, false)
+}
+
+// testModuleApiWithEndpointAndCore is testModuleApiWithEndpoint with an
+// explicit Core flag, for the one case that needs it set true at a namespace
+// other than the control plane's own.
+func testModuleApiWithEndpointAndCore(id uint, name, serviceName, namespace string, core bool) v0.ModuleApi {
+	moduleApi := testModuleApi(id, name, core)
+	endpoint := serviceName + "." + namespace + ".svc.cluster.local"
+	moduleApi.Endpoint = &endpoint
+
+	return moduleApi
+}
+
 // testControllerDeployment returns a module controller deployment.
 // It omits the installer managed-by label.
 func testControllerDeployment(name, namespace string, replicas int64) *unstructured.Unstructured {
@@ -532,9 +550,9 @@ func TestLabelModuleNamespacesMarksWhatThePolicyAdmits(t *testing.T) {
 		patched := map[string]string{}
 		recordNamespaceLabelling(kubeClient, &patched, "")
 
-		require.NoError(t, cpi.LabelModuleNamespaces(kubeClient, []ModuleDeploymentScale{
-			{Namespace: "threeport-test", Name: "test-controller"},
-			{Namespace: "threeport-other", Name: "other-controller"},
+		require.NoError(t, cpi.LabelModuleNamespaces(kubeClient, []string{
+			"threeport-test",
+			"threeport-other",
 		}))
 		assert.Equal(t, map[string]string{
 			"threeport-test":  want,
@@ -553,11 +571,11 @@ func TestLabelModuleNamespacesMarksWhatThePolicyAdmits(t *testing.T) {
 			}}, nil
 		})
 
-		require.NoError(t, cpi.LabelModuleNamespaces(kubeClient, []ModuleDeploymentScale{
-			{Namespace: "threeport-test", Name: "one-controller"},
-			{Namespace: "threeport-test", Name: "another-controller"},
+		require.NoError(t, cpi.LabelModuleNamespaces(kubeClient, []string{
+			"threeport-test",
+			"threeport-test",
 		}))
-		assert.Equal(t, 1, patches, "a module registering two controllers is still one namespace")
+		assert.Equal(t, 1, patches, "the same namespace listed twice is still patched once")
 	})
 
 	t.Run("a namespace that is gone is not a failure", func(t *testing.T) {
@@ -569,9 +587,7 @@ func TestLabelModuleNamespacesMarksWhatThePolicyAdmits(t *testing.T) {
 		})
 
 		require.NoError(
-			t, cpi.LabelModuleNamespaces(kubeClient, []ModuleDeploymentScale{
-				{Namespace: "threeport-gone", Name: "controller"},
-			}),
+			t, cpi.LabelModuleNamespaces(kubeClient, []string{"threeport-gone"}),
 			"the registry outlives what it describes, and a namespace already removed needs no label",
 		)
 	})
@@ -581,9 +597,9 @@ func TestLabelModuleNamespacesMarksWhatThePolicyAdmits(t *testing.T) {
 		patched := map[string]string{}
 		recordNamespaceLabelling(kubeClient, &patched, "threeport-forbidden")
 
-		err := cpi.LabelModuleNamespaces(kubeClient, []ModuleDeploymentScale{
-			{Namespace: "threeport-forbidden", Name: "controller"},
-			{Namespace: "threeport-fine", Name: "controller"},
+		err := cpi.LabelModuleNamespaces(kubeClient, []string{
+			"threeport-forbidden",
+			"threeport-fine",
 		})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "threeport-forbidden")
@@ -597,5 +613,150 @@ func TestLabelModuleNamespacesMarksWhatThePolicyAdmits(t *testing.T) {
 		kubeClient := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
 
 		assert.NoError(t, cpi.LabelModuleNamespaces(kubeClient, nil))
+	})
+}
+
+// TestDiscoverModuleNamespacesCoversAModuleWithNoControllers covers what
+// DiscoverModuleDeployments cannot see.
+//
+// The SDK supports a module with no reconcilable objects, which registers no
+// ModuleController. DiscoverModuleDeployments finds namespaces only through
+// those, so such a module's namespace never surfaces through it - and it
+// would be left unlabelled when the database network policy applies,
+// cutting its API server off from its own data. Every module still
+// registers exactly one ModuleApi, and the installer's endpoint for it
+// already names the namespace.
+func TestDiscoverModuleNamespacesCoversAModuleWithNoControllers(t *testing.T) {
+	apiServer := &moduleRegistryApiServer{
+		apis: []v0.ModuleApi{
+			testModuleApiWithEndpoint(1, "threeport", "threeport-api-server", "threeport-control-plane"),
+			testModuleApiWithEndpoint(2, "example-module", "example-api-server", "example-namespace"),
+			testModuleApiWithEndpoint(3, "controller-free-module", "controller-free-api-server", "controller-free-namespace"),
+		},
+		controllersByApiId: map[uint][]string{
+			2: {"example-namespace/threeport-example-controller"},
+			// module 3 registers no controllers at all
+		},
+	}
+	apiClient, apiAddr := apiServer.serve(t)
+	cpi := &ControlPlaneInstaller{Opts: Options{Namespace: "threeport-control-plane"}}
+
+	namespaces, err := cpi.DiscoverModuleNamespaces(apiClient, apiAddr)
+	require.NoError(t, err)
+	assert.ElementsMatch(
+		t, []string{"example-namespace", "controller-free-namespace"}, namespaces,
+		"a module with no controllers is still a module with a database to protect",
+	)
+	assert.NotContains(
+		t, namespaces, "threeport-control-plane",
+		"the core API's own namespace is not a module's, Core flag or not",
+	)
+}
+
+// TestDiscoverModuleNamespacesDeduplicates covers two modules that happen to
+// share a namespace - or the same module registering twice.
+func TestDiscoverModuleNamespacesDeduplicates(t *testing.T) {
+	apiServer := &moduleRegistryApiServer{
+		apis: []v0.ModuleApi{
+			testModuleApiWithEndpoint(1, "first-api", "first-api-server", "shared-namespace"),
+			testModuleApiWithEndpoint(2, "second-api", "second-api-server", "shared-namespace"),
+		},
+	}
+	apiClient, apiAddr := apiServer.serve(t)
+	cpi := &ControlPlaneInstaller{Opts: Options{Namespace: "threeport-control-plane"}}
+
+	namespaces, err := cpi.DiscoverModuleNamespaces(apiClient, apiAddr)
+	require.NoError(t, err)
+	assert.Equal(
+		t, []string{"shared-namespace"}, namespaces,
+		"the same namespace reached through two module APIs is still one namespace to label",
+	)
+}
+
+// TestDiscoverModuleNamespacesExcludesTheCoreApiAndControlPlane covers the
+// two namespaces that are never a module's to label.
+func TestDiscoverModuleNamespacesExcludesTheCoreApiAndControlPlane(t *testing.T) {
+	t.Run("the core API's own entry is not a module", func(t *testing.T) {
+		apiServer := &moduleRegistryApiServer{
+			apis: []v0.ModuleApi{
+				testModuleApiWithEndpoint(1, "threeport", "threeport-api-server", "threeport-control-plane"),
+				testModuleApiWithEndpoint(2, "example-module", "example-api-server", "example-namespace"),
+			},
+		}
+		apiClient, apiAddr := apiServer.serve(t)
+		cpi := &ControlPlaneInstaller{Opts: Options{Namespace: "threeport-control-plane"}}
+
+		namespaces, err := cpi.DiscoverModuleNamespaces(apiClient, apiAddr)
+		require.NoError(t, err)
+		assert.Equal(
+			t, []string{"example-namespace"}, namespaces,
+			"the core API's own namespace is the control plane's, not a module's - its Core flag says so even "+
+				"if a module somehow shared its endpoint shape",
+		)
+	})
+
+	t.Run("a core entry at some other namespace is still excluded by its flag", func(t *testing.T) {
+		// the namespace here is deliberately NOT the control plane's own, so
+		// only the Core flag - not the namespace exclusion below - can be
+		// what keeps this out
+		apiServer := &moduleRegistryApiServer{
+			apis: []v0.ModuleApi{
+				testModuleApiWithEndpointAndCore(1, "threeport", "threeport-api-server", "unrelated-namespace", true),
+			},
+		}
+		apiClient, apiAddr := apiServer.serve(t)
+		cpi := &ControlPlaneInstaller{Opts: Options{Namespace: "threeport-control-plane"}}
+
+		namespaces, err := cpi.DiscoverModuleNamespaces(apiClient, apiAddr)
+		require.NoError(t, err)
+		assert.Empty(t, namespaces, "Core is what marks this as the threeport API itself, not a module")
+	})
+
+	t.Run("a non-core entry pointed at the control plane namespace is not labelled", func(t *testing.T) {
+		// Core unset but Endpoint happens to resolve to the control plane's
+		// own namespace - the exclusion has to hold on the namespace itself,
+		// not only on trusting the Core flag
+		apiServer := &moduleRegistryApiServer{
+			apis: []v0.ModuleApi{
+				testModuleApiWithEndpoint(1, "not-flagged-core", "something", "threeport-control-plane"),
+			},
+		}
+		apiClient, apiAddr := apiServer.serve(t)
+		cpi := &ControlPlaneInstaller{Opts: Options{Namespace: "threeport-control-plane"}}
+
+		namespaces, err := cpi.DiscoverModuleNamespaces(apiClient, apiAddr)
+		require.NoError(t, err)
+		assert.Empty(
+			t, namespaces,
+			"labelling the control plane's own namespace as a module's is not what the policy expects of it",
+		)
+	})
+}
+
+// TestModuleNamespaceFromEndpoint covers the one assumption the whole
+// function rests on: what the installer actually writes.
+func TestModuleNamespaceFromEndpoint(t *testing.T) {
+	t.Run("the installer's own shape is read", func(t *testing.T) {
+		endpoint := "example-api-server.example-namespace.svc.cluster.local"
+		namespace, ok := moduleNamespaceFromEndpoint(&endpoint)
+		assert.True(t, ok)
+		assert.Equal(t, "example-namespace", namespace)
+	})
+
+	t.Run("a nil endpoint is not a namespace", func(t *testing.T) {
+		_, ok := moduleNamespaceFromEndpoint(nil)
+		assert.False(t, ok)
+	})
+
+	t.Run("an external endpoint is not guessed at", func(t *testing.T) {
+		endpoint := "https://modules.example.com"
+		_, ok := moduleNamespaceFromEndpoint(&endpoint)
+		assert.False(t, ok, "admitting the wrong namespace to the database is worse than leaving one unlabelled")
+	})
+
+	t.Run("a service name with a dot in it is not mistaken for one with a namespace", func(t *testing.T) {
+		endpoint := "example.svc.cluster.local"
+		_, ok := moduleNamespaceFromEndpoint(&endpoint)
+		assert.False(t, ok, "this has only one label before the suffix, not a service and a namespace")
 	})
 }
