@@ -13,6 +13,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	kube "github.com/threeport/threeport/pkg/kube/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 const (
@@ -162,6 +163,12 @@ func InstallThreeportSupportServicesOperator(
 	return nil
 }
 
+// deploymentGoneAttempts bounds how many times to read a deleted deployment.
+var deploymentGoneAttempts = 120
+
+// deploymentGoneWaitSeconds sets the pause between those reads.
+var deploymentGoneWaitSeconds = 1
+
 // installDeployment applies a deployment, replacing it when the selector changed.
 // A deployment selector is immutable, so the v0.4 operator cannot be updated in place.
 func installDeployment(object *unstructured.Unstructured, kubeClient dynamic.Interface, mapper *meta.RESTMapper) error {
@@ -180,6 +187,7 @@ func installDeployment(object *unstructured.Unstructured, kubeClient dynamic.Int
 	}
 
 	// delete it when the selector does not match this manifest
+	replaced := false
 	if err == nil {
 		existingSelector, _, _ := unstructured.NestedMap(existing.Object, "spec", "selector")
 		desiredSelector, _, _ := unstructured.NestedMap(object.Object, "spec", "selector")
@@ -187,7 +195,17 @@ func installDeployment(object *unstructured.Unstructured, kubeClient dynamic.Int
 			if err := kube.DeleteResource(object, kubeClient, *mapper); err != nil {
 				return fmt.Errorf("failed to replace deployment %s: %w", object.GetName(), err)
 			}
+			replaced = true
 		}
+	}
+	if replaced {
+		if err := waitForDeploymentGone(object, kubeClient, mapper); err != nil {
+			return err
+		}
+		if _, err := kube.CreateResource(object, kubeClient, *mapper); err != nil {
+			return fmt.Errorf("failed to apply deployment %s: %w", object.GetName(), err)
+		}
+		return nil
 	}
 
 	// apply the manifest
@@ -196,6 +214,29 @@ func installDeployment(object *unstructured.Unstructured, kubeClient dynamic.Int
 	}
 
 	return nil
+}
+
+// waitForDeploymentGone returns when Get cannot find the deployment.
+func waitForDeploymentGone(object *unstructured.Unstructured, kubeClient dynamic.Interface, mapper *meta.RESTMapper) error {
+	// read the deployment until Get cannot find it
+	return util.Retry(deploymentGoneAttempts, deploymentGoneWaitSeconds, func() error {
+		_, err := kube.GetResource(
+			object.GroupVersionKind().Group,
+			object.GroupVersionKind().Version,
+			object.GetKind(),
+			object.GetNamespace(),
+			object.GetName(),
+			kubeClient,
+			*mapper,
+		)
+		if kubeerr.IsNotFound(err) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf("deployment %s is still present", object.GetName())
+	})
 }
 
 // supportServicesOperatorObjects decodes the embedded install manifest.

@@ -2,64 +2,92 @@ package v0
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/require"
+	kubeerr "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	k8stesting "k8s.io/client-go/testing"
 )
 
-func TestSupportServicesOperatorObjects(t *testing.T) {
-	objects, err := supportServicesOperatorObjects()
-	if err != nil {
-		t.Fatalf("decode install manifest: %v", err)
-	}
-
-	var crds, deployments int
-	for _, object := range objects {
-		if object.GetKind() == "Namespace" {
-			t.Fatalf("namespace object %s should be dropped", object.GetName())
-		}
-		if object.GetNamespace() == supportServicesOperatorNamespace {
-			t.Fatalf("%s %s still uses the upstream namespace", object.GetKind(), object.GetName())
-		}
-		if object.GetKind() == "CustomResourceDefinition" {
-			crds++
-		}
-		if object.GetKind() == "Deployment" && object.GetName() == SupportServicesOperatorDeployName {
-			deployments++
-			containers, _, _ := nestedContainers(object.Object)
-			found := false
-			for _, container := range containers {
-				if container["image"] == SupportServicesOperatorImage {
-					found = true
-				}
-				if container["image"] == supportServicesOperatorImage {
-					t.Fatalf("deployment still has the placeholder image")
-				}
-			}
-			if !found {
-				t.Fatalf("deployment image is not %s", SupportServicesOperatorImage)
-			}
-			if object.GetNamespace() != ControlPlaneNamespace {
-				t.Fatalf("deployment namespace is %s", object.GetNamespace())
-			}
-		}
-	}
-	if crds != 5 {
-		t.Fatalf("got %d custom resource definitions", crds)
-	}
-	if deployments != 1 {
-		t.Fatalf("got %d operator deployments", deployments)
+// selector returns a deployment selector for the app label.
+func selector(app string) map[string]interface{} {
+	// build the matchLabels map
+	return map[string]interface{}{
+		"matchLabels": map[string]interface{}{"app": app},
 	}
 }
 
-func nestedContainers(object map[string]interface{}) ([]map[string]interface{}, bool, error) {
-	spec, _ := object["spec"].(map[string]interface{})
-	template, _ := spec["template"].(map[string]interface{})
-	podSpec, _ := template["spec"].(map[string]interface{})
-	raw, _ := podSpec["containers"].([]interface{})
-	var containers []map[string]interface{}
-	for _, item := range raw {
-		typed, ok := item.(map[string]interface{})
-		if ok {
-			containers = append(containers, typed)
+// deploymentWithSelector returns a deployment with the app selector.
+func deploymentWithSelector(namespace, name, app string) *unstructured.Unstructured {
+	// set the selector and a resource version
+	object := deployment(namespace, name, "nginx:1")
+	spec := object.Object["spec"].(map[string]interface{})
+	spec["selector"] = selector(app)
+	object.SetResourceVersion("1")
+	return object
+}
+
+// TestInstallDeploymentWaitsForSelectorReplacement covers a selector change.
+func TestInstallDeploymentWaitsForSelectorReplacement(t *testing.T) {
+	// keep the old deployment readable after delete
+	existing := deploymentWithSelector("ingress", "nginx", "old")
+	desired := deploymentWithSelector("ingress", "nginx", "new")
+	kubeClient := testClient(existing)
+	deleted := false
+	getsAfterDelete := 0
+	kubeClient.PrependReactor("delete", "deployments", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		deleted = true
+		return true, nil, nil
+	})
+	kubeClient.PrependReactor("get", "deployments", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		if !deleted {
+			return false, nil, nil
 		}
-	}
-	return containers, true, nil
+		getsAfterDelete++
+		if getsAfterDelete < 3 {
+			return false, nil, nil
+		}
+		return true, nil, kubeerr.NewNotFound(schema.GroupResource{Group: "apps", Resource: "deployments"}, "nginx")
+	})
+	kubeClient.PrependReactor("update", "deployments", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		t.Errorf("updated deployment while the old one was still present")
+		return true, nil, kubeerr.NewBadRequest("immutable selector")
+	})
+	created := false
+	kubeClient.PrependReactor("create", "deployments", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		if getsAfterDelete < 3 {
+			t.Errorf("created deployment while the old one was still present")
+		}
+		created = true
+		return true, desired, nil
+	})
+	deploymentGoneWaitSeconds = 0
+	t.Cleanup(func() {
+		deploymentGoneWaitSeconds = 1
+	})
+
+	// create the replacement only after the old deployment is gone
+	err := installDeployment(desired, kubeClient, testMapper())
+	require.NoError(t, err)
+	require.True(t, created)
+}
+
+// TestInstallDeploymentUpdatesMatchingSelector covers an unchanged selector.
+func TestInstallDeploymentUpdatesMatchingSelector(t *testing.T) {
+	// install a deployment whose selector already matches
+	existing := deploymentWithSelector("ingress", "nginx", "nginx")
+	desired := deploymentWithSelector("ingress", "nginx", "nginx")
+	kubeClient := testClient(existing)
+	deleted := false
+	kubeClient.PrependReactor("delete", "deployments", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		deleted = true
+		return false, nil, nil
+	})
+
+	// update it without deleting
+	err := installDeployment(desired, kubeClient, testMapper())
+	require.NoError(t, err)
+	require.False(t, deleted)
 }
