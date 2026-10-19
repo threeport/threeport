@@ -323,7 +323,6 @@ func (h Handler) UpdateHelmWorkloadDefinition(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this update.
-	// The controller stamp is a later request.
 	prevHelmWorkloadDefinition := api_v0_lib.NotifySnapshot(existingHelmWorkloadDefinition)
 
 	// update object in database
@@ -430,7 +429,6 @@ func (h Handler) ReplaceHelmWorkloadDefinition(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this replace.
-	// The controller stamp is a later request.
 	prevHelmWorkloadDefinition := api_v0_lib.NotifySnapshot(existingHelmWorkloadDefinition)
 
 	// persist provided data
@@ -929,7 +927,6 @@ func (h Handler) UpdateHelmWorkloadInstance(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this update.
-	// The controller stamp is a later request.
 	prevHelmWorkloadInstance := api_v0_lib.NotifySnapshot(existingHelmWorkloadInstance)
 
 	// update object in database
@@ -1036,7 +1033,6 @@ func (h Handler) ReplaceHelmWorkloadInstance(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this replace.
-	// The controller stamp is a later request.
 	prevHelmWorkloadInstance := api_v0_lib.NotifySnapshot(existingHelmWorkloadInstance)
 
 	// persist provided data

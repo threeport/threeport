@@ -815,7 +815,6 @@ func (h Handler) UpdateDomainNameInstance(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this update.
-	// The controller stamp is a later request.
 	prevDomainNameInstance := api_v0_lib.NotifySnapshot(existingDomainNameInstance)
 
 	// update object in database
@@ -922,7 +921,6 @@ func (h Handler) ReplaceDomainNameInstance(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this replace.
-	// The controller stamp is a later request.
 	prevDomainNameInstance := api_v0_lib.NotifySnapshot(existingDomainNameInstance)
 
 	// persist provided data
@@ -1415,7 +1413,6 @@ func (h Handler) UpdateGatewayDefinition(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this update.
-	// The controller stamp is a later request.
 	prevGatewayDefinition := api_v0_lib.NotifySnapshot(existingGatewayDefinition)
 
 	// update object in database
@@ -1522,7 +1519,6 @@ func (h Handler) ReplaceGatewayDefinition(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this replace.
-	// The controller stamp is a later request.
 	prevGatewayDefinition := api_v0_lib.NotifySnapshot(existingGatewayDefinition)
 
 	// persist provided data
@@ -2507,7 +2503,6 @@ func (h Handler) UpdateGatewayInstance(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this update.
-	// The controller stamp is a later request.
 	prevGatewayInstance := api_v0_lib.NotifySnapshot(existingGatewayInstance)
 
 	// update object in database
@@ -2614,7 +2609,6 @@ func (h Handler) ReplaceGatewayInstance(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this replace.
-	// The controller stamp is a later request.
 	prevGatewayInstance := api_v0_lib.NotifySnapshot(existingGatewayInstance)
 
 	// persist provided data

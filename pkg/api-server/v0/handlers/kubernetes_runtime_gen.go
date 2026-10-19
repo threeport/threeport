@@ -323,7 +323,6 @@ func (h Handler) UpdateKubernetesRuntimeDefinition(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this update.
-	// The controller stamp is a later request.
 	prevKubernetesRuntimeDefinition := api_v0_lib.NotifySnapshot(existingKubernetesRuntimeDefinition)
 
 	// update object in database
@@ -430,7 +429,6 @@ func (h Handler) ReplaceKubernetesRuntimeDefinition(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this replace.
-	// The controller stamp is a later request.
 	prevKubernetesRuntimeDefinition := api_v0_lib.NotifySnapshot(existingKubernetesRuntimeDefinition)
 
 	// persist provided data
@@ -929,7 +927,6 @@ func (h Handler) UpdateKubernetesRuntimeInstance(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this update.
-	// The controller stamp is a later request.
 	prevKubernetesRuntimeInstance := api_v0_lib.NotifySnapshot(existingKubernetesRuntimeInstance)
 
 	// update object in database
@@ -1036,7 +1033,6 @@ func (h Handler) ReplaceKubernetesRuntimeInstance(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this replace.
-	// The controller stamp is a later request.
 	prevKubernetesRuntimeInstance := api_v0_lib.NotifySnapshot(existingKubernetesRuntimeInstance)
 
 	// persist provided data

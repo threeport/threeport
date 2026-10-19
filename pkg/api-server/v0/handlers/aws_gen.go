@@ -815,7 +815,6 @@ func (h Handler) UpdateAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this update.
-	// The controller stamp is a later request.
 	prevAwsEksKubernetesRuntimeInstance := api_v0_lib.NotifySnapshot(existingAwsEksKubernetesRuntimeInstance)
 
 	// update object in database
@@ -922,7 +921,6 @@ func (h Handler) ReplaceAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this replace.
-	// The controller stamp is a later request.
 	prevAwsEksKubernetesRuntimeInstance := api_v0_lib.NotifySnapshot(existingAwsEksKubernetesRuntimeInstance)
 
 	// persist provided data

@@ -815,7 +815,6 @@ func (h Handler) UpdateMachineWorkloadInstance(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this update.
-	// The controller stamp is a later request.
 	prevMachineWorkloadInstance := api_v0_lib.NotifySnapshot(existingMachineWorkloadInstance)
 
 	// update object in database
@@ -922,7 +921,6 @@ func (h Handler) ReplaceMachineWorkloadInstance(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this replace.
-	// The controller stamp is a later request.
 	prevMachineWorkloadInstance := api_v0_lib.NotifySnapshot(existingMachineWorkloadInstance)
 
 	// persist provided data

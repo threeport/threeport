@@ -324,7 +324,6 @@ func (h Handler) UpdateControlPlaneDefinition(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this update.
-	// The controller stamp is a later request.
 	prevControlPlaneDefinition := api_v0_lib.NotifySnapshot(existingControlPlaneDefinition)
 
 	// update object in database
@@ -431,7 +430,6 @@ func (h Handler) ReplaceControlPlaneDefinition(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this replace.
-	// The controller stamp is a later request.
 	prevControlPlaneDefinition := api_v0_lib.NotifySnapshot(existingControlPlaneDefinition)
 
 	// persist provided data
@@ -930,7 +928,6 @@ func (h Handler) UpdateControlPlaneInstance(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this update.
-	// The controller stamp is a later request.
 	prevControlPlaneInstance := api_v0_lib.NotifySnapshot(existingControlPlaneInstance)
 
 	// update object in database
@@ -1037,7 +1034,6 @@ func (h Handler) ReplaceControlPlaneInstance(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this replace.
-	// The controller stamp is a later request.
 	prevControlPlaneInstance := api_v0_lib.NotifySnapshot(existingControlPlaneInstance)
 
 	// persist provided data

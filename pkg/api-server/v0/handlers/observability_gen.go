@@ -323,7 +323,6 @@ func (h Handler) UpdateLoggingDefinition(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this update.
-	// The controller stamp is a later request.
 	prevLoggingDefinition := api_v0_lib.NotifySnapshot(existingLoggingDefinition)
 
 	// update object in database
@@ -430,7 +429,6 @@ func (h Handler) ReplaceLoggingDefinition(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this replace.
-	// The controller stamp is a later request.
 	prevLoggingDefinition := api_v0_lib.NotifySnapshot(existingLoggingDefinition)
 
 	// persist provided data
@@ -929,7 +927,6 @@ func (h Handler) UpdateLoggingInstance(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this update.
-	// The controller stamp is a later request.
 	prevLoggingInstance := api_v0_lib.NotifySnapshot(existingLoggingInstance)
 
 	// update object in database
@@ -1036,7 +1033,6 @@ func (h Handler) ReplaceLoggingInstance(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this replace.
-	// The controller stamp is a later request.
 	prevLoggingInstance := api_v0_lib.NotifySnapshot(existingLoggingInstance)
 
 	// persist provided data
@@ -1529,7 +1525,6 @@ func (h Handler) UpdateMetricsDefinition(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this update.
-	// The controller stamp is a later request.
 	prevMetricsDefinition := api_v0_lib.NotifySnapshot(existingMetricsDefinition)
 
 	// update object in database
@@ -1636,7 +1631,6 @@ func (h Handler) ReplaceMetricsDefinition(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this replace.
-	// The controller stamp is a later request.
 	prevMetricsDefinition := api_v0_lib.NotifySnapshot(existingMetricsDefinition)
 
 	// persist provided data
@@ -2135,7 +2129,6 @@ func (h Handler) UpdateMetricsInstance(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this update.
-	// The controller stamp is a later request.
 	prevMetricsInstance := api_v0_lib.NotifySnapshot(existingMetricsInstance)
 
 	// update object in database
@@ -2242,7 +2235,6 @@ func (h Handler) ReplaceMetricsInstance(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this replace.
-	// The controller stamp is a later request.
 	prevMetricsInstance := api_v0_lib.NotifySnapshot(existingMetricsInstance)
 
 	// persist provided data
@@ -2735,7 +2727,6 @@ func (h Handler) UpdateObservabilityDashboardDefinition(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this update.
-	// The controller stamp is a later request.
 	prevObservabilityDashboardDefinition := api_v0_lib.NotifySnapshot(existingObservabilityDashboardDefinition)
 
 	// update object in database
@@ -2842,7 +2833,6 @@ func (h Handler) ReplaceObservabilityDashboardDefinition(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this replace.
-	// The controller stamp is a later request.
 	prevObservabilityDashboardDefinition := api_v0_lib.NotifySnapshot(existingObservabilityDashboardDefinition)
 
 	// persist provided data
@@ -3341,7 +3331,6 @@ func (h Handler) UpdateObservabilityDashboardInstance(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this update.
-	// The controller stamp is a later request.
 	prevObservabilityDashboardInstance := api_v0_lib.NotifySnapshot(existingObservabilityDashboardInstance)
 
 	// update object in database
@@ -3448,7 +3437,6 @@ func (h Handler) ReplaceObservabilityDashboardInstance(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this replace.
-	// The controller stamp is a later request.
 	prevObservabilityDashboardInstance := api_v0_lib.NotifySnapshot(existingObservabilityDashboardInstance)
 
 	// persist provided data
@@ -3941,7 +3929,6 @@ func (h Handler) UpdateObservabilityStackDefinition(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this update.
-	// The controller stamp is a later request.
 	prevObservabilityStackDefinition := api_v0_lib.NotifySnapshot(existingObservabilityStackDefinition)
 
 	// update object in database
@@ -4048,7 +4035,6 @@ func (h Handler) ReplaceObservabilityStackDefinition(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this replace.
-	// The controller stamp is a later request.
 	prevObservabilityStackDefinition := api_v0_lib.NotifySnapshot(existingObservabilityStackDefinition)
 
 	// persist provided data
@@ -4547,7 +4533,6 @@ func (h Handler) UpdateObservabilityStackInstance(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this update.
-	// The controller stamp is a later request.
 	prevObservabilityStackInstance := api_v0_lib.NotifySnapshot(existingObservabilityStackInstance)
 
 	// update object in database
@@ -4654,7 +4639,6 @@ func (h Handler) ReplaceObservabilityStackInstance(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this replace.
-	// The controller stamp is a later request.
 	prevObservabilityStackInstance := api_v0_lib.NotifySnapshot(existingObservabilityStackInstance)
 
 	// persist provided data

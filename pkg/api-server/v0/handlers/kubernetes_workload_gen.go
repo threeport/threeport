@@ -323,7 +323,6 @@ func (h Handler) UpdateKubernetesWorkloadDefinition(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this update.
-	// The controller stamp is a later request.
 	prevKubernetesWorkloadDefinition := api_v0_lib.NotifySnapshot(existingKubernetesWorkloadDefinition)
 
 	// update object in database
@@ -430,7 +429,6 @@ func (h Handler) ReplaceKubernetesWorkloadDefinition(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this replace.
-	// The controller stamp is a later request.
 	prevKubernetesWorkloadDefinition := api_v0_lib.NotifySnapshot(existingKubernetesWorkloadDefinition)
 
 	// persist provided data
@@ -929,7 +927,6 @@ func (h Handler) UpdateKubernetesWorkloadInstance(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this update.
-	// The controller stamp is a later request.
 	prevKubernetesWorkloadInstance := api_v0_lib.NotifySnapshot(existingKubernetesWorkloadInstance)
 
 	// update object in database
@@ -1036,7 +1033,6 @@ func (h Handler) ReplaceKubernetesWorkloadInstance(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this replace.
-	// The controller stamp is a later request.
 	prevKubernetesWorkloadInstance := api_v0_lib.NotifySnapshot(existingKubernetesWorkloadInstance)
 
 	// persist provided data

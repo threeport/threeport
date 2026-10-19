@@ -1532,7 +1532,6 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					if apiObject.Reconciler {
 						g.Line()
 						g.Comment("snapshot the loaded row before this update.")
-						g.Comment("The controller stamp is a later request.")
 						g.Id("prev"+apiObject.TypeName).Op(":=").Qual(
 							"github.com/threeport/threeport/pkg/api/lib/v0",
 							"NotifySnapshot",
@@ -1868,7 +1867,6 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					if apiObject.Reconciler {
 						g.Line()
 						g.Comment("snapshot the loaded row before this replace.")
-						g.Comment("The controller stamp is a later request.")
 						g.Id("prev"+apiObject.TypeName).Op(":=").Qual(
 							"github.com/threeport/threeport/pkg/api/lib/v0",
 							"NotifySnapshot",

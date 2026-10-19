@@ -323,7 +323,6 @@ func (h Handler) UpdateSecretDefinition(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this update.
-	// The controller stamp is a later request.
 	prevSecretDefinition := api_v0_lib.NotifySnapshot(existingSecretDefinition)
 
 	// update object in database
@@ -430,7 +429,6 @@ func (h Handler) ReplaceSecretDefinition(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this replace.
-	// The controller stamp is a later request.
 	prevSecretDefinition := api_v0_lib.NotifySnapshot(existingSecretDefinition)
 
 	// persist provided data
@@ -929,7 +927,6 @@ func (h Handler) UpdateSecretInstance(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this update.
-	// The controller stamp is a later request.
 	prevSecretInstance := api_v0_lib.NotifySnapshot(existingSecretInstance)
 
 	// update object in database
@@ -1036,7 +1033,6 @@ func (h Handler) ReplaceSecretInstance(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this replace.
-	// The controller stamp is a later request.
 	prevSecretInstance := api_v0_lib.NotifySnapshot(existingSecretInstance)
 
 	// persist provided data

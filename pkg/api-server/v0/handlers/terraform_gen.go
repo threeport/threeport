@@ -323,7 +323,6 @@ func (h Handler) UpdateTerraformDefinition(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this update.
-	// The controller stamp is a later request.
 	prevTerraformDefinition := api_v0_lib.NotifySnapshot(existingTerraformDefinition)
 
 	// update object in database
@@ -430,7 +429,6 @@ func (h Handler) ReplaceTerraformDefinition(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this replace.
-	// The controller stamp is a later request.
 	prevTerraformDefinition := api_v0_lib.NotifySnapshot(existingTerraformDefinition)
 
 	// persist provided data
@@ -929,7 +927,6 @@ func (h Handler) UpdateTerraformInstance(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this update.
-	// The controller stamp is a later request.
 	prevTerraformInstance := api_v0_lib.NotifySnapshot(existingTerraformInstance)
 
 	// update object in database
@@ -1036,7 +1033,6 @@ func (h Handler) ReplaceTerraformInstance(c echo.Context) error {
 	}
 
 	// snapshot the loaded row before this replace.
-	// The controller stamp is a later request.
 	prevTerraformInstance := api_v0_lib.NotifySnapshot(existingTerraformInstance)
 
 	// persist provided data
