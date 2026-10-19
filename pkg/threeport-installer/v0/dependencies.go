@@ -1,9 +1,11 @@
 package v0
 
 import (
+	"context"
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
 
@@ -698,7 +700,7 @@ store_dir: /data
 			},
 			"spec": map[string]interface{}{
 				"serviceName": "crdb",
-				"replicas":    1,
+				"replicas":    crdbReplicas(cpi.Opts.Tier),
 				"updateStrategy": map[string]interface{}{
 					"type": "RollingUpdate",
 				},
@@ -763,23 +765,7 @@ store_dir: /data
 								"args": []interface{}{
 									"shell",
 									"-ecx",
-									// The use of qualified `hostname -f` is crucial:
-									// Other nodes aren't able to look up the unqualified hostname.
-									//
-									// `--join` CLI flag is hardcoded to exactly 3 Pods, because:
-									// 1. Having `--join` value depending on `statefulset.replicas`
-									//    will trigger undesired restart of existing Pods when
-									//    StatefulSet is scaled up/down. We want to scale without
-									//    restarting existing Pods.
-									// 2. At least one Pod in `--join` is enough to successfully
-									//    join CockroachDB cluster and gossip with all other existing
-									//    Pods, even if there are 3 or more Pods.
-									// 3. It's harmless for `--join` to have 3 Pods even for 1-Pod
-									//    clusters, while it gives us opportunity to scale up even if
-									//    some Pods of existing cluster are down (for whatever reason).
-									// See details explained here:
-									// https://github.com/helm/charts/pull/18993#issuecomment-558795102
-									"exec /cockroach/cockroach start-single-node --certs-dir=/cockroach/cockroach-certs --advertise-host=$(hostname).${STATEFULSET_FQDN} --http-port=8080 --port=26257 --cache=25% --max-sql-memory=25% --logtostderr=INFO",
+									crdbStartCommand(cpi.Opts.Tier),
 								},
 								"env": []interface{}{
 									map[string]interface{}{
@@ -867,6 +853,10 @@ store_dir: /data
 		return fmt.Errorf("failed to create/update API server secret for kubernetes workload controller: %w", err)
 	}
 
+	if err := cpi.installCrdbForTier(kubeClient); err != nil {
+		return err
+	}
+
 	// configure threeport api service
 	apiServicePortName, apiServicePort := cpi.GetAPIServicePort()
 
@@ -930,4 +920,178 @@ func (cpi *ControlPlaneInstaller) getVolClaimTemplateSpec(
 	}
 
 	return volClaimTemplateSpec
+}
+
+// crdbReplicas returns how many CockroachDB nodes a given tier runs.
+//
+// Development stays at the single node it has always been - lightweight and
+// fast to install, nothing in this install path benefits from more on a
+// cluster meant to be disposable. Production runs three, the minimum
+// CockroachDB's Raft consensus needs to tolerate the loss of one node
+// without losing quorum.
+func crdbReplicas(tier ControlPlaneTier) int64 {
+	if string(tier) == ControlPlaneTierProd {
+		return 3
+	}
+
+	return 1
+}
+
+// crdbStartCommand returns the shell command each CockroachDB container
+// starts with.
+//
+// start-single-node is a different startup path than start --join, not a
+// smaller version of it: a node brought up with it can never later join a
+// multi-node cluster, whatever its replica count says. So this reads the
+// tier directly rather than deriving the command from the replica count -
+// tier is also the one field ControlPlaneDefinition's beforeUpdate hook
+// refuses to let change after creation, where the replica count alone would
+// invite reading a scale event as a request to convert a single node into a
+// cluster.
+//
+// The --join list is hardcoded to exactly three pods rather than derived
+// from the replica count, for the reason the comment this replaced gave:
+// a value that moved with replicas would restart every existing pod on a
+// scale event, and one reachable entry in --join is enough to gossip with
+// the rest of the cluster regardless of how many of the three are up.
+func crdbStartCommand(tier ControlPlaneTier) string {
+	// The use of qualified `hostname -f` is crucial: other nodes aren't able
+	// to look up the unqualified hostname.
+	if string(tier) != ControlPlaneTierProd {
+		return "exec /cockroach/cockroach start-single-node --certs-dir=/cockroach/cockroach-certs " +
+			"--advertise-host=$(hostname).${STATEFULSET_FQDN} --http-port=8080 --port=26257 " +
+			"--cache=25% --max-sql-memory=25% --logtostderr=INFO"
+	}
+
+	return "exec /cockroach/cockroach start --certs-dir=/cockroach/cockroach-certs " +
+		"--advertise-host=$(hostname).${STATEFULSET_FQDN} --http-port=8080 --port=26257 " +
+		"--join=crdb-0.${STATEFULSET_FQDN},crdb-1.${STATEFULSET_FQDN},crdb-2.${STATEFULSET_FQDN} " +
+		"--cache=25% --max-sql-memory=25% --logtostderr=INFO"
+}
+
+// installCrdbForTier runs the one step that differs by tier after the
+// CockroachDB StatefulSet itself is applied: initializing a fresh
+// production cluster. Development has no equivalent step -
+// start-single-node initializes itself.
+func (cpi *ControlPlaneInstaller) installCrdbForTier(kubeClient dynamic.Interface) error {
+	if string(cpi.Opts.Tier) != ControlPlaneTierProd {
+		return nil
+	}
+
+	if err := cpi.runCrdbInitJob(kubeClient, cpi.Opts.Namespace); err != nil {
+		return fmt.Errorf("failed to initialize the production CockroachDB cluster: %w", err)
+	}
+
+	return nil
+}
+
+// crdbInitJobName is the one-time Job that bootstraps a production
+// CockroachDB cluster.
+const crdbInitJobName = "threeport-crdb-init"
+
+// crdbInitJobBackoffLimit allows several attempts while the other two nodes
+// come up: cockroach init only needs one node to answer, but that node has
+// to be listening first, and a fresh StatefulSet's pods do not all reach
+// that point at once.
+const crdbInitJobBackoffLimit = 10
+
+// crdbAlreadyInitializedMarker is the text CockroachDB's own init command
+// prints when the cluster it was pointed at has already been bootstrapped.
+// Confirmed against a running two-attempt cockroach container rather than
+// assumed from documented behavior: the first `cockroach init` reports
+// "Cluster successfully initialized"; the second, against the same cluster,
+// exits 1 and reports "ERROR: cluster has already been initialized".
+const crdbAlreadyInitializedMarker = "already been initialized"
+
+// runCrdbInitJob bootstraps a fresh production CockroachDB cluster.
+//
+// A node started with start --join waits forever for this and serves
+// nothing until it runs - there is no equivalent step for the development
+// tier's start-single-node, which initializes itself. It only has to
+// succeed once: a reinstall or a retry runs this again against a cluster
+// that already answered it, and cockroach init refuses that call by design.
+// That refusal is treated as success here rather than propagated as a
+// failure, so the one-time step does not become a reason every later
+// install attempt fails.
+func (cpi *ControlPlaneInstaller) runCrdbInitJob(
+	kubeClient dynamic.Interface,
+	namespace string,
+) error {
+	// delete a leftover job because its pod template is immutable
+	if err := cpi.deleteJob(kubeClient, namespace, crdbInitJobName, "crdb init"); err != nil {
+		return err
+	}
+
+	script := fmt.Sprintf(`set -e
+if ! out=$(/cockroach/cockroach init --certs-dir=%s --host=crdb-0.crdb.%s.svc.cluster.local 2>&1); then
+  if echo "$out" | grep -q %q; then
+    echo "$out"
+    echo "cluster was already initialized by an earlier attempt"
+    exit 0
+  fi
+  echo "$out"
+  exit 1
+fi
+echo "$out"`,
+		dbRootCertsMountPath, namespace, crdbAlreadyInitializedMarker,
+	)
+	fmt.Println("Info: initializing the production CockroachDB cluster")
+
+	job := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "batch/v1",
+			"kind":       "Job",
+			"metadata": map[string]interface{}{
+				"name":      crdbInitJobName,
+				"namespace": namespace,
+			},
+			"spec": map[string]interface{}{
+				"backoffLimit": int64(crdbInitJobBackoffLimit),
+				"template": map[string]interface{}{
+					"spec": map[string]interface{}{
+						"restartPolicy": "Never",
+						"containers": []interface{}{
+							map[string]interface{}{
+								"name":    "crdb-init",
+								"image":   fmt.Sprintf("docker.io/cockroachdb/cockroach:%s", DatabaseImageTag),
+								"command": []interface{}{"/bin/sh", "-c", script},
+								"volumeMounts": []interface{}{
+									map[string]interface{}{
+										"name":      dbRootCertSecretName,
+										"mountPath": dbRootCertsMountPath,
+									},
+								},
+							},
+						},
+						"volumes": []interface{}{
+							map[string]interface{}{
+								"name": dbRootCertSecretName,
+								"secret": map[string]interface{}{
+									"secretName":  dbRootCertSecretName,
+									"defaultMode": int64(dbRootCertsFileMode),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// submit the job
+	if _, err := kubeClient.Resource(jobGVR).Namespace(namespace).Create(
+		context.Background(), job, metav1.CreateOptions{},
+	); err != nil {
+		return fmt.Errorf("failed to create crdb init job %s: %w", crdbInitJobName, err)
+	}
+
+	// wait for the job to finish
+	if err := cpi.waitForJob(
+		kubeClient, namespace, crdbInitJobName, crdbInitJobBackoffLimit, "crdb init",
+	); err != nil {
+		return err
+	}
+
+	// delete the finished job
+	return cpi.deleteJob(kubeClient, namespace, crdbInitJobName, "crdb init")
 }
