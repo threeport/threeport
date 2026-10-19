@@ -721,25 +721,7 @@ store_dir: /data
 						},
 					},
 					"spec": map[string]interface{}{
-						"affinity": map[string]interface{}{
-							"podAntiAffinity": map[string]interface{}{
-								"preferredDuringSchedulingIgnoredDuringExecution": []interface{}{
-									map[string]interface{}{
-										"weight": 100,
-										"podAffinityTerm": map[string]interface{}{
-											"topologyKey": "kubernetes.io/hostname",
-											"labelSelector": map[string]interface{}{
-												"matchLabels": map[string]interface{}{
-													"app.kubernetes.io/name":      "cockroachdb",
-													"app.kubernetes.io/instance":  "crdb",
-													"app.kubernetes.io/component": "cockroachdb",
-												},
-											},
-										},
-									},
-								},
-							},
-						},
+						"affinity": crdbAntiAffinity(cpi.Opts.Tier),
 						"topologySpreadConstraints": []interface{}{
 							map[string]interface{}{
 								"labelSelector": map[string]interface{}{
@@ -937,6 +919,65 @@ func crdbReplicas(tier ControlPlaneTier) int64 {
 	return 1
 }
 
+// crdbAntiAffinityLabels is what crdbAntiAffinity selects: every CockroachDB
+// pod, regardless of tier.
+var crdbAntiAffinityLabels = map[string]interface{}{
+	"app.kubernetes.io/name":      "cockroachdb",
+	"app.kubernetes.io/instance":  "crdb",
+	"app.kubernetes.io/component": "cockroachdb",
+}
+
+// crdbAntiAffinity keeps CockroachDB pods off the same node, strictly for
+// production and as a preference for development.
+//
+// A preference is not a guarantee: preferredDuringSchedulingIgnoredDuringExecution
+// is still satisfiable by two pods sharing a node when a third is scarce, and
+// nothing about it is visible until the node that was sharing them is lost -
+// at which point the cluster has dropped two of three nodes at once, not one,
+// and lost the Raft majority the third tier replica exists to protect. That
+// failure mode is silent right up until it happens, which is worse than
+// refusing to schedule: requiredDuringSchedulingIgnoredDuringExecution leaves
+// an unplaceable replica visibly Pending instead, naming the actual
+// prerequisite - three schedulable nodes - rather than letting a cluster that
+// does not have them look healthy until it is tested.
+//
+// Development keeps the preference it has always had. With one replica there
+// is nothing to spread, so the two shapes are equivalent there; changing
+// behavior that already works for a case this does not affect is not this
+// issue's to do.
+func crdbAntiAffinity(tier ControlPlaneTier) map[string]interface{} {
+	if string(tier) != ControlPlaneTierProd {
+		return map[string]interface{}{
+			"podAntiAffinity": map[string]interface{}{
+				"preferredDuringSchedulingIgnoredDuringExecution": []interface{}{
+					map[string]interface{}{
+						"weight": int64(100),
+						"podAffinityTerm": map[string]interface{}{
+							"topologyKey": "kubernetes.io/hostname",
+							"labelSelector": map[string]interface{}{
+								"matchLabels": crdbAntiAffinityLabels,
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+
+	return map[string]interface{}{
+		"podAntiAffinity": map[string]interface{}{
+			"requiredDuringSchedulingIgnoredDuringExecution": []interface{}{
+				map[string]interface{}{
+					"topologyKey": "kubernetes.io/hostname",
+					"labelSelector": map[string]interface{}{
+						"matchLabels": crdbAntiAffinityLabels,
+					},
+				},
+			},
+		},
+	}
+}
+
 // crdbStartCommand returns the shell command each CockroachDB container
 // starts with.
 //
@@ -1013,6 +1054,16 @@ const crdbAlreadyInitializedMarker = "already been initialized"
 // That refusal is treated as success here rather than propagated as a
 // failure, so the one-time step does not become a reason every later
 // install attempt fails.
+//
+// The job mounts db-certs rather than db-root-cert, even though the latter
+// is what the other one-shot admin jobs in this package use. db-root-cert is
+// created later, by UpdateThreeportAPIDeployment, which runs only after this
+// whole function returns - a fresh install waiting on this job for a secret
+// that does not exist yet would never create it, and would time out instead
+// of initializing. db-certs is created earlier in this same function, above
+// the StatefulSet, and already carries the root client cert and key this
+// init call needs to authenticate - it is the same secret the StatefulSet's
+// own pods mount for their node identity.
 func (cpi *ControlPlaneInstaller) runCrdbInitJob(
 	kubeClient dynamic.Interface,
 	namespace string,
@@ -1057,7 +1108,7 @@ echo "$out"`,
 								"command": []interface{}{"/bin/sh", "-c", script},
 								"volumeMounts": []interface{}{
 									map[string]interface{}{
-										"name":      dbRootCertSecretName,
+										"name":      dbCredsSecretName,
 										"mountPath": dbRootCertsMountPath,
 									},
 								},
@@ -1065,10 +1116,10 @@ echo "$out"`,
 						},
 						"volumes": []interface{}{
 							map[string]interface{}{
-								"name": dbRootCertSecretName,
+								"name": dbCredsSecretName,
 								"secret": map[string]interface{}{
-									"secretName":  dbRootCertSecretName,
-									"defaultMode": int64(dbRootCertsFileMode),
+									"secretName":  dbCredsSecretName,
+									"defaultMode": int64(256),
 								},
 							},
 						},

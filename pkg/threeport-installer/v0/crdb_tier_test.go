@@ -113,16 +113,18 @@ func TestCrdbInitJobIsIdempotentOnAnAlreadyInitializedCluster(t *testing.T) {
 		}
 	}
 
-	// the job mounts the root cert, not the node cert this StatefulSet's own
-	// pods use - a cluster that has never seen the node cert still has to
-	// recognize this job's client certificate to answer "already initialized"
+	// the job mounts db-certs, not db-root-cert: db-root-cert is created
+	// later, by UpdateThreeportAPIDeployment, which runs only after this
+	// whole install function returns - waiting here on a job needing a
+	// secret that does not exist yet would never create it, and a fresh
+	// production install would time out instead of initializing.
 	volumes, _, err := unstructured.NestedSlice(createdJob.Object, "spec", "template", "spec", "volumes")
 	if err != nil || len(volumes) != 1 {
 		t.Fatalf("expected one volume on the init job, got %v (err: %v)", volumes, err)
 	}
 	secretName, _, _ := unstructured.NestedString(volumes[0].(map[string]interface{}), "secret", "secretName")
-	if secretName != dbRootCertSecretName {
-		t.Errorf("expected the init job to mount %s, got %s", dbRootCertSecretName, secretName)
+	if secretName != dbCredsSecretName {
+		t.Errorf("expected the init job to mount %s, got %s", dbCredsSecretName, secretName)
 	}
 }
 
@@ -195,4 +197,40 @@ func crdbInitJobScript(t *testing.T, job *unstructured.Unstructured) string {
 	}
 
 	return command[2]
+}
+
+// TestCrdbAntiAffinityIsRequiredOnlyForProduction covers the gap greptile
+// found: a preference two CockroachDB replicas could share a node under,
+// invisible until the node holding both of them is lost and the cluster
+// drops two of three nodes at once instead of one.
+func TestCrdbAntiAffinityIsRequiredOnlyForProduction(t *testing.T) {
+	dev := crdbAntiAffinity(ControlPlaneTierDev)
+	if _, _, err := unstructured.NestedSlice(
+		dev, "podAntiAffinity", "preferredDuringSchedulingIgnoredDuringExecution",
+	); err != nil {
+		t.Errorf("expected development to keep the existing preference, got %v (err: %v)", dev, err)
+	}
+	if _, found, _ := unstructured.NestedSlice(
+		dev, "podAntiAffinity", "requiredDuringSchedulingIgnoredDuringExecution",
+	); found {
+		t.Error("expected development not to require separate hosts - there is only one replica to place")
+	}
+
+	prod := crdbAntiAffinity(ControlPlaneTierProd)
+	terms, _, err := unstructured.NestedSlice(
+		prod, "podAntiAffinity", "requiredDuringSchedulingIgnoredDuringExecution",
+	)
+	if err != nil || len(terms) != 1 {
+		t.Fatalf("expected production to require separate hosts, got %v (err: %v)", prod, err)
+	}
+	if _, found, _ := unstructured.NestedSlice(
+		prod, "podAntiAffinity", "preferredDuringSchedulingIgnoredDuringExecution",
+	); found {
+		t.Error("a preference alongside the requirement is misleading about which one actually governs scheduling")
+	}
+
+	topologyKey, _, _ := unstructured.NestedString(terms[0].(map[string]interface{}), "topologyKey")
+	if topologyKey != "kubernetes.io/hostname" {
+		t.Errorf("expected production's requirement to key on the host, got %q", topologyKey)
+	}
 }
