@@ -73,7 +73,7 @@ func v0GatewayInstanceCreated(
 
 	log.V(1).Info(
 		"gateway instance created",
-		"gatewayResourceInstanceID", gatewayInstance.ID,
+		"gatewayInstanceID", gatewayInstance.ID,
 	)
 
 	return 0, nil
@@ -135,7 +135,7 @@ func v0GatewayInstanceUpdated(
 	if len(changedWorkloadResourceInstances) == 0 {
 		log.V(1).Info(
 			"gateway instance resources unchanged, leaving dependent objects alone",
-			"gatewayResourceInstanceID", gatewayInstance.ID,
+			"gatewayInstanceID", gatewayInstance.ID,
 		)
 
 		return 0, nil
@@ -166,7 +166,7 @@ func v0GatewayInstanceUpdated(
 
 	log.V(1).Info(
 		"gateway instance updated",
-		"gatewayResourceInstanceID", gatewayInstance.ID,
+		"gatewayInstanceID", gatewayInstance.ID,
 	)
 
 	return 0, nil

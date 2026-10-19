@@ -38,9 +38,45 @@ func ValidateAuthEnabledForProvider(infraProvider string, authEnabled bool) erro
 	))
 }
 
+// The values ControlPlaneDefinition.Tier accepts.
+//
+// They are defined here, the lower layer, and aliased by
+// pkg/threeport-installer rather than the other way round: that package
+// imports this one, and two spellings of the same set would drift.
+const (
+	ControlPlaneTierDevelopment = "development"
+	ControlPlaneTierProduction  = "production"
+)
+
+// ControlPlaneTiers is every value Tier accepts.
+var ControlPlaneTiers = []string{ControlPlaneTierDevelopment, ControlPlaneTierProduction}
+
+// validateTier rejects a tier outside the known set.
+//
+// The CLI checks --tier, but that is one of the doors into this field, and
+// anything reaching the API directly bypasses it. Tier gates production-only
+// behavior - database topology, replica counts, backups - so an unrecognised
+// value does not fail, it quietly takes the development branch everywhere:
+// a control plane recorded as something nobody can act on, which reads as
+// configured and behaves as if it were not.
+func validateTier(tier *string) error {
+	if tier == nil {
+		return nil
+	}
+	for _, known := range ControlPlaneTiers {
+		if *tier == known {
+			return nil
+		}
+	}
+
+	return util.NewBadRequestError(fmt.Sprintf(
+		"invalid tier value '%s' - must be one of %v", *tier, ControlPlaneTiers,
+	))
+}
+
 // beforeCreate runs before the ControlPlaneDefinition is created.
 func (c *ControlPlaneDefinition) beforeCreate(tx *gorm.DB) error {
-	return nil
+	return validateTier(c.Tier)
 }
 
 // beforeUpdate runs before the ControlPlaneDefinition is updated.
@@ -60,7 +96,44 @@ func (c *ControlPlaneDefinition) beforeCreate(tx *gorm.DB) error {
 //
 //	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (c *ControlPlaneDefinition) beforeUpdate(tx *gorm.DB) error {
+	// the value check runs first so a bad tier is reported as a bad tier
+	// rather than as an immutable one, which is the more useful message of
+	// the two and the only thing separating them: an unknown value is also
+	// a change, so the immutability check alone would reject it anyway.
+	if err := validateTier(incomingTier(tx, c)); err != nil {
+		return err
+	}
+	if err := rejectTierChange(tx); err != nil {
+		return err
+	}
+
 	return rejectAuthBeingTurnedOffForACloudInstance(tx, c)
+}
+
+// rejectTierChange keeps the tier as it was recorded at creation.
+//
+// Tier describes what the control plane was built as: replica counts,
+// database topology and backup configuration are decided from it at install
+// time. Rewriting the field afterwards does not go back and reconfigure any
+// of that, so a changed tier would describe a deployment that does not exist
+// - and everything reading the field would act on the description rather than
+// the deployment. Recreating the control plane is the way to change it.
+//
+// Omitting the tier from a full replace is a change too, to no tier at all.
+// The config layer carries the recorded value forward for a config that does
+// not mention it, so that case does not arrive here as a clear.
+func rejectTierChange(tx *gorm.DB) error {
+	changed, err := lib.IsFieldChanged(tx, "Tier")
+	if err != nil {
+		return err
+	}
+	if changed {
+		return util.NewBadRequestError(
+			"control plane definition tier cannot be changed after creation",
+		)
+	}
+
+	return nil
 }
 
 // rejectAuthBeingTurnedOffForACloudInstance closes the gap between creating
@@ -127,6 +200,30 @@ func incomingAuthEnabled(tx *gorm.DB, stored *ControlPlaneDefinition) *bool {
 	}
 
 	return stored.AuthEnabled
+}
+
+// incomingTier returns the tier this update is writing.
+//
+// Under PATCH the receiver is the row as stored and the values being written
+// are a separate object, so reading the receiver checks what is already there:
+// a bad tier would be accepted because the stored one is good, and then every
+// later update would be refused because the stored one is now bad - including
+// the one trying to correct it. Under PUT the two are the same object, and the
+// receiver is the incoming value.
+//
+// A PATCH that does not mention the tier reports none, so it is not held to a
+// value it is not setting.
+func incomingTier(tx *gorm.DB, stored *ControlPlaneDefinition) *string {
+	if lib.IsPartialUpdate(tx) {
+		incoming, ok := lib.IncomingValues(tx).(*ControlPlaneDefinition)
+		if !ok {
+			return nil
+		}
+
+		return incoming.Tier
+	}
+
+	return stored.Tier
 }
 
 // providerOfRuntimeInstance resolves the infra provider behind a runtime
