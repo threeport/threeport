@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -11,7 +12,7 @@ import (
 	"github.com/threeport/threeport/internal/machinetest"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	"github.com/threeport/threeport/pkg/controller/v0"
+	controller "github.com/threeport/threeport/pkg/controller/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -114,4 +115,55 @@ func TestGetCertificatesComponentYamlAnnotatesRole(t *testing.T) {
 	require.Contains(t, annotated, "eks.amazonaws.com/role-arn: arn:aws:iam::123:role/dns01")
 	require.Contains(t, annotated, "name: cert-manager")
 	require.Contains(t, annotated, "namespace: nukleros-certs-system")
+}
+
+func TestGetIngressesYamlDistinctPaths(t *testing.T) {
+	// return two paths for one host
+	api := machinetest.NewAPIStub(t)
+	api.Mux.HandleFunc(v0.PathGatewayHttpPorts, func(w http.ResponseWriter, r *http.Request) {
+		health := v0.GatewayHttpPort{Port: util.Ptr(80), Path: util.Ptr("/health"), TLSEnabled: util.Ptr(false)}
+		root := v0.GatewayHttpPort{Port: util.Ptr(443), Path: util.Ptr("/"), TLSEnabled: util.Ptr(true)}
+		machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{health, root})
+	})
+	reconciler := &controller.Reconciler{APIServer: api.Addr, APIClient: api.Client}
+	definition := &v0.GatewayDefinition{
+		Common:     v0.Common{ID: util.Ptr(uint(1))},
+		Definition: v0.Definition{Name: util.Ptr("echo")},
+	}
+
+	// expect both paths on the one ingress
+	got, err := getIngressesYaml(reconciler, definition, "echo.threeport.test")
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	require.Contains(t, got[0], "path: /health")
+	require.Contains(t, got[0], "path: /")
+}
+
+func TestTcpControllerUsesContainerPort(t *testing.T) {
+	// a container port is containerPort
+	rendered, err := tcpControllerYaml([]int{5432})
+	require.NoError(t, err)
+	require.Contains(t, string(rendered), "containerPort: 5432")
+	require.NotContains(t, string(rendered), "targetPort")
+}
+
+func TestCertificatesAccountKeepsOperatorNamespace(t *testing.T) {
+	// the DNS-01 account stays in the cert-manager namespace
+	rendered, err := getCertificatesComponentYaml("arn:aws:iam::123:role/dns01")
+	require.NoError(t, err)
+	var account []byte
+	for _, doc := range strings.Split(rendered, "---") {
+		if strings.Contains(doc, "kind: ServiceAccount") {
+			account = []byte(doc)
+		}
+	}
+	require.NotEmpty(t, account)
+	object, err := util.UnstructuredFromYaml(account)
+	require.NoError(t, err)
+	raw, err := object.MarshalJSON()
+	require.NoError(t, err)
+	updated, err := util.UpdateNamespace(raw, "workload-1")
+	require.NoError(t, err)
+	require.Contains(t, string(updated), "nukleros-certs-system")
+	require.NotContains(t, string(updated), "workload-1")
 }

@@ -243,3 +243,28 @@ func TestResourcesByKindReturnsEveryIngress(t *testing.T) {
 	require.Equal(t, "echo-80", firstName)
 	require.Equal(t, "echo-443", secondName)
 }
+
+func TestGatewayResourcesToDeleteSkipsUserIngress(t *testing.T) {
+	// a user ingress of the same kind is left alone
+	user := v0.KubernetesWorkloadResourceInstance{
+		JSONDefinition: kubeJSON(map[string]interface{}{
+			"kind":     "Ingress",
+			"metadata": map[string]interface{}{"name": "user"},
+		}),
+	}
+	owned := v0.KubernetesWorkloadResourceInstance{
+		JSONDefinition: kubeJSON(map[string]interface{}{
+			"kind":     "Ingress",
+			"metadata": map[string]interface{}{"name": "echo-threeport-test"},
+		}),
+	}
+	stored := []v0.KubernetesWorkloadResourceInstance{user, owned}
+	rendered := []v0.KubernetesWorkloadResourceInstance{owned}
+
+	got, err := gatewayResourcesToDelete(&stored, &rendered)
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	_, name, err := resourceKindAndName(got[0].JSONDefinition)
+	require.NoError(t, err)
+	require.Equal(t, "echo-threeport-test", name)
+}

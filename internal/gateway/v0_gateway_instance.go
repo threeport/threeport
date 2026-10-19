@@ -261,6 +261,43 @@ func resourceKindAndName(definition *datatypes.JSON) (string, string, error) {
 
 // resourcesByKind returns every stored resource of one kind.
 // An empty result is not an error.
+
+// gatewayResourcesToDelete returns stored resources whose kind and name match a rendered object.
+func gatewayResourcesToDelete(
+	stored *[]v0.KubernetesWorkloadResourceInstance,
+	rendered *[]v0.KubernetesWorkloadResourceInstance,
+) ([]v0.KubernetesWorkloadResourceInstance, error) {
+	// index the kind and name of each rendered object
+	owned := map[string]struct{}{}
+	if rendered != nil {
+		for _, resource := range *rendered {
+			kind, name, err := resourceKindAndName(resource.JSONDefinition)
+			if err != nil {
+				return nil, err
+			}
+			owned[kind+"\n"+name] = struct{}{}
+		}
+	}
+
+	// keep stored resources that match one rendered object
+	matches := []v0.KubernetesWorkloadResourceInstance{}
+	if stored == nil {
+		return matches, nil
+	}
+	for _, resource := range *stored {
+		kind, name, err := resourceKindAndName(resource.JSONDefinition)
+		if err != nil {
+			return nil, err
+		}
+		if _, ok := owned[kind+"\n"+name]; !ok {
+			continue
+		}
+		matches = append(matches, resource)
+	}
+
+	return matches, nil
+}
+
 func resourcesByKind(
 	resources *[]v0.KubernetesWorkloadResourceInstance,
 	kind string,
@@ -314,40 +351,49 @@ func v0GatewayInstanceDeleted(
 		return 0, fmt.Errorf("failed to get kubernetes workload resource instances: %w", err)
 	}
 
-	// get gateway instance objects
-	gatewayInstanceObjects, err := getGatewayInstanceObjects(r, gatewayInstance)
+	// render the objects this gateway created
+	kubernetesRuntimeInstance, gatewayDefinition, workloadInstanceForDelete, err := getThreeportObjects(r, gatewayInstance)
 	if err != nil {
 		if errors.Is(err, client_lib.ErrObjectNotFound) {
-			// kubernetes workload instance has already been deleted
 			return 0, nil
 		}
-		return 0, fmt.Errorf("failed to get gateway instance objects: %w", err)
+		return 0, fmt.Errorf("failed to get threeport objects for gateway instance delete: %w", err)
+	}
+	rendered, err := configureGatewayKubernetesWorkloadResourceInstances(
+		r,
+		gatewayDefinition,
+		workloadInstanceForDelete,
+		kubernetesRuntimeInstance,
+	)
+	if err != nil {
+		if errors.Is(err, client_lib.ErrObjectNotFound) {
+			return 0, nil
+		}
+		return 0, fmt.Errorf("failed to configure gateway objects for delete: %w", err)
+	}
+	owned, err := gatewayResourcesToDelete(workloadResourceInstances, rendered)
+	if err != nil {
+		return 0, fmt.Errorf("failed to match gateway objects for delete: %w", err)
 	}
 
-	// schedule deletion of each object of a gateway kind
-	for _, kind := range gatewayInstanceObjects {
-		matches, err := resourcesByKind(workloadResourceInstances, kind)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get kubernetes workload resource instances: %w", err)
+	// schedule deletion of each object this gateway created
+	for _, match := range owned {
+		scheduled := &v0.KubernetesWorkloadResourceInstance{
+			Common:               v0.Common{ID: match.ID},
+			ScheduledForDeletion: util.Ptr(time.Now().UTC()),
+			Reconciled:           util.Ptr(false),
 		}
-		for _, match := range matches {
-			scheduled := &v0.KubernetesWorkloadResourceInstance{
-				Common:               v0.Common{ID: match.ID},
-				ScheduledForDeletion: util.Ptr(time.Now().UTC()),
-				Reconciled:           util.Ptr(false),
-			}
-			_, err = client.UpdateKubernetesWorkloadResourceInstance(
-				r.APIClient,
-				r.APIServer,
-				scheduled,
-			)
-			// a missing object is already gone
-			if errors.Is(err, client_lib.ErrObjectNotFound) {
-				continue
-			}
-			if err != nil {
-				return 0, fmt.Errorf("failed to update kubernetes workload resource instance: %w", err)
-			}
+		_, err = client.UpdateKubernetesWorkloadResourceInstance(
+			r.APIClient,
+			r.APIServer,
+			scheduled,
+		)
+		// a missing object is already gone
+		if errors.Is(err, client_lib.ErrObjectNotFound) {
+			continue
+		}
+		if err != nil {
+			return 0, fmt.Errorf("failed to update kubernetes workload resource instance: %w", err)
 		}
 	}
 

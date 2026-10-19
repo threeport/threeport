@@ -9,6 +9,57 @@ import (
 	"gorm.io/datatypes"
 )
 
+// operatorNamespaces are created by the support-services operator.
+// A workload update must not replace them with a managed namespace.
+var operatorNamespaces = map[string]struct{}{
+	"nukleros-ingress-system": {},
+	"nukleros-certs-system":   {},
+	"nukleros-secrets-system": {},
+}
+
+// KeepsOperatorNamespace reports whether the object already names a namespace
+// the support-services operator creates.
+func KeepsOperatorNamespace(jsonDef datatypes.JSON) bool {
+	// decode metadata and match its namespace
+	var mapDef map[string]interface{}
+	if err := json.Unmarshal(jsonDef, &mapDef); err != nil {
+		return false
+	}
+	metadata, ok := mapDef["metadata"].(map[string]interface{})
+	if !ok {
+		return false
+	}
+
+	return keepsOperatorNamespace(metadata)
+}
+
+// CountsTowardManagedNamespace reports whether a namespaced object should
+// cause a managed namespace to be created for the workload.
+func CountsTowardManagedNamespace(jsonDef datatypes.JSON) bool {
+	// a gateway and an operator namespace stay where they are
+	var mapDef map[string]interface{}
+	if err := json.Unmarshal(jsonDef, &mapDef); err != nil {
+		return true
+	}
+	if mapDef["kind"] == "Gateway" {
+		return false
+	}
+	metadata, ok := mapDef["metadata"].(map[string]interface{})
+	if ok && keepsOperatorNamespace(metadata) {
+		return false
+	}
+
+	return true
+}
+
+// keepsOperatorNamespace reports whether metadata already names an operator namespace.
+func keepsOperatorNamespace(metadata map[string]interface{}) bool {
+	// match the namespace the object already carries
+	namespace, _ := metadata["namespace"].(string)
+	_, keep := operatorNamespaces[namespace]
+	return keep
+}
+
 // updateNamespace takes the JSON definition for a Kubernetes resource and sets
 // the namespace.
 func UpdateNamespace(jsonDef datatypes.JSON, namespace string) ([]byte, error) {
@@ -21,9 +72,12 @@ func UpdateNamespace(jsonDef datatypes.JSON, namespace string) ([]byte, error) {
 
 	// set the namespace field in the metadata
 	if metadata, ok := mapDef["metadata"].(map[string]interface{}); ok {
-		if mapDef["kind"] == "Gateway" {
+		switch {
+		case mapDef["kind"] == "Gateway":
 			metadata["namespace"] = GatewaySystemNamespace
-		} else {
+		case keepsOperatorNamespace(metadata):
+			// leave a support-services namespace in place
+		default:
 			metadata["namespace"] = namespace
 		}
 	} else {

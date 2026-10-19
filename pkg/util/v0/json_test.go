@@ -32,6 +32,30 @@ func TestUpdateNamespace(t *testing.T) {
 			wantNS: GatewaySystemNamespace,
 		},
 		{
+			name:   "keeps an ingress operator namespace",
+			in:     datatypes.JSON(`{"kind":"Deployment","metadata":{"name":"nginx-tcp","namespace":"nukleros-ingress-system"}}`),
+			ns:     "workload-1",
+			wantNS: "nukleros-ingress-system",
+		},
+		{
+			name:   "keeps a cert-manager operator namespace",
+			in:     datatypes.JSON(`{"kind":"ServiceAccount","metadata":{"name":"cert-manager","namespace":"nukleros-certs-system"}}`),
+			ns:     "workload-1",
+			wantNS: "nukleros-certs-system",
+		},
+		{
+			name:   "keeps a secrets operator namespace",
+			in:     datatypes.JSON(`{"kind":"ServiceAccount","metadata":{"name":"external-secrets","namespace":"nukleros-secrets-system"}}`),
+			ns:     "workload-1",
+			wantNS: "nukleros-secrets-system",
+		},
+		{
+			name:   "overwrites a user namespace",
+			in:     datatypes.JSON(`{"kind":"Deployment","metadata":{"name":"app","namespace":"app"}}`),
+			ns:     "workload-1",
+			wantNS: "workload-1",
+		},
+		{
 			name:      "missing metadata returns error",
 			in:        datatypes.JSON(`{"kind":"Deployment"}`),
 			ns:        "default",
@@ -203,4 +227,33 @@ func TestJSONDefinitionsEqualIgnoring(t *testing.T) {
 		require.NoError(t, err)
 		assert.False(t, equal)
 	})
+}
+
+func TestCountsTowardManagedNamespace(t *testing.T) {
+	cases := []struct {
+		name string
+		in   datatypes.JSON
+		want bool
+	}{
+		{
+			name: "user object counts",
+			in:   datatypes.JSON(`{"kind":"Deployment","metadata":{"namespace":"app"}}`),
+			want: true,
+		},
+		{
+			name: "operator namespace does not count",
+			in:   datatypes.JSON(`{"kind":"Deployment","metadata":{"namespace":"nukleros-ingress-system"}}`),
+			want: false,
+		},
+		{
+			name: "gateway does not count",
+			in:   datatypes.JSON(`{"kind":"Gateway","metadata":{"namespace":""}}`),
+			want: false,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, CountsTowardManagedNamespace(tc.in))
+		})
+	}
 }

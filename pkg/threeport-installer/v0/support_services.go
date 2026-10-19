@@ -96,26 +96,42 @@ func InstallThreeportCRDs(
 func InstallEksThreeportSystemServices(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
-	awsAccountID string,
-	eksClusterName string,
+	clusterName string,
+	accountID string,
 ) error {
 	// install the definitions, then the operator that reconciles them
 	if err := InstallThreeportCRDs(kubeClient, mapper); err != nil {
 		return err
 	}
-	if err := InstallThreeportSupportServicesOperator(kubeClient, mapper); err != nil {
+	if err := InstallThreeportSupportServicesOperator(kubeClient, mapper, "aws"); err != nil {
 		return err
 	}
 
 	// the autoscaler is not part of the operator manifest
-	return installEksClusterAutoscaler(kubeClient, mapper, awsAccountID, eksClusterName)
+	return installEksClusterAutoscaler(kubeClient, mapper, clusterName, accountID)
+}
+
+// SupportServicesCloud maps an infra provider to a SupportServices cloud value.
+// The custom resource accepts only local, google, and aws.
+func SupportServicesCloud(infraProvider string) string {
+	// map the provider onto a value the custom resource accepts
+	switch infraProvider {
+	case "eks":
+		return "aws"
+	case "gke":
+		return "google"
+	default:
+		return "local"
+	}
 }
 
 // InstallThreeportSupportServicesOperator installs the support services operator.
 func InstallThreeportSupportServicesOperator(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
+	cloud string,
 ) error {
+	// install the operator, then the support services object
 	objects, err := supportServicesOperatorObjects()
 	if err != nil {
 		return err
@@ -142,7 +158,18 @@ func InstallThreeportSupportServicesOperator(
 		}
 	}
 
-	var supportServices = &unstructured.Unstructured{
+	supportServices := supportServicesObject(cloud)
+	if _, err := kube.CreateResource(supportServices, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create SupportServices object: %w", err)
+	}
+
+	return nil
+}
+
+// supportServicesObject returns the SupportServices custom resource for a cloud.
+func supportServicesObject(cloud string) *unstructured.Unstructured {
+	// set the cloud the operator uses for the load balancer
+	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "setup.addons.nukleros.io/v1alpha1",
 			"kind":       "SupportServices",
@@ -152,15 +179,10 @@ func InstallThreeportSupportServicesOperator(
 			"spec": map[string]interface{}{
 				"tier":                     "development",
 				"defaultIngressController": "nginx",
-				"cloud":                    "local",
+				"cloud":                    cloud,
 			},
 		},
 	}
-	if _, err := kube.CreateResource(supportServices, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to create SupportServices object: %w", err)
-	}
-
-	return nil
 }
 
 // deploymentGoneAttempts bounds how many times to read a deleted deployment.

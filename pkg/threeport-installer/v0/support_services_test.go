@@ -91,3 +91,11 @@ func TestInstallDeploymentUpdatesMatchingSelector(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, deleted)
 }
+
+func TestSupportServicesCloud(t *testing.T) {
+	// eks and gke map onto the custom resource enum
+	require.Equal(t, "aws", SupportServicesCloud("eks"))
+	require.Equal(t, "google", SupportServicesCloud("gke"))
+	require.Equal(t, "local", SupportServicesCloud("kind"))
+	require.Equal(t, "aws", supportServicesObject("aws").Object["spec"].(map[string]interface{})["cloud"])
+}

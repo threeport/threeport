@@ -17,39 +17,97 @@ import (
 )
 
 // setIngressBackend sets the service and port an ingress sends traffic to.
+// setIngressBackend sets the service and port an ingress sends traffic to.
 func setIngressBackend(object map[string]interface{}, service string, port int64) error {
-	// set the service name and port on the first path
-	if err := util.SetIndexedField(
-		object,
-		service,
-		"spec",
-		"rules",
-		0,
-		"http",
-		"paths",
-		0,
-		"backend",
-		"service",
-		"name",
-	); err != nil {
-		return fmt.Errorf("ingress has no rules: %w", err)
+	// set the service name and port on every path
+	rules, found, err := unstructured.NestedSlice(object, "spec", "rules")
+	if err != nil || !found || len(rules) == 0 {
+		return fmt.Errorf("ingress has no rules")
+	}
+	rule, ok := rules[0].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("ingress has no rules")
+	}
+	http, ok := rule["http"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("ingress has no rules")
+	}
+	paths, ok := http["paths"].([]interface{})
+	if !ok || len(paths) == 0 {
+		return fmt.Errorf("ingress has no rules")
+	}
+	for i := range paths {
+		if err := util.SetIndexedField(
+			object,
+			service,
+			"spec",
+			"rules",
+			0,
+			"http",
+			"paths",
+			i,
+			"backend",
+			"service",
+			"name",
+		); err != nil {
+			return fmt.Errorf("ingress has no rules: %w", err)
+		}
+		if err := util.SetIndexedField(
+			object,
+			port,
+			"spec",
+			"rules",
+			0,
+			"http",
+			"paths",
+			i,
+			"backend",
+			"service",
+			"port",
+			"number",
+		); err != nil {
+			return fmt.Errorf("ingress has no rules: %w", err)
+		}
 	}
 
-	// set the service port on that same path
-	return util.SetIndexedField(
-		object,
-		port,
-		"spec",
-		"rules",
-		0,
-		"http",
-		"paths",
-		0,
-		"backend",
-		"service",
-		"port",
-		"number",
-	)
+	return nil
+}
+
+// setIngressPaths writes one path entry for each distinct path.
+func setIngressPaths(object map[string]interface{}, paths []string) error {
+	// copy the template path and keep one entry per distinct path
+	rules, found, err := unstructured.NestedSlice(object, "spec", "rules")
+	if err != nil || !found || len(rules) == 0 {
+		return fmt.Errorf("ingress has no rules")
+	}
+	rule, ok := rules[0].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("ingress has no rules")
+	}
+	http, ok := rule["http"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("ingress has no rules")
+	}
+	entries := make([]interface{}, 0, len(paths))
+	for _, path := range paths {
+		entries = append(entries, map[string]interface{}{
+			"path":     path,
+			"pathType": "Prefix",
+			"backend": map[string]interface{}{
+				"service": map[string]interface{}{
+					"name": "placeholder",
+					"port": map[string]interface{}{
+						"number": int64(80),
+					},
+				},
+			},
+		})
+	}
+	http["paths"] = entries
+	rule["http"] = http
+	rules[0] = rule
+
+	return unstructured.SetNestedSlice(object, rules, "spec", "rules")
 }
 
 // setTransportBackend sets the service and port a transport server sends traffic to.
@@ -220,7 +278,8 @@ func getIngressesYaml(r *controller.Reconciler, gatewayDefinition *v0.GatewayDef
 	}
 
 	// reject a port nginx does not publish
-	var path string
+	var paths []string
+	seen := map[string]struct{}{}
 	tlsEnabled := false
 	redirect := false
 	for _, httpPort := range *gatewayHttpPorts {
@@ -234,9 +293,14 @@ func getIngressesYaml(r *controller.Reconciler, gatewayDefinition *v0.GatewayDef
 		if httpPort.HTTPSRedirect != nil && *httpPort.HTTPSRedirect {
 			redirect = true
 		}
-		if path == "" && httpPort.Path != nil {
-			path = *httpPort.Path
+		if httpPort.Path == nil || *httpPort.Path == "" {
+			continue
 		}
+		if _, ok := seen[*httpPort.Path]; ok {
+			continue
+		}
+		seen[*httpPort.Path] = struct{}{}
+		paths = append(paths, *httpPort.Path)
 	}
 
 	// copy the embedded ingress and name it for the host
@@ -273,20 +337,10 @@ func getIngressesYaml(r *controller.Reconciler, gatewayDefinition *v0.GatewayDef
 	); err != nil {
 		return nil, fmt.Errorf("ingress has no rules: %w", err)
 	}
-	// set the path
-	if path != "" {
-		if err := util.SetIndexedField(
-			ingress.Object,
-			path,
-			"spec",
-			"rules",
-			0,
-			"http",
-			"paths",
-			0,
-			"path",
-		); err != nil {
-			return nil, fmt.Errorf("ingress has no rules: %w", err)
+	// set each distinct path on the one host rule
+	if len(paths) > 0 {
+		if err := setIngressPaths(ingress.Object, paths); err != nil {
+			return nil, err
 		}
 	}
 	// redirect http when a port asks for it
@@ -563,6 +617,22 @@ func tcpServicePorts(ports []int) []interface{} {
 	return servicePorts
 }
 
+// tcpContainerPorts returns container ports for the shared TCP controller.
+func tcpContainerPorts(ports []int) []interface{} {
+	// name each port and set containerPort
+	ordered := orderedPorts(ports)
+	containerPorts := make([]interface{}, 0, len(ordered))
+	for _, port := range ordered {
+		containerPorts = append(containerPorts, map[string]interface{}{
+			"name":          fmt.Sprintf("tcp-%d", port),
+			"containerPort": int64(port),
+			"protocol":      "TCP",
+		})
+	}
+
+	return containerPorts
+}
+
 // setTcpControllerPorts writes the TCP ports onto the controller container.
 func setTcpControllerPorts(object *unstructured.Unstructured, ports []int) error {
 	containers, _, err := unstructured.NestedSlice(object.Object, "spec", "template", "spec", "containers")
@@ -573,7 +643,7 @@ func setTcpControllerPorts(object *unstructured.Unstructured, ports []int) error
 	if !ok {
 		return fmt.Errorf("tcp controller container is not an object")
 	}
-	container["ports"] = tcpServicePorts(ports)
+	container["ports"] = tcpContainerPorts(ports)
 	containers[0] = container
 	return unstructured.SetNestedSlice(object.Object, containers, "spec", "template", "spec", "containers")
 }
