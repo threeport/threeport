@@ -353,7 +353,7 @@ func TestEveryContainerThisInstallerWritesIsHardened(t *testing.T) {
 // and the namespace still refused to create it. Checking containers alone
 // does not see it, which is why it is checked separately here.
 func TestEveryPodThisInstallerWritesSetsASeccompProfile(t *testing.T) {
-	for _, path := range []string{"components.go", "support_services.go"} {
+	for _, path := range []string{"components.go", "support_services.go", "dependencies.go"} {
 		t.Run(path, func(t *testing.T) {
 			fileSet := token.NewFileSet()
 			file, err := parser.ParseFile(fileSet, path, nil, 0)
