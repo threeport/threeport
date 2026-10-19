@@ -11,6 +11,9 @@ var GlobalConfiguration []byte
 //go:embed nginx-tcp-service.yaml
 var NginxTcpService []byte
 
+//go:embed nginx-tcp-controller.yaml
+var NginxTcpController []byte
+
 //go:embed external-dns.yaml
 var ExternalDNS []byte
 

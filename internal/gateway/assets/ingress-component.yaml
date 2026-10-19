@@ -3,10 +3,18 @@ kind: IngressComponent
 metadata:
   name: ingress
 spec:
+  # Support services names this collection. Its cloud value selects the nodeport service.
+  collection:
+    name: threeport-support-services
   domainName: threeport.local
   namespace: nukleros-ingress-system
   nginx:
     include: true
+    version: "5.7.0"
   kong:
     include: false
     proxyServiceName: kong-proxy
+  # iamRoleArn is required. An empty value is omitted, and the apiserver rejects the update.
+  externalDNS:
+    provider: none
+    iamRoleArn: local

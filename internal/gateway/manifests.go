@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/iancoleman/strcase"
@@ -11,6 +12,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -170,13 +172,30 @@ func getExternalDnsYaml(
 }
 
 // getCertificatesComponentYaml creates the cert-manager component.
-func getCertificatesComponentYaml() (string, error) {
+func getCertificatesComponentYaml(roleArn string) (string, error) {
 	// decode the embedded component
 	component, err := util.UnstructuredFromYaml(assets.Certificates)
 	if err != nil {
 		return "", err
 	}
-	return util.UnstructuredToYaml(component)
+	rendered, err := util.UnstructuredToYaml(component)
+	if err != nil {
+		return "", err
+	}
+	if roleArn == "" {
+		return rendered, nil
+	}
+
+	// annotate the cert-manager account with the role the operator cannot set
+	account, err := installer.IrsaServiceAccountYaml(
+		installer.DNS01ChallengeServiceAccountName,
+		installer.DNS01ChallengeServiceAccountNamepace,
+		roleArn,
+	)
+	if err != nil {
+		return "", err
+	}
+	return rendered + "\n---\n" + account, nil
 }
 
 // getCleanedDomain returns a cleaned domain.
@@ -187,46 +206,56 @@ func getCleanedDomain(domain string) string {
 	return cleanedDomain
 }
 
-// getIngressesYaml creates an ingress for each HTTP port.
+// getIngressesYaml creates one ingress for the host.
+// Nginx rejects a second ingress that repeats the host.
 func getIngressesYaml(r *controller.Reconciler, gatewayDefinition *v0.GatewayDefinition, domain string) ([]string, error) {
-	var manifests []string
-
 	// clean the domain and load the http ports
 	domain = getCleanedDomain(domain)
 	gatewayHttpPorts, err := client.GetGatewayHttpPortsByGatewayDefinitionId(r.APIClient, r.APIServer, *gatewayDefinition.ID)
 	if err != nil {
 		return []string{}, fmt.Errorf("failed to get gateway http and tcp ports: %w", err)
 	}
-	for _, httpPort := range *gatewayHttpPorts {
-		host := domain
+	if len(*gatewayHttpPorts) == 0 {
+		return nil, nil
+	}
 
-		// copy the embedded ingress and name it for this port
-		ingress, err := util.UnstructuredFromYaml(assets.Ingress)
-		if err != nil {
+	// reject a port nginx does not publish
+	var path string
+	tlsEnabled := false
+	redirect := false
+	for _, httpPort := range *gatewayHttpPorts {
+		enabled := httpPort.TLSEnabled != nil && *httpPort.TLSEnabled
+		if err := supportedHTTPPort(*httpPort.Port, enabled); err != nil {
 			return nil, err
 		}
-		if err := unstructured.SetNestedField(
-			ingress.Object,
-			getIngressName(gatewayDefinition, domain, *httpPort.Port),
-			"metadata",
-			"name",
-		); err != nil {
-			return nil, err
+		if enabled {
+			tlsEnabled = true
 		}
-		// drop the host when the domain is empty
-		if host == "" {
-			if err := util.RemoveIndexedField(
-				ingress.Object,
-				"spec",
-				"rules",
-				0,
-				"host",
-			); err != nil {
-				return nil, fmt.Errorf("ingress has no rules: %w", err)
-			}
-		} else if err := util.SetIndexedField(
+		if httpPort.HTTPSRedirect != nil && *httpPort.HTTPSRedirect {
+			redirect = true
+		}
+		if path == "" && httpPort.Path != nil {
+			path = *httpPort.Path
+		}
+	}
+
+	// copy the embedded ingress and name it for the host
+	ingress, err := util.UnstructuredFromYaml(assets.Ingress)
+	if err != nil {
+		return nil, err
+	}
+	if err := unstructured.SetNestedField(
+		ingress.Object,
+		getIngressName(gatewayDefinition, domain),
+		"metadata",
+		"name",
+	); err != nil {
+		return nil, err
+	}
+	// drop the host when the domain is empty
+	if domain == "" {
+		if err := util.RemoveIndexedField(
 			ingress.Object,
-			host,
 			"spec",
 			"rules",
 			0,
@@ -234,10 +263,21 @@ func getIngressesYaml(r *controller.Reconciler, gatewayDefinition *v0.GatewayDef
 		); err != nil {
 			return nil, fmt.Errorf("ingress has no rules: %w", err)
 		}
-		// set the path
+	} else if err := util.SetIndexedField(
+		ingress.Object,
+		domain,
+		"spec",
+		"rules",
+		0,
+		"host",
+	); err != nil {
+		return nil, fmt.Errorf("ingress has no rules: %w", err)
+	}
+	// set the path
+	if path != "" {
 		if err := util.SetIndexedField(
 			ingress.Object,
-			*httpPort.Path,
+			path,
 			"spec",
 			"rules",
 			0,
@@ -248,45 +288,55 @@ func getIngressesYaml(r *controller.Reconciler, gatewayDefinition *v0.GatewayDef
 		); err != nil {
 			return nil, fmt.Errorf("ingress has no rules: %w", err)
 		}
-		// redirect http when the port asks for it
-		if httpPort.HTTPSRedirect != nil && *httpPort.HTTPSRedirect {
+	}
+	// redirect http when a port asks for it
+	if redirect {
+		if err := unstructured.SetNestedField(
+			ingress.Object,
+			"true",
+			"metadata",
+			"annotations",
+			"nginx.org/redirect-to-https",
+		); err != nil {
+			return nil, fmt.Errorf("failed to set https redirect on ingress: %w", err)
+		}
+	}
+	// terminate tls at the ingress when a port enables it
+	if tlsEnabled {
+		tls := []interface{}{
+			map[string]interface{}{
+				"hosts":      []interface{}{domain},
+				"secretName": strcase.ToKebab(domain) + "-tls",
+			},
+		}
+		if err := unstructured.SetNestedSlice(
+			ingress.Object,
+			tls,
+			"spec",
+			"tls",
+		); err != nil {
+			return nil, fmt.Errorf("failed to set tls on ingress: %w", err)
+		}
+		// nginx redirects http once tls is set, unless this annotation is false
+		if !redirect {
 			if err := unstructured.SetNestedField(
 				ingress.Object,
-				"true",
+				"false",
 				"metadata",
 				"annotations",
-				"nginx.org/redirect-to-https",
+				"nginx.org/ssl-redirect",
 			); err != nil {
-				return nil, fmt.Errorf("failed to set https redirect on ingress: %w", err)
+				return nil, fmt.Errorf("failed to set ssl redirect on ingress: %w", err)
 			}
 		}
-		// terminate tls at the ingress when the port enables it
-		if httpPort.TLSEnabled != nil && *httpPort.TLSEnabled {
-			tls := []interface{}{
-				map[string]interface{}{
-					"hosts":      []interface{}{host},
-					"secretName": strcase.ToKebab(domain) + "-tls",
-				},
-			}
-			if err := unstructured.SetNestedSlice(
-				ingress.Object,
-				tls,
-				"spec",
-				"tls",
-			); err != nil {
-				return nil, fmt.Errorf("failed to set tls on ingress: %w", err)
-			}
-		}
-
-		// render the ingress
-		rendered, err := util.UnstructuredToYaml(ingress)
-		if err != nil {
-			return []string{}, fmt.Errorf("error marshaling YAML: %w", err)
-		}
-		manifests = append(manifests, rendered)
 	}
 
-	return manifests, nil
+	// render the ingress
+	rendered, err := util.UnstructuredToYaml(ingress)
+	if err != nil {
+		return []string{}, fmt.Errorf("error marshaling YAML: %w", err)
+	}
+	return []string{rendered}, nil
 }
 
 // getTransportServersYaml creates a transport server for each TCP port.
@@ -346,14 +396,14 @@ func getTransportServersYaml(r *controller.Reconciler, gatewayDefinition *v0.Gat
 	return manifests, nil
 }
 
-// getIngressName returns the name of an ingress.
-func getIngressName(gatewayDefinition *v0.GatewayDefinition, domain string, port int) string {
+// getIngressName returns the name of the ingress for a host.
+func getIngressName(gatewayDefinition *v0.GatewayDefinition, domain string) string {
 	// use the domain, or the gateway name when the domain is empty
 	domain = getCleanedDomain(domain)
 	if domain == "" {
-		return fmt.Sprintf("%s-%d", *gatewayDefinition.Name, port)
+		return *gatewayDefinition.Name
 	}
-	return fmt.Sprintf("%s-%d", strcase.ToKebab(domain), port)
+	return strcase.ToKebab(domain)
 }
 
 // setSelfSignedIssuer writes a self-signed cert-manager issuer.
@@ -455,4 +505,92 @@ func getCertificateYaml(gatewayDefinition *v0.GatewayDefinition, domain string) 
 		return "", err
 	}
 	return util.UnstructuredToYaml(certificate)
+}
+
+// supportedHTTPPort reports whether nginx publishes the port.
+func supportedHTTPPort(port int, tls bool) error {
+	if port == 80 || (port == 443 && tls) {
+		return nil
+	}
+	return fmt.Errorf("http port %d is not served; use 80, or 443 with tls", port)
+}
+
+// orderedPorts returns the ports sorted and without duplicates.
+func orderedPorts(ports []int) []int {
+	// sort, then drop a port that matches the one before it
+	ordered := append([]int(nil), ports...)
+	sort.Ints(ordered)
+	unique := make([]int, 0, len(ordered))
+	var previous int
+	for i, port := range ordered {
+		if i > 0 && port == previous {
+			continue
+		}
+		unique = append(unique, port)
+		previous = port
+	}
+	return unique
+}
+
+// tcpListeners returns one listener per port, in port order.
+func tcpListeners(ports []int) []interface{} {
+	// build one listener for each port
+	ordered := orderedPorts(ports)
+	listeners := make([]interface{}, 0, len(ordered))
+	for _, port := range ordered {
+		listeners = append(listeners, map[string]interface{}{
+			"name":     fmt.Sprintf("tcp-%d", port),
+			"port":     int64(port),
+			"protocol": "TCP",
+		})
+	}
+	return listeners
+}
+
+// tcpServicePorts returns one service port per listener.
+func tcpServicePorts(ports []int) []interface{} {
+	// build one service port for each listener
+	ordered := orderedPorts(ports)
+	servicePorts := make([]interface{}, 0, len(ordered))
+	for _, port := range ordered {
+		servicePorts = append(servicePorts, map[string]interface{}{
+			"name":       fmt.Sprintf("tcp-%d", port),
+			"port":       int64(port),
+			"targetPort": int64(port),
+			"protocol":   "TCP",
+		})
+	}
+	return servicePorts
+}
+
+// setTcpControllerPorts writes the TCP ports onto the controller container.
+func setTcpControllerPorts(object *unstructured.Unstructured, ports []int) error {
+	containers, _, err := unstructured.NestedSlice(object.Object, "spec", "template", "spec", "containers")
+	if err != nil || len(containers) == 0 {
+		return fmt.Errorf("tcp controller has no containers")
+	}
+	container, ok := containers[0].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("tcp controller container is not an object")
+	}
+	container["ports"] = tcpServicePorts(ports)
+	containers[0] = container
+	return unstructured.SetNestedSlice(object.Object, containers, "spec", "template", "spec", "containers")
+}
+
+// tcpControllerYaml returns the TCP controller deployment.
+func tcpControllerYaml(ports []int) ([]byte, error) {
+	// load the embedded deployment and set its container ports
+	object, err := util.UnstructuredFromYaml(assets.NginxTcpController)
+	if err != nil {
+		return nil, err
+	}
+	if err := setTcpControllerPorts(object, ports); err != nil {
+		return nil, err
+	}
+	rendered, err := util.UnstructuredToYaml(object)
+	if err != nil {
+		return nil, err
+	}
+	return []byte(rendered), nil
 }

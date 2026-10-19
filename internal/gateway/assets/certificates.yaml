@@ -6,3 +6,4 @@ spec:
   namespace: nukleros-certs-system
   certManager:
     contactEmail: admin@nukleros.io
+    version: v1.21.2

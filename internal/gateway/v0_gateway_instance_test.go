@@ -19,7 +19,7 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-//go:embed assets/service_test.yaml
+//go:embed assets/service-test.yaml
 var serviceTest []byte
 
 // TestConfigureIssuerKindUsesSelfSigned covers a kind runtime.
@@ -85,7 +85,7 @@ func TestConfigureGatewayManifestsSetsBackends(t *testing.T) {
 		KubernetesWorkloadDefinitionID: util.Ptr(uint(2)),
 	}
 	// name the documents the install step writes
-	ingress := namedDefinition(t, assets.Ingress, getIngressName(gatewayDef, "example.com", 80))
+	ingress := namedDefinition(t, assets.Ingress, getIngressName(gatewayDef, "example.com"))
 	transport := namedDefinition(t, assets.TransportServer, fmt.Sprintf("%s-%d", *gatewayDef.Name, 443))
 	api.Mux.HandleFunc(v0.PathKubernetesWorkloadResourceDefinitions, func(w http.ResponseWriter, req *http.Request) {
 		machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{ingress, transport})
@@ -146,4 +146,100 @@ func manifestJSON(t *testing.T, asset []byte) datatypes.JSON {
 	raw, err := decoded.MarshalJSON()
 	require.NoError(t, err)
 	return datatypes.JSON(raw)
+}
+
+// TestChangedGatewayResourceInstancesMatchesEachIngress covers two ingresses of the same kind.
+func TestChangedGatewayResourceInstancesMatchesEachIngress(t *testing.T) {
+	// store one unchanged ingress and one whose body differs
+	httpID := uint(10)
+	tlsID := uint(11)
+	stored := []v0.KubernetesWorkloadResourceInstance{
+		{
+			Common: v0.Common{ID: &httpID},
+			JSONDefinition: kubeJSON(map[string]interface{}{
+				"kind": "Ingress",
+				"metadata": map[string]interface{}{
+					"name":      "echo-80",
+					"namespace": "gateway-echo",
+				},
+				"spec": map[string]interface{}{"host": "echo"},
+			}),
+		},
+		{
+			Common: v0.Common{ID: &tlsID},
+			JSONDefinition: kubeJSON(map[string]interface{}{
+				"kind": "Ingress",
+				"metadata": map[string]interface{}{
+					"name":      "echo-443",
+					"namespace": "gateway-echo",
+				},
+				"spec": map[string]interface{}{"host": "echo", "tls": false},
+			}),
+		},
+	}
+	updated := []v0.KubernetesWorkloadResourceInstance{
+		{
+			JSONDefinition: kubeJSON(map[string]interface{}{
+				"kind":     "Ingress",
+				"metadata": map[string]interface{}{"name": "echo-80"},
+				"spec":     map[string]interface{}{"host": "echo"},
+			}),
+		},
+		{
+			JSONDefinition: kubeJSON(map[string]interface{}{
+				"kind":     "Ingress",
+				"metadata": map[string]interface{}{"name": "echo-443"},
+				"spec":     map[string]interface{}{"host": "echo", "tls": true},
+			}),
+		},
+		{
+			JSONDefinition: kubeJSON(map[string]interface{}{
+				"kind":     "ConfigMap",
+				"metadata": map[string]interface{}{"name": "ignored"},
+			}),
+		},
+	}
+
+	// compare the configured objects to the stored ones
+	changed, err := changedGatewayResourceInstances([]string{"Ingress"}, &stored, &updated)
+	require.NoError(t, err)
+
+	// expect only the tls ingress, marked for reconcile
+	require.Len(t, changed, 1)
+	require.Equal(t, tlsID, *changed[0].ID)
+	require.NotNil(t, changed[0].Reconciled)
+	require.False(t, *changed[0].Reconciled)
+	require.JSONEq(t, string(*updated[1].JSONDefinition), string(*changed[0].JSONDefinition))
+}
+
+// TestResourcesByKindReturnsEveryIngress covers a kind that has two objects.
+func TestResourcesByKindReturnsEveryIngress(t *testing.T) {
+	// store two ingresses and one service
+	stored := []v0.KubernetesWorkloadResourceInstance{
+		{JSONDefinition: kubeJSON(map[string]interface{}{
+			"kind":     "Ingress",
+			"metadata": map[string]interface{}{"name": "echo-80"},
+		})},
+		{JSONDefinition: kubeJSON(map[string]interface{}{
+			"kind":     "Service",
+			"metadata": map[string]interface{}{"name": "echo"},
+		})},
+		{JSONDefinition: kubeJSON(map[string]interface{}{
+			"kind":     "Ingress",
+			"metadata": map[string]interface{}{"name": "echo-443"},
+		})},
+	}
+
+	// select the ingresses
+	matches, err := resourcesByKind(&stored, "Ingress")
+	require.NoError(t, err)
+
+	// expect both ingresses and neither service
+	require.Len(t, matches, 2)
+	_, firstName, err := resourceKindAndName(matches[0].JSONDefinition)
+	require.NoError(t, err)
+	_, secondName, err := resourceKindAndName(matches[1].JSONDefinition)
+	require.NoError(t, err)
+	require.Equal(t, "echo-80", firstName)
+	require.Equal(t, "echo-443", secondName)
 }

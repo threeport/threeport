@@ -185,7 +185,9 @@ func TestWorkloadIntegration(t *testing.T) {
 		// update gateway definition
 		gatewayDefinition.HttpPorts = []*v0.GatewayHttpPort{
 			{
-				Port: util.Ptr(443),
+				Port:       util.Ptr(443),
+				TLSEnabled: util.Ptr(true),
+				Path:       util.Ptr("/"),
 			},
 		}
 		_, err = client.UpdateGatewayDefinition(

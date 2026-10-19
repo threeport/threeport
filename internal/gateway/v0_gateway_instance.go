@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	runtime "github.com/threeport/threeport/internal/kubernetes-runtime"
 	workload_util "github.com/threeport/threeport/internal/kubernetes-workload/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	tpaws "github.com/threeport/threeport/pkg/aws/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -195,20 +197,24 @@ func changedGatewayResourceInstances(
 ) ([]v0.KubernetesWorkloadResourceInstance, error) {
 	var changed []v0.KubernetesWorkloadResourceInstance
 
-	for _, resource := range gatewayInstanceObjects {
-		existingWorkloadResourceInstance, err := workload_util.GetUniqueKubernetesWorkloadResourceInstance(existingWorkloadResourceInstances, resource)
+	// match each configured object to the stored object of the same kind and name
+	for _, updated := range *updatedWorkloadResourceInstances {
+		kind, name, err := resourceKindAndName(updated.JSONDefinition)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get kubernetes workload resource instance: %w", err)
+			return nil, err
+		}
+		if !slices.Contains(gatewayInstanceObjects, kind) {
+			continue
 		}
 
-		updatedWorkloadResourceInstance, err := workload_util.GetUniqueKubernetesWorkloadResourceInstance(updatedWorkloadResourceInstances, resource)
+		existing, err := workload_util.GetUniqueKubernetesWorkloadResourceInstanceByName(existingWorkloadResourceInstances, kind, name)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get kubernetes workload resource instance: %w", err)
 		}
 
 		unchanged, err := util.JSONDefinitionsEqualIgnoring(
-			existingWorkloadResourceInstance.JSONDefinition,
-			updatedWorkloadResourceInstance.JSONDefinition,
+			existing.JSONDefinition,
+			updated.JSONDefinition,
 			[]string{"metadata", "namespace"},
 		)
 		if err != nil {
@@ -218,13 +224,61 @@ func changedGatewayResourceInstances(
 			continue
 		}
 
-		workloadResourceInstanceReconciled := false
-		existingWorkloadResourceInstance.Reconciled = &workloadResourceInstanceReconciled
-		existingWorkloadResourceInstance.JSONDefinition = updatedWorkloadResourceInstance.JSONDefinition
-		changed = append(changed, *existingWorkloadResourceInstance)
+		existing.Reconciled = util.Ptr(false)
+		existing.JSONDefinition = updated.JSONDefinition
+		changed = append(changed, *existing)
 	}
 
 	return changed, nil
+}
+
+// resourceKindAndName returns the kind and the name on a resource definition.
+func resourceKindAndName(definition *datatypes.JSON) (string, string, error) {
+	// read the kind and the name
+	if definition == nil {
+		return "", "", errors.New("kubernetes workload resource instance definition must be set")
+	}
+	object, err := util.UnmarshalJSON(*definition)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to unmarshal json: %w", err)
+	}
+	kind, kindFound, err := unstructured.NestedString(object, "kind")
+	if err != nil {
+		return "", "", fmt.Errorf("failed to get kind: %w", err)
+	}
+	if !kindFound {
+		return "", "", errors.New("kind not found")
+	}
+	name, nameFound, err := unstructured.NestedString(object, "metadata", "name")
+	if err != nil {
+		return "", "", fmt.Errorf("failed to get name: %w", err)
+	}
+	if !nameFound {
+		return "", "", errors.New("name not found")
+	}
+	return kind, name, nil
+}
+
+// resourcesByKind returns every stored resource of one kind.
+// An empty result is not an error.
+func resourcesByKind(
+	resources *[]v0.KubernetesWorkloadResourceInstance,
+	kind string,
+) ([]v0.KubernetesWorkloadResourceInstance, error) {
+	var matches []v0.KubernetesWorkloadResourceInstance
+
+	// keep each resource whose kind matches
+	for _, resource := range *resources {
+		resourceKind, _, err := resourceKindAndName(resource.JSONDefinition)
+		if err != nil {
+			return nil, err
+		}
+		if resourceKind != kind {
+			continue
+		}
+		matches = append(matches, resource)
+	}
+	return matches, nil
 }
 
 // v0GatewayInstanceDeleted performs reconciliation when a v0 GatewayInstance
@@ -243,6 +297,11 @@ func v0GatewayInstanceDeleted(
 	// more
 	if gatewayInstance.DeletionConfirmed != nil {
 		return 0, nil
+	}
+
+	// drop this gateway's tcp ports from the shared listeners
+	if err := refreshSharedTcpPorts(r, gatewayInstance, log); err != nil {
+		return 0, err
 	}
 
 	// get kubernetes workload resource instances
@@ -265,28 +324,30 @@ func v0GatewayInstanceDeleted(
 		return 0, fmt.Errorf("failed to get gateway instance objects: %w", err)
 	}
 
-	for _, resource := range gatewayInstanceObjects {
-
-		// get kubernetes workload resource instance for virtual service
-		workloadResourceInstance, err := workload_util.GetUniqueKubernetesWorkloadResourceInstance(workloadResourceInstances, resource)
+	// schedule deletion of each object of a gateway kind
+	for _, kind := range gatewayInstanceObjects {
+		matches, err := resourcesByKind(workloadResourceInstances, kind)
 		if err != nil {
-			// kubernetes workload instance has already been deleted
-			return 0, nil
+			return 0, fmt.Errorf("failed to get kubernetes workload resource instances: %w", err)
 		}
-
-		// schedule kubernetes workload resource instance for deletion
-		workloadResourceInstance = &v0.KubernetesWorkloadResourceInstance{
-			Common:               v0.Common{ID: workloadResourceInstance.ID},
-			ScheduledForDeletion: util.Ptr(time.Now().UTC()),
-			Reconciled:           util.Ptr(false),
-		}
-		_, err = client.UpdateKubernetesWorkloadResourceInstance(r.APIClient, r.APIServer, workloadResourceInstance)
-		if err != nil {
-			if errors.Is(err, client_lib.ErrObjectNotFound) {
-				// kubernetes workload resource instance has already been deleted
-				return 0, nil
+		for _, match := range matches {
+			scheduled := &v0.KubernetesWorkloadResourceInstance{
+				Common:               v0.Common{ID: match.ID},
+				ScheduledForDeletion: util.Ptr(time.Now().UTC()),
+				Reconciled:           util.Ptr(false),
 			}
-			return 0, fmt.Errorf("failed to update kubernetes workload resource instance: %w", err)
+			_, err = client.UpdateKubernetesWorkloadResourceInstance(
+				r.APIClient,
+				r.APIServer,
+				scheduled,
+			)
+			// a missing object is already gone
+			if errors.Is(err, client_lib.ErrObjectNotFound) {
+				continue
+			}
+			if err != nil {
+				return 0, fmt.Errorf("failed to update kubernetes workload resource instance: %w", err)
+			}
 		}
 	}
 
@@ -470,13 +531,19 @@ func confirmGatewayControllerDeployed(
 	// generate the certificates component for providers that install it
 	var certificates string
 	switch *infraProvider {
-	case v0.KubernetesRuntimeInfraProviderEKS, v0.KubernetesRuntimeInfraProviderKind:
-		certificates, err = getCertificatesComponentYaml()
-		if err != nil {
-			return fmt.Errorf("failed to create certificates component: %w", err)
+	case v0.KubernetesRuntimeInfraProviderEKS:
+		clusterIdentity, identityErr := client.GetAwsEksClusterIdentityByK8sRuntimeInst(r.APIClient, r.APIServer, kubernetesRuntimeInstance.ID)
+		if identityErr != nil {
+			return fmt.Errorf("failed to get EKS cluster identity: %w", identityErr)
 		}
+		certificates, err = getCertificatesComponentYaml(tpaws.EksDns01ChallengeRoleArn(clusterIdentity.AccountId, clusterIdentity.ClusterName))
+	case v0.KubernetesRuntimeInfraProviderKind:
+		certificates, err = getCertificatesComponentYaml("")
 	default:
 		break
+	}
+	if err != nil {
+		return fmt.Errorf("failed to create certificates component: %w", err)
 	}
 
 	// concatenate the certificates component and the ingress component
@@ -547,86 +614,39 @@ func confirmGatewayPortsExposed(
 	if len(*gatewayHttpPorts) == 0 && len(*gatewayTcpPorts) == 0 {
 		return fmt.Errorf("no ports found for gateway definition %d", *gatewayInstance.GatewayDefinitionID)
 	}
-	if len(*gatewayTcpPorts) == 0 {
+	// rebuild the shared listeners from every gateway still on this runtime
+	ports, err := runtimeTcpPorts(r, kubernetesRuntimeInstance)
+	if err != nil {
+		return fmt.Errorf("failed to list tcp ports for runtime: %w", err)
+	}
+	listeners := tcpListeners(ports)
+	servicePorts := tcpServicePorts(ports)
+	controllerSource, err := tcpControllerYaml(ports)
+	if err != nil {
+		return fmt.Errorf("failed to render tcp controller: %w", err)
+	}
+	changed := false
+	if err := syncNamedSlice(r, kubernetesRuntimeInstance, workloadResourceInstances, "GlobalConfiguration", "nginx-ingress", "listeners", listeners, assets.GlobalConfiguration, "global configuration", false, &changed); err != nil {
+		return err
+	}
+	if err := syncNamedSlice(r, kubernetesRuntimeInstance, workloadResourceInstances, "Service", "nginx-tcp", "ports", servicePorts, assets.NginxTcpService, "nginx tcp service", true, &changed); err != nil {
+		return err
+	}
+	if err := syncTcpController(r, kubernetesRuntimeInstance, workloadResourceInstances, controllerSource, len(ports) == 0, &changed); err != nil {
+		return err
+	}
+	if !changed {
 		return nil
 	}
 
-	// open each TCP port on the nginx listener and the load balancer service
-	var listeners []interface{}
-	var servicePorts []interface{}
-	for _, tcpPort := range *gatewayTcpPorts {
-		name := fmt.Sprintf("tcp-%d", *tcpPort.Port)
-		listeners = append(listeners, map[string]interface{}{
-			"name":     name,
-			"port":     int64(*tcpPort.Port),
-			"protocol": "TCP",
-		})
-		servicePorts = append(servicePorts, map[string]interface{}{
-			"name":       name,
-			"port":       int64(*tcpPort.Port),
-			"targetPort": int64(*tcpPort.Port),
-			"protocol":   "TCP",
-		})
+	// reconcile the gateway controller so the updated objects are applied
+	_, err = client.UpdateKubernetesWorkloadInstance(r.APIClient, r.APIServer, &v0.KubernetesWorkloadInstance{
+		Common:         v0.Common{ID: kubernetesRuntimeInstance.GatewayControllerInstanceID},
+		Reconciliation: v0.Reconciliation{Reconciled: util.Ptr(false)},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to update gateway controller workload: %w", err)
 	}
-	targets := []struct {
-		kind   string
-		name   string
-		field  string
-		values []interface{}
-	}{
-		{kind: "GlobalConfiguration", name: "nginx-ingress", field: "listeners", values: listeners},
-		{kind: "Service", name: "nginx-tcp", field: "ports", values: servicePorts},
-	}
-	for _, target := range targets {
-		object, err := workload_util.GetUniqueKubernetesWorkloadResourceInstanceByName(workloadResourceInstances, target.kind, target.name)
-		if err != nil && strings.Contains(err.Error(), "not found") {
-			// create the shared object when this runtime's controller workload predates it
-			switch target.kind {
-			case "Service":
-				err = createControllerObject(r, kubernetesRuntimeInstance, assets.NginxTcpService, "ports", target.values, "nginx tcp service")
-			case "GlobalConfiguration":
-				err = createControllerObject(r, kubernetesRuntimeInstance, assets.GlobalConfiguration, "listeners", target.values, "global configuration")
-			default:
-				return fmt.Errorf("failed to get %s %s: %w", target.kind, target.name, err)
-			}
-			if err != nil {
-				return err
-			}
-			continue
-		}
-		if err != nil {
-			return fmt.Errorf("failed to get %s %s: %w", target.kind, target.name, err)
-		}
-		jsonObject, err := util.UnmarshalJSON(*object.JSONDefinition)
-		if err != nil {
-			return fmt.Errorf("failed to unmarshal %s: %w", target.kind, err)
-		}
-		current, _, _ := unstructured.NestedSlice(jsonObject, "spec", target.field)
-		// keep ports already stored for other gateways on this runtime
-		merged := util.MergeNamedEntries(current, target.values)
-		// compare as json so stored port numbers match the values written above
-		currentJSON, _ := json.Marshal(current)
-		desiredJSON, _ := json.Marshal(merged)
-		if string(currentJSON) == string(desiredJSON) {
-			continue
-		}
-		if err := unstructured.SetNestedSlice(jsonObject, merged, "spec", target.field); err != nil {
-			return fmt.Errorf("failed to set %s %s: %w", target.kind, target.field, err)
-		}
-		jsonDefinition, err := util.MarshalJSON(jsonObject)
-		if err != nil {
-			return fmt.Errorf("failed to marshal %s: %w", target.kind, err)
-		}
-		resourceInstance := v0.KubernetesWorkloadResourceInstance{
-			Common:         v0.Common{ID: object.ID},
-			JSONDefinition: &jsonDefinition,
-			Reconciled:     util.Ptr(false),
-		}
-		if _, err := client.UpdateKubernetesWorkloadResourceInstance(r.APIClient, r.APIServer, &resourceInstance); err != nil {
-			return fmt.Errorf("failed to update %s resource instance: %w", target.kind, err)
-		}
-	}
-
 	return nil
 }
 
@@ -644,8 +664,10 @@ func createControllerObject(
 	if err != nil {
 		return fmt.Errorf("failed to read %s: %w", label, err)
 	}
-	if err := unstructured.SetNestedSlice(object.Object, values, "spec", field); err != nil {
-		return fmt.Errorf("failed to set %s %s: %w", label, field, err)
+	if field != "" {
+		if err := unstructured.SetNestedSlice(object.Object, values, "spec", field); err != nil {
+			return fmt.Errorf("failed to set %s %s: %w", label, field, err)
+		}
 	}
 	body, err := util.MarshalJSON(object.Object)
 	if err != nil {
@@ -669,6 +691,212 @@ func createControllerObject(
 		return fmt.Errorf("failed to update gateway controller workload: %w", err)
 	}
 	return nil
+}
+
+// refreshSharedTcpPorts rebuilds the shared tcp objects after a gateway delete.
+func refreshSharedTcpPorts(r *controller.Reconciler, gatewayInstance *v0.GatewayInstance, log *logr.Logger) error {
+	// skip a gateway whose runtime has no gateway controller
+	if gatewayInstance.KubernetesRuntimeInstanceID == nil {
+		return nil
+	}
+	kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(r.APIClient, r.APIServer, *gatewayInstance.KubernetesRuntimeInstanceID)
+	if err != nil {
+		return fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
+	}
+	if kubernetesRuntimeInstance.GatewayControllerInstanceID == nil {
+		return nil
+	}
+	return confirmGatewayPortsExposed(r, gatewayInstance, kubernetesRuntimeInstance, nil, log)
+}
+
+// runtimeTcpPorts returns the tcp ports of gateways still on this runtime.
+func runtimeTcpPorts(r *controller.Reconciler, kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance) ([]int, error) {
+	// list gateway instances on this runtime
+	instances, err := client.GetGatewayInstancesByQueryString(
+		r.APIClient,
+		r.APIServer,
+		fmt.Sprintf("kubernetesruntimeinstanceid=%d", *kubernetesRuntimeInstance.ID),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list gateway instances: %w", err)
+	}
+
+	// collect each live gateway's tcp ports
+	seen := map[int]struct{}{}
+	var ports []int
+	for _, instance := range *instances {
+		if instance.DeletionScheduled != nil || instance.GatewayDefinitionID == nil {
+			continue
+		}
+		tcpPorts, err := client.GetGatewayTcpPortsByGatewayDefinitionId(r.APIClient, r.APIServer, *instance.GatewayDefinitionID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get tcp ports: %w", err)
+		}
+		for _, tcpPort := range *tcpPorts {
+			if tcpPort.Port == nil {
+				continue
+			}
+			if _, ok := seen[*tcpPort.Port]; ok {
+				continue
+			}
+			seen[*tcpPort.Port] = struct{}{}
+			ports = append(ports, *tcpPort.Port)
+		}
+	}
+	return ports, nil
+}
+
+// syncNamedSlice writes one named slice on a controller object.
+func syncNamedSlice(
+	r *controller.Reconciler,
+	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
+	instances *[]v0.KubernetesWorkloadResourceInstance,
+	kind string,
+	name string,
+	field string,
+	values []interface{},
+	source []byte,
+	label string,
+	removeWhenEmpty bool,
+	changed *bool,
+) error {
+	// create the object when the controller workload does not have it yet
+	object, err := workload_util.GetUniqueKubernetesWorkloadResourceInstanceByName(instances, kind, name)
+	if err != nil && strings.Contains(err.Error(), "not found") {
+		if len(values) == 0 {
+			return nil
+		}
+		return createControllerObject(r, kubernetesRuntimeInstance, source, field, values, label)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to get %s %s: %w", kind, name, err)
+	}
+	if removeWhenEmpty && len(values) == 0 {
+		return scheduleControllerObjectDeletion(r, object, changed)
+	}
+
+	// replace the slice when it differs from the runtime's ports
+	if object.JSONDefinition == nil {
+		return fmt.Errorf("failed to read %s: empty definition", label)
+	}
+	jsonObject, err := util.UnmarshalJSON(*object.JSONDefinition)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal %s: %w", label, err)
+	}
+	current, _, _ := unstructured.NestedSlice(jsonObject, "spec", field)
+	if jsonEqual(current, values) {
+		return nil
+	}
+	if err := unstructured.SetNestedSlice(jsonObject, values, "spec", field); err != nil {
+		return fmt.Errorf("failed to set %s %s: %w", label, field, err)
+	}
+	return updateControllerObject(r, object, jsonObject, changed)
+}
+
+// syncTcpController stores the tcp controller, or schedules its removal.
+func syncTcpController(
+	r *controller.Reconciler,
+	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
+	instances *[]v0.KubernetesWorkloadResourceInstance,
+	source []byte,
+	remove bool,
+	changed *bool,
+) error {
+	// create the controller when this runtime does not have one yet
+	object, err := workload_util.GetUniqueKubernetesWorkloadResourceInstanceByName(instances, "Deployment", "nginx-tcp")
+	if err != nil && strings.Contains(err.Error(), "not found") {
+		if remove {
+			return nil
+		}
+		return createControllerObject(r, kubernetesRuntimeInstance, source, "", nil, "nginx tcp controller")
+	}
+	if err != nil {
+		return fmt.Errorf("failed to get nginx tcp controller: %w", err)
+	}
+	if remove {
+		return scheduleControllerObjectDeletion(r, object, changed)
+	}
+
+	// replace the deployment when its manifest differs
+	desired, err := util.UnstructuredFromYaml(source)
+	if err != nil {
+		return fmt.Errorf("failed to read nginx tcp controller: %w", err)
+	}
+	if object.JSONDefinition == nil {
+		return fmt.Errorf("failed to read nginx tcp controller: empty definition")
+	}
+	stored, err := util.UnmarshalJSON(*object.JSONDefinition)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal nginx tcp controller: %w", err)
+	}
+	if jsonEqual(stored, desired.Object) {
+		return nil
+	}
+	return updateControllerObject(r, object, desired.Object, changed)
+}
+
+// scheduleControllerObjectDeletion marks a controller object for deletion.
+func scheduleControllerObjectDeletion(r *controller.Reconciler, object *v0.KubernetesWorkloadResourceInstance, changed *bool) error {
+	// keep waking the controller until the object is gone
+	if object.ScheduledForDeletion != nil {
+		*changed = true
+		return nil
+	}
+	updated := &v0.KubernetesWorkloadResourceInstance{
+		Common:               v0.Common{ID: object.ID},
+		ScheduledForDeletion: util.Ptr(time.Now().UTC()),
+		Reconciled:           util.Ptr(false),
+	}
+	if _, err := client.UpdateKubernetesWorkloadResourceInstance(r.APIClient, r.APIServer, updated); err != nil {
+		return fmt.Errorf("failed to schedule controller object deletion: %w", err)
+	}
+	*changed = true
+	return nil
+}
+
+// updateControllerObject writes a new definition and marks the row unreconciled.
+func updateControllerObject(r *controller.Reconciler, object *v0.KubernetesWorkloadResourceInstance, body map[string]interface{}, changed *bool) error {
+	// store the new definition
+	jsonDefinition, err := util.MarshalJSON(body)
+	if err != nil {
+		return fmt.Errorf("failed to marshal controller object: %w", err)
+	}
+	updated := &v0.KubernetesWorkloadResourceInstance{
+		Common:         v0.Common{ID: object.ID},
+		JSONDefinition: &jsonDefinition,
+		Reconciled:     util.Ptr(false),
+	}
+	if _, err := client.UpdateKubernetesWorkloadResourceInstance(r.APIClient, r.APIServer, updated); err != nil {
+		return fmt.Errorf("failed to update controller object: %w", err)
+	}
+	*changed = true
+	return nil
+}
+
+// jsonEqual reports whether two values encode to the same JSON.
+func jsonEqual(left, right interface{}) bool {
+	// round-trip both values so number types do not affect the compare
+	leftJSON, leftErr := canonicalJSON(left)
+	rightJSON, rightErr := canonicalJSON(right)
+	return leftErr == nil && rightErr == nil && leftJSON == rightJSON
+}
+
+// canonicalJSON returns value encoded with JSON number types.
+func canonicalJSON(value interface{}) (string, error) {
+	// marshal, decode, and marshal again
+	body, err := json.Marshal(value)
+	if err != nil {
+		return "", err
+	}
+	var decoded interface{}
+	if err := json.Unmarshal(body, &decoded); err != nil {
+		return "", err
+	}
+	body, err = json.Marshal(decoded)
+	if err != nil {
+		return "", err
+	}
+	return string(body), nil
 }
 
 // configureGatewayManifests renders the ingress and transport objects for a gateway instance.
@@ -718,9 +946,9 @@ func configureGatewayManifests(
 		return nil, fmt.Errorf("failed to get gateway kubernetes workload resource definitions: %w", err)
 	}
 
-	// configure virtual service runtime parameters
+	// set the backend on each ingress
 	var jsonDefinitions []*datatypes.JSON
-	virtualServiceManifests, err := configureVirtualServiceRuntimeParameters(
+	ingressManifests, err := configureVirtualServiceRuntimeParameters(
 		r,
 		gatewayDefinition,
 		workloadInstance,
@@ -730,9 +958,9 @@ func configureGatewayManifests(
 		name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to configure virtual services: %w", err)
+		return nil, fmt.Errorf("failed to configure ingresses: %w", err)
 	}
-	jsonDefinitions = append(jsonDefinitions, virtualServiceManifests...)
+	jsonDefinitions = append(jsonDefinitions, ingressManifests...)
 
 	// configure tcp gateway runtime parameters
 	tcpGatewayManifests, err := configureTcpGatewayRuntimeParameters(
@@ -745,7 +973,7 @@ func configureGatewayManifests(
 		name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to configure virtual services: %w", err)
+		return nil, fmt.Errorf("failed to configure transport servers: %w", err)
 	}
 	jsonDefinitions = append(jsonDefinitions, tcpGatewayManifests...)
 
@@ -753,8 +981,7 @@ func configureGatewayManifests(
 
 }
 
-// configureVirtualServiceRuntimeParameters configures runtime parameters
-// for virtual services
+// configureVirtualServiceRuntimeParameters sets the backend on each Ingress.
 func configureVirtualServiceRuntimeParameters(
 	r *controller.Reconciler,
 	gatewayDefinition *v0.GatewayDefinition,
@@ -777,31 +1004,32 @@ func configureVirtualServiceRuntimeParameters(
 		return nil, fmt.Errorf("failed to get gateway http and tcp ports: %w", err)
 	}
 
-	// configure ingress runtime parameters
-	var virtualServices []*datatypes.JSON
-	for _, httpPort := range *gatewayHttpPorts {
-		ingress, err := workload_util.UnmarshalUniqueKubernetesWorkloadResourceDefinitionByName(
-			gatewayWorkloadResourceDefinitions,
-			"Ingress",
-			getIngressName(gatewayDefinition, domain, *httpPort.Port),
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal ingress kubernetes workload resource definition: %w", err)
-		}
-		servicePort := int64(*httpPort.Port)
-		if httpPort.TLSEnabled != nil && *httpPort.TLSEnabled {
-			servicePort = 80
-		}
-		if err := setIngressBackend(ingress, name, servicePort); err != nil {
-			return nil, err
-		}
-		virtualServiceMarshaled, err := util.MarshalJSON(ingress)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal ingress: %w", err)
-		}
-		virtualServices = append(virtualServices, &virtualServiceMarshaled)
+	// configure the one ingress for the host
+	if len(*gatewayHttpPorts) == 0 {
+		return nil, nil
 	}
-	return virtualServices, nil
+	servicePort := int64(80)
+	for _, httpPort := range *gatewayHttpPorts {
+		if httpPort.TLSEnabled == nil || !*httpPort.TLSEnabled {
+			servicePort = int64(*httpPort.Port)
+		}
+	}
+	ingress, err := workload_util.UnmarshalUniqueKubernetesWorkloadResourceDefinitionByName(
+		gatewayWorkloadResourceDefinitions,
+		"Ingress",
+		getIngressName(gatewayDefinition, domain),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal ingress kubernetes workload resource definition: %w", err)
+	}
+	if err := setIngressBackend(ingress, name, servicePort); err != nil {
+		return nil, err
+	}
+	virtualServiceMarshaled, err := util.MarshalJSON(ingress)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal ingress: %w", err)
+	}
+	return []*datatypes.JSON{&virtualServiceMarshaled}, nil
 }
 
 // configureTcpGatewayRuntimeParameters configures runtime parameters
@@ -1050,12 +1278,12 @@ func configureGatewayKubernetesWorkloadResourceInstances(
 
 	var jsonManifests []*datatypes.JSON
 
-	// get gloo edge virtual services and tcp gateways
-	glooEdgeManifests, err := configureGatewayManifests(r, gatewayDefinition, workloadInstance, kubernetesRuntimeInstance)
+	// get ingress and transport server manifests
+	gatewayManifests, err := configureGatewayManifests(r, gatewayDefinition, workloadInstance, kubernetesRuntimeInstance)
 	if err != nil {
-		return nil, fmt.Errorf("failed to configure virtual service: %w", err)
+		return nil, fmt.Errorf("failed to configure gateway manifests: %w", err)
 	}
-	jsonManifests = append(jsonManifests, glooEdgeManifests...)
+	jsonManifests = append(jsonManifests, gatewayManifests...)
 
 	tlsEnabled, err := getTlsEnabled(r, gatewayDefinition)
 	if err != nil {
