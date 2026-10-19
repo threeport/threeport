@@ -9,7 +9,7 @@ import (
 	notif "github.com/threeport/threeport/internal/observability/notif"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
-	api_v0_lib "github.com/threeport/threeport/pkg/api/v0/lib"
+	api_v0_lib "github.com/threeport/threeport/pkg/api/lib/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util_v0 "github.com/threeport/threeport/pkg/util/v0"
 	zap "go.uber.org/zap"

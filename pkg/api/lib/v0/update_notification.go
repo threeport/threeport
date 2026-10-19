@@ -1,23 +1,21 @@
-package lib
+package v0
 
 import (
 	"reflect"
 	"time"
-
-	api "github.com/threeport/threeport/pkg/api/v0"
 )
 
 // ReconciliationStateChanged reports whether progress markers differ.
-// Acknowledgement timestamps count as set or unset only. InterruptReconciliation
-// is ignored; it is a gate, not progress.
-func ReconciliationStateChanged(a, b api.Reconciliation) bool {
-	return !boolPtrEqual(a.Reconciled, b.Reconciled) ||
-		!timePtrSet(a.CreationAcknowledged, b.CreationAcknowledged) ||
-		!timePtrEqual(a.CreationConfirmed, b.CreationConfirmed) ||
-		!boolPtrEqual(a.CreationFailed, b.CreationFailed) ||
-		!timePtrEqual(a.DeletionScheduled, b.DeletionScheduled) ||
-		!timePtrSet(a.DeletionAcknowledged, b.DeletionAcknowledged) ||
-		!timePtrEqual(a.DeletionConfirmed, b.DeletionConfirmed)
+// Acknowledgement timestamps count as set or unset only.
+// InterruptReconciliation is ignored. It is a gate, not progress.
+func ReconciliationStateChanged(a, b any) bool {
+	return !boolPtrEqual(boolField(a, "Reconciled"), boolField(b, "Reconciled")) ||
+		!timePtrSet(timeField(a, "CreationAcknowledged"), timeField(b, "CreationAcknowledged")) ||
+		!timePtrEqual(timeField(a, "CreationConfirmed"), timeField(b, "CreationConfirmed")) ||
+		!boolPtrEqual(boolField(a, "CreationFailed"), boolField(b, "CreationFailed")) ||
+		!timePtrEqual(timeField(a, "DeletionScheduled"), timeField(b, "DeletionScheduled")) ||
+		!timePtrSet(timeField(a, "DeletionAcknowledged"), timeField(b, "DeletionAcknowledged")) ||
+		!timePtrEqual(timeField(a, "DeletionConfirmed"), timeField(b, "DeletionConfirmed"))
 }
 
 // NotifySnapshot returns a copy of a saved object.
@@ -89,17 +87,17 @@ func deepCopy(value reflect.Value) reflect.Value {
 }
 
 // ObjectUpdateNotifiable reports whether a saved object should notify the controller.
-// changed names the other persisted fields when Reconciled becomes true, which does not notify.
+// When Reconciled becomes true, the other changed fields are named and the write does not notify.
 func ObjectUpdateNotifiable(before, after any) (bool, []string) {
 	left, right, ok := persistedStructs(before, after)
 	if !ok {
 		return true, nil
 	}
 
-	// honor a client write that sets Reconciled true
+	// suppress a write that sets Reconciled true
 	beforeState, beforeOK := reconciliationFrom(left)
 	afterState, afterOK := reconciliationFrom(right)
-	if beforeOK && afterOK && afterState.AlreadyReconciled() && !beforeState.AlreadyReconciled() {
+	if beforeOK && afterOK && alreadyReconciled(afterState) && !alreadyReconciled(beforeState) {
 		return false, changedStructFields(left, right)
 	}
 
@@ -146,7 +144,7 @@ func structFieldsChanged(left, right reflect.Value, skipReconciliation bool) boo
 		if !field.IsExported() {
 			continue
 		}
-		if skipReconciliation && field.Type == reflect.TypeOf(api.Reconciliation{}) {
+		if skipReconciliation && field.Name == "Reconciliation" {
 			continue
 		}
 		if field.Name == "UpdatedAt" {
@@ -219,20 +217,18 @@ func persistedStruct(object any) (reflect.Value, bool) {
 }
 
 // reconciliationFrom returns the embedded reconciliation state.
-func reconciliationFrom(object reflect.Value) (api.Reconciliation, bool) {
+func reconciliationFrom(object reflect.Value) (any, bool) {
+	// read the embedded struct named Reconciliation
 	field := object.FieldByName("Reconciliation")
-	if !field.IsValid() || field.Type() != reflect.TypeOf(api.Reconciliation{}) {
-		return api.Reconciliation{}, false
+	if !field.IsValid() || field.Kind() != reflect.Struct {
+		return nil, false
 	}
-	state, ok := field.Interface().(api.Reconciliation)
-	return state, ok
+	return field.Interface(), true
 }
 
-// ReconciliationUpdateNotifiable reports whether an update should notify the
-// controller. Spec edits notify even when markers are unchanged. A restamped
-// acknowledgement does not, and neither does the controller's own stamp of
-// Reconciled to true.
-func ReconciliationUpdateNotifiable(a, b api.Reconciliation) bool {
+// ReconciliationUpdateNotifiable reports whether an update should notify the controller.
+// Equal markers still notify. A restamped acknowledgement does not, and neither does a stamp of Reconciled to true.
+func ReconciliationUpdateNotifiable(a, b any) bool {
 	if reconciledStampOnly(a, b) {
 		return false
 	}
@@ -242,23 +238,68 @@ func ReconciliationUpdateNotifiable(a, b api.Reconciliation) bool {
 	return !acknowledgementRefreshed(a, b)
 }
 
-// reconciledStampOnly reports a write whose only marker change is Reconciled
-// becoming true.
-func reconciledStampOnly(a, b api.Reconciliation) bool {
-	if !b.AlreadyReconciled() || a.AlreadyReconciled() {
+// reconciledStampOnly reports a write whose only marker change is Reconciled becoming true.
+func reconciledStampOnly(a, b any) bool {
+	if !alreadyReconciled(b) || alreadyReconciled(a) {
 		return false
 	}
 
 	// compare the other markers with Reconciled held equal
-	same := a
-	same.Reconciled = b.Reconciled
-	return !ReconciliationStateChanged(same, b)
+	same := reflect.New(reflect.TypeOf(a)).Elem()
+	same.Set(reflect.ValueOf(a))
+	same.FieldByName("Reconciled").Set(fieldByName(b, "Reconciled"))
+	return !ReconciliationStateChanged(same.Interface(), b)
 }
 
 // acknowledgementRefreshed reports a restamped creation or deletion acknowledgement.
-func acknowledgementRefreshed(a, b api.Reconciliation) bool {
-	return timePtrRefreshed(a.CreationAcknowledged, b.CreationAcknowledged) ||
-		timePtrRefreshed(a.DeletionAcknowledged, b.DeletionAcknowledged)
+func acknowledgementRefreshed(a, b any) bool {
+	return timePtrRefreshed(timeField(a, "CreationAcknowledged"), timeField(b, "CreationAcknowledged")) ||
+		timePtrRefreshed(timeField(a, "DeletionAcknowledged"), timeField(b, "DeletionAcknowledged"))
+}
+
+// alreadyReconciled reports whether Reconciled is set to true.
+func alreadyReconciled(state any) bool {
+	// treat a nil pointer as not reconciled
+	reconciled := boolField(state, "Reconciled")
+	return reconciled != nil && *reconciled
+}
+
+// fieldByName returns an exported field of a struct or a pointer to one.
+func fieldByName(state any, name string) reflect.Value {
+	value := reflect.ValueOf(state)
+	if !value.IsValid() {
+		return reflect.Value{}
+	}
+	for value.Kind() == reflect.Pointer {
+		if value.IsNil() {
+			return reflect.Value{}
+		}
+		value = value.Elem()
+	}
+	if value.Kind() != reflect.Struct {
+		return reflect.Value{}
+	}
+	return value.FieldByName(name)
+}
+
+// boolField returns a copy of a *bool field. A missing field counts as unset.
+func boolField(state any, name string) *bool {
+	field := fieldByName(state, name)
+	if !field.IsValid() || field.Kind() != reflect.Pointer || field.IsNil() {
+		return nil
+	}
+	value := field.Elem().Bool()
+	return &value
+}
+
+// timeField returns a copy of a *time.Time field. A missing field counts as unset.
+func timeField(state any, name string) *time.Time {
+	field := fieldByName(state, name)
+	if !field.IsValid() || field.Kind() != reflect.Pointer || field.IsNil() {
+		return nil
+	}
+	value := field.Elem().Interface().(time.Time)
+	return &value
 }
 
 // timePtrRefreshed reports two set pointers holding different instants.
@@ -274,8 +315,8 @@ func boolPtrEqual(a, b *bool) bool {
 	return *a == *b
 }
 
-// timePtrEqual compares instants. == on time.Time also compares location and
-// the monotonic reading, which a database round trip drops.
+// timePtrEqual compares instants.
+// == on time.Time also compares location and the monotonic reading, which a database round trip drops.
 func timePtrEqual(a, b *time.Time) bool {
 	if a == nil || b == nil {
 		return a == b
