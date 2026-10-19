@@ -20,6 +20,12 @@ type Reconciliation struct {
 	DeletionConfirmed    *time.Time
 }
 
+// AlreadyReconciled reports whether Reconciled is set to true.
+func (r Reconciliation) AlreadyReconciled() bool {
+	// treat a nil pointer as not reconciled
+	return r.Reconciled != nil && *r.Reconciled
+}
+
 // notifiableObject is a saved object with one field outside reconciliation state.
 type notifiableObject struct {
 	UpdatedAt *time.Time
@@ -391,9 +397,9 @@ func TestNotificationHelpers(t *testing.T) {
 	check("reconciliationFrom(missing)", missingState, false)
 	_, pointerState := reconciliationFrom(reflect.ValueOf(struct{ Reconciliation *Reconciliation }{}))
 	check("reconciliationFrom(pointer)", pointerState, false)
-	check("alreadyReconciled(nil)", alreadyReconciled(nil), false)
-	check("alreadyReconciled(false)", alreadyReconciled(Reconciliation{Reconciled: util.Ptr(false)}), false)
-	check("alreadyReconciled(true)", alreadyReconciled(Reconciliation{Reconciled: util.Ptr(true)}), true)
+	check("AlreadyReconciled(nil)", AlreadyReconciled(nil), false)
+	check("AlreadyReconciled(false)", AlreadyReconciled(Reconciliation{Reconciled: util.Ptr(false)}), false)
+	check("AlreadyReconciled(true)", AlreadyReconciled(Reconciliation{Reconciled: util.Ptr(true)}), true)
 
 	// copy a set field, and treat a missing or non-pointer field as unset
 	if got := boolField(Reconciliation{Reconciled: util.Ptr(true)}, "Reconciled"); got == nil || !*got {

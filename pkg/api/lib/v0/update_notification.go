@@ -104,7 +104,7 @@ func ObjectUpdateNotifiable(before, after any) (bool, []string) {
 	specChanged := structFieldsChanged(left, right, true)
 	markersChanged := haveState && ReconciliationStateChanged(beforeState, afterState)
 	restamped := haveState && acknowledgementRefreshed(beforeState, afterState)
-	reconciledBecomesTrue := haveState && alreadyReconciled(afterState) && !alreadyReconciled(beforeState)
+	reconciledBecomesTrue := haveState && AlreadyReconciled(afterState) && !AlreadyReconciled(beforeState)
 
 	// suppress the write that sets Reconciled true
 	if reconciledBecomesTrue {
@@ -244,13 +244,6 @@ func reconciliationFrom(object reflect.Value) (any, bool) {
 func acknowledgementRefreshed(a, b any) bool {
 	return timePtrRefreshed(timeField(a, "CreationAcknowledged"), timeField(b, "CreationAcknowledged")) ||
 		timePtrRefreshed(timeField(a, "DeletionAcknowledged"), timeField(b, "DeletionAcknowledged"))
-}
-
-// alreadyReconciled reports whether Reconciled is set to true.
-func alreadyReconciled(state any) bool {
-	// treat a nil pointer as not reconciled
-	reconciled := boolField(state, "Reconciled")
-	return reconciled != nil && *reconciled
 }
 
 // fieldByName returns an exported field of a struct or a pointer to one.
