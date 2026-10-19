@@ -814,7 +814,8 @@ func (h Handler) UpdateMachineRuntimeInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot the object before the update so a later stamp can be compared to it
+	// snapshot the loaded row before this update.
+	// The controller stamp is a later request.
 	prevMachineRuntimeInstance := api_v0_lib.NotifySnapshot(existingMachineRuntimeInstance)
 
 	// update object in database
@@ -920,7 +921,8 @@ func (h Handler) ReplaceMachineRuntimeInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
 	}
 
-	// snapshot the object before the replace so a later stamp can be compared to it
+	// snapshot the loaded row before this replace.
+	// The controller stamp is a later request.
 	prevMachineRuntimeInstance := api_v0_lib.NotifySnapshot(existingMachineRuntimeInstance)
 
 	// persist provided data

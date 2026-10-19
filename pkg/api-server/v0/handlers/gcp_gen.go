@@ -814,7 +814,8 @@ func (h Handler) UpdateGcpGkeKubernetesRuntimeInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot the object before the update so a later stamp can be compared to it
+	// snapshot the loaded row before this update.
+	// The controller stamp is a later request.
 	prevGcpGkeKubernetesRuntimeInstance := api_v0_lib.NotifySnapshot(existingGcpGkeKubernetesRuntimeInstance)
 
 	// update object in database
@@ -920,7 +921,8 @@ func (h Handler) ReplaceGcpGkeKubernetesRuntimeInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
 	}
 
-	// snapshot the object before the replace so a later stamp can be compared to it
+	// snapshot the loaded row before this replace.
+	// The controller stamp is a later request.
 	prevGcpGkeKubernetesRuntimeInstance := api_v0_lib.NotifySnapshot(existingGcpGkeKubernetesRuntimeInstance)
 
 	// persist provided data
