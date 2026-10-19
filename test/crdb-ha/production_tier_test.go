@@ -11,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
 
@@ -26,6 +27,10 @@ const namespace = "threeport-control-plane"
 // directly - there is no higher-level helper for either in this codebase,
 // since nothing else needs to reach into a running CockroachDB pod.
 var crdbPodGVR = schema.GroupVersionResource{Version: "v1", Resource: "pods"}
+
+// sqlTimeout bounds every SQL call. A write that blocks until the lost
+// replica comes back would otherwise pass as one that survived its loss.
+const sqlTimeout = 30 * time.Second
 
 // TestProductionTierCockroachDBSurvivesANodeLoss covers #602's own
 // acceptance criteria against a real scheduler: a 3-node cluster that
@@ -82,7 +87,7 @@ func TestProductionTierCockroachDBSurvivesANodeLoss(t *testing.T) {
 	})
 
 	for _, pod := range podNames {
-		waitForPodReady(t, pod)
+		waitForPodReady(t, pod, "")
 	}
 
 	t.Run("reads and writes continue through a pod loss, and data survives the rejoin", func(t *testing.T) {
@@ -92,14 +97,30 @@ func TestProductionTierCockroachDBSurvivesANodeLoss(t *testing.T) {
 				"INSERT INTO verify_test.t VALUES (1, 'before-kill');",
 		)
 
-		if err := dynamicClient.Resource(crdbPodGVR).Namespace(namespace).Delete(
+		victim, err := typedClient.CoreV1().Pods(namespace).Get(context.Background(), "crdb-1", metav1.GetOptions{})
+		if err != nil {
+			t.Fatalf("failed to get crdb-1: %v", err)
+		}
+		oldUID := victim.UID
+		victimNode := victim.Spec.NodeName
+
+		// Cordoning the node keeps the replacement Pending for as long as the
+		// outage needs to last: its volume is bound to that node, and the
+		// required anti-affinity rules out the other two. Without it, the
+		// StatefulSet controller races the assertions below.
+		setUnschedulable(t, victimNode, true)
+		t.Cleanup(func() { setUnschedulable(t, victimNode, false) })
+
+		if err := typedClient.CoreV1().Pods(namespace).Delete(
 			context.Background(), "crdb-1", metav1.DeleteOptions{},
 		); err != nil {
 			t.Fatalf("failed to delete crdb-1: %v", err)
 		}
 
-		// immediately, not after waiting for anything to settle - this is
-		// the moment the issue's own acceptance criteria is about
+		// a graceful delete leaves the old pod running for up to its grace
+		// period; its object is only gone once the container has stopped
+		waitForReplacementPending(t, "crdb-1", oldUID)
+
 		out := mustExecSQL(t, "crdb-0",
 			"INSERT INTO verify_test.t VALUES (2, 'during-outage'); SELECT count(*) FROM verify_test.t;",
 		)
@@ -107,15 +128,65 @@ func TestProductionTierCockroachDBSurvivesANodeLoss(t *testing.T) {
 			t.Fatalf("expected a write during the outage to be readable back, got: %s", out)
 		}
 
-		waitForPodReady(t, "crdb-1")
+		// the write has to have happened inside the outage, not after it
+		assertUnscheduled(t, "crdb-1")
 
-		out = mustExecSQL(t, "crdb-0", "SELECT val FROM verify_test.t ORDER BY id;")
+		setUnschedulable(t, victimNode, false)
+		waitForPodReady(t, "crdb-1", oldUID)
+
+		// read through the rejoined node itself, not only a survivor
+		out = mustExecSQL(t, "crdb-1", "SELECT val FROM verify_test.t ORDER BY id;")
 		for _, want := range []string{"before-kill", "during-outage"} {
 			if !bytes.Contains([]byte(out), []byte(want)) {
 				t.Errorf("expected %q to survive the rejoin, got: %s", want, out)
 			}
 		}
 	})
+}
+
+// setUnschedulable cordons or uncordons a node.
+func setUnschedulable(t *testing.T, node string, unschedulable bool) {
+	t.Helper()
+
+	patch := fmt.Sprintf(`{"spec":{"unschedulable":%t}}`, unschedulable)
+	if _, err := typedClient.CoreV1().Nodes().Patch(
+		context.Background(), node, types.MergePatchType, []byte(patch), metav1.PatchOptions{},
+	); err != nil {
+		t.Fatalf("failed to set unschedulable=%t on %s: %v", unschedulable, node, err)
+	}
+}
+
+// waitForReplacementPending polls until the pod with oldUID is gone and its
+// StatefulSet replacement exists without a node.
+func waitForReplacementPending(t *testing.T, name string, oldUID types.UID) {
+	t.Helper()
+
+	deadline := time.Now().Add(2 * time.Minute)
+	for time.Now().Before(deadline) {
+		pod, err := typedClient.CoreV1().Pods(namespace).Get(context.Background(), name, metav1.GetOptions{})
+		if err == nil && pod.UID != oldUID {
+			if pod.Spec.NodeName != "" {
+				t.Fatalf("%s's replacement was scheduled to %s while its node was cordoned", name, pod.Spec.NodeName)
+			}
+			return
+		}
+		time.Sleep(2 * time.Second)
+	}
+
+	t.Fatalf("%s (uid %s) never went away", name, oldUID)
+}
+
+// assertUnscheduled fails the test if a pod has been given a node.
+func assertUnscheduled(t *testing.T, name string) {
+	t.Helper()
+
+	pod, err := typedClient.CoreV1().Pods(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("failed to get %s: %v", name, err)
+	}
+	if pod.Spec.NodeName != "" {
+		t.Fatalf("%s was back on %s before the outage write was checked", name, pod.Spec.NodeName)
+	}
 }
 
 // waitForPodScheduled polls until a pod has a node assigned, and returns it.
@@ -139,14 +210,16 @@ func waitForPodScheduled(t *testing.T, name string) string {
 	return ""
 }
 
-// waitForPodReady polls until a pod reports Ready.
-func waitForPodReady(t *testing.T, name string) {
+// waitForPodReady polls until a pod reports Ready. A pod with notUID, or one
+// already being deleted, does not count - so a caller waiting on a
+// replacement cannot be satisfied by the pod it replaced.
+func waitForPodReady(t *testing.T, name string, notUID types.UID) {
 	t.Helper()
 
 	deadline := time.Now().Add(3 * time.Minute)
 	for time.Now().Before(deadline) {
 		pod, err := typedClient.CoreV1().Pods(namespace).Get(context.Background(), name, metav1.GetOptions{})
-		if err == nil {
+		if err == nil && pod.UID != notUID && pod.DeletionTimestamp == nil {
 			for _, condition := range pod.Status.Conditions {
 				if condition.Type == "Ready" && condition.Status == "True" {
 					return
@@ -188,8 +261,11 @@ func mustExecSQL(t *testing.T, pod, statement string) string {
 		t.Fatalf("failed to build exec request against %s: %v", pod, err)
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), sqlTimeout)
+	defer cancel()
+
 	var stdout, stderr bytes.Buffer
-	if err := executor.StreamWithContext(context.Background(), remotecommand.StreamOptions{
+	if err := executor.StreamWithContext(ctx, remotecommand.StreamOptions{
 		Stdout: &stdout,
 		Stderr: &stderr,
 	}); err != nil {
