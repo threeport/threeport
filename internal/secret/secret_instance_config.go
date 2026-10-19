@@ -414,7 +414,7 @@ func (c *SecretInstanceConfig) confirmSecretControllerDeployed() error {
 		}
 
 	case v0.KubernetesRuntimeInfraProviderKind:
-		externalSecretsYaml, err = c.getExternalSecretsSupportServiceYaml("testIamRoleArn")
+		externalSecretsYaml, err = c.getExternalSecretsSupportServiceYaml("")
 		if err != nil {
 			return fmt.Errorf("failed to create external secrets: %w", err)
 		}

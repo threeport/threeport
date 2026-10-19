@@ -5,6 +5,7 @@ import (
 
 	runtime "github.com/threeport/threeport/internal/kubernetes-runtime"
 	mapping "github.com/threeport/threeport/pkg/mapping/v0"
+	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -70,12 +71,10 @@ func (c *SecretInstanceConfig) getSecretStore() (*unstructured.Unstructured, err
 }
 
 // getExternalSecretsSupportService returns a new ExternalSecrets object
+// getExternalSecretsSupportServiceYaml returns the external-secrets component.
 func (c *SecretInstanceConfig) getExternalSecretsSupportServiceYaml(iamRoleArn string) (string, error) {
-	// the provider annotates the service account with this role
-	_ = iamRoleArn
-
 	// build the secrets component the v0.9 operator accepts
-	return util.UnstructuredToYaml(
+	rendered, err := util.UnstructuredToYaml(
 		&unstructured.Unstructured{
 			Object: map[string]interface{}{
 				"apiVersion": "platform.addons.nukleros.io/v1alpha1",
@@ -95,4 +94,21 @@ func (c *SecretInstanceConfig) getExternalSecretsSupportServiceYaml(iamRoleArn s
 			},
 		},
 	)
+	if err != nil {
+		return "", err
+	}
+	if iamRoleArn == "" {
+		return rendered, nil
+	}
+
+	// annotate the external-secrets account with the role the operator cannot set
+	account, err := installer.IrsaServiceAccountYaml(
+		installer.SecretsManagerServiceAccountName,
+		installer.SecretsManagerServiceAccountNamespace,
+		iamRoleArn,
+	)
+	if err != nil {
+		return "", err
+	}
+	return rendered + "\n---\n" + account, nil
 }
