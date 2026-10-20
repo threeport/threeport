@@ -28,6 +28,10 @@ type TerraformInstanceConfig struct {
 	tfDirName           string
 	tfState             string
 	tfOutput            string
+
+	// applyRan records whether terraform apply ran, since only an apply can
+	// leave a partial state worth saving
+	applyRan bool
 }
 
 // getTerraformInstanceOperations returns a list of operations for a terraform instance.
@@ -80,6 +84,7 @@ func (c *TerraformInstanceConfig) createTerraformInstance() error {
 		fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%s", awsCreds.SecretAccessKey),
 		fmt.Sprintf("AWS_SESSION_TOKEN=%s", awsCreds.SessionToken),
 	)
+	c.applyRan = true
 	applyOut, err := applyCmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to apply terrform config with output '%s': %w", string(applyOut), err)
@@ -138,8 +143,16 @@ func (c *TerraformInstanceConfig) restoreTerraformState() error {
 		return nil
 	}
 
-	if err := os.WriteFile(c.tfStateFilepath(), []byte(*c.terraformInstance.StateDocument), 0644); err != nil {
+	// write to a temporary file and rename it into place, so a write that
+	// fails part way never leaves a truncated state file behind
+	tmpFilepath := c.tfStateFilepath() + ".restore"
+	if err := os.WriteFile(tmpFilepath, []byte(*c.terraformInstance.StateDocument), 0644); err != nil {
+		os.Remove(tmpFilepath)
 		return fmt.Errorf("failed to write terraform state to file: %w", err)
+	}
+	if err := os.Rename(tmpFilepath, c.tfStateFilepath()); err != nil {
+		os.Remove(tmpFilepath)
+		return fmt.Errorf("failed to move terraform state into place: %w", err)
 	}
 
 	return nil
@@ -149,6 +162,12 @@ func (c *TerraformInstanceConfig) restoreTerraformState() error {
 // the API.  An apply can create some resources before it fails, and a retry
 // can run in another replica, which would otherwise create them again.
 func (c *TerraformInstanceConfig) savePartialTerraformState() error {
+	// a create that failed before apply ran left no state of its own, and
+	// whatever is on disk may be a restore that failed part way
+	if !c.applyRan {
+		return nil
+	}
+
 	tfStateContent, err := os.ReadFile(c.tfStateFilepath())
 	if errors.Is(err, os.ErrNotExist) {
 		return nil

@@ -187,12 +187,74 @@ func TestSavePartialStateWithoutStateFile(t *testing.T) {
 		},
 		terraformInstance: &v0.TerraformInstance{Common: v0.Common{ID: util.Ptr(uint(1))}},
 		tfDirName:         t.TempDir(),
+		applyRan:          true,
 	}
 	if err := c.savePartialTerraformState(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(api.states) != 0 {
 		t.Errorf("expected no save without a state file, got %d", len(api.states))
+	}
+}
+
+// TestNoStateIsSavedWhenApplyDidNotRun covers a create that failed before
+// terraform apply ran, for instance while restoring the saved state.  The
+// state file on disk is then not an apply's result and may be a damaged
+// restore, so it must not replace the state saved in the API.
+func TestNoStateIsSavedWhenApplyDidNotRun(t *testing.T) {
+	api := &stateSavingAPI{}
+	server := httptest.NewServer(api)
+	defer server.Close()
+
+	c := &TerraformInstanceConfig{
+		r: &controller.Reconciler{
+			APIClient: http.DefaultClient,
+			APIServer: strings.TrimPrefix(server.URL, "http://"),
+		},
+		terraformInstance: &v0.TerraformInstance{Common: v0.Common{ID: util.Ptr(uint(1))}},
+		tfDirName:         t.TempDir(),
+	}
+	if err := os.WriteFile(c.tfStateFilepath(), []byte(`{"version": 4, "lin`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := c.savePartialTerraformState(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(api.states) != 0 {
+		t.Errorf("a state file no apply wrote was saved to the API: %v", api.states)
+	}
+}
+
+// TestAFailedRestoreLeavesTheStateFileIntact covers a restore whose write
+// fails part way: the state file already in the directory must be left as it
+// was rather than truncated.
+func TestAFailedRestoreLeavesTheStateFileIntact(t *testing.T) {
+	dir := t.TempDir()
+	c := &TerraformInstanceConfig{
+		terraformInstance: &v0.TerraformInstance{StateDocument: util.Ptr(`{"lineage": "a", "serial": 3}`)},
+		tfDirName:         dir,
+	}
+	existing := `{"lineage": "b", "serial": 1}`
+	if err := os.WriteFile(c.tfStateFilepath(), []byte(existing), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// a directory nothing can be written into makes the restore fail
+	if err := os.Chmod(dir, 0500); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chmod(dir, 0700)
+
+	if err := c.restoreTerraformState(); err == nil {
+		t.Fatal("expected the restore to fail")
+	}
+	onDisk, err := os.ReadFile(c.tfStateFilepath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(onDisk) != existing {
+		t.Errorf("the failed restore changed the state file to %s", onDisk)
 	}
 }
 
