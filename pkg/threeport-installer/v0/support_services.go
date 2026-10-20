@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	SupportServicesOperatorImage = "ghcr.io/nukleros/support-services-operator:v0.9.0"
+	SupportServicesOperatorImage = "localhost:5001/support-services-operator:4831e6c"
 
 	// links the service account declared in the IngressComponent resource to
 	// the IRSA role internal/provider creates for it on EKS.
