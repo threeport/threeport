@@ -153,6 +153,18 @@ type Options struct {
 	// A later install leaves an existing namespace, and its tier label, unchanged
 	Tier ControlPlaneTier
 
+	// ApiReplicas and ControllerReplicas set how many replicas the API server
+	// and each controller run.  Zero uses the tier's default: one on the
+	// development tier and two on production.
+	ApiReplicas        int
+	ControllerReplicas int
+
+	// ComponentResources overrides the CPU and memory a component's container
+	// requests and is limited to, keyed by component name, e.g. "rest-api",
+	// "agent", "database-migrator" or a controller's name.  A value left empty
+	// keeps the default from DefaultComponentResources.
+	ComponentResources map[string]ContainerResources
+
 	// PaginationMode sets the REST API server's pagination strategy through
 	// the `-pagination-mode` flag. Accepted values are `as-of-system-time`
 	// and `materialized-view`. A nil or empty value omits the flag, so the
