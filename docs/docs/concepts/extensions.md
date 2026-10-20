@@ -99,7 +99,7 @@ reads from the Threeport API, which a file-driven workflow does not give you.
 
 ![Custom AWS Services](../img/ThreeportExtensionCustomAWSServices.drawio.svg)
 
-### Advanced Application Orchestration
+### Advanced ALCO
 
 This approach is more involved to develop but produces the best outcome. It is most 
 appropriate for the highest value revenue-generating applications, especially those that 
@@ -119,7 +119,7 @@ cluster, the Custom App Operator, shown in light orange in this diagram, deploys
 all of the individual Kubernetes resources in response to that CustomApp
 resource being created, updated or deleted.
 
-![Advanced App Orchestration](../img/AdvancedAppOrchestration.drawio.svg)
+![Advanced ALCO](../img/AdvancedAppOrchestration.drawio.svg)
 
 The advantages to this approach are as follows:
 
@@ -153,7 +153,7 @@ The disadvantages:
 * The API contracts between the two projects need to be maintained and managed
   well.
 
-In summary, the advanced application orchestration approach requires greater
+In summary, the advanced ALCO approach requires greater
 engineering expertise and investment, but for high-value applications
 with relatively large development teams, the savings in developer toil and
 application reliability make the trade-off worthwhile.

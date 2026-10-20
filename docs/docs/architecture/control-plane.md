@@ -154,7 +154,7 @@ drawbacks in complex environments since templating is inherently inferior to
 general purpose programming languages.  More on this topic is discussed in the
 [Continuous Delivery & GitOps
 section](../concepts/application-orchestration.md#continuous-delivery-gitops)
-of the Application Orchestration document.  We prefer Go programs to construct
+of the Application Life Cycle Orchestration document.  We prefer Go programs to construct
 Kubernetes resources.  However, Helm support is still valuable because many open-source
 charts are available and it is already in extensive use by many teams.
 
