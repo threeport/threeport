@@ -7,6 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
 
+	v0 "github.com/threeport/threeport/pkg/api/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 )
 
@@ -28,6 +29,25 @@ func (cpi *ControlPlaneInstaller) componentReplicas(configured int) int64 {
 	}
 
 	return 1
+}
+
+// singleReplicaControllers are the controllers that always run one replica.
+// The terraform controller runs terraform apply inside the reconcile, holding
+// the object's lock for as long as the apply takes.  An apply that outlasts
+// the lock's TTL would let a second replica take the object and apply it at
+// the same time, so the controller stays at one until the lock is refreshed
+// while an apply runs.
+var singleReplicaControllers = map[string]bool{
+	ThreeportTerraformControllerName: true,
+}
+
+// controllerReplicas returns how many replicas a controller runs.
+func (cpi *ControlPlaneInstaller) controllerReplicas(controller v0.ControlPlaneComponent) int64 {
+	if singleReplicaControllers[controller.Name] {
+		return 1
+	}
+
+	return cpi.componentReplicas(cpi.Opts.ControllerReplicas)
 }
 
 // componentAntiAffinity returns an affinity that spreads a Deployment's pods

@@ -759,7 +759,7 @@ func (cpi *ControlPlaneInstaller) UpdateControllerDeployment(
 	}
 
 	return cpi.applyComponentDisruptionBudget(
-		kubeClient, mapper, deployName, cpi.componentReplicas(cpi.Opts.ControllerReplicas),
+		kubeClient, mapper, deployName, cpi.controllerReplicas(controller),
 	)
 }
 
@@ -2031,7 +2031,7 @@ func (cpi *ControlPlaneInstaller) getControllerDeployment(
 				"namespace": namespace,
 			},
 			"spec": map[string]interface{}{
-				"replicas": cpi.componentReplicas(cpi.Opts.ControllerReplicas),
+				"replicas": cpi.controllerReplicas(controller),
 				"selector": map[string]interface{}{
 					"matchLabels": map[string]interface{}{
 						"app.kubernetes.io/name": deployName,

@@ -46,8 +46,8 @@ func TestReplicasFollowTheTier(t *testing.T) {
 		"":                   1,
 	} {
 		for name, deployment := range controlPlaneDeployments(t, tierInstaller(tier)) {
-			if name == ThreeportAgentDeployName {
-				assert.Equal(t, int64(1), replicas(t, deployment), "tier %q: agent", tier)
+			if name == ThreeportAgentDeployName || name == terraformControllerDeployName {
+				assert.Equal(t, int64(1), replicas(t, deployment), "tier %q: %s", tier, name)
 				continue
 			}
 			assert.Equal(t, want, replicas(t, deployment), "tier %q: %s", tier, name)
@@ -66,13 +66,40 @@ func TestConfiguredReplicasOverrideTheTier(t *testing.T) {
 
 		for name, deployment := range controlPlaneDeployments(t, cpi) {
 			switch name {
-			case ThreeportAgentDeployName:
-				assert.Equal(t, int64(1), replicas(t, deployment), "tier %q: agent", tier)
+			case ThreeportAgentDeployName, terraformControllerDeployName:
+				assert.Equal(t, int64(1), replicas(t, deployment), "tier %q: %s", tier, name)
 			case ThreeportAPIServiceResourceName:
 				assert.Equal(t, int64(3), replicas(t, deployment), "tier %q: %s", tier, name)
 			default:
 				assert.Equal(t, int64(4), replicas(t, deployment), "tier %q: %s", tier, name)
 			}
+		}
+	}
+}
+
+// terraformControllerDeployName is the terraform controller's Deployment.
+const terraformControllerDeployName = "threeport-" + ThreeportTerraformControllerName
+
+// TestTheTerraformControllerRunsOneReplica covers the one controller a second
+// replica would make unsafe: terraform apply runs inside the reconcile under
+// the object's lock, and an apply that outlasts the lock would let another
+// replica apply the same object at the same time.  It stays at one replica on
+// every tier and with any configured count, and so has no disruption budget.
+func TestTheTerraformControllerRunsOneReplica(t *testing.T) {
+	for _, tier := range []string{ControlPlaneTierDev, ControlPlaneTierProd} {
+		for _, configured := range []int{0, 3} {
+			cpi := tierInstaller(tier)
+			cpi.Opts.ControllerReplicas = configured
+			kubeClient := testKubeClient()
+			installComponent(t, cpi, kubeClient, terraformControllerDeployName)
+
+			deployment := getDeployment(t, kubeClient, ControlPlaneNamespace, terraformControllerDeployName)
+			assert.Equal(t, int64(1), replicas(t, deployment), "tier %q, configured %d", tier, configured)
+
+			_, err := kubeClient.Resource(pdbGVR).Namespace(ControlPlaneNamespace).Get(
+				context.Background(), terraformControllerDeployName, metav1.GetOptions{},
+			)
+			assert.True(t, k8serrors.IsNotFound(err), "tier %q, configured %d: the terraform controller has a disruption budget", tier, configured)
 		}
 	}
 }
