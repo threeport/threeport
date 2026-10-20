@@ -308,8 +308,9 @@ func TestServiceLookupErrUsesTheMissingResourceError(t *testing.T) {
 // TestV0GatewayInstanceDeletedSchedulesOwnedResourcesWithoutService schedules the gateway ingress and certificate when the service read fails.
 func TestV0GatewayInstanceDeletedSchedulesOwnedResourcesWithoutService(t *testing.T) {
 	cases := []struct {
-		name  string
-		extra []v0.KubernetesWorkloadResourceInstance
+		name    string
+		extra   []v0.KubernetesWorkloadResourceInstance
+		wantErr bool
 	}{
 		{name: "missing service"},
 		{
@@ -317,6 +318,14 @@ func TestV0GatewayInstanceDeletedSchedulesOwnedResourcesWithoutService(t *testin
 			extra: []v0.KubernetesWorkloadResourceInstance{
 				workloadObject(24, "Service", "echo-renamed"),
 			},
+		},
+		{
+			name: "duplicate service",
+			extra: []v0.KubernetesWorkloadResourceInstance{
+				workloadObject(25, "Service", "echo"),
+				workloadObject(26, "Service", "echo"),
+			},
+			wantErr: true,
 		},
 	}
 	for _, testCase := range cases {
@@ -419,6 +428,13 @@ func TestV0GatewayInstanceDeletedSchedulesOwnedResourcesWithoutService(t *testin
 
 			// delete the gateway while its service cannot be read
 			_, err := v0GatewayInstanceDeleted(reconciler, gateway, nil)
+			// a lookup failure schedules nothing
+			if testCase.wantErr {
+				require.Error(t, err)
+				require.Empty(t, patches)
+				require.False(t, woken)
+				return
+			}
 			require.NoError(t, err)
 
 			// the delete schedules the ingress and the certificate and leaves the other rows alone

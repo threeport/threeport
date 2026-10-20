@@ -213,7 +213,7 @@ func v0GatewayInstanceDeleted(
 	)
 	var owned []v0.KubernetesWorkloadResourceInstance
 	if err != nil {
-		if !errors.Is(err, errGatewayServiceMissing) && !errors.Is(err, client_lib.ErrObjectNotFound) {
+		if !errors.Is(err, errGatewayServiceMissing) {
 			return 0, fmt.Errorf("failed to configure gateway objects for delete: %w", err)
 		}
 
