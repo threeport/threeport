@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	SupportServicesOperatorImage = "localhost:5001/support-services-operator:4831e6c"
+	SupportServicesOperatorImage = "localhost:5001/support-services-operator:29d65bf"
 
 	// links the service account declared in the IngressComponent resource to
 	// the IRSA role internal/provider creates for it on EKS.
