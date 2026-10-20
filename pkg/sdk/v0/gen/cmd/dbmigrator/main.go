@@ -35,6 +35,7 @@ func GenDbMigratorMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f.ImportAlias("github.com/pressly/goose/v3", "goose")
 	f.ImportAlias("github.com/threeport/threeport/pkg/cli/v0", "cli")
 	f.ImportAlias("github.com/threeport/threeport/pkg/log/v0", "log")
+	f.ImportAlias("github.com/threeport/threeport/pkg/util/v0", "util")
 	f.Anon("github.com/lib/pq")
 
 	var installerPath string
@@ -280,6 +281,37 @@ func GenDbMigratorMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			Id("sqlScript"),
 		)).Dot("Error"), Id("err").Op("!=").Nil()).Block(
 			Id("returnErr").Call(Lit("failed to execute SQL init script"), Id("err")),
+		),
+		Line(),
+
+		Comment("create the database backup schedule when the install provides one."),
+		Comment("It runs on its own rather than in the init script because CockroachDB"),
+		Comment("checks the backup target exists when the schedule is created, which it"),
+		Comment("does not until the init script's transaction commits.  The check also"),
+		Comment("reads the backup destination, so it is retried while access to it, such"),
+		Comment("as a newly granted Workload Identity binding, takes effect."),
+		Id("scheduleFile").Op(":=").Qual("path/filepath", "Join").Call(
+			Qual(installerPath, "DbInitLocation"), Qual(installerPath, "DbBackupScheduleFilename"),
+		),
+		List(Id("scheduleScript"), Id("err")).Op(":=").Qual("os", "ReadFile").Call(Id("scheduleFile")),
+		If(Id("err").Op("==").Nil()).Block(
+			If(Id("err").Op(":=").Qual("github.com/threeport/threeport/pkg/util/v0", "Retry").Call(
+				Lit(30), Lit(10), Func().Params().Error().Block(
+					Id("err").Op(":=").Id("gormDb").Dot("Exec").Call(String().Call(Id("scheduleScript"))).Dot("Error"),
+					If(Id("err").Op("!=").Nil()).Block(
+						Id("logger").Dot("Info").Call(
+							Lit("failed to create database backup schedule, retrying in 10 seconds"),
+							Qual("go.uber.org/zap", "Error").Call(Id("err")),
+						),
+					),
+					Return(Id("err")),
+				),
+			), Id("err").Op("!=").Nil()).Block(
+				Id("returnErr").Call(Lit("failed to create database backup schedule"), Id("err")),
+			),
+			Id("logger").Dot("Info").Call(Lit("database backup schedule in place")),
+		).Else().If(Op("!").Qual("errors", "Is").Call(Id("err"), Qual("os", "ErrNotExist"))).Block(
+			Id("returnErr").Call(Lit("failed to read database backup schedule"), Id("err")),
 		),
 		Line(),
 

@@ -757,6 +757,7 @@ store_dir: /data
 								"whenUnsatisfiable": "ScheduleAnyway",
 							},
 						},
+						"serviceAccountName": DatabaseServiceAccountName,
 						// No pre-stop hook is required, a SIGTERM plus some time is all that's
 						// needed for graceful shutdown of a node.
 						"terminationGracePeriodSeconds": 60,
@@ -864,6 +865,12 @@ store_dir: /data
 				},
 			},
 		},
+	}
+
+	// the database runs as its own service account, which is what its
+	// backups are written as
+	if err := cpi.installDatabaseServiceAccount(kubeClient, mapper); err != nil {
+		return err
 	}
 
 	// leave the database stateful set in place when it already exists
