@@ -166,36 +166,6 @@ func InstallThreeportSupportServicesOperator(
 	return nil
 }
 
-// AllowCainjectorWebhookPatch waits for the certificates reconcile to create the cainjector role, then adds patch.
-func AllowCainjectorWebhookPatch(kubeClient dynamic.Interface, mapper *meta.RESTMapper) error {
-	// the operator creates the role while reconciling CertificatesComponent
-	return util.Retry(60, 2, func() error {
-		role, err := kube.GetResource(
-			"rbac.authorization.k8s.io",
-			"v1",
-			"ClusterRole",
-			"",
-			"cert-manager-cainjector",
-			kubeClient,
-			*mapper,
-		)
-		if err != nil {
-			return err
-		}
-		changed, err := addCainjectorPatchVerb(role.Object)
-		if err != nil {
-			return err
-		}
-		if !changed {
-			return nil
-		}
-		if _, err := kube.CreateOrUpdateResource(role, kubeClient, *mapper); err != nil {
-			return err
-		}
-		return nil
-	})
-}
-
 // addCainjectorPatchVerb adds patch to webhook rules that only allow update.
 // It returns whether the role changed.
 func addCainjectorPatchVerb(role map[string]interface{}) (bool, error) {
