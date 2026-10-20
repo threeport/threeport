@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -285,6 +286,23 @@ func workloadObject(id uint, kind, name string) v0.KubernetesWorkloadResourceIns
 			"metadata":   map[string]interface{}{"name": name},
 		}),
 	}
+}
+
+// TestServiceLookupErrUsesTheMissingResourceError reports a missing resource and leaves a kind failure alone.
+func TestServiceLookupErrUsesTheMissingResourceError(t *testing.T) {
+	// a missing name is the missing-resource error
+	stored := []v0.KubernetesWorkloadResourceInstance{workloadObject(1, "Service", "other")}
+	_, missing := workload_util.GetKubernetesWorkloadResourceInstance(&stored, "Service", "echo")
+	require.ErrorIs(t, missing, workload_util.ErrKubernetesWorkloadResourceInstanceNotFound)
+	require.ErrorIs(t, serviceLookupErr(missing), errGatewayServiceMissing)
+
+	// a document with no kind is not a missing resource
+	broken := []v0.KubernetesWorkloadResourceInstance{{
+		JSONDefinition: kubeJSON(map[string]interface{}{"apiVersion": "v1"}),
+	}}
+	_, kindErr := workload_util.GetKubernetesWorkloadResourceInstancesByKind(&broken, "Service")
+	require.Error(t, kindErr)
+	require.False(t, errors.Is(serviceLookupErr(kindErr), errGatewayServiceMissing))
 }
 
 // TestV0GatewayInstanceDeletedSchedulesOwnedResourcesWithoutService schedules the gateway ingress and certificate when the service read fails.

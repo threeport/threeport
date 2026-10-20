@@ -148,8 +148,8 @@ var errGatewayServiceMissing = errors.New("gateway service not found")
 
 // serviceLookupErr wraps a missing service so delete can continue without it.
 func serviceLookupErr(err error) error {
-	// report a missing service as its own error
-	if strings.Contains(err.Error(), "not found") {
+	// report a missing resource as its own error
+	if errors.Is(err, workload_util.ErrKubernetesWorkloadResourceInstanceNotFound) {
 		return fmt.Errorf("failed to unmarshal service kubernetes workload resource instance: %w", errGatewayServiceMissing)
 	}
 	return fmt.Errorf("failed to unmarshal service kubernetes workload resource instance: %w", err)
