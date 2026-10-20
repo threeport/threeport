@@ -13,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/api/googleapi"
 	"google.golang.org/api/iam/v1"
 	"google.golang.org/api/option"
 	"google.golang.org/api/storage/v1"
@@ -28,6 +29,12 @@ type fakeGCP struct {
 	objects         map[string][]string
 	accounts        map[string]*iam.ServiceAccount
 	accountPolicies map[string]*iam.Policy
+
+	// how many more times a bucket policy naming a service account, or a
+	// service account's own policy, is refused as if the account were not
+	// yet known, the way GCP refuses one just created
+	bucketPolicyNotPropagated  int
+	accountPolicyNotPropagated int
 
 	bucketsCreated  []string
 	bucketsDeleted  []string
@@ -87,6 +94,13 @@ func (f *fakeGCP) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			notFound()
 			return
 		}
+		if r.Method == http.MethodPut && f.bucketPolicyNotPropagated > 0 {
+			f.bucketPolicyNotPropagated--
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"error": {"code": 400, "message": "Service account threeport-bkp-threeport-prod@acme-prod.iam.gserviceaccount.com does not exist."}}`))
+			return
+		}
 		if r.Method == http.MethodPut {
 			var policy storage.Policy
 			_ = json.Unmarshal(body, &policy)
@@ -144,7 +158,10 @@ func (f *fakeGCP) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	case accountPolicyPath.MatchString(path):
 		match := accountPolicyPath.FindStringSubmatch(path)
-		if _, ok := f.accounts[match[1]]; !ok {
+		if _, ok := f.accounts[match[1]]; !ok || f.accountPolicyNotPropagated > 0 {
+			if ok {
+				f.accountPolicyNotPropagated--
+			}
 			notFound()
 			return
 		}
@@ -426,4 +443,52 @@ func TestTeardownWithoutBackupsDoesNothing(t *testing.T) {
 	require.NoError(t, testBackupInfra().deleteBackupResources(storageService, iamService))
 	assert.Empty(t, fake.accountsDeleted)
 	assert.Empty(t, fake.bucketsDeleted)
+}
+
+// TestProvisionBackupsWaitsForTheNewServiceAccount covers what a live
+// install hit: right after the backup service account is created, Cloud
+// Storage refuses a policy naming it and IAM does not find it, until it has
+// propagated.  Granting it access is retried rather than failing the install.
+func TestProvisionBackupsWaitsForTheNewServiceAccount(t *testing.T) {
+	delay := serviceAccountPropagationDelay
+	serviceAccountPropagationDelay = 0
+	t.Cleanup(func() { serviceAccountPropagationDelay = delay })
+
+	fake := newFakeGCP()
+	fake.bucketPolicyNotPropagated = 3
+	fake.accountPolicyNotPropagated = 2
+	storageService, iamService := fake.clients(t)
+
+	infra := testBackupInfra()
+	require.NoError(t, infra.provisionBackupsWith(storageService, iamService))
+	assert.Zero(t, fake.bucketPolicyNotPropagated)
+	assert.Zero(t, fake.accountPolicyNotPropagated)
+	assert.NotEmpty(t, fake.bucketMembers(infra.BackupBucket)["roles/storage.objectCreator"])
+}
+
+// TestProvisionBackupsGivesUpOnAnAccountThatNeverAppears covers the bound on
+// that retry: an account that never becomes known fails the install.
+func TestProvisionBackupsGivesUpOnAnAccountThatNeverAppears(t *testing.T) {
+	delay := serviceAccountPropagationDelay
+	serviceAccountPropagationDelay = 0
+	t.Cleanup(func() { serviceAccountPropagationDelay = delay })
+
+	fake := newFakeGCP()
+	fake.bucketPolicyNotPropagated = serviceAccountPropagationAttempts + 1
+	storageService, iamService := fake.clients(t)
+
+	assert.ErrorContains(t, testBackupInfra().provisionBackupsWith(storageService, iamService), "did not become available")
+}
+
+// TestOtherFailuresAreNotRetried covers the errors the retry leaves alone: a
+// failure that is not about a service account's propagation is returned at
+// once.
+func TestOtherFailuresAreNotRetried(t *testing.T) {
+	calls := 0
+	err := retryWhileServiceAccountPropagates(func() error {
+		calls++
+		return &googleapi.Error{Code: 403, Message: "permission denied"}
+	})
+	assert.Error(t, err)
+	assert.Equal(t, 1, calls)
 }

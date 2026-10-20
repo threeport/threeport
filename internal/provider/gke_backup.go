@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/iam/v1"
@@ -194,16 +195,22 @@ func (i *KubernetesRuntimeInfraGKE) provisionBackupsWith(
 		return err
 	}
 
-	if err := grantBucketRoles(storageService, bucketName, "serviceAccount:"+account.Email, backupBucketRoles); err != nil {
+	// a service account just created is not yet known to every GCP API, so
+	// granting it access is retried until it is
+	if err := retryWhileServiceAccountPropagates(func() error {
+		return grantBucketRoles(storageService, bucketName, "serviceAccount:"+account.Email, backupBucketRoles)
+	}); err != nil {
 		return err
 	}
 
-	if err := addWorkloadIdentityMembers(
-		iamService,
-		i.ProjectID,
-		account.Email,
-		[]string{databaseWorkloadIdentityMember(i.ProjectID)},
-	); err != nil {
+	if err := retryWhileServiceAccountPropagates(func() error {
+		return addWorkloadIdentityMembers(
+			iamService,
+			i.ProjectID,
+			account.Email,
+			[]string{databaseWorkloadIdentityMember(i.ProjectID)},
+		)
+	}); err != nil {
 		return fmt.Errorf("failed to let the database act as the backup service account: %w", err)
 	}
 
@@ -211,6 +218,44 @@ func (i *KubernetesRuntimeInfraGKE) provisionBackupsWith(
 	i.BackupServiceAccountEmail = account.Email
 
 	return nil
+}
+
+// serviceAccountPropagationAttempts and serviceAccountPropagationDelay bound
+// how long access for a new service account is retried: two minutes.
+var (
+	serviceAccountPropagationAttempts = 24
+	serviceAccountPropagationDelay    = 5 * time.Second
+)
+
+// retryWhileServiceAccountPropagates runs f until it succeeds, retrying while
+// the failure says a service account does not exist yet.  Any other failure
+// is returned at once.
+func retryWhileServiceAccountPropagates(f func() error) error {
+	var err error
+	for attempt := 1; attempt <= serviceAccountPropagationAttempts; attempt++ {
+		err = f()
+		if err == nil || !isServiceAccountNotPropagated(err) {
+			return err
+		}
+		if attempt < serviceAccountPropagationAttempts {
+			time.Sleep(serviceAccountPropagationDelay)
+		}
+	}
+
+	return fmt.Errorf("service account did not become available: %w", err)
+}
+
+// isServiceAccountNotPropagated reports whether err is a Google API saying a
+// service account does not exist: a 404 for the account itself, or the 400
+// Cloud Storage returns for a policy that names it.
+func isServiceAccountNotPropagated(err error) bool {
+	var apiErr *googleapi.Error
+	if !errors.As(err, &apiErr) {
+		return false
+	}
+
+	return apiErr.Code == 404 ||
+		(apiErr.Code == 400 && strings.Contains(apiErr.Message, "does not exist"))
 }
 
 // ensureBackupBucket creates the backup bucket, or reuses it when an earlier
