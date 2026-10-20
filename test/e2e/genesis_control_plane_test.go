@@ -69,41 +69,47 @@ var _ = AfterSuite(func() {
 	if clean {
 		GinkgoWriter.Write([]byte("beginning cleanup for test suite"))
 
+		// every step runs even when an earlier one failed, so a single failure
+		// cannot leave the registry running or hide leaked AWS resources -
+		// the failures are reported together at the end
+		var cleanupErrors []error
+
 		By("remove workload instances a failed test left behind")
-		leftoverErr := removeLeftoverWorkloadInstances()
-
-		// every step below runs even when an earlier one failed, so a single
-		// failure cannot leave the registry running or hide leaked AWS
-		// resources - the failures are reported together at the end
-		By("remove genesis control plane")
-		controlPlaneErr := removeControlPlane()
-
-		var registryErr error
-		if usingLocalRegistry() {
-			By("remove the local container registry")
-			registryErr = removeLocalRegistry()
+		if err := removeLeftoverWorkloadInstances(); err != nil {
+			cleanupErrors = append(cleanupErrors, fmt.Errorf("failed to remove leftover workload instances: %w", err))
 		}
 
-		var leaked []string
-		var leakCheckErr error
+		By("remove genesis control plane")
+		if err := removeControlPlane(); err != nil {
+			cleanupErrors = append(cleanupErrors, fmt.Errorf("failed to remove control plane: %w", err))
+		}
+
+		if usingLocalRegistry() {
+			By("remove the local container registry")
+			if err := removeLocalRegistry(); err != nil {
+				cleanupErrors = append(cleanupErrors, fmt.Errorf("failed to remove local container registry: %w", err))
+			}
+		}
+
 		if provider == eksProvider {
 			// A teardown that reports success while leaving a NAT gateway or a
 			// load balancer behind bills by the hour and shows up on nobody's
 			// screen, so the suite fails on anything the install added and did
 			// not remove.
 			By("checking the teardown left no AWS resources behind")
-			leaked, leakCheckErr = leakedAwsResourcesAfterTeardown()
+			leaked, err := leakedAwsResourcesAfterTeardown()
+			if err != nil {
+				cleanupErrors = append(cleanupErrors, fmt.Errorf("failed to check for leaked AWS resources: %w", err))
+			}
+			if len(leaked) > 0 {
+				cleanupErrors = append(cleanupErrors, fmt.Errorf(
+					"the teardown left AWS resources behind:\n  %s",
+					strings.Join(leaked, "\n  "),
+				))
+			}
 		}
 
-		Expect(leftoverErr).NotTo(HaveOccurred(), "failed to remove leftover workload instances")
-		Expect(controlPlaneErr).NotTo(HaveOccurred(), "failed to remove control plane")
-		Expect(registryErr).NotTo(HaveOccurred(), "failed to remove local container registry")
-		Expect(leakCheckErr).NotTo(HaveOccurred(), "failed to check for leaked AWS resources")
-		Expect(leaked).To(
-			BeEmpty(),
-			"the teardown left AWS resources behind:\n  %s",
-			strings.Join(leaked, "\n  "),
-		)
+		Expect(errors.Join(cleanupErrors...)).NotTo(HaveOccurred(), "cleanup failed")
 	}
 })
 
