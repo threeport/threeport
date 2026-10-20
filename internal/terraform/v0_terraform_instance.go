@@ -45,9 +45,6 @@ func v0TerraformInstanceCreated(
 
 	// execute terraform instance create
 	if err := c.getTerraformInstanceOperations().Create(); err != nil {
-		if saveErr := c.savePartialTerraformState(); saveErr != nil {
-			log.Error(saveErr, "failed to save the state of the failed terraform apply")
-		}
 		return 0, fmt.Errorf("failed to execute terraform instance create operations: %w", err)
 	}
 
