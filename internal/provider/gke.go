@@ -20,6 +20,7 @@ import (
 	gcpiam "google.golang.org/api/iam/v1"
 	"google.golang.org/api/option"
 	gcpoption "google.golang.org/api/option"
+	"google.golang.org/api/storage/v1"
 	"gorm.io/datatypes"
 
 	gcpauth "github.com/threeport/threeport/pkg/auth/v0"
@@ -72,6 +73,24 @@ type KubernetesRuntimeInfraGKE struct {
 	// the service account credentials. This is set internally when
 	// ServiceAccountCredentials is used.
 	credentialsFilePath string
+
+	// ProvisionBackups makes Create provision a bucket in another region the
+	// control plane's database is backed up to.
+	ProvisionBackups bool
+
+	// BackupRegion is the region of the backup bucket.  Empty uses the
+	// default for the cluster's region.
+	BackupRegion string
+
+	// BackupBucket is the name of the backup bucket: set by Create when it
+	// provisions one, and by a caller tearing down a control plane whose
+	// bucket was recorded, so Delete removes the database's access to it.
+	BackupBucket string
+
+	// DeleteBackups makes Delete remove the backup bucket in BackupBucket and
+	// every backup in it.  The bucket is kept by default, since its backups
+	// may still be needed after the control plane is gone.
+	DeleteBackups bool
 
 	// gcpProjectResolvedFromGcloudINI is true when loadGCPConfig set ProjectID from the active gcloud INI.
 	gcpProjectResolvedFromGcloudINI bool
@@ -133,13 +152,34 @@ func (i *KubernetesRuntimeInfraGKE) Create() (*kube.KubeConnectionInfo, error) {
 		}
 	}
 
+	// refuse a backup region that would not survive the loss of the
+	// cluster's region before anything is created
+	if i.ProvisionBackups {
+		if _, err := GkeBackupRegion(i.Region, i.BackupRegion); err != nil {
+			return nil, err
+		}
+	}
+
 	// create GCP service account for Threeport to manage GCP resources
 	// This service account will be used with Workload Identity
 	if err := i.createGCPServiceAccountAndCredentials(); err != nil {
 		return nil, fmt.Errorf("failed to create GCP service account: %w", err)
 	}
 
-	return i.CreateInfra()
+	connection, err := i.CreateInfra()
+	if err != nil {
+		return nil, err
+	}
+
+	// provision the database backups once the cluster, and with it the
+	// workload identity pool the backup binding names, exists
+	if i.ProvisionBackups {
+		if err := i.provisionBackups(); err != nil {
+			return nil, fmt.Errorf("failed to provision database backups: %w", err)
+		}
+	}
+
+	return connection, nil
 }
 
 // CreateInfra provisions GKE cluster infrastructure via Pulumi (network, cluster, node pool)
@@ -403,6 +443,22 @@ func (i *KubernetesRuntimeInfraGKE) DeleteGCPResources() error {
 	// Delete the service account
 	if err := i.deleteGCPServiceAccount(iamService); err != nil {
 		return fmt.Errorf("failed to delete service account: %w", err)
+	}
+
+	// Remove the database's access to its backup bucket, and the backups
+	// when asked to
+	if i.BackupBucket != "" {
+		storageClientOpts := []option.ClientOption{option.WithScopes(storage.DevstorageFullControlScope)}
+		if i.ServiceAccountCredentials != "" {
+			storageClientOpts = append(storageClientOpts, option.WithCredentialsJSON([]byte(i.ServiceAccountCredentials)))
+		}
+		storageService, err := storage.NewService(ctx, storageClientOpts...)
+		if err != nil {
+			return fmt.Errorf("failed to create storage service client: %w", err)
+		}
+		if err := i.deleteBackupResources(storageService); err != nil {
+			return fmt.Errorf("failed to clean up database backup resources: %w", err)
+		}
 	}
 
 	return nil

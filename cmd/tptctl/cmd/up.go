@@ -104,6 +104,15 @@ control planes if they are used to create or are created by another control plan
 			cli.Error("flag validation failed:", err)
 			os.Exit(1)
 		}
+		if err := cli.ValidateGcpBackupRegionFlag(
+			cliArgs.GcpBackupRegion,
+			cliArgs.InfraProvider,
+			cliArgs.Tier,
+			cliArgs.ControlPlaneOnly,
+		); err != nil {
+			cli.Error("flag validation failed:", err)
+			os.Exit(1)
+		}
 
 		cpi, err := cliArgs.CreateInstaller()
 		if err != nil {
@@ -200,6 +209,10 @@ func init() {
 	UpCmd.Flags().StringVar(
 		&cliArgs.GcpRegion,
 		"gcp-region", "", "Google Cloud region code to install threeport in when using gke provider. If provided, will take precedence over environment variables.",
+	)
+	UpCmd.Flags().StringVar(
+		&cliArgs.GcpBackupRegion,
+		"gcp-backup-region", "", "Google Cloud region of the bucket a production control plane on gke backs its database up to. Must differ from --gcp-region. Defaults to another region on the same continent.",
 	)
 	UpCmd.Flags().BoolVar(
 		&cliArgs.ForceOverwriteConfig,

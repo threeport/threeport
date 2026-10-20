@@ -16,6 +16,11 @@ const (
 	dbCredsSecretName = "db-certs"
 	natsServiceName   = "nats-js"
 
+	// DatabaseServiceAccountName is the Kubernetes service account the
+	// database runs as.  On a production GKE control plane the backup bucket
+	// grants it access by its UID, through Workload Identity Federation.
+	DatabaseServiceAccountName = "crdb"
+
 	// natsBoxImage is the nats CLI image shared by the nats-box pod and the stream drop job.
 	natsBoxImage = "docker.io/natsio/nats-box:0.16.0-nonroot"
 )
@@ -752,6 +757,7 @@ store_dir: /data
 								"whenUnsatisfiable": "ScheduleAnyway",
 							},
 						},
+						"serviceAccountName": DatabaseServiceAccountName,
 						// No pre-stop hook is required, a SIGTERM plus some time is all that's
 						// needed for graceful shutdown of a node.
 						"terminationGracePeriodSeconds": 60,
@@ -859,6 +865,12 @@ store_dir: /data
 				},
 			},
 		},
+	}
+
+	// the database runs as its own service account, which is what its
+	// backups are written as
+	if err := cpi.installDatabaseServiceAccount(kubeClient, mapper); err != nil {
+		return err
 	}
 
 	// leave the database stateful set in place when it already exists
