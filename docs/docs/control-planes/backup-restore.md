@@ -87,6 +87,16 @@ kubectl exec -it -n threeport-control-plane crdb-0 -- \
   -e "SELECT job_id, status, created, error FROM [SHOW JOBS] WHERE job_type = 'BACKUP' ORDER BY created DESC LIMIT 5"
 ```
 
+## Backups before migrations
+
+Before the API server starts, its database migrator applies any pending schema
+migrations. When there are some, a production control plane first takes a full
+backup into the same bucket, so an upgrade that goes wrong can be undone. A
+migration that fails is rolled back automatically, and only when that rollback
+fails too is the database left between versions. The migrator's error then
+names the backup it took, which `tptctl restore --backup` restores. See the
+database migrator's README for how a failed migration is reported and cleared.
+
 ## Restore the database
 
 `tptctl restore` replaces the control plane's database with a backup. It

@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"flag"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	_ "github.com/threeport/threeport/cmd/database-migrator/migrations"
 	database "github.com/threeport/threeport/pkg/api-server/v0/database"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
+	migrator "github.com/threeport/threeport/pkg/database-migrator/v0"
 	log "github.com/threeport/threeport/pkg/log/v0"
 	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -22,6 +24,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -126,13 +129,70 @@ func migrateDb(
 	// run migrations
 	ctx := context.WithValue(context.TODO(), "gormdb", gormdb)
 	goose.SetTableName("threeport_goose_db_version")
-	if err := goose.RunContext(ctx, command, db, ".", arguments...); err != nil {
+	// a plain 'up' applies the pending migrations so that a failed one is
+	// rolled back rather than left part way; any other goose command runs as is
+	if command == "up" && len(arguments) == 0 {
+		if err := upWithRollback(ctx, db, logger); err != nil {
+			returnErr("failed to migrate database schema", err)
+		}
+	} else if err := goose.RunContext(ctx, command, db, ".", arguments...); err != nil {
 		returnErr(fmt.Sprintf("goose %s command failed", command), err)
 	}
 
 	logger.Info("database schema successfully migrated")
 
 	return nil
+}
+
+// upWithRollback applies every pending migration.  A migration that fails is
+// rolled back along with the ones applied before it in the same run, and the
+// failure is recorded so the migrator does not try again until an operator
+// clears it.
+func upWithRollback(ctx context.Context, db *sql.DB, logger zap.Logger) error {
+	steps, err := migrator.RegisteredGooseSteps(db)
+	if err != nil {
+		return err
+	}
+	record, err := migrator.NewTableFailureRecord(ctx, db, "threeport_goose_db_version_failure")
+	if err != nil {
+		return err
+	}
+
+	opts := migrator.Options{Logf: func(format string, args ...interface{}) {
+		logger.Info(fmt.Sprintf(format, args...))
+	}}
+	backup, err := databaseBackup()
+	if err != nil {
+		return err
+	}
+	opts.Backup = backup
+
+	return migrator.Up(ctx, steps, record, opts)
+}
+
+// databaseBackup returns a backup of the database into the location the install
+// configured, taken as the root user since CockroachDB lets only an admin back
+// up to cloud storage with the node's own identity.  It returns nil when the
+// install configured no backups.
+func databaseBackup() (migrator.BackupFunc, error) {
+	uri, err := os.ReadFile(filepath.Join(installer.DbBackupConfigLocation, installer.DbBackupURIFilename))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the database backup location: %w", err)
+	}
+
+	dsn, err := database.GetDsn(true)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the root database connection string: %w", err)
+	}
+	rootDb, err := sql.Open("postgres", dsn)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open a root database connection: %w", err)
+	}
+
+	return migrator.CockroachBackup(rootDb, database.ThreeportDatabaseName, strings.TrimSpace(string(uri))), nil
 }
 
 // initializeDb creates the database and user using root database user.

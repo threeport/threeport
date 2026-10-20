@@ -66,3 +66,32 @@ func TestOnlyTheCoreMigratorCreatesTheBackupSchedule(t *testing.T) {
 		t.Error("a module's migrator no longer runs its init script")
 	}
 }
+
+// TestEveryMigratorRollsBackButOnlyTheCoreBacksUp covers which migrators
+// back the database up before migrating and roll a failed migration back.
+// Every migrator, a module's included, rolls back, which needs nothing from
+// the install.  Only the core control plane's backs up, since the backup
+// location is part of its install.
+func TestEveryMigratorRollsBackButOnlyTheCoreBacksUp(t *testing.T) {
+	core := generateMigratorMain(t, &gen.Generator{}, &sdk.SdkConfig{})
+	module := generateMigratorMain(
+		t,
+		&gen.Generator{Module: true, ModulePath: "example.com/widget-module"},
+		&sdk.SdkConfig{ModuleName: "Widget", ApiNamespace: "widget.example.com"},
+	)
+
+	for name, source := range map[string]string{"core": core, "module": module} {
+		if !strings.Contains(source, "func upWithRollback(") || !strings.Contains(source, "migrator.Up(ctx, steps, record, opts)") {
+			t.Errorf("the %s migrator does not roll a failed migration back", name)
+		}
+	}
+	if !strings.Contains(module, `"threeport_widget_goose_db_version_failure"`) {
+		t.Error("a module's failure record is not kept next to its own goose version table")
+	}
+	if !strings.Contains(core, "func databaseBackup(") || !strings.Contains(core, "opts.Backup = backup") {
+		t.Error("the core migrator does not back the database up before migrating")
+	}
+	if strings.Contains(module, "databaseBackup") || strings.Contains(module, "DbBackupURIFilename") {
+		t.Error("a module's migrator backs up, naming installer constants its own installer does not declare")
+	}
+}

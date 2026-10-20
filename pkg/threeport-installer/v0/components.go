@@ -229,6 +229,12 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAPIDeployment(
 		return fmt.Errorf("failed to create DB initialization config map: %w", err)
 	}
 
+	// tell the database migrator where to back the database up to before
+	// migrating
+	if err := cpi.installDatabaseBackupConfig(kubeClient, mapper); err != nil {
+		return err
+	}
+
 	var apiSecret = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "v1",
@@ -311,8 +317,12 @@ THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 					"mountPath": "/etc/threeport/",
 				},
 				map[string]interface{}{
-					"name":      "db-threeport-cert",
+					"name":      dbMigratorCertsVolumeName,
 					"mountPath": "/etc/threeport/db-certs",
+				},
+				map[string]interface{}{
+					"name":      DbBackupConfigName,
+					"mountPath": DbBackupConfigLocation,
 				},
 			},
 		},
@@ -1735,6 +1745,36 @@ func (cpi *ControlPlaneInstaller) getAPIVolumes() ([]interface{}, []interface{},
 			"name": "db-create",
 			"configMap": map[string]interface{}{
 				"name": "db-create",
+			},
+		},
+		// the database migrator connects as the threeport user, and as root
+		// only to back the database up before migrating
+		map[string]interface{}{
+			"name": dbMigratorCertsVolumeName,
+			"projected": map[string]interface{}{
+				"sources": []interface{}{
+					map[string]interface{}{
+						"secret": map[string]interface{}{"name": dbThreeportCertSecretName},
+					},
+					map[string]interface{}{
+						"secret": map[string]interface{}{
+							"name": dbRootCertSecretName,
+							"items": []interface{}{
+								map[string]interface{}{"key": "client.root.crt", "path": "client.root.crt"},
+								map[string]interface{}{"key": "client.root.key", "path": "client.root.key"},
+							},
+						},
+					},
+				},
+			},
+		},
+		// where the database is backed up to, on a control plane that backs
+		// it up; absent on any other
+		map[string]interface{}{
+			"name": DbBackupConfigName,
+			"configMap": map[string]interface{}{
+				"name":     DbBackupConfigName,
+				"optional": true,
 			},
 		},
 	}

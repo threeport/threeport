@@ -50,6 +50,51 @@ Generally the logic will be inverse of one another.
 So in the above, we add the image_tag column to the table when upgrading and remove it when downgrading.
 If backfill logic for data is needed, this is also the place to accomodate for that.
 
+### Every migration needs a down migration
+
+When a migration fails, the migrator rolls it back automatically (see below),
+and the rollback is made of down migrations. So every migration must have one,
+and it has to work in two situations:
+
+- after its migration completed, to revert it
+- after its migration failed part way. Migrations run outside a transaction,
+  since CockroachDB cannot change a schema inside one, so a migration that
+  fails can leave some of its changes behind. Its down migration is run to
+  remove them, so it must tolerate the changes it reverts being only partly
+  there or not there at all: `DROP ... IF EXISTS`, `DROP COLUMN IF EXISTS`, and
+  so on.
+
+`TestEveryMigrationRollsBack` in `test/cockroach` enforces both against a real
+CockroachDB: every migration has a down migration, the whole chain survives
+up, down to nothing and up again, and every down migration runs cleanly on a
+database its migration never changed.
+
+## What happens when a migration fails
+
+`database-migrator up` runs as an init container of the API server. It applies
+the pending migrations one at a time:
+
+1. On a production control plane that backs its database up, it first takes
+   a full backup into the backup bucket. A new install, whose database is
+   empty, takes none.
+2. When a migration fails, its down migration cleans up what it left, and the
+   migrations applied before it in the same run are rolled back, newest first,
+   so the database returns to the version it started from.
+3. The failure is recorded in the `threeport_goose_db_version_failure` table
+   and the init container fails with a message saying what failed, what
+   version the database is at, and, if the rollback failed too, the backup to
+   restore with `tptctl restore --backup`.
+
+While a failure is recorded, every restart of the init container fails with
+the same message without migrating or backing up again. Once the cause is
+fixed, clear the record so the next start migrates:
+
+```bash
+kubectl exec -n threeport-control-plane crdb-0 -- \
+  /cockroach/cockroach sql --certs-dir=/cockroach/cockroach-certs \
+  -d threeport_api -e "DELETE FROM threeport_goose_db_version_failure"
+```
+
 
 ## How to run database migrator
 

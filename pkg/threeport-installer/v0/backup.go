@@ -29,6 +29,20 @@ const (
 	// DatabaseFullBackupRecurrence is how often a full backup is taken, which
 	// the incremental backups until the next one build on.
 	DatabaseFullBackupRecurrence = "@daily"
+
+	// DbBackupConfigName is the ConfigMap that tells the database migrator
+	// where to back the database up to before migrating.
+	DbBackupConfigName = "db-backup"
+
+	// DbBackupConfigLocation is where the database migrator mounts it.
+	DbBackupConfigLocation = "/etc/threeport/db-backup"
+
+	// DbBackupURIFilename is the key holding the backup location.
+	DbBackupURIFilename = "uri"
+
+	// dbMigratorCertsVolumeName is the volume of database client certificates
+	// the database migrator connects with.
+	dbMigratorCertsVolumeName = "db-migrator-certs"
 )
 
 // DatabaseBackupURI returns the location in a GCS bucket the database is
@@ -101,3 +115,37 @@ func (cpi *ControlPlaneInstaller) DatabaseServiceAccountUID(kubeClient dynamic.I
 
 // serviceAccountGVR is the core v1 serviceaccounts resource.
 var serviceAccountGVR = schema.GroupVersionResource{Version: "v1", Resource: "serviceaccounts"}
+
+// installDatabaseBackupConfig creates the ConfigMap that tells the database
+// migrator where to back the database up to before migrating, on a control
+// plane with a backup bucket.  It is left in place when it already exists, so
+// a reinstall, which is not told about the backups, keeps backing up before
+// migrations.
+func (cpi *ControlPlaneInstaller) installDatabaseBackupConfig(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+) error {
+	if cpi.Opts.GcpBackupBucket == "" {
+		return nil
+	}
+
+	backupConfig := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+			"metadata": map[string]interface{}{
+				"name":      DbBackupConfigName,
+				"namespace": cpi.Opts.Namespace,
+			},
+			"data": map[string]interface{}{
+				DbBackupURIFilename: DatabaseBackupURI(cpi.Opts.GcpBackupBucket),
+			},
+		},
+	}
+	setPersistent(backupConfig)
+	if err := cpi.CreateOrUpdateKubeResource(backupConfig, kubeClient, mapper); err != nil {
+		return fmt.Errorf("failed to create database backup config map: %w", err)
+	}
+
+	return nil
+}

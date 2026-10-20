@@ -215,3 +215,99 @@ func TestTheBackupScheduleIsCreatedOnlyWithABucket(t *testing.T) {
 	assert.Equal(t, withBucket[DbInitFilename], withoutBucket[DbInitFilename])
 	assert.NotContains(t, strings.ToUpper(withBucket[DbInitFilename].(string)), "SCHEDULE")
 }
+
+// installAPIServer installs the API server into a fake cluster and returns
+// it.
+func installAPIServer(t *testing.T, cpi *ControlPlaneInstaller) *dynamicfake.FakeDynamicClient {
+	t.Helper()
+
+	fakeClient := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
+	mapper := backupTestMapper()
+	dbCreds, err := auth.GenerateDbCreds(cpi.Opts.Namespace)
+	require.NoError(t, err)
+	require.NoError(t, cpi.UpdateThreeportAPIDeployment(normalizingClient{fakeClient}, &mapper, dbCreds))
+
+	return fakeClient
+}
+
+var configMapGVR = schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
+
+// TestTheMigratorIsToldWhereToBackUp covers the location the database
+// migrator backs the database up to before migrating: given on a control
+// plane with a backup bucket, in a ConfigMap a reinstall keeps, and absent
+// on any other.
+func TestTheMigratorIsToldWhereToBackUp(t *testing.T) {
+	kubeClient := installAPIServer(t, backupInstaller())
+
+	backupConfig := getObject(t, kubeClient, configMapGVR, DbBackupConfigName)
+	uri, _, err := unstructured.NestedString(backupConfig.Object, "data", DbBackupURIFilename)
+	require.NoError(t, err)
+	assert.Equal(t, "gs://threeport-prod-backups-acme-prod/threeport_api?AUTH=implicit", uri)
+	assert.Equal(t, LabelPersistentValue, backupConfig.GetLabels()[LabelPersistent])
+
+	cpi := backupInstaller()
+	cpi.Opts.GcpBackupBucket = ""
+	withoutBackups := installAPIServer(t, cpi)
+	_, err = withoutBackups.Resource(configMapGVR).Namespace(ControlPlaneNamespace).Get(context.Background(), DbBackupConfigName, metav1.GetOptions{})
+	assert.Error(t, err, "a control plane without backups is told where to back up")
+}
+
+// TestTheMigratorCanBackUp covers what the database migrator mounts to back
+// up: the backup location, optional so a control plane without one still
+// starts, and the root client certificate next to its own, since only an
+// admin may back up to cloud storage with the node's identity.
+func TestTheMigratorCanBackUp(t *testing.T) {
+	cpi := backupInstaller()
+	cpi.Opts.GcpBackupBucket = ""
+	kubeClient := installAPIServer(t, cpi)
+	deployment := getObject(t, kubeClient, schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}, ThreeportAPIServiceResourceName)
+
+	initContainers, _, err := unstructured.NestedSlice(deployment.Object, "spec", "template", "spec", "initContainers")
+	require.NoError(t, err)
+	mounts := map[string]string{}
+	for _, item := range initContainers {
+		container := item.(map[string]interface{})
+		if container["name"] != "database-migrator" {
+			continue
+		}
+		for _, mount := range container["volumeMounts"].([]interface{}) {
+			m := mount.(map[string]interface{})
+			mounts[m["name"].(string)] = m["mountPath"].(string)
+		}
+	}
+	assert.Equal(t, DbBackupConfigLocation, mounts[DbBackupConfigName])
+	assert.Equal(t, "/etc/threeport/db-certs", mounts[dbMigratorCertsVolumeName])
+
+	volumes, _, err := unstructured.NestedSlice(deployment.Object, "spec", "template", "spec", "volumes")
+	require.NoError(t, err)
+	var certSources []interface{}
+	var backupOptional bool
+	for _, item := range volumes {
+		volume := item.(map[string]interface{})
+		switch volume["name"] {
+		case dbMigratorCertsVolumeName:
+			certSources, _, _ = unstructured.NestedSlice(volume, "projected", "sources")
+		case DbBackupConfigName:
+			backupOptional, _, _ = unstructured.NestedBool(volume, "configMap", "optional")
+		}
+	}
+	assert.True(t, backupOptional, "the API server cannot start without a backup location")
+
+	keys := []string{}
+	for _, source := range certSources {
+		secret := source.(map[string]interface{})["secret"].(map[string]interface{})
+		items, found := secret["items"].([]interface{})
+		if !found {
+			keys = append(keys, secret["name"].(string)+"/*")
+			continue
+		}
+		for _, item := range items {
+			keys = append(keys, secret["name"].(string)+"/"+item.(map[string]interface{})["key"].(string))
+		}
+	}
+	assert.ElementsMatch(t, []string{
+		dbThreeportCertSecretName + "/*",
+		dbRootCertSecretName + "/client.root.crt",
+		dbRootCertSecretName + "/client.root.key",
+	}, keys, "the migrator's certificates")
+}
