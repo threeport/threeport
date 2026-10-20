@@ -376,34 +376,38 @@ func LoggingInstanceReconciler(r *controller.Reconciler) {
 					r.APIServer,
 					&deletedLoggingInstance,
 				)
-				if err != nil {
-					log.Error(err, "failed to update logging instance to mark as deleted")
-					r.UnlockAndRequeue(loggingInstance, requeueDelay, lockReleased, msg)
-					continue
-				}
-				_, err = client_v0.DeleteLoggingInstance(
-					r.APIClient,
-					r.APIServer,
-					loggingInstance.GetId(),
-				)
-				if err != nil {
-					if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
-						log.Info(
-							"conflict deleting logging instance, requeueing",
-							"cause", err.Error(),
-						)
-						// in-progress event already recorded before the handler
-						r.UnlockAndRequeue(
-							loggingInstance,
-							int64(30),
-							lockReleased,
-							msg,
-						)
+				if errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+					log.Info("logging instance already deleted")
+				} else {
+					if err != nil {
+						log.Error(err, "failed to update logging instance to mark as deleted")
+						r.UnlockAndRequeue(loggingInstance, requeueDelay, lockReleased, msg)
 						continue
 					}
-					log.Error(err, "failed to delete logging instance")
-					r.UnlockAndRequeue(loggingInstance, requeueDelay, lockReleased, msg)
-					continue
+					_, err = client_v0.DeleteLoggingInstance(
+						r.APIClient,
+						r.APIServer,
+						loggingInstance.GetId(),
+					)
+					if err != nil && !errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+						if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
+							log.Info(
+								"conflict deleting logging instance, requeueing",
+								"cause", err.Error(),
+							)
+							// in-progress event already recorded before the handler
+							r.UnlockAndRequeue(
+								loggingInstance,
+								int64(30),
+								lockReleased,
+								msg,
+							)
+							continue
+						}
+						log.Error(err, "failed to delete logging instance")
+						r.UnlockAndRequeue(loggingInstance, requeueDelay, lockReleased, msg)
+						continue
+					}
 				}
 			default:
 				log.Error(

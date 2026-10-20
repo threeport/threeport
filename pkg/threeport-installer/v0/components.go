@@ -269,9 +269,9 @@ THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 	}
 
 	// configure ports
-	ports := []map[string]interface{}{
-		{
-			"containerPort": 1323,
+	ports := []interface{}{
+		map[string]interface{}{
+			"containerPort": int64(1323),
 			"name":          "api",
 			"protocol":      "TCP",
 		},
@@ -285,7 +285,8 @@ THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 			"command": []interface{}{
 				fmt.Sprintf("/%s", cpi.Opts.DatabaseMigratorInfo.BinaryName),
 			},
-			"args": []interface{}{"-env-file=/etc/threeport/env", "initialize"},
+			"args":      []interface{}{"-env-file=/etc/threeport/env", "initialize"},
+			"resources": cpi.componentResources(cpi.Opts.DatabaseMigratorInfo.Name),
 			"volumeMounts": []interface{}{
 				map[string]interface{}{
 					"name":      "db-create",
@@ -308,7 +309,8 @@ THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 			"command": []interface{}{
 				fmt.Sprintf("/%s", cpi.Opts.DatabaseMigratorInfo.BinaryName),
 			},
-			"args": dbMigratorArgs,
+			"args":      dbMigratorArgs,
+			"resources": cpi.componentResources(cpi.Opts.DatabaseMigratorInfo.Name),
 			"volumeMounts": []interface{}{
 				map[string]interface{}{
 					"name":      ThreeportApiConfigSecret,
@@ -327,6 +329,7 @@ THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 		initContainers = append(initContainers, ic)
 	}
 
+	apiReplicas := cpi.componentReplicas(cpi.Opts.ApiReplicas)
 	var apiDeployment = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "apps/v1",
@@ -336,7 +339,7 @@ THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 				"namespace": cpi.Opts.Namespace,
 			},
 			"spec": map[string]interface{}{
-				"replicas": 1,
+				"replicas": apiReplicas,
 				"selector": map[string]interface{}{
 					"matchLabels": map[string]interface{}{
 						"app.kubernetes.io/name": cpi.Opts.RestApiInfo.ServiceResourceName,
@@ -349,6 +352,7 @@ THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 						},
 					},
 					"spec": map[string]interface{}{
+						"affinity":       componentAntiAffinity(cpi.Opts.RestApiInfo.ServiceResourceName),
 						"initContainers": initContainers,
 						"containers": []interface{}{
 							map[string]interface{}{
@@ -367,6 +371,9 @@ THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 								},
 								"volumeMounts":   apiVolMounts,
 								"readinessProbe": cpi.getReadinessProbe(),
+								"startupProbe":   cpi.getStartupProbe(componentLivenessPath),
+								"livenessProbe":  cpi.getLivenessProbe(componentLivenessPath),
+								"resources":      cpi.componentResources(cpi.Opts.RestApiInfo.Name),
 							},
 						},
 						"imagePullSecrets": apiImagePullSecrets,
@@ -378,6 +385,12 @@ THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 	}
 	if err := cpi.CreateOrUpdateKubeResource(apiDeployment, kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed to create API server deployment: %w", err)
+	}
+
+	if err := cpi.applyComponentDisruptionBudget(
+		kubeClient, mapper, cpi.Opts.RestApiInfo.ServiceResourceName, apiReplicas,
+	); err != nil {
+		return err
 	}
 
 	return nil
@@ -744,7 +757,10 @@ func (cpi *ControlPlaneInstaller) UpdateControllerDeployment(
 	if err := cpi.CreateOrUpdateKubeResource(controllerDeployment, kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed to create %s deployment: %w", controller.Name, err)
 	}
-	return nil
+
+	return cpi.applyComponentDisruptionBudget(
+		kubeClient, mapper, deployName, cpi.controllerReplicas(controller),
+	)
 }
 
 // InstallThreeportAgent installs the threeport agent on a Kubernetes cluster.
@@ -1281,7 +1297,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 				"ports": []interface{}{
 					map[string]interface{}{
 						"name":       "https",
-						"port":       8443,
+						"port":       int64(8443),
 						"protocol":   "TCP",
 						"targetPort": "https",
 					},
@@ -1313,7 +1329,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 				"namespace": cpi.Opts.Namespace,
 			},
 			"spec": map[string]interface{}{
-				"replicas": 1,
+				"replicas": int64(1),
 				"selector": map[string]interface{}{
 					"matchLabels": map[string]interface{}{
 						"app.kubernetes.io/name": "threeport-agent",
@@ -1371,7 +1387,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 								"name":            "kube-rbac-proxy",
 								"ports": []interface{}{
 									map[string]interface{}{
-										"containerPort": 8443,
+										"containerPort": int64(8443),
 										"name":          "https",
 										"protocol":      "TCP",
 									},
@@ -1400,33 +1416,11 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 								"image":           agentImage,
 								"imagePullPolicy": cpi.getImagePullPolicy(),
 								"command":         cpi.getCommand(cpi.Opts.AgentInfo.BinaryName),
-								//"livenessProbe": map[string]interface{}{
-								//	"httpGet": map[string]interface{}{
-								//		"path": "/healthz",
-								//		"port": 8081,
-								//	},
-								//	"initialDelaySeconds": 5,
-								//	"periodSeconds":       20,
-								//},
-								"name": "manager",
-								"readinessProbe": map[string]interface{}{
-									"httpGet": map[string]interface{}{
-										"path": "/readyz",
-										"port": 8081,
-									},
-									"initialDelaySeconds": 5,
-									"periodSeconds":       10,
-								},
-								//"resources": map[string]interface{}{
-								//	"limits": map[string]interface{}{
-								//		"cpu":    "500m",
-								//		"memory": "128Mi",
-								//	},
-								//	"requests": map[string]interface{}{
-								//		"cpu":    "10m",
-								//		"memory": "64Mi",
-								//	},
-								//},
+								"startupProbe":    cpi.getStartupProbe(agentLivenessPath),
+								"livenessProbe":   cpi.getLivenessProbe(agentLivenessPath),
+								"name":            "manager",
+								"readinessProbe":  cpi.getReadinessProbe(),
+								"resources":       cpi.componentResources(cpi.Opts.AgentInfo.Name),
 								//"securityContext": map[string]interface{}{
 								//	"allowPrivilegeEscalation": false,
 								//	"capabilities": map[string]interface{}{
@@ -1444,7 +1438,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 						//	"runAsNonRoot": true,
 						//},
 						"serviceAccountName":            ThreeportAgentName,
-						"terminationGracePeriodSeconds": 10,
+						"terminationGracePeriodSeconds": int64(10),
 					},
 				},
 			},
@@ -1998,7 +1992,7 @@ func (cpi *ControlPlaneInstaller) getControllerDeployment(
 	controllerArgs := cpi.getControllerArgs()
 	controllerImagePullSecrets := cpi.getImagePullSecrets(controller.ImagePullSecretName)
 
-	ports := []map[string]interface{}{}
+	ports := []interface{}{}
 
 	envFrom := []interface{}{
 		map[string]interface{}{
@@ -2037,7 +2031,7 @@ func (cpi *ControlPlaneInstaller) getControllerDeployment(
 				"namespace": namespace,
 			},
 			"spec": map[string]interface{}{
-				"replicas": 1,
+				"replicas": cpi.controllerReplicas(controller),
 				"selector": map[string]interface{}{
 					"matchLabels": map[string]interface{}{
 						"app.kubernetes.io/name": deployName,
@@ -2050,6 +2044,7 @@ func (cpi *ControlPlaneInstaller) getControllerDeployment(
 						},
 					},
 					"spec": map[string]interface{}{
+						"affinity":           componentAntiAffinity(deployName),
 						"serviceAccountName": controller.ServiceAccountName,
 						"containers": []interface{}{
 							map[string]interface{}{
@@ -2061,6 +2056,9 @@ func (cpi *ControlPlaneInstaller) getControllerDeployment(
 								"envFrom":         envFrom,
 								"volumeMounts":    controllerVolMounts,
 								"readinessProbe":  cpi.getReadinessProbe(),
+								"startupProbe":    cpi.getStartupProbe(componentLivenessPath),
+								"livenessProbe":   cpi.getLivenessProbe(componentLivenessPath),
+								"resources":       cpi.componentResources(controller.Name),
 								"ports":           ports,
 							},
 						},
@@ -2073,18 +2071,68 @@ func (cpi *ControlPlaneInstaller) getControllerDeployment(
 	}, nil
 }
 
+const (
+	// componentLivenessPath is the liveness endpoint the API server and
+	// controllers serve on their health port.
+	componentLivenessPath = "/livez"
+
+	// agentLivenessPath is the liveness endpoint the agent's controller-runtime
+	// manager serves on its health port.
+	agentLivenessPath = "/healthz"
+)
+
+// getReadinessProbe returns the readiness probe for the API server and
+// controllers.  It tolerates a few slow answers in a row, so a brief pause such
+// as a garbage collection does not pull a pod out of its Service.
 func (cpi *ControlPlaneInstaller) getReadinessProbe() map[string]interface{} {
 	return map[string]interface{}{
-		"failureThreshold": 1,
+		"failureThreshold": int64(3),
 		"httpGet": map[string]interface{}{
 			"path":   "/readyz",
-			"port":   8081,
+			"port":   int64(8081),
 			"scheme": "HTTP",
 		},
-		"initialDelaySeconds": 1,
-		"periodSeconds":       2,
-		"successThreshold":    1,
-		"timeoutSeconds":      1,
+		"initialDelaySeconds": int64(1),
+		"periodSeconds":       int64(5),
+		"successThreshold":    int64(1),
+		"timeoutSeconds":      int64(2),
+	}
+}
+
+// getStartupProbe returns a startup probe against a component's liveness
+// endpoint.  Its health server only starts once the component has connected
+// to its dependencies, so until this passes the liveness probe does not run -
+// otherwise a component that is slow to start would be restarted before it
+// ever came up.
+func (cpi *ControlPlaneInstaller) getStartupProbe(path string) map[string]interface{} {
+	return map[string]interface{}{
+		"failureThreshold": int64(60),
+		"httpGet": map[string]interface{}{
+			"path":   path,
+			"port":   int64(8081),
+			"scheme": "HTTP",
+		},
+		"periodSeconds":    int64(5),
+		"successThreshold": int64(1),
+		"timeoutSeconds":   int64(2),
+	}
+}
+
+// getLivenessProbe returns a liveness probe against a component's liveness
+// endpoint, which only checks that the process still answers.  It is more
+// lenient than readiness: a pod that stops being ready is taken out of its
+// Service, while one that fails this is restarted.
+func (cpi *ControlPlaneInstaller) getLivenessProbe(path string) map[string]interface{} {
+	return map[string]interface{}{
+		"failureThreshold": int64(3),
+		"httpGet": map[string]interface{}{
+			"path":   path,
+			"port":   int64(8081),
+			"scheme": "HTTP",
+		},
+		"periodSeconds":    int64(10),
+		"successThreshold": int64(1),
+		"timeoutSeconds":   int64(5),
 	}
 }
 

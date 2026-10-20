@@ -63,6 +63,11 @@ type harness struct {
 	// The HTTP status the fetching object's GET handler returns
 	apiStatus atomic.Int64
 
+	// The HTTP status a PATCH against the fetching object returns when set,
+	// in place of apiStatus - an object can be fetched and then be gone by
+	// the time it is updated
+	patchStatus atomic.Int64
+
 	// patchCount counts PATCH requests against the fetching object, i.e.
 	// the "mark reconciled" update issued after the operation switch
 	patchCount atomic.Int64
@@ -150,6 +155,19 @@ func newHarness(t *testing.T) *harness {
 				h.lastPatch = body
 				h.objMu.Unlock()
 				h.patchCount.Add(1)
+			}
+			if patchStatus := int(h.patchStatus.Load()); r.Method == http.MethodPatch && patchStatus != 0 {
+				// answer the way the API does, with the error in the body
+				body, err := json.Marshal(apiserver_lib.Response{Status: apiserver_lib.Status{
+					Code:    patchStatus,
+					Message: http.StatusText(patchStatus),
+					Error:   "record not found",
+				}})
+				require.NoError(t, err)
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(patchStatus)
+				_, _ = w.Write(body)
+				return
 			}
 			status := int(h.apiStatus.Load())
 			if status != http.StatusOK {
@@ -546,4 +564,24 @@ func TestDeleteInProgressRecordedOnceWhenDeleteConflicts(t *testing.T) {
 			assert.NotContains(t, h.instanceRecorder.GetReasons(), event.ReasonDeleteFailed)
 		})
 	}
+}
+
+// TestADeleteAnotherWorkerFinishedIsNotRequeued covers a delete that another
+// worker or replica finished first: the object is fetched, and by the time this
+// pass marks it deleted the API answers 404.  Requeueing on that retried the
+// 404 forever, since nothing brings the object back - so the pass has to end
+// there, with the message acknowledged and no redelivery.
+func TestADeleteAnotherWorkerFinishedIsNotRequeued(t *testing.T) {
+	h := newHarness(t)
+	h.patchStatus.Store(http.StatusNotFound)
+
+	h.publish(notifications.NotificationOperationDeleted)
+	delivered := h.delivered(instanceReconciler)
+
+	// a requeue redelivers after its delay, one second on a first requeue
+	time.Sleep(3 * time.Second)
+
+	assert.Equal(t, delivered, h.delivered(instanceReconciler), "the already-deleted object was redelivered")
+	assert.Equal(t, []string{"delete"}, h.spy.Calls())
+	assert.False(t, h.locked(instanceReconciler), "the lock outlived the pass")
 }

@@ -376,34 +376,38 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 					r.APIServer,
 					&deletedKubernetesRuntimeDefinition,
 				)
-				if err != nil {
-					log.Error(err, "failed to update kubernetes runtime definition to mark as deleted")
-					r.UnlockAndRequeue(kubernetesRuntimeDefinition, requeueDelay, lockReleased, msg)
-					continue
-				}
-				_, err = client_v0.DeleteKubernetesRuntimeDefinition(
-					r.APIClient,
-					r.APIServer,
-					kubernetesRuntimeDefinition.GetId(),
-				)
-				if err != nil {
-					if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
-						log.Info(
-							"conflict deleting kubernetes runtime definition, requeueing",
-							"cause", err.Error(),
-						)
-						// in-progress event already recorded before the handler
-						r.UnlockAndRequeue(
-							kubernetesRuntimeDefinition,
-							int64(30),
-							lockReleased,
-							msg,
-						)
+				if errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+					log.Info("kubernetes runtime definition already deleted")
+				} else {
+					if err != nil {
+						log.Error(err, "failed to update kubernetes runtime definition to mark as deleted")
+						r.UnlockAndRequeue(kubernetesRuntimeDefinition, requeueDelay, lockReleased, msg)
 						continue
 					}
-					log.Error(err, "failed to delete kubernetes runtime definition")
-					r.UnlockAndRequeue(kubernetesRuntimeDefinition, requeueDelay, lockReleased, msg)
-					continue
+					_, err = client_v0.DeleteKubernetesRuntimeDefinition(
+						r.APIClient,
+						r.APIServer,
+						kubernetesRuntimeDefinition.GetId(),
+					)
+					if err != nil && !errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+						if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
+							log.Info(
+								"conflict deleting kubernetes runtime definition, requeueing",
+								"cause", err.Error(),
+							)
+							// in-progress event already recorded before the handler
+							r.UnlockAndRequeue(
+								kubernetesRuntimeDefinition,
+								int64(30),
+								lockReleased,
+								msg,
+							)
+							continue
+						}
+						log.Error(err, "failed to delete kubernetes runtime definition")
+						r.UnlockAndRequeue(kubernetesRuntimeDefinition, requeueDelay, lockReleased, msg)
+						continue
+					}
 				}
 			default:
 				log.Error(

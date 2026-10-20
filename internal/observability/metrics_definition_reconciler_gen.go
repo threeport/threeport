@@ -376,34 +376,38 @@ func MetricsDefinitionReconciler(r *controller.Reconciler) {
 					r.APIServer,
 					&deletedMetricsDefinition,
 				)
-				if err != nil {
-					log.Error(err, "failed to update metrics definition to mark as deleted")
-					r.UnlockAndRequeue(metricsDefinition, requeueDelay, lockReleased, msg)
-					continue
-				}
-				_, err = client_v0.DeleteMetricsDefinition(
-					r.APIClient,
-					r.APIServer,
-					metricsDefinition.GetId(),
-				)
-				if err != nil {
-					if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
-						log.Info(
-							"conflict deleting metrics definition, requeueing",
-							"cause", err.Error(),
-						)
-						// in-progress event already recorded before the handler
-						r.UnlockAndRequeue(
-							metricsDefinition,
-							int64(30),
-							lockReleased,
-							msg,
-						)
+				if errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+					log.Info("metrics definition already deleted")
+				} else {
+					if err != nil {
+						log.Error(err, "failed to update metrics definition to mark as deleted")
+						r.UnlockAndRequeue(metricsDefinition, requeueDelay, lockReleased, msg)
 						continue
 					}
-					log.Error(err, "failed to delete metrics definition")
-					r.UnlockAndRequeue(metricsDefinition, requeueDelay, lockReleased, msg)
-					continue
+					_, err = client_v0.DeleteMetricsDefinition(
+						r.APIClient,
+						r.APIServer,
+						metricsDefinition.GetId(),
+					)
+					if err != nil && !errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+						if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
+							log.Info(
+								"conflict deleting metrics definition, requeueing",
+								"cause", err.Error(),
+							)
+							// in-progress event already recorded before the handler
+							r.UnlockAndRequeue(
+								metricsDefinition,
+								int64(30),
+								lockReleased,
+								msg,
+							)
+							continue
+						}
+						log.Error(err, "failed to delete metrics definition")
+						r.UnlockAndRequeue(metricsDefinition, requeueDelay, lockReleased, msg)
+						continue
+					}
 				}
 			default:
 				log.Error(

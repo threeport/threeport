@@ -376,34 +376,38 @@ func MachineWorkloadInstanceReconciler(r *controller.Reconciler) {
 					r.APIServer,
 					&deletedMachineWorkloadInstance,
 				)
-				if err != nil {
-					log.Error(err, "failed to update machine workload instance to mark as deleted")
-					r.UnlockAndRequeue(machineWorkloadInstance, requeueDelay, lockReleased, msg)
-					continue
-				}
-				_, err = client_v0.DeleteMachineWorkloadInstance(
-					r.APIClient,
-					r.APIServer,
-					machineWorkloadInstance.GetId(),
-				)
-				if err != nil {
-					if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
-						log.Info(
-							"conflict deleting machine workload instance, requeueing",
-							"cause", err.Error(),
-						)
-						// in-progress event already recorded before the handler
-						r.UnlockAndRequeue(
-							machineWorkloadInstance,
-							int64(30),
-							lockReleased,
-							msg,
-						)
+				if errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+					log.Info("machine workload instance already deleted")
+				} else {
+					if err != nil {
+						log.Error(err, "failed to update machine workload instance to mark as deleted")
+						r.UnlockAndRequeue(machineWorkloadInstance, requeueDelay, lockReleased, msg)
 						continue
 					}
-					log.Error(err, "failed to delete machine workload instance")
-					r.UnlockAndRequeue(machineWorkloadInstance, requeueDelay, lockReleased, msg)
-					continue
+					_, err = client_v0.DeleteMachineWorkloadInstance(
+						r.APIClient,
+						r.APIServer,
+						machineWorkloadInstance.GetId(),
+					)
+					if err != nil && !errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+						if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
+							log.Info(
+								"conflict deleting machine workload instance, requeueing",
+								"cause", err.Error(),
+							)
+							// in-progress event already recorded before the handler
+							r.UnlockAndRequeue(
+								machineWorkloadInstance,
+								int64(30),
+								lockReleased,
+								msg,
+							)
+							continue
+						}
+						log.Error(err, "failed to delete machine workload instance")
+						r.UnlockAndRequeue(machineWorkloadInstance, requeueDelay, lockReleased, msg)
+						continue
+					}
 				}
 			default:
 				log.Error(

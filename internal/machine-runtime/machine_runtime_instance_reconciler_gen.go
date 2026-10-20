@@ -376,34 +376,38 @@ func MachineRuntimeInstanceReconciler(r *controller.Reconciler) {
 					r.APIServer,
 					&deletedMachineRuntimeInstance,
 				)
-				if err != nil {
-					log.Error(err, "failed to update machine runtime instance to mark as deleted")
-					r.UnlockAndRequeue(machineRuntimeInstance, requeueDelay, lockReleased, msg)
-					continue
-				}
-				_, err = client_v0.DeleteMachineRuntimeInstance(
-					r.APIClient,
-					r.APIServer,
-					machineRuntimeInstance.GetId(),
-				)
-				if err != nil {
-					if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
-						log.Info(
-							"conflict deleting machine runtime instance, requeueing",
-							"cause", err.Error(),
-						)
-						// in-progress event already recorded before the handler
-						r.UnlockAndRequeue(
-							machineRuntimeInstance,
-							int64(30),
-							lockReleased,
-							msg,
-						)
+				if errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+					log.Info("machine runtime instance already deleted")
+				} else {
+					if err != nil {
+						log.Error(err, "failed to update machine runtime instance to mark as deleted")
+						r.UnlockAndRequeue(machineRuntimeInstance, requeueDelay, lockReleased, msg)
 						continue
 					}
-					log.Error(err, "failed to delete machine runtime instance")
-					r.UnlockAndRequeue(machineRuntimeInstance, requeueDelay, lockReleased, msg)
-					continue
+					_, err = client_v0.DeleteMachineRuntimeInstance(
+						r.APIClient,
+						r.APIServer,
+						machineRuntimeInstance.GetId(),
+					)
+					if err != nil && !errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+						if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
+							log.Info(
+								"conflict deleting machine runtime instance, requeueing",
+								"cause", err.Error(),
+							)
+							// in-progress event already recorded before the handler
+							r.UnlockAndRequeue(
+								machineRuntimeInstance,
+								int64(30),
+								lockReleased,
+								msg,
+							)
+							continue
+						}
+						log.Error(err, "failed to delete machine runtime instance")
+						r.UnlockAndRequeue(machineRuntimeInstance, requeueDelay, lockReleased, msg)
+						continue
+					}
 				}
 			default:
 				log.Error(
