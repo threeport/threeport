@@ -17,6 +17,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -190,7 +191,7 @@ func Up(ctx context.Context, steps Steps, record FailureRecord, opts Options) er
 	var applied []int64
 	for _, version := range pending {
 		if err := checkLock(); err != nil {
-			return lostLockError(err, from, applied)
+			return lostLockError(err, from, applied, backup)
 		}
 		logf("applying migration %d", version)
 		migrateErr := steps.Up(ctx, version)
@@ -203,17 +204,16 @@ func Up(ctx context.Context, steps Steps, record FailureRecord, opts Options) er
 		logf("migration %d failed, rolling back to version %d: %v", version, from, migrateErr)
 		var rollbackErrors []error
 		if err := checkLock(); err != nil {
-			return fmt.Errorf("migration %d failed (%v), and it was not rolled back: %w", version, migrateErr, lostLockError(err, from, applied))
+			return rollbackInterrupted(err, version, migrateErr, false, applied, nil, backup)
 		}
+		cleanedUp := true
 		if err := steps.CleanUp(ctx, version); err != nil {
+			cleanedUp = false
 			rollbackErrors = append(rollbackErrors, fmt.Errorf("failed to clean up migration %d: %w", version, err))
 		}
 		for i := len(applied) - 1; i >= 0; i-- {
 			if err := checkLock(); err != nil {
-				return fmt.Errorf(
-					"migration %d failed (%v), and rolling it back stopped: %w",
-					version, migrateErr, lostLockError(err, from, applied[:i+1]),
-				)
+				return rollbackInterrupted(err, version, migrateErr, cleanedUp, applied[:i+1], rollbackErrors, backup)
 			}
 			if err := steps.Down(ctx, applied[i]); err != nil {
 				rollbackErrors = append(rollbackErrors, fmt.Errorf("failed to roll back migration %d: %w", applied[i], err))
@@ -283,14 +283,60 @@ func describe(failure *Failure) string {
 
 // lostLockError says where a run that lost the migration lock left the
 // database: every migration it applied is complete, and none was rolled back.
-func lostLockError(err error, from int64, applied []int64) error {
+func lostLockError(err error, from int64, applied []int64, backup string) error {
 	at := from
 	if len(applied) > 0 {
 		at = applied[len(applied)-1]
 	}
 
-	return fmt.Errorf(
-		"%w, so another migrator may be migrating; this one stopped with the database at version %d, having started at version %d",
+	text := fmt.Sprintf(
+		"%v, so another migrator may be migrating; this one stopped with the database at version %d, having started at version %d",
 		err, at, from,
 	)
+	if backup != "" {
+		text += fmt.Sprintf("; the backup taken before migrating is %s", backup)
+	}
+
+	return fmt.Errorf("%w: %s", ErrLockLost, text)
+}
+
+// rollbackInterrupted says where a rollback that stopped on a lost lock left
+// the database.  It was stopped part way, so the schema may be incomplete:
+// the failed migration may have left changes behind, and the migrations
+// applied before it in the run are still applied.  The errors of the
+// rollback so far and the backup taken before migrating go with it, since
+// they are what recovering needs.
+func rollbackInterrupted(
+	lockErr error,
+	version int64,
+	migrateErr error,
+	cleanedUp bool,
+	stillApplied []int64,
+	rollbackErrors []error,
+	backup string,
+) error {
+	var state []string
+	if !cleanedUp {
+		state = append(state, fmt.Sprintf("migration %d may have left changes behind", version))
+	}
+	if len(stillApplied) > 0 {
+		versions := make([]string, len(stillApplied))
+		for i, applied := range stillApplied {
+			versions[i] = fmt.Sprint(applied)
+		}
+		state = append(state, fmt.Sprintf("migrations %s applied in this run are still applied", strings.Join(versions, ", ")))
+	}
+
+	text := fmt.Sprintf(
+		"migration %d failed (%v), and its rollback stopped because this migrator lost the lock, so another may be migrating; the schema may be incomplete",
+		version, migrateErr,
+	)
+	if len(state) > 0 {
+		text += ": " + strings.Join(state, ", and ")
+	}
+	if backup != "" {
+		text += fmt.Sprintf("; the backup taken before migrating is %s, which tptctl restore --backup restores", backup)
+	}
+
+	return fmt.Errorf("%w: %s: %w", ErrMigrationFailed, text, errors.Join(append([]error{lockErr}, rollbackErrors...)...))
 }

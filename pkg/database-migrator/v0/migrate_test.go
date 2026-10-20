@@ -333,6 +333,7 @@ func TestALostLockStopsTheRun(t *testing.T) {
 
 	require.ErrorIs(t, err, ErrLockLost)
 	assert.Contains(t, err.Error(), "stopped with the database at version 2, having started at version 1")
+	assert.Contains(t, err.Error(), "/2026/10/20-171732.15")
 	assert.Equal(t, []string{"up 2"}, steps.calls)
 	assert.Nil(t, record.failure)
 }
@@ -354,20 +355,50 @@ func TestALostLockStopsTheBackup(t *testing.T) {
 // TestALostLockStopsTheRollback covers a lock lost while rolling a failed
 // migration back: the rollback stops where it is, rather than undoing what
 // another migrator may be relying on, and the failure is not recorded under
-// the other's lock.
+// the other's lock.  The error keeps what recovering needs: that the schema
+// may be incomplete and why, the clean-up's error, and the backup.
 func TestALostLockStopsTheRollback(t *testing.T) {
 	steps := newFakeSteps([]int64{1}, []int64{1, 2, 3})
 	steps.failUp[3] = true
+	steps.failDown[3] = true
 	record := &fakeRecord{}
-	// migrations 2 and 3 and the clean-up pass their checks, the down of 2 fails
-	lock := &fakeLock{steps: steps, checksLeft: 3}
+	// the backup, migrations 2 and 3 and the clean-up pass their checks, the
+	// down of 2 fails
+	lock := &fakeLock{steps: steps, checksLeft: 4}
 
-	err := Up(context.Background(), steps, record, Options{Lock: lock})
+	err := Up(context.Background(), steps, record, Options{Lock: lock, Backup: countingBackup(new(int))})
 
 	require.ErrorIs(t, err, ErrLockLost)
-	assert.Contains(t, err.Error(), "rolling it back stopped")
+	require.ErrorIs(t, err, ErrMigrationFailed)
+	for _, want := range []string{
+		"its rollback stopped",
+		"the schema may be incomplete",
+		"migration 3 may have left changes behind",
+		"migrations 2 applied in this run are still applied",
+		"failed to clean up migration 3",
+		"/2026/10/20-171732.15",
+	} {
+		assert.Contains(t, err.Error(), want)
+	}
 	assert.Equal(t, []string{"up 2", "up 3", "clean up 3"}, steps.calls)
 	assert.Nil(t, record.failure)
+}
+
+// TestALostLockBeforeTheRollbackSaysSo covers a lock lost right after a
+// migration failed, before anything was rolled back: the failed migration
+// may have left changes, and the error says so with the backup.
+func TestALostLockBeforeTheRollbackSaysSo(t *testing.T) {
+	steps := newFakeSteps([]int64{1}, []int64{1, 2})
+	steps.failUp[2] = true
+	// the backup and migration 2 pass their checks, the clean-up's fails
+	lock := &fakeLock{steps: steps, checksLeft: 2}
+
+	err := Up(context.Background(), steps, &fakeRecord{}, Options{Lock: lock, Backup: countingBackup(new(int))})
+
+	require.ErrorIs(t, err, ErrLockLost)
+	assert.Contains(t, err.Error(), "migration 2 may have left changes behind")
+	assert.Contains(t, err.Error(), "/2026/10/20-171732.15")
+	assert.Equal(t, []string{"up 2"}, steps.calls)
 }
 
 // TestALostLockStopsTheFailureRecord covers a lock lost after a rollback,
