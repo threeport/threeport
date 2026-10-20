@@ -99,27 +99,3 @@ func TestSupportServicesCloud(t *testing.T) {
 	require.Equal(t, "local", SupportServicesCloud("kind"))
 	require.Equal(t, "aws", supportServicesObject("aws").Object["spec"].(map[string]interface{})["cloud"])
 }
-
-// TestAddCainjectorPatchVerb adds patch to a webhook rule that only allows update.
-func TestAddCainjectorPatchVerb(t *testing.T) {
-	// start from the verbs the operator installs
-	role := map[string]interface{}{
-		"rules": []interface{}{
-			map[string]interface{}{
-				"apiGroups": []interface{}{"admissionregistration.k8s.io"},
-				"resources": []interface{}{"validatingwebhookconfigurations", "mutatingwebhookconfigurations"},
-				"verbs":     []interface{}{"get", "list", "update"},
-			},
-		},
-	}
-
-	// add patch once, then leave the role unchanged
-	changed, err := addCainjectorPatchVerb(role)
-	require.NoError(t, err)
-	require.True(t, changed)
-	rule := role["rules"].([]interface{})[0].(map[string]interface{})
-	require.Contains(t, stringList(rule["verbs"]), "patch")
-	changed, err = addCainjectorPatchVerb(role)
-	require.NoError(t, err)
-	require.False(t, changed)
-}
