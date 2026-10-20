@@ -180,6 +180,23 @@ func CreateWorkloadResource(
 		if kubeerr.IsAlreadyExists(err) {
 			return updateIrsaRole(kubeObject, role, kubeClient, mapping)
 		}
+		// create the operator namespace, then retry the account
+		if namespaceIsMissing(err) {
+			if err := ensureNamespace(kubeClient, kubeObject.GetNamespace()); err != nil {
+				return nil, err
+			}
+			result, err = kubeClient.
+				Resource(mapping.Resource).
+				Namespace(kubeObject.GetNamespace()).
+				Create(context.Background(), kubeObject, kubemetav1.CreateOptions{})
+			if err == nil {
+				return result, nil
+			}
+			if kubeerr.IsAlreadyExists(err) {
+				return updateIrsaRole(kubeObject, role, kubeClient, mapping)
+			}
+			return nil, fmt.Errorf("failed to create kubernetes resource:%w", err)
+		}
 		if !isTransientKubeError(err) {
 			return nil, fmt.Errorf("failed to create kubernetes resource:%w", err)
 		}
@@ -208,6 +225,35 @@ func irsaRole(object *unstructured.Unstructured) (string, bool) {
 	}
 
 	return role, true
+}
+
+// namespaceIsMissing reports whether a create failed because the namespace is absent.
+func namespaceIsMissing(err error) bool {
+	// match a missing namespace
+	var status *kubeerr.StatusError
+	if !errors.As(err, &status) || status.ErrStatus.Details == nil {
+		return false
+	}
+	return status.ErrStatus.Details.Kind == "namespaces"
+}
+
+// ensureNamespace creates the namespace when it is not already present.
+func ensureNamespace(kubeClient dynamic.Interface, name string) error {
+	namespace := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "Namespace",
+		"metadata": map[string]interface{}{
+			"name": name,
+		},
+	}}
+	gvr := schema.GroupVersionResource{Version: "v1", Resource: "namespaces"}
+
+	// create the namespace
+	_, err := kubeClient.Resource(gvr).Create(context.Background(), namespace, kubemetav1.CreateOptions{})
+	if err != nil && !kubeerr.IsAlreadyExists(err) {
+		return fmt.Errorf("failed to create kubernetes namespace: %w", err)
+	}
+	return nil
 }
 
 // updateIrsaRole sets the role annotation on an account that already exists.

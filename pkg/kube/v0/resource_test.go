@@ -341,6 +341,7 @@ type stubResourceClient struct {
 	attempts  int
 	existing  *unstructured.Unstructured
 	updates   []*unstructured.Unstructured
+	created   []*unstructured.Unstructured
 }
 
 func (r *stubResourceClient) Namespace(namespace string) dynamic.ResourceInterface {
@@ -354,6 +355,9 @@ func (r *stubResourceClient) Create(
 	subresources ...string,
 ) (*unstructured.Unstructured, error) {
 	r.attempts++
+
+	// record the object that was sent
+	r.created = append(r.created, object.DeepCopy())
 
 	if r.alwaysErr != nil {
 		return nil, r.alwaysErr
@@ -513,5 +517,66 @@ func TestCreateWorkloadResourceSetsExistingRole(t *testing.T) {
 	}
 	if len(deploymentClient.updates) != 0 {
 		t.Fatalf("deployment was updated")
+	}
+}
+
+// TestCreateWorkloadResourceCreatesMissingNamespace creates the operator namespace and then the account.
+func TestCreateWorkloadResourceCreatesMissingNamespace(t *testing.T) {
+	const role = "arn:aws:iam::123:role/dns01"
+	accounts := []struct {
+		name      string
+		namespace string
+	}{
+		{name: "cert-manager", namespace: "nukleros-certs-system"},
+		{name: "external-secrets", namespace: "nukleros-secrets-system"},
+	}
+	for _, account := range accounts {
+		t.Run(account.namespace+"/"+account.name, func(t *testing.T) {
+			// the first create finds no namespace, then the namespace and the account succeed
+			desired := testServiceAccount(account.name, account.namespace, role)
+			resourceClient := &stubResourceClient{
+				results: []stubCreateResult{
+					{err: kubeerr.NewNotFound(schema.GroupResource{Resource: "namespaces"}, account.namespace)},
+					{},
+					{object: desired},
+				},
+			}
+
+			// create the namespace, then the annotated account
+			_, err := CreateWorkloadResource(desired, &stubDynamicClient{resourceClient: resourceClient}, testServiceAccountMapper())
+			if err != nil {
+				t.Fatalf("CreateWorkloadResource returned %v", err)
+			}
+			if len(resourceClient.created) != 3 {
+				t.Fatalf("creates = %d, want 3", len(resourceClient.created))
+			}
+			namespace := resourceClient.created[1]
+			if namespace.GetKind() != "Namespace" || namespace.GetName() != account.namespace {
+				t.Fatalf("namespace = %s/%s", namespace.GetKind(), namespace.GetName())
+			}
+			if resourceClient.created[2].GetAnnotations()["eks.amazonaws.com/role-arn"] != role {
+				t.Fatalf("role annotation = %q", resourceClient.created[2].GetAnnotations()["eks.amazonaws.com/role-arn"])
+			}
+		})
+	}
+
+	// a deployment whose namespace is missing stays a deployment error
+	deploymentClient := &stubResourceClient{
+		results: []stubCreateResult{{
+			err: kubeerr.NewNotFound(schema.GroupResource{Resource: "namespaces"}, "my-app-namespace"),
+		}},
+	}
+	_, err := CreateWorkloadResource(
+		testDeployment(),
+		&stubDynamicClient{resourceClient: deploymentClient},
+		testDeploymentMapper(),
+	)
+	if err == nil {
+		t.Fatalf("CreateWorkloadResource returned nil, want error")
+	}
+	for _, object := range deploymentClient.created {
+		if object.GetKind() == "Namespace" {
+			t.Fatalf("created a namespace for a deployment")
+		}
 	}
 }
