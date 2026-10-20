@@ -14,6 +14,9 @@ Backups are provisioned for production control planes whose GKE cluster
 existing cluster with `--control-plane-only`, and control planes on other
 providers have none.
 
+Backups cover the `threeport_api` database, which holds every Threeport API
+object. The databases of installed modules are not included.
+
 ## What the install provisions
 
 When `tptctl up --provider gke` installs a production control plane, it
@@ -111,8 +114,9 @@ on top of it.
 
 The restore:
 
-1. scales the API server and controllers to zero, so nothing writes to the
-   database while it is replaced
+1. scales the API server and controllers to zero, and waits until none of
+   their pods is left, including one still running its database migrator or
+   shutting down, so nothing writes to the database while it is replaced
 2. **prepare:** restores the backup alongside the database, under
    `threeport_api_restore`
 3. **swap:** drops the database and renames the restored one into its place,
@@ -143,6 +147,12 @@ The control plane comes back only on a database that is whole:
   database part way.
 - **Backup fails:** the database is restored and the control plane comes back,
   but the scheduled incremental backups fail until the next scheduled full one.
+
+Only one restore of a control plane runs at a time: a restore holds the
+`threeport-restore-lock` ConfigMap while it runs, and another started meanwhile
+stops without changing anything. If a restore was interrupted so that it could
+not release the lock, the next one says so; once you have checked that no
+restore is running, delete the ConfigMap and run the restore again.
 
 Before it changes anything, a restore stops any Job an earlier attempt left
 behind, such as one whose `tptctl` exited during the swap, so two attempts

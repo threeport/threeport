@@ -102,6 +102,9 @@ type restoreCluster struct {
 	commands    map[string][]string
 	backoffs    map[string]int64
 	jobDeleteOK bool
+	// how many more pod listings report a pod still there
+	podListsLeft int
+	podLists     int
 }
 
 func newRestoreCluster(t *testing.T, outcomes map[string]jobOutcome, replicas map[string]int64) *restoreCluster {
@@ -165,6 +168,36 @@ func newRestoreCluster(t *testing.T, outcomes map[string]jobOutcome, replicas ma
 		return true, list, nil
 	})
 
+	// report a pod still there for as many listings as told
+	cluster.PrependReactor("list", "pods", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		cluster.mu.Lock()
+		defer cluster.mu.Unlock()
+		cluster.podLists++
+		list := &unstructured.UnstructuredList{Object: map[string]interface{}{"apiVersion": "v1", "kind": "PodList"}}
+		if cluster.podListsLeft > 0 {
+			cluster.podListsLeft--
+			// the pod carries the labels the listing selects by, as the
+			// fake client filters what a listing returns by them
+			labels := map[string]interface{}{}
+			for _, term := range strings.Split(action.(k8stesting.ListAction).GetListRestrictions().Labels.String(), ",") {
+				if key, value, ok := strings.Cut(term, "="); ok {
+					labels[key] = value
+				}
+			}
+			pod := unstructured.Unstructured{Object: map[string]interface{}{
+				"apiVersion": "v1",
+				"kind":       "Pod",
+				"metadata": map[string]interface{}{
+					"name":      "threeport-api-server-7dd4f-x8ts5",
+					"namespace": ControlPlaneNamespace,
+					"labels":    labels,
+				},
+			}}
+			list.Items = append(list.Items, pod)
+		}
+		return true, list, nil
+	})
+
 	// record each phase's job and end it as told
 	cluster.PrependReactor("create", "jobs", func(action k8stesting.Action) (bool, runtime.Object, error) {
 		job := action.(k8stesting.CreateAction).GetObject().(*unstructured.Unstructured)
@@ -215,6 +248,7 @@ func (c *restoreCluster) deployment(name string) *unstructured.Unstructured {
 	deployment := testManagedDeployment(name, ControlPlaneNamespace)
 	_ = unstructured.SetNestedField(deployment.Object, c.replicas[name], "spec", "replicas")
 	_ = unstructured.SetNestedField(deployment.Object, c.replicas[name], "status", "readyReplicas")
+	_ = unstructured.SetNestedStringMap(deployment.Object, map[string]string{"app.kubernetes.io/name": name}, "spec", "selector", "matchLabels")
 	if len(c.annotations[name]) > 0 {
 		deployment.SetAnnotations(c.annotations[name])
 	}
@@ -558,4 +592,79 @@ func TestAFailedScaleDownAfterAFailedSwapKeepsTheControlPlaneDown(t *testing.T) 
 	for name, count := range cluster.replicas {
 		assert.Zero(t, count, "%s was brought back on a database an earlier swap may have left part way", name)
 	}
+}
+
+// lockHeld reports whether the restore lock is held.
+func (c *restoreCluster) lockHeld() bool {
+	_, err := c.Resource(configMapResource).Namespace(ControlPlaneNamespace).Get(context.Background(), restoreLockName, metav1.GetOptions{})
+	return err == nil
+}
+
+// shortenWritersWait makes a restore stop waiting for pods at once.
+func shortenWritersWait(t *testing.T) {
+	wait, interval := restoreWritersWait, restoreWritersPollInterval
+	restoreWritersWait, restoreWritersPollInterval = time.Millisecond, time.Millisecond
+	t.Cleanup(func() { restoreWritersWait, restoreWritersPollInterval = wait, interval })
+}
+
+// TestTheRestoreWaitsForEveryPodToBeGone covers writers a Deployment's
+// readiness does not show: an API server pod running its database migrator,
+// or one shutting down, is not ready but can still write.  The restore waits
+// for every pod of the Deployments it scaled down to be gone before it
+// starts.
+func TestTheRestoreWaitsForEveryPodToBeGone(t *testing.T) {
+	shortenWritersWait(t)
+	restoreWritersWait = time.Second
+	cluster := newRestoreCluster(t, map[string]jobOutcome{}, productionReplicas)
+	cluster.podListsLeft = 5
+
+	require.NoError(t, restore(cluster))
+
+	assert.Zero(t, cluster.podListsLeft, "the restore started while a pod was still there")
+	assert.Greater(t, cluster.podLists, 5)
+}
+
+// TestPodsThatStayBringTheControlPlaneBack covers pods that are not gone in
+// time: the database was not touched, so the restore stops there and brings
+// the control plane back.
+func TestPodsThatStayBringTheControlPlaneBack(t *testing.T) {
+	shortenWritersWait(t)
+	cluster := newRestoreCluster(t, map[string]jobOutcome{}, productionReplicas)
+	cluster.podListsLeft = 1000
+
+	err := restore(cluster)
+
+	assert.ErrorContains(t, err, "pods still running after the scale-down")
+	assert.Empty(t, cluster.jobs)
+	assert.Equal(t, productionReplicas, cluster.replicas)
+}
+
+// TestOneRestoreAtATime covers a restore started while another holds the
+// lock: it changes nothing, names the other, and leaves its lock alone.
+func TestOneRestoreAtATime(t *testing.T) {
+	cluster := newRestoreCluster(t, map[string]jobOutcome{}, productionReplicas)
+	release, err := acquireRestoreLock(cluster, ControlPlaneNamespace)
+	require.NoError(t, err)
+
+	err = restore(cluster)
+
+	assert.ErrorContains(t, err, "another restore of this control plane is running")
+	assert.Empty(t, cluster.scaled)
+	assert.Empty(t, cluster.jobs)
+	assert.True(t, cluster.lockHeld(), "the other restore's lock was released")
+
+	require.NoError(t, release())
+	require.NoError(t, restore(cluster))
+}
+
+// TestTheLockIsReleasedEitherWay covers the lock after a restore that
+// succeeded and one that failed: the next restore can always start.
+func TestTheLockIsReleasedEitherWay(t *testing.T) {
+	succeeded := newRestoreCluster(t, map[string]jobOutcome{}, productionReplicas)
+	require.NoError(t, restore(succeeded))
+	assert.False(t, succeeded.lockHeld())
+
+	failed := newRestoreCluster(t, map[string]jobOutcome{"swap": jobFails}, productionReplicas)
+	require.Error(t, restore(failed))
+	assert.False(t, failed.lockHeld())
 }

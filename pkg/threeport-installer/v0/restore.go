@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -193,6 +195,27 @@ func (cpi *ControlPlaneInstaller) RestoreDatabase(
 	}
 	namespace := cpi.Opts.Namespace
 
+	// one restore at a time: two would stop each other's jobs and act on
+	// each other's state
+	release, err := acquireRestoreLock(kubeClient, namespace)
+	if err != nil {
+		return err
+	}
+	restoreErr := cpi.restoreDatabaseLocked(kubeClient, namespace, phases, scheduleURI)
+	if err := release(); err != nil {
+		return errors.Join(restoreErr, err)
+	}
+
+	return restoreErr
+}
+
+// restoreDatabaseLocked runs a restore holding the restore lock.
+func (cpi *ControlPlaneInstaller) restoreDatabaseLocked(
+	kubeClient dynamic.Interface,
+	namespace string,
+	phases RestorePhases,
+	scheduleURI string,
+) error {
 	// an earlier restore that stopped during its swap may have left the
 	// database part way, whatever happens to this one before its own swap
 	swapStarted, err := swapStartedRecorded(kubeClient, namespace)
@@ -219,10 +242,16 @@ func (cpi *ControlPlaneInstaller) RestoreDatabase(
 		return err
 	}
 
-	// stop everything that writes to the database; a scale-down that fails
-	// part way may already have stopped some of it, so the control plane is
-	// brought back before the failure is returned
-	if err := cpi.scaleDownDeployments(kubeClient, namespace); err != nil {
+	// stop everything that writes to the database, and wait until none of
+	// its pods is left: one not ready can still be writing, such as an API
+	// server pod running its database migrator or one being terminated.  A
+	// scale-down that fails part way may already have stopped some of it,
+	// so the control plane is brought back before the failure is returned.
+	scaleDownErr := cpi.scaleDownDeployments(kubeClient, namespace)
+	if scaleDownErr == nil {
+		scaleDownErr = waitForPodsGone(kubeClient, namespace, replicas)
+	}
+	if err := scaleDownErr; err != nil {
 		scaleDownErr := fmt.Errorf("failed to scale control plane down before the restore: %w", err)
 		if swapStarted {
 			return fmt.Errorf(
@@ -625,4 +654,121 @@ func clearSwapStarted(kubeClient dynamic.Interface, namespace string) error {
 	}
 
 	return nil
+}
+
+// restoreLockName is the ConfigMap a restore holds while it runs.
+const restoreLockName = "threeport-restore-lock"
+
+// acquireRestoreLock claims the restore of a control plane for this command,
+// and returns a function that releases it.  Creating the ConfigMap is atomic,
+// so of two restores started together only one gets it.
+func acquireRestoreLock(kubeClient dynamic.Interface, namespace string) (func() error, error) {
+	host, _ := os.Hostname()
+	holder := fmt.Sprintf("%s (pid %d)", host, os.Getpid())
+	_, err := kubeClient.Resource(configMapResource).Namespace(namespace).Create(
+		context.Background(),
+		&unstructured.Unstructured{Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+			"metadata": map[string]interface{}{
+				"name":      restoreLockName,
+				"namespace": namespace,
+			},
+			"data": map[string]interface{}{
+				"holder":  holder,
+				"started": time.Now().UTC().Format(time.RFC3339),
+			},
+		}},
+		metav1.CreateOptions{},
+	)
+	if k8serrors.IsAlreadyExists(err) {
+		existing, getErr := kubeClient.Resource(configMapResource).Namespace(namespace).Get(
+			context.Background(), restoreLockName, metav1.GetOptions{},
+		)
+		otherHolder, otherStarted := "an unknown holder", "an unknown time"
+		if getErr == nil {
+			data, _, _ := unstructured.NestedStringMap(existing.Object, "data")
+			otherHolder, otherStarted = data["holder"], data["started"]
+		}
+		return nil, fmt.Errorf(
+			"another restore of this control plane is running, started at %s by %s, so nothing was changed; "+
+				"if it is not running any more, delete config map %s in namespace %s and run the restore again",
+			otherStarted, otherHolder, restoreLockName, namespace,
+		)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to claim the restore lock: %w", err)
+	}
+
+	return func() error {
+		err := kubeClient.Resource(configMapResource).Namespace(namespace).Delete(
+			context.Background(), restoreLockName, metav1.DeleteOptions{},
+		)
+		if err != nil && !k8serrors.IsNotFound(err) {
+			return fmt.Errorf(
+				"failed to release the restore lock; delete config map %s in namespace %s before the next restore: %w",
+				restoreLockName, namespace, err,
+			)
+		}
+		return nil
+	}, nil
+}
+
+// podResource is the core v1 pods resource.
+var podResource = schema.GroupVersionResource{Version: "v1", Resource: "pods"}
+
+// restoreWritersWait is how long a restore waits for the pods of the
+// Deployments it scaled down to be gone, and how often it checks.
+var (
+	restoreWritersWait         = 5 * time.Minute
+	restoreWritersPollInterval = 3 * time.Second
+)
+
+// waitForPodsGone waits until none of the pods of the given Deployments is
+// left, running, starting or terminating.  A Deployment's readiness says
+// nothing about a pod still in its init containers or shutting down.
+func waitForPodsGone(kubeClient dynamic.Interface, namespace string, deployments map[string]int64) error {
+	selectors := map[string]string{}
+	for name := range deployments {
+		deployment, err := kubeClient.Resource(deploymentGVR).Namespace(namespace).Get(
+			context.Background(), name, metav1.GetOptions{},
+		)
+		if k8serrors.IsNotFound(err) {
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("failed to read deployment %s: %w", name, err)
+		}
+		matchLabels, _, _ := unstructured.NestedStringMap(deployment.Object, "spec", "selector", "matchLabels")
+		if len(matchLabels) == 0 {
+			return fmt.Errorf("deployment %s selects its pods by no label, so they cannot be checked for", name)
+		}
+		var terms []string
+		for key, value := range matchLabels {
+			terms = append(terms, key+"="+value)
+		}
+		sort.Strings(terms)
+		selectors[name] = strings.Join(terms, ",")
+	}
+
+	attempts := int(restoreWritersWait/restoreWritersPollInterval) + 1
+	return pollEvery(attempts, restoreWritersPollInterval, func() error {
+		var left []string
+		for name, selector := range selectors {
+			pods, err := kubeClient.Resource(podResource).Namespace(namespace).List(
+				context.Background(), metav1.ListOptions{LabelSelector: selector},
+			)
+			if err != nil {
+				return fmt.Errorf("failed to list the pods of deployment %s: %w", name, err)
+			}
+			for _, pod := range pods.Items {
+				left = append(left, pod.GetName())
+			}
+		}
+		if len(left) > 0 {
+			sort.Strings(left)
+			return fmt.Errorf("pods still running after the scale-down: %s", strings.Join(left, ", "))
+		}
+		return nil
+	})
 }
