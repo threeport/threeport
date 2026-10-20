@@ -19,6 +19,9 @@ const migrationTestPackage = "github.com/threeport/threeport/pkg/migrationtest/v
 
 // GenDbMigratorMain generates the database-migrator main package.
 // Core and modules both emit this as boilerplate.
+// migratorPath is the package that applies migrations with rollback.
+const migratorPath = "github.com/threeport/threeport/pkg/database-migrator/v0"
+
 func GenDbMigratorMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f := NewFile("main")
 	f.HeaderComment(sdk.HeaderCommentGenNoEdit)
@@ -35,6 +38,8 @@ func GenDbMigratorMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f.ImportAlias("github.com/pressly/goose/v3", "goose")
 	f.ImportAlias("github.com/threeport/threeport/pkg/cli/v0", "cli")
 	f.ImportAlias("github.com/threeport/threeport/pkg/log/v0", "log")
+	f.ImportAlias("github.com/threeport/threeport/pkg/util/v0", "util")
+	f.ImportAlias("github.com/threeport/threeport/pkg/database-migrator/v0", "migrator")
 	f.Anon("github.com/lib/pq")
 
 	var installerPath string
@@ -197,7 +202,13 @@ func GenDbMigratorMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			Qual("context", "TODO").Call(), Lit("gormdb"), Id("gormdb"),
 		),
 		Qual("github.com/pressly/goose/v3", "SetTableName").Call(Lit(gooseVersionTableName)),
-		If(Id("err").Op(":=").Qual("github.com/pressly/goose/v3", "RunContext").Call(
+		Comment("a plain 'up' applies the pending migrations so that a failed one is"),
+		Comment("rolled back rather than left part way; any other goose command runs as is"),
+		If(Id("command").Op("==").Lit("up").Op("&&").Len(Id("arguments")).Op("==").Lit(0)).Block(
+			If(Id("err").Op(":=").Id("upWithRollback").Call(Id("ctx"), Id("db"), Id("logger")), Id("err").Op("!=").Nil()).Block(
+				Id("returnErr").Call(Lit("failed to migrate database schema"), Id("err")),
+			),
+		).Else().If(Id("err").Op(":=").Qual("github.com/pressly/goose/v3", "RunContext").Call(
 			Id("ctx"), Id("command"), Id("db"), Lit("."), Id("arguments").Op("..."),
 		), Id("err").Op("!=").Nil()).Block(
 			Id("returnErr").Call(
@@ -212,6 +223,104 @@ func GenDbMigratorMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		Return(Nil()),
 	)
 	f.Line()
+
+	// the backup schedule is part of the core control plane's install only, so
+	// a module's migrator, whose installer has no schedule to mount, gets
+	// neither the call nor the function
+	backupScheduleCall := Null()
+	if !gen.Module {
+		backupScheduleCall = If(
+			Id("err").Op(":=").Id("createBackupSchedule").Call(Id("gormDb"), Id("logger")),
+			Id("err").Op("!=").Nil(),
+		).Block(
+			Id("returnErr").Call(Lit("failed to create database backup schedule"), Id("err")),
+		)
+	}
+
+	// the backup before migrating is part of the core control plane's install
+	// only, like the backup schedule
+	backupOption := Null()
+	if !gen.Module {
+		backupOption = Add(
+			List(Id("backup"), Id("err")).Op(":=").Id("databaseBackup").Call(),
+			Line(),
+			If(Id("err").Op("!=").Nil()).Block(Return(Id("err"))),
+			Line(),
+			Id("opts").Dot("Backup").Op("=").Id("backup"),
+		)
+	}
+
+	f.Comment("upWithRollback applies every pending migration.  A migration that fails is")
+	f.Comment("rolled back along with the ones applied before it in the same run, and the")
+	f.Comment("failure is recorded so the migrator does not try again until an operator")
+	f.Comment("clears it.")
+	f.Func().Id("upWithRollback").Params(
+		Id("ctx").Qual("context", "Context"),
+		Id("db").Op("*").Qual("database/sql", "DB"),
+		Id("logger").Qual("go.uber.org/zap", "Logger"),
+	).Error().Block(
+		List(Id("steps"), Id("err")).Op(":=").Qual(migratorPath, "RegisteredGooseSteps").Call(Id("db")),
+		If(Id("err").Op("!=").Nil()).Block(Return(Id("err"))),
+		List(Id("record"), Id("err")).Op(":=").Qual(migratorPath, "NewTableFailureRecord").Call(
+			Id("ctx"), Id("db"), Lit(gooseVersionTableName+"_failure"),
+		),
+		If(Id("err").Op("!=").Nil()).Block(Return(Id("err"))),
+		Line(),
+		Comment("the API server's pods start together, and only one may migrate at a"),
+		Comment("time; a pod is named by its host name, which an init container restarted"),
+		Comment("in the same pod keeps"),
+		List(Id("holder"), Id("err")).Op(":=").Qual("os", "Hostname").Call(),
+		If(Id("err").Op("!=").Nil()).Block(Return(Id("err"))),
+		List(Id("lock"), Id("err")).Op(":=").Qual(migratorPath, "NewTableLock").Call(
+			Id("ctx"), Id("db"), Lit(gooseVersionTableName+"_lock"), Id("holder"),
+		),
+		If(Id("err").Op("!=").Nil()).Block(Return(Id("err"))),
+		Line(),
+		Id("opts").Op(":=").Qual(migratorPath, "Options").Values(Dict{
+			Id("Lock"): Id("lock"),
+			Id("Logf"): Func().Params(Id("format").String(), Id("args").Op("...").Interface()).Block(
+				Id("logger").Dot("Info").Call(Qual("fmt", "Sprintf").Call(Id("format"), Id("args").Op("..."))),
+			),
+		}),
+		backupOption,
+		Line(),
+		Return(Qual(migratorPath, "Up").Call(Id("ctx"), Id("steps"), Id("record"), Id("opts"))),
+	)
+	f.Line()
+
+	if !gen.Module {
+		f.Comment("databaseBackup returns a backup of the database into the location the install")
+		f.Comment("configured, taken as the root user since CockroachDB lets only an admin back")
+		f.Comment("up to cloud storage with the node's own identity.  It returns nil when the")
+		f.Comment("install configured no backups.")
+		f.Func().Id("databaseBackup").Params().Params(Qual(migratorPath, "BackupFunc"), Error()).Block(
+			List(Id("uri"), Id("err")).Op(":=").Qual("os", "ReadFile").Call(Qual("path/filepath", "Join").Call(
+				Qual(installerPath, "DbBackupConfigLocation"), Qual(installerPath, "DbBackupURIFilename"),
+			)),
+			If(Qual("errors", "Is").Call(Id("err"), Qual("os", "ErrNotExist"))).Block(
+				Return(Nil(), Nil()),
+			),
+			If(Id("err").Op("!=").Nil()).Block(
+				Return(Nil(), Qual("fmt", "Errorf").Call(Lit("failed to read the database backup location: %w"), Id("err"))),
+			),
+			Line(),
+			List(Id("dsn"), Id("err")).Op(":=").Qual(apiServerDbPath, "GetDsn").Call(True()),
+			If(Id("err").Op("!=").Nil()).Block(
+				Return(Nil(), Qual("fmt", "Errorf").Call(Lit("failed to get the root database connection string: %w"), Id("err"))),
+			),
+			List(Id("rootDb"), Id("err")).Op(":=").Qual("database/sql", "Open").Call(Lit("postgres"), Id("dsn")),
+			If(Id("err").Op("!=").Nil()).Block(
+				Return(Nil(), Qual("fmt", "Errorf").Call(Lit("failed to open a root database connection: %w"), Id("err"))),
+			),
+			Line(),
+			Return(Qual(migratorPath, "CockroachBackup").Call(
+				Id("rootDb"),
+				Qual(apiServerDbPath, "ThreeportDatabaseName"),
+				Qual("strings", "TrimSpace").Call(String().Call(Id("uri"))),
+			), Nil()),
+		)
+		f.Line()
+	}
 
 	f.Comment("initializeDb creates the database and user using root database user.")
 	f.Func().Id("initializeDb").Params(
@@ -283,11 +392,57 @@ func GenDbMigratorMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		),
 		Line(),
 
+		backupScheduleCall,
+		Line(),
+
 		Id("logger").Dot("Info").Call(Lit("database successfully initialized")),
 		Line(),
 
 		Return(Nil()),
 	)
+
+	if !gen.Module {
+		f.Comment("createBackupSchedule creates the database backup schedule when the install")
+		f.Comment("provides one.  It runs on its own rather than in the init script because")
+		f.Comment("CockroachDB checks the backup target exists when the schedule is created,")
+		f.Comment("which it does not until the init script's transaction commits.  The check")
+		f.Comment("also reads the backup destination, so it is retried while access to it,")
+		f.Comment("such as a newly granted Workload Identity binding, takes effect.")
+		f.Func().Id("createBackupSchedule").Params(
+			Id("gormDb").Op("*").Qual("gorm.io/gorm", "DB"),
+			Id("logger").Qual("go.uber.org/zap", "Logger"),
+		).Error().Block(
+			Id("scheduleFile").Op(":=").Qual("path/filepath", "Join").Call(
+				Qual(installerPath, "DbInitLocation"), Qual(installerPath, "DbBackupScheduleFilename"),
+			),
+			List(Id("scheduleScript"), Id("err")).Op(":=").Qual("os", "ReadFile").Call(Id("scheduleFile")),
+			If(Qual("errors", "Is").Call(Id("err"), Qual("os", "ErrNotExist"))).Block(
+				Return(Nil()),
+			),
+			If(Id("err").Op("!=").Nil()).Block(
+				Return(Qual("fmt", "Errorf").Call(Lit("failed to read database backup schedule: %w"), Id("err"))),
+			),
+			Line(),
+			If(Id("err").Op(":=").Qual("github.com/threeport/threeport/pkg/util/v0", "Retry").Call(
+				Lit(30), Lit(10), Func().Params().Error().Block(
+					Id("err").Op(":=").Id("gormDb").Dot("Exec").Call(String().Call(Id("scheduleScript"))).Dot("Error"),
+					If(Id("err").Op("!=").Nil()).Block(
+						Id("logger").Dot("Info").Call(
+							Lit("failed to create database backup schedule, retrying in 10 seconds"),
+							Qual("go.uber.org/zap", "Error").Call(Id("err")),
+						),
+					),
+					Return(Id("err")),
+				),
+			), Id("err").Op("!=").Nil()).Block(
+				Return(Id("err")),
+			),
+			Id("logger").Dot("Info").Call(Lit("database backup schedule in place")),
+			Line(),
+			Return(Nil()),
+		)
+		f.Line()
+	}
 
 	f.Comment("returnErr returns errors with usage info and exits with non-zero")
 	f.Func().Id("returnErr").Params(

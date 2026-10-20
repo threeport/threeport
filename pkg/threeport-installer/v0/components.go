@@ -25,6 +25,7 @@ import (
 
 const (
 	DbInitFilename            = "db.sql"
+	DbBackupScheduleFilename  = "backup-schedule.sql"
 	DbInitLocation            = "/etc/threeport/db-create"
 	ThreeportApiCaSecret      = "api-ca"
 	ThreeportApiConfigSecret  = "api-config"
@@ -220,17 +221,18 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAPIDeployment(
 				"name":      "db-create",
 				"namespace": cpi.Opts.Namespace,
 			},
-			"data": map[string]interface{}{
-				"db.sql": `CREATE USER IF NOT EXISTS threeport;
-CREATE DATABASE IF NOT EXISTS threeport_api encoding='utf-8';
-GRANT ALL ON DATABASE threeport_api TO threeport;
-`,
-			},
+			"data": cpi.dbCreateData(),
 		},
 	}
 
 	if err := cpi.CreateOrUpdateKubeResource(dbCreateConfig, kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed to create DB initialization config map: %w", err)
+	}
+
+	// tell the database migrator where to back the database up to before
+	// migrating
+	if err := cpi.installDatabaseBackupConfig(kubeClient, mapper); err != nil {
+		return err
 	}
 
 	var apiSecret = &unstructured.Unstructured{
@@ -315,8 +317,12 @@ THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 					"mountPath": "/etc/threeport/",
 				},
 				map[string]interface{}{
-					"name":      "db-threeport-cert",
+					"name":      dbMigratorCertsVolumeName,
 					"mountPath": "/etc/threeport/db-certs",
+				},
+				map[string]interface{}{
+					"name":      DbBackupConfigName,
+					"mountPath": DbBackupConfigLocation,
 				},
 			},
 		},
@@ -705,6 +711,23 @@ func setManagedByLabel(resource *unstructured.Unstructured) {
 	// set the managed-by label
 	labels[LabelManagedBy] = LabelManagedByValue
 	resource.SetLabels(labels)
+}
+
+// dbCreateData returns the SQL the database migrator runs before the API
+// server starts: the init script, and on a control plane that backs its
+// database up, the backup schedule.
+func (cpi *ControlPlaneInstaller) dbCreateData() map[string]interface{} {
+	data := map[string]interface{}{
+		DbInitFilename: `CREATE USER IF NOT EXISTS threeport;
+CREATE DATABASE IF NOT EXISTS threeport_api encoding='utf-8';
+GRANT ALL ON DATABASE threeport_api TO threeport;
+`,
+	}
+	if cpi.Opts.GcpBackupBucket != "" {
+		data[DbBackupScheduleFilename] = DatabaseBackupScheduleSQL(DatabaseBackupURI(cpi.Opts.GcpBackupBucket))
+	}
+
+	return data
 }
 
 // setPersistent marks the resource so a later install keeps the existing object.
@@ -1722,6 +1745,36 @@ func (cpi *ControlPlaneInstaller) getAPIVolumes() ([]interface{}, []interface{},
 			"name": "db-create",
 			"configMap": map[string]interface{}{
 				"name": "db-create",
+			},
+		},
+		// the database migrator connects as the threeport user, and as root
+		// only to back the database up before migrating
+		map[string]interface{}{
+			"name": dbMigratorCertsVolumeName,
+			"projected": map[string]interface{}{
+				"sources": []interface{}{
+					map[string]interface{}{
+						"secret": map[string]interface{}{"name": dbThreeportCertSecretName},
+					},
+					map[string]interface{}{
+						"secret": map[string]interface{}{
+							"name": dbRootCertSecretName,
+							"items": []interface{}{
+								map[string]interface{}{"key": "client.root.crt", "path": "client.root.crt"},
+								map[string]interface{}{"key": "client.root.key", "path": "client.root.key"},
+							},
+						},
+					},
+				},
+			},
+		},
+		// where the database is backed up to, on a control plane that backs
+		// it up; absent on any other
+		map[string]interface{}{
+			"name": DbBackupConfigName,
+			"configMap": map[string]interface{}{
+				"name":     DbBackupConfigName,
+				"optional": true,
 			},
 		},
 	}
