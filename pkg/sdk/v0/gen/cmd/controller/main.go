@@ -439,6 +439,20 @@ func GenControllerMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					),
 				),
 
+				Comment("liveness only asks whether the process still answers - readiness"),
+				Comment("tracks the NATS subscriptions, which a NATS outage would fail on"),
+				Comment("every replica at once"),
+				Id("http.HandleFunc").Call(
+					Lit("/livez"),
+					Func().Params(
+						Id("w").Qual("net/http", "ResponseWriter"),
+						Id("r").Op("*").Qual("net/http", "Request"),
+					).Block(
+						Id("w").Dot("WriteHeader").Call(Qual("net/http", "StatusOK")),
+						Id("w").Dot("Write").Call(Index().Byte().Call(Lit("OK"))),
+					),
+				),
+				Line(),
 				Go().Id("http.ListenAndServe").Call(Lit(":8081"), Nil()),
 				Line(),
 
