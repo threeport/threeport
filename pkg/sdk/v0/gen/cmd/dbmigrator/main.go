@@ -266,7 +266,18 @@ func GenDbMigratorMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		),
 		If(Id("err").Op("!=").Nil()).Block(Return(Id("err"))),
 		Line(),
+		Comment("the API server's pods start together, and only one may migrate at a"),
+		Comment("time; a pod is named by its host name, which an init container restarted"),
+		Comment("in the same pod keeps"),
+		List(Id("holder"), Id("err")).Op(":=").Qual("os", "Hostname").Call(),
+		If(Id("err").Op("!=").Nil()).Block(Return(Id("err"))),
+		List(Id("lock"), Id("err")).Op(":=").Qual(migratorPath, "NewTableLock").Call(
+			Id("ctx"), Id("db"), Lit(gooseVersionTableName+"_lock"), Id("holder"),
+		),
+		If(Id("err").Op("!=").Nil()).Block(Return(Id("err"))),
+		Line(),
 		Id("opts").Op(":=").Qual(migratorPath, "Options").Values(Dict{
+			Id("Lock"): Id("lock"),
 			Id("Logf"): Func().Params(Id("format").String(), Id("args").Op("...").Interface()).Block(
 				Id("logger").Dot("Info").Call(Qual("fmt", "Sprintf").Call(Id("format"), Id("args").Op("..."))),
 			),

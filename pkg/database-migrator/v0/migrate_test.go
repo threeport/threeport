@@ -248,3 +248,63 @@ func TestAFailedRollbackAndRecordReportsBoth(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to clean up migration 2")
 	assert.Contains(t, err.Error(), "connection reset")
 }
+
+// fakeLock records when it is acquired and released relative to the steps.
+type fakeLock struct {
+	steps      *fakeSteps
+	acquireErr error
+	releaseErr error
+	events     []string
+}
+
+func (l *fakeLock) Acquire(context.Context) error {
+	l.events = append(l.events, fmt.Sprintf("acquire after %d steps", len(l.steps.calls)))
+	return l.acquireErr
+}
+
+func (l *fakeLock) Release(context.Context) error {
+	l.events = append(l.events, fmt.Sprintf("release after %d steps", len(l.steps.calls)))
+	return l.releaseErr
+}
+
+// TestTheLockCoversTheWholeRun covers two migrators of one database started
+// together, as two API server pods are: each holds the lock from before it
+// reads anything until it is done, so the second sees what the first did
+// rather than racing it to the same migration.
+func TestTheLockCoversTheWholeRun(t *testing.T) {
+	steps := newFakeSteps([]int64{1}, []int64{1, 2, 3})
+	lock := &fakeLock{steps: steps}
+
+	require.NoError(t, Up(context.Background(), steps, &fakeRecord{}, Options{Lock: lock}))
+	assert.Equal(t, []string{"acquire after 0 steps", "release after 2 steps"}, lock.events)
+
+	failing := newFakeSteps([]int64{1}, []int64{1, 2})
+	failing.failUp[2] = true
+	lock = &fakeLock{steps: failing}
+	require.Error(t, Up(context.Background(), failing, &fakeRecord{}, Options{Lock: lock}))
+	assert.Equal(t, "release after 2 steps", lock.events[len(lock.events)-1], "the lock is held until the rollback is done")
+}
+
+// TestNoLockNoMigration covers a lock that cannot be acquired: nothing is
+// read, backed up or migrated.
+func TestNoLockNoMigration(t *testing.T) {
+	steps := newFakeSteps([]int64{1}, []int64{1, 2})
+	backups := 0
+	lock := &fakeLock{steps: steps, acquireErr: errors.New("timed out")}
+
+	err := Up(context.Background(), steps, &fakeRecord{}, Options{Lock: lock, Backup: countingBackup(&backups)})
+
+	assert.ErrorContains(t, err, "nothing was migrated")
+	assert.Empty(t, steps.calls)
+	assert.Zero(t, backups)
+}
+
+// TestALockThatCannotBeReleasedDoesNotFailTheRun covers a release that fails
+// after a run that migrated: the lock expires on its own, so the run still
+// succeeds.
+func TestALockThatCannotBeReleasedDoesNotFailTheRun(t *testing.T) {
+	steps := newFakeSteps([]int64{1}, []int64{1, 2})
+	lock := &fakeLock{steps: steps, releaseErr: errors.New("connection reset")}
+
+	assert.NoError(t, Up(context.Background(), steps, &fakeRecord{}, Options{Lock: lock}))
+}

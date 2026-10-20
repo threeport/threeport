@@ -71,8 +71,12 @@ database its migration never changed.
 
 ## What happens when a migration fails
 
-`database-migrator up` runs as an init container of the API server. It applies
-the pending migrations one at a time:
+`database-migrator up` runs as an init container of the API server. Pods of
+the API server can start together, so the migrator first takes a lock kept in
+the `threeport_goose_db_version_lock` table: one migrator migrates at a time,
+and the next sees what it did. The lock is leased and renewed while it is
+held, so the lock of a migrator whose pod was killed expires within minutes.
+Holding the lock, it applies the pending migrations one at a time:
 
 1. On a production control plane that backs its database up, it first takes
    a full backup into the backup bucket. A new install, whose database is

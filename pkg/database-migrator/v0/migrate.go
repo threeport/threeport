@@ -78,12 +78,26 @@ type FailureRecord interface {
 // BackupFunc backs the database up and returns where the backup is.
 type BackupFunc func(ctx context.Context) (string, error)
 
+// Lock keeps two migrators of one database from running together.  Two
+// would see the same pending migration, and the one that lost the race
+// would roll back what the other applied.
+type Lock interface {
+	// Acquire waits until the lock is this migrator's.
+	Acquire(ctx context.Context) error
+
+	// Release gives the lock up.
+	Release(ctx context.Context) error
+}
+
 // Options configures a migration run.
 type Options struct {
 	// Backup backs the database up before the first migration, unless no
 	// migration has been applied yet.  Nil runs the migrations without a
 	// backup.
 	Backup BackupFunc
+
+	// Lock is held for the whole run.  Nil takes no lock.
+	Lock Lock
 
 	// Logf reports progress.  Nil reports nothing.
 	Logf func(format string, args ...interface{})
@@ -99,6 +113,20 @@ func Up(ctx context.Context, steps Steps, record FailureRecord, opts Options) er
 	logf := opts.Logf
 	if logf == nil {
 		logf = func(string, ...interface{}) {}
+	}
+
+	// one migrator at a time, from before it reads anything
+	if opts.Lock != nil {
+		if err := opts.Lock.Acquire(ctx); err != nil {
+			return fmt.Errorf("failed to acquire the migration lock, so nothing was migrated: %w", err)
+		}
+		// a lock that is not released expires, so a failure to release it
+		// does not fail a run that migrated
+		defer func() {
+			if err := opts.Lock.Release(ctx); err != nil {
+				logf("failed to release the migration lock, which expires on its own: %v", err)
+			}
+		}()
 	}
 
 	// refuse to run again until an earlier failure is looked at

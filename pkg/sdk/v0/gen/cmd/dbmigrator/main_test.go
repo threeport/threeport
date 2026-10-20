@@ -84,6 +84,12 @@ func TestEveryMigratorRollsBackButOnlyTheCoreBacksUp(t *testing.T) {
 		if !strings.Contains(source, "func upWithRollback(") || !strings.Contains(source, "migrator.Up(ctx, steps, record, opts)") {
 			t.Errorf("the %s migrator does not roll a failed migration back", name)
 		}
+		if !strings.Contains(source, "migrator.NewTableLock(") || !strings.Contains(source, "Lock: lock") {
+			t.Errorf("the %s migrator does not take the migration lock, so two of its pods can migrate together", name)
+		}
+	}
+	if !strings.Contains(module, `"threeport_widget_goose_db_version_lock"`) {
+		t.Error("a module's migration lock is not kept next to its own goose version table")
 	}
 	if !strings.Contains(module, `"threeport_widget_goose_db_version_failure"`) {
 		t.Error("a module's failure record is not kept next to its own goose version table")

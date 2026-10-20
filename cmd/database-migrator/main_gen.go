@@ -158,9 +158,24 @@ func upWithRollback(ctx context.Context, db *sql.DB, logger zap.Logger) error {
 		return err
 	}
 
-	opts := migrator.Options{Logf: func(format string, args ...interface{}) {
-		logger.Info(fmt.Sprintf(format, args...))
-	}}
+	// the API server's pods start together, and only one may migrate at a
+	// time; a pod is named by its host name, which an init container restarted
+	// in the same pod keeps
+	holder, err := os.Hostname()
+	if err != nil {
+		return err
+	}
+	lock, err := migrator.NewTableLock(ctx, db, "threeport_goose_db_version_lock", holder)
+	if err != nil {
+		return err
+	}
+
+	opts := migrator.Options{
+		Lock: lock,
+		Logf: func(format string, args ...interface{}) {
+			logger.Info(fmt.Sprintf(format, args...))
+		},
+	}
 	backup, err := databaseBackup()
 	if err != nil {
 		return err
