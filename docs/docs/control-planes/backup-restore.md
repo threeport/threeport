@@ -166,10 +166,3 @@ To delete a kept bucket later:
 ```bash
 gcloud storage rm --recursive gs://threeport-prod-backups-acme-prod
 ```
-
-## Control planes installed before backups
-
-A production control plane installed before backups existed has no bucket and
-no schedule, and `tptctl reinstall` does not add them, since it leaves the
-database and its stateful set in place. Install the control plane again to get
-backups.
