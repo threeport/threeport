@@ -3,7 +3,6 @@
 package gateway
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -672,13 +671,44 @@ func confirmGatewayPortsExposed(
 		return fmt.Errorf("failed to render tcp controller: %w", err)
 	}
 	changed := false
-	if err := syncNamedSlice(r, kubernetesRuntimeInstance, workloadResourceInstances, "GlobalConfiguration", "nginx-ingress", "listeners", listeners, assets.GlobalConfiguration, "global configuration", false, &changed); err != nil {
+	if err := syncNamedSlice(
+		r,
+		kubernetesRuntimeInstance,
+		workloadResourceInstances,
+		"GlobalConfiguration",
+		"nginx-ingress",
+		"listeners",
+		listeners,
+		assets.GlobalConfiguration,
+		"global configuration",
+		false,
+		&changed,
+	); err != nil {
 		return err
 	}
-	if err := syncNamedSlice(r, kubernetesRuntimeInstance, workloadResourceInstances, "Service", "nginx-tcp", "ports", servicePorts, assets.NginxTcpService, "nginx tcp service", true, &changed); err != nil {
+	if err := syncNamedSlice(
+		r,
+		kubernetesRuntimeInstance,
+		workloadResourceInstances,
+		"Service",
+		"nginx-tcp",
+		"ports",
+		servicePorts,
+		assets.NginxTcpService,
+		"nginx tcp service",
+		true,
+		&changed,
+	); err != nil {
 		return err
 	}
-	if err := syncTcpController(r, kubernetesRuntimeInstance, workloadResourceInstances, controllerSource, len(ports) == 0, &changed); err != nil {
+	if err := syncTcpController(
+		r,
+		kubernetesRuntimeInstance,
+		workloadResourceInstances,
+		controllerSource,
+		len(ports) == 0,
+		&changed,
+	); err != nil {
 		return err
 	}
 	if !changed {
@@ -830,7 +860,11 @@ func syncNamedSlice(
 		return fmt.Errorf("failed to unmarshal %s: %w", label, err)
 	}
 	current, _, _ := unstructured.NestedSlice(jsonObject, "spec", field)
-	if jsonEqual(current, values) {
+	equal, err := util.JSONValuesEqual(current, values)
+	if err != nil {
+		return err
+	}
+	if equal {
 		return nil
 	}
 	if err := unstructured.SetNestedSlice(jsonObject, values, "spec", field); err != nil {
@@ -875,7 +909,11 @@ func syncTcpController(
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal nginx tcp controller: %w", err)
 	}
-	if jsonEqual(stored, desired.Object) {
+	equal, err := util.JSONValuesEqual(stored, desired.Object)
+	if err != nil {
+		return err
+	}
+	if equal {
 		return nil
 	}
 	return updateControllerObject(r, object, desired.Object, changed)
@@ -917,32 +955,6 @@ func updateControllerObject(r *controller.Reconciler, object *v0.KubernetesWorkl
 	}
 	*changed = true
 	return nil
-}
-
-// jsonEqual reports whether two values encode to the same JSON.
-func jsonEqual(left, right interface{}) bool {
-	// round-trip both values so number types do not affect the compare
-	leftJSON, leftErr := canonicalJSON(left)
-	rightJSON, rightErr := canonicalJSON(right)
-	return leftErr == nil && rightErr == nil && leftJSON == rightJSON
-}
-
-// canonicalJSON returns value encoded with JSON number types.
-func canonicalJSON(value interface{}) (string, error) {
-	// marshal, decode, and marshal again
-	body, err := json.Marshal(value)
-	if err != nil {
-		return "", err
-	}
-	var decoded interface{}
-	if err := json.Unmarshal(body, &decoded); err != nil {
-		return "", err
-	}
-	body, err = json.Marshal(decoded)
-	if err != nil {
-		return "", err
-	}
-	return string(body), nil
 }
 
 // configureGatewayManifests renders the ingress and transport objects for a gateway instance.

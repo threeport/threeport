@@ -195,7 +195,7 @@ func (Test) Integration() error {
 		"./test/integration",
 		"-count=1",
 		"-timeout",
-		"45m",
+		"20m",
 	}
 	if err := util.RunCommandStreamOutput(cmd, args...); err != nil {
 		return fmt.Errorf("failed to run integration tests: %w", err)

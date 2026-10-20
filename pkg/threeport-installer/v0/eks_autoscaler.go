@@ -12,6 +12,7 @@ import (
 )
 
 // installEksClusterAutoscaler installs the cluster autoscaler RBAC and deployment.
+// clusterName is the runtime name. EksClusterAutoscalingRoleArn takes the account first.
 func installEksClusterAutoscaler(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,

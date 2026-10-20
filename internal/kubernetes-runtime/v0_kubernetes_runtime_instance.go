@@ -261,7 +261,11 @@ func v0KubernetesRuntimeInstanceUpdated(
 	}
 	if operatorInstalled {
 		log.V(1).Info("support services operator already installed, skipping install")
-	} else if err := threeport.InstallThreeportSupportServicesOperator(dynamicKubeClient, mapper, threeport.SupportServicesCloud(string(*kubernetesRuntimeDefinition.InfraProvider))); err != nil {
+	} else if err := threeport.InstallThreeportSupportServicesOperator(
+		dynamicKubeClient,
+		mapper,
+		threeport.SupportServicesCloud(string(*kubernetesRuntimeDefinition.InfraProvider)),
+	); err != nil {
 		return 0, fmt.Errorf("failed to install support services operator: %w", err)
 	}
 

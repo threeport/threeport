@@ -419,12 +419,19 @@ func TestWorkloadIntegration(t *testing.T) {
 					continue
 				}
 				body := string(*resource.JSONDefinition)
-				if strings.Contains(body, "\"kind\":\"VirtualService\"") || strings.Contains(body, "kind: VirtualService") || strings.Contains(body, "GlooEdge") {
+				// a leftover gloo object means the nginx render did not replace it
+				if strings.Contains(body, "\"kind\":\"VirtualService\"") ||
+					strings.Contains(body, "kind: VirtualService") ||
+					strings.Contains(body, "GlooEdge") {
 					return fmt.Errorf("gateway workload still contains a gloo object")
 				}
-				if strings.Contains(body, "Ingress") && strings.Contains(body, "nginx") && !strings.Contains(body, "IngressComponent") {
+				// an nginx ingress is not the operator's IngressComponent
+				if strings.Contains(body, "Ingress") &&
+					strings.Contains(body, "nginx") &&
+					!strings.Contains(body, "IngressComponent") {
 					sawIngress = true
 				}
+				// a tcp listener is a TransportServer
 				if strings.Contains(body, "TransportServer") {
 					sawTransport = true
 				}
@@ -448,7 +455,9 @@ func TestWorkloadIntegration(t *testing.T) {
 					continue
 				}
 				body := string(*resource.JSONDefinition)
-				if strings.Contains(body, "Issuer") && strings.Contains(body, "selfSigned") {
+				// kind has no dns provider, so the issuer is self-signed
+				if strings.Contains(body, "Issuer") &&
+					strings.Contains(body, "selfSigned") {
 					return nil
 				}
 			}
@@ -475,9 +484,12 @@ func TestWorkloadIntegration(t *testing.T) {
 					continue
 				}
 				body := string(*resource.JSONDefinition)
-				if strings.Contains(body, "IngressComponent") && strings.Contains(body, "true") {
+				// the ingress component enables nginx
+				if strings.Contains(body, "IngressComponent") &&
+					strings.Contains(body, "true") {
 					sawIngress = true
 				}
+				// cert-manager arrives as a certificates component
 				if strings.Contains(body, "CertificatesComponent") {
 					sawCerts = true
 				}

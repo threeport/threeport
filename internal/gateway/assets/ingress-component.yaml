@@ -3,7 +3,8 @@ kind: IngressComponent
 metadata:
   name: ingress
 spec:
-  # Support services names this collection. Its cloud value selects the nodeport service.
+  # collection.name joins this component to the SupportServices object of that name.
+  # The SupportServices "cloud" parameter must be "local", or the operator does not create the nginx-ingress-nodeport service.
   collection:
     name: threeport-support-services
   domainName: threeport.local
@@ -14,7 +15,9 @@ spec:
   kong:
     include: false
     proxyServiceName: kong-proxy
-  # iamRoleArn is required. An empty value is omitted, and the apiserver rejects the update.
+  # The IngressComponent type marks "iamRoleArn" omitempty, so an empty string is left out of the object.
+  # The custom resource requires "iamRoleArn", and the apiserver rejects an update that omits it.
+  # The value "local" keeps the field present when external-dns has no AWS role.
   externalDNS:
     provider: none
     iamRoleArn: local

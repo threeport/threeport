@@ -11,6 +11,7 @@ import (
 
 // operatorNamespaces are created by the support-services operator.
 // A workload update must not replace them with a managed namespace.
+// The operator does not export these names.
 var operatorNamespaces = map[string]struct{}{
 	"nukleros-ingress-system": {},
 	"nukleros-certs-system":   {},
@@ -156,4 +157,35 @@ func deleteJSONPath(value interface{}, path []string) {
 	}
 
 	deleteJSONPath(object[path[0]], path[1:])
+}
+
+// JSONValuesEqual reports whether two decoded values are the same JSON.
+// A Go int and the float64 produced by unmarshalling that int compare equal.
+func JSONValuesEqual(left interface{}, right interface{}) (bool, error) {
+	// round-trip both values, then compare
+	canonicalLeft, err := canonicalJSON(left)
+	if err != nil {
+		return false, err
+	}
+	canonicalRight, err := canonicalJSON(right)
+	if err != nil {
+		return false, err
+	}
+
+	return reflect.DeepEqual(canonicalLeft, canonicalRight), nil
+}
+
+// canonicalJSON round-trips a value so numbers share one encoding.
+func canonicalJSON(value interface{}) (interface{}, error) {
+	// marshal and unmarshal so numbers share one encoding
+	body, err := json.Marshal(value)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal JSON for comparison: %w", err)
+	}
+	var decoded interface{}
+	if err := json.Unmarshal(body, &decoded); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal JSON for comparison: %w", err)
+	}
+
+	return decoded, nil
 }

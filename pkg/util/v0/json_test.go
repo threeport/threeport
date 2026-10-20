@@ -219,6 +219,18 @@ func TestJSONDefinitionsEqualIgnoring(t *testing.T) {
 		assert.True(t, equal)
 	})
 
+	t.Run("an int and the float from unmarshalling it compare equal", func(t *testing.T) {
+		equal, err := JSONValuesEqual([]interface{}{int64(80)}, []interface{}{float64(80)})
+		require.NoError(t, err)
+		assert.True(t, equal)
+	})
+
+	t.Run("different values do not compare equal", func(t *testing.T) {
+		equal, err := JSONValuesEqual([]interface{}{"http"}, []interface{}{"tcp"})
+		require.NoError(t, err)
+		assert.False(t, equal)
+	})
+
 	t.Run("with nothing ignored it is a plain comparison", func(t *testing.T) {
 		equal, err := JSONDefinitionsEqualIgnoring(
 			definition(`{"metadata":{"namespace":"ns-1"}}`),
