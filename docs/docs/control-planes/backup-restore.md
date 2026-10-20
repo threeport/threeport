@@ -23,12 +23,20 @@ creates:
   `threeport-prod-backups-acme-prod`. It is private, with uniform bucket-level
   access and public access prevention enforced, and labelled as belonging to
   the control plane. Its name is recorded in your Threeport config.
-- **A backup service account**, `threeport-bkp-<runtime>`, that holds only
-  `roles/storage.objectCreator` and `roles/storage.objectViewer` on the bucket.
-  It can write and read backups, but neither delete one nor change the bucket.
-- **A Workload Identity binding** that lets the database's Kubernetes service
-  account, `crdb` in the `threeport-control-plane` namespace, act as the backup
-  service account. The database authenticates to the bucket without a key.
+- **Access for the database, and only the database.** The bucket grants
+  `roles/storage.objectCreator` and `roles/storage.objectViewer` to the
+  database's Kubernetes service account, `crdb` in the `threeport-control-plane`
+  namespace, through Workload Identity Federation for GKE. It can write and
+  read backups, but neither delete one nor change the bucket, and it
+  authenticates without a key or a GCP service account.
+
+The grant names the Kubernetes service account by the UID its cluster gave
+it, not by its namespace and name. Every GKE cluster in a project shares one
+workload identity pool, so a grant by namespace and name would also let in any
+other cluster in the project that creates a `threeport-control-plane`
+namespace with a `crdb` service account. A UID cannot be reproduced in
+another cluster. The service account is kept across a reinstall so its UID,
+and with it the database's access, survives.
 
 The bucket goes in another region on the same continent as the cluster. To
 choose the region, pass `--gcp-backup-region`:
@@ -124,8 +132,10 @@ kubectl logs -n threeport-control-plane job/threeport-restore-database
 Running the restore again finishes one that failed part way.
 
 To restore from a bucket other than the one in your Threeport config, for
-example a copy of the backups, pass it with `--bucket`. The database's backup
-service account needs `roles/storage.objectViewer` on that bucket.
+example a copy of the backups, pass it with `--bucket`. The database's
+Kubernetes service account needs `roles/storage.objectViewer` on that bucket.
+The full backup the restore ends with still goes to the bucket in your
+Threeport config, where the scheduled backups go.
 
 ### After a restore
 
@@ -140,8 +150,8 @@ recreating the objects that were lost or removing what they left behind.
 
 ## Tearing a control plane down
 
-`tptctl down` removes the backup service account and its access to the bucket,
-but keeps the bucket and every backup in it, since they may still be needed
+`tptctl down` removes the database's access to the bucket, but keeps the
+bucket and every backup in it, since they may still be needed
 after the control plane is gone. A control plane installed again under the same
 name and project reuses the bucket and the backups already in it.
 

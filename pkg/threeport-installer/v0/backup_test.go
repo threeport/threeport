@@ -102,17 +102,16 @@ func backupTestMapper() meta.RESTMapper {
 // GKE whose backups were provisioned.
 func backupInstaller() *ControlPlaneInstaller {
 	return &ControlPlaneInstaller{Opts: Options{
-		Name:                         ControlPlaneName,
-		Namespace:                    ControlPlaneNamespace,
-		RestApiInfo:                  ThreeportRestApi,
-		DatabaseMigratorInfo:         DatabaseMigrator,
-		AgentInfo:                    ThreeportAgent,
-		AdditionalOptions:            map[string]interface{}{},
-		CreateOrUpdateKubeResources:  true,
-		InfraProvider:                "gke",
-		Tier:                         ControlPlaneTier(ControlPlaneTierProd),
-		GcpBackupBucket:              "threeport-prod-backups-acme-prod",
-		GcpBackupServiceAccountEmail: "threeport-bkp-threeport-prod@acme-prod.iam.gserviceaccount.com",
+		Name:                        ControlPlaneName,
+		Namespace:                   ControlPlaneNamespace,
+		RestApiInfo:                 ThreeportRestApi,
+		DatabaseMigratorInfo:        DatabaseMigrator,
+		AgentInfo:                   ThreeportAgent,
+		AdditionalOptions:           map[string]interface{}{},
+		CreateOrUpdateKubeResources: true,
+		InfraProvider:               "gke",
+		Tier:                        ControlPlaneTier(ControlPlaneTierProd),
+		GcpBackupBucket:             "threeport-prod-backups-acme-prod",
 	}}
 }
 
@@ -140,18 +139,14 @@ func getObject(t *testing.T, kubeClient dynamic.Interface, gvr schema.GroupVersi
 	return object
 }
 
-var (
-	serviceAccountGVR = schema.GroupVersionResource{Version: "v1", Resource: "serviceaccounts"}
-	statefulSetGVR    = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "statefulsets"}
-)
+var statefulSetGVR = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "statefulsets"}
 
-// TestTheDatabaseRunsAsTheBackupServiceAccount covers how the database gets
-// to write its backups: it runs as its own Kubernetes service account, which
-// a production GKE install binds to the GCP service account that can write
-// to the backup bucket.
-func TestTheDatabaseRunsAsTheBackupServiceAccount(t *testing.T) {
-	cpi := backupInstaller()
-	kubeClient := installDependencies(t, cpi)
+// TestTheDatabaseRunsAsItsOwnServiceAccount covers the identity the database
+// writes its backups as: its own Kubernetes service account, which the
+// backup bucket grants access to by UID.  It acts as no GCP service account,
+// and gets no API token since it never calls the Kubernetes API.
+func TestTheDatabaseRunsAsItsOwnServiceAccount(t *testing.T) {
+	kubeClient := installDependencies(t, backupInstaller())
 
 	statefulSet := getObject(t, kubeClient, statefulSetGVR, "crdb")
 	serviceAccountName, _, err := unstructured.NestedString(statefulSet.Object, "spec", "template", "spec", "serviceAccountName")
@@ -159,37 +154,43 @@ func TestTheDatabaseRunsAsTheBackupServiceAccount(t *testing.T) {
 	assert.Equal(t, DatabaseServiceAccountName, serviceAccountName)
 
 	serviceAccount := getObject(t, kubeClient, serviceAccountGVR, DatabaseServiceAccountName)
-	assert.Equal(t,
-		cpi.Opts.GcpBackupServiceAccountEmail,
-		serviceAccount.GetAnnotations()["iam.gke.io/gcp-service-account"],
-	)
+	assert.Empty(t, serviceAccount.GetAnnotations(), "the database acts as a GCP service account")
 	automount, found, err := unstructured.NestedBool(serviceAccount.Object, "automountServiceAccountToken")
 	require.NoError(t, err)
 	require.True(t, found, "the database service account leaves token automounting at the default")
-	assert.False(t, automount, "the database never calls the Kubernetes API, so it gets no token")
+	assert.False(t, automount)
 }
 
-// TestAReinstallKeepsTheBackupServiceAccount covers a reinstall, which is not
-// told about the backups: the database's service account is marked to survive
-// it, since one recreated without the annotation would stop the backups.
-func TestAReinstallKeepsTheBackupServiceAccount(t *testing.T) {
+// TestAReinstallKeepsTheDatabaseServiceAccount covers a reinstall: the
+// database's service account is marked to survive it, since one recreated
+// would get a new UID, which the backup bucket does not grant access to.
+func TestAReinstallKeepsTheDatabaseServiceAccount(t *testing.T) {
 	kubeClient := installDependencies(t, backupInstaller())
 
 	serviceAccount := getObject(t, kubeClient, serviceAccountGVR, DatabaseServiceAccountName)
 	assert.Equal(t, LabelPersistentValue, serviceAccount.GetLabels()[LabelPersistent])
 }
 
-// TestWithoutBackupsTheDatabaseServiceAccountHasNoBinding covers every other
-// control plane: the database still runs as its own service account, but
-// it acts as no GCP identity.
-func TestWithoutBackupsTheDatabaseServiceAccountHasNoBinding(t *testing.T) {
+// TestTheDatabaseServiceAccountUIDIsRead covers the UID an install grants
+// the backup bucket to: the one the cluster gave the account.
+func TestTheDatabaseServiceAccountUIDIsRead(t *testing.T) {
+	serviceAccount := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "ServiceAccount",
+		"metadata": map[string]interface{}{
+			"name":      DatabaseServiceAccountName,
+			"namespace": ControlPlaneNamespace,
+			"uid":       "6b7a3e5c-1f2d-4c8b-9a0e-2d4f6a8c0e1b",
+		},
+	}}
 	cpi := backupInstaller()
-	cpi.Opts.GcpBackupBucket = ""
-	cpi.Opts.GcpBackupServiceAccountEmail = ""
-	kubeClient := installDependencies(t, cpi)
 
-	serviceAccount := getObject(t, kubeClient, serviceAccountGVR, DatabaseServiceAccountName)
-	assert.Empty(t, serviceAccount.GetAnnotations())
+	uid, err := cpi.DatabaseServiceAccountUID(dynamicfake.NewSimpleDynamicClient(runtime.NewScheme(), serviceAccount))
+	require.NoError(t, err)
+	assert.Equal(t, "6b7a3e5c-1f2d-4c8b-9a0e-2d4f6a8c0e1b", uid)
+
+	_, err = cpi.DatabaseServiceAccountUID(dynamicfake.NewSimpleDynamicClient(runtime.NewScheme()))
+	assert.Error(t, err, "a missing account has no UID to grant access to")
 }
 
 // TestTheBackupScheduleIsCreatedOnlyWithABucket covers the SQL the database

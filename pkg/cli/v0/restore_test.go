@@ -41,3 +41,12 @@ func TestRestoreIsOnlyForGke(t *testing.T) {
 	err := RestoreControlPlaneDatabase(&ControlPlane{Name: "eks", Provider: v0.KubernetesRuntimeInfraProviderEKS}, "some-bucket", "LATEST")
 	assert.ErrorContains(t, err, "supported for control planes on gke")
 }
+
+// TestRestoreNeedsTheClusterLocation covers how a restore finds the cluster:
+// by a project and region it knows, never by an empty one the caller's
+// current Google defaults would fill in and point at another cluster.
+func TestRestoreNeedsTheClusterLocation(t *testing.T) {
+	assert.NoError(t, RequireGkeLocation("acme-prod", "us-east4"))
+	assert.Error(t, RequireGkeLocation("", "us-east4"))
+	assert.Error(t, RequireGkeLocation("acme-prod", ""))
+}

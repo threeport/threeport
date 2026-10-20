@@ -7,20 +7,26 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
+	"google.golang.org/api/cloudresourcemanager/v1"
 	"google.golang.org/api/googleapi"
-	"google.golang.org/api/iam/v1"
 	"google.golang.org/api/option"
 	"google.golang.org/api/storage/v1"
-
-	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 )
 
-// The resources a production control plane on GKE backs its database up with:
-// a bucket in another region and a service account that can write to it and
-// nothing else.  They are created with the GCP API rather than in the Pulumi
-// stack so that destroying the stack on teardown leaves the backups in place.
+// A production control plane on GKE backs its database up to a bucket in
+// another region.  The bucket is created with the GCP API rather than in the
+// Pulumi stack so that destroying the stack on teardown leaves the backups in
+// place.
+//
+// The database reaches the bucket as its own Kubernetes service account,
+// through Workload Identity Federation for GKE, with no GCP service account
+// or key.  The bucket names that account by its UID rather than by its
+// namespace and name: every cluster in a project shares one workload identity
+// pool, so a namespace and name grant would let any cluster in the project
+// that creates the same namespace and account read the backups, while a UID
+// is assigned by the cluster that owns the account and cannot be claimed by
+// another.
 const (
 	// backupBucketNameFormat is the bucket name, from the runtime instance
 	// name and the project ID.  Bucket names are global, so the project is
@@ -30,19 +36,19 @@ const (
 	// backupBucketNameMaxLength is the longest bucket name GCS accepts.
 	backupBucketNameMaxLength = 63
 
-	// backupServiceAccountNameFormat is the backup service account ID, from
-	// the runtime instance name.  It is as long as serviceAccountNameFormat,
-	// so a runtime name that fits one fits the other.
-	backupServiceAccountNameFormat = "threeport-bkp-%s"
+	// kubeServiceAccountPrincipalFormat is the Workload Identity Federation
+	// principal of one Kubernetes service account, by project number,
+	// project ID and the account's UID.
+	kubeServiceAccountPrincipalFormat = "principal://iam.googleapis.com/projects/%d/locations/global/workloadIdentityPools/%s.svc.id.goog/kubernetes.serviceaccount.uid/%s"
 
-	// backupServiceAccountDisplayFormat is the backup service account's
-	// display name.
-	backupServiceAccountDisplayFormat = "Threeport database backups for %s"
+	// kubeServiceAccountPrincipalMarker is part of every principal that
+	// names a Kubernetes service account by UID, in any project's pool.
+	kubeServiceAccountPrincipalMarker = ".svc.id.goog/kubernetes.serviceaccount.uid/"
 )
 
-// backupBucketRoles are the roles the backup service account holds on the
-// bucket: writing backups and reading them back to list and restore them.
-// Neither can delete an object or change the bucket.
+// backupBucketRoles are the roles the database holds on the bucket: writing
+// backups and reading them back to list and restore them.  Neither can delete
+// an object or change the bucket.
 var backupBucketRoles = []string{
 	"roles/storage.objectCreator",
 	"roles/storage.objectViewer",
@@ -123,17 +129,6 @@ func GkeBackupBucketName(runtimeInstanceName, projectID string) string {
 	return prefix + "-" + suffix
 }
 
-// backupServiceAccountID returns the backup service account's ID.
-func (i *KubernetesRuntimeInfraGKE) backupServiceAccountID() string {
-	return formatServiceAccountID(backupServiceAccountNameFormat, i.RuntimeInstanceName)
-}
-
-// expectedBackupServiceAccountEmail returns the backup service account's
-// email, derived from its ID.
-func (i *KubernetesRuntimeInfraGKE) expectedBackupServiceAccountEmail() string {
-	return fmt.Sprintf("%s@%s.iam.gserviceaccount.com", i.backupServiceAccountID(), i.ProjectID)
-}
-
 // backupClientOpts returns the options for a GCP client the backup resources
 // are managed with, carrying the explicit credentials when there are some.
 func (i *KubernetesRuntimeInfraGKE) backupClientOpts(scope string) []option.ClientOption {
@@ -145,32 +140,21 @@ func (i *KubernetesRuntimeInfraGKE) backupClientOpts(scope string) []option.Clie
 	return opts
 }
 
-// provisionBackups creates the backup bucket and service account, grants the
-// account access to the bucket and lets the database's Kubernetes service
-// account act as it.  It runs after the cluster is created, since the
-// workload identity pool a binding names exists only once there is a cluster.
+// provisionBackups creates the backup bucket.  Access to it is granted once
+// the database's Kubernetes service account exists, with
+// GrantDatabaseBackupAccess.
 func (i *KubernetesRuntimeInfraGKE) provisionBackups() error {
-	ctx := context.Background()
-
 	storageClientOpts := i.backupClientOpts(storage.DevstorageFullControlScope)
-	storageService, err := storage.NewService(ctx, storageClientOpts...)
+	storageService, err := storage.NewService(context.Background(), storageClientOpts...)
 	if err != nil {
 		return fmt.Errorf("failed to create storage service client: %w", err)
 	}
-	iamClientOpts := i.backupClientOpts(iam.CloudPlatformScope)
-	iamService, err := iam.NewService(ctx, iamClientOpts...)
-	if err != nil {
-		return fmt.Errorf("failed to create IAM service client: %w", err)
-	}
 
-	return i.provisionBackupsWith(storageService, iamService)
+	return i.provisionBackupsWith(storageService)
 }
 
-// provisionBackupsWith provisions the backup resources with the given clients.
-func (i *KubernetesRuntimeInfraGKE) provisionBackupsWith(
-	storageService *storage.Service,
-	iamService *iam.Service,
-) error {
+// provisionBackupsWith creates the backup bucket with the given client.
+func (i *KubernetesRuntimeInfraGKE) provisionBackupsWith(storageService *storage.Service) error {
 	backupRegion, err := GkeBackupRegion(i.Region, i.BackupRegion)
 	if err != nil {
 		return err
@@ -180,82 +164,51 @@ func (i *KubernetesRuntimeInfraGKE) provisionBackupsWith(
 	if err := i.ensureBackupBucket(storageService, bucketName, backupRegion); err != nil {
 		return err
 	}
-
-	account, existed, err := createServiceAccountForProject(
-		iamService,
-		i.ProjectID,
-		i.backupServiceAccountID(),
-		fmt.Sprintf(backupServiceAccountDisplayFormat, i.RuntimeInstanceName),
-		backupServiceAccountDescription(i.RuntimeInstanceName),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create backup service account: %w", err)
-	}
-	if err := refuseUnownedExistingGCPServiceAccount(account, existed, i.RuntimeInstanceName); err != nil {
-		return err
-	}
-
-	// a service account just created is not yet known to every GCP API, so
-	// granting it access is retried until it is
-	if err := retryWhileServiceAccountPropagates(func() error {
-		return grantBucketRoles(storageService, bucketName, "serviceAccount:"+account.Email, backupBucketRoles)
-	}); err != nil {
-		return err
-	}
-
-	if err := retryWhileServiceAccountPropagates(func() error {
-		return addWorkloadIdentityMembers(
-			iamService,
-			i.ProjectID,
-			account.Email,
-			[]string{databaseWorkloadIdentityMember(i.ProjectID)},
-		)
-	}); err != nil {
-		return fmt.Errorf("failed to let the database act as the backup service account: %w", err)
-	}
-
 	i.BackupBucket = bucketName
-	i.BackupServiceAccountEmail = account.Email
 
 	return nil
 }
 
-// serviceAccountPropagationAttempts and serviceAccountPropagationDelay bound
-// how long access for a new service account is retried: two minutes.
-var (
-	serviceAccountPropagationAttempts = 24
-	serviceAccountPropagationDelay    = 5 * time.Second
-)
+// GrantDatabaseBackupAccess lets the database's Kubernetes service account,
+// named by its UID, write and read backups in the backup bucket.
+func (i *KubernetesRuntimeInfraGKE) GrantDatabaseBackupAccess(kubeServiceAccountUID string) error {
+	ctx := context.Background()
 
-// retryWhileServiceAccountPropagates runs f until it succeeds, retrying while
-// the failure says a service account does not exist yet.  Any other failure
-// is returned at once.
-func retryWhileServiceAccountPropagates(f func() error) error {
-	var err error
-	for attempt := 1; attempt <= serviceAccountPropagationAttempts; attempt++ {
-		err = f()
-		if err == nil || !isServiceAccountNotPropagated(err) {
-			return err
-		}
-		if attempt < serviceAccountPropagationAttempts {
-			time.Sleep(serviceAccountPropagationDelay)
-		}
+	storageClientOpts := i.backupClientOpts(storage.DevstorageFullControlScope)
+	storageService, err := storage.NewService(ctx, storageClientOpts...)
+	if err != nil {
+		return fmt.Errorf("failed to create storage service client: %w", err)
+	}
+	crmClientOpts := i.backupClientOpts(cloudresourcemanager.CloudPlatformScope)
+	crmService, err := cloudresourcemanager.NewService(ctx, crmClientOpts...)
+	if err != nil {
+		return fmt.Errorf("failed to create Cloud Resource Manager service client: %w", err)
 	}
 
-	return fmt.Errorf("service account did not become available: %w", err)
+	return i.grantDatabaseBackupAccessWith(storageService, crmService, kubeServiceAccountUID)
 }
 
-// isServiceAccountNotPropagated reports whether err is a Google API saying a
-// service account does not exist: a 404 for the account itself, or the 400
-// Cloud Storage returns for a policy that names it.
-func isServiceAccountNotPropagated(err error) bool {
-	var apiErr *googleapi.Error
-	if !errors.As(err, &apiErr) {
-		return false
+// grantDatabaseBackupAccessWith grants the database access with the given
+// clients.
+func (i *KubernetesRuntimeInfraGKE) grantDatabaseBackupAccessWith(
+	storageService *storage.Service,
+	crmService *cloudresourcemanager.Service,
+	kubeServiceAccountUID string,
+) error {
+	if i.BackupBucket == "" {
+		return errors.New("no backup bucket was provisioned to grant the database access to")
+	}
+	if kubeServiceAccountUID == "" {
+		return errors.New("the database's Kubernetes service account has no UID to grant access to")
 	}
 
-	return apiErr.Code == 404 ||
-		(apiErr.Code == 400 && strings.Contains(apiErr.Message, "does not exist"))
+	project, err := crmService.Projects.Get(i.ProjectID).Do()
+	if err != nil {
+		return fmt.Errorf("failed to get the number of project %s: %w", i.ProjectID, err)
+	}
+	member := fmt.Sprintf(kubeServiceAccountPrincipalFormat, project.ProjectNumber, i.ProjectID, kubeServiceAccountUID)
+
+	return grantBucketRoles(storageService, i.BackupBucket, member, backupBucketRoles)
 }
 
 // ensureBackupBucket creates the backup bucket, or reuses it when an earlier
@@ -338,8 +291,9 @@ func grantBucketRoles(storageService *storage.Service, bucketName, member string
 	return nil
 }
 
-// removeBucketMember removes member from every role on a bucket.
-func removeBucketMember(storageService *storage.Service, bucketName, member string) error {
+// removeBucketMembers removes every member matching remove from every role on
+// a bucket.
+func removeBucketMembers(storageService *storage.Service, bucketName string, remove func(string) bool) error {
 	policy, err := storageService.Buckets.GetIamPolicy(bucketName).Do()
 	if err != nil {
 		return fmt.Errorf("failed to get IAM policy of bucket %s: %w", bucketName, err)
@@ -350,7 +304,7 @@ func removeBucketMember(storageService *storage.Service, bucketName, member stri
 	for _, binding := range policy.Bindings {
 		members := make([]string, 0, len(binding.Members))
 		for _, m := range binding.Members {
-			if m == member {
+			if remove(m) {
 				changed = true
 				continue
 			}
@@ -373,92 +327,37 @@ func removeBucketMember(storageService *storage.Service, bucketName, member stri
 	return nil
 }
 
-// addWorkloadIdentityMembers lets each member act as a GCP service account
-// through workload identity.
-func addWorkloadIdentityMembers(iamService *iam.Service, projectID, serviceAccountEmail string, members []string) error {
-	resource := fmt.Sprintf("projects/%s/serviceAccounts/%s", projectID, serviceAccountEmail)
-	policy, err := iamService.Projects.ServiceAccounts.GetIamPolicy(resource).Do()
-	if err != nil {
-		return fmt.Errorf("failed to get service account IAM policy: %w", err)
-	}
-
-	var binding *iam.Binding
-	for _, b := range policy.Bindings {
-		if b.Role == "roles/iam.workloadIdentityUser" {
-			binding = b
-			break
-		}
-	}
-	if binding == nil {
-		binding = &iam.Binding{Role: "roles/iam.workloadIdentityUser"}
-		policy.Bindings = append(policy.Bindings, binding)
-	}
-
-	changed := false
-	for _, member := range members {
-		if !containsString(binding.Members, member) {
-			binding.Members = append(binding.Members, member)
-			changed = true
-		}
-	}
-	if !changed {
+// deleteBackupResources removes every Kubernetes service account's access to
+// the backup bucket recorded for this control plane.  The bucket and the
+// backups in it are kept unless DeleteBackups is set, since they may still be
+// needed after the control plane is gone.  Without a recorded bucket there is
+// nothing to remove, which is the case for every runtime but a production
+// control plane's.
+func (i *KubernetesRuntimeInfraGKE) deleteBackupResources(storageService *storage.Service) error {
+	if i.BackupBucket == "" {
 		return nil
 	}
 
-	if _, err := iamService.Projects.ServiceAccounts.SetIamPolicy(
-		resource,
-		&iam.SetIamPolicyRequest{Policy: policy},
-	).Do(); err != nil {
-		return fmt.Errorf("failed to set service account IAM policy: %w", err)
-	}
-
-	return nil
-}
-
-// databaseWorkloadIdentityMember is the workload identity principal of the
-// database's Kubernetes service account.
-func databaseWorkloadIdentityMember(projectID string) string {
-	return fmt.Sprintf(
-		"serviceAccount:%s[%s/%s]",
-		fmt.Sprintf(workloadIdentityPoolFormat, projectID),
-		installer.ControlPlaneNamespace,
-		installer.DatabaseServiceAccountName,
-	)
-}
-
-// deleteBackupResources removes the backup service account and its access to
-// the bucket.  The bucket and the backups in it are kept unless DeleteBackups
-// is set, since they may still be needed after the control plane is gone.
-func (i *KubernetesRuntimeInfraGKE) deleteBackupResources(
-	storageService *storage.Service,
-	iamService *iam.Service,
-) error {
-	bucketName := GkeBackupBucketName(i.RuntimeInstanceName, i.ProjectID)
-	email := i.expectedBackupServiceAccountEmail()
-
-	account, found, err := getServiceAccountForProject(iamService, i.ProjectID, email)
-	if err != nil {
-		return fmt.Errorf("failed to check for backup service account: %w", err)
-	}
-	if found {
-		if !serviceAccountOwnedBy(account, i.RuntimeInstanceName) {
-			return fmt.Errorf("backup service account %s was not created for %s, leaving it in place", email, i.RuntimeInstanceName)
-		}
-
-		// the bucket outlives the account, so its access goes first
-		if err := removeBucketMember(storageService, bucketName, "serviceAccount:"+email); err != nil && !isGoogleAPINotFound(err) {
-			return err
-		}
-		if err := deleteServiceAccountForProject(iamService, i.ProjectID, email); err != nil {
-			return fmt.Errorf("failed to delete backup service account: %w", err)
-		}
-	}
-
-	if !i.DeleteBackups {
+	bucket, err := storageService.Buckets.Get(i.BackupBucket).Do()
+	if isGoogleAPINotFound(err) {
 		return nil
 	}
+	if err != nil {
+		return fmt.Errorf("failed to check for backup bucket %s: %w", i.BackupBucket, err)
+	}
+	if !bucketOwnedBy(bucket, i.RuntimeInstanceName) {
+		return fmt.Errorf("GCS bucket %s was not created for %s, leaving it in place", i.BackupBucket, i.RuntimeInstanceName)
+	}
 
-	return deleteBackupBucket(storageService, bucketName, i.RuntimeInstanceName)
+	if i.DeleteBackups {
+		return deleteBackupBucket(storageService, i.BackupBucket, i.RuntimeInstanceName)
+	}
+
+	// the cluster, and with it the account's UID, may already be gone, so
+	// every account principal the bucket names goes
+	return removeBucketMembers(storageService, i.BackupBucket, func(member string) bool {
+		return strings.Contains(member, kubeServiceAccountPrincipalMarker)
+	})
 }
 
 // deleteBackupBucket deletes a backup bucket and every backup in it.  A
@@ -507,16 +406,6 @@ func bucketOwnedBy(bucket *storage.Bucket, ownerName string) bool {
 	}
 
 	return true
-}
-
-// backupServiceAccountDescription is the IAM description of a backup service
-// account, recording which control plane it belongs to.
-func backupServiceAccountDescription(runtimeInstanceName string) string {
-	return fmt.Sprintf(
-		"Writes database backups for Threeport instance %s; %s",
-		runtimeInstanceName,
-		GcpOwnershipDescription(runtimeInstanceName),
-	)
 }
 
 // isGoogleAPINotFound reports whether err is a 404 from a Google API.

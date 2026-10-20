@@ -88,7 +88,7 @@ func TestRestoreReplacesTheDatabaseAndKeepsItUsable(t *testing.T) {
 	mustExec(t, owner, "INSERT INTO objects VALUES (2, 'written-after')")
 
 	// restore the latest backup
-	statements, err := installer.DatabaseRestoreStatements(restoreTestDatabase, restoreTestOwner, restoreTestURI, installer.LatestBackup)
+	statements, err := installer.DatabaseRestoreStatements(restoreTestDatabase, restoreTestOwner, restoreTestURI, restoreTestURI, installer.LatestBackup)
 	if err != nil {
 		t.Fatalf("restore statements: %v", err)
 	}
@@ -145,7 +145,7 @@ func TestAFailedRestoreLeavesTheDatabaseInPlace(t *testing.T) {
 	mustExec(t, root, fmt.Sprintf("CREATE TABLE %s.objects (id INT PRIMARY KEY)", database))
 	mustExec(t, root, fmt.Sprintf("INSERT INTO %s.objects VALUES (1)", database))
 
-	statements, err := installer.DatabaseRestoreStatements(database, restoreTestOwner, "nodelocal://1/no-backups-here", "/2020/01/01-000000.00")
+	statements, err := installer.DatabaseRestoreStatements(database, restoreTestOwner, "nodelocal://1/no-backups-here", "nodelocal://1/no-backups-here", "/2020/01/01-000000.00")
 	if err != nil {
 		t.Fatalf("restore statements: %v", err)
 	}

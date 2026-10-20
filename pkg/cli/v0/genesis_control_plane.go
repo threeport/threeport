@@ -402,11 +402,21 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			// pass the GCP service account email to the installer for Workload Identity configuration
 			cpi.Opts.GcpServiceAccountEmail = kubernetesRuntimeInfraGKE.ServiceAccountEmail
 
-			// pass the backup bucket and the account that writes to it to the
-			// installer, and record the bucket for a later restore
+			// record the project and region the cluster was created in, which
+			// the flags may have left empty for the environment or the gcloud
+			// defaults to fill in, so a later restore finds this cluster
+			// rather than whatever those defaults say by then
+			if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *ControlPlane) {
+				c.GKEProviderConfig.GcpProjectId = kubernetesRuntimeInfraGKE.ProjectID
+				c.GKEProviderConfig.GcpRegion = kubernetesRuntimeInfraGKE.Region
+			}); err != nil {
+				return fmt.Errorf("failed to record the GKE project and region in threeport config: %w", err)
+			}
+
+			// pass the backup bucket to the installer, and record it for a
+			// later restore and for teardown
 			if kubernetesRuntimeInfraGKE.BackupBucket != "" {
 				cpi.Opts.GcpBackupBucket = kubernetesRuntimeInfraGKE.BackupBucket
-				cpi.Opts.GcpBackupServiceAccountEmail = kubernetesRuntimeInfraGKE.BackupServiceAccountEmail
 				if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *ControlPlane) {
 					c.GKEProviderConfig.BackupBucket = kubernetesRuntimeInfraGKE.BackupBucket
 				}); err != nil {
@@ -594,6 +604,18 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		dbCreds,
 	); err != nil {
 		return uninstaller.cleanOnCreateError("failed to install threeport control plane dependencies", err)
+	}
+
+	// let the database write its backups, now that the account it runs as
+	// exists and before the API server's start creates the backup schedule
+	if gkeInfra, ok := kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraGKE); ok && cpi.Opts.GcpBackupBucket != "" {
+		uid, err := cpi.DatabaseServiceAccountUID(dynamicKubeClient)
+		if err != nil {
+			return uninstaller.cleanOnCreateError("failed to read the database service account", err)
+		}
+		if err := gkeInfra.GrantDatabaseBackupAccess(uid); err != nil {
+			return uninstaller.cleanOnCreateError("failed to grant the database access to its backup bucket", err)
+		}
 	}
 
 	// if auth is enabled, generate client certificate and add to local config
@@ -1132,6 +1154,7 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			PulumiWorkspace: provider.PulumiWorkspace{
 				RuntimeInstanceName: provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
 			},
+			BackupBucket:  threeportControlPlaneConfig.GKEProviderConfig.BackupBucket,
 			DeleteBackups: cpi.Opts.DeleteBackups,
 		}).InitPulumiProject()
 		// load the GCP project ID and region from the existing Pulumi stack configuration

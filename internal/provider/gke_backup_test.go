@@ -13,7 +13,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/api/googleapi"
+	"google.golang.org/api/cloudresourcemanager/v1"
 	"google.golang.org/api/iam/v1"
 	"google.golang.org/api/option"
 	"google.golang.org/api/storage/v1"
@@ -29,12 +29,6 @@ type fakeGCP struct {
 	objects         map[string][]string
 	accounts        map[string]*iam.ServiceAccount
 	accountPolicies map[string]*iam.Policy
-
-	// how many more times a bucket policy naming a service account, or a
-	// service account's own policy, is refused as if the account were not
-	// yet known, the way GCP refuses one just created
-	bucketPolicyNotPropagated  int
-	accountPolicyNotPropagated int
 
 	bucketsCreated  []string
 	bucketsDeleted  []string
@@ -60,6 +54,7 @@ var (
 	accountsPath      = regexp.MustCompile(`^/v1/projects/([^/]+)/serviceAccounts$`)
 	accountPath       = regexp.MustCompile(`^/v1/projects/[^/]+/serviceAccounts/([^/:]+)$`)
 	accountPolicyPath = regexp.MustCompile(`^/v1/projects/[^/]+/serviceAccounts/([^/:]+):(getIamPolicy|setIamPolicy)$`)
+	projectPath       = regexp.MustCompile(`^/v1/projects/([^/:]+)$`)
 )
 
 func (f *fakeGCP) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -92,13 +87,6 @@ func (f *fakeGCP) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		name := bucketIamPath.FindStringSubmatch(path)[1]
 		if _, ok := f.buckets[name]; !ok {
 			notFound()
-			return
-		}
-		if r.Method == http.MethodPut && f.bucketPolicyNotPropagated > 0 {
-			f.bucketPolicyNotPropagated--
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			_, _ = w.Write([]byte(`{"error": {"code": 400, "message": "Service account threeport-bkp-threeport-prod@acme-prod.iam.gserviceaccount.com does not exist."}}`))
 			return
 		}
 		if r.Method == http.MethodPut {
@@ -146,6 +134,12 @@ func (f *fakeGCP) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		reply(bucket)
 
+	case r.Method == http.MethodGet && projectPath.MatchString(path):
+		reply(map[string]interface{}{
+			"projectId":     projectPath.FindStringSubmatch(path)[1],
+			"projectNumber": "485872316478",
+		})
+
 	case r.Method == http.MethodPost && accountsPath.MatchString(path):
 		project := accountsPath.FindStringSubmatch(path)[1]
 		var request iam.CreateServiceAccountRequest
@@ -158,10 +152,7 @@ func (f *fakeGCP) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	case accountPolicyPath.MatchString(path):
 		match := accountPolicyPath.FindStringSubmatch(path)
-		if _, ok := f.accounts[match[1]]; !ok || f.accountPolicyNotPropagated > 0 {
-			if ok {
-				f.accountPolicyNotPropagated--
-			}
+		if _, ok := f.accounts[match[1]]; !ok {
 			notFound()
 			return
 		}
@@ -192,8 +183,9 @@ func (f *fakeGCP) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// clients returns storage and IAM clients that talk to the fake.
-func (f *fakeGCP) clients(t *testing.T) (*storage.Service, *iam.Service) {
+// clients returns storage and Cloud Resource Manager clients that talk to
+// the fake.
+func (f *fakeGCP) clients(t *testing.T) (*storage.Service, *cloudresourcemanager.Service) {
 	t.Helper()
 
 	server := httptest.NewServer(f)
@@ -202,10 +194,10 @@ func (f *fakeGCP) clients(t *testing.T) (*storage.Service, *iam.Service) {
 	ctx := context.Background()
 	storageService, err := storage.NewService(ctx, option.WithEndpoint(server.URL+"/storage/v1/"), option.WithoutAuthentication())
 	require.NoError(t, err)
-	iamService, err := iam.NewService(ctx, option.WithEndpoint(server.URL+"/"), option.WithoutAuthentication())
+	crmService, err := cloudresourcemanager.NewService(ctx, option.WithEndpoint(server.URL+"/"), option.WithoutAuthentication())
 	require.NoError(t, err)
 
-	return storageService, iamService
+	return storageService, crmService
 }
 
 // bucketMembers returns each role on a bucket and the members holding it.
@@ -275,18 +267,36 @@ func TestBackupBucketNamesAreValidAndDistinct(t *testing.T) {
 	assert.NotEqual(t, first, second)
 }
 
+// testUID is the UID of the database's Kubernetes service account.
+const testUID = "6b7a3e5c-1f2d-4c8b-9a0e-2d4f6a8c0e1b"
+
+// testPrincipal is the principal the bucket grants the database access as.
+const testPrincipal = "principal://iam.googleapis.com/projects/485872316478/locations/global/workloadIdentityPools/acme-prod.svc.id.goog/kubernetes.serviceaccount.uid/" + testUID
+
+// provisionAndGrant provisions the backups of testBackupInfra and grants the
+// database access, as an install does.
+func provisionAndGrant(t *testing.T, storageService *storage.Service, crmService *cloudresourcemanager.Service) *KubernetesRuntimeInfraGKE {
+	t.Helper()
+
+	infra := testBackupInfra()
+	require.NoError(t, infra.provisionBackupsWith(storageService))
+	require.NoError(t, infra.grantDatabaseBackupAccessWith(storageService, crmService, testUID))
+
+	return infra
+}
+
 // TestProvisionBackups covers what a production install creates: a private
-// bucket in the backup region, labelled as this control plane's, and a
-// service account that can write and read backups in that bucket and do
-// nothing else, which the database's Kubernetes service account acts as.
+// bucket in the backup region, labelled as this control plane's, that the
+// database's Kubernetes service account can write and read backups in and do
+// nothing else.
 func TestProvisionBackups(t *testing.T) {
 	fake := newFakeGCP()
-	storageService, iamService := fake.clients(t)
-	infra := testBackupInfra()
+	storageService, crmService := fake.clients(t)
 
-	require.NoError(t, infra.provisionBackupsWith(storageService, iamService))
+	infra := provisionAndGrant(t, storageService, crmService)
 
 	bucketName := "threeport-prod-backups-acme-prod"
+	assert.Equal(t, bucketName, infra.BackupBucket)
 	bucket := fake.buckets[bucketName]
 	require.NotNil(t, bucket, "no backup bucket was created")
 	assert.Equal(t, "US-EAST1", bucket.Location)
@@ -294,36 +304,41 @@ func TestProvisionBackups(t *testing.T) {
 	assert.True(t, bucket.IamConfiguration.UniformBucketLevelAccess.Enabled)
 	assert.Equal(t, "enforced", bucket.IamConfiguration.PublicAccessPrevention)
 
-	email := "threeport-bkp-threeport-prod@acme-prod.iam.gserviceaccount.com"
-	account := fake.accounts[email]
-	require.NotNil(t, account, "no backup service account was created")
-	assert.True(t, serviceAccountOwnedBy(account, infra.RuntimeInstanceName))
-
-	member := "serviceAccount:" + email
 	roles := []string{}
 	for role, members := range fake.bucketMembers(bucketName) {
-		if containsString(members, member) {
-			roles = append(roles, role)
+		assert.Equal(t, []string{testPrincipal}, members, "role %s names someone other than the database", role)
+		roles = append(roles, role)
+	}
+	assert.ElementsMatch(t, backupBucketRoles, roles)
+
+	assert.Empty(t, fake.accounts, "a GCP service account was created")
+}
+
+// TestOtherClustersCannotReadBackups covers who the bucket lets in.  Every
+// cluster in a project shares one workload identity pool, so a grant to the
+// database's namespace and account name would also let in any other cluster
+// that creates the same namespace and account.  The grant names the account
+// by the UID its own cluster gave it instead.
+func TestOtherClustersCannotReadBackups(t *testing.T) {
+	fake := newFakeGCP()
+	storageService, crmService := fake.clients(t)
+
+	provisionAndGrant(t, storageService, crmService)
+
+	for _, members := range fake.bucketMembers("threeport-prod-backups-acme-prod") {
+		for _, member := range members {
+			assert.Contains(t, member, "/kubernetes.serviceaccount.uid/"+testUID)
+			assert.NotContains(t, member, "/subject/ns/")
+			assert.NotContains(t, member, "svc.id.goog[")
+			assert.NotContains(t, member, "principalSet://")
 		}
 	}
-	assert.ElementsMatch(t, backupBucketRoles, roles, "the backup account holds other roles on the bucket than writing and reading objects")
-
-	var workloadIdentityUsers []string
-	for _, binding := range fake.accountPolicies[email].Bindings {
-		if binding.Role == "roles/iam.workloadIdentityUser" {
-			workloadIdentityUsers = binding.Members
-		}
-	}
-	assert.Equal(t, []string{"serviceAccount:acme-prod.svc.id.goog[threeport-control-plane/crdb]"}, workloadIdentityUsers)
-
-	assert.Equal(t, bucketName, infra.BackupBucket)
-	assert.Equal(t, email, infra.BackupServiceAccountEmail)
 }
 
 // TestBackupRolesCannotDeleteBackups covers the least privilege the issue
-// asks for: the backup account can write and read objects, but neither
-// delete one nor administer the bucket, so a compromised database cannot
-// destroy the backups taken of it.
+// asks for: the database can write and read objects, but neither delete one
+// nor administer the bucket, so a compromised database cannot destroy the
+// backups taken of it.
 func TestBackupRolesCannotDeleteBackups(t *testing.T) {
 	for _, role := range backupBucketRoles {
 		assert.NotContains(t, role, "Admin", role)
@@ -331,16 +346,29 @@ func TestBackupRolesCannotDeleteBackups(t *testing.T) {
 	}
 }
 
+// TestGrantNeedsABucketAndAUID covers a grant with nothing to grant: no
+// bucket was provisioned, or the account has no UID.
+func TestGrantNeedsABucketAndAUID(t *testing.T) {
+	fake := newFakeGCP()
+	storageService, crmService := fake.clients(t)
+
+	assert.Error(t, testBackupInfra().grantDatabaseBackupAccessWith(storageService, crmService, testUID))
+
+	infra := testBackupInfra()
+	require.NoError(t, infra.provisionBackupsWith(storageService))
+	assert.Error(t, infra.grantDatabaseBackupAccessWith(storageService, crmService, ""))
+}
+
 // TestProvisionBackupsAgainKeepsTheBucket covers a reinstall of the same
 // control plane: it reuses the bucket, and with it the backups taken before,
 // and grants nothing twice.
 func TestProvisionBackupsAgainKeepsTheBucket(t *testing.T) {
 	fake := newFakeGCP()
-	storageService, iamService := fake.clients(t)
+	storageService, crmService := fake.clients(t)
 
-	require.NoError(t, testBackupInfra().provisionBackupsWith(storageService, iamService))
+	provisionAndGrant(t, storageService, crmService)
 	fake.objects["threeport-prod-backups-acme-prod"] = []string{"2026/10/20-050726.51/BACKUP_MANIFEST"}
-	require.NoError(t, testBackupInfra().provisionBackupsWith(storageService, iamService))
+	provisionAndGrant(t, storageService, crmService)
 
 	assert.Len(t, fake.bucketsCreated, 1)
 	assert.NotEmpty(t, fake.objects["threeport-prod-backups-acme-prod"])
@@ -351,43 +379,54 @@ func TestProvisionBackupsAgainKeepsTheBucket(t *testing.T) {
 
 // TestProvisionBackupsRefusesABucketItDidNotCreate covers a bucket name
 // already taken by something else, and the control plane's own bucket in
-// another region than now asked for: neither is written to.
+// another region than now asked for: neither is used.
 func TestProvisionBackupsRefusesABucketItDidNotCreate(t *testing.T) {
 	t.Run("not ours", func(t *testing.T) {
 		fake := newFakeGCP()
 		fake.buckets["threeport-prod-backups-acme-prod"] = &storage.Bucket{Name: "threeport-prod-backups-acme-prod", Location: "US-EAST1"}
-		storageService, iamService := fake.clients(t)
+		storageService, _ := fake.clients(t)
 
-		assert.ErrorContains(t, testBackupInfra().provisionBackupsWith(storageService, iamService), "not created for")
-		assert.Empty(t, fake.accounts)
+		assert.ErrorContains(t, testBackupInfra().provisionBackupsWith(storageService), "not created for")
 	})
 
 	t.Run("other region", func(t *testing.T) {
 		fake := newFakeGCP()
-		storageService, iamService := fake.clients(t)
-		require.NoError(t, testBackupInfra().provisionBackupsWith(storageService, iamService))
+		storageService, _ := fake.clients(t)
+		require.NoError(t, testBackupInfra().provisionBackupsWith(storageService))
 
 		moved := testBackupInfra()
 		moved.BackupRegion = "us-west1"
-		assert.ErrorContains(t, moved.provisionBackupsWith(storageService, iamService), "already exists in us-east1")
+		assert.ErrorContains(t, moved.provisionBackupsWith(storageService), "already exists in us-east1")
 	})
 }
 
+// tearingDown returns infra for tearing the test control plane down, with
+// its bucket recorded as the config records it.
+func tearingDown(deleteBackups bool) *KubernetesRuntimeInfraGKE {
+	infra := testBackupInfra()
+	infra.BackupBucket = "threeport-prod-backups-acme-prod"
+	infra.DeleteBackups = deleteBackups
+
+	return infra
+}
+
 // TestTeardownKeepsBackupsByDefault covers the issue's teardown rule: the
-// backup account and its access go with the control plane, but the bucket
-// and the backups in it stay unless the operator asks for them to be deleted.
+// database's access goes with the control plane, but the bucket and the
+// backups in it stay unless the operator asks for them to be deleted.
 func TestTeardownKeepsBackupsByDefault(t *testing.T) {
 	fake := newFakeGCP()
-	storageService, iamService := fake.clients(t)
-	infra := testBackupInfra()
-	require.NoError(t, infra.provisionBackupsWith(storageService, iamService))
-	bucketName := infra.BackupBucket
+	storageService, crmService := fake.clients(t)
+	provisionAndGrant(t, storageService, crmService)
+	bucketName := "threeport-prod-backups-acme-prod"
 	fake.objects[bucketName] = []string{"2026/10/20-050726.51/BACKUP_MANIFEST"}
 
-	require.NoError(t, testBackupInfra().deleteBackupResources(storageService, iamService))
+	// someone else's access to the bucket is not threeport's to remove
+	fake.bucketPolicies[bucketName].Bindings = append(fake.bucketPolicies[bucketName].Bindings,
+		&storage.PolicyBindings{Role: "roles/storage.objectViewer", Members: []string{"group:auditors@acme.example"}})
 
-	assert.Equal(t, []string{infra.BackupServiceAccountEmail}, fake.accountsDeleted)
-	assert.Empty(t, fake.bucketMembers(bucketName), "the deleted account keeps access to the bucket")
+	require.NoError(t, tearingDown(false).deleteBackupResources(storageService))
+
+	assert.Equal(t, map[string][]string{"roles/storage.objectViewer": {"group:auditors@acme.example"}}, fake.bucketMembers(bucketName))
 	assert.Contains(t, fake.buckets, bucketName, "the bucket was deleted without being asked to")
 	assert.Empty(t, fake.objectsDeleted)
 }
@@ -396,99 +435,43 @@ func TestTeardownKeepsBackupsByDefault(t *testing.T) {
 // removed, then the bucket.
 func TestTeardownDeletesBackupsWhenAsked(t *testing.T) {
 	fake := newFakeGCP()
-	storageService, iamService := fake.clients(t)
-	infra := testBackupInfra()
-	require.NoError(t, infra.provisionBackupsWith(storageService, iamService))
-	bucketName := infra.BackupBucket
+	storageService, crmService := fake.clients(t)
+	provisionAndGrant(t, storageService, crmService)
+	bucketName := "threeport-prod-backups-acme-prod"
 	fake.objects[bucketName] = []string{"a/BACKUP_MANIFEST", "a/data/1.sst"}
 
-	deleting := testBackupInfra()
-	deleting.DeleteBackups = true
-	require.NoError(t, deleting.deleteBackupResources(storageService, iamService))
+	require.NoError(t, tearingDown(true).deleteBackupResources(storageService))
 
 	assert.ElementsMatch(t, []string{"a/BACKUP_MANIFEST", "a/data/1.sst"}, fake.objectsDeleted)
 	assert.Equal(t, []string{bucketName}, fake.bucketsDeleted)
 }
 
-// TestTeardownLeavesWhatItDidNotCreate covers a bucket or account of the
-// same name that this control plane did not create: neither is touched, even
-// when deleting backups was asked for.
+// TestTeardownLeavesWhatItDidNotCreate covers a recorded bucket this control
+// plane did not create: it is not touched, even when deleting backups was
+// asked for.
 func TestTeardownLeavesWhatItDidNotCreate(t *testing.T) {
 	fake := newFakeGCP()
 	bucketName := "threeport-prod-backups-acme-prod"
 	fake.buckets[bucketName] = &storage.Bucket{Name: bucketName}
 	fake.bucketPolicies[bucketName] = &storage.Policy{}
 	fake.objects[bucketName] = []string{"someone-elses-data"}
-	storageService, iamService := fake.clients(t)
+	storageService, _ := fake.clients(t)
 
-	deleting := testBackupInfra()
-	deleting.DeleteBackups = true
-	assert.Error(t, deleting.deleteBackupResources(storageService, iamService))
+	assert.Error(t, tearingDown(true).deleteBackupResources(storageService))
 	assert.Contains(t, fake.buckets, bucketName)
 	assert.Empty(t, fake.objectsDeleted)
-
-	email := "threeport-bkp-threeport-prod@acme-prod.iam.gserviceaccount.com"
-	fake.accounts[email] = &iam.ServiceAccount{Email: email, Description: "not threeport's"}
-	assert.Error(t, testBackupInfra().deleteBackupResources(storageService, iamService))
-	assert.Contains(t, fake.accounts, email)
 }
 
-// TestTeardownWithoutBackupsDoesNothing covers a development control plane,
-// or a child runtime the controller deletes: there is no backup account, and
-// with deleting backups not asked for, no storage call is needed.
-func TestTeardownWithoutBackupsDoesNothing(t *testing.T) {
-	fake := newFakeGCP()
-	storageService, iamService := fake.clients(t)
-
-	require.NoError(t, testBackupInfra().deleteBackupResources(storageService, iamService))
-	assert.Empty(t, fake.accountsDeleted)
-	assert.Empty(t, fake.bucketsDeleted)
-}
-
-// TestProvisionBackupsWaitsForTheNewServiceAccount covers what a live
-// install hit: right after the backup service account is created, Cloud
-// Storage refuses a policy naming it and IAM does not find it, until it has
-// propagated.  Granting it access is retried rather than failing the install.
-func TestProvisionBackupsWaitsForTheNewServiceAccount(t *testing.T) {
-	delay := serviceAccountPropagationDelay
-	serviceAccountPropagationDelay = 0
-	t.Cleanup(func() { serviceAccountPropagationDelay = delay })
-
-	fake := newFakeGCP()
-	fake.bucketPolicyNotPropagated = 3
-	fake.accountPolicyNotPropagated = 2
-	storageService, iamService := fake.clients(t)
-
+// TestTeardownWithoutABucketDoesNothing covers a development control plane,
+// or a child runtime the controller deletes: no bucket is recorded, so
+// nothing is looked up, even with deleting backups asked for.
+func TestTeardownWithoutABucketDoesNothing(t *testing.T) {
 	infra := testBackupInfra()
-	require.NoError(t, infra.provisionBackupsWith(storageService, iamService))
-	assert.Zero(t, fake.bucketPolicyNotPropagated)
-	assert.Zero(t, fake.accountPolicyNotPropagated)
-	assert.NotEmpty(t, fake.bucketMembers(infra.BackupBucket)["roles/storage.objectCreator"])
-}
+	infra.DeleteBackups = true
 
-// TestProvisionBackupsGivesUpOnAnAccountThatNeverAppears covers the bound on
-// that retry: an account that never becomes known fails the install.
-func TestProvisionBackupsGivesUpOnAnAccountThatNeverAppears(t *testing.T) {
-	delay := serviceAccountPropagationDelay
-	serviceAccountPropagationDelay = 0
-	t.Cleanup(func() { serviceAccountPropagationDelay = delay })
-
-	fake := newFakeGCP()
-	fake.bucketPolicyNotPropagated = serviceAccountPropagationAttempts + 1
-	storageService, iamService := fake.clients(t)
-
-	assert.ErrorContains(t, testBackupInfra().provisionBackupsWith(storageService, iamService), "did not become available")
-}
-
-// TestOtherFailuresAreNotRetried covers the errors the retry leaves alone: a
-// failure that is not about a service account's propagation is returned at
-// once.
-func TestOtherFailuresAreNotRetried(t *testing.T) {
-	calls := 0
-	err := retryWhileServiceAccountPropagates(func() error {
-		calls++
-		return &googleapi.Error{Code: 403, Message: "permission denied"}
-	})
-	assert.Error(t, err)
-	assert.Equal(t, 1, calls)
+	// a client that fails every call shows none is made
+	storageService, err := storage.NewService(context.Background(),
+		option.WithEndpoint("http://127.0.0.1:1/storage/v1/"), option.WithoutAuthentication())
+	require.NoError(t, err)
+	require.NoError(t, infra.deleteBackupResources(storageService))
 }

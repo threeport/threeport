@@ -184,30 +184,41 @@ func initializeDb(logger zap.Logger) error {
 		returnErr("failed to execute SQL init script", err)
 	}
 
-	// create the database backup schedule when the install provides one.
-	// It runs on its own rather than in the init script because CockroachDB
-	// checks the backup target exists when the schedule is created, which it
-	// does not until the init script's transaction commits.  The check also
-	// reads the backup destination, so it is retried while access to it, such
-	// as a newly granted Workload Identity binding, takes effect.
-	scheduleFile := filepath.Join(installer.DbInitLocation, installer.DbBackupScheduleFilename)
-	scheduleScript, err := os.ReadFile(scheduleFile)
-	if err == nil {
-		if err := util.Retry(30, 10, func() error {
-			err := gormDb.Exec(string(scheduleScript)).Error
-			if err != nil {
-				logger.Info("failed to create database backup schedule, retrying in 10 seconds", zap.Error(err))
-			}
-			return err
-		}); err != nil {
-			returnErr("failed to create database backup schedule", err)
-		}
-		logger.Info("database backup schedule in place")
-	} else if !errors.Is(err, os.ErrNotExist) {
-		returnErr("failed to read database backup schedule", err)
+	if err := createBackupSchedule(gormDb, logger); err != nil {
+		returnErr("failed to create database backup schedule", err)
 	}
 
 	logger.Info("database successfully initialized")
+
+	return nil
+}
+
+// createBackupSchedule creates the database backup schedule when the install
+// provides one.  It runs on its own rather than in the init script because
+// CockroachDB checks the backup target exists when the schedule is created,
+// which it does not until the init script's transaction commits.  The check
+// also reads the backup destination, so it is retried while access to it,
+// such as a newly granted Workload Identity binding, takes effect.
+func createBackupSchedule(gormDb *gorm.DB, logger zap.Logger) error {
+	scheduleFile := filepath.Join(installer.DbInitLocation, installer.DbBackupScheduleFilename)
+	scheduleScript, err := os.ReadFile(scheduleFile)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("failed to read database backup schedule: %w", err)
+	}
+
+	if err := util.Retry(30, 10, func() error {
+		err := gormDb.Exec(string(scheduleScript)).Error
+		if err != nil {
+			logger.Info("failed to create database backup schedule, retrying in 10 seconds", zap.Error(err))
+		}
+		return err
+	}); err != nil {
+		return err
+	}
+	logger.Info("database backup schedule in place")
 
 	return nil
 }

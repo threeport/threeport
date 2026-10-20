@@ -82,11 +82,6 @@ type Options struct {
 	// When set, the database runs scheduled backups into it.
 	GcpBackupBucket string
 
-	// The GCP service account the database writes its backups as, set once
-	// it is provisioned.  The database's Kubernetes service account is
-	// annotated to act as it through Workload Identity.
-	GcpBackupServiceAccountEmail string
-
 	// Whether tearing the control plane down also deletes its backup bucket
 	// and every backup in it.
 	DeleteBackups bool

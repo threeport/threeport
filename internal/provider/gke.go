@@ -74,25 +74,22 @@ type KubernetesRuntimeInfraGKE struct {
 	// ServiceAccountCredentials is used.
 	credentialsFilePath string
 
-	// ProvisionBackups makes Create provision a bucket the control plane's
-	// database is backed up to and a service account that can write to it.
+	// ProvisionBackups makes Create provision a bucket in another region the
+	// control plane's database is backed up to.
 	ProvisionBackups bool
 
 	// BackupRegion is the region of the backup bucket.  Empty uses the
 	// default for the cluster's region.
 	BackupRegion string
 
-	// BackupBucket is the name of the backup bucket, set by Create when it
-	// provisions one.
+	// BackupBucket is the name of the backup bucket: set by Create when it
+	// provisions one, and by a caller tearing down a control plane whose
+	// bucket was recorded, so Delete removes the database's access to it.
 	BackupBucket string
 
-	// BackupServiceAccountEmail is the email of the service account the
-	// database writes its backups as, set by Create when it provisions one.
-	BackupServiceAccountEmail string
-
-	// DeleteBackups makes Delete remove the backup bucket and every backup in
-	// it.  The bucket is kept by default, since its backups may still be
-	// needed after the control plane is gone.
+	// DeleteBackups makes Delete remove the backup bucket in BackupBucket and
+	// every backup in it.  The bucket is kept by default, since its backups
+	// may still be needed after the control plane is gone.
 	DeleteBackups bool
 
 	// gcpProjectResolvedFromGcloudINI is true when loadGCPConfig set ProjectID from the active gcloud INI.
@@ -448,17 +445,20 @@ func (i *KubernetesRuntimeInfraGKE) DeleteGCPResources() error {
 		return fmt.Errorf("failed to delete service account: %w", err)
 	}
 
-	// Remove the backup service account, and the backups when asked to
-	storageClientOpts := []option.ClientOption{option.WithScopes(storage.DevstorageFullControlScope)}
-	if i.ServiceAccountCredentials != "" {
-		storageClientOpts = append(storageClientOpts, option.WithCredentialsJSON([]byte(i.ServiceAccountCredentials)))
-	}
-	storageService, err := storage.NewService(ctx, storageClientOpts...)
-	if err != nil {
-		return fmt.Errorf("failed to create storage service client: %w", err)
-	}
-	if err := i.deleteBackupResources(storageService, iamService); err != nil {
-		return fmt.Errorf("failed to clean up database backup resources: %w", err)
+	// Remove the database's access to its backup bucket, and the backups
+	// when asked to
+	if i.BackupBucket != "" {
+		storageClientOpts := []option.ClientOption{option.WithScopes(storage.DevstorageFullControlScope)}
+		if i.ServiceAccountCredentials != "" {
+			storageClientOpts = append(storageClientOpts, option.WithCredentialsJSON([]byte(i.ServiceAccountCredentials)))
+		}
+		storageService, err := storage.NewService(ctx, storageClientOpts...)
+		if err != nil {
+			return fmt.Errorf("failed to create storage service client: %w", err)
+		}
+		if err := i.deleteBackupResources(storageService); err != nil {
+			return fmt.Errorf("failed to clean up database backup resources: %w", err)
+		}
 	}
 
 	return nil

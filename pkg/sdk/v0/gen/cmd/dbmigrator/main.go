@@ -214,6 +214,19 @@ func GenDbMigratorMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	)
 	f.Line()
 
+	// the backup schedule is part of the core control plane's install only, so
+	// a module's migrator, whose installer has no schedule to mount, gets
+	// neither the call nor the function
+	backupScheduleCall := Null()
+	if !gen.Module {
+		backupScheduleCall = If(
+			Id("err").Op(":=").Id("createBackupSchedule").Call(Id("gormDb"), Id("logger")),
+			Id("err").Op("!=").Nil(),
+		).Block(
+			Id("returnErr").Call(Lit("failed to create database backup schedule"), Id("err")),
+		)
+	}
+
 	f.Comment("initializeDb creates the database and user using root database user.")
 	f.Func().Id("initializeDb").Params(
 		Id("logger").Qual("go.uber.org/zap", "Logger"),
@@ -284,17 +297,37 @@ func GenDbMigratorMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		),
 		Line(),
 
-		Comment("create the database backup schedule when the install provides one."),
-		Comment("It runs on its own rather than in the init script because CockroachDB"),
-		Comment("checks the backup target exists when the schedule is created, which it"),
-		Comment("does not until the init script's transaction commits.  The check also"),
-		Comment("reads the backup destination, so it is retried while access to it, such"),
-		Comment("as a newly granted Workload Identity binding, takes effect."),
-		Id("scheduleFile").Op(":=").Qual("path/filepath", "Join").Call(
-			Qual(installerPath, "DbInitLocation"), Qual(installerPath, "DbBackupScheduleFilename"),
-		),
-		List(Id("scheduleScript"), Id("err")).Op(":=").Qual("os", "ReadFile").Call(Id("scheduleFile")),
-		If(Id("err").Op("==").Nil()).Block(
+		backupScheduleCall,
+		Line(),
+
+		Id("logger").Dot("Info").Call(Lit("database successfully initialized")),
+		Line(),
+
+		Return(Nil()),
+	)
+
+	if !gen.Module {
+		f.Comment("createBackupSchedule creates the database backup schedule when the install")
+		f.Comment("provides one.  It runs on its own rather than in the init script because")
+		f.Comment("CockroachDB checks the backup target exists when the schedule is created,")
+		f.Comment("which it does not until the init script's transaction commits.  The check")
+		f.Comment("also reads the backup destination, so it is retried while access to it,")
+		f.Comment("such as a newly granted Workload Identity binding, takes effect.")
+		f.Func().Id("createBackupSchedule").Params(
+			Id("gormDb").Op("*").Qual("gorm.io/gorm", "DB"),
+			Id("logger").Qual("go.uber.org/zap", "Logger"),
+		).Error().Block(
+			Id("scheduleFile").Op(":=").Qual("path/filepath", "Join").Call(
+				Qual(installerPath, "DbInitLocation"), Qual(installerPath, "DbBackupScheduleFilename"),
+			),
+			List(Id("scheduleScript"), Id("err")).Op(":=").Qual("os", "ReadFile").Call(Id("scheduleFile")),
+			If(Qual("errors", "Is").Call(Id("err"), Qual("os", "ErrNotExist"))).Block(
+				Return(Nil()),
+			),
+			If(Id("err").Op("!=").Nil()).Block(
+				Return(Qual("fmt", "Errorf").Call(Lit("failed to read database backup schedule: %w"), Id("err"))),
+			),
+			Line(),
 			If(Id("err").Op(":=").Qual("github.com/threeport/threeport/pkg/util/v0", "Retry").Call(
 				Lit(30), Lit(10), Func().Params().Error().Block(
 					Id("err").Op(":=").Id("gormDb").Dot("Exec").Call(String().Call(Id("scheduleScript"))).Dot("Error"),
@@ -307,19 +340,14 @@ func GenDbMigratorMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					Return(Id("err")),
 				),
 			), Id("err").Op("!=").Nil()).Block(
-				Id("returnErr").Call(Lit("failed to create database backup schedule"), Id("err")),
+				Return(Id("err")),
 			),
 			Id("logger").Dot("Info").Call(Lit("database backup schedule in place")),
-		).Else().If(Op("!").Qual("errors", "Is").Call(Id("err"), Qual("os", "ErrNotExist"))).Block(
-			Id("returnErr").Call(Lit("failed to read database backup schedule"), Id("err")),
-		),
-		Line(),
-
-		Id("logger").Dot("Info").Call(Lit("database successfully initialized")),
-		Line(),
-
-		Return(Nil()),
-	)
+			Line(),
+			Return(Nil()),
+		)
+		f.Line()
+	}
 
 	f.Comment("returnErr returns errors with usage info and exits with non-zero")
 	f.Func().Id("returnErr").Params(

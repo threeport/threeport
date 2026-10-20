@@ -3,6 +3,7 @@ package v0
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"sync"
 	"testing"
@@ -22,12 +23,12 @@ import (
 // into a statement.
 func TestRestoreStatementsNameOnlyABackup(t *testing.T) {
 	for _, backup := range []string{"", "LATEST", "latest"} {
-		statements, err := DatabaseRestoreStatements(DatabaseName, "threeport", "gs://b/threeport_api?AUTH=implicit", backup)
+		statements, err := DatabaseRestoreStatements(DatabaseName, "threeport", "gs://b/threeport_api?AUTH=implicit", "gs://b/threeport_api?AUTH=implicit", backup)
 		require.NoError(t, err, backup)
 		assert.Contains(t, strings.Join(statements, "\n"), "FROM LATEST IN", backup)
 	}
 
-	statements, err := DatabaseRestoreStatements(DatabaseName, "threeport", "gs://b/threeport_api?AUTH=implicit", "/2026/10/20-050726.51")
+	statements, err := DatabaseRestoreStatements(DatabaseName, "threeport", "gs://b/threeport_api?AUTH=implicit", "gs://b/threeport_api?AUTH=implicit", "/2026/10/20-050726.51")
 	require.NoError(t, err)
 	assert.Contains(t, strings.Join(statements, "\n"), "FROM '/2026/10/20-050726.51' IN")
 
@@ -37,7 +38,7 @@ func TestRestoreStatementsNameOnlyABackup(t *testing.T) {
 		"/2026/10/20-050726.51'; DROP DATABASE system; --",
 		"../other",
 	} {
-		_, err := DatabaseRestoreStatements(DatabaseName, "threeport", "gs://b/x", backup)
+		_, err := DatabaseRestoreStatements(DatabaseName, "threeport", "gs://b/x", "gs://b/x", backup)
 		assert.ErrorIs(t, err, ErrInvalidBackup, backup)
 	}
 }
@@ -46,7 +47,7 @@ func TestRestoreStatementsNameOnlyABackup(t *testing.T) {
 // that makes a failed restore harmless: nothing is dropped before the
 // backup is restored alongside the database.
 func TestRestoreDropsTheDatabaseOnlyOnceTheBackupIsRestored(t *testing.T) {
-	statements, err := DatabaseRestoreStatements(DatabaseName, "threeport", "gs://b/x", LatestBackup)
+	statements, err := DatabaseRestoreStatements(DatabaseName, "threeport", "gs://b/x", "gs://b/x", LatestBackup)
 	require.NoError(t, err)
 
 	restoreAt, dropAt := -1, -1
@@ -190,7 +191,7 @@ var productionReplicas = map[string]int64{
 func TestRestoreScalesTheControlPlaneDownAndBack(t *testing.T) {
 	cluster := newRestoreCluster(t, true, productionReplicas)
 
-	require.NoError(t, restoreInstaller().RestoreDatabase(cluster, "threeport-prod-backups-acme-prod", LatestBackup))
+	require.NoError(t, restoreInstaller().RestoreDatabase(cluster, "threeport-prod-backups-acme-prod", "threeport-prod-backups-acme-prod", LatestBackup))
 
 	// scaled to zero before anything else, then back
 	for i, scale := range cluster.scaled {
@@ -201,7 +202,11 @@ func TestRestoreScalesTheControlPlaneDownAndBack(t *testing.T) {
 	assert.Equal(t, productionReplicas, cluster.replicas)
 
 	// every statement is its own --execute, since RESTORE cannot share a transaction
-	statements, err := DatabaseRestoreStatements(DatabaseName, "threeport", DatabaseBackupURI("threeport-prod-backups-acme-prod"), LatestBackup)
+	statements, err := DatabaseRestoreStatements(
+		DatabaseName, "threeport",
+		DatabaseBackupURI("threeport-prod-backups-acme-prod"), DatabaseBackupURI("threeport-prod-backups-acme-prod"),
+		LatestBackup,
+	)
 	require.NoError(t, err)
 	executed := []string{}
 	command := cluster.jobCommand(t)
@@ -223,7 +228,7 @@ func TestRestoreScalesTheControlPlaneDownAndBack(t *testing.T) {
 func TestAFailedRestoreBringsTheControlPlaneBack(t *testing.T) {
 	cluster := newRestoreCluster(t, false, productionReplicas)
 
-	err := restoreInstaller().RestoreDatabase(cluster, "threeport-prod-backups-acme-prod", LatestBackup)
+	err := restoreInstaller().RestoreDatabase(cluster, "threeport-prod-backups-acme-prod", "threeport-prod-backups-acme-prod", LatestBackup)
 	assert.ErrorContains(t, err, "restore job")
 	assert.Equal(t, productionReplicas, cluster.replicas)
 
@@ -239,8 +244,62 @@ func TestAnInvalidRestoreChangesNothing(t *testing.T) {
 		{"Not A Bucket", LatestBackup},
 	} {
 		cluster := newRestoreCluster(t, true, productionReplicas)
-		assert.Error(t, restoreInstaller().RestoreDatabase(cluster, args[0], args[1]), args)
+		assert.Error(t, restoreInstaller().RestoreDatabase(cluster, args[0], args[0], args[1]), args)
 		assert.Empty(t, cluster.scaled, args)
 		assert.Nil(t, cluster.job, args)
 	}
+}
+
+// TestTheFreshBackupGoesWhereTheScheduleWrites covers a restore from a
+// bucket other than the one the schedule writes to, such as a copy of the
+// backups: the backup is read from the copy, and the full backup the restore
+// ends with goes to the schedule's bucket, which its incremental backups
+// build on and which the database can write to.  Without a schedule, no
+// backup is taken.
+func TestTheFreshBackupGoesWhereTheScheduleWrites(t *testing.T) {
+	statements, err := DatabaseRestoreStatements(DatabaseName, "threeport", "gs://copy/threeport_api", "gs://scheduled/threeport_api", LatestBackup)
+	require.NoError(t, err)
+
+	restore, backup := "", ""
+	for _, statement := range statements {
+		if strings.HasPrefix(statement, "RESTORE ") {
+			restore = statement
+		}
+		if strings.HasPrefix(statement, "BACKUP ") {
+			backup = statement
+		}
+	}
+	assert.Contains(t, restore, "IN 'gs://copy/threeport_api'")
+	assert.Equal(t, "BACKUP DATABASE threeport_api INTO 'gs://scheduled/threeport_api'", backup)
+
+	withoutSchedule, err := DatabaseRestoreStatements(DatabaseName, "threeport", "gs://copy/threeport_api", "", LatestBackup)
+	require.NoError(t, err)
+	for _, statement := range withoutSchedule {
+		assert.False(t, strings.HasPrefix(statement, "BACKUP "), "a backup is taken with no schedule to keep going: %s", statement)
+	}
+}
+
+// TestAFailedScaleDownBringsTheControlPlaneBack covers a scale-down that
+// fails part way, after some Deployments are already at zero: the restore
+// does not start, and every Deployment is scaled back to its count.
+func TestAFailedScaleDownBringsTheControlPlaneBack(t *testing.T) {
+	cluster := newRestoreCluster(t, true, productionReplicas)
+
+	// the first patch to zero succeeds, the next one fails
+	zeroPatches := 0
+	cluster.PrependReactor("patch", "deployments", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		if !strings.Contains(string(action.(k8stesting.PatchAction).GetPatch()), `"replicas":0`) {
+			return false, nil, nil
+		}
+		zeroPatches++
+		if zeroPatches == 2 {
+			return true, nil, errors.New("the API server is unavailable")
+		}
+		return false, nil, nil
+	})
+
+	err := restoreInstaller().RestoreDatabase(cluster, "threeport-prod-backups-acme-prod", "threeport-prod-backups-acme-prod", LatestBackup)
+	assert.ErrorContains(t, err, "scale control plane down")
+	assert.Equal(t, productionReplicas, cluster.replicas)
+	assert.Nil(t, cluster.job, "the restore ran after the scale-down failed")
 }

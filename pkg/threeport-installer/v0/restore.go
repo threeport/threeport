@@ -59,22 +59,26 @@ var ErrInvalidBackup = errors.New("invalid backup")
 //   - the restored objects are handed back to the user that owns them.  A
 //     restore makes the restoring user their owner and leaves the database
 //     without its grants, which would lock the API server out of its data.
-//   - a full backup of the restored database is taken.  Its tables are new
-//     to the backups already in the location, so the scheduled incremental
-//     backups would fail on top of them until the next scheduled full one.
+//   - a full backup of the restored database is taken into scheduleURI, where
+//     the scheduled backups go.  Its tables are new to the backups already
+//     there, so the scheduled incremental backups would fail on top of them
+//     until the next scheduled full one.  With no scheduleURI there is no
+//     schedule to keep going, and no backup is taken.
 //
-// Nothing is dropped until the backup is fully restored, and running every
-// statement again after a failure part way finishes the restore.
-func DatabaseRestoreStatements(databaseName, ownerName, uri, backup string) ([]string, error) {
+// The backup is restored from sourceURI, which is the schedule's own
+// location unless the backups were copied elsewhere.  Nothing is dropped
+// until the backup is fully restored, and running every statement again
+// after a failure part way finishes the restore.
+func DatabaseRestoreStatements(databaseName, ownerName, sourceURI, scheduleURI, backup string) ([]string, error) {
 	from, err := backupSource(backup)
 	if err != nil {
 		return nil, err
 	}
 	restoring := databaseName + restoringDatabaseSuffix
 
-	return []string{
+	statements := []string{
 		fmt.Sprintf("DROP DATABASE IF EXISTS %s CASCADE", restoring),
-		fmt.Sprintf("RESTORE DATABASE %s FROM %s IN '%s' WITH new_db_name = '%s'", databaseName, from, uri, restoring),
+		fmt.Sprintf("RESTORE DATABASE %s FROM %s IN '%s' WITH new_db_name = '%s'", databaseName, from, sourceURI, restoring),
 		fmt.Sprintf("DROP DATABASE IF EXISTS %s CASCADE", databaseName),
 		fmt.Sprintf("ALTER DATABASE %s RENAME TO %s", restoring, databaseName),
 		fmt.Sprintf("USE %s", databaseName),
@@ -82,8 +86,12 @@ func DatabaseRestoreStatements(databaseName, ownerName, uri, backup string) ([]s
 		fmt.Sprintf("ALTER DATABASE %s OWNER TO root", databaseName),
 		"ALTER SCHEMA public OWNER TO root",
 		fmt.Sprintf("GRANT ALL ON DATABASE %s TO %s", databaseName, ownerName),
-		fmt.Sprintf("BACKUP DATABASE %s INTO '%s'", databaseName, uri),
-	}, nil
+	}
+	if scheduleURI != "" {
+		statements = append(statements, fmt.Sprintf("BACKUP DATABASE %s INTO '%s'", databaseName, scheduleURI))
+	}
+
+	return statements, nil
 }
 
 // backupSource returns how a RESTORE statement names a backup.
@@ -101,22 +109,33 @@ func backupSource(backup string) (string, error) {
 	return fmt.Sprintf("'%s'", backup), nil
 }
 
-// RestoreDatabase replaces the control plane database with a backup from the
-// given bucket.  The control plane is scaled down so nothing writes to the
-// database while it is replaced, and scaled back up afterwards, whether the
-// restore succeeded or not.
+// RestoreDatabase replaces the control plane database with a backup from
+// sourceBucket.  scheduleBucket is where the control plane's scheduled
+// backups go, which the restore takes a fresh full backup into; empty when
+// it has no schedule.  The control plane is scaled down so nothing writes to
+// the database while it is replaced, and scaled back up afterwards, whether
+// the restore succeeded or not.
 func (cpi *ControlPlaneInstaller) RestoreDatabase(
 	kubeClient dynamic.Interface,
-	bucket string,
+	sourceBucket string,
+	scheduleBucket string,
 	backup string,
 ) error {
-	if !bucketNamePattern.MatchString(bucket) {
-		return fmt.Errorf("invalid backup bucket name %q", bucket)
+	if !bucketNamePattern.MatchString(sourceBucket) {
+		return fmt.Errorf("invalid backup bucket name %q", sourceBucket)
+	}
+	scheduleURI := ""
+	if scheduleBucket != "" {
+		if !bucketNamePattern.MatchString(scheduleBucket) {
+			return fmt.Errorf("invalid backup bucket name %q", scheduleBucket)
+		}
+		scheduleURI = DatabaseBackupURI(scheduleBucket)
 	}
 	statements, err := DatabaseRestoreStatements(
 		database.ThreeportDatabaseName,
 		database.ThreeportDatabaseUser,
-		DatabaseBackupURI(bucket),
+		DatabaseBackupURI(sourceBucket),
+		scheduleURI,
 		backup,
 	)
 	if err != nil {
@@ -130,9 +149,15 @@ func (cpi *ControlPlaneInstaller) RestoreDatabase(
 		return err
 	}
 
-	// stop everything that writes to the database
+	// stop everything that writes to the database; a scale-down that fails
+	// part way may already have stopped some of it, so the control plane is
+	// brought back before the failure is returned
 	if err := cpi.scaleDownDeployments(kubeClient, namespace); err != nil {
-		return fmt.Errorf("failed to scale control plane down before the restore: %w", err)
+		scaleDownErr := fmt.Errorf("failed to scale control plane down before the restore: %w", err)
+		if err := cpi.scaleDeployments(kubeClient, namespace, replicas); err != nil {
+			return errors.Join(scaleDownErr, err)
+		}
+		return scaleDownErr
 	}
 
 	// restore, then bring the control plane back either way
