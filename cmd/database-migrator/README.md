@@ -76,6 +76,9 @@ the API server can start together, so the migrator first takes a lock kept in
 the `threeport_goose_db_version_lock` table: one migrator migrates at a time,
 and the next sees what it did. The lock is leased and renewed while it is
 held, so the lock of a migrator whose pod was killed expires within minutes.
+Before every change it makes, the migrator checks that it still holds the lock
+with time left on it, so one cut off from the database long enough for another
+to take over stops instead of migrating alongside it.
 Holding the lock, it applies the pending migrations one at a time:
 
 1. On a production control plane that backs its database up, it first takes

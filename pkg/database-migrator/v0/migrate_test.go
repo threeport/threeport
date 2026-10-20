@@ -255,11 +255,21 @@ type fakeLock struct {
 	acquireErr error
 	releaseErr error
 	events     []string
+	// how many checks pass before the lock is lost; negative never loses it
+	checksLeft int
 }
 
 func (l *fakeLock) Acquire(context.Context) error {
 	l.events = append(l.events, fmt.Sprintf("acquire after %d steps", len(l.steps.calls)))
 	return l.acquireErr
+}
+
+func (l *fakeLock) Check(context.Context) error {
+	if l.checksLeft == 0 {
+		return ErrLockLost
+	}
+	l.checksLeft--
+	return nil
 }
 
 func (l *fakeLock) Release(context.Context) error {
@@ -273,14 +283,14 @@ func (l *fakeLock) Release(context.Context) error {
 // rather than racing it to the same migration.
 func TestTheLockCoversTheWholeRun(t *testing.T) {
 	steps := newFakeSteps([]int64{1}, []int64{1, 2, 3})
-	lock := &fakeLock{steps: steps}
+	lock := &fakeLock{steps: steps, checksLeft: -1}
 
 	require.NoError(t, Up(context.Background(), steps, &fakeRecord{}, Options{Lock: lock}))
 	assert.Equal(t, []string{"acquire after 0 steps", "release after 2 steps"}, lock.events)
 
 	failing := newFakeSteps([]int64{1}, []int64{1, 2})
 	failing.failUp[2] = true
-	lock = &fakeLock{steps: failing}
+	lock = &fakeLock{steps: failing, checksLeft: -1}
 	require.Error(t, Up(context.Background(), failing, &fakeRecord{}, Options{Lock: lock}))
 	assert.Equal(t, "release after 2 steps", lock.events[len(lock.events)-1], "the lock is held until the rollback is done")
 }
@@ -304,7 +314,75 @@ func TestNoLockNoMigration(t *testing.T) {
 // succeeds.
 func TestALockThatCannotBeReleasedDoesNotFailTheRun(t *testing.T) {
 	steps := newFakeSteps([]int64{1}, []int64{1, 2})
-	lock := &fakeLock{steps: steps, releaseErr: errors.New("connection reset")}
+	lock := &fakeLock{steps: steps, releaseErr: errors.New("connection reset"), checksLeft: -1}
 
 	assert.NoError(t, Up(context.Background(), steps, &fakeRecord{}, Options{Lock: lock}))
+}
+
+// TestALostLockStopsTheRun covers a migrator that loses the lock part way,
+// as one cut off from the database past its lease does while another takes
+// over: it makes no further change, rolls nothing back, records nothing, and
+// says where it left the database.
+func TestALostLockStopsTheRun(t *testing.T) {
+	steps := newFakeSteps([]int64{1}, []int64{1, 2, 3, 4})
+	record := &fakeRecord{}
+	// the backup and migration 2 pass their checks, migration 3's fails
+	lock := &fakeLock{steps: steps, checksLeft: 2}
+
+	err := Up(context.Background(), steps, record, Options{Lock: lock, Backup: countingBackup(new(int))})
+
+	require.ErrorIs(t, err, ErrLockLost)
+	assert.Contains(t, err.Error(), "stopped with the database at version 2, having started at version 1")
+	assert.Equal(t, []string{"up 2"}, steps.calls)
+	assert.Nil(t, record.failure)
+}
+
+// TestALostLockStopsTheBackup covers a lock lost before the backup: nothing
+// is backed up or migrated.
+func TestALostLockStopsTheBackup(t *testing.T) {
+	steps := newFakeSteps([]int64{1}, []int64{1, 2})
+	backups := 0
+	lock := &fakeLock{steps: steps, checksLeft: 0}
+
+	err := Up(context.Background(), steps, &fakeRecord{}, Options{Lock: lock, Backup: countingBackup(&backups)})
+
+	require.ErrorIs(t, err, ErrLockLost)
+	assert.Zero(t, backups)
+	assert.Empty(t, steps.calls)
+}
+
+// TestALostLockStopsTheRollback covers a lock lost while rolling a failed
+// migration back: the rollback stops where it is, rather than undoing what
+// another migrator may be relying on, and the failure is not recorded under
+// the other's lock.
+func TestALostLockStopsTheRollback(t *testing.T) {
+	steps := newFakeSteps([]int64{1}, []int64{1, 2, 3})
+	steps.failUp[3] = true
+	record := &fakeRecord{}
+	// migrations 2 and 3 and the clean-up pass their checks, the down of 2 fails
+	lock := &fakeLock{steps: steps, checksLeft: 3}
+
+	err := Up(context.Background(), steps, record, Options{Lock: lock})
+
+	require.ErrorIs(t, err, ErrLockLost)
+	assert.Contains(t, err.Error(), "rolling it back stopped")
+	assert.Equal(t, []string{"up 2", "up 3", "clean up 3"}, steps.calls)
+	assert.Nil(t, record.failure)
+}
+
+// TestALostLockStopsTheFailureRecord covers a lock lost after a rollback,
+// just before the failure would be recorded: the record is not written under
+// another migrator's lock, and the error says the failure went unrecorded.
+func TestALostLockStopsTheFailureRecord(t *testing.T) {
+	steps := newFakeSteps([]int64{1}, []int64{1, 2})
+	steps.failUp[2] = true
+	record := &fakeRecord{}
+	// migration 2 and its clean-up pass their checks, the record's fails
+	lock := &fakeLock{steps: steps, checksLeft: 2}
+
+	err := Up(context.Background(), steps, record, Options{Lock: lock})
+
+	require.ErrorIs(t, err, ErrLockLost)
+	assert.Contains(t, err.Error(), "failed to record the failure")
+	assert.Nil(t, record.failure)
 }

@@ -3,6 +3,7 @@ package cockroach
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"testing"
 	"time"
 
@@ -141,4 +142,38 @@ func TestMigratorsSetUpTogether(t *testing.T) {
 			t.Errorf("a migrator failed setting up: %v", err)
 		}
 	}
+}
+
+// TestALostLockIsNoticed covers a migrator whose lock another took over,
+// that expired, or that has too little time left to start a step on: Check
+// reports each, so the migrator makes no further change.
+func TestALostLockIsNoticed(t *testing.T) {
+	ctx := context.Background()
+	gormDb := freshDatabase(t, "lock_lost_check")
+	db, err := gormDb.DB()
+	if err != nil {
+		t.Fatalf("get sql db: %v", err)
+	}
+
+	lock := newTestLock(t, db, "api-server-a", time.Minute, time.Second)
+	if err := lock.Acquire(ctx); err != nil {
+		t.Fatalf("acquire: %v", err)
+	}
+	if err := lock.Check(ctx); err != nil {
+		t.Fatalf("a held lock failed its check: %v", err)
+	}
+
+	for name, statement := range map[string]string{
+		"taken over":      "UPDATE " + lockTestTable + " SET holder = 'api-server-b'",
+		"expired":         "UPDATE " + lockTestTable + " SET holder = 'api-server-a', expires_at = now() - INTERVAL '1 second'",
+		"about to expire": "UPDATE " + lockTestTable + " SET holder = 'api-server-a', expires_at = now() + INTERVAL '1 second'",
+	} {
+		if _, err := db.Exec(statement); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if err := lock.Check(ctx); !errors.Is(err, migrator.ErrLockLost) {
+			t.Errorf("%s: check = %v, want the lock reported lost", name, err)
+		}
+	}
+	_ = lock.Release(ctx)
 }

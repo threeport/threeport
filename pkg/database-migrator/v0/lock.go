@@ -141,13 +141,40 @@ func (l *TableLock) startRenewing() {
 			case <-stop:
 				return
 			case <-ticker.C:
-				_, _ = l.db.Exec(fmt.Sprintf(
+				// a renewal that fails is tried again on the next tick,
+				// and Check refuses every change once the lease runs out;
+				// one that finds the lock another's has nothing to renew
+				result, err := l.db.Exec(fmt.Sprintf(
 					"UPDATE %s SET expires_at = now() + $2::INT8 * INTERVAL '1 millisecond' WHERE id = 1 AND holder = $1",
 					l.table,
 				), l.holder, l.lease.Milliseconds())
+				if err != nil {
+					continue
+				}
+				if rows, err := result.RowsAffected(); err == nil && rows == 0 {
+					return
+				}
 			}
 		}
 	}(l.stop, l.done)
+}
+
+// Check returns ErrLockLost unless this holder still holds the lock with at
+// least a renewal interval left on it, so a step started now cannot outlast
+// the lease before the next renewal.
+func (l *TableLock) Check(ctx context.Context) error {
+	var held bool
+	if err := l.db.QueryRowContext(ctx, fmt.Sprintf(
+		"SELECT count(*) = 1 FROM %s WHERE id = 1 AND holder = $1 AND expires_at > now() + $2::INT8 * INTERVAL '1 millisecond'",
+		l.table,
+	), l.holder, l.renew.Milliseconds()).Scan(&held); err != nil {
+		return fmt.Errorf("%w: failed to check it: %w", ErrLockLost, err)
+	}
+	if !held {
+		return fmt.Errorf("%w: it expired or another migrator holds it", ErrLockLost)
+	}
+
+	return nil
 }
 
 // Release stops renewing the lock and gives it up, if it is still this

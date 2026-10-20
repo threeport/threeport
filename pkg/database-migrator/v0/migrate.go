@@ -85,9 +85,19 @@ type Lock interface {
 	// Acquire waits until the lock is this migrator's.
 	Acquire(ctx context.Context) error
 
+	// Check returns ErrLockLost unless the lock is still this migrator's,
+	// with time left on it.  A migrator cut off from the database for longer
+	// than the lock lasts can find another holding it when it is back, so
+	// it checks before every change it makes.
+	Check(ctx context.Context) error
+
 	// Release gives the lock up.
 	Release(ctx context.Context) error
 }
+
+// ErrLockLost is returned when a migrator no longer holds the migration lock,
+// so another may be migrating.
+var ErrLockLost = errors.New("lost the migration lock")
 
 // Options configures a migration run.
 type Options struct {
@@ -141,6 +151,14 @@ func Up(ctx context.Context, steps Steps, record FailureRecord, opts Options) er
 		)
 	}
 
+	// before every change, confirm no other migrator has taken over
+	checkLock := func() error {
+		if opts.Lock == nil {
+			return nil
+		}
+		return opts.Lock.Check(ctx)
+	}
+
 	pending, err := steps.PendingVersions(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to list pending migrations: %w", err)
@@ -158,6 +176,9 @@ func Up(ctx context.Context, steps Steps, record FailureRecord, opts Options) er
 	// install migrates an empty database
 	var backup string
 	if opts.Backup != nil && from > 0 {
+		if err := checkLock(); err != nil {
+			return fmt.Errorf("%w; nothing was backed up or migrated", err)
+		}
 		logf("backing the database up before migrating from version %d", from)
 		backup, err = opts.Backup(ctx)
 		if err != nil {
@@ -168,6 +189,9 @@ func Up(ctx context.Context, steps Steps, record FailureRecord, opts Options) er
 
 	var applied []int64
 	for _, version := range pending {
+		if err := checkLock(); err != nil {
+			return lostLockError(err, from, applied)
+		}
 		logf("applying migration %d", version)
 		migrateErr := steps.Up(ctx, version)
 		if migrateErr == nil {
@@ -178,10 +202,19 @@ func Up(ctx context.Context, steps Steps, record FailureRecord, opts Options) er
 		// undo the failed migration, then the ones before it in this run
 		logf("migration %d failed, rolling back to version %d: %v", version, from, migrateErr)
 		var rollbackErrors []error
+		if err := checkLock(); err != nil {
+			return fmt.Errorf("migration %d failed (%v), and it was not rolled back: %w", version, migrateErr, lostLockError(err, from, applied))
+		}
 		if err := steps.CleanUp(ctx, version); err != nil {
 			rollbackErrors = append(rollbackErrors, fmt.Errorf("failed to clean up migration %d: %w", version, err))
 		}
 		for i := len(applied) - 1; i >= 0; i-- {
+			if err := checkLock(); err != nil {
+				return fmt.Errorf(
+					"migration %d failed (%v), and rolling it back stopped: %w",
+					version, migrateErr, lostLockError(err, from, applied[:i+1]),
+				)
+			}
 			if err := steps.Down(ctx, applied[i]); err != nil {
 				rollbackErrors = append(rollbackErrors, fmt.Errorf("failed to roll back migration %d: %w", applied[i], err))
 				// an older migration cannot be rolled back under a newer one
@@ -201,7 +234,10 @@ func Up(ctx context.Context, steps Steps, record FailureRecord, opts Options) er
 		// a failure that could not be recorded does not stop the next run,
 		// which tries the migration again, so it is said rather than
 		// pointing at a record to clear
-		recordErr := record.RecordFailure(ctx, failure)
+		recordErr := checkLock()
+		if recordErr == nil {
+			recordErr = record.RecordFailure(ctx, failure)
+		}
 		if recordErr != nil {
 			recordErr = fmt.Errorf(
 				"failed to record the failure, so the next run will try the migration again: %w",
@@ -243,4 +279,18 @@ func describe(failure *Failure) string {
 	}
 
 	return text
+}
+
+// lostLockError says where a run that lost the migration lock left the
+// database: every migration it applied is complete, and none was rolled back.
+func lostLockError(err error, from int64, applied []int64) error {
+	at := from
+	if len(applied) > 0 {
+		at = applied[len(applied)-1]
+	}
+
+	return fmt.Errorf(
+		"%w, so another migrator may be migrating; this one stopped with the database at version %d, having started at version %d",
+		err, at, from,
+	)
 }
