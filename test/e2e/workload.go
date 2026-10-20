@@ -14,6 +14,7 @@ import (
 
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
+	tpclient_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -350,18 +351,37 @@ func removeLeftoverWorkloadInstances() error {
 		return err
 	}
 
+	return removeWorkloadInstances(apiClient, apiEndpoint)
+}
+
+// removeWorkloadInstances deletes every kubernetes workload instance at the
+// given Threeport API and waits for the list to empty.
+func removeWorkloadInstances(apiClient *http.Client, apiEndpoint string) error {
 	instances, err := client_v0.GetKubernetesWorkloadInstances(apiClient, apiEndpoint)
 	if err != nil {
 		return fmt.Errorf("failed to list kubernetes workload instances: %w", err)
 	}
 
+	// an instance a failed test left mid-delete is already on its way out and
+	// the API rejects a second delete, so it is skipped rather than ending the
+	// cleanup - the wait below still covers it
+	var deleteErrors []error
 	for _, instance := range *instances {
-		if _, err := client_v0.DeleteKubernetesWorkloadInstance(apiClient, apiEndpoint, *instance.ID); err != nil {
-			return fmt.Errorf("failed to delete kubernetes workload instance %d: %w", *instance.ID, err)
+		if instance.DeletionScheduled != nil {
+			continue
+		}
+		_, err := client_v0.DeleteKubernetesWorkloadInstance(apiClient, apiEndpoint, *instance.ID)
+		if err != nil &&
+			!errors.Is(err, tpclient_lib.ErrDeleteInProgress) &&
+			!errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+			deleteErrors = append(
+				deleteErrors,
+				fmt.Errorf("failed to delete kubernetes workload instance %d: %w", *instance.ID, err),
+			)
 		}
 	}
 
-	return util.Retry(60, 1, func() error {
+	waitErr := util.Retry(60, 1, func() error {
 		remaining, err := client_v0.GetKubernetesWorkloadInstances(apiClient, apiEndpoint)
 		if err != nil {
 			return fmt.Errorf("failed to list kubernetes workload instances: %w", err)
@@ -371,4 +391,6 @@ func removeLeftoverWorkloadInstances() error {
 		}
 		return nil
 	})
+
+	return errors.Join(append(deleteErrors, waitErr)...)
 }

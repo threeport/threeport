@@ -72,33 +72,38 @@ var _ = AfterSuite(func() {
 		By("remove workload instances a failed test left behind")
 		leftoverErr := removeLeftoverWorkloadInstances()
 
-		// attempted even when the step above failed, since it can fail after
-		// every instance is already gone
+		// every step below runs even when an earlier one failed, so a single
+		// failure cannot leave the registry running or hide leaked AWS
+		// resources - the failures are reported together at the end
 		By("remove genesis control plane")
-		err := removeControlPlane()
-		Expect(leftoverErr).NotTo(HaveOccurred(), "failed to remove leftover workload instances")
-		Expect(err).NotTo(HaveOccurred(), "failed to remove control plane")
+		controlPlaneErr := removeControlPlane()
 
+		var registryErr error
 		if usingLocalRegistry() {
 			By("remove the local container registry")
-			err = removeLocalRegistry()
-			Expect(err).NotTo(HaveOccurred(), "failed to remove local container registry")
+			registryErr = removeLocalRegistry()
 		}
 
+		var leaked []string
+		var leakCheckErr error
 		if provider == eksProvider {
 			// A teardown that reports success while leaving a NAT gateway or a
 			// load balancer behind bills by the hour and shows up on nobody's
 			// screen, so the suite fails on anything the install added and did
 			// not remove.
 			By("checking the teardown left no AWS resources behind")
-			leaked, err := leakedAwsResourcesAfterTeardown()
-			Expect(err).NotTo(HaveOccurred(), "failed to check for leaked AWS resources")
-			Expect(leaked).To(
-				BeEmpty(),
-				"the teardown left AWS resources behind:\n  %s",
-				strings.Join(leaked, "\n  "),
-			)
+			leaked, leakCheckErr = leakedAwsResourcesAfterTeardown()
 		}
+
+		Expect(leftoverErr).NotTo(HaveOccurred(), "failed to remove leftover workload instances")
+		Expect(controlPlaneErr).NotTo(HaveOccurred(), "failed to remove control plane")
+		Expect(registryErr).NotTo(HaveOccurred(), "failed to remove local container registry")
+		Expect(leakCheckErr).NotTo(HaveOccurred(), "failed to check for leaked AWS resources")
+		Expect(leaked).To(
+			BeEmpty(),
+			"the teardown left AWS resources behind:\n  %s",
+			strings.Join(leaked, "\n  "),
+		)
 	}
 })
 
