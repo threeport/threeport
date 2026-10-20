@@ -12,6 +12,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 
 	"github.com/threeport/threeport/pkg/api-server/v0/database"
@@ -29,9 +30,18 @@ const (
 	// restoreJobNamePrefix names the Job of each restore phase.
 	restoreJobNamePrefix = "threeport-restore-database-"
 
-	// restoreDatabaseJobBackoffLimit is how many failed pods end a phase.
-	// Every statement of a phase can be run again, so a retry is safe.
+	// restoreDatabaseJobBackoffLimit is how many failed pods end the prepare
+	// and backup phases, whose statements can be run again as they are.  The
+	// swap is never retried on its own: run again after it renamed the
+	// restored database into place, it would drop that database.  A restore
+	// run again starts from prepare, which restores the backup afresh, and
+	// the swap is safe from there wherever the last one stopped.
 	restoreDatabaseJobBackoffLimit = 2
+
+	// swapStartedConfigName is the ConfigMap that records a swap was started
+	// and has not completed, so the database may be part way between the
+	// live and the restored one.
+	swapStartedConfigName = "threeport-restore-swap-started"
 
 	// restoreDatabaseTimeout is how long the Job of a phase may run.
 	restoreDatabaseTimeout = 30 * time.Minute
@@ -183,6 +193,25 @@ func (cpi *ControlPlaneInstaller) RestoreDatabase(
 	}
 	namespace := cpi.Opts.Namespace
 
+	// an earlier restore that stopped during its swap may have left the
+	// database part way, whatever happens to this one before its own swap
+	swapStarted, err := swapStartedRecorded(kubeClient, namespace)
+	if err != nil {
+		return err
+	}
+
+	// a job of an earlier attempt, such as one whose CLI exited during the
+	// swap, could still be changing the databases this one is about to, so
+	// every one is stopped before anything changes
+	for _, phase := range restorePhaseNames {
+		if err := deleteJob(kubeClient, namespace, restoreJobNamePrefix+phase); err != nil {
+			return fmt.Errorf(
+				"%w: the %s job of an earlier restore could not be stopped, so nothing was changed: %w",
+				errRestoreJobNotStopped, phase, err,
+			)
+		}
+	}
+
 	// record the replica counts to scale back to, unless an earlier restore
 	// already did and left the control plane down
 	replicas, err := cpi.recordReplicasBeforeRestore(kubeClient, namespace)
@@ -195,6 +224,12 @@ func (cpi *ControlPlaneInstaller) RestoreDatabase(
 	// brought back before the failure is returned
 	if err := cpi.scaleDownDeployments(kubeClient, namespace); err != nil {
 		scaleDownErr := fmt.Errorf("failed to scale control plane down before the restore: %w", err)
+		if swapStarted {
+			return fmt.Errorf(
+				"%w; an earlier restore stopped while replacing the database, so the control plane is left scaled down until a restore completes",
+				scaleDownErr,
+			)
+		}
 		if err := cpi.scaleDeployments(kubeClient, namespace, replicas); err != nil {
 			return errors.Join(scaleDownErr, err)
 		}
@@ -202,8 +237,16 @@ func (cpi *ControlPlaneInstaller) RestoreDatabase(
 	}
 
 	// prepare: the live database is untouched, so a failure brings the
-	// control plane back on it once the Job is no longer running
-	if err := runRestorePhase(kubeClient, namespace, "prepare", phases.Prepare); err != nil {
+	// control plane back on it once the Job is no longer running - unless an
+	// earlier swap left the database part way
+	if err := runRestorePhase(kubeClient, namespace, "prepare", phases.Prepare, restoreDatabaseJobBackoffLimit); err != nil {
+		if swapStarted {
+			return fmt.Errorf(
+				"the restore failed before replacing the database, but an earlier restore stopped while replacing it, "+
+					"so it may be part way; the control plane is left scaled down until a restore completes: %w",
+				err,
+			)
+		}
 		prepareErr := fmt.Errorf("the restore failed before replacing the database, which is unchanged: %w", err)
 		if errors.Is(err, errRestoreJobNotStopped) {
 			return fmt.Errorf("%w; the control plane is left scaled down until it is", prepareErr)
@@ -214,24 +257,36 @@ func (cpi *ControlPlaneInstaller) RestoreDatabase(
 		return prepareErr
 	}
 
-	// swap: a failure may leave the database part way, so the control plane
-	// stays down
-	if err := runRestorePhase(kubeClient, namespace, "swap", phases.Swap); err != nil {
+	// swap: record that it started, so a later restore knows the database
+	// may be part way if this one stops, and keep the control plane down
+	// when it fails
+	if err := recordSwapStarted(kubeClient, namespace); err != nil {
+		prepareErr := fmt.Errorf("failed to record that the restore is replacing the database, so it was not replaced: %w", err)
+		if swapStarted {
+			return prepareErr
+		}
+		if err := cpi.scaleDeployments(kubeClient, namespace, replicas); err != nil {
+			return errors.Join(prepareErr, err)
+		}
+		return prepareErr
+	}
+	if err := runRestorePhase(kubeClient, namespace, "swap", phases.Swap, 0); err != nil {
 		return fmt.Errorf(
 			"the restore failed while replacing the database, which may be part way between the live and the restored one; "+
 				"the control plane is left scaled down, and running the restore again with the same backup finishes it: %w",
 			err,
 		)
 	}
+	swapRecordErr := clearSwapStarted(kubeClient, namespace)
 
 	// backup: the database is restored either way
-	var backupErr error
+	backupErr := swapRecordErr
 	if len(phases.Backup) > 0 {
-		if err := runRestorePhase(kubeClient, namespace, "backup", phases.Backup); err != nil {
-			backupErr = fmt.Errorf(
+		if err := runRestorePhase(kubeClient, namespace, "backup", phases.Backup, restoreDatabaseJobBackoffLimit); err != nil {
+			backupErr = errors.Join(swapRecordErr, fmt.Errorf(
 				"the database was restored, but the full backup into %s failed, so scheduled incremental backups fail until the next scheduled full one: %w",
 				scheduleURI, err,
-			)
+			))
 			if errors.Is(err, errRestoreJobNotStopped) {
 				return fmt.Errorf("%w; the control plane is left scaled down until it is", backupErr)
 			}
@@ -330,6 +385,9 @@ func (cpi *ControlPlaneInstaller) scaleDeployments(
 	return errors.Join(scaleErrors...)
 }
 
+// restorePhaseNames are the phases of a restore, in the order they run.
+var restorePhaseNames = []string{"prepare", "swap", "backup"}
+
 // errRestoreJobNotStopped is returned when the Job of a phase may still be
 // running: it neither finished in time nor could be confirmed gone.
 var errRestoreJobNotStopped = errors.New("the restore job could not be confirmed stopped")
@@ -340,7 +398,7 @@ var errRestoreJobNotStopped = errors.New("the restore job could not be confirmed
 // returns only once it is gone; one that cannot be confirmed gone returns
 // errRestoreJobNotStopped.  A Job that failed is left in place so its pod
 // logs can be read.
-func runRestorePhase(kubeClient dynamic.Interface, namespace, phase string, statements []string) error {
+func runRestorePhase(kubeClient dynamic.Interface, namespace, phase string, statements []string, backoffLimit int64) error {
 	jobName := restoreJobNamePrefix + phase
 
 	// a leftover job is removed first, since its pod template cannot change
@@ -371,7 +429,7 @@ func runRestorePhase(kubeClient dynamic.Interface, namespace, phase string, stat
 				"namespace": namespace,
 			},
 			"spec": map[string]interface{}{
-				"backoffLimit":          int64(restoreDatabaseJobBackoffLimit),
+				"backoffLimit":          backoffLimit,
 				"activeDeadlineSeconds": int64(restoreDatabaseTimeout.Seconds()),
 				"template": map[string]interface{}{
 					"spec": map[string]interface{}{
@@ -511,4 +569,60 @@ func pollEvery(attempts int, interval time.Duration, f func() error) error {
 	}
 
 	return err
+}
+
+// configMapResource is the core v1 configmaps resource.
+var configMapResource = schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
+
+// swapStartedRecorded reports whether a restore started a swap that has not
+// completed.
+func swapStartedRecorded(kubeClient dynamic.Interface, namespace string) (bool, error) {
+	_, err := kubeClient.Resource(configMapResource).Namespace(namespace).Get(
+		context.Background(), swapStartedConfigName, metav1.GetOptions{},
+	)
+	if k8serrors.IsNotFound(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("failed to check for an unfinished restore: %w", err)
+	}
+
+	return true, nil
+}
+
+// recordSwapStarted records that a swap started.
+func recordSwapStarted(kubeClient dynamic.Interface, namespace string) error {
+	_, err := kubeClient.Resource(configMapResource).Namespace(namespace).Create(
+		context.Background(),
+		&unstructured.Unstructured{Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+			"metadata": map[string]interface{}{
+				"name":      swapStartedConfigName,
+				"namespace": namespace,
+			},
+		}},
+		metav1.CreateOptions{},
+	)
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
+		return err
+	}
+
+	return nil
+}
+
+// clearSwapStarted records that the swap completed.
+func clearSwapStarted(kubeClient dynamic.Interface, namespace string) error {
+	err := kubeClient.Resource(configMapResource).Namespace(namespace).Delete(
+		context.Background(), swapStartedConfigName, metav1.DeleteOptions{},
+	)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return fmt.Errorf(
+			"the database was restored, but failed to clear the record of the swap in config map %s, "+
+				"so a later restore that fails before its swap keeps the control plane down; delete it: %w",
+			swapStartedConfigName, err,
+		)
+	}
+
+	return nil
 }

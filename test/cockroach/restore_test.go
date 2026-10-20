@@ -167,3 +167,60 @@ func TestAFailedRestoreLeavesTheDatabaseInPlace(t *testing.T) {
 		t.Fatalf("the database did not survive the failed restore: count %d, err %v", count, err)
 	}
 }
+
+// TestARestoreRunAgainFinishesAPartialSwap covers the way out of a swap
+// that stopped part way, after dropping the live database and after renaming
+// the restored one into place: the restore run again, starting from prepare,
+// leaves the backed up data usable by the API's user.
+func TestARestoreRunAgainFinishesAPartialSwap(t *testing.T) {
+	root, err := open(testPort, "defaultdb")
+	if err != nil {
+		t.Fatalf("open defaultdb: %v", err)
+	}
+	mustExec(t, root, "CREATE USER IF NOT EXISTS "+restoreTestOwner)
+
+	for _, stopAfter := range []int{1, 2} {
+		database := fmt.Sprintf("partial_swap_%d", stopAfter)
+		uri := "nodelocal://1/" + database
+		mustExec(t, root, "CREATE DATABASE "+database)
+		mustExec(t, root, fmt.Sprintf("GRANT ALL ON DATABASE %s TO %s", database, restoreTestOwner))
+		owner, err := openAs(testPort, restoreTestOwner, database)
+		if err != nil {
+			t.Fatalf("open %s: %v", database, err)
+		}
+		mustExec(t, owner, "CREATE TABLE objects (id INT PRIMARY KEY, name STRING)")
+		mustExec(t, owner, "INSERT INTO objects VALUES (1, 'backed-up')")
+		mustExec(t, root, fmt.Sprintf("BACKUP DATABASE %s INTO '%s'", database, uri))
+		mustExec(t, owner, "UPDATE objects SET name = 'changed'")
+
+		phases, err := installer.DatabaseRestoreStatements(database, restoreTestOwner, uri, uri, installer.LatestBackup)
+		if err != nil {
+			t.Fatalf("restore statements: %v", err)
+		}
+
+		// a restore whose swap stops part way
+		if err := runInOneSession(t, root, phases.Prepare); err != nil {
+			t.Fatalf("stop after %d: prepare: %v", stopAfter, err)
+		}
+		if err := runInOneSession(t, root, phases.Swap[:stopAfter]); err != nil {
+			t.Fatalf("stop after %d: partial swap: %v", stopAfter, err)
+		}
+
+		// the restore run again
+		for _, phase := range [][]string{phases.Prepare, phases.Swap, phases.Backup} {
+			if err := runInOneSession(t, root, phase); err != nil {
+				t.Fatalf("stop after %d: restore run again: %v", stopAfter, err)
+			}
+		}
+
+		owner, err = openAs(testPort, restoreTestOwner, database)
+		if err != nil {
+			t.Fatalf("open %s: %v", database, err)
+		}
+		var name string
+		if err := owner.Raw("SELECT name FROM objects WHERE id = 1").Scan(&name).Error; err != nil || name != "backed-up" {
+			t.Errorf("stop after %d: restored row = %q (%v), want the backed up one", stopAfter, name, err)
+		}
+		mustExec(t, owner, "INSERT INTO objects VALUES (2, 'written-after-restore')")
+	}
+}

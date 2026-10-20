@@ -100,6 +100,7 @@ type restoreCluster struct {
 	outcomes    map[string]jobOutcome
 	jobs        []string
 	commands    map[string][]string
+	backoffs    map[string]int64
 	jobDeleteOK bool
 }
 
@@ -112,6 +113,7 @@ func newRestoreCluster(t *testing.T, outcomes map[string]jobOutcome, replicas ma
 		annotations:       map[string]map[string]string{},
 		outcomes:          outcomes,
 		commands:          map[string][]string{},
+		backoffs:          map[string]int64{},
 		jobDeleteOK:       true,
 	}
 	for name, count := range replicas {
@@ -176,6 +178,7 @@ func newRestoreCluster(t *testing.T, outcomes map[string]jobOutcome, replicas ma
 			command = append(command, part.(string))
 		}
 		cluster.commands[phase] = command
+		cluster.backoffs[phase], _, _ = unstructured.NestedInt64(job.Object, "spec", "backoffLimit")
 		outcome := cluster.outcomes[phase]
 		cluster.mu.Unlock()
 
@@ -305,6 +308,26 @@ func TestAFailedPrepareBringsTheControlPlaneBack(t *testing.T) {
 	assert.True(t, cluster.jobExists("prepare"), "the failed job was removed with its logs")
 }
 
+// swapRecorded reports whether the cluster records an unfinished swap.
+func (c *restoreCluster) swapRecorded() bool {
+	_, err := c.Resource(configMapResource).Namespace(ControlPlaneNamespace).Get(context.Background(), swapStartedConfigName, metav1.GetOptions{})
+	return err == nil
+}
+
+// TestTheSwapIsNeverRetriedOnItsOwn covers the phase that cannot be run
+// again as it is: run after it renamed the restored database into place, it
+// would drop that database.  Its job gets no retries, while the phases that
+// can be run again do.
+func TestTheSwapIsNeverRetriedOnItsOwn(t *testing.T) {
+	cluster := newRestoreCluster(t, map[string]jobOutcome{}, productionReplicas)
+
+	require.NoError(t, restore(cluster))
+	assert.Equal(t, int64(0), cluster.backoffs["swap"])
+	assert.Equal(t, int64(restoreDatabaseJobBackoffLimit), cluster.backoffs["prepare"])
+	assert.Equal(t, int64(restoreDatabaseJobBackoffLimit), cluster.backoffs["backup"])
+	assert.False(t, cluster.swapRecorded(), "a completed swap is still recorded as unfinished")
+}
+
 // TestAFailedSwapLeavesTheControlPlaneDown covers a restore that fails while
 // replacing the database: it may be part way between the two, so nothing
 // writes to it, and the error says to run the restore again.
@@ -314,6 +337,7 @@ func TestAFailedSwapLeavesTheControlPlaneDown(t *testing.T) {
 	err := restore(cluster)
 
 	assert.ErrorContains(t, err, "running the restore again")
+	assert.True(t, cluster.swapRecorded(), "the unfinished swap was not recorded")
 	for name, count := range cluster.replicas {
 		assert.Zero(t, count, "%s was brought back on a database that may be part way", name)
 		assert.Equal(t, strconv.FormatInt(productionReplicas[name], 10), cluster.annotations[name][replicasBeforeRestoreAnnotation], name)
@@ -332,9 +356,28 @@ func TestRunningTheRestoreAgainFinishesIt(t *testing.T) {
 	require.NoError(t, restore(cluster))
 
 	assert.Equal(t, productionReplicas, cluster.replicas)
+	assert.False(t, cluster.swapRecorded(), "the finished swap is still recorded as unfinished")
 	for name, annotations := range cluster.annotations {
 		assert.NotContains(t, annotations, replicasBeforeRestoreAnnotation, name)
 	}
+}
+
+// TestAFailedPrepareAfterAFailedSwapKeepsTheControlPlaneDown covers the
+// restore run again after a swap failed, failing itself before its own swap:
+// the earlier swap may have left the database part way, so the control plane
+// stays down rather than coming back on it.
+func TestAFailedPrepareAfterAFailedSwapKeepsTheControlPlaneDown(t *testing.T) {
+	cluster := newRestoreCluster(t, map[string]jobOutcome{"swap": jobFails}, productionReplicas)
+	require.Error(t, restore(cluster))
+
+	cluster.outcomes = map[string]jobOutcome{"prepare": jobFails}
+	err := restore(cluster)
+
+	assert.ErrorContains(t, err, "an earlier restore stopped while replacing it")
+	for name, count := range cluster.replicas {
+		assert.Zero(t, count, "%s was brought back on a database an earlier swap may have left part way", name)
+	}
+	assert.True(t, cluster.swapRecorded())
 }
 
 // TestAFailedBackupStillBringsTheControlPlaneBack covers a restore whose last
@@ -440,4 +483,79 @@ func shortenRestoreWait(t *testing.T) {
 	wait, interval := restoreJobWait, restoreJobPollInterval
 	restoreJobWait, restoreJobPollInterval = time.Millisecond, time.Millisecond
 	t.Cleanup(func() { restoreJobWait, restoreJobPollInterval = wait, interval })
+}
+
+// leftoverJob returns a restore job of an earlier attempt, still running.
+func leftoverJob(phase string) *unstructured.Unstructured {
+	job := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "batch/v1",
+		"kind":       "Job",
+		"metadata": map[string]interface{}{
+			"name":      restoreJobNamePrefix + phase,
+			"namespace": ControlPlaneNamespace,
+		},
+	}}
+	_ = unstructured.SetNestedField(job.Object, int64(1), "status", "active")
+
+	return job
+}
+
+// TestAnEarlierAttemptsJobsAreStoppedFirst covers a restore started while a
+// job of an earlier one is still running, as when its CLI exited during the
+// swap: that job is stopped before this restore changes anything, so the two
+// never change the databases together.
+func TestAnEarlierAttemptsJobsAreStoppedFirst(t *testing.T) {
+	cluster := newRestoreCluster(t, map[string]jobOutcome{}, productionReplicas)
+	require.NoError(t, cluster.Tracker().Add(leftoverJob("swap")))
+	cluster.ClearActions()
+
+	require.NoError(t, restore(cluster))
+
+	swapDeleted, firstChange := -1, -1
+	for i, action := range cluster.Actions() {
+		if action.Matches("delete", "jobs") && action.(k8stesting.DeleteAction).GetName() == restoreJobNamePrefix+"swap" && swapDeleted == -1 {
+			swapDeleted = i
+		}
+		if (action.Matches("patch", "deployments") || action.Matches("create", "jobs")) && firstChange == -1 {
+			firstChange = i
+		}
+	}
+	require.NotEqual(t, -1, swapDeleted, "the earlier swap job was not stopped")
+	assert.Less(t, swapDeleted, firstChange, "the restore changed something before stopping the earlier swap job")
+}
+
+// TestAnEarlierJobThatCannotBeStoppedChangesNothing covers an earlier job
+// that cannot be deleted: it may still be changing the databases, so the
+// restore stops before scaling anything or starting a job of its own.
+func TestAnEarlierJobThatCannotBeStoppedChangesNothing(t *testing.T) {
+	cluster := newRestoreCluster(t, map[string]jobOutcome{}, productionReplicas)
+	cluster.jobDeleteOK = false
+
+	err := restore(cluster)
+
+	assert.ErrorIs(t, err, errRestoreJobNotStopped)
+	assert.Empty(t, cluster.scaled)
+	assert.Empty(t, cluster.jobs)
+}
+
+// TestAFailedScaleDownAfterAFailedSwapKeepsTheControlPlaneDown covers a
+// restore run again after a failed swap whose scale-down fails: the earlier
+// swap may have left the database part way, so nothing is scaled back up.
+func TestAFailedScaleDownAfterAFailedSwapKeepsTheControlPlaneDown(t *testing.T) {
+	cluster := newRestoreCluster(t, map[string]jobOutcome{"swap": jobFails}, productionReplicas)
+	require.Error(t, restore(cluster))
+
+	cluster.PrependReactor("patch", "deployments", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		if strings.Contains(string(action.(k8stesting.PatchAction).GetPatch()), `"replicas":0`) {
+			return true, nil, errors.New("the API server is unavailable")
+		}
+		return false, nil, nil
+	})
+	cluster.outcomes = map[string]jobOutcome{}
+	err := restore(cluster)
+
+	assert.ErrorContains(t, err, "an earlier restore stopped while replacing the database")
+	for name, count := range cluster.replicas {
+		assert.Zero(t, count, "%s was brought back on a database an earlier swap may have left part way", name)
+	}
 }

@@ -134,13 +134,20 @@ The control plane comes back only on a database that is whole:
 - **Prepare fails:** the database was not touched, so the control plane is
   scaled back up on it.
 - **Swap fails:** the database may be part way between the live and the
-  restored one, so the control plane is left scaled down. Run the restore
-  again with the same backup: every step can be run again, and it finishes the
-  restore and brings the control plane back to the replica counts it had.
+  restored one, so the control plane is left scaled down. The swap is never
+  retried on its own; run the restore again with the same backup. It starts
+  from prepare, restoring the backup afresh, finishes the swap wherever the
+  last one stopped, and brings the control plane back to the replica counts it
+  had. Until a restore completes, one that fails before its own swap also
+  leaves the control plane down, since the earlier swap may have left the
+  database part way.
 - **Backup fails:** the database is restored and the control plane comes back,
   but the scheduled incremental backups fail until the next scheduled full one.
 
-A Job that does not finish in time is deleted before anything else happens. If
+Before it changes anything, a restore stops any Job an earlier attempt left
+behind, such as one whose `tptctl` exited during the swap, so two attempts
+never change the database together. A Job that does not finish in time is
+deleted before anything else happens. If
 it cannot be confirmed gone, the control plane is left scaled down, since the
 Job may still be changing the database.
 
