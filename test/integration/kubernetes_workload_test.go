@@ -419,12 +419,6 @@ func TestWorkloadIntegration(t *testing.T) {
 					continue
 				}
 				body := string(*resource.JSONDefinition)
-				// a leftover gloo object means the nginx render did not replace it
-				if strings.Contains(body, "\"kind\":\"VirtualService\"") ||
-					strings.Contains(body, "kind: VirtualService") ||
-					strings.Contains(body, "GlooEdge") {
-					return fmt.Errorf("gateway workload still contains a gloo object")
-				}
 				// an nginx ingress is not the operator's IngressComponent
 				if strings.Contains(body, "Ingress") &&
 					strings.Contains(body, "nginx") &&

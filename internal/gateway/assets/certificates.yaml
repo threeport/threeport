@@ -1,8 +1,21 @@
 apiVersion: platform.addons.nukleros.io/v1alpha1
 kind: CertificatesComponent
 metadata:
-  name: certificates
+  name: certificatescomponent-sample
 spec:
-  namespace: nukleros-certs-system
+  #collection:
+    #name: "supportservices-sample"
+    #namespace: ""
+  namespace: "nukleros-certs-system"
   certManager:
-    contactEmail: admin@nukleros.io
+    cainjector:
+      replicas: 2
+      image: "quay.io/jetstack/cert-manager-cainjector"
+    version: "v1.9.1"
+    controller:
+      replicas: 2
+      image: "quay.io/jetstack/cert-manager-controller"
+    webhook:
+      replicas: 2
+      image: "quay.io/jetstack/cert-manager-webhook"
+    contactEmail: "admin@nukleros.io"

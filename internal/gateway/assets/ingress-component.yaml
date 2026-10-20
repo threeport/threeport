@@ -1,23 +1,34 @@
 apiVersion: platform.addons.nukleros.io/v1alpha1
 kind: IngressComponent
 metadata:
-  name: ingress
+  name: ingresscomponent-sample
 spec:
-  # collection.name joins this component to the SupportServices object of that name.
-  # The SupportServices "cloud" parameter must be "local", or the operator does not create the nginx-ingress-nodeport service.
-  collection:
-    name: threeport-support-services
-  domainName: threeport.local
-  namespace: nukleros-ingress-system
+  #collection:
+    #name: "supportservices-sample"
+    #namespace: ""
   nginx:
-    include: true
-    version: "5.7.0"
-  kong:
+    installType: "deployment"
     include: false
-    proxyServiceName: kong-proxy
-  # The IngressComponent type marks "iamRoleArn" omitempty, so an empty string is left out of the object.
-  # The custom resource requires "iamRoleArn", and the apiserver rejects an update that omits it.
-  # The value "local" keeps the field present when external-dns has no AWS role.
+    image: "nginx/nginx-ingress"
+    version: "5.5.4"
+    replicas: 2
+  kong:
+    include: true
+    replicas: 2
+    gateway:
+      image: "kong/kong-gateway"
+      version: "2.8"
+    proxyServiceName: "kong-proxy"
+    ingressController:
+      image: "kong/kubernetes-ingress-controller"
+      version: "2.5.0"
   externalDNS:
-    provider: none
-    iamRoleArn: local
+    provider: "none"
+    zoneType: "private"
+    extraArgs: ["{}"]
+    image: "k8s.gcr.io/external-dns/external-dns"
+    version: "v0.12.2"
+    serviceAccountName: "external-dns"
+    iamRoleArn: "iam_role_arn"
+  namespace: "nukleros-ingress-system"
+  domainName: "nukleros.io"

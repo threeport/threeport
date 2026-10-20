@@ -26,7 +26,7 @@ func NestedInt64OrFloat64(input map[string]interface{}, fields ...string) (int64
 		floatOutput, found, errFloat := unstructured.NestedFloat64(input, fields...)
 		output = int64(floatOutput)
 		if errFloat != nil {
-			return 0, false, fmt.Errorf("failed to get port from from gloo edge custom resource: %v", err)
+			return 0, false, fmt.Errorf("failed to read nested number: %w", errFloat)
 		}
 		return output, found, nil
 	}

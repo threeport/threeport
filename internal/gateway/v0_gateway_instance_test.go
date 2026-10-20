@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/threeport/threeport/internal/gateway/assets"
+	workload_util "github.com/threeport/threeport/internal/kubernetes-workload/util"
 	"github.com/threeport/threeport/internal/machinetest"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -231,7 +232,7 @@ func TestResourcesByKindReturnsEveryIngress(t *testing.T) {
 	}
 
 	// select the ingresses
-	matches, err := resourcesByKind(&stored, "Ingress")
+	matches, err := workload_util.GetKubernetesWorkloadResourceInstancesByKind(&stored, "Ingress")
 	require.NoError(t, err)
 
 	// expect both ingresses and neither service

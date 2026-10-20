@@ -5,6 +5,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 	kubeerr "k8s.io/apimachinery/pkg/api/errors"
+
+	api "github.com/threeport/threeport/pkg/api/v0"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -94,8 +96,8 @@ func TestInstallDeploymentUpdatesMatchingSelector(t *testing.T) {
 
 func TestSupportServicesCloud(t *testing.T) {
 	// eks and gke map onto the custom resource enum
-	require.Equal(t, "aws", SupportServicesCloud("eks"))
-	require.Equal(t, "google", SupportServicesCloud("gke"))
-	require.Equal(t, "local", SupportServicesCloud("kind"))
-	require.Equal(t, "aws", supportServicesObject("aws").Object["spec"].(map[string]interface{})["cloud"])
+	require.Equal(t, SupportServicesCloudAWS, SupportServicesCloud(api.KubernetesRuntimeInfraProviderEKS))
+	require.Equal(t, SupportServicesCloudGoogle, SupportServicesCloud(api.KubernetesRuntimeInfraProviderGKE))
+	require.Equal(t, SupportServicesCloudLocal, SupportServicesCloud(api.KubernetesRuntimeInfraProviderKind))
+	require.Equal(t, SupportServicesCloudAWS, supportServicesObject(SupportServicesCloudAWS).Object["spec"].(map[string]interface{})["cloud"])
 }

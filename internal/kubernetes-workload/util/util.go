@@ -104,6 +104,38 @@ func UnmarshalKubernetesWorkloadResourceInstance(k8sWorkloadResourceInstances *[
 	return service, nil
 }
 
+// GetKubernetesWorkloadResourceInstancesByKind returns every resource of one kind.
+// An empty result is not an error.
+func GetKubernetesWorkloadResourceInstancesByKind(
+	resources *[]v0.KubernetesWorkloadResourceInstance,
+	kind string,
+) ([]v0.KubernetesWorkloadResourceInstance, error) {
+	matches := []v0.KubernetesWorkloadResourceInstance{}
+	if resources == nil {
+		return matches, nil
+	}
+
+	// keep each resource whose kind matches
+	for _, resource := range *resources {
+		object, err := util.UnmarshalJSON(*resource.JSONDefinition)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal json: %w", err)
+		}
+		resourceKind, found, err := unstructured.NestedString(object, "kind")
+		if err != nil {
+			return nil, fmt.Errorf("failed to get kind: %w", err)
+		}
+		if !found {
+			return nil, fmt.Errorf("kind not found")
+		}
+		if resourceKind != kind {
+			continue
+		}
+		matches = append(matches, resource)
+	}
+	return matches, nil
+}
+
 // GetUniqueKubernetesWorkloadResourceInstance gets a unique kubernetes workload resource
 // instance by kind.
 func GetUniqueKubernetesWorkloadResourceInstance(k8sWorkloadResourceInstances *[]v0.KubernetesWorkloadResourceInstance, kind string) (*v0.KubernetesWorkloadResourceInstance, error) {

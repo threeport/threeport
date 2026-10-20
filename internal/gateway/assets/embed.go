@@ -14,9 +14,6 @@ var NginxTcpService []byte
 //go:embed nginx-tcp-controller.yaml
 var NginxTcpController []byte
 
-//go:embed external-dns.yaml
-var ExternalDNS []byte
-
 //go:embed certificates.yaml
 var Certificates []byte
 

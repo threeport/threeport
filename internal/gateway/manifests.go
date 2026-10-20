@@ -16,26 +16,99 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// setIngressBackend sets the service and port an ingress sends traffic to.
+const (
+	// ingressComponentName is the IngressComponent object this install applies.
+	ingressComponentName = "ingress"
+
+	// externalDNSComponentName is the IngressComponent object that installs external-dns.
+	externalDNSComponentName = "externaldns"
+
+	// ingressDomainName is the domain the nginx component uses with no public zone.
+	ingressDomainName = "threeport.local"
+
+	// nginxIngressVersion is the nginx ingress controller tag this install pins.
+	nginxIngressVersion = "5.7.0"
+
+	// certificatesComponentName is the CertificatesComponent object this install applies.
+	certificatesComponentName = "certificates"
+
+	// externalDNSImage is the external-dns image repository this install pins.
+	externalDNSImage = "registry.k8s.io/external-dns/external-dns"
+
+	// externalDNSVersion is the external-dns tag this install pins.
+	externalDNSVersion = "v0.13.5"
+
+	// externalDNSZoneType is the hosted zone type external-dns manages.
+	externalDNSZoneType = "public"
+)
+
+// ingressRule returns the first rule, its http object, and that object's paths.
+// A missing paths list returns an empty slice.
+func ingressRule(object map[string]interface{}) (
+	map[string]interface{},
+	map[string]interface{},
+	[]interface{},
+	error,
+) {
+	// read the first rule
+	ruleValue, err := util.FieldAt(
+		object,
+		"spec",
+		"rules",
+		0,
+	)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	rule, ok := ruleValue.(map[string]interface{})
+	if !ok {
+		return nil, nil, nil, fmt.Errorf("failed to read field [spec rules 0]: expected a map")
+	}
+
+	// read its http object
+	httpValue, err := util.FieldAt(
+		object,
+		"spec",
+		"rules",
+		0,
+		"http",
+	)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	http, ok := httpValue.(map[string]interface{})
+	if !ok {
+		return nil, nil, nil, fmt.Errorf("failed to read field [spec rules 0 http]: expected a map")
+	}
+
+	// a missing paths list is an empty slice
+	pathsValue, err := util.FieldAt(
+		object,
+		"spec",
+		"rules",
+		0,
+		"http",
+		"paths",
+	)
+	if err != nil {
+		return rule, http, []interface{}{}, nil
+	}
+	paths, ok := pathsValue.([]interface{})
+	if !ok {
+		return nil, nil, nil, fmt.Errorf("failed to read field [spec rules 0 http paths]: expected a list")
+	}
+	return rule, http, paths, nil
+}
+
 // setIngressBackend sets the service and port an ingress sends traffic to.
 func setIngressBackend(object map[string]interface{}, service string, port int64) error {
+	// read the path list
+	_, _, paths, err := ingressRule(object)
+	if err != nil || len(paths) == 0 {
+		return fmt.Errorf("ingress has no rules")
+	}
+
 	// set the service name and port on every path
-	rules, found, err := unstructured.NestedSlice(object, "spec", "rules")
-	if err != nil || !found || len(rules) == 0 {
-		return fmt.Errorf("ingress has no rules")
-	}
-	rule, ok := rules[0].(map[string]interface{})
-	if !ok {
-		return fmt.Errorf("ingress has no rules")
-	}
-	http, ok := rule["http"].(map[string]interface{})
-	if !ok {
-		return fmt.Errorf("ingress has no rules")
-	}
-	paths, ok := http["paths"].([]interface{})
-	if !ok || len(paths) == 0 {
-		return fmt.Errorf("ingress has no rules")
-	}
 	for i := range paths {
 		if err := util.SetIndexedField(
 			object,
@@ -75,19 +148,17 @@ func setIngressBackend(object map[string]interface{}, service string, port int64
 
 // setIngressPaths writes one path entry for each distinct path.
 func setIngressPaths(object map[string]interface{}, paths []string) error {
-	// copy the template path and keep one entry per distinct path
+	// read the first rule
+	rule, http, _, err := ingressRule(object)
+	if err != nil {
+		return fmt.Errorf("ingress has no rules")
+	}
 	rules, found, err := unstructured.NestedSlice(object, "spec", "rules")
 	if err != nil || !found || len(rules) == 0 {
 		return fmt.Errorf("ingress has no rules")
 	}
-	rule, ok := rules[0].(map[string]interface{})
-	if !ok {
-		return fmt.Errorf("ingress has no rules")
-	}
-	http, ok := rule["http"].(map[string]interface{})
-	if !ok {
-		return fmt.Errorf("ingress has no rules")
-	}
+
+	// write one path entry for each distinct path
 	entries := make([]interface{}, 0, len(paths))
 	for _, path := range paths {
 		entries = append(entries, map[string]interface{}{
@@ -145,12 +216,78 @@ func setTransportBackend(object map[string]interface{}, service string, port int
 }
 
 // getIngressComponentYaml returns the nginx operator component.
-// The tcp listener object waits until that operator has installed its CRDs.
 func getIngressComponentYaml() (string, error) {
 	// decode the embedded component
 	component, err := util.UnstructuredFromYaml(assets.IngressComponent)
 	if err != nil {
 		return "", err
+	}
+
+	// name the component and join it to the SupportServices object
+	if err := unstructured.SetNestedField(
+		component.Object,
+		ingressComponentName,
+		"metadata",
+		"name",
+	); err != nil {
+		return "", fmt.Errorf("failed to set the ingress component name: %w", err)
+	}
+	if err := unstructured.SetNestedField(
+		component.Object,
+		installer.SupportServicesName,
+		"spec",
+		"collection",
+		"name",
+	); err != nil {
+		return "", fmt.Errorf("failed to set the support services name: %w", err)
+	}
+	if err := unstructured.SetNestedField(
+		component.Object,
+		ingressDomainName,
+		"spec",
+		"domainName",
+	); err != nil {
+		return "", fmt.Errorf("failed to set the ingress domain: %w", err)
+	}
+
+	// install nginx at the pinned version and leave kong out
+	if err := unstructured.SetNestedField(
+		component.Object,
+		true,
+		"spec",
+		"nginx",
+		"include",
+	); err != nil {
+		return "", fmt.Errorf("failed to set nginx include: %w", err)
+	}
+	if err := unstructured.SetNestedField(
+		component.Object,
+		nginxIngressVersion,
+		"spec",
+		"nginx",
+		"version",
+	); err != nil {
+		return "", fmt.Errorf("failed to set the nginx version: %w", err)
+	}
+	if err := unstructured.SetNestedField(
+		component.Object,
+		false,
+		"spec",
+		"kong",
+		"include",
+	); err != nil {
+		return "", fmt.Errorf("failed to set kong include: %w", err)
+	}
+
+	// an empty iam role is omitted, and the custom resource requires the field
+	if err := unstructured.SetNestedField(
+		component.Object,
+		installer.SupportServicesCloudLocal,
+		"spec",
+		"externalDNS",
+		"iamRoleArn",
+	); err != nil {
+		return "", fmt.Errorf("failed to set the external dns role: %w", err)
 	}
 	componentYaml, err := util.UnstructuredToYaml(component)
 	if err != nil {
@@ -167,9 +304,28 @@ func getExternalDnsYaml(
 	gcpProject,
 	txtOwnerID string,
 ) (string, error) {
-	component, err := util.UnstructuredFromYaml(assets.ExternalDNS)
+	component, err := util.UnstructuredFromYaml(assets.IngressComponent)
 	if err != nil {
 		return "", err
+	}
+
+	// name this component and leave kong out
+	if err := unstructured.SetNestedField(
+		component.Object,
+		externalDNSComponentName,
+		"metadata",
+		"name",
+	); err != nil {
+		return "", fmt.Errorf("failed to set the external dns component name: %w", err)
+	}
+	if err := unstructured.SetNestedField(
+		component.Object,
+		false,
+		"spec",
+		"kong",
+		"include",
+	); err != nil {
+		return "", fmt.Errorf("failed to set kong include: %w", err)
 	}
 
 	// set the zone this install manages
@@ -190,7 +346,34 @@ func getExternalDnsYaml(
 		return util.UnstructuredToYaml(component)
 	}
 
-	// set the provider and the ownership args
+	// pin the image and the public zone, then set the provider
+	if err := unstructured.SetNestedField(
+		component.Object,
+		externalDNSZoneType,
+		"spec",
+		"externalDNS",
+		"zoneType",
+	); err != nil {
+		return "", err
+	}
+	if err := unstructured.SetNestedField(
+		component.Object,
+		externalDNSImage,
+		"spec",
+		"externalDNS",
+		"image",
+	); err != nil {
+		return "", err
+	}
+	if err := unstructured.SetNestedField(
+		component.Object,
+		externalDNSVersion,
+		"spec",
+		"externalDNS",
+		"version",
+	); err != nil {
+		return "", err
+	}
 	if err := unstructured.SetNestedField(
 		component.Object,
 		provider,
@@ -235,6 +418,16 @@ func getCertificatesComponentYaml(roleArn string) (string, error) {
 	component, err := util.UnstructuredFromYaml(assets.Certificates)
 	if err != nil {
 		return "", err
+	}
+
+	// name the component
+	if err := unstructured.SetNestedField(
+		component.Object,
+		certificatesComponentName,
+		"metadata",
+		"name",
+	); err != nil {
+		return "", fmt.Errorf("failed to set the certificates component name: %w", err)
 	}
 	rendered, err := util.UnstructuredToYaml(component)
 	if err != nil {

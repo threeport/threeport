@@ -100,6 +100,8 @@ func (f *portFixture) serve(t *testing.T) *controller.Reconciler {
 // objectKind returns the kind stored on a resource row.
 func objectKind(t *testing.T, definition *datatypes.JSON) (string, map[string]interface{}) {
 	t.Helper()
+
+	// decode the stored definition
 	require.NotNil(t, definition)
 	object, err := util.UnmarshalJSON(*definition)
 	require.NoError(t, err)
@@ -109,6 +111,8 @@ func objectKind(t *testing.T, definition *datatypes.JSON) (string, map[string]in
 // listenerNames returns the listener names on a global configuration.
 func listenerNames(t *testing.T, object map[string]interface{}) []string {
 	t.Helper()
+
+	// read each listener name
 	listeners, _, err := unstructured.NestedSlice(object, "spec", "listeners")
 	require.NoError(t, err)
 	names := make([]string, 0, len(listeners))

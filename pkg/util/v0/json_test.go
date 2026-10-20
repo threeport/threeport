@@ -10,6 +10,7 @@ import (
 	"gorm.io/datatypes"
 )
 
+// TestUpdateNamespace covers the namespace written onto a stored definition.
 func TestUpdateNamespace(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -73,6 +74,7 @@ func TestUpdateNamespace(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// write the namespace and check the stored value
 			out, err := UpdateNamespace(tt.in, tt.ns)
 			if tt.wantErr {
 				if err == nil {
@@ -119,9 +121,7 @@ func TestJSONDefinitionsEqual(t *testing.T) {
 		assert.True(t, equal)
 	})
 
-	// this is the case the comparison exists for: a definition read back from
-	// the database is not guaranteed to return byte-identical to what went in,
-	// and comparing bytes would report a difference every time
+	// compare objects whose key order differs
 	t.Run("reordered keys and whitespace are equal", func(t *testing.T) {
 		equal, err := JSONDefinitionsEqual(
 			definition(`{"kind":"VirtualService","spec":{"hosts":["a"]}}`),
@@ -140,8 +140,7 @@ func TestJSONDefinitionsEqual(t *testing.T) {
 		assert.False(t, equal)
 	})
 
-	// array order carries meaning in a Kubernetes manifest, so it is a
-	// difference rather than noise
+	// compare lists whose element order differs
 	t.Run("reordered array elements are not equal", func(t *testing.T) {
 		equal, err := JSONDefinitionsEqual(
 			definition(`{"hosts":["a","b"]}`),
@@ -241,6 +240,7 @@ func TestJSONDefinitionsEqualIgnoring(t *testing.T) {
 	})
 }
 
+// TestCountsTowardManagedNamespace covers which objects count toward a namespace.
 func TestCountsTowardManagedNamespace(t *testing.T) {
 	cases := []struct {
 		name string
@@ -265,6 +265,7 @@ func TestCountsTowardManagedNamespace(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			// check whether the object counts
 			require.Equal(t, tc.want, CountsTowardManagedNamespace(tc.in))
 		})
 	}

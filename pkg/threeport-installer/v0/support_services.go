@@ -12,6 +12,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"sigs.k8s.io/yaml"
 
+	api "github.com/threeport/threeport/pkg/api/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -48,6 +49,18 @@ const (
 
 	supportServicesOperatorNamespace = "support-services-operator-system"
 	supportServicesOperatorImage     = "controller:latest"
+
+	// SupportServicesName is the object the nginx component joins.
+	SupportServicesName = "threeport-support-services"
+
+	// SupportServicesCloudLocal is the cloud value for a cluster with no cloud iam role.
+	SupportServicesCloudLocal = "local"
+
+	// SupportServicesCloudGoogle is the cloud value for a gke cluster.
+	SupportServicesCloudGoogle = "google"
+
+	// SupportServicesCloudAWS is the cloud value for an eks cluster.
+	SupportServicesCloudAWS = "aws"
 )
 
 // ThreeportCRDNames are the custom resource definitions InstallThreeportCRDs
@@ -103,7 +116,7 @@ func InstallEksThreeportSystemServices(
 	if err := InstallThreeportCRDs(kubeClient, mapper); err != nil {
 		return err
 	}
-	if err := InstallThreeportSupportServicesOperator(kubeClient, mapper, "aws"); err != nil {
+	if err := InstallThreeportSupportServicesOperator(kubeClient, mapper, SupportServicesCloudAWS); err != nil {
 		return err
 	}
 
@@ -113,15 +126,16 @@ func InstallEksThreeportSystemServices(
 
 // SupportServicesCloud maps an infra provider to a SupportServices cloud value.
 // The custom resource accepts only local, google, and aws.
-func SupportServicesCloud(infraProvider string) string {
+func SupportServicesCloud(infraProvider api.KubernetesRuntimeInfraProvider) string {
 	// map the provider onto a value the custom resource accepts
 	switch infraProvider {
-	case "eks":
-		return "aws"
-	case "gke":
-		return "google"
+	case api.KubernetesRuntimeInfraProviderEKS:
+		return SupportServicesCloudAWS
+	case api.KubernetesRuntimeInfraProviderGKE:
+		return SupportServicesCloudGoogle
 	default:
-		return "local"
+		// local makes the operator publish the nginx node port
+		return SupportServicesCloudLocal
 	}
 }
 
@@ -174,7 +188,7 @@ func supportServicesObject(cloud string) *unstructured.Unstructured {
 			"apiVersion": "setup.addons.nukleros.io/v1alpha1",
 			"kind":       "SupportServices",
 			"metadata": map[string]interface{}{
-				"name": "threeport-support-services",
+				"name": SupportServicesName,
 			},
 			"spec": map[string]interface{}{
 				"tier":                     "development",
