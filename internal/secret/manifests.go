@@ -110,5 +110,5 @@ func (c *SecretInstanceConfig) getExternalSecretsSupportServiceYaml(iamRoleArn s
 	if err != nil {
 		return "", err
 	}
-	return rendered + "\n---\n" + account, nil
+	return account + "\n---\n" + rendered, nil
 }

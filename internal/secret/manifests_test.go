@@ -1,6 +1,7 @@
 package secret
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -17,10 +18,14 @@ func TestGetExternalSecretsSupportServiceYamlAnnotatesRole(t *testing.T) {
 	require.NoError(t, err)
 	require.NotContains(t, plain, "eks.amazonaws.com/role-arn")
 
-	// append the external-secrets account when a role is supplied
+	// emit the external-secrets account before the component
 	annotated, err := config.getExternalSecretsSupportServiceYaml("arn:aws:iam::123:role/secrets")
 	require.NoError(t, err)
 	require.Contains(t, annotated, "eks.amazonaws.com/role-arn: arn:aws:iam::123:role/secrets")
 	require.Contains(t, annotated, "name: "+installer.SecretsManagerServiceAccountName)
 	require.Contains(t, annotated, "namespace: "+installer.SecretsManagerServiceAccountNamespace)
+	account := strings.Index(annotated, "kind: ServiceAccount")
+	component := strings.Index(annotated, "kind: SecretsComponent")
+	require.GreaterOrEqual(t, account, 0)
+	require.Greater(t, component, account)
 }

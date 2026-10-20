@@ -109,12 +109,16 @@ func TestGetCertificatesComponentYamlAnnotatesRole(t *testing.T) {
 	require.NoError(t, err)
 	require.NotContains(t, plain, "eks.amazonaws.com/role-arn")
 
-	// append the cert-manager account when a role is supplied
+	// emit the cert-manager account before the component
 	annotated, err := getCertificatesComponentYaml("arn:aws:iam::123:role/dns01")
 	require.NoError(t, err)
 	require.Contains(t, annotated, "eks.amazonaws.com/role-arn: arn:aws:iam::123:role/dns01")
 	require.Contains(t, annotated, "name: cert-manager")
 	require.Contains(t, annotated, "namespace: nukleros-certs-system")
+	account := strings.Index(annotated, "kind: ServiceAccount")
+	component := strings.Index(annotated, "kind: CertificatesComponent")
+	require.GreaterOrEqual(t, account, 0)
+	require.Greater(t, component, account)
 }
 
 func TestGetIngressesYamlDistinctPaths(t *testing.T) {

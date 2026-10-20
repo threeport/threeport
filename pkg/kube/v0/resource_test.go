@@ -3,6 +3,7 @@ package v0
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -338,6 +339,8 @@ type stubResourceClient struct {
 	results   []stubCreateResult
 	alwaysErr error
 	attempts  int
+	existing  *unstructured.Unstructured
+	updates   []*unstructured.Unstructured
 }
 
 func (r *stubResourceClient) Namespace(namespace string) dynamic.ResourceInterface {
@@ -365,6 +368,33 @@ func (r *stubResourceClient) Create(
 	return result.object, result.err
 }
 
+// Get returns the account stored for an already-exists update.
+func (r *stubResourceClient) Get(
+	ctx context.Context,
+	name string,
+	options kubemetav1.GetOptions,
+	subresources ...string,
+) (*unstructured.Unstructured, error) {
+	// return the stored account
+	if r.existing == nil {
+		return nil, fmt.Errorf("service account %s not found", name)
+	}
+	return r.existing.DeepCopy(), nil
+}
+
+// Update records the account written after an already-exists create.
+func (r *stubResourceClient) Update(
+	ctx context.Context,
+	obj *unstructured.Unstructured,
+	options kubemetav1.UpdateOptions,
+	subresources ...string,
+) (*unstructured.Unstructured, error) {
+	// record the written account
+	copied := obj.DeepCopy()
+	r.updates = append(r.updates, copied)
+	return copied, nil
+}
+
 // errOtherMapperFailure is a distinct error value we can check for by identity.
 var errOtherMapperFailure = &distinctErr{msg: "some other mapper failure"}
 
@@ -380,6 +410,108 @@ type errMapper struct {
 	err error
 }
 
+// RESTMapping returns the error stored on the mapper.
 func (m *errMapper) RESTMapping(gk schema.GroupKind, versions ...string) (*meta.RESTMapping, error) {
 	return nil, m.err
+}
+
+// testServiceAccount returns a ServiceAccount.
+func testServiceAccount(name, namespace, role string) *unstructured.Unstructured {
+	// set the account identity and its role annotation
+	account := &unstructured.Unstructured{}
+	account.SetAPIVersion("v1")
+	account.SetKind("ServiceAccount")
+	account.SetName(name)
+	account.SetNamespace(namespace)
+	if role != "" {
+		account.SetAnnotations(map[string]string{"eks.amazonaws.com/role-arn": role})
+	}
+	return account
+}
+
+// testServiceAccountMapper maps a core ServiceAccount.
+func testServiceAccountMapper() meta.RESTMapper {
+	// register the core service account kind
+	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Version: "v1"}})
+	mapper.Add(schema.GroupVersionKind{Version: "v1", Kind: "ServiceAccount"}, meta.RESTScopeNamespace)
+	return mapper
+}
+
+// TestCreateWorkloadResourceSetsExistingRole updates an operator account that already exists.
+func TestCreateWorkloadResourceSetsExistingRole(t *testing.T) {
+	const role = "arn:aws:iam::123:role/dns01"
+	accounts := []struct {
+		name      string
+		namespace string
+	}{
+		{name: "cert-manager", namespace: "nukleros-certs-system"},
+		{name: "external-secrets", namespace: "nukleros-secrets-system"},
+	}
+	for _, account := range accounts {
+		t.Run(account.namespace+"/"+account.name, func(t *testing.T) {
+			// store the account the operator already created
+			existing := testServiceAccount(account.name, account.namespace, "")
+			existing.SetAnnotations(map[string]string{"kept": "yes"})
+			desired := testServiceAccount(account.name, account.namespace, role)
+			resourceClient := &stubResourceClient{
+				results: []stubCreateResult{{
+					err: kubeerr.NewAlreadyExists(schema.GroupResource{Resource: "serviceaccounts"}, account.name),
+				}},
+				existing: existing,
+			}
+			client := &stubDynamicClient{resourceClient: resourceClient}
+
+			// set the role on the account that already exists
+			_, err := CreateWorkloadResource(desired, client, testServiceAccountMapper())
+			if err != nil {
+				t.Fatalf("CreateWorkloadResource returned %v", err)
+			}
+
+			// the written account keeps its existing fields and gains the role
+			if len(resourceClient.updates) != 1 {
+				t.Fatalf("updates = %d, want 1", len(resourceClient.updates))
+			}
+			written := resourceClient.updates[0]
+			if written.GetAnnotations()["eks.amazonaws.com/role-arn"] != role {
+				t.Fatalf("role annotation = %q", written.GetAnnotations()["eks.amazonaws.com/role-arn"])
+			}
+			if written.GetAnnotations()["kept"] != "yes" {
+				t.Fatalf("existing annotation was dropped: %v", written.GetAnnotations())
+			}
+		})
+	}
+
+	// an already-exists create through CreateResource does not update the account
+	account := testServiceAccount("cert-manager", "nukleros-certs-system", role)
+	plain := &stubResourceClient{
+		results: []stubCreateResult{{
+			err: kubeerr.NewAlreadyExists(schema.GroupResource{Resource: "serviceaccounts"}, "cert-manager"),
+		}},
+		existing: testServiceAccount("cert-manager", "nukleros-certs-system", ""),
+	}
+	_, err := CreateResource(account, &stubDynamicClient{resourceClient: plain}, testServiceAccountMapper())
+	if err != nil {
+		t.Fatalf("CreateResource returned %v", err)
+	}
+	if len(plain.updates) != 0 {
+		t.Fatalf("CreateResource updated the account")
+	}
+
+	// a deployment that already exists is not updated
+	deploymentClient := &stubResourceClient{
+		results: []stubCreateResult{{
+			err: kubeerr.NewAlreadyExists(schema.GroupResource{Group: "apps", Resource: "deployments"}, "app"),
+		}},
+	}
+	_, err = CreateWorkloadResource(
+		testDeployment(),
+		&stubDynamicClient{resourceClient: deploymentClient},
+		testDeploymentMapper(),
+	)
+	if err != nil {
+		t.Fatalf("CreateWorkloadResource deployment returned %v", err)
+	}
+	if len(deploymentClient.updates) != 0 {
+		t.Fatalf("deployment was updated")
+	}
 }

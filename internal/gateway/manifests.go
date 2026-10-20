@@ -437,7 +437,7 @@ func getCertificatesComponentYaml(roleArn string) (string, error) {
 		return rendered, nil
 	}
 
-	// annotate the cert-manager account with the role the operator cannot set
+	// emit the cert-manager account before the component
 	account, err := installer.IrsaServiceAccountYaml(
 		installer.DNS01ChallengeServiceAccountName,
 		installer.DNS01ChallengeServiceAccountNamepace,
@@ -446,7 +446,7 @@ func getCertificatesComponentYaml(roleArn string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return rendered + "\n---\n" + account, nil
+	return account + "\n---\n" + rendered, nil
 }
 
 // getCleanedDomain returns a cleaned domain.

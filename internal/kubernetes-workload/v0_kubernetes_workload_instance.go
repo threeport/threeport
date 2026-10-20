@@ -210,8 +210,8 @@ func v0KubernetesWorkloadInstanceCreated(
 			return 0, fmt.Errorf("failed to add label metadata to objects: %w", err)
 		}
 
-		// create kube resource
-		_, err = kube.CreateResource(kubeObject, dynamicKubeClient, *mapper)
+		// create the kube resource, updating an existing role account
+		_, err = kube.CreateWorkloadResource(kubeObject, dynamicKubeClient, *mapper)
 		if err != nil {
 			// surface the kube create failure as a warning event
 			return 0, &tp_errors.ErrWithEvent{
