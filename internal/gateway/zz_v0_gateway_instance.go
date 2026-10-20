@@ -185,8 +185,68 @@ func ownedGatewayResources(
 			JSONDefinition: definition.JSONDefinition,
 		})
 	}
+	matches, err := gatewayResourcesToDelete(stored, &rendered)
+	if err != nil {
+		return nil, err
+	}
 
-	return gatewayResourcesToDelete(stored, &rendered)
+	// add the certificate and the issuer, whose names are the domain
+	matches, err = appendRenamedKind(matches, stored, definitions, "Certificate")
+	if err != nil {
+		return nil, err
+	}
+	return appendRenamedKind(matches, stored, definitions, "Issuer")
+}
+
+// appendRenamedKind adds one stored object when the definition has that kind.
+func appendRenamedKind(
+	matches []v0.KubernetesWorkloadResourceInstance,
+	stored *[]v0.KubernetesWorkloadResourceInstance,
+	definitions *[]v0.KubernetesWorkloadResourceDefinition,
+	kind string,
+) ([]v0.KubernetesWorkloadResourceInstance, error) {
+	// skip a kind the definition does not own
+	owned := false
+	if definitions != nil {
+		for _, definition := range *definitions {
+			got, _, err := resourceKindAndName(definition.JSONDefinition)
+			if err != nil {
+				return nil, err
+			}
+			if got == kind {
+				owned = true
+				break
+			}
+		}
+	}
+	if !owned || stored == nil {
+		return matches, nil
+	}
+
+	// keep the one stored object of this kind
+	var found []v0.KubernetesWorkloadResourceInstance
+	for _, resource := range *stored {
+		got, _, err := resourceKindAndName(resource.JSONDefinition)
+		if err != nil {
+			return nil, err
+		}
+		if got != kind {
+			continue
+		}
+		found = append(found, resource)
+	}
+	if len(found) > 1 {
+		return nil, fmt.Errorf("multiple kubernetes workload resource instances found")
+	}
+	if len(found) == 0 {
+		return matches, nil
+	}
+	for _, match := range matches {
+		if match.ID != nil && found[0].ID != nil && *match.ID == *found[0].ID {
+			return matches, nil
+		}
+	}
+	return append(matches, found[0]), nil
 }
 
 // getThreeportobjects returns all threeport objects required for

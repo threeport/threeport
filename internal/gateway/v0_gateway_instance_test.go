@@ -305,7 +305,7 @@ func TestServiceLookupErrUsesTheMissingResourceError(t *testing.T) {
 	require.False(t, errors.Is(serviceLookupErr(kindErr), errGatewayServiceMissing))
 }
 
-// TestV0GatewayInstanceDeletedSchedulesOwnedResourcesWithoutService schedules the gateway ingress and certificate when the service read fails.
+// TestV0GatewayInstanceDeletedSchedulesOwnedResourcesWithoutService schedules the ingress, certificate, and issuer when the service read fails.
 func TestV0GatewayInstanceDeletedSchedulesOwnedResourcesWithoutService(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -327,14 +327,22 @@ func TestV0GatewayInstanceDeletedSchedulesOwnedResourcesWithoutService(t *testin
 			},
 			wantErr: true,
 		},
+		{
+			name: "duplicate certificate",
+			extra: []v0.KubernetesWorkloadResourceInstance{
+				workloadObject(28, "Certificate", "other-cert"),
+			},
+			wantErr: true,
+		},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
 			// keep the workload and the gateway definitions, and leave the named service unread
 			stored := []v0.KubernetesWorkloadResourceInstance{
 				workloadObject(21, "Ingress", "echo-threeport-test"),
-				workloadObject(22, "Certificate", "echo-cert"),
+				workloadObject(22, "Certificate", "example-com"),
 				workloadObject(23, "Deployment", "echo"),
+				workloadObject(27, "Issuer", "example-com"),
 			}
 			stored = append(stored, testCase.extra...)
 			definitions := []v0.KubernetesWorkloadResourceDefinition{
@@ -349,7 +357,14 @@ func TestV0GatewayInstanceDeletedSchedulesOwnedResourcesWithoutService(t *testin
 					JSONDefinition: kubeJSON(map[string]interface{}{
 						"apiVersion": "cert-manager.io/v1",
 						"kind":       "Certificate",
-						"metadata":   map[string]interface{}{"name": "echo-cert"},
+						"metadata":   map[string]interface{}{"name": "placeholder"},
+					}),
+				},
+				{
+					JSONDefinition: kubeJSON(map[string]interface{}{
+						"apiVersion": "cert-manager.io/v1",
+						"kind":       "Issuer",
+						"metadata":   map[string]interface{}{"name": "placeholder"},
 					}),
 				},
 			}
@@ -437,10 +452,10 @@ func TestV0GatewayInstanceDeletedSchedulesOwnedResourcesWithoutService(t *testin
 			}
 			require.NoError(t, err)
 
-			// the delete schedules the ingress and the certificate and leaves the other rows alone
+			// the delete schedules the ingress, the certificate, and the issuer
 			require.True(t, woken)
-			require.Len(t, patches, 2)
-			require.ElementsMatch(t, []uint{21, 22}, []uint{*patches[0].ID, *patches[1].ID})
+			require.Len(t, patches, 3)
+			require.ElementsMatch(t, []uint{21, 22, 27}, []uint{*patches[0].ID, *patches[1].ID, *patches[2].ID})
 			for _, patch := range patches {
 				require.NotNil(t, patch.ScheduledForDeletion)
 				require.NotNil(t, patch.Reconciled)
