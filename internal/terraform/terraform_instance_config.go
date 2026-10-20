@@ -2,6 +2,8 @@ package terraform
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -10,6 +12,7 @@ import (
 	"github.com/go-logr/logr"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -51,6 +54,12 @@ func (c *TerraformInstanceConfig) createTerraformInstance() error {
 		}
 	}
 
+	// restore the state a failed attempt saved so terraform picks up the
+	// resources it already created, whichever replica made that attempt
+	if err := c.restoreTerraformState(); err != nil {
+		return err
+	}
+
 	// get AWS credentials
 	awsCreds, err := c.awsConfig.Credentials.Retrieve(context.Background())
 	if err != nil {
@@ -81,7 +90,7 @@ func (c *TerraformInstanceConfig) createTerraformInstance() error {
 	)
 
 	// capture the terraform state
-	tfStateContent, err := os.ReadFile(fmt.Sprintf("%s/terraform.tfstate", c.tfDirName))
+	tfStateContent, err := os.ReadFile(c.tfStateFilepath())
 	if err != nil {
 		return fmt.Errorf("failed to read terraform state file: %w", err)
 	}
@@ -106,6 +115,82 @@ func (c *TerraformInstanceConfig) createTerraformInstance() error {
 	c.tfOutput = string(outputOut)
 
 	return nil
+}
+
+// tfStateFilepath returns the path of the terraform state file.
+func (c *TerraformInstanceConfig) tfStateFilepath() string {
+	return fmt.Sprintf("%s/terraform.tfstate", c.tfDirName)
+}
+
+// restoreTerraformState writes the state saved in the API to the terraform
+// directory, unless the directory already holds a newer state from an
+// attempt in this pod whose save to the API failed.
+func (c *TerraformInstanceConfig) restoreTerraformState() error {
+	if c.terraformInstance.StateDocument == nil {
+		return nil
+	}
+
+	localState, err := os.ReadFile(c.tfStateFilepath())
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("failed to read terraform state file: %w", err)
+	}
+	if err == nil && stateIsNewer(localState, []byte(*c.terraformInstance.StateDocument)) {
+		return nil
+	}
+
+	if err := os.WriteFile(c.tfStateFilepath(), []byte(*c.terraformInstance.StateDocument), 0644); err != nil {
+		return fmt.Errorf("failed to write terraform state to file: %w", err)
+	}
+
+	return nil
+}
+
+// savePartialTerraformState saves the state a failed apply left behind to
+// the API.  An apply can create some resources before it fails, and a retry
+// can run in another replica, which would otherwise create them again.
+func (c *TerraformInstanceConfig) savePartialTerraformState() error {
+	tfStateContent, err := os.ReadFile(c.tfStateFilepath())
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("failed to read terraform state file: %w", err)
+	}
+
+	tfState := string(tfStateContent)
+	if _, err := client.UpdateTerraformInstance(
+		c.r.APIClient,
+		c.r.APIServer,
+		&v0.TerraformInstance{
+			Common:        v0.Common{ID: c.terraformInstance.ID},
+			StateDocument: &tfState,
+		},
+	); err != nil {
+		return fmt.Errorf("failed to save partial terraform state: %w", err)
+	}
+
+	return nil
+}
+
+// stateIsNewer reports whether candidate is a later version of the same
+// terraform state as current, going by the lineage and serial terraform
+// records in every state file.
+func stateIsNewer(candidate, current []byte) bool {
+	type stateVersion struct {
+		Lineage string `json:"lineage"`
+		Serial  int64  `json:"serial"`
+	}
+	var candidateVersion, currentVersion stateVersion
+	if err := json.Unmarshal(candidate, &candidateVersion); err != nil {
+		return false
+	}
+	if err := json.Unmarshal(current, &currentVersion); err != nil {
+		return false
+	}
+
+	return candidateVersion.Lineage != "" &&
+		candidateVersion.Lineage == currentVersion.Lineage &&
+		candidateVersion.Serial > currentVersion.Serial
 }
 
 // deleteTerraformInstance deletes the terraform resources recoreded in the
