@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -25,6 +27,7 @@ type portFixture struct {
 	resources []v0.KubernetesWorkloadResourceInstance
 	posts     []v0.KubernetesWorkloadResourceInstance
 	patches   []v0.KubernetesWorkloadResourceInstance
+	deletes   []uint
 	woken     bool
 }
 
@@ -90,6 +93,15 @@ func (f *portFixture) serve(t *testing.T) *controller.Reconciler {
 		case r.Method == http.MethodPatch && len(r.URL.Path) > len(v0.PathKubernetesWorkloadInstances) && r.URL.Path[:len(v0.PathKubernetesWorkloadInstances)] == v0.PathKubernetesWorkloadInstances:
 			f.woken = true
 			writeOne(t, w, http.StatusOK, v0.KubernetesWorkloadInstance{Reconciliation: v0.Reconciliation{Reconciled: util.Ptr(false)}})
+		case r.Method == http.MethodDelete && strings.HasPrefix(r.URL.Path, v0.PathKubernetesWorkloadResourceInstances+"/"):
+			idText := strings.TrimPrefix(r.URL.Path, v0.PathKubernetesWorkloadResourceInstances+"/")
+			id, convErr := strconv.Atoi(idText)
+			if convErr != nil {
+				http.NotFound(w, r)
+				return
+			}
+			f.deletes = append(f.deletes, uint(id))
+			writeOne(t, w, http.StatusOK, v0.KubernetesWorkloadResourceInstance{Common: v0.Common{ID: util.Ptr(uint(id))}})
 		default:
 			http.Error(w, r.Method+" "+r.URL.RequestURI(), http.StatusNotFound)
 		}
@@ -330,4 +342,70 @@ func TestConfirmGatewayPortsExposedSkipsMatchingObjects(t *testing.T) {
 	require.Empty(t, fixture.posts)
 	require.Empty(t, fixture.patches)
 	require.False(t, fixture.woken)
+}
+
+// TestConfirmGatewayPortsExposedReplacesScheduledObjects stores a new controller object when the stored one is scheduled for deletion.
+func TestConfirmGatewayPortsExposedReplacesScheduledObjects(t *testing.T) {
+	// store equal manifests, with the service and the controller scheduled for deletion
+	ports := []int{443, 5432}
+	now := time.Now()
+	fixture := &portFixture{
+		gateways: []v0.GatewayInstance{
+			{Common: v0.Common{ID: util.Ptr(uint(1))}, GatewayDefinitionID: util.Ptr(uint(1))},
+			{Common: v0.Common{ID: util.Ptr(uint(2))}, GatewayDefinitionID: util.Ptr(uint(2))},
+		},
+		tcpPorts: map[string][]v0.GatewayTcpPort{
+			"1": {{Port: util.Ptr(5432)}},
+			"2": {{Port: util.Ptr(443)}},
+		},
+		resources: []v0.KubernetesWorkloadResourceInstance{
+			{
+				Common: v0.Common{ID: util.Ptr(uint(11))},
+				JSONDefinition: kubeJSON(map[string]interface{}{
+					"apiVersion": "k8s.nginx.org/v1",
+					"kind":       "GlobalConfiguration",
+					"metadata":   map[string]interface{}{"name": "nginx-ingress", "namespace": "nukleros-ingress-system"},
+					"spec":       map[string]interface{}{"listeners": tcpListeners(ports)},
+				}),
+			},
+			{
+				Common:               v0.Common{ID: util.Ptr(uint(12))},
+				ScheduledForDeletion: &now,
+				JSONDefinition: kubeJSON(map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "Service",
+					"metadata":   map[string]interface{}{"name": "nginx-tcp", "namespace": "nukleros-ingress-system"},
+					"spec":       map[string]interface{}{"ports": tcpServicePorts(ports)},
+				}),
+			},
+			{
+				Common:               v0.Common{ID: util.Ptr(uint(13))},
+				ScheduledForDeletion: &now,
+				JSONDefinition:       storedController(t, ports),
+			},
+		},
+	}
+	reconciler := fixture.serve(t)
+	runtime := &v0.KubernetesRuntimeInstance{
+		Common:                      v0.Common{ID: util.Ptr(uint(5))},
+		GatewayControllerInstanceID: util.Ptr(uint(9)),
+	}
+	gateway := &v0.GatewayInstance{
+		Common:              v0.Common{ID: util.Ptr(uint(1))},
+		GatewayDefinitionID: util.Ptr(uint(1)),
+	}
+
+	// reconcile the shared listeners
+	err := confirmGatewayPortsExposed(reconciler, gateway, runtime, nil, nil)
+	require.NoError(t, err)
+
+	// the scheduled service and controller are gone and stored again without the flag
+	require.ElementsMatch(t, []uint{12, 13}, fixture.deletes)
+	require.Empty(t, fixture.patches)
+	require.Len(t, fixture.posts, 2)
+	for _, post := range fixture.posts {
+		require.Nil(t, post.ScheduledForDeletion)
+		require.NotNil(t, post.Reconciled)
+		require.False(t, *post.Reconciled)
+	}
 }

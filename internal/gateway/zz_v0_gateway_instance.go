@@ -581,6 +581,9 @@ func syncNamedSlice(
 	if removeWhenEmpty && len(values) == 0 {
 		return scheduleControllerObjectDeletion(r, object, changed)
 	}
+	if object.ScheduledForDeletion != nil {
+		return replaceScheduledControllerObject(r, kubernetesRuntimeInstance, object, source, field, values, label, changed)
+	}
 
 	// replace the slice when it differs from the runtime's ports
 	if object.JSONDefinition == nil {
@@ -627,6 +630,9 @@ func syncTcpController(
 	if remove {
 		return scheduleControllerObjectDeletion(r, object, changed)
 	}
+	if object.ScheduledForDeletion != nil {
+		return replaceScheduledControllerObject(r, kubernetesRuntimeInstance, object, source, "", nil, "nginx tcp controller", changed)
+	}
 
 	// replace the deployment when its manifest differs
 	desired, err := util.UnstructuredFromYaml(source)
@@ -648,6 +654,27 @@ func syncTcpController(
 		return nil
 	}
 	return updateControllerObject(r, object, desired.Object, changed)
+}
+
+// replaceScheduledControllerObject deletes the stored controller object and stores a new one.
+func replaceScheduledControllerObject(
+	r *controller.Reconciler,
+	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
+	object *v0.KubernetesWorkloadResourceInstance,
+	source []byte,
+	field string,
+	values []interface{},
+	label string,
+	changed *bool,
+) error {
+	// delete the scheduled object
+	if _, err := client.DeleteKubernetesWorkloadResourceInstance(r.APIClient, r.APIServer, *object.ID); err != nil {
+		return fmt.Errorf("failed to delete scheduled %s: %w", label, err)
+	}
+	*changed = true
+
+	// store a new object
+	return createControllerObject(r, kubernetesRuntimeInstance, source, field, values, label)
 }
 
 // scheduleControllerObjectDeletion marks a controller object for deletion.
