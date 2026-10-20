@@ -6,12 +6,14 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
+
+	"github.com/threeport/threeport/pkg/api-server/v0/database"
 )
 
 // The database a control plane backs up and the schedule it does it on.
 const (
 	// DatabaseName is the database that holds every API object.
-	DatabaseName = "threeport_api"
+	DatabaseName = database.ThreeportDatabaseName
 
 	// DatabaseBackupScheduleLabel names the backup schedule in CockroachDB,
 	// and makes creating it again a no-op.
