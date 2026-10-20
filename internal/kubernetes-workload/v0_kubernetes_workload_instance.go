@@ -21,6 +21,7 @@ import (
 	tp_errors "github.com/threeport/threeport/pkg/errors/v0"
 	event "github.com/threeport/threeport/pkg/event/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
+	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -221,6 +222,13 @@ func v0KubernetesWorkloadInstanceCreated(
 					Reason: util.Ptr("CreateResourceError"),
 					Note:   util.Ptr(fmt.Sprintf("failed to create Kubernetes resource for kubernetes workload instance: %s", err)),
 				},
+			}
+		}
+
+		// add the cainjector patch verb once the operator creates the role
+		if kubeObject.GetKind() == "CertificatesComponent" {
+			if err := installer.AllowCainjectorWebhookPatch(dynamicKubeClient, mapper); err != nil {
+				return 0, fmt.Errorf("failed to allow the cert-manager cainjector to patch webhooks: %w", err)
 			}
 		}
 

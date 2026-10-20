@@ -163,17 +163,12 @@ func InstallThreeportSupportServicesOperator(
 		return fmt.Errorf("failed to create SupportServices object: %w", err)
 	}
 
-	// cert-manager v1.21 patches webhook configuration, and the operator role omits that verb
-	if err := allowCainjectorWebhookPatch(kubeClient, mapper); err != nil {
-		return fmt.Errorf("failed to allow the cert-manager cainjector to patch webhooks: %w", err)
-	}
-
 	return nil
 }
 
-// allowCainjectorWebhookPatch waits for the operator to create the cainjector role, then adds patch.
-func allowCainjectorWebhookPatch(kubeClient dynamic.Interface, mapper *meta.RESTMapper) error {
-	// the operator creates the role after the SupportServices object exists
+// AllowCainjectorWebhookPatch waits for the certificates reconcile to create the cainjector role, then adds patch.
+func AllowCainjectorWebhookPatch(kubeClient dynamic.Interface, mapper *meta.RESTMapper) error {
+	// the operator creates the role while reconciling CertificatesComponent
 	return util.Retry(60, 2, func() error {
 		role, err := kube.GetResource(
 			"rbac.authorization.k8s.io",
