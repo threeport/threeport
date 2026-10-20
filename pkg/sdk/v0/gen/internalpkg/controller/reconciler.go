@@ -786,51 +786,69 @@ func operationCase(
 				)),
 				Line(),
 			)
-			h.If(Id("err").Op("!=").Nil()).Block(
-				Id("log").Dot("Error").Call(Id("err"), Lit(fmt.Sprintf(
-					"failed to update %s to mark as deleted",
+			// the object is already gone from the API when another worker or
+			// replica finished deleting it first, so there is nothing left to
+			// mark or delete - requeueing would retry a 404 forever
+			h.If(Qual("errors", "Is").Call(
+				Id("err"),
+				Qual(clientLib, "ErrObjectNotFound"),
+			)).Block(
+				Id("log").Dot("Info").Call(Lit(fmt.Sprintf(
+					"%s already deleted",
 					strcase.ToDelimited(obj.Name, ' '),
 				))),
-				Id("r").Dot("UnlockAndRequeue").Call(
-					Id(varObjectName),
-					Id("requeueDelay"),
-					Id("lockReleased"),
-					Id("msg"),
-				),
-				Continue(),
-			)
-
-			h.Id("_").Op(",").Id("err").Op("=").Qual(
-				fmt.Sprintf("%s/pkg/client/v0", modulePath),
-				fmt.Sprintf("Delete%s", obj.Name),
-			).Call(
-				Line().Id("r").Dot("APIClient"),
-				Line().Id("r").Dot("APIServer"),
-				Line().Id(varObjectName).Dot("GetId").Call(),
-				Line(),
-			)
-			h.If(Id("err").Op("!=").Nil()).BlockFunc(func(k *Group) {
-				// emit the delete-conflict wait before the failure path
-				emitDeleteConflictWait(
-					k,
-					"err",
-					fmt.Sprintf(
-						"conflict deleting %s, requeueing",
+			).Else().BlockFunc(func(e *Group) {
+				e.If(Id("err").Op("!=").Nil()).Block(
+					Id("log").Dot("Error").Call(Id("err"), Lit(fmt.Sprintf(
+						"failed to update %s to mark as deleted",
 						strcase.ToDelimited(obj.Name, ' '),
+					))),
+					Id("r").Dot("UnlockAndRequeue").Call(
+						Id(varObjectName),
+						Id("requeueDelay"),
+						Id("lockReleased"),
+						Id("msg"),
 					),
-					varObjectName,
+					Continue(),
 				)
-				k.Id("log").Dot("Error").Call(Id("err"), Lit(fmt.Sprintf(
-					"failed to delete %s",
-					strcase.ToDelimited(obj.Name, ' '),
-				)))
-				k.Id("r").Dot("UnlockAndRequeue").Call(
-					Id(varObjectName),
-					Id("requeueDelay"),
-					Id("lockReleased"),
-					Id("msg"),
+
+				e.Id("_").Op(",").Id("err").Op("=").Qual(
+					fmt.Sprintf("%s/pkg/client/v0", modulePath),
+					fmt.Sprintf("Delete%s", obj.Name),
+				).Call(
+					Line().Id("r").Dot("APIClient"),
+					Line().Id("r").Dot("APIServer"),
+					Line().Id(varObjectName).Dot("GetId").Call(),
+					Line(),
 				)
-				k.Continue()
+				e.If(
+					Id("err").Op("!=").Nil().Op("&&").Op("!").Qual("errors", "Is").Call(
+						Id("err"),
+						Qual(clientLib, "ErrObjectNotFound"),
+					),
+				).BlockFunc(func(k *Group) {
+					// emit the delete-conflict wait before the failure path
+					emitDeleteConflictWait(
+						k,
+						"err",
+						fmt.Sprintf(
+							"conflict deleting %s, requeueing",
+							strcase.ToDelimited(obj.Name, ' '),
+						),
+						varObjectName,
+					)
+					k.Id("log").Dot("Error").Call(Id("err"), Lit(fmt.Sprintf(
+						"failed to delete %s",
+						strcase.ToDelimited(obj.Name, ' '),
+					)))
+					k.Id("r").Dot("UnlockAndRequeue").Call(
+						Id(varObjectName),
+						Id("requeueDelay"),
+						Id("lockReleased"),
+						Id("msg"),
+					)
+					k.Continue()
+				})
 			})
 		}
 	})

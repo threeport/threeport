@@ -376,34 +376,38 @@ func LoggingDefinitionReconciler(r *controller.Reconciler) {
 					r.APIServer,
 					&deletedLoggingDefinition,
 				)
-				if err != nil {
-					log.Error(err, "failed to update logging definition to mark as deleted")
-					r.UnlockAndRequeue(loggingDefinition, requeueDelay, lockReleased, msg)
-					continue
-				}
-				_, err = client_v0.DeleteLoggingDefinition(
-					r.APIClient,
-					r.APIServer,
-					loggingDefinition.GetId(),
-				)
-				if err != nil {
-					if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
-						log.Info(
-							"conflict deleting logging definition, requeueing",
-							"cause", err.Error(),
-						)
-						// in-progress event already recorded before the handler
-						r.UnlockAndRequeue(
-							loggingDefinition,
-							int64(30),
-							lockReleased,
-							msg,
-						)
+				if errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+					log.Info("logging definition already deleted")
+				} else {
+					if err != nil {
+						log.Error(err, "failed to update logging definition to mark as deleted")
+						r.UnlockAndRequeue(loggingDefinition, requeueDelay, lockReleased, msg)
 						continue
 					}
-					log.Error(err, "failed to delete logging definition")
-					r.UnlockAndRequeue(loggingDefinition, requeueDelay, lockReleased, msg)
-					continue
+					_, err = client_v0.DeleteLoggingDefinition(
+						r.APIClient,
+						r.APIServer,
+						loggingDefinition.GetId(),
+					)
+					if err != nil && !errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+						if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
+							log.Info(
+								"conflict deleting logging definition, requeueing",
+								"cause", err.Error(),
+							)
+							// in-progress event already recorded before the handler
+							r.UnlockAndRequeue(
+								loggingDefinition,
+								int64(30),
+								lockReleased,
+								msg,
+							)
+							continue
+						}
+						log.Error(err, "failed to delete logging definition")
+						r.UnlockAndRequeue(loggingDefinition, requeueDelay, lockReleased, msg)
+						continue
+					}
 				}
 			default:
 				log.Error(

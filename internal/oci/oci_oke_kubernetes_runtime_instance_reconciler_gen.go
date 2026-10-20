@@ -376,34 +376,38 @@ func OciOkeKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 					r.APIServer,
 					&deletedOciOkeKubernetesRuntimeInstance,
 				)
-				if err != nil {
-					log.Error(err, "failed to update oci oke kubernetes runtime instance to mark as deleted")
-					r.UnlockAndRequeue(ociOkeKubernetesRuntimeInstance, requeueDelay, lockReleased, msg)
-					continue
-				}
-				_, err = client_v0.DeleteOciOkeKubernetesRuntimeInstance(
-					r.APIClient,
-					r.APIServer,
-					ociOkeKubernetesRuntimeInstance.GetId(),
-				)
-				if err != nil {
-					if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
-						log.Info(
-							"conflict deleting oci oke kubernetes runtime instance, requeueing",
-							"cause", err.Error(),
-						)
-						// in-progress event already recorded before the handler
-						r.UnlockAndRequeue(
-							ociOkeKubernetesRuntimeInstance,
-							int64(30),
-							lockReleased,
-							msg,
-						)
+				if errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+					log.Info("oci oke kubernetes runtime instance already deleted")
+				} else {
+					if err != nil {
+						log.Error(err, "failed to update oci oke kubernetes runtime instance to mark as deleted")
+						r.UnlockAndRequeue(ociOkeKubernetesRuntimeInstance, requeueDelay, lockReleased, msg)
 						continue
 					}
-					log.Error(err, "failed to delete oci oke kubernetes runtime instance")
-					r.UnlockAndRequeue(ociOkeKubernetesRuntimeInstance, requeueDelay, lockReleased, msg)
-					continue
+					_, err = client_v0.DeleteOciOkeKubernetesRuntimeInstance(
+						r.APIClient,
+						r.APIServer,
+						ociOkeKubernetesRuntimeInstance.GetId(),
+					)
+					if err != nil && !errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+						if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
+							log.Info(
+								"conflict deleting oci oke kubernetes runtime instance, requeueing",
+								"cause", err.Error(),
+							)
+							// in-progress event already recorded before the handler
+							r.UnlockAndRequeue(
+								ociOkeKubernetesRuntimeInstance,
+								int64(30),
+								lockReleased,
+								msg,
+							)
+							continue
+						}
+						log.Error(err, "failed to delete oci oke kubernetes runtime instance")
+						r.UnlockAndRequeue(ociOkeKubernetesRuntimeInstance, requeueDelay, lockReleased, msg)
+						continue
+					}
 				}
 			default:
 				log.Error(

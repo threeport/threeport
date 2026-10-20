@@ -376,34 +376,38 @@ func ObservabilityDashboardInstanceReconciler(r *controller.Reconciler) {
 					r.APIServer,
 					&deletedObservabilityDashboardInstance,
 				)
-				if err != nil {
-					log.Error(err, "failed to update observability dashboard instance to mark as deleted")
-					r.UnlockAndRequeue(observabilityDashboardInstance, requeueDelay, lockReleased, msg)
-					continue
-				}
-				_, err = client_v0.DeleteObservabilityDashboardInstance(
-					r.APIClient,
-					r.APIServer,
-					observabilityDashboardInstance.GetId(),
-				)
-				if err != nil {
-					if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
-						log.Info(
-							"conflict deleting observability dashboard instance, requeueing",
-							"cause", err.Error(),
-						)
-						// in-progress event already recorded before the handler
-						r.UnlockAndRequeue(
-							observabilityDashboardInstance,
-							int64(30),
-							lockReleased,
-							msg,
-						)
+				if errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+					log.Info("observability dashboard instance already deleted")
+				} else {
+					if err != nil {
+						log.Error(err, "failed to update observability dashboard instance to mark as deleted")
+						r.UnlockAndRequeue(observabilityDashboardInstance, requeueDelay, lockReleased, msg)
 						continue
 					}
-					log.Error(err, "failed to delete observability dashboard instance")
-					r.UnlockAndRequeue(observabilityDashboardInstance, requeueDelay, lockReleased, msg)
-					continue
+					_, err = client_v0.DeleteObservabilityDashboardInstance(
+						r.APIClient,
+						r.APIServer,
+						observabilityDashboardInstance.GetId(),
+					)
+					if err != nil && !errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+						if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
+							log.Info(
+								"conflict deleting observability dashboard instance, requeueing",
+								"cause", err.Error(),
+							)
+							// in-progress event already recorded before the handler
+							r.UnlockAndRequeue(
+								observabilityDashboardInstance,
+								int64(30),
+								lockReleased,
+								msg,
+							)
+							continue
+						}
+						log.Error(err, "failed to delete observability dashboard instance")
+						r.UnlockAndRequeue(observabilityDashboardInstance, requeueDelay, lockReleased, msg)
+						continue
+					}
 				}
 			default:
 				log.Error(

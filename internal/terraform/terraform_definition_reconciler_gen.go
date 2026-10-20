@@ -376,34 +376,38 @@ func TerraformDefinitionReconciler(r *controller.Reconciler) {
 					r.APIServer,
 					&deletedTerraformDefinition,
 				)
-				if err != nil {
-					log.Error(err, "failed to update terraform definition to mark as deleted")
-					r.UnlockAndRequeue(terraformDefinition, requeueDelay, lockReleased, msg)
-					continue
-				}
-				_, err = client_v0.DeleteTerraformDefinition(
-					r.APIClient,
-					r.APIServer,
-					terraformDefinition.GetId(),
-				)
-				if err != nil {
-					if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
-						log.Info(
-							"conflict deleting terraform definition, requeueing",
-							"cause", err.Error(),
-						)
-						// in-progress event already recorded before the handler
-						r.UnlockAndRequeue(
-							terraformDefinition,
-							int64(30),
-							lockReleased,
-							msg,
-						)
+				if errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+					log.Info("terraform definition already deleted")
+				} else {
+					if err != nil {
+						log.Error(err, "failed to update terraform definition to mark as deleted")
+						r.UnlockAndRequeue(terraformDefinition, requeueDelay, lockReleased, msg)
 						continue
 					}
-					log.Error(err, "failed to delete terraform definition")
-					r.UnlockAndRequeue(terraformDefinition, requeueDelay, lockReleased, msg)
-					continue
+					_, err = client_v0.DeleteTerraformDefinition(
+						r.APIClient,
+						r.APIServer,
+						terraformDefinition.GetId(),
+					)
+					if err != nil && !errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+						if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
+							log.Info(
+								"conflict deleting terraform definition, requeueing",
+								"cause", err.Error(),
+							)
+							// in-progress event already recorded before the handler
+							r.UnlockAndRequeue(
+								terraformDefinition,
+								int64(30),
+								lockReleased,
+								msg,
+							)
+							continue
+						}
+						log.Error(err, "failed to delete terraform definition")
+						r.UnlockAndRequeue(terraformDefinition, requeueDelay, lockReleased, msg)
+						continue
+					}
 				}
 			default:
 				log.Error(
