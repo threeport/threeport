@@ -16,6 +16,11 @@ const (
 	dbCredsSecretName = "db-certs"
 	natsServiceName   = "nats-js"
 
+	// DatabaseServiceAccountName is the Kubernetes service account the
+	// database runs as.  On a production GKE control plane it acts as the
+	// GCP service account that writes the database's backups.
+	DatabaseServiceAccountName = "crdb"
+
 	// natsBoxImage is the nats CLI image shared by the nats-box pod and the stream drop job.
 	natsBoxImage = "docker.io/natsio/nats-box:0.16.0-nonroot"
 )

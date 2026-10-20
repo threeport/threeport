@@ -74,6 +74,23 @@ type Options struct {
 	// this GCP service account via Workload Identity.
 	GcpServiceAccountEmail string
 
+	// The region of the bucket a production GKE control plane's database is
+	// backed up to.  Empty uses the default for the cluster's region.
+	GcpBackupRegion string
+
+	// The bucket the database is backed up to, set once it is provisioned.
+	// When set, the database runs scheduled backups into it.
+	GcpBackupBucket string
+
+	// The GCP service account the database writes its backups as, set once
+	// it is provisioned.  The database's Kubernetes service account is
+	// annotated to act as it through Workload Identity.
+	GcpBackupServiceAccountEmail string
+
+	// Whether tearing the control plane down also deletes its backup bucket
+	// and every backup in it.
+	DeleteBackups bool
+
 	// Path to config file for threeport
 	CfgFile string
 

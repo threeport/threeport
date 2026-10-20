@@ -82,6 +82,8 @@ type GenesisControlPlaneCLIArgs struct {
 	OciConfigProfile      string
 	GcpProjectId          string
 	GcpRegion             string
+	GcpBackupRegion       string
+	DeleteBackups         bool
 	CfgFile               string
 	ControlPlaneImageRepo string
 	ControlPlaneImageTag  string
@@ -190,6 +192,8 @@ func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneI
 	cpi.Opts.OciConfigProfile = a.OciConfigProfile
 	cpi.Opts.GcpProjectId = a.GcpProjectId
 	cpi.Opts.GcpRegion = a.GcpRegion
+	cpi.Opts.GcpBackupRegion = a.GcpBackupRegion
+	cpi.Opts.DeleteBackups = a.DeleteBackups
 	cpi.Opts.CfgFile = a.CfgFile
 	cpi.Opts.CreateRootDomain = a.CreateRootDomain
 	cpi.Opts.CreateAdminEmail = a.CreateAdminEmail
@@ -363,6 +367,10 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			MaxNodeCount: int32(10),
 			ProjectID:    cpi.Opts.GcpProjectId,
 			Region:       cpi.Opts.GcpRegion,
+			// a production control plane backs its database up to a
+			// bucket in another region
+			ProvisionBackups: cpi.Opts.Tier == threeport.ControlPlaneTier(threeport.ControlPlaneTierProd),
+			BackupRegion:     cpi.Opts.GcpBackupRegion,
 		}).InitPulumiProject()
 		kubernetesRuntimeInfra = kubernetesRuntimeInfraGKE
 		uninstaller.kubernetesRuntimeInfra = kubernetesRuntimeInfraGKE
@@ -382,6 +390,9 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			if err != nil {
 				return fmt.Errorf("failed to get connection info for GKE kubernetes runtime: %w", err)
 			}
+			if kubernetesRuntimeInfraGKE.ProvisionBackups {
+				Warning("database backups are provisioned only when tptctl creates the GKE cluster, so this control plane has none")
+			}
 		} else {
 			kubeConnectionInfo, err = kubernetesRuntimeInfra.Create()
 			if err != nil {
@@ -390,6 +401,19 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 
 			// pass the GCP service account email to the installer for Workload Identity configuration
 			cpi.Opts.GcpServiceAccountEmail = kubernetesRuntimeInfraGKE.ServiceAccountEmail
+
+			// pass the backup bucket and the account that writes to it to the
+			// installer, and record the bucket for a later restore
+			if kubernetesRuntimeInfraGKE.BackupBucket != "" {
+				cpi.Opts.GcpBackupBucket = kubernetesRuntimeInfraGKE.BackupBucket
+				cpi.Opts.GcpBackupServiceAccountEmail = kubernetesRuntimeInfraGKE.BackupServiceAccountEmail
+				if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *ControlPlane) {
+					c.GKEProviderConfig.BackupBucket = kubernetesRuntimeInfraGKE.BackupBucket
+				}); err != nil {
+					return fmt.Errorf("failed to record the backup bucket in threeport config: %w", err)
+				}
+				Info(fmt.Sprintf("database backups go to gs://%s", kubernetesRuntimeInfraGKE.BackupBucket))
+			}
 		}
 	}
 
@@ -1108,6 +1132,7 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			PulumiWorkspace: provider.PulumiWorkspace{
 				RuntimeInstanceName: provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
 			},
+			DeleteBackups: cpi.Opts.DeleteBackups,
 		}).InitPulumiProject()
 		// load the GCP project ID and region from the existing Pulumi stack configuration
 		if err := kubernetesRuntimeInfraGKE.LoadConfigFromStack(); err != nil {
@@ -1292,6 +1317,31 @@ func apiPortFromKindMappings(kindPortMappings []string) int {
 	}
 
 	return 0
+}
+
+// ValidateGcpBackupRegionFlag refuses a backup region given for a control
+// plane that has no backups: only a production control plane whose GKE
+// cluster tptctl creates backs its database up.
+func ValidateGcpBackupRegionFlag(
+	backupRegion string,
+	infraProvider string,
+	tier string,
+	controlPlaneOnly bool,
+) error {
+	if backupRegion == "" {
+		return nil
+	}
+	if infraProvider != v0.KubernetesRuntimeInfraProviderGKE || tier != threeport.ControlPlaneTierProd {
+		return fmt.Errorf(
+			"--gcp-backup-region applies only to a %s tier control plane on the %s provider",
+			threeport.ControlPlaneTierProd, v0.KubernetesRuntimeInfraProviderGKE,
+		)
+	}
+	if controlPlaneOnly {
+		return errors.New("--gcp-backup-region does not apply with --control-plane-only, since backups are provisioned only when tptctl creates the GKE cluster")
+	}
+
+	return nil
 }
 
 func ValidateCreateGenesisControlPlaneFlags(
