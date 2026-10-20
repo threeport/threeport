@@ -211,3 +211,40 @@ func TestANewInstallIsNotBackedUp(t *testing.T) {
 	assert.Equal(t, []int64{1, 2}, steps.applied)
 	assert.Zero(t, backups)
 }
+
+// failingRecord cannot store a failure.
+type failingRecord struct{ fakeRecord }
+
+func (r *failingRecord) RecordFailure(context.Context, *Failure) error {
+	return errors.New("connection reset")
+}
+
+// TestAFailureThatCannotBeRecordedIsSaid covers a rolled back migration
+// whose failure could not be recorded: the next run will try it again, so
+// the error says so, carries why, and does not point at a record to clear.
+func TestAFailureThatCannotBeRecordedIsSaid(t *testing.T) {
+	steps := newFakeSteps([]int64{1}, []int64{1, 2})
+	steps.failUp[2] = true
+
+	err := Up(context.Background(), steps, &failingRecord{}, Options{})
+
+	require.ErrorIs(t, err, ErrMigrationFailed)
+	assert.Contains(t, err.Error(), "rolled back to version 1")
+	assert.Contains(t, err.Error(), "failed to record the failure, so the next run will try the migration again")
+	assert.Contains(t, err.Error(), "connection reset")
+	assert.NotContains(t, err.Error(), "clear the record")
+}
+
+// TestAFailedRollbackAndRecordReportsBoth covers a rollback that fails and a
+// failure that cannot be recorded: both are in the error.
+func TestAFailedRollbackAndRecordReportsBoth(t *testing.T) {
+	steps := newFakeSteps([]int64{1}, []int64{1, 2})
+	steps.failUp[2] = true
+	steps.failDown[2] = true
+
+	err := Up(context.Background(), steps, &failingRecord{}, Options{})
+
+	require.ErrorIs(t, err, ErrMigrationFailed)
+	assert.Contains(t, err.Error(), "failed to clean up migration 2")
+	assert.Contains(t, err.Error(), "connection reset")
+}

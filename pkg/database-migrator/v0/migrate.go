@@ -170,12 +170,22 @@ func Up(ctx context.Context, steps Steps, record FailureRecord, opts Options) er
 			Backup:      backup,
 			FailedAt:    time.Now().UTC(),
 		}
-		if err := record.RecordFailure(ctx, failure); err != nil {
-			rollbackErrors = append(rollbackErrors, fmt.Errorf("failed to record the failure: %w", err))
+		// a failure that could not be recorded does not stop the next run,
+		// which tries the migration again, so it is said rather than
+		// pointing at a record to clear
+		recordErr := record.RecordFailure(ctx, failure)
+		if recordErr != nil {
+			recordErr = fmt.Errorf(
+				"failed to record the failure, so the next run will try the migration again: %w",
+				recordErr,
+			)
 		}
 
 		if rollbackErr != nil {
-			return fmt.Errorf("%w: %s: %w", ErrMigrationFailed, describe(failure), errors.Join(rollbackErrors...))
+			return fmt.Errorf("%w: %s: %w", ErrMigrationFailed, describe(failure), errors.Join(rollbackErr, recordErr))
+		}
+		if recordErr != nil {
+			return fmt.Errorf("%w: %s; fix the migration: %w", ErrMigrationFailed, describe(failure), recordErr)
 		}
 		return fmt.Errorf("%w: %s; fix the migration, then %s", ErrMigrationFailed, describe(failure), record.ClearInstructions())
 	}
