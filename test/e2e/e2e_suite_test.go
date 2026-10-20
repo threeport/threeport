@@ -2,6 +2,7 @@ package e2e_test
 
 import (
 	"flag"
+	"runtime"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -11,6 +12,7 @@ import (
 var (
 	provider         string
 	imageRepo        string
+	imageArch        string
 	threeportPath    string
 	clean            bool
 	awsRegion        string
@@ -21,6 +23,7 @@ var (
 func init() {
 	flag.StringVar(&provider, "provider", "kind", "Infrastructure provider for the control plane (kind or eks)")
 	flag.StringVar(&imageRepo, "image-repo", "", "Container image repo to use for test images.  Empty uses the released control plane images, which is the only option that works with a remote provider unless you have a repo its nodes can pull from.")
+	flag.StringVar(&imageArch, "image-arch", runtime.GOARCH, "CPU architecture to build test images for.  Set it to the nodes' architecture when it differs from this machine's, e.g. amd64 for EKS nodes when running from an arm64 Mac.")
 	flag.StringVar(&threeportPath, "threeport-path", "", "Path to root of Threeport repo")
 	flag.BoolVar(&clean, "clean", true, "Remove Threeport control plane and image repo where applicable after e2e tests")
 	flag.StringVar(&awsRegion, "aws-region", "us-east-1", "AWS region to install into when using the eks provider")
