@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,14 +25,14 @@ import (
 // into a statement.
 func TestRestoreStatementsNameOnlyABackup(t *testing.T) {
 	for _, backup := range []string{"", "LATEST", "latest"} {
-		statements, err := DatabaseRestoreStatements(DatabaseName, "threeport", "gs://b/threeport_api?AUTH=implicit", "gs://b/threeport_api?AUTH=implicit", backup)
+		phases, err := DatabaseRestoreStatements(DatabaseName, "threeport", "gs://b/threeport_api?AUTH=implicit", "gs://b/threeport_api?AUTH=implicit", backup)
 		require.NoError(t, err, backup)
-		assert.Contains(t, strings.Join(statements, "\n"), "FROM LATEST IN", backup)
+		assert.Contains(t, strings.Join(phases.Prepare, "\n"), "FROM LATEST IN", backup)
 	}
 
-	statements, err := DatabaseRestoreStatements(DatabaseName, "threeport", "gs://b/threeport_api?AUTH=implicit", "gs://b/threeport_api?AUTH=implicit", "/2026/10/20-050726.51")
+	phases, err := DatabaseRestoreStatements(DatabaseName, "threeport", "gs://b/threeport_api?AUTH=implicit", "gs://b/threeport_api?AUTH=implicit", "/2026/10/20-050726.51")
 	require.NoError(t, err)
-	assert.Contains(t, strings.Join(statements, "\n"), "FROM '/2026/10/20-050726.51' IN")
+	assert.Contains(t, strings.Join(phases.Prepare, "\n"), "FROM '/2026/10/20-050726.51' IN")
 
 	for _, backup := range []string{
 		"2026/10/20-050726.51",
@@ -43,71 +45,106 @@ func TestRestoreStatementsNameOnlyABackup(t *testing.T) {
 	}
 }
 
-// TestRestoreDropsTheDatabaseOnlyOnceTheBackupIsRestored covers the order
-// that makes a failed restore harmless: nothing is dropped before the
-// backup is restored alongside the database.
-func TestRestoreDropsTheDatabaseOnlyOnceTheBackupIsRestored(t *testing.T) {
-	statements, err := DatabaseRestoreStatements(DatabaseName, "threeport", "gs://b/x", "gs://b/x", LatestBackup)
+// TestOnlyTheSwapTouchesTheLiveDatabase covers what makes a restore that
+// fails before the swap harmless: preparing restores alongside the live
+// database and touches nothing of it, which is dropped only in the swap.
+func TestOnlyTheSwapTouchesTheLiveDatabase(t *testing.T) {
+	phases, err := DatabaseRestoreStatements(DatabaseName, "threeport", "gs://b/x", "gs://b/x", LatestBackup)
 	require.NoError(t, err)
 
-	restoreAt, dropAt := -1, -1
-	for i, statement := range statements {
-		if strings.HasPrefix(statement, "RESTORE ") {
-			restoreAt = i
-		}
-		if statement == "DROP DATABASE IF EXISTS threeport_api CASCADE" {
-			dropAt = i
-		}
+	for _, statement := range append(append([]string{}, phases.Prepare...), phases.Backup...) {
+		assert.NotContains(t, statement, "DROP DATABASE IF EXISTS threeport_api ", statement)
+		assert.NotContains(t, statement, "RENAME", statement)
 	}
-	require.NotEqual(t, -1, restoreAt)
-	require.NotEqual(t, -1, dropAt)
-	assert.Less(t, restoreAt, dropAt)
+	assert.Contains(t, phases.Swap, "DROP DATABASE IF EXISTS threeport_api CASCADE")
+	assert.True(t, strings.HasPrefix(phases.Prepare[len(phases.Prepare)-1], "RESTORE "))
 }
 
+// TestTheFreshBackupGoesWhereTheScheduleWrites covers a restore from a
+// bucket other than the one the schedule writes to, such as a copy of the
+// backups: the backup is read from the copy, and the full backup the restore
+// ends with goes to the schedule's bucket.  Without a schedule, no backup is
+// taken.
+func TestTheFreshBackupGoesWhereTheScheduleWrites(t *testing.T) {
+	phases, err := DatabaseRestoreStatements(DatabaseName, "threeport", "gs://copy/threeport_api", "gs://scheduled/threeport_api", LatestBackup)
+	require.NoError(t, err)
+	assert.Contains(t, phases.Prepare[1], "IN 'gs://copy/threeport_api'")
+	assert.Equal(t, []string{"BACKUP DATABASE threeport_api INTO 'gs://scheduled/threeport_api'"}, phases.Backup)
+
+	withoutSchedule, err := DatabaseRestoreStatements(DatabaseName, "threeport", "gs://copy/threeport_api", "", LatestBackup)
+	require.NoError(t, err)
+	assert.Empty(t, withoutSchedule.Backup)
+}
+
+// jobOutcome is how a fake restore Job ends.
+type jobOutcome int
+
+const (
+	jobSucceeds jobOutcome = iota
+	jobFails
+	jobHangs
+	// marked failed, as past its deadline, while its pod is still running
+	jobFailsStillRunning
+)
+
 // restoreCluster is a fake cluster a restore runs against: it holds the
-// control plane's Deployments, scales them as patched, and finishes the
-// restore Job with the given outcome.
+// control plane's Deployments, scales and annotates them as patched, and ends
+// each phase's Job as told.
 type restoreCluster struct {
 	*dynamicfake.FakeDynamicClient
 
-	mu       sync.Mutex
-	replicas map[string]int64
-	scaled   [][2]interface{}
-	job      *unstructured.Unstructured
-	jobsLeft int
+	mu          sync.Mutex
+	replicas    map[string]int64
+	annotations map[string]map[string]string
+	scaled      [][2]interface{}
+	outcomes    map[string]jobOutcome
+	jobs        []string
+	commands    map[string][]string
+	jobDeleteOK bool
 }
 
-func newRestoreCluster(t *testing.T, jobSucceeds bool, replicas map[string]int64) *restoreCluster {
+func newRestoreCluster(t *testing.T, outcomes map[string]jobOutcome, replicas map[string]int64) *restoreCluster {
 	t.Helper()
 
-	objects := []runtime.Object{}
-	for name, count := range replicas {
-		deployment := testManagedDeployment(name, ControlPlaneNamespace)
-		require.NoError(t, unstructured.SetNestedField(deployment.Object, count, "spec", "replicas"))
-		objects = append(objects, deployment)
-	}
 	cluster := &restoreCluster{
-		FakeDynamicClient: testKubeClient(objects...),
+		FakeDynamicClient: testKubeClient(),
 		replicas:          map[string]int64{},
+		annotations:       map[string]map[string]string{},
+		outcomes:          outcomes,
+		commands:          map[string][]string{},
+		jobDeleteOK:       true,
 	}
 	for name, count := range replicas {
 		cluster.replicas[name] = count
+		cluster.annotations[name] = map[string]string{}
 	}
 
-	// scale a deployment as patched and report its replicas ready at once
+	// apply a merge patch of replicas and annotations
 	cluster.PrependReactor("patch", "deployments", func(action k8stesting.Action) (bool, runtime.Object, error) {
 		patch := action.(k8stesting.PatchAction)
 		var body struct {
+			Metadata struct {
+				Annotations map[string]*string `json:"annotations"`
+			} `json:"metadata"`
 			Spec struct {
-				Replicas int64 `json:"replicas"`
+				Replicas *int64 `json:"replicas"`
 			} `json:"spec"`
 		}
 		require.NoError(t, json.Unmarshal(patch.GetPatch(), &body))
 
 		cluster.mu.Lock()
 		defer cluster.mu.Unlock()
-		cluster.replicas[patch.GetName()] = body.Spec.Replicas
-		cluster.scaled = append(cluster.scaled, [2]interface{}{patch.GetName(), body.Spec.Replicas})
+		for key, value := range body.Metadata.Annotations {
+			if value == nil {
+				delete(cluster.annotations[patch.GetName()], key)
+			} else {
+				cluster.annotations[patch.GetName()][key] = *value
+			}
+		}
+		if body.Spec.Replicas != nil {
+			cluster.replicas[patch.GetName()] = *body.Spec.Replicas
+			cluster.scaled = append(cluster.scaled, [2]interface{}{patch.GetName(), *body.Spec.Replicas})
+		}
 
 		return true, cluster.deployment(patch.GetName()), nil
 	})
@@ -126,18 +163,42 @@ func newRestoreCluster(t *testing.T, jobSucceeds bool, replicas map[string]int64
 		return true, list, nil
 	})
 
-	// record the restore job and finish it
+	// record each phase's job and end it as told
 	cluster.PrependReactor("create", "jobs", func(action k8stesting.Action) (bool, runtime.Object, error) {
 		job := action.(k8stesting.CreateAction).GetObject().(*unstructured.Unstructured)
+		phase := strings.TrimPrefix(job.GetName(), restoreJobNamePrefix)
+
 		cluster.mu.Lock()
-		cluster.job = job.DeepCopy()
+		cluster.jobs = append(cluster.jobs, phase)
+		containers, _, _ := unstructured.NestedSlice(job.Object, "spec", "template", "spec", "containers")
+		var command []string
+		for _, part := range containers[0].(map[string]interface{})["command"].([]interface{}) {
+			command = append(command, part.(string))
+		}
+		cluster.commands[phase] = command
+		outcome := cluster.outcomes[phase]
 		cluster.mu.Unlock()
-		if jobSucceeds {
+
+		switch outcome {
+		case jobSucceeds:
 			require.NoError(t, unstructured.SetNestedField(job.Object, int64(1), "status", "succeeded"))
-		} else {
+		case jobFails:
 			require.NoError(t, unstructured.SetNestedSlice(job.Object, []interface{}{
 				map[string]interface{}{"type": "Failed", "status": "True", "reason": "BackoffLimitExceeded"},
 			}, "status", "conditions"))
+		case jobHangs:
+			require.NoError(t, unstructured.SetNestedField(job.Object, int64(1), "status", "active"))
+		case jobFailsStillRunning:
+			require.NoError(t, unstructured.SetNestedSlice(job.Object, []interface{}{
+				map[string]interface{}{"type": "Failed", "status": "True", "reason": "DeadlineExceeded"},
+			}, "status", "conditions"))
+			require.NoError(t, unstructured.SetNestedField(job.Object, int64(1), "status", "terminating"))
+		}
+		return false, nil, nil
+	})
+	cluster.PrependReactor("delete", "jobs", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		if !cluster.jobDeleteOK {
+			return true, nil, errors.New("the API server is unavailable")
 		}
 		return false, nil, nil
 	})
@@ -151,23 +212,30 @@ func (c *restoreCluster) deployment(name string) *unstructured.Unstructured {
 	deployment := testManagedDeployment(name, ControlPlaneNamespace)
 	_ = unstructured.SetNestedField(deployment.Object, c.replicas[name], "spec", "replicas")
 	_ = unstructured.SetNestedField(deployment.Object, c.replicas[name], "status", "readyReplicas")
+	if len(c.annotations[name]) > 0 {
+		deployment.SetAnnotations(c.annotations[name])
+	}
 
 	return deployment
 }
 
-// jobCommand returns the restore Job's command.
-func (c *restoreCluster) jobCommand(t *testing.T) []string {
-	t.Helper()
-
-	require.NotNil(t, c.job, "no restore job was created")
-	containers, _, err := unstructured.NestedSlice(c.job.Object, "spec", "template", "spec", "containers")
-	require.NoError(t, err)
-	command := []string{}
-	for _, part := range containers[0].(map[string]interface{})["command"].([]interface{}) {
-		command = append(command, part.(string))
+// executed returns the statements a phase's job ran.
+func (c *restoreCluster) executed(phase string) []string {
+	var statements []string
+	command := c.commands[phase]
+	for i, part := range command {
+		if part == "--execute" {
+			statements = append(statements, command[i+1])
+		}
 	}
 
-	return command
+	return statements
+}
+
+// jobExists reports whether a phase's job is still in the cluster.
+func (c *restoreCluster) jobExists(phase string) bool {
+	_, err := c.Resource(jobGVR).Namespace(ControlPlaneNamespace).Get(context.Background(), restoreJobNamePrefix+phase, metav1.GetOptions{})
+	return err == nil
 }
 
 // restoreInstaller returns an installer for the default control plane.
@@ -184,98 +252,147 @@ var productionReplicas = map[string]int64{
 	"threeport-terraform-controller":     1,
 }
 
+const testBucket = "threeport-prod-backups-acme-prod"
+
+// restore runs a restore of the latest backup against cluster.
+func restore(cluster *restoreCluster) error {
+	return restoreInstaller().RestoreDatabase(cluster, testBucket, testBucket, LatestBackup)
+}
+
 // TestRestoreScalesTheControlPlaneDownAndBack covers a restore that
-// succeeds: nothing writes to the database while it is replaced, the
-// restore runs each statement on its own, and every Deployment comes back
-// at the replica count it had.
+// succeeds: nothing writes to the database while it is replaced, each phase
+// runs its own statements, one at a time since a RESTORE cannot share a
+// transaction, and every Deployment comes back at the replica count it had,
+// with nothing left recorded on it.
 func TestRestoreScalesTheControlPlaneDownAndBack(t *testing.T) {
-	cluster := newRestoreCluster(t, true, productionReplicas)
+	cluster := newRestoreCluster(t, map[string]jobOutcome{}, productionReplicas)
 
-	require.NoError(t, restoreInstaller().RestoreDatabase(cluster, "threeport-prod-backups-acme-prod", "threeport-prod-backups-acme-prod", LatestBackup))
+	require.NoError(t, restore(cluster))
 
-	// scaled to zero before anything else, then back
 	for i, scale := range cluster.scaled {
 		if i < len(productionReplicas) {
 			assert.Equal(t, int64(0), scale[1], "deployment %v was not scaled down first", scale[0])
 		}
 	}
 	assert.Equal(t, productionReplicas, cluster.replicas)
-
-	// every statement is its own --execute, since RESTORE cannot share a transaction
-	statements, err := DatabaseRestoreStatements(
-		DatabaseName, "threeport",
-		DatabaseBackupURI("threeport-prod-backups-acme-prod"), DatabaseBackupURI("threeport-prod-backups-acme-prod"),
-		LatestBackup,
-	)
-	require.NoError(t, err)
-	executed := []string{}
-	command := cluster.jobCommand(t)
-	for i, part := range command {
-		if part == "--execute" {
-			executed = append(executed, command[i+1])
-		}
+	for name, annotations := range cluster.annotations {
+		assert.NotContains(t, annotations, replicasBeforeRestoreAnnotation, name)
 	}
-	assert.Equal(t, statements, executed)
 
-	// the finished job is removed
-	_, err = cluster.Resource(jobGVR).Namespace(ControlPlaneNamespace).Get(context.Background(), restoreDatabaseJobName, metav1.GetOptions{})
-	assert.Error(t, err)
+	phases, err := DatabaseRestoreStatements(DatabaseName, "threeport", DatabaseBackupURI(testBucket), DatabaseBackupURI(testBucket), LatestBackup)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"prepare", "swap", "backup"}, cluster.jobs)
+	assert.Equal(t, phases.Prepare, cluster.executed("prepare"))
+	assert.Equal(t, phases.Swap, cluster.executed("swap"))
+	assert.Equal(t, phases.Backup, cluster.executed("backup"))
+	for _, phase := range cluster.jobs {
+		assert.False(t, cluster.jobExists(phase), "the finished %s job was left behind", phase)
+	}
 }
 
-// TestAFailedRestoreBringsTheControlPlaneBack covers a restore whose Job
-// fails: the control plane comes back up on the database it had, the
-// failure is reported, and the Job is left for its logs.
-func TestAFailedRestoreBringsTheControlPlaneBack(t *testing.T) {
-	cluster := newRestoreCluster(t, false, productionReplicas)
+// TestAFailedPrepareBringsTheControlPlaneBack covers a restore that fails
+// before the swap: the live database was not touched, so the control plane
+// comes back on it, nothing else runs, and the failed job is left for its
+// logs.
+func TestAFailedPrepareBringsTheControlPlaneBack(t *testing.T) {
+	cluster := newRestoreCluster(t, map[string]jobOutcome{"prepare": jobFails}, productionReplicas)
 
-	err := restoreInstaller().RestoreDatabase(cluster, "threeport-prod-backups-acme-prod", "threeport-prod-backups-acme-prod", LatestBackup)
-	assert.ErrorContains(t, err, "restore job")
+	err := restore(cluster)
+
+	assert.ErrorContains(t, err, "unchanged")
 	assert.Equal(t, productionReplicas, cluster.replicas)
-
-	_, err = cluster.Resource(jobGVR).Namespace(ControlPlaneNamespace).Get(context.Background(), restoreDatabaseJobName, metav1.GetOptions{})
-	assert.NoError(t, err, "the failed restore job was removed with its logs")
+	assert.Equal(t, []string{"prepare"}, cluster.jobs)
+	assert.True(t, cluster.jobExists("prepare"), "the failed job was removed with its logs")
 }
 
-// TestAnInvalidRestoreChangesNothing covers a restore refused before it
-// starts: an invalid backup or bucket leaves the control plane running.
-func TestAnInvalidRestoreChangesNothing(t *testing.T) {
-	for _, args := range [][2]string{
-		{"threeport-prod-backups-acme-prod", "not-a-backup"},
-		{"Not A Bucket", LatestBackup},
-	} {
-		cluster := newRestoreCluster(t, true, productionReplicas)
-		assert.Error(t, restoreInstaller().RestoreDatabase(cluster, args[0], args[0], args[1]), args)
-		assert.Empty(t, cluster.scaled, args)
-		assert.Nil(t, cluster.job, args)
+// TestAFailedSwapLeavesTheControlPlaneDown covers a restore that fails while
+// replacing the database: it may be part way between the two, so nothing
+// writes to it, and the error says to run the restore again.
+func TestAFailedSwapLeavesTheControlPlaneDown(t *testing.T) {
+	cluster := newRestoreCluster(t, map[string]jobOutcome{"swap": jobFails}, productionReplicas)
+
+	err := restore(cluster)
+
+	assert.ErrorContains(t, err, "running the restore again")
+	for name, count := range cluster.replicas {
+		assert.Zero(t, count, "%s was brought back on a database that may be part way", name)
+		assert.Equal(t, strconv.FormatInt(productionReplicas[name], 10), cluster.annotations[name][replicasBeforeRestoreAnnotation], name)
 	}
 }
 
-// TestTheFreshBackupGoesWhereTheScheduleWrites covers a restore from a
-// bucket other than the one the schedule writes to, such as a copy of the
-// backups: the backup is read from the copy, and the full backup the restore
-// ends with goes to the schedule's bucket, which its incremental backups
-// build on and which the database can write to.  Without a schedule, no
-// backup is taken.
-func TestTheFreshBackupGoesWhereTheScheduleWrites(t *testing.T) {
-	statements, err := DatabaseRestoreStatements(DatabaseName, "threeport", "gs://copy/threeport_api", "gs://scheduled/threeport_api", LatestBackup)
-	require.NoError(t, err)
+// TestRunningTheRestoreAgainFinishesIt covers the way out of a failed swap:
+// the restore run again, with the control plane already down, brings every
+// Deployment back to the count it had before the first attempt rather than
+// to zero.
+func TestRunningTheRestoreAgainFinishesIt(t *testing.T) {
+	cluster := newRestoreCluster(t, map[string]jobOutcome{"swap": jobFails}, productionReplicas)
+	require.Error(t, restore(cluster))
 
-	restore, backup := "", ""
-	for _, statement := range statements {
-		if strings.HasPrefix(statement, "RESTORE ") {
-			restore = statement
-		}
-		if strings.HasPrefix(statement, "BACKUP ") {
-			backup = statement
-		}
+	cluster.outcomes = map[string]jobOutcome{}
+	require.NoError(t, restore(cluster))
+
+	assert.Equal(t, productionReplicas, cluster.replicas)
+	for name, annotations := range cluster.annotations {
+		assert.NotContains(t, annotations, replicasBeforeRestoreAnnotation, name)
 	}
-	assert.Contains(t, restore, "IN 'gs://copy/threeport_api'")
-	assert.Equal(t, "BACKUP DATABASE threeport_api INTO 'gs://scheduled/threeport_api'", backup)
+}
 
-	withoutSchedule, err := DatabaseRestoreStatements(DatabaseName, "threeport", "gs://copy/threeport_api", "", LatestBackup)
-	require.NoError(t, err)
-	for _, statement := range withoutSchedule {
-		assert.False(t, strings.HasPrefix(statement, "BACKUP "), "a backup is taken with no schedule to keep going: %s", statement)
+// TestAFailedBackupStillBringsTheControlPlaneBack covers a restore whose last
+// phase fails: the database is restored, so the control plane comes back,
+// and the error says the scheduled incremental backups will fail.
+func TestAFailedBackupStillBringsTheControlPlaneBack(t *testing.T) {
+	cluster := newRestoreCluster(t, map[string]jobOutcome{"backup": jobFails}, productionReplicas)
+
+	err := restore(cluster)
+
+	assert.ErrorContains(t, err, "the database was restored")
+	assert.ErrorContains(t, err, "incremental backups fail")
+	assert.Equal(t, productionReplicas, cluster.replicas)
+}
+
+// TestAJobThatDoesNotFinishIsStoppedFirst covers a phase whose job neither
+// succeeds nor fails in time: it is deleted, and only once it is gone does
+// the control plane come back on the untouched database.
+func TestAJobThatDoesNotFinishIsStoppedFirst(t *testing.T) {
+	shortenRestoreWait(t)
+	cluster := newRestoreCluster(t, map[string]jobOutcome{"prepare": jobHangs}, productionReplicas)
+
+	err := restore(cluster)
+
+	assert.ErrorContains(t, err, "was stopped")
+	assert.False(t, cluster.jobExists("prepare"), "the job that did not finish is still there")
+	assert.Equal(t, productionReplicas, cluster.replicas)
+}
+
+// TestAFailedJobWithAPodStillRunningIsStopped covers a job marked failed,
+// as one past its deadline is, whose pod is still being terminated: it is not
+// done until no pod runs, so it is stopped like one that did not finish.
+func TestAFailedJobWithAPodStillRunningIsStopped(t *testing.T) {
+	shortenRestoreWait(t)
+	cluster := newRestoreCluster(t, map[string]jobOutcome{"prepare": jobFailsStillRunning}, productionReplicas)
+
+	err := restore(cluster)
+
+	assert.ErrorContains(t, err, "was stopped")
+	assert.False(t, cluster.jobExists("prepare"), "the job with a pod still running is still there")
+}
+
+// TestAJobThatCannotBeStoppedKeepsTheControlPlaneDown covers a job that did
+// not finish and cannot be deleted: it may still be writing, so nothing else
+// writes to the database.
+func TestAJobThatCannotBeStoppedKeepsTheControlPlaneDown(t *testing.T) {
+	shortenRestoreWait(t)
+	cluster := newRestoreCluster(t, map[string]jobOutcome{"prepare": jobHangs}, productionReplicas)
+	cluster.PrependReactor("create", "jobs", func(k8stesting.Action) (bool, runtime.Object, error) {
+		cluster.jobDeleteOK = false
+		return false, nil, nil
+	})
+
+	err := restore(cluster)
+
+	assert.ErrorIs(t, err, errRestoreJobNotStopped)
+	for name, count := range cluster.replicas {
+		assert.Zero(t, count, "%s was brought back while the job may still be running", name)
 	}
 }
 
@@ -283,7 +400,7 @@ func TestTheFreshBackupGoesWhereTheScheduleWrites(t *testing.T) {
 // fails part way, after some Deployments are already at zero: the restore
 // does not start, and every Deployment is scaled back to its count.
 func TestAFailedScaleDownBringsTheControlPlaneBack(t *testing.T) {
-	cluster := newRestoreCluster(t, true, productionReplicas)
+	cluster := newRestoreCluster(t, map[string]jobOutcome{}, productionReplicas)
 
 	// the first patch to zero succeeds, the next one fails
 	zeroPatches := 0
@@ -298,8 +415,29 @@ func TestAFailedScaleDownBringsTheControlPlaneBack(t *testing.T) {
 		return false, nil, nil
 	})
 
-	err := restoreInstaller().RestoreDatabase(cluster, "threeport-prod-backups-acme-prod", "threeport-prod-backups-acme-prod", LatestBackup)
+	err := restore(cluster)
 	assert.ErrorContains(t, err, "scale control plane down")
 	assert.Equal(t, productionReplicas, cluster.replicas)
-	assert.Nil(t, cluster.job, "the restore ran after the scale-down failed")
+	assert.Empty(t, cluster.jobs, "the restore ran after the scale-down failed")
+}
+
+// TestAnInvalidRestoreChangesNothing covers a restore refused before it
+// starts: an invalid backup or bucket leaves the control plane running.
+func TestAnInvalidRestoreChangesNothing(t *testing.T) {
+	for _, args := range [][2]string{
+		{testBucket, "not-a-backup"},
+		{"Not A Bucket", LatestBackup},
+	} {
+		cluster := newRestoreCluster(t, map[string]jobOutcome{}, productionReplicas)
+		assert.Error(t, restoreInstaller().RestoreDatabase(cluster, args[0], args[0], args[1]), args)
+		assert.Empty(t, cluster.scaled, args)
+		assert.Empty(t, cluster.jobs, args)
+	}
+}
+
+// shortenRestoreWait makes a restore stop waiting for a job at once.
+func shortenRestoreWait(t *testing.T) {
+	wait, interval := restoreJobWait, restoreJobPollInterval
+	restoreJobWait, restoreJobPollInterval = time.Millisecond, time.Millisecond
+	t.Cleanup(func() { restoreJobWait, restoreJobPollInterval = wait, interval })
 }

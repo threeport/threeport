@@ -88,11 +88,20 @@ func TestRestoreReplacesTheDatabaseAndKeepsItUsable(t *testing.T) {
 	mustExec(t, owner, "INSERT INTO objects VALUES (2, 'written-after')")
 
 	// restore the latest backup
-	statements, err := installer.DatabaseRestoreStatements(restoreTestDatabase, restoreTestOwner, restoreTestURI, restoreTestURI, installer.LatestBackup)
+	phases, err := installer.DatabaseRestoreStatements(restoreTestDatabase, restoreTestOwner, restoreTestURI, restoreTestURI, installer.LatestBackup)
 	if err != nil {
 		t.Fatalf("restore statements: %v", err)
 	}
-	if err := runInOneSession(t, root, statements); err != nil {
+	// each phase runs in its own job, so in its own session
+	restoreInPhases := func() error {
+		for _, phase := range [][]string{phases.Prepare, phases.Swap, phases.Backup} {
+			if err := runInOneSession(t, root, phase); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	if err := restoreInPhases(); err != nil {
 		t.Fatalf("restore: %v", err)
 	}
 
@@ -122,7 +131,7 @@ func TestRestoreReplacesTheDatabaseAndKeepsItUsable(t *testing.T) {
 	// the next incremental backup into the same location, as the schedule
 	// takes it, works on top of the restore, and restores
 	mustExec(t, root, fmt.Sprintf("BACKUP DATABASE %s INTO LATEST IN '%s'", restoreTestDatabase, restoreTestURI))
-	if err := runInOneSession(t, root, statements); err != nil {
+	if err := restoreInPhases(); err != nil {
 		t.Fatalf("restore from the backup taken after a restore: %v", err)
 	}
 	var count int
@@ -145,11 +154,11 @@ func TestAFailedRestoreLeavesTheDatabaseInPlace(t *testing.T) {
 	mustExec(t, root, fmt.Sprintf("CREATE TABLE %s.objects (id INT PRIMARY KEY)", database))
 	mustExec(t, root, fmt.Sprintf("INSERT INTO %s.objects VALUES (1)", database))
 
-	statements, err := installer.DatabaseRestoreStatements(database, restoreTestOwner, "nodelocal://1/no-backups-here", "nodelocal://1/no-backups-here", "/2020/01/01-000000.00")
+	phases, err := installer.DatabaseRestoreStatements(database, restoreTestOwner, "nodelocal://1/no-backups-here", "nodelocal://1/no-backups-here", "/2020/01/01-000000.00")
 	if err != nil {
 		t.Fatalf("restore statements: %v", err)
 	}
-	if err := runInOneSession(t, root, statements); err == nil {
+	if err := runInOneSession(t, root, phases.Prepare); err == nil {
 		t.Fatal("the restore of a backup that does not exist succeeded")
 	}
 

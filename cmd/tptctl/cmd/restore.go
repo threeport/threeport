@@ -35,8 +35,10 @@ that bucket, or with the one named by --backup. The control plane is
 scaled down while the database is replaced and scaled back up after.
 
 The backup is restored alongside the database first and swapped in only
-once it is complete, so a restore that fails leaves the database as it
-was. Everything written since the backup was taken is lost, so the
+once it is complete, so a restore that fails before the swap leaves the
+database as it was and brings the control plane back on it. One that
+fails during the swap leaves the control plane scaled down, since the
+database may be part way; running the restore again finishes it. Everything written since the backup was taken is lost, so the
 command requires --confirm with the control plane name.
 
 The cluster is reached through GKE with your own Google credentials

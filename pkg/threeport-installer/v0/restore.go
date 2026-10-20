@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -17,26 +18,40 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// A restore replaces the control plane database with one of its backups.
-// The backup is restored under another name first and only swapped in once
-// it is complete, so a restore that fails leaves the database as it was.
+// A restore replaces the control plane database with one of its backups, in
+// three phases that each run as a Job.  The backup is restored under another
+// name first and only swapped in once it is complete, so a restore that fails
+// before the swap leaves the database as it was.
 const (
 	// LatestBackup restores the most recent backup in the bucket.
 	LatestBackup = "LATEST"
 
-	// restoreDatabaseJobName is the Job that runs the restore.
-	restoreDatabaseJobName = "threeport-restore-database"
+	// restoreJobNamePrefix names the Job of each restore phase.
+	restoreJobNamePrefix = "threeport-restore-database-"
 
-	// restoreDatabaseJobBackoffLimit is how many failed pods end the restore.
-	// Every statement of the restore can be run again, so a retry is safe.
+	// restoreDatabaseJobBackoffLimit is how many failed pods end a phase.
+	// Every statement of a phase can be run again, so a retry is safe.
 	restoreDatabaseJobBackoffLimit = 2
 
-	// restoreDatabaseTimeout is how long the restore Job may run.
+	// restoreDatabaseTimeout is how long the Job of a phase may run.
 	restoreDatabaseTimeout = 30 * time.Minute
 
 	// restoringDatabaseSuffix names the database a backup is restored into
 	// before it replaces the live one.
 	restoringDatabaseSuffix = "_restore"
+
+	// replicasBeforeRestoreAnnotation records on each control plane
+	// Deployment the replica count it had before a restore scaled it down,
+	// so a restore run again after one that left the control plane down
+	// brings it back to that count rather than to zero.
+	replicasBeforeRestoreAnnotation = "threeport.io/replicas-before-restore"
+)
+
+// restoreJobWait is how long a restore waits for the Job of a phase before
+// stopping it, a little past the Job's own deadline, and how often it checks.
+var (
+	restoreJobWait         = restoreDatabaseTimeout + 2*time.Minute
+	restoreJobPollInterval = 5 * time.Second
 )
 
 // backupPathPattern matches a backup's path in a bucket, as CockroachDB
@@ -50,48 +65,66 @@ var bucketNamePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{1,220}[a-z0-9]$
 // backup nor a backup path.
 var ErrInvalidBackup = errors.New("invalid backup")
 
-// DatabaseRestoreStatements returns the statements that replace a database
-// with one of its backups, each to be run on its own in one session:
-//
-//   - the backup is restored under another name, after removing what an
-//     earlier restore that failed may have left under it
-//   - the live database is dropped and the restored one renamed into its place
-//   - the restored objects are handed back to the user that owns them.  A
-//     restore makes the restoring user their owner and leaves the database
-//     without its grants, which would lock the API server out of its data.
-//   - a full backup of the restored database is taken into scheduleURI, where
-//     the scheduled backups go.  Its tables are new to the backups already
-//     there, so the scheduled incremental backups would fail on top of them
-//     until the next scheduled full one.  With no scheduleURI there is no
-//     schedule to keep going, and no backup is taken.
-//
-// The backup is restored from sourceURI, which is the schedule's own
-// location unless the backups were copied elsewhere.  Nothing is dropped
-// until the backup is fully restored, and running every statement again
-// after a failure part way finishes the restore.
-func DatabaseRestoreStatements(databaseName, ownerName, sourceURI, scheduleURI, backup string) ([]string, error) {
+// RestorePhases are the statements of each phase of a restore.  Each phase
+// runs its statements one at a time in one session, and can be run again
+// after it failed part way.
+type RestorePhases struct {
+	// Prepare restores the backup under another name, after removing what an
+	// earlier restore that failed may have left under it.  The live database
+	// is not touched.
+	Prepare []string
+
+	// Swap drops the live database, renames the restored one into its place
+	// and hands its objects back to the user that owns them: a restore makes
+	// the restoring user their owner and leaves the database without its
+	// grants, which would lock the API server out of its data.  The database
+	// may be part way between the two while it runs.
+	Swap []string
+
+	// Backup takes a full backup of the restored database where the
+	// scheduled backups go.  Its tables are new to the backups already there,
+	// so the scheduled incremental backups would fail on top of them until
+	// the next scheduled full one.  Empty when there is no schedule.
+	Backup []string
+}
+
+// All returns every statement of a restore in order.
+func (p RestorePhases) All() []string {
+	all := append(append([]string{}, p.Prepare...), p.Swap...)
+	return append(all, p.Backup...)
+}
+
+// DatabaseRestoreStatements returns the phases of replacing a database with
+// one of its backups.  The backup is restored from sourceURI, which is the
+// schedule's own location unless the backups were copied elsewhere, and the
+// fresh full backup goes to scheduleURI, if there is a schedule.
+func DatabaseRestoreStatements(databaseName, ownerName, sourceURI, scheduleURI, backup string) (RestorePhases, error) {
 	from, err := backupSource(backup)
 	if err != nil {
-		return nil, err
+		return RestorePhases{}, err
 	}
 	restoring := databaseName + restoringDatabaseSuffix
 
-	statements := []string{
-		fmt.Sprintf("DROP DATABASE IF EXISTS %s CASCADE", restoring),
-		fmt.Sprintf("RESTORE DATABASE %s FROM %s IN '%s' WITH new_db_name = '%s'", databaseName, from, sourceURI, restoring),
-		fmt.Sprintf("DROP DATABASE IF EXISTS %s CASCADE", databaseName),
-		fmt.Sprintf("ALTER DATABASE %s RENAME TO %s", restoring, databaseName),
-		fmt.Sprintf("USE %s", databaseName),
-		fmt.Sprintf("REASSIGN OWNED BY root TO %s", ownerName),
-		fmt.Sprintf("ALTER DATABASE %s OWNER TO root", databaseName),
-		"ALTER SCHEMA public OWNER TO root",
-		fmt.Sprintf("GRANT ALL ON DATABASE %s TO %s", databaseName, ownerName),
+	phases := RestorePhases{
+		Prepare: []string{
+			fmt.Sprintf("DROP DATABASE IF EXISTS %s CASCADE", restoring),
+			fmt.Sprintf("RESTORE DATABASE %s FROM %s IN '%s' WITH new_db_name = '%s'", databaseName, from, sourceURI, restoring),
+		},
+		Swap: []string{
+			fmt.Sprintf("DROP DATABASE IF EXISTS %s CASCADE", databaseName),
+			fmt.Sprintf("ALTER DATABASE %s RENAME TO %s", restoring, databaseName),
+			fmt.Sprintf("USE %s", databaseName),
+			fmt.Sprintf("REASSIGN OWNED BY root TO %s", ownerName),
+			fmt.Sprintf("ALTER DATABASE %s OWNER TO root", databaseName),
+			"ALTER SCHEMA public OWNER TO root",
+			fmt.Sprintf("GRANT ALL ON DATABASE %s TO %s", databaseName, ownerName),
+		},
 	}
 	if scheduleURI != "" {
-		statements = append(statements, fmt.Sprintf("BACKUP DATABASE %s INTO '%s'", databaseName, scheduleURI))
+		phases.Backup = []string{fmt.Sprintf("BACKUP DATABASE %s INTO '%s'", databaseName, scheduleURI)}
 	}
 
-	return statements, nil
+	return phases, nil
 }
 
 // backupSource returns how a RESTORE statement names a backup.
@@ -112,9 +145,16 @@ func backupSource(backup string) (string, error) {
 // RestoreDatabase replaces the control plane database with a backup from
 // sourceBucket.  scheduleBucket is where the control plane's scheduled
 // backups go, which the restore takes a fresh full backup into; empty when
-// it has no schedule.  The control plane is scaled down so nothing writes to
-// the database while it is replaced, and scaled back up afterwards, whether
-// the restore succeeded or not.
+// it has no schedule.
+//
+// The control plane is scaled down so nothing writes to the database while it
+// is replaced.  It is scaled back up only when the database is known to be
+// whole: after a restore that succeeded, or one that stopped before the swap
+// and left the database as it was.  A restore that stopped during the swap
+// leaves the control plane down, since the database may be part way between
+// the two, and running the restore again finishes it and brings the control
+// plane back.  A phase's Job is never left running when the control plane
+// comes back: it has finished, or it is stopped and confirmed gone.
 func (cpi *ControlPlaneInstaller) RestoreDatabase(
 	kubeClient dynamic.Interface,
 	sourceBucket string,
@@ -131,7 +171,7 @@ func (cpi *ControlPlaneInstaller) RestoreDatabase(
 		}
 		scheduleURI = DatabaseBackupURI(scheduleBucket)
 	}
-	statements, err := DatabaseRestoreStatements(
+	phases, err := DatabaseRestoreStatements(
 		database.ThreeportDatabaseName,
 		database.ThreeportDatabaseUser,
 		DatabaseBackupURI(sourceBucket),
@@ -143,8 +183,9 @@ func (cpi *ControlPlaneInstaller) RestoreDatabase(
 	}
 	namespace := cpi.Opts.Namespace
 
-	// record the replica counts to scale back to
-	replicas, err := cpi.deploymentReplicas(kubeClient, namespace)
+	// record the replica counts to scale back to, unless an earlier restore
+	// already did and left the control plane down
+	replicas, err := cpi.recordReplicasBeforeRestore(kubeClient, namespace)
 	if err != nil {
 		return err
 	}
@@ -160,27 +201,61 @@ func (cpi *ControlPlaneInstaller) RestoreDatabase(
 		return scaleDownErr
 	}
 
-	// restore, then bring the control plane back either way
-	restoreErr := cpi.runRestoreDatabaseJob(kubeClient, namespace, statements)
-	if err := cpi.scaleDeployments(kubeClient, namespace, replicas); err != nil {
-		return errors.Join(restoreErr, err)
+	// prepare: the live database is untouched, so a failure brings the
+	// control plane back on it once the Job is no longer running
+	if err := runRestorePhase(kubeClient, namespace, "prepare", phases.Prepare); err != nil {
+		prepareErr := fmt.Errorf("the restore failed before replacing the database, which is unchanged: %w", err)
+		if errors.Is(err, errRestoreJobNotStopped) {
+			return fmt.Errorf("%w; the control plane is left scaled down until it is", prepareErr)
+		}
+		if err := cpi.scaleDeployments(kubeClient, namespace, replicas); err != nil {
+			return errors.Join(prepareErr, err)
+		}
+		return prepareErr
 	}
-	if restoreErr != nil {
-		return restoreErr
+
+	// swap: a failure may leave the database part way, so the control plane
+	// stays down
+	if err := runRestorePhase(kubeClient, namespace, "swap", phases.Swap); err != nil {
+		return fmt.Errorf(
+			"the restore failed while replacing the database, which may be part way between the live and the restored one; "+
+				"the control plane is left scaled down, and running the restore again with the same backup finishes it: %w",
+			err,
+		)
+	}
+
+	// backup: the database is restored either way
+	var backupErr error
+	if len(phases.Backup) > 0 {
+		if err := runRestorePhase(kubeClient, namespace, "backup", phases.Backup); err != nil {
+			backupErr = fmt.Errorf(
+				"the database was restored, but the full backup into %s failed, so scheduled incremental backups fail until the next scheduled full one: %w",
+				scheduleURI, err,
+			)
+			if errors.Is(err, errRestoreJobNotStopped) {
+				return fmt.Errorf("%w; the control plane is left scaled down until it is", backupErr)
+			}
+		}
+	}
+
+	if err := cpi.scaleDeployments(kubeClient, namespace, replicas); err != nil {
+		return errors.Join(backupErr, err)
 	}
 
 	// wait for the API server to serve the restored database
 	fmt.Printf("Info: waiting for rest-api deployment to become ready (timeout %s)\n", restApiDeploymentReadyTimeout)
 	if err := cpi.waitForRestAPIReady(kubeClient, namespace, restApiDeploymentReadyTimeout); err != nil {
-		return fmt.Errorf("rest-api did not become ready after the restore: %w", err)
+		return errors.Join(backupErr, fmt.Errorf("rest-api did not become ready after the restore: %w", err))
 	}
 
-	return nil
+	return backupErr
 }
 
-// deploymentReplicas returns the replica count of each control plane
-// Deployment a restore scales down.
-func (cpi *ControlPlaneInstaller) deploymentReplicas(
+// recordReplicasBeforeRestore returns the replica count each control plane
+// Deployment a restore scales down should come back to, and records it on the
+// Deployment.  A count already recorded by an earlier restore that left the
+// control plane down is kept, since the Deployment is at zero by then.
+func (cpi *ControlPlaneInstaller) recordReplicasBeforeRestore(
 	kubeClient dynamic.Interface,
 	namespace string,
 ) (map[string]int64, error) {
@@ -198,10 +273,28 @@ func (cpi *ControlPlaneInstaller) deploymentReplicas(
 
 	replicas := map[string]int64{}
 	for _, deployment := range deployments.Items {
+		if recorded, ok := deployment.GetAnnotations()[replicasBeforeRestoreAnnotation]; ok {
+			count, err := strconv.ParseInt(recorded, 10, 64)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"deployment %s records an invalid replica count %q in %s: %w",
+					deployment.GetName(), recorded, replicasBeforeRestoreAnnotation, err,
+				)
+			}
+			replicas[deployment.GetName()] = count
+			continue
+		}
+
 		count, found, _ := util.NestedInt64OrFloat64(deployment.Object, "spec", "replicas")
 		if !found {
 			// an unset count is one replica
 			count = 1
+		}
+		patch := []byte(fmt.Sprintf(`{"metadata":{"annotations":{%q:%q}}}`, replicasBeforeRestoreAnnotation, strconv.FormatInt(count, 10)))
+		if _, err := kubeClient.Resource(deploymentGVR).Namespace(namespace).Patch(
+			context.Background(), deployment.GetName(), "application/merge-patch+json", patch, metav1.PatchOptions{},
+		); err != nil {
+			return nil, fmt.Errorf("failed to record the replica count of deployment %s: %w", deployment.GetName(), err)
 		}
 		replicas[deployment.GetName()] = count
 	}
@@ -209,7 +302,8 @@ func (cpi *ControlPlaneInstaller) deploymentReplicas(
 	return replicas, nil
 }
 
-// scaleDeployments sets each Deployment to its replica count.
+// scaleDeployments sets each Deployment to its replica count and removes the
+// count recorded before the restore.
 func (cpi *ControlPlaneInstaller) scaleDeployments(
 	kubeClient dynamic.Interface,
 	namespace string,
@@ -218,11 +312,14 @@ func (cpi *ControlPlaneInstaller) scaleDeployments(
 	fmt.Println("Info: scaling control plane deployments back up")
 	var scaleErrors []error
 	for name, count := range replicas {
-		patch := []byte(fmt.Sprintf(`{"spec":{"replicas":%d}}`, count))
+		patch := []byte(fmt.Sprintf(
+			`{"metadata":{"annotations":{%q:null}},"spec":{"replicas":%d}}`,
+			replicasBeforeRestoreAnnotation, count,
+		))
 		if _, err := kubeClient.Resource(deploymentGVR).Namespace(namespace).Patch(
 			context.Background(),
 			name,
-			"application/strategic-merge-patch+json",
+			"application/merge-patch+json",
 			patch,
 			metav1.PatchOptions{},
 		); err != nil && !k8serrors.IsNotFound(err) {
@@ -233,16 +330,22 @@ func (cpi *ControlPlaneInstaller) scaleDeployments(
 	return errors.Join(scaleErrors...)
 }
 
-// runRestoreDatabaseJob runs the restore statements in a one-shot Job with
-// the database's own client, and removes the Job once it succeeds.
-func (cpi *ControlPlaneInstaller) runRestoreDatabaseJob(
-	kubeClient dynamic.Interface,
-	namespace string,
-	statements []string,
-) error {
+// errRestoreJobNotStopped is returned when the Job of a phase may still be
+// running: it neither finished in time nor could be confirmed gone.
+var errRestoreJobNotStopped = errors.New("the restore job could not be confirmed stopped")
+
+// runRestorePhase runs the statements of a phase in a one-shot Job with the
+// database's own client, and returns once the Job's pods are no longer
+// running.  A Job that does not finish in time is deleted, and the phase
+// returns only once it is gone; one that cannot be confirmed gone returns
+// errRestoreJobNotStopped.  A Job that failed is left in place so its pod
+// logs can be read.
+func runRestorePhase(kubeClient dynamic.Interface, namespace, phase string, statements []string) error {
+	jobName := restoreJobNamePrefix + phase
+
 	// a leftover job is removed first, since its pod template cannot change
-	if err := deleteJob(kubeClient, namespace, restoreDatabaseJobName); err != nil {
-		return err
+	if err := deleteJob(kubeClient, namespace, jobName); err != nil {
+		return fmt.Errorf("%w: failed to remove the leftover %s job: %w", errRestoreJobNotStopped, phase, err)
 	}
 
 	// every statement runs on its own: a RESTORE cannot run in a transaction
@@ -264,7 +367,7 @@ func (cpi *ControlPlaneInstaller) runRestoreDatabaseJob(
 			"apiVersion": "batch/v1",
 			"kind":       "Job",
 			"metadata": map[string]interface{}{
-				"name":      restoreDatabaseJobName,
+				"name":      jobName,
 				"namespace": namespace,
 			},
 			"spec": map[string]interface{}{
@@ -303,54 +406,71 @@ func (cpi *ControlPlaneInstaller) runRestoreDatabaseJob(
 	if _, err := kubeClient.Resource(jobGVR).Namespace(namespace).Create(
 		context.Background(), job, metav1.CreateOptions{},
 	); err != nil {
-		return fmt.Errorf("failed to create database restore job: %w", err)
+		return fmt.Errorf("failed to create the %s job: %w", phase, err)
 	}
 
-	if err := waitForRestoreJob(kubeClient, namespace); err != nil {
-		return err
+	succeeded, failure, err := waitForRestoreJob(kubeClient, namespace, jobName)
+	if err != nil {
+		// stop a job that did not finish in time before anything relies on
+		// it not running
+		if deleteErr := deleteJob(kubeClient, namespace, jobName); deleteErr != nil {
+			return fmt.Errorf("%w: the %s job %s did not finish (%w) and could not be deleted: %w",
+				errRestoreJobNotStopped, phase, jobName, err, deleteErr)
+		}
+		return fmt.Errorf("the %s job %s did not finish and was stopped: %w", phase, jobName, err)
+	}
+	if !succeeded {
+		return fmt.Errorf(
+			"the %s job %s failed (%s): inspect its pod logs in namespace %s",
+			phase, jobName, failure, namespace,
+		)
 	}
 
-	return deleteJob(kubeClient, namespace, restoreDatabaseJobName)
+	return deleteJob(kubeClient, namespace, jobName)
 }
 
-// waitForRestoreJob polls the restore Job until it succeeds or fails.  A
-// failed restore Job is left in place so its pod logs can be read.
-func waitForRestoreJob(kubeClient dynamic.Interface, namespace string) error {
-	var jobFailed error
-	attempts := int(restoreDatabaseTimeout/(5*time.Second)) + 1
+// waitForRestoreJob polls a restore Job until it succeeded, or failed with
+// none of its pods still running.  It returns an error when neither happens
+// in time.
+func waitForRestoreJob(kubeClient dynamic.Interface, namespace, jobName string) (bool, string, error) {
+	var succeeded bool
+	var failure string
+	attempts := int(restoreJobWait/restoreJobPollInterval) + 1
 
-	if err := util.Retry(attempts, 5, func() error {
+	err := pollEvery(attempts, restoreJobPollInterval, func() error {
 		job, err := kubeClient.Resource(jobGVR).Namespace(namespace).Get(
-			context.Background(), restoreDatabaseJobName, metav1.GetOptions{},
+			context.Background(), jobName, metav1.GetOptions{},
 		)
 		if err != nil {
-			return fmt.Errorf("failed to read database restore job status: %w", err)
+			return fmt.Errorf("failed to read the status of job %s: %w", jobName, err)
 		}
 
-		// a job past its backoff limit or its deadline reports a failed condition
-		conditions, _, _ := unstructured.NestedSlice(job.Object, "status", "conditions")
-		for _, item := range conditions {
-			condition, ok := item.(map[string]interface{})
-			if ok && condition["type"] == "Failed" && condition["status"] == "True" {
-				jobFailed = fmt.Errorf(
-					"database restore job %s failed (%v): inspect its pod logs in namespace %s; the database was not replaced unless the logs show the restore completed",
-					restoreDatabaseJobName, condition["reason"], namespace,
-				)
-				return nil
-			}
-		}
-
-		succeeded, _, _ := util.NestedInt64OrFloat64(job.Object, "status", "succeeded")
-		if succeeded > 0 {
+		if count, _, _ := util.NestedInt64OrFloat64(job.Object, "status", "succeeded"); count > 0 {
+			succeeded = true
 			return nil
 		}
 
-		return fmt.Errorf("database restore job %s has not completed", restoreDatabaseJobName)
-	}); err != nil {
-		return fmt.Errorf("database restore did not complete: %w", err)
-	}
+		// a failed job is done once none of its pods is still running or
+		// being terminated
+		conditions, _, _ := unstructured.NestedSlice(job.Object, "status", "conditions")
+		for _, item := range conditions {
+			condition, ok := item.(map[string]interface{})
+			if !ok || condition["type"] != "Failed" || condition["status"] != "True" {
+				continue
+			}
+			active, _, _ := util.NestedInt64OrFloat64(job.Object, "status", "active")
+			terminating, _, _ := util.NestedInt64OrFloat64(job.Object, "status", "terminating")
+			if active > 0 || terminating > 0 {
+				return fmt.Errorf("job %s failed but still has pods running", jobName)
+			}
+			failure = fmt.Sprint(condition["reason"])
+			return nil
+		}
 
-	return jobFailed
+		return fmt.Errorf("job %s has not completed", jobName)
+	})
+
+	return succeeded, failure, err
 }
 
 // deleteJob removes a Job and its pods and waits until it is gone.
@@ -375,4 +495,20 @@ func deleteJob(kubeClient dynamic.Interface, namespace, name string) error {
 
 		return fmt.Errorf("job %s still terminating", name)
 	})
+}
+
+// pollEvery runs f until it succeeds or has been tried attempts times,
+// waiting interval between tries, and returns its last error.
+func pollEvery(attempts int, interval time.Duration, f func() error) error {
+	var err error
+	for attempt := 1; attempt <= attempts; attempt++ {
+		if err = f(); err == nil {
+			return nil
+		}
+		if attempt < attempts {
+			time.Sleep(interval)
+		}
+	}
+
+	return err
 }

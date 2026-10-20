@@ -113,23 +113,36 @@ The restore:
 
 1. scales the API server and controllers to zero, so nothing writes to the
    database while it is replaced
-2. restores the backup alongside the database, under `threeport_api_restore`
-3. drops the database and renames the restored one into its place, handing
-   its tables back to the user the API server connects as
-4. takes a full backup of the restored database, so the hourly incremental
-   backups keep working on top of it
+2. **prepare:** restores the backup alongside the database, under
+   `threeport_api_restore`
+3. **swap:** drops the database and renames the restored one into its place,
+   handing its tables back to the user the API server connects as
+4. **backup:** takes a full backup of the restored database, so the hourly
+   incremental backups keep working on top of it
 5. scales the control plane back up and waits for the API server to be ready
 
-If the restore fails before step 3, the database is left as it was and the
-control plane is scaled back up on it. The restore runs as the Job
-`threeport-restore-database`, which is left in place when it fails so its logs
-can be read:
+Each of steps 2 to 4 runs as its own Job, `threeport-restore-database-prepare`,
+`-swap` and `-backup`. A Job that fails is left in place so its logs can be
+read:
 
 ```bash
-kubectl logs -n threeport-control-plane job/threeport-restore-database
+kubectl logs -n threeport-control-plane job/threeport-restore-database-prepare
 ```
 
-Running the restore again finishes one that failed part way.
+The control plane comes back only on a database that is whole:
+
+- **Prepare fails:** the database was not touched, so the control plane is
+  scaled back up on it.
+- **Swap fails:** the database may be part way between the live and the
+  restored one, so the control plane is left scaled down. Run the restore
+  again with the same backup: every step can be run again, and it finishes the
+  restore and brings the control plane back to the replica counts it had.
+- **Backup fails:** the database is restored and the control plane comes back,
+  but the scheduled incremental backups fail until the next scheduled full one.
+
+A Job that does not finish in time is deleted before anything else happens. If
+it cannot be confirmed gone, the control plane is left scaled down, since the
+Job may still be changing the database.
 
 To restore from a bucket other than the one in your Threeport config, for
 example a copy of the backups, pass it with `--bucket`. The database's
