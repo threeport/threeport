@@ -211,15 +211,22 @@ func v0GatewayInstanceDeleted(
 		workloadInstanceForDelete,
 		kubernetesRuntimeInstance,
 	)
+	var owned []v0.KubernetesWorkloadResourceInstance
 	if err != nil {
-		if errors.Is(err, client_lib.ErrObjectNotFound) {
-			return 0, nil
+		if !errors.Is(err, errGatewayServiceMissing) && !errors.Is(err, client_lib.ErrObjectNotFound) {
+			return 0, fmt.Errorf("failed to configure gateway objects for delete: %w", err)
 		}
-		return 0, fmt.Errorf("failed to configure gateway objects for delete: %w", err)
-	}
-	owned, err := gatewayResourcesToDelete(workloadResourceInstances, rendered)
-	if err != nil {
-		return 0, fmt.Errorf("failed to match gateway objects for delete: %w", err)
+
+		// the service cannot be read, so match stored rows to the definition identities
+		owned, err = ownedGatewayResources(r, gatewayDefinition, workloadResourceInstances)
+		if err != nil {
+			return 0, err
+		}
+	} else {
+		owned, err = gatewayResourcesToDelete(workloadResourceInstances, rendered)
+		if err != nil {
+			return 0, fmt.Errorf("failed to match gateway objects for delete: %w", err)
+		}
 	}
 
 	// schedule deletion of each object this gateway created

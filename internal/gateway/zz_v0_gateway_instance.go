@@ -143,6 +143,52 @@ func gatewayResourcesToDelete(
 	return matches, nil
 }
 
+// errGatewayServiceMissing means the service the gateway routes to is not in the workload.
+var errGatewayServiceMissing = errors.New("gateway service not found")
+
+// serviceLookupErr wraps a missing service so delete can continue without it.
+func serviceLookupErr(err error) error {
+	// report a missing service as its own error
+	if strings.Contains(err.Error(), "not found") {
+		return fmt.Errorf("failed to unmarshal service kubernetes workload resource instance: %w", errGatewayServiceMissing)
+	}
+	return fmt.Errorf("failed to unmarshal service kubernetes workload resource instance: %w", err)
+}
+
+// ownedGatewayResources matches stored workload resources to the gateway definition identities.
+func ownedGatewayResources(
+	r *controller.Reconciler,
+	gatewayDefinition *v0.GatewayDefinition,
+	stored *[]v0.KubernetesWorkloadResourceInstance,
+) ([]v0.KubernetesWorkloadResourceInstance, error) {
+	if gatewayDefinition.KubernetesWorkloadDefinitionID == nil {
+		return nil, errors.New("kubernetes workload definition ID is nil")
+	}
+
+	// read the identities stored on the gateway definition
+	definitions, err := client.GetKubernetesWorkloadResourceDefinitionsByID(
+		r.APIClient,
+		r.APIServer,
+		*gatewayDefinition.KubernetesWorkloadDefinitionID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get gateway workload resource definitions: %w", err)
+	}
+	if definitions == nil {
+		return []v0.KubernetesWorkloadResourceInstance{}, nil
+	}
+
+	// copy each definition identity onto a resource instance
+	rendered := make([]v0.KubernetesWorkloadResourceInstance, 0, len(*definitions))
+	for _, definition := range *definitions {
+		rendered = append(rendered, v0.KubernetesWorkloadResourceInstance{
+			JSONDefinition: definition.JSONDefinition,
+		})
+	}
+
+	return gatewayResourcesToDelete(stored, &rendered)
+}
+
 // getThreeportobjects returns all threeport objects required for
 // gateway instance reconciliation
 func getThreeportObjects(
@@ -735,12 +781,12 @@ func configureGatewayManifests(
 	if gatewayDefinition.ServiceName != nil && *gatewayDefinition.ServiceName != "" {
 		service, err = workload_util.UnmarshalKubernetesWorkloadResourceInstance(workloadResourceInstances, "Service", *gatewayDefinition.ServiceName)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal service kubernetes workload resource instance: %w", err)
+			return nil, serviceLookupErr(err)
 		}
 	} else {
 		service, err = workload_util.UnmarshalUniqueKubernetesWorkloadResourceInstance(workloadResourceInstances, "Service")
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal service kubernetes workload resource instance: %w", err)
+			return nil, serviceLookupErr(err)
 		}
 	}
 

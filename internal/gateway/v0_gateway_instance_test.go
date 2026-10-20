@@ -1,9 +1,14 @@
 package gateway
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"strconv"
+	"strings"
 	"testing"
+	"time"
 
 	_ "embed"
 
@@ -268,4 +273,145 @@ func TestGatewayResourcesToDeleteSkipsUserIngress(t *testing.T) {
 	_, name, err := resourceKindAndName(got[0].JSONDefinition)
 	require.NoError(t, err)
 	require.Equal(t, "echo-threeport-test", name)
+}
+
+// workloadObject stores one workload resource.
+func workloadObject(id uint, kind, name string) v0.KubernetesWorkloadResourceInstance {
+	return v0.KubernetesWorkloadResourceInstance{
+		Common: v0.Common{ID: util.Ptr(id)},
+		JSONDefinition: kubeJSON(map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       kind,
+			"metadata":   map[string]interface{}{"name": name},
+		}),
+	}
+}
+
+// TestV0GatewayInstanceDeletedSchedulesOwnedResourcesWithoutService schedules the gateway ingress and certificate when the service read fails.
+func TestV0GatewayInstanceDeletedSchedulesOwnedResourcesWithoutService(t *testing.T) {
+	cases := []struct {
+		name  string
+		extra []v0.KubernetesWorkloadResourceInstance
+	}{
+		{name: "missing service"},
+		{
+			name: "renamed service",
+			extra: []v0.KubernetesWorkloadResourceInstance{
+				workloadObject(24, "Service", "echo-renamed"),
+			},
+		},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			// keep the workload and the gateway definitions, and leave the named service unread
+			stored := []v0.KubernetesWorkloadResourceInstance{
+				workloadObject(21, "Ingress", "echo-threeport-test"),
+				workloadObject(22, "Certificate", "echo-cert"),
+				workloadObject(23, "Deployment", "echo"),
+			}
+			stored = append(stored, testCase.extra...)
+			definitions := []v0.KubernetesWorkloadResourceDefinition{
+				{
+					JSONDefinition: kubeJSON(map[string]interface{}{
+						"apiVersion": "networking.k8s.io/v1",
+						"kind":       "Ingress",
+						"metadata":   map[string]interface{}{"name": "echo-threeport-test"},
+					}),
+				},
+				{
+					JSONDefinition: kubeJSON(map[string]interface{}{
+						"apiVersion": "cert-manager.io/v1",
+						"kind":       "Certificate",
+						"metadata":   map[string]interface{}{"name": "echo-cert"},
+					}),
+				},
+			}
+			var patches []v0.KubernetesWorkloadResourceInstance
+			var woken bool
+			server := machinetest.NewAPIStub(t)
+			server.Mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+				switch {
+				case r.Method == http.MethodGet && r.URL.Path == v0.PathKubernetesRuntimeInstances+"/4":
+					writeOne(t, w, http.StatusOK, v0.KubernetesRuntimeInstance{Common: v0.Common{ID: util.Ptr(uint(4))}})
+				case r.Method == http.MethodGet && r.URL.Path == v0.PathKubernetesWorkloadResourceInstances:
+					if r.URL.Query().Get("kubernetesworkloadinstanceid") != "7" {
+						t.Errorf("resource query %s", r.URL.RawQuery)
+						http.Error(w, "query", http.StatusInternalServerError)
+						return
+					}
+					machinetest.WriteResponse(t, w, http.StatusOK, apiObjects(stored))
+				case r.Method == http.MethodGet && r.URL.Path == v0.PathGatewayDefinitions+"/3":
+					writeOne(t, w, http.StatusOK, v0.GatewayDefinition{
+						Common:                         v0.Common{ID: util.Ptr(uint(3))},
+						ServiceName:                    util.Ptr("echo"),
+						KubernetesWorkloadDefinitionID: util.Ptr(uint(8)),
+					})
+				case r.Method == http.MethodGet && r.URL.Path == v0.PathKubernetesWorkloadInstances+"/7":
+					writeOne(t, w, http.StatusOK, v0.KubernetesWorkloadInstance{Common: v0.Common{ID: util.Ptr(uint(7))}})
+				case r.Method == http.MethodGet && r.URL.Path == v0.PathKubernetesWorkloadResourceDefinitions:
+					if r.URL.Query().Get("kubernetesworkloaddefinitionid") != "8" {
+						t.Errorf("definition query %s", r.URL.RawQuery)
+						http.Error(w, "query", http.StatusInternalServerError)
+						return
+					}
+					machinetest.WriteResponse(t, w, http.StatusOK, apiObjects(definitions))
+				case r.Method == http.MethodPatch && strings.HasPrefix(r.URL.Path, v0.PathKubernetesWorkloadResourceInstances+"/"):
+					body, readErr := io.ReadAll(r.Body)
+					if readErr != nil {
+						t.Errorf("read patch: %v", readErr)
+						http.Error(w, "read", http.StatusInternalServerError)
+						return
+					}
+					var object v0.KubernetesWorkloadResourceInstance
+					if unmarshalErr := json.Unmarshal(body, &object); unmarshalErr != nil {
+						t.Errorf("decode patch: %v", unmarshalErr)
+						http.Error(w, "decode", http.StatusInternalServerError)
+						return
+					}
+					idText := strings.TrimPrefix(r.URL.Path, v0.PathKubernetesWorkloadResourceInstances+"/")
+					id, convErr := strconv.Atoi(idText)
+					if convErr != nil {
+						t.Errorf("patch id %s", idText)
+						http.Error(w, "id", http.StatusInternalServerError)
+						return
+					}
+					object.ID = util.Ptr(uint(id))
+					patches = append(patches, object)
+					writeOne(t, w, http.StatusOK, object)
+				case r.Method == http.MethodPatch && r.URL.Path == v0.PathKubernetesWorkloadInstances+"/7":
+					woken = true
+					writeOne(t, w, http.StatusOK, v0.KubernetesWorkloadInstance{Common: v0.Common{ID: util.Ptr(uint(7))}})
+				default:
+					t.Errorf("unexpected %s %s", r.Method, r.URL.RequestURI())
+					http.Error(w, "unexpected", http.StatusInternalServerError)
+				}
+			})
+			reconciler := &controller.Reconciler{
+				APIServer: server.Addr,
+				APIClient: server.Client,
+			}
+			now := time.Now()
+			gateway := &v0.GatewayInstance{
+				Common:                       v0.Common{ID: util.Ptr(uint(1))},
+				Reconciliation:               v0.Reconciliation{DeletionScheduled: &now},
+				GatewayDefinitionID:          util.Ptr(uint(3)),
+				KubernetesRuntimeInstanceID:  util.Ptr(uint(4)),
+				KubernetesWorkloadInstanceID: util.Ptr(uint(7)),
+			}
+
+			// delete the gateway while its service cannot be read
+			_, err := v0GatewayInstanceDeleted(reconciler, gateway, nil)
+			require.NoError(t, err)
+
+			// the delete schedules the ingress and the certificate and leaves the other rows alone
+			require.True(t, woken)
+			require.Len(t, patches, 2)
+			require.ElementsMatch(t, []uint{21, 22}, []uint{*patches[0].ID, *patches[1].ID})
+			for _, patch := range patches {
+				require.NotNil(t, patch.ScheduledForDeletion)
+				require.NotNil(t, patch.Reconciled)
+				require.False(t, *patch.Reconciled)
+			}
+		})
+	}
 }
