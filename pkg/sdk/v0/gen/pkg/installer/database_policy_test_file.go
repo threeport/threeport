@@ -17,6 +17,21 @@ import (
 // network policy: that it admits the module's API server pods from the
 // module's namespace to the control plane's database, and nothing else.
 func GenInstallerDatabasePolicyTest(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
+	// write code to file if not excluded by SDK config
+	genFilepath := filepath.Join(
+		"pkg",
+		"installer",
+		"v0",
+		"database_policy_gen_test.go",
+	)
+
+	// the test calls apiServerPodLabels, which a module that keeps its own
+	// installer by excluding the generated one does not have
+	if slices.Contains(sdkConfig.ExcludeFiles, installerFilepath) {
+		cli.Info(fmt.Sprintf("source code generation skipped for %s, since %s is excluded", genFilepath, installerFilepath))
+		return nil
+	}
+
 	f := NewFile("v0")
 	f.HeaderComment(sdk.HeaderCommentGenNoEdit)
 
@@ -64,13 +79,6 @@ func GenInstallerDatabasePolicyTest(gen *gen.Generator, sdkConfig *sdk.SdkConfig
 		),
 	)
 
-	// write code to file if not excluded by SDK config
-	genFilepath := filepath.Join(
-		"pkg",
-		"installer",
-		"v0",
-		"database_policy_gen_test.go",
-	)
 	if slices.Contains(sdkConfig.ExcludeFiles, genFilepath) {
 		cli.Info(fmt.Sprintf("source code generation skipped for %s", genFilepath))
 	} else {

@@ -219,3 +219,26 @@ func TestEveryModuleTestsItsDatabasePolicy(t *testing.T) {
 		apiServerPodLabels(),
 	)`)
 }
+
+// TestAModuleKeepingItsInstallerGetsNoPolicyTest covers a module that
+// excludes the generated installer to keep its own: the generated test calls
+// apiServerPodLabels, which that installer does not have, so writing the
+// test would leave the module's installer package failing to compile.
+func TestAModuleKeepingItsInstallerGetsNoPolicyTest(t *testing.T) {
+	t.Chdir(t.TempDir())
+	testFile := filepath.Join("pkg", "installer", "v0", "database_policy_gen_test.go")
+
+	require.NoError(t, GenInstallerDatabasePolicyTest(
+		&gen.Generator{Module: true, ModulePath: "example.com/widget-module"},
+		&sdk.SdkConfig{ModuleName: "Widget", ExcludeFiles: []string{filepath.Join("pkg", "installer", "v0", "installer_gen.go")}},
+	))
+	_, err := os.Stat(testFile)
+	assert.True(t, os.IsNotExist(err), "the policy test is written though the installer it calls is excluded")
+
+	require.NoError(t, GenInstallerDatabasePolicyTest(
+		&gen.Generator{Module: true, ModulePath: "example.com/widget-module"},
+		&sdk.SdkConfig{ModuleName: "Widget"},
+	))
+	_, err = os.Stat(testFile)
+	assert.NoError(t, err, "the policy test is written when the installer is generated")
+}

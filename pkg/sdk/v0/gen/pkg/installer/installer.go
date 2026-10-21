@@ -16,6 +16,9 @@ import (
 	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 )
 
+// installerFilepath is where the module's installer is generated.
+var installerFilepath = filepath.Join("pkg", "installer", "v0", "installer_gen.go")
+
 // GenInstaller generates the installer package for module projects that
 // installs the module components alongside an existing Threeport control
 // plane and registers that module with Threeport.
@@ -1399,12 +1402,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 	)
 
 	// write code to file if not excluded by SDK config
-	genFilepath := filepath.Join(
-		"pkg",
-		"installer",
-		"v0",
-		"installer_gen.go",
-	)
+	genFilepath := installerFilepath
 	if slices.Contains(sdkConfig.ExcludeFiles, genFilepath) {
 		cli.Info(fmt.Sprintf("source code generation skipped for %s", genFilepath))
 	} else {
