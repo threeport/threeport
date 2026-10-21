@@ -139,16 +139,6 @@ func CreateResource(
 
 }
 
-// CreateWorkloadResource creates a workload object.
-func CreateWorkloadResource(
-	kubeObject *unstructured.Unstructured,
-	kubeClient dynamic.Interface,
-	mapper meta.RESTMapper,
-) (*unstructured.Unstructured, error) {
-	// create the kubernetes object
-	return CreateResource(kubeObject, kubeClient, mapper)
-}
-
 // CreateOrUpdateResource takes an unstructured object, dynamic client interface and rest
 // mapper and creates the resource in the target Kubernetes cluster if it doesn't already
 // exist.  If the resource exists, it is updated.
