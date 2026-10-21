@@ -5,20 +5,25 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"testing"
 
+	"github.com/iancoleman/strcase"
 	"github.com/stretchr/testify/require"
+	kubeerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 
 	api "github.com/threeport/threeport/pkg/api/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -26,8 +31,13 @@ import (
 
 const (
 	echoServiceName     = "echo"
+	echoNamespace       = "gateway-echo"
 	echoHost            = "echo.threeport.test"
+	otherHost           = "other.threeport.test"
 	echoBody            = "gateway-ok"
+	echoTcpPort         = 5432
+	otherTcpPort        = 5433
+	sharedConfigName    = "nginx-ingress"
 	ingressNamespace    = "nukleros-ingress-system"
 	nginxIngressService = "nginx-ingress-nodeport"
 	reconcileAttempts   = 180
@@ -71,66 +81,110 @@ spec:
   selector:
     app: echo
   ports:
-  - port: 80
+  - name: http
+    port: 80
+    targetPort: 5678
+  - name: https
+    port: 443
+    targetPort: 5678
+  - name: tcp-5432
+    port: 5432
+    targetPort: 5678
+  - name: tcp-5433
+    port: 5433
     targetPort: 5678
 `
 
-// TestGatewayIngressServesHTTPAndHTTPS creates an echo workload and a gateway
-// through the threeport API, then calls the published ingress over HTTP and HTTPS.
+// TestGatewayIngressServesHTTPAndHTTPS checks two hosts on one echo service.
+// Deleting a host removes its objects and reuses the shared listeners.
 func TestGatewayIngressServesHTTPAndHTTPS(t *testing.T) {
 	// open the control plane api and the kind runtime it records
 	apiClient, endpoint, encryptionKey := threeportClient(t)
 	runtime := controlPlaneRuntime(t, apiClient, endpoint)
-
-	// create the echo workload and the gateway that fronts it
-	domain := createEchoDomain(t, apiClient, endpoint)
-	workload := createEchoWorkload(t, apiClient, endpoint, runtime)
-	waitForEchoService(t, apiClient, endpoint, workload)
-	definition := createEchoGatewayDefinition(t, apiClient, endpoint, domain)
-	waitForReconciled(t, "gateway definition", func() (*bool, error) {
-		stored, err := client.GetGatewayDefinitionByID(apiClient, endpoint, *definition.ID)
-		if err != nil {
-			return nil, err
-		}
-		return stored.Reconciled, nil
-	})
-	gateway := createEchoGatewayInstance(t, apiClient, endpoint, definition, workload, runtime)
-	waitForReconciled(t, "gateway instance", func() (*bool, error) {
-		stored, err := client.GetGatewayInstanceByID(apiClient, endpoint, *gateway.ID)
-		if err != nil {
-			return nil, err
-		}
-		return stored.Reconciled, nil
-	})
-
-	// read the service and certificate the operator installed
 	kubeClient, _, err := kube.GetClient(runtime, false, apiClient, endpoint, encryptionKey)
 	require.NoError(t, err)
-	cert := waitForCertificate(t, kubeClient, echoHost)
+
+	// create two hosts that share the echo service
+	workload := createEchoWorkload(t, apiClient, endpoint, runtime)
+	waitForEchoService(t, apiClient, endpoint, workload)
+	echoDomain := createEchoDomain(t, apiClient, endpoint, "echo", echoHost)
+	otherDomain := createEchoDomain(t, apiClient, endpoint, "other", otherHost)
+	echoDefinition := createEchoGatewayDefinition(t, apiClient, endpoint, "echo", echoDomain, echoTcpPort)
+	otherDefinition := createEchoGatewayDefinition(t, apiClient, endpoint, "other", otherDomain, otherTcpPort)
+	waitForGatewayDefinition(t, apiClient, endpoint, echoDefinition)
+	waitForGatewayDefinition(t, apiClient, endpoint, otherDefinition)
+
+	// reconcile the first host and record the shared listeners
+	echoGateway := createEchoGatewayInstance(t, apiClient, endpoint, "echo-0", echoDefinition, workload, runtime)
+	waitForGatewayInstance(t, apiClient, endpoint, echoGateway)
+	sharedID := waitForSharedListeners(
+		t,
+		apiClient,
+		endpoint,
+		kubeClient,
+		*runtime.ID,
+		[]string{fmt.Sprintf("tcp-%d", echoTcpPort)},
+		0,
+	)
+	waitForHostObjects(t, apiClient, endpoint, kubeClient, *workload.ID, "echo", echoHost, echoTcpPort)
+
+	// reconcile the second host onto the same shared listeners
+	otherGateway := createEchoGatewayInstance(t, apiClient, endpoint, "other-0", otherDefinition, workload, runtime)
+	waitForGatewayInstance(t, apiClient, endpoint, otherGateway)
+	sharedID = waitForSharedListeners(
+		t,
+		apiClient,
+		endpoint,
+		kubeClient,
+		*runtime.ID,
+		[]string{
+			fmt.Sprintf("tcp-%d", echoTcpPort),
+			fmt.Sprintf("tcp-%d", otherTcpPort),
+		},
+		sharedID,
+	)
+	waitForHostObjects(t, apiClient, endpoint, kubeClient, *workload.ID, "other", otherHost, otherTcpPort)
+
+	// call both hosts over http and https
 	ports := waitForIngressPorts(t, kubeClient)
 	nodeIP := nodeInternalIP(t, kubeClient)
+	callHost(t, kubeClient, nodeIP, ports, echoHost)
+	callHost(t, kubeClient, nodeIP, ports, otherHost)
 
-	// call port 80 and compare the certificate on port 443
-	body := httpGet(t, fmt.Sprintf("http://%s:%d/", nodeIP, ports[80]), echoHost)
-	require.Contains(t, body, echoBody)
-	peer := tlsPeer(t, fmt.Sprintf("%s:%d", nodeIP, ports[443]), echoHost)
-	require.Equal(t, issuedCertificate(t, kubeClient, cert), peer)
+	// delete the second host and keep the first listener
+	deleteGateway(t, apiClient, endpoint, otherGateway)
+	waitForHostTornDown(t, apiClient, endpoint, kubeClient, *workload.ID, "other", otherHost, otherTcpPort)
+	sharedID = waitForSharedListeners(
+		t,
+		apiClient,
+		endpoint,
+		kubeClient,
+		*runtime.ID,
+		[]string{fmt.Sprintf("tcp-%d", echoTcpPort)},
+		sharedID,
+	)
+	callHost(t, kubeClient, nodeIP, ports, echoHost)
+
+	// delete the first host and keep the shared configuration with no listeners
+	deleteGateway(t, apiClient, endpoint, echoGateway)
+	waitForHostTornDown(t, apiClient, endpoint, kubeClient, *workload.ID, "echo", echoHost, echoTcpPort)
+	waitForSharedListeners(t, apiClient, endpoint, kubeClient, *runtime.ID, nil, sharedID)
 }
 
 // createEchoDomain registers the host the ingress matches.
-func createEchoDomain(t *testing.T, apiClient *http.Client, endpoint string) *api.DomainNameDefinition {
+func createEchoDomain(t *testing.T, apiClient *http.Client, endpoint, name, host string) *api.DomainNameDefinition {
 	t.Helper()
 
 	// store the domain the gateway serves
 	created, err := client.CreateDomainNameDefinition(apiClient, endpoint, &api.DomainNameDefinition{
-		Definition: api.Definition{Name: util.Ptr("echo")},
-		Domain:     util.Ptr(echoHost),
-		Zone:       util.Ptr(echoHost),
+		Definition: api.Definition{Name: util.Ptr(name)},
+		Domain:     util.Ptr(host),
+		Zone:       util.Ptr(host),
 		AdminEmail: util.Ptr("no-reply@threeport.io"),
 	})
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		retryDelete(t, "echo domain", func() error {
+		retryDelete(t, name+" domain", func() error {
 			_, err := client.DeleteDomainNameDefinition(apiClient, endpoint, *created.ID)
 			return err
 		})
@@ -205,28 +259,33 @@ func waitForEchoService(t *testing.T, apiClient *http.Client, endpoint string, w
 	require.NoError(t, err)
 }
 
-// createEchoGatewayDefinition registers http and https ports for the echo service.
+// createEchoGatewayDefinition registers http, https and one tcp port for the echo service.
 func createEchoGatewayDefinition(
 	t *testing.T,
 	apiClient *http.Client,
 	endpoint string,
+	name string,
 	domain *api.DomainNameDefinition,
+	tcpPort int,
 ) *api.GatewayDefinition {
 	t.Helper()
 
-	// define ports 80 and 443 for the echo service
+	// define ports 80 and 443 plus one tcp listener
 	created, err := client.CreateGatewayDefinition(apiClient, endpoint, &api.GatewayDefinition{
-		Definition:             api.Definition{Name: util.Ptr("echo")},
+		Definition:             api.Definition{Name: util.Ptr(name)},
 		DomainNameDefinitionID: domain.ID,
 		ServiceName:            util.Ptr(echoServiceName),
 		HttpPorts: []*api.GatewayHttpPort{
 			{Port: util.Ptr(80), TLSEnabled: util.Ptr(false), Path: util.Ptr("/")},
 			{Port: util.Ptr(443), TLSEnabled: util.Ptr(true), Path: util.Ptr("/")},
 		},
+		TcpPorts: []*api.GatewayTcpPort{
+			{Port: util.Ptr(tcpPort), TLSEnabled: util.Ptr(false)},
+		},
 	})
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		retryDelete(t, "echo gateway definition", func() error {
+		retryDelete(t, name+" gateway definition", func() error {
 			_, err := client.DeleteGatewayDefinition(apiClient, endpoint, *created.ID)
 			return err
 		})
@@ -239,6 +298,7 @@ func createEchoGatewayInstance(
 	t *testing.T,
 	apiClient *http.Client,
 	endpoint string,
+	name string,
 	definition *api.GatewayDefinition,
 	workload *api.KubernetesWorkloadInstance,
 	runtime *api.KubernetesRuntimeInstance,
@@ -247,14 +307,14 @@ func createEchoGatewayInstance(
 
 	// attach the gateway to the echo workload on the control plane runtime
 	created, err := client.CreateGatewayInstance(apiClient, endpoint, &api.GatewayInstance{
-		Instance:                     api.Instance{Name: util.Ptr("echo-0")},
+		Instance:                     api.Instance{Name: util.Ptr(name)},
 		GatewayDefinitionID:          definition.ID,
 		KubernetesRuntimeInstanceID:  runtime.ID,
 		KubernetesWorkloadInstanceID: workload.ID,
 	})
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		retryDelete(t, "echo gateway instance", func() error {
+		retryDelete(t, name+" gateway instance", func() error {
 			_, err := client.DeleteGatewayInstance(apiClient, endpoint, *created.ID)
 			return err
 		})
@@ -489,6 +549,391 @@ func tlsPeerOnce(address, host string) ([]byte, error) {
 		return nil, fmt.Errorf("nginx presented no certificate")
 	}
 	return connection.ConnectionState().PeerCertificates[0].Raw, nil
+}
+
+// gatewayObject is one per-host manifest the gateway stores and applies.
+type gatewayObject struct {
+	// The Kubernetes kind stored by threeport
+	kind string
+
+	// The object name
+	name string
+
+	// The cluster resource used to read the object
+	gvr schema.GroupVersionResource
+}
+
+// waitForGatewayDefinition waits until the gateway definition is reconciled.
+func waitForGatewayDefinition(t *testing.T, apiClient *http.Client, endpoint string, definition *api.GatewayDefinition) {
+	t.Helper()
+
+	// read the definition until reconcile finishes
+	waitForReconciled(t, *definition.Name+" gateway definition", func() (*bool, error) {
+		stored, err := client.GetGatewayDefinitionByID(apiClient, endpoint, *definition.ID)
+		if err != nil {
+			return nil, err
+		}
+		return stored.Reconciled, nil
+	})
+}
+
+// waitForGatewayInstance waits until the gateway instance is reconciled.
+func waitForGatewayInstance(t *testing.T, apiClient *http.Client, endpoint string, gateway *api.GatewayInstance) {
+	t.Helper()
+
+	// read the instance until reconcile finishes
+	waitForReconciled(t, *gateway.Name+" gateway instance", func() (*bool, error) {
+		stored, err := client.GetGatewayInstanceByID(apiClient, endpoint, *gateway.ID)
+		if err != nil {
+			return nil, err
+		}
+		return stored.Reconciled, nil
+	})
+}
+
+// deleteGateway deletes the gateway and waits until threeport drops it.
+func deleteGateway(t *testing.T, apiClient *http.Client, endpoint string, gateway *api.GatewayInstance) {
+	t.Helper()
+
+	// schedule deletion and wait until the row is gone
+	_, err := client.DeleteGatewayInstance(apiClient, endpoint, *gateway.ID)
+	require.NoError(t, err)
+	err = util.Retry(reconcileAttempts, 2, func() error {
+		_, err := client.GetGatewayInstanceByID(apiClient, endpoint, *gateway.ID)
+		if errors.Is(err, client_lib.ErrObjectNotFound) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf("gateway %s is still stored", *gateway.Name)
+	})
+	require.NoError(t, err)
+}
+
+// callHost checks the host's http body and certificate.
+func callHost(t *testing.T, kubeClient dynamic.Interface, nodeIP string, ports map[int64]int64, host string) {
+	t.Helper()
+
+	// call port 80 and compare the certificate on port 443
+	body := httpGet(t, fmt.Sprintf("http://%s:%d/", nodeIP, ports[80]), host)
+	require.Contains(t, body, echoBody)
+	cert := waitForCertificate(t, kubeClient, host)
+	peer := tlsPeer(t, fmt.Sprintf("%s:%d", nodeIP, ports[443]), host)
+	require.Equal(t, issuedCertificate(t, kubeClient, cert), peer)
+}
+
+// waitForSharedListeners returns when one global configuration lists these listeners.
+// previousID is zero on the first read and the stored id after that.
+func waitForSharedListeners(
+	t *testing.T,
+	apiClient *http.Client,
+	endpoint string,
+	kubeClient dynamic.Interface,
+	runtimeID uint,
+	want []string,
+	previousID uint,
+) uint {
+	t.Helper()
+
+	// read the stored object and the cluster object until they match
+	var id uint
+	err := util.Retry(reconcileAttempts, 2, func() error {
+		gotID, names, err := sharedListeners(apiClient, endpoint, runtimeID)
+		if err != nil {
+			return err
+		}
+		if !sameNames(names, want) {
+			return fmt.Errorf("listeners %v, want %v", names, want)
+		}
+		if previousID != 0 && gotID != previousID {
+			return fmt.Errorf("global configuration id %d, want %d", gotID, previousID)
+		}
+		if err := kubeSharedListeners(kubeClient, want); err != nil {
+			return err
+		}
+		id = gotID
+		return nil
+	})
+	require.NoError(t, err)
+	return id
+}
+
+// waitForHostObjects returns when the host's gateway objects are stored.
+func waitForHostObjects(
+	t *testing.T,
+	apiClient *http.Client,
+	endpoint string,
+	kubeClient dynamic.Interface,
+	workloadID uint,
+	name string,
+	host string,
+	port int,
+) {
+	t.Helper()
+
+	// wait until each object is stored and present in the cluster
+	err := util.Retry(reconcileAttempts, 2, func() error {
+		return hostObjectsMatch(apiClient, endpoint, kubeClient, workloadID, name, host, port, true)
+	})
+	require.NoError(t, err)
+}
+
+// waitForHostTornDown returns when the host's gateway objects are gone.
+func waitForHostTornDown(
+	t *testing.T,
+	apiClient *http.Client,
+	endpoint string,
+	kubeClient dynamic.Interface,
+	workloadID uint,
+	name string,
+	host string,
+	port int,
+) {
+	t.Helper()
+
+	// wait until each object is gone and the echo service remains
+	err := util.Retry(reconcileAttempts, 2, func() error {
+		return hostObjectsMatch(apiClient, endpoint, kubeClient, workloadID, name, host, port, false)
+	})
+	require.NoError(t, err)
+}
+
+// hostObjectsMatch checks the host's stored objects and the echo service.
+func hostObjectsMatch(
+	apiClient *http.Client,
+	endpoint string,
+	kubeClient dynamic.Interface,
+	workloadID uint,
+	name string,
+	host string,
+	port int,
+	present bool,
+) error {
+	// index the workload's stored manifests
+	resources, err := workloadResources(apiClient, endpoint, workloadID)
+	if err != nil {
+		return err
+	}
+	if err := echoServiceKept(resources, kubeClient); err != nil {
+		return err
+	}
+
+	// compare each gateway object with the stored row and the cluster
+	for _, object := range hostGatewayObjects(name, host, port) {
+		resource, stored := resources[object.kind+"/"+object.name]
+		if present && !stored {
+			return fmt.Errorf("%s %s is not stored", object.kind, object.name)
+		}
+		if present && resource.ScheduledForDeletion != nil {
+			return fmt.Errorf("%s %s is scheduled for deletion", object.kind, object.name)
+		}
+		if !present && stored {
+			return fmt.Errorf("%s %s is still stored", object.kind, object.name)
+		}
+		_, getErr := kubeClient.Resource(object.gvr).Namespace(echoNamespace).Get(
+			context.Background(),
+			object.name,
+			metav1.GetOptions{},
+		)
+		if present && getErr != nil {
+			return getErr
+		}
+		if !present && getErr != nil && !kubeerrors.IsNotFound(getErr) {
+			return getErr
+		}
+		if !present && getErr == nil {
+			return fmt.Errorf("%s %s is still in the cluster", object.kind, object.name)
+		}
+	}
+	return nil
+}
+
+// sharedListeners reads the one global configuration stored for the runtime.
+func sharedListeners(apiClient *http.Client, endpoint string, runtimeID uint) (uint, []string, error) {
+	// load the gateway controller workload
+	runtime, err := client.GetKubernetesRuntimeInstanceByID(apiClient, endpoint, runtimeID)
+	if err != nil {
+		return 0, nil, err
+	}
+	if runtime.GatewayControllerInstanceID == nil {
+		return 0, nil, errors.New("runtime has no gateway controller")
+	}
+	resources, err := workloadResources(apiClient, endpoint, *runtime.GatewayControllerInstanceID)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	// require exactly one live global configuration
+	resource, ok := resources["GlobalConfiguration/"+sharedConfigName]
+	if !ok {
+		return 0, nil, errors.New("shared global configuration is not stored")
+	}
+	if resource.ScheduledForDeletion != nil {
+		return 0, nil, errors.New("shared global configuration is scheduled for deletion")
+	}
+	if resource.JSONDefinition == nil || resource.ID == nil {
+		return 0, nil, errors.New("shared global configuration has no definition")
+	}
+	var object map[string]interface{}
+	if err := json.Unmarshal(*resource.JSONDefinition, &object); err != nil {
+		return 0, nil, err
+	}
+	namespace, _, err := unstructured.NestedString(object, "metadata", "namespace")
+	if err != nil {
+		return 0, nil, err
+	}
+	if namespace != ingressNamespace {
+		return 0, nil, fmt.Errorf("global configuration namespace %s", namespace)
+	}
+	names, err := listenerNames(object)
+	if err != nil {
+		return 0, nil, err
+	}
+	return *resource.ID, names, nil
+}
+
+// kubeSharedListeners reads the global configuration applied in the cluster.
+func kubeSharedListeners(kubeClient dynamic.Interface, want []string) error {
+	// read the object the controller workload applied
+	object, err := kubeClient.Resource(schema.GroupVersionResource{
+		Group: "k8s.nginx.org", Version: "v1", Resource: "globalconfigurations",
+	}).Namespace(ingressNamespace).Get(context.Background(), sharedConfigName, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	names, err := listenerNames(object.Object)
+	if err != nil {
+		return err
+	}
+	if !sameNames(names, want) {
+		return fmt.Errorf("kube listeners %v, want %v", names, want)
+	}
+	return nil
+}
+
+// workloadResources indexes a workload's manifests by kind and name.
+func workloadResources(
+	apiClient *http.Client,
+	endpoint string,
+	workloadID uint,
+) (map[string]*api.KubernetesWorkloadResourceInstance, error) {
+	// load every resource stored for the workload
+	stored, err := client.GetKubernetesWorkloadResourceInstancesByID(apiClient, endpoint, workloadID)
+	if err != nil {
+		return nil, err
+	}
+	indexed := map[string]*api.KubernetesWorkloadResourceInstance{}
+	for i := range *stored {
+		resource := &(*stored)[i]
+		if resource.JSONDefinition == nil {
+			continue
+		}
+		var object map[string]interface{}
+		if err := json.Unmarshal(*resource.JSONDefinition, &object); err != nil {
+			return nil, err
+		}
+		kind, _, err := unstructured.NestedString(object, "kind")
+		if err != nil {
+			return nil, err
+		}
+		name, _, err := unstructured.NestedString(object, "metadata", "name")
+		if err != nil {
+			return nil, err
+		}
+		if kind == "" || name == "" {
+			return nil, errors.New("stored resource has no kind or name")
+		}
+		key := kind + "/" + name
+		if _, exists := indexed[key]; exists {
+			return nil, fmt.Errorf("duplicate %s", key)
+		}
+		indexed[key] = resource
+	}
+	return indexed, nil
+}
+
+// echoServiceKept checks the echo service is still stored and applied.
+func echoServiceKept(
+	resources map[string]*api.KubernetesWorkloadResourceInstance,
+	kubeClient dynamic.Interface,
+) error {
+	// reject a missing or deleting service row
+	resource, ok := resources["Service/"+echoServiceName]
+	if !ok {
+		return errors.New("echo service is not stored")
+	}
+	if resource.ScheduledForDeletion != nil {
+		return errors.New("echo service is scheduled for deletion")
+	}
+	_, err := kubeClient.Resource(schema.GroupVersionResource{
+		Version: "v1", Resource: "services",
+	}).Namespace(echoNamespace).Get(context.Background(), echoServiceName, metav1.GetOptions{})
+	return err
+}
+
+// hostGatewayObjects names the manifests one host adds to the echo workload.
+func hostGatewayObjects(name, host string, port int) []gatewayObject {
+	// issuer and certificate use the domain name, and the ingress uses the host
+	issuer := strcase.ToKebab(name)
+	return []gatewayObject{
+		{
+			kind: "Ingress",
+			name: strcase.ToKebab(host),
+			gvr:  schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1", Resource: "ingresses"},
+		},
+		{
+			kind: "Issuer",
+			name: issuer,
+			gvr:  schema.GroupVersionResource{Group: "cert-manager.io", Version: "v1", Resource: "issuers"},
+		},
+		{
+			kind: "Certificate",
+			name: issuer,
+			gvr:  schema.GroupVersionResource{Group: "cert-manager.io", Version: "v1", Resource: "certificates"},
+		},
+		{
+			kind: "TransportServer",
+			name: fmt.Sprintf("%s-%d", name, port),
+			gvr:  schema.GroupVersionResource{Group: "k8s.nginx.org", Version: "v1", Resource: "transportservers"},
+		},
+	}
+}
+
+// listenerNames reads spec.listeners names in stored order.
+func listenerNames(object map[string]interface{}) ([]string, error) {
+	// an absent list is an empty listener set
+	listeners, found, err := unstructured.NestedSlice(object, "spec", "listeners")
+	if err != nil || !found {
+		return nil, err
+	}
+	names := make([]string, 0, len(listeners))
+	for _, listener := range listeners {
+		entry, ok := listener.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("listener is %T", listener)
+		}
+		name, _, err := unstructured.NestedString(entry, "name")
+		if err != nil {
+			return nil, err
+		}
+		names = append(names, name)
+	}
+	return names, nil
+}
+
+// sameNames reports whether both lists hold the same names in order.
+func sameNames(got, want []string) bool {
+	// compare length and then each position
+	if len(got) != len(want) {
+		return false
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // numberValue reads a JSON number.
