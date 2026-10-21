@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -100,6 +102,24 @@ func testModuleApi(id uint, name string, core bool) v0.ModuleApi {
 		isCore := true
 		moduleApi.Core = &isCore
 	}
+
+	return moduleApi
+}
+
+// testModuleApiWithEndpoint is testModuleApi plus the cluster-local endpoint
+// the installer writes for a real module, in the same
+// <service>.<namespace>.svc.cluster.local shape.
+func testModuleApiWithEndpoint(id uint, name, serviceName, namespace string) v0.ModuleApi {
+	return testModuleApiWithEndpointAndCore(id, name, serviceName, namespace, false)
+}
+
+// testModuleApiWithEndpointAndCore is testModuleApiWithEndpoint with an
+// explicit Core flag, for the one case that needs it set true at a namespace
+// other than the control plane's own.
+func testModuleApiWithEndpointAndCore(id uint, name, serviceName, namespace string, core bool) v0.ModuleApi {
+	moduleApi := testModuleApi(id, name, core)
+	endpoint := serviceName + "." + namespace + ".svc.cluster.local"
+	moduleApi.Endpoint = &endpoint
 
 	return moduleApi
 }
@@ -476,4 +496,153 @@ func containsString(values []string, want string) bool {
 	}
 
 	return false
+}
+
+// TestDiscoverModuleApiServersCoversAModuleWithNoControllers covers what
+// DiscoverModuleDeployments cannot see.
+//
+// The SDK supports a module with no reconcilable objects, which registers no
+// ModuleController. DiscoverModuleDeployments finds namespaces only through
+// those, so such a module's namespace never surfaces through it - and it
+// would be left without a database network policy, cutting its API server
+// off from its own data. Every module still registers exactly one ModuleApi,
+// and the installer's endpoint for it already names the service and the
+// namespace.
+func TestDiscoverModuleApiServersCoversAModuleWithNoControllers(t *testing.T) {
+	apiServer := &moduleRegistryApiServer{
+		apis: []v0.ModuleApi{
+			testModuleApiWithEndpoint(1, "threeport", "threeport-api-server", "threeport-control-plane"),
+			testModuleApiWithEndpoint(2, "example-module", "example-api-server", "example-namespace"),
+			testModuleApiWithEndpoint(3, "controller-free-module", "controller-free-api-server", "controller-free-namespace"),
+		},
+		controllersByApiId: map[uint][]string{
+			2: {"example-namespace/threeport-example-controller"},
+			// module 3 registers no controllers at all
+		},
+	}
+	apiClient, apiAddr := apiServer.serve(t)
+	cpi := &ControlPlaneInstaller{Opts: Options{Namespace: "threeport-control-plane"}}
+
+	apiServers, err := cpi.DiscoverModuleApiServers(apiClient, apiAddr)
+	require.NoError(t, err)
+	assert.ElementsMatch(
+		t, []ModuleApiServer{
+			{Namespace: "example-namespace", Service: "example-api-server"},
+			{Namespace: "controller-free-namespace", Service: "controller-free-api-server"},
+		}, apiServers,
+		"a module with no controllers is still a module with a database to reach",
+	)
+}
+
+// TestDiscoverModuleApiServersKeepsModulesSharingANamespace covers two
+// modules that happen to share a namespace, and the same module registering
+// twice.
+func TestDiscoverModuleApiServersKeepsModulesSharingANamespace(t *testing.T) {
+	apiServer := &moduleRegistryApiServer{
+		apis: []v0.ModuleApi{
+			testModuleApiWithEndpoint(1, "first-api", "first-api-server", "shared-namespace"),
+			testModuleApiWithEndpoint(2, "second-api", "second-api-server", "shared-namespace"),
+			testModuleApiWithEndpoint(3, "first-api-again", "first-api-server", "shared-namespace"),
+		},
+	}
+	apiClient, apiAddr := apiServer.serve(t)
+	cpi := &ControlPlaneInstaller{Opts: Options{Namespace: "threeport-control-plane"}}
+
+	apiServers, err := cpi.DiscoverModuleApiServers(apiClient, apiAddr)
+	require.NoError(t, err)
+	assert.Equal(
+		t, []ModuleApiServer{
+			{Namespace: "shared-namespace", Service: "first-api-server"},
+			{Namespace: "shared-namespace", Service: "second-api-server"},
+		}, apiServers,
+		"two modules in one namespace each have an API server to admit, and one registered twice is still one",
+	)
+}
+
+// TestDiscoverModuleApiServersExcludesTheCoreApiAndControlPlane covers the
+// API servers that are never a module's.
+func TestDiscoverModuleApiServersExcludesTheCoreApiAndControlPlane(t *testing.T) {
+	t.Run("the core API's own entry is not a module", func(t *testing.T) {
+		apiServer := &moduleRegistryApiServer{
+			apis: []v0.ModuleApi{
+				testModuleApiWithEndpoint(1, "threeport", "threeport-api-server", "threeport-control-plane"),
+				testModuleApiWithEndpoint(2, "example-module", "example-api-server", "example-namespace"),
+			},
+		}
+		apiClient, apiAddr := apiServer.serve(t)
+		cpi := &ControlPlaneInstaller{Opts: Options{Namespace: "threeport-control-plane"}}
+
+		apiServers, err := cpi.DiscoverModuleApiServers(apiClient, apiAddr)
+		require.NoError(t, err)
+		assert.Equal(
+			t, []ModuleApiServer{{Namespace: "example-namespace", Service: "example-api-server"}}, apiServers,
+			"the core API's own namespace is the control plane's, not a module's - its Core flag says so even "+
+				"if a module somehow shared its endpoint shape",
+		)
+	})
+
+	t.Run("a core entry at some other namespace is still excluded by its flag", func(t *testing.T) {
+		// the namespace here is deliberately NOT the control plane's own, so
+		// only the Core flag - not the namespace exclusion below - can be
+		// what keeps this out
+		apiServer := &moduleRegistryApiServer{
+			apis: []v0.ModuleApi{
+				testModuleApiWithEndpointAndCore(1, "threeport", "threeport-api-server", "unrelated-namespace", true),
+			},
+		}
+		apiClient, apiAddr := apiServer.serve(t)
+		cpi := &ControlPlaneInstaller{Opts: Options{Namespace: "threeport-control-plane"}}
+
+		apiServers, err := cpi.DiscoverModuleApiServers(apiClient, apiAddr)
+		require.NoError(t, err)
+		assert.Empty(t, apiServers, "Core is what marks this as the threeport API itself, not a module")
+	})
+
+	t.Run("a non-core entry pointed at the control plane namespace is not a module", func(t *testing.T) {
+		// Core unset but Endpoint happens to resolve to the control plane's
+		// own namespace - the exclusion has to hold on the namespace itself,
+		// not only on trusting the Core flag
+		apiServer := &moduleRegistryApiServer{
+			apis: []v0.ModuleApi{
+				testModuleApiWithEndpoint(1, "not-flagged-core", "something", "threeport-control-plane"),
+			},
+		}
+		apiClient, apiAddr := apiServer.serve(t)
+		cpi := &ControlPlaneInstaller{Opts: Options{Namespace: "threeport-control-plane"}}
+
+		apiServers, err := cpi.DiscoverModuleApiServers(apiClient, apiAddr)
+		require.NoError(t, err)
+		assert.Empty(
+			t, apiServers,
+			"admitting pods of the control plane's own namespace as a module's would bypass the database policy",
+		)
+	})
+}
+
+// TestModuleApiServerFromEndpoint covers the one assumption the whole
+// function rests on: what the installer actually writes.
+func TestModuleApiServerFromEndpoint(t *testing.T) {
+	t.Run("the installer's own shape is read", func(t *testing.T) {
+		endpoint := "example-api-server.example-namespace.svc.cluster.local"
+		apiServer, ok := moduleApiServerFromEndpoint(&endpoint)
+		assert.True(t, ok)
+		assert.Equal(t, ModuleApiServer{Namespace: "example-namespace", Service: "example-api-server"}, apiServer)
+	})
+
+	t.Run("a nil endpoint is not a namespace", func(t *testing.T) {
+		_, ok := moduleApiServerFromEndpoint(nil)
+		assert.False(t, ok)
+	})
+
+	t.Run("an external endpoint is not guessed at", func(t *testing.T) {
+		endpoint := "https://modules.example.com"
+		_, ok := moduleApiServerFromEndpoint(&endpoint)
+		assert.False(t, ok, "admitting the wrong pods to the database is worse than leaving one module out")
+	})
+
+	t.Run("a service name with a dot in it is not mistaken for one with a namespace", func(t *testing.T) {
+		endpoint := "example.svc.cluster.local"
+		_, ok := moduleApiServerFromEndpoint(&endpoint)
+		assert.False(t, ok, "this has only one label before the suffix, not a service and a namespace")
+	})
 }

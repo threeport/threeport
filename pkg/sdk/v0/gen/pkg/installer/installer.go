@@ -16,6 +16,9 @@ import (
 	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 )
 
+// installerFilepath is where the module's installer is generated.
+var installerFilepath = filepath.Join("pkg", "installer", "v0", "installer_gen.go")
+
 // GenInstaller generates the installer package for module projects that
 // installs the module components alongside an existing Threeport control
 // plane and registers that module with Threeport.
@@ -88,6 +91,15 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		Id("tpApiCaSecretName").Op("=").Lit("threeport-api-ca"),
 		Id("tpApiCertSecretName").Op("=").Lit("threeport-api-client-cert"),
 	)
+
+	f.Comment("apiServerPodLabels returns the labels of the module API server's pods,")
+	f.Comment("which the control plane's database admits.")
+	f.Func().Id("apiServerPodLabels").Params().Map(String()).String().Block(
+		Return(Map(String()).String().Values(Dict{
+			Lit("app.kubernetes.io/name"): Id("apiServerName"),
+		})),
+	)
+	f.Line()
 
 	f.Comment("Installer contains the values needed for a module installation.")
 	f.Type().Id("Installer").Struct(
@@ -206,6 +218,28 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					"failed to create/update %s module namespace: %%w",
 					moduleNameKebab,
 				)),
+				Err(),
+			)),
+		)
+		g.Line()
+
+		g.Comment("admit this module's API server, from this namespace only, to the")
+		g.Comment("control plane's database: its db-init and database-migrator init")
+		g.Comment("containers and the API server itself connect to it directly")
+		g.If(Err().Op(":=").Qual(
+			"github.com/threeport/threeport/pkg/threeport-installer/v0",
+			"InstallModuleDatabasePolicy",
+		).Call(
+			Line().Id("i.KubeClient"),
+			Line().Op("*").Id("i.KubeRestMapper"),
+			Line().Id("i").Dot("ThreeportNamespace"),
+			Line().Id("i").Dot("ModuleNamespace"),
+			Line().Id("apiServerName"),
+			Line().Id("apiServerPodLabels").Call(),
+			Line(),
+		).Op(";").Err().Op("!=").Nil()).Block(
+			Return(Qual("fmt", "Errorf").Call(
+				Lit("failed to install the module's database network policy: %w"),
 				Err(),
 			)),
 		)
@@ -1368,12 +1402,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 	)
 
 	// write code to file if not excluded by SDK config
-	genFilepath := filepath.Join(
-		"pkg",
-		"installer",
-		"v0",
-		"installer_gen.go",
-	)
+	genFilepath := installerFilepath
 	if slices.Contains(sdkConfig.ExcludeFiles, genFilepath) {
 		cli.Info(fmt.Sprintf("source code generation skipped for %s", genFilepath))
 	} else {

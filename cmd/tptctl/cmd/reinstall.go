@@ -174,6 +174,34 @@ with the control plane name and a development-tier installation. Use
 				cli.Error("failed to restore module deployments", err)
 			}
 		}
+		// admit to the database the modules installed before their installer
+		// created a database network policy
+		//
+		// A module generated against a current SDK creates its policy when it
+		// is installed. One installed before does not, and nothing regenerates
+		// it on its own - without this, the database policy would cut a running
+		// module away from its own database, and the first anyone would hear of
+		// it is the module failing well after the reinstall reported success.
+		//
+		// This runs before the database is dropped, because afterwards the
+		// registry that says which modules there are is gone. The policies are
+		// not removed by the reinstall that follows.
+		//
+		// It is best-effort rather than fatal: reaching the Threeport API is
+		// exactly what a reinstall with no other flags exists to repair, and a
+		// module installed before the policy is the much narrower case, which
+		// running reinstall again once the API is back covers.
+		if moduleApiServers, err := cpi.DiscoverModuleApiServers(apiClient, apiEndpoint); err != nil {
+			cli.Warning(fmt.Sprintf(
+				"could not reach the Threeport API to find modules to admit to the database (%s) - "+
+					"a module installed before its database network policy existed may lose "+
+					"access to its own database; run reinstall again once the API is reachable",
+				err,
+			))
+		} else if err := cpi.InstallModuleDatabasePolicies(dynamicKubeClient, *mapper, moduleApiServers); err != nil {
+			cli.Warning(fmt.Sprintf("failed to install module database network policies: %s", err))
+		}
+
 		// drop stored state when requested
 		if tptctlReinstallDropDatabase {
 			// refuse a non-development tier before any deployment is scaled down

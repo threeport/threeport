@@ -524,6 +524,14 @@ func v0ControlPlaneInstanceCreated(
 		return 0, fmt.Errorf("failed to install threeport agent: %w", err)
 	}
 
+	// Restrict traffic within the namespace once its components are running.
+	// A default-deny applied earlier would be enforced while they are still
+	// starting, on a cluster whose CNI enforces it, and the install would be
+	// refused its own connections.
+	if err := cpi.InstallThreeportNetworkPolicies(dynamicKubeClient, mapper); err != nil {
+		return 0, fmt.Errorf("failed to install threeport network policies: %w", err)
+	}
+
 	// install support services CRDs
 	err = threeport.InstallThreeportCRDs(dynamicKubeClient, mapper)
 	if err != nil {
