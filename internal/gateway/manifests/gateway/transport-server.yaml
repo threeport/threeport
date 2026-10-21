@@ -3,7 +3,7 @@ kind: TransportServer
 metadata:
   name: transport
 spec:
-  ingressClassName: nginx-tcp
+  ingressClassName: nginx
   listener:
     name: tcp
     protocol: TCP
