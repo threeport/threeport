@@ -69,35 +69,31 @@ func (c *SecretInstanceConfig) getSecretStore() (*unstructured.Unstructured, err
 	}, nil
 }
 
-// getExternalSecretsSupportService returns a new ExternalSecrets object
-func (c *SecretInstanceConfig) getExternalSecretsSupportServiceYaml(iamRoleArn string) (string, error) {
-	return util.UnstructuredToYaml(
+// getExternalSecretsSupportServiceYaml returns the external-secrets component.
+func (c *SecretInstanceConfig) getExternalSecretsSupportServiceYaml() (string, error) {
+	// build the secrets component the v0.9 operator accepts
+	rendered, err := util.UnstructuredToYaml(
 		&unstructured.Unstructured{
 			Object: map[string]interface{}{
-				"apiVersion": "secrets.support-services.nukleros.io/v1alpha1",
-				"kind":       "ExternalSecrets",
+				"apiVersion": "platform.addons.nukleros.io/v1alpha1",
+				"kind":       "SecretsComponent",
 				"metadata": map[string]interface{}{
-					"name": "externalsecrets",
+					"name":      "external-secrets",
+					"namespace": "nukleros-secrets-system",
 				},
 				"spec": map[string]interface{}{
-					//collection:
-					//name: "supportservices"
-					//namespace: ""
-					"namespace":  "nukleros-secrets-system",
-					"version":    "v0.9.11",
-					"iamRoleArn": iamRoleArn,
-					"certController": map[string]interface{}{
-						"replicas": 1,
-					},
-					"image": "ghcr.io/external-secrets/external-secrets",
-					"controller": map[string]interface{}{
-						"replicas": 1,
-					},
-					"webhook": map[string]interface{}{
+					"namespace": "nukleros-secrets-system",
+					"externalSecrets": map[string]interface{}{
+						"image":    "ghcr.io/external-secrets/external-secrets",
+						"version":  "v0.9.11",
 						"replicas": 1,
 					},
 				},
 			},
 		},
 	)
+	if err != nil {
+		return "", err
+	}
+	return rendered, nil
 }

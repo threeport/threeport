@@ -187,12 +187,15 @@ func (Test) Integration() error {
 		return err
 	}
 
+	// gateway retries outlast the default ten minute test timeout
 	cmd := "go"
 	args := []string{
 		"test",
 		"-v",
 		"./test/integration",
 		"-count=1",
+		"-timeout",
+		"20m",
 	}
 	if err := util.RunCommandStreamOutput(cmd, args...); err != nil {
 		return fmt.Errorf("failed to run integration tests: %w", err)

@@ -874,7 +874,11 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	}
 
 	// install the support services operator
-	err = threeport.InstallThreeportSupportServicesOperator(dynamicKubeClient, mapper)
+	err = threeport.InstallThreeportSupportServicesOperator(
+		dynamicKubeClient,
+		mapper,
+		threeport.SupportServicesCloud(controlPlane.InfraProvider),
+	)
 	if err != nil {
 		return uninstaller.cleanOnCreateError("failed to install threeport support services operator", err)
 	}
