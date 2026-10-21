@@ -2,29 +2,29 @@ package assets
 
 import _ "embed"
 
-//go:embed ingress-component.yaml
+//go:embed sso/ingress-component.yaml
 var IngressComponent []byte
 
-//go:embed global-configuration.yaml
+//go:embed shared/global-configuration.yaml
 var GlobalConfiguration []byte
 
-//go:embed nginx-tcp-service.yaml
+//go:embed shared/nginx-tcp-service.yaml
 var NginxTcpService []byte
 
-//go:embed nginx-tcp-controller.yaml
+//go:embed shared/nginx-tcp-controller.yaml
 var NginxTcpController []byte
 
-//go:embed certificates.yaml
+//go:embed sso/certificates.yaml
 var Certificates []byte
 
-//go:embed ingress.yaml
+//go:embed gateway/ingress.yaml
 var Ingress []byte
 
-//go:embed transport-server.yaml
+//go:embed gateway/transport-server.yaml
 var TransportServer []byte
 
-//go:embed issuer.yaml
+//go:embed gateway/issuer.yaml
 var Issuer []byte
 
-//go:embed certificate.yaml
+//go:embed gateway/certificate.yaml
 var Certificate []byte

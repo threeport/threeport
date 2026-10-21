@@ -26,7 +26,7 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-//go:embed assets/service-test.yaml
+//go:embed service-test.yaml
 var serviceTest []byte
 
 // TestConfigureIssuerKindUsesSelfSigned covers a kind runtime.
