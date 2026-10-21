@@ -20,6 +20,9 @@ const (
 	// ingressComponentName is the IngressComponent object this install applies.
 	ingressComponentName = "ingress"
 
+	// globalConfigurationName is the GlobalConfiguration this install writes.
+	globalConfigurationName = "nginx-ingress"
+
 	// externalDNSComponentName is the IngressComponent object that installs external-dns.
 	externalDNSComponentName = "externaldns"
 
@@ -250,6 +253,16 @@ func getIngressComponentYaml() (string, error) {
 		"include",
 	); err != nil {
 		return "", fmt.Errorf("failed to set nginx include: %w", err)
+	}
+	// name the GlobalConfiguration the nginx controller watches
+	if err := unstructured.SetNestedField(
+		component.Object,
+		globalConfigurationName,
+		"spec",
+		"nginx",
+		"globalConfigurationName",
+	); err != nil {
+		return "", fmt.Errorf("failed to set the global configuration name: %w", err)
 	}
 	if err := unstructured.SetNestedField(
 		component.Object,

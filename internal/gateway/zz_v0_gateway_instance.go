@@ -502,7 +502,7 @@ func confirmGatewayPortsExposed(
 		kubernetesRuntimeInstance,
 		workloadResourceInstances,
 		"GlobalConfiguration",
-		"nginx-ingress",
+		globalConfigurationName,
 		"listeners",
 		listeners,
 		manifests.GlobalConfiguration,

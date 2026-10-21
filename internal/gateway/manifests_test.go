@@ -134,6 +134,7 @@ func TestGetIngressComponentYaml(t *testing.T) {
 	domain, _, _ := unstructured.NestedString(component.Object, "spec", "domainName")
 	version, _, _ := unstructured.NestedString(component.Object, "spec", "nginx", "version")
 	include, _, _ := unstructured.NestedBool(component.Object, "spec", "nginx", "include")
+	globalName, _, _ := unstructured.NestedString(component.Object, "spec", "nginx", "globalConfigurationName")
 	kong, _, _ := unstructured.NestedBool(component.Object, "spec", "kong", "include")
 	role, _, _ := unstructured.NestedString(component.Object, "spec", "externalDNS", "iamRoleArn")
 	if name != ingressComponentName ||
@@ -141,6 +142,7 @@ func TestGetIngressComponentYaml(t *testing.T) {
 		domain != ingressDomainName ||
 		version != "5.5.4" ||
 		!include ||
+		globalName != globalConfigurationName ||
 		kong ||
 		role != "local" {
 		t.Fatalf("name=%s collection=%s domain=%s version=%s nginx=%v kong=%v role=%s", name, collection, domain, version, include, kong, role)
