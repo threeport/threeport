@@ -139,7 +139,7 @@ func TestGetIngressComponentYaml(t *testing.T) {
 	if name != ingressComponentName ||
 		collection != "threeport-support-services" ||
 		domain != ingressDomainName ||
-		version != nginxIngressVersion ||
+		version != "5.5.4" ||
 		!include ||
 		kong ||
 		role != "local" {

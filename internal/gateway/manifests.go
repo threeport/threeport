@@ -26,17 +26,8 @@ const (
 	// ingressDomainName is the domain the nginx component uses with no public zone.
 	ingressDomainName = "threeport.local"
 
-	// nginxIngressVersion is the nginx ingress controller tag this install pins.
-	nginxIngressVersion = "5.7.0"
-
 	// certificatesComponentName is the CertificatesComponent object this install applies.
 	certificatesComponentName = "certificates"
-
-	// externalDNSImage is the external-dns image repository this install pins.
-	externalDNSImage = "registry.k8s.io/external-dns/external-dns"
-
-	// externalDNSVersion is the external-dns tag this install pins.
-	externalDNSVersion = "v0.13.5"
 
 	// externalDNSZoneType is the hosted zone type external-dns manages.
 	externalDNSZoneType = "public"
@@ -250,7 +241,7 @@ func getIngressComponentYaml() (string, error) {
 		return "", fmt.Errorf("failed to set the ingress domain: %w", err)
 	}
 
-	// install nginx at the pinned version and leave kong out
+	// include nginx and leave kong out
 	if err := unstructured.SetNestedField(
 		component.Object,
 		true,
@@ -259,15 +250,6 @@ func getIngressComponentYaml() (string, error) {
 		"include",
 	); err != nil {
 		return "", fmt.Errorf("failed to set nginx include: %w", err)
-	}
-	if err := unstructured.SetNestedField(
-		component.Object,
-		nginxIngressVersion,
-		"spec",
-		"nginx",
-		"version",
-	); err != nil {
-		return "", fmt.Errorf("failed to set the nginx version: %w", err)
 	}
 	if err := unstructured.SetNestedField(
 		component.Object,
@@ -346,31 +328,13 @@ func getExternalDnsYaml(
 		return util.UnstructuredToYaml(component)
 	}
 
-	// pin the image and the public zone, then set the provider
+	// set the public zone, then set the provider
 	if err := unstructured.SetNestedField(
 		component.Object,
 		externalDNSZoneType,
 		"spec",
 		"externalDNS",
 		"zoneType",
-	); err != nil {
-		return "", err
-	}
-	if err := unstructured.SetNestedField(
-		component.Object,
-		externalDNSImage,
-		"spec",
-		"externalDNS",
-		"image",
-	); err != nil {
-		return "", err
-	}
-	if err := unstructured.SetNestedField(
-		component.Object,
-		externalDNSVersion,
-		"spec",
-		"externalDNS",
-		"version",
 	); err != nil {
 		return "", err
 	}

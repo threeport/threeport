@@ -18,7 +18,7 @@ spec:
       serviceAccountName: nginx-ingress
       containers:
         - name: nginx-ingress
-          image: nginx/nginx-ingress:5.7.0
+          image: nginx/nginx-ingress:5.5.4
           args:
             - -nginx-configmaps=$(POD_NAMESPACE)/nginx-config
             - -enable-custom-resources
