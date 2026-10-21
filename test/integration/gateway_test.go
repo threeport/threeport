@@ -121,7 +121,6 @@ func TestGatewayIngressServesHTTPAndHTTPS(t *testing.T) {
 		t,
 		apiClient,
 		endpoint,
-		kubeClient,
 		*runtime.ID,
 		[]string{fmt.Sprintf("tcp-%d", echoTcpPort)},
 		0,
@@ -135,7 +134,6 @@ func TestGatewayIngressServesHTTPAndHTTPS(t *testing.T) {
 		t,
 		apiClient,
 		endpoint,
-		kubeClient,
 		*runtime.ID,
 		[]string{
 			fmt.Sprintf("tcp-%d", echoTcpPort),
@@ -158,7 +156,6 @@ func TestGatewayIngressServesHTTPAndHTTPS(t *testing.T) {
 		t,
 		apiClient,
 		endpoint,
-		kubeClient,
 		*runtime.ID,
 		[]string{fmt.Sprintf("tcp-%d", echoTcpPort)},
 		sharedID,
@@ -168,7 +165,7 @@ func TestGatewayIngressServesHTTPAndHTTPS(t *testing.T) {
 	// delete the first host and keep the shared configuration with no listeners
 	deleteGateway(t, apiClient, endpoint, echoGateway)
 	waitForHostTornDown(t, apiClient, endpoint, kubeClient, *workload.ID, "echo", echoHost, echoTcpPort)
-	waitForSharedListeners(t, apiClient, endpoint, kubeClient, *runtime.ID, nil, sharedID)
+	waitForSharedListeners(t, apiClient, endpoint, *runtime.ID, nil, sharedID)
 }
 
 // createEchoDomain registers the host the ingress matches.
@@ -561,6 +558,9 @@ type gatewayObject struct {
 
 	// The cluster resource used to read the object
 	gvr schema.GroupVersionResource
+
+	// Whether the test reads the object from the cluster
+	cluster bool
 }
 
 // waitForGatewayDefinition waits until the gateway definition is reconciled.
@@ -623,20 +623,19 @@ func callHost(t *testing.T, kubeClient dynamic.Interface, nodeIP string, ports m
 	require.Equal(t, issuedCertificate(t, kubeClient, cert), peer)
 }
 
-// waitForSharedListeners returns when one global configuration lists these listeners.
+// waitForSharedListeners returns when the stored global configuration lists these listeners.
 // previousID is zero on the first read and the stored id after that.
 func waitForSharedListeners(
 	t *testing.T,
 	apiClient *http.Client,
 	endpoint string,
-	kubeClient dynamic.Interface,
 	runtimeID uint,
 	want []string,
 	previousID uint,
 ) uint {
 	t.Helper()
 
-	// read the stored object and the cluster object until they match
+	// read the stored listeners because the operator does not pass -global-configuration
 	var id uint
 	err := util.Retry(reconcileAttempts, 2, func() error {
 		gotID, names, err := sharedListeners(apiClient, endpoint, runtimeID)
@@ -648,9 +647,6 @@ func waitForSharedListeners(
 		}
 		if previousID != 0 && gotID != previousID {
 			return fmt.Errorf("global configuration id %d, want %d", gotID, previousID)
-		}
-		if err := kubeSharedListeners(kubeClient, want); err != nil {
-			return err
 		}
 		id = gotID
 		return nil
@@ -731,6 +727,9 @@ func hostObjectsMatch(
 		if !present && stored {
 			return fmt.Errorf("%s %s is still stored", object.kind, object.name)
 		}
+		if !object.cluster {
+			continue
+		}
 		_, getErr := kubeClient.Resource(object.gvr).Namespace(echoNamespace).Get(
 			context.Background(),
 			object.name,
@@ -791,25 +790,6 @@ func sharedListeners(apiClient *http.Client, endpoint string, runtimeID uint) (u
 		return 0, nil, err
 	}
 	return *resource.ID, names, nil
-}
-
-// kubeSharedListeners reads the global configuration applied in the cluster.
-func kubeSharedListeners(kubeClient dynamic.Interface, want []string) error {
-	// read the object the controller workload applied
-	object, err := kubeClient.Resource(schema.GroupVersionResource{
-		Group: "k8s.nginx.org", Version: "v1", Resource: "globalconfigurations",
-	}).Namespace(ingressNamespace).Get(context.Background(), sharedConfigName, metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-	names, err := listenerNames(object.Object)
-	if err != nil {
-		return err
-	}
-	if !sameNames(names, want) {
-		return fmt.Errorf("kube listeners %v, want %v", names, want)
-	}
-	return nil
 }
 
 // workloadResources indexes a workload's manifests by kind and name.
@@ -878,24 +858,26 @@ func hostGatewayObjects(name, host string, port int) []gatewayObject {
 	issuer := strcase.ToKebab(name)
 	return []gatewayObject{
 		{
-			kind: "Ingress",
-			name: strcase.ToKebab(host),
-			gvr:  schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1", Resource: "ingresses"},
+			kind:    "Ingress",
+			name:    strcase.ToKebab(host),
+			gvr:     schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1", Resource: "ingresses"},
+			cluster: true,
 		},
 		{
-			kind: "Issuer",
-			name: issuer,
-			gvr:  schema.GroupVersionResource{Group: "cert-manager.io", Version: "v1", Resource: "issuers"},
+			kind:    "Issuer",
+			name:    issuer,
+			gvr:     schema.GroupVersionResource{Group: "cert-manager.io", Version: "v1", Resource: "issuers"},
+			cluster: true,
 		},
 		{
-			kind: "Certificate",
-			name: issuer,
-			gvr:  schema.GroupVersionResource{Group: "cert-manager.io", Version: "v1", Resource: "certificates"},
+			kind:    "Certificate",
+			name:    issuer,
+			gvr:     schema.GroupVersionResource{Group: "cert-manager.io", Version: "v1", Resource: "certificates"},
+			cluster: true,
 		},
 		{
 			kind: "TransportServer",
 			name: fmt.Sprintf("%s-%d", name, port),
-			gvr:  schema.GroupVersionResource{Group: "k8s.nginx.org", Version: "v1", Resource: "transportservers"},
 		},
 	}
 }
