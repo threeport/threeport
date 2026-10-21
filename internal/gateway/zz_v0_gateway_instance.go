@@ -16,7 +16,6 @@ import (
 	runtime "github.com/threeport/threeport/internal/kubernetes-runtime"
 	workload_util "github.com/threeport/threeport/internal/kubernetes-workload/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	tpaws "github.com/threeport/threeport/pkg/aws/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	mapping "github.com/threeport/threeport/pkg/mapping/v0"
@@ -414,14 +413,8 @@ func confirmGatewayControllerDeployed(
 	// generate the certificates component for providers that install it
 	var certificates string
 	switch *infraProvider {
-	case v0.KubernetesRuntimeInfraProviderEKS:
-		clusterIdentity, identityErr := client.GetAwsEksClusterIdentityByK8sRuntimeInst(r.APIClient, r.APIServer, kubernetesRuntimeInstance.ID)
-		if identityErr != nil {
-			return fmt.Errorf("failed to get EKS cluster identity: %w", identityErr)
-		}
-		certificates, err = getCertificatesComponentYaml(tpaws.EksDns01ChallengeRoleArn(clusterIdentity.AccountId, clusterIdentity.ClusterName))
-	case v0.KubernetesRuntimeInfraProviderKind:
-		certificates, err = getCertificatesComponentYaml("")
+	case v0.KubernetesRuntimeInfraProviderEKS, v0.KubernetesRuntimeInfraProviderKind:
+		certificates, err = getCertificatesComponentYaml()
 	default:
 		break
 	}

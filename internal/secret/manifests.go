@@ -5,7 +5,6 @@ import (
 
 	runtime "github.com/threeport/threeport/internal/kubernetes-runtime"
 	mapping "github.com/threeport/threeport/pkg/mapping/v0"
-	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -70,9 +69,8 @@ func (c *SecretInstanceConfig) getSecretStore() (*unstructured.Unstructured, err
 	}, nil
 }
 
-// getExternalSecretsSupportService returns a new ExternalSecrets object
 // getExternalSecretsSupportServiceYaml returns the external-secrets component.
-func (c *SecretInstanceConfig) getExternalSecretsSupportServiceYaml(iamRoleArn string) (string, error) {
+func (c *SecretInstanceConfig) getExternalSecretsSupportServiceYaml() (string, error) {
 	// build the secrets component the v0.9 operator accepts
 	rendered, err := util.UnstructuredToYaml(
 		&unstructured.Unstructured{
@@ -97,18 +95,5 @@ func (c *SecretInstanceConfig) getExternalSecretsSupportServiceYaml(iamRoleArn s
 	if err != nil {
 		return "", err
 	}
-	if iamRoleArn == "" {
-		return rendered, nil
-	}
-
-	// annotate the external-secrets account with the role the operator cannot set
-	account, err := installer.IrsaServiceAccountYaml(
-		installer.SecretsManagerServiceAccountName,
-		installer.SecretsManagerServiceAccountNamespace,
-		iamRoleArn,
-	)
-	if err != nil {
-		return "", err
-	}
-	return account + "\n---\n" + rendered, nil
+	return rendered, nil
 }

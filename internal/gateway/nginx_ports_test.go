@@ -2,7 +2,6 @@ package gateway
 
 import (
 	"net/http"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -102,25 +101,7 @@ func TestTcpControllerYamlEnablesTransportServers(t *testing.T) {
 	require.Contains(t, string(assets.TransportServer), "ingressClassName: nginx-tcp")
 }
 
-// TestGetCertificatesComponentYamlAnnotatesRole covers the cert-manager account.
-func TestGetCertificatesComponentYamlAnnotatesRole(t *testing.T) {
-	// omit the account when the runtime has no role
-	plain, err := getCertificatesComponentYaml("")
-	require.NoError(t, err)
-	require.NotContains(t, plain, "eks.amazonaws.com/role-arn")
-
-	// emit the cert-manager account before the component
-	annotated, err := getCertificatesComponentYaml("arn:aws:iam::123:role/dns01")
-	require.NoError(t, err)
-	require.Contains(t, annotated, "eks.amazonaws.com/role-arn: arn:aws:iam::123:role/dns01")
-	require.Contains(t, annotated, "name: cert-manager")
-	require.Contains(t, annotated, "namespace: nukleros-certs-system")
-	account := strings.Index(annotated, "kind: ServiceAccount")
-	component := strings.Index(annotated, "kind: CertificatesComponent")
-	require.GreaterOrEqual(t, account, 0)
-	require.Greater(t, component, account)
-}
-
+// TestGetIngressesYamlDistinctPaths covers two paths on one host.
 func TestGetIngressesYamlDistinctPaths(t *testing.T) {
 	// return two paths for one host
 	api := machinetest.NewAPIStub(t)
@@ -149,25 +130,4 @@ func TestTcpControllerUsesContainerPort(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, string(rendered), "containerPort: 5432")
 	require.NotContains(t, string(rendered), "targetPort")
-}
-
-func TestCertificatesAccountKeepsOperatorNamespace(t *testing.T) {
-	// the DNS-01 account stays in the cert-manager namespace
-	rendered, err := getCertificatesComponentYaml("arn:aws:iam::123:role/dns01")
-	require.NoError(t, err)
-	var account []byte
-	for _, doc := range strings.Split(rendered, "---") {
-		if strings.Contains(doc, "kind: ServiceAccount") {
-			account = []byte(doc)
-		}
-	}
-	require.NotEmpty(t, account)
-	object, err := util.UnstructuredFromYaml(account)
-	require.NoError(t, err)
-	raw, err := object.MarshalJSON()
-	require.NoError(t, err)
-	updated, err := util.UpdateNamespace(raw, "workload-1")
-	require.NoError(t, err)
-	require.Contains(t, string(updated), "nukleros-certs-system")
-	require.NotContains(t, string(updated), "workload-1")
 }

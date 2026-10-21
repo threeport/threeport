@@ -145,10 +145,7 @@ func CreateWorkloadResource(
 	kubeClient dynamic.Interface,
 	mapper meta.RESTMapper,
 ) (*unstructured.Unstructured, error) {
-	// hand an EKS operator account to the provider path
-	if role, ok := irsaRole(kubeObject); ok {
-		return createEksAccount(kubeObject, role, kubeClient, mapper)
-	}
+	// create the kubernetes object
 	return CreateResource(kubeObject, kubeClient, mapper)
 }
 

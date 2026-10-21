@@ -10,7 +10,6 @@ import (
 
 	workloadutil "github.com/threeport/threeport/internal/kubernetes-workload/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	tpaws "github.com/threeport/threeport/pkg/aws/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -396,25 +395,8 @@ func (c *SecretInstanceConfig) confirmSecretControllerDeployed() error {
 	var externalSecretsYaml string
 	var err error
 	switch *c.kubernetesRuntimeDefinition.InfraProvider {
-	case v0.KubernetesRuntimeInfraProviderEKS:
-		clusterIdentity, err := client.GetAwsEksClusterIdentityByK8sRuntimeInst(
-			c.r.APIClient,
-			c.r.APIServer,
-			c.kubernetesRuntimeInstance.ID,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to get EKS cluster identity: %w", err)
-		}
-
-		externalSecretsYaml, err = c.getExternalSecretsSupportServiceYaml(
-			tpaws.EksSecretsManagerRoleArn(clusterIdentity.AccountId, clusterIdentity.ClusterName),
-		)
-		if err != nil {
-			return fmt.Errorf("failed to create external secrets: %w", err)
-		}
-
-	case v0.KubernetesRuntimeInfraProviderKind:
-		externalSecretsYaml, err = c.getExternalSecretsSupportServiceYaml("")
+	case v0.KubernetesRuntimeInfraProviderEKS, v0.KubernetesRuntimeInfraProviderKind:
+		externalSecretsYaml, err = c.getExternalSecretsSupportServiceYaml()
 		if err != nil {
 			return fmt.Errorf("failed to create external secrets: %w", err)
 		}

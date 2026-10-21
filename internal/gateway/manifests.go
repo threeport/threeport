@@ -412,8 +412,8 @@ func getExternalDnsYaml(
 	return util.UnstructuredToYaml(component)
 }
 
-// getCertificatesComponentYaml creates the cert-manager component.
-func getCertificatesComponentYaml(roleArn string) (string, error) {
+// getCertificatesComponentYaml returns the certificates component.
+func getCertificatesComponentYaml() (string, error) {
 	// decode the embedded component
 	component, err := util.UnstructuredFromYaml(assets.Certificates)
 	if err != nil {
@@ -429,24 +429,7 @@ func getCertificatesComponentYaml(roleArn string) (string, error) {
 	); err != nil {
 		return "", fmt.Errorf("failed to set the certificates component name: %w", err)
 	}
-	rendered, err := util.UnstructuredToYaml(component)
-	if err != nil {
-		return "", err
-	}
-	if roleArn == "" {
-		return rendered, nil
-	}
-
-	// emit the cert-manager account before the component
-	account, err := installer.IrsaServiceAccountYaml(
-		installer.DNS01ChallengeServiceAccountName,
-		installer.DNS01ChallengeServiceAccountNamepace,
-		roleArn,
-	)
-	if err != nil {
-		return "", err
-	}
-	return account + "\n---\n" + rendered, nil
+	return util.UnstructuredToYaml(component)
 }
 
 // getCleanedDomain returns a cleaned domain.
