@@ -89,6 +89,15 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		Id("tpApiCertSecretName").Op("=").Lit("threeport-api-client-cert"),
 	)
 
+	f.Comment("apiServerPodLabels returns the labels of the module API server's pods,")
+	f.Comment("which the control plane's database admits.")
+	f.Func().Id("apiServerPodLabels").Params().Map(String()).String().Block(
+		Return(Map(String()).String().Values(Dict{
+			Lit("app.kubernetes.io/name"): Id("apiServerName"),
+		})),
+	)
+	f.Line()
+
 	f.Comment("Installer contains the values needed for a module installation.")
 	f.Type().Id("Installer").Struct(
 		Comment("dynamice interface client for Kubernetes API"),
@@ -178,13 +187,6 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		Id("i").Op("*").Id("Installer"),
 	).Id(installFuncName).Params().Error().BlockFunc(func(g *Group) {
 		g.Comment("create namespace")
-		g.Comment("")
-		g.Comment("The label is what the control plane's database network")
-		g.Comment("policy admits on the SQL port. A module keeps its own")
-		g.Comment("database inside the control plane's CockroachDB and")
-		g.Comment("connects to it directly - db-init, the database-migrator")
-		g.Comment("and this module's API server all do - so without it the")
-		g.Comment("module installs and then cannot reach its own data.")
 		g.Var().Id("namespace").Op("=").Op("&").Qual(
 			"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured",
 			"Unstructured",
@@ -193,10 +195,7 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				Lit("apiVersion"): Lit("v1"),
 				Lit("kind"):       Lit("Namespace"),
 				Lit("metadata"): Map(String()).Interface().Values(Dict{
-					Lit("name"): Id("i.ModuleNamespace"),
-					Lit("labels"): Map(String()).Interface().Values(Dict{
-						Qual("github.com/threeport/threeport/pkg/threeport-installer/v0", "LabelModule"): Qual("github.com/threeport/threeport/pkg/threeport-installer/v0", "LabelModuleValue"),
-					}),
+					Line().Lit("name"): Id("i.ModuleNamespace").Op(",").Line(),
 				}),
 			}).Op(",").Line(),
 		})
@@ -216,6 +215,28 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					"failed to create/update %s module namespace: %%w",
 					moduleNameKebab,
 				)),
+				Err(),
+			)),
+		)
+		g.Line()
+
+		g.Comment("admit this module's API server, from this namespace only, to the")
+		g.Comment("control plane's database: its db-init and database-migrator init")
+		g.Comment("containers and the API server itself connect to it directly")
+		g.If(Err().Op(":=").Qual(
+			"github.com/threeport/threeport/pkg/threeport-installer/v0",
+			"InstallModuleDatabasePolicy",
+		).Call(
+			Line().Id("i.KubeClient"),
+			Line().Op("*").Id("i.KubeRestMapper"),
+			Line().Id("i").Dot("ThreeportNamespace"),
+			Line().Id("i").Dot("ModuleNamespace"),
+			Line().Id("apiServerName"),
+			Line().Id("apiServerPodLabels").Call(),
+			Line(),
+		).Op(";").Err().Op("!=").Nil()).Block(
+			Return(Qual("fmt", "Errorf").Call(
+				Lit("failed to install the module's database network policy: %w"),
 				Err(),
 			)),
 		)

@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	networkpolicytest "github.com/threeport/threeport/pkg/networkpolicytest/v0"
 )
 
 func testInstaller(controlPlaneName string, controllers ...string) *ControlPlaneInstaller {
@@ -43,9 +44,6 @@ var (
 	supportStack   = map[string]string{"control-plane": "controller-manager"}
 	maintenanceJob = map[string]string{LabelMaintenance: "true"}
 	modulePod      = map[string]string{"app.kubernetes.io/name": "threeport-test-api-server"}
-
-	moduleNamespace     = map[string]string{LabelModule: LabelModuleValue}
-	unlabelledNamespace = map[string]string{"kubernetes.io/metadata.name": "someone-elses"}
 )
 
 // selectorMatches reports whether a pod selector matches a pod's labels.
@@ -128,47 +126,6 @@ func admits(t *testing.T, policy *unstructured.Unstructured, pod map[string]stri
 	return false
 }
 
-// admitsNamespace reports whether the policy lets a pod in a namespace
-// carrying these labels open a connection on a port.
-//
-// This is a separate question from admits: a peer naming a namespaceSelector
-// and no podSelector admits every pod in a matching namespace, wherever it
-// runs, while a peer naming only a podSelector admits pods of this namespace.
-// Reading one as the other is how a cross-namespace rule looks correct and
-// is not.
-func admitsNamespace(t *testing.T, policy *unstructured.Unstructured, namespace map[string]string, port int) bool {
-	t.Helper()
-	rules, _, err := unstructured.NestedSlice(policy.Object, "spec", "ingress")
-	require.NoError(t, err)
-
-	for _, rawRule := range rules {
-		rule := rawRule.(map[string]interface{})
-		if !ruleCoversPort(t, rule, port) {
-			continue
-		}
-
-		peers, _, err := unstructured.NestedSlice(rule, "from")
-		require.NoError(t, err)
-		for _, rawPeer := range peers {
-			peer := rawPeer.(map[string]interface{})
-			selector, found, err := unstructured.NestedMap(peer, "namespaceSelector")
-			require.NoError(t, err)
-			if !found || !selectorMatches(t, selector, namespace) {
-				continue
-			}
-			// a podSelector alongside it narrows the namespace to some of its
-			// pods, which is not what this asks about
-			if _, hasPods, err := unstructured.NestedMap(peer, "podSelector"); err == nil && hasPods {
-				continue
-			}
-
-			return true
-		}
-	}
-
-	return false
-}
-
 // TestOnlyTheApiServerReachesTheDatabase covers the restriction this exists
 // for.
 //
@@ -209,39 +166,49 @@ func TestOnlyTheApiServerReachesTheDatabase(t *testing.T) {
 	)
 }
 
-// TestAModuleReachesTheDatabaseFromItsOwnNamespace covers the exception that
-// three attempts at this policy broke.
+// TestTheDatabasePolicyAdmitsNoOtherNamespace covers what the module
+// policies rely on.
 //
-// A module keeps its own database inside the control plane's CockroachDB and
-// connects to it directly - db-init, the database-migrator and the module's
-// API server all do - and lander2k2 confirmed on #617 that this is intended
-// rather than something to route through the API server. A module installs
-// into a namespace of its own, so the namespace is what the policy admits.
-func TestAModuleReachesTheDatabaseFromItsOwnNamespace(t *testing.T) {
+// A module is admitted by a policy of its own, which matches its namespace
+// by the name the Kubernetes API server keeps and its API server's pods by
+// their labels. Policies selecting the same pods add up, so a rule here
+// admitting a namespace by a label of threeport's own would let in any
+// namespace labelled that way, whatever the module policies say - and
+// anything allowed to patch a namespace can label one.
+func TestTheDatabasePolicyAdmitsNoOtherNamespace(t *testing.T) {
 	policy := testInstaller("dev-0", "kubernetes-workload").databasePolicy()
 
-	assert.True(
-		t, admitsNamespace(t, policy, moduleNamespace, cockroachSqlPort),
-		"a module that cannot reach the database installs and then fails, which is what this policy did three times",
-	)
-	assert.False(
-		t, admitsNamespace(t, policy, unlabelledNamespace, cockroachSqlPort),
-		"admitting any namespace would leave the database open to the whole cluster, which is what the issue was about",
-	)
-	assert.False(
-		t, admitsNamespace(t, policy, moduleNamespace, cockroachConsolePort),
-		"a module has no business on the console, and the narrower rule costs nothing",
-	)
+	for name, peer := range map[string]networkpolicytest.Peer{
+		"a module's API server": {
+			Namespace: "threeport-test",
+			PodLabels: modulePod,
+		},
+		"a pod of a namespace labelled as a module's": {
+			Namespace:       "someone-elses",
+			NamespaceLabels: map[string]string{"threeport.io/module": "true"},
+			PodLabels:       modulePod,
+		},
+		"a pod of another namespace carrying the API server's labels": {
+			Namespace: "someone-elses",
+			PodLabels: apiServerPod,
+		},
+	} {
+		admitted, err := networkpolicytest.Admits(policy, peer, cockroachSqlPort)
+		require.NoError(t, err)
+		assert.False(t, admitted, "%s must be admitted by its own module policy, not this one", name)
+	}
 }
 
-// TestTheLabelTheSdkWritesIsTheOneThePolicyAdmits covers the half of this
-// that lives in another repository.
+// TestTheSdkInstallsTheModuleDatabasePolicy covers the half of this that
+// lives in another repository.
 //
-// The generator stamps the label onto the namespace it creates for a module,
-// and the policy admits that label. They are written in different packages and
-// nothing but this ties them together: a rename on either side compiles, and
-// the module installs and then cannot reach its own data.
-func TestTheLabelTheSdkWritesIsTheOneThePolicyAdmits(t *testing.T) {
+// The generated module installer creates the module's database policy, and
+// nothing else admits a module to the database. They are written in
+// different packages and nothing but this ties them together: a rename here
+// compiles until a module is generated, and a generator that stopped calling
+// it compiles too, and the module installs and then cannot reach its own
+// data.
+func TestTheSdkInstallsTheModuleDatabasePolicy(t *testing.T) {
 	generator, err := parser.ParseFile(
 		token.NewFileSet(),
 		"../../sdk/v0/gen/pkg/installer/installer.go",
@@ -251,8 +218,9 @@ func TestTheLabelTheSdkWritesIsTheOneThePolicyAdmits(t *testing.T) {
 	require.NoError(t, err)
 
 	// the generator emits code rather than running it, so the reference is a
-	// Qual("<this package>", "LabelModule") naming the constant by string
-	var writesLabel bool
+	// Qual("<this package>", "InstallModuleDatabasePolicy") naming the
+	// function by string
+	var installsPolicy bool
 	ast.Inspect(generator, func(node ast.Node) bool {
 		call, ok := node.(*ast.CallExpr)
 		if !ok || len(call.Args) != 2 {
@@ -266,16 +234,16 @@ func TestTheLabelTheSdkWritesIsTheOneThePolicyAdmits(t *testing.T) {
 		name, nameOk := stringLit(call.Args[1])
 		if pkgOk && nameOk &&
 			strings.HasSuffix(pkg, "pkg/threeport-installer/v0") &&
-			name == "LabelModule" {
-			writesLabel = true
+			name == "InstallModuleDatabasePolicy" {
+			installsPolicy = true
 		}
 
 		return true
 	})
 
 	assert.True(
-		t, writesLabel,
-		"the SDK no longer writes LabelModule onto the module namespace, so every module generated "+
+		t, installsPolicy,
+		"the SDK no longer installs the module's database policy, so every module generated "+
 			"from it installs and then cannot reach its own database",
 	)
 }
