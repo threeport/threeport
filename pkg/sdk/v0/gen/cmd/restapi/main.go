@@ -16,6 +16,11 @@ import (
 )
 
 // GenRestApiMain generates source code for the REST API main package.
+
+// messageBrokerPath is the package the API server connects to the message
+// broker with.
+const messageBrokerPath = "github.com/threeport/threeport/pkg/messagebroker/v0"
+
 func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	// get project version
 	projectVersionBytes, err := os.ReadFile("internal/version/version.txt")
@@ -136,6 +141,7 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 	}
 	f.ImportAlias("github.com/labstack/echo/v4", "echo")
+	f.ImportAlias(messageBrokerPath, "messagebroker")
 	f.ImportAlias("github.com/go-playground/validator/v10", "validator")
 	f.ImportAlias("log", "stdlog")
 	f.ImportAlias(util.SetImportAlias(
@@ -532,19 +538,17 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			g.Line()
 		}
 
-		g.Comment("nats connection")
-		g.Id("natsConn").Op(":=").Qual("fmt", "Sprintf").Call(
-			Line().Lit("nats://%s:%s@%s:%s"),
-			Line().Qual("os", "Getenv").Call(Lit("NATS_USER")),
-			Line().Qual("os", "Getenv").Call(Lit("NATS_PASSWORD")),
-			Line().Qual("os", "Getenv").Call(Lit("NATS_HOST")),
-			Line().Qual("os", "Getenv").Call(Lit("NATS_PORT")),
-			Line(),
+		g.Comment("nats connection, over TLS with the API server's credentials, which go")
+		g.Comment("apart from the URL so they never reach a log line")
+		g.List(Id("nc"), Err()).Op(":=").Qual(messageBrokerPath, "Connect").Call(
+			Qual(messageBrokerPath, "Config").Values(Dict{
+				Id("Host"):     Qual("os", "Getenv").Call(Lit("NATS_HOST")),
+				Id("Port"):     Qual("os", "Getenv").Call(Lit("NATS_PORT")),
+				Id("User"):     Qual("os", "Getenv").Call(Lit("NATS_USER")),
+				Id("Password"): Qual("os", "Getenv").Call(Lit("NATS_PASSWORD")),
+				Id("CAFile"):   Qual("os", "Getenv").Call(Lit("NATS_CA_FILE")),
+			}),
 		)
-		g.List(Id("nc"), Err()).Op(":=").Qual(
-			"github.com/nats-io/nats.go",
-			"Connect",
-		).Call(Id("natsConn"))
 		g.If(Err().Op("!=").Nil()).Block(
 			Id("e").Dot("Logger").Dot("Fatalf").Call(
 				Lit("failed to establish nats connection: %v"), Err(),

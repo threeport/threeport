@@ -17,6 +17,7 @@ import (
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	encryption "github.com/threeport/threeport/pkg/encryption/v0"
 	event "github.com/threeport/threeport/pkg/event/v0"
+	messagebroker "github.com/threeport/threeport/pkg/messagebroker/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	zap "go.uber.org/zap"
 	"net/http"
@@ -39,6 +40,7 @@ func main() {
 	var msgBrokerPort = flag.String("msg-broker-port", "", "Threeport message broker port")
 	var msgBrokerUser = flag.String("msg-broker-user", "", "Threeport message broker user")
 	var msgBrokerPassword = flag.String("msg-broker-password", "", "Threeport message broker user password")
+	var msgBrokerCAFile = flag.String("msg-broker-ca-file", "", "Path of the certificate of the CA that signed the message broker's certificate; when set, the connection uses TLS")
 	var shutdownPort = flag.String("shutdown-port", "8181", "Port to listen for shutdown calls")
 	var verbose = flag.Bool("verbose", false, "Write logs with v(1).InfoLevel and above")
 	var help = flag.Bool("help", false, "Show help info")
@@ -77,25 +79,17 @@ func main() {
 	// wait for API server to be reachable before proceeding
 	util.WaitForAPI(*apiServer, log)
 
-	// connect to NATS server
-	natsConn := fmt.Sprintf(
-		"nats://%s:%s@%s:%s",
-		*msgBrokerUser,
-		*msgBrokerPassword,
-		*msgBrokerHost,
-		*msgBrokerPort,
-	)
-
-	// the broker address without the credentials, for logging. The
-	// connection string carries the broker password, and a controller's
-	// container logs are readable by anyone who can read pods in the
-	// control plane namespace.
-	natsEndpoint := fmt.Sprintf(
-		"%s:%s",
-		*msgBrokerHost,
-		*msgBrokerPort,
-	)
-	nc, err := natsgo.Connect(natsConn)
+	// connect to NATS server over TLS with the controller's credentials,
+	// which go apart from the URL so they never reach a log line
+	brokerConfig := messagebroker.Config{
+		CAFile:   *msgBrokerCAFile,
+		Host:     *msgBrokerHost,
+		Password: *msgBrokerPassword,
+		Port:     *msgBrokerPort,
+		User:     *msgBrokerUser,
+	}
+	natsEndpoint := brokerConfig.URL()
+	nc, err := messagebroker.Connect(brokerConfig)
 	if err != nil {
 		log.Error(err, "failed to connect to NATS message broker", "NATSEndpoint", natsEndpoint)
 		os.Exit(1)
