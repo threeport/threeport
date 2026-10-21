@@ -53,11 +53,15 @@ func TestAModuleConnectsToTheMessageBrokerOverTLS(t *testing.T) {
 	source := generateInstaller(t)
 
 	for _, secret := range []string{"controller-config", installer.ThreeportApiConfigSecret, installer.NatsCACertSecretName} {
-		assert.Contains(t, source, `copySecret(
+		assert.Contains(t, source, `tp_installer.CopySecret(
 		i.KubeClient,
 		*i.KubeRestMapper,
 		"`+secret+`",`, "secret %s is not copied into the module's namespace", secret)
 	}
+
+	// the installer's copy refreshes a module's existing copies, which hold
+	// the broker's settings from before it required TLS
+	assert.NotContains(t, source, "func copySecret(")
 
 	assert.Contains(t, source, "tpAuthVolumes = append(tpAuthVolumes, tp_installer.NatsClientCAVolume())")
 	assert.Contains(t, source, "tpAuthVolumeMounts = append(tpAuthVolumeMounts, tp_installer.NatsClientCAVolumeMount())")

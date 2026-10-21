@@ -221,7 +221,10 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			installer.NatsCACertSecretName,
 		}
 		for _, secretName := range copySecrets {
-			g.If(Err().Op(":=").Id("copySecret").Call(
+			g.If(Err().Op(":=").Qual(
+				"github.com/threeport/threeport/pkg/threeport-installer/v0",
+				"CopySecret",
+			).Call(
 				Line().Id("i.KubeClient"),
 				Line().Op("*").Id("i.KubeRestMapper"),
 				Line().Lit(secretName),
@@ -977,105 +980,6 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 		g.Return(Nil())
 	})
 	f.Line()
-
-	f.Comment("copySecret copies a secret from one namespace to another.  The function")
-	f.Comment("returns without error if the secret already exists in the target namespace.")
-	f.Func().Id("copySecret").Params(
-		Line().Id("dynamicClient").Qual("k8s.io/client-go/dynamic", "Interface"),
-		Line().Id("restMapper").Qual("k8s.io/apimachinery/pkg/api/meta", "RESTMapper"),
-		Line().Id("secretName").String(),
-		Line().Id("sourceNamespace").String(),
-		Line().Id("targetNamespace").String(),
-		Line(),
-	).Params(
-		Error(),
-	).Block(
-		Id("secretGVR").Op(":=").Qual("k8s.io/apimachinery/pkg/runtime/schema", "GroupVersionResource").Values(Dict{
-			Id("Group"):    Lit(""),
-			Id("Version"):  Lit("v1"),
-			Id("Resource"): Lit("secrets"),
-		}),
-		Id("secretGK").Op(":=").Qual("k8s.io/apimachinery/pkg/runtime/schema", "GroupKind").Values(Dict{
-			Id("Group"): Lit(""),
-			Id("Kind"):  Lit("Secret"),
-		}),
-		Line(),
-
-		List(Id("mapping"), Err()).Op(":=").Id("restMapper").Dot("RESTMapping").Call(
-			Id("secretGK"),
-			Id("secretGVR").Dot("Version"),
-		),
-		If(Err().Op("!=").Nil()).Block(
-			Return(Qual("fmt", "Errorf").Call(Lit("failed to get RESTMapping for Secret resource: %w"), Err())),
-		),
-		Line(),
-
-		Id("targetSecretResource").Op(":=").Id("dynamicClient").Dot("Resource").Call(
-			Id("mapping").Dot("Resource"),
-		).Dot("Namespace").Call(Id("targetNamespace")),
-		List(Id("_"), Err()).Op("=").Id("targetSecretResource").Dot("Get").Call(
-			Qual("context", "TODO").Call(),
-			Id("secretName"),
-			Qual("k8s.io/apimachinery/pkg/apis/meta/v1",
-				"GetOptions").Values(),
-		),
-		If(Err().Op("==").Nil()).Block(
-			Comment("secret already exists, return nil"),
-			Return(Nil()),
-		).Else().If(Op("!").Qual("k8s.io/apimachinery/pkg/api/errors", "IsNotFound").Call(Err())).Block(
-			Return(Qual("fmt", "Errorf").Call(
-				Line().Lit("failed to check if Secret '%s' exists in namespace '%s': %w"),
-				Line().Id("secretName"),
-				Line().Id("targetNamespace"),
-				Line().Err(),
-				Line(),
-			)),
-		),
-		Line(),
-
-		Id("secretResource").Op(":=").Id("dynamicClient").Dot("Resource").Call(
-			Id("mapping").Dot("Resource"),
-		).Dot("Namespace").Call(Id("sourceNamespace")),
-		List(Id("secret"), Err()).Op(":=").Id("secretResource").Dot("Get").Call(
-			Qual("context", "TODO").Call(),
-			Id("secretName"),
-			Qual("k8s.io/apimachinery/pkg/apis/meta/v1", "GetOptions").Values(),
-		),
-		If(Err().Op("!=").Nil()).Block(
-			Return(Qual("fmt", "Errorf").Call(
-				Line().Lit("failed to get Secret '%s' from namespace '%s': %w"),
-				Line().Id("secretName"),
-				Line().Id("sourceNamespace"),
-				Line().Err(),
-				Line(),
-			)),
-		),
-		Line(),
-
-		Id("secret").Dot("SetNamespace").Call(Id("targetNamespace")),
-		Id("secret").Dot("SetResourceVersion").Call(Lit("")),
-		Id("secret").Dot("SetUID").Call(Lit("")),
-		Id("secret").Dot("SetSelfLink").Call(Lit("")),
-		Id("secret").Dot("SetCreationTimestamp").Call(Qual("k8s.io/apimachinery/pkg/apis/meta/v1", "Time").Values()),
-		Id("secret").Dot("SetManagedFields").Call(Nil()),
-		Line(),
-
-		List(Id("_"), Err()).Op("=").Id("targetSecretResource").Dot("Create").Call(
-			Qual("context", "TODO").Call(),
-			Id("secret"),
-			Qual("k8s.io/apimachinery/pkg/apis/meta/v1", "CreateOptions").Values(),
-		),
-		If(Err().Op("!=").Nil()).Block(
-			Return(Qual("fmt", "Errorf").Call(
-				Lit("failed to create/update Secret in namespace '%s': %w"),
-				Id("targetNamespace"),
-				Err(),
-			)),
-		),
-		Line(),
-
-		Return(Nil()),
-	)
 
 	f.Comment("getApiCa gets the Threeport API CA cert secret from the Kubernetes cluster")
 	f.Comment("and returns the base 64 decoded string value for the CA cert and key.")
