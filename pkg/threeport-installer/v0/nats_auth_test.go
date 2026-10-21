@@ -594,41 +594,92 @@ func TestTheDropJobConnectsToTheBrokerItFinds(t *testing.T) {
 	_, found, _ := unstructured.NestedBool(NatsClientCAVolume(), "secret", "optional")
 	assert.False(t, found, "the clients' CA volume must stay required")
 
-	// a fake nats CLI that records how it was asked to connect, and fails
-	// over TLS when the broker it plays does not serve TLS
+	// a fake nats CLI that records how it was asked to connect, and plays a
+	// broker that serves TLS, or not, as BROKER_TLS says: a broker that does
+	// refuses a plain connection, and one that does not refuses TLS.  It
+	// refuses as many TLS connections as TLS_FAILURES holds first, and fails
+	// to list the streams when LIST_FAILS is set.
 	bin := t.TempDir()
-	log := filepath.Join(t.TempDir(), "nats.log")
+	scratch := t.TempDir()
+	log := filepath.Join(scratch, "nats.log")
+	tlsFailures := filepath.Join(scratch, "tls-failures")
 	require.NoError(t, os.WriteFile(filepath.Join(bin, "nats"), []byte(`#!/bin/sh
 echo "$NATS_URL user=$NATS_USER $*" >> "$NATS_LOG"
-case "$NATS_URL" in tls://*) [ "$BROKER_TLS" = yes ] || exit 1 ;; esac
-[ "$1 $2" = "stream ls" ] && echo stream-a
+case "$NATS_URL" in
+tls://*)
+  [ "$BROKER_TLS" = yes ] || exit 1
+  left=$(cat "$TLS_FAILURES")
+  if [ "$left" -gt 0 ]; then
+    echo $((left - 1)) > "$TLS_FAILURES"
+    exit 1
+  fi
+  ;;
+*)
+  [ "$BROKER_TLS" = yes ] && exit 1
+  ;;
+esac
+if [ "$1 $2" = "stream ls" ]; then
+  [ -n "$LIST_FAILS" ] && exit 1
+  echo stream-a
+fi
 exit 0
 `), 0700))
+	// the job's waits between attempts are skipped
+	require.NoError(t, os.WriteFile(filepath.Join(bin, "sleep"), []byte("#!/bin/sh\nexit 0\n"), 0700))
 
-	run := func(env ...string) string {
+	run := func(failures string, env ...string) (string, error) {
 		require.NoError(t, os.WriteFile(log, nil, 0600))
-		cmd := exec.Command("/bin/sh", "-c", natsDropJobConnect+"set -e; for stream in $(nats stream ls --names); do nats stream rm \"$stream\" --force; done")
-		cmd.Env = append([]string{"PATH=" + bin + ":/usr/bin:/bin", "NATS_LOG=" + log, "NATS_URL=tls://nats-js:4222"}, env...)
+		require.NoError(t, os.WriteFile(tlsFailures, []byte(failures), 0600))
+		cmd := exec.Command("/bin/sh", "-c", natsDropJobScript)
+		cmd.Env = append([]string{
+			"PATH=" + bin + ":/usr/bin:/bin",
+			"NATS_LOG=" + log,
+			"TLS_FAILURES=" + tlsFailures,
+			"NATS_URL=tls://nats-js:4222",
+		}, env...)
 		out, err := cmd.CombinedOutput()
-		require.NoError(t, err, string(out))
-		calls, err := os.ReadFile(log)
-		require.NoError(t, err)
-		return string(calls)
+		calls, readErr := os.ReadFile(log)
+		require.NoError(t, readErr)
+
+		return string(calls) + string(out), err
 	}
+	credentials := []string{"NATS_USER=threeport", "NATS_PASSWORD=tpSecret"}
 
 	// a broker that requires TLS is reached over TLS with the credentials
-	calls := run("BROKER_TLS=yes", "NATS_USER=threeport", "NATS_PASSWORD=tpSecret")
+	calls, err := run("0", append(credentials, "BROKER_TLS=yes")...)
+	require.NoError(t, err, calls)
 	assert.Contains(t, calls, "tls://nats-js:4222 user=threeport stream rm stream-a --force")
-	assert.NotContains(t, calls, "nats://")
+	assert.NotContains(t, calls, "nats://nats-js:4222 user= stream")
+
+	// a broker that requires TLS but refuses the first connections, as while
+	// it restarts, is still reached over TLS
+	calls, err = run("3", append(credentials, "BROKER_TLS=yes")...)
+	require.NoError(t, err, calls)
+	assert.Contains(t, calls, "tls://nats-js:4222 user=threeport stream rm stream-a --force")
+	assert.NotContains(t, calls, "without TLS")
 
 	// a broker from before TLS, which has no credentials secret
-	calls = run()
+	calls, err = run("0")
+	require.NoError(t, err, calls)
 	assert.Contains(t, calls, "nats://nats-js:4222 user= stream rm stream-a --force")
 	assert.NotContains(t, calls, "tls://")
 
 	// a broker that has credentials but has not rolled onto TLS yet
-	calls = run("BROKER_TLS=no", "NATS_USER=threeport", "NATS_PASSWORD=tpSecret")
+	calls, err = run("0", append(credentials, "BROKER_TLS=no")...)
+	require.NoError(t, err, calls)
 	assert.Contains(t, calls, "nats://nats-js:4222 user= stream rm stream-a --force")
+
+	// a broker reached neither way fails the job, without removing anything
+	calls, err = run("100", append(credentials, "BROKER_TLS=yes")...)
+	assert.Error(t, err, calls)
+	assert.Contains(t, calls, "failed to connect to the message broker")
+	assert.Equal(t, 10, strings.Count(calls, "tls://nats-js:4222 user=threeport account info"), calls)
+	assert.NotContains(t, calls, "stream")
+
+	// a failed listing of the streams fails the job too
+	calls, err = run("0", append(credentials, "BROKER_TLS=yes", "LIST_FAILS=yes")...)
+	assert.Error(t, err, calls)
+	assert.NotContains(t, calls, "stream rm")
 }
 
 // natsTestTimeout keeps a refused connection from waiting long.

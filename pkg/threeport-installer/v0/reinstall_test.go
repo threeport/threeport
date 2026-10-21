@@ -404,8 +404,8 @@ func TestDropMessageBrokerStateRemovesEveryStreamOnDevelopmentControlPlane(t *te
 	}
 
 	// assert the job connects as the broker requires, over TLS when it can
-	if !strings.HasPrefix(script, natsDropJobConnect) {
-		t.Errorf("expected the drop script to start by choosing how to connect, got %q", script)
+	if script != natsDropJobScript {
+		t.Errorf("expected the drop job to run the drop script, got %q", script)
 	}
 	podSpec := testPodSpec(t, createdJob)
 	assertMountsSecret(t, podSpec, "drop-message-broker", NatsCACertSecretName, NatsClientCAPath)

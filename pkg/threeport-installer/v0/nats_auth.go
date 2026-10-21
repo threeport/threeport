@@ -524,13 +524,35 @@ func natsDropJobCAVolume() map[string]interface{} {
 	return volume
 }
 
-// natsDropJobConnect is the drop job's shell prelude, which falls back to a
-// plain connection without credentials when the broker does not require TLS
-// yet: either the credentials secret does not exist, or a TLS connection
-// fails because the broker has not rolled onto its new config.
-const natsDropJobConnect = `if [ -z "$NATS_PASSWORD" ] || ! nats account info > /dev/null 2>&1; then
-  echo "connecting to the message broker without TLS or credentials"
-  export NATS_URL=nats://` + natsServiceName + `:4222
-  unset NATS_CA NATS_USER NATS_PASSWORD
-fi
+// natsDropJobScript is the drop job's script, which removes every stream.  It
+// connects over TLS with the credentials, and falls back to a plain
+// connection without credentials only once one succeeds, which happens only
+// on a broker that does not require TLS yet: one installed before it did,
+// whose config the install that follows the drop rolls out.  A broker it
+// reaches neither way fails the job, as does a failed listing of the
+// streams, so no stream survives a job that succeeds.  It tries to connect
+// ten times, three seconds apart, which covers the broker's restart.
+const natsDropJobScript = `set -e
+attempt=1
+while :; do
+  if [ -n "$NATS_PASSWORD" ] && nats account info > /dev/null 2>&1; then
+    break
+  fi
+  if (unset NATS_CA NATS_USER NATS_PASSWORD; NATS_URL=nats://` + natsServiceName + `:4222 nats account info > /dev/null 2>&1); then
+    echo "connecting to the message broker without TLS or credentials"
+    export NATS_URL=nats://` + natsServiceName + `:4222
+    unset NATS_CA NATS_USER NATS_PASSWORD
+    break
+  fi
+  if [ "$attempt" -ge 10 ]; then
+    echo "failed to connect to the message broker"
+    exit 1
+  fi
+  attempt=$((attempt + 1))
+  sleep 3
+done
+streams=$(nats stream ls --names)
+for stream in $streams; do
+  nats stream rm "$stream" --force
+done
 `
