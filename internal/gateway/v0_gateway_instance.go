@@ -217,7 +217,7 @@ func v0GatewayInstanceDeleted(
 			return 0, fmt.Errorf("failed to configure gateway objects for delete: %w", err)
 		}
 
-		// the service cannot be read, so match stored rows to the definition identities
+		// the service cannot be read, so match threeport instances to the definition identities
 		owned, err = ownedGatewayResources(r, gatewayDefinition, workloadResourceInstances)
 		if err != nil {
 			return 0, err

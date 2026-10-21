@@ -155,7 +155,8 @@ func serviceLookupErr(err error) error {
 	return fmt.Errorf("failed to unmarshal service kubernetes workload resource instance: %w", err)
 }
 
-// ownedGatewayResources matches stored workload resources to the gateway definition identities.
+// ownedGatewayResources matches threeport workload resource instances to the gateway definition identities.
+// Each instance is a record in the threeport API, not an object in the Kubernetes cluster.
 func ownedGatewayResources(
 	r *controller.Reconciler,
 	gatewayDefinition *v0.GatewayDefinition,
@@ -165,7 +166,7 @@ func ownedGatewayResources(
 		return nil, errors.New("kubernetes workload definition ID is nil")
 	}
 
-	// read the identities stored on the gateway definition
+	// read the threeport workload resource definitions
 	definitions, err := client.GetKubernetesWorkloadResourceDefinitionsByID(
 		r.APIClient,
 		r.APIServer,
@@ -198,7 +199,7 @@ func ownedGatewayResources(
 	return appendRenamedKind(matches, stored, definitions, "Issuer")
 }
 
-// appendRenamedKind adds one stored object when the definition has that kind.
+// appendRenamedKind adds one threeport workload resource instance when the definition has that kind.
 func appendRenamedKind(
 	matches []v0.KubernetesWorkloadResourceInstance,
 	stored *[]v0.KubernetesWorkloadResourceInstance,
@@ -223,7 +224,7 @@ func appendRenamedKind(
 		return matches, nil
 	}
 
-	// keep the one stored object of this kind
+	// keep the one threeport instance of this kind
 	var found []v0.KubernetesWorkloadResourceInstance
 	for _, resource := range *stored {
 		got, _, err := resourceKindAndName(resource.JSONDefinition)
@@ -762,7 +763,7 @@ func syncTcpController(
 	return updateControllerObject(r, object, desired.Object, changed)
 }
 
-// replaceScheduledControllerObject deletes the stored controller object and stores a new one.
+// replaceScheduledControllerObject deletes the threeport controller instance and creates a new one.
 func replaceScheduledControllerObject(
 	r *controller.Reconciler,
 	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
@@ -773,13 +774,13 @@ func replaceScheduledControllerObject(
 	label string,
 	changed *bool,
 ) error {
-	// delete the scheduled object
+	// delete the threeport instance
 	if _, err := client.DeleteKubernetesWorkloadResourceInstance(r.APIClient, r.APIServer, *object.ID); err != nil {
 		return fmt.Errorf("failed to delete scheduled %s: %w", label, err)
 	}
 	*changed = true
 
-	// store a new object
+	// create the threeport instance again
 	return createControllerObject(r, kubernetesRuntimeInstance, source, field, values, label)
 }
 

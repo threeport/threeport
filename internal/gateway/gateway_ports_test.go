@@ -344,9 +344,9 @@ func TestConfirmGatewayPortsExposedSkipsMatchingObjects(t *testing.T) {
 	require.False(t, fixture.woken)
 }
 
-// TestConfirmGatewayPortsExposedReplacesScheduledObjects stores a new controller object when the stored one is scheduled for deletion.
+// TestConfirmGatewayPortsExposedReplacesScheduledObjects covers a threeport controller instance scheduled for deletion.
 func TestConfirmGatewayPortsExposedReplacesScheduledObjects(t *testing.T) {
-	// store equal manifests, with the service and the controller scheduled for deletion
+	// save equal manifests on threeport instances, with the service and the controller scheduled for deletion
 	ports := []int{443, 5432}
 	now := time.Now()
 	fixture := &portFixture{
@@ -399,7 +399,7 @@ func TestConfirmGatewayPortsExposedReplacesScheduledObjects(t *testing.T) {
 	err := confirmGatewayPortsExposed(reconciler, gateway, runtime, nil, nil)
 	require.NoError(t, err)
 
-	// the scheduled service and controller are gone and stored again without the flag
+	// the scheduled threeport instances are deleted and created again without the flag
 	require.ElementsMatch(t, []uint{12, 13}, fixture.deletes)
 	require.Empty(t, fixture.patches)
 	require.Len(t, fixture.posts, 2)
