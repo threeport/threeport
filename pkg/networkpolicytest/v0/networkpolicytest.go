@@ -375,6 +375,12 @@ func AssertModuleDatabasePolicy(
 	assertAdmits(t, policy, Peer{Namespace: moduleNamespace, PodLabels: apiServerPodLabels}, cockroachConsolePort, false,
 		"the module's API server, on the database console's port")
 
+	// probing one other port would pass a policy opening a third, so every
+	// port each rule opens has to be the SQL port
+	for _, problem := range portsOtherThan(policy, cockroachSqlPort) {
+		t.Errorf("expected the policy to open the SQL port %d only, but %s", cockroachSqlPort, problem)
+	}
+
 	imitation := map[string]string{"threeport.io/module": "true"}
 	for key, value := range apiServerPodLabels {
 		imitation[key] = value
@@ -416,6 +422,66 @@ func AssertModuleDatabasePolicy(
 	if !owned {
 		t.Errorf("expected the policy to be owned by namespace %q, so it goes when the module's namespace does", moduleNamespace)
 	}
+}
+
+// portsOtherThan describes each way the policy's ingress rules open more
+// than one TCP port.
+func portsOtherThan(policy *unstructured.Unstructured, port int) []string {
+	rules, _, err := sliceField(policy.Object, "spec", "ingress")
+	if err != nil {
+		return []string{err.Error()}
+	}
+
+	var problems []string
+	for index, rawRule := range rules {
+		rule, ok := rawRule.(map[string]interface{})
+		if !ok {
+			problems = append(problems, fmt.Sprintf("ingress rule %d is not an object", index))
+			continue
+		}
+		ports, _, err := sliceField(rule, "ports")
+		if err != nil {
+			problems = append(problems, err.Error())
+			continue
+		}
+		if len(ports) == 0 {
+			problems = append(problems, fmt.Sprintf("ingress rule %d names no ports, so it opens every one", index))
+			continue
+		}
+		for _, rawPort := range ports {
+			rulePort, ok := rawPort.(map[string]interface{})
+			if !ok {
+				problems = append(problems, fmt.Sprintf("ingress rule %d has a port that is not an object", index))
+				continue
+			}
+			if protocol, found := rulePort["protocol"]; found && protocol != "TCP" {
+				problems = append(problems, fmt.Sprintf("ingress rule %d opens protocol %v", index, protocol))
+				continue
+			}
+			rawNumber, found := rulePort["port"]
+			if !found {
+				problems = append(problems, fmt.Sprintf("ingress rule %d opens every TCP port", index))
+				continue
+			}
+			number, err := portNumber(rawNumber)
+			if err != nil {
+				problems = append(problems, fmt.Sprintf("ingress rule %d: %s", index, err))
+				continue
+			}
+			last := number
+			if rawEnd, found := rulePort["endPort"]; found {
+				if last, err = portNumber(rawEnd); err != nil {
+					problems = append(problems, fmt.Sprintf("ingress rule %d: %s", index, err))
+					continue
+				}
+			}
+			if number != port || last != port {
+				problems = append(problems, fmt.Sprintf("ingress rule %d opens port %d to %d", index, number, last))
+			}
+		}
+	}
+
+	return problems
 }
 
 // assertSelects checks whether the policy applies to pods carrying labels.

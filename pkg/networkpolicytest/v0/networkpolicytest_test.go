@@ -246,6 +246,43 @@ func TestAssertModuleDatabasePolicyCatchesAWrongPolicy(t *testing.T) {
 			},
 			want: "console",
 		},
+		"another port opened beside the SQL port": {
+			change: func(spec, _ map[string]interface{}) {
+				rule := spec["ingress"].([]interface{})[0].(map[string]interface{})
+				rule["ports"] = append(rule["ports"].([]interface{}), map[string]interface{}{"protocol": "TCP", "port": int64(443)})
+			},
+			want: "opens port 443 to 443",
+		},
+		"a port range around the SQL port": {
+			change: func(spec, _ map[string]interface{}) {
+				rule := spec["ingress"].([]interface{})[0].(map[string]interface{})
+				rule["ports"] = []interface{}{map[string]interface{}{"protocol": "TCP", "port": int64(26000), "endPort": int64(26300)}}
+			},
+			want: "opens port 26000 to 26300",
+		},
+		"a port range starting at the SQL port": {
+			change: func(spec, _ map[string]interface{}) {
+				rule := spec["ingress"].([]interface{})[0].(map[string]interface{})
+				rule["ports"] = []interface{}{map[string]interface{}{"protocol": "TCP", "port": int64(26257), "endPort": int64(26300)}}
+			},
+			want: "opens port 26257 to 26300",
+		},
+		"a UDP port": {
+			change: func(spec, _ map[string]interface{}) {
+				rule := spec["ingress"].([]interface{})[0].(map[string]interface{})
+				rule["ports"] = append(rule["ports"].([]interface{}), map[string]interface{}{"protocol": "UDP", "port": int64(53)})
+			},
+			want: "opens protocol UDP",
+		},
+		"a second rule opening another port": {
+			change: func(spec, _ map[string]interface{}) {
+				spec["ingress"] = append(spec["ingress"].([]interface{}), rule(int64(443), map[string]interface{}{
+					"namespaceSelector": matchLabels(namespaceNameLabel, "module"),
+					"podSelector":       matchLabels("app", "api"),
+				}))
+			},
+			want: "ingress rule 1 opens port 443",
+		},
 		"the API server's pods not admitted": {
 			change: func(spec, _ map[string]interface{}) {
 				spec["ingress"] = []interface{}{}
