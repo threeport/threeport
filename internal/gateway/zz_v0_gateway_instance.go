@@ -464,8 +464,8 @@ func confirmGatewayControllerDeployed(
 	return nil
 }
 
-// confirmGatewayPortsExposed confirms whether the gateway controller has
-// exposed the requested ports
+// confirmGatewayPortsExposed writes the runtime tcp listeners onto the shared
+// global configuration.
 func confirmGatewayPortsExposed(
 	r *controller.Reconciler,
 	gatewayInstance *v0.GatewayInstance,
@@ -496,11 +496,6 @@ func confirmGatewayPortsExposed(
 		return fmt.Errorf("failed to list tcp ports for runtime: %w", err)
 	}
 	listeners := tcpListeners(ports)
-	servicePorts := tcpServicePorts(ports)
-	controllerSource, err := tcpControllerYaml(ports)
-	if err != nil {
-		return fmt.Errorf("failed to render tcp controller: %w", err)
-	}
 	changed := false
 	if err := syncNamedSlice(
 		r,
@@ -513,31 +508,6 @@ func confirmGatewayPortsExposed(
 		manifests.GlobalConfiguration,
 		"global configuration",
 		false,
-		&changed,
-	); err != nil {
-		return err
-	}
-	if err := syncNamedSlice(
-		r,
-		kubernetesRuntimeInstance,
-		workloadResourceInstances,
-		"Service",
-		"nginx-tcp",
-		"ports",
-		servicePorts,
-		manifests.NginxTcpService,
-		"nginx tcp service",
-		true,
-		&changed,
-	); err != nil {
-		return err
-	}
-	if err := syncTcpController(
-		r,
-		kubernetesRuntimeInstance,
-		workloadResourceInstances,
-		controllerSource,
-		len(ports) == 0,
 		&changed,
 	); err != nil {
 		return err
@@ -705,55 +675,6 @@ func syncNamedSlice(
 		return fmt.Errorf("failed to set %s %s: %w", label, field, err)
 	}
 	return updateControllerObject(r, object, jsonObject, changed)
-}
-
-// syncTcpController stores the tcp controller, or schedules its removal.
-func syncTcpController(
-	r *controller.Reconciler,
-	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
-	instances *[]v0.KubernetesWorkloadResourceInstance,
-	source []byte,
-	remove bool,
-	changed *bool,
-) error {
-	// create the controller when this runtime does not have one yet
-	object, err := workload_util.GetUniqueKubernetesWorkloadResourceInstanceByName(instances, "Deployment", "nginx-tcp")
-	if err != nil && strings.Contains(err.Error(), "not found") {
-		if remove {
-			return nil
-		}
-		return createControllerObject(r, kubernetesRuntimeInstance, source, "", nil, "nginx tcp controller")
-	}
-	if err != nil {
-		return fmt.Errorf("failed to get nginx tcp controller: %w", err)
-	}
-	if remove {
-		return scheduleControllerObjectDeletion(r, object, changed)
-	}
-	if object.ScheduledForDeletion != nil {
-		return replaceScheduledControllerObject(r, kubernetesRuntimeInstance, object, source, "", nil, "nginx tcp controller", changed)
-	}
-
-	// replace the deployment when its manifest differs
-	desired, err := util.UnstructuredFromYaml(source)
-	if err != nil {
-		return fmt.Errorf("failed to read nginx tcp controller: %w", err)
-	}
-	if object.JSONDefinition == nil {
-		return fmt.Errorf("failed to read nginx tcp controller: empty definition")
-	}
-	stored, err := util.UnmarshalJSON(*object.JSONDefinition)
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal nginx tcp controller: %w", err)
-	}
-	equal, err := util.JSONValuesEqual(stored, desired.Object)
-	if err != nil {
-		return err
-	}
-	if equal {
-		return nil
-	}
-	return updateControllerObject(r, object, desired.Object, changed)
 }
 
 // replaceScheduledControllerObject deletes the threeport controller instance and creates a new one.

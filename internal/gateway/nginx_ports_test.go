@@ -5,9 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"github.com/threeport/threeport/internal/gateway/manifests"
 	"github.com/threeport/threeport/internal/machinetest"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -79,28 +77,6 @@ func TestTcpListenersUseTheRuntimeSet(t *testing.T) {
 	require.Equal(t, "tcp-5432", listeners[1].(map[string]interface{})["name"])
 }
 
-// TestTcpControllerYamlEnablesTransportServers covers the tcp controller args.
-func TestTcpControllerYamlEnablesTransportServers(t *testing.T) {
-	// render the controller for one tcp port
-	rendered, err := tcpControllerYaml([]int{5432})
-	require.NoError(t, err)
-	object, err := util.UnstructuredFromYaml(rendered)
-	require.NoError(t, err)
-	containers, _, err := unstructured.NestedSlice(object.Object, "spec", "template", "spec", "containers")
-	require.NoError(t, err)
-	container := containers[0].(map[string]interface{})
-	var args []string
-	for _, arg := range container["args"].([]interface{}) {
-		args = append(args, arg.(string))
-	}
-	require.Contains(t, args, "-enable-custom-resources")
-	require.Contains(t, args, "-global-configuration=$(POD_NAMESPACE)/nginx-ingress")
-	require.Contains(t, args, "-ingress-class=nginx-tcp")
-	require.Contains(t, args, "-leader-election-lock-name=nginx-tcp-leader-election")
-	require.Len(t, container["ports"].([]interface{}), 1)
-	require.Contains(t, string(manifests.TransportServer), "ingressClassName: nginx-tcp")
-}
-
 // TestGetIngressesYamlDistinctPaths covers two paths on one host.
 func TestGetIngressesYamlDistinctPaths(t *testing.T) {
 	// return two paths for one host
@@ -122,12 +98,4 @@ func TestGetIngressesYamlDistinctPaths(t *testing.T) {
 	require.Len(t, got, 1)
 	require.Contains(t, got[0], "path: /health")
 	require.Contains(t, got[0], "path: /")
-}
-
-func TestTcpControllerUsesContainerPort(t *testing.T) {
-	// a container port is containerPort
-	rendered, err := tcpControllerYaml([]int{5432})
-	require.NoError(t, err)
-	require.Contains(t, string(rendered), "containerPort: 5432")
-	require.NotContains(t, string(rendered), "targetPort")
 }

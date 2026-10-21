@@ -8,12 +8,6 @@ var IngressComponent []byte
 //go:embed shared/global-configuration.yaml
 var GlobalConfiguration []byte
 
-//go:embed shared/nginx-tcp-service.yaml
-var NginxTcpService []byte
-
-//go:embed shared/nginx-tcp-controller.yaml
-var NginxTcpController []byte
-
 //go:embed sso/certificates.yaml
 var Certificates []byte
 

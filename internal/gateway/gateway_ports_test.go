@@ -182,44 +182,14 @@ func TestConfirmGatewayPortsExposedRebuildsRuntimePorts(t *testing.T) {
 	err := confirmGatewayPortsExposed(reconciler, gateway, runtime, nil, nil)
 	require.NoError(t, err)
 	require.True(t, fixture.woken)
-	var listeners []string
-	for _, patch := range fixture.patches {
-		kind, object := objectKind(t, patch.JSONDefinition)
-		if kind == "GlobalConfiguration" {
-			listeners = listenerNames(t, object)
-		}
-	}
-	require.Equal(t, []string{"tcp-443", "tcp-5432"}, listeners)
-	require.Len(t, fixture.posts, 2)
-	var sawService, sawController bool
-	for _, post := range fixture.posts {
-		kind, object := objectKind(t, post.JSONDefinition)
-		switch kind {
-		case "Service":
-			sawService = true
-			selector, _, err := unstructured.NestedStringMap(object, "spec", "selector")
-			require.NoError(t, err)
-			require.Equal(t, "nginx-tcp", selector["app"])
-		case "Deployment":
-			sawController = true
-			containers, _, err := unstructured.NestedSlice(object, "spec", "template", "spec", "containers")
-			require.NoError(t, err)
-			container := containers[0].(map[string]interface{})
-			var args []string
-			for _, arg := range container["args"].([]interface{}) {
-				args = append(args, arg.(string))
-			}
-			require.Contains(t, args, "-enable-custom-resources")
-			require.Contains(t, args, "-ingress-class=nginx-tcp")
-			require.Len(t, container["ports"].([]interface{}), 2)
-		}
-	}
-	require.True(t, sawService)
-	require.True(t, sawController)
+	require.Empty(t, fixture.posts)
+	require.Len(t, fixture.patches, 1)
+	_, object := objectKind(t, fixture.patches[0].JSONDefinition)
+	require.Equal(t, []string{"tcp-443", "tcp-5432"}, listenerNames(t, object))
 }
 
-// TestConfirmGatewayPortsExposedDeletesLastPorts covers an empty tcp port list.
-func TestConfirmGatewayPortsExposedDeletesLastPorts(t *testing.T) {
+// TestConfirmGatewayPortsExposedClearsListeners covers an empty tcp port list.
+func TestConfirmGatewayPortsExposedClearsListeners(t *testing.T) {
 	// serve a deleting gateway as the only tcp user
 	deleting := time.Now().UTC()
 	fixture := &portFixture{
@@ -231,29 +201,19 @@ func TestConfirmGatewayPortsExposedDeletesLastPorts(t *testing.T) {
 		tcpPorts: map[string][]v0.GatewayTcpPort{
 			"1": {{Port: util.Ptr(9000)}},
 		},
-		resources: []v0.KubernetesWorkloadResourceInstance{
-			{
-				Common: v0.Common{ID: util.Ptr(uint(12))},
-				JSONDefinition: kubeJSON(map[string]interface{}{
-					"apiVersion": "v1",
-					"kind":       "Service",
-					"metadata":   map[string]interface{}{"name": "nginx-tcp", "namespace": "nukleros-ingress-system"},
-					"spec": map[string]interface{}{
-						"selector": map[string]interface{}{"app": "nginx-tcp"},
-						"ports":    []interface{}{map[string]interface{}{"name": "tcp-9000", "port": 9000, "protocol": "TCP"}},
+		resources: []v0.KubernetesWorkloadResourceInstance{{
+			Common: v0.Common{ID: util.Ptr(uint(11))},
+			JSONDefinition: kubeJSON(map[string]interface{}{
+				"apiVersion": "k8s.nginx.org/v1",
+				"kind":       "GlobalConfiguration",
+				"metadata":   map[string]interface{}{"name": "nginx-ingress", "namespace": "nukleros-ingress-system"},
+				"spec": map[string]interface{}{
+					"listeners": []interface{}{
+						map[string]interface{}{"name": "tcp-9000", "port": 9000, "protocol": "TCP"},
 					},
-				}),
-			},
-			{
-				Common: v0.Common{ID: util.Ptr(uint(13))},
-				JSONDefinition: kubeJSON(map[string]interface{}{
-					"apiVersion": "apps/v1",
-					"kind":       "Deployment",
-					"metadata":   map[string]interface{}{"name": "nginx-tcp", "namespace": "nukleros-ingress-system"},
-					"spec":       map[string]interface{}{"replicas": 1},
-				}),
-			},
-		},
+				},
+			}),
+		}},
 	}
 	reconciler := fixture.serve(t)
 	runtime := &v0.KubernetesRuntimeInstance{
@@ -265,32 +225,24 @@ func TestConfirmGatewayPortsExposedDeletesLastPorts(t *testing.T) {
 		GatewayDefinitionID: util.Ptr(uint(1)),
 	}
 
-	// schedule the service and controller for deletion
+	// clear the listeners and leave the global configuration in place
 	err := confirmGatewayPortsExposed(reconciler, gateway, runtime, nil, nil)
 	require.NoError(t, err)
 	require.Empty(t, fixture.posts)
+	require.Empty(t, fixture.deletes)
 	require.True(t, fixture.woken)
-	require.Len(t, fixture.patches, 2)
-	for _, patch := range fixture.patches {
-		require.NotNil(t, patch.ScheduledForDeletion)
-	}
-}
-
-// storedController returns the tcp controller the reconcile would render.
-func storedController(t *testing.T, ports []int) *datatypes.JSON {
-	t.Helper()
-
-	// render the same manifest the reconcile stores
-	rendered, err := tcpControllerYaml(ports)
-	require.NoError(t, err)
-	object, err := util.UnstructuredFromYaml(rendered)
-	require.NoError(t, err)
-	return kubeJSON(object.Object)
+	require.Len(t, fixture.patches, 1)
+	require.Nil(t, fixture.patches[0].ScheduledForDeletion)
+	_, object := objectKind(t, fixture.patches[0].JSONDefinition)
+	listeners, found, nestErr := unstructured.NestedSlice(object, "spec", "listeners")
+	require.NoError(t, nestErr)
+	require.True(t, found)
+	require.Empty(t, listeners)
 }
 
 // TestConfirmGatewayPortsExposedSkipsMatchingObjects covers an unchanged port set.
 func TestConfirmGatewayPortsExposedSkipsMatchingObjects(t *testing.T) {
-	// store the listeners, service ports, and controller those ports already produce
+	// store the listeners those ports already produce
 	ports := []int{443, 5432}
 	fixture := &portFixture{
 		gateways: []v0.GatewayInstance{
@@ -301,30 +253,15 @@ func TestConfirmGatewayPortsExposedSkipsMatchingObjects(t *testing.T) {
 			"1": {{Port: util.Ptr(5432)}},
 			"2": {{Port: util.Ptr(443)}},
 		},
-		resources: []v0.KubernetesWorkloadResourceInstance{
-			{
-				Common: v0.Common{ID: util.Ptr(uint(11))},
-				JSONDefinition: kubeJSON(map[string]interface{}{
-					"apiVersion": "k8s.nginx.org/v1",
-					"kind":       "GlobalConfiguration",
-					"metadata":   map[string]interface{}{"name": "nginx-ingress", "namespace": "nukleros-ingress-system"},
-					"spec":       map[string]interface{}{"listeners": tcpListeners(ports)},
-				}),
-			},
-			{
-				Common: v0.Common{ID: util.Ptr(uint(12))},
-				JSONDefinition: kubeJSON(map[string]interface{}{
-					"apiVersion": "v1",
-					"kind":       "Service",
-					"metadata":   map[string]interface{}{"name": "nginx-tcp", "namespace": "nukleros-ingress-system"},
-					"spec":       map[string]interface{}{"ports": tcpServicePorts(ports)},
-				}),
-			},
-			{
-				Common:         v0.Common{ID: util.Ptr(uint(13))},
-				JSONDefinition: storedController(t, ports),
-			},
-		},
+		resources: []v0.KubernetesWorkloadResourceInstance{{
+			Common: v0.Common{ID: util.Ptr(uint(11))},
+			JSONDefinition: kubeJSON(map[string]interface{}{
+				"apiVersion": "k8s.nginx.org/v1",
+				"kind":       "GlobalConfiguration",
+				"metadata":   map[string]interface{}{"name": "nginx-ingress", "namespace": "nukleros-ingress-system"},
+				"spec":       map[string]interface{}{"listeners": tcpListeners(ports)},
+			}),
+		}},
 	}
 	reconciler := fixture.serve(t)
 	runtime := &v0.KubernetesRuntimeInstance{
@@ -336,7 +273,7 @@ func TestConfirmGatewayPortsExposedSkipsMatchingObjects(t *testing.T) {
 		GatewayDefinitionID: util.Ptr(uint(1)),
 	}
 
-	// leave the stored objects and the controller workload alone
+	// leave the stored listeners and the controller workload alone
 	err := confirmGatewayPortsExposed(reconciler, gateway, runtime, nil, nil)
 	require.NoError(t, err)
 	require.Empty(t, fixture.posts)
@@ -346,7 +283,7 @@ func TestConfirmGatewayPortsExposedSkipsMatchingObjects(t *testing.T) {
 
 // TestConfirmGatewayPortsExposedReplacesScheduledObjects covers a threeport controller instance scheduled for deletion.
 func TestConfirmGatewayPortsExposedReplacesScheduledObjects(t *testing.T) {
-	// save equal manifests on threeport instances, with the service and the controller scheduled for deletion
+	// save the global configuration scheduled for deletion
 	ports := []int{443, 5432}
 	now := time.Now()
 	fixture := &portFixture{
@@ -358,32 +295,16 @@ func TestConfirmGatewayPortsExposedReplacesScheduledObjects(t *testing.T) {
 			"1": {{Port: util.Ptr(5432)}},
 			"2": {{Port: util.Ptr(443)}},
 		},
-		resources: []v0.KubernetesWorkloadResourceInstance{
-			{
-				Common: v0.Common{ID: util.Ptr(uint(11))},
-				JSONDefinition: kubeJSON(map[string]interface{}{
-					"apiVersion": "k8s.nginx.org/v1",
-					"kind":       "GlobalConfiguration",
-					"metadata":   map[string]interface{}{"name": "nginx-ingress", "namespace": "nukleros-ingress-system"},
-					"spec":       map[string]interface{}{"listeners": tcpListeners(ports)},
-				}),
-			},
-			{
-				Common:               v0.Common{ID: util.Ptr(uint(12))},
-				ScheduledForDeletion: &now,
-				JSONDefinition: kubeJSON(map[string]interface{}{
-					"apiVersion": "v1",
-					"kind":       "Service",
-					"metadata":   map[string]interface{}{"name": "nginx-tcp", "namespace": "nukleros-ingress-system"},
-					"spec":       map[string]interface{}{"ports": tcpServicePorts(ports)},
-				}),
-			},
-			{
-				Common:               v0.Common{ID: util.Ptr(uint(13))},
-				ScheduledForDeletion: &now,
-				JSONDefinition:       storedController(t, ports),
-			},
-		},
+		resources: []v0.KubernetesWorkloadResourceInstance{{
+			Common:               v0.Common{ID: util.Ptr(uint(11))},
+			ScheduledForDeletion: &now,
+			JSONDefinition: kubeJSON(map[string]interface{}{
+				"apiVersion": "k8s.nginx.org/v1",
+				"kind":       "GlobalConfiguration",
+				"metadata":   map[string]interface{}{"name": "nginx-ingress", "namespace": "nukleros-ingress-system"},
+				"spec":       map[string]interface{}{"listeners": tcpListeners(ports)},
+			}),
+		}},
 	}
 	reconciler := fixture.serve(t)
 	runtime := &v0.KubernetesRuntimeInstance{
@@ -395,17 +316,17 @@ func TestConfirmGatewayPortsExposedReplacesScheduledObjects(t *testing.T) {
 		GatewayDefinitionID: util.Ptr(uint(1)),
 	}
 
-	// reconcile the shared listeners
+	// delete the scheduled global configuration and create it again
 	err := confirmGatewayPortsExposed(reconciler, gateway, runtime, nil, nil)
 	require.NoError(t, err)
-
-	// the scheduled threeport instances are deleted and created again without the flag
-	require.ElementsMatch(t, []uint{12, 13}, fixture.deletes)
+	require.ElementsMatch(t, []uint{11}, fixture.deletes)
 	require.Empty(t, fixture.patches)
-	require.Len(t, fixture.posts, 2)
-	for _, post := range fixture.posts {
-		require.Nil(t, post.ScheduledForDeletion)
-		require.NotNil(t, post.Reconciled)
-		require.False(t, *post.Reconciled)
-	}
+	require.Len(t, fixture.posts, 1)
+	post := fixture.posts[0]
+	require.Nil(t, post.ScheduledForDeletion)
+	require.NotNil(t, post.Reconciled)
+	require.False(t, *post.Reconciled)
+	_, object := objectKind(t, post.JSONDefinition)
+	require.Equal(t, []string{"tcp-443", "tcp-5432"}, listenerNames(t, object))
+	require.True(t, fixture.woken)
 }
