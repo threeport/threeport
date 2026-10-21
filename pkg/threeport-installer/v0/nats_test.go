@@ -201,3 +201,23 @@ func TestTheNatsServerHasALivenessProbe(t *testing.T) {
 	}
 	assert.Greater(t, window(liveness), window(readiness), "the server is restarted before it is even taken out of service")
 }
+
+// TestTheBrokerDropJobHasResources covers the one other container that runs
+// the nats CLI: the job a development reinstall drops every stream with.  It
+// gets the resources nats-box has.
+func TestTheBrokerDropJobHasResources(t *testing.T) {
+	kubeClient := testKubeClient(testNamespace(ControlPlaneNamespace, ControlPlaneTierDev))
+	createdJob := succeedDropJob(kubeClient)
+	mapper := testNamespaceMapper()
+	cpi := &ControlPlaneInstaller{Opts: Options{Namespace: ControlPlaneNamespace}}
+
+	require.NoError(t, cpi.DropMessageBrokerState(kubeClient, &mapper))
+
+	containers, _, err := unstructured.NestedSlice(createdJob.Object, "spec", "template", "spec", "containers")
+	require.NoError(t, err)
+	require.Len(t, containers, 1)
+	resources, found, err := unstructured.NestedMap(containers[0].(map[string]interface{}), "resources")
+	require.NoError(t, err)
+	require.True(t, found, "the drop job's container has no resources")
+	assert.Equal(t, natsBoxResources(), resources)
+}
