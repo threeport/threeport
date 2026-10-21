@@ -12,7 +12,7 @@ import (
 	"gorm.io/datatypes"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"github.com/threeport/threeport/internal/gateway/assets"
+	"github.com/threeport/threeport/internal/gateway/manifests"
 	runtime "github.com/threeport/threeport/internal/kubernetes-runtime"
 	workload_util "github.com/threeport/threeport/internal/kubernetes-workload/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -510,7 +510,7 @@ func confirmGatewayPortsExposed(
 		"nginx-ingress",
 		"listeners",
 		listeners,
-		assets.GlobalConfiguration,
+		manifests.GlobalConfiguration,
 		"global configuration",
 		false,
 		&changed,
@@ -525,7 +525,7 @@ func confirmGatewayPortsExposed(
 		"nginx-tcp",
 		"ports",
 		servicePorts,
-		assets.NginxTcpService,
+		manifests.NginxTcpService,
 		"nginx tcp service",
 		true,
 		&changed,

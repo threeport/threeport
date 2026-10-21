@@ -1,4 +1,4 @@
-package assets
+package manifests
 
 import _ "embed"
 

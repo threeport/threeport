@@ -6,14 +6,14 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"github.com/threeport/threeport/internal/gateway/assets"
+	"github.com/threeport/threeport/internal/gateway/manifests"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // TestSetIngressBackend checks the service and port the setter writes.
 func TestSetIngressBackend(t *testing.T) {
-	ingress, err := util.UnstructuredFromYaml(assets.Ingress)
+	ingress, err := util.UnstructuredFromYaml(manifests.Ingress)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +58,7 @@ func TestSetIngressBackend(t *testing.T) {
 
 // TestSetTransportBackend checks the service and port the setter writes.
 func TestSetTransportBackend(t *testing.T) {
-	server, err := util.UnstructuredFromYaml(assets.TransportServer)
+	server, err := util.UnstructuredFromYaml(manifests.TransportServer)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,7 +116,7 @@ func TestIngressRule(t *testing.T) {
 // TestGetIngressComponentYaml checks the fields this install sets on the sample.
 func TestGetIngressComponentYaml(t *testing.T) {
 	// the sample stays free of threeport values
-	if strings.Contains(string(assets.IngressComponent), "threeport") {
+	if strings.Contains(string(manifests.IngressComponent), "threeport") {
 		t.Fatal("ingress component sample contains a threeport value")
 	}
 
@@ -177,7 +177,7 @@ func TestGetExternalDnsYamlSetsRoute53(t *testing.T) {
 
 // TestSetSelfSignedIssuer writes selfSigned.
 func TestSetSelfSignedIssuer(t *testing.T) {
-	issuer, err := util.UnstructuredFromYaml(assets.Issuer)
+	issuer, err := util.UnstructuredFromYaml(manifests.Issuer)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -8,7 +8,7 @@ import (
 	"github.com/iancoleman/strcase"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"github.com/threeport/threeport/internal/gateway/assets"
+	"github.com/threeport/threeport/internal/gateway/manifests"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -218,7 +218,7 @@ func setTransportBackend(object map[string]interface{}, service string, port int
 // getIngressComponentYaml returns the nginx operator component.
 func getIngressComponentYaml() (string, error) {
 	// decode the embedded component
-	component, err := util.UnstructuredFromYaml(assets.IngressComponent)
+	component, err := util.UnstructuredFromYaml(manifests.IngressComponent)
 	if err != nil {
 		return "", err
 	}
@@ -304,7 +304,7 @@ func getExternalDnsYaml(
 	gcpProject,
 	txtOwnerID string,
 ) (string, error) {
-	component, err := util.UnstructuredFromYaml(assets.IngressComponent)
+	component, err := util.UnstructuredFromYaml(manifests.IngressComponent)
 	if err != nil {
 		return "", err
 	}
@@ -415,7 +415,7 @@ func getExternalDnsYaml(
 // getCertificatesComponentYaml returns the certificates component.
 func getCertificatesComponentYaml() (string, error) {
 	// decode the embedded component
-	component, err := util.UnstructuredFromYaml(assets.Certificates)
+	component, err := util.UnstructuredFromYaml(manifests.Certificates)
 	if err != nil {
 		return "", err
 	}
@@ -480,7 +480,7 @@ func getIngressesYaml(r *controller.Reconciler, gatewayDefinition *v0.GatewayDef
 	}
 
 	// copy the embedded ingress and name it for the host
-	ingress, err := util.UnstructuredFromYaml(assets.Ingress)
+	ingress, err := util.UnstructuredFromYaml(manifests.Ingress)
 	if err != nil {
 		return nil, err
 	}
@@ -571,7 +571,7 @@ func getIngressesYaml(r *controller.Reconciler, gatewayDefinition *v0.GatewayDef
 
 // getTransportServersYaml creates a transport server for each TCP port.
 func getTransportServersYaml(r *controller.Reconciler, gatewayDefinition *v0.GatewayDefinition) ([]string, error) {
-	var manifests []string
+	var servers []string
 
 	// load the tcp ports
 	gatewayTcpPorts, err := client.GetGatewayTcpPortsByGatewayDefinitionId(r.APIClient, r.APIServer, *gatewayDefinition.ID)
@@ -580,7 +580,7 @@ func getTransportServersYaml(r *controller.Reconciler, gatewayDefinition *v0.Gat
 	}
 	for _, tcpPort := range *gatewayTcpPorts {
 		// copy the embedded server and name it for this port
-		server, err := util.UnstructuredFromYaml(assets.TransportServer)
+		server, err := util.UnstructuredFromYaml(manifests.TransportServer)
 		if err != nil {
 			return nil, err
 		}
@@ -620,10 +620,10 @@ func getTransportServersYaml(r *controller.Reconciler, gatewayDefinition *v0.Gat
 		if err != nil {
 			return []string{}, fmt.Errorf("error marshaling YAML: %w", err)
 		}
-		manifests = append(manifests, rendered)
+		servers = append(servers, rendered)
 	}
 
-	return manifests, nil
+	return servers, nil
 }
 
 // getIngressName returns the name of the ingress for a host.
@@ -655,7 +655,7 @@ func setSelfSignedIssuer(object map[string]interface{}) error {
 // getIssuerYaml creates an issuer for the given domain.
 func getIssuerYaml(gatewayDefinition *v0.GatewayDefinition, domain, adminEmail string) (string, error) {
 	// name the issuer, then set the account email and the zone
-	issuer, err := util.UnstructuredFromYaml(assets.Issuer)
+	issuer, err := util.UnstructuredFromYaml(manifests.Issuer)
 	if err != nil {
 		return "", err
 	}
@@ -694,7 +694,7 @@ func getIssuerYaml(gatewayDefinition *v0.GatewayDefinition, domain, adminEmail s
 // getCertificateYaml creates a certificate for the given domain.
 func getCertificateYaml(gatewayDefinition *v0.GatewayDefinition, domain string) (string, error) {
 	// decode the embedded certificate
-	certificate, err := util.UnstructuredFromYaml(assets.Certificate)
+	certificate, err := util.UnstructuredFromYaml(manifests.Certificate)
 	if err != nil {
 		return "", err
 	}
@@ -827,7 +827,7 @@ func setTcpControllerPorts(object *unstructured.Unstructured, ports []int) error
 // tcpControllerYaml returns the TCP controller deployment.
 func tcpControllerYaml(ports []int) ([]byte, error) {
 	// load the embedded deployment and set its container ports
-	object, err := util.UnstructuredFromYaml(assets.NginxTcpController)
+	object, err := util.UnstructuredFromYaml(manifests.NginxTcpController)
 	if err != nil {
 		return nil, err
 	}

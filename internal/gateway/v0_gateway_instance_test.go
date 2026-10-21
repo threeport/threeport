@@ -17,7 +17,7 @@ import (
 	"gorm.io/datatypes"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"github.com/threeport/threeport/internal/gateway/assets"
+	"github.com/threeport/threeport/internal/gateway/manifests"
 	workload_util "github.com/threeport/threeport/internal/kubernetes-workload/util"
 	"github.com/threeport/threeport/internal/machinetest"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
@@ -26,7 +26,7 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-//go:embed service-test.yaml
+//go:embed manifests/test/service-test.yaml
 var serviceTest []byte
 
 // TestConfigureIssuerKindUsesSelfSigned covers a kind runtime.
@@ -34,7 +34,7 @@ func TestConfigureIssuerKindUsesSelfSigned(t *testing.T) {
 	// serve the issuer document and a kind runtime definition
 	api := machinetest.NewAPIStub(t)
 	r := &controller.Reconciler{APIClient: api.Client, APIServer: api.Addr}
-	issuer := resourceDefinition(t, assets.Issuer)
+	issuer := resourceDefinition(t, manifests.Issuer)
 	api.Mux.HandleFunc(v0.PathKubernetesWorkloadResourceDefinitions, func(w http.ResponseWriter, req *http.Request) {
 		machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{issuer})
 	})
@@ -59,7 +59,7 @@ func TestConfigureCertificateSetsDnsName(t *testing.T) {
 	// serve one certificate document
 	api := machinetest.NewAPIStub(t)
 	r := &controller.Reconciler{APIClient: api.Client, APIServer: api.Addr}
-	certificate := resourceDefinition(t, assets.Certificate)
+	certificate := resourceDefinition(t, manifests.Certificate)
 	api.Mux.HandleFunc(v0.PathKubernetesWorkloadResourceDefinitions, func(w http.ResponseWriter, req *http.Request) {
 		machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{certificate})
 	})
@@ -92,8 +92,8 @@ func TestConfigureGatewayManifestsSetsBackends(t *testing.T) {
 		KubernetesWorkloadDefinitionID: util.Ptr(uint(2)),
 	}
 	// name the documents the install step writes
-	ingress := namedDefinition(t, assets.Ingress, getIngressName(gatewayDef, "example.com"))
-	transport := namedDefinition(t, assets.TransportServer, fmt.Sprintf("%s-%d", *gatewayDef.Name, 443))
+	ingress := namedDefinition(t, manifests.Ingress, getIngressName(gatewayDef, "example.com"))
+	transport := namedDefinition(t, manifests.TransportServer, fmt.Sprintf("%s-%d", *gatewayDef.Name, 443))
 	api.Mux.HandleFunc(v0.PathKubernetesWorkloadResourceDefinitions, func(w http.ResponseWriter, req *http.Request) {
 		machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{ingress, transport})
 	})

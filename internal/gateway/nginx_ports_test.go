@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"github.com/threeport/threeport/internal/gateway/assets"
+	"github.com/threeport/threeport/internal/gateway/manifests"
 	"github.com/threeport/threeport/internal/machinetest"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -98,7 +98,7 @@ func TestTcpControllerYamlEnablesTransportServers(t *testing.T) {
 	require.Contains(t, args, "-ingress-class=nginx-tcp")
 	require.Contains(t, args, "-leader-election-lock-name=nginx-tcp-leader-election")
 	require.Len(t, container["ports"].([]interface{}), 1)
-	require.Contains(t, string(assets.TransportServer), "ingressClassName: nginx-tcp")
+	require.Contains(t, string(manifests.TransportServer), "ingressClassName: nginx-tcp")
 }
 
 // TestGetIngressesYamlDistinctPaths covers two paths on one host.
