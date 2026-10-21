@@ -218,6 +218,7 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			"encryption-key",
 			"controller-config",
 			installer.ThreeportApiConfigSecret,
+			installer.NatsCACertSecretName,
 		}
 		for _, secretName := range copySecrets {
 			g.If(Err().Op(":=").Id("copySecret").Call(
@@ -438,6 +439,17 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 			Comment("add the volumes and volume mounts for deployment manifest"),
 			Id("tpAuthVolumes").Op("=").Id("getTpAuthVolumes").Call(),
 			Id("tpAuthVolumeMounts").Op("=").Id("getTpAuthVolumeMounts").Call(),
+		)
+		g.Line()
+
+		g.Comment("the module API server and controller verify the message broker with its CA's certificate")
+		g.Id("tpAuthVolumes").Op("=").Append(
+			Id("tpAuthVolumes"),
+			Qual("github.com/threeport/threeport/pkg/threeport-installer/v0", "NatsClientCAVolume").Call(),
+		)
+		g.Id("tpAuthVolumeMounts").Op("=").Append(
+			Id("tpAuthVolumeMounts"),
+			Qual("github.com/threeport/threeport/pkg/threeport-installer/v0", "NatsClientCAVolumeMount").Call(),
 		)
 		g.Line()
 

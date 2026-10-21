@@ -162,7 +162,8 @@ func (cpi *ControlPlaneInstaller) runDropMessageBrokerJob(
 	}
 
 	// remove every stream, which also removes key-value buckets stored as streams
-	script := "set -e; for stream in $(nats stream ls --names); do nats stream rm \"$stream\" --force; done"
+	script := natsDropJobConnect +
+		"set -e; for stream in $(nats stream ls --names); do nats stream rm \"$stream\" --force; done"
 	fmt.Println("Info: removing every message broker stream and key-value bucket")
 
 	// create the message broker drop job
@@ -181,16 +182,17 @@ func (cpi *ControlPlaneInstaller) runDropMessageBrokerJob(
 						"restartPolicy": "Never",
 						"containers": []interface{}{
 							map[string]interface{}{
-								"name":  "drop-message-broker",
-								"image": natsBoxImage,
-								"env": []interface{}{
-									map[string]interface{}{
-										"name":  "NATS_URL",
-										"value": natsServiceName,
-									},
-								},
+								"name":    "drop-message-broker",
+								"image":   natsBoxImage,
+								"env":     natsDropJobEnv(),
 								"command": []interface{}{"/bin/sh", "-c", script},
+								"volumeMounts": []interface{}{
+									NatsClientCAVolumeMount(),
+								},
 							},
+						},
+						"volumes": []interface{}{
+							natsDropJobCAVolume(),
 						},
 					},
 				},
