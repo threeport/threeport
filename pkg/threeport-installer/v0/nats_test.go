@@ -138,12 +138,15 @@ func quantity(t *testing.T, container map[string]interface{}, kind, name string)
 
 // TestEveryNatsContainerHasResources covers the issue's resource gap: every
 // container of the message broker, nats-box included, requests what it needs
-// and is limited, with each limit at least its request.
+// and is limited, with each request and limit above zero and each limit at
+// least its request.
 func TestEveryNatsContainerHasResources(t *testing.T) {
 	for name, container := range natsContainers(t) {
 		for _, resourceName := range []string{"cpu", "memory"} {
 			request := quantity(t, container, "requests", resourceName)
 			limit := quantity(t, container, "limits", resourceName)
+			assert.Equal(t, 1, request.Sign(), "%s requests no %s", name, resourceName)
+			assert.Equal(t, 1, limit.Sign(), "%s is limited to no %s", name, resourceName)
 			assert.True(t, request.Cmp(limit) <= 0, "%s requests more %s than its limit", name, resourceName)
 		}
 	}
@@ -216,8 +219,15 @@ func TestTheBrokerDropJobHasResources(t *testing.T) {
 	containers, _, err := unstructured.NestedSlice(createdJob.Object, "spec", "template", "spec", "containers")
 	require.NoError(t, err)
 	require.Len(t, containers, 1)
-	resources, found, err := unstructured.NestedMap(containers[0].(map[string]interface{}), "resources")
+	container := containers[0].(map[string]interface{})
+	resources, found, err := unstructured.NestedMap(container, "resources")
 	require.NoError(t, err)
 	require.True(t, found, "the drop job's container has no resources")
 	assert.Equal(t, natsBoxResources(), resources)
+	for _, kind := range []string{"requests", "limits"} {
+		for _, resourceName := range []string{"cpu", "memory"} {
+			value := quantity(t, container, kind, resourceName)
+			assert.Equal(t, 1, value.Sign(), "the drop job's %s %s is not above zero", kind, resourceName)
+		}
+	}
 }
