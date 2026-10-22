@@ -27,9 +27,10 @@ func addAbandonInfrastructureFlags(deleteCmd *cobra.Command) {
 	deleteCmd.Flags().BoolVar(
 		&abandonInfrastructure,
 		"abandon-infrastructure", false,
-		"Delete the instance even if the controller has no record of the cloud resources it created. "+
+		"Allow the delete to proceed even if the controller has no record of the cloud resources it created. "+
 			"The controller refuses that delete by default because the resources may still be running. "+
-			"Any that are will be left in place and no longer tracked by Threeport.",
+			"Resources the controller has recorded are still destroyed as usual; "+
+			"only resources missing from its records are left running and no longer tracked by Threeport.",
 	)
 	deleteCmd.Flags().BoolVarP(
 		&abandonSkipConfirmation,
@@ -46,8 +47,10 @@ func confirmAbandonInfrastructure(objectKind, name string) {
 	}
 
 	fmt.Printf(
-		"This will delete %s '%s' without destroying any cloud resources it may still own.\n"+
-			"Resources that are still running will keep costing money and will no longer be tracked by Threeport.\n"+
+		"This will delete %s '%s' even if the controller has no record of some of its cloud resources.\n"+
+			"Any resources the controller has recorded will still be destroyed.\n"+
+			"Resources missing from its records will be left in place: if they are still running they will\n"+
+			"keep costing money and will no longer be tracked by Threeport.\n"+
 			"Check the cloud account first and remove them by hand if they exist.\n",
 		objectKind, name,
 	)
