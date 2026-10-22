@@ -19,6 +19,7 @@ import (
 	gencontroller "github.com/threeport/threeport/pkg/sdk/v0/gen/internalpkg/controller"
 	genapi "github.com/threeport/threeport/pkg/sdk/v0/gen/pkg/api"
 	genclient "github.com/threeport/threeport/pkg/sdk/v0/gen/pkg/client"
+	genroot "github.com/threeport/threeport/pkg/sdk/v0/gen/root"
 	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -296,7 +297,7 @@ func (Dev) Generate() error {
 		return fmt.Errorf("code generation failed: %w", err)
 	}
 
-	err = dev.GenerateDocs()
+	err = dev.GenerateSwaggerDocs()
 	if err != nil {
 		return fmt.Errorf("docs generation failed: %w", err)
 	}
@@ -434,31 +435,38 @@ func (Dev) GenerateFixture() error {
 	return nil
 }
 
-// GenerateDocs generates the swagger docs served by the API.
-func (Dev) GenerateDocs() error {
-	docsDestination := "pkg/api-server/v0/docs"
-	generateSwaggerDocs := exec.Command(
-		"go",
-		"tool",
-		"swag",
-		"init",
-		"--dir",
-		"cmd/rest-api,pkg/api-server/v0",
-		"--parseDependency",
-		"--propertyStrategy",
-		"pascalcase",
-		"--generalInfo",
-		"main_gen.go",
-		"--output",
-		docsDestination,
-	)
-
-	output, err := generateSwaggerDocs.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("swagger docs generation failed with output: '%s': %w", output, err)
+// checkModuleSwaggerDocsTarget runs the GenerateSwaggerDocs target generated
+// into the test module, the one way a module regenerates its swagger docs.
+// It runs swag through go tool, which a module only has once it declares
+// swag as a tool, so the target is run first without it, where it has to say
+// how to add it, and then with it, where it has to write the docs.
+func checkModuleSwaggerDocsTarget() error {
+	missing := exec.Command("mage", "dev:generateSwaggerDocs")
+	missing.Dir = moduleTestPath
+	output, err := missing.CombinedOutput()
+	if err == nil {
+		return errors.New("the module's swagger docs target ran without swag declared as a tool")
+	}
+	advice := fmt.Sprintf("go get -tool github.com/swaggo/swag/cmd/swag@%s", genroot.SwagVersion)
+	if !strings.Contains(string(output), advice) {
+		return fmt.Errorf("the module's swagger docs target failed without saying to run '%s': %s", advice, output)
 	}
 
-	fmt.Printf("API swagger docs generated successfully in %s\n", docsDestination)
+	if err := util.RunCommandStreamOutputInDir(
+		moduleTestPath,
+		"go", "get", "-tool", "github.com/swaggo/swag/cmd/swag@"+genroot.SwagVersion,
+	); err != nil {
+		return fmt.Errorf("failed to add swag as a tool of the generated module: %w", err)
+	}
+	if err := util.RunCommandStreamOutputInDir(
+		moduleTestPath,
+		"mage", "dev:generateSwaggerDocs",
+	); err != nil {
+		return fmt.Errorf("failed to generate the module's swagger docs: %w", err)
+	}
+	if _, err := os.Stat(filepath.Join(moduleTestPath, "pkg", "api-server", "v0", "docs", "swagger.json")); err != nil {
+		return fmt.Errorf("the module's swagger docs target wrote no swagger.json: %w", err)
+	}
 
 	return nil
 }
@@ -497,6 +505,11 @@ func (Test) ModuleGen() error {
 		"go", "vet", "./...",
 	); err != nil {
 		return fmt.Errorf("failed to type-check the generated module: %w", err)
+	}
+
+	// regenerate the module's swagger docs with the target generated into it
+	if err := checkModuleSwaggerDocsTarget(); err != nil {
+		return err
 	}
 
 	// run the tests copied into the generated module. Type-checking does not
