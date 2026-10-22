@@ -256,28 +256,21 @@ func (t *TerraformInstanceConfig) Replace(
 	}
 
 	// construct updated terraform instance object
-	// Replace sends a PUT, a full replace: every field on the outgoing object
-	// is written, a nil one included, so a field left off this literal is
-	// cleared server-side rather than left alone. Status and Reconciled are
-	// the reconciler's, not something a caller of Replace is setting, and
-	// Status is promoted from the embedded Instance - writing that struct with
-	// only a Name clears it.
-	updatedTerraformInstance := &api.TerraformInstance{
-		Common: api.Common{
-			ID: existingTerraformInstance.ID,
-		},
-		Instance: api.Instance{
-			Name:   terraformInstanceValues.Name,
-			Status: existingTerraformInstance.Status,
-		},
-		Reconciliation: api.Reconciliation{
-			Reconciled: existingTerraformInstance.Reconciled,
-		},
-		AwsProviderID:         awsProvider.ID,
-		TerraformDefinitionID: terraformDefinition.ID,
-	}
+	// Start from the existing object, so the fields this replace does not set
+	// are kept: the reconciler's (Reconciled and the rest of Reconciliation,
+	// Status) and the ones only the API server or a controller writes. Every
+	// field a user sets through the config is assigned below unconditionally,
+	// a nil value included, so a field left out of the config is cleared
+	// rather than kept. Do not assign the reconciler's fields here: the copy
+	// already carries them.
+	updatedTerraformInstance := util.Ptr(*existingTerraformInstance)
+	updatedTerraformInstance.Name = terraformInstanceValues.Name
+	updatedTerraformInstance.AwsProviderID = awsProvider.ID
+	updatedTerraformInstance.TerraformDefinitionID = terraformDefinition.ID
 
-	// add terraform vars if supplied
+	// set the terraform vars from the config, clearing them when it names no
+	// vars document - the copy would otherwise keep the previous ones
+	var varsDocument *string
 	if terraformInstanceValues.VarsDocument != nil && *terraformInstanceValues.VarsDocument != "" {
 		// build the path to the terraform config dir relative to the user's working directory
 		configDir := filepath.Dir(*terraformInstanceValues.TerraformConfigPath)
@@ -286,11 +279,9 @@ func (t *TerraformInstanceConfig) Replace(
 		if err != nil {
 			return nil, fmt.Errorf("failed to read terraform vars file with name %s: %w", *terraformInstanceValues.VarsDocument, err)
 		}
-
-		// add the terraform vars to the terraform instance object
-		varsContentStr := string(varsContent)
-		updatedTerraformInstance.VarsDocument = &varsContentStr
+		varsDocument = util.Ptr(string(varsContent))
 	}
+	updatedTerraformInstance.VarsDocument = varsDocument
 
 	// replace terraform instance
 	replacedTerraformInstance, err := client_v0.ReplaceTerraformInstance(
