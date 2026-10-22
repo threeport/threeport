@@ -237,17 +237,18 @@ func (d *DomainNameInstanceConfig) Replace(
 	}
 
 	// construct updated domain name instance object
-	updatedDomainNameInstance := &api_v0.DomainNameInstance{
-		Common: api_v0.Common{
-			ID: existingDomainNameInstance.ID,
-		},
-		Instance: api_v0.Instance{
-			Name: util.Ptr(domainNameInstanceValues.getDomainNameInstanceName()),
-		},
-		KubernetesRuntimeInstanceID:  kubernetesRuntimeInstance.ID,
-		KubernetesWorkloadInstanceID: workloadInstance.ID,
-		DomainNameDefinitionID:       domainNameDefinition.ID,
-	}
+	// Start from the existing object, so the fields this replace does not set
+	// are kept: the reconciler's (Reconciled and the rest of Reconciliation,
+	// Status) and the ones only the API server or a controller writes. Every
+	// field a user sets through the config is assigned below unconditionally,
+	// a nil value included, so a field left out of the config is cleared
+	// rather than kept. Do not assign the reconciler's fields here: the copy
+	// already carries them.
+	updatedDomainNameInstance := util.Ptr(*existingDomainNameInstance)
+	updatedDomainNameInstance.Name = util.Ptr(domainNameInstanceValues.getDomainNameInstanceName())
+	updatedDomainNameInstance.KubernetesRuntimeInstanceID = kubernetesRuntimeInstance.ID
+	updatedDomainNameInstance.KubernetesWorkloadInstanceID = workloadInstance.ID
+	updatedDomainNameInstance.DomainNameDefinitionID = domainNameDefinition.ID
 
 	// replace domain name instance
 	replacedDomainNameInstance, err := client_v0.ReplaceDomainNameInstance(

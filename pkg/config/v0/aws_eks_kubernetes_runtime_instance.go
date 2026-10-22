@@ -252,18 +252,16 @@ func (a *AwsEksKubernetesRuntimeInstanceConfig) Replace(
 	}
 
 	// construct updated aws eks kubernetes runtime instance object
-	updatedAwsEksKubernetesRuntimeInstance := &api_v0.AwsEksKubernetesRuntimeInstance{
-		Common: api_v0.Common{
-			ID: existingAwsEksKubernetesRuntimeInstance.ID,
-		},
-		Instance: api_v0.Instance{
-			Name: awsEksKubernetesRuntimeInstanceValues.Name,
-		},
-		AwsProviderID:                       existingAwsEksKubernetesRuntimeInstance.AwsProviderID,
-		Region:                              awsEksKubernetesRuntimeInstanceValues.Region,
-		KubernetesRuntimeInstanceID:         existingAwsEksKubernetesRuntimeInstance.KubernetesRuntimeInstanceID,
-		AwsEksKubernetesRuntimeDefinitionID: existingAwsEksKubernetesRuntimeInstance.AwsEksKubernetesRuntimeDefinitionID,
-	}
+	// Start from the existing object, so the fields this replace does not set
+	// are kept: the reconciler's (Reconciled and the rest of Reconciliation,
+	// Status) and the ones only the API server or a controller writes. Every
+	// field a user sets through the config is assigned below unconditionally,
+	// a nil value included, so a field left out of the config is cleared
+	// rather than kept. Do not assign the reconciler's fields here: the copy
+	// already carries them.
+	updatedAwsEksKubernetesRuntimeInstance := util.Ptr(*existingAwsEksKubernetesRuntimeInstance)
+	updatedAwsEksKubernetesRuntimeInstance.Name = awsEksKubernetesRuntimeInstanceValues.Name
+	updatedAwsEksKubernetesRuntimeInstance.Region = awsEksKubernetesRuntimeInstanceValues.Region
 
 	// replace aws eks kubernetes runtime instance
 	replacedAwsEksKubernetesRuntimeInstance, err := client_v0.ReplaceAwsEksKubernetesRuntimeInstance(

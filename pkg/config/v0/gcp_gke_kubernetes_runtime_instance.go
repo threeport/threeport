@@ -251,18 +251,16 @@ func (g *GcpGkeKubernetesRuntimeInstanceConfig) Replace(
 	}
 
 	// construct updated gcp gke kubernetes runtime instance object
-	updatedGcpGkeKubernetesRuntimeInstance := &api_v0.GcpGkeKubernetesRuntimeInstance{
-		Common: api_v0.Common{
-			ID: existingGcpGkeKubernetesRuntimeInstance.ID,
-		},
-		Instance: api_v0.Instance{
-			Name: gcpGkeKubernetesRuntimeInstanceValues.Name,
-		},
-		Region:                              gcpGkeKubernetesRuntimeInstanceValues.Region,
-		KubernetesRuntimeInstanceID:         existingGcpGkeKubernetesRuntimeInstance.KubernetesRuntimeInstanceID,
-		GcpGkeKubernetesRuntimeDefinitionID: existingGcpGkeKubernetesRuntimeInstance.GcpGkeKubernetesRuntimeDefinitionID,
-		GcpProviderID:                       existingGcpGkeKubernetesRuntimeInstance.GcpProviderID,
-	}
+	// Start from the existing object, so the fields this replace does not set
+	// are kept: the reconciler's (Reconciled and the rest of Reconciliation,
+	// Status) and the ones only the API server or a controller writes. Every
+	// field a user sets through the config is assigned below unconditionally,
+	// a nil value included, so a field left out of the config is cleared
+	// rather than kept. Do not assign the reconciler's fields here: the copy
+	// already carries them.
+	updatedGcpGkeKubernetesRuntimeInstance := util.Ptr(*existingGcpGkeKubernetesRuntimeInstance)
+	updatedGcpGkeKubernetesRuntimeInstance.Name = gcpGkeKubernetesRuntimeInstanceValues.Name
+	updatedGcpGkeKubernetesRuntimeInstance.Region = gcpGkeKubernetesRuntimeInstanceValues.Region
 
 	// replace gcp gke kubernetes runtime instance
 	replacedGcpGkeKubernetesRuntimeInstance, err := client_v0.ReplaceGcpGkeKubernetesRuntimeInstance(

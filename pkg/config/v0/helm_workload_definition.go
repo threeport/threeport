@@ -164,21 +164,19 @@ func (h *HelmWorkloadDefinitionConfig) Replace(
 	}
 
 	// construct updated helm workload definition object
-	updatedHelmWorkloadDefinition := &api_v0.HelmWorkloadDefinition{
-		Common: api_v0.Common{
-			ID: existingHelmWorkloadDefinition.ID,
-		},
-		Definition: api_v0.Definition{
-			Name: helmWorkloadDefinitionValues.Name,
-		},
-		Repo:  helmWorkloadDefinitionValues.Repo,
-		Chart: helmWorkloadDefinitionValues.Chart,
-	}
+	// Start from the existing object, so the fields this replace does not set
+	// are kept: the reconciler's (Reconciled and the rest of Reconciliation,
+	// Status) and the ones only the API server or a controller writes. Every
+	// field a user sets through the config is assigned below unconditionally,
+	// a nil value included, so a field left out of the config is cleared
+	// rather than kept. Do not assign the reconciler's fields here: the copy
+	// already carries them.
+	updatedHelmWorkloadDefinition := util.Ptr(*existingHelmWorkloadDefinition)
+	updatedHelmWorkloadDefinition.Name = helmWorkloadDefinitionValues.Name
+	updatedHelmWorkloadDefinition.Repo = helmWorkloadDefinitionValues.Repo
+	updatedHelmWorkloadDefinition.Chart = helmWorkloadDefinitionValues.Chart
 
-	// set chart version if provided
-	if helmWorkloadDefinitionValues.ChartVersion != nil {
-		updatedHelmWorkloadDefinition.ChartVersion = helmWorkloadDefinitionValues.ChartVersion
-	}
+	updatedHelmWorkloadDefinition.ChartVersion = helmWorkloadDefinitionValues.ChartVersion
 
 	// set helm values if present
 	values, err := GetValuesFromDocumentOrInline(helmWorkloadDefinitionValues.Values, helmWorkloadDefinitionValues.ValuesDocument, helmWorkloadDefinitionValues.HelmWorkloadConfigPath)

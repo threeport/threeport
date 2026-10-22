@@ -16,6 +16,20 @@ import (
 	"github.com/threeport/threeport/pkg/sdk/v0/util"
 )
 
+// replaceContractComment is the comment above the object a generated
+// Replace sends. Replace writes the whole object with a PUT, so the object
+// starts as a copy of the one fetched, and the hand-written assignments
+// after it decide what the user's config changes.
+var replaceContractComment = []string{
+	"Start from the existing object, so the fields this replace does not set",
+	"are kept: the reconciler's (Reconciled and the rest of Reconciliation,",
+	"Status) and the ones only the API server or a controller writes. Every",
+	"field a user sets through the config is assigned below unconditionally,",
+	"a nil value included, so a field left out of the config is cleared",
+	"rather than kept. Do not assign the reconciler's fields here: the copy",
+	"already carries them.",
+}
+
 // GenConfig generates the config package that processes CLI user configs.
 func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	pluralize := pluralize.NewClient()
@@ -1221,80 +1235,29 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						}
 
 						g.Comment(fmt.Sprintf("construct updated %s object", objectHuman))
+						for _, line := range replaceContractComment {
+							g.Comment(line)
+						}
+						updatedVar := fmt.Sprintf("updated%s", apiObject.TypeName)
+						valuesVar := fmt.Sprintf("%sValues", strcase.ToLowerCamel(apiObject.TypeName))
+						var existingObject Code
+						if apiObject.NameField {
+							existingObject = Op("*").Id(fmt.Sprintf("existing%s", apiObject.TypeName))
+						} else {
+							existingObject = Parens(Op("*").Id(fmt.Sprintf("existing%ss", apiObject.TypeName))).Index(Lit(0))
+						}
+						g.Id(updatedVar).Op(":=").Qual(
+							"github.com/threeport/threeport/pkg/util/v0",
+							"Ptr",
+						).Call(existingObject)
+						if apiObject.NameField {
+							g.Id(updatedVar).Dot("Name").Op("=").Id(valuesVar).Dot("Name")
+						}
+						if apiObject.DefinedInstanceInstance {
+							g.Id(updatedVar).Dot(fmt.Sprintf("%sID", defObject)).Op("=").Id("definitionId")
+						}
 						g.Comment(apiObjFieldTodoComment)
-						g.Id(fmt.Sprintf("updated%s", apiObject.TypeName)).Op(":=").Op("&").Qual(
-							apiImportPath,
-							apiObject.TypeName,
-						).ValuesFunc(func(h *Group) {
-							if apiObject.NameField {
-								switch {
-								case apiObject.DefinedInstanceDefinition:
-									h.Add(Dict{
-										Id("Common"): Qual(
-											"github.com/threeport/threeport/pkg/api/v0",
-											"Common",
-										).Values(
-											Dict{
-												Line().Id("ID"): Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("ID").Op(",").Line(),
-											},
-										),
-										Id("Definition"): Qual(
-											"github.com/threeport/threeport/pkg/api/v0",
-											"Definition",
-										).Values(
-											Dict{
-												Line().Id("Name"): Id(fmt.Sprintf("%sValues", strcase.ToLowerCamel(apiObject.TypeName))).Dot("Name").Op(",").Line(),
-											},
-										),
-									})
-								case apiObject.DefinedInstanceInstance:
-									h.Add(Dict{
-										Id("Common"): Qual(
-											"github.com/threeport/threeport/pkg/api/v0",
-											"Common",
-										).Values(
-											Dict{
-												Line().Id("ID"): Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("ID").Op(",").Line(),
-											},
-										),
-										Id("Instance"): Qual(
-											"github.com/threeport/threeport/pkg/api/v0",
-											"Instance",
-										).Values(
-											Dict{
-												Line().Id("Name"): Id(fmt.Sprintf("%sValues", strcase.ToLowerCamel(apiObject.TypeName))).Dot("Name").Op(",").Line(),
-											},
-										),
-										Id(fmt.Sprintf("%sID", defObject)): Id("definitionId"),
-									})
-								default:
-									h.Add(Dict{
-										Id("Common"): Qual(
-											"github.com/threeport/threeport/pkg/api/v0",
-											"Common",
-										).Values(
-											Dict{
-												Line().Id("ID"): Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("ID").Op(",").Line(),
-											},
-										),
-										Id("Name"): Id(fmt.Sprintf("%sValues", strcase.ToLowerCamel(apiObject.TypeName))).Dot("Name"),
-									})
-								}
-							} else {
-								h.Add(Dict{
-									Line().Id("Common"): Qual(
-										"github.com/threeport/threeport/pkg/api/v0",
-										"Common",
-									).Values(
-										Dict{
-											Line().Id("ID"): Call(Op("*").Id(fmt.Sprintf("existing%ss", apiObject.TypeName))).Index(Lit(0)).Dot("ID").Op(",").Line(),
-										},
-									).Op(",").Line(),
-								})
-							}
-						})
 						g.Line()
-
 						g.Comment(fmt.Sprintf("replace %s", objectHuman))
 						g.Id(fmt.Sprintf("replaced%s", apiObject.TypeName)).Op(",").Id("err").Op(":=").Qual(
 							clientImportPath,

@@ -333,10 +333,8 @@ func (g *GatewayDefinitionConfig) Replace(
 	}
 
 	// get domain name definition for update
-	domainNameUsed := false
 	domainNameDefinition := &api_v0.DomainNameDefinition{}
 	if gatewayDefinitionValues.DomainNameDefinition != nil && gatewayDefinitionValues.DomainNameDefinition.Name != nil && *gatewayDefinitionValues.DomainNameDefinition.Name != "" {
-		domainNameUsed = true
 		dnd, err := client_v0.GetDomainNameDefinitionByName(apiClient, apiEndpoint, *gatewayDefinitionValues.DomainNameDefinition.Name)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get domain name definition with name %s: %w", *gatewayDefinitionValues.DomainNameDefinition.Name, err)
@@ -349,35 +347,21 @@ func (g *GatewayDefinitionConfig) Replace(
 	}
 
 	// construct updated gateway definition object
-	var updatedGatewayDefinition *api_v0.GatewayDefinition
-	if domainNameUsed {
-		updatedGatewayDefinition = &api_v0.GatewayDefinition{
-			Common: api_v0.Common{
-				ID: existingGatewayDefinition.ID,
-			},
-			Definition: api_v0.Definition{
-				Name: gatewayDefinitionValues.Name,
-			},
-			HttpPorts:              httpPorts,
-			TcpPorts:               tcpPorts,
-			SubDomain:              gatewayDefinitionValues.SubDomain,
-			ServiceName:            gatewayDefinitionValues.ServiceName,
-			DomainNameDefinitionID: domainNameDefinition.ID,
-		}
-	} else {
-		updatedGatewayDefinition = &api_v0.GatewayDefinition{
-			Common: api_v0.Common{
-				ID: existingGatewayDefinition.ID,
-			},
-			Definition: api_v0.Definition{
-				Name: gatewayDefinitionValues.Name,
-			},
-			HttpPorts:   httpPorts,
-			TcpPorts:    tcpPorts,
-			SubDomain:   gatewayDefinitionValues.SubDomain,
-			ServiceName: gatewayDefinitionValues.ServiceName,
-		}
-	}
+	// Start from the existing object, so the fields this replace does not set
+	// are kept: the reconciler's (Reconciled and the rest of Reconciliation,
+	// Status) and the ones only the API server or a controller writes. Every
+	// field a user sets through the config is assigned below unconditionally,
+	// a nil value included, so a field left out of the config is cleared
+	// rather than kept. Do not assign the reconciler's fields here: the copy
+	// already carries them. The domain name definition ID is nil when the
+	// config names no domain name, which removes one the gateway had.
+	updatedGatewayDefinition := util.Ptr(*existingGatewayDefinition)
+	updatedGatewayDefinition.Name = gatewayDefinitionValues.Name
+	updatedGatewayDefinition.HttpPorts = httpPorts
+	updatedGatewayDefinition.TcpPorts = tcpPorts
+	updatedGatewayDefinition.SubDomain = gatewayDefinitionValues.SubDomain
+	updatedGatewayDefinition.ServiceName = gatewayDefinitionValues.ServiceName
+	updatedGatewayDefinition.DomainNameDefinitionID = domainNameDefinition.ID
 
 	// replace gateway definition
 	replacedGatewayDefinition, err := client_v0.ReplaceGatewayDefinition(

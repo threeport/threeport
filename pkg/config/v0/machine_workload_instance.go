@@ -204,25 +204,16 @@ func (m *MachineWorkloadInstanceConfig) Replace(
 	}
 
 	// construct updated machine workload instance object
-	// Replace sends a PUT, a full replace: every field on the outgoing object
-	// is written, a nil one included, so a field left off this literal is
-	// cleared server-side rather than left alone. Status and Reconciled are
-	// the reconciler's, not something a caller of Replace is setting.
-	updatedMachineWorkloadInstance := &api_v0.MachineWorkloadInstance{
-		Common: api_v0.Common{
-			ID: existingMachineWorkloadInstance.ID,
-		},
-		Instance: api_v0.Instance{
-			Name: machineWorkloadInstanceValues.Name,
-		},
-		Reconciliation: api_v0.Reconciliation{
-			Reconciled: existingMachineWorkloadInstance.Reconciled,
-		},
-		MachineWorkloadDefinitionID: existingMachineWorkloadInstance.MachineWorkloadDefinitionID,
-		MachineRuntimeInstanceID:    existingMachineWorkloadInstance.MachineRuntimeInstanceID,
-		Env:                         &machineWorkloadInstanceValues.Env,
-		Status:                      existingMachineWorkloadInstance.Status,
-	}
+	// Start from the existing object, so the fields this replace does not set
+	// are kept: the reconciler's (Reconciled and the rest of Reconciliation,
+	// Status) and the ones only the API server or a controller writes. Every
+	// field a user sets through the config is assigned below unconditionally,
+	// a nil value included, so a field left out of the config is cleared
+	// rather than kept. Do not assign the reconciler's fields here: the copy
+	// already carries them.
+	updatedMachineWorkloadInstance := util.Ptr(*existingMachineWorkloadInstance)
+	updatedMachineWorkloadInstance.Name = machineWorkloadInstanceValues.Name
+	updatedMachineWorkloadInstance.Env = &machineWorkloadInstanceValues.Env
 
 	// replace machine workload instance
 	replacedMachineWorkloadInstance, err := client_v0.ReplaceMachineWorkloadInstance(

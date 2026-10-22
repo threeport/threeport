@@ -201,18 +201,17 @@ func (c *ControlPlaneInstanceConfig) Replace(
 	}
 
 	// construct updated control plane instance object
-	updatedControlPlaneInstance := &api_v0.ControlPlaneInstance{
-		Common: api_v0.Common{
-			ID: existingControlPlaneInstance.ID,
-		},
-		Instance: api_v0.Instance{
-			Name: controlPlaneInstanceValues.Name,
-		},
-		Namespace:                   controlPlaneInstanceValues.Namespace,
-		KubernetesRuntimeInstanceID: existingControlPlaneInstance.KubernetesRuntimeInstanceID,
-		CustomComponentInfo:         controlPlaneInstanceValues.CustomComponentInfo,
-		ControlPlaneDefinitionID:    existingControlPlaneInstance.ControlPlaneDefinitionID,
-	}
+	// Start from the existing object, so the fields this replace does not set
+	// are kept: the reconciler's (Reconciled and the rest of Reconciliation,
+	// Status) and the ones only the API server or a controller writes. Every
+	// field a user sets through the config is assigned below unconditionally,
+	// a nil value included, so a field left out of the config is cleared
+	// rather than kept. Do not assign the reconciler's fields here: the copy
+	// already carries them.
+	updatedControlPlaneInstance := util.Ptr(*existingControlPlaneInstance)
+	updatedControlPlaneInstance.Name = controlPlaneInstanceValues.Name
+	updatedControlPlaneInstance.Namespace = controlPlaneInstanceValues.Namespace
+	updatedControlPlaneInstance.CustomComponentInfo = controlPlaneInstanceValues.CustomComponentInfo
 
 	// replace control plane instance
 	replacedControlPlaneInstance, err := client_v0.ReplaceControlPlaneInstance(

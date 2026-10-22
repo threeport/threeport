@@ -407,33 +407,19 @@ func (w *KubernetesWorkloadInstanceConfig) Replace(
 		return nil, err
 	}
 
-	// construct updated kubernetes workload instance object. Several fields
-	// are carried over from the existing instance rather than left unset,
-	// because Replace sends a PUT (full replace): every field on the
-	// outgoing object is written, including a nil one, which clears
-	// whatever the server previously had.
-	//   - Status and Reconciled are controller-owned state, not something a
-	//     caller of Replace is trying to set. Omitting them would silently
-	//     clear an instance's reconciliation progress on every replace, and
-	//     Status specifically is dereferenced below after the call
-	//     succeeds - omitting it here made every replace panic once the
-	//     server actually cleared it, rather than returning whatever
-	//     (possibly stale) value the instance already had.
-	updatedK8sWorkloadInstance := &api_v0.KubernetesWorkloadInstance{
-		Common: api_v0.Common{
-			ID: existingK8sWorkloadInstance.ID,
-		},
-		Instance: api_v0.Instance{
-			Name: k8sWorkloadInstanceValues.Name,
-		},
-		Reconciliation: api_v0.Reconciliation{
-			Reconciled: existingK8sWorkloadInstance.Reconciled,
-		},
-		KubernetesRuntimeInstanceID:    kubernetesRuntimeInstance.ID,
-		KubernetesWorkloadDefinitionID: k8sWorkloadDefinition.ID,
-		KustomizeOverlay:               kustomizeOverlay,
-		Status:                         existingK8sWorkloadInstance.Status,
-	}
+	// construct updated kubernetes workload instance object
+	// Start from the existing object, so the fields this replace does not set
+	// are kept: the reconciler's (Reconciled and the rest of Reconciliation,
+	// Status) and the ones only the API server or a controller writes. Every
+	// field a user sets through the config is assigned below unconditionally,
+	// a nil value included, so a field left out of the config is cleared
+	// rather than kept. Do not assign the reconciler's fields here: the copy
+	// already carries them.
+	updatedK8sWorkloadInstance := util.Ptr(*existingK8sWorkloadInstance)
+	updatedK8sWorkloadInstance.Name = k8sWorkloadInstanceValues.Name
+	updatedK8sWorkloadInstance.KubernetesRuntimeInstanceID = kubernetesRuntimeInstance.ID
+	updatedK8sWorkloadInstance.KubernetesWorkloadDefinitionID = k8sWorkloadDefinition.ID
+	updatedK8sWorkloadInstance.KustomizeOverlay = kustomizeOverlay
 
 	// replace kubernetes workload instance
 	replacedK8sWorkloadInstance, err := client_v0.ReplaceKubernetesWorkloadInstance(
