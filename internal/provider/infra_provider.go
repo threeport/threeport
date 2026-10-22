@@ -45,3 +45,16 @@ type RefreshableProvider interface {
 	// RefreshStack refreshes the state to match cloud reality.
 	RefreshStack() error
 }
+
+// CloudVerifier supports asking the cloud whether infrastructure for an
+// instance exists, independent of any recorded state. The lifecycle uses it to
+// check a delete against reality, so a missing inventory cannot make the
+// controller confirm a delete while the infrastructure keeps running.
+type CloudVerifier interface {
+	InfraProvider
+
+	// ResourcesExist reports whether the cloud still holds the instance's
+	// primary infrastructure, such as its cluster. It returns an error when
+	// that cannot be determined, never false.
+	ResourcesExist() (bool, error)
+}

@@ -9,6 +9,7 @@ import (
 
 	cobra "github.com/spf13/cobra"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	config_v0 "github.com/threeport/threeport/pkg/config/v0"
 	yaml "sigs.k8s.io/yaml"
 )
@@ -1257,9 +1258,25 @@ var DeleteAwsEksKubernetesRuntimeInstanceCmd = &cobra.Command{
 				}
 			}
 
+			// record the operator's permission to orphan infrastructure the
+			// controller has no record of before the delete is attempted
+			if abandonInfrastructure {
+				confirmAbandonInfrastructure("aws eks kubernetes runtime instance", *awsEksKubernetesRuntimeInstanceConfig.AwsEksKubernetesRuntimeInstance.Name)
+				if err := awsEksKubernetesRuntimeInstanceConfig.AbandonInfrastructure(apiClient, apiEndpoint); err != nil {
+					cli.Error("failed to request infrastructure abandonment", err)
+					os.Exit(1)
+				}
+			}
+
 			// delete aws eks kubernetes runtime instance
 			deletedAwsEksKubernetesRuntimeInstance, err := awsEksKubernetesRuntimeInstanceConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
+				// a delete the controller is already holding or working on has
+				// picked up the abandonment request, which is all that was needed
+				if abandonInfrastructure && errors.Is(err, client_lib.ErrDeleteInProgress) {
+					cli.Complete(fmt.Sprintf("infrastructure abandonment requested for aws eks kubernetes runtime instance %s: the controller will complete the delete", *awsEksKubernetesRuntimeInstanceConfig.AwsEksKubernetesRuntimeInstance.Name))
+					return
+				}
 				cli.Error("failed to delete aws eks kubernetes runtime instance", err)
 				os.Exit(1)
 			}
@@ -1290,6 +1307,7 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
+	addAbandonInfrastructureFlags(DeleteAwsEksKubernetesRuntimeInstanceCmd)
 	DeleteAwsEksKubernetesRuntimeInstanceCmd.Flags().StringVarP(
 		&awsVersion,
 		"version", "v", "v0", "Version of aws eks kubernetes runtime instances object to delete. One of: [v0]",

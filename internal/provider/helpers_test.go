@@ -160,7 +160,8 @@ func TestVerifyState_NoResources(t *testing.T) {
 }
 
 // TestInventoryCleared_Table covers which inventory values count as
-// cleared: nil, empty, {}, and null.
+// cleared: only the {} sentinel ClearInventory writes. Nil, empty, and null
+// are unknown, not cleared.
 func TestInventoryCleared_Table(t *testing.T) {
 	// cases for cleared versus populated inventory
 	cases := []struct {
@@ -169,14 +170,14 @@ func TestInventoryCleared_Table(t *testing.T) {
 		want      bool
 	}{
 		{
-			name:      "nil inventory is cleared",
+			name:      "nil inventory is not cleared",
 			inventory: nil,
-			want:      true,
+			want:      false,
 		},
 		{
-			name:      "zero-length inventory is cleared",
+			name:      "zero-length inventory is not cleared",
 			inventory: jsonPtr(""),
-			want:      true,
+			want:      false,
 		},
 		{
 			name:      "empty object inventory is cleared",
@@ -184,9 +185,9 @@ func TestInventoryCleared_Table(t *testing.T) {
 			want:      true,
 		},
 		{
-			name:      "json null inventory is cleared",
+			name:      "json null inventory is not cleared",
 			inventory: jsonPtr("null"),
-			want:      true,
+			want:      false,
 		},
 		{
 			name:      "populated inventory is not cleared",
