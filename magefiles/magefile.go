@@ -1,9 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"go/build"
+	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -452,6 +455,20 @@ func checkModuleSwaggerDocsTarget() error {
 		return fmt.Errorf("the module's swagger docs target failed without saying to run '%s': %s", advice, output)
 	}
 
+	if err := generateModuleSwaggerDocs(); err != nil {
+		return err
+	}
+	swaggerJSON, err := os.ReadFile(filepath.Join(moduleTestPath, "pkg", "api-server", "v0", "docs", "swagger.json"))
+	if err != nil {
+		return fmt.Errorf("the module's swagger docs target wrote no swagger.json: %w", err)
+	}
+
+	return checkModuleSwaggerDocs(swaggerJSON)
+}
+
+// generateModuleSwaggerDocs declares swag as a tool of the test module and
+// runs the GenerateSwaggerDocs target generated into it.
+func generateModuleSwaggerDocs() error {
 	if err := util.RunCommandStreamOutputInDir(
 		moduleTestPath,
 		"go", "get", "-tool", "github.com/swaggo/swag/cmd/swag@"+genroot.SwagVersion,
@@ -464,9 +481,102 @@ func checkModuleSwaggerDocsTarget() error {
 	); err != nil {
 		return fmt.Errorf("failed to generate the module's swagger docs: %w", err)
 	}
-	if _, err := os.Stat(filepath.Join(moduleTestPath, "pkg", "api-server", "v0", "docs", "swagger.json")); err != nil {
-		return fmt.Errorf("the module's swagger docs target wrote no swagger.json: %w", err)
+
+	return nil
+}
+
+// checkModuleSwaggerDocs checks a swagger document describes the test
+// module's own API, not the core API's.
+func checkModuleSwaggerDocs(swaggerJSON []byte) error {
+	var docs struct {
+		Info struct {
+			Title string `json:"title"`
+		} `json:"info"`
+		Paths map[string]any `json:"paths"`
 	}
+	if err := json.Unmarshal(swaggerJSON, &docs); err != nil {
+		return fmt.Errorf("failed to parse the module's swagger document: %w", err)
+	}
+	if docs.Info.Title != "Threeport Test Module API" {
+		return fmt.Errorf("the module's swagger docs are titled %q, not the title its sdk-config gives", docs.Info.Title)
+	}
+	// a module's paths are under its API namespace
+	if _, ok := docs.Paths["/module-threeport-io/v0/widget-definitions"]; !ok {
+		return errors.New("the module's swagger docs do not document its own widget-definitions path")
+	}
+	if _, ok := docs.Paths["/v0/control-plane-definitions"]; ok {
+		return errors.New("the module's swagger docs document the core API's paths")
+	}
+
+	return nil
+}
+
+// moduleTestSwaggerPath is where the core API proxies the test module's
+// swagger docs: /swagger/ and the name the module registers its API under.
+const moduleTestSwaggerPath = "/swagger/module.threeport.io/test-module-api"
+
+// checkModuleSwaggerDocsThroughCoreApi requests the installed test module's
+// swagger docs from the core API, as a client does, and checks they are the
+// module's and that the core API's own are still the core API's.
+func checkModuleSwaggerDocsThroughCoreApi() error {
+	cli.InitConfig(nil, "")
+	threeportConfig, controlPlane, err := cli.GetThreeportConfig("")
+	if err != nil {
+		return fmt.Errorf("failed to read the threeport config: %w", err)
+	}
+	apiClient, err := threeportConfig.GetHTTPClient(controlPlane)
+	if err != nil {
+		return fmt.Errorf("failed to get a threeport API client: %w", err)
+	}
+	controlPlaneConfig, err := threeportConfig.GetControlPlaneConfig(controlPlane)
+	if err != nil {
+		return fmt.Errorf("failed to get the control plane config: %w", err)
+	}
+	scheme := "http"
+	if controlPlaneConfig.AuthEnabled {
+		scheme = "https"
+	}
+	get := func(path string) ([]byte, error) {
+		response, err := apiClient.Get(fmt.Sprintf("%s://%s%s", scheme, controlPlaneConfig.APIServer, path))
+		if err != nil {
+			return nil, fmt.Errorf("failed to request %s from the core API: %w", path, err)
+		}
+		defer response.Body.Close()
+		body, err := io.ReadAll(response.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read %s from the core API: %w", path, err)
+		}
+		if response.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("the core API answered %s with %d: %s", path, response.StatusCode, body)
+		}
+
+		return body, nil
+	}
+
+	moduleDocs, err := get(moduleTestSwaggerPath + "/doc.json")
+	if err != nil {
+		return err
+	}
+	if err := checkModuleSwaggerDocs(moduleDocs); err != nil {
+		return fmt.Errorf("through the core API: %w", err)
+	}
+	moduleIndex, err := get(moduleTestSwaggerPath + "/index.html")
+	if err != nil {
+		return err
+	}
+	if !strings.Contains(string(moduleIndex), "swagger-ui") {
+		return errors.New("the core API did not serve the module's swagger UI")
+	}
+
+	coreDocs, err := get("/swagger/doc.json")
+	if err != nil {
+		return err
+	}
+	if !strings.Contains(string(coreDocs), "/v0/control-plane-definitions") {
+		return errors.New("the core API no longer serves its own swagger docs at /swagger")
+	}
+
+	fmt.Printf("module swagger docs served through the core API at %s/index.html\n", moduleTestSwaggerPath)
 
 	return nil
 }
@@ -608,6 +718,11 @@ func (Test) ModuleInstall() error {
 		return err
 	}
 
+	// generate the module's swagger docs, so the API server image serves them
+	if err := generateModuleSwaggerDocs(); err != nil {
+		return err
+	}
+
 	// build and push module images to the development registry
 	if err := util.RunCommandStreamOutputInDir(
 		moduleTestPath,
@@ -641,6 +756,13 @@ func (Test) ModuleInstall() error {
 	); err != nil {
 		return fmt.Errorf("failed to install the module: %w", err)
 	}
+
+	// reach the module's swagger docs the way a client does, through the
+	// core API
+	if err := checkModuleSwaggerDocsThroughCoreApi(); err != nil {
+		return err
+	}
+
 	// remove generated files after a successful install
 	if err := resetModuleTestDir(); err != nil {
 		return err

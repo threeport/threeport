@@ -561,6 +561,13 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	)
 	f.Line()
 
+	f.Comment("SwaggerPath is where the module API server serves its swagger docs, and")
+	f.Comment("the route the core Threeport API proxies to it, so a client reaches them")
+	f.Comment("through the core API at <SwaggerPath>/index.html. It is named after the")
+	f.Comment("module API, which is unique among the modules of a control plane.")
+	f.Const().Id("SwaggerPath").Op("=").Lit("/swagger/").Op("+").Id("moduleName")
+	f.Line()
+
 	// emit the module API lookup helper so the registration entrypoint stays flat
 	f.Comment("resolveModuleApi looks up the module API by name. It returns the record")
 	f.Comment("when one is registered under that name, and otherwise reports that a fresh")
@@ -1318,6 +1325,40 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				)),
 			)
 		})
+		g.Line()
+		g.Comment("register the route the core API proxies the module's swagger docs")
+		g.Comment("through - it names no objects, since it serves none")
+		g.Id("docsRoute").Op(":=").Qual(
+			"github.com/threeport/threeport/pkg/api/v0",
+			"ModuleApiRoute",
+		).Values(Dict{
+			Id("ModuleApiID"): Id("existingModApi").Dot("ID"),
+			Id("Path"): Qual(
+				"github.com/threeport/threeport/pkg/util/v0",
+				"Ptr",
+			).Call(Id("SwaggerPath")),
+		})
+		g.If(
+			List(Id("_"), Id("docsRouteErr")).Op(":=").Qual(
+				"github.com/threeport/threeport/pkg/client/v0",
+				"CreateModuleApiRoute",
+			).Call(
+				Line().Id("tpApiClient"),
+				Line().Id("tpApiAddr"),
+				Line().Op("&").Id("docsRoute"),
+				Line(),
+			),
+			Id("docsRouteErr").Op("!=").Nil().Op("&&").Op("!").Qual("errors", "Is").Call(
+				Id("docsRouteErr"),
+				Qual("github.com/threeport/threeport/pkg/client/lib/v0", "ErrConflict"),
+			),
+		).Block(
+			Return(Qual("fmt", "Errorf").Call(
+				Lit("failed to create module route for swagger docs %s: %w"),
+				Id("SwaggerPath"),
+				Id("docsRouteErr"),
+			)),
+		)
 		g.Line()
 		g.Return(Nil())
 	})
