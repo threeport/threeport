@@ -25,6 +25,7 @@ func TestMatchRoute(t *testing.T) {
 		// a request shorter than the route used to index past its end and
 		// panic, failing every such request to the core API
 		{"a request shorter than the route", "/swagger/module.threeport.io/test-module-api", "/swagger", false},
+		{"a request for the module's API namespace alone", "/swagger/module.threeport.io/test-module-api", "/swagger/module.threeport.io", false},
 		{"the root", "/v0/widgets", "/", false},
 		{"a version alone", "/v0/widgets", "/v0", false},
 	} {
