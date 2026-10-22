@@ -17,6 +17,7 @@ import (
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	encryption "github.com/threeport/threeport/pkg/encryption/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -436,7 +437,14 @@ func buildGkeInfra(
 	// not discovered missing once the network, control plane and node pool are
 	// already up.
 	if gcpProvider.ServiceAccountCredentials != nil && *gcpProvider.ServiceAccountCredentials != "" {
-		infraGKE.ServiceAccountCredentials = *gcpProvider.ServiceAccountCredentials
+		// the API stores and returns this field encrypted; the auth and Pulumi
+		// paths need the service account JSON itself
+		decryptedCredentials, err := encryption.Decrypt(r.EncryptionKey, *gcpProvider.ServiceAccountCredentials)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decrypt GCP provider service account credentials: %w", err)
+		}
+
+		infraGKE.ServiceAccountCredentials = decryptedCredentials
 		email, err := util.GcpServiceAccountEmail(infraGKE.ServiceAccountCredentials)
 		if err != nil {
 			return nil, fmt.Errorf("failed to extract service account email: %w", err)
