@@ -29,6 +29,7 @@ func TestEveryReplaceStartsFromTheExistingObject(t *testing.T) {
 	files, err := filepath.Glob("*.go")
 	require.NoError(t, err)
 
+	reconciler := reconcilerFields(t)
 	fileSet := token.NewFileSet()
 	var problems []string
 	checked := 0
@@ -39,7 +40,7 @@ func TestEveryReplaceStartsFromTheExistingObject(t *testing.T) {
 		file, err := parser.ParseFile(fileSet, path, nil, 0)
 		require.NoError(t, err)
 
-		fileProblems, fileChecked := replaceProblems(file, reconcilerFields(t))
+		fileProblems, fileChecked := replaceProblems(file, reconciler)
 		problems = append(problems, fileProblems...)
 		checked += fileChecked
 	}
@@ -50,33 +51,65 @@ func TestEveryReplaceStartsFromTheExistingObject(t *testing.T) {
 	assert.Empty(t, problems)
 }
 
-// reconcilerFields returns the fields a Replace must leave to the copy: the
-// ones in Reconciliation, read from the API types, and Status.
+// reconcilerFields returns what a Replace must leave to the copy, read from
+// the API types: the fields in Reconciliation and Status, and the embedded
+// structs that hold them, since assigning one of those whole - Instance with
+// only a Name, say - clears the fields inside it just the same.
 func reconcilerFields(t *testing.T) map[string]bool {
 	t.Helper()
 
 	packages, err := parser.ParseDir(token.NewFileSet(), filepath.Join("..", "..", "api", "v0"), nil, 0)
 	require.NoError(t, err)
 
-	fields := map[string]bool{"Status": true}
+	structs := map[string]*ast.StructType{}
+	embedded := map[string]bool{}
 	for _, pkg := range packages {
 		for _, file := range pkg.Files {
 			ast.Inspect(file, func(node ast.Node) bool {
 				spec, ok := node.(*ast.TypeSpec)
-				if !ok || spec.Name.Name != "Reconciliation" {
+				if !ok {
 					return true
 				}
-				for _, field := range spec.Type.(*ast.StructType).Fields.List {
-					for _, name := range field.Names {
-						fields[name.Name] = true
+				structType, ok := spec.Type.(*ast.StructType)
+				if !ok {
+					return true
+				}
+				structs[spec.Name.Name] = structType
+				for _, field := range structType.Fields.List {
+					if ident, ok := field.Type.(*ast.Ident); ok && len(field.Names) == 0 {
+						embedded[ident.Name] = true
 					}
 				}
 
-				return false
+				return true
 			})
 		}
 	}
-	require.Greater(t, len(fields), 1, "the Reconciliation struct was not found in the API types")
+
+	reconciliation, ok := structs["Reconciliation"]
+	require.True(t, ok, "the Reconciliation struct was not found in the API types")
+	fields := map[string]bool{"Status": true, "Reconciliation": true}
+	for _, field := range reconciliation.Fields.List {
+		for _, name := range field.Names {
+			fields[name.Name] = true
+		}
+	}
+
+	// an embedded struct declaring one of them, such as Instance with Status
+	for name := range embedded {
+		structType, ok := structs[name]
+		if !ok {
+			continue
+		}
+		for _, field := range structType.Fields.List {
+			for _, fieldName := range field.Names {
+				if fields[fieldName.Name] {
+					fields[name] = true
+				}
+			}
+		}
+	}
+	require.True(t, fields["Instance"], "the Instance struct holding Status was not found in the API types")
 
 	return fields
 }
@@ -124,12 +157,21 @@ func replaceProblems(file *ast.File, reconciler map[string]bool) ([]string, int)
 				}
 			case *ast.AssignStmt:
 				for _, lhs := range typed.Lhs {
-					selector, ok := lhs.(*ast.SelectorExpr)
-					if !ok {
-						continue
-					}
-					if ident, ok := selector.X.(*ast.Ident); ok && ident.Name == payload.Name && reconciler[selector.Sel.Name] {
-						problems = append(problems, fmt.Sprintf("%s: sets %s, which is the reconciler's", name, selector.Sel.Name))
+					switch target := lhs.(type) {
+					case *ast.SelectorExpr:
+						if ident, ok := target.X.(*ast.Ident); ok && ident.Name == payload.Name && reconciler[target.Sel.Name] {
+							problems = append(problems, fmt.Sprintf("%s: sets %s, which is the reconciler's", name, target.Sel.Name))
+						}
+					case *ast.Ident:
+						// the declaration is the copy; anything after it
+						// replaces the copy
+						if target.Name == payload.Name && typed.Tok != token.DEFINE {
+							problems = append(problems, fmt.Sprintf("%s: reassigns %s after copying it", name, payload.Name))
+						}
+					case *ast.StarExpr:
+						if ident, ok := target.X.(*ast.Ident); ok && ident.Name == payload.Name {
+							problems = append(problems, fmt.Sprintf("%s: overwrites the copy %s points at", name, payload.Name))
+						}
 					}
 				}
 			}
@@ -261,7 +303,7 @@ func receiverType(function *ast.FuncDecl) string {
 func TestReplaceProblemsSeesEachWayToGetItWrong(t *testing.T) {
 	const fetch = "existing, err := client_v0.GetTerraformInstanceByName(c, e, n)\n_ = err\n"
 	const send = "_, _ = client_v0.ReplaceTerraformInstance(c, e, updated)\n"
-	reconciler := map[string]bool{"Reconciled": true, "Status": true}
+	reconciler := map[string]bool{"Reconciled": true, "Status": true, "Reconciliation": true, "Instance": true}
 
 	for _, testCase := range []struct {
 		name    string
@@ -281,6 +323,26 @@ func TestReplaceProblemsSeesEachWayToGetItWrong(t *testing.T) {
 			name:    "setting the reconciler's fields",
 			body:    fetch + "updated := util.Ptr(*existing)\nupdated.Status = nil\n" + send,
 			problem: "sets Status, which is the reconciler's",
+		},
+		{
+			name:    "assigning the whole Instance, which clears Status",
+			body:    fetch + "updated := util.Ptr(*existing)\nupdated.Instance = api.Instance{Name: n}\n" + send,
+			problem: "sets Instance, which is the reconciler's",
+		},
+		{
+			name:    "assigning the whole Reconciliation",
+			body:    fetch + "updated := util.Ptr(*existing)\nupdated.Reconciliation = api.Reconciliation{}\n" + send,
+			problem: "sets Reconciliation, which is the reconciler's",
+		},
+		{
+			name:    "reassigning the copy",
+			body:    fetch + "updated := util.Ptr(*existing)\nupdated = new(api.TerraformInstance)\n" + send,
+			problem: "reassigns updated after copying it",
+		},
+		{
+			name:    "overwriting what the copy points at",
+			body:    fetch + "updated := util.Ptr(*existing)\n*updated = api.TerraformInstance{}\n" + send,
+			problem: "overwrites the copy updated points at",
 		},
 		{
 			name:    "a copy of something other than the fetched object",
