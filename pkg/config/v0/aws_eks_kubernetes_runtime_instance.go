@@ -318,7 +318,7 @@ func (a *AwsEksKubernetesRuntimeInstanceConfig) Delete(
 	}
 
 	// wait for AWS EKS kubernetes runtime instance to be deleted
-	util.Retry(90, 10, func() error {
+	if err := util.Retry(90, 10, func() error {
 		if _, err := client_v0.GetAwsEksKubernetesRuntimeInstanceByName(
 			apiClient,
 			apiEndpoint,
@@ -327,7 +327,9 @@ func (a *AwsEksKubernetesRuntimeInstanceConfig) Delete(
 			return errors.New("AWS EKS kubernetes runtime instance not deleted")
 		}
 		return nil
-	})
+	}); err != nil {
+		return nil, fmt.Errorf("timed out waiting for AWS EKS kubernetes runtime instance to be deleted: %w", err)
+	}
 
 	// get kubernetes runtime instance
 	kubernetesRuntimeInstance, err := client_v0.GetKubernetesRuntimeInstanceByID(
@@ -391,6 +393,42 @@ func (a *AwsEksKubernetesRuntimeInstanceConfig) Delete(
 	}
 
 	return deletedAwsEksKubernetesRuntimeInstanceConfig, nil
+}
+
+// AbandonInfrastructure marks the aws eks kubernetes runtime instance so the controller will
+// delete it even when creation was confirmed and no resource inventory is
+// recorded. Without this the controller refuses that delete, because cloud
+// resources may still be running. Setting it orphans any such resources:
+// they are left in place and no longer tracked by Threeport.
+func (a *AwsEksKubernetesRuntimeInstanceConfig) AbandonInfrastructure(
+	apiClient *http.Client,
+	apiEndpoint string,
+) error {
+	values := a.AwsEksKubernetesRuntimeInstance
+
+	// get aws eks kubernetes runtime instance by name
+	instance, err := client_v0.GetAwsEksKubernetesRuntimeInstanceByName(
+		apiClient,
+		apiEndpoint,
+		util.DerefString(values.Name),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to find aws eks kubernetes runtime instance with name %s: %w", util.DerefString(values.Name), err)
+	}
+
+	// request abandonment
+	if _, err := client_v0.UpdateAwsEksKubernetesRuntimeInstance(
+		apiClient,
+		apiEndpoint,
+		&api_v0.AwsEksKubernetesRuntimeInstance{
+			Common:                api_v0.Common{ID: instance.ID},
+			AbandonInfrastructure: util.Ptr(true),
+		},
+	); err != nil {
+		return fmt.Errorf("failed to request infrastructure abandonment for aws eks kubernetes runtime instance %s: %w", util.DerefString(values.Name), err)
+	}
+
+	return nil
 }
 
 // Validate validates inputs to create aws eks kubernetes runtime instances.

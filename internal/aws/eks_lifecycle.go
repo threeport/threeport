@@ -76,6 +76,8 @@ func (e *eksLifecycle) GetReconciliation() (*provider.ReconciliationSnapshot, er
 		DeletionAcknowledged: latest.DeletionAcknowledged,
 		DeletionConfirmed:    latest.DeletionConfirmed,
 		ResourceInventory:    latest.ResourceInventory,
+
+		AbandonInfrastructure: latest.AbandonInfrastructure != nil && *latest.AbandonInfrastructure,
 	}, nil
 }
 
@@ -144,11 +146,7 @@ func (e *eksLifecycle) IsCreateComplete() (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to check EKS creation status: %w", err)
 	}
-	if latest.ResourceInventory == nil {
-		return false, nil
-	}
-	inventory := *latest.ResourceInventory
-	if len(inventory) == 0 || string(inventory) == "{}" || string(inventory) == "null" {
+	if !provider.HasInventory(latest.ResourceInventory) {
 		return false, nil
 	}
 

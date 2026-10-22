@@ -327,6 +327,42 @@ func (g *GcpGkeKubernetesRuntimeInstanceConfig) Delete(
 	return deletedGcpGkeKubernetesRuntimeInstanceConfig, nil
 }
 
+// AbandonInfrastructure marks the gcp gke kubernetes runtime instance so the controller will
+// delete it even when creation was confirmed and no resource inventory is
+// recorded. Without this the controller refuses that delete, because cloud
+// resources may still be running. Setting it orphans any such resources:
+// they are left in place and no longer tracked by Threeport.
+func (g *GcpGkeKubernetesRuntimeInstanceConfig) AbandonInfrastructure(
+	apiClient *http.Client,
+	apiEndpoint string,
+) error {
+	values := g.GcpGkeKubernetesRuntimeInstance
+
+	// get gcp gke kubernetes runtime instance by name
+	instance, err := client_v0.GetGcpGkeKubernetesRuntimeInstanceByName(
+		apiClient,
+		apiEndpoint,
+		util.DerefString(values.Name),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to find gcp gke kubernetes runtime instance with name %s: %w", util.DerefString(values.Name), err)
+	}
+
+	// request abandonment
+	if _, err := client_v0.UpdateGcpGkeKubernetesRuntimeInstance(
+		apiClient,
+		apiEndpoint,
+		&api_v0.GcpGkeKubernetesRuntimeInstance{
+			Common:                api_v0.Common{ID: instance.ID},
+			AbandonInfrastructure: util.Ptr(true),
+		},
+	); err != nil {
+		return fmt.Errorf("failed to request infrastructure abandonment for gcp gke kubernetes runtime instance %s: %w", util.DerefString(values.Name), err)
+	}
+
+	return nil
+}
+
 // Validate validates inputs to create gcp gke kubernetes runtime instances.
 func (g *GcpGkeKubernetesRuntimeInstanceConfig) Validate() error {
 	gcpGkeKubernetesRuntimeInstanceValues := g.GcpGkeKubernetesRuntimeInstance

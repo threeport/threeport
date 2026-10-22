@@ -431,6 +431,42 @@ func (o *OciOkeKubernetesRuntimeInstanceConfig) Delete(
 	return deletedOciOkeKubernetesRuntimeInstanceConfig, nil
 }
 
+// AbandonInfrastructure marks the oci oke kubernetes runtime instance so the controller will
+// delete it even when creation was confirmed and no resource inventory is
+// recorded. Without this the controller refuses that delete, because cloud
+// resources may still be running. Setting it orphans any such resources:
+// they are left in place and no longer tracked by Threeport.
+func (o *OciOkeKubernetesRuntimeInstanceConfig) AbandonInfrastructure(
+	apiClient *http.Client,
+	apiEndpoint string,
+) error {
+	values := o.OciOkeKubernetesRuntimeInstance
+
+	// get oci oke kubernetes runtime instance by name
+	instance, err := client_v0.GetOciOkeKubernetesRuntimeInstanceByName(
+		apiClient,
+		apiEndpoint,
+		util.DerefString(values.Name),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to find oci oke kubernetes runtime instance with name %s: %w", util.DerefString(values.Name), err)
+	}
+
+	// request abandonment
+	if _, err := client_v0.UpdateOciOkeKubernetesRuntimeInstance(
+		apiClient,
+		apiEndpoint,
+		&api_v0.OciOkeKubernetesRuntimeInstance{
+			Common:                api_v0.Common{ID: instance.ID},
+			AbandonInfrastructure: util.Ptr(true),
+		},
+	); err != nil {
+		return fmt.Errorf("failed to request infrastructure abandonment for oci oke kubernetes runtime instance %s: %w", util.DerefString(values.Name), err)
+	}
+
+	return nil
+}
+
 // Validate validates inputs to create oci oke kubernetes runtime instances.
 func (o *OciOkeKubernetesRuntimeInstanceConfig) Validate() error {
 	ociOkeKubernetesRuntimeInstanceValues := o.OciOkeKubernetesRuntimeInstance
