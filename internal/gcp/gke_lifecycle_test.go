@@ -16,7 +16,22 @@ import (
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	gcpauth "github.com/threeport/threeport/pkg/auth/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	encryption "github.com/threeport/threeport/pkg/encryption/v0"
 )
+
+// encryptedCredentials returns an encryption key and the given service account
+// JSON encrypted under it, the way the API stores and returns it. Fixtures that
+// skip this exercise a value no controller ever receives.
+func encryptedCredentials(t *testing.T, credentials string) (key, stored string) {
+	t.Helper()
+
+	key, err := encryption.GenerateKey()
+	require.NoError(t, err)
+	stored, err = encryption.Encrypt(key, credentials)
+	require.NoError(t, err)
+
+	return key, stored
+}
 
 // TestBuildGkeInfra_MapsDefinitionNodePoolFields is a regression test for the
 // GcpGkeKubernetesRuntimeDefinition -> KubernetesRuntimeInfraGKE mapping in
@@ -33,10 +48,12 @@ func TestBuildGkeInfra_MapsDefinitionNodePoolFields(t *testing.T) {
 	// belong to, and buildGkeInfra refuses to build infra it could not bind
 	serviceAccountCredentials := `{"type":"service_account","project_id":"some-project","client_email":"threeport@some-project.iam.gserviceaccount.com"}`
 
+	encryptionKey, storedCredentials := encryptedCredentials(t, serviceAccountCredentials)
+
 	gcpProvider := api_v0.GcpProvider{
 		Common:                    api_v0.Common{ID: &gcpProviderID},
 		ProjectID:                 &projectID,
-		ServiceAccountCredentials: &serviceAccountCredentials,
+		ServiceAccountCredentials: &storedCredentials,
 	}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -52,8 +69,9 @@ func TestBuildGkeInfra_MapsDefinitionNodePoolFields(t *testing.T) {
 	defer srv.Close()
 
 	r := &controller.Reconciler{
-		APIClient: &http.Client{},
-		APIServer: strings.TrimPrefix(srv.URL, "http://"),
+		APIClient:     &http.Client{},
+		APIServer:     strings.TrimPrefix(srv.URL, "http://"),
+		EncryptionKey: encryptionKey,
 	}
 
 	instanceName := "test-instance"
@@ -257,11 +275,13 @@ func TestBuildGkeInfra_RefusesStoredCredentialsFromAnotherProject(t *testing.T) 
 	gcpProviderID := uint(1)
 	credentials := `{"type":"service_account","project_id":"another-project","client_email":"threeport@another-project.iam.gserviceaccount.com"}`
 
+	encryptionKey, storedCredentials := encryptedCredentials(t, credentials)
+
 	srv := gkeProviderServer(t, api_v0.GcpProvider{
 		Common:                    api_v0.Common{ID: &gcpProviderID},
 		Name:                      &providerName,
 		ProjectID:                 &projectID,
-		ServiceAccountCredentials: &credentials,
+		ServiceAccountCredentials: &storedCredentials,
 	})
 	defer srv.Close()
 
@@ -274,8 +294,9 @@ func TestBuildGkeInfra_RefusesStoredCredentialsFromAnotherProject(t *testing.T) 
 
 	_, err := buildGkeInfra(
 		&controller.Reconciler{
-			APIClient: &http.Client{},
-			APIServer: strings.TrimPrefix(srv.URL, "http://"),
+			APIClient:     &http.Client{},
+			APIServer:     strings.TrimPrefix(srv.URL, "http://"),
+			EncryptionKey: encryptionKey,
 		},
 		&api_v0.GcpGkeKubernetesRuntimeInstance{
 			Instance:      api_v0.Instance{Name: &instanceName},
@@ -312,10 +333,12 @@ func TestBuildGkeInfra_PulumiProjectSetAtConstruction(t *testing.T) {
 	gcpProviderID := uint(1)
 	serviceAccountCredentials := `{"type":"service_account","project_id":"some-project","client_email":"threeport@some-project.iam.gserviceaccount.com"}`
 
+	encryptionKey, storedCredentials := encryptedCredentials(t, serviceAccountCredentials)
+
 	gcpProvider := api_v0.GcpProvider{
 		Common:                    api_v0.Common{ID: &gcpProviderID},
 		ProjectID:                 &projectID,
-		ServiceAccountCredentials: &serviceAccountCredentials,
+		ServiceAccountCredentials: &storedCredentials,
 	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := json.Marshal(apiserver_lib.Response{
@@ -335,8 +358,9 @@ func TestBuildGkeInfra_PulumiProjectSetAtConstruction(t *testing.T) {
 	size := 2
 	infra, err := buildGkeInfra(
 		&controller.Reconciler{
-			APIClient: &http.Client{},
-			APIServer: strings.TrimPrefix(srv.URL, "http://"),
+			APIClient:     &http.Client{},
+			APIServer:     strings.TrimPrefix(srv.URL, "http://"),
+			EncryptionKey: encryptionKey,
 		},
 		&api_v0.GcpGkeKubernetesRuntimeInstance{
 			Instance:      api_v0.Instance{Name: &instanceName},
@@ -369,4 +393,112 @@ func TestBuildGkeInfra_PulumiProjectSetAtConstruction(t *testing.T) {
 	// the same reason: nothing may write to the infra once the watcher reads it
 	assert.Equal(t, infra.ProjectID, infra.StackConfigs["gcp:project"])
 	assert.Equal(t, infra.Region, infra.StackConfigs["gcp:region"])
+}
+
+// TestBuildGkeInfra_DecryptsStoredCredentials is a regression test for #650.
+//
+// The API encrypts the provider's service account key at rest and returns the
+// ciphertext, so buildGkeInfra received a value that is not JSON: it failed
+// extracting the account email, no runtime on a provider with a stored key could
+// be created, and delete failed at the same builder. The infra has to carry the
+// plaintext key - it is what GCP auth and the Pulumi provider are handed.
+func TestBuildGkeInfra_DecryptsStoredCredentials(t *testing.T) {
+	projectID := "some-project"
+	gcpProviderID := uint(1)
+	credentials := `{"type":"service_account","project_id":"some-project","client_email":"threeport@some-project.iam.gserviceaccount.com"}`
+	encryptionKey, storedCredentials := encryptedCredentials(t, credentials)
+	require.NotEqual(t, credentials, storedCredentials)
+
+	srv := gkeProviderServer(t, api_v0.GcpProvider{
+		Common:                    api_v0.Common{ID: &gcpProviderID},
+		ProjectID:                 &projectID,
+		ServiceAccountCredentials: &storedCredentials,
+	})
+	defer srv.Close()
+
+	infra, err := buildGkeInfra(
+		&controller.Reconciler{
+			APIClient:     &http.Client{},
+			APIServer:     strings.TrimPrefix(srv.URL, "http://"),
+			EncryptionKey: encryptionKey,
+		},
+		testGkeInstance(&gcpProviderID),
+		testGkeDefinition(),
+		nil,
+	)
+	require.NoError(t, err)
+
+	assert.Equal(t, credentials, infra.ServiceAccountCredentials)
+	assert.Equal(t, "threeport@some-project.iam.gserviceaccount.com", infra.ServiceAccountEmail)
+}
+
+// TestBuildGkeInfra_RefusesCredentialsItCannotDecrypt covers a stored key that
+// cannot be decrypted with this controller's encryption key.
+//
+// It has to fail naming the decryption, not the JSON parse that a value left
+// encrypted used to surface as.
+func TestBuildGkeInfra_RefusesCredentialsItCannotDecrypt(t *testing.T) {
+	projectID := "some-project"
+	gcpProviderID := uint(1)
+	credentials := `{"type":"service_account","project_id":"some-project","client_email":"threeport@some-project.iam.gserviceaccount.com"}`
+	_, storedCredentials := encryptedCredentials(t, credentials)
+	otherKey, err := encryption.GenerateKey()
+	require.NoError(t, err)
+
+	for name, testCase := range map[string]struct {
+		encryptionKey string
+		stored        string
+	}{
+		"a different encryption key":       {encryptionKey: otherKey, stored: storedCredentials},
+		"no encryption key":                {encryptionKey: "", stored: storedCredentials},
+		"a value that was never encrypted": {encryptionKey: otherKey, stored: credentials},
+	} {
+		t.Run(name, func(t *testing.T) {
+			srv := gkeProviderServer(t, api_v0.GcpProvider{
+				Common:                    api_v0.Common{ID: &gcpProviderID},
+				ProjectID:                 &projectID,
+				ServiceAccountCredentials: &testCase.stored,
+			})
+			defer srv.Close()
+
+			_, err := buildGkeInfra(
+				&controller.Reconciler{
+					APIClient:     &http.Client{},
+					APIServer:     strings.TrimPrefix(srv.URL, "http://"),
+					EncryptionKey: testCase.encryptionKey,
+				},
+				testGkeInstance(&gcpProviderID),
+				testGkeDefinition(),
+				nil,
+			)
+
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "failed to decrypt GCP provider service account credentials")
+		})
+	}
+}
+
+// testGkeInstance returns a runtime instance on the given provider.
+func testGkeInstance(gcpProviderID *uint) *api_v0.GcpGkeKubernetesRuntimeInstance {
+	name := "test-instance"
+	region := "us-east1"
+
+	return &api_v0.GcpGkeKubernetesRuntimeInstance{
+		Instance:      api_v0.Instance{Name: &name},
+		Region:        &region,
+		GcpProviderID: gcpProviderID,
+	}
+}
+
+// testGkeDefinition returns a runtime definition with a valid node pool.
+func testGkeDefinition() *api_v0.GcpGkeKubernetesRuntimeDefinition {
+	machineType := "e2-standard-4"
+	size := 2
+
+	return &api_v0.GcpGkeKubernetesRuntimeDefinition{
+		DefaultNodeGroupInstanceType: &machineType,
+		DefaultNodeGroupInitialSize:  &size,
+		DefaultNodeGroupMinimumSize:  &size,
+		DefaultNodeGroupMaximumSize:  &size,
+	}
 }
