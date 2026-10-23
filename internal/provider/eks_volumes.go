@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -25,9 +26,9 @@ type ebsVolumeApi interface {
 	DeleteVolume(context.Context, *ec2.DeleteVolumeInput, ...func(*ec2.Options)) (*ec2.DeleteVolumeOutput, error)
 }
 
-// DeleteLeftoverEksVolumes deletes the EBS volumes the cluster's storage
-// driver provisioned for claims in namespace that are still there once the
-// cluster is gone, and returns their ids.
+// LeftoverEksVolumes returns the ids of the EBS volumes the cluster's
+// storage driver provisioned for claims in namespace that are still there,
+// attached to nothing, once the cluster is gone.
 //
 // Tearing down a control plane waits for the driver to delete the disks
 // behind its claims, but a teardown with --infra-only does not delete the
@@ -35,11 +36,10 @@ type ebsVolumeApi interface {
 // goes takes the rest of the deletion with it. Either way the volume is left
 // unattached and billing.
 //
-// Only a volume that matches all three is deleted: tagged for this cluster,
-// created for a claim in namespace, and attached to nothing. A volume another
-// claim retained on purpose is in another namespace, and one still in use
-// belongs to a cluster that still exists.
-func DeleteLeftoverEksVolumes(ctx context.Context, ec2Api ebsVolumeApi, clusterName, namespace string) ([]string, error) {
+// Only a volume that matches all three is returned: tagged for this cluster,
+// created for a claim in namespace, and attached to nothing. A volume still
+// in use belongs to a cluster that still exists.
+func LeftoverEksVolumes(ctx context.Context, ec2Api ebsVolumeApi, clusterName, namespace string) ([]string, error) {
 	clusterTag := ebsClusterTagPrefix + clusterName
 	paginator := ec2.NewDescribeVolumesPaginator(ec2Api, &ec2.DescribeVolumesInput{
 		Filters: []ec2types.Filter{
@@ -49,28 +49,58 @@ func DeleteLeftoverEksVolumes(ctx context.Context, ec2Api ebsVolumeApi, clusterN
 		},
 	})
 
-	var deleted []string
-	var deleteErrors []error
+	var leftover []string
 	for paginator.HasMorePages() {
 		page, err := paginator.NextPage(ctx)
 		if err != nil {
-			return deleted, fmt.Errorf("failed to list volumes left by cluster %s: %w", clusterName, err)
+			return leftover, fmt.Errorf("failed to list volumes left by cluster %s: %w", clusterName, err)
 		}
 		for _, volume := range page.Volumes {
 			// checked again rather than trusting the filter alone, since a
 			// volume deleted here is gone for good
-			if volume.VolumeId == nil || !leftoverEksVolume(volume, clusterTag, namespace) {
-				continue
+			if volume.VolumeId != nil && leftoverEksVolume(volume, clusterTag, namespace) {
+				leftover = append(leftover, *volume.VolumeId)
 			}
-			if _, err := ec2Api.DeleteVolume(ctx, &ec2.DeleteVolumeInput{VolumeId: volume.VolumeId}); err != nil {
-				if IsAwsErrorCode(err, ebsVolumeDeleteNotFound) {
-					continue
-				}
-				deleteErrors = append(deleteErrors, fmt.Errorf("failed to delete volume %s: %w", *volume.VolumeId, err))
-				continue
-			}
-			deleted = append(deleted, *volume.VolumeId)
 		}
+	}
+
+	return leftover, nil
+}
+
+// DeleteLeftoverEksVolumes deletes the volumes LeftoverEksVolumes finds,
+// except those in keep, and returns the ids it deleted.
+//
+// keep is the disks whose persistent volumes outlive their claims. Nothing on
+// the volume says so: a volume whose persistent volume was changed to be
+// retained keeps the tags it was provisioned with, and is detached like any
+// other once the cluster is gone. Which ones those are can only be read from
+// the cluster, before it is deleted.
+func DeleteLeftoverEksVolumes(
+	ctx context.Context,
+	ec2Api ebsVolumeApi,
+	clusterName string,
+	namespace string,
+	keep []string,
+) ([]string, error) {
+	leftover, err := LeftoverEksVolumes(ctx, ec2Api, clusterName, namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	var deleted []string
+	var deleteErrors []error
+	for _, volumeId := range leftover {
+		if slices.Contains(keep, volumeId) {
+			continue
+		}
+		if _, err := ec2Api.DeleteVolume(ctx, &ec2.DeleteVolumeInput{VolumeId: aws.String(volumeId)}); err != nil {
+			if IsAwsErrorCode(err, ebsVolumeDeleteNotFound) {
+				continue
+			}
+			deleteErrors = append(deleteErrors, fmt.Errorf("failed to delete volume %s: %w", volumeId, err))
+			continue
+		}
+		deleted = append(deleted, volumeId)
 	}
 
 	return deleted, errors.Join(deleteErrors...)

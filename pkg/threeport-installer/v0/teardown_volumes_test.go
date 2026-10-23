@@ -3,6 +3,8 @@ package v0
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -12,6 +14,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/rest"
 	k8stesting "k8s.io/client-go/testing"
 )
 
@@ -131,4 +135,64 @@ func TestUninstallReportsAVolumeItCannotCheck(t *testing.T) {
 
 	err := waitForVolumesDeleted(kubeClient, []string{"pvc-crdb"})
 	assert.ErrorContains(t, err, "failed to check persistent volume pvc-crdb")
+}
+
+// TestTheWaitEndsWhenTheApiServerStopsAnswering covers an API server that
+// accepts a request and never answers it: the deadline has to bound the
+// request, not only the polling between requests, or the teardown hangs.
+func TestTheWaitEndsWhenTheApiServerStopsAnswering(t *testing.T) {
+	fastVolumeWait(t, 200*time.Millisecond)
+	release := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-release:
+		case <-r.Context().Done():
+		}
+	}))
+	t.Cleanup(func() { close(release); server.Close() })
+	kubeClient, err := dynamic.NewForConfig(&rest.Config{Host: server.URL})
+	require.NoError(t, err)
+
+	done := make(chan error, 1)
+	go func() { done <- waitForVolumesDeleted(kubeClient, []string{"pvc-crdb"}) }()
+	select {
+	case err := <-done:
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "pvc-crdb")
+	case <-time.After(5 * time.Second):
+		t.Fatal("the wait for volumes did not end with an API server that stopped answering")
+	}
+}
+
+// testCsiPersistentVolume returns a volume provisioned by a CSI driver for a
+// claim in namespace.
+func testCsiPersistentVolume(name, namespace, reclaimPolicy, handle string) *unstructured.Unstructured {
+	volume := testPersistentVolume(name, namespace, reclaimPolicy)
+	volume.Object["spec"].(map[string]interface{})["csi"] = map[string]interface{}{
+		"driver":       "ebs.csi.aws.com",
+		"volumeHandle": handle,
+	}
+
+	return volume
+}
+
+// TestRetainedVolumeHandlesAreTheDisksKeptAfterTheirClaims covers the disks a
+// teardown's cleanup has to leave alone.
+func TestRetainedVolumeHandlesAreTheDisksKeptAfterTheirClaims(t *testing.T) {
+	inTree := testPersistentVolume("pvc-in-tree", teardownTestNamespace, "Retain")
+	inTree.Object["spec"].(map[string]interface{})["awsElasticBlockStore"] = map[string]interface{}{
+		"volumeID": "aws://us-east-1a/vol-in-tree",
+	}
+	kubeClient := testKubeClient(
+		testCsiPersistentVolume("pvc-crdb", teardownTestNamespace, "Delete", "vol-crdb"),
+		testCsiPersistentVolume("pvc-kept", teardownTestNamespace, "Retain", "vol-kept"),
+		testCsiPersistentVolume("pvc-recycled", teardownTestNamespace, "Recycle", "vol-recycled"),
+		testCsiPersistentVolume("pvc-elsewhere", "someone-elses", "Retain", "vol-elsewhere"),
+		inTree,
+	)
+
+	handles, err := RetainedVolumeHandles(context.Background(), kubeClient, teardownTestNamespace)
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"vol-kept", "vol-recycled", "vol-in-tree"}, handles,
+		"every volume the namespace's claims keep, by its disk's id, and none that goes with its claim or belongs to another namespace")
 }

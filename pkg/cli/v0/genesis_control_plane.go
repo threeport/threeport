@@ -19,6 +19,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/threeport/threeport/internal/provider"
@@ -1233,6 +1234,26 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		}
 	} else {
 
+		// read which of the control plane's disks are retained while the
+		// cluster that says so still exists: the disks left behind are
+		// cleaned up after it is gone, and these have to be left alone
+		var retainedEksVolumes []string
+		retainedEksVolumesKnown := false
+		if threeportControlPlaneConfig.Provider == v0.KubernetesRuntimeInfraProviderEKS {
+			retainedEksVolumes, err = retainedEksControlPlaneVolumes(
+				kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS),
+				cpi.Opts.Namespace,
+			)
+			if err != nil {
+				Warning(fmt.Sprintf(
+					"could not read which control plane volumes are retained, so none left behind will be deleted: %s",
+					err,
+				))
+			} else {
+				retainedEksVolumesKnown = true
+			}
+		}
+
 		// delete control plane infra
 		if err := kubernetesRuntimeInfra.Delete(); err != nil {
 			return fmt.Errorf("failed to delete control plane infra: %w", err)
@@ -1250,6 +1271,8 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 				kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS).RuntimeInstanceName,
 				cpi.Opts.Namespace,
 				awsConfigUser,
+				retainedEksVolumes,
+				retainedEksVolumesKnown,
 			)
 
 			// delete AWS IAM resources
@@ -1830,23 +1853,72 @@ func dropSameNameControlPlane(cfg *ThreeportConfig, name string, force bool) err
 }
 
 // leftoverVolumeCleanupTimeout bounds the cleanup of the disks a deleted
-// cluster left behind.
+// cluster left behind, and the read of which of them are retained.
 const leftoverVolumeCleanupTimeout = 2 * time.Minute
 
+// retainedEksControlPlaneVolumes returns the EBS volume ids behind the
+// control plane's persistent volumes that outlive their claims. It connects
+// to the cluster through EKS rather than through the Threeport API, which a
+// teardown with --infra-only does not rely on.
+func retainedEksControlPlaneVolumes(eksInfra *provider.KubernetesRuntimeInfraEKS, namespace string) ([]string, error) {
+	connection, err := eksInfra.GetConnection()
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to cluster %s: %w", eksInfra.RuntimeInstanceName, err)
+	}
+	kubeClient, err := dynamic.NewForConfig(&rest.Config{
+		Host:            connection.APIEndpoint,
+		BearerToken:     connection.Token,
+		TLSClientConfig: rest.TLSClientConfig{CAData: []byte(connection.CACertificate)},
+		Timeout:         leftoverVolumeCleanupTimeout,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create a client for cluster %s: %w", eksInfra.RuntimeInstanceName, err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), leftoverVolumeCleanupTimeout)
+	defer cancel()
+
+	return threeport.RetainedVolumeHandles(ctx, kubeClient, namespace)
+}
+
 // deleteLeftoverEksVolumes deletes the EBS volumes the cluster's storage
-// driver left for claims in the control plane's namespace, and reports them.
-// A failure is a warning naming the volumes rather than an error: the cluster
-// is already gone, so the teardown has nothing left to retry, and the volumes
-// can be deleted by hand.
-func deleteLeftoverEksVolumes(clusterName, namespace string, awsConfig *aws.Config) {
+// driver left for claims in the control plane's namespace, except the
+// retained ones, and reports them. When which are retained could not be read,
+// it deletes none and names them instead, since a retained one cannot be told
+// from the others. A failure is a warning naming the volumes rather than an
+// error: the cluster is already gone, so the teardown has nothing left to
+// retry, and the volumes can be deleted by hand.
+func deleteLeftoverEksVolumes(
+	clusterName string,
+	namespace string,
+	awsConfig *aws.Config,
+	retained []string,
+	retainedKnown bool,
+) {
 	if awsConfig == nil {
 		Warning(fmt.Sprintf("no AWS config to check for EBS volumes left by cluster %s", clusterName))
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), leftoverVolumeCleanupTimeout)
 	defer cancel()
+	ec2Client := ec2.NewFromConfig(*awsConfig)
 
-	deleted, err := provider.DeleteLeftoverEksVolumes(ctx, ec2.NewFromConfig(*awsConfig), clusterName, namespace)
+	if !retainedKnown {
+		leftover, err := provider.LeftoverEksVolumes(ctx, ec2Client, clusterName, namespace)
+		if err != nil {
+			Warning(fmt.Sprintf("failed to list EBS volumes left by cluster %s: %s", clusterName, err))
+			return
+		}
+		if len(leftover) > 0 {
+			Warning(fmt.Sprintf(
+				"EBS volumes left by cluster %s for namespace %s were not deleted, since which are retained is unknown - delete the ones not meant to be kept by hand: %s",
+				clusterName, namespace, strings.Join(leftover, ", "),
+			))
+		}
+		return
+	}
+
+	deleted, err := provider.DeleteLeftoverEksVolumes(ctx, ec2Client, clusterName, namespace, retained)
 	if len(deleted) > 0 {
 		Info(fmt.Sprintf("deleted EBS volumes left by cluster %s: %s", clusterName, strings.Join(deleted, ", ")))
 	}

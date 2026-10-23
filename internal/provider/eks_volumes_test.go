@@ -77,7 +77,7 @@ func TestTheLeftoverVolumesAreTheClustersControlPlaneOnes(t *testing.T) {
 		{VolumeId: aws.String("vol-untagged"), State: ec2types.VolumeStateAvailable},
 	}}}
 
-	deleted, err := DeleteLeftoverEksVolumes(context.Background(), api, testEksCluster, testEksNamespace)
+	deleted, err := DeleteLeftoverEksVolumes(context.Background(), api, testEksCluster, testEksNamespace, nil)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"vol-crdb"}, deleted)
 	assert.Equal(t, []string{"vol-crdb"}, api.deleted)
@@ -101,7 +101,7 @@ func TestEveryPageOfLeftoverVolumesIsDeleted(t *testing.T) {
 		{testEbsVolume("vol-nats", testEksCluster, testEksNamespace, ec2types.VolumeStateAvailable)},
 	}}
 
-	deleted, err := DeleteLeftoverEksVolumes(context.Background(), api, testEksCluster, testEksNamespace)
+	deleted, err := DeleteLeftoverEksVolumes(context.Background(), api, testEksCluster, testEksNamespace, nil)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"vol-crdb", "vol-nats"}, deleted)
 }
@@ -121,9 +121,39 @@ func TestOneVolumeThatCannotBeDeletedDoesNotKeepTheOthers(t *testing.T) {
 		},
 	}
 
-	deleted, err := DeleteLeftoverEksVolumes(context.Background(), api, testEksCluster, testEksNamespace)
+	deleted, err := DeleteLeftoverEksVolumes(context.Background(), api, testEksCluster, testEksNamespace, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "vol-forbidden")
 	assert.NotContains(t, err.Error(), "vol-gone")
 	assert.Equal(t, []string{"vol-nats"}, deleted)
+}
+
+// TestARetainedVolumeIsNeverDeleted covers a control plane volume whose
+// persistent volume was changed to be retained: the disk keeps the tags it
+// was provisioned with and is detached like the others once the cluster is
+// gone, so only the list read from the cluster beforehand keeps it.
+func TestARetainedVolumeIsNeverDeleted(t *testing.T) {
+	api := &fakeEbsApi{pages: [][]ec2types.Volume{{
+		testEbsVolume("vol-crdb", testEksCluster, testEksNamespace, ec2types.VolumeStateAvailable),
+		testEbsVolume("vol-retained", testEksCluster, testEksNamespace, ec2types.VolumeStateAvailable),
+	}}}
+
+	deleted, err := DeleteLeftoverEksVolumes(context.Background(), api, testEksCluster, testEksNamespace, []string{"vol-retained"})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"vol-crdb"}, deleted)
+	assert.NotContains(t, api.deleted, "vol-retained")
+}
+
+// TestListingLeftoverVolumesDeletesNothing covers a teardown that could not
+// read which volumes are retained, which only names them.
+func TestListingLeftoverVolumesDeletesNothing(t *testing.T) {
+	api := &fakeEbsApi{pages: [][]ec2types.Volume{{
+		testEbsVolume("vol-crdb", testEksCluster, testEksNamespace, ec2types.VolumeStateAvailable),
+		testEbsVolume("vol-other-cluster", "threeport-other", testEksNamespace, ec2types.VolumeStateAvailable),
+	}}}
+
+	leftover, err := LeftoverEksVolumes(context.Background(), api, testEksCluster, testEksNamespace)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"vol-crdb"}, leftover)
+	assert.Empty(t, api.deleted)
 }
