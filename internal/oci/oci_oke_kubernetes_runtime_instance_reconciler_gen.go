@@ -201,6 +201,26 @@ func OciOkeKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the failure has outlasted the retry bound
+					if controller.RetriesExhausted(notif.CreationTime) {
+						giveUpMsg := fmt.Sprintf("failed to reconcile created oci oke kubernetes runtime instance object, giving up after %s: %s",
+							controller.DefaultMaxReconcileDuration,
+							operationErr.Error())
+						log.Error(operationErr, giveUpMsg)
+						r.EventsRecorder.HandleEventOverride(
+							&api_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonCreateFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							ociOkeKubernetesRuntimeInstance.GetId(),
+							ociOkeKubernetesRuntimeInstance.GetFullyQualifiedType(),
+							operationErr,
+							&log,
+						)
+						r.ReleaseLock(ociOkeKubernetesRuntimeInstance, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						ociOkeKubernetesRuntimeInstance,
 						requeueDelay,
@@ -266,6 +286,26 @@ func OciOkeKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the failure has outlasted the retry bound
+					if controller.RetriesExhausted(notif.CreationTime) {
+						giveUpMsg := fmt.Sprintf("failed to reconcile updated oci oke kubernetes runtime instance object, giving up after %s: %s",
+							controller.DefaultMaxReconcileDuration,
+							operationErr.Error())
+						log.Error(operationErr, giveUpMsg)
+						r.EventsRecorder.HandleEventOverride(
+							&api_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonUpdateFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							ociOkeKubernetesRuntimeInstance.GetId(),
+							ociOkeKubernetesRuntimeInstance.GetFullyQualifiedType(),
+							operationErr,
+							&log,
+						)
+						r.ReleaseLock(ociOkeKubernetesRuntimeInstance, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						ociOkeKubernetesRuntimeInstance,
 						requeueDelay,
@@ -344,6 +384,26 @@ func OciOkeKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the failure has outlasted the retry bound
+					if controller.RetriesExhausted(notif.CreationTime) {
+						giveUpMsg := fmt.Sprintf("failed to reconcile deleted oci oke kubernetes runtime instance object, giving up after %s: %s",
+							controller.DefaultMaxReconcileDuration,
+							operationErr.Error())
+						log.Error(operationErr, giveUpMsg)
+						r.EventsRecorder.HandleEventOverride(
+							&api_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonDeleteFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							ociOkeKubernetesRuntimeInstance.GetId(),
+							ociOkeKubernetesRuntimeInstance.GetFullyQualifiedType(),
+							operationErr,
+							&log,
+						)
+						r.ReleaseLock(ociOkeKubernetesRuntimeInstance, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						ociOkeKubernetesRuntimeInstance,
 						requeueDelay,

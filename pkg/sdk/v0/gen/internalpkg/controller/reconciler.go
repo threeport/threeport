@@ -716,6 +716,44 @@ func operationCase(
 				Line().Op("&").Id("log"),
 				Line(),
 			)
+			// a failure that never resolves must end somewhere visible rather
+			// than be requeued for as long as the object exists
+			k.Comment("stop requeueing once the failure has outlasted the retry bound")
+			k.If(Id("controller").Dot("RetriesExhausted").Call(Id("notif").Dot("CreationTime"))).Block(
+				Id("giveUpMsg").Op(":=").Qual("fmt", "Sprintf").Call(
+					Lit(fmt.Sprintf(
+						"failed to reconcile %s %s object, giving up after %%s: %%s",
+						lowerOpPast,
+						strcase.ToDelimited(obj.Name, ' '),
+					)),
+					Line().Id("controller").Dot("DefaultMaxReconcileDuration"),
+					Line().Id("operationErr").Dot("Error").Call(),
+				),
+				Id("log").Dot("Error").Call(Id("operationErr"), Id("giveUpMsg")),
+				Id("r").Dot("EventsRecorder").Dot("HandleEventOverride").Call(
+					Line().Op("&").Qual("github.com/threeport/threeport/pkg/api/v0", "Event").Values(Dict{
+						Id("Reason"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
+							Qual(
+								"github.com/threeport/threeport/pkg/event/v0",
+								fmt.Sprintf("Reason%sFailed", uppoerOp),
+							),
+						),
+						Id("Note"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(Id("giveUpMsg")),
+						Id("Type"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
+							Qual("github.com/threeport/threeport/pkg/event/v0", "TypeWarning"),
+						),
+					}),
+					Line().Id(strcase.ToLowerCamel(obj.Name)).Dot("GetId").Call(),
+					Line().Id(strcase.ToLowerCamel(obj.Name)).Dot("GetFullyQualifiedType").Call(),
+					Line().Id("operationErr"),
+					Line().Op("&").Id("log"),
+					Line(),
+				),
+				// releasing with success acknowledges the message so it is not
+				// redelivered
+				Id("r").Dot("ReleaseLock").Call(Id(varObjectName), Id("lockReleased"), Id("msg"), Lit(true)),
+				Continue(),
+			)
 			k.Id("r").Dot("UnlockAndRequeue").Call(
 				Line().Id(varObjectName),
 				Line().Id("requeueDelay"),

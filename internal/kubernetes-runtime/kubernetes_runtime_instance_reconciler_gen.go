@@ -201,6 +201,26 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the failure has outlasted the retry bound
+					if controller.RetriesExhausted(notif.CreationTime) {
+						giveUpMsg := fmt.Sprintf("failed to reconcile created kubernetes runtime instance object, giving up after %s: %s",
+							controller.DefaultMaxReconcileDuration,
+							operationErr.Error())
+						log.Error(operationErr, giveUpMsg)
+						r.EventsRecorder.HandleEventOverride(
+							&api_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonCreateFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							kubernetesRuntimeInstance.GetId(),
+							kubernetesRuntimeInstance.GetFullyQualifiedType(),
+							operationErr,
+							&log,
+						)
+						r.ReleaseLock(kubernetesRuntimeInstance, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						kubernetesRuntimeInstance,
 						requeueDelay,
@@ -266,6 +286,26 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the failure has outlasted the retry bound
+					if controller.RetriesExhausted(notif.CreationTime) {
+						giveUpMsg := fmt.Sprintf("failed to reconcile updated kubernetes runtime instance object, giving up after %s: %s",
+							controller.DefaultMaxReconcileDuration,
+							operationErr.Error())
+						log.Error(operationErr, giveUpMsg)
+						r.EventsRecorder.HandleEventOverride(
+							&api_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonUpdateFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							kubernetesRuntimeInstance.GetId(),
+							kubernetesRuntimeInstance.GetFullyQualifiedType(),
+							operationErr,
+							&log,
+						)
+						r.ReleaseLock(kubernetesRuntimeInstance, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						kubernetesRuntimeInstance,
 						requeueDelay,
@@ -344,6 +384,26 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the failure has outlasted the retry bound
+					if controller.RetriesExhausted(notif.CreationTime) {
+						giveUpMsg := fmt.Sprintf("failed to reconcile deleted kubernetes runtime instance object, giving up after %s: %s",
+							controller.DefaultMaxReconcileDuration,
+							operationErr.Error())
+						log.Error(operationErr, giveUpMsg)
+						r.EventsRecorder.HandleEventOverride(
+							&api_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonDeleteFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							kubernetesRuntimeInstance.GetId(),
+							kubernetesRuntimeInstance.GetFullyQualifiedType(),
+							operationErr,
+							&log,
+						)
+						r.ReleaseLock(kubernetesRuntimeInstance, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						kubernetesRuntimeInstance,
 						requeueDelay,

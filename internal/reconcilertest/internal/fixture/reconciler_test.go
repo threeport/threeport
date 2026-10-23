@@ -247,10 +247,18 @@ func (h *harness) scheduleDeletion() {
 // publish sends operation for the fetching object and waits until that reconciler is idle.
 func (h *harness) publish(operation notifications.NotificationOperation) {
 	h.t.Helper()
+	h.publishCreatedAt(operation, time.Now().Unix())
+}
+
+// publishCreatedAt is publish for a notification that carries the given
+// creation time, in Unix seconds - how a notification that has been failing for
+// a while looks to the reconciler.
+func (h *harness) publishCreatedAt(operation notifications.NotificationOperation, creationTime int64) {
+	h.t.Helper()
 
 	// build the notification payload
 	h.objMu.Lock()
-	payload, err := h.obj.NotificationPayload(operation, false, time.Now().Unix())
+	payload, err := h.obj.NotificationPayload(operation, false, creationTime)
 	h.objMu.Unlock()
 	require.NoError(h.t, err)
 
@@ -332,6 +340,17 @@ func (h *harness) delivered(reconcilerName string) uint64 {
 	info, err := h.js.ConsumerInfo(fixtureStream, reconcilerName+"Consumer")
 	require.NoError(h.t, err)
 	return info.Delivered.Consumer
+}
+
+// outstanding returns the number of messages on reconcilerName's consumer that
+// have not been acknowledged: waiting to be delivered, delivered and unanswered,
+// or negatively acknowledged and waiting out a redelivery delay.
+func (h *harness) outstanding(reconcilerName string) int {
+	h.t.Helper()
+
+	info, err := h.js.ConsumerInfo(fixtureStream, reconcilerName+"Consumer")
+	require.NoError(h.t, err)
+	return info.NumAckPending + int(info.NumPending)
 }
 
 // locked reports whether reconcilerName currently holds the fixture object's lock.
@@ -546,4 +565,52 @@ func TestDeleteInProgressRecordedOnceWhenDeleteConflicts(t *testing.T) {
 			assert.NotContains(t, h.instanceRecorder.GetReasons(), event.ReasonDeleteFailed)
 		})
 	}
+}
+
+// TestFailingOperationGivesUpAfterRetryBound covers a notification that has
+// been failing for longer than the retry bound being dropped rather than
+// requeued. Without the bound a failure that cannot resolve itself - a
+// permission that is never granted - is redelivered for as long as the object
+// exists.
+func TestFailingOperationGivesUpAfterRetryBound(t *testing.T) {
+	for _, op := range []struct {
+		name      string
+		operation notifications.NotificationOperation
+		handler   string
+	}{
+		{"create", notifications.NotificationOperationCreated, "create"},
+		{"update", notifications.NotificationOperationUpdated, "update"},
+		{"delete", notifications.NotificationOperationDeleted, "delete"},
+	} {
+		t.Run(op.name, func(t *testing.T) {
+			h := newHarness(t)
+			h.spy.SetResult(op.handler, Result{Err: fmt.Errorf("%s handler failed", op.handler)})
+
+			stale := time.Now().Add(-controller.DefaultMaxReconcileDuration - time.Minute).Unix()
+			h.publishCreatedAt(op.operation, stale)
+
+			// An old notification is requeued with the longest delay, so a
+			// requeue is not seen as a redelivery within a test. It is seen as
+			// a message still outstanding on the consumer: acknowledged means
+			// done, a negative acknowledgement with a delay stays pending until
+			// it is delivered again.
+			assert.Equal(t, []string{op.handler}, h.spy.Calls())
+			require.Eventually(t, func() bool { return h.outstanding(instanceReconciler) == 0 },
+				5*time.Second, 50*time.Millisecond, "the notification must be acknowledged, not requeued")
+			assert.False(t, h.locked(instanceReconciler), "giving up must release the lock")
+		})
+	}
+}
+
+// TestFailingOperationIsRequeuedWithinRetryBound is the other side of the
+// bound: a recent failure is retried, so the bound cannot pass by dropping every
+// failure.
+func TestFailingOperationIsRequeuedWithinRetryBound(t *testing.T) {
+	h := newHarness(t)
+	h.spy.SetResult("update", Result{Err: fmt.Errorf("update handler failed")})
+
+	h.publish(notifications.NotificationOperationUpdated)
+
+	require.Eventually(t, func() bool { return len(h.spy.Calls()) >= 2 }, 10*time.Second, 100*time.Millisecond,
+		"a failure inside the bound is redelivered")
 }

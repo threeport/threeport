@@ -201,6 +201,26 @@ func DomainNameInstanceReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the failure has outlasted the retry bound
+					if controller.RetriesExhausted(notif.CreationTime) {
+						giveUpMsg := fmt.Sprintf("failed to reconcile created domain name instance object, giving up after %s: %s",
+							controller.DefaultMaxReconcileDuration,
+							operationErr.Error())
+						log.Error(operationErr, giveUpMsg)
+						r.EventsRecorder.HandleEventOverride(
+							&api_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonCreateFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							domainNameInstance.GetId(),
+							domainNameInstance.GetFullyQualifiedType(),
+							operationErr,
+							&log,
+						)
+						r.ReleaseLock(domainNameInstance, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						domainNameInstance,
 						requeueDelay,
@@ -266,6 +286,26 @@ func DomainNameInstanceReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the failure has outlasted the retry bound
+					if controller.RetriesExhausted(notif.CreationTime) {
+						giveUpMsg := fmt.Sprintf("failed to reconcile updated domain name instance object, giving up after %s: %s",
+							controller.DefaultMaxReconcileDuration,
+							operationErr.Error())
+						log.Error(operationErr, giveUpMsg)
+						r.EventsRecorder.HandleEventOverride(
+							&api_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonUpdateFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							domainNameInstance.GetId(),
+							domainNameInstance.GetFullyQualifiedType(),
+							operationErr,
+							&log,
+						)
+						r.ReleaseLock(domainNameInstance, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						domainNameInstance,
 						requeueDelay,
@@ -344,6 +384,26 @@ func DomainNameInstanceReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the failure has outlasted the retry bound
+					if controller.RetriesExhausted(notif.CreationTime) {
+						giveUpMsg := fmt.Sprintf("failed to reconcile deleted domain name instance object, giving up after %s: %s",
+							controller.DefaultMaxReconcileDuration,
+							operationErr.Error())
+						log.Error(operationErr, giveUpMsg)
+						r.EventsRecorder.HandleEventOverride(
+							&api_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonDeleteFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							domainNameInstance.GetId(),
+							domainNameInstance.GetFullyQualifiedType(),
+							operationErr,
+							&log,
+						)
+						r.ReleaseLock(domainNameInstance, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						domainNameInstance,
 						requeueDelay,

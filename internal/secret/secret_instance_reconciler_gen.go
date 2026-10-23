@@ -201,6 +201,26 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the failure has outlasted the retry bound
+					if controller.RetriesExhausted(notif.CreationTime) {
+						giveUpMsg := fmt.Sprintf("failed to reconcile created secret instance object, giving up after %s: %s",
+							controller.DefaultMaxReconcileDuration,
+							operationErr.Error())
+						log.Error(operationErr, giveUpMsg)
+						r.EventsRecorder.HandleEventOverride(
+							&api_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonCreateFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							secretInstance.GetId(),
+							secretInstance.GetFullyQualifiedType(),
+							operationErr,
+							&log,
+						)
+						r.ReleaseLock(secretInstance, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						secretInstance,
 						requeueDelay,
@@ -266,6 +286,26 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the failure has outlasted the retry bound
+					if controller.RetriesExhausted(notif.CreationTime) {
+						giveUpMsg := fmt.Sprintf("failed to reconcile updated secret instance object, giving up after %s: %s",
+							controller.DefaultMaxReconcileDuration,
+							operationErr.Error())
+						log.Error(operationErr, giveUpMsg)
+						r.EventsRecorder.HandleEventOverride(
+							&api_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonUpdateFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							secretInstance.GetId(),
+							secretInstance.GetFullyQualifiedType(),
+							operationErr,
+							&log,
+						)
+						r.ReleaseLock(secretInstance, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						secretInstance,
 						requeueDelay,
@@ -344,6 +384,26 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the failure has outlasted the retry bound
+					if controller.RetriesExhausted(notif.CreationTime) {
+						giveUpMsg := fmt.Sprintf("failed to reconcile deleted secret instance object, giving up after %s: %s",
+							controller.DefaultMaxReconcileDuration,
+							operationErr.Error())
+						log.Error(operationErr, giveUpMsg)
+						r.EventsRecorder.HandleEventOverride(
+							&api_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonDeleteFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							secretInstance.GetId(),
+							secretInstance.GetFullyQualifiedType(),
+							operationErr,
+							&log,
+						)
+						r.ReleaseLock(secretInstance, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						secretInstance,
 						requeueDelay,
