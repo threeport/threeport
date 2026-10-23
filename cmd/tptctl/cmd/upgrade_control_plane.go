@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
@@ -81,6 +82,20 @@ for those.`,
 		err = updateDeploymentImageTag(updateImageTag, *controlPlaneInstance.Namespace, dynamicKubeClient, mapper)
 		if err != nil {
 			cli.Error("failed to update threeport deployment image tag", err)
+			os.Exit(1)
+		}
+
+		// children created from here on default to the images this control plane
+		// runs, so record the tag the deployments were just moved to
+		if _, err := client.UpdateControlPlaneInstance(
+			apiClient,
+			apiEndpoint,
+			&api_v0.ControlPlaneInstance{
+				Common:   api_v0.Common{ID: controlPlaneInstance.ID},
+				ImageTag: &updateImageTag,
+			},
+		); err != nil {
+			cli.Error("deployments were updated but the new image tag could not be recorded for child control planes:", err)
 			os.Exit(1)
 		}
 
