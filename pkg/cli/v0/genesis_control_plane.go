@@ -2,6 +2,7 @@ package v0
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/dynamic"
@@ -1240,6 +1242,16 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		switch threeportControlPlaneConfig.Provider {
 		case v0.KubernetesRuntimeInfraProviderEKS:
 
+			// delete the disks the storage driver left for the control
+			// plane's claims: --infra-only does not delete the control plane
+			// first, and the driver can still be deleting one when the
+			// cluster goes
+			deleteLeftoverEksVolumes(
+				kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS).RuntimeInstanceName,
+				cpi.Opts.Namespace,
+				awsConfigUser,
+			)
+
 			// delete AWS IAM resources
 			err = provider.DeleteResourceManagerRole(cpi.Opts.ControlPlaneName, *awsConfigUser)
 			if err != nil {
@@ -1815,4 +1827,33 @@ func dropSameNameControlPlane(cfg *ThreeportConfig, name string, force bool) err
 	)
 
 	return nil
+}
+
+// leftoverVolumeCleanupTimeout bounds the cleanup of the disks a deleted
+// cluster left behind.
+const leftoverVolumeCleanupTimeout = 2 * time.Minute
+
+// deleteLeftoverEksVolumes deletes the EBS volumes the cluster's storage
+// driver left for claims in the control plane's namespace, and reports them.
+// A failure is a warning naming the volumes rather than an error: the cluster
+// is already gone, so the teardown has nothing left to retry, and the volumes
+// can be deleted by hand.
+func deleteLeftoverEksVolumes(clusterName, namespace string, awsConfig *aws.Config) {
+	if awsConfig == nil {
+		Warning(fmt.Sprintf("no AWS config to check for EBS volumes left by cluster %s", clusterName))
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), leftoverVolumeCleanupTimeout)
+	defer cancel()
+
+	deleted, err := provider.DeleteLeftoverEksVolumes(ctx, ec2.NewFromConfig(*awsConfig), clusterName, namespace)
+	if len(deleted) > 0 {
+		Info(fmt.Sprintf("deleted EBS volumes left by cluster %s: %s", clusterName, strings.Join(deleted, ", ")))
+	}
+	if err != nil {
+		Warning(fmt.Sprintf(
+			"failed to delete EBS volumes left by cluster %s for namespace %s - delete any that remain by hand: %s",
+			clusterName, namespace, err,
+		))
+	}
 }
