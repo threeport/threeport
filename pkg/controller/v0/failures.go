@@ -68,9 +68,9 @@ func (t *FailureTracker) now() time.Time {
 // that begins an episode reports zero.
 //
 // An episode with no failure for episodeStaleAfter is over: whatever ended it
-// - a success elsewhere, a deleted object, a given-up notification nothing
-// followed - was not seen here, and the next failure starts a new one rather
-// than inheriting an old start.
+// - a success elsewhere, a deleted object - was not seen here, and the next
+// failure starts a new one rather than inheriting an old start. Success and
+// giving up end an episode explicitly, through clear.
 func (t *FailureTracker) record(key failureKey) time.Duration {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -140,8 +140,9 @@ func (r *Reconciler) RecordFailure(object apilib.ReconciledThreeportApiObject, o
 }
 
 // ClearFailure ends the failure episode for an operation on an object. A
-// reconciler calls it when the operation succeeds, so a later failure starts a
-// new window.
+// reconciler calls it when the operation succeeds, and when it gives up: in
+// both cases whatever notification comes next is new work, and a later failure
+// starts a new window rather than finding one that has already run out.
 func (r *Reconciler) ClearFailure(object apilib.ReconciledThreeportApiObject, operation string) {
 	r.failures().clear(r.failureKey(object, operation))
 }

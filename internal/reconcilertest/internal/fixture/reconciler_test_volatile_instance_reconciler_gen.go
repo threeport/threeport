@@ -192,6 +192,7 @@ func ReconcilerTestVolatileInstanceReconciler(r *controller.Reconciler) {
 						); recordErr != nil {
 							log.Error(recordErr, "failed to record give-up event")
 						}
+						r.ClearFailure(reconcilerTestVolatileInstance, string(notif.Operation))
 						r.ReleaseLock(reconcilerTestVolatileInstance, lockReleased, msg, true)
 						continue
 					}
@@ -280,6 +281,7 @@ func ReconcilerTestVolatileInstanceReconciler(r *controller.Reconciler) {
 						); recordErr != nil {
 							log.Error(recordErr, "failed to record give-up event")
 						}
+						r.ClearFailure(reconcilerTestVolatileInstance, string(notif.Operation))
 						r.ReleaseLock(reconcilerTestVolatileInstance, lockReleased, msg, true)
 						continue
 					}
@@ -381,6 +383,7 @@ func ReconcilerTestVolatileInstanceReconciler(r *controller.Reconciler) {
 						); recordErr != nil {
 							log.Error(recordErr, "failed to record give-up event")
 						}
+						r.ClearFailure(reconcilerTestVolatileInstance, string(notif.Operation))
 						r.ReleaseLock(reconcilerTestVolatileInstance, lockReleased, msg, true)
 						continue
 					}

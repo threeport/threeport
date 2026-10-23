@@ -191,6 +191,7 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 						); recordErr != nil {
 							log.Error(recordErr, "failed to record give-up event")
 						}
+						r.ClearFailure(secretDefinition, string(notif.Operation))
 						r.ReleaseLock(secretDefinition, lockReleased, msg, true)
 						continue
 					}
@@ -279,6 +280,7 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 						); recordErr != nil {
 							log.Error(recordErr, "failed to record give-up event")
 						}
+						r.ClearFailure(secretDefinition, string(notif.Operation))
 						r.ReleaseLock(secretDefinition, lockReleased, msg, true)
 						continue
 					}
@@ -380,6 +382,7 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 						); recordErr != nil {
 							log.Error(recordErr, "failed to record give-up event")
 						}
+						r.ClearFailure(secretDefinition, string(notif.Operation))
 						r.ReleaseLock(secretDefinition, lockReleased, msg, true)
 						continue
 					}

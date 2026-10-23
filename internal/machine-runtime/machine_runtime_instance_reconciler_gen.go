@@ -220,6 +220,7 @@ func MachineRuntimeInstanceReconciler(r *controller.Reconciler) {
 						); recordErr != nil {
 							log.Error(recordErr, "failed to record give-up event")
 						}
+						r.ClearFailure(machineRuntimeInstance, string(notif.Operation))
 						r.ReleaseLock(machineRuntimeInstance, lockReleased, msg, true)
 						continue
 					}
@@ -308,6 +309,7 @@ func MachineRuntimeInstanceReconciler(r *controller.Reconciler) {
 						); recordErr != nil {
 							log.Error(recordErr, "failed to record give-up event")
 						}
+						r.ClearFailure(machineRuntimeInstance, string(notif.Operation))
 						r.ReleaseLock(machineRuntimeInstance, lockReleased, msg, true)
 						continue
 					}
@@ -409,6 +411,7 @@ func MachineRuntimeInstanceReconciler(r *controller.Reconciler) {
 						); recordErr != nil {
 							log.Error(recordErr, "failed to record give-up event")
 						}
+						r.ClearFailure(machineRuntimeInstance, string(notif.Operation))
 						r.ReleaseLock(machineRuntimeInstance, lockReleased, msg, true)
 						continue
 					}

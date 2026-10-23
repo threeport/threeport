@@ -220,6 +220,7 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 						); recordErr != nil {
 							log.Error(recordErr, "failed to record give-up event")
 						}
+						r.ClearFailure(kubernetesRuntimeDefinition, string(notif.Operation))
 						r.ReleaseLock(kubernetesRuntimeDefinition, lockReleased, msg, true)
 						continue
 					}
@@ -308,6 +309,7 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 						); recordErr != nil {
 							log.Error(recordErr, "failed to record give-up event")
 						}
+						r.ClearFailure(kubernetesRuntimeDefinition, string(notif.Operation))
 						r.ReleaseLock(kubernetesRuntimeDefinition, lockReleased, msg, true)
 						continue
 					}
@@ -409,6 +411,7 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 						); recordErr != nil {
 							log.Error(recordErr, "failed to record give-up event")
 						}
+						r.ClearFailure(kubernetesRuntimeDefinition, string(notif.Operation))
 						r.ReleaseLock(kubernetesRuntimeDefinition, lockReleased, msg, true)
 						continue
 					}

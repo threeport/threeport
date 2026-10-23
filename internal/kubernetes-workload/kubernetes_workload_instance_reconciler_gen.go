@@ -220,6 +220,7 @@ func KubernetesWorkloadInstanceReconciler(r *controller.Reconciler) {
 						); recordErr != nil {
 							log.Error(recordErr, "failed to record give-up event")
 						}
+						r.ClearFailure(kubernetesWorkloadInstance, string(notif.Operation))
 						r.ReleaseLock(kubernetesWorkloadInstance, lockReleased, msg, true)
 						continue
 					}
@@ -308,6 +309,7 @@ func KubernetesWorkloadInstanceReconciler(r *controller.Reconciler) {
 						); recordErr != nil {
 							log.Error(recordErr, "failed to record give-up event")
 						}
+						r.ClearFailure(kubernetesWorkloadInstance, string(notif.Operation))
 						r.ReleaseLock(kubernetesWorkloadInstance, lockReleased, msg, true)
 						continue
 					}
@@ -409,6 +411,7 @@ func KubernetesWorkloadInstanceReconciler(r *controller.Reconciler) {
 						); recordErr != nil {
 							log.Error(recordErr, "failed to record give-up event")
 						}
+						r.ClearFailure(kubernetesWorkloadInstance, string(notif.Operation))
 						r.ReleaseLock(kubernetesWorkloadInstance, lockReleased, msg, true)
 						continue
 					}

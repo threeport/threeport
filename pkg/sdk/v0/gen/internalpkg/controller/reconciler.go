@@ -762,6 +762,13 @@ func operationCase(
 				).Block(
 					Id("log").Dot("Error").Call(Id("recordErr"), Lit("failed to record give-up event")),
 				),
+				// the episode ends with the give-up: the next notification for
+				// this object is new work, and its first failure is not one
+				// more attempt in a window that has already run out
+				Id("r").Dot("ClearFailure").Call(
+					Id(varObjectName),
+					Id("string").Call(Id("notif").Dot("Operation")),
+				),
 				// releasing with success acknowledges the message so it is not
 				// redelivered
 				Id("r").Dot("ReleaseLock").Call(Id(varObjectName), Id("lockReleased"), Id("msg"), Lit(true)),

@@ -661,6 +661,27 @@ func TestStaleNotificationIsRetriedAfterItsFirstFailure(t *testing.T) {
 	assertDidNotGiveUp(t, h)
 }
 
+// TestNewNotificationAfterGivingUpGetsItsOwnWindow covers an update that
+// arrives after the reconciler gave up on an object being retried like any
+// other. It is new work, and if its first failure is temporary it has not been
+// failing for an hour: finding the old window already run out would drop it
+// without a single retry.
+func TestNewNotificationAfterGivingUpGetsItsOwnWindow(t *testing.T) {
+	h := newHarness(t)
+	h.spy.SetResult("update", Result{Err: fmt.Errorf("update handler failed")})
+
+	failUntilGivingUp(t, h, notifications.NotificationOperationUpdated)
+	require.Len(t, gaveUpEvents(h), 1)
+	calls := len(h.spy.Calls())
+
+	h.publish(notifications.NotificationOperationUpdated)
+
+	assert.Equal(t, calls+1, len(h.spy.Calls()), "the new notification is attempted")
+	assert.Never(t, func() bool { return h.outstanding(instanceReconciler) == 0 },
+		time.Second, 50*time.Millisecond, "its first failure must be requeued")
+	assert.Len(t, gaveUpEvents(h), 1, "it has not given up a second time")
+}
+
 // TestSuccessEndsTheFailureWindow covers a success starting a later failure on
 // a new window. Failures an hour apart with a success between them are not one
 // hour of failing.
@@ -698,13 +719,13 @@ func TestFailingOperationIsRequeuedWithinRetryBound(t *testing.T) {
 		"a failure inside the bound is redelivered")
 }
 
-// gaveUpEvent returns the final event the instance reconciler recorded for a
-// failure it stopped retrying, or nil if it recorded none.
-func gaveUpEvent(h *harness) *tpapi.Event {
-	var final *tpapi.Event
+// gaveUpEvents returns the final events the instance reconciler recorded for
+// failures it stopped retrying.
+func gaveUpEvents(h *harness) []*tpapi.Event {
+	var final []*tpapi.Event
 	for _, recorded := range h.instanceRecorder.GetEvents() {
 		if recorded.Event != nil && recorded.Event.Note != nil && strings.Contains(*recorded.Event.Note, "giving up") {
-			final = recorded.Event
+			final = append(final, recorded.Event)
 		}
 	}
 	return final
@@ -713,7 +734,7 @@ func gaveUpEvent(h *harness) *tpapi.Event {
 // assertDidNotGiveUp checks that no final event has been recorded.
 func assertDidNotGiveUp(t *testing.T, h *harness) {
 	t.Helper()
-	assert.Nil(t, gaveUpEvent(h), "the reconciler stopped retrying too soon")
+	assert.Empty(t, gaveUpEvents(h), "the reconciler stopped retrying too soon")
 }
 
 // assertGaveUp checks that the final event for a failure the reconciler has
@@ -721,8 +742,9 @@ func assertDidNotGiveUp(t *testing.T, h *harness) {
 func assertGaveUp(t *testing.T, h *harness, reason string) {
 	t.Helper()
 
-	final := gaveUpEvent(h)
-	require.NotNil(t, final, "giving up must leave an event that says retries have stopped")
+	events := gaveUpEvents(h)
+	require.NotEmpty(t, events, "giving up must leave an event that says retries have stopped")
+	final := events[len(events)-1]
 	assert.Equal(t, reason, *final.Reason)
 	assert.Equal(t, event.TypeWarning, *final.Type)
 }
