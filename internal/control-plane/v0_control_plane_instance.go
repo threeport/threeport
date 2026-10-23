@@ -342,6 +342,23 @@ func v0ControlPlaneInstanceCreated(
 			t, _, err := util.GenerateOkeToken(clusterOCID, configProvider)
 			return t, err
 		}
+
+	case v0.KubernetesRuntimeInfraProviderGKE:
+		// The child's controllers run on this runtime, so their Workload
+		// Identity principals come from this cluster's project. That is the
+		// child's own project, which is not necessarily the parent's - the
+		// installer binds RBAC for those principals only when it is told the
+		// project, and without it the child's controllers are authorized as
+		// nobody.
+		gcpProjectId, err := gkeRuntimeProjectID(
+			r.APIClient,
+			r.APIServer,
+			*kubernetesRuntimeInstance.ID,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to determine the GCP project of the child's runtime: %w", err)
+		}
+		cpi.Opts.GcpProjectId = gcpProjectId
 	}
 
 	// create a dynamic client to connect to kube API — use token refresh
@@ -605,146 +622,38 @@ func v0ControlPlaneInstanceCreated(
 		return 0, fmt.Errorf("failed to create kubernetes runtime definition on new threeport api: %w", err)
 	}
 
-	clonedKubernetesRuntimeInstance := *kubernetesRuntimeInstance
-	clonedKubernetesRuntimeInstance.Common = v0.Common{}
-	if clonedKubernetesRuntimeInstance.CertificateKey != nil && *clonedKubernetesRuntimeInstance.CertificateKey != "" {
-		decryptedKey, err := encryption.Decrypt(r.EncryptionKey, *clonedKubernetesRuntimeInstance.CertificateKey)
-		if err != nil {
-			return 0, fmt.Errorf("failed to decrypt kubernetes runtime instance certificate key: %w", err)
-		}
-
-		clonedKubernetesRuntimeInstance.CertificateKey = &decryptedKey
+	onboarder := &runtimeOnboarder{
+		parent:        apiTarget{client: r.APIClient, endpoint: r.APIServer},
+		child:         apiTarget{client: newApiClient, endpoint: threeportAPIEndpoint},
+		encryptionKey: r.EncryptionKey,
 	}
 
-	if clonedKubernetesRuntimeInstance.ConnectionToken != nil && *clonedKubernetesRuntimeInstance.ConnectionToken != "" {
-		decryptedToken, err := encryption.Decrypt(r.EncryptionKey, *clonedKubernetesRuntimeInstance.ConnectionToken)
-		if err != nil {
-			return 0, fmt.Errorf("failed to decrypt kubernetes runtime instance connection token: %w", err)
-		}
-
-		clonedKubernetesRuntimeInstance.ConnectionToken = &decryptedToken
-	}
-
-	clonedKubernetesRuntimeInstance.KubernetesRuntimeDefinitionID = createdKubeDef.ID
-	createdKubeInstance, err := client.CreateKubernetesRuntimeInstance(
-		newApiClient,
-		threeportAPIEndpoint,
-		&clonedKubernetesRuntimeInstance,
+	// the runtime the child is installed on is the child's host and default
+	// runtime
+	createdKubeInstance, err := onboarder.createRuntimeInstance(
+		kubernetesRuntimeInstance,
+		createdKubeDef.ID,
+		true,
+		true,
 	)
-
 	if err != nil {
-		return 0, fmt.Errorf("failed to update threeport api with kubernetes runtime instance: %w", err)
+		return 0, err
 	}
 
-	switch *kubernetesRuntimeDefinition.InfraProvider {
-	case v0.KubernetesRuntimeInfraProviderEKS:
-		// Get associated AWS object and ensure they are in db
-		awsRuntimeDef, err := client.GetAwsEksKubernetesRuntimeDefinitionByK8sRuntimeDef(r.APIClient, r.APIServer, *kubernetesRuntimeDefinition.ID)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get AwsEksKubernetesRuntimeDefinition: %w", err)
-		}
-
-		awsRuntimeInstance, err := client.GetAwsEksKubernetesRuntimeInstanceByK8sRuntimeInst(r.APIClient, r.APIServer, *kubernetesRuntimeInstance.ID)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get AwsEksKubernetesRuntimeInstance: %w", err)
-		}
-
-		awsProvider, err := client.GetAwsProviderByID(r.APIClient, r.APIServer, *awsRuntimeInstance.AwsProviderID)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get AwsProvider: %w", err)
-		}
-
-		awsProvider.Common = v0.Common{}
-		if awsProvider.AccessKeyID != nil && *awsProvider.AccessKeyID != "" {
-			decryptedKey, err := encryption.Decrypt(r.EncryptionKey, *awsProvider.AccessKeyID)
-			if err != nil {
-				return 0, fmt.Errorf("failed to decrypt access key id on aws account: %w", err)
-			}
-
-			awsProvider.AccessKeyID = &decryptedKey
-		}
-
-		if awsProvider.SecretAccessKey != nil && *awsProvider.SecretAccessKey != "" {
-			decryptedKey, err := encryption.Decrypt(r.EncryptionKey, *awsProvider.SecretAccessKey)
-			if err != nil {
-				return 0, fmt.Errorf("failed to decrypt secret access key on aws account: %w", err)
-			}
-
-			awsProvider.SecretAccessKey = &decryptedKey
-		}
-
-		createdAwsProvider, err := client.CreateAwsProvider(newApiClient, threeportAPIEndpoint, awsProvider)
-		if err != nil {
-			return 0, fmt.Errorf("failed to create AwsProvider: %w", err)
-		}
-
-		awsRuntimeDef.Common = v0.Common{}
-		createdAwsRuntimDef, err := client.CreateAwsEksKubernetesRuntimeDefinition(newApiClient, threeportAPIEndpoint, awsRuntimeDef)
-		if err != nil {
-			return 0, fmt.Errorf("failed to create AwsEksKubernetesRuntimeDefinition: %w", err)
-		}
-
-		awsRuntimeInstance.Common = v0.Common{}
-		awsRuntimeInstance.AwsProviderID = createdAwsProvider.ID
-		awsRuntimeInstance.AwsEksKubernetesRuntimeDefinitionID = createdAwsRuntimDef.ID
-		_, err = client.CreateAwsEksKubernetesRuntimeInstance(newApiClient, threeportAPIEndpoint, awsRuntimeInstance)
-		if err != nil {
-			return 0, fmt.Errorf("failed to create AwsEksKubernetesRuntimeInstance: %w", err)
-		}
-
-	case v0.KubernetesRuntimeInfraProviderOKE:
-		// get OCI OKE runtime definition and instance
-		ociRuntimeDef, err := client.GetOciOkeKubernetesRuntimeDefinitionByK8sRuntimeDef(
-			r.APIClient, r.APIServer, *kubernetesRuntimeDefinition.ID)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get OciOkeKubernetesRuntimeDefinition: %w", err)
-		}
-
-		ociRuntimeInstance, err := client.GetOciOkeKubernetesRuntimeInstanceByK8sRuntimeInst(
-			r.APIClient, r.APIServer, *kubernetesRuntimeInstance.ID)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get OciOkeKubernetesRuntimeInstance: %w", err)
-		}
-
-		ociProvider, err := client.GetOciProviderByID(
-			r.APIClient, r.APIServer, *ociRuntimeInstance.OciProviderID)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get OciProvider: %w", err)
-		}
-
-		// decrypt private key
-		ociProvider.Common = v0.Common{}
-		if ociProvider.PrivateKey != nil && *ociProvider.PrivateKey != "" {
-			decryptedKey, err := encryption.Decrypt(r.EncryptionKey, *ociProvider.PrivateKey)
-			if err != nil {
-				return 0, fmt.Errorf("failed to decrypt OCI provider private key: %w", err)
-			}
-			ociProvider.PrivateKey = &decryptedKey
-		}
-
-		// create OCI provider in child control plane
-		createdOciProvider, err := client.CreateOciProvider(newApiClient, threeportAPIEndpoint, ociProvider)
-		if err != nil {
-			return 0, fmt.Errorf("failed to create OciProvider: %w", err)
-		}
-
-		// create OCI runtime definition in child control plane
-		ociRuntimeDef.Common = v0.Common{}
-		createdOciRuntimeDef, err := client.CreateOciOkeKubernetesRuntimeDefinition(
-			newApiClient, threeportAPIEndpoint, ociRuntimeDef)
-		if err != nil {
-			return 0, fmt.Errorf("failed to create OciOkeKubernetesRuntimeDefinition: %w", err)
-		}
-
-		// create OCI runtime instance in child control plane
-		ociRuntimeInstance.Common = v0.Common{}
-		ociRuntimeInstance.OciProviderID = createdOciProvider.ID
-		ociRuntimeInstance.OciOkeKubernetesRuntimeDefinitionID = createdOciRuntimeDef.ID
-		_, err = client.CreateOciOkeKubernetesRuntimeInstance(
-			newApiClient, threeportAPIEndpoint, ociRuntimeInstance)
-		if err != nil {
-			return 0, fmt.Errorf("failed to create OciOkeKubernetesRuntimeInstance: %w", err)
-		}
+	if err := onboarder.copyProviderRecords(
+		*kubernetesRuntimeDefinition.InfraProvider,
+		runtimeLink{
+			definitionID: *kubernetesRuntimeDefinition.ID,
+			instanceID:   *kubernetesRuntimeInstance.ID,
+		},
+		runtimeLink{
+			definitionID: *createdKubeDef.ID,
+			instanceID:   *createdKubeInstance.ID,
+		},
+		false,
+	); err != nil {
+		return 0, fmt.Errorf("failed to onboard %s records for the kubernetes runtime: %w",
+			*kubernetesRuntimeDefinition.InfraProvider, err)
 	}
 
 	// onboard control plane definition and instance to new control plane
@@ -808,13 +717,18 @@ func v0ControlPlaneInstanceCreated(
 			return 0, fmt.Errorf("failed to get genesis control plane kubernetes runtime instance: %w", err)
 		}
 
+		// the genesis runtime is a cluster the child knows about, not the one
+		// it runs on, so it is neither the host nor the default here
 		var genesisK8DefID uint
-		if *genesisK8Instance.KubernetesRuntimeDefinitionID != *kubernetesRuntimeInstance.KubernetesRuntimeDefinitionID {
+		genesisInfraProvider := *kubernetesRuntimeDefinition.InfraProvider
+		sharedDefinition := *genesisK8Instance.KubernetesRuntimeDefinitionID == *kubernetesRuntimeInstance.KubernetesRuntimeDefinitionID
+		if !sharedDefinition {
 			genesisK8Def, err := client.GetKubernetesRuntimeDefinitionByID(r.APIClient, r.APIServer, *genesisK8Instance.KubernetesRuntimeDefinitionID)
 			if err != nil {
 				return 0, fmt.Errorf("failed to get genesis control plane kubernetes runtime definition: %w", err)
 			}
 
+			genesisInfraProvider = *genesisK8Def.InfraProvider
 			genesisK8Def.Common = v0.Common{}
 			newK8Def, err := client.CreateKubernetesRuntimeDefinition(newApiClient, threeportAPIEndpoint, genesisK8Def)
 			if err != nil {
@@ -826,12 +740,26 @@ func v0ControlPlaneInstanceCreated(
 			genesisK8DefID = *createdKubeDef.ID
 		}
 
-		genesisK8Instance.Common = v0.Common{}
-		genesisK8Instance.KubernetesRuntimeDefinitionID = &genesisK8DefID
-
-		newK8Instance, err := client.CreateKubernetesRuntimeInstance(newApiClient, threeportAPIEndpoint, genesisK8Instance)
+		newK8Instance, err := onboarder.createRuntimeInstance(genesisK8Instance, &genesisK8DefID, false, false)
 		if err != nil {
 			return 0, fmt.Errorf("failed to create genesis kubernetes runtime instance: %w", err)
+		}
+
+		// A GKE runtime is unusable without its GKE records - a token cannot be
+		// built for it - and the child's workloads can target the genesis
+		// runtime. The other providers' records are not copied for it.
+		if genesisInfraProvider == v0.KubernetesRuntimeInfraProviderGKE {
+			if err := onboarder.copyProviderRecords(
+				genesisInfraProvider,
+				runtimeLink{
+					definitionID: *genesisK8Instance.KubernetesRuntimeDefinitionID,
+					instanceID:   *genesisK8Instance.ID,
+				},
+				runtimeLink{definitionID: genesisK8DefID, instanceID: *newK8Instance.ID},
+				sharedDefinition,
+			); err != nil {
+				return 0, fmt.Errorf("failed to onboard GKE records for the genesis kubernetes runtime: %w", err)
+			}
 		}
 
 		genKubeRuntimeInstanceID = *newK8Instance.ID

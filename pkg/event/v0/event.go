@@ -100,10 +100,7 @@ func (r *EventRecorder) HandleEventOverride(
 		// append the error to the fallback note, truncated to 500 bytes to bound row size
 		if err != nil && event != nil {
 			wrapped := fmt.Sprintf("%s: %v", util.Deref(event.Note), err)
-			if len(wrapped) > 500 {
-				wrapped = wrapped[:500]
-			}
-			event.Note = util.Ptr(wrapped)
+			event.Note = util.Ptr(truncateNote(wrapped))
 		}
 		if recordErr := r.RecordEvent(
 			event,
@@ -113,6 +110,26 @@ func (r *EventRecorder) HandleEventOverride(
 			log.Error(recordErr, "failed to record event")
 		}
 	}
+}
+
+// maxNoteLength bounds the size of an event note, and so the event's row.
+const maxNoteLength = 500
+
+// truncateNote cuts a note down to maxNoteLength bytes.
+func truncateNote(note string) string {
+	if len(note) > maxNoteLength {
+		return note[:maxNoteLength]
+	}
+	return note
+}
+
+// GiveUpNote returns the note for the event a reconciler records when it stops
+// retrying a failing operation. It says retries have stopped, which is what
+// tells it apart from the failure events recorded on each earlier attempt. The
+// error is included, within the note length bound, since it is the last thing
+// recorded about the failure.
+func GiveUpNote(failure string, retriedFor time.Duration, err error) string {
+	return truncateNote(fmt.Sprintf("%s, giving up after %s: %v", failure, retriedFor, err))
 }
 
 // GetSuccessReasonForOperation returns the default reason for the operation.
