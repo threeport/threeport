@@ -354,7 +354,7 @@ func TestEveryContainerThisInstallerWritesIsHardened(t *testing.T) {
 // and the namespace still refused to create it. Checking containers alone
 // does not see it, which is why it is checked separately here.
 func TestEveryPodThisInstallerWritesSetsASeccompProfile(t *testing.T) {
-	for _, path := range []string{"components.go", "support_services.go", "dependencies.go"} {
+	for _, path := range podSourceFiles {
 		t.Run(path, func(t *testing.T) {
 			fileSet := token.NewFileSet()
 			file, err := parser.ParseFile(fileSet, path, nil, 0)
@@ -387,6 +387,7 @@ func TestEveryPodThisInstallerWritesSetsASeccompProfile(t *testing.T) {
 				assert.True(
 					t,
 					callsHelper(securityContext, "restrictedPodSecurityContext") ||
+						callsHelper(securityContext, "dependencyPodSecurityContext") ||
 						mentions(securityContext, "RuntimeDefault"),
 					"%s: a pod does not set a RuntimeDefault seccomp profile",
 					fileSet.Position(literal.Pos()),
@@ -398,6 +399,145 @@ func TestEveryPodThisInstallerWritesSetsASeccompProfile(t *testing.T) {
 			require.NotZero(t, pods, "no pod declaration found to check")
 		})
 	}
+}
+
+// podSourceFiles are the files that write a pod spec into the control plane
+// namespace: the components, the support services operator, the vendored
+// dependencies, and the jobs a reinstall runs to drop the database and the
+// message broker's streams.
+var podSourceFiles = []string{"components.go", "support_services.go", "dependencies.go", "reinstall.go"}
+
+// TestEveryPodThisInstallerWritesRunsAsNonRoot covers the last restricted
+// requirement the vendored dependencies were missing.
+//
+// The restricted Pod Security Standard requires runAsNonRoot on the pod or on
+// every container. The namespace refuses a pod that sets neither, so a pod
+// added without it does not run less safely - it does not run at all once the
+// namespace enforces restricted, which an install does not do itself and so
+// would not catch.
+func TestEveryPodThisInstallerWritesRunsAsNonRoot(t *testing.T) {
+	for _, path := range podSourceFiles {
+		t.Run(path, func(t *testing.T) {
+			fileSet := token.NewFileSet()
+			file, err := parser.ParseFile(fileSet, path, nil, 0)
+			require.NoError(t, err)
+
+			pods := 0
+			ast.Inspect(file, func(node ast.Node) bool {
+				literal, ok := node.(*ast.CompositeLit)
+				if !ok || !keyedStrings(literal)[`"containers"`] {
+					return true
+				}
+				pods++
+
+				podContext := keyedValue(literal, `"securityContext"`)
+				if callsHelper(podContext, "restrictedPodSecurityContext") ||
+					callsHelper(podContext, "dependencyPodSecurityContext") ||
+					setsRunAsNonRoot(podContext) {
+					return true
+				}
+
+				// otherwise every container has to set it itself
+				containers, ok := keyedValue(literal, `"containers"`).(*ast.CompositeLit)
+				require.True(t, ok, "%s: containers is not a literal", fileSet.Position(literal.Pos()))
+				for _, element := range containers.Elts {
+					container, ok := element.(*ast.CompositeLit)
+					if !ok {
+						continue
+					}
+					containerContext := keyedValue(container, `"securityContext"`)
+					assert.True(
+						t,
+						callsHelper(containerContext, "restrictedContainerSecurityContext") || setsRunAsNonRoot(containerContext),
+						"%s: neither the pod nor this container sets runAsNonRoot",
+						fileSet.Position(container.Pos()),
+					)
+				}
+
+				return true
+			})
+
+			require.NotZero(t, pods, "no pod declaration found to check")
+		})
+	}
+}
+
+// setsRunAsNonRoot reports whether a security context literal sets
+// runAsNonRoot to true.
+func setsRunAsNonRoot(securityContext ast.Expr) bool {
+	literal, ok := securityContext.(*ast.CompositeLit)
+	if !ok {
+		return false
+	}
+	value, ok := keyedValue(literal, `"runAsNonRoot"`).(*ast.Ident)
+
+	return ok && value.Name == "true"
+}
+
+// TestEveryVendoredContainerIsHardened covers the containers of the
+// vendored dependencies and of the jobs a reinstall runs, whose images
+// threeport does not build.
+//
+// They take their security context from a helper, as the threeport
+// components do, so each one has a read-only root filesystem and every
+// restricted container requirement. A literal written out here could leave
+// one of them off and still start - which is how the database and the
+// message broker ran without runAsNonRoot until #635.
+func TestEveryVendoredContainerIsHardened(t *testing.T) {
+	for _, path := range []string{"dependencies.go", "reinstall.go"} {
+		t.Run(path, func(t *testing.T) {
+			fileSet := token.NewFileSet()
+			file, err := parser.ParseFile(fileSet, path, nil, 0)
+			require.NoError(t, err)
+
+			containers := 0
+			ast.Inspect(file, func(node ast.Node) bool {
+				literal, ok := node.(*ast.CompositeLit)
+				if !ok {
+					return true
+				}
+				keys := keyedStrings(literal)
+				if !keys[`"image"`] || !keys[`"name"`] {
+					return true
+				}
+				containers++
+				securityContext := keyedValue(literal, `"securityContext"`)
+				assert.True(
+					t,
+					callsHelper(securityContext, "restrictedContainerSecurityContext") ||
+						callsHelper(securityContext, "vendoredContainerSecurityContext"),
+					"%s: a container does not take its security context from a hardening helper",
+					fileSet.Position(literal.Pos()),
+				)
+
+				return true
+			})
+
+			require.NotZero(t, containers, "no container declaration found to check")
+		})
+	}
+}
+
+// TestTheDependencyContextsMeetTheStandard covers the values the vendored
+// dependencies run with, which the source checks above only see by name.
+func TestTheDependencyContextsMeetTheStandard(t *testing.T) {
+	pod := dependencyPodSecurityContext()
+	assert.Equal(t, true, pod["runAsNonRoot"])
+	assert.Equal(t, nonRootUID, pod["runAsUser"])
+	assert.Equal(t, nonRootGID, pod["runAsGroup"])
+	assert.Equal(t, nonRootGID, pod["fsGroup"], "the data volume and the database's certificates are given to this group")
+	profile, _, err := unstructured.NestedString(pod, "seccompProfile", "type")
+	require.NoError(t, err)
+	assert.Equal(t, "RuntimeDefault", profile)
+
+	// an image that declares its own user keeps it
+	container := vendoredContainerSecurityContext()
+	assert.Equal(t, false, container["allowPrivilegeEscalation"])
+	assert.Equal(t, true, container["readOnlyRootFilesystem"])
+	drop, _, err := unstructured.NestedStringSlice(container, "capabilities", "drop")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"ALL"}, drop)
+	assert.NotContains(t, container, "runAsUser", "the image's own user is the one the pod names")
 }
 
 // TestNatsBoxPinsTheNumericUserItsImageDeclaresByName covers the check a

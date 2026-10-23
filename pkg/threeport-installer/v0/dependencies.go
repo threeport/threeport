@@ -47,10 +47,6 @@ func (cpi *ControlPlaneInstaller) CreateThreeportControlPlaneNamespace(
 	return nil
 }
 
-// InstallThreeportControlPlaneDependencies installs the necessary components
-// for the threeport REST API and controllers to operate.  It includes the
-// database and message broker.
-
 // natsBoxUID and natsBoxGID are the numeric uid/gid behind the nats-box
 // image's USER nats:nats (confirmed with `docker run --entrypoint id`). The
 // kubelet needs the number, not the name, to verify runAsNonRoot.
@@ -59,6 +55,9 @@ const (
 	natsBoxGID = int64(1000)
 )
 
+// InstallThreeportControlPlaneDependencies installs the necessary components
+// for the threeport REST API and controllers to operate.  It includes the
+// database and message broker.
 func (cpi *ControlPlaneInstaller) InstallThreeportControlPlaneDependencies(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
@@ -291,13 +290,8 @@ store_dir: /data
 						},
 						"containers": []interface{}{
 							map[string]interface{}{
-								"name": "nats-box",
-								"securityContext": map[string]interface{}{
-									"allowPrivilegeEscalation": false,
-									"capabilities": map[string]interface{}{
-										"drop": []interface{}{"ALL"},
-									},
-								},
+								"name":            "nats-box",
+								"securityContext": vendoredContainerSecurityContext(),
 								"image":           natsBoxImage,
 								"imagePullPolicy": "IfNotPresent",
 								"resources":       nil,
@@ -394,24 +388,16 @@ store_dir: /data
 						//               #
 						//################
 						"terminationGracePeriodSeconds": 60,
-						// The image runs as root, so runAsNonRoot is not set: the
-						// kubelet refuses to start a container that declares no user
-						// when it is required to be non-root. Pinning a user is the
-						// same question and is tracked separately.
-						"securityContext": map[string]interface{}{
-							"seccompProfile": map[string]interface{}{
-								"type": "RuntimeDefault",
-							},
-						},
+						// All three containers run as one user: the reloader signals
+						// the server through the shared process namespace, and with
+						// every capability dropped a process can only signal its own
+						// user's.
+						"securityContext": dependencyPodSecurityContext(),
 						"containers": []interface{}{
 							map[string]interface{}{
 								"name": "nats",
-								"securityContext": map[string]interface{}{
-									"allowPrivilegeEscalation": false,
-									"capabilities": map[string]interface{}{
-										"drop": []interface{}{"ALL"},
-									},
-								},
+								// writes only its store and its pid file, both volumes
+								"securityContext": restrictedContainerSecurityContext(),
 								"image":           "docker.io/library/nats:2.10.25-alpine",
 								"imagePullPolicy": "IfNotPresent",
 								"resources":       map[string]interface{}{},
@@ -540,13 +526,8 @@ store_dir: /data
 							//                               #
 							//################################
 							map[string]interface{}{
-								"name": "reloader",
-								"securityContext": map[string]interface{}{
-									"allowPrivilegeEscalation": false,
-									"capabilities": map[string]interface{}{
-										"drop": []interface{}{"ALL"},
-									},
-								},
+								"name":            "reloader",
+								"securityContext": restrictedContainerSecurityContext(),
 								"image":           "docker.io/natsio/nats-server-config-reloader:0.16.1",
 								"imagePullPolicy": "IfNotPresent",
 								"resources":       nil,
@@ -578,13 +559,8 @@ store_dir: /data
 							//                            #
 							//#############################
 							map[string]interface{}{
-								"name": "metrics",
-								"securityContext": map[string]interface{}{
-									"allowPrivilegeEscalation": false,
-									"capabilities": map[string]interface{}{
-										"drop": []interface{}{"ALL"},
-									},
-								},
+								"name":            "metrics",
+								"securityContext": restrictedContainerSecurityContext(),
 								"image":           "docker.io/natsio/prometheus-nats-exporter:0.16.0",
 								"imagePullPolicy": "IfNotPresent",
 								"resources":       map[string]interface{}{},
@@ -816,24 +792,12 @@ store_dir: /data
 						// No pre-stop hook is required, a SIGTERM plus some time is all that's
 						// needed for graceful shutdown of a node.
 						"terminationGracePeriodSeconds": 60,
-						// The image runs as root, so runAsNonRoot is not set: the
-						// kubelet refuses to start a container that declares no user
-						// when it is required to be non-root. Pinning a user is the
-						// same question and is tracked separately.
-						"securityContext": map[string]interface{}{
-							"seccompProfile": map[string]interface{}{
-								"type": "RuntimeDefault",
-							},
-						},
+						"securityContext":               dependencyPodSecurityContext(),
 						"containers": []interface{}{
 							map[string]interface{}{
 								"name": "db",
-								"securityContext": map[string]interface{}{
-									"allowPrivilegeEscalation": false,
-									"capabilities": map[string]interface{}{
-										"drop": []interface{}{"ALL"},
-									},
-								},
+								// writes only its data directory, a volume
+								"securityContext": restrictedContainerSecurityContext(),
 								"image":           fmt.Sprintf("docker.io/cockroachdb/cockroach:%s", DatabaseImageTag),
 								"imagePullPolicy": "IfNotPresent",
 								"args": []interface{}{
