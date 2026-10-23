@@ -114,6 +114,57 @@ func (cpi *ControlPlaneInstaller) ComputeSpaceControlPlaneComponentsCurrent(
 		}
 	}
 
+	// the agent's ClusterRoleBindings are named for the namespace it is
+	// installed in. Without its own bindings an agent has no permissions - an
+	// earlier release gave every agent on a cluster the same two bindings, so
+	// an agent installed second sat behind the first one's service account.
+	// The Deployment being present does not say its bindings are, so each is
+	// checked.  These names are new, so a create-only install finds them
+	// missing and creates them, which is what repairs such a cluster.
+	for _, bindingName := range []string{
+		cpi.agentManagerBindingName(),
+		cpi.agentProxyBindingName(),
+	} {
+		binding, present, err := resourceInstalled(
+			kubeClient,
+			mapper,
+			"rbac.authorization.k8s.io",
+			"v1",
+			"ClusterRoleBinding",
+			"",
+			bindingName,
+		)
+		if err != nil {
+			return false, fmt.Errorf("failed to check for the threeport agent binding %s: %w", bindingName, err)
+		}
+		if !present {
+			return false, nil
+		}
+
+		// the subject is only worth comparing when the install can replace it
+		if cpi.Opts.CreateOrUpdateKubeResources {
+			subjects, _, err := unstructured.NestedSlice(binding.Object, "subjects")
+			if err != nil {
+				return false, fmt.Errorf("failed to read the subjects of binding %s: %w", bindingName, err)
+			}
+			wantSubject := map[string]interface{}{
+				"kind":      "ServiceAccount",
+				"name":      ThreeportAgentName,
+				"namespace": cpi.Opts.Namespace,
+			}
+			matched := false
+			for _, subject := range subjects {
+				if reflect.DeepEqual(subject, wantSubject) {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				return false, nil
+			}
+		}
+	}
+
 	// the CRDs are installed with these components, and the support services
 	// operator install that follows needs them registered. Every one is checked:
 	// with any of them missing that install has no definition to register

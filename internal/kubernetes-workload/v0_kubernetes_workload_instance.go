@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 
 	"github.com/go-logr/logr"
 	"gorm.io/datatypes"
@@ -76,7 +77,8 @@ func v0KubernetesWorkloadInstanceCreated(
 	}
 	threeportWorkload := agentapi.ThreeportWorkload{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: threeportWorkloadName,
+			Name:   threeportWorkloadName,
+			Labels: agent.ThreeportWorkloadLabels(os.Getenv(agent.ControlPlaneNameEnvVar)),
 		},
 		Spec: agentapi.ThreeportWorkloadSpec{
 			WorkloadType:                 agent.KubernetesWorkloadInstanceType,
