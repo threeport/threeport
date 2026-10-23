@@ -231,6 +231,46 @@ func (i *KubernetesRuntimeInfraGKE) configureWorkloadIdentityBinding(iamService 
 	return nil
 }
 
+// workloadIdentityBound reports whether the service account already carries the
+// Workload Identity binding for every Threeport controller account.  It reads
+// the policy and changes nothing, so it is safe to ask while the binding is
+// still being made.
+func (i *KubernetesRuntimeInfraGKE) workloadIdentityBound(iamService *iam.Service) (bool, error) {
+	if err := i.requireServiceAccountEmail(); err != nil {
+		return false, err
+	}
+
+	serviceAccountResource := fmt.Sprintf("projects/%s/serviceAccounts/%s", i.ProjectID, i.ServiceAccountEmail)
+	policy, err := iamService.Projects.ServiceAccounts.GetIamPolicy(serviceAccountResource).Do()
+	if err != nil {
+		return false, fmt.Errorf("failed to get service account IAM policy: %w", err)
+	}
+
+	workloadIdentityPool := fmt.Sprintf(workloadIdentityPoolFormat, i.ProjectID)
+	return policyGrantsWorkloadIdentity(policy, i.getWorkloadIdentityMembers(workloadIdentityPool)), nil
+}
+
+// policyGrantsWorkloadIdentity reports whether the policy binds every member to
+// roles/iam.workloadIdentityUser.
+func policyGrantsWorkloadIdentity(policy *iam.Policy, members []string) bool {
+	granted := map[string]bool{}
+	for _, binding := range policy.Bindings {
+		if binding.Role != "roles/iam.workloadIdentityUser" {
+			continue
+		}
+		for _, member := range binding.Members {
+			granted[member] = true
+		}
+	}
+	for _, member := range members {
+		if !granted[member] {
+			return false
+		}
+	}
+
+	return true
+}
+
 // getWorkloadIdentityMembers returns the list of Kubernetes service accounts
 // that should be allowed to impersonate the GCP service account.
 func (i *KubernetesRuntimeInfraGKE) getWorkloadIdentityMembers(workloadIdentityPool string) []string {

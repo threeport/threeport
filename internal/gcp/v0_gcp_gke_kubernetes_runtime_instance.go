@@ -33,7 +33,13 @@ func v0GcpGkeKubernetesRuntimeInstanceUpdated(
 	gcpGkeKubernetesRuntimeInstance *v0.GcpGkeKubernetesRuntimeInstance,
 	log *logr.Logger,
 ) (int64, error) {
-	return 0, nil
+	reconLog := log.WithValues(
+		"gcpGkeKubernetesRuntimeInstanceID", *gcpGkeKubernetesRuntimeInstance.ID,
+		"gcpGkeKubernetesRuntimeInstanceName", *gcpGkeKubernetesRuntimeInstance.Name,
+	)
+
+	p := newGkeLifecycleProvider(r, gcpGkeKubernetesRuntimeInstance, &reconLog)
+	return provider.HandleInfraUpdate(p, &reconLog)
 }
 
 // v0GcpGkeKubernetesRuntimeInstanceDeleted performs reconciliation when a v0 GcpGkeKubernetesRuntimeInstance
