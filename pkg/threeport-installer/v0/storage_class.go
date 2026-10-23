@@ -15,6 +15,19 @@ import (
 // none is provisioned from.
 const defaultStorageClassAnnotation = "storageclass.kubernetes.io/is-default-class"
 
+// betaDefaultStorageClassAnnotation is the older key for the same marker,
+// which Kubernetes still honors.
+const betaDefaultStorageClassAnnotation = "storageclass.beta.kubernetes.io/is-default-class"
+
+// isDefaultStorageClass reports whether Kubernetes treats a class as the
+// default: either key set to "true", as its own check reads them.
+func isDefaultStorageClass(class unstructured.Unstructured) bool {
+	annotations := class.GetAnnotations()
+
+	return annotations[defaultStorageClassAnnotation] == "true" ||
+		annotations[betaDefaultStorageClassAnnotation] == "true"
+}
+
 // EksDefaultStorageClassName is the default StorageClass threeport gives an
 // EKS cluster. It is named for threeport rather than "gp3" so it never
 // collides with, or changes, a class of that name a user created.
@@ -66,7 +79,7 @@ func EnsureEksDefaultStorageClass(kubeClient dynamic.Interface) (bool, error) {
 		return false, fmt.Errorf("failed to list storage classes: %w", err)
 	}
 	for _, class := range classes.Items {
-		if class.GetAnnotations()[defaultStorageClassAnnotation] == "true" {
+		if isDefaultStorageClass(class) {
 			return false, nil
 		}
 	}

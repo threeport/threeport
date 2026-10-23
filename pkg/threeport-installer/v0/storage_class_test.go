@@ -114,3 +114,32 @@ func TestACreateThatFailsIsReported(t *testing.T) {
 	_, err := EnsureEksDefaultStorageClass(kubeClient)
 	assert.ErrorContains(t, err, "failed to create default storage class "+EksDefaultStorageClassName)
 }
+
+// TestADefaultMarkedTheOlderWayIsKept covers a class marked with the beta
+// annotation, which Kubernetes still treats as the default: a second default
+// beside it would take every claim that names no class.
+func TestADefaultMarkedTheOlderWayIsKept(t *testing.T) {
+	theirs := testStorageClass("their-default", false)
+	theirs.SetAnnotations(map[string]string{betaDefaultStorageClassAnnotation: "true"})
+	kubeClient := storageClassTestClient(theirs)
+
+	created, err := EnsureEksDefaultStorageClass(kubeClient)
+	require.NoError(t, err)
+	assert.False(t, created)
+	_, err = kubeClient.Resource(storageClassGVR).Get(context.Background(), EksDefaultStorageClassName, metav1.GetOptions{})
+	assert.Error(t, err)
+}
+
+// TestOnlyTrueMarksADefault covers the value Kubernetes reads: a marker set
+// to anything but "true", on either key, is not a default.
+func TestOnlyTrueMarksADefault(t *testing.T) {
+	for _, annotations := range []map[string]string{
+		{defaultStorageClassAnnotation: "false"},
+		{betaDefaultStorageClassAnnotation: "false"},
+		{defaultStorageClassAnnotation: "True"},
+	} {
+		class := testStorageClass("not-default", false)
+		class.SetAnnotations(annotations)
+		assert.False(t, isDefaultStorageClass(*class), "%v", annotations)
+	}
+}
