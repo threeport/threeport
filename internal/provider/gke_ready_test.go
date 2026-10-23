@@ -9,6 +9,9 @@ import (
 	"google.golang.org/api/iam/v1"
 )
 
+// testWorkerPool is the name of the worker pool readyCluster carries.
+const testWorkerPool = "rt-nodepool"
+
 // readyCluster returns a cluster that is ready to be connected to.
 func readyCluster() *containerpb.Cluster {
 	return &containerpb.Cluster{
@@ -16,7 +19,7 @@ func readyCluster() *containerpb.Cluster {
 		Endpoint:   "203.0.113.10",
 		MasterAuth: &containerpb.MasterAuth{ClusterCaCertificate: "Y2E="},
 		NodePools: []*containerpb.NodePool{
-			{Name: "workers", Status: containerpb.NodePool_RUNNING},
+			{Name: testWorkerPool, Status: containerpb.NodePool_RUNNING},
 		},
 	}
 }
@@ -73,28 +76,57 @@ func TestGkeClusterReady(t *testing.T) {
 	}
 }
 
-// TestGkeNodePoolsReady covers a cluster whose node pools are not all running.
-func TestGkeNodePoolsReady(t *testing.T) {
-	t.Run("every pool running", func(t *testing.T) {
-		require.NoError(t, gkeNodePoolsReady(readyCluster()))
+// TestGkeWorkerPoolReady covers a cluster whose worker pool is not running yet.
+func TestGkeWorkerPoolReady(t *testing.T) {
+	t.Run("worker pool running", func(t *testing.T) {
+		require.NoError(t, gkeWorkerPoolReady(readyCluster(), testWorkerPool))
 	})
 
 	t.Run("no pools", func(t *testing.T) {
 		cluster := readyCluster()
 		cluster.NodePools = nil
-		assert.Error(t, gkeNodePoolsReady(cluster))
+		assert.Error(t, gkeWorkerPoolReady(cluster, testWorkerPool))
 	})
 
-	t.Run("one pool still provisioning", func(t *testing.T) {
+	// The stack creates the cluster with a default pool and removes it before
+	// the worker pool is created. A running default pool is not a finished create.
+	t.Run("only the default pool, running", func(t *testing.T) {
+		cluster := readyCluster()
+		cluster.NodePools = []*containerpb.NodePool{
+			{Name: "default-pool", Status: containerpb.NodePool_RUNNING},
+		}
+		err := gkeWorkerPoolReady(cluster, testWorkerPool)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), testWorkerPool)
+	})
+
+	t.Run("default pool running beside a worker pool still provisioning", func(t *testing.T) {
+		cluster := readyCluster()
+		cluster.NodePools = []*containerpb.NodePool{
+			{Name: "default-pool", Status: containerpb.NodePool_RUNNING},
+			{Name: testWorkerPool, Status: containerpb.NodePool_PROVISIONING},
+		}
+		err := gkeWorkerPoolReady(cluster, testWorkerPool)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "PROVISIONING")
+	})
+
+	t.Run("worker pool running while the default pool is removed", func(t *testing.T) {
 		cluster := readyCluster()
 		cluster.NodePools = append(cluster.NodePools, &containerpb.NodePool{
-			Name:   "extra",
-			Status: containerpb.NodePool_PROVISIONING,
+			Name:   "default-pool",
+			Status: containerpb.NodePool_STOPPING,
 		})
-		err := gkeNodePoolsReady(cluster)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "extra")
+		require.NoError(t, gkeWorkerPoolReady(cluster, testWorkerPool))
 	})
+}
+
+// TestWorkerNodePoolName pins the name the create check looks for to the one
+// the stack gives the pool.
+func TestWorkerNodePoolName(t *testing.T) {
+	infra := &KubernetesRuntimeInfraGKE{}
+	infra.RuntimeInstanceName = "rt"
+	assert.Equal(t, testWorkerPool, infra.workerNodePoolName())
 }
 
 // TestPolicyGrantsWorkloadIdentity covers the check that stands in for the last

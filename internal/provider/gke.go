@@ -297,8 +297,8 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 			return fmt.Errorf("failed to create GKE cluster: %w", err)
 		}
 
-		_, err = gkecontainer.NewNodePool(ctx, fmt.Sprintf("%s-nodepool", i.RuntimeInstanceName), &gkecontainer.NodePoolArgs{
-			Name:     pulumi.String(fmt.Sprintf("%s-nodepool", i.RuntimeInstanceName)),
+		_, err = gkecontainer.NewNodePool(ctx, i.workerNodePoolName(), &gkecontainer.NodePoolArgs{
+			Name:     pulumi.String(i.workerNodePoolName()),
 			Cluster:  cluster.Name,
 			Location: pulumi.String(i.Region),
 
@@ -487,25 +487,34 @@ func gkeClusterReady(cluster *containerpb.Cluster) error {
 	return nil
 }
 
-// gkeNodePoolsReady returns an error unless the cluster has at least one node
-// pool and every node pool is RUNNING.
-func gkeNodePoolsReady(cluster *containerpb.Cluster) error {
-	if len(cluster.GetNodePools()) == 0 {
-		return errors.New("cluster has no node pools yet")
-	}
+// workerNodePoolName is the name of the node pool the stack creates for
+// workloads. The create check looks for it by this name, so it is named once.
+func (i *KubernetesRuntimeInfraGKE) workerNodePoolName() string {
+	return fmt.Sprintf("%s-nodepool", i.RuntimeInstanceName)
+}
+
+// gkeWorkerPoolReady returns an error unless the named worker node pool exists
+// and is RUNNING. Any other pool does not count: the cluster is created with a
+// default pool that the stack removes before it creates the worker pool, so a
+// running default pool says the create has not reached the workers yet.
+func gkeWorkerPoolReady(cluster *containerpb.Cluster, workerPool string) error {
 	for _, nodePool := range cluster.GetNodePools() {
-		if nodePool.GetStatus() != containerpb.NodePool_RUNNING {
-			return fmt.Errorf("node pool %s is %s, not RUNNING", nodePool.GetName(), nodePool.GetStatus())
+		if nodePool.GetName() != workerPool {
+			continue
 		}
+		if nodePool.GetStatus() != containerpb.NodePool_RUNNING {
+			return fmt.Errorf("node pool %s is %s, not RUNNING", workerPool, nodePool.GetStatus())
+		}
+		return nil
 	}
 
-	return nil
+	return fmt.Errorf("worker node pool %s does not exist yet", workerPool)
 }
 
 // CreateComplete reports whether the whole create finished, as GCP sees it
 // rather than as the streamed Pulumi state does.  The stack state is saved
 // while the stack is still being built, so state alone only says that
-// provisioning started.  The cluster and its node pools are running and the
+// provisioning started.  The cluster and its worker node pool are running and the
 // Workload Identity binding is in place only when CreateInfra has run to its
 // last step.  A cluster GCP does not know yet is not complete, not an error.
 func (i *KubernetesRuntimeInfraGKE) CreateComplete() (bool, error) {
@@ -523,7 +532,7 @@ func (i *KubernetesRuntimeInfraGKE) CreateComplete() (bool, error) {
 		}
 		return false, err
 	}
-	if gkeClusterReady(cluster) != nil || gkeNodePoolsReady(cluster) != nil {
+	if gkeClusterReady(cluster) != nil || gkeWorkerPoolReady(cluster, i.workerNodePoolName()) != nil {
 		return false, nil
 	}
 
