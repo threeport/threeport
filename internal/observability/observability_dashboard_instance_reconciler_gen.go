@@ -203,11 +203,13 @@ func ObservabilityDashboardInstanceReconciler(r *controller.Reconciler) {
 					)
 					// stop requeueing once the failure has outlasted the retry bound
 					if controller.RetriesExhausted(notif.CreationTime) {
-						giveUpMsg := fmt.Sprintf("failed to reconcile created observability dashboard instance object, giving up after %s: %s",
+						giveUpMsg := event.GiveUpNote(
+							"failed to reconcile created observability dashboard instance object",
 							controller.DefaultMaxReconcileDuration,
-							operationErr.Error())
+							operationErr,
+						)
 						log.Error(operationErr, giveUpMsg)
-						r.EventsRecorder.HandleEventOverride(
+						if recordErr := r.EventsRecorder.RecordEvent(
 							&api_v0.Event{
 								Note:   util.Ptr(giveUpMsg),
 								Reason: util.Ptr(event.ReasonCreateFailed),
@@ -215,9 +217,9 @@ func ObservabilityDashboardInstanceReconciler(r *controller.Reconciler) {
 							},
 							observabilityDashboardInstance.GetId(),
 							observabilityDashboardInstance.GetFullyQualifiedType(),
-							operationErr,
-							&log,
-						)
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record give-up event")
+						}
 						r.ReleaseLock(observabilityDashboardInstance, lockReleased, msg, true)
 						continue
 					}
@@ -288,11 +290,13 @@ func ObservabilityDashboardInstanceReconciler(r *controller.Reconciler) {
 					)
 					// stop requeueing once the failure has outlasted the retry bound
 					if controller.RetriesExhausted(notif.CreationTime) {
-						giveUpMsg := fmt.Sprintf("failed to reconcile updated observability dashboard instance object, giving up after %s: %s",
+						giveUpMsg := event.GiveUpNote(
+							"failed to reconcile updated observability dashboard instance object",
 							controller.DefaultMaxReconcileDuration,
-							operationErr.Error())
+							operationErr,
+						)
 						log.Error(operationErr, giveUpMsg)
-						r.EventsRecorder.HandleEventOverride(
+						if recordErr := r.EventsRecorder.RecordEvent(
 							&api_v0.Event{
 								Note:   util.Ptr(giveUpMsg),
 								Reason: util.Ptr(event.ReasonUpdateFailed),
@@ -300,9 +304,9 @@ func ObservabilityDashboardInstanceReconciler(r *controller.Reconciler) {
 							},
 							observabilityDashboardInstance.GetId(),
 							observabilityDashboardInstance.GetFullyQualifiedType(),
-							operationErr,
-							&log,
-						)
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record give-up event")
+						}
 						r.ReleaseLock(observabilityDashboardInstance, lockReleased, msg, true)
 						continue
 					}
@@ -386,11 +390,13 @@ func ObservabilityDashboardInstanceReconciler(r *controller.Reconciler) {
 					)
 					// stop requeueing once the failure has outlasted the retry bound
 					if controller.RetriesExhausted(notif.CreationTime) {
-						giveUpMsg := fmt.Sprintf("failed to reconcile deleted observability dashboard instance object, giving up after %s: %s",
+						giveUpMsg := event.GiveUpNote(
+							"failed to reconcile deleted observability dashboard instance object",
 							controller.DefaultMaxReconcileDuration,
-							operationErr.Error())
+							operationErr,
+						)
 						log.Error(operationErr, giveUpMsg)
-						r.EventsRecorder.HandleEventOverride(
+						if recordErr := r.EventsRecorder.RecordEvent(
 							&api_v0.Event{
 								Note:   util.Ptr(giveUpMsg),
 								Reason: util.Ptr(event.ReasonDeleteFailed),
@@ -398,9 +404,9 @@ func ObservabilityDashboardInstanceReconciler(r *controller.Reconciler) {
 							},
 							observabilityDashboardInstance.GetId(),
 							observabilityDashboardInstance.GetFullyQualifiedType(),
-							operationErr,
-							&log,
-						)
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record give-up event")
+						}
 						r.ReleaseLock(observabilityDashboardInstance, lockReleased, msg, true)
 						continue
 					}

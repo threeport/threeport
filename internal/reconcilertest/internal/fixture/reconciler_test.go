@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -24,6 +25,7 @@ import (
 	tpapi "github.com/threeport/threeport/pkg/api/v0"
 	tpclient_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	tp_errors "github.com/threeport/threeport/pkg/errors/v0"
 	event "github.com/threeport/threeport/pkg/event/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -574,13 +576,14 @@ func TestDeleteInProgressRecordedOnceWhenDeleteConflicts(t *testing.T) {
 // exists.
 func TestFailingOperationGivesUpAfterRetryBound(t *testing.T) {
 	for _, op := range []struct {
-		name      string
-		operation notifications.NotificationOperation
-		handler   string
+		name         string
+		operation    notifications.NotificationOperation
+		handler      string
+		failedReason string
 	}{
-		{"create", notifications.NotificationOperationCreated, "create"},
-		{"update", notifications.NotificationOperationUpdated, "update"},
-		{"delete", notifications.NotificationOperationDeleted, "delete"},
+		{"create", notifications.NotificationOperationCreated, "create", event.ReasonCreateFailed},
+		{"update", notifications.NotificationOperationUpdated, "update", event.ReasonUpdateFailed},
+		{"delete", notifications.NotificationOperationDeleted, "delete", event.ReasonDeleteFailed},
 	} {
 		t.Run(op.name, func(t *testing.T) {
 			h := newHarness(t)
@@ -598,6 +601,8 @@ func TestFailingOperationGivesUpAfterRetryBound(t *testing.T) {
 			require.Eventually(t, func() bool { return h.outstanding(instanceReconciler) == 0 },
 				5*time.Second, 50*time.Millisecond, "the notification must be acknowledged, not requeued")
 			assert.False(t, h.locked(instanceReconciler), "giving up must release the lock")
+
+			assertGaveUp(t, h, op.failedReason)
 		})
 	}
 }
@@ -613,4 +618,49 @@ func TestFailingOperationIsRequeuedWithinRetryBound(t *testing.T) {
 
 	require.Eventually(t, func() bool { return len(h.spy.Calls()) >= 2 }, 10*time.Second, 100*time.Millisecond,
 		"a failure inside the bound is redelivered")
+}
+
+// assertGaveUp checks that the final event for a failure the reconciler has
+// stopped retrying was recorded, and says so.
+func assertGaveUp(t *testing.T, h *harness, reason string) {
+	t.Helper()
+
+	var final *tpapi.Event
+	for _, recorded := range h.instanceRecorder.GetEvents() {
+		if recorded.Event != nil && recorded.Event.Note != nil && strings.Contains(*recorded.Event.Note, "giving up") {
+			final = recorded.Event
+		}
+	}
+	require.NotNil(t, final, "giving up must leave an event that says retries have stopped")
+	assert.Equal(t, reason, *final.Reason)
+	assert.Equal(t, event.TypeWarning, *final.Type)
+}
+
+// TestGiveUpEventRecordedWhenErrorCarriesAnEvent covers the final event
+// surviving an error that carries an event of its own. The events recorded on
+// each earlier attempt defer to that event, so a final one routed the same way
+// would be replaced by it - an exhausted failure recording the same event as
+// every retry, with nothing to say retries had stopped.
+func TestGiveUpEventRecordedWhenErrorCarriesAnEvent(t *testing.T) {
+	h := newHarness(t)
+	h.spy.SetResult("update", Result{Err: &tp_errors.ErrWithEvent{
+		Message: "ssh connection failed",
+		Event: tpapi.Event{
+			Reason: util.Ptr("SSHConnectFailed"),
+			Note:   util.Ptr("could not connect"),
+			Type:   util.Ptr(event.TypeWarning),
+		},
+	}})
+
+	h.publishCreatedAt(
+		notifications.NotificationOperationUpdated,
+		time.Now().Add(-controller.DefaultMaxReconcileDuration-time.Minute).Unix(),
+	)
+
+	require.Eventually(t, func() bool { return h.outstanding(instanceReconciler) == 0 },
+		5*time.Second, 50*time.Millisecond)
+	assertGaveUp(t, h, event.ReasonUpdateFailed)
+	for _, reason := range h.instanceRecorder.GetReasons() {
+		assert.NotEqual(t, "SSHConnectFailed", reason, "the final event is not the error's own")
+	}
 }

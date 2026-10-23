@@ -203,11 +203,13 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 					)
 					// stop requeueing once the failure has outlasted the retry bound
 					if controller.RetriesExhausted(notif.CreationTime) {
-						giveUpMsg := fmt.Sprintf("failed to reconcile created gateway instance object, giving up after %s: %s",
+						giveUpMsg := event.GiveUpNote(
+							"failed to reconcile created gateway instance object",
 							controller.DefaultMaxReconcileDuration,
-							operationErr.Error())
+							operationErr,
+						)
 						log.Error(operationErr, giveUpMsg)
-						r.EventsRecorder.HandleEventOverride(
+						if recordErr := r.EventsRecorder.RecordEvent(
 							&api_v0.Event{
 								Note:   util.Ptr(giveUpMsg),
 								Reason: util.Ptr(event.ReasonCreateFailed),
@@ -215,9 +217,9 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 							},
 							gatewayInstance.GetId(),
 							gatewayInstance.GetFullyQualifiedType(),
-							operationErr,
-							&log,
-						)
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record give-up event")
+						}
 						r.ReleaseLock(gatewayInstance, lockReleased, msg, true)
 						continue
 					}
@@ -288,11 +290,13 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 					)
 					// stop requeueing once the failure has outlasted the retry bound
 					if controller.RetriesExhausted(notif.CreationTime) {
-						giveUpMsg := fmt.Sprintf("failed to reconcile updated gateway instance object, giving up after %s: %s",
+						giveUpMsg := event.GiveUpNote(
+							"failed to reconcile updated gateway instance object",
 							controller.DefaultMaxReconcileDuration,
-							operationErr.Error())
+							operationErr,
+						)
 						log.Error(operationErr, giveUpMsg)
-						r.EventsRecorder.HandleEventOverride(
+						if recordErr := r.EventsRecorder.RecordEvent(
 							&api_v0.Event{
 								Note:   util.Ptr(giveUpMsg),
 								Reason: util.Ptr(event.ReasonUpdateFailed),
@@ -300,9 +304,9 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 							},
 							gatewayInstance.GetId(),
 							gatewayInstance.GetFullyQualifiedType(),
-							operationErr,
-							&log,
-						)
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record give-up event")
+						}
 						r.ReleaseLock(gatewayInstance, lockReleased, msg, true)
 						continue
 					}
@@ -386,11 +390,13 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 					)
 					// stop requeueing once the failure has outlasted the retry bound
 					if controller.RetriesExhausted(notif.CreationTime) {
-						giveUpMsg := fmt.Sprintf("failed to reconcile deleted gateway instance object, giving up after %s: %s",
+						giveUpMsg := event.GiveUpNote(
+							"failed to reconcile deleted gateway instance object",
 							controller.DefaultMaxReconcileDuration,
-							operationErr.Error())
+							operationErr,
+						)
 						log.Error(operationErr, giveUpMsg)
-						r.EventsRecorder.HandleEventOverride(
+						if recordErr := r.EventsRecorder.RecordEvent(
 							&api_v0.Event{
 								Note:   util.Ptr(giveUpMsg),
 								Reason: util.Ptr(event.ReasonDeleteFailed),
@@ -398,9 +404,9 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 							},
 							gatewayInstance.GetId(),
 							gatewayInstance.GetFullyQualifiedType(),
-							operationErr,
-							&log,
-						)
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record give-up event")
+						}
 						r.ReleaseLock(gatewayInstance, lockReleased, msg, true)
 						continue
 					}
