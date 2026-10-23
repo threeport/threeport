@@ -113,6 +113,7 @@ func testKubeClient(objects ...runtime.Object) *dynamicfake.FakeDynamicClient {
 	for _, listKind := range []schema.GroupVersionKind{
 		{Version: "v1", Kind: "NamespaceList"},
 		{Version: "v1", Kind: "PersistentVolumeClaimList"},
+		{Version: "v1", Kind: "PersistentVolumeList"},
 		{Group: "apps", Version: "v1", Kind: "DeploymentList"},
 		{Group: "apps", Version: "v1", Kind: "StatefulSetList"},
 		{Group: "batch", Version: "v1", Kind: "JobList"},
