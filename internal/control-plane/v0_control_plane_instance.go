@@ -123,49 +123,18 @@ func v0ControlPlaneInstanceCreated(
 	// If this is not the first run of the creation reconciler, we want to use createOrUpdate mode
 	cpi.Opts.CreateOrUpdateKubeResources = notFirstRun
 
-	componentMap := make(map[string]*v0.ControlPlaneComponent, 0)
-	componentMap["rest-api"] = cpi.Opts.RestApiInfo
-	componentMap["agent"] = cpi.Opts.AgentInfo
-	componentMap["database-migrator"] = cpi.Opts.DatabaseMigratorInfo
-	for _, info := range cpi.Opts.ControllerList {
-		componentMap[info.Name] = info
+	// The self instance from the list endpoint does not carry the components
+	// the parent recorded for itself, so fetch it by ID to read them.
+	parentInstance, err := client.GetControlPlaneInstanceByID(r.APIClient, r.APIServer, *selfInstance.ID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get self control plane instance by ID: %w", err)
 	}
 
-	for _, customInfo := range controlPlaneInstance.CustomComponentInfo {
-		installInfo, exists := componentMap[customInfo.Name]
-
-		if !exists {
-			cpi.Opts.ControllerList = append(cpi.Opts.ControllerList, customInfo)
-			continue
-		}
-
-		if customInfo.ImageName != "" {
-			installInfo.ImageName = customInfo.ImageName
-		}
-
-		if customInfo.ImageNamespace != "" {
-			installInfo.ImageNamespace = customInfo.ImageNamespace
-		}
-
-		if customInfo.ImageTag != "" {
-			installInfo.ImageTag = customInfo.ImageTag
-		}
-
-		if customInfo.ServiceAccountName != "" {
-			installInfo.ServiceAccountName = customInfo.ServiceAccountName
-		}
-
-		if customInfo.ServiceResourceName != "" {
-			installInfo.ServiceResourceName = customInfo.ServiceResourceName
-		}
-
-		if customInfo.ImagePullSecretName != "" {
-			installInfo.ImagePullSecretName = customInfo.ImagePullSecretName
-		}
-
-		if customInfo.Enabled != nil {
-			installInfo.Enabled = customInfo.Enabled
-		}
+	// The child's components default to the images its parent runs, then take
+	// the child's own image settings and overrides. cpi was built for this
+	// reconcile alone, so none of this reaches the next child.
+	if err := cpi.ConfigureChildComponents(parentInstance, controlPlaneInstance); err != nil {
+		return 0, fmt.Errorf("failed to configure components of control plane instance: %w", err)
 	}
 
 	cpi.Opts.InfraProvider = *kubernetesRuntimeDefinition.InfraProvider
@@ -768,6 +737,7 @@ func v0ControlPlaneInstanceCreated(
 	clonedRuntimeInstance.IsSelf = &self
 	clonedRuntimeInstance.KubernetesRuntimeInstanceID = createdKubeInstance.ID
 	clonedRuntimeInstance.Reconciled = &reconciled
+	recordResolvedComponents(&clonedRuntimeInstance, cpi)
 
 	_, err = client.CreateControlPlaneInstance(
 		newApiClient,
@@ -984,4 +954,22 @@ func v0ControlPlaneInstanceDeleted(
 	}
 
 	return 0, nil
+}
+
+// recordResolvedComponents sets the components a control plane records for
+// itself to the ones it actually runs, not the overrides it was asked for, so
+// control planes created from it default to its images in turn.
+//
+// The instance-wide image is cleared. It was already applied to every
+// component it covers, and the components carry the exceptions to it. Left in
+// place, it would be applied again over the recorded components when a child
+// of this control plane is created, replacing each exception with the
+// instance-wide value. An upgrade sets it again when it retags everything.
+func recordResolvedComponents(
+	instance *v0.ControlPlaneInstance,
+	cpi *threeport.ControlPlaneInstaller,
+) {
+	instance.ImageNamespace = nil
+	instance.ImageTag = nil
+	instance.CustomComponentInfo = cpi.RecordedComponents()
 }
