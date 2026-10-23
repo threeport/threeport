@@ -173,8 +173,8 @@ func ReconcilerTestVolatileInstanceReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
-					// stop requeueing once the failure has outlasted the retry bound
-					if controller.RetriesExhausted(notif.CreationTime) {
+					// stop requeueing once the operation has been failing for longer than the retry bound
+					if r.RecordFailure(reconcilerTestVolatileInstance, string(notif.Operation)) {
 						giveUpMsg := event.GiveUpNote(
 							"failed to reconcile created reconciler test volatile instance object",
 							controller.DefaultMaxReconcileDuration,
@@ -203,6 +203,7 @@ func ReconcilerTestVolatileInstanceReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				r.ClearFailure(reconcilerTestVolatileInstance, string(notif.Operation))
 				if customRequeueDelay != 0 {
 					log.Info("create requeued for future reconciliation")
 					r.UnlockAndRequeue(
@@ -260,8 +261,8 @@ func ReconcilerTestVolatileInstanceReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
-					// stop requeueing once the failure has outlasted the retry bound
-					if controller.RetriesExhausted(notif.CreationTime) {
+					// stop requeueing once the operation has been failing for longer than the retry bound
+					if r.RecordFailure(reconcilerTestVolatileInstance, string(notif.Operation)) {
 						giveUpMsg := event.GiveUpNote(
 							"failed to reconcile updated reconciler test volatile instance object",
 							controller.DefaultMaxReconcileDuration,
@@ -290,6 +291,7 @@ func ReconcilerTestVolatileInstanceReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				r.ClearFailure(reconcilerTestVolatileInstance, string(notif.Operation))
 				if customRequeueDelay != 0 {
 					log.Info("update requeued for future reconciliation")
 					r.UnlockAndRequeue(
@@ -360,8 +362,8 @@ func ReconcilerTestVolatileInstanceReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
-					// stop requeueing once the failure has outlasted the retry bound
-					if controller.RetriesExhausted(notif.CreationTime) {
+					// stop requeueing once the operation has been failing for longer than the retry bound
+					if r.RecordFailure(reconcilerTestVolatileInstance, string(notif.Operation)) {
 						giveUpMsg := event.GiveUpNote(
 							"failed to reconcile deleted reconciler test volatile instance object",
 							controller.DefaultMaxReconcileDuration,
@@ -390,6 +392,7 @@ func ReconcilerTestVolatileInstanceReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				r.ClearFailure(reconcilerTestVolatileInstance, string(notif.Operation))
 				if customRequeueDelay != 0 {
 					log.Info("delete requeued for future reconciliation")
 					r.UnlockAndRequeue(

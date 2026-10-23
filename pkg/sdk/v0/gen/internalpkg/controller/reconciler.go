@@ -718,8 +718,11 @@ func operationCase(
 			)
 			// a failure that never resolves must end somewhere visible rather
 			// than be requeued for as long as the object exists
-			k.Comment("stop requeueing once the failure has outlasted the retry bound")
-			k.If(Id("controller").Dot("RetriesExhausted").Call(Id("notif").Dot("CreationTime"))).Block(
+			k.Comment("stop requeueing once the operation has been failing for longer than the retry bound")
+			k.If(Id("r").Dot("RecordFailure").Call(
+				Id(varObjectName),
+				Id("string").Call(Id("notif").Dot("Operation")),
+			)).Block(
 				Id("giveUpMsg").Op(":=").Qual(
 					"github.com/threeport/threeport/pkg/event/v0",
 					"GiveUpNote",
@@ -773,6 +776,11 @@ func operationCase(
 			)
 			k.Continue()
 		})
+		// the operation did not fail, so a later failure starts a new retry window
+		h.Id("r").Dot("ClearFailure").Call(
+			Id(varObjectName),
+			Id("string").Call(Id("notif").Dot("Operation")),
+		)
 		h.If(Id("customRequeueDelay").Op("!=").Lit(0)).Block(
 			Id("log").Dot("Info").Call(
 				Lit(fmt.Sprintf(

@@ -201,8 +201,8 @@ func LoggingDefinitionReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
-					// stop requeueing once the failure has outlasted the retry bound
-					if controller.RetriesExhausted(notif.CreationTime) {
+					// stop requeueing once the operation has been failing for longer than the retry bound
+					if r.RecordFailure(loggingDefinition, string(notif.Operation)) {
 						giveUpMsg := event.GiveUpNote(
 							"failed to reconcile created logging definition object",
 							controller.DefaultMaxReconcileDuration,
@@ -231,6 +231,7 @@ func LoggingDefinitionReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				r.ClearFailure(loggingDefinition, string(notif.Operation))
 				if customRequeueDelay != 0 {
 					log.Info("create requeued for future reconciliation")
 					r.UnlockAndRequeue(
@@ -288,8 +289,8 @@ func LoggingDefinitionReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
-					// stop requeueing once the failure has outlasted the retry bound
-					if controller.RetriesExhausted(notif.CreationTime) {
+					// stop requeueing once the operation has been failing for longer than the retry bound
+					if r.RecordFailure(loggingDefinition, string(notif.Operation)) {
 						giveUpMsg := event.GiveUpNote(
 							"failed to reconcile updated logging definition object",
 							controller.DefaultMaxReconcileDuration,
@@ -318,6 +319,7 @@ func LoggingDefinitionReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				r.ClearFailure(loggingDefinition, string(notif.Operation))
 				if customRequeueDelay != 0 {
 					log.Info("update requeued for future reconciliation")
 					r.UnlockAndRequeue(
@@ -388,8 +390,8 @@ func LoggingDefinitionReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
-					// stop requeueing once the failure has outlasted the retry bound
-					if controller.RetriesExhausted(notif.CreationTime) {
+					// stop requeueing once the operation has been failing for longer than the retry bound
+					if r.RecordFailure(loggingDefinition, string(notif.Operation)) {
 						giveUpMsg := event.GiveUpNote(
 							"failed to reconcile deleted logging definition object",
 							controller.DefaultMaxReconcileDuration,
@@ -418,6 +420,7 @@ func LoggingDefinitionReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				r.ClearFailure(loggingDefinition, string(notif.Operation))
 				if customRequeueDelay != 0 {
 					log.Info("delete requeued for future reconciliation")
 					r.UnlockAndRequeue(
