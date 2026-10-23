@@ -930,7 +930,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + cpi.Opts.ControlPlaneName + "",
+					"app.kubernetes.io/instance":   cpi.agentInstanceLabel(),
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
@@ -952,7 +952,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + cpi.Opts.ControlPlaneName + "",
+					"app.kubernetes.io/instance":   cpi.agentInstanceLabel(),
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
@@ -1092,7 +1092,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + cpi.Opts.ControlPlaneName + "",
+					"app.kubernetes.io/instance":   cpi.agentInstanceLabel(),
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
@@ -1123,7 +1123,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + cpi.Opts.ControlPlaneName + "",
+					"app.kubernetes.io/instance":   cpi.agentInstanceLabel(),
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
@@ -1168,7 +1168,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + cpi.Opts.ControlPlaneName + "",
+					"app.kubernetes.io/instance":   cpi.agentInstanceLabel(),
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
@@ -1202,13 +1202,13 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + cpi.Opts.ControlPlaneName + "",
+					"app.kubernetes.io/instance":   cpi.agentInstanceLabel(),
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
 					"app.kubernetes.io/managed-by": "threeport",
 				},
-				"name": "threeport-agent-manager-rolebinding",
+				"name": cpi.agentManagerBindingName(),
 			},
 			"roleRef": map[string]interface{}{
 				"apiGroup": "rbac.authorization.k8s.io",
@@ -1235,13 +1235,13 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + cpi.Opts.ControlPlaneName + "",
+					"app.kubernetes.io/instance":   cpi.agentInstanceLabel(),
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
 					"app.kubernetes.io/managed-by": "threeport",
 				},
-				"name": "threeport-agent-proxy-rolebinding",
+				"name": cpi.agentProxyBindingName(),
 			},
 			"roleRef": map[string]interface{}{
 				"apiGroup": "rbac.authorization.k8s.io",
@@ -1268,7 +1268,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + cpi.Opts.ControlPlaneName + "",
+					"app.kubernetes.io/instance":   cpi.agentInstanceLabel(),
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
@@ -1303,7 +1303,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + cpi.Opts.ControlPlaneName + "",
+					"app.kubernetes.io/instance":   cpi.agentInstanceLabel(),
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
@@ -1936,6 +1936,9 @@ func (cpi *ControlPlaneInstaller) getAgentArgs() []interface{} {
 			"--metrics-bind-address=127.0.0.1:8080",
 			"--leader-elect",
 		}
+		if cpi.Opts.ControlPlaneName != "" {
+			args = append(args, fmt.Sprintf("--control-plane-name=%s", cpi.Opts.ControlPlaneName))
+		}
 		if !cpi.Opts.AuthEnabled {
 			args = append(args, "--auth-enabled=false")
 		}
@@ -1946,11 +1949,39 @@ func (cpi *ControlPlaneInstaller) getAgentArgs() []interface{} {
 			"--metrics-bind-address=127.0.0.1:8080",
 			"--leader-elect",
 		}
+		if cpi.Opts.ControlPlaneName != "" {
+			args = append(args, fmt.Sprintf("--control-plane-name=%s", cpi.Opts.ControlPlaneName))
+		}
 		if !cpi.Opts.AuthEnabled {
 			args = append(args, "--auth-enabled=false")
 		}
 		return args
 	}
+}
+
+// agentInstanceLabel returns the app.kubernetes.io/instance label value for
+// the threeport agent's resources.  The control plane name is only joined
+// when set: the compute space agent installed by a runtime instance may have
+// none, and a label value cannot end in a hyphen.
+func (cpi *ControlPlaneInstaller) agentInstanceLabel() string {
+	if cpi.Opts.ControlPlaneName == "" {
+		return "threeport-agent"
+	}
+	return "threeport-agent-" + cpi.Opts.ControlPlaneName
+}
+
+// agentManagerBindingName returns the name of the agent's manager
+// ClusterRoleBinding.  It is cluster-scoped, so it is qualified with the
+// namespace to keep agents installed in different namespaces of one cluster
+// from sharing a binding.
+func (cpi *ControlPlaneInstaller) agentManagerBindingName() string {
+	return fmt.Sprintf("%s-threeport-agent-manager-rolebinding", cpi.Opts.Namespace)
+}
+
+// agentProxyBindingName returns the name of the agent's proxy
+// ClusterRoleBinding.  See agentManagerBindingName.
+func (cpi *ControlPlaneInstaller) agentProxyBindingName() string {
+	return fmt.Sprintf("%s-threeport-agent-proxy-rolebinding", cpi.Opts.Namespace)
 }
 
 func (cpi *ControlPlaneInstaller) getControllerSecret(name, namespace string) *unstructured.Unstructured {
@@ -1968,6 +1999,7 @@ func (cpi *ControlPlaneInstaller) getControllerSecret(name, namespace string) *u
 				"MSG_BROKER_HOST":       fmt.Sprintf("%s.%s.svc.cluster.local", natsServiceName, cpi.Opts.Namespace),
 				"MSG_BROKER_PORT":       "4222",
 				"AWS_ROLE_SESSION_NAME": util.AwsResourceManagerRoleSessionName,
+				"CONTROL_PLANE_NAME":    cpi.Opts.ControlPlaneName,
 			},
 		},
 	}
