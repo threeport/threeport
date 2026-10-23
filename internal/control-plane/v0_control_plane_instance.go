@@ -737,9 +737,7 @@ func v0ControlPlaneInstanceCreated(
 	clonedRuntimeInstance.IsSelf = &self
 	clonedRuntimeInstance.KubernetesRuntimeInstanceID = createdKubeInstance.ID
 	clonedRuntimeInstance.Reconciled = &reconciled
-	// the child records what it actually runs, not the overrides it was asked
-	// for, so control planes created from it default to its images in turn
-	clonedRuntimeInstance.CustomComponentInfo = cpi.RecordedComponents()
+	recordResolvedComponents(&clonedRuntimeInstance, cpi)
 
 	_, err = client.CreateControlPlaneInstance(
 		newApiClient,
@@ -956,4 +954,22 @@ func v0ControlPlaneInstanceDeleted(
 	}
 
 	return 0, nil
+}
+
+// recordResolvedComponents sets the components a control plane records for
+// itself to the ones it actually runs, not the overrides it was asked for, so
+// control planes created from it default to its images in turn.
+//
+// The instance-wide image is cleared. It was already applied to every
+// component it covers, and the components carry the exceptions to it. Left in
+// place, it would be applied again over the recorded components when a child
+// of this control plane is created, replacing each exception with the
+// instance-wide value. An upgrade sets it again when it retags everything.
+func recordResolvedComponents(
+	instance *v0.ControlPlaneInstance,
+	cpi *threeport.ControlPlaneInstaller,
+) {
+	instance.ImageNamespace = nil
+	instance.ImageTag = nil
+	instance.CustomComponentInfo = cpi.RecordedComponents()
 }
