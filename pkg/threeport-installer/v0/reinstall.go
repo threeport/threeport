@@ -179,10 +179,20 @@ func (cpi *ControlPlaneInstaller) runDropMessageBrokerJob(
 				"template": map[string]interface{}{
 					"spec": map[string]interface{}{
 						"restartPolicy": "Never",
+						// the same user as the nats-box utility pod, from the same image
+						"securityContext": map[string]interface{}{
+							"runAsNonRoot": true,
+							"runAsUser":    natsBoxUID,
+							"runAsGroup":   natsBoxGID,
+							"seccompProfile": map[string]interface{}{
+								"type": "RuntimeDefault",
+							},
+						},
 						"containers": []interface{}{
 							map[string]interface{}{
-								"name":  "drop-message-broker",
-								"image": natsBoxImage,
+								"name":            "drop-message-broker",
+								"securityContext": vendoredContainerSecurityContext(),
+								"image":           natsBoxImage,
 								"env": []interface{}{
 									map[string]interface{}{
 										"name":  "NATS_URL",
@@ -247,10 +257,13 @@ func (cpi *ControlPlaneInstaller) runDropDatabaseJob(
 				"template": map[string]interface{}{
 					"spec": map[string]interface{}{
 						"restartPolicy": "Never",
+						// the database's user, whose group reads the root client key
+						"securityContext": dependencyPodSecurityContext(),
 						"containers": []interface{}{
 							map[string]interface{}{
-								"name":  "drop-database",
-								"image": fmt.Sprintf("cockroachdb/cockroach:%s", DatabaseImageTag),
+								"name":            "drop-database",
+								"securityContext": restrictedContainerSecurityContext(),
+								"image":           fmt.Sprintf("cockroachdb/cockroach:%s", DatabaseImageTag),
 								"command": []interface{}{
 									"/cockroach/cockroach",
 									"sql",

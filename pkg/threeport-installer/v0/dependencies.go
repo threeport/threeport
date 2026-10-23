@@ -47,6 +47,14 @@ func (cpi *ControlPlaneInstaller) CreateThreeportControlPlaneNamespace(
 	return nil
 }
 
+// natsBoxUID and natsBoxGID are the numeric uid/gid behind the nats-box
+// image's USER nats:nats (confirmed with `docker run --entrypoint id`). The
+// kubelet needs the number, not the name, to verify runAsNonRoot.
+const (
+	natsBoxUID = int64(1000)
+	natsBoxGID = int64(1000)
+)
+
 // InstallThreeportControlPlaneDependencies installs the necessary components
 // for the threeport REST API and controllers to operate.  It includes the
 // database and message broker.
@@ -261,9 +269,29 @@ store_dir: /data
 					},
 					"spec": map[string]interface{}{
 						"volumes": nil,
+						// natsio/nats-box:0.16.0-nonroot declares USER nats:nats, so
+						// this one can be held to it. The other dependencies cannot.
+						//
+						// runAsUser and runAsGroup still have to be given
+						// numerically: the kubelet does not resolve a named
+						// USER against the image's /etc/passwd on its own, so
+						// runAsNonRoot alone fails every container with
+						// CreateContainerConfigError, "image has non-numeric
+						// user (nats), cannot verify user is non-root" -
+						// confirmed against a running kind cluster, not
+						// assumed from the image's declared USER.
+						"securityContext": map[string]interface{}{
+							"runAsNonRoot": true,
+							"runAsUser":    natsBoxUID,
+							"runAsGroup":   natsBoxGID,
+							"seccompProfile": map[string]interface{}{
+								"type": "RuntimeDefault",
+							},
+						},
 						"containers": []interface{}{
 							map[string]interface{}{
 								"name":            "nats-box",
+								"securityContext": vendoredContainerSecurityContext(),
 								"image":           natsBoxImage,
 								"imagePullPolicy": "IfNotPresent",
 								"resources":       nil,
@@ -360,9 +388,16 @@ store_dir: /data
 						//               #
 						//################
 						"terminationGracePeriodSeconds": 60,
+						// All three containers run as one user: the reloader signals
+						// the server through the shared process namespace, and with
+						// every capability dropped a process can only signal its own
+						// user's.
+						"securityContext": dependencyPodSecurityContext(),
 						"containers": []interface{}{
 							map[string]interface{}{
-								"name":            "nats",
+								"name": "nats",
+								// writes only its store and its pid file, both volumes
+								"securityContext": restrictedContainerSecurityContext(),
 								"image":           "docker.io/library/nats:2.10.25-alpine",
 								"imagePullPolicy": "IfNotPresent",
 								"resources":       map[string]interface{}{},
@@ -492,6 +527,7 @@ store_dir: /data
 							//################################
 							map[string]interface{}{
 								"name":            "reloader",
+								"securityContext": restrictedContainerSecurityContext(),
 								"image":           "docker.io/natsio/nats-server-config-reloader:0.16.1",
 								"imagePullPolicy": "IfNotPresent",
 								"resources":       nil,
@@ -524,6 +560,7 @@ store_dir: /data
 							//#############################
 							map[string]interface{}{
 								"name":            "metrics",
+								"securityContext": restrictedContainerSecurityContext(),
 								"image":           "docker.io/natsio/prometheus-nats-exporter:0.16.0",
 								"imagePullPolicy": "IfNotPresent",
 								"resources":       map[string]interface{}{},
@@ -755,9 +792,12 @@ store_dir: /data
 						// No pre-stop hook is required, a SIGTERM plus some time is all that's
 						// needed for graceful shutdown of a node.
 						"terminationGracePeriodSeconds": 60,
+						"securityContext":               dependencyPodSecurityContext(),
 						"containers": []interface{}{
 							map[string]interface{}{
-								"name":            "db",
+								"name": "db",
+								// writes only its data directory, a volume
+								"securityContext": restrictedContainerSecurityContext(),
 								"image":           fmt.Sprintf("docker.io/cockroachdb/cockroach:%s", DatabaseImageTag),
 								"imagePullPolicy": "IfNotPresent",
 								"args": []interface{}{
