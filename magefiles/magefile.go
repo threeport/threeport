@@ -39,6 +39,25 @@ func (Test) Cockroach() error {
 	return nil
 }
 
+// CrdbHa runs test/crdb-ha, which provisions a real multi-node kind cluster
+// and verifies the production-tier CockroachDB cluster tolerates a node
+// loss without data loss or downtime.
+func (Test) CrdbHa() error {
+	cmd := "go"
+	args := []string{
+		"test",
+		"-v",
+		"-count=1",
+		"-timeout=10m",
+		"./test/crdb-ha",
+	}
+	if err := util.RunCommandStreamOutput(cmd, args...); err != nil {
+		return fmt.Errorf("failed to run crdb-ha tests: %w", err)
+	}
+
+	return nil
+}
+
 // E2e calls ginkgo to run the e2e tests suite.  Takes 2 args: 1. imageRepo -
 // either 'local' or the URL for an external image repo.  2. clean - if true
 // will remove the control plane and infra after completion.
