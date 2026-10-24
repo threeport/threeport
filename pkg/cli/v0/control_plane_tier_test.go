@@ -24,7 +24,10 @@ import (
 // to be rejected before any infrastructure is touched, since by then the
 // operator has a cluster they were told is something it is not.
 func TestKindCannotRunAProductionTier(t *testing.T) {
-	// api port is only accepted for kind, so it is passed only there
+	// api port is only accepted for kind, so it is passed only there. auth is
+	// left on throughout: this test is about the tier/provider pairing, and
+	// ValidateCreateGenesisControlPlaneFlags also rejects auth disabled on
+	// anything but kind - a separate check this test does not exercise.
 	validate := func(provider, tier string) error {
 		apiPort := 0
 		if provider == v0.KubernetesRuntimeInfraProviderKind {
@@ -32,7 +35,7 @@ func TestKindCannotRunAProductionTier(t *testing.T) {
 		}
 
 		return ValidateCreateGenesisControlPlaneFlags(
-			"test", provider, tier, "", false, nil, false, "", apiPort,
+			"test", provider, tier, "", true, nil, false, "", apiPort,
 		)
 	}
 

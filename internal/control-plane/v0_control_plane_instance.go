@@ -170,6 +170,19 @@ func v0ControlPlaneInstanceCreated(
 
 	cpi.Opts.InfraProvider = *kubernetesRuntimeDefinition.InfraProvider
 
+	// The API refuses this pairing when the instance is created and when the
+	// definition is updated. It is checked once more here because those are
+	// earlier moments than this one: the definition is read again above, and
+	// what it says now is what the child is about to be installed with.
+	if controlPlaneDefinition.AuthEnabled != nil {
+		if err := v0.ValidateAuthEnabledForProvider(
+			*kubernetesRuntimeDefinition.InfraProvider,
+			*controlPlaneDefinition.AuthEnabled,
+		); err != nil {
+			return 0, err
+		}
+	}
+
 	// A child control plane takes the tier recorded on its definition, which
 	// is what tier-dependent install behavior reads. Without this it would
 	// install at the installer's zero value whatever its definition says, and
