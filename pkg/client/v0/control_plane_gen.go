@@ -12,6 +12,7 @@ import (
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"net/http"
+	neturl "net/url"
 )
 
 // GetControlPlaneDefinitions fetches all control plane definitions.
@@ -25,7 +26,7 @@ func GetControlPlaneDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.C
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathControlPlaneDefinitions)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathControlPlaneDefinitions, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathControlPlaneDefinitions, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -134,7 +135,7 @@ func GetControlPlaneDefinitionByName(apiClient *http.Client, apiAddr, name strin
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathControlPlaneDefinitions, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathControlPlaneDefinitions, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -342,7 +343,7 @@ func GetControlPlaneInstances(apiClient *http.Client, apiAddr string) (*[]v0.Con
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathControlPlaneInstances)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathControlPlaneInstances, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathControlPlaneInstances, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -451,7 +452,7 @@ func GetControlPlaneInstanceByName(apiClient *http.Client, apiAddr, name string)
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathControlPlaneInstances, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathControlPlaneInstances, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},

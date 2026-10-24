@@ -12,6 +12,7 @@ import (
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"net/http"
+	neturl "net/url"
 )
 
 // GetKubernetesWorkloadDefinitions fetches all kubernetes workload definitions.
@@ -25,7 +26,7 @@ func GetKubernetesWorkloadDefinitions(apiClient *http.Client, apiAddr string) (*
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathKubernetesWorkloadDefinitions)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathKubernetesWorkloadDefinitions, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathKubernetesWorkloadDefinitions, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -134,7 +135,7 @@ func GetKubernetesWorkloadDefinitionByName(apiClient *http.Client, apiAddr, name
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathKubernetesWorkloadDefinitions, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathKubernetesWorkloadDefinitions, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -342,7 +343,7 @@ func GetKubernetesWorkloadInstances(apiClient *http.Client, apiAddr string) (*[]
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathKubernetesWorkloadInstances)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathKubernetesWorkloadInstances, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathKubernetesWorkloadInstances, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -451,7 +452,7 @@ func GetKubernetesWorkloadInstanceByName(apiClient *http.Client, apiAddr, name s
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathKubernetesWorkloadInstances, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathKubernetesWorkloadInstances, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -659,7 +660,7 @@ func GetKubernetesWorkloadResourceDefinitions(apiClient *http.Client, apiAddr st
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathKubernetesWorkloadResourceDefinitions)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathKubernetesWorkloadResourceDefinitions, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathKubernetesWorkloadResourceDefinitions, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -768,7 +769,7 @@ func GetKubernetesWorkloadResourceDefinitionByName(apiClient *http.Client, apiAd
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathKubernetesWorkloadResourceDefinitions, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathKubernetesWorkloadResourceDefinitions, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -976,7 +977,7 @@ func GetKubernetesWorkloadResourceInstances(apiClient *http.Client, apiAddr stri
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathKubernetesWorkloadResourceInstances)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathKubernetesWorkloadResourceInstances, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathKubernetesWorkloadResourceInstances, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -1085,7 +1086,7 @@ func GetKubernetesWorkloadResourceInstanceByName(apiClient *http.Client, apiAddr
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathKubernetesWorkloadResourceInstances, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathKubernetesWorkloadResourceInstances, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
