@@ -177,6 +177,12 @@ func (cpi *ControlPlaneInstaller) runDropMessageBrokerJob(
 			"spec": map[string]interface{}{
 				"backoffLimit": int64(dropMessageBrokerJobBackoffLimit),
 				"template": map[string]interface{}{
+					// the label the database network policy admits; a drop runs
+					// while the API server is scaled to zero, so it is the one
+					// thing that has to reach the database directly
+					"metadata": map[string]interface{}{
+						"labels": map[string]interface{}{LabelMaintenance: "true"},
+					},
 					"spec": map[string]interface{}{
 						"restartPolicy": "Never",
 						"containers": []interface{}{
@@ -245,6 +251,12 @@ func (cpi *ControlPlaneInstaller) runDropDatabaseJob(
 			"spec": map[string]interface{}{
 				"backoffLimit": int64(dropDatabaseJobBackoffLimit),
 				"template": map[string]interface{}{
+					// the label the database network policy admits; a drop runs
+					// while the API server is scaled to zero, so it is the one
+					// thing that has to reach the database directly
+					"metadata": map[string]interface{}{
+						"labels": map[string]interface{}{LabelMaintenance: "true"},
+					},
 					"spec": map[string]interface{}{
 						"restartPolicy": "Never",
 						"containers": []interface{}{
@@ -482,6 +494,16 @@ func (cpi *ControlPlaneInstaller) Reinstall(
 	fmt.Println("Info: installing threeport agent")
 	if err := cpi.InstallThreeportAgent(kubeClient, mapper, authConfig); err != nil {
 		return fmt.Errorf("failed to install threeport agent: %w", err)
+	}
+
+	// reapply the network policies
+	//
+	// deleteForReinstall removes installer-managed resources, and the policies
+	// describe the namespace rather than any one component, so they are
+	// applied here for the same reason the install applies them: whatever is
+	// running afterwards has to be covered.
+	if err := cpi.InstallThreeportNetworkPolicies(kubeClient, mapper); err != nil {
+		return fmt.Errorf("failed to install network policies: %w", err)
 	}
 
 	// wait for the rest api deployment to become ready
