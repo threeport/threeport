@@ -158,6 +158,34 @@ engineering expertise and investment, but for high-value applications
 with relatively large development teams, the savings in developer toil and
 application reliability make the trade-off worthwhile.
 
+## Reaching a Module's API
+
+A module runs its own API server, but clients never connect to it directly.
+When the module's API server starts, it registers its routes with the core
+Threeport API, and the core API proxies requests for those routes to the
+module. The module's objects are reached at the same address as everything
+else in Threeport.
+
+### API Docs
+
+The core Threeport API serves its Swagger docs at `swagger/index.html`.
+
+A module serves its own docs, describing its own objects, at
+`swagger/<module API name>/index.html` on the core API. The module API name is
+the module's API namespace followed by `<module name>-module-api`. For a module
+named `Widget` in the API namespace `widget.example.com`, that's:
+
+```
+swagger/widget.example.com/widget-module-api/index.html
+```
+
+The docs are generated in the module's repo with `mage dev:generateSwaggerDocs`,
+which writes them to `pkg/api-server/v0/docs` from the API objects and the
+`ApiDocs` section of `sdk-config.yaml`. Run it after changing the module's API
+objects, and before building the module's images, so the API server serves
+current docs. Until a module runs it the first time, it serves a placeholder
+with no paths.
+
 ## Summary
 
 Threeport modules provide infinite flexibility in building the software delivery

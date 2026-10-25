@@ -1,9 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"go/build"
+	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,6 +22,7 @@ import (
 	gencontroller "github.com/threeport/threeport/pkg/sdk/v0/gen/internalpkg/controller"
 	genapi "github.com/threeport/threeport/pkg/sdk/v0/gen/pkg/api"
 	genclient "github.com/threeport/threeport/pkg/sdk/v0/gen/pkg/client"
+	genroot "github.com/threeport/threeport/pkg/sdk/v0/gen/root"
 	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -315,7 +319,7 @@ func (Dev) Generate() error {
 		return fmt.Errorf("code generation failed: %w", err)
 	}
 
-	err = dev.GenerateDocs()
+	err = dev.GenerateSwaggerDocs()
 	if err != nil {
 		return fmt.Errorf("docs generation failed: %w", err)
 	}
@@ -453,31 +457,145 @@ func (Dev) GenerateFixture() error {
 	return nil
 }
 
-// GenerateDocs generates the swagger docs served by the API.
-func (Dev) GenerateDocs() error {
-	docsDestination := "pkg/api-server/v0/docs"
-	generateSwaggerDocs := exec.Command(
-		"go",
-		"tool",
-		"swag",
-		"init",
-		"--dir",
-		"cmd/rest-api,pkg/api-server/v0",
-		"--parseDependency",
-		"--propertyStrategy",
-		"pascalcase",
-		"--generalInfo",
-		"main_gen.go",
-		"--output",
-		docsDestination,
-	)
-
-	output, err := generateSwaggerDocs.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("swagger docs generation failed with output: '%s': %w", output, err)
+// checkModuleSwaggerDocsTarget runs the GenerateSwaggerDocs target generated
+// into the test module, the one way a module regenerates its swagger docs.
+// It runs swag through go tool, which a module only has once it declares
+// swag as a tool, so the target is run first without it, where it has to say
+// how to add it, and then with it, where it has to write the docs.
+func checkModuleSwaggerDocsTarget() error {
+	missing := exec.Command("mage", "dev:generateSwaggerDocs")
+	missing.Dir = moduleTestPath
+	output, err := missing.CombinedOutput()
+	if err == nil {
+		return errors.New("the module's swagger docs target ran without swag declared as a tool")
+	}
+	advice := fmt.Sprintf("go get -tool github.com/swaggo/swag/cmd/swag@%s", genroot.SwagVersion)
+	if !strings.Contains(string(output), advice) {
+		return fmt.Errorf("the module's swagger docs target failed without saying to run '%s': %s", advice, output)
 	}
 
-	fmt.Printf("API swagger docs generated successfully in %s\n", docsDestination)
+	if err := generateModuleSwaggerDocs(); err != nil {
+		return err
+	}
+	swaggerJSON, err := os.ReadFile(filepath.Join(moduleTestPath, "pkg", "api-server", "v0", "docs", "swagger.json"))
+	if err != nil {
+		return fmt.Errorf("the module's swagger docs target wrote no swagger.json: %w", err)
+	}
+
+	return checkModuleSwaggerDocs(swaggerJSON)
+}
+
+// generateModuleSwaggerDocs declares swag as a tool of the test module and
+// runs the GenerateSwaggerDocs target generated into it.
+func generateModuleSwaggerDocs() error {
+	if err := util.RunCommandStreamOutputInDir(
+		moduleTestPath,
+		"go", "get", "-tool", "github.com/swaggo/swag/cmd/swag@"+genroot.SwagVersion,
+	); err != nil {
+		return fmt.Errorf("failed to add swag as a tool of the generated module: %w", err)
+	}
+	if err := util.RunCommandStreamOutputInDir(
+		moduleTestPath,
+		"mage", "dev:generateSwaggerDocs",
+	); err != nil {
+		return fmt.Errorf("failed to generate the module's swagger docs: %w", err)
+	}
+
+	return nil
+}
+
+// checkModuleSwaggerDocs checks a swagger document describes the test
+// module's own API, not the core API's.
+func checkModuleSwaggerDocs(swaggerJSON []byte) error {
+	var docs struct {
+		Info struct {
+			Title string `json:"title"`
+		} `json:"info"`
+		Paths map[string]any `json:"paths"`
+	}
+	if err := json.Unmarshal(swaggerJSON, &docs); err != nil {
+		return fmt.Errorf("failed to parse the module's swagger document: %w", err)
+	}
+	if docs.Info.Title != "Threeport Test Module API" {
+		return fmt.Errorf("the module's swagger docs are titled %q, not the title its sdk-config gives", docs.Info.Title)
+	}
+	// a module's paths are under its API namespace
+	if _, ok := docs.Paths["/module-threeport-io/v0/widget-definitions"]; !ok {
+		return errors.New("the module's swagger docs do not document its own widget-definitions path")
+	}
+	if _, ok := docs.Paths["/v0/control-plane-definitions"]; ok {
+		return errors.New("the module's swagger docs document the core API's paths")
+	}
+
+	return nil
+}
+
+// moduleTestSwaggerPath is where the core API proxies the test module's
+// swagger docs: /swagger/ and the name the module registers its API under.
+const moduleTestSwaggerPath = "/swagger/module.threeport.io/test-module-api"
+
+// checkModuleSwaggerDocsThroughCoreApi requests the installed test module's
+// swagger docs from the core API, as a client does, and checks they are the
+// module's and that the core API's own are still the core API's.
+func checkModuleSwaggerDocsThroughCoreApi() error {
+	cli.InitConfig(nil, "")
+	threeportConfig, controlPlane, err := cli.GetThreeportConfig("")
+	if err != nil {
+		return fmt.Errorf("failed to read the threeport config: %w", err)
+	}
+	apiClient, err := threeportConfig.GetHTTPClient(controlPlane)
+	if err != nil {
+		return fmt.Errorf("failed to get a threeport API client: %w", err)
+	}
+	controlPlaneConfig, err := threeportConfig.GetControlPlaneConfig(controlPlane)
+	if err != nil {
+		return fmt.Errorf("failed to get the control plane config: %w", err)
+	}
+	scheme := "http"
+	if controlPlaneConfig.AuthEnabled {
+		scheme = "https"
+	}
+	get := func(path string) ([]byte, error) {
+		response, err := apiClient.Get(fmt.Sprintf("%s://%s%s", scheme, controlPlaneConfig.APIServer, path))
+		if err != nil {
+			return nil, fmt.Errorf("failed to request %s from the core API: %w", path, err)
+		}
+		defer response.Body.Close()
+		body, err := io.ReadAll(response.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read %s from the core API: %w", path, err)
+		}
+		if response.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("the core API answered %s with %d: %s", path, response.StatusCode, body)
+		}
+
+		return body, nil
+	}
+
+	moduleDocs, err := get(moduleTestSwaggerPath + "/doc.json")
+	if err != nil {
+		return err
+	}
+	if err := checkModuleSwaggerDocs(moduleDocs); err != nil {
+		return fmt.Errorf("through the core API: %w", err)
+	}
+	moduleIndex, err := get(moduleTestSwaggerPath + "/index.html")
+	if err != nil {
+		return err
+	}
+	if !strings.Contains(string(moduleIndex), "swagger-ui") {
+		return errors.New("the core API did not serve the module's swagger UI")
+	}
+
+	coreDocs, err := get("/swagger/doc.json")
+	if err != nil {
+		return err
+	}
+	if !strings.Contains(string(coreDocs), "/v0/control-plane-definitions") {
+		return errors.New("the core API no longer serves its own swagger docs at /swagger")
+	}
+
+	fmt.Printf("module swagger docs served through the core API at %s/index.html\n", moduleTestSwaggerPath)
 
 	return nil
 }
@@ -516,6 +634,11 @@ func (Test) ModuleGen() error {
 		"go", "vet", "./...",
 	); err != nil {
 		return fmt.Errorf("failed to type-check the generated module: %w", err)
+	}
+
+	// regenerate the module's swagger docs with the target generated into it
+	if err := checkModuleSwaggerDocsTarget(); err != nil {
+		return err
 	}
 
 	// run the tests copied into the generated module. Type-checking does not
@@ -614,6 +737,11 @@ func (Test) ModuleInstall() error {
 		return err
 	}
 
+	// generate the module's swagger docs, so the API server image serves them
+	if err := generateModuleSwaggerDocs(); err != nil {
+		return err
+	}
+
 	// build and push module images to the development registry
 	if err := util.RunCommandStreamOutputInDir(
 		moduleTestPath,
@@ -647,6 +775,13 @@ func (Test) ModuleInstall() error {
 	); err != nil {
 		return fmt.Errorf("failed to install the module: %w", err)
 	}
+
+	// reach the module's swagger docs the way a client does, through the
+	// core API
+	if err := checkModuleSwaggerDocsThroughCoreApi(); err != nil {
+		return err
+	}
+
 	// remove generated files after a successful install
 	if err := resetModuleTestDir(); err != nil {
 		return err
