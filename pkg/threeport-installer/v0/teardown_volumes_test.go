@@ -216,3 +216,72 @@ func TestDeletedVolumeHandlesAreTheDisksThatGoWithTheirClaims(t *testing.T) {
 		"projects/p/zones/us-east1-c/disks/pvc-nats",
 	}, handles, "every volume that goes with the namespace's claims, by its disk's id, and none that is kept, belongs to another namespace or names no disk")
 }
+
+// fastKubeRequests shortens the deadline of each teardown request for the
+// length of a test.
+func fastKubeRequests(t *testing.T) {
+	t.Helper()
+	previous := kubeRequestTimeout
+	kubeRequestTimeout = 100 * time.Millisecond
+	t.Cleanup(func() { kubeRequestTimeout = previous })
+}
+
+// TestTheUninstallEndsWhenTheApiServerStopsAnswering covers an API server
+// that accepts each of the uninstall's requests and never answers it, through
+// a client with no timeout of its own, as the one a normal teardown makes:
+// every request has to be bounded, or the teardown hangs.
+func TestTheUninstallEndsWhenTheApiServerStopsAnswering(t *testing.T) {
+	fastKubeRequests(t)
+	release := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-release:
+		case <-r.Context().Done():
+		}
+	}))
+	t.Cleanup(func() { close(release); server.Close() })
+	kubeClient, err := dynamic.NewForConfig(&rest.Config{Host: server.URL})
+	require.NoError(t, err)
+	mapper := testNamespaceMapper()
+
+	for name, call := range map[string]func() error{
+		"listing the volumes": func() error {
+			_, err := volumesDeletedWithNamespace(kubeClient, teardownTestNamespace)
+			return err
+		},
+		"deleting the namespace": func() error {
+			return DeleteNamespaces(kubeClient, &mapper, []string{teardownTestNamespace})
+		},
+	} {
+		done := make(chan error, 1)
+		go func() { done <- call() }()
+		select {
+		case err := <-done:
+			assert.Error(t, err, name)
+		case <-time.After(5 * time.Second):
+			t.Fatalf("%s did not end with an API server that stopped answering", name)
+		}
+	}
+}
+
+// TestANamespaceThatCannotBeCheckedIsNotTakenAsDeleted covers the wait for a
+// namespace: one the API server cannot be asked about is not gone, and the
+// teardown does not go on as if it were.
+func TestANamespaceThatCannotBeCheckedIsNotTakenAsDeleted(t *testing.T) {
+	kubeClient := testKubeClient(testNamespace(teardownTestNamespace, ""))
+	kubeClient.PrependReactor("delete", "namespaces", func(k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, nil
+	})
+	kubeClient.PrependReactor("get", "namespaces", func(k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, errors.New("connection reset")
+	})
+
+	previousAttempts, previousPoll := namespaceDeleteAttempts, namespaceDeletePollSeconds
+	namespaceDeleteAttempts, namespaceDeletePollSeconds = 3, 0
+	t.Cleanup(func() { namespaceDeleteAttempts, namespaceDeletePollSeconds = previousAttempts, previousPoll })
+
+	mapper := testNamespaceMapper()
+	err := DeleteNamespaces(kubeClient, &mapper, []string{teardownTestNamespace})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to check namespace")
+}

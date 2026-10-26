@@ -1496,6 +1496,12 @@ func (cpi *ControlPlaneInstaller) UnInstallThreeportControlPlaneComponents(
 // persistentVolumeGVR is the cluster-scoped v1 persistentvolumes resource.
 var persistentVolumeGVR = schema.GroupVersionResource{Version: "v1", Resource: "persistentvolumes"}
 
+// kubeRequestTimeout bounds each request the teardown sends that is not
+// already bounded by a wait's deadline. A client made for the control plane's
+// cluster may have no timeout of its own, and an API server that accepts a
+// request and never answers it would otherwise hold the teardown forever.
+var kubeRequestTimeout = 30 * time.Second
+
 // volumeDeleteTimeout is how long the uninstall waits for the storage driver
 // to delete the disks behind the control plane's claims. A cloud disk is
 // detached from its node and then deleted, which takes well under this.
@@ -1510,7 +1516,10 @@ var volumeDeletePollInterval = 2 * time.Second
 // reclaim policy keeps it is left out: it outlives its claim on purpose, and
 // waiting for it would never end.
 func volumesDeletedWithNamespace(kubeClient dynamic.Interface, namespace string) ([]string, error) {
-	list, err := kubeClient.Resource(persistentVolumeGVR).List(context.TODO(), metav1.ListOptions{})
+	ctx, cancel := context.WithTimeout(context.Background(), kubeRequestTimeout)
+	defer cancel()
+
+	list, err := kubeClient.Resource(persistentVolumeGVR).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list persistent volumes: %w", err)
 	}
@@ -1653,49 +1662,41 @@ func DeleteNamespaces(
 	namespaces []string,
 ) error {
 
+	namespaceResource := kubeClient.Resource(namespaceGVR)
+
 	// initiate namespace deletion
 	for _, name := range namespaces {
-
-		// configure resource interface
-		namespaceResource := kubeClient.Resource(
-			schema.GroupVersionResource{
-				Group:    "",
-				Version:  "v1",
-				Resource: "namespaces",
-			},
-		)
 		deletePolicy := metav1.DeletePropagationForeground
 		deleteOptions := metav1.DeleteOptions{
 			PropagationPolicy: &deletePolicy,
 		}
 
 		// delete the namespace
-		if err := namespaceResource.Delete(
-			context.TODO(),
-			name,
-			deleteOptions,
-		); err != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), kubeRequestTimeout)
+		err := namespaceResource.Delete(ctx, name, deleteOptions)
+		cancel()
+		if err != nil {
 			return fmt.Errorf("failed to delete namespace: %w", err)
 		}
 	}
 
-	// wait for all namespaces to be deleted
+	// wait for all namespaces to be deleted - a namespace counts as deleted
+	// only once the API server says it is not found, not when it could not
+	// be checked
 	for _, name := range namespaces {
 		if err := util.Retry(namespaceDeleteAttempts, namespaceDeletePollSeconds, func() error {
-			_, err := kube.GetResource(
-				"",
-				"",
-				"Namespace",
-				"",
-				name,
-				kubeClient,
-				*mapper,
-			)
-			if err == nil {
+			ctx, cancel := context.WithTimeout(context.Background(), kubeRequestTimeout)
+			defer cancel()
+
+			_, err := namespaceResource.Get(ctx, name, metav1.GetOptions{})
+			switch {
+			case k8serrors.IsNotFound(err):
+				return nil
+			case err != nil:
+				return fmt.Errorf("failed to check namespace: %w", err)
+			default:
 				return errors.New("namespace is still present")
 			}
-
-			return nil
 		}); err != nil {
 			return fmt.Errorf("namespace %s was not deleted: %w", name, err)
 		}
@@ -1703,6 +1704,9 @@ func DeleteNamespaces(
 
 	return nil
 }
+
+// namespaceGVR is the cluster-scoped v1 namespaces resource.
+var namespaceGVR = schema.GroupVersionResource{Version: "v1", Resource: "namespaces"}
 
 // GetThreeportAPIEndpoint retrieves the endpoint given to the threeport API
 // when the external load balancer was provisioned by the infra provider.  It
