@@ -45,6 +45,6 @@ func init() {
 	)
 	downCmd.Flags().BoolVar(
 		&cliArgs.InfraOnly,
-		"infra-only", false, "Tear down only the infrastructure without the control plane. Defaults to false.",
+		"infra-only", false, "Tear down the infrastructure without relying on the control plane's API, such as when it is broken. Defaults to false.",
 	)
 }

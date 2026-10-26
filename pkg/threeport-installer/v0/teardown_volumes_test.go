@@ -196,3 +196,23 @@ func TestRetainedVolumeHandlesAreTheDisksKeptAfterTheirClaims(t *testing.T) {
 	assert.ElementsMatch(t, []string{"vol-kept", "vol-recycled", "vol-in-tree"}, handles,
 		"every volume the namespace's claims keep, by its disk's id, and none that goes with its claim or belongs to another namespace")
 }
+
+// TestDeletedVolumeHandlesAreTheDisksThatGoWithTheirClaims covers the disks a
+// teardown cleans up when the cluster is deleted before the driver deletes
+// them: exactly those of the namespace's claims that go with their claims.
+func TestDeletedVolumeHandlesAreTheDisksThatGoWithTheirClaims(t *testing.T) {
+	kubeClient := testKubeClient(
+		testCsiPersistentVolume("pvc-crdb", teardownTestNamespace, "Delete", "projects/p/zones/us-east1-b/disks/pvc-crdb"),
+		testCsiPersistentVolume("pvc-nats", teardownTestNamespace, "Delete", "projects/p/zones/us-east1-c/disks/pvc-nats"),
+		testCsiPersistentVolume("pvc-kept", teardownTestNamespace, "Retain", "projects/p/zones/us-east1-b/disks/pvc-kept"),
+		testCsiPersistentVolume("pvc-elsewhere", "someone-elses", "Delete", "projects/p/zones/us-east1-b/disks/pvc-elsewhere"),
+		testPersistentVolume("pvc-no-disk", teardownTestNamespace, "Delete"),
+	)
+
+	handles, err := DeletedVolumeHandles(context.Background(), kubeClient, teardownTestNamespace)
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{
+		"projects/p/zones/us-east1-b/disks/pvc-crdb",
+		"projects/p/zones/us-east1-c/disks/pvc-nats",
+	}, handles, "every volume that goes with the namespace's claims, by its disk's id, and none that is kept, belongs to another namespace or names no disk")
+}

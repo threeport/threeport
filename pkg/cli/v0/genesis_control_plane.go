@@ -18,8 +18,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/threeport/threeport/internal/provider"
@@ -1219,6 +1221,13 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		if err := cpi.UnInstallThreeportControlPlaneComponents(dynamicKubeClient, mapper); err != nil {
 			return fmt.Errorf("failed to delete control plane components for threeport: %w", err)
 		}
+	} else if cpi.Opts.InfraOnly && !infraAlreadyDestroyed {
+		removeControlPlaneWithoutApi(
+			cpi,
+			threeportControlPlaneConfig.Provider,
+			kubernetesRuntimeInfra,
+			kubeConnection,
+		)
 	} else {
 		Info("Skipping control plane teardown")
 	}
@@ -1254,6 +1263,21 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			}
 		}
 
+		// read which of the control plane's disks GKE still has to delete
+		// while the cluster that names them exists: nothing on a GKE disk
+		// says which cluster it was for, so these are the only ones the
+		// cleanup after the cluster is gone may delete
+		var leftoverGkeDisks []string
+		if threeportControlPlaneConfig.Provider == v0.KubernetesRuntimeInfraProviderGKE {
+			leftoverGkeDisks, err = deletedControlPlaneVolumes(kubeConnection, cpi.Opts.Namespace)
+			if err != nil {
+				Warning(fmt.Sprintf(
+					"could not read which control plane disks are still to be deleted, so any left behind will not be: %s",
+					err,
+				))
+			}
+		}
+
 		// delete control plane infra
 		if err := kubernetesRuntimeInfra.Delete(); err != nil {
 			return fmt.Errorf("failed to delete control plane infra: %w", err)
@@ -1264,9 +1288,9 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		case v0.KubernetesRuntimeInfraProviderEKS:
 
 			// delete the disks the storage driver left for the control
-			// plane's claims: --infra-only does not delete the control plane
-			// first, and the driver can still be deleting one when the
-			// cluster goes
+			// plane's claims: --infra-only goes on when the control plane
+			// cannot be deleted first, and the driver can still be deleting
+			// one when the cluster goes
 			deleteLeftoverEksVolumes(
 				kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS).RuntimeInstanceName,
 				cpi.Opts.Namespace,
@@ -1280,6 +1304,18 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			if err != nil {
 				return fmt.Errorf("failed to delete threeport AWS IAM resources: %w", err)
 			}
+		case v0.KubernetesRuntimeInfraProviderGKE:
+
+			// delete the disks the storage driver had not deleted for the
+			// control plane's claims when the cluster went
+			kubernetesRuntimeInfraGKE := kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraGKE)
+			deleteLeftoverGkeDisks(
+				kubernetesRuntimeInfraGKE.RuntimeInstanceName,
+				kubernetesRuntimeInfraGKE.ProjectID,
+				cpi.Opts.Namespace,
+				kubernetesRuntimeInfraGKE.ServiceAccountCredentials,
+				leftoverGkeDisks,
+			)
 		case v0.KubernetesRuntimeInfraProviderOKE:
 			// delete Pulumi stack state directory
 			if err := kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraOKE).DeleteStackState(); err != nil {
@@ -1856,6 +1892,17 @@ func dropSameNameControlPlane(cfg *ThreeportConfig, name string, force bool) err
 // cluster left behind, and the read of which of them are retained.
 const leftoverVolumeCleanupTimeout = 2 * time.Minute
 
+// connectionRestConfig returns the config for a client of the cluster a
+// provider connected to, whose requests are each bounded by timeout.
+func connectionRestConfig(connection *kube.KubeConnectionInfo, timeout time.Duration) *rest.Config {
+	return &rest.Config{
+		Host:            connection.APIEndpoint,
+		BearerToken:     connection.Token,
+		TLSClientConfig: rest.TLSClientConfig{CAData: []byte(connection.CACertificate)},
+		Timeout:         timeout,
+	}
+}
+
 // retainedEksControlPlaneVolumes returns the EBS volume ids behind the
 // control plane's persistent volumes that outlive their claims. It connects
 // to the cluster through EKS rather than through the Threeport API, which a
@@ -1865,12 +1912,7 @@ func retainedEksControlPlaneVolumes(eksInfra *provider.KubernetesRuntimeInfraEKS
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to cluster %s: %w", eksInfra.RuntimeInstanceName, err)
 	}
-	kubeClient, err := dynamic.NewForConfig(&rest.Config{
-		Host:            connection.APIEndpoint,
-		BearerToken:     connection.Token,
-		TLSClientConfig: rest.TLSClientConfig{CAData: []byte(connection.CACertificate)},
-		Timeout:         leftoverVolumeCleanupTimeout,
-	})
+	kubeClient, err := dynamic.NewForConfig(connectionRestConfig(connection, leftoverVolumeCleanupTimeout))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a client for cluster %s: %w", eksInfra.RuntimeInstanceName, err)
 	}
@@ -1879,6 +1921,95 @@ func retainedEksControlPlaneVolumes(eksInfra *provider.KubernetesRuntimeInfraEKS
 	defer cancel()
 
 	return threeport.RetainedVolumeHandles(ctx, kubeClient, namespace)
+}
+
+// deletedControlPlaneVolumes returns the disk ids behind the control plane's
+// persistent volumes that are deleted with their claims and still exist, read
+// through the connection the provider gave rather than the Threeport API.
+func deletedControlPlaneVolumes(connection *kube.KubeConnectionInfo, namespace string) ([]string, error) {
+	if connection == nil {
+		return nil, errors.New("no connection to the cluster")
+	}
+	kubeClient, err := dynamic.NewForConfig(connectionRestConfig(connection, leftoverVolumeCleanupTimeout))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create a client for the cluster: %w", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), leftoverVolumeCleanupTimeout)
+	defer cancel()
+
+	return threeport.DeletedVolumeHandles(ctx, kubeClient, namespace)
+}
+
+// removeControlPlaneWithoutApi deletes the control plane from its cluster
+// ahead of the infra for a teardown with --infra-only, through the
+// connection the provider gives rather than the Threeport API, which that
+// flag exists to do without.
+//
+// Destroying the infra under a running control plane leaves behind what the
+// cluster provisioned for it outside the stack: the disks behind its claims,
+// and on EKS the API's load balancer, which keeps the stack's subnets from
+// being deleted at all. Deleting the namespace first has the cluster remove
+// both, and waits for the disks.
+//
+// Nothing here stops the teardown: the control plane may be what is broken,
+// and the infra is still to go. A failure is a warning, and the disks still
+// there are cleaned up once the cluster is gone.
+func removeControlPlaneWithoutApi(
+	cpi *threeport.ControlPlaneInstaller,
+	providerName string,
+	kubernetesRuntimeInfra provider.KubernetesRuntimeInfra,
+	connection *kube.KubeConnectionInfo,
+) {
+	var err error
+	switch providerName {
+	case v0.KubernetesRuntimeInfraProviderEKS:
+		connection, err = kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS).GetConnection()
+	case v0.KubernetesRuntimeInfraProviderGKE:
+	default:
+		Info("Skipping control plane teardown")
+		return
+	}
+	if err == nil && connection == nil {
+		err = errors.New("no connection to the cluster")
+	}
+
+	var kubeClient dynamic.Interface
+	var mapper *meta.RESTMapper
+	if err == nil {
+		kubeClient, mapper, err = connectionClient(connection)
+	}
+	if err == nil {
+		Info("Deleting the control plane from its cluster before the infra")
+		err = cpi.UnInstallThreeportControlPlaneComponents(kubeClient, mapper)
+	}
+	if err != nil {
+		Warning(fmt.Sprintf(
+			"could not delete the control plane before its infra, continuing with the infra: %s",
+			err,
+		))
+	}
+}
+
+// connectionClient returns a dynamic client and rest mapper for the cluster
+// a provider connected to.
+func connectionClient(connection *kube.KubeConnectionInfo) (dynamic.Interface, *meta.RESTMapper, error) {
+	restConfig := connectionRestConfig(connection, leftoverVolumeCleanupTimeout)
+	kubeClient, err := dynamic.NewForConfig(restConfig)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create a client for the cluster: %w", err)
+	}
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(restConfig)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create a discovery client for the cluster: %w", err)
+	}
+	groupResources, err := restmapper.GetAPIGroupResources(discoveryClient)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get the cluster's API group resources: %w", err)
+	}
+	mapper := restmapper.NewDiscoveryRESTMapper(groupResources)
+
+	return kubeClient, &mapper, nil
 }
 
 // deleteLeftoverEksVolumes deletes the EBS volumes the cluster's storage
@@ -1926,6 +2057,33 @@ func deleteLeftoverEksVolumes(
 		Warning(fmt.Sprintf(
 			"failed to delete EBS volumes left by cluster %s for namespace %s - delete any that remain by hand: %s",
 			clusterName, namespace, err,
+		))
+	}
+}
+
+// deleteLeftoverGkeDisks deletes the GCE persistent disks named by disks that
+// are still there once the cluster is gone, and reports them. A failure is a
+// warning naming them rather than an error: the cluster is already gone, so
+// the teardown has nothing left to retry, and the disks can be deleted by
+// hand.
+func deleteLeftoverGkeDisks(
+	clusterName string,
+	projectID string,
+	namespace string,
+	serviceAccountCredentials string,
+	disks []string,
+) {
+	ctx, cancel := context.WithTimeout(context.Background(), leftoverVolumeCleanupTimeout)
+	defer cancel()
+
+	deleted, err := provider.DeleteLeftoverGkeDisks(ctx, projectID, namespace, disks, serviceAccountCredentials)
+	if len(deleted) > 0 {
+		Info(fmt.Sprintf("deleted disks left by cluster %s: %s", clusterName, strings.Join(deleted, ", ")))
+	}
+	if err != nil {
+		Warning(fmt.Sprintf(
+			"failed to delete disks left by cluster %s for namespace %s - delete any of %s that remain by hand: %s",
+			clusterName, namespace, strings.Join(disks, ", "), err,
 		))
 	}
 }

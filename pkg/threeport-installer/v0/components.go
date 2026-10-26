@@ -1580,6 +1580,31 @@ func volumesStillPresent(volumes []string, cause error) error {
 // the disk keeps the tags it was provisioned with, so nothing on it says it
 // was meant to be kept.
 func RetainedVolumeHandles(ctx context.Context, kubeClient dynamic.Interface, namespace string) ([]string, error) {
+	return namespaceVolumeHandles(ctx, kubeClient, namespace, func(reclaimPolicy string) bool {
+		return reclaimPolicy != "Delete"
+	})
+}
+
+// DeletedVolumeHandles returns the storage driver's ids for the disks behind
+// the persistent volumes of a namespace's claims that are deleted along with
+// their claims, such as a GCE persistent disk's
+// projects/<project>/zones/<zone>/disks/<name>. A volume still listed is one
+// whose disk the driver has not deleted yet: when the cluster goes first, the
+// disk is left behind, and these ids are exactly the disks to clean up.
+func DeletedVolumeHandles(ctx context.Context, kubeClient dynamic.Interface, namespace string) ([]string, error) {
+	return namespaceVolumeHandles(ctx, kubeClient, namespace, func(reclaimPolicy string) bool {
+		return reclaimPolicy == "Delete"
+	})
+}
+
+// namespaceVolumeHandles returns the disk ids behind the persistent volumes of
+// a namespace's claims whose reclaim policy matches.
+func namespaceVolumeHandles(
+	ctx context.Context,
+	kubeClient dynamic.Interface,
+	namespace string,
+	matches func(reclaimPolicy string) bool,
+) ([]string, error) {
 	list, err := kubeClient.Resource(persistentVolumeGVR).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list persistent volumes: %w", err)
@@ -1589,7 +1614,7 @@ func RetainedVolumeHandles(ctx context.Context, kubeClient dynamic.Interface, na
 	for _, volume := range list.Items {
 		claimNamespace, _, _ := unstructured.NestedString(volume.Object, "spec", "claimRef", "namespace")
 		reclaimPolicy, _, _ := unstructured.NestedString(volume.Object, "spec", "persistentVolumeReclaimPolicy")
-		if claimNamespace != namespace || reclaimPolicy == "Delete" {
+		if claimNamespace != namespace || !matches(reclaimPolicy) {
 			continue
 		}
 		if handle := volumeHandle(volume); handle != "" {
