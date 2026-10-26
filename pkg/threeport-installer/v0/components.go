@@ -1465,6 +1465,11 @@ func (cpi *ControlPlaneInstaller) UnInstallThreeportControlPlaneComponents(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 ) error {
+	// the agent's cluster-scoped bindings do not go with the namespace
+	if err := cpi.DeleteThreeportAgentBindings(kubeClient, mapper); err != nil {
+		return err
+	}
+
 	// delete the control plane namespace
 	if err := DeleteNamespaces(
 		kubeClient,
@@ -1472,6 +1477,33 @@ func (cpi *ControlPlaneInstaller) UnInstallThreeportControlPlaneComponents(
 		[]string{cpi.Opts.Namespace},
 	); err != nil && !k8serrors.IsNotFound(err) {
 		return fmt.Errorf("failed to delete control plane namespace: %w", err)
+	}
+
+	return nil
+}
+
+// DeleteThreeportAgentBindings deletes the threeport agent's ClusterRoleBindings
+// for this installer's namespace.  They are cluster-scoped and named for the
+// namespace, so deleting the namespace leaves them behind, and every removed
+// control plane would add two.  Bindings already gone are not an error.
+func (cpi *ControlPlaneInstaller) DeleteThreeportAgentBindings(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+) error {
+	for _, name := range []string{
+		cpi.agentManagerBindingName(),
+		cpi.agentProxyBindingName(),
+	} {
+		binding := &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": "rbac.authorization.k8s.io/v1",
+				"kind":       "ClusterRoleBinding",
+				"metadata":   map[string]interface{}{"name": name},
+			},
+		}
+		if err := kube.DeleteResource(binding, kubeClient, *mapper); err != nil {
+			return fmt.Errorf("failed to delete threeport agent binding %s: %w", name, err)
+		}
 	}
 
 	return nil
@@ -1975,13 +2007,21 @@ func (cpi *ControlPlaneInstaller) agentInstanceLabel() string {
 // namespace to keep agents installed in different namespaces of one cluster
 // from sharing a binding.
 func (cpi *ControlPlaneInstaller) agentManagerBindingName() string {
-	return fmt.Sprintf("%s-threeport-agent-manager-rolebinding", cpi.Opts.Namespace)
+	return agentManagerBindingNameFor(cpi.Opts.Namespace)
+}
+
+func agentManagerBindingNameFor(namespace string) string {
+	return fmt.Sprintf("%s-threeport-agent-manager-rolebinding", namespace)
 }
 
 // agentProxyBindingName returns the name of the agent's proxy
 // ClusterRoleBinding.  See agentManagerBindingName.
 func (cpi *ControlPlaneInstaller) agentProxyBindingName() string {
-	return fmt.Sprintf("%s-threeport-agent-proxy-rolebinding", cpi.Opts.Namespace)
+	return agentProxyBindingNameFor(cpi.Opts.Namespace)
+}
+
+func agentProxyBindingNameFor(namespace string) string {
+	return fmt.Sprintf("%s-threeport-agent-proxy-rolebinding", namespace)
 }
 
 func (cpi *ControlPlaneInstaller) getControllerSecret(name, namespace string) *unstructured.Unstructured {

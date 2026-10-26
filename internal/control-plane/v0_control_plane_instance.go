@@ -953,6 +953,14 @@ func v0ControlPlaneInstanceDeleted(
 		},
 	}
 
+	// delete the agent's cluster-scoped bindings, which the namespace
+	// deletion below does not remove
+	if err := threeport.NewInstaller(
+		threeport.Namespace(*controlPlaneInstance.Namespace),
+	).DeleteThreeportAgentBindings(deleteDynamicClient, deleteMapper); err != nil {
+		return 0, fmt.Errorf("failed to delete the control plane agent bindings: %w", err)
+	}
+
 	// delete the namespace
 	if err := kube.DeleteResource(namespace, deleteDynamicClient, *deleteMapper); err != nil {
 		return 0, fmt.Errorf("failed to delete the control plane namespace: %w", err)

@@ -593,6 +593,11 @@ func (cpi *ControlPlaneInstaller) deleteForReinstall(
 // clusterBindingFor reports whether a cluster role or binding belongs to this namespace.
 // A longer sibling namespace wins when the name starts with that sibling too.
 func clusterBindingFor(name, namespace string, namespaces []string) bool {
+	// the agent's bindings are matched whole rather than by suffix, so a
+	// sibling namespace's name cannot be mistaken for this one's
+	if name == agentManagerBindingNameFor(namespace) || name == agentProxyBindingNameFor(namespace) {
+		return true
+	}
 	if !strings.HasPrefix(name, namespace+"-") {
 		return false
 	}

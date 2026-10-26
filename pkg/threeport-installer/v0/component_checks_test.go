@@ -23,7 +23,13 @@ import (
 
 // testMapper maps the kinds the checks look up.
 func testMapper() *meta.RESTMapper {
-	defaultMapper := meta.NewDefaultRESTMapper(nil)
+	// default versions let a lookup by group and kind alone resolve, as it does
+	// against a cluster's discovery mapper
+	defaultMapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{
+		{Group: "apps", Version: "v1"},
+		{Group: "apiextensions.k8s.io", Version: "v1"},
+		{Group: "rbac.authorization.k8s.io", Version: "v1"},
+	})
 	defaultMapper.Add(
 		schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"},
 		meta.RESTScopeNamespace,
@@ -291,7 +297,7 @@ func TestComputeSpaceControlPlaneComponentsCurrent(t *testing.T) {
 	// another namespace's agent has bindings on the cluster, but they are
 	// not this agent's
 	t.Run("not current when only another namespace's agent has bindings", func(t *testing.T) {
-		other := NewInstaller(Namespace("other-ns"))
+		other := installerInNamespace(t, "other-ns")
 
 		client := testClient(append(append(
 			[]runtime.Object{deployment(cpi.Opts.Namespace, ThreeportAgentDeployName, installed)},
