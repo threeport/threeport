@@ -16931,6 +16931,10 @@ const docTemplate = `{
                 "Name"
             ],
             "properties": {
+                "AbandonInfrastructure": {
+                    "description": "Set by an operator to allow this instance to be deleted even though its\ncreation was confirmed and no resource inventory is recorded. The\ncontroller refuses that delete otherwise, because cloud resources may\nstill exist. Setting this orphans any such resources: they keep running\nand are no longer tracked by Threeport.",
+                    "type": "boolean"
+                },
                 "AwsEksKubernetesRuntimeDefinitionID": {
                     "description": "The definition that configures this instance.",
                     "type": "integer"
@@ -17753,6 +17757,10 @@ const docTemplate = `{
                 "Name"
             ],
             "properties": {
+                "AbandonInfrastructure": {
+                    "description": "Set by an operator to allow this instance to be deleted even though its\ncreation was confirmed and no resource inventory is recorded. The\ncontroller refuses that delete otherwise, because cloud resources may\nstill exist. Setting this orphans any such resources: they keep running\nand are no longer tracked by Threeport.",
+                    "type": "boolean"
+                },
                 "CreationAcknowledged": {
                     "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
                     "type": "string"
@@ -19592,6 +19600,10 @@ const docTemplate = `{
                 "OciProviderID"
             ],
             "properties": {
+                "AbandonInfrastructure": {
+                    "description": "Set by an operator to allow this instance to be deleted even though its\ncreation was confirmed and no resource inventory is recorded. The\ncontroller refuses that delete otherwise, because cloud resources may\nstill exist. Setting this orphans any such resources: they keep running\nand are no longer tracked by Threeport.",
+                    "type": "boolean"
+                },
                 "ClusterOCID": {
                     "description": "The OCID for the OKE cluster. Populated by the controller after cluster creation.",
                     "type": "string"

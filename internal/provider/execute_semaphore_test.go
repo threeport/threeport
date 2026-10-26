@@ -374,9 +374,9 @@ func TestExecuteInfraCreate_VerifyStateFails_PersistsFailure(t *testing.T) {
 	require.Equal(t, 0, fl.callCount("PublishCreateNotification"))
 }
 
-// TestExecuteInfraDelete_InvalidExistingStateJSON_SkipsRestore covers a
-// truncated inventory skipping restore and still destroying.
-func TestExecuteInfraDelete_InvalidExistingStateJSON_SkipsRestore(t *testing.T) {
+// TestExecuteInfraDelete_InvalidExistingStateJSON_RefusesDestroy covers a
+// truncated inventory stopping the delete before any destroy runs.
+func TestExecuteInfraDelete_InvalidExistingStateJSON_RefusesDestroy(t *testing.T) {
 	// set semaphore capacity to 1
 	configureSemaphoreTest(t, 1)
 	log := newTestLogger()
@@ -397,13 +397,46 @@ func TestExecuteInfraDelete_InvalidExistingStateJSON_SkipsRestore(t *testing.T) 
 	// wait for delete to finish
 	waitForSemaphoreDrain(t)
 
-	// check restore was skipped and destroy still ran
+	// check restore was skipped and destroy never ran
 	require.Equal(t, 0, fi.setStackStateCallCount())
-	require.Equal(t, 1, fi.destroyCallCount())
+	require.Equal(t, 0, fi.destroyCallCount())
 
-	// check inventory was cleared and the delete notification published
-	require.Equal(t, 1, fl.callCount("ClearInventory"))
-	require.Equal(t, 1, fl.callCount("PublishDeleteNotification"))
+	// check the inventory was left alone and no delete was announced
+	require.Equal(t, 0, fl.callCount("ClearInventory"))
+	require.Equal(t, 0, fl.callCount("PublishDeleteNotification"))
+}
+
+// TestExecuteInfraDelete_RestoreError_RefusesDestroy covers a failed state
+// restore stopping the delete before any destroy runs.
+func TestExecuteInfraDelete_RestoreError_RefusesDestroy(t *testing.T) {
+	// set semaphore capacity to 1
+	configureSemaphoreTest(t, 1)
+	log := newTestLogger()
+
+	// schedule deletion with populated inventory the provider cannot restore
+	fi := newFakeInfra()
+	fi.setSetStackStateErr(errors.New("injected: restore failure"))
+	fl := newFakeLifecycle(&ReconciliationSnapshot{
+		DeletionScheduled: util.Ptr(time.Now().UTC()),
+		ResourceInventory: validStackState(),
+	})
+	fl.setInfra(fi)
+
+	// launch delete
+	requeue, err := HandleInfraDelete(fl, log)
+	require.NoError(t, err)
+	require.Equal(t, int64(300), requeue)
+
+	// wait for delete to finish
+	waitForSemaphoreDrain(t)
+
+	// check restore was attempted and destroy never ran
+	require.Equal(t, 1, fi.setStackStateCallCount())
+	require.Equal(t, 0, fi.destroyCallCount())
+
+	// check the inventory was left alone and no delete was announced
+	require.Equal(t, 0, fl.callCount("ClearInventory"))
+	require.Equal(t, 0, fl.callCount("PublishDeleteNotification"))
 }
 
 // TestExecuteInfraDelete_DestroyError_CapturesRemainingState covers a failed
@@ -529,4 +562,62 @@ func TestExecuteInfraDelete_RefreshError_StillDestroys(t *testing.T) {
 	// check refresh ran once and destroy still ran
 	require.Equal(t, 1, ri.refreshCallCount())
 	require.Equal(t, 1, ri.destroyCallCount(), "a failed refresh must not block the destroy")
+}
+
+// TestExecuteInfraCreate_SaveOutputsFailsThenSucceeds_NoFailure covers a
+// transient failure saving the final state: it is retried and the create
+// completes without being marked failed.
+func TestExecuteInfraCreate_SaveOutputsFailsThenSucceeds_NoFailure(t *testing.T) {
+	// set semaphore capacity to 1 and three persist attempts
+	configureSemaphoreTest(t, 1)
+	log := newTestLogger()
+
+	// fail the first two saves
+	fi := newFakeInfra()
+	fl := newFakeLifecycle()
+	fl.setInfra(fi)
+	fl.failCreateOutputs(2)
+
+	// launch create
+	requeue, err := HandleInfraCreate(fl, log)
+	require.NoError(t, err)
+	require.Equal(t, int64(120), requeue)
+
+	// wait for create to finish
+	waitForSemaphoreDrain(t)
+
+	// check the third save landed, deploy ran once, and the create was not failed
+	require.Equal(t, 3, fl.callCount("SaveCreateOutputs"))
+	require.Equal(t, 1, fi.deployCallCount())
+	require.Equal(t, 0, fl.callCount("SetCreationFailed"))
+	require.Equal(t, 1, fl.callCount("PublishCreateNotification"))
+}
+
+// TestExecuteInfraCreate_SaveOutputsExhausted_PersistsFailure covers a final
+// state that cannot be saved: the create is marked failed instead of left to
+// expire and deploy again from an empty inventory.
+func TestExecuteInfraCreate_SaveOutputsExhausted_PersistsFailure(t *testing.T) {
+	// set semaphore capacity to 1 and three persist attempts
+	configureSemaphoreTest(t, 1)
+	log := newTestLogger()
+
+	// fail every save
+	fi := newFakeInfra()
+	fl := newFakeLifecycle()
+	fl.setInfra(fi)
+	fl.failCreateOutputs(100)
+
+	// launch create
+	requeue, err := HandleInfraCreate(fl, log)
+	require.NoError(t, err)
+	require.Equal(t, int64(120), requeue)
+
+	// wait for create to finish
+	waitForSemaphoreDrain(t)
+
+	// check every attempt was made, the create was marked failed, and no
+	// create notification went out
+	require.Equal(t, 3, fl.callCount("SaveCreateOutputs"))
+	require.Equal(t, 1, fl.callCount("SetCreationFailed"))
+	require.Equal(t, 0, fl.callCount("PublishCreateNotification"))
 }

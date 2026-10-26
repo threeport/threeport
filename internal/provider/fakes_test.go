@@ -20,6 +20,8 @@ var (
 	_ InfraProvider          = (*fakeInfra)(nil)
 	_ StreamableProvider     = (*fakeStreamableInfra)(nil)
 	_ RefreshableProvider    = (*fakeRefreshableInfra)(nil)
+	_ CloudVerifier          = (*fakeVerifierInfra)(nil)
+	_ CloudVerifier          = (*KubernetesRuntimeInfraGKE)(nil)
 	_ Clock                  = (*fakeClock)(nil)
 )
 
@@ -523,6 +525,8 @@ type fakeLifecycle struct {
 	savedStates []*datatypes.JSON
 	// The last state passed to SaveCreateOutputs
 	createOutputState *datatypes.JSON
+	// The number of SaveCreateOutputs calls still to fail before it succeeds
+	createOutputFailures int
 }
 
 // newFakeLifecycle returns a fake that serves snaps in order.
@@ -608,6 +612,11 @@ func (f *fakeLifecycle) SaveCreateOutputs(infra InfraProvider, state *datatypes.
 	// record the call and store the output state
 	f.calls["SaveCreateOutputs"]++
 	f.createOutputState = state
+	// fail the first createOutputFailures calls, then succeed
+	if f.createOutputFailures > 0 {
+		f.createOutputFailures--
+		return errFakeInfra
+	}
 	return f.errs["SaveCreateOutputs"]
 }
 
@@ -689,6 +698,13 @@ func (f *fakeLifecycle) setErr(method string, err error) {
 	f.errs[method] = err
 }
 
+// failCreateOutputs makes the next n SaveCreateOutputs calls fail.
+func (f *fakeLifecycle) failCreateOutputs(n int) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.createOutputFailures = n
+}
+
 // setInfra sets the provider BuildInfra returns.
 func (f *fakeLifecycle) setInfra(infra InfraProvider) {
 	f.mu.Lock()
@@ -732,4 +748,36 @@ func (f *fakeLifecycle) createOutputs() *datatypes.JSON {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.createOutputState
+}
+
+// fakeVerifierInfra is a fake provider that answers cloud existence checks.
+type fakeVerifierInfra struct {
+	*fakeInfra
+
+	vmu sync.Mutex
+	// Whether the cloud reports the infrastructure as existing
+	exists bool
+	// The error ResourcesExist returns
+	existsErr error
+	calls     int
+}
+
+// newFakeVerifierInfra returns a verifier fake that reports exists.
+func newFakeVerifierInfra(exists bool, err error) *fakeVerifierInfra {
+	return &fakeVerifierInfra{fakeInfra: newFakeInfra(), exists: exists, existsErr: err}
+}
+
+// ResourcesExist records the call and returns the configured answer.
+func (f *fakeVerifierInfra) ResourcesExist() (bool, error) {
+	f.vmu.Lock()
+	defer f.vmu.Unlock()
+	f.calls++
+	return f.exists, f.existsErr
+}
+
+// existsCallCount returns how many times ResourcesExist has been called.
+func (f *fakeVerifierInfra) existsCallCount() int {
+	f.vmu.Lock()
+	defer f.vmu.Unlock()
+	return f.calls
 }

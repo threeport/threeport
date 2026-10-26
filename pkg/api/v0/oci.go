@@ -74,6 +74,13 @@ type OciOkeKubernetesRuntimeInstance struct {
 	// An inventory of all OCI resources for the OKE cluster.
 	ResourceInventory *datatypes.JSON `validate:"optional"`
 
+	// Set by an operator to allow this instance to be deleted even though its
+	// creation was confirmed and no resource inventory is recorded. The
+	// controller refuses that delete otherwise, because cloud resources may
+	// still exist. Setting this orphans any such resources: they keep running
+	// and are no longer tracked by Threeport.
+	AbandonInfrastructure *bool `validate:"optional" gorm:"default:false"`
+
 	// The kubernetes runtime instance associated with the OCI OKE cluster.
 	KubernetesRuntimeInstanceID *uint `validate:"required" gorm:"not null" relationship:"marries"`
 
