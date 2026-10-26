@@ -124,14 +124,32 @@ func TestTheWaitLastsUntilTheLoadBalancerHasAnAddress(t *testing.T) {
 func TestTheWaitForTheApiLoadBalancerEnds(t *testing.T) {
 	fastApiLoadBalancerWait(t, 100*time.Millisecond)
 
-	for name, ingress := range map[string][]interface{}{
-		"no ingress yet":             nil,
-		"an ingress with no address": {map[string]interface{}{"ports": []interface{}{}}},
+	for name, testCase := range map[string]struct {
+		provider string
+		ingress  []interface{}
+	}{
+		"no ingress yet": {
+			provider: v0.KubernetesRuntimeInfraProviderGKE,
+		},
+		"an ingress with no address": {
+			provider: v0.KubernetesRuntimeInfraProviderGKE,
+			ingress:  []interface{}{map[string]interface{}{"ports": []interface{}{}}},
+		},
+		// the field is there but empty: an address that is not there yet,
+		// not one to connect to
+		"an empty ip": {
+			provider: v0.KubernetesRuntimeInfraProviderGKE,
+			ingress:  []interface{}{map[string]interface{}{"ip": ""}},
+		},
+		"an empty hostname": {
+			provider: v0.KubernetesRuntimeInfraProviderEKS,
+			ingress:  []interface{}{map[string]interface{}{"hostname": ""}},
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			kubeClient := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme(), apiServiceWithIngress(ingress...))
+			kubeClient := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme(), apiServiceWithIngress(testCase.ingress...))
 
-			_, err := apiEndpointTestInstaller(v0.KubernetesRuntimeInfraProviderGKE).GetThreeportAPIEndpoint(kubeClient, apiServiceMapper())
+			_, err := apiEndpointTestInstaller(testCase.provider).GetThreeportAPIEndpoint(kubeClient, apiServiceMapper())
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), "timed out after 100ms")
 			assert.NotContains(t, err.Error(), "%!w", "the error says what is missing rather than wrapping a nil error")
