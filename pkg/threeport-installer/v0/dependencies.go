@@ -1177,9 +1177,22 @@ echo "$out"`,
 				"template": map[string]interface{}{
 					"spec": map[string]interface{}{
 						"restartPolicy": "Never",
+						// the cockroach image runs as root, as for the
+						// StatefulSet it initializes
+						"securityContext": map[string]interface{}{
+							"seccompProfile": map[string]interface{}{
+								"type": "RuntimeDefault",
+							},
+						},
 						"containers": []interface{}{
 							map[string]interface{}{
-								"name":    "crdb-init",
+								"name": "crdb-init",
+								"securityContext": map[string]interface{}{
+									"allowPrivilegeEscalation": false,
+									"capabilities": map[string]interface{}{
+										"drop": []interface{}{"ALL"},
+									},
+								},
 								"image":   fmt.Sprintf("docker.io/cockroachdb/cockroach:%s", DatabaseImageTag),
 								"command": []interface{}{"/bin/sh", "-c", script},
 								"volumeMounts": []interface{}{
