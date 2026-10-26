@@ -1662,7 +1662,9 @@ func DeleteNamespaces(
 	namespaces []string,
 ) error {
 
-	namespaceResource := kubeClient.Resource(namespaceGVR)
+	namespaceResource := kubeClient.Resource(
+		schema.GroupVersionResource{Version: "v1", Resource: "namespaces"},
+	)
 
 	// initiate namespace deletion
 	for _, name := range namespaces {
@@ -1704,9 +1706,6 @@ func DeleteNamespaces(
 
 	return nil
 }
-
-// namespaceGVR is the cluster-scoped v1 namespaces resource.
-var namespaceGVR = schema.GroupVersionResource{Version: "v1", Resource: "namespaces"}
 
 // GetThreeportAPIEndpoint retrieves the endpoint given to the threeport API
 // when the external load balancer was provisioned by the infra provider.  It
