@@ -693,6 +693,11 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return uninstaller.cleanOnCreateError("failed to update threeport config", err)
 		}
 
+		// the controllers hand this address to agents on the clusters they manage
+		cpi.Opts.ExternalApiEndpoint = fmt.Sprintf(
+			"%s:%d", threeportAPIEndpoint, threeport.GetThreeportAPIPort(cpi.Opts.AuthEnabled),
+		)
+
 		// install provider-specific kubernetes resources
 		switch controlPlane.InfraProvider {
 		case v0.KubernetesRuntimeInfraProviderEKS:

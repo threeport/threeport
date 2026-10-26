@@ -455,6 +455,36 @@ func (cpi *ControlPlaneInstaller) getInstalledTier(
 	return ControlPlaneTier(tier), nil
 }
 
+// installedExternalApiEndpoint returns the external API endpoint recorded in
+// the installed controller config, or an empty string when there is none.
+func (cpi *ControlPlaneInstaller) installedExternalApiEndpoint(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+) (string, error) {
+	secret, present, err := resourceInstalled(
+		kubeClient, mapper, "", "v1", "Secret", cpi.Opts.Namespace, "controller-config",
+	)
+	if err != nil {
+		return "", err
+	}
+	if !present {
+		return "", nil
+	}
+
+	encoded, found, err := unstructured.NestedString(
+		secret.Object, "data", ControllerConfigExternalApiEndpointKey,
+	)
+	if err != nil || !found {
+		return "", err
+	}
+	decoded, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode %s: %w", ControllerConfigExternalApiEndpointKey, err)
+	}
+
+	return string(decoded), nil
+}
+
 // Reinstall deletes installer-managed stateless resources and installs the
 // control plane again. Persistent resources keep their data and the API endpoint.
 func (cpi *ControlPlaneInstaller) Reinstall(
@@ -463,6 +493,17 @@ func (cpi *ControlPlaneInstaller) Reinstall(
 	authConfig *auth.AuthConfig,
 ) error {
 	ns := cpi.Opts.Namespace
+
+	// The controller config is recreated below and the external API endpoint is
+	// not part of what this call is given, so carry the one the install recorded
+	// across or the controllers lose the address they hand to agents.
+	if cpi.Opts.ExternalApiEndpoint == "" {
+		endpoint, err := cpi.installedExternalApiEndpoint(kubeClient, mapper)
+		if err != nil {
+			return fmt.Errorf("failed to read the installed external API endpoint: %w", err)
+		}
+		cpi.Opts.ExternalApiEndpoint = endpoint
+	}
 
 	// delete installer-managed stateless resources
 	if err := cpi.deleteForReinstall(kubeClient, ns); err != nil {

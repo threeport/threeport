@@ -133,6 +133,22 @@ type Options struct {
 	// If true, a cloud load balancer is provisioned for the threeport API.
 	RestApiLoadBalancer bool
 
+	// The address, as host:port, at which the threeport API is reachable from
+	// outside the cluster that hosts it.  Empty when the API is only reachable
+	// inside its own cluster.  It is recorded in the controller config so a
+	// controller can hand the address to agents installed on other clusters.
+	ExternalApiEndpoint string
+
+	// The address, as host:port, the threeport agent is told to report to.
+	// Empty leaves the agent on its default, the API's in-cluster service,
+	// which only resolves on the cluster that hosts the control plane.
+	AgentApiServer string
+
+	// If true, the compute space install leaves the threeport agent out.  For a
+	// cluster whose control plane has no address to give an agent, one installed
+	// anyway could only crash-loop.
+	SkipAgent bool
+
 	// verbose logging
 	Verbose bool
 

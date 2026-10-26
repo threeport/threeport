@@ -30,16 +30,41 @@ const (
 	ThreeportApiConfigSecret  = "api-config"
 	dbRootCertSecretName      = "db-root-cert"
 	dbThreeportCertSecretName = "db-threeport-cert"
+
+	// ControllerConfigExternalApiEndpointKey is the key in the controller config
+	// secret holding the address the threeport API is reachable at from outside
+	// its cluster.  Controllers read it from their environment.
+	ControllerConfigExternalApiEndpointKey = "API_EXTERNAL_ENDPOINT"
+
+	// SigningCaMountPath is where the kubernetes runtime controller finds the
+	// control plane's CA certificate and private key, which it signs agent
+	// client certificates with.
+	SigningCaMountPath = "/etc/threeport/signing-ca"
+
+	signingCaVolumeName = "api-ca-signing"
 )
 
 // InstallComputeSpaceControlPlaneComponents installs the Threeport control
 // plane components that are deployed to Threeport-managed compute space
 // clusters, i.e. clusters that do not have the Threeport control plane installed.
+//
+// The agent on such a cluster reports to the control plane that manages it, over
+// the network.  It is told that control plane's external address through
+// cpi.Opts.AgentApiServer, and when authConfig is set it is issued a client
+// certificate of its own from that control plane's CA.  The caller sets
+// cpi.Opts.AuthEnabled to match authConfig so the agent is given the
+// certificate it is issued.  The agent is left out when cpi.Opts.SkipAgent is
+// set.
 func (cpi *ControlPlaneInstaller) InstallComputeSpaceControlPlaneComponents(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	runtimeInstanceName string,
+	authConfig *auth.AuthConfig,
 ) error {
+	if authConfig != nil && !cpi.Opts.AuthEnabled {
+		return errors.New("an agent client certificate was requested but the installer has auth disabled")
+	}
+
 	// threeport control plane namespace
 	if err := cpi.CreateThreeportControlPlaneNamespace(
 		kubeClient,
@@ -49,12 +74,15 @@ func (cpi *ControlPlaneInstaller) InstallComputeSpaceControlPlaneComponents(
 	}
 
 	// threeport agent
-	if err := cpi.InstallThreeportAgent(
-		kubeClient,
-		mapper,
-		nil,
-	); err != nil {
-		return fmt.Errorf("failed to install threeport agent: %w", err)
+	if !cpi.Opts.SkipAgent {
+		if err := cpi.installThreeportAgent(
+			kubeClient,
+			mapper,
+			authConfig,
+			ComputeSpaceAgentCommonName(runtimeInstanceName),
+		); err != nil {
+			return fmt.Errorf("failed to install threeport agent: %w", err)
+		}
 	}
 
 	// threeport CRDs
@@ -63,6 +91,17 @@ func (cpi *ControlPlaneInstaller) InstallComputeSpaceControlPlaneComponents(
 	}
 
 	return nil
+}
+
+// ComputeSpaceAgentCommonName returns the common name of the client certificate
+// issued to the agent on a managed runtime, so each runtime's agent is
+// distinguishable in the API's logs.
+func ComputeSpaceAgentCommonName(runtimeInstanceName string) string {
+	if runtimeInstanceName == "" {
+		return agentCommonName
+	}
+
+	return fmt.Sprintf("%s-%s", agentCommonName, runtimeInstanceName)
 }
 
 // computeSpaceWorkloadControllerSubject returns the identity a control plane
@@ -747,11 +786,30 @@ func (cpi *ControlPlaneInstaller) UpdateControllerDeployment(
 	return nil
 }
 
+const (
+	// agentCommonName is the common name of the agent's client certificate.
+	agentCommonName = "threeport-agent"
+
+	// agentCertSecretName is the secret holding the agent's client certificate.
+	agentCertSecretName = "agent-cert"
+)
+
 // InstallThreeportAgent installs the threeport agent on a Kubernetes cluster.
 func (cpi *ControlPlaneInstaller) InstallThreeportAgent(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	authConfig *auth.AuthConfig,
+) error {
+	return cpi.installThreeportAgent(kubeClient, mapper, authConfig, agentCommonName)
+}
+
+// installThreeportAgent installs the threeport agent, issuing it a client
+// certificate with the given common name when auth is enabled.
+func (cpi *ControlPlaneInstaller) installThreeportAgent(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	authConfig *auth.AuthConfig,
+	commonName string,
 ) error {
 
 	// if auth is enabled on API, generate client cert and key and store in
@@ -760,7 +818,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAgent(
 		agentCertificate, agentPrivateKey, err := auth.GenerateCertificate(
 			authConfig.CAConfig,
 			&authConfig.CAPrivateKey,
-			"threeport-agent",
+			commonName,
 			apilib.CoreApiNamespace,
 			auth.OUControlPlane,
 		)
@@ -788,7 +846,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAgent(
 			return fmt.Errorf("failed to create/update API server ca secret for threeport agent: %w", err)
 		}
 
-		var agentCert = cpi.getTLSSecret("agent-cert", agentCertificate, agentPrivateKey)
+		var agentCert = cpi.getTLSSecret(agentCertSecretName, agentCertificate, agentPrivateKey)
 		if err := cpi.CreateOrUpdateKubeResource(agentCert, kubeClient, mapper); err != nil {
 			return fmt.Errorf("failed to create/update API server certificate secret for threeport agent: %w", err)
 		}
@@ -1806,6 +1864,18 @@ func (cpi *ControlPlaneInstaller) getControllerVolumes(controller v0.ControlPlan
 		vols = append(vols, certVol)
 		volMounts = append(volMounts, caVolMount)
 		volMounts = append(volMounts, certVolMount)
+
+		// The kubernetes runtime controller installs an agent on every managed
+		// cluster and issues each one a client certificate, so it holds the CA's
+		// private key.  No other controller does.
+		if controller.Name == ThreeportKubernetesRuntimeControllerName {
+			signingVol, signingVolMount := cpi.getSecretVols(ThreeportApiCaSecret, SigningCaMountPath)
+			signingVol["name"] = signingCaVolumeName
+			signingVolMount["name"] = signingCaVolumeName
+
+			vols = append(vols, signingVol)
+			volMounts = append(volMounts, signingVolMount)
+		}
 	}
 
 	additionalVolumes := make([]map[string]interface{}, 0)
@@ -1928,33 +1998,27 @@ func (cpi *ControlPlaneInstaller) GetAPIServicePort() (string, int32) {
 
 // getAgentArgs returns the args that are passed to the threeport agent.  In
 // tptdev, auth is disabled by default.  In tptctl auth is enabled by
-// default.
+// default.  An agent that reports to a control plane on another cluster is
+// given that control plane's address; otherwise it uses its default, the API's
+// in-cluster service.
 func (cpi *ControlPlaneInstaller) getAgentArgs() []interface{} {
-	switch {
-	case cpi.Opts.Debug:
-		args := []interface{}{
-			"--metrics-bind-address=127.0.0.1:8080",
-			"--leader-elect",
-		}
-		if !cpi.Opts.AuthEnabled {
-			args = append(args, "--auth-enabled=false")
-		}
-		return args
-	default:
-		// disable auth if authConfig is not set on non-dev deployment
-		args := []interface{}{
-			"--metrics-bind-address=127.0.0.1:8080",
-			"--leader-elect",
-		}
-		if !cpi.Opts.AuthEnabled {
-			args = append(args, "--auth-enabled=false")
-		}
-		return args
+	args := []interface{}{
+		"--metrics-bind-address=127.0.0.1:8080",
+		"--leader-elect",
 	}
+	if cpi.Opts.AgentApiServer != "" {
+		args = append(args, fmt.Sprintf("--threeport-api-server=%s", cpi.Opts.AgentApiServer))
+	}
+	// disable auth if authConfig is not set on non-dev deployment
+	if !cpi.Opts.AuthEnabled {
+		args = append(args, "--auth-enabled=false")
+	}
+
+	return args
 }
 
 func (cpi *ControlPlaneInstaller) getControllerSecret(name, namespace string) *unstructured.Unstructured {
-	return &unstructured.Unstructured{
+	secret := &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "v1",
 			"kind":       "Secret",
@@ -1971,6 +2035,14 @@ func (cpi *ControlPlaneInstaller) getControllerSecret(name, namespace string) *u
 			},
 		},
 	}
+
+	// the address agents on other clusters report to, when the API has one
+	if cpi.Opts.ExternalApiEndpoint != "" {
+		stringData := secret.Object["stringData"].(map[string]interface{})
+		stringData[ControllerConfigExternalApiEndpointKey] = cpi.Opts.ExternalApiEndpoint
+	}
+
+	return secret
 }
 
 // getImagePullPolicy returns the image pull policy based on debug mode.

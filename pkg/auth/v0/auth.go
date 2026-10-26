@@ -50,6 +50,54 @@ func GetAuthConfig() (*AuthConfig, error) {
 	}, nil
 }
 
+// LoadAuthConfig builds an AuthConfig from an existing certificate authority:
+// its PEM-encoded certificate and PKCS#1 PEM-encoded RSA private key, as
+// GetAuthConfig encodes them.  It is for a component that has to issue client
+// certificates from the control plane's CA after install, when the CA was not
+// generated in this process.
+func LoadAuthConfig(caPem []byte, caPrivateKeyPem []byte) (*AuthConfig, error) {
+	certBlock, _ := pem.Decode(caPem)
+	if certBlock == nil || certBlock.Type != "CERTIFICATE" {
+		return nil, fmt.Errorf("CA certificate is not PEM-encoded")
+	}
+	caConfig, err := x509.ParseCertificate(certBlock.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse CA certificate: %w", err)
+	}
+	if !caConfig.IsCA {
+		return nil, fmt.Errorf("certificate %q is not a certificate authority", caConfig.Subject.CommonName)
+	}
+
+	keyBlock, _ := pem.Decode(caPrivateKeyPem)
+	if keyBlock == nil {
+		return nil, fmt.Errorf("CA private key is not PEM-encoded")
+	}
+	caPrivateKey, err := x509.ParsePKCS1PrivateKey(keyBlock.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse CA private key: %w", err)
+	}
+
+	// the key has to be the one the certificate was issued for, or every
+	// certificate signed with it would fail verification against the CA
+	caPublicKey, ok := caConfig.PublicKey.(*rsa.PublicKey)
+	if !ok || !caPublicKey.Equal(&caPrivateKey.PublicKey) {
+		return nil, fmt.Errorf("CA private key does not match the CA certificate")
+	}
+
+	caEncoded := GetCertificatePEMEncoding(caConfig.Raw)
+	caPrivateKeyEncoded := GetPrivateKeyPEMEncoding(caPrivateKey)
+
+	return &AuthConfig{
+		CAConfig:                  caConfig,
+		CAPrivateKey:              *caPrivateKey,
+		CA:                        caConfig.Raw,
+		CAPemEncoded:              caEncoded,
+		CABase64Encoded:           util.Base64Encode(caEncoded),
+		CAPrivateKeyPemEncoded:    caPrivateKeyEncoded,
+		CAPrivateKeyBase64Encoded: util.Base64Encode(caPrivateKeyEncoded),
+	}, nil
+}
+
 // GenerateCACertificate generates a certificate authority and private key for the Threeport API.
 func GenerateCACertificate() (caConfig *x509.Certificate, ca []byte, caPrivateKey *rsa.PrivateKey, err error) {
 	// generate a random identifier for use as a serial number
