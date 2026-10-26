@@ -276,3 +276,73 @@ func TestInstalledExternalApiEndpoint(t *testing.T) {
 		assert.Empty(t, endpoint)
 	})
 }
+
+// apiService builds the API's service, with a load balancer ingress entry when
+// one is given.
+func apiService(cpi *ControlPlaneInstaller, ingress map[string]interface{}) *unstructured.Unstructured {
+	service := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Service",
+			"metadata": map[string]interface{}{
+				"name":      cpi.Opts.RestApiInfo.ServiceResourceName,
+				"namespace": cpi.Opts.Namespace,
+			},
+		},
+	}
+	if ingress != nil {
+		_ = unstructured.SetNestedSlice(
+			service.Object, []interface{}{ingress}, "status", "loadBalancer", "ingress",
+		)
+	}
+
+	return service
+}
+
+// TestLoadBalancerApiEndpoint covers recovering the address for a control plane
+// installed before it was recorded.
+func TestLoadBalancerApiEndpoint(t *testing.T) {
+	t.Run("a GKE-style load balancer gives its IP", func(t *testing.T) {
+		cpi := NewInstaller()
+		cpi.Opts.AuthEnabled = true
+		client := testClient(apiService(cpi, map[string]interface{}{"ip": "34.1.2.3"}))
+
+		endpoint, err := cpi.loadBalancerApiEndpoint(client, testMapper())
+		require.NoError(t, err)
+		assert.Equal(t, "34.1.2.3:443", endpoint)
+	})
+
+	t.Run("an EKS-style load balancer gives its hostname", func(t *testing.T) {
+		cpi := NewInstaller()
+		cpi.Opts.AuthEnabled = true
+		client := testClient(apiService(cpi, map[string]interface{}{"hostname": "abc.elb.amazonaws.com"}))
+
+		endpoint, err := cpi.loadBalancerApiEndpoint(client, testMapper())
+		require.NoError(t, err)
+		assert.Equal(t, "abc.elb.amazonaws.com:443", endpoint)
+	})
+
+	t.Run("the port follows whether auth is on", func(t *testing.T) {
+		cpi := NewInstaller()
+		client := testClient(apiService(cpi, map[string]interface{}{"ip": "34.1.2.3"}))
+
+		endpoint, err := cpi.loadBalancerApiEndpoint(client, testMapper())
+		require.NoError(t, err)
+		assert.Equal(t, "34.1.2.3:80", endpoint)
+	})
+
+	t.Run("empty when the API has no load balancer", func(t *testing.T) {
+		cpi := NewInstaller()
+		client := testClient(apiService(cpi, nil))
+
+		endpoint, err := cpi.loadBalancerApiEndpoint(client, testMapper())
+		require.NoError(t, err)
+		assert.Empty(t, endpoint)
+	})
+
+	t.Run("empty when there is no API service", func(t *testing.T) {
+		endpoint, err := NewInstaller().loadBalancerApiEndpoint(testClient(), testMapper())
+		require.NoError(t, err)
+		assert.Empty(t, endpoint)
+	})
+}
