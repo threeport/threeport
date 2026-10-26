@@ -65,15 +65,65 @@ func resourceInstalled(
 
 // ComputeSpaceControlPlaneComponentsCurrent reports whether the cluster already
 // has what InstallComputeSpaceControlPlaneComponents would install: the
-// threeport agent, running the image this installer would give it, and the
-// CRDs that go in alongside it.
+// threeport agent, running the image and args this installer would give it,
+// the client certificate it authenticates with, and the CRDs that go in
+// alongside it.
 //
-// The agent image is compared when the installer is set to update resources,
-// because it is the one part of this set that legitimately changes - a runtime
-// instance carrying a new ThreeportAgentImage needs the install to run even
+// The agent image and args are compared when the installer is set to update
+// resources, because they are the parts of this set that legitimately change -
+// a runtime instance carrying a new ThreeportAgentImage, or an agent installed
+// before it was told where the control plane is, needs the install to run even
 // though an agent is already there. An installer that only creates cannot
 // replace a running agent, so for one of those presence is the whole question.
+//
+// The certificate is checked for presence whatever the installer can do: an
+// agent with auth enabled and no certificate cannot start, and the install
+// creates it.
 func (cpi *ControlPlaneInstaller) ComputeSpaceControlPlaneComponentsCurrent(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+) (bool, error) {
+	// an install that leaves the agent out has no agent to check
+	if !cpi.Opts.SkipAgent {
+		current, err := cpi.agentCurrent(kubeClient, mapper)
+		if err != nil {
+			return false, err
+		}
+		if !current {
+			return false, nil
+		}
+	}
+
+	// the CRDs are installed with these components, and the support services
+	// operator install that follows needs them registered. Every one is checked:
+	// with any of them missing that install has no definition to register
+	// against, and reporting the set current on the strength of one would leave
+	// the gap in place.
+	for _, crdName := range ThreeportCRDNames() {
+		_, present, err := resourceInstalled(
+			kubeClient,
+			mapper,
+			"apiextensions.k8s.io",
+			"v1",
+			"CustomResourceDefinition",
+			"",
+			crdName,
+		)
+		if err != nil {
+			return false, fmt.Errorf("failed to check for the %s CRD: %w", crdName, err)
+		}
+		if !present {
+			return false, nil
+		}
+	}
+
+	return true, nil
+}
+
+// agentCurrent reports whether the threeport agent on the cluster is the one
+// this installer would install.  See ComputeSpaceControlPlaneComponentsCurrent
+// for what is compared and why.
+func (cpi *ControlPlaneInstaller) agentCurrent(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 ) (bool, error) {
@@ -112,25 +162,30 @@ func (cpi *ControlPlaneInstaller) ComputeSpaceControlPlaneComponentsCurrent(
 		if !contains(running, wantImage) {
 			return false, nil
 		}
+
+		// An agent installed without an address to report to has the right
+		// image and still crash-loops, so the args are compared as well.
+		runningArgs, err := containerArgs(agent)
+		if err != nil {
+			return false, fmt.Errorf("failed to read the threeport agent's args: %w", err)
+		}
+		if !containsArgs(runningArgs, cpi.getAgentArgs()) {
+			return false, nil
+		}
 	}
 
-	// the CRDs are installed with these components, and the support services
-	// operator install that follows needs them registered. Every one is checked:
-	// with any of them missing that install has no definition to register
-	// against, and reporting the set current on the strength of one would leave
-	// the gap in place.
-	for _, crdName := range ThreeportCRDNames() {
+	if cpi.Opts.AuthEnabled {
 		_, present, err = resourceInstalled(
 			kubeClient,
 			mapper,
-			"apiextensions.k8s.io",
-			"v1",
-			"CustomResourceDefinition",
 			"",
-			crdName,
+			"v1",
+			"Secret",
+			cpi.Opts.Namespace,
+			agentCertSecretName,
 		)
 		if err != nil {
-			return false, fmt.Errorf("failed to check for the %s CRD: %w", crdName, err)
+			return false, fmt.Errorf("failed to check for the threeport agent certificate: %w", err)
 		}
 		if !present {
 			return false, nil
@@ -277,6 +332,54 @@ func containerImages(deployment *unstructured.Unstructured) ([]string, error) {
 	}
 
 	return images, nil
+}
+
+// containerArgs returns the args of every container in a deployment, one slice
+// per container.
+func containerArgs(deployment *unstructured.Unstructured) ([][]string, error) {
+	containers, found, err := unstructured.NestedSlice(
+		deployment.Object, "spec", "template", "spec", "containers",
+	)
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		return nil, nil
+	}
+
+	var allArgs [][]string
+	for _, container := range containers {
+		fields, ok := container.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		rawArgs, _ := fields["args"].([]interface{})
+		args := make([]string, 0, len(rawArgs))
+		for _, rawArg := range rawArgs {
+			if arg, ok := rawArg.(string); ok {
+				args = append(args, arg)
+			}
+		}
+		allArgs = append(allArgs, args)
+	}
+
+	return allArgs, nil
+}
+
+// containsArgs reports whether one of the running containers' args is the wanted
+// set, in order.
+func containsArgs(running [][]string, want []interface{}) bool {
+	wantArgs := make([]string, 0, len(want))
+	for _, arg := range want {
+		wantArgs = append(wantArgs, fmt.Sprint(arg))
+	}
+	for _, args := range running {
+		if reflect.DeepEqual(args, wantArgs) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // bindingGrants reports whether an existing cluster role binding grants what a

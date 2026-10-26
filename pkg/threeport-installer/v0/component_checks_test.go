@@ -36,6 +36,14 @@ func testMapper() *meta.RESTMapper {
 		schema.GroupVersionKind{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRoleBinding"},
 		meta.RESTScopeRoot,
 	)
+	defaultMapper.Add(
+		schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Secret"},
+		meta.RESTScopeNamespace,
+	)
+	defaultMapper.Add(
+		schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Service"},
+		meta.RESTScopeNamespace,
+	)
 
 	var mapper meta.RESTMapper = defaultMapper
 
@@ -48,6 +56,8 @@ func testClient(objects ...runtime.Object) *dynamicfake.FakeDynamicClient {
 		{Group: "apps", Version: "v1", Resource: "deployments"}:                               "DeploymentList",
 		{Group: "apiextensions.k8s.io", Version: "v1", Resource: "customresourcedefinitions"}: "CustomResourceDefinitionList",
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "clusterrolebindings"}:  "ClusterRoleBindingList",
+		{Group: "", Version: "v1", Resource: "secrets"}:                                       "SecretList",
+		{Group: "", Version: "v1", Resource: "services"}:                                      "ServiceList",
 	}
 
 	return dynamicfake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), listKinds, objects...)

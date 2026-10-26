@@ -473,6 +473,9 @@ func v0ControlPlaneInstanceCreated(
 		_, port := cpi.GetAPIServicePort()
 		threeportAPIEndpoint = fmt.Sprintf("%s:%d", lbEndpoint, port)
 		controlPlaneInstance.ApiServerEndpoint = &threeportAPIEndpoint
+
+		// the controllers hand this address to agents on the clusters they manage
+		cpi.Opts.ExternalApiEndpoint = threeportAPIEndpoint
 	}
 
 	// install provider-specific kubernetes resources

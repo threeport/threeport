@@ -200,6 +200,38 @@ func v0KubernetesRuntimeInstanceUpdated(
 
 	cpi := threeport.NewInstaller()
 
+	// A managed cluster does not host the control plane, so its agent reports
+	// across the network: to the control plane's external address, with a client
+	// certificate of its own. The agent on the host cluster is installed with the
+	// control plane and uses the API's in-cluster service; this install leaves
+	// it as it is.
+	isControlPlaneHost := kubernetesRuntimeInstance.ThreeportControlPlaneHost != nil &&
+		*kubernetesRuntimeInstance.ThreeportControlPlaneHost
+	var agentAccess *computeSpaceAgentAccess
+	if !isControlPlaneHost {
+		agentAccess, err = loadComputeSpaceAgentAccess(
+			os.Getenv(threeport.ControllerConfigExternalApiEndpointKey),
+			threeport.SigningCaMountPath,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to get what the agent needs to report to the control plane: %w", err)
+		}
+		if agentAccess == nil {
+			// nothing the agent could connect to, so none is installed
+			log.Info(
+				"control plane has no external API endpoint, skipping agent install on managed runtime",
+				"kubernetesRuntimeInstance", *kubernetesRuntimeInstance.Name,
+			)
+			cpi.Opts.SkipAgent = true
+		} else {
+			cpi.Opts.AgentApiServer = agentAccess.apiServer
+			cpi.Opts.AuthEnabled = agentAccess.authConfig != nil
+			// an agent already on the cluster has to be brought up to date, not
+			// left as it was installed
+			cpi.Opts.CreateOrUpdateKubeResources = true
+		}
+	}
+
 	if agentImage != "" {
 		agentRegistry, _, agentTag, err := util.ParseImage(agentImage)
 		if err != nil {
@@ -231,6 +263,7 @@ func v0KubernetesRuntimeInstanceUpdated(
 			dynamicKubeClient,
 			mapper,
 			*kubernetesRuntimeInstance.Name,
+			agentAuthConfig(agentAccess),
 		); err != nil {
 			return 0, fmt.Errorf("failed to insall compute space control plane components: %w", err)
 		}
@@ -298,8 +331,6 @@ func v0KubernetesRuntimeInstanceUpdated(
 	// both this managed cluster and the control-plane host run on GKE; the host
 	// instance is skipped because its bindings are created at control-plane
 	// install time.
-	isControlPlaneHost := kubernetesRuntimeInstance.ThreeportControlPlaneHost != nil &&
-		*kubernetesRuntimeInstance.ThreeportControlPlaneHost
 	if !isControlPlaneHost &&
 		*kubernetesRuntimeDefinition.InfraProvider == v0.KubernetesRuntimeInfraProviderGKE {
 		controlPlaneGcpProject, err := controlPlaneGkeProject(r)
