@@ -70,6 +70,29 @@ func TestFormatServiceAccountID_IsAValidID(t *testing.T) {
 	}
 }
 
+// TestFormatServiceAccountID_ExactIDs pins the ID derived for fixed names.
+//
+// Delete finds an account by deriving its ID again, so the exact output is a
+// contract with every account already created: a change to the hash input, the
+// hash length or the separator would leave those accounts unfound and orphaned
+// while every comparison of the function with itself still passed. The hashes
+// were computed apart from this code, as the first six hex characters of the
+// sha256 of the name as given. Change these only by also migrating existing
+// accounts.
+func TestFormatServiceAccountID_ExactIDs(t *testing.T) {
+	for name, want := range map[string]string{
+		"dev-provider":         "threeport-svc-dev-provi-6b4a23",
+		"threeport-genesis-01": "threeport-svc-threeport-6c166c",
+		"threeport-genesis-02": "threeport-svc-threeport-813137",
+		"my-provider":          "threeport-svc-my-provid-3c1d9c",
+		"My-Provider":          "threeport-svc-my-provid-7f55f6",
+		"a-very-long-threeport-provider-name-one": "threeport-svc-a-very-lo-549201",
+		"!!!": "threeport-svc-svc-e84c53",
+	} {
+		require.Equal(t, want, formatServiceAccountID(name), name)
+	}
+}
+
 // TestFormatServiceAccountID_KeepsReadableFragment covers the name still being
 // visible in the ID.
 func TestFormatServiceAccountID_KeepsReadableFragment(t *testing.T) {
