@@ -13,10 +13,10 @@ const (
 	// exceeding maximum lengths imposed by provider.
 	RuntimeNameMaxLength = 30
 
-	// Max length of a GCP provider name. A usability limit on a name a person
-	// types, not a provider rule: the service account ID derived from it is
-	// the same length whatever the name's.
-	GcpProviderNameMaxLength = 60
+	// Max length of a name a person chooses, whatever the provider. A usability
+	// limit, not a provider rule: it is independent of any limit a provider
+	// puts on the resources derived from the name.
+	NameMaxLength = 60
 
 	// The name of the cloud provider account that is used to create a genesis Threeport
 	// control plane.  When a genesis control plane is created, the account that was used

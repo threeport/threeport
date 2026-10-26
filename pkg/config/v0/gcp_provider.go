@@ -299,10 +299,10 @@ func (g *GcpProviderConfig) Validate() error {
 	// ensure name is set
 	if gcpProviderValues.Name == nil || *gcpProviderValues.Name == "" {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
-	} else if utf8.RuneCountInString(*gcpProviderValues.Name) > provider.GcpProviderNameMaxLength {
+	} else if utf8.RuneCountInString(*gcpProviderValues.Name) > provider.NameMaxLength {
 		multiError.AppendError(fmt.Errorf(
 			"GCP provider name is too long - cannot exceed %d characters",
-			provider.GcpProviderNameMaxLength,
+			provider.NameMaxLength,
 		))
 	}
 

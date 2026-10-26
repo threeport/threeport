@@ -21,8 +21,8 @@ func TestGcpProviderConfig_Validate_NameLength(t *testing.T) {
 	}
 
 	require.NoError(t, config("my-long-provider-name").Validate())
-	require.NoError(t, config(strings.Repeat("a", provider.GcpProviderNameMaxLength)).Validate())
+	require.NoError(t, config(strings.Repeat("a", provider.NameMaxLength)).Validate())
 
-	err := config(strings.Repeat("a", provider.GcpProviderNameMaxLength+1)).Validate()
+	err := config(strings.Repeat("a", provider.NameMaxLength+1)).Validate()
 	require.ErrorContains(t, err, "too long")
 }
