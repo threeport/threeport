@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -1541,60 +1542,71 @@ func (cpi *ControlPlaneInstaller) GetThreeportAPIEndpoint(
 	kubeClient dynamic.Interface,
 	mapper meta.RESTMapper,
 ) (string, error) {
-	var apiEndpoint string
+	deadline := time.Now().Add(apiLoadBalancerTimeout)
+	for {
+		apiEndpoint, err := cpi.threeportAPILoadBalancerEndpoint(kubeClient, mapper)
+		if err == nil {
+			return apiEndpoint, nil
+		}
+		if time.Now().After(deadline) {
+			return "", fmt.Errorf(
+				"timed out after %s trying to retrieve threeport API load balancer endpoint: %w",
+				apiLoadBalancerTimeout, err,
+			)
+		}
+		time.Sleep(apiLoadBalancerPollInterval)
+	}
+}
 
-	maxAttempts := 12
-	waitSeconds := 5
-	if err := util.Retry(maxAttempts, waitSeconds,
-		func() error {
-			apiService, err := cpi.GetThreeportAPIService(kubeClient, mapper)
-			if err != nil {
-				return fmt.Errorf("failed to get threeport API service resource: %w", err)
-			}
+// apiLoadBalancerTimeout is how long an install waits for the cloud provider
+// to give the threeport API's load balancer an address. A GKE network load
+// balancer regularly takes over a minute, so a wait of one minute failed
+// installs that were seconds from succeeding.
+var apiLoadBalancerTimeout = 5 * time.Minute
 
-			// find the ingress hostname in the service resource
-			status, found, err := unstructured.NestedMap(apiService.Object, "status")
-			if err != nil || !found {
-				return fmt.Errorf("failed to retrieve threeport API service status: %w", err)
-			}
+// apiLoadBalancerPollInterval is how often the install checks for it.
+var apiLoadBalancerPollInterval = 5 * time.Second
 
-			loadBalancer, found, err := unstructured.NestedMap(status, "loadBalancer")
-			if err != nil || !found {
-				return fmt.Errorf("failed to retrieve threeport API load balancer: %w", err)
-			}
+// threeportAPILoadBalancerEndpoint returns the address the cloud provider
+// gave the threeport API's load balancer: a hostname on EKS, an IP on OKE and
+// GKE. It errors while there is none yet.
+func (cpi *ControlPlaneInstaller) threeportAPILoadBalancerEndpoint(
+	kubeClient dynamic.Interface,
+	mapper meta.RESTMapper,
+) (string, error) {
+	apiService, err := cpi.GetThreeportAPIService(kubeClient, mapper)
+	if err != nil {
+		return "", fmt.Errorf("failed to get threeport API service resource: %w", err)
+	}
 
-			ingress, found, err := unstructured.NestedSlice(loadBalancer, "ingress")
-			if err != nil || !found || len(ingress) == 0 {
-				return fmt.Errorf("failed to retrieve threeport API load balancer ingress: %w", err)
-			}
+	ingress, _, err := unstructured.NestedSlice(apiService.Object, "status", "loadBalancer", "ingress")
+	if err != nil {
+		return "", fmt.Errorf("failed to read threeport API load balancer ingress: %w", err)
+	}
+	if len(ingress) == 0 {
+		return "", errors.New("threeport API load balancer has no ingress yet")
+	}
+	firstIngress, ok := ingress[0].(map[string]interface{})
+	if !ok {
+		return "", errors.New("threeport API load balancer ingress is not an object")
+	}
 
-			firstIngress := ingress[0].(map[string]interface{})
+	var field string
+	switch cpi.Opts.InfraProvider {
+	case v0.KubernetesRuntimeInfraProviderEKS:
+		field = "hostname"
+	case v0.KubernetesRuntimeInfraProviderOKE, v0.KubernetesRuntimeInfraProviderGKE:
+		field = "ip"
+	default:
+		return "", fmt.Errorf("unsupported infrastructure provider: %s", cpi.Opts.InfraProvider)
+	}
 
-			switch cpi.Opts.InfraProvider {
-			case v0.KubernetesRuntimeInfraProviderEKS:
-				if apiEndpoint, found, err = unstructured.NestedString(firstIngress, "hostname"); err != nil || !found {
-					return fmt.Errorf("failed to retrieve threeport API load balancer hostname: %w", err)
-				}
-			case v0.KubernetesRuntimeInfraProviderOKE:
-				if apiEndpoint, found, err = unstructured.NestedString(firstIngress, "ip"); err != nil || !found {
-					return fmt.Errorf("failed to retrieve threeport API load balancer ip: %w", err)
-				}
-			case v0.KubernetesRuntimeInfraProviderGKE:
-				if apiEndpoint, found, err = unstructured.NestedString(firstIngress, "ip"); err != nil || !found {
-					return fmt.Errorf("failed to retrieve threeport API load balancer ip: %w", err)
-				}
-			default:
-				return fmt.Errorf("unsupported infrastructure provider: %s", cpi.Opts.InfraProvider)
-			}
-
-			return nil
-		},
-	); err != nil {
-		msg := fmt.Sprintf(
-			"timed out after %d seconds trying to retrieve threeport API load balancer endpoint",
-			maxAttempts*waitSeconds,
-		)
-		return "", fmt.Errorf("%s: %w", msg, err)
+	apiEndpoint, _, err := unstructured.NestedString(firstIngress, field)
+	if err != nil {
+		return "", fmt.Errorf("failed to read threeport API load balancer %s: %w", field, err)
+	}
+	if apiEndpoint == "" {
+		return "", fmt.Errorf("threeport API load balancer has no %s yet", field)
 	}
 
 	return apiEndpoint, nil
