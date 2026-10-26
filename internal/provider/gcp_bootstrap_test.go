@@ -3,6 +3,8 @@ package provider
 import (
 	"errors"
 	"fmt"
+	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -52,13 +54,49 @@ func TestServiceAccountOwnedBy_RejectsNamePrefix(t *testing.T) {
 	require.False(t, serviceAccountOwnedBy(owned, "app"))
 }
 
-// TestCanonicalGCPAccountName_RejectsCaseFolding covers names that would
-// share a service-account ID with a lowercase sibling.
-func TestCanonicalGCPAccountName_RejectsCaseFolding(t *testing.T) {
-	require.True(t, canonicalGCPAccountName("my-provider"))
-	require.False(t, canonicalGCPAccountName("My-Provider"))
-	require.False(t, canonicalGCPAccountName("my_provider"))
-	require.False(t, canonicalGCPAccountName("aaaaaaaaaaaaaaaaa"))
+// TestFormatServiceAccountID_IsAValidID covers the ID GCP accepts
+// for names of every length and character set.
+func TestFormatServiceAccountID_IsAValidID(t *testing.T) {
+	valid := regexp.MustCompile(`^[a-z][a-z0-9-]{4,28}[a-z0-9]$`)
+
+	for _, name := range []string{
+		"a", "dev-provider", "threeport-genesis-02", "My_Provider.Name", "!!!",
+		"---", "ünïcödé-name", strings.Repeat("x", 500),
+	} {
+		id := formatServiceAccountID(name)
+		require.LessOrEqual(t, len(id), 30, name)
+		require.Regexp(t, valid, id, name)
+		require.NotContains(t, id, "--", name)
+	}
+}
+
+// TestFormatServiceAccountID_KeepsReadableFragment covers the name still being
+// visible in the ID.
+func TestFormatServiceAccountID_KeepsReadableFragment(t *testing.T) {
+	require.True(t, strings.HasPrefix(formatServiceAccountID("dev-provider"), "threeport-svc-dev-provi-"))
+	require.True(t, strings.HasPrefix(formatServiceAccountID("a-b"), "threeport-svc-a-b-"))
+	require.True(t, strings.HasPrefix(formatServiceAccountID("!!!"), "threeport-svc-svc-"))
+	require.Len(t, formatServiceAccountID(strings.Repeat("x", 500)), 30)
+}
+
+// TestFormatServiceAccountID_DeterministicAndDistinct covers the property
+// create and delete rely on: the same name always derives the same ID, and
+// names a truncation or case-fold would merge do not.
+func TestFormatServiceAccountID_DeterministicAndDistinct(t *testing.T) {
+	require.Equal(t, formatServiceAccountID("my-provider"), formatServiceAccountID("my-provider"))
+
+	names := []string{
+		"threeport-genesis-01", "threeport-genesis-02", // share more than nine characters
+		"my-provider", "My-Provider", "my_provider", // differ only by case or character
+		"a-very-long-threeport-provider-name-one", "a-very-long-threeport-provider-name-two",
+	}
+	seen := map[string]string{}
+	for _, name := range names {
+		id := formatServiceAccountID(name)
+		other, dup := seen[id]
+		require.False(t, dup, "%q and %q derive %s", name, other, id)
+		seen[id] = name
+	}
 }
 
 // TestGkeServiceAccountDescription_EmbedsOwnership covers the GKE create path
@@ -148,20 +186,16 @@ func TestGcpServiceAccountDeletable_UnownedAccountIsRefused(t *testing.T) {
 	assert.Contains(t, err.Error(), "not created by Threeport")
 }
 
-// TestGcpServiceAccountDeletable_TruncationCollision covers the case the derived
-// name cannot distinguish.
+// TestGcpServiceAccountDeletable_TruncationCollision covers an account that is
+// at the address a name derives, but is another name's.
 //
-// Two provider names longer than the thirty characters a service account id
-// allows can derive the same id, so deleting one would find the other's account.
+// Derived IDs are hashed so two names do not share one, but a hash can still
+// collide, and a freed address can be taken by an account Threeport never made.
 // The ownership marker carries the full provider name, which is what separates
 // them.
 func TestGcpServiceAccountDeletable_TruncationCollision(t *testing.T) {
 	first := "a-very-long-threeport-provider-name-one"
 	second := "a-very-long-threeport-provider-name-two"
-	require.Equal(
-		t, generateServiceAccountID(first), generateServiceAccountID(second),
-		"this test is meaningless unless the two names derive the same account id",
-	)
 
 	// deleting the second must not touch the account the first owns
 	deletable, err := gcpServiceAccountDeletable(
@@ -238,16 +272,11 @@ func TestClassifyServiceAccountGet(t *testing.T) {
 // the gate refuses to assume.
 //
 // With no account there is nothing to read ownership from, and the derived email
-// is not proof of it: two provider names can derive the same one. So a missing
+// is not proof of it: a hash can collide and a freed address can be retaken. So a missing
 // account is not deletable and not something to strip bindings from either -
 // leaving a dangling binding is recoverable, removing another provider's is not.
 func TestGcpServiceAccountDeletable_MissingAccountCannotBeVouchedFor(t *testing.T) {
-	first := "a-very-long-threeport-provider-name-one"
 	second := "a-very-long-threeport-provider-name-two"
-	require.Equal(
-		t, generateServiceAccountID(first), generateServiceAccountID(second),
-		"this test is meaningless unless the two names derive the same account id",
-	)
 
 	// deleting the second finds no account, and must not conclude the shared
 	// email's bindings are its to remove

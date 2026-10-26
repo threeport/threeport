@@ -6,6 +6,7 @@ import (
 	errors "errors"
 	"fmt"
 	"net/http"
+	"unicode/utf8"
 
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
@@ -298,6 +299,11 @@ func (g *GcpProviderConfig) Validate() error {
 	// ensure name is set
 	if gcpProviderValues.Name == nil || *gcpProviderValues.Name == "" {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
+	} else if utf8.RuneCountInString(*gcpProviderValues.Name) > provider.GcpProviderNameMaxLength {
+		multiError.AppendError(fmt.Errorf(
+			"GCP provider name is too long - cannot exceed %d characters",
+			provider.GcpProviderNameMaxLength,
+		))
 	}
 
 	// ensure project ID (GCP project ID) is set
