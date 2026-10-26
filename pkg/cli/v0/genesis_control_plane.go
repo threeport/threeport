@@ -863,30 +863,26 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	// before this step as kube.GetClient() may require a refresh of the connection
 	// token, which depends on those objects existing in the Threeport API
 	time.Sleep(time.Second * 10)
-	// refresh into new variables so a failure, which returns a nil client and
-	// mapper, leaves the uninstaller holding the earlier working client
-	var refreshedClient dynamic.Interface
-	var refreshedMapper *meta.RESTMapper
-	if tokenGenerator != nil {
-		refreshedClient, refreshedMapper, err = kube.GetClientWithTokenRefresh(
-			kubernetesRuntimeInstResult,
-			tokenGenerator,
-		)
-	} else {
-		refreshedClient, refreshedMapper, err = kube.GetClient(
-			kubernetesRuntimeInstResult,
-			false,
-			apiClient,
-			threeportAPIEndpoint,
-			encryptionKey,
-		)
-	}
+	dynamicKubeClient, mapper, err = uninstaller.refreshKubeClient(
+		func() (dynamic.Interface, *meta.RESTMapper, error) {
+			if tokenGenerator != nil {
+				return kube.GetClientWithTokenRefresh(
+					kubernetesRuntimeInstResult,
+					tokenGenerator,
+				)
+			}
+			return kube.GetClient(
+				kubernetesRuntimeInstResult,
+				false,
+				apiClient,
+				threeportAPIEndpoint,
+				encryptionKey,
+			)
+		},
+	)
 	if err != nil {
 		return uninstaller.cleanOnCreateError("failed to refresh the Kubernetes client and mapper", err)
 	}
-	dynamicKubeClient, mapper = refreshedClient, refreshedMapper
-	uninstaller.dynamicKubeClient = dynamicKubeClient
-	uninstaller.mapper = mapper
 
 	// install the support services operator
 	err = threeport.InstallThreeportSupportServicesOperator(dynamicKubeClient, mapper)
@@ -1417,6 +1413,23 @@ func ValidateCreateGenesisControlPlaneFlags(
 	}
 
 	return nil
+}
+
+// refreshKubeClient gets a new client and mapper from the provided function.
+// The uninstaller adopts them only on success. A failed refresh returns a nil
+// client and mapper, so the uninstaller keeps the earlier working client for
+// cleanOnCreateError to delete workloads with.
+func (u *Uninstaller) refreshKubeClient(
+	refresh func() (dynamic.Interface, *meta.RESTMapper, error),
+) (dynamic.Interface, *meta.RESTMapper, error) {
+	client, mapper, err := refresh()
+	if err != nil {
+		return nil, nil, err
+	}
+	u.dynamicKubeClient = client
+	u.mapper = mapper
+
+	return client, mapper, nil
 }
 
 // cleanOnCreateError cleans up created infra for a control plane when a

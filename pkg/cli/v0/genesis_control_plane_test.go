@@ -192,8 +192,9 @@ func newTestUninstaller(client dynamic.Interface) (*Uninstaller, *fakeRuntimeInf
 	return u, infra
 }
 
-// TestCleanOnCreateErrorNilClientStillDeletesInfra covers a failed client
-// refresh, which leaves a nil client: no panic, and the infra is still deleted.
+// TestCleanOnCreateErrorNilClientStillDeletesInfra covers a nil client, as an
+// uninstaller has before the first client is built: no panic, and the infra is
+// still deleted.
 func TestCleanOnCreateErrorNilClientStillDeletesInfra(t *testing.T) {
 	u, infra := newTestUninstaller(nil)
 
@@ -239,4 +240,61 @@ func TestCleanOnCreateErrorWorkloadFailureStillDeletesInfra(t *testing.T) {
 	require.ErrorIs(t, err, assert.AnError)
 	require.ErrorIs(t, err, workloadErr)
 	assert.Equal(t, 1, infra.deletes)
+}
+
+// TestRefreshKubeClientFailureKeepsEarlierClient covers a failed refresh: the
+// uninstaller keeps the earlier client, cleanup deletes the namespace with it,
+// and the infra is still deleted.
+func TestRefreshKubeClientFailureKeepsEarlierClient(t *testing.T) {
+	earlier := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
+	u, infra := newTestUninstaller(earlier)
+	earlierMapper := u.mapper
+
+	refreshErr := fmt.Errorf("token refresh failed")
+	client, mapper, err := u.refreshKubeClient(
+		func() (dynamic.Interface, *meta.RESTMapper, error) {
+			return nil, nil, refreshErr
+		},
+	)
+
+	require.ErrorIs(t, err, refreshErr)
+	assert.Nil(t, client)
+	assert.Nil(t, mapper)
+	assert.Same(t, earlier, u.dynamicKubeClient)
+	assert.Same(t, earlierMapper, u.mapper)
+
+	var cleanupErr error
+	require.NotPanics(t, func() {
+		cleanupErr = u.cleanOnCreateError("failed to refresh the Kubernetes client and mapper", err)
+	})
+	require.ErrorIs(t, cleanupErr, refreshErr)
+	var deletedNamespace bool
+	for _, a := range earlier.Actions() {
+		if a.Matches("delete", "namespaces") {
+			deletedNamespace = true
+		}
+	}
+	assert.True(t, deletedNamespace, "earlier client should delete the control plane namespace")
+	assert.Equal(t, 1, infra.deletes)
+}
+
+// TestRefreshKubeClientSuccessReplacesClient covers a successful refresh: the
+// uninstaller adopts the new client and mapper.
+func TestRefreshKubeClientSuccessReplacesClient(t *testing.T) {
+	earlier := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
+	u, _ := newTestUninstaller(earlier)
+
+	refreshed := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
+	refreshedMapper := meta.RESTMapper(meta.NewDefaultRESTMapper(nil))
+	client, mapper, err := u.refreshKubeClient(
+		func() (dynamic.Interface, *meta.RESTMapper, error) {
+			return refreshed, &refreshedMapper, nil
+		},
+	)
+
+	require.NoError(t, err)
+	assert.Same(t, refreshed, client)
+	assert.Same(t, &refreshedMapper, mapper)
+	assert.Same(t, refreshed, u.dynamicKubeClient)
+	assert.Same(t, &refreshedMapper, u.mapper)
 }
