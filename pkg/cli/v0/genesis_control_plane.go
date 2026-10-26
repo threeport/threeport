@@ -114,7 +114,7 @@ type Uninstaller struct {
 	createErr              error
 	controlPlane           *threeport.ControlPlane
 	kubernetesRuntimeInfra provider.KubernetesRuntimeInfra
-	dynamicKubeClient      *dynamic.Interface
+	dynamicKubeClient      dynamic.Interface
 	mapper                 *meta.RESTMapper
 	cleanConfig            *bool
 	cpi                    *threeport.ControlPlaneInstaller
@@ -552,7 +552,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	if err != nil {
 		return uninstaller.cleanOnCreateError("failed to get a Kubernetes client and mapper", err)
 	}
-	uninstaller.dynamicKubeClient = &dynamicKubeClient
+	uninstaller.dynamicKubeClient = dynamicKubeClient
 	uninstaller.mapper = mapper
 
 	// generate new DB client credentials
@@ -863,13 +863,17 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	// before this step as kube.GetClient() may require a refresh of the connection
 	// token, which depends on those objects existing in the Threeport API
 	time.Sleep(time.Second * 10)
+	// refresh into new variables so a failure, which returns a nil client and
+	// mapper, leaves the uninstaller holding the earlier working client
+	var refreshedClient dynamic.Interface
+	var refreshedMapper *meta.RESTMapper
 	if tokenGenerator != nil {
-		dynamicKubeClient, mapper, err = kube.GetClientWithTokenRefresh(
+		refreshedClient, refreshedMapper, err = kube.GetClientWithTokenRefresh(
 			kubernetesRuntimeInstResult,
 			tokenGenerator,
 		)
 	} else {
-		dynamicKubeClient, mapper, err = kube.GetClient(
+		refreshedClient, refreshedMapper, err = kube.GetClient(
 			kubernetesRuntimeInstResult,
 			false,
 			apiClient,
@@ -880,6 +884,9 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	if err != nil {
 		return uninstaller.cleanOnCreateError("failed to refresh the Kubernetes client and mapper", err)
 	}
+	dynamicKubeClient, mapper = refreshedClient, refreshedMapper
+	uninstaller.dynamicKubeClient = dynamicKubeClient
+	uninstaller.mapper = mapper
 
 	// install the support services operator
 	err = threeport.InstallThreeportSupportServicesOperator(dynamicKubeClient, mapper)
@@ -1431,9 +1438,12 @@ func (u *Uninstaller) cleanOnCreateError(
 
 	// if needed, delete control plane workloads to remove related infra, e.g. load
 	// balancers, that will prevent runtime infra deletion
+	// a failure here is not fatal to the teardown: the infra delete below must
+	// still be attempted so the cluster and network are not left behind
 	if u.dynamicKubeClient != nil && u.mapper != nil {
-		if workloadErr := u.cpi.UnInstallThreeportControlPlaneComponents(*u.dynamicKubeClient, u.mapper); workloadErr != nil {
-			return fmt.Errorf("failed to create control plane infra for threeport: %w\nfailed to delete threeport API components: %w", createErr, workloadErr)
+		if workloadErr := u.cpi.UnInstallThreeportControlPlaneComponents(u.dynamicKubeClient, u.mapper); workloadErr != nil {
+			Warning(fmt.Sprintf("failed to delete threeport API components: %v", workloadErr))
+			createErr = fmt.Errorf("%w\nfailed to delete threeport API components: %w", createErr, workloadErr)
 		}
 	}
 

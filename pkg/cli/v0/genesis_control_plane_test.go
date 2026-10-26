@@ -10,8 +10,16 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/dynamic"
+	dynamicfake "k8s.io/client-go/dynamic/fake"
+	k8stesting "k8s.io/client-go/testing"
 
+	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	kube "github.com/threeport/threeport/pkg/kube/v0"
+	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -151,4 +159,84 @@ func TestEnsureBootstrapKubernetesRuntimeSurfacesLookupErrors(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to look up kubernetes runtime definition by name")
+}
+
+// fakeRuntimeInfra records infra deletes for cleanOnCreateError tests.
+type fakeRuntimeInfra struct {
+	deletes int
+}
+
+func (f *fakeRuntimeInfra) Create() (*kube.KubeConnectionInfo, error) { return nil, nil }
+
+func (f *fakeRuntimeInfra) Delete() error {
+	f.deletes++
+	return nil
+}
+
+var _ provider.KubernetesRuntimeInfra = (*fakeRuntimeInfra)(nil)
+
+// newTestUninstaller returns an Uninstaller set to tear down on failure and
+// the infra fake it deletes through.
+func newTestUninstaller(client dynamic.Interface) (*Uninstaller, *fakeRuntimeInfra) {
+	infra := &fakeRuntimeInfra{}
+	mapper := meta.RESTMapper(meta.NewDefaultRESTMapper(nil))
+	u := &Uninstaller{
+		controlPlane:           &threeport.ControlPlane{InfraProvider: v0.KubernetesRuntimeInfraProviderKind},
+		kubernetesRuntimeInfra: infra,
+		dynamicKubeClient:      client,
+		mapper:                 &mapper,
+		cleanConfig:            util.Ptr(false),
+		cpi:                    &threeport.ControlPlaneInstaller{Opts: threeport.Options{Namespace: "threeport-control-plane"}},
+		teardownOnFailure:      util.Ptr(true),
+	}
+	return u, infra
+}
+
+// TestCleanOnCreateErrorNilClientStillDeletesInfra covers a failed client
+// refresh, which leaves a nil client: no panic, and the infra is still deleted.
+func TestCleanOnCreateErrorNilClientStillDeletesInfra(t *testing.T) {
+	u, infra := newTestUninstaller(nil)
+
+	var err error
+	require.NotPanics(t, func() {
+		err = u.cleanOnCreateError("failed to refresh the Kubernetes client and mapper", assert.AnError)
+	})
+
+	require.ErrorIs(t, err, assert.AnError)
+	assert.Equal(t, 1, infra.deletes)
+}
+
+// TestCleanOnCreateErrorDeletesWorkloadsThenInfra covers the normal cleanup.
+func TestCleanOnCreateErrorDeletesWorkloadsThenInfra(t *testing.T) {
+	client := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
+	u, infra := newTestUninstaller(client)
+
+	err := u.cleanOnCreateError("install failed", assert.AnError)
+
+	require.ErrorIs(t, err, assert.AnError)
+	var deletedNamespace bool
+	for _, a := range client.Actions() {
+		if a.Matches("delete", "namespaces") {
+			deletedNamespace = true
+		}
+	}
+	assert.True(t, deletedNamespace, "control plane namespace delete should be attempted")
+	assert.Equal(t, 1, infra.deletes)
+}
+
+// TestCleanOnCreateErrorWorkloadFailureStillDeletesInfra covers a workload
+// delete that fails, e.g. an expired token: the infra delete must still run.
+func TestCleanOnCreateErrorWorkloadFailureStillDeletesInfra(t *testing.T) {
+	client := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
+	workloadErr := fmt.Errorf("unauthorized")
+	client.PrependReactor("delete", "namespaces", func(k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, workloadErr
+	})
+	u, infra := newTestUninstaller(client)
+
+	err := u.cleanOnCreateError("install failed", assert.AnError)
+
+	require.ErrorIs(t, err, assert.AnError)
+	require.ErrorIs(t, err, workloadErr)
+	assert.Equal(t, 1, infra.deletes)
 }
