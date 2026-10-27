@@ -30,18 +30,20 @@ import (
 )
 
 const (
-	echoServiceName     = "echo"
-	echoNamespace       = "gateway-echo"
-	echoHost            = "echo.threeport.test"
-	otherHost           = "other.threeport.test"
-	echoBody            = "gateway-ok"
-	echoTcpPort         = 5432
-	otherTcpPort        = 5433
-	sharedConfigName    = "nginx-ingress"
-	ingressNamespace    = "nukleros-ingress-system"
-	nginxIngressService = "nginx-ingress-nodeport"
-	reconcileAttempts   = 180
-	certificateAttempts = 300
+	echoServiceName           = "echo"
+	echoNamespace             = "gateway-echo"
+	echoHost                  = "echo.threeport.test"
+	otherHost                 = "other.threeport.test"
+	echoBody                  = "gateway-ok"
+	echoTcpPort               = 5432
+	otherTcpPort              = 5433
+	sharedConfigName          = "nginx-ingress"
+	ingressComponentName      = "ingress"
+	certificatesComponentName = "certificates"
+	ingressNamespace          = "nukleros-ingress-system"
+	nginxIngressService       = "nginx-ingress-nodeport"
+	reconcileAttempts         = 180
+	certificateAttempts       = 300
 )
 
 const echoWorkload = `
@@ -96,7 +98,7 @@ spec:
 `
 
 // TestGatewayIngressServesHTTPAndHTTPS checks two hosts on one echo service.
-// Deleting a host removes its objects and reuses the shared listeners.
+// The shared ingress install stays at one until the last gateway is deleted.
 func TestGatewayIngressServesHTTPAndHTTPS(t *testing.T) {
 	// open the control plane api and the kind runtime it records
 	apiClient, endpoint, encryptionKey := threeportClient(t)
@@ -126,6 +128,8 @@ func TestGatewayIngressServesHTTPAndHTTPS(t *testing.T) {
 		0,
 	)
 	waitForHostObjects(t, apiClient, endpoint, kubeClient, *workload.ID, "echo", echoHost, echoTcpPort)
+	controllerID := gatewayControllerID(t, apiClient, endpoint, *runtime.ID)
+	waitForSharedComponents(t, kubeClient, 1)
 
 	// reconcile the second host onto the same shared listeners
 	otherGateway := createEchoGatewayInstance(t, apiClient, endpoint, "other-0", otherDefinition, workload, runtime)
@@ -142,6 +146,8 @@ func TestGatewayIngressServesHTTPAndHTTPS(t *testing.T) {
 		sharedID,
 	)
 	waitForHostObjects(t, apiClient, endpoint, kubeClient, *workload.ID, "other", otherHost, otherTcpPort)
+	require.Equal(t, controllerID, gatewayControllerID(t, apiClient, endpoint, *runtime.ID))
+	waitForSharedComponents(t, kubeClient, 1)
 
 	// call both hosts over http and https
 	ports := waitForIngressPorts(t, kubeClient)
@@ -161,11 +167,13 @@ func TestGatewayIngressServesHTTPAndHTTPS(t *testing.T) {
 		sharedID,
 	)
 	callHost(t, kubeClient, nodeIP, ports, echoHost)
+	require.Equal(t, controllerID, gatewayControllerID(t, apiClient, endpoint, *runtime.ID))
+	waitForSharedComponents(t, kubeClient, 1)
 
-	// delete the first host and keep the shared configuration with no listeners
+	// delete the last gateway and remove the shared ingress install
 	deleteGateway(t, apiClient, endpoint, echoGateway)
 	waitForHostTornDown(t, apiClient, endpoint, kubeClient, *workload.ID, "echo", echoHost, echoTcpPort)
-	waitForSharedListeners(t, apiClient, endpoint, *runtime.ID, nil, sharedID)
+	waitForSharedControllerRemoved(t, apiClient, endpoint, kubeClient, *runtime.ID)
 }
 
 // createEchoDomain registers the host the ingress matches.
@@ -746,6 +754,122 @@ func hostObjectsMatch(
 		}
 	}
 	return nil
+}
+
+// gatewayControllerID returns the live shared controller workload.
+func gatewayControllerID(t *testing.T, apiClient *http.Client, endpoint string, runtimeID uint) uint {
+	t.Helper()
+
+	// load the controller the runtime records
+	runtime, err := client.GetKubernetesRuntimeInstanceByID(apiClient, endpoint, runtimeID)
+	require.NoError(t, err)
+	require.NotNil(t, runtime.GatewayControllerInstanceID)
+	workload, err := client.GetKubernetesWorkloadInstanceByID(
+		apiClient,
+		endpoint,
+		*runtime.GatewayControllerInstanceID,
+	)
+	require.NoError(t, err)
+	require.Nil(t, workload.DeletionScheduled)
+	return *runtime.GatewayControllerInstanceID
+}
+
+// waitForSharedComponents polls until the named install count matches.
+func waitForSharedComponents(t *testing.T, kubeClient dynamic.Interface, want int) {
+	t.Helper()
+
+	// count the cluster objects the shared install applies
+	err := util.Retry(reconcileAttempts, 2, func() error {
+		ingressCount, err := namedComponentCount(kubeClient, "ingresscomponents", ingressComponentName)
+		if err != nil {
+			return err
+		}
+		certificatesCount, err := namedComponentCount(
+			kubeClient,
+			"certificatescomponents",
+			certificatesComponentName,
+		)
+		if err != nil {
+			return err
+		}
+		if ingressCount != want || certificatesCount != want {
+			return fmt.Errorf("ingress %d certificates %d", ingressCount, certificatesCount)
+		}
+		return nil
+	})
+	require.NoError(t, err)
+}
+
+// waitForSharedControllerRemoved polls until the shared install is gone.
+func waitForSharedControllerRemoved(
+	t *testing.T,
+	apiClient *http.Client,
+	endpoint string,
+	kubeClient dynamic.Interface,
+	runtimeID uint,
+) {
+	t.Helper()
+
+	// require the controller workload to be deleting and the components gone
+	err := util.Retry(reconcileAttempts, 2, func() error {
+		runtime, err := client.GetKubernetesRuntimeInstanceByID(apiClient, endpoint, runtimeID)
+		if err != nil {
+			return err
+		}
+		if runtime.GatewayControllerInstanceID == nil {
+			return errors.New("runtime has no gateway controller")
+		}
+		workload, err := client.GetKubernetesWorkloadInstanceByID(
+			apiClient,
+			endpoint,
+			*runtime.GatewayControllerInstanceID,
+		)
+		if err != nil && !errors.Is(err, client_lib.ErrObjectNotFound) {
+			return err
+		}
+		if err == nil && workload.DeletionScheduled == nil {
+			return errors.New("gateway controller workload is still live")
+		}
+		ingressCount, err := namedComponentCount(kubeClient, "ingresscomponents", ingressComponentName)
+		if err != nil {
+			return err
+		}
+		certificatesCount, err := namedComponentCount(
+			kubeClient,
+			"certificatescomponents",
+			certificatesComponentName,
+		)
+		if err != nil {
+			return err
+		}
+		if ingressCount != 0 || certificatesCount != 0 {
+			return fmt.Errorf("ingress %d certificates %d", ingressCount, certificatesCount)
+		}
+		return nil
+	})
+	require.NoError(t, err)
+}
+
+// namedComponentCount counts cluster objects of one kind and name.
+func namedComponentCount(kubeClient dynamic.Interface, resource, name string) (int, error) {
+	// list the cluster objects
+	list, err := kubeClient.Resource(schema.GroupVersionResource{
+		Group:    "platform.addons.nukleros.io",
+		Version:  "v1alpha1",
+		Resource: resource,
+	}).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return 0, err
+	}
+
+	// count the shared name
+	count := 0
+	for _, item := range list.Items {
+		if item.GetName() == name {
+			count++
+		}
+	}
+	return count, nil
 }
 
 // sharedListeners reads the one global configuration stored for the runtime.

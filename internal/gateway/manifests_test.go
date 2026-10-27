@@ -221,17 +221,6 @@ func TestConfirmDefinitionsReconciledRequiresDefinition(t *testing.T) {
 	}
 }
 
-// TestConfirmGatewayControllerDeployedAlreadySet returns when the controller id is set.
-func TestConfirmGatewayControllerDeployedAlreadySet(t *testing.T) {
-	// return before any API call when the controller id is already stored
-	err := confirmGatewayControllerDeployed(nil, &v0.KubernetesRuntimeInstance{
-		GatewayControllerInstanceID: util.Ptr(uint(1)),
-	}, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
 // TestGatewayControllerPresentRequiresID accepts a stored controller id.
 func TestGatewayControllerPresentRequiresID(t *testing.T) {
 	err := gatewayControllerPresent(&v0.KubernetesRuntimeInstance{

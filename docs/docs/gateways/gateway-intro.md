@@ -5,10 +5,14 @@ ingress into the Kubernetes Runtime to route traffic to a workload that is
 exposed to end users, usually from the public internet.
 
 When you declare a Gateway for your workload, Threeport installs and configures
-a [Gloo Edge](https://docs.solo.io/gloo-edge/latest/) to manage incoming traffic.  A
-cloud provider load balancer is also provisioned that provides a network
-endpoint and proxies traffic to Gloo.  Gloo terminates TLS connections and
-forwards connections to the appropriate workloads.
+the
+[NGINX Ingress Controller](https://github.com/nginx/kubernetes-ingress)
+to manage incoming traffic.  Threeport also provisions a cloud provider load
+balancer.  That load balancer provides a network endpoint and proxies traffic
+to the controller.  The controller handles TLS and forwards each connection to
+the Service named on the gateway.  Threeport installs the controller with the
+first gateway on a runtime.  Threeport removes the controller when you delete
+the last gateway on that runtime.
 
 TLS assets are provisioned and rotated by
 [cert-manager](https://cert-manager.io/).  Again, this support service is
@@ -18,9 +22,10 @@ installed and configured for the workload at runtime as needed.
 
 The gateway definition allows you define the HTTP and TCP ports you wish to use,
 as well as the subdomain for a hosted zone if DNS records are also being
-managed.  You can also provide the Kubernetes Service name that Gloo will
-forward traffic to.  This will need to correspond to the Service resource name
-in the Kubernetes resource manifest supplied with a Kubernetes Workload Definition.
+managed.  You can also provide the Kubernetes Service name that the ingress
+controller forwards traffic to.  This needs to correspond to the Service
+resource name in the Kubernetes resource manifest supplied with a Kubernetes
+Workload Definition.
 
 You can also instruct Threeport to enable TLS - in which case cert-manager will
 provision and rotate certs for your app.  You can also request HTTPS redirects
@@ -35,8 +40,7 @@ Reference:
 ## Gateway Instance
 
 The gateway instance allows you to tie the gateway config in the definition to a
-particular workload that prompts Threeport to deploy the Gloo Edge support
-service and configure it for the workload.
+particular workload.  Threeport configures ingress for that workload.
 
 Reference:
 [GatewayInstance](https://pkg.go.dev/github.com/threeport/threeport/pkg/api/v0#GatewayInstance)

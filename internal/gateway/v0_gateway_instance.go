@@ -187,6 +187,11 @@ func v0GatewayInstanceDeleted(
 		return 0, err
 	}
 
+	// remove the shared controller when this was the last gateway
+	if err := releaseGatewayController(r, gatewayInstance); err != nil {
+		return 0, err
+	}
+
 	// get kubernetes workload resource instances
 	workloadResourceInstances, err := client.GetKubernetesWorkloadResourceInstancesByID(r.APIClient, r.APIServer, *gatewayInstance.KubernetesWorkloadInstanceID)
 	if err != nil {

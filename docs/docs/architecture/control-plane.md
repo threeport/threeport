@@ -128,8 +128,10 @@ has such a dependency.
 The following support services are installed on Kubernetes as needed by the
 Gateway controller:
 
-* [Gloo Edge](https://github.com/solo-io/gloo): the network ingress
-controller used by Threeport.
+* [NGINX Ingress Controller](https://github.com/nginx/kubernetes-ingress):
+the network ingress controller used by Threeport.  The gateway controller
+installs it with the first gateway on a runtime.  The gateway controller
+removes it when you delete the last gateway on the runtime.
 * [cert-manager](https://github.com/cert-manager/cert-manager): used to
 provision and rotate TLS certificates.
 * [external-dns](https://github.com/kubernetes-sigs/external-dns): manages DNS

@@ -16,6 +16,7 @@ import (
 	runtime "github.com/threeport/threeport/internal/kubernetes-runtime"
 	workload_util "github.com/threeport/threeport/internal/kubernetes-workload/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	mapping "github.com/threeport/threeport/pkg/mapping/v0"
@@ -393,9 +394,22 @@ func confirmGatewayControllerDeployed(
 	log *logr.Logger,
 ) error {
 
-	// return if kubernetes runtime instance already has a gateway controller instance
+	// replace a missing workload because a nil id is not stored
 	if kubernetesRuntimeInstance.GatewayControllerInstanceID != nil {
-		return nil
+		workload, err := client.GetKubernetesWorkloadInstanceByID(
+			r.APIClient,
+			r.APIServer,
+			*kubernetesRuntimeInstance.GatewayControllerInstanceID,
+		)
+		if err != nil && !errors.Is(err, client_lib.ErrObjectNotFound) {
+			return fmt.Errorf("failed to get gateway controller workload instance: %w", err)
+		}
+		if err == nil && workload.DeletionScheduled == nil {
+			return nil
+		}
+		if err == nil {
+			return fmt.Errorf("gateway controller workload %d is deleting", *workload.ID)
+		}
 	}
 
 	// generate nginx ingress and cert-manager manifests
@@ -425,17 +439,24 @@ func confirmGatewayControllerDeployed(
 	// concatenate the certificates component and the ingress component
 	manifest := fmt.Sprintf("---\n%s\n---\n%s\n", certificates, ingressComponent)
 
-	// create gateway controller kubernetes workload definition
+	// reuse the workload definition a deleted controller left behind
+	var createdWorkloadDef *v0.KubernetesWorkloadDefinition
 	workloadDefName := fmt.Sprintf("%s-%s", "ingress", *kubernetesRuntimeInstance.Name)
-	ingressWorkloadDefinition := v0.KubernetesWorkloadDefinition{
-		Definition:   v0.Definition{Name: &workloadDefName},
-		YAMLDocument: &manifest,
+	existingDefinition, err := client.GetKubernetesWorkloadDefinitionByName(r.APIClient, r.APIServer, workloadDefName)
+	if err != nil && !errors.Is(err, client_lib.ErrObjectNotFound) {
+		return fmt.Errorf("failed to get gateway controller kubernetes workload definition: %w", err)
 	}
-
-	// create gateway controller kubernetes workload definition
-	createdWorkloadDef, err := client.CreateKubernetesWorkloadDefinition(r.APIClient, r.APIServer, &ingressWorkloadDefinition)
-	if err != nil {
-		return fmt.Errorf("failed to create gateway controller kubernetes workload definition: %w", err)
+	if errors.Is(err, client_lib.ErrObjectNotFound) {
+		ingressWorkloadDefinition := v0.KubernetesWorkloadDefinition{
+			Definition:   v0.Definition{Name: &workloadDefName},
+			YAMLDocument: &manifest,
+		}
+		createdWorkloadDef, err = client.CreateKubernetesWorkloadDefinition(r.APIClient, r.APIServer, &ingressWorkloadDefinition)
+		if err != nil {
+			return fmt.Errorf("failed to create gateway controller kubernetes workload definition: %w", err)
+		}
+	} else {
+		createdWorkloadDef = existingDefinition
 	}
 
 	// create gateway kubernetes workload instance
@@ -460,6 +481,52 @@ func confirmGatewayControllerDeployed(
 		"nginx ingress deployed",
 		"workloadInstanceID", ingressWorkloadInstance.ID,
 	)
+
+	return nil
+}
+
+// releaseGatewayController deletes the shared controller when no gateway remains.
+func releaseGatewayController(r *controller.Reconciler, gatewayInstance *v0.GatewayInstance) error {
+	// skip a runtime that never installed a controller
+	if gatewayInstance.KubernetesRuntimeInstanceID == nil {
+		return nil
+	}
+	kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(
+		r.APIClient,
+		r.APIServer,
+		*gatewayInstance.KubernetesRuntimeInstanceID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
+	}
+	if kubernetesRuntimeInstance.GatewayControllerInstanceID == nil {
+		return nil
+	}
+
+	// keep the controller while any gateway is still live
+	instances, err := client.GetGatewayInstancesByQueryString(
+		r.APIClient,
+		r.APIServer,
+		fmt.Sprintf("kubernetesruntimeinstanceid=%d", *kubernetesRuntimeInstance.ID),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get gateway instances for runtime: %w", err)
+	}
+	for _, instance := range *instances {
+		if instance.DeletionScheduled == nil {
+			return nil
+		}
+	}
+
+	// schedule the controller workload for deletion
+	_, err = client.DeleteKubernetesWorkloadInstance(
+		r.APIClient,
+		r.APIServer,
+		*kubernetesRuntimeInstance.GatewayControllerInstanceID,
+	)
+	if err != nil && !errors.Is(err, client_lib.ErrObjectNotFound) {
+		return fmt.Errorf("failed to delete gateway controller workload instance: %w", err)
+	}
 
 	return nil
 }
