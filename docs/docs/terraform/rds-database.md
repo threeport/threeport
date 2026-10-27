@@ -208,14 +208,16 @@ database.
 Once the RDS instance is up, get those outputs as follows:
 
 ```bash
-tptctl describe terraform-instance -n rds-instance-01 -o yaml
+tptctl get terraform-instance -n rds-instance-01 -o yaml
 ```
 
-You'll notice the sensitive encrypted values are redacted.  You can view those
-values by requesting specific fields.
+You'll notice the sensitive encrypted values, the outputs among them, are
+redacted.  Add `--decrypt-secrets` to view them.  The outputs are a JSON
+document, so with [jq](https://jqlang.org/) installed you can print just them:
 
 ```bash
-tptctl describe terraform-instance -n rds-instance-01 -f Outputs
+tptctl get terraform-instance -n rds-instance-01 -o json --decrypt-secrets \
+    | jq '.TerraformInstance.Outputs | fromjson'
 ```
 
 You'll see the Terraform outputs in JSON format similar to this:
