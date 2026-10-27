@@ -85,12 +85,7 @@ control planes if they are used to create or are created by another control plan
 		}
 
 		// default --tier when empty, the same on every provider
-		if cliArgs.Tier == "" {
-			cliArgs.Tier = threeport.DefaultControlPlaneTier
-			if notice := cli.DefaultTierNotice(cliArgs.InfraProvider); notice != "" {
-				cli.Info(notice)
-			}
-		}
+		cliArgs.Tier = cli.ResolveControlPlaneTier(cliArgs.InfraProvider, cliArgs.Tier)
 
 		// flag validation
 		if err := cli.ValidateCreateGenesisControlPlaneFlags(

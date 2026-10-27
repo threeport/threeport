@@ -4,6 +4,8 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -176,4 +178,48 @@ func TestACloudInstallAtTheDefaultTierSaysSo(t *testing.T) {
 		t, DefaultTierNotice(v0.KubernetesRuntimeInfraProviderKind),
 		"kind runs only the development tier, so there is nothing to tell",
 	)
+}
+
+// captureStdout returns what run prints to standard output.
+func captureStdout(t *testing.T, run func()) string {
+	t.Helper()
+	reader, writer, err := os.Pipe()
+	require.NoError(t, err)
+	previous := os.Stdout
+	os.Stdout = writer
+	defer func() { os.Stdout = previous }()
+
+	run()
+	require.NoError(t, writer.Close())
+	printed, err := io.ReadAll(reader)
+	require.NoError(t, err)
+
+	return string(printed)
+}
+
+// TestTheTierUpInstallsAtIsPrintedWhenDefaulted covers the path tptctl up
+// takes to its tier: the notice is printed, not only composed, when the tier
+// was defaulted on a cloud provider - and nothing is printed when the
+// operator asked for a tier, or on kind.
+func TestTheTierUpInstallsAtIsPrintedWhenDefaulted(t *testing.T) {
+	var tier string
+	printed := captureStdout(t, func() {
+		tier = ResolveControlPlaneTier(v0.KubernetesRuntimeInfraProviderGKE, "")
+	})
+	assert.Equal(t, threeport.ControlPlaneTierDev, tier)
+	assert.Contains(t, printed, DefaultTierNotice(v0.KubernetesRuntimeInfraProviderGKE))
+
+	for _, explicit := range []string{threeport.ControlPlaneTierDev, threeport.ControlPlaneTierProd} {
+		printed = captureStdout(t, func() {
+			tier = ResolveControlPlaneTier(v0.KubernetesRuntimeInfraProviderEKS, explicit)
+		})
+		assert.Equal(t, explicit, tier, "a tier asked for is the one installed")
+		assert.Empty(t, printed, "a tier asked for needs no notice")
+	}
+
+	printed = captureStdout(t, func() {
+		tier = ResolveControlPlaneTier(v0.KubernetesRuntimeInfraProviderKind, "")
+	})
+	assert.Equal(t, threeport.ControlPlaneTierDev, tier)
+	assert.Empty(t, printed, "kind runs only the development tier")
 }

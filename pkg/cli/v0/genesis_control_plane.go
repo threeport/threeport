@@ -1302,6 +1302,21 @@ func apiPortFromKindMappings(kindPortMappings []string) int {
 	return 0
 }
 
+// ResolveControlPlaneTier returns the tier tptctl up installs at: the one
+// asked for, or the default when none was. Defaulting one on a cloud provider
+// prints DefaultTierNotice, so an operator who meant production finds out as
+// the install starts.
+func ResolveControlPlaneTier(infraProvider, tier string) string {
+	if tier != "" {
+		return tier
+	}
+	if notice := DefaultTierNotice(infraProvider); notice != "" {
+		Info(notice)
+	}
+
+	return threeport.DefaultControlPlaneTier
+}
+
 // DefaultTierNotice returns the line tptctl up prints when it installs at the
 // default tier because no --tier was given, or nothing when there is nothing to
 // tell.
