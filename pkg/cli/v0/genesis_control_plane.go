@@ -998,16 +998,13 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		return fmt.Errorf("failed to get threeport control plane config: %w", err)
 	}
 
-	// a previous teardown destroyed the GKE cluster but could not remove its GCP
-	// service account. There is no cluster, stack or API left to reach, so go
-	// straight to the cleanup and keep the config entry until it succeeds.
-	if threeportControlPlaneConfig.Provider == v0.KubernetesRuntimeInfraProviderGKE &&
-		threeportControlPlaneConfig.GKEProviderConfig.InfraDestroyed {
+	// a previous teardown destroyed the infrastructure but could not finish
+	// removing GCP service accounts. There is no cluster, stack or API left to
+	// reach, so go straight to the cleanup and keep the config entry until it
+	// succeeds.
+	if threeportControlPlaneConfig.InfraDestroyed {
 		Info("Infrastructure already destroyed, skipping to GCP cleanup")
-		if err := resumeGkeCleanup(threeportControlPlaneConfig); err != nil {
-			return err
-		}
-		if err := cleanUpPendingGcpProviders(threeportControlPlaneConfig); err != nil {
+		if err := resumeTeardownCleanup(threeportControlPlaneConfig); err != nil {
 			return err
 		}
 		DeleteThreeportConfigControlPlane(threeportConfig, cpi.Opts.ControlPlaneName)
@@ -1272,7 +1269,7 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		if err := kubernetesRuntimeInfra.Delete(); err != nil {
 			// keep the control plane in the config: it is the only handle for
 			// retrying what is left
-			if markErr := markGkeInfraDestroyed(threeportControlPlaneConfig, err); markErr != nil {
+			if markErr := markGkeCleanupPending(threeportControlPlaneConfig, err); markErr != nil {
 				err = errors.Join(err, markErr)
 			}
 			return fmt.Errorf("failed to delete control plane infra: %w", err)
@@ -1301,7 +1298,14 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	}
 
 	// remove the GCP service accounts of the gcp providers, now that the control
-	// plane that held them is gone
+	// plane that held them is gone. When the infrastructure is gone too, record
+	// that first: a failure here leaves the config entry in place, and a repeat
+	// has no cluster or API to reach before it gets back to this cleanup.
+	if len(threeportControlPlaneConfig.PendingGcpCleanup) > 0 && !cpi.Opts.ControlPlaneOnly {
+		if err := markInfraDestroyed(threeportControlPlaneConfig); err != nil {
+			return err
+		}
+	}
 	if err := cleanUpPendingGcpProviders(threeportControlPlaneConfig); err != nil {
 		return err
 	}
