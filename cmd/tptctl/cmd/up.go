@@ -84,9 +84,12 @@ control planes if they are used to create or are created by another control plan
 			cliArgs.ClusterName = provider.ThreeportRuntimeName(cliArgs.ControlPlaneName)
 		}
 
-		// default --tier from the infra provider when empty
+		// default --tier when empty, the same on every provider
 		if cliArgs.Tier == "" {
-			cliArgs.Tier = threeport.DefaultControlPlaneTierForProvider(cliArgs.InfraProvider)
+			cliArgs.Tier = threeport.DefaultControlPlaneTier
+			if notice := cli.DefaultTierNotice(cliArgs.InfraProvider); notice != "" {
+				cli.Info(notice)
+			}
 		}
 
 		// flag validation
@@ -163,10 +166,10 @@ func init() {
 	UpCmd.Flags().StringVar(
 		&cliArgs.Tier,
 		"tier", "", fmt.Sprintf(
-			"Determines the level of availability and data retention for the control plane. One of: [%s, %s]. Defaults to %s on the kind provider and %s on every cloud provider. Pass %s explicitly for a cloud-backed dev or test control plane whose database may be dropped.",
+			"Determines the level of availability and data retention for the control plane. One of: [%s, %s]. Defaults to %s on every provider. Pass --tier %s for a production control plane, which the kind provider cannot run.",
 			threeport.ControlPlaneTierDev, threeport.ControlPlaneTierProd,
-			threeport.ControlPlaneTierDev, threeport.ControlPlaneTierProd,
-			threeport.ControlPlaneTierDev,
+			threeport.DefaultControlPlaneTier,
+			threeport.ControlPlaneTierProd,
 		),
 	)
 	UpCmd.Flags().StringVar(

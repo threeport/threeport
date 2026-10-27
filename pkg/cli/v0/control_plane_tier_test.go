@@ -55,22 +55,17 @@ func TestKindCannotRunAProductionTier(t *testing.T) {
 }
 
 // TestDefaultTierForProviderIsRecordedNotInferred covers the reason the field
-// exists: the default is a function of the provider at install time, and
-// nothing afterwards can work it out again.
+// exists: the tier is chosen at install time, and nothing afterwards can work
+// it out again.
 //
 // A child control plane is created by the control-plane-controller from a
 // stored definition. If the tier is not on that definition, the controller has
-// only the provider to go on, which is how a control plane deliberately
-// installed as development on a cloud provider would silently come up as
-// production.
+// only the default to go on, which is how a control plane deliberately
+// installed as production would silently come up as development.
 func TestDefaultTierForProviderIsRecordedNotInferred(t *testing.T) {
 	assert.Equal(
-		t, threeport.ControlPlaneTierDev,
-		threeport.DefaultControlPlaneTierForProvider(v0.KubernetesRuntimeInfraProviderKind),
-	)
-	assert.Equal(
-		t, threeport.ControlPlaneTierProd,
-		threeport.DefaultControlPlaneTierForProvider(v0.KubernetesRuntimeInfraProviderEKS),
+		t, threeport.ControlPlaneTierDev, threeport.DefaultControlPlaneTier,
+		"production is opted into, never defaulted into, on any provider",
 	)
 
 	// the field a definition carries it in
@@ -161,4 +156,24 @@ func TestEveryControlPlaneDefinitionRecordsItsTier(t *testing.T) {
 	}
 
 	require.NotZero(t, constructed, "no control plane definition construction found to check")
+}
+
+// TestACloudInstallAtTheDefaultTierSaysSo covers #684's notice: an operator
+// who meant production, and did not know it is no longer the default on a
+// cloud provider, finds out as the install starts.
+func TestACloudInstallAtTheDefaultTierSaysSo(t *testing.T) {
+	for _, provider := range []string{
+		v0.KubernetesRuntimeInfraProviderEKS,
+		v0.KubernetesRuntimeInfraProviderGKE,
+		v0.KubernetesRuntimeInfraProviderOKE,
+	} {
+		notice := DefaultTierNotice(provider)
+		assert.Contains(t, notice, threeport.ControlPlaneTierDev, provider)
+		assert.Contains(t, notice, "--tier "+threeport.ControlPlaneTierProd, provider)
+	}
+
+	assert.Empty(
+		t, DefaultTierNotice(v0.KubernetesRuntimeInfraProviderKind),
+		"kind runs only the development tier, so there is nothing to tell",
+	)
 }
