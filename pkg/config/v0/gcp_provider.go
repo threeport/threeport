@@ -230,6 +230,11 @@ func (g *GcpProviderConfig) Replace(
 // Delete deletes a gcp provider from the Threeport API.
 // If SyncServiceAccount is true (or not set, defaulting to true), this function
 // will also delete the GCP service account that was created for this provider.
+//
+// The service account is removed first and the API record last. The record is
+// what a repeat of this command finds the provider by, so deleting it first
+// would leave a failed cleanup with nothing to retry from. Both steps are safe
+// to repeat: removing an account that is gone is not an error.
 func (g *GcpProviderConfig) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
@@ -246,16 +251,6 @@ func (g *GcpProviderConfig) Delete(
 		return nil, fmt.Errorf("failed to find gcp provider with name %s: %w", *gcpProviderValues.Name, err)
 	}
 
-	// delete gcp provider
-	deletedGcpProvider, err := client_v0.DeleteGcpProvider(
-		apiClient,
-		apiEndpoint,
-		*gcpProvider.ID,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to delete gcp provider from Threeport API: %w", err)
-	}
-
 	// determine if we should sync (delete) the service account
 	// default to true if not specified
 	syncServiceAccount := true
@@ -263,18 +258,24 @@ func (g *GcpProviderConfig) Delete(
 		syncServiceAccount = *gcpProviderValues.SyncServiceAccount
 	}
 
-	// delete GCP service account if requested
-	if syncServiceAccount && gcpProvider.ProjectID != nil {
-		util.CliOutputInfo("Deleting GCP service account...")
-
-		if err := provider.DeleteGCPServiceAccountWithKey(
-			*gcpProvider.ProjectID,
-			*gcpProvider.Name,
-		); err != nil {
-			return nil, fmt.Errorf("failed to delete GCP service account: %w", err)
-		}
-
-		util.CliOutputInfo("GCP service account deleted")
+	var deletedGcpProvider *api_v0.GcpProvider
+	if err := deleteGcpProviderCloudFirst(
+		syncServiceAccount && gcpProvider.ProjectID != nil,
+		func() error {
+			util.CliOutputInfo("Deleting GCP service account...")
+			return provider.DeleteGCPServiceAccountWithKey(*gcpProvider.ProjectID, *gcpProvider.Name)
+		},
+		func() error {
+			var deleteErr error
+			deletedGcpProvider, deleteErr = client_v0.DeleteGcpProvider(
+				apiClient,
+				apiEndpoint,
+				*gcpProvider.ID,
+			)
+			return deleteErr
+		},
+	); err != nil {
+		return nil, err
 	}
 
 	// construct deleted gcp provider config
@@ -288,6 +289,37 @@ func (g *GcpProviderConfig) Delete(
 	}
 
 	return deletedGcpProviderConfig, nil
+}
+
+// deleteGcpProviderCloudFirst runs the cloud cleanup, when there is one, and then
+// deletes the API record. A cleanup failure leaves the record in place so the
+// delete can be run again. A record deletion failure after a cleanup says so,
+// since the provider's credentials no longer work and the record is all that is
+// left - the API refuses a delete while other objects still use the provider.
+func deleteGcpProviderCloudFirst(
+	cleanUp bool,
+	cleanUpCloud func() error,
+	deleteRecord func() error,
+) error {
+	if cleanUp {
+		if err := cleanUpCloud(); err != nil {
+			return fmt.Errorf("failed to delete GCP service account, gcp provider left in place: %w", err)
+		}
+		util.CliOutputInfo("GCP service account deleted")
+	}
+
+	if err := deleteRecord(); err != nil {
+		if cleanUp {
+			return fmt.Errorf(
+				"GCP service account was deleted but the gcp provider could not be deleted from the Threeport API, "+
+					"so its stored credentials no longer work; resolve the cause and run the delete again: %w",
+				err,
+			)
+		}
+		return fmt.Errorf("failed to delete gcp provider from Threeport API: %w", err)
+	}
+
+	return nil
 }
 
 // Validate validates inputs to create gcp providers.

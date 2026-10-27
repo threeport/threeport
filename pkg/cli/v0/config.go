@@ -69,6 +69,11 @@ type ControlPlane struct {
 	// Provider configuration for GKE-hosted threeport control planes.
 	GKEProviderConfig GKEProviderConfig
 
+	// GCP service accounts, created for GcpProviders on this control plane, that
+	// teardown still has to remove. Recorded before the control plane's database
+	// is destroyed, since that is the only place the providers are listed.
+	PendingGcpCleanup []PendingGcpCleanup
+
 	// Client authentication credentials to threeport API.
 	Credentials []Credential
 
@@ -107,6 +112,20 @@ type OKEProviderConfig struct {
 type GKEProviderConfig struct {
 	GcpProjectId string
 	GcpRegion    string
+
+	// InfraDestroyed is set when teardown destroyed the cluster but could not
+	// remove the GCP service account created for it. The control plane stays in
+	// the config until that is done, and the next teardown skips to it.
+	InfraDestroyed bool
+}
+
+// PendingGcpCleanup identifies a GcpProvider's GCP service account to remove.
+type PendingGcpCleanup struct {
+	// The GcpProvider name the service account was created for.
+	Name string
+
+	// The GCP project the service account is in.
+	ProjectID string
 }
 
 // Credential is a client certificate and key pair for authenticating to a Threeport instance.

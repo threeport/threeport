@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -29,6 +30,10 @@ const (
 	// workloadIdentityPoolFormat is the format for Workload Identity pool names
 	workloadIdentityPoolFormat = "%s.svc.id.goog"
 )
+
+// ErrGcpServiceAccountNotOwned is returned when a service account found by its
+// derived name carries no Threeport ownership for the requested owner.
+var ErrGcpServiceAccountNotOwned = errors.New("GCP service account is not owned by this Threeport resource")
 
 // GCP IAM roles required for Threeport to manage GCP resources
 var threeportServiceAccountRoles = []string{
@@ -394,62 +399,12 @@ func (i *KubernetesRuntimeInfraGKE) validateGCPServiceAccountPropagation(
 
 // removeServiceAccountRoles removes the IAM roles granted to the Threeport service account.
 func (i *KubernetesRuntimeInfraGKE) removeServiceAccountRoles(crmService *cloudresourcemanager.Service) error {
-	serviceAccountEmail := i.getServiceAccountEmail()
-	member := fmt.Sprintf("serviceAccount:%s", serviceAccountEmail)
-
-	// Get current IAM policy
-	policy, err := crmService.Projects.GetIamPolicy(i.ProjectID, &cloudresourcemanager.GetIamPolicyRequest{}).Do()
-	if err != nil {
-		return fmt.Errorf("failed to get IAM policy: %w", err)
-	}
-
-	// Remove the service account from all bindings
-	for _, binding := range policy.Bindings {
-		newMembers := make([]string, 0, len(binding.Members))
-		for _, m := range binding.Members {
-			if m != member {
-				newMembers = append(newMembers, m)
-			}
-		}
-		binding.Members = newMembers
-	}
-
-	// Remove empty bindings
-	newBindings := make([]*cloudresourcemanager.Binding, 0, len(policy.Bindings))
-	for _, binding := range policy.Bindings {
-		if len(binding.Members) > 0 {
-			newBindings = append(newBindings, binding)
-		}
-	}
-	policy.Bindings = newBindings
-
-	// Set the updated policy
-	_, err = crmService.Projects.SetIamPolicy(i.ProjectID, &cloudresourcemanager.SetIamPolicyRequest{
-		Policy: policy,
-	}).Do()
-	if err != nil {
-		return fmt.Errorf("failed to set IAM policy: %w", err)
-	}
-
-	return nil
+	return removeServiceAccountRolesForProject(crmService, i.ProjectID, i.getServiceAccountEmail())
 }
 
 // deleteGCPServiceAccount deletes the GCP service account.
 func (i *KubernetesRuntimeInfraGKE) deleteGCPServiceAccount(iamService *iam.Service) error {
-	serviceAccountEmail := i.getServiceAccountEmail()
-
-	_, err := iamService.Projects.ServiceAccounts.Delete(
-		fmt.Sprintf("projects/%s/serviceAccounts/%s", i.ProjectID, serviceAccountEmail),
-	).Do()
-	if err != nil {
-		if isNotFoundError(err) {
-			// Service account not found, skipping deletion
-			return nil
-		}
-		return fmt.Errorf("failed to delete service account: %w", err)
-	}
-
-	return nil
+	return deleteServiceAccountForProject(iamService, i.ProjectID, i.getServiceAccountEmail())
 }
 
 // getServiceAccountID returns the service account ID (without the email domain).
@@ -634,7 +589,8 @@ func gcpServiceAccountDeletable(
 	}
 	if !serviceAccountOwnedBy(account, ownerName) {
 		return false, fmt.Errorf(
-			"GCP service account %s was not created by Threeport for %s, so it will not be deleted",
+			"%w: GCP service account %s was not created by Threeport for %s, so it will not be deleted",
+			ErrGcpServiceAccountNotOwned,
 			serviceAccountEmail,
 			ownerName,
 		)
@@ -774,53 +730,32 @@ func refuseUnownedExistingGCPServiceAccount(account *iam.ServiceAccount, existed
 	return fmt.Errorf("GCP service account %s already exists; pick a different name", email)
 }
 
-// removeServiceAccountRolesForProject removes all IAM roles granted to a service account.
+// removeServiceAccountRolesForProject removes all IAM roles granted to a service
+// account, and confirms the project policy no longer names it.
 func removeServiceAccountRolesForProject(crmService *cloudresourcemanager.Service, projectID, serviceAccountEmail string) error {
-	member := fmt.Sprintf("serviceAccount:%s", serviceAccountEmail)
+	member := serviceAccountMember(serviceAccountEmail)
+	policies := crmProjectPolicies{service: crmService}
 
-	// Get current IAM policy
-	policy, err := crmService.Projects.GetIamPolicy(projectID, &cloudresourcemanager.GetIamPolicyRequest{}).Do()
+	policy, err := updateProjectPolicy(policies, projectID, isTransientIAMError, func(p *cloudresourcemanager.Policy) bool {
+		return removeMemberFromPolicy(p, member)
+	})
 	if err != nil {
-		return fmt.Errorf("failed to get IAM policy: %w", err)
+		return fmt.Errorf("failed to remove IAM roles from %s: %w", serviceAccountEmail, err)
 	}
-
-	// Remove the service account from all bindings
-	for _, binding := range policy.Bindings {
-		newMembers := make([]string, 0, len(binding.Members))
-		for _, m := range binding.Members {
-			if m != member {
-				newMembers = append(newMembers, m)
-			}
-		}
-		binding.Members = newMembers
-	}
-
-	// Remove empty bindings
-	newBindings := make([]*cloudresourcemanager.Binding, 0, len(policy.Bindings))
-	for _, binding := range policy.Bindings {
-		if len(binding.Members) > 0 {
-			newBindings = append(newBindings, binding)
-		}
-	}
-	policy.Bindings = newBindings
-
-	// Set the updated policy
-	_, err = crmService.Projects.SetIamPolicy(projectID, &cloudresourcemanager.SetIamPolicyRequest{
-		Policy: policy,
-	}).Do()
-	if err != nil {
-		return fmt.Errorf("failed to set IAM policy: %w", err)
+	if policyNamesMember(policy, member) {
+		return fmt.Errorf("project %s IAM policy still names %s after role removal", projectID, serviceAccountEmail)
 	}
 
 	fmt.Printf("Removed IAM roles from service account %s\n", serviceAccountEmail)
 	return nil
 }
 
-// deleteServiceAccountForProject deletes a GCP service account.
+// deleteServiceAccountForProject deletes a GCP service account and confirms it
+// is gone.
 func deleteServiceAccountForProject(iamService *iam.Service, projectID, serviceAccountEmail string) error {
-	_, err := iamService.Projects.ServiceAccounts.Delete(
-		fmt.Sprintf("projects/%s/serviceAccounts/%s", projectID, serviceAccountEmail),
-	).Do()
+	resource := fmt.Sprintf("projects/%s/serviceAccounts/%s", projectID, serviceAccountEmail)
+
+	_, err := iamService.Projects.ServiceAccounts.Delete(resource).Do()
 	if err != nil {
 		if isNotFoundError(err) {
 			// Service account not found, skipping deletion
@@ -830,8 +765,37 @@ func deleteServiceAccountForProject(iamService *iam.Service, projectID, serviceA
 		return fmt.Errorf("failed to delete service account: %w", err)
 	}
 
+	if err := confirmServiceAccountGone(func() error {
+		_, getErr := iamService.Projects.ServiceAccounts.Get(resource).Do()
+		return getErr
+	}); err != nil {
+		return fmt.Errorf("service account %s: %w", serviceAccountEmail, err)
+	}
+
 	fmt.Printf("Deleted GCP service account %s\n", serviceAccountEmail)
 	return nil
+}
+
+// confirmServiceAccountGone polls get until it reports not found. IAM reads are
+// eventually consistent, so a read just after a delete may still see the
+// account; any other failure, or an account that stays, is an error.
+func confirmServiceAccountGone(get func() error) error {
+	var lastErr error
+	for attempt := 1; attempt <= iamConfirmAttempts; attempt++ {
+		err := get()
+		if isNotFoundError(err) {
+			return nil
+		}
+		if err == nil {
+			lastErr = errors.New("still exists after delete")
+		} else {
+			lastErr = err
+		}
+		if attempt < iamConfirmAttempts {
+			time.Sleep(iamRetryDelay)
+		}
+	}
+	return fmt.Errorf("could not confirm deletion: %w", lastErr)
 }
 
 func wrapIAMServiceAccountCreateError(projectID string, invokeErr error) error {
@@ -898,19 +862,26 @@ func formatServiceAccountID(format, name string) string {
 }
 
 // isNotFoundError checks if the error is a "not found" error.
+//
+// Only a 404 from a Google API or a gRPC NotFound counts. Matching error text
+// would read any failure that happens to mention "404" as an absent resource,
+// and a delete that takes a failure for absence reports success over a
+// resource that is still there.
 func isNotFoundError(err error) bool {
 	if err == nil {
 		return false
 	}
 
-	// Check for gRPC status code
+	var gerr *googleapi.Error
+	if errors.As(err, &gerr) {
+		return gerr.Code == http.StatusNotFound
+	}
+
 	if s, ok := status.FromError(err); ok {
 		return s.Code() == codes.NotFound
 	}
 
-	// Check for HTTP 404 in error message
-	errStr := err.Error()
-	return strings.Contains(errStr, "404") || strings.Contains(errStr, "notFound") || strings.Contains(errStr, "Not Found")
+	return false
 }
 
 // generateServiceAccountID generates a valid GCP service account ID from the given name.
@@ -937,68 +908,185 @@ func canonicalGCPAccountName(name string) bool {
 }
 
 // grantServiceAccountRolesForProject grants the necessary IAM roles to a service account.
-// It includes retry logic for the SetIamPolicy call to handle GCP's eventual consistency
-// when the service account may not have fully propagated yet.
+// It retries the read-modify-write to handle GCP's eventual consistency when the
+// service account may not have fully propagated yet.
 func grantServiceAccountRolesForProject(crmService *cloudresourcemanager.Service, projectID, serviceAccountEmail string) error {
-	const maxRetries = 20
-	const retryDelay = 3 * time.Second
+	member := serviceAccountMember(serviceAccountEmail)
 
-	// Get current IAM policy
-	policy, err := crmService.Projects.GetIamPolicy(projectID, &cloudresourcemanager.GetIamPolicyRequest{}).Do()
+	// a grant retries on any failure: a just-created account is reported as
+	// not existing until it propagates, and that is not a distinct error code
+	_, err := updateProjectPolicy(crmProjectPolicies{service: crmService}, projectID, func(error) bool { return true },
+		func(p *cloudresourcemanager.Policy) bool {
+			return addMemberToPolicy(p, member, threeportServiceAccountRoles)
+		})
 	if err != nil {
-		return fmt.Errorf("failed to get IAM policy: %w", err)
+		return err
 	}
 
-	member := fmt.Sprintf("serviceAccount:%s", serviceAccountEmail)
+	fmt.Printf("Granted IAM roles to service account %s\n", serviceAccountEmail)
+	return nil
+}
 
-	// Check and add each required role
-	for _, role := range threeportServiceAccountRoles {
-		// Check if binding already exists
-		bindingExists := false
-		for _, binding := range policy.Bindings {
-			if binding.Role == role {
-				// Check if member is already in the binding
-				for _, m := range binding.Members {
-					if m == member {
-						bindingExists = true
-						break
-					}
-				}
-				if !bindingExists {
-					// Add member to existing binding
-					binding.Members = append(binding.Members, member)
-					bindingExists = true
-				}
-				break
+const (
+	// iamPolicyAttempts is how many times a project policy update is tried.
+	iamPolicyAttempts = 20
+	// iamConfirmAttempts is how many reads confirm an account is gone.
+	iamConfirmAttempts = 10
+)
+
+// iamRetryDelay is the wait between attempts; a variable so tests need not sleep.
+var iamRetryDelay = 3 * time.Second
+
+// projectPolicies reads and writes a project's IAM policy.
+type projectPolicies interface {
+	get(projectID string) (*cloudresourcemanager.Policy, error)
+	set(projectID string, policy *cloudresourcemanager.Policy) (*cloudresourcemanager.Policy, error)
+}
+
+// crmProjectPolicies is projectPolicies over the Cloud Resource Manager API.
+type crmProjectPolicies struct {
+	service *cloudresourcemanager.Service
+}
+
+func (c crmProjectPolicies) get(projectID string) (*cloudresourcemanager.Policy, error) {
+	return c.service.Projects.GetIamPolicy(projectID, &cloudresourcemanager.GetIamPolicyRequest{}).Do()
+}
+
+func (c crmProjectPolicies) set(projectID string, policy *cloudresourcemanager.Policy) (*cloudresourcemanager.Policy, error) {
+	return c.service.Projects.SetIamPolicy(projectID, &cloudresourcemanager.SetIamPolicyRequest{Policy: policy}).Do()
+}
+
+// updateProjectPolicy reads the project policy, applies mutate, and writes it back,
+// returning the policy as written. The read is repeated on every attempt: the write
+// carries the policy's etag, so a retry of a stale copy would fail on a conflict
+// every time. mutate reports whether it changed anything; when it did not, nothing
+// is written. A failure that retryable rejects is returned at once.
+func updateProjectPolicy(
+	policies projectPolicies,
+	projectID string,
+	retryable func(error) bool,
+	mutate func(*cloudresourcemanager.Policy) bool,
+) (*cloudresourcemanager.Policy, error) {
+	var lastErr error
+	for attempt := 1; attempt <= iamPolicyAttempts; attempt++ {
+		policy, err := policies.get(projectID)
+		if err == nil {
+			if !mutate(policy) {
+				return policy, nil
+			}
+			var updated *cloudresourcemanager.Policy
+			if updated, err = policies.set(projectID, policy); err == nil {
+				return updated, nil
 			}
 		}
 
-		// If no binding exists for this role, create one
-		if !bindingExists {
+		lastErr = err
+		if !retryable(err) {
+			return nil, fmt.Errorf("failed to update IAM policy for project %s: %w", projectID, err)
+		}
+		if attempt < iamPolicyAttempts {
+			fmt.Printf("IAM policy update failed (attempt %d/%d): %v, retrying in %v...\n", attempt, iamPolicyAttempts, err, iamRetryDelay)
+			time.Sleep(iamRetryDelay)
+		}
+	}
+
+	return nil, fmt.Errorf("failed to update IAM policy for project %s after %d attempts: %w", projectID, iamPolicyAttempts, lastErr)
+}
+
+// isTransientIAMError reports whether an IAM policy update is worth repeating:
+// a conflicting concurrent write (409), throttling, or a server-side failure.
+// Anything else - a permission denied, a malformed request - will not change.
+func isTransientIAMError(err error) bool {
+	var gerr *googleapi.Error
+	if errors.As(err, &gerr) {
+		return gerr.Code == http.StatusConflict ||
+			gerr.Code == http.StatusTooManyRequests ||
+			gerr.Code >= 500
+	}
+	if s, ok := status.FromError(err); ok {
+		switch s.Code() {
+		case codes.Aborted, codes.Unavailable, codes.ResourceExhausted, codes.DeadlineExceeded:
+			return true
+		}
+	}
+	return false
+}
+
+// serviceAccountMember is the IAM member string for a service account.
+func serviceAccountMember(serviceAccountEmail string) string {
+	return fmt.Sprintf("serviceAccount:%s", serviceAccountEmail)
+}
+
+// addMemberToPolicy binds member to each role, reporting whether the policy changed.
+func addMemberToPolicy(policy *cloudresourcemanager.Policy, member string, roles []string) bool {
+	changed := false
+	for _, role := range roles {
+		var binding *cloudresourcemanager.Binding
+		for _, b := range policy.Bindings {
+			// a conditional binding is a different grant than the plain one
+			if b.Role == role && b.Condition == nil {
+				binding = b
+				break
+			}
+		}
+		if binding == nil {
 			policy.Bindings = append(policy.Bindings, &cloudresourcemanager.Binding{
 				Role:    role,
 				Members: []string{member},
 			})
+			changed = true
+			continue
+		}
+		present := false
+		for _, m := range binding.Members {
+			if m == member {
+				present = true
+				break
+			}
+		}
+		if !present {
+			binding.Members = append(binding.Members, member)
+			changed = true
 		}
 	}
+	return changed
+}
 
-	// Set the updated policy with retry logic to handle service account propagation delays
-	var lastErr error
-	for attempt := 1; attempt <= maxRetries; attempt++ {
-		_, err = crmService.Projects.SetIamPolicy(projectID, &cloudresourcemanager.SetIamPolicyRequest{
-			Policy: policy,
-		}).Do()
-		if err == nil {
-			fmt.Printf("Granted IAM roles to service account %s\n", serviceAccountEmail)
-			return nil
+// removeMemberFromPolicy drops member from every binding, and drops any binding
+// left with no members, reporting whether the policy changed.
+func removeMemberFromPolicy(policy *cloudresourcemanager.Policy, member string) bool {
+	changed := false
+	kept := make([]*cloudresourcemanager.Binding, 0, len(policy.Bindings))
+	for _, binding := range policy.Bindings {
+		members := make([]string, 0, len(binding.Members))
+		for _, m := range binding.Members {
+			if m != member {
+				members = append(members, m)
+			}
 		}
-
-		lastErr = err
-		if attempt < maxRetries {
-			fmt.Printf("SetIamPolicy failed (attempt %d/%d): %v, retrying in %v...\n", attempt, maxRetries, err, retryDelay)
-			time.Sleep(retryDelay)
+		if len(members) != len(binding.Members) {
+			changed = true
+			binding.Members = members
+		}
+		if len(binding.Members) > 0 {
+			kept = append(kept, binding)
 		}
 	}
+	policy.Bindings = kept
+	return changed
+}
 
-	return fmt.Errorf("failed to set IAM policy after %d attempts: %w", maxRetries, lastErr)
+// policyNamesMember reports whether any binding in the policy names member.
+func policyNamesMember(policy *cloudresourcemanager.Policy, member string) bool {
+	if policy == nil {
+		return false
+	}
+	for _, binding := range policy.Bindings {
+		for _, m := range binding.Members {
+			if m == member {
+				return true
+			}
+		}
+	}
+	return false
 }
