@@ -128,17 +128,33 @@ func cleanUpPendingGcpProviders(controlPlane *ControlPlane) error {
 	return nil
 }
 
-// markGkeInfraDestroyed records on the control plane that its GKE cluster is
-// gone but its GCP service account is not, so the next teardown can resume at
-// the cleanup. It does nothing for any other error.
-func markGkeInfraDestroyed(controlPlane *ControlPlane, deleteErr error) error {
+// markInfraDestroyed records on the control plane that its infrastructure, and
+// every provider-specific step after it, is done. What is left - the GCP service
+// accounts of its providers - needs neither the cluster nor the API, so a repeat
+// of teardown can go straight to it. Without the mark a repeat would try to
+// reach the API that is already gone.
+func markInfraDestroyed(controlPlane *ControlPlane) error {
+	if _, err := controlPlane.UpdateThreeportConfigInstance(func(c *ControlPlane) {
+		c.InfraDestroyed = true
+	}); err != nil {
+		return fmt.Errorf("failed to record that infrastructure was destroyed: %w", err)
+	}
+
+	return nil
+}
+
+// markGkeCleanupPending records that a GKE cluster is gone but its GCP service
+// account is not, so the next teardown can retry the removal. It does nothing
+// for any other error.
+func markGkeCleanupPending(controlPlane *ControlPlane, deleteErr error) error {
 	var cleanupErr *provider.GcpCleanupError
 	if !errors.As(deleteErr, &cleanupErr) {
 		return nil
 	}
 
 	_, err := controlPlane.UpdateThreeportConfigInstance(func(c *ControlPlane) {
-		c.GKEProviderConfig.InfraDestroyed = true
+		c.InfraDestroyed = true
+		c.GKEProviderConfig.ServiceAccountCleanupPending = true
 		if c.GKEProviderConfig.GcpProjectId == "" {
 			c.GKEProviderConfig.GcpProjectId = cleanupErr.ProjectID
 		}
@@ -148,6 +164,25 @@ func markGkeInfraDestroyed(controlPlane *ControlPlane, deleteErr error) error {
 	}
 
 	return nil
+}
+
+// resumeTeardownCleanup finishes a teardown whose infrastructure is already
+// destroyed: the GKE service account if its removal failed, then the service
+// accounts of the control plane's gcp providers.
+func resumeTeardownCleanup(controlPlane *ControlPlane) error {
+	if controlPlane.Provider == v0.KubernetesRuntimeInfraProviderGKE &&
+		controlPlane.GKEProviderConfig.ServiceAccountCleanupPending {
+		if err := resumeGkeCleanup(controlPlane); err != nil {
+			return err
+		}
+		if _, err := controlPlane.UpdateThreeportConfigInstance(func(c *ControlPlane) {
+			c.GKEProviderConfig.ServiceAccountCleanupPending = false
+		}); err != nil {
+			return fmt.Errorf("failed to update threeport config: %w", err)
+		}
+	}
+
+	return cleanUpPendingGcpProviders(controlPlane)
 }
 
 // resumeGkeCleanup removes the GCP service account of a GKE runtime whose

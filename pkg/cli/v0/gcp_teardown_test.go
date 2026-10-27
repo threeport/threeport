@@ -79,15 +79,45 @@ func TestMergePendingGcpCleanup(t *testing.T) {
 
 // a failure that is not the cleanup one leaves the cluster in place, so nothing
 // is recorded as destroyed - and nothing touches the config
-func TestMarkGkeInfraDestroyed_OtherErrorsRecordNothing(t *testing.T) {
+func TestMarkGkeCleanupPending_OtherErrorsRecordNothing(t *testing.T) {
 	controlPlane := &ControlPlane{Name: "cp"}
 
-	require.NoError(t, markGkeInfraDestroyed(controlPlane, errors.New("failed to destroy Pulumi stack")))
-	assert.False(t, controlPlane.GKEProviderConfig.InfraDestroyed)
+	require.NoError(t, markGkeCleanupPending(controlPlane, errors.New("failed to destroy Pulumi stack")))
+	assert.False(t, controlPlane.InfraDestroyed)
+	assert.False(t, controlPlane.GKEProviderConfig.ServiceAccountCleanupPending)
 }
 
 func TestResumeGkeCleanup_RequiresProject(t *testing.T) {
 	err := resumeGkeCleanup(&ControlPlane{Name: "cp"})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "GcpProjectId")
+}
+
+// provider cleanup that failed after the infrastructure was destroyed is picked up
+// by a repeat, with no GKE step for a control plane that never had one pending
+func TestResumeTeardownCleanup_NothingPendingIsDone(t *testing.T) {
+	require.NoError(t, resumeTeardownCleanup(&ControlPlane{
+		Name:           "cp",
+		Provider:       v0.KubernetesRuntimeInfraProviderGKE,
+		InfraDestroyed: true,
+	}))
+	require.NoError(t, resumeTeardownCleanup(&ControlPlane{
+		Name:           "cp",
+		Provider:       v0.KubernetesRuntimeInfraProviderEKS,
+		InfraDestroyed: true,
+	}))
+}
+
+func TestResumeTeardownCleanup_PendingGkeAccountNeedsProject(t *testing.T) {
+	err := resumeTeardownCleanup(&ControlPlane{
+		Name:           "cp",
+		Provider:       v0.KubernetesRuntimeInfraProviderGKE,
+		InfraDestroyed: true,
+		GKEProviderConfig: GKEProviderConfig{
+			ServiceAccountCleanupPending: true,
+		},
+	})
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "GcpProjectId")
