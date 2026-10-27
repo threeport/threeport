@@ -998,6 +998,22 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		return fmt.Errorf("failed to get threeport control plane config: %w", err)
 	}
 
+	// a previous teardown destroyed the infrastructure but could not finish
+	// removing GCP service accounts. There is no cluster, stack or API left to
+	// reach, so go straight to the cleanup and keep the config entry until it
+	// succeeds.
+	if threeportControlPlaneConfig.InfraDestroyed {
+		Info("Infrastructure already destroyed, skipping to GCP cleanup")
+		if err := resumeTeardownCleanup(threeportControlPlaneConfig); err != nil {
+			return err
+		}
+		DeleteThreeportConfigControlPlane(threeportConfig, cpi.Opts.ControlPlaneName)
+		Info("Threeport config updated")
+		Complete(fmt.Sprintf("Threeport control plane %s deleted", cpi.Opts.ControlPlaneName))
+
+		return nil
+	}
+
 	// get threeport certificates
 	ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificatesForControlPlane(cpi.Opts.ControlPlaneName)
 	if err != nil {
@@ -1221,6 +1237,16 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return fmt.Errorf("failed to get a Kubernetes client and mapper: %w", err)
 		}
 
+		// the GcpProviders live in the database that is about to go, and each
+		// has a GCP service account that only they point to
+		if err := recordPendingGcpCleanup(
+			apiClient,
+			threeportControlPlaneConfig.APIServer,
+			threeportControlPlaneConfig,
+		); err != nil {
+			return err
+		}
+
 		if err := cpi.UnInstallThreeportControlPlaneComponents(dynamicKubeClient, mapper); err != nil {
 			return fmt.Errorf("failed to delete control plane components for threeport: %w", err)
 		}
@@ -1241,6 +1267,11 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 
 		// delete control plane infra
 		if err := kubernetesRuntimeInfra.Delete(); err != nil {
+			// keep the control plane in the config: it is the only handle for
+			// retrying what is left
+			if markErr := markGkeCleanupPending(threeportControlPlaneConfig, err); markErr != nil {
+				err = errors.Join(err, markErr)
+			}
 			return fmt.Errorf("failed to delete control plane infra: %w", err)
 		}
 
@@ -1264,6 +1295,19 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 				return fmt.Errorf("failed to delete OCI IAM resources: %w", err)
 			}
 		}
+	}
+
+	// remove the GCP service accounts of the gcp providers, now that the control
+	// plane that held them is gone. When the infrastructure is gone too, record
+	// that first: a failure here leaves the config entry in place, and a repeat
+	// has no cluster or API to reach before it gets back to this cleanup.
+	if len(threeportControlPlaneConfig.PendingGcpCleanup) > 0 && !cpi.Opts.ControlPlaneOnly {
+		if err := markInfraDestroyed(threeportControlPlaneConfig); err != nil {
+			return err
+		}
+	}
+	if err := cleanUpPendingGcpProviders(threeportControlPlaneConfig); err != nil {
+		return err
 	}
 
 	// if control plane only flag is set, hold onto the control plane in the threeport
