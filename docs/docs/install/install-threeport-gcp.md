@@ -63,8 +63,8 @@ as the default Kubernetes runtime for tenant workloads.
 Other `tptctl up` flags you may use include `--debug`, `--teardown-on-failure`,
 and `--force-overwrite-config`. Run `tptctl up --help` for the full list.
 
-A production control plane, the default on GKE, backs its database up to a
-Cloud Storage bucket in another region. Choose that region with
+A production control plane, which you ask for with `--tier production`, backs
+its database up to a Cloud Storage bucket in another region. Choose that region with
 `--gcp-backup-region`. See
 [Back Up and Restore a Control Plane](../control-planes/backup-restore.md).
 
