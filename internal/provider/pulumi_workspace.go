@@ -353,11 +353,9 @@ func (w *PulumiWorkspace) setupStack(program pulumi.RunFunc) (auto.Stack, bool, 
 
 	// if existing state with actual resources is detected, reconcile with
 	// cloud state to clear pending operations from interrupted runs before
-	// deploying. UpsertStack creates an empty state file, so check file
-	// size to distinguish real state from a freshly-initialized stack.
+	// deploying
 	refreshed := false
-	stateFilePath, _ := w.GetStateFilePath()
-	if fi, err := os.Stat(stateFilePath); err == nil && fi.Size() > 0 {
+	if stackHoldsState(ctx, stack) {
 		w.logInfo("existing Pulumi state detected, reconciling with cloud state")
 		if _, refreshErr := w.runRefresh(ctx, stack); refreshErr != nil {
 			// log but don't fail — the subsequent up may still succeed
@@ -367,6 +365,45 @@ func (w *PulumiWorkspace) setupStack(program pulumi.RunFunc) (auto.Stack, bool, 
 	}
 
 	return stack, refreshed, nil
+}
+
+// stackHoldsState reports whether a stack holds anything to reconcile: a
+// resource, or an operation an interrupted run left pending.
+//
+// Pulumi is asked, rather than the state file inspected. UpsertStack writes a
+// checkpoint for a stack it has just created, so the file exists and is not
+// empty before anything has been provisioned, and taking that for prior state
+// told an operator an earlier run had left something behind when none had.
+//
+// A stack whose contents cannot be read is taken to hold state: reconciling
+// one that turns out to be empty costs a refresh, while skipping one that
+// holds an interrupted run's resources is what the refresh is there to avoid.
+func stackHoldsState(ctx context.Context, stack auto.Stack) bool {
+	exported, err := stack.Export(ctx)
+	if err != nil {
+		return true
+	}
+
+	return deploymentHoldsState(exported.Deployment)
+}
+
+// deploymentHoldsState reports whether an exported deployment holds a resource
+// or a pending operation. One that cannot be read is taken to hold state, for
+// the reason stackHoldsState gives.
+func deploymentHoldsState(deployment json.RawMessage) bool {
+	if len(deployment) == 0 {
+		return false
+	}
+
+	var contents struct {
+		Resources         []json.RawMessage `json:"resources"`
+		PendingOperations []json.RawMessage `json:"pending_operations"`
+	}
+	if err := json.Unmarshal(deployment, &contents); err != nil {
+		return true
+	}
+
+	return len(contents.Resources) > 0 || len(contents.PendingOperations) > 0
 }
 
 // RunUp runs Pulumi stack.Up with either structured logging or progress streams.
