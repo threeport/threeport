@@ -178,12 +178,46 @@ func planResourceDefinitions(
 	return plan, nil
 }
 
+// instanceResourceKey identifies a resource within one instance: by group,
+// kind and name. An instance places every namespaced resource of its definition
+// in the same namespace, so the namespace tells nothing apart there - and
+// leaving it out lets resources be matched before namespaces are set, which
+// needs no word from the cluster.
+func instanceResourceKey(jsonDefinition []byte) (key string, isResource bool, err error) {
+	var object map[string]interface{}
+	if err := json.Unmarshal(jsonDefinition, &object); err != nil {
+		return "", false, fmt.Errorf("failed to unmarshal resource json: %w", err)
+	}
+	if object == nil {
+		return "", false, nil
+	}
+
+	resource := unstructured.Unstructured{Object: object}
+	if resource.GetKind() == "" || resource.GetName() == "" {
+		return "", false, fmt.Errorf("resource has no kind or no name: %s", jsonDefinition)
+	}
+
+	return fmt.Sprintf(
+		"%s/%s/%s",
+		resource.GroupVersionKind().Group,
+		resource.GetKind(),
+		resource.GetName(),
+	), true, nil
+}
+
 // resourceInstancePlan is the set of writes that brings one workload
 // instance's resource instances in line with its definition's new resources.
 type resourceInstancePlan struct {
 	create []v0.KubernetesWorkloadResourceInstance
 	update []v0.KubernetesWorkloadResourceInstance
 	remove []v0.KubernetesWorkloadResourceInstance
+
+	// leaving names resources the definition declares again while the
+	// instance still holds a resource instance scheduled for deletion for
+	// them. Nothing is written for the instance until those are gone: a second
+	// resource instance for the same object would be applied and deleted in
+	// the same pass, in whichever order they are listed.
+	leaving []string
 }
 
 // changed reports whether the instance needs any write at all.
@@ -192,11 +226,13 @@ func (p *resourceInstancePlan) changed() bool {
 }
 
 // planResourceInstances compares an instance's resource instances with what
-// its definition rendered before and after a change to the definition.
+// its definition renders for it before and after a change to the definition.
 //
-// before and after are both rendered for this instance - overlay applied and
-// namespaces set - so they compare like for like with what the instance holds.
-// Only resources the definition change touched are written:
+// before and after are the definition's resources with this instance's
+// overlay applied, and afterPlaced is after with namespaces set, as the
+// instance deploys it. Comparing before with after tells which resources the
+// change touched without asking the cluster about the old ones, whose API
+// version it may no longer serve. Only those resources are written:
 //
 //   - a resource whose rendering did not change is left as the instance holds
 //     it, so a change another controller made to it survives (the gateway
@@ -217,65 +253,80 @@ func planResourceInstances(
 	existing []v0.KubernetesWorkloadResourceInstance,
 	before []v0.KubernetesWorkloadResourceInstance,
 	after []v0.KubernetesWorkloadResourceInstance,
+	afterPlaced []v0.KubernetesWorkloadResourceInstance,
 ) (*resourceInstancePlan, error) {
 	beforeByKey, err := resourceInstancesByKey(before)
 	if err != nil {
 		return nil, fmt.Errorf("failed to identify previously rendered resources: %w", err)
 	}
+	afterByKey, err := resourceInstancesByKey(after)
+	if err != nil {
+		return nil, fmt.Errorf("failed to identify rendered resources: %w", err)
+	}
 
 	// a resource instance already scheduled for deletion is on its way out:
-	// it is neither updated nor scheduled again, and a resource the definition
-	// declares once more is created afresh beside it
-	var live []v0.KubernetesWorkloadResourceInstance
+	// it is neither updated nor scheduled again
+	var live, leaving []v0.KubernetesWorkloadResourceInstance
 	for _, resourceInstance := range existing {
 		if resourceInstance.ScheduledForDeletion == nil {
 			live = append(live, resourceInstance)
+		} else {
+			leaving = append(leaving, resourceInstance)
 		}
 	}
 	existingByKey, err := resourceInstancesByKey(live)
 	if err != nil {
 		return nil, fmt.Errorf("failed to identify existing resource instances: %w", err)
 	}
+	leavingByKey, err := resourceInstancesByKey(leaving)
+	if err != nil {
+		return nil, fmt.Errorf("failed to identify resource instances scheduled for deletion: %w", err)
+	}
 
 	plan := &resourceInstancePlan{}
-	afterKeys := map[string]bool{}
-	for _, rendered := range after {
-		key, isResource, err := resourceKey(*rendered.JSONDefinition)
+	for _, placed := range afterPlaced {
+		key, isResource, err := instanceResourceKey(*placed.JSONDefinition)
 		if err != nil {
 			return nil, fmt.Errorf("failed to identify rendered resource: %w", err)
 		}
 		if !isResource {
 			continue
 		}
-		afterKeys[key] = true
 
 		current, found := existingByKey[key]
 		if !found {
+			if _, stillLeaving := leavingByKey[key]; stillLeaving {
+				plan.leaving = append(plan.leaving, key)
+				continue
+			}
 			plan.create = append(plan.create, v0.KubernetesWorkloadResourceInstance{
-				JSONDefinition:               rendered.JSONDefinition,
+				JSONDefinition:               placed.JSONDefinition,
 				KubernetesWorkloadInstanceID: &instanceID,
 				Reconciled:                   util.Ptr(false),
 			})
 			continue
 		}
 
+		// the namespace threeport adds is no resource of the definition's,
+		// so only what the instance holds tells whether it needs a write
 		previous, renderedBefore := beforeByKey[key]
-		if renderedBefore && sameJSON(*previous.JSONDefinition, *rendered.JSONDefinition) {
+		rendered, renderedAfter := afterByKey[key]
+		if renderedBefore && renderedAfter && sameJSON(*previous.JSONDefinition, *rendered.JSONDefinition) {
 			continue
 		}
-		if sameJSON(*current.JSONDefinition, *rendered.JSONDefinition) {
+		if sameJSON(*current.JSONDefinition, *placed.JSONDefinition) {
 			continue
 		}
 		plan.update = append(plan.update, v0.KubernetesWorkloadResourceInstance{
 			Common:         v0.Common{ID: current.ID},
-			JSONDefinition: rendered.JSONDefinition,
+			JSONDefinition: placed.JSONDefinition,
 			Reconciled:     util.Ptr(false),
 		})
 	}
 
 	removedAt := time.Now().UTC()
 	for key, previous := range beforeByKey {
-		if afterKeys[key] {
+		if _, declared := afterByKey[key]; declared {
 			continue
 		}
 		current, found := existingByKey[key]
@@ -299,9 +350,51 @@ func planResourceInstances(
 	return plan, nil
 }
 
-// resourceInstancesByKey indexes resource instances by resourceKey. When two
-// share a key the first is kept: that is the one created first, which the
-// Kubernetes object belongs to.
+// knownNamespacing answers whether a resource is namespaced from the resource
+// instances an instance already holds, which carry the namespace the cluster
+// placed them in. ask is consulted only for a resource the instance does not
+// hold yet, so a resource moving off an API version the cluster no longer
+// serves is placed without asking about the old version.
+func knownNamespacing(
+	existing []v0.KubernetesWorkloadResourceInstance,
+	ask func(jsonDef string) (bool, error),
+) (func(jsonDef string) (bool, error), error) {
+	held := map[string]bool{}
+	for _, resourceInstance := range existing {
+		if resourceInstance.JSONDefinition == nil {
+			continue
+		}
+		key, isResource, err := instanceResourceKey(*resourceInstance.JSONDefinition)
+		if err != nil {
+			return nil, fmt.Errorf("failed to identify existing resource instance: %w", err)
+		}
+		if !isResource {
+			continue
+		}
+		var object map[string]interface{}
+		if err := json.Unmarshal(*resourceInstance.JSONDefinition, &object); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal resource json: %w", err)
+		}
+		if _, found := held[key]; !found {
+			held[key] = (&unstructured.Unstructured{Object: object}).GetNamespace() != ""
+		}
+	}
+
+	return func(jsonDef string) (bool, error) {
+		key, isResource, err := instanceResourceKey([]byte(jsonDef))
+		if err != nil {
+			return false, err
+		}
+		if namespaced, found := held[key]; isResource && found {
+			return namespaced, nil
+		}
+		return ask(jsonDef)
+	}, nil
+}
+
+// resourceInstancesByKey indexes resource instances by instanceResourceKey.
+// When two share a key the first is kept: that is the one created first, which
+// the Kubernetes object belongs to.
 func resourceInstancesByKey(
 	resourceInstances []v0.KubernetesWorkloadResourceInstance,
 ) (map[string]v0.KubernetesWorkloadResourceInstance, error) {
@@ -310,7 +403,7 @@ func resourceInstancesByKey(
 		if resourceInstance.JSONDefinition == nil {
 			continue
 		}
-		key, isResource, err := resourceKey(*resourceInstance.JSONDefinition)
+		key, isResource, err := instanceResourceKey(*resourceInstance.JSONDefinition)
 		if err != nil {
 			return nil, err
 		}

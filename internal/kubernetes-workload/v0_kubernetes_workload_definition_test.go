@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/datatypes"
@@ -165,7 +167,10 @@ func sortedIDs[T any](objects map[uint]*T) []uint {
 
 // fakeKubeDiscovery answers the discovery requests kube.SetNamespaces makes,
 // so the namespaces are set exactly as they are for a real runtime.
-func fakeKubeDiscovery(t *testing.T) *discovery.DiscoveryClient {
+//
+// retired names group versions the cluster no longer serves, as after an
+// upgrade removes them.
+func fakeKubeDiscovery(t *testing.T, retired ...string) *discovery.DiscoveryClient {
 	t.Helper()
 
 	resources := map[string]metav1.APIResourceList{
@@ -177,6 +182,15 @@ func fakeKubeDiscovery(t *testing.T) *discovery.DiscoveryClient {
 		"/apis/apps/v1": {GroupVersion: "apps/v1", APIResources: []metav1.APIResource{
 			{Name: "deployments", Kind: "Deployment", Namespaced: true},
 		}},
+		"/apis/batch/v1": {GroupVersion: "batch/v1", APIResources: []metav1.APIResource{
+			{Name: "cronjobs", Kind: "CronJob", Namespaced: true},
+		}},
+		"/apis/batch/v1beta1": {GroupVersion: "batch/v1beta1", APIResources: []metav1.APIResource{
+			{Name: "cronjobs", Kind: "CronJob", Namespaced: true},
+		}},
+	}
+	for _, groupVersion := range retired {
+		delete(resources, "/apis/"+groupVersion)
 	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		list, found := resources[r.URL.Path]
@@ -260,6 +274,16 @@ type definitionUpdateFixture struct {
 	definition *v0.KubernetesWorkloadDefinition
 
 	plain, overlaid, undeployed, deleting uint
+
+	// retired is the group versions the instances' cluster no longer serves
+	retired []string
+
+	// locked is the instances the instance reconciler holds the lock on
+	locked map[uint]bool
+
+	// terminating is the resources, by instanceResourceKey, whose objects are
+	// in the cluster and being deleted
+	terminating map[string]bool
 }
 
 func newDefinitionUpdateFixture(t *testing.T, yaml *string) *definitionUpdateFixture {
@@ -270,27 +294,40 @@ func newDefinitionUpdateFixture(t *testing.T, yaml *string) *definitionUpdateFix
 	t.Cleanup(srv.Close)
 
 	discoveryClient := fakeKubeDiscovery(t)
-	original := runtimeNamespaceSetter
-	runtimeNamespaceSetter = func(*controller.Reconciler, *v0.KubernetesWorkloadInstance) (namespaceSetter, error) {
-		return func(
-			wris *[]v0.KubernetesWorkloadResourceInstance,
-			instance *v0.KubernetesWorkloadInstance,
-		) (*[]v0.KubernetesWorkloadResourceInstance, error) {
-			return kube.SetNamespaces(wris, instance.Name, instance.ID, discoveryClient)
-		}, nil
-	}
-	t.Cleanup(func() { runtimeNamespaceSetter = original })
-
 	definitionID := uint(1)
 	fixture := &definitionUpdateFixture{
-		api:        api,
-		reconciler: &controller.Reconciler{APIClient: &http.Client{}, APIServer: strings.TrimPrefix(srv.URL, "http://")},
+		locked:      map[uint]bool{},
+		terminating: map[string]bool{},
+		api:         api,
+		reconciler:  &controller.Reconciler{APIClient: &http.Client{}, APIServer: strings.TrimPrefix(srv.URL, "http://")},
 		definition: &v0.KubernetesWorkloadDefinition{
 			Common:       v0.Common{ID: &definitionID},
 			Definition:   v0.Definition{Name: util.Ptr("web")},
 			YAMLDocument: yaml,
 		},
 	}
+
+	originalConnect, originalLock := connectToRuntime, lockInstance
+	connectToRuntime = func(*controller.Reconciler, *v0.KubernetesWorkloadInstance) (*runtimeAccess, error) {
+		runtimeDiscovery := fakeKubeDiscovery(t, fixture.retired...)
+		return &runtimeAccess{
+			isNamespaced: func(jsonDef string) (bool, error) {
+				return kube.IsNamespaced(jsonDef, runtimeDiscovery)
+			},
+			terminating: func(jsonDef []byte) (bool, error) {
+				key, _, err := instanceResourceKey(jsonDef)
+				return fixture.terminating[key], err
+			},
+		}, nil
+	}
+	lockInstance = func(_ *controller.Reconciler, instanceID uint) (func(), bool) {
+		if fixture.locked[instanceID] {
+			return nil, false
+		}
+		fixture.locked[instanceID] = true
+		return func() { delete(fixture.locked, instanceID) }, true
+	}
+	t.Cleanup(func() { connectToRuntime, lockInstance = originalConnect, originalLock })
 
 	// the definition's resources, as v0KubernetesWorkloadDefinitionCreated stores them
 	jsonObjects, err := kube.GetJsonResourcesFromYamlDoc(*yaml)
@@ -347,10 +384,18 @@ func newDefinitionUpdateFixture(t *testing.T, yaml *string) *definitionUpdateFix
 // update runs the definition update reconciler against the fixture with the
 // definition's YAML document replaced.
 func (f *definitionUpdateFixture) update(yaml *string) error {
+	requeue, err := f.updateRequeued(yaml)
+	if err == nil && requeue != 0 {
+		return fmt.Errorf("update requeued for %d seconds", requeue)
+	}
+	return err
+}
+
+// updateRequeued runs the update and returns the requeue delay it asks for.
+func (f *definitionUpdateFixture) updateRequeued(yaml *string) (int64, error) {
 	f.definition.YAMLDocument = yaml
 	log := logr.Discard()
-	_, err := v0KubernetesWorkloadDefinitionUpdated(f.reconciler, f.definition, &log)
-	return err
+	return v0KubernetesWorkloadDefinitionUpdated(f.reconciler, f.definition, &log)
 }
 
 // resources returns what an instance holds, by resource, ignoring those on
@@ -537,4 +582,217 @@ func TestDefinitionUpdatesThatCannotBeFollowedAreRefused(t *testing.T) {
 			assert.Empty(t, fixture.api.writes)
 		})
 	}
+}
+
+// applyInstance does what v0KubernetesWorkloadInstanceUpdated does with an
+// instance's resource instances: deletes those scheduled for deletion and
+// marks the rest reconciled.
+func (f *definitionUpdateFixture) applyInstance(instanceID uint) {
+	for id, wri := range f.api.wris {
+		if *wri.KubernetesWorkloadInstanceID != instanceID {
+			continue
+		}
+		if wri.ScheduledForDeletion != nil {
+			delete(f.api.wris, id)
+			continue
+		}
+		wri.Reconciled = util.Ptr(true)
+	}
+	f.api.instances[instanceID].Reconciled = util.Ptr(true)
+}
+
+// writesFor returns the writes that went to an instance or its resources.
+func (f *definitionUpdateFixture) writesFor(t *testing.T, instanceID uint) []string {
+	t.Helper()
+	var writes []string
+	for _, write := range f.api.writes {
+		if strings.HasSuffix(write, fmt.Sprintf("%s/%d", v0.PathKubernetesWorkloadInstances, instanceID)) {
+			writes = append(writes, write)
+		}
+	}
+	return writes
+}
+
+// TestDefinitionUpdateWaitsForTheInstanceReconciler covers an instance whose
+// own reconciler is applying its resources when the definition changes.
+//
+// That reconciler applies resource instances from a copy it read first, then
+// saves the copy back as reconciled. A definition change written in between
+// would be overwritten by the older copy and never applied - and once the
+// resource definitions matched the new YAML, no retry would find it again.
+func TestDefinitionUpdateWaitsForTheInstanceReconciler(t *testing.T) {
+	fixture := newDefinitionUpdateFixture(t, yamlDocument(fmt.Sprintf(webDeployment, 1, "nginx:1.26"), webService))
+	updated := yamlDocument(fmt.Sprintf(webDeployment, 1, "nginx:1.27"), webService)
+	originalWRDs := map[uint]string{}
+	for id, wrd := range fixture.api.wrds {
+		originalWRDs[id] = string(*wrd.JSONDefinition)
+	}
+	plainResources := fixture.resources(t, fixture.plain)
+
+	fixture.locked[fixture.plain] = true
+	requeue, err := fixture.updateRequeued(updated)
+	require.NoError(t, err, "waiting is no failure")
+	assert.NotZero(t, requeue, "the update is tried again")
+
+	assert.Equal(t, plainResources, fixture.resources(t, fixture.plain), "nothing written for the locked instance")
+	assert.Empty(t, fixture.writesFor(t, fixture.plain))
+	for id, wrd := range fixture.api.wrds {
+		assert.Equal(t, originalWRDs[id], string(*wrd.JSONDefinition), "resource definitions wait too, so the retry still sees the change")
+	}
+	assert.Len(t, fixture.api.wrds, len(originalWRDs))
+	assert.Equal(t, map[uint]bool{fixture.plain: true}, fixture.locked, "the locks this update took are released")
+
+	delete(fixture.locked, fixture.plain)
+	require.NoError(t, fixture.update(updated))
+	assert.False(t, *fixture.api.instances[fixture.plain].Reconciled)
+	assert.Empty(t, fixture.locked)
+}
+
+// TestDefinitionUpdateWaitsForAResourceToBeDeletedBeforeDeclaringItAgain
+// covers a resource removed from the definition and put back before the
+// removal has reached the cluster.
+func TestDefinitionUpdateWaitsForAResourceToBeDeletedBeforeDeclaringItAgain(t *testing.T) {
+	withService := yamlDocument(fmt.Sprintf(webDeployment, 1, "nginx:1.26"), webService)
+	fixture := newDefinitionUpdateFixture(t, withService)
+	require.NoError(t, fixture.update(yamlDocument(fmt.Sprintf(webDeployment, 1, "nginx:1.26"))))
+	countServices := func() int {
+		count := 0
+		for key := range fixture.resources(t, fixture.plain) {
+			if strings.Contains(key, "/Service/") {
+				count++
+			}
+		}
+		return count
+	}
+	require.Equal(t, 1, countServices(), "the Service is scheduled for deletion")
+
+	t.Run("while the instance still holds the one being deleted", func(t *testing.T) {
+		// a second resource instance for the same object would be applied
+		// and deleted in one pass, in whichever order they are listed
+		fixture.api.instances[fixture.plain].Reconciled = util.Ptr(true)
+		requeue, err := fixture.updateRequeued(withService)
+		require.NoError(t, err)
+		assert.NotZero(t, requeue)
+		assert.Equal(t, 1, countServices(), "no second resource instance for the Service")
+		assert.False(t, *fixture.api.instances[fixture.plain].Reconciled, "the instance is marked so the deletion goes ahead")
+	})
+
+	fixture.applyInstance(fixture.plain)
+	fixture.applyInstance(fixture.overlaid)
+
+	t.Run("while a finalizer holds the deleted object in the cluster", func(t *testing.T) {
+		// the replacement would be applied to the object being deleted, and go with it
+		fixture.terminating["/Service/web"] = true
+		requeue, err := fixture.updateRequeued(withService)
+		require.NoError(t, err)
+		assert.NotZero(t, requeue)
+		assert.Equal(t, 0, countServices())
+	})
+
+	t.Run("once it is gone", func(t *testing.T) {
+		delete(fixture.terminating, "/Service/web")
+		require.NoError(t, fixture.update(withService))
+		assert.Equal(t, 1, countServices(), "the Service is created again")
+		assert.False(t, *fixture.api.instances[fixture.plain].Reconciled)
+	})
+}
+
+// TestDefinitionUpdateDoesNotNeedRetiredAPIVersions covers a cluster upgraded
+// past an API version a definition's resources were written in. Repairing the
+// definition, or dropping the resource, has to work without the cluster
+// serving the old version.
+func TestDefinitionUpdateDoesNotNeedRetiredAPIVersions(t *testing.T) {
+	cronJob := `
+apiVersion: %s
+kind: CronJob
+metadata:
+  name: nightly
+spec:
+  schedule: "0 3 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+          - name: nightly
+            image: busybox
+`
+	deployment := fmt.Sprintf(webDeployment, 1, "nginx:1.26")
+
+	t.Run("moving a resource to the version still served", func(t *testing.T) {
+		fixture := newDefinitionUpdateFixture(t, yamlDocument(deployment, fmt.Sprintf(cronJob, "batch/v1beta1")))
+		fixture.retired = []string{"batch/v1beta1"}
+
+		require.NoError(t, fixture.update(yamlDocument(deployment, fmt.Sprintf(cronJob, "batch/v1"))))
+		var cronJobs []v0.KubernetesWorkloadResourceInstance
+		for key, wri := range fixture.resources(t, fixture.plain) {
+			if strings.Contains(key, "CronJob") {
+				cronJobs = append(cronJobs, wri)
+			}
+		}
+		require.Len(t, cronJobs, 1, "updated in place, not replaced")
+		object := resourceObject(t, cronJobs[0])
+		assert.Equal(t, "batch/v1", object.GetAPIVersion())
+		assert.NotEmpty(t, object.GetNamespace(), "still placed in the instance's namespace")
+		assert.False(t, *cronJobs[0].Reconciled)
+	})
+
+	t.Run("dropping a resource whose group is no longer served at all", func(t *testing.T) {
+		fixture := newDefinitionUpdateFixture(t, yamlDocument(deployment, fmt.Sprintf(cronJob, "batch/v1beta1")))
+		fixture.retired = []string{"batch/v1beta1", "batch/v1"}
+
+		require.NoError(t, fixture.update(yamlDocument(deployment)))
+		var leaving []string
+		for key := range fixture.resources(t, fixture.plain) {
+			if strings.HasPrefix(key, "leaving:") {
+				leaving = append(leaving, key)
+			}
+		}
+		assert.Len(t, leaving, 1)
+		assert.Contains(t, leaving[0], "batch/CronJob/")
+	})
+}
+
+// fakeKeyValue records the keys a lock is taken and released under.
+type fakeKeyValue struct {
+	nats.KeyValue
+	held map[string]bool
+}
+
+func (kv *fakeKeyValue) Create(key string, _ []byte) (uint64, error) {
+	if kv.held[key] {
+		return 0, nats.ErrKeyExists
+	}
+	kv.held[key] = true
+	return 1, nil
+}
+
+func (kv *fakeKeyValue) Delete(key string, _ ...nats.DeleteOpt) error {
+	delete(kv.held, key)
+	return nil
+}
+
+// TestLockInstanceTakesTheInstanceReconcilersLock covers that the lock taken
+// is the one the instance reconciler takes, not one of the definition's own.
+func TestLockInstanceTakesTheInstanceReconcilersLock(t *testing.T) {
+	source, err := os.ReadFile("../../cmd/kubernetes-workload-controller/main_gen.go")
+	require.NoError(t, err)
+	assert.Contains(t, string(source), fmt.Sprintf("Name:                 %q,", instanceReconcilerName),
+		"the controller registers its instance reconciler under this name")
+
+	kv := &fakeKeyValue{held: map[string]bool{}}
+	log := logr.Discard()
+	r := &controller.Reconciler{KeyValue: kv, Log: &log}
+
+	// the key the instance reconciler's own Lock takes
+	kv.held[instanceReconcilerName+".7"] = true
+	_, locked := lockInstance(r, 7)
+	assert.False(t, locked, "held by the instance reconciler")
+
+	release, locked := lockInstance(r, 8)
+	require.True(t, locked)
+	assert.True(t, kv.held[instanceReconcilerName+".8"])
+	release()
+	assert.False(t, kv.held[instanceReconcilerName+".8"])
 }

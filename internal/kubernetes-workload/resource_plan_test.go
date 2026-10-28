@@ -112,7 +112,7 @@ func TestPlanResourceDefinitions(t *testing.T) {
 // definition change rewrites.
 func TestPlanResourceInstances(t *testing.T) {
 	t.Run("a resource the change touched is replaced and left unreconciled", func(t *testing.T) {
-		plan, err := planResourceInstances(
+		plan, err := planInstance(
 			5,
 			[]v0.KubernetesWorkloadResourceInstance{storedWRI(20, deploymentV1), storedWRI(21, serviceWeb)},
 			[]v0.KubernetesWorkloadResourceInstance{renderedWRI(deploymentV1), renderedWRI(serviceWeb)},
@@ -131,7 +131,7 @@ func TestPlanResourceInstances(t *testing.T) {
 		// the gateway controller edits resources of workloads it serves;
 		// rewriting every resource from the definition would undo that
 		editedService := `{"apiVersion":"v1","kind":"Service","metadata":{"name":"web"},"spec":{"ports":[{"port":8443}]}}`
-		plan, err := planResourceInstances(
+		plan, err := planInstance(
 			5,
 			[]v0.KubernetesWorkloadResourceInstance{storedWRI(20, deploymentV1), storedWRI(21, editedService)},
 			[]v0.KubernetesWorkloadResourceInstance{renderedWRI(deploymentV1), renderedWRI(serviceWeb)},
@@ -143,7 +143,7 @@ func TestPlanResourceInstances(t *testing.T) {
 	})
 
 	t.Run("an added resource is created for the instance", func(t *testing.T) {
-		plan, err := planResourceInstances(
+		plan, err := planInstance(
 			5,
 			[]v0.KubernetesWorkloadResourceInstance{storedWRI(20, deploymentV1)},
 			[]v0.KubernetesWorkloadResourceInstance{renderedWRI(deploymentV1)},
@@ -157,7 +157,7 @@ func TestPlanResourceInstances(t *testing.T) {
 	})
 
 	t.Run("a dropped resource is scheduled for deletion", func(t *testing.T) {
-		plan, err := planResourceInstances(
+		plan, err := planInstance(
 			5,
 			[]v0.KubernetesWorkloadResourceInstance{storedWRI(20, deploymentV1), storedWRI(21, serviceWeb)},
 			[]v0.KubernetesWorkloadResourceInstance{renderedWRI(deploymentV1), renderedWRI(serviceWeb)},
@@ -173,7 +173,7 @@ func TestPlanResourceInstances(t *testing.T) {
 	t.Run("resource instances from elsewhere are never touched", func(t *testing.T) {
 		// a secret's or a gateway's resources match nothing the definition renders
 		secretResource := `{"apiVersion":"external-secrets.io/v1beta1","kind":"ExternalSecret","metadata":{"name":"db"}}`
-		plan, err := planResourceInstances(
+		plan, err := planInstance(
 			5,
 			[]v0.KubernetesWorkloadResourceInstance{storedWRI(20, deploymentV1), storedWRI(30, secretResource)},
 			[]v0.KubernetesWorkloadResourceInstance{renderedWRI(deploymentV1)},
@@ -187,7 +187,7 @@ func TestPlanResourceInstances(t *testing.T) {
 
 	t.Run("a namespace is never deleted by a definition change", func(t *testing.T) {
 		// deleting it would delete everything in it, resources from elsewhere included
-		plan, err := planResourceInstances(
+		plan, err := planInstance(
 			5,
 			[]v0.KubernetesWorkloadResourceInstance{storedWRI(19, namespaceTeam), storedWRI(20, deploymentV1)},
 			[]v0.KubernetesWorkloadResourceInstance{renderedWRI(namespaceTeam), renderedWRI(deploymentV1)},
@@ -199,7 +199,7 @@ func TestPlanResourceInstances(t *testing.T) {
 	})
 
 	t.Run("a retry after the writes went through has nothing left to do", func(t *testing.T) {
-		plan, err := planResourceInstances(
+		plan, err := planInstance(
 			5,
 			[]v0.KubernetesWorkloadResourceInstance{storedWRI(20, deploymentV2), storedWRI(22, configMapWeb)},
 			[]v0.KubernetesWorkloadResourceInstance{renderedWRI(deploymentV1), renderedWRI(serviceWeb)},
@@ -213,7 +213,7 @@ func TestPlanResourceInstances(t *testing.T) {
 		leaving := storedWRI(21, serviceWeb)
 		leaving.ScheduledForDeletion = util.Ptr(time.Now())
 
-		plan, err := planResourceInstances(
+		plan, err := planInstance(
 			5,
 			[]v0.KubernetesWorkloadResourceInstance{storedWRI(20, deploymentV1), leaving},
 			[]v0.KubernetesWorkloadResourceInstance{renderedWRI(deploymentV1), renderedWRI(serviceWeb)},
@@ -222,17 +222,77 @@ func TestPlanResourceInstances(t *testing.T) {
 		require.NoError(t, err)
 		assert.False(t, plan.changed())
 
-		// and declared once more, it is created afresh beside the one leaving
-		plan, err = planResourceInstances(
+		// and declared once more, it is waited for rather than created beside
+		// the one leaving: the instance reconciler would apply one and delete
+		// the other in the same pass, in whichever order they are listed
+		plan, err = planInstance(
 			5,
 			[]v0.KubernetesWorkloadResourceInstance{storedWRI(20, deploymentV1), leaving},
 			[]v0.KubernetesWorkloadResourceInstance{renderedWRI(deploymentV1)},
 			[]v0.KubernetesWorkloadResourceInstance{renderedWRI(deploymentV1), renderedWRI(serviceWeb)},
 		)
 		require.NoError(t, err)
-		require.Len(t, plan.create, 1)
-		assert.Empty(t, plan.update)
+		assert.Empty(t, plan.create)
+		assert.Equal(t, []string{"/Service/web"}, plan.leaving)
 	})
+
+	t.Run("resources are matched whatever namespace the instance placed them in", func(t *testing.T) {
+		// before and after are compared before namespaces are set, which needs
+		// nothing from the cluster; the instance holds them placed
+		placedDeployment := `{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"web","namespace":"web-5"},"spec":{"replicas":3}}`
+		plan, err := planResourceInstances(
+			5,
+			[]v0.KubernetesWorkloadResourceInstance{
+				storedWRI(20, `{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"web","namespace":"web-5"},"spec":{"replicas":1}}`),
+				storedWRI(21, `{"apiVersion":"v1","kind":"Service","metadata":{"name":"web","namespace":"web-5"}}`),
+			},
+			[]v0.KubernetesWorkloadResourceInstance{renderedWRI(deploymentV1), renderedWRI(serviceWeb)},
+			[]v0.KubernetesWorkloadResourceInstance{renderedWRI(deploymentV2)},
+			[]v0.KubernetesWorkloadResourceInstance{renderedWRI(placedDeployment)},
+		)
+		require.NoError(t, err)
+		require.Len(t, plan.update, 1)
+		assert.JSONEq(t, placedDeployment, string(*plan.update[0].JSONDefinition))
+		require.Len(t, plan.remove, 1)
+		assert.Equal(t, uint(21), *plan.remove[0].ID)
+	})
+}
+
+// planInstance plans for an instance whose resources need no namespace.
+func planInstance(
+	instanceID uint,
+	existing, before, after []v0.KubernetesWorkloadResourceInstance,
+) (*resourceInstancePlan, error) {
+	return planResourceInstances(instanceID, existing, before, after, after)
+}
+
+// TestKnownNamespacing covers placing resources without asking the cluster
+// about kinds the instance already holds - the cluster may no longer serve the
+// API version they were written in.
+func TestKnownNamespacing(t *testing.T) {
+	var asked []string
+	ask := func(jsonDef string) (bool, error) {
+		asked = append(asked, jsonDef)
+		return true, nil
+	}
+	isNamespaced, err := knownNamespacing([]v0.KubernetesWorkloadResourceInstance{
+		storedWRI(20, `{"apiVersion":"batch/v1beta1","kind":"CronJob","metadata":{"name":"nightly","namespace":"web-5"}}`),
+		storedWRI(21, `{"apiVersion":"rbac.authorization.k8s.io/v1","kind":"ClusterRole","metadata":{"name":"web"}}`),
+	}, ask)
+	require.NoError(t, err)
+
+	namespaced, err := isNamespaced(`{"apiVersion":"batch/v1","kind":"CronJob","metadata":{"name":"nightly"}}`)
+	require.NoError(t, err)
+	assert.True(t, namespaced, "a CronJob moved to batch/v1 is the one the instance holds")
+
+	namespaced, err = isNamespaced(`{"apiVersion":"rbac.authorization.k8s.io/v1","kind":"ClusterRole","metadata":{"name":"web"}}`)
+	require.NoError(t, err)
+	assert.False(t, namespaced)
+	assert.Empty(t, asked, "nothing the instance holds is asked about")
+
+	_, err = isNamespaced(configMapWeb)
+	require.NoError(t, err)
+	assert.Equal(t, []string{configMapWeb}, asked, "a resource it does not hold is")
 }
 
 // TestManagedNamespace covers which namespace a set of resources runs in.

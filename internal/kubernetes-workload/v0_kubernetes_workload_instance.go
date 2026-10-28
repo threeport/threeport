@@ -301,22 +301,38 @@ func v0KubernetesWorkloadInstanceUpdated(
 		return 0, fmt.Errorf("failed to get kube discovery client for cluster: %w", err)
 	}
 
-	// manipulate namespace on kube resources as needed
-	processedWRIs, err := kube.SetNamespaces(
-		k8sWorkloadResourceInstances,
-		k8sWorkloadInstance.Name,
-		k8sWorkloadInstance.ID,
-		discoveryClient,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to set namespaces for kubernetes workload resource instances: %w", err)
+	// resources scheduled for deletion are deleted as stored: they already
+	// carry their namespace, and the cluster may no longer serve the API
+	// version they were written in, which asking it about them would require
+	var applied, scheduled []v0.KubernetesWorkloadResourceInstance
+	for _, wri := range *k8sWorkloadResourceInstances {
+		if wri.ScheduledForDeletion != nil {
+			scheduled = append(scheduled, wri)
+		} else {
+			applied = append(applied, wri)
+		}
 	}
 
-	// return if namespaceWRI hasn't been created yet
-	namespaceWRI := (*processedWRIs)[0]
-	if namespaceWRI.ID == nil {
-		return 0, fmt.Errorf("namespace not created yet")
+	// manipulate namespace on kube resources as needed
+	processedWRIs := &[]v0.KubernetesWorkloadResourceInstance{}
+	if len(applied) > 0 {
+		processedWRIs, err = kube.SetNamespaces(
+			&applied,
+			k8sWorkloadInstance.Name,
+			k8sWorkloadInstance.ID,
+			discoveryClient,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to set namespaces for kubernetes workload resource instances: %w", err)
+		}
+
+		// return if namespaceWRI hasn't been created yet
+		namespaceWRI := (*processedWRIs)[0]
+		if namespaceWRI.ID == nil {
+			return 0, fmt.Errorf("namespace not created yet")
+		}
 	}
+	*processedWRIs = append(*processedWRIs, scheduled...)
 
 	// create a client to connect to kube API
 	dynamicKubeClient, mapper, err := kube.GetClient(
