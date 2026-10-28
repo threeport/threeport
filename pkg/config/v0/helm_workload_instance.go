@@ -341,12 +341,12 @@ func (h *HelmWorkloadInstanceConfig) Delete(
 	}
 
 	// wait for helm workload instance to be deleted
-	util.Retry(60, 1, func() error {
-		if _, err := client_v0.GetHelmWorkloadInstanceByName(apiClient, apiEndpoint, *helmWorkloadInstanceValues.Name); err == nil {
-			return errors.New("helm workload instance not deleted")
-		}
-		return nil
-	})
+	if err := waitForInstanceDeleted("helm workload", *helmWorkloadInstanceValues.Name, 60, 1, func() error {
+		_, err := client_v0.GetHelmWorkloadInstanceByName(apiClient, apiEndpoint, *helmWorkloadInstanceValues.Name)
+		return err
+	}); err != nil {
+		return nil, err
+	}
 
 	// construct deleted helm workload instance config
 	deletedHelmWorkloadInstanceConfig := &HelmWorkloadInstanceConfig{

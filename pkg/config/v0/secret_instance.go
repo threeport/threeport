@@ -353,12 +353,12 @@ func (s *SecretInstanceConfig) Delete(
 	}
 
 	// wait for secret instance to be deleted
-	util.Retry(60, 1, func() error {
-		if _, err := client_v0.GetSecretInstanceByName(apiClient, apiEndpoint, *secretInstanceValues.Name); err == nil {
-			return errors.New("secret instance not deleted")
-		}
-		return nil
-	})
+	if err := waitForInstanceDeleted("secret", *secretInstanceValues.Name, 60, 1, func() error {
+		_, err := client_v0.GetSecretInstanceByName(apiClient, apiEndpoint, *secretInstanceValues.Name)
+		return err
+	}); err != nil {
+		return nil, err
+	}
 
 	// construct deleted secret instance config
 	deletedSecretInstanceConfig := &SecretInstanceConfig{

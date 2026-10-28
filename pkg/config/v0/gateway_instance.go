@@ -292,12 +292,12 @@ func (g *GatewayInstanceConfig) Delete(
 	}
 
 	// wait for gateway instance to be deleted
-	util.Retry(60, 1, func() error {
-		if _, err := client_v0.GetGatewayInstanceByName(apiClient, apiEndpoint, *gatewayInstanceValues.Name); err == nil {
-			return errors.New("gateway instance not deleted")
-		}
-		return nil
-	})
+	if err := waitForInstanceDeleted("gateway", *gatewayInstanceValues.Name, 60, 1, func() error {
+		_, err := client_v0.GetGatewayInstanceByName(apiClient, apiEndpoint, *gatewayInstanceValues.Name)
+		return err
+	}); err != nil {
+		return nil, err
+	}
 
 	// construct deleted gateway instance config
 	deletedGatewayInstanceConfig := &GatewayInstanceConfig{
