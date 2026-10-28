@@ -44,6 +44,10 @@ type fakeThreeportAPI struct {
 
 	// failWrite, when set, fails every write to a path with this prefix
 	failWrite string
+
+	// definitionReconciled records the Reconciled value of each write to the
+	// definition
+	definitionReconciled []bool
 }
 
 func newFakeThreeportAPI() *fakeThreeportAPI {
@@ -118,6 +122,12 @@ func (f *fakeThreeportAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			_ = json.NewDecoder(r.Body).Decode(wrd)
 		}
 		respond(http.StatusOK, *wrd)
+
+	case strings.HasPrefix(r.URL.Path, v0.PathKubernetesWorkloadDefinitions+"/") && r.Method == http.MethodPatch:
+		var patch v0.KubernetesWorkloadDefinition
+		_ = json.NewDecoder(r.Body).Decode(&patch)
+		f.definitionReconciled = append(f.definitionReconciled, patch.Reconciled != nil && *patch.Reconciled)
+		respond(http.StatusOK, patch)
 
 	case r.URL.Path == v0.PathKubernetesWorkloadInstances && r.Method == http.MethodGet:
 		var found []apiserver_lib.Object
@@ -407,8 +417,8 @@ func (f *definitionUpdateFixture) resources(t *testing.T, instanceID uint) map[s
 		if *wri.KubernetesWorkloadInstanceID != instanceID {
 			continue
 		}
-		key, _, err := resourceKey(*wri.JSONDefinition)
-		require.NoError(t, err)
+		object := resourceObject(t, *wri)
+		key := fmt.Sprintf("%s/%s/%s/%s", object.GroupVersionKind().Group, object.GetKind(), object.GetNamespace(), object.GetName())
 		if wri.ScheduledForDeletion != nil {
 			key = "leaving:" + key
 		}
@@ -795,4 +805,56 @@ func TestLockInstanceTakesTheInstanceReconcilersLock(t *testing.T) {
 	assert.True(t, kv.held[instanceReconcilerName+".8"])
 	release()
 	assert.False(t, kv.held[instanceReconcilerName+".8"])
+}
+
+// TestDefinitionUpdateHoldsBackNewInstances covers an instance created while
+// a definition update is under way.
+//
+// Its creation reads the resource definitions, which an update writes last.
+// Created after the update listed the instances but before it wrote them, it
+// would deploy the old resources, and keep them: every later attempt would find
+// the resource definitions already in line with the YAML. Creation waits on a
+// definition that is not reconciled, so the update marks it so first.
+func TestDefinitionUpdateHoldsBackNewInstances(t *testing.T) {
+	fixture := newDefinitionUpdateFixture(t, yamlDocument(fmt.Sprintf(webDeployment, 1, "nginx:1.26"), webService))
+	fixture.definition.Reconciled = util.Ptr(true)
+
+	require.NoError(t, fixture.update(yamlDocument(fmt.Sprintf(webDeployment, 1, "nginx:1.27"), webService)))
+	require.NotEmpty(t, fixture.api.writes)
+	assert.Equal(t, http.MethodPatch+" "+v0.PathKubernetesWorkloadDefinitions+"/1", fixture.api.writes[0],
+		"marked before any instance is listed or written")
+	assert.Equal(t, []bool{false}, fixture.api.definitionReconciled)
+
+	t.Run("not again when it already is", func(t *testing.T) {
+		fixture.api.writes = nil
+		fixture.api.definitionReconciled = nil
+		fixture.definition.Reconciled = util.Ptr(false)
+		require.NoError(t, fixture.update(yamlDocument(fmt.Sprintf(webDeployment, 1, "nginx:1.28"), webService)))
+		assert.Empty(t, fixture.api.definitionReconciled)
+	})
+}
+
+// TestDefinitionUpdateReachesOnlyForTheRuntimeWhenItMust covers an instance
+// whose cluster cannot be reached. A change to resources it already holds
+// needs nothing from the cluster, so it is written; one that adds a kind the
+// instance does not hold yet cannot be placed without asking.
+func TestDefinitionUpdateReachesOnlyForTheRuntimeWhenItMust(t *testing.T) {
+	unreachable := func(*controller.Reconciler, *v0.KubernetesWorkloadInstance) (*runtimeAccess, error) {
+		return nil, errors.New("connection refused")
+	}
+
+	t.Run("a change to held resources is written", func(t *testing.T) {
+		fixture := newDefinitionUpdateFixture(t, yamlDocument(fmt.Sprintf(webDeployment, 1, "nginx:1.26"), webService))
+		connectToRuntime = unreachable
+		require.NoError(t, fixture.update(yamlDocument(fmt.Sprintf(webDeployment, 1, "nginx:1.27"), webService)))
+		assert.False(t, *fixture.api.instances[fixture.plain].Reconciled)
+	})
+
+	t.Run("a kind new to the instance waits for the cluster", func(t *testing.T) {
+		fixture := newDefinitionUpdateFixture(t, yamlDocument(fmt.Sprintf(webDeployment, 1, "nginx:1.26"), webService))
+		connectToRuntime = unreachable
+		err := fixture.update(yamlDocument(fmt.Sprintf(webDeployment, 1, "nginx:1.26"), webService, webConfigMap))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "connection refused")
+	})
 }

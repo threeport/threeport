@@ -152,6 +152,24 @@ func v0KubernetesWorkloadDefinitionUpdated(
 		))
 	}
 
+	// hold back instances created from here on until the resource definitions
+	// are written - their creation waits on a definition not yet reconciled,
+	// and would otherwise read the old resource definitions after the
+	// instances were listed here, and keep them for good. An instance whose
+	// creation is already under way holds its lock, which is waited for below.
+	if k8sWorkloadDefinition.Reconciled == nil || *k8sWorkloadDefinition.Reconciled {
+		if _, err := client.UpdateKubernetesWorkloadDefinition(
+			r.APIClient,
+			r.APIServer,
+			&v0.KubernetesWorkloadDefinition{
+				Common:         v0.Common{ID: k8sWorkloadDefinition.ID},
+				Reconciliation: v0.Reconciliation{Reconciled: util.Ptr(false)},
+			},
+		); err != nil {
+			return 0, fmt.Errorf("failed to mark kubernetes workload definition as being reconciled: %w", err)
+		}
+	}
+
 	// bring each instance in line with the new resource definitions
 	k8sWorkloadInstances, err := client.GetKubernetesWorkloadInstancesByID(
 		r.APIClient,
@@ -269,11 +287,28 @@ func updateInstanceResources(
 	if err != nil {
 		return "", err
 	}
-	runtime, err := connectToRuntime(r, k8sWorkloadInstance)
-	if err != nil {
-		return "", fmt.Errorf("failed to connect to the kubernetes runtime of kubernetes workload instance with ID %d: %w", *k8sWorkloadInstance.ID, err)
+	// the runtime is only asked about kinds the instance does not hold yet and
+	// resources it is about to create, so a change to resources it already
+	// holds is written even while its cluster cannot be reached
+	var runtime *runtimeAccess
+	connect := func() (*runtimeAccess, error) {
+		if runtime != nil {
+			return runtime, nil
+		}
+		connected, err := connectToRuntime(r, k8sWorkloadInstance)
+		if err != nil {
+			return nil, fmt.Errorf("failed to connect to the kubernetes runtime of kubernetes workload instance with ID %d: %w", *k8sWorkloadInstance.ID, err)
+		}
+		runtime = connected
+		return runtime, nil
 	}
-	isNamespaced, err := knownNamespacing(*existingWRIs, runtime.isNamespaced)
+	isNamespaced, err := knownNamespacing(*existingWRIs, func(jsonDef string) (bool, error) {
+		connected, err := connect()
+		if err != nil {
+			return false, err
+		}
+		return connected.isNamespaced(jsonDef)
+	})
 	if err != nil {
 		return "", err
 	}
@@ -313,7 +348,11 @@ func updateInstanceResources(
 		if waitFor != "" {
 			break
 		}
-		terminating, err := runtime.terminating(*wri.JSONDefinition)
+		connected, err := connect()
+		if err != nil {
+			return "", err
+		}
+		terminating, err := connected.terminating(*wri.JSONDefinition)
 		if err != nil {
 			return "", fmt.Errorf("failed to check kubernetes runtime for a resource being deleted: %w", err)
 		}

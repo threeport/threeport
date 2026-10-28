@@ -16,35 +16,6 @@ import (
 // namespaceKind is the kind a definition uses to manage its own namespace.
 const namespaceKind = "Namespace"
 
-// resourceKey identifies a Kubernetes resource the way the Kubernetes API does:
-// by group, kind, namespace and name. The version is left out, so a manifest
-// moved to a newer API version is the same resource rather than a new one.
-//
-// A document that is not an object - the null an empty YAML document parses
-// to - is not a resource, and is reported as such rather than as an error.
-func resourceKey(jsonDefinition []byte) (key string, isResource bool, err error) {
-	var object map[string]interface{}
-	if err := json.Unmarshal(jsonDefinition, &object); err != nil {
-		return "", false, fmt.Errorf("failed to unmarshal resource json: %w", err)
-	}
-	if object == nil {
-		return "", false, nil
-	}
-
-	resource := unstructured.Unstructured{Object: object}
-	if resource.GetKind() == "" || resource.GetName() == "" {
-		return "", false, fmt.Errorf("resource has no kind or no name: %s", jsonDefinition)
-	}
-
-	return fmt.Sprintf(
-		"%s/%s/%s/%s",
-		resource.GroupVersionKind().Group,
-		resource.GetKind(),
-		resource.GetNamespace(),
-		resource.GetName(),
-	), true, nil
-}
-
 // sameJSON reports whether two JSON documents hold the same content. The API
 // stores them as jsonb, which does not keep the key order or spacing they were
 // written with, so comparing bytes would see a change in every stored resource.
@@ -102,9 +73,11 @@ func (p *resourceDefinitionPlan) changed() bool {
 // planResourceDefinitions compares a workload definition's stored resource
 // definitions with the resources its YAML document declares now.
 //
-// Resources are matched by resourceKey, so a stored resource definition keeps
-// its ID when its manifest changes, and is only removed when the YAML no
-// longer declares that resource at all.
+// Resources are matched by instanceResourceKey - the way an instance deploys
+// them - so a stored resource definition keeps its ID when its manifest
+// changes, and is only removed when the YAML no longer declares that resource
+// at all. Two manifests an instance would deploy as the same object are
+// refused rather than one silently replacing the other.
 func planResourceDefinitions(
 	definitionID uint,
 	existing []v0.KubernetesWorkloadResourceDefinition,
@@ -117,7 +90,7 @@ func planResourceDefinitions(
 			plan.remove = append(plan.remove, resourceDefinition)
 			continue
 		}
-		key, isResource, err := resourceKey(*resourceDefinition.JSONDefinition)
+		key, isResource, err := instanceResourceKey(*resourceDefinition.JSONDefinition)
 		if err != nil {
 			return nil, fmt.Errorf("failed to identify stored kubernetes workload resource definition with ID %d: %w", *resourceDefinition.ID, err)
 		}
@@ -130,7 +103,7 @@ func planResourceDefinitions(
 
 	declaredKeys := map[string]bool{}
 	for _, jsonContent := range declared {
-		key, isResource, err := resourceKey(jsonContent)
+		key, isResource, err := instanceResourceKey(jsonContent)
 		if err != nil {
 			return nil, fmt.Errorf("failed to identify resource in YAML document: %w", err)
 		}

@@ -104,7 +104,29 @@ func TestPlanResourceDefinitions(t *testing.T) {
 	t.Run("a resource declared twice is refused", func(t *testing.T) {
 		_, err := planResourceDefinitions(1, existing, [][]byte{[]byte(deploymentV1), []byte(deploymentV2)})
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "apps/Deployment//web")
+		assert.Contains(t, err.Error(), "apps/Deployment/web")
+	})
+
+	t.Run("the same resource in two namespaces is declared twice", func(t *testing.T) {
+		// an instance places both in its own namespace, as one object
+		_, err := planResourceDefinitions(1, existing, [][]byte{
+			[]byte(`{"apiVersion":"v1","kind":"Service","metadata":{"name":"web","namespace":"a"}}`),
+			[]byte(`{"apiVersion":"v1","kind":"Service","metadata":{"name":"web","namespace":"b"}}`),
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "more than once")
+	})
+
+	t.Run("a manifest's namespace edited alone keeps its resource definition", func(t *testing.T) {
+		plan, err := planResourceDefinitions(1, existing, [][]byte{
+			[]byte(deploymentV1),
+			[]byte(`{"apiVersion":"v1","kind":"Service","metadata":{"name":"web","namespace":"team"}}`),
+		})
+		require.NoError(t, err)
+		require.Len(t, plan.update, 1)
+		assert.Equal(t, uint(11), *plan.update[0].ID)
+		assert.Empty(t, plan.create)
+		assert.Empty(t, plan.remove)
 	})
 }
 
