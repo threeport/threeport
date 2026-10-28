@@ -121,6 +121,9 @@ func installDependencies(t *testing.T, cpi *ControlPlaneInstaller) *dynamicfake.
 	t.Helper()
 
 	fakeClient := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
+	// a production install bootstraps the database with a job, which no
+	// fake cluster runs
+	succeedDropJob(fakeClient)
 	mapper := backupTestMapper()
 	dbCreds, err := auth.GenerateDbCreds(cpi.Opts.Namespace)
 	require.NoError(t, err)
