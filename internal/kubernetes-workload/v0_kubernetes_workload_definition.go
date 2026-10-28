@@ -10,7 +10,10 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	tp_errors "github.com/threeport/threeport/pkg/errors/v0"
+	event "github.com/threeport/threeport/pkg/event/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 	"gorm.io/datatypes"
 )
 
@@ -66,12 +69,297 @@ func v0KubernetesWorkloadDefinitionCreated(
 
 // v0KubernetesWorkloadDefinitionUpdated performs reconciliation when a v0 kubernetes workload definition
 // has been updated.
+//
+// The resource definitions are what instances are built from, and they are
+// first written when the definition is created. When the YAML document has
+// changed since, they are brought in line with it here, and so is every
+// instance already running: each one's resource instances are rewritten where
+// the change touched them and the instance is marked for update, which applies
+// them to its cluster. Any other change to the definition writes nothing.
+//
+// Instances are written before the resource definitions. Should this fail
+// part way through, the retry still finds the resource definitions as they
+// were, so it renders the same before-and-after for each instance and picks
+// up where this left off.
 func v0KubernetesWorkloadDefinitionUpdated(
 	r *controller.Reconciler,
 	k8sWorkloadDefinition *v0.KubernetesWorkloadDefinition,
 	log *logr.Logger,
 ) (int64, error) {
+	if k8sWorkloadDefinition.YAMLDocument == nil {
+		return 0, nil
+	}
+
+	// parse YAMLDocument and get kube objects in JSON
+	jsonObjects, err := kube.GetJsonResourcesFromYamlDoc(*k8sWorkloadDefinition.YAMLDocument)
+	if err != nil {
+		return 0, definitionUpdateError(fmt.Sprintf("failed to get JSON kube objects from YAML document: %s", err))
+	}
+
+	// compare with the resource definitions instances are built from
+	existingWRDs, err := client.GetKubernetesWorkloadResourceDefinitionsByID(
+		r.APIClient,
+		r.APIServer,
+		*k8sWorkloadDefinition.ID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get kubernetes workload resource definitions by kubernetes workload definition ID: %w", err)
+	}
+	plan, err := planResourceDefinitions(*k8sWorkloadDefinition.ID, *existingWRDs, jsonObjects)
+	if err != nil {
+		return 0, definitionUpdateError(err.Error())
+	}
+	if !plan.changed() {
+		return 0, nil
+	}
+	if len(plan.desired) == 0 {
+		// taken at its word this would delete every running instance's
+		// resources, which is what deleting the instances is for
+		return 0, definitionUpdateError("YAML document declares no resources")
+	}
+
+	// a change of namespace would move every namespaced resource of every
+	// instance, deleting each from where it runs and creating it again
+	// elsewhere - not something to do as a side effect of an edit
+	var existingJSON [][]byte
+	for _, wrd := range *existingWRDs {
+		if wrd.JSONDefinition != nil {
+			existingJSON = append(existingJSON, *wrd.JSONDefinition)
+		}
+	}
+	namespaceBefore, err := managedNamespace(existingJSON)
+	if err != nil {
+		return 0, fmt.Errorf("failed to determine namespace of stored resource definitions: %w", err)
+	}
+	namespaceAfter, err := managedNamespace(jsonObjects)
+	if err != nil {
+		return 0, definitionUpdateError(fmt.Sprintf("failed to determine namespace of YAML document: %s", err))
+	}
+	if namespaceBefore != namespaceAfter {
+		return 0, definitionUpdateError(fmt.Sprintf(
+			"YAML document changes the namespace its resources run in from %s to %s, which running instances cannot follow - create a new definition instead",
+			namespaceDescription(namespaceBefore),
+			namespaceDescription(namespaceAfter),
+		))
+	}
+
+	// bring each instance in line with the new resource definitions
+	k8sWorkloadInstances, err := client.GetKubernetesWorkloadInstancesByID(
+		r.APIClient,
+		r.APIServer,
+		*k8sWorkloadDefinition.ID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get kubernetes workload instances by kubernetes workload definition ID: %w", err)
+	}
+	for _, k8sWorkloadInstance := range *k8sWorkloadInstances {
+		if err := updateInstanceResources(r, &k8sWorkloadInstance, *existingWRDs, plan.desired, log); err != nil {
+			return 0, err
+		}
+	}
+
+	// then the resource definitions themselves, which instances created from
+	// here on are built from
+	for _, wrd := range plan.create {
+		created, err := client.CreateKubernetesWorkloadResourceDefinition(r.APIClient, r.APIServer, &wrd)
+		if err != nil {
+			return 0, fmt.Errorf("failed to create kubernetes workload resource definition: %w", err)
+		}
+		log.V(1).Info(
+			"kubernetes workload resource definition created",
+			"kubernetesWorkloadResourceDefinitionID", created.ID,
+		)
+	}
+	for _, wrd := range plan.update {
+		if _, err := client.UpdateKubernetesWorkloadResourceDefinition(r.APIClient, r.APIServer, &wrd); err != nil {
+			return 0, fmt.Errorf("failed to update kubernetes workload resource definition with ID %d: %w", *wrd.ID, err)
+		}
+		log.V(1).Info(
+			"kubernetes workload resource definition updated",
+			"kubernetesWorkloadResourceDefinitionID", wrd.ID,
+		)
+	}
+	for _, wrd := range plan.remove {
+		if _, err := client.DeleteKubernetesWorkloadResourceDefinition(r.APIClient, r.APIServer, *wrd.ID); err != nil {
+			return 0, fmt.Errorf("failed to delete kubernetes workload resource definition with ID %d: %w", *wrd.ID, err)
+		}
+		log.V(1).Info(
+			"kubernetes workload resource definition deleted",
+			"kubernetesWorkloadResourceDefinitionID", wrd.ID,
+		)
+	}
+
 	return 0, nil
+}
+
+// updateInstanceResources rewrites one instance's resource instances for a
+// change to its definition's resources and marks the instance for update.
+func updateInstanceResources(
+	r *controller.Reconciler,
+	k8sWorkloadInstance *v0.KubernetesWorkloadInstance,
+	before []v0.KubernetesWorkloadResourceDefinition,
+	after []v0.KubernetesWorkloadResourceDefinition,
+	log *logr.Logger,
+) error {
+	// an instance being deleted is not worth updating
+	if k8sWorkloadInstance.DeletionScheduled != nil {
+		return nil
+	}
+
+	// an instance holding no resources has not been deployed yet, and is
+	// built from the definition's resources when it is
+	existingWRIs, err := client.GetKubernetesWorkloadResourceInstancesByID(
+		r.APIClient,
+		r.APIServer,
+		*k8sWorkloadInstance.ID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get kubernetes workload resource instances for kubernetes workload instance with ID %d: %w", *k8sWorkloadInstance.ID, err)
+	}
+	if len(*existingWRIs) == 0 {
+		return nil
+	}
+
+	// render the definition's resources before and after the change the way
+	// this instance deploys them
+	setNamespaces, err := runtimeNamespaceSetter(r, k8sWorkloadInstance)
+	if err != nil {
+		return fmt.Errorf("failed to set up namespacing for kubernetes workload instance with ID %d: %w", *k8sWorkloadInstance.ID, err)
+	}
+	render := func(wrds []v0.KubernetesWorkloadResourceDefinition) ([]v0.KubernetesWorkloadResourceInstance, error) {
+		wris, err := instanceResources(k8sWorkloadInstance, wrds)
+		if err != nil {
+			return nil, err
+		}
+		if len(wris) == 0 {
+			return nil, nil
+		}
+		processed, err := setNamespaces(&wris, k8sWorkloadInstance)
+		if err != nil {
+			return nil, fmt.Errorf("failed to set namespaces for kubernetes workload resource instances: %w", err)
+		}
+		return *processed, nil
+	}
+	renderedBefore, err := render(before)
+	if err != nil {
+		return err
+	}
+	renderedAfter, err := render(after)
+	if err != nil {
+		return err
+	}
+
+	plan, err := planResourceInstances(*k8sWorkloadInstance.ID, *existingWRIs, renderedBefore, renderedAfter)
+	if err != nil {
+		return fmt.Errorf("failed to compare resources of kubernetes workload instance with ID %d: %w", *k8sWorkloadInstance.ID, err)
+	}
+	// resources already rewritten but not yet applied are left by an earlier
+	// attempt that failed before marking the instance, so it is marked for them
+	pending := false
+	for _, wri := range *existingWRIs {
+		if wri.Reconciled != nil && !*wri.Reconciled {
+			pending = true
+		}
+	}
+	if !plan.changed() && !pending {
+		return nil
+	}
+
+	for _, wri := range plan.create {
+		if _, err := client.CreateKubernetesWorkloadResourceInstance(r.APIClient, r.APIServer, &wri); err != nil {
+			return fmt.Errorf("failed to create kubernetes workload resource instance: %w", err)
+		}
+	}
+	for _, wri := range append(plan.update, plan.remove...) {
+		if _, err := client.UpdateKubernetesWorkloadResourceInstance(r.APIClient, r.APIServer, &wri); err != nil {
+			return fmt.Errorf("failed to update kubernetes workload resource instance with ID %d: %w", *wri.ID, err)
+		}
+	}
+
+	// have the instance apply them to its cluster
+	if _, err := client.UpdateKubernetesWorkloadInstance(
+		r.APIClient,
+		r.APIServer,
+		&v0.KubernetesWorkloadInstance{
+			Common:         v0.Common{ID: k8sWorkloadInstance.ID},
+			Reconciliation: v0.Reconciliation{Reconciled: util.Ptr(false)},
+		},
+	); err != nil {
+		return fmt.Errorf("failed to mark kubernetes workload instance with ID %d for update: %w", *k8sWorkloadInstance.ID, err)
+	}
+
+	log.V(1).Info(
+		"kubernetes workload instance updated for definition change",
+		"kubernetesWorkloadInstanceID", k8sWorkloadInstance.ID,
+		"resourcesCreated", len(plan.create),
+		"resourcesUpdated", len(plan.update),
+		"resourcesRemoved", len(plan.remove),
+	)
+
+	return nil
+}
+
+// namespaceSetter places an instance's resources in their namespace, adding
+// the namespace threeport manages for the instance when they declare none.
+type namespaceSetter func(
+	wris *[]v0.KubernetesWorkloadResourceInstance,
+	k8sWorkloadInstance *v0.KubernetesWorkloadInstance,
+) (*[]v0.KubernetesWorkloadResourceInstance, error)
+
+// runtimeNamespaceSetter returns the namespaceSetter for the runtime an
+// instance runs on, which is asked which kinds are namespaced - the same
+// kube.SetNamespaces an instance's resources went through when it was created.
+var runtimeNamespaceSetter = func(
+	r *controller.Reconciler,
+	k8sWorkloadInstance *v0.KubernetesWorkloadInstance,
+) (namespaceSetter, error) {
+	kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(
+		r.APIClient,
+		r.APIServer,
+		*k8sWorkloadInstance.KubernetesRuntimeInstanceID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get kubernetes runtime instance by ID: %w", err)
+	}
+	discoveryClient, err := kube.GetDiscoveryClient(
+		kubernetesRuntimeInstance,
+		true,
+		r.APIClient,
+		r.APIServer,
+		r.EncryptionKey,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get kubernetes API discovery client for kubernetes runtime instance: %w", err)
+	}
+
+	return func(
+		wris *[]v0.KubernetesWorkloadResourceInstance,
+		k8sWorkloadInstance *v0.KubernetesWorkloadInstance,
+	) (*[]v0.KubernetesWorkloadResourceInstance, error) {
+		return kube.SetNamespaces(wris, k8sWorkloadInstance.Name, k8sWorkloadInstance.ID, discoveryClient)
+	}, nil
+}
+
+// namespaceDescription names a namespace for a message, "" being the one
+// threeport manages for each instance.
+func namespaceDescription(namespace string) string {
+	if namespace == "" {
+		return "the one threeport manages for each instance"
+	}
+	return namespace
+}
+
+// definitionUpdateError is a definition update that cannot go ahead as written,
+// recorded as a warning on the definition so the user who wrote it sees why.
+func definitionUpdateError(message string) error {
+	return &tp_errors.ErrWithEvent{
+		Message: message,
+		Event: v0.Event{
+			Type:   util.Ptr(event.TypeWarning),
+			Reason: util.Ptr("DefinitionUpdateError"),
+			Note:   util.Ptr(message),
+		},
+	}
 }
 
 // v0KubernetesWorkloadDefinitionDeleted performs reconciliation when a v0 kubernetes workload definition

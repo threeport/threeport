@@ -84,59 +84,14 @@ func v0KubernetesWorkloadInstanceCreated(
 		},
 	}
 
-	// construct kubernetes workload resource instances - each is normally a
-	// copy of its resource definition's JSONDefinition, but if this
-	// instance carries a KustomizeOverlay, the overlay is rendered on top
-	// of the definition's base manifests and the resulting resources are
-	// used instead, so a definition can keep owning a single shared set of
-	// manifests while this instance patches or augments them (see
-	// threeport#556).
-	//
-	// The overlay is rendered against k8sWorkloadResourceDefinitions (the
-	// same WRDs the non-overlay branch below copies verbatim), not
-	// k8sWorkloadDefinition.YAMLDocument. v0KubernetesWorkloadDefinitionUpdated
-	// does not regenerate the WRDs when a definition's YAMLDocument is
-	// edited, so YAMLDocument can already be ahead of the WRDs at the time
-	// an instance is created. Rendering from YAMLDocument would let an
-	// overlaid instance deploy a different base than a plain instance of
-	// the same definition, for reasons unrelated to the overlay itself.
-	// Rendering from the WRDs instead guarantees both branches always
-	// start from the identical base, whatever state it happens to be in.
-	var k8sWorkloadResourceInstances []v0.KubernetesWorkloadResourceInstance
-	if k8sWorkloadInstance.KustomizeOverlay != nil {
-		renderedResources, err := kube.RenderKustomizeOverlay(
-			kube.KustomizeBase(*k8sWorkloadResourceDefinitions),
-			*k8sWorkloadInstance.KustomizeOverlay,
-		)
-		if err != nil {
-			return 0, &tp_errors.ErrWithEvent{
-				Message: fmt.Sprintf("failed to render kustomize overlay: %s", err),
-				Event: v0.Event{
-					Type:   util.Ptr(event.TypeWarning),
-					Reason: util.Ptr("KustomizeOverlayError"),
-					Note:   util.Ptr(fmt.Sprintf("failed to render kustomize overlay for kubernetes workload instance: %s", err)),
-				},
-			}
-		}
-		for _, jsonContent := range renderedResources {
-			var jsonDefinition datatypes.JSON
-			if err := jsonDefinition.UnmarshalJSON(jsonContent); err != nil {
-				return 0, fmt.Errorf("failed to unmarshal rendered kustomize resource to datatypes.JSON: %w", err)
-			}
-			wri := v0.KubernetesWorkloadResourceInstance{
-				JSONDefinition:               &jsonDefinition,
-				KubernetesWorkloadInstanceID: k8sWorkloadInstance.ID,
-			}
-			k8sWorkloadResourceInstances = append(k8sWorkloadResourceInstances, wri)
-		}
-	} else {
-		for _, wrd := range *k8sWorkloadResourceDefinitions {
-			wri := v0.KubernetesWorkloadResourceInstance{
-				JSONDefinition:               wrd.JSONDefinition,
-				KubernetesWorkloadInstanceID: k8sWorkloadInstance.ID,
-			}
-			k8sWorkloadResourceInstances = append(k8sWorkloadResourceInstances, wri)
-		}
+	// construct kubernetes workload resource instances from the definition's
+	// resources, with this instance's overlay applied if it has one
+	k8sWorkloadResourceInstances, err := instanceResources(
+		k8sWorkloadInstance,
+		*k8sWorkloadResourceDefinitions,
+	)
+	if err != nil {
+		return 0, err
 	}
 
 	// get kubernetes runtime instance info
@@ -186,28 +141,10 @@ func v0KubernetesWorkloadInstanceCreated(
 
 	// create each resource in the target kubernetes runtime instance
 	for _, wri := range *processedWRIs {
-		// marshal the resource definition json
-		jsonDefinition, err := wri.JSONDefinition.MarshalJSON()
+		// build the kube object, labelled to signal the threeport agent
+		kubeObject, err := labelledKubeObject(&wri, k8sWorkloadDefinition, k8sWorkloadInstance)
 		if err != nil {
-			return 0, fmt.Errorf("failed to marshal json for kubernetes workload resource instance: %w", err)
-		}
-
-		// build kube unstructured object from json
-		kubeObject := &unstructured.Unstructured{Object: map[string]interface{}{}}
-		if err := kubeObject.UnmarshalJSON(jsonDefinition); err != nil {
-			return 0, fmt.Errorf("failed to unmarshal json to kubernetes unstructured object: %w", err)
-		}
-
-		// set label metadata on kube object to signal threeport agent
-		kubeObject, err = kube.AddLabels(
-			kubeObject,
-			*k8sWorkloadDefinition.Name,
-			*k8sWorkloadInstance.Name,
-			*k8sWorkloadInstance.ID,
-			agent.KubernetesWorkloadInstanceLabelKey,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to add label metadata to objects: %w", err)
+			return 0, err
 		}
 
 		// create kube resource
@@ -342,6 +279,16 @@ func v0KubernetesWorkloadInstanceUpdated(
 		return 0, nil
 	}
 
+	// get the kubernetes workload definition, whose name labels each resource
+	k8sWorkloadDefinition, err := client.GetKubernetesWorkloadDefinitionByID(
+		r.APIClient,
+		r.APIServer,
+		*k8sWorkloadInstance.KubernetesWorkloadDefinitionID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get kubernetes workload definition for the instance being updated: %w", err)
+	}
+
 	// get a kube discovery client for the cluster
 	discoveryClient, err := kube.GetDiscoveryClient(
 		kubernetesRuntimeInstance,
@@ -387,20 +334,16 @@ func v0KubernetesWorkloadInstanceUpdated(
 	for _, wri := range *processedWRIs {
 
 		// only update resource instances that have not been reconciled
-		if *wri.Reconciled {
+		if wri.Reconciled != nil && *wri.Reconciled {
 			continue
 		}
 
-		// marshal the resource instance json
-		jsonDefinition, err := wri.JSONDefinition.MarshalJSON()
+		// build the kube object with the same labels it was created with -
+		// an update replaces the object, so labels left off here would be
+		// removed from it, and the agent finds a workload's pods by them
+		kubeObject, err := labelledKubeObject(&wri, k8sWorkloadDefinition, k8sWorkloadInstance)
 		if err != nil {
-			return 0, fmt.Errorf("failed to marshal json for kubernetes workload resource instance with ID %d: %w", wri.ID, err)
-		}
-
-		// build kube unstructured object from json
-		kubeObject := &unstructured.Unstructured{Object: map[string]interface{}{}}
-		if err := kubeObject.UnmarshalJSON(jsonDefinition); err != nil {
-			return 0, fmt.Errorf("failed to unmarshal json to kubernetes unstructured object for kubernetes workload resource instance with ID %d: %w", wri.ID, err)
+			return 0, fmt.Errorf("failed to build Kubernetes resource for kubernetes workload resource instance with ID %d: %w", *wri.ID, err)
 		}
 
 		// if the resource instance is scheduled for deletion, delete it
@@ -578,4 +521,93 @@ func confirmK8sWorkloadDefReconciled(
 	}
 
 	return true, nil
+}
+
+// instanceResources builds the resource instances a kubernetes workload
+// instance deploys from its definition's resource definitions.
+//
+// Each is normally a copy of its resource definition's JSONDefinition. If the
+// instance carries a KustomizeOverlay, the overlay is rendered on top of the
+// resource definitions and the resulting resources are used instead, so a
+// definition can keep owning a single shared set of manifests while this
+// instance patches or augments them (see threeport#556).
+//
+// Creating an instance and updating its definition both build resources here,
+// so an instance holds the same resources whichever way they reached it.
+func instanceResources(
+	k8sWorkloadInstance *v0.KubernetesWorkloadInstance,
+	k8sWorkloadResourceDefinitions []v0.KubernetesWorkloadResourceDefinition,
+) ([]v0.KubernetesWorkloadResourceInstance, error) {
+	var k8sWorkloadResourceInstances []v0.KubernetesWorkloadResourceInstance
+	if k8sWorkloadInstance.KustomizeOverlay == nil {
+		for _, wrd := range k8sWorkloadResourceDefinitions {
+			k8sWorkloadResourceInstances = append(k8sWorkloadResourceInstances, v0.KubernetesWorkloadResourceInstance{
+				JSONDefinition:               wrd.JSONDefinition,
+				KubernetesWorkloadInstanceID: k8sWorkloadInstance.ID,
+			})
+		}
+
+		return k8sWorkloadResourceInstances, nil
+	}
+
+	renderedResources, err := kube.RenderKustomizeOverlay(
+		kube.KustomizeBase(k8sWorkloadResourceDefinitions),
+		*k8sWorkloadInstance.KustomizeOverlay,
+	)
+	if err != nil {
+		return nil, &tp_errors.ErrWithEvent{
+			Message: fmt.Sprintf("failed to render kustomize overlay: %s", err),
+			Event: v0.Event{
+				Type:   util.Ptr(event.TypeWarning),
+				Reason: util.Ptr("KustomizeOverlayError"),
+				Note:   util.Ptr(fmt.Sprintf("failed to render kustomize overlay for kubernetes workload instance: %s", err)),
+			},
+		}
+	}
+	for _, jsonContent := range renderedResources {
+		var jsonDefinition datatypes.JSON
+		if err := jsonDefinition.UnmarshalJSON(jsonContent); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal rendered kustomize resource to datatypes.JSON: %w", err)
+		}
+		k8sWorkloadResourceInstances = append(k8sWorkloadResourceInstances, v0.KubernetesWorkloadResourceInstance{
+			JSONDefinition:               &jsonDefinition,
+			KubernetesWorkloadInstanceID: k8sWorkloadInstance.ID,
+		})
+	}
+
+	return k8sWorkloadResourceInstances, nil
+}
+
+// labelledKubeObject builds the Kubernetes object for a resource instance,
+// carrying the labels threeport identifies its managed resources by.
+func labelledKubeObject(
+	wri *v0.KubernetesWorkloadResourceInstance,
+	k8sWorkloadDefinition *v0.KubernetesWorkloadDefinition,
+	k8sWorkloadInstance *v0.KubernetesWorkloadInstance,
+) (*unstructured.Unstructured, error) {
+	// marshal the resource instance json
+	jsonDefinition, err := wri.JSONDefinition.MarshalJSON()
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal json for kubernetes workload resource instance: %w", err)
+	}
+
+	// build kube unstructured object from json
+	kubeObject := &unstructured.Unstructured{Object: map[string]interface{}{}}
+	if err := kubeObject.UnmarshalJSON(jsonDefinition); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal json to kubernetes unstructured object: %w", err)
+	}
+
+	// set label metadata on kube object to signal threeport agent
+	kubeObject, err = kube.AddLabels(
+		kubeObject,
+		*k8sWorkloadDefinition.Name,
+		*k8sWorkloadInstance.Name,
+		*k8sWorkloadInstance.ID,
+		agent.KubernetesWorkloadInstanceLabelKey,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to add label metadata to objects: %w", err)
+	}
+
+	return kubeObject, nil
 }
