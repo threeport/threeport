@@ -126,6 +126,14 @@ func CommandPreRunFunc(cmd *cobra.Command, args []string) {
 	}
 }
 
+// ConfigOnlyPreRunFunc loads the config without resolving a control plane to
+// talk to.  It is for the commands that work on the config itself and have to
+// run when there is no current control plane, which is what tptctl down leaves
+// behind.
+func ConfigOnlyPreRunFunc(cmd *cobra.Command, args []string) {
+	cli.InitConfig(cmd, cliArgs.CfgFile)
+}
+
 // initializeCommandContext initializes the command context.
 func initializeCommandContext(cmd *cobra.Command) error {
 	// get threeport config and extract threeport API endpoint
