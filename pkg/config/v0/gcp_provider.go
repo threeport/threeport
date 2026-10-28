@@ -191,17 +191,18 @@ func (g *GcpProviderConfig) Replace(
 	}
 
 	// construct updated gcp provider object
-	// preserve existing ServiceAccountCredentials
-	updatedGcpProvider := &api_v0.GcpProvider{
-		Common: api_v0.Common{
-			ID: existingGcpProvider.ID,
-		},
-		Name:                      gcpProviderValues.Name,
-		ProjectID:                 gcpProviderValues.ProjectID,
-		DefaultProvider:           gcpProviderValues.DefaultProvider,
-		DefaultRegion:             gcpProviderValues.DefaultRegion,
-		ServiceAccountCredentials: existingGcpProvider.ServiceAccountCredentials,
-	}
+	// Start from the existing object, so the fields this replace does not set
+	// are kept: the reconciler's (Reconciled and the rest of Reconciliation,
+	// Status) and the ones only the API server or a controller writes. Every
+	// field a user sets through the config is assigned below unconditionally,
+	// a nil value included, so a field left out of the config is cleared
+	// rather than kept. Do not assign the reconciler's fields here: the copy
+	// already carries them.
+	updatedGcpProvider := util.Ptr(*existingGcpProvider)
+	updatedGcpProvider.Name = gcpProviderValues.Name
+	updatedGcpProvider.ProjectID = gcpProviderValues.ProjectID
+	updatedGcpProvider.DefaultProvider = gcpProviderValues.DefaultProvider
+	updatedGcpProvider.DefaultRegion = gcpProviderValues.DefaultRegion
 
 	// replace gcp provider
 	replacedGcpProvider, err := client_v0.ReplaceGcpProvider(
