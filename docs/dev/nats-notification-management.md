@@ -8,27 +8,47 @@ for install instructions and full documentation for the NATS CLI.
 
 ## Configuration
 
+The message broker accepts only TLS connections that authenticate as the
+`threeport` user.  Its CA's certificate is in the `nats-ca-cert` secret and the
+user's password in the `nats-credentials` secret, both in the control plane
+namespace.  The monitoring port, 8222, stays plain HTTP inside the broker's
+pod.
+
 ### Local Threeport
 
-Create a context for connecting.  This example is to connect to a local NATS
-instance when running Threeport on kind using the context name `local`.
-
-```bash
-nats context create local
-```
-
-For a local Threeport control plane, port forward the NATS connection.
+For a local Threeport control plane, port forward the NATS connection.  The
+broker's certificate is valid for `localhost`.
 
 ```bash
 kubectl port-forward svc/nats-js 4222:4222 -n threeport-control-plane
 ```
 
-To edit the context for connecting to NATS, the following command will open the
-NATS context config file.  (Not necessary for a local instance using the port
-forward shown above.)
+In another terminal, export the environment the NATS CLI connects with.  It
+writes the CA's certificate to `/tmp/threeport-nats-ca.crt` and also sets the
+variables a local API (`hack/env`) and local controllers read.
 
 ```bash
-nats context edit local
+eval "$(make -s dev-nats-env)"
+nats stream ls
+```
+
+To keep the settings in a NATS context instead, save one with the same
+values.
+
+```bash
+nats context save local \
+  --server tls://localhost:4222 \
+  --tlsca /tmp/threeport-nats-ca.crt \
+  --user threeport \
+  --password "$NATS_PASSWORD"
+nats context select local
+```
+
+From inside the cluster, the `nats-js-box` deployment already carries the
+connection settings.
+
+```bash
+kubectl exec -it deploy/nats-js-box -n threeport-control-plane -- nats stream ls
 ```
 
 ### Remote Threeport

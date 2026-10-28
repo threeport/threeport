@@ -6,4 +6,7 @@ DB_PORT=26257
 DB_SSL_MODE=disable
 NATS_HOST=localhost
 NATS_PORT=4222
+NATS_USER=threeport
+NATS_CA_FILE=/tmp/threeport-nats-ca.crt
+# NATS_PASSWORD comes from the cluster: eval "$(make -s dev-nats-env)"
 
