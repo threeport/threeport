@@ -345,12 +345,12 @@ func (t *TerraformInstanceConfig) Delete(
 	}
 
 	// wait for terraform instance to be deleted
-	util.Retry(120, 10, func() error {
-		if _, err := client_v0.GetTerraformInstanceByName(apiClient, apiEndpoint, *terraformInstanceValues.Name); err == nil {
-			return errors.New("terraform instance not deleted")
-		}
-		return nil
-	})
+	if err := waitForInstanceDeleted("terraform", *terraformInstanceValues.Name, 120, 10, func() error {
+		_, err := client_v0.GetTerraformInstanceByName(apiClient, apiEndpoint, *terraformInstanceValues.Name)
+		return err
+	}); err != nil {
+		return nil, err
+	}
 
 	// construct deleted terraform instance config
 	deletedTerraformInstanceConfig := &TerraformInstanceConfig{

@@ -318,16 +318,18 @@ func (a *AwsEksKubernetesRuntimeInstanceConfig) Delete(
 	}
 
 	// wait for AWS EKS kubernetes runtime instance to be deleted
-	util.Retry(90, 10, func() error {
-		if _, err := client_v0.GetAwsEksKubernetesRuntimeInstanceByName(
+	// return on a timeout so the associated kubernetes runtime instance is not
+	// removed while the EKS instance may still exist
+	if err := waitForInstanceDeleted("AWS EKS kubernetes runtime", *awsEksKubernetesRuntimeInstance.Name, 90, 10, func() error {
+		_, err := client_v0.GetAwsEksKubernetesRuntimeInstanceByName(
 			apiClient,
 			apiEndpoint,
 			*awsEksKubernetesRuntimeInstance.Name,
-		); err == nil {
-			return errors.New("AWS EKS kubernetes runtime instance not deleted")
-		}
-		return nil
-	})
+		)
+		return err
+	}); err != nil {
+		return nil, err
+	}
 
 	// get kubernetes runtime instance
 	kubernetesRuntimeInstance, err := client_v0.GetKubernetesRuntimeInstanceByID(
@@ -369,16 +371,16 @@ func (a *AwsEksKubernetesRuntimeInstanceConfig) Delete(
 		}
 
 		// wait for kubernetes runtime instance to be deleted
-		util.Retry(10, 1, func() error {
-			if _, err := client_v0.GetKubernetesRuntimeInstanceByName(
+		if err := waitForInstanceDeleted("kubernetes runtime", *kubernetesRuntimeInstance.Name, 10, 1, func() error {
+			_, err := client_v0.GetKubernetesRuntimeInstanceByName(
 				apiClient,
 				apiEndpoint,
 				*kubernetesRuntimeInstance.Name,
-			); err == nil {
-				return errors.New("kubernetes runtime instance not deleted")
-			}
-			return nil
-		})
+			)
+			return err
+		}); err != nil {
+			return nil, err
+		}
 	}
 
 	// construct deleted aws eks kubernetes runtime instance config

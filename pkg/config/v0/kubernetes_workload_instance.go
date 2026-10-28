@@ -492,12 +492,12 @@ func (w *KubernetesWorkloadInstanceConfig) Delete(
 	}
 
 	// wait for kubernetes workload instance to be deleted
-	util.Retry(60, 1, func() error {
-		if _, err := client_v0.GetKubernetesWorkloadInstanceByName(apiClient, apiEndpoint, *k8sWorkloadInstanceValues.Name); err == nil {
-			return errors.New("kubernetes workload instance not deleted")
-		}
-		return nil
-	})
+	if err := waitForInstanceDeleted("kubernetes workload", *k8sWorkloadInstanceValues.Name, 60, 1, func() error {
+		_, err := client_v0.GetKubernetesWorkloadInstanceByName(apiClient, apiEndpoint, *k8sWorkloadInstanceValues.Name)
+		return err
+	}); err != nil {
+		return nil, err
+	}
 
 	// construct deleted kubernetes workload instance config
 	deletedK8sWorkloadInstanceConfig := &KubernetesWorkloadInstanceConfig{
