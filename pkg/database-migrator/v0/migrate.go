@@ -259,6 +259,28 @@ func Up(ctx context.Context, steps Steps, record FailureRecord, opts Options) er
 	return nil
 }
 
+// WithLock runs a change to the database that Up does not make, such as
+// rolling a migration back by hand, holding the migration lock while it runs,
+// so it cannot run beside a migrator applying migrations.  It gets none of
+// Up's backup, rollback or failure record.  A lock that cannot be released
+// expires on its own, so that is reported through logf rather than failing a
+// change that was made.
+func WithLock(ctx context.Context, lock Lock, logf func(format string, args ...interface{}), change func() error) error {
+	if logf == nil {
+		logf = func(string, ...interface{}) {}
+	}
+	if err := lock.Acquire(ctx); err != nil {
+		return fmt.Errorf("failed to acquire the migration lock, so nothing was changed: %w", err)
+	}
+	defer func() {
+		if err := lock.Release(ctx); err != nil {
+			logf("failed to release the migration lock, which expires on its own: %v", err)
+		}
+	}()
+
+	return change()
+}
+
 // describe says what happened to a failed run and where it left the
 // database.
 func describe(failure *Failure) string {

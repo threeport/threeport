@@ -41,12 +41,11 @@ func AssertMigrationChainRollsBackOn(
 ) {
 	t.Helper()
 
-	for _, migration := range migrations {
-		if migration.DownFnNoTxContext == nil && migration.DownFnContext == nil {
-			t.Errorf("migration %d has no down migration, so a failed upgrade cannot be rolled back past it", migration.Version)
-		}
+	violations := ConventionViolations(migrations)
+	for _, violation := range violations {
+		t.Error(violation)
 	}
-	if t.Failed() {
+	if len(violations) > 0 {
 		return
 	}
 
@@ -84,6 +83,35 @@ func AssertMigrationChainRollsBackOn(
 			t.Errorf("migration %d's down migration fails on a database its migration did not change: %v", migration.Version, err)
 		}
 	}
+}
+
+// ConventionViolations returns how each migration breaks the convention a
+// failed migration's rollback relies on.
+//
+// Every migration needs a down migration, or a failed upgrade cannot be rolled
+// back past it.  And every migration runs outside a transaction:
+// CockroachDB does not undo every schema change a failed transaction made, so
+// one that ran in a transaction and failed may have left changes behind that
+// its down migration does not expect, while a rollback would trust the
+// transaction to have undone them.
+func ConventionViolations(migrations goose.Migrations) []string {
+	var violations []string
+	for _, migration := range migrations {
+		if migration.DownFnNoTxContext == nil && migration.DownFnContext == nil {
+			violations = append(violations, fmt.Sprintf(
+				"migration %d has no down migration, so a failed upgrade cannot be rolled back past it",
+				migration.Version,
+			))
+		}
+		if migration.UseTx {
+			violations = append(violations, fmt.Sprintf(
+				"migration %d runs in a transaction; register it with goose.AddMigrationNoTxContext, since a failed one may leave schema changes behind on CockroachDB",
+				migration.Version,
+			))
+		}
+	}
+
+	return violations
 }
 
 // applyEach applies migrations in order, creating goose's version table

@@ -101,3 +101,33 @@ func TestEveryMigratorRollsBackButOnlyTheCoreBacksUp(t *testing.T) {
 		t.Error("a module's migrator backs up, naming installer constants its own installer does not declare")
 	}
 }
+
+// TestEveryMigratorLocksEveryCommandThatChangesTheSchema covers the goose
+// commands other than a plain 'up', such as the 'down' the README documents for
+// rolling back by hand.  Each that changes the schema holds the migration lock,
+// so it cannot run beside an API server pod's migrator applying migrations;
+// 'status' only reads, and is not held up behind a running migration.
+func TestEveryMigratorLocksEveryCommandThatChangesTheSchema(t *testing.T) {
+	core := generateMigratorMain(t, &gen.Generator{}, &sdk.SdkConfig{})
+	module := generateMigratorMain(
+		t,
+		&gen.Generator{Module: true, ModulePath: "example.com/widget-module"},
+		&sdk.SdkConfig{ModuleName: "Widget", ApiNamespace: "widget.example.com"},
+	)
+
+	for name, source := range map[string]string{"core": core, "module": module} {
+		if strings.Contains(source, "} else if err := goose.RunContext(") {
+			t.Errorf("the %s migrator runs goose commands other than 'up' without the lock", name)
+		}
+		if !strings.Contains(source, "runGooseCommand(ctx, db, logger, command, arguments)") ||
+			!strings.Contains(source, "migrator.WithLock(ctx, lock,") {
+			t.Errorf("the %s migrator does not run its other goose commands under the migration lock", name)
+		}
+		if !strings.Contains(source, `if command == "status" {`) {
+			t.Errorf("the %s migrator holds 'status' behind the migration lock", name)
+		}
+		if strings.Count(source, "NewTableLock(") != 1 {
+			t.Errorf("the %s migrator builds its lock in more than one place, which can drift apart", name)
+		}
+	}
+}

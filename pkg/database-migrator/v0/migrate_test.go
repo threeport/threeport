@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -416,4 +417,61 @@ func TestALostLockStopsTheFailureRecord(t *testing.T) {
 	require.ErrorIs(t, err, ErrLockLost)
 	assert.Contains(t, err.Error(), "failed to record the failure")
 	assert.Nil(t, record.failure)
+}
+
+// recordingLock records what a run did with the migration lock.
+type recordingLock struct {
+	acquireErr, releaseErr error
+	events                 []string
+}
+
+func (l *recordingLock) Acquire(context.Context) error {
+	l.events = append(l.events, "acquire")
+	return l.acquireErr
+}
+func (l *recordingLock) Check(context.Context) error { return nil }
+func (l *recordingLock) Release(context.Context) error {
+	l.events = append(l.events, "release")
+	return l.releaseErr
+}
+
+// TestWithLockHoldsTheLockAroundTheChange covers the goose commands other
+// than a plain up, such as a down run by hand: the change runs only while the
+// lock is held, and the lock is given up afterwards whether it succeeded or
+// not.
+func TestWithLockHoldsTheLockAroundTheChange(t *testing.T) {
+	lock := &recordingLock{}
+	err := WithLock(context.Background(), lock, nil, func() error {
+		lock.events = append(lock.events, "change")
+		return errors.New("down failed")
+	})
+	if err == nil || err.Error() != "down failed" {
+		t.Errorf("the change's error was not returned: %v", err)
+	}
+	if strings.Join(lock.events, ",") != "acquire,change,release" {
+		t.Errorf("events = %v", lock.events)
+	}
+
+	t.Run("no change without the lock", func(t *testing.T) {
+		lock := &recordingLock{acquireErr: errors.New("held by another migrator")}
+		changed := false
+		err := WithLock(context.Background(), lock, nil, func() error { changed = true; return nil })
+		if err == nil || changed {
+			t.Errorf("changed without the lock (err %v)", err)
+		}
+	})
+
+	t.Run("a lock that cannot be released does not fail a change that was made", func(t *testing.T) {
+		lock := &recordingLock{releaseErr: errors.New("connection reset")}
+		var logged []string
+		err := WithLock(context.Background(), lock, func(format string, args ...interface{}) {
+			logged = append(logged, fmt.Sprintf(format, args...))
+		}, func() error { return nil })
+		if err != nil {
+			t.Errorf("a made change failed: %v", err)
+		}
+		if len(logged) != 1 || !strings.Contains(logged[0], "expires on its own") {
+			t.Errorf("logged = %v", logged)
+		}
+	})
 }

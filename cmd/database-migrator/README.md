@@ -64,10 +64,22 @@ and it has to work in two situations:
   there or not there at all: `DROP ... IF EXISTS`, `DROP COLUMN IF EXISTS`, and
   so on.
 
-`TestEveryMigrationRollsBack` in `test/cockroach` enforces both against a real
-CockroachDB: every migration has a down migration, the whole chain survives
-up, down to nothing and up again, and every down migration runs cleanly on a
-database its migration never changed.
+Register every migration with `goose.AddMigrationNoTxContext`. A migration run
+in a transaction would be trusted to have undone itself on failing, and
+CockroachDB does not undo every schema change a failed transaction made.
+
+`TestEveryMigrationRollsBack` in `test/cockroach` enforces all of this against a
+real CockroachDB: every migration has a down migration and runs outside a
+transaction, the whole chain survives up, down to nothing and up again, and
+every down migration runs cleanly on a database its migration never changed.
+
+### A new migration's version sorts above every applied one
+
+A migration whose version sorts below one the database has already applied
+was never applied, and never would be. So `up` refuses to run while such a
+migration is registered, naming it, as goose's own `up` does. This happens to
+a migration merged out of order with migrations applied elsewhere first: give
+it a version above the newest applied one.
 
 ## What happens when a migration fails
 
@@ -83,7 +95,9 @@ Holding the lock, it applies the pending migrations one at a time:
 
 1. On a production control plane that backs its database up, it first takes
    a full backup into the backup bucket. A new install, whose database is
-   empty, takes none.
+   empty, takes none. The backup goes where the scheduled backups go, and the
+   path recorded for it is the migrator's own, read back to confirm it is
+   whole, never just the newest in the bucket.
 2. When a migration fails, its down migration cleans up what it left, and the
    migrations applied before it in the same run are rolled back, newest first,
    so the database returns to the version it started from.
@@ -123,7 +137,12 @@ To perform a upgrade you can run:
 db-migrator up
 ```
 
-To perform a downgrade you can rum:
+To perform a downgrade you can run:
 ```bash
 db-migrator down
 ```
+
+Every command that changes the schema, `down` included, takes the same lock
+as `up`, so it waits while an API server pod's migrator is migrating rather
+than running beside it. Only a plain `up` backs the database up first and
+rolls a failed migration back; the others run as goose runs them.

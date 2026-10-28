@@ -88,13 +88,7 @@ func (l *TableLock) Acquire(ctx context.Context) error {
 		}
 
 		if time.Now().After(deadline) {
-			var holder string
-			var expiresAt time.Time
-			_ = l.db.QueryRowContext(ctx, fmt.Sprintf("SELECT holder, expires_at FROM %s WHERE id = 1", l.table)).Scan(&holder, &expiresAt)
-			return fmt.Errorf(
-				"another migrator, %s, has held the migration lock for longer than %s; it expires at %s unless renewed",
-				holder, l.wait, expiresAt.Format(time.RFC3339),
-			)
+			return l.heldTooLong(ctx)
 		}
 		select {
 		case <-ctx.Done():
@@ -102,6 +96,32 @@ func (l *TableLock) Acquire(ctx context.Context) error {
 		case <-time.After(l.pollEvery):
 		}
 	}
+}
+
+// heldTooLong says who held the lock for longer than Acquire waits.  The
+// holder is read once more to say so, and that read can fail, or find the
+// lock just released - neither is reported as a holder that does not exist.
+func (l *TableLock) heldTooLong(ctx context.Context) error {
+	var holder string
+	var expiresAt time.Time
+	err := l.db.QueryRowContext(ctx, fmt.Sprintf("SELECT holder, expires_at FROM %s WHERE id = 1", l.table)).Scan(&holder, &expiresAt)
+	switch {
+	case err == sql.ErrNoRows:
+		return fmt.Errorf(
+			"another migrator held the migration lock for longer than %s, and released it just as this one gave up waiting; run again",
+			l.wait,
+		)
+	case err != nil:
+		return fmt.Errorf(
+			"another migrator has held the migration lock for longer than %s, and which one could not be read: %w",
+			l.wait, err,
+		)
+	}
+
+	return fmt.Errorf(
+		"another migrator, %s, has held the migration lock for longer than %s; it expires at %s unless renewed",
+		holder, l.wait, expiresAt.Format(time.RFC3339),
+	)
 }
 
 // tryAcquire takes the lock if it is free, expired or this holder's.  The
@@ -125,15 +145,39 @@ func (l *TableLock) tryAcquire(ctx context.Context) (bool, error) {
 	return rows == 1, nil
 }
 
-// startRenewing extends the lease every renew interval until Release.
+// startRenewing extends the lease every renew interval until Release.  A
+// lock still being renewed, as when Acquire is called again while it is held,
+// keeps its one renewal: a second would outlive the Release that stops the
+// first, renewing a lock nothing holds any more.
 func (l *TableLock) startRenewing() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	if l.stop != nil {
+		select {
+		case <-l.done:
+			// it stopped on its own, finding the lock another's
+		default:
+			return
+		}
+	}
 
 	l.stop = make(chan struct{})
 	l.done = make(chan struct{})
 	go func(stop, done chan struct{}) {
 		defer close(done)
+
+		// Release stops a renewal under way too, so a database call that
+		// hangs cannot hang Release with it
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		go func() {
+			select {
+			case <-stop:
+				cancel()
+			case <-ctx.Done():
+			}
+		}()
+
 		ticker := time.NewTicker(l.renew)
 		defer ticker.Stop()
 		for {
@@ -141,13 +185,16 @@ func (l *TableLock) startRenewing() {
 			case <-stop:
 				return
 			case <-ticker.C:
-				// a renewal that fails is tried again on the next tick,
-				// and Check refuses every change once the lease runs out;
-				// one that finds the lock another's has nothing to renew
-				result, err := l.db.Exec(fmt.Sprintf(
+				// a renewal that fails, or takes longer than a renewal
+				// interval, is tried again on the next tick, and Check
+				// refuses every change once the lease runs out; one that
+				// finds the lock another's has nothing to renew
+				renewCtx, renewed := context.WithTimeout(ctx, l.renew)
+				result, err := l.db.ExecContext(renewCtx, fmt.Sprintf(
 					"UPDATE %s SET expires_at = now() + $2::INT8 * INTERVAL '1 millisecond' WHERE id = 1 AND holder = $1",
 					l.table,
 				), l.holder, l.lease.Milliseconds())
+				renewed()
 				if err != nil {
 					continue
 				}

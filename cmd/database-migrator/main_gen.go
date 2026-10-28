@@ -130,12 +130,13 @@ func migrateDb(
 	ctx := context.WithValue(context.TODO(), "gormdb", gormdb)
 	goose.SetTableName("threeport_goose_db_version")
 	// a plain 'up' applies the pending migrations so that a failed one is
-	// rolled back rather than left part way; any other goose command runs as is
+	// rolled back rather than left part way; any other goose command runs as is,
+	// under the migration lock when it changes the schema
 	if command == "up" && len(arguments) == 0 {
 		if err := upWithRollback(ctx, db, logger); err != nil {
 			returnErr("failed to migrate database schema", err)
 		}
-	} else if err := goose.RunContext(ctx, command, db, ".", arguments...); err != nil {
+	} else if err := runGooseCommand(ctx, db, logger, command, arguments); err != nil {
 		returnErr(fmt.Sprintf("goose %s command failed", command), err)
 	}
 
@@ -157,15 +158,7 @@ func upWithRollback(ctx context.Context, db *sql.DB, logger zap.Logger) error {
 	if err != nil {
 		return err
 	}
-
-	// the API server's pods start together, and only one may migrate at a
-	// time; a pod is named by its host name, which an init container restarted
-	// in the same pod keeps
-	holder, err := os.Hostname()
-	if err != nil {
-		return err
-	}
-	lock, err := migrator.NewTableLock(ctx, db, "threeport_goose_db_version_lock", holder)
+	lock, err := migrationLock(ctx, db)
 	if err != nil {
 		return err
 	}
@@ -183,6 +176,41 @@ func upWithRollback(ctx context.Context, db *sql.DB, logger zap.Logger) error {
 	opts.Backup = backup
 
 	return migrator.Up(ctx, steps, record, opts)
+}
+
+// runGooseCommand runs a goose command other than a plain 'up'.  One that
+// changes the schema holds the migration lock while it runs, so an operator
+// rolling back by hand cannot run beside an API server pod's migrator applying
+// migrations.  It gets no backup or rollback, which a plain 'up' alone has.
+func runGooseCommand(ctx context.Context, db *sql.DB, logger zap.Logger, command string, arguments []string) error {
+	run := func() error {
+		return goose.RunContext(ctx, command, db, ".", arguments...)
+	}
+	if command == "status" {
+		return run()
+	}
+
+	lock, err := migrationLock(ctx, db)
+	if err != nil {
+		return err
+	}
+
+	return migrator.WithLock(ctx, lock, func(format string, args ...interface{}) {
+		logger.Info(fmt.Sprintf(format, args...))
+	}, run)
+}
+
+// migrationLock returns the lock every migrator of this database takes before
+// changing its schema.  The API server's pods start together, and only one may
+// migrate at a time; a pod is named by its host name, which an init container
+// restarted in the same pod keeps.
+func migrationLock(ctx context.Context, db *sql.DB) (*migrator.TableLock, error) {
+	holder, err := os.Hostname()
+	if err != nil {
+		return nil, err
+	}
+
+	return migrator.NewTableLock(ctx, db, "threeport_goose_db_version_lock", holder)
 }
 
 // databaseBackup returns a backup of the database into the location the install

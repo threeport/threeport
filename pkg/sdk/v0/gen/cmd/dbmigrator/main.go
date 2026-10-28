@@ -203,13 +203,14 @@ func GenDbMigratorMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		),
 		Qual("github.com/pressly/goose/v3", "SetTableName").Call(Lit(gooseVersionTableName)),
 		Comment("a plain 'up' applies the pending migrations so that a failed one is"),
-		Comment("rolled back rather than left part way; any other goose command runs as is"),
+		Comment("rolled back rather than left part way; any other goose command runs as is,"),
+		Comment("under the migration lock when it changes the schema"),
 		If(Id("command").Op("==").Lit("up").Op("&&").Len(Id("arguments")).Op("==").Lit(0)).Block(
 			If(Id("err").Op(":=").Id("upWithRollback").Call(Id("ctx"), Id("db"), Id("logger")), Id("err").Op("!=").Nil()).Block(
 				Id("returnErr").Call(Lit("failed to migrate database schema"), Id("err")),
 			),
-		).Else().If(Id("err").Op(":=").Qual("github.com/pressly/goose/v3", "RunContext").Call(
-			Id("ctx"), Id("command"), Id("db"), Lit("."), Id("arguments").Op("..."),
+		).Else().If(Id("err").Op(":=").Id("runGooseCommand").Call(
+			Id("ctx"), Id("db"), Id("logger"), Id("command"), Id("arguments"),
 		), Id("err").Op("!=").Nil()).Block(
 			Id("returnErr").Call(
 				Qual("fmt", "Sprintf").Call(Lit("goose %s command failed"), Id("command")), Id("err"),
@@ -265,15 +266,7 @@ func GenDbMigratorMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			Id("ctx"), Id("db"), Lit(gooseVersionTableName+"_failure"),
 		),
 		If(Id("err").Op("!=").Nil()).Block(Return(Id("err"))),
-		Line(),
-		Comment("the API server's pods start together, and only one may migrate at a"),
-		Comment("time; a pod is named by its host name, which an init container restarted"),
-		Comment("in the same pod keeps"),
-		List(Id("holder"), Id("err")).Op(":=").Qual("os", "Hostname").Call(),
-		If(Id("err").Op("!=").Nil()).Block(Return(Id("err"))),
-		List(Id("lock"), Id("err")).Op(":=").Qual(migratorPath, "NewTableLock").Call(
-			Id("ctx"), Id("db"), Lit(gooseVersionTableName+"_lock"), Id("holder"),
-		),
+		List(Id("lock"), Id("err")).Op(":=").Id("migrationLock").Call(Id("ctx"), Id("db")),
 		If(Id("err").Op("!=").Nil()).Block(Return(Id("err"))),
 		Line(),
 		Id("opts").Op(":=").Qual(migratorPath, "Options").Values(Dict{
@@ -285,6 +278,54 @@ func GenDbMigratorMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		backupOption,
 		Line(),
 		Return(Qual(migratorPath, "Up").Call(Id("ctx"), Id("steps"), Id("record"), Id("opts"))),
+	)
+	f.Line()
+
+	logfFunc := Func().Params(Id("format").String(), Id("args").Op("...").Interface()).Block(
+		Id("logger").Dot("Info").Call(Qual("fmt", "Sprintf").Call(Id("format"), Id("args").Op("..."))),
+	)
+
+	f.Comment("runGooseCommand runs a goose command other than a plain 'up'.  One that")
+	f.Comment("changes the schema holds the migration lock while it runs, so an operator")
+	f.Comment("rolling back by hand cannot run beside an API server pod's migrator applying")
+	f.Comment("migrations.  It gets no backup or rollback, which a plain 'up' alone has.")
+	f.Func().Id("runGooseCommand").Params(
+		Id("ctx").Qual("context", "Context"),
+		Id("db").Op("*").Qual("database/sql", "DB"),
+		Id("logger").Qual("go.uber.org/zap", "Logger"),
+		Id("command").String(),
+		Id("arguments").Index().String(),
+	).Error().Block(
+		Id("run").Op(":=").Func().Params().Error().Block(
+			Return(Qual("github.com/pressly/goose/v3", "RunContext").Call(
+				Id("ctx"), Id("command"), Id("db"), Lit("."), Id("arguments").Op("..."),
+			)),
+		),
+		If(Id("command").Op("==").Lit("status")).Block(
+			Return(Id("run").Call()),
+		),
+		Line(),
+		List(Id("lock"), Id("err")).Op(":=").Id("migrationLock").Call(Id("ctx"), Id("db")),
+		If(Id("err").Op("!=").Nil()).Block(Return(Id("err"))),
+		Line(),
+		Return(Qual(migratorPath, "WithLock").Call(Id("ctx"), Id("lock"), logfFunc, Id("run"))),
+	)
+	f.Line()
+
+	f.Comment("migrationLock returns the lock every migrator of this database takes before")
+	f.Comment("changing its schema.  The API server's pods start together, and only one may")
+	f.Comment("migrate at a time; a pod is named by its host name, which an init container")
+	f.Comment("restarted in the same pod keeps.")
+	f.Func().Id("migrationLock").Params(
+		Id("ctx").Qual("context", "Context"),
+		Id("db").Op("*").Qual("database/sql", "DB"),
+	).Params(Op("*").Qual(migratorPath, "TableLock"), Error()).Block(
+		List(Id("holder"), Id("err")).Op(":=").Qual("os", "Hostname").Call(),
+		If(Id("err").Op("!=").Nil()).Block(Return(Nil(), Id("err"))),
+		Line(),
+		Return(Qual(migratorPath, "NewTableLock").Call(
+			Id("ctx"), Id("db"), Lit(gooseVersionTableName+"_lock"), Id("holder"),
+		)),
 	)
 	f.Line()
 
