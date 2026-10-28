@@ -931,9 +931,9 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		clientKey = nil
 	}
 
-	componentList := cpi.Opts.ControllerList
-	componentList = append(componentList, cpi.Opts.RestApiInfo)
-	componentList = append(componentList, cpi.Opts.AgentInfo)
+	// record every installed component so child control planes can default to
+	// the images this control plane runs
+	componentList := cpi.RecordedComponents()
 
 	// construct control plane instance object
 	controlPlaneInstance := v0.ControlPlaneInstance{
@@ -1772,11 +1772,9 @@ func ensureBootstrapControlPlane(
 		}
 	}
 
-	// include the installed controllers, the rest api, and the agent
-	componentList := make([]*v0.ControlPlaneComponent, 0, len(cpi.Opts.ControllerList)+2)
-	componentList = append(componentList, cpi.Opts.ControllerList...)
-	componentList = append(componentList, cpi.Opts.RestApiInfo)
-	componentList = append(componentList, cpi.Opts.AgentInfo)
+	// include the installed controllers, the rest api, the agent and the
+	// database migrator
+	componentList := cpi.RecordedComponents()
 
 	// create the control plane instance
 	selfInstance := true

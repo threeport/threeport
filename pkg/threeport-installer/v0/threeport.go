@@ -295,7 +295,8 @@ func ValidateTierForProvider(infraProvider, tier string) error {
 
 // AllControlPlaneComponents returns a list of all control plane components.
 func AllControlPlaneComponents() []*v0.ControlPlaneComponent {
-	allControlPlaneComponents := ThreeportControllerList
+	allControlPlaneComponents := make([]*v0.ControlPlaneComponent, 0, len(ThreeportControllerList)+2)
+	allControlPlaneComponents = append(allControlPlaneComponents, ThreeportControllerList...)
 	allControlPlaneComponents = append(allControlPlaneComponents, ThreeportRestApi)
 	allControlPlaneComponents = append(allControlPlaneComponents, ThreeportAgent)
 	return allControlPlaneComponents

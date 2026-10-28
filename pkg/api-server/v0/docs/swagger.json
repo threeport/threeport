@@ -17045,6 +17045,10 @@
                 "Name"
             ],
             "properties": {
+                "Additional": {
+                    "description": "Marks a component of your own, one that is not part of the default control\nplane. A component that matches no default component by name is rejected\nunless this is true, so a mistyped name cannot silently install a\ncomponent nobody asked for.",
+                    "type": "boolean"
+                },
                 "AdditionalEnvRef": {
                     "description": "The additional env reference to be added to the environment variables of the component.",
                     "type": "array",
@@ -17227,7 +17231,7 @@
                     "type": "boolean"
                 },
                 "CustomComponentInfo": {
-                    "description": "Passed in information for the different components of the control plane i.e. controller etc\nWhen not provided, the default values will be used. If provided, they will override the default values.\nDespite being a reference to another database entry, we dont validate association.\nThis allows a user to provide CustomComponentInfo at instance creation time so the reconciler has the info it needs",
+                    "description": "Passed in information for the different components of the control plane i.e. controller etc\nWhen not provided, a component takes the image its parent control plane runs, and the\ncompiled-in default for anything the parent did not record. If provided, they will override those values.\nA name that matches no default component is rejected unless the component is marked Additional.\nDespite being a reference to another database entry, we dont validate association.\nThis allows a user to provide CustomComponentInfo at instance creation time so the reconciler has the info it needs",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/v0.ControlPlaneComponent"
@@ -17248,6 +17252,14 @@
                 "Genesis": {
                     "description": "Indicates whether this is was the first control plane that was spun up in a control plane group",
                     "type": "boolean"
+                },
+                "ImageNamespace": {
+                    "description": "The image registry and namespace for every default component of the\ncontrol plane, e.g. 'ghcr.io/threeport'. A component named in\nCustomComponentInfo takes its own value instead. When neither is set a\ncomponent takes the image its parent control plane runs.",
+                    "type": "string"
+                },
+                "ImageTag": {
+                    "description": "The image tag for every default component of the control plane. A\ncomponent named in CustomComponentInfo takes its own value instead. When\nneither is set a component takes the tag its parent control plane runs.",
+                    "type": "string"
                 },
                 "InterruptReconciliation": {
                     "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
