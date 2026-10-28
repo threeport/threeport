@@ -142,6 +142,22 @@ func TestPlanResourceInstances(t *testing.T) {
 		assert.Equal(t, uint(20), *plan.update[0].ID)
 	})
 
+	t.Run("an edit to the namespace a manifest names alone is no change", func(t *testing.T) {
+		// the instance places the resource in its own namespace either way,
+		// so replacing it would only undo the gateway controller's edit
+		editedService := `{"apiVersion":"v1","kind":"Service","metadata":{"name":"web","namespace":"web-5"},"spec":{"ports":[{"port":8443}]}}`
+		placedService := `{"apiVersion":"v1","kind":"Service","metadata":{"name":"web","namespace":"web-5"}}`
+		plan, err := planResourceInstances(
+			5,
+			[]v0.KubernetesWorkloadResourceInstance{storedWRI(21, editedService)},
+			[]v0.KubernetesWorkloadResourceInstance{renderedWRI(`{"apiVersion":"v1","kind":"Service","metadata":{"name":"web","namespace":"team-a"}}`)},
+			[]v0.KubernetesWorkloadResourceInstance{renderedWRI(`{"apiVersion":"v1","kind":"Service","metadata":{"name":"web","namespace":"team-b"}}`)},
+			[]v0.KubernetesWorkloadResourceInstance{renderedWRI(placedService)},
+		)
+		require.NoError(t, err)
+		assert.False(t, plan.changed())
+	})
+
 	t.Run("an added resource is created for the instance", func(t *testing.T) {
 		plan, err := planInstance(
 			5,

@@ -311,7 +311,7 @@ func planResourceInstances(
 		// so only what the instance holds tells whether it needs a write
 		previous, renderedBefore := beforeByKey[key]
 		rendered, renderedAfter := afterByKey[key]
-		if renderedBefore && renderedAfter && sameJSON(*previous.JSONDefinition, *rendered.JSONDefinition) {
+		if renderedBefore && renderedAfter && samePlacedRendering(*previous.JSONDefinition, *rendered.JSONDefinition) {
 			continue
 		}
 		if sameJSON(*current.JSONDefinition, *placed.JSONDefinition) {
@@ -348,6 +348,28 @@ func planResourceInstances(
 	}
 
 	return plan, nil
+}
+
+// samePlacedRendering reports whether two renderings of a resource deploy the
+// same thing once an instance places them.
+//
+// The namespace a manifest names never takes effect in an instance: placing a
+// namespaced resource overwrites it with the instance's namespace, and the
+// Kubernetes API drops it from a cluster-scoped one. So an edit to it alone is
+// no change, and must not count as one - that would replace the resource with
+// the definition's rendering, undoing edits another controller made to it.
+func samePlacedRendering(left, right []byte) bool {
+	var leftValue, rightValue map[string]interface{}
+	if err := json.Unmarshal(left, &leftValue); err != nil {
+		return false
+	}
+	if err := json.Unmarshal(right, &rightValue); err != nil {
+		return false
+	}
+	unstructured.RemoveNestedField(leftValue, "metadata", "namespace")
+	unstructured.RemoveNestedField(rightValue, "metadata", "namespace")
+
+	return reflect.DeepEqual(leftValue, rightValue)
 }
 
 // knownNamespacing answers whether a resource is namespaced from the resource
