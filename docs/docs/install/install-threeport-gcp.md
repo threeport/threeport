@@ -27,6 +27,11 @@ to sign in (for example with `gcloud auth application-default login`) and set a
 default project if you use `gcloud` defaults (`gcloud config set project
 PROJECT_ID`).
 
+`tptctl` acts on the GKE cluster as you, with these same application default
+credentials, for as long as you manage the control plane with it - including
+`tptctl down`. The control plane's own controllers never use them: on GKE they
+authenticate as their own Workload Identity.
+
 You need:
 
 - **Project ID** — the Google Cloud project ID (not necessarily the display

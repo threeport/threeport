@@ -1,9 +1,11 @@
 package v0
 
 import (
+	"context"
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
 
@@ -55,6 +57,15 @@ func (cpi *ControlPlaneInstaller) CreateThreeportControlPlaneNamespace(
 // InstallThreeportControlPlaneDependencies installs the necessary components
 // for the threeport REST API and controllers to operate.  It includes the
 // database and message broker.
+
+// natsBoxUID and natsBoxGID are the numeric uid/gid behind the nats-box
+// image's USER nats:nats (confirmed with `docker run --entrypoint id`). The
+// kubelet needs the number, not the name, to verify runAsNonRoot.
+const (
+	natsBoxUID = int64(1000)
+	natsBoxGID = int64(1000)
+)
+
 func (cpi *ControlPlaneInstaller) InstallThreeportControlPlaneDependencies(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
@@ -266,9 +277,34 @@ store_dir: /data
 					},
 					"spec": map[string]interface{}{
 						"volumes": nil,
+						// natsio/nats-box:0.16.0-nonroot declares USER nats:nats, so
+						// this one can be held to it. The other dependencies cannot.
+						//
+						// runAsUser and runAsGroup still have to be given
+						// numerically: the kubelet does not resolve a named
+						// USER against the image's /etc/passwd on its own, so
+						// runAsNonRoot alone fails every container with
+						// CreateContainerConfigError, "image has non-numeric
+						// user (nats), cannot verify user is non-root" -
+						// confirmed against a running kind cluster, not
+						// assumed from the image's declared USER.
+						"securityContext": map[string]interface{}{
+							"runAsNonRoot": true,
+							"runAsUser":    natsBoxUID,
+							"runAsGroup":   natsBoxGID,
+							"seccompProfile": map[string]interface{}{
+								"type": "RuntimeDefault",
+							},
+						},
 						"containers": []interface{}{
 							map[string]interface{}{
-								"name":            "nats-box",
+								"name": "nats-box",
+								"securityContext": map[string]interface{}{
+									"allowPrivilegeEscalation": false,
+									"capabilities": map[string]interface{}{
+										"drop": []interface{}{"ALL"},
+									},
+								},
 								"image":           natsBoxImage,
 								"imagePullPolicy": "IfNotPresent",
 								"resources":       nil,
@@ -365,9 +401,24 @@ store_dir: /data
 						//               #
 						//################
 						"terminationGracePeriodSeconds": 60,
+						// The image runs as root, so runAsNonRoot is not set: the
+						// kubelet refuses to start a container that declares no user
+						// when it is required to be non-root. Pinning a user is the
+						// same question and is tracked separately.
+						"securityContext": map[string]interface{}{
+							"seccompProfile": map[string]interface{}{
+								"type": "RuntimeDefault",
+							},
+						},
 						"containers": []interface{}{
 							map[string]interface{}{
-								"name":            "nats",
+								"name": "nats",
+								"securityContext": map[string]interface{}{
+									"allowPrivilegeEscalation": false,
+									"capabilities": map[string]interface{}{
+										"drop": []interface{}{"ALL"},
+									},
+								},
 								"image":           "docker.io/library/nats:2.10.25-alpine",
 								"imagePullPolicy": "IfNotPresent",
 								"resources":       map[string]interface{}{},
@@ -496,7 +547,13 @@ store_dir: /data
 							//                               #
 							//################################
 							map[string]interface{}{
-								"name":            "reloader",
+								"name": "reloader",
+								"securityContext": map[string]interface{}{
+									"allowPrivilegeEscalation": false,
+									"capabilities": map[string]interface{}{
+										"drop": []interface{}{"ALL"},
+									},
+								},
 								"image":           "docker.io/natsio/nats-server-config-reloader:0.16.1",
 								"imagePullPolicy": "IfNotPresent",
 								"resources":       nil,
@@ -528,7 +585,13 @@ store_dir: /data
 							//                            #
 							//#############################
 							map[string]interface{}{
-								"name":            "metrics",
+								"name": "metrics",
+								"securityContext": map[string]interface{}{
+									"allowPrivilegeEscalation": false,
+									"capabilities": map[string]interface{}{
+										"drop": []interface{}{"ALL"},
+									},
+								},
 								"image":           "docker.io/natsio/prometheus-nats-exporter:0.16.0",
 								"imagePullPolicy": "IfNotPresent",
 								"resources":       map[string]interface{}{},
@@ -703,7 +766,7 @@ store_dir: /data
 			},
 			"spec": map[string]interface{}{
 				"serviceName": "crdb",
-				"replicas":    1,
+				"replicas":    crdbReplicas(cpi.Opts.Tier),
 				"updateStrategy": map[string]interface{}{
 					"type": "RollingUpdate",
 				},
@@ -724,25 +787,7 @@ store_dir: /data
 						},
 					},
 					"spec": map[string]interface{}{
-						"affinity": map[string]interface{}{
-							"podAntiAffinity": map[string]interface{}{
-								"preferredDuringSchedulingIgnoredDuringExecution": []interface{}{
-									map[string]interface{}{
-										"weight": 100,
-										"podAffinityTerm": map[string]interface{}{
-											"topologyKey": "kubernetes.io/hostname",
-											"labelSelector": map[string]interface{}{
-												"matchLabels": map[string]interface{}{
-													"app.kubernetes.io/name":      "cockroachdb",
-													"app.kubernetes.io/instance":  "crdb",
-													"app.kubernetes.io/component": "cockroachdb",
-												},
-											},
-										},
-									},
-								},
-							},
-						},
+						"affinity": crdbAntiAffinity(cpi.Opts.Tier),
 						"topologySpreadConstraints": []interface{}{
 							map[string]interface{}{
 								"labelSelector": map[string]interface{}{
@@ -761,31 +806,30 @@ store_dir: /data
 						// No pre-stop hook is required, a SIGTERM plus some time is all that's
 						// needed for graceful shutdown of a node.
 						"terminationGracePeriodSeconds": 60,
+						// The image runs as root, so runAsNonRoot is not set: the
+						// kubelet refuses to start a container that declares no user
+						// when it is required to be non-root. Pinning a user is the
+						// same question and is tracked separately.
+						"securityContext": map[string]interface{}{
+							"seccompProfile": map[string]interface{}{
+								"type": "RuntimeDefault",
+							},
+						},
 						"containers": []interface{}{
 							map[string]interface{}{
-								"name":            "db",
+								"name": "db",
+								"securityContext": map[string]interface{}{
+									"allowPrivilegeEscalation": false,
+									"capabilities": map[string]interface{}{
+										"drop": []interface{}{"ALL"},
+									},
+								},
 								"image":           fmt.Sprintf("docker.io/cockroachdb/cockroach:%s", DatabaseImageTag),
 								"imagePullPolicy": "IfNotPresent",
 								"args": []interface{}{
 									"shell",
 									"-ecx",
-									// The use of qualified `hostname -f` is crucial:
-									// Other nodes aren't able to look up the unqualified hostname.
-									//
-									// `--join` CLI flag is hardcoded to exactly 3 Pods, because:
-									// 1. Having `--join` value depending on `statefulset.replicas`
-									//    will trigger undesired restart of existing Pods when
-									//    StatefulSet is scaled up/down. We want to scale without
-									//    restarting existing Pods.
-									// 2. At least one Pod in `--join` is enough to successfully
-									//    join CockroachDB cluster and gossip with all other existing
-									//    Pods, even if there are 3 or more Pods.
-									// 3. It's harmless for `--join` to have 3 Pods even for 1-Pod
-									//    clusters, while it gives us opportunity to scale up even if
-									//    some Pods of existing cluster are down (for whatever reason).
-									// See details explained here:
-									// https://github.com/helm/charts/pull/18993#issuecomment-558795102
-									"exec /cockroach/cockroach start-single-node --certs-dir=/cockroach/cockroach-certs --advertise-host=$(hostname).${STATEFULSET_FQDN} --http-port=8080 --port=26257 --cache=25% --max-sql-memory=25% --logtostderr=INFO",
+									crdbStartCommand(cpi.Opts.Tier),
 								},
 								"env": []interface{}{
 									map[string]interface{}{
@@ -879,6 +923,10 @@ store_dir: /data
 		return fmt.Errorf("failed to create/update API server secret for kubernetes workload controller: %w", err)
 	}
 
+	if err := cpi.installCrdbForTier(kubeClient); err != nil {
+		return err
+	}
+
 	// configure threeport api service
 	apiServicePortName, apiServicePort := cpi.GetAPIServicePort()
 
@@ -942,4 +990,260 @@ func (cpi *ControlPlaneInstaller) getVolClaimTemplateSpec(
 	}
 
 	return volClaimTemplateSpec
+}
+
+// crdbReplicas returns how many CockroachDB nodes a given tier runs.
+//
+// Development stays at the single node it has always been - lightweight and
+// fast to install, nothing in this install path benefits from more on a
+// cluster meant to be disposable. Production runs three, the minimum
+// CockroachDB's Raft consensus needs to tolerate the loss of one node
+// without losing quorum.
+func crdbReplicas(tier ControlPlaneTier) int64 {
+	if string(tier) == ControlPlaneTierProd {
+		return 3
+	}
+
+	return 1
+}
+
+// crdbAntiAffinityLabels is what crdbAntiAffinity selects: every CockroachDB
+// pod, regardless of tier.
+var crdbAntiAffinityLabels = map[string]interface{}{
+	"app.kubernetes.io/name":      "cockroachdb",
+	"app.kubernetes.io/instance":  "crdb",
+	"app.kubernetes.io/component": "cockroachdb",
+}
+
+// crdbAntiAffinity keeps CockroachDB pods off the same node, strictly for
+// production and as a preference for development.
+//
+// A preference is not a guarantee: preferredDuringSchedulingIgnoredDuringExecution
+// is still satisfiable by two pods sharing a node when a third is scarce, and
+// nothing about it is visible until the node that was sharing them is lost -
+// at which point the cluster has dropped two of three nodes at once, not one,
+// and lost the Raft majority the third tier replica exists to protect. That
+// failure mode is silent right up until it happens, which is worse than
+// refusing to schedule: requiredDuringSchedulingIgnoredDuringExecution leaves
+// an unplaceable replica visibly Pending instead, naming the actual
+// prerequisite - three schedulable nodes - rather than letting a cluster that
+// does not have them look healthy until it is tested.
+//
+// Development keeps the preference it has always had. With one replica there
+// is nothing to spread, so the two shapes are equivalent there; changing
+// behavior that already works for a case this does not affect is not this
+// issue's to do.
+func crdbAntiAffinity(tier ControlPlaneTier) map[string]interface{} {
+	if string(tier) != ControlPlaneTierProd {
+		return map[string]interface{}{
+			"podAntiAffinity": map[string]interface{}{
+				"preferredDuringSchedulingIgnoredDuringExecution": []interface{}{
+					map[string]interface{}{
+						"weight": int64(100),
+						"podAffinityTerm": map[string]interface{}{
+							"topologyKey": "kubernetes.io/hostname",
+							"labelSelector": map[string]interface{}{
+								"matchLabels": crdbAntiAffinityLabels,
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+
+	return map[string]interface{}{
+		"podAntiAffinity": map[string]interface{}{
+			"requiredDuringSchedulingIgnoredDuringExecution": []interface{}{
+				map[string]interface{}{
+					"topologyKey": "kubernetes.io/hostname",
+					"labelSelector": map[string]interface{}{
+						"matchLabels": crdbAntiAffinityLabels,
+					},
+				},
+			},
+		},
+	}
+}
+
+// crdbStartCommand returns the shell command each CockroachDB container
+// starts with.
+//
+// start-single-node is a different startup path than start --join, not a
+// smaller version of it: a node brought up with it can never later join a
+// multi-node cluster, whatever its replica count says. So this reads the
+// tier directly rather than deriving the command from the replica count -
+// tier is also the one field ControlPlaneDefinition's beforeUpdate hook
+// refuses to let change after creation, where the replica count alone would
+// invite reading a scale event as a request to convert a single node into a
+// cluster.
+//
+// The --join list is hardcoded to exactly three pods rather than derived
+// from the replica count, for the reason the comment this replaced gave:
+// a value that moved with replicas would restart every existing pod on a
+// scale event, and one reachable entry in --join is enough to gossip with
+// the rest of the cluster regardless of how many of the three are up.
+func crdbStartCommand(tier ControlPlaneTier) string {
+	// The use of qualified `hostname -f` is crucial: other nodes aren't able
+	// to look up the unqualified hostname.
+	if string(tier) != ControlPlaneTierProd {
+		return "exec /cockroach/cockroach start-single-node --certs-dir=/cockroach/cockroach-certs " +
+			"--advertise-host=$(hostname).${STATEFULSET_FQDN} --http-port=8080 --port=26257 " +
+			"--cache=25% --max-sql-memory=25% --logtostderr=INFO"
+	}
+
+	return "exec /cockroach/cockroach start --certs-dir=/cockroach/cockroach-certs " +
+		"--advertise-host=$(hostname).${STATEFULSET_FQDN} --http-port=8080 --port=26257 " +
+		"--join=crdb-0.${STATEFULSET_FQDN},crdb-1.${STATEFULSET_FQDN},crdb-2.${STATEFULSET_FQDN} " +
+		"--cache=25% --max-sql-memory=25% --logtostderr=INFO"
+}
+
+// installCrdbForTier runs the one step that differs by tier after the
+// CockroachDB StatefulSet itself is applied: initializing a fresh
+// production cluster. Development has no equivalent step -
+// start-single-node initializes itself.
+func (cpi *ControlPlaneInstaller) installCrdbForTier(kubeClient dynamic.Interface) error {
+	if string(cpi.Opts.Tier) != ControlPlaneTierProd {
+		return nil
+	}
+
+	if err := cpi.runCrdbInitJob(kubeClient, cpi.Opts.Namespace); err != nil {
+		return fmt.Errorf("failed to initialize the production CockroachDB cluster: %w", err)
+	}
+
+	return nil
+}
+
+// crdbInitJobName is the one-time Job that bootstraps a production
+// CockroachDB cluster.
+const crdbInitJobName = "threeport-crdb-init"
+
+// crdbInitJobBackoffLimit allows several attempts while the other two nodes
+// come up: cockroach init only needs one node to answer, but that node has
+// to be listening first, and a fresh StatefulSet's pods do not all reach
+// that point at once.
+const crdbInitJobBackoffLimit = 10
+
+// crdbAlreadyInitializedMarker is the text CockroachDB's own init command
+// prints when the cluster it was pointed at has already been bootstrapped.
+// Confirmed against a running two-attempt cockroach container rather than
+// assumed from documented behavior: the first `cockroach init` reports
+// "Cluster successfully initialized"; the second, against the same cluster,
+// exits 1 and reports "ERROR: cluster has already been initialized".
+const crdbAlreadyInitializedMarker = "already been initialized"
+
+// runCrdbInitJob bootstraps a fresh production CockroachDB cluster.
+//
+// A node started with start --join waits forever for this and serves
+// nothing until it runs - there is no equivalent step for the development
+// tier's start-single-node, which initializes itself. It only has to
+// succeed once: a reinstall or a retry runs this again against a cluster
+// that already answered it, and cockroach init refuses that call by design.
+// That refusal is treated as success here rather than propagated as a
+// failure, so the one-time step does not become a reason every later
+// install attempt fails.
+//
+// The job mounts db-certs rather than db-root-cert, even though the latter
+// is what the other one-shot admin jobs in this package use. db-root-cert is
+// created later, by UpdateThreeportAPIDeployment, which runs only after this
+// whole function returns - a fresh install waiting on this job for a secret
+// that does not exist yet would never create it, and would time out instead
+// of initializing. db-certs is created earlier in this same function, above
+// the StatefulSet, and already carries the root client cert and key this
+// init call needs to authenticate - it is the same secret the StatefulSet's
+// own pods mount for their node identity.
+func (cpi *ControlPlaneInstaller) runCrdbInitJob(
+	kubeClient dynamic.Interface,
+	namespace string,
+) error {
+	// delete a leftover job because its pod template is immutable
+	if err := cpi.deleteJob(kubeClient, namespace, crdbInitJobName, "crdb init"); err != nil {
+		return err
+	}
+
+	script := fmt.Sprintf(`set -e
+if ! out=$(/cockroach/cockroach init --certs-dir=%s --host=crdb-0.crdb.%s.svc.cluster.local 2>&1); then
+  if echo "$out" | grep -q %q; then
+    echo "$out"
+    echo "cluster was already initialized by an earlier attempt"
+    exit 0
+  fi
+  echo "$out"
+  exit 1
+fi
+echo "$out"`,
+		dbRootCertsMountPath, namespace, crdbAlreadyInitializedMarker,
+	)
+	fmt.Println("Info: initializing the production CockroachDB cluster")
+
+	job := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "batch/v1",
+			"kind":       "Job",
+			"metadata": map[string]interface{}{
+				"name":      crdbInitJobName,
+				"namespace": namespace,
+			},
+			"spec": map[string]interface{}{
+				"backoffLimit": int64(crdbInitJobBackoffLimit),
+				"template": map[string]interface{}{
+					"spec": map[string]interface{}{
+						"restartPolicy": "Never",
+						// the cockroach image runs as root, as for the
+						// StatefulSet it initializes
+						"securityContext": map[string]interface{}{
+							"seccompProfile": map[string]interface{}{
+								"type": "RuntimeDefault",
+							},
+						},
+						"containers": []interface{}{
+							map[string]interface{}{
+								"name": "crdb-init",
+								"securityContext": map[string]interface{}{
+									"allowPrivilegeEscalation": false,
+									"capabilities": map[string]interface{}{
+										"drop": []interface{}{"ALL"},
+									},
+								},
+								"image":   fmt.Sprintf("docker.io/cockroachdb/cockroach:%s", DatabaseImageTag),
+								"command": []interface{}{"/bin/sh", "-c", script},
+								"volumeMounts": []interface{}{
+									map[string]interface{}{
+										"name":      dbCredsSecretName,
+										"mountPath": dbRootCertsMountPath,
+									},
+								},
+							},
+						},
+						"volumes": []interface{}{
+							map[string]interface{}{
+								"name": dbCredsSecretName,
+								"secret": map[string]interface{}{
+									"secretName":  dbCredsSecretName,
+									"defaultMode": int64(256),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// submit the job
+	if _, err := kubeClient.Resource(jobGVR).Namespace(namespace).Create(
+		context.Background(), job, metav1.CreateOptions{},
+	); err != nil {
+		return fmt.Errorf("failed to create crdb init job %s: %w", crdbInitJobName, err)
+	}
+
+	// wait for the job to finish
+	if err := cpi.waitForJob(
+		kubeClient, namespace, crdbInitJobName, crdbInitJobBackoffLimit, "crdb init",
+	); err != nil {
+		return err
+	}
+
+	// delete the finished job
+	return cpi.deleteJob(kubeClient, namespace, crdbInitJobName, "crdb init")
 }

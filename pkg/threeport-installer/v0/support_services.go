@@ -3069,8 +3069,16 @@ func InstallThreeportSupportServicesOperator(
 								},
 							},
 						},
+						// the seccomp profile is the one restricted requirement
+						// this pod was missing. Only that is added: the operator
+						// is vendored and its image's user is not ours to assume,
+						// so runAsNonRoot stays as it is rather than being pinned
+						// to the UID the threeport images use.
 						"securityContext": map[string]interface{}{
 							"runAsNonRoot": true,
+							"seccompProfile": map[string]interface{}{
+								"type": "RuntimeDefault",
+							},
 						},
 						"serviceAccountName":            "support-services-operator-controller-manager",
 						"terminationGracePeriodSeconds": 10,
