@@ -205,7 +205,7 @@ func TestCopyGkeRecords_CreatesRecordsOnChild(t *testing.T) {
 	parentGkeRuntime(t, parent, key, true)
 
 	o := &runtimeOnboarder{parent: parent.target(), child: child.target(), encryptionKey: key}
-	err = o.copyGkeRecords(runtimeLink{definitionID: 10, instanceID: 20}, runtimeLink{definitionID: 100, instanceID: 200}, false)
+	err = o.copyGkeRecords(runtimeLink{definitionID: 10, instanceID: 20}, runtimeLink{definitionID: 100, instanceID: 200})
 	require.NoError(t, err)
 
 	providers := child.createdOn(v0.PathGcpProviders)
@@ -239,7 +239,7 @@ func TestCopyGkeRecords_NoCredentialsStaysUnset(t *testing.T) {
 
 	o := &runtimeOnboarder{parent: parent.target(), child: child.target(), encryptionKey: key}
 	require.NoError(t, o.copyGkeRecords(
-		runtimeLink{definitionID: 10, instanceID: 20}, runtimeLink{definitionID: 100, instanceID: 200}, false))
+		runtimeLink{definitionID: 10, instanceID: 20}, runtimeLink{definitionID: 100, instanceID: 200}))
 
 	providers := child.createdOn(v0.PathGcpProviders)
 	require.Len(t, providers, 1)
@@ -257,11 +257,11 @@ func TestCopyGkeRecords_ReusesProviderAndDefinition(t *testing.T) {
 	// the child already has this provider and the definition from copying
 	// another runtime that shares them
 	child.seed(v0.PathGcpProviders, map[string]any{"ID": 77, "Name": "gcp-account", "ProjectID": "project-a"})
-	child.seed(v0.PathGcpGkeKubernetesRuntimeDefinitions, map[string]any{"ID": 88, "KubernetesRuntimeDefinitionID": 100})
+	child.seed(v0.PathGcpGkeKubernetesRuntimeDefinitions, map[string]any{"ID": 88, "Name": "gke-def", "KubernetesRuntimeDefinitionID": 100})
 
 	o := &runtimeOnboarder{parent: parent.target(), child: child.target(), encryptionKey: key}
 	require.NoError(t, o.copyGkeRecords(
-		runtimeLink{definitionID: 10, instanceID: 20}, runtimeLink{definitionID: 100, instanceID: 300}, true))
+		runtimeLink{definitionID: 10, instanceID: 20}, runtimeLink{definitionID: 100, instanceID: 300}))
 
 	assert.Empty(t, child.createdOn(v0.PathGcpProviders), "the provider's name is unique, so it must be found rather than created again")
 	assert.Empty(t, child.createdOn(v0.PathGcpGkeKubernetesRuntimeDefinitions))
@@ -277,7 +277,7 @@ func TestCopyGkeRecords_FailsWithoutParentRecords(t *testing.T) {
 	child := newFakeAPI(t, 500)
 
 	o := &runtimeOnboarder{parent: parent.target(), child: child.target(), encryptionKey: "unused"}
-	err := o.copyGkeRecords(runtimeLink{definitionID: 10, instanceID: 20}, runtimeLink{definitionID: 100, instanceID: 200}, false)
+	err := o.copyGkeRecords(runtimeLink{definitionID: 10, instanceID: 20}, runtimeLink{definitionID: 100, instanceID: 200})
 
 	require.Error(t, err, "a GKE runtime with no GKE records cannot be onboarded, and must not look onboarded")
 	assert.Empty(t, child.createdOn(v0.PathGcpGkeKubernetesRuntimeInstances))
@@ -387,4 +387,43 @@ func TestGkeRuntimeProjectID(t *testing.T) {
 
 		require.Error(t, err)
 	})
+}
+
+// TestCopyGkeRecords_IsResumable covers a retried onboarding. The control-plane
+// controller reruns a failed reconcile from the start, so every copy has to
+// recognize its own earlier work: a second run creating the records again would
+// fail on the unique names, at the same place every time.
+func TestCopyGkeRecords_IsResumable(t *testing.T) {
+	key, err := encryption.GenerateKey()
+	require.NoError(t, err)
+	parent := newFakeAPI(t, 1)
+	child := newFakeAPI(t, 500)
+	parentGkeRuntime(t, parent, key, true)
+
+	o := &runtimeOnboarder{parent: parent.target(), child: child.target(), encryptionKey: key}
+	from := runtimeLink{definitionID: 10, instanceID: 20}
+	to := runtimeLink{definitionID: 100, instanceID: 200}
+
+	require.NoError(t, o.copyGkeRecords(from, to))
+	require.NoError(t, o.copyGkeRecords(from, to), "a rerun must find what the first run created")
+
+	assert.Len(t, child.createdOn(v0.PathGcpProviders), 1)
+	assert.Len(t, child.createdOn(v0.PathGcpGkeKubernetesRuntimeDefinitions), 1)
+	assert.Len(t, child.createdOn(v0.PathGcpGkeKubernetesRuntimeInstances), 1)
+}
+
+func TestCreateRuntimeInstance_IsResumable(t *testing.T) {
+	key, err := encryption.GenerateKey()
+	require.NoError(t, err)
+	child := newFakeAPI(t, 500)
+	o := &runtimeOnboarder{child: child.target(), encryptionKey: key}
+	source := &v0.KubernetesRuntimeInstance{Instance: v0.Instance{Name: util.Ptr("runtime")}}
+
+	first, err := o.createRuntimeInstance(source, util.Ptr(uint(100)), true, true)
+	require.NoError(t, err)
+	second, err := o.createRuntimeInstance(source, util.Ptr(uint(100)), true, true)
+	require.NoError(t, err)
+
+	assert.Len(t, child.createdOn(v0.PathKubernetesRuntimeInstances), 1)
+	assert.Equal(t, *first.ID, *second.ID, "the rerun returns the instance the first run created")
 }

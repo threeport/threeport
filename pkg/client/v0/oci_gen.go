@@ -12,6 +12,7 @@ import (
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"net/http"
+	neturl "net/url"
 )
 
 // GetOciOkeKubernetesRuntimeDefinitions fetches all oci oke kubernetes runtime definitions.
@@ -25,7 +26,7 @@ func GetOciOkeKubernetesRuntimeDefinitions(apiClient *http.Client, apiAddr strin
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathOciOkeKubernetesRuntimeDefinitions)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathOciOkeKubernetesRuntimeDefinitions, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathOciOkeKubernetesRuntimeDefinitions, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -134,7 +135,7 @@ func GetOciOkeKubernetesRuntimeDefinitionByName(apiClient *http.Client, apiAddr,
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathOciOkeKubernetesRuntimeDefinitions, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathOciOkeKubernetesRuntimeDefinitions, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -342,7 +343,7 @@ func GetOciOkeKubernetesRuntimeInstances(apiClient *http.Client, apiAddr string)
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathOciOkeKubernetesRuntimeInstances)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathOciOkeKubernetesRuntimeInstances, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathOciOkeKubernetesRuntimeInstances, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -451,7 +452,7 @@ func GetOciOkeKubernetesRuntimeInstanceByName(apiClient *http.Client, apiAddr, n
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathOciOkeKubernetesRuntimeInstances, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathOciOkeKubernetesRuntimeInstances, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -659,7 +660,7 @@ func GetOciProviders(apiClient *http.Client, apiAddr string) (*[]v0.OciProvider,
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathOciProviders)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathOciProviders, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathOciProviders, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -768,7 +769,7 @@ func GetOciProviderByName(apiClient *http.Client, apiAddr, name string) (*v0.Oci
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathOciProviders, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathOciProviders, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},

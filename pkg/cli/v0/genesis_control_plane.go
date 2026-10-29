@@ -751,6 +751,14 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	}
 	Info("Threeport API is running")
 
+	// Restrict traffic within the namespace once its components are running.
+	// A default-deny applied earlier would be enforced while they are still
+	// starting, on a cluster whose CNI enforces it, and the install would be
+	// refused its own connections.
+	if err := cpi.InstallThreeportNetworkPolicies(dynamicKubeClient, mapper); err != nil {
+		return uninstaller.cleanOnCreateError("failed to install threeport network policies", err)
+	}
+
 	// install support services CRDs separately (package-level function)
 	if err = threeport.InstallThreeportCRDs(dynamicKubeClient, mapper); err != nil {
 		return uninstaller.cleanOnCreateError("failed to install threeport support services CRDs", err)
@@ -923,9 +931,9 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		clientKey = nil
 	}
 
-	componentList := cpi.Opts.ControllerList
-	componentList = append(componentList, cpi.Opts.RestApiInfo)
-	componentList = append(componentList, cpi.Opts.AgentInfo)
+	// record every installed component so child control planes can default to
+	// the images this control plane runs
+	componentList := cpi.RecordedComponents()
 
 	// construct control plane instance object
 	controlPlaneInstance := v0.ControlPlaneInstance{
@@ -1316,6 +1324,12 @@ func ValidateCreateGenesisControlPlaneFlags(
 	// reject a provider and tier that cannot go together, before any
 	// infrastructure is created
 	if err := threeport.ValidateTierForProvider(infraProvider, tier); err != nil {
+		return err
+	}
+
+	// reject auth being disabled anywhere but kind, before any infrastructure
+	// is created
+	if err := v0.ValidateAuthEnabledForProvider(infraProvider, authEnabled); err != nil {
 		return err
 	}
 
@@ -1758,11 +1772,9 @@ func ensureBootstrapControlPlane(
 		}
 	}
 
-	// include the installed controllers, the rest api, and the agent
-	componentList := make([]*v0.ControlPlaneComponent, 0, len(cpi.Opts.ControllerList)+2)
-	componentList = append(componentList, cpi.Opts.ControllerList...)
-	componentList = append(componentList, cpi.Opts.RestApiInfo)
-	componentList = append(componentList, cpi.Opts.AgentInfo)
+	// include the installed controllers, the rest api, the agent and the
+	// database migrator
+	componentList := cpi.RecordedComponents()
 
 	// create the control plane instance
 	selfInstance := true

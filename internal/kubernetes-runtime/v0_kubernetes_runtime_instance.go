@@ -417,6 +417,14 @@ func v0KubernetesRuntimeInstanceDeleted(
 			*kubernetesRuntimeInstance.ID,
 		)
 		if err != nil {
+			if errors.Is(err, client_lib.ErrObjectNotFound) {
+				// AWS EKS instance already gone - nothing left to delete
+				log.Info(
+					"aws eks runtime instance already deleted, confirming kubernetes runtime instance deletion",
+					"kubernetesRuntimeInstanceID", *kubernetesRuntimeInstance.ID,
+				)
+				return 0, nil
+			}
 			return 0, fmt.Errorf("failed to get aws eks runtime instance by kubernetes runtime instance ID: %w", err)
 		}
 
@@ -439,6 +447,10 @@ func v0KubernetesRuntimeInstanceDeleted(
 		if err != nil {
 			if errors.Is(err, client_lib.ErrObjectNotFound) {
 				// GcpGke instance already gone - nothing left to delete
+				log.Info(
+					"gcp gke runtime instance already deleted, confirming kubernetes runtime instance deletion",
+					"kubernetesRuntimeInstanceID", *kubernetesRuntimeInstance.ID,
+				)
 				return 0, nil
 			}
 			return 0, fmt.Errorf("failed to get GCP GKE runtime instance by kubernetes runtime instance ID: %w", err)

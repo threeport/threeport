@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"runtime"
 	"strconv"
+	"strings"
 )
 
 const releaseArch = "amd64"
@@ -2635,9 +2636,15 @@ func (Dev) LoadImage(kindClusterName string, component string) error {
 }
 
 // GenerateSwaggerDocs generates the API server swagger documentation served by the API.
+//
+// It runs swag through 'go tool', so the version is the one this module's
+// go.mod pins rather than whichever swag is on the PATH, and the docs come
+// out the same on every machine.
 func (Dev) GenerateSwaggerDocs() error {
 	docsDestination := "pkg/api-server/v0/docs"
 	swagCmd := exec.Command(
+		"go",
+		"tool",
 		"swag",
 		"init",
 		"--dir",
@@ -2653,6 +2660,10 @@ func (Dev) GenerateSwaggerDocs() error {
 
 	output, err := swagCmd.CombinedOutput()
 	if err != nil {
+		// a module made before swag was run as a go tool does not declare it
+		if strings.Contains(string(output), "no such tool \"swag\"") {
+			return fmt.Errorf("swag is not a tool of this module - add it with 'go get -tool github.com/swaggo/swag/cmd/swag@v1.16.6': %w", err)
+		}
 		return fmt.Errorf("API docs generation failed with output '%s': %w", output, err)
 	}
 
