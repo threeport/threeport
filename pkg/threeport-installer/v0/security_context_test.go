@@ -4,7 +4,9 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -388,6 +390,7 @@ func TestEveryPodThisInstallerWritesSetsASeccompProfile(t *testing.T) {
 					t,
 					callsHelper(securityContext, "restrictedPodSecurityContext") ||
 						callsHelper(securityContext, "dependencyPodSecurityContext") ||
+						callsHelper(securityContext, "natsBoxPodSecurityContext") ||
 						mentions(securityContext, "RuntimeDefault"),
 					"%s: a pod does not set a RuntimeDefault seccomp profile",
 					fileSet.Position(literal.Pos()),
@@ -433,6 +436,7 @@ func TestEveryPodThisInstallerWritesRunsAsNonRoot(t *testing.T) {
 				podContext := keyedValue(literal, `"securityContext"`)
 				if callsHelper(podContext, "restrictedPodSecurityContext") ||
 					callsHelper(podContext, "dependencyPodSecurityContext") ||
+					callsHelper(podContext, "natsBoxPodSecurityContext") ||
 					setsRunAsNonRoot(podContext) {
 					return true
 				}
@@ -560,48 +564,62 @@ func TestTheDependencyContextsMeetTheStandard(t *testing.T) {
 // USER - which the kubelet can resolve unaided, and pinning one here would
 // only let that image's default drift from what the manifest claims. Whether
 // a container needs the numeric id is a fact about its image, not about the
-// source, and nothing here can see that - so this checks only the one site
-// that was confirmed to need it.
+// source, and nothing here can see that - so this checks only the image that
+// was confirmed to need it.
 func TestNatsBoxPinsTheNumericUserItsImageDeclaresByName(t *testing.T) {
-	fileSet := token.NewFileSet()
-	file, err := parser.ParseFile(fileSet, "dependencies.go", nil, 0)
+	securityContext := natsBoxPodSecurityContext()
+	assert.Equal(t, true, securityContext["runAsNonRoot"])
+	// confirmed against the image with
+	// `docker run --entrypoint id natsio/nats-box:0.16.0-nonroot`
+	assert.Equal(t, int64(1000), securityContext["runAsUser"],
+		"nats-box's image declares USER nats:nats by name, which the kubelet cannot resolve on its own")
+	assert.Equal(t, int64(1000), securityContext["runAsGroup"])
+	profile, _, err := unstructured.NestedString(securityContext, "seccompProfile", "type")
+	require.NoError(t, err)
+	assert.Equal(t, "RuntimeDefault", profile)
+}
+
+// TestEveryNatsBoxPodTakesItsSecurityContextFromTheHelper covers every pod
+// that runs the nats-box image, wherever in the installer it is written: the
+// utility pod and the job a reinstall runs to drop the message broker's
+// streams both do.  Each takes its security context from
+// natsBoxPodSecurityContext, which the test above checks, so a copy written
+// out by hand cannot drift from it, and a new nats-box pod is held to it too.
+func TestEveryNatsBoxPodTakesItsSecurityContextFromTheHelper(t *testing.T) {
+	paths, err := filepath.Glob("*.go")
 	require.NoError(t, err)
 
-	var found *ast.CompositeLit
-	ast.Inspect(file, func(node ast.Node) bool {
-		literal, ok := node.(*ast.CompositeLit)
-		if !ok {
+	pods := 0
+	for _, path := range paths {
+		if strings.HasSuffix(path, "_test.go") {
+			continue
+		}
+		fileSet := token.NewFileSet()
+		file, err := parser.ParseFile(fileSet, path, nil, 0)
+		require.NoError(t, err)
+
+		ast.Inspect(file, func(node ast.Node) bool {
+			literal, ok := node.(*ast.CompositeLit)
+			if !ok || !mentions(keyedValue(literal, `"image"`), "natsBoxImage") {
+				return true
+			}
+			pods++
+
+			pod := enclosingPodLiteral(file, literal)
+			if !assert.NotNil(t, pod, "%s: a nats-box container is not inside a pod spec", fileSet.Position(literal.Pos())) {
+				return true
+			}
+			assert.True(
+				t, callsHelper(keyedValue(pod, `"securityContext"`), "natsBoxPodSecurityContext"),
+				"%s: a nats-box pod does not take its security context from natsBoxPodSecurityContext",
+				fileSet.Position(pod.Pos()),
+			)
+
 			return true
-		}
-		if mentions(keyedValue(literal, `"image"`), "natsBoxImage") {
-			found = literal
-		}
+		})
+	}
 
-		return true
-	})
-	require.NotNil(t, found, "no container literal naming natsBoxImage found")
-
-	// the securityContext is on the pod sibling to this container, not on
-	// this literal: nats-box's pod sets it, not its one container
-	podLiteral := enclosingPodLiteral(file, found)
-	require.NotNil(t, podLiteral, "nats-box container is not inside a pod spec")
-
-	securityContext := keyedValue(podLiteral, `"securityContext"`)
-	require.NotNil(t, securityContext, "nats-box pod has no security context")
-
-	assert.True(t, mentions(securityContext, "true"), "nats-box pod does not set runAsNonRoot")
-	assert.True(
-		t, mentions(securityContext, "natsBoxUID"),
-		"nats-box pod sets runAsNonRoot with no numeric runAsUser - its image declares USER nats:nats "+
-			"by name, which the kubelet cannot resolve on its own",
-	)
-	assert.True(t, mentions(securityContext, "natsBoxGID"), "nats-box pod has no runAsGroup to match")
-
-	// the AST check above only sees that the identifier is referenced, not
-	// what it is worth - confirmed against the image with
-	// `docker run --entrypoint id natsio/nats-box:0.16.0-nonroot`
-	assert.Equal(t, int64(1000), natsBoxUID, "this is nats-box's actual uid, not a placeholder")
-	assert.Equal(t, int64(1000), natsBoxGID, "this is nats-box's actual gid, not a placeholder")
+	require.GreaterOrEqual(t, pods, 2, "the nats-box utility pod and the message broker drop job were not both found")
 }
 
 // enclosingPodLiteral returns the nearest composite literal that lists

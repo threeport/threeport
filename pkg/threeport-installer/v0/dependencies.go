@@ -47,14 +47,6 @@ func (cpi *ControlPlaneInstaller) CreateThreeportControlPlaneNamespace(
 	return nil
 }
 
-// natsBoxUID and natsBoxGID are the numeric uid/gid behind the nats-box
-// image's USER nats:nats (confirmed with `docker run --entrypoint id`). The
-// kubelet needs the number, not the name, to verify runAsNonRoot.
-const (
-	natsBoxUID = int64(1000)
-	natsBoxGID = int64(1000)
-)
-
 // InstallThreeportControlPlaneDependencies installs the necessary components
 // for the threeport REST API and controllers to operate.  It includes the
 // database and message broker.
@@ -268,26 +260,8 @@ store_dir: /data
 						},
 					},
 					"spec": map[string]interface{}{
-						"volumes": nil,
-						// natsio/nats-box:0.16.0-nonroot declares USER nats:nats, so
-						// this one can be held to it. The other dependencies cannot.
-						//
-						// runAsUser and runAsGroup still have to be given
-						// numerically: the kubelet does not resolve a named
-						// USER against the image's /etc/passwd on its own, so
-						// runAsNonRoot alone fails every container with
-						// CreateContainerConfigError, "image has non-numeric
-						// user (nats), cannot verify user is non-root" -
-						// confirmed against a running kind cluster, not
-						// assumed from the image's declared USER.
-						"securityContext": map[string]interface{}{
-							"runAsNonRoot": true,
-							"runAsUser":    natsBoxUID,
-							"runAsGroup":   natsBoxGID,
-							"seccompProfile": map[string]interface{}{
-								"type": "RuntimeDefault",
-							},
-						},
+						"volumes":         nil,
+						"securityContext": natsBoxPodSecurityContext(),
 						"containers": []interface{}{
 							map[string]interface{}{
 								"name":            "nats-box",

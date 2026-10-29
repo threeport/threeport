@@ -179,15 +179,8 @@ func (cpi *ControlPlaneInstaller) runDropMessageBrokerJob(
 				"template": map[string]interface{}{
 					"spec": map[string]interface{}{
 						"restartPolicy": "Never",
-						// the same user as the nats-box utility pod, from the same image
-						"securityContext": map[string]interface{}{
-							"runAsNonRoot": true,
-							"runAsUser":    natsBoxUID,
-							"runAsGroup":   natsBoxGID,
-							"seccompProfile": map[string]interface{}{
-								"type": "RuntimeDefault",
-							},
-						},
+						// the same image as the nats-box utility pod
+						"securityContext": natsBoxPodSecurityContext(),
 						"containers": []interface{}{
 							map[string]interface{}{
 								"name":            "drop-message-broker",
