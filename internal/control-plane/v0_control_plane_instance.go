@@ -158,9 +158,7 @@ func v0ControlPlaneInstanceCreated(
 	// a production child would come up as a development one.
 	cpi.Opts.Tier = threeport.ControlPlaneTier(util.Deref(controlPlaneDefinition.Tier))
 	if cpi.Opts.Tier == "" {
-		cpi.Opts.Tier = threeport.ControlPlaneTier(threeport.DefaultControlPlaneTierForProvider(
-			*kubernetesRuntimeDefinition.InfraProvider,
-		))
+		cpi.Opts.Tier = threeport.ControlPlaneTier(threeport.DefaultControlPlaneTier)
 	}
 
 	// The runtime a child is installed onto is chosen separately from the
