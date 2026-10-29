@@ -14,6 +14,13 @@ type ControlPlaneDefinition struct {
 	// a clean DB.
 	OnboardParent *bool `validate:"optional" gorm:"default:true"`
 
+	// Whether this control plane is run as a development or a production
+	// deployment. Tier-dependent behavior - replica counts, resource limits,
+	// database topology, backups - is read from here rather than decided again
+	// per component, so a control plane answers what it is instead of each
+	// caller inferring it from the infrastructure provider.
+	Tier *string `validate:"optional" gorm:"default:development"`
+
 	// The associated control plane instances that are deployed from this definition.
 	ControlPlaneInstances []*ControlPlaneInstance `validate:"optional,association"`
 }
@@ -31,10 +38,23 @@ type ControlPlaneInstance struct {
 	IsSelf *bool `validate:"optional" gorm:"default:false"`
 
 	// Passed in information for the different components of the control plane i.e. controller etc
-	// When not provided, the default values will be used. If provided, they will override the default values.
+	// When not provided, a component takes the image its parent control plane runs, and the
+	// compiled-in default for anything the parent did not record. If provided, they will override those values.
+	// A name that matches no default component is rejected unless the component is marked Additional.
 	// Despite being a reference to another database entry, we dont validate association.
 	// This allows a user to provide CustomComponentInfo at instance creation time so the reconciler has the info it needs
 	CustomComponentInfo []*ControlPlaneComponent `validate:"optional"`
+
+	// The image registry and namespace for every default component of the
+	// control plane, e.g. 'ghcr.io/threeport'. A component named in
+	// CustomComponentInfo takes its own value instead. When neither is set a
+	// component takes the image its parent control plane runs.
+	ImageNamespace *string `validate:"optional"`
+
+	// The image tag for every default component of the control plane. A
+	// component named in CustomComponentInfo takes its own value instead. When
+	// neither is set a component takes the tag its parent control plane runs.
+	ImageTag *string `validate:"optional"`
 
 	// Indicates whether this is was the first control plane that was spun up in a control plane group
 	Genesis *bool `validate:"optional" gorm:"default:false"`

@@ -118,6 +118,7 @@ func (t *TerraformInstanceConfig) Get(
 				Name:                terraformInstance.Name,
 				AwsProvider:         awsProvider,
 				VarsDocument:        terraformInstance.VarsDocument,
+				Outputs:             terraformInstance.Outputs,
 				TerraformDefinition: terraformDefinition,
 				Status:              &terraformInstanceStatus,
 				Age:                 util.Ptr(util.GetAgeFormatted(terraformInstance.CreatedAt)),
@@ -256,12 +257,22 @@ func (t *TerraformInstanceConfig) Replace(
 	}
 
 	// construct updated terraform instance object
+	// Replace sends a PUT, a full replace: every field on the outgoing object
+	// is written, a nil one included, so a field left off this literal is
+	// cleared server-side rather than left alone. Status and Reconciled are
+	// the reconciler's, not something a caller of Replace is setting, and
+	// Status is promoted from the embedded Instance - writing that struct with
+	// only a Name clears it.
 	updatedTerraformInstance := &api.TerraformInstance{
 		Common: api.Common{
 			ID: existingTerraformInstance.ID,
 		},
 		Instance: api.Instance{
-			Name: terraformInstanceValues.Name,
+			Name:   terraformInstanceValues.Name,
+			Status: existingTerraformInstance.Status,
+		},
+		Reconciliation: api.Reconciliation{
+			Reconciled: existingTerraformInstance.Reconciled,
 		},
 		AwsProviderID:         awsProvider.ID,
 		TerraformDefinitionID: terraformDefinition.ID,

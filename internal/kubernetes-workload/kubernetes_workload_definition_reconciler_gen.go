@@ -201,6 +201,29 @@ func KubernetesWorkloadDefinitionReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the operation has been failing for longer than the retry bound
+					if r.RecordFailure(kubernetesWorkloadDefinition, string(notif.Operation)) {
+						giveUpMsg := event.GiveUpNote(
+							"failed to reconcile created kubernetes workload definition object",
+							controller.DefaultMaxReconcileDuration,
+							operationErr,
+						)
+						log.Error(operationErr, giveUpMsg)
+						if recordErr := r.EventsRecorder.RecordEvent(
+							&api_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonCreateFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							kubernetesWorkloadDefinition.GetId(),
+							kubernetesWorkloadDefinition.GetFullyQualifiedType(),
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record give-up event")
+						}
+						r.ClearFailure(kubernetesWorkloadDefinition, string(notif.Operation))
+						r.ReleaseLock(kubernetesWorkloadDefinition, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						kubernetesWorkloadDefinition,
 						requeueDelay,
@@ -209,6 +232,7 @@ func KubernetesWorkloadDefinitionReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				r.ClearFailure(kubernetesWorkloadDefinition, string(notif.Operation))
 				if customRequeueDelay != 0 {
 					log.Info("create requeued for future reconciliation")
 					r.UnlockAndRequeue(
@@ -266,6 +290,29 @@ func KubernetesWorkloadDefinitionReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the operation has been failing for longer than the retry bound
+					if r.RecordFailure(kubernetesWorkloadDefinition, string(notif.Operation)) {
+						giveUpMsg := event.GiveUpNote(
+							"failed to reconcile updated kubernetes workload definition object",
+							controller.DefaultMaxReconcileDuration,
+							operationErr,
+						)
+						log.Error(operationErr, giveUpMsg)
+						if recordErr := r.EventsRecorder.RecordEvent(
+							&api_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonUpdateFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							kubernetesWorkloadDefinition.GetId(),
+							kubernetesWorkloadDefinition.GetFullyQualifiedType(),
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record give-up event")
+						}
+						r.ClearFailure(kubernetesWorkloadDefinition, string(notif.Operation))
+						r.ReleaseLock(kubernetesWorkloadDefinition, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						kubernetesWorkloadDefinition,
 						requeueDelay,
@@ -274,6 +321,7 @@ func KubernetesWorkloadDefinitionReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				r.ClearFailure(kubernetesWorkloadDefinition, string(notif.Operation))
 				if customRequeueDelay != 0 {
 					log.Info("update requeued for future reconciliation")
 					r.UnlockAndRequeue(
@@ -344,6 +392,29 @@ func KubernetesWorkloadDefinitionReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the operation has been failing for longer than the retry bound
+					if r.RecordFailure(kubernetesWorkloadDefinition, string(notif.Operation)) {
+						giveUpMsg := event.GiveUpNote(
+							"failed to reconcile deleted kubernetes workload definition object",
+							controller.DefaultMaxReconcileDuration,
+							operationErr,
+						)
+						log.Error(operationErr, giveUpMsg)
+						if recordErr := r.EventsRecorder.RecordEvent(
+							&api_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonDeleteFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							kubernetesWorkloadDefinition.GetId(),
+							kubernetesWorkloadDefinition.GetFullyQualifiedType(),
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record give-up event")
+						}
+						r.ClearFailure(kubernetesWorkloadDefinition, string(notif.Operation))
+						r.ReleaseLock(kubernetesWorkloadDefinition, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						kubernetesWorkloadDefinition,
 						requeueDelay,
@@ -352,6 +423,7 @@ func KubernetesWorkloadDefinitionReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				r.ClearFailure(kubernetesWorkloadDefinition, string(notif.Operation))
 				if customRequeueDelay != 0 {
 					log.Info("delete requeued for future reconciliation")
 					r.UnlockAndRequeue(
@@ -419,8 +491,8 @@ func KubernetesWorkloadDefinitionReconciler(r *controller.Reconciler) {
 				continue
 			}
 
-			// set the object's Reconciled field to true if not deleted
-			if notif.Operation != notifications.NotificationOperationDeleted {
+			// mark reconciled unless it is already true
+			if notif.Operation != notifications.NotificationOperationDeleted && !tpapi_lib.AlreadyReconciled(kubernetesWorkloadDefinition) {
 				reconciledKubernetesWorkloadDefinition := api_v0.KubernetesWorkloadDefinition{
 					Common:         api_v0.Common{ID: util.Ptr(kubernetesWorkloadDefinition.GetId())},
 					Reconciliation: api_v0.Reconciliation{Reconciled: util.Ptr(true)},

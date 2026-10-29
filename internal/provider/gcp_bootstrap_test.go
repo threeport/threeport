@@ -118,7 +118,7 @@ func ownedServiceAccount(ownerName string) *iam.ServiceAccount {
 
 func TestGcpServiceAccountDeletable_OwnedAccount(t *testing.T) {
 	deletable, err := gcpServiceAccountDeletable(
-		ownedServiceAccount("my-provider"), true, "my-provider", "my-provider@a-project.iam.gserviceaccount.com",
+		ownedServiceAccount("my-provider"), true, "my-provider", "my-provider@a-project.iam.gserviceaccount.com", providerServiceAccountOwnedBy,
 	)
 	require.NoError(t, err)
 	assert.True(t, deletable)
@@ -127,7 +127,7 @@ func TestGcpServiceAccountDeletable_OwnedAccount(t *testing.T) {
 // a delete re-run after a partial one has to be able to finish
 func TestGcpServiceAccountDeletable_MissingAccountIsNothingToDo(t *testing.T) {
 	deletable, err := gcpServiceAccountDeletable(
-		nil, false, "my-provider", "my-provider@a-project.iam.gserviceaccount.com",
+		nil, false, "my-provider", "my-provider@a-project.iam.gserviceaccount.com", providerServiceAccountOwnedBy,
 	)
 	require.NoError(t, err)
 	assert.False(t, deletable)
@@ -141,7 +141,7 @@ func TestGcpServiceAccountDeletable_UnownedAccountIsRefused(t *testing.T) {
 	}
 
 	deletable, err := gcpServiceAccountDeletable(
-		unowned, true, "my-provider", unowned.Email,
+		unowned, true, "my-provider", unowned.Email, providerServiceAccountOwnedBy,
 	)
 	require.Error(t, err)
 	assert.False(t, deletable)
@@ -165,7 +165,7 @@ func TestGcpServiceAccountDeletable_TruncationCollision(t *testing.T) {
 
 	// deleting the second must not touch the account the first owns
 	deletable, err := gcpServiceAccountDeletable(
-		ownedServiceAccount(first), true, second, "shared@a-project.iam.gserviceaccount.com",
+		ownedServiceAccount(first), true, second, "shared@a-project.iam.gserviceaccount.com", providerServiceAccountOwnedBy,
 	)
 	require.Error(t, err)
 	assert.False(t, deletable)
@@ -197,7 +197,7 @@ func TestGcpServiceAccountDeletable_LegacyAccount(t *testing.T) {
 		Description: "Service account for Threeport GcpProvider my-provider to manage GCP resources",
 	}
 
-	deletable, err := gcpServiceAccountDeletable(legacy, true, "my-provider", legacy.Email)
+	deletable, err := gcpServiceAccountDeletable(legacy, true, "my-provider", legacy.Email, providerServiceAccountOwnedBy)
 	require.NoError(t, err)
 	assert.True(t, deletable)
 }
@@ -252,7 +252,7 @@ func TestGcpServiceAccountDeletable_MissingAccountCannotBeVouchedFor(t *testing.
 	// deleting the second finds no account, and must not conclude the shared
 	// email's bindings are its to remove
 	deletable, err := gcpServiceAccountDeletable(
-		nil, false, second, "shared@a-project.iam.gserviceaccount.com",
+		nil, false, second, "shared@a-project.iam.gserviceaccount.com", providerServiceAccountOwnedBy,
 	)
 	require.NoError(t, err)
 	assert.False(t, deletable)
@@ -305,4 +305,103 @@ func TestWorkloadIdentityMembers_NameNoRuntime(t *testing.T) {
 	for _, member := range first.getWorkloadIdentityMembers(pool) {
 		assert.NotContains(t, member, "runtime-one")
 	}
+}
+
+// TestGcpServiceAccountDeletable_RuntimeDeleteRefusesProviderAccount covers the
+// collision between a runtime and a GcpProvider of one name.
+//
+// Both derive threeport-svc-<name>, and the ownership marker in the description
+// is the same for both, so a check on the marker alone takes the provider's
+// account for the runtime's. Deleting the runtime would then strip the
+// provider's project roles and delete its account, and the provider's stored key
+// would stop working.
+func TestGcpServiceAccountDeletable_RuntimeDeleteRefusesProviderAccount(t *testing.T) {
+	name := "dev"
+	providerAccount := ownedServiceAccount(name)
+	require.True(
+		t, serviceAccountOwnedBy(providerAccount, name),
+		"this test is meaningless unless the marker alone vouches for the account",
+	)
+
+	deletable, err := gcpServiceAccountDeletable(
+		providerAccount, true, name, providerAccount.Email, runtimeServiceAccountOwnedBy,
+	)
+	require.Error(t, err)
+	assert.False(t, deletable)
+	assert.Contains(t, err.Error(), "not created by Threeport")
+}
+
+// TestGcpServiceAccountDeletable_ProviderDeleteRefusesRuntimeAccount is the same
+// collision from the other side: deleting a GcpProvider must not take an account
+// the GKE bootstrap made for a runtime of the same name.
+func TestGcpServiceAccountDeletable_ProviderDeleteRefusesRuntimeAccount(t *testing.T) {
+	name := "dev"
+	runtimeAccount := &iam.ServiceAccount{
+		Email:       "threeport-svc-dev@a-project.iam.gserviceaccount.com",
+		Description: gkeServiceAccountDescription(name),
+	}
+
+	deletable, err := gcpServiceAccountDeletable(
+		runtimeAccount, true, name, runtimeAccount.Email, providerServiceAccountOwnedBy,
+	)
+	require.Error(t, err)
+	assert.False(t, deletable)
+}
+
+// TestRuntimeServiceAccountOwnedBy covers what the runtime delete accepts.
+func TestRuntimeServiceAccountOwnedBy(t *testing.T) {
+	name := "threeport-my-cp"
+
+	t.Run("its own account", func(t *testing.T) {
+		account := &iam.ServiceAccount{Description: gkeServiceAccountDescription(name)}
+		assert.True(t, runtimeServiceAccountOwnedBy(account, name))
+	})
+
+	// without this, tptctl down on an install made before the ownership marker
+	// would refuse its own account and strand it with its project roles
+	t.Run("an account from before the ownership marker", func(t *testing.T) {
+		account := &iam.ServiceAccount{Description: legacyGkeServiceAccountDescription(name)}
+		assert.True(t, runtimeServiceAccountOwnedBy(account, name))
+		assert.False(t, runtimeServiceAccountOwnedBy(account, "other-runtime"))
+	})
+
+	t.Run("another runtime's account", func(t *testing.T) {
+		account := &iam.ServiceAccount{Description: gkeServiceAccountDescription("other-runtime")}
+		assert.False(t, runtimeServiceAccountOwnedBy(account, name))
+	})
+
+	t.Run("a provider's account of the same name", func(t *testing.T) {
+		assert.False(t, runtimeServiceAccountOwnedBy(ownedServiceAccount(name), name))
+		assert.False(t, runtimeServiceAccountOwnedBy(
+			&iam.ServiceAccount{Description: legacyGcpServiceAccountDescription(name)}, name,
+		))
+	})
+
+	t.Run("a hand-made or missing account", func(t *testing.T) {
+		assert.False(t, runtimeServiceAccountOwnedBy(&iam.ServiceAccount{Description: "someone else"}, name))
+		assert.False(t, runtimeServiceAccountOwnedBy(nil, name))
+	})
+}
+
+// TestProviderServiceAccountOwnedBy covers the provider side of the same split.
+func TestProviderServiceAccountOwnedBy(t *testing.T) {
+	name := "my-provider"
+
+	assert.True(t, providerServiceAccountOwnedBy(ownedServiceAccount(name), name))
+	assert.False(t, providerServiceAccountOwnedBy(ownedServiceAccount(name), "other-provider"))
+	assert.False(t, providerServiceAccountOwnedBy(
+		&iam.ServiceAccount{Description: gkeServiceAccountDescription(name)}, name,
+	))
+	assert.False(t, providerServiceAccountOwnedBy(
+		&iam.ServiceAccount{Description: legacyGkeServiceAccountDescription(name)}, name,
+	))
+	assert.False(t, providerServiceAccountOwnedBy(nil, name))
+}
+
+// TestGcpProviderServiceAccountDescription_MatchesWhatTheCreatePathWrites keeps
+// the description the delete compares against the one create writes.
+func TestGcpProviderServiceAccountDescription_MatchesWhatTheCreatePathWrites(t *testing.T) {
+	name := "my-provider"
+
+	assert.Equal(t, ownedServiceAccount(name).Description, gcpProviderServiceAccountDescription(name))
 }

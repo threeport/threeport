@@ -57,10 +57,13 @@ func v0ObservabilityDashboardDefinitionCreated(
 	}
 
 	// create observability dashboard helm workload definition
-	grafanaHelmWorkloadDefinition, err := client.CreateHelmWorkloadDefinition(
+	_, err = client.CreateHelmWorkloadDefinition(
 		r.APIClient,
 		r.APIServer,
 		&v0.HelmWorkloadDefinition{
+			Common: v0.Common{
+				Owner: observabilityDashboardDefinition.OwnGrafanaHelmWorkloadDefinition(),
+			},
 			Definition: v0.Definition{
 				Name: util.Ptr(GrafanaChartName(*observabilityDashboardDefinition.Name)),
 			},
@@ -72,9 +75,6 @@ func v0ObservabilityDashboardDefinitionCreated(
 	if err != nil {
 		return 0, fmt.Errorf("failed to create grafana helm workload definition: %w", err)
 	}
-
-	// update observability dashboard definition with helm workload definition id
-	observabilityDashboardDefinition.GrafanaHelmWorkloadDefinitionID = grafanaHelmWorkloadDefinition.ID
 
 	// update observability dashboard definition
 	observabilityDashboardDefinition.Reconciled = util.Ptr(true)
@@ -106,7 +106,16 @@ func v0ObservabilityDashboardDefinitionDeleted(
 	observabilityDashboardDefinition *v0.ObservabilityDashboardDefinition,
 	log *logr.Logger,
 ) (int64, error) {
-	// delete observability dashboard definition
+	// read the id the create stored on the dashboard definition
+	if observabilityDashboardDefinition.GrafanaHelmWorkloadDefinitionID == nil {
+		current, err := client.GetObservabilityDashboardDefinitionByID(r.APIClient, r.APIServer, *observabilityDashboardDefinition.ID)
+		if err != nil {
+			return 0, fmt.Errorf("failed to get observability dashboard definition: %w", err)
+		}
+		observabilityDashboardDefinition.GrafanaHelmWorkloadDefinitionID = current.GrafanaHelmWorkloadDefinitionID
+	}
+
+	// delete grafana helm workload definition
 	if _, err := client.DeleteHelmWorkloadDefinition(
 		r.APIClient,
 		r.APIServer,

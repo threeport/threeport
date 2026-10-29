@@ -50,6 +50,20 @@ const (
 	ThreeportMachineWorkloadControllerName    = "machine-workload-controller"
 	ThreeportAgentName                        = "agent"
 
+	// The container within a component's pod that carries the component's own
+	// image.
+	//
+	// A controller's container is named after the controller, but the API
+	// server and the agent are not: their pods were written by hand rather
+	// than from the controller template, so the container names differ from
+	// the component names. Anything that has to find that container -
+	// retagging it on an upgrade, for one - needs the name the manifest
+	// actually uses. Looking it up by position instead is what turns adding
+	// a sidecar or an init container into a crash.
+	ThreeportApiServerContainerName        = "api-server"
+	ThreeportAgentContainerName            = "manager"
+	ThreeportDatabaseMigratorContainerName = "database-migrator"
+
 	// Endpoint for threeport API when running locally
 	ThreeportLocalAPIEndpoint = "localhost"
 
@@ -76,8 +90,9 @@ const (
 	// * Allow 10 chars for "threeport-" prefix
 	InstanceNameMaxLength = 30
 
-	ControlPlaneTierDev  = "development"
-	ControlPlaneTierProd = "production"
+	// the canonical values live on the API object these describe
+	ControlPlaneTierDev  = v0.ControlPlaneTierDevelopment
+	ControlPlaneTierProd = v0.ControlPlaneTierProduction
 )
 
 var enabled bool = true
@@ -241,21 +256,45 @@ type ControlPlane struct {
 	Tier          ControlPlaneTier
 }
 
-// DefaultControlPlaneTierForProvider returns the development tier when the
-// provider is kind and the production tier for every other value.
-func DefaultControlPlaneTierForProvider(infraProvider string) string {
-	// return the development tier for the kind provider
-	if infraProvider == v0.KubernetesRuntimeInfraProviderKind {
-		return ControlPlaneTierDev
+// DefaultControlPlaneTier is the tier a control plane is installed at when
+// none is asked for, on every provider.
+//
+// Production is opted into with --tier production, never defaulted into. On a
+// cloud provider it is not only higher replica counts but real resources and
+// cost - on GKE a cross-region backup bucket and recurring database backups -
+// and a first install, most often a trial, should be the cheap, disposable
+// one unless the operator says otherwise.
+const DefaultControlPlaneTier = ControlPlaneTierDev
+
+// ValidateTierForProvider rejects a provider and tier that cannot go together.
+//
+// kind is a local, single-node, ephemeral cluster. The tier gates replica
+// counts, database topology and backups, none of which kind can honour, so
+// accepting production there would report a production control plane and
+// install a development one.
+//
+// Both install paths reach this. The genesis path arrives from command flags,
+// before any infrastructure exists; a child control plane arrives from the
+// tier recorded on its definition and the runtime it is being installed onto,
+// which are two values that were never compared until they met here. It is
+// one rule either way, so it is written once - a second copy is a second
+// thing to keep in step, and the pairing it describes does not change with
+// the path that found it.
+func ValidateTierForProvider(infraProvider, tier string) error {
+	if infraProvider == v0.KubernetesRuntimeInfraProviderKind && tier == ControlPlaneTierProd {
+		return fmt.Errorf(
+			"the %s provider cannot run a %s tier control plane - it is a local, single-node cluster",
+			v0.KubernetesRuntimeInfraProviderKind, ControlPlaneTierProd,
+		)
 	}
 
-	// return the production tier for every other value
-	return ControlPlaneTierProd
+	return nil
 }
 
 // AllControlPlaneComponents returns a list of all control plane components.
 func AllControlPlaneComponents() []*v0.ControlPlaneComponent {
-	allControlPlaneComponents := ThreeportControllerList
+	allControlPlaneComponents := make([]*v0.ControlPlaneComponent, 0, len(ThreeportControllerList)+2)
+	allControlPlaneComponents = append(allControlPlaneComponents, ThreeportControllerList...)
 	allControlPlaneComponents = append(allControlPlaneComponents, ThreeportRestApi)
 	allControlPlaneComponents = append(allControlPlaneComponents, ThreeportAgent)
 	return allControlPlaneComponents

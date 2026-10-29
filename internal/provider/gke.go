@@ -79,22 +79,35 @@ type KubernetesRuntimeInfraGKE struct {
 	gcpRegionResolvedFromGcloudINI bool
 }
 
-// ensurePulumiProjectDefaults sets Pulumi project metadata when not provided by callers.
-func (i *KubernetesRuntimeInfraGKE) ensurePulumiProjectDefaults() {
+const (
+	gkePulumiProjectName        = "gke"
+	gkePulumiProjectDescription = "Google Kubernetes Engine (GKE) cluster for Threeport"
+)
+
+// InitPulumiProject fills in the Pulumi project identity and stack config, and
+// returns the receiver so a caller can set it at construction.
+//
+// It has to be called before the infra is handed to the lifecycle, not from
+// CreateInfra. executeInfraCreate starts the fsnotify watcher that streams
+// partial state to the API before it calls DeployInfra, and the watched path is
+// built from ProjectName: setting it later means the watcher reads an empty
+// name, watches one directory above where Pulumi writes, and never fires - so a
+// controller that crashes mid-provision has persisted nothing and a retry
+// starts over, leaving the first attempt's resources behind. Setting it here
+// also keeps the two goroutines from racing on the same field.
+func (i *KubernetesRuntimeInfraGKE) InitPulumiProject() *KubernetesRuntimeInfraGKE {
 	if i.ProjectName == "" {
-		i.ProjectName = "gke"
+		i.ProjectName = gkePulumiProjectName
 	}
 	if i.ProjectDescription == "" {
-		i.ProjectDescription = "Google Kubernetes Engine (GKE) cluster for Threeport"
+		i.ProjectDescription = gkePulumiProjectDescription
 	}
-}
-
-// syncStackConfigs updates stack config keys from the current ProjectID and Region.
-func (i *KubernetesRuntimeInfraGKE) syncStackConfigs() {
 	i.StackConfigs = map[string]string{
 		"gcp:project": i.ProjectID,
 		"gcp:region":  i.Region,
 	}
+
+	return i
 }
 
 // Create installs a Kubernetes cluster using Google Cloud GKE for threeport workloads.
@@ -134,9 +147,6 @@ func (i *KubernetesRuntimeInfraGKE) Create() (*kube.KubeConnectionInfo, error) {
 // call createGCPServiceAccountAndCredentials first for the bootstrap path, or ensure
 // credentials and Workload Identity are already configured for the controller path.
 func (i *KubernetesRuntimeInfraGKE) CreateInfra() (*kube.KubeConnectionInfo, error) {
-	i.ensurePulumiProjectDefaults()
-	i.syncStackConfigs()
-
 	stack, err := i.SetupStack(i.pulumiProgram())
 	if err != nil {
 		return nil, fmt.Errorf("failed to set up Pulumi workspace: %w", err)
@@ -163,9 +173,15 @@ func (i *KubernetesRuntimeInfraGKE) DeployInfra() error {
 	return err
 }
 
-// DestroyInfra tears down GKE infrastructure via Delete. It satisfies InfraProvider.
+// DestroyInfra tears down the GKE infrastructure. It satisfies InfraProvider.
+//
+// It is the controller's delete, and the controller path never creates the GCP
+// service account (CreateInfra skips it), so there is none of this runtime's to
+// clean up. An account found under the runtime's name belongs to something else -
+// a GcpProvider of the same name, for one - and removing it would cut that
+// provider off. Delete is the bootstrap path that also cleans up the account.
 func (i *KubernetesRuntimeInfraGKE) DestroyInfra() error {
-	return i.Delete()
+	return i.destroyInfraStack()
 }
 
 // pulumiProgram defines the Pulumi resources for the GKE stack.
@@ -327,24 +343,12 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 	}
 }
 
-// Delete deletes a GKE cluster and the threeport control plane with it.
+// Delete deletes a GKE cluster and the threeport control plane with it, along
+// with the GCP service account Create made for it. It is for the bootstrap path:
+// DestroyInfra leaves the account alone because the controller never created one.
 func (i *KubernetesRuntimeInfraGKE) Delete() error {
-	if err := gcpauth.EnsureGCPAuth(i.ServiceAccountCredentials); err != nil {
-		return fmt.Errorf("failed to ensure GCP authentication: %w", err)
-	}
-	if i.ServiceAccountCredentials != "" {
-		defer gcpauth.CleanupGCPCredentials()
-	}
-
-	if err := i.loadGCPConfig(); err != nil {
-		return fmt.Errorf("failed to load GCP configuration: %w", err)
-	}
-
-	i.ensurePulumiProjectDefaults()
-	i.syncStackConfigs()
-
-	if err := i.DestroyStack(); err != nil {
-		return fmt.Errorf("failed to destroy Pulumi stack: %w", err)
+	if err := i.destroyInfraStack(); err != nil {
+		return err
 	}
 
 	if err := i.DeleteGCPResources(); err != nil {
@@ -358,8 +362,31 @@ func (i *KubernetesRuntimeInfraGKE) Delete() error {
 	return nil
 }
 
-// DeleteGCPResources deletes all GCP resources created for this Threeport instance
-// that are not managed by Pulumi.
+// destroyInfraStack destroys the Pulumi-managed GKE infrastructure and nothing
+// else.
+func (i *KubernetesRuntimeInfraGKE) destroyInfraStack() error {
+	if err := gcpauth.EnsureGCPAuth(i.ServiceAccountCredentials); err != nil {
+		return fmt.Errorf("failed to ensure GCP authentication: %w", err)
+	}
+	if i.ServiceAccountCredentials != "" {
+		defer gcpauth.CleanupGCPCredentials()
+	}
+
+	if err := i.loadGCPConfig(); err != nil {
+		return fmt.Errorf("failed to load GCP configuration: %w", err)
+	}
+
+	if err := i.DestroyStack(); err != nil {
+		return fmt.Errorf("failed to destroy Pulumi stack: %w", err)
+	}
+
+	return nil
+}
+
+// DeleteGCPResources deletes the GCP service account Create made for this
+// Threeport instance, and its project roles. It does so only if the account
+// carries this runtime's own description - an account that is there but belongs
+// to something else, such as a GcpProvider of the same name, is refused.
 func (i *KubernetesRuntimeInfraGKE) DeleteGCPResources() error {
 	ctx := context.Background()
 
@@ -388,17 +415,14 @@ func (i *KubernetesRuntimeInfraGKE) DeleteGCPResources() error {
 		return fmt.Errorf("failed to create Cloud Resource Manager service client: %w", err)
 	}
 
-	// Remove IAM role bindings
-	if err := i.removeServiceAccountRoles(crmService); err != nil {
-		return fmt.Errorf("failed to remove IAM roles: %w", err)
-	}
-
-	// Delete the service account
-	if err := i.deleteGCPServiceAccount(iamService); err != nil {
-		return fmt.Errorf("failed to delete service account: %w", err)
-	}
-
-	return nil
+	return deleteOwnedServiceAccount(
+		iamService,
+		crmService,
+		i.ProjectID,
+		i.getServiceAccountEmail(),
+		i.RuntimeInstanceName,
+		runtimeServiceAccountOwnedBy,
+	)
 }
 
 // GetConnection returns the connection information for the GKE cluster.
@@ -502,8 +526,6 @@ func (i *KubernetesRuntimeInfraGKE) GetConnection() (*kube.KubeConnectionInfo, e
 // we only have the runtime instance name but need the project and region
 // to connect to GCP.
 func (i *KubernetesRuntimeInfraGKE) LoadConfigFromStack() error {
-	i.ensurePulumiProjectDefaults()
-
 	workspace, err := i.initWorkspace(auto.Program(func(ctx *pulumi.Context) error { return nil }))
 	if err != nil {
 		return fmt.Errorf("failed to initialize Pulumi workspace: %w", err)
@@ -527,20 +549,21 @@ func (i *KubernetesRuntimeInfraGKE) LoadConfigFromStack() error {
 	}
 	i.Region = regionConfig.Value
 
+	// the stack configs are derived from the two values just read, so they are
+	// rebuilt rather than left holding the empty ones construction produced -
+	// writing those back would clear the stack's real project and region
+	i.InitPulumiProject()
+
 	return nil
 }
 
 // GetStackState returns the state of the GKE stack as a JSON object.
 func (i *KubernetesRuntimeInfraGKE) GetStackState() (*datatypes.JSON, error) {
-	i.ensurePulumiProjectDefaults()
-	i.syncStackConfigs()
 	return i.PulumiWorkspace.GetStackState()
 }
 
 // SetStackState restores Pulumi state from a JSON object (export or checkpoint format).
 func (i *KubernetesRuntimeInfraGKE) SetStackState(state *datatypes.JSON) error {
-	i.ensurePulumiProjectDefaults()
-	i.syncStackConfigs()
 	return i.PulumiWorkspace.SetStackState(state)
 }
 
@@ -600,6 +623,7 @@ func (i *KubernetesRuntimeInfraGKE) loadGCPConfig() error {
 	}
 
 	if i.ProjectID != "" && i.Region != "" {
+		i.InitPulumiProject()
 		return nil
 	}
 
@@ -611,6 +635,14 @@ func (i *KubernetesRuntimeInfraGKE) loadGCPConfig() error {
 			return fmt.Errorf("GCP region not found in environment variables or gcloud config: %w", err)
 		}
 	}
+
+	// the stack config is derived from the two values this resolves, so it is
+	// rebuilt here rather than left holding whatever construction saw. A
+	// caller that omits both GCP flags constructs with neither, and the stack
+	// would record an empty project and region while the cluster is built in
+	// the resolved ones - leaving a later delete to read nothing back and fall
+	// through to whatever the environment says at that point, or to nothing.
+	i.InitPulumiProject()
 
 	return nil
 }

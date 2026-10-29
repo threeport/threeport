@@ -48,10 +48,13 @@ func (c *LoggingInstanceConfig) getLoggingInstanceOperations() *util.Operations 
 // createLokiHelmWorkloadInstance creates loki helm workload instance
 func (c *LoggingInstanceConfig) createLokiHelmWorkloadInstance() error {
 	// create loki helm workload instance
-	lokiHelmWorkloadInstance, err := client.CreateHelmWorkloadInstance(
+	_, err := client.CreateHelmWorkloadInstance(
 		c.r.APIClient,
 		c.r.APIServer,
 		&v0.HelmWorkloadInstance{
+			Common: v0.Common{
+				Owner: c.loggingInstance.OwnLokiHelmWorkloadInstance(),
+			},
 			Instance: v0.Instance{
 				Name: util.Ptr(LokiHelmChartName(*c.loggingInstance.Name)),
 			},
@@ -65,14 +68,20 @@ func (c *LoggingInstanceConfig) createLokiHelmWorkloadInstance() error {
 		return fmt.Errorf("failed to create loki helm workload instance: %w", err)
 	}
 
-	// update logging instance loki helm workload instance id
-	c.loggingInstance.LokiHelmWorkloadInstanceID = lokiHelmWorkloadInstance.ID
-
 	return nil
 }
 
 // deleteLokiHelmWorkloadInstance deletes loki helm workload instance
 func (c *LoggingInstanceConfig) deleteLokiHelmWorkloadInstance() error {
+
+	// read the id the create stored on the logging instance
+	if c.loggingInstance.LokiHelmWorkloadInstanceID == nil {
+		current, err := client.GetLoggingInstanceByID(c.r.APIClient, c.r.APIServer, *c.loggingInstance.ID)
+		if err != nil {
+			return fmt.Errorf("failed to get logging instance: %w", err)
+		}
+		c.loggingInstance.LokiHelmWorkloadInstanceID = current.LokiHelmWorkloadInstanceID
+	}
 
 	// delete loki helm workload instance
 	if _, err := client.DeleteHelmWorkloadInstance(
@@ -89,10 +98,13 @@ func (c *LoggingInstanceConfig) deleteLokiHelmWorkloadInstance() error {
 // createPromtailHelmWorkloadInstance creates promtail helm workload instance
 func (c *LoggingInstanceConfig) createPromtailHelmWorkloadInstance() error {
 	// create promtail helm workload instance
-	promtailHelmWorkloadInstance, err := client.CreateHelmWorkloadInstance(
+	_, err := client.CreateHelmWorkloadInstance(
 		c.r.APIClient,
 		c.r.APIServer,
 		&v0.HelmWorkloadInstance{
+			Common: v0.Common{
+				Owner: c.loggingInstance.OwnPromtailHelmWorkloadInstance(),
+			},
 			Instance: v0.Instance{
 				Name: util.Ptr(PromtailHelmChartName(*c.loggingInstance.Name)),
 			},
@@ -106,14 +118,20 @@ func (c *LoggingInstanceConfig) createPromtailHelmWorkloadInstance() error {
 		return fmt.Errorf("failed to create promtail helm workload instance: %w", err)
 	}
 
-	// update logging instance promtail helm workload instance id
-	c.loggingInstance.PromtailHelmWorkloadInstanceID = promtailHelmWorkloadInstance.ID
-
 	return nil
 }
 
 // deletePromtailHelmWorkloadInstance creates promtail helm workload instance
 func (c *LoggingInstanceConfig) deletePromtailHelmWorkloadInstance() error {
+	// read the id the create stored on the logging instance
+	if c.loggingInstance.PromtailHelmWorkloadInstanceID == nil {
+		current, err := client.GetLoggingInstanceByID(c.r.APIClient, c.r.APIServer, *c.loggingInstance.ID)
+		if err != nil {
+			return fmt.Errorf("failed to get logging instance: %w", err)
+		}
+		c.loggingInstance.PromtailHelmWorkloadInstanceID = current.PromtailHelmWorkloadInstanceID
+	}
+
 	// delete promtail helm workload instance
 	if _, err := client.DeleteHelmWorkloadInstance(
 		c.r.APIClient,

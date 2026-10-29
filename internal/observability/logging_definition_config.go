@@ -46,10 +46,13 @@ func (c *LoggingDefinitionConfig) getLoggingDefinitionOperations() *util.Operati
 // createLokiHelmWorkloadDefinition creates a loki helm workload definition.
 func (c *LoggingDefinitionConfig) createLokiHelmWorkloadDefinition() error {
 	// create loki helm workload definition
-	lokiHelmWorkloadDefinition, err := client.CreateHelmWorkloadDefinition(
+	_, err := client.CreateHelmWorkloadDefinition(
 		c.r.APIClient,
 		c.r.APIServer,
 		&v0.HelmWorkloadDefinition{
+			Common: v0.Common{
+				Owner: c.loggingDefinition.OwnLokiHelmWorkloadDefinition(),
+			},
 			Definition: v0.Definition{
 				Name: util.Ptr(LokiHelmChartName(*c.loggingDefinition.Name)),
 			},
@@ -62,14 +65,19 @@ func (c *LoggingDefinitionConfig) createLokiHelmWorkloadDefinition() error {
 		return fmt.Errorf("failed to create loki helm workload definition: %w", err)
 	}
 
-	// update logging definition with loki helm workload definition id
-	c.loggingDefinition.LokiHelmWorkloadDefinitionID = lokiHelmWorkloadDefinition.ID
-
 	return nil
 }
 
 // deleteLokiHelmWorkloadDefinition deletes a loki helm workload definition.
 func (c *LoggingDefinitionConfig) deleteLokiHelmWorkloadDefinition() error {
+	if c.loggingDefinition.LokiHelmWorkloadDefinitionID == nil {
+		current, err := client.GetLoggingDefinitionByID(c.r.APIClient, c.r.APIServer, *c.loggingDefinition.ID)
+		if err != nil {
+			return fmt.Errorf("failed to get logging definition: %w", err)
+		}
+		c.loggingDefinition.LokiHelmWorkloadDefinitionID = current.LokiHelmWorkloadDefinitionID
+	}
+
 	// delete loki helm workload definition
 	if _, err := client.DeleteHelmWorkloadDefinition(
 		c.r.APIClient,
@@ -85,10 +93,13 @@ func (c *LoggingDefinitionConfig) deleteLokiHelmWorkloadDefinition() error {
 // createPromtailHelmWorkloadDefinition creates a promtail helm workload definition.
 func (c *LoggingDefinitionConfig) createPromtailHelmWorkloadDefinition() error {
 	// create promtail helm workload definition
-	promtailHelmWorkloadDefinition, err := client.CreateHelmWorkloadDefinition(
+	_, err := client.CreateHelmWorkloadDefinition(
 		c.r.APIClient,
 		c.r.APIServer,
 		&v0.HelmWorkloadDefinition{
+			Common: v0.Common{
+				Owner: c.loggingDefinition.OwnPromtailHelmWorkloadDefinition(),
+			},
 			Definition: v0.Definition{
 				Name: util.Ptr(PromtailHelmChartName(*c.loggingDefinition.Name)),
 			},
@@ -101,14 +112,19 @@ func (c *LoggingDefinitionConfig) createPromtailHelmWorkloadDefinition() error {
 		return fmt.Errorf("failed to create promtail helm workload definition: %w", err)
 	}
 
-	// update logging definition with promtail helm workload definition id
-	c.loggingDefinition.PromtailHelmWorkloadDefinitionID = promtailHelmWorkloadDefinition.ID
-
 	return nil
 }
 
 // deletePromtailHelmWorkloadDefinition creates a promtail helm workload definition.
 func (c *LoggingDefinitionConfig) deletePromtailHelmWorkloadDefinition() error {
+	if c.loggingDefinition.PromtailHelmWorkloadDefinitionID == nil {
+		current, err := client.GetLoggingDefinitionByID(c.r.APIClient, c.r.APIServer, *c.loggingDefinition.ID)
+		if err != nil {
+			return fmt.Errorf("failed to get logging definition: %w", err)
+		}
+		c.loggingDefinition.PromtailHelmWorkloadDefinitionID = current.PromtailHelmWorkloadDefinitionID
+	}
+
 	// delete promtail helm workload definition
 	if _, err := client.DeleteHelmWorkloadDefinition(
 		c.r.APIClient,

@@ -155,8 +155,8 @@ func (cpi *ControlPlaneInstaller) runDropMessageBrokerJob(
 	namespace string,
 ) error {
 	// delete a leftover job because its pod template is immutable
-	if err := cpi.deleteDropJob(
-		kubeClient, namespace, dropMessageBrokerJobName, "message broker",
+	if err := cpi.deleteJob(
+		kubeClient, namespace, dropMessageBrokerJobName, "message broker drop",
 	); err != nil {
 		return err
 	}
@@ -177,6 +177,12 @@ func (cpi *ControlPlaneInstaller) runDropMessageBrokerJob(
 			"spec": map[string]interface{}{
 				"backoffLimit": int64(dropMessageBrokerJobBackoffLimit),
 				"template": map[string]interface{}{
+					// the label the database network policy admits; a drop runs
+					// while the API server is scaled to zero, so it is the one
+					// thing that has to reach the database directly
+					"metadata": map[string]interface{}{
+						"labels": map[string]interface{}{LabelMaintenance: "true"},
+					},
 					"spec": map[string]interface{}{
 						"restartPolicy": "Never",
 						// the same image as the nats-box utility pod
@@ -209,14 +215,14 @@ func (cpi *ControlPlaneInstaller) runDropMessageBrokerJob(
 	}
 
 	// wait for the job to finish
-	if err := cpi.waitForDropJob(
-		kubeClient, namespace, dropMessageBrokerJobName, dropMessageBrokerJobBackoffLimit, "message broker",
+	if err := cpi.waitForJob(
+		kubeClient, namespace, dropMessageBrokerJobName, dropMessageBrokerJobBackoffLimit, "message broker drop",
 	); err != nil {
 		return err
 	}
 
 	// delete the finished job
-	return cpi.deleteDropJob(kubeClient, namespace, dropMessageBrokerJobName, "message broker")
+	return cpi.deleteJob(kubeClient, namespace, dropMessageBrokerJobName, "message broker drop")
 }
 
 // runDropDatabaseJob runs a one-shot Job that drops the control plane database.
@@ -225,7 +231,7 @@ func (cpi *ControlPlaneInstaller) runDropDatabaseJob(
 	namespace string,
 ) error {
 	// delete a leftover job because its pod template is immutable
-	if err := cpi.deleteDropJob(kubeClient, namespace, dropDatabaseJobName, "database"); err != nil {
+	if err := cpi.deleteJob(kubeClient, namespace, dropDatabaseJobName, "database drop"); err != nil {
 		return err
 	}
 
@@ -248,6 +254,12 @@ func (cpi *ControlPlaneInstaller) runDropDatabaseJob(
 			"spec": map[string]interface{}{
 				"backoffLimit": int64(dropDatabaseJobBackoffLimit),
 				"template": map[string]interface{}{
+					// the label the database network policy admits; a drop runs
+					// while the API server is scaled to zero, so it is the one
+					// thing that has to reach the database directly
+					"metadata": map[string]interface{}{
+						"labels": map[string]interface{}{LabelMaintenance: "true"},
+					},
 					"spec": map[string]interface{}{
 						"restartPolicy": "Never",
 						// the database's user, whose group reads the root client key
@@ -297,19 +309,23 @@ func (cpi *ControlPlaneInstaller) runDropDatabaseJob(
 	}
 
 	// wait for the job to finish
-	if err := cpi.waitForDropJob(
-		kubeClient, namespace, dropDatabaseJobName, dropDatabaseJobBackoffLimit, "database",
+	if err := cpi.waitForJob(
+		kubeClient, namespace, dropDatabaseJobName, dropDatabaseJobBackoffLimit, "database drop",
 	); err != nil {
 		return err
 	}
 
 	// delete the finished job
-	return cpi.deleteDropJob(kubeClient, namespace, dropDatabaseJobName, "database")
+	return cpi.deleteJob(kubeClient, namespace, dropDatabaseJobName, "database drop")
 }
 
-// waitForDropJob polls until the Job succeeds or its failed-pod count passes
-// the backoff limit. Exhausted retries are returned at once because the job will not recover.
-func (cpi *ControlPlaneInstaller) waitForDropJob(
+// waitForJob polls until the Job succeeds or its failed-pod count passes
+// the backoff limit. Exhausted retries are returned at once because the job
+// will not recover.
+//
+// subject is a phrase describing the job for its error messages - "database
+// drop", "crdb init" - read as "<subject> job <name> ...".
+func (cpi *ControlPlaneInstaller) waitForJob(
 	kubeClient dynamic.Interface,
 	namespace string,
 	jobName string,
@@ -325,14 +341,14 @@ func (cpi *ControlPlaneInstaller) waitForDropJob(
 			context.Background(), jobName, metav1.GetOptions{},
 		)
 		if err != nil {
-			return fmt.Errorf("failed to read %s drop job status: %w", subject, err)
+			return fmt.Errorf("failed to read %s job status: %w", subject, err)
 		}
 
 		// stop polling once failed pods pass the backoff limit
 		failed, _, _ := util.NestedInt64OrFloat64(job.Object, "status", "failed")
 		if failed > backoffLimit {
 			jobFailed = fmt.Errorf(
-				"%s drop job %s failed after %d pod attempt(s): inspect its pod logs in namespace %s",
+				"%s job %s failed after %d pod attempt(s): inspect its pod logs in namespace %s",
 				subject, jobName, failed, namespace,
 			)
 			return nil
@@ -345,18 +361,18 @@ func (cpi *ControlPlaneInstaller) waitForDropJob(
 		}
 
 		// keep polling while the job is still running
-		return fmt.Errorf("%s drop job %s has not completed", subject, jobName)
+		return fmt.Errorf("%s job %s has not completed", subject, jobName)
 	}); err != nil {
-		return fmt.Errorf("%s drop did not complete: %w", subject, err)
+		return fmt.Errorf("%s did not complete: %w", subject, err)
 	}
 
 	// return a recorded job failure instead of a retry timeout
 	return jobFailed
 }
 
-// deleteDropJob removes a drop Job and waits until the object is gone so the
-// same name can be created again.
-func (cpi *ControlPlaneInstaller) deleteDropJob(
+// deleteJob removes a Job and waits until the object is gone so the same
+// name can be created again.
+func (cpi *ControlPlaneInstaller) deleteJob(
 	kubeClient dynamic.Interface,
 	namespace string,
 	jobName string,
@@ -369,7 +385,7 @@ func (cpi *ControlPlaneInstaller) deleteDropJob(
 	if err := kubeClient.Resource(jobGVR).Namespace(namespace).Delete(
 		context.Background(), jobName, deleteOpts,
 	); err != nil && !k8serrors.IsNotFound(err) {
-		return fmt.Errorf("failed to delete %s drop job %s: %w", subject, jobName, err)
+		return fmt.Errorf("failed to delete %s job %s: %w", subject, jobName, err)
 	}
 
 	// wait until the job object is gone
@@ -378,15 +394,15 @@ func (cpi *ControlPlaneInstaller) deleteDropJob(
 			context.Background(), jobName, metav1.GetOptions{},
 		)
 		if err == nil {
-			return fmt.Errorf("%s drop job %s still terminating", subject, jobName)
+			return fmt.Errorf("%s job %s still terminating", subject, jobName)
 		}
 		if !k8serrors.IsNotFound(err) {
-			return fmt.Errorf("failed to check %s drop job %s: %w", subject, jobName, err)
+			return fmt.Errorf("failed to check %s job %s: %w", subject, jobName, err)
 		}
 
 		return nil
 	}); err != nil {
-		return fmt.Errorf("%s drop job did not finish terminating: %w", subject, err)
+		return fmt.Errorf("%s job did not finish terminating: %w", subject, err)
 	}
 
 	return nil
@@ -484,6 +500,16 @@ func (cpi *ControlPlaneInstaller) Reinstall(
 	fmt.Println("Info: installing threeport agent")
 	if err := cpi.InstallThreeportAgent(kubeClient, mapper, authConfig); err != nil {
 		return fmt.Errorf("failed to install threeport agent: %w", err)
+	}
+
+	// reapply the network policies
+	//
+	// deleteForReinstall removes installer-managed resources, and the policies
+	// describe the namespace rather than any one component, so they are
+	// applied here for the same reason the install applies them: whatever is
+	// running afterwards has to be covered.
+	if err := cpi.InstallThreeportNetworkPolicies(kubeClient, mapper); err != nil {
+		return fmt.Errorf("failed to install network policies: %w", err)
 	}
 
 	// wait for the rest api deployment to become ready

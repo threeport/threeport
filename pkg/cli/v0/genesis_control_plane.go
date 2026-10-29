@@ -114,7 +114,7 @@ type Uninstaller struct {
 	createErr              error
 	controlPlane           *threeport.ControlPlane
 	kubernetesRuntimeInfra provider.KubernetesRuntimeInfra
-	dynamicKubeClient      *dynamic.Interface
+	dynamicKubeClient      dynamic.Interface
 	mapper                 *meta.RESTMapper
 	cleanConfig            *bool
 	cpi                    *threeport.ControlPlaneInstaller
@@ -348,7 +348,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return fmt.Errorf("failed to deploy oke infrastructure: %w", err)
 		}
 	case v0.KubernetesRuntimeInfraProviderGKE:
-		kubernetesRuntimeInfraGKE := provider.KubernetesRuntimeInfraGKE{
+		kubernetesRuntimeInfraGKE := (&provider.KubernetesRuntimeInfraGKE{
 			PulumiWorkspace: provider.PulumiWorkspace{
 				RuntimeInstanceName: runtimeInstanceName(cpi.Opts),
 			},
@@ -363,9 +363,9 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			MaxNodeCount: int32(10),
 			ProjectID:    cpi.Opts.GcpProjectId,
 			Region:       cpi.Opts.GcpRegion,
-		}
-		kubernetesRuntimeInfra = &kubernetesRuntimeInfraGKE
-		uninstaller.kubernetesRuntimeInfra = &kubernetesRuntimeInfraGKE
+		}).InitPulumiProject()
+		kubernetesRuntimeInfra = kubernetesRuntimeInfraGKE
+		uninstaller.kubernetesRuntimeInfra = kubernetesRuntimeInfraGKE
 
 		// update threeport config with gke provider info
 		if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *ControlPlane) {
@@ -552,7 +552,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	if err != nil {
 		return uninstaller.cleanOnCreateError("failed to get a Kubernetes client and mapper", err)
 	}
-	uninstaller.dynamicKubeClient = &dynamicKubeClient
+	uninstaller.dynamicKubeClient = dynamicKubeClient
 	uninstaller.mapper = mapper
 
 	// generate new DB client credentials
@@ -751,6 +751,14 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	}
 	Info("Threeport API is running")
 
+	// Restrict traffic within the namespace once its components are running.
+	// A default-deny applied earlier would be enforced while they are still
+	// starting, on a cluster whose CNI enforces it, and the install would be
+	// refused its own connections.
+	if err := cpi.InstallThreeportNetworkPolicies(dynamicKubeClient, mapper); err != nil {
+		return uninstaller.cleanOnCreateError("failed to install threeport network policies", err)
+	}
+
 	// install support services CRDs separately (package-level function)
 	if err = threeport.InstallThreeportCRDs(dynamicKubeClient, mapper); err != nil {
 		return uninstaller.cleanOnCreateError("failed to install threeport support services CRDs", err)
@@ -855,20 +863,23 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	// before this step as kube.GetClient() may require a refresh of the connection
 	// token, which depends on those objects existing in the Threeport API
 	time.Sleep(time.Second * 10)
-	if tokenGenerator != nil {
-		dynamicKubeClient, mapper, err = kube.GetClientWithTokenRefresh(
-			kubernetesRuntimeInstResult,
-			tokenGenerator,
-		)
-	} else {
-		dynamicKubeClient, mapper, err = kube.GetClient(
-			kubernetesRuntimeInstResult,
-			false,
-			apiClient,
-			threeportAPIEndpoint,
-			encryptionKey,
-		)
-	}
+	dynamicKubeClient, mapper, err = uninstaller.refreshKubeClient(
+		func() (dynamic.Interface, *meta.RESTMapper, error) {
+			if tokenGenerator != nil {
+				return kube.GetClientWithTokenRefresh(
+					kubernetesRuntimeInstResult,
+					tokenGenerator,
+				)
+			}
+			return kube.GetClient(
+				kubernetesRuntimeInstResult,
+				false,
+				apiClient,
+				threeportAPIEndpoint,
+				encryptionKey,
+			)
+		},
+	)
 	if err != nil {
 		return uninstaller.cleanOnCreateError("failed to refresh the Kubernetes client and mapper", err)
 	}
@@ -890,6 +901,12 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		); err != nil {
 			return uninstaller.cleanOnCreateError("failed to install system services", err)
 		}
+
+		// a claim that names no storage class has nothing to bind to on EKS
+		// without a default
+		if _, err := threeport.EnsureEksDefaultStorageClass(dynamicKubeClient); err != nil {
+			return uninstaller.cleanOnCreateError("failed to set a default storage class", err)
+		}
 	}
 
 	reconciled := true
@@ -902,6 +919,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			Reconciled: &reconciled,
 		},
 		AuthEnabled: &cpi.Opts.AuthEnabled,
+		Tier:        util.Ptr(string(cpi.Opts.Tier)),
 	}
 	_, err = client.CreateControlPlaneDefinition(apiClient, threeportAPIEndpoint, &controlPlaneDefinition)
 	if err != nil {
@@ -922,9 +940,9 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		clientKey = nil
 	}
 
-	componentList := cpi.Opts.ControllerList
-	componentList = append(componentList, cpi.Opts.RestApiInfo)
-	componentList = append(componentList, cpi.Opts.AgentInfo)
+	// record every installed component so child control planes can default to
+	// the images this control plane runs
+	componentList := cpi.RecordedComponents()
 
 	// construct control plane instance object
 	controlPlaneInstance := v0.ControlPlaneInstance{
@@ -1103,11 +1121,11 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			}
 		}
 	case v0.KubernetesRuntimeInfraProviderGKE:
-		kubernetesRuntimeInfraGKE := provider.KubernetesRuntimeInfraGKE{
+		kubernetesRuntimeInfraGKE := (&provider.KubernetesRuntimeInfraGKE{
 			PulumiWorkspace: provider.PulumiWorkspace{
 				RuntimeInstanceName: provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
 			},
-		}
+		}).InitPulumiProject()
 		// load the GCP project ID and region from the existing Pulumi stack configuration
 		if err := kubernetesRuntimeInfraGKE.LoadConfigFromStack(); err != nil {
 			return fmt.Errorf("failed to load GKE config from Pulumi stack: %w", err)
@@ -1115,7 +1133,7 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		if kubeConnection, err = kubernetesRuntimeInfraGKE.GetConnection(); err != nil {
 			return fmt.Errorf("failed to get connection for GKE kubernetes runtime infra: %w", err)
 		}
-		kubernetesRuntimeInfra = &kubernetesRuntimeInfraGKE
+		kubernetesRuntimeInfra = kubernetesRuntimeInfraGKE
 
 		// pull GKE stack state from GKE runtime instance
 		// if not infra-only, as this flag implies the user
@@ -1293,6 +1311,39 @@ func apiPortFromKindMappings(kindPortMappings []string) int {
 	return 0
 }
 
+// ResolveControlPlaneTier returns the tier tptctl up installs at: the one
+// asked for, or the default when none was. Defaulting one on a cloud provider
+// prints DefaultTierNotice, so an operator who meant production finds out as
+// the install starts.
+func ResolveControlPlaneTier(infraProvider, tier string) string {
+	if tier != "" {
+		return tier
+	}
+	if notice := DefaultTierNotice(infraProvider); notice != "" {
+		Info(notice)
+	}
+
+	return threeport.DefaultControlPlaneTier
+}
+
+// DefaultTierNotice returns the line tptctl up prints when it installs at the
+// default tier because no --tier was given, or nothing when there is nothing to
+// tell.
+//
+// On a cloud provider, an operator who meant production should find out as the
+// install starts rather than from the control plane it produced. kind runs
+// only the development tier, so there it says nothing.
+func DefaultTierNotice(infraProvider string) string {
+	if infraProvider == v0.KubernetesRuntimeInfraProviderKind {
+		return ""
+	}
+
+	return fmt.Sprintf(
+		"No --tier given: installing a %s control plane. Pass --tier %s for production availability and data retention.",
+		threeport.DefaultControlPlaneTier, threeport.ControlPlaneTierProd,
+	)
+}
+
 func ValidateCreateGenesisControlPlaneFlags(
 	instanceName string,
 	infraProvider string,
@@ -1310,6 +1361,18 @@ func ValidateCreateGenesisControlPlaneFlags(
 			"invalid tier value '%s' - must be one of [%s, %s]",
 			tier, threeport.ControlPlaneTierDev, threeport.ControlPlaneTierProd,
 		)
+	}
+
+	// reject a provider and tier that cannot go together, before any
+	// infrastructure is created
+	if err := threeport.ValidateTierForProvider(infraProvider, tier); err != nil {
+		return err
+	}
+
+	// reject auth being disabled anywhere but kind, before any infrastructure
+	// is created
+	if err := v0.ValidateAuthEnabledForProvider(infraProvider, authEnabled); err != nil {
+		return err
 	}
 
 	// ensure name length doesn't exceed maximum
@@ -1391,6 +1454,23 @@ func ValidateCreateGenesisControlPlaneFlags(
 	return nil
 }
 
+// refreshKubeClient gets a new client and mapper from the provided function.
+// The uninstaller adopts them only on success. A failed refresh returns a nil
+// client and mapper, so the uninstaller keeps the earlier working client for
+// cleanOnCreateError to delete workloads with.
+func (u *Uninstaller) refreshKubeClient(
+	refresh func() (dynamic.Interface, *meta.RESTMapper, error),
+) (dynamic.Interface, *meta.RESTMapper, error) {
+	client, mapper, err := refresh()
+	if err != nil {
+		return nil, nil, err
+	}
+	u.dynamicKubeClient = client
+	u.mapper = mapper
+
+	return client, mapper, nil
+}
+
 // cleanOnCreateError cleans up created infra for a control plane when a
 // provisioning error of any kind occurs.
 func (u *Uninstaller) cleanOnCreateError(
@@ -1410,9 +1490,12 @@ func (u *Uninstaller) cleanOnCreateError(
 
 	// if needed, delete control plane workloads to remove related infra, e.g. load
 	// balancers, that will prevent runtime infra deletion
+	// a failure here is not fatal to the teardown: the infra delete below must
+	// still be attempted so the cluster and network are not left behind
 	if u.dynamicKubeClient != nil && u.mapper != nil {
-		if workloadErr := u.cpi.UnInstallThreeportControlPlaneComponents(*u.dynamicKubeClient, u.mapper); workloadErr != nil {
-			return fmt.Errorf("failed to create control plane infra for threeport: %w\nfailed to delete threeport API components: %w", createErr, workloadErr)
+		if workloadErr := u.cpi.UnInstallThreeportControlPlaneComponents(u.dynamicKubeClient, u.mapper); workloadErr != nil {
+			Warning(fmt.Sprintf("failed to delete threeport API components: %v", workloadErr))
+			createErr = fmt.Errorf("%w\nfailed to delete threeport API components: %w", createErr, workloadErr)
 		}
 	}
 
@@ -1711,6 +1794,7 @@ func ensureBootstrapControlPlane(
 				Reconciled: &reconciled,
 			},
 			AuthEnabled: &cpi.Opts.AuthEnabled,
+			Tier:        util.Ptr(string(cpi.Opts.Tier)),
 		}
 		definition, err = client.CreateControlPlaneDefinition(
 			apiClient,
@@ -1750,11 +1834,9 @@ func ensureBootstrapControlPlane(
 		}
 	}
 
-	// include the installed controllers, the rest api, and the agent
-	componentList := make([]*v0.ControlPlaneComponent, 0, len(cpi.Opts.ControllerList)+2)
-	componentList = append(componentList, cpi.Opts.ControllerList...)
-	componentList = append(componentList, cpi.Opts.RestApiInfo)
-	componentList = append(componentList, cpi.Opts.AgentInfo)
+	// include the installed controllers, the rest api, the agent and the
+	// database migrator
+	componentList := cpi.RecordedComponents()
 
 	// create the control plane instance
 	selfInstance := true
