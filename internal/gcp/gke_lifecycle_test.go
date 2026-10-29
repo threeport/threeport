@@ -3,14 +3,18 @@ package gcp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 
+	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/datatypes"
 
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -501,4 +505,122 @@ func testGkeDefinition() *api_v0.GcpGkeKubernetesRuntimeDefinition {
 		DefaultNodeGroupMinimumSize:  &size,
 		DefaultNodeGroupMaximumSize:  &size,
 	}
+}
+
+// gkeInstanceServer serves one GcpGkeKubernetesRuntimeInstance, so
+// IsCreateComplete can read the inventory the way the controller does.
+func gkeInstanceServer(t *testing.T, instance api_v0.GcpGkeKubernetesRuntimeInstance) *httptest.Server {
+	t.Helper()
+
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := json.Marshal(apiserver_lib.Response{
+			Status: apiserver_lib.Status{Code: http.StatusOK, Message: "OK"},
+			Data:   []apiserver_lib.Object{instance},
+		})
+		require.NoError(t, err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(body)
+	}))
+}
+
+// newTestGkeLifecycle returns a lifecycle reading an instance that holds the
+// inventory, with GCP stood in for by ready. The returned counter is how many
+// times GCP was asked.
+func newTestGkeLifecycle(
+	t *testing.T,
+	inventory *datatypes.JSON,
+	ready func() (bool, error),
+) (*gkeLifecycle, *atomic.Int32) {
+	t.Helper()
+
+	instanceID := uint(7)
+	srv := gkeInstanceServer(t, api_v0.GcpGkeKubernetesRuntimeInstance{
+		Common:            api_v0.Common{ID: &instanceID},
+		ResourceInventory: inventory,
+	})
+	t.Cleanup(srv.Close)
+
+	asked := &atomic.Int32{}
+	logger := logr.Discard()
+	g := newGkeLifecycleProvider(
+		&controller.Reconciler{
+			APIClient: &http.Client{},
+			APIServer: strings.TrimPrefix(srv.URL, "http://"),
+		},
+		&api_v0.GcpGkeKubernetesRuntimeInstance{Common: api_v0.Common{ID: &instanceID}},
+		&logger,
+	)
+	g.createReady = func(*api_v0.GcpGkeKubernetesRuntimeInstance) (bool, error) {
+		asked.Add(1)
+		return ready()
+	}
+
+	return g, asked
+}
+
+// TestGkeIsCreateComplete_PartialStateIsNotComplete covers the state the stack
+// streams while the create is still running. The inventory is non-empty, so it
+// was enough to confirm the create before the cluster had an endpoint.
+func TestGkeIsCreateComplete_PartialStateIsNotComplete(t *testing.T) {
+	partial := datatypes.JSON(`{"version":3,"deployment":{"resources":[{"urn":"urn:pulumi:stack::gke::gcp:compute/network:Network::net"}]}}`)
+	g, asked := newTestGkeLifecycle(t, &partial, func() (bool, error) { return false, nil })
+
+	complete, err := g.IsCreateComplete()
+
+	require.NoError(t, err)
+	assert.False(t, complete)
+	assert.Equal(t, int32(1), asked.Load(), "non-empty state must still be checked against GCP")
+}
+
+// TestGkeIsCreateComplete_CompleteOnceGcpSaysSo covers the same state once the
+// create has run to its last step.
+func TestGkeIsCreateComplete_CompleteOnceGcpSaysSo(t *testing.T) {
+	state := datatypes.JSON(`{"version":3,"deployment":{"resources":[{"urn":"urn:x"}]}}`)
+	g, _ := newTestGkeLifecycle(t, &state, func() (bool, error) { return true, nil })
+
+	complete, err := g.IsCreateComplete()
+
+	require.NoError(t, err)
+	assert.True(t, complete)
+}
+
+// TestGkeIsCreateComplete_NoStateSkipsGcp covers a create that has saved
+// nothing, which cannot be complete and needs no call to GCP.
+func TestGkeIsCreateComplete_NoStateSkipsGcp(t *testing.T) {
+	empty := datatypes.JSON(`{}`)
+	for name, inventory := range map[string]*datatypes.JSON{
+		"nil":   nil,
+		"empty": &empty,
+		"null":  jsonPtr(`null`),
+	} {
+		t.Run(name, func(t *testing.T) {
+			g, asked := newTestGkeLifecycle(t, inventory, func() (bool, error) { return true, nil })
+
+			complete, err := g.IsCreateComplete()
+
+			require.NoError(t, err)
+			assert.False(t, complete)
+			assert.Equal(t, int32(0), asked.Load())
+		})
+	}
+}
+
+// TestGkeIsCreateComplete_GcpErrorPropagates covers a failed check, which must
+// not read as complete or as not complete.
+func TestGkeIsCreateComplete_GcpErrorPropagates(t *testing.T) {
+	state := datatypes.JSON(`{"deployment":{"resources":[{"urn":"urn:x"}]}}`)
+	errGcp := errors.New("gcp unavailable")
+	g, _ := newTestGkeLifecycle(t, &state, func() (bool, error) { return false, errGcp })
+
+	complete, err := g.IsCreateComplete()
+
+	require.ErrorIs(t, err, errGcp)
+	assert.False(t, complete)
+}
+
+// jsonPtr returns a pointer to s as JSON bytes.
+func jsonPtr(s string) *datatypes.JSON {
+	j := datatypes.JSON(s)
+	return &j
 }
