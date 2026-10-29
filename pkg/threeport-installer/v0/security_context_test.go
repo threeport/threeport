@@ -346,6 +346,93 @@ func TestEveryContainerThisInstallerWritesIsHardened(t *testing.T) {
 	require.NotZero(t, containers, "no container declaration found to check")
 }
 
+// TestEveryHandWrittenContainerDropsPrivilege covers the containers whose
+// security context is written out rather than taken from
+// restrictedContainerSecurityContext: the third-party images in
+// dependencies.go and support_services.go, which run as users the helper's
+// would not fit.
+//
+// The values are checked, not the keys: allowPrivilegeEscalation set to true,
+// or a capabilities list that drops something other than ALL, still has every
+// key a key check looks for.
+func TestEveryHandWrittenContainerDropsPrivilege(t *testing.T) {
+	for _, path := range []string{"dependencies.go", "support_services.go"} {
+		t.Run(path, func(t *testing.T) {
+			fileSet := token.NewFileSet()
+			file, err := parser.ParseFile(fileSet, path, nil, 0)
+			require.NoError(t, err)
+
+			containers := 0
+			ast.Inspect(file, func(node ast.Node) bool {
+				literal, ok := node.(*ast.CompositeLit)
+				if !ok || !isContainerLiteral(literal) {
+					return true
+				}
+				containers++
+
+				securityContext, ok := keyedValue(literal, `"securityContext"`).(*ast.CompositeLit)
+				if !assert.True(
+					t, ok,
+					"%s: a container is declared with no security context written out",
+					fileSet.Position(literal.Pos()),
+				) {
+					return true
+				}
+				assert.True(
+					t, isIdent(keyedValue(securityContext, `"allowPrivilegeEscalation"`), "false"),
+					"%s: a container does not set allowPrivilegeEscalation to false",
+					fileSet.Position(literal.Pos()),
+				)
+				assert.True(
+					t, dropsAllCapabilities(securityContext),
+					"%s: a container does not drop ALL capabilities",
+					fileSet.Position(literal.Pos()),
+				)
+
+				return true
+			})
+
+			require.NotZero(t, containers, "no container declaration found to check")
+		})
+	}
+}
+
+// isContainerLiteral reports whether a composite literal declares a
+// container: it names one, and an image to run as a value rather than as a
+// nested object, which is how a CRD schema or a Helm value describes an image.
+func isContainerLiteral(literal *ast.CompositeLit) bool {
+	keys := keyedStrings(literal)
+	if !keys[`"image"`] || !keys[`"name"`] {
+		return false
+	}
+	_, nested := keyedValue(literal, `"image"`).(*ast.CompositeLit)
+
+	return !nested
+}
+
+// isIdent reports whether an expression is the named identifier.
+func isIdent(expr ast.Expr, name string) bool {
+	ident, ok := expr.(*ast.Ident)
+
+	return ok && ident.Name == name
+}
+
+// dropsAllCapabilities reports whether a security context literal drops
+// exactly the capability list ALL, and adds none back.
+func dropsAllCapabilities(securityContext *ast.CompositeLit) bool {
+	capabilities, ok := keyedValue(securityContext, `"capabilities"`).(*ast.CompositeLit)
+	if !ok || keyedValue(capabilities, `"add"`) != nil {
+		return false
+	}
+	drop, ok := keyedValue(capabilities, `"drop"`).(*ast.CompositeLit)
+	if !ok || len(drop.Elts) != 1 {
+		return false
+	}
+	all, ok := drop.Elts[0].(*ast.BasicLit)
+
+	return ok && all.Value == `"ALL"`
+}
+
 // TestEveryPodThisInstallerWritesSetsASeccompProfile covers the requirement
 // that is set on the pod rather than on each container.
 //
