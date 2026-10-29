@@ -324,6 +324,23 @@ func v0ControlPlaneInstanceCreated(
 			t, _, err := util.GenerateOkeToken(clusterOCID, configProvider)
 			return t, err
 		}
+
+	case v0.KubernetesRuntimeInfraProviderGKE:
+		// The child's controllers run on this runtime, so their Workload
+		// Identity principals come from this cluster's project. That is the
+		// child's own project, which is not necessarily the parent's - the
+		// installer binds RBAC for those principals only when it is told the
+		// project, and without it the child's controllers are authorized as
+		// nobody.
+		gcpProjectId, err := gkeRuntimeProjectID(
+			r.APIClient,
+			r.APIServer,
+			*kubernetesRuntimeInstance.ID,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to determine the GCP project of the child's runtime: %w", err)
+		}
+		cpi.Opts.GcpProjectId = gcpProjectId
 	}
 
 	// create a dynamic client to connect to kube API — use token refresh
@@ -602,176 +619,37 @@ func v0ControlPlaneInstanceCreated(
 		return 0, err
 	}
 
-	clonedKubernetesRuntimeInstance := *kubernetesRuntimeInstance
-	clonedKubernetesRuntimeInstance.Common = v0.Common{}
-	if err := decryptField(r.EncryptionKey, &clonedKubernetesRuntimeInstance.CertificateKey, "kubernetes runtime instance certificate key"); err != nil {
-		return 0, err
+	onboarder := &runtimeOnboarder{
+		parent:        apiTarget{client: r.APIClient, endpoint: r.APIServer},
+		child:         apiTarget{client: newApiClient, endpoint: threeportAPIEndpoint},
+		encryptionKey: r.EncryptionKey,
 	}
 
-	if err := decryptField(r.EncryptionKey, &clonedKubernetesRuntimeInstance.ConnectionToken, "kubernetes runtime instance connection token"); err != nil {
-		return 0, err
-	}
-
-	clonedKubernetesRuntimeInstance.KubernetesRuntimeDefinitionID = createdKubeDef.ID
-	createdKubeInstance, err := getOrCreate(
-		"kubernetes runtime instance on the new threeport api",
-		func() (*v0.KubernetesRuntimeInstance, error) {
-			return client.GetKubernetesRuntimeInstanceByName(
-				newApiClient, threeportAPIEndpoint, *clonedKubernetesRuntimeInstance.Name,
-			)
-		},
-		func() (*v0.KubernetesRuntimeInstance, error) {
-			return client.CreateKubernetesRuntimeInstance(
-				newApiClient, threeportAPIEndpoint, &clonedKubernetesRuntimeInstance,
-			)
-		},
+	// the runtime the child is installed on is the child's host and default
+	// runtime
+	createdKubeInstance, err := onboarder.createRuntimeInstance(
+		kubernetesRuntimeInstance,
+		createdKubeDef.ID,
+		true,
+		true,
 	)
-
 	if err != nil {
-		return 0, fmt.Errorf("failed to update threeport api with kubernetes runtime instance: %w", err)
+		return 0, err
 	}
 
-	switch *kubernetesRuntimeDefinition.InfraProvider {
-	case v0.KubernetesRuntimeInfraProviderEKS:
-		// Get associated AWS object and ensure they are in db
-		awsRuntimeDef, err := client.GetAwsEksKubernetesRuntimeDefinitionByK8sRuntimeDef(r.APIClient, r.APIServer, *kubernetesRuntimeDefinition.ID)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get AwsEksKubernetesRuntimeDefinition: %w", err)
-		}
-
-		awsRuntimeInstance, err := client.GetAwsEksKubernetesRuntimeInstanceByK8sRuntimeInst(r.APIClient, r.APIServer, *kubernetesRuntimeInstance.ID)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get AwsEksKubernetesRuntimeInstance: %w", err)
-		}
-
-		awsProvider, err := client.GetAwsProviderByID(r.APIClient, r.APIServer, *awsRuntimeInstance.AwsProviderID)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get AwsProvider: %w", err)
-		}
-
-		awsProvider.Common = v0.Common{}
-		if err := decryptField(r.EncryptionKey, &awsProvider.AccessKeyID, "access key id on aws account"); err != nil {
-			return 0, err
-		}
-
-		if err := decryptField(r.EncryptionKey, &awsProvider.SecretAccessKey, "secret access key on aws account"); err != nil {
-			return 0, err
-		}
-
-		createdAwsProvider, err := getOrCreate(
-			"aws provider on the new threeport api",
-			func() (*v0.AwsProvider, error) {
-				return client.GetAwsProviderByName(newApiClient, threeportAPIEndpoint, *awsProvider.Name)
-			},
-			func() (*v0.AwsProvider, error) {
-				return client.CreateAwsProvider(newApiClient, threeportAPIEndpoint, awsProvider)
-			},
-		)
-		if err != nil {
-			return 0, err
-		}
-
-		awsRuntimeDef.Common = v0.Common{}
-		createdAwsRuntimDef, err := getOrCreate(
-			"aws eks runtime definition on the new threeport api",
-			func() (*v0.AwsEksKubernetesRuntimeDefinition, error) {
-				return client.GetAwsEksKubernetesRuntimeDefinitionByName(newApiClient, threeportAPIEndpoint, *awsRuntimeDef.Name)
-			},
-			func() (*v0.AwsEksKubernetesRuntimeDefinition, error) {
-				return client.CreateAwsEksKubernetesRuntimeDefinition(newApiClient, threeportAPIEndpoint, awsRuntimeDef)
-			},
-		)
-		if err != nil {
-			return 0, err
-		}
-
-		awsRuntimeInstance.Common = v0.Common{}
-		awsRuntimeInstance.AwsProviderID = createdAwsProvider.ID
-		awsRuntimeInstance.AwsEksKubernetesRuntimeDefinitionID = createdAwsRuntimDef.ID
-		_, err = getOrCreate(
-			"aws eks runtime instance on the new threeport api",
-			func() (*v0.AwsEksKubernetesRuntimeInstance, error) {
-				return client.GetAwsEksKubernetesRuntimeInstanceByName(newApiClient, threeportAPIEndpoint, *awsRuntimeInstance.Name)
-			},
-			func() (*v0.AwsEksKubernetesRuntimeInstance, error) {
-				return client.CreateAwsEksKubernetesRuntimeInstance(newApiClient, threeportAPIEndpoint, awsRuntimeInstance)
-			},
-		)
-		if err != nil {
-			return 0, err
-		}
-
-	case v0.KubernetesRuntimeInfraProviderOKE:
-		// get OCI OKE runtime definition and instance
-		ociRuntimeDef, err := client.GetOciOkeKubernetesRuntimeDefinitionByK8sRuntimeDef(
-			r.APIClient, r.APIServer, *kubernetesRuntimeDefinition.ID)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get OciOkeKubernetesRuntimeDefinition: %w", err)
-		}
-
-		ociRuntimeInstance, err := client.GetOciOkeKubernetesRuntimeInstanceByK8sRuntimeInst(
-			r.APIClient, r.APIServer, *kubernetesRuntimeInstance.ID)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get OciOkeKubernetesRuntimeInstance: %w", err)
-		}
-
-		ociProvider, err := client.GetOciProviderByID(
-			r.APIClient, r.APIServer, *ociRuntimeInstance.OciProviderID)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get OciProvider: %w", err)
-		}
-
-		// decrypt private key
-		ociProvider.Common = v0.Common{}
-		if err := decryptField(r.EncryptionKey, &ociProvider.PrivateKey, "OCI provider private key"); err != nil {
-			return 0, err
-		}
-
-		// create OCI provider in child control plane
-		createdOciProvider, err := getOrCreate(
-			"oci provider on the new threeport api",
-			func() (*v0.OciProvider, error) {
-				return client.GetOciProviderByName(newApiClient, threeportAPIEndpoint, *ociProvider.Name)
-			},
-			func() (*v0.OciProvider, error) {
-				return client.CreateOciProvider(newApiClient, threeportAPIEndpoint, ociProvider)
-			},
-		)
-		if err != nil {
-			return 0, err
-		}
-
-		// create OCI runtime definition in child control plane
-		ociRuntimeDef.Common = v0.Common{}
-		createdOciRuntimeDef, err := getOrCreate(
-			"oci oke runtime definition on the new threeport api",
-			func() (*v0.OciOkeKubernetesRuntimeDefinition, error) {
-				return client.GetOciOkeKubernetesRuntimeDefinitionByName(newApiClient, threeportAPIEndpoint, *ociRuntimeDef.Name)
-			},
-			func() (*v0.OciOkeKubernetesRuntimeDefinition, error) {
-				return client.CreateOciOkeKubernetesRuntimeDefinition(newApiClient, threeportAPIEndpoint, ociRuntimeDef)
-			},
-		)
-		if err != nil {
-			return 0, err
-		}
-
-		// create OCI runtime instance in child control plane
-		ociRuntimeInstance.Common = v0.Common{}
-		ociRuntimeInstance.OciProviderID = createdOciProvider.ID
-		ociRuntimeInstance.OciOkeKubernetesRuntimeDefinitionID = createdOciRuntimeDef.ID
-		_, err = getOrCreate(
-			"oci oke runtime instance on the new threeport api",
-			func() (*v0.OciOkeKubernetesRuntimeInstance, error) {
-				return client.GetOciOkeKubernetesRuntimeInstanceByName(newApiClient, threeportAPIEndpoint, *ociRuntimeInstance.Name)
-			},
-			func() (*v0.OciOkeKubernetesRuntimeInstance, error) {
-				return client.CreateOciOkeKubernetesRuntimeInstance(newApiClient, threeportAPIEndpoint, ociRuntimeInstance)
-			},
-		)
-		if err != nil {
-			return 0, err
-		}
+	if err := onboarder.copyProviderRecords(
+		*kubernetesRuntimeDefinition.InfraProvider,
+		runtimeLink{
+			definitionID: *kubernetesRuntimeDefinition.ID,
+			instanceID:   *kubernetesRuntimeInstance.ID,
+		},
+		runtimeLink{
+			definitionID: *createdKubeDef.ID,
+			instanceID:   *createdKubeInstance.ID,
+		},
+	); err != nil {
+		return 0, fmt.Errorf("failed to onboard %s records for the kubernetes runtime: %w",
+			*kubernetesRuntimeDefinition.InfraProvider, err)
 	}
 
 	// onboard control plane definition and instance to new control plane
@@ -860,13 +738,18 @@ func v0ControlPlaneInstanceCreated(
 			return 0, fmt.Errorf("failed to get genesis control plane kubernetes runtime instance: %w", err)
 		}
 
+		// the genesis runtime is a cluster the child knows about, not the one
+		// it runs on, so it is neither the host nor the default here
 		var genesisK8DefID uint
-		if *genesisK8Instance.KubernetesRuntimeDefinitionID != *kubernetesRuntimeInstance.KubernetesRuntimeDefinitionID {
+		genesisInfraProvider := *kubernetesRuntimeDefinition.InfraProvider
+		sharedDefinition := *genesisK8Instance.KubernetesRuntimeDefinitionID == *kubernetesRuntimeInstance.KubernetesRuntimeDefinitionID
+		if !sharedDefinition {
 			genesisK8Def, err := client.GetKubernetesRuntimeDefinitionByID(r.APIClient, r.APIServer, *genesisK8Instance.KubernetesRuntimeDefinitionID)
 			if err != nil {
 				return 0, fmt.Errorf("failed to get genesis control plane kubernetes runtime definition: %w", err)
 			}
 
+			genesisInfraProvider = *genesisK8Def.InfraProvider
 			genesisK8Def.Common = v0.Common{}
 			newK8Def, err := getOrCreate(
 				"genesis kubernetes runtime definition on the new threeport api",
@@ -886,20 +769,25 @@ func v0ControlPlaneInstanceCreated(
 			genesisK8DefID = *createdKubeDef.ID
 		}
 
-		genesisK8Instance.Common = v0.Common{}
-		genesisK8Instance.KubernetesRuntimeDefinitionID = &genesisK8DefID
-
-		newK8Instance, err := getOrCreate(
-			"genesis kubernetes runtime instance on the new threeport api",
-			func() (*v0.KubernetesRuntimeInstance, error) {
-				return client.GetKubernetesRuntimeInstanceByName(newApiClient, threeportAPIEndpoint, *genesisK8Instance.Name)
-			},
-			func() (*v0.KubernetesRuntimeInstance, error) {
-				return client.CreateKubernetesRuntimeInstance(newApiClient, threeportAPIEndpoint, genesisK8Instance)
-			},
-		)
+		newK8Instance, err := onboarder.createRuntimeInstance(genesisK8Instance, &genesisK8DefID, false, false)
 		if err != nil {
 			return 0, err
+		}
+
+		// A GKE runtime is unusable without its GKE records - a token cannot be
+		// built for it - and the child's workloads can target the genesis
+		// runtime. The other providers' records are not copied for it.
+		if genesisInfraProvider == v0.KubernetesRuntimeInfraProviderGKE {
+			if err := onboarder.copyProviderRecords(
+				genesisInfraProvider,
+				runtimeLink{
+					definitionID: *genesisK8Instance.KubernetesRuntimeDefinitionID,
+					instanceID:   *genesisK8Instance.ID,
+				},
+				runtimeLink{definitionID: genesisK8DefID, instanceID: *newK8Instance.ID},
+			); err != nil {
+				return 0, fmt.Errorf("failed to onboard GKE records for the genesis kubernetes runtime: %w", err)
+			}
 		}
 
 		genKubeRuntimeInstanceID = *newK8Instance.ID
