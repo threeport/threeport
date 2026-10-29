@@ -543,7 +543,11 @@ func v0ControlPlaneInstanceCreated(
 	}
 
 	// install the support services operator
-	err = threeport.InstallThreeportSupportServicesOperator(dynamicKubeClient, mapper)
+	err = threeport.InstallThreeportSupportServicesOperator(
+		dynamicKubeClient,
+		mapper,
+		threeport.SupportServicesCloud(v0.KubernetesRuntimeInfraProvider(*kubernetesRuntimeDefinition.InfraProvider)),
+	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to install threeport support services operator: %w", err)
 	}

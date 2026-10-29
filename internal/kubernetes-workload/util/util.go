@@ -1,6 +1,7 @@
 package util
 
 import (
+	"errors"
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -8,6 +9,9 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
+
+// ErrKubernetesWorkloadResourceInstanceNotFound means the lookup matched no resource.
+var ErrKubernetesWorkloadResourceInstanceNotFound = errors.New("kubernetes workload resource instance not found")
 
 // UnmarshalUniqueKubernetesWorkloadResourceInstance gets a unique kubernetes workload
 // resource instance and unmarshals it.
@@ -104,6 +108,38 @@ func UnmarshalKubernetesWorkloadResourceInstance(k8sWorkloadResourceInstances *[
 	return service, nil
 }
 
+// GetKubernetesWorkloadResourceInstancesByKind returns every resource of one kind.
+// An empty result is not an error.
+func GetKubernetesWorkloadResourceInstancesByKind(
+	resources *[]v0.KubernetesWorkloadResourceInstance,
+	kind string,
+) ([]v0.KubernetesWorkloadResourceInstance, error) {
+	matches := []v0.KubernetesWorkloadResourceInstance{}
+	if resources == nil {
+		return matches, nil
+	}
+
+	// keep each resource whose kind matches
+	for _, resource := range *resources {
+		object, err := util.UnmarshalJSON(*resource.JSONDefinition)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal json: %w", err)
+		}
+		resourceKind, found, err := unstructured.NestedString(object, "kind")
+		if err != nil {
+			return nil, fmt.Errorf("failed to get kind: %w", err)
+		}
+		if !found {
+			return nil, fmt.Errorf("kind not found")
+		}
+		if resourceKind != kind {
+			continue
+		}
+		matches = append(matches, resource)
+	}
+	return matches, nil
+}
+
 // GetUniqueKubernetesWorkloadResourceInstance gets a unique kubernetes workload resource
 // instance by kind.
 func GetUniqueKubernetesWorkloadResourceInstance(k8sWorkloadResourceInstances *[]v0.KubernetesWorkloadResourceInstance, kind string) (*v0.KubernetesWorkloadResourceInstance, error) {
@@ -122,7 +158,7 @@ func GetUniqueKubernetesWorkloadResourceInstance(k8sWorkloadResourceInstances *[
 	}
 
 	if len(objects) == 0 {
-		return nil, fmt.Errorf("kubernetes workload resource instance not found")
+		return nil, ErrKubernetesWorkloadResourceInstanceNotFound
 	}
 	if len(objects) > 1 {
 		return nil, fmt.Errorf("multiple kubernetes workload resource instances found")
@@ -168,7 +204,7 @@ func GetUniqueKubernetesWorkloadResourceInstanceByName(k8sWorkloadResourceInstan
 	}
 
 	if len(objects) == 0 {
-		return nil, fmt.Errorf("kubernetes workload resource instance not found")
+		return nil, ErrKubernetesWorkloadResourceInstanceNotFound
 	}
 	if len(objects) > 1 {
 		return nil, fmt.Errorf("multiple kubernetes workload resource instances found")
@@ -300,7 +336,7 @@ func GetKubernetesWorkloadResourceInstance(k8sWorkloadResourceInstances *[]v0.Ku
 	}
 
 	if len(objects) == 0 {
-		return nil, fmt.Errorf("kubernetes workload resource instance not found")
+		return nil, ErrKubernetesWorkloadResourceInstanceNotFound
 	}
 	if len(objects) > 1 {
 		return nil, fmt.Errorf("multiple kubernetes workload resource instances found")

@@ -8,9 +8,7 @@ import (
 	"strconv"
 
 	"github.com/go-logr/logr"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	workloadutil "github.com/threeport/threeport/internal/kubernetes-workload/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	tpaws "github.com/threeport/threeport/pkg/aws/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
@@ -116,30 +114,6 @@ func validateThreeportStateExternalDns(
 	return nil
 }
 
-// getGlooEdgeNamespace gets the namespace of the gloo edge instance.
-func getGlooEdgeNamespace(r *controller.Reconciler, workloadInstanceID *uint) (string, error) {
-
-	// get gloo edge kubernetes workload resource instance
-	glooEdgeWorkloadResourceInstance, err := client.GetKubernetesWorkloadResourceInstancesByID(r.APIClient, r.APIServer, *workloadInstanceID)
-	if err != nil {
-		return "", fmt.Errorf("failed to get gloo edge kubernetes workload resource instance: %w", err)
-	}
-
-	// unmarshal gloo edge custom resource
-	glooEdge, err := workloadutil.UnmarshalUniqueKubernetesWorkloadResourceInstance(glooEdgeWorkloadResourceInstance, "GlooEdge")
-	if err != nil {
-		return "", fmt.Errorf("failed to unmarshal gloo edge kubernetes workload resource instance: %w", err)
-	}
-
-	// get gateway namespace
-	glooEdgeNamespace, found, err := unstructured.NestedString(glooEdge, "spec", "namespace")
-	if err != nil || !found {
-		return "", fmt.Errorf("failed to get namespace from gateway kubernetes workload resource definition: %w", err)
-	}
-
-	return glooEdgeNamespace, nil
-}
-
 // confirmDnsControllerDeployed confirms that a dns controller is deployed for
 // the kubernetes runtime instance.
 func confirmDnsControllerDeployed(
@@ -158,12 +132,6 @@ func confirmDnsControllerDeployed(
 	infraProvider, err := client.GetInfraProviderByKubernetesRuntimeInstanceID(r.APIClient, r.APIServer, domainNameInstance.KubernetesRuntimeInstanceID)
 	if err != nil {
 		return fmt.Errorf("failed to get infra provider: %w", err)
-	}
-
-	// get gloo edge namespace
-	glooEdgeNamespace, err := getGlooEdgeNamespace(r, kubernetesRuntimeInstance.GatewayControllerInstanceID)
-	if err != nil {
-		return fmt.Errorf("failed to get gloo edge namespace: %w", err)
 	}
 
 	// get domain name definition
@@ -188,7 +156,6 @@ func confirmDnsControllerDeployed(
 			"route53",
 			tpaws.EksDnsManagementRoleArn(clusterIdentity.AccountId, clusterIdentity.ClusterName),
 			"",
-			glooEdgeNamespace,
 			kubernetesRuntimeInstanceID,
 		)
 		if err != nil {
@@ -212,7 +179,6 @@ func confirmDnsControllerDeployed(
 			"google",
 			"",
 			*gcpProvider.ProjectID,
-			glooEdgeNamespace,
 			kubernetesRuntimeInstanceID,
 		)
 		if err != nil {
@@ -226,7 +192,6 @@ func confirmDnsControllerDeployed(
 			"none",
 			"",
 			"",
-			glooEdgeNamespace,
 			kubernetesRuntimeInstanceID,
 		)
 		if err != nil {
