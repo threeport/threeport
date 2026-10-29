@@ -170,11 +170,17 @@ func freshDatabase(t *testing.T, name string) *gorm.DB {
 
 // open returns a gorm handle on one database in the test container.
 func open(port, name string) (*gorm.DB, error) {
+	return openAs(port, "root", name)
+}
+
+// openAs returns a gorm handle on one database in the test container,
+// connected as the given user.
+func openAs(port, user, name string) (*gorm.DB, error) {
 	return gorm.Open(
 		postgres.New(postgres.Config{
 			DSN: fmt.Sprintf(
-				"postgres://root@127.0.0.1:%s/%s?sslmode=disable",
-				port, name,
+				"postgres://%s@127.0.0.1:%s/%s?sslmode=disable",
+				user, port, name,
 			),
 		}),
 		&gorm.Config{Logger: logger.Discard},

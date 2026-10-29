@@ -80,6 +80,10 @@ func init() {
 		"infra-only", false, "Tear down only the infrastructure without the control plane. Defaults to false.",
 	)
 	DownCmd.Flags().BoolVar(
+		&cliArgs.DeleteBackups,
+		"delete-backups", false, "Also delete the bucket a production control plane on gke backs its database up to, and every backup in it. Defaults to false, which keeps the backups.",
+	)
+	DownCmd.Flags().BoolVar(
 		&cliArgs.AwsConfigEnv,
 		"aws-config-env", false, "Retrieve AWS credentials from environment variables when using eks provider.",
 	)
