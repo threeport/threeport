@@ -80,7 +80,7 @@ func DeployEksInfra(
 			cpi.Opts.Namespace,
 			tpaws.IamTags(
 				cpi.Opts.Name,
-				map[string]string{},
+				provider.ThreeportProviderTags(),
 			),
 			resourceManagerRoleName,
 			*callerIdentity.Account,
@@ -93,7 +93,7 @@ func DeployEksInfra(
 			cpi.Opts.AdditionalAwsIrsaConditions,
 		)
 		if err != nil {
-			deleteErr := provider.DeleteResourceManagerRole(cpi.Opts.ControlPlaneName, *awsConfigUser)
+			deleteErr := provider.RollBackResourceManagerRole(cpi.Opts.ControlPlaneName, *awsConfigUser, err)
 			if deleteErr != nil {
 				return nil, fmt.Errorf("failed to create runtime manager role: %w, failed to delete IAM resources: %w", err, deleteErr)
 			}
