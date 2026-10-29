@@ -187,8 +187,9 @@ func (cpi *ControlPlaneInstaller) runDropMessageBrokerJob(
 						"restartPolicy": "Never",
 						"containers": []interface{}{
 							map[string]interface{}{
-								"name":  "drop-message-broker",
-								"image": natsBoxImage,
+								"name":      "drop-message-broker",
+								"image":     natsBoxImage,
+								"resources": natsBoxResources(),
 								"env": []interface{}{
 									map[string]interface{}{
 										"name":  "NATS_URL",
