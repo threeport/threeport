@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -78,6 +79,10 @@ func (f *fakeGCP) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		var bucket storage.Bucket
 		_ = json.Unmarshal(body, &bucket)
 		bucket.Location = strings.ToUpper(bucket.Location)
+		// a bucket belongs to the project it is created in
+		if r.URL.Query().Get("project") == "acme-prod" {
+			bucket.ProjectNumber = testProjectNumber
+		}
 		f.buckets[bucket.Name] = &bucket
 		f.bucketPolicies[bucket.Name] = &storage.Policy{}
 		f.bucketsCreated = append(f.bucketsCreated, bucket.Name)
@@ -137,7 +142,7 @@ func (f *fakeGCP) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case r.Method == http.MethodGet && projectPath.MatchString(path):
 		reply(map[string]interface{}{
 			"projectId":     projectPath.FindStringSubmatch(path)[1],
-			"projectNumber": "485872316478",
+			"projectNumber": strconv.FormatUint(testProjectNumber, 10),
 		})
 
 	case r.Method == http.MethodPost && accountsPath.MatchString(path):
@@ -210,6 +215,9 @@ func (f *fakeGCP) bucketMembers(bucket string) map[string][]string {
 	return members
 }
 
+// testProjectNumber is the number of the test control plane's project.
+const testProjectNumber = uint64(485872316478)
+
 // testBackupInfra returns GKE infra for a production control plane.
 func testBackupInfra() *KubernetesRuntimeInfraGKE {
 	return &KubernetesRuntimeInfraGKE{
@@ -279,7 +287,7 @@ func provisionAndGrant(t *testing.T, storageService *storage.Service, crmService
 	t.Helper()
 
 	infra := testBackupInfra()
-	require.NoError(t, infra.provisionBackupsWith(storageService))
+	require.NoError(t, infra.provisionBackupsWith(storageService, crmService))
 	require.NoError(t, infra.grantDatabaseBackupAccessWith(storageService, crmService, testUID))
 
 	return infra
@@ -355,7 +363,7 @@ func TestGrantNeedsABucketAndAUID(t *testing.T) {
 	assert.Error(t, testBackupInfra().grantDatabaseBackupAccessWith(storageService, crmService, testUID))
 
 	infra := testBackupInfra()
-	require.NoError(t, infra.provisionBackupsWith(storageService))
+	require.NoError(t, infra.provisionBackupsWith(storageService, crmService))
 	assert.Error(t, infra.grantDatabaseBackupAccessWith(storageService, crmService, ""))
 }
 
@@ -383,20 +391,22 @@ func TestProvisionBackupsAgainKeepsTheBucket(t *testing.T) {
 func TestProvisionBackupsRefusesABucketItDidNotCreate(t *testing.T) {
 	t.Run("not ours", func(t *testing.T) {
 		fake := newFakeGCP()
-		fake.buckets["threeport-prod-backups-acme-prod"] = &storage.Bucket{Name: "threeport-prod-backups-acme-prod", Location: "US-EAST1"}
-		storageService, _ := fake.clients(t)
+		fake.buckets["threeport-prod-backups-acme-prod"] = &storage.Bucket{
+			Name: "threeport-prod-backups-acme-prod", Location: "US-EAST1", ProjectNumber: testProjectNumber,
+		}
+		storageService, crmService := fake.clients(t)
 
-		assert.ErrorContains(t, testBackupInfra().provisionBackupsWith(storageService), "not created for")
+		assert.ErrorContains(t, testBackupInfra().provisionBackupsWith(storageService, crmService), "not created for")
 	})
 
 	t.Run("other region", func(t *testing.T) {
 		fake := newFakeGCP()
-		storageService, _ := fake.clients(t)
-		require.NoError(t, testBackupInfra().provisionBackupsWith(storageService))
+		storageService, crmService := fake.clients(t)
+		require.NoError(t, testBackupInfra().provisionBackupsWith(storageService, crmService))
 
 		moved := testBackupInfra()
 		moved.BackupRegion = "us-west1"
-		assert.ErrorContains(t, moved.provisionBackupsWith(storageService), "already exists in us-east1")
+		assert.ErrorContains(t, moved.provisionBackupsWith(storageService, crmService), "already exists in us-east1")
 	})
 }
 
@@ -474,4 +484,51 @@ func TestTeardownWithoutABucketDoesNothing(t *testing.T) {
 		option.WithEndpoint("http://127.0.0.1:1/storage/v1/"), option.WithoutAuthentication())
 	require.NoError(t, err)
 	require.NoError(t, infra.deleteBackupResources(storageService))
+}
+
+// TestABucketInAnotherProjectIsNeverUsed covers a backup bucket's name taken
+// by someone else.  Bucket names are global and this one is predictable, so
+// anyone can create it in a project of their own, copy the control plane's
+// labels onto it, and let the installer manage its policy.  They keep their
+// own access when the database is granted its, so writing backups there would
+// hand them the database.  Neither provisioning the bucket nor granting the
+// database access to it accepts one that is not in the control plane's
+// project.
+func TestABucketInAnotherProjectIsNeverUsed(t *testing.T) {
+	bucketName := "threeport-prod-backups-acme-prod"
+	squatted := func(fake *fakeGCP) {
+		fake.buckets[bucketName] = &storage.Bucket{
+			Name:          bucketName,
+			Location:      "US-EAST1",
+			Labels:        GcpResourceLabels("threeport-prod"),
+			ProjectNumber: 111111111111,
+		}
+		fake.bucketPolicies[bucketName] = &storage.Policy{Bindings: []*storage.PolicyBindings{
+			{Role: "roles/storage.objectViewer", Members: []string{"user:someone-else@example.com"}},
+		}}
+	}
+
+	t.Run("provisioning", func(t *testing.T) {
+		fake := newFakeGCP()
+		squatted(fake)
+		storageService, crmService := fake.clients(t)
+
+		infra := testBackupInfra()
+		assert.ErrorContains(t, infra.provisionBackupsWith(storageService, crmService), "not to project acme-prod")
+		assert.Empty(t, infra.BackupBucket, "a bucket in another project was recorded as the backup bucket")
+	})
+
+	t.Run("granting", func(t *testing.T) {
+		fake := newFakeGCP()
+		squatted(fake)
+		storageService, crmService := fake.clients(t)
+
+		// as a config recording the bucket name would have it
+		infra := testBackupInfra()
+		infra.BackupBucket = bucketName
+		assert.ErrorContains(t, infra.grantDatabaseBackupAccessWith(storageService, crmService, testUID), "not to project acme-prod")
+		for role, members := range fake.bucketMembers(bucketName) {
+			assert.NotContains(t, members, testPrincipal, "the database was granted %s on a bucket in another project", role)
+		}
+	})
 }
