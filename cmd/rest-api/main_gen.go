@@ -162,6 +162,9 @@ func main() {
 		e.Logger.Fatalf("failed to initialize nats jet stream: %v", err)
 	}
 
+	// publish the controller notifications that handlers could not, in the background
+	apiserver_lib.RunOutboxSweeper(db, *js, &logger)
+
 	// handlers
 	// v0
 	h_v0 := handlers_v0.New(db, nc, *js, &logger)

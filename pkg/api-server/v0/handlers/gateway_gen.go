@@ -558,10 +558,22 @@ func (h Handler) AddDomainNameInstance(c echo.Context) error {
 	}
 
 	// persist to DB
-	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+	if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
 		// clear id so a retried create does not reuse a rolled-back key
 		domainNameInstance.ID = nil
-		return db.Create(&domainNameInstance)
+		if err := db.Create(&domainNameInstance).Error; err != nil {
+			return nil, err
+		}
+
+		// notify controller if reconciliation is required
+		if *domainNameInstance.Reconciled {
+			return nil, nil
+		}
+		return apiserver_lib.NewNotification(
+			&domainNameInstance,
+			notifications.NotificationOperationCreated,
+			notif.DomainNameInstanceCreateSubject,
+		)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
 		// check if this is a custom HTTP error with specific status code
@@ -587,20 +599,6 @@ func (h Handler) AddDomainNameInstance(c echo.Context) error {
 	if err := apiserver_lib.AfterCommitCreate(h.DB, &domainNameInstance); err != nil {
 		h.Logger.Error("handler error: error reconciling process state after commit", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-	}
-
-	// notify controller if reconciliation is required
-	if !*domainNameInstance.Reconciled {
-		notifPayload, err := domainNameInstance.NotificationPayload(
-			notifications.NotificationOperationCreated,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.DomainNameInstanceCreateSubject, *notifPayload)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -817,9 +815,25 @@ func (h Handler) UpdateDomainNameInstance(c echo.Context) error {
 	// snapshot the loaded row before this update.
 	prevDomainNameInstance := api_v0_lib.NotifySnapshot(existingDomainNameInstance)
 
+	// the fields that changed, for the warning below
+	var changed []string
 	// update object in database
-	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-		return db.Model(&existingDomainNameInstance).Updates(&updatedDomainNameInstance)
+	if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
+		if err := db.Model(&existingDomainNameInstance).Updates(&updatedDomainNameInstance).Error; err != nil {
+			return nil, err
+		}
+
+		// notify controller if the update is notifiable
+		var notify bool
+		notify, changed = api_v0_lib.ObjectUpdateNotifiable(prevDomainNameInstance, existingDomainNameInstance)
+		if !notify {
+			return nil, nil
+		}
+		return apiserver_lib.NewNotification(
+			&existingDomainNameInstance,
+			notifications.NotificationOperationUpdated,
+			notif.DomainNameInstanceUpdateSubject,
+		)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
 		// check if this is a custom HTTP error with specific status code
@@ -838,23 +852,9 @@ func (h Handler) UpdateDomainNameInstance(c echo.Context) error {
 		)
 	}
 
-	// notify controller if the update is notifiable
-	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevDomainNameInstance, existingDomainNameInstance)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
-	}
-	if notify {
-		notifPayload, err := existingDomainNameInstance.NotificationPayload(
-			notifications.NotificationOperationUpdated,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.DomainNameInstanceUpdateSubject, *notifPayload)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -923,10 +923,31 @@ func (h Handler) ReplaceDomainNameInstance(c echo.Context) error {
 	// snapshot the loaded row before this replace.
 	prevDomainNameInstance := api_v0_lib.NotifySnapshot(existingDomainNameInstance)
 
+	// the fields that changed, for the warning below
+	var changed []string
 	// persist provided data
 	updatedDomainNameInstance.ID = existingDomainNameInstance.ID
-	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-		return db.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedDomainNameInstance)
+	if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
+		if err := db.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedDomainNameInstance).Error; err != nil {
+			return nil, err
+		}
+
+		// reload updated data from DB
+		if err := db.First(&existingDomainNameInstance, domainNameInstanceID).Error; err != nil {
+			return nil, err
+		}
+
+		// notify controller if the update is notifiable
+		var notify bool
+		notify, changed = api_v0_lib.ObjectUpdateNotifiable(prevDomainNameInstance, existingDomainNameInstance)
+		if !notify {
+			return nil, nil
+		}
+		return apiserver_lib.NewNotification(
+			&existingDomainNameInstance,
+			notifications.NotificationOperationUpdated,
+			notif.DomainNameInstanceUpdateSubject,
+		)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		// check if this is a custom HTTP error with specific status code
@@ -945,32 +966,9 @@ func (h Handler) ReplaceDomainNameInstance(c echo.Context) error {
 		)
 	}
 
-	// reload updated data from DB
-	if result := h.RequestDB(c).First(&existingDomainNameInstance, domainNameInstanceID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, fullyQualifiedType)
-		}
-		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
-	}
-
-	// notify controller if the update is notifiable
-	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevDomainNameInstance, existingDomainNameInstance)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
-	}
-	if notify {
-		notifPayload, err := existingDomainNameInstance.NotificationPayload(
-			notifications.NotificationOperationUpdated,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.DomainNameInstanceUpdateSubject, *notifPayload)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -1033,23 +1031,20 @@ func (h Handler) DeleteDomainNameInstance(c echo.Context) error {
 				DeletionScheduled: &timestamp,
 				Reconciled:        &reconciled,
 			}}
-		if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-			return db.Model(&domainNameInstance).Updates(&scheduledDomainNameInstance)
+		if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
+			if err := db.Model(&domainNameInstance).Updates(&scheduledDomainNameInstance).Error; err != nil {
+				return nil, err
+			}
+			// notify controller
+			return apiserver_lib.NewNotification(
+				&domainNameInstance,
+				notifications.NotificationOperationDeleted,
+				notif.DomainNameInstanceDeleteSubject,
+			)
 		}); result.Error != nil {
 			h.Logger.Error("handler error: error creating scheduled deletion", zap.Error(result.Error))
 			return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
 		}
-		// notify controller
-		notifPayload, err := domainNameInstance.NotificationPayload(
-			notifications.NotificationOperationDeleted,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.DomainNameInstanceDeleteSubject, *notifPayload)
 	} else {
 		if domainNameInstance.DeletionConfirmed == nil {
 			// if deletion scheduled but not reconciled, return 409 - deletion
@@ -1156,10 +1151,22 @@ func (h Handler) AddGatewayDefinition(c echo.Context) error {
 	}
 
 	// persist to DB
-	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+	if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
 		// clear id so a retried create does not reuse a rolled-back key
 		gatewayDefinition.ID = nil
-		return db.Create(&gatewayDefinition)
+		if err := db.Create(&gatewayDefinition).Error; err != nil {
+			return nil, err
+		}
+
+		// notify controller if reconciliation is required
+		if *gatewayDefinition.Reconciled {
+			return nil, nil
+		}
+		return apiserver_lib.NewNotification(
+			&gatewayDefinition,
+			notifications.NotificationOperationCreated,
+			notif.GatewayDefinitionCreateSubject,
+		)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
 		// check if this is a custom HTTP error with specific status code
@@ -1185,20 +1192,6 @@ func (h Handler) AddGatewayDefinition(c echo.Context) error {
 	if err := apiserver_lib.AfterCommitCreate(h.DB, &gatewayDefinition); err != nil {
 		h.Logger.Error("handler error: error reconciling process state after commit", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-	}
-
-	// notify controller if reconciliation is required
-	if !*gatewayDefinition.Reconciled {
-		notifPayload, err := gatewayDefinition.NotificationPayload(
-			notifications.NotificationOperationCreated,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.GatewayDefinitionCreateSubject, *notifPayload)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -1415,9 +1408,25 @@ func (h Handler) UpdateGatewayDefinition(c echo.Context) error {
 	// snapshot the loaded row before this update.
 	prevGatewayDefinition := api_v0_lib.NotifySnapshot(existingGatewayDefinition)
 
+	// the fields that changed, for the warning below
+	var changed []string
 	// update object in database
-	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-		return db.Model(&existingGatewayDefinition).Updates(&updatedGatewayDefinition)
+	if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
+		if err := db.Model(&existingGatewayDefinition).Updates(&updatedGatewayDefinition).Error; err != nil {
+			return nil, err
+		}
+
+		// notify controller if the update is notifiable
+		var notify bool
+		notify, changed = api_v0_lib.ObjectUpdateNotifiable(prevGatewayDefinition, existingGatewayDefinition)
+		if !notify {
+			return nil, nil
+		}
+		return apiserver_lib.NewNotification(
+			&existingGatewayDefinition,
+			notifications.NotificationOperationUpdated,
+			notif.GatewayDefinitionUpdateSubject,
+		)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
 		// check if this is a custom HTTP error with specific status code
@@ -1436,23 +1445,9 @@ func (h Handler) UpdateGatewayDefinition(c echo.Context) error {
 		)
 	}
 
-	// notify controller if the update is notifiable
-	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevGatewayDefinition, existingGatewayDefinition)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
-	}
-	if notify {
-		notifPayload, err := existingGatewayDefinition.NotificationPayload(
-			notifications.NotificationOperationUpdated,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.GatewayDefinitionUpdateSubject, *notifPayload)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -1521,10 +1516,31 @@ func (h Handler) ReplaceGatewayDefinition(c echo.Context) error {
 	// snapshot the loaded row before this replace.
 	prevGatewayDefinition := api_v0_lib.NotifySnapshot(existingGatewayDefinition)
 
+	// the fields that changed, for the warning below
+	var changed []string
 	// persist provided data
 	updatedGatewayDefinition.ID = existingGatewayDefinition.ID
-	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-		return db.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedGatewayDefinition)
+	if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
+		if err := db.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedGatewayDefinition).Error; err != nil {
+			return nil, err
+		}
+
+		// reload updated data from DB
+		if err := db.First(&existingGatewayDefinition, gatewayDefinitionID).Error; err != nil {
+			return nil, err
+		}
+
+		// notify controller if the update is notifiable
+		var notify bool
+		notify, changed = api_v0_lib.ObjectUpdateNotifiable(prevGatewayDefinition, existingGatewayDefinition)
+		if !notify {
+			return nil, nil
+		}
+		return apiserver_lib.NewNotification(
+			&existingGatewayDefinition,
+			notifications.NotificationOperationUpdated,
+			notif.GatewayDefinitionUpdateSubject,
+		)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		// check if this is a custom HTTP error with specific status code
@@ -1543,32 +1559,9 @@ func (h Handler) ReplaceGatewayDefinition(c echo.Context) error {
 		)
 	}
 
-	// reload updated data from DB
-	if result := h.RequestDB(c).First(&existingGatewayDefinition, gatewayDefinitionID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, fullyQualifiedType)
-		}
-		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
-	}
-
-	// notify controller if the update is notifiable
-	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevGatewayDefinition, existingGatewayDefinition)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
-	}
-	if notify {
-		notifPayload, err := existingGatewayDefinition.NotificationPayload(
-			notifications.NotificationOperationUpdated,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.GatewayDefinitionUpdateSubject, *notifPayload)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -1637,23 +1630,20 @@ func (h Handler) DeleteGatewayDefinition(c echo.Context) error {
 				DeletionScheduled: &timestamp,
 				Reconciled:        &reconciled,
 			}}
-		if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-			return db.Model(&gatewayDefinition).Updates(&scheduledGatewayDefinition)
+		if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
+			if err := db.Model(&gatewayDefinition).Updates(&scheduledGatewayDefinition).Error; err != nil {
+				return nil, err
+			}
+			// notify controller
+			return apiserver_lib.NewNotification(
+				&gatewayDefinition,
+				notifications.NotificationOperationDeleted,
+				notif.GatewayDefinitionDeleteSubject,
+			)
 		}); result.Error != nil {
 			h.Logger.Error("handler error: error creating scheduled deletion", zap.Error(result.Error))
 			return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
 		}
-		// notify controller
-		notifPayload, err := gatewayDefinition.NotificationPayload(
-			notifications.NotificationOperationDeleted,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.GatewayDefinitionDeleteSubject, *notifPayload)
 	} else {
 		if gatewayDefinition.DeletionConfirmed == nil {
 			// if deletion scheduled but not reconciled, return 409 - deletion
@@ -2246,10 +2236,22 @@ func (h Handler) AddGatewayInstance(c echo.Context) error {
 	}
 
 	// persist to DB
-	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+	if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
 		// clear id so a retried create does not reuse a rolled-back key
 		gatewayInstance.ID = nil
-		return db.Create(&gatewayInstance)
+		if err := db.Create(&gatewayInstance).Error; err != nil {
+			return nil, err
+		}
+
+		// notify controller if reconciliation is required
+		if *gatewayInstance.Reconciled {
+			return nil, nil
+		}
+		return apiserver_lib.NewNotification(
+			&gatewayInstance,
+			notifications.NotificationOperationCreated,
+			notif.GatewayInstanceCreateSubject,
+		)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
 		// check if this is a custom HTTP error with specific status code
@@ -2275,20 +2277,6 @@ func (h Handler) AddGatewayInstance(c echo.Context) error {
 	if err := apiserver_lib.AfterCommitCreate(h.DB, &gatewayInstance); err != nil {
 		h.Logger.Error("handler error: error reconciling process state after commit", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-	}
-
-	// notify controller if reconciliation is required
-	if !*gatewayInstance.Reconciled {
-		notifPayload, err := gatewayInstance.NotificationPayload(
-			notifications.NotificationOperationCreated,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.GatewayInstanceCreateSubject, *notifPayload)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -2505,9 +2493,25 @@ func (h Handler) UpdateGatewayInstance(c echo.Context) error {
 	// snapshot the loaded row before this update.
 	prevGatewayInstance := api_v0_lib.NotifySnapshot(existingGatewayInstance)
 
+	// the fields that changed, for the warning below
+	var changed []string
 	// update object in database
-	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-		return db.Model(&existingGatewayInstance).Updates(&updatedGatewayInstance)
+	if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
+		if err := db.Model(&existingGatewayInstance).Updates(&updatedGatewayInstance).Error; err != nil {
+			return nil, err
+		}
+
+		// notify controller if the update is notifiable
+		var notify bool
+		notify, changed = api_v0_lib.ObjectUpdateNotifiable(prevGatewayInstance, existingGatewayInstance)
+		if !notify {
+			return nil, nil
+		}
+		return apiserver_lib.NewNotification(
+			&existingGatewayInstance,
+			notifications.NotificationOperationUpdated,
+			notif.GatewayInstanceUpdateSubject,
+		)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
 		// check if this is a custom HTTP error with specific status code
@@ -2526,23 +2530,9 @@ func (h Handler) UpdateGatewayInstance(c echo.Context) error {
 		)
 	}
 
-	// notify controller if the update is notifiable
-	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevGatewayInstance, existingGatewayInstance)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
-	}
-	if notify {
-		notifPayload, err := existingGatewayInstance.NotificationPayload(
-			notifications.NotificationOperationUpdated,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.GatewayInstanceUpdateSubject, *notifPayload)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -2611,10 +2601,31 @@ func (h Handler) ReplaceGatewayInstance(c echo.Context) error {
 	// snapshot the loaded row before this replace.
 	prevGatewayInstance := api_v0_lib.NotifySnapshot(existingGatewayInstance)
 
+	// the fields that changed, for the warning below
+	var changed []string
 	// persist provided data
 	updatedGatewayInstance.ID = existingGatewayInstance.ID
-	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-		return db.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedGatewayInstance)
+	if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
+		if err := db.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedGatewayInstance).Error; err != nil {
+			return nil, err
+		}
+
+		// reload updated data from DB
+		if err := db.First(&existingGatewayInstance, gatewayInstanceID).Error; err != nil {
+			return nil, err
+		}
+
+		// notify controller if the update is notifiable
+		var notify bool
+		notify, changed = api_v0_lib.ObjectUpdateNotifiable(prevGatewayInstance, existingGatewayInstance)
+		if !notify {
+			return nil, nil
+		}
+		return apiserver_lib.NewNotification(
+			&existingGatewayInstance,
+			notifications.NotificationOperationUpdated,
+			notif.GatewayInstanceUpdateSubject,
+		)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		// check if this is a custom HTTP error with specific status code
@@ -2633,32 +2644,9 @@ func (h Handler) ReplaceGatewayInstance(c echo.Context) error {
 		)
 	}
 
-	// reload updated data from DB
-	if result := h.RequestDB(c).First(&existingGatewayInstance, gatewayInstanceID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, fullyQualifiedType)
-		}
-		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
-	}
-
-	// notify controller if the update is notifiable
-	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevGatewayInstance, existingGatewayInstance)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
-	}
-	if notify {
-		notifPayload, err := existingGatewayInstance.NotificationPayload(
-			notifications.NotificationOperationUpdated,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.GatewayInstanceUpdateSubject, *notifPayload)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -2721,23 +2709,20 @@ func (h Handler) DeleteGatewayInstance(c echo.Context) error {
 				DeletionScheduled: &timestamp,
 				Reconciled:        &reconciled,
 			}}
-		if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-			return db.Model(&gatewayInstance).Updates(&scheduledGatewayInstance)
+		if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
+			if err := db.Model(&gatewayInstance).Updates(&scheduledGatewayInstance).Error; err != nil {
+				return nil, err
+			}
+			// notify controller
+			return apiserver_lib.NewNotification(
+				&gatewayInstance,
+				notifications.NotificationOperationDeleted,
+				notif.GatewayInstanceDeleteSubject,
+			)
 		}); result.Error != nil {
 			h.Logger.Error("handler error: error creating scheduled deletion", zap.Error(result.Error))
 			return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
 		}
-		// notify controller
-		notifPayload, err := gatewayInstance.NotificationPayload(
-			notifications.NotificationOperationDeleted,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.GatewayInstanceDeleteSubject, *notifPayload)
 	} else {
 		if gatewayInstance.DeletionConfirmed == nil {
 			// if deletion scheduled but not reconciled, return 409 - deletion

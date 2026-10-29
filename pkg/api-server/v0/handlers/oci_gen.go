@@ -558,10 +558,22 @@ func (h Handler) AddOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 	}
 
 	// persist to DB
-	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+	if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
 		// clear id so a retried create does not reuse a rolled-back key
 		ociOkeKubernetesRuntimeInstance.ID = nil
-		return db.Create(&ociOkeKubernetesRuntimeInstance)
+		if err := db.Create(&ociOkeKubernetesRuntimeInstance).Error; err != nil {
+			return nil, err
+		}
+
+		// notify controller if reconciliation is required
+		if *ociOkeKubernetesRuntimeInstance.Reconciled {
+			return nil, nil
+		}
+		return apiserver_lib.NewNotification(
+			&ociOkeKubernetesRuntimeInstance,
+			notifications.NotificationOperationCreated,
+			notif.OciOkeKubernetesRuntimeInstanceCreateSubject,
+		)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
 		// check if this is a custom HTTP error with specific status code
@@ -587,20 +599,6 @@ func (h Handler) AddOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 	if err := apiserver_lib.AfterCommitCreate(h.DB, &ociOkeKubernetesRuntimeInstance); err != nil {
 		h.Logger.Error("handler error: error reconciling process state after commit", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-	}
-
-	// notify controller if reconciliation is required
-	if !*ociOkeKubernetesRuntimeInstance.Reconciled {
-		notifPayload, err := ociOkeKubernetesRuntimeInstance.NotificationPayload(
-			notifications.NotificationOperationCreated,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.OciOkeKubernetesRuntimeInstanceCreateSubject, *notifPayload)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -817,9 +815,25 @@ func (h Handler) UpdateOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 	// snapshot the loaded row before this update.
 	prevOciOkeKubernetesRuntimeInstance := api_v0_lib.NotifySnapshot(existingOciOkeKubernetesRuntimeInstance)
 
+	// the fields that changed, for the warning below
+	var changed []string
 	// update object in database
-	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-		return db.Model(&existingOciOkeKubernetesRuntimeInstance).Updates(&updatedOciOkeKubernetesRuntimeInstance)
+	if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
+		if err := db.Model(&existingOciOkeKubernetesRuntimeInstance).Updates(&updatedOciOkeKubernetesRuntimeInstance).Error; err != nil {
+			return nil, err
+		}
+
+		// notify controller if the update is notifiable
+		var notify bool
+		notify, changed = api_v0_lib.ObjectUpdateNotifiable(prevOciOkeKubernetesRuntimeInstance, existingOciOkeKubernetesRuntimeInstance)
+		if !notify {
+			return nil, nil
+		}
+		return apiserver_lib.NewNotification(
+			&existingOciOkeKubernetesRuntimeInstance,
+			notifications.NotificationOperationUpdated,
+			notif.OciOkeKubernetesRuntimeInstanceUpdateSubject,
+		)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
 		// check if this is a custom HTTP error with specific status code
@@ -838,23 +852,9 @@ func (h Handler) UpdateOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 		)
 	}
 
-	// notify controller if the update is notifiable
-	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevOciOkeKubernetesRuntimeInstance, existingOciOkeKubernetesRuntimeInstance)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
-	}
-	if notify {
-		notifPayload, err := existingOciOkeKubernetesRuntimeInstance.NotificationPayload(
-			notifications.NotificationOperationUpdated,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.OciOkeKubernetesRuntimeInstanceUpdateSubject, *notifPayload)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -923,10 +923,31 @@ func (h Handler) ReplaceOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 	// snapshot the loaded row before this replace.
 	prevOciOkeKubernetesRuntimeInstance := api_v0_lib.NotifySnapshot(existingOciOkeKubernetesRuntimeInstance)
 
+	// the fields that changed, for the warning below
+	var changed []string
 	// persist provided data
 	updatedOciOkeKubernetesRuntimeInstance.ID = existingOciOkeKubernetesRuntimeInstance.ID
-	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-		return db.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedOciOkeKubernetesRuntimeInstance)
+	if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
+		if err := db.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedOciOkeKubernetesRuntimeInstance).Error; err != nil {
+			return nil, err
+		}
+
+		// reload updated data from DB
+		if err := db.First(&existingOciOkeKubernetesRuntimeInstance, ociOkeKubernetesRuntimeInstanceID).Error; err != nil {
+			return nil, err
+		}
+
+		// notify controller if the update is notifiable
+		var notify bool
+		notify, changed = api_v0_lib.ObjectUpdateNotifiable(prevOciOkeKubernetesRuntimeInstance, existingOciOkeKubernetesRuntimeInstance)
+		if !notify {
+			return nil, nil
+		}
+		return apiserver_lib.NewNotification(
+			&existingOciOkeKubernetesRuntimeInstance,
+			notifications.NotificationOperationUpdated,
+			notif.OciOkeKubernetesRuntimeInstanceUpdateSubject,
+		)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		// check if this is a custom HTTP error with specific status code
@@ -945,32 +966,9 @@ func (h Handler) ReplaceOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 		)
 	}
 
-	// reload updated data from DB
-	if result := h.RequestDB(c).First(&existingOciOkeKubernetesRuntimeInstance, ociOkeKubernetesRuntimeInstanceID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, fullyQualifiedType)
-		}
-		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
-	}
-
-	// notify controller if the update is notifiable
-	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevOciOkeKubernetesRuntimeInstance, existingOciOkeKubernetesRuntimeInstance)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
-	}
-	if notify {
-		notifPayload, err := existingOciOkeKubernetesRuntimeInstance.NotificationPayload(
-			notifications.NotificationOperationUpdated,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.OciOkeKubernetesRuntimeInstanceUpdateSubject, *notifPayload)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -1033,23 +1031,20 @@ func (h Handler) DeleteOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 				DeletionScheduled: &timestamp,
 				Reconciled:        &reconciled,
 			}}
-		if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-			return db.Model(&ociOkeKubernetesRuntimeInstance).Updates(&scheduledOciOkeKubernetesRuntimeInstance)
+		if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
+			if err := db.Model(&ociOkeKubernetesRuntimeInstance).Updates(&scheduledOciOkeKubernetesRuntimeInstance).Error; err != nil {
+				return nil, err
+			}
+			// notify controller
+			return apiserver_lib.NewNotification(
+				&ociOkeKubernetesRuntimeInstance,
+				notifications.NotificationOperationDeleted,
+				notif.OciOkeKubernetesRuntimeInstanceDeleteSubject,
+			)
 		}); result.Error != nil {
 			h.Logger.Error("handler error: error creating scheduled deletion", zap.Error(result.Error))
 			return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
 		}
-		// notify controller
-		notifPayload, err := ociOkeKubernetesRuntimeInstance.NotificationPayload(
-			notifications.NotificationOperationDeleted,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.OciOkeKubernetesRuntimeInstanceDeleteSubject, *notifPayload)
 	} else {
 		if ociOkeKubernetesRuntimeInstance.DeletionConfirmed == nil {
 			// if deletion scheduled but not reconciled, return 409 - deletion

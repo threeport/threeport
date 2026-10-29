@@ -66,10 +66,22 @@ func (h Handler) AddHelmWorkloadDefinition(c echo.Context) error {
 	}
 
 	// persist to DB
-	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+	if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
 		// clear id so a retried create does not reuse a rolled-back key
 		helmWorkloadDefinition.ID = nil
-		return db.Create(&helmWorkloadDefinition)
+		if err := db.Create(&helmWorkloadDefinition).Error; err != nil {
+			return nil, err
+		}
+
+		// notify controller if reconciliation is required
+		if *helmWorkloadDefinition.Reconciled {
+			return nil, nil
+		}
+		return apiserver_lib.NewNotification(
+			&helmWorkloadDefinition,
+			notifications.NotificationOperationCreated,
+			notif.HelmWorkloadDefinitionCreateSubject,
+		)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
 		// check if this is a custom HTTP error with specific status code
@@ -95,20 +107,6 @@ func (h Handler) AddHelmWorkloadDefinition(c echo.Context) error {
 	if err := apiserver_lib.AfterCommitCreate(h.DB, &helmWorkloadDefinition); err != nil {
 		h.Logger.Error("handler error: error reconciling process state after commit", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-	}
-
-	// notify controller if reconciliation is required
-	if !*helmWorkloadDefinition.Reconciled {
-		notifPayload, err := helmWorkloadDefinition.NotificationPayload(
-			notifications.NotificationOperationCreated,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.HelmWorkloadDefinitionCreateSubject, *notifPayload)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -325,9 +323,25 @@ func (h Handler) UpdateHelmWorkloadDefinition(c echo.Context) error {
 	// snapshot the loaded row before this update.
 	prevHelmWorkloadDefinition := api_v0_lib.NotifySnapshot(existingHelmWorkloadDefinition)
 
+	// the fields that changed, for the warning below
+	var changed []string
 	// update object in database
-	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-		return db.Model(&existingHelmWorkloadDefinition).Updates(&updatedHelmWorkloadDefinition)
+	if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
+		if err := db.Model(&existingHelmWorkloadDefinition).Updates(&updatedHelmWorkloadDefinition).Error; err != nil {
+			return nil, err
+		}
+
+		// notify controller if the update is notifiable
+		var notify bool
+		notify, changed = api_v0_lib.ObjectUpdateNotifiable(prevHelmWorkloadDefinition, existingHelmWorkloadDefinition)
+		if !notify {
+			return nil, nil
+		}
+		return apiserver_lib.NewNotification(
+			&existingHelmWorkloadDefinition,
+			notifications.NotificationOperationUpdated,
+			notif.HelmWorkloadDefinitionUpdateSubject,
+		)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
 		// check if this is a custom HTTP error with specific status code
@@ -346,23 +360,9 @@ func (h Handler) UpdateHelmWorkloadDefinition(c echo.Context) error {
 		)
 	}
 
-	// notify controller if the update is notifiable
-	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevHelmWorkloadDefinition, existingHelmWorkloadDefinition)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
-	}
-	if notify {
-		notifPayload, err := existingHelmWorkloadDefinition.NotificationPayload(
-			notifications.NotificationOperationUpdated,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.HelmWorkloadDefinitionUpdateSubject, *notifPayload)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -431,10 +431,31 @@ func (h Handler) ReplaceHelmWorkloadDefinition(c echo.Context) error {
 	// snapshot the loaded row before this replace.
 	prevHelmWorkloadDefinition := api_v0_lib.NotifySnapshot(existingHelmWorkloadDefinition)
 
+	// the fields that changed, for the warning below
+	var changed []string
 	// persist provided data
 	updatedHelmWorkloadDefinition.ID = existingHelmWorkloadDefinition.ID
-	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-		return db.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedHelmWorkloadDefinition)
+	if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
+		if err := db.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedHelmWorkloadDefinition).Error; err != nil {
+			return nil, err
+		}
+
+		// reload updated data from DB
+		if err := db.First(&existingHelmWorkloadDefinition, helmWorkloadDefinitionID).Error; err != nil {
+			return nil, err
+		}
+
+		// notify controller if the update is notifiable
+		var notify bool
+		notify, changed = api_v0_lib.ObjectUpdateNotifiable(prevHelmWorkloadDefinition, existingHelmWorkloadDefinition)
+		if !notify {
+			return nil, nil
+		}
+		return apiserver_lib.NewNotification(
+			&existingHelmWorkloadDefinition,
+			notifications.NotificationOperationUpdated,
+			notif.HelmWorkloadDefinitionUpdateSubject,
+		)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		// check if this is a custom HTTP error with specific status code
@@ -453,32 +474,9 @@ func (h Handler) ReplaceHelmWorkloadDefinition(c echo.Context) error {
 		)
 	}
 
-	// reload updated data from DB
-	if result := h.RequestDB(c).First(&existingHelmWorkloadDefinition, helmWorkloadDefinitionID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, fullyQualifiedType)
-		}
-		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
-	}
-
-	// notify controller if the update is notifiable
-	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevHelmWorkloadDefinition, existingHelmWorkloadDefinition)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
-	}
-	if notify {
-		notifPayload, err := existingHelmWorkloadDefinition.NotificationPayload(
-			notifications.NotificationOperationUpdated,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.HelmWorkloadDefinitionUpdateSubject, *notifPayload)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -547,23 +545,20 @@ func (h Handler) DeleteHelmWorkloadDefinition(c echo.Context) error {
 				DeletionScheduled: &timestamp,
 				Reconciled:        &reconciled,
 			}}
-		if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-			return db.Model(&helmWorkloadDefinition).Updates(&scheduledHelmWorkloadDefinition)
+		if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
+			if err := db.Model(&helmWorkloadDefinition).Updates(&scheduledHelmWorkloadDefinition).Error; err != nil {
+				return nil, err
+			}
+			// notify controller
+			return apiserver_lib.NewNotification(
+				&helmWorkloadDefinition,
+				notifications.NotificationOperationDeleted,
+				notif.HelmWorkloadDefinitionDeleteSubject,
+			)
 		}); result.Error != nil {
 			h.Logger.Error("handler error: error creating scheduled deletion", zap.Error(result.Error))
 			return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
 		}
-		// notify controller
-		notifPayload, err := helmWorkloadDefinition.NotificationPayload(
-			notifications.NotificationOperationDeleted,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.HelmWorkloadDefinitionDeleteSubject, *notifPayload)
 	} else {
 		if helmWorkloadDefinition.DeletionConfirmed == nil {
 			// if deletion scheduled but not reconciled, return 409 - deletion
@@ -670,10 +665,22 @@ func (h Handler) AddHelmWorkloadInstance(c echo.Context) error {
 	}
 
 	// persist to DB
-	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+	if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
 		// clear id so a retried create does not reuse a rolled-back key
 		helmWorkloadInstance.ID = nil
-		return db.Create(&helmWorkloadInstance)
+		if err := db.Create(&helmWorkloadInstance).Error; err != nil {
+			return nil, err
+		}
+
+		// notify controller if reconciliation is required
+		if *helmWorkloadInstance.Reconciled {
+			return nil, nil
+		}
+		return apiserver_lib.NewNotification(
+			&helmWorkloadInstance,
+			notifications.NotificationOperationCreated,
+			notif.HelmWorkloadInstanceCreateSubject,
+		)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
 		// check if this is a custom HTTP error with specific status code
@@ -699,20 +706,6 @@ func (h Handler) AddHelmWorkloadInstance(c echo.Context) error {
 	if err := apiserver_lib.AfterCommitCreate(h.DB, &helmWorkloadInstance); err != nil {
 		h.Logger.Error("handler error: error reconciling process state after commit", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-	}
-
-	// notify controller if reconciliation is required
-	if !*helmWorkloadInstance.Reconciled {
-		notifPayload, err := helmWorkloadInstance.NotificationPayload(
-			notifications.NotificationOperationCreated,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.HelmWorkloadInstanceCreateSubject, *notifPayload)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -929,9 +922,25 @@ func (h Handler) UpdateHelmWorkloadInstance(c echo.Context) error {
 	// snapshot the loaded row before this update.
 	prevHelmWorkloadInstance := api_v0_lib.NotifySnapshot(existingHelmWorkloadInstance)
 
+	// the fields that changed, for the warning below
+	var changed []string
 	// update object in database
-	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-		return db.Model(&existingHelmWorkloadInstance).Updates(&updatedHelmWorkloadInstance)
+	if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
+		if err := db.Model(&existingHelmWorkloadInstance).Updates(&updatedHelmWorkloadInstance).Error; err != nil {
+			return nil, err
+		}
+
+		// notify controller if the update is notifiable
+		var notify bool
+		notify, changed = api_v0_lib.ObjectUpdateNotifiable(prevHelmWorkloadInstance, existingHelmWorkloadInstance)
+		if !notify {
+			return nil, nil
+		}
+		return apiserver_lib.NewNotification(
+			&existingHelmWorkloadInstance,
+			notifications.NotificationOperationUpdated,
+			notif.HelmWorkloadInstanceUpdateSubject,
+		)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
 		// check if this is a custom HTTP error with specific status code
@@ -950,23 +959,9 @@ func (h Handler) UpdateHelmWorkloadInstance(c echo.Context) error {
 		)
 	}
 
-	// notify controller if the update is notifiable
-	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevHelmWorkloadInstance, existingHelmWorkloadInstance)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
-	}
-	if notify {
-		notifPayload, err := existingHelmWorkloadInstance.NotificationPayload(
-			notifications.NotificationOperationUpdated,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.HelmWorkloadInstanceUpdateSubject, *notifPayload)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -1035,10 +1030,31 @@ func (h Handler) ReplaceHelmWorkloadInstance(c echo.Context) error {
 	// snapshot the loaded row before this replace.
 	prevHelmWorkloadInstance := api_v0_lib.NotifySnapshot(existingHelmWorkloadInstance)
 
+	// the fields that changed, for the warning below
+	var changed []string
 	// persist provided data
 	updatedHelmWorkloadInstance.ID = existingHelmWorkloadInstance.ID
-	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-		return db.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedHelmWorkloadInstance)
+	if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
+		if err := db.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedHelmWorkloadInstance).Error; err != nil {
+			return nil, err
+		}
+
+		// reload updated data from DB
+		if err := db.First(&existingHelmWorkloadInstance, helmWorkloadInstanceID).Error; err != nil {
+			return nil, err
+		}
+
+		// notify controller if the update is notifiable
+		var notify bool
+		notify, changed = api_v0_lib.ObjectUpdateNotifiable(prevHelmWorkloadInstance, existingHelmWorkloadInstance)
+		if !notify {
+			return nil, nil
+		}
+		return apiserver_lib.NewNotification(
+			&existingHelmWorkloadInstance,
+			notifications.NotificationOperationUpdated,
+			notif.HelmWorkloadInstanceUpdateSubject,
+		)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		// check if this is a custom HTTP error with specific status code
@@ -1057,32 +1073,9 @@ func (h Handler) ReplaceHelmWorkloadInstance(c echo.Context) error {
 		)
 	}
 
-	// reload updated data from DB
-	if result := h.RequestDB(c).First(&existingHelmWorkloadInstance, helmWorkloadInstanceID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, fullyQualifiedType)
-		}
-		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
-	}
-
-	// notify controller if the update is notifiable
-	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevHelmWorkloadInstance, existingHelmWorkloadInstance)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
-	}
-	if notify {
-		notifPayload, err := existingHelmWorkloadInstance.NotificationPayload(
-			notifications.NotificationOperationUpdated,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.HelmWorkloadInstanceUpdateSubject, *notifPayload)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -1145,23 +1138,20 @@ func (h Handler) DeleteHelmWorkloadInstance(c echo.Context) error {
 				DeletionScheduled: &timestamp,
 				Reconciled:        &reconciled,
 			}}
-		if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-			return db.Model(&helmWorkloadInstance).Updates(&scheduledHelmWorkloadInstance)
+		if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
+			if err := db.Model(&helmWorkloadInstance).Updates(&scheduledHelmWorkloadInstance).Error; err != nil {
+				return nil, err
+			}
+			// notify controller
+			return apiserver_lib.NewNotification(
+				&helmWorkloadInstance,
+				notifications.NotificationOperationDeleted,
+				notif.HelmWorkloadInstanceDeleteSubject,
+			)
 		}); result.Error != nil {
 			h.Logger.Error("handler error: error creating scheduled deletion", zap.Error(result.Error))
 			return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
 		}
-		// notify controller
-		notifPayload, err := helmWorkloadInstance.NotificationPayload(
-			notifications.NotificationOperationDeleted,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.HelmWorkloadInstanceDeleteSubject, *notifPayload)
 	} else {
 		if helmWorkloadInstance.DeletionConfirmed == nil {
 			// if deletion scheduled but not reconciled, return 409 - deletion

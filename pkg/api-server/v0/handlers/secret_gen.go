@@ -66,10 +66,22 @@ func (h Handler) AddSecretDefinition(c echo.Context) error {
 	}
 
 	// persist to DB
-	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+	if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
 		// clear id so a retried create does not reuse a rolled-back key
 		secretDefinition.ID = nil
-		return db.Create(&secretDefinition)
+		if err := db.Create(&secretDefinition).Error; err != nil {
+			return nil, err
+		}
+
+		// notify controller if reconciliation is required
+		if *secretDefinition.Reconciled {
+			return nil, nil
+		}
+		return apiserver_lib.NewNotification(
+			&secretDefinition,
+			notifications.NotificationOperationCreated,
+			notif.SecretDefinitionCreateSubject,
+		)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
 		// check if this is a custom HTTP error with specific status code
@@ -95,20 +107,6 @@ func (h Handler) AddSecretDefinition(c echo.Context) error {
 	if err := apiserver_lib.AfterCommitCreate(h.DB, &secretDefinition); err != nil {
 		h.Logger.Error("handler error: error reconciling process state after commit", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-	}
-
-	// notify controller if reconciliation is required
-	if !*secretDefinition.Reconciled {
-		notifPayload, err := secretDefinition.NotificationPayload(
-			notifications.NotificationOperationCreated,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.SecretDefinitionCreateSubject, *notifPayload)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -325,9 +323,25 @@ func (h Handler) UpdateSecretDefinition(c echo.Context) error {
 	// snapshot the loaded row before this update.
 	prevSecretDefinition := api_v0_lib.NotifySnapshot(existingSecretDefinition)
 
+	// the fields that changed, for the warning below
+	var changed []string
 	// update object in database
-	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-		return db.Model(&existingSecretDefinition).Updates(&updatedSecretDefinition)
+	if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
+		if err := db.Model(&existingSecretDefinition).Updates(&updatedSecretDefinition).Error; err != nil {
+			return nil, err
+		}
+
+		// notify controller if the update is notifiable
+		var notify bool
+		notify, changed = api_v0_lib.ObjectUpdateNotifiable(prevSecretDefinition, existingSecretDefinition)
+		if !notify {
+			return nil, nil
+		}
+		return apiserver_lib.NewNotification(
+			&existingSecretDefinition,
+			notifications.NotificationOperationUpdated,
+			notif.SecretDefinitionUpdateSubject,
+		)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
 		// check if this is a custom HTTP error with specific status code
@@ -346,23 +360,9 @@ func (h Handler) UpdateSecretDefinition(c echo.Context) error {
 		)
 	}
 
-	// notify controller if the update is notifiable
-	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevSecretDefinition, existingSecretDefinition)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
-	}
-	if notify {
-		notifPayload, err := existingSecretDefinition.NotificationPayload(
-			notifications.NotificationOperationUpdated,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.SecretDefinitionUpdateSubject, *notifPayload)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -431,10 +431,31 @@ func (h Handler) ReplaceSecretDefinition(c echo.Context) error {
 	// snapshot the loaded row before this replace.
 	prevSecretDefinition := api_v0_lib.NotifySnapshot(existingSecretDefinition)
 
+	// the fields that changed, for the warning below
+	var changed []string
 	// persist provided data
 	updatedSecretDefinition.ID = existingSecretDefinition.ID
-	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-		return db.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedSecretDefinition)
+	if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
+		if err := db.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedSecretDefinition).Error; err != nil {
+			return nil, err
+		}
+
+		// reload updated data from DB
+		if err := db.First(&existingSecretDefinition, secretDefinitionID).Error; err != nil {
+			return nil, err
+		}
+
+		// notify controller if the update is notifiable
+		var notify bool
+		notify, changed = api_v0_lib.ObjectUpdateNotifiable(prevSecretDefinition, existingSecretDefinition)
+		if !notify {
+			return nil, nil
+		}
+		return apiserver_lib.NewNotification(
+			&existingSecretDefinition,
+			notifications.NotificationOperationUpdated,
+			notif.SecretDefinitionUpdateSubject,
+		)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		// check if this is a custom HTTP error with specific status code
@@ -453,32 +474,9 @@ func (h Handler) ReplaceSecretDefinition(c echo.Context) error {
 		)
 	}
 
-	// reload updated data from DB
-	if result := h.RequestDB(c).First(&existingSecretDefinition, secretDefinitionID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, fullyQualifiedType)
-		}
-		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
-	}
-
-	// notify controller if the update is notifiable
-	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevSecretDefinition, existingSecretDefinition)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
-	}
-	if notify {
-		notifPayload, err := existingSecretDefinition.NotificationPayload(
-			notifications.NotificationOperationUpdated,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.SecretDefinitionUpdateSubject, *notifPayload)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -547,23 +545,20 @@ func (h Handler) DeleteSecretDefinition(c echo.Context) error {
 				DeletionScheduled: &timestamp,
 				Reconciled:        &reconciled,
 			}}
-		if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-			return db.Model(&secretDefinition).Updates(&scheduledSecretDefinition)
+		if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
+			if err := db.Model(&secretDefinition).Updates(&scheduledSecretDefinition).Error; err != nil {
+				return nil, err
+			}
+			// notify controller
+			return apiserver_lib.NewNotification(
+				&secretDefinition,
+				notifications.NotificationOperationDeleted,
+				notif.SecretDefinitionDeleteSubject,
+			)
 		}); result.Error != nil {
 			h.Logger.Error("handler error: error creating scheduled deletion", zap.Error(result.Error))
 			return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
 		}
-		// notify controller
-		notifPayload, err := secretDefinition.NotificationPayload(
-			notifications.NotificationOperationDeleted,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.SecretDefinitionDeleteSubject, *notifPayload)
 	} else {
 		if secretDefinition.DeletionConfirmed == nil {
 			// if deletion scheduled but not reconciled, return 409 - deletion
@@ -670,10 +665,22 @@ func (h Handler) AddSecretInstance(c echo.Context) error {
 	}
 
 	// persist to DB
-	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+	if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
 		// clear id so a retried create does not reuse a rolled-back key
 		secretInstance.ID = nil
-		return db.Create(&secretInstance)
+		if err := db.Create(&secretInstance).Error; err != nil {
+			return nil, err
+		}
+
+		// notify controller if reconciliation is required
+		if *secretInstance.Reconciled {
+			return nil, nil
+		}
+		return apiserver_lib.NewNotification(
+			&secretInstance,
+			notifications.NotificationOperationCreated,
+			notif.SecretInstanceCreateSubject,
+		)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
 		// check if this is a custom HTTP error with specific status code
@@ -699,20 +706,6 @@ func (h Handler) AddSecretInstance(c echo.Context) error {
 	if err := apiserver_lib.AfterCommitCreate(h.DB, &secretInstance); err != nil {
 		h.Logger.Error("handler error: error reconciling process state after commit", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-	}
-
-	// notify controller if reconciliation is required
-	if !*secretInstance.Reconciled {
-		notifPayload, err := secretInstance.NotificationPayload(
-			notifications.NotificationOperationCreated,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.SecretInstanceCreateSubject, *notifPayload)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -929,9 +922,25 @@ func (h Handler) UpdateSecretInstance(c echo.Context) error {
 	// snapshot the loaded row before this update.
 	prevSecretInstance := api_v0_lib.NotifySnapshot(existingSecretInstance)
 
+	// the fields that changed, for the warning below
+	var changed []string
 	// update object in database
-	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-		return db.Model(&existingSecretInstance).Updates(&updatedSecretInstance)
+	if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
+		if err := db.Model(&existingSecretInstance).Updates(&updatedSecretInstance).Error; err != nil {
+			return nil, err
+		}
+
+		// notify controller if the update is notifiable
+		var notify bool
+		notify, changed = api_v0_lib.ObjectUpdateNotifiable(prevSecretInstance, existingSecretInstance)
+		if !notify {
+			return nil, nil
+		}
+		return apiserver_lib.NewNotification(
+			&existingSecretInstance,
+			notifications.NotificationOperationUpdated,
+			notif.SecretInstanceUpdateSubject,
+		)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
 		// check if this is a custom HTTP error with specific status code
@@ -950,23 +959,9 @@ func (h Handler) UpdateSecretInstance(c echo.Context) error {
 		)
 	}
 
-	// notify controller if the update is notifiable
-	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevSecretInstance, existingSecretInstance)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
-	}
-	if notify {
-		notifPayload, err := existingSecretInstance.NotificationPayload(
-			notifications.NotificationOperationUpdated,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.SecretInstanceUpdateSubject, *notifPayload)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -1035,10 +1030,31 @@ func (h Handler) ReplaceSecretInstance(c echo.Context) error {
 	// snapshot the loaded row before this replace.
 	prevSecretInstance := api_v0_lib.NotifySnapshot(existingSecretInstance)
 
+	// the fields that changed, for the warning below
+	var changed []string
 	// persist provided data
 	updatedSecretInstance.ID = existingSecretInstance.ID
-	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-		return db.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedSecretInstance)
+	if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
+		if err := db.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedSecretInstance).Error; err != nil {
+			return nil, err
+		}
+
+		// reload updated data from DB
+		if err := db.First(&existingSecretInstance, secretInstanceID).Error; err != nil {
+			return nil, err
+		}
+
+		// notify controller if the update is notifiable
+		var notify bool
+		notify, changed = api_v0_lib.ObjectUpdateNotifiable(prevSecretInstance, existingSecretInstance)
+		if !notify {
+			return nil, nil
+		}
+		return apiserver_lib.NewNotification(
+			&existingSecretInstance,
+			notifications.NotificationOperationUpdated,
+			notif.SecretInstanceUpdateSubject,
+		)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		// check if this is a custom HTTP error with specific status code
@@ -1057,32 +1073,9 @@ func (h Handler) ReplaceSecretInstance(c echo.Context) error {
 		)
 	}
 
-	// reload updated data from DB
-	if result := h.RequestDB(c).First(&existingSecretInstance, secretInstanceID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, fullyQualifiedType)
-		}
-		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
-	}
-
-	// notify controller if the update is notifiable
-	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevSecretInstance, existingSecretInstance)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
-	}
-	if notify {
-		notifPayload, err := existingSecretInstance.NotificationPayload(
-			notifications.NotificationOperationUpdated,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.SecretInstanceUpdateSubject, *notifPayload)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -1145,23 +1138,20 @@ func (h Handler) DeleteSecretInstance(c echo.Context) error {
 				DeletionScheduled: &timestamp,
 				Reconciled:        &reconciled,
 			}}
-		if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-			return db.Model(&secretInstance).Updates(&scheduledSecretInstance)
+		if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
+			if err := db.Model(&secretInstance).Updates(&scheduledSecretInstance).Error; err != nil {
+				return nil, err
+			}
+			// notify controller
+			return apiserver_lib.NewNotification(
+				&secretInstance,
+				notifications.NotificationOperationDeleted,
+				notif.SecretInstanceDeleteSubject,
+			)
 		}); result.Error != nil {
 			h.Logger.Error("handler error: error creating scheduled deletion", zap.Error(result.Error))
 			return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
 		}
-		// notify controller
-		notifPayload, err := secretInstance.NotificationPayload(
-			notifications.NotificationOperationDeleted,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.SecretInstanceDeleteSubject, *notifPayload)
 	} else {
 		if secretInstance.DeletionConfirmed == nil {
 			// if deletion scheduled but not reconciled, return 409 - deletion

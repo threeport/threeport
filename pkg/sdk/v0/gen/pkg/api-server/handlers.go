@@ -73,7 +73,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			))
 
 			for _, apiObject := range objGroup.ApiObjects {
-				notifyControllersCreateHandler := &Statement{}
+				// createNotify and updateNotify run inside the write's transaction
+				// and return the notification the write owes. They stay empty for
+				// objects without a reconciler.
+				var createNotify, updateNotify *Statement
 				notifyControllersUpdateHandler := &Statement{}
 				deleteObjectExecution := &Statement{}
 
@@ -86,54 +89,19 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				if apiObject.Reconciler {
 					// configure controller notifications
 					// create notifications
-					notifyControllersCreateHandler = Comment("notify controller if reconciliation is required")
-					notifyControllersCreateHandler.Line()
-					notifyControllersCreateHandler.If(Op("!*").Id(
-						strcase.ToLowerCamel(apiObject.TypeName),
-					).Dot("Reconciled").Block(
-						Id("notifPayload").Op(",").Id("err").Op(":=").Id(
-							strcase.ToLowerCamel(apiObject.TypeName),
-						).Dot("NotificationPayload").Call(
-							Line().Qual(
-								"github.com/threeport/threeport/pkg/notifications/v0",
-								"NotificationOperationCreated",
-							),
-							Line().Lit(false),
-							Line().Qual("time", "Now").Call().Dot("Unix").Call(),
-							Line(),
-						),
-						If(Id("err").Op("!=").Nil().BlockFunc(func(h *Group) {
-							if gen.Module {
-								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
-									Lit("handler error: error creating NATS notification"),
-									Qual("go.uber.org/zap", "Error").Call(Id("err")),
-								)
-							} else {
-								h.Id("h").Dot("Logger").Dot("Error").Call(
-									Lit("handler error: error creating NATS notification"),
-									Qual("go.uber.org/zap", "Error").Call(Id("err")),
-								)
-							}
-							h.Return(Qual(
-								"github.com/threeport/threeport/pkg/api-server/lib/v0",
-								"ResponseStatus500",
-							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("fullyQualifiedType")))
-						})),
-						Do(func(s *Statement) {
-							if gen.Module {
-								s.Id("h").Dot("Handler")
-							} else {
-								s.Id("h")
-							}
-						}).Dot("JS").Dot("Publish").Call(Qual(
-							fmt.Sprintf(
-								"%s/internal/%s/notif",
-								gen.ModulePath,
-								objGroup.Name,
-							),
-							apiObject.CreateSubject,
-						).Op(",").Op("*").Id("notifPayload")),
-					))
+					// The notification is recorded in the same transaction as the
+					// write it announces, so a committed write always has one on
+					// record, and Handler.WriteNotify publishes it after the commit.
+					// The handler does not publish and so cannot lose it to a failed
+					// publish.
+					objVar := strcase.ToLowerCamel(apiObject.TypeName)
+					createNotify = Comment("notify controller if reconciliation is required")
+					createNotify.Line()
+					createNotify.If(Op("*").Id(objVar).Dot("Reconciled")).Block(
+						Return(Nil(), Nil()),
+					)
+					createNotify.Line()
+					createNotify.Return(newNotification(gen.ModulePath, objGroup.Name, objVar, "NotificationOperationCreated", apiObject.CreateSubject))
 
 					// The object's Reconciled field is deliberately not part of this
 					// condition. Nothing sets it back to false when a spec field is
@@ -142,17 +110,31 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					// controller revisit one that is marked reconciled but is not.
 					// Reconcilers are expected to be safe to invoke on an object
 					// that needs nothing, and to do nothing when that is the case.
-					notifyControllersUpdateHandler = Comment("notify controller if the update is notifiable")
-					notifyControllersUpdateHandler.Line()
-					notifyControllersUpdateHandler.List(Id("notify"), Id("changed")).Op(":=").Qual(
+					updateNotify = Comment("notify controller if the update is notifiable")
+					updateNotify.Line()
+					updateNotify.Var().Id("notify").Bool()
+					updateNotify.Line()
+					updateNotify.List(Id("notify"), Id("changed")).Op("=").Qual(
 						"github.com/threeport/threeport/pkg/api/lib/v0",
 						"ObjectUpdateNotifiable",
 					).Call(
 						Id("prev"+apiObject.TypeName),
 						Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
 					)
-					notifyControllersUpdateHandler.Line()
-					notifyControllersUpdateHandler.Comment("log other fields changed when reconciled becomes true")
+					updateNotify.Line()
+					updateNotify.If(Op("!").Id("notify")).Block(
+						Return(Nil(), Nil()),
+					)
+					updateNotify.Line()
+					updateNotify.Return(newNotification(
+						gen.ModulePath,
+						objGroup.Name,
+						fmt.Sprintf("existing%s", apiObject.TypeName),
+						"NotificationOperationUpdated",
+						apiObject.UpdateSubject,
+					))
+
+					notifyControllersUpdateHandler = Comment("log other fields changed when reconciled becomes true")
 					notifyControllersUpdateHandler.Line()
 					notifyControllersUpdateHandler.If(Len(Id("changed")).Op(">").Lit(0)).Block(
 						Do(func(s *Statement) {
@@ -165,51 +147,6 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							Lit("reconciled became true with other fields changed"),
 							Qual("go.uber.org/zap", "Strings").Call(Lit("fields"), Id("changed")),
 						),
-					)
-					notifyControllersUpdateHandler.Line()
-					notifyControllersUpdateHandler.If(Id("notify")).Block(
-						Id("notifPayload").Op(",").Id("err").Op(":=").Id(
-							fmt.Sprintf("existing%s", apiObject.TypeName),
-						).Dot("NotificationPayload").Call(
-							Line().Qual(
-								"github.com/threeport/threeport/pkg/notifications/v0",
-								"NotificationOperationUpdated",
-							),
-							Line().Lit(false),
-							Line().Qual("time", "Now").Call().Dot("Unix").Call(),
-							Line(),
-						),
-						If(Id("err").Op("!=").Nil().BlockFunc(func(h *Group) {
-							if gen.Module {
-								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
-									Lit("handler error: error creating NATS notification"),
-									Qual("go.uber.org/zap", "Error").Call(Id("err")),
-								)
-							} else {
-								h.Id("h").Dot("Logger").Dot("Error").Call(
-									Lit("handler error: error creating NATS notification"),
-									Qual("go.uber.org/zap", "Error").Call(Id("err")),
-								)
-							}
-							h.Return(Qual(
-								"github.com/threeport/threeport/pkg/api-server/lib/v0",
-								"ResponseStatus500",
-							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("fullyQualifiedType")))
-						})),
-						Do(func(s *Statement) {
-							if gen.Module {
-								s.Id("h").Dot("Handler")
-							} else {
-								s.Id("h")
-							}
-						}).Dot("JS").Dot("Publish").Call(Qual(
-							fmt.Sprintf(
-								"%s/internal/%s/notif",
-								gen.ModulePath,
-								objGroup.Name,
-							),
-							apiObject.UpdateSubject,
-						).Op(",").Op("*").Id("notifPayload")),
 					)
 
 					// schedule for deletion
@@ -242,11 +179,27 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							},
 						),
 						If(
-							Id("result").Op(":=").Add(wrapSerializationRetry(gen.Module, Id("db").Dot("Model").Call(
-								Op("&").Id(strcase.ToLowerCamel(apiObject.TypeName)),
-							).Dot("Updates").Call(
-								Op("&").Id(fmt.Sprintf("scheduled%s", apiObject.TypeName)),
-							))),
+							Id("result").Op(":=").Add(wrapNotifyingWrite(
+								gen.Module,
+								If(
+									Err().Op(":=").Id("db").Dot("Model").Call(
+										Op("&").Id(strcase.ToLowerCamel(apiObject.TypeName)),
+									).Dot("Updates").Call(
+										Op("&").Id(fmt.Sprintf("scheduled%s", apiObject.TypeName)),
+									).Dot("Error"),
+									Err().Op("!=").Nil(),
+								).Block(
+									Return(Nil(), Err()),
+								),
+								Comment("notify controller"),
+								Return(newNotification(
+									gen.ModulePath,
+									objGroup.Name,
+									strcase.ToLowerCamel(apiObject.TypeName),
+									"NotificationOperationDeleted",
+									fmt.Sprintf("%sDeleteSubject", apiObject.TypeName),
+								)),
+							)),
 							Id("result").Dot("Error").Op("!=").Nil(),
 						).BlockFunc(func(h *Group) {
 							if gen.Module {
@@ -265,49 +218,6 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 								"ResponseStatus500",
 							).Call(Id("c"), Nil(), Id("result").Dot("Error"), Id("fullyQualifiedType")))
 						}),
-						Comment("notify controller"),
-						List(Id("notifPayload"), Id("err")).Op(":=").Id(strcase.ToLowerCamel(apiObject.TypeName)).Dot("NotificationPayload").Call(
-							Line().Qual(
-								"github.com/threeport/threeport/pkg/notifications/v0",
-								"NotificationOperationDeleted",
-							),
-							Line().Lit(false),
-							Line().Qual("time", "Now").Call().Dot("Unix").Call(),
-							Line(),
-						),
-						If(Id("err").Op("!=").Nil()).BlockFunc(func(h *Group) {
-							if gen.Module {
-								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
-									Lit("handler error: error creating NATS notification"),
-									Qual("go.uber.org/zap", "Error").Call(Id("err")),
-								)
-							} else {
-								h.Id("h").Dot("Logger").Dot("Error").Call(
-									Lit("handler error: error creating NATS notification"),
-									Qual("go.uber.org/zap", "Error").Call(Id("err")),
-								)
-							}
-							h.Return(Qual(
-								"github.com/threeport/threeport/pkg/api-server/lib/v0",
-								"ResponseStatus500",
-							).Call(Id("c"), Nil(), Id("err"), Id("fullyQualifiedType")))
-						}),
-						Do(func(s *Statement) {
-							if gen.Module {
-								s.Id("h").Dot("Handler")
-							} else {
-								s.Id("h")
-							}
-						}).Dot("JS").Dot("Publish").Call(
-							Qual(
-								fmt.Sprintf(
-									"%s/internal/%s/notif",
-									gen.ModulePath,
-									objGroup.Name,
-								),
-								fmt.Sprintf("%sDeleteSubject", apiObject.TypeName),
-							), Op("*").Id("notifPayload"),
-						),
 					).Else().Block(
 						If(Id(strcase.ToLowerCamel(apiObject.TypeName)).Dot("DeletionConfirmed").Op("==").Nil()).Block(
 							Comment("if deletion scheduled but not reconciled, return 409 - deletion"),
@@ -776,6 +686,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					g.If(Id("result").Op(":=").Add(wrapCreateRetry(
 						gen.Module,
 						strcase.ToLowerCamel(apiObject.TypeName),
+						createNotify,
 					)).Op(";").Id("result").Dot("Error").Op("!=").Nil()).BlockFunc(func(h *Group) {
 						if gen.Module {
 							h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
@@ -818,8 +729,6 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					g.Comment("rely on it. A persist hook cannot do this: it runs inside the")
 					g.Comment("transaction, so it would act on a write that may never commit.")
 					g.Add(postCommitReconcile("Create", apiObject.TypeName, gen.Module))
-					g.Line()
-					g.Add(notifyControllersCreateHandler)
 					g.Line()
 					g.Id("response").Op(",").Id("err").Op(":=").Qual(
 						"github.com/threeport/threeport/pkg/api-server/lib/v0",
@@ -1540,13 +1449,21 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						)
 					}
 					g.Line()
+					if apiObject.Reconciler {
+						g.Comment("the fields that changed, for the warning below")
+						g.Var().Id("changed").Index().String()
+					}
 					g.Comment("update object in database")
 					g.If(
-						Id("result").Op(":=").Add(wrapSerializationRetry(gen.Module, Id("db").Dot("Model").Call(
-							Op("&").Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
-						).Dot("Updates").Call(
-							Op("&").Id(fmt.Sprintf("updated%s", apiObject.TypeName)),
-						))).Op(";").Id("result").Dot("Error").Op("!=").Nil().BlockFunc(func(h *Group) {
+						Id("result").Op(":=").Add(wrapUpdate(
+							gen.Module,
+							updateNotify,
+							Id("db").Dot("Model").Call(
+								Op("&").Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
+							).Dot("Updates").Call(
+								Op("&").Id(fmt.Sprintf("updated%s", apiObject.TypeName)),
+							),
+						)).Op(";").Id("result").Dot("Error").Op("!=").Nil().BlockFunc(func(h *Group) {
 							if gen.Module {
 								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
 									Lit("handler error: error updating object"),
@@ -1875,20 +1792,31 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						)
 					}
 					g.Line()
+					if apiObject.Reconciler {
+						g.Comment("the fields that changed, for the warning below")
+						g.Var().Id("changed").Index().String()
+					}
 					g.Comment("persist provided data")
 					g.Id(fmt.Sprintf("updated%s", apiObject.TypeName)).Dot("ID").Op("=").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("ID")
 					g.If(
-						Id("result").Op(":=").Add(wrapSerializationRetry(gen.Module, Id("db").Dot("Session").Call(
-							Op("&").Qual(
-								"gorm.io/gorm",
-								"Session",
-							).Values(Dict{
-								Id("FullSaveAssociations"): Lit(false),
-							})).Dot("Omit").Call(
-							Lit("CreatedAt").Op(",").Lit("DeletedAt"),
-						).Dot("Save").Call(
-							Op("&").Id(fmt.Sprintf("updated%s", apiObject.TypeName)),
-						))).Op(";").Id("result").Dot("Error").Op("!=").Nil().BlockFunc(func(h *Group) {
+						Id("result").Op(":=").Add(wrapReplace(
+							gen.Module,
+							apiObject.Reconciler,
+							updateNotify,
+							fmt.Sprintf("existing%s", apiObject.TypeName),
+							fmt.Sprintf("%sID", strcase.ToLowerCamel(apiObject.TypeName)),
+							Id("db").Dot("Session").Call(
+								Op("&").Qual(
+									"gorm.io/gorm",
+									"Session",
+								).Values(Dict{
+									Id("FullSaveAssociations"): Lit(false),
+								})).Dot("Omit").Call(
+								Lit("CreatedAt").Op(",").Lit("DeletedAt"),
+							).Dot("Save").Call(
+								Op("&").Id(fmt.Sprintf("updated%s", apiObject.TypeName)),
+							),
+						)).Op(";").Id("result").Dot("Error").Op("!=").Nil().BlockFunc(func(h *Group) {
 							if gen.Module {
 								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
 									Lit("handler error: error persisting object"),
@@ -1925,48 +1853,52 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							)
 						}),
 					)
-					g.Line()
-					g.Comment("reload updated data from DB")
-					g.If(
-						// TODO: figure out preload objects
-						Id("result").Op(":=").Do(func(s *Statement) {
-							if gen.Module {
-								s.Id("h").Dot("Handler")
-							} else {
-								s.Id("h")
-							}
-						}).Dot("RequestDB").Call(Id("c")).
-							Dot("First").Call(Op("&").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Op(",").Id(fmt.Sprintf(
-							"%sID", strcase.ToLowerCamel(apiObject.TypeName),
-						))).Op(";").Id("result").Dot("Error").Op("!=").Nil().BlockFunc(func(h *Group) {
-							h.If(
-								Id("errors").Dot("Is").Call(Id("result").Dot("Error").Op(",").Qual(
-									"gorm.io/gorm",
-									"ErrRecordNotFound",
-								)).Block(
-									Return(Qual(
-										"github.com/threeport/threeport/pkg/api-server/lib/v0",
-										"ResponseStatus404",
-									).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("fullyQualifiedType")),
-									)),
-							)
-							if gen.Module {
-								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
-									Lit("handler error: error finding object"),
-									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+					if !apiObject.Reconciler {
+						// with a controller, the reload is part of the write, so the
+						// notification is built from the stored row
+						g.Line()
+						g.Comment("reload updated data from DB")
+						g.If(
+							// TODO: figure out preload objects
+							Id("result").Op(":=").Do(func(s *Statement) {
+								if gen.Module {
+									s.Id("h").Dot("Handler")
+								} else {
+									s.Id("h")
+								}
+							}).Dot("RequestDB").Call(Id("c")).
+								Dot("First").Call(Op("&").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Op(",").Id(fmt.Sprintf(
+								"%sID", strcase.ToLowerCamel(apiObject.TypeName),
+							))).Op(";").Id("result").Dot("Error").Op("!=").Nil().BlockFunc(func(h *Group) {
+								h.If(
+									Id("errors").Dot("Is").Call(Id("result").Dot("Error").Op(",").Qual(
+										"gorm.io/gorm",
+										"ErrRecordNotFound",
+									)).Block(
+										Return(Qual(
+											"github.com/threeport/threeport/pkg/api-server/lib/v0",
+											"ResponseStatus404",
+										).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("fullyQualifiedType")),
+										)),
 								)
-							} else {
-								h.Id("h").Dot("Logger").Dot("Error").Call(
-									Lit("handler error: error finding object"),
-									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
-								)
-							}
-							h.Return(Qual(
-								"github.com/threeport/threeport/pkg/api-server/lib/v0",
-								"ResponseStatus500",
-							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("fullyQualifiedType")))
-						}),
-					)
+								if gen.Module {
+									h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+										Lit("handler error: error finding object"),
+										Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+									)
+								} else {
+									h.Id("h").Dot("Logger").Dot("Error").Call(
+										Lit("handler error: error finding object"),
+										Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+									)
+								}
+								h.Return(Qual(
+									"github.com/threeport/threeport/pkg/api-server/lib/v0",
+									"ResponseStatus500",
+								).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("fullyQualifiedType")))
+							}),
+						)
+					}
 					g.Line()
 					g.Add(notifyControllersUpdateHandler)
 					g.Line()
@@ -2350,6 +2282,96 @@ func wrapSerializationRetry(module bool, writeChain *Statement) *Statement {
 	)
 }
 
+// wrapNotifyingWrite wraps body in Handler.WriteNotify. body runs in a
+// transaction with the notification the write owes, which it returns as
+// (*apiserver_lib.Notification, error). The notification is recorded in that
+// transaction and published once it commits, so a failed publish cannot lose it.
+func wrapNotifyingWrite(module bool, body ...Code) *Statement {
+	handler := Id("h")
+	if module {
+		handler = Id("h").Dot("Handler")
+	}
+
+	return handler.Dot("WriteNotify").Call(
+		Id("c"),
+		Func().Params(
+			Id("db").Op("*").Qual("gorm.io/gorm", "DB"),
+		).Parens(List(
+			Op("*").Qual("github.com/threeport/threeport/pkg/api-server/lib/v0", "Notification"),
+			Error(),
+		)).Block(body...),
+	)
+}
+
+// newNotification emits the call that builds the notification an operation on
+// objVar owes the controller that subscribes to subject.
+func newNotification(modulePath, groupName, objVar, operation, subject string) *Statement {
+	return Qual(
+		"github.com/threeport/threeport/pkg/api-server/lib/v0",
+		"NewNotification",
+	).Call(
+		Line().Op("&").Id(objVar),
+		Line().Qual("github.com/threeport/threeport/pkg/notifications/v0", operation),
+		Line().Qual(fmt.Sprintf("%s/internal/%s/notif", modulePath, groupName), subject),
+		Line(),
+	)
+}
+
+// wrapUpdate wraps an update of an existing object. With a controller, notify
+// is the notification the update owes and the update shares a transaction with
+// it. Otherwise it is the plain retried write.
+func wrapUpdate(module bool, notify *Statement, update *Statement) *Statement {
+	if notify == nil {
+		return wrapSerializationRetry(module, update)
+	}
+
+	return wrapNotifyingWrite(
+		module,
+		If(
+			Err().Op(":=").Add(update).Dot("Error"),
+			Err().Op("!=").Nil(),
+		).Block(
+			Return(Nil(), Err()),
+		),
+		Line(),
+		notify,
+	)
+}
+
+// wrapReplace is wrapUpdate for a replace. A replace saves the object, and
+// with a controller it reloads the stored row in the same transaction so the
+// notification carries what was stored, not what the client sent.
+func wrapReplace(
+	module, reconciler bool,
+	notify *Statement,
+	existingVar, idVar string,
+	save *Statement,
+) *Statement {
+	if !reconciler {
+		return wrapSerializationRetry(module, save)
+	}
+
+	return wrapNotifyingWrite(
+		module,
+		If(
+			Err().Op(":=").Add(save).Dot("Error"),
+			Err().Op("!=").Nil(),
+		).Block(
+			Return(Nil(), Err()),
+		),
+		Line(),
+		Comment("reload updated data from DB"),
+		If(
+			Err().Op(":=").Id("db").Dot("First").Call(Op("&").Id(existingVar), Id(idVar)).Dot("Error"),
+			Err().Op("!=").Nil(),
+		).Block(
+			Return(Nil(), Err()),
+		),
+		Line(),
+		notify,
+	)
+}
+
 // wrapCreateRetry is wrapSerializationRetry for Create.
 // It emits:
 //
@@ -2357,7 +2379,25 @@ func wrapSerializationRetry(module bool, writeChain *Statement) *Statement {
 //	return db.Create(&obj)
 //
 // so a retried attempt does not insert the key a rolled-back attempt was given.
-func wrapCreateRetry(module bool, objName string) *Statement {
+// When the object has a controller, notify is the notification the create owes.
+// The create and the notification then share a transaction.
+func wrapCreateRetry(module bool, objName string, notify *Statement) *Statement {
+	if notify != nil {
+		return wrapNotifyingWrite(
+			module,
+			Comment("clear id so a retried create does not reuse a rolled-back key"),
+			Id(objName).Dot("ID").Op("=").Nil(),
+			If(
+				Err().Op(":=").Id("db").Dot("Create").Call(Op("&").Id(objName)).Dot("Error"),
+				Err().Op("!=").Nil(),
+			).Block(
+				Return(Nil(), Err()),
+			),
+			Line(),
+			notify,
+		)
+	}
+
 	handler := Id("h")
 	if module {
 		handler = Id("h").Dot("Handler")

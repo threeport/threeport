@@ -54,6 +54,56 @@ func (h Handler) Write(c echo.Context, write func(db *gorm.DB) *gorm.DB) *gorm.D
 	)
 }
 
+// WriteNotify is Write for a write that owes controllers a notification. write
+// runs in a transaction and returns the notification to send, or nil when the
+// write needs none. The notification is recorded in the same transaction, so a
+// committed write always has a notification on record, and a rolled back write
+// leaves none. Once the transaction commits the notification is published. A
+// publish that fails is logged and left for the outbox sweeper and does not
+// fail the write, which has committed and cannot be undone.
+//
+// write must use the db handle passed in, and must be safe to run again: like
+// Write, WriteNotify reruns it on a serialization failure.
+func (h Handler) WriteNotify(
+	c echo.Context,
+	write func(db *gorm.DB) (*apiserver_lib.Notification, error),
+) *gorm.DB {
+	var message *api_v0.OutboxMessage
+	result := apiserver_lib.RetryWrite(
+		c.Request().Context(),
+		func() *gorm.DB {
+			message = nil
+			db := h.RequestDB(c)
+			err := db.Transaction(func(tx *gorm.DB) error {
+				notification, err := write(tx)
+				if err != nil {
+					return err
+				}
+				if notification == nil {
+					return nil
+				}
+
+				message, err = apiserver_lib.RecordNotification(tx, notification)
+				return err
+			})
+
+			result := db.Session(&gorm.Session{})
+			result.Error = err
+			return result
+		},
+	)
+	if result.Error != nil || message == nil {
+		return result
+	}
+
+	// h.DB, not the request's handle: the stamp has to land even if the client
+	// has already hung up. A failure is already logged and counted on the
+	// message, and the sweeper publishes it.
+	_ = apiserver_lib.PublishOutboxMessage(h.DB, h.JS, h.Logger, message)
+
+	return result
+}
+
 // RespondBlockedDelete writes a 409 with blockers rendered as
 // <api-namespace>/<kebab-kind>/<name>, falling back to id when no name resolves.
 func RespondBlockedDelete(c echo.Context, db *gorm.DB, blocked *api_v0.BlockedDeleteError) error {

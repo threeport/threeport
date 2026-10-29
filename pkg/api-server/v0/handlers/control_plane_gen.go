@@ -67,10 +67,22 @@ func (h Handler) AddControlPlaneDefinition(c echo.Context) error {
 	}
 
 	// persist to DB
-	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+	if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
 		// clear id so a retried create does not reuse a rolled-back key
 		controlPlaneDefinition.ID = nil
-		return db.Create(&controlPlaneDefinition)
+		if err := db.Create(&controlPlaneDefinition).Error; err != nil {
+			return nil, err
+		}
+
+		// notify controller if reconciliation is required
+		if *controlPlaneDefinition.Reconciled {
+			return nil, nil
+		}
+		return apiserver_lib.NewNotification(
+			&controlPlaneDefinition,
+			notifications.NotificationOperationCreated,
+			notif.ControlPlaneDefinitionCreateSubject,
+		)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
 		// check if this is a custom HTTP error with specific status code
@@ -96,20 +108,6 @@ func (h Handler) AddControlPlaneDefinition(c echo.Context) error {
 	if err := apiserver_lib.AfterCommitCreate(h.DB, &controlPlaneDefinition); err != nil {
 		h.Logger.Error("handler error: error reconciling process state after commit", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-	}
-
-	// notify controller if reconciliation is required
-	if !*controlPlaneDefinition.Reconciled {
-		notifPayload, err := controlPlaneDefinition.NotificationPayload(
-			notifications.NotificationOperationCreated,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.ControlPlaneDefinitionCreateSubject, *notifPayload)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -326,9 +324,25 @@ func (h Handler) UpdateControlPlaneDefinition(c echo.Context) error {
 	// snapshot the loaded row before this update.
 	prevControlPlaneDefinition := api_v0_lib.NotifySnapshot(existingControlPlaneDefinition)
 
+	// the fields that changed, for the warning below
+	var changed []string
 	// update object in database
-	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-		return db.Model(&existingControlPlaneDefinition).Updates(&updatedControlPlaneDefinition)
+	if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
+		if err := db.Model(&existingControlPlaneDefinition).Updates(&updatedControlPlaneDefinition).Error; err != nil {
+			return nil, err
+		}
+
+		// notify controller if the update is notifiable
+		var notify bool
+		notify, changed = api_v0_lib.ObjectUpdateNotifiable(prevControlPlaneDefinition, existingControlPlaneDefinition)
+		if !notify {
+			return nil, nil
+		}
+		return apiserver_lib.NewNotification(
+			&existingControlPlaneDefinition,
+			notifications.NotificationOperationUpdated,
+			notif.ControlPlaneDefinitionUpdateSubject,
+		)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
 		// check if this is a custom HTTP error with specific status code
@@ -347,23 +361,9 @@ func (h Handler) UpdateControlPlaneDefinition(c echo.Context) error {
 		)
 	}
 
-	// notify controller if the update is notifiable
-	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevControlPlaneDefinition, existingControlPlaneDefinition)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
-	}
-	if notify {
-		notifPayload, err := existingControlPlaneDefinition.NotificationPayload(
-			notifications.NotificationOperationUpdated,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.ControlPlaneDefinitionUpdateSubject, *notifPayload)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -432,10 +432,31 @@ func (h Handler) ReplaceControlPlaneDefinition(c echo.Context) error {
 	// snapshot the loaded row before this replace.
 	prevControlPlaneDefinition := api_v0_lib.NotifySnapshot(existingControlPlaneDefinition)
 
+	// the fields that changed, for the warning below
+	var changed []string
 	// persist provided data
 	updatedControlPlaneDefinition.ID = existingControlPlaneDefinition.ID
-	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-		return db.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedControlPlaneDefinition)
+	if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
+		if err := db.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedControlPlaneDefinition).Error; err != nil {
+			return nil, err
+		}
+
+		// reload updated data from DB
+		if err := db.First(&existingControlPlaneDefinition, controlPlaneDefinitionID).Error; err != nil {
+			return nil, err
+		}
+
+		// notify controller if the update is notifiable
+		var notify bool
+		notify, changed = api_v0_lib.ObjectUpdateNotifiable(prevControlPlaneDefinition, existingControlPlaneDefinition)
+		if !notify {
+			return nil, nil
+		}
+		return apiserver_lib.NewNotification(
+			&existingControlPlaneDefinition,
+			notifications.NotificationOperationUpdated,
+			notif.ControlPlaneDefinitionUpdateSubject,
+		)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		// check if this is a custom HTTP error with specific status code
@@ -454,32 +475,9 @@ func (h Handler) ReplaceControlPlaneDefinition(c echo.Context) error {
 		)
 	}
 
-	// reload updated data from DB
-	if result := h.RequestDB(c).First(&existingControlPlaneDefinition, controlPlaneDefinitionID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, fullyQualifiedType)
-		}
-		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
-	}
-
-	// notify controller if the update is notifiable
-	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevControlPlaneDefinition, existingControlPlaneDefinition)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
-	}
-	if notify {
-		notifPayload, err := existingControlPlaneDefinition.NotificationPayload(
-			notifications.NotificationOperationUpdated,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.ControlPlaneDefinitionUpdateSubject, *notifPayload)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -548,23 +546,20 @@ func (h Handler) DeleteControlPlaneDefinition(c echo.Context) error {
 				DeletionScheduled: &timestamp,
 				Reconciled:        &reconciled,
 			}}
-		if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-			return db.Model(&controlPlaneDefinition).Updates(&scheduledControlPlaneDefinition)
+		if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
+			if err := db.Model(&controlPlaneDefinition).Updates(&scheduledControlPlaneDefinition).Error; err != nil {
+				return nil, err
+			}
+			// notify controller
+			return apiserver_lib.NewNotification(
+				&controlPlaneDefinition,
+				notifications.NotificationOperationDeleted,
+				notif.ControlPlaneDefinitionDeleteSubject,
+			)
 		}); result.Error != nil {
 			h.Logger.Error("handler error: error creating scheduled deletion", zap.Error(result.Error))
 			return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
 		}
-		// notify controller
-		notifPayload, err := controlPlaneDefinition.NotificationPayload(
-			notifications.NotificationOperationDeleted,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.ControlPlaneDefinitionDeleteSubject, *notifPayload)
 	} else {
 		if controlPlaneDefinition.DeletionConfirmed == nil {
 			// if deletion scheduled but not reconciled, return 409 - deletion
@@ -671,10 +666,22 @@ func (h Handler) AddControlPlaneInstance(c echo.Context) error {
 	}
 
 	// persist to DB
-	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+	if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
 		// clear id so a retried create does not reuse a rolled-back key
 		controlPlaneInstance.ID = nil
-		return db.Create(&controlPlaneInstance)
+		if err := db.Create(&controlPlaneInstance).Error; err != nil {
+			return nil, err
+		}
+
+		// notify controller if reconciliation is required
+		if *controlPlaneInstance.Reconciled {
+			return nil, nil
+		}
+		return apiserver_lib.NewNotification(
+			&controlPlaneInstance,
+			notifications.NotificationOperationCreated,
+			notif.ControlPlaneInstanceCreateSubject,
+		)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
 		// check if this is a custom HTTP error with specific status code
@@ -700,20 +707,6 @@ func (h Handler) AddControlPlaneInstance(c echo.Context) error {
 	if err := apiserver_lib.AfterCommitCreate(h.DB, &controlPlaneInstance); err != nil {
 		h.Logger.Error("handler error: error reconciling process state after commit", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-	}
-
-	// notify controller if reconciliation is required
-	if !*controlPlaneInstance.Reconciled {
-		notifPayload, err := controlPlaneInstance.NotificationPayload(
-			notifications.NotificationOperationCreated,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.ControlPlaneInstanceCreateSubject, *notifPayload)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -930,9 +923,25 @@ func (h Handler) UpdateControlPlaneInstance(c echo.Context) error {
 	// snapshot the loaded row before this update.
 	prevControlPlaneInstance := api_v0_lib.NotifySnapshot(existingControlPlaneInstance)
 
+	// the fields that changed, for the warning below
+	var changed []string
 	// update object in database
-	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-		return db.Model(&existingControlPlaneInstance).Updates(&updatedControlPlaneInstance)
+	if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
+		if err := db.Model(&existingControlPlaneInstance).Updates(&updatedControlPlaneInstance).Error; err != nil {
+			return nil, err
+		}
+
+		// notify controller if the update is notifiable
+		var notify bool
+		notify, changed = api_v0_lib.ObjectUpdateNotifiable(prevControlPlaneInstance, existingControlPlaneInstance)
+		if !notify {
+			return nil, nil
+		}
+		return apiserver_lib.NewNotification(
+			&existingControlPlaneInstance,
+			notifications.NotificationOperationUpdated,
+			notif.ControlPlaneInstanceUpdateSubject,
+		)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
 		// check if this is a custom HTTP error with specific status code
@@ -951,23 +960,9 @@ func (h Handler) UpdateControlPlaneInstance(c echo.Context) error {
 		)
 	}
 
-	// notify controller if the update is notifiable
-	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevControlPlaneInstance, existingControlPlaneInstance)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
-	}
-	if notify {
-		notifPayload, err := existingControlPlaneInstance.NotificationPayload(
-			notifications.NotificationOperationUpdated,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.ControlPlaneInstanceUpdateSubject, *notifPayload)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -1036,10 +1031,31 @@ func (h Handler) ReplaceControlPlaneInstance(c echo.Context) error {
 	// snapshot the loaded row before this replace.
 	prevControlPlaneInstance := api_v0_lib.NotifySnapshot(existingControlPlaneInstance)
 
+	// the fields that changed, for the warning below
+	var changed []string
 	// persist provided data
 	updatedControlPlaneInstance.ID = existingControlPlaneInstance.ID
-	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-		return db.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedControlPlaneInstance)
+	if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
+		if err := db.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedControlPlaneInstance).Error; err != nil {
+			return nil, err
+		}
+
+		// reload updated data from DB
+		if err := db.First(&existingControlPlaneInstance, controlPlaneInstanceID).Error; err != nil {
+			return nil, err
+		}
+
+		// notify controller if the update is notifiable
+		var notify bool
+		notify, changed = api_v0_lib.ObjectUpdateNotifiable(prevControlPlaneInstance, existingControlPlaneInstance)
+		if !notify {
+			return nil, nil
+		}
+		return apiserver_lib.NewNotification(
+			&existingControlPlaneInstance,
+			notifications.NotificationOperationUpdated,
+			notif.ControlPlaneInstanceUpdateSubject,
+		)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		// check if this is a custom HTTP error with specific status code
@@ -1058,32 +1074,9 @@ func (h Handler) ReplaceControlPlaneInstance(c echo.Context) error {
 		)
 	}
 
-	// reload updated data from DB
-	if result := h.RequestDB(c).First(&existingControlPlaneInstance, controlPlaneInstanceID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, fullyQualifiedType)
-		}
-		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
-	}
-
-	// notify controller if the update is notifiable
-	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevControlPlaneInstance, existingControlPlaneInstance)
 	// log other fields changed when reconciled becomes true
 	if len(changed) > 0 {
 		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
-	}
-	if notify {
-		notifPayload, err := existingControlPlaneInstance.NotificationPayload(
-			notifications.NotificationOperationUpdated,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.ControlPlaneInstanceUpdateSubject, *notifPayload)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -1146,23 +1139,20 @@ func (h Handler) DeleteControlPlaneInstance(c echo.Context) error {
 				DeletionScheduled: &timestamp,
 				Reconciled:        &reconciled,
 			}}
-		if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-			return db.Model(&controlPlaneInstance).Updates(&scheduledControlPlaneInstance)
+		if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
+			if err := db.Model(&controlPlaneInstance).Updates(&scheduledControlPlaneInstance).Error; err != nil {
+				return nil, err
+			}
+			// notify controller
+			return apiserver_lib.NewNotification(
+				&controlPlaneInstance,
+				notifications.NotificationOperationDeleted,
+				notif.ControlPlaneInstanceDeleteSubject,
+			)
 		}); result.Error != nil {
 			h.Logger.Error("handler error: error creating scheduled deletion", zap.Error(result.Error))
 			return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
 		}
-		// notify controller
-		notifPayload, err := controlPlaneInstance.NotificationPayload(
-			notifications.NotificationOperationDeleted,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
-		}
-		h.JS.Publish(notif.ControlPlaneInstanceDeleteSubject, *notifPayload)
 	} else {
 		if controlPlaneInstance.DeletionConfirmed == nil {
 			// if deletion scheduled but not reconciled, return 409 - deletion
