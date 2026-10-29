@@ -112,17 +112,24 @@ with the control plane name and a development-tier installation. Use
 		cpi.Opts.ControlPlaneName = requestedControlPlane
 		cpi.Opts.Debug = cliArgs.Debug
 
+		// the stored control plane carries what the install recorded, which
+		// the flags do not
+		controlPlaneConfig, err := config.GetControlPlaneConfig(requestedControlPlane)
+		if err != nil {
+			cli.Error("failed to get threeport config", err)
+			os.Exit(1)
+		}
+
+		// the database init SQL is recreated, and keeps creating the backup
+		// schedule only when told the bucket
+		cpi.Opts.GcpBackupBucket = cli.ScheduledBackupBucket(controlPlaneConfig)
+
 		// sweeping deployments, dropping the database, and reapplying the
 		// install are the same kubernetes api calls on every provider; only
 		// rebuilding a location after a drop is provider-specific, and that
 		// check lives inside RequireRestoredRuntimeLocation.
 		if tptctlReinstallDropDatabase {
 			// the stored control plane carries the provider; the flag default does not
-			controlPlaneConfig, err := config.GetControlPlaneConfig(requestedControlPlane)
-			if err != nil {
-				cli.Error("failed to get threeport config", err)
-				os.Exit(1)
-			}
 			cpi.Opts.InfraProvider = controlPlaneConfig.Provider
 			if err := cli.RequireRestoredRuntimeLocation(cpi.Opts.InfraProvider, controlPlaneConfig.GKEProviderConfig.GcpRegion); err != nil {
 				cli.Error("cannot reinstall", err)
@@ -179,13 +186,6 @@ with the control plane name and a development-tier installation. Use
 			// refuse a non-development tier before any deployment is scaled down
 			if err := cpi.RequireDevelopmentTier(dynamicKubeClient, mapper); err != nil {
 				cli.Error("cannot drop database", err)
-				os.Exit(1)
-			}
-
-			// get the control plane config
-			controlPlaneConfig, err := config.GetControlPlaneConfig(requestedControlPlane)
-			if err != nil {
-				cli.Error("failed to get threeport control plane config", err)
 				os.Exit(1)
 			}
 
