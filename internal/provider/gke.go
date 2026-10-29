@@ -539,26 +539,11 @@ func (i *KubernetesRuntimeInfraGKE) GetConnection() (*kube.KubeConnectionInfo, e
 		return nil, fmt.Errorf("failed to decode CA certificate: %w", err)
 	}
 
-	// get an access token for authentication
-	// TODO: Implement token refresh mechanism for long-running operations
-	// The token has a limited lifetime (typically 1 hour)
-	const cloudPlatformScope = "https://www.googleapis.com/auth/cloud-platform"
-	var tokenSource oauth2.TokenSource
-	if i.ServiceAccountCredentials != "" {
-		// google.DefaultTokenSource has no credentials parameter, so explicit
-		// credentials are threaded through google.CredentialsFromJSON
-		// instead - same "explicit creds override, ambient is the fallback"
-		// shape used for the other GCP clients in this file.
-		creds, err := google.CredentialsFromJSON(ctx, []byte(i.ServiceAccountCredentials), cloudPlatformScope)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load service account credentials: %w", err)
-		}
-		tokenSource = creds.TokenSource
-	} else {
-		tokenSource, err = google.DefaultTokenSource(ctx, cloudPlatformScope)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get token source: %w", err)
-		}
+	// get an access token for authentication; it lasts about an hour, so a
+	// caller whose work can outlast it mints fresh ones with TokenGenerator
+	tokenSource, err := i.tokenSource(ctx)
+	if err != nil {
+		return nil, err
 	}
 
 	token, err := tokenSource.Token()
@@ -579,6 +564,50 @@ func (i *KubernetesRuntimeInfraGKE) GetConnection() (*kube.KubeConnectionInfo, e
 	}
 
 	return kubeConnInfo, nil
+}
+
+// tokenSource returns the source of the access tokens the cluster is
+// reached with: the provider's service account credentials when it has them,
+// and the caller's own application default credentials otherwise.  It
+// refreshes each token as it nears its expiry.
+func (i *KubernetesRuntimeInfraGKE) tokenSource(ctx context.Context) (oauth2.TokenSource, error) {
+	const cloudPlatformScope = "https://www.googleapis.com/auth/cloud-platform"
+	if i.ServiceAccountCredentials != "" {
+		// google.DefaultTokenSource has no credentials parameter, so explicit
+		// credentials are threaded through google.CredentialsFromJSON
+		// instead - same "explicit creds override, ambient is the fallback"
+		// shape used for the other GCP clients in this file.
+		creds, err := google.CredentialsFromJSON(ctx, []byte(i.ServiceAccountCredentials), cloudPlatformScope)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load service account credentials: %w", err)
+		}
+		return creds.TokenSource, nil
+	}
+
+	tokenSource, err := google.DefaultTokenSource(ctx, cloudPlatformScope)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get token source: %w", err)
+	}
+
+	return tokenSource, nil
+}
+
+// TokenGenerator returns a function that returns a current access token for
+// the cluster on every call, for work that can outlast the one GetConnection
+// returns, such as a restore.
+func (i *KubernetesRuntimeInfraGKE) TokenGenerator() (func() (string, error), error) {
+	tokenSource, err := i.tokenSource(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	return func() (string, error) {
+		token, err := tokenSource.Token()
+		if err != nil {
+			return "", fmt.Errorf("failed to get an access token for the GKE cluster: %w", err)
+		}
+		return token.AccessToken, nil
+	}, nil
 }
 
 // LoadConfigFromStack loads the GCP project ID and region from the existing

@@ -461,6 +461,12 @@ func runRestorePhase(kubeClient dynamic.Interface, namespace, phase string, stat
 				"backoffLimit":          backoffLimit,
 				"activeDeadlineSeconds": int64(restoreDatabaseTimeout.Seconds()),
 				"template": map[string]interface{}{
+					// the label the database network policy admits; a restore
+					// runs while the API server is scaled to zero, so it has to
+					// reach the database directly
+					"metadata": map[string]interface{}{
+						"labels": map[string]interface{}{LabelMaintenance: "true"},
+					},
 					"spec": map[string]interface{}{
 						"restartPolicy": "Never",
 						"containers": []interface{}{
