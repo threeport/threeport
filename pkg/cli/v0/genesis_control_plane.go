@@ -1429,9 +1429,28 @@ func (u *Uninstaller) cleanOnCreateError(
 		return createErr
 	}
 
-	// if needed, delete control plane workloads to remove related infra, e.g. load
-	// balancers, that will prevent runtime infra deletion
-	if u.dynamicKubeClient != nil && u.mapper != nil {
+	// A namespace that was already there when this install started is not
+	// this install's to remove. Uninstalling the components deletes the whole
+	// namespace, so on a reapply - which is what --control-plane-only does
+	// against a running control plane - this would take the API, the database
+	// and its data with it. Nobody asked for that by not passing a flag.
+	//
+	// The note reaches the operator regardless of whether a Kubernetes client
+	// is even available here - it is informational, not a Kubernetes call.
+	// Only the actual deletion needs one, and only this one step is skipped:
+	// the rest of this function - infra delete, cloud IAM cleanup, the config
+	// entry - still has to run on a full install's retry. Returning from the
+	// whole function here used to leave EKS/VPC/IAM resources running on
+	// exactly the retry this function exists to clean up after.
+	if u.cpi.Opts.NamespacePreexisted {
+		createErr = fmt.Errorf(
+			"%w\n(the %s namespace was already present, so it was left alone; "+
+				"anything this install added to it is still there)",
+			createErr, u.cpi.Opts.Namespace,
+		)
+	} else if u.dynamicKubeClient != nil && u.mapper != nil {
+		// if needed, delete control plane workloads to remove related infra,
+		// e.g. load balancers, that will prevent runtime infra deletion
 		if workloadErr := u.cpi.UnInstallThreeportControlPlaneComponents(*u.dynamicKubeClient, u.mapper); workloadErr != nil {
 			return fmt.Errorf("failed to create control plane infra for threeport: %w\nfailed to delete threeport API components: %w", createErr, workloadErr)
 		}

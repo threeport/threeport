@@ -71,6 +71,11 @@ type Reconciler struct {
 	// ControllerID is the unique identifier for each controller instance.
 	ControllerID uuid.UUID
 
+	// heartbeats holds the refresher for each lock this controller is
+	// currently holding, keyed by lock key. See Lock.
+	heartbeats   map[string]*lockHeartbeat
+	heartbeatsMu sync.Mutex
+
 	// Log is the logger used to write logs.
 	Log *logr.Logger
 
@@ -239,6 +244,8 @@ func (r *Reconciler) Lock(object apilib.ReconciledThreeportApiObject) bool {
 		)
 		return false
 	}
+	r.startHeartbeat(lockKey, rev)
+
 	r.Log.V(1).Info(
 		"object locked for reconciliation",
 		"keyValueRevision", rev,
@@ -250,13 +257,177 @@ func (r *Reconciler) Lock(object apilib.ReconciledThreeportApiObject) bool {
 	return true
 }
 
+// LockTTL is how long a lock survives without being refreshed, and
+// LockRefreshInterval is how often a held lock is refreshed.
+//
+// The TTL is a backstop for a controller that dies without releasing its
+// locks - a kill, an out-of-memory, a node going away. A graceful shutdown
+// already releases them: the reconcilers run a handler on SIGINT and SIGTERM
+// that unlocks and requeues.
+//
+// It used to be twenty minutes, long enough to cover the longest reconcile,
+// because a lock that expired underneath a running reconcile would let a
+// second worker pick up the same object. The cost was that a crash held every
+// lock it had for twenty minutes, and with one worker that is twenty minutes
+// in which nothing else of that kind reconciles at all - including deletes.
+//
+// Refreshing the lock while the reconcile is alive separates the two. The TTL
+// no longer has to cover how long work takes, only how long a dead controller
+// goes unnoticed, so it is short. A reconcile that runs for an hour keeps its
+// lock for an hour.
+// They are variables rather than constants so a test can run the refresh in
+// milliseconds instead of waiting out a real interval.
+var (
+	LockTTL             = time.Minute
+	LockRefreshInterval = LockTTL / 3
+)
+
+// lockHeartbeat is the refresher for one held lock.
+type lockHeartbeat struct {
+	stop chan struct{}
+	done chan struct{}
+
+	mu       sync.Mutex
+	revision uint64
+	lost     bool
+}
+
+// startHeartbeat keeps a held lock alive until stopHeartbeat is called.
+//
+// The refresh interval is a third of the TTL, so two refreshes have to be
+// missed before a live reconcile loses its lock.
+//
+// The refresh is an Update against the revision this controller holds, not a
+// Put. A Put would write the key whatever its state, so a controller that had
+// been cut off from NATS long enough for its lock to expire - and be taken by
+// somebody else - would come back and stamp its own id over the new owner's.
+// Two controllers would then believe they held the same object. An Update
+// fails instead, and the refresher stops and says so.
+func (r *Reconciler) startHeartbeat(lockKey string, revision uint64) {
+	beat := &lockHeartbeat{
+		stop:     make(chan struct{}),
+		done:     make(chan struct{}),
+		revision: revision,
+	}
+
+	r.heartbeatsMu.Lock()
+	if r.heartbeats == nil {
+		r.heartbeats = make(map[string]*lockHeartbeat)
+	}
+	// a lock already being refreshed is left alone rather than given a
+	// second goroutine writing the same key - unless the entry there is one
+	// whose refresher already lost the lock and exited. That can still be in
+	// the map: only stopHeartbeat removes an entry, and the goroutine that
+	// loses a lock returns without calling it. If this object's lock was then
+	// reacquired by a fresh reconcile before the dead one finished and called
+	// ReleaseLock, skipping here would leave that reacquired lock with no
+	// refresher at all, unguarded until LockTTL expires it on its own.
+	if existing, running := r.heartbeats[lockKey]; running {
+		existing.mu.Lock()
+		lost := existing.lost
+		existing.mu.Unlock()
+		if !lost {
+			r.heartbeatsMu.Unlock()
+			return
+		}
+	}
+	r.heartbeats[lockKey] = beat
+	r.heartbeatsMu.Unlock()
+
+	go func() {
+		defer close(beat.done)
+
+		ticker := time.NewTicker(LockRefreshInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-beat.stop:
+				return
+			case <-ticker.C:
+				beat.mu.Lock()
+				current := beat.revision
+				beat.mu.Unlock()
+
+				next, err := r.KeyValue.Update(lockKey, []byte(r.ControllerID.String()), current)
+				if err != nil {
+					// the lock is somebody else's now, or gone. Either way
+					// this controller no longer holds it, and writing again
+					// would take it back from whoever does.
+					beat.mu.Lock()
+					beat.lost = true
+					beat.mu.Unlock()
+					r.Log.Error(
+						err, "lost the lock on an object still being reconciled",
+						"lockKey", lockKey,
+						"bucket", r.KeyValue.Bucket(),
+					)
+
+					return
+				}
+
+				beat.mu.Lock()
+				beat.revision = next
+				beat.mu.Unlock()
+			}
+		}
+	}()
+}
+
+// stopHeartbeat ends the refresh for a lock and waits for it to finish.
+//
+// Waiting matters: closing the channel only asks the goroutine to stop, and
+// one that has already woken on a tick can still be partway through its
+// write. Returning before it finishes lets that write land after the key has
+// been deleted, which puts back a lock nobody holds and blocks the object
+// until the TTL clears it.
+//
+// It returns the revision this controller last held, and whether the lock was
+// still its own.
+func (r *Reconciler) stopHeartbeat(lockKey string) (uint64, bool) {
+	r.heartbeatsMu.Lock()
+	beat, running := r.heartbeats[lockKey]
+	if running {
+		delete(r.heartbeats, lockKey)
+	}
+	r.heartbeatsMu.Unlock()
+
+	if !running {
+		return 0, false
+	}
+
+	close(beat.stop)
+	<-beat.done
+
+	beat.mu.Lock()
+	defer beat.mu.Unlock()
+
+	return beat.revision, !beat.lost
+}
+
 // ReleaseLock deletes the kev-value key so that future reconciliation will no
 // longer be locked.  Rerturns true if successful.  If the lock fails to be
 // released it will remain locked until the TTL expires in NATS.
 func (r *Reconciler) ReleaseLock(object apilib.ReconciledThreeportApiObject, lockReleased chan bool, msg *nats.Msg, reconcileSuccess bool) bool {
 	lockKey := r.lockKey(object.GetId())
+	revision, stillOurs := r.stopHeartbeat(lockKey)
 
-	if err := r.KeyValue.Delete(lockKey); err != nil {
+	// deleting by revision rather than by key: if the lock expired and was
+	// taken by another controller, the key under this name is theirs, and
+	// removing it would hand the object to a third
+	deleteOpts := []nats.DeleteOpt{}
+	if revision > 0 {
+		deleteOpts = append(deleteOpts, nats.LastRevision(revision))
+	}
+	if !stillOurs {
+		r.Log.Error(
+			fmt.Errorf("lock was no longer held"),
+			"not deleting a lock this controller no longer owns",
+			"lockKey", lockKey,
+			"bucket", r.KeyValue.Bucket(),
+		)
+	}
+
+	if err := r.KeyValue.Delete(lockKey, deleteOpts...); err != nil {
 		r.Log.Error(
 			err, "failed to delete key-value record",
 			"lockKey", lockKey,
