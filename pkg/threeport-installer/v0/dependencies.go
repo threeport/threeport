@@ -1187,6 +1187,12 @@ echo "$out"`,
 			"spec": map[string]interface{}{
 				"backoffLimit": int64(crdbInitJobBackoffLimit),
 				"template": map[string]interface{}{
+					// the label the database network policy admits: a
+					// reinstall runs this job again, against a database the
+					// policy already guards
+					"metadata": map[string]interface{}{
+						"labels": map[string]interface{}{LabelMaintenance: "true"},
+					},
 					"spec": map[string]interface{}{
 						"restartPolicy": "Never",
 						// the cockroach image runs as root, as for the

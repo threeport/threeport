@@ -10,7 +10,6 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
-	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // ErrNoBackupBucket is returned when a restore has no bucket to restore from.
@@ -77,6 +76,21 @@ func RestoreControlPlaneDatabase(controlPlane *ControlPlane, sourceBucket, backu
 	return cpi.RestoreDatabase(kubeClient, sourceBucket, controlPlane.GKEProviderConfig.BackupBucket, backup)
 }
 
+// refreshingKubeClient returns a client for the cluster a connection names
+// that asks tokenGenerator for a token on every request, rather than keeping
+// the one the connection was made with until it expires.
+func refreshingKubeClient(connection *kube.KubeConnectionInfo, tokenGenerator func() (string, error)) (dynamic.Interface, error) {
+	kubeClient, _, err := kube.GetClientWithTokenRefresh(
+		&v0.KubernetesRuntimeInstance{
+			APIEndpoint:   &connection.APIEndpoint,
+			CACertificate: &connection.CACertificate,
+		},
+		tokenGenerator,
+	)
+
+	return kubeClient, err
+}
+
 // RequireGkeLocation refuses an empty GCP project or region, which would
 // otherwise be filled from the caller's current Google defaults and could
 // name another cluster.
@@ -120,19 +134,13 @@ func gkeControlPlaneKubeClient(controlPlane *ControlPlane) (dynamic.Interface, e
 		return nil, fmt.Errorf("failed to connect to the GKE cluster of control plane %s: %w", controlPlane.Name, err)
 	}
 
-	kubeClient, _, err := kube.GetClient(
-		&v0.KubernetesRuntimeInstance{
-			ThreeportControlPlaneHost: util.Ptr(true),
-			APIEndpoint:               &connection.APIEndpoint,
-			CACertificate:             &connection.CACertificate,
-			ConnectionToken:           &connection.Token,
-			ConnectionTokenExpiration: &connection.TokenExpiration,
-		},
-		false,
-		nil,
-		"",
-		"",
-	)
+	// a restore runs for longer than one access token lasts, so every
+	// request to the cluster carries a current one
+	tokenGenerator, err := infra.TokenGenerator()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get Google credentials for the GKE cluster of control plane %s: %w", controlPlane.Name, err)
+	}
+	kubeClient, err := refreshingKubeClient(connection, tokenGenerator)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get a client for the GKE cluster of control plane %s: %w", controlPlane.Name, err)
 	}
