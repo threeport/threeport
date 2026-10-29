@@ -29,6 +29,13 @@ func TestGCPClientsThreadServiceAccountCredentials(t *testing.T) {
 	}
 	text := string(src)
 
+	// the backup resources are managed with clients built the same way
+	backupSrc, err := os.ReadFile("gke_backup.go")
+	if err != nil {
+		t.Fatalf("failed to read gke_backup.go: %v", err)
+	}
+	clientText := text + string(backupSrc)
+
 	// each pattern captures a GCP client constructor call together with its
 	// argument list (every call in this file is single-line and well under
 	// 200 chars). The call must include either a locally-built "...Opts"
@@ -46,11 +53,12 @@ func TestGCPClientsThreadServiceAccountCredentials(t *testing.T) {
 		{"gcpiam.NewService", `gcpiam\.NewService\(ctx[^)]{0,200}?\)`},
 		{"cloudresourcemanager.NewService", `cloudresourcemanager\.NewService\(ctx[^)]{0,200}?\)`},
 		{"google.CredentialsFromJSON", `google\.CredentialsFromJSON\(ctx[^)]{0,200}?\)`},
+		{"storage.NewService", `storage\.NewService\(ctx[^)]{0,200}?\)`},
 	}
 
 	foundAny := false
 	for _, c := range constructors {
-		calls := regexp.MustCompile(c.pattern).FindAllString(text, -1)
+		calls := regexp.MustCompile(c.pattern).FindAllString(clientText, -1)
 		if len(calls) == 0 {
 			t.Errorf("expected to find at least one call to %s in gke.go - update this test's constructor list if it was removed or renamed", c.name)
 			continue

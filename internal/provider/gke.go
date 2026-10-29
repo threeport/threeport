@@ -20,6 +20,7 @@ import (
 	gcpiam "google.golang.org/api/iam/v1"
 	"google.golang.org/api/option"
 	gcpoption "google.golang.org/api/option"
+	"google.golang.org/api/storage/v1"
 	"gorm.io/datatypes"
 
 	gcpauth "github.com/threeport/threeport/pkg/auth/v0"
@@ -72,6 +73,24 @@ type KubernetesRuntimeInfraGKE struct {
 	// the service account credentials. This is set internally when
 	// ServiceAccountCredentials is used.
 	credentialsFilePath string
+
+	// ProvisionBackups makes Create provision a bucket in another region the
+	// control plane's database is backed up to.
+	ProvisionBackups bool
+
+	// BackupRegion is the region of the backup bucket.  Empty uses the
+	// default for the cluster's region.
+	BackupRegion string
+
+	// BackupBucket is the name of the backup bucket: set by Create when it
+	// provisions one, and by a caller tearing down a control plane whose
+	// bucket was recorded, so Delete removes the database's access to it.
+	BackupBucket string
+
+	// DeleteBackups makes Delete remove the backup bucket in BackupBucket and
+	// every backup in it.  The bucket is kept by default, since its backups
+	// may still be needed after the control plane is gone.
+	DeleteBackups bool
 
 	// gcpProjectResolvedFromGcloudINI is true when loadGCPConfig set ProjectID from the active gcloud INI.
 	gcpProjectResolvedFromGcloudINI bool
@@ -133,13 +152,34 @@ func (i *KubernetesRuntimeInfraGKE) Create() (*kube.KubeConnectionInfo, error) {
 		}
 	}
 
+	// refuse a backup region that would not survive the loss of the
+	// cluster's region before anything is created
+	if i.ProvisionBackups {
+		if _, err := GkeBackupRegion(i.Region, i.BackupRegion); err != nil {
+			return nil, err
+		}
+	}
+
 	// create GCP service account for Threeport to manage GCP resources
 	// This service account will be used with Workload Identity
 	if err := i.createGCPServiceAccountAndCredentials(); err != nil {
 		return nil, fmt.Errorf("failed to create GCP service account: %w", err)
 	}
 
-	return i.CreateInfra()
+	connection, err := i.CreateInfra()
+	if err != nil {
+		return nil, err
+	}
+
+	// provision the database backups once the cluster, and with it the
+	// workload identity pool the backup binding names, exists
+	if i.ProvisionBackups {
+		if err := i.provisionBackups(); err != nil {
+			return nil, fmt.Errorf("failed to provision database backups: %w", err)
+		}
+	}
+
+	return connection, nil
 }
 
 // CreateInfra provisions GKE cluster infrastructure via Pulumi (network, cluster, node pool)
@@ -415,14 +455,34 @@ func (i *KubernetesRuntimeInfraGKE) DeleteGCPResources() error {
 		return fmt.Errorf("failed to create Cloud Resource Manager service client: %w", err)
 	}
 
-	return deleteOwnedServiceAccount(
+	if err := deleteOwnedServiceAccount(
 		iamService,
 		crmService,
 		i.ProjectID,
 		i.getServiceAccountEmail(),
 		i.RuntimeInstanceName,
 		runtimeServiceAccountOwnedBy,
-	)
+	); err != nil {
+		return err
+	}
+
+	// Remove the database's access to its backup bucket, and the backups
+	// when asked to
+	if i.BackupBucket != "" {
+		storageClientOpts := []option.ClientOption{option.WithScopes(storage.DevstorageFullControlScope)}
+		if i.ServiceAccountCredentials != "" {
+			storageClientOpts = append(storageClientOpts, option.WithCredentialsJSON([]byte(i.ServiceAccountCredentials)))
+		}
+		storageService, err := storage.NewService(ctx, storageClientOpts...)
+		if err != nil {
+			return fmt.Errorf("failed to create storage service client: %w", err)
+		}
+		if err := i.deleteBackupResources(storageService); err != nil {
+			return fmt.Errorf("failed to clean up database backup resources: %w", err)
+		}
+	}
+
+	return nil
 }
 
 // GetConnection returns the connection information for the GKE cluster.
@@ -479,26 +539,11 @@ func (i *KubernetesRuntimeInfraGKE) GetConnection() (*kube.KubeConnectionInfo, e
 		return nil, fmt.Errorf("failed to decode CA certificate: %w", err)
 	}
 
-	// get an access token for authentication
-	// TODO: Implement token refresh mechanism for long-running operations
-	// The token has a limited lifetime (typically 1 hour)
-	const cloudPlatformScope = "https://www.googleapis.com/auth/cloud-platform"
-	var tokenSource oauth2.TokenSource
-	if i.ServiceAccountCredentials != "" {
-		// google.DefaultTokenSource has no credentials parameter, so explicit
-		// credentials are threaded through google.CredentialsFromJSON
-		// instead - same "explicit creds override, ambient is the fallback"
-		// shape used for the other GCP clients in this file.
-		creds, err := google.CredentialsFromJSON(ctx, []byte(i.ServiceAccountCredentials), cloudPlatformScope)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load service account credentials: %w", err)
-		}
-		tokenSource = creds.TokenSource
-	} else {
-		tokenSource, err = google.DefaultTokenSource(ctx, cloudPlatformScope)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get token source: %w", err)
-		}
+	// get an access token for authentication; it lasts about an hour, so a
+	// caller whose work can outlast it mints fresh ones with TokenGenerator
+	tokenSource, err := i.tokenSource(ctx)
+	if err != nil {
+		return nil, err
 	}
 
 	token, err := tokenSource.Token()
@@ -519,6 +564,50 @@ func (i *KubernetesRuntimeInfraGKE) GetConnection() (*kube.KubeConnectionInfo, e
 	}
 
 	return kubeConnInfo, nil
+}
+
+// tokenSource returns the source of the access tokens the cluster is
+// reached with: the provider's service account credentials when it has them,
+// and the caller's own application default credentials otherwise.  It
+// refreshes each token as it nears its expiry.
+func (i *KubernetesRuntimeInfraGKE) tokenSource(ctx context.Context) (oauth2.TokenSource, error) {
+	const cloudPlatformScope = "https://www.googleapis.com/auth/cloud-platform"
+	if i.ServiceAccountCredentials != "" {
+		// google.DefaultTokenSource has no credentials parameter, so explicit
+		// credentials are threaded through google.CredentialsFromJSON
+		// instead - same "explicit creds override, ambient is the fallback"
+		// shape used for the other GCP clients in this file.
+		creds, err := google.CredentialsFromJSON(ctx, []byte(i.ServiceAccountCredentials), cloudPlatformScope)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load service account credentials: %w", err)
+		}
+		return creds.TokenSource, nil
+	}
+
+	tokenSource, err := google.DefaultTokenSource(ctx, cloudPlatformScope)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get token source: %w", err)
+	}
+
+	return tokenSource, nil
+}
+
+// TokenGenerator returns a function that returns a current access token for
+// the cluster on every call, for work that can outlast the one GetConnection
+// returns, such as a restore.
+func (i *KubernetesRuntimeInfraGKE) TokenGenerator() (func() (string, error), error) {
+	tokenSource, err := i.tokenSource(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	return func() (string, error) {
+		token, err := tokenSource.Token()
+		if err != nil {
+			return "", fmt.Errorf("failed to get an access token for the GKE cluster: %w", err)
+		}
+		return token.AccessToken, nil
+	}, nil
 }
 
 // LoadConfigFromStack loads the GCP project ID and region from the existing
