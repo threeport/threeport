@@ -7,18 +7,35 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
+
+	client_v0 "github.com/threeport/threeport/pkg/client/v0"
+	kube "github.com/threeport/threeport/pkg/kube/v0"
 )
 
+// getKubeClient returns a client for the control plane's cluster, built from
+// its kubernetes runtime instance in the Threeport API the same way tptctl
+// builds its own.  A kubeconfig would not do: on EKS tptctl writes no context
+// for the cluster, and the identity running the suite is not granted access
+// to it - only the role Threeport assumes is.
 func getKubeClient() (*kubernetes.Clientset, error) {
-	// resolve kubeconfig via client-go's standard precedence
-	// ($KUBECONFIG, then ~/.kube/config)
-	kubeconfigPath := clientcmd.NewDefaultClientConfigLoadingRules().GetDefaultFilename()
-
-	// load kubeconfig
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfigPath)
+	suiteConfig, apiClient, apiEndpoint, err := suiteThreeportAPI()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load kubeconfig: %w", err)
+		return nil, err
+	}
+
+	encryptionKey, err := suiteConfig.GetThreeportEncryptionKey(threeportName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the threeport encryption key: %w", err)
+	}
+
+	runtimeInstance, err := client_v0.GetThreeportControlPlaneKubernetesRuntimeInstance(apiClient, apiEndpoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the control plane's kubernetes runtime instance: %w", err)
+	}
+
+	config, err := kube.GetRestConfig(runtimeInstance, false, apiClient, apiEndpoint, encryptionKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get a REST config for the control plane's cluster: %w", err)
 	}
 
 	// create K8s clientset
