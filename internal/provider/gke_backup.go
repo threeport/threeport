@@ -144,24 +144,37 @@ func (i *KubernetesRuntimeInfraGKE) backupClientOpts(scope string) []option.Clie
 // the database's Kubernetes service account exists, with
 // GrantDatabaseBackupAccess.
 func (i *KubernetesRuntimeInfraGKE) provisionBackups() error {
+	ctx := context.Background()
 	storageClientOpts := i.backupClientOpts(storage.DevstorageFullControlScope)
-	storageService, err := storage.NewService(context.Background(), storageClientOpts...)
+	storageService, err := storage.NewService(ctx, storageClientOpts...)
 	if err != nil {
 		return fmt.Errorf("failed to create storage service client: %w", err)
 	}
+	crmClientOpts := i.backupClientOpts(cloudresourcemanager.CloudPlatformScope)
+	crmService, err := cloudresourcemanager.NewService(ctx, crmClientOpts...)
+	if err != nil {
+		return fmt.Errorf("failed to create Cloud Resource Manager service client: %w", err)
+	}
 
-	return i.provisionBackupsWith(storageService)
+	return i.provisionBackupsWith(storageService, crmService)
 }
 
-// provisionBackupsWith creates the backup bucket with the given client.
-func (i *KubernetesRuntimeInfraGKE) provisionBackupsWith(storageService *storage.Service) error {
+// provisionBackupsWith creates the backup bucket with the given clients.
+func (i *KubernetesRuntimeInfraGKE) provisionBackupsWith(
+	storageService *storage.Service,
+	crmService *cloudresourcemanager.Service,
+) error {
 	backupRegion, err := GkeBackupRegion(i.Region, i.BackupRegion)
 	if err != nil {
 		return err
 	}
 	bucketName := GkeBackupBucketName(i.RuntimeInstanceName, i.ProjectID)
+	projectNumber, err := i.projectNumber(crmService)
+	if err != nil {
+		return err
+	}
 
-	if err := i.ensureBackupBucket(storageService, bucketName, backupRegion); err != nil {
+	if err := i.ensureBackupBucket(storageService, bucketName, backupRegion, projectNumber); err != nil {
 		return err
 	}
 	i.BackupBucket = bucketName
@@ -202,27 +215,72 @@ func (i *KubernetesRuntimeInfraGKE) grantDatabaseBackupAccessWith(
 		return errors.New("the database's Kubernetes service account has no UID to grant access to")
 	}
 
-	project, err := crmService.Projects.Get(i.ProjectID).Do()
+	projectNumber, err := i.projectNumber(crmService)
 	if err != nil {
-		return fmt.Errorf("failed to get the number of project %s: %w", i.ProjectID, err)
+		return err
 	}
-	member := fmt.Sprintf(kubeServiceAccountPrincipalFormat, project.ProjectNumber, i.ProjectID, kubeServiceAccountUID)
+
+	// the database's whole contents go to the bucket granted here, so it is
+	// confirmed to be this project's before the grant, not trusted by name
+	bucket, err := storageService.Buckets.Get(i.BackupBucket).Do()
+	if err != nil {
+		return fmt.Errorf("failed to check backup bucket %s: %w", i.BackupBucket, err)
+	}
+	if err := i.requireBucketInProject(bucket, projectNumber); err != nil {
+		return err
+	}
+
+	member := fmt.Sprintf(kubeServiceAccountPrincipalFormat, projectNumber, i.ProjectID, kubeServiceAccountUID)
 
 	return grantBucketRoles(storageService, i.BackupBucket, member, backupBucketRoles)
 }
 
+// projectNumber returns the number of the control plane's GCP project.
+func (i *KubernetesRuntimeInfraGKE) projectNumber(crmService *cloudresourcemanager.Service) (int64, error) {
+	project, err := crmService.Projects.Get(i.ProjectID).Do()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get the number of project %s: %w", i.ProjectID, err)
+	}
+
+	return project.ProjectNumber, nil
+}
+
+// requireBucketInProject refuses a bucket that belongs to another project
+// than the control plane's.
+//
+// Bucket names are global, and a backup bucket's is predictable, so anyone
+// can create one by that name in a project of their own, give it this
+// control plane's labels, and let the installer's identity manage it.  Its
+// owner keeps their access when the database is granted its own, so a bucket
+// accepted by its name and labels alone would hand them every backup.  The
+// project a bucket is in is the one thing they cannot copy.
+func (i *KubernetesRuntimeInfraGKE) requireBucketInProject(bucket *storage.Bucket, projectNumber int64) error {
+	if projectNumber <= 0 || bucket.ProjectNumber != uint64(projectNumber) {
+		return fmt.Errorf(
+			"GCS bucket %s belongs to project number %d, not to project %s (%d), so database backups will not be written to it",
+			bucket.Name, bucket.ProjectNumber, i.ProjectID, projectNumber,
+		)
+	}
+
+	return nil
+}
+
 // ensureBackupBucket creates the backup bucket, or reuses it when an earlier
 // install of the same control plane created it, so a reinstalled control
-// plane keeps the backups taken before it.  A bucket of the same name that
-// this control plane did not create, or one in another region than asked
-// for, is refused.
+// plane keeps the backups taken before it.  A bucket of the same name in
+// another project, one that this control plane did not create, or one in
+// another region than asked for, is refused.
 func (i *KubernetesRuntimeInfraGKE) ensureBackupBucket(
 	storageService *storage.Service,
 	bucketName string,
 	backupRegion string,
+	projectNumber int64,
 ) error {
 	existing, err := storageService.Buckets.Get(bucketName).Do()
 	if err == nil {
+		if err := i.requireBucketInProject(existing, projectNumber); err != nil {
+			return err
+		}
 		if !bucketOwnedBy(existing, i.RuntimeInstanceName) {
 			return fmt.Errorf("GCS bucket %s already exists and was not created for %s", bucketName, i.RuntimeInstanceName)
 		}
