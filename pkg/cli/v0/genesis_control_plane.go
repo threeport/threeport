@@ -898,6 +898,12 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		); err != nil {
 			return uninstaller.cleanOnCreateError("failed to install system services", err)
 		}
+
+		// a claim that names no storage class has nothing to bind to on EKS
+		// without a default
+		if _, err := threeport.EnsureEksDefaultStorageClass(dynamicKubeClient); err != nil {
+			return uninstaller.cleanOnCreateError("failed to set a default storage class", err)
+		}
 	}
 
 	reconciled := true

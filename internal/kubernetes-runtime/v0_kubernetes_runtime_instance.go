@@ -298,6 +298,17 @@ func v0KubernetesRuntimeInstanceUpdated(
 		); err != nil {
 			return 0, fmt.Errorf("failed to install system services: %w", err)
 		}
+
+		// a claim that names no storage class has nothing to bind to on EKS
+		// without a default. Checked on its own rather than with the system
+		// services, so a cluster that already has those gets a default too.
+		created, err := threeport.EnsureEksDefaultStorageClass(dynamicKubeClient)
+		if err != nil {
+			return 0, fmt.Errorf("failed to set a default storage class: %w", err)
+		}
+		if created {
+			log.Info("set a default storage class", "storageClass", threeport.EksDefaultStorageClassName)
+		}
 	}
 
 	// On GKE, the control-plane workload controllers authenticate to this
