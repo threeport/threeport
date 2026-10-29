@@ -144,5 +144,8 @@ db-migrator down
 
 Every command that changes the schema, `down` included, takes the same lock
 as `up`, so it waits while an API server pod's migrator is migrating rather
-than running beside it. Only a plain `up` backs the database up first and
-rolls a failed migration back; the others run as goose runs them.
+than running beside it. Each run by hand holds the lock under a name of its
+own, so two run together on one machine wait for each other too; only the
+init container holds it under its pod's name, so one restarted in the same
+pod takes back the lock it held. Only a plain `up` backs the database up
+first and rolls a failed migration back; the others run as goose runs them.

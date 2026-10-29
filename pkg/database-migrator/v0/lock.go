@@ -2,8 +2,11 @@ package v0
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
+	"os"
 	"sync"
 	"time"
 )
@@ -13,7 +16,7 @@ import (
 // migrator that stopped without releasing it, such as one whose pod was
 // killed, expires rather than stopping every later one.  A holder takes back
 // a lock it already holds, as an init container restarted in the same pod
-// does.
+// does; see LockHolder for why only an init container shares its holder.
 type TableLock struct {
 	db     *sql.DB
 	table  string
@@ -38,6 +41,39 @@ const DefaultLockLease = 5 * time.Minute
 // it does not exist.  holder names this migrator, such as its pod's name.
 func NewTableLock(ctx context.Context, db *sql.DB, table, holder string) (*TableLock, error) {
 	return NewTableLockWithTiming(ctx, db, table, holder, DefaultLockLease, 30*time.Minute, 5*time.Second)
+}
+
+// LockHolder names the migrator that holds the migration lock.
+//
+// An init container is named by its pod's host name, so one restarted in the
+// same pod takes back the lock its last run held rather than waiting out the
+// lease.  That last run is gone: a pod runs one init container at a time.
+//
+// Any other run, such as an operator's, is named for itself alone.  Two runs
+// on one machine share a host name, and a holder takes back a lock it already
+// holds, so sharing one would let both change the schema together, and the
+// first to finish would release the lock while the other still ran.
+func LockHolder(initContainer bool) (string, error) {
+	host, err := os.Hostname()
+	if err != nil {
+		return "", fmt.Errorf("failed to read the host name to name the migration lock's holder: %w", err)
+	}
+	if initContainer {
+		return host, nil
+	}
+
+	nonce := make([]byte, 6)
+	if _, err := rand.Read(nonce); err != nil {
+		return "", fmt.Errorf("failed to name the migration lock's holder: %w", err)
+	}
+
+	return fmt.Sprintf("%s/%d/%s", host, os.Getpid(), hex.EncodeToString(nonce)), nil
+}
+
+// InPod reports whether the migrator runs in a Kubernetes pod, where a plain
+// 'up' is the API server's init container.
+func InPod() bool {
+	return os.Getenv("KUBERNETES_SERVICE_HOST") != ""
 }
 
 // NewTableLockWithTiming returns a lock with the given lease, renewed every

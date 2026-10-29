@@ -266,7 +266,10 @@ func GenDbMigratorMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			Id("ctx"), Id("db"), Lit(gooseVersionTableName+"_failure"),
 		),
 		If(Id("err").Op("!=").Nil()).Block(Return(Id("err"))),
-		List(Id("lock"), Id("err")).Op(":=").Id("migrationLock").Call(Id("ctx"), Id("db")),
+		Comment("in a pod, a plain 'up' is the API server's init container"),
+		List(Id("lock"), Id("err")).Op(":=").Id("migrationLock").Call(
+			Id("ctx"), Id("db"), Qual(migratorPath, "InPod").Call(),
+		),
 		If(Id("err").Op("!=").Nil()).Block(Return(Id("err"))),
 		Line(),
 		Id("opts").Op(":=").Qual(migratorPath, "Options").Values(Dict{
@@ -305,7 +308,8 @@ func GenDbMigratorMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			Return(Id("run").Call()),
 		),
 		Line(),
-		List(Id("lock"), Id("err")).Op(":=").Id("migrationLock").Call(Id("ctx"), Id("db")),
+		Comment("run by hand, so it holds the lock under a name of its own"),
+		List(Id("lock"), Id("err")).Op(":=").Id("migrationLock").Call(Id("ctx"), Id("db"), False()),
 		If(Id("err").Op("!=").Nil()).Block(Return(Id("err"))),
 		Line(),
 		Return(Qual(migratorPath, "WithLock").Call(Id("ctx"), Id("lock"), logfFunc, Id("run"))),
@@ -314,13 +318,15 @@ func GenDbMigratorMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 	f.Comment("migrationLock returns the lock every migrator of this database takes before")
 	f.Comment("changing its schema.  The API server's pods start together, and only one may")
-	f.Comment("migrate at a time; a pod is named by its host name, which an init container")
-	f.Comment("restarted in the same pod keeps.")
+	f.Comment("migrate at a time.  An init container holds it under its pod's name, which")
+	f.Comment("one restarted in the same pod keeps; any other run holds it under a name of")
+	f.Comment("its own, so two on one machine do not share it.")
 	f.Func().Id("migrationLock").Params(
 		Id("ctx").Qual("context", "Context"),
 		Id("db").Op("*").Qual("database/sql", "DB"),
+		Id("initContainer").Bool(),
 	).Params(Op("*").Qual(migratorPath, "TableLock"), Error()).Block(
-		List(Id("holder"), Id("err")).Op(":=").Qual("os", "Hostname").Call(),
+		List(Id("holder"), Id("err")).Op(":=").Qual(migratorPath, "LockHolder").Call(Id("initContainer")),
 		If(Id("err").Op("!=").Nil()).Block(Return(Nil(), Id("err"))),
 		Line(),
 		Return(Qual(migratorPath, "NewTableLock").Call(

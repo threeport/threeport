@@ -509,3 +509,49 @@ func TestABackupMixedWithAnotherIsNotRecorded(t *testing.T) {
 		}
 	}
 }
+
+// TestTwoRunsByHandOnOneMachineDoNotShareTheLock covers two migrator commands
+// run by hand on one machine, such as an operator's 'down' beside a 'redo'.
+// Each holds the lock under its own name, so the second waits for the first
+// rather than taking back a lock it does not hold, and the first, releasing
+// it, cannot release it from under the second.  Init containers keep the
+// shared name, so one restarted in the same pod still takes its lock back.
+func TestTwoRunsByHandOnOneMachineDoNotShareTheLock(t *testing.T) {
+	ctx := context.Background()
+	gormDb := freshDatabase(t, "lock_by_hand_check")
+	db, err := gormDb.DB()
+	if err != nil {
+		t.Fatalf("get sql db: %v", err)
+	}
+
+	holder := func(initContainer bool) string {
+		t.Helper()
+		name, err := migrator.LockHolder(initContainer)
+		if err != nil {
+			t.Fatalf("lock holder: %v", err)
+		}
+		return name
+	}
+
+	first := newTestLock(t, db, holder(false), time.Minute, time.Second)
+	if err := first.Acquire(ctx); err != nil {
+		t.Fatalf("the first run did not get the free lock: %v", err)
+	}
+	if err := newTestLock(t, db, holder(false), time.Minute, 200*time.Millisecond).Acquire(ctx); err == nil {
+		t.Fatal("a second run on the same machine got the lock while the first held it")
+	}
+	if err := first.Release(ctx); err != nil {
+		t.Fatalf("release: %v", err)
+	}
+
+	restarted := newTestLock(t, db, holder(true), time.Hour, time.Second)
+	if err := restarted.Acquire(ctx); err != nil {
+		t.Fatalf("acquire: %v", err)
+	}
+	if err := newTestLock(t, db, holder(true), time.Hour, 50*time.Millisecond).Acquire(ctx); err != nil {
+		t.Fatalf("an init container restarted in its pod could not take back its lock: %v", err)
+	}
+	if err := newTestLock(t, db, holder(false), time.Hour, 50*time.Millisecond).Acquire(ctx); err == nil {
+		t.Fatal("a run by hand on the init container's machine got the lock the init container holds")
+	}
+}

@@ -158,7 +158,8 @@ func upWithRollback(ctx context.Context, db *sql.DB, logger zap.Logger) error {
 	if err != nil {
 		return err
 	}
-	lock, err := migrationLock(ctx, db)
+	// in a pod, a plain 'up' is the API server's init container
+	lock, err := migrationLock(ctx, db, migrator.InPod())
 	if err != nil {
 		return err
 	}
@@ -190,7 +191,8 @@ func runGooseCommand(ctx context.Context, db *sql.DB, logger zap.Logger, command
 		return run()
 	}
 
-	lock, err := migrationLock(ctx, db)
+	// run by hand, so it holds the lock under a name of its own
+	lock, err := migrationLock(ctx, db, false)
 	if err != nil {
 		return err
 	}
@@ -202,10 +204,11 @@ func runGooseCommand(ctx context.Context, db *sql.DB, logger zap.Logger, command
 
 // migrationLock returns the lock every migrator of this database takes before
 // changing its schema.  The API server's pods start together, and only one may
-// migrate at a time; a pod is named by its host name, which an init container
-// restarted in the same pod keeps.
-func migrationLock(ctx context.Context, db *sql.DB) (*migrator.TableLock, error) {
-	holder, err := os.Hostname()
+// migrate at a time.  An init container holds it under its pod's name, which
+// one restarted in the same pod keeps; any other run holds it under a name of
+// its own, so two on one machine do not share it.
+func migrationLock(ctx context.Context, db *sql.DB, initContainer bool) (*migrator.TableLock, error) {
+	holder, err := migrator.LockHolder(initContainer)
 	if err != nil {
 		return nil, err
 	}

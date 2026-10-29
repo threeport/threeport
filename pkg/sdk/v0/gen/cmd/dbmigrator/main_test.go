@@ -126,6 +126,15 @@ func TestEveryMigratorLocksEveryCommandThatChangesTheSchema(t *testing.T) {
 		if !strings.Contains(source, `if command == "status" {`) {
 			t.Errorf("the %s migrator holds 'status' behind the migration lock", name)
 		}
+		// a run by hand on the machine of another, or of another run by
+		// hand, would share its holder, and so its lock, under the host name
+		if !strings.Contains(source, "migrationLock(ctx, db, false)") {
+			t.Errorf("the %s migrator's other goose commands share the lock holder of other runs on the same machine", name)
+		}
+		if !strings.Contains(source, "migrationLock(ctx, db, migrator.InPod())") ||
+			!strings.Contains(source, "migrator.LockHolder(initContainer)") {
+			t.Errorf("the %s migrator does not name its lock holder for itself outside the init container", name)
+		}
 		if strings.Count(source, "NewTableLock(") != 1 {
 			t.Errorf("the %s migrator builds its lock in more than one place, which can drift apart", name)
 		}
