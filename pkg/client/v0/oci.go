@@ -96,7 +96,7 @@ func GetOciOkeKubernetesRuntimeDefinitionByK8sRuntimeDef(apiClient *http.Client,
 	}
 
 	if len(response.Data) < 1 {
-		return &ociOkeKubernetesRuntimeDefinition, errors.New(fmt.Sprintf("no object found with ID %d", id))
+		return &ociOkeKubernetesRuntimeDefinition, fmt.Errorf("%w: no object found with ID %d", client_lib.ErrObjectNotFound, id)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -130,7 +130,7 @@ func GetOciOkeKubernetesRuntimeInstanceByK8sRuntimeInst(apiClient *http.Client, 
 	}
 
 	if len(response.Data) < 1 {
-		return &ociOkeKubernetesRuntimeInstance, errors.New(fmt.Sprintf("no object found with ID %d", id))
+		return &ociOkeKubernetesRuntimeInstance, fmt.Errorf("%w: no object found with ID %d", client_lib.ErrObjectNotFound, id)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])

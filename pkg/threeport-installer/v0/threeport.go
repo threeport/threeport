@@ -50,6 +50,20 @@ const (
 	ThreeportMachineWorkloadControllerName    = "machine-workload-controller"
 	ThreeportAgentName                        = "agent"
 
+	// The container within a component's pod that carries the component's own
+	// image.
+	//
+	// A controller's container is named after the controller, but the API
+	// server and the agent are not: their pods were written by hand rather
+	// than from the controller template, so the container names differ from
+	// the component names. Anything that has to find that container -
+	// retagging it on an upgrade, for one - needs the name the manifest
+	// actually uses. Looking it up by position instead is what turns adding
+	// a sidecar or an init container into a crash.
+	ThreeportApiServerContainerName        = "api-server"
+	ThreeportAgentContainerName            = "manager"
+	ThreeportDatabaseMigratorContainerName = "database-migrator"
+
 	// Endpoint for threeport API when running locally
 	ThreeportLocalAPIEndpoint = "localhost"
 
@@ -281,7 +295,8 @@ func ValidateTierForProvider(infraProvider, tier string) error {
 
 // AllControlPlaneComponents returns a list of all control plane components.
 func AllControlPlaneComponents() []*v0.ControlPlaneComponent {
-	allControlPlaneComponents := ThreeportControllerList
+	allControlPlaneComponents := make([]*v0.ControlPlaneComponent, 0, len(ThreeportControllerList)+2)
+	allControlPlaneComponents = append(allControlPlaneComponents, ThreeportControllerList...)
 	allControlPlaneComponents = append(allControlPlaneComponents, ThreeportRestApi)
 	allControlPlaneComponents = append(allControlPlaneComponents, ThreeportAgent)
 	return allControlPlaneComponents

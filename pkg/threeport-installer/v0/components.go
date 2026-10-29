@@ -302,7 +302,7 @@ THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 			},
 		},
 		map[string]interface{}{
-			"name":            "database-migrator",
+			"name":            ThreeportDatabaseMigratorContainerName,
 			"image":           dbMigratorImage,
 			"imagePullPolicy": cpi.getImagePullPolicy(),
 			"command": []interface{}{
@@ -352,7 +352,7 @@ THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 						"initContainers": initContainers,
 						"containers": []interface{}{
 							map[string]interface{}{
-								"name":            "api-server",
+								"name":            ThreeportApiServerContainerName,
 								"image":           apiImage,
 								"command":         cpi.getCommand(cpi.Opts.RestApiInfo.BinaryName),
 								"imagePullPolicy": cpi.getImagePullPolicy(),
@@ -1408,7 +1408,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 								//	"initialDelaySeconds": 5,
 								//	"periodSeconds":       20,
 								//},
-								"name": "manager",
+								"name": ThreeportAgentContainerName,
 								"readinessProbe": map[string]interface{}{
 									"httpGet": map[string]interface{}{
 										"path": "/readyz",
