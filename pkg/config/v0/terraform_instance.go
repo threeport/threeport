@@ -118,6 +118,7 @@ func (t *TerraformInstanceConfig) Get(
 				Name:                terraformInstance.Name,
 				AwsProvider:         awsProvider,
 				VarsDocument:        terraformInstance.VarsDocument,
+				Outputs:             terraformInstance.Outputs,
 				TerraformDefinition: terraformDefinition,
 				Status:              &terraformInstanceStatus,
 				Age:                 util.Ptr(util.GetAgeFormatted(terraformInstance.CreatedAt)),

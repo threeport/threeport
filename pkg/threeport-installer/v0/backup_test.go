@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -120,7 +121,15 @@ func backupInstaller() *ControlPlaneInstaller {
 func installDependencies(t *testing.T, cpi *ControlPlaneInstaller) *dynamicfake.FakeDynamicClient {
 	t.Helper()
 
-	fakeClient := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
+	// a reinstall lists what it deletes
+	listKinds := map[schema.GroupVersionResource]string{
+		{Version: "v1", Resource: "namespaces"}: "NamespaceList",
+		{Version: "v1", Resource: "pods"}:       "PodList",
+	}
+	for _, target := range deleteTargets {
+		listKinds[target.gvr] = "List"
+	}
+	fakeClient := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), listKinds)
 	// a production install bootstraps the database with a job, which no
 	// fake cluster runs
 	succeedDropJob(fakeClient)
@@ -141,6 +150,8 @@ func getObject(t *testing.T, kubeClient dynamic.Interface, gvr schema.GroupVersi
 
 	return object
 }
+
+var configMapGVR = schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
 
 var statefulSetGVR = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "statefulsets"}
 
@@ -233,8 +244,6 @@ func installAPIServer(t *testing.T, cpi *ControlPlaneInstaller) *dynamicfake.Fak
 	return fakeClient
 }
 
-var configMapGVR = schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
-
 // TestTheMigratorIsToldWhereToBackUp covers the location the database
 // migrator backs the database up to before migrating: given on a control
 // plane with a backup bucket, in a ConfigMap a reinstall keeps, and absent
@@ -313,4 +322,28 @@ func TestTheMigratorCanBackUp(t *testing.T) {
 		dbRootCertSecretName + "/client.root.crt",
 		dbRootCertSecretName + "/client.root.key",
 	}, keys, "the migrator's certificates")
+}
+
+// TestAReinstallRecreatesTheBackupSchedule covers a reinstall of a control
+// plane with backups: it deletes the database init SQL along with every
+// other object not marked persistent, and the one it recreates still creates
+// the backup schedule, so the database keeps it in place on every start.
+func TestAReinstallRecreatesTheBackupSchedule(t *testing.T) {
+	cpi := backupInstaller()
+	mapper := backupTestMapper()
+	kubeClient := installDependencies(t, cpi)
+	dbCreds, err := auth.GenerateDbCreds(cpi.Opts.Namespace)
+	require.NoError(t, err)
+	require.NoError(t, cpi.UpdateThreeportAPIDeployment(normalizingClient{kubeClient}, &mapper, dbCreds))
+	require.Contains(t, getObject(t, kubeClient, configMapGVR, "db-create").Object["data"], DbBackupScheduleFilename)
+
+	var scaled []string
+	allowDeploymentScaleDown(kubeClient, &scaled)
+	require.NoError(t, cpi.deleteForReinstall(kubeClient, ControlPlaneNamespace))
+	_, err = kubeClient.Resource(configMapGVR).Namespace(ControlPlaneNamespace).Get(context.Background(), "db-create", metav1.GetOptions{})
+	require.True(t, k8serrors.IsNotFound(err), "a reinstall leaves the database init SQL in place, so this does not cover recreating it")
+
+	require.NoError(t, cpi.UpdateThreeportAPIDeployment(normalizingClient{kubeClient}, &mapper, nil))
+	data := getObject(t, kubeClient, configMapGVR, "db-create").Object["data"].(map[string]interface{})
+	assert.Equal(t, DatabaseBackupScheduleSQL(DatabaseBackupURI(cpi.Opts.GcpBackupBucket)), data[DbBackupScheduleFilename])
 }

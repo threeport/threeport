@@ -39,6 +39,18 @@ func RestoreBackupBucket(controlPlane *ControlPlane, givenBucket string) (string
 	return controlPlane.GKEProviderConfig.BackupBucket, nil
 }
 
+// ScheduledBackupBucket returns the bucket a control plane's scheduled
+// backups go to, recorded when it was installed, or empty when it has none.
+// An install that sets it up again, such as a reinstall, passes it on so
+// the database keeps creating its backup schedule.
+func ScheduledBackupBucket(controlPlane *ControlPlane) string {
+	if controlPlane.Provider != v0.KubernetesRuntimeInfraProviderGKE {
+		return ""
+	}
+
+	return controlPlane.GKEProviderConfig.BackupBucket
+}
+
 // RestoreControlPlaneDatabase replaces a GKE control plane's database with
 // one of its backups from sourceBucket.  The fresh full backup the restore
 // takes goes to the bucket the control plane's scheduled backups go to,

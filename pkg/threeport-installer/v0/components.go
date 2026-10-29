@@ -282,6 +282,7 @@ THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 	initContainers := []interface{}{
 		map[string]interface{}{
 			"name":            "db-init",
+			"securityContext": restrictedContainerSecurityContext(),
 			"image":           dbMigratorImage,
 			"imagePullPolicy": cpi.getImagePullPolicy(),
 			"command": []interface{}{
@@ -304,7 +305,8 @@ THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 			},
 		},
 		map[string]interface{}{
-			"name":            "database-migrator",
+			"name":            ThreeportDatabaseMigratorContainerName,
+			"securityContext": restrictedContainerSecurityContext(),
 			"image":           dbMigratorImage,
 			"imagePullPolicy": cpi.getImagePullPolicy(),
 			"command": []interface{}{
@@ -326,6 +328,14 @@ THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 				},
 			},
 		},
+	}
+
+	// an init container needs the same writable paths as the containers it
+	// runs before; the additional ones below are the caller's to describe
+	for _, container := range initContainers {
+		spec := container.(map[string]interface{})
+		mounts, _ := spec["volumeMounts"].([]interface{})
+		spec["volumeMounts"] = append(mounts, missingWritableMounts(mounts)...)
 	}
 
 	// configure additional init containers
@@ -355,10 +365,12 @@ THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 						},
 					},
 					"spec": map[string]interface{}{
-						"initContainers": initContainers,
+						"securityContext": restrictedPodSecurityContext(),
+						"initContainers":  initContainers,
 						"containers": []interface{}{
 							map[string]interface{}{
-								"name":            "api-server",
+								"name":            ThreeportApiServerContainerName,
+								"securityContext": restrictedContainerSecurityContext(),
 								"image":           apiImage,
 								"command":         cpi.getCommand(cpi.Opts.RestApiInfo.BinaryName),
 								"imagePullPolicy": cpi.getImagePullPolicy(),
@@ -1409,17 +1421,12 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 										"memory": "64Mi",
 									},
 								},
-								"securityContext": map[string]interface{}{
-									"allowPrivilegeEscalation": false,
-									"capabilities": map[string]interface{}{
-										"drop": []interface{}{
-											"ALL",
-										},
-									},
-								},
+								"securityContext": restrictedContainerSecurityContext(),
+								"volumeMounts":    writableVolumeMounts(),
 							},
 							map[string]interface{}{
 								"args":            agentArgs,
+								"securityContext": restrictedContainerSecurityContext(),
 								"image":           agentImage,
 								"imagePullPolicy": cpi.getImagePullPolicy(),
 								"command":         cpi.getCommand(cpi.Opts.AgentInfo.BinaryName),
@@ -1431,7 +1438,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 								//	"initialDelaySeconds": 5,
 								//	"periodSeconds":       20,
 								//},
-								"name": "manager",
+								"name": ThreeportAgentContainerName,
 								"readinessProbe": map[string]interface{}{
 									"httpGet": map[string]interface{}{
 										"path": "/readyz",
@@ -1450,22 +1457,12 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 								//		"memory": "64Mi",
 								//	},
 								//},
-								//"securityContext": map[string]interface{}{
-								//	"allowPrivilegeEscalation": false,
-								//	"capabilities": map[string]interface{}{
-								//		"drop": []interface{}{
-								//			"ALL",
-								//		},
-								//	},
-								//},
 								"volumeMounts": agentVolMounts,
 							},
 						},
-						"imagePullSecrets": agentImagePullSecrets,
-						"volumes":          agentVols,
-						//"securityContext": map[string]interface{}{
-						//	"runAsNonRoot": true,
-						//},
+						"imagePullSecrets":              agentImagePullSecrets,
+						"volumes":                       agentVols,
+						"securityContext":               restrictedPodSecurityContext(),
 						"serviceAccountName":            ThreeportAgentName,
 						"terminationGracePeriodSeconds": 10,
 					},
@@ -1830,6 +1827,9 @@ func (cpi *ControlPlaneInstaller) getAPIVolumes() ([]interface{}, []interface{},
 		volMounts = append(volMounts, certVolMount)
 	}
 
+	// the paths a read-only root filesystem has to leave writable
+	vols, volMounts = addWritablePaths(vols, volMounts)
+
 	return vols, volMounts, nil
 }
 
@@ -1890,6 +1890,9 @@ func (cpi *ControlPlaneInstaller) getControllerVolumes(controller v0.ControlPlan
 	for _, vm := range additionalVolumeMounts {
 		volMounts = append(volMounts, vm)
 	}
+
+	// the paths a read-only root filesystem has to leave writable
+	vols, volMounts = addWritablePaths(vols, volMounts)
 
 	return vols, volMounts, nil
 }
@@ -2103,10 +2106,12 @@ func (cpi *ControlPlaneInstaller) getControllerDeployment(
 						},
 					},
 					"spec": map[string]interface{}{
+						"securityContext":    restrictedPodSecurityContext(),
 						"serviceAccountName": controller.ServiceAccountName,
 						"containers": []interface{}{
 							map[string]interface{}{
 								"name":            controller.Name,
+								"securityContext": restrictedContainerSecurityContext(),
 								"image":           controllerImage,
 								"command":         cpi.getCommand(controller.BinaryName),
 								"imagePullPolicy": cpi.getImagePullPolicy(),

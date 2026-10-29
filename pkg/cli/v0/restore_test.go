@@ -35,6 +35,20 @@ func TestRestoreUsesTheRecordedBucket(t *testing.T) {
 	assert.ErrorIs(t, err, ErrNoBackupBucket)
 }
 
+// TestAReinstallKeepsScheduledBackups covers the bucket a reinstall passes
+// on to the database init SQL it recreates: the one recorded at install for
+// a GKE control plane, and none for one with no backups, so the database
+// goes on creating its backup schedule only where one was provisioned.
+func TestAReinstallKeepsScheduledBackups(t *testing.T) {
+	assert.Equal(t, "threeport-prod-backups-acme-prod", ScheduledBackupBucket(&ControlPlane{
+		Name:              "prod",
+		Provider:          v0.KubernetesRuntimeInfraProviderGKE,
+		GKEProviderConfig: GKEProviderConfig{BackupBucket: "threeport-prod-backups-acme-prod"},
+	}))
+	assert.Empty(t, ScheduledBackupBucket(&ControlPlane{Name: "dev", Provider: v0.KubernetesRuntimeInfraProviderGKE}))
+	assert.Empty(t, ScheduledBackupBucket(&ControlPlane{Name: "eks", Provider: v0.KubernetesRuntimeInfraProviderEKS}))
+}
+
 // TestRestoreIsOnlyForGke covers the providers a restore reaches the cluster
 // on: GKE only, refused before anything is touched elsewhere.
 func TestRestoreIsOnlyForGke(t *testing.T) {

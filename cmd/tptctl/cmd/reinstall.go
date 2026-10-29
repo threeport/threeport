@@ -112,17 +112,24 @@ with the control plane name and a development-tier installation. Use
 		cpi.Opts.ControlPlaneName = requestedControlPlane
 		cpi.Opts.Debug = cliArgs.Debug
 
+		// the stored control plane carries what the install recorded, which
+		// the flags do not
+		controlPlaneConfig, err := config.GetControlPlaneConfig(requestedControlPlane)
+		if err != nil {
+			cli.Error("failed to get threeport config", err)
+			os.Exit(1)
+		}
+
+		// the database init SQL is recreated, and keeps creating the backup
+		// schedule only when told the bucket
+		cpi.Opts.GcpBackupBucket = cli.ScheduledBackupBucket(controlPlaneConfig)
+
 		// sweeping deployments, dropping the database, and reapplying the
 		// install are the same kubernetes api calls on every provider; only
 		// rebuilding a location after a drop is provider-specific, and that
 		// check lives inside RequireRestoredRuntimeLocation.
 		if tptctlReinstallDropDatabase {
 			// the stored control plane carries the provider; the flag default does not
-			controlPlaneConfig, err := config.GetControlPlaneConfig(requestedControlPlane)
-			if err != nil {
-				cli.Error("failed to get threeport config", err)
-				os.Exit(1)
-			}
 			cpi.Opts.InfraProvider = controlPlaneConfig.Provider
 			if err := cli.RequireRestoredRuntimeLocation(cpi.Opts.InfraProvider, controlPlaneConfig.GKEProviderConfig.GcpRegion); err != nil {
 				cli.Error("cannot reinstall", err)
@@ -174,18 +181,43 @@ with the control plane name and a development-tier installation. Use
 				cli.Error("failed to restore module deployments", err)
 			}
 		}
+		// label the namespaces of modules installed before the database
+		// network policy existed
+		//
+		// The SDK stamps this label on namespaces it creates, so a module
+		// generated against a current SDK carries it already. One installed
+		// before does not, and nothing regenerates it on its own - without
+		// this, reapplying the policy below would cut a running module away
+		// from its own database, and the first anyone would hear of it is the
+		// module failing well after the reinstall reported success.
+		//
+		// This runs before the database is dropped, because afterwards the
+		// registry that says which namespaces those are is gone.
+		//
+		// It is best-effort rather than fatal: reaching the Threeport API is
+		// exactly what a reinstall with no other flags exists to repair, and
+		// this ran unconditionally before this comment was written, which
+		// meant a broken API deployment could no longer be replaced by the
+		// command that replaces it - kubectl was the only way out. A module
+		// install predating the policy is the much narrower case, and it can
+		// be labelled by hand or by running reinstall again once the API is
+		// back.
+		if moduleNamespaces, err := cpi.DiscoverModuleNamespaces(apiClient, apiEndpoint); err != nil {
+			cli.Warning(fmt.Sprintf(
+				"could not reach the Threeport API to find modules to label (%s) - "+
+					"a module installed before the database network policy existed may lose "+
+					"access to its own database; run reinstall again once the API is reachable",
+				err,
+			))
+		} else if err := cpi.LabelModuleNamespaces(dynamicKubeClient, moduleNamespaces); err != nil {
+			cli.Warning(fmt.Sprintf("failed to label module namespaces: %s", err))
+		}
+
 		// drop stored state when requested
 		if tptctlReinstallDropDatabase {
 			// refuse a non-development tier before any deployment is scaled down
 			if err := cpi.RequireDevelopmentTier(dynamicKubeClient, mapper); err != nil {
 				cli.Error("cannot drop database", err)
-				os.Exit(1)
-			}
-
-			// get the control plane config
-			controlPlaneConfig, err := config.GetControlPlaneConfig(requestedControlPlane)
-			if err != nil {
-				cli.Error("failed to get threeport control plane config", err)
 				os.Exit(1)
 			}
 

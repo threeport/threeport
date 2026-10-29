@@ -240,27 +240,35 @@ func defaultInstallFunction(kubernetesRuntimeInstance *v0.KubernetesRuntimeInsta
 	return nil
 }
 
-var defaultInstallerOptions = Options{
-	Name:                        ControlPlaneName,
-	Namespace:                   ControlPlaneNamespace,
-	ControllerList:              ThreeportControllerList,
-	RestApiInfo:                 ThreeportRestApi,
-	DatabaseMigratorInfo:        DatabaseMigrator,
-	AgentInfo:                   ThreeportAgent,
-	PreInstallFunction:          defaultInstallFunction,
-	PostInstallFunction:         defaultInstallFunction,
-	InThreeport:                 false,
-	AdditionalAwsIrsaConditions: make([]string, 0),
-	AdditionalOptions:           make(map[string]interface{}),
+// defaultOptions returns the installer options every installer starts from.
+//
+// Each call builds the options afresh, components included. The package-level
+// components hold the defaults and nothing writes to them: an installer that
+// shared them would pass one control plane's overrides on to every installer
+// built after it in the same process.
+func defaultOptions() Options {
+	return Options{
+		Name:                        ControlPlaneName,
+		Namespace:                   ControlPlaneNamespace,
+		ControllerList:              copyComponents(ThreeportControllerList),
+		RestApiInfo:                 copyComponent(ThreeportRestApi),
+		DatabaseMigratorInfo:        copyComponent(DatabaseMigrator),
+		AgentInfo:                   copyComponent(ThreeportAgent),
+		PreInstallFunction:          defaultInstallFunction,
+		PostInstallFunction:         defaultInstallFunction,
+		InThreeport:                 false,
+		AdditionalAwsIrsaConditions: make([]string, 0),
+		AdditionalOptions:           make(map[string]interface{}),
+	}
 }
 
 func NewInstaller(os ...InstallerOption) *ControlPlaneInstaller {
-	opts := &defaultInstallerOptions
+	opts := defaultOptions()
 	for _, o := range os {
-		o(opts)
+		o(&opts)
 	}
 
 	return &ControlPlaneInstaller{
-		Opts: *opts,
+		Opts: opts,
 	}
 }

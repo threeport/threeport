@@ -3,6 +3,14 @@ ControlPlane:
   Namespace: "congoport"
   AuthEnabled: true
   OnboardParent: true
+  # Without an image setting the control plane runs the images its parent runs.
+  # ImageNamespace and ImageTag apply to every default component.
+  # ImageNamespace: "ghcr.io/threeport"
+  # ImageTag: "v0.7.0"
+  #
+  # CustomComponentInfo overrides a single component by name. A name that is not
+  # a default component is rejected unless the entry is marked Additional and
+  # gives the full image: ImageName, ImageNamespace and ImageTag.
   CustomComponentInfo:
     - Name: "rest-api"
       ImageTag: "v0.2-custom"

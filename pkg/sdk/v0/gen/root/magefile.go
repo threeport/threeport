@@ -28,6 +28,15 @@ type componentSpec struct {
 	DockerfileTarget string
 }
 
+// swagToolPackage is the swag command a module declares as a go tool, which
+// its generated GenerateSwaggerDocs target runs.
+const swagToolPackage = "github.com/swaggo/swag/cmd/swag"
+
+// SwagVersion is the swag version threeport pins in its go.mod, which a
+// module declaring swag as a tool is told to use so its docs come out as
+// threeport's do.
+const SwagVersion = "v1.16.6"
+
 // GenMagefile generates the source code for mage which is a Make-like tool
 // using Go.
 // Ref: https://github.com/magefile/mage
@@ -653,9 +662,15 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 	// API docs generation
 	f.Comment("GenerateSwaggerDocs generates the API server swagger documentation served by the API.")
+	f.Comment("")
+	f.Comment("It runs swag through 'go tool', so the version is the one this module's")
+	f.Comment("go.mod pins rather than whichever swag is on the PATH, and the docs come")
+	f.Comment("out the same on every machine.")
 	f.Func().Params(Id("Dev")).Id("GenerateSwaggerDocs").Params().Error().Block(
 		Id("docsDestination").Op(":=").Lit("pkg/api-server/v0/docs"),
 		Id("swagCmd").Op(":=").Qual("os/exec", "Command").Call(
+			Line().Lit("go"),
+			Line().Lit("tool"),
 			Line().Lit("swag"),
 			Line().Lit("init"),
 			Line().Lit("--dir"),
@@ -676,6 +691,17 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 		List(Id("output"), Err()).Op(":=").Id("swagCmd").Dot("CombinedOutput").Call(),
 		If(Err().Op("!=").Nil()).Block(
+			Comment("a module made before swag was run as a go tool does not declare it"),
+			If(Qual("strings", "Contains").Call(String().Call(Id("output")), Lit(`no such tool "swag"`))).Block(
+				Return(Qual("fmt", "Errorf").Call(
+					Lit(fmt.Sprintf(
+						"swag is not a tool of this module - add it with 'go get -tool %s@%s': %%w",
+						swagToolPackage,
+						SwagVersion,
+					)),
+					Err(),
+				)),
+			),
 			Return(Qual("fmt", "Errorf").Call(Lit("API docs generation failed with output '%s': %w"), Id("output"), Err())),
 		),
 		Line(),

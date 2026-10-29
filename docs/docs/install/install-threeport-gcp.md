@@ -27,6 +27,11 @@ to sign in (for example with `gcloud auth application-default login`) and set a
 default project if you use `gcloud` defaults (`gcloud config set project
 PROJECT_ID`).
 
+`tptctl` acts on the GKE cluster as you, with these same application default
+credentials, for as long as you manage the control plane with it - including
+`tptctl down`. The control plane's own controllers never use them: on GKE they
+authenticate as their own Workload Identity.
+
 You need:
 
 - **Project ID** — the Google Cloud project ID (not necessarily the display
@@ -63,8 +68,8 @@ as the default Kubernetes runtime for tenant workloads.
 Other `tptctl up` flags you may use include `--debug`, `--teardown-on-failure`,
 and `--force-overwrite-config`. Run `tptctl up --help` for the full list.
 
-A production control plane, the default on GKE, backs its database up to a
-Cloud Storage bucket in another region. Choose that region with
+A production control plane, which you ask for with `--tier production`, backs
+its database up to a Cloud Storage bucket in another region. Choose that region with
 `--gcp-backup-region`. See
 [Back Up and Restore a Control Plane](../control-planes/backup-restore.md).
 
