@@ -1497,13 +1497,16 @@ func DeleteNamespaces(
 			PropagationPolicy: &deletePolicy,
 		}
 
-		// delete the namespace
+		// Delete the namespace. One that is already gone is what this was
+		// for, which is what a retry finds once an earlier attempt finished
+		// after its caller stopped waiting. One already terminating needs no
+		// care: the API server accepts the delete again.
 		if err := namespaceResource.Delete(
 			context.TODO(),
 			name,
 			deleteOptions,
-		); err != nil {
-			return fmt.Errorf("failed to delete namespace: %w", err)
+		); err != nil && !k8serrors.IsNotFound(err) {
+			return fmt.Errorf("failed to delete namespace %s: %w", name, err)
 		}
 	}
 
