@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
 
 	echo "github.com/labstack/echo/v4"
 	zap "go.uber.org/zap"
@@ -124,16 +123,26 @@ func (h Handler) CustomAddSecretDefinition(next echo.HandlerFunc) echo.HandlerFu
 
 		// notify controller if reconciliation is required
 		if !*secretDefinition.Reconciled {
-			notifPayload, err := secretDefinition.NotificationPayload(
+			notification, err := apiserver_lib.NewNotification(
+				&secretDefinition,
 				notifications.NotificationOperationCreated,
-				false,
-				time.Now().Unix(),
+				notif.SecretDefinitionCreateSubject,
 			)
 			if err != nil {
 				h.Logger.Error("handler error: error creating notification payload", zap.Error(err))
 				return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
 			}
-			h.JS.Publish(notif.SecretDefinitionCreateSubject, *notifPayload)
+
+			// the payload carries the encrypted data, which is not in the row
+			// created above, so the notification cannot be recorded in that
+			// transaction. It is recorded in one of its own, which still
+			// leaves it on record for the sweeper if the publish fails.
+			if result := h.WriteNotify(c, func(db *gorm.DB) (*apiserver_lib.Notification, error) {
+				return notification, nil
+			}); result.Error != nil {
+				h.Logger.Error("handler error: error recording notification", zap.Error(result.Error))
+				return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
+			}
 		}
 
 		response, err := apiserver_lib.CreateResponse(

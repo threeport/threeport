@@ -565,6 +565,13 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		)
 		g.Line()
 
+		g.Comment("publish the controller notifications that handlers could not, in the background")
+		g.Qual(
+			"github.com/threeport/threeport/pkg/api-server/lib/v0",
+			"RunOutboxSweeper",
+		).Call(Id("db"), Op("*").Id("js"), Op("&").Id("logger"))
+		g.Line()
+
 		g.Add(handlerRegistration)
 
 		g.Add(routeRegistration)

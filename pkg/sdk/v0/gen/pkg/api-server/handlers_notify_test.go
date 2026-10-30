@@ -39,14 +39,19 @@ func TestHandlerTemplate_UpdateNotificationDoesNotGateOnReconciled(t *testing.T)
 	assert.Len(t, notifiable.FindAllString(text, -1), 1,
 		"the update notification condition is a single call to ObjectUpdateNotifiable")
 
-	gated := regexp.MustCompile(`notifyControllersUpdateHandler\.If\([\s\S]{0,200}Dot\("Reconciled"\)`)
+	gated := regexp.MustCompile(`updateNotify\.If\([\s\S]{0,200}Dot\("Reconciled"\)`)
 	assert.Empty(t, gated.FindAllString(text, -1),
 		"the update notification must not be gated on the object's Reconciled field")
 
+	// the notification is returned from inside the write's transaction, on the
+	// notifiable check alone, and the handler no longer publishes it itself
+	skipAt := strings.Index(text, `updateNotify.If(Op("!").Id("notify")).Block(`)
+	assert.Greater(t, skipAt, 0, "the notification is skipped only when the update is not notifiable")
+	assert.NotContains(t, text, `Dot("JS").Dot("Publish")`,
+		"handlers record the notification and leave publishing to Handler.WriteNotify")
+
 	warnAt := strings.Index(text, `Lit("reconciled became true with other fields changed")`)
-	publishAt := strings.Index(text, `If(Id("notify")).Block(`)
 	assert.Greater(t, warnAt, 0)
-	assert.Greater(t, publishAt, warnAt)
 	assert.Contains(t, text, `Qual("go.uber.org/zap", "Strings").Call(Lit("fields"), Id("changed"))`)
 }
 
