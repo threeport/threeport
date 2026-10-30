@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go"
+	goose "github.com/pressly/goose/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -40,6 +41,41 @@ func TestOutboxMigrationBuildsTableAndIsIdempotent(t *testing.T) {
 
 	require.NoError(t, migrations.Down000002(ctx, nil))
 	assert.False(t, db.Migrator().HasTable(&api_v0.OutboxMessage{}))
+}
+
+// TestMigratorCreatesOutboxTable runs the registered migrations the way the
+// database-migrator job does, with goose and not by calling the migration
+// functions, so it shows the outbox migration is picked up and applied by the
+// install path. The API server never creates the table itself: its
+// -auto-migrate flag does not migrate.
+func TestMigratorCreatesOutboxTable(t *testing.T) {
+	db := freshDatabase(t, "outbox_goose")
+
+	sqlDb, err := goose.OpenDBWithDriver("postgres", fmt.Sprintf(
+		"postgres://root@127.0.0.1:%s/outbox_goose?sslmode=disable", testPort,
+	))
+	require.NoError(t, err)
+	defer sqlDb.Close()
+
+	//nolint:staticcheck // SA1029: the key has to match what the migration reads
+	ctx := context.WithValue(context.Background(), "gormdb", db)
+	goose.SetTableName("threeport_goose_db_version")
+	require.NoError(t, goose.RunContext(ctx, "up", sqlDb, "."))
+
+	assert.True(t, db.Migrator().HasTable(&api_v0.OutboxMessage{}),
+		"the migrator creates the outbox table on a fresh install")
+	assert.True(t, db.Migrator().HasTable(&api_v0.Event{}))
+
+	version, err := goose.GetDBVersionContext(ctx, sqlDb)
+	require.NoError(t, err)
+	assert.EqualValues(t, 2, version, "both migrations ran")
+
+	// an existing control plane that is already at 000001 gets the table
+	require.NoError(t, db.Migrator().DropTable(&api_v0.OutboxMessage{}))
+	require.NoError(t, db.Exec("DELETE FROM threeport_goose_db_version WHERE version_id = 2").Error)
+	require.NoError(t, goose.RunContext(ctx, "up", sqlDb, "."))
+	assert.True(t, db.Migrator().HasTable(&api_v0.OutboxMessage{}),
+		"an upgrade adds the table to a database that predates it")
 }
 
 // slowPublisher publishes slowly enough that concurrent sweepers overlap.
