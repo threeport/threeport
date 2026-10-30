@@ -177,3 +177,70 @@ func missingWritableMounts(volMounts []interface{}) []interface{} {
 
 	return missing
 }
+
+// dependencyPodSecurityContext is the pod-level security context of the
+// vendored dependencies with a volume to write: the database and the message
+// broker.
+//
+// None of their images declares a user, and none needs root: their
+// entrypoints exec the server directly rather than dropping privileges, and
+// everything they write is on a volume. So they run as the threeport user,
+// set here because the kubelet only accepts runAsNonRoot for an image with
+// no declared user when the pod names a numeric one.
+//
+// fsGroup is what lets that user use its volumes. The data volume is created
+// owned by root, and the database's certificates are mounted root-owned and
+// readable by their owner alone; with fsGroup, the kubelet gives both to this
+// group, and CockroachDB accepts a root-owned key the group can read. On a
+// volume whose ownership the kubelet does not manage, such as kind's hostPath
+// volumes, a new data directory is world-writable and needs neither.
+func dependencyPodSecurityContext() map[string]interface{} {
+	securityContext := restrictedPodSecurityContext()
+	securityContext["fsGroup"] = nonRootGID
+
+	return securityContext
+}
+
+// natsBoxUID and natsBoxGID are the numeric uid/gid behind the nats-box
+// image's USER nats:nats (confirmed with `docker run --entrypoint id`). The
+// kubelet needs the number, not the name, to verify runAsNonRoot.
+const (
+	natsBoxUID = int64(1000)
+	natsBoxGID = int64(1000)
+)
+
+// natsBoxPodSecurityContext is the pod-level security context of every pod
+// that runs the nats-box image: the utility pod, and the job a reinstall
+// runs to drop the message broker's streams.
+//
+// natsio/nats-box:0.16.0-nonroot declares USER nats:nats, so its pods are
+// held to that user. It still has to be given numerically: the kubelet does
+// not resolve a named USER against the image's /etc/passwd on its own, so
+// runAsNonRoot alone fails every container with CreateContainerConfigError,
+// "image has non-numeric user (nats), cannot verify user is non-root" -
+// confirmed against a running kind cluster, not assumed from the image's
+// declared USER.
+func natsBoxPodSecurityContext() map[string]interface{} {
+	return map[string]interface{}{
+		"runAsNonRoot": true,
+		"runAsUser":    natsBoxUID,
+		"runAsGroup":   natsBoxGID,
+		"seccompProfile": map[string]interface{}{
+			"type": "RuntimeDefault",
+		},
+	}
+}
+
+// vendoredContainerSecurityContext is the container-level security context of
+// a vendored image that declares its own non-root user, which the pod names
+// numerically: the restricted requirements and a read-only root filesystem,
+// without overriding the user the image chose.
+func vendoredContainerSecurityContext() map[string]interface{} {
+	return map[string]interface{}{
+		"allowPrivilegeEscalation": false,
+		"capabilities": map[string]interface{}{
+			"drop": []interface{}{"ALL"},
+		},
+		"readOnlyRootFilesystem": true,
+	}
+}
