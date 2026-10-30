@@ -13,6 +13,7 @@ import (
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api "github.com/threeport/threeport/pkg/api/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	"github.com/threeport/threeport/pkg/supportservices"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -141,8 +142,8 @@ func (f *controllerFixture) route(t *testing.T, w http.ResponseWriter, r *http.R
 	}
 }
 
-// TestConfirmGatewayControllerDeployedAlreadySet keeps a live controller install.
-func TestConfirmGatewayControllerDeployedAlreadySet(t *testing.T) {
+// TestEnsureGatewayControllerAlreadySet keeps a live controller install.
+func TestEnsureGatewayControllerAlreadySet(t *testing.T) {
 	// return before creating another install when the workload is live
 	f := &controllerFixture{
 		runtime:  kindRuntime(),
@@ -152,7 +153,10 @@ func TestConfirmGatewayControllerDeployedAlreadySet(t *testing.T) {
 	reconciled := true
 	f.workload.Reconciled = &reconciled
 	log := logr.Discard()
-	err := confirmGatewayControllerDeployed(f.serve(t), f.runtime, nil, &log)
+	reconciler := f.serve(t)
+	err := supportservices.Ensure(*f.runtime.ID, &f.runtime.GatewayControllerInstanceID, "gateway controller", &gatewayAttacher{reconciler: reconciler, gateway: nil}, func() (uint, error) {
+		return createGatewayControllerWorkload(reconciler, f.runtime, &log)
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -161,13 +165,15 @@ func TestConfirmGatewayControllerDeployedAlreadySet(t *testing.T) {
 	}
 }
 
-// TestConfirmGatewayControllerDeployedCreatesOnePair installs one shared pair.
-func TestConfirmGatewayControllerDeployedCreatesOnePair(t *testing.T) {
+// TestEnsureGatewayControllerCreatesOnePair installs one shared pair.
+func TestEnsureGatewayControllerCreatesOnePair(t *testing.T) {
 	// create one definition and one instance on the first gateway
 	f := &controllerFixture{runtime: kindRuntime(), definitionID: 10, instanceID: 20}
 	log := logr.Discard()
 	reconciler := f.serve(t)
-	err := confirmGatewayControllerDeployed(reconciler, f.runtime, nil, &log)
+	err := supportservices.Ensure(*f.runtime.ID, &f.runtime.GatewayControllerInstanceID, "gateway controller", &gatewayAttacher{reconciler: reconciler, gateway: nil}, func() (uint, error) {
+		return createGatewayControllerWorkload(reconciler, f.runtime, &log)
+	})
 	if err == nil || !strings.Contains(err.Error(), "not reconciled") {
 		t.Fatalf("expected the new workload to wait for reconciliation, got %v", err)
 	}
@@ -188,7 +194,9 @@ func TestConfirmGatewayControllerDeployedCreatesOnePair(t *testing.T) {
 	// keep that install once the workload has reconciled
 	ready := true
 	f.workload.Reconciled = &ready
-	err = confirmGatewayControllerDeployed(reconciler, f.runtime, nil, &log)
+	err = supportservices.Ensure(*f.runtime.ID, &f.runtime.GatewayControllerInstanceID, "gateway controller", &gatewayAttacher{reconciler: reconciler, gateway: nil}, func() (uint, error) {
+		return createGatewayControllerWorkload(reconciler, f.runtime, &log)
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -197,8 +205,8 @@ func TestConfirmGatewayControllerDeployedCreatesOnePair(t *testing.T) {
 	}
 }
 
-// TestConfirmGatewayControllerDeployedReplacesMissing recreates a gone workload.
-func TestConfirmGatewayControllerDeployedReplacesMissing(t *testing.T) {
+// TestEnsureGatewayControllerReplacesMissing recreates a gone workload.
+func TestEnsureGatewayControllerReplacesMissing(t *testing.T) {
 	// reuse the definition and create a replacement instance
 	f := &controllerFixture{
 		runtime:    kindRuntime(),
@@ -209,7 +217,10 @@ func TestConfirmGatewayControllerDeployedReplacesMissing(t *testing.T) {
 	f.runtime.GatewayControllerInstanceID = util.Ptr(uint(9))
 	f.definition.Name = util.Ptr("ingress-dev")
 	log := logr.Discard()
-	err := confirmGatewayControllerDeployed(f.serve(t), f.runtime, nil, &log)
+	reconciler := f.serve(t)
+	err := supportservices.Ensure(*f.runtime.ID, &f.runtime.GatewayControllerInstanceID, "gateway controller", &gatewayAttacher{reconciler: reconciler, gateway: nil}, func() (uint, error) {
+		return createGatewayControllerWorkload(reconciler, f.runtime, &log)
+	})
 	if err == nil || !strings.Contains(err.Error(), "not reconciled") {
 		t.Fatalf("expected the replacement to wait for reconciliation, got %v", err)
 	}
@@ -221,8 +232,8 @@ func TestConfirmGatewayControllerDeployedReplacesMissing(t *testing.T) {
 	}
 }
 
-// TestConfirmGatewayControllerDeployedWaitsWhileDeleting retries a deleting workload.
-func TestConfirmGatewayControllerDeployedWaitsWhileDeleting(t *testing.T) {
+// TestEnsureGatewayControllerWaitsWhileDeleting retries a deleting workload.
+func TestEnsureGatewayControllerWaitsWhileDeleting(t *testing.T) {
 	// return an error while the stored workload is still deleting
 	now := time.Now()
 	f := &controllerFixture{
@@ -234,7 +245,10 @@ func TestConfirmGatewayControllerDeployedWaitsWhileDeleting(t *testing.T) {
 	}
 	f.runtime.GatewayControllerInstanceID = util.Ptr(uint(9))
 	log := logr.Discard()
-	err := confirmGatewayControllerDeployed(f.serve(t), f.runtime, nil, &log)
+	reconciler := f.serve(t)
+	err := supportservices.Ensure(*f.runtime.ID, &f.runtime.GatewayControllerInstanceID, "gateway controller", &gatewayAttacher{reconciler: reconciler, gateway: nil}, func() (uint, error) {
+		return createGatewayControllerWorkload(reconciler, f.runtime, &log)
+	})
 	if err == nil {
 		t.Fatal("expected an error")
 	}

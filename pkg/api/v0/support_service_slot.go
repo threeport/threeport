@@ -17,6 +17,7 @@ var supportServiceSlotFields = []string{
 	"GatewayControllerInstanceID",
 	"DnsControllerInstanceID",
 	"SecretsControllerInstanceID",
+	"DatabaseControllerInstanceID",
 }
 
 // applySupportServiceSlots claims or clears a shared workload slot inside the update transaction.
@@ -170,6 +171,8 @@ func supportServiceSlotValue(runtime *KubernetesRuntimeInstance, field string) *
 		return runtime.DnsControllerInstanceID
 	case "SecretsControllerInstanceID":
 		return runtime.SecretsControllerInstanceID
+	case "DatabaseControllerInstanceID":
+		return runtime.DatabaseControllerInstanceID
 	default:
 		return nil
 	}

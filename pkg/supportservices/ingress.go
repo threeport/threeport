@@ -4,91 +4,87 @@ package supportservices
 import (
 	"errors"
 	"fmt"
-
-	api "github.com/threeport/threeport/pkg/api/v0"
 )
 
-// IngressAttacher is the object that uses the shared gateway controller.
-type IngressAttacher interface {
-	// IngressReady reports whether the workload has reconciled.
+// Attacher is the object that uses one shared workload.
+type Attacher interface {
+	// Ready reports whether the workload has reconciled.
 	// gone is true when that workload row does not exist.
-	IngressReady(id uint) (ready bool, gone bool, err error)
-	// SetIngressWorkloadID stores the workload id on the caller.
-	SetIngressWorkloadID(id *uint) error
-	// ClaimIngressSlot writes the runtime slot.
-	ClaimIngressSlot(runtimeID uint, workloadID uint) error
-	// ClearIngressSlot nils the runtime slot when no caller requires the workload.
-	ClearIngressSlot(runtimeID uint, workloadID uint) (bool, error)
+	Ready(id uint) (ready bool, gone bool, err error)
+	// SetWorkloadID stores the workload id on the caller.
+	SetWorkloadID(id *uint) error
+	// Claim writes the runtime slot.
+	Claim(runtimeID uint, workloadID uint) error
+	// Clear nils the runtime slot when no caller requires the workload.
+	Clear(runtimeID uint, workloadID uint) (bool, error)
 	// DeleteWorkload removes the workload instance.
 	DeleteWorkload(id uint) error
 }
 
-// EnsureIngress installs the gateway controller when the runtime slot is empty.
-func EnsureIngress(
-	runtime *api.KubernetesRuntimeInstance,
-	caller IngressAttacher,
+// Ensure installs the named workload when slot is empty.
+// It stores the workload id in slot and returns an error until that workload is reconciled.
+func Ensure(
+	runtimeID uint,
+	slot **uint,
+	label string,
+	caller Attacher,
 	deploy func() (uint, error),
 ) error {
-	// use the recorded workload when reconciliation has finished
-	if runtime.GatewayControllerInstanceID != nil {
-		workloadID := *runtime.GatewayControllerInstanceID
-		ready, gone, err := caller.IngressReady(workloadID)
+	// adopt the workload the slot already names
+	if *slot != nil {
+		ready, gone, err := caller.Ready(**slot)
 		if err != nil {
-			return fmt.Errorf("failed to read gateway controller workload %d: %w", workloadID, err)
+			return fmt.Errorf("failed to read %s workload %d: %w", label, **slot, err)
 		}
 		if ready {
-			return caller.SetIngressWorkloadID(&workloadID)
+			return caller.SetWorkloadID(*slot)
 		}
 		if !gone {
-			return fmt.Errorf("kubernetes workload instance %d is not reconciled", workloadID)
+			return fmt.Errorf("%s workload %d is not reconciled", label, **slot)
 		}
 	}
 
-	// install, then claim; a lost claim deletes that workload
+	// install the workload and claim the slot
 	workloadID, err := deploy()
 	if err != nil {
-		return fmt.Errorf("failed to deploy gateway controller for runtime %d: %w", *runtime.ID, err)
-	}
-	if err := caller.ClaimIngressSlot(*runtime.ID, workloadID); err != nil {
-		_ = caller.DeleteWorkload(workloadID)
 		return err
 	}
-	runtime.GatewayControllerInstanceID = &workloadID
-	if err := caller.SetIngressWorkloadID(&workloadID); err != nil {
-		return fmt.Errorf("failed to record gateway controller workload %d: %w", workloadID, err)
+	if err := caller.Claim(runtimeID, workloadID); err != nil {
+		if deleteErr := caller.DeleteWorkload(workloadID); deleteErr != nil {
+			return fmt.Errorf("failed to delete unclaimed %s workload %d: %w", label, workloadID, deleteErr)
+		}
+		return err
 	}
-	return fmt.Errorf("kubernetes workload instance %d is not reconciled", workloadID)
+	*slot = &workloadID
+	if err := caller.SetWorkloadID(*slot); err != nil {
+		return fmt.Errorf("failed to record %s workload %d: %w", label, workloadID, err)
+	}
+	return fmt.Errorf("%s workload %d is not reconciled", label, workloadID)
 }
 
-// ReleaseIngress removes the gateway controller when no caller still requires it.
+// Release removes the named workload when no caller still requires it.
 // A failed delete restores the slot.
-func ReleaseIngress(runtime *api.KubernetesRuntimeInstance, caller IngressAttacher) error {
-	// nothing recorded
-	if runtime.GatewayControllerInstanceID == nil {
+func Release(runtimeID uint, slot **uint, label string, caller Attacher) error {
+	// nothing to remove when the slot is empty
+	if *slot == nil {
 		return nil
 	}
-	workloadID := *runtime.GatewayControllerInstanceID
-
-	// clear the slot only when the compare finds no live requires row
-	cleared, err := caller.ClearIngressSlot(*runtime.ID, workloadID)
+	workloadID := **slot
+	cleared, err := caller.Clear(runtimeID, workloadID)
 	if err != nil {
-		return fmt.Errorf("failed to clear gateway controller slot on runtime %d: %w", *runtime.ID, err)
+		return fmt.Errorf("failed to clear %s slot: %w", label, err)
 	}
 	if !cleared {
 		return nil
 	}
 
-	// delete the workload, and put the slot back when that delete fails
+	// delete the workload, and put the slot back when the delete fails
 	if err := caller.DeleteWorkload(workloadID); err != nil {
-		if claimErr := caller.ClaimIngressSlot(*runtime.ID, workloadID); claimErr != nil {
-			return fmt.Errorf(
-				"failed to delete gateway controller workload %d and to restore the slot: %w",
-				workloadID,
-				errors.Join(err, claimErr),
-			)
+		if claimErr := caller.Claim(runtimeID, workloadID); claimErr != nil {
+			return fmt.Errorf("failed to delete %s workload %d: %w", label, workloadID, errors.Join(err, claimErr))
 		}
-		return fmt.Errorf("failed to delete gateway controller workload %d: %w", workloadID, err)
+		return fmt.Errorf("failed to delete %s workload %d: %w", label, workloadID, err)
 	}
-	runtime.GatewayControllerInstanceID = nil
+	*slot = nil
 	return nil
 }

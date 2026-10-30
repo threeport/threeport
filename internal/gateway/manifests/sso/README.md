@@ -8,4 +8,4 @@ The operator creates the controllers from them.
 `externalDNS`.
 
 `certificates.yaml` is a CertificatesComponent and installs cert-manager.
-`confirmGatewayControllerDeployed()` includes it for EKS and kind.
+`createGatewayControllerWorkload()` includes it for EKS and kind.

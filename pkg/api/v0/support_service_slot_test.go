@@ -44,6 +44,23 @@ func storedSlot(t *testing.T, db *gorm.DB, runtimeID uint) *uint {
 	return stored.GatewayControllerInstanceID
 }
 
+// TestSupportServiceSlotClaimsTheDatabaseColumn stores an id on the database column.
+func TestSupportServiceSlotClaimsTheDatabaseColumn(t *testing.T) {
+	db := openSlotDB(t)
+	runtime := createValidKRI(t, db, "Local")
+
+	// claim the database column with no workload row
+	var loaded KubernetesRuntimeInstance
+	require.NoError(t, db.First(&loaded, *runtime.ID).Error)
+	loaded.DatabaseControllerInstanceID = util.Ptr(uint(11))
+	require.NoError(t, db.Model(&loaded).Updates(&loaded).Error)
+
+	var stored KubernetesRuntimeInstance
+	require.NoError(t, db.First(&stored, *runtime.ID).Error)
+	require.NotNil(t, stored.DatabaseControllerInstanceID)
+	require.Equal(t, uint(11), *stored.DatabaseControllerInstanceID)
+}
+
 // TestSupportServiceSlotClaimsAnEmptyColumn stores the first workload id.
 func TestSupportServiceSlotClaimsAnEmptyColumn(t *testing.T) {
 	// arrange a runtime with an empty slot

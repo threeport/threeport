@@ -22,8 +22,8 @@ type gatewayAttacher struct {
 	gateway    *v0.GatewayInstance
 }
 
-// IngressReady reports whether the workload has reconciled.
-func (a *gatewayAttacher) IngressReady(id uint) (bool, bool, error) {
+// Ready reports whether the workload has reconciled.
+func (a *gatewayAttacher) Ready(id uint) (bool, bool, error) {
 	// read the workload the slot names
 	workload, err := client.GetKubernetesWorkloadInstanceByID(a.reconciler.APIClient, a.reconciler.APIServer, id)
 	if errors.Is(err, client_lib.ErrObjectNotFound) {
@@ -41,8 +41,8 @@ func (a *gatewayAttacher) IngressReady(id uint) (bool, bool, error) {
 	return false, false, nil
 }
 
-// SetIngressWorkloadID stores the workload id on the gateway.
-func (a *gatewayAttacher) SetIngressWorkloadID(id *uint) error {
+// SetWorkloadID stores the workload id on the gateway.
+func (a *gatewayAttacher) SetWorkloadID(id *uint) error {
 	// skip when this gateway already records the workload
 	if a.gateway == nil || a.gateway.ID == nil || id == nil {
 		return nil
@@ -60,8 +60,8 @@ func (a *gatewayAttacher) SetIngressWorkloadID(id *uint) error {
 	return nil
 }
 
-// ClaimIngressSlot writes the runtime slot.
-func (a *gatewayAttacher) ClaimIngressSlot(runtimeID uint, workloadID uint) error {
+// Claim writes the runtime slot.
+func (a *gatewayAttacher) Claim(runtimeID uint, workloadID uint) error {
 	// load the runtime and set the slot
 	runtime, err := client.GetKubernetesRuntimeInstanceByID(a.reconciler.APIClient, a.reconciler.APIServer, runtimeID)
 	if err != nil {
@@ -75,8 +75,8 @@ func (a *gatewayAttacher) ClaimIngressSlot(runtimeID uint, workloadID uint) erro
 	return nil
 }
 
-// ClearIngressSlot nils the runtime slot when no caller requires the workload.
-func (a *gatewayAttacher) ClearIngressSlot(runtimeID uint, workloadID uint) (bool, error) {
+// Clear nils the runtime slot when no caller requires the workload.
+func (a *gatewayAttacher) Clear(runtimeID uint, workloadID uint) (bool, error) {
 	// load the runtime
 	runtime, err := client.GetKubernetesRuntimeInstanceByID(a.reconciler.APIClient, a.reconciler.APIServer, runtimeID)
 	if err != nil {

@@ -320,8 +320,16 @@ func validateThreeportState(
 		return errors.New("kubernetes workload instance not reconciled")
 	}
 
-	// ensure gateway controller is deployed
-	err = confirmGatewayControllerDeployed(r, kubernetesRuntimeInstance, gatewayInstance, log)
+	// install or adopt the shared controller, then record this gateway
+	err = supportservices.Ensure(
+		*kubernetesRuntimeInstance.ID,
+		&kubernetesRuntimeInstance.GatewayControllerInstanceID,
+		"gateway controller",
+		&gatewayAttacher{reconciler: r, gateway: gatewayInstance},
+		func() (uint, error) {
+			return createGatewayControllerWorkload(r, kubernetesRuntimeInstance, log)
+		},
+	)
 	if err != nil {
 		return fmt.Errorf("failed to reconcile gateway controller: %w", err)
 	}
@@ -385,21 +393,6 @@ func confirmDefinitionsReconciled(
 	}
 
 	return true, nil
-}
-
-// confirmGatewayControllerDeployed confirms the gateway controller is deployed,
-// and if not, deploys it.
-func confirmGatewayControllerDeployed(
-	r *controller.Reconciler,
-	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
-	gatewayInstance *v0.GatewayInstance,
-	log *logr.Logger,
-) error {
-	// install or adopt the shared controller, then record this gateway
-	caller := &gatewayAttacher{reconciler: r, gateway: gatewayInstance}
-	return supportservices.EnsureIngress(kubernetesRuntimeInstance, caller, func() (uint, error) {
-		return createGatewayControllerWorkload(r, kubernetesRuntimeInstance, log)
-	})
 }
 
 // createGatewayControllerWorkload creates the nginx workload and returns its id.
@@ -509,7 +502,12 @@ func releaseGatewayController(r *controller.Reconciler, gatewayInstance *v0.Gate
 
 	// clear the slot, then delete the workload when no caller still requires it
 	caller := &gatewayAttacher{reconciler: r, gateway: gatewayInstance}
-	return supportservices.ReleaseIngress(kubernetesRuntimeInstance, caller)
+	return supportservices.Release(
+		*kubernetesRuntimeInstance.ID,
+		&kubernetesRuntimeInstance.GatewayControllerInstanceID,
+		"gateway controller",
+		caller,
+	)
 }
 
 // confirmGatewayPortsExposed writes the runtime tcp listeners onto the shared

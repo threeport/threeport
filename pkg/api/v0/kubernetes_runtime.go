@@ -99,6 +99,9 @@ type KubernetesRuntimeInstance struct {
 	// The KubernetesWorkloadInstanceID of the secrets support service
 	SecretsControllerInstanceID *uint `validate:"optional"`
 
+	// The KubernetesWorkloadInstanceID of the database support service
+	DatabaseControllerInstanceID *uint `validate:"optional"`
+
 	// An alternate threeport image to use when deploying threeport agent to
 	// managed Kubernetes runtime clusters.  If not supplied, the official image
 	// with the correct version will be used.
