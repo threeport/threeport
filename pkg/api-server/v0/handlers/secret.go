@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
 
 	echo "github.com/labstack/echo/v4"
 	zap "go.uber.org/zap"
