@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -50,6 +51,10 @@ type ThreeportWorkloadReconciler struct {
 	RESTConfig        *rest.Config
 	NotifChan         *chan notify.ThreeportNotif
 	InformerStopChans []InformerStopChannels
+
+	// ControlPlaneName scopes the reconciler to the ThreeportWorkloads of one
+	// control plane.  See ControlPlanePredicate.
+	ControlPlaneName string
 }
 
 type InformerStopChannels struct {
@@ -299,6 +304,9 @@ func (r *ThreeportWorkloadReconciler) stopInformersOnInterrupt(
 // SetupWithManager sets up the controller with the Manager.
 func (r *ThreeportWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&agentapi.ThreeportWorkload{}).
+		For(
+			&agentapi.ThreeportWorkload{},
+			builder.WithPredicates(ControlPlanePredicate(r.ControlPlaneName)),
+		).
 		Complete(r)
 }

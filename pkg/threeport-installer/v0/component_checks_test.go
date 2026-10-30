@@ -23,7 +23,13 @@ import (
 
 // testMapper maps the kinds the checks look up.
 func testMapper() *meta.RESTMapper {
-	defaultMapper := meta.NewDefaultRESTMapper(nil)
+	// default versions let a lookup by group and kind alone resolve, as it does
+	// against a cluster's discovery mapper
+	defaultMapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{
+		{Group: "apps", Version: "v1"},
+		{Group: "apiextensions.k8s.io", Version: "v1"},
+		{Group: "rbac.authorization.k8s.io", Version: "v1"},
+	})
 	defaultMapper.Add(
 		schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"},
 		meta.RESTScopeNamespace,
@@ -125,6 +131,30 @@ func clusterRoleBinding(name, subject string) *unstructured.Unstructured {
 	}
 }
 
+// agentBindings returns the two ClusterRoleBindings an installer gives its
+// agent, as an install completed on the cluster holds them.
+func agentBindings(cpi *ControlPlaneInstaller) []runtime.Object {
+	var objects []runtime.Object
+	for _, name := range []string{cpi.agentManagerBindingName(), cpi.agentProxyBindingName()} {
+		objects = append(objects, &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": "rbac.authorization.k8s.io/v1",
+				"kind":       "ClusterRoleBinding",
+				"metadata":   map[string]interface{}{"name": name},
+				"subjects": []interface{}{
+					map[string]interface{}{
+						"kind":      "ServiceAccount",
+						"name":      ThreeportAgentName,
+						"namespace": cpi.Opts.Namespace,
+					},
+				},
+			},
+		})
+	}
+
+	return objects
+}
+
 // agentImageFor returns the agent image an installer would install.
 func agentImageFor(cpi *ControlPlaneInstaller) string {
 	return cpi.getImage(
@@ -143,10 +173,10 @@ func TestComputeSpaceControlPlaneComponentsCurrent(t *testing.T) {
 	installed := agentImageFor(cpi)
 
 	t.Run("current when the agent runs the image that would be installed", func(t *testing.T) {
-		client := testClient(append(
+		client := testClient(append(append(
 			[]runtime.Object{deployment(cpi.Opts.Namespace, ThreeportAgentDeployName, "kube-rbac-proxy:v0.22.0", installed)},
 			installedCRDs()...,
-		)...)
+		), agentBindings(cpi)...)...)
 
 		current, err := cpi.ComputeSpaceControlPlaneComponentsCurrent(client, testMapper())
 		require.NoError(t, err)
@@ -169,10 +199,10 @@ func TestComputeSpaceControlPlaneComponentsCurrent(t *testing.T) {
 		updating.Opts.CreateOrUpdateKubeResources = true
 		defer func() { updating.Opts.CreateOrUpdateKubeResources = false }()
 
-		client := testClient(append(
+		client := testClient(append(append(
 			[]runtime.Object{deployment(updating.Opts.Namespace, ThreeportAgentDeployName, "ghcr.io/threeport/threeport-agent:v0.0.1")},
 			installedCRDs()...,
-		)...)
+		), agentBindings(updating)...)...)
 
 		current, err := updating.ComputeSpaceControlPlaneComponentsCurrent(client, testMapper())
 		require.NoError(t, err)
@@ -186,10 +216,10 @@ func TestComputeSpaceControlPlaneComponentsCurrent(t *testing.T) {
 	t.Run("current despite a different image when the install only creates", func(t *testing.T) {
 		require.False(t, cpi.Opts.CreateOrUpdateKubeResources)
 
-		client := testClient(append(
+		client := testClient(append(append(
 			[]runtime.Object{deployment(cpi.Opts.Namespace, ThreeportAgentDeployName, "localhost:5001/threeport-agent:v0.7.0-rc.0")},
 			installedCRDs()...,
-		)...)
+		), agentBindings(cpi)...)...)
 
 		current, err := cpi.ComputeSpaceControlPlaneComponentsCurrent(client, testMapper())
 		require.NoError(t, err)
@@ -205,9 +235,10 @@ func TestComputeSpaceControlPlaneComponentsCurrent(t *testing.T) {
 	// rest there.
 	t.Run("not current when any one CRD is missing", func(t *testing.T) {
 		for _, missing := range ThreeportCRDNames() {
-			present := []runtime.Object{
-				deployment(cpi.Opts.Namespace, ThreeportAgentDeployName, installed),
-			}
+			present := append(
+				[]runtime.Object{deployment(cpi.Opts.Namespace, ThreeportAgentDeployName, installed)},
+				agentBindings(cpi)...,
+			)
 			for _, name := range ThreeportCRDNames() {
 				if name != missing {
 					present = append(present, crd(name))
@@ -224,11 +255,80 @@ func TestComputeSpaceControlPlaneComponentsCurrent(t *testing.T) {
 	// registered, so a missing CRD has to reinstall even with the agent in
 	// place
 	t.Run("not current when the CRDs are absent", func(t *testing.T) {
-		client := testClient(
-			deployment(cpi.Opts.Namespace, ThreeportAgentDeployName, installed),
-		)
+		client := testClient(append(
+			[]runtime.Object{deployment(cpi.Opts.Namespace, ThreeportAgentDeployName, installed)},
+			agentBindings(cpi)...,
+		)...)
 
 		current, err := cpi.ComputeSpaceControlPlaneComponentsCurrent(client, testMapper())
+		require.NoError(t, err)
+		assert.False(t, current)
+	})
+
+	// an agent installed second on a cluster used to find the first one's
+	// bindings under its own names and keep them, so it ran with no
+	// permissions. Its Deployment and the CRDs are there, but its bindings
+	// are not, and the install has to run to give it some - create-only or
+	// not, since the names are new.
+	t.Run("not current when the agent's own bindings are absent", func(t *testing.T) {
+		for _, installer := range []*ControlPlaneInstaller{cpi, func() *ControlPlaneInstaller {
+			updating := NewInstaller()
+			updating.Opts.CreateOrUpdateKubeResources = true
+			return updating
+		}()} {
+			for i := range agentBindings(installer) {
+				present := append(
+					[]runtime.Object{deployment(installer.Opts.Namespace, ThreeportAgentDeployName, agentImageFor(installer))},
+					installedCRDs()...,
+				)
+				for j, binding := range agentBindings(installer) {
+					if j != i {
+						present = append(present, binding)
+					}
+				}
+
+				current, err := installer.ComputeSpaceControlPlaneComponentsCurrent(testClient(present...), testMapper())
+				require.NoError(t, err)
+				assert.False(t, current)
+			}
+		}
+	})
+
+	// another namespace's agent has bindings on the cluster, but they are
+	// not this agent's
+	t.Run("not current when only another namespace's agent has bindings", func(t *testing.T) {
+		other := installerInNamespace(t, "other-ns")
+
+		client := testClient(append(append(
+			[]runtime.Object{deployment(cpi.Opts.Namespace, ThreeportAgentDeployName, installed)},
+			installedCRDs()...,
+		), agentBindings(other)...)...)
+
+		current, err := cpi.ComputeSpaceControlPlaneComponentsCurrent(client, testMapper())
+		require.NoError(t, err)
+		assert.False(t, current)
+	})
+
+	// an updating install can replace a binding's subject, so one that
+	// names another service account is a repair to make
+	t.Run("not current when an updating install finds the wrong subject", func(t *testing.T) {
+		updating := NewInstaller()
+		updating.Opts.CreateOrUpdateKubeResources = true
+
+		bindings := agentBindings(updating)
+		for _, object := range bindings {
+			binding := object.(*unstructured.Unstructured)
+			require.NoError(t, unstructured.SetNestedSlice(binding.Object, []interface{}{
+				map[string]interface{}{"kind": "ServiceAccount", "name": ThreeportAgentName, "namespace": "someone-else"},
+			}, "subjects"))
+		}
+
+		client := testClient(append(append(
+			[]runtime.Object{deployment(updating.Opts.Namespace, ThreeportAgentDeployName, agentImageFor(updating))},
+			installedCRDs()...,
+		), bindings...)...)
+
+		current, err := updating.ComputeSpaceControlPlaneComponentsCurrent(client, testMapper())
 		require.NoError(t, err)
 		assert.False(t, current)
 	})

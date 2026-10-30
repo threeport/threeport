@@ -65,8 +65,10 @@ func main() {
 	var probeAddr string
 	var threeportAPIServer string
 	var authEnabled bool
+	var controlPlaneName string
 	flag.StringVar(&threeportAPIServer, "threeport-api-server", "threeport-api-server", "Threepoort REST API server endpoint")
 	flag.BoolVar(&authEnabled, "auth-enabled", true, "Enable client certificate authentication (default is true)")
+	flag.StringVar(&controlPlaneName, "control-plane-name", "", "Name of the control plane this agent serves.  ThreeportWorkloads labeled for another control plane are ignored.  If unset, all ThreeportWorkloads are handled.")
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -82,6 +84,10 @@ func main() {
 
 	// wait for API server to be reachable before proceeding
 	util.WaitForAPI(threeportAPIServer, setupLog)
+
+	if controlPlaneName == "" {
+		setupLog.Info("no control plane name set, handling ThreeportWorkloads from all control planes")
+	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
@@ -175,6 +181,8 @@ func main() {
 		DynamicClient:  dynamicClient,
 		RESTConfig:     mgr.GetConfig(),
 		NotifChan:      &notifChan,
+
+		ControlPlaneName: controlPlaneName,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ThreeportWorkload")
 		os.Exit(1)
