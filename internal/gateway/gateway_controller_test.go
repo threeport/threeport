@@ -27,6 +27,7 @@ type controllerFixture struct {
 	definitions  int
 	instances    int
 	deleted      bool
+	holdSlot     bool
 	definitionID uint
 	instanceID   uint
 }
@@ -110,6 +111,24 @@ func (f *controllerFixture) route(t *testing.T, w http.ResponseWriter, r *http.R
 		f.workload = &created
 		f.missing = false
 		machinetest.WriteResponse(t, w, http.StatusCreated, []apiserver_lib.Object{f.workload})
+	case r.Method == http.MethodGet && r.URL.Path == api.PathAttachedObjectReferences:
+		machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{})
+	case r.Method == http.MethodPut && strings.HasPrefix(r.URL.Path, api.PathKubernetesRuntimeInstances+"/"):
+		var fields map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&fields); err != nil {
+			t.Fatal(err)
+		}
+		slot, present := fields["GatewayControllerInstanceID"]
+		if present && slot == nil {
+			if f.holdSlot {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(`{"Status":{"error":"support service slot is held","Message":"Bad Request","Code":400}}`))
+				return
+			}
+			f.runtime.GatewayControllerInstanceID = nil
+		}
+		machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{f.runtime})
 	case r.Method == http.MethodGet && r.URL.Path == api.PathGatewayInstances:
 		listed := make([]apiserver_lib.Object, len(f.gateways))
 		for i := range f.gateways {
@@ -130,8 +149,10 @@ func TestConfirmGatewayControllerDeployedAlreadySet(t *testing.T) {
 		workload: &api.KubernetesWorkloadInstance{Common: api.Common{ID: util.Ptr(uint(9))}},
 	}
 	f.runtime.GatewayControllerInstanceID = util.Ptr(uint(9))
+	reconciled := true
+	f.workload.Reconciled = &reconciled
 	log := logr.Discard()
-	err := confirmGatewayControllerDeployed(f.serve(t), f.runtime, &log)
+	err := confirmGatewayControllerDeployed(f.serve(t), f.runtime, nil, &log)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,9 +167,9 @@ func TestConfirmGatewayControllerDeployedCreatesOnePair(t *testing.T) {
 	f := &controllerFixture{runtime: kindRuntime(), definitionID: 10, instanceID: 20}
 	log := logr.Discard()
 	reconciler := f.serve(t)
-	err := confirmGatewayControllerDeployed(reconciler, f.runtime, &log)
-	if err != nil {
-		t.Fatal(err)
+	err := confirmGatewayControllerDeployed(reconciler, f.runtime, nil, &log)
+	if err == nil || !strings.Contains(err.Error(), "not reconciled") {
+		t.Fatalf("expected the new workload to wait for reconciliation, got %v", err)
 	}
 	if f.definitions != 1 || f.instances != 1 {
 		t.Fatalf("definitions %d instances %d", f.definitions, f.instances)
@@ -164,8 +185,10 @@ func TestConfirmGatewayControllerDeployedCreatesOnePair(t *testing.T) {
 		t.Fatalf("component names:\n%s", document)
 	}
 
-	// keep that install when another gateway reconciles
-	err = confirmGatewayControllerDeployed(reconciler, f.runtime, &log)
+	// keep that install once the workload has reconciled
+	ready := true
+	f.workload.Reconciled = &ready
+	err = confirmGatewayControllerDeployed(reconciler, f.runtime, nil, &log)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -186,9 +209,9 @@ func TestConfirmGatewayControllerDeployedReplacesMissing(t *testing.T) {
 	f.runtime.GatewayControllerInstanceID = util.Ptr(uint(9))
 	f.definition.Name = util.Ptr("ingress-dev")
 	log := logr.Discard()
-	err := confirmGatewayControllerDeployed(f.serve(t), f.runtime, &log)
-	if err != nil {
-		t.Fatal(err)
+	err := confirmGatewayControllerDeployed(f.serve(t), f.runtime, nil, &log)
+	if err == nil || !strings.Contains(err.Error(), "not reconciled") {
+		t.Fatalf("expected the replacement to wait for reconciliation, got %v", err)
 	}
 	if f.definitions != 0 || f.instances != 1 {
 		t.Fatalf("definitions %d instances %d", f.definitions, f.instances)
@@ -211,7 +234,7 @@ func TestConfirmGatewayControllerDeployedWaitsWhileDeleting(t *testing.T) {
 	}
 	f.runtime.GatewayControllerInstanceID = util.Ptr(uint(9))
 	log := logr.Discard()
-	err := confirmGatewayControllerDeployed(f.serve(t), f.runtime, &log)
+	err := confirmGatewayControllerDeployed(f.serve(t), f.runtime, nil, &log)
 	if err == nil {
 		t.Fatal("expected an error")
 	}
@@ -257,6 +280,7 @@ func TestReleaseGatewayControllerDeletesLast(t *testing.T) {
 	}
 	f.runtime.GatewayControllerInstanceID = util.Ptr(uint(9))
 	err := releaseGatewayController(f.serve(t), &api.GatewayInstance{
+		Common:                      api.Common{ID: util.Ptr(uint(8))},
 		KubernetesRuntimeInstanceID: f.runtime.ID,
 	})
 	if err != nil {
@@ -264,6 +288,36 @@ func TestReleaseGatewayControllerDeletesLast(t *testing.T) {
 	}
 	if !f.deleted {
 		t.Fatal("shared controller was not deleted")
+	}
+	if f.runtime.GatewayControllerInstanceID != nil {
+		t.Fatal("expected the slot to clear")
+	}
+}
+
+// TestReleaseGatewayControllerLeavesSlotWhenHeld keeps the workload when the clear is refused.
+func TestReleaseGatewayControllerLeavesSlotWhenHeld(t *testing.T) {
+	// keep the workload when the api refuses to clear the slot
+	now := time.Now()
+	f := &controllerFixture{
+		runtime:  kindRuntime(),
+		holdSlot: true,
+		gateways: []api.GatewayInstance{
+			{Reconciliation: api.Reconciliation{DeletionScheduled: &now}},
+		},
+	}
+	f.runtime.GatewayControllerInstanceID = util.Ptr(uint(9))
+	err := releaseGatewayController(f.serve(t), &api.GatewayInstance{
+		Common:                      api.Common{ID: util.Ptr(uint(8))},
+		KubernetesRuntimeInstanceID: f.runtime.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.deleted {
+		t.Fatal("deleted the workload while the slot stayed held")
+	}
+	if f.runtime.GatewayControllerInstanceID == nil || *f.runtime.GatewayControllerInstanceID != 9 {
+		t.Fatalf("slot = %v, want 9", f.runtime.GatewayControllerInstanceID)
 	}
 }
 

@@ -20,6 +20,7 @@ import (
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	mapping "github.com/threeport/threeport/pkg/mapping/v0"
+	supportservices "github.com/threeport/threeport/pkg/supportservices"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -320,7 +321,7 @@ func validateThreeportState(
 	}
 
 	// ensure gateway controller is deployed
-	err = confirmGatewayControllerDeployed(r, kubernetesRuntimeInstance, log)
+	err = confirmGatewayControllerDeployed(r, kubernetesRuntimeInstance, gatewayInstance, log)
 	if err != nil {
 		return fmt.Errorf("failed to reconcile gateway controller: %w", err)
 	}
@@ -391,37 +392,32 @@ func confirmDefinitionsReconciled(
 func confirmGatewayControllerDeployed(
 	r *controller.Reconciler,
 	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
+	gatewayInstance *v0.GatewayInstance,
 	log *logr.Logger,
 ) error {
+	// install or adopt the shared controller, then record this gateway
+	caller := &gatewayAttacher{reconciler: r, gateway: gatewayInstance}
+	return supportservices.EnsureIngress(kubernetesRuntimeInstance, caller, func() (uint, error) {
+		return createGatewayControllerWorkload(r, kubernetesRuntimeInstance, log)
+	})
+}
 
-	// replace a missing workload because a nil id is not stored
-	if kubernetesRuntimeInstance.GatewayControllerInstanceID != nil {
-		workload, err := client.GetKubernetesWorkloadInstanceByID(
-			r.APIClient,
-			r.APIServer,
-			*kubernetesRuntimeInstance.GatewayControllerInstanceID,
-		)
-		if err != nil && !errors.Is(err, client_lib.ErrObjectNotFound) {
-			return fmt.Errorf("failed to get gateway controller workload instance: %w", err)
-		}
-		if err == nil && workload.DeletionScheduled == nil {
-			return nil
-		}
-		if err == nil {
-			return fmt.Errorf("gateway controller workload %d is deleting", *workload.ID)
-		}
-	}
-
+// createGatewayControllerWorkload creates the nginx workload and returns its id.
+func createGatewayControllerWorkload(
+	r *controller.Reconciler,
+	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
+	log *logr.Logger,
+) (uint, error) {
 	// generate nginx ingress and cert-manager manifests
 	ingressComponent, err := getIngressComponentYaml()
 	if err != nil {
-		return fmt.Errorf("failed to create ingress component: %w", err)
+		return 0, fmt.Errorf("failed to create ingress component: %w", err)
 	}
 
 	// get infra provider
 	infraProvider, err := client.GetInfraProviderByKubernetesRuntimeInstanceID(r.APIClient, r.APIServer, kubernetesRuntimeInstance.ID)
 	if err != nil {
-		return fmt.Errorf("failed to get infra provider: %w", err)
+		return 0, fmt.Errorf("failed to get infra provider: %w", err)
 	}
 
 	// generate the certificates component for providers that install it
@@ -433,7 +429,7 @@ func confirmGatewayControllerDeployed(
 		break
 	}
 	if err != nil {
-		return fmt.Errorf("failed to create certificates component: %w", err)
+		return 0, fmt.Errorf("failed to create certificates component: %w", err)
 	}
 
 	// concatenate the certificates component and the ingress component
@@ -444,7 +440,7 @@ func confirmGatewayControllerDeployed(
 	workloadDefName := fmt.Sprintf("%s-%s", "ingress", *kubernetesRuntimeInstance.Name)
 	existingDefinition, err := client.GetKubernetesWorkloadDefinitionByName(r.APIClient, r.APIServer, workloadDefName)
 	if err != nil && !errors.Is(err, client_lib.ErrObjectNotFound) {
-		return fmt.Errorf("failed to get gateway controller kubernetes workload definition: %w", err)
+		return 0, fmt.Errorf("failed to get gateway controller kubernetes workload definition: %w", err)
 	}
 	if errors.Is(err, client_lib.ErrObjectNotFound) {
 		ingressWorkloadDefinition := v0.KubernetesWorkloadDefinition{
@@ -453,7 +449,7 @@ func confirmGatewayControllerDeployed(
 		}
 		createdWorkloadDef, err = client.CreateKubernetesWorkloadDefinition(r.APIClient, r.APIServer, &ingressWorkloadDefinition)
 		if err != nil {
-			return fmt.Errorf("failed to create gateway controller kubernetes workload definition: %w", err)
+			return 0, fmt.Errorf("failed to create gateway controller kubernetes workload definition: %w", err)
 		}
 	} else {
 		createdWorkloadDef = existingDefinition
@@ -467,22 +463,15 @@ func confirmGatewayControllerDeployed(
 	}
 	createdIngressWorkloadInstance, err := client.CreateKubernetesWorkloadInstance(r.APIClient, r.APIServer, &ingressWorkloadInstance)
 	if err != nil {
-		return fmt.Errorf("failed to create gateway controller kubernetes workload instance: %w", err)
-	}
-
-	// update kubernetes runtime instance with gateway controller instance id
-	kubernetesRuntimeInstance.GatewayControllerInstanceID = createdIngressWorkloadInstance.ID
-	_, err = client.UpdateKubernetesRuntimeInstance(r.APIClient, r.APIServer, kubernetesRuntimeInstance)
-	if err != nil {
-		return fmt.Errorf("failed to update kubernetes runtime instance with gateway controller instance id: %w", err)
+		return 0, fmt.Errorf("failed to create gateway controller kubernetes workload instance: %w", err)
 	}
 
 	log.V(1).Info(
 		"nginx ingress deployed",
-		"workloadInstanceID", ingressWorkloadInstance.ID,
+		"workloadInstanceID", *createdIngressWorkloadInstance.ID,
 	)
 
-	return nil
+	return *createdIngressWorkloadInstance.ID, nil
 }
 
 // releaseGatewayController deletes the shared controller when no gateway remains.
@@ -518,17 +507,9 @@ func releaseGatewayController(r *controller.Reconciler, gatewayInstance *v0.Gate
 		}
 	}
 
-	// schedule the controller workload for deletion
-	_, err = client.DeleteKubernetesWorkloadInstance(
-		r.APIClient,
-		r.APIServer,
-		*kubernetesRuntimeInstance.GatewayControllerInstanceID,
-	)
-	if err != nil && !errors.Is(err, client_lib.ErrObjectNotFound) {
-		return fmt.Errorf("failed to delete gateway controller workload instance: %w", err)
-	}
-
-	return nil
+	// clear the slot, then delete the workload when no caller still requires it
+	caller := &gatewayAttacher{reconciler: r, gateway: gatewayInstance}
+	return supportservices.ReleaseIngress(kubernetesRuntimeInstance, caller)
 }
 
 // confirmGatewayPortsExposed writes the runtime tcp listeners onto the shared

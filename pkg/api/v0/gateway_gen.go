@@ -391,6 +391,11 @@ func (g *GatewayInstance) RelationshipTaggedForeignKeys() []RelationshipTaggedFo
 		ObjectID:     g.KubernetesWorkloadInstanceID,
 		ObjectType:   new(KubernetesWorkloadInstance).GetFullyQualifiedType(),
 		Relationship: RelationshipRequires,
+	}, {
+		FieldName:    "GatewayControllerInstanceID",
+		ObjectID:     g.GatewayControllerInstanceID,
+		ObjectType:   new(KubernetesWorkloadInstance).GetFullyQualifiedType(),
+		Relationship: RelationshipRequires,
 	}}
 }
 

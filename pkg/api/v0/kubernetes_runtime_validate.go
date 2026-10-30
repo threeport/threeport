@@ -7,9 +7,9 @@ import (
 
 	"gorm.io/gorm"
 
-	util "github.com/threeport/threeport/pkg/util/v0"
 	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 	mapping "github.com/threeport/threeport/pkg/mapping/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // KubernetesRuntimeInfraProvider indicates which infrastructure provider is being
@@ -141,7 +141,9 @@ func (k *KubernetesRuntimeInstance) beforeUpdate(tx *gorm.DB) error {
 			"kubernetes runtime instances cannot be moved - location is immutable",
 		)
 	}
-	return nil
+
+	// claim or clear a shared controller slot in this same transaction
+	return k.applySupportServiceSlots(tx)
 }
 
 // beforeDelete validates the KubernetesRuntimeInstance before delete.

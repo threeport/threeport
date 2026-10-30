@@ -60,6 +60,9 @@ type GatewayInstance struct {
 
 	// The kubernetes workload instance this gateway belongs to.
 	KubernetesWorkloadInstanceID *uint `validate:"required" gorm:"not null" relationship:"requires"`
+
+	// The workload instance that runs the gateway controller for this gateway.
+	GatewayControllerInstanceID *uint `validate:"optional" relationship:"requires;type:KubernetesWorkloadInstance"`
 }
 
 // GatewayHttpPort is an HTTP port to expose to the outside network.
