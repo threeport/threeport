@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -1462,6 +1463,13 @@ func (cpi *ControlPlaneInstaller) UnInstallThreeportControlPlaneComponents(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 ) error {
+	// the volumes behind the namespace's claims, recorded before the claims
+	// are deleted with it
+	volumes, err := volumesDeletedWithNamespace(kubeClient, cpi.Opts.Namespace)
+	if err != nil {
+		return fmt.Errorf("failed to find the control plane's persistent volumes: %w", err)
+	}
+
 	// delete the control plane namespace
 	if err := DeleteNamespaces(
 		kubeClient,
@@ -1471,8 +1479,178 @@ func (cpi *ControlPlaneInstaller) UnInstallThreeportControlPlaneComponents(
 		return fmt.Errorf("failed to delete control plane namespace: %w", err)
 	}
 
+	// The namespace is gone once its claims are, but the disks behind them
+	// are deleted after, by the storage driver. Deleting the cluster before
+	// the driver finishes leaves the disk behind, unattached and billing, so
+	// the caller is not told the control plane is gone until they are.
+	if err := waitForVolumesDeleted(kubeClient, volumes); err != nil {
+		return fmt.Errorf("control plane persistent volumes were not deleted: %w", err)
+	}
+
 	return nil
 }
+
+// persistentVolumeGVR is the cluster-scoped v1 persistentvolumes resource.
+var persistentVolumeGVR = schema.GroupVersionResource{Version: "v1", Resource: "persistentvolumes"}
+
+// kubeRequestTimeout bounds each request the teardown sends that is not
+// already bounded by a wait's deadline. A client made for the control plane's
+// cluster may have no timeout of its own, and an API server that accepts a
+// request and never answers it would otherwise hold the teardown forever.
+var kubeRequestTimeout = 30 * time.Second
+
+// volumeDeleteTimeout is how long the uninstall waits for the storage driver
+// to delete the disks behind the control plane's claims. A cloud disk is
+// detached from its node and then deleted, which takes well under this.
+var volumeDeleteTimeout = 5 * time.Minute
+
+// volumeDeletePollInterval is how often the uninstall checks whether they are
+// gone.
+var volumeDeletePollInterval = 2 * time.Second
+
+// volumesDeletedWithNamespace returns the persistent volumes bound to claims
+// in a namespace that are deleted along with their claims. A volume whose
+// reclaim policy keeps it is left out: it outlives its claim on purpose, and
+// waiting for it would never end.
+func volumesDeletedWithNamespace(kubeClient dynamic.Interface, namespace string) ([]string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), kubeRequestTimeout)
+	defer cancel()
+
+	list, err := kubeClient.Resource(persistentVolumeGVR).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list persistent volumes: %w", err)
+	}
+
+	var volumes []string
+	for _, volume := range list.Items {
+		claimNamespace, _, _ := unstructured.NestedString(volume.Object, "spec", "claimRef", "namespace")
+		reclaimPolicy, _, _ := unstructured.NestedString(volume.Object, "spec", "persistentVolumeReclaimPolicy")
+		if claimNamespace == namespace && reclaimPolicy == "Delete" {
+			volumes = append(volumes, volume.GetName())
+		}
+	}
+
+	return volumes, nil
+}
+
+// waitForVolumesDeleted waits until none of the named persistent volumes
+// exists. The storage driver removes a volume's object only once it has
+// deleted the disk, so a volume that is gone has no disk left behind.
+//
+// The deadline bounds the requests too, not only the polling between them: an
+// API server that accepts a request and never answers it would otherwise hold
+// the teardown forever.
+func waitForVolumesDeleted(kubeClient dynamic.Interface, volumes []string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), volumeDeleteTimeout)
+	defer cancel()
+
+	var remaining []string
+	for {
+		remaining = remaining[:0]
+		for _, name := range volumes {
+			_, err := kubeClient.Resource(persistentVolumeGVR).Get(ctx, name, metav1.GetOptions{})
+			switch {
+			case k8serrors.IsNotFound(err):
+			case ctx.Err() != nil:
+				return volumesStillPresent(volumes, err)
+			case err != nil:
+				return fmt.Errorf("failed to check persistent volume %s: %w", name, err)
+			default:
+				remaining = append(remaining, name)
+			}
+		}
+		if len(remaining) == 0 {
+			return nil
+		}
+
+		select {
+		case <-ctx.Done():
+			return volumesStillPresent(remaining, ctx.Err())
+		case <-time.After(volumeDeletePollInterval):
+		}
+	}
+}
+
+// volumesStillPresent reports the volumes left when the wait for them ended.
+func volumesStillPresent(volumes []string, cause error) error {
+	return fmt.Errorf(
+		"persistent volumes %s still exist after %s: %w",
+		strings.Join(volumes, ", "), volumeDeleteTimeout, cause,
+	)
+}
+
+// RetainedVolumeHandles returns the storage driver's ids for the disks behind
+// the persistent volumes of a namespace's claims that outlive their claims -
+// any reclaim policy but Delete - such as an EBS volume id. A teardown that
+// cleans up the disks a deleted cluster left behind has to leave these alone:
+// the disk keeps the tags it was provisioned with, so nothing on it says it
+// was meant to be kept.
+func RetainedVolumeHandles(ctx context.Context, kubeClient dynamic.Interface, namespace string) ([]string, error) {
+	return namespaceVolumeHandles(ctx, kubeClient, namespace, func(reclaimPolicy string) bool {
+		return reclaimPolicy != "Delete"
+	})
+}
+
+// DeletedVolumeHandles returns the storage driver's ids for the disks behind
+// the persistent volumes of a namespace's claims that are deleted along with
+// their claims, such as a GCE persistent disk's
+// projects/<project>/zones/<zone>/disks/<name>. A volume still listed is one
+// whose disk the driver has not deleted yet: when the cluster goes first, the
+// disk is left behind, and these ids are exactly the disks to clean up.
+func DeletedVolumeHandles(ctx context.Context, kubeClient dynamic.Interface, namespace string) ([]string, error) {
+	return namespaceVolumeHandles(ctx, kubeClient, namespace, func(reclaimPolicy string) bool {
+		return reclaimPolicy == "Delete"
+	})
+}
+
+// namespaceVolumeHandles returns the disk ids behind the persistent volumes of
+// a namespace's claims whose reclaim policy matches.
+func namespaceVolumeHandles(
+	ctx context.Context,
+	kubeClient dynamic.Interface,
+	namespace string,
+	matches func(reclaimPolicy string) bool,
+) ([]string, error) {
+	list, err := kubeClient.Resource(persistentVolumeGVR).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list persistent volumes: %w", err)
+	}
+
+	var handles []string
+	for _, volume := range list.Items {
+		claimNamespace, _, _ := unstructured.NestedString(volume.Object, "spec", "claimRef", "namespace")
+		reclaimPolicy, _, _ := unstructured.NestedString(volume.Object, "spec", "persistentVolumeReclaimPolicy")
+		if claimNamespace != namespace || !matches(reclaimPolicy) {
+			continue
+		}
+		if handle := volumeHandle(volume); handle != "" {
+			handles = append(handles, handle)
+		}
+	}
+
+	return handles, nil
+}
+
+// volumeHandle returns the id of the disk behind a persistent volume, from
+// its CSI driver or from the in-tree EBS volume source it was created with,
+// whose id may carry an aws://<zone>/ prefix.
+func volumeHandle(volume unstructured.Unstructured) string {
+	if handle, _, _ := unstructured.NestedString(volume.Object, "spec", "csi", "volumeHandle"); handle != "" {
+		return handle
+	}
+	if id, _, _ := unstructured.NestedString(volume.Object, "spec", "awsElasticBlockStore", "volumeID"); id != "" {
+		return id[strings.LastIndex(id, "/")+1:]
+	}
+
+	return ""
+}
+
+// namespaceDeleteAttempts and namespaceDeletePollSeconds bound the wait for a
+// namespace to be deleted: two minutes, checked every second.
+var (
+	namespaceDeleteAttempts    = 120
+	namespaceDeletePollSeconds = 1
+)
 
 // DeleteNamespace deletes a list of namespaces from a Kubernetes cluster.
 func DeleteNamespaces(
@@ -1481,50 +1659,46 @@ func DeleteNamespaces(
 	namespaces []string,
 ) error {
 
+	namespaceResource := kubeClient.Resource(
+		schema.GroupVersionResource{Version: "v1", Resource: "namespaces"},
+	)
+
 	// initiate namespace deletion
 	for _, name := range namespaces {
-
-		// configure resource interface
-		namespaceResource := kubeClient.Resource(
-			schema.GroupVersionResource{
-				Group:    "",
-				Version:  "v1",
-				Resource: "namespaces",
-			},
-		)
 		deletePolicy := metav1.DeletePropagationForeground
 		deleteOptions := metav1.DeleteOptions{
 			PropagationPolicy: &deletePolicy,
 		}
 
 		// delete the namespace
-		if err := namespaceResource.Delete(
-			context.TODO(),
-			name,
-			deleteOptions,
-		); err != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), kubeRequestTimeout)
+		err := namespaceResource.Delete(ctx, name, deleteOptions)
+		cancel()
+		if err != nil {
 			return fmt.Errorf("failed to delete namespace: %w", err)
 		}
 	}
 
-	// wait for all namespaces to be deleted
+	// wait for all namespaces to be deleted - a namespace counts as deleted
+	// only once the API server says it is not found, not when it could not
+	// be checked
 	for _, name := range namespaces {
-		util.Retry(120, 1, func() error {
-			_, err := kube.GetResource(
-				"",
-				"",
-				"Namespace",
-				"",
-				name,
-				kubeClient,
-				*mapper,
-			)
-			if err == nil {
+		if err := util.Retry(namespaceDeleteAttempts, namespaceDeletePollSeconds, func() error {
+			ctx, cancel := context.WithTimeout(context.Background(), kubeRequestTimeout)
+			defer cancel()
+
+			_, err := namespaceResource.Get(ctx, name, metav1.GetOptions{})
+			switch {
+			case k8serrors.IsNotFound(err):
+				return nil
+			case err != nil:
+				return fmt.Errorf("failed to check namespace: %w", err)
+			default:
 				return errors.New("namespace is still present")
 			}
-
-			return nil
-		})
+		}); err != nil {
+			return fmt.Errorf("namespace %s was not deleted: %w", name, err)
+		}
 	}
 
 	return nil
