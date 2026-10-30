@@ -129,10 +129,12 @@ func (w *PulumiWorkspace) RefreshStack() error {
 		return fmt.Errorf("failed to set up Pulumi workspace for refresh: %w", err)
 	}
 
-	// setupStack refreshes whenever the state file holds anything, which on
-	// this path it always does - executeInfraDelete writes ExistingState to
-	// disk before calling here. Refreshing again would read every resource in
-	// the stack from AWS a second time with nothing changed in between.
+	// setupStack refreshes whenever the stack Pulumi exports holds a resource
+	// or a pending operation (see stackHoldsState), which on this path it does
+	// whenever anything was provisioned - executeInfraDelete writes
+	// ExistingState to disk before calling here. Refreshing again would read
+	// every resource in the stack from AWS a second time with nothing changed
+	// in between.
 	if refreshed {
 		return nil
 	}
@@ -353,11 +355,9 @@ func (w *PulumiWorkspace) setupStack(program pulumi.RunFunc) (auto.Stack, bool, 
 
 	// if existing state with actual resources is detected, reconcile with
 	// cloud state to clear pending operations from interrupted runs before
-	// deploying. UpsertStack creates an empty state file, so check file
-	// size to distinguish real state from a freshly-initialized stack.
+	// deploying
 	refreshed := false
-	stateFilePath, _ := w.GetStateFilePath()
-	if fi, err := os.Stat(stateFilePath); err == nil && fi.Size() > 0 {
+	if stackHoldsState(ctx, stack) {
 		w.logInfo("existing Pulumi state detected, reconciling with cloud state")
 		if _, refreshErr := w.runRefresh(ctx, stack); refreshErr != nil {
 			// log but don't fail — the subsequent up may still succeed
@@ -367,6 +367,45 @@ func (w *PulumiWorkspace) setupStack(program pulumi.RunFunc) (auto.Stack, bool, 
 	}
 
 	return stack, refreshed, nil
+}
+
+// stackHoldsState reports whether a stack holds anything to reconcile: a
+// resource, or an operation an interrupted run left pending.
+//
+// Pulumi is asked, rather than the state file inspected. UpsertStack writes a
+// checkpoint for a stack it has just created, so the file exists and is not
+// empty before anything has been provisioned, and taking that for prior state
+// told an operator an earlier run had left something behind when none had.
+//
+// A stack whose contents cannot be read is taken to hold state: reconciling
+// one that turns out to be empty costs a refresh, while skipping one that
+// holds an interrupted run's resources is what the refresh is there to avoid.
+func stackHoldsState(ctx context.Context, stack auto.Stack) bool {
+	exported, err := stack.Export(ctx)
+	if err != nil {
+		return true
+	}
+
+	return deploymentHoldsState(exported.Deployment)
+}
+
+// deploymentHoldsState reports whether an exported deployment holds a resource
+// or a pending operation. One that cannot be read is taken to hold state, for
+// the reason stackHoldsState gives.
+func deploymentHoldsState(deployment json.RawMessage) bool {
+	if len(deployment) == 0 {
+		return false
+	}
+
+	var contents struct {
+		Resources         []json.RawMessage `json:"resources"`
+		PendingOperations []json.RawMessage `json:"pending_operations"`
+	}
+	if err := json.Unmarshal(deployment, &contents); err != nil {
+		return true
+	}
+
+	return len(contents.Resources) > 0 || len(contents.PendingOperations) > 0
 }
 
 // RunUp runs Pulumi stack.Up with either structured logging or progress streams.
@@ -406,8 +445,9 @@ func (w *PulumiWorkspace) DestroyStack() error {
 
 	// refresh state before destroy to clear stale pending operations and
 	// ensure Pulumi knows the current state of all cloud resources - unless
-	// setupStack already did it, which it does whenever the state file holds
-	// anything, as it does on every real delete
+	// setupStack already did it, which it does whenever the stack Pulumi
+	// exports holds a resource or a pending operation (see stackHoldsState),
+	// as it does on every real delete
 	if !refreshed {
 		if _, err := w.runRefresh(ctx, stack); err != nil {
 			// log but don't fail - destroy may still succeed without refresh
