@@ -129,10 +129,12 @@ func (w *PulumiWorkspace) RefreshStack() error {
 		return fmt.Errorf("failed to set up Pulumi workspace for refresh: %w", err)
 	}
 
-	// setupStack refreshes whenever the state file holds anything, which on
-	// this path it always does - executeInfraDelete writes ExistingState to
-	// disk before calling here. Refreshing again would read every resource in
-	// the stack from AWS a second time with nothing changed in between.
+	// setupStack refreshes whenever the stack Pulumi exports holds a resource
+	// or a pending operation (see stackHoldsState), which on this path it does
+	// whenever anything was provisioned - executeInfraDelete writes
+	// ExistingState to disk before calling here. Refreshing again would read
+	// every resource in the stack from AWS a second time with nothing changed
+	// in between.
 	if refreshed {
 		return nil
 	}
@@ -443,8 +445,9 @@ func (w *PulumiWorkspace) DestroyStack() error {
 
 	// refresh state before destroy to clear stale pending operations and
 	// ensure Pulumi knows the current state of all cloud resources - unless
-	// setupStack already did it, which it does whenever the state file holds
-	// anything, as it does on every real delete
+	// setupStack already did it, which it does whenever the stack Pulumi
+	// exports holds a resource or a pending operation (see stackHoldsState),
+	// as it does on every real delete
 	if !refreshed {
 		if _, err := w.runRefresh(ctx, stack); err != nil {
 			// log but don't fail - destroy may still succeed without refresh
