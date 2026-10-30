@@ -17636,6 +17636,10 @@ const docTemplate = `{
                     "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
                     "type": "string"
                 },
+                "GatewayControllerInstanceID": {
+                    "description": "The workload instance that runs the gateway controller for this gateway.",
+                    "type": "integer"
+                },
                 "GatewayDefinitionID": {
                     "description": "GatewayDefinitionID is the definition used to configure the gateway instance.",
                     "type": "integer"
