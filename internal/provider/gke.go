@@ -173,9 +173,15 @@ func (i *KubernetesRuntimeInfraGKE) DeployInfra() error {
 	return err
 }
 
-// DestroyInfra tears down GKE infrastructure via Delete. It satisfies InfraProvider.
+// DestroyInfra tears down the GKE infrastructure. It satisfies InfraProvider.
+//
+// It is the controller's delete, and the controller path never creates the GCP
+// service account (CreateInfra skips it), so there is none of this runtime's to
+// clean up. An account found under the runtime's name belongs to something else -
+// a GcpProvider of the same name, for one - and removing it would cut that
+// provider off. Delete is the bootstrap path that also cleans up the account.
 func (i *KubernetesRuntimeInfraGKE) DestroyInfra() error {
-	return i.Delete()
+	return i.destroyInfraStack()
 }
 
 // pulumiProgram defines the Pulumi resources for the GKE stack.
@@ -337,8 +343,28 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 	}
 }
 
-// Delete deletes a GKE cluster and the threeport control plane with it.
+// Delete deletes a GKE cluster and the threeport control plane with it, along
+// with the GCP service account Create made for it. It is for the bootstrap path:
+// DestroyInfra leaves the account alone because the controller never created one.
 func (i *KubernetesRuntimeInfraGKE) Delete() error {
+	if err := i.destroyInfraStack(); err != nil {
+		return err
+	}
+
+	if err := i.DeleteGCPResources(); err != nil {
+		if i.Logger != nil {
+			i.Logger.Info("warning: failed to clean up GCP resources", "error", err.Error())
+		} else {
+			util.CliOutputWarning(fmt.Sprintf("failed to clean up GCP resources: %v", err))
+		}
+	}
+
+	return nil
+}
+
+// destroyInfraStack destroys the Pulumi-managed GKE infrastructure and nothing
+// else.
+func (i *KubernetesRuntimeInfraGKE) destroyInfraStack() error {
 	if err := gcpauth.EnsureGCPAuth(i.ServiceAccountCredentials); err != nil {
 		return fmt.Errorf("failed to ensure GCP authentication: %w", err)
 	}
@@ -354,19 +380,13 @@ func (i *KubernetesRuntimeInfraGKE) Delete() error {
 		return fmt.Errorf("failed to destroy Pulumi stack: %w", err)
 	}
 
-	if err := i.DeleteGCPResources(); err != nil {
-		if i.Logger != nil {
-			i.Logger.Info("warning: failed to clean up GCP resources", "error", err.Error())
-		} else {
-			util.CliOutputWarning(fmt.Sprintf("failed to clean up GCP resources: %v", err))
-		}
-	}
-
 	return nil
 }
 
-// DeleteGCPResources deletes all GCP resources created for this Threeport instance
-// that are not managed by Pulumi.
+// DeleteGCPResources deletes the GCP service account Create made for this
+// Threeport instance, and its project roles. It does so only if the account
+// carries this runtime's own description - an account that is there but belongs
+// to something else, such as a GcpProvider of the same name, is refused.
 func (i *KubernetesRuntimeInfraGKE) DeleteGCPResources() error {
 	ctx := context.Background()
 
@@ -395,17 +415,14 @@ func (i *KubernetesRuntimeInfraGKE) DeleteGCPResources() error {
 		return fmt.Errorf("failed to create Cloud Resource Manager service client: %w", err)
 	}
 
-	// Remove IAM role bindings
-	if err := i.removeServiceAccountRoles(crmService); err != nil {
-		return fmt.Errorf("failed to remove IAM roles: %w", err)
-	}
-
-	// Delete the service account
-	if err := i.deleteGCPServiceAccount(iamService); err != nil {
-		return fmt.Errorf("failed to delete service account: %w", err)
-	}
-
-	return nil
+	return deleteOwnedServiceAccount(
+		iamService,
+		crmService,
+		i.ProjectID,
+		i.getServiceAccountEmail(),
+		i.RuntimeInstanceName,
+		runtimeServiceAccountOwnedBy,
+	)
 }
 
 // GetConnection returns the connection information for the GKE cluster.

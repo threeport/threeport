@@ -256,17 +256,15 @@ type ControlPlane struct {
 	Tier          ControlPlaneTier
 }
 
-// DefaultControlPlaneTierForProvider returns the development tier when the
-// provider is kind and the production tier for every other value.
-func DefaultControlPlaneTierForProvider(infraProvider string) string {
-	// return the development tier for the kind provider
-	if infraProvider == v0.KubernetesRuntimeInfraProviderKind {
-		return ControlPlaneTierDev
-	}
-
-	// return the production tier for every other value
-	return ControlPlaneTierProd
-}
+// DefaultControlPlaneTier is the tier a control plane is installed at when
+// none is asked for, on every provider.
+//
+// Production is opted into with --tier production, never defaulted into. On a
+// cloud provider it is not only higher replica counts but real resources and
+// cost - on GKE a cross-region backup bucket and recurring database backups -
+// and a first install, most often a trial, should be the cheap, disposable
+// one unless the operator says otherwise.
+const DefaultControlPlaneTier = ControlPlaneTierDev
 
 // ValidateTierForProvider rejects a provider and tier that cannot go together.
 //
@@ -295,7 +293,8 @@ func ValidateTierForProvider(infraProvider, tier string) error {
 
 // AllControlPlaneComponents returns a list of all control plane components.
 func AllControlPlaneComponents() []*v0.ControlPlaneComponent {
-	allControlPlaneComponents := ThreeportControllerList
+	allControlPlaneComponents := make([]*v0.ControlPlaneComponent, 0, len(ThreeportControllerList)+2)
+	allControlPlaneComponents = append(allControlPlaneComponents, ThreeportControllerList...)
 	allControlPlaneComponents = append(allControlPlaneComponents, ThreeportRestApi)
 	allControlPlaneComponents = append(allControlPlaneComponents, ThreeportAgent)
 	return allControlPlaneComponents

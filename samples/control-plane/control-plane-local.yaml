@@ -3,30 +3,6 @@ ControlPlane:
   Namespace: "congoport"
   AuthEnabled: true
   OnboardParent: true
-  CustomComponentInfo:
-    - Name: "rest-api"
-      ImageNamespace: "localhost:5001"
-    - Name: "database-migrator"
-      ImageNamespace: "localhost:5001"
-    - Name: "agent"
-      ImageNamespace: "localhost:5001"
-    - Name: "kubernetes-workload-controller"
-      ImageNamespace: "localhost:5001"
-    - Name: "kubernetes-runtime-controller"
-      ImageNamespace: "localhost:5001"
-    - Name: "aws-controller"
-      ImageNamespace: "localhost:5001"
-    - Name: "oci-controller"
-      ImageNamespace: "localhost:5001"
-    - Name: "gateway-controller"
-      ImageNamespace: "localhost:5001"
-    - Name: "control-plane-controller"
-      ImageNamespace: "localhost:5001"
-    - Name: "helm-workload-controller"
-      ImageNamespace: "localhost:5001"
-    - Name: "terraform-controller"
-      ImageNamespace: "localhost:5001"
-    - Name: "observability-controller"
-      ImageNamespace: "localhost:5001"
-    - Name: "secret-controller"
-      ImageNamespace: "localhost:5001"
+  # every default component pulls from the local registry. Without these a
+  # child runs the images its parent runs.
+  ImageNamespace: "localhost:5001"

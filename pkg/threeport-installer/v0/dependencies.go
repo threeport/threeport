@@ -52,6 +52,15 @@ func (cpi *ControlPlaneInstaller) CreateThreeportControlPlaneNamespace(
 // InstallThreeportControlPlaneDependencies installs the necessary components
 // for the threeport REST API and controllers to operate.  It includes the
 // database and message broker.
+
+// natsBoxUID and natsBoxGID are the numeric uid/gid behind the nats-box
+// image's USER nats:nats (confirmed with `docker run --entrypoint id`). The
+// kubelet needs the number, not the name, to verify runAsNonRoot.
+const (
+	natsBoxUID = int64(1000)
+	natsBoxGID = int64(1000)
+)
+
 func (cpi *ControlPlaneInstaller) InstallThreeportControlPlaneDependencies(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
@@ -263,9 +272,34 @@ store_dir: /data
 					},
 					"spec": map[string]interface{}{
 						"volumes": nil,
+						// natsio/nats-box:0.16.0-nonroot declares USER nats:nats, so
+						// this one can be held to it. The other dependencies cannot.
+						//
+						// runAsUser and runAsGroup still have to be given
+						// numerically: the kubelet does not resolve a named
+						// USER against the image's /etc/passwd on its own, so
+						// runAsNonRoot alone fails every container with
+						// CreateContainerConfigError, "image has non-numeric
+						// user (nats), cannot verify user is non-root" -
+						// confirmed against a running kind cluster, not
+						// assumed from the image's declared USER.
+						"securityContext": map[string]interface{}{
+							"runAsNonRoot": true,
+							"runAsUser":    natsBoxUID,
+							"runAsGroup":   natsBoxGID,
+							"seccompProfile": map[string]interface{}{
+								"type": "RuntimeDefault",
+							},
+						},
 						"containers": []interface{}{
 							map[string]interface{}{
-								"name":            "nats-box",
+								"name": "nats-box",
+								"securityContext": map[string]interface{}{
+									"allowPrivilegeEscalation": false,
+									"capabilities": map[string]interface{}{
+										"drop": []interface{}{"ALL"},
+									},
+								},
 								"image":           natsBoxImage,
 								"imagePullPolicy": "IfNotPresent",
 								"resources":       nil,
@@ -362,9 +396,24 @@ store_dir: /data
 						//               #
 						//################
 						"terminationGracePeriodSeconds": 60,
+						// The image runs as root, so runAsNonRoot is not set: the
+						// kubelet refuses to start a container that declares no user
+						// when it is required to be non-root. Pinning a user is the
+						// same question and is tracked separately.
+						"securityContext": map[string]interface{}{
+							"seccompProfile": map[string]interface{}{
+								"type": "RuntimeDefault",
+							},
+						},
 						"containers": []interface{}{
 							map[string]interface{}{
-								"name":            "nats",
+								"name": "nats",
+								"securityContext": map[string]interface{}{
+									"allowPrivilegeEscalation": false,
+									"capabilities": map[string]interface{}{
+										"drop": []interface{}{"ALL"},
+									},
+								},
 								"image":           "docker.io/library/nats:2.10.25-alpine",
 								"imagePullPolicy": "IfNotPresent",
 								"resources":       map[string]interface{}{},
@@ -493,7 +542,13 @@ store_dir: /data
 							//                               #
 							//################################
 							map[string]interface{}{
-								"name":            "reloader",
+								"name": "reloader",
+								"securityContext": map[string]interface{}{
+									"allowPrivilegeEscalation": false,
+									"capabilities": map[string]interface{}{
+										"drop": []interface{}{"ALL"},
+									},
+								},
 								"image":           "docker.io/natsio/nats-server-config-reloader:0.16.1",
 								"imagePullPolicy": "IfNotPresent",
 								"resources":       nil,
@@ -525,7 +580,13 @@ store_dir: /data
 							//                            #
 							//#############################
 							map[string]interface{}{
-								"name":            "metrics",
+								"name": "metrics",
+								"securityContext": map[string]interface{}{
+									"allowPrivilegeEscalation": false,
+									"capabilities": map[string]interface{}{
+										"drop": []interface{}{"ALL"},
+									},
+								},
 								"image":           "docker.io/natsio/prometheus-nats-exporter:0.16.0",
 								"imagePullPolicy": "IfNotPresent",
 								"resources":       map[string]interface{}{},
@@ -739,9 +800,24 @@ store_dir: /data
 						// No pre-stop hook is required, a SIGTERM plus some time is all that's
 						// needed for graceful shutdown of a node.
 						"terminationGracePeriodSeconds": 60,
+						// The image runs as root, so runAsNonRoot is not set: the
+						// kubelet refuses to start a container that declares no user
+						// when it is required to be non-root. Pinning a user is the
+						// same question and is tracked separately.
+						"securityContext": map[string]interface{}{
+							"seccompProfile": map[string]interface{}{
+								"type": "RuntimeDefault",
+							},
+						},
 						"containers": []interface{}{
 							map[string]interface{}{
-								"name":            "db",
+								"name": "db",
+								"securityContext": map[string]interface{}{
+									"allowPrivilegeEscalation": false,
+									"capabilities": map[string]interface{}{
+										"drop": []interface{}{"ALL"},
+									},
+								},
 								"image":           fmt.Sprintf("docker.io/cockroachdb/cockroach:%s", DatabaseImageTag),
 								"imagePullPolicy": "IfNotPresent",
 								"args": []interface{}{
@@ -1101,9 +1177,22 @@ echo "$out"`,
 				"template": map[string]interface{}{
 					"spec": map[string]interface{}{
 						"restartPolicy": "Never",
+						// the cockroach image runs as root, as for the
+						// StatefulSet it initializes
+						"securityContext": map[string]interface{}{
+							"seccompProfile": map[string]interface{}{
+								"type": "RuntimeDefault",
+							},
+						},
 						"containers": []interface{}{
 							map[string]interface{}{
-								"name":    "crdb-init",
+								"name": "crdb-init",
+								"securityContext": map[string]interface{}{
+									"allowPrivilegeEscalation": false,
+									"capabilities": map[string]interface{}{
+										"drop": []interface{}{"ALL"},
+									},
+								},
 								"image":   fmt.Sprintf("docker.io/cockroachdb/cockroach:%s", DatabaseImageTag),
 								"command": []interface{}{"/bin/sh", "-c", script},
 								"volumeMounts": []interface{}{
