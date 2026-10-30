@@ -18157,6 +18157,10 @@ const docTemplate = `{
                     "description": "Gets set to true if creation process fails.",
                     "type": "boolean"
                 },
+                "DatabaseControllerInstanceID": {
+                    "description": "The KubernetesWorkloadInstanceID of the database support service",
+                    "type": "integer"
+                },
                 "DefaultRuntime": {
                     "description": "If true, this Kubernetes cluster will be used for all workloads if not\notherwise assigned.",
                     "type": "boolean"
