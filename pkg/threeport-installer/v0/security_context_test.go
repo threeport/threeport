@@ -4,7 +4,9 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -347,16 +349,16 @@ func TestEveryContainerThisInstallerWritesIsHardened(t *testing.T) {
 }
 
 // TestEveryHandWrittenContainerDropsPrivilege covers the containers whose
-// security context is written out rather than taken from
-// restrictedContainerSecurityContext: the third-party images in
-// dependencies.go and support_services.go, which run as users the helper's
-// would not fit.
+// security context is written out rather than taken from a helper: the
+// support services operator's and the cluster autoscaler's, in
+// support_services.go. The vendored dependencies and the reinstall jobs take
+// theirs from a helper, which TestEveryVendoredContainerIsHardened requires.
 //
 // The values are checked, not the keys: allowPrivilegeEscalation set to true,
 // or a capabilities list that drops something other than ALL, still has every
 // key a key check looks for.
 func TestEveryHandWrittenContainerDropsPrivilege(t *testing.T) {
-	for _, path := range []string{"dependencies.go", "support_services.go"} {
+	for _, path := range []string{"support_services.go"} {
 		t.Run(path, func(t *testing.T) {
 			fileSet := token.NewFileSet()
 			file, err := parser.ParseFile(fileSet, path, nil, 0)
@@ -441,7 +443,7 @@ func dropsAllCapabilities(securityContext *ast.CompositeLit) bool {
 // and the namespace still refused to create it. Checking containers alone
 // does not see it, which is why it is checked separately here.
 func TestEveryPodThisInstallerWritesSetsASeccompProfile(t *testing.T) {
-	for _, path := range []string{"components.go", "support_services.go", "dependencies.go"} {
+	for _, path := range podSourceFiles {
 		t.Run(path, func(t *testing.T) {
 			fileSet := token.NewFileSet()
 			file, err := parser.ParseFile(fileSet, path, nil, 0)
@@ -474,6 +476,8 @@ func TestEveryPodThisInstallerWritesSetsASeccompProfile(t *testing.T) {
 				assert.True(
 					t,
 					callsHelper(securityContext, "restrictedPodSecurityContext") ||
+						callsHelper(securityContext, "dependencyPodSecurityContext") ||
+						callsHelper(securityContext, "natsBoxPodSecurityContext") ||
 						mentions(securityContext, "RuntimeDefault"),
 					"%s: a pod does not set a RuntimeDefault seccomp profile",
 					fileSet.Position(literal.Pos()),
@@ -485,6 +489,146 @@ func TestEveryPodThisInstallerWritesSetsASeccompProfile(t *testing.T) {
 			require.NotZero(t, pods, "no pod declaration found to check")
 		})
 	}
+}
+
+// podSourceFiles are the files that write a pod spec into the control plane
+// namespace: the components, the support services operator, the vendored
+// dependencies, and the jobs a reinstall runs to drop the database and the
+// message broker's streams.
+var podSourceFiles = []string{"components.go", "support_services.go", "dependencies.go", "reinstall.go"}
+
+// TestEveryPodThisInstallerWritesRunsAsNonRoot covers the last restricted
+// requirement the vendored dependencies were missing.
+//
+// The restricted Pod Security Standard requires runAsNonRoot on the pod or on
+// every container. The namespace refuses a pod that sets neither, so a pod
+// added without it does not run less safely - it does not run at all once the
+// namespace enforces restricted, which an install does not do itself and so
+// would not catch.
+func TestEveryPodThisInstallerWritesRunsAsNonRoot(t *testing.T) {
+	for _, path := range podSourceFiles {
+		t.Run(path, func(t *testing.T) {
+			fileSet := token.NewFileSet()
+			file, err := parser.ParseFile(fileSet, path, nil, 0)
+			require.NoError(t, err)
+
+			pods := 0
+			ast.Inspect(file, func(node ast.Node) bool {
+				literal, ok := node.(*ast.CompositeLit)
+				if !ok || !keyedStrings(literal)[`"containers"`] {
+					return true
+				}
+				pods++
+
+				podContext := keyedValue(literal, `"securityContext"`)
+				if callsHelper(podContext, "restrictedPodSecurityContext") ||
+					callsHelper(podContext, "dependencyPodSecurityContext") ||
+					callsHelper(podContext, "natsBoxPodSecurityContext") ||
+					setsRunAsNonRoot(podContext) {
+					return true
+				}
+
+				// otherwise every container has to set it itself
+				containers, ok := keyedValue(literal, `"containers"`).(*ast.CompositeLit)
+				require.True(t, ok, "%s: containers is not a literal", fileSet.Position(literal.Pos()))
+				for _, element := range containers.Elts {
+					container, ok := element.(*ast.CompositeLit)
+					if !ok {
+						continue
+					}
+					containerContext := keyedValue(container, `"securityContext"`)
+					assert.True(
+						t,
+						callsHelper(containerContext, "restrictedContainerSecurityContext") || setsRunAsNonRoot(containerContext),
+						"%s: neither the pod nor this container sets runAsNonRoot",
+						fileSet.Position(container.Pos()),
+					)
+				}
+
+				return true
+			})
+
+			require.NotZero(t, pods, "no pod declaration found to check")
+		})
+	}
+}
+
+// setsRunAsNonRoot reports whether a security context literal sets
+// runAsNonRoot to true.
+func setsRunAsNonRoot(securityContext ast.Expr) bool {
+	literal, ok := securityContext.(*ast.CompositeLit)
+	if !ok {
+		return false
+	}
+	value, ok := keyedValue(literal, `"runAsNonRoot"`).(*ast.Ident)
+
+	return ok && value.Name == "true"
+}
+
+// TestEveryVendoredContainerIsHardened covers the containers of the
+// vendored dependencies and of the jobs a reinstall runs, whose images
+// threeport does not build.
+//
+// They take their security context from a helper, as the threeport
+// components do, so each one has a read-only root filesystem and every
+// restricted container requirement. A literal written out here could leave
+// one of them off and still start - which is how the database and the
+// message broker ran without runAsNonRoot until #635.
+func TestEveryVendoredContainerIsHardened(t *testing.T) {
+	for _, path := range []string{"dependencies.go", "reinstall.go"} {
+		t.Run(path, func(t *testing.T) {
+			fileSet := token.NewFileSet()
+			file, err := parser.ParseFile(fileSet, path, nil, 0)
+			require.NoError(t, err)
+
+			containers := 0
+			ast.Inspect(file, func(node ast.Node) bool {
+				literal, ok := node.(*ast.CompositeLit)
+				if !ok {
+					return true
+				}
+				keys := keyedStrings(literal)
+				if !keys[`"image"`] || !keys[`"name"`] {
+					return true
+				}
+				containers++
+				securityContext := keyedValue(literal, `"securityContext"`)
+				assert.True(
+					t,
+					callsHelper(securityContext, "restrictedContainerSecurityContext") ||
+						callsHelper(securityContext, "vendoredContainerSecurityContext"),
+					"%s: a container does not take its security context from a hardening helper",
+					fileSet.Position(literal.Pos()),
+				)
+
+				return true
+			})
+
+			require.NotZero(t, containers, "no container declaration found to check")
+		})
+	}
+}
+
+// TestTheDependencyContextsMeetTheStandard covers the values the vendored
+// dependencies run with, which the source checks above only see by name.
+func TestTheDependencyContextsMeetTheStandard(t *testing.T) {
+	pod := dependencyPodSecurityContext()
+	assert.Equal(t, true, pod["runAsNonRoot"])
+	assert.Equal(t, nonRootUID, pod["runAsUser"])
+	assert.Equal(t, nonRootGID, pod["runAsGroup"])
+	assert.Equal(t, nonRootGID, pod["fsGroup"], "the data volume and the database's certificates are given to this group")
+	profile, _, err := unstructured.NestedString(pod, "seccompProfile", "type")
+	require.NoError(t, err)
+	assert.Equal(t, "RuntimeDefault", profile)
+
+	// an image that declares its own user keeps it
+	container := vendoredContainerSecurityContext()
+	assert.Equal(t, false, container["allowPrivilegeEscalation"])
+	assert.Equal(t, true, container["readOnlyRootFilesystem"])
+	drop, _, err := unstructured.NestedStringSlice(container, "capabilities", "drop")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"ALL"}, drop)
+	assert.NotContains(t, container, "runAsUser", "the image's own user is the one the pod names")
 }
 
 // TestNatsBoxPinsTheNumericUserItsImageDeclaresByName covers the check a
@@ -507,48 +651,62 @@ func TestEveryPodThisInstallerWritesSetsASeccompProfile(t *testing.T) {
 // USER - which the kubelet can resolve unaided, and pinning one here would
 // only let that image's default drift from what the manifest claims. Whether
 // a container needs the numeric id is a fact about its image, not about the
-// source, and nothing here can see that - so this checks only the one site
-// that was confirmed to need it.
+// source, and nothing here can see that - so this checks only the image that
+// was confirmed to need it.
 func TestNatsBoxPinsTheNumericUserItsImageDeclaresByName(t *testing.T) {
-	fileSet := token.NewFileSet()
-	file, err := parser.ParseFile(fileSet, "dependencies.go", nil, 0)
+	securityContext := natsBoxPodSecurityContext()
+	assert.Equal(t, true, securityContext["runAsNonRoot"])
+	// confirmed against the image with
+	// `docker run --entrypoint id natsio/nats-box:0.16.0-nonroot`
+	assert.Equal(t, int64(1000), securityContext["runAsUser"],
+		"nats-box's image declares USER nats:nats by name, which the kubelet cannot resolve on its own")
+	assert.Equal(t, int64(1000), securityContext["runAsGroup"])
+	profile, _, err := unstructured.NestedString(securityContext, "seccompProfile", "type")
+	require.NoError(t, err)
+	assert.Equal(t, "RuntimeDefault", profile)
+}
+
+// TestEveryNatsBoxPodTakesItsSecurityContextFromTheHelper covers every pod
+// that runs the nats-box image, wherever in the installer it is written: the
+// utility pod and the job a reinstall runs to drop the message broker's
+// streams both do.  Each takes its security context from
+// natsBoxPodSecurityContext, which the test above checks, so a copy written
+// out by hand cannot drift from it, and a new nats-box pod is held to it too.
+func TestEveryNatsBoxPodTakesItsSecurityContextFromTheHelper(t *testing.T) {
+	paths, err := filepath.Glob("*.go")
 	require.NoError(t, err)
 
-	var found *ast.CompositeLit
-	ast.Inspect(file, func(node ast.Node) bool {
-		literal, ok := node.(*ast.CompositeLit)
-		if !ok {
+	pods := 0
+	for _, path := range paths {
+		if strings.HasSuffix(path, "_test.go") {
+			continue
+		}
+		fileSet := token.NewFileSet()
+		file, err := parser.ParseFile(fileSet, path, nil, 0)
+		require.NoError(t, err)
+
+		ast.Inspect(file, func(node ast.Node) bool {
+			literal, ok := node.(*ast.CompositeLit)
+			if !ok || !mentions(keyedValue(literal, `"image"`), "natsBoxImage") {
+				return true
+			}
+			pods++
+
+			pod := enclosingPodLiteral(file, literal)
+			if !assert.NotNil(t, pod, "%s: a nats-box container is not inside a pod spec", fileSet.Position(literal.Pos())) {
+				return true
+			}
+			assert.True(
+				t, callsHelper(keyedValue(pod, `"securityContext"`), "natsBoxPodSecurityContext"),
+				"%s: a nats-box pod does not take its security context from natsBoxPodSecurityContext",
+				fileSet.Position(pod.Pos()),
+			)
+
 			return true
-		}
-		if mentions(keyedValue(literal, `"image"`), "natsBoxImage") {
-			found = literal
-		}
+		})
+	}
 
-		return true
-	})
-	require.NotNil(t, found, "no container literal naming natsBoxImage found")
-
-	// the securityContext is on the pod sibling to this container, not on
-	// this literal: nats-box's pod sets it, not its one container
-	podLiteral := enclosingPodLiteral(file, found)
-	require.NotNil(t, podLiteral, "nats-box container is not inside a pod spec")
-
-	securityContext := keyedValue(podLiteral, `"securityContext"`)
-	require.NotNil(t, securityContext, "nats-box pod has no security context")
-
-	assert.True(t, mentions(securityContext, "true"), "nats-box pod does not set runAsNonRoot")
-	assert.True(
-		t, mentions(securityContext, "natsBoxUID"),
-		"nats-box pod sets runAsNonRoot with no numeric runAsUser - its image declares USER nats:nats "+
-			"by name, which the kubelet cannot resolve on its own",
-	)
-	assert.True(t, mentions(securityContext, "natsBoxGID"), "nats-box pod has no runAsGroup to match")
-
-	// the AST check above only sees that the identifier is referenced, not
-	// what it is worth - confirmed against the image with
-	// `docker run --entrypoint id natsio/nats-box:0.16.0-nonroot`
-	assert.Equal(t, int64(1000), natsBoxUID, "this is nats-box's actual uid, not a placeholder")
-	assert.Equal(t, int64(1000), natsBoxGID, "this is nats-box's actual gid, not a placeholder")
+	require.GreaterOrEqual(t, pods, 2, "the nats-box utility pod and the message broker drop job were not both found")
 }
 
 // enclosingPodLiteral returns the nearest composite literal that lists
