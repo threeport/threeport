@@ -25,6 +25,7 @@ import (
 
 const (
 	DbInitFilename            = "db.sql"
+	DbBackupScheduleFilename  = "backup-schedule.sql"
 	DbInitLocation            = "/etc/threeport/db-create"
 	ThreeportApiCaSecret      = "api-ca"
 	ThreeportApiConfigSecret  = "api-config"
@@ -220,12 +221,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAPIDeployment(
 				"name":      "db-create",
 				"namespace": cpi.Opts.Namespace,
 			},
-			"data": map[string]interface{}{
-				"db.sql": `CREATE USER IF NOT EXISTS threeport;
-CREATE DATABASE IF NOT EXISTS threeport_api encoding='utf-8';
-GRANT ALL ON DATABASE threeport_api TO threeport;
-`,
-			},
+			"data": cpi.dbCreateData(),
 		},
 	}
 
@@ -717,6 +713,23 @@ func setManagedByLabel(resource *unstructured.Unstructured) {
 	// set the managed-by label
 	labels[LabelManagedBy] = LabelManagedByValue
 	resource.SetLabels(labels)
+}
+
+// dbCreateData returns the SQL the database migrator runs before the API
+// server starts: the init script, and on a control plane that backs its
+// database up, the backup schedule.
+func (cpi *ControlPlaneInstaller) dbCreateData() map[string]interface{} {
+	data := map[string]interface{}{
+		DbInitFilename: `CREATE USER IF NOT EXISTS threeport;
+CREATE DATABASE IF NOT EXISTS threeport_api encoding='utf-8';
+GRANT ALL ON DATABASE threeport_api TO threeport;
+`,
+	}
+	if cpi.Opts.GcpBackupBucket != "" {
+		data[DbBackupScheduleFilename] = DatabaseBackupScheduleSQL(DatabaseBackupURI(cpi.Opts.GcpBackupBucket))
+	}
+
+	return data
 }
 
 // setPersistent marks the resource so a later install keeps the existing object.

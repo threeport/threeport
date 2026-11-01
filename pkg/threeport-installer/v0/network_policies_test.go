@@ -4,6 +4,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -327,47 +328,55 @@ func TestNothingButTheDatabaseIsRestricted(t *testing.T) {
 // TestMaintenanceJobsCarryTheLabelTheDatabasePolicyAdmits covers the two
 // halves of one decision.
 //
-// The policy admits pods carrying LabelMaintenance. A drop job that does not
-// set it is denied the database, and the drop runs after the control plane
-// has been scaled to zero - so the failure leaves the installation down
-// rather than refusing to start.
+// The policy admits pods carrying LabelMaintenance. A job that reaches the
+// database without it is denied: the drop and the restore run after the
+// control plane has been scaled to zero, so the failure leaves the
+// installation down rather than refusing to start, and the CockroachDB init
+// job a reinstall runs again fails the reinstall. Every job the installer
+// writes is checked, in every file, so a new one cannot be left out.
 func TestMaintenanceJobsCarryTheLabelTheDatabasePolicyAdmits(t *testing.T) {
-	fileSet := token.NewFileSet()
-	file, err := parser.ParseFile(fileSet, "reinstall.go", nil, 0)
+	paths, err := filepath.Glob("*.go")
 	require.NoError(t, err)
 
-	jobs, labelled := 0, 0
-	ast.Inspect(file, func(node ast.Node) bool {
-		literal, ok := node.(*ast.CompositeLit)
-		if !ok {
-			return true
+	jobs := 0
+	for _, path := range paths {
+		if strings.HasSuffix(path, "_test.go") {
+			continue
 		}
-		keys := map[string]bool{}
-		for _, element := range literal.Elts {
-			keyed, ok := element.(*ast.KeyValueExpr)
+		fileSet := token.NewFileSet()
+		file, err := parser.ParseFile(fileSet, path, nil, 0)
+		require.NoError(t, err)
+
+		ast.Inspect(file, func(node ast.Node) bool {
+			literal, ok := node.(*ast.CompositeLit)
 			if !ok {
-				continue
+				return true
 			}
-			if basic, ok := keyed.Key.(*ast.BasicLit); ok {
-				keys[basic.Value] = true
+			keys := map[string]bool{}
+			for _, element := range literal.Elts {
+				keyed, ok := element.(*ast.KeyValueExpr)
+				if !ok {
+					continue
+				}
+				if basic, ok := keyed.Key.(*ast.BasicLit); ok {
+					keys[basic.Value] = true
+				}
 			}
-		}
-		if !keys[`"template"`] {
+			if !keys[`"template"`] || !keys[`"backoffLimit"`] {
+				return true
+			}
+			jobs++
+			assert.True(
+				t, containsIdent(literal, "LabelMaintenance"),
+				"%s: a job does not carry the label the database policy admits",
+				fileSet.Position(literal.Pos()),
+			)
+
 			return true
-		}
-		jobs++
-		if containsIdent(literal, "LabelMaintenance") {
-			labelled++
-		}
+		})
+	}
 
-		return true
-	})
-
-	require.NotZero(t, jobs, "no job template found to check")
-	assert.Equal(
-		t, jobs, labelled,
-		"every maintenance job must carry the label the database policy admits",
-	)
+	assert.GreaterOrEqual(t, jobs, 4, "the drop, message broker drop, restore and CockroachDB init jobs were not all found")
 }
 
 // TestReinstallReappliesTheNetworkPolicy covers the install path a
