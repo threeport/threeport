@@ -201,9 +201,9 @@ nodeRegistration:
 // kindWorkers returns a list of worker nodes
 func kindWorkers(numWorkerNodes int, threeportPath, goPath, goCache string) *[]v1alpha4.Node {
 	nodes := make([]v1alpha4.Node, numWorkerNodes)
-	for _, node := range nodes {
+	for i := range nodes {
 
-		node = v1alpha4.Node{
+		node := v1alpha4.Node{
 			Role:  v1alpha4.WorkerRole,
 			Image: kindImage,
 		}
@@ -228,6 +228,8 @@ func kindWorkers(numWorkerNodes int, threeportPath, goPath, goCache string) *[]v
 				HostPath:      goCache,
 			})
 		}
+
+		nodes[i] = node
 	}
 
 	return &nodes

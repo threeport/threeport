@@ -11,6 +11,7 @@ import (
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
+	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -29,6 +30,8 @@ type ControlPlaneInstanceValues struct {
 	Namespace                 *string
 	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues
 	ControlPlaneDefinition    *ControlPlaneDefinitionValues
+	ImageNamespace            *string
+	ImageTag                  *string
 	CustomComponentInfo       []*api_v0.ControlPlaneComponent
 	Genesis                   *bool
 	Age                       *string
@@ -94,6 +97,8 @@ func (c *ControlPlaneInstanceConfig) Get(
 				Namespace:                 controlPlaneInstance.Namespace,
 				KubernetesRuntimeInstance: kubernetesRuntimeInstance,
 				ControlPlaneDefinition:    controlPlaneDefinition,
+				ImageNamespace:            controlPlaneInstance.ImageNamespace,
+				ImageTag:                  controlPlaneInstance.ImageTag,
 				CustomComponentInfo:       controlPlaneInstance.CustomComponentInfo,
 				Genesis:                   controlPlaneInstance.Genesis,
 				Age:                       util.Ptr(util.GetAgeFormatted(controlPlaneInstance.CreatedAt)),
@@ -144,6 +149,8 @@ func (c *ControlPlaneInstanceConfig) Create(
 		},
 		Namespace:                   controlPlaneInstanceValues.Namespace,
 		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
+		ImageNamespace:              controlPlaneInstanceValues.ImageNamespace,
+		ImageTag:                    controlPlaneInstanceValues.ImageTag,
 		CustomComponentInfo:         controlPlaneInstanceValues.CustomComponentInfo,
 		ControlPlaneDefinitionID:    controlPlaneDefinition.ID,
 	}
@@ -166,6 +173,8 @@ func (c *ControlPlaneInstanceConfig) Create(
 			Namespace:                 createdControlPlaneInstance.Namespace,
 			KubernetesRuntimeInstance: controlPlaneInstanceValues.KubernetesRuntimeInstance,
 			ControlPlaneDefinition:    controlPlaneInstanceValues.ControlPlaneDefinition,
+			ImageNamespace:            createdControlPlaneInstance.ImageNamespace,
+			ImageTag:                  createdControlPlaneInstance.ImageTag,
 			CustomComponentInfo:       createdControlPlaneInstance.CustomComponentInfo,
 			Genesis:                   createdControlPlaneInstance.Genesis,
 		},
@@ -210,6 +219,8 @@ func (c *ControlPlaneInstanceConfig) Replace(
 		},
 		Namespace:                   controlPlaneInstanceValues.Namespace,
 		KubernetesRuntimeInstanceID: existingControlPlaneInstance.KubernetesRuntimeInstanceID,
+		ImageNamespace:              controlPlaneInstanceValues.ImageNamespace,
+		ImageTag:                    controlPlaneInstanceValues.ImageTag,
 		CustomComponentInfo:         controlPlaneInstanceValues.CustomComponentInfo,
 		ControlPlaneDefinitionID:    existingControlPlaneInstance.ControlPlaneDefinitionID,
 	}
@@ -232,6 +243,8 @@ func (c *ControlPlaneInstanceConfig) Replace(
 			Namespace:                 replacedControlPlaneInstance.Namespace,
 			KubernetesRuntimeInstance: controlPlaneInstanceValues.KubernetesRuntimeInstance,
 			ControlPlaneDefinition:    controlPlaneInstanceValues.ControlPlaneDefinition,
+			ImageNamespace:            replacedControlPlaneInstance.ImageNamespace,
+			ImageTag:                  replacedControlPlaneInstance.ImageTag,
 			CustomComponentInfo:       replacedControlPlaneInstance.CustomComponentInfo,
 			Genesis:                   replacedControlPlaneInstance.Genesis,
 		},
@@ -329,6 +342,12 @@ func (c *ControlPlaneInstanceConfig) Validate() error {
 	// ensure control plane definition is set
 	if controlPlaneInstanceValues.ControlPlaneDefinition == nil || controlPlaneInstanceValues.ControlPlaneDefinition.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: ControlPlaneDefinition.Name"))
+	}
+
+	// ensure component info names a default component or is marked as an
+	// additional one
+	if err := threeport.ValidateComponentOverrides(controlPlaneInstanceValues.CustomComponentInfo); err != nil {
+		multiError.AppendError(fmt.Errorf("invalid CustomComponentInfo: %w", err))
 	}
 
 	return multiError.Error()
