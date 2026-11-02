@@ -6,7 +6,7 @@ import _ "embed"
 var IngressComponent []byte
 
 //go:embed sso/certificates.yaml
-var Certificates []byte
+var CertificatesComponent []byte
 
 //go:embed gateway/ingress.yaml
 var Ingress []byte

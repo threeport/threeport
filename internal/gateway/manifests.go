@@ -378,7 +378,7 @@ func getExternalDnsYaml(
 // getCertificatesComponentYaml returns the certificates component.
 func getCertificatesComponentYaml() (string, error) {
 	// decode the embedded component
-	component, err := util.UnstructuredFromYaml(manifests.Certificates)
+	component, err := util.UnstructuredFromYaml(manifests.CertificatesComponent)
 	if err != nil {
 		return "", err
 	}
