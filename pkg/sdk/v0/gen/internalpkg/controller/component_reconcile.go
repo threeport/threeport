@@ -94,11 +94,11 @@ func emitSupportComponents(
 				Lit("failed to get kubernetes runtime instance: %w"),
 				Err(),
 			),
-		).Else().BlockFunc(func(e *Group) {
-			for _, component := range components {
-				emitComponentCall(e, component, release, typeName, version, modulePath)
-			}
-		})
+		)
+		// skip the component calls when the runtime load fails
+		for _, component := range components {
+			emitComponentCall(b, component, release, typeName, version, modulePath)
+		}
 	})
 }
 
@@ -144,7 +144,9 @@ func emitComponentCall(
 					Lit("failed to get infra provider: %w"),
 					Err(),
 				),
-			).Else().BlockFunc(func(s *Group) {
+			)
+			// skip the secrets install when the provider load fails
+			b.If(Id("operationErr").Op("==").Nil()).BlockFunc(func(s *Group) {
 				assignComponentErr(
 					s,
 					Qual(supportServicesPath, "EnsureSecretsComponent").Call(

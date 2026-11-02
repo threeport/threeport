@@ -73,6 +73,28 @@ func TestEmitSupportComponentsNamesTheCalls(t *testing.T) {
 		t.Fatalf("release output called ensure:\n%s", release)
 	}
 
+	// a failed runtime load skips the component calls without an else
+	runtimeErr := `operationErr = fmt.Errorf("failed to get kubernetes runtime instance: %w", err)`
+	ingressAt := strings.Index(ensure, "EnsureIngressComponent")
+	runtimeAt := strings.Index(ensure, runtimeErr)
+	if runtimeAt < 0 || ingressAt < 0 || runtimeAt > ingressAt {
+		t.Fatalf("ensure output ordered the runtime load after ingress:\n%s", ensure)
+	}
+	if strings.Contains(ensure[runtimeAt:ingressAt], "else") {
+		t.Fatalf("runtime load wrapped the component calls in else:\n%s", ensure[runtimeAt:ingressAt])
+	}
+
+	// a failed provider load skips the secrets install without an else
+	providerErr := `operationErr = fmt.Errorf("failed to get infra provider: %w", err)`
+	secretsAt := strings.Index(ensure, "EnsureSecretsComponent")
+	providerAt := strings.Index(ensure, providerErr)
+	if providerAt < 0 || secretsAt < 0 || providerAt > secretsAt {
+		t.Fatalf("ensure output ordered the provider load after secrets:\n%s", ensure)
+	}
+	if strings.Contains(ensure[providerAt:secretsAt], "else") {
+		t.Fatalf("provider load wrapped the secrets install in else:\n%s", ensure[providerAt:secretsAt])
+	}
+
 	// ensure passes the caller's field address and release does not
 	for _, field := range []string{
 		"&componentObject.IngressComponentInstanceID",
