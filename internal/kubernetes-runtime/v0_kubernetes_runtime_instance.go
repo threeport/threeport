@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-logr/logr"
 
+	"github.com/threeport/threeport/internal/agent"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
@@ -209,6 +210,11 @@ func v0KubernetesRuntimeInstanceUpdated(
 	}
 
 	cpi := threeport.NewInstaller()
+
+	// the compute space agent reports on this control plane's workloads, so
+	// it is scoped to this control plane's name - the same one its workload
+	// controllers put on the ThreeportWorkloads they create
+	cpi.Opts.ControlPlaneName = os.Getenv(agent.ControlPlaneNameEnvVar)
 
 	if agentImage != "" {
 		agentRegistry, _, agentTag, err := util.ParseImage(agentImage)
