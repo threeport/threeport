@@ -19933,6 +19933,10 @@
                     "description": "The SecretDefinition that the secret instance is derived from.",
                     "type": "integer"
                 },
+                "SecretsComponentInstanceID": {
+                    "description": "The workload instance that runs the secrets component for this instance.",
+                    "type": "integer"
+                },
                 "Status": {
                     "description": "The status of the instance.\nTODO: use a custom type",
                     "type": "string"

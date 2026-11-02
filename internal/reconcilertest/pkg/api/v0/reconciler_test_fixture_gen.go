@@ -104,6 +104,11 @@ func (r *ReconcilerTestInstance) RelationshipTaggedForeignKeys() []api.Relations
 		ObjectType:   new(api.KubernetesWorkloadInstance).GetFullyQualifiedType(),
 		Relationship: api.RelationshipRequires,
 	}, {
+		FieldName:    "KubernetesRuntimeInstanceID",
+		ObjectID:     r.KubernetesRuntimeInstanceID,
+		ObjectType:   new(api.KubernetesRuntimeInstance).GetFullyQualifiedType(),
+		Relationship: api.RelationshipRequires,
+	}, {
 		FieldName:    "SecretsComponentInstanceID",
 		ObjectID:     r.SecretsComponentInstanceID,
 		ObjectType:   new(api.KubernetesWorkloadInstance).GetFullyQualifiedType(),
