@@ -115,6 +115,21 @@ func (k *KubernetesRuntimeInstance) beforeCreate(tx *gorm.DB) error {
 		)
 	}
 
+	// reject a component slot supplied on create
+	// Reconciliation writes the slot after this object exists.
+	for _, slot := range []*uint{
+		k.IngressComponentInstanceID,
+		k.CertificatesComponentInstanceID,
+		k.SecretsComponentInstanceID,
+		k.DatabaseComponentInstanceID,
+	} {
+		if slot != nil {
+			return util.NewBadRequestError(
+				"kubernetes runtime instance component slots are set when the runtime is reconciled",
+			)
+		}
+	}
+
 	return nil
 }
 
