@@ -13,6 +13,7 @@ import (
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	supportservices "github.com/threeport/threeport/pkg/supportservices"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -57,7 +58,7 @@ func (c *SecretInstanceConfig) createSecretObjects() error {
 	// configure secret json manifests
 	secretObjects, err := c.getSecretObjects()
 	if err != nil {
-		return fmt.Errorf("failed to configure secret controller json manifests: %w", err)
+		return fmt.Errorf("failed to configure secret component json manifests: %w", err)
 	}
 
 	// update workload with secret manifests
@@ -144,7 +145,7 @@ func (c *SecretInstanceConfig) deleteSecretObjects() error {
 	// configure secret json manifests
 	secretObjects, err := c.getSecretObjects()
 	if err != nil {
-		return fmt.Errorf("failed to configure secret controller json manifests: %w", err)
+		return fmt.Errorf("failed to configure secret component json manifests: %w", err)
 	}
 
 	// update workload with secret manifests
@@ -364,87 +365,19 @@ func (c *SecretInstanceConfig) validateThreeportState() error {
 		return errors.New("secret instance must be attached to a kubernetes workload instance or a helm workload instance")
 	}
 
-	// confirm secret controller is deployed
-	if err := c.confirmSecretControllerDeployed(); err != nil {
-		return fmt.Errorf("failed to confirm secret controller deployed: %w", err)
-	}
-
-	return nil
-}
-
-// confirmSecretControllerDeployed confirms the secret controller
-// is deployed
-func (c *SecretInstanceConfig) confirmSecretControllerDeployed() error {
-	if c.kubernetesRuntimeInstance.SecretsControllerInstanceID != nil {
-		workloadInstance, err := client.GetKubernetesWorkloadInstanceByID(
-			c.r.APIClient,
-			c.r.APIServer,
-			*c.kubernetesRuntimeInstance.SecretsControllerInstanceID,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to get secret controller kubernetes workload instance: %w", err)
-		}
-		if !*workloadInstance.Reconciled {
-			return errors.New("secret controller not reconciled")
-		}
-
-		// secret controller is reconciled
-		return nil
-	}
-
-	var externalSecretsYaml string
-	var err error
-	switch *c.kubernetesRuntimeDefinition.InfraProvider {
-	case v0.KubernetesRuntimeInfraProviderEKS, v0.KubernetesRuntimeInfraProviderKind:
-		externalSecretsYaml, err = c.getExternalSecretsSupportServiceYaml()
-		if err != nil {
-			return fmt.Errorf("failed to create external secrets: %w", err)
-		}
-	}
-
-	// create secret controller kubernetes workload definition
-	workloadDefName := fmt.Sprintf("%s-%s", "external-secrets", *c.kubernetesRuntimeInstance.Name)
-	externalSecretsWorkloadDefinition := v0.KubernetesWorkloadDefinition{
-		Definition:   v0.Definition{Name: &workloadDefName},
-		YAMLDocument: util.Ptr(externalSecretsYaml),
-	}
-
-	// create secret controller kubernetes workload definition
-	createdSecretControllerWorkloadDefinition, err := client.CreateKubernetesWorkloadDefinition(
-		c.r.APIClient,
-		c.r.APIServer,
-		&externalSecretsWorkloadDefinition,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create secret controller kubernetes workload definition: %w", err)
-	}
-
-	// create secret controller kubernetes workload instance
-	createdSecretControllerWorkloadInstance, err := client.CreateKubernetesWorkloadInstance(
-		c.r.APIClient,
-		c.r.APIServer,
-		&v0.KubernetesWorkloadInstance{
-			Instance:                       v0.Instance{Name: &workloadDefName},
-			KubernetesWorkloadDefinitionID: createdSecretControllerWorkloadDefinition.ID,
-			KubernetesRuntimeInstanceID:    c.kubernetesRuntimeInstance.ID,
-		},
-	)
-
-	// update kubernetes runtime instance with secret controller instance ID
-	c.kubernetesRuntimeInstance.SecretsControllerInstanceID = createdSecretControllerWorkloadInstance.ID
-	if _, err = client.UpdateKubernetesRuntimeInstance(
-		c.r.APIClient,
-		c.r.APIServer,
+	// confirm secret component is deployed
+	if err := supportservices.EnsureSecretsComponent(
 		c.kubernetesRuntimeInstance,
+		&secretComponentAttacher{config: c},
+		c.log,
 	); err != nil {
-		return fmt.Errorf("failed to update kubernetes runtime instance with secret controller instance ID: %w", err)
+		return fmt.Errorf("failed to confirm secret component deployed: %w", err)
 	}
 
 	return nil
 }
 
-// getSecretObjects configures the secret controller
-// json manifests
+// getSecretObjects configures the secret component json manifests.
 func (c *SecretInstanceConfig) getSecretObjects() ([]*unstructured.Unstructured, error) {
 	var manifests []*unstructured.Unstructured
 

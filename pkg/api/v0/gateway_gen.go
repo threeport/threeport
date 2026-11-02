@@ -377,8 +377,13 @@ func (gi *GatewayInstance) ScheduledForDeletion() *time.Time {
 // RelationshipTaggedForeignKeys returns the relationship-tagged foreign keys on GatewayInstance.
 func (g *GatewayInstance) RelationshipTaggedForeignKeys() []RelationshipTaggedForeignKey {
 	return []RelationshipTaggedForeignKey{{
-		FieldName:    "GatewayControllerInstanceID",
-		ObjectID:     g.GatewayControllerInstanceID,
+		FieldName:    "IngressComponentInstanceID",
+		ObjectID:     g.IngressComponentInstanceID,
+		ObjectType:   new(KubernetesWorkloadInstance).GetFullyQualifiedType(),
+		Relationship: RelationshipRequires,
+	}, {
+		FieldName:    "CertificatesComponentInstanceID",
+		ObjectID:     g.CertificatesComponentInstanceID,
 		ObjectType:   new(KubernetesWorkloadInstance).GetFullyQualifiedType(),
 		Relationship: RelationshipRequires,
 	}, {

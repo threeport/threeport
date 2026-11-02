@@ -2,7 +2,6 @@ package gateway
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/iancoleman/strcase"
@@ -19,9 +18,6 @@ import (
 const (
 	// ingressComponentName is the IngressComponent object this install applies.
 	ingressComponentName = "ingress"
-
-	// globalConfigurationName is the GlobalConfiguration this install writes.
-	globalConfigurationName = "nginx-ingress"
 
 	// externalDNSComponentName is the IngressComponent object that installs external-dns.
 	externalDNSComponentName = "externaldns"
@@ -253,16 +249,6 @@ func getIngressComponentYaml() (string, error) {
 		"include",
 	); err != nil {
 		return "", fmt.Errorf("failed to set nginx include: %w", err)
-	}
-	// name the GlobalConfiguration the nginx controller watches
-	if err := unstructured.SetNestedField(
-		component.Object,
-		globalConfigurationName,
-		"spec",
-		"nginx",
-		"globalConfigurationName",
-	); err != nil {
-		return "", fmt.Errorf("failed to set the global configuration name: %w", err)
 	}
 	if err := unstructured.SetNestedField(
 		component.Object,
@@ -720,36 +706,4 @@ func supportedHTTPPort(port int, tls bool) error {
 		return nil
 	}
 	return fmt.Errorf("http port %d is not served; use 80, or 443 with tls", port)
-}
-
-// orderedPorts returns the ports sorted and without duplicates.
-func orderedPorts(ports []int) []int {
-	// sort, then drop a port that matches the one before it
-	ordered := append([]int(nil), ports...)
-	sort.Ints(ordered)
-	unique := make([]int, 0, len(ordered))
-	var previous int
-	for i, port := range ordered {
-		if i > 0 && port == previous {
-			continue
-		}
-		unique = append(unique, port)
-		previous = port
-	}
-	return unique
-}
-
-// tcpListeners returns one listener per port, in port order.
-func tcpListeners(ports []int) []interface{} {
-	// build one listener for each port
-	ordered := orderedPorts(ports)
-	listeners := make([]interface{}, 0, len(ordered))
-	for _, port := range ordered {
-		listeners = append(listeners, map[string]interface{}{
-			"name":     fmt.Sprintf("tcp-%d", port),
-			"port":     int64(port),
-			"protocol": "TCP",
-		})
-	}
-	return listeners
 }

@@ -29,6 +29,33 @@ import (
 //go:embed manifests/test/service-test.yaml
 var serviceTest []byte
 
+// kubeJSON stores one object the way a workload resource stores its manifest.
+func kubeJSON(object map[string]interface{}) *datatypes.JSON {
+	// marshal the object the stored definition holds
+	raw, err := json.Marshal(object)
+	if err != nil {
+		panic(err)
+	}
+	stored := datatypes.JSON(raw)
+	return &stored
+}
+
+// writeOne answers one object the way a get-by-id handler does.
+func writeOne(t *testing.T, w http.ResponseWriter, status int, object apiserver_lib.Object) {
+	t.Helper()
+	machinetest.WriteResponse(t, w, status, []apiserver_lib.Object{object})
+}
+
+// apiObjects wraps a slice in the list shape the client reads.
+func apiObjects[T any](objects []T) []apiserver_lib.Object {
+	// copy each value into the interface slice
+	listed := make([]apiserver_lib.Object, len(objects))
+	for i := range objects {
+		listed[i] = objects[i]
+	}
+	return listed
+}
+
 // TestConfigureIssuerKindUsesSelfSigned covers a kind runtime.
 func TestConfigureIssuerKindUsesSelfSigned(t *testing.T) {
 	// serve the issuer document and a kind runtime definition

@@ -30,7 +30,7 @@ func claimSlot(t *testing.T, db *gorm.DB, runtimeID uint, workloadID uint) error
 		return err
 	}
 	return db.Model(&loaded).
-		Updates(&KubernetesRuntimeInstance{GatewayControllerInstanceID: &workloadID}).
+		Updates(&KubernetesRuntimeInstance{IngressComponentInstanceID: &workloadID}).
 		Error
 }
 
@@ -41,7 +41,7 @@ func storedSlot(t *testing.T, db *gorm.DB, runtimeID uint) *uint {
 	// read the runtime
 	var stored KubernetesRuntimeInstance
 	require.NoError(t, db.First(&stored, runtimeID).Error)
-	return stored.GatewayControllerInstanceID
+	return stored.IngressComponentInstanceID
 }
 
 // TestSupportServiceSlotClaimsTheDatabaseColumn stores an id on the database column.
@@ -52,13 +52,13 @@ func TestSupportServiceSlotClaimsTheDatabaseColumn(t *testing.T) {
 	// claim the database column with no workload row
 	var loaded KubernetesRuntimeInstance
 	require.NoError(t, db.First(&loaded, *runtime.ID).Error)
-	loaded.DatabaseControllerInstanceID = util.Ptr(uint(11))
+	loaded.DatabaseComponentInstanceID = util.Ptr(uint(11))
 	require.NoError(t, db.Model(&loaded).Updates(&loaded).Error)
 
 	var stored KubernetesRuntimeInstance
 	require.NoError(t, db.First(&stored, *runtime.ID).Error)
-	require.NotNil(t, stored.DatabaseControllerInstanceID)
-	require.Equal(t, uint(11), *stored.DatabaseControllerInstanceID)
+	require.NotNil(t, stored.DatabaseComponentInstanceID)
+	require.Equal(t, uint(11), *stored.DatabaseComponentInstanceID)
 }
 
 // TestSupportServiceSlotClaimsAnEmptyColumn stores the first workload id.
@@ -196,6 +196,6 @@ func clearSlot(t *testing.T, db *gorm.DB, runtimeID uint) error {
 	// save the runtime with the slot empty
 	var loaded KubernetesRuntimeInstance
 	require.NoError(t, db.First(&loaded, runtimeID).Error)
-	loaded.GatewayControllerInstanceID = nil
+	loaded.IngressComponentInstanceID = nil
 	return db.Save(&loaded).Error
 }

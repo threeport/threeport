@@ -4,15 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strings"
-	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/iancoleman/strcase"
 	"gorm.io/datatypes"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"github.com/threeport/threeport/internal/gateway/manifests"
 	runtime "github.com/threeport/threeport/internal/kubernetes-runtime"
 	workload_util "github.com/threeport/threeport/internal/kubernetes-workload/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -273,7 +270,7 @@ func getThreeportObjects(
 	}
 	gatewayDefinition, err := client.GetGatewayDefinitionByID(r.APIClient, r.APIServer, *gatewayInstance.GatewayDefinitionID)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to get gateway controller kubernetes workload definition: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to get gateway component kubernetes workload definition: %w", err)
 	}
 
 	// get kubernetes workload instance
@@ -292,7 +289,6 @@ func getThreeportObjects(
 // prior to reconciling a gateway instance
 func validateThreeportState(
 	r *controller.Reconciler,
-	gatewayDefinition *v0.GatewayDefinition,
 	gatewayInstance *v0.GatewayInstance,
 	workloadInstance *v0.KubernetesWorkloadInstance,
 	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
@@ -320,39 +316,70 @@ func validateThreeportState(
 		return errors.New("kubernetes workload instance not reconciled")
 	}
 
-	// install or adopt the shared controller, then record this gateway
-	err = supportservices.Ensure(
-		*kubernetesRuntimeInstance.ID,
-		&kubernetesRuntimeInstance.GatewayControllerInstanceID,
-		"gateway controller",
-		&gatewayAttacher{reconciler: r, gateway: gatewayInstance},
-		func() (uint, error) {
-			return createGatewayControllerWorkload(r, kubernetesRuntimeInstance, log)
-		},
+	// install or adopt the shared component, then record this gateway
+	err = supportservices.EnsureIngressComponent(
+		kubernetesRuntimeInstance,
+		&gatewayComponentAttacher{reconciler: r, gateway: gatewayInstance},
+		log,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to reconcile gateway controller: %w", err)
+		return fmt.Errorf("failed to reconcile gateway component: %w", err)
 	}
 
-	// the issuer is an API record. it does not wait for the controller pods.
-	if err := gatewayControllerPresent(kubernetesRuntimeInstance); err != nil {
+	// accept the stored component id without waiting for its pods
+	if err := gatewayComponentPresent(kubernetesRuntimeInstance); err != nil {
 		return err
 	}
 
-	// confirm requested ports are exposed
-	err = confirmGatewayPortsExposed(r, gatewayInstance, kubernetesRuntimeInstance, gatewayDefinition, log)
+	// put the nginx object on the shared ingress workload
+	ingressManifest, err := getIngressComponentYaml()
 	if err != nil {
-		return fmt.Errorf("failed to confirm requested port is exposed: %w", err)
+		return fmt.Errorf("failed to create ingress component: %w", err)
+	}
+	err = syncWorkloadObject(
+		r,
+		*kubernetesRuntimeInstance.IngressComponentInstanceID,
+		ingressManifest,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to sync ingress component: %w", err)
+	}
+
+	// install cert-manager on eks and kind
+	infraProvider, err := client.GetInfraProviderByKubernetesRuntimeInstanceID(
+		r.APIClient,
+		r.APIServer,
+		kubernetesRuntimeInstance.ID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get infra provider: %w", err)
+	}
+	if infraProvider != nil &&
+		(*infraProvider == v0.KubernetesRuntimeInfraProviderEKS ||
+			*infraProvider == v0.KubernetesRuntimeInfraProviderKind) {
+		err = supportservices.EnsureCertificatesComponent(
+			kubernetesRuntimeInstance,
+			&gatewayComponentAttacher{
+				reconciler: r,
+				gateway:    gatewayInstance,
+				component:  certificatesComponent,
+			},
+			log,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to reconcile certificates component: %w", err)
+		}
 	}
 
 	return nil
 }
 
-// gatewayControllerPresent reports that the runtime stores a controller workload.
+// gatewayComponentPresent reports that the runtime stores a component workload.
 // The issuer is an API record and does not wait for that workload to reconcile.
-func gatewayControllerPresent(kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance) error {
-	if kubernetesRuntimeInstance.GatewayControllerInstanceID == nil {
-		return fmt.Errorf("gateway controller instance ID is nil")
+func gatewayComponentPresent(kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance) error {
+	// require the stored workload id
+	if kubernetesRuntimeInstance.IngressComponentInstanceID == nil {
+		return fmt.Errorf("gateway component instance ID is nil")
 	}
 	return nil
 }
@@ -395,45 +422,20 @@ func confirmDefinitionsReconciled(
 	return true, nil
 }
 
-// createGatewayControllerWorkload creates the nginx workload and returns its id.
-func createGatewayControllerWorkload(
+// createComponentWorkload creates one component workload and returns its id.
+func createComponentWorkload(
 	r *controller.Reconciler,
 	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
+	workloadName string,
+	manifest string,
 	log *logr.Logger,
 ) (uint, error) {
-	// generate nginx ingress and cert-manager manifests
-	ingressComponent, err := getIngressComponentYaml()
-	if err != nil {
-		return 0, fmt.Errorf("failed to create ingress component: %w", err)
-	}
-
-	// get infra provider
-	infraProvider, err := client.GetInfraProviderByKubernetesRuntimeInstanceID(r.APIClient, r.APIServer, kubernetesRuntimeInstance.ID)
-	if err != nil {
-		return 0, fmt.Errorf("failed to get infra provider: %w", err)
-	}
-
-	// generate the certificates component for providers that install it
-	var certificates string
-	switch *infraProvider {
-	case v0.KubernetesRuntimeInfraProviderEKS, v0.KubernetesRuntimeInfraProviderKind:
-		certificates, err = getCertificatesComponentYaml()
-	default:
-		break
-	}
-	if err != nil {
-		return 0, fmt.Errorf("failed to create certificates component: %w", err)
-	}
-
-	// concatenate the certificates component and the ingress component
-	manifest := fmt.Sprintf("---\n%s\n---\n%s\n", certificates, ingressComponent)
-
-	// reuse the workload definition a deleted controller left behind
+	// reuse the workload definition a deleted component left behind
 	var createdWorkloadDef *v0.KubernetesWorkloadDefinition
-	workloadDefName := fmt.Sprintf("%s-%s", "ingress", *kubernetesRuntimeInstance.Name)
+	workloadDefName := workloadName
 	existingDefinition, err := client.GetKubernetesWorkloadDefinitionByName(r.APIClient, r.APIServer, workloadDefName)
 	if err != nil && !errors.Is(err, client_lib.ErrObjectNotFound) {
-		return 0, fmt.Errorf("failed to get gateway controller kubernetes workload definition: %w", err)
+		return 0, fmt.Errorf("failed to get gateway component kubernetes workload definition: %w", err)
 	}
 	if errors.Is(err, client_lib.ErrObjectNotFound) {
 		ingressWorkloadDefinition := v0.KubernetesWorkloadDefinition{
@@ -442,7 +444,7 @@ func createGatewayControllerWorkload(
 		}
 		createdWorkloadDef, err = client.CreateKubernetesWorkloadDefinition(r.APIClient, r.APIServer, &ingressWorkloadDefinition)
 		if err != nil {
-			return 0, fmt.Errorf("failed to create gateway controller kubernetes workload definition: %w", err)
+			return 0, fmt.Errorf("failed to create gateway component kubernetes workload definition: %w", err)
 		}
 	} else {
 		createdWorkloadDef = existingDefinition
@@ -456,7 +458,7 @@ func createGatewayControllerWorkload(
 	}
 	createdIngressWorkloadInstance, err := client.CreateKubernetesWorkloadInstance(r.APIClient, r.APIServer, &ingressWorkloadInstance)
 	if err != nil {
-		return 0, fmt.Errorf("failed to create gateway controller kubernetes workload instance: %w", err)
+		return 0, fmt.Errorf("failed to create gateway component kubernetes workload instance: %w", err)
 	}
 
 	log.V(1).Info(
@@ -467,12 +469,14 @@ func createGatewayControllerWorkload(
 	return *createdIngressWorkloadInstance.ID, nil
 }
 
-// releaseGatewayController deletes the shared controller when no gateway remains.
-func releaseGatewayController(r *controller.Reconciler, gatewayInstance *v0.GatewayInstance) error {
-	// skip a runtime that never installed a controller
+// releaseGatewayComponent deletes the shared component when no gateway remains.
+func releaseGatewayComponent(r *controller.Reconciler, gatewayInstance *v0.GatewayInstance) error {
+	// skip a gateway that names no runtime
 	if gatewayInstance.KubernetesRuntimeInstanceID == nil {
 		return nil
 	}
+
+	// load the runtime
 	kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(
 		r.APIClient,
 		r.APIServer,
@@ -481,11 +485,14 @@ func releaseGatewayController(r *controller.Reconciler, gatewayInstance *v0.Gate
 	if err != nil {
 		return fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
 	}
-	if kubernetesRuntimeInstance.GatewayControllerInstanceID == nil {
+
+	// skip a runtime that has no component workload
+	if kubernetesRuntimeInstance.IngressComponentInstanceID == nil &&
+		kubernetesRuntimeInstance.CertificatesComponentInstanceID == nil {
 		return nil
 	}
 
-	// keep the controller while any gateway is still live
+	// keep the components while any gateway is still live
 	instances, err := client.GetGatewayInstancesByQueryString(
 		r.APIClient,
 		r.APIServer,
@@ -501,285 +508,21 @@ func releaseGatewayController(r *controller.Reconciler, gatewayInstance *v0.Gate
 	}
 
 	// clear the slot, then delete the workload when no caller still requires it
-	caller := &gatewayAttacher{reconciler: r, gateway: gatewayInstance}
-	return supportservices.Release(
-		*kubernetesRuntimeInstance.ID,
-		&kubernetesRuntimeInstance.GatewayControllerInstanceID,
-		"gateway controller",
-		caller,
-	)
-}
-
-// confirmGatewayPortsExposed writes the runtime tcp listeners onto the shared
-// global configuration.
-func confirmGatewayPortsExposed(
-	r *controller.Reconciler,
-	gatewayInstance *v0.GatewayInstance,
-	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
-	gatewayDefinition *v0.GatewayDefinition,
-	log *logr.Logger,
-) error {
-
-	// get gateway controller kubernetes workload resource instances
-	if kubernetesRuntimeInstance.GatewayControllerInstanceID == nil {
-		return fmt.Errorf("gateway controller instance ID is nil")
-	}
-	workloadResourceInstances, err := client.GetKubernetesWorkloadResourceInstancesByID(r.APIClient, r.APIServer, *kubernetesRuntimeInstance.GatewayControllerInstanceID)
-	if err != nil {
-		return fmt.Errorf("failed to get kubernetes workload resource instances: %w", err)
-	}
-
-	gatewayHttpPorts, gatewayTcpPorts, err := client.GetGatewayHttpAndTcpPortsByGatewayDefinitionId(r.APIClient, r.APIServer, *gatewayInstance.GatewayDefinitionID)
-	if err != nil {
-		return fmt.Errorf("failed to get gateway http ports: %w", err)
-	}
-	if len(*gatewayHttpPorts) == 0 && len(*gatewayTcpPorts) == 0 {
-		return fmt.Errorf("no ports found for gateway definition %d", *gatewayInstance.GatewayDefinitionID)
-	}
-	// rebuild the shared listeners from every gateway still on this runtime
-	ports, err := runtimeTcpPorts(r, kubernetesRuntimeInstance)
-	if err != nil {
-		return fmt.Errorf("failed to list tcp ports for runtime: %w", err)
-	}
-	listeners := tcpListeners(ports)
-	changed := false
-	if err := syncNamedSlice(
-		r,
+	err = supportservices.ReleaseIngressComponent(
 		kubernetesRuntimeInstance,
-		workloadResourceInstances,
-		"GlobalConfiguration",
-		globalConfigurationName,
-		"listeners",
-		listeners,
-		manifests.GlobalConfiguration,
-		"global configuration",
-		false,
-		&changed,
-	); err != nil {
-		return err
-	}
-	if !changed {
-		return nil
-	}
-
-	// reconcile the gateway controller so the updated objects are applied
-	_, err = client.UpdateKubernetesWorkloadInstance(r.APIClient, r.APIServer, &v0.KubernetesWorkloadInstance{
-		Common:         v0.Common{ID: kubernetesRuntimeInstance.GatewayControllerInstanceID},
-		Reconciliation: v0.Reconciliation{Reconciled: util.Ptr(false)},
-	})
-	if err != nil {
-		return fmt.Errorf("failed to update gateway controller workload: %w", err)
-	}
-	return nil
-}
-
-// createControllerObject stores one embedded object on the gateway controller workload.
-func createControllerObject(
-	r *controller.Reconciler,
-	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
-	source []byte,
-	field string,
-	values []interface{},
-	label string,
-) error {
-	// read the embedded object and set the named slice
-	object, err := util.UnstructuredFromYaml(source)
-	if err != nil {
-		return fmt.Errorf("failed to read %s: %w", label, err)
-	}
-	if field != "" {
-		if err := unstructured.SetNestedSlice(object.Object, values, "spec", field); err != nil {
-			return fmt.Errorf("failed to set %s %s: %w", label, field, err)
-		}
-	}
-	body, err := util.MarshalJSON(object.Object)
-	if err != nil {
-		return fmt.Errorf("failed to marshal %s: %w", label, err)
-	}
-	// store it on the gateway controller workload
-	_, err = client.CreateKubernetesWorkloadResourceInstance(r.APIClient, r.APIServer, &v0.KubernetesWorkloadResourceInstance{
-		JSONDefinition:               &body,
-		KubernetesWorkloadInstanceID: kubernetesRuntimeInstance.GatewayControllerInstanceID,
-		Reconciled:                   util.Ptr(false),
-	})
-	if err != nil {
-		return fmt.Errorf("failed to create %s: %w", label, err)
-	}
-	// trigger a reconciliation of the gateway controller workload
-	_, err = client.UpdateKubernetesWorkloadInstance(r.APIClient, r.APIServer, &v0.KubernetesWorkloadInstance{
-		Common:         v0.Common{ID: kubernetesRuntimeInstance.GatewayControllerInstanceID},
-		Reconciliation: v0.Reconciliation{Reconciled: util.Ptr(false)},
-	})
-	if err != nil {
-		return fmt.Errorf("failed to update gateway controller workload: %w", err)
-	}
-	return nil
-}
-
-// refreshSharedTcpPorts rebuilds the shared tcp objects after a gateway delete.
-func refreshSharedTcpPorts(r *controller.Reconciler, gatewayInstance *v0.GatewayInstance, log *logr.Logger) error {
-	// skip a gateway whose runtime has no gateway controller
-	if gatewayInstance.KubernetesRuntimeInstanceID == nil {
-		return nil
-	}
-	kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(r.APIClient, r.APIServer, *gatewayInstance.KubernetesRuntimeInstanceID)
-	if err != nil {
-		return fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
-	}
-	if kubernetesRuntimeInstance.GatewayControllerInstanceID == nil {
-		return nil
-	}
-	return confirmGatewayPortsExposed(r, gatewayInstance, kubernetesRuntimeInstance, nil, log)
-}
-
-// runtimeTcpPorts returns the tcp ports of gateways still on this runtime.
-func runtimeTcpPorts(r *controller.Reconciler, kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance) ([]int, error) {
-	// list gateway instances on this runtime
-	instances, err := client.GetGatewayInstancesByQueryString(
-		r.APIClient,
-		r.APIServer,
-		fmt.Sprintf("kubernetesruntimeinstanceid=%d", *kubernetesRuntimeInstance.ID),
+		&gatewayComponentAttacher{reconciler: r, gateway: gatewayInstance},
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list gateway instances: %w", err)
+		return fmt.Errorf("failed to release ingress component: %w", err)
 	}
-
-	// collect each live gateway's tcp ports
-	seen := map[int]struct{}{}
-	var ports []int
-	for _, instance := range *instances {
-		if instance.DeletionScheduled != nil || instance.GatewayDefinitionID == nil {
-			continue
-		}
-		tcpPorts, err := client.GetGatewayTcpPortsByGatewayDefinitionId(r.APIClient, r.APIServer, *instance.GatewayDefinitionID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get tcp ports: %w", err)
-		}
-		for _, tcpPort := range *tcpPorts {
-			if tcpPort.Port == nil {
-				continue
-			}
-			if _, ok := seen[*tcpPort.Port]; ok {
-				continue
-			}
-			seen[*tcpPort.Port] = struct{}{}
-			ports = append(ports, *tcpPort.Port)
-		}
-	}
-	return ports, nil
-}
-
-// syncNamedSlice writes one named slice on a controller object.
-func syncNamedSlice(
-	r *controller.Reconciler,
-	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
-	instances *[]v0.KubernetesWorkloadResourceInstance,
-	kind string,
-	name string,
-	field string,
-	values []interface{},
-	source []byte,
-	label string,
-	removeWhenEmpty bool,
-	changed *bool,
-) error {
-	// create the object when the controller workload does not have it yet
-	object, err := workload_util.GetUniqueKubernetesWorkloadResourceInstanceByName(instances, kind, name)
-	if err != nil && strings.Contains(err.Error(), "not found") {
-		if len(values) == 0 {
-			return nil
-		}
-		return createControllerObject(r, kubernetesRuntimeInstance, source, field, values, label)
-	}
-	if err != nil {
-		return fmt.Errorf("failed to get %s %s: %w", kind, name, err)
-	}
-	if removeWhenEmpty && len(values) == 0 {
-		return scheduleControllerObjectDeletion(r, object, changed)
-	}
-	if object.ScheduledForDeletion != nil {
-		return replaceScheduledControllerObject(r, kubernetesRuntimeInstance, object, source, field, values, label, changed)
-	}
-
-	// replace the slice when it differs from the runtime's ports
-	if object.JSONDefinition == nil {
-		return fmt.Errorf("failed to read %s: empty definition", label)
-	}
-	jsonObject, err := util.UnmarshalJSON(*object.JSONDefinition)
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal %s: %w", label, err)
-	}
-	current, _, _ := unstructured.NestedSlice(jsonObject, "spec", field)
-	equal, err := util.JSONValuesEqual(current, values)
-	if err != nil {
-		return err
-	}
-	if equal {
-		return nil
-	}
-	if err := unstructured.SetNestedSlice(jsonObject, values, "spec", field); err != nil {
-		return fmt.Errorf("failed to set %s %s: %w", label, field, err)
-	}
-	return updateControllerObject(r, object, jsonObject, changed)
-}
-
-// replaceScheduledControllerObject deletes the threeport controller instance and creates a new one.
-func replaceScheduledControllerObject(
-	r *controller.Reconciler,
-	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
-	object *v0.KubernetesWorkloadResourceInstance,
-	source []byte,
-	field string,
-	values []interface{},
-	label string,
-	changed *bool,
-) error {
-	// delete the threeport instance
-	if _, err := client.DeleteKubernetesWorkloadResourceInstance(r.APIClient, r.APIServer, *object.ID); err != nil {
-		return fmt.Errorf("failed to delete scheduled %s: %w", label, err)
-	}
-	*changed = true
-
-	// create the threeport instance again
-	return createControllerObject(r, kubernetesRuntimeInstance, source, field, values, label)
-}
-
-// scheduleControllerObjectDeletion marks a controller object for deletion.
-func scheduleControllerObjectDeletion(r *controller.Reconciler, object *v0.KubernetesWorkloadResourceInstance, changed *bool) error {
-	// keep waking the controller until the object is gone
-	if object.ScheduledForDeletion != nil {
-		*changed = true
-		return nil
-	}
-	updated := &v0.KubernetesWorkloadResourceInstance{
-		Common:               v0.Common{ID: object.ID},
-		ScheduledForDeletion: util.Ptr(time.Now().UTC()),
-		Reconciled:           util.Ptr(false),
-	}
-	if _, err := client.UpdateKubernetesWorkloadResourceInstance(r.APIClient, r.APIServer, updated); err != nil {
-		return fmt.Errorf("failed to schedule controller object deletion: %w", err)
-	}
-	*changed = true
-	return nil
-}
-
-// updateControllerObject writes a new definition and marks the row unreconciled.
-func updateControllerObject(r *controller.Reconciler, object *v0.KubernetesWorkloadResourceInstance, body map[string]interface{}, changed *bool) error {
-	// store the new definition
-	jsonDefinition, err := util.MarshalJSON(body)
-	if err != nil {
-		return fmt.Errorf("failed to marshal controller object: %w", err)
-	}
-	updated := &v0.KubernetesWorkloadResourceInstance{
-		Common:         v0.Common{ID: object.ID},
-		JSONDefinition: &jsonDefinition,
-		Reconciled:     util.Ptr(false),
-	}
-	if _, err := client.UpdateKubernetesWorkloadResourceInstance(r.APIClient, r.APIServer, updated); err != nil {
-		return fmt.Errorf("failed to update controller object: %w", err)
-	}
-	*changed = true
-	return nil
+	return supportservices.ReleaseCertificatesComponent(
+		kubernetesRuntimeInstance,
+		&gatewayComponentAttacher{
+			reconciler: r,
+			gateway:    gatewayInstance,
+			component:  certificatesComponent,
+		},
+	)
 }
 
 // configureGatewayManifests renders the ingress and transport objects for a gateway instance.

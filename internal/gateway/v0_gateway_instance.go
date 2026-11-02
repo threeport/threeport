@@ -30,7 +30,7 @@ func v0GatewayInstanceCreated(
 	}
 
 	// validate threeport state before deploying virtual service
-	err = validateThreeportState(r, gatewayDefinition, gatewayInstance, workloadInstance, kubernetesRuntimeInstance, log)
+	err = validateThreeportState(r, gatewayInstance, workloadInstance, kubernetesRuntimeInstance, log)
 	if err != nil {
 		return 0, fmt.Errorf("failed to validate threeport state: %w", err)
 	}
@@ -85,7 +85,7 @@ func v0GatewayInstanceUpdated(
 	}
 
 	// validate threeport state before deploying virtual service
-	err = validateThreeportState(r, gatewayDefinition, gatewayInstance, workloadInstance, kubernetesRuntimeInstance, log)
+	err = validateThreeportState(r, gatewayInstance, workloadInstance, kubernetesRuntimeInstance, log)
 	if err != nil {
 		return 0, fmt.Errorf("failed to validate threeport state: %w", err)
 	}
@@ -182,13 +182,8 @@ func v0GatewayInstanceDeleted(
 		return 0, nil
 	}
 
-	// drop this gateway's tcp ports from the shared listeners
-	if err := refreshSharedTcpPorts(r, gatewayInstance, log); err != nil {
-		return 0, err
-	}
-
-	// remove the shared controller when this was the last gateway
-	if err := releaseGatewayController(r, gatewayInstance); err != nil {
+	// remove the shared component when this was the last gateway
+	if err := releaseGatewayComponent(r, gatewayInstance); err != nil {
 		return 0, err
 	}
 

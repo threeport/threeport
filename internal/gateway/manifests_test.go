@@ -134,7 +134,6 @@ func TestGetIngressComponentYaml(t *testing.T) {
 	domain, _, _ := unstructured.NestedString(component.Object, "spec", "domainName")
 	version, _, _ := unstructured.NestedString(component.Object, "spec", "nginx", "version")
 	include, _, _ := unstructured.NestedBool(component.Object, "spec", "nginx", "include")
-	globalName, _, _ := unstructured.NestedString(component.Object, "spec", "nginx", "globalConfigurationName")
 	kong, _, _ := unstructured.NestedBool(component.Object, "spec", "kong", "include")
 	role, _, _ := unstructured.NestedString(component.Object, "spec", "externalDNS", "iamRoleArn")
 	if name != ingressComponentName ||
@@ -142,7 +141,6 @@ func TestGetIngressComponentYaml(t *testing.T) {
 		domain != ingressDomainName ||
 		version != "5.5.4" ||
 		!include ||
-		globalName != globalConfigurationName ||
 		kong ||
 		role != "local" {
 		t.Fatalf("name=%s collection=%s domain=%s version=%s nginx=%v kong=%v role=%s", name, collection, domain, version, include, kong, role)
@@ -221,35 +219,16 @@ func TestConfirmDefinitionsReconciledRequiresDefinition(t *testing.T) {
 	}
 }
 
-// TestGatewayControllerPresentRequiresID accepts a stored controller id.
-func TestGatewayControllerPresentRequiresID(t *testing.T) {
-	err := gatewayControllerPresent(&v0.KubernetesRuntimeInstance{
-		GatewayControllerInstanceID: util.Ptr(uint(7)),
+// TestGatewayComponentPresentRequiresID accepts a stored component id.
+func TestGatewayComponentPresentRequiresID(t *testing.T) {
+	err := gatewayComponentPresent(&v0.KubernetesRuntimeInstance{
+		IngressComponentInstanceID: util.Ptr(uint(7)),
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = gatewayControllerPresent(&v0.KubernetesRuntimeInstance{})
+	err = gatewayComponentPresent(&v0.KubernetesRuntimeInstance{})
 	if err == nil {
 		t.Fatal("expected an error")
-	}
-}
-
-// TestConfirmGatewayPortsExposedRequiresController covers the missing controller id.
-func TestConfirmGatewayPortsExposedRequiresController(t *testing.T) {
-	err := confirmGatewayPortsExposed(nil, &v0.GatewayInstance{}, &v0.KubernetesRuntimeInstance{}, &v0.GatewayDefinition{}, nil)
-	if err == nil {
-		t.Fatal("expected an error")
-	}
-}
-
-// TestConfirmDnsControllerDeployedAlreadySet returns when the controller id is set.
-func TestConfirmDnsControllerDeployedAlreadySet(t *testing.T) {
-	// return before any API call when the controller id is already stored
-	err := confirmDnsControllerDeployed(nil, &v0.DomainNameInstance{}, &v0.KubernetesRuntimeInstance{
-		DnsControllerInstanceID: util.Ptr(uint(1)),
-	}, nil)
-	if err != nil {
-		t.Fatal(err)
 	}
 }

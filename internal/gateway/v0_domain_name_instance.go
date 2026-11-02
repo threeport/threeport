@@ -5,15 +5,13 @@ package gateway
 import (
 	"errors"
 	"fmt"
-	"strconv"
 
 	"github.com/go-logr/logr"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	tpaws "github.com/threeport/threeport/pkg/aws/v0"
-	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	supportservices "github.com/threeport/threeport/pkg/supportservices"
 )
 
 // v0DomainNameInstanceCreated performs reconciliation when a v0 DomainNameInstance
@@ -84,160 +82,28 @@ func validateThreeportStateExternalDns(
 		return fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
 	}
 
-	// ensure gateway controller instance is reconciled
-	if kubernetesRuntimeInstance.GatewayControllerInstanceID == nil {
-		return fmt.Errorf("gateway controller is not deployed, gateway controller instance ID not found")
-	}
-	externalDnsControllerInstanceReconciled, err := confirmWorkloadInstanceReconciled(r, *kubernetesRuntimeInstance.GatewayControllerInstanceID)
+	// install or adopt the shared ingress workload
+	attacher := &domainNameComponentAttacher{reconciler: r, domain: domainNameInstance}
+	err = supportservices.EnsureIngressComponent(
+		kubernetesRuntimeInstance,
+		attacher,
+		log,
+	)
 	if err != nil {
-		return fmt.Errorf("failed to determine if gateway controller instance is reconciled: %w", err)
-	}
-	if !externalDnsControllerInstanceReconciled {
-		return errors.New("gateway controller instance not reconciled")
+		return fmt.Errorf("failed to confirm ingress component deployed: %w", err)
 	}
 
-	// ensure dns controller is deployed
-	err = confirmDnsControllerDeployed(r, domainNameInstance, kubernetesRuntimeInstance, log)
+	// add the external-dns object once that workload has reconciled
+	manifest, err := attacher.externalDnsManifest(kubernetesRuntimeInstance)
 	if err != nil {
-		return fmt.Errorf("failed to confirm dns controller deployed: %w", err)
+		return err
 	}
-
-	// ensure dns controller instance is reconciled
-	externalDnsControllerInstanceReconciled, err = confirmWorkloadInstanceReconciled(r, *kubernetesRuntimeInstance.DnsControllerInstanceID)
-	if err != nil {
-		return fmt.Errorf("failed to determine if external dns controller instance is reconciled: %w", err)
-	}
-	if !externalDnsControllerInstanceReconciled {
-		return errors.New("external dns controller instance not reconciled")
-	}
-
-	return nil
-}
-
-// confirmDnsControllerDeployed confirms that a dns controller is deployed for
-// the kubernetes runtime instance.
-func confirmDnsControllerDeployed(
-	r *controller.Reconciler,
-	domainNameInstance *v0.DomainNameInstance,
-	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
-	log *logr.Logger,
-) error {
-
-	// return if kubernetes runtime instance already has a dns controller instance
-	if kubernetesRuntimeInstance.DnsControllerInstanceID != nil {
+	if manifest == "" || kubernetesRuntimeInstance.IngressComponentInstanceID == nil {
 		return nil
 	}
-
-	// get infra provider
-	infraProvider, err := client.GetInfraProviderByKubernetesRuntimeInstanceID(r.APIClient, r.APIServer, domainNameInstance.KubernetesRuntimeInstanceID)
-	if err != nil {
-		return fmt.Errorf("failed to get infra provider: %w", err)
-	}
-
-	// get domain name definition
-	domainNameDefinition, err := client.GetDomainNameDefinitionByID(r.APIClient, r.APIServer, *domainNameInstance.DomainNameDefinitionID)
-	if err != nil {
-		return fmt.Errorf("failed to get domain name definition: %w", err)
-	}
-
-	// generate external dns manifest based on infra provider
-	var externalDnsYaml string
-	kubernetesRuntimeInstanceID := strconv.Itoa(int(*domainNameInstance.KubernetesRuntimeInstanceID))
-	switch *infraProvider {
-	case v0.KubernetesRuntimeInfraProviderEKS:
-
-		clusterIdentity, err := client.GetAwsEksClusterIdentityByK8sRuntimeInst(r.APIClient, r.APIServer, domainNameInstance.KubernetesRuntimeInstanceID)
-		if err != nil {
-			return fmt.Errorf("failed to get EKS cluster identity: %w", err)
-		}
-
-		externalDnsYaml, err = getExternalDnsYaml(
-			*domainNameDefinition.Domain,
-			"route53",
-			tpaws.EksDnsManagementRoleArn(clusterIdentity.AccountId, clusterIdentity.ClusterName),
-			"",
-			kubernetesRuntimeInstanceID,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to create external dns: %w", err)
-		}
-
-	case v0.KubernetesRuntimeInfraProviderGKE:
-
-		gcpGkeRuntimeInstance, err := client.GetGcpGkeKubernetesRuntimeInstanceByK8sRuntimeInst(r.APIClient, r.APIServer, *domainNameInstance.KubernetesRuntimeInstanceID)
-		if err != nil {
-			return fmt.Errorf("failed to get GCP GKE runtime instance: %w", err)
-		}
-
-		gcpProvider, err := client.GetGcpProviderByID(r.APIClient, r.APIServer, *gcpGkeRuntimeInstance.GcpProviderID)
-		if err != nil {
-			return fmt.Errorf("failed to get GCP provider: %w", err)
-		}
-
-		externalDnsYaml, err = getExternalDnsYaml(
-			*domainNameDefinition.Domain,
-			"google",
-			"",
-			*gcpProvider.ProjectID,
-			kubernetesRuntimeInstanceID,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to create external dns: %w", err)
-		}
-
-	case v0.KubernetesRuntimeInfraProviderKind:
-
-		externalDnsYaml, err = getExternalDnsYaml(
-			*domainNameDefinition.Domain,
-			"none",
-			"",
-			"",
-			kubernetesRuntimeInstanceID,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to create external dns: %w", err)
-		}
-
-	default:
-		break
-	}
-
-	// create gateway controller kubernetes workload definition
-	workloadDefName := fmt.Sprintf("%s-%s", "external-dns", *kubernetesRuntimeInstance.Name)
-	externalDnsWorkloadDefinition := v0.KubernetesWorkloadDefinition{
-		Definition:   v0.Definition{Name: &workloadDefName},
-		YAMLDocument: &externalDnsYaml,
-	}
-
-	// create external dns controller kubernetes workload definition
-	createdWorkloadDef, err := client.CreateKubernetesWorkloadDefinition(r.APIClient, r.APIServer, &externalDnsWorkloadDefinition)
-	if err != nil && !errors.Is(err, client_lib.ErrConflict) {
-		return fmt.Errorf("failed to create external dns controller kubernetes workload definition: %w", err)
-	}
-
-	// create external dns kubernetes workload instance
-	externalDnsWorkloadInstance := v0.KubernetesWorkloadInstance{
-		Instance:                       v0.Instance{Name: &workloadDefName},
-		KubernetesRuntimeInstanceID:    domainNameInstance.KubernetesRuntimeInstanceID,
-		KubernetesWorkloadDefinitionID: createdWorkloadDef.ID,
-	}
-	createdExternalDnsWorkloadInstance, err := client.CreateKubernetesWorkloadInstance(r.APIClient, r.APIServer, &externalDnsWorkloadInstance)
-	if err != nil {
-		return fmt.Errorf("failed to create external dns controller kubernetes workload instance: %w", err)
-	}
-
-	// update kubernetes runtime instance with gateway controller instance id
-	kubernetesRuntimeInstance.DnsControllerInstanceID = createdExternalDnsWorkloadInstance.ID
-	_, err = client.UpdateKubernetesRuntimeInstance(r.APIClient, r.APIServer, kubernetesRuntimeInstance)
-	if err != nil {
-		return fmt.Errorf("failed to update kubernetes runtime instance with external dns controller instance id: %w", err)
-	}
-
-	log.V(1).Info(
-		"external dns deployed",
-		"workloadInstanceID", externalDnsWorkloadInstance.ID,
+	return syncWorkloadObject(
+		r,
+		*kubernetesRuntimeInstance.IngressComponentInstanceID,
+		manifest,
 	)
-
-	return nil
-
 }

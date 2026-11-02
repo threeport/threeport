@@ -17636,8 +17636,12 @@ const docTemplate = `{
                     "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
                     "type": "string"
                 },
-                "GatewayControllerInstanceID": {
-                    "description": "The workload instance that runs the gateway controller for this gateway.",
+                "CertificatesComponentInstanceID": {
+                    "description": "The workload instance that runs the certificates component for this gateway.",
+                    "type": "integer"
+                },
+                "IngressComponentInstanceID": {
+                    "description": "The workload instance that runs the ingress component for this gateway.",
                     "type": "integer"
                 },
                 "GatewayDefinitionID": {
@@ -18157,8 +18161,8 @@ const docTemplate = `{
                     "description": "Gets set to true if creation process fails.",
                     "type": "boolean"
                 },
-                "DatabaseControllerInstanceID": {
-                    "description": "The KubernetesWorkloadInstanceID of the database support service",
+                "DatabaseComponentInstanceID": {
+                    "description": "The workload that provides a database for this runtime.",
                     "type": "integer"
                 },
                 "DefaultRuntime": {
@@ -18177,12 +18181,12 @@ const docTemplate = `{
                     "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
                     "type": "string"
                 },
-                "DnsControllerInstanceID": {
-                    "description": "The KubernetesWorkloadInstanceID of the dns support service",
+                "CertificatesComponentInstanceID": {
+                    "description": "The workload that runs the certificates component for this runtime.",
                     "type": "integer"
                 },
-                "GatewayControllerInstanceID": {
-                    "description": "The KubernetesWorkloadInstanceID of the gateway support service",
+                "IngressComponentInstanceID": {
+                    "description": "The workload that runs the ingress component for this runtime.",
                     "type": "integer"
                 },
                 "InterruptReconciliation": {
@@ -18212,8 +18216,8 @@ const docTemplate = `{
                     "description": "Indicates if object is considered to be reconciled by the object's controller.",
                     "type": "boolean"
                 },
-                "SecretsControllerInstanceID": {
-                    "description": "The KubernetesWorkloadInstanceID of the secrets support service",
+                "SecretsComponentInstanceID": {
+                    "description": "The workload that stores secrets for this runtime.",
                     "type": "integer"
                 },
                 "Status": {

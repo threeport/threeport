@@ -37,7 +37,6 @@ const (
 	echoBody                  = "gateway-ok"
 	echoTcpPort               = 5432
 	otherTcpPort              = 5433
-	sharedConfigName          = "nginx-ingress"
 	ingressComponentName      = "ingress"
 	certificatesComponentName = "certificates"
 	ingressNamespace          = "nukleros-ingress-system"
@@ -116,37 +115,18 @@ func TestGatewayIngressServesHTTPAndHTTPS(t *testing.T) {
 	waitForGatewayDefinition(t, apiClient, endpoint, echoDefinition)
 	waitForGatewayDefinition(t, apiClient, endpoint, otherDefinition)
 
-	// reconcile the first host and record the shared listeners
+	// reconcile the first host
 	echoGateway := createEchoGatewayInstance(t, apiClient, endpoint, "echo-0", echoDefinition, workload, runtime)
 	waitForGatewayInstance(t, apiClient, endpoint, echoGateway)
-	sharedID := waitForSharedListeners(
-		t,
-		apiClient,
-		endpoint,
-		*runtime.ID,
-		[]string{fmt.Sprintf("tcp-%d", echoTcpPort)},
-		0,
-	)
 	waitForHostObjects(t, apiClient, endpoint, kubeClient, *workload.ID, "echo", echoHost, echoTcpPort)
-	controllerID := gatewayControllerID(t, apiClient, endpoint, *runtime.ID)
+	componentID := gatewayComponentID(t, apiClient, endpoint, *runtime.ID)
 	waitForSharedComponents(t, kubeClient, 1)
 
-	// reconcile the second host onto the same shared listeners
+	// reconcile the second host
 	otherGateway := createEchoGatewayInstance(t, apiClient, endpoint, "other-0", otherDefinition, workload, runtime)
 	waitForGatewayInstance(t, apiClient, endpoint, otherGateway)
-	sharedID = waitForSharedListeners(
-		t,
-		apiClient,
-		endpoint,
-		*runtime.ID,
-		[]string{
-			fmt.Sprintf("tcp-%d", echoTcpPort),
-			fmt.Sprintf("tcp-%d", otherTcpPort),
-		},
-		sharedID,
-	)
 	waitForHostObjects(t, apiClient, endpoint, kubeClient, *workload.ID, "other", otherHost, otherTcpPort)
-	require.Equal(t, controllerID, gatewayControllerID(t, apiClient, endpoint, *runtime.ID))
+	require.Equal(t, componentID, gatewayComponentID(t, apiClient, endpoint, *runtime.ID))
 	waitForSharedComponents(t, kubeClient, 1)
 
 	// call both hosts over http and https
@@ -155,25 +135,17 @@ func TestGatewayIngressServesHTTPAndHTTPS(t *testing.T) {
 	callHost(t, kubeClient, nodeIP, ports, echoHost)
 	callHost(t, kubeClient, nodeIP, ports, otherHost)
 
-	// delete the second host and keep the first listener
+	// delete the second host and keep the first
 	deleteGateway(t, apiClient, endpoint, otherGateway)
 	waitForHostTornDown(t, apiClient, endpoint, kubeClient, *workload.ID, "other", otherHost, otherTcpPort)
-	sharedID = waitForSharedListeners(
-		t,
-		apiClient,
-		endpoint,
-		*runtime.ID,
-		[]string{fmt.Sprintf("tcp-%d", echoTcpPort)},
-		sharedID,
-	)
 	callHost(t, kubeClient, nodeIP, ports, echoHost)
-	require.Equal(t, controllerID, gatewayControllerID(t, apiClient, endpoint, *runtime.ID))
+	require.Equal(t, componentID, gatewayComponentID(t, apiClient, endpoint, *runtime.ID))
 	waitForSharedComponents(t, kubeClient, 1)
 
 	// delete the last gateway and remove the shared ingress install
 	deleteGateway(t, apiClient, endpoint, echoGateway)
 	waitForHostTornDown(t, apiClient, endpoint, kubeClient, *workload.ID, "echo", echoHost, echoTcpPort)
-	waitForSharedControllerRemoved(t, apiClient, endpoint, kubeClient, *runtime.ID)
+	waitForSharedComponentRemoved(t, apiClient, endpoint, kubeClient, *runtime.ID)
 }
 
 // createEchoDomain registers the host the ingress matches.
@@ -631,38 +603,6 @@ func callHost(t *testing.T, kubeClient dynamic.Interface, nodeIP string, ports m
 	require.Equal(t, issuedCertificate(t, kubeClient, cert), peer)
 }
 
-// waitForSharedListeners returns when the stored global configuration lists these listeners.
-// previousID is zero on the first read and the stored id after that.
-func waitForSharedListeners(
-	t *testing.T,
-	apiClient *http.Client,
-	endpoint string,
-	runtimeID uint,
-	want []string,
-	previousID uint,
-) uint {
-	t.Helper()
-
-	// read the stored listeners because the operator does not pass -global-configuration
-	var id uint
-	err := util.Retry(reconcileAttempts, 2, func() error {
-		gotID, names, err := sharedListeners(apiClient, endpoint, runtimeID)
-		if err != nil {
-			return err
-		}
-		if !sameNames(names, want) {
-			return fmt.Errorf("listeners %v, want %v", names, want)
-		}
-		if previousID != 0 && gotID != previousID {
-			return fmt.Errorf("global configuration id %d, want %d", gotID, previousID)
-		}
-		id = gotID
-		return nil
-	})
-	require.NoError(t, err)
-	return id
-}
-
 // waitForHostObjects returns when the host's gateway objects are stored.
 func waitForHostObjects(
 	t *testing.T,
@@ -756,22 +696,22 @@ func hostObjectsMatch(
 	return nil
 }
 
-// gatewayControllerID returns the live shared controller workload.
-func gatewayControllerID(t *testing.T, apiClient *http.Client, endpoint string, runtimeID uint) uint {
+// gatewayComponentID returns the live shared component workload.
+func gatewayComponentID(t *testing.T, apiClient *http.Client, endpoint string, runtimeID uint) uint {
 	t.Helper()
 
-	// load the controller the runtime records
+	// load the component the runtime records
 	runtime, err := client.GetKubernetesRuntimeInstanceByID(apiClient, endpoint, runtimeID)
 	require.NoError(t, err)
-	require.NotNil(t, runtime.GatewayControllerInstanceID)
+	require.NotNil(t, runtime.IngressComponentInstanceID)
 	workload, err := client.GetKubernetesWorkloadInstanceByID(
 		apiClient,
 		endpoint,
-		*runtime.GatewayControllerInstanceID,
+		*runtime.IngressComponentInstanceID,
 	)
 	require.NoError(t, err)
 	require.Nil(t, workload.DeletionScheduled)
-	return *runtime.GatewayControllerInstanceID
+	return *runtime.IngressComponentInstanceID
 }
 
 // waitForSharedComponents polls until the named install count matches.
@@ -800,8 +740,8 @@ func waitForSharedComponents(t *testing.T, kubeClient dynamic.Interface, want in
 	require.NoError(t, err)
 }
 
-// waitForSharedControllerRemoved polls until the shared install is gone.
-func waitForSharedControllerRemoved(
+// waitForSharedComponentRemoved polls until the shared install is gone.
+func waitForSharedComponentRemoved(
 	t *testing.T,
 	apiClient *http.Client,
 	endpoint string,
@@ -810,25 +750,25 @@ func waitForSharedControllerRemoved(
 ) {
 	t.Helper()
 
-	// require the controller workload to be deleting and the components gone
+	// require the component workload to be deleting and the components gone
 	err := util.Retry(reconcileAttempts, 2, func() error {
 		runtime, err := client.GetKubernetesRuntimeInstanceByID(apiClient, endpoint, runtimeID)
 		if err != nil {
 			return err
 		}
-		if runtime.GatewayControllerInstanceID == nil {
-			return errors.New("runtime has no gateway controller")
+		if runtime.IngressComponentInstanceID == nil {
+			return errors.New("runtime has no gateway component")
 		}
 		workload, err := client.GetKubernetesWorkloadInstanceByID(
 			apiClient,
 			endpoint,
-			*runtime.GatewayControllerInstanceID,
+			*runtime.IngressComponentInstanceID,
 		)
 		if err != nil && !errors.Is(err, client_lib.ErrObjectNotFound) {
 			return err
 		}
 		if err == nil && workload.DeletionScheduled == nil {
-			return errors.New("gateway controller workload is still live")
+			return errors.New("gateway component workload is still live")
 		}
 		ingressCount, err := namedComponentCount(kubeClient, "ingresscomponents", ingressComponentName)
 		if err != nil {
@@ -870,50 +810,6 @@ func namedComponentCount(kubeClient dynamic.Interface, resource, name string) (i
 		}
 	}
 	return count, nil
-}
-
-// sharedListeners reads the one global configuration stored for the runtime.
-func sharedListeners(apiClient *http.Client, endpoint string, runtimeID uint) (uint, []string, error) {
-	// load the gateway controller workload
-	runtime, err := client.GetKubernetesRuntimeInstanceByID(apiClient, endpoint, runtimeID)
-	if err != nil {
-		return 0, nil, err
-	}
-	if runtime.GatewayControllerInstanceID == nil {
-		return 0, nil, errors.New("runtime has no gateway controller")
-	}
-	resources, err := workloadResources(apiClient, endpoint, *runtime.GatewayControllerInstanceID)
-	if err != nil {
-		return 0, nil, err
-	}
-
-	// require exactly one live global configuration
-	resource, ok := resources["GlobalConfiguration/"+sharedConfigName]
-	if !ok {
-		return 0, nil, errors.New("shared global configuration is not stored")
-	}
-	if resource.ScheduledForDeletion != nil {
-		return 0, nil, errors.New("shared global configuration is scheduled for deletion")
-	}
-	if resource.JSONDefinition == nil || resource.ID == nil {
-		return 0, nil, errors.New("shared global configuration has no definition")
-	}
-	var object map[string]interface{}
-	if err := json.Unmarshal(*resource.JSONDefinition, &object); err != nil {
-		return 0, nil, err
-	}
-	namespace, _, err := unstructured.NestedString(object, "metadata", "namespace")
-	if err != nil {
-		return 0, nil, err
-	}
-	if namespace != ingressNamespace {
-		return 0, nil, fmt.Errorf("global configuration namespace %s", namespace)
-	}
-	names, err := listenerNames(object)
-	if err != nil {
-		return 0, nil, err
-	}
-	return *resource.ID, names, nil
 }
 
 // workloadResources indexes a workload's manifests by kind and name.
@@ -1004,42 +900,6 @@ func hostGatewayObjects(name, host string, port int) []gatewayObject {
 			name: fmt.Sprintf("%s-%d", name, port),
 		},
 	}
-}
-
-// listenerNames reads spec.listeners names in stored order.
-func listenerNames(object map[string]interface{}) ([]string, error) {
-	// an absent list is an empty listener set
-	listeners, found, err := unstructured.NestedSlice(object, "spec", "listeners")
-	if err != nil || !found {
-		return nil, err
-	}
-	names := make([]string, 0, len(listeners))
-	for _, listener := range listeners {
-		entry, ok := listener.(map[string]interface{})
-		if !ok {
-			return nil, fmt.Errorf("listener is %T", listener)
-		}
-		name, _, err := unstructured.NestedString(entry, "name")
-		if err != nil {
-			return nil, err
-		}
-		names = append(names, name)
-	}
-	return names, nil
-}
-
-// sameNames reports whether both lists hold the same names in order.
-func sameNames(got, want []string) bool {
-	// compare length and then each position
-	if len(got) != len(want) {
-		return false
-	}
-	for i := range want {
-		if got[i] != want[i] {
-			return false
-		}
-	}
-	return true
 }
 
 // numberValue reads a JSON number.

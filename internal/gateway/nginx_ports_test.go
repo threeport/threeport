@@ -68,15 +68,6 @@ func TestGetIngressesYamlRejectsUnpublishedPort(t *testing.T) {
 	require.Contains(t, err.Error(), "8080")
 }
 
-// TestTcpListenersUseTheRuntimeSet drops a duplicate port.
-func TestTcpListenersUseTheRuntimeSet(t *testing.T) {
-	// keep one listener per port
-	listeners := tcpListeners([]int{5432, 443, 5432})
-	require.Len(t, listeners, 2)
-	require.Equal(t, "tcp-443", listeners[0].(map[string]interface{})["name"])
-	require.Equal(t, "tcp-5432", listeners[1].(map[string]interface{})["name"])
-}
-
 // TestGetIngressesYamlDistinctPaths covers two paths on one host.
 func TestGetIngressesYamlDistinctPaths(t *testing.T) {
 	// return two paths for one host
