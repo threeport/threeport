@@ -17612,6 +17612,10 @@ const docTemplate = `{
                 "Name"
             ],
             "properties": {
+                "CertificatesComponentInstanceID": {
+                    "description": "The workload instance that runs the certificates component for this gateway.",
+                    "type": "integer"
+                },
                 "CreationAcknowledged": {
                     "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
                     "type": "string"
@@ -17636,16 +17640,12 @@ const docTemplate = `{
                     "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
                     "type": "string"
                 },
-                "CertificatesComponentInstanceID": {
-                    "description": "The workload instance that runs the certificates component for this gateway.",
+                "GatewayDefinitionID": {
+                    "description": "GatewayDefinitionID is the definition used to configure the gateway instance.",
                     "type": "integer"
                 },
                 "IngressComponentInstanceID": {
                     "description": "The workload instance that runs the ingress component for this gateway.",
-                    "type": "integer"
-                },
-                "GatewayDefinitionID": {
-                    "description": "GatewayDefinitionID is the definition used to configure the gateway instance.",
                     "type": "integer"
                 },
                 "InterruptReconciliation": {
@@ -18134,6 +18134,10 @@ const docTemplate = `{
                     "description": "The client certificate key to use for auth to the kube-api.",
                     "type": "string"
                 },
+                "CertificatesComponentInstanceID": {
+                    "description": "The workload that runs the certificates component for this runtime.",
+                    "type": "integer"
+                },
                 "ConnectionToken": {
                     "description": "Used to authenticate with a OIDC provider that implements auth for a\nKubernetes cluster.  It is an alternative to client cert authenticaion.",
                     "type": "string"
@@ -18180,10 +18184,6 @@ const docTemplate = `{
                 "DeletionScheduled": {
                     "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
                     "type": "string"
-                },
-                "CertificatesComponentInstanceID": {
-                    "description": "The workload that runs the certificates component for this runtime.",
-                    "type": "integer"
                 },
                 "IngressComponentInstanceID": {
                     "description": "The workload that runs the ingress component for this runtime.",
