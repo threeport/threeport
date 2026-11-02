@@ -13,7 +13,6 @@ import (
 	runtime "github.com/threeport/threeport/internal/kubernetes-runtime"
 	workload_util "github.com/threeport/threeport/internal/kubernetes-workload/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	mapping "github.com/threeport/threeport/pkg/mapping/v0"
@@ -332,11 +331,11 @@ func validateThreeportState(
 	}
 
 	// put the nginx object on the shared ingress workload
-	ingressManifest, err := getIngressComponentYaml()
+	ingressManifest, err := supportservices.IngressComponentYaml()
 	if err != nil {
 		return fmt.Errorf("failed to create ingress component: %w", err)
 	}
-	err = syncWorkloadObject(
+	err = supportservices.SyncWorkloadObject(
 		r,
 		*kubernetesRuntimeInstance.IngressComponentInstanceID,
 		ingressManifest,
@@ -420,53 +419,6 @@ func confirmDefinitionsReconciled(
 	}
 
 	return true, nil
-}
-
-// createComponentWorkload creates one component workload and returns its id.
-func createComponentWorkload(
-	r *controller.Reconciler,
-	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
-	workloadName string,
-	manifest string,
-	log *logr.Logger,
-) (uint, error) {
-	// reuse the workload definition a deleted component left behind
-	var createdWorkloadDef *v0.KubernetesWorkloadDefinition
-	workloadDefName := workloadName
-	existingDefinition, err := client.GetKubernetesWorkloadDefinitionByName(r.APIClient, r.APIServer, workloadDefName)
-	if err != nil && !errors.Is(err, client_lib.ErrObjectNotFound) {
-		return 0, fmt.Errorf("failed to get gateway component kubernetes workload definition: %w", err)
-	}
-	if errors.Is(err, client_lib.ErrObjectNotFound) {
-		ingressWorkloadDefinition := v0.KubernetesWorkloadDefinition{
-			Definition:   v0.Definition{Name: &workloadDefName},
-			YAMLDocument: &manifest,
-		}
-		createdWorkloadDef, err = client.CreateKubernetesWorkloadDefinition(r.APIClient, r.APIServer, &ingressWorkloadDefinition)
-		if err != nil {
-			return 0, fmt.Errorf("failed to create gateway component kubernetes workload definition: %w", err)
-		}
-	} else {
-		createdWorkloadDef = existingDefinition
-	}
-
-	// create gateway kubernetes workload instance
-	ingressWorkloadInstance := v0.KubernetesWorkloadInstance{
-		Instance:                       v0.Instance{Name: &workloadDefName},
-		KubernetesRuntimeInstanceID:    kubernetesRuntimeInstance.ID,
-		KubernetesWorkloadDefinitionID: createdWorkloadDef.ID,
-	}
-	createdIngressWorkloadInstance, err := client.CreateKubernetesWorkloadInstance(r.APIClient, r.APIServer, &ingressWorkloadInstance)
-	if err != nil {
-		return 0, fmt.Errorf("failed to create gateway component kubernetes workload instance: %w", err)
-	}
-
-	log.V(1).Info(
-		"nginx ingress deployed",
-		"workloadInstanceID", *createdIngressWorkloadInstance.ID,
-	)
-
-	return *createdIngressWorkloadInstance.ID, nil
 }
 
 // releaseGatewayComponent deletes the shared component when no gateway remains.

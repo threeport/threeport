@@ -2,12 +2,6 @@ package manifests
 
 import _ "embed"
 
-//go:embed sso/ingress-component.yaml
-var IngressComponent []byte
-
-//go:embed sso/certificates.yaml
-var CertificatesComponent []byte
-
 //go:embed gateway/ingress.yaml
 var Ingress []byte
 

@@ -101,7 +101,7 @@ func validateThreeportStateExternalDns(
 	if manifest == "" || kubernetesRuntimeInstance.IngressComponentInstanceID == nil {
 		return nil
 	}
-	return syncWorkloadObject(
+	return supportservices.SyncWorkloadObject(
 		r,
 		*kubernetesRuntimeInstance.IngressComponentInstanceID,
 		manifest,

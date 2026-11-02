@@ -5,7 +5,6 @@ import (
 
 	runtime "github.com/threeport/threeport/internal/kubernetes-runtime"
 	mapping "github.com/threeport/threeport/pkg/mapping/v0"
-	util "github.com/threeport/threeport/pkg/util/v0"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -67,33 +66,4 @@ func (c *SecretInstanceConfig) getSecretStore() (*unstructured.Unstructured, err
 			},
 		},
 	}, nil
-}
-
-// getExternalSecretsSupportServiceYaml returns the external-secrets component.
-func (c *SecretInstanceConfig) getExternalSecretsSupportServiceYaml() (string, error) {
-	// build the secrets component the v0.9 operator accepts
-	rendered, err := util.UnstructuredToYaml(
-		&unstructured.Unstructured{
-			Object: map[string]interface{}{
-				"apiVersion": "platform.addons.nukleros.io/v1alpha1",
-				"kind":       "SecretsComponent",
-				"metadata": map[string]interface{}{
-					"name":      "external-secrets",
-					"namespace": "nukleros-secrets-system",
-				},
-				"spec": map[string]interface{}{
-					"namespace": "nukleros-secrets-system",
-					"externalSecrets": map[string]interface{}{
-						"image":    "ghcr.io/external-secrets/external-secrets",
-						"version":  "v0.9.11",
-						"replicas": 1,
-					},
-				},
-			},
-		},
-	)
-	if err != nil {
-		return "", err
-	}
-	return rendered, nil
 }

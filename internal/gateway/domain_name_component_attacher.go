@@ -1,22 +1,16 @@
 package gateway
 
 import (
-	"bytes"
-	"encoding/json"
-	"errors"
 	"fmt"
-	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/go-logr/logr"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	tpaws "github.com/threeport/threeport/pkg/aws/v0"
-	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
-	util "github.com/threeport/threeport/pkg/util/v0"
+	"github.com/threeport/threeport/pkg/supportservices"
 )
 
 // domainNameComponentAttacher is the caller for one domain name instance.
@@ -43,7 +37,7 @@ func (a *domainNameComponentAttacher) Install(
 	}
 
 	// create the shared ingress workload
-	return createComponentWorkload(
+	return supportservices.CreateComponentWorkload(
 		a.reconciler,
 		runtime,
 		fmt.Sprintf("ingress-%s", *runtime.Name),
@@ -87,7 +81,7 @@ func (a *domainNameComponentAttacher) externalDnsManifest(
 		if err != nil {
 			return "", fmt.Errorf("failed to get cluster identity: %w", err)
 		}
-		externalDnsYaml, err = getExternalDnsYaml(
+		externalDnsYaml, err = supportservices.ExternalDnsYaml(
 			*domainNameDefinition.Domain,
 			"route53",
 			tpaws.EksDnsManagementRoleArn(
@@ -117,7 +111,7 @@ func (a *domainNameComponentAttacher) externalDnsManifest(
 		if err != nil {
 			return "", fmt.Errorf("failed to get gcp provider: %w", err)
 		}
-		externalDnsYaml, err = getExternalDnsYaml(
+		externalDnsYaml, err = supportservices.ExternalDnsYaml(
 			*domainNameDefinition.Domain,
 			"google",
 			"",
@@ -128,7 +122,7 @@ func (a *domainNameComponentAttacher) externalDnsManifest(
 			return "", fmt.Errorf("failed to get external dns yaml: %w", err)
 		}
 	case v0.KubernetesRuntimeInfraProviderKind:
-		externalDnsYaml, err = getExternalDnsYaml(
+		externalDnsYaml, err = supportservices.ExternalDnsYaml(
 			*domainNameDefinition.Domain,
 			"none",
 			"",
@@ -148,25 +142,7 @@ func (a *domainNameComponentAttacher) externalDnsManifest(
 // IsComponentReconciled reports whether the workload has reconciled.
 // A missing row returns reconciled false and missing true.
 func (a *domainNameComponentAttacher) IsComponentReconciled(id uint) (bool, bool, error) {
-	// read the workload the slot names
-	workload, err := client.GetKubernetesWorkloadInstanceByID(
-		a.reconciler.APIClient,
-		a.reconciler.APIServer,
-		id,
-	)
-	if errors.Is(err, client_lib.ErrObjectNotFound) {
-		return false, true, nil
-	}
-	if err != nil {
-		return false, false, err
-	}
-	if workload.DeletionScheduled != nil {
-		return false, false, fmt.Errorf("dns component workload %d is being deleted", id)
-	}
-	if workload.Reconciled != nil && *workload.Reconciled {
-		return true, false, nil
-	}
-	return false, false, nil
+	return supportservices.ComponentReconciled(a.reconciler, id)
 }
 
 // SetCallerKubernetesWorkloadInstanceID records nothing because the domain stores no component id.
@@ -176,110 +152,25 @@ func (a *domainNameComponentAttacher) SetCallerKubernetesWorkloadInstanceID(id *
 
 // ClaimRuntimeKubernetesWorkloadInstanceID writes the runtime slot.
 func (a *domainNameComponentAttacher) ClaimRuntimeKubernetesWorkloadInstanceID(runtimeID uint, workloadID uint) error {
-	// load the runtime and set the slot
-	runtime, err := client.GetKubernetesRuntimeInstanceByID(
-		a.reconciler.APIClient,
-		a.reconciler.APIServer,
+	return supportservices.ClaimComponentWorkload(
+		a.reconciler,
 		runtimeID,
+		workloadID,
+		supportservices.IngressColumn,
 	)
-	if err != nil {
-		return fmt.Errorf("failed to get kubernetes runtime instance %d: %w", runtimeID, err)
-	}
-	runtime.IngressComponentInstanceID = util.Ptr(workloadID)
-	_, err = client.UpdateKubernetesRuntimeInstance(
-		a.reconciler.APIClient,
-		a.reconciler.APIServer,
-		runtime,
-	)
-	if err != nil {
-		return fmt.Errorf(
-			"failed to claim dns component slot on runtime %d: %w",
-			runtimeID,
-			err,
-		)
-	}
-	return nil
 }
 
 // ClearRuntimeKubernetesWorkloadInstanceID clears the runtime slot when no caller requires the workload.
 func (a *domainNameComponentAttacher) ClearRuntimeKubernetesWorkloadInstanceID(runtimeID uint, workloadID uint) (bool, error) {
-	// load the runtime
-	runtime, err := client.GetKubernetesRuntimeInstanceByID(
-		a.reconciler.APIClient,
-		a.reconciler.APIServer,
+	return supportservices.ClearComponentWorkload(
+		a.reconciler,
 		runtimeID,
-	)
-	if err != nil {
-		return false, fmt.Errorf(
-			"failed to get kubernetes runtime instance %d: %w",
-			runtimeID,
-			err,
-		)
-	}
-	if runtime.IngressComponentInstanceID == nil ||
-		*runtime.IngressComponentInstanceID != workloadID {
-		return false, nil
-	}
-
-	// replace the slot with null
-	body, err := dnsComponentSlotNull(runtime)
-	if err != nil {
-		return false, err
-	}
-	_, err = client_lib.GetResponse(
-		a.reconciler.APIClient,
-		fmt.Sprintf("%s%s/%d", a.reconciler.APIServer, v0.PathKubernetesRuntimeInstances, runtimeID),
-		http.MethodPut,
-		bytes.NewBuffer(body),
-		map[string]string{},
-		http.StatusOK,
-	)
-	if err == nil {
-		return true, nil
-	}
-	if errors.Is(err, client_lib.ErrBadRequest) &&
-		strings.Contains(err.Error(), v0.ErrMsgSupportServiceSlotHeld) {
-		return false, nil
-	}
-	return false, fmt.Errorf(
-		"failed to clear dns component slot on runtime %d: %w",
-		runtimeID,
-		err,
+		workloadID,
+		supportservices.IngressColumn,
 	)
 }
 
 // DeleteComponentKubernetesWorkloadInstance removes the workload instance.
 func (a *domainNameComponentAttacher) DeleteComponentKubernetesWorkloadInstance(id uint) error {
-	// treat a missing workload as already removed
-	_, err := client.DeleteKubernetesWorkloadInstance(
-		a.reconciler.APIClient,
-		a.reconciler.APIServer,
-		id,
-	)
-	if errors.Is(err, client_lib.ErrObjectNotFound) {
-		return nil
-	}
-	return err
-}
-
-// dnsComponentSlotNull encodes the runtime with the dns slot set to null.
-func dnsComponentSlotNull(runtime *v0.KubernetesRuntimeInstance) ([]byte, error) {
-	// encode the runtime and set the slot to null
-	encoded, err := json.Marshal(runtime)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal kubernetes runtime instance: %w", err)
-	}
-	var fields map[string]any
-	if err := json.Unmarshal(encoded, &fields); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal kubernetes runtime instance: %w", err)
-	}
-	delete(fields, "ID")
-	delete(fields, "CreatedAt")
-	delete(fields, "UpdatedAt")
-	fields["IngressComponentInstanceID"] = nil
-	body, err := json.Marshal(fields)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal kubernetes runtime instance: %w", err)
-	}
-	return body, nil
+	return supportservices.DeleteComponentWorkload(a.reconciler, id)
 }

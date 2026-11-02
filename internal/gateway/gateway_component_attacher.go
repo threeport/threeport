@@ -1,21 +1,17 @@
 package gateway
 
 import (
-	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"net/url"
 	"strconv"
-	"strings"
 
 	"github.com/go-logr/logr"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
-	util "github.com/threeport/threeport/pkg/util/v0"
+	"github.com/threeport/threeport/pkg/supportservices"
 )
 
 const certificatesComponent = "certificates"
@@ -46,17 +42,17 @@ func (a *gatewayComponentAttacher) Install(
 ) (uint, error) {
 	// build the component manifest
 	name := "ingress"
-	manifest, err := getIngressComponentYaml()
+	manifest, err := supportservices.IngressComponentYaml()
 	if a.certificates() {
 		name = certificatesComponent
-		manifest, err = getCertificatesComponentYaml()
+		manifest, err = supportservices.CertificatesComponentYaml()
 	}
 	if err != nil {
 		return 0, fmt.Errorf("failed to create %s component: %w", name, err)
 	}
 
 	// create the component workload
-	return createComponentWorkload(
+	return supportservices.CreateComponentWorkload(
 		a.reconciler,
 		runtime,
 		fmt.Sprintf("%s-%s", name, *runtime.Name),
@@ -68,28 +64,7 @@ func (a *gatewayComponentAttacher) Install(
 // IsComponentReconciled reports whether the workload has reconciled.
 // A missing row returns reconciled false and missing true.
 func (a *gatewayComponentAttacher) IsComponentReconciled(id uint) (bool, bool, error) {
-	// read the workload the slot names
-	workload, err := client.GetKubernetesWorkloadInstanceByID(
-		a.reconciler.APIClient,
-		a.reconciler.APIServer,
-		id,
-	)
-	if errors.Is(err, client_lib.ErrObjectNotFound) {
-		return false, true, nil
-	}
-	if err != nil {
-		return false, false, err
-	}
-	if workload.DeletionScheduled != nil {
-		return false, false, fmt.Errorf(
-			"gateway component workload %d is being deleted",
-			id,
-		)
-	}
-	if workload.Reconciled != nil && *workload.Reconciled {
-		return true, false, nil
-	}
-	return false, false, nil
+	return supportservices.ComponentReconciled(a.reconciler, id)
 }
 
 // SetCallerKubernetesWorkloadInstanceID stores the workload id on the gateway.
@@ -125,88 +100,31 @@ func (a *gatewayComponentAttacher) SetCallerKubernetesWorkloadInstanceID(id *uin
 
 // ClaimRuntimeKubernetesWorkloadInstanceID writes the runtime slot.
 func (a *gatewayComponentAttacher) ClaimRuntimeKubernetesWorkloadInstanceID(runtimeID uint, workloadID uint) error {
-	// load the runtime and set the slot
-	runtime, err := client.GetKubernetesRuntimeInstanceByID(
-		a.reconciler.APIClient,
-		a.reconciler.APIServer,
-		runtimeID,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to get kubernetes runtime instance %d: %w", runtimeID, err)
-	}
+	// claim the certificates or ingress column
+	column := supportservices.IngressColumn
 	if a.certificates() {
-		runtime.CertificatesComponentInstanceID = util.Ptr(workloadID)
-	} else {
-		runtime.IngressComponentInstanceID = util.Ptr(workloadID)
+		column = supportservices.CertificatesColumn
 	}
-	_, err = client.UpdateKubernetesRuntimeInstance(
-		a.reconciler.APIClient,
-		a.reconciler.APIServer,
-		runtime,
-	)
-	if err != nil {
-		return fmt.Errorf(
-			"failed to claim gateway component slot on runtime %d: %w",
-			runtimeID,
-			err,
-		)
-	}
-	return nil
+	return supportservices.ClaimComponentWorkload(a.reconciler, runtimeID, workloadID, column)
 }
 
 // ClearRuntimeKubernetesWorkloadInstanceID clears the runtime slot when no caller requires the workload.
 func (a *gatewayComponentAttacher) ClearRuntimeKubernetesWorkloadInstanceID(runtimeID uint, workloadID uint) (bool, error) {
-	// load the runtime
-	runtime, err := client.GetKubernetesRuntimeInstanceByID(
-		a.reconciler.APIClient,
-		a.reconciler.APIServer,
-		runtimeID,
-	)
-	if err != nil {
-		return false, fmt.Errorf(
-			"failed to get kubernetes runtime instance %d: %w",
-			runtimeID,
-			err,
-		)
-	}
-	slot := runtime.IngressComponentInstanceID
+	// clear only the column this gateway holds
+	column := supportservices.IngressColumn
 	if a.certificates() {
-		slot = runtime.CertificatesComponentInstanceID
+		column = supportservices.CertificatesColumn
 	}
-	if slot == nil || *slot != workloadID {
-		return false, nil
+	held, err := supportservices.ComponentColumnHeld(a.reconciler, runtimeID, workloadID, column)
+	if err != nil || !held {
+		return held, err
 	}
 
-	// drop this gateway's requires row so the clear can see the other callers
+	// drop this gateway's requires row before the column clear
 	if err := a.dropComponentClaim(workloadID); err != nil {
 		return false, err
 	}
-
-	// replace the slot with null
-	body, err := gatewayComponentSlotNull(a, runtime)
-	if err != nil {
-		return false, err
-	}
-	_, err = client_lib.GetResponse(
-		a.reconciler.APIClient,
-		fmt.Sprintf("%s%s/%d", a.reconciler.APIServer, v0.PathKubernetesRuntimeInstances, runtimeID),
-		http.MethodPut,
-		bytes.NewBuffer(body),
-		map[string]string{},
-		http.StatusOK,
-	)
-	if err == nil {
-		return true, nil
-	}
-	if errors.Is(err, client_lib.ErrBadRequest) &&
-		strings.Contains(err.Error(), v0.ErrMsgSupportServiceSlotHeld) {
-		return false, nil
-	}
-	return false, fmt.Errorf(
-		"failed to clear gateway component slot on runtime %d: %w",
-		runtimeID,
-		err,
-	)
+	return supportservices.NullComponentColumn(a.reconciler, runtimeID, column)
 }
 
 // dropComponentClaim deletes this gateway's requires row for the workload.
@@ -262,40 +180,5 @@ func (a *gatewayComponentAttacher) dropComponentClaim(workloadID uint) error {
 
 // DeleteComponentKubernetesWorkloadInstance removes the workload instance.
 func (a *gatewayComponentAttacher) DeleteComponentKubernetesWorkloadInstance(id uint) error {
-	// treat a missing workload as already removed
-	_, err := client.DeleteKubernetesWorkloadInstance(
-		a.reconciler.APIClient,
-		a.reconciler.APIServer,
-		id,
-	)
-	if errors.Is(err, client_lib.ErrObjectNotFound) {
-		return nil
-	}
-	return err
-}
-
-// gatewayComponentSlotNull encodes the runtime with the component slot set to null.
-func gatewayComponentSlotNull(a *gatewayComponentAttacher, runtime *v0.KubernetesRuntimeInstance) ([]byte, error) {
-	// encode the runtime and set the slot to null
-	encoded, err := json.Marshal(runtime)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal kubernetes runtime instance: %w", err)
-	}
-	var fields map[string]any
-	if err := json.Unmarshal(encoded, &fields); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal kubernetes runtime instance: %w", err)
-	}
-	delete(fields, "ID")
-	delete(fields, "CreatedAt")
-	delete(fields, "UpdatedAt")
-	if a.certificates() {
-		fields["CertificatesComponentInstanceID"] = nil
-	} else {
-		fields["IngressComponentInstanceID"] = nil
-	}
-	body, err := json.Marshal(fields)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal kubernetes runtime instance: %w", err)
-	}
-	return body, nil
+	return supportservices.DeleteComponentWorkload(a.reconciler, id)
 }

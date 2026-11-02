@@ -4,8 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
 	"github.com/threeport/threeport/internal/gateway/manifests"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -110,68 +108,6 @@ func TestIngressRule(t *testing.T) {
 	rule, http, paths, err := ingressRule(object)
 	if err != nil || rule == nil || http == nil || len(paths) != 1 {
 		t.Fatalf("ingressRule() = (%v, %v, %v, %v)", rule, http, paths, err)
-	}
-}
-
-// TestGetIngressComponentYaml checks the fields this install sets on the sample.
-func TestGetIngressComponentYaml(t *testing.T) {
-	// the sample stays free of threeport values
-	if strings.Contains(string(manifests.IngressComponent), "threeport") {
-		t.Fatal("ingress component sample contains a threeport value")
-	}
-
-	// render the component and read the fields this install sets
-	rendered, err := getIngressComponentYaml()
-	if err != nil {
-		t.Fatal(err)
-	}
-	component, err := util.UnstructuredFromYaml([]byte(rendered))
-	if err != nil {
-		t.Fatal(err)
-	}
-	name, _, _ := unstructured.NestedString(component.Object, "metadata", "name")
-	collection, _, _ := unstructured.NestedString(component.Object, "spec", "collection", "name")
-	domain, _, _ := unstructured.NestedString(component.Object, "spec", "domainName")
-	version, _, _ := unstructured.NestedString(component.Object, "spec", "nginx", "version")
-	include, _, _ := unstructured.NestedBool(component.Object, "spec", "nginx", "include")
-	kong, _, _ := unstructured.NestedBool(component.Object, "spec", "kong", "include")
-	role, _, _ := unstructured.NestedString(component.Object, "spec", "externalDNS", "iamRoleArn")
-	if name != ingressComponentName ||
-		collection != "threeport-support-services" ||
-		domain != ingressDomainName ||
-		version != "5.5.4" ||
-		!include ||
-		kong ||
-		role != "local" {
-		t.Fatalf("name=%s collection=%s domain=%s version=%s nginx=%v kong=%v role=%s", name, collection, domain, version, include, kong, role)
-	}
-}
-
-// TestGetExternalDnsYamlOmitsProviderNone checks that provider none drops external-dns.
-// The component is named externaldns and kong stays out.
-func TestGetExternalDnsYamlOmitsProviderNone(t *testing.T) {
-	// render with no provider
-	rendered, err := getExternalDnsYaml("example.com", "none", "", "", "1")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if strings.Contains(rendered, "externalDNS") {
-		t.Fatalf("provider none still has externalDNS:\n%s", rendered)
-	}
-	if !strings.Contains(rendered, "example.com") || !strings.Contains(rendered, "name: externaldns") || strings.Contains(rendered, "include: true") {
-		t.Fatalf("component fields:\n%s", rendered)
-	}
-}
-
-// TestGetExternalDnsYamlSetsRoute53 checks the provider, role, and owner args.
-func TestGetExternalDnsYamlSetsRoute53(t *testing.T) {
-	// render the external dns component and check the route53 fields
-	rendered, err := getExternalDnsYaml("example.com", "route53", "arn:role", "", "7")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(rendered, "provider: route53") || !strings.Contains(rendered, "arn:role") || !strings.Contains(rendered, "txt-owner-id=7-") {
-		t.Fatalf("route53 fields missing:\n%s", rendered)
 	}
 }
 
