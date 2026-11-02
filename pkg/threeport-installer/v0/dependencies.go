@@ -2,6 +2,7 @@ package v0
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -12,6 +13,7 @@ import (
 	"github.com/threeport/threeport/pkg/api-server/v0/database"
 	auth "github.com/threeport/threeport/pkg/auth/v0"
 	"github.com/threeport/threeport/pkg/encryption/v0"
+	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 )
 
 const (
@@ -148,31 +150,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControlPlaneDependencies(
 				},
 			},
 			"data": map[string]interface{}{
-				"nats.conf": `# NATS Clients Port
-port: 4222
-
-# PID file shared with configuration reloader.
-pid_file: "/var/run/nats/nats.pid"
-
-###############
-#             #
-# Monitoring  #
-#             #
-###############
-http: 8222
-server_name:$POD_NAME
-###################################
-#                                 #
-# NATS JetStream                  #
-#                                 #
-###################################
-jetstream {
-  max_mem: 30Mi
-}
-lame_duck_grace_period: 10s
-lame_duck_duration: 30s
-store_dir: /data
-`,
+				"nats.conf": natsConf(),
 			},
 		},
 	}
@@ -331,7 +309,7 @@ store_dir: /data
 							"prometheus.io/path":   "/metrics",
 							"prometheus.io/port":   "7777",
 							"prometheus.io/scrape": "true",
-							"checksum/config":      "3b398e973c292bf8c2eb90d62acb846274c0489643aad560d8c4aed123f20ce7",
+							"checksum/config":      natsConfChecksum(),
 						},
 						"labels": map[string]interface{}{
 							"app.kubernetes.io/name":     "nats",
@@ -570,7 +548,7 @@ store_dir: /data
 						"metadata": map[string]interface{}{
 							"name": "datadir",
 						},
-						"spec": cpi.getVolClaimTemplateSpec("5Gi"),
+						"spec": cpi.getVolClaimTemplateSpec(notifications.MessageBrokerVolumeSize()),
 					},
 				},
 			},
@@ -905,6 +883,45 @@ store_dir: /data
 	}
 
 	return nil
+}
+
+// natsConf returns the message broker configuration.  The disk ceiling is set
+// explicitly, below the size of the message broker volume, so it does not
+// depend on the free space when the server starts.
+func natsConf() string {
+	return fmt.Sprintf(`# NATS Clients Port
+port: 4222
+
+# PID file shared with configuration reloader.
+pid_file: "/var/run/nats/nats.pid"
+
+###############
+#             #
+# Monitoring  #
+#             #
+###############
+http: 8222
+server_name:$POD_NAME
+###################################
+#                                 #
+# NATS JetStream                  #
+#                                 #
+###################################
+jetstream {
+  max_mem: 30Mi
+  max_file: %s
+}
+lame_duck_grace_period: 10s
+lame_duck_duration: 30s
+store_dir: /data
+`, notifications.MessageBrokerMaxFile())
+}
+
+// natsConfChecksum returns a hash of the message broker configuration.  It is
+// a pod template annotation so that a configuration change restarts the pods.
+// The server does not apply a change to its JetStream limits on a reload.
+func natsConfChecksum() string {
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(natsConf())))
 }
 
 // getVolClaimTemplateSpec returns the spec for volume claim template for the
