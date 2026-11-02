@@ -3,14 +3,12 @@ package supportservices
 import "net/http"
 
 // componentAttacher is an API instance attached to one support services operator component.
-// Its type and id name that instance on the requires row for the component workload.
 type componentAttacher interface {
 	GetFullyQualifiedType() string
 	ObjectID() *uint
 }
 
 // objectUpdate is the save of an attached API instance after its component workload id is stored.
-// A nil save leaves that id only in memory.
 type objectUpdate[T any] func(apiClient *http.Client, apiAddr string, object T) (T, error)
 
 // manifestEditor returns the edited component document.
