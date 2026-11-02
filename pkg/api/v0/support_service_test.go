@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
-	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -88,7 +87,7 @@ func TestSupportServiceSlotRejectsADifferentLiveWorkload(t *testing.T) {
 	// claim a different id
 	err := claimSlot(t, db, *runtime.ID, *workload.ID+1)
 	require.Error(t, err)
-	require.True(t, strings.Contains(err.Error(), lib.ErrMsgSupportServiceSlotHeld))
+	require.True(t, strings.Contains(err.Error(), ErrMsgSupportServiceSlotHeld))
 
 	// the slot stays on the live workload
 	got := storedSlot(t, db, *runtime.ID)
@@ -127,7 +126,7 @@ func TestSupportServiceSlotRejectsClearWhileRequired(t *testing.T) {
 	// clear the slot
 	err := clearSlot(t, db, *runtime.ID)
 	require.Error(t, err)
-	require.True(t, strings.Contains(err.Error(), lib.ErrMsgSupportServiceSlotHeld))
+	require.True(t, strings.Contains(err.Error(), ErrMsgSupportServiceSlotHeld))
 
 	// the slot stays set
 	got := storedSlot(t, db, *runtime.ID)

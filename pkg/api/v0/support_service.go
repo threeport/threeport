@@ -34,6 +34,9 @@ type SupportServiceDatabase struct {
 	DatabaseComponentInstanceID *uint `validate:"optional" relationship:"requires;type:KubernetesWorkloadInstance"`
 }
 
+// ErrMsgSupportServiceSlotHeld is the API message when a slot write loses the compare.
+const ErrMsgSupportServiceSlotHeld = "support service slot is held"
+
 // applySupportServiceSlots claims or clears a shared workload slot inside the update transaction.
 func applySupportServiceSlots(tx *gorm.DB, runtimeID uint) error {
 	// name the runtime columns and the tables this update compares
@@ -92,7 +95,7 @@ func applySupportServiceSlots(tx *gorm.DB, runtimeID uint) error {
 			return err
 		}
 		if !cleared {
-			return util.NewBadRequestError(lib.ErrMsgSupportServiceSlotHeld)
+			return util.NewBadRequestError(ErrMsgSupportServiceSlotHeld)
 		}
 	}
 	return nil
@@ -134,7 +137,7 @@ func claimSupportServiceSlot(tx *gorm.DB, runtimeTable, workloadTable, column st
 		return fmt.Errorf("failed to claim %s on kubernetes runtime instance %d: %w", column, runtimeID, result.Error)
 	}
 	if result.RowsAffected != 1 {
-		return util.NewBadRequestError(lib.ErrMsgSupportServiceSlotHeld)
+		return util.NewBadRequestError(ErrMsgSupportServiceSlotHeld)
 	}
 	return nil
 }

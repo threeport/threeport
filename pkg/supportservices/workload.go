@@ -13,7 +13,6 @@ import (
 	"github.com/go-logr/logr"
 	"gorm.io/datatypes"
 
-	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 	api "github.com/threeport/threeport/pkg/api/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
@@ -144,7 +143,7 @@ func nullComponentColumn(
 		return true, nil
 	}
 	if errors.Is(err, client_lib.ErrBadRequest) &&
-		strings.Contains(err.Error(), lib.ErrMsgSupportServiceSlotHeld) {
+		strings.Contains(err.Error(), api.ErrMsgSupportServiceSlotHeld) {
 		return false, nil
 	}
 	return false, fmt.Errorf(
