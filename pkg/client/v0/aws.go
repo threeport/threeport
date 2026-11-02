@@ -95,7 +95,7 @@ func GetAwsEksKubernetesRuntimeDefinitionByK8sRuntimeDef(apiClient *http.Client,
 	}
 
 	if len(response.Data) < 1 {
-		return &awsEksKubernetesRuntimeDefinition, errors.New(fmt.Sprintf("no object found with ID %d", id))
+		return &awsEksKubernetesRuntimeDefinition, fmt.Errorf("%w: no object found with ID %d", client_lib.ErrObjectNotFound, id)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -129,7 +129,7 @@ func GetAwsEksKubernetesRuntimeInstanceByK8sRuntimeInst(apiClient *http.Client, 
 	}
 
 	if len(response.Data) < 1 {
-		return &awsEksKubernetesRuntimeInstance, errors.New(fmt.Sprintf("no object found with ID %d", id))
+		return &awsEksKubernetesRuntimeInstance, fmt.Errorf("%w: no object found with ID %d", client_lib.ErrObjectNotFound, id)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
