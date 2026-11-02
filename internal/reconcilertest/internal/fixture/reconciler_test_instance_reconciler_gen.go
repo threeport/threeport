@@ -190,64 +190,64 @@ func ReconcilerTestInstanceReconciler(r *controller.Reconciler) {
 						)
 						if err != nil {
 							operationErr = fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
-						} else {
+						}
+						if operationErr == nil {
+							if err := supportservices.EnsureIngressComponent(
+								r,
+								runtime,
+								componentObject,
+								&componentObject.IngressComponentInstanceID,
+								client_v0.UpdateReconcilerTestInstance,
+								&log,
+							); err != nil {
+								operationErr = fmt.Errorf("failed to ensure ingress component: %w", err)
+							}
+						}
+						if operationErr == nil {
+							if err := supportservices.EnsureCertificatesComponent(
+								r,
+								runtime,
+								componentObject,
+								&componentObject.CertificatesComponentInstanceID,
+								client_v0.UpdateReconcilerTestInstance,
+								&log,
+							); err != nil {
+								operationErr = fmt.Errorf("failed to ensure certificates component: %w", err)
+							}
+						}
+						if operationErr == nil {
+							provider, err := tpclient.GetInfraProviderByKubernetesRuntimeInstanceID(
+								r.APIClient,
+								r.APIServer,
+								runtime.ID,
+							)
+							if err != nil {
+								operationErr = fmt.Errorf("failed to get infra provider: %w", err)
+							}
 							if operationErr == nil {
-								if err := supportservices.EnsureIngressComponent(
+								if err := supportservices.EnsureSecretsComponent(
 									r,
 									runtime,
 									componentObject,
-									&componentObject.IngressComponentInstanceID,
+									&componentObject.SecretsComponentInstanceID,
 									client_v0.UpdateReconcilerTestInstance,
+									provider,
 									&log,
 								); err != nil {
-									operationErr = fmt.Errorf("failed to ensure ingress component: %w", err)
+									operationErr = fmt.Errorf("failed to ensure secrets component: %w", err)
 								}
 							}
-							if operationErr == nil {
-								if err := supportservices.EnsureCertificatesComponent(
-									r,
-									runtime,
-									componentObject,
-									&componentObject.CertificatesComponentInstanceID,
-									client_v0.UpdateReconcilerTestInstance,
-									&log,
-								); err != nil {
-									operationErr = fmt.Errorf("failed to ensure certificates component: %w", err)
-								}
-							}
-							if operationErr == nil {
-								provider, err := tpclient.GetInfraProviderByKubernetesRuntimeInstanceID(
-									r.APIClient,
-									r.APIServer,
-									runtime.ID,
-								)
-								if err != nil {
-									operationErr = fmt.Errorf("failed to get infra provider: %w", err)
-								} else {
-									if err := supportservices.EnsureSecretsComponent(
-										r,
-										runtime,
-										componentObject,
-										&componentObject.SecretsComponentInstanceID,
-										client_v0.UpdateReconcilerTestInstance,
-										provider,
-										&log,
-									); err != nil {
-										operationErr = fmt.Errorf("failed to ensure secrets component: %w", err)
-									}
-								}
-							}
-							if operationErr == nil {
-								if err := supportservices.EnsureDatabaseComponent(
-									r,
-									runtime,
-									componentObject,
-									&componentObject.DatabaseComponentInstanceID,
-									client_v0.UpdateReconcilerTestInstance,
-									&log,
-								); err != nil {
-									operationErr = fmt.Errorf("failed to ensure database component: %w", err)
-								}
+						}
+						if operationErr == nil {
+							if err := supportservices.EnsureDatabaseComponent(
+								r,
+								runtime,
+								componentObject,
+								&componentObject.DatabaseComponentInstanceID,
+								client_v0.UpdateReconcilerTestInstance,
+								&log,
+							); err != nil {
+								operationErr = fmt.Errorf("failed to ensure database component: %w", err)
 							}
 						}
 					}
@@ -352,64 +352,64 @@ func ReconcilerTestInstanceReconciler(r *controller.Reconciler) {
 						)
 						if err != nil {
 							operationErr = fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
-						} else {
+						}
+						if operationErr == nil {
+							if err := supportservices.EnsureIngressComponent(
+								r,
+								runtime,
+								componentObject,
+								&componentObject.IngressComponentInstanceID,
+								client_v0.UpdateReconcilerTestInstance,
+								&log,
+							); err != nil {
+								operationErr = fmt.Errorf("failed to ensure ingress component: %w", err)
+							}
+						}
+						if operationErr == nil {
+							if err := supportservices.EnsureCertificatesComponent(
+								r,
+								runtime,
+								componentObject,
+								&componentObject.CertificatesComponentInstanceID,
+								client_v0.UpdateReconcilerTestInstance,
+								&log,
+							); err != nil {
+								operationErr = fmt.Errorf("failed to ensure certificates component: %w", err)
+							}
+						}
+						if operationErr == nil {
+							provider, err := tpclient.GetInfraProviderByKubernetesRuntimeInstanceID(
+								r.APIClient,
+								r.APIServer,
+								runtime.ID,
+							)
+							if err != nil {
+								operationErr = fmt.Errorf("failed to get infra provider: %w", err)
+							}
 							if operationErr == nil {
-								if err := supportservices.EnsureIngressComponent(
+								if err := supportservices.EnsureSecretsComponent(
 									r,
 									runtime,
 									componentObject,
-									&componentObject.IngressComponentInstanceID,
+									&componentObject.SecretsComponentInstanceID,
 									client_v0.UpdateReconcilerTestInstance,
+									provider,
 									&log,
 								); err != nil {
-									operationErr = fmt.Errorf("failed to ensure ingress component: %w", err)
+									operationErr = fmt.Errorf("failed to ensure secrets component: %w", err)
 								}
 							}
-							if operationErr == nil {
-								if err := supportservices.EnsureCertificatesComponent(
-									r,
-									runtime,
-									componentObject,
-									&componentObject.CertificatesComponentInstanceID,
-									client_v0.UpdateReconcilerTestInstance,
-									&log,
-								); err != nil {
-									operationErr = fmt.Errorf("failed to ensure certificates component: %w", err)
-								}
-							}
-							if operationErr == nil {
-								provider, err := tpclient.GetInfraProviderByKubernetesRuntimeInstanceID(
-									r.APIClient,
-									r.APIServer,
-									runtime.ID,
-								)
-								if err != nil {
-									operationErr = fmt.Errorf("failed to get infra provider: %w", err)
-								} else {
-									if err := supportservices.EnsureSecretsComponent(
-										r,
-										runtime,
-										componentObject,
-										&componentObject.SecretsComponentInstanceID,
-										client_v0.UpdateReconcilerTestInstance,
-										provider,
-										&log,
-									); err != nil {
-										operationErr = fmt.Errorf("failed to ensure secrets component: %w", err)
-									}
-								}
-							}
-							if operationErr == nil {
-								if err := supportservices.EnsureDatabaseComponent(
-									r,
-									runtime,
-									componentObject,
-									&componentObject.DatabaseComponentInstanceID,
-									client_v0.UpdateReconcilerTestInstance,
-									&log,
-								); err != nil {
-									operationErr = fmt.Errorf("failed to ensure database component: %w", err)
-								}
+						}
+						if operationErr == nil {
+							if err := supportservices.EnsureDatabaseComponent(
+								r,
+								runtime,
+								componentObject,
+								&componentObject.DatabaseComponentInstanceID,
+								client_v0.UpdateReconcilerTestInstance,
+								&log,
+							); err != nil {
+								operationErr = fmt.Errorf("failed to ensure database component: %w", err)
 							}
 						}
 					}
@@ -521,42 +521,41 @@ func ReconcilerTestInstanceReconciler(r *controller.Reconciler) {
 							)
 							if err != nil {
 								operationErr = fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
-							} else {
-								if operationErr == nil {
-									if err := supportservices.ReleaseIngressComponent(
-										r,
-										runtime,
-										componentObject,
-									); err != nil {
-										operationErr = fmt.Errorf("failed to release ingress component: %w", err)
-									}
+							}
+							if operationErr == nil {
+								if err := supportservices.ReleaseIngressComponent(
+									r,
+									runtime,
+									componentObject,
+								); err != nil {
+									operationErr = fmt.Errorf("failed to release ingress component: %w", err)
 								}
-								if operationErr == nil {
-									if err := supportservices.ReleaseCertificatesComponent(
-										r,
-										runtime,
-										componentObject,
-									); err != nil {
-										operationErr = fmt.Errorf("failed to release certificates component: %w", err)
-									}
+							}
+							if operationErr == nil {
+								if err := supportservices.ReleaseCertificatesComponent(
+									r,
+									runtime,
+									componentObject,
+								); err != nil {
+									operationErr = fmt.Errorf("failed to release certificates component: %w", err)
 								}
-								if operationErr == nil {
-									if err := supportservices.ReleaseSecretsComponent(
-										r,
-										runtime,
-										componentObject,
-									); err != nil {
-										operationErr = fmt.Errorf("failed to release secrets component: %w", err)
-									}
+							}
+							if operationErr == nil {
+								if err := supportservices.ReleaseSecretsComponent(
+									r,
+									runtime,
+									componentObject,
+								); err != nil {
+									operationErr = fmt.Errorf("failed to release secrets component: %w", err)
 								}
-								if operationErr == nil {
-									if err := supportservices.ReleaseDatabaseComponent(
-										r,
-										runtime,
-										componentObject,
-									); err != nil {
-										operationErr = fmt.Errorf("failed to release database component: %w", err)
-									}
+							}
+							if operationErr == nil {
+								if err := supportservices.ReleaseDatabaseComponent(
+									r,
+									runtime,
+									componentObject,
+								); err != nil {
+									operationErr = fmt.Errorf("failed to release database component: %w", err)
 								}
 							}
 						}

@@ -188,27 +188,27 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 						)
 						if err != nil {
 							operationErr = fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
-						} else {
+						}
+						if operationErr == nil {
+							provider, err := client_v0.GetInfraProviderByKubernetesRuntimeInstanceID(
+								r.APIClient,
+								r.APIServer,
+								runtime.ID,
+							)
+							if err != nil {
+								operationErr = fmt.Errorf("failed to get infra provider: %w", err)
+							}
 							if operationErr == nil {
-								provider, err := client_v0.GetInfraProviderByKubernetesRuntimeInstanceID(
-									r.APIClient,
-									r.APIServer,
-									runtime.ID,
-								)
-								if err != nil {
-									operationErr = fmt.Errorf("failed to get infra provider: %w", err)
-								} else {
-									if err := supportservices.EnsureSecretsComponent(
-										r,
-										runtime,
-										componentObject,
-										&componentObject.SecretsComponentInstanceID,
-										client_v0.UpdateSecretInstance,
-										provider,
-										&log,
-									); err != nil {
-										operationErr = fmt.Errorf("failed to ensure secrets component: %w", err)
-									}
+								if err := supportservices.EnsureSecretsComponent(
+									r,
+									runtime,
+									componentObject,
+									&componentObject.SecretsComponentInstanceID,
+									client_v0.UpdateSecretInstance,
+									provider,
+									&log,
+								); err != nil {
+									operationErr = fmt.Errorf("failed to ensure secrets component: %w", err)
 								}
 							}
 						}
@@ -314,27 +314,27 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 						)
 						if err != nil {
 							operationErr = fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
-						} else {
+						}
+						if operationErr == nil {
+							provider, err := client_v0.GetInfraProviderByKubernetesRuntimeInstanceID(
+								r.APIClient,
+								r.APIServer,
+								runtime.ID,
+							)
+							if err != nil {
+								operationErr = fmt.Errorf("failed to get infra provider: %w", err)
+							}
 							if operationErr == nil {
-								provider, err := client_v0.GetInfraProviderByKubernetesRuntimeInstanceID(
-									r.APIClient,
-									r.APIServer,
-									runtime.ID,
-								)
-								if err != nil {
-									operationErr = fmt.Errorf("failed to get infra provider: %w", err)
-								} else {
-									if err := supportservices.EnsureSecretsComponent(
-										r,
-										runtime,
-										componentObject,
-										&componentObject.SecretsComponentInstanceID,
-										client_v0.UpdateSecretInstance,
-										provider,
-										&log,
-									); err != nil {
-										operationErr = fmt.Errorf("failed to ensure secrets component: %w", err)
-									}
+								if err := supportservices.EnsureSecretsComponent(
+									r,
+									runtime,
+									componentObject,
+									&componentObject.SecretsComponentInstanceID,
+									client_v0.UpdateSecretInstance,
+									provider,
+									&log,
+								); err != nil {
+									operationErr = fmt.Errorf("failed to ensure secrets component: %w", err)
 								}
 							}
 						}
@@ -447,15 +447,14 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 							)
 							if err != nil {
 								operationErr = fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
-							} else {
-								if operationErr == nil {
-									if err := supportservices.ReleaseSecretsComponent(
-										r,
-										runtime,
-										componentObject,
-									); err != nil {
-										operationErr = fmt.Errorf("failed to release secrets component: %w", err)
-									}
+							}
+							if operationErr == nil {
+								if err := supportservices.ReleaseSecretsComponent(
+									r,
+									runtime,
+									componentObject,
+								); err != nil {
+									operationErr = fmt.Errorf("failed to release secrets component: %w", err)
 								}
 							}
 						}

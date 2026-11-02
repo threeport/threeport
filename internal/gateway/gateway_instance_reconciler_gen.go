@@ -188,30 +188,29 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 						)
 						if err != nil {
 							operationErr = fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
-						} else {
-							if operationErr == nil {
-								if err := supportservices.EnsureIngressComponent(
-									r,
-									runtime,
-									componentObject,
-									&componentObject.IngressComponentInstanceID,
-									client_v0.UpdateGatewayInstance,
-									&log,
-								); err != nil {
-									operationErr = fmt.Errorf("failed to ensure ingress component: %w", err)
-								}
+						}
+						if operationErr == nil {
+							if err := supportservices.EnsureIngressComponent(
+								r,
+								runtime,
+								componentObject,
+								&componentObject.IngressComponentInstanceID,
+								client_v0.UpdateGatewayInstance,
+								&log,
+							); err != nil {
+								operationErr = fmt.Errorf("failed to ensure ingress component: %w", err)
 							}
-							if operationErr == nil {
-								if err := supportservices.EnsureCertificatesComponent(
-									r,
-									runtime,
-									componentObject,
-									&componentObject.CertificatesComponentInstanceID,
-									client_v0.UpdateGatewayInstance,
-									&log,
-								); err != nil {
-									operationErr = fmt.Errorf("failed to ensure certificates component: %w", err)
-								}
+						}
+						if operationErr == nil {
+							if err := supportservices.EnsureCertificatesComponent(
+								r,
+								runtime,
+								componentObject,
+								&componentObject.CertificatesComponentInstanceID,
+								client_v0.UpdateGatewayInstance,
+								&log,
+							); err != nil {
+								operationErr = fmt.Errorf("failed to ensure certificates component: %w", err)
 							}
 						}
 					}
@@ -316,30 +315,29 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 						)
 						if err != nil {
 							operationErr = fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
-						} else {
-							if operationErr == nil {
-								if err := supportservices.EnsureIngressComponent(
-									r,
-									runtime,
-									componentObject,
-									&componentObject.IngressComponentInstanceID,
-									client_v0.UpdateGatewayInstance,
-									&log,
-								); err != nil {
-									operationErr = fmt.Errorf("failed to ensure ingress component: %w", err)
-								}
+						}
+						if operationErr == nil {
+							if err := supportservices.EnsureIngressComponent(
+								r,
+								runtime,
+								componentObject,
+								&componentObject.IngressComponentInstanceID,
+								client_v0.UpdateGatewayInstance,
+								&log,
+							); err != nil {
+								operationErr = fmt.Errorf("failed to ensure ingress component: %w", err)
 							}
-							if operationErr == nil {
-								if err := supportservices.EnsureCertificatesComponent(
-									r,
-									runtime,
-									componentObject,
-									&componentObject.CertificatesComponentInstanceID,
-									client_v0.UpdateGatewayInstance,
-									&log,
-								); err != nil {
-									operationErr = fmt.Errorf("failed to ensure certificates component: %w", err)
-								}
+						}
+						if operationErr == nil {
+							if err := supportservices.EnsureCertificatesComponent(
+								r,
+								runtime,
+								componentObject,
+								&componentObject.CertificatesComponentInstanceID,
+								client_v0.UpdateGatewayInstance,
+								&log,
+							); err != nil {
+								operationErr = fmt.Errorf("failed to ensure certificates component: %w", err)
 							}
 						}
 					}
@@ -451,24 +449,23 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 							)
 							if err != nil {
 								operationErr = fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
-							} else {
-								if operationErr == nil {
-									if err := supportservices.ReleaseIngressComponent(
-										r,
-										runtime,
-										componentObject,
-									); err != nil {
-										operationErr = fmt.Errorf("failed to release ingress component: %w", err)
-									}
+							}
+							if operationErr == nil {
+								if err := supportservices.ReleaseIngressComponent(
+									r,
+									runtime,
+									componentObject,
+								); err != nil {
+									operationErr = fmt.Errorf("failed to release ingress component: %w", err)
 								}
-								if operationErr == nil {
-									if err := supportservices.ReleaseCertificatesComponent(
-										r,
-										runtime,
-										componentObject,
-									); err != nil {
-										operationErr = fmt.Errorf("failed to release certificates component: %w", err)
-									}
+							}
+							if operationErr == nil {
+								if err := supportservices.ReleaseCertificatesComponent(
+									r,
+									runtime,
+									componentObject,
+								); err != nil {
+									operationErr = fmt.Errorf("failed to release certificates component: %w", err)
 								}
 							}
 						}
