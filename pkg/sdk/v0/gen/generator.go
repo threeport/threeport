@@ -537,6 +537,12 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 		}
 	}
 
+	// read the shared component fields so an embed's tags reach the object
+	supportTags, supportTypes, err := LoadSupportServiceFields()
+	if err != nil {
+		return fmt.Errorf("failed to read support service fields: %w", err)
+	}
+
 	/////////////////// populate Generator.ApiObjectGroups /////////////////////
 	for _, apiObjectGroup := range sdkConfig.ApiObjectConfig.ApiObjectGroups {
 		filename := fmt.Sprintf("%s.go", *apiObjectGroup.Name)
@@ -795,16 +801,10 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 											}
 										}
 
-										// anonymous embed: record the embed type name on
-										// this struct, then move on. The embed's own field
-										// tags live in g.EmbedTypes (parsed once up front).
+										// record the embed type name, including the name after a package selector.
 										if len(field.Names) == 0 {
-											// anon embed type is either a bare identifier
-											// (e.g. `Common`) or a selector (e.g.
-											// `pkgalias.SomeType`); only the bare-ident case
-											// applies to threeport's in-package embeds
-											if ident, ok := field.Type.(*ast.Ident); ok {
-												structEmbeds[objectName] = append(structEmbeds[objectName], ident.Name)
+											if name := embedName(field.Type); name != "" {
+												structEmbeds[objectName] = append(structEmbeds[objectName], name)
 											}
 											continue
 										}
@@ -825,6 +825,9 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 					}
 				}
 			}
+
+			// copy promoted component fields onto each object that embeds them
+			CopySupportServiceFields(structTags, fieldTypes, structEmbeds, supportTags, supportTypes)
 
 			// populate the ApiObjectGroup
 			genApiObjectGroup = ApiObjectGroup{
@@ -1105,6 +1108,71 @@ var allowedEmbed = map[string]bool{
 // error messages. Kept in sync with allowedEmbed.
 const allowedEmbedNames = "Common, Definition, Instance, or Reconciliation"
 
+// supportServiceEmbed is a shared component type an api object may embed.
+// The object must also declare a kubernetes runtime instance id.
+var supportServiceEmbed = map[string]bool{
+	"SupportServiceIngress":      true,
+	"SupportServiceCertificates": true,
+	"SupportServiceSecrets":      true,
+	"SupportServiceDatabase":     true,
+}
+
+// kubernetesRuntimeInstanceID is the field a support service embed requires.
+const kubernetesRuntimeInstanceID = "KubernetesRuntimeInstanceID"
+
+// LoadSupportServiceFields reads the shared component types.
+// A tree without that file returns empty maps.
+func LoadSupportServiceFields() (
+	map[string]map[string]map[string]string,
+	map[string]map[string]string,
+	error,
+) {
+	path := filepath.Join("pkg", "api", "v0", "support_service.go")
+	if _, err := os.Stat(path); err != nil {
+		return nil, nil, nil
+	}
+
+	tags, fieldTypes, _, err := ParseModelFile(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	return tags, fieldTypes, nil
+}
+
+// CopySupportServiceFields copies each support service field onto the object that embeds it.
+// Generation reads the object's own tags, and a promoted field is not listed there.
+func CopySupportServiceFields(
+	structTags map[string]map[string]map[string]string,
+	fieldTypes map[string]map[string]string,
+	structEmbeds map[string][]string,
+	supportTags map[string]map[string]map[string]string,
+	supportTypes map[string]map[string]string,
+) {
+	// copy fields the object does not already declare
+	for objectName, embeds := range structEmbeds {
+		for _, embedType := range embeds {
+			if !supportServiceEmbed[embedType] {
+				continue
+			}
+			if structTags[objectName] == nil {
+				structTags[objectName] = map[string]map[string]string{}
+			}
+			if fieldTypes[objectName] == nil {
+				fieldTypes[objectName] = map[string]string{}
+			}
+			for fieldName, tagMap := range supportTags[embedType] {
+				if _, exists := structTags[objectName][fieldName]; exists {
+					continue
+				}
+				structTags[objectName][fieldName] = tagMap
+				if supportTypes != nil {
+					fieldTypes[objectName][fieldName] = supportTypes[embedType][fieldName]
+				}
+			}
+		}
+	}
+}
+
 // ValidateTags reports every tag value the generator will not accept.
 func (g *Generator) ValidateTags() error {
 	// build the set of registered API type names so the relationship
@@ -1181,6 +1249,16 @@ func (g *Generator) ValidateTags() error {
 			// one level of embed promotion, and the validator only has to
 			// flatten one level deep.
 			for _, embedType := range group.StructEmbeds[objectName] {
+				// allow a support service embed when the object declares a runtime id
+				if supportServiceEmbed[embedType] {
+					if _, ok := fieldMap[kubernetesRuntimeInstanceID]; !ok {
+						problems = append(problems, fmt.Sprintf(
+							"%s embeds %s and requires %s",
+							objectName, embedType, kubernetesRuntimeInstanceID,
+						))
+					}
+					continue
+				}
 				if !allowedEmbed[embedType] {
 					problems = append(problems, fmt.Sprintf(
 						"%s embeds %s: api types may only embed %s",

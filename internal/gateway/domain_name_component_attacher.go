@@ -131,39 +131,3 @@ func (a *domainNameComponentAttacher) externalDnsManifest(
 
 	return externalDnsYaml, nil
 }
-
-// IsComponentReconciled reports whether the workload has reconciled.
-// A missing row returns reconciled false and missing true.
-func (a *domainNameComponentAttacher) IsComponentReconciled(id uint) (bool, bool, error) {
-	return supportservices.IsComponentReconciled(a.reconciler, id)
-}
-
-// SetCallerKubernetesWorkloadInstanceID records nothing because the domain stores no component id.
-func (a *domainNameComponentAttacher) SetCallerKubernetesWorkloadInstanceID(id *uint) error {
-	return nil
-}
-
-// ClaimRuntimeKubernetesWorkloadInstanceID writes the runtime slot.
-func (a *domainNameComponentAttacher) ClaimRuntimeKubernetesWorkloadInstanceID(runtimeID uint, workloadID uint) error {
-	return supportservices.ClaimComponentWorkload(
-		a.reconciler,
-		runtimeID,
-		workloadID,
-		supportservices.IngressColumn,
-	)
-}
-
-// ClearRuntimeKubernetesWorkloadInstanceID clears the runtime slot when no caller requires the workload.
-func (a *domainNameComponentAttacher) ClearRuntimeKubernetesWorkloadInstanceID(runtimeID uint, workloadID uint) (bool, error) {
-	return supportservices.ClearComponentWorkload(
-		a.reconciler,
-		runtimeID,
-		workloadID,
-		supportservices.IngressColumn,
-	)
-}
-
-// DeleteComponentKubernetesWorkloadInstance removes the workload instance.
-func (a *domainNameComponentAttacher) DeleteComponentKubernetesWorkloadInstance(id uint) error {
-	return supportservices.DeleteComponentWorkload(a.reconciler, id)
-}

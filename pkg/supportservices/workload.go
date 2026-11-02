@@ -6,11 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/go-logr/logr"
 	"gorm.io/datatypes"
 
+	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 	api "github.com/threeport/threeport/pkg/api/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
@@ -20,22 +23,22 @@ import (
 )
 
 const (
-	// IngressColumn is the runtime field that stores the ingress workload
-	IngressColumn = "IngressComponentInstanceID"
+	// ingressColumn is the runtime field that stores the ingress workload
+	ingressColumn = "IngressComponentInstanceID"
 
-	// CertificatesColumn is the runtime field that stores the certificates workload
-	CertificatesColumn = "CertificatesComponentInstanceID"
+	// certificatesColumn is the runtime field that stores the certificates workload
+	certificatesColumn = "CertificatesComponentInstanceID"
 
-	// SecretsColumn is the runtime field that stores the secrets workload
-	SecretsColumn = "SecretsComponentInstanceID"
+	// secretsColumn is the runtime field that stores the secrets workload
+	secretsColumn = "SecretsComponentInstanceID"
 
-	// DatabaseColumn is the runtime field that stores the database workload
-	DatabaseColumn = "DatabaseComponentInstanceID"
+	// databaseColumn is the runtime field that stores the database workload
+	databaseColumn = "DatabaseComponentInstanceID"
 )
 
-// IsComponentReconciled reports whether that workload instance has reconciled.
+// isComponentReconciled reports whether that workload instance has reconciled.
 // A missing row returns reconciled false and missing true.
-func IsComponentReconciled(r *controller.Reconciler, id uint) (bool, bool, error) {
+func isComponentReconciled(r *controller.Reconciler, id uint) (bool, bool, error) {
 	// read the workload the slot names
 	workload, err := client.GetKubernetesWorkloadInstanceByID(
 		r.APIClient,
@@ -57,8 +60,8 @@ func IsComponentReconciled(r *controller.Reconciler, id uint) (bool, bool, error
 	return false, false, nil
 }
 
-// DeleteComponentWorkload removes that workload instance.
-func DeleteComponentWorkload(r *controller.Reconciler, id uint) error {
+// deleteComponentWorkload removes that workload instance.
+func deleteComponentWorkload(r *controller.Reconciler, id uint) error {
 	// treat a missing workload as already removed
 	_, err := client.DeleteKubernetesWorkloadInstance(r.APIClient, r.APIServer, id)
 	if errors.Is(err, client_lib.ErrObjectNotFound) {
@@ -67,8 +70,8 @@ func DeleteComponentWorkload(r *controller.Reconciler, id uint) error {
 	return err
 }
 
-// ClaimComponentWorkload writes the runtime column when the compare accepts it.
-func ClaimComponentWorkload(
+// claimComponentWorkload writes the runtime column when the compare accepts it.
+func claimComponentWorkload(
 	r *controller.Reconciler,
 	runtimeID uint,
 	workloadID uint,
@@ -91,8 +94,8 @@ func ClaimComponentWorkload(
 	return nil
 }
 
-// ComponentColumnHeld reports whether the runtime column stores this workload id.
-func ComponentColumnHeld(
+// componentColumnHeld reports whether the runtime column stores this workload id.
+func componentColumnHeld(
 	r *controller.Reconciler,
 	runtimeID uint,
 	workloadID uint,
@@ -113,9 +116,9 @@ func ComponentColumnHeld(
 	return true, nil
 }
 
-// NullComponentColumn sets the runtime column to null when it stores this workload id.
+// nullComponentColumn sets the runtime column to null when it stores this workload id.
 // A remaining requires row returns cleared false.
-func NullComponentColumn(
+func nullComponentColumn(
 	r *controller.Reconciler,
 	runtimeID uint,
 	column string,
@@ -141,7 +144,7 @@ func NullComponentColumn(
 		return true, nil
 	}
 	if errors.Is(err, client_lib.ErrBadRequest) &&
-		strings.Contains(err.Error(), api.ErrMsgSupportServiceSlotHeld) {
+		strings.Contains(err.Error(), lib.ErrMsgSupportServiceSlotHeld) {
 		return false, nil
 	}
 	return false, fmt.Errorf(
@@ -151,32 +154,43 @@ func NullComponentColumn(
 	)
 }
 
-// ClearComponentWorkload nulls the runtime column when it stores this workload id.
-// The cleared result is true when the column was set to null.
-func ClearComponentWorkload(
-	r *controller.Reconciler,
-	runtimeID uint,
-	workloadID uint,
-	column string,
-) (bool, error) {
-	// leave a column this workload does not hold
-	held, err := ComponentColumnHeld(r, runtimeID, workloadID, column)
-	if err != nil || !held {
-		return held, err
+// dropComponentClaim deletes the caller's requires row for the workload.
+func dropComponentClaim(r *controller.Reconciler, attachedType string, attachedID uint, workloadID uint) error {
+	// select the requires row from this caller to the workload
+	query := url.Values{}
+	query.Set("objecttype", new(api.KubernetesWorkloadInstance).GetFullyQualifiedType())
+	query.Set("objectid", strconv.FormatUint(uint64(workloadID), 10))
+	query.Set("attachedobjecttype", attachedType)
+	query.Set("attachedobjectid", strconv.FormatUint(uint64(attachedID), 10))
+	query.Set("relationship", string(api.RelationshipRequires))
+	references, err := client.GetAttachedObjectReferencesByQueryString(r.APIClient, r.APIServer, query.Encode())
+	if err != nil {
+		return fmt.Errorf("failed to look up component workload references: %w", err)
 	}
-	return NullComponentColumn(r, runtimeID, column)
+
+	// delete each requires row, including one removed by a concurrent release
+	for _, reference := range *references {
+		if reference.ID == nil {
+			continue
+		}
+		_, err := client.DeleteAttachedObjectReference(r.APIClient, r.APIServer, *reference.ID)
+		if err != nil && !errors.Is(err, client_lib.ErrObjectNotFound) {
+			return fmt.Errorf("failed to delete component workload reference: %w", err)
+		}
+	}
+	return nil
 }
 
 // componentColumn returns the runtime field named by column.
 func componentColumn(runtime *api.KubernetesRuntimeInstance, column string) (**uint, error) {
 	switch column {
-	case IngressColumn:
+	case ingressColumn:
 		return &runtime.IngressComponentInstanceID, nil
-	case CertificatesColumn:
+	case certificatesColumn:
 		return &runtime.CertificatesComponentInstanceID, nil
-	case SecretsColumn:
+	case secretsColumn:
 		return &runtime.SecretsComponentInstanceID, nil
-	case DatabaseColumn:
+	case databaseColumn:
 		return &runtime.DatabaseComponentInstanceID, nil
 	default:
 		return nil, fmt.Errorf("unknown support service column %s", column)
@@ -201,8 +215,8 @@ func componentSlotNull(runtime *api.KubernetesRuntimeInstance, column string) ([
 	return json.Marshal(fields)
 }
 
-// CreateComponentWorkload creates one component workload and returns its id.
-func CreateComponentWorkload(
+// createComponentWorkload creates one component workload and returns its id.
+func createComponentWorkload(
 	r *controller.Reconciler,
 	kubernetesRuntimeInstance *api.KubernetesRuntimeInstance,
 	workloadName string,
@@ -248,9 +262,9 @@ func CreateComponentWorkload(
 	return *createdWorkloadInstance.ID, nil
 }
 
-// SyncWorkloadObject stores each document on a component workload.
+// syncWorkloadObject stores each document on a component workload.
 // The workload controller applies the objects on its next update.
-func SyncWorkloadObject(
+func syncWorkloadObject(
 	r *controller.Reconciler,
 	workloadID uint,
 	manifest string,

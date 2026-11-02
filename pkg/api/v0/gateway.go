@@ -43,6 +43,10 @@ type GatewayInstance struct {
 	Instance       `mapstructure:",squash"`
 	Reconciliation `mapstructure:",squash"`
 
+	// The shared component workloads this instance records.
+	SupportServiceIngress      `mapstructure:",squash"`
+	SupportServiceCertificates `mapstructure:",squash"`
+
 	// The kubernetes runtime where the ingress layer is installed.
 	KubernetesRuntimeInstanceID *uint `validate:"required" gorm:"not null" relationship:"requires"`
 
@@ -60,12 +64,6 @@ type GatewayInstance struct {
 
 	// The kubernetes workload instance this gateway belongs to.
 	KubernetesWorkloadInstanceID *uint `validate:"required" gorm:"not null" relationship:"requires"`
-
-	// The workload instance that runs the ingress component for this gateway.
-	IngressComponentInstanceID *uint `validate:"optional" relationship:"requires;type:KubernetesWorkloadInstance"`
-
-	// The workload instance that runs the certificates component for this gateway.
-	CertificatesComponentInstanceID *uint `validate:"optional" relationship:"requires;type:KubernetesWorkloadInstance"`
 }
 
 // GatewayHttpPort is an HTTP port to expose to the outside network.

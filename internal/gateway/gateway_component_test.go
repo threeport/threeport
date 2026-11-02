@@ -17,6 +17,12 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
+// noopGatewayUpdate skips the caller write in a component test.
+func noopGatewayUpdate(*http.Client, string, *api.GatewayInstance) (*api.GatewayInstance, error) {
+	// skip the write
+	return nil, nil
+}
+
 // componentFixture is the api state one gateway component install uses.
 // The counts record definitions and instances the install creates.
 type componentFixture struct {
@@ -191,7 +197,8 @@ func TestEnsureIngressComponentAlreadySet(t *testing.T) {
 	f.workload.Reconciled = &reconciled
 	log := logr.Discard()
 	reconciler := f.serve(t)
-	err := supportservices.EnsureIngressComponent(reconciler, f.runtime, &gatewayIngressAttacher{reconciler: reconciler}, &log)
+	gateway := &api.GatewayInstance{}
+	err := supportservices.EnsureIngressComponent(reconciler, f.runtime, gateway, &gateway.IngressComponentInstanceID, noopGatewayUpdate, &log)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -206,7 +213,8 @@ func TestEnsureIngressComponentCreatesOnePair(t *testing.T) {
 	f := &componentFixture{runtime: kindRuntime(), definitionID: 10, instanceID: 20}
 	log := logr.Discard()
 	reconciler := f.serve(t)
-	err := supportservices.EnsureIngressComponent(reconciler, f.runtime, &gatewayIngressAttacher{reconciler: reconciler}, &log)
+	gateway := &api.GatewayInstance{}
+	err := supportservices.EnsureIngressComponent(reconciler, f.runtime, gateway, &gateway.IngressComponentInstanceID, noopGatewayUpdate, &log)
 	if err == nil || !strings.Contains(err.Error(), "not reconciled") {
 		t.Fatalf("expected the new workload to wait for reconciliation, got %v", err)
 	}
@@ -227,7 +235,8 @@ func TestEnsureIngressComponentCreatesOnePair(t *testing.T) {
 	// keep that install once the workload has reconciled
 	ready := true
 	f.workload.Reconciled = &ready
-	err = supportservices.EnsureIngressComponent(reconciler, f.runtime, &gatewayIngressAttacher{reconciler: reconciler}, &log)
+	gateway = &api.GatewayInstance{}
+	err = supportservices.EnsureIngressComponent(reconciler, f.runtime, gateway, &gateway.IngressComponentInstanceID, noopGatewayUpdate, &log)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -249,7 +258,8 @@ func TestEnsureIngressComponentReplacesMissing(t *testing.T) {
 	f.definition.Name = util.Ptr("ingress-dev")
 	log := logr.Discard()
 	reconciler := f.serve(t)
-	err := supportservices.EnsureIngressComponent(reconciler, f.runtime, &gatewayIngressAttacher{reconciler: reconciler}, &log)
+	gateway := &api.GatewayInstance{}
+	err := supportservices.EnsureIngressComponent(reconciler, f.runtime, gateway, &gateway.IngressComponentInstanceID, noopGatewayUpdate, &log)
 	if err == nil || !strings.Contains(err.Error(), "not reconciled") {
 		t.Fatalf("expected the replacement to wait for reconciliation, got %v", err)
 	}
@@ -275,104 +285,12 @@ func TestEnsureIngressComponentWaitsWhileDeleting(t *testing.T) {
 	f.runtime.IngressComponentInstanceID = util.Ptr(uint(9))
 	log := logr.Discard()
 	reconciler := f.serve(t)
-	err := supportservices.EnsureIngressComponent(reconciler, f.runtime, &gatewayIngressAttacher{reconciler: reconciler}, &log)
+	gateway := &api.GatewayInstance{}
+	err := supportservices.EnsureIngressComponent(reconciler, f.runtime, gateway, &gateway.IngressComponentInstanceID, noopGatewayUpdate, &log)
 	if err == nil {
 		t.Fatal("expected an error")
 	}
 	if f.instances != 0 {
 		t.Fatalf("instances %d", f.instances)
-	}
-}
-
-// TestReleaseIngressComponentKeepsSharedInstall leaves the install while a gateway remains.
-func TestReleaseIngressComponentKeepsSharedInstall(t *testing.T) {
-	// skip deletion while one gateway on the runtime is still live
-	now := time.Now()
-	f := &componentFixture{
-		runtime:  kindRuntime(),
-		workload: &api.KubernetesWorkloadInstance{Common: api.Common{ID: util.Ptr(uint(9))}},
-		gateways: []api.GatewayInstance{
-			{Reconciliation: api.Reconciliation{DeletionScheduled: &now}},
-			{},
-		},
-	}
-	f.runtime.IngressComponentInstanceID = util.Ptr(uint(9))
-	err := releaseGatewayComponent(f.serve(t), &api.GatewayInstance{
-		KubernetesRuntimeInstanceID: f.runtime.ID,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if f.deleted {
-		t.Fatal("deleted the shared component")
-	}
-}
-
-// TestReleaseIngressComponentDeletesLast removes the install with the last gateway.
-func TestReleaseIngressComponentDeletesLast(t *testing.T) {
-	// delete the component when every gateway on the runtime is deleting
-	now := time.Now()
-	f := &componentFixture{
-		runtime:  kindRuntime(),
-		workload: &api.KubernetesWorkloadInstance{Common: api.Common{ID: util.Ptr(uint(9))}},
-		gateways: []api.GatewayInstance{
-			{Reconciliation: api.Reconciliation{DeletionScheduled: &now}},
-		},
-	}
-	f.runtime.IngressComponentInstanceID = util.Ptr(uint(9))
-	err := releaseGatewayComponent(f.serve(t), &api.GatewayInstance{
-		Common:                      api.Common{ID: util.Ptr(uint(8))},
-		KubernetesRuntimeInstanceID: f.runtime.ID,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !f.deleted {
-		t.Fatal("shared component was not deleted")
-	}
-	if f.runtime.IngressComponentInstanceID != nil {
-		t.Fatal("expected the slot to clear")
-	}
-}
-
-// TestReleaseIngressComponentLeavesSlotWhenHeld keeps the workload when the clear is refused.
-func TestReleaseIngressComponentLeavesSlotWhenHeld(t *testing.T) {
-	// keep the workload when the api refuses to clear the slot
-	now := time.Now()
-	f := &componentFixture{
-		runtime:  kindRuntime(),
-		holdSlot: true,
-		gateways: []api.GatewayInstance{
-			{Reconciliation: api.Reconciliation{DeletionScheduled: &now}},
-		},
-	}
-	f.runtime.IngressComponentInstanceID = util.Ptr(uint(9))
-	err := releaseGatewayComponent(f.serve(t), &api.GatewayInstance{
-		Common:                      api.Common{ID: util.Ptr(uint(8))},
-		KubernetesRuntimeInstanceID: f.runtime.ID,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if f.deleted {
-		t.Fatal("deleted the workload while the slot stayed held")
-	}
-	if f.runtime.IngressComponentInstanceID == nil || *f.runtime.IngressComponentInstanceID != 9 {
-		t.Fatalf("slot = %v, want 9", f.runtime.IngressComponentInstanceID)
-	}
-}
-
-// TestReleaseIngressComponentNoInstall skips a runtime with no install.
-func TestReleaseIngressComponentNoInstall(t *testing.T) {
-	// return before listing gateways when no component id is stored
-	f := &componentFixture{runtime: kindRuntime()}
-	err := releaseGatewayComponent(f.serve(t), &api.GatewayInstance{
-		KubernetesRuntimeInstanceID: f.runtime.ID,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if f.deleted {
-		t.Fatal("deleted a component that was not installed")
 	}
 }

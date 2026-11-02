@@ -13,7 +13,6 @@ import (
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
-	supportservices "github.com/threeport/threeport/pkg/supportservices"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -363,21 +362,6 @@ func (c *SecretInstanceConfig) validateThreeportState() error {
 		}
 	default:
 		return errors.New("secret instance must be attached to a kubernetes workload instance or a helm workload instance")
-	}
-
-	// confirm secret component is deployed
-	var provider *string
-	if c.kubernetesRuntimeDefinition != nil {
-		provider = c.kubernetesRuntimeDefinition.InfraProvider
-	}
-	if err := supportservices.EnsureSecretsComponent(
-		c.r,
-		c.kubernetesRuntimeInstance,
-		provider,
-		&secretComponentAttacher{config: c},
-		c.log,
-	); err != nil {
-		return fmt.Errorf("failed to confirm secret component deployed: %w", err)
 	}
 
 	return nil

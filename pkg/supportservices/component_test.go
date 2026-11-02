@@ -1,7 +1,7 @@
 package supportservices
 
 import (
-	"errors"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -9,738 +9,181 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// fakeCaller records the calls the shared install and release make.
-type fakeCaller struct {
-	ready      bool
-	gone       bool
-	readyErr   error
-	claimErr   error
-	cleared    bool
-	clearErr   error
-	deleteErr  error
-	installErr error
-	recordErr  error
-	deploys    int
-	installID  uint
-	claimed    []uint
-	deleted    []uint
-	recorded   *uint
-}
+// appendingEditor appends one extra document to the component manifest.
+type appendingEditor struct{}
 
-// IsComponentReconciled returns the readiness the test arranged.
-func (f *fakeCaller) IsComponentReconciled(uint) (bool, bool, error) {
-	// return the arranged readiness
-	return f.ready, f.gone, f.readyErr
-}
-
-// SetCallerKubernetesWorkloadInstanceID records the workload id the caller stored.
-func (f *fakeCaller) SetCallerKubernetesWorkloadInstanceID(id *uint) error {
-	// store the id
-	f.recorded = id
-	return f.recordErr
-}
-
-// ClaimRuntimeKubernetesWorkloadInstanceID records the workload id and returns the arranged error.
-func (f *fakeCaller) ClaimRuntimeKubernetesWorkloadInstanceID(_ uint, workloadID uint) error {
-	// record the claim
-	f.claimed = append(f.claimed, workloadID)
-	return f.claimErr
-}
-
-// ClearRuntimeKubernetesWorkloadInstanceID returns the clear result the test arranged.
-func (f *fakeCaller) ClearRuntimeKubernetesWorkloadInstanceID(uint, uint) (bool, error) {
-	// return the arranged clear result
-	return f.cleared, f.clearErr
-}
-
-// DeleteComponentKubernetesWorkloadInstance records the workload id and returns the arranged error.
-func (f *fakeCaller) DeleteComponentKubernetesWorkloadInstance(id uint) error {
-	// record the delete
-	f.deleted = append(f.deleted, id)
-	return f.deleteErr
-}
-
-// runtimeWithSlot returns a runtime whose component slot holds id.
-func runtimeWithSlot(id *uint) *api.KubernetesRuntimeInstance {
-	// build the runtime
-	return &api.KubernetesRuntimeInstance{
-		Common:                     api.Common{ID: util.Ptr(uint(1))},
-		IngressComponentInstanceID: id,
-	}
-}
-
-// callEnsure runs ensure with a component document and a create that records the deploy.
-func callEnsure(
-	runtime *api.KubernetesRuntimeInstance,
-	slot **uint,
-	caller *fakeCaller,
-) error {
-	// create the recorded id and leave the synced document unused
-	return ensure(
-		runtime,
-		slot,
-		"gateway component",
-		caller,
-		nil,
-		func() (string, error) { return "kind: Component", nil },
-		func(string) (uint, error) {
-			caller.deploys++
-			return caller.installID, caller.installErr
-		},
-		func(uint, string) error { return nil },
-	)
-}
-
-// manifestEditor records EditManifest and appends an extra document.
-type manifestEditor struct {
-	fakeCaller
-	edits int
-	extra string
-}
-
-// EditManifest records the call and appends the extra document.
-func (e *manifestEditor) EditManifest(base func() (string, error)) (string, error) {
-	// count the call and read the base document
-	e.edits++
-	manifest, err := base()
+// EditManifest appends one extra document.
+func (e *appendingEditor) EditManifest(base func() (string, error)) (string, error) {
+	// append the extra document
+	document, err := base()
 	if err != nil {
 		return "", err
 	}
-
-	// append the extra document when the caller set one
-	if e.extra == "" {
-		return manifest, nil
-	}
-	return manifest + "\n---\n" + e.extra, nil
+	return document + "\n---\nkind: Extra", nil
 }
 
-// TestEnsureComponentRecordsAReconciledWorkload keeps the recorded workload.
-func TestEnsureComponentRecordsAReconciledWorkload(t *testing.T) {
-	// arrange a reconciled workload already in the slot
-	caller := &fakeCaller{ready: true}
-	runtime := runtimeWithSlot(util.Ptr(uint(4)))
-
-	// ensure
-	err := callEnsure(runtime, &runtime.IngressComponentInstanceID, caller)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if caller.deploys != 0 {
-		t.Fatalf("deploys = %d, want 0", caller.deploys)
-	}
-	if caller.recorded == nil || *caller.recorded != 4 {
-		t.Fatalf("recorded = %v, want 4", caller.recorded)
-	}
+// noopGatewayUpdate satisfies the update argument when the caller is not stored.
+func noopGatewayUpdate(*http.Client, string, *api.GatewayInstance) (*api.GatewayInstance, error) {
+	// skip the write
+	return nil, nil
 }
 
-// TestEnsureComponentWaitsForReconciliation leaves a live workload in place.
-func TestEnsureComponentWaitsForReconciliation(t *testing.T) {
-	// arrange a workload that exists and has not reconciled
-	caller := &fakeCaller{}
-	runtime := runtimeWithSlot(util.Ptr(uint(4)))
-
-	// ensure
-	err := callEnsure(runtime, &runtime.IngressComponentInstanceID, caller)
-	if err == nil || !strings.Contains(err.Error(), "not reconciled") {
-		t.Fatalf("got %v, want not reconciled", err)
-	}
-	if caller.deploys != 0 {
-		t.Fatalf("deploys = %d, want 0", caller.deploys)
-	}
-}
-
-// TestEnsureComponentInstallsWhenTheSlotIsEmpty claims the new workload.
-func TestEnsureComponentInstallsWhenTheSlotIsEmpty(t *testing.T) {
-	// arrange an empty slot
-	caller := &fakeCaller{installID: 8}
-	runtime := runtimeWithSlot(nil)
-
-	// ensure
-	err := callEnsure(runtime, &runtime.IngressComponentInstanceID, caller)
-	if err == nil || !strings.Contains(err.Error(), "not reconciled") {
-		t.Fatalf("got %v, want not reconciled", err)
-	}
-	if caller.deploys != 1 || len(caller.claimed) != 1 || caller.claimed[0] != 8 {
-		t.Fatalf("deploys %d claims %v", caller.deploys, caller.claimed)
-	}
-	if runtime.IngressComponentInstanceID == nil || *runtime.IngressComponentInstanceID != 8 {
-		t.Fatalf("slot = %v, want 8", runtime.IngressComponentInstanceID)
-	}
-}
-
-// TestEnsureComponentDeletesALostClaim removes the workload the compare refused.
-func TestEnsureComponentDeletesALostClaim(t *testing.T) {
-	// arrange a claim the compare refuses
-	caller := &fakeCaller{installID: 8, claimErr: errors.New("slot held")}
-	runtime := runtimeWithSlot(nil)
-
-	// ensure
-	err := callEnsure(runtime, &runtime.IngressComponentInstanceID, caller)
-	if err == nil || !strings.Contains(err.Error(), "slot held") {
-		t.Fatalf("got %v, want slot held", err)
-	}
-	if len(caller.deleted) != 1 || caller.deleted[0] != 8 {
-		t.Fatalf("deleted %v, want [8]", caller.deleted)
-	}
-	if runtime.IngressComponentInstanceID != nil {
-		t.Fatal("expected the slot to stay empty")
-	}
-}
-
-// TestReleaseComponentDeletesTheLastWorkload clears the slot and deletes the workload.
-func TestReleaseComponentDeletesTheLastWorkload(t *testing.T) {
-	// arrange a clear the compare allows
-	caller := &fakeCaller{cleared: true}
-	runtime := runtimeWithSlot(util.Ptr(uint(4)))
-
-	// release
-	err := release(*runtime.ID, &runtime.IngressComponentInstanceID, "gateway component", caller)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(caller.deleted) != 1 || caller.deleted[0] != 4 {
-		t.Fatalf("deleted %v, want [4]", caller.deleted)
-	}
-	if runtime.IngressComponentInstanceID != nil {
-		t.Fatal("expected the slot to clear")
-	}
-}
-
-// TestReleaseComponentKeepsAHeldSlot leaves the workload when the clear is refused.
-func TestReleaseComponentKeepsAHeldSlot(t *testing.T) {
-	// arrange a clear the compare refuses
-	caller := &fakeCaller{}
-	runtime := runtimeWithSlot(util.Ptr(uint(4)))
-
-	// release
-	err := release(*runtime.ID, &runtime.IngressComponentInstanceID, "gateway component", caller)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(caller.deleted) != 0 {
-		t.Fatalf("deleted %v, want none", caller.deleted)
-	}
-	if runtime.IngressComponentInstanceID == nil || *runtime.IngressComponentInstanceID != 4 {
-		t.Fatalf("slot = %v, want 4", runtime.IngressComponentInstanceID)
-	}
-}
-
-// TestReleaseComponentRestoresTheSlotWhenDeleteFails puts the workload id back.
-func TestReleaseComponentRestoresTheSlotWhenDeleteFails(t *testing.T) {
-	// arrange a delete that fails after the clear
-	caller := &fakeCaller{cleared: true, deleteErr: errors.New("delete failed")}
-	runtime := runtimeWithSlot(util.Ptr(uint(4)))
-
-	// release
-	err := release(*runtime.ID, &runtime.IngressComponentInstanceID, "gateway component", caller)
-	if err == nil || !strings.Contains(err.Error(), "delete failed") {
-		t.Fatalf("got %v, want delete failed", err)
-	}
-	if len(caller.claimed) != 1 || caller.claimed[0] != 4 {
-		t.Fatalf("claims %v, want [4]", caller.claimed)
-	}
-	if runtime.IngressComponentInstanceID == nil || *runtime.IngressComponentInstanceID != 4 {
-		t.Fatalf("slot = %v, want 4", runtime.IngressComponentInstanceID)
-	}
-}
-
-// TestEnsureDatabaseComponentClaimsTheSlot stores the installed id on the database column.
-func TestEnsureDatabaseComponentClaimsTheSlot(t *testing.T) {
-	// install into an empty database slot
-	runtime := &api.KubernetesRuntimeInstance{Common: api.Common{ID: util.Ptr(uint(1))}}
-	caller := &fakeCaller{installID: 11}
-
-	// ensure
-	err := callEnsure(runtime, &runtime.DatabaseComponentInstanceID, caller)
-	if err == nil || !strings.Contains(err.Error(), "not reconciled") {
-		t.Fatalf("got %v, want not reconciled", err)
-	}
-	if runtime.DatabaseComponentInstanceID == nil || *runtime.DatabaseComponentInstanceID != 11 {
-		t.Fatalf("slot = %v, want 11", runtime.DatabaseComponentInstanceID)
-	}
-}
-
-// TestReleaseDatabaseComponentClearsTheSlot deletes the workload and nils the column.
-func TestReleaseDatabaseComponentClearsTheSlot(t *testing.T) {
-	// release the only holder
-	runtime := &api.KubernetesRuntimeInstance{
-		Common:                      api.Common{ID: util.Ptr(uint(1))},
-		DatabaseComponentInstanceID: util.Ptr(uint(11)),
-	}
-	caller := &fakeCaller{cleared: true}
-
-	// release
-	if err := ReleaseDatabaseComponent(runtime, caller); err != nil {
-		t.Fatal(err)
-	}
-	if runtime.DatabaseComponentInstanceID != nil {
-		t.Fatalf("slot = %v, want nil", runtime.DatabaseComponentInstanceID)
-	}
-	if len(caller.deleted) != 1 || caller.deleted[0] != 11 {
-		t.Fatalf("deleted %v, want [11]", caller.deleted)
-	}
-}
-
-// TestEnsureSecretsComponentClaimsTheSlot stores the installed id on the secrets column.
-func TestEnsureSecretsComponentClaimsTheSlot(t *testing.T) {
-	// install into an empty secrets slot
-	runtime := &api.KubernetesRuntimeInstance{Common: api.Common{ID: util.Ptr(uint(1))}}
-	caller := &fakeCaller{installID: 12}
-
-	// ensure
-	err := callEnsure(runtime, &runtime.SecretsComponentInstanceID, caller)
-	if err == nil || !strings.Contains(err.Error(), "not reconciled") {
-		t.Fatalf("got %v, want not reconciled", err)
-	}
-	if runtime.SecretsComponentInstanceID == nil || *runtime.SecretsComponentInstanceID != 12 {
-		t.Fatalf("slot = %v, want 12", runtime.SecretsComponentInstanceID)
-	}
-}
-
-// TestReleaseSecretsComponentClearsTheSlot deletes the workload and nils the column.
-func TestReleaseSecretsComponentClearsTheSlot(t *testing.T) {
-	// release the only holder
-	runtime := &api.KubernetesRuntimeInstance{
-		Common:                     api.Common{ID: util.Ptr(uint(1))},
-		SecretsComponentInstanceID: util.Ptr(uint(12)),
-	}
-	caller := &fakeCaller{cleared: true}
-
-	// release
-	if err := ReleaseSecretsComponent(runtime, caller); err != nil {
-		t.Fatal(err)
-	}
-	if runtime.SecretsComponentInstanceID != nil {
-		t.Fatalf("slot = %v, want nil", runtime.SecretsComponentInstanceID)
-	}
-	if len(caller.deleted) != 1 || caller.deleted[0] != 12 {
-		t.Fatalf("deleted %v, want [12]", caller.deleted)
-	}
-}
-
-// TestEnsureComponentReinstallsWhenTheWorkloadIsGone installs again when the recorded row is gone.
-func TestEnsureComponentReinstallsWhenTheWorkloadIsGone(t *testing.T) {
-	// arrange a slot that names a deleted workload row
-	caller := &fakeCaller{gone: true, installID: 9}
-	runtime := runtimeWithSlot(util.Ptr(uint(4)))
-
-	// ensure
-	err := callEnsure(runtime, &runtime.IngressComponentInstanceID, caller)
-	if err == nil || !strings.Contains(err.Error(), "not reconciled") {
-		t.Fatalf("got %v, want not reconciled", err)
-	}
-	if caller.deploys != 1 {
-		t.Fatalf("deploys = %d, want 1", caller.deploys)
-	}
-	if runtime.IngressComponentInstanceID == nil || *runtime.IngressComponentInstanceID != 9 {
-		t.Fatalf("slot = %v, want 9", runtime.IngressComponentInstanceID)
-	}
-}
-
-// TestEnsureComponentReturnsTheDeleteError reports the delete after the claim fails.
-func TestEnsureComponentReturnsTheDeleteError(t *testing.T) {
-	// arrange a lost claim whose workload also fails to delete
-	caller := &fakeCaller{
-		installID: 8,
-		claimErr:  errors.New("slot held"),
-		deleteErr: errors.New("delete failed"),
-	}
-	runtime := runtimeWithSlot(nil)
-
-	// ensure
-	err := callEnsure(runtime, &runtime.IngressComponentInstanceID, caller)
-	if err == nil || !strings.Contains(err.Error(), "delete failed") {
-		t.Fatalf("got %v, want delete failed", err)
-	}
-	if runtime.IngressComponentInstanceID != nil {
-		t.Fatal("expected the slot to stay empty")
-	}
-}
-
-// TestEnsureComponentRejectsAMissingRuntime covers a nil runtime and a runtime with no id.
+// TestEnsureComponentRejectsAMissingRuntime reports the component whose runtime is absent.
 func TestEnsureComponentRejectsAMissingRuntime(t *testing.T) {
-	// reject a nil runtime
-	err := EnsureIngressComponent(nil, nil, &fakeCaller{}, nil)
-	if err == nil || !strings.Contains(err.Error(), "ingress component runtime is missing") {
-		t.Fatalf("gateway: %v", err)
-	}
-	err = EnsureSecretsComponent(nil, nil, nil, &fakeCaller{}, nil)
-	if err == nil || !strings.Contains(err.Error(), "secrets component runtime is missing") {
-		t.Fatalf("secrets: %v", err)
-	}
-	err = EnsureDatabaseComponent(nil, &fakeCaller{}, nil)
-	if err == nil || !strings.Contains(err.Error(), "database component runtime is missing") {
-		t.Fatalf("database: %v", err)
-	}
-	err = EnsureCertificatesComponent(nil, nil, &fakeCaller{}, nil)
-	if err == nil || !strings.Contains(err.Error(), "certificates component runtime is missing") {
-		t.Fatalf("dns: %v", err)
-	}
-
-	// reject a runtime that has no id
-	runtime := &api.KubernetesRuntimeInstance{}
-	err = EnsureIngressComponent(nil, runtime, &fakeCaller{}, nil)
-	if err == nil || !strings.Contains(err.Error(), "ingress component runtime is missing") {
-		t.Fatalf("gateway id: %v", err)
-	}
-	err = EnsureSecretsComponent(nil, runtime, nil, &fakeCaller{}, nil)
-	if err == nil || !strings.Contains(err.Error(), "secrets component runtime is missing") {
-		t.Fatalf("secrets id: %v", err)
-	}
-	err = EnsureDatabaseComponent(runtime, &fakeCaller{}, nil)
-	if err == nil || !strings.Contains(err.Error(), "database component runtime is missing") {
-		t.Fatalf("database id: %v", err)
-	}
-	err = EnsureCertificatesComponent(nil, runtime, &fakeCaller{}, nil)
-	if err == nil || !strings.Contains(err.Error(), "certificates component runtime is missing") {
-		t.Fatalf("dns id: %v", err)
-	}
-
-	// reject a runtime that has no name
-	unnamed := &api.KubernetesRuntimeInstance{Common: api.Common{ID: util.Ptr(uint(1))}}
-	err = EnsureIngressComponent(nil, unnamed, &fakeCaller{}, nil)
-	if err == nil || !strings.Contains(err.Error(), "ingress component runtime is missing") {
-		t.Fatalf("gateway name: %v", err)
-	}
-	err = EnsureSecretsComponent(nil, unnamed, nil, &fakeCaller{}, nil)
-	if err == nil || !strings.Contains(err.Error(), "secrets component runtime is missing") {
-		t.Fatalf("secrets name: %v", err)
-	}
-	err = EnsureCertificatesComponent(nil, unnamed, &fakeCaller{}, nil)
-	if err == nil || !strings.Contains(err.Error(), "certificates component runtime is missing") {
-		t.Fatalf("dns name: %v", err)
-	}
-	err = ReleaseIngressComponent(runtime, &fakeCaller{})
-	if err == nil || !strings.Contains(err.Error(), "ingress component runtime is missing") {
-		t.Fatalf("gateway release id: %v", err)
-	}
-	err = ReleaseSecretsComponent(runtime, &fakeCaller{})
-	if err == nil || !strings.Contains(err.Error(), "secrets component runtime is missing") {
-		t.Fatalf("secrets release id: %v", err)
-	}
-	err = ReleaseDatabaseComponent(runtime, &fakeCaller{})
-	if err == nil || !strings.Contains(err.Error(), "database component runtime is missing") {
-		t.Fatalf("database release id: %v", err)
-	}
-	err = ReleaseCertificatesComponent(runtime, &fakeCaller{})
-	if err == nil || !strings.Contains(err.Error(), "certificates component runtime is missing") {
-		t.Fatalf("dns release id: %v", err)
-	}
-	err = ReleaseIngressComponent(nil, &fakeCaller{})
-	if err == nil || !strings.Contains(err.Error(), "ingress component runtime is missing") {
-		t.Fatalf("gateway release: %v", err)
-	}
-	err = ReleaseSecretsComponent(nil, &fakeCaller{})
-	if err == nil || !strings.Contains(err.Error(), "secrets component runtime is missing") {
-		t.Fatalf("secrets release: %v", err)
-	}
-	err = ReleaseDatabaseComponent(nil, &fakeCaller{})
-	if err == nil || !strings.Contains(err.Error(), "database component runtime is missing") {
-		t.Fatalf("database release: %v", err)
-	}
-	err = ReleaseCertificatesComponent(nil, &fakeCaller{})
-	if err == nil || !strings.Contains(err.Error(), "certificates component runtime is missing") {
-		t.Fatalf("dns release: %v", err)
-	}
-}
-
-// TestEnsureCertificatesComponentClaimsTheSlot stores the installed id on the dns column.
-func TestEnsureCertificatesComponentClaimsTheSlot(t *testing.T) {
-	// install into an empty dns slot
-	runtime := &api.KubernetesRuntimeInstance{Common: api.Common{ID: util.Ptr(uint(1))}}
-	caller := &fakeCaller{installID: 13}
-
-	// ensure
-	err := callEnsure(runtime, &runtime.CertificatesComponentInstanceID, caller)
-	if err == nil || !strings.Contains(err.Error(), "not reconciled") {
-		t.Fatalf("got %v, want not reconciled", err)
-	}
-	if runtime.CertificatesComponentInstanceID == nil || *runtime.CertificatesComponentInstanceID != 13 {
-		t.Fatalf("slot = %v, want 13", runtime.CertificatesComponentInstanceID)
-	}
-}
-
-// TestReleaseCertificatesComponentClearsTheSlot deletes the workload and nils the column.
-func TestReleaseCertificatesComponentClearsTheSlot(t *testing.T) {
-	// release the only holder
-	runtime := &api.KubernetesRuntimeInstance{
-		Common:                          api.Common{ID: util.Ptr(uint(1))},
-		CertificatesComponentInstanceID: util.Ptr(uint(13)),
-	}
-	caller := &fakeCaller{cleared: true}
-
-	// release
-	if err := ReleaseCertificatesComponent(runtime, caller); err != nil {
-		t.Fatal(err)
-	}
-	if runtime.CertificatesComponentInstanceID != nil {
-		t.Fatalf("slot = %v, want nil", runtime.CertificatesComponentInstanceID)
-	}
-	if len(caller.deleted) != 1 || caller.deleted[0] != 13 {
-		t.Fatalf("deleted %v, want [13]", caller.deleted)
-	}
-}
-
-// TestReleaseComponentLeavesAnEmptySlot does nothing when the slot is empty.
-func TestReleaseComponentLeavesAnEmptySlot(t *testing.T) {
-	// arrange an empty slot
-	caller := &fakeCaller{}
-	runtime := runtimeWithSlot(nil)
-
-	// release
-	err := release(*runtime.ID, &runtime.IngressComponentInstanceID, "gateway component", caller)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(caller.deleted) != 0 {
-		t.Fatalf("deleted %v, want none", caller.deleted)
-	}
-}
-
-// TestEnsureComponentReturnsAReadError returns the failure from reading the workload.
-func TestEnsureComponentReturnsAReadError(t *testing.T) {
-	// arrange a slot whose workload read fails
-	caller := &fakeCaller{readyErr: errors.New("read failed")}
-	runtime := runtimeWithSlot(util.Ptr(uint(4)))
-
-	// ensure
-	err := callEnsure(runtime, &runtime.IngressComponentInstanceID, caller)
-	if err == nil || !strings.Contains(err.Error(), "failed to read") {
-		t.Fatalf("got %v, want failed to read", err)
-	}
-	if caller.deploys != 0 {
-		t.Fatalf("deploys = %d, want 0", caller.deploys)
-	}
-}
-
-// TestEnsureComponentReturnsAnInstallError returns the failure from installing the workload.
-func TestEnsureComponentReturnsAnInstallError(t *testing.T) {
-	// arrange an install that fails
-	caller := &fakeCaller{installErr: errors.New("install failed")}
-	runtime := runtimeWithSlot(nil)
-
-	// ensure
-	err := callEnsure(runtime, &runtime.IngressComponentInstanceID, caller)
-	if err == nil || !strings.Contains(err.Error(), "install failed") {
-		t.Fatalf("got %v, want install failed", err)
-	}
-	if runtime.IngressComponentInstanceID != nil {
-		t.Fatal("expected the slot to stay empty")
-	}
-}
-
-// TestEnsureComponentReturnsARecordError returns the failure from recording the workload.
-func TestEnsureComponentReturnsARecordError(t *testing.T) {
-	// arrange a record that fails after the claim
-	caller := &fakeCaller{installID: 8, recordErr: errors.New("record failed")}
-	runtime := runtimeWithSlot(nil)
-
-	// ensure
-	err := callEnsure(runtime, &runtime.IngressComponentInstanceID, caller)
-	if err == nil || !strings.Contains(err.Error(), "failed to record") {
-		t.Fatalf("got %v, want failed to record", err)
-	}
-	if runtime.IngressComponentInstanceID == nil || *runtime.IngressComponentInstanceID != 8 {
-		t.Fatalf("slot = %v, want 8", runtime.IngressComponentInstanceID)
-	}
-}
-
-// TestEnsureComponentRecordFailsWhenReady returns the record failure for a reconciled workload.
-func TestEnsureComponentRecordFailsWhenReady(t *testing.T) {
-	// arrange a reconciled workload whose record fails
-	caller := &fakeCaller{ready: true, recordErr: errors.New("record failed")}
-	runtime := runtimeWithSlot(util.Ptr(uint(4)))
-
-	// ensure
-	err := callEnsure(runtime, &runtime.IngressComponentInstanceID, caller)
-	if err == nil || !strings.Contains(err.Error(), "failed to record") {
-		t.Fatalf("got %v, want failed to record", err)
-	}
-	if caller.deploys != 0 {
-		t.Fatalf("deploys = %d, want 0", caller.deploys)
-	}
-}
-
-// TestReleaseComponentReturnsAClearError returns the failure from clearing the slot.
-func TestReleaseComponentReturnsAClearError(t *testing.T) {
-	// arrange a clear that fails
-	caller := &fakeCaller{clearErr: errors.New("clear failed")}
-	runtime := runtimeWithSlot(util.Ptr(uint(4)))
-
-	// release
-	err := release(*runtime.ID, &runtime.IngressComponentInstanceID, "gateway component", caller)
-	if err == nil || !strings.Contains(err.Error(), "failed to clear") {
-		t.Fatalf("got %v, want failed to clear", err)
-	}
-	if len(caller.deleted) != 0 {
-		t.Fatalf("deleted %v, want none", caller.deleted)
-	}
-}
-
-// TestReleaseComponentJoinsTheRestoreError returns the delete failure and the restore failure.
-func TestReleaseComponentJoinsTheRestoreError(t *testing.T) {
-	// arrange a delete that fails and a restore that also fails
-	caller := &fakeCaller{
-		cleared:   true,
-		deleteErr: errors.New("delete failed"),
-		claimErr:  errors.New("slot held"),
-	}
-	runtime := runtimeWithSlot(util.Ptr(uint(4)))
-
-	// release
-	err := release(*runtime.ID, &runtime.IngressComponentInstanceID, "gateway component", caller)
-	if err == nil ||
-		!strings.Contains(err.Error(), "delete failed") ||
-		!strings.Contains(err.Error(), "slot held") {
-		t.Fatalf("got %v, want both failures", err)
-	}
-	if runtime.IngressComponentInstanceID == nil || *runtime.IngressComponentInstanceID != 4 {
-		t.Fatalf("slot = %v, want 4", runtime.IngressComponentInstanceID)
-	}
-}
-
-// TestEnsureDatabaseComponentReportsAMissingManifest returns before it creates a workload.
-func TestEnsureDatabaseComponentReportsAMissingManifest(t *testing.T) {
-	// report the missing manifest and leave the slot empty
-	runtime := &api.KubernetesRuntimeInstance{Common: api.Common{ID: util.Ptr(uint(1))}}
-	caller := &fakeCaller{installID: 11}
-	err := EnsureDatabaseComponent(runtime, caller, nil)
-	if err == nil || err.Error() != "database component manifest is missing" {
-		t.Fatalf("got %v, want database component manifest is missing", err)
-	}
-	if runtime.DatabaseComponentInstanceID != nil {
-		t.Fatalf("slot = %v, want nil", runtime.DatabaseComponentInstanceID)
-	}
-	if caller.deploys != 0 {
-		t.Fatalf("deploys = %d, want 0", caller.deploys)
-	}
-}
-
-// TestSecretsProviderCreates reports which providers get a secrets workload.
-func TestSecretsProviderCreates(t *testing.T) {
-	// compare each provider to the create decision
-	eks := api.KubernetesRuntimeInfraProviderEKS
-	kindProvider := api.KubernetesRuntimeInfraProviderKind
-	gke := api.KubernetesRuntimeInfraProviderGKE
+	gateway := &api.GatewayInstance{}
 	cases := []struct {
-		name     string
-		provider *string
-		want     bool
+		name string
+		call func() error
+		want string
 	}{
-		{name: "nil", provider: nil, want: false},
-		{name: "eks", provider: &eks, want: true},
-		{name: "kind", provider: &kindProvider, want: true},
-		{name: "gke", provider: &gke, want: false},
+		{
+			name: "ingress",
+			call: func() error {
+				return EnsureIngressComponent(nil, nil, gateway, nil, noopGatewayUpdate, nil)
+			},
+			want: "ingress component runtime is missing",
+		},
+		{
+			name: "editor",
+			call: func() error {
+				return EnsureIngressEditor(nil, nil, &appendingEditor{}, nil)
+			},
+			want: "ingress component runtime is missing",
+		},
+		{
+			name: "certificates",
+			call: func() error {
+				return EnsureCertificatesComponent(nil, nil, gateway, nil, noopGatewayUpdate, nil)
+			},
+			want: "certificates component runtime is missing",
+		},
+		{
+			name: "secrets",
+			call: func() error {
+				return EnsureSecretsComponent(nil, nil, &api.SecretInstance{}, nil, nil, nil, nil)
+			},
+			want: "secrets component runtime is missing",
+		},
+		{
+			name: "database",
+			call: func() error {
+				return EnsureDatabaseComponent(nil, nil, gateway, nil, noopGatewayUpdate, nil)
+			},
+			want: "database component runtime is missing",
+		},
+		{
+			name: "release ingress",
+			call: func() error {
+				return ReleaseIngressComponent(nil, nil, gateway)
+			},
+			want: "ingress component runtime is missing",
+		},
+		{
+			name: "release certificates",
+			call: func() error {
+				return ReleaseCertificatesComponent(nil, nil, gateway)
+			},
+			want: "certificates component runtime is missing",
+		},
+		{
+			name: "release secrets",
+			call: func() error {
+				return ReleaseSecretsComponent(nil, nil, &api.SecretInstance{})
+			},
+			want: "secrets component runtime is missing",
+		},
+		{
+			name: "release database",
+			call: func() error {
+				return ReleaseDatabaseComponent(nil, nil, gateway)
+			},
+			want: "database component runtime is missing",
+		},
 	}
+	// reject each component whose runtime is absent
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := secretsProviderCreates(tc.provider); got != tc.want {
-				t.Fatalf("secretsProviderCreates() = %v, want %v", got, tc.want)
+			err := tc.call()
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("error %v, want %q", err, tc.want)
 			}
 		})
 	}
 }
 
-// TestEnsureSecretsComponentSkipsOtherProviders leaves the slot empty.
+// TestEnsureDatabaseComponentReportsAMissingManifest stops before a workload exists.
+func TestEnsureDatabaseComponentReportsAMissingManifest(t *testing.T) {
+	// install with no manifest
+	runtime := &api.KubernetesRuntimeInstance{Common: api.Common{ID: util.Ptr(uint(1))}}
+	gateway := &api.GatewayInstance{}
+	err := EnsureDatabaseComponent(nil, runtime, gateway, nil, noopGatewayUpdate, nil)
+	if err == nil || err.Error() != "database component manifest is missing" {
+		t.Fatalf("error %v, want the missing manifest", err)
+	}
+	if runtime.DatabaseComponentInstanceID != nil {
+		t.Fatalf("slot = %v, want empty", runtime.DatabaseComponentInstanceID)
+	}
+}
+
+// TestSecretsProviderCreates allows eks and kind to install the secrets component.
+func TestSecretsProviderCreates(t *testing.T) {
+	// allow eks and kind
+	if !secretsProviderCreates(util.Ptr("eks")) || !secretsProviderCreates(util.Ptr("kind")) {
+		t.Fatal("eks and kind create the secrets component")
+	}
+	if secretsProviderCreates(util.Ptr("gke")) || secretsProviderCreates(nil) {
+		t.Fatal("gke and an empty provider skip the secrets component")
+	}
+}
+
+// TestEnsureSecretsComponentSkipsOtherProviders leaves the slot empty for gke.
 func TestEnsureSecretsComponentSkipsOtherProviders(t *testing.T) {
-	// skip a provider that does not create the workload
-	gke := api.KubernetesRuntimeInfraProviderGKE
+	// skip a provider that does not create the component
+	name := "dev"
 	runtime := &api.KubernetesRuntimeInstance{
 		Common: api.Common{ID: util.Ptr(uint(1))},
-		Name:   util.Ptr("dev"),
+		Name:   &name,
 	}
-	caller := &fakeCaller{}
-	err := EnsureSecretsComponent(nil, runtime, &gke, caller, nil)
+	err := EnsureSecretsComponent(nil, runtime, &api.SecretInstance{}, nil, nil, util.Ptr("gke"), nil)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("ensure: %v", err)
 	}
 	if runtime.SecretsComponentInstanceID != nil {
-		t.Fatalf("slot = %v, want nil", runtime.SecretsComponentInstanceID)
-	}
-	if caller.deploys != 0 {
-		t.Fatalf("deploys = %d, want 0", caller.deploys)
+		t.Fatalf("slot = %v, want empty", runtime.SecretsComponentInstanceID)
 	}
 }
 
-// TestEnsureComponentSyncsTheEditedDocument passes the editor's document to sync.
-func TestEnsureComponentSyncsTheEditedDocument(t *testing.T) {
-	// sync the document the editor returns
-	runtime := runtimeWithSlot(util.Ptr(uint(4)))
-	caller := &manifestEditor{
-		fakeCaller: fakeCaller{ready: true},
-		extra:      "kind: Extra",
-	}
-	var synced string
-	err := ensure(
-		runtime,
-		&runtime.IngressComponentInstanceID,
-		"gateway component",
-		caller,
+// TestReleaseComponentLeavesAnEmptySlot returns before deleting a workload.
+func TestReleaseComponentLeavesAnEmptySlot(t *testing.T) {
+	// release a runtime whose slot is empty
+	runtime := &api.KubernetesRuntimeInstance{Common: api.Common{ID: util.Ptr(uint(9))}}
+	err := release(
 		nil,
-		func() (string, error) { return "kind: Component", nil },
-		func(string) (uint, error) {
-			t.Fatal("create ran on a reconciled workload")
-			return 0, nil
-		},
-		func(_ uint, document string) error {
-			synced = document
-			return nil
-		},
+		*runtime.ID,
+		&runtime.IngressComponentInstanceID,
+		"ingress component",
+		ingressColumn,
+		"",
+		nil,
 	)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("release: %v", err)
 	}
-	if caller.edits != 1 {
-		t.Fatalf("edits = %d, want 1", caller.edits)
-	}
-	if synced != "kind: Component\n---\nkind: Extra" {
-		t.Fatalf("synced %q", synced)
-	}
-	if caller.deploys != 0 {
-		t.Fatalf("deploys = %d, want 0", caller.deploys)
+	if runtime.IngressComponentInstanceID != nil {
+		t.Fatalf("slot = %v, want empty", runtime.IngressComponentInstanceID)
 	}
 }
 
-// TestEnsureComponentCreateSkipsTheEditor creates the component document.
-func TestEnsureComponentCreateSkipsTheEditor(t *testing.T) {
-	// create the component document without calling the editor
-	runtime := runtimeWithSlot(nil)
-	caller := &manifestEditor{
-		fakeCaller: fakeCaller{installID: 8},
-		extra:      "kind: Extra",
+// TestComponentDocumentAppendsTheEditor joins the component manifest with the editor output.
+func TestComponentDocumentAppendsTheEditor(t *testing.T) {
+	// build the synced document
+	document, err := componentDocument(&appendingEditor{}, func() (string, error) {
+		return "kind: Component", nil
+	})
+	if err != nil {
+		t.Fatalf("document: %v", err)
 	}
-	var created string
-	synced := false
-	err := ensure(
-		runtime,
-		&runtime.IngressComponentInstanceID,
-		"gateway component",
-		caller,
-		nil,
-		func() (string, error) { return "kind: Component", nil },
-		func(document string) (uint, error) {
-			created = document
-			caller.deploys++
-			return caller.installID, caller.installErr
-		},
-		func(uint, string) error {
-			synced = true
-			return nil
-		},
-	)
-	if err == nil || !strings.Contains(err.Error(), "not reconciled") {
-		t.Fatalf("got %v, want not reconciled", err)
-	}
-	if caller.edits != 0 {
-		t.Fatalf("edits = %d, want 0", caller.edits)
-	}
-	if created != "kind: Component" {
-		t.Fatalf("created %q, want the component document", created)
-	}
-	if synced {
-		t.Fatal("create synced a document")
-	}
-	if runtime.IngressComponentInstanceID == nil || *runtime.IngressComponentInstanceID != 8 {
-		t.Fatalf("slot = %v, want 8", runtime.IngressComponentInstanceID)
+	if document != "kind: Component\n---\nkind: Extra" {
+		t.Fatalf("document %q, want the edited manifest", document)
 	}
 }

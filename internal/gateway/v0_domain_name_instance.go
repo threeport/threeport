@@ -88,7 +88,7 @@ func validateThreeportStateExternalDns(
 		domain:     domainNameInstance,
 		runtime:    kubernetesRuntimeInstance,
 	}
-	err = supportservices.EnsureIngressComponent(
+	err = supportservices.EnsureIngressEditor(
 		r,
 		kubernetesRuntimeInstance,
 		attacher,

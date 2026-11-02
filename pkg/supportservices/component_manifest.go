@@ -23,18 +23,18 @@ const (
 	// CertificatesComponentName is the CertificatesComponent object this install applies.
 	CertificatesComponentName = "certificates"
 
-	// ExternalDNSName is the IngressComponent object that installs external-dns.
-	ExternalDNSName = "externaldns"
+	// externalDNSName is the IngressComponent object that installs external-dns.
+	externalDNSName = "externaldns"
 
-	// IngressDomainName is the domain the nginx component uses with no public zone.
-	IngressDomainName = "threeport.local"
+	// ingressDomainName is the domain the nginx component uses with no public zone.
+	ingressDomainName = "threeport.local"
 
-	// ExternalDNSZoneType is the hosted zone type external-dns manages.
-	ExternalDNSZoneType = "public"
+	// externalDNSZoneType is the hosted zone type external-dns manages.
+	externalDNSZoneType = "public"
 )
 
-// IngressComponentYaml returns the nginx operator component.
-func IngressComponentYaml() (string, error) {
+// ingressComponentYaml returns the nginx operator component.
+func ingressComponentYaml() (string, error) {
 	// decode the embedded component
 	component, err := util.UnstructuredFromYaml(ingressComponent)
 	if err != nil {
@@ -61,7 +61,7 @@ func IngressComponentYaml() (string, error) {
 	}
 	if err := unstructured.SetNestedField(
 		component.Object,
-		IngressDomainName,
+		ingressDomainName,
 		"spec",
 		"domainName",
 	); err != nil {
@@ -121,7 +121,7 @@ func ExternalDnsYaml(
 	// name this component and leave kong out
 	if err := unstructured.SetNestedField(
 		component.Object,
-		ExternalDNSName,
+		externalDNSName,
 		"metadata",
 		"name",
 	); err != nil {
@@ -158,7 +158,7 @@ func ExternalDnsYaml(
 	// set the public zone, then set the provider
 	if err := unstructured.SetNestedField(
 		component.Object,
-		ExternalDNSZoneType,
+		externalDNSZoneType,
 		"spec",
 		"externalDNS",
 		"zoneType",
@@ -203,8 +203,8 @@ func ExternalDnsYaml(
 	return util.UnstructuredToYaml(component)
 }
 
-// CertificatesComponentYaml returns the certificates component.
-func CertificatesComponentYaml() (string, error) {
+// certificatesComponentYaml returns the certificates component.
+func certificatesComponentYaml() (string, error) {
 	// decode the embedded component
 	component, err := util.UnstructuredFromYaml(certificatesComponent)
 	if err != nil {
@@ -223,8 +223,8 @@ func CertificatesComponentYaml() (string, error) {
 	return util.UnstructuredToYaml(component)
 }
 
-// ExternalSecretsYaml returns the external secrets component.
-func ExternalSecretsYaml() (string, error) {
+// externalSecretsYaml returns the external secrets component.
+func externalSecretsYaml() (string, error) {
 	// build the secrets component the v0.9 operator accepts
 	rendered, err := util.UnstructuredToYaml(
 		&unstructured.Unstructured{

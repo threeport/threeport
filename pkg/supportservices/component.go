@@ -1,4 +1,3 @@
-// Package supportservices installs and removes the one workload a runtime shares across callers.
 package supportservices
 
 import (
@@ -6,303 +5,342 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	client "github.com/threeport/threeport/pkg/client/v0"
+
 	api "github.com/threeport/threeport/pkg/api/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// EnsureIngressComponent installs or adopts the ingress component for this runtime.
-// The caller records that workload on the object that uses it.
-func EnsureIngressComponent(
+// EnsureIngressComponent installs or adopts the shared ingress workload and records it on caller.
+// The workload name is ingress-<runtime>.
+func EnsureIngressComponent[T componentCaller](
 	r *controller.Reconciler,
 	runtime *api.KubernetesRuntimeInstance,
-	caller SupportServiceAttacher,
+	caller T,
+	field **uint,
+	update objectUpdate[T],
 	log *logr.Logger,
 ) error {
-	// require the runtime the slot belongs to
-	if runtime == nil || runtime.ID == nil || runtime.Name == nil {
-		return fmt.Errorf("ingress component runtime is missing")
+	// require the runtime before reading its ingress slot
+	if err := requireRuntime(runtime, "ingress component", true); err != nil {
+		return err
 	}
 
-	// install or adopt the shared workload
-	name := fmt.Sprintf("%s-%s", IngressComponentName, *runtime.Name)
-	return ensureComponent(
+	// record the workload id on the caller's ingress field
+	record := recordComponentID(r, caller, field, update)
+
+	// install the ingress workload and sync it after reconcile
+	return ensure(
 		r,
 		runtime,
 		&runtime.IngressComponentInstanceID,
 		"ingress component",
-		name,
-		IngressComponentYaml,
-		caller,
+		fmt.Sprintf("%s-%s", IngressComponentName, *runtime.Name),
+		ingressColumn,
+		record,
+		nil,
+		ingressComponentYaml,
 		log,
 	)
 }
 
-// ReleaseIngressComponent removes the ingress component when no caller still requires it.
-func ReleaseIngressComponent(
+// EnsureIngressEditor installs or adopts the shared ingress workload and syncs the editor's document.
+// The workload name is ingress-<runtime>.
+func EnsureIngressEditor(
+	r *controller.Reconciler,
 	runtime *api.KubernetesRuntimeInstance,
-	caller SupportServiceAttacher,
+	editor manifestEditor,
+	log *logr.Logger,
 ) error {
-	// require the runtime the slot belongs to
-	if runtime == nil || runtime.ID == nil {
-		return fmt.Errorf("ingress component runtime is missing")
+	// require the runtime before reading its ingress slot
+	if err := requireRuntime(runtime, "ingress component", true); err != nil {
+		return err
 	}
 
-	// clear the slot, then delete the workload
-	return release(
-		*runtime.ID,
+	// install the ingress workload and sync the editor's document after reconcile
+	return ensure(
+		r,
+		runtime,
 		&runtime.IngressComponentInstanceID,
 		"ingress component",
-		caller,
+		fmt.Sprintf("%s-%s", IngressComponentName, *runtime.Name),
+		ingressColumn,
+		nil,
+		editor,
+		ingressComponentYaml,
+		log,
 	)
 }
 
-// EnsureSecretsComponent installs or adopts the secrets workload for this runtime.
-// The caller records that workload on the object that uses it.
-func EnsureSecretsComponent(
+// EnsureCertificatesComponent installs or adopts the shared certificates workload and records it on caller.
+// The workload name is certificates-<runtime>, and other providers are left unchanged.
+func EnsureCertificatesComponent[T componentCaller](
 	r *controller.Reconciler,
 	runtime *api.KubernetesRuntimeInstance,
-	provider *string,
-	caller SupportServiceAttacher,
+	caller T,
+	field **uint,
+	update objectUpdate[T],
 	log *logr.Logger,
 ) error {
-	// require the runtime the slot belongs to
-	if runtime == nil || runtime.ID == nil || runtime.Name == nil {
-		return fmt.Errorf("secrets component runtime is missing")
+	// require the runtime before reading its certificates slot
+	if err := requireRuntime(runtime, "certificates component", true); err != nil {
+		return err
 	}
 
-	// skip a provider that does not run this workload
+	// install certificates on eks and kind
+	provider, err := client.GetInfraProviderByKubernetesRuntimeInstanceID(
+		r.APIClient,
+		r.APIServer,
+		runtime.ID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get infra provider: %w", err)
+	}
 	if !secretsProviderCreates(provider) {
 		return nil
 	}
 
-	// install or adopt the shared workload
-	name := fmt.Sprintf("external-secrets-%s", *runtime.Name)
-	return ensureComponent(
+	// record the workload id on the caller's certificates field
+	record := recordComponentID(r, caller, field, update)
+
+	// install the certificates workload and sync it after reconcile
+	return ensure(
 		r,
 		runtime,
-		&runtime.SecretsComponentInstanceID,
-		"secrets component",
-		name,
-		ExternalSecretsYaml,
-		caller,
+		&runtime.CertificatesComponentInstanceID,
+		"certificates component",
+		fmt.Sprintf("%s-%s", CertificatesComponentName, *runtime.Name),
+		certificatesColumn,
+		record,
+		nil,
+		certificatesComponentYaml,
 		log,
 	)
 }
 
-// ReleaseSecretsComponent removes the secrets workload when no caller still requires it.
-func ReleaseSecretsComponent(
+// EnsureSecretsComponent installs or adopts the shared secrets workload and records it on caller.
+// The workload name is external-secrets-<runtime>, and other providers are left unchanged.
+func EnsureSecretsComponent[T componentCaller](
+	r *controller.Reconciler,
 	runtime *api.KubernetesRuntimeInstance,
-	caller SupportServiceAttacher,
+	caller T,
+	field **uint,
+	update objectUpdate[T],
+	provider *string,
+	log *logr.Logger,
 ) error {
-	// require the runtime the slot belongs to
-	if runtime == nil || runtime.ID == nil {
-		return fmt.Errorf("secrets component runtime is missing")
+	// require the runtime before reading its secrets slot
+	if err := requireRuntime(runtime, "secrets component", true); err != nil {
+		return err
 	}
 
-	// clear the slot, then delete the workload
-	return release(
-		*runtime.ID,
+	// create the workload for eks and kind
+	if !secretsProviderCreates(provider) {
+		return nil
+	}
+
+	// install the external-secrets workload and sync it after reconcile
+	return ensure(
+		r,
+		runtime,
 		&runtime.SecretsComponentInstanceID,
 		"secrets component",
-		caller,
+		fmt.Sprintf("external-secrets-%s", *runtime.Name),
+		secretsColumn,
+		recordComponentID(r, caller, field, update),
+		nil,
+		externalSecretsYaml,
+		log,
 	)
 }
 
-// EnsureDatabaseComponent installs or adopts the database workload for this runtime.
-// The caller records that workload on the object that uses it.
-func EnsureDatabaseComponent(
+// EnsureDatabaseComponent reports that the database component has no manifest.
+func EnsureDatabaseComponent[T componentCaller](
+	r *controller.Reconciler,
 	runtime *api.KubernetesRuntimeInstance,
-	caller SupportServiceAttacher,
+	caller T,
+	field **uint,
+	update objectUpdate[T],
 	log *logr.Logger,
 ) error {
-	// require the runtime the slot belongs to
-	if runtime == nil || runtime.ID == nil {
-		return fmt.Errorf("database component runtime is missing")
+	// require a runtime id before reporting the missing manifest
+	if err := requireRuntime(runtime, "database component", false); err != nil {
+		return err
 	}
 
-	// the database component has no manifest to install
 	return fmt.Errorf("database component manifest is missing")
 }
 
-// ReleaseDatabaseComponent removes the database workload when no caller still requires it.
-func ReleaseDatabaseComponent(
-	runtime *api.KubernetesRuntimeInstance,
-	caller SupportServiceAttacher,
-) error {
-	// require the runtime the slot belongs to
-	if runtime == nil || runtime.ID == nil {
-		return fmt.Errorf("database component runtime is missing")
-	}
-
-	// clear the slot, then delete the workload
-	return release(
-		*runtime.ID,
-		&runtime.DatabaseComponentInstanceID,
-		"database component",
-		caller,
-	)
-}
-
-// EnsureCertificatesComponent installs or adopts the certificates component for this runtime.
-// The caller records that workload on the object that uses it.
-func EnsureCertificatesComponent(
+// ReleaseIngressComponent removes the caller's ingress claim and deletes the workload when the slot is clear.
+func ReleaseIngressComponent[T componentCaller](
 	r *controller.Reconciler,
 	runtime *api.KubernetesRuntimeInstance,
-	caller SupportServiceAttacher,
-	log *logr.Logger,
+	caller T,
 ) error {
-	// require the runtime the slot belongs to
-	if runtime == nil || runtime.ID == nil || runtime.Name == nil {
-		return fmt.Errorf("certificates component runtime is missing")
+	// require the runtime before reading its ingress slot
+	if err := requireRuntime(runtime, "ingress component", false); err != nil {
+		return err
 	}
 
-	// install or adopt the shared workload
-	name := fmt.Sprintf("%s-%s", CertificatesComponentName, *runtime.Name)
-	return ensureComponent(
-		r,
-		runtime,
-		&runtime.CertificatesComponentInstanceID,
-		"certificates component",
-		name,
-		CertificatesComponentYaml,
-		caller,
-		log,
-	)
+	return releaseComponent(r, runtime, &runtime.IngressComponentInstanceID, "ingress component", ingressColumn, caller)
 }
 
-// ReleaseCertificatesComponent removes the certificates component when no caller still requires it.
-func ReleaseCertificatesComponent(
+// ReleaseCertificatesComponent removes the caller's certificates claim and deletes the workload when the slot is clear.
+func ReleaseCertificatesComponent[T componentCaller](
+	r *controller.Reconciler,
 	runtime *api.KubernetesRuntimeInstance,
-	caller SupportServiceAttacher,
+	caller T,
 ) error {
-	// require the runtime the slot belongs to
-	if runtime == nil || runtime.ID == nil {
-		return fmt.Errorf("certificates component runtime is missing")
+	// require the runtime before reading its certificates slot
+	if err := requireRuntime(runtime, "certificates component", false); err != nil {
+		return err
 	}
 
-	// clear the slot, then delete the workload
-	return release(
-		*runtime.ID,
-		&runtime.CertificatesComponentInstanceID,
-		"certificates component",
-		caller,
-	)
+	return releaseComponent(r, runtime, &runtime.CertificatesComponentInstanceID, "certificates component", certificatesColumn, caller)
 }
 
-// ensure installs the named workload when slot is empty.
-// It stores the workload id in slot and returns an error until that workload is reconciled.
+// ReleaseSecretsComponent removes the caller's secrets claim and deletes the workload when the slot is clear.
+func ReleaseSecretsComponent[T componentCaller](
+	r *controller.Reconciler,
+	runtime *api.KubernetesRuntimeInstance,
+	caller T,
+) error {
+	// require the runtime before reading its secrets slot
+	if err := requireRuntime(runtime, "secrets component", false); err != nil {
+		return err
+	}
+
+	return releaseComponent(r, runtime, &runtime.SecretsComponentInstanceID, "secrets component", secretsColumn, caller)
+}
+
+// ReleaseDatabaseComponent removes the caller's database claim and deletes the workload when the slot is clear.
+func ReleaseDatabaseComponent[T componentCaller](
+	r *controller.Reconciler,
+	runtime *api.KubernetesRuntimeInstance,
+	caller T,
+) error {
+	// require the runtime before reading its database slot
+	if err := requireRuntime(runtime, "database component", false); err != nil {
+		return err
+	}
+
+	return releaseComponent(r, runtime, &runtime.DatabaseComponentInstanceID, "database component", databaseColumn, caller)
+}
+
+// ensure installs the component when the slot is empty and syncs it after the workload reconciles.
 func ensure(
+	r *controller.Reconciler,
 	runtime *api.KubernetesRuntimeInstance,
 	slot **uint,
 	label string,
-	caller SupportServiceAttacher,
-	log *logr.Logger,
+	workloadName string,
+	column string,
+	record func(id *uint) error,
+	editor manifestEditor,
 	manifest func() (string, error),
-	create func(manifest string) (uint, error),
-	sync func(workloadID uint, manifest string) error,
+	log *logr.Logger,
 ) error {
-	// keep a reconciled workload and wait while its row still exists
+	// require the runtime id and name before using the slot
+	if runtime == nil || runtime.ID == nil || runtime.Name == nil {
+		return fmt.Errorf("%s runtime is missing", label)
+	}
+
+	// sync the caller's document once the stored workload has reconciled
 	if *slot != nil {
-		reconciled, missing, err := caller.IsComponentReconciled(**slot)
+		reconciled, missing, err := isComponentReconciled(r, **slot)
 		if err != nil {
 			return fmt.Errorf("failed to read %s workload %d: %w", label, **slot, err)
 		}
 		if reconciled {
-			if err := caller.SetCallerKubernetesWorkloadInstanceID(*slot); err != nil {
-				return fmt.Errorf(
-					"failed to record %s workload %d: %w",
-					label,
-					**slot,
-					err,
-				)
+			if record != nil {
+				if err := record(*slot); err != nil {
+					return fmt.Errorf("failed to record %s workload %d: %w", label, **slot, err)
+				}
 			}
-			document, err := componentDocument(caller, manifest)
+			document, err := componentDocument(editor, manifest)
 			if err != nil {
-				return fmt.Errorf("failed to render %s workload %d: %w", label, **slot, err)
+				return err
 			}
-			if err := sync(**slot, document); err != nil {
-				return fmt.Errorf("failed to sync %s workload %d: %w", label, **slot, err)
-			}
-			return nil
+			return syncWorkloadObject(r, **slot, document)
 		}
 		if !missing {
-			return fmt.Errorf("%s workload %d is not reconciled", label, **slot)
+			return fmt.Errorf("%s workload %d not reconciled", label, **slot)
 		}
 	}
 
-	// install the component manifest and claim the slot
+	// create the workload from the component manifest
 	document, err := manifest()
-	if err != nil {
-		return fmt.Errorf("failed to render %s workload: %w", label, err)
-	}
-	workloadID, err := create(document)
 	if err != nil {
 		return err
 	}
-	if err := caller.ClaimRuntimeKubernetesWorkloadInstanceID(*runtime.ID, workloadID); err != nil {
-		if deleteErr := caller.DeleteComponentKubernetesWorkloadInstance(workloadID); deleteErr != nil {
-			return fmt.Errorf(
-				"failed to delete unclaimed %s workload %d: %w",
-				label,
-				workloadID,
-				deleteErr,
-			)
+	workloadID, err := createComponentWorkload(
+		r,
+		runtime,
+		workloadName,
+		fmt.Sprintf("---\n%s\n", document),
+		log,
+	)
+	if err != nil {
+		return err
+	}
+
+	// claim the runtime slot and record the workload on the caller
+	if err := claimComponentWorkload(r, *runtime.ID, workloadID, column); err != nil {
+		if deleteErr := deleteComponentWorkload(r, workloadID); deleteErr != nil {
+			return deleteErr
 		}
 		return err
 	}
 	*slot = util.Ptr(workloadID)
-	if err := caller.SetCallerKubernetesWorkloadInstanceID(*slot); err != nil {
-		return fmt.Errorf("failed to record %s workload %d: %w", label, workloadID, err)
+	if record != nil {
+		if err := record(*slot); err != nil {
+			return fmt.Errorf("failed to record %s workload %d: %w", label, workloadID, err)
+		}
 	}
-	return fmt.Errorf("%s workload %d is not reconciled", label, workloadID)
+
+	return fmt.Errorf("%s workload %d not reconciled", label, workloadID)
 }
 
-// ensureComponent creates the component workload and syncs the caller's document.
-func ensureComponent(
+// recordComponentID stores the workload id on the caller and saves the object.
+func recordComponentID[T any](
 	r *controller.Reconciler,
-	runtime *api.KubernetesRuntimeInstance,
-	slot **uint,
-	label string,
-	name string,
-	manifest func() (string, error),
-	caller SupportServiceAttacher,
-	log *logr.Logger,
-) error {
-	// wrap the component document on create and sync the caller's copy
-	return ensure(
-		runtime,
-		slot,
-		label,
-		caller,
-		log,
-		manifest,
-		func(document string) (uint, error) {
-			return CreateComponentWorkload(
-				r,
-				runtime,
-				name,
-				fmt.Sprintf("---\n%s\n", document),
-				log,
-			)
-		},
-		func(workloadID uint, document string) error {
-			return SyncWorkloadObject(r, workloadID, document)
-		},
-	)
+	caller T,
+	field **uint,
+	update objectUpdate[T],
+) func(id *uint) error {
+	return func(id *uint) error {
+		// skip a field that is absent or already holds this workload
+		if field == nil {
+			return nil
+		}
+		if *field != nil && id != nil && **field == *id {
+			return nil
+		}
+
+		// store the id and save the object
+		*field = id
+		if update == nil {
+			return nil
+		}
+		if _, err := update(r.APIClient, r.APIServer, caller); err != nil {
+			return fmt.Errorf("failed to record component workload: %w", err)
+		}
+		return nil
+	}
 }
 
-// componentDocument returns the component manifest, or the caller's edited copy.
-func componentDocument(caller SupportServiceAttacher, manifest func() (string, error)) (string, error) {
-	// let the caller change the document when it implements that
-	editor, ok := caller.(ManifestEditor)
-	if !ok {
+// componentDocument returns the editor's document, or the component manifest when there is no editor.
+func componentDocument(editor manifestEditor, manifest func() (string, error)) (string, error) {
+	// return the component manifest when the caller adds nothing
+	if editor == nil {
 		return manifest()
 	}
+
 	return editor.EditManifest(manifest)
 }
 
-// secretsProviderCreates reports whether this provider runs the secrets workload.
+// secretsProviderCreates reports whether the provider gets an external-secrets workload.
 func secretsProviderCreates(provider *string) bool {
 	// create the workload for eks and kind
 	return provider != nil &&
@@ -310,15 +348,81 @@ func secretsProviderCreates(provider *string) bool {
 			*provider == api.KubernetesRuntimeInfraProviderKind)
 }
 
-// release removes the named workload when no caller still requires it.
-// A failed delete restores the slot.
-func release(runtimeID uint, slot **uint, label string, caller SupportServiceAttacher) error {
-	// clear the slot when it names a workload
+// releaseComponent drops the caller's requires row and deletes the workload when the slot is clear.
+func releaseComponent[T componentCaller](
+	r *controller.Reconciler,
+	runtime *api.KubernetesRuntimeInstance,
+	slot **uint,
+	label string,
+	column string,
+	caller T,
+) error {
+	// require the runtime before reading the slot
+	if runtime == nil || runtime.ID == nil {
+		return fmt.Errorf("%s runtime is missing", label)
+	}
+
+	return release(
+		r,
+		*runtime.ID,
+		slot,
+		label,
+		column,
+		caller.GetFullyQualifiedType(),
+		caller.ObjectID(),
+	)
+}
+
+// clearCallerClaim drops this caller's requires row and clears the runtime column.
+func clearCallerClaim(
+	r *controller.Reconciler,
+	runtimeID uint,
+	workloadID uint,
+	column string,
+	attachedType string,
+	attachedID *uint,
+) (bool, error) {
+	// keep the workload when this column holds a different id
+	held, err := componentColumnHeld(r, runtimeID, workloadID, column)
+	if err != nil || !held {
+		return held, err
+	}
+
+	// drop this caller's requires row before clearing the column
+	if attachedID != nil {
+		if err := dropComponentClaim(r, attachedType, *attachedID, workloadID); err != nil {
+			return false, err
+		}
+	}
+
+	return nullComponentColumn(r, runtimeID, column)
+}
+
+// release deletes the workload after the caller's claim is cleared.
+func release(
+	r *controller.Reconciler,
+	runtimeID uint,
+	slot **uint,
+	label string,
+	column string,
+	attachedType string,
+	attachedID *uint,
+) error {
+	// nothing is installed
 	if *slot == nil {
 		return nil
 	}
 	workloadID := **slot
-	cleared, err := caller.ClearRuntimeKubernetesWorkloadInstanceID(runtimeID, workloadID)
+
+	// delete the workload when this caller held the slot
+	cleared, err := clearCallerClaim(
+		r,
+		runtimeID,
+		workloadID,
+		column,
+		attachedType,
+		attachedID,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to clear %s slot: %w", label, err)
 	}
@@ -326,9 +430,9 @@ func release(runtimeID uint, slot **uint, label string, caller SupportServiceAtt
 		return nil
 	}
 
-	// delete the workload, and put the slot back when the delete fails
-	if err := caller.DeleteComponentKubernetesWorkloadInstance(workloadID); err != nil {
-		if claimErr := caller.ClaimRuntimeKubernetesWorkloadInstanceID(runtimeID, workloadID); claimErr != nil {
+	// delete the workload, and put the claim back when the delete fails
+	if err := deleteComponentWorkload(r, workloadID); err != nil {
+		if claimErr := claimComponentWorkload(r, runtimeID, workloadID, column); claimErr != nil {
 			return fmt.Errorf(
 				"failed to delete %s workload %d: %w",
 				label,
@@ -336,13 +440,17 @@ func release(runtimeID uint, slot **uint, label string, caller SupportServiceAtt
 				errors.Join(err, claimErr),
 			)
 		}
-		return fmt.Errorf(
-			"failed to delete %s workload %d: %w",
-			label,
-			workloadID,
-			err,
-		)
+		return fmt.Errorf("failed to delete %s workload %d: %w", label, workloadID, err)
 	}
 	*slot = nil
+	return nil
+}
+
+// requireRuntime reports a missing runtime id, and a missing name when the workload name uses it.
+func requireRuntime(runtime *api.KubernetesRuntimeInstance, label string, nameRequired bool) error {
+	// reject a runtime that cannot name the workload
+	if runtime == nil || runtime.ID == nil || (nameRequired && runtime.Name == nil) {
+		return fmt.Errorf("%s runtime is missing", label)
+	}
 	return nil
 }

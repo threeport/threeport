@@ -66,12 +66,15 @@ func (k *KubernetesRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
 // per-field check is:
 //   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
 //     and PUT, handles the DB load internally
+//
 // Lower-level helpers, useful when IsFieldChanged doesn't fit:
 //   - lib.IncomingValues(tx): values being written
 //   - lib.IsFullReplace(tx): true on PUT (Save shape)
 //   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
+//
 // Import:
-//   lib "github.com/threeport/threeport/pkg/api/lib/v0"
+//
+//	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (k *KubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
 	infraChanged, err := lib.IsFieldChanged(tx, "InfraProvider")
 	if err != nil {
@@ -123,12 +126,15 @@ func (k *KubernetesRuntimeInstance) beforeCreate(tx *gorm.DB) error {
 // per-field check is:
 //   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
 //     and PUT, handles the DB load internally
+//
 // Lower-level helpers, useful when IsFieldChanged doesn't fit:
 //   - lib.IncomingValues(tx): values being written
 //   - lib.IsFullReplace(tx): true on PUT (Save shape)
 //   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
+//
 // Import:
-//   lib "github.com/threeport/threeport/pkg/api/lib/v0"
+//
+//	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (k *KubernetesRuntimeInstance) beforeUpdate(tx *gorm.DB) error {
 	locationChanged, err := lib.IsFieldChanged(tx, "Location")
 	if err != nil {
@@ -143,7 +149,19 @@ func (k *KubernetesRuntimeInstance) beforeUpdate(tx *gorm.DB) error {
 	}
 
 	// claim or clear a shared controller slot in this same transaction
-	return k.applySupportServiceSlots(tx)
+	return lib.ApplySupportServiceSlots(tx, *k.ID, &KubernetesRuntimeInstance{}, lib.SupportServiceSlot{
+		Fields: []string{
+			"IngressComponentInstanceID",
+			"CertificatesComponentInstanceID",
+			"SecretsComponentInstanceID",
+			"DatabaseComponentInstanceID",
+		},
+		RuntimeTable:   KubernetesRuntimeInstance{}.TableName(),
+		WorkloadTable:  KubernetesWorkloadInstance{}.TableName(),
+		ReferenceTable: AttachedObjectReference{}.TableName(),
+		WorkloadType:   (&KubernetesWorkloadInstance{}).GetFullyQualifiedType(),
+		Relationship:   string(RelationshipRequires),
+	})
 }
 
 // beforeDelete validates the KubernetesRuntimeInstance before delete.

@@ -358,6 +358,13 @@ func (Dev) GenerateFixture() error {
 		return fmt.Errorf("failed to parse reconciler test model: %w", err)
 	}
 
+	// copy promoted component fields onto each object that embeds them
+	supportTags, supportTypes, err := sdkgen.LoadSupportServiceFields()
+	if err != nil {
+		return fmt.Errorf("failed to read support service fields: %w", err)
+	}
+	sdkgen.CopySupportServiceFields(structTags, fieldTypes, structEmbeds, supportTags, supportTypes)
+
 	// describe the persisted and persist-false fixture objects
 	apiObject := &sdkgen.ApiObject{
 		PackageName: "v0",

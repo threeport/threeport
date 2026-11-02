@@ -17,7 +17,7 @@ func TestIngressComponentYaml(t *testing.T) {
 	}
 
 	// render the component and read the fields this install sets
-	rendered, err := IngressComponentYaml()
+	rendered, err := ingressComponentYaml()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,7 +34,7 @@ func TestIngressComponentYaml(t *testing.T) {
 	role, _, _ := unstructured.NestedString(component.Object, "spec", "externalDNS", "iamRoleArn")
 	if name != IngressComponentName ||
 		collection != "threeport-support-services" ||
-		domain != IngressDomainName ||
+		domain != ingressDomainName ||
 		version != "5.5.4" ||
 		!include ||
 		kong ||
@@ -54,7 +54,7 @@ func TestExternalDnsYamlOmitsProviderNone(t *testing.T) {
 	if strings.Contains(rendered, "externalDNS") {
 		t.Fatalf("provider none still has externalDNS:\n%s", rendered)
 	}
-	if !strings.Contains(rendered, "example.com") || !strings.Contains(rendered, "name: "+ExternalDNSName) || strings.Contains(rendered, "include: true") {
+	if !strings.Contains(rendered, "example.com") || !strings.Contains(rendered, "name: "+externalDNSName) || strings.Contains(rendered, "include: true") {
 		t.Fatalf("component fields:\n%s", rendered)
 	}
 }

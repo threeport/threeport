@@ -16,7 +16,6 @@ import (
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	mapping "github.com/threeport/threeport/pkg/mapping/v0"
-	supportservices "github.com/threeport/threeport/pkg/supportservices"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -315,46 +314,9 @@ func validateThreeportState(
 		return errors.New("kubernetes workload instance not reconciled")
 	}
 
-	// install or adopt the shared component, then record this gateway
-	err = supportservices.EnsureIngressComponent(
-		r,
-		kubernetesRuntimeInstance,
-		&gatewayIngressAttacher{reconciler: r, gateway: gatewayInstance},
-		log,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to reconcile gateway component: %w", err)
-	}
-
 	// accept the stored component id without waiting for its pods
 	if err := gatewayComponentPresent(kubernetesRuntimeInstance); err != nil {
 		return err
-	}
-
-	// install cert-manager on eks and kind
-	infraProvider, err := client.GetInfraProviderByKubernetesRuntimeInstanceID(
-		r.APIClient,
-		r.APIServer,
-		kubernetesRuntimeInstance.ID,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to get infra provider: %w", err)
-	}
-	if infraProvider != nil &&
-		(*infraProvider == v0.KubernetesRuntimeInfraProviderEKS ||
-			*infraProvider == v0.KubernetesRuntimeInfraProviderKind) {
-		err = supportservices.EnsureCertificatesComponent(
-			r,
-			kubernetesRuntimeInstance,
-			&gatewayCertificatesAttacher{
-				reconciler: r,
-				gateway:    gatewayInstance,
-			},
-			log,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to reconcile certificates component: %w", err)
-		}
 	}
 
 	return nil
@@ -406,61 +368,6 @@ func confirmDefinitionsReconciled(
 	}
 
 	return true, nil
-}
-
-// releaseGatewayComponent deletes the shared component when no gateway remains.
-func releaseGatewayComponent(r *controller.Reconciler, gatewayInstance *v0.GatewayInstance) error {
-	// skip a gateway that names no runtime
-	if gatewayInstance.KubernetesRuntimeInstanceID == nil {
-		return nil
-	}
-
-	// load the runtime
-	kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(
-		r.APIClient,
-		r.APIServer,
-		*gatewayInstance.KubernetesRuntimeInstanceID,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
-	}
-
-	// skip a runtime that has no component workload
-	if kubernetesRuntimeInstance.IngressComponentInstanceID == nil &&
-		kubernetesRuntimeInstance.CertificatesComponentInstanceID == nil {
-		return nil
-	}
-
-	// keep the components while any gateway is still live
-	instances, err := client.GetGatewayInstancesByQueryString(
-		r.APIClient,
-		r.APIServer,
-		fmt.Sprintf("kubernetesruntimeinstanceid=%d", *kubernetesRuntimeInstance.ID),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to get gateway instances for runtime: %w", err)
-	}
-	for _, instance := range *instances {
-		if instance.DeletionScheduled == nil {
-			return nil
-		}
-	}
-
-	// clear the slot, then delete the workload when no caller still requires it
-	err = supportservices.ReleaseIngressComponent(
-		kubernetesRuntimeInstance,
-		&gatewayIngressAttacher{reconciler: r, gateway: gatewayInstance},
-	)
-	if err != nil {
-		return fmt.Errorf("failed to release ingress component: %w", err)
-	}
-	return supportservices.ReleaseCertificatesComponent(
-		kubernetesRuntimeInstance,
-		&gatewayCertificatesAttacher{
-			reconciler: r,
-			gateway:    gatewayInstance,
-		},
-	)
 }
 
 // configureGatewayManifests renders the ingress and transport objects for a gateway instance.
