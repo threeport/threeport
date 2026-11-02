@@ -34,6 +34,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/restmapper"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -68,7 +69,7 @@ func main() {
 	var controlPlaneName string
 	flag.StringVar(&threeportAPIServer, "threeport-api-server", "threeport-api-server", "Threepoort REST API server endpoint")
 	flag.BoolVar(&authEnabled, "auth-enabled", true, "Enable client certificate authentication (default is true)")
-	flag.StringVar(&controlPlaneName, "control-plane-name", "", "Name of the control plane this agent serves.  ThreeportWorkloads labeled for another control plane are ignored.  If unset, all ThreeportWorkloads are handled.")
+	flag.StringVar(&controlPlaneName, "control-plane-name", "", "Name of the control plane this agent serves.  Only ThreeportWorkloads labeled with this control plane's name, or with no control plane label, are cached.  If unset, all ThreeportWorkloads are handled.")
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -86,11 +87,12 @@ func main() {
 	util.WaitForAPI(threeportAPIServer, setupLog)
 
 	if controlPlaneName == "" {
-		setupLog.Info("no control plane name set, handling ThreeportWorkloads from all control planes")
+		setupLog.Info("no control plane name set, watching ThreeportWorkloads from all control planes")
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
+		Cache:                  controller.CacheOptions(controlPlaneName),
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "563c770d.threeport.io",
@@ -112,6 +114,22 @@ func main() {
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
+	}
+
+	// ThreeportWorkloads that predate the control plane label are outside the
+	// manager's label-scoped cache, so they are cached separately
+	legacyWorkloads, err := controller.NewLegacyWorkloadCluster(mgr.GetConfig(), scheme, controlPlaneName)
+	if err != nil {
+		setupLog.Error(err, "unable to create cache for unlabeled ThreeportWorkloads")
+		os.Exit(1)
+	}
+	var legacyCache cache.Cache
+	if legacyWorkloads != nil {
+		if err := mgr.Add(legacyWorkloads); err != nil {
+			setupLog.Error(err, "unable to add cache for unlabeled ThreeportWorkloads to manager")
+			os.Exit(1)
+		}
+		legacyCache = legacyWorkloads.GetCache()
 	}
 
 	// create a context to pass to manager as well as the reconciler so that
@@ -182,7 +200,7 @@ func main() {
 		RESTConfig:     mgr.GetConfig(),
 		NotifChan:      &notifChan,
 
-		ControlPlaneName: controlPlaneName,
+		LegacyCache: legacyCache,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ThreeportWorkload")
 		os.Exit(1)
