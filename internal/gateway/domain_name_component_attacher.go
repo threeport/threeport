@@ -11,8 +11,8 @@ import (
 	"github.com/threeport/threeport/pkg/supportservices"
 )
 
-// domainNameComponentAttacher is the caller for one domain name instance.
-// It uses the shared ingress workload and stores no component id.
+// domainNameComponentAttacher attaches one domain name instance to the ingress component of the support services operator.
+// It appends the external-dns document to that component and stores no workload id.
 type domainNameComponentAttacher struct {
 	*v0.DomainNameInstance
 	reconciler *controller.Reconciler

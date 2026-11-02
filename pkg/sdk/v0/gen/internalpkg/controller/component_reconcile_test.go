@@ -95,7 +95,7 @@ func TestEmitSupportComponentsNamesTheCalls(t *testing.T) {
 		t.Fatalf("provider load wrapped the secrets install in else:\n%s", ensure[providerAt:secretsAt])
 	}
 
-	// ensure passes the caller's field address and release does not
+	// ensure passes the attached instance's field address and release does not
 	for _, field := range []string{
 		"&componentObject.IngressComponentInstanceID",
 		"&componentObject.CertificatesComponentInstanceID",

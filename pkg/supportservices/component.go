@@ -12,25 +12,25 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// EnsureIngressComponent installs or adopts the shared ingress workload and records it on caller.
-// A caller that edits the manifest syncs that document. The workload name is ingress-<runtime>.
-func EnsureIngressComponent[T componentCaller](
+// EnsureIngressComponent attaches an API instance to the ingress component of the support services operator.
+// The shared workload is named ingress-<runtime>. An instance that edits the manifest syncs that edit.
+func EnsureIngressComponent[T componentAttacher](
 	r *controller.Reconciler,
 	runtime *api.KubernetesRuntimeInstance,
-	caller T,
+	attacher T,
 	field **uint,
 	update objectUpdate[T],
 	log *logr.Logger,
 ) error {
-	// require the runtime before reading its ingress slot
+	// require the runtime before reading its ingress workload id
 	if err := requireRuntime(runtime, "ingress component", true); err != nil {
 		return err
 	}
 
-	// record the workload id on the caller's ingress field
-	record := recordComponentID(r, caller, field, update)
+	// store the ingress workload id on the attached API instance
+	record := recordComponentID(r, attacher, field, update)
 
-	// install the ingress workload and sync the caller's document after reconcile
+	// install the ingress component and sync its manifest after reconcile
 	return ensure(
 		r,
 		runtime,
@@ -39,28 +39,28 @@ func EnsureIngressComponent[T componentCaller](
 		fmt.Sprintf("%s-%s", IngressComponentName, *runtime.Name),
 		ingressColumn,
 		record,
-		callerManifest(caller),
+		attacherManifest(attacher),
 		ingressComponentYaml,
 		log,
 	)
 }
 
-// EnsureCertificatesComponent installs or adopts the shared certificates workload and records it on caller.
-// The workload name is certificates-<runtime>, and other providers are left unchanged.
-func EnsureCertificatesComponent[T componentCaller](
+// EnsureCertificatesComponent attaches an API instance to the certificates component of the support services operator.
+// The shared workload is named certificates-<runtime>. Providers other than eks and kind are left unchanged.
+func EnsureCertificatesComponent[T componentAttacher](
 	r *controller.Reconciler,
 	runtime *api.KubernetesRuntimeInstance,
-	caller T,
+	attacher T,
 	field **uint,
 	update objectUpdate[T],
 	log *logr.Logger,
 ) error {
-	// require the runtime before reading its certificates slot
+	// require the runtime before reading its certificates workload id
 	if err := requireRuntime(runtime, "certificates component", true); err != nil {
 		return err
 	}
 
-	// install certificates on eks and kind
+	// install the certificates component on eks and kind
 	provider, err := client.GetInfraProviderByKubernetesRuntimeInstanceID(
 		r.APIClient,
 		r.APIServer,
@@ -73,10 +73,10 @@ func EnsureCertificatesComponent[T componentCaller](
 		return nil
 	}
 
-	// record the workload id on the caller's certificates field
-	record := recordComponentID(r, caller, field, update)
+	// store the certificates workload id on the attached API instance
+	record := recordComponentID(r, attacher, field, update)
 
-	// install the certificates workload and sync it after reconcile
+	// install the certificates component and sync its manifest after reconcile
 	return ensure(
 		r,
 		runtime,
@@ -91,28 +91,28 @@ func EnsureCertificatesComponent[T componentCaller](
 	)
 }
 
-// EnsureSecretsComponent installs or adopts the shared secrets workload and records it on caller.
-// The workload name is external-secrets-<runtime>, and other providers are left unchanged.
-func EnsureSecretsComponent[T componentCaller](
+// EnsureSecretsComponent attaches an API instance to the secrets component of the support services operator.
+// The shared workload is named external-secrets-<runtime>. Providers other than eks and kind are left unchanged.
+func EnsureSecretsComponent[T componentAttacher](
 	r *controller.Reconciler,
 	runtime *api.KubernetesRuntimeInstance,
-	caller T,
+	attacher T,
 	field **uint,
 	update objectUpdate[T],
 	provider *string,
 	log *logr.Logger,
 ) error {
-	// require the runtime before reading its secrets slot
+	// require the runtime before reading its secrets workload id
 	if err := requireRuntime(runtime, "secrets component", true); err != nil {
 		return err
 	}
 
-	// create the workload for eks and kind
+	// install the secrets component on eks and kind
 	if !secretsProviderCreates(provider) {
 		return nil
 	}
 
-	// install the external-secrets workload and sync it after reconcile
+	// install the secrets component and sync its manifest after reconcile
 	return ensure(
 		r,
 		runtime,
@@ -120,18 +120,18 @@ func EnsureSecretsComponent[T componentCaller](
 		"secrets component",
 		fmt.Sprintf("external-secrets-%s", *runtime.Name),
 		secretsColumn,
-		recordComponentID(r, caller, field, update),
+		recordComponentID(r, attacher, field, update),
 		nil,
 		externalSecretsYaml,
 		log,
 	)
 }
 
-// EnsureDatabaseComponent reports that the database component has no manifest.
-func EnsureDatabaseComponent[T componentCaller](
+// EnsureDatabaseComponent reports that the database component of the support services operator has no manifest.
+func EnsureDatabaseComponent[T componentAttacher](
 	r *controller.Reconciler,
 	runtime *api.KubernetesRuntimeInstance,
-	caller T,
+	attacher T,
 	field **uint,
 	update objectUpdate[T],
 	log *logr.Logger,
@@ -144,63 +144,68 @@ func EnsureDatabaseComponent[T componentCaller](
 	return fmt.Errorf("database component manifest is missing")
 }
 
-// ReleaseIngressComponent removes the caller's ingress claim and deletes the workload when the slot is clear.
-func ReleaseIngressComponent[T componentCaller](
+// ReleaseIngressComponent detaches an API instance from the ingress component of the support services operator.
+// It deletes the shared workload when the runtime still stores that workload id.
+func ReleaseIngressComponent[T componentAttacher](
 	r *controller.Reconciler,
 	runtime *api.KubernetesRuntimeInstance,
-	caller T,
+	attacher T,
 ) error {
-	// require the runtime before reading its ingress slot
+	// require the runtime before reading its ingress workload id
 	if err := requireRuntime(runtime, "ingress component", false); err != nil {
 		return err
 	}
 
-	return releaseComponent(r, runtime, &runtime.IngressComponentInstanceID, "ingress component", ingressColumn, caller)
+	return releaseComponent(r, runtime, &runtime.IngressComponentInstanceID, "ingress component", ingressColumn, attacher)
 }
 
-// ReleaseCertificatesComponent removes the caller's certificates claim and deletes the workload when the slot is clear.
-func ReleaseCertificatesComponent[T componentCaller](
+// ReleaseCertificatesComponent detaches an API instance from the certificates component of the support services operator.
+// It deletes the shared workload when the runtime still stores that workload id.
+func ReleaseCertificatesComponent[T componentAttacher](
 	r *controller.Reconciler,
 	runtime *api.KubernetesRuntimeInstance,
-	caller T,
+	attacher T,
 ) error {
-	// require the runtime before reading its certificates slot
+	// require the runtime before reading its certificates workload id
 	if err := requireRuntime(runtime, "certificates component", false); err != nil {
 		return err
 	}
 
-	return releaseComponent(r, runtime, &runtime.CertificatesComponentInstanceID, "certificates component", certificatesColumn, caller)
+	return releaseComponent(r, runtime, &runtime.CertificatesComponentInstanceID, "certificates component", certificatesColumn, attacher)
 }
 
-// ReleaseSecretsComponent removes the caller's secrets claim and deletes the workload when the slot is clear.
-func ReleaseSecretsComponent[T componentCaller](
+// ReleaseSecretsComponent detaches an API instance from the secrets component of the support services operator.
+// It deletes the shared workload when the runtime still stores that workload id.
+func ReleaseSecretsComponent[T componentAttacher](
 	r *controller.Reconciler,
 	runtime *api.KubernetesRuntimeInstance,
-	caller T,
+	attacher T,
 ) error {
-	// require the runtime before reading its secrets slot
+	// require the runtime before reading its secrets workload id
 	if err := requireRuntime(runtime, "secrets component", false); err != nil {
 		return err
 	}
 
-	return releaseComponent(r, runtime, &runtime.SecretsComponentInstanceID, "secrets component", secretsColumn, caller)
+	return releaseComponent(r, runtime, &runtime.SecretsComponentInstanceID, "secrets component", secretsColumn, attacher)
 }
 
-// ReleaseDatabaseComponent removes the caller's database claim and deletes the workload when the slot is clear.
-func ReleaseDatabaseComponent[T componentCaller](
+// ReleaseDatabaseComponent detaches an API instance from the database component of the support services operator.
+// It deletes the shared workload when the runtime still stores that workload id.
+func ReleaseDatabaseComponent[T componentAttacher](
 	r *controller.Reconciler,
 	runtime *api.KubernetesRuntimeInstance,
-	caller T,
+	attacher T,
 ) error {
-	// require the runtime before reading its database slot
+	// require the runtime before reading its database workload id
 	if err := requireRuntime(runtime, "database component", false); err != nil {
 		return err
 	}
 
-	return releaseComponent(r, runtime, &runtime.DatabaseComponentInstanceID, "database component", databaseColumn, caller)
+	return releaseComponent(r, runtime, &runtime.DatabaseComponentInstanceID, "database component", databaseColumn, attacher)
 }
 
-// ensure installs the component when the slot is empty and syncs it after the workload reconciles.
+// ensure installs one support services operator component when the runtime stores no workload id for it.
+// It syncs the component manifest after that workload reconciles.
 func ensure(
 	r *controller.Reconciler,
 	runtime *api.KubernetesRuntimeInstance,
@@ -213,12 +218,12 @@ func ensure(
 	manifest func() (string, error),
 	log *logr.Logger,
 ) error {
-	// require the runtime id and name before using the slot
+	// require the runtime id and name before naming the workload
 	if runtime == nil || runtime.ID == nil || runtime.Name == nil {
 		return fmt.Errorf("%s runtime is missing", label)
 	}
 
-	// sync the caller's document once the stored workload has reconciled
+	// sync the component manifest once the component workload has reconciled
 	if *slot != nil {
 		reconciled, missing, err := isComponentReconciled(r, **slot)
 		if err != nil {
@@ -257,7 +262,7 @@ func ensure(
 		return err
 	}
 
-	// claim the runtime slot and record the workload on the caller
+	// store the workload id on the runtime and on the attached API instance
 	if err := claimComponentWorkload(r, *runtime.ID, workloadID, column); err != nil {
 		if deleteErr := deleteComponentWorkload(r, workloadID); deleteErr != nil {
 			return deleteErr
@@ -274,15 +279,16 @@ func ensure(
 	return fmt.Errorf("%s workload %d not reconciled", label, workloadID)
 }
 
-// recordComponentID stores the workload id on the caller and saves the object.
+// recordComponentID stores the component workload id on the attached API instance.
+// A nil field skips the store, and a nil update skips the save.
 func recordComponentID[T any](
 	r *controller.Reconciler,
-	caller T,
+	attacher T,
 	field **uint,
 	update objectUpdate[T],
 ) func(id *uint) error {
 	return func(id *uint) error {
-		// skip a field that is absent or already holds this workload
+		// skip an absent field or one that already holds this workload id
 		if field == nil {
 			return nil
 		}
@@ -290,27 +296,28 @@ func recordComponentID[T any](
 			return nil
 		}
 
-		// store the id and save the object
+		// store the workload id and save the attached API instance
 		*field = id
 		if update == nil {
 			return nil
 		}
-		if _, err := update(r.APIClient, r.APIServer, caller); err != nil {
+		if _, err := update(r.APIClient, r.APIServer, attacher); err != nil {
 			return fmt.Errorf("failed to record component workload: %w", err)
 		}
 		return nil
 	}
 }
 
-// callerManifest returns the caller's document editor when the caller has one.
-func callerManifest(caller any) manifestEditor {
-	editor, _ := caller.(manifestEditor)
+// attacherManifest returns the manifest edit when the attached API instance implements one.
+// An instance that keeps the stock component manifest returns nil.
+func attacherManifest(attacher any) manifestEditor {
+	editor, _ := attacher.(manifestEditor)
 	return editor
 }
 
-// componentDocument returns the editor's document, or the component manifest when there is no editor.
+// componentDocument returns the edited component manifest, or the stock manifest when the instance does not edit it.
 func componentDocument(editor manifestEditor, manifest func() (string, error)) (string, error) {
-	// return the component manifest when the caller adds nothing
+	// return the stock component manifest when the instance adds nothing
 	if editor == nil {
 		return manifest()
 	}
@@ -326,16 +333,17 @@ func secretsProviderCreates(provider *string) bool {
 			*provider == api.KubernetesRuntimeInfraProviderKind)
 }
 
-// releaseComponent drops the caller's requires row and deletes the workload when the slot is clear.
-func releaseComponent[T componentCaller](
+// releaseComponent drops the attached API instance's requires row for the component workload.
+// It deletes that workload when the runtime still stores its id.
+func releaseComponent[T componentAttacher](
 	r *controller.Reconciler,
 	runtime *api.KubernetesRuntimeInstance,
 	slot **uint,
 	label string,
 	column string,
-	caller T,
+	attacher T,
 ) error {
-	// require the runtime before reading the slot
+	// require the runtime before reading its component workload id
 	if runtime == nil || runtime.ID == nil {
 		return fmt.Errorf("%s runtime is missing", label)
 	}
@@ -346,13 +354,13 @@ func releaseComponent[T componentCaller](
 		slot,
 		label,
 		column,
-		caller.GetFullyQualifiedType(),
-		caller.ObjectID(),
+		attacher.GetFullyQualifiedType(),
+		attacher.ObjectID(),
 	)
 }
 
-// clearCallerClaim drops this caller's requires row and clears the runtime column.
-func clearCallerClaim(
+// clearAttacherClaim drops this API instance's requires row and clears the runtime's component workload id.
+func clearAttacherClaim(
 	r *controller.Reconciler,
 	runtimeID uint,
 	workloadID uint,
@@ -360,13 +368,13 @@ func clearCallerClaim(
 	attachedType string,
 	attachedID *uint,
 ) (bool, error) {
-	// keep the workload when this column holds a different id
+	// keep the workload when the runtime names a different workload id
 	held, err := componentColumnHeld(r, runtimeID, workloadID, column)
 	if err != nil || !held {
 		return held, err
 	}
 
-	// drop this caller's requires row before clearing the column
+	// drop this API instance's requires row before clearing the runtime id
 	if attachedID != nil {
 		if err := dropComponentClaim(r, attachedType, *attachedID, workloadID); err != nil {
 			return false, err
@@ -376,7 +384,7 @@ func clearCallerClaim(
 	return nullComponentColumn(r, runtimeID, column)
 }
 
-// release deletes the workload after the caller's claim is cleared.
+// release deletes the component workload after the attached API instance's requires row is dropped.
 func release(
 	r *controller.Reconciler,
 	runtimeID uint,
@@ -386,14 +394,14 @@ func release(
 	attachedType string,
 	attachedID *uint,
 ) error {
-	// nothing is installed
+	// return when the runtime stores no component workload id
 	if *slot == nil {
 		return nil
 	}
 	workloadID := **slot
 
-	// delete the workload when this caller held the slot
-	cleared, err := clearCallerClaim(
+	// delete the workload when this API instance held that id
+	cleared, err := clearAttacherClaim(
 		r,
 		runtimeID,
 		workloadID,
@@ -408,7 +416,7 @@ func release(
 		return nil
 	}
 
-	// delete the workload, and put the claim back when the delete fails
+	// delete the workload, and restore the id when the delete fails
 	if err := deleteComponentWorkload(r, workloadID); err != nil {
 		if claimErr := claimComponentWorkload(r, runtimeID, workloadID, column); claimErr != nil {
 			return fmt.Errorf(

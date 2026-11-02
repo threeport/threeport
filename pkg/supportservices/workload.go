@@ -154,9 +154,9 @@ func nullComponentColumn(
 	)
 }
 
-// dropComponentClaim deletes the caller's requires row for the workload.
+// dropComponentClaim deletes the attached API instance's requires row for the component workload.
 func dropComponentClaim(r *controller.Reconciler, attachedType string, attachedID uint, workloadID uint) error {
-	// select the requires row from this caller to the workload
+	// select the requires row from this API instance to the component workload
 	query := url.Values{}
 	query.Set("objecttype", new(api.KubernetesWorkloadInstance).GetFullyQualifiedType())
 	query.Set("objectid", strconv.FormatUint(uint64(workloadID), 10))

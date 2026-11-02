@@ -73,7 +73,7 @@ func emitSupportComponents(
 		return
 	}
 
-	// use the versioned object for the runtime id and the caller
+	// use the versioned object for the runtime id and the attached API instance
 	g.Id("componentObject").Op(":=").Id(varObjectName).Assert(Op("*").Qual(
 		fmt.Sprintf("%s/pkg/api/%s", modulePath, version),
 		typeName,

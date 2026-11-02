@@ -12,7 +12,7 @@ import (
 // appendingEditor appends one extra document to the component manifest.
 type appendingEditor struct{}
 
-// GetFullyQualifiedType returns the test caller type.
+// GetFullyQualifiedType returns the test attacher type.
 func (e *appendingEditor) GetFullyQualifiedType() string {
 	return "appendingEditor"
 }
@@ -32,7 +32,7 @@ func (e *appendingEditor) EditManifest(base func() (string, error)) (string, err
 	return document + "\n---\nkind: Extra", nil
 }
 
-// noopGatewayUpdate satisfies the update argument when the caller is not stored.
+// noopGatewayUpdate satisfies the update argument when the attached API instance is not stored.
 func noopGatewayUpdate(*http.Client, string, *api.GatewayInstance) (*api.GatewayInstance, error) {
 	// skip the write
 	return nil, nil
@@ -146,7 +146,7 @@ func TestSecretsProviderCreates(t *testing.T) {
 	}
 }
 
-// TestEnsureSecretsComponentSkipsOtherProviders leaves the slot empty for gke.
+// TestEnsureSecretsComponentSkipsOtherProviders leaves the secrets workload id empty for gke.
 func TestEnsureSecretsComponentSkipsOtherProviders(t *testing.T) {
 	// skip a provider that does not create the component
 	name := "dev"
@@ -165,7 +165,7 @@ func TestEnsureSecretsComponentSkipsOtherProviders(t *testing.T) {
 
 // TestReleaseComponentLeavesAnEmptySlot returns before deleting a workload.
 func TestReleaseComponentLeavesAnEmptySlot(t *testing.T) {
-	// release a runtime whose slot is empty
+	// release a runtime that stores no ingress workload id
 	runtime := &api.KubernetesRuntimeInstance{Common: api.Common{ID: util.Ptr(uint(9))}}
 	err := release(
 		nil,
@@ -184,16 +184,16 @@ func TestReleaseComponentLeavesAnEmptySlot(t *testing.T) {
 	}
 }
 
-// TestCallerManifestUsesAnEditor reports a caller that edits the manifest.
-func TestCallerManifestUsesAnEditor(t *testing.T) {
-	// a gateway instance stores the workload id and does not edit the document
-	if callerManifest(&api.GatewayInstance{}) != nil {
-		t.Fatal("gateway instance has no manifest editor")
+// TestAttacherManifestUsesAnEditor reports an API instance that edits a support services operator component manifest.
+func TestAttacherManifestUsesAnEditor(t *testing.T) {
+	// a gateway instance stores the workload id and keeps the stock ingress manifest
+	if attacherManifest(&api.GatewayInstance{}) != nil {
+		t.Fatal("gateway instance supplied an editor")
 	}
 
-	// an editor caller supplies the synced document
-	if callerManifest(&appendingEditor{}) == nil {
-		t.Fatal("appending editor was not reported")
+	// an attached instance that edits the manifest supplies the synced document
+	if attacherManifest(&appendingEditor{}) == nil {
+		t.Fatal("editor supplied no document")
 	}
 }
 

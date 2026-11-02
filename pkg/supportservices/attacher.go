@@ -2,17 +2,19 @@ package supportservices
 
 import "net/http"
 
-// componentCaller is an API object that records one shared workload.
-type componentCaller interface {
+// componentAttacher is an API instance attached to one support services operator component.
+// Its type and id name that instance on the requires row for the component workload.
+type componentAttacher interface {
 	GetFullyQualifiedType() string
 	ObjectID() *uint
 }
 
-// objectUpdate saves the API object that records a component workload.
+// objectUpdate is the save of an attached API instance after its component workload id is stored.
+// A nil save leaves that id only in memory.
 type objectUpdate[T any] func(apiClient *http.Client, apiAddr string, object T) (T, error)
 
-// manifestEditor returns the component document, including any object the caller adds.
-// A caller that leaves the document unchanged does not implement it.
+// manifestEditor returns the edited component document.
+// An instance that keeps the stock component manifest does not implement it.
 type manifestEditor interface {
 	EditManifest(base func() (string, error)) (string, error)
 }
