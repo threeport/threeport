@@ -296,6 +296,8 @@ type ReconciledObject struct {
 }
 
 // ParseModelFile reads the struct tags, field types, and embeds in one model file.
+// The reconciler test fixture has no SDK config, so fixture generation parses the model here.
+// The same read loads the shared component types and is not a general model parser.
 func ParseModelFile(path string) (
 	map[string]map[string]map[string]string,
 	map[string]map[string]string,
