@@ -366,8 +366,14 @@ func (c *SecretInstanceConfig) validateThreeportState() error {
 	}
 
 	// confirm secret component is deployed
+	var provider *string
+	if c.kubernetesRuntimeDefinition != nil {
+		provider = c.kubernetesRuntimeDefinition.InfraProvider
+	}
 	if err := supportservices.EnsureSecretsComponent(
+		c.r,
 		c.kubernetesRuntimeInstance,
+		provider,
 		&secretComponentAttacher{config: c},
 		c.log,
 	); err != nil {

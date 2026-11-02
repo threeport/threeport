@@ -351,6 +351,13 @@ const (
 // the reconciler fixture in this tree. Input is built here because the fixture
 // has no SDK config or go.mod; a nested go.mod would drop it from go test ./internal/....
 func (Dev) GenerateFixture() error {
+	// read tags, types, and embeds from the model file
+	modelPath := filepath.Join(fixtureRoot, "pkg", "api", "v0", "reconciler_test_fixture.go")
+	structTags, fieldTypes, structEmbeds, err := sdkgen.ParseModelFile(modelPath)
+	if err != nil {
+		return fmt.Errorf("failed to parse reconciler test model: %w", err)
+	}
+
 	// describe the persisted and persist-false fixture objects
 	apiObject := &sdkgen.ApiObject{
 		PackageName: "v0",
@@ -381,18 +388,9 @@ func (Dev) GenerateFixture() error {
 				{Name: fixtureObjectName, Versions: []string{"v0"}},
 				{Name: fixtureVolatile, Versions: []string{"v0"}},
 			},
-			StructTags: map[string]map[string]map[string]string{
-				fixtureObjectName: {"Status": {"validate": "optional"}},
-				fixtureVolatile:   {"Data": {"validate": "optional", "persist": "false"}},
-			},
-			FieldTypes: map[string]map[string]string{
-				fixtureObjectName: {"Status": "*string"},
-				fixtureVolatile:   {"Data": "*string"},
-			},
-			StructEmbeds: map[string][]string{
-				fixtureObjectName: {"Common", "Instance", "Reconciliation"},
-				fixtureVolatile:   {"Common", "Instance", "Reconciliation"},
-			},
+			StructTags:   structTags,
+			FieldTypes:   fieldTypes,
+			StructEmbeds: structEmbeds,
 		}},
 		VersionedApiObjectCollections: []sdkgen.VersionedApiObjectCollection{{
 			Version: "v0",

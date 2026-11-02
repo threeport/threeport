@@ -26,23 +26,22 @@ import (
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
+	"github.com/threeport/threeport/pkg/supportservices"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 const (
-	echoServiceName           = "echo"
-	echoNamespace             = "gateway-echo"
-	echoHost                  = "echo.threeport.test"
-	otherHost                 = "other.threeport.test"
-	echoBody                  = "gateway-ok"
-	echoTcpPort               = 5432
-	otherTcpPort              = 5433
-	ingressComponentName      = "ingress"
-	certificatesComponentName = "certificates"
-	ingressNamespace          = "nukleros-ingress-system"
-	nginxIngressService       = "nginx-ingress-nodeport"
-	reconcileAttempts         = 180
-	certificateAttempts       = 300
+	echoServiceName     = "echo"
+	echoNamespace       = "gateway-echo"
+	echoHost            = "echo.threeport.test"
+	otherHost           = "other.threeport.test"
+	echoBody            = "gateway-ok"
+	echoTcpPort         = 5432
+	otherTcpPort        = 5433
+	ingressNamespace    = "nukleros-ingress-system"
+	nginxIngressService = "nginx-ingress-nodeport"
+	reconcileAttempts   = 180
+	certificateAttempts = 300
 )
 
 const echoWorkload = `
@@ -720,14 +719,14 @@ func waitForSharedComponents(t *testing.T, kubeClient dynamic.Interface, want in
 
 	// count the cluster objects the shared install applies
 	err := util.Retry(reconcileAttempts, 2, func() error {
-		ingressCount, err := namedComponentCount(kubeClient, "ingresscomponents", ingressComponentName)
+		ingressCount, err := namedComponentCount(kubeClient, "ingresscomponents", supportservices.IngressComponentName)
 		if err != nil {
 			return err
 		}
 		certificatesCount, err := namedComponentCount(
 			kubeClient,
 			"certificatescomponents",
-			certificatesComponentName,
+			supportservices.CertificatesComponentName,
 		)
 		if err != nil {
 			return err
@@ -770,14 +769,14 @@ func waitForSharedComponentRemoved(
 		if err == nil && workload.DeletionScheduled == nil {
 			return errors.New("gateway component workload is still live")
 		}
-		ingressCount, err := namedComponentCount(kubeClient, "ingresscomponents", ingressComponentName)
+		ingressCount, err := namedComponentCount(kubeClient, "ingresscomponents", supportservices.IngressComponentName)
 		if err != nil {
 			return err
 		}
 		certificatesCount, err := namedComponentCount(
 			kubeClient,
 			"certificatescomponents",
-			certificatesComponentName,
+			supportservices.CertificatesComponentName,
 		)
 		if err != nil {
 			return err

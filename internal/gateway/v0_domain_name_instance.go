@@ -83,8 +83,13 @@ func validateThreeportStateExternalDns(
 	}
 
 	// install or adopt the shared ingress workload
-	attacher := &domainNameComponentAttacher{reconciler: r, domain: domainNameInstance}
+	attacher := &domainNameComponentAttacher{
+		reconciler: r,
+		domain:     domainNameInstance,
+		runtime:    kubernetesRuntimeInstance,
+	}
 	err = supportservices.EnsureIngressComponent(
+		r,
 		kubernetesRuntimeInstance,
 		attacher,
 		log,
@@ -92,18 +97,5 @@ func validateThreeportStateExternalDns(
 	if err != nil {
 		return fmt.Errorf("failed to confirm ingress component deployed: %w", err)
 	}
-
-	// add the external-dns object once that workload has reconciled
-	manifest, err := attacher.externalDnsManifest(kubernetesRuntimeInstance)
-	if err != nil {
-		return err
-	}
-	if manifest == "" || kubernetesRuntimeInstance.IngressComponentInstanceID == nil {
-		return nil
-	}
-	return supportservices.SyncWorkloadObject(
-		r,
-		*kubernetesRuntimeInstance.IngressComponentInstanceID,
-		manifest,
-	)
+	return nil
 }

@@ -1,12 +1,6 @@
 package secret
 
 import (
-	"fmt"
-
-	"github.com/go-logr/logr"
-
-	v0 "github.com/threeport/threeport/pkg/api/v0"
-	controller "github.com/threeport/threeport/pkg/controller/v0"
 	"github.com/threeport/threeport/pkg/supportservices"
 )
 
@@ -15,42 +9,11 @@ type secretComponentAttacher struct {
 	config *SecretInstanceConfig
 }
 
-// GetReconciler returns the reconciler that reaches the API.
-func (a *secretComponentAttacher) GetReconciler() *controller.Reconciler {
-	return a.config.r
-}
-
 // Install creates the secrets component for this runtime.
-func (a *secretComponentAttacher) Install(
-	runtime *v0.KubernetesRuntimeInstance,
-	log *logr.Logger,
-) (uint, error) {
-	// build the secrets component manifest for the provider
-	var externalSecretsYaml string
-	var err error
-	switch *a.config.kubernetesRuntimeDefinition.InfraProvider {
-	case v0.KubernetesRuntimeInfraProviderEKS, v0.KubernetesRuntimeInfraProviderKind:
-		externalSecretsYaml, err = supportservices.ExternalSecretsYaml()
-	default:
-		break
-	}
-	if err != nil {
-		return 0, fmt.Errorf("failed to get external secrets yaml: %w", err)
-	}
-
-	return supportservices.CreateComponentWorkload(
-		a.config.r,
-		runtime,
-		fmt.Sprintf("external-secrets-%s", *runtime.Name),
-		externalSecretsYaml,
-		log,
-	)
-}
-
 // IsComponentReconciled reports whether the workload has reconciled.
 // A missing row returns reconciled false and missing true.
 func (a *secretComponentAttacher) IsComponentReconciled(id uint) (bool, bool, error) {
-	return supportservices.ComponentReconciled(a.config.r, id)
+	return supportservices.IsComponentReconciled(a.config.r, id)
 }
 
 // SetCallerKubernetesWorkloadInstanceID records nothing because the secret stores no component id.

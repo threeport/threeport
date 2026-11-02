@@ -295,6 +295,80 @@ type ReconciledObject struct {
 	DisableNotificationPersistence bool
 }
 
+// ParseModelFile reads the struct tags, field types, and embeds in one model file.
+func ParseModelFile(path string) (
+	map[string]map[string]map[string]string,
+	map[string]map[string]string,
+	map[string][]string,
+	error,
+) {
+	// parse the model file
+	structTags := make(map[string]map[string]map[string]string)
+	fieldTypes := make(map[string]map[string]string)
+	structEmbeds := make(map[string][]string)
+	fset := token.NewFileSet()
+	parsed, err := parser.ParseFile(fset, path, nil, parser.AllErrors)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to parse %s: %w", path, err)
+	}
+
+	// record each struct's tags, types, and embeds
+	for _, decl := range parsed.Decls {
+		genDecl, ok := decl.(*ast.GenDecl)
+		if !ok || genDecl.Tok != token.TYPE {
+			continue
+		}
+		for _, spec := range genDecl.Specs {
+			typeSpec, ok := spec.(*ast.TypeSpec)
+			if !ok {
+				continue
+			}
+			structType, ok := typeSpec.Type.(*ast.StructType)
+			if !ok {
+				continue
+			}
+			objectName := typeSpec.Name.Name
+			structTags[objectName] = make(map[string]map[string]string)
+			fieldTypes[objectName] = make(map[string]string)
+			for _, field := range structType.Fields.List {
+				if field.Names == nil {
+					if name := embedName(field.Type); name != "" {
+						structEmbeds[objectName] = append(structEmbeds[objectName], name)
+					}
+					continue
+				}
+				if field.Tag == nil {
+					return nil, nil, nil, fmt.Errorf(
+						"%s.%s has no struct tag",
+						objectName,
+						field.Names[0].Name,
+					)
+				}
+				fieldTagMap := util.ParseStructTag(field.Tag.Value)
+				fieldType := types.ExprString(field.Type)
+				for _, fieldName := range field.Names {
+					structTags[objectName][fieldName.Name] = fieldTagMap
+					fieldTypes[objectName][fieldName.Name] = fieldType
+				}
+			}
+		}
+	}
+	return structTags, fieldTypes, structEmbeds, nil
+}
+
+// embedName returns the type name of an embedded field.
+func embedName(expr ast.Expr) string {
+	// use the identifier, including the name after a package selector
+	switch typed := expr.(type) {
+	case *ast.Ident:
+		return typed.Name
+	case *ast.SelectorExpr:
+		return typed.Sel.Name
+	default:
+		return ""
+	}
+}
+
 // New populates a new Generator in preparation for source code generation.  It
 // primarily uses two data sources to populate the Generator:
 // * the SDK config provided by the threeport-sdk user

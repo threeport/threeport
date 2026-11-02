@@ -33,9 +33,9 @@ const (
 	DatabaseColumn = "DatabaseComponentInstanceID"
 )
 
-// ComponentReconciled reports whether that workload instance has reconciled.
+// IsComponentReconciled reports whether that workload instance has reconciled.
 // A missing row returns reconciled false and missing true.
-func ComponentReconciled(r *controller.Reconciler, id uint) (bool, bool, error) {
+func IsComponentReconciled(r *controller.Reconciler, id uint) (bool, bool, error) {
 	// read the workload the slot names
 	workload, err := client.GetKubernetesWorkloadInstanceByID(
 		r.APIClient,
@@ -248,9 +248,32 @@ func CreateComponentWorkload(
 	return *createdWorkloadInstance.ID, nil
 }
 
-// SyncWorkloadObject adds or replaces one object on a component workload.
-// The workload controller applies the object on its next update.
+// SyncWorkloadObject stores each document on a component workload.
+// The workload controller applies the objects on its next update.
 func SyncWorkloadObject(
+	r *controller.Reconciler,
+	workloadID uint,
+	manifest string,
+) error {
+	// store each document in the manifest
+	documents, err := kube.GetYamlDocuments(manifest)
+	if err != nil {
+		return fmt.Errorf("failed to parse component manifest: %w", err)
+	}
+	if len(documents) == 0 {
+		return fmt.Errorf("component manifest must hold an object")
+	}
+	for _, document := range documents {
+		if err := syncWorkloadDocument(r, workloadID, document); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// syncWorkloadDocument stores one object on a component workload.
+// The workload controller applies the object on its next update.
+func syncWorkloadDocument(
 	r *controller.Reconciler,
 	workloadID uint,
 	manifest string,

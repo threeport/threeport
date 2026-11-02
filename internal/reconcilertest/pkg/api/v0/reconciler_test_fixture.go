@@ -25,6 +25,18 @@ type ReconcilerTestInstance struct {
 
 	// The status of the instance.
 	Status *string `validate:"optional"`
+
+	// The workload instance that runs the ingress component for this instance.
+	IngressComponentInstanceID *uint `validate:"optional" relationship:"requires;type:KubernetesWorkloadInstance"`
+
+	// The workload instance that runs the certificates component for this instance.
+	CertificatesComponentInstanceID *uint `validate:"optional" relationship:"requires;type:KubernetesWorkloadInstance"`
+
+	// The workload instance that stores secrets for this instance.
+	SecretsComponentInstanceID *uint `validate:"optional" relationship:"requires;type:KubernetesWorkloadInstance"`
+
+	// The workload instance that provides a database for this instance.
+	DatabaseComponentInstanceID *uint `validate:"optional" relationship:"requires;type:KubernetesWorkloadInstance"`
 }
 
 // ReconcilerTestVolatileInstance is a fixture object whose generated

@@ -11,54 +11,28 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// SupportServiceAttacher is the object that uses one shared workload.
-type SupportServiceAttacher interface {
-
-	// IsComponentReconciled reports whether that kubernetes workload instance has reconciled.
-	// A missing row returns reconciled false and missing true.
-	IsComponentReconciled(id uint) (reconciled bool, missing bool, err error)
-
-	// SetCallerKubernetesWorkloadInstanceID stores the component kubernetes workload instance id on the caller.
-	SetCallerKubernetesWorkloadInstanceID(id *uint) error
-	
-	// ClaimRuntimeKubernetesWorkloadInstanceID writes the runtime component column when the compare accepts it.
-	ClaimRuntimeKubernetesWorkloadInstanceID(runtimeID uint, workloadID uint) error
-
-	// ClearRuntimeKubernetesWorkloadInstanceID nulls the runtime component column when this id is the stored one.
-	// The cleared result is true when this caller nulled the column.
-	ClearRuntimeKubernetesWorkloadInstanceID(runtimeID uint, workloadID uint) (cleared bool, err error)
-
-	// DeleteComponentKubernetesWorkloadInstance removes that component kubernetes workload instance.
-	DeleteComponentKubernetesWorkloadInstance(id uint) error
-
-	// GetReconciler returns the reconciler this caller uses for API calls.
-	GetReconciler() *controller.Reconciler
-}
-
-// SupportServiceInstaller is an attacher that creates the shared workload.
-type SupportServiceInstaller interface {
-	SupportServiceAttacher
-	// Install creates the shared workload and returns its id.
-	Install(runtime *api.KubernetesRuntimeInstance, log *logr.Logger) (uint, error)
-}
-
 // EnsureIngressComponent installs or adopts the ingress component for this runtime.
 // The caller records that workload on the object that uses it.
 func EnsureIngressComponent(
+	r *controller.Reconciler,
 	runtime *api.KubernetesRuntimeInstance,
-	caller SupportServiceInstaller,
+	caller SupportServiceAttacher,
 	log *logr.Logger,
 ) error {
 	// require the runtime the slot belongs to
-	if runtime == nil || runtime.ID == nil {
+	if runtime == nil || runtime.ID == nil || runtime.Name == nil {
 		return fmt.Errorf("ingress component runtime is missing")
 	}
 
 	// install or adopt the shared workload
-	return ensure(
+	name := fmt.Sprintf("%s-%s", IngressComponentName, *runtime.Name)
+	return ensureComponent(
+		r,
 		runtime,
 		&runtime.IngressComponentInstanceID,
 		"ingress component",
+		name,
+		IngressComponentYaml,
 		caller,
 		log,
 	)
@@ -86,20 +60,31 @@ func ReleaseIngressComponent(
 // EnsureSecretsComponent installs or adopts the secrets workload for this runtime.
 // The caller records that workload on the object that uses it.
 func EnsureSecretsComponent(
+	r *controller.Reconciler,
 	runtime *api.KubernetesRuntimeInstance,
-	caller SupportServiceInstaller,
+	provider *string,
+	caller SupportServiceAttacher,
 	log *logr.Logger,
 ) error {
 	// require the runtime the slot belongs to
-	if runtime == nil || runtime.ID == nil {
+	if runtime == nil || runtime.ID == nil || runtime.Name == nil {
 		return fmt.Errorf("secrets component runtime is missing")
 	}
 
+	// skip a provider that does not run this workload
+	if !secretsProviderCreates(provider) {
+		return nil
+	}
+
 	// install or adopt the shared workload
-	return ensure(
+	name := fmt.Sprintf("external-secrets-%s", *runtime.Name)
+	return ensureComponent(
+		r,
 		runtime,
 		&runtime.SecretsComponentInstanceID,
 		"secrets component",
+		name,
+		ExternalSecretsYaml,
 		caller,
 		log,
 	)
@@ -128,7 +113,7 @@ func ReleaseSecretsComponent(
 // The caller records that workload on the object that uses it.
 func EnsureDatabaseComponent(
 	runtime *api.KubernetesRuntimeInstance,
-	caller SupportServiceInstaller,
+	caller SupportServiceAttacher,
 	log *logr.Logger,
 ) error {
 	// require the runtime the slot belongs to
@@ -136,14 +121,8 @@ func EnsureDatabaseComponent(
 		return fmt.Errorf("database component runtime is missing")
 	}
 
-	// install or adopt the shared workload
-	return ensure(
-		runtime,
-		&runtime.DatabaseComponentInstanceID,
-		"database component",
-		caller,
-		log,
-	)
+	// the database component has no manifest to install
+	return fmt.Errorf("database component manifest is missing")
 }
 
 // ReleaseDatabaseComponent removes the database workload when no caller still requires it.
@@ -168,20 +147,25 @@ func ReleaseDatabaseComponent(
 // EnsureCertificatesComponent installs or adopts the certificates component for this runtime.
 // The caller records that workload on the object that uses it.
 func EnsureCertificatesComponent(
+	r *controller.Reconciler,
 	runtime *api.KubernetesRuntimeInstance,
-	caller SupportServiceInstaller,
+	caller SupportServiceAttacher,
 	log *logr.Logger,
 ) error {
 	// require the runtime the slot belongs to
-	if runtime == nil || runtime.ID == nil {
+	if runtime == nil || runtime.ID == nil || runtime.Name == nil {
 		return fmt.Errorf("certificates component runtime is missing")
 	}
 
 	// install or adopt the shared workload
-	return ensure(
+	name := fmt.Sprintf("%s-%s", CertificatesComponentName, *runtime.Name)
+	return ensureComponent(
+		r,
 		runtime,
 		&runtime.CertificatesComponentInstanceID,
 		"certificates component",
+		name,
+		CertificatesComponentYaml,
 		caller,
 		log,
 	)
@@ -212,8 +196,11 @@ func ensure(
 	runtime *api.KubernetesRuntimeInstance,
 	slot **uint,
 	label string,
-	caller SupportServiceInstaller,
+	caller SupportServiceAttacher,
 	log *logr.Logger,
+	manifest func() (string, error),
+	create func(manifest string) (uint, error),
+	sync func(workloadID uint, manifest string) error,
 ) error {
 	// keep a reconciled workload and wait while its row still exists
 	if *slot != nil {
@@ -230,6 +217,13 @@ func ensure(
 					err,
 				)
 			}
+			document, err := componentDocument(caller, manifest)
+			if err != nil {
+				return fmt.Errorf("failed to render %s workload %d: %w", label, **slot, err)
+			}
+			if err := sync(**slot, document); err != nil {
+				return fmt.Errorf("failed to sync %s workload %d: %w", label, **slot, err)
+			}
 			return nil
 		}
 		if !missing {
@@ -237,8 +231,12 @@ func ensure(
 		}
 	}
 
-	// install the workload and claim the slot
-	workloadID, err := caller.Install(runtime, log)
+	// install the component manifest and claim the slot
+	document, err := manifest()
+	if err != nil {
+		return fmt.Errorf("failed to render %s workload: %w", label, err)
+	}
+	workloadID, err := create(document)
 	if err != nil {
 		return err
 	}
@@ -258,6 +256,58 @@ func ensure(
 		return fmt.Errorf("failed to record %s workload %d: %w", label, workloadID, err)
 	}
 	return fmt.Errorf("%s workload %d is not reconciled", label, workloadID)
+}
+
+// ensureComponent creates the component workload and syncs the caller's document.
+func ensureComponent(
+	r *controller.Reconciler,
+	runtime *api.KubernetesRuntimeInstance,
+	slot **uint,
+	label string,
+	name string,
+	manifest func() (string, error),
+	caller SupportServiceAttacher,
+	log *logr.Logger,
+) error {
+	// wrap the component document on create and sync the caller's copy
+	return ensure(
+		runtime,
+		slot,
+		label,
+		caller,
+		log,
+		manifest,
+		func(document string) (uint, error) {
+			return CreateComponentWorkload(
+				r,
+				runtime,
+				name,
+				fmt.Sprintf("---\n%s\n", document),
+				log,
+			)
+		},
+		func(workloadID uint, document string) error {
+			return SyncWorkloadObject(r, workloadID, document)
+		},
+	)
+}
+
+// componentDocument returns the component manifest, or the caller's edited copy.
+func componentDocument(caller SupportServiceAttacher, manifest func() (string, error)) (string, error) {
+	// let the caller change the document when it implements that
+	editor, ok := caller.(ManifestEditor)
+	if !ok {
+		return manifest()
+	}
+	return editor.EditManifest(manifest)
+}
+
+// secretsProviderCreates reports whether this provider runs the secrets workload.
+func secretsProviderCreates(provider *string) bool {
+	// create the workload for eks and kind
+	return provider != nil &&
+		(*provider == api.KubernetesRuntimeInfraProviderEKS ||
+			*provider == api.KubernetesRuntimeInfraProviderKind)
 }
 
 // release removes the named workload when no caller still requires it.

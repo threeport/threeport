@@ -17,20 +17,20 @@ var ingressComponent []byte
 var certificatesComponent []byte
 
 const (
-	// ingressComponentName is the IngressComponent object this install applies.
-	ingressComponentName = "ingress"
+	// IngressComponentName is the IngressComponent object this install applies.
+	IngressComponentName = "ingress"
 
-	// externalDNSComponentName is the IngressComponent object that installs external-dns.
-	externalDNSComponentName = "externaldns"
+	// CertificatesComponentName is the CertificatesComponent object this install applies.
+	CertificatesComponentName = "certificates"
 
-	// ingressDomainName is the domain the nginx component uses with no public zone.
-	ingressDomainName = "threeport.local"
+	// ExternalDNSName is the IngressComponent object that installs external-dns.
+	ExternalDNSName = "externaldns"
 
-	// certificatesComponentName is the CertificatesComponent object this install applies.
-	certificatesComponentName = "certificates"
+	// IngressDomainName is the domain the nginx component uses with no public zone.
+	IngressDomainName = "threeport.local"
 
-	// externalDNSZoneType is the hosted zone type external-dns manages.
-	externalDNSZoneType = "public"
+	// ExternalDNSZoneType is the hosted zone type external-dns manages.
+	ExternalDNSZoneType = "public"
 )
 
 // IngressComponentYaml returns the nginx operator component.
@@ -44,7 +44,7 @@ func IngressComponentYaml() (string, error) {
 	// name the component and join it to the SupportServices object
 	if err := unstructured.SetNestedField(
 		component.Object,
-		ingressComponentName,
+		IngressComponentName,
 		"metadata",
 		"name",
 	); err != nil {
@@ -61,7 +61,7 @@ func IngressComponentYaml() (string, error) {
 	}
 	if err := unstructured.SetNestedField(
 		component.Object,
-		ingressDomainName,
+		IngressDomainName,
 		"spec",
 		"domainName",
 	); err != nil {
@@ -121,7 +121,7 @@ func ExternalDnsYaml(
 	// name this component and leave kong out
 	if err := unstructured.SetNestedField(
 		component.Object,
-		externalDNSComponentName,
+		ExternalDNSName,
 		"metadata",
 		"name",
 	); err != nil {
@@ -158,7 +158,7 @@ func ExternalDnsYaml(
 	// set the public zone, then set the provider
 	if err := unstructured.SetNestedField(
 		component.Object,
-		externalDNSZoneType,
+		ExternalDNSZoneType,
 		"spec",
 		"externalDNS",
 		"zoneType",
@@ -214,7 +214,7 @@ func CertificatesComponentYaml() (string, error) {
 	// name the component
 	if err := unstructured.SetNestedField(
 		component.Object,
-		certificatesComponentName,
+		CertificatesComponentName,
 		"metadata",
 		"name",
 	); err != nil {

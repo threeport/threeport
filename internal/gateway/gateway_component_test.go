@@ -136,6 +136,40 @@ func (f *componentFixture) route(t *testing.T, w http.ResponseWriter, r *http.Re
 			listed[i] = &f.gateways[i]
 		}
 		machinetest.WriteResponse(t, w, http.StatusOK, listed)
+	case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, api.PathKubernetesWorkloadDefinitions+"/"):
+		if f.definition == nil {
+			yaml := ""
+			f.definition = &api.KubernetesWorkloadDefinition{
+				Common:       api.Common{ID: util.Ptr(uint(1))},
+				YAMLDocument: &yaml,
+			}
+		}
+		machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{f.definition})
+	case r.Method == http.MethodGet && r.URL.Path == api.PathKubernetesWorkloadResourceInstances:
+		machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{})
+	case r.Method == http.MethodPost && r.URL.Path == api.PathKubernetesWorkloadResourceDefinitions:
+		machinetest.WriteResponse(t, w, http.StatusCreated, []apiserver_lib.Object{
+			&api.KubernetesWorkloadResourceDefinition{Common: api.Common{ID: util.Ptr(uint(1))}},
+		})
+	case r.Method == http.MethodPost && r.URL.Path == api.PathKubernetesWorkloadResourceInstances:
+		machinetest.WriteResponse(t, w, http.StatusCreated, []apiserver_lib.Object{
+			&api.KubernetesWorkloadResourceInstance{Common: api.Common{ID: util.Ptr(uint(1))}},
+		})
+	case (r.Method == http.MethodPut || r.Method == http.MethodPatch) &&
+		strings.HasPrefix(r.URL.Path, api.PathKubernetesWorkloadDefinitions+"/"):
+		var updated api.KubernetesWorkloadDefinition
+		if err := json.NewDecoder(r.Body).Decode(&updated); err != nil {
+			t.Fatal(err)
+		}
+		if f.definition == nil {
+			f.definition = &updated
+		} else if updated.YAMLDocument != nil {
+			f.definition.YAMLDocument = updated.YAMLDocument
+		}
+		machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{f.definition})
+	case (r.Method == http.MethodPut || r.Method == http.MethodPatch) &&
+		strings.HasPrefix(r.URL.Path, api.PathKubernetesWorkloadInstances+"/"):
+		machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{f.workload})
 	default:
 		t.Errorf("unexpected %s %s", r.Method, r.URL.String())
 		http.NotFound(w, r)
@@ -146,15 +180,18 @@ func (f *componentFixture) route(t *testing.T, w http.ResponseWriter, r *http.Re
 func TestEnsureIngressComponentAlreadySet(t *testing.T) {
 	// return before creating another install when the workload is live
 	f := &componentFixture{
-		runtime:  kindRuntime(),
-		workload: &api.KubernetesWorkloadInstance{Common: api.Common{ID: util.Ptr(uint(9))}},
+		runtime: kindRuntime(),
+		workload: &api.KubernetesWorkloadInstance{
+			Common:                         api.Common{ID: util.Ptr(uint(9))},
+			KubernetesWorkloadDefinitionID: util.Ptr(uint(1)),
+		},
 	}
 	f.runtime.IngressComponentInstanceID = util.Ptr(uint(9))
 	reconciled := true
 	f.workload.Reconciled = &reconciled
 	log := logr.Discard()
 	reconciler := f.serve(t)
-	err := supportservices.EnsureIngressComponent(f.runtime, &gatewayComponentAttacher{reconciler: reconciler}, &log)
+	err := supportservices.EnsureIngressComponent(reconciler, f.runtime, &gatewayIngressAttacher{reconciler: reconciler}, &log)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -169,7 +206,7 @@ func TestEnsureIngressComponentCreatesOnePair(t *testing.T) {
 	f := &componentFixture{runtime: kindRuntime(), definitionID: 10, instanceID: 20}
 	log := logr.Discard()
 	reconciler := f.serve(t)
-	err := supportservices.EnsureIngressComponent(f.runtime, &gatewayComponentAttacher{reconciler: reconciler}, &log)
+	err := supportservices.EnsureIngressComponent(reconciler, f.runtime, &gatewayIngressAttacher{reconciler: reconciler}, &log)
 	if err == nil || !strings.Contains(err.Error(), "not reconciled") {
 		t.Fatalf("expected the new workload to wait for reconciliation, got %v", err)
 	}
@@ -190,7 +227,7 @@ func TestEnsureIngressComponentCreatesOnePair(t *testing.T) {
 	// keep that install once the workload has reconciled
 	ready := true
 	f.workload.Reconciled = &ready
-	err = supportservices.EnsureIngressComponent(f.runtime, &gatewayComponentAttacher{reconciler: reconciler}, &log)
+	err = supportservices.EnsureIngressComponent(reconciler, f.runtime, &gatewayIngressAttacher{reconciler: reconciler}, &log)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -212,7 +249,7 @@ func TestEnsureIngressComponentReplacesMissing(t *testing.T) {
 	f.definition.Name = util.Ptr("ingress-dev")
 	log := logr.Discard()
 	reconciler := f.serve(t)
-	err := supportservices.EnsureIngressComponent(f.runtime, &gatewayComponentAttacher{reconciler: reconciler}, &log)
+	err := supportservices.EnsureIngressComponent(reconciler, f.runtime, &gatewayIngressAttacher{reconciler: reconciler}, &log)
 	if err == nil || !strings.Contains(err.Error(), "not reconciled") {
 		t.Fatalf("expected the replacement to wait for reconciliation, got %v", err)
 	}
@@ -238,7 +275,7 @@ func TestEnsureIngressComponentWaitsWhileDeleting(t *testing.T) {
 	f.runtime.IngressComponentInstanceID = util.Ptr(uint(9))
 	log := logr.Discard()
 	reconciler := f.serve(t)
-	err := supportservices.EnsureIngressComponent(f.runtime, &gatewayComponentAttacher{reconciler: reconciler}, &log)
+	err := supportservices.EnsureIngressComponent(reconciler, f.runtime, &gatewayIngressAttacher{reconciler: reconciler}, &log)
 	if err == nil {
 		t.Fatal("expected an error")
 	}

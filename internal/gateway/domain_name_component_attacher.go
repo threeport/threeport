@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/go-logr/logr"
-
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	tpaws "github.com/threeport/threeport/pkg/aws/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
@@ -18,32 +16,27 @@ import (
 type domainNameComponentAttacher struct {
 	reconciler *controller.Reconciler
 	domain     *v0.DomainNameInstance
+	runtime    *v0.KubernetesRuntimeInstance
 }
 
-// GetReconciler returns the reconciler that reaches the API.
-func (a *domainNameComponentAttacher) GetReconciler() *controller.Reconciler {
-	return a.reconciler
-}
-
-// Install creates the shared ingress workload for external-dns.
-func (a *domainNameComponentAttacher) Install(
-	runtime *v0.KubernetesRuntimeInstance,
-	log *logr.Logger,
-) (uint, error) {
-	// build the external-dns manifest
-	manifest, err := a.externalDnsManifest(runtime)
+// EditManifest returns the ingress document plus the external-dns document.
+// It returns the base document when this runtime has no public zone.
+func (a *domainNameComponentAttacher) EditManifest(base func() (string, error)) (string, error) {
+	// start from the ingress document
+	manifest, err := base()
 	if err != nil {
-		return 0, err
+		return "", err
 	}
 
-	// create the shared ingress workload
-	return supportservices.CreateComponentWorkload(
-		a.reconciler,
-		runtime,
-		fmt.Sprintf("ingress-%s", *runtime.Name),
-		manifest,
-		log,
-	)
+	// append external-dns when the provider has a public zone
+	extra, err := a.externalDnsManifest(a.runtime)
+	if err != nil {
+		return "", err
+	}
+	if extra == "" {
+		return manifest, nil
+	}
+	return manifest + "\n---\n" + extra, nil
 }
 
 // externalDnsManifest returns the external-dns object for this runtime.
@@ -142,7 +135,7 @@ func (a *domainNameComponentAttacher) externalDnsManifest(
 // IsComponentReconciled reports whether the workload has reconciled.
 // A missing row returns reconciled false and missing true.
 func (a *domainNameComponentAttacher) IsComponentReconciled(id uint) (bool, bool, error) {
-	return supportservices.ComponentReconciled(a.reconciler, id)
+	return supportservices.IsComponentReconciled(a.reconciler, id)
 }
 
 // SetCallerKubernetesWorkloadInstanceID records nothing because the domain stores no component id.

@@ -317,8 +317,9 @@ func validateThreeportState(
 
 	// install or adopt the shared component, then record this gateway
 	err = supportservices.EnsureIngressComponent(
+		r,
 		kubernetesRuntimeInstance,
-		&gatewayComponentAttacher{reconciler: r, gateway: gatewayInstance},
+		&gatewayIngressAttacher{reconciler: r, gateway: gatewayInstance},
 		log,
 	)
 	if err != nil {
@@ -328,20 +329,6 @@ func validateThreeportState(
 	// accept the stored component id without waiting for its pods
 	if err := gatewayComponentPresent(kubernetesRuntimeInstance); err != nil {
 		return err
-	}
-
-	// put the nginx object on the shared ingress workload
-	ingressManifest, err := supportservices.IngressComponentYaml()
-	if err != nil {
-		return fmt.Errorf("failed to create ingress component: %w", err)
-	}
-	err = supportservices.SyncWorkloadObject(
-		r,
-		*kubernetesRuntimeInstance.IngressComponentInstanceID,
-		ingressManifest,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to sync ingress component: %w", err)
 	}
 
 	// install cert-manager on eks and kind
@@ -357,11 +344,11 @@ func validateThreeportState(
 		(*infraProvider == v0.KubernetesRuntimeInfraProviderEKS ||
 			*infraProvider == v0.KubernetesRuntimeInfraProviderKind) {
 		err = supportservices.EnsureCertificatesComponent(
+			r,
 			kubernetesRuntimeInstance,
-			&gatewayComponentAttacher{
+			&gatewayCertificatesAttacher{
 				reconciler: r,
 				gateway:    gatewayInstance,
-				component:  certificatesComponent,
 			},
 			log,
 		)
@@ -462,17 +449,16 @@ func releaseGatewayComponent(r *controller.Reconciler, gatewayInstance *v0.Gatew
 	// clear the slot, then delete the workload when no caller still requires it
 	err = supportservices.ReleaseIngressComponent(
 		kubernetesRuntimeInstance,
-		&gatewayComponentAttacher{reconciler: r, gateway: gatewayInstance},
+		&gatewayIngressAttacher{reconciler: r, gateway: gatewayInstance},
 	)
 	if err != nil {
 		return fmt.Errorf("failed to release ingress component: %w", err)
 	}
 	return supportservices.ReleaseCertificatesComponent(
 		kubernetesRuntimeInstance,
-		&gatewayComponentAttacher{
+		&gatewayCertificatesAttacher{
 			reconciler: r,
 			gateway:    gatewayInstance,
-			component:  certificatesComponent,
 		},
 	)
 }
