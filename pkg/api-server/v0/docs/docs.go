@@ -17625,7 +17625,7 @@ const docTemplate = `{
             ],
             "properties": {
                 "CertificatesComponentInstanceID": {
-                    "description": "The workload instance that runs the certificates component for this gateway.",
+                    "description": "The workload instance that runs the certificates component for this instance.",
                     "type": "integer"
                 },
                 "CreationAcknowledged": {
@@ -17657,7 +17657,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "IngressComponentInstanceID": {
-                    "description": "The workload instance that runs the ingress component for this gateway.",
+                    "description": "The workload instance that runs the ingress component for this instance.",
                     "type": "integer"
                 },
                 "InterruptReconciliation": {

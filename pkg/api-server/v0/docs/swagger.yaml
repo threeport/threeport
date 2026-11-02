@@ -780,7 +780,7 @@ definitions:
     properties:
       CertificatesComponentInstanceID:
         description: The workload instance that runs the certificates component for
-          this gateway.
+          this instance.
         type: integer
       CreationAcknowledged:
         description: |-
@@ -814,7 +814,7 @@ definitions:
         type: integer
       IngressComponentInstanceID:
         description: The workload instance that runs the ingress component for this
-          gateway.
+          instance.
         type: integer
       InterruptReconciliation:
         description: |-
