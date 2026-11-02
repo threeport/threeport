@@ -324,6 +324,22 @@ func (g *gkeLifecycle) ClearInventory() error {
 	return err
 }
 
+// RecordWarning records a Warning event against the instance.
+func (g *gkeLifecycle) RecordWarning(reason, note string) error {
+	// a nil Recorder interface and a nil pointer inside one are both "none"
+	if g.r == nil || g.r.EventsRecorder == nil {
+		return provider.RecordWarningEvent(nil, g.instanceID, "", reason, note)
+	}
+
+	return provider.RecordWarningEvent(
+		g.r.EventsRecorder,
+		g.instanceID,
+		new(v0.GcpGkeKubernetesRuntimeInstance).GetFullyQualifiedType(),
+		reason,
+		note,
+	)
+}
+
 // PublishCreateNotification publishes a NATS notification for creation.
 func (g *gkeLifecycle) PublishCreateNotification() error {
 	notifPayload, err := g.instance.NotificationPayload(

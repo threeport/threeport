@@ -31,6 +31,11 @@ const (
 	ReasonDeleteSuccessful = "DeleteSuccessful"
 	ReasonDeleteFailed     = "DeleteFailed"
 
+	// ReasonInfrastructureAbandoned marks a delete that went ahead on an
+	// operator's explicit request even though cloud resources may be left
+	// running and no longer tracked.
+	ReasonInfrastructureAbandoned = "InfrastructureAbandoned"
+
 	// Default event types
 	TypeNormal  = "Normal"
 	TypeWarning = "Warning"

@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/datatypes"
 
+	event "github.com/threeport/threeport/pkg/event/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -404,6 +405,13 @@ func TestExecuteInfraDelete_InvalidExistingStateJSON_RefusesDestroy(t *testing.T
 	// check the inventory was left alone and no delete was announced
 	require.Equal(t, 0, fl.callCount("ClearInventory"))
 	require.Equal(t, 0, fl.callCount("PublishDeleteNotification"))
+
+	// check the refusal is visible in the instance's events with the way out
+	warnings := fl.recordedWarnings()
+	require.Len(t, warnings, 1)
+	require.Equal(t, event.ReasonDeleteFailed, warnings[0].reason)
+	require.Contains(t, warnings[0].note, "refusing to destroy")
+	require.Contains(t, warnings[0].note, "--abandon-infrastructure")
 }
 
 // TestExecuteInfraDelete_RestoreError_RefusesDestroy covers a failed state
@@ -437,6 +445,13 @@ func TestExecuteInfraDelete_RestoreError_RefusesDestroy(t *testing.T) {
 	// check the inventory was left alone and no delete was announced
 	require.Equal(t, 0, fl.callCount("ClearInventory"))
 	require.Equal(t, 0, fl.callCount("PublishDeleteNotification"))
+
+	// check the refusal is visible in the instance's events with the way out
+	warnings := fl.recordedWarnings()
+	require.Len(t, warnings, 1)
+	require.Equal(t, event.ReasonDeleteFailed, warnings[0].reason)
+	require.Contains(t, warnings[0].note, "refusing to destroy")
+	require.Contains(t, warnings[0].note, "--abandon-infrastructure")
 }
 
 // TestExecuteInfraDelete_DestroyError_CapturesRemainingState covers a failed
@@ -620,4 +635,99 @@ func TestExecuteInfraCreate_SaveOutputsExhausted_PersistsFailure(t *testing.T) {
 	require.Equal(t, 3, fl.callCount("SaveCreateOutputs"))
 	require.Equal(t, 1, fl.callCount("SetCreationFailed"))
 	require.Equal(t, 0, fl.callCount("PublishCreateNotification"))
+}
+
+// TestExecuteInfraDelete_Unrestorable_Abandon_DestroysWithoutState covers the
+// operator override for state that cannot be restored: the destroy runs on an
+// empty stack, the delete completes, and an event records that the recorded
+// resources were left behind.
+func TestExecuteInfraDelete_Unrestorable_Abandon_DestroysWithoutState(t *testing.T) {
+	cases := []struct {
+		name string
+		// arrange sets up the unrestorable inventory
+		arrange func(fi *fakeInfra) *datatypes.JSON
+		// wantRestoreCalls is how many times SetStackState is attempted
+		wantRestoreCalls int
+	}{
+		{
+			name: "invalid json",
+			arrange: func(fi *fakeInfra) *datatypes.JSON {
+				return jsonPtr(`{"deployment":{"resources":[`)
+			},
+			wantRestoreCalls: 0,
+		},
+		{
+			name: "provider rejects state",
+			arrange: func(fi *fakeInfra) *datatypes.JSON {
+				fi.setSetStackStateErr(errors.New("injected: restore failure"))
+				return validStackState()
+			},
+			wantRestoreCalls: 1,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			// set semaphore capacity to 1
+			configureSemaphoreTest(t, 1)
+			log := newTestLogger()
+
+			fi := newFakeInfra()
+			fl := newFakeLifecycle(&ReconciliationSnapshot{
+				DeletionScheduled:     util.Ptr(time.Now().UTC()),
+				ResourceInventory:     tc.arrange(fi),
+				CreationConfirmed:     util.Ptr(time.Now().UTC().Add(-time.Hour)),
+				AbandonInfrastructure: true,
+			})
+			fl.setInfra(fi)
+
+			// launch delete
+			requeue, err := HandleInfraDelete(fl, log)
+			require.NoError(t, err)
+			require.Equal(t, int64(300), requeue)
+
+			// wait for delete to finish
+			waitForSemaphoreDrain(t)
+
+			// check the destroy ran without state and the delete completed
+			require.Equal(t, tc.wantRestoreCalls, fi.setStackStateCallCount())
+			require.Equal(t, 1, fi.destroyCallCount())
+			require.Equal(t, 1, fl.callCount("ClearInventory"))
+			require.Equal(t, 1, fl.callCount("PublishDeleteNotification"))
+
+			// check the abandonment is recorded as a warning event
+			warnings := fl.recordedWarnings()
+			require.Len(t, warnings, 1)
+			require.Equal(t, event.ReasonInfrastructureAbandoned, warnings[0].reason)
+			require.Contains(t, warnings[0].note, "left running and untracked")
+		})
+	}
+}
+
+// TestExecuteInfraDelete_RecordWarningFails_StillRefuses covers an event that
+// cannot be recorded: the refusal to destroy stands and the failure is only
+// logged.
+func TestExecuteInfraDelete_RecordWarningFails_StillRefuses(t *testing.T) {
+	// set semaphore capacity to 1
+	configureSemaphoreTest(t, 1)
+	log := newTestLogger()
+
+	fi := newFakeInfra()
+	fl := newFakeLifecycle(&ReconciliationSnapshot{
+		DeletionScheduled: util.Ptr(time.Now().UTC()),
+		ResourceInventory: jsonPtr(`{"deployment":{"resources":[`),
+	})
+	fl.setInfra(fi)
+	fl.setErr("RecordWarning", errors.New("injected: events API down"))
+
+	// launch delete
+	_, err := HandleInfraDelete(fl, log)
+	require.NoError(t, err)
+
+	// wait for delete to finish
+	waitForSemaphoreDrain(t)
+
+	// check the destroy was still refused
+	require.Equal(t, 0, fi.destroyCallCount())
+	require.Equal(t, 1, fl.callCount("RecordWarning"))
 }

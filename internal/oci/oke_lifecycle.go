@@ -374,6 +374,22 @@ func (o *okeLifecycle) ClearInventory() error {
 	return err
 }
 
+// RecordWarning records a Warning event against the instance.
+func (o *okeLifecycle) RecordWarning(reason, note string) error {
+	// a nil Recorder interface and a nil pointer inside one are both "none"
+	if o.r == nil || o.r.EventsRecorder == nil {
+		return provider.RecordWarningEvent(nil, o.instanceID, "", reason, note)
+	}
+
+	return provider.RecordWarningEvent(
+		o.r.EventsRecorder,
+		o.instanceID,
+		new(v0.OciOkeKubernetesRuntimeInstance).GetFullyQualifiedType(),
+		reason,
+		note,
+	)
+}
+
 // PublishCreateNotification publishes a NATS notification for creation.
 func (o *okeLifecycle) PublishCreateNotification() error {
 	notifPayload, err := o.instance.NotificationPayload(

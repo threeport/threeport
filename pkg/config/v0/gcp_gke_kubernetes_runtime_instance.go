@@ -315,6 +315,24 @@ func (g *GcpGkeKubernetesRuntimeInstanceConfig) Delete(
 		return nil, fmt.Errorf("failed to delete gcp gke kubernetes runtime instance from Threeport API: %w", err)
 	}
 
+	// the API accepting the delete is not the delete finishing: the controller
+	// destroys the cluster afterward and can refuse, so wait for the instance
+	// to go away before reporting it deleted
+	if err := waitForInstanceDelete(
+		"gcp gke kubernetes runtime instance",
+		*gcpGkeKubernetesRuntimeInstance.Name,
+		func() error {
+			_, err := client_v0.GetGcpGkeKubernetesRuntimeInstanceByName(
+				apiClient,
+				apiEndpoint,
+				*gcpGkeKubernetesRuntimeInstance.Name,
+			)
+			return err
+		},
+	); err != nil {
+		return nil, err
+	}
+
 	// construct deleted gcp gke kubernetes runtime instance config
 	deletedGcpGkeKubernetesRuntimeInstanceConfig := &GcpGkeKubernetesRuntimeInstanceConfig{
 		GcpGkeKubernetesRuntimeInstance: GcpGkeKubernetesRuntimeInstanceValues{
@@ -327,14 +345,17 @@ func (g *GcpGkeKubernetesRuntimeInstanceConfig) Delete(
 	return deletedGcpGkeKubernetesRuntimeInstanceConfig, nil
 }
 
-// AbandonInfrastructure marks the gcp gke kubernetes runtime instance so the controller will
-// delete it even when creation was confirmed and no resource inventory is
-// recorded. Without this the controller refuses that delete, because cloud
-// resources may still be running. Setting it orphans any such resources:
-// they are left in place and no longer tracked by Threeport.
-func (g *GcpGkeKubernetesRuntimeInstanceConfig) AbandonInfrastructure(
+// SetAbandonInfrastructure sets whether the controller may delete the gcp gke kubernetes runtime instance
+// even when creation was confirmed and no resource inventory is recorded, or
+// when the recorded inventory cannot be restored. Without it the controller
+// refuses that delete, because cloud resources may still be running. Setting it
+// true orphans any resources the controller cannot find: they are left in place
+// and no longer tracked by Threeport. The value stays set until it is changed,
+// so a caller that sets it and then fails to delete must set it back to false.
+func (g *GcpGkeKubernetesRuntimeInstanceConfig) SetAbandonInfrastructure(
 	apiClient *http.Client,
 	apiEndpoint string,
+	abandon bool,
 ) error {
 	values := g.GcpGkeKubernetesRuntimeInstance
 
@@ -348,16 +369,16 @@ func (g *GcpGkeKubernetesRuntimeInstanceConfig) AbandonInfrastructure(
 		return fmt.Errorf("failed to find gcp gke kubernetes runtime instance with name %s: %w", util.DerefString(values.Name), err)
 	}
 
-	// request abandonment
+	// write only the flag, so nothing the controller owns rides along
 	if _, err := client_v0.UpdateGcpGkeKubernetesRuntimeInstance(
 		apiClient,
 		apiEndpoint,
 		&api_v0.GcpGkeKubernetesRuntimeInstance{
 			Common:                api_v0.Common{ID: instance.ID},
-			AbandonInfrastructure: util.Ptr(true),
+			AbandonInfrastructure: util.Ptr(abandon),
 		},
 	); err != nil {
-		return fmt.Errorf("failed to request infrastructure abandonment for gcp gke kubernetes runtime instance %s: %w", util.DerefString(values.Name), err)
+		return fmt.Errorf("failed to set infrastructure abandonment to %t for gcp gke kubernetes runtime instance %s: %w", abandon, util.DerefString(values.Name), err)
 	}
 
 	return nil

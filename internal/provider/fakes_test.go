@@ -527,6 +527,14 @@ type fakeLifecycle struct {
 	createOutputState *datatypes.JSON
 	// The number of SaveCreateOutputs calls still to fail before it succeeds
 	createOutputFailures int
+	// The warning events passed to RecordWarning, in call order
+	warnings []recordedWarning
+}
+
+// recordedWarning is one RecordWarning call.
+type recordedWarning struct {
+	reason string
+	note   string
 }
 
 // newFakeLifecycle returns a fake that serves snaps in order.
@@ -696,6 +704,22 @@ func (f *fakeLifecycle) setErr(method string, err error) {
 	}
 	// store the method's error
 	f.errs[method] = err
+}
+
+// RecordWarning records the warning and returns any configured error.
+func (f *fakeLifecycle) RecordWarning(reason, note string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls["RecordWarning"]++
+	f.warnings = append(f.warnings, recordedWarning{reason: reason, note: note})
+	return f.errs["RecordWarning"]
+}
+
+// recordedWarnings returns the warning events recorded so far.
+func (f *fakeLifecycle) recordedWarnings() []recordedWarning {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]recordedWarning(nil), f.warnings...)
 }
 
 // failCreateOutputs makes the next n SaveCreateOutputs calls fail.

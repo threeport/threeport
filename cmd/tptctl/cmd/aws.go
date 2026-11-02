@@ -1262,7 +1262,7 @@ var DeleteAwsEksKubernetesRuntimeInstanceCmd = &cobra.Command{
 			// controller has no record of before the delete is attempted
 			if abandonInfrastructure {
 				confirmAbandonInfrastructure("aws eks kubernetes runtime instance", *awsEksKubernetesRuntimeInstanceConfig.AwsEksKubernetesRuntimeInstance.Name)
-				if err := awsEksKubernetesRuntimeInstanceConfig.AbandonInfrastructure(apiClient, apiEndpoint); err != nil {
+				if err := awsEksKubernetesRuntimeInstanceConfig.SetAbandonInfrastructure(apiClient, apiEndpoint, true); err != nil {
 					cli.Error("failed to request infrastructure abandonment", err)
 					os.Exit(1)
 				}
@@ -1276,6 +1276,14 @@ var DeleteAwsEksKubernetesRuntimeInstanceCmd = &cobra.Command{
 				if abandonInfrastructure && errors.Is(err, client_lib.ErrDeleteInProgress) {
 					cli.Complete(fmt.Sprintf("infrastructure abandonment requested for aws eks kubernetes runtime instance %s: the controller will complete the delete", *awsEksKubernetesRuntimeInstanceConfig.AwsEksKubernetesRuntimeInstance.Name))
 					return
+				}
+				// the override is only for this delete, and it stays set until
+				// changed, so a delete that never got going must not leave it
+				// on for the next plain delete
+				if abandonInfrastructure {
+					withdrawAbandonInfrastructure(err, "aws eks kubernetes runtime instance", *awsEksKubernetesRuntimeInstanceConfig.AwsEksKubernetesRuntimeInstance.Name, func() error {
+						return awsEksKubernetesRuntimeInstanceConfig.SetAbandonInfrastructure(apiClient, apiEndpoint, false)
+					})
 				}
 				cli.Error("failed to delete aws eks kubernetes runtime instance", err)
 				os.Exit(1)

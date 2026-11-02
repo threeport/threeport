@@ -16932,7 +16932,7 @@ const docTemplate = `{
             ],
             "properties": {
                 "AbandonInfrastructure": {
-                    "description": "Set by an operator to allow this instance to be deleted even though its\ncreation was confirmed and no resource inventory is recorded. The\ncontroller refuses that delete otherwise, because cloud resources may\nstill exist. Setting this orphans any such resources: they keep running\nand are no longer tracked by Threeport.",
+                    "description": "Set by an operator to allow this instance to be deleted even though its\ncreation was confirmed and no resource inventory is recorded, or the\nrecorded inventory cannot be restored. The controller refuses that delete\notherwise, because cloud resources may still exist. Setting this orphans\nany resources the controller cannot find: they keep running and are no\nlonger tracked by Threeport. Resources it has recorded and can restore are\nstill destroyed. It is rejected on create, and once set it stays set until\nchanged, so tptctl sets it back to false if the delete fails.",
                     "type": "boolean"
                 },
                 "AwsEksKubernetesRuntimeDefinitionID": {
@@ -17758,7 +17758,7 @@ const docTemplate = `{
             ],
             "properties": {
                 "AbandonInfrastructure": {
-                    "description": "Set by an operator to allow this instance to be deleted even though its\ncreation was confirmed and no resource inventory is recorded. The\ncontroller refuses that delete otherwise, because cloud resources may\nstill exist. Setting this orphans any such resources: they keep running\nand are no longer tracked by Threeport.",
+                    "description": "Set by an operator to allow this instance to be deleted even though its\ncreation was confirmed and no resource inventory is recorded, or the\nrecorded inventory cannot be restored. The controller refuses that delete\notherwise, because cloud resources may still exist. Setting this orphans\nany resources the controller cannot find: they keep running and are no\nlonger tracked by Threeport. Resources it has recorded and can restore are\nstill destroyed. It is rejected on create, and once set it stays set until\nchanged, so tptctl sets it back to false if the delete fails.",
                     "type": "boolean"
                 },
                 "CreationAcknowledged": {
@@ -19601,7 +19601,7 @@ const docTemplate = `{
             ],
             "properties": {
                 "AbandonInfrastructure": {
-                    "description": "Set by an operator to allow this instance to be deleted even though its\ncreation was confirmed and no resource inventory is recorded. The\ncontroller refuses that delete otherwise, because cloud resources may\nstill exist. Setting this orphans any such resources: they keep running\nand are no longer tracked by Threeport.",
+                    "description": "Set by an operator to allow this instance to be deleted even though its\ncreation was confirmed and no resource inventory is recorded, or the\nrecorded inventory cannot be restored. The controller refuses that delete\notherwise, because cloud resources may still exist. Setting this orphans\nany resources the controller cannot find: they keep running and are no\nlonger tracked by Threeport. Resources it has recorded and can restore are\nstill destroyed. It is rejected on create, and once set it stays set until\nchanged, so tptctl sets it back to false if the delete fails.",
                     "type": "boolean"
                 },
                 "ClusterOCID": {

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -63,4 +64,50 @@ func TestOkeLifecycle_GetReconciliation_AbandonInfrastructure(t *testing.T) {
 			assert.Equal(t, tc.want, snap.AbandonInfrastructure)
 		})
 	}
+}
+
+// recordingRecorder captures the events passed to RecordEvent.
+type recordingRecorder struct {
+	events    []*v0.Event
+	objectIDs []uint
+	types     []string
+}
+
+// RecordEvent records the call.
+func (r *recordingRecorder) RecordEvent(event *v0.Event, objectID uint, fullyQualifiedType string) error {
+	r.events = append(r.events, event)
+	r.objectIDs = append(r.objectIDs, objectID)
+	r.types = append(r.types, fullyQualifiedType)
+	return nil
+}
+
+// HandleEventOverride is unused by the lifecycle.
+func (r *recordingRecorder) HandleEventOverride(*v0.Event, uint, string, error, *logr.Logger) {}
+
+// TestOkeLifecycle_RecordWarning covers the Warning event reaching the
+// instance's events, bound to the right object type and ID.
+func TestOkeLifecycle_RecordWarning(t *testing.T) {
+	recorder := &recordingRecorder{}
+	lifecycle := &okeLifecycle{
+		r:          &controller.Reconciler{EventsRecorder: recorder},
+		instanceID: 7,
+	}
+
+	err := lifecycle.RecordWarning("InfrastructureAbandoned", "left running")
+
+	require.NoError(t, err)
+	require.Len(t, recorder.events, 1)
+	assert.Equal(t, "Warning", *recorder.events[0].Type)
+	assert.Equal(t, "InfrastructureAbandoned", *recorder.events[0].Reason)
+	assert.Equal(t, "left running", *recorder.events[0].Note)
+	assert.Equal(t, []uint{7}, recorder.objectIDs)
+	assert.Equal(t, []string{new(v0.OciOkeKubernetesRuntimeInstance).GetFullyQualifiedType()}, recorder.types)
+}
+
+// TestOkeLifecycle_RecordWarning_NoRecorder covers a reconciler built
+// without an events recorder: an error, not a panic.
+func TestOkeLifecycle_RecordWarning_NoRecorder(t *testing.T) {
+	lifecycle := &okeLifecycle{r: &controller.Reconciler{}, instanceID: 7}
+
+	assert.Error(t, lifecycle.RecordWarning("Reason", "note"))
 }

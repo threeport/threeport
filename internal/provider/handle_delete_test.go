@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/datatypes"
 
+	event "github.com/threeport/threeport/pkg/event/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -451,11 +452,12 @@ func TestHandleInfraDelete_CreatedAckedClearedSentinel_Confirms(t *testing.T) {
 	// run delete
 	requeue, err := HandleInfraDelete(fl, newTestLogger())
 
-	// confirm deletion
+	// confirm deletion with nothing to warn about
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), requeue)
 	assert.Equal(t, 1, fl.callCount("OnDeleteConfirmed"))
 	assert.Equal(t, 1, fl.callCount("ConfirmDeletion"))
+	assert.Empty(t, fl.recordedWarnings())
 }
 
 // TestHandleInfraDelete_CreatedWithInventory_Launches covers a confirmed
@@ -531,6 +533,12 @@ func TestHandleInfraDelete_AbandonInfrastructure_Proceeds(t *testing.T) {
 	drainDeleteOps(t)
 	// clear inventory so the next reconcile confirms
 	assert.Equal(t, 1, fl.callCount("ClearInventory"))
+
+	// record that the delete went ahead with nothing recorded, once
+	warnings := fl.recordedWarnings()
+	require.Len(t, warnings, 1)
+	assert.Equal(t, event.ReasonInfrastructureAbandoned, warnings[0].reason)
+	assert.Contains(t, warnings[0].note, "no recorded resource inventory")
 }
 
 // TestHandleInfraDelete_ClearInventoryRetried covers a failing ClearInventory
@@ -668,6 +676,7 @@ func TestHandleInfraDelete_NothingRecorded_CloudLookupFails_Refuses(t *testing.T
 	require.Error(t, err)
 	assert.NotErrorIs(t, err, ErrCloudResourcesExist)
 	assert.Contains(t, err.Error(), "permission denied")
+	assert.Contains(t, err.Error(), "--abandon-infrastructure")
 	assert.Equal(t, int64(0), requeue)
 	assert.Equal(t, 0, fl.callCount("AckDeletion"))
 	assert.Equal(t, 0, fi.destroyCallCount())
@@ -827,4 +836,10 @@ func TestHandleInfraDelete_AckedCleared_Abandon_ConfirmsWithoutCloudCheck(t *tes
 	require.NoError(t, err)
 	assert.Equal(t, 0, fi.existsCallCount())
 	assert.Equal(t, 1, fl.callCount("ConfirmDeletion"))
+
+	// leave a trace in the instance's events that the delete skipped the checks
+	warnings := fl.recordedWarnings()
+	require.Len(t, warnings, 1)
+	assert.Equal(t, event.ReasonInfrastructureAbandoned, warnings[0].reason)
+	assert.Contains(t, warnings[0].note, "may still be running")
 }

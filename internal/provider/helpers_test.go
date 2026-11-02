@@ -6,7 +6,10 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gorm.io/datatypes"
+
+	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
 // testLifecycleConfig returns a test config with production 240s stale
@@ -406,4 +409,53 @@ func TestSetLifecycleConfig_SetFieldsSurvive(t *testing.T) {
 	assert.Equal(t, defaultLifecycleConfig.RefreshInterval, got.RefreshInterval)
 	assert.Equal(t, defaultLifecycleConfig.PersistRetries, got.PersistRetries)
 	assert.Equal(t, defaultLifecycleConfig.PersistRetryDelay, got.PersistRetryDelay)
+}
+
+// fakeWarningRecorder captures the events passed to RecordEvent.
+type fakeWarningRecorder struct {
+	events    []*api_v0.Event
+	objectIDs []uint
+	types     []string
+	err       error
+}
+
+// RecordEvent records the call and returns the configured error.
+func (f *fakeWarningRecorder) RecordEvent(event *api_v0.Event, objectID uint, fullyQualifiedType string) error {
+	f.events = append(f.events, event)
+	f.objectIDs = append(f.objectIDs, objectID)
+	f.types = append(f.types, fullyQualifiedType)
+	return f.err
+}
+
+// TestRecordWarningEvent covers the Warning event the adapters record: the
+// type, reason and note, and the object it is bound to.
+func TestRecordWarningEvent(t *testing.T) {
+	recorder := &fakeWarningRecorder{}
+
+	err := RecordWarningEvent(recorder, 7, "example.com/v0.Thing", "SomeReason", "some note")
+
+	require.NoError(t, err)
+	require.Len(t, recorder.events, 1)
+	assert.Equal(t, "Warning", *recorder.events[0].Type)
+	assert.Equal(t, "SomeReason", *recorder.events[0].Reason)
+	assert.Equal(t, "some note", *recorder.events[0].Note)
+	assert.Equal(t, []uint{7}, recorder.objectIDs)
+	assert.Equal(t, []string{"example.com/v0.Thing"}, recorder.types)
+}
+
+// TestRecordWarningEvent_ReturnsRecorderError covers a failed write being
+// reported to the caller.
+func TestRecordWarningEvent_ReturnsRecorderError(t *testing.T) {
+	recorder := &fakeWarningRecorder{err: errors.New("injected: events API down")}
+
+	err := RecordWarningEvent(recorder, 7, "example.com/v0.Thing", "SomeReason", "note")
+
+	assert.ErrorContains(t, err, "events API down")
+}
+
+// TestRecordWarningEvent_NoRecorder covers a controller wired without one.
+func TestRecordWarningEvent_NoRecorder(t *testing.T) {
+	err := RecordWarningEvent(nil, 7, "example.com/v0.Thing", "SomeReason", "note")
+
+	assert.ErrorContains(t, err, "no events recorder")
 }

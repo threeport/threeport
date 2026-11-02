@@ -401,6 +401,22 @@ func (e *eksLifecycle) ClearInventory() error {
 	return err
 }
 
+// RecordWarning records a Warning event against the instance.
+func (e *eksLifecycle) RecordWarning(reason, note string) error {
+	// a nil Recorder interface and a nil pointer inside one are both "none"
+	if e.r == nil || e.r.EventsRecorder == nil {
+		return provider.RecordWarningEvent(nil, e.instanceID, "", reason, note)
+	}
+
+	return provider.RecordWarningEvent(
+		e.r.EventsRecorder,
+		e.instanceID,
+		new(v0.AwsEksKubernetesRuntimeInstance).GetFullyQualifiedType(),
+		reason,
+		note,
+	)
+}
+
 // PublishCreateNotification publishes a NATS notification for creation.
 func (e *eksLifecycle) PublishCreateNotification() error {
 	notifPayload, err := e.instance.NotificationPayload(

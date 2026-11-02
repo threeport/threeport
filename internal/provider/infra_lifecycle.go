@@ -13,6 +13,10 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/go-logr/logr"
 	"gorm.io/datatypes"
+
+	api_v0 "github.com/threeport/threeport/pkg/api/v0"
+	event "github.com/threeport/threeport/pkg/event/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // LifecycleConfig is the timing and capacity for infrastructure create
@@ -171,8 +175,41 @@ type ReconciliationSnapshot struct {
 
 	// AbandonInfrastructure is the operator's explicit permission to delete an
 	// instance whose recorded inventory is empty even though its creation was
-	// confirmed. The cloud resources, if any, are left in place and untracked.
+	// confirmed, or whose recorded inventory cannot be restored. The cloud
+	// resources the controller cannot find are left in place and untracked.
 	AbandonInfrastructure bool
+}
+
+// WarningRecorder is the part of a controller's events recorder that
+// RecordWarningEvent needs. controller.Recorder satisfies it.
+type WarningRecorder interface {
+	RecordEvent(event *api_v0.Event, objectId uint, fullyQualifiedObjectType string) error
+}
+
+// RecordWarningEvent records a Warning event against an object. Provider
+// adapters use it to implement InfraLifecycleProvider.RecordWarning. A nil
+// recorder is an error, not a silent skip, so a controller wired without one
+// is noticed.
+func RecordWarningEvent(
+	recorder WarningRecorder,
+	objectID uint,
+	fullyQualifiedObjectType string,
+	reason string,
+	note string,
+) error {
+	if recorder == nil {
+		return errors.New("no events recorder is configured")
+	}
+
+	return recorder.RecordEvent(
+		&api_v0.Event{
+			Note:   util.Ptr(note),
+			Reason: util.Ptr(reason),
+			Type:   util.Ptr(event.TypeWarning),
+		},
+		objectID,
+		fullyQualifiedObjectType,
+	)
 }
 
 // InfraLifecycleProvider defines the provider-specific operations needed by the
@@ -225,6 +262,11 @@ type InfraLifecycleProvider interface {
 
 	// ClearInventory sets ResourceInventory to "{}" to signal destroy complete.
 	ClearInventory() error
+
+	// RecordWarning records a Warning event against the instance so a decision
+	// the controller makes on its own, such as refusing to destroy, is visible
+	// in the instance's events and not only in the controller log.
+	RecordWarning(reason, note string) error
 
 	// PublishCreateNotification publishes a NATS notification for creation.
 	PublishCreateNotification() error
@@ -376,6 +418,13 @@ func HandleInfraDelete(p InfraLifecycleProvider, log *logr.Logger) (int64, error
 		return 60, nil
 	}
 
+	// record a Warning event, falling back to the log when that fails
+	warn := func(reason, note string) {
+		if err := p.RecordWarning(reason, note); err != nil {
+			log.Error(err, "failed to record warning event", "reason", reason)
+		}
+	}
+
 	// check if previously acknowledged
 	if snap.DeletionAcknowledged != nil {
 		// re-fetch to check if inventory has been cleared
@@ -410,12 +459,18 @@ func HandleInfraDelete(p InfraLifecycleProvider, log *logr.Logger) (int64, error
 				return 60, nil
 			}
 
+			// leave a lasting trace when the delete skipped the safeguards: the
+			// instance's events outlive its record
+			if latestSnap.AbandonInfrastructure {
+				warn(event.ReasonInfrastructureAbandoned, abandonedConfirmNote)
+			}
+
 			// confirm deletion
 			if err := p.ConfirmDeletion(); err != nil {
 				return 0, fmt.Errorf("failed to confirm deletion: %w", err)
 			}
 
-			log.Info("deletion confirmed")
+			log.Info("deletion confirmed", "infrastructureAbandoned", latestSnap.AbandonInfrastructure)
 			return 0, nil
 		}
 
@@ -429,8 +484,16 @@ func HandleInfraDelete(p InfraLifecycleProvider, log *logr.Logger) (int64, error
 	}
 
 	// refuse to destroy against an inventory that should not be empty
-	if err := checkDeleteInventory(snap, log); err != nil {
+	abandoned, err := checkDeleteInventory(snap)
+	if err != nil {
 		return 0, err
+	}
+	if abandoned {
+		log.Info(
+			"deleting an instance with no recorded resource inventory because infrastructure abandonment was requested, any cloud resources are left running and untracked",
+			"infrastructureAbandoned", true,
+		)
+		warn(event.ReasonInfrastructureAbandoned, abandonedLaunchNote)
 	}
 
 	// with nothing recorded and no confirmed create, the delete cannot tell
@@ -467,14 +530,15 @@ func HandleInfraDelete(p InfraLifecycleProvider, log *logr.Logger) (int64, error
 
 	// check again against the inventory fetched after the ack so a change
 	// since the first fetch cannot slip past
-	if err := checkDeleteInventory(snap, log); err != nil {
+	if _, err := checkDeleteInventory(snap); err != nil {
 		return 0, err
 	}
 
 	// wire callbacks and launch goroutine
 	callbacks := infraCallbacks{
-		RefreshAck: p.RefreshDeletionAck,
-		SaveState:  p.SaveState,
+		RefreshAck:    p.RefreshDeletionAck,
+		SaveState:     p.SaveState,
+		RecordWarning: warn,
 		OnSuccess: func(_ *datatypes.JSON) error {
 			// clear inventory to signal destroy complete
 			if err := persistWithRetry("clear resource inventory", p.ClearInventory, log); err != nil {
@@ -493,6 +557,7 @@ func HandleInfraDelete(p InfraLifecycleProvider, log *logr.Logger) (int64, error
 	return launchInfraDelete(infraConfig{
 		Infra:         infra,
 		ExistingState: snap.ResourceInventory,
+		Abandon:       snap.AbandonInfrastructure,
 		Callbacks:     callbacks,
 		Log:           log,
 	})
@@ -512,6 +577,10 @@ type infraCallbacks struct {
 	// reconciler knows to retry. Set for create operations, nil for delete.
 	PersistFailure func() error
 
+	// RecordWarning records a Warning event against the instance. Set for
+	// delete operations, nil for create.
+	RecordWarning func(reason, note string)
+
 	// OnSuccess is called after successful infrastructure create or delete.
 	// For create, state contains the final Pulumi state; for delete, state is nil.
 	OnSuccess func(state *datatypes.JSON) error
@@ -526,6 +595,11 @@ type infraConfig struct {
 	// ExistingState is the previously saved state from ResourceInventory.
 	// When non-nil and non-empty, state is restored before operating.
 	ExistingState *datatypes.JSON
+
+	// Abandon is set for a delete when the operator has asked for the
+	// infrastructure to be abandoned. A delete whose recorded state cannot be
+	// restored then goes ahead without it instead of being refused.
+	Abandon bool
 
 	// Callbacks contains functions invoked during the operation.
 	Callbacks infraCallbacks
@@ -721,28 +795,27 @@ func executeInfraDelete(config infraConfig) {
 	// them and would succeed having removed nothing, which the caller would
 	// then confirm as a completed delete.
 	if hasExistingState(config.ExistingState) {
-		// validate state JSON before restoring — corrupt/truncated state from
-		// a partial fsnotify write would cause SetStackState to fail
-		if !json.Valid(*config.ExistingState) {
-			config.Log.Error(
-				fmt.Errorf("existing state is not valid JSON (%d bytes)", len(*config.ExistingState)),
-				"refusing to destroy without restorable state, will retry on next reconciliation",
-			)
-			return
-		}
-		if err := config.Infra.SetStackState(config.ExistingState); err != nil {
-			config.Log.Error(err, "failed to restore stack state for delete, refusing to destroy without it, will retry on next reconciliation")
-			return
-		}
-		config.Log.Info("restored state from database for deletion")
-
-		// refresh state to sync with cloud reality if provider supports it
-		if refreshable, ok := config.Infra.(RefreshableProvider); ok {
-			if err := refreshable.RefreshStack(); err != nil {
-				config.Log.Error(err, "failed to refresh stack state before delete, proceeding with destroy")
-			} else {
-				config.Log.Info("refreshed stack state against cloud reality")
+		if err := restoreDeleteState(config); err != nil {
+			if !config.Abandon {
+				config.Log.Error(err, "refusing to destroy without restorable state, will retry on next reconciliation")
+				config.warn(event.ReasonDeleteFailed, fmt.Sprintf(
+					"refusing to destroy: %v. The recorded resources cannot be found without it, "+
+						"so nothing was destroyed and the delete will be retried. %s",
+					err, abandonHint,
+				))
+				return
 			}
+
+			// the operator asked to abandon what cannot be destroyed, so the
+			// destroy runs on an empty stack and the recorded resources, which
+			// cannot be found, are left running
+			config.Log.Error(err, "proceeding without restorable state because infrastructure abandonment was requested, recorded resources are left running and untracked",
+				"infrastructureAbandoned", true)
+			config.warn(event.ReasonInfrastructureAbandoned, fmt.Sprintf(
+				"deleting without the recorded resource inventory (%v) because infrastructure abandonment was requested: "+
+					"the resources it recorded are left running and untracked",
+				err,
+			))
 		}
 	} else {
 		config.Log.Info("no resource inventory recorded, destroy will not remove any cloud resources")
@@ -768,6 +841,39 @@ func executeInfraDelete(config infraConfig) {
 	if err := config.Callbacks.OnSuccess(nil); err != nil {
 		config.Log.Error(err, "failed to execute delete success callback")
 	}
+}
+
+// warn records a Warning event when the operation has a recorder.
+func (c infraConfig) warn(reason, note string) {
+	if c.Callbacks.RecordWarning != nil {
+		c.Callbacks.RecordWarning(reason, note)
+	}
+}
+
+// restoreDeleteState writes the recorded inventory to the provider and
+// refreshes it against the cloud where the provider supports that. It returns
+// an error when the inventory is not valid JSON or the provider cannot take it.
+func restoreDeleteState(config infraConfig) error {
+	// validate state JSON before restoring — corrupt/truncated state from
+	// a partial fsnotify write would cause SetStackState to fail
+	if !json.Valid(*config.ExistingState) {
+		return fmt.Errorf("existing state is not valid JSON (%d bytes)", len(*config.ExistingState))
+	}
+	if err := config.Infra.SetStackState(config.ExistingState); err != nil {
+		return fmt.Errorf("failed to restore stack state: %w", err)
+	}
+	config.Log.Info("restored state from database for deletion")
+
+	// refresh state to sync with cloud reality if provider supports it
+	if refreshable, ok := config.Infra.(RefreshableProvider); ok {
+		if err := refreshable.RefreshStack(); err != nil {
+			config.Log.Error(err, "failed to refresh stack state before delete, proceeding with destroy")
+		} else {
+			config.Log.Info("refreshed stack state against cloud reality")
+		}
+	}
+
+	return nil
 }
 
 // streamState watches the state file via fsnotify and pushes changes to the
@@ -975,21 +1081,34 @@ func HasInventory(inventory *datatypes.JSON) bool {
 // confirmed once resources were recorded, so an empty inventory here means the
 // record was lost, not that there is nothing to destroy. Destroying and
 // confirming anyway would drop the API record while the cloud resources keep
-// running untracked. AbandonInfrastructure is the operator's explicit override.
-func checkDeleteInventory(snap *ReconciliationSnapshot, log *logr.Logger) error {
+// running untracked. AbandonInfrastructure is the operator's explicit override,
+// and abandoned reports that it let the delete through.
+func checkDeleteInventory(snap *ReconciliationSnapshot) (abandoned bool, err error) {
 	if HasInventory(snap.ResourceInventory) || snap.CreationConfirmed == nil {
-		return nil
+		return false, nil
 	}
 
 	if snap.AbandonInfrastructure {
-		log.Info(
-			"WARNING: deleting an instance with no recorded resource inventory because infrastructure abandonment was requested, any cloud resources are left running and untracked",
-		)
-		return nil
+		return true, nil
 	}
 
-	return ErrEmptyInventory
+	return false, ErrEmptyInventory
 }
+
+// abandonHint tells an operator how to proceed when the controller cannot
+// safely complete a delete on its own.
+const abandonHint = "If this cannot be resolved, delete again with --abandon-infrastructure " +
+	"(tptctl delete <instance type> --name <name>) to proceed and leave anything still running untracked."
+
+// abandonedLaunchNote is the event recorded when a delete goes ahead with no
+// recorded inventory because the operator asked to abandon the infrastructure.
+const abandonedLaunchNote = "Deleting with no recorded resource inventory because infrastructure abandonment was requested. " +
+	"Any cloud resources this instance created are left running and are no longer tracked by Threeport."
+
+// abandonedConfirmNote is the event recorded when a delete is confirmed after
+// the operator asked to abandon the infrastructure.
+const abandonedConfirmNote = "Deletion confirmed with infrastructure abandonment requested. " +
+	"Any cloud resources the controller could not destroy may still be running and are no longer tracked by Threeport."
 
 // cloudVerificationNeeded returns true when a delete has no recorded inventory
 // and no confirmed create to explain it, and the operator has not abandoned the
@@ -1011,10 +1130,10 @@ func verifyNoCloudResources(infra InfraProvider, log *logr.Logger) error {
 
 	exists, err := verifier.ResourcesExist()
 	if err != nil {
-		return fmt.Errorf("failed to verify against the cloud before deleting: %w", err)
+		return fmt.Errorf("failed to verify against the cloud before deleting: %w. %s", err, abandonHint)
 	}
 	if exists {
-		log.Info("WARNING: infrastructure for this instance still exists in the cloud")
+		log.Info("infrastructure for this instance still exists in the cloud")
 		return ErrCloudResourcesExist
 	}
 
