@@ -12,6 +12,16 @@ import (
 // appendingEditor appends one extra document to the component manifest.
 type appendingEditor struct{}
 
+// GetFullyQualifiedType returns the test caller type.
+func (e *appendingEditor) GetFullyQualifiedType() string {
+	return "appendingEditor"
+}
+
+// ObjectID returns no id.
+func (e *appendingEditor) ObjectID() *uint {
+	return nil
+}
+
 // EditManifest appends one extra document.
 func (e *appendingEditor) EditManifest(base func() (string, error)) (string, error) {
 	// append the extra document
@@ -46,7 +56,7 @@ func TestEnsureComponentRejectsAMissingRuntime(t *testing.T) {
 		{
 			name: "editor",
 			call: func() error {
-				return EnsureIngressEditor(nil, nil, &appendingEditor{}, nil)
+				return EnsureIngressComponent(nil, nil, &appendingEditor{}, nil, nil, nil)
 			},
 			want: "ingress component runtime is missing",
 		},
@@ -171,6 +181,19 @@ func TestReleaseComponentLeavesAnEmptySlot(t *testing.T) {
 	}
 	if runtime.IngressComponentInstanceID != nil {
 		t.Fatalf("slot = %v, want empty", runtime.IngressComponentInstanceID)
+	}
+}
+
+// TestCallerManifestUsesAnEditor reports a caller that edits the manifest.
+func TestCallerManifestUsesAnEditor(t *testing.T) {
+	// a gateway instance stores the workload id and does not edit the document
+	if callerManifest(&api.GatewayInstance{}) != nil {
+		t.Fatal("gateway instance has no manifest editor")
+	}
+
+	// an editor caller supplies the synced document
+	if callerManifest(&appendingEditor{}) == nil {
+		t.Fatal("appending editor was not reported")
 	}
 }
 

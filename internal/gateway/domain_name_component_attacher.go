@@ -19,6 +19,16 @@ type domainNameComponentAttacher struct {
 	runtime    *v0.KubernetesRuntimeInstance
 }
 
+// GetFullyQualifiedType returns the domain name instance type.
+func (a *domainNameComponentAttacher) GetFullyQualifiedType() string {
+	return a.domain.GetFullyQualifiedType()
+}
+
+// ObjectID returns the domain name instance id.
+func (a *domainNameComponentAttacher) ObjectID() *uint {
+	return a.domain.ObjectID()
+}
+
 // EditManifest returns the ingress document plus the external-dns document.
 // It returns the base document when this runtime has no public zone.
 func (a *domainNameComponentAttacher) EditManifest(base func() (string, error)) (string, error) {

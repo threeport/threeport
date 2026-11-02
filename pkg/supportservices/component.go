@@ -13,7 +13,7 @@ import (
 )
 
 // EnsureIngressComponent installs or adopts the shared ingress workload and records it on caller.
-// The workload name is ingress-<runtime>.
+// A caller that edits the manifest syncs that document. The workload name is ingress-<runtime>.
 func EnsureIngressComponent[T componentCaller](
 	r *controller.Reconciler,
 	runtime *api.KubernetesRuntimeInstance,
@@ -30,7 +30,7 @@ func EnsureIngressComponent[T componentCaller](
 	// record the workload id on the caller's ingress field
 	record := recordComponentID(r, caller, field, update)
 
-	// install the ingress workload and sync it after reconcile
+	// install the ingress workload and sync the caller's document after reconcile
 	return ensure(
 		r,
 		runtime,
@@ -39,35 +39,7 @@ func EnsureIngressComponent[T componentCaller](
 		fmt.Sprintf("%s-%s", IngressComponentName, *runtime.Name),
 		ingressColumn,
 		record,
-		nil,
-		ingressComponentYaml,
-		log,
-	)
-}
-
-// EnsureIngressEditor installs or adopts the shared ingress workload and syncs the editor's document.
-// The workload name is ingress-<runtime>.
-func EnsureIngressEditor(
-	r *controller.Reconciler,
-	runtime *api.KubernetesRuntimeInstance,
-	editor manifestEditor,
-	log *logr.Logger,
-) error {
-	// require the runtime before reading its ingress slot
-	if err := requireRuntime(runtime, "ingress component", true); err != nil {
-		return err
-	}
-
-	// install the ingress workload and sync the editor's document after reconcile
-	return ensure(
-		r,
-		runtime,
-		&runtime.IngressComponentInstanceID,
-		"ingress component",
-		fmt.Sprintf("%s-%s", IngressComponentName, *runtime.Name),
-		ingressColumn,
-		nil,
-		editor,
+		callerManifest(caller),
 		ingressComponentYaml,
 		log,
 	)
@@ -328,6 +300,12 @@ func recordComponentID[T any](
 		}
 		return nil
 	}
+}
+
+// callerManifest returns the caller's document editor when the caller has one.
+func callerManifest(caller any) manifestEditor {
+	editor, _ := caller.(manifestEditor)
+	return editor
 }
 
 // componentDocument returns the editor's document, or the component manifest when there is no editor.
