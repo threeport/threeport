@@ -118,7 +118,7 @@ func EnsureSecretsComponent[T componentAttacher](
 		runtime,
 		&runtime.SecretsComponentInstanceID,
 		"secrets component",
-		fmt.Sprintf("external-secrets-%s", *runtime.Name),
+		fmt.Sprintf("%s-%s", SecretsComponentName, *runtime.Name),
 		secretsColumn,
 		recordComponentID(r, attacher, field, update),
 		nil,

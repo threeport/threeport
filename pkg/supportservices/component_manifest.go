@@ -23,6 +23,9 @@ const (
 	// CertificatesComponentName is the CertificatesComponent object this install applies.
 	CertificatesComponentName = "certificates"
 
+	// SecretsComponentName is the SecretsComponent object this install applies.
+	SecretsComponentName = "external-secrets"
+
 	// externalDNSName is the IngressComponent object that installs external-dns.
 	externalDNSName = "externaldns"
 
@@ -232,7 +235,7 @@ func externalSecretsYaml() (string, error) {
 				"apiVersion": "platform.addons.nukleros.io/v1alpha1",
 				"kind":       "SecretsComponent",
 				"metadata": map[string]interface{}{
-					"name":      "external-secrets",
+					"name":      SecretsComponentName,
 					"namespace": "nukleros-secrets-system",
 				},
 				"spec": map[string]interface{}{
