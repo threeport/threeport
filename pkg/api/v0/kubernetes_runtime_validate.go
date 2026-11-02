@@ -149,19 +149,7 @@ func (k *KubernetesRuntimeInstance) beforeUpdate(tx *gorm.DB) error {
 	}
 
 	// claim or clear a shared controller slot in this same transaction
-	return lib.ApplySupportServiceSlots(tx, *k.ID, &KubernetesRuntimeInstance{}, lib.SupportServiceSlot{
-		Fields: []string{
-			"IngressComponentInstanceID",
-			"CertificatesComponentInstanceID",
-			"SecretsComponentInstanceID",
-			"DatabaseComponentInstanceID",
-		},
-		RuntimeTable:   KubernetesRuntimeInstance{}.TableName(),
-		WorkloadTable:  KubernetesWorkloadInstance{}.TableName(),
-		ReferenceTable: AttachedObjectReference{}.TableName(),
-		WorkloadType:   (&KubernetesWorkloadInstance{}).GetFullyQualifiedType(),
-		Relationship:   string(RelationshipRequires),
-	})
+	return applySupportServiceSlots(tx, *k.ID)
 }
 
 // beforeDelete validates the KubernetesRuntimeInstance before delete.
