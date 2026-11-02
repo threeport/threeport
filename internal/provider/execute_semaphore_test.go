@@ -731,3 +731,173 @@ func TestExecuteInfraDelete_RecordWarningFails_StillRefuses(t *testing.T) {
 	require.Equal(t, 0, fi.destroyCallCount())
 	require.Equal(t, 1, fl.callCount("RecordWarning"))
 }
+
+// TestExecuteInfraDelete_Unrestorable_Abandon_CorruptWorkspace_FinishesOnCleanWorkspace
+// covers the case that left abandonment stuck: the checkpoint on disk is corrupt,
+// so the restore and the first destroy both fail opening the stack. The local
+// state is discarded and the destroy runs again, so the delete can finish.
+func TestExecuteInfraDelete_Unrestorable_Abandon_CorruptWorkspace_FinishesOnCleanWorkspace(t *testing.T) {
+	// set semaphore capacity to 1
+	configureSemaphoreTest(t, 1)
+	log := newTestLogger()
+
+	fi := newFakeInfra()
+	fi.setSetStackStateErr(errors.New("injected: failed to create/select stack: checkpoint is corrupt"))
+	fi.failFirstDestroys(1)
+	fl := newFakeLifecycle(&ReconciliationSnapshot{
+		DeletionScheduled:     util.Ptr(time.Now().UTC()),
+		ResourceInventory:     validStackState(),
+		CreationConfirmed:     util.Ptr(time.Now().UTC().Add(-time.Hour)),
+		AbandonInfrastructure: true,
+	})
+	fl.setInfra(fi)
+
+	// launch delete
+	requeue, err := HandleInfraDelete(fl, log)
+	require.NoError(t, err)
+	require.Equal(t, int64(300), requeue)
+
+	// wait for delete to finish
+	waitForSemaphoreDrain(t)
+
+	// check the local state was discarded once, the destroy ran twice, and the
+	// delete went through to clearing the inventory
+	require.Equal(t, 1, fi.resetCallCount())
+	require.Equal(t, 2, fi.destroyCallCount())
+	require.Equal(t, 1, fl.callCount("ClearInventory"))
+	require.Equal(t, 1, fl.callCount("PublishDeleteNotification"))
+
+	// check both steps are in the instance's events
+	warnings := fl.recordedWarnings()
+	require.Len(t, warnings, 2)
+	for _, warning := range warnings {
+		require.Equal(t, event.ReasonInfrastructureAbandoned, warning.reason)
+	}
+	require.Contains(t, warnings[1].note, "local state is discarded")
+}
+
+// TestExecuteInfraDelete_Unrestorable_Abandon_FirstDestroySucceeds_KeepsLocalState
+// covers the first destroy working: whatever is on disk is left alone, since
+// it may have found real resources to destroy.
+func TestExecuteInfraDelete_Unrestorable_Abandon_FirstDestroySucceeds_KeepsLocalState(t *testing.T) {
+	// set semaphore capacity to 1
+	configureSemaphoreTest(t, 1)
+	log := newTestLogger()
+
+	fi := newFakeInfra()
+	fi.setSetStackStateErr(errors.New("injected: restore failure"))
+	fl := newFakeLifecycle(&ReconciliationSnapshot{
+		DeletionScheduled:     util.Ptr(time.Now().UTC()),
+		ResourceInventory:     validStackState(),
+		AbandonInfrastructure: true,
+	})
+	fl.setInfra(fi)
+
+	// launch delete
+	_, err := HandleInfraDelete(fl, log)
+	require.NoError(t, err)
+
+	// wait for delete to finish
+	waitForSemaphoreDrain(t)
+
+	// check nothing was discarded and the delete finished
+	require.Equal(t, 0, fi.resetCallCount())
+	require.Equal(t, 1, fi.destroyCallCount())
+	require.Equal(t, 1, fl.callCount("ClearInventory"))
+}
+
+// TestExecuteInfraDelete_Unrestorable_Abandon_CleanWorkspaceDestroyFails covers
+// a destroy that still fails on a clean workspace, such as for credentials:
+// the delete is not finished, and the recorded inventory is not overwritten with
+// the empty state the clean workspace holds.
+func TestExecuteInfraDelete_Unrestorable_Abandon_CleanWorkspaceDestroyFails(t *testing.T) {
+	// set semaphore capacity to 1
+	configureSemaphoreTest(t, 1)
+	log := newTestLogger()
+
+	fi := newFakeInfra()
+	fi.setSetStackStateErr(errors.New("injected: restore failure"))
+	fi.failFirstDestroys(2)
+	fl := newFakeLifecycle(&ReconciliationSnapshot{
+		DeletionScheduled:     util.Ptr(time.Now().UTC()),
+		ResourceInventory:     validStackState(),
+		AbandonInfrastructure: true,
+	})
+	fl.setInfra(fi)
+
+	// launch delete
+	_, err := HandleInfraDelete(fl, log)
+	require.NoError(t, err)
+
+	// wait for delete to finish
+	waitForSemaphoreDrain(t)
+
+	// check the delete did not finish and the inventory was left alone
+	require.Equal(t, 1, fi.resetCallCount())
+	require.Equal(t, 2, fi.destroyCallCount())
+	require.Equal(t, 0, fl.callCount("ClearInventory"))
+	require.Equal(t, 0, fl.callCount("SaveState"))
+	require.Equal(t, 0, fl.callCount("PublishDeleteNotification"))
+}
+
+// TestExecuteInfraDelete_Unrestorable_Abandon_NoLocalState_FailsAsBefore covers
+// a provider with no local state to discard: the failed destroy is handled as
+// any other, to be retried.
+func TestExecuteInfraDelete_Unrestorable_Abandon_NoLocalState_FailsAsBefore(t *testing.T) {
+	// set semaphore capacity to 1
+	configureSemaphoreTest(t, 1)
+	log := newTestLogger()
+
+	fi := newFakeInfra()
+	fi.setSetStackStateErr(errors.New("injected: restore failure"))
+	fi.failFirstDestroys(1)
+	fl := newFakeLifecycle(&ReconciliationSnapshot{
+		DeletionScheduled:     util.Ptr(time.Now().UTC()),
+		ResourceInventory:     validStackState(),
+		AbandonInfrastructure: true,
+	})
+	fl.setInfra(plainInfra{InfraProvider: fi})
+
+	// launch delete
+	_, err := HandleInfraDelete(fl, log)
+	require.NoError(t, err)
+
+	// wait for delete to finish
+	waitForSemaphoreDrain(t)
+
+	// check no reset was possible and the delete did not finish
+	require.Equal(t, 0, fi.resetCallCount())
+	require.Equal(t, 1, fi.destroyCallCount())
+	require.Equal(t, 0, fl.callCount("ClearInventory"))
+}
+
+// TestExecuteInfraDelete_Restorable_FailedDestroy_NeverDiscardsState covers the
+// ordinary failed destroy: state that restored fine is never discarded, abandon
+// or not.
+func TestExecuteInfraDelete_Restorable_FailedDestroy_NeverDiscardsState(t *testing.T) {
+	// set semaphore capacity to 1
+	configureSemaphoreTest(t, 1)
+	log := newTestLogger()
+
+	fi := newFakeInfra()
+	fi.failFirstDestroys(1)
+	fl := newFakeLifecycle(&ReconciliationSnapshot{
+		DeletionScheduled:     util.Ptr(time.Now().UTC()),
+		ResourceInventory:     validStackState(),
+		AbandonInfrastructure: true,
+	})
+	fl.setInfra(fi)
+
+	// launch delete
+	_, err := HandleInfraDelete(fl, log)
+	require.NoError(t, err)
+
+	// wait for delete to finish
+	waitForSemaphoreDrain(t)
+
+	// check the state was kept, as the remaining state is saved for the retry
+	require.Equal(t, 0, fi.resetCallCount())
+	require.Equal(t, 1, fi.destroyCallCount())
+	require.Equal(t, 1, fl.callCount("SaveState"))
+	require.Equal(t, 0, fl.callCount("ClearInventory"))
+}

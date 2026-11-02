@@ -21,6 +21,10 @@ var (
 	_ StreamableProvider     = (*fakeStreamableInfra)(nil)
 	_ RefreshableProvider    = (*fakeRefreshableInfra)(nil)
 	_ CloudVerifier          = (*fakeVerifierInfra)(nil)
+	_ StateResettable        = (*fakeInfra)(nil)
+	_ StateResettable        = (*KubernetesRuntimeInfraGKE)(nil)
+	_ StateResettable        = (*KubernetesRuntimeInfraEKS)(nil)
+	_ StateResettable        = (*KubernetesRuntimeInfraOKE)(nil)
 	_ CloudVerifier          = (*KubernetesRuntimeInfraGKE)(nil)
 	_ Clock                  = (*fakeClock)(nil)
 )
@@ -211,6 +215,13 @@ type fakeInfra struct {
 	setStateCalls int
 	getStateCalls int
 
+	// The number of leading DestroyInfra calls that fail before it follows destroyMode
+	destroyFailFirst int
+	// How many times DeleteStackState has been called
+	resetCalls int
+	// The error DeleteStackState returns
+	resetErr error
+
 	// The arguments passed to SetStackState, in call order
 	restoredStates []*datatypes.JSON
 	// The error SetStackState returns
@@ -254,6 +265,11 @@ func (f *fakeInfra) DestroyInfra() error {
 	mode := f.destroyMode
 	err := f.destroyErr
 	release := f.destroyRelease
+	// fail the leading calls regardless of mode
+	if f.destroyFailFirst > 0 {
+		f.destroyFailFirst--
+		mode = infraError
+	}
 	f.mu.Unlock()
 
 	// run the copied mode after unlocking so a block does not hold mu
@@ -301,6 +317,34 @@ func (f *fakeInfra) GetStackState() (*datatypes.JSON, error) {
 	defer f.mu.Unlock()
 	f.getStateCalls++
 	return f.stackState, f.getStateErr
+}
+
+// DeleteStackState records the call and returns resetErr.
+func (f *fakeInfra) DeleteStackState() error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.resetCalls++
+	return f.resetErr
+}
+
+// failFirstDestroys makes the next n DestroyInfra calls fail.
+func (f *fakeInfra) failFirstDestroys(n int) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.destroyFailFirst = n
+}
+
+// resetCallCount returns how many times DeleteStackState has been called.
+func (f *fakeInfra) resetCallCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.resetCalls
+}
+
+// plainInfra wraps an InfraProvider so only its InfraProvider methods show,
+// standing in for a backend with no local state to discard.
+type plainInfra struct {
+	InfraProvider
 }
 
 // setDeploy sets how DeployInfra completes.

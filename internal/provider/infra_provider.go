@@ -58,3 +58,15 @@ type CloudVerifier interface {
 	// that cannot be determined, never false.
 	ResourcesExist() (bool, error)
 }
+
+// StateResettable supports discarding the state a provider keeps locally, so an
+// operation can start from a clean workspace. The lifecycle uses it when a
+// delete has to go ahead without a recorded inventory it could not restore: a
+// local checkpoint that is corrupt would otherwise fail the destroy as well, and
+// the delete could never finish. Pulumi-backed providers implement it.
+type StateResettable interface {
+	InfraProvider
+
+	// DeleteStackState discards the locally kept state.
+	DeleteStackState() error
+}

@@ -802,6 +802,10 @@ func executeInfraDelete(config infraConfig) {
 	go refreshAck(config.Callbacks.RefreshAck, quitAck, config.Log)
 	defer func() { quitAck <- true }()
 
+	// stateAbandoned is set when the recorded state could not be restored and
+	// the operator asked for the delete to go ahead without it
+	stateAbandoned := false
+
 	// restore state from ResourceInventory so the provider knows which cloud
 	// resources to destroy. A destroy without the recorded state cannot find
 	// them and would succeed having removed nothing, which the caller would
@@ -819,8 +823,9 @@ func executeInfraDelete(config infraConfig) {
 			}
 
 			// the operator asked to abandon what cannot be destroyed, so the
-			// destroy runs on an empty stack and the recorded resources, which
-			// cannot be found, are left running
+			// destroy runs without the recorded state and the recorded
+			// resources, which cannot be found, are left running
+			stateAbandoned = true
 			config.Log.Error(err, "proceeding without restorable state because infrastructure abandonment was requested, recorded resources are left running and untracked",
 				"infrastructureAbandoned", true)
 			config.warn(event.ReasonInfrastructureAbandoned, fmt.Sprintf(
@@ -834,16 +839,25 @@ func executeInfraDelete(config infraConfig) {
 	}
 
 	// destroy infrastructure
-	if err := config.Infra.DestroyInfra(); err != nil {
+	err := config.Infra.DestroyInfra()
+	workspaceReset := false
+	if err != nil && stateAbandoned {
+		workspaceReset, err = destroyOnCleanWorkspace(config, err)
+	}
+	if err != nil {
 		config.Log.Error(err, "failed to delete infrastructure, will retry on next reconciliation")
 
-		// capture updated state so retries know which resources remain
-		stateJSON, stateErr := config.Infra.GetStackState()
-		if stateErr != nil {
-			config.Log.Error(stateErr, "failed to get stack state after failed deletion")
-		} else if stateJSON != nil {
-			if saveErr := config.Callbacks.SaveState(stateJSON); saveErr != nil {
-				config.Log.Error(saveErr, "failed to save state after failed deletion")
+		// capture updated state so retries know which resources remain. After
+		// a reset the workspace holds nothing of the recorded inventory, and
+		// saving it would overwrite that record with an empty one.
+		if !workspaceReset {
+			stateJSON, stateErr := config.Infra.GetStackState()
+			if stateErr != nil {
+				config.Log.Error(stateErr, "failed to get stack state after failed deletion")
+			} else if stateJSON != nil {
+				if saveErr := config.Callbacks.SaveState(stateJSON); saveErr != nil {
+					config.Log.Error(saveErr, "failed to save state after failed deletion")
+				}
 			}
 		}
 		return
@@ -853,6 +867,34 @@ func executeInfraDelete(config infraConfig) {
 	if err := config.Callbacks.OnSuccess(nil); err != nil {
 		config.Log.Error(err, "failed to execute delete success callback")
 	}
+}
+
+// destroyOnCleanWorkspace retries a destroy that failed without the recorded
+// state, after discarding the provider's local state. The recorded inventory
+// could not be restored, which can be because the checkpoint on disk is corrupt:
+// opening that stack fails the destroy the same way, and the delete never
+// reaches clearing the inventory. The first attempt is left to run against
+// whatever is on disk, since that may still find real resources, and only a
+// failure there clears it. reset reports whether the local state was discarded.
+func destroyOnCleanWorkspace(config infraConfig, destroyErr error) (reset bool, err error) {
+	resettable, ok := config.Infra.(StateResettable)
+	if !ok {
+		return false, destroyErr
+	}
+
+	config.Log.Error(destroyErr, "destroy without the recorded state failed, discarding the local state and trying once more because infrastructure abandonment was requested",
+		"infrastructureAbandoned", true)
+	config.warn(event.ReasonInfrastructureAbandoned, fmt.Sprintf(
+		"the destroy failed without the recorded resource inventory (%v), so the local state is discarded and the delete is finished on a clean workspace: "+
+			"any resources it still tracked are left running and untracked",
+		destroyErr,
+	))
+
+	if err := resettable.DeleteStackState(); err != nil {
+		return false, fmt.Errorf("failed to discard the local state: %w", err)
+	}
+
+	return true, config.Infra.DestroyInfra()
 }
 
 // warn records a Warning event when the operation has a recorder.
