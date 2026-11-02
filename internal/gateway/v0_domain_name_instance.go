@@ -84,9 +84,9 @@ func validateThreeportStateExternalDns(
 
 	// install or adopt the shared ingress workload
 	attacher := &domainNameComponentAttacher{
-		reconciler: r,
-		domain:     domainNameInstance,
-		runtime:    kubernetesRuntimeInstance,
+		DomainNameInstance: domainNameInstance,
+		reconciler:         r,
+		runtime:            kubernetesRuntimeInstance,
 	}
 	err = supportservices.EnsureIngressComponent(
 		r,

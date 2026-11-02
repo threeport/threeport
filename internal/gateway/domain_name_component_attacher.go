@@ -14,19 +14,9 @@ import (
 // domainNameComponentAttacher is the caller for one domain name instance.
 // It uses the shared ingress workload and stores no component id.
 type domainNameComponentAttacher struct {
+	*v0.DomainNameInstance
 	reconciler *controller.Reconciler
-	domain     *v0.DomainNameInstance
 	runtime    *v0.KubernetesRuntimeInstance
-}
-
-// GetFullyQualifiedType returns the domain name instance type.
-func (a *domainNameComponentAttacher) GetFullyQualifiedType() string {
-	return a.domain.GetFullyQualifiedType()
-}
-
-// ObjectID returns the domain name instance id.
-func (a *domainNameComponentAttacher) ObjectID() *uint {
-	return a.domain.ObjectID()
 }
 
 // EditManifest returns the ingress document plus the external-dns document.
@@ -65,7 +55,7 @@ func (a *domainNameComponentAttacher) externalDnsManifest(
 	domainNameDefinition, err := client.GetDomainNameDefinitionByID(
 		a.reconciler.APIClient,
 		a.reconciler.APIServer,
-		*a.domain.DomainNameDefinitionID,
+		*a.DomainNameDefinitionID,
 	)
 	if err != nil {
 		return "", fmt.Errorf("failed to get domain name definition: %w", err)
