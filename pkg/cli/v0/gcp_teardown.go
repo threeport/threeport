@@ -7,6 +7,7 @@ import (
 
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 )
 
@@ -53,6 +54,34 @@ func runGcpCleanups(
 	return remaining, errors.Join(errs...)
 }
 
+// listPendingGcpCleanup lists the GcpProviders whose GCP service accounts
+// teardown must clean up.
+//
+// A server that answers not found has no GcpProvider route - it predates GCP
+// support - so no provider can exist and there is nothing to record. Any other
+// failure stops teardown rather than being skipped: the providers live in the
+// database that teardown is about to destroy, so a listing that was skipped is
+// a service account, with its key and project roles, that nothing will ever find
+// again. The way past a control plane that cannot be listed is --infra-only,
+// which does not depend on it.
+func listPendingGcpCleanup(
+	list func() (*[]v0.GcpProvider, error),
+) ([]PendingGcpCleanup, error) {
+	providers, err := list()
+	if errors.Is(err, client_lib.ErrObjectNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf(
+			"failed to list gcp providers before teardown, so their GCP service accounts cannot be cleaned up: %w\n"+
+				"to tear down without cleaning them up, re-run with --infra-only and remove any threeport-svc-* service accounts in GCP by hand",
+			err,
+		)
+	}
+
+	return gcpProvidersToCleanUp(*providers), nil
+}
+
 // recordPendingGcpCleanup lists the control plane's GcpProviders and saves what
 // teardown must clean up to the local config. It runs before the control plane's
 // database is destroyed, because afterwards nothing says which providers there
@@ -62,12 +91,12 @@ func recordPendingGcpCleanup(
 	apiEndpoint string,
 	controlPlane *ControlPlane,
 ) error {
-	providers, err := client.GetGcpProviders(apiClient, apiEndpoint)
+	pending, err := listPendingGcpCleanup(func() (*[]v0.GcpProvider, error) {
+		return client.GetGcpProviders(apiClient, apiEndpoint)
+	})
 	if err != nil {
-		return fmt.Errorf("failed to list gcp providers before teardown: %w", err)
+		return err
 	}
-
-	pending := gcpProvidersToCleanUp(*providers)
 	if len(pending) == 0 {
 		return nil
 	}

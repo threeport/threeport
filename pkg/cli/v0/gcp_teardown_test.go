@@ -10,6 +10,7 @@ import (
 
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -25,6 +26,38 @@ func TestGcpProvidersToCleanUp(t *testing.T) {
 		{Name: "one", ProjectID: "proj-a"},
 		{Name: "two", ProjectID: "proj-b"},
 	}, gcpProvidersToCleanUp(providers))
+}
+
+func TestListPendingGcpCleanup(t *testing.T) {
+	providers := &[]v0.GcpProvider{{Name: util.Ptr("one"), ProjectID: util.Ptr("proj-a")}}
+
+	t.Run("lists the providers to clean up", func(t *testing.T) {
+		pending, err := listPendingGcpCleanup(func() (*[]v0.GcpProvider, error) { return providers, nil })
+		require.NoError(t, err)
+		assert.Equal(t, []PendingGcpCleanup{{Name: "one", ProjectID: "proj-a"}}, pending)
+	})
+
+	t.Run("a server without the route has nothing to clean up", func(t *testing.T) {
+		pending, err := listPendingGcpCleanup(func() (*[]v0.GcpProvider, error) {
+			return &[]v0.GcpProvider{}, fmt.Errorf(
+				"call to threeport API returned unexpected response: %w: 404 page not found",
+				client_lib.ErrObjectNotFound,
+			)
+		})
+		require.NoError(t, err)
+		assert.Empty(t, pending)
+	})
+
+	t.Run("any other failure stops teardown and names the way past it", func(t *testing.T) {
+		cause := errors.New("connection refused")
+		pending, err := listPendingGcpCleanup(func() (*[]v0.GcpProvider, error) {
+			return &[]v0.GcpProvider{}, cause
+		})
+		require.Error(t, err)
+		assert.ErrorIs(t, err, cause)
+		assert.Contains(t, err.Error(), "--infra-only")
+		assert.Empty(t, pending)
+	})
 }
 
 func TestRunGcpCleanups(t *testing.T) {
