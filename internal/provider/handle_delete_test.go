@@ -16,6 +16,21 @@ import (
 // deleteTestBase is the frozen clock origin for ack-age calculations.
 var deleteTestBase = time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
 
+// assertHeld checks a delete was held rather than failed: no error, requeued
+// to be looked at again, and one Warning event giving the cause. A held delete
+// is a requeue and not an error because a reconciler gives up on an operation
+// that keeps failing for an hour, and a hold waits for an operator.
+func assertHeld(t *testing.T, fl *fakeLifecycle, requeue int64, err error, cause error) {
+	t.Helper()
+	require.NoError(t, err)
+	assert.Equal(t, deleteHoldRequeueSeconds, requeue)
+
+	warnings := fl.recordedWarnings()
+	require.Len(t, warnings, 1)
+	assert.Equal(t, event.ReasonDeleteFailed, warnings[0].reason)
+	assert.Equal(t, cause.Error(), warnings[0].note)
+}
+
 // drainDeleteOps waits until no operation is in flight and the
 // semaphore holds no slots.
 func drainDeleteOps(t *testing.T) {
@@ -369,9 +384,8 @@ func TestHandleInfraDelete_CreatedButNoInventory_RefusesDelete(t *testing.T) {
 			// run delete
 			requeue, err := HandleInfraDelete(fl, newTestLogger())
 
-			// refuse with the empty-inventory error
-			require.ErrorIs(t, err, ErrEmptyInventory)
-			assert.Equal(t, int64(0), requeue)
+			// hold with the empty-inventory cause
+			assertHeld(t, fl, requeue, err, ErrEmptyInventory)
 			// skip ack, build, destroy, and confirm
 			assert.Equal(t, 0, fl.callCount("AckDeletion"))
 			assert.Equal(t, 0, fl.callCount("BuildInfra"))
@@ -402,9 +416,8 @@ func TestHandleInfraDelete_CreatedNilInventory_StaleAck_RefusesRelaunch(t *testi
 	// run delete
 	requeue, err := HandleInfraDelete(fl, newTestLogger())
 
-	// refuse rather than confirm
-	require.ErrorIs(t, err, ErrEmptyInventory)
-	assert.Equal(t, int64(0), requeue)
+	// hold rather than confirm
+	assertHeld(t, fl, requeue, err, ErrEmptyInventory)
 	assert.Equal(t, 0, fl.callCount("ConfirmDeletion"))
 	assert.Equal(t, 0, fl.callCount("OnDeleteConfirmed"))
 	assert.Equal(t, 0, fl.callCount("AckDeletion"))
@@ -613,9 +626,8 @@ func TestHandleInfraDelete_NothingRecorded_CloudHasResources_Refuses(t *testing.
 			// run delete
 			requeue, err := HandleInfraDelete(fl, newTestLogger())
 
-			// refuse before acking or destroying
-			require.ErrorIs(t, err, ErrCloudResourcesExist)
-			assert.Equal(t, int64(0), requeue)
+			// hold before acking or destroying
+			assertHeld(t, fl, requeue, err, ErrCloudResourcesExist)
 			assert.Equal(t, 1, fi.existsCallCount())
 			assert.Equal(t, 0, fl.callCount("AckDeletion"))
 			assert.Equal(t, 0, fi.destroyCallCount())
@@ -672,12 +684,15 @@ func TestHandleInfraDelete_NothingRecorded_CloudLookupFails_Refuses(t *testing.T
 	// run delete
 	requeue, err := HandleInfraDelete(fl, newTestLogger())
 
-	// return the lookup failure without acking or destroying
-	require.Error(t, err)
-	assert.NotErrorIs(t, err, ErrCloudResourcesExist)
-	assert.Contains(t, err.Error(), "permission denied")
-	assert.Contains(t, err.Error(), "--abandon-infrastructure")
-	assert.Equal(t, int64(0), requeue)
+	// hold on the lookup failure, with the way out, without acking or destroying
+	require.NoError(t, err)
+	assert.Equal(t, deleteHoldRequeueSeconds, requeue)
+	warnings := fl.recordedWarnings()
+	require.Len(t, warnings, 1)
+	assert.Equal(t, event.ReasonDeleteFailed, warnings[0].reason)
+	assert.Contains(t, warnings[0].note, "permission denied")
+	assert.Contains(t, warnings[0].note, "--abandon-infrastructure")
+	assert.NotContains(t, warnings[0].note, ErrCloudResourcesExist.Error())
 	assert.Equal(t, 0, fl.callCount("AckDeletion"))
 	assert.Equal(t, 0, fi.destroyCallCount())
 }
@@ -729,10 +744,10 @@ func TestHandleInfraDelete_CreatedNoInventory_CloudEmpty_StillRefuses(t *testing
 	fl.setInfra(fi)
 
 	// run delete
-	_, err := HandleInfraDelete(fl, newTestLogger())
+	requeue, err := HandleInfraDelete(fl, newTestLogger())
 
-	// refuse on the lost inventory, without a cloud check
-	require.ErrorIs(t, err, ErrEmptyInventory)
+	// hold on the lost inventory, without a cloud check
+	assertHeld(t, fl, requeue, err, ErrEmptyInventory)
 	assert.Equal(t, 0, fi.existsCallCount())
 	assert.Equal(t, 0, fl.callCount("AckDeletion"))
 }
@@ -787,9 +802,8 @@ func TestHandleInfraDelete_AckedCleared_CloudStillHasCluster_RefusesConfirm(t *t
 	// run delete
 	requeue, err := HandleInfraDelete(fl, newTestLogger())
 
-	// refuse to confirm
-	require.ErrorIs(t, err, ErrCloudResourcesExist)
-	assert.Equal(t, int64(0), requeue)
+	// hold rather than confirm
+	assertHeld(t, fl, requeue, err, ErrCloudResourcesExist)
 	assert.Equal(t, 0, fl.callCount("OnDeleteConfirmed"))
 	assert.Equal(t, 0, fl.callCount("ConfirmDeletion"))
 }
@@ -842,4 +856,47 @@ func TestHandleInfraDelete_AckedCleared_Abandon_ConfirmsWithoutCloudCheck(t *tes
 	require.Len(t, warnings, 1)
 	assert.Equal(t, event.ReasonInfrastructureAbandoned, warnings[0].reason)
 	assert.Contains(t, warnings[0].note, "may still be running")
+}
+
+// TestHandleInfraDelete_Held_OverrideTakesEffectOnNextPass covers the point of
+// holding by requeue: the same delete, looked at again after the operator sets
+// the override, goes ahead. The hold is not a state the controller gives up in.
+func TestHandleInfraDelete_Held_OverrideTakesEffectOnNextPass(t *testing.T) {
+	// install a one-slot semaphore
+	cfg := testLifecycleConfig()
+	cfg.SemaphoreCapacity = 1
+	restoreCfg := setLifecycleConfig(cfg)
+	t.Cleanup(restoreCfg)
+
+	// first pass: created, nothing recorded, no override
+	held := &ReconciliationSnapshot{
+		DeletionScheduled: util.Ptr(deleteTestBase.Add(-time.Hour)),
+		CreationConfirmed: util.Ptr(deleteTestBase.Add(-2 * time.Hour)),
+	}
+	fl := newFakeLifecycle(held)
+	requeue, err := HandleInfraDelete(fl, newTestLogger())
+	assertHeld(t, fl, requeue, err, ErrEmptyInventory)
+
+	// the operator sets the override; the next pass, a fresh read of the
+	// instance, sees it
+	fi := newFakeInfra()
+	fi.setDestroy(infraBlock, nil)
+	fl = newFakeLifecycle(&ReconciliationSnapshot{
+		DeletionScheduled:     held.DeletionScheduled,
+		CreationConfirmed:     held.CreationConfirmed,
+		AbandonInfrastructure: true,
+	})
+	fl.setInfra(fi)
+	requeue, err = HandleInfraDelete(fl, newTestLogger())
+
+	// the delete goes ahead
+	require.NoError(t, err)
+	assert.Equal(t, int64(300), requeue)
+	require.Eventually(t, func() bool {
+		return fi.destroyCallCount() == 1
+	}, 5*time.Second, 5*time.Millisecond, "destroy goroutine never launched")
+
+	// release destroy and drain in-flight work
+	fi.releaseDestroy()
+	drainDeleteOps(t)
 }

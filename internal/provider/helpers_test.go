@@ -2,6 +2,7 @@ package provider
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -458,4 +459,16 @@ func TestRecordWarningEvent_NoRecorder(t *testing.T) {
 	err := RecordWarningEvent(nil, 7, "example.com/v0.Thing", "SomeReason", "note")
 
 	assert.ErrorContains(t, err, "no events recorder")
+}
+
+// TestRecordWarningEvent_TruncatesLongNotes covers a note longer than an event
+// note may be: it is cut to the bound rather than rejected or left to grow the row.
+func TestRecordWarningEvent_TruncatesLongNotes(t *testing.T) {
+	recorder := &fakeWarningRecorder{}
+
+	err := RecordWarningEvent(recorder, 7, "example.com/v0.Thing", "SomeReason", strings.Repeat("x", 2000))
+
+	require.NoError(t, err)
+	require.Len(t, recorder.events, 1)
+	assert.Len(t, *recorder.events[0].Note, 500)
 }

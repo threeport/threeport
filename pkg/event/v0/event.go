@@ -128,6 +128,12 @@ func truncateNote(note string) string {
 	return note
 }
 
+// TruncateNote cuts a note down to the length an event note is bounded to, for
+// a caller that records its own events rather than through HandleEventOverride.
+func TruncateNote(note string) string {
+	return truncateNote(note)
+}
+
 // GiveUpNote returns the note for the event a reconciler records when it stops
 // retrying a failing operation. It says retries have stopped, which is what
 // tells it apart from the failure events recorded on each earlier attempt. The

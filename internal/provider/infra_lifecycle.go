@@ -203,7 +203,7 @@ func RecordWarningEvent(
 
 	return recorder.RecordEvent(
 		&api_v0.Event{
-			Note:   util.Ptr(note),
+			Note:   util.Ptr(event.TruncateNote(note)),
 			Reason: util.Ptr(reason),
 			Type:   util.Ptr(event.TypeWarning),
 		},
@@ -425,6 +425,18 @@ func HandleInfraDelete(p InfraLifecycleProvider, log *logr.Logger) (int64, error
 		}
 	}
 
+	// hold a delete the controller will not go ahead with on its own. It is a
+	// requeue with a Warning event and not an error, because a reconciler gives
+	// up on an operation that keeps failing for an hour, and a held delete is
+	// waiting for an operator who may take longer: the override has to work
+	// whenever it is set, and an update to an object that is being deleted does
+	// not reach the controller to restart one that gave up.
+	hold := func(cause error) (int64, error) {
+		log.Info("delete held", "reason", cause.Error())
+		warn(event.ReasonDeleteFailed, cause.Error())
+		return deleteHoldRequeueSeconds, nil
+	}
+
 	// check if previously acknowledged
 	if snap.DeletionAcknowledged != nil {
 		// re-fetch to check if inventory has been cleared
@@ -449,7 +461,7 @@ func HandleInfraDelete(p InfraLifecycleProvider, log *logr.Logger) (int64, error
 			// ran without the right state clears the inventory all the same
 			if !latestSnap.AbandonInfrastructure {
 				if err := verifyNoCloudResources(infra, log); err != nil {
-					return 0, err
+					return hold(err)
 				}
 			}
 
@@ -486,7 +498,7 @@ func HandleInfraDelete(p InfraLifecycleProvider, log *logr.Logger) (int64, error
 	// refuse to destroy against an inventory that should not be empty
 	abandoned, err := checkDeleteInventory(snap)
 	if err != nil {
-		return 0, err
+		return hold(err)
 	}
 	if abandoned {
 		log.Info(
@@ -505,7 +517,7 @@ func HandleInfraDelete(p InfraLifecycleProvider, log *logr.Logger) (int64, error
 			return 0, fmt.Errorf("failed to build infra for delete: %w", err)
 		}
 		if err := verifyNoCloudResources(infra, log); err != nil {
-			return 0, err
+			return hold(err)
 		}
 	}
 
@@ -531,7 +543,7 @@ func HandleInfraDelete(p InfraLifecycleProvider, log *logr.Logger) (int64, error
 	// check again against the inventory fetched after the ack so a change
 	// since the first fetch cannot slip past
 	if _, err := checkDeleteInventory(snap); err != nil {
-		return 0, err
+		return hold(err)
 	}
 
 	// wire callbacks and launch goroutine
@@ -1095,6 +1107,10 @@ func checkDeleteInventory(snap *ReconciliationSnapshot) (abandoned bool, err err
 	return false, ErrEmptyInventory
 }
 
+// deleteHoldRequeueSeconds is how often a held delete is looked at again, so an
+// operator's override or a cleanup by hand is picked up within a minute.
+const deleteHoldRequeueSeconds int64 = 60
+
 // abandonHint tells an operator how to proceed when the controller cannot
 // safely complete a delete on its own.
 const abandonHint = "If this cannot be resolved, delete again with --abandon-infrastructure " +
@@ -1140,8 +1156,8 @@ func verifyNoCloudResources(infra InfraProvider, log *logr.Logger) error {
 	return nil
 }
 
-// ErrCloudResourcesExist is returned when a delete is refused because the cloud
-// still holds infrastructure the controller was about to treat as gone.
+// ErrCloudResourcesExist is the cause a delete is held for when the cloud still
+// holds infrastructure the controller was about to treat as gone.
 var ErrCloudResourcesExist = errors.New(
 	"refusing to delete: infrastructure for this instance still exists in the cloud " +
 		"but the controller has no record of it to destroy. " +
@@ -1149,8 +1165,8 @@ var ErrCloudResourcesExist = errors.New(
 		"(tptctl delete <instance type> --name <name>) to leave it running untracked",
 )
 
-// ErrEmptyInventory is returned when a delete is refused because a created
-// instance has no recorded resource inventory.
+// ErrEmptyInventory is the cause a delete is held for when a created instance
+// has no recorded resource inventory.
 var ErrEmptyInventory = errors.New(
 	"refusing to delete: creation was confirmed but no resource inventory is recorded, " +
 		"so cloud resources may still exist and cannot be tracked for destruction. " +
