@@ -392,66 +392,6 @@ func (i *KubernetesRuntimeInfraGKE) validateGCPServiceAccountPropagation(
 	return nil
 }
 
-// removeServiceAccountRoles removes the IAM roles granted to the Threeport service account.
-func (i *KubernetesRuntimeInfraGKE) removeServiceAccountRoles(crmService *cloudresourcemanager.Service) error {
-	serviceAccountEmail := i.getServiceAccountEmail()
-	member := fmt.Sprintf("serviceAccount:%s", serviceAccountEmail)
-
-	// Get current IAM policy
-	policy, err := crmService.Projects.GetIamPolicy(i.ProjectID, &cloudresourcemanager.GetIamPolicyRequest{}).Do()
-	if err != nil {
-		return fmt.Errorf("failed to get IAM policy: %w", err)
-	}
-
-	// Remove the service account from all bindings
-	for _, binding := range policy.Bindings {
-		newMembers := make([]string, 0, len(binding.Members))
-		for _, m := range binding.Members {
-			if m != member {
-				newMembers = append(newMembers, m)
-			}
-		}
-		binding.Members = newMembers
-	}
-
-	// Remove empty bindings
-	newBindings := make([]*cloudresourcemanager.Binding, 0, len(policy.Bindings))
-	for _, binding := range policy.Bindings {
-		if len(binding.Members) > 0 {
-			newBindings = append(newBindings, binding)
-		}
-	}
-	policy.Bindings = newBindings
-
-	// Set the updated policy
-	_, err = crmService.Projects.SetIamPolicy(i.ProjectID, &cloudresourcemanager.SetIamPolicyRequest{
-		Policy: policy,
-	}).Do()
-	if err != nil {
-		return fmt.Errorf("failed to set IAM policy: %w", err)
-	}
-
-	return nil
-}
-
-// deleteGCPServiceAccount deletes the GCP service account.
-func (i *KubernetesRuntimeInfraGKE) deleteGCPServiceAccount(iamService *iam.Service) error {
-	serviceAccountEmail := i.getServiceAccountEmail()
-
-	_, err := iamService.Projects.ServiceAccounts.Delete(
-		fmt.Sprintf("projects/%s/serviceAccounts/%s", i.ProjectID, serviceAccountEmail),
-	).Do()
-	if err != nil {
-		if isNotFoundError(err) {
-			// Service account not found, skipping deletion
-			return nil
-		}
-		return fmt.Errorf("failed to delete service account: %w", err)
-	}
-
-	return nil
-}
-
 // getServiceAccountID returns the service account ID (without the email domain).
 func (i *KubernetesRuntimeInfraGKE) getServiceAccountID() string {
 	return formatServiceAccountID(serviceAccountNameFormat, i.RuntimeInstanceName)
@@ -499,11 +439,7 @@ func CreateGCPServiceAccountWithKey(projectID, accountName string) (*GCPServiceA
 	// Generate service account ID and create the service account
 	serviceAccountID := generateServiceAccountID(accountName)
 	displayName := fmt.Sprintf(serviceAccountDisplayFormat, accountName)
-	description := fmt.Sprintf(
-		"Service account for Threeport GcpProvider %s to manage GCP resources; %s",
-		accountName,
-		GcpOwnershipDescription(accountName),
-	)
+	description := gcpProviderServiceAccountDescription(accountName)
 
 	account, existed, err := createServiceAccountForProject(iamService, projectID, serviceAccountID, displayName, description)
 	if err != nil {
@@ -577,27 +513,42 @@ func DeleteGCPServiceAccountWithKey(projectID, accountName string) error {
 	serviceAccountID := generateServiceAccountID(accountName)
 	serviceAccountEmail := fmt.Sprintf("%s@%s.iam.gserviceaccount.com", serviceAccountID, projectID)
 
-	// The account to delete is found by deriving its name from the provider's,
-	// and two provider names can derive the same one - truncation to thirty
-	// characters collides, and a freed name can be taken by something else. So
-	// the account is read and checked before anything is done to it: stripping a
-	// project's IAM bindings and deleting an account Threeport never created is
-	// not recoverable by re-running anything.
+	return deleteOwnedServiceAccount(
+		iamService, crmService, projectID, serviceAccountEmail, accountName, providerServiceAccountOwnedBy,
+	)
+}
+
+// deleteOwnedServiceAccount strips a service account's project roles and deletes
+// it, but only once it has read the account and found it was created by
+// Threeport for ownerName.
+//
+// The account is found by deriving its name from the owner's, which is not proof
+// that Threeport created it for that owner: truncation to thirty characters
+// collides, a freed name can be taken by something else, and a provider and a
+// runtime of the same name derive the same one. So the account is read and
+// checked before anything is done to it - stripping a project's IAM bindings and
+// deleting an account is not recoverable by re-running anything.
+//
+// Nothing is touched when the account is not there. Its bindings may still be in
+// the project, but with no account there is nothing to read ownership from, and
+// the derived email is not proof. Leaving a dangling binding is recoverable;
+// removing the wrong one is not.
+func deleteOwnedServiceAccount(
+	iamService *iam.Service,
+	crmService *cloudresourcemanager.Service,
+	projectID string,
+	serviceAccountEmail string,
+	ownerName string,
+	ownedBy serviceAccountOwnerCheck,
+) error {
 	account, found, err := getServiceAccountForProject(iamService, projectID, serviceAccountEmail)
 	if err != nil {
 		return fmt.Errorf("failed to check for the service account: %w", err)
 	}
-	deletable, err := gcpServiceAccountDeletable(account, found, accountName, serviceAccountEmail)
+	deletable, err := gcpServiceAccountDeletable(account, found, ownerName, serviceAccountEmail, ownedBy)
 	if err != nil {
 		return err
 	}
-
-	// Nothing is touched when the account is not there. Its bindings may still
-	// be in the project, but with no account there is nothing to read ownership
-	// from, and the derived email is not proof: two provider names can derive
-	// the same one, so removing them could take access away from a provider that
-	// still has it. Leaving a dangling binding is recoverable; removing the
-	// wrong one is not.
 	if !deletable {
 		return nil
 	}
@@ -622,17 +573,20 @@ func DeleteGCPServiceAccountWithKey(projectID, accountName string) error {
 // re-run after a partial one has to be able to finish. An account that is there
 // but carries no Threeport ownership for this provider belongs to something
 // else, and is refused: the derived name is not proof of ownership, since two
-// provider names can truncate to the same one.
+// provider names can truncate to the same one, and a provider and a runtime of
+// the same name derive the same one. ownedBy says which kind of owner the
+// account has to have been created for.
 func gcpServiceAccountDeletable(
 	account *iam.ServiceAccount,
 	found bool,
 	ownerName string,
 	serviceAccountEmail string,
+	ownedBy serviceAccountOwnerCheck,
 ) (bool, error) {
 	if !found {
 		return false, nil
 	}
-	if !serviceAccountOwnedBy(account, ownerName) {
+	if !ownedBy(account, ownerName) {
 		return false, fmt.Errorf(
 			"GCP service account %s was not created by Threeport for %s, so it will not be deleted",
 			serviceAccountEmail,
@@ -747,6 +701,53 @@ func serviceAccountOwnedBy(account *iam.ServiceAccount, ownerName string) bool {
 // before it began marking ownership.
 func legacyGcpServiceAccountDescription(ownerName string) string {
 	return fmt.Sprintf("Service account for Threeport GcpProvider %s to manage GCP resources", ownerName)
+}
+
+// serviceAccountOwnerCheck reports whether an account was created by Threeport
+// for the named owner, of one kind.
+type serviceAccountOwnerCheck func(account *iam.ServiceAccount, ownerName string) bool
+
+// gcpProviderServiceAccountDescription is the IAM description written for a
+// GcpProvider's account.
+func gcpProviderServiceAccountDescription(providerName string) string {
+	return fmt.Sprintf(
+		"Service account for Threeport GcpProvider %s to manage GCP resources; %s",
+		providerName,
+		GcpOwnershipDescription(providerName),
+	)
+}
+
+// legacyGkeServiceAccountDescription is the description the GKE bootstrap wrote
+// before it began marking ownership.
+func legacyGkeServiceAccountDescription(runtimeInstanceName string) string {
+	return fmt.Sprintf("Service account for Threeport instance %s to manage GCP resources", runtimeInstanceName)
+}
+
+// providerServiceAccountOwnedBy reports whether the account was created for the
+// GcpProvider of this name.
+//
+// The ownership marker is the same for a provider and a runtime of one name, so
+// the marker alone cannot tell them apart. The whole description can: each kind
+// writes its own, and a delete of one must not take the other's account.
+func providerServiceAccountOwnedBy(account *iam.ServiceAccount, providerName string) bool {
+	if account == nil {
+		return false
+	}
+
+	return account.Description == gcpProviderServiceAccountDescription(providerName) ||
+		account.Description == legacyGcpServiceAccountDescription(providerName)
+}
+
+// runtimeServiceAccountOwnedBy reports whether the account was created by the
+// GKE bootstrap for the runtime instance of this name. See
+// providerServiceAccountOwnedBy for why the whole description is compared.
+func runtimeServiceAccountOwnedBy(account *iam.ServiceAccount, runtimeInstanceName string) bool {
+	if account == nil {
+		return false
+	}
+
+	return account.Description == gkeServiceAccountDescription(runtimeInstanceName) ||
+		account.Description == legacyGkeServiceAccountDescription(runtimeInstanceName)
 }
 
 // gkeServiceAccountDescription is the IAM description written for a GKE bootstrap account.

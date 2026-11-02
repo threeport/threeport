@@ -12,6 +12,7 @@ import (
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"net/http"
+	neturl "net/url"
 )
 
 // GetEvents fetches all events.
@@ -25,7 +26,7 @@ func GetEvents(apiClient *http.Client, apiAddr string) (*[]v0.Event, error) {
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathEvents)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathEvents, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathEvents, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -134,7 +135,7 @@ func GetEventByName(apiClient *http.Client, apiAddr, name string) (*v0.Event, er
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathEvents, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathEvents, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},

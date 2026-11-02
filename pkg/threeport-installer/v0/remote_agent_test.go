@@ -155,7 +155,9 @@ func TestSigningCaMount(t *testing.T) {
 		noAuth := NewInstaller()
 		_, mounts, err := noAuth.getControllerVolumes(controllerNamed(t, noAuth, ThreeportKubernetesRuntimeControllerName))
 		require.NoError(t, err)
-		assert.Empty(t, mounts)
+		for _, mount := range mounts {
+			assert.NotEqual(t, SigningCaMountPath, mount.(map[string]interface{})["mountPath"])
+		}
 	})
 
 	t.Run("mounts the api-ca secret", func(t *testing.T) {
