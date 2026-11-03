@@ -22,7 +22,13 @@ mkdir wordpress-threeport-module
 cd wordpress-threeport-module
 git init
 go mod init wordpress-threeport-module
+go get -tool github.com/swaggo/swag/cmd/swag@v1.16.6
 ```
+
+The last command declares [swag](https://github.com/swaggo/swag) as a go tool
+of the module. The generated `mage dev:generateSwaggerDocs` target runs it
+through `go tool`, so the module's API docs are always generated with the
+version its `go.mod` pins, whatever is installed on the machine.
 
 ## Create SDK Config
 

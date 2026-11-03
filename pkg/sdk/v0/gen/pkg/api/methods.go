@@ -332,6 +332,29 @@ func GenApiObjectMethods(gen *sdkgen.Generator, sdkConfig *sdk.SdkConfig) error 
 							})
 						})
 						f.Line()
+						for _, fk := range foreignKeys {
+							if api.Relationship(fk.relationship) != api.RelationshipOwns {
+								continue
+							}
+							ownerType := Qual("github.com/threeport/threeport/pkg/api/v0", "OwnerRef")
+							methodName := "Own" + strings.TrimSuffix(fk.fieldName, "ID")
+							f.Comment(fmt.Sprintf(
+								"%s returns the owner reference for this object's %s field.",
+								methodName, fk.fieldName,
+							))
+							f.Func().Params(
+								Id(receiver).Op("*").Id(apiObj.TypeName),
+							).Id(methodName).Params().Op("*").Add(ownerType).Block(
+								Id("objectType").Op(":=").Id(receiver).Dot("GetFullyQualifiedType").Call(),
+								Id("field").Op(":=").Lit(fk.fieldName),
+								Return(Op("&").Add(ownerType.Clone()).Values(Dict{
+									Id("Type"):  Op("&").Id("objectType"),
+									Id("ID"):    Id(receiver).Dot("ID"),
+									Id("Field"): Op("&").Id("field"),
+								})),
+							)
+							f.Line()
+						}
 					}
 				}
 

@@ -48,10 +48,13 @@ func v0MetricsDefinitionCreated(
 	}
 
 	// create kube-prometheus-stack helm workload definition
-	kubePrometheusStackHelmWorkloadDefinition, err := client.CreateHelmWorkloadDefinition(
+	_, err = client.CreateHelmWorkloadDefinition(
 		r.APIClient,
 		r.APIServer,
 		&v0.HelmWorkloadDefinition{
+			Common: v0.Common{
+				Owner: metricsDefinition.OwnKubePrometheusStackHelmWorkloadDefinition(),
+			},
 			Definition: v0.Definition{
 				Name: util.Ptr(KubePrometheusStackChartName(*metricsDefinition.Name)),
 			},
@@ -63,9 +66,6 @@ func v0MetricsDefinitionCreated(
 	if err != nil {
 		return 0, fmt.Errorf("failed to create kube-prometheus-stack helm workload definition: %w", err)
 	}
-
-	// update metrics definition with helm workload definition id
-	metricsDefinition.KubePrometheusStackHelmWorkloadDefinitionID = kubePrometheusStackHelmWorkloadDefinition.ID
 
 	// update metrics definition
 	metricsDefinition.Reconciled = util.Ptr(true)
@@ -97,6 +97,15 @@ func v0MetricsDefinitionDeleted(
 	metricsDefinition *v0.MetricsDefinition,
 	log *logr.Logger,
 ) (int64, error) {
+	// read the id the create stored on the metrics definition
+	if metricsDefinition.KubePrometheusStackHelmWorkloadDefinitionID == nil {
+		current, err := client.GetMetricsDefinitionByID(r.APIClient, r.APIServer, *metricsDefinition.ID)
+		if err != nil {
+			return 0, fmt.Errorf("failed to get metrics definition: %w", err)
+		}
+		metricsDefinition.KubePrometheusStackHelmWorkloadDefinitionID = current.KubePrometheusStackHelmWorkloadDefinitionID
+	}
+
 	// delete kube-prometheus-stack helm workload definition
 	if _, err := client.DeleteHelmWorkloadDefinition(
 		r.APIClient,

@@ -86,6 +86,12 @@ type Reconciler struct {
 
 	// EventsRecorder is the recorder used to record events.
 	EventsRecorder Recorder
+
+	// Failures records when operations began failing. Optional: when nil a
+	// tracker shared by every reconciler in the process is used, which is what
+	// controllers want - the workers of one reconciler are separate Reconciler
+	// values that must agree on when a failure began.
+	Failures *FailureTracker
 }
 
 // Recorder is an interface for recording events. The

@@ -279,11 +279,14 @@ func GenReconcilers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							})
 							g.Line()
 
-							g.Comment("set the object's Reconciled field to true if not deleted")
+							g.Comment("mark reconciled unless it is already true")
 							g.If(Id("notif").Dot("Operation").Op("!=").Qual(
 								"github.com/threeport/threeport/pkg/notifications/v0",
 								"NotificationOperationDeleted",
-							).Block(
+							).Op("&&").Op("!").Qual(
+								"github.com/threeport/threeport/pkg/api/lib/v0",
+								"AlreadyReconciled",
+							).Call(Id(varObjectName)).Block(
 								Id(fmt.Sprintf(
 									"reconciled%s",
 									obj.Name,
@@ -713,6 +716,64 @@ func operationCase(
 				Line().Op("&").Id("log"),
 				Line(),
 			)
+			// a failure that never resolves must end somewhere visible rather
+			// than be requeued for as long as the object exists
+			k.Comment("stop requeueing once the operation has been failing for longer than the retry bound")
+			k.If(Id("r").Dot("RecordFailure").Call(
+				Id(varObjectName),
+				Id("string").Call(Id("notif").Dot("Operation")),
+			)).Block(
+				Id("giveUpMsg").Op(":=").Qual(
+					"github.com/threeport/threeport/pkg/event/v0",
+					"GiveUpNote",
+				).Call(
+					Line().Lit(fmt.Sprintf(
+						"failed to reconcile %s %s object",
+						lowerOpPast,
+						strcase.ToDelimited(obj.Name, ' '),
+					)),
+					Line().Id("controller").Dot("DefaultMaxReconcileDuration"),
+					Line().Id("operationErr"),
+					Line(),
+				),
+				Id("log").Dot("Error").Call(Id("operationErr"), Id("giveUpMsg")),
+				// recorded directly: HandleEventOverride records only the event
+				// an error carries when it carries one, which would drop this
+				// one and leave a final failure that reads like one still being
+				// retried
+				If(
+					Id("recordErr").Op(":=").Id("r").Dot("EventsRecorder").Dot("RecordEvent").Call(
+						Line().Op("&").Qual("github.com/threeport/threeport/pkg/api/v0", "Event").Values(Dict{
+							Id("Reason"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
+								Qual(
+									"github.com/threeport/threeport/pkg/event/v0",
+									fmt.Sprintf("Reason%sFailed", uppoerOp),
+								),
+							),
+							Id("Note"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(Id("giveUpMsg")),
+							Id("Type"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
+								Qual("github.com/threeport/threeport/pkg/event/v0", "TypeWarning"),
+							),
+						}),
+						Line().Id(strcase.ToLowerCamel(obj.Name)).Dot("GetId").Call(),
+						Line().Id(strcase.ToLowerCamel(obj.Name)).Dot("GetFullyQualifiedType").Call(),
+						Line(),
+					).Op(";").Id("recordErr").Op("!=").Nil(),
+				).Block(
+					Id("log").Dot("Error").Call(Id("recordErr"), Lit("failed to record give-up event")),
+				),
+				// the episode ends with the give-up: the next notification for
+				// this object is new work, and its first failure is not one
+				// more attempt in a window that has already run out
+				Id("r").Dot("ClearFailure").Call(
+					Id(varObjectName),
+					Id("string").Call(Id("notif").Dot("Operation")),
+				),
+				// releasing with success acknowledges the message so it is not
+				// redelivered
+				Id("r").Dot("ReleaseLock").Call(Id(varObjectName), Id("lockReleased"), Id("msg"), Lit(true)),
+				Continue(),
+			)
 			k.Id("r").Dot("UnlockAndRequeue").Call(
 				Line().Id(varObjectName),
 				Line().Id("requeueDelay"),
@@ -722,6 +783,11 @@ func operationCase(
 			)
 			k.Continue()
 		})
+		// the operation did not fail, so a later failure starts a new retry window
+		h.Id("r").Dot("ClearFailure").Call(
+			Id(varObjectName),
+			Id("string").Call(Id("notif").Dot("Operation")),
+		)
 		h.If(Id("customRequeueDelay").Op("!=").Lit(0)).Block(
 			Id("log").Dot("Info").Call(
 				Lit(fmt.Sprintf(

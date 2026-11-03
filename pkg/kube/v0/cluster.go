@@ -502,12 +502,11 @@ func refreshEKSConnection(
 // write-back to the shared runtime instance row, eliminating a source of
 // transaction contention.
 //
-// Ambient ADC is only present on a GKE-hosted control plane.  From one hosted
-// anywhere else there is none, and the stored GcpProvider credentials stand in -
-// the same shape EKS and OKE use.  That is a fallback rather than the first
-// choice: a GSA credential is one identity shared by every controller, which
-// gives up the per-controller identity described above, so it is used only where
-// there is no ADC to use instead.
+// That per-controller identity is why ambient ADC is preferred where it applies:
+// a stored GcpProvider credential is one identity shared by every controller, so
+// it gives up the property above and is used only where ADC cannot stand in.
+// Where it applies is a narrower question than whether it resolves, and
+// gkeAuthSource - not this function - answers it.
 func buildGKETokenGenerator(
 	runtime *v0.KubernetesRuntimeInstance,
 	threeportAPIClient *http.Client,
@@ -542,12 +541,20 @@ func buildGKETokenGenerator(
 // binding an identity no request is made under, which reads as a correct install
 // and leaves the controllers locked out. Both come from gkeAuthSource so they
 // cannot.
+//
+// It is the control plane's identity, so only a controller can answer it: an
+// operator's process acts as the person running it, and the empty identity
+// it would return reads here as a Workload Identity principal it is not.
 func GkeAuthSubject(
 	runtime *v0.KubernetesRuntimeInstance,
 	threeportAPIClient *http.Client,
 	threeportAPIEndpoint string,
 	encryptionKey string,
 ) (string, error) {
+	if gkeCaller == GkeCallerOperator {
+		return "", errors.New("the identity a GKE cluster authorizes for the control plane is the control plane's, and an operator's process cannot present it")
+	}
+
 	_, subject, err := gkeAuthSource(
 		runtime,
 		threeportAPIClient,
@@ -558,52 +565,299 @@ func GkeAuthSubject(
 	return subject, err
 }
 
+// GkeCaller is who a process authenticates to GKE clusters as, which decides
+// where its Google credentials may come from.
+type GkeCaller int
+
+const (
+	// GkeCallerController is a control plane component, running in a cluster
+	// on behalf of the control plane. It is the default.
+	GkeCallerController GkeCaller = iota
+
+	// GkeCallerOperator is a person running a command, such as tptctl, with
+	// their own Google credentials.
+	GkeCallerOperator
+)
+
+// gkeCaller is who this process authenticates to GKE clusters as. It is
+// declared once, by the program, before anything connects to a cluster.
+var gkeCaller = GkeCallerController
+
+// AuthenticateToGkeAsOperator declares this process an operator's: a command
+// run by a person, whose own ambient Google credentials - a gcloud
+// application-default login, or GOOGLE_APPLICATION_CREDENTIALS - are the
+// identity it acts as on a GKE cluster, the way gcloud and kubectl use them.
+//
+// A program calls it once, at startup, before anything connects to a cluster.
+// Nothing infers it from the environment: credentials resolving says nothing
+// about who is running, and inferring it is how each earlier fix to this path
+// broke a caller it did not consider. A program that does not call it is a
+// controller, so a program that forgets is held to the narrower policy.
+func AuthenticateToGkeAsOperator() {
+	gkeCaller = GkeCallerOperator
+}
+
 // gkeAuthSource decides how this process authenticates to a GKE cluster, and
 // returns both the token source and the identity it arrives as.
+//
+// The decision, for every caller at once:
+//
+//	caller      | hosted on GKE in the cluster's project | ambient credentials     | identity used
+//	------------+----------------------------------------+-------------------------+------------------------
+//	operator    | (not hosted)                           | resolve                 | ambient (the person's)
+//	operator    | (not hosted)                           | do not resolve          | stored service account
+//	controller  | yes                                    | Workload Identity       | ambient (its principal)
+//	controller  | yes                                    | a credentials file      | stored service account
+//	controller  | no: another project, EKS, OKE or kind  | any                     | stored service account
+//
+// Wherever the stored service account is the answer and the provider has none,
+// it is an error naming that, rather than a token the cluster will refuse.
+//
+// An operator is a person running a command such as tptctl, declared by
+// AuthenticateToGkeAsOperator. Their ambient credentials are their own identity
+// - the one that created the cluster, and the one gcloud and kubectl act as -
+// so they come first, whichever project or host is involved. A genesis control
+// plane's GCP provider has no stored credentials at all, so for the commands
+// that install, upgrade and tear one down, the person's are the only identity
+// there is.
+//
+// A controller acts for the control plane, and only uses ambient credentials
+// that are the identity the cluster was told to authorize: its own Workload
+// Identity principal, on a control plane hosted on GKE in the same project as
+// the managed cluster. Everywhere else the GCP provider's stored service
+// account is used, even when ambient credentials resolve.
+//
+// Resolving is not the same question as being authorized, and google's
+// DefaultTokenSource answers only the first - it has no notion of which cluster
+// the token is for. It resolves from GOOGLE_APPLICATION_CREDENTIALS, a gcloud
+// application-default login file or GCE metadata, any of which can be present
+// on a control plane for reasons unrelated to this cluster, and it resolves
+// unconditionally on a GKE-hosted control plane whatever project the managed
+// cluster is in. Choosing on that alone leaves a working stored credential
+// unused and fails against the cluster instead, far from the cause.
+//
+// Sameness of project is the condition rather than a proxy for one. The binding
+// a managed cluster is given names the principal
+// serviceAccount:PROJECT.svc.id.goog[NAMESPACE/NAME] of the control plane's
+// Workload Identity pool, and a GKE API server authenticates pod tokens against
+// its own project's pool. From another project, no request can arrive as that
+// principal at all, so the binding authorizes nobody.
 func gkeAuthSource(
 	runtime *v0.KubernetesRuntimeInstance,
 	threeportAPIClient *http.Client,
 	threeportAPIEndpoint string,
 	encryptionKey string,
 ) (oauth2.TokenSource, string, error) {
-	tokenSource, err := google.DefaultTokenSource(
-		context.Background(),
-		auth.GcpOAuthScopes...,
-	)
-	if err == nil {
-		// ambient ADC: this process arrives as its own Workload Identity
-		// principal, which the caller names rather than an email
-		return tokenSource, "", nil
-	}
-
-	return gcpProviderTokenSource(
+	gcpProvider, err := runtimeGcpProvider(
 		runtime,
 		threeportAPIClient,
 		threeportAPIEndpoint,
-		encryptionKey,
 	)
+	if err != nil {
+		return nil, "", err
+	}
+
+	if gkeCaller == GkeCallerOperator {
+		return operatorTokenSource(gcpProvider, encryptionKey)
+	}
+
+	ambientApplies, err := ambientIdentityReachesCluster(
+		gcpProvider,
+		threeportAPIClient,
+		threeportAPIEndpoint,
+	)
+	if err != nil {
+		return nil, "", err
+	}
+	if ambientApplies {
+		tokenSource, err := ambientWorkloadIdentity(context.Background())
+		if err == nil && tokenSource != nil {
+			// this process arrives as its own Workload Identity principal,
+			// which the caller names rather than an email
+			return tokenSource, "", nil
+		}
+		// GKE-hosted in this cluster's project, yet this process does not
+		// arrive as a Workload Identity principal - none is set up on the
+		// host, or a credentials file stands in front of it. The stored
+		// credential is the remaining identity, so try it rather than failing
+		// with one available.
+	}
+
+	return gcpProviderTokenSource(gcpProvider, encryptionKey)
 }
 
-// gcpProviderTokenSource builds a token source from the service account
-// credentials stored on the GCP provider that owns a runtime, and returns the
-// account it authenticates as.
+// operatorTokenSource returns the identity an operator acts as on a GKE
+// cluster: their own ambient credentials, or the GCP provider's stored service
+// account when they have none.
 //
-// The scopes include userinfo.email because the identity is the account's email:
-// without it a token can be resolved by the account's numeric id instead, and a
-// binding naming the email would authorize nobody.
-func gcpProviderTokenSource(
+// The identity returned is the stored account's email when that is what is
+// used, and empty for the person's own: an operator's identity is never one a
+// cluster is told to authorize on the control plane's behalf.
+func operatorTokenSource(
+	gcpProvider *v0.GcpProvider,
+	encryptionKey string,
+) (oauth2.TokenSource, string, error) {
+	credentials, err := ambientCredentials(context.Background())
+	if err == nil {
+		return credentials.TokenSource, "", nil
+	}
+	if gcpProvider.ServiceAccountCredentials == nil {
+		return nil, "", fmt.Errorf(
+			"no Google credentials to authenticate to this GKE cluster with: sign in with `gcloud auth application-default login`, or give the GCP provider service account credentials (%w)",
+			err,
+		)
+	}
+
+	return gcpProviderTokenSource(gcpProvider, encryptionKey)
+}
+
+// ambientCredentials resolves this process's ambient Google credentials:
+// GOOGLE_APPLICATION_CREDENTIALS, a gcloud application-default login, or the
+// metadata server. It is the one place they are read, so every decision about
+// them is made on the same answer.
+var ambientCredentials = func(ctx context.Context) (*google.Credentials, error) {
+	return google.FindDefaultCredentials(ctx, auth.GcpOAuthScopes...)
+}
+
+// ambientWorkloadIdentity returns a token source for this process's own Workload
+// Identity principal, or nil when its ambient credentials are not that.
+func ambientWorkloadIdentity(ctx context.Context) (oauth2.TokenSource, error) {
+	credentials, err := ambientCredentials(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !credentialsAreWorkloadIdentity(credentials) {
+		return nil, nil
+	}
+
+	return credentials.TokenSource, nil
+}
+
+// credentialsAreWorkloadIdentity reports whether resolved ambient credentials are
+// the process's own Workload Identity principal.
+//
+// Google's resolution keeps the raw file bytes in JSON when it read a credentials
+// file - GOOGLE_APPLICATION_CREDENTIALS, or a gcloud application-default login -
+// and leaves it nil when the token comes from the metadata server, which on GKE
+// is the only source that yields the pod's own principal.
+//
+// The distinction decides an identity, not just a source. A credentials file on
+// a GKE-hosted control plane names some other service account, and that account
+// is what arrives at the cluster - while the binding, told this is the Workload
+// Identity path, names a principal nothing authenticates as. Both halves agree
+// on an identity no request is made under, which is the failure this whole path
+// is arranged to prevent.
+func credentialsAreWorkloadIdentity(credentials *google.Credentials) bool {
+	return credentials != nil && credentials.JSON == nil
+}
+
+// ambientIdentityReachesCluster reports whether this process's ambient Google
+// credentials, if it has any, are an identity the managed cluster can authorize.
+//
+// That holds only when the control plane runs on GKE in the same project: a
+// control plane hosted elsewhere presents no Workload Identity principal, so any
+// ambient credential it holds is incidental to this cluster.
+func ambientIdentityReachesCluster(
+	gcpProvider *v0.GcpProvider,
+	threeportAPIClient *http.Client,
+	threeportAPIEndpoint string,
+) (bool, error) {
+	controlPlaneProject, err := ControlPlaneGkeProject(
+		threeportAPIClient,
+		threeportAPIEndpoint,
+	)
+	if err != nil {
+		return false, fmt.Errorf("failed to determine the control plane's GCP project: %w", err)
+	}
+	if controlPlaneProject == "" {
+		// not GKE-hosted: there is no Workload Identity principal to present
+		return false, nil
+	}
+	if gcpProvider.ProjectID == nil {
+		return false, errors.New("the GCP provider for this runtime has no project ID")
+	}
+
+	return controlPlaneProject == *gcpProvider.ProjectID, nil
+}
+
+// ControlPlaneGkeProject returns the GCP project of the cluster hosting the
+// control plane, or an empty string when the control plane is not GKE-hosted.
+//
+// The project names the Workload Identity pool that principals the control
+// plane's controllers present come from. It decides both how those controllers
+// authenticate to a managed cluster and which principal that cluster is told to
+// authorize, so the two come from here rather than being worked out separately.
+func ControlPlaneGkeProject(
+	threeportAPIClient *http.Client,
+	threeportAPIEndpoint string,
+) (string, error) {
+	instances, err := client.GetKubernetesRuntimeInstances(threeportAPIClient, threeportAPIEndpoint)
+	if err != nil {
+		return "", fmt.Errorf("failed to list kubernetes runtime instances: %w", err)
+	}
+
+	var hostInstance *v0.KubernetesRuntimeInstance
+	for i := range *instances {
+		if (*instances)[i].ThreeportControlPlaneHost != nil && *(*instances)[i].ThreeportControlPlaneHost {
+			hostInstance = &(*instances)[i]
+			break
+		}
+	}
+	if hostInstance == nil {
+		return "", errors.New("no control plane host kubernetes runtime instance found")
+	}
+
+	hostDefinition, err := client.GetKubernetesRuntimeDefinitionByID(
+		threeportAPIClient,
+		threeportAPIEndpoint,
+		*hostInstance.KubernetesRuntimeDefinitionID,
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to get control plane host runtime definition: %w", err)
+	}
+
+	// Only GKE-hosted control planes present Workload Identity principals to
+	// managed clusters; for any other host provider there is no WI principal to
+	// bind, so signal "not applicable" with an empty project.
+	if hostDefinition.InfraProvider == nil ||
+		*hostDefinition.InfraProvider != v0.KubernetesRuntimeInfraProviderGKE {
+		return "", nil
+	}
+
+	// The project is read through the host's own GKE runtime instance rather
+	// than the definition's InfraProviderAccountName, which a genesis install
+	// never writes: CreateGenesisControlPlane builds the definition from a name
+	// and a provider alone. Naming the provider that way would fail on every
+	// control plane bootstrapped normally.
+	gcpProvider, err := runtimeGcpProvider(
+		hostInstance,
+		threeportAPIClient,
+		threeportAPIEndpoint,
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to get the control plane host's GCP provider: %w", err)
+	}
+	if gcpProvider.ProjectID == nil {
+		return "", errors.New("the control plane host's GCP provider has no project ID")
+	}
+
+	return *gcpProvider.ProjectID, nil
+}
+
+// runtimeGcpProvider returns the GCP provider that owns a kubernetes runtime
+// instance.
+func runtimeGcpProvider(
 	runtime *v0.KubernetesRuntimeInstance,
 	threeportAPIClient *http.Client,
 	threeportAPIEndpoint string,
-	encryptionKey string,
-) (oauth2.TokenSource, string, error) {
+) (*v0.GcpProvider, error) {
 	gkeRuntimeInstance, err := client.GetGcpGkeKubernetesRuntimeInstanceByK8sRuntimeInst(
 		threeportAPIClient,
 		threeportAPIEndpoint,
 		*runtime.ID,
 	)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to get GCP GKE kubernetes runtime instance: %w", err)
+		return nil, fmt.Errorf("failed to get GCP GKE kubernetes runtime instance: %w", err)
 	}
 	gcpProvider, err := client.GetGcpProviderByID(
 		threeportAPIClient,
@@ -611,11 +865,26 @@ func gcpProviderTokenSource(
 		*gkeRuntimeInstance.GcpProviderID,
 	)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to get GCP provider: %w", err)
+		return nil, fmt.Errorf("failed to get GCP provider: %w", err)
 	}
+
+	return gcpProvider, nil
+}
+
+// gcpProviderTokenSource builds a token source from the service account
+// credentials stored on a GCP provider, and returns the account it
+// authenticates as.
+//
+// The scopes include userinfo.email because the identity is the account's email:
+// without it a token can be resolved by the account's numeric id instead, and a
+// binding naming the email would authorize nobody.
+func gcpProviderTokenSource(
+	gcpProvider *v0.GcpProvider,
+	encryptionKey string,
+) (oauth2.TokenSource, string, error) {
 	if gcpProvider.ServiceAccountCredentials == nil {
 		return nil, "", errors.New(
-			"no ambient Google credentials and the GCP provider has none stored: cannot authenticate to this cluster",
+			"the GCP provider for this runtime has no stored service account credentials, and no ambient Google credentials apply to this cluster: cannot authenticate to it",
 		)
 	}
 	decryptedCredentials, err := encryption.Decrypt(encryptionKey, *gcpProvider.ServiceAccountCredentials)

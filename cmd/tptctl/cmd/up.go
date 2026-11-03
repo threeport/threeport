@@ -84,10 +84,8 @@ control planes if they are used to create or are created by another control plan
 			cliArgs.ClusterName = provider.ThreeportRuntimeName(cliArgs.ControlPlaneName)
 		}
 
-		// default --tier from the infra provider when empty
-		if cliArgs.Tier == "" {
-			cliArgs.Tier = threeport.DefaultControlPlaneTierForProvider(cliArgs.InfraProvider)
-		}
+		// default --tier when empty, the same on every provider
+		cliArgs.Tier = cli.ResolveControlPlaneTier(cliArgs.InfraProvider, cliArgs.Tier)
 
 		// flag validation
 		if err := cli.ValidateCreateGenesisControlPlaneFlags(
@@ -100,6 +98,15 @@ control planes if they are used to create or are created by another control plan
 			cliArgs.ControlPlaneOnly,
 			cliArgs.ClusterName,
 			cliArgs.ApiPort,
+		); err != nil {
+			cli.Error("flag validation failed:", err)
+			os.Exit(1)
+		}
+		if err := cli.ValidateGcpBackupRegionFlag(
+			cliArgs.GcpBackupRegion,
+			cliArgs.InfraProvider,
+			cliArgs.Tier,
+			cliArgs.ControlPlaneOnly,
 		); err != nil {
 			cli.Error("flag validation failed:", err)
 			os.Exit(1)
@@ -163,10 +170,10 @@ func init() {
 	UpCmd.Flags().StringVar(
 		&cliArgs.Tier,
 		"tier", "", fmt.Sprintf(
-			"Determines the level of availability and data retention for the control plane. One of: [%s, %s]. Defaults to %s on the kind provider and %s on every cloud provider. Pass %s explicitly for a cloud-backed dev or test control plane whose database may be dropped.",
+			"Determines the level of availability and data retention for the control plane. One of: [%s, %s]. Defaults to %s on every provider. Pass --tier %s for a production control plane, which the kind provider cannot run.",
 			threeport.ControlPlaneTierDev, threeport.ControlPlaneTierProd,
-			threeport.ControlPlaneTierDev, threeport.ControlPlaneTierProd,
-			threeport.ControlPlaneTierDev,
+			threeport.DefaultControlPlaneTier,
+			threeport.ControlPlaneTierProd,
 		),
 	)
 	UpCmd.Flags().StringVar(
@@ -200,6 +207,10 @@ func init() {
 	UpCmd.Flags().StringVar(
 		&cliArgs.GcpRegion,
 		"gcp-region", "", "Google Cloud region code to install threeport in when using gke provider. If provided, will take precedence over environment variables.",
+	)
+	UpCmd.Flags().StringVar(
+		&cliArgs.GcpBackupRegion,
+		"gcp-backup-region", "", "Google Cloud region of the bucket a production control plane on gke backs its database up to. Must differ from --gcp-region. Defaults to another region on the same continent.",
 	)
 	UpCmd.Flags().BoolVar(
 		&cliArgs.ForceOverwriteConfig,

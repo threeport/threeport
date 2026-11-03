@@ -1,14 +1,22 @@
 package v0
 
 import (
+	"database/sql"
 	"fmt"
+	"regexp"
+	"strings"
 
+	"github.com/gertd/go-pluralize"
+	"github.com/iancoleman/strcase"
 	"gorm.io/gorm"
 
 	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 	auth "github.com/threeport/threeport/pkg/auth/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
+
+// sqlIdent is the shape of a table or column name this hook will interpolate.
+var sqlIdent = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 
 // ErrMsgExternalUpdateBlocked is the substring present in any 400 error
 // returned when an object cannot be updated because it is owned by a
@@ -91,27 +99,211 @@ func insertAttachedObjectReference(
 }
 
 // processRelationshipTaggedFieldsAfterCreate inserts an attached object
-// reference for each foreign key that has a value.
+// reference for each foreign key that has a value, then records an owner
+// when the create request names one.
 func processRelationshipTaggedFieldsAfterCreate(tx *gorm.DB, obj interface{}) error {
 	foreignKeys := relationshipTaggedForeignKeysFor(obj)
-	if len(foreignKeys) == 0 {
+	if len(foreignKeys) > 0 {
+		objType := obj.(lib.FullyQualifiedTypeProvider).GetFullyQualifiedType()
+		objID := util.ObjectID(obj)
+		if objID == nil {
+			return fmt.Errorf(
+				"cannot create attached object reference for %s: ID is nil after create",
+				objType,
+			)
+		}
+		for _, foreignKey := range foreignKeys {
+			if foreignKey.ObjectID == nil {
+				continue
+			}
+			if err := insertAttachedObjectReference(tx, foreignKey, objType, *objID); err != nil {
+				return err
+			}
+		}
+	}
+	return recordOwnerOnCreate(tx, obj)
+}
+
+// ownerReader is the create-request owner. Common implements it.
+type ownerReader interface {
+	GetOwner() *OwnerRef
+}
+
+// recordOwnerOnCreate inserts the owns reference and sets the owner's field in the create transaction.
+// It checks the caller organization and the owned row, and does not run the owner's before-update hook.
+func recordOwnerOnCreate(tx *gorm.DB, obj interface{}) error {
+	reader, ok := obj.(ownerReader)
+	if !ok || reader.GetOwner() == nil {
 		return nil
 	}
+	owner := reader.GetOwner()
+	if owner.Type == nil || owner.ID == nil || owner.Field == nil {
+		return util.NewBadRequestError("owner requires a type, an id, and a field")
+	}
+	if err := rejectOwnerOutsideCallerNamespace(tx, *owner.Type); err != nil {
+		return err
+	}
+
+	// the new row is the owned object
 	objType := obj.(lib.FullyQualifiedTypeProvider).GetFullyQualifiedType()
 	objID := util.ObjectID(obj)
 	if objID == nil {
-		return fmt.Errorf(
-			"cannot create attached object reference for %s: ID is nil after create",
-			objType,
-		)
+		return fmt.Errorf("cannot record owner for %s: ID is nil after create", objType)
 	}
-	for _, foreignKey := range foreignKeys {
-		if foreignKey.ObjectID == nil {
-			continue
-		}
-		if err := insertAttachedObjectReference(tx, foreignKey, objType, *objID); err != nil {
-			return err
-		}
+	table, err := tableForQualifiedType(*owner.Type)
+	if err != nil {
+		return err
+	}
+	column, err := columnForOwnerField(*owner.Field)
+	if err != nil {
+		return err
+	}
+	if err := requireOwnerColumn(tx, table, column); err != nil {
+		return err
+	}
+	if err := rejectExternalOwnedUpdate(tx, *owner.Type, *owner.ID); err != nil {
+		return err
+	}
+	if err := tx.Create(&AttachedObjectReference{
+		ObjectID:           objID,
+		ObjectType:         &objType,
+		AttachedObjectID:   owner.ID,
+		AttachedObjectType: owner.Type,
+		Relationship:       util.Ptr(RelationshipOwns),
+	}).Error; err != nil {
+		return fmt.Errorf("failed to create owner reference for %s/%d: %w", objType, *objID, err)
+	}
+
+	// overwrite a saved id whose child is gone, and block the write while that child is live
+	held, err := ownerColumnHoldsOtherLiveChild(tx, table, column, *owner.ID, *objID, tx.Statement.Table)
+	if err != nil {
+		return err
+	}
+	predicate := ""
+	args := []any{*objID, *owner.ID}
+	if held {
+		// zero rows makes the create roll back, so two live children cannot share the column
+		predicate = fmt.Sprintf(" AND (%s IS NULL OR %s = ?)", column, column)
+		args = append(args, *objID)
+	}
+	result := lib.NewCleanSession(tx).Exec(
+		fmt.Sprintf(
+			"UPDATE %s SET %s = ? WHERE id = ? AND deleted_at IS NULL%s",
+			table, column, predicate,
+		),
+		args...,
+	)
+	if result.Error != nil {
+		return fmt.Errorf("failed to set %s.%s for owner %d: %w", table, column, *owner.ID, result.Error)
+	}
+	if result.RowsAffected != 1 {
+		return util.NewBadRequestError(fmt.Sprintf(
+			"owner update for %s.%s id %d changed %d rows",
+			table, column, *owner.ID, result.RowsAffected,
+		))
+	}
+	return nil
+}
+
+// ownerColumnHoldsOtherLiveChild reports that the owner column stores a different id whose row is still live.
+// A deleted or deletion-scheduled child is not live, so the caller overwrites that saved id.
+func ownerColumnHoldsOtherLiveChild(tx *gorm.DB, ownerTable, column string, ownerID, newID uint, childTable string) (bool, error) {
+	// read the id the owner column already stores
+	var current sql.NullInt64
+	row := lib.NewCleanSession(tx).Raw(
+		fmt.Sprintf("SELECT %s FROM %s WHERE id = ? AND deleted_at IS NULL", column, ownerTable),
+		ownerID,
+	).Row()
+	if err := row.Scan(&current); err != nil {
+		return false, fmt.Errorf("failed to read %s.%s for owner %d: %w", ownerTable, column, ownerID, err)
+	}
+
+	// an empty column or this same child needs no live-row check
+	if !current.Valid || uint(current.Int64) == newID {
+		return false, nil
+	}
+
+	// count that saved id only while its row is present and not scheduled for deletion
+	var live int64
+	err := lib.NewCleanSession(tx).Raw(
+		fmt.Sprintf(
+			"SELECT COUNT(*) FROM %s WHERE id = ? AND deleted_at IS NULL AND deletion_scheduled IS NULL",
+			childTable,
+		),
+		current.Int64,
+	).Scan(&live).Error
+	if err != nil {
+		return false, fmt.Errorf("failed to read child %d from %s: %w", current.Int64, childTable, err)
+	}
+	return live > 0, nil
+}
+
+// tableForQualifiedType maps a fully qualified type to its database table.
+// A threeport.io type drops the namespace. Any other namespace stays.
+// The rest of the name matches TableName().
+func tableForQualifiedType(objectType string) (string, error) {
+	namespace, version, typeName, ok := lib.ParseQualifiedType(objectType)
+	if !ok {
+		return "", util.NewBadRequestError(fmt.Sprintf("owner type %q is not a fully qualified type", objectType))
+	}
+	plural := pluralize.NewClient().Pluralize(strcase.ToSnake(typeName), 2, false)
+	raw := version + "_" + plural
+	if namespace != lib.CoreApiNamespace {
+		raw = namespace + "_" + raw
+	}
+	table := sanitizeIdent(raw)
+	if !sqlIdent.MatchString(table) {
+		return "", util.NewBadRequestError(fmt.Sprintf("owner type %q does not name a table", objectType))
+	}
+	return table, nil
+}
+
+// columnForOwnerField maps the owner's Go field to its column.
+func columnForOwnerField(field string) (string, error) {
+	column := sanitizeIdent(strcase.ToSnake(field))
+	if !sqlIdent.MatchString(column) {
+		return "", util.NewBadRequestError(fmt.Sprintf("owner field %q is not a column name", field))
+	}
+	if column == "id" {
+		return "", util.NewBadRequestError(fmt.Sprintf("owner field %q names the primary key", field))
+	}
+	return column, nil
+}
+
+// sanitizeIdent matches sdk util.TableName without importing that package.
+func sanitizeIdent(input string) string {
+	input = strings.ToLower(input)
+	re := regexp.MustCompile(`[^a-z0-9_]`)
+	output := re.ReplaceAllString(input, "_")
+	output = strings.Trim(output, "_")
+	if len(output) > 63 {
+		output = output[:63]
+	}
+	return output
+}
+
+// requireOwnerColumn rejects a table or column the database does not have.
+// SQLite has no information_schema, so that driver reads pragma_table_info.
+func requireOwnerColumn(tx *gorm.DB, table, column string) error {
+	var n int64
+	session := lib.NewCleanSession(tx)
+	var err error
+	if session.Dialector.Name() == "sqlite" {
+		err = session.Raw(
+			"SELECT COUNT(*) FROM pragma_table_info(?) WHERE name = ?",
+			table, column,
+		).Scan(&n).Error
+	} else {
+		err = session.Raw(
+			"SELECT COUNT(*) FROM information_schema.columns WHERE table_name = ? AND column_name = ?",
+			table, column,
+		).Scan(&n).Error
+	}
+	if err != nil {
+		return fmt.Errorf("failed to look up %s.%s: %w", table, column, err)
+	}
+	if n != 1 {
+		return util.NewBadRequestError(fmt.Sprintf("owner column %s.%s does not exist", table, column))
 	}
 	return nil
 }
@@ -181,12 +373,45 @@ func processRelationshipTaggedFieldsBeforeUpdate(tx *gorm.DB, obj interface{}) e
 		}
 	}
 
-	// Done with the FK immutability check; the rest of this function
-	// is the caller-authorization check. A row may have incoming
-	// "owns" or "marries" AORs, meaning another object holds its
-	// lifecycle. External callers can't mutate such a row.
+	// the rest of this function is the caller-authorization check
+	return rejectExternalOwnedUpdate(tx, objType, *objID)
+}
+
+// rejectOwnerOutsideCallerNamespace rejects an owner whose type namespace differs from the caller organization.
+// The threeport-owner certificate and an authentication-off caller may name any owner.
+func rejectOwnerOutsideCallerNamespace(tx *gorm.DB, ownerType string) error {
+	caller := lib.Caller(tx.Statement.Context)
+	// allow the threeport-owner certificate
+	if caller.CommonName == "threeport-owner" {
+		return nil
+	}
+	// allow the authentication-off caller, which has no organization
+	if caller.OrganizationalUnit == auth.OUControlPlane && caller.Organization == "" {
+		return nil
+	}
+	organization := caller.Organization
+	if organization == "" {
+		return util.NewBadRequestError("owner requires a caller organization")
+	}
+	namespace, _, _, ok := lib.ParseQualifiedType(ownerType)
+	if !ok {
+		return util.NewBadRequestError(fmt.Sprintf("owner type %q is not a fully qualified type", ownerType))
+	}
+	if namespace != organization {
+		return util.NewBadRequestError(fmt.Sprintf(
+			"owner type %s is outside caller organization %s",
+			ownerType,
+			organization,
+		))
+	}
+	return nil
+}
+
+// rejectExternalOwnedUpdate rejects an update when another object owns or marries the row.
+// A control-plane caller is allowed through.
+func rejectExternalOwnedUpdate(tx *gorm.DB, objType string, objID uint) error {
 	var ownedOrMarriedRefs []AttachedObjectReference
-	if err := tx.
+	if err := lib.NewCleanSession(tx).
 		Where(
 			"object_type = ? AND object_id = ? AND relationship IN ?",
 			objType, objID, []Relationship{RelationshipOwns, RelationshipMarries},
@@ -194,25 +419,21 @@ func processRelationshipTaggedFieldsBeforeUpdate(tx *gorm.DB, obj interface{}) e
 		Find(&ownedOrMarriedRefs).Error; err != nil {
 		return fmt.Errorf(
 			"failed to look up owning attached object references for %s/%d: %w",
-			objType, *objID, err,
+			objType, objID, err,
 		)
 	}
 
-	// No incoming owns/marries refs → this row isn't owned by another
-	// object; anyone can update it.
+	// no incoming owns or marries reference, so any caller may update the row
 	if len(ownedOrMarriedRefs) == 0 {
 		return nil
 	}
 
-	// Control-plane callers bypass the block; they're the
-	// owner/partner controllers (or internal reconcilers) that are
-	// supposed to maintain owned rows.
+	// control-plane callers maintain owned rows
 	if lib.Caller(tx.Statement.Context).OrganizationalUnit == auth.OUControlPlane {
 		return nil
 	}
 
-	// external caller hit a row that's owned or married; reject the update
-	// and tell them which object holds the lifecycle
+	// name the object that holds the lifecycle
 	owner := "another object"
 	if ownedOrMarriedRefs[0].AttachedObjectType != nil && ownedOrMarriedRefs[0].AttachedObjectID != nil {
 		owner = fmt.Sprintf("%s/%d", *ownedOrMarriedRefs[0].AttachedObjectType, *ownedOrMarriedRefs[0].AttachedObjectID)
