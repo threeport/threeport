@@ -151,8 +151,8 @@ func TestEnsureSecretsComponentSkipsOtherProviders(t *testing.T) {
 	// skip a provider that does not create the component
 	name := "dev"
 	runtime := &api.KubernetesRuntimeInstance{
-		Common: api.Common{ID: util.Ptr(uint(1))},
-		Name:   &name,
+		Common:   api.Common{ID: util.Ptr(uint(1))},
+		Instance: api.Instance{Name: &name},
 	}
 	err := EnsureSecretsComponent(nil, runtime, &api.SecretInstance{}, nil, nil, util.Ptr("gke"), nil)
 	if err != nil {
