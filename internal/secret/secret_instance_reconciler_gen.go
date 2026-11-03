@@ -12,6 +12,7 @@ import (
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	event "github.com/threeport/threeport/pkg/event/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
+	supportservices "github.com/threeport/threeport/pkg/supportservices"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"os"
 	"os/signal"
@@ -177,13 +178,50 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 				var customRequeueDelay int64
 				switch secretInstance.GetVersion() {
 				case "v0":
-					requeueDelay, err := v0SecretInstanceCreated(
-						r,
-						secretInstance.(*api_v0.SecretInstance),
-						&log,
-					)
-					customRequeueDelay = requeueDelay
-					operationErr = err
+					// install the shared components this object requires
+					componentObject := secretInstance.(*api_v0.SecretInstance)
+					if componentObject.KubernetesRuntimeInstanceID != nil {
+						runtime, err := client_v0.GetKubernetesRuntimeInstanceByID(
+							r.APIClient,
+							r.APIServer,
+							*componentObject.KubernetesRuntimeInstanceID,
+						)
+						if err != nil {
+							operationErr = fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
+						}
+						if operationErr == nil {
+							provider, err := client_v0.GetInfraProviderByKubernetesRuntimeInstanceID(
+								r.APIClient,
+								r.APIServer,
+								runtime.ID,
+							)
+							if err != nil {
+								operationErr = fmt.Errorf("failed to get infra provider: %w", err)
+							}
+							if operationErr == nil {
+								if err := supportservices.EnsureSecretsComponent(
+									r,
+									runtime,
+									componentObject,
+									&componentObject.SecretsComponentInstanceID,
+									client_v0.UpdateSecretInstance,
+									provider,
+									&log,
+								); err != nil {
+									operationErr = fmt.Errorf("failed to ensure secrets component: %w", err)
+								}
+							}
+						}
+					}
+					if operationErr == nil {
+						requeueDelay, err := v0SecretInstanceCreated(
+							r,
+							secretInstance.(*api_v0.SecretInstance),
+							&log,
+						)
+						customRequeueDelay = requeueDelay
+						operationErr = err
+					}
 				default:
 					operationErr = errors.New("unrecognized version of secret instance encountered for create operation")
 				}
@@ -266,13 +304,50 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 				var customRequeueDelay int64
 				switch secretInstance.GetVersion() {
 				case "v0":
-					requeueDelay, err := v0SecretInstanceUpdated(
-						r,
-						secretInstance.(*api_v0.SecretInstance),
-						&log,
-					)
-					customRequeueDelay = requeueDelay
-					operationErr = err
+					// install the shared components this object requires
+					componentObject := secretInstance.(*api_v0.SecretInstance)
+					if componentObject.KubernetesRuntimeInstanceID != nil {
+						runtime, err := client_v0.GetKubernetesRuntimeInstanceByID(
+							r.APIClient,
+							r.APIServer,
+							*componentObject.KubernetesRuntimeInstanceID,
+						)
+						if err != nil {
+							operationErr = fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
+						}
+						if operationErr == nil {
+							provider, err := client_v0.GetInfraProviderByKubernetesRuntimeInstanceID(
+								r.APIClient,
+								r.APIServer,
+								runtime.ID,
+							)
+							if err != nil {
+								operationErr = fmt.Errorf("failed to get infra provider: %w", err)
+							}
+							if operationErr == nil {
+								if err := supportservices.EnsureSecretsComponent(
+									r,
+									runtime,
+									componentObject,
+									&componentObject.SecretsComponentInstanceID,
+									client_v0.UpdateSecretInstance,
+									provider,
+									&log,
+								); err != nil {
+									operationErr = fmt.Errorf("failed to ensure secrets component: %w", err)
+								}
+							}
+						}
+					}
+					if operationErr == nil {
+						requeueDelay, err := v0SecretInstanceUpdated(
+							r,
+							secretInstance.(*api_v0.SecretInstance),
+							&log,
+						)
+						customRequeueDelay = requeueDelay
+						operationErr = err
+					}
 				default:
 					operationErr = errors.New("unrecognized version of secret instance encountered for update operation")
 				}
@@ -361,6 +436,29 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 					)
 					customRequeueDelay = requeueDelay
 					operationErr = err
+					if operationErr == nil {
+						// release the shared components this object required
+						componentObject := secretInstance.(*api_v0.SecretInstance)
+						if componentObject.KubernetesRuntimeInstanceID != nil {
+							runtime, err := client_v0.GetKubernetesRuntimeInstanceByID(
+								r.APIClient,
+								r.APIServer,
+								*componentObject.KubernetesRuntimeInstanceID,
+							)
+							if err != nil {
+								operationErr = fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
+							}
+							if operationErr == nil {
+								if err := supportservices.ReleaseSecretsComponent(
+									r,
+									runtime,
+									componentObject,
+								); err != nil {
+									operationErr = fmt.Errorf("failed to release secrets component: %w", err)
+								}
+							}
+						}
+					}
 				default:
 					operationErr = errors.New("unrecognized version of secret instance encountered for delete operation")
 				}

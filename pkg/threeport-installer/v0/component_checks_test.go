@@ -23,7 +23,12 @@ import (
 
 // testMapper maps the kinds the checks look up.
 func testMapper() *meta.RESTMapper {
-	defaultMapper := meta.NewDefaultRESTMapper(nil)
+	// pass preferred versions so a versionless lookup resolves
+	defaultMapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{
+		{Group: "apps", Version: "v1"},
+		{Group: "apiextensions.k8s.io", Version: "v1"},
+		{Group: "rbac.authorization.k8s.io", Version: "v1"},
+	})
 	defaultMapper.Add(
 		schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"},
 		meta.RESTScopeNamespace,

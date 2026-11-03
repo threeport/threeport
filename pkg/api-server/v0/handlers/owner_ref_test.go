@@ -46,14 +46,14 @@ func TestGetRuntimeShowsWorkloadOwner(t *testing.T) {
 		"Owner": map[string]any{
 			"Type":  runtime.GetFullyQualifiedType(),
 			"ID":    runtime.ID,
-			"Field": "GatewayControllerInstanceID",
+			"Field": "IngressComponentInstanceID",
 		},
 	})
 
 	// read the owner back through its get handler
 	got := getRuntime(t, h, *runtime.ID)
-	require.NotNil(t, got.GatewayControllerInstanceID)
-	assert.Equal(t, created, *got.GatewayControllerInstanceID)
+	require.NotNil(t, got.IngressComponentInstanceID)
+	assert.Equal(t, created, *got.IngressComponentInstanceID)
 }
 
 // TestCreateRejectsPartialOwner covers a create whose owner omits a field.

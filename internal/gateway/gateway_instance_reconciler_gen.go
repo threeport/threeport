@@ -12,6 +12,7 @@ import (
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	event "github.com/threeport/threeport/pkg/event/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
+	supportservices "github.com/threeport/threeport/pkg/supportservices"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"os"
 	"os/signal"
@@ -177,13 +178,51 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 				var customRequeueDelay int64
 				switch gatewayInstance.GetVersion() {
 				case "v0":
-					requeueDelay, err := v0GatewayInstanceCreated(
-						r,
-						gatewayInstance.(*api_v0.GatewayInstance),
-						&log,
-					)
-					customRequeueDelay = requeueDelay
-					operationErr = err
+					// install the shared components this object requires
+					componentObject := gatewayInstance.(*api_v0.GatewayInstance)
+					if componentObject.KubernetesRuntimeInstanceID != nil {
+						runtime, err := client_v0.GetKubernetesRuntimeInstanceByID(
+							r.APIClient,
+							r.APIServer,
+							*componentObject.KubernetesRuntimeInstanceID,
+						)
+						if err != nil {
+							operationErr = fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
+						}
+						if operationErr == nil {
+							if err := supportservices.EnsureIngressComponent(
+								r,
+								runtime,
+								componentObject,
+								&componentObject.IngressComponentInstanceID,
+								client_v0.UpdateGatewayInstance,
+								&log,
+							); err != nil {
+								operationErr = fmt.Errorf("failed to ensure ingress component: %w", err)
+							}
+						}
+						if operationErr == nil {
+							if err := supportservices.EnsureCertificatesComponent(
+								r,
+								runtime,
+								componentObject,
+								&componentObject.CertificatesComponentInstanceID,
+								client_v0.UpdateGatewayInstance,
+								&log,
+							); err != nil {
+								operationErr = fmt.Errorf("failed to ensure certificates component: %w", err)
+							}
+						}
+					}
+					if operationErr == nil {
+						requeueDelay, err := v0GatewayInstanceCreated(
+							r,
+							gatewayInstance.(*api_v0.GatewayInstance),
+							&log,
+						)
+						customRequeueDelay = requeueDelay
+						operationErr = err
+					}
 				default:
 					operationErr = errors.New("unrecognized version of gateway instance encountered for create operation")
 				}
@@ -266,13 +305,51 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 				var customRequeueDelay int64
 				switch gatewayInstance.GetVersion() {
 				case "v0":
-					requeueDelay, err := v0GatewayInstanceUpdated(
-						r,
-						gatewayInstance.(*api_v0.GatewayInstance),
-						&log,
-					)
-					customRequeueDelay = requeueDelay
-					operationErr = err
+					// install the shared components this object requires
+					componentObject := gatewayInstance.(*api_v0.GatewayInstance)
+					if componentObject.KubernetesRuntimeInstanceID != nil {
+						runtime, err := client_v0.GetKubernetesRuntimeInstanceByID(
+							r.APIClient,
+							r.APIServer,
+							*componentObject.KubernetesRuntimeInstanceID,
+						)
+						if err != nil {
+							operationErr = fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
+						}
+						if operationErr == nil {
+							if err := supportservices.EnsureIngressComponent(
+								r,
+								runtime,
+								componentObject,
+								&componentObject.IngressComponentInstanceID,
+								client_v0.UpdateGatewayInstance,
+								&log,
+							); err != nil {
+								operationErr = fmt.Errorf("failed to ensure ingress component: %w", err)
+							}
+						}
+						if operationErr == nil {
+							if err := supportservices.EnsureCertificatesComponent(
+								r,
+								runtime,
+								componentObject,
+								&componentObject.CertificatesComponentInstanceID,
+								client_v0.UpdateGatewayInstance,
+								&log,
+							); err != nil {
+								operationErr = fmt.Errorf("failed to ensure certificates component: %w", err)
+							}
+						}
+					}
+					if operationErr == nil {
+						requeueDelay, err := v0GatewayInstanceUpdated(
+							r,
+							gatewayInstance.(*api_v0.GatewayInstance),
+							&log,
+						)
+						customRequeueDelay = requeueDelay
+						operationErr = err
+					}
 				default:
 					operationErr = errors.New("unrecognized version of gateway instance encountered for update operation")
 				}
@@ -361,6 +438,38 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 					)
 					customRequeueDelay = requeueDelay
 					operationErr = err
+					if operationErr == nil {
+						// release the shared components this object required
+						componentObject := gatewayInstance.(*api_v0.GatewayInstance)
+						if componentObject.KubernetesRuntimeInstanceID != nil {
+							runtime, err := client_v0.GetKubernetesRuntimeInstanceByID(
+								r.APIClient,
+								r.APIServer,
+								*componentObject.KubernetesRuntimeInstanceID,
+							)
+							if err != nil {
+								operationErr = fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
+							}
+							if operationErr == nil {
+								if err := supportservices.ReleaseIngressComponent(
+									r,
+									runtime,
+									componentObject,
+								); err != nil {
+									operationErr = fmt.Errorf("failed to release ingress component: %w", err)
+								}
+							}
+							if operationErr == nil {
+								if err := supportservices.ReleaseCertificatesComponent(
+									r,
+									runtime,
+									componentObject,
+								); err != nil {
+									operationErr = fmt.Errorf("failed to release certificates component: %w", err)
+								}
+							}
+						}
+					}
 				default:
 					operationErr = errors.New("unrecognized version of gateway instance encountered for delete operation")
 				}

@@ -189,10 +189,13 @@ func v0KubernetesRuntimeInstanceUpdated(
 		return 0, nil
 	}
 
+	// use the in-cluster endpoint when this runtime hosts the control plane
+	controlPlaneHost := kube.HostsControlPlane(kubernetesRuntimeInstance)
+
 	// get kube client to install compute space control plane components
 	dynamicKubeClient, mapper, err := kube.GetClient(
 		kubernetesRuntimeInstance,
-		false,
+		controlPlaneHost,
 		r.APIClient,
 		r.APIServer,
 		r.EncryptionKey,
@@ -251,7 +254,7 @@ func v0KubernetesRuntimeInstanceUpdated(
 		time.Sleep(time.Second * 10)
 		dynamicKubeClient, mapper, err = kube.GetClient(
 			kubernetesRuntimeInstance,
-			false,
+			controlPlaneHost,
 			r.APIClient,
 			r.APIServer,
 			r.EncryptionKey,
@@ -268,7 +271,11 @@ func v0KubernetesRuntimeInstanceUpdated(
 	}
 	if operatorInstalled {
 		log.V(1).Info("support services operator already installed, skipping install")
-	} else if err := threeport.InstallThreeportSupportServicesOperator(dynamicKubeClient, mapper); err != nil {
+	} else if err := threeport.InstallThreeportSupportServicesOperator(
+		dynamicKubeClient,
+		mapper,
+		threeport.SupportServicesCloud(v0.KubernetesRuntimeInfraProvider(*kubernetesRuntimeDefinition.InfraProvider)),
+	); err != nil {
 		return 0, fmt.Errorf("failed to install support services operator: %w", err)
 	}
 

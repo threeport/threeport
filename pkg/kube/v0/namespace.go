@@ -67,7 +67,10 @@ func SetNamespaces(
 			processedWRIs = append(processedWRIs, wri)
 			continue
 		}
-		namespacedObjectCount++
+		// an operator namespace or a gateway does not get a managed namespace
+		if util.CountsTowardManagedNamespace(*wri.JSONDefinition) {
+			namespacedObjectCount++
+		}
 
 		// update the resource to set the namespace
 		updatedJSONDef, err := util.UpdateNamespace(*wri.JSONDefinition, namespace)
