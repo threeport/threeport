@@ -3,11 +3,15 @@ package v0
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 
 	"github.com/threeport/threeport/pkg/api-server/v0/database"
@@ -561,6 +565,14 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControlPlaneDependencies(
 		return fmt.Errorf("failed to create/update API server secret for kubernetes workload controller: %w", err)
 	}
 
+	// the existing stateful set is left as it is, so restart the message broker
+	// when its configuration has changed
+	if cpi.Opts.CreateOrUpdateKubeResources {
+		if err := cpi.refreshNatsConfigChecksum(kubeClient); err != nil {
+			return fmt.Errorf("failed to refresh the message broker config checksum: %w", err)
+		}
+	}
+
 	// leave the database certs secret unchanged when credentials are absent
 	if dbCreds != nil {
 		var dbCertsSecret = &unstructured.Unstructured{
@@ -880,6 +892,60 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControlPlaneDependencies(
 	setPersistent(apiService)
 	if err := cpi.CreateOrUpdateKubeResource(apiService, kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed to create/update API server service: %w", err)
+	}
+
+	return nil
+}
+
+// statefulSetGVR is the apps/v1 stateful sets resource.
+var statefulSetGVR = schema.GroupVersionResource{
+	Group:    "apps",
+	Version:  "v1",
+	Resource: "statefulsets",
+}
+
+// refreshNatsConfigChecksum sets the config checksum on the pod template of an
+// existing message broker stateful set.  The stateful set is persistent, so an
+// install does not rewrite it and a new checksum would never reach it.  The
+// patch changes only that annotation and leaves the volume claim templates and
+// the stored data alone.  A stateful set that does not exist yet was just
+// created with the current checksum.
+func (cpi *ControlPlaneInstaller) refreshNatsConfigChecksum(kubeClient dynamic.Interface) error {
+	statefulSets := kubeClient.Resource(statefulSetGVR).Namespace(cpi.Opts.Namespace)
+
+	existing, err := statefulSets.Get(context.TODO(), natsServiceName, metav1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("failed to get message broker stateful set: %w", err)
+	}
+
+	// leave a stateful set that is already current
+	checksum := natsConfChecksum()
+	current, _, _ := unstructured.NestedString(
+		existing.Object, "spec", "template", "metadata", "annotations", "checksum/config",
+	)
+	if current == checksum {
+		return nil
+	}
+
+	patch, err := json.Marshal(map[string]interface{}{
+		"spec": map[string]interface{}{
+			"template": map[string]interface{}{
+				"metadata": map[string]interface{}{
+					"annotations": map[string]interface{}{"checksum/config": checksum},
+				},
+			},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to build message broker patch: %w", err)
+	}
+	if _, err := statefulSets.Patch(
+		context.TODO(), natsServiceName, types.MergePatchType, patch, metav1.PatchOptions{},
+	); err != nil {
+		return fmt.Errorf("failed to patch message broker stateful set: %w", err)
 	}
 
 	return nil
