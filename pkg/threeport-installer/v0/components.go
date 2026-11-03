@@ -1467,12 +1467,19 @@ func (cpi *ControlPlaneInstaller) UnInstallThreeportControlPlaneComponents(
 		kubeClient,
 		mapper,
 		[]string{cpi.Opts.Namespace},
-	); err != nil && !k8serrors.IsNotFound(err) {
+	); err != nil {
 		return fmt.Errorf("failed to delete control plane namespace: %w", err)
 	}
 
 	return nil
 }
+
+// namespaceDeleteAttempts and namespaceDeletePollSeconds bound the wait for a
+// namespace to be deleted: two minutes, checked every second.
+var (
+	namespaceDeleteAttempts    = 120
+	namespaceDeletePollSeconds = 1
+)
 
 // DeleteNamespace deletes a list of namespaces from a Kubernetes cluster.
 func DeleteNamespaces(
@@ -1510,9 +1517,12 @@ func DeleteNamespaces(
 		}
 	}
 
-	// wait for all namespaces to be deleted
+	// Wait for all namespaces to be deleted. A namespace still present when
+	// the wait ends is a failure - one held by a finalizer keeps its claims,
+	// and with them their disks - and so is one whose presence could not be
+	// checked: only the API server saying it is gone means it is.
 	for _, name := range namespaces {
-		util.Retry(120, 1, func() error {
+		if err := util.Retry(namespaceDeleteAttempts, namespaceDeletePollSeconds, func() error {
 			_, err := kube.GetResource(
 				"",
 				"",
@@ -1522,12 +1532,17 @@ func DeleteNamespaces(
 				kubeClient,
 				*mapper,
 			)
-			if err == nil {
-				return errors.New("namespace is still present")
+			switch {
+			case k8serrors.IsNotFound(err):
+				return nil
+			case err != nil:
+				return err
 			}
 
-			return nil
-		})
+			return errors.New("namespace is still present")
+		}); err != nil {
+			return fmt.Errorf("namespace %s was not deleted: %w", name, err)
+		}
 	}
 
 	return nil

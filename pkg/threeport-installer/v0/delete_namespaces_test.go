@@ -7,11 +7,14 @@ import (
 	"io/fs"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8stesting "k8s.io/client-go/testing"
 )
 
@@ -38,6 +41,82 @@ func TestDeletingANamespaceStillReportsOtherFailures(t *testing.T) {
 	err := DeleteNamespaces(kubeClient, &mapper, []string{"released"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "released")
+}
+
+// shortNamespaceWait bounds the wait for a namespace to a few immediate
+// checks for the length of a test.
+func shortNamespaceWait(t *testing.T) {
+	t.Helper()
+	previousAttempts, previousPoll := namespaceDeleteAttempts, namespaceDeletePollSeconds
+	namespaceDeleteAttempts, namespaceDeletePollSeconds = 3, 0
+	t.Cleanup(func() {
+		namespaceDeleteAttempts, namespaceDeletePollSeconds = previousAttempts, previousPoll
+	})
+}
+
+// TestANamespaceThatIsNeverDeletedIsReported covers the case #706 is about: a
+// namespace held by a finalizer accepts the delete and stays. The wait for it
+// ended without a word, so its caller took it as gone, volumes and all.
+func TestANamespaceThatIsNeverDeletedIsReported(t *testing.T) {
+	shortNamespaceWait(t)
+	kubeClient := testKubeClient(testNamespace("released", ""))
+	kubeClient.PrependReactor("delete", "namespaces", func(k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, nil
+	})
+	mapper := testNamespaceMapper()
+
+	err := DeleteNamespaces(kubeClient, &mapper, []string{"released"})
+	require.Error(t, err, "the namespace is still there")
+	assert.Contains(t, err.Error(), "namespace released was not deleted")
+}
+
+// TestANamespaceThatCannotBeCheckedIsNotTakenAsGone covers the wait counting
+// any failure to read the namespace as its absence: an API server that could
+// not answer said nothing about whether the namespace is there.
+func TestANamespaceThatCannotBeCheckedIsNotTakenAsGone(t *testing.T) {
+	shortNamespaceWait(t)
+	kubeClient := testKubeClient(testNamespace("released", ""))
+	kubeClient.PrependReactor("delete", "namespaces", func(k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, nil
+	})
+	kubeClient.PrependReactor("get", "namespaces", func(k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, k8serrors.NewServiceUnavailable("etcd is unavailable")
+	})
+	mapper := testNamespaceMapper()
+
+	err := DeleteNamespaces(kubeClient, &mapper, []string{"released"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "etcd is unavailable")
+}
+
+// TestTheWaitEndsWhenTheNamespaceIsGone keeps the wait to what it is for: a
+// namespace whose content takes a while to remove is waited for, and once the
+// API server reports it gone the delete has succeeded.
+func TestTheWaitEndsWhenTheNamespaceIsGone(t *testing.T) {
+	previousAttempts, previousPoll := namespaceDeleteAttempts, namespaceDeletePollSeconds
+	namespaceDeleteAttempts, namespaceDeletePollSeconds = 10, 0
+	t.Cleanup(func() {
+		namespaceDeleteAttempts, namespaceDeletePollSeconds = previousAttempts, previousPoll
+	})
+
+	kubeClient := testKubeClient(testNamespace("released", ""))
+	kubeClient.PrependReactor("delete", "namespaces", func(k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, nil
+	})
+	var gets atomic.Int32
+	kubeClient.PrependReactor("get", "namespaces", func(k8stesting.Action) (bool, runtime.Object, error) {
+		if gets.Add(1) == 3 {
+			require.NoError(t, kubeClient.Tracker().Delete(
+				schema.GroupVersionResource{Version: "v1", Resource: "namespaces"}, "", "released",
+			))
+		}
+
+		return false, nil, nil
+	})
+	mapper := testNamespaceMapper()
+
+	require.NoError(t, DeleteNamespaces(kubeClient, &mapper, []string{"released"}))
+	assert.GreaterOrEqual(t, gets.Load(), int32(3), "returned before the namespace was gone")
 }
 
 // TestEveryCallerOfDeleteNamespacesUsesItsResult covers #706: the helm

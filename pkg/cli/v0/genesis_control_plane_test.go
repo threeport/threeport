@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	k8stesting "k8s.io/client-go/testing"
@@ -179,7 +180,11 @@ var _ provider.KubernetesRuntimeInfra = (*fakeRuntimeInfra)(nil)
 // the infra fake it deletes through.
 func newTestUninstaller(client dynamic.Interface) (*Uninstaller, *fakeRuntimeInfra) {
 	infra := &fakeRuntimeInfra{}
-	mapper := meta.RESTMapper(meta.NewDefaultRESTMapper(nil))
+	// the uninstall waits for the control plane namespace to be gone, which
+	// it can only check through a mapper that knows namespaces
+	defaultMapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Version: "v1"}})
+	defaultMapper.Add(schema.GroupVersionKind{Version: "v1", Kind: "Namespace"}, meta.RESTScopeRoot)
+	mapper := meta.RESTMapper(defaultMapper)
 	u := &Uninstaller{
 		controlPlane:           &threeport.ControlPlane{InfraProvider: v0.KubernetesRuntimeInfraProviderKind},
 		kubernetesRuntimeInfra: infra,
