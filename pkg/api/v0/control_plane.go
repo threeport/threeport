@@ -57,7 +57,7 @@ type ControlPlaneInstance struct {
 	ImageTag *string `validate:"optional"`
 
 	// The controller groups this control plane installs.
-	// Names match the apis flag on tptctl up and are separated by commas.
+	// Group names are separated by commas.
 	// An empty or omitted value installs every controller.
 	// The value none installs no controllers.
 	Apis *string `validate:"optional"`

@@ -17204,7 +17204,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "Apis": {
-                    "description": "The controller groups this control plane installs.\nNames match the apis flag on tptctl up and are separated by commas.\nAn empty or omitted value installs every controller.\nThe value none installs no controllers.",
+                    "description": "The controller groups this control plane installs.\nGroup names are separated by commas.\nAn empty or omitted value installs every controller.\nThe value none installs no controllers.",
                     "type": "string"
                 },
                 "CACert": {
