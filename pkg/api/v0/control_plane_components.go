@@ -12,6 +12,12 @@ type ControlPlaneComponent struct {
 	// Indicate whether the component is enabled to be deployed. Currently only respected by controllers.
 	Enabled *bool `validate:"optional"`
 
+	// Marks a component of your own, one that is not part of the default control
+	// plane. A component that matches no default component by name is rejected
+	// unless this is true, so a mistyped name cannot silently install a
+	// component nobody asked for.
+	Additional *bool `validate:"optional"`
+
 	// The name of the component.
 	Name string `validate:"required" gorm:"not null"`
 

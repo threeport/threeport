@@ -12,6 +12,7 @@ import (
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"net/http"
+	neturl "net/url"
 )
 
 // GetAttachedObjectReferences fetches all attached object references.
@@ -25,7 +26,7 @@ func GetAttachedObjectReferences(apiClient *http.Client, apiAddr string) (*[]v0.
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathAttachedObjectReferences)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathAttachedObjectReferences, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathAttachedObjectReferences, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -134,7 +135,7 @@ func GetAttachedObjectReferenceByName(apiClient *http.Client, apiAddr, name stri
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathAttachedObjectReferences, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathAttachedObjectReferences, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
