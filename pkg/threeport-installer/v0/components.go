@@ -1548,15 +1548,19 @@ func waitForVolumesDeleted(kubeClient dynamic.Interface, volumes []string) error
 	ctx, cancel := context.WithTimeout(context.Background(), volumeDeleteTimeout)
 	defer cancel()
 
-	var remaining []string
+	// Each pass checks the volumes the one before found still there, so a
+	// volume is named as left only while nothing has said it is gone.
+	pending := volumes
 	for {
-		remaining = remaining[:0]
-		for _, name := range volumes {
+		var remaining []string
+		for i, name := range pending {
 			_, err := kubeClient.Resource(persistentVolumeGVR).Get(ctx, name, metav1.GetOptions{})
 			switch {
 			case k8serrors.IsNotFound(err):
 			case ctx.Err() != nil:
-				return volumesStillPresent(volumes, err)
+				// the deadline ended this pass at this volume: it and the
+				// ones after it were still there when last checked
+				return volumesStillPresent(append(remaining, pending[i:]...), err)
 			case err != nil:
 				return fmt.Errorf("failed to check persistent volume %s: %w", name, err)
 			default:
@@ -1566,6 +1570,7 @@ func waitForVolumesDeleted(kubeClient dynamic.Interface, volumes []string) error
 		if len(remaining) == 0 {
 			return nil
 		}
+		pending = remaining
 
 		select {
 		case <-ctx.Done():

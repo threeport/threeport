@@ -5,6 +5,8 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -161,6 +163,76 @@ func TestTheWaitEndsWhenTheApiServerStopsAnswering(t *testing.T) {
 		assert.Contains(t, err.Error(), "pvc-crdb")
 	case <-time.After(5 * time.Second):
 		t.Fatal("the wait for volumes did not end with an API server that stopped answering")
+	}
+}
+
+// TestAWaitThatRunsOutNamesOnlyTheVolumesStillThere covers the error a
+// deadline ends the wait with. It named every volume the wait started with,
+// so a volume already confirmed deleted - by an earlier pass, or earlier in
+// the pass the deadline cut short - was reported as left behind, sending an
+// operator after a disk that was gone.
+func TestAWaitThatRunsOutNamesOnlyTheVolumesStillThere(t *testing.T) {
+	for name, test := range map[string]struct {
+		volumes []string
+		// the attempt from which a volume's check answers it is gone, or
+		// hangs until the wait runs out
+		goneFrom, hangsFrom map[string]int
+		named, notNamed     []string
+	}{
+		"gone earlier in the pass the deadline cut short": {
+			volumes:   []string{"pvc-deleted", "pvc-stuck", "pvc-unchecked"},
+			goneFrom:  map[string]int{"pvc-deleted": 2},
+			hangsFrom: map[string]int{"pvc-stuck": 2},
+			named:     []string{"pvc-stuck", "pvc-unchecked"},
+			notNamed:  []string{"pvc-deleted"},
+		},
+		"gone in an earlier pass, and after the volume the deadline cut short": {
+			volumes:   []string{"pvc-stuck", "pvc-deleted"},
+			goneFrom:  map[string]int{"pvc-deleted": 2},
+			hangsFrom: map[string]int{"pvc-stuck": 3},
+			named:     []string{"pvc-stuck"},
+			notNamed:  []string{"pvc-deleted"},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			fastVolumeWait(t, 300*time.Millisecond)
+			var mu sync.Mutex
+			gets := map[string]int{}
+			release := make(chan struct{})
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				volume := r.URL.Path[strings.LastIndex(r.URL.Path, "/")+1:]
+				mu.Lock()
+				gets[volume]++
+				attempt := gets[volume]
+				mu.Unlock()
+
+				w.Header().Set("Content-Type", "application/json")
+				switch {
+				case test.goneFrom[volume] != 0 && attempt >= test.goneFrom[volume]:
+					w.WriteHeader(http.StatusNotFound)
+					_, _ = w.Write([]byte(`{"kind":"Status","apiVersion":"v1","status":"Failure","reason":"NotFound","code":404}`))
+				case test.hangsFrom[volume] != 0 && attempt >= test.hangsFrom[volume]:
+					select {
+					case <-release:
+					case <-r.Context().Done():
+					}
+				default:
+					_, _ = w.Write([]byte(`{"apiVersion":"v1","kind":"PersistentVolume","metadata":{"name":"` + volume + `"}}`))
+				}
+			}))
+			t.Cleanup(func() { close(release); server.Close() })
+			kubeClient, err := dynamic.NewForConfig(&rest.Config{Host: server.URL})
+			require.NoError(t, err)
+
+			err = waitForVolumesDeleted(kubeClient, test.volumes)
+			require.Error(t, err)
+			for _, volume := range test.named {
+				assert.Contains(t, err.Error(), volume, "still there when last checked")
+			}
+			for _, volume := range test.notNamed {
+				assert.NotContains(t, err.Error(), volume, "confirmed gone before the wait ran out")
+			}
+		})
 	}
 }
 
