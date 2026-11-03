@@ -48,6 +48,10 @@ func GenClientLib(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				"tpapiserver_lib",
 				gen.Module,
 			))
+			// the paginating list functions below declare a local named url,
+			// which would shadow the package and make url.QueryEscape resolve
+			// to a string
+			f.ImportAlias("net/url", "neturl")
 
 			for _, apiObject := range objGroup.ApiObjects {
 				// get all objects
@@ -96,7 +100,7 @@ func GenClientLib(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version),
 									fmt.Sprintf("Path%s", pluralize.Pluralize(apiObject.TypeName, 2, false)),
 								),
-								Id("queryId"),
+								Qual("net/url", "QueryEscape").Call(Id("queryId")),
 								Id("nextCursor"),
 							),
 						),
@@ -342,7 +346,11 @@ func GenClientLib(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 								fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version),
 								fmt.Sprintf("Path%s", pluralize.Pluralize(apiObject.TypeName, 2, false)),
 							),
-							Id("name"),
+							// a name is whatever the caller chose, and it is
+							// going into a query string: unescaped, "a+b"
+							// reaches the server as "a b" and the lookup
+							// silently misses the row it was asked for
+							Qual("net/url", "QueryEscape").Call(Id("name")),
 						),
 						Line().Qual("net/http", "MethodGet"),
 						Line().New(Qual("bytes", "Buffer")),

@@ -179,6 +179,16 @@ func v0KubernetesRuntimeInstanceUpdated(
 		return 0, fmt.Errorf("failed to retrieve kubernetes runtime definition by ID: %w", err)
 	}
 
+	// A GKE-hosted control plane's own cluster has everything this function
+	// would install - the control plane install put it there - and this
+	// controller is not granted read access to the Deployments and CRDs it
+	// would check for in the cluster it runs in. Checking anyway fails with
+	// Forbidden on every pass, forever.
+	if isGkeControlPlaneHost(kubernetesRuntimeInstance, kubernetesRuntimeDefinition) {
+		log.V(1).Info("kubernetes runtime hosts this GKE control plane, skipping compute space component install")
+		return 0, nil
+	}
+
 	// get kube client to install compute space control plane components
 	dynamicKubeClient, mapper, err := kube.GetClient(
 		kubernetesRuntimeInstance,
@@ -288,6 +298,17 @@ func v0KubernetesRuntimeInstanceUpdated(
 		); err != nil {
 			return 0, fmt.Errorf("failed to install system services: %w", err)
 		}
+
+		// a claim that names no storage class has nothing to bind to on EKS
+		// without a default. Checked on its own rather than with the system
+		// services, so a cluster that already has those gets a default too.
+		created, err := threeport.EnsureEksDefaultStorageClass(dynamicKubeClient)
+		if err != nil {
+			return 0, fmt.Errorf("failed to set a default storage class: %w", err)
+		}
+		if created {
+			log.Info("set a default storage class", "storageClass", threeport.EksDefaultStorageClassName)
+		}
 	}
 
 	// On GKE, the control-plane workload controllers authenticate to this
@@ -298,8 +319,7 @@ func v0KubernetesRuntimeInstanceUpdated(
 	// both this managed cluster and the control-plane host run on GKE; the host
 	// instance is skipped because its bindings are created at control-plane
 	// install time.
-	isControlPlaneHost := kubernetesRuntimeInstance.ThreeportControlPlaneHost != nil &&
-		*kubernetesRuntimeInstance.ThreeportControlPlaneHost
+	isControlPlaneHost := runtimeHostsControlPlane(kubernetesRuntimeInstance)
 	if !isControlPlaneHost &&
 		*kubernetesRuntimeDefinition.InfraProvider == v0.KubernetesRuntimeInfraProviderGKE {
 		controlPlaneGcpProject, err := controlPlaneGkeProject(r)
@@ -408,6 +428,14 @@ func v0KubernetesRuntimeInstanceDeleted(
 			*kubernetesRuntimeInstance.ID,
 		)
 		if err != nil {
+			if errors.Is(err, client_lib.ErrObjectNotFound) {
+				// AWS EKS instance already gone - nothing left to delete
+				log.Info(
+					"aws eks runtime instance already deleted, confirming kubernetes runtime instance deletion",
+					"kubernetesRuntimeInstanceID", *kubernetesRuntimeInstance.ID,
+				)
+				return 0, nil
+			}
 			return 0, fmt.Errorf("failed to get aws eks runtime instance by kubernetes runtime instance ID: %w", err)
 		}
 
@@ -430,6 +458,10 @@ func v0KubernetesRuntimeInstanceDeleted(
 		if err != nil {
 			if errors.Is(err, client_lib.ErrObjectNotFound) {
 				// GcpGke instance already gone - nothing left to delete
+				log.Info(
+					"gcp gke runtime instance already deleted, confirming kubernetes runtime instance deletion",
+					"kubernetesRuntimeInstanceID", *kubernetesRuntimeInstance.ID,
+				)
 				return 0, nil
 			}
 			return 0, fmt.Errorf("failed to get GCP GKE runtime instance by kubernetes runtime instance ID: %w", err)
@@ -447,6 +479,23 @@ func v0KubernetesRuntimeInstanceDeleted(
 	}
 
 	return 0, nil
+}
+
+// runtimeHostsControlPlane reports whether a runtime instance is the cluster the
+// control plane itself runs on.
+func runtimeHostsControlPlane(instance *v0.KubernetesRuntimeInstance) bool {
+	return instance.ThreeportControlPlaneHost != nil && *instance.ThreeportControlPlaneHost
+}
+
+// isGkeControlPlaneHost reports whether a runtime instance is a GKE cluster the
+// control plane runs on.
+func isGkeControlPlaneHost(
+	instance *v0.KubernetesRuntimeInstance,
+	definition *v0.KubernetesRuntimeDefinition,
+) bool {
+	return runtimeHostsControlPlane(instance) &&
+		definition.InfraProvider != nil &&
+		*definition.InfraProvider == v0.KubernetesRuntimeInfraProviderGKE
 }
 
 // serviceAccountNamespacePath is where Kubernetes mounts a pod's own namespace.
@@ -479,61 +528,14 @@ var readControlPlaneNamespace = func() (string, error) {
 	return trimmed, nil
 }
 
-// controlPlaneGkeProject returns the GCP project ID of the GKE cluster hosting
-// the threeport control plane, or "" if the control plane is not hosted on GKE.
-// It is used to construct the Workload Identity principals of the control-plane
-// controllers when granting them access to managed clusters. The control-plane
-// host is the KubernetesRuntimeInstance marked ThreeportControlPlaneHost.
+// controlPlaneGkeProject returns the GCP project of the cluster hosting the
+// control plane, or an empty string when the control plane is not GKE-hosted.
+//
+// The connection path decides which identity reaches a managed cluster from the
+// same project, so it is read from there rather than worked out again here -
+// the principal this binds and the one requests arrive as are the same thing.
 func controlPlaneGkeProject(r *controller.Reconciler) (string, error) {
-	instances, err := client.GetKubernetesRuntimeInstances(r.APIClient, r.APIServer)
-	if err != nil {
-		return "", fmt.Errorf("failed to list kubernetes runtime instances: %w", err)
-	}
-
-	var hostInstance *v0.KubernetesRuntimeInstance
-	for i := range *instances {
-		if (*instances)[i].ThreeportControlPlaneHost != nil && *(*instances)[i].ThreeportControlPlaneHost {
-			hostInstance = &(*instances)[i]
-			break
-		}
-	}
-	if hostInstance == nil {
-		return "", fmt.Errorf("no control plane host kubernetes runtime instance found")
-	}
-
-	hostDefinition, err := client.GetKubernetesRuntimeDefinitionByID(
-		r.APIClient,
-		r.APIServer,
-		*hostInstance.KubernetesRuntimeDefinitionID,
-	)
-	if err != nil {
-		return "", fmt.Errorf("failed to get control plane host runtime definition: %w", err)
-	}
-
-	// Only GKE-hosted control planes present Workload Identity principals to
-	// managed clusters; for any other host provider there is no WI principal to
-	// bind, so signal "not applicable" with an empty project.
-	if hostDefinition.InfraProvider == nil ||
-		*hostDefinition.InfraProvider != v0.KubernetesRuntimeInfraProviderGKE {
-		return "", nil
-	}
-	if hostDefinition.InfraProviderAccountName == nil {
-		return "", fmt.Errorf("control plane host runtime definition has no infra provider account name")
-	}
-
-	gcpProvider, err := client.GetGcpProviderByName(
-		r.APIClient,
-		r.APIServer,
-		*hostDefinition.InfraProviderAccountName,
-	)
-	if err != nil {
-		return "", fmt.Errorf("failed to get GCP provider %q: %w", *hostDefinition.InfraProviderAccountName, err)
-	}
-	if gcpProvider.ProjectID == nil {
-		return "", fmt.Errorf("GCP provider %q has no project ID", *hostDefinition.InfraProviderAccountName)
-	}
-
-	return *gcpProvider.ProjectID, nil
+	return kube.ControlPlaneGkeProject(r.APIClient, r.APIServer)
 }
 
 // GetCloudProviderForInfraProvider returns the cloud provider for a given

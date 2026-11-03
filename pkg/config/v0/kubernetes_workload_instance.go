@@ -125,6 +125,84 @@ func (w *KubernetesWorkloadInstanceConfig) Get(
 	return &k8sWorkloadInstanceConfigs, nil
 }
 
+// How long validateKustomizeOverlay waits for a definition's resources to be
+// written by its reconciler. Variables rather than constants so tests need not
+// spend the wait.
+var (
+	resourceDefinitionAttempts    = 10
+	resourceDefinitionWaitSeconds = 1
+)
+
+// validateKustomizeOverlay renders an overlay against the base manifests the
+// controller will render it against, so an overlay that cannot produce
+// resources is rejected here rather than accepted and left to fail later.
+//
+// The API stores the overlay as opaque text, and the only thing that proves it
+// valid is running it. Without this, a malformed patch is accepted, written,
+// and surfaces as a Kubernetes event on an object that already exists and will
+// not reconcile - a failure the caller has to go looking for, about input they
+// could have been told about before anything was created.
+//
+// The base is the definition's stored resource definitions, which is what
+// v0KubernetesWorkloadInstanceCreated renders against. Its YAMLDocument is not
+// the same thing: editing one does not regenerate the others, so checking
+// against it would reject overlays that work and accept overlays that do not.
+func validateKustomizeOverlay(
+	apiClient *http.Client,
+	apiEndpoint string,
+	overlay *string,
+	kubernetesWorkloadDefinitionID *uint,
+) error {
+	if overlay == nil {
+		return nil
+	}
+	if kubernetesWorkloadDefinitionID == nil {
+		return errors.New("cannot validate a KustomizeOverlay without a kubernetes workload definition")
+	}
+
+	// The definition's resources are written by its reconciler, after the
+	// definition row exists, so a workload config that creates both finds none
+	// here. Kustomize renders an empty base to no resources without
+	// complaining, which would pass every overlay in the one flow this
+	// validation is for - so the resources are waited for rather than read
+	// once. Only an instance carrying an overlay waits at all.
+	var resourceDefinitions *[]api_v0.KubernetesWorkloadResourceDefinition
+	if err := util.Retry(
+		resourceDefinitionAttempts,
+		resourceDefinitionWaitSeconds,
+		func() error {
+			found, err := client_v0.GetKubernetesWorkloadResourceDefinitionsByID(
+				apiClient,
+				apiEndpoint,
+				*kubernetesWorkloadDefinitionID,
+			)
+			if err != nil {
+				return err
+			}
+			if len(*found) == 0 {
+				return errors.New("the kubernetes workload definition has no resources yet")
+			}
+			resourceDefinitions = found
+
+			return nil
+		},
+	); err != nil {
+		return fmt.Errorf(
+			"cannot validate the KustomizeOverlay: no resources for kubernetes workload definition %d - it may not have reconciled: %w",
+			*kubernetesWorkloadDefinitionID, err,
+		)
+	}
+
+	if _, err := kube.RenderKustomizeOverlay(
+		kube.KustomizeBase(*resourceDefinitions),
+		*overlay,
+	); err != nil {
+		return fmt.Errorf("invalid KustomizeOverlay: %w", err)
+	}
+
+	return nil
+}
+
 // Create creates a kubernetes workload instance in the Threeport API.
 func (w *KubernetesWorkloadInstanceConfig) Create(
 	apiClient *http.Client,
@@ -154,6 +232,18 @@ func (w *KubernetesWorkloadInstanceConfig) Create(
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kubernetes workload definition by name %s: %w", *k8sWorkloadInstanceValues.KubernetesWorkloadDefinition.Name, err)
+	}
+
+	// reject an overlay that cannot render before anything is submitted,
+	// alongside the namespace check below - both need the definition's
+	// manifests, which Validate() runs too early to have
+	if err := validateKustomizeOverlay(
+		apiClient,
+		apiEndpoint,
+		k8sWorkloadInstanceValues.KustomizeOverlay,
+		k8sWorkloadDefinition.ID,
+	); err != nil {
+		return nil, err
 	}
 
 	// check to see if threeport is managing namespace
@@ -303,6 +393,18 @@ func (w *KubernetesWorkloadInstanceConfig) Replace(
 	kustomizeOverlay := existingK8sWorkloadInstance.KustomizeOverlay
 	if k8sWorkloadInstanceValues.KustomizeOverlay != nil {
 		kustomizeOverlay = k8sWorkloadInstanceValues.KustomizeOverlay
+	}
+
+	// what will be sent is what has to render, which is not always what the
+	// caller wrote: a config that leaves the field unset carries the existing
+	// overlay forward, and that is the one this replace puts back
+	if err := validateKustomizeOverlay(
+		apiClient,
+		apiEndpoint,
+		kustomizeOverlay,
+		k8sWorkloadDefinition.ID,
+	); err != nil {
+		return nil, err
 	}
 
 	// construct updated kubernetes workload instance object. Several fields

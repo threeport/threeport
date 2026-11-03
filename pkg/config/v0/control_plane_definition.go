@@ -26,6 +26,7 @@ type ControlPlaneDefinitionValues struct {
 	Name          *string
 	AuthEnabled   *bool
 	OnboardParent *bool
+	Tier          *string
 	Age           *string
 }
 
@@ -63,6 +64,7 @@ func (c *ControlPlaneDefinitionConfig) Get(
 			ControlPlaneDefinition: ControlPlaneDefinitionValues{
 				Name:          controlPlaneDefinition.Name,
 				AuthEnabled:   controlPlaneDefinition.AuthEnabled,
+				Tier:          controlPlaneDefinition.Tier,
 				OnboardParent: controlPlaneDefinition.OnboardParent,
 				Age:           util.Ptr(util.GetAgeFormatted(controlPlaneDefinition.CreatedAt)),
 			},
@@ -91,6 +93,7 @@ func (c *ControlPlaneDefinitionConfig) Create(
 			Name: controlPlaneDefinitionValues.Name,
 		},
 		AuthEnabled:   controlPlaneDefinitionValues.AuthEnabled,
+		Tier:          controlPlaneDefinitionValues.Tier,
 		OnboardParent: controlPlaneDefinitionValues.OnboardParent,
 	}
 
@@ -110,6 +113,7 @@ func (c *ControlPlaneDefinitionConfig) Create(
 			Age:           util.Ptr(util.GetAgeFormatted(createdControlPlaneDefinition.CreatedAt)),
 			Name:          createdControlPlaneDefinition.Name,
 			AuthEnabled:   createdControlPlaneDefinition.AuthEnabled,
+			Tier:          createdControlPlaneDefinition.Tier,
 			OnboardParent: createdControlPlaneDefinition.OnboardParent,
 		},
 	}
@@ -144,6 +148,28 @@ func (c *ControlPlaneDefinitionConfig) Replace(
 	}
 
 	// construct updated control plane definition object
+	// Replace sends a PUT, a full replace, and the column default only applies
+	// on insert - so a config that does not mention the tier would not fall
+	// back to development, it would leave the definition with no tier at all.
+	// A caller editing an unrelated field is not changing what the control
+	// plane is, so the recorded value is carried forward.
+	//
+	// A config that names a different tier is refused. The tier is decided at
+	// creation and the deployment is built from it; rewriting the record
+	// reconfigures nothing. The API refuses this too - the check is repeated
+	// here so the message names the config being applied rather than arriving
+	// as a 400 from a request the caller did not write.
+	tier := existingControlPlaneDefinition.Tier
+	if controlPlaneDefinitionValues.Tier != nil {
+		if tier != nil && *controlPlaneDefinitionValues.Tier != *tier {
+			return nil, fmt.Errorf(
+				"cannot change the tier of control plane definition %s from %s to %s: the tier is set at creation and cannot be changed",
+				name, *tier, *controlPlaneDefinitionValues.Tier,
+			)
+		}
+		tier = controlPlaneDefinitionValues.Tier
+	}
+
 	updatedControlPlaneDefinition := &api_v0.ControlPlaneDefinition{
 		Common: api_v0.Common{
 			ID: existingControlPlaneDefinition.ID,
@@ -152,6 +178,7 @@ func (c *ControlPlaneDefinitionConfig) Replace(
 			Name: controlPlaneDefinitionValues.Name,
 		},
 		AuthEnabled:   controlPlaneDefinitionValues.AuthEnabled,
+		Tier:          tier,
 		OnboardParent: controlPlaneDefinitionValues.OnboardParent,
 	}
 
@@ -171,6 +198,7 @@ func (c *ControlPlaneDefinitionConfig) Replace(
 			Age:           util.Ptr(util.GetAgeFormatted(replacedControlPlaneDefinition.CreatedAt)),
 			Name:          replacedControlPlaneDefinition.Name,
 			AuthEnabled:   replacedControlPlaneDefinition.AuthEnabled,
+			Tier:          replacedControlPlaneDefinition.Tier,
 			OnboardParent: replacedControlPlaneDefinition.OnboardParent,
 		},
 	}
@@ -210,6 +238,7 @@ func (c *ControlPlaneDefinitionConfig) Delete(
 		ControlPlaneDefinition: ControlPlaneDefinitionValues{
 			Name:          deletedControlPlaneDefinition.Name,
 			AuthEnabled:   deletedControlPlaneDefinition.AuthEnabled,
+			Tier:          deletedControlPlaneDefinition.Tier,
 			OnboardParent: deletedControlPlaneDefinition.OnboardParent,
 		},
 	}

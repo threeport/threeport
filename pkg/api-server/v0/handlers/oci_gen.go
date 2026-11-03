@@ -8,6 +8,7 @@ import (
 	echo "github.com/labstack/echo/v4"
 	notif "github.com/threeport/threeport/internal/oci/notif"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
+	api_v0_lib "github.com/threeport/threeport/pkg/api/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util_v0 "github.com/threeport/threeport/pkg/util/v0"
@@ -813,9 +814,8 @@ func (h Handler) UpdateOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before update so the notify block
-	// can skip publishing when the update did not touch any state marker
-	prevReconciliation := existingOciOkeKubernetesRuntimeInstance.Reconciliation
+	// snapshot the loaded row before this update.
+	prevOciOkeKubernetesRuntimeInstance := api_v0_lib.NotifySnapshot(existingOciOkeKubernetesRuntimeInstance)
 
 	// update object in database
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
@@ -839,7 +839,12 @@ func (h Handler) UpdateOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingOciOkeKubernetesRuntimeInstance.Reconciliation) {
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevOciOkeKubernetesRuntimeInstance, existingOciOkeKubernetesRuntimeInstance)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingOciOkeKubernetesRuntimeInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -915,9 +920,8 @@ func (h Handler) ReplaceOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
 	}
 
-	// snapshot reconciliation state before replace so the notify block
-	// can skip publishing when the replace did not touch any state marker
-	prevReconciliation := existingOciOkeKubernetesRuntimeInstance.Reconciliation
+	// snapshot the loaded row before this replace.
+	prevOciOkeKubernetesRuntimeInstance := api_v0_lib.NotifySnapshot(existingOciOkeKubernetesRuntimeInstance)
 
 	// persist provided data
 	updatedOciOkeKubernetesRuntimeInstance.ID = existingOciOkeKubernetesRuntimeInstance.ID
@@ -951,7 +955,12 @@ func (h Handler) ReplaceOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 	}
 
 	// notify controller if the update is notifiable
-	if api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingOciOkeKubernetesRuntimeInstance.Reconciliation) {
+	notify, changed := api_v0_lib.ObjectUpdateNotifiable(prevOciOkeKubernetesRuntimeInstance, existingOciOkeKubernetesRuntimeInstance)
+	// log other fields changed when reconciled becomes true
+	if len(changed) > 0 {
+		h.Logger.Warn("reconciled became true with other fields changed", zap.Strings("fields", changed))
+	}
+	if notify {
 		notifPayload, err := existingOciOkeKubernetesRuntimeInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,

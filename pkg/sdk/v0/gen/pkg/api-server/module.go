@@ -655,6 +655,23 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			Op("&").Id("reclaim"),
 		),
 		If(Id("reclaimErr").Op("!=").Nil()).Block(
+			// a 409 has two causes the client cannot tell apart without parsing
+			// the message: a different, active module api owns the controller
+			// (a name collision that won't resolve itself, so the module crash
+			// loops on restart), or another request changed the row during the
+			// reclaim (transient, a restart may succeed). Leave an explicit log
+			// line for the operator that names both and carries the server's
+			// reason
+			If(Qual("errors", "Is").Call(
+				Id("reclaimErr"),
+				Qual("github.com/threeport/threeport/pkg/client/lib/v0", "ErrConflict"),
+			)).Block(
+				Qual("log", "Printf").Call(
+					Lit("register-module: reclaim of controller %q conflicted: either a different, active module api owns this controller name (a collision that must be resolved before registration can complete) or the controller was changed concurrently (a restart may succeed); server response: %v"),
+					Op("*").Id("controller").Dot("Name"),
+					Id("reclaimErr"),
+				),
+			),
 			Return(Nil(), Qual("fmt", "Errorf").Call(
 				Lit("failed to reclaim controller %q for the current module api: %w"),
 				Op("*").Id("controller").Dot("Name"),

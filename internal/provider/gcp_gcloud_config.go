@@ -10,19 +10,27 @@ import (
 	"gopkg.in/ini.v1"
 )
 
+// gcloudConfigDir returns the directory the gcloud CLI keeps its configuration
+// in, which differs by platform.
+func gcloudConfigDir() (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get home directory: %w", err)
+	}
+
+	if runtime.GOOS == "windows" {
+		return filepath.Join(homeDir, "AppData", "Roaming", "gcloud"), nil
+	}
+
+	return filepath.Join(homeDir, ".config", "gcloud"), nil
+}
+
 // loadActiveGcloudConfigINI loads the INI file for the active gcloud configuration
 // (same resolution as the gcloud CLI: active_config → configurations/config_<name>).
 func loadActiveGcloudConfigINI() (*ini.File, error) {
-	homeDir, err := os.UserHomeDir()
+	gcloudConfigDir, err := gcloudConfigDir()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get home directory: %w", err)
-	}
-
-	var gcloudConfigDir string
-	if runtime.GOOS == "windows" {
-		gcloudConfigDir = filepath.Join(homeDir, "AppData", "Roaming", "gcloud")
-	} else {
-		gcloudConfigDir = filepath.Join(homeDir, ".config", "gcloud")
+		return nil, err
 	}
 
 	activeConfig := "default"

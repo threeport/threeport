@@ -107,6 +107,9 @@ type OKEProviderConfig struct {
 type GKEProviderConfig struct {
 	GcpProjectId string
 	GcpRegion    string
+
+	// The bucket a production control plane's database is backed up to.
+	BackupBucket string
 }
 
 // Credential is a client certificate and key pair for authenticating to a Threeport instance.

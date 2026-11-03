@@ -20,6 +20,7 @@ import (
 	gcpiam "google.golang.org/api/iam/v1"
 	"google.golang.org/api/option"
 	gcpoption "google.golang.org/api/option"
+	"google.golang.org/api/storage/v1"
 	"gorm.io/datatypes"
 
 	gcpauth "github.com/threeport/threeport/pkg/auth/v0"
@@ -73,28 +74,59 @@ type KubernetesRuntimeInfraGKE struct {
 	// ServiceAccountCredentials is used.
 	credentialsFilePath string
 
+	// ProvisionBackups makes Create provision a bucket in another region the
+	// control plane's database is backed up to.
+	ProvisionBackups bool
+
+	// BackupRegion is the region of the backup bucket.  Empty uses the
+	// default for the cluster's region.
+	BackupRegion string
+
+	// BackupBucket is the name of the backup bucket: set by Create when it
+	// provisions one, and by a caller tearing down a control plane whose
+	// bucket was recorded, so Delete removes the database's access to it.
+	BackupBucket string
+
+	// DeleteBackups makes Delete remove the backup bucket in BackupBucket and
+	// every backup in it.  The bucket is kept by default, since its backups
+	// may still be needed after the control plane is gone.
+	DeleteBackups bool
+
 	// gcpProjectResolvedFromGcloudINI is true when loadGCPConfig set ProjectID from the active gcloud INI.
 	gcpProjectResolvedFromGcloudINI bool
 	// gcpRegionResolvedFromGcloudINI is true when loadGCPConfig set Region from the active gcloud INI.
 	gcpRegionResolvedFromGcloudINI bool
 }
 
-// ensurePulumiProjectDefaults sets Pulumi project metadata when not provided by callers.
-func (i *KubernetesRuntimeInfraGKE) ensurePulumiProjectDefaults() {
+const (
+	gkePulumiProjectName        = "gke"
+	gkePulumiProjectDescription = "Google Kubernetes Engine (GKE) cluster for Threeport"
+)
+
+// InitPulumiProject fills in the Pulumi project identity and stack config, and
+// returns the receiver so a caller can set it at construction.
+//
+// It has to be called before the infra is handed to the lifecycle, not from
+// CreateInfra. executeInfraCreate starts the fsnotify watcher that streams
+// partial state to the API before it calls DeployInfra, and the watched path is
+// built from ProjectName: setting it later means the watcher reads an empty
+// name, watches one directory above where Pulumi writes, and never fires - so a
+// controller that crashes mid-provision has persisted nothing and a retry
+// starts over, leaving the first attempt's resources behind. Setting it here
+// also keeps the two goroutines from racing on the same field.
+func (i *KubernetesRuntimeInfraGKE) InitPulumiProject() *KubernetesRuntimeInfraGKE {
 	if i.ProjectName == "" {
-		i.ProjectName = "gke"
+		i.ProjectName = gkePulumiProjectName
 	}
 	if i.ProjectDescription == "" {
-		i.ProjectDescription = "Google Kubernetes Engine (GKE) cluster for Threeport"
+		i.ProjectDescription = gkePulumiProjectDescription
 	}
-}
-
-// syncStackConfigs updates stack config keys from the current ProjectID and Region.
-func (i *KubernetesRuntimeInfraGKE) syncStackConfigs() {
 	i.StackConfigs = map[string]string{
 		"gcp:project": i.ProjectID,
 		"gcp:region":  i.Region,
 	}
+
+	return i
 }
 
 // Create installs a Kubernetes cluster using Google Cloud GKE for threeport workloads.
@@ -120,13 +152,34 @@ func (i *KubernetesRuntimeInfraGKE) Create() (*kube.KubeConnectionInfo, error) {
 		}
 	}
 
+	// refuse a backup region that would not survive the loss of the
+	// cluster's region before anything is created
+	if i.ProvisionBackups {
+		if _, err := GkeBackupRegion(i.Region, i.BackupRegion); err != nil {
+			return nil, err
+		}
+	}
+
 	// create GCP service account for Threeport to manage GCP resources
 	// This service account will be used with Workload Identity
 	if err := i.createGCPServiceAccountAndCredentials(); err != nil {
 		return nil, fmt.Errorf("failed to create GCP service account: %w", err)
 	}
 
-	return i.CreateInfra()
+	connection, err := i.CreateInfra()
+	if err != nil {
+		return nil, err
+	}
+
+	// provision the database backups once the cluster, and with it the
+	// workload identity pool the backup binding names, exists
+	if i.ProvisionBackups {
+		if err := i.provisionBackups(); err != nil {
+			return nil, fmt.Errorf("failed to provision database backups: %w", err)
+		}
+	}
+
+	return connection, nil
 }
 
 // CreateInfra provisions GKE cluster infrastructure via Pulumi (network, cluster, node pool)
@@ -134,9 +187,6 @@ func (i *KubernetesRuntimeInfraGKE) Create() (*kube.KubeConnectionInfo, error) {
 // call createGCPServiceAccountAndCredentials first for the bootstrap path, or ensure
 // credentials and Workload Identity are already configured for the controller path.
 func (i *KubernetesRuntimeInfraGKE) CreateInfra() (*kube.KubeConnectionInfo, error) {
-	i.ensurePulumiProjectDefaults()
-	i.syncStackConfigs()
-
 	stack, err := i.SetupStack(i.pulumiProgram())
 	if err != nil {
 		return nil, fmt.Errorf("failed to set up Pulumi workspace: %w", err)
@@ -163,9 +213,15 @@ func (i *KubernetesRuntimeInfraGKE) DeployInfra() error {
 	return err
 }
 
-// DestroyInfra tears down GKE infrastructure via Delete. It satisfies InfraProvider.
+// DestroyInfra tears down the GKE infrastructure. It satisfies InfraProvider.
+//
+// It is the controller's delete, and the controller path never creates the GCP
+// service account (CreateInfra skips it), so there is none of this runtime's to
+// clean up. An account found under the runtime's name belongs to something else -
+// a GcpProvider of the same name, for one - and removing it would cut that
+// provider off. Delete is the bootstrap path that also cleans up the account.
 func (i *KubernetesRuntimeInfraGKE) DestroyInfra() error {
-	return i.Delete()
+	return i.destroyInfraStack()
 }
 
 // pulumiProgram defines the Pulumi resources for the GKE stack.
@@ -327,24 +383,12 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 	}
 }
 
-// Delete deletes a GKE cluster and the threeport control plane with it.
+// Delete deletes a GKE cluster and the threeport control plane with it, along
+// with the GCP service account Create made for it. It is for the bootstrap path:
+// DestroyInfra leaves the account alone because the controller never created one.
 func (i *KubernetesRuntimeInfraGKE) Delete() error {
-	if err := gcpauth.EnsureGCPAuth(i.ServiceAccountCredentials); err != nil {
-		return fmt.Errorf("failed to ensure GCP authentication: %w", err)
-	}
-	if i.ServiceAccountCredentials != "" {
-		defer gcpauth.CleanupGCPCredentials()
-	}
-
-	if err := i.loadGCPConfig(); err != nil {
-		return fmt.Errorf("failed to load GCP configuration: %w", err)
-	}
-
-	i.ensurePulumiProjectDefaults()
-	i.syncStackConfigs()
-
-	if err := i.DestroyStack(); err != nil {
-		return fmt.Errorf("failed to destroy Pulumi stack: %w", err)
+	if err := i.destroyInfraStack(); err != nil {
+		return err
 	}
 
 	if err := i.DeleteGCPResources(); err != nil {
@@ -358,8 +402,31 @@ func (i *KubernetesRuntimeInfraGKE) Delete() error {
 	return nil
 }
 
-// DeleteGCPResources deletes all GCP resources created for this Threeport instance
-// that are not managed by Pulumi.
+// destroyInfraStack destroys the Pulumi-managed GKE infrastructure and nothing
+// else.
+func (i *KubernetesRuntimeInfraGKE) destroyInfraStack() error {
+	if err := gcpauth.EnsureGCPAuth(i.ServiceAccountCredentials); err != nil {
+		return fmt.Errorf("failed to ensure GCP authentication: %w", err)
+	}
+	if i.ServiceAccountCredentials != "" {
+		defer gcpauth.CleanupGCPCredentials()
+	}
+
+	if err := i.loadGCPConfig(); err != nil {
+		return fmt.Errorf("failed to load GCP configuration: %w", err)
+	}
+
+	if err := i.DestroyStack(); err != nil {
+		return fmt.Errorf("failed to destroy Pulumi stack: %w", err)
+	}
+
+	return nil
+}
+
+// DeleteGCPResources deletes the GCP service account Create made for this
+// Threeport instance, and its project roles. It does so only if the account
+// carries this runtime's own description - an account that is there but belongs
+// to something else, such as a GcpProvider of the same name, is refused.
 func (i *KubernetesRuntimeInfraGKE) DeleteGCPResources() error {
 	ctx := context.Background()
 
@@ -388,14 +455,31 @@ func (i *KubernetesRuntimeInfraGKE) DeleteGCPResources() error {
 		return fmt.Errorf("failed to create Cloud Resource Manager service client: %w", err)
 	}
 
-	// Remove IAM role bindings
-	if err := i.removeServiceAccountRoles(crmService); err != nil {
-		return fmt.Errorf("failed to remove IAM roles: %w", err)
+	if err := deleteOwnedServiceAccount(
+		iamService,
+		crmService,
+		i.ProjectID,
+		i.getServiceAccountEmail(),
+		i.RuntimeInstanceName,
+		runtimeServiceAccountOwnedBy,
+	); err != nil {
+		return err
 	}
 
-	// Delete the service account
-	if err := i.deleteGCPServiceAccount(iamService); err != nil {
-		return fmt.Errorf("failed to delete service account: %w", err)
+	// Remove the database's access to its backup bucket, and the backups
+	// when asked to
+	if i.BackupBucket != "" {
+		storageClientOpts := []option.ClientOption{option.WithScopes(storage.DevstorageFullControlScope)}
+		if i.ServiceAccountCredentials != "" {
+			storageClientOpts = append(storageClientOpts, option.WithCredentialsJSON([]byte(i.ServiceAccountCredentials)))
+		}
+		storageService, err := storage.NewService(ctx, storageClientOpts...)
+		if err != nil {
+			return fmt.Errorf("failed to create storage service client: %w", err)
+		}
+		if err := i.deleteBackupResources(storageService); err != nil {
+			return fmt.Errorf("failed to clean up database backup resources: %w", err)
+		}
 	}
 
 	return nil
@@ -455,26 +539,11 @@ func (i *KubernetesRuntimeInfraGKE) GetConnection() (*kube.KubeConnectionInfo, e
 		return nil, fmt.Errorf("failed to decode CA certificate: %w", err)
 	}
 
-	// get an access token for authentication
-	// TODO: Implement token refresh mechanism for long-running operations
-	// The token has a limited lifetime (typically 1 hour)
-	const cloudPlatformScope = "https://www.googleapis.com/auth/cloud-platform"
-	var tokenSource oauth2.TokenSource
-	if i.ServiceAccountCredentials != "" {
-		// google.DefaultTokenSource has no credentials parameter, so explicit
-		// credentials are threaded through google.CredentialsFromJSON
-		// instead - same "explicit creds override, ambient is the fallback"
-		// shape used for the other GCP clients in this file.
-		creds, err := google.CredentialsFromJSON(ctx, []byte(i.ServiceAccountCredentials), cloudPlatformScope)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load service account credentials: %w", err)
-		}
-		tokenSource = creds.TokenSource
-	} else {
-		tokenSource, err = google.DefaultTokenSource(ctx, cloudPlatformScope)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get token source: %w", err)
-		}
+	// get an access token for authentication; it lasts about an hour, so a
+	// caller whose work can outlast it mints fresh ones with TokenGenerator
+	tokenSource, err := i.tokenSource(ctx)
+	if err != nil {
+		return nil, err
 	}
 
 	token, err := tokenSource.Token()
@@ -497,13 +566,55 @@ func (i *KubernetesRuntimeInfraGKE) GetConnection() (*kube.KubeConnectionInfo, e
 	return kubeConnInfo, nil
 }
 
+// tokenSource returns the source of the access tokens the cluster is
+// reached with: the provider's service account credentials when it has them,
+// and the caller's own application default credentials otherwise.  It
+// refreshes each token as it nears its expiry.
+func (i *KubernetesRuntimeInfraGKE) tokenSource(ctx context.Context) (oauth2.TokenSource, error) {
+	const cloudPlatformScope = "https://www.googleapis.com/auth/cloud-platform"
+	if i.ServiceAccountCredentials != "" {
+		// google.DefaultTokenSource has no credentials parameter, so explicit
+		// credentials are threaded through google.CredentialsFromJSON
+		// instead - same "explicit creds override, ambient is the fallback"
+		// shape used for the other GCP clients in this file.
+		creds, err := google.CredentialsFromJSON(ctx, []byte(i.ServiceAccountCredentials), cloudPlatformScope)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load service account credentials: %w", err)
+		}
+		return creds.TokenSource, nil
+	}
+
+	tokenSource, err := google.DefaultTokenSource(ctx, cloudPlatformScope)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get token source: %w", err)
+	}
+
+	return tokenSource, nil
+}
+
+// TokenGenerator returns a function that returns a current access token for
+// the cluster on every call, for work that can outlast the one GetConnection
+// returns, such as a restore.
+func (i *KubernetesRuntimeInfraGKE) TokenGenerator() (func() (string, error), error) {
+	tokenSource, err := i.tokenSource(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	return func() (string, error) {
+		token, err := tokenSource.Token()
+		if err != nil {
+			return "", fmt.Errorf("failed to get an access token for the GKE cluster: %w", err)
+		}
+		return token.AccessToken, nil
+	}, nil
+}
+
 // LoadConfigFromStack loads the GCP project ID and region from the existing
 // Pulumi stack configuration. This is useful when deleting a cluster where
 // we only have the runtime instance name but need the project and region
 // to connect to GCP.
 func (i *KubernetesRuntimeInfraGKE) LoadConfigFromStack() error {
-	i.ensurePulumiProjectDefaults()
-
 	workspace, err := i.initWorkspace(auto.Program(func(ctx *pulumi.Context) error { return nil }))
 	if err != nil {
 		return fmt.Errorf("failed to initialize Pulumi workspace: %w", err)
@@ -527,20 +638,21 @@ func (i *KubernetesRuntimeInfraGKE) LoadConfigFromStack() error {
 	}
 	i.Region = regionConfig.Value
 
+	// the stack configs are derived from the two values just read, so they are
+	// rebuilt rather than left holding the empty ones construction produced -
+	// writing those back would clear the stack's real project and region
+	i.InitPulumiProject()
+
 	return nil
 }
 
 // GetStackState returns the state of the GKE stack as a JSON object.
 func (i *KubernetesRuntimeInfraGKE) GetStackState() (*datatypes.JSON, error) {
-	i.ensurePulumiProjectDefaults()
-	i.syncStackConfigs()
 	return i.PulumiWorkspace.GetStackState()
 }
 
 // SetStackState restores Pulumi state from a JSON object (export or checkpoint format).
 func (i *KubernetesRuntimeInfraGKE) SetStackState(state *datatypes.JSON) error {
-	i.ensurePulumiProjectDefaults()
-	i.syncStackConfigs()
 	return i.PulumiWorkspace.SetStackState(state)
 }
 
@@ -600,6 +712,7 @@ func (i *KubernetesRuntimeInfraGKE) loadGCPConfig() error {
 	}
 
 	if i.ProjectID != "" && i.Region != "" {
+		i.InitPulumiProject()
 		return nil
 	}
 
@@ -611,6 +724,14 @@ func (i *KubernetesRuntimeInfraGKE) loadGCPConfig() error {
 			return fmt.Errorf("GCP region not found in environment variables or gcloud config: %w", err)
 		}
 	}
+
+	// the stack config is derived from the two values this resolves, so it is
+	// rebuilt here rather than left holding whatever construction saw. A
+	// caller that omits both GCP flags constructs with neither, and the stack
+	// would record an empty project and region while the cluster is built in
+	// the resolved ones - leaving a later delete to read nothing back and fall
+	// through to whatever the environment says at that point, or to nothing.
+	i.InitPulumiProject()
 
 	return nil
 }
