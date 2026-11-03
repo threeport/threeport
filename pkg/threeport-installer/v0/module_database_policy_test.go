@@ -73,11 +73,11 @@ func testApiServerService(namespace, name string, selector map[string]interface{
 
 // getTestPolicy returns a module's database policy from the control plane's
 // namespace.
-func getTestPolicy(t *testing.T, kubeClient *dynamicfake.FakeDynamicClient, apiServerName string) *unstructured.Unstructured {
+func getTestPolicy(t *testing.T, kubeClient *dynamicfake.FakeDynamicClient, moduleNamespace, apiServerName string) *unstructured.Unstructured {
 	t.Helper()
 
 	policy, err := kubeClient.Resource(networkPolicyGVR).Namespace(testPolicyControlPlaneNamespace).Get(
-		context.Background(), ModuleDatabasePolicyName(apiServerName), metav1.GetOptions{},
+		context.Background(), ModuleDatabasePolicyName(moduleNamespace, apiServerName), metav1.GetOptions{},
 	)
 	require.NoError(t, err)
 
@@ -96,7 +96,7 @@ func TestAModulesPolicyAdmitsItsApiServerAlone(t *testing.T) {
 	)
 
 	networkpolicytest.AssertModuleDatabasePolicy(t, policy, testPolicyControlPlaneNamespace, testModuleNsName, testApiServerPods)
-	assert.Equal(t, "threeport-database-access-"+testApiServerName, policy.GetName())
+	assert.Equal(t, "threeport-database-access."+testModuleNsName+"."+testApiServerName, policy.GetName())
 	require.Len(t, policy.GetOwnerReferences(), 1)
 	assert.Equal(t, testModuleNsUID, string(policy.GetOwnerReferences()[0].UID), "the owner is the namespace the module was installed into, not one recreated under its name")
 }
@@ -155,7 +155,7 @@ func TestInstallModuleDatabasePolicyIsOwnedByTheNamespaceInTheCluster(t *testing
 		kubeClient, testPolicyMapper(), testPolicyControlPlaneNamespace, testModuleNsName, testApiServerName, testApiServerPods,
 	))
 
-	policy := getTestPolicy(t, kubeClient, testApiServerName)
+	policy := getTestPolicy(t, kubeClient, testModuleNsName, testApiServerName)
 	networkpolicytest.AssertModuleDatabasePolicy(t, policy, testPolicyControlPlaneNamespace, testModuleNsName, testApiServerPods)
 	require.Len(t, policy.GetOwnerReferences(), 1)
 	assert.Equal(t, testModuleNsUID, string(policy.GetOwnerReferences()[0].UID))
@@ -172,7 +172,7 @@ func TestInstallModuleDatabasePolicyReplacesAnOldOne(t *testing.T) {
 		kubeClient, testPolicyMapper(), testPolicyControlPlaneNamespace, testModuleNsName, testApiServerName, testApiServerPods,
 	))
 
-	policy := getTestPolicy(t, kubeClient, testApiServerName)
+	policy := getTestPolicy(t, kubeClient, testModuleNsName, testApiServerName)
 	networkpolicytest.AssertModuleDatabasePolicy(t, policy, testPolicyControlPlaneNamespace, testModuleNsName, testApiServerPods)
 	assert.Equal(t, testModuleNsUID, string(policy.GetOwnerReferences()[0].UID))
 }
@@ -195,7 +195,7 @@ func TestInstallModuleDatabasePolicyRefusesWhatItCannotScope(t *testing.T) {
 		)
 		assert.ErrorContains(t, err, "has no pod labels")
 		_, err = kubeClient.Resource(networkPolicyGVR).Namespace(testPolicyControlPlaneNamespace).Get(
-			context.Background(), ModuleDatabasePolicyName(testApiServerName), metav1.GetOptions{},
+			context.Background(), ModuleDatabasePolicyName(testModuleNsName, testApiServerName), metav1.GetOptions{},
 		)
 		assert.Error(t, err, "no policy is created")
 	})
@@ -221,9 +221,9 @@ func TestInstallModuleDatabasePoliciesCoversModulesInstalledBefore(t *testing.T)
 			{Namespace: testOtherModuleNs, Service: testOtherApiServer},
 		}))
 
-		networkpolicytest.AssertModuleDatabasePolicy(t, getTestPolicy(t, kubeClient, testApiServerName),
+		networkpolicytest.AssertModuleDatabasePolicy(t, getTestPolicy(t, kubeClient, testModuleNsName, testApiServerName),
 			testPolicyControlPlaneNamespace, testModuleNsName, testApiServerPods)
-		networkpolicytest.AssertModuleDatabasePolicy(t, getTestPolicy(t, kubeClient, testOtherApiServer),
+		networkpolicytest.AssertModuleDatabasePolicy(t, getTestPolicy(t, kubeClient, testOtherModuleNs, testOtherApiServer),
 			testPolicyControlPlaneNamespace, testOtherModuleNs, map[string]string{"app.kubernetes.io/name": testOtherApiServer, "tier": "api"})
 	})
 
@@ -259,10 +259,47 @@ func TestInstallModuleDatabasePoliciesCoversModulesInstalledBefore(t *testing.T)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "threeport-forbidden")
 		assert.Contains(t, err.Error(), "has no pod labels", "a service selecting nothing must not admit its whole namespace")
-		getTestPolicy(t, kubeClient, testOtherApiServer)
+		getTestPolicy(t, kubeClient, testOtherModuleNs, testOtherApiServer)
 	})
 
 	t.Run("no modules is not an error", func(t *testing.T) {
 		assert.NoError(t, cpi.InstallModuleDatabasePolicies(dynamicfake.NewSimpleDynamicClient(runtime.NewScheme()), testPolicyMapper(), nil))
+	})
+}
+
+// TestModulesSharingAServiceNameKeepTheirOwnPolicies covers two modules in
+// different namespaces whose API server services have the same name. Every
+// module's policy lives in the control plane's namespace, so a name taken from
+// the service alone gave both the same policy, and the second install replaced
+// the first's namespace and owner - cutting that module off from its database
+// without a word.
+func TestModulesSharingAServiceNameKeepTheirOwnPolicies(t *testing.T) {
+	const sharedService = "api-server"
+	pods := map[string]interface{}{"app.kubernetes.io/name": sharedService}
+	kubeClient := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme(),
+		testModuleNamespace(testModuleNsName, testModuleNsUID),
+		testApiServerService(testModuleNsName, sharedService, pods),
+		testModuleNamespace(testOtherModuleNs, "other-uid"),
+		testApiServerService(testOtherModuleNs, sharedService, pods),
+	)
+
+	require.NoError(t, testInstaller("dev-0").InstallModuleDatabasePolicies(kubeClient, testPolicyMapper(), []ModuleApiServer{
+		{Namespace: testModuleNsName, Service: sharedService},
+		{Namespace: testOtherModuleNs, Service: sharedService},
+	}))
+
+	first := getTestPolicy(t, kubeClient, testModuleNsName, sharedService)
+	second := getTestPolicy(t, kubeClient, testOtherModuleNs, sharedService)
+	assert.NotEqual(t, first.GetName(), second.GetName())
+	podLabels := map[string]string{"app.kubernetes.io/name": sharedService}
+	for namespace, policy := range map[string]*unstructured.Unstructured{testModuleNsName: first, testOtherModuleNs: second} {
+		networkpolicytest.AssertModuleDatabasePolicy(t, policy, testPolicyControlPlaneNamespace, namespace, podLabels)
+		admitted, err := networkpolicytest.Admits(policy, networkpolicytest.Peer{Namespace: namespace, PodLabels: podLabels}, cockroachSqlPort)
+		require.NoError(t, err)
+		assert.True(t, admitted, "the module in %s reaches its database", namespace)
+	}
+
+	t.Run("no two namespace and service pairs share a name", func(t *testing.T) {
+		assert.NotEqual(t, ModuleDatabasePolicyName("a-b", "c"), ModuleDatabasePolicyName("a", "b-c"))
 	})
 }

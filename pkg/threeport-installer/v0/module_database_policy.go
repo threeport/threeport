@@ -28,11 +28,19 @@ var namespaceGVR = schema.GroupVersionResource{Version: "v1", Resource: "namespa
 var serviceGVR = schema.GroupVersionResource{Version: "v1", Resource: "services"}
 
 // ModuleDatabasePolicyName returns the name of the network policy that admits
-// a module's API server to the control plane's database.  It is named after
-// the API server, which is unique to the module even when two modules share a
-// namespace.
-func ModuleDatabasePolicyName(apiServerName string) string {
-	return "threeport-database-access-" + apiServerName
+// a module's API server to the control plane's database.
+//
+// Every module's policy lives in the control plane's namespace, so the name
+// has to tell modules apart however they are named.  The API server's service
+// name alone does not: two modules in different namespaces can both call
+// theirs the same, and the second policy would replace the first, cutting
+// that module off from its database.  Nor does the namespace alone, as two
+// modules can share one.  The two are joined with dots, which neither a
+// namespace's name nor a service's can contain, so no two pairs give the
+// same name - with a dash, namespace a-b and service c would collide with
+// namespace a and service b-c.
+func ModuleDatabasePolicyName(moduleNamespace, apiServerName string) string {
+	return "threeport-database-access." + moduleNamespace + "." + apiServerName
 }
 
 // ModuleDatabasePolicy returns the network policy that admits a module's API
@@ -66,7 +74,7 @@ func ModuleDatabasePolicy(
 			"apiVersion": "networking.k8s.io/v1",
 			"kind":       "NetworkPolicy",
 			"metadata": map[string]interface{}{
-				"name":      ModuleDatabasePolicyName(apiServerName),
+				"name":      ModuleDatabasePolicyName(moduleNamespace.GetName(), apiServerName),
 				"namespace": controlPlaneNamespace,
 				"ownerReferences": []interface{}{
 					map[string]interface{}{
