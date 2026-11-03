@@ -172,6 +172,29 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the operation has been failing for longer than the retry bound
+					if r.RecordFailure(secretDefinition, string(notif.Operation)) {
+						giveUpMsg := event.GiveUpNote(
+							"failed to reconcile created secret definition object",
+							controller.DefaultMaxReconcileDuration,
+							operationErr,
+						)
+						log.Error(operationErr, giveUpMsg)
+						if recordErr := r.EventsRecorder.RecordEvent(
+							&api_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonCreateFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							secretDefinition.GetId(),
+							secretDefinition.GetFullyQualifiedType(),
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record give-up event")
+						}
+						r.ClearFailure(secretDefinition, string(notif.Operation))
+						r.ReleaseLock(secretDefinition, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						secretDefinition,
 						requeueDelay,
@@ -180,6 +203,7 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				r.ClearFailure(secretDefinition, string(notif.Operation))
 				if customRequeueDelay != 0 {
 					log.Info("create requeued for future reconciliation")
 					r.UnlockAndRequeue(
@@ -237,6 +261,29 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the operation has been failing for longer than the retry bound
+					if r.RecordFailure(secretDefinition, string(notif.Operation)) {
+						giveUpMsg := event.GiveUpNote(
+							"failed to reconcile updated secret definition object",
+							controller.DefaultMaxReconcileDuration,
+							operationErr,
+						)
+						log.Error(operationErr, giveUpMsg)
+						if recordErr := r.EventsRecorder.RecordEvent(
+							&api_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonUpdateFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							secretDefinition.GetId(),
+							secretDefinition.GetFullyQualifiedType(),
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record give-up event")
+						}
+						r.ClearFailure(secretDefinition, string(notif.Operation))
+						r.ReleaseLock(secretDefinition, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						secretDefinition,
 						requeueDelay,
@@ -245,6 +292,7 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				r.ClearFailure(secretDefinition, string(notif.Operation))
 				if customRequeueDelay != 0 {
 					log.Info("update requeued for future reconciliation")
 					r.UnlockAndRequeue(
@@ -315,6 +363,29 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the operation has been failing for longer than the retry bound
+					if r.RecordFailure(secretDefinition, string(notif.Operation)) {
+						giveUpMsg := event.GiveUpNote(
+							"failed to reconcile deleted secret definition object",
+							controller.DefaultMaxReconcileDuration,
+							operationErr,
+						)
+						log.Error(operationErr, giveUpMsg)
+						if recordErr := r.EventsRecorder.RecordEvent(
+							&api_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonDeleteFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							secretDefinition.GetId(),
+							secretDefinition.GetFullyQualifiedType(),
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record give-up event")
+						}
+						r.ClearFailure(secretDefinition, string(notif.Operation))
+						r.ReleaseLock(secretDefinition, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						secretDefinition,
 						requeueDelay,
@@ -323,6 +394,7 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				r.ClearFailure(secretDefinition, string(notif.Operation))
 				if customRequeueDelay != 0 {
 					log.Info("delete requeued for future reconciliation")
 					r.UnlockAndRequeue(

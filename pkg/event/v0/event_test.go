@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
@@ -230,4 +231,15 @@ func TestHandleEventOverride_UsesFallbackWhenNoErrWithEvent(t *testing.T) {
 	require.NoError(t, json.Unmarshal(post.body, &posted))
 	require.NotNil(t, posted.Reason)
 	assert.Equal(t, "FailedCreate", *posted.Reason, "no override sentinel; fallback event is stored as-is")
+}
+
+// TestGiveUpNote covers the note on the event recorded when a reconciler stops
+// retrying: it has to say so, carry the error, and stay within the length bound
+// every note is held to.
+func TestGiveUpNote(t *testing.T) {
+	note := GiveUpNote("failed to reconcile updated widget object", time.Hour, errors.New("boom"))
+	assert.Equal(t, "failed to reconcile updated widget object, giving up after 1h0m0s: boom", note)
+
+	long := GiveUpNote("failed", time.Hour, errors.New(strings.Repeat("x", 2*maxNoteLength)))
+	assert.Len(t, long, maxNoteLength)
 }
