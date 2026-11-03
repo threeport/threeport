@@ -13,8 +13,14 @@ import (
 //go:embed manifests/ingress-component.yaml
 var ingressComponent []byte
 
-//go:embed manifests/certificates.yaml
+//go:embed manifests/certificates-component.yaml
 var certificatesComponent []byte
+
+//go:embed manifests/database-component.yaml
+var databaseComponent []byte
+
+//go:embed manifests/secrets-component.yaml
+var secretsComponent []byte
 
 const (
 	// IngressComponentName is the IngressComponent object this install applies.
@@ -25,6 +31,9 @@ const (
 
 	// SecretsComponentName is the SecretsComponent object this install applies.
 	SecretsComponentName = "external-secrets"
+
+	// DatabaseComponentName is the DatabaseComponent object this install applies.
+	DatabaseComponentName = "database"
 
 	// externalDNSName is the IngressComponent object that installs external-dns.
 	externalDNSName = "externaldns"
@@ -226,31 +235,42 @@ func certificatesComponentYaml() (string, error) {
 	return util.UnstructuredToYaml(component)
 }
 
-// externalSecretsYaml returns the external secrets component.
-func externalSecretsYaml() (string, error) {
-	// build the secrets component the v0.9 operator accepts
-	rendered, err := util.UnstructuredToYaml(
-		&unstructured.Unstructured{
-			Object: map[string]interface{}{
-				"apiVersion": "platform.addons.nukleros.io/v1alpha1",
-				"kind":       "SecretsComponent",
-				"metadata": map[string]interface{}{
-					"name":      SecretsComponentName,
-					"namespace": "nukleros-secrets-system",
-				},
-				"spec": map[string]interface{}{
-					"namespace": "nukleros-secrets-system",
-					"externalSecrets": map[string]interface{}{
-						"image":    "ghcr.io/external-secrets/external-secrets",
-						"version":  "v0.9.11",
-						"replicas": 1,
-					},
-				},
-			},
-		},
-	)
+// databaseComponentYaml returns the database component.
+func databaseComponentYaml() (string, error) {
+	// decode the embedded component
+	component, err := util.UnstructuredFromYaml(databaseComponent)
 	if err != nil {
 		return "", err
 	}
-	return rendered, nil
+
+	// name the component
+	if err := unstructured.SetNestedField(
+		component.Object,
+		DatabaseComponentName,
+		"metadata",
+		"name",
+	); err != nil {
+		return "", fmt.Errorf("failed to set the database component name: %w", err)
+	}
+	return util.UnstructuredToYaml(component)
+}
+
+// secretsComponentYaml returns the external secrets component.
+func secretsComponentYaml() (string, error) {
+	// decode the embedded component
+	component, err := util.UnstructuredFromYaml(secretsComponent)
+	if err != nil {
+		return "", err
+	}
+
+	// name the component
+	if err := unstructured.SetNestedField(
+		component.Object,
+		SecretsComponentName,
+		"metadata",
+		"name",
+	); err != nil {
+		return "", fmt.Errorf("failed to set the secrets component name: %w", err)
+	}
+	return util.UnstructuredToYaml(component)
 }

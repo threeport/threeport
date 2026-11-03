@@ -122,12 +122,13 @@ func EnsureSecretsComponent[T componentAttacher](
 		secretsColumn,
 		recordComponentID(r, attacher, field, update),
 		nil,
-		externalSecretsYaml,
+		secretsComponentYaml,
 		log,
 	)
 }
 
-// EnsureDatabaseComponent reports that the database component of the support services operator has no manifest.
+// EnsureDatabaseComponent attaches an API instance to the database component of the support services operator.
+// The shared workload is named database-<runtime>.
 func EnsureDatabaseComponent[T componentAttacher](
 	r *controller.Reconciler,
 	runtime *api.KubernetesRuntimeInstance,
@@ -136,12 +137,27 @@ func EnsureDatabaseComponent[T componentAttacher](
 	update objectUpdate[T],
 	log *logr.Logger,
 ) error {
-	// require a runtime id before reporting the missing manifest
-	if err := requireRuntime(runtime, "database component", false); err != nil {
+	// require the runtime before reading its database workload id
+	if err := requireRuntime(runtime, "database component", true); err != nil {
 		return err
 	}
 
-	return fmt.Errorf("database component manifest is missing")
+	// store the database workload id on the attached API instance
+	record := recordComponentID(r, attacher, field, update)
+
+	// install the database component and sync its manifest after reconcile
+	return ensure(
+		r,
+		runtime,
+		&runtime.DatabaseComponentInstanceID,
+		"database component",
+		fmt.Sprintf("%s-%s", DatabaseComponentName, *runtime.Name),
+		databaseColumn,
+		record,
+		nil,
+		databaseComponentYaml,
+		log,
+	)
 }
 
 // ReleaseIngressComponent detaches an API instance from the ingress component of the support services operator.
@@ -412,8 +428,21 @@ func release(
 	if err != nil {
 		return fmt.Errorf("failed to clear %s slot: %w", label, err)
 	}
+
+	// return an error when a rejected clear leaves no requires row
 	if !cleared {
-		return nil
+		required, requiredErr := workloadStillRequired(r, workloadID)
+		if requiredErr != nil {
+			return fmt.Errorf("failed to clear %s slot: %w", label, requiredErr)
+		}
+		if required {
+			return nil
+		}
+		return fmt.Errorf(
+			"failed to clear %s slot: %s",
+			label,
+			api.ErrMsgSupportServiceSlotHeld,
+		)
 	}
 
 	// delete the workload, and restore the id when the delete fails

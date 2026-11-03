@@ -737,17 +737,39 @@ func generateModuleTest() error {
 		return fmt.Errorf("failed to point the module test at this checkout: %w", err)
 	}
 
-	// scaffold the API objects, then generate the boilerplate
-	for _, subcommand := range []string{"create", "gen"} {
-		if err := util.RunCommandStreamOutputInDir(
-			moduleTestPath,
-			sdkBinary,
-			subcommand,
-			"-c",
-			"sdk-config.yaml",
-		); err != nil {
-			return fmt.Errorf("failed to run threeport-sdk %s for the module test: %w", subcommand, err)
-		}
+	// scaffold the API objects
+	if err := util.RunCommandStreamOutputInDir(
+		moduleTestPath,
+		sdkBinary,
+		"create",
+		"-c",
+		"sdk-config.yaml",
+	); err != nil {
+		return fmt.Errorf("failed to run threeport-sdk create for the module test: %w", err)
+	}
+
+	// add the support service fields the generator reads
+	if err := addModuleSupportServices(); err != nil {
+		return err
+	}
+
+	// resolve the module import before gen lists packages
+	if err := util.RunCommandStreamOutputInDir(
+		moduleTestPath,
+		"go", "mod", "tidy",
+	); err != nil {
+		return fmt.Errorf("failed to resolve the module test dependencies before gen: %w", err)
+	}
+
+	// generate the boilerplate
+	if err := util.RunCommandStreamOutputInDir(
+		moduleTestPath,
+		sdkBinary,
+		"gen",
+		"-c",
+		"sdk-config.yaml",
+	); err != nil {
+		return fmt.Errorf("failed to run threeport-sdk gen for the module test: %w", err)
 	}
 
 	// copy the tracked tests into the generated package. They have to be in it
@@ -765,6 +787,103 @@ func generateModuleTest() error {
 		return fmt.Errorf("failed to resolve the module test dependencies: %w", err)
 	}
 
+	return nil
+}
+
+// addModuleSupportServices embeds the four support services on the generated widget instance.
+func addModuleSupportServices() error {
+	// find the generated instance type
+	apiDir := filepath.Join(moduleTestPath, "pkg", "api", "v0")
+	entries, err := os.ReadDir(apiDir)
+	if err != nil {
+		return fmt.Errorf("failed to read the generated API directory: %w", err)
+	}
+	var path string
+	var text string
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") {
+			continue
+		}
+		candidate := filepath.Join(apiDir, entry.Name())
+		contents, err := os.ReadFile(candidate)
+		if err != nil {
+			return fmt.Errorf("failed to read %s: %w", entry.Name(), err)
+		}
+		if strings.Contains(string(contents), "type WidgetInstance struct") {
+			path = candidate
+			text = string(contents)
+			break
+		}
+	}
+	if path == "" {
+		return fmt.Errorf("generated WidgetInstance struct was not found")
+	}
+	if strings.Contains(text, "SupportServiceIngress") {
+		return nil
+	}
+
+	// take the token before the quoted path when it is not the import keyword
+	alias := "v0"
+	const importPath = `"github.com/threeport/threeport/pkg/api/v0"`
+	for _, line := range strings.Split(text, "\n") {
+		if !strings.Contains(line, importPath) {
+			continue
+		}
+		fields := strings.Fields(line)
+		for i, field := range fields {
+			if !strings.Contains(field, importPath) || i == 0 {
+				continue
+			}
+			if fields[i-1] != "import" {
+				alias = fields[i-1]
+			}
+			break
+		}
+		break
+	}
+
+	// insert the fields before the struct closes
+	marker := "type WidgetInstance struct"
+	start := strings.Index(text, marker)
+	brace := strings.Index(text[start:], "{")
+	if brace < 0 {
+		return fmt.Errorf("WidgetInstance struct has no opening brace")
+	}
+	depth := 0
+	end := -1
+	for i := start + brace; i < len(text); i++ {
+		switch text[i] {
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				end = i
+			}
+		}
+		if end >= 0 {
+			break
+		}
+	}
+	if end < 0 {
+		return fmt.Errorf("WidgetInstance struct has no closing brace")
+	}
+	insertion := "\n\t// The shared component workloads this instance records.\n" +
+		"\t" + alias + ".SupportServiceIngress `mapstructure:\",squash\"`\n" +
+		"\t" + alias + ".SupportServiceCertificates `mapstructure:\",squash\"`\n" +
+		"\t" + alias + ".SupportServiceSecrets `mapstructure:\",squash\"`\n" +
+		"\t" + alias + ".SupportServiceDatabase `mapstructure:\",squash\"`\n" +
+		"\n" +
+		"\t// The cluster the shared components install on.\n" +
+		"\tKubernetesRuntimeInstanceID *uint `validate:\"optional\" relationship:\"requires\"`\n"
+	if err := os.WriteFile(path, []byte(text[:end]+insertion+text[end:]), 0o644); err != nil {
+		return fmt.Errorf("failed to write the widget API file: %w", err)
+	}
+
+	// gofmt's working directory is the API directory
+	if err := util.RunCommandStreamOutputInDir(apiDir, "gofmt", "-w", filepath.Base(path)); err != nil {
+		return fmt.Errorf("failed to format the widget API file: %w", err)
+	}
 	return nil
 }
 

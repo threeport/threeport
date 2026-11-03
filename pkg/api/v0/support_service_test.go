@@ -1,8 +1,10 @@
 package v0
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -152,6 +154,73 @@ func TestSupportServiceSlotClearsWhenTheRequirementIsDeleted(t *testing.T) {
 	require.Nil(t, storedSlot(t, db, *runtime.ID))
 }
 
+// TestSupportServiceSlotStaysUntilLastAttacherIsGone keeps the slot while any requires row is live.
+func TestSupportServiceSlotStaysUntilLastAttacherIsGone(t *testing.T) {
+	// arrange two requires rows for one workload
+	db := openSlotDB(t)
+	runtime := createValidKRI(t, db, "Local")
+	workload := createSlotWorkload(t, db, &runtime, "shared-workload")
+	require.NoError(t, claimSlot(t, db, *runtime.ID, *workload.ID))
+	first := requiresWorkload(workload)
+	first.AttachedObjectID = util.Ptr(uint(11))
+	require.NoError(t, db.Create(first).Error)
+	second := requiresWorkload(workload)
+	second.AttachedObjectID = util.Ptr(uint(12))
+	require.NoError(t, db.Create(second).Error)
+	live := func() int64 {
+		var count int64
+		require.NoError(t, db.Model(&AttachedObjectReference{}).
+			Where(
+				"object_type = ? AND object_id = ? AND relationship = ? AND deleted_at IS NULL",
+				workload.GetFullyQualifiedType(),
+				workload.ID,
+				RelationshipRequires,
+			).
+			Count(&count).Error)
+		return count
+	}
+	require.Equal(t, int64(2), live())
+
+	// delete one attacher and keep the slot
+	require.NoError(t, db.Delete(first).Error)
+	require.Equal(t, int64(1), live())
+	require.Equal(t, *workload.ID, *storedSlot(t, db, *runtime.ID))
+	err := clearSlot(t, db, *runtime.ID)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), ErrMsgSupportServiceSlotHeld)
+	require.Equal(t, *workload.ID, *storedSlot(t, db, *runtime.ID))
+
+	// delete the last attacher and clear the slot
+	require.NoError(t, db.Delete(second).Error)
+	require.Zero(t, live())
+	require.NoError(t, clearSlot(t, db, *runtime.ID))
+	require.Nil(t, storedSlot(t, db, *runtime.ID))
+}
+
+// TestSupportServiceClearLeavesSiblingLargeID keeps the certificates id across a slot clear.
+// The stored id is not an exact float64 integer.
+func TestSupportServiceClearLeavesSiblingLargeID(t *testing.T) {
+	// claim ingress, then store a certificates id past the JSON number range
+	db := openSlotDB(t)
+	runtime := createValidKRI(t, db, "Local")
+	workload := createSlotWorkload(t, db, &runtime, "sibling-workload")
+	require.NoError(t, claimSlot(t, db, *runtime.ID, *workload.ID))
+	const sibling uint = 1224220645081022465
+	require.NoError(t, db.Exec(
+		"UPDATE "+KubernetesRuntimeInstance{}.TableName()+" SET certificates_component_instance_id = ? WHERE id = ?",
+		sibling,
+		runtime.ID,
+	).Error)
+
+	// clear ingress and read both columns back
+	require.NoError(t, clearSlot(t, db, *runtime.ID))
+	var stored KubernetesRuntimeInstance
+	require.NoError(t, db.First(&stored, runtime.ID).Error)
+	require.Nil(t, stored.IngressComponentInstanceID)
+	require.NotNil(t, stored.CertificatesComponentInstanceID)
+	require.Equal(t, sibling, *stored.CertificatesComponentInstanceID)
+}
+
 // createSlotWorkload inserts a workload definition and instance.
 func createSlotWorkload(
 	t *testing.T,
@@ -198,4 +267,116 @@ func clearSlot(t *testing.T, db *gorm.DB, runtimeID uint) error {
 	require.NoError(t, db.First(&loaded, runtimeID).Error)
 	loaded.IngressComponentInstanceID = nil
 	return db.Save(&loaded).Error
+}
+
+// TestSupportServiceSlotClearsOnReplaceWhenTheRequirementIsDeleted clears the slot
+// through the same save the replace handler uses after the requires row is gone.
+func TestSupportServiceSlotClearsOnReplaceWhenTheRequirementIsDeleted(t *testing.T) {
+	db := openSlotDB(t)
+	runtime := createValidKRI(t, db, "Local")
+	workload := createSlotWorkload(t, db, &runtime, "released-workload")
+	require.NoError(t, claimSlot(t, db, *runtime.ID, *workload.ID))
+	reference := requiresWorkload(workload)
+	require.NoError(t, db.Create(reference).Error)
+	require.NoError(t, db.Delete(reference).Error)
+
+	// replace the runtime with the controller column set to null
+	var loaded KubernetesRuntimeInstance
+	require.NoError(t, db.First(&loaded, runtime.ID).Error)
+	encoded, err := util.MarshalObject(&loaded)
+	require.NoError(t, err)
+	var fields map[string]any
+	require.NoError(t, json.Unmarshal(encoded, &fields))
+	fields["IngressComponentInstanceID"] = nil
+	body, err := json.Marshal(fields)
+	require.NoError(t, err)
+	var updated KubernetesRuntimeInstance
+	require.NoError(t, json.Unmarshal(body, &updated))
+	updated.ID = runtime.ID
+	err = db.Session(&gorm.Session{FullSaveAssociations: false}).
+		Omit("CreatedAt", "DeletedAt").
+		Save(&updated).Error
+	require.NoError(t, err)
+
+	// read the slot back
+	var stored KubernetesRuntimeInstance
+	require.NoError(t, db.First(&stored, runtime.ID).Error)
+	require.Nil(t, stored.IngressComponentInstanceID)
+}
+
+// TestDeletionConfirmedUpdateLeavesADroppedComponentClaimDeleted keeps a dropped
+// component claim deleted when the gateway is marked deletion-confirmed.
+func TestDeletionConfirmedUpdateLeavesADroppedComponentClaimDeleted(t *testing.T) {
+	confirmed := time.Now().UTC()
+	live := componentClaimCountAfterUpdate(t, &GatewayInstance{
+		Reconciliation: Reconciliation{DeletionConfirmed: &confirmed},
+	})
+	require.Zero(t, live)
+}
+
+// TestDeletionScheduledUpdateLeavesADroppedComponentClaimDeleted keeps a dropped
+// component claim deleted when the gateway is marked deletion-scheduled.
+func TestDeletionScheduledUpdateLeavesADroppedComponentClaimDeleted(t *testing.T) {
+	scheduled := time.Now().UTC()
+	live := componentClaimCountAfterUpdate(t, &GatewayInstance{
+		Reconciliation: Reconciliation{DeletionScheduled: &scheduled},
+	})
+	require.Zero(t, live)
+}
+
+// TestLiveUpdateRestoresADroppedComponentClaim puts a dropped claim back when
+// the gateway is still live.
+func TestLiveUpdateRestoresADroppedComponentClaim(t *testing.T) {
+	live := componentClaimCountAfterUpdate(t, &GatewayInstance{
+		Instance: Instance{Name: util.Ptr("echo-renamed")},
+	})
+	require.Equal(t, int64(1), live)
+}
+
+// componentClaimCountAfterUpdate drops the ingress claim, applies update, and
+// returns the live claim count.
+func componentClaimCountAfterUpdate(t *testing.T, update *GatewayInstance) int64 {
+	t.Helper()
+
+	// create a gateway that requires the ingress workload
+	db := openSlotDB(t)
+	require.NoError(t, db.AutoMigrate(&GatewayDefinition{}, &GatewayInstance{}))
+	runtime := createValidKRI(t, db, "Local")
+	component := createSlotWorkload(t, db, &runtime, "ingress")
+	gatewayWorkload := createSlotWorkload(t, db, &runtime, "gateway")
+	definition := &GatewayDefinition{Definition: Definition{Name: util.Ptr("gateway")}}
+	require.NoError(t, db.Create(definition).Error)
+	gateway := &GatewayInstance{
+		Instance:                     Instance{Name: util.Ptr("echo")},
+		KubernetesRuntimeInstanceID:  runtime.ID,
+		GatewayDefinitionID:          definition.ID,
+		KubernetesWorkloadInstanceID: gatewayWorkload.ID,
+		SupportServiceIngress:        SupportServiceIngress{IngressComponentInstanceID: component.ID},
+	}
+	require.NoError(t, db.Create(gateway).Error)
+
+	// drop the component claim, then apply the update
+	objectType := new(KubernetesWorkloadInstance).GetFullyQualifiedType()
+	attachedType := gateway.GetFullyQualifiedType()
+	var claim AttachedObjectReference
+	require.NoError(t, db.Where(
+		"object_type = ? AND object_id = ? AND attached_object_type = ? AND attached_object_id = ?",
+		objectType,
+		*component.ID,
+		attachedType,
+		*gateway.ID,
+	).First(&claim).Error)
+	require.NoError(t, db.Delete(&claim).Error)
+	require.NoError(t, db.Model(gateway).Updates(update).Error)
+
+	// count the live claim from this gateway
+	var live int64
+	require.NoError(t, db.Model(&AttachedObjectReference{}).Where(
+		"object_type = ? AND object_id = ? AND attached_object_type = ? AND attached_object_id = ?",
+		objectType,
+		*component.ID,
+		attachedType,
+		*gateway.ID,
+	).Count(&live).Error)
+	return live
 }

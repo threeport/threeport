@@ -153,6 +153,27 @@ func nullComponentColumn(
 	)
 }
 
+// workloadStillRequired reports a live requires row for the component workload.
+func workloadStillRequired(r *controller.Reconciler, workloadID uint) (bool, error) {
+	// select every requires row that names this component workload
+	query := url.Values{}
+	query.Set("objecttype", new(api.KubernetesWorkloadInstance).GetFullyQualifiedType())
+	query.Set("objectid", strconv.FormatUint(uint64(workloadID), 10))
+	query.Set("relationship", string(api.RelationshipRequires))
+	references, err := client.GetAttachedObjectReferencesByQueryString(
+		r.APIClient,
+		r.APIServer,
+		query.Encode(),
+	)
+	if err != nil {
+		return false, fmt.Errorf(
+			"failed to look up component workload references: %w",
+			err,
+		)
+	}
+	return len(*references) > 0, nil
+}
+
 // dropComponentClaim deletes the attached API instance's requires row for the component workload.
 func dropComponentClaim(r *controller.Reconciler, attachedType string, attachedID uint, workloadID uint) error {
 	// select the requires row from this API instance to the component workload
@@ -211,17 +232,16 @@ func componentSlotNull(runtime *api.KubernetesRuntimeInstance, column string) ([
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode runtime %d: %w", *runtime.ID, err)
 	}
-	var fields map[string]interface{}
+	// keep each value raw so a large id is not rounded
+	var fields map[string]json.RawMessage
 	if err := json.Unmarshal(encoded, &fields); err != nil {
 		return nil, fmt.Errorf("failed to decode runtime %d: %w", *runtime.ID, err)
 	}
-
-	// null the column after the omit, so the key is present
 	delete(fields, "ID")
 	delete(fields, "CreatedAt")
 	delete(fields, "UpdatedAt")
 	delete(fields, "DeletedAt")
-	fields[column] = nil
+	fields[column] = []byte("null")
 	return json.Marshal(fields)
 }
 

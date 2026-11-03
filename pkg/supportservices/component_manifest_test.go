@@ -43,6 +43,72 @@ func TestIngressComponentYaml(t *testing.T) {
 	}
 }
 
+// TestDatabaseComponentYaml checks the fields this install sets on the sample.
+func TestDatabaseComponentYaml(t *testing.T) {
+	// the sample stays free of threeport values
+	if strings.Contains(string(databaseComponent), "threeport") {
+		t.Fatal("database component sample contains a threeport value")
+	}
+
+	// render the component and read the operator fields
+	rendered, err := databaseComponentYaml()
+	if err != nil {
+		t.Fatal(err)
+	}
+	component, err := util.UnstructuredFromYaml([]byte(rendered))
+	if err != nil {
+		t.Fatal(err)
+	}
+	name, _, _ := unstructured.NestedString(component.Object, "metadata", "name")
+	provider, _, _ := unstructured.NestedString(component.Object, "spec", "provider")
+	namespace, _, _ := unstructured.NestedString(component.Object, "spec", "namespace")
+	image, _, _ := unstructured.NestedString(component.Object, "spec", "cloudNativePg", "image")
+	version, _, _ := unstructured.NestedString(component.Object, "spec", "cloudNativePg", "version")
+	replicas, _, _ := unstructured.NestedInt64(component.Object, "spec", "cloudNativePg", "replicas")
+	if component.GetKind() != "DatabaseComponent" ||
+		name != DatabaseComponentName ||
+		provider != "cloudnative-pg" ||
+		namespace != "nukleros-database-system" ||
+		image != "ghcr.io/cloudnative-pg/cloudnative-pg" ||
+		version != "1.30.1" ||
+		replicas != 2 {
+		t.Fatalf("kind=%s name=%s provider=%s namespace=%s image=%s version=%s replicas=%d", component.GetKind(), name, provider, namespace, image, version, replicas)
+	}
+}
+
+// TestSecretsComponentYaml checks the fields this install sets on the sample.
+func TestSecretsComponentYaml(t *testing.T) {
+	// the sample stays free of threeport values
+	if strings.Contains(string(secretsComponent), "threeport") {
+		t.Fatal("secrets component sample contains a threeport value")
+	}
+
+	// render the component and read the operator fields
+	rendered, err := secretsComponentYaml()
+	if err != nil {
+		t.Fatal(err)
+	}
+	component, err := util.UnstructuredFromYaml([]byte(rendered))
+	if err != nil {
+		t.Fatal(err)
+	}
+	name, _, _ := unstructured.NestedString(component.Object, "metadata", "name")
+	namespace, _, _ := unstructured.NestedString(component.Object, "metadata", "namespace")
+	specNamespace, _, _ := unstructured.NestedString(component.Object, "spec", "namespace")
+	image, _, _ := unstructured.NestedString(component.Object, "spec", "externalSecrets", "image")
+	version, _, _ := unstructured.NestedString(component.Object, "spec", "externalSecrets", "version")
+	replicas, _, _ := unstructured.NestedInt64(component.Object, "spec", "externalSecrets", "replicas")
+	if component.GetKind() != "SecretsComponent" ||
+		name != SecretsComponentName ||
+		namespace != "nukleros-secrets-system" ||
+		specNamespace != "nukleros-secrets-system" ||
+		image != "ghcr.io/external-secrets/external-secrets" ||
+		version != "v0.9.11" ||
+		replicas != 1 {
+		t.Fatalf("kind=%s name=%s namespace=%s specNamespace=%s image=%s version=%s replicas=%d", component.GetKind(), name, namespace, specNamespace, image, version, replicas)
+	}
+}
+
 // TestExternalDnsYamlOmitsProviderNone checks that provider none drops external-dns.
 // The component is named externaldns and kong stays out.
 func TestExternalDnsYamlOmitsProviderNone(t *testing.T) {

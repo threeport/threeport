@@ -127,6 +127,7 @@ func TestGatewayIngressServesHTTPAndHTTPS(t *testing.T) {
 	waitForHostObjects(t, apiClient, endpoint, kubeClient, *workload.ID, "other", otherHost, otherTcpPort)
 	require.Equal(t, componentID, gatewayComponentID(t, apiClient, endpoint, *runtime.ID))
 	waitForSharedComponents(t, kubeClient, 1)
+	ingressID, certificatesID := requireSharedState(t, apiClient, endpoint, runtime, 2, 0, 0)
 
 	// call both hosts over http and https
 	ports := waitForIngressPorts(t, kubeClient)
@@ -140,11 +141,13 @@ func TestGatewayIngressServesHTTPAndHTTPS(t *testing.T) {
 	callHost(t, kubeClient, nodeIP, ports, echoHost)
 	require.Equal(t, componentID, gatewayComponentID(t, apiClient, endpoint, *runtime.ID))
 	waitForSharedComponents(t, kubeClient, 1)
+	requireSharedState(t, apiClient, endpoint, runtime, 1, ingressID, certificatesID)
 
 	// delete the last gateway and remove the shared ingress install
 	deleteGateway(t, apiClient, endpoint, echoGateway)
 	waitForHostTornDown(t, apiClient, endpoint, kubeClient, *workload.ID, "echo", echoHost, echoTcpPort)
 	waitForSharedComponentRemoved(t, apiClient, endpoint, kubeClient, componentID)
+	requireSharedState(t, apiClient, endpoint, runtime, 0, ingressID, certificatesID)
 }
 
 // createEchoDomain registers the host the ingress matches.
@@ -693,6 +696,89 @@ func hostObjectsMatch(
 		}
 	}
 	return nil
+}
+
+// requireSharedState checks the shared workloads, the runtime slots, and the requires rows.
+func requireSharedState(
+	t *testing.T,
+	apiClient *http.Client,
+	endpoint string,
+	runtime *api.KubernetesRuntimeInstance,
+	want int,
+	ingressID uint,
+	certificatesID uint,
+) (uint, uint) {
+	t.Helper()
+
+	// reload the runtime the slots are stored on
+	stored, err := client.GetKubernetesRuntimeInstanceByID(apiClient, endpoint, *runtime.ID)
+	require.NoError(t, err)
+	require.Nil(t, stored.SecretsComponentInstanceID)
+	require.Nil(t, stored.DatabaseComponentInstanceID)
+
+	// list the workloads and the requires rows without a name query
+	workloads, err := client.GetKubernetesWorkloadInstances(apiClient, endpoint)
+	if errors.Is(err, client_lib.ErrObjectNotFound) {
+		workloads = &[]api.KubernetesWorkloadInstance{}
+	} else {
+		require.NoError(t, err)
+	}
+	references, err := client.GetAttachedObjectReferences(apiClient, endpoint)
+	if errors.Is(err, client_lib.ErrObjectNotFound) {
+		references = &[]api.AttachedObjectReference{}
+	} else {
+		require.NoError(t, err)
+	}
+	countRequires := func(id uint) int {
+		count := 0
+		for _, ref := range *references {
+			if ref.ObjectID == nil || *ref.ObjectID != id {
+				continue
+			}
+			if ref.Relationship == nil || *ref.Relationship != api.RelationshipRequires {
+				continue
+			}
+			count++
+		}
+		return count
+	}
+
+	// the last gateway is gone, so both slots are empty
+	if want == 0 {
+		require.Nil(t, stored.IngressComponentInstanceID)
+		require.Nil(t, stored.CertificatesComponentInstanceID)
+		require.Zero(t, countRequires(ingressID))
+		require.Zero(t, countRequires(certificatesID))
+		return ingressID, certificatesID
+	}
+
+	// one live workload of each component, held by the live gateways
+	oneLive := func(name string) api.KubernetesWorkloadInstance {
+		t.Helper()
+		var found []api.KubernetesWorkloadInstance
+		for _, workload := range *workloads {
+			if workload.Name != nil && *workload.Name == name && workload.DeletionScheduled == nil {
+				found = append(found, workload)
+			}
+		}
+		require.Len(t, found, 1)
+		return found[0]
+	}
+	ingress := oneLive(supportservices.IngressComponentName + "-" + *runtime.Name)
+	certificates := oneLive(supportservices.CertificatesComponentName + "-" + *runtime.Name)
+	require.NotNil(t, ingress.ID)
+	require.NotNil(t, certificates.ID)
+	require.NotNil(t, stored.IngressComponentInstanceID)
+	require.NotNil(t, stored.CertificatesComponentInstanceID)
+	require.Equal(t, *ingress.ID, *stored.IngressComponentInstanceID)
+	require.Equal(t, *certificates.ID, *stored.CertificatesComponentInstanceID)
+	if ingressID != 0 {
+		require.Equal(t, ingressID, *ingress.ID)
+		require.Equal(t, certificatesID, *certificates.ID)
+	}
+	require.Equal(t, want, countRequires(*ingress.ID))
+	require.Equal(t, want, countRequires(*certificates.ID))
+	return *ingress.ID, *certificates.ID
 }
 
 // gatewayComponentID returns the live shared component workload.

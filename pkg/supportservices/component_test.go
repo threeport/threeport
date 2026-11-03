@@ -6,7 +6,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/threeport/threeport/internal/machinetest"
+	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api "github.com/threeport/threeport/pkg/api/v0"
+	controller "github.com/threeport/threeport/pkg/controller/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -68,6 +71,30 @@ func TestComponentSlotNullOmitsDeletedAt(t *testing.T) {
 	}
 	if runtime.ID == nil || *runtime.ID != id {
 		t.Fatal("runtime id was cleared")
+	}
+}
+
+// TestComponentSlotNullKeepsTheOtherSlotID keeps a sibling slot id exact.
+func TestComponentSlotNullKeepsTheOtherSlotID(t *testing.T) {
+	// use ids past the float64 integer range
+	id := uint(7)
+	ingressID := uint(1224220641336655873)
+	certificatesID := uint(1224220645081022465)
+	name := "runtime"
+	runtime := &api.KubernetesRuntimeInstance{
+		Common:                          api.Common{ID: &id},
+		Instance:                        api.Instance{Name: &name},
+		IngressComponentInstanceID:      &ingressID,
+		CertificatesComponentInstanceID: &certificatesID,
+	}
+
+	// null the ingress column and leave the certificates id unchanged
+	body, err := componentSlotNull(runtime, ingressColumn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(body), "1224220645081022465") {
+		t.Fatalf("certificates id changed in %s", body)
 	}
 }
 
@@ -160,20 +187,6 @@ func TestEnsureComponentRejectsAMissingRuntime(t *testing.T) {
 	}
 }
 
-// TestEnsureDatabaseComponentReportsAMissingManifest stops before a workload exists.
-func TestEnsureDatabaseComponentReportsAMissingManifest(t *testing.T) {
-	// install with no manifest
-	runtime := &api.KubernetesRuntimeInstance{Common: api.Common{ID: util.Ptr(uint(1))}}
-	gateway := &api.GatewayInstance{}
-	err := EnsureDatabaseComponent(nil, runtime, gateway, nil, noopGatewayUpdate, nil)
-	if err == nil || err.Error() != "database component manifest is missing" {
-		t.Fatalf("error %v, want the missing manifest", err)
-	}
-	if runtime.DatabaseComponentInstanceID != nil {
-		t.Fatalf("slot = %v, want empty", runtime.DatabaseComponentInstanceID)
-	}
-}
-
 // TestSecretsProviderCreates allows eks and kind to install the secrets component.
 func TestSecretsProviderCreates(t *testing.T) {
 	// allow eks and kind
@@ -199,6 +212,121 @@ func TestEnsureSecretsComponentSkipsOtherProviders(t *testing.T) {
 	}
 	if runtime.SecretsComponentInstanceID != nil {
 		t.Fatalf("slot = %v, want empty", runtime.SecretsComponentInstanceID)
+	}
+}
+
+// TestReleaseReturnsAnErrorWhenTheClearIsRejectedAndNoClaimRemains reports the
+// rejected clear when no live requires row still names the component workload.
+func TestReleaseReturnsAnErrorWhenTheClearIsRejectedAndNoClaimRemains(t *testing.T) {
+	runtimeID := uint(1)
+	workloadID := uint(7)
+	gatewayID := uint(3)
+	runtime := &api.KubernetesRuntimeInstance{
+		Common:                     api.Common{ID: &runtimeID},
+		IngressComponentInstanceID: &workloadID,
+	}
+	stub := machinetest.NewAPIStub(t)
+	stub.Mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, api.PathKubernetesRuntimeInstances+"/"):
+			machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{runtime})
+		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, api.PathAttachedObjectReferences):
+			machinetest.WriteResponse(t, w, http.StatusOK, nil)
+		case r.Method == http.MethodPut && strings.HasPrefix(r.URL.Path, api.PathKubernetesRuntimeInstances+"/"):
+			body, err := json.Marshal(apiserver_lib.Response{
+				Status: apiserver_lib.Status{
+					Code:  http.StatusBadRequest,
+					Error: api.ErrMsgSupportServiceSlotHeld,
+				},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write(body)
+		default:
+			t.Fatalf("unexpected %s %s", r.Method, r.URL.RequestURI())
+		}
+	})
+	reconciler := &controller.Reconciler{APIServer: stub.Addr, APIClient: stub.Client}
+
+	// release the component after the claim is already gone
+	err := release(
+		reconciler,
+		runtimeID,
+		&runtime.IngressComponentInstanceID,
+		"ingress component",
+		ingressColumn,
+		"threeport.io/v0.GatewayInstance",
+		&gatewayID,
+	)
+	if err == nil || !strings.Contains(err.Error(), api.ErrMsgSupportServiceSlotHeld) {
+		t.Fatalf("error %v, want %q", err, api.ErrMsgSupportServiceSlotHeld)
+	}
+}
+
+// TestReleaseReturnsNilWhenTheClearIsRejectedAndAClaimRemains leaves the
+// workload when another object still requires it.
+func TestReleaseReturnsNilWhenTheClearIsRejectedAndAClaimRemains(t *testing.T) {
+	runtimeID := uint(1)
+	workloadID := uint(7)
+	gatewayID := uint(3)
+	otherGatewayID := uint(9)
+	referenceID := uint(11)
+	runtime := &api.KubernetesRuntimeInstance{
+		Common:                     api.Common{ID: &runtimeID},
+		IngressComponentInstanceID: &workloadID,
+	}
+	stub := machinetest.NewAPIStub(t)
+	stub.Mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, api.PathKubernetesRuntimeInstances+"/"):
+			machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{runtime})
+		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, api.PathAttachedObjectReferences):
+			var references []apiserver_lib.Object
+			if !strings.Contains(r.URL.RawQuery, "attachedobjectid=") {
+				references = []apiserver_lib.Object{&api.AttachedObjectReference{
+					ID:               &referenceID,
+					ObjectID:         &workloadID,
+					AttachedObjectID: &otherGatewayID,
+				}}
+			}
+			machinetest.WriteResponse(t, w, http.StatusOK, references)
+		case r.Method == http.MethodPut && strings.HasPrefix(r.URL.Path, api.PathKubernetesRuntimeInstances+"/"):
+			body, err := json.Marshal(apiserver_lib.Response{
+				Status: apiserver_lib.Status{
+					Code:  http.StatusBadRequest,
+					Error: api.ErrMsgSupportServiceSlotHeld,
+				},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write(body)
+		default:
+			t.Fatalf("unexpected %s %s", r.Method, r.URL.RequestURI())
+		}
+	})
+	reconciler := &controller.Reconciler{APIServer: stub.Addr, APIClient: stub.Client}
+
+	// release the component while another gateway still requires the workload
+	err := release(
+		reconciler,
+		runtimeID,
+		&runtime.IngressComponentInstanceID,
+		"ingress component",
+		ingressColumn,
+		"threeport.io/v0.GatewayInstance",
+		&gatewayID,
+	)
+	if err != nil {
+		t.Fatalf("release: %v", err)
+	}
+	if runtime.IngressComponentInstanceID == nil || *runtime.IngressComponentInstanceID != workloadID {
+		t.Fatalf("slot = %v, want %d", runtime.IngressComponentInstanceID, workloadID)
 	}
 }
 
