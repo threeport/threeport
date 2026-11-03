@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
+	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -28,6 +29,8 @@ type ControlPlaneValues struct {
 	OnboardParent             *bool
 	Tier                      *string
 	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues
+	ImageNamespace            *string
+	ImageTag                  *string
 	CustomComponentInfo       []*api_v0.ControlPlaneComponent
 	Genesis                   *bool
 	Age                       *string
@@ -63,6 +66,12 @@ func (c *ControlPlaneConfig) Create(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]ControlPlaneConfig, error) {
+	// reject component info that names no default component before the
+	// definition is written, so a bad override leaves nothing behind
+	if err := threeport.ValidateComponentOverrides(c.ControlPlane.CustomComponentInfo); err != nil {
+		return nil, fmt.Errorf("invalid CustomComponentInfo for control plane: %w", err)
+	}
+
 	// get operations
 	operations, controlPlaneDefinitions, controlPlaneInstances := c.GetOperations(
 		apiClient,
@@ -90,6 +99,12 @@ func (c *ControlPlaneConfig) Replace(
 	apiEndpoint string,
 	name string,
 ) (*[]ControlPlaneConfig, error) {
+	// reject component info that names no default component before the
+	// definition is written, so a bad override leaves nothing behind
+	if err := threeport.ValidateComponentOverrides(c.ControlPlane.CustomComponentInfo); err != nil {
+		return nil, fmt.Errorf("invalid CustomComponentInfo for control plane: %w", err)
+	}
+
 	// get operations
 	operations, controlPlaneDefinitions, controlPlaneInstances := c.GetOperations(
 		apiClient,
@@ -196,6 +211,8 @@ func (c *ControlPlaneConfig) GetOperations(
 			Name:                      c.ControlPlane.Name,
 			Namespace:                 c.ControlPlane.Namespace,
 			KubernetesRuntimeInstance: c.ControlPlane.KubernetesRuntimeInstance,
+			ImageNamespace:            c.ControlPlane.ImageNamespace,
+			ImageTag:                  c.ControlPlane.ImageTag,
 			CustomComponentInfo:       c.ControlPlane.CustomComponentInfo,
 			ControlPlaneDefinition: &ControlPlaneDefinitionValues{
 				Name: c.ControlPlane.Name,
@@ -262,6 +279,8 @@ func mapToControlPlaneDefinedInstances(
 						OnboardParent:             def.ControlPlaneDefinition.OnboardParent,
 						Tier:                      def.ControlPlaneDefinition.Tier,
 						KubernetesRuntimeInstance: inst.ControlPlaneInstance.KubernetesRuntimeInstance,
+						ImageNamespace:            inst.ControlPlaneInstance.ImageNamespace,
+						ImageTag:                  inst.ControlPlaneInstance.ImageTag,
 						CustomComponentInfo:       inst.ControlPlaneInstance.CustomComponentInfo,
 						Genesis:                   inst.ControlPlaneInstance.Genesis,
 						Age:                       inst.ControlPlaneInstance.Age,

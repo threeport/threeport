@@ -12,6 +12,7 @@ import (
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"net/http"
+	neturl "net/url"
 )
 
 // GetGcpGkeKubernetesRuntimeDefinitions fetches all gcp gke kubernetes runtime definitions.
@@ -25,7 +26,7 @@ func GetGcpGkeKubernetesRuntimeDefinitions(apiClient *http.Client, apiAddr strin
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathGcpGkeKubernetesRuntimeDefinitions)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathGcpGkeKubernetesRuntimeDefinitions, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathGcpGkeKubernetesRuntimeDefinitions, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -134,7 +135,7 @@ func GetGcpGkeKubernetesRuntimeDefinitionByName(apiClient *http.Client, apiAddr,
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathGcpGkeKubernetesRuntimeDefinitions, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathGcpGkeKubernetesRuntimeDefinitions, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -342,7 +343,7 @@ func GetGcpGkeKubernetesRuntimeInstances(apiClient *http.Client, apiAddr string)
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathGcpGkeKubernetesRuntimeInstances)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathGcpGkeKubernetesRuntimeInstances, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathGcpGkeKubernetesRuntimeInstances, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -451,7 +452,7 @@ func GetGcpGkeKubernetesRuntimeInstanceByName(apiClient *http.Client, apiAddr, n
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathGcpGkeKubernetesRuntimeInstances, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathGcpGkeKubernetesRuntimeInstances, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -659,7 +660,7 @@ func GetGcpProviders(apiClient *http.Client, apiAddr string) (*[]v0.GcpProvider,
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathGcpProviders)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathGcpProviders, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathGcpProviders, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -768,7 +769,7 @@ func GetGcpProviderByName(apiClient *http.Client, apiAddr, name string) (*v0.Gcp
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathGcpProviders, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathGcpProviders, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
