@@ -144,7 +144,7 @@ func TestGatewayIngressServesHTTPAndHTTPS(t *testing.T) {
 	// delete the last gateway and remove the shared ingress install
 	deleteGateway(t, apiClient, endpoint, echoGateway)
 	waitForHostTornDown(t, apiClient, endpoint, kubeClient, *workload.ID, "echo", echoHost, echoTcpPort)
-	waitForSharedComponentRemoved(t, apiClient, endpoint, kubeClient, *runtime.ID)
+	waitForSharedComponentRemoved(t, apiClient, endpoint, kubeClient, componentID)
 }
 
 // createEchoDomain registers the host the ingress matches.
@@ -739,30 +739,20 @@ func waitForSharedComponents(t *testing.T, kubeClient dynamic.Interface, want in
 	require.NoError(t, err)
 }
 
-// waitForSharedComponentRemoved polls until the shared install is gone.
+// waitForSharedComponentRemoved waits until the saved workload is deleting.
+// Release clears the runtime column before the workload is gone.
 func waitForSharedComponentRemoved(
 	t *testing.T,
 	apiClient *http.Client,
 	endpoint string,
 	kubeClient dynamic.Interface,
-	runtimeID uint,
+	componentID uint,
 ) {
 	t.Helper()
 
-	// require the component workload to be deleting and the components gone
+	// require the saved workload to be deleting and the components gone
 	err := util.Retry(reconcileAttempts, 2, func() error {
-		runtime, err := client.GetKubernetesRuntimeInstanceByID(apiClient, endpoint, runtimeID)
-		if err != nil {
-			return err
-		}
-		if runtime.IngressComponentInstanceID == nil {
-			return errors.New("runtime has no gateway component")
-		}
-		workload, err := client.GetKubernetesWorkloadInstanceByID(
-			apiClient,
-			endpoint,
-			*runtime.IngressComponentInstanceID,
-		)
+		workload, err := client.GetKubernetesWorkloadInstanceByID(apiClient, endpoint, componentID)
 		if err != nil && !errors.Is(err, client_lib.ErrObjectNotFound) {
 			return err
 		}
