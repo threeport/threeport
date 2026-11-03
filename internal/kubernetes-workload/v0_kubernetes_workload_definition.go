@@ -168,6 +168,12 @@ func v0KubernetesWorkloadDefinitionUpdated(
 		); err != nil {
 			return 0, fmt.Errorf("failed to mark kubernetes workload definition as being reconciled: %w", err)
 		}
+		// The reconciler loop that called this decides whether to mark the
+		// definition reconciled again from this same object, without reading
+		// it back. Left as it was, it would still say reconciled, the loop
+		// would see nothing to do, and the definition would stay unreconciled
+		// in the API - refusing every instance created from it from then on.
+		k8sWorkloadDefinition.Reconciled = util.Ptr(false)
 	}
 
 	// bring each instance in line with the new resource definitions

@@ -48,6 +48,10 @@ type fakeThreeportAPI struct {
 	// definitionReconciled records the Reconciled value of each write to the
 	// definition
 	definitionReconciled []bool
+
+	// definition, when set, is the stored definition: it is served on a get
+	// and each write's Reconciled is kept on it, as the API server keeps it
+	definition *v0.KubernetesWorkloadDefinition
 }
 
 func newFakeThreeportAPI() *fakeThreeportAPI {
@@ -127,7 +131,13 @@ func (f *fakeThreeportAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		var patch v0.KubernetesWorkloadDefinition
 		_ = json.NewDecoder(r.Body).Decode(&patch)
 		f.definitionReconciled = append(f.definitionReconciled, patch.Reconciled != nil && *patch.Reconciled)
+		if f.definition != nil && patch.Reconciled != nil {
+			f.definition.Reconciled = util.Ptr(*patch.Reconciled)
+		}
 		respond(http.StatusOK, patch)
+	case strings.HasPrefix(r.URL.Path, v0.PathKubernetesWorkloadDefinitions+"/") && r.Method == http.MethodGet && f.definition != nil:
+		stored := *f.definition
+		respond(http.StatusOK, stored)
 
 	case r.URL.Path == v0.PathKubernetesWorkloadInstances && r.Method == http.MethodGet:
 		var found []apiserver_lib.Object
