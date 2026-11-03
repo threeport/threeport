@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -24,6 +25,7 @@ import (
 	tpapi "github.com/threeport/threeport/pkg/api/v0"
 	tpclient_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	tp_errors "github.com/threeport/threeport/pkg/errors/v0"
 	event "github.com/threeport/threeport/pkg/event/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -68,6 +70,27 @@ type harness struct {
 	patchCount atomic.Int64
 	// lastPatch is the body of the latest PATCH against the fetching object
 	lastPatch []byte
+
+	// failures is the reconcilers' record of when operations began failing.
+	// Its clock is the harness's, which a test advances by hand to pass the
+	// retry bound without waiting out an hour.
+	failures *controller.FailureTracker
+	clockMu  sync.Mutex
+	clock    time.Time
+}
+
+// now is the harness's clock.
+func (h *harness) now() time.Time {
+	h.clockMu.Lock()
+	defer h.clockMu.Unlock()
+	return h.clock
+}
+
+// advanceClock moves the harness's clock forward.
+func (h *harness) advanceClock(d time.Duration) {
+	h.clockMu.Lock()
+	defer h.clockMu.Unlock()
+	h.clock = h.clock.Add(d)
 }
 
 // startNatsServer starts an in-process JetStream server on a free loopback port.
@@ -135,6 +158,8 @@ func newHarness(t *testing.T) *harness {
 			Instance: tpapi.Instance{Name: util.Ptr("volatile-fixture")},
 		},
 	}
+	h.clock = time.Now()
+	h.failures = &controller.FailureTracker{Now: h.now}
 	h.apiStatus.Store(http.StatusOK)
 	// install the spy
 	t.Cleanup(InstallSpy(h.spy))
@@ -217,6 +242,7 @@ func (h *harness) startReconciler(
 		Shutdown:         shutdown,
 		ShutdownWait:     &shutdownWait,
 		EventsRecorder:   recorderFor(h, name),
+		Failures:         h.failures,
 	})
 
 	// signal shutdown and wait for the loop to return
@@ -247,10 +273,18 @@ func (h *harness) scheduleDeletion() {
 // publish sends operation for the fetching object and waits until that reconciler is idle.
 func (h *harness) publish(operation notifications.NotificationOperation) {
 	h.t.Helper()
+	h.publishCreatedAt(operation, time.Now().Unix())
+}
+
+// publishCreatedAt is publish for a notification that carries the given
+// creation time, in Unix seconds - how a notification that has been failing for
+// a while looks to the reconciler.
+func (h *harness) publishCreatedAt(operation notifications.NotificationOperation, creationTime int64) {
+	h.t.Helper()
 
 	// build the notification payload
 	h.objMu.Lock()
-	payload, err := h.obj.NotificationPayload(operation, false, time.Now().Unix())
+	payload, err := h.obj.NotificationPayload(operation, false, creationTime)
 	h.objMu.Unlock()
 	require.NoError(h.t, err)
 
@@ -332,6 +366,20 @@ func (h *harness) delivered(reconcilerName string) uint64 {
 	info, err := h.js.ConsumerInfo(fixtureStream, reconcilerName+"Consumer")
 	require.NoError(h.t, err)
 	return info.Delivered.Consumer
+}
+
+// outstanding returns the number of messages on reconcilerName's consumer that
+// have not been acknowledged: waiting to be delivered, delivered and unanswered,
+// or negatively acknowledged and waiting out a redelivery delay. It returns -1
+// when the consumer cannot be read. It is polled from goroutines that can still
+// be running as the test ends and the connection closes, so it reports that
+// rather than failing the test from a goroutine that does not own it.
+func (h *harness) outstanding(reconcilerName string) int {
+	info, err := h.js.ConsumerInfo(fixtureStream, reconcilerName+"Consumer")
+	if err != nil {
+		return -1
+	}
+	return info.NumAckPending + int(info.NumPending)
 }
 
 // locked reports whether reconcilerName currently holds the fixture object's lock.
@@ -545,5 +593,182 @@ func TestDeleteInProgressRecordedOnceWhenDeleteConflicts(t *testing.T) {
 			assert.Equal(t, 1, count)
 			assert.NotContains(t, h.instanceRecorder.GetReasons(), event.ReasonDeleteFailed)
 		})
+	}
+}
+
+// failUntilGivingUp publishes an operation that fails, lets the failure go on
+// for longer than the retry bound, and waits for the reconciler to stop
+// retrying it. It is the harness's equivalent of an operation failing for an
+// hour.
+func failUntilGivingUp(t *testing.T, h *harness, operation notifications.NotificationOperation) {
+	t.Helper()
+
+	h.publish(operation)
+	require.Len(t, h.spy.Calls(), 1)
+	assertDidNotGiveUp(t, h)
+
+	h.advanceClock(controller.DefaultMaxReconcileDuration + time.Minute)
+
+	// the next attempt is the redelivery, a second or so later
+	require.Eventually(t, func() bool { return h.outstanding(instanceReconciler) == 0 },
+		10*time.Second, 50*time.Millisecond, "the notification must be acknowledged, not requeued")
+}
+
+// TestFailingOperationGivesUpAfterRetryBound covers an operation that has been
+// failing for longer than the retry bound being dropped rather than requeued.
+// Without the bound a failure that cannot resolve itself - a permission that is
+// never granted - is redelivered for as long as the object exists.
+func TestFailingOperationGivesUpAfterRetryBound(t *testing.T) {
+	for _, op := range []struct {
+		name         string
+		operation    notifications.NotificationOperation
+		handler      string
+		failedReason string
+	}{
+		{"create", notifications.NotificationOperationCreated, "create", event.ReasonCreateFailed},
+		{"update", notifications.NotificationOperationUpdated, "update", event.ReasonUpdateFailed},
+		{"delete", notifications.NotificationOperationDeleted, "delete", event.ReasonDeleteFailed},
+	} {
+		t.Run(op.name, func(t *testing.T) {
+			h := newHarness(t)
+			h.spy.SetResult(op.handler, Result{Err: fmt.Errorf("%s handler failed", op.handler)})
+
+			failUntilGivingUp(t, h, op.operation)
+
+			assert.False(t, h.locked(instanceReconciler), "giving up must release the lock")
+			assertGaveUp(t, h, op.failedReason)
+		})
+	}
+}
+
+// TestStaleNotificationIsRetriedAfterItsFirstFailure covers a notification that
+// waited in the queue for longer than the retry bound - a controller that was
+// down, a backlog - being retried when it first fails. The bound is on time
+// spent failing, not on the notification's age, and an operation that has
+// failed once has not been failing for an hour.
+func TestStaleNotificationIsRetriedAfterItsFirstFailure(t *testing.T) {
+	h := newHarness(t)
+	h.spy.SetResult("update", Result{Err: fmt.Errorf("update handler failed")})
+
+	h.publishCreatedAt(
+		notifications.NotificationOperationUpdated,
+		time.Now().Add(-controller.DefaultMaxReconcileDuration-time.Hour).Unix(),
+	)
+
+	assert.Equal(t, []string{"update"}, h.spy.Calls())
+	assert.Never(t, func() bool { return h.outstanding(instanceReconciler) == 0 },
+		time.Second, 50*time.Millisecond, "the first failure of an old notification must be requeued")
+	assertDidNotGiveUp(t, h)
+}
+
+// TestNewNotificationAfterGivingUpGetsItsOwnWindow covers an update that
+// arrives after the reconciler gave up on an object being retried like any
+// other. It is new work, and if its first failure is temporary it has not been
+// failing for an hour: finding the old window already run out would drop it
+// without a single retry.
+func TestNewNotificationAfterGivingUpGetsItsOwnWindow(t *testing.T) {
+	h := newHarness(t)
+	h.spy.SetResult("update", Result{Err: fmt.Errorf("update handler failed")})
+
+	failUntilGivingUp(t, h, notifications.NotificationOperationUpdated)
+	require.Len(t, gaveUpEvents(h), 1)
+	calls := len(h.spy.Calls())
+
+	h.publish(notifications.NotificationOperationUpdated)
+
+	assert.Equal(t, calls+1, len(h.spy.Calls()), "the new notification is attempted")
+	assert.Never(t, func() bool { return h.outstanding(instanceReconciler) == 0 },
+		time.Second, 50*time.Millisecond, "its first failure must be requeued")
+	assert.Len(t, gaveUpEvents(h), 1, "it has not given up a second time")
+}
+
+// TestSuccessEndsTheFailureWindow covers a success starting a later failure on
+// a new window. Failures an hour apart with a success between them are not one
+// hour of failing.
+func TestSuccessEndsTheFailureWindow(t *testing.T) {
+	h := newHarness(t)
+
+	h.spy.SetResult("update", Result{Err: fmt.Errorf("update handler failed")})
+	h.publish(notifications.NotificationOperationUpdated)
+	assertDidNotGiveUp(t, h)
+
+	h.advanceClock(controller.DefaultMaxReconcileDuration - time.Minute)
+	h.spy.SetResult("update", Result{})
+	require.Eventually(t, func() bool { return h.outstanding(instanceReconciler) == 0 },
+		10*time.Second, 50*time.Millisecond, "the retry succeeds")
+
+	h.advanceClock(2 * time.Minute)
+	h.spy.SetResult("update", Result{Err: fmt.Errorf("update handler failed again")})
+	h.publish(notifications.NotificationOperationUpdated)
+
+	assertDidNotGiveUp(t, h)
+	assert.Never(t, func() bool { return h.outstanding(instanceReconciler) == 0 },
+		time.Second, 50*time.Millisecond, "a failure after a success is a new episode, so it is requeued")
+}
+
+// TestFailingOperationIsRequeuedWithinRetryBound is the other side of the
+// bound: a recent failure is retried, so the bound cannot pass by dropping every
+// failure.
+func TestFailingOperationIsRequeuedWithinRetryBound(t *testing.T) {
+	h := newHarness(t)
+	h.spy.SetResult("update", Result{Err: fmt.Errorf("update handler failed")})
+
+	h.publish(notifications.NotificationOperationUpdated)
+
+	require.Eventually(t, func() bool { return len(h.spy.Calls()) >= 2 }, 10*time.Second, 100*time.Millisecond,
+		"a failure inside the bound is redelivered")
+}
+
+// gaveUpEvents returns the final events the instance reconciler recorded for
+// failures it stopped retrying.
+func gaveUpEvents(h *harness) []*tpapi.Event {
+	var final []*tpapi.Event
+	for _, recorded := range h.instanceRecorder.GetEvents() {
+		if recorded.Event != nil && recorded.Event.Note != nil && strings.Contains(*recorded.Event.Note, "giving up") {
+			final = append(final, recorded.Event)
+		}
+	}
+	return final
+}
+
+// assertDidNotGiveUp checks that no final event has been recorded.
+func assertDidNotGiveUp(t *testing.T, h *harness) {
+	t.Helper()
+	assert.Empty(t, gaveUpEvents(h), "the reconciler stopped retrying too soon")
+}
+
+// assertGaveUp checks that the final event for a failure the reconciler has
+// stopped retrying was recorded, and says so.
+func assertGaveUp(t *testing.T, h *harness, reason string) {
+	t.Helper()
+
+	events := gaveUpEvents(h)
+	require.NotEmpty(t, events, "giving up must leave an event that says retries have stopped")
+	final := events[len(events)-1]
+	assert.Equal(t, reason, *final.Reason)
+	assert.Equal(t, event.TypeWarning, *final.Type)
+}
+
+// TestGiveUpEventRecordedWhenErrorCarriesAnEvent covers the final event
+// surviving an error that carries an event of its own. The events recorded on
+// each earlier attempt defer to that event, so a final one routed the same way
+// would be replaced by it - an exhausted failure recording the same event as
+// every retry, with nothing to say retries had stopped.
+func TestGiveUpEventRecordedWhenErrorCarriesAnEvent(t *testing.T) {
+	h := newHarness(t)
+	h.spy.SetResult("update", Result{Err: &tp_errors.ErrWithEvent{
+		Message: "ssh connection failed",
+		Event: tpapi.Event{
+			Reason: util.Ptr("SSHConnectFailed"),
+			Note:   util.Ptr("could not connect"),
+			Type:   util.Ptr(event.TypeWarning),
+		},
+	}})
+
+	failUntilGivingUp(t, h, notifications.NotificationOperationUpdated)
+
+	assertGaveUp(t, h, event.ReasonUpdateFailed)
+	for _, reason := range h.instanceRecorder.GetReasons() {
+		assert.NotEqual(t, "SSHConnectFailed", reason, "the final event is not the error's own")
 	}
 }

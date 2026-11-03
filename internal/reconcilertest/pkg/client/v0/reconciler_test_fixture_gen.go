@@ -12,6 +12,7 @@ import (
 	tpclient_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	tputil "github.com/threeport/threeport/pkg/util/v0"
 	"net/http"
+	neturl "net/url"
 )
 
 // GetReconcilerTestInstances fetches all reconciler test instances.
@@ -25,7 +26,7 @@ func GetReconcilerTestInstances(apiClient *http.Client, apiAddr string) (*[]v0.R
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathReconcilerTestInstances)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathReconcilerTestInstances, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathReconcilerTestInstances, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := tpclient_lib.GetResponse(
@@ -134,7 +135,7 @@ func GetReconcilerTestInstanceByName(apiClient *http.Client, apiAddr, name strin
 
 	response, err := tpclient_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathReconcilerTestInstances, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathReconcilerTestInstances, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -342,7 +343,7 @@ func GetReconcilerTestVolatileInstances(apiClient *http.Client, apiAddr string) 
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathReconcilerTestVolatileInstances)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathReconcilerTestVolatileInstances, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathReconcilerTestVolatileInstances, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := tpclient_lib.GetResponse(
@@ -451,7 +452,7 @@ func GetReconcilerTestVolatileInstanceByName(apiClient *http.Client, apiAddr, na
 
 	response, err := tpclient_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathReconcilerTestVolatileInstances, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathReconcilerTestVolatileInstances, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
