@@ -88,14 +88,23 @@ control plane.`,
 			}
 
 			// look up configCurrentControlPlaneName on the current API
-			namedInstance, err := client.GetControlPlaneInstanceByName(apiClient, apiEndpoint, configCurrentControlPlaneName)
+			namedInstance, err := client.GetControlPlaneInstanceByName(
+				apiClient,
+				apiEndpoint,
+				configCurrentControlPlaneName,
+			)
 			if err != nil && !errors.Is(err, client_lib.ErrObjectNotFound) {
 				cli.Error("failed to retrieve requested control plane instance", err)
 				os.Exit(1)
 			}
-			if err == nil && namedInstance.Name != nil {
+			if err == nil {
 				cli.Info("found requested control plane by name")
-				updateThreeportConfigWithControlPlaneInstance(apiClient, apiEndpoint, namedInstance, threeportConfig)
+				updateThreeportConfigWithControlPlaneInstance(
+					apiClient,
+					apiEndpoint,
+					namedInstance,
+					threeportConfig,
+				)
 				cli.Complete(fmt.Sprintf("Threeport control plane %s set as the current control plane", configCurrentControlPlaneName))
 				return
 			}
@@ -108,7 +117,7 @@ control plane.`,
 			}
 			if controlPlaneInstance.Children != nil {
 				for _, controlPlane := range *controlPlaneInstance.Children {
-					if controlPlane.Name != nil && *controlPlane.Name == configCurrentControlPlaneName {
+					if *controlPlane.Name == configCurrentControlPlaneName {
 						controlPlaneInstanceToSet = &controlPlane
 						cli.Info("found requested control plane in children of current control plane")
 						updateThreeportConfigWithControlPlaneInstance(apiClient, apiEndpoint, controlPlaneInstanceToSet, threeportConfig)
@@ -137,6 +146,15 @@ control plane.`,
 			os.Exit(1)
 		}
 
+		// read a client when the current control plane did not supply one
+		if apiClient == nil {
+			apiClient, err = threeportConfig.GetHTTPClient(anyControlPlane.Name)
+			if err != nil {
+				cli.Error("failed to get threeport API client", err)
+				os.Exit(1)
+			}
+		}
+
 		// get control plane instances
 		controlPlaneInstanceToSet, err = client.GetGenesisControlPlaneInstance(apiClient, apiEndpoint)
 		if err != nil {
@@ -146,7 +164,7 @@ control plane.`,
 
 		updateThreeportConfigWithControlPlaneInstance(apiClient, apiEndpoint, controlPlaneInstanceToSet, threeportConfig)
 
-		cli.Warning(fmt.Sprintf("could not find requested control plane info. Current control plane set to the genesis control plane for this instance: %s. Try traversing the topology of your control planes", genesisControlPlane.Name))
+		cli.Warning("could not find requested control plane info. Current control plane set to the genesis control plane. Try traversing the topology of your control planes")
 		os.Exit(1)
 	},
 }
