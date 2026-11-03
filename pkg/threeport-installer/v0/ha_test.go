@@ -19,7 +19,7 @@ var pdbGVR = schema.GroupVersionResource{Group: "policy", Version: "v1", Resourc
 
 // tierInstaller returns an installer for the given tier.
 func tierInstaller(tier string) *ControlPlaneInstaller {
-	cpi := testInstaller()
+	cpi := componentsTestInstaller()
 	cpi.Opts.Tier = ControlPlaneTier(tier)
 	return cpi
 }

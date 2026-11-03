@@ -4,6 +4,8 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -24,7 +26,10 @@ import (
 // to be rejected before any infrastructure is touched, since by then the
 // operator has a cluster they were told is something it is not.
 func TestKindCannotRunAProductionTier(t *testing.T) {
-	// api port is only accepted for kind, so it is passed only there
+	// api port is only accepted for kind, so it is passed only there. auth is
+	// left on throughout: this test is about the tier/provider pairing, and
+	// ValidateCreateGenesisControlPlaneFlags also rejects auth disabled on
+	// anything but kind - a separate check this test does not exercise.
 	validate := func(provider, tier string) error {
 		apiPort := 0
 		if provider == v0.KubernetesRuntimeInfraProviderKind {
@@ -32,7 +37,7 @@ func TestKindCannotRunAProductionTier(t *testing.T) {
 		}
 
 		return ValidateCreateGenesisControlPlaneFlags(
-			"test", provider, tier, "", false, nil, false, "", apiPort,
+			"test", provider, tier, "", true, nil, false, "", apiPort,
 		)
 	}
 
@@ -52,22 +57,17 @@ func TestKindCannotRunAProductionTier(t *testing.T) {
 }
 
 // TestDefaultTierForProviderIsRecordedNotInferred covers the reason the field
-// exists: the default is a function of the provider at install time, and
-// nothing afterwards can work it out again.
+// exists: the tier is chosen at install time, and nothing afterwards can work
+// it out again.
 //
 // A child control plane is created by the control-plane-controller from a
 // stored definition. If the tier is not on that definition, the controller has
-// only the provider to go on, which is how a control plane deliberately
-// installed as development on a cloud provider would silently come up as
-// production.
+// only the default to go on, which is how a control plane deliberately
+// installed as production would silently come up as development.
 func TestDefaultTierForProviderIsRecordedNotInferred(t *testing.T) {
 	assert.Equal(
-		t, threeport.ControlPlaneTierDev,
-		threeport.DefaultControlPlaneTierForProvider(v0.KubernetesRuntimeInfraProviderKind),
-	)
-	assert.Equal(
-		t, threeport.ControlPlaneTierProd,
-		threeport.DefaultControlPlaneTierForProvider(v0.KubernetesRuntimeInfraProviderEKS),
+		t, threeport.ControlPlaneTierDev, threeport.DefaultControlPlaneTier,
+		"production is opted into, never defaulted into, on any provider",
 	)
 
 	// the field a definition carries it in
@@ -158,4 +158,68 @@ func TestEveryControlPlaneDefinitionRecordsItsTier(t *testing.T) {
 	}
 
 	require.NotZero(t, constructed, "no control plane definition construction found to check")
+}
+
+// TestACloudInstallAtTheDefaultTierSaysSo covers #684's notice: an operator
+// who meant production, and did not know it is no longer the default on a
+// cloud provider, finds out as the install starts.
+func TestACloudInstallAtTheDefaultTierSaysSo(t *testing.T) {
+	for _, provider := range []string{
+		v0.KubernetesRuntimeInfraProviderEKS,
+		v0.KubernetesRuntimeInfraProviderGKE,
+		v0.KubernetesRuntimeInfraProviderOKE,
+	} {
+		notice := DefaultTierNotice(provider)
+		assert.Contains(t, notice, threeport.ControlPlaneTierDev, provider)
+		assert.Contains(t, notice, "--tier "+threeport.ControlPlaneTierProd, provider)
+	}
+
+	assert.Empty(
+		t, DefaultTierNotice(v0.KubernetesRuntimeInfraProviderKind),
+		"kind runs only the development tier, so there is nothing to tell",
+	)
+}
+
+// captureStdout returns what run prints to standard output.
+func captureStdout(t *testing.T, run func()) string {
+	t.Helper()
+	reader, writer, err := os.Pipe()
+	require.NoError(t, err)
+	previous := os.Stdout
+	os.Stdout = writer
+	defer func() { os.Stdout = previous }()
+
+	run()
+	require.NoError(t, writer.Close())
+	printed, err := io.ReadAll(reader)
+	require.NoError(t, err)
+
+	return string(printed)
+}
+
+// TestTheTierUpInstallsAtIsPrintedWhenDefaulted covers the path tptctl up
+// takes to its tier: the notice is printed, not only composed, when the tier
+// was defaulted on a cloud provider - and nothing is printed when the
+// operator asked for a tier, or on kind.
+func TestTheTierUpInstallsAtIsPrintedWhenDefaulted(t *testing.T) {
+	var tier string
+	printed := captureStdout(t, func() {
+		tier = ResolveControlPlaneTier(v0.KubernetesRuntimeInfraProviderGKE, "")
+	})
+	assert.Equal(t, threeport.ControlPlaneTierDev, tier)
+	assert.Contains(t, printed, DefaultTierNotice(v0.KubernetesRuntimeInfraProviderGKE))
+
+	for _, explicit := range []string{threeport.ControlPlaneTierDev, threeport.ControlPlaneTierProd} {
+		printed = captureStdout(t, func() {
+			tier = ResolveControlPlaneTier(v0.KubernetesRuntimeInfraProviderEKS, explicit)
+		})
+		assert.Equal(t, explicit, tier, "a tier asked for is the one installed")
+		assert.Empty(t, printed, "a tier asked for needs no notice")
+	}
+
+	printed = captureStdout(t, func() {
+		tier = ResolveControlPlaneTier(v0.KubernetesRuntimeInfraProviderKind, "")
+	})
+	assert.Equal(t, threeport.ControlPlaneTierDev, tier)
+	assert.Empty(t, printed, "kind runs only the development tier")
 }

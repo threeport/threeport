@@ -96,7 +96,7 @@ func GetGcpGkeKubernetesRuntimeDefinitionByK8sRuntimeDef(apiClient *http.Client,
 	}
 
 	if len(response.Data) < 1 {
-		return &gcpGkeKubernetesRuntimeDefinition, fmt.Errorf("no object found with ID %d", id)
+		return &gcpGkeKubernetesRuntimeDefinition, fmt.Errorf("%w: no object found with ID %d", client_lib.ErrObjectNotFound, id)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -130,7 +130,7 @@ func GetGcpGkeKubernetesRuntimeInstanceByK8sRuntimeInst(apiClient *http.Client, 
 	}
 
 	if len(response.Data) < 1 {
-		return &gcpGkeKubernetesRuntimeInstance, fmt.Errorf("no object found with ID %d", id)
+		return &gcpGkeKubernetesRuntimeInstance, fmt.Errorf("%w: no object found with ID %d", client_lib.ErrObjectNotFound, id)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])

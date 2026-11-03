@@ -25,6 +25,7 @@ import (
 
 const (
 	DbInitFilename            = "db.sql"
+	DbBackupScheduleFilename  = "backup-schedule.sql"
 	DbInitLocation            = "/etc/threeport/db-create"
 	ThreeportApiCaSecret      = "api-ca"
 	ThreeportApiConfigSecret  = "api-config"
@@ -220,12 +221,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAPIDeployment(
 				"name":      "db-create",
 				"namespace": cpi.Opts.Namespace,
 			},
-			"data": map[string]interface{}{
-				"db.sql": `CREATE USER IF NOT EXISTS threeport;
-CREATE DATABASE IF NOT EXISTS threeport_api encoding='utf-8';
-GRANT ALL ON DATABASE threeport_api TO threeport;
-`,
-			},
+			"data": cpi.dbCreateData(),
 		},
 	}
 
@@ -280,6 +276,7 @@ THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 	initContainers := []interface{}{
 		map[string]interface{}{
 			"name":            "db-init",
+			"securityContext": restrictedContainerSecurityContext(),
 			"image":           dbMigratorImage,
 			"imagePullPolicy": cpi.getImagePullPolicy(),
 			"command": []interface{}{
@@ -303,7 +300,8 @@ THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 			},
 		},
 		map[string]interface{}{
-			"name":            "database-migrator",
+			"name":            ThreeportDatabaseMigratorContainerName,
+			"securityContext": restrictedContainerSecurityContext(),
 			"image":           dbMigratorImage,
 			"imagePullPolicy": cpi.getImagePullPolicy(),
 			"command": []interface{}{
@@ -322,6 +320,14 @@ THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 				},
 			},
 		},
+	}
+
+	// an init container needs the same writable paths as the containers it
+	// runs before; the additional ones below are the caller's to describe
+	for _, container := range initContainers {
+		spec := container.(map[string]interface{})
+		mounts, _ := spec["volumeMounts"].([]interface{})
+		spec["volumeMounts"] = append(mounts, missingWritableMounts(mounts)...)
 	}
 
 	// configure additional init containers
@@ -352,11 +358,13 @@ THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 						},
 					},
 					"spec": map[string]interface{}{
-						"affinity":       componentAntiAffinity(cpi.Opts.RestApiInfo.ServiceResourceName),
-						"initContainers": initContainers,
+						"affinity":        componentAntiAffinity(cpi.Opts.RestApiInfo.ServiceResourceName),
+						"securityContext": restrictedPodSecurityContext(),
+						"initContainers":  initContainers,
 						"containers": []interface{}{
 							map[string]interface{}{
-								"name":            "api-server",
+								"name":            ThreeportApiServerContainerName,
+								"securityContext": restrictedContainerSecurityContext(),
 								"image":           apiImage,
 								"command":         cpi.getCommand(cpi.Opts.RestApiInfo.BinaryName),
 								"imagePullPolicy": cpi.getImagePullPolicy(),
@@ -718,6 +726,23 @@ func setManagedByLabel(resource *unstructured.Unstructured) {
 	// set the managed-by label
 	labels[LabelManagedBy] = LabelManagedByValue
 	resource.SetLabels(labels)
+}
+
+// dbCreateData returns the SQL the database migrator runs before the API
+// server starts: the init script, and on a control plane that backs its
+// database up, the backup schedule.
+func (cpi *ControlPlaneInstaller) dbCreateData() map[string]interface{} {
+	data := map[string]interface{}{
+		DbInitFilename: `CREATE USER IF NOT EXISTS threeport;
+CREATE DATABASE IF NOT EXISTS threeport_api encoding='utf-8';
+GRANT ALL ON DATABASE threeport_api TO threeport;
+`,
+	}
+	if cpi.Opts.GcpBackupBucket != "" {
+		data[DbBackupScheduleFilename] = DatabaseBackupScheduleSQL(DatabaseBackupURI(cpi.Opts.GcpBackupBucket))
+	}
+
+	return data
 }
 
 // setPersistent marks the resource so a later install keeps the existing object.
@@ -1402,41 +1427,26 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 										"memory": "64Mi",
 									},
 								},
-								"securityContext": map[string]interface{}{
-									"allowPrivilegeEscalation": false,
-									"capabilities": map[string]interface{}{
-										"drop": []interface{}{
-											"ALL",
-										},
-									},
-								},
+								"securityContext": restrictedContainerSecurityContext(),
+								"volumeMounts":    writableVolumeMounts(),
 							},
 							map[string]interface{}{
 								"args":            agentArgs,
+								"securityContext": restrictedContainerSecurityContext(),
 								"image":           agentImage,
 								"imagePullPolicy": cpi.getImagePullPolicy(),
 								"command":         cpi.getCommand(cpi.Opts.AgentInfo.BinaryName),
 								"startupProbe":    cpi.getStartupProbe(agentLivenessPath),
 								"livenessProbe":   cpi.getLivenessProbe(agentLivenessPath),
-								"name":            "manager",
+								"name":            ThreeportAgentContainerName,
 								"readinessProbe":  cpi.getReadinessProbe(),
 								"resources":       cpi.componentResources(cpi.Opts.AgentInfo.Name),
-								//"securityContext": map[string]interface{}{
-								//	"allowPrivilegeEscalation": false,
-								//	"capabilities": map[string]interface{}{
-								//		"drop": []interface{}{
-								//			"ALL",
-								//		},
-								//	},
-								//},
-								"volumeMounts": agentVolMounts,
+								"volumeMounts":    agentVolMounts,
 							},
 						},
-						"imagePullSecrets": agentImagePullSecrets,
-						"volumes":          agentVols,
-						//"securityContext": map[string]interface{}{
-						//	"runAsNonRoot": true,
-						//},
+						"imagePullSecrets":              agentImagePullSecrets,
+						"volumes":                       agentVols,
+						"securityContext":               restrictedPodSecurityContext(),
 						"serviceAccountName":            ThreeportAgentName,
 						"terminationGracePeriodSeconds": int64(10),
 					},
@@ -1771,6 +1781,9 @@ func (cpi *ControlPlaneInstaller) getAPIVolumes() ([]interface{}, []interface{},
 		volMounts = append(volMounts, certVolMount)
 	}
 
+	// the paths a read-only root filesystem has to leave writable
+	vols, volMounts = addWritablePaths(vols, volMounts)
+
 	return vols, volMounts, nil
 }
 
@@ -1831,6 +1844,9 @@ func (cpi *ControlPlaneInstaller) getControllerVolumes(controller v0.ControlPlan
 	for _, vm := range additionalVolumeMounts {
 		volMounts = append(volMounts, vm)
 	}
+
+	// the paths a read-only root filesystem has to leave writable
+	vols, volMounts = addWritablePaths(vols, volMounts)
 
 	return vols, volMounts, nil
 }
@@ -2045,10 +2061,12 @@ func (cpi *ControlPlaneInstaller) getControllerDeployment(
 					},
 					"spec": map[string]interface{}{
 						"affinity":           componentAntiAffinity(deployName),
+						"securityContext":    restrictedPodSecurityContext(),
 						"serviceAccountName": controller.ServiceAccountName,
 						"containers": []interface{}{
 							map[string]interface{}{
 								"name":            controller.Name,
+								"securityContext": restrictedContainerSecurityContext(),
 								"image":           controllerImage,
 								"command":         cpi.getCommand(controller.BinaryName),
 								"imagePullPolicy": cpi.getImagePullPolicy(),

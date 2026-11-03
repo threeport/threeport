@@ -38,7 +38,7 @@ func TestReinstallKeepsTheInstalledTier(t *testing.T) {
 			})
 
 			// the installer a reinstall builds: no tier given
-			cpi := testInstaller()
+			cpi := componentsTestInstaller()
 			require.ErrorIs(t, cpi.Reinstall(kubeClient, &mapper, nil), errStopped)
 			assert.Equal(t, ControlPlaneTier(tier), cpi.Opts.Tier)
 
@@ -66,7 +66,7 @@ func TestReinstallOfAnUnrecordedTierKeepsTheGivenOne(t *testing.T) {
 	kubeClient := testKubeClient(testNamespace(ControlPlaneNamespace, ""))
 	mapper := testComponentMapper()
 
-	cpi := testInstaller()
+	cpi := componentsTestInstaller()
 	require.NoError(t, cpi.useInstalledTier(kubeClient, &mapper))
 	assert.Equal(t, ControlPlaneTier(""), cpi.Opts.Tier)
 }

@@ -12,6 +12,7 @@ import (
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"net/http"
+	neturl "net/url"
 )
 
 // GetLogBackends fetches all log backends.
@@ -25,7 +26,7 @@ func GetLogBackends(apiClient *http.Client, apiAddr string) (*[]v0.LogBackend, e
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathLogBackends)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathLogBackends, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathLogBackends, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -134,7 +135,7 @@ func GetLogBackendByName(apiClient *http.Client, apiAddr, name string) (*v0.LogB
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathLogBackends, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathLogBackends, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -342,7 +343,7 @@ func GetLogStorageDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.Log
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathLogStorageDefinitions)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathLogStorageDefinitions, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathLogStorageDefinitions, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -451,7 +452,7 @@ func GetLogStorageDefinitionByName(apiClient *http.Client, apiAddr, name string)
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathLogStorageDefinitions, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathLogStorageDefinitions, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -659,7 +660,7 @@ func GetLogStorageInstances(apiClient *http.Client, apiAddr string) (*[]v0.LogSt
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathLogStorageInstances)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathLogStorageInstances, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathLogStorageInstances, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -768,7 +769,7 @@ func GetLogStorageInstanceByName(apiClient *http.Client, apiAddr, name string) (
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathLogStorageInstances, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathLogStorageInstances, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},

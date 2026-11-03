@@ -49,7 +49,7 @@ func probeInt(t *testing.T, probe map[string]interface{}, field string) int64 {
 // the issue describes: without a liveness probe a process that hangs without
 // crashing is marked not ready forever and never restarted.
 func TestEveryThreeportContainerHasStartupLivenessAndReadiness(t *testing.T) {
-	for name, container := range threeportContainers(t, testInstaller()) {
+	for name, container := range threeportContainers(t, componentsTestInstaller()) {
 		for _, probe := range []string{"startupProbe", "livenessProbe", "readinessProbe"} {
 			_, found, err := unstructured.NestedMap(container, probe)
 			require.NoError(t, err)
@@ -64,7 +64,7 @@ func TestEveryThreeportContainerHasStartupLivenessAndReadiness(t *testing.T) {
 // short pause had only slowed down.  Readiness itself must ride out a single
 // slow answer, which a failure threshold of one did not.
 func TestLivenessIsMoreLenientThanReadiness(t *testing.T) {
-	for name, container := range threeportContainers(t, testInstaller()) {
+	for name, container := range threeportContainers(t, componentsTestInstaller()) {
 		readiness := container["readinessProbe"].(map[string]interface{})
 		liveness := container["livenessProbe"].(map[string]interface{})
 
@@ -81,7 +81,7 @@ func TestLivenessIsMoreLenientThanReadiness(t *testing.T) {
 // liveness probe on readiness would restart every controller at once during a
 // NATS outage, which a restart cannot fix.
 func TestLivenessDoesNotProbeReadiness(t *testing.T) {
-	for name, container := range threeportContainers(t, testInstaller()) {
+	for name, container := range threeportContainers(t, componentsTestInstaller()) {
 		for _, probe := range []string{"startupProbe", "livenessProbe"} {
 			path, _, err := unstructured.NestedString(container, probe, "httpGet", "path")
 			require.NoError(t, err)
@@ -114,7 +114,7 @@ func TestEveryProbedEndpointIsServed(t *testing.T) {
 	served(t, filepath.Join(root, "cmd", "agent", "main.go"), `AddHealthzCheck("healthz"`)
 
 	// and the probes ask for the port those servers listen on
-	for name, container := range threeportContainers(t, testInstaller()) {
+	for name, container := range threeportContainers(t, componentsTestInstaller()) {
 		for _, probe := range []string{"startupProbe", "livenessProbe", "readinessProbe"} {
 			port, _, err := unstructured.NestedInt64(container, probe, "httpGet", "port")
 			require.NoError(t, err)

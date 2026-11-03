@@ -50,8 +50,8 @@ func testComponentMapper() meta.RESTMapper {
 	return mapper
 }
 
-// testInstaller returns an installer for the default control plane.
-func testInstaller() *ControlPlaneInstaller {
+// componentsTestInstaller returns an installer for the default control plane.
+func componentsTestInstaller() *ControlPlaneInstaller {
 	return &ControlPlaneInstaller{Opts: Options{
 		Name:                        ControlPlaneName,
 		Namespace:                   ControlPlaneNamespace,
@@ -129,7 +129,7 @@ func podContainers(t *testing.T, deployment *unstructured.Unstructured) map[stri
 // It reads every container of every Deployment, so a container added later
 // without resources fails here rather than shipping.
 func TestEveryControlPlaneContainerHasResources(t *testing.T) {
-	deployments := controlPlaneDeployments(t, testInstaller())
+	deployments := controlPlaneDeployments(t, componentsTestInstaller())
 	require.Len(t, deployments, len(ThreeportControllerList)+2)
 
 	for deploymentName, deployment := range deployments {
@@ -155,7 +155,7 @@ func TestEveryControlPlaneContainerHasResources(t *testing.T) {
 // sets only some values: the rest keep their defaults rather than being written
 // as empty quantities the API server would reject.
 func TestComponentResourcesOverrideOneValueAndKeepTheRest(t *testing.T) {
-	cpi := testInstaller()
+	cpi := componentsTestInstaller()
 	cpi.Opts.ComponentResources = map[string]ContainerResources{
 		ThreeportRestApiName: {LimitMemory: "2Gi"},
 	}
@@ -174,7 +174,7 @@ func TestComponentResourcesOverrideOneValueAndKeepTheRest(t *testing.T) {
 // to the container it names, for each kind of component, so an override cannot
 // silently land on a different container or none.
 func TestComponentResourcesReachTheirContainer(t *testing.T) {
-	cpi := testInstaller()
+	cpi := componentsTestInstaller()
 	cpi.Opts.ComponentResources = map[string]ContainerResources{
 		ThreeportRestApiName:             {LimitMemory: "901Mi"},
 		ThreeportDatabaseMigratorName:    {LimitMemory: "902Mi"},
