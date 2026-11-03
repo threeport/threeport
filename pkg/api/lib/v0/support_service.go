@@ -18,15 +18,16 @@ func ApplySupportServiceSlots(
 	fields []string,
 	runtimeTable, workloadTable, referenceTable, workloadType, relationship, heldMessage string,
 ) error {
-	// skip an update that carries no runtime
+	// skip an update that is not this runtime
 	incoming := IncomingValues(tx)
 	if len(fields) == 0 || !hasSlotField(incoming, fields[0]) {
 		return nil
 	}
 
-	// load the stored row once when a clear needs the id the payload leaves out
+	// claim or clear each changed slot
 	var stored any
 	for _, field := range fields {
+		// leave a field the payload does not change
 		changed, err := IsFieldChanged(tx, field)
 		if err != nil {
 			return fmt.Errorf("failed to check %s on kubernetes runtime instance %d: %w", field, runtimeID, err)
@@ -34,10 +35,14 @@ func ApplySupportServiceSlots(
 		if !changed {
 			continue
 		}
+
+		// map the field to its column
 		column, err := slotColumn(tx, model, field)
 		if err != nil {
 			return err
 		}
+
+		// claim the workload id the payload carries
 		next := slotValue(incoming, field)
 		if next != nil {
 			if err := claimSupportServiceSlot(tx, runtimeTable, workloadTable, column, runtimeID, *next, heldMessage); err != nil {
@@ -45,6 +50,8 @@ func ApplySupportServiceSlots(
 			}
 			continue
 		}
+
+		// load the stored row once for the id a clear leaves out
 		if stored == nil {
 			loaded, err := LoadObjectFromDB(tx)
 			if err != nil {
@@ -52,10 +59,14 @@ func ApplySupportServiceSlots(
 			}
 			stored = loaded
 		}
+
+		// skip a slot that was already empty
 		previous := slotValue(stored, field)
 		if previous == nil {
 			continue
 		}
+
+		// clear the slot, or reject the update when it is still required
 		cleared, err := clearSupportServiceSlot(tx, runtimeTable, referenceTable, workloadType, relationship, column, runtimeID, *previous)
 		if err != nil {
 			return err
