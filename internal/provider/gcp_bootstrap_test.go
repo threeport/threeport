@@ -3,6 +3,7 @@ package provider
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -58,7 +59,7 @@ func TestCanonicalGCPAccountName_RejectsCaseFolding(t *testing.T) {
 	require.True(t, canonicalGCPAccountName("my-provider"))
 	require.False(t, canonicalGCPAccountName("My-Provider"))
 	require.False(t, canonicalGCPAccountName("my_provider"))
-	require.False(t, canonicalGCPAccountName("aaaaaaaaaaaaaaaaa"))
+	require.False(t, canonicalGCPAccountName(strings.Repeat("a", 31)))
 }
 
 // TestGkeServiceAccountDescription_EmbedsOwnership covers the GKE create path
@@ -310,7 +311,7 @@ func TestWorkloadIdentityMembers_NameNoRuntime(t *testing.T) {
 // TestGcpServiceAccountDeletable_RuntimeDeleteRefusesProviderAccount covers the
 // collision between a runtime and a GcpProvider of one name.
 //
-// Both derive threeport-svc-<name>, and the ownership marker in the description
+// Both use the name as the account id, and the ownership marker in the description
 // is the same for both, so a check on the marker alone takes the provider's
 // account for the runtime's. Deleting the runtime would then strip the
 // provider's project roles and delete its account, and the provider's stored key

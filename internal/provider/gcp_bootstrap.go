@@ -22,8 +22,6 @@ import (
 
 // GCP resource naming constants to ensure consistency between create and delete operations
 const (
-	// serviceAccountNameFormat is the format for all Threeport GCP service accounts
-	serviceAccountNameFormat = "threeport-svc-%s"
 	// serviceAccountDisplayFormat is the display name format for all Threeport service accounts
 	serviceAccountDisplayFormat = "Threeport Service Account for %s"
 	// workloadIdentityPoolFormat is the format for Workload Identity pool names
@@ -394,7 +392,7 @@ func (i *KubernetesRuntimeInfraGKE) validateGCPServiceAccountPropagation(
 
 // getServiceAccountID returns the service account ID (without the email domain).
 func (i *KubernetesRuntimeInfraGKE) getServiceAccountID() string {
-	return formatServiceAccountID(serviceAccountNameFormat, i.RuntimeInstanceName)
+	return formatServiceAccountID(i.RuntimeInstanceName)
 }
 
 // getServiceAccountEmail returns the full service account email address.
@@ -409,7 +407,7 @@ func (i *KubernetesRuntimeInfraGKE) getServiceAccountEmail() string {
 //
 // Parameters:
 //   - projectID: The GCP project ID where the service account will be created
-//   - accountName: A name to use for the service account (will be prefixed with "threeport-")
+//   - accountName: The service account id
 //
 // Returns the service account info including the JSON key credentials.
 func CreateGCPServiceAccountWithKey(projectID, accountName string) (*GCPServiceAccountWithKey, error) {
@@ -868,13 +866,10 @@ func formatIAMServiceAccountCreate403Hint(projectID string) string {
 	)
 }
 
-// formatServiceAccountID generates a valid GCP service account ID from the given
-// format string and name. GCP service account IDs must be 6-30 characters,
-// contain only lowercase letters, digits, and hyphens, and start with a letter.
-func formatServiceAccountID(format, name string) string {
-	id := fmt.Sprintf(format, name)
+// formatServiceAccountID returns a GCP service account id for name.
+func formatServiceAccountID(name string) string {
 	// Convert to lowercase
-	id = strings.ToLower(id)
+	id := strings.ToLower(name)
 	// Replace invalid characters with hyphens
 	var result strings.Builder
 	for _, c := range id {
@@ -914,27 +909,26 @@ func isNotFoundError(err error) bool {
 	return strings.Contains(errStr, "404") || strings.Contains(errStr, "notFound") || strings.Contains(errStr, "Not Found")
 }
 
-// generateServiceAccountID generates a valid GCP service account ID from the given name.
-// This is used when creating service accounts via tptctl create gcp-provider.
+// generateServiceAccountID returns the service account id for name.
 func generateServiceAccountID(name string) string {
-	return formatServiceAccountID(serviceAccountNameFormat, name)
+	return formatServiceAccountID(name)
 }
 
-// canonicalGCPAccountName reports whether name is already the unique
-// lowercase [a-z0-9-] form, and whether generateServiceAccountID keeps it
-// without truncating to 30 characters.
+// canonicalGCPAccountName reports whether name is already a service account id.
+// The id generator must keep the name unchanged.
 func canonicalGCPAccountName(name string) bool {
+	// reject an empty name
 	if name == "" {
 		return false
 	}
+	// reject a character outside lowercase letters, digits, and hyphens
 	for _, r := range name {
 		if (r < 'a' || r > 'z') && (r < '0' || r > '9') && r != '-' {
 			return false
 		}
 	}
-	id := generateServiceAccountID(name)
-	full := strings.ToLower(fmt.Sprintf(serviceAccountNameFormat, name))
-	return id == full
+	// reject a name the id generator would change
+	return generateServiceAccountID(name) == name
 }
 
 // grantServiceAccountRolesForProject grants the necessary IAM roles to a service account.
