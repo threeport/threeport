@@ -179,6 +179,16 @@ func v0KubernetesRuntimeInstanceUpdated(
 		return 0, fmt.Errorf("failed to retrieve kubernetes runtime definition by ID: %w", err)
 	}
 
+	// A GKE-hosted control plane's own cluster has everything this function
+	// would install - the control plane install put it there - and this
+	// controller is not granted read access to the Deployments and CRDs it
+	// would check for in the cluster it runs in. Checking anyway fails with
+	// Forbidden on every pass, forever.
+	if isGkeControlPlaneHost(kubernetesRuntimeInstance, kubernetesRuntimeDefinition) {
+		log.V(1).Info("kubernetes runtime hosts this GKE control plane, skipping compute space component install")
+		return 0, nil
+	}
+
 	// get kube client to install compute space control plane components
 	dynamicKubeClient, mapper, err := kube.GetClient(
 		kubernetesRuntimeInstance,
@@ -288,6 +298,17 @@ func v0KubernetesRuntimeInstanceUpdated(
 		); err != nil {
 			return 0, fmt.Errorf("failed to install system services: %w", err)
 		}
+
+		// a claim that names no storage class has nothing to bind to on EKS
+		// without a default. Checked on its own rather than with the system
+		// services, so a cluster that already has those gets a default too.
+		created, err := threeport.EnsureEksDefaultStorageClass(dynamicKubeClient)
+		if err != nil {
+			return 0, fmt.Errorf("failed to set a default storage class: %w", err)
+		}
+		if created {
+			log.Info("set a default storage class", "storageClass", threeport.EksDefaultStorageClassName)
+		}
 	}
 
 	// On GKE, the control-plane workload controllers authenticate to this
@@ -298,8 +319,7 @@ func v0KubernetesRuntimeInstanceUpdated(
 	// both this managed cluster and the control-plane host run on GKE; the host
 	// instance is skipped because its bindings are created at control-plane
 	// install time.
-	isControlPlaneHost := kubernetesRuntimeInstance.ThreeportControlPlaneHost != nil &&
-		*kubernetesRuntimeInstance.ThreeportControlPlaneHost
+	isControlPlaneHost := runtimeHostsControlPlane(kubernetesRuntimeInstance)
 	if !isControlPlaneHost &&
 		*kubernetesRuntimeDefinition.InfraProvider == v0.KubernetesRuntimeInfraProviderGKE {
 		controlPlaneGcpProject, err := controlPlaneGkeProject(r)
@@ -408,6 +428,14 @@ func v0KubernetesRuntimeInstanceDeleted(
 			*kubernetesRuntimeInstance.ID,
 		)
 		if err != nil {
+			if errors.Is(err, client_lib.ErrObjectNotFound) {
+				// AWS EKS instance already gone - nothing left to delete
+				log.Info(
+					"aws eks runtime instance already deleted, confirming kubernetes runtime instance deletion",
+					"kubernetesRuntimeInstanceID", *kubernetesRuntimeInstance.ID,
+				)
+				return 0, nil
+			}
 			return 0, fmt.Errorf("failed to get aws eks runtime instance by kubernetes runtime instance ID: %w", err)
 		}
 
@@ -430,6 +458,10 @@ func v0KubernetesRuntimeInstanceDeleted(
 		if err != nil {
 			if errors.Is(err, client_lib.ErrObjectNotFound) {
 				// GcpGke instance already gone - nothing left to delete
+				log.Info(
+					"gcp gke runtime instance already deleted, confirming kubernetes runtime instance deletion",
+					"kubernetesRuntimeInstanceID", *kubernetesRuntimeInstance.ID,
+				)
 				return 0, nil
 			}
 			return 0, fmt.Errorf("failed to get GCP GKE runtime instance by kubernetes runtime instance ID: %w", err)
@@ -447,6 +479,23 @@ func v0KubernetesRuntimeInstanceDeleted(
 	}
 
 	return 0, nil
+}
+
+// runtimeHostsControlPlane reports whether a runtime instance is the cluster the
+// control plane itself runs on.
+func runtimeHostsControlPlane(instance *v0.KubernetesRuntimeInstance) bool {
+	return instance.ThreeportControlPlaneHost != nil && *instance.ThreeportControlPlaneHost
+}
+
+// isGkeControlPlaneHost reports whether a runtime instance is a GKE cluster the
+// control plane runs on.
+func isGkeControlPlaneHost(
+	instance *v0.KubernetesRuntimeInstance,
+	definition *v0.KubernetesRuntimeDefinition,
+) bool {
+	return runtimeHostsControlPlane(instance) &&
+		definition.InfraProvider != nil &&
+		*definition.InfraProvider == v0.KubernetesRuntimeInfraProviderGKE
 }
 
 // serviceAccountNamespacePath is where Kubernetes mounts a pod's own namespace.

@@ -201,6 +201,29 @@ func MetricsInstanceReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the operation has been failing for longer than the retry bound
+					if r.RecordFailure(metricsInstance, string(notif.Operation)) {
+						giveUpMsg := event.GiveUpNote(
+							"failed to reconcile created metrics instance object",
+							controller.DefaultMaxReconcileDuration,
+							operationErr,
+						)
+						log.Error(operationErr, giveUpMsg)
+						if recordErr := r.EventsRecorder.RecordEvent(
+							&api_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonCreateFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							metricsInstance.GetId(),
+							metricsInstance.GetFullyQualifiedType(),
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record give-up event")
+						}
+						r.ClearFailure(metricsInstance, string(notif.Operation))
+						r.ReleaseLock(metricsInstance, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						metricsInstance,
 						requeueDelay,
@@ -209,6 +232,7 @@ func MetricsInstanceReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				r.ClearFailure(metricsInstance, string(notif.Operation))
 				if customRequeueDelay != 0 {
 					log.Info("create requeued for future reconciliation")
 					r.UnlockAndRequeue(
@@ -266,6 +290,29 @@ func MetricsInstanceReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the operation has been failing for longer than the retry bound
+					if r.RecordFailure(metricsInstance, string(notif.Operation)) {
+						giveUpMsg := event.GiveUpNote(
+							"failed to reconcile updated metrics instance object",
+							controller.DefaultMaxReconcileDuration,
+							operationErr,
+						)
+						log.Error(operationErr, giveUpMsg)
+						if recordErr := r.EventsRecorder.RecordEvent(
+							&api_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonUpdateFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							metricsInstance.GetId(),
+							metricsInstance.GetFullyQualifiedType(),
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record give-up event")
+						}
+						r.ClearFailure(metricsInstance, string(notif.Operation))
+						r.ReleaseLock(metricsInstance, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						metricsInstance,
 						requeueDelay,
@@ -274,6 +321,7 @@ func MetricsInstanceReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				r.ClearFailure(metricsInstance, string(notif.Operation))
 				if customRequeueDelay != 0 {
 					log.Info("update requeued for future reconciliation")
 					r.UnlockAndRequeue(
@@ -344,6 +392,29 @@ func MetricsInstanceReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the operation has been failing for longer than the retry bound
+					if r.RecordFailure(metricsInstance, string(notif.Operation)) {
+						giveUpMsg := event.GiveUpNote(
+							"failed to reconcile deleted metrics instance object",
+							controller.DefaultMaxReconcileDuration,
+							operationErr,
+						)
+						log.Error(operationErr, giveUpMsg)
+						if recordErr := r.EventsRecorder.RecordEvent(
+							&api_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonDeleteFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							metricsInstance.GetId(),
+							metricsInstance.GetFullyQualifiedType(),
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record give-up event")
+						}
+						r.ClearFailure(metricsInstance, string(notif.Operation))
+						r.ReleaseLock(metricsInstance, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						metricsInstance,
 						requeueDelay,
@@ -352,6 +423,7 @@ func MetricsInstanceReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				r.ClearFailure(metricsInstance, string(notif.Operation))
 				if customRequeueDelay != 0 {
 					log.Info("delete requeued for future reconciliation")
 					r.UnlockAndRequeue(

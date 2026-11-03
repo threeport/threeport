@@ -12,6 +12,7 @@ import (
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"net/http"
+	neturl "net/url"
 )
 
 // GetSecretDefinitions fetches all secret definitions.
@@ -25,7 +26,7 @@ func GetSecretDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.SecretD
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathSecretDefinitions)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathSecretDefinitions, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathSecretDefinitions, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -134,7 +135,7 @@ func GetSecretDefinitionByName(apiClient *http.Client, apiAddr, name string) (*v
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathSecretDefinitions, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathSecretDefinitions, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -342,7 +343,7 @@ func GetSecretInstances(apiClient *http.Client, apiAddr string) (*[]v0.SecretIns
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathSecretInstances)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathSecretInstances, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathSecretInstances, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -451,7 +452,7 @@ func GetSecretInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0.
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathSecretInstances, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathSecretInstances, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
