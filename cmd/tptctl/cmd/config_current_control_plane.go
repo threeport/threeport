@@ -4,6 +4,7 @@ Copyright © 2023 Threeport admin@threeport.io
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -12,6 +13,7 @@ import (
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 )
 
@@ -64,43 +66,57 @@ control plane.`,
 
 		cli.Info("Control plane not found in config")
 
-		// get threeport API client
-		apiClient, err := threeportConfig.GetHTTPClient(currentControlPlane.Name)
-		if err != nil {
-			cli.Error("failed to get threeport API client", err)
-			os.Exit(1)
-		}
-
+		var apiClient *http.Client
 		var controlPlaneInstanceToSet *v0.ControlPlaneInstance
-		if currentControlPlane != nil {
+		if currentControlPlane == nil {
+			cli.Warning("Current control plane not found, cannot search children for requested control plane instance.")
+		} else {
 			cli.Info("Checking if child of current control plane")
-			// If the requested control plane is not found already in config,
-			// search through the children of the current control plane
+
+			// get threeport API client
+			apiClient, err = threeportConfig.GetHTTPClient(currentControlPlane.Name)
+			if err != nil {
+				cli.Error("failed to get threeport API client", err)
+				os.Exit(1)
+			}
+
+			// read the current control plane endpoint
 			apiEndpoint, err := threeportConfig.GetThreeportAPIEndpoint(currentControlPlane.Name)
 			if err != nil {
 				cli.Error("failed to get threeport API endpoint from config", err)
 				os.Exit(1)
 			}
 
-			// get control plane instances
+			// look up configCurrentControlPlaneName on the current API
+			namedInstance, err := client.GetControlPlaneInstanceByName(apiClient, apiEndpoint, configCurrentControlPlaneName)
+			if err != nil && !errors.Is(err, client_lib.ErrObjectNotFound) {
+				cli.Error("failed to retrieve requested control plane instance", err)
+				os.Exit(1)
+			}
+			if err == nil && namedInstance.Name != nil {
+				cli.Info("found requested control plane by name")
+				updateThreeportConfigWithControlPlaneInstance(apiClient, apiEndpoint, namedInstance, threeportConfig)
+				cli.Complete(fmt.Sprintf("Threeport control plane %s set as the current control plane", configCurrentControlPlaneName))
+				return
+			}
+
+			// load the current instance and walk its Children
 			controlPlaneInstance, err := client.GetControlPlaneInstanceByName(apiClient, apiEndpoint, currentControlPlane.Name)
 			if err != nil {
 				cli.Error("failed to retrieve current control plane instance", err)
 				os.Exit(1)
 			}
-
-			for _, controlPlane := range *controlPlaneInstance.Children {
-				if *controlPlane.Name == configCurrentControlPlaneName {
-					controlPlaneInstanceToSet = &controlPlane
-					cli.Info("found requested control plane in children of current control plane")
-					updateThreeportConfigWithControlPlaneInstance(apiClient, apiEndpoint, controlPlaneInstanceToSet, threeportConfig)
-					// set the current instance
-					cli.Complete(fmt.Sprintf("Threeport control plane %s set as the current control plane", configCurrentControlPlaneName))
-					return
+			if controlPlaneInstance.Children != nil {
+				for _, controlPlane := range *controlPlaneInstance.Children {
+					if controlPlane.Name != nil && *controlPlane.Name == configCurrentControlPlaneName {
+						controlPlaneInstanceToSet = &controlPlane
+						cli.Info("found requested control plane in children of current control plane")
+						updateThreeportConfigWithControlPlaneInstance(apiClient, apiEndpoint, controlPlaneInstanceToSet, threeportConfig)
+						cli.Complete(fmt.Sprintf("Threeport control plane %s set as the current control plane", configCurrentControlPlaneName))
+						return
+					}
 				}
 			}
-		} else {
-			cli.Warning("Current control plane not found, cannot search children for requested control plane instance.")
 		}
 
 		cli.Info("Checking to see genesis control plane info for info exists")
