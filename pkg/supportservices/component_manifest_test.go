@@ -60,6 +60,7 @@ func TestDatabaseComponentYaml(t *testing.T) {
 		t.Fatal(err)
 	}
 	name, _, _ := unstructured.NestedString(component.Object, "metadata", "name")
+	collection, _, _ := unstructured.NestedString(component.Object, "spec", "collection", "name")
 	provider, _, _ := unstructured.NestedString(component.Object, "spec", "provider")
 	namespace, _, _ := unstructured.NestedString(component.Object, "spec", "namespace")
 	image, _, _ := unstructured.NestedString(component.Object, "spec", "cloudNativePg", "image")
@@ -67,12 +68,45 @@ func TestDatabaseComponentYaml(t *testing.T) {
 	replicas, _, _ := unstructured.NestedInt64(component.Object, "spec", "cloudNativePg", "replicas")
 	if component.GetKind() != "DatabaseComponent" ||
 		name != DatabaseComponentName ||
+		collection != "threeport-support-services" ||
 		provider != "cloudnative-pg" ||
 		namespace != "nukleros-database-system" ||
 		image != "ghcr.io/cloudnative-pg/cloudnative-pg" ||
 		version != "1.30.1" ||
 		replicas != 2 {
-		t.Fatalf("kind=%s name=%s provider=%s namespace=%s image=%s version=%s replicas=%d", component.GetKind(), name, provider, namespace, image, version, replicas)
+		t.Fatalf("kind=%s name=%s collection=%s provider=%s namespace=%s image=%s version=%s replicas=%d", component.GetKind(), name, collection, provider, namespace, image, version, replicas)
+	}
+}
+
+// TestCertificatesComponentYaml checks the fields this install sets on the sample.
+func TestCertificatesComponentYaml(t *testing.T) {
+	// the sample stays free of threeport values
+	if strings.Contains(string(certificatesComponent), "threeport") {
+		t.Fatal("certificates component sample contains a threeport value")
+	}
+
+	// render the component and read the operator fields
+	rendered, err := certificatesComponentYaml()
+	if err != nil {
+		t.Fatal(err)
+	}
+	component, err := util.UnstructuredFromYaml([]byte(rendered))
+	if err != nil {
+		t.Fatal(err)
+	}
+	name, _, _ := unstructured.NestedString(component.Object, "metadata", "name")
+	collection, _, _ := unstructured.NestedString(component.Object, "spec", "collection", "name")
+	namespace, _, _ := unstructured.NestedString(component.Object, "spec", "namespace")
+	version, _, _ := unstructured.NestedString(component.Object, "spec", "certManager", "version")
+	email, _, _ := unstructured.NestedString(component.Object, "spec", "certManager", "contactEmail")
+	if component.GetKind() != "CertificatesComponent" ||
+		name != CertificatesComponentName ||
+		collection != "threeport-support-services" ||
+		namespace != "nukleros-certs-system" ||
+		version != "v1.9.1" ||
+		email != "admin@nukleros.io" ||
+		component.GetNamespace() != "" {
+		t.Fatalf("kind=%s name=%s collection=%s namespace=%s version=%s email=%s objectNamespace=%s", component.GetKind(), name, collection, namespace, version, email, component.GetNamespace())
 	}
 }
 
@@ -93,19 +127,20 @@ func TestSecretsComponentYaml(t *testing.T) {
 		t.Fatal(err)
 	}
 	name, _, _ := unstructured.NestedString(component.Object, "metadata", "name")
-	namespace, _, _ := unstructured.NestedString(component.Object, "metadata", "namespace")
-	specNamespace, _, _ := unstructured.NestedString(component.Object, "spec", "namespace")
+	collection, _, _ := unstructured.NestedString(component.Object, "spec", "collection", "name")
+	namespace, _, _ := unstructured.NestedString(component.Object, "spec", "namespace")
 	image, _, _ := unstructured.NestedString(component.Object, "spec", "externalSecrets", "image")
 	version, _, _ := unstructured.NestedString(component.Object, "spec", "externalSecrets", "version")
-	replicas, _, _ := unstructured.NestedInt64(component.Object, "spec", "externalSecrets", "replicas")
+	_, replicasFound, _ := unstructured.NestedFieldNoCopy(component.Object, "spec", "externalSecrets", "replicas")
 	if component.GetKind() != "SecretsComponent" ||
 		name != SecretsComponentName ||
+		collection != "threeport-support-services" ||
 		namespace != "nukleros-secrets-system" ||
-		specNamespace != "nukleros-secrets-system" ||
 		image != "ghcr.io/external-secrets/external-secrets" ||
 		version != "v0.9.11" ||
-		replicas != 1 {
-		t.Fatalf("kind=%s name=%s namespace=%s specNamespace=%s image=%s version=%s replicas=%d", component.GetKind(), name, namespace, specNamespace, image, version, replicas)
+		replicasFound ||
+		component.GetNamespace() != "" {
+		t.Fatalf("kind=%s name=%s collection=%s namespace=%s image=%s version=%s replicas=%v objectNamespace=%s", component.GetKind(), name, collection, namespace, image, version, replicasFound, component.GetNamespace())
 	}
 }
 

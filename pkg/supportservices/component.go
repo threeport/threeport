@@ -112,6 +112,9 @@ func EnsureSecretsComponent[T componentAttacher](
 		return nil
 	}
 
+	// store the secrets workload id on the attached API instance
+	record := recordComponentID(r, attacher, field, update)
+
 	// install the secrets component and sync its manifest after reconcile
 	return ensure(
 		r,
@@ -120,7 +123,7 @@ func EnsureSecretsComponent[T componentAttacher](
 		"secrets component",
 		fmt.Sprintf("%s-%s", SecretsComponentName, *runtime.Name),
 		secretsColumn,
-		recordComponentID(r, attacher, field, update),
+		record,
 		nil,
 		secretsComponentYaml,
 		log,

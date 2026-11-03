@@ -223,7 +223,7 @@ func certificatesComponentYaml() (string, error) {
 		return "", err
 	}
 
-	// name the component
+	// name the component and join it to the SupportServices object
 	if err := unstructured.SetNestedField(
 		component.Object,
 		CertificatesComponentName,
@@ -231,6 +231,15 @@ func certificatesComponentYaml() (string, error) {
 		"name",
 	); err != nil {
 		return "", fmt.Errorf("failed to set the certificates component name: %w", err)
+	}
+	if err := unstructured.SetNestedField(
+		component.Object,
+		installer.SupportServicesName,
+		"spec",
+		"collection",
+		"name",
+	); err != nil {
+		return "", fmt.Errorf("failed to set the support services name: %w", err)
 	}
 	return util.UnstructuredToYaml(component)
 }
@@ -243,7 +252,7 @@ func databaseComponentYaml() (string, error) {
 		return "", err
 	}
 
-	// name the component
+	// name the component and join it to the SupportServices object
 	if err := unstructured.SetNestedField(
 		component.Object,
 		DatabaseComponentName,
@@ -251,6 +260,15 @@ func databaseComponentYaml() (string, error) {
 		"name",
 	); err != nil {
 		return "", fmt.Errorf("failed to set the database component name: %w", err)
+	}
+	if err := unstructured.SetNestedField(
+		component.Object,
+		installer.SupportServicesName,
+		"spec",
+		"collection",
+		"name",
+	); err != nil {
+		return "", fmt.Errorf("failed to set the support services name: %w", err)
 	}
 	return util.UnstructuredToYaml(component)
 }
@@ -263,7 +281,7 @@ func secretsComponentYaml() (string, error) {
 		return "", err
 	}
 
-	// name the component
+	// name the component and join it to the SupportServices object
 	if err := unstructured.SetNestedField(
 		component.Object,
 		SecretsComponentName,
@@ -271,6 +289,15 @@ func secretsComponentYaml() (string, error) {
 		"name",
 	); err != nil {
 		return "", fmt.Errorf("failed to set the secrets component name: %w", err)
+	}
+	if err := unstructured.SetNestedField(
+		component.Object,
+		installer.SupportServicesName,
+		"spec",
+		"collection",
+		"name",
+	); err != nil {
+		return "", fmt.Errorf("failed to set the support services name: %w", err)
 	}
 	return util.UnstructuredToYaml(component)
 }
