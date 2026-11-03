@@ -1,6 +1,7 @@
 package supportservices
 
 import (
+	"encoding/json"
 	"net/http"
 	"strings"
 	"testing"
@@ -30,6 +31,44 @@ func (e *appendingEditor) EditManifest(base func() (string, error)) (string, err
 		return "", err
 	}
 	return document + "\n---\nkind: Extra", nil
+}
+
+// TestComponentSlotNullOmitsDeletedAt checks the clear payload the api accepts.
+func TestComponentSlotNullOmitsDeletedAt(t *testing.T) {
+	// build a stored runtime with an association the update cannot carry
+	id := uint(7)
+	workloadID := uint(9)
+	name := "runtime"
+	runtime := &api.KubernetesRuntimeInstance{
+		Common:                      api.Common{ID: &id},
+		Instance:                    api.Instance{Name: &name},
+		IngressComponentInstanceID:  &workloadID,
+		KubernetesWorkloadInstances: []*api.KubernetesWorkloadInstance{{}},
+	}
+
+	// null the ingress column
+	body, err := componentSlotNull(runtime, ingressColumn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fields map[string]any
+	if err := json.Unmarshal(body, &fields); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"ID", "CreatedAt", "UpdatedAt", "DeletedAt", "KubernetesWorkloadInstances"} {
+		if _, ok := fields[key]; ok {
+			t.Fatalf("%s present in %s", key, body)
+		}
+	}
+	if fields[ingressColumn] != nil {
+		t.Fatalf("ingress column %v", fields[ingressColumn])
+	}
+	if fields["Name"] != name {
+		t.Fatalf("name %v", fields["Name"])
+	}
+	if runtime.ID == nil || *runtime.ID != id {
+		t.Fatal("runtime id was cleared")
+	}
 }
 
 // noopGatewayUpdate satisfies the update argument when the attached API instance is not stored.

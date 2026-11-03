@@ -198,8 +198,16 @@ func componentColumn(runtime *api.KubernetesRuntimeInstance, column string) (**u
 
 // componentSlotNull encodes the runtime with the named column set to null.
 func componentSlotNull(runtime *api.KubernetesRuntimeInstance, column string) ([]byte, error) {
-	// drop the identity fields and null the column
-	encoded, err := json.Marshal(runtime)
+	// encode like an update, which omits nil pointers the api rejects
+	payload := *runtime
+	if err := client_lib.ReplaceAssociatedObjectsWithNil(&payload); err != nil {
+		return nil, fmt.Errorf("failed to clear associations on runtime %d: %w", *runtime.ID, err)
+	}
+	payload.ID = nil
+	payload.CreatedAt = nil
+	payload.UpdatedAt = nil
+	payload.DeletedAt = nil
+	encoded, err := util.MarshalObject(&payload)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode runtime %d: %w", *runtime.ID, err)
 	}
@@ -207,9 +215,12 @@ func componentSlotNull(runtime *api.KubernetesRuntimeInstance, column string) ([
 	if err := json.Unmarshal(encoded, &fields); err != nil {
 		return nil, fmt.Errorf("failed to decode runtime %d: %w", *runtime.ID, err)
 	}
+
+	// null the column after the omit, so the key is present
 	delete(fields, "ID")
 	delete(fields, "CreatedAt")
 	delete(fields, "UpdatedAt")
+	delete(fields, "DeletedAt")
 	fields[column] = nil
 	return json.Marshal(fields)
 }
