@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	client "github.com/threeport/threeport/pkg/client/v0"
 
 	api "github.com/threeport/threeport/pkg/api/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -46,7 +45,7 @@ func EnsureIngressComponent[T componentAttacher](
 }
 
 // EnsureCertificatesComponent attaches an API instance to the certificates component of the support services operator.
-// The shared workload is named certificates-<runtime>. Providers other than eks and kind are left unchanged.
+// The shared workload is named certificates-<runtime>.
 func EnsureCertificatesComponent[T componentAttacher](
 	r *controller.Reconciler,
 	runtime *api.KubernetesRuntimeInstance,
@@ -58,19 +57,6 @@ func EnsureCertificatesComponent[T componentAttacher](
 	// require the runtime before reading its certificates workload id
 	if err := requireRuntime(runtime, "certificates component", true); err != nil {
 		return err
-	}
-
-	// install the certificates component on eks and kind
-	provider, err := client.GetInfraProviderByKubernetesRuntimeInstanceID(
-		r.APIClient,
-		r.APIServer,
-		runtime.ID,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to get infra provider: %w", err)
-	}
-	if !secretsProviderCreates(provider) {
-		return nil
 	}
 
 	// store the certificates workload id on the attached API instance
@@ -108,7 +94,9 @@ func EnsureSecretsComponent[T componentAttacher](
 	}
 
 	// install the secrets component on eks and kind
-	if !secretsProviderCreates(provider) {
+	if provider == nil ||
+		(*provider != api.KubernetesRuntimeInfraProviderEKS &&
+			*provider != api.KubernetesRuntimeInfraProviderKind) {
 		return nil
 	}
 
@@ -342,14 +330,6 @@ func componentDocument(editor manifestEditor, manifest func() (string, error)) (
 	}
 
 	return editor.EditManifest(manifest)
-}
-
-// secretsProviderCreates reports whether the provider gets an external-secrets workload.
-func secretsProviderCreates(provider *string) bool {
-	// create the workload for eks and kind
-	return provider != nil &&
-		(*provider == api.KubernetesRuntimeInfraProviderEKS ||
-			*provider == api.KubernetesRuntimeInfraProviderKind)
 }
 
 // releaseComponent drops the attached API instance's requires row for the component workload.

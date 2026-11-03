@@ -187,31 +187,22 @@ func TestEnsureComponentRejectsAMissingRuntime(t *testing.T) {
 	}
 }
 
-// TestSecretsProviderCreates allows eks and kind to install the secrets component.
-func TestSecretsProviderCreates(t *testing.T) {
-	// allow eks and kind
-	if !secretsProviderCreates(util.Ptr("eks")) || !secretsProviderCreates(util.Ptr("kind")) {
-		t.Fatal("eks and kind create the secrets component")
-	}
-	if secretsProviderCreates(util.Ptr("gke")) || secretsProviderCreates(nil) {
-		t.Fatal("gke and an empty provider skip the secrets component")
-	}
-}
-
-// TestEnsureSecretsComponentSkipsOtherProviders leaves the secrets workload id empty for gke.
+// TestEnsureSecretsComponentSkipsOtherProviders leaves the secrets workload id empty for other providers.
 func TestEnsureSecretsComponentSkipsOtherProviders(t *testing.T) {
 	// skip a provider that does not create the component
 	name := "dev"
-	runtime := &api.KubernetesRuntimeInstance{
-		Common:   api.Common{ID: util.Ptr(uint(1))},
-		Instance: api.Instance{Name: &name},
-	}
-	err := EnsureSecretsComponent(nil, runtime, &api.SecretInstance{}, nil, nil, util.Ptr("gke"), nil)
-	if err != nil {
-		t.Fatalf("ensure: %v", err)
-	}
-	if runtime.SecretsComponentInstanceID != nil {
-		t.Fatalf("slot = %v, want empty", runtime.SecretsComponentInstanceID)
+	for _, provider := range []*string{util.Ptr("gke"), nil} {
+		runtime := &api.KubernetesRuntimeInstance{
+			Common:   api.Common{ID: util.Ptr(uint(1))},
+			Instance: api.Instance{Name: &name},
+		}
+		err := EnsureSecretsComponent(nil, runtime, &api.SecretInstance{}, nil, nil, provider, nil)
+		if err != nil {
+			t.Fatalf("ensure %v: %v", provider, err)
+		}
+		if runtime.SecretsComponentInstanceID != nil {
+			t.Fatalf("provider %v slot = %v, want empty", provider, runtime.SecretsComponentInstanceID)
+		}
 	}
 }
 
