@@ -252,17 +252,27 @@ func (a *AwsEksKubernetesRuntimeInstanceConfig) Replace(
 	}
 
 	// construct updated aws eks kubernetes runtime instance object
+	// Replace sends a PUT, a full replace: every field on the outgoing object
+	// is written, a nil one included, so a field left off this literal is
+	// cleared server-side rather than left alone. Status, the Reconciliation
+	// fields and ResourceInventory belong to the controller, not to a caller of
+	// Replace, so they are carried over from the existing object. Losing the
+	// inventory and CreationConfirmed is what lets a later delete destroy an
+	// empty stack and confirm, which orphans the cloud resources.
 	updatedAwsEksKubernetesRuntimeInstance := &api_v0.AwsEksKubernetesRuntimeInstance{
 		Common: api_v0.Common{
 			ID: existingAwsEksKubernetesRuntimeInstance.ID,
 		},
 		Instance: api_v0.Instance{
-			Name: awsEksKubernetesRuntimeInstanceValues.Name,
+			Name:   awsEksKubernetesRuntimeInstanceValues.Name,
+			Status: existingAwsEksKubernetesRuntimeInstance.Status,
 		},
+		Reconciliation:                      existingAwsEksKubernetesRuntimeInstance.Reconciliation,
 		AwsProviderID:                       existingAwsEksKubernetesRuntimeInstance.AwsProviderID,
 		Region:                              awsEksKubernetesRuntimeInstanceValues.Region,
 		KubernetesRuntimeInstanceID:         existingAwsEksKubernetesRuntimeInstance.KubernetesRuntimeInstanceID,
 		AwsEksKubernetesRuntimeDefinitionID: existingAwsEksKubernetesRuntimeInstance.AwsEksKubernetesRuntimeDefinitionID,
+		ResourceInventory:                   existingAwsEksKubernetesRuntimeInstance.ResourceInventory,
 	}
 
 	// replace aws eks kubernetes runtime instance

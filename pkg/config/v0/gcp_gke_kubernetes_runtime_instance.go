@@ -251,17 +251,27 @@ func (g *GcpGkeKubernetesRuntimeInstanceConfig) Replace(
 	}
 
 	// construct updated gcp gke kubernetes runtime instance object
+	// Replace sends a PUT, a full replace: every field on the outgoing object
+	// is written, a nil one included, so a field left off this literal is
+	// cleared server-side rather than left alone. Status, the Reconciliation
+	// fields and ResourceInventory belong to the controller, not to a caller of
+	// Replace, so they are carried over from the existing object. Losing the
+	// inventory and CreationConfirmed is what lets a later delete destroy an
+	// empty stack and confirm, which orphans the cloud resources.
 	updatedGcpGkeKubernetesRuntimeInstance := &api_v0.GcpGkeKubernetesRuntimeInstance{
 		Common: api_v0.Common{
 			ID: existingGcpGkeKubernetesRuntimeInstance.ID,
 		},
 		Instance: api_v0.Instance{
-			Name: gcpGkeKubernetesRuntimeInstanceValues.Name,
+			Name:   gcpGkeKubernetesRuntimeInstanceValues.Name,
+			Status: existingGcpGkeKubernetesRuntimeInstance.Status,
 		},
+		Reconciliation:                      existingGcpGkeKubernetesRuntimeInstance.Reconciliation,
 		Region:                              gcpGkeKubernetesRuntimeInstanceValues.Region,
 		KubernetesRuntimeInstanceID:         existingGcpGkeKubernetesRuntimeInstance.KubernetesRuntimeInstanceID,
 		GcpGkeKubernetesRuntimeDefinitionID: existingGcpGkeKubernetesRuntimeInstance.GcpGkeKubernetesRuntimeDefinitionID,
 		GcpProviderID:                       existingGcpGkeKubernetesRuntimeInstance.GcpProviderID,
+		ResourceInventory:                   existingGcpGkeKubernetesRuntimeInstance.ResourceInventory,
 	}
 
 	// replace gcp gke kubernetes runtime instance
