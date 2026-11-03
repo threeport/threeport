@@ -31,10 +31,12 @@ var UpgradeControlPlaneCmd = &cobra.Command{
 	Use:     "control-plane",
 	Example: "tptctl upgrade control-plane --version=v0.5.0",
 	Short:   "Upgrades the version of the Threeport control plane",
-	Long: `Update the image tag on existing control plane Deployments only.
+	Long: `Update the image tag on existing control plane Deployments.
 
-Does not recreate manifests, RBAC, or configmaps. Use tptctl reinstall
-for those.`,
+The one other thing it changes is what the database migrator needs to back
+the database up before migrating: the backup location, on a control plane
+with scheduled backups, and the mounts for it. Otherwise it does not
+recreate manifests, RBAC, or configmaps. Use tptctl reinstall for those.`,
 	SilenceUsage: true,
 	PreRun:       CommandPreRunFunc,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -80,7 +82,21 @@ for those.`,
 			os.Exit(1)
 		}
 
-		err = updateDeploymentImageTag(updateImageTag, *controlPlaneInstance.Namespace, dynamicKubeClient, mapper)
+		// the bucket scheduled backups go to, which the database migrator backs
+		// up to before migrating
+		controlPlaneConfig, err := config.GetControlPlaneConfig(requestedControlPlane)
+		if err != nil {
+			cli.Error("failed to get control plane config:", err)
+			os.Exit(1)
+		}
+
+		err = updateDeploymentImageTag(
+			updateImageTag,
+			*controlPlaneInstance.Namespace,
+			cli.ScheduledBackupBucket(controlPlaneConfig),
+			dynamicKubeClient,
+			mapper,
+		)
 		if err != nil {
 			cli.Error("failed to update threeport deployment image tag", err)
 			os.Exit(1)
@@ -104,7 +120,26 @@ for those.`,
 	},
 }
 
-func updateDeploymentImageTag(imageTag string, namespace string, dynamicKubeClient dynamic.Interface, mapper *meta.RESTMapper) error {
+func updateDeploymentImageTag(
+	imageTag string,
+	namespace string,
+	backupBucket string,
+	dynamicKubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+) error {
+	// The new database migrator backs the database up before migrating, from
+	// a location and with a certificate an API server Deployment installed
+	// before it knew to does not mount.  Moved to the new image as it is, it
+	// would find no location and migrate without a backup on a control plane
+	// that has them.  So the location goes in first, and the Deployment gets
+	// both mounts in the same update that moves it to the new image.
+	backupInstaller := &installer.ControlPlaneInstaller{}
+	backupInstaller.Opts.Namespace = namespace
+	backupInstaller.Opts.GcpBackupBucket = backupBucket
+	if err := backupInstaller.InstallDatabaseBackupConfig(dynamicKubeClient, mapper); err != nil {
+		return err
+	}
+
 	// Update Rest-Api
 	deployment, err := kube.GetResource(
 		"apps",
@@ -123,6 +158,9 @@ func updateDeploymentImageTag(imageTag string, namespace string, dynamicKubeClie
 	apiReplaced, err := updateImageTagInDeployment(deployment, imageTag, installer.ThreeportRestApi.Name)
 	if err != nil {
 		return err
+	}
+	if err := installer.PrepareDatabaseMigratorForBackups(deployment); err != nil {
+		return fmt.Errorf("failed to give the database migrator what it backs up with: %w", err)
 	}
 	deployment.SetName(installer.ThreeportRestApi.ServiceResourceName)
 

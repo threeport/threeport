@@ -231,7 +231,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAPIDeployment(
 
 	// tell the database migrator where to back the database up to before
 	// migrating
-	if err := cpi.installDatabaseBackupConfig(kubeClient, mapper); err != nil {
+	if err := cpi.InstallDatabaseBackupConfig(kubeClient, mapper); err != nil {
 		return err
 	}
 
@@ -318,14 +318,8 @@ THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 					"name":      ThreeportApiConfigSecret,
 					"mountPath": "/etc/threeport/",
 				},
-				map[string]interface{}{
-					"name":      dbMigratorCertsVolumeName,
-					"mountPath": "/etc/threeport/db-certs",
-				},
-				map[string]interface{}{
-					"name":      DbBackupConfigName,
-					"mountPath": DbBackupConfigLocation,
-				},
+				dbMigratorCertsMount(),
+				dbBackupConfigMount(),
 			},
 		},
 	}
@@ -1744,36 +1738,8 @@ func (cpi *ControlPlaneInstaller) getAPIVolumes() ([]interface{}, []interface{},
 				"name": "db-create",
 			},
 		},
-		// the database migrator connects as the threeport user, and as root
-		// only to back the database up before migrating
-		map[string]interface{}{
-			"name": dbMigratorCertsVolumeName,
-			"projected": map[string]interface{}{
-				"sources": []interface{}{
-					map[string]interface{}{
-						"secret": map[string]interface{}{"name": dbThreeportCertSecretName},
-					},
-					map[string]interface{}{
-						"secret": map[string]interface{}{
-							"name": dbRootCertSecretName,
-							"items": []interface{}{
-								map[string]interface{}{"key": "client.root.crt", "path": "client.root.crt"},
-								map[string]interface{}{"key": "client.root.key", "path": "client.root.key"},
-							},
-						},
-					},
-				},
-			},
-		},
-		// where the database is backed up to, on a control plane that backs
-		// it up; absent on any other
-		map[string]interface{}{
-			"name": DbBackupConfigName,
-			"configMap": map[string]interface{}{
-				"name":     DbBackupConfigName,
-				"optional": true,
-			},
-		},
+		dbMigratorCertsVolume(),
+		dbBackupConfigVolume(),
 	}
 
 	volMounts := []interface{}{
