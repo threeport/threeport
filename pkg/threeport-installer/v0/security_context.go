@@ -194,9 +194,22 @@ func missingWritableMounts(volMounts []interface{}) []interface{} {
 // group, and CockroachDB accepts a root-owned key the group can read. On a
 // volume whose ownership the kubelet does not manage, such as kind's hostPath
 // volumes, a new data directory is world-writable and needs neither.
+//
+// The kubelet gives a volume to the fsGroup by walking every file on it, and
+// by default it does so on every pod start, not only the first: a database
+// restarted by a node drain or a crash would wait on a walk of its whole data
+// volume, longer the more data it holds, in exactly the failures the
+// production tier's replicas are there to recover from quickly.
+// OnRootMismatch walks only when the volume's root is not already the
+// group's, which after the first start it is - and stays, because the walk
+// sets the setgid bit on every directory, so everything the database writes
+// afterwards is created in the group too.  It covers only volumes the kubelet
+// manages ownership of; the certificate secrets are given to the group on
+// every start regardless.
 func dependencyPodSecurityContext() map[string]interface{} {
 	securityContext := restrictedPodSecurityContext()
 	securityContext["fsGroup"] = nonRootGID
+	securityContext["fsGroupChangePolicy"] = "OnRootMismatch"
 
 	return securityContext
 }

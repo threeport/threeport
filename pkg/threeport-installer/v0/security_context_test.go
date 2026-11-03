@@ -617,6 +617,7 @@ func TestTheDependencyContextsMeetTheStandard(t *testing.T) {
 	assert.Equal(t, nonRootUID, pod["runAsUser"])
 	assert.Equal(t, nonRootGID, pod["runAsGroup"])
 	assert.Equal(t, nonRootGID, pod["fsGroup"], "the data volume and the database's certificates are given to this group")
+	assert.Equal(t, "OnRootMismatch", pod["fsGroupChangePolicy"], "a restart does not walk the whole data volume again")
 	profile, _, err := unstructured.NestedString(pod, "seccompProfile", "type")
 	require.NoError(t, err)
 	assert.Equal(t, "RuntimeDefault", profile)
@@ -813,4 +814,28 @@ func callsHelper(expr ast.Expr, name string) bool {
 	function, ok := call.Fun.(*ast.Ident)
 
 	return ok && function.Name == name
+}
+
+// TestADatabaseRestartDoesNotWalkItsDataVolume covers #713. The database and
+// the message broker set fsGroup and left fsGroupChangePolicy at its default,
+// Always, so the kubelet walked every file on their data volumes on every
+// pod start to give them to the group again - a cost that grows with the data
+// and is paid by every restart a drain or a crash causes. Checked on the
+// StatefulSets the installer writes, the ones that hold the data.
+func TestADatabaseRestartDoesNotWalkItsDataVolume(t *testing.T) {
+	kubeClient := installDependencies(t, backupInstaller())
+
+	for _, name := range []string{"crdb", "nats-js"} {
+		statefulSet := getObject(t, kubeClient, statefulSetGVR, name)
+		claims, _, err := unstructured.NestedSlice(statefulSet.Object, "spec", "volumeClaimTemplates")
+		require.NoError(t, err)
+		require.NotEmpty(t, claims, "%s keeps its data on a volume", name)
+
+		fsGroup, _, err := unstructured.NestedFieldNoCopy(statefulSet.Object, "spec", "template", "spec", "securityContext", "fsGroup")
+		require.NoError(t, err)
+		require.NotNil(t, fsGroup, "%s gives its volume to a group", name)
+		policy, _, err := unstructured.NestedString(statefulSet.Object, "spec", "template", "spec", "securityContext", "fsGroupChangePolicy")
+		require.NoError(t, err)
+		assert.Equal(t, "OnRootMismatch", policy, "%s", name)
+	}
 }
