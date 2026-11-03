@@ -1112,8 +1112,8 @@ var allowedEmbed = map[string]bool{
 // error messages. Kept in sync with allowedEmbed.
 const allowedEmbedNames = "Common, Definition, Instance, or Reconciliation"
 
-// supportServiceEmbed is a shared component type an api object may embed.
-// The object must also declare a kubernetes runtime instance id.
+// supportServiceEmbed is a shared component type an instance may embed.
+// The instance must also declare a kubernetes runtime instance id.
 var supportServiceEmbed = map[string]bool{
 	"SupportServiceIngress":      true,
 	"SupportServiceCertificates": true,
@@ -1284,8 +1284,14 @@ func (g *Generator) ValidateTags() error {
 			// one level of embed promotion, and the validator only has to
 			// flatten one level deep.
 			for _, embedType := range group.StructEmbeds[objectName] {
-				// allow a support service embed when the object declares a runtime id
+				// allow a support service embed on an instance that declares a runtime id
 				if supportServiceEmbed[embedType] {
+					if !strings.HasSuffix(objectName, "Instance") {
+						problems = append(problems, fmt.Sprintf(
+							"%s embeds %s: a support service embed belongs on an instance",
+							objectName, embedType,
+						))
+					}
 					if _, ok := fieldMap[kubernetesRuntimeInstanceID]; !ok {
 						problems = append(problems, fmt.Sprintf(
 							"%s embeds %s and requires %s",

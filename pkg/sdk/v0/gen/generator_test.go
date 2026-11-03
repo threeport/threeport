@@ -384,18 +384,18 @@ func TestValidateTags_RejectsNonStandardEmbed(t *testing.T) {
 // embed on an object that has no KubernetesRuntimeInstanceID.
 // Example:
 //
-//	type Foo struct {
+//	type FooInstance struct {
 //	    SupportServiceSecrets `mapstructure:",squash"`
 //	}
 //
 // Expected: error citing SupportServiceSecrets and KubernetesRuntimeInstanceID.
 func TestValidateTags_SupportServiceRequiresRuntime(t *testing.T) {
-	// build an object that embeds a support service and declares no runtime id
+	// build an instance that embeds a support service and declares no runtime id
 	g := fixture(
 		map[string]map[string]map[string]string{
-			"Foo": {},
+			"FooInstance": {},
 		},
-		map[string][]string{"Foo": {"SupportServiceSecrets"}},
+		map[string][]string{"FooInstance": {"SupportServiceSecrets"}},
 		nil,
 		nil,
 	)
@@ -403,28 +403,57 @@ func TestValidateTags_SupportServiceRequiresRuntime(t *testing.T) {
 	// reject the missing runtime id
 	err := g.ValidateTags()
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "Foo embeds SupportServiceSecrets and requires KubernetesRuntimeInstanceID")
+	assert.Contains(t, err.Error(), "FooInstance embeds SupportServiceSecrets and requires KubernetesRuntimeInstanceID")
+}
+
+// TestValidateTags_SupportServiceOnDefinition rejects a support service
+// embed on an object that is not an instance.
+// Example:
+//
+//	type FooDefinition struct {
+//	    SupportServiceIngress `mapstructure:",squash"`
+//	    KubernetesRuntimeInstanceID *uint `validate:"optional"`
+//	}
+//
+// Expected: error citing FooDefinition and the instance requirement.
+func TestValidateTags_SupportServiceOnDefinition(t *testing.T) {
+	// build a definition that embeds a support service and declares a runtime id
+	g := fixture(
+		map[string]map[string]map[string]string{
+			"FooDefinition": {
+				"KubernetesRuntimeInstanceID": tag("validate", "optional"),
+			},
+		},
+		map[string][]string{"FooDefinition": {"SupportServiceIngress"}},
+		nil,
+		nil,
+	)
+
+	// reject the embed
+	err := g.ValidateTags()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "FooDefinition embeds SupportServiceIngress: a support service embed belongs on an instance")
 }
 
 // TestValidateTags_SupportServiceWithRuntime accepts a support service embed
 // when the object declares KubernetesRuntimeInstanceID.
 // Example:
 //
-//	type Foo struct {
+//	type FooInstance struct {
 //	    SupportServiceIngress `mapstructure:",squash"`
 //	    KubernetesRuntimeInstanceID *uint `validate:"optional"`
 //	}
 //
 // Expected: no error.
 func TestValidateTags_SupportServiceWithRuntime(t *testing.T) {
-	// build an object that embeds every support service and declares a runtime id
+	// build an instance that embeds every support service and declares a runtime id
 	g := fixture(
 		map[string]map[string]map[string]string{
-			"Foo": {
+			"FooInstance": {
 				"KubernetesRuntimeInstanceID": tag("validate", "optional"),
 			},
 		},
-		map[string][]string{"Foo": {
+		map[string][]string{"FooInstance": {
 			"SupportServiceIngress",
 			"SupportServiceCertificates",
 			"SupportServiceSecrets",
