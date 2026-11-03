@@ -32,6 +32,7 @@ type ControlPlaneInstanceValues struct {
 	ControlPlaneDefinition    *ControlPlaneDefinitionValues
 	ImageNamespace            *string
 	ImageTag                  *string
+	Apis                      *string
 	CustomComponentInfo       []*api_v0.ControlPlaneComponent
 	Genesis                   *bool
 	Age                       *string
@@ -99,6 +100,7 @@ func (c *ControlPlaneInstanceConfig) Get(
 				ControlPlaneDefinition:    controlPlaneDefinition,
 				ImageNamespace:            controlPlaneInstance.ImageNamespace,
 				ImageTag:                  controlPlaneInstance.ImageTag,
+				Apis:                      controlPlaneInstance.Apis,
 				CustomComponentInfo:       controlPlaneInstance.CustomComponentInfo,
 				Genesis:                   controlPlaneInstance.Genesis,
 				Age:                       util.Ptr(util.GetAgeFormatted(controlPlaneInstance.CreatedAt)),
@@ -151,6 +153,7 @@ func (c *ControlPlaneInstanceConfig) Create(
 		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
 		ImageNamespace:              controlPlaneInstanceValues.ImageNamespace,
 		ImageTag:                    controlPlaneInstanceValues.ImageTag,
+		Apis:                        controlPlaneInstanceValues.Apis,
 		CustomComponentInfo:         controlPlaneInstanceValues.CustomComponentInfo,
 		ControlPlaneDefinitionID:    controlPlaneDefinition.ID,
 	}
@@ -175,6 +178,7 @@ func (c *ControlPlaneInstanceConfig) Create(
 			ControlPlaneDefinition:    controlPlaneInstanceValues.ControlPlaneDefinition,
 			ImageNamespace:            createdControlPlaneInstance.ImageNamespace,
 			ImageTag:                  createdControlPlaneInstance.ImageTag,
+			Apis:                      createdControlPlaneInstance.Apis,
 			CustomComponentInfo:       createdControlPlaneInstance.CustomComponentInfo,
 			Genesis:                   createdControlPlaneInstance.Genesis,
 		},
@@ -221,6 +225,7 @@ func (c *ControlPlaneInstanceConfig) Replace(
 		KubernetesRuntimeInstanceID: existingControlPlaneInstance.KubernetesRuntimeInstanceID,
 		ImageNamespace:              controlPlaneInstanceValues.ImageNamespace,
 		ImageTag:                    controlPlaneInstanceValues.ImageTag,
+		Apis:                        controlPlaneInstanceValues.Apis,
 		CustomComponentInfo:         controlPlaneInstanceValues.CustomComponentInfo,
 		ControlPlaneDefinitionID:    existingControlPlaneInstance.ControlPlaneDefinitionID,
 	}
@@ -245,6 +250,7 @@ func (c *ControlPlaneInstanceConfig) Replace(
 			ControlPlaneDefinition:    controlPlaneInstanceValues.ControlPlaneDefinition,
 			ImageNamespace:            replacedControlPlaneInstance.ImageNamespace,
 			ImageTag:                  replacedControlPlaneInstance.ImageTag,
+			Apis:                      replacedControlPlaneInstance.Apis,
 			CustomComponentInfo:       replacedControlPlaneInstance.CustomComponentInfo,
 			Genesis:                   replacedControlPlaneInstance.Genesis,
 		},

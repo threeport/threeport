@@ -47,3 +47,53 @@ func TestRecordResolvedComponents_GrandchildKeepsTheChildsExceptions(t *testing.
 	// the child's own instance is left as it was asked for
 	assert.Equal(t, "wide", *child.ImageTag)
 }
+
+// TestSelectInstanceControllersKeepsNamedGroup checks that gcp keeps only gcp-controller.
+// The image applied before the select stays on that controller.
+func TestSelectInstanceControllersKeepsNamedGroup(t *testing.T) {
+	childInstaller := threeport.NewInstaller()
+	child := &v0.ControlPlaneInstance{
+		ImageNamespace: util.Ptr("ghcr.io/child"),
+		Apis:           util.Ptr("gcp"),
+	}
+	require.NoError(t, childInstaller.ConfigureChildComponents(&v0.ControlPlaneInstance{}, child))
+
+	// keep gcp-controller after images are set
+	require.NoError(t, selectInstanceControllers(childInstaller, child.Apis))
+
+	require.Len(t, childInstaller.Opts.ControllerList, 1)
+	assert.Equal(t, "gcp-controller", childInstaller.Opts.ControllerList[0].Name)
+	assert.Equal(t, "ghcr.io/child", childInstaller.Opts.ControllerList[0].ImageNamespace)
+}
+
+// TestSelectInstanceControllersNoneClearsTheList checks that none installs no controllers.
+func TestSelectInstanceControllersNoneClearsTheList(t *testing.T) {
+	childInstaller := threeport.NewInstaller()
+
+	// none clears the controller list
+	require.NoError(t, selectInstanceControllers(childInstaller, util.Ptr("none")))
+
+	assert.Nil(t, childInstaller.Opts.ControllerList)
+}
+
+// TestSelectInstanceControllersNilLeavesTheList checks that an omitted Apis installs every controller.
+func TestSelectInstanceControllersNilLeavesTheList(t *testing.T) {
+	childInstaller := threeport.NewInstaller()
+	before := len(childInstaller.Opts.ControllerList)
+
+	// leave the full list when Apis is omitted
+	require.NoError(t, selectInstanceControllers(childInstaller, nil))
+
+	assert.Len(t, childInstaller.Opts.ControllerList, before)
+}
+
+// TestSelectInstanceControllersRejectsUnknownGroup checks that an unknown group returns an error.
+func TestSelectInstanceControllersRejectsUnknownGroup(t *testing.T) {
+	childInstaller := threeport.NewInstaller()
+
+	// an unknown group fails and leaves the list in place
+	err := selectInstanceControllers(childInstaller, util.Ptr("not-a-group"))
+
+	require.Error(t, err)
+	assert.NotEmpty(t, childInstaller.Opts.ControllerList)
+}

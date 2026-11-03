@@ -32,6 +32,32 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
+// selectInstanceControllers limits the installer to the groups named in apis.
+// A nil or empty apis leaves the list unchanged, and none clears it.
+func selectInstanceControllers(cpi *threeport.ControlPlaneInstaller, apis *string) error {
+	// leave the list unchanged when apis is unset
+	if apis == nil || *apis == "" {
+		return nil
+	}
+
+	// clear the list when the only group is none
+	if *apis == "none" {
+		cpi.Opts.ControllerList = nil
+		return nil
+	}
+
+	// keep the controllers for the named groups
+	selected, err := threeport.SelectControllersByGroup(
+		threeport.ParseApis(*apis),
+		cpi.Opts.ControllerList,
+	)
+	if err != nil {
+		return err
+	}
+	cpi.Opts.ControllerList = selected
+	return nil
+}
+
 // v0ControlPlaneInstanceCreated performs reconciliation when a v0 ControlPlaneInstance
 // has been created.
 func v0ControlPlaneInstanceCreated(
@@ -135,6 +161,11 @@ func v0ControlPlaneInstanceCreated(
 	// reconcile alone, so none of this reaches the next child.
 	if err := cpi.ConfigureChildComponents(parentInstance, controlPlaneInstance); err != nil {
 		return 0, fmt.Errorf("failed to configure components of control plane instance: %w", err)
+	}
+
+	// limit the child's controllers to the groups named in Apis
+	if err := selectInstanceControllers(cpi, controlPlaneInstance.Apis); err != nil {
+		return 0, fmt.Errorf("failed to select controllers for control plane instance: %w", err)
 	}
 
 	cpi.Opts.InfraProvider = *kubernetesRuntimeDefinition.InfraProvider

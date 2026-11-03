@@ -40,6 +40,24 @@ func TestControlPlaneConfig_RejectsUnknownComponentBeforeWritingAnything(t *test
 	assert.Contains(t, err.Error(), `"gateway-controler" is not a default component`)
 }
 
+// TestControlPlaneConfig_RejectsUnknownApis refuses an unknown group before anything is written.
+func TestControlPlaneConfig_RejectsUnknownApis(t *testing.T) {
+	config := ControlPlaneConfig{ControlPlane: ControlPlaneValues{
+		Name: util.Ptr("primary-01"),
+		Apis: util.Ptr("not-a-group"),
+	}}
+
+	// a nil client would fail on any request, so these only return the
+	// validation error if nothing was sent
+	_, err := config.Create(nil, "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not-a-group")
+
+	_, err = config.Replace(nil, "", "primary-01")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not-a-group")
+}
+
 func TestControlPlaneInstanceConfig_ValidateComponentInfo(t *testing.T) {
 	valid := func(components ...*api_v0.ControlPlaneComponent) ControlPlaneInstanceConfig {
 		return ControlPlaneInstanceConfig{ControlPlaneInstance: ControlPlaneInstanceValues{

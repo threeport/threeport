@@ -31,6 +31,7 @@ type ControlPlaneValues struct {
 	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues
 	ImageNamespace            *string
 	ImageTag                  *string
+	Apis                      *string
 	CustomComponentInfo       []*api_v0.ControlPlaneComponent
 	Genesis                   *bool
 	Age                       *string
@@ -72,6 +73,16 @@ func (c *ControlPlaneConfig) Create(
 		return nil, fmt.Errorf("invalid CustomComponentInfo for control plane: %w", err)
 	}
 
+	// reject an unknown controller group before the definition is written
+	if c.ControlPlane.Apis != nil {
+		if _, err := threeport.SelectControllersByGroup(
+			threeport.ParseApis(*c.ControlPlane.Apis),
+			threeport.ThreeportControllerList,
+		); err != nil {
+			return nil, fmt.Errorf("invalid Apis for control plane: %w", err)
+		}
+	}
+
 	// get operations
 	operations, controlPlaneDefinitions, controlPlaneInstances := c.GetOperations(
 		apiClient,
@@ -103,6 +114,16 @@ func (c *ControlPlaneConfig) Replace(
 	// definition is written, so a bad override leaves nothing behind
 	if err := threeport.ValidateComponentOverrides(c.ControlPlane.CustomComponentInfo); err != nil {
 		return nil, fmt.Errorf("invalid CustomComponentInfo for control plane: %w", err)
+	}
+
+	// reject an unknown controller group before the definition is written
+	if c.ControlPlane.Apis != nil {
+		if _, err := threeport.SelectControllersByGroup(
+			threeport.ParseApis(*c.ControlPlane.Apis),
+			threeport.ThreeportControllerList,
+		); err != nil {
+			return nil, fmt.Errorf("invalid Apis for control plane: %w", err)
+		}
 	}
 
 	// get operations
@@ -213,6 +234,7 @@ func (c *ControlPlaneConfig) GetOperations(
 			KubernetesRuntimeInstance: c.ControlPlane.KubernetesRuntimeInstance,
 			ImageNamespace:            c.ControlPlane.ImageNamespace,
 			ImageTag:                  c.ControlPlane.ImageTag,
+			Apis:                      c.ControlPlane.Apis,
 			CustomComponentInfo:       c.ControlPlane.CustomComponentInfo,
 			ControlPlaneDefinition: &ControlPlaneDefinitionValues{
 				Name: c.ControlPlane.Name,
@@ -281,6 +303,7 @@ func mapToControlPlaneDefinedInstances(
 						KubernetesRuntimeInstance: inst.ControlPlaneInstance.KubernetesRuntimeInstance,
 						ImageNamespace:            inst.ControlPlaneInstance.ImageNamespace,
 						ImageTag:                  inst.ControlPlaneInstance.ImageTag,
+						Apis:                      inst.ControlPlaneInstance.Apis,
 						CustomComponentInfo:       inst.ControlPlaneInstance.CustomComponentInfo,
 						Genesis:                   inst.ControlPlaneInstance.Genesis,
 						Age:                       inst.ControlPlaneInstance.Age,
