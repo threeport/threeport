@@ -49,6 +49,28 @@ func TestGetIngressesYamlOneIngressPerHost(t *testing.T) {
 	require.Contains(t, got[0], "nginx.org/ssl-redirect: \"false\"")
 }
 
+// TestGetIngressesYamlHttpsOnlyKeepsRedirect leaves http redirected for a tls port.
+func TestGetIngressesYamlHttpsOnlyKeepsRedirect(t *testing.T) {
+	// return only the tls port
+	api := machinetest.NewAPIStub(t)
+	api.Mux.HandleFunc(v0.PathGatewayHttpPorts, func(w http.ResponseWriter, r *http.Request) {
+		tlsPort := v0.GatewayHttpPort{Port: util.Ptr(443), Path: util.Ptr("/"), TLSEnabled: util.Ptr(true)}
+		machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{tlsPort})
+	})
+	reconciler := &controller.Reconciler{APIServer: api.Addr, APIClient: api.Client}
+	definition := &v0.GatewayDefinition{
+		Common:     v0.Common{ID: util.Ptr(uint(1))},
+		Definition: v0.Definition{Name: util.Ptr("echo")},
+	}
+
+	// expect tls without an annotation that serves plaintext http
+	got, err := getIngressesYaml(reconciler, definition, "echo.threeport.test")
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	require.Contains(t, got[0], "secretName: echo-threeport-test-tls")
+	require.NotContains(t, got[0], "nginx.org/ssl-redirect")
+}
+
 // TestGetIngressesYamlRejectsUnpublishedPort covers the ingress call site.
 func TestGetIngressesYamlRejectsUnpublishedPort(t *testing.T) {
 	// return an http port nginx does not publish

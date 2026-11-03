@@ -213,6 +213,7 @@ func getIngressesYaml(r *controller.Reconciler, gatewayDefinition *v0.GatewayDef
 	seen := map[string]struct{}{}
 	tlsEnabled := false
 	redirect := false
+	plaintext := false
 	for _, httpPort := range *gatewayHttpPorts {
 		enabled := httpPort.TLSEnabled != nil && *httpPort.TLSEnabled
 		if err := supportedHTTPPort(*httpPort.Port, enabled); err != nil {
@@ -220,6 +221,8 @@ func getIngressesYaml(r *controller.Reconciler, gatewayDefinition *v0.GatewayDef
 		}
 		if enabled {
 			tlsEnabled = true
+		} else {
+			plaintext = true
 		}
 		if httpPort.HTTPSRedirect != nil && *httpPort.HTTPSRedirect {
 			redirect = true
@@ -302,8 +305,8 @@ func getIngressesYaml(r *controller.Reconciler, gatewayDefinition *v0.GatewayDef
 		); err != nil {
 			return nil, fmt.Errorf("failed to set tls on ingress: %w", err)
 		}
-		// nginx redirects http once tls is set, unless this annotation is false
-		if !redirect {
+		// keep nginx's http redirect unless a plaintext port is configured
+		if plaintext && !redirect {
 			if err := unstructured.SetNestedField(
 				ingress.Object,
 				"false",
