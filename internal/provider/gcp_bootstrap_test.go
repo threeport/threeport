@@ -60,6 +60,8 @@ func TestCanonicalGCPAccountName_RejectsCaseFolding(t *testing.T) {
 	require.False(t, canonicalGCPAccountName("My-Provider"))
 	require.False(t, canonicalGCPAccountName("my_provider"))
 	require.False(t, canonicalGCPAccountName(strings.Repeat("a", 31)))
+	require.False(t, canonicalGCPAccountName("123abc"))
+	require.False(t, canonicalGCPAccountName("-my-provider"))
 }
 
 // TestGkeServiceAccountDescription_EmbedsOwnership covers the GKE create path

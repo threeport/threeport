@@ -115,7 +115,7 @@ func (i *KubernetesRuntimeInfraGKE) createGCPServiceAccountAndCredentials() erro
 func (i *KubernetesRuntimeInfraGKE) createGCPServiceAccount(iamService *iam.Service) error {
 	// reject a runtime name that would collide after service-account ID truncation
 	if !canonicalGCPAccountName(i.RuntimeInstanceName) {
-		return fmt.Errorf("GCP runtime instance name %q is not a unique service-account identity; use lowercase letters, digits, and hyphens", i.RuntimeInstanceName)
+		return fmt.Errorf("GCP runtime instance name %q is not a unique service-account identity; start with a lowercase letter, then use lowercase letters, digits, and hyphens", i.RuntimeInstanceName)
 	}
 
 	serviceAccountID := i.getServiceAccountID()
@@ -431,7 +431,7 @@ func CreateGCPServiceAccountWithKey(projectID, accountName string) (*GCPServiceA
 	}
 
 	if !canonicalGCPAccountName(accountName) {
-		return nil, fmt.Errorf("GCP provider name %q is not a unique service-account identity; use lowercase letters, digits, and hyphens", accountName)
+		return nil, fmt.Errorf("GCP provider name %q is not a unique service-account identity; start with a lowercase letter, then use lowercase letters, digits, and hyphens", accountName)
 	}
 
 	// Generate service account ID and create the service account
@@ -919,6 +919,10 @@ func generateServiceAccountID(name string) string {
 func canonicalGCPAccountName(name string) bool {
 	// reject an empty name
 	if name == "" {
+		return false
+	}
+	// reject a name that does not start with a lowercase letter
+	if name[0] < 'a' || name[0] > 'z' {
 		return false
 	}
 	// reject a character outside lowercase letters, digits, and hyphens
