@@ -158,10 +158,11 @@ type Options struct {
 	TeardownOnFailure bool
 
 	// NamespacePreexisted records that the control plane namespace was
-	// already in the cluster when this install started. A teardown must not
-	// delete a namespace it did not create: on a reapply with
-	// --control-plane-only that namespace holds a running control plane, and
-	// removing it removes the database with it.
+	// already in the cluster when this install started. A teardown that
+	// leaves the cluster in place must not delete a namespace it did not
+	// create: on a reapply with --control-plane-only that namespace holds a
+	// running control plane, and removing it removes the database with it.
+	// One that deletes the cluster deletes the namespace first regardless.
 	NamespacePreexisted bool
 
 	// Create and connect local container registry for local control plane

@@ -1562,19 +1562,21 @@ func (u *Uninstaller) cleanOnCreateError(
 	}
 
 	// A namespace that was already there when this install started is not
-	// this install's to remove. Uninstalling the components deletes the whole
-	// namespace, so on a reapply - which is what --control-plane-only does
-	// against a running control plane - this would take the API, the database
-	// and its data with it. Nobody asked for that by not passing a flag.
+	// this install's to remove while the cluster it is in outlives the
+	// teardown, which is what --control-plane-only means: it reapplies into a
+	// running cluster, often against a running control plane, and uninstalling
+	// the components deletes the whole namespace - the API, the database and
+	// its data with it. Nobody asked for that by not passing a flag.
+	//
+	// A full install deletes the cluster below, and everything in it goes
+	// with the cluster either way, so the namespace is deleted first as it
+	// always is. Skipping that would keep nothing: it would only leave the
+	// API's load balancer running, which on EKS keeps the stack's subnets
+	// from being deleted, and the disks behind the claims undeleted.
 	//
 	// The note reaches the operator regardless of whether a Kubernetes client
 	// is even available here - it is informational, not a Kubernetes call.
-	// Only the actual deletion needs one, and only this one step is skipped:
-	// the rest of this function - infra delete, cloud IAM cleanup, the config
-	// entry - still has to run on a full install's retry. Returning from the
-	// whole function here used to leave EKS/VPC/IAM resources running on
-	// exactly the retry this function exists to clean up after.
-	if u.cpi.Opts.NamespacePreexisted {
+	if u.cpi.Opts.NamespacePreexisted && u.cpi.Opts.ControlPlaneOnly {
 		createErr = fmt.Errorf(
 			"%w\n(the %s namespace was already present, so it was left alone; "+
 				"anything this install added to it is still there)",

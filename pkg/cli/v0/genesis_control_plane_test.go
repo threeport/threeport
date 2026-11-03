@@ -234,30 +234,33 @@ func testUninstaller(namespacePreexisted, controlPlaneOnly bool, infra *fakeKube
 // a name whose earlier attempt got partway through creating the namespace
 // before failing.
 func TestCleanOnCreateErrorSkipsOnlyTheNamespaceDeletion(t *testing.T) {
-	t.Run("a full install still tears down infra when the namespace predates it", func(t *testing.T) {
+	t.Run("a full install deletes the namespace and the infra when the namespace predates it", func(t *testing.T) {
 		infra := &fakeKubernetesRuntimeInfra{}
 		u := testUninstaller(true, false, infra)
 
 		err := u.cleanOnCreateError("", fmt.Errorf("create failed"))
 
 		require.Error(t, err)
-		assert.Contains(
-			t, err.Error(), "already present",
-			"the namespace note still has to reach the operator, just not at the cost of the infra below it",
+		assert.True(
+			t, namespaceDeleteRequested(t, u),
+			"the cluster is deleted below, so keeping the namespace keeps nothing - it only leaves the API's load balancer behind, which on EKS blocks the stack's subnets",
 		)
+		assert.NotContains(t, err.Error(), "already present", "the namespace was not left alone")
 		assert.True(
 			t, infra.deleteCalled,
 			"returning early here is what left EKS/VPC/IAM resources running on a --force-overwrite-config retry",
 		)
 	})
 
-	t.Run("control-plane-only still leaves infra alone, preexisting namespace or not", func(t *testing.T) {
+	t.Run("control-plane-only leaves a namespace that predates it, and the infra, alone", func(t *testing.T) {
 		infra := &fakeKubernetesRuntimeInfra{}
 		u := testUninstaller(true, true, infra)
 
 		err := u.cleanOnCreateError("", fmt.Errorf("create failed"))
 
 		require.Error(t, err)
+		assert.False(t, namespaceDeleteRequested(t, u), "the running control plane's API, database and data are in it")
+		assert.Contains(t, err.Error(), "already present", "the operator is told why it is still there")
 		assert.False(t, infra.deleteCalled, "there is no infra to tear down for a control-plane-only reapply")
 	})
 
@@ -268,9 +271,36 @@ func TestCleanOnCreateErrorSkipsOnlyTheNamespaceDeletion(t *testing.T) {
 		err := u.cleanOnCreateError("", fmt.Errorf("create failed"))
 
 		require.Error(t, err)
+		assert.True(t, namespaceDeleteRequested(t, u))
 		assert.NotContains(t, err.Error(), "already present", "this install owns the namespace, so there is nothing to excuse")
 		assert.True(t, infra.deleteCalled)
 	})
+
+	t.Run("control-plane-only still deletes a namespace it created", func(t *testing.T) {
+		infra := &fakeKubernetesRuntimeInfra{}
+		u := testUninstaller(false, true, infra)
+
+		err := u.cleanOnCreateError("", fmt.Errorf("create failed"))
+
+		require.Error(t, err)
+		assert.True(t, namespaceDeleteRequested(t, u))
+		assert.False(t, infra.deleteCalled)
+	})
+}
+
+// namespaceDeleteRequested reports whether the uninstaller asked its fake
+// cluster to delete a namespace.
+func namespaceDeleteRequested(t *testing.T, u *Uninstaller) bool {
+	t.Helper()
+	client, ok := u.dynamicKubeClient.(*dynamicfake.FakeDynamicClient)
+	require.True(t, ok)
+	for _, action := range client.Actions() {
+		if action.Matches("delete", "namespaces") {
+			return true
+		}
+	}
+
+	return false
 }
 
 // fakeRuntimeInfra records infra deletes for cleanOnCreateError tests.
