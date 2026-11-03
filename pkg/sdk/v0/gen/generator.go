@@ -1,12 +1,14 @@
 package gen
 
 import (
+	"errors"
 	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
 	"go/types"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"sort"
@@ -1123,22 +1125,53 @@ var supportServiceEmbed = map[string]bool{
 const kubernetesRuntimeInstanceID = "KubernetesRuntimeInstanceID"
 
 // LoadSupportServiceFields reads the shared component types.
-// A tree without that file returns empty maps.
+// An extension has no local copy, so generation looks up the threeport module.
 func LoadSupportServiceFields() (
 	map[string]map[string]map[string]string,
 	map[string]map[string]string,
 	error,
 ) {
-	path := filepath.Join("pkg", "api", "v0", "support_service.go")
-	if _, err := os.Stat(path); err != nil {
+	path, err := supportServiceModelPath()
+	if err != nil {
+		return nil, nil, err
+	}
+	if path == "" {
 		return nil, nil, nil
 	}
-
 	tags, fieldTypes, _, err := ParseModelFile(path)
 	if err != nil {
 		return nil, nil, err
 	}
 	return tags, fieldTypes, nil
+}
+
+// supportServiceModelPath returns the shared component model.
+func supportServiceModelPath() (string, error) {
+	// prefer the checkout so generation sees uncommitted fields
+	local := filepath.Join("pkg", "api", "v0", "support_service.go")
+	if _, err := os.Stat(local); err == nil {
+		return local, nil
+	}
+
+	// an extension stores the model in the required threeport module
+	cmd := exec.Command("go", "list", "-f", "{{.Dir}}", "github.com/threeport/threeport/pkg/api/v0")
+	out, err := cmd.Output()
+	if err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			return "", nil
+		}
+		return "", fmt.Errorf("failed to locate the threeport api package: %w", err)
+	}
+	dir := strings.TrimSpace(string(out))
+	if dir == "" {
+		return "", nil
+	}
+	path := filepath.Join(dir, "support_service.go")
+	if _, err := os.Stat(path); err != nil {
+		return "", nil
+	}
+	return path, nil
 }
 
 // CopySupportServiceFields copies each support service field onto the object that embeds it.
