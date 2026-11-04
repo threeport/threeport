@@ -134,8 +134,15 @@ for those.`,
 // to an image tag other than the rest api's, and that the upgrade is about to
 // move them to imageTag with everything else. It returns "" when nothing was
 // pinned.
+//
+// A control plane that records an instance-wide tag has been upgraded before.
+// That upgrade moved every default deployment to the tag, so the components
+// all run it and nothing is pinned any more, whatever tags the recorded
+// components still carry: the API cannot update them, so they keep the tag
+// from before the upgrade. Reading them again would warn about a pin that
+// the earlier upgrade already replaced.
 func pinnedComponentsWarning(instance *api_v0.ControlPlaneInstance, imageTag string) string {
-	if instance == nil {
+	if instance == nil || util.DerefString(instance.ImageTag) != "" {
 		return ""
 	}
 	pinned := installer.DivergentComponents(instance.CustomComponentInfo)
