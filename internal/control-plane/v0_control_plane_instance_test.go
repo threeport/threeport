@@ -97,3 +97,22 @@ func TestSelectInstanceControllersRejectsUnknownGroup(t *testing.T) {
 	require.Error(t, err)
 	assert.NotEmpty(t, childInstaller.Opts.ControllerList)
 }
+
+// TestClientCertificateRecorded checks that a saved certificate is kept and an empty one is not.
+func TestClientCertificateRecorded(t *testing.T) {
+	empty := ""
+	recorded := &v0.ControlPlaneInstance{
+		CACert:     util.Ptr("ca"),
+		ClientCert: util.Ptr("cert"),
+		ClientKey:  util.Ptr("key"),
+	}
+
+	// a saved certificate is reused on a retry
+	assert.True(t, clientCertificateRecorded(recorded))
+	assert.False(t, clientCertificateRecorded(&v0.ControlPlaneInstance{}))
+	assert.False(t, clientCertificateRecorded(&v0.ControlPlaneInstance{
+		CACert:     &empty,
+		ClientCert: util.Ptr("cert"),
+		ClientKey:  util.Ptr("key"),
+	}))
+}

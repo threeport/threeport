@@ -295,6 +295,9 @@ func TestControlPlaneInstanceUpdateRefusesAForeignDesiredStateChange(t *testing.
 		replacement.ParentControlPlaneInstanceID = parent.ID
 		require.NoError(t, db.Model(&fresh).Updates(&replacement).Error)
 
+		// the same certificates on a retry are unchanged
+		require.NoError(t, db.Model(&fresh).Updates(&replacement).Error)
+
 		// a column that already holds a value cannot be rewritten
 		moved := "https://child-moved.example"
 		replacement.ApiServerEndpoint = &moved

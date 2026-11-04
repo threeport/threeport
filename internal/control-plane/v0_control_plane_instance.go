@@ -57,6 +57,20 @@ func selectInstanceControllers(cpi *threeport.ControlPlaneInstaller, apis *strin
 	return nil
 }
 
+// clientCertificateRecorded reports whether create already saved the client certificate.
+func clientCertificateRecorded(instance *v0.ControlPlaneInstance) bool {
+	// the certificate, the key, and the CA are saved together
+	return stringRecorded(instance.CACert) &&
+		stringRecorded(instance.ClientCert) &&
+		stringRecorded(instance.ClientKey)
+}
+
+// stringRecorded reports whether a stored string has a value.
+func stringRecorded(value *string) bool {
+	// treat a nil pointer and an empty string as unset
+	return value != nil && *value != ""
+}
+
 // v0ControlPlaneInstanceCreated performs reconciliation when a v0 ControlPlaneInstance
 // has been created.
 func v0ControlPlaneInstanceCreated(
@@ -315,39 +329,65 @@ func v0ControlPlaneInstanceCreated(
 	var newApiClient *http.Client
 	if *controlPlaneDefinition.AuthEnabled {
 		cpi.Opts.AuthEnabled = true
-		// get auth config
-		authConfig, err = auth.GetAuthConfig()
-		if err != nil {
-			return 0, fmt.Errorf("failed to get auth config: %w", err)
-		}
+		// keep the saved client certificate so a retry does not replace it
+		if clientCertificateRecorded(controlPlaneInstance) {
+			authConfig, err = cpi.LoadAuthConfigFromCluster(dynamicKubeClient, mapper)
+			if err != nil {
+				return 0, fmt.Errorf("failed to load auth config from cluster: %w", err)
+			}
+			clientCertificate, err := util.Base64Decode(*controlPlaneInstance.ClientCert)
+			if err != nil {
+				return 0, fmt.Errorf("failed to decode client certificate: %w", err)
+			}
+			clientPrivateKey, err := util.Base64Decode(*controlPlaneInstance.ClientKey)
+			if err != nil {
+				return 0, fmt.Errorf("failed to decode client private key: %w", err)
+			}
+			newApiClient, err = client_lib.GetHTTPClient(
+				true,
+				authConfig.CAPemEncoded,
+				clientCertificate,
+				clientPrivateKey,
+				"",
+			)
+			if err != nil {
+				return 0, fmt.Errorf("failed to create http client for new control plane: %w", err)
+			}
+		} else {
+			// get auth config
+			authConfig, err = auth.GetAuthConfig()
+			if err != nil {
+				return 0, fmt.Errorf("failed to get auth config: %w", err)
+			}
 
-		// generate client certificate
-		clientCertificate, clientPrivateKey, err := auth.GenerateCertificate(
-			authConfig.CAConfig,
-			&authConfig.CAPrivateKey,
-			"threeport-owner",
-			"",
-			"",
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to generate client certificate and private key: %w", err)
-		}
+			// generate client certificate
+			clientCertificate, clientPrivateKey, err := auth.GenerateCertificate(
+				authConfig.CAConfig,
+				&authConfig.CAPrivateKey,
+				"threeport-owner",
+				"",
+				"",
+			)
+			if err != nil {
+				return 0, fmt.Errorf("failed to generate client certificate and private key: %w", err)
+			}
 
-		clientCredentials := &cli.Credential{
-			Name:       cpi.Opts.ControlPlaneName,
-			ClientCert: util.Base64Encode(clientCertificate),
-			ClientKey:  util.Base64Encode(clientPrivateKey),
-		}
+			clientCredentials := &cli.Credential{
+				Name:       cpi.Opts.ControlPlaneName,
+				ClientCert: util.Base64Encode(clientCertificate),
+				ClientKey:  util.Base64Encode(clientPrivateKey),
+			}
 
-		// configure http client for calls to threeport API
-		newApiClient, err = client_lib.GetHTTPClient(true, authConfig.CAPemEncoded, clientCertificate, clientPrivateKey, "")
-		if err != nil {
-			return 0, fmt.Errorf("failed to create http client for new control plane: %w", err)
-		}
+			// configure http client for calls to threeport API
+			newApiClient, err = client_lib.GetHTTPClient(true, authConfig.CAPemEncoded, clientCertificate, clientPrivateKey, "")
+			if err != nil {
+				return 0, fmt.Errorf("failed to create http client for new control plane: %w", err)
+			}
 
-		controlPlaneInstance.CACert = &authConfig.CABase64Encoded
-		controlPlaneInstance.ClientCert = &clientCredentials.ClientCert
-		controlPlaneInstance.ClientKey = &clientCredentials.ClientKey
+			controlPlaneInstance.CACert = &authConfig.CABase64Encoded
+			controlPlaneInstance.ClientCert = &clientCredentials.ClientCert
+			controlPlaneInstance.ClientKey = &clientCredentials.ClientKey
+		}
 	} else {
 		cpi.Opts.AuthEnabled = false
 		newApiClient, err = client_lib.GetHTTPClient(false, "", "", "", "")
@@ -358,7 +398,11 @@ func v0ControlPlaneInstanceCreated(
 
 	_, port := cpi.GetAPIServicePort()
 	threeportAPIEndpoint := fmt.Sprintf("%s.%s:%d", cpi.Opts.RestApiInfo.ServiceResourceName, cpi.Opts.Namespace, port)
-	controlPlaneInstance.ApiServerEndpoint = &threeportAPIEndpoint
+	// keep an endpoint a retry already saved
+	endpointSaved := stringRecorded(controlPlaneInstance.ApiServerEndpoint)
+	if !endpointSaved {
+		controlPlaneInstance.ApiServerEndpoint = &threeportAPIEndpoint
+	}
 
 	// generate encryption key
 	encryptionKey, err := encryption.GenerateKey()
@@ -403,7 +447,9 @@ func v0ControlPlaneInstanceCreated(
 		}
 		_, port := cpi.GetAPIServicePort()
 		threeportAPIEndpoint = fmt.Sprintf("%s:%d", lbEndpoint, port)
-		controlPlaneInstance.ApiServerEndpoint = &threeportAPIEndpoint
+		if !endpointSaved {
+			controlPlaneInstance.ApiServerEndpoint = &threeportAPIEndpoint
+		}
 	}
 
 	// set provider values the controller install reads
