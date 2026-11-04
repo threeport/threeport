@@ -213,6 +213,11 @@ func (c *ControlPlaneInstanceConfig) Replace(
 		return nil, fmt.Errorf("failed to find control plane instance with name %s: %w", name, err)
 	}
 
+	// reject an Apis change because controller selection runs only on create
+	if util.Deref(existingControlPlaneInstance.Apis) != util.Deref(controlPlaneInstanceValues.Apis) {
+		return nil, errors.New("Apis cannot be changed after the control plane instance is created")
+	}
+
 	// construct updated control plane instance object
 	updatedControlPlaneInstance := &api_v0.ControlPlaneInstance{
 		Common: api_v0.Common{
@@ -354,6 +359,16 @@ func (c *ControlPlaneInstanceConfig) Validate() error {
 	// additional one
 	if err := threeport.ValidateComponentOverrides(controlPlaneInstanceValues.CustomComponentInfo); err != nil {
 		multiError.AppendError(fmt.Errorf("invalid CustomComponentInfo: %w", err))
+	}
+
+	// reject an unknown controller group before anything is written
+	if controlPlaneInstanceValues.Apis != nil {
+		if _, err := threeport.SelectControllersByGroup(
+			threeport.ParseApis(*controlPlaneInstanceValues.Apis),
+			threeport.ThreeportControllerList,
+		); err != nil {
+			multiError.AppendError(fmt.Errorf("invalid Apis: %w", err))
+		}
 	}
 
 	return multiError.Error()

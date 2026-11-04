@@ -1,8 +1,11 @@
 package v0
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -56,6 +59,59 @@ func TestControlPlaneConfig_RejectsUnknownApis(t *testing.T) {
 	_, err = config.Replace(nil, "", "primary-01")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not-a-group")
+}
+
+// TestControlPlaneInstanceConfig_RejectsUnknownApis refuses an unknown group before anything is written.
+func TestControlPlaneInstanceConfig_RejectsUnknownApis(t *testing.T) {
+	config := instanceConfig("not-a-group")
+
+	// call Create with a nil client
+	_, err := config.Create(nil, "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not-a-group")
+
+	// call Replace with a nil client
+	_, err = config.Replace(nil, "", "child")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not-a-group")
+}
+
+// TestControlPlaneInstanceConfig_ReplaceRejectsApisChange refuses a change to Apis after creation.
+func TestControlPlaneInstanceConfig_ReplaceRejectsApisChange(t *testing.T) {
+	body := `{"Data":[{"ID":1,"Name":"child","Apis":"gcp"}]}`
+	puts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut {
+			puts++
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(body))
+	}))
+	defer server.Close()
+	addr := strings.TrimPrefix(server.URL, "http://")
+
+	// call Replace with a different Apis value
+	changed := instanceConfig("none")
+	_, err := changed.Replace(http.DefaultClient, addr, "child")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Apis cannot be changed")
+	assert.Equal(t, 0, puts)
+
+	// call Replace with the stored Apis value
+	same := instanceConfig("gcp")
+	_, err = same.Replace(http.DefaultClient, addr, "child")
+	require.NoError(t, err)
+	assert.Equal(t, 1, puts)
+}
+
+// instanceConfig returns a control plane instance config with Apis set to apis.
+func instanceConfig(apis string) ControlPlaneInstanceConfig {
+	return ControlPlaneInstanceConfig{ControlPlaneInstance: ControlPlaneInstanceValues{
+		Name:                   util.Ptr("child"),
+		Namespace:              util.Ptr("child"),
+		ControlPlaneDefinition: &ControlPlaneDefinitionValues{Name: util.Ptr("child")},
+		Apis:                   util.Ptr(apis),
+	}}
 }
 
 func TestControlPlaneInstanceConfig_ValidateComponentInfo(t *testing.T) {
