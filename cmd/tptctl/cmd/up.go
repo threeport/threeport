@@ -143,6 +143,9 @@ control planes if they are used to create or are created by another control plan
 			cpi.Opts.ControllerList = selected
 		}
 
+		// record the group list on the self instance
+		cpi.Opts.Apis = upApis
+
 		err = cli.CreateGenesisControlPlane(cpi)
 		if err != nil {
 			cli.Error("failed to create threeport control plane", err)
