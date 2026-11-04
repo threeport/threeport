@@ -13,7 +13,6 @@ import (
 	aws_iam "github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/go-logr/logr"
-	"github.com/oracle/oci-go-sdk/v65/common"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
@@ -191,7 +190,6 @@ func v0ControlPlaneInstanceCreated(
 
 	// perform provider specific configuration
 	var callerIdentity *sts.GetCallerIdentityOutput
-	var tokenGenerator func() (string, error)
 	switch *kubernetesRuntimeDefinition.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
 		// Get AWS EKS runtime instance
@@ -296,85 +294,18 @@ func v0ControlPlaneInstanceCreated(
 			return 0, fmt.Errorf("failed to update resource manager role: %w", err)
 		}
 
-	case v0.KubernetesRuntimeInfraProviderOKE:
-		// build OCI config provider for token refresh — OKE tokens are
-		// short-lived and the bootstrap process can outlast them
-		ociRuntimeInstance, err := client.GetOciOkeKubernetesRuntimeInstanceByK8sRuntimeInst(
-			r.APIClient, r.APIServer, *kubernetesRuntimeInstance.ID,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get OCI OKE runtime instance: %w", err)
-		}
-
-		ociProvider, err := client.GetOciProviderByID(
-			r.APIClient, r.APIServer, *ociRuntimeInstance.OciProviderID,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get OCI provider: %w", err)
-		}
-
-		decryptedPrivateKey, err := encryption.Decrypt(r.EncryptionKey, *ociProvider.PrivateKey)
-		if err != nil {
-			return 0, fmt.Errorf("failed to decrypt OCI provider private key: %w", err)
-		}
-
-		configProvider := common.NewRawConfigurationProvider(
-			*ociProvider.TenancyOCID,
-			*ociProvider.UserOCID,
-			*ociProvider.DefaultRegion,
-			*ociProvider.KeyFingerprint,
-			decryptedPrivateKey,
-			nil,
-		)
-
-		// use the cluster OCID already stored on the OKE runtime instance
-		// for token generation — avoids compartment/region lookup issues
-		if ociRuntimeInstance.ClusterOCID == nil || *ociRuntimeInstance.ClusterOCID == "" {
-			return 0, fmt.Errorf("OCI OKE runtime instance %s has no cluster OCID set", *ociRuntimeInstance.Name)
-		}
-		clusterOCID := *ociRuntimeInstance.ClusterOCID
-
-		tokenGenerator = func() (string, error) {
-			t, _, err := util.GenerateOkeToken(clusterOCID, configProvider)
-			return t, err
-		}
-
-	case v0.KubernetesRuntimeInfraProviderGKE:
-		// The child's controllers run on this runtime, so their Workload
-		// Identity principals come from this cluster's project. That is the
-		// child's own project, which is not necessarily the parent's - the
-		// installer binds RBAC for those principals only when it is told the
-		// project, and without it the child's controllers are authorized as
-		// nobody.
-		gcpProjectId, err := gkeRuntimeProjectID(
-			r.APIClient,
-			r.APIServer,
-			*kubernetesRuntimeInstance.ID,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to determine the GCP project of the child's runtime: %w", err)
-		}
-		cpi.Opts.GcpProjectId = gcpProjectId
 	}
 
-	// create a dynamic client to connect to kube API — use token refresh
-	// for OKE to prevent expiration during the lengthy bootstrap process
+	// create dynamic kube client and rest mapper
 	var dynamicKubeClient dynamic.Interface
 	var mapper *meta.RESTMapper
-	if tokenGenerator != nil {
-		dynamicKubeClient, mapper, err = kube.GetClientWithTokenRefresh(
-			kubernetesRuntimeInstance,
-			tokenGenerator,
-		)
-	} else {
-		dynamicKubeClient, mapper, err = kube.GetClient(
-			kubernetesRuntimeInstance,
-			true,
-			r.APIClient,
-			r.APIServer,
-			r.EncryptionKey,
-		)
-	}
+	dynamicKubeClient, mapper, err = kube.GetClient(
+		kubernetesRuntimeInstance,
+		true,
+		r.APIClient,
+		r.APIServer,
+		r.EncryptionKey,
+	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create dynamic kube API client: %w", err)
 	}
@@ -475,25 +406,17 @@ func v0ControlPlaneInstanceCreated(
 		controlPlaneInstance.ApiServerEndpoint = &threeportAPIEndpoint
 	}
 
-	// install provider-specific kubernetes resources
-	switch *kubernetesRuntimeDefinition.InfraProvider {
-	case v0.KubernetesRuntimeInfraProviderEKS:
-		// create and configure service accounts for workload and aws controllers,
-		// which will be used to authenticate to AWS via IRSA
-
-		// configure IRSA controllers to use appropriate service account names
-		provider.UpdateIrsaControllerList(cpi.Opts.ControllerList)
-
-		// create IRSA service accounts
-		for _, serviceAccount := range provider.GetIrsaServiceAccounts(
-			cpi.Opts.Namespace,
-			*callerIdentity.Account,
-			provider.GetResourceManagerRoleName(cpi.Opts.ControlPlaneName),
-		) {
-			if err := cpi.CreateOrUpdateKubeResource(serviceAccount, dynamicKubeClient, mapper); err != nil {
-				return 0, fmt.Errorf("failed to create threeport api service account: %w", err)
-			}
-		}
+	// set provider values the controller install reads
+	if err := configureProviderControllers(
+		r,
+		cpi,
+		kubernetesRuntimeInstance,
+		*kubernetesRuntimeDefinition.InfraProvider,
+		dynamicKubeClient,
+		mapper,
+		false,
+	); err != nil {
+		return 0, err
 	}
 
 	// if auth enabled install the threeport API TLS assets that include the alt
@@ -528,6 +451,19 @@ func v0ControlPlaneInstanceCreated(
 		return 0, fmt.Errorf("failed to install threeport controllers: %w", err)
 	}
 
+	// restore provider access install removes from the service accounts
+	if err := configureProviderControllers(
+		r,
+		cpi,
+		kubernetesRuntimeInstance,
+		*kubernetesRuntimeDefinition.InfraProvider,
+		dynamicKubeClient,
+		mapper,
+		true,
+	); err != nil {
+		return 0, err
+	}
+
 	// install the agent
 	if err := cpi.InstallThreeportAgent(
 		dynamicKubeClient,
@@ -555,20 +491,13 @@ func v0ControlPlaneInstanceCreated(
 	// this is necessary to have the updated REST mapping for the CRDs as the
 	// support services operator install includes one of those custom resources
 	time.Sleep(time.Second * 10)
-	if tokenGenerator != nil {
-		dynamicKubeClient, mapper, err = kube.GetClientWithTokenRefresh(
-			kubernetesRuntimeInstance,
-			tokenGenerator,
-		)
-	} else {
-		dynamicKubeClient, mapper, err = kube.GetClient(
-			kubernetesRuntimeInstance,
-			true,
-			r.APIClient,
-			r.APIServer,
-			r.EncryptionKey,
-		)
-	}
+	dynamicKubeClient, mapper, err = kube.GetClient(
+		kubernetesRuntimeInstance,
+		true,
+		r.APIClient,
+		r.APIServer,
+		r.EncryptionKey,
+	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to refresh dynamic kube API client: %w", err)
 	}
@@ -889,17 +818,17 @@ func v0ControlPlaneInstanceUpdated(
 		return 0, err
 	}
 
-	// set the GKE project so new controllers are not authorized as nobody
-	if *kubernetesRuntimeDefinition.InfraProvider == v0.KubernetesRuntimeInfraProviderGKE {
-		gcpProjectId, err := gkeRuntimeProjectID(
-			r.APIClient,
-			r.APIServer,
-			*kubernetesRuntimeInstance.ID,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to determine the GCP project of the child's runtime: %w", err)
-		}
-		cpi.Opts.GcpProjectId = gcpProjectId
+	// set provider values the controller install reads
+	if err := configureProviderControllers(
+		r,
+		cpi,
+		kubernetesRuntimeInstance,
+		*kubernetesRuntimeDefinition.InfraProvider,
+		nil,
+		nil,
+		false,
+	); err != nil {
+		return 0, err
 	}
 
 	// connect to the cluster this control plane runs on
@@ -924,11 +853,208 @@ func v0ControlPlaneInstanceUpdated(
 	}
 
 	// install added controller groups and delete dropped ones
-	if err := cpi.ReconcileControllerSet(dynamicKubeClient, mapper, authConfig); err != nil {
+	retainControlPlaneController := controlPlaneInstance.IsSelf != nil && *controlPlaneInstance.IsSelf
+	if err := cpi.ReconcileControllerSet(
+		dynamicKubeClient,
+		mapper,
+		authConfig,
+		retainControlPlaneController,
+	); err != nil {
+		return 0, err
+	}
+
+	// restore provider access install removes from the service accounts
+	if err := configureProviderControllers(
+		r,
+		cpi,
+		kubernetesRuntimeInstance,
+		*kubernetesRuntimeDefinition.InfraProvider,
+		dynamicKubeClient,
+		mapper,
+		true,
+	); err != nil {
+		return 0, err
+	}
+
+	// copy the controller group list onto the child's self instance
+	if err := syncChildSelfApis(controlPlaneInstance, cpi.Opts.AuthEnabled); err != nil {
 		return 0, err
 	}
 
 	return 0, nil
+}
+
+// configureProviderControllers sets provider values the controller install reads.
+// The second call rewrites service accounts after install replaces them.
+func configureProviderControllers(
+	r *controller.Reconciler,
+	cpi *threeport.ControlPlaneInstaller,
+	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
+	infraProvider string,
+	dynamicKubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	writeServiceAccounts bool,
+) error {
+	switch infraProvider {
+	case v0.KubernetesRuntimeInfraProviderEKS:
+		// point the selected controllers at their service accounts
+		provider.UpdateIrsaControllerList(cpi.Opts.ControllerList)
+		if !writeServiceAccounts {
+			return nil
+		}
+
+		// restore the role annotation install removes from the service account
+		awsEksKubernetesRuntimeInstance, err := client.GetAwsEksKubernetesRuntimeInstanceByK8sRuntimeInst(
+			r.APIClient,
+			r.APIServer,
+			*kubernetesRuntimeInstance.ID,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to get aws eks kubernetes runtime instance by workload instance ID: %w", err)
+		}
+		awsProvider, err := client.GetAwsProviderByID(
+			r.APIClient,
+			r.APIServer,
+			*awsEksKubernetesRuntimeInstance.AwsProviderID,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to get aws provider by ID: %w", err)
+		}
+		awsConfig, err := kube.GetAwsConfigFromAwsProvider(
+			r.EncryptionKey,
+			*awsEksKubernetesRuntimeInstance.Region,
+			awsProvider,
+		)
+		if err != nil {
+			return fmt.Errorf("could not get aws config from aws account: %w", err)
+		}
+		callerIdentity, err := provider.GetCallerIdentity(awsConfig)
+		if err != nil {
+			return fmt.Errorf("failed to get caller identity: %w", err)
+		}
+
+		// rewrite service accounts for the selected controllers
+		selected := map[string]struct{}{}
+		for _, component := range cpi.Opts.ControllerList {
+			selected[component.Name] = struct{}{}
+		}
+		for _, serviceAccount := range provider.GetIrsaServiceAccounts(
+			cpi.Opts.Namespace,
+			*callerIdentity.Account,
+			provider.GetResourceManagerRoleName(cpi.Opts.ControlPlaneName),
+		) {
+			if _, ok := selected[serviceAccount.GetName()]; !ok {
+				continue
+			}
+			if _, err := kube.CreateOrUpdateResource(
+				serviceAccount,
+				dynamicKubeClient,
+				*mapper,
+			); err != nil {
+				return fmt.Errorf("failed to create threeport api service account: %w", err)
+			}
+		}
+		return nil
+	case v0.KubernetesRuntimeInfraProviderGKE:
+		// skip the rewrite on this provider
+		if writeServiceAccounts {
+			return nil
+		}
+
+		// record the project the install writes onto the service account
+		gcpProjectId, err := gkeRuntimeProjectID(
+			r.APIClient,
+			r.APIServer,
+			*kubernetesRuntimeInstance.ID,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to determine the GCP project of the child's runtime: %w", err)
+		}
+		cpi.Opts.GcpProjectId = gcpProjectId
+		return nil
+	default:
+		// kind and oke need no provider values
+		return nil
+	}
+}
+
+// syncChildSelfApis copies the controller group list onto the child's self instance.
+// Skip an unchanged list so the child does not reconcile again.
+func syncChildSelfApis(controlPlaneInstance *v0.ControlPlaneInstance, authEnabled bool) error {
+	// skip the instance that serves this control plane
+	if controlPlaneInstance.IsSelf != nil && *controlPlaneInstance.IsSelf {
+		return nil
+	}
+	if controlPlaneInstance.ApiServerEndpoint == nil || *controlPlaneInstance.ApiServerEndpoint == "" {
+		return fmt.Errorf("control plane instance %s has no API endpoint", *controlPlaneInstance.Name)
+	}
+
+	// connect to the child API
+	caCert := ""
+	clientCert := ""
+	clientKey := ""
+	if authEnabled {
+		if controlPlaneInstance.CACert == nil || *controlPlaneInstance.CACert == "" ||
+			controlPlaneInstance.ClientCert == nil || *controlPlaneInstance.ClientCert == "" ||
+			controlPlaneInstance.ClientKey == nil || *controlPlaneInstance.ClientKey == "" {
+			return fmt.Errorf("control plane instance %s is missing API client credentials", *controlPlaneInstance.Name)
+		}
+		var err error
+		caCert, err = util.Base64Decode(*controlPlaneInstance.CACert)
+		if err != nil {
+			return fmt.Errorf("failed to decode CA certificate for control plane instance %s: %w", *controlPlaneInstance.Name, err)
+		}
+		clientCert, err = util.Base64Decode(*controlPlaneInstance.ClientCert)
+		if err != nil {
+			return fmt.Errorf("failed to decode client certificate for control plane instance %s: %w", *controlPlaneInstance.Name, err)
+		}
+		clientKey, err = util.Base64Decode(*controlPlaneInstance.ClientKey)
+		if err != nil {
+			return fmt.Errorf("failed to decode client key for control plane instance %s: %w", *controlPlaneInstance.Name, err)
+		}
+	}
+	httpClient, err := client_lib.GetHTTPClient(authEnabled, caCert, clientCert, clientKey, "")
+	if err != nil {
+		return fmt.Errorf("failed to create http client for control plane instance %s: %w", *controlPlaneInstance.Name, err)
+	}
+
+	// write the group list when the child copy differs
+	child, err := client.GetControlPlaneInstanceByName(
+		httpClient,
+		*controlPlaneInstance.ApiServerEndpoint,
+		*controlPlaneInstance.Name,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get control plane instance %s from its API: %w", *controlPlaneInstance.Name, err)
+	}
+	parentApis := ""
+	if controlPlaneInstance.Apis != nil {
+		parentApis = *controlPlaneInstance.Apis
+	}
+	childApis := ""
+	if child.Apis != nil {
+		childApis = *child.Apis
+	}
+	if parentApis == childApis {
+		return nil
+	}
+
+	// send an empty string so the patch clears a stored list
+	if parentApis == "" {
+		empty := ""
+		child.Apis = &empty
+	} else {
+		child.Apis = controlPlaneInstance.Apis
+	}
+	_, err = client.UpdateControlPlaneInstance(
+		httpClient,
+		*controlPlaneInstance.ApiServerEndpoint,
+		child,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update controller groups on control plane instance %s: %w", *controlPlaneInstance.Name, err)
+	}
+	return nil
 }
 
 // prepareInstanceInstaller copies the parent's component images onto the instance and selects its controllers.
@@ -994,56 +1120,14 @@ func v0ControlPlaneInstanceDeleted(
 		return 0, fmt.Errorf("failed to get control plane kubernetesRuntime definition by ID: %w", err)
 	}
 
-	// create a dynamic client to connect to kube API — use token refresh
-	// for OKE to handle short-lived tokens
-	var deleteDynamicClient dynamic.Interface
-	var deleteMapper *meta.RESTMapper
-	switch *kubernetesRuntimeDefinition.InfraProvider {
-	case v0.KubernetesRuntimeInfraProviderOKE:
-		ociRuntimeInstance, err := client.GetOciOkeKubernetesRuntimeInstanceByK8sRuntimeInst(
-			r.APIClient, r.APIServer, *kubernetesRuntimeInstance.ID,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get OCI OKE runtime instance for delete: %w", err)
-		}
-		ociProvider, err := client.GetOciProviderByID(
-			r.APIClient, r.APIServer, *ociRuntimeInstance.OciProviderID,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get OCI provider for delete: %w", err)
-		}
-		decryptedPrivateKey, err := encryption.Decrypt(r.EncryptionKey, *ociProvider.PrivateKey)
-		if err != nil {
-			return 0, fmt.Errorf("failed to decrypt OCI provider private key for delete: %w", err)
-		}
-		configProvider := common.NewRawConfigurationProvider(
-			*ociProvider.TenancyOCID,
-			*ociProvider.UserOCID,
-			*ociProvider.DefaultRegion,
-			*ociProvider.KeyFingerprint,
-			decryptedPrivateKey,
-			nil,
-		)
-		if ociRuntimeInstance.ClusterOCID == nil || *ociRuntimeInstance.ClusterOCID == "" {
-			return 0, fmt.Errorf("OCI OKE runtime instance has no cluster OCID set for delete")
-		}
-		clusterOCID := *ociRuntimeInstance.ClusterOCID
-		deleteDynamicClient, deleteMapper, err = kube.GetClientWithTokenRefresh(
-			kubernetesRuntimeInstance,
-			func() (string, error) {
-				t, _, err := util.GenerateOkeToken(clusterOCID, configProvider)
-				return t, err
-			},
-		)
-	default:
-		deleteDynamicClient, deleteMapper, err = kube.GetClient(
-			kubernetesRuntimeInstance,
-			true,
-			r.APIClient,
-			r.APIServer,
-			r.EncryptionKey,
-		)
-	}
+	// create dynamic kube client and rest mapper
+	deleteDynamicClient, deleteMapper, err := kube.GetClient(
+		kubernetesRuntimeInstance,
+		true,
+		r.APIClient,
+		r.APIServer,
+		r.EncryptionKey,
+	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create dynamic kube API client: %w", err)
 	}

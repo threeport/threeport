@@ -773,13 +773,19 @@ func (cpi *ControlPlaneInstaller) unselectedControllers() []*v0.ControlPlaneComp
 }
 
 // ReconcileControllerSet installs selected controllers with no deployment and deletes the rest of the catalog.
+// The control plane controller stays when retainControlPlaneController is set.
 func (cpi *ControlPlaneInstaller) ReconcileControllerSet(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	authConfig *auth.AuthConfig,
+	retainControlPlaneController bool,
 ) error {
 	// delete catalog controllers absent from the selection
 	for _, controller := range cpi.unselectedControllers() {
+		// keep the controller that is applying this change
+		if retainControlPlaneController && controller.Name == ThreeportControlPlaneControllerName {
+			continue
+		}
 		if err := cpi.deleteController(kubeClient, mapper, *controller); err != nil {
 			return fmt.Errorf("failed to delete controller %s: %w", controller.Name, err)
 		}

@@ -14,6 +14,8 @@ import (
 	k8stesting "k8s.io/client-go/testing"
 
 	dynamicfake "k8s.io/client-go/dynamic/fake"
+
+	apiv0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
 // These checks decide whether a live cluster gets written to, so what matters
@@ -453,7 +455,7 @@ func TestReconcileControllerSetDeletesDroppedDeployment(t *testing.T) {
 	mapper := testMapper()
 
 	// delete the controller the selection dropped and leave the selected one
-	require.NoError(t, cpi.ReconcileControllerSet(client, mapper, nil))
+	require.NoError(t, cpi.ReconcileControllerSet(client, mapper, nil, false))
 
 	_, droppedPresent, err := resourceInstalled(
 		client, mapper, "apps", "v1", "Deployment", cpi.Opts.Namespace, droppedName,
@@ -466,4 +468,56 @@ func TestReconcileControllerSetDeletesDroppedDeployment(t *testing.T) {
 	)
 	require.NoError(t, err)
 	assert.True(t, keptPresent)
+}
+
+// TestReconcileControllerSetKeepsSelfControlPlaneController checks the self controller stays installed.
+func TestReconcileControllerSetKeepsSelfControlPlaneController(t *testing.T) {
+	// pick the self controller and two others from the catalog
+	var selected *apiv0.ControlPlaneComponent
+	var dropped *apiv0.ControlPlaneComponent
+	var selfController *apiv0.ControlPlaneComponent
+	for _, controller := range ThreeportControllerList {
+		if controller.Name == ThreeportControlPlaneControllerName {
+			selfController = controller
+			continue
+		}
+		if selected == nil {
+			selected = controller
+			continue
+		}
+		if dropped == nil {
+			dropped = controller
+		}
+	}
+	require.NotNil(t, selected)
+	require.NotNil(t, dropped)
+	require.NotNil(t, selfController)
+
+	// leave the selected controller installed and drop another
+	cpi := NewInstaller()
+	cpi.Opts.ControllerList = []*apiv0.ControlPlaneComponent{selected}
+	selectedName := cpi.controllerDeploymentName(*selected)
+	keptName := cpi.controllerDeploymentName(*selfController)
+	droppedName := cpi.controllerDeploymentName(*dropped)
+	client := testClient(
+		deployment(cpi.Opts.Namespace, selectedName),
+		deployment(cpi.Opts.Namespace, keptName),
+		deployment(cpi.Opts.Namespace, droppedName),
+	)
+	mapper := testMapper()
+
+	// reconcile with the self controller retained
+	require.NoError(t, cpi.ReconcileControllerSet(client, mapper, nil, true))
+
+	// confirm the self controller stayed and the other dropped controller did not
+	_, keptPresent, err := resourceInstalled(
+		client, mapper, "apps", "v1", "Deployment", cpi.Opts.Namespace, keptName,
+	)
+	require.NoError(t, err)
+	assert.True(t, keptPresent)
+	_, droppedPresent, err := resourceInstalled(
+		client, mapper, "apps", "v1", "Deployment", cpi.Opts.Namespace, droppedName,
+	)
+	require.NoError(t, err)
+	assert.False(t, droppedPresent)
 }
