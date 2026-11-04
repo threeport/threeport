@@ -55,7 +55,7 @@ var GetKubernetesRuntimesCmd = &cobra.Command{
 		case "v0":
 			// load kubernetes runtime values
 			kubernetesRuntimeConfig := config_v0.KubernetesRuntimeConfig{}
-			if kubernetesRuntimeConfigPath != "" {
+			if kubernetesRuntimeConfigPath != "" || kubernetesRuntimeStdin {
 				configContent, err := cli.ReadConfigContent(kubernetesRuntimeConfigPath, kubernetesRuntimeStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -130,6 +130,10 @@ func init() {
 	GetKubernetesRuntimesCmd.Flags().StringVarP(
 		&kubernetesRuntimeConfigPath,
 		"config", "c", "", "Path to file with kubernetes runtime config.",
+	)
+	GetKubernetesRuntimesCmd.Flags().BoolVar(
+		&kubernetesRuntimeStdin,
+		"stdin", false, "Read config from stdin instead of file.",
 	)
 	GetKubernetesRuntimesCmd.Flags().StringVarP(
 		&kubernetesRuntimeVersion,
@@ -230,7 +234,7 @@ var DeleteKubernetesRuntimeCmd = &cobra.Command{
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
 		// flag validation
-		if kubernetesRuntimeConfigPath == "" {
+		if kubernetesRuntimeConfigPath == "" && !kubernetesRuntimeStdin {
 			cli.Error("flag validation failed", errors.New("config file path is required"))
 		}
 
@@ -277,6 +281,10 @@ func init() {
 		&kubernetesRuntimeConfigPath,
 		"config", "c", "", "Path to file with kubernetes runtime config.",
 	)
+	DeleteKubernetesRuntimeCmd.Flags().BoolVar(
+		&kubernetesRuntimeStdin,
+		"stdin", false, "Read config from stdin instead of file.",
+	)
 	DeleteKubernetesRuntimeCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
@@ -314,7 +322,7 @@ var GetKubernetesRuntimeDefinitionsCmd = &cobra.Command{
 		case "v0":
 			// load values
 			kubernetesRuntimeDefinitionConfig := config_v0.KubernetesRuntimeDefinitionConfig{}
-			if kubernetesRuntimeConfigPath != "" {
+			if kubernetesRuntimeConfigPath != "" || kubernetesRuntimeStdin {
 				configContent, err := cli.ReadConfigContent(kubernetesRuntimeConfigPath, kubernetesRuntimeStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -389,6 +397,10 @@ func init() {
 	GetKubernetesRuntimeDefinitionsCmd.Flags().StringVarP(
 		&kubernetesRuntimeConfigPath,
 		"config", "c", "", "Path to file with kubernetes runtime definition config.",
+	)
+	GetKubernetesRuntimeDefinitionsCmd.Flags().BoolVar(
+		&kubernetesRuntimeStdin,
+		"stdin", false, "Read config from stdin instead of file.",
 	)
 	GetKubernetesRuntimeDefinitionsCmd.Flags().StringVarP(
 		&kubernetesRuntimeVersion,
@@ -558,7 +570,7 @@ var DeleteKubernetesRuntimeDefinitionCmd = &cobra.Command{
 		switch kubernetesRuntimeVersion {
 		case "v0":
 			var kubernetesRuntimeDefinitionConfig config_v0.KubernetesRuntimeDefinitionConfig
-			if kubernetesRuntimeConfigPath != "" {
+			if kubernetesRuntimeConfigPath != "" || kubernetesRuntimeStdin {
 				// load kubernetes runtime definition config
 				configContent, err := cli.ReadConfigContent(kubernetesRuntimeConfigPath, kubernetesRuntimeStdin)
 				if err != nil {
@@ -602,6 +614,10 @@ func init() {
 		&kubernetesRuntimeConfigPath,
 		"config", "c", "", "Path to file with kubernetes runtime definition config.",
 	)
+	DeleteKubernetesRuntimeDefinitionCmd.Flags().BoolVar(
+		&kubernetesRuntimeStdin,
+		"stdin", false, "Read config from stdin instead of file.",
+	)
 	DeleteKubernetesRuntimeDefinitionCmd.Flags().StringVarP(
 		&kubernetesRuntimeName,
 		"name", "n", "", "Name of kubernetes runtime definition.",
@@ -643,7 +659,7 @@ var GetKubernetesRuntimeInstancesCmd = &cobra.Command{
 		case "v0":
 			// load values
 			kubernetesRuntimeInstanceConfig := config_v0.KubernetesRuntimeInstanceConfig{}
-			if kubernetesRuntimeConfigPath != "" {
+			if kubernetesRuntimeConfigPath != "" || kubernetesRuntimeStdin {
 				configContent, err := cli.ReadConfigContent(kubernetesRuntimeConfigPath, kubernetesRuntimeStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -718,6 +734,10 @@ func init() {
 	GetKubernetesRuntimeInstancesCmd.Flags().StringVarP(
 		&kubernetesRuntimeConfigPath,
 		"config", "c", "", "Path to file with kubernetes runtime instance config.",
+	)
+	GetKubernetesRuntimeInstancesCmd.Flags().BoolVar(
+		&kubernetesRuntimeStdin,
+		"stdin", false, "Read config from stdin instead of file.",
 	)
 	GetKubernetesRuntimeInstancesCmd.Flags().StringVarP(
 		&kubernetesRuntimeVersion,
@@ -887,7 +907,7 @@ var DeleteKubernetesRuntimeInstanceCmd = &cobra.Command{
 		switch kubernetesRuntimeVersion {
 		case "v0":
 			var kubernetesRuntimeInstanceConfig config_v0.KubernetesRuntimeInstanceConfig
-			if kubernetesRuntimeConfigPath != "" {
+			if kubernetesRuntimeConfigPath != "" || kubernetesRuntimeStdin {
 				// load kubernetes runtime instance config
 				configContent, err := cli.ReadConfigContent(kubernetesRuntimeConfigPath, kubernetesRuntimeStdin)
 				if err != nil {
@@ -930,6 +950,10 @@ func init() {
 	DeleteKubernetesRuntimeInstanceCmd.Flags().StringVarP(
 		&kubernetesRuntimeConfigPath,
 		"config", "c", "", "Path to file with kubernetes runtime instance config.",
+	)
+	DeleteKubernetesRuntimeInstanceCmd.Flags().BoolVar(
+		&kubernetesRuntimeStdin,
+		"stdin", false, "Read config from stdin instead of file.",
 	)
 	DeleteKubernetesRuntimeInstanceCmd.Flags().StringVarP(
 		&kubernetesRuntimeName,

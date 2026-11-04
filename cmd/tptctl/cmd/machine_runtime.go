@@ -147,6 +147,10 @@ func init() {
 		&machineRuntimeConfigPath,
 		"config", "c", "", "Path to file with machine runtime config.",
 	)
+	GetMachineRuntimesCmd.Flags().BoolVar(
+		&machineRuntimeStdin,
+		"stdin", false, "Read config from stdin instead of file.",
+	)
 	GetMachineRuntimesCmd.Flags().StringVarP(
 		&machineRuntimeVersion,
 		"version", "v", "v0", "Version of machine runtime objects to retrieve. One of: [v0]",
@@ -250,7 +254,7 @@ var DeleteMachineRuntimeCmd = &cobra.Command{
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
 		// flag validation
-		if machineRuntimeConfigPath == "" {
+		if machineRuntimeConfigPath == "" && !machineRuntimeStdin {
 			cli.Error("flag validation failed", errors.New("config file path is required"))
 		}
 
@@ -296,6 +300,10 @@ func init() {
 	DeleteMachineRuntimeCmd.Flags().StringVarP(
 		&machineRuntimeConfigPath,
 		"config", "c", "", "Path to file with machine runtime config.",
+	)
+	DeleteMachineRuntimeCmd.Flags().BoolVar(
+		&machineRuntimeStdin,
+		"stdin", false, "Read config from stdin instead of file.",
 	)
 	DeleteMachineRuntimeCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
@@ -425,6 +433,10 @@ func init() {
 	GetMachineRuntimeDefinitionsCmd.Flags().StringVarP(
 		&machineRuntimeConfigPath,
 		"config", "c", "", "Path to file with machine runtime definition config.",
+	)
+	GetMachineRuntimeDefinitionsCmd.Flags().BoolVar(
+		&machineRuntimeStdin,
+		"stdin", false, "Read config from stdin instead of file.",
 	)
 	GetMachineRuntimeDefinitionsCmd.Flags().StringVarP(
 		&machineRuntimeVersion,
@@ -642,6 +654,10 @@ func init() {
 		&machineRuntimeConfigPath,
 		"config", "c", "", "Path to file with machine runtime definition config.",
 	)
+	DeleteMachineRuntimeDefinitionCmd.Flags().BoolVar(
+		&machineRuntimeStdin,
+		"stdin", false, "Read config from stdin instead of file.",
+	)
 	DeleteMachineRuntimeDefinitionCmd.Flags().StringVarP(
 		&machineRuntimeName,
 		"name", "n", "", "Name of machine runtime definition.",
@@ -774,6 +790,10 @@ func init() {
 	GetMachineRuntimeInstancesCmd.Flags().StringVarP(
 		&machineRuntimeConfigPath,
 		"config", "c", "", "Path to file with machine runtime instance config.",
+	)
+	GetMachineRuntimeInstancesCmd.Flags().BoolVar(
+		&machineRuntimeStdin,
+		"stdin", false, "Read config from stdin instead of file.",
 	)
 	GetMachineRuntimeInstancesCmd.Flags().StringVarP(
 		&machineRuntimeVersion,
@@ -990,6 +1010,10 @@ func init() {
 	DeleteMachineRuntimeInstanceCmd.Flags().StringVarP(
 		&machineRuntimeConfigPath,
 		"config", "c", "", "Path to file with machine runtime instance config.",
+	)
+	DeleteMachineRuntimeInstanceCmd.Flags().BoolVar(
+		&machineRuntimeStdin,
+		"stdin", false, "Read config from stdin instead of file.",
 	)
 	DeleteMachineRuntimeInstanceCmd.Flags().StringVarP(
 		&machineRuntimeName,

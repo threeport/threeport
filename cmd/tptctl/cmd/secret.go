@@ -55,7 +55,7 @@ var GetSecretsCmd = &cobra.Command{
 		case "v0":
 			// load secret values
 			secretConfig := config_v0.SecretConfig{}
-			if secretConfigPath != "" {
+			if secretConfigPath != "" || secretStdin {
 				configContent, err := cli.ReadConfigContent(secretConfigPath, secretStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -130,6 +130,10 @@ func init() {
 	GetSecretsCmd.Flags().StringVarP(
 		&secretConfigPath,
 		"config", "c", "", "Path to file with secret config.",
+	)
+	GetSecretsCmd.Flags().BoolVar(
+		&secretStdin,
+		"stdin", false, "Read config from stdin instead of file.",
 	)
 	GetSecretsCmd.Flags().StringVarP(
 		&secretVersion,
@@ -231,7 +235,7 @@ var DeleteSecretCmd = &cobra.Command{
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
 		// flag validation
-		if secretConfigPath == "" {
+		if secretConfigPath == "" && !secretStdin {
 			cli.Error("flag validation failed", errors.New("config file path is required"))
 		}
 
@@ -279,6 +283,10 @@ func init() {
 		&secretConfigPath,
 		"config", "c", "", "Path to file with secret config.",
 	)
+	DeleteSecretCmd.Flags().BoolVar(
+		&secretStdin,
+		"stdin", false, "Read config from stdin instead of file.",
+	)
 	DeleteSecretCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
@@ -316,7 +324,7 @@ var GetSecretDefinitionsCmd = &cobra.Command{
 		case "v0":
 			// load values
 			secretDefinitionConfig := config_v0.SecretDefinitionConfig{}
-			if secretConfigPath != "" {
+			if secretConfigPath != "" || secretStdin {
 				configContent, err := cli.ReadConfigContent(secretConfigPath, secretStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -391,6 +399,10 @@ func init() {
 	GetSecretDefinitionsCmd.Flags().StringVarP(
 		&secretConfigPath,
 		"config", "c", "", "Path to file with secret definition config.",
+	)
+	GetSecretDefinitionsCmd.Flags().BoolVar(
+		&secretStdin,
+		"stdin", false, "Read config from stdin instead of file.",
 	)
 	GetSecretDefinitionsCmd.Flags().StringVarP(
 		&secretVersion,
@@ -562,7 +574,7 @@ var DeleteSecretDefinitionCmd = &cobra.Command{
 		switch secretVersion {
 		case "v0":
 			var secretDefinitionConfig config_v0.SecretDefinitionConfig
-			if secretConfigPath != "" {
+			if secretConfigPath != "" || secretStdin {
 				// load secret definition config
 				configContent, err := cli.ReadConfigContent(secretConfigPath, secretStdin)
 				if err != nil {
@@ -607,6 +619,10 @@ func init() {
 		&secretConfigPath,
 		"config", "c", "", "Path to file with secret definition config.",
 	)
+	DeleteSecretDefinitionCmd.Flags().BoolVar(
+		&secretStdin,
+		"stdin", false, "Read config from stdin instead of file.",
+	)
 	DeleteSecretDefinitionCmd.Flags().StringVarP(
 		&secretName,
 		"name", "n", "", "Name of secret definition.",
@@ -648,7 +664,7 @@ var GetSecretInstancesCmd = &cobra.Command{
 		case "v0":
 			// load values
 			secretInstanceConfig := config_v0.SecretInstanceConfig{}
-			if secretConfigPath != "" {
+			if secretConfigPath != "" || secretStdin {
 				configContent, err := cli.ReadConfigContent(secretConfigPath, secretStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -723,6 +739,10 @@ func init() {
 	GetSecretInstancesCmd.Flags().StringVarP(
 		&secretConfigPath,
 		"config", "c", "", "Path to file with secret instance config.",
+	)
+	GetSecretInstancesCmd.Flags().BoolVar(
+		&secretStdin,
+		"stdin", false, "Read config from stdin instead of file.",
 	)
 	GetSecretInstancesCmd.Flags().StringVarP(
 		&secretVersion,
@@ -894,7 +914,7 @@ var DeleteSecretInstanceCmd = &cobra.Command{
 		switch secretVersion {
 		case "v0":
 			var secretInstanceConfig config_v0.SecretInstanceConfig
-			if secretConfigPath != "" {
+			if secretConfigPath != "" || secretStdin {
 				// load secret instance config
 				configContent, err := cli.ReadConfigContent(secretConfigPath, secretStdin)
 				if err != nil {
@@ -938,6 +958,10 @@ func init() {
 	DeleteSecretInstanceCmd.Flags().StringVarP(
 		&secretConfigPath,
 		"config", "c", "", "Path to file with secret instance config.",
+	)
+	DeleteSecretInstanceCmd.Flags().BoolVar(
+		&secretStdin,
+		"stdin", false, "Read config from stdin instead of file.",
 	)
 	DeleteSecretInstanceCmd.Flags().StringVarP(
 		&secretName,

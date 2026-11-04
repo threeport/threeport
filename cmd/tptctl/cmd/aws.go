@@ -72,7 +72,7 @@ var GetAwsProvidersCmd = &cobra.Command{
 		case "v0":
 			// load values
 			awsProviderConfig := config_v0.AwsProviderConfig{}
-			if awsConfigPath != "" {
+			if awsConfigPath != "" || awsStdin {
 				configContent, err := cli.ReadConfigContent(awsConfigPath, awsStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -147,6 +147,10 @@ func init() {
 	GetAwsProvidersCmd.Flags().StringVarP(
 		&awsConfigPath,
 		"config", "c", "", "Path to file with aws provider config.",
+	)
+	GetAwsProvidersCmd.Flags().BoolVar(
+		&awsStdin,
+		"stdin", false, "Read config from stdin instead of file.",
 	)
 	GetAwsProvidersCmd.Flags().StringVarP(
 		&awsVersion,
@@ -320,7 +324,7 @@ var DeleteAwsProviderCmd = &cobra.Command{
 		switch awsVersion {
 		case "v0":
 			var awsProviderConfig config_v0.AwsProviderConfig
-			if awsConfigPath != "" {
+			if awsConfigPath != "" || awsStdin {
 				// load aws provider config
 				configContent, err := cli.ReadConfigContent(awsConfigPath, awsStdin)
 				if err != nil {
@@ -364,6 +368,10 @@ func init() {
 		&awsConfigPath,
 		"config", "c", "", "Path to file with aws provider config.",
 	)
+	DeleteAwsProviderCmd.Flags().BoolVar(
+		&awsStdin,
+		"stdin", false, "Read config from stdin instead of file.",
+	)
 	DeleteAwsProviderCmd.Flags().StringVarP(
 		&awsName,
 		"name", "n", "", "Name of aws provider.",
@@ -406,7 +414,7 @@ var GetAwsEksKubernetesRuntimesCmd = &cobra.Command{
 		case "v0":
 			// load aws eks kubernetes runtime values
 			awsEksKubernetesRuntimeConfig := config_v0.AwsEksKubernetesRuntimeConfig{}
-			if awsConfigPath != "" {
+			if awsConfigPath != "" || awsStdin {
 				configContent, err := cli.ReadConfigContent(awsConfigPath, awsStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -481,6 +489,10 @@ func init() {
 	GetAwsEksKubernetesRuntimesCmd.Flags().StringVarP(
 		&awsConfigPath,
 		"config", "c", "", "Path to file with aws eks kubernetes runtime config.",
+	)
+	GetAwsEksKubernetesRuntimesCmd.Flags().BoolVar(
+		&awsStdin,
+		"stdin", false, "Read config from stdin instead of file.",
 	)
 	GetAwsEksKubernetesRuntimesCmd.Flags().StringVarP(
 		&awsVersion,
@@ -581,7 +593,7 @@ var DeleteAwsEksKubernetesRuntimeCmd = &cobra.Command{
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
 		// flag validation
-		if awsConfigPath == "" {
+		if awsConfigPath == "" && !awsStdin {
 			cli.Error("flag validation failed", errors.New("config file path is required"))
 		}
 
@@ -628,6 +640,10 @@ func init() {
 		&awsConfigPath,
 		"config", "c", "", "Path to file with aws eks kubernetes runtime config.",
 	)
+	DeleteAwsEksKubernetesRuntimeCmd.Flags().BoolVar(
+		&awsStdin,
+		"stdin", false, "Read config from stdin instead of file.",
+	)
 	DeleteAwsEksKubernetesRuntimeCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
@@ -665,7 +681,7 @@ var GetAwsEksKubernetesRuntimeDefinitionsCmd = &cobra.Command{
 		case "v0":
 			// load values
 			awsEksKubernetesRuntimeDefinitionConfig := config_v0.AwsEksKubernetesRuntimeDefinitionConfig{}
-			if awsConfigPath != "" {
+			if awsConfigPath != "" || awsStdin {
 				configContent, err := cli.ReadConfigContent(awsConfigPath, awsStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -740,6 +756,10 @@ func init() {
 	GetAwsEksKubernetesRuntimeDefinitionsCmd.Flags().StringVarP(
 		&awsConfigPath,
 		"config", "c", "", "Path to file with aws eks kubernetes runtime definition config.",
+	)
+	GetAwsEksKubernetesRuntimeDefinitionsCmd.Flags().BoolVar(
+		&awsStdin,
+		"stdin", false, "Read config from stdin instead of file.",
 	)
 	GetAwsEksKubernetesRuntimeDefinitionsCmd.Flags().StringVarP(
 		&awsVersion,
@@ -909,7 +929,7 @@ var DeleteAwsEksKubernetesRuntimeDefinitionCmd = &cobra.Command{
 		switch awsVersion {
 		case "v0":
 			var awsEksKubernetesRuntimeDefinitionConfig config_v0.AwsEksKubernetesRuntimeDefinitionConfig
-			if awsConfigPath != "" {
+			if awsConfigPath != "" || awsStdin {
 				// load aws eks kubernetes runtime definition config
 				configContent, err := cli.ReadConfigContent(awsConfigPath, awsStdin)
 				if err != nil {
@@ -953,6 +973,10 @@ func init() {
 		&awsConfigPath,
 		"config", "c", "", "Path to file with aws eks kubernetes runtime definition config.",
 	)
+	DeleteAwsEksKubernetesRuntimeDefinitionCmd.Flags().BoolVar(
+		&awsStdin,
+		"stdin", false, "Read config from stdin instead of file.",
+	)
 	DeleteAwsEksKubernetesRuntimeDefinitionCmd.Flags().StringVarP(
 		&awsName,
 		"name", "n", "", "Name of aws eks kubernetes runtime definition.",
@@ -994,7 +1018,7 @@ var GetAwsEksKubernetesRuntimeInstancesCmd = &cobra.Command{
 		case "v0":
 			// load values
 			awsEksKubernetesRuntimeInstanceConfig := config_v0.AwsEksKubernetesRuntimeInstanceConfig{}
-			if awsConfigPath != "" {
+			if awsConfigPath != "" || awsStdin {
 				configContent, err := cli.ReadConfigContent(awsConfigPath, awsStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -1069,6 +1093,10 @@ func init() {
 	GetAwsEksKubernetesRuntimeInstancesCmd.Flags().StringVarP(
 		&awsConfigPath,
 		"config", "c", "", "Path to file with aws eks kubernetes runtime instance config.",
+	)
+	GetAwsEksKubernetesRuntimeInstancesCmd.Flags().BoolVar(
+		&awsStdin,
+		"stdin", false, "Read config from stdin instead of file.",
 	)
 	GetAwsEksKubernetesRuntimeInstancesCmd.Flags().StringVarP(
 		&awsVersion,
@@ -1238,7 +1266,7 @@ var DeleteAwsEksKubernetesRuntimeInstanceCmd = &cobra.Command{
 		switch awsVersion {
 		case "v0":
 			var awsEksKubernetesRuntimeInstanceConfig config_v0.AwsEksKubernetesRuntimeInstanceConfig
-			if awsConfigPath != "" {
+			if awsConfigPath != "" || awsStdin {
 				// load aws eks kubernetes runtime instance config
 				configContent, err := cli.ReadConfigContent(awsConfigPath, awsStdin)
 				if err != nil {
@@ -1281,6 +1309,10 @@ func init() {
 	DeleteAwsEksKubernetesRuntimeInstanceCmd.Flags().StringVarP(
 		&awsConfigPath,
 		"config", "c", "", "Path to file with aws eks kubernetes runtime instance config.",
+	)
+	DeleteAwsEksKubernetesRuntimeInstanceCmd.Flags().BoolVar(
+		&awsStdin,
+		"stdin", false, "Read config from stdin instead of file.",
 	)
 	DeleteAwsEksKubernetesRuntimeInstanceCmd.Flags().StringVarP(
 		&awsName,

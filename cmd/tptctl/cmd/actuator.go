@@ -48,7 +48,7 @@ var GetProfilesCmd = &cobra.Command{
 		case "v0":
 			// load values
 			profileConfig := config_v0.ProfileConfig{}
-			if actuatorConfigPath != "" {
+			if actuatorConfigPath != "" || actuatorStdin {
 				configContent, err := cli.ReadConfigContent(actuatorConfigPath, actuatorStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -123,6 +123,10 @@ func init() {
 	GetProfilesCmd.Flags().StringVarP(
 		&actuatorConfigPath,
 		"config", "c", "", "Path to file with profile config.",
+	)
+	GetProfilesCmd.Flags().BoolVar(
+		&actuatorStdin,
+		"stdin", false, "Read config from stdin instead of file.",
 	)
 	GetProfilesCmd.Flags().StringVarP(
 		&actuatorVersion,
@@ -289,7 +293,7 @@ var DeleteProfileCmd = &cobra.Command{
 		switch actuatorVersion {
 		case "v0":
 			var profileConfig config_v0.ProfileConfig
-			if actuatorConfigPath != "" {
+			if actuatorConfigPath != "" || actuatorStdin {
 				// load profile config
 				configContent, err := cli.ReadConfigContent(actuatorConfigPath, actuatorStdin)
 				if err != nil {
@@ -333,6 +337,10 @@ func init() {
 		&actuatorConfigPath,
 		"config", "c", "", "Path to file with profile config.",
 	)
+	DeleteProfileCmd.Flags().BoolVar(
+		&actuatorStdin,
+		"stdin", false, "Read config from stdin instead of file.",
+	)
 	DeleteProfileCmd.Flags().StringVarP(
 		&actuatorName,
 		"name", "n", "", "Name of profile.",
@@ -374,7 +382,7 @@ var GetTiersCmd = &cobra.Command{
 		case "v0":
 			// load values
 			tierConfig := config_v0.TierConfig{}
-			if actuatorConfigPath != "" {
+			if actuatorConfigPath != "" || actuatorStdin {
 				configContent, err := cli.ReadConfigContent(actuatorConfigPath, actuatorStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -449,6 +457,10 @@ func init() {
 	GetTiersCmd.Flags().StringVarP(
 		&actuatorConfigPath,
 		"config", "c", "", "Path to file with tier config.",
+	)
+	GetTiersCmd.Flags().BoolVar(
+		&actuatorStdin,
+		"stdin", false, "Read config from stdin instead of file.",
 	)
 	GetTiersCmd.Flags().StringVarP(
 		&actuatorVersion,
@@ -615,7 +627,7 @@ var DeleteTierCmd = &cobra.Command{
 		switch actuatorVersion {
 		case "v0":
 			var tierConfig config_v0.TierConfig
-			if actuatorConfigPath != "" {
+			if actuatorConfigPath != "" || actuatorStdin {
 				// load tier config
 				configContent, err := cli.ReadConfigContent(actuatorConfigPath, actuatorStdin)
 				if err != nil {
@@ -658,6 +670,10 @@ func init() {
 	DeleteTierCmd.Flags().StringVarP(
 		&actuatorConfigPath,
 		"config", "c", "", "Path to file with tier config.",
+	)
+	DeleteTierCmd.Flags().BoolVar(
+		&actuatorStdin,
+		"stdin", false, "Read config from stdin instead of file.",
 	)
 	DeleteTierCmd.Flags().StringVarP(
 		&actuatorName,

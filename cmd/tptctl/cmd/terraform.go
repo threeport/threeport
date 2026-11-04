@@ -72,7 +72,7 @@ var GetTerraformsCmd = &cobra.Command{
 		case "v0":
 			// load terraform values
 			terraformConfig := config_v0.TerraformConfig{}
-			if terraformConfigPath != "" {
+			if terraformConfigPath != "" || terraformStdin {
 				configContent, err := cli.ReadConfigContent(terraformConfigPath, terraformStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -147,6 +147,10 @@ func init() {
 	GetTerraformsCmd.Flags().StringVarP(
 		&terraformConfigPath,
 		"config", "c", "", "Path to file with terraform config.",
+	)
+	GetTerraformsCmd.Flags().BoolVar(
+		&terraformStdin,
+		"stdin", false, "Read config from stdin instead of file.",
 	)
 	GetTerraformsCmd.Flags().StringVarP(
 		&terraformVersion,
@@ -252,7 +256,7 @@ var DeleteTerraformCmd = &cobra.Command{
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
 		// flag validation
-		if terraformConfigPath == "" {
+		if terraformConfigPath == "" && !terraformStdin {
 			cli.Error("flag validation failed", errors.New("config file path is required"))
 		}
 
@@ -300,6 +304,10 @@ func init() {
 		&terraformConfigPath,
 		"config", "c", "", "Path to file with terraform config.",
 	)
+	DeleteTerraformCmd.Flags().BoolVar(
+		&terraformStdin,
+		"stdin", false, "Read config from stdin instead of file.",
+	)
 	DeleteTerraformCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
@@ -337,7 +345,7 @@ var GetTerraformDefinitionsCmd = &cobra.Command{
 		case "v0":
 			// load values
 			terraformDefinitionConfig := config_v0.TerraformDefinitionConfig{}
-			if terraformConfigPath != "" {
+			if terraformConfigPath != "" || terraformStdin {
 				configContent, err := cli.ReadConfigContent(terraformConfigPath, terraformStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -412,6 +420,10 @@ func init() {
 	GetTerraformDefinitionsCmd.Flags().StringVarP(
 		&terraformConfigPath,
 		"config", "c", "", "Path to file with terraform definition config.",
+	)
+	GetTerraformDefinitionsCmd.Flags().BoolVar(
+		&terraformStdin,
+		"stdin", false, "Read config from stdin instead of file.",
 	)
 	GetTerraformDefinitionsCmd.Flags().StringVarP(
 		&terraformVersion,
@@ -583,7 +595,7 @@ var DeleteTerraformDefinitionCmd = &cobra.Command{
 		switch terraformVersion {
 		case "v0":
 			var terraformDefinitionConfig config_v0.TerraformDefinitionConfig
-			if terraformConfigPath != "" {
+			if terraformConfigPath != "" || terraformStdin {
 				// load terraform definition config
 				configContent, err := cli.ReadConfigContent(terraformConfigPath, terraformStdin)
 				if err != nil {
@@ -627,6 +639,10 @@ func init() {
 	DeleteTerraformDefinitionCmd.Flags().StringVarP(
 		&terraformConfigPath,
 		"config", "c", "", "Path to file with terraform definition config.",
+	)
+	DeleteTerraformDefinitionCmd.Flags().BoolVar(
+		&terraformStdin,
+		"stdin", false, "Read config from stdin instead of file.",
 	)
 	DeleteTerraformDefinitionCmd.Flags().StringVarP(
 		&terraformName,
@@ -685,7 +701,7 @@ var GetTerraformInstancesCmd = &cobra.Command{
 		case "v0":
 			// load values
 			terraformInstanceConfig := config_v0.TerraformInstanceConfig{}
-			if terraformConfigPath != "" {
+			if terraformConfigPath != "" || terraformStdin {
 				configContent, err := cli.ReadConfigContent(terraformConfigPath, terraformStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -760,6 +776,10 @@ func init() {
 	GetTerraformInstancesCmd.Flags().StringVarP(
 		&terraformConfigPath,
 		"config", "c", "", "Path to file with terraform instance config.",
+	)
+	GetTerraformInstancesCmd.Flags().BoolVar(
+		&terraformStdin,
+		"stdin", false, "Read config from stdin instead of file.",
 	)
 	GetTerraformInstancesCmd.Flags().StringVarP(
 		&terraformVersion,
@@ -935,7 +955,7 @@ var DeleteTerraformInstanceCmd = &cobra.Command{
 		switch terraformVersion {
 		case "v0":
 			var terraformInstanceConfig config_v0.TerraformInstanceConfig
-			if terraformConfigPath != "" {
+			if terraformConfigPath != "" || terraformStdin {
 				// load terraform instance config
 				configContent, err := cli.ReadConfigContent(terraformConfigPath, terraformStdin)
 				if err != nil {
@@ -979,6 +999,10 @@ func init() {
 	DeleteTerraformInstanceCmd.Flags().StringVarP(
 		&terraformConfigPath,
 		"config", "c", "", "Path to file with terraform instance config.",
+	)
+	DeleteTerraformInstanceCmd.Flags().BoolVar(
+		&terraformStdin,
+		"stdin", false, "Read config from stdin instead of file.",
 	)
 	DeleteTerraformInstanceCmd.Flags().StringVarP(
 		&terraformName,

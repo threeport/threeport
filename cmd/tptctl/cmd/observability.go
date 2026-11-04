@@ -55,7 +55,7 @@ var GetObservabilityStacksCmd = &cobra.Command{
 		case "v0":
 			// load observability stack values
 			observabilityStackConfig := config_v0.ObservabilityStackConfig{}
-			if observabilityConfigPath != "" {
+			if observabilityConfigPath != "" || observabilityStdin {
 				configContent, err := cli.ReadConfigContent(observabilityConfigPath, observabilityStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -130,6 +130,10 @@ func init() {
 	GetObservabilityStacksCmd.Flags().StringVarP(
 		&observabilityConfigPath,
 		"config", "c", "", "Path to file with observability stack config.",
+	)
+	GetObservabilityStacksCmd.Flags().BoolVar(
+		&observabilityStdin,
+		"stdin", false, "Read config from stdin instead of file.",
 	)
 	GetObservabilityStacksCmd.Flags().StringVarP(
 		&observabilityVersion,
@@ -231,7 +235,7 @@ var DeleteObservabilityStackCmd = &cobra.Command{
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
 		// flag validation
-		if observabilityConfigPath == "" {
+		if observabilityConfigPath == "" && !observabilityStdin {
 			cli.Error("flag validation failed", errors.New("config file path is required"))
 		}
 
@@ -279,6 +283,10 @@ func init() {
 		&observabilityConfigPath,
 		"config", "c", "", "Path to file with observability stack config.",
 	)
+	DeleteObservabilityStackCmd.Flags().BoolVar(
+		&observabilityStdin,
+		"stdin", false, "Read config from stdin instead of file.",
+	)
 	DeleteObservabilityStackCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
@@ -316,7 +324,7 @@ var GetObservabilityStackDefinitionsCmd = &cobra.Command{
 		case "v0":
 			// load values
 			observabilityStackDefinitionConfig := config_v0.ObservabilityStackDefinitionConfig{}
-			if observabilityConfigPath != "" {
+			if observabilityConfigPath != "" || observabilityStdin {
 				configContent, err := cli.ReadConfigContent(observabilityConfigPath, observabilityStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -391,6 +399,10 @@ func init() {
 	GetObservabilityStackDefinitionsCmd.Flags().StringVarP(
 		&observabilityConfigPath,
 		"config", "c", "", "Path to file with observability stack definition config.",
+	)
+	GetObservabilityStackDefinitionsCmd.Flags().BoolVar(
+		&observabilityStdin,
+		"stdin", false, "Read config from stdin instead of file.",
 	)
 	GetObservabilityStackDefinitionsCmd.Flags().StringVarP(
 		&observabilityVersion,
@@ -562,7 +574,7 @@ var DeleteObservabilityStackDefinitionCmd = &cobra.Command{
 		switch observabilityVersion {
 		case "v0":
 			var observabilityStackDefinitionConfig config_v0.ObservabilityStackDefinitionConfig
-			if observabilityConfigPath != "" {
+			if observabilityConfigPath != "" || observabilityStdin {
 				// load observability stack definition config
 				configContent, err := cli.ReadConfigContent(observabilityConfigPath, observabilityStdin)
 				if err != nil {
@@ -607,6 +619,10 @@ func init() {
 		&observabilityConfigPath,
 		"config", "c", "", "Path to file with observability stack definition config.",
 	)
+	DeleteObservabilityStackDefinitionCmd.Flags().BoolVar(
+		&observabilityStdin,
+		"stdin", false, "Read config from stdin instead of file.",
+	)
 	DeleteObservabilityStackDefinitionCmd.Flags().StringVarP(
 		&observabilityName,
 		"name", "n", "", "Name of observability stack definition.",
@@ -648,7 +664,7 @@ var GetObservabilityStackInstancesCmd = &cobra.Command{
 		case "v0":
 			// load values
 			observabilityStackInstanceConfig := config_v0.ObservabilityStackInstanceConfig{}
-			if observabilityConfigPath != "" {
+			if observabilityConfigPath != "" || observabilityStdin {
 				configContent, err := cli.ReadConfigContent(observabilityConfigPath, observabilityStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -723,6 +739,10 @@ func init() {
 	GetObservabilityStackInstancesCmd.Flags().StringVarP(
 		&observabilityConfigPath,
 		"config", "c", "", "Path to file with observability stack instance config.",
+	)
+	GetObservabilityStackInstancesCmd.Flags().BoolVar(
+		&observabilityStdin,
+		"stdin", false, "Read config from stdin instead of file.",
 	)
 	GetObservabilityStackInstancesCmd.Flags().StringVarP(
 		&observabilityVersion,
@@ -894,7 +914,7 @@ var DeleteObservabilityStackInstanceCmd = &cobra.Command{
 		switch observabilityVersion {
 		case "v0":
 			var observabilityStackInstanceConfig config_v0.ObservabilityStackInstanceConfig
-			if observabilityConfigPath != "" {
+			if observabilityConfigPath != "" || observabilityStdin {
 				// load observability stack instance config
 				configContent, err := cli.ReadConfigContent(observabilityConfigPath, observabilityStdin)
 				if err != nil {
@@ -938,6 +958,10 @@ func init() {
 	DeleteObservabilityStackInstanceCmd.Flags().StringVarP(
 		&observabilityConfigPath,
 		"config", "c", "", "Path to file with observability stack instance config.",
+	)
+	DeleteObservabilityStackInstanceCmd.Flags().BoolVar(
+		&observabilityStdin,
+		"stdin", false, "Read config from stdin instead of file.",
 	)
 	DeleteObservabilityStackInstanceCmd.Flags().StringVarP(
 		&observabilityName,
