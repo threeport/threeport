@@ -1,6 +1,10 @@
 <img src="docs/dev/img/threeport-logo-green.jpg">
 
-Threeport is an open source application platform and platform engineering framework.
+Threeport is an "Application Life Cycle Orchestrator."
+
+Application Life Cycle Orchestration (ALCO) is a software engineering approach to software delivery that replaces the config management practices of DevOps and GitOps with purpose-built controllers.  Instead of writing and maintaining text-file configs that get executed by a CD pipeline, you build controllers that manage those same concerns in software.
+
+More concretely, Threeport is an open source application platform and platform engineering framework.
 
 What is an application platform?  It is a system that is used to deliver software into its runtime environment and manage it over time.
 
@@ -15,9 +19,9 @@ Threeport consists of two parts:
 
 Software delivery had been dominated by DevOps practices for the past decade or so.  This is primarily a configuration management practice.  Modern software has become increasingly complex to manage and config management is just no longer sufficient for the task.
 
-Threeport takes a software engineering - rather than a config management - approach to application platforms.  We call this "Application Orchestration."
+Threeport takes a software engineering - rather than a config management - approach to application platforms.  We call this approach Application Life Cycle Orchestration, or ALCO.
 
-To learn more on this topic, see the [Application Orchestration concepts document](https://threeport.io/concepts/application-orchestration).
+To learn more on this topic, see the [Application Life Cycle Orchestration concepts document](https://threeport.io/concepts/application-orchestration).
 
 Fundamentally, Threeport exists to reduce engineering toil, improve resource
 efficiency, and make the most complex software systems manageable by

@@ -1,11 +1,11 @@
-# Application Orchestration
+# Application Life Cycle Orchestration (ALCO)
 
-Application orchestration is an approach to software delivery that favors software engineering over configuration management.  Similar to how user-facing applications are often designed, Threeport employs event-driven and service-oriented architecture to manage the deployment and ongoing management of applications.
+Application Life Cycle Orchestration (ALCO) is an approach to software delivery that favors software engineering over configuration management.  Similar to how user-facing applications are often designed, Threeport employs event-driven and service-oriented architecture to manage the deployment and ongoing management of applications.
 
 In order to clarify, let's compare two approaches:
 
 1. Configuration Management Approach:  This is commonly what is used today with DevOps platforms.
-2. Application Orchestration Approach: This is a software engineering approach to  the development of application platforms.
+2. ALCO Approach: This is a software engineering approach to  the development of application platforms.
 
 ## Configuration Management Approach
 
@@ -23,7 +23,7 @@ The problem with both DSLs, templates and overlays is that they manage logical c
 
 The end result of config management systems is a rapid deterioration of maintainability as complexity grows.  Because of their limitations, they become littered with workarounds, complex combinations and enormous text file configs that are very challenging for humans to manage.
 
-## Application Orchestration Approach
+## ALCO Approach
 
 With Threeport, we use a software engineering approach to solving the challenge of software delivery.  Event-driven and service-oriented architectures are powerful and effective when executed well.  We are applying these principles to application platforms.
 
@@ -31,7 +31,7 @@ One way to think about Threeport is that it is Ruby on Rails for application pla
 
 The table below helps illustrate the difference between the approaches.
 
-|  | **Config Management** | **Application Orchestration** |
+|  | **Config Management** | **ALCO** |
 |---|---|---|
 | Team Sepciality | DevOps | Platform engineering |
 | Primary Focus | Text configs, templates, pipelines | Threeport modules (software service or controller) |
@@ -152,7 +152,7 @@ pipeline-driven systems:
   the orchestration of advanced disaster recovery, failovers, migrations and
   multi-region applications in a coherent, reliable and scalable way.
 
-The following diagram illustrates software delivery using app orchestration with
+The following diagram illustrates software delivery using ALCO with
 Threeport.
 
 ![Software Delivery Orchestration](../img/SoftwareDeliveryOrchestration.drawio.svg)
@@ -183,14 +183,14 @@ through the Threeport control plane.
 
 ## Summary
 
-Application orchestration uses a control plane to execute application
+Application Life Cycle Orchestration (ALCO) uses a control plane to execute application
 deployment and ongoing management.  It scales well with complex software systems that
 have many dependencies on infrastructure and other services.
 
 Cloud native systems were enabled by container orchestration with Kubernetes.
 It alleviated the need to use config management with tools like Ansible, Chef
 and Puppet because a control plane took responsibility for reconciling state
-across clusters of machines.  App orchestration removes the need
+across clusters of machines.  ALCO removes the need
 to use config tools to define our applications and their dependencies
 because a control plane becomes responsible for stitching all these elements
 together to produce a running app.

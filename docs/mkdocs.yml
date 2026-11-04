@@ -1,6 +1,6 @@
 site_name: Threeport
 site_author: Threeport developers
-site_description: Documentation for Threeport application orchestrator
+site_description: Documentation for Threeport, the Application Life Cycle Orchestration (ALCO) platform
 repo_url: https://github.com/threeport/threeport
 repo_name: threeport/threeport
 edit_uri: blob/main/docs/
@@ -12,7 +12,7 @@ nav:
   - Contact: 'contact.md'
   #- Managed Threeport: 'managed-threeport.md'
   - Concepts:
-    - 'Application Orchestration': 'concepts/application-orchestration.md'
+    - 'Application Life Cycle Orchestration': 'concepts/application-orchestration.md'
     - 'Orchestration Abstractions': 'concepts/orchestration-abstractions.md'
     - 'Dependencies': 'concepts/dependencies.md'
     - 'Use Cases': 'concepts/use-cases.md'
