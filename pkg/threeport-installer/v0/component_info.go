@@ -219,6 +219,45 @@ func (cpi *ControlPlaneInstaller) ConfigureChildComponents(
 	return nil
 }
 
+// DivergentComponents returns the default components a control plane records
+// at a different image tag than its rest api.
+//
+// A control plane runs every default component at one tag unless someone
+// pinned a component to another, a forked agent for example, so a component
+// that differs from the rest api is a pin. The rest api is the reference
+// because every control plane runs one. Without a record of it there is
+// nothing to compare against and no component is reported.
+//
+// tptctl upgrade control-plane moves every default deployment to one new tag,
+// so each component returned is one an upgrade is about to overwrite. A
+// component recorded with no tag has nothing to overwrite and is not
+// reported. Components that are not default components are left alone by the
+// upgrade and are not reported either.
+func DivergentComponents(recorded []*v0.ControlPlaneComponent) []string {
+	var reference string
+	for _, component := range recorded {
+		if component != nil && component.Name == ThreeportRestApi.Name {
+			reference = component.ImageTag
+			break
+		}
+	}
+	if reference == "" {
+		return nil
+	}
+
+	var divergent []string
+	for _, component := range recorded {
+		if component == nil || !IsDefaultComponent(component.Name) {
+			continue
+		}
+		if component.ImageTag != "" && component.ImageTag != reference {
+			divergent = append(divergent, component.Name)
+		}
+	}
+
+	return divergent
+}
+
 // RecordedComponents returns the components this installer installs as the
 // control plane records them for itself: each controller, the rest api, the
 // agent and the database migrator, as copies.
