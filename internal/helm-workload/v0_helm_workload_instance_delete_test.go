@@ -28,16 +28,14 @@ func hwi(id uint, namespace *string) v0.HelmWorkloadInstance {
 	return inst
 }
 
-// TestSharedNamespaceQueryIsAcceptedByBinder binds the query the delete handler
-// sends through the API server's real query binder. An unknown key is a 400
-// there, which is what stranded every delete.
-func TestSharedNamespaceQueryIsAcceptedByBinder(t *testing.T) {
-	current := hwi(1, strPtr("gateway-system"))
-	current.KubernetesRuntimeInstanceID = uintPtr(7)
-
+// bindSharedNamespaceQuery binds the query the delete handler sends for current
+// through the API server's real query binder. An unknown key is a 400 there,
+// which is what stranded every delete.
+func bindSharedNamespaceQuery(t *testing.T, current *v0.HelmWorkloadInstance) v0.HelmWorkloadInstance {
+	t.Helper()
 	req, err := http.NewRequest(
 		http.MethodGet,
-		v0.PathHelmWorkloadInstances+"?"+sharedNamespaceQuery(&current),
+		v0.PathHelmWorkloadInstances+"?"+sharedNamespaceQuery(current),
 		nil,
 	)
 	require.NoError(t, err)
@@ -45,9 +43,37 @@ func TestSharedNamespaceQueryIsAcceptedByBinder(t *testing.T) {
 
 	var filter v0.HelmWorkloadInstance
 	require.NoError(t, apiserver.NewQueryBinder().Bind(&filter, c))
+	return filter
+}
+
+func TestSharedNamespaceQueryIsAcceptedByBinder(t *testing.T) {
+	current := hwi(1, strPtr("gateway-system"))
+	current.KubernetesRuntimeInstanceID = uintPtr(7)
+
+	filter := bindSharedNamespaceQuery(t, &current)
 	require.NotNil(t, filter.KubernetesRuntimeInstanceID,
 		"the query must filter on the runtime, not return instances from every runtime")
 	assert.Equal(t, uint(7), *filter.KubernetesRuntimeInstanceID)
+	// the API returns one page, so instances in other namespaces must not be
+	// able to push a sibling in this one off it
+	require.NotNil(t, filter.ReleaseNamespace,
+		"the query must filter on the namespace so unrelated instances cannot fill the page")
+	assert.Equal(t, "gateway-system", *filter.ReleaseNamespace)
+}
+
+func TestSharedNamespaceQueryWithoutNamespace(t *testing.T) {
+	for name, ns := range map[string]*string{"nil": nil, "empty": strPtr("")} {
+		t.Run(name, func(t *testing.T) {
+			current := hwi(1, ns)
+			current.KubernetesRuntimeInstanceID = uintPtr(7)
+
+			// no namespace to filter on; sending an empty one would be a filter
+			// on the empty string rather than none
+			assert.Equal(t, "kubernetesruntimeinstanceid=7", sharedNamespaceQuery(&current))
+			filter := bindSharedNamespaceQuery(t, &current)
+			assert.Nil(t, filter.ReleaseNamespace)
+		})
+	}
 }
 
 func TestReleaseNamespaceShared(t *testing.T) {

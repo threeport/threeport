@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -496,14 +497,22 @@ func v0HelmWorkloadInstanceDeleted(
 }
 
 // sharedNamespaceQuery returns the query string that lists the helm workload
-// instances on the same kubernetes runtime as the one given. The API server's
-// query binder accepts only the lowercased field name as a key, and rejects
-// any other spelling with a 400, so the key must not be hyphenated.
+// instances that may share the release namespace of the one given: those on
+// the same kubernetes runtime and, when the instance has a release namespace,
+// in that namespace. Filtering on the namespace keeps the list short, because
+// the API returns a single page (100 by default) and an instance pushed off it
+// would go unseen, letting a namespace still in use be deleted. The API
+// server's query binder accepts only the lowercased field name as a key, and
+// rejects any other spelling with a 400, so keys must not be hyphenated.
 func sharedNamespaceQuery(helmWorkloadInstance *v0.HelmWorkloadInstance) string {
-	return fmt.Sprintf(
+	query := fmt.Sprintf(
 		"kubernetesruntimeinstanceid=%d",
 		*helmWorkloadInstance.KubernetesRuntimeInstanceID,
 	)
+	if helmWorkloadInstance.ReleaseNamespace != nil && *helmWorkloadInstance.ReleaseNamespace != "" {
+		query += "&releasenamespace=" + url.QueryEscape(*helmWorkloadInstance.ReleaseNamespace)
+	}
+	return query
 }
 
 // releaseNamespaceShared reports whether any instance in others, other than
