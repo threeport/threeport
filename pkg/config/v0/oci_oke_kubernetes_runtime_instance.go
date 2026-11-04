@@ -262,8 +262,8 @@ func (o *OciOkeKubernetesRuntimeInstanceConfig) Replace(
 		return nil, fmt.Errorf("failed to find oci oke kubernetes runtime instance with name %s: %w", name, err)
 	}
 
-	// get OCI provider by name
-	var ociProviderID *uint
+	// get OCI provider by name, keeping the existing one if the config names none
+	ociProviderID := existingOciOkeKubernetesRuntimeInstance.OciProviderID
 	if ociOkeKubernetesRuntimeInstanceValues.OciProviderName != nil {
 		ociProvider, err := client_v0.GetOciProviderByName(
 			apiClient,
@@ -276,8 +276,9 @@ func (o *OciOkeKubernetesRuntimeInstanceConfig) Replace(
 		ociProviderID = ociProvider.ID
 	}
 
-	// get OCI OKE kubernetes runtime definition by name
-	var ociOkeKubernetesRuntimeDefinitionID *uint
+	// get OCI OKE kubernetes runtime definition by name, keeping the existing one
+	// if the config names none
+	ociOkeKubernetesRuntimeDefinitionID := existingOciOkeKubernetesRuntimeInstance.OciOkeKubernetesRuntimeDefinitionID
 	if ociOkeKubernetesRuntimeInstanceValues.OciOkeKubernetesRuntimeDefinition != nil && ociOkeKubernetesRuntimeInstanceValues.OciOkeKubernetesRuntimeDefinition.Name != nil {
 		ociOkeKubernetesRuntimeDefinition, err := client_v0.GetOciOkeKubernetesRuntimeDefinitionByName(
 			apiClient,
@@ -291,16 +292,32 @@ func (o *OciOkeKubernetesRuntimeInstanceConfig) Replace(
 	}
 
 	// construct updated oci oke kubernetes runtime instance object
+	// Replace sends a PUT, a full replace: every field on the outgoing object
+	// is written, a nil one included, so a field left off this literal is
+	// cleared server-side rather than left alone. Status, the Reconciliation
+	// fields, ResourceInventory and ClusterOCID belong to the controller, not to
+	// a caller of Replace, so they are carried over from the existing object.
+	// Losing the inventory and CreationConfirmed is what lets a later delete
+	// destroy an empty stack and confirm, which orphans the cloud resources.
+	//
+	// The runtime instance foreign key is carried over for a different reason:
+	// the API reads a nil foreign key on a PUT as clearing a relationship that
+	// is immutable once set, and rejects the request.
 	updatedOciOkeKubernetesRuntimeInstance := &api_v0.OciOkeKubernetesRuntimeInstance{
 		Common: api_v0.Common{
 			ID: existingOciOkeKubernetesRuntimeInstance.ID,
 		},
 		Instance: api_v0.Instance{
-			Name: ociOkeKubernetesRuntimeInstanceValues.Name,
+			Name:   ociOkeKubernetesRuntimeInstanceValues.Name,
+			Status: existingOciOkeKubernetesRuntimeInstance.Status,
 		},
+		Reconciliation:                      existingOciOkeKubernetesRuntimeInstance.Reconciliation,
 		OciProviderID:                       ociProviderID,
 		Region:                              ociOkeKubernetesRuntimeInstanceValues.Region,
 		OciOkeKubernetesRuntimeDefinitionID: ociOkeKubernetesRuntimeDefinitionID,
+		KubernetesRuntimeInstanceID:         existingOciOkeKubernetesRuntimeInstance.KubernetesRuntimeInstanceID,
+		ResourceInventory:                   existingOciOkeKubernetesRuntimeInstance.ResourceInventory,
+		ClusterOCID:                         existingOciOkeKubernetesRuntimeInstance.ClusterOCID,
 	}
 
 	// replace oci oke kubernetes runtime instance
