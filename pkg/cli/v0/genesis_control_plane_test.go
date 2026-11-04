@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	k8stesting "k8s.io/client-go/testing"
@@ -161,6 +162,18 @@ func TestEnsureBootstrapKubernetesRuntimeSurfacesLookupErrors(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to look up kubernetes runtime definition by name")
 }
 
+// newFakeKubeClient returns a fake cluster for teardown tests. Tearing down a
+// control plane lists its cluster role bindings, and the fake client panics on a
+// list it was not told the kind of.
+func newFakeKubeClient() *dynamicfake.FakeDynamicClient {
+	return dynamicfake.NewSimpleDynamicClientWithCustomListKinds(
+		runtime.NewScheme(),
+		map[schema.GroupVersionResource]string{
+			{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "clusterrolebindings"}: "ClusterRoleBindingList",
+		},
+	)
+}
+
 // fakeRuntimeInfra records infra deletes for cleanOnCreateError tests.
 type fakeRuntimeInfra struct {
 	deletes int
@@ -209,7 +222,7 @@ func TestCleanOnCreateErrorNilClientStillDeletesInfra(t *testing.T) {
 
 // TestCleanOnCreateErrorDeletesWorkloadsThenInfra covers the normal cleanup.
 func TestCleanOnCreateErrorDeletesWorkloadsThenInfra(t *testing.T) {
-	client := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
+	client := newFakeKubeClient()
 	u, infra := newTestUninstaller(client)
 
 	err := u.cleanOnCreateError("install failed", assert.AnError)
@@ -228,7 +241,7 @@ func TestCleanOnCreateErrorDeletesWorkloadsThenInfra(t *testing.T) {
 // TestCleanOnCreateErrorWorkloadFailureStillDeletesInfra covers a workload
 // delete that fails, e.g. an expired token: the infra delete must still run.
 func TestCleanOnCreateErrorWorkloadFailureStillDeletesInfra(t *testing.T) {
-	client := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
+	client := newFakeKubeClient()
 	workloadErr := fmt.Errorf("unauthorized")
 	client.PrependReactor("delete", "namespaces", func(k8stesting.Action) (bool, runtime.Object, error) {
 		return true, nil, workloadErr
@@ -246,7 +259,7 @@ func TestCleanOnCreateErrorWorkloadFailureStillDeletesInfra(t *testing.T) {
 // uninstaller keeps the earlier client, cleanup deletes the namespace with it,
 // and the infra is still deleted.
 func TestRefreshKubeClientFailureKeepsEarlierClient(t *testing.T) {
-	earlier := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
+	earlier := newFakeKubeClient()
 	u, infra := newTestUninstaller(earlier)
 	earlierMapper := u.mapper
 
@@ -281,10 +294,10 @@ func TestRefreshKubeClientFailureKeepsEarlierClient(t *testing.T) {
 // TestRefreshKubeClientSuccessReplacesClient covers a successful refresh: the
 // uninstaller adopts the new client and mapper.
 func TestRefreshKubeClientSuccessReplacesClient(t *testing.T) {
-	earlier := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
+	earlier := newFakeKubeClient()
 	u, _ := newTestUninstaller(earlier)
 
-	refreshed := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
+	refreshed := newFakeKubeClient()
 	refreshedMapper := meta.RESTMapper(meta.NewDefaultRESTMapper(nil))
 	client, mapper, err := u.refreshKubeClient(
 		func() (dynamic.Interface, *meta.RESTMapper, error) {
