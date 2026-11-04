@@ -128,6 +128,36 @@ func TestDeleteFindsBindingsFromBeforeTheLabel(t *testing.T) {
 	assert.Equal(t, []string{"foo-gcp-controller-threeportworkloads"}, bindingNames(t, cluster))
 }
 
+// The names of a control plane's bindings follow its controllers' service
+// accounts, which can be renamed or added by a module, so bindings from before
+// the label are found without a list of the names.
+func TestDeleteFindsLegacyBindingsOfCustomControllers(t *testing.T) {
+	cluster := newBindingCluster()
+	ctx := context.Background()
+	for _, binding := range []*unstructured.Unstructured{
+		// a cluster-admin controller with a renamed service account
+		legacyBinding("foo-deployer-cluster-admin", "foo"),
+		legacyBinding("foo-deployer-threeportworkloads", "foo"),
+		// a controller added by a module
+		legacyBinding("foo-module-controller-threeportworkloads", "foo"),
+		// an unlabeled binding of a sibling namespace that starts with foo's
+		legacyBinding("foo-bar-aws-controller-threeportworkloads", "foo-bar"),
+		// not shaped like the installer's bindings
+		legacyBinding("foo-admins", "foo"),
+		legacyBinding("foo-cluster-admin", "foo"),
+	} {
+		_, err := cluster.Resource(clusterRoleBindingGVR).Create(ctx, binding, metav1.CreateOptions{})
+		require.NoError(t, err)
+	}
+
+	require.NoError(t, DeleteControlPlaneClusterRoleBindings(cluster, "foo"))
+
+	assert.ElementsMatch(t,
+		[]string{"foo-bar-aws-controller-threeportworkloads", "foo-admins", "foo-cluster-admin"},
+		bindingNames(t, cluster),
+	)
+}
+
 // A control plane with no bindings, or one already cleaned up, is not an error.
 func TestDeleteSucceedsWhenThereIsNothingToDelete(t *testing.T) {
 	cluster := newBindingCluster()

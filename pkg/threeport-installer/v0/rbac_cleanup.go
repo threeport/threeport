@@ -138,11 +138,16 @@ func (cpi *ControlPlaneInstaller) controllerClusterRoleBindings(
 // to any service account of the same name that later appears in a namespace of
 // the same name.
 //
-// Bindings labeled with the namespace are deleted.  Bindings created before the
-// label existed are found by the names the installer gave them, and are deleted
-// only when every subject is in this namespace, so a name that happens to match
-// another control plane's binding is left alone.  The shared cluster roles are
-// never touched: other control planes on the cluster use them.
+// A binding is the control plane's when it is labeled with the namespace, or
+// when it was created before the label existed and is recognized by its shape:
+// a name of the form <namespace>-<service account>-threeportworkloads or
+// -cluster-admin, and subjects that are all in this namespace.  The shape does
+// not depend on which controllers the control plane ran, so bindings for
+// controllers with a custom service account name or added by a module are found
+// too.  The subject check keeps a name that happens to match another control
+// plane's binding, such as one in a namespace that starts with this one's,
+// from being deleted.  The shared cluster roles are never touched: other
+// control planes on the cluster use them.
 //
 // A binding that is already gone counts as deleted.  Any other error is
 // returned, after every deletion has been attempted.
@@ -154,39 +159,22 @@ func DeleteControlPlaneClusterRoleBindings(
 		return errors.New("a control plane namespace is required to delete its cluster role bindings")
 	}
 	bindings := kubeClient.Resource(clusterRoleBindingGVR)
-	var errs []error
 
-	// delete the bindings labeled with this namespace
-	selector := fmt.Sprintf(
-		"%s=%s,%s=%s",
-		LabelManagedBy, LabelManagedByValue,
-		LabelControlPlaneNamespace, namespace,
-	)
-	labeled, err := bindings.List(context.Background(), metav1.ListOptions{LabelSelector: selector})
+	// Every binding on the cluster is listed rather than selected by label:
+	// those from before the label have none to select by, and the
+	// managed-by label is newer than many of them.
+	list, err := bindings.List(context.Background(), metav1.ListOptions{})
 	if err != nil {
-		errs = append(errs, fmt.Errorf("failed to list cluster role bindings matching %q: %w", selector, err))
-	} else {
-		for _, item := range labeled.Items {
-			if err := deleteClusterRoleBinding(bindings, item.GetName()); err != nil {
-				errs = append(errs, err)
-			}
-		}
+		return fmt.Errorf("failed to list cluster role bindings: %w", err)
 	}
 
-	// delete the bindings from before the label by the names they were given
-	for _, name := range legacyClusterBindingNames(namespace) {
-		existing, err := bindings.Get(context.Background(), name, metav1.GetOptions{})
-		if k8serrors.IsNotFound(err) {
+	var errs []error
+	for i := range list.Items {
+		binding := &list.Items[i]
+		if !controlPlaneOwnsBinding(binding, namespace) {
 			continue
 		}
-		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to get cluster role binding %s: %w", name, err))
-			continue
-		}
-		if !bindingSubjectsInNamespace(existing, namespace) {
-			continue
-		}
-		if err := deleteClusterRoleBinding(bindings, name); err != nil {
+		if err := deleteClusterRoleBinding(bindings, binding.GetName()); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -194,17 +182,33 @@ func DeleteControlPlaneClusterRoleBindings(
 	return errors.Join(errs...)
 }
 
-// legacyClusterBindingNames lists the names the installer gave a control
-// plane's bindings for its own controllers before they were labeled.
-func legacyClusterBindingNames(namespace string) []string {
-	names := make([]string, 0, len(ThreeportControllerList)+len(clusterAdminControllers()))
-	for _, controller := range ThreeportControllerList {
-		names = append(names, clusterBindingName(namespace, controller.ServiceAccountName, workloadBindingSuffix))
+// controlPlaneOwnsBinding reports whether a cluster role binding is one the
+// installer created for the control plane namespace.
+func controlPlaneOwnsBinding(binding *unstructured.Unstructured, namespace string) bool {
+	// a binding labeled by the installer names its namespace
+	labels := binding.GetLabels()
+	if labels[LabelManagedBy] == LabelManagedByValue && labels[LabelControlPlaneNamespace] == namespace {
+		return true
 	}
-	for _, serviceAccount := range clusterAdminControllers() {
-		names = append(names, clusterBindingName(namespace, serviceAccount, clusterAdminBindingSuffix))
+
+	// a binding from before the label is recognized by its name and subjects
+	return legacyBindingName(binding.GetName(), namespace) && bindingSubjectsInNamespace(binding, namespace)
+}
+
+// legacyBindingName reports whether a binding name has the form the installer
+// gave a control plane's controller bindings: the namespace, a service account
+// name, and the suffix of the role it binds.
+func legacyBindingName(name, namespace string) bool {
+	rest, found := strings.CutPrefix(name, namespace+"-")
+	if !found {
+		return false
 	}
-	return names
+	for _, suffix := range []string{workloadBindingSuffix, clusterAdminBindingSuffix} {
+		if serviceAccount, found := strings.CutSuffix(rest, "-"+suffix); found && serviceAccount != "" {
+			return true
+		}
+	}
+	return false
 }
 
 // bindingSubjectsInNamespace reports whether the binding has subjects and every
