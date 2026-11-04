@@ -140,35 +140,20 @@ func v0ControlPlaneInstanceCreated(
 	// cross-cluster needs a load balancer, same-cluster uses ClusterIP
 	sameCluster := *selfInstance.KubernetesRuntimeInstanceID == *controlPlaneInstance.KubernetesRuntimeInstanceID
 
-	// Configure installer for new control plane instance
-	cpi := threeport.NewInstaller(threeport.Namespace(*controlPlaneInstance.Namespace))
-	cpi.Opts.ControlPlaneName = *controlPlaneInstance.Name
-	cpi.Opts.InThreeport = true
+	// build the installer an update of this instance uses
+	cpi, err := prepareInstanceInstaller(
+		r,
+		controlPlaneInstance,
+		controlPlaneDefinition,
+		kubernetesRuntimeDefinition,
+		selfInstance,
+		notFirstRun,
+	)
+	if err != nil {
+		return 0, err
+	}
 	// enable load balancer for cross-cluster cloud provider deployments
 	cpi.Opts.RestApiLoadBalancer = !sameCluster && *kubernetesRuntimeDefinition.InfraProvider != v0.KubernetesRuntimeInfraProviderKind
-	// If this is not the first run of the creation reconciler, we want to use createOrUpdate mode
-	cpi.Opts.CreateOrUpdateKubeResources = notFirstRun
-
-	// The self instance from the list endpoint does not carry the components
-	// the parent recorded for itself, so fetch it by ID to read them.
-	parentInstance, err := client.GetControlPlaneInstanceByID(r.APIClient, r.APIServer, *selfInstance.ID)
-	if err != nil {
-		return 0, fmt.Errorf("failed to get self control plane instance by ID: %w", err)
-	}
-
-	// The child's components default to the images its parent runs, then take
-	// the child's own image settings and overrides. cpi was built for this
-	// reconcile alone, so none of this reaches the next child.
-	if err := cpi.ConfigureChildComponents(parentInstance, controlPlaneInstance); err != nil {
-		return 0, fmt.Errorf("failed to configure components of control plane instance: %w", err)
-	}
-
-	// limit the child's controllers to the groups named in Apis
-	if err := selectInstanceControllers(cpi, controlPlaneInstance.Apis); err != nil {
-		return 0, fmt.Errorf("failed to select controllers for control plane instance: %w", err)
-	}
-
-	cpi.Opts.InfraProvider = *kubernetesRuntimeDefinition.InfraProvider
 
 	// The API refuses this pairing when the instance is created and when the
 	// definition is updated. It is checked once more here because those are
@@ -849,14 +834,137 @@ func v0ControlPlaneInstanceCreated(
 	return 0, nil
 }
 
-// v0ControlPlaneInstanceUpdated performs reconciliation when a v0 ControlPlaneInstance
-// has been updated.
+// v0ControlPlaneInstanceUpdated performs reconciliation when a v0 ControlPlaneInstance has been updated.
 func v0ControlPlaneInstanceUpdated(
 	r *controller.Reconciler,
 	controlPlaneInstance *v0.ControlPlaneInstance,
 	log *logr.Logger,
 ) (int64, error) {
+	// read the definition and the runtime this instance installs onto
+	controlPlaneDefinition, err := client.GetControlPlaneDefinitionByID(
+		r.APIClient,
+		r.APIServer,
+		*controlPlaneInstance.ControlPlaneDefinitionID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get control plane definition by ID: %w", err)
+	}
+	if controlPlaneDefinition.Reconciled != nil && !*controlPlaneDefinition.Reconciled {
+		return 0, errors.New("controlplane definition not reconciled")
+	}
+	kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(
+		r.APIClient,
+		r.APIServer,
+		*controlPlaneInstance.KubernetesRuntimeInstanceID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get control plane kubernetesRuntime instance by ID: %w", err)
+	}
+	if kubernetesRuntimeInstance.Reconciled != nil && !*kubernetesRuntimeInstance.Reconciled {
+		return 0, errors.New("kubernetes runtime instance not reconciled")
+	}
+	kubernetesRuntimeDefinition, err := client.GetKubernetesRuntimeDefinitionByID(
+		r.APIClient,
+		r.APIServer,
+		*kubernetesRuntimeInstance.KubernetesRuntimeDefinitionID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get control plane kubernetesRuntime definition by ID: %w", err)
+	}
+	selfInstance, err := client.GetSelfControlPlaneInstance(r.APIClient, r.APIServer)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get self control plane instance: %w", err)
+	}
+
+	// build the installer create uses, and allow updates of existing objects
+	cpi, err := prepareInstanceInstaller(
+		r,
+		controlPlaneInstance,
+		controlPlaneDefinition,
+		kubernetesRuntimeDefinition,
+		selfInstance,
+		true,
+	)
+	if err != nil {
+		return 0, err
+	}
+
+	// set the GKE project so new controllers are not authorized as nobody
+	if *kubernetesRuntimeDefinition.InfraProvider == v0.KubernetesRuntimeInfraProviderGKE {
+		gcpProjectId, err := gkeRuntimeProjectID(
+			r.APIClient,
+			r.APIServer,
+			*kubernetesRuntimeInstance.ID,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to determine the GCP project of the child's runtime: %w", err)
+		}
+		cpi.Opts.GcpProjectId = gcpProjectId
+	}
+
+	// connect to the cluster this control plane runs on
+	dynamicKubeClient, mapper, err := kube.GetClient(
+		kubernetesRuntimeInstance,
+		true,
+		r.APIClient,
+		r.APIServer,
+		r.EncryptionKey,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get kube client: %w", err)
+	}
+
+	// sign new controller certificates with the CA already in the cluster
+	var authConfig *auth.AuthConfig
+	if cpi.Opts.AuthEnabled {
+		authConfig, err = cpi.LoadAuthConfigFromCluster(dynamicKubeClient, mapper)
+		if err != nil {
+			return 0, fmt.Errorf("failed to load auth config from cluster: %w", err)
+		}
+	}
+
+	// install added controller groups and delete dropped ones
+	if err := cpi.ReconcileControllerSet(dynamicKubeClient, mapper, authConfig); err != nil {
+		return 0, err
+	}
+
 	return 0, nil
+}
+
+// prepareInstanceInstaller copies the parent's component images onto the instance and selects its controllers.
+func prepareInstanceInstaller(
+	r *controller.Reconciler,
+	controlPlaneInstance *v0.ControlPlaneInstance,
+	controlPlaneDefinition *v0.ControlPlaneDefinition,
+	kubernetesRuntimeDefinition *v0.KubernetesRuntimeDefinition,
+	selfInstance *v0.ControlPlaneInstance,
+	createOrUpdate bool,
+) (*threeport.ControlPlaneInstaller, error) {
+	// set the installer identity from the instance and its runtime
+	cpi := threeport.NewInstaller(threeport.Namespace(*controlPlaneInstance.Namespace))
+	cpi.Opts.ControlPlaneName = *controlPlaneInstance.Name
+	cpi.Opts.InThreeport = true
+	cpi.Opts.CreateOrUpdateKubeResources = createOrUpdate
+	cpi.Opts.InfraProvider = *kubernetesRuntimeDefinition.InfraProvider
+	if controlPlaneDefinition.AuthEnabled != nil {
+		cpi.Opts.AuthEnabled = *controlPlaneDefinition.AuthEnabled
+	}
+
+	// fetch the parent by ID because the list endpoint omits its components
+	parent, err := client.GetControlPlaneInstanceByID(r.APIClient, r.APIServer, *selfInstance.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get self control plane instance by ID: %w", err)
+	}
+
+	// copy the parent's component images and select this instance's controllers
+	if err := cpi.ConfigureChildComponents(parent, controlPlaneInstance); err != nil {
+		return nil, fmt.Errorf("failed to configure components of control plane instance: %w", err)
+	}
+	if err := selectInstanceControllers(cpi, controlPlaneInstance.Apis); err != nil {
+		return nil, fmt.Errorf("failed to select controllers for control plane instance: %w", err)
+	}
+
+	return cpi, nil
 }
 
 // v0ControlPlaneInstanceDeleted performs reconciliation when a v0 ControlPlaneInstance

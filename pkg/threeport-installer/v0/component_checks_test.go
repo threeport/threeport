@@ -436,3 +436,34 @@ func TestResourceInstalledReadsAnUnregisteredKindAsAbsent(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, present)
 }
+
+// TestReconcileControllerSetDeletesDroppedDeployment deletes a catalog controller the selection dropped.
+func TestReconcileControllerSetDeletesDroppedDeployment(t *testing.T) {
+	require.GreaterOrEqual(t, len(ThreeportControllerList), 2)
+
+	// select the first catalog controller and leave the second installed
+	cpi := NewInstaller()
+	cpi.Opts.ControllerList = ThreeportControllerList[:1]
+	keptName := cpi.controllerDeploymentName(*ThreeportControllerList[0])
+	droppedName := cpi.controllerDeploymentName(*ThreeportControllerList[1])
+	client := testClient(
+		deployment(cpi.Opts.Namespace, keptName),
+		deployment(cpi.Opts.Namespace, droppedName),
+	)
+	mapper := testMapper()
+
+	// delete the controller the selection dropped and leave the selected one
+	require.NoError(t, cpi.ReconcileControllerSet(client, mapper, nil))
+
+	_, droppedPresent, err := resourceInstalled(
+		client, mapper, "apps", "v1", "Deployment", cpi.Opts.Namespace, droppedName,
+	)
+	require.NoError(t, err)
+	assert.False(t, droppedPresent)
+
+	_, keptPresent, err := resourceInstalled(
+		client, mapper, "apps", "v1", "Deployment", cpi.Opts.Namespace, keptName,
+	)
+	require.NoError(t, err)
+	assert.True(t, keptPresent)
+}

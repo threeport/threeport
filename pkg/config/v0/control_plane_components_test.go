@@ -1,6 +1,7 @@
 package v0
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -76,16 +77,17 @@ func TestControlPlaneInstanceConfig_RejectsUnknownApis(t *testing.T) {
 	assert.Contains(t, err.Error(), "not-a-group")
 }
 
-// TestControlPlaneInstanceConfig_ReplaceRejectsApisChange refuses a change to Apis after creation.
-func TestControlPlaneInstanceConfig_ReplaceRejectsApisChange(t *testing.T) {
-	body := `{"Data":[{"ID":1,"Name":"child","Apis":"gcp"}]}`
-	puts := 0
+// TestControlPlaneInstanceConfig_ReplaceWritesApisChange writes a new Apis value.
+func TestControlPlaneInstanceConfig_ReplaceWritesApisChange(t *testing.T) {
+	var putBody string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPut {
-			puts++
+			raw, readErr := io.ReadAll(r.Body)
+			require.NoError(t, readErr)
+			putBody = string(raw)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(body))
+		_, _ = w.Write([]byte(`{"Data":[{"ID":1,"Name":"child","Apis":"gcp"}]}`))
 	}))
 	defer server.Close()
 	addr := strings.TrimPrefix(server.URL, "http://")
@@ -93,15 +95,8 @@ func TestControlPlaneInstanceConfig_ReplaceRejectsApisChange(t *testing.T) {
 	// call Replace with a different Apis value
 	changed := instanceConfig("none")
 	_, err := changed.Replace(http.DefaultClient, addr, "child")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "Apis cannot be changed")
-	assert.Equal(t, 0, puts)
-
-	// call Replace with the stored Apis value
-	same := instanceConfig("gcp")
-	_, err = same.Replace(http.DefaultClient, addr, "child")
 	require.NoError(t, err)
-	assert.Equal(t, 1, puts)
+	assert.Contains(t, putBody, `"Apis":"none"`)
 }
 
 // instanceConfig returns a control plane instance config with Apis set to apis.

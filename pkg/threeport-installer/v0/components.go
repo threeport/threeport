@@ -743,6 +743,133 @@ func setPersistent(resource *unstructured.Unstructured) {
 	resource.SetLabels(labels)
 }
 
+// controllerDeploymentName returns threeport-<name> for a managed controller.
+// Any other controller uses <control plane>-<name>.
+func (cpi *ControlPlaneInstaller) controllerDeploymentName(controller v0.ControlPlaneComponent) string {
+	// use the managed name when this installer owns the controller
+	if cpi.isThreeportManagedController(controller) {
+		return fmt.Sprintf("threeport-%s", controller.Name)
+	}
+	return fmt.Sprintf("%s-%s", cpi.Opts.Name, controller.Name)
+}
+
+// unselectedControllers returns catalog controllers absent from ControllerList.
+func (cpi *ControlPlaneInstaller) unselectedControllers() []*v0.ControlPlaneComponent {
+	// collect the names still selected
+	selected := map[string]struct{}{}
+	for _, controller := range cpi.Opts.ControllerList {
+		selected[controller.Name] = struct{}{}
+	}
+
+	// return catalog controllers missing from that set
+	var dropped []*v0.ControlPlaneComponent
+	for _, controller := range ThreeportControllerList {
+		if _, keep := selected[controller.Name]; keep {
+			continue
+		}
+		dropped = append(dropped, controller)
+	}
+	return dropped
+}
+
+// ReconcileControllerSet installs selected controllers with no deployment and deletes the rest of the catalog.
+func (cpi *ControlPlaneInstaller) ReconcileControllerSet(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	authConfig *auth.AuthConfig,
+) error {
+	// delete catalog controllers absent from the selection
+	for _, controller := range cpi.unselectedControllers() {
+		if err := cpi.deleteController(kubeClient, mapper, *controller); err != nil {
+			return fmt.Errorf("failed to delete controller %s: %w", controller.Name, err)
+		}
+	}
+
+	// install selected controllers with no deployment
+	var missing []*v0.ControlPlaneComponent
+	for _, controller := range cpi.Opts.ControllerList {
+		if controller.Enabled != nil && !*controller.Enabled {
+			continue
+		}
+		_, present, err := resourceInstalled(
+			kubeClient,
+			mapper,
+			"apps",
+			"v1",
+			"Deployment",
+			cpi.Opts.Namespace,
+			cpi.controllerDeploymentName(*controller),
+		)
+		if err != nil {
+			return fmt.Errorf("failed to check controller deployment %s: %w", controller.Name, err)
+		}
+		if !present {
+			missing = append(missing, controller)
+		}
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	saved := cpi.Opts.ControllerList
+	cpi.Opts.ControllerList = missing
+	cpi.Opts.CreateOrUpdateKubeResources = true
+	err := cpi.InstallThreeportControllers(kubeClient, mapper, authConfig)
+	cpi.Opts.ControllerList = saved
+	if err != nil {
+		return fmt.Errorf("failed to install controllers: %w", err)
+	}
+	return nil
+}
+
+// deleteController removes one controller deployment, its service account, and its role bindings.
+func (cpi *ControlPlaneInstaller) deleteController(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	controller v0.ControlPlaneComponent,
+) error {
+	// delete the deployment, and the account and bindings when the controller has one
+	objects := []*unstructured.Unstructured{
+		kubeObject("apps/v1", "Deployment", cpi.Opts.Namespace, cpi.controllerDeploymentName(controller)),
+	}
+	if controller.ServiceAccountName != "" {
+		account := controller.ServiceAccountName
+		objects = append(objects,
+			kubeObject("v1", "ServiceAccount", cpi.Opts.Namespace, account),
+			kubeObject(
+				"rbac.authorization.k8s.io/v1",
+				"ClusterRoleBinding",
+				"",
+				fmt.Sprintf("%s-%s-threeportworkloads", cpi.Opts.Namespace, account),
+			),
+			kubeObject(
+				"rbac.authorization.k8s.io/v1",
+				"ClusterRoleBinding",
+				"",
+				fmt.Sprintf("%s-%s-cluster-admin", cpi.Opts.Namespace, account),
+			),
+		)
+	}
+	for _, object := range objects {
+		if err := kube.DeleteResource(object, kubeClient, *mapper); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// kubeObject returns an object with only its name set, for a delete.
+func kubeObject(apiVersion, kind, namespace, name string) *unstructured.Unstructured {
+	metadata := map[string]interface{}{"name": name}
+	if namespace != "" {
+		metadata["namespace"] = namespace
+	}
+	return &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": apiVersion,
+		"kind":       kind,
+		"metadata":   metadata,
+	}}
+}
+
 // UpdateControllerDeployment installs a threeport controller by name.
 func (cpi *ControlPlaneInstaller) UpdateControllerDeployment(
 	kubeClient dynamic.Interface,
@@ -750,12 +877,7 @@ func (cpi *ControlPlaneInstaller) UpdateControllerDeployment(
 	controller v0.ControlPlaneComponent,
 ) error {
 
-	var deployName string
-	if cpi.isThreeportManagedController(controller) {
-		deployName = fmt.Sprintf("threeport-%s", controller.Name)
-	} else {
-		deployName = fmt.Sprintf("%s-%s", cpi.Opts.Name, controller.Name)
-	}
+	deployName := cpi.controllerDeploymentName(controller)
 
 	controllerDeployment, err := cpi.getControllerDeployment(
 		deployName,
