@@ -258,12 +258,12 @@ func (k *KubernetesRuntimeInstanceConfig) Delete(
 	}
 
 	// wait for kubernetes runtime instance to be deleted
-	util.Retry(60, 1, func() error {
-		if _, err := client_v0.GetKubernetesRuntimeInstanceByName(apiClient, apiEndpoint, *kubernetesRuntimeInstanceValues.Name); err == nil {
-			return errors.New("kubernetes runtime instance not deleted")
-		}
-		return nil
-	})
+	if err := waitForInstanceDeleted("kubernetes runtime", *kubernetesRuntimeInstanceValues.Name, 60, 1, func() error {
+		_, err := client_v0.GetKubernetesRuntimeInstanceByName(apiClient, apiEndpoint, *kubernetesRuntimeInstanceValues.Name)
+		return err
+	}); err != nil {
+		return nil, err
+	}
 
 	// construct deleted kubernetes runtime instance config
 	deletedKubernetesRuntimeInstanceConfig := &KubernetesRuntimeInstanceConfig{
