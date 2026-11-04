@@ -339,6 +339,33 @@ func HandleInfraCreate(p InfraLifecycleProvider, log *logr.Logger) (int64, error
 	})
 }
 
+// createUnconfirmedRequeueSeconds is how long an update of an instance whose
+// creation is not confirmed waits before it is looked at again.  It matches the
+// create requeue.
+const createUnconfirmedRequeueSeconds = 120
+
+// HandleInfraUpdate handles an update notification for an infrastructure
+// instance.  The create and delete handlers own an instance's lifecycle, so an
+// update has nothing to reconcile once the creation is confirmed.  Until then
+// it asks to be requeued: the reconciler marks the instance reconciled when a
+// handler returns with no requeue, and an update notification arrives with
+// every acknowledgement and streamed state write, long before the create has
+// run.
+func HandleInfraUpdate(p InfraLifecycleProvider, log *logr.Logger) (int64, error) {
+	snap, err := p.GetReconciliation()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get reconciliation state: %w", err)
+	}
+
+	// a delete has nothing to wait for, and a confirmed create is done
+	if snap.DeletionScheduled != nil || snap.CreationConfirmed != nil {
+		return 0, nil
+	}
+
+	log.V(1).Info("creation not confirmed, holding update until it is")
+	return createUnconfirmedRequeueSeconds, nil
+}
+
 // HandleInfraDelete implements the delete state machine for any infrastructure
 // provider. It checks reconciliation state, manages ack/confirm transitions,
 // handles cross-replica safety, and launches the delete goroutine when needed.
