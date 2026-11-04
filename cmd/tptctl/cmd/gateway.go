@@ -134,10 +134,6 @@ func init() {
 		&gatewayConfigPath,
 		"config", "c", "", "Path to file with domain name config.",
 	)
-	GetDomainNamesCmd.Flags().BoolVar(
-		&gatewayStdin,
-		"stdin", false, "Read config from stdin instead of file.",
-	)
 	GetDomainNamesCmd.Flags().StringVarP(
 		&gatewayVersion,
 		"version", "v", "v0", "Version of domain name objects to retrieve. One of: [v0]",
@@ -237,7 +233,7 @@ var DeleteDomainNameCmd = &cobra.Command{
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
 		// flag validation
-		if gatewayConfigPath == "" && !gatewayStdin {
+		if gatewayConfigPath == "" {
 			cli.Error("flag validation failed", errors.New("config file path is required"))
 		}
 
@@ -283,10 +279,6 @@ func init() {
 	DeleteDomainNameCmd.Flags().StringVarP(
 		&gatewayConfigPath,
 		"config", "c", "", "Path to file with domain name config.",
-	)
-	DeleteDomainNameCmd.Flags().BoolVar(
-		&gatewayStdin,
-		"stdin", false, "Read config from stdin instead of file.",
 	)
 	DeleteDomainNameCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
@@ -400,10 +392,6 @@ func init() {
 	GetDomainNameDefinitionsCmd.Flags().StringVarP(
 		&gatewayConfigPath,
 		"config", "c", "", "Path to file with domain name definition config.",
-	)
-	GetDomainNameDefinitionsCmd.Flags().BoolVar(
-		&gatewayStdin,
-		"stdin", false, "Read config from stdin instead of file.",
 	)
 	GetDomainNameDefinitionsCmd.Flags().StringVarP(
 		&gatewayVersion,
@@ -617,10 +605,6 @@ func init() {
 		&gatewayConfigPath,
 		"config", "c", "", "Path to file with domain name definition config.",
 	)
-	DeleteDomainNameDefinitionCmd.Flags().BoolVar(
-		&gatewayStdin,
-		"stdin", false, "Read config from stdin instead of file.",
-	)
 	DeleteDomainNameDefinitionCmd.Flags().StringVarP(
 		&gatewayName,
 		"name", "n", "", "Name of domain name definition.",
@@ -737,10 +721,6 @@ func init() {
 	GetDomainNameInstancesCmd.Flags().StringVarP(
 		&gatewayConfigPath,
 		"config", "c", "", "Path to file with domain name instance config.",
-	)
-	GetDomainNameInstancesCmd.Flags().BoolVar(
-		&gatewayStdin,
-		"stdin", false, "Read config from stdin instead of file.",
 	)
 	GetDomainNameInstancesCmd.Flags().StringVarP(
 		&gatewayVersion,
@@ -954,10 +934,6 @@ func init() {
 		&gatewayConfigPath,
 		"config", "c", "", "Path to file with domain name instance config.",
 	)
-	DeleteDomainNameInstanceCmd.Flags().BoolVar(
-		&gatewayStdin,
-		"stdin", false, "Read config from stdin instead of file.",
-	)
 	DeleteDomainNameInstanceCmd.Flags().StringVarP(
 		&gatewayName,
 		"name", "n", "", "Name of domain name instance.",
@@ -1076,10 +1052,6 @@ func init() {
 		&gatewayConfigPath,
 		"config", "c", "", "Path to file with gateway config.",
 	)
-	GetGatewaysCmd.Flags().BoolVar(
-		&gatewayStdin,
-		"stdin", false, "Read config from stdin instead of file.",
-	)
 	GetGatewaysCmd.Flags().StringVarP(
 		&gatewayVersion,
 		"version", "v", "v0", "Version of gateway objects to retrieve. One of: [v0]",
@@ -1179,7 +1151,7 @@ var DeleteGatewayCmd = &cobra.Command{
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
 		// flag validation
-		if gatewayConfigPath == "" && !gatewayStdin {
+		if gatewayConfigPath == "" {
 			cli.Error("flag validation failed", errors.New("config file path is required"))
 		}
 
@@ -1225,10 +1197,6 @@ func init() {
 	DeleteGatewayCmd.Flags().StringVarP(
 		&gatewayConfigPath,
 		"config", "c", "", "Path to file with gateway config.",
-	)
-	DeleteGatewayCmd.Flags().BoolVar(
-		&gatewayStdin,
-		"stdin", false, "Read config from stdin instead of file.",
 	)
 	DeleteGatewayCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
@@ -1342,10 +1310,6 @@ func init() {
 	GetGatewayDefinitionsCmd.Flags().StringVarP(
 		&gatewayConfigPath,
 		"config", "c", "", "Path to file with gateway definition config.",
-	)
-	GetGatewayDefinitionsCmd.Flags().BoolVar(
-		&gatewayStdin,
-		"stdin", false, "Read config from stdin instead of file.",
 	)
 	GetGatewayDefinitionsCmd.Flags().StringVarP(
 		&gatewayVersion,
@@ -1559,10 +1523,6 @@ func init() {
 		&gatewayConfigPath,
 		"config", "c", "", "Path to file with gateway definition config.",
 	)
-	DeleteGatewayDefinitionCmd.Flags().BoolVar(
-		&gatewayStdin,
-		"stdin", false, "Read config from stdin instead of file.",
-	)
 	DeleteGatewayDefinitionCmd.Flags().StringVarP(
 		&gatewayName,
 		"name", "n", "", "Name of gateway definition.",
@@ -1679,10 +1639,6 @@ func init() {
 	GetGatewayInstancesCmd.Flags().StringVarP(
 		&gatewayConfigPath,
 		"config", "c", "", "Path to file with gateway instance config.",
-	)
-	GetGatewayInstancesCmd.Flags().BoolVar(
-		&gatewayStdin,
-		"stdin", false, "Read config from stdin instead of file.",
 	)
 	GetGatewayInstancesCmd.Flags().StringVarP(
 		&gatewayVersion,
@@ -1895,10 +1851,6 @@ func init() {
 	DeleteGatewayInstanceCmd.Flags().StringVarP(
 		&gatewayConfigPath,
 		"config", "c", "", "Path to file with gateway instance config.",
-	)
-	DeleteGatewayInstanceCmd.Flags().BoolVar(
-		&gatewayStdin,
-		"stdin", false, "Read config from stdin instead of file.",
 	)
 	DeleteGatewayInstanceCmd.Flags().StringVarP(
 		&gatewayName,

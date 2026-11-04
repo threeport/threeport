@@ -131,10 +131,6 @@ func init() {
 		&k8sWorkloadConfigPath,
 		"config", "c", "", "Path to file with workload config.",
 	)
-	GetKubernetesWorkloadsCmd.Flags().BoolVar(
-		&k8sWorkloadStdin,
-		"stdin", false, "Read config from stdin instead of file.",
-	)
 	GetKubernetesWorkloadsCmd.Flags().StringVarP(
 		&k8sWorkloadVersion,
 		"version", "v", "v0", "Version of workload objects to retrieve. One of: [v0]",
@@ -235,7 +231,7 @@ var DeleteKubernetesWorkloadCmd = &cobra.Command{
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
 		// flag validation
-		if k8sWorkloadConfigPath == "" && !k8sWorkloadStdin {
+		if k8sWorkloadConfigPath == "" {
 			cli.Error("flag validation failed", errors.New("config file path is required"))
 		}
 
@@ -282,10 +278,6 @@ func init() {
 	DeleteKubernetesWorkloadCmd.Flags().StringVarP(
 		&k8sWorkloadConfigPath,
 		"config", "c", "", "Path to file with workload config.",
-	)
-	DeleteKubernetesWorkloadCmd.Flags().BoolVar(
-		&k8sWorkloadStdin,
-		"stdin", false, "Read config from stdin instead of file.",
 	)
 	DeleteKubernetesWorkloadCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
@@ -399,10 +391,6 @@ func init() {
 	GetKubernetesWorkloadDefinitionsCmd.Flags().StringVarP(
 		&k8sWorkloadConfigPath,
 		"config", "c", "", "Path to file with kubernetes workload definition config.",
-	)
-	GetKubernetesWorkloadDefinitionsCmd.Flags().BoolVar(
-		&k8sWorkloadStdin,
-		"stdin", false, "Read config from stdin instead of file.",
 	)
 	GetKubernetesWorkloadDefinitionsCmd.Flags().StringVarP(
 		&k8sWorkloadVersion,
@@ -619,10 +607,6 @@ func init() {
 		&k8sWorkloadConfigPath,
 		"config", "c", "", "Path to file with kubernetes workload definition config.",
 	)
-	DeleteKubernetesWorkloadDefinitionCmd.Flags().BoolVar(
-		&k8sWorkloadStdin,
-		"stdin", false, "Read config from stdin instead of file.",
-	)
 	DeleteKubernetesWorkloadDefinitionCmd.Flags().StringVarP(
 		&k8sWorkloadName,
 		"name", "n", "", "Name of kubernetes workload definition.",
@@ -739,10 +723,6 @@ func init() {
 	GetKubernetesWorkloadInstancesCmd.Flags().StringVarP(
 		&k8sWorkloadConfigPath,
 		"config", "c", "", "Path to file with kubernetes workload instance config.",
-	)
-	GetKubernetesWorkloadInstancesCmd.Flags().BoolVar(
-		&k8sWorkloadStdin,
-		"stdin", false, "Read config from stdin instead of file.",
 	)
 	GetKubernetesWorkloadInstancesCmd.Flags().StringVarP(
 		&k8sWorkloadVersion,
@@ -955,10 +935,6 @@ func init() {
 	DeleteKubernetesWorkloadInstanceCmd.Flags().StringVarP(
 		&k8sWorkloadConfigPath,
 		"config", "c", "", "Path to file with kubernetes workload instance config.",
-	)
-	DeleteKubernetesWorkloadInstanceCmd.Flags().BoolVar(
-		&k8sWorkloadStdin,
-		"stdin", false, "Read config from stdin instead of file.",
 	)
 	DeleteKubernetesWorkloadInstanceCmd.Flags().StringVarP(
 		&k8sWorkloadName,

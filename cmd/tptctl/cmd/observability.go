@@ -131,10 +131,6 @@ func init() {
 		&observabilityConfigPath,
 		"config", "c", "", "Path to file with observability stack config.",
 	)
-	GetObservabilityStacksCmd.Flags().BoolVar(
-		&observabilityStdin,
-		"stdin", false, "Read config from stdin instead of file.",
-	)
 	GetObservabilityStacksCmd.Flags().StringVarP(
 		&observabilityVersion,
 		"version", "v", "v0", "Version of observability stack objects to retrieve. One of: [v0]",
@@ -235,7 +231,7 @@ var DeleteObservabilityStackCmd = &cobra.Command{
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
 		// flag validation
-		if observabilityConfigPath == "" && !observabilityStdin {
+		if observabilityConfigPath == "" {
 			cli.Error("flag validation failed", errors.New("config file path is required"))
 		}
 
@@ -282,10 +278,6 @@ func init() {
 	DeleteObservabilityStackCmd.Flags().StringVarP(
 		&observabilityConfigPath,
 		"config", "c", "", "Path to file with observability stack config.",
-	)
-	DeleteObservabilityStackCmd.Flags().BoolVar(
-		&observabilityStdin,
-		"stdin", false, "Read config from stdin instead of file.",
 	)
 	DeleteObservabilityStackCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
@@ -399,10 +391,6 @@ func init() {
 	GetObservabilityStackDefinitionsCmd.Flags().StringVarP(
 		&observabilityConfigPath,
 		"config", "c", "", "Path to file with observability stack definition config.",
-	)
-	GetObservabilityStackDefinitionsCmd.Flags().BoolVar(
-		&observabilityStdin,
-		"stdin", false, "Read config from stdin instead of file.",
 	)
 	GetObservabilityStackDefinitionsCmd.Flags().StringVarP(
 		&observabilityVersion,
@@ -619,10 +607,6 @@ func init() {
 		&observabilityConfigPath,
 		"config", "c", "", "Path to file with observability stack definition config.",
 	)
-	DeleteObservabilityStackDefinitionCmd.Flags().BoolVar(
-		&observabilityStdin,
-		"stdin", false, "Read config from stdin instead of file.",
-	)
 	DeleteObservabilityStackDefinitionCmd.Flags().StringVarP(
 		&observabilityName,
 		"name", "n", "", "Name of observability stack definition.",
@@ -739,10 +723,6 @@ func init() {
 	GetObservabilityStackInstancesCmd.Flags().StringVarP(
 		&observabilityConfigPath,
 		"config", "c", "", "Path to file with observability stack instance config.",
-	)
-	GetObservabilityStackInstancesCmd.Flags().BoolVar(
-		&observabilityStdin,
-		"stdin", false, "Read config from stdin instead of file.",
 	)
 	GetObservabilityStackInstancesCmd.Flags().StringVarP(
 		&observabilityVersion,
@@ -958,10 +938,6 @@ func init() {
 	DeleteObservabilityStackInstanceCmd.Flags().StringVarP(
 		&observabilityConfigPath,
 		"config", "c", "", "Path to file with observability stack instance config.",
-	)
-	DeleteObservabilityStackInstanceCmd.Flags().BoolVar(
-		&observabilityStdin,
-		"stdin", false, "Read config from stdin instead of file.",
 	)
 	DeleteObservabilityStackInstanceCmd.Flags().StringVarP(
 		&observabilityName,

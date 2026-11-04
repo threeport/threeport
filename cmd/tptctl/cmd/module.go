@@ -132,10 +132,6 @@ func init() {
 		&moduleConfigPath,
 		"config", "c", "", "Path to file with module api config.",
 	)
-	GetModuleApisCmd.Flags().BoolVar(
-		&moduleStdin,
-		"stdin", false, "Read config from stdin instead of file.",
-	)
 	GetModuleApisCmd.Flags().StringVarP(
 		&moduleVersion,
 		"version", "v", "v0", "Version of module api objects to retrieve. One of: [v0]",
@@ -460,10 +456,6 @@ func init() {
 	GetModuleApiRoutesCmd.Flags().StringVarP(
 		&moduleConfigPath,
 		"config", "c", "", "Path to file with module api route config.",
-	)
-	GetModuleApiRoutesCmd.Flags().BoolVar(
-		&moduleStdin,
-		"stdin", false, "Read config from stdin instead of file.",
 	)
 	GetModuleApiRoutesCmd.Flags().StringVarP(
 		&moduleVersion,
@@ -790,10 +782,6 @@ func init() {
 		&moduleConfigPath,
 		"config", "c", "", "Path to file with module controller config.",
 	)
-	GetModuleControllersCmd.Flags().BoolVar(
-		&moduleStdin,
-		"stdin", false, "Read config from stdin instead of file.",
-	)
 	GetModuleControllersCmd.Flags().StringVarP(
 		&moduleVersion,
 		"version", "v", "v0", "Version of module controller objects to retrieve. One of: [v0]",
@@ -1118,10 +1106,6 @@ func init() {
 	GetModuleObjectsCmd.Flags().StringVarP(
 		&moduleConfigPath,
 		"config", "c", "", "Path to file with module object config.",
-	)
-	GetModuleObjectsCmd.Flags().BoolVar(
-		&moduleStdin,
-		"stdin", false, "Read config from stdin instead of file.",
 	)
 	GetModuleObjectsCmd.Flags().StringVarP(
 		&moduleVersion,

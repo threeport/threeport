@@ -131,10 +131,6 @@ func init() {
 		&helmWorkloadConfigPath,
 		"config", "c", "", "Path to file with helm workload config.",
 	)
-	GetHelmWorkloadsCmd.Flags().BoolVar(
-		&helmWorkloadStdin,
-		"stdin", false, "Read config from stdin instead of file.",
-	)
 	GetHelmWorkloadsCmd.Flags().StringVarP(
 		&helmWorkloadVersion,
 		"version", "v", "v0", "Version of helm workload objects to retrieve. One of: [v0]",
@@ -235,7 +231,7 @@ var DeleteHelmWorkloadCmd = &cobra.Command{
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
 		// flag validation
-		if helmWorkloadConfigPath == "" && !helmWorkloadStdin {
+		if helmWorkloadConfigPath == "" {
 			cli.Error("flag validation failed", errors.New("config file path is required"))
 		}
 
@@ -282,10 +278,6 @@ func init() {
 	DeleteHelmWorkloadCmd.Flags().StringVarP(
 		&helmWorkloadConfigPath,
 		"config", "c", "", "Path to file with helm workload config.",
-	)
-	DeleteHelmWorkloadCmd.Flags().BoolVar(
-		&helmWorkloadStdin,
-		"stdin", false, "Read config from stdin instead of file.",
 	)
 	DeleteHelmWorkloadCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
@@ -399,10 +391,6 @@ func init() {
 	GetHelmWorkloadDefinitionsCmd.Flags().StringVarP(
 		&helmWorkloadConfigPath,
 		"config", "c", "", "Path to file with helm workload definition config.",
-	)
-	GetHelmWorkloadDefinitionsCmd.Flags().BoolVar(
-		&helmWorkloadStdin,
-		"stdin", false, "Read config from stdin instead of file.",
 	)
 	GetHelmWorkloadDefinitionsCmd.Flags().StringVarP(
 		&helmWorkloadVersion,
@@ -619,10 +607,6 @@ func init() {
 		&helmWorkloadConfigPath,
 		"config", "c", "", "Path to file with helm workload definition config.",
 	)
-	DeleteHelmWorkloadDefinitionCmd.Flags().BoolVar(
-		&helmWorkloadStdin,
-		"stdin", false, "Read config from stdin instead of file.",
-	)
 	DeleteHelmWorkloadDefinitionCmd.Flags().StringVarP(
 		&helmWorkloadName,
 		"name", "n", "", "Name of helm workload definition.",
@@ -739,10 +723,6 @@ func init() {
 	GetHelmWorkloadInstancesCmd.Flags().StringVarP(
 		&helmWorkloadConfigPath,
 		"config", "c", "", "Path to file with helm workload instance config.",
-	)
-	GetHelmWorkloadInstancesCmd.Flags().BoolVar(
-		&helmWorkloadStdin,
-		"stdin", false, "Read config from stdin instead of file.",
 	)
 	GetHelmWorkloadInstancesCmd.Flags().StringVarP(
 		&helmWorkloadVersion,
@@ -958,10 +938,6 @@ func init() {
 	DeleteHelmWorkloadInstanceCmd.Flags().StringVarP(
 		&helmWorkloadConfigPath,
 		"config", "c", "", "Path to file with helm workload instance config.",
-	)
-	DeleteHelmWorkloadInstanceCmd.Flags().BoolVar(
-		&helmWorkloadStdin,
-		"stdin", false, "Read config from stdin instead of file.",
 	)
 	DeleteHelmWorkloadInstanceCmd.Flags().StringVarP(
 		&helmWorkloadName,

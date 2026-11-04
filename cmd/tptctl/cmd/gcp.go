@@ -131,10 +131,6 @@ func init() {
 		&gcpConfigPath,
 		"config", "c", "", "Path to file with gcp provider config.",
 	)
-	GetGcpProvidersCmd.Flags().BoolVar(
-		&gcpStdin,
-		"stdin", false, "Read config from stdin instead of file.",
-	)
 	GetGcpProvidersCmd.Flags().StringVarP(
 		&gcpVersion,
 		"version", "v", "v0", "Version of gcp provider objects to retrieve. One of: [v0]",
@@ -347,10 +343,6 @@ func init() {
 		&gcpConfigPath,
 		"config", "c", "", "Path to file with gcp provider config.",
 	)
-	DeleteGcpProviderCmd.Flags().BoolVar(
-		&gcpStdin,
-		"stdin", false, "Read config from stdin instead of file.",
-	)
 	DeleteGcpProviderCmd.Flags().StringVarP(
 		&gcpName,
 		"name", "n", "", "Name of gcp provider.",
@@ -469,10 +461,6 @@ func init() {
 		&gcpConfigPath,
 		"config", "c", "", "Path to file with gcp gke kubernetes runtime config.",
 	)
-	GetGcpGkeKubernetesRuntimesCmd.Flags().BoolVar(
-		&gcpStdin,
-		"stdin", false, "Read config from stdin instead of file.",
-	)
 	GetGcpGkeKubernetesRuntimesCmd.Flags().StringVarP(
 		&gcpVersion,
 		"version", "v", "v0", "Version of gcp gke kubernetes runtime objects to retrieve. One of: [v0]",
@@ -572,7 +560,7 @@ var DeleteGcpGkeKubernetesRuntimeCmd = &cobra.Command{
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
 		// flag validation
-		if gcpConfigPath == "" && !gcpStdin {
+		if gcpConfigPath == "" {
 			cli.Error("flag validation failed", errors.New("config file path is required"))
 		}
 
@@ -618,10 +606,6 @@ func init() {
 	DeleteGcpGkeKubernetesRuntimeCmd.Flags().StringVarP(
 		&gcpConfigPath,
 		"config", "c", "", "Path to file with gcp gke kubernetes runtime config.",
-	)
-	DeleteGcpGkeKubernetesRuntimeCmd.Flags().BoolVar(
-		&gcpStdin,
-		"stdin", false, "Read config from stdin instead of file.",
 	)
 	DeleteGcpGkeKubernetesRuntimeCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
@@ -735,10 +719,6 @@ func init() {
 	GetGcpGkeKubernetesRuntimeDefinitionsCmd.Flags().StringVarP(
 		&gcpConfigPath,
 		"config", "c", "", "Path to file with gcp gke kubernetes runtime definition config.",
-	)
-	GetGcpGkeKubernetesRuntimeDefinitionsCmd.Flags().BoolVar(
-		&gcpStdin,
-		"stdin", false, "Read config from stdin instead of file.",
 	)
 	GetGcpGkeKubernetesRuntimeDefinitionsCmd.Flags().StringVarP(
 		&gcpVersion,
@@ -952,10 +932,6 @@ func init() {
 		&gcpConfigPath,
 		"config", "c", "", "Path to file with gcp gke kubernetes runtime definition config.",
 	)
-	DeleteGcpGkeKubernetesRuntimeDefinitionCmd.Flags().BoolVar(
-		&gcpStdin,
-		"stdin", false, "Read config from stdin instead of file.",
-	)
 	DeleteGcpGkeKubernetesRuntimeDefinitionCmd.Flags().StringVarP(
 		&gcpName,
 		"name", "n", "", "Name of gcp gke kubernetes runtime definition.",
@@ -1072,10 +1048,6 @@ func init() {
 	GetGcpGkeKubernetesRuntimeInstancesCmd.Flags().StringVarP(
 		&gcpConfigPath,
 		"config", "c", "", "Path to file with gcp gke kubernetes runtime instance config.",
-	)
-	GetGcpGkeKubernetesRuntimeInstancesCmd.Flags().BoolVar(
-		&gcpStdin,
-		"stdin", false, "Read config from stdin instead of file.",
 	)
 	GetGcpGkeKubernetesRuntimeInstancesCmd.Flags().StringVarP(
 		&gcpVersion,
@@ -1288,10 +1260,6 @@ func init() {
 	DeleteGcpGkeKubernetesRuntimeInstanceCmd.Flags().StringVarP(
 		&gcpConfigPath,
 		"config", "c", "", "Path to file with gcp gke kubernetes runtime instance config.",
-	)
-	DeleteGcpGkeKubernetesRuntimeInstanceCmd.Flags().BoolVar(
-		&gcpStdin,
-		"stdin", false, "Read config from stdin instead of file.",
 	)
 	DeleteGcpGkeKubernetesRuntimeInstanceCmd.Flags().StringVarP(
 		&gcpName,

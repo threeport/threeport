@@ -124,10 +124,6 @@ func init() {
 		&actuatorConfigPath,
 		"config", "c", "", "Path to file with profile config.",
 	)
-	GetProfilesCmd.Flags().BoolVar(
-		&actuatorStdin,
-		"stdin", false, "Read config from stdin instead of file.",
-	)
 	GetProfilesCmd.Flags().StringVarP(
 		&actuatorVersion,
 		"version", "v", "v0", "Version of profile objects to retrieve. One of: [v0]",
@@ -337,10 +333,6 @@ func init() {
 		&actuatorConfigPath,
 		"config", "c", "", "Path to file with profile config.",
 	)
-	DeleteProfileCmd.Flags().BoolVar(
-		&actuatorStdin,
-		"stdin", false, "Read config from stdin instead of file.",
-	)
 	DeleteProfileCmd.Flags().StringVarP(
 		&actuatorName,
 		"name", "n", "", "Name of profile.",
@@ -457,10 +449,6 @@ func init() {
 	GetTiersCmd.Flags().StringVarP(
 		&actuatorConfigPath,
 		"config", "c", "", "Path to file with tier config.",
-	)
-	GetTiersCmd.Flags().BoolVar(
-		&actuatorStdin,
-		"stdin", false, "Read config from stdin instead of file.",
 	)
 	GetTiersCmd.Flags().StringVarP(
 		&actuatorVersion,
@@ -670,10 +658,6 @@ func init() {
 	DeleteTierCmd.Flags().StringVarP(
 		&actuatorConfigPath,
 		"config", "c", "", "Path to file with tier config.",
-	)
-	DeleteTierCmd.Flags().BoolVar(
-		&actuatorStdin,
-		"stdin", false, "Read config from stdin instead of file.",
 	)
 	DeleteTierCmd.Flags().StringVarP(
 		&actuatorName,

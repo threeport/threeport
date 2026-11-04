@@ -147,10 +147,6 @@ func init() {
 		&machineWorkloadConfigPath,
 		"config", "c", "", "Path to file with machine workload config.",
 	)
-	GetMachineWorkloadsCmd.Flags().BoolVar(
-		&machineWorkloadStdin,
-		"stdin", false, "Read config from stdin instead of file.",
-	)
 	GetMachineWorkloadsCmd.Flags().StringVarP(
 		&machineWorkloadVersion,
 		"version", "v", "v0", "Version of machine workload objects to retrieve. One of: [v0]",
@@ -254,7 +250,7 @@ var DeleteMachineWorkloadCmd = &cobra.Command{
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
 		// flag validation
-		if machineWorkloadConfigPath == "" && !machineWorkloadStdin {
+		if machineWorkloadConfigPath == "" {
 			cli.Error("flag validation failed", errors.New("config file path is required"))
 		}
 
@@ -300,10 +296,6 @@ func init() {
 	DeleteMachineWorkloadCmd.Flags().StringVarP(
 		&machineWorkloadConfigPath,
 		"config", "c", "", "Path to file with machine workload config.",
-	)
-	DeleteMachineWorkloadCmd.Flags().BoolVar(
-		&machineWorkloadStdin,
-		"stdin", false, "Read config from stdin instead of file.",
 	)
 	DeleteMachineWorkloadCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
@@ -433,10 +425,6 @@ func init() {
 	GetMachineWorkloadDefinitionsCmd.Flags().StringVarP(
 		&machineWorkloadConfigPath,
 		"config", "c", "", "Path to file with machine workload definition config.",
-	)
-	GetMachineWorkloadDefinitionsCmd.Flags().BoolVar(
-		&machineWorkloadStdin,
-		"stdin", false, "Read config from stdin instead of file.",
 	)
 	GetMachineWorkloadDefinitionsCmd.Flags().StringVarP(
 		&machineWorkloadVersion,
@@ -654,10 +642,6 @@ func init() {
 		&machineWorkloadConfigPath,
 		"config", "c", "", "Path to file with machine workload definition config.",
 	)
-	DeleteMachineWorkloadDefinitionCmd.Flags().BoolVar(
-		&machineWorkloadStdin,
-		"stdin", false, "Read config from stdin instead of file.",
-	)
 	DeleteMachineWorkloadDefinitionCmd.Flags().StringVarP(
 		&machineWorkloadName,
 		"name", "n", "", "Name of machine workload definition.",
@@ -790,10 +774,6 @@ func init() {
 	GetMachineWorkloadInstancesCmd.Flags().StringVarP(
 		&machineWorkloadConfigPath,
 		"config", "c", "", "Path to file with machine workload instance config.",
-	)
-	GetMachineWorkloadInstancesCmd.Flags().BoolVar(
-		&machineWorkloadStdin,
-		"stdin", false, "Read config from stdin instead of file.",
 	)
 	GetMachineWorkloadInstancesCmd.Flags().StringVarP(
 		&machineWorkloadVersion,
@@ -1010,10 +990,6 @@ func init() {
 	DeleteMachineWorkloadInstanceCmd.Flags().StringVarP(
 		&machineWorkloadConfigPath,
 		"config", "c", "", "Path to file with machine workload instance config.",
-	)
-	DeleteMachineWorkloadInstanceCmd.Flags().BoolVar(
-		&machineWorkloadStdin,
-		"stdin", false, "Read config from stdin instead of file.",
 	)
 	DeleteMachineWorkloadInstanceCmd.Flags().StringVarP(
 		&machineWorkloadName,

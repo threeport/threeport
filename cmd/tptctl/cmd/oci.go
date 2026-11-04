@@ -148,10 +148,6 @@ func init() {
 		&ociConfigPath,
 		"config", "c", "", "Path to file with oci provider config.",
 	)
-	GetOciProvidersCmd.Flags().BoolVar(
-		&ociStdin,
-		"stdin", false, "Read config from stdin instead of file.",
-	)
 	GetOciProvidersCmd.Flags().StringVarP(
 		&ociVersion,
 		"version", "v", "v0", "Version of oci provider objects to retrieve. One of: [v0]",
@@ -368,10 +364,6 @@ func init() {
 		&ociConfigPath,
 		"config", "c", "", "Path to file with oci provider config.",
 	)
-	DeleteOciProviderCmd.Flags().BoolVar(
-		&ociStdin,
-		"stdin", false, "Read config from stdin instead of file.",
-	)
 	DeleteOciProviderCmd.Flags().StringVarP(
 		&ociName,
 		"name", "n", "", "Name of oci provider.",
@@ -490,10 +482,6 @@ func init() {
 		&ociConfigPath,
 		"config", "c", "", "Path to file with oci oke kubernetes runtime config.",
 	)
-	GetOciOkeKubernetesRuntimesCmd.Flags().BoolVar(
-		&ociStdin,
-		"stdin", false, "Read config from stdin instead of file.",
-	)
 	GetOciOkeKubernetesRuntimesCmd.Flags().StringVarP(
 		&ociVersion,
 		"version", "v", "v0", "Version of oci oke kubernetes runtime objects to retrieve. One of: [v0]",
@@ -593,7 +581,7 @@ var DeleteOciOkeKubernetesRuntimeCmd = &cobra.Command{
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
 		// flag validation
-		if ociConfigPath == "" && !ociStdin {
+		if ociConfigPath == "" {
 			cli.Error("flag validation failed", errors.New("config file path is required"))
 		}
 
@@ -639,10 +627,6 @@ func init() {
 	DeleteOciOkeKubernetesRuntimeCmd.Flags().StringVarP(
 		&ociConfigPath,
 		"config", "c", "", "Path to file with oci oke kubernetes runtime config.",
-	)
-	DeleteOciOkeKubernetesRuntimeCmd.Flags().BoolVar(
-		&ociStdin,
-		"stdin", false, "Read config from stdin instead of file.",
 	)
 	DeleteOciOkeKubernetesRuntimeCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
@@ -756,10 +740,6 @@ func init() {
 	GetOciOkeKubernetesRuntimeDefinitionsCmd.Flags().StringVarP(
 		&ociConfigPath,
 		"config", "c", "", "Path to file with oci oke kubernetes runtime definition config.",
-	)
-	GetOciOkeKubernetesRuntimeDefinitionsCmd.Flags().BoolVar(
-		&ociStdin,
-		"stdin", false, "Read config from stdin instead of file.",
 	)
 	GetOciOkeKubernetesRuntimeDefinitionsCmd.Flags().StringVarP(
 		&ociVersion,
@@ -973,10 +953,6 @@ func init() {
 		&ociConfigPath,
 		"config", "c", "", "Path to file with oci oke kubernetes runtime definition config.",
 	)
-	DeleteOciOkeKubernetesRuntimeDefinitionCmd.Flags().BoolVar(
-		&ociStdin,
-		"stdin", false, "Read config from stdin instead of file.",
-	)
 	DeleteOciOkeKubernetesRuntimeDefinitionCmd.Flags().StringVarP(
 		&ociName,
 		"name", "n", "", "Name of oci oke kubernetes runtime definition.",
@@ -1093,10 +1069,6 @@ func init() {
 	GetOciOkeKubernetesRuntimeInstancesCmd.Flags().StringVarP(
 		&ociConfigPath,
 		"config", "c", "", "Path to file with oci oke kubernetes runtime instance config.",
-	)
-	GetOciOkeKubernetesRuntimeInstancesCmd.Flags().BoolVar(
-		&ociStdin,
-		"stdin", false, "Read config from stdin instead of file.",
 	)
 	GetOciOkeKubernetesRuntimeInstancesCmd.Flags().StringVarP(
 		&ociVersion,
@@ -1309,10 +1281,6 @@ func init() {
 	DeleteOciOkeKubernetesRuntimeInstanceCmd.Flags().StringVarP(
 		&ociConfigPath,
 		"config", "c", "", "Path to file with oci oke kubernetes runtime instance config.",
-	)
-	DeleteOciOkeKubernetesRuntimeInstanceCmd.Flags().BoolVar(
-		&ociStdin,
-		"stdin", false, "Read config from stdin instead of file.",
 	)
 	DeleteOciOkeKubernetesRuntimeInstanceCmd.Flags().StringVarP(
 		&ociName,
