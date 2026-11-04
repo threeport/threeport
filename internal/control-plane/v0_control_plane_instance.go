@@ -876,11 +876,6 @@ func v0ControlPlaneInstanceUpdated(
 		return 0, err
 	}
 
-	// copy the controller group list onto the child's self instance
-	if err := syncChildSelfApis(controlPlaneInstance, cpi.Opts.AuthEnabled); err != nil {
-		return 0, err
-	}
-
 	return 0, nil
 }
 
@@ -976,85 +971,6 @@ func configureProviderControllers(
 		// kind and oke need no provider values
 		return nil
 	}
-}
-
-// syncChildSelfApis copies the controller group list onto the child's self instance.
-// Skip an unchanged list so the child does not reconcile again.
-func syncChildSelfApis(controlPlaneInstance *v0.ControlPlaneInstance, authEnabled bool) error {
-	// skip the instance that serves this control plane
-	if controlPlaneInstance.IsSelf != nil && *controlPlaneInstance.IsSelf {
-		return nil
-	}
-	if controlPlaneInstance.ApiServerEndpoint == nil || *controlPlaneInstance.ApiServerEndpoint == "" {
-		return fmt.Errorf("control plane instance %s has no API endpoint", *controlPlaneInstance.Name)
-	}
-
-	// connect to the child API
-	caCert := ""
-	clientCert := ""
-	clientKey := ""
-	if authEnabled {
-		if controlPlaneInstance.CACert == nil || *controlPlaneInstance.CACert == "" ||
-			controlPlaneInstance.ClientCert == nil || *controlPlaneInstance.ClientCert == "" ||
-			controlPlaneInstance.ClientKey == nil || *controlPlaneInstance.ClientKey == "" {
-			return fmt.Errorf("control plane instance %s is missing API client credentials", *controlPlaneInstance.Name)
-		}
-		var err error
-		caCert, err = util.Base64Decode(*controlPlaneInstance.CACert)
-		if err != nil {
-			return fmt.Errorf("failed to decode CA certificate for control plane instance %s: %w", *controlPlaneInstance.Name, err)
-		}
-		clientCert, err = util.Base64Decode(*controlPlaneInstance.ClientCert)
-		if err != nil {
-			return fmt.Errorf("failed to decode client certificate for control plane instance %s: %w", *controlPlaneInstance.Name, err)
-		}
-		clientKey, err = util.Base64Decode(*controlPlaneInstance.ClientKey)
-		if err != nil {
-			return fmt.Errorf("failed to decode client key for control plane instance %s: %w", *controlPlaneInstance.Name, err)
-		}
-	}
-	httpClient, err := client_lib.GetHTTPClient(authEnabled, caCert, clientCert, clientKey, "")
-	if err != nil {
-		return fmt.Errorf("failed to create http client for control plane instance %s: %w", *controlPlaneInstance.Name, err)
-	}
-
-	// write the group list when the child copy differs
-	child, err := client.GetControlPlaneInstanceByName(
-		httpClient,
-		*controlPlaneInstance.ApiServerEndpoint,
-		*controlPlaneInstance.Name,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to get control plane instance %s from its API: %w", *controlPlaneInstance.Name, err)
-	}
-	parentApis := ""
-	if controlPlaneInstance.Apis != nil {
-		parentApis = *controlPlaneInstance.Apis
-	}
-	childApis := ""
-	if child.Apis != nil {
-		childApis = *child.Apis
-	}
-	if parentApis == childApis {
-		return nil
-	}
-
-	// send an empty string so the patch clears a stored list
-	if parentApis == "" {
-		empty := ""
-		child.Apis = &empty
-	} else {
-		child.Apis = controlPlaneInstance.Apis
-	}
-	_, err = client.UpdateControlPlaneInstance(
-		httpClient,
-		*controlPlaneInstance.ApiServerEndpoint,
-		child,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to update controller groups on control plane instance %s: %w", *controlPlaneInstance.Name, err)
-	}
-	return nil
 }
 
 // prepareInstanceInstaller copies the parent's component images onto the instance and selects its controllers.

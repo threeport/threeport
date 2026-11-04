@@ -318,24 +318,91 @@ func validateAuthAgainstRuntime(tx *gorm.DB, instance *ControlPlaneInstance) err
 	return ValidateAuthEnabledForProvider(*provider, false)
 }
 
-// beforeUpdate runs before the ControlPlaneInstance is updated.
-//
-// Receiver semantics depend on the GORM call shape; see
-// pkg/api/lib/v0/update_helpers.go for the full model. The simplest
-// per-field check is:
-//   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
-//     and PUT, handles the DB load internally
-//
-// Lower-level helpers, useful when IsFieldChanged doesn't fit:
-//   - lib.IncomingValues(tx): values being written
-//   - lib.IsFullReplace(tx): true on PUT (Save shape)
-//   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
-//
-// Import:
-//
-//	lib "github.com/threeport/threeport/pkg/api/lib/v0"
+// childUpdateAllowedFields are the columns the controller writes on a control plane it does not serve.
+var childUpdateAllowedFields = map[string]struct{}{
+	"Reconciled":                   {},
+	"ReconcileSuspended":           {},
+	"CreationAcknowledged":         {},
+	"CreationSuccess":              {},
+	"CreationFailure":              {},
+	"DeletionAcknowledged":         {},
+	"DeletionScheduled":            {},
+	"DeletionConfirmed":            {},
+	"DeletionSuccess":              {},
+	"DeletionFailed":               {},
+	"ParentControlPlaneInstanceID": {},
+}
+
+// beforeUpdate rejects a desired-state change on a control plane this API does not serve.
+// Reconciliation fields and the parent link stay writable so create and delete still finish.
 func (c *ControlPlaneInstance) beforeUpdate(tx *gorm.DB) error {
-	return nil
+	// read the stored self flag, which a patch often omits
+	self, err := storedControlPlaneIsSelf(tx, c)
+	if err != nil {
+		return err
+	}
+	if self {
+		return nil
+	}
+
+	// reject a change outside the controller's writes
+	field, err := changedDesiredField(tx)
+	if err != nil {
+		return err
+	}
+	if field == "" {
+		return nil
+	}
+	return util.NewBadRequestError(fmt.Sprintf(
+		"cannot update %s on a control plane this API does not serve",
+		field,
+	))
+}
+
+// storedControlPlaneIsSelf reports whether the stored row is the control plane this API serves.
+func storedControlPlaneIsSelf(tx *gorm.DB, receiver *ControlPlaneInstance) (bool, error) {
+	// a patch's receiver is the loaded row
+	if lib.IsPartialUpdate(tx) {
+		return receiver.IsSelf != nil && *receiver.IsSelf, nil
+	}
+
+	// a replace carries the inbound object, so read the stored row
+	loaded, err := lib.LoadObjectFromDB(tx)
+	if err != nil {
+		return false, err
+	}
+	stored, ok := loaded.(*ControlPlaneInstance)
+	if !ok {
+		return false, fmt.Errorf("loaded %T is not a control plane instance", loaded)
+	}
+	return stored.IsSelf != nil && *stored.IsSelf, nil
+}
+
+// changedDesiredField returns the first column outside the controller's writes.
+func changedDesiredField(tx *gorm.DB) (string, error) {
+	if tx.Statement.Schema == nil {
+		return "", fmt.Errorf("control plane instance update has no schema")
+	}
+
+	// skip the controller's own columns and the row's timestamps
+	for _, field := range tx.Statement.Schema.Fields {
+		if _, allowed := childUpdateAllowedFields[field.Name]; allowed {
+			continue
+		}
+		if field.PrimaryKey || field.AutoCreateTime > 0 || field.AutoUpdateTime > 0 {
+			continue
+		}
+
+		// report the first column the update changes
+		changed, err := lib.IsFieldChanged(tx, field.Name)
+		if err != nil {
+			return "", err
+		}
+		if changed {
+			return field.Name, nil
+		}
+	}
+	return "", nil
 }
 
 // beforeDelete runs before the ControlPlaneInstance is deleted.
