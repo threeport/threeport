@@ -220,7 +220,7 @@ func storedControlPlaneInstance(t *testing.T, db *gorm.DB, name string, self boo
 }
 
 // TestControlPlaneInstanceUpdateRefusesAForeignDesiredStateChange rejects a replace of a control plane this API does not serve.
-// Reconciliation fields and the parent link still go through.
+// Reconciliation stays writable, and an empty column may be filled once.
 func TestControlPlaneInstanceUpdateRefusesAForeignDesiredStateChange(t *testing.T) {
 	// store a control plane this API does not serve
 	db := setupControlPlaneAuthDB(t)
@@ -245,6 +245,13 @@ func TestControlPlaneInstanceUpdateRefusesAForeignDesiredStateChange(t *testing.
 		refused(db.Model(&stored).Updates(&ControlPlaneInstance{Namespace: &namespace}).Error, "Namespace")
 	})
 
+	t.Run("an empty image namespace cannot be filled", func(t *testing.T) {
+		imageNamespace := "ghcr.io/threeport"
+		refused(db.Model(&stored).Updates(&ControlPlaneInstance{
+			ImageNamespace: &imageNamespace,
+		}).Error, "ImageNamespace")
+	})
+
 	t.Run("the control plane this API serves can change its list", func(t *testing.T) {
 		self := storedControlPlaneInstance(t, db, "self", true)
 		apis := "agent"
@@ -260,6 +267,12 @@ func TestControlPlaneInstanceUpdateRefusesAForeignDesiredStateChange(t *testing.
 				CreationAcknowledged: &acknowledged,
 			},
 		}).Error)
+
+		// keep reconciliation writable after the column has a value
+		reconciled = false
+		require.NoError(t, db.Model(&stored).Updates(&ControlPlaneInstance{
+			Reconciliation: Reconciliation{Reconciled: &reconciled},
+		}).Error)
 	})
 
 	t.Run("the parent link written during create is allowed", func(t *testing.T) {
@@ -267,6 +280,37 @@ func TestControlPlaneInstanceUpdateRefusesAForeignDesiredStateChange(t *testing.
 		replacement := stored
 		replacement.ParentControlPlaneInstanceID = parent.ID
 		require.NoError(t, db.Model(&stored).Updates(&replacement).Error)
+	})
+
+	t.Run("create records the endpoint, the certs, and the parent link", func(t *testing.T) {
+		fresh := storedControlPlaneInstance(t, db, "created-child", false)
+		parent := storedControlPlaneInstance(t, db, "recorded-parent", true)
+		replacement := fresh
+		endpoint := "https://child.example"
+		cert := "cert"
+		replacement.ApiServerEndpoint = &endpoint
+		replacement.CACert = &cert
+		replacement.ClientCert = &cert
+		replacement.ClientKey = &cert
+		replacement.ParentControlPlaneInstanceID = parent.ID
+		require.NoError(t, db.Model(&fresh).Updates(&replacement).Error)
+
+		// a column that already holds a value cannot be rewritten
+		moved := "https://child-moved.example"
+		replacement.ApiServerEndpoint = &moved
+		refused(db.Model(&fresh).Updates(&replacement).Error, "ApiServerEndpoint")
+	})
+
+	t.Run("that create record cannot also change the controller list", func(t *testing.T) {
+		fresh := storedControlPlaneInstance(t, db, "listed-child", false)
+		parent := storedControlPlaneInstance(t, db, "listed-parent", true)
+		replacement := fresh
+		endpoint := "https://listed.example"
+		apis := "agent"
+		replacement.ApiServerEndpoint = &endpoint
+		replacement.ParentControlPlaneInstanceID = parent.ID
+		replacement.Apis = &apis
+		refused(db.Model(&fresh).Updates(&replacement).Error, "Apis")
 	})
 
 	t.Run("a delete schedule is allowed", func(t *testing.T) {

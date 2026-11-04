@@ -3,8 +3,10 @@
 package v0
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"reflect"
 
 	gorm "gorm.io/gorm"
 
@@ -318,35 +320,20 @@ func validateAuthAgainstRuntime(tx *gorm.DB, instance *ControlPlaneInstance) err
 	return ValidateAuthEnabledForProvider(*provider, false)
 }
 
-// childUpdateAllowedFields are the columns the controller writes on a control plane it does not serve.
-var childUpdateAllowedFields = map[string]struct{}{
-	"Reconciled":                   {},
-	"ReconcileSuspended":           {},
-	"CreationAcknowledged":         {},
-	"CreationSuccess":              {},
-	"CreationFailure":              {},
-	"DeletionAcknowledged":         {},
-	"DeletionScheduled":            {},
-	"DeletionConfirmed":            {},
-	"DeletionSuccess":              {},
-	"DeletionFailed":               {},
-	"ParentControlPlaneInstanceID": {},
-}
-
 // beforeUpdate rejects a desired-state change on a control plane this API does not serve.
-// Reconciliation fields and the parent link stay writable so create and delete still finish.
+// Reconciliation stays writable, and an empty column may be filled once.
 func (c *ControlPlaneInstance) beforeUpdate(tx *gorm.DB) error {
-	// read the stored self flag, which a patch often omits
-	self, err := storedControlPlaneIsSelf(tx, c)
+	// read the stored row, because a patch often omits IsSelf
+	stored, err := storedControlPlane(tx, c)
 	if err != nil {
 		return err
 	}
-	if self {
+	if stored.IsSelf != nil && *stored.IsSelf {
 		return nil
 	}
 
-	// reject a change outside the controller's writes
-	field, err := changedDesiredField(tx)
+	// reject a change to a column that already holds a setting
+	field, err := changedForeignField(tx, stored)
 	if err != nil {
 		return err
 	}
@@ -359,50 +346,72 @@ func (c *ControlPlaneInstance) beforeUpdate(tx *gorm.DB) error {
 	))
 }
 
-// storedControlPlaneIsSelf reports whether the stored row is the control plane this API serves.
-func storedControlPlaneIsSelf(tx *gorm.DB, receiver *ControlPlaneInstance) (bool, error) {
+// storedControlPlane returns the row as stored.
+func storedControlPlane(tx *gorm.DB, receiver *ControlPlaneInstance) (*ControlPlaneInstance, error) {
 	// a patch's receiver is the loaded row
 	if lib.IsPartialUpdate(tx) {
-		return receiver.IsSelf != nil && *receiver.IsSelf, nil
+		return receiver, nil
 	}
 
 	// a replace carries the inbound object, so read the stored row
 	loaded, err := lib.LoadObjectFromDB(tx)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	stored, ok := loaded.(*ControlPlaneInstance)
 	if !ok {
-		return false, fmt.Errorf("loaded %T is not a control plane instance", loaded)
+		return nil, fmt.Errorf("loaded %T is not a control plane instance", loaded)
 	}
-	return stored.IsSelf != nil && *stored.IsSelf, nil
+	return stored, nil
 }
 
-// changedDesiredField returns the first column outside the controller's writes.
-func changedDesiredField(tx *gorm.DB) (string, error) {
+// changedForeignField returns the first column a control plane this API does not serve must keep.
+func changedForeignField(tx *gorm.DB, stored *ControlPlaneInstance) (string, error) {
 	if tx.Statement.Schema == nil {
-		return "", fmt.Errorf("control plane instance update has no schema")
+		return "", errors.New("control plane instance update has no schema")
 	}
 
-	// skip the controller's own columns and the row's timestamps
+	// skip timestamps, then reconciliation, then a column that is still empty
+	storedValue := reflect.ValueOf(stored)
 	for _, field := range tx.Statement.Schema.Fields {
-		if _, allowed := childUpdateAllowedFields[field.Name]; allowed {
+		if field.PrimaryKey || field.AutoCreateTime > 0 || field.AutoUpdateTime > 0 || field.DBName == "" {
 			continue
 		}
-		if field.PrimaryKey || field.AutoCreateTime > 0 || field.AutoUpdateTime > 0 {
-			continue
-		}
-
-		// report the first column the update changes
 		changed, err := lib.IsFieldChanged(tx, field.Name)
 		if err != nil {
 			return "", err
 		}
-		if changed {
+		if !changed || reconciliationColumn(field.BindNames) {
+			continue
+		}
+		if blankValueIsTheSetting(field.Name) || !columnEmpty(field.ValueOf, storedValue) {
 			return field.Name, nil
 		}
 	}
 	return "", nil
+}
+
+// reconciliationColumn reports whether the column belongs to Reconciliation.
+func reconciliationColumn(bindNames []string) bool {
+	return len(bindNames) > 0 && bindNames[0] == "Reconciliation"
+}
+
+// blankValueIsTheSetting reports whether an empty column is itself a choice.
+// An empty Apis installs every group, and an empty image field inherits the parent.
+func blankValueIsTheSetting(name string) bool {
+	switch name {
+	case "Apis", "ImageNamespace", "ImageTag":
+		return true
+	default:
+		return false
+	}
+}
+
+// columnEmpty reports whether the stored column has no value.
+func columnEmpty(valueOf func(context.Context, reflect.Value) (interface{}, bool), stored reflect.Value) bool {
+	// a nil pointer is empty, and a pointer to false is not
+	_, zero := valueOf(context.Background(), stored)
+	return zero
 }
 
 // beforeDelete runs before the ControlPlaneInstance is deleted.
