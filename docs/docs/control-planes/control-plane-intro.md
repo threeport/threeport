@@ -70,8 +70,10 @@ kubectl get clusterrolebindings -o json | jq -r --argjson ns \
 Review the output before deleting anything with `kubectl delete
 clusterrolebinding <name>`.  Bindings the installer made have names that start
 with the deleted control plane's namespace and end in `-threeportworkloads` or
-`-cluster-admin`.  Upgrading a control plane adds the label to its bindings, so
-a later delete finds them by label.
+`-cluster-admin`.  Running `tptctl reinstall` adds the label to its bindings, so
+a later delete finds them by label.  `tptctl upgrade control-plane` only updates
+images and does not add this label.  A delete finds bindings that lack the label
+by their names and subjects.
 
 ## Next Steps
 
