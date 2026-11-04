@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -18,9 +19,15 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// providerRecordID is the ID of the provider-specific record that
-// providerRecordServer serves when the record is present.
-const providerRecordID = 9
+const (
+	// kubernetesRuntimeInstanceID is the ID of the kubernetes runtime instance
+	// under delete in these tests.
+	kubernetesRuntimeInstanceID = 5
+
+	// providerRecordID is the ID of the provider-specific record that
+	// providerRecordServer serves when the record is present.
+	providerRecordID = 9
+)
 
 // providerRecordGoneServer stands in for the Threeport API when a kubernetes
 // runtime instance's provider-specific record has already been deleted. The
@@ -34,8 +41,11 @@ func providerRecordGoneServer(t *testing.T, infraProvider string) (*httptest.Ser
 
 // providerRecordServer is providerRecordGoneServer with the choice of whether
 // the provider-specific record still exists. When it does, the provider
-// instance filter and the provider instance DELETE both answer with one object
-// whose ID is providerRecordID, so a delete of it can succeed.
+// instance filter answers with one object whose ID is providerRecordID, but only
+// when it is filtered by kubernetesruntimeinstanceid=kubernetesRuntimeInstanceID;
+// any other filter finds nothing, so a handler that looks the record up by the
+// wrong ID cannot reach it. The provider instance DELETE answers with the object
+// so a delete of it can succeed.
 func providerRecordServer(t *testing.T, infraProvider string, recordPresent bool) (*httptest.Server, func() []string) {
 	t.Helper()
 
@@ -52,7 +62,8 @@ func providerRecordServer(t *testing.T, infraProvider string, recordPresent bool
 		switch {
 		case strings.Contains(r.URL.Path, "kubernetes-runtime-definitions"):
 			fmt.Fprintf(w, `{"Data":[{"ID":3,"InfraProvider":%q}]}`, infraProvider)
-		case recordPresent:
+		case recordPresent && r.Method == http.MethodDelete,
+			recordPresent && r.URL.Query().Get("kubernetesruntimeinstanceid") == strconv.Itoa(kubernetesRuntimeInstanceID):
 			fmt.Fprintf(w, `{"Data":[{"ID":%d}]}`, providerRecordID)
 		default:
 			fmt.Fprint(w, `{"Data":[]}`)
@@ -84,7 +95,7 @@ func TestKubernetesRuntimeInstanceDeleted_ProviderRecordAlreadyGone(t *testing.T
 				APIClient: server.Client(),
 			}
 			instance := &v0.KubernetesRuntimeInstance{
-				Common:                        v0.Common{ID: util.Ptr(uint(5))},
+				Common:                        v0.Common{ID: util.Ptr(uint(kubernetesRuntimeInstanceID))},
 				KubernetesRuntimeDefinitionID: util.Ptr(uint(3)),
 				Reconciliation: v0.Reconciliation{
 					DeletionScheduled: util.Ptr(time.Now().UTC()),
@@ -121,7 +132,7 @@ func TestKubernetesRuntimeInstanceDeleted_ProviderRecordPresent(t *testing.T) {
 				APIClient: server.Client(),
 			}
 			instance := &v0.KubernetesRuntimeInstance{
-				Common:                        v0.Common{ID: util.Ptr(uint(5))},
+				Common:                        v0.Common{ID: util.Ptr(uint(kubernetesRuntimeInstanceID))},
 				KubernetesRuntimeDefinitionID: util.Ptr(uint(3)),
 				Reconciliation: v0.Reconciliation{
 					DeletionScheduled: util.Ptr(time.Now().UTC()),
