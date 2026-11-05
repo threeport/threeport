@@ -11,6 +11,7 @@ import (
 	gorm "gorm.io/gorm"
 
 	lib "github.com/threeport/threeport/pkg/api/lib/v0"
+	auth "github.com/threeport/threeport/pkg/auth/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -320,7 +321,7 @@ func validateAuthAgainstRuntime(tx *gorm.DB, instance *ControlPlaneInstance) err
 	return ValidateAuthEnabledForProvider(*provider, false)
 }
 
-// beforeUpdate rejects a desired-state change on a control plane this API does not serve.
+// beforeUpdate rejects a desired-state change the caller may not make.
 // Reconciliation stays writable, and an empty column may be filled once.
 func (c *ControlPlaneInstance) beforeUpdate(tx *gorm.DB) error {
 	// read the stored row, because a patch often omits IsSelf
@@ -328,17 +329,28 @@ func (c *ControlPlaneInstance) beforeUpdate(tx *gorm.DB) error {
 	if err != nil {
 		return err
 	}
-	if stored.IsSelf != nil && *stored.IsSelf {
+
+	// a root accepts changes sent to the API that serves it
+	owned := stored.ParentControlPlaneInstanceID != nil
+	self := stored.IsSelf != nil && *stored.IsSelf
+	if self && !owned {
 		return nil
 	}
 
-	// reject a change to a column that already holds a setting
-	field, err := changedForeignField(tx, stored)
+	// the parent may change the image and the controller list on a row it manages
+	allowLifecycle := owned && (!self || parentCaller(tx))
+	field, err := changedForeignField(tx, stored, allowLifecycle)
 	if err != nil {
 		return err
 	}
 	if field == "" {
 		return nil
+	}
+	if self {
+		return util.NewBadRequestError(fmt.Sprintf(
+			"cannot update %s on a control plane its parent manages",
+			field,
+		))
 	}
 	return util.NewBadRequestError(fmt.Sprintf(
 		"cannot update %s on a control plane this API does not serve",
@@ -366,7 +378,8 @@ func storedControlPlane(tx *gorm.DB, receiver *ControlPlaneInstance) (*ControlPl
 }
 
 // changedForeignField returns the first column a control plane this API does not serve must keep.
-func changedForeignField(tx *gorm.DB, stored *ControlPlaneInstance) (string, error) {
+// A managed row may change the image and the controller list.
+func changedForeignField(tx *gorm.DB, stored *ControlPlaneInstance, allowLifecycle bool) (string, error) {
 	if tx.Statement.Schema == nil {
 		return "", errors.New("control plane instance update has no schema")
 	}
@@ -384,11 +397,29 @@ func changedForeignField(tx *gorm.DB, stored *ControlPlaneInstance) (string, err
 		if !changed || reconciliationColumn(field.BindNames) {
 			continue
 		}
+		// a managed row may change the image and the controller list
+		if allowLifecycle && blankValueIsTheSetting(field.Name) {
+			continue
+		}
 		if blankValueIsTheSetting(field.Name) || !columnEmpty(field.ValueOf, storedValue) {
 			return field.Name, nil
 		}
 	}
 	return "", nil
+}
+
+// parentCaller reports whether the request is the control plane that manages this one.
+// Authentication off cannot tell that caller from any other, so it is allowed.
+func parentCaller(tx *gorm.DB) bool {
+	// read the caller the API stored on this request
+	if tx.Statement == nil || tx.Statement.Context == nil {
+		return false
+	}
+	caller := lib.Caller(tx.Statement.Context)
+	if caller.CommonName == "threeport-owner" {
+		return true
+	}
+	return caller.OrganizationalUnit == auth.OUControlPlane && caller.Organization == ""
 }
 
 // reconciliationColumn reports whether the column belongs to Reconciliation.

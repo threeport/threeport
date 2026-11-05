@@ -1,6 +1,7 @@
 package v0
 
 import (
+	"context"
 	"net/http"
 	"testing"
 	"time"
@@ -10,6 +11,8 @@ import (
 	"gorm.io/driver/sqlite"
 	gorm "gorm.io/gorm"
 
+	lib "github.com/threeport/threeport/pkg/api/lib/v0"
+	auth "github.com/threeport/threeport/pkg/auth/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -334,5 +337,74 @@ func TestControlPlaneInstanceUpdateRefusesAForeignDesiredStateChange(t *testing.
 		replacement.Apis = &apis
 		replacement.IsSelf = &self
 		refused(db.Save(&replacement).Error, "IsSelf")
+	})
+
+	t.Run("a managed row may change the image and the controller list", func(t *testing.T) {
+		// link the row, then reload so the next update sees the stored parent
+		managed := storedControlPlaneInstance(t, db, "managed", false)
+		parent := storedControlPlaneInstance(t, db, "managed-parent", true)
+		require.NoError(t, db.Model(&managed).Updates(&ControlPlaneInstance{
+			ParentControlPlaneInstanceID: parent.ID,
+		}).Error)
+		require.NoError(t, db.First(&managed, *managed.ID).Error)
+
+		apis := "agent"
+		require.NoError(t, db.Model(&managed).Updates(&ControlPlaneInstance{Apis: &apis}).Error)
+		tag := "v1.0.7"
+		require.NoError(t, db.Model(&managed).Updates(&ControlPlaneInstance{ImageTag: &tag}).Error)
+		namespace := "threeport"
+		require.NoError(t, db.Model(&managed).Updates(&ControlPlaneInstance{ImageNamespace: &namespace}).Error)
+		otherNamespace := "threeport-other"
+		refused(db.Model(&managed).Updates(&ControlPlaneInstance{Namespace: &otherNamespace}).Error, "Namespace")
+		endpoint := "https://child.example"
+		require.NoError(t, db.Model(&managed).Updates(&ControlPlaneInstance{ApiServerEndpoint: &endpoint}).Error)
+		otherEndpoint := "https://other.example"
+		refused(db.Model(&managed).Updates(&ControlPlaneInstance{ApiServerEndpoint: &otherEndpoint}).Error, "ApiServerEndpoint")
+	})
+
+	t.Run("the parent manages the row this API serves", func(t *testing.T) {
+		// the parent link is written while the row is still a root
+		owned := storedControlPlaneInstance(t, db, "owned-self", true)
+		parent := storedControlPlaneInstance(t, db, "owned-parent", true)
+		require.NoError(t, db.Model(&owned).Updates(&ControlPlaneInstance{
+			ParentControlPlaneInstanceID: parent.ID,
+		}).Error)
+		require.NoError(t, db.First(&owned, *owned.ID).Error)
+
+		apis := "agent"
+		err := db.Model(&owned).Updates(&ControlPlaneInstance{Apis: &apis}).Error
+		refused(err, "Apis")
+		assert.ErrorContains(t, err, "its parent manages")
+
+		owner := db.WithContext(lib.WithCaller(context.Background(), lib.CallerIdentity{
+			CommonName: "threeport-owner",
+		}))
+		require.NoError(t, owner.Model(&owned).Updates(&ControlPlaneInstance{Apis: &apis}).Error)
+		tag := "v1.0.7"
+		require.NoError(t, owner.Model(&owned).Updates(&ControlPlaneInstance{ImageTag: &tag}).Error)
+
+		authOff := db.WithContext(lib.WithCaller(context.Background(), lib.CallerIdentity{
+			OrganizationalUnit: auth.OUControlPlane,
+		}))
+		namespace := "threeport"
+		require.NoError(t, authOff.Model(&owned).Updates(&ControlPlaneInstance{ImageNamespace: &namespace}).Error)
+
+		alice := db.WithContext(lib.WithCaller(context.Background(), lib.CallerIdentity{
+			CommonName: "alice",
+		}))
+		other := "rest-api"
+		refused(alice.Model(&owned).Updates(&ControlPlaneInstance{Apis: &other}).Error, "Apis")
+
+		otherNamespace := "threeport-other"
+		refused(owner.Model(&owned).Updates(&ControlPlaneInstance{Namespace: &otherNamespace}).Error, "Namespace")
+
+		scheduled := time.Now().UTC()
+		reconciled := false
+		require.NoError(t, db.Model(&owned).Updates(&ControlPlaneInstance{
+			Reconciliation: Reconciliation{
+				DeletionScheduled: &scheduled,
+				Reconciled:        &reconciled,
+			},
+		}).Error)
 	})
 }

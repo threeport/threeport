@@ -11,7 +11,8 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// TestUpdatedSkipsAControlPlaneThisAPIDoesNotServe returns before reconciling a control plane this API does not serve.
+// TestUpdatedSkipsAControlPlaneThisAPIDoesNotServe returns before reconciling a row this API does not drive.
+// A parent drives a child it manages, and the child's own row stays idle.
 func TestUpdatedSkipsAControlPlaneThisAPIDoesNotServe(t *testing.T) {
 	// skip a row marked for another API
 	delay, err := v0ControlPlaneInstanceUpdated(nil, &v0.ControlPlaneInstance{IsSelf: util.Ptr(false)}, nil)
@@ -22,6 +23,51 @@ func TestUpdatedSkipsAControlPlaneThisAPIDoesNotServe(t *testing.T) {
 	delay, err = v0ControlPlaneInstanceUpdated(nil, &v0.ControlPlaneInstance{}, nil)
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), delay)
+
+	// the child's own row is owned by its parent, so this API does not reconcile it
+	parentID := uint(7)
+	delay, err = v0ControlPlaneInstanceUpdated(nil, &v0.ControlPlaneInstance{
+		IsSelf:                       util.Ptr(true),
+		ParentControlPlaneInstanceID: &parentID,
+	}, nil)
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), delay)
+}
+
+// TestAppliesControlPlane decides which control plane instance this API reconciles.
+func TestAppliesControlPlane(t *testing.T) {
+	// a parent reconciles the child row, and a root reconciles itself
+	parentID := uint(7)
+	cases := []struct {
+		name     string
+		instance *v0.ControlPlaneInstance
+		want     bool
+	}{
+		{name: "root", instance: &v0.ControlPlaneInstance{IsSelf: util.Ptr(true)}, want: true},
+		{
+			name: "managed child",
+			instance: &v0.ControlPlaneInstance{
+				IsSelf:                       util.Ptr(false),
+				ParentControlPlaneInstanceID: &parentID,
+			},
+			want: true,
+		},
+		{
+			name: "owned self",
+			instance: &v0.ControlPlaneInstance{
+				IsSelf:                       util.Ptr(true),
+				ParentControlPlaneInstanceID: &parentID,
+			},
+			want: false,
+		},
+		{name: "foreign copy", instance: &v0.ControlPlaneInstance{IsSelf: util.Ptr(false)}, want: false},
+		{name: "unset", instance: &v0.ControlPlaneInstance{}, want: false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, appliesControlPlane(tc.instance))
+		})
+	}
 }
 
 // A child records what it runs so that its own children can default to the

@@ -670,7 +670,7 @@ func v0ControlPlaneInstanceCreated(
 	clonedRuntimeInstance.Reconciled = &reconciled
 	recordResolvedComponents(&clonedRuntimeInstance, cpi)
 
-	_, err = getOrCreate(
+	childSelf, err := getOrCreate(
 		"control plane instance on the new threeport api",
 		func() (*v0.ControlPlaneInstance, error) {
 			return client.GetControlPlaneInstanceByName(
@@ -800,7 +800,268 @@ func v0ControlPlaneInstanceCreated(
 		return 0, err
 	}
 
+	// point the child's own row at the local parent instance
+	if err := recordManagingParent(onboarder, selfInstance, childSelf); err != nil {
+		return 0, err
+	}
+
 	return 0, nil
+}
+
+// appliesControlPlane reports whether this API reconciles the instance.
+// A parent reconciles a child it manages, and a root reconciles itself.
+func appliesControlPlane(instance *v0.ControlPlaneInstance) bool {
+	// a parent reconciles the child row and skips the child's own row
+	owned := instance.ParentControlPlaneInstanceID != nil
+	self := instance.IsSelf != nil && *instance.IsSelf
+	if owned {
+		return !self
+	}
+	return self
+}
+
+// recordManagingParent points the child's own row at the local parent instance.
+// The parent's database id is not valid in the child's database.
+func recordManagingParent(
+	o *runtimeOnboarder,
+	parent *v0.ControlPlaneInstance,
+	childSelf *v0.ControlPlaneInstance,
+) error {
+	// use the parent already registered on the child, or copy it
+	localParent, err := client.GetControlPlaneInstanceByName(
+		o.child.client,
+		o.child.endpoint,
+		*parent.Name,
+	)
+	if errors.Is(err, client_lib.ErrObjectNotFound) {
+		localParent, err = copyManagingParent(o, parent)
+	}
+	if err != nil {
+		return err
+	}
+
+	// write the local id while the child's row is still a root
+	_, err = client.UpdateControlPlaneInstance(
+		o.child.client,
+		o.child.endpoint,
+		&v0.ControlPlaneInstance{
+			Common:                       v0.Common{ID: childSelf.ID},
+			ParentControlPlaneInstanceID: localParent.ID,
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to record managing parent on %s: %w", *childSelf.Name, err)
+	}
+	return nil
+}
+
+// copyManagingParent registers the managing parent in the child's API.
+// The copy is not the row this API serves, and it carries no parent of its own.
+func copyManagingParent(
+	o *runtimeOnboarder,
+	parent *v0.ControlPlaneInstance,
+) (*v0.ControlPlaneInstance, error) {
+	// read the parent's definition and runtime from the API that serves the parent
+	if parent.Name == nil || parent.ControlPlaneDefinitionID == nil || parent.KubernetesRuntimeInstanceID == nil {
+		return nil, fmt.Errorf("managing parent is missing a name, definition, or runtime")
+	}
+	definition, err := client.GetControlPlaneDefinitionByID(
+		o.parent.client,
+		o.parent.endpoint,
+		*parent.ControlPlaneDefinitionID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get control plane definition by ID: %w", err)
+	}
+	runtime, err := client.GetKubernetesRuntimeInstanceByID(
+		o.parent.client,
+		o.parent.endpoint,
+		*parent.KubernetesRuntimeInstanceID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get kubernetes runtime instance by ID: %w", err)
+	}
+	if runtime.KubernetesRuntimeDefinitionID == nil {
+		return nil, fmt.Errorf("kubernetes runtime instance %s has no definition", *runtime.Name)
+	}
+	runtimeDefinition, err := client.GetKubernetesRuntimeDefinitionByID(
+		o.parent.client,
+		o.parent.endpoint,
+		*runtime.KubernetesRuntimeDefinitionID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get kubernetes runtime definition by ID: %w", err)
+	}
+
+	// register the definition and the runtime definition on the child
+	definition.Common = v0.Common{}
+	localDefinition, err := getOrCreate(
+		"managing parent definition on the new threeport api",
+		func() (*v0.ControlPlaneDefinition, error) {
+			return client.GetControlPlaneDefinitionByName(o.child.client, o.child.endpoint, *definition.Name)
+		},
+		func() (*v0.ControlPlaneDefinition, error) {
+			return client.CreateControlPlaneDefinition(o.child.client, o.child.endpoint, definition)
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	runtimeDefinition.Common = v0.Common{}
+	localRuntimeDefinition, err := getOrCreate(
+		"managing parent runtime definition on the new threeport api",
+		func() (*v0.KubernetesRuntimeDefinition, error) {
+			return client.GetKubernetesRuntimeDefinitionByName(
+				o.child.client,
+				o.child.endpoint,
+				*runtimeDefinition.Name,
+			)
+		},
+		func() (*v0.KubernetesRuntimeDefinition, error) {
+			return client.CreateKubernetesRuntimeDefinition(o.child.client, o.child.endpoint, runtimeDefinition)
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// copy the runtime only when the child does not already have that name
+	localRuntime, err := client.GetKubernetesRuntimeInstanceByName(
+		o.child.client,
+		o.child.endpoint,
+		*runtime.Name,
+	)
+	if errors.Is(err, client_lib.ErrObjectNotFound) {
+		localRuntime, err = o.createRuntimeInstance(runtime, localRuntimeDefinition.ID, false, false)
+		if err != nil {
+			return nil, err
+		}
+		if runtimeDefinition.InfraProvider != nil {
+			if err := o.copyProviderRecords(
+				*runtimeDefinition.InfraProvider,
+				runtimeLink{
+					definitionID: *runtimeDefinition.ID,
+					instanceID:   *runtime.ID,
+				},
+				runtimeLink{
+					definitionID: *localRuntimeDefinition.ID,
+					instanceID:   *localRuntime.ID,
+				},
+			); err != nil {
+				return nil, fmt.Errorf("failed to copy provider records for %s: %w", *runtime.Name, err)
+			}
+		}
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to get kubernetes runtime instance by name: %w", err)
+	}
+
+	// register the parent as a row the child does not serve
+	notSelf := false
+	reconciled := true
+	clone := *parent
+	clone.Common = v0.Common{}
+	clone.IsSelf = &notSelf
+	clone.ParentControlPlaneInstanceID = nil
+	clone.Reconciled = &reconciled
+	clone.ControlPlaneDefinitionID = localDefinition.ID
+	clone.KubernetesRuntimeInstanceID = localRuntime.ID
+	return getOrCreate(
+		"managing parent on the new threeport api",
+		func() (*v0.ControlPlaneInstance, error) {
+			return client.GetControlPlaneInstanceByName(o.child.client, o.child.endpoint, *clone.Name)
+		},
+		func() (*v0.ControlPlaneInstance, error) {
+			return client.CreateControlPlaneInstance(o.child.client, o.child.endpoint, &clone)
+		},
+	)
+}
+
+// syncManagedChild copies the image and the controller list onto the child's own row.
+func syncManagedChild(r *controller.Reconciler, instance *v0.ControlPlaneInstance) error {
+	// read the stored row, because the notification omits the certificates
+	stored, err := client.GetControlPlaneInstanceByID(r.APIClient, r.APIServer, *instance.ID)
+	if err != nil {
+		return fmt.Errorf("failed to get control plane instance by ID: %w", err)
+	}
+
+	// open the child's API with the certificate stored on this row
+	childClient, endpoint, err := childAPIClient(stored)
+	if err != nil {
+		return err
+	}
+	childSelf, err := client.GetControlPlaneInstanceByName(childClient, endpoint, *stored.Name)
+	if err != nil {
+		return fmt.Errorf("failed to get control plane instance by name: %w", err)
+	}
+
+	// set the parent link when an older child was created without one
+	update := &v0.ControlPlaneInstance{
+		Common:         v0.Common{ID: childSelf.ID},
+		Apis:           stored.Apis,
+		ImageNamespace: stored.ImageNamespace,
+		ImageTag:       stored.ImageTag,
+	}
+	if childSelf.ParentControlPlaneInstanceID == nil {
+		serving, err := client.GetSelfControlPlaneInstance(r.APIClient, r.APIServer)
+		if err != nil {
+			return fmt.Errorf("failed to get self control plane instance: %w", err)
+		}
+		localParent, err := client.GetControlPlaneInstanceByName(childClient, endpoint, *serving.Name)
+		if err != nil {
+			return fmt.Errorf(
+				"failed to find managing parent %s on %s: %w",
+				*serving.Name,
+				*stored.Name,
+				err,
+			)
+		}
+		update.ParentControlPlaneInstanceID = localParent.ID
+	}
+
+	// write the image and the controller list
+	if _, err := client.UpdateControlPlaneInstance(childClient, endpoint, update); err != nil {
+		return fmt.Errorf("failed to update control plane instance on %s: %w", *stored.Name, err)
+	}
+	return nil
+}
+
+// childAPIClient builds a client for the control plane this row manages.
+// An empty client certificate means authentication is off.
+func childAPIClient(instance *v0.ControlPlaneInstance) (*http.Client, string, error) {
+	// require the endpoint the parent stored for this child
+	if instance.ApiServerEndpoint == nil || *instance.ApiServerEndpoint == "" {
+		return nil, "", fmt.Errorf("control plane %s has no api endpoint", *instance.Name)
+	}
+	endpoint := *instance.ApiServerEndpoint
+	if instance.ClientCert == nil || *instance.ClientCert == "" {
+		httpClient, err := client_lib.GetHTTPClient(false, "", "", "", "")
+		if err != nil {
+			return nil, "", err
+		}
+		return httpClient, endpoint, nil
+	}
+
+	// decode the certificates the create path stored as base64
+	if instance.CACert == nil || instance.ClientKey == nil {
+		return nil, "", fmt.Errorf("control plane %s is missing a client certificate", *instance.Name)
+	}
+	ca, err := util.Base64Decode(*instance.CACert)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to decode ca cert: %w", err)
+	}
+	cert, err := util.Base64Decode(*instance.ClientCert)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to decode client cert: %w", err)
+	}
+	key, err := util.Base64Decode(*instance.ClientKey)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to decode client key: %w", err)
+	}
+	httpClient, err := client_lib.GetHTTPClient(true, ca, cert, key, "")
+	if err != nil {
+		return nil, "", err
+	}
+	return httpClient, endpoint, nil
 }
 
 // v0ControlPlaneInstanceUpdated performs reconciliation when a v0 ControlPlaneInstance has been updated.
@@ -809,8 +1070,8 @@ func v0ControlPlaneInstanceUpdated(
 	controlPlaneInstance *v0.ControlPlaneInstance,
 	log *logr.Logger,
 ) (int64, error) {
-	// reconcile only the control plane this API serves
-	if controlPlaneInstance.IsSelf == nil || !*controlPlaneInstance.IsSelf {
+	// reconcile a root, or a child this control plane manages
+	if !appliesControlPlane(controlPlaneInstance) {
 		return 0, nil
 	}
 
@@ -897,8 +1158,9 @@ func v0ControlPlaneInstanceUpdated(
 		}
 	}
 
-	// install added controller groups and delete dropped ones
-	retainControlPlaneController := controlPlaneInstance.IsSelf != nil && *controlPlaneInstance.IsSelf
+	// install added controller groups and delete dropped ones.
+	// Keep the controller that runs this reconcile on a root and on a managed child.
+	retainControlPlaneController := true
 	if err := cpi.ReconcileControllerSet(
 		dynamicKubeClient,
 		mapper,
@@ -919,6 +1181,13 @@ func v0ControlPlaneInstanceUpdated(
 		true,
 	); err != nil {
 		return 0, err
+	}
+
+	// copy the image and the controller list onto the child's own row
+	if controlPlaneInstance.ParentControlPlaneInstanceID != nil {
+		if err := syncManagedChild(r, controlPlaneInstance); err != nil {
+			return 0, err
+		}
 	}
 
 	return 0, nil
