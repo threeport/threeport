@@ -32,6 +32,10 @@ const (
 	OkeAllowedCidrsLimit = 120
 )
 
+// ErrMsgPrivateApiNotSupported is the rejection of PrivateApi: true until
+// the providers can make a Kubernetes API private.
+const ErrMsgPrivateApiNotSupported = "PrivateApi is not supported yet: the Kubernetes API can be restricted with AllowedCidrs, but not yet made private"
+
 // AllowedCidrsLimit returns how many CIDR blocks infraProvider admits in the
 // allowlist on a cluster's Kubernetes API, and false for a provider whose
 // Kubernetes API Threeport cannot restrict.
@@ -110,6 +114,12 @@ func validateKubernetesApiAccess(infraProvider string, privateApi *bool, allowed
 			))
 		}
 		return nil
+	}
+
+	// no provider program makes the endpoint private yet, so accepting
+	// PrivateApi would leave a cluster public that was asked to be private
+	if private {
+		return util.NewBadRequestError(ErrMsgPrivateApiNotSupported)
 	}
 
 	if len(cidrs) > limit {

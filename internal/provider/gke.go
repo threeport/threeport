@@ -96,6 +96,10 @@ type KubernetesRuntimeInfraGKE struct {
 	gcpProjectResolvedFromGcloudINI bool
 	// gcpRegionResolvedFromGcloudINI is true when loadGCPConfig set Region from the active gcloud INI.
 	gcpRegionResolvedFromGcloudINI bool
+
+	// The CIDR blocks allowed to reach the Kubernetes API's public endpoint.
+	// Empty leaves it open to every address.
+	AllowedCidrs []string
 }
 
 const (
@@ -324,6 +328,8 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 				MasterIpv4CidrBlock:   pulumi.String("172.16.0.0/28"),
 			},
 
+			MasterAuthorizedNetworksConfig: i.masterAuthorizedNetworksConfig(),
+
 			NetworkPolicy: &gkecontainer.ClusterNetworkPolicyArgs{
 				Enabled:  pulumi.Bool(true),
 				Provider: pulumi.String("CALICO"),
@@ -483,6 +489,30 @@ func (i *KubernetesRuntimeInfraGKE) DeleteGCPResources() error {
 	}
 
 	return nil
+}
+
+// masterAuthorizedNetworksConfig returns the authorized networks that limit
+// the public endpoint to AllowedCidrs, or nil to leave it open as it is
+// without them.  The nodes reach the API through the private endpoint, which
+// authorized networks do not apply to.  Access from Google Cloud's own public
+// addresses is turned off, since it would let any VM in any project past the
+// list.
+func (i *KubernetesRuntimeInfraGKE) masterAuthorizedNetworksConfig() gkecontainer.ClusterMasterAuthorizedNetworksConfigPtrInput {
+	if len(i.AllowedCidrs) == 0 {
+		return nil
+	}
+
+	cidrBlocks := gkecontainer.ClusterMasterAuthorizedNetworksConfigCidrBlockArray{}
+	for _, cidr := range i.AllowedCidrs {
+		cidrBlocks = append(cidrBlocks, &gkecontainer.ClusterMasterAuthorizedNetworksConfigCidrBlockArgs{
+			CidrBlock: pulumi.String(cidr),
+		})
+	}
+
+	return &gkecontainer.ClusterMasterAuthorizedNetworksConfigArgs{
+		CidrBlocks:                  cidrBlocks,
+		GcpPublicCidrsAccessEnabled: pulumi.Bool(false),
+	}
 }
 
 // GetConnection returns the connection information for the GKE cluster.

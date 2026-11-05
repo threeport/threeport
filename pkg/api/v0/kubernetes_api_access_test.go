@@ -145,13 +145,12 @@ func TestAKubernetesRuntimeDefinitionIsCheckedForItsProvider(t *testing.T) {
 		{"nothing set on kind", KubernetesRuntimeInfraProviderKind, nil, nil, ""},
 		{"public on kind", KubernetesRuntimeInfraProviderKind, util.Ptr(false), rawJSON("[]"), ""},
 		{"an allowlist", KubernetesRuntimeInfraProviderEKS, nil, rawJSON(`["203.0.113.0/24"]`), ""},
-		{"private", KubernetesRuntimeInfraProviderGKE, util.Ptr(true), nil, ""},
-		{"private with an allowlist", KubernetesRuntimeInfraProviderOKE, util.Ptr(true), rawJSON(`["10.8.0.0/16"]`), ""},
+		{"private", KubernetesRuntimeInfraProviderGKE, util.Ptr(true), nil, ErrMsgPrivateApiNotSupported},
+		{"private with an allowlist", KubernetesRuntimeInfraProviderOKE, util.Ptr(true), rawJSON(`["10.8.0.0/16"]`), ErrMsgPrivateApiNotSupported},
+		{"explicitly public", KubernetesRuntimeInfraProviderGKE, util.Ptr(false), rawJSON(`["203.0.113.0/24"]`), ""},
 		{"EKS at its limit", KubernetesRuntimeInfraProviderEKS, nil, cidrsJSON(t, distinctCidrs(40)...), ""},
 		{"EKS past its limit", KubernetesRuntimeInfraProviderEKS, nil, cidrsJSON(t, distinctCidrs(41)...), "AllowedCidrs has 41 entries and eks admits at most 40"},
 		{"public GKE past its limit", KubernetesRuntimeInfraProviderGKE, util.Ptr(false), cidrsJSON(t, distinctCidrs(51)...), "admits at most 50"},
-		{"private GKE within its larger limit", KubernetesRuntimeInfraProviderGKE, util.Ptr(true), cidrsJSON(t, distinctCidrs(100)...), ""},
-		{"private GKE past its limit", KubernetesRuntimeInfraProviderGKE, util.Ptr(true), cidrsJSON(t, distinctCidrs(101)...), "admits at most 100"},
 		{"OKE past its limit", KubernetesRuntimeInfraProviderOKE, nil, cidrsJSON(t, distinctCidrs(121)...), "admits at most 120"},
 		{"a bad block", KubernetesRuntimeInfraProviderEKS, nil, rawJSON(`["203.0.113.7/24"]`), "has host bits set"},
 		{"private on kind", KubernetesRuntimeInfraProviderKind, util.Ptr(true), nil, "not supported on kind runtimes"},
@@ -193,7 +192,6 @@ func TestAnUpdateIsCheckedAgainstWhatTheDefinitionWillHold(t *testing.T) {
 		name     string
 		provider string
 		stored   *datatypes.JSON
-		storedPA *bool
 		update   func(db *gorm.DB, loaded KubernetesRuntimeDefinition) error
 		wantErr  string
 	}{
@@ -218,22 +216,27 @@ func TestAnUpdateIsCheckedAgainstWhatTheDefinitionWillHold(t *testing.T) {
 			wantErr: "admits at most 40",
 		},
 		{
-			// 60 blocks fit a private GKE cluster, so turning PrivateApi off
-			// leaves more than a public one admits
-			name: "patch PrivateApi off under a list only a private API admits", provider: KubernetesRuntimeInfraProviderGKE,
-			stored: cidrsJSON(t, distinctCidrs(60)...), storedPA: util.Ptr(true),
+			name: "patch PrivateApi on", provider: KubernetesRuntimeInfraProviderGKE,
+			stored: rawJSON(`["203.0.113.0/24"]`),
 			update: func(db *gorm.DB, loaded KubernetesRuntimeDefinition) error {
-				return db.Model(&loaded).Updates(map[string]any{"PrivateApi": false}).Error
+				return db.Model(&loaded).Updates(&KubernetesRuntimeDefinition{PrivateApi: util.Ptr(true)}).Error
 			},
-			wantErr: "cannot validate Kubernetes API access",
+			wantErr: ErrMsgPrivateApiNotSupported,
 		},
 		{
-			name: "patch PrivateApi off with a struct under a list only a private API admits", provider: KubernetesRuntimeInfraProviderGKE,
-			stored: cidrsJSON(t, distinctCidrs(60)...), storedPA: util.Ptr(true),
+			name: "replace with PrivateApi on", provider: KubernetesRuntimeInfraProviderEKS,
 			update: func(db *gorm.DB, loaded KubernetesRuntimeDefinition) error {
-				return db.Model(&loaded).Updates(&KubernetesRuntimeDefinition{PrivateApi: util.Ptr(false)}).Error
+				loaded.PrivateApi = util.Ptr(true)
+				return db.Save(&loaded).Error
 			},
-			wantErr: "admits at most 50",
+			wantErr: ErrMsgPrivateApiNotSupported,
+		},
+		{
+			name: "patch PrivateApi with a map", provider: KubernetesRuntimeInfraProviderGKE,
+			update: func(db *gorm.DB, loaded KubernetesRuntimeDefinition) error {
+				return db.Model(&loaded).Updates(map[string]any{"PrivateApi": true}).Error
+			},
+			wantErr: "cannot validate Kubernetes API access",
 		},
 		{
 			name: "patch PrivateApi on on kind", provider: KubernetesRuntimeInfraProviderKind,
@@ -269,7 +272,7 @@ func TestAnUpdateIsCheckedAgainstWhatTheDefinitionWillHold(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			db := setupKubernetesApiAccessDB(t)
-			created := newKRD("krd", c.provider, c.storedPA, c.stored)
+			created := newKRD("krd", c.provider, nil, c.stored)
 			require.NoError(t, db.Create(created).Error)
 			var loaded KubernetesRuntimeDefinition
 			require.NoError(t, db.First(&loaded, *created.ID).Error)
