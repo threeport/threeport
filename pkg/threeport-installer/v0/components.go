@@ -229,6 +229,12 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAPIDeployment(
 		return fmt.Errorf("failed to create DB initialization config map: %w", err)
 	}
 
+	// tell the database migrator where to back the database up to before
+	// migrating
+	if err := cpi.InstallDatabaseBackupConfig(kubeClient, mapper); err != nil {
+		return err
+	}
+
 	var apiSecret = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "v1",
@@ -314,10 +320,8 @@ THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 					"name":      ThreeportApiConfigSecret,
 					"mountPath": "/etc/threeport/",
 				},
-				map[string]interface{}{
-					"name":      "db-threeport-cert",
-					"mountPath": "/etc/threeport/db-certs",
-				},
+				dbMigratorCertsMount(),
+				dbBackupConfigMount(),
 			},
 		},
 	}
@@ -1728,6 +1732,8 @@ func (cpi *ControlPlaneInstaller) getAPIVolumes() ([]interface{}, []interface{},
 				"name": "db-create",
 			},
 		},
+		dbMigratorCertsVolume(),
+		dbBackupConfigVolume(),
 	}
 
 	volMounts := []interface{}{
