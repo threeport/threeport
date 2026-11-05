@@ -47,3 +47,39 @@ func TestRecordResolvedComponents_GrandchildKeepsTheChildsExceptions(t *testing.
 	// the child's own instance is left as it was asked for
 	assert.Equal(t, "wide", *child.ImageTag)
 }
+
+// An upgrade moves every default deployment to one tag and records it as the
+// instance-wide tag of the control plane. The record of the components cannot
+// be updated through the API, so it still carries the tag an exception had
+// before the upgrade. A child created afterwards takes the tag the upgrade left
+// running, which is what its parent runs, and keeps the image name and registry
+// of the exception, which the upgrade does not touch.
+func TestChildAfterUpgradeTakesTheTagTheUpgradeLeftRunning(t *testing.T) {
+	parent := &v0.ControlPlaneInstance{
+		CustomComponentInfo: []*v0.ControlPlaneComponent{
+			{Name: "rest-api", ImageNamespace: "ghcr.io/threeport", ImageName: "threeport-rest-api", ImageTag: "v0.7.0"},
+			{Name: "agent", ImageNamespace: "mirror.example.com", ImageName: "forked-agent", ImageTag: "forked"},
+		},
+	}
+
+	// what `tptctl upgrade control-plane --version v0.7.1` records
+	parent.ImageTag = util.Ptr("v0.7.1")
+
+	cpi := threeport.NewInstaller()
+	require.NoError(t, cpi.ConfigureChildComponents(parent, &v0.ControlPlaneInstance{}))
+
+	assert.Equal(t, "v0.7.1", cpi.Opts.RestApiInfo.ImageTag)
+	assert.Equal(t, "v0.7.1", cpi.Opts.AgentInfo.ImageTag, "the upgrade moved the pinned agent too")
+	assert.Equal(t, "forked-agent", cpi.Opts.AgentInfo.ImageName)
+	assert.Equal(t, "mirror.example.com", cpi.Opts.AgentInfo.ImageNamespace)
+
+	// the child's own settings still win over the upgrade
+	child := &v0.ControlPlaneInstance{
+		CustomComponentInfo: []*v0.ControlPlaneComponent{{Name: "agent", ImageTag: "child-agent"}},
+	}
+	cpi = threeport.NewInstaller()
+	require.NoError(t, cpi.ConfigureChildComponents(parent, child))
+
+	assert.Equal(t, "child-agent", cpi.Opts.AgentInfo.ImageTag)
+	assert.Equal(t, "v0.7.1", cpi.Opts.RestApiInfo.ImageTag)
+}
