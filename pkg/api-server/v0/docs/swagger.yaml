@@ -380,7 +380,7 @@ definitions:
           The controller groups this control plane installs.
           Group names are separated by commas.
           An empty or omitted value installs every controller.
-          The value none installs no controllers.
+          The value 'none' installs no controllers.
         type: string
       CACert:
         description: The CA Cert that is associated with the control plane

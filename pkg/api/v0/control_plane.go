@@ -59,7 +59,7 @@ type ControlPlaneInstance struct {
 	// The controller groups this control plane installs.
 	// Group names are separated by commas.
 	// An empty or omitted value installs every controller.
-	// The value none installs no controllers.
+	// The value 'none' installs no controllers.
 	Apis *string `validate:"optional"`
 
 	// Indicates whether this is was the first control plane that was spun up in a control plane group
