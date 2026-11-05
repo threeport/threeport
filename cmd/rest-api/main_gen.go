@@ -240,5 +240,12 @@ func configureHealthCheckEndpoint() {
 		w.Write([]byte("OK"))
 	})
 
+	// liveness only asks whether the process still answers, so a
+	// database or NATS outage does not restart every replica
+	http.HandleFunc("/livez", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+
 	go http.ListenAndServe(":8081", nil)
 }
