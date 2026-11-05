@@ -11,6 +11,19 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
+// TestUpdatedSkipsAControlPlaneThisAPIDoesNotServe returns before reconciling a control plane this API does not serve.
+func TestUpdatedSkipsAControlPlaneThisAPIDoesNotServe(t *testing.T) {
+	// skip a row marked for another API
+	delay, err := v0ControlPlaneInstanceUpdated(nil, &v0.ControlPlaneInstance{IsSelf: util.Ptr(false)}, nil)
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), delay)
+
+	// skip a row that has not recorded which API serves it
+	delay, err = v0ControlPlaneInstanceUpdated(nil, &v0.ControlPlaneInstance{}, nil)
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), delay)
+}
+
 // A child records what it runs so that its own children can default to the
 // same images. Its children apply an instance-wide image over whatever its
 // record says, so the record cannot keep one next to components that are

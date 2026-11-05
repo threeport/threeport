@@ -809,6 +809,11 @@ func v0ControlPlaneInstanceUpdated(
 	controlPlaneInstance *v0.ControlPlaneInstance,
 	log *logr.Logger,
 ) (int64, error) {
+	// reconcile only the control plane this API serves
+	if controlPlaneInstance.IsSelf == nil || !*controlPlaneInstance.IsSelf {
+		return 0, nil
+	}
+
 	// read the definition and the runtime this instance installs onto
 	controlPlaneDefinition, err := client.GetControlPlaneDefinitionByID(
 		r.APIClient,
