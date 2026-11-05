@@ -664,6 +664,16 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			),
 		),
 		Line(),
+		Comment("liveness only asks whether the process still answers, so a"),
+		Comment("database or NATS outage does not restart every replica"),
+		Qual("net/http", "HandleFunc").Call(
+			Lit("/livez"),
+			Func().Params(Id("w").Qual("net/http", "ResponseWriter"), Id("r").Op("*").Qual("net/http", "Request")).Block(
+				Id("w").Dot("WriteHeader").Call(Qual("net/http", "StatusOK")),
+				Id("w").Dot("Write").Call(Index().Byte().Call(Lit("OK"))),
+			),
+		),
+		Line(),
 		Go().Qual("net/http", "ListenAndServe").Call(Lit(":8081"), Nil()),
 	)
 
