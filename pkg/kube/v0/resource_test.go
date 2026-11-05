@@ -3,6 +3,7 @@ package v0
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -338,6 +339,9 @@ type stubResourceClient struct {
 	results   []stubCreateResult
 	alwaysErr error
 	attempts  int
+	existing  *unstructured.Unstructured
+	updates   []*unstructured.Unstructured
+	created   []*unstructured.Unstructured
 }
 
 func (r *stubResourceClient) Namespace(namespace string) dynamic.ResourceInterface {
@@ -352,6 +356,9 @@ func (r *stubResourceClient) Create(
 ) (*unstructured.Unstructured, error) {
 	r.attempts++
 
+	// record the object that was sent
+	r.created = append(r.created, object.DeepCopy())
+
 	if r.alwaysErr != nil {
 		return nil, r.alwaysErr
 	}
@@ -363,6 +370,33 @@ func (r *stubResourceClient) Create(
 	r.results = r.results[1:]
 
 	return result.object, result.err
+}
+
+// Get returns the account stored for an already-exists update.
+func (r *stubResourceClient) Get(
+	ctx context.Context,
+	name string,
+	options kubemetav1.GetOptions,
+	subresources ...string,
+) (*unstructured.Unstructured, error) {
+	// return the stored account
+	if r.existing == nil {
+		return nil, fmt.Errorf("service account %s not found", name)
+	}
+	return r.existing.DeepCopy(), nil
+}
+
+// Update records the account written after an already-exists create.
+func (r *stubResourceClient) Update(
+	ctx context.Context,
+	obj *unstructured.Unstructured,
+	options kubemetav1.UpdateOptions,
+	subresources ...string,
+) (*unstructured.Unstructured, error) {
+	// record the written account
+	copied := obj.DeepCopy()
+	r.updates = append(r.updates, copied)
+	return copied, nil
 }
 
 // errOtherMapperFailure is a distinct error value we can check for by identity.
@@ -380,6 +414,7 @@ type errMapper struct {
 	err error
 }
 
+// RESTMapping returns the error stored on the mapper.
 func (m *errMapper) RESTMapping(gk schema.GroupKind, versions ...string) (*meta.RESTMapping, error) {
 	return nil, m.err
 }

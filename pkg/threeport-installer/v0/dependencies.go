@@ -284,7 +284,7 @@ store_dir: /data
 								"securityContext": vendoredContainerSecurityContext(),
 								"image":           natsBoxImage,
 								"imagePullPolicy": "IfNotPresent",
-								"resources":       nil,
+								"resources":       natsBoxResources(),
 								"env":             natsCLIEnv(),
 								"command": []interface{}{
 									"tail",
@@ -384,7 +384,7 @@ store_dir: /data
 								"securityContext": restrictedContainerSecurityContext(),
 								"image":           "docker.io/library/nats:2.10.25-alpine",
 								"imagePullPolicy": "IfNotPresent",
-								"resources":       map[string]interface{}{},
+								"resources":       natsServerResources(),
 								"ports": []interface{}{
 									map[string]interface{}{
 										"containerPort": 4222,
@@ -436,6 +436,12 @@ store_dir: /data
 									// authorization block reads.
 									natsSecretEnv("NATS_USER", "user"),
 									natsSecretEnv("NATS_PASSWORD", "password"),
+									// keeps the Go runtime collecting before the
+									// container reaches its memory limit
+									map[string]interface{}{
+										"name":  "GOMEMLIMIT",
+										"value": natsServerGoMemLimit,
+									},
 								},
 								"volumeMounts": []interface{}{
 									map[string]interface{}{
@@ -457,17 +463,22 @@ store_dir: /data
 								// Healthcheck Probes  #
 								//                     #
 								//######################
-								//"livenessProbe": map[string]interface{}{
-								//	"failureThreshold": 3,
-								//	"httpGet": map[string]interface{}{
-								//		"path": "/",
-								//		"port": 8222,
-								//	},
-								//	"initialDelaySeconds": 10,
-								//	"periodSeconds":       30,
-								//	"successThreshold":    1,
-								//	"timeoutSeconds":      5,
-								//},
+								// restarts a server that stopped answering; it checks only
+								// that JetStream is enabled, since the full health check
+								// also fails while JetStream catches up, which a restart
+								// would only interrupt.  The startup probe holds it off
+								// until the server is up.
+								"livenessProbe": map[string]interface{}{
+									"failureThreshold": 3,
+									"httpGet": map[string]interface{}{
+										"path": natsLivenessPath,
+										"port": 8222,
+									},
+									"initialDelaySeconds": 10,
+									"periodSeconds":       30,
+									"successThreshold":    1,
+									"timeoutSeconds":      5,
+								},
 								"readinessProbe": map[string]interface{}{
 									"failureThreshold": 3,
 									"httpGet": map[string]interface{}{
@@ -519,7 +530,7 @@ store_dir: /data
 								"securityContext": restrictedContainerSecurityContext(),
 								"image":           "docker.io/natsio/nats-server-config-reloader:0.16.1",
 								"imagePullPolicy": "IfNotPresent",
-								"resources":       nil,
+								"resources":       natsReloaderResources(),
 								"command": []interface{}{
 									"nats-server-config-reloader",
 									"-pid",
@@ -555,7 +566,7 @@ store_dir: /data
 								"securityContext": restrictedContainerSecurityContext(),
 								"image":           "docker.io/natsio/prometheus-nats-exporter:0.16.0",
 								"imagePullPolicy": "IfNotPresent",
-								"resources":       map[string]interface{}{},
+								"resources":       natsExporterResources(),
 								"args": []interface{}{
 									"-connz",
 									"-routez",

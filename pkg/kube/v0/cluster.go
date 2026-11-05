@@ -70,14 +70,14 @@ func GetKubeClientForGroupNameVersion(groupName string, groupVersion string) (*r
 // kubernetes cluster instance.
 func GetClient(
 	runtime *v0.KubernetesRuntimeInstance,
-	threeportControlPlane bool,
+	callerRunsInControlPlane bool,
 	threeportAPIClient *http.Client,
 	threeportAPIEndpoint string,
 	encryptionKey string,
 ) (dynamic.Interface, *meta.RESTMapper, error) {
 	restConfig, err := GetRestConfig(
 		runtime,
-		threeportControlPlane,
+		callerRunsInControlPlane,
 		threeportAPIClient,
 		threeportAPIEndpoint,
 		encryptionKey,
@@ -115,14 +115,14 @@ func GetClient(
 // instance.
 func GetDiscoveryClient(
 	runtime *v0.KubernetesRuntimeInstance,
-	threeportControlPlane bool,
+	callerRunsInControlPlane bool,
 	threeportAPIClient *http.Client,
 	threeportAPIEndpoint string,
 	encryptionKey string,
 ) (*discovery.DiscoveryClient, error) {
 	restConfig, err := GetRestConfig(
 		runtime,
-		threeportControlPlane,
+		callerRunsInControlPlane,
 		threeportAPIClient,
 		threeportAPIEndpoint,
 		encryptionKey,
@@ -139,24 +139,38 @@ func GetDiscoveryClient(
 	return discoveryClient, nil
 }
 
+// HostsControlPlane reports whether the runtime is the cluster the control plane runs on.
+func HostsControlPlane(runtime *v0.KubernetesRuntimeInstance) bool {
+	// an unset flag is not the control plane host
+	if runtime == nil {
+		return false
+	}
+	if runtime.ThreeportControlPlaneHost == nil {
+		return false
+	}
+	return *runtime.ThreeportControlPlaneHost
+}
+
 // GetRestConfig takes a kubernetes runtime instance and returns a REST config
 // for the kubernetes API.
 func GetRestConfig(
 	runtime *v0.KubernetesRuntimeInstance,
-	threeportControlPlane bool,
+	callerRunsInControlPlane bool,
 	threeportAPIClient *http.Client,
 	threeportAPIEndpoint string,
 	encryptionKey string,
 ) (*rest.Config, error) {
-	if runtime == nil || runtime.APIEndpoint == nil {
-		return nil, errors.New("cannot get REST config without API endpoint")
+	// an in-cluster caller uses the service address and the stored credential.
+	// the controller service account cannot install cluster objects.
+	kubeAPIEndpoint := ""
+	if runtime != nil && runtime.APIEndpoint != nil {
+		kubeAPIEndpoint = *runtime.APIEndpoint
 	}
-
-	// determine if the client is for a control plane component calling the
-	// local kube API and set endpoint as needed
-	kubeAPIEndpoint := *runtime.APIEndpoint
-	if *runtime.ThreeportControlPlaneHost && threeportControlPlane {
-		kubeAPIEndpoint = "kubernetes.default.svc.cluster.local"
+	if HostsControlPlane(runtime) && callerRunsInControlPlane {
+		kubeAPIEndpoint = "https://kubernetes.default.svc.cluster.local"
+	}
+	if kubeAPIEndpoint == "" {
+		return nil, errors.New("cannot get REST config without API endpoint")
 	}
 
 	// OKE and GKE authenticate with a token minted per request rather than a

@@ -986,10 +986,13 @@ Local or Remote environment.
     tptctl get workloads
     ```
 
+    Threeport removes `ingress-threeport-test` when you delete the last
+    gateway.  Delete that workload here only if the list still shows it.
+
     Delete the support service workloads.
 
     ```bash
-    tptctl delete kubernetes-workload-instance -n gloo-edge-threeport-test
+    tptctl delete kubernetes-workload-instance -n ingress-threeport-test
     tptctl delete kubernetes-workload-instance -n external-dns-threeport-test
     ```
 

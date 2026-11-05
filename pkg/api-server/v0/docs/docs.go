@@ -17624,6 +17624,10 @@ const docTemplate = `{
                 "Name"
             ],
             "properties": {
+                "CertificatesComponentInstanceID": {
+                    "description": "The workload instance that runs the certificates component for this instance.",
+                    "type": "integer"
+                },
                 "CreationAcknowledged": {
                     "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
                     "type": "string"
@@ -17650,6 +17654,10 @@ const docTemplate = `{
                 },
                 "GatewayDefinitionID": {
                     "description": "GatewayDefinitionID is the definition used to configure the gateway instance.",
+                    "type": "integer"
+                },
+                "IngressComponentInstanceID": {
+                    "description": "The workload instance that runs the ingress component for this instance.",
                     "type": "integer"
                 },
                 "InterruptReconciliation": {
@@ -18138,6 +18146,10 @@ const docTemplate = `{
                     "description": "The client certificate key to use for auth to the kube-api.",
                     "type": "string"
                 },
+                "CertificatesComponentInstanceID": {
+                    "description": "The workload that runs the certificates component for this runtime.",
+                    "type": "integer"
+                },
                 "ConnectionToken": {
                     "description": "Used to authenticate with a OIDC provider that implements auth for a\nKubernetes cluster.  It is an alternative to client cert authenticaion.",
                     "type": "string"
@@ -18165,6 +18177,10 @@ const docTemplate = `{
                     "description": "Gets set to true if creation process fails.",
                     "type": "boolean"
                 },
+                "DatabaseComponentInstanceID": {
+                    "description": "The workload that provides a database for this runtime.",
+                    "type": "integer"
+                },
                 "DefaultRuntime": {
                     "description": "If true, this Kubernetes cluster will be used for all workloads if not\notherwise assigned.",
                     "type": "boolean"
@@ -18181,12 +18197,8 @@ const docTemplate = `{
                     "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
                     "type": "string"
                 },
-                "DnsControllerInstanceID": {
-                    "description": "The KubernetesWorkloadInstanceID of the dns support service",
-                    "type": "integer"
-                },
-                "GatewayControllerInstanceID": {
-                    "description": "The KubernetesWorkloadInstanceID of the gateway support service",
+                "IngressComponentInstanceID": {
+                    "description": "The workload that runs the ingress component for this runtime.",
                     "type": "integer"
                 },
                 "InterruptReconciliation": {
@@ -18216,8 +18228,8 @@ const docTemplate = `{
                     "description": "Indicates if object is considered to be reconciled by the object's controller.",
                     "type": "boolean"
                 },
-                "SecretsControllerInstanceID": {
-                    "description": "The KubernetesWorkloadInstanceID of the secrets support service",
+                "SecretsComponentInstanceID": {
+                    "description": "The workload that stores secrets for this runtime.",
                     "type": "integer"
                 },
                 "Status": {
@@ -19938,6 +19950,10 @@ const docTemplate = `{
                 },
                 "SecretDefinitionID": {
                     "description": "The SecretDefinition that the secret instance is derived from.",
+                    "type": "integer"
+                },
+                "SecretsComponentInstanceID": {
+                    "description": "The workload instance that runs the secrets component for this instance.",
                     "type": "integer"
                 },
                 "Status": {

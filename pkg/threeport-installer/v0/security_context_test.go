@@ -350,15 +350,15 @@ func TestEveryContainerThisInstallerWritesIsHardened(t *testing.T) {
 
 // TestEveryHandWrittenContainerDropsPrivilege covers the containers whose
 // security context is written out rather than taken from a helper: the
-// support services operator's and the cluster autoscaler's, in
-// support_services.go. The vendored dependencies and the reinstall jobs take
-// theirs from a helper, which TestEveryVendoredContainerIsHardened requires.
+// cluster autoscaler's, in eks_autoscaler.go. The support services operator
+// is an embedded manifest. The vendored dependencies and the reinstall jobs
+// take theirs from a helper, which TestEveryVendoredContainerIsHardened requires.
 //
 // The values are checked, not the keys: allowPrivilegeEscalation set to true,
 // or a capabilities list that drops something other than ALL, still has every
 // key a key check looks for.
 func TestEveryHandWrittenContainerDropsPrivilege(t *testing.T) {
-	for _, path := range []string{"support_services.go"} {
+	for _, path := range []string{"eks_autoscaler.go"} {
 		t.Run(path, func(t *testing.T) {
 			fileSet := token.NewFileSet()
 			file, err := parser.ParseFile(fileSet, path, nil, 0)
@@ -396,6 +396,81 @@ func TestEveryHandWrittenContainerDropsPrivilege(t *testing.T) {
 
 			require.NotZero(t, containers, "no container declaration found to check")
 		})
+	}
+}
+
+// TestTheSupportServicesOperatorManifestDropsPrivilege checks every workload
+// decoded from the embedded operator manifest.
+// Each container drops every capability, and the pod sets RuntimeDefault.
+func TestTheSupportServicesOperatorManifestDropsPrivilege(t *testing.T) {
+	// decode the manifest the installer applies
+	objects, err := supportServicesOperatorObjects()
+	require.NoError(t, err)
+
+	pods := 0
+	containers := 0
+	for _, object := range objects {
+		specPath := podSpecPath(object.GetKind())
+		if specPath == nil {
+			continue
+		}
+		name := object.GetKind() + "/" + object.GetName()
+
+		// read the pod spec this workload declares
+		podSpec, found, err := unstructured.NestedMap(object.Object, specPath...)
+		require.NoError(t, err)
+		require.True(t, found, "%s: the pod spec is missing", name)
+		pods++
+
+		runAsNonRoot, found, err := unstructured.NestedBool(podSpec, "securityContext", "runAsNonRoot")
+		require.NoError(t, err)
+		assert.True(t, found && runAsNonRoot, "%s: the pod does not set runAsNonRoot", name)
+
+		profile, found, err := unstructured.NestedString(podSpec, "securityContext", "seccompProfile", "type")
+		require.NoError(t, err)
+		assert.True(t, found, "%s: the pod does not set a seccomp profile", name)
+		assert.Equal(t, "RuntimeDefault", profile, "%s: the pod does not set a RuntimeDefault seccomp profile", name)
+
+		// check each container the pod runs
+		for _, key := range []string{"containers", "initContainers"} {
+			listed, found, err := unstructured.NestedSlice(podSpec, key)
+			require.NoError(t, err)
+			if !found {
+				continue
+			}
+			for _, item := range listed {
+				container, ok := item.(map[string]interface{})
+				require.True(t, ok, "%s: a %s entry is not an object", name, key)
+				containers++
+				containerName, _, _ := unstructured.NestedString(container, "name")
+
+				escalation, found, err := unstructured.NestedBool(container, "securityContext", "allowPrivilegeEscalation")
+				require.NoError(t, err)
+				assert.True(t, found && !escalation, "%s/%s: allowPrivilegeEscalation is not false", name, containerName)
+
+				drop, found, err := unstructured.NestedStringSlice(container, "securityContext", "capabilities", "drop")
+				require.NoError(t, err)
+				assert.True(t, found, "%s/%s: capabilities are not dropped", name, containerName)
+				assert.Equal(t, []string{"ALL"}, drop, "%s/%s: capabilities drop is not ALL", name, containerName)
+			}
+		}
+	}
+
+	require.NotZero(t, pods, "no pod spec found in the operator manifest")
+	require.NotZero(t, containers, "no container found in the operator manifest")
+}
+
+// podSpecPath returns the field path of a workload's pod spec.
+func podSpecPath(kind string) []string {
+	switch kind {
+	case "Pod":
+		return []string{"spec"}
+	case "CronJob":
+		return []string{"spec", "jobTemplate", "spec", "template", "spec"}
+	case "Deployment", "StatefulSet", "DaemonSet", "Job", "ReplicaSet":
+		return []string{"spec", "template", "spec"}
+	default:
+		return nil
 	}
 }
 
@@ -470,7 +545,7 @@ func TestEveryPodThisInstallerWritesSetsASeccompProfile(t *testing.T) {
 					return true
 				}
 				// either the helper, or a literal that names the profile
-				// itself - support_services.go writes one out by hand. The
+				// itself - eks_autoscaler.go writes one out by hand. The
 				// value matters, not the key: seccompProfile set to
 				// Unconfined is the regression this is here to catch.
 				assert.True(
@@ -492,10 +567,11 @@ func TestEveryPodThisInstallerWritesSetsASeccompProfile(t *testing.T) {
 }
 
 // podSourceFiles are the files that write a pod spec into the control plane
-// namespace: the components, the support services operator, the vendored
+// namespace: the components, the cluster autoscaler, the vendored
 // dependencies, and the jobs a reinstall runs to drop the database and the
-// message broker's streams.
-var podSourceFiles = []string{"components.go", "support_services.go", "dependencies.go", "reinstall.go"}
+// message broker's streams. The support services operator is an embedded
+// manifest, checked by decoding it.
+var podSourceFiles = []string{"components.go", "eks_autoscaler.go", "dependencies.go", "reinstall.go"}
 
 // TestEveryPodThisInstallerWritesRunsAsNonRoot covers the last restricted
 // requirement the vendored dependencies were missing.
@@ -645,14 +721,10 @@ func TestTheDependencyContextsMeetTheStandard(t *testing.T) {
 // enforce on its own.
 //
 // This is deliberately not a blanket rule that every hand-written
-// runAsNonRoot needs a sibling runAsUser: two containers in
-// support_services.go set runAsNonRoot with none, and both of their images
-// were confirmed, the same way nats-box was, to already declare a numeric
-// USER - which the kubelet can resolve unaided, and pinning one here would
-// only let that image's default drift from what the manifest claims. Whether
-// a container needs the numeric id is a fact about its image, not about the
-// source, and nothing here can see that - so this checks only the image that
-// was confirmed to need it.
+// runAsNonRoot needs a sibling runAsUser. The embedded operator manifest
+// sets runAsNonRoot and leaves runAsUser unset. Whether a container needs
+// the numeric id is a fact about its image, and this checks only the image
+// that was confirmed to need it.
 func TestNatsBoxPinsTheNumericUserItsImageDeclaresByName(t *testing.T) {
 	securityContext := natsBoxPodSecurityContext()
 	assert.Equal(t, true, securityContext["runAsNonRoot"])
