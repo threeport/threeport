@@ -35,7 +35,7 @@ import (
 // A nil or empty apis leaves the list unchanged, and none clears it.
 func selectInstanceControllers(cpi *threeport.ControlPlaneInstaller, apis *string) error {
 	// leave the list unchanged when apis is unset
-	if apis == nil || *apis == "" {
+	if util.DerefString(apis) == "" {
 		return nil
 	}
 
@@ -60,15 +60,9 @@ func selectInstanceControllers(cpi *threeport.ControlPlaneInstaller, apis *strin
 // clientCertificateRecorded reports whether create already saved the client certificate.
 func clientCertificateRecorded(instance *v0.ControlPlaneInstance) bool {
 	// the certificate, the key, and the CA are saved together
-	return stringRecorded(instance.CACert) &&
-		stringRecorded(instance.ClientCert) &&
-		stringRecorded(instance.ClientKey)
-}
-
-// stringRecorded reports whether a stored string has a value.
-func stringRecorded(value *string) bool {
-	// treat a nil pointer and an empty string as unset
-	return value != nil && *value != ""
+	return util.DerefString(instance.CACert) != "" &&
+		util.DerefString(instance.ClientCert) != "" &&
+		util.DerefString(instance.ClientKey) != ""
 }
 
 // v0ControlPlaneInstanceCreated performs reconciliation when a v0 ControlPlaneInstance
@@ -115,7 +109,7 @@ func v0ControlPlaneInstanceCreated(
 	if err != nil {
 		return 0, fmt.Errorf("failed to get control plane definition by ID: %w", err)
 	}
-	if controlPlaneDefinition.Reconciled != nil && !*controlPlaneDefinition.Reconciled {
+	if util.PtrEqual(controlPlaneDefinition.Reconciled, false) {
 		return 0, errors.New("controlplane definition not reconciled")
 	}
 
@@ -130,7 +124,7 @@ func v0ControlPlaneInstanceCreated(
 	}
 
 	// ensure kubernetes runtime instance is reconciled before working with it
-	if kubernetesRuntimeInstance.Reconciled != nil && !*kubernetesRuntimeInstance.Reconciled {
+	if util.PtrEqual(kubernetesRuntimeInstance.Reconciled, false) {
 		return 0, errors.New("kubernetes runtime instance not reconciled")
 	}
 
@@ -399,7 +393,7 @@ func v0ControlPlaneInstanceCreated(
 	_, port := cpi.GetAPIServicePort()
 	threeportAPIEndpoint := fmt.Sprintf("%s.%s:%d", cpi.Opts.RestApiInfo.ServiceResourceName, cpi.Opts.Namespace, port)
 	// keep an endpoint a retry already saved
-	endpointSaved := stringRecorded(controlPlaneInstance.ApiServerEndpoint)
+	endpointSaved := util.DerefString(controlPlaneInstance.ApiServerEndpoint) != ""
 	if !endpointSaved {
 		controlPlaneInstance.ApiServerEndpoint = &threeportAPIEndpoint
 	}
@@ -824,7 +818,7 @@ func v0ControlPlaneInstanceUpdated(
 	if err != nil {
 		return 0, fmt.Errorf("failed to get control plane definition by ID: %w", err)
 	}
-	if controlPlaneDefinition.Reconciled != nil && !*controlPlaneDefinition.Reconciled {
+	if util.PtrEqual(controlPlaneDefinition.Reconciled, false) {
 		return 0, errors.New("controlplane definition not reconciled")
 	}
 	kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(
@@ -835,7 +829,7 @@ func v0ControlPlaneInstanceUpdated(
 	if err != nil {
 		return 0, fmt.Errorf("failed to get control plane kubernetesRuntime instance by ID: %w", err)
 	}
-	if kubernetesRuntimeInstance.Reconciled != nil && !*kubernetesRuntimeInstance.Reconciled {
+	if util.PtrEqual(kubernetesRuntimeInstance.Reconciled, false) {
 		return 0, errors.New("kubernetes runtime instance not reconciled")
 	}
 	kubernetesRuntimeDefinition, err := client.GetKubernetesRuntimeDefinitionByID(
