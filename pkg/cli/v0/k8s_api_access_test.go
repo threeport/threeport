@@ -1,6 +1,7 @@
 package v0
 
 import (
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -17,6 +19,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	provider "github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -309,4 +312,62 @@ func TestTptctlUpRecordsTheKubernetesApiAccessItWasGiven(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, saved.PrivateK8sApi)
 	assert.Equal(t, []string{"10.8.0.0/16"}, saved.K8sApiAllowedCidrs)
+}
+
+// TestAPrivateGkeControlPlaneIsRegisteredPrivate covers the
+// GcpGkeKubernetesRuntimeDefinition tptctl up registers for the control
+// plane's own cluster: it carries PrivateApi along with AllowedCidrs, so the
+// API checks a private cluster's list against the private limit and the
+// definition says what the cluster is.  A public cluster's definition is
+// sent without the field, as before.
+func TestAPrivateGkeControlPlaneIsRegisteredPrivate(t *testing.T) {
+	for _, private := range []bool{true, false} {
+		t.Run(fmt.Sprintf("private=%t", private), func(t *testing.T) {
+			var sentDefinition map[string]any
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				if r.Method == http.MethodPost {
+					var body map[string]any
+					assert.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+					if r.URL.Path == v0.PathGcpGkeKubernetesRuntimeDefinitions {
+						sentDefinition = body
+					}
+					w.WriteHeader(http.StatusCreated)
+					fmt.Fprint(w, `{"Data":[{"ID":1}]}`)
+					return
+				}
+				w.WriteHeader(http.StatusOK)
+				fmt.Fprint(w, `{"Data":[]}`)
+			}))
+			defer server.Close()
+
+			cpi := threeport.NewInstaller()
+			cpi.Opts.ControlPlaneName = "private"
+			cpi.Opts.ControlPlaneOnly = true
+			var infra provider.KubernetesRuntimeInfra = &provider.KubernetesRuntimeInfraGKE{
+				ProjectID:              "some-project",
+				Region:                 "us-central1",
+				WorkerNodeInitialCount: 1,
+				PrivateApi:             private,
+				AllowedCidrs:           []string{"10.8.0.0/16"},
+			}
+			require.NoError(t, ConfigureControlPlaneWithGkeConfig(
+				cpi,
+				&Uninstaller{cpi: cpi},
+				server.Client(),
+				strings.TrimPrefix(server.URL, "http://"),
+				&v0.KubernetesRuntimeDefinition{Common: v0.Common{ID: util.Ptr(uint(1))}},
+				&v0.KubernetesRuntimeInstance{Common: v0.Common{ID: util.Ptr(uint(1))}},
+				&infra,
+			))
+
+			require.NotNil(t, sentDefinition)
+			assert.Equal(t, []any{"10.8.0.0/16"}, sentDefinition["AllowedCidrs"])
+			if private {
+				assert.Equal(t, true, sentDefinition["PrivateApi"])
+			} else {
+				assert.NotContains(t, sentDefinition, "PrivateApi")
+			}
+		})
+	}
 }
