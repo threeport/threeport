@@ -261,6 +261,14 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
+	// liveness only asks whether the process still answers - readiness
+	// tracks the NATS subscriptions, which a NATS outage would fail on
+	// every replica at once
+	http.HandleFunc("/livez", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+
 	go http.ListenAndServe(":8081", nil)
 
 	// run shutdown endpoint server

@@ -187,16 +187,17 @@ func (s *SecretDefinitionConfig) Replace(
 	}
 
 	// construct updated secret definition object
-	updatedSecretDefinition := &api_v0.SecretDefinition{
-		Common: api_v0.Common{
-			ID: existingSecretDefinition.ID,
-		},
-		Definition: api_v0.Definition{
-			Name: secretDefinitionValues.Name,
-		},
-		AwsProviderID: awsProvider.ID,
-		Data:          util.Ptr(datatypes.JSON(jsonData)),
-	}
+	// Start from the existing object, so the fields this replace does not set
+	// are kept: the reconciler's (Reconciled and the rest of Reconciliation,
+	// Status) and the ones only the API server or a controller writes. Every
+	// field a user sets through the config is assigned below unconditionally,
+	// a nil value included, so a field left out of the config is cleared
+	// rather than kept. Do not assign the reconciler's fields here: the copy
+	// already carries them.
+	updatedSecretDefinition := util.Ptr(*existingSecretDefinition)
+	updatedSecretDefinition.Name = secretDefinitionValues.Name
+	updatedSecretDefinition.AwsProviderID = awsProvider.ID
+	updatedSecretDefinition.Data = util.Ptr(datatypes.JSON(jsonData))
 
 	// replace secret definition
 	replacedSecretDefinition, err := client_v0.ReplaceSecretDefinition(

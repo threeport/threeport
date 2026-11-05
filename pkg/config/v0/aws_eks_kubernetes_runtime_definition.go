@@ -176,20 +176,20 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Replace(
 	}
 
 	// construct updated aws eks kubernetes runtime definition object
-	updatedAwsEksKubernetesRuntimeDefinition := &api_v0.AwsEksKubernetesRuntimeDefinition{
-		Common: api_v0.Common{
-			ID: existingAwsEksKubernetesRuntimeDefinition.ID,
-		},
-		Definition: api_v0.Definition{
-			Name: awsEksKubernetesRuntimeDefinitionValues.Name,
-		},
-		ZoneCount:                     awsEksKubernetesRuntimeDefinitionValues.ZoneCount,
-		DefaultNodeGroupInstanceType:  awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupInstanceType,
-		DefaultNodeGroupInitialSize:   awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupInitialSize,
-		DefaultNodeGroupMinimumSize:   awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupMinimumSize,
-		DefaultNodeGroupMaximumSize:   awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupMaximumSize,
-		KubernetesRuntimeDefinitionID: existingAwsEksKubernetesRuntimeDefinition.KubernetesRuntimeDefinitionID,
-	}
+	// Start from the existing object, so the fields this replace does not set
+	// are kept: the reconciler's (Reconciled and the rest of Reconciliation,
+	// Status) and the ones only the API server or a controller writes. Every
+	// field a user sets through the config is assigned below unconditionally,
+	// a nil value included, so a field left out of the config is cleared
+	// rather than kept. Do not assign the reconciler's fields here: the copy
+	// already carries them.
+	updatedAwsEksKubernetesRuntimeDefinition := util.Ptr(*existingAwsEksKubernetesRuntimeDefinition)
+	updatedAwsEksKubernetesRuntimeDefinition.Name = awsEksKubernetesRuntimeDefinitionValues.Name
+	updatedAwsEksKubernetesRuntimeDefinition.ZoneCount = awsEksKubernetesRuntimeDefinitionValues.ZoneCount
+	updatedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType = awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupInstanceType
+	updatedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize = awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupInitialSize
+	updatedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize = awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupMinimumSize
+	updatedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize = awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupMaximumSize
 
 	// replace aws eks kubernetes runtime definition
 	replacedAwsEksKubernetesRuntimeDefinition, err := client_v0.ReplaceAwsEksKubernetesRuntimeDefinition(

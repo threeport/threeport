@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/aws/aws-sdk-go-v2/service/iam"
-	"github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/aws/smithy-go/ptr"
 	"github.com/spf13/cobra"
@@ -69,25 +67,16 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 			roleName = provider.GetResourceManagerRoleName(requestedControlPlane)
 		}
 
-		// ensure role doesn't exist
-		var nse types.NoSuchEntityException
-		var existingRole *iam.GetRoleOutput
-		svcIam := iam.NewFromConfig(*awsConf)
-		if existingRole, err = svcIam.GetRole(
-			context.Background(),
-			&iam.GetRoleInput{
-				RoleName: &roleName,
-			},
-		); err != nil && !provider.IsAwsErrorCode(err, nse.ErrorCode()) {
-			cli.Error("failed to get role", err)
-			os.Exit(1)
-		}
-
-		// if the role already exists, throw an error
-		if err == nil {
-			cli.Error("role already exists: ", fmt.Errorf("%s", *existingRole.Role.Arn))
-			os.Exit(1)
-		}
+		// A role already at this name is not checked for here. It used to be,
+		// and it made this command the one entry point a failure could not be
+		// retried from: a run that failed after creating the role - at the
+		// UpdateAwsProvider below, say - died on this check on the next
+		// attempt and needed somebody to delete the role in a console.
+		//
+		// CreateResourceManagerRole decides instead. It adopts a role
+		// carrying the tags this command would have given it and refuses one
+		// that does not, which is the check this was reaching for without the
+		// part that made it a dead end.
 
 		// create aws account in threeport API to generate an external ID value
 		awsProvider := v0.AwsProvider{
@@ -112,7 +101,7 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 			threeport.ControlPlaneNamespace,
 			tpaws.IamTags(
 				requestedControlPlane,
-				map[string]string{},
+				provider.ThreeportProviderTags(),
 			),
 			roleName,
 			*callerIdentity.Account,
