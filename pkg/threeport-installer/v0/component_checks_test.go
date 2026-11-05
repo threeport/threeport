@@ -563,3 +563,96 @@ func TestDeleteAgentRoleBindingsLeavesOtherControlPlanes(t *testing.T) {
 		assert.True(t, present)
 	}
 }
+
+// TestDeleteControlPlaneRoleBindingsLeavesOtherControlPlanes deletes one control plane's role bindings and leaves the other's.
+func TestDeleteControlPlaneRoleBindingsLeavesOtherControlPlanes(t *testing.T) {
+	// install this control plane's bindings, another control plane's copies, and one unrelated binding
+	cpi := NewInstaller()
+	cpi.Opts.Namespace = "child"
+	objects := []runtime.Object{
+		clusterRoleBinding("child-threeport-agent-manager-rolebinding", "agent"),
+		clusterRoleBinding("child-threeport-agent-proxy-rolebinding", "agent"),
+		clusterRoleBinding("threeport-control-plane-threeport-agent-manager-rolebinding", "agent"),
+		clusterRoleBinding("threeport-control-plane-threeport-agent-proxy-rolebinding", "agent"),
+		clusterRoleBinding("cluster-autoscaler", "cluster-autoscaler"),
+	}
+	for _, controller := range ThreeportControllerList {
+		if controller.ServiceAccountName == "" {
+			continue
+		}
+		account := controller.ServiceAccountName
+		for _, namespace := range []string{"child", "threeport-control-plane"} {
+			for _, suffix := range []string{"threeportworkloads", "cluster-admin"} {
+				name := fmt.Sprintf("%s-%s-%s", namespace, account, suffix)
+				objects = append(objects, clusterRoleBinding(name, account))
+			}
+		}
+	}
+	client := testClient(objects...)
+	mapper := testMapper()
+
+	// delete the child bindings, then again once they are already gone
+	require.NoError(t, cpi.DeleteControlPlaneRoleBindings(client, mapper))
+	require.NoError(t, cpi.DeleteControlPlaneRoleBindings(client, mapper))
+
+	// confirm the child agent bindings are gone
+	for _, name := range []string{
+		"child-threeport-agent-manager-rolebinding",
+		"child-threeport-agent-proxy-rolebinding",
+	} {
+		_, present, err := resourceInstalled(
+			client, mapper, "rbac.authorization.k8s.io", "v1", "ClusterRoleBinding", "", name,
+		)
+		require.NoError(t, err)
+		assert.False(t, present)
+	}
+
+	// confirm the child controller bindings are gone
+	for _, controller := range ThreeportControllerList {
+		if controller.ServiceAccountName == "" {
+			continue
+		}
+		for _, suffix := range []string{"threeportworkloads", "cluster-admin"} {
+			name := fmt.Sprintf("child-%s-%s", controller.ServiceAccountName, suffix)
+			_, present, err := resourceInstalled(
+				client, mapper, "rbac.authorization.k8s.io", "v1", "ClusterRoleBinding", "", name,
+			)
+			require.NoError(t, err)
+			assert.False(t, present, name)
+		}
+	}
+
+	// confirm the other control plane's agent bindings stayed
+	for _, name := range []string{
+		"threeport-control-plane-threeport-agent-manager-rolebinding",
+		"threeport-control-plane-threeport-agent-proxy-rolebinding",
+	} {
+		_, present, err := resourceInstalled(
+			client, mapper, "rbac.authorization.k8s.io", "v1", "ClusterRoleBinding", "", name,
+		)
+		require.NoError(t, err)
+		assert.True(t, present)
+	}
+
+	// confirm the other control plane's controller bindings stayed
+	for _, controller := range ThreeportControllerList {
+		if controller.ServiceAccountName == "" {
+			continue
+		}
+		for _, suffix := range []string{"threeportworkloads", "cluster-admin"} {
+			name := fmt.Sprintf("threeport-control-plane-%s-%s", controller.ServiceAccountName, suffix)
+			_, present, err := resourceInstalled(
+				client, mapper, "rbac.authorization.k8s.io", "v1", "ClusterRoleBinding", "", name,
+			)
+			require.NoError(t, err)
+			assert.True(t, present, name)
+		}
+	}
+
+	// confirm the unrelated binding stayed
+	_, present, err := resourceInstalled(
+		client, mapper, "rbac.authorization.k8s.io", "v1", "ClusterRoleBinding", "", "cluster-autoscaler",
+	)
+	require.NoError(t, err)
+	assert.True(t, present)
+}

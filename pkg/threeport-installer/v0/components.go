@@ -833,30 +833,46 @@ func (cpi *ControlPlaneInstaller) deleteController(
 	mapper *meta.RESTMapper,
 	controller v0.ControlPlaneComponent,
 ) error {
-	// delete the deployment, and the account and bindings when the controller has one
+	// delete the deployment, and the account when the controller has one
 	objects := []*unstructured.Unstructured{
 		kubeObject("apps/v1", "Deployment", cpi.Opts.Namespace, cpi.controllerDeploymentName(controller)),
 	}
 	if controller.ServiceAccountName != "" {
-		account := controller.ServiceAccountName
 		objects = append(objects,
-			kubeObject("v1", "ServiceAccount", cpi.Opts.Namespace, account),
-			kubeObject(
-				"rbac.authorization.k8s.io/v1",
-				"ClusterRoleBinding",
-				"",
-				fmt.Sprintf("%s-%s-threeportworkloads", cpi.Opts.Namespace, account),
-			),
-			kubeObject(
-				"rbac.authorization.k8s.io/v1",
-				"ClusterRoleBinding",
-				"",
-				fmt.Sprintf("%s-%s-cluster-admin", cpi.Opts.Namespace, account),
-			),
+			kubeObject("v1", "ServiceAccount", cpi.Opts.Namespace, controller.ServiceAccountName),
 		)
 	}
 	for _, object := range objects {
 		if err := kube.DeleteResource(object, kubeClient, *mapper); err != nil {
+			return err
+		}
+	}
+
+	// delete the role bindings
+	return cpi.deleteControllerRoleBindings(kubeClient, mapper, controller)
+}
+
+// deleteControllerRoleBindings removes one controller's cluster role bindings.
+func (cpi *ControlPlaneInstaller) deleteControllerRoleBindings(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	controller v0.ControlPlaneComponent,
+) error {
+	// skip a controller that has no service account
+	if controller.ServiceAccountName == "" {
+		return nil
+	}
+
+	// delete the workload binding and the cluster-admin binding
+	account := controller.ServiceAccountName
+	for _, suffix := range []string{"threeportworkloads", "cluster-admin"} {
+		binding := kubeObject(
+			"rbac.authorization.k8s.io/v1",
+			"ClusterRoleBinding",
+			"",
+			fmt.Sprintf("%s-%s-%s", cpi.Opts.Namespace, account, suffix),
+		)
+		if err := kube.DeleteResource(binding, kubeClient, *mapper); err != nil {
 			return err
 		}
 	}
@@ -881,6 +897,26 @@ func (cpi *ControlPlaneInstaller) DeleteAgentRoleBindings(
 			fmt.Sprintf("%s-%s", cpi.Opts.Namespace, suffix),
 		)
 		if err := kube.DeleteResource(binding, kubeClient, *mapper); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// DeleteControlPlaneRoleBindings removes this control plane's cluster role bindings.
+// Deleting the namespace leaves them because they are cluster-scoped.
+func (cpi *ControlPlaneInstaller) DeleteControlPlaneRoleBindings(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+) error {
+	// delete the agent bindings
+	if err := cpi.DeleteAgentRoleBindings(kubeClient, mapper); err != nil {
+		return err
+	}
+
+	// delete each controller's bindings
+	for _, controller := range ThreeportControllerList {
+		if err := cpi.deleteControllerRoleBindings(kubeClient, mapper, *controller); err != nil {
 			return err
 		}
 	}
@@ -1629,6 +1665,11 @@ func (cpi *ControlPlaneInstaller) UnInstallThreeportControlPlaneComponents(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 ) error {
+	// delete the cluster role bindings, which the namespace delete leaves behind
+	if err := cpi.DeleteControlPlaneRoleBindings(kubeClient, mapper); err != nil {
+		return fmt.Errorf("failed to delete control plane role bindings: %w", err)
+	}
+
 	// delete the control plane namespace
 	if err := DeleteNamespaces(
 		kubeClient,

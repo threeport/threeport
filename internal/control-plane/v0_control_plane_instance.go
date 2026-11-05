@@ -1088,10 +1088,10 @@ func v0ControlPlaneInstanceDeleted(
 		return 0, fmt.Errorf("failed to create dynamic kube API client: %w", err)
 	}
 
-	// delete the agent bindings, which the namespace delete leaves behind
+	// delete the cluster role bindings, which the namespace delete leaves behind
 	cpi := threeport.NewInstaller(threeport.Namespace(*controlPlaneInstance.Namespace))
-	if err := cpi.DeleteAgentRoleBindings(deleteDynamicClient, deleteMapper); err != nil {
-		return 0, fmt.Errorf("failed to delete agent role bindings: %w", err)
+	if err := cpi.DeleteControlPlaneRoleBindings(deleteDynamicClient, deleteMapper); err != nil {
+		return 0, fmt.Errorf("failed to delete control plane role bindings: %w", err)
 	}
 
 	var namespace = &unstructured.Unstructured{
