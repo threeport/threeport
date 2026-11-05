@@ -1348,6 +1348,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 		return fmt.Errorf("failed to create threeport agent leader election role binding: %w", err)
 	}
 
+	// name the binding by namespace because a shared cluster role binding already belongs to the first control plane
 	var threeportAgentManagerRoleBinding = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "rbac.authorization.k8s.io/v1",
@@ -1361,7 +1362,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
 					"app.kubernetes.io/managed-by": "threeport",
 				},
-				"name": "threeport-agent-manager-rolebinding",
+				"name": fmt.Sprintf("%s-threeport-agent-manager-rolebinding", cpi.Opts.Namespace),
 			},
 			"roleRef": map[string]interface{}{
 				"apiGroup": "rbac.authorization.k8s.io",
@@ -1381,6 +1382,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 		return fmt.Errorf("failed to create threeport agent manager role binding: %w", err)
 	}
 
+	// name the binding by namespace because a shared cluster role binding already belongs to the first control plane
 	var threeportAgentProxyRoleBinding = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "rbac.authorization.k8s.io/v1",
@@ -1394,7 +1396,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
 					"app.kubernetes.io/managed-by": "threeport",
 				},
-				"name": "threeport-agent-proxy-rolebinding",
+				"name": fmt.Sprintf("%s-threeport-agent-proxy-rolebinding", cpi.Opts.Namespace),
 			},
 			"roleRef": map[string]interface{}{
 				"apiGroup": "rbac.authorization.k8s.io",
