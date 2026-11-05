@@ -197,6 +197,8 @@ func (g *GcpGkeKubernetesRuntimeInstanceConfig) Create(
 		Region:                              gcpGkeKubernetesRuntimeInstanceValues.Region,
 		KubernetesRuntimeInstanceID:         createdKubernetesRuntimeInstance.ID,
 		GcpGkeKubernetesRuntimeDefinitionID: gcpGkeKubernetesRuntimeDefinition.ID,
+		// a new cluster sends its outbound traffic from a reserved address
+		ReservedNatAddress: util.Ptr(true),
 	}
 
 	// create gcp gke kubernetes runtime instance
@@ -262,6 +264,7 @@ func (g *GcpGkeKubernetesRuntimeInstanceConfig) Replace(
 		KubernetesRuntimeInstanceID:         existingGcpGkeKubernetesRuntimeInstance.KubernetesRuntimeInstanceID,
 		GcpGkeKubernetesRuntimeDefinitionID: existingGcpGkeKubernetesRuntimeInstance.GcpGkeKubernetesRuntimeDefinitionID,
 		GcpProviderID:                       existingGcpGkeKubernetesRuntimeInstance.GcpProviderID,
+		ReservedNatAddress:                  existingGcpGkeKubernetesRuntimeInstance.ReservedNatAddress,
 	}
 
 	// replace gcp gke kubernetes runtime instance

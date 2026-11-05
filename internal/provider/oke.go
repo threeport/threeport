@@ -20,6 +20,7 @@ import (
 	"github.com/pulumi/pulumi-oci/sdk/v3/go/oci/containerengine"
 	"github.com/pulumi/pulumi-oci/sdk/v3/go/oci/core"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
+	v0 "github.com/threeport/threeport/pkg/api/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	yaml "sigs.k8s.io/yaml"
@@ -78,6 +79,10 @@ type KubernetesRuntimeInfraOKE struct {
 	// The CIDR blocks allowed to reach the Kubernetes API's public endpoint.
 	// Empty leaves it open to every address.
 	AllowedCidrs []string
+
+	// The public addresses of the control plane that manages the cluster,
+	// admitted along with AllowedCidrs when those are set.
+	ControlPlaneEgressCidrs []string
 }
 
 // Create installs a Kubernetes cluster using Oracle Cloud OKE for threeport workloads.
@@ -258,6 +263,11 @@ func (i *KubernetesRuntimeInfraOKE) CreateInfra() (*kube.KubeConnectionInfo, err
 		// define subnets to be used by security lists, cluster, and load balancer
 		// subnet CIDR blocks are defined as package-level constants
 
+		publicKubeApiIngressRules, err := i.publicKubeApiIngressRules()
+		if err != nil {
+			return err
+		}
+
 		// create security list for public subnet
 		publicSecList, err := core.NewSecurityList(ctx, fmt.Sprintf("%s-public-seclist", i.RuntimeInstanceName), &core.SecurityListArgs{
 			CompartmentId: pulumi.String(i.CompartmentOCID),
@@ -266,7 +276,7 @@ func (i *KubernetesRuntimeInfraOKE) CreateInfra() (*kube.KubeConnectionInfo, err
 			FreeformTags:  pulumi.StringMap{"threeport-instance": pulumi.String(i.RuntimeInstanceName)},
 			// allow Kubernetes API server traffic from anywhere, or from
 			// AllowedCidrs only, then from the worker nodes
-			IngressSecurityRules: append(i.publicKubeApiIngressRules(), core.SecurityListIngressSecurityRuleArray{
+			IngressSecurityRules: append(publicKubeApiIngressRules, core.SecurityListIngressSecurityRuleArray{
 				// allow Kubernetes API server traffic from private subnet
 				&core.SecurityListIngressSecurityRuleArgs{
 					Protocol: pulumi.String("6"), // TCP
@@ -609,6 +619,10 @@ func (i *KubernetesRuntimeInfraOKE) CreateInfra() (*kube.KubeConnectionInfo, err
 		if err != nil {
 			return fmt.Errorf("failed to create node pool: %w", err)
 		}
+
+		// outbound traffic from the nodes leaves through the NAT gateway
+		exportEgressCidrs(ctx, []pulumi.StringOutput{natGateway.NatIp})
+
 		return nil
 	})
 	if err != nil {
@@ -684,10 +698,14 @@ func (i *KubernetesRuntimeInfraOKE) GetClusterOCID(okeClusterName string) (strin
 
 // publicKubeApiIngressRules returns the rules that admit traffic to the
 // Kubernetes API endpoint from outside the VCN: from anywhere, or one rule
-// per block when AllowedCidrs is set.  The worker nodes reach the endpoint
-// through the rule for the private subnet, which the list does not replace.
-func (i *KubernetesRuntimeInfraOKE) publicKubeApiIngressRules() core.SecurityListIngressSecurityRuleArray {
-	sources := i.AllowedCidrs
+// per block when AllowedCidrs is set, along with the managing control
+// plane's addresses.  The worker nodes reach the endpoint through the rule for
+// the private subnet, which the list does not replace.
+func (i *KubernetesRuntimeInfraOKE) publicKubeApiIngressRules() (core.SecurityListIngressSecurityRuleArray, error) {
+	sources, err := kubeApiAllowlist(v0.KubernetesRuntimeInfraProviderOKE, i.AllowedCidrs, i.ControlPlaneEgressCidrs)
+	if err != nil {
+		return nil, err
+	}
 	if len(sources) == 0 {
 		sources = []string{"0.0.0.0/0"}
 	}
@@ -705,7 +723,7 @@ func (i *KubernetesRuntimeInfraOKE) publicKubeApiIngressRules() core.SecurityLis
 		})
 	}
 
-	return rules
+	return rules, nil
 }
 
 // GetConnection gets the latest connection info for authentication to an OKE cluster.

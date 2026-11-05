@@ -180,3 +180,26 @@ func TestAnUnreachableClusterComesWithACommandThatDeletesIt(t *testing.T) {
 
 	assert.Equal(t, cause, withUnreachableClusterCleanup(cause, "prod-east", true))
 }
+
+// TestAReinstallRecordsTheControlPlanesEgressCidrsAgain covers a reinstall,
+// which rebuilds the runtime hosting the control plane from the tptctl
+// config: the addresses tptctl up recorded there are restored with it, so
+// the clusters the control plane manages keep admitting it.
+func TestAReinstallRecordsTheControlPlanesEgressCidrsAgain(t *testing.T) {
+	config := &ControlPlane{
+		Name:              "prod-east",
+		Provider:          v0.KubernetesRuntimeInfraProviderGKE,
+		GKEProviderConfig: GKEProviderConfig{GcpRegion: "us-central1"},
+		KubeAPI:           KubeAPI{APIEndpoint: "https://gke.example.com", Token: util.Base64Encode("token")},
+		EgressCidrs:       []string{"198.51.100.20/32", "198.51.100.21/32"},
+	}
+	instance, err := bootstrapKubernetesRuntimeInstance(config)
+	require.NoError(t, err)
+	require.NotNil(t, instance.EgressCidrs)
+	assert.JSONEq(t, `["198.51.100.20/32","198.51.100.21/32"]`, string(*instance.EgressCidrs))
+
+	config.EgressCidrs = nil
+	instance, err = bootstrapKubernetesRuntimeInstance(config)
+	require.NoError(t, err)
+	assert.Nil(t, instance.EgressCidrs, "a control plane installed before has none recorded")
+}

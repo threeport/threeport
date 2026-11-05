@@ -73,6 +73,10 @@ type KubernetesRuntimeInfraEKS struct {
 	// The CIDR blocks allowed to reach the Kubernetes API's public endpoint.
 	// Empty leaves it open to every address.
 	AllowedCidrs []string
+
+	// The public addresses of the control plane that manages the cluster,
+	// admitted along with AllowedCidrs when those are set.
+	ControlPlaneEgressCidrs []string
 }
 
 // Create provisions an AWS EKS cluster for threeport workloads and returns the

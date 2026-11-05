@@ -87,4 +87,12 @@ type GcpGkeKubernetesRuntimeInstance struct {
 
 	// An inventory of all GCP resources for the GKE cluster.
 	ResourceInventory *datatypes.JSON `validate:"optional"`
+
+	// If true, the cluster's Cloud NAT uses an address reserved for it, so
+	// that its outbound traffic comes from one address that does not change
+	// and is recorded as the kubernetes runtime instance's EgressCidrs.  Set
+	// on clusters created since Threeport reserves one; clusters created
+	// before keep the addresses Google allocates.  Cannot be changed after
+	// creation.
+	ReservedNatAddress *bool `validate:"optional" gorm:"default:false"`
 }

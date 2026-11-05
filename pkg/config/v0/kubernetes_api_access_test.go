@@ -244,3 +244,45 @@ func TestReplacingAnOkeDefinitionKeepsItsKubernetesRuntimeDefinitionInStep(t *te
 		assert.JSONEq(t, `[]`, string(rec.krdPatched["AllowedCidrs"]))
 	})
 }
+
+// TestANewGkeClusterFromConfigReservesItsNatAddress covers a GKE runtime
+// instance created from a config file: it is a new cluster, so its Cloud NAT
+// gets a reserved address.
+func TestANewGkeClusterFromConfigReservesItsNatAddress(t *testing.T) {
+	api := machinetest.NewAPIStub(t)
+	var sent api_v0.GcpGkeKubernetesRuntimeInstance
+	api.Mux.HandleFunc(api_v0.PathGcpGkeKubernetesRuntimeDefinitions, func(w http.ResponseWriter, r *http.Request) {
+		machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{api_v0.GcpGkeKubernetesRuntimeDefinition{
+			Common: api_v0.Common{ID: util.Ptr(uint(2))}, Definition: api_v0.Definition{Name: util.Ptr("gke-def")},
+			KubernetesRuntimeDefinitionID: util.Ptr(uint(3)),
+		}})
+	})
+	api.Mux.HandleFunc(api_v0.PathGcpProviders, func(w http.ResponseWriter, r *http.Request) {
+		machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{api_v0.GcpProvider{
+			Common: api_v0.Common{ID: util.Ptr(uint(1))}, Name: util.Ptr("gcp-account"),
+		}})
+	})
+	api.Mux.HandleFunc(api_v0.PathKubernetesRuntimeInstances, func(w http.ResponseWriter, r *http.Request) {
+		var body api_v0.KubernetesRuntimeInstance
+		assert.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		body.ID = util.Ptr(uint(4))
+		machinetest.WriteResponse(t, w, http.StatusCreated, []apiserver_lib.Object{body})
+	})
+	api.Mux.HandleFunc(api_v0.PathGcpGkeKubernetesRuntimeInstances, func(w http.ResponseWriter, r *http.Request) {
+		assert.NoError(t, json.NewDecoder(r.Body).Decode(&sent))
+		created := sent
+		created.ID = util.Ptr(uint(5))
+		created.CreatedAt = util.Ptr(time.Now())
+		machinetest.WriteResponse(t, w, http.StatusCreated, []apiserver_lib.Object{created})
+	})
+
+	config := GcpGkeKubernetesRuntimeInstanceConfig{GcpGkeKubernetesRuntimeInstance: GcpGkeKubernetesRuntimeInstanceValues{
+		Name:                              util.Ptr("gke-remote"),
+		Region:                            util.Ptr("us-central1"),
+		GcpProviderName:                   util.Ptr("gcp-account"),
+		GcpGkeKubernetesRuntimeDefinition: &GcpGkeKubernetesRuntimeDefinitionValues{Name: util.Ptr("gke-def")},
+	}}
+	_, err := config.Create(api.Client, api.Addr)
+	require.NoError(t, err)
+	assert.Equal(t, util.Ptr(true), sent.ReservedNatAddress)
+}
