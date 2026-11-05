@@ -210,15 +210,16 @@ func (t *TerraformDefinitionConfig) Replace(
 	}
 
 	// construct updated terraform definition object
-	updatedTerraformDefinition := &api_v0.TerraformDefinition{
-		Common: api_v0.Common{
-			ID: existingTerraformDefinition.ID,
-		},
-		Definition: api_v0.Definition{
-			Name: terraformDefinitionValues.Name,
-		},
-		ConfigDir: &concatConfig,
-	}
+	// Start from the existing object, so the fields this replace does not set
+	// are kept: the reconciler's (Reconciled and the rest of Reconciliation,
+	// Status) and the ones only the API server or a controller writes. Every
+	// field a user sets through the config is assigned below unconditionally,
+	// a nil value included, so a field left out of the config is cleared
+	// rather than kept. Do not assign the reconciler's fields here: the copy
+	// already carries them.
+	updatedTerraformDefinition := util.Ptr(*existingTerraformDefinition)
+	updatedTerraformDefinition.Name = terraformDefinitionValues.Name
+	updatedTerraformDefinition.ConfigDir = &concatConfig
 
 	// replace terraform definition
 	replacedTerraformDefinition, err := client_v0.ReplaceTerraformDefinition(

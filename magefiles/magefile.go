@@ -518,6 +518,10 @@ var moduleTestInputs = []string{"sdk-config.yaml", "README.md", "testdata"}
 // so where a test of them has to sit: the functions it covers are unexported.
 const moduleTestConfigPackage = "pkg/config/v0"
 
+// moduleTestInstallerPackage is the generated module's installer package,
+// whose generated test checks the module's database network policy.
+const moduleTestInstallerPackage = "pkg/installer/v0"
+
 // ModuleGen generates a Threeport module and type-checks it. Generated module
 // code calls this repository's exported API, so a changed signature fails here.
 func (Test) ModuleGen() error {
@@ -549,7 +553,9 @@ func (Test) ModuleGen() error {
 	// was a pass for.
 	if err := util.RunCommandStreamOutputInDir(
 		moduleTestPath,
-		"go", "test", "-count=1", "./"+moduleTestConfigPackage+"/...",
+		"go", "test", "-count=1",
+		"./"+moduleTestConfigPackage+"/...",
+		"./"+moduleTestInstallerPackage+"/...",
 	); err != nil {
 		return fmt.Errorf("failed to test the generated module: %w", err)
 	}

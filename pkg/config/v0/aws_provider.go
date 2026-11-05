@@ -228,18 +228,21 @@ func (a *AwsProviderConfig) Replace(
 	}
 
 	// construct updated aws provider object
-	updatedAwsProvider := &api.AwsProvider{
-		Common: api.Common{
-			ID: existingAwsProvider.ID,
-		},
-		Name:            awsProviderValues.Name,
-		AccountID:       awsProviderValues.AccountID,
-		DefaultProvider: awsProviderValues.DefaultProvider,
-		DefaultRegion:   awsProviderValues.DefaultRegion,
-		AccessKeyID:     awsProviderValues.AccessKeyID,
-		SecretAccessKey: awsProviderValues.SecretAccessKey,
-		RoleArn:         awsProviderValues.RoleArn,
-	}
+	// Start from the existing object, so the fields this replace does not set
+	// are kept: the reconciler's (Reconciled and the rest of Reconciliation,
+	// Status) and the ones only the API server or a controller writes. Every
+	// field a user sets through the config is assigned below unconditionally,
+	// a nil value included, so a field left out of the config is cleared
+	// rather than kept. Do not assign the reconciler's fields here: the copy
+	// already carries them.
+	updatedAwsProvider := util.Ptr(*existingAwsProvider)
+	updatedAwsProvider.Name = awsProviderValues.Name
+	updatedAwsProvider.AccountID = awsProviderValues.AccountID
+	updatedAwsProvider.DefaultProvider = awsProviderValues.DefaultProvider
+	updatedAwsProvider.DefaultRegion = awsProviderValues.DefaultRegion
+	updatedAwsProvider.AccessKeyID = awsProviderValues.AccessKeyID
+	updatedAwsProvider.SecretAccessKey = awsProviderValues.SecretAccessKey
+	updatedAwsProvider.RoleArn = awsProviderValues.RoleArn
 
 	// replace aws provider
 	replacedAwsProvider, err := client_v0.ReplaceAwsProvider(
