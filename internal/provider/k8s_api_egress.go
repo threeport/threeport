@@ -126,6 +126,16 @@ func kubeApiAllowlist(infraProvider string, allowedCidrs, controlPlaneEgressCidr
 	return allowlist, nil
 }
 
+// checkKubeApiAllowlist fails when the allowlist kubeApiAllowlist builds is
+// longer than infraProvider admits.  A cluster's Create and CreateInfra call
+// it before they change anything in the cloud, so that a list that is
+// refused leaves nothing behind to clean up.
+func checkKubeApiAllowlist(infraProvider string, allowedCidrs, controlPlaneEgressCidrs []string) error {
+	_, err := kubeApiAllowlist(infraProvider, allowedCidrs, controlPlaneEgressCidrs)
+
+	return err
+}
+
 // EgressCidrsJSON returns cidrs as the JSON array a kubernetes runtime
 // instance's EgressCidrs holds, or nil when there are none.
 func EgressCidrsJSON(cidrs []string) *datatypes.JSON {

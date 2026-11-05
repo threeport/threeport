@@ -268,6 +268,10 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		// tptctl.
 		if existingConfig, err := threeportConfig.GetControlPlaneConfig(cpi.Opts.ControlPlaneName); err == nil {
 			threeportControlPlaneConfig = existingConfig
+			// a prior --infra-only run created the cluster with the
+			// Kubernetes API access it recorded, which
+			// --k8s-api-allowed-cidrs cannot be passed here to change
+			cpi.Opts.K8sApiAllowedCidrs = existingConfig.K8sApiAllowedCidrs
 		} else {
 			threeportControlPlaneConfig = &ControlPlane{}
 		}
@@ -436,9 +440,10 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 
 	// read the addresses the new cluster's outbound traffic comes from,
 	// which the clusters this control plane manages admit when they
-	// restrict their Kubernetes API.  A cluster tptctl did not create, and a
-	// kind cluster, has none recorded.
-	var egressCidrs []string
+	// restrict their Kubernetes API.  With --control-plane-only these are
+	// the addresses a prior --infra-only run recorded; a cluster tptctl did
+	// not create, and a kind cluster, has none recorded.
+	egressCidrs := threeportControlPlaneConfig.EgressCidrs
 	if reporter, ok := kubernetesRuntimeInfra.(interface{ StackEgressCidrs() ([]string, error) }); ok && !cpi.Opts.ControlPlaneOnly {
 		if egressCidrs, err = reporter.StackEgressCidrs(); err != nil {
 			return uninstaller.cleanOnCreateError("failed to read the cluster's egress addresses", err)

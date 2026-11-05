@@ -88,6 +88,10 @@ type KubernetesRuntimeInfraOKE struct {
 // Create installs a Kubernetes cluster using Oracle Cloud OKE for threeport workloads.
 // It creates IAM resources and then provisions infrastructure.
 func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
+	if err := checkKubeApiAllowlist(v0.KubernetesRuntimeInfraProviderOKE, i.AllowedCidrs, i.ControlPlaneEgressCidrs); err != nil {
+		return nil, err
+	}
+
 	// create OCI IAM resources (user, group, policy, API key)
 	if err := i.CreateIAM(); err != nil {
 		return nil, fmt.Errorf("failed to create OCI IAM resources: %w", err)
@@ -109,6 +113,10 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 // It does not create IAM resources — call CreateIAM() first for the bootstrap path,
 // or set ServiceUserOCID/Fingerprint/PrivateKeyPEM directly for the controller path.
 func (i *KubernetesRuntimeInfraOKE) CreateInfra() (*kube.KubeConnectionInfo, error) {
+	if err := checkKubeApiAllowlist(v0.KubernetesRuntimeInfraProviderOKE, i.AllowedCidrs, i.ControlPlaneEgressCidrs); err != nil {
+		return nil, err
+	}
+
 	// derive tenancy OCID from config provider for Pulumi provider configuration
 	tenancyOCID, err := i.ConfigProvider.TenancyOCID()
 	if err != nil {

@@ -15,6 +15,7 @@ import (
 	"github.com/threeport/threeport/internal/machinetest"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -228,4 +229,49 @@ func TestEachProgramRecordsTheAddressesItsTrafficLeavesFrom(t *testing.T) {
 		gkeResources(t, testGkeInfra())
 		assert.Equal(t, []int{0}, *exported)
 	})
+}
+
+// TestAnAllowlistOverTheLimitIsRefusedBeforeAnythingIsCreated covers an
+// AllowedCidrs list that fits the provider's limit on its own but not with
+// the control plane's addresses: Create and CreateInfra refuse it before
+// they create IAM, a service account, a compartment or a stack, so there is
+// nothing to clean up.  None of the infra here has credentials or a region,
+// so a call that went on to the cloud would fail with another error.
+func TestAnAllowlistOverTheLimitIsRefusedBeforeAnythingIsCreated(t *testing.T) {
+	fill := func(infraProvider string) []string {
+		limit, _ := v0.AllowedCidrsLimit(infraProvider, false)
+		cidrs := make([]string, limit-1)
+		for i := range cidrs {
+			cidrs[i] = fmt.Sprintf("203.0.%d.%d/32", i/256, i%256)
+		}
+		return cidrs
+	}
+	controlPlane := []string{"198.51.100.20/32", "198.51.100.21/32"}
+
+	eks := &KubernetesRuntimeInfraEKS{
+		AllowedCidrs:            fill(v0.KubernetesRuntimeInfraProviderEKS),
+		ControlPlaneEgressCidrs: controlPlane,
+	}
+	gke := &KubernetesRuntimeInfraGKE{
+		AllowedCidrs:            fill(v0.KubernetesRuntimeInfraProviderGKE),
+		ControlPlaneEgressCidrs: controlPlane,
+	}
+	oke := &KubernetesRuntimeInfraOKE{
+		AllowedCidrs:            fill(v0.KubernetesRuntimeInfraProviderOKE),
+		ControlPlaneEgressCidrs: controlPlane,
+	}
+	for name, create := range map[string]func() (*kube.KubeConnectionInfo, error){
+		"eks Create":      eks.Create,
+		"eks CreateInfra": eks.CreateInfra,
+		"gke Create":      gke.Create,
+		"gke CreateInfra": gke.CreateInfra,
+		"oke Create":      oke.Create,
+		"oke CreateInfra": oke.CreateInfra,
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := create()
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "the control plane adds 2 of its own addresses")
+		})
+	}
 }

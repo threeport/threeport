@@ -147,6 +147,10 @@ func (i *KubernetesRuntimeInfraGKE) InitPulumiProject() *KubernetesRuntimeInfraG
 
 // Create installs a Kubernetes cluster using Google Cloud GKE for threeport workloads.
 func (i *KubernetesRuntimeInfraGKE) Create() (*kube.KubeConnectionInfo, error) {
+	if err := checkKubeApiAllowlist(v0.KubernetesRuntimeInfraProviderGKE, i.AllowedCidrs, i.ControlPlaneEgressCidrs); err != nil {
+		return nil, err
+	}
+
 	// ensure GCP authentication is in place
 	if err := gcpauth.EnsureGCPAuth(i.ServiceAccountCredentials); err != nil {
 		return nil, fmt.Errorf("failed to ensure GCP authentication: %w", err)
@@ -203,6 +207,10 @@ func (i *KubernetesRuntimeInfraGKE) Create() (*kube.KubeConnectionInfo, error) {
 // call createGCPServiceAccountAndCredentials first for the bootstrap path, or ensure
 // credentials and Workload Identity are already configured for the controller path.
 func (i *KubernetesRuntimeInfraGKE) CreateInfra() (*kube.KubeConnectionInfo, error) {
+	if err := checkKubeApiAllowlist(v0.KubernetesRuntimeInfraProviderGKE, i.AllowedCidrs, i.ControlPlaneEgressCidrs); err != nil {
+		return nil, err
+	}
+
 	stack, err := i.SetupStack(i.pulumiProgram())
 	if err != nil {
 		return nil, fmt.Errorf("failed to set up Pulumi workspace: %w", err)
