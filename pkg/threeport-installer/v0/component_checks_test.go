@@ -27,10 +27,15 @@ import (
 func testMapper() *meta.RESTMapper {
 	// pass preferred versions so a versionless lookup resolves
 	defaultMapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{
+		{Group: "", Version: "v1"},
 		{Group: "apps", Version: "v1"},
 		{Group: "apiextensions.k8s.io", Version: "v1"},
 		{Group: "rbac.authorization.k8s.io", Version: "v1"},
 	})
+	defaultMapper.Add(
+		schema.GroupVersionKind{Version: "v1", Kind: "Secret"},
+		meta.RESTScopeNamespace,
+	)
 	defaultMapper.Add(
 		schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"},
 		meta.RESTScopeNamespace,
@@ -52,12 +57,28 @@ func testMapper() *meta.RESTMapper {
 // testClient returns a dynamic client holding the given objects.
 func testClient(objects ...runtime.Object) *dynamicfake.FakeDynamicClient {
 	listKinds := map[schema.GroupVersionResource]string{
+		{Group: "", Version: "v1", Resource: "secrets"}:                                       "SecretList",
 		{Group: "apps", Version: "v1", Resource: "deployments"}:                               "DeploymentList",
 		{Group: "apiextensions.k8s.io", Version: "v1", Resource: "customresourcedefinitions"}: "CustomResourceDefinitionList",
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "clusterrolebindings"}:  "ClusterRoleBindingList",
 	}
 
 	return dynamicfake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), listKinds, objects...)
+}
+
+// secret builds a namespaced secret.
+func secret(namespace, name string) *unstructured.Unstructured {
+	// build a secret with only its name set
+	return &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Secret",
+			"metadata": map[string]interface{}{
+				"name":      name,
+				"namespace": namespace,
+			},
+		},
+	}
 }
 
 // deployment builds a deployment carrying the given container images.
@@ -468,6 +489,54 @@ func TestReconcileControllerSetDeletesDroppedDeployment(t *testing.T) {
 	)
 	require.NoError(t, err)
 	assert.True(t, keptPresent)
+}
+
+// TestReconcileControllerSetDeletesDroppedClientSecrets deletes the client certificate secrets of a dropped controller.
+func TestReconcileControllerSetDeletesDroppedClientSecrets(t *testing.T) {
+	require.GreaterOrEqual(t, len(ThreeportControllerList), 2)
+
+	// select the first catalog controller and leave the second installed
+	cpi := NewInstaller()
+	cpi.Opts.ControllerList = ThreeportControllerList[:1]
+	kept := ThreeportControllerList[0]
+	dropped := ThreeportControllerList[1]
+	client := testClient(
+		deployment(cpi.Opts.Namespace, cpi.controllerDeploymentName(*kept)),
+		deployment(cpi.Opts.Namespace, cpi.controllerDeploymentName(*dropped)),
+		secret(cpi.Opts.Namespace, controllerCaSecretName(kept.Name)),
+		secret(cpi.Opts.Namespace, controllerCertSecretName(kept.Name)),
+		secret(cpi.Opts.Namespace, controllerCaSecretName(dropped.Name)),
+		secret(cpi.Opts.Namespace, controllerCertSecretName(dropped.Name)),
+	)
+	mapper := testMapper()
+
+	// delete the dropped controller, then again once its secrets are gone
+	require.NoError(t, cpi.ReconcileControllerSet(client, mapper, nil, false))
+	require.NoError(t, cpi.ReconcileControllerSet(client, mapper, nil, false))
+
+	// confirm the dropped controller's client certificate secrets are gone
+	for _, name := range []string{
+		controllerCaSecretName(dropped.Name),
+		controllerCertSecretName(dropped.Name),
+	} {
+		_, present, err := resourceInstalled(
+			client, mapper, "", "v1", "Secret", cpi.Opts.Namespace, name,
+		)
+		require.NoError(t, err)
+		assert.False(t, present)
+	}
+
+	// confirm the selected controller's client certificate secrets stayed
+	for _, name := range []string{
+		controllerCaSecretName(kept.Name),
+		controllerCertSecretName(kept.Name),
+	} {
+		_, present, err := resourceInstalled(
+			client, mapper, "", "v1", "Secret", cpi.Opts.Namespace, name,
+		)
+		require.NoError(t, err)
+		assert.True(t, present)
+	}
 }
 
 // TestReconcileControllerSetKeepsSelfControlPlaneController checks the self controller stays installed.

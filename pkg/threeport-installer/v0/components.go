@@ -514,7 +514,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 					"kind":       "Secret",
 					"type":       "Opaque",
 					"metadata": map[string]interface{}{
-						"name":      fmt.Sprintf("%s-ca", controller.Name),
+						"name":      controllerCaSecretName(controller.Name),
 						"namespace": cpi.Opts.Namespace,
 					},
 					"stringData": map[string]interface{}{
@@ -528,7 +528,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 				return fmt.Errorf("failed to create API server ca secret for kubernetes workload controller: %w", err)
 			}
 
-			cert := cpi.getTLSSecret(fmt.Sprintf("%s-cert", controller.Name), certificate, privateKey)
+			cert := cpi.getTLSSecret(controllerCertSecretName(controller.Name), certificate, privateKey)
 			if err := cpi.CreateOrUpdateKubeResource(cert, kubeClient, mapper); err != nil {
 				return fmt.Errorf("failed to create API server certificate secret for kubernetes workload controller: %w", err)
 			}
@@ -770,6 +770,16 @@ func (cpi *ControlPlaneInstaller) controllerDeploymentName(controller v0.Control
 	return fmt.Sprintf("%s-%s", cpi.Opts.Name, controller.Name)
 }
 
+// controllerCaSecretName returns <name>-ca for one controller.
+func controllerCaSecretName(name string) string {
+	return fmt.Sprintf("%s-ca", name)
+}
+
+// controllerCertSecretName returns <name>-cert for one controller.
+func controllerCertSecretName(name string) string {
+	return fmt.Sprintf("%s-cert", name)
+}
+
 // unselectedControllers returns catalog controllers absent from ControllerList.
 func (cpi *ControlPlaneInstaller) unselectedControllers() []*v0.ControlPlaneComponent {
 	// collect the names still selected
@@ -844,15 +854,17 @@ func (cpi *ControlPlaneInstaller) ReconcileControllerSet(
 	return nil
 }
 
-// deleteController removes one controller deployment, its service account, and its role bindings.
+// deleteController removes one controller deployment, its service account, its client certificate secrets, and its role bindings.
 func (cpi *ControlPlaneInstaller) deleteController(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	controller v0.ControlPlaneComponent,
 ) error {
-	// delete the deployment, and the account when the controller has one
+	// delete the deployment, the client certificate secrets, and the account when the controller has one
 	objects := []*unstructured.Unstructured{
 		kubeObject("apps/v1", "Deployment", cpi.Opts.Namespace, cpi.controllerDeploymentName(controller)),
+		kubeObject("v1", "Secret", cpi.Opts.Namespace, controllerCaSecretName(controller.Name)),
+		kubeObject("v1", "Secret", cpi.Opts.Namespace, controllerCertSecretName(controller.Name)),
 	}
 	if controller.ServiceAccountName != "" {
 		objects = append(objects,
@@ -2007,8 +2019,8 @@ func (cpi *ControlPlaneInstaller) getControllerVolumes(controller v0.ControlPlan
 	volMounts := []interface{}{}
 
 	if cpi.Opts.AuthEnabled {
-		caVol, caVolMount := cpi.getSecretVols(fmt.Sprintf("%s-ca", controller.Name), "/etc/threeport/ca")
-		certVol, certVolMount := cpi.getSecretVols(fmt.Sprintf("%s-cert", controller.Name), "/etc/threeport/cert")
+		caVol, caVolMount := cpi.getSecretVols(controllerCaSecretName(controller.Name), "/etc/threeport/ca")
+		certVol, certVolMount := cpi.getSecretVols(controllerCertSecretName(controller.Name), "/etc/threeport/cert")
 
 		vols = append(vols, caVol)
 		vols = append(vols, certVol)
