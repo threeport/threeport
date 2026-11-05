@@ -90,8 +90,8 @@ installs the control plane through the Kubernetes API, and `tptctl down` and
 that it can reach the Kubernetes API before it installs anything. If it can't
 within two minutes, it stops with an error that names the endpoint. The cluster
 is left in place unless you passed `--teardown-on-failure`: delete it with
-`tptctl down --infra-only`, then run `tptctl up` again with your address in the
-list.
+`tptctl down --name test --infra-only`, then run `tptctl up` again with your
+address in the list.
 
 Addresses that belong to Google Cloud, such as other projects' VMs or Cloud
 Shell, are not let through unless they are in the list.

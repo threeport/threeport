@@ -36,6 +36,10 @@ const (
 // the providers can make a Kubernetes API private.
 const ErrMsgPrivateApiNotSupported = "PrivateApi is not supported yet: the Kubernetes API can be restricted with AllowedCidrs, but not yet made private"
 
+// ErrMsgKubernetesApiAccessImmutable is the rejection of an update that
+// changes PrivateApi or AllowedCidrs.
+const ErrMsgKubernetesApiAccessImmutable = "PrivateApi and AllowedCidrs cannot be changed after creation: the change would not be applied to the cluster"
+
 // AllowedCidrsLimit returns how many CIDR blocks infraProvider admits in the
 // allowlist on a cluster's Kubernetes API, and false for a provider whose
 // Kubernetes API Threeport cannot restrict.
@@ -132,16 +136,17 @@ func validateKubernetesApiAccess(infraProvider string, privateApi *bool, allowed
 	return nil
 }
 
-// validateKubernetesApiAccessUpdate runs validateKubernetesApiAccess on an
-// update that changes PrivateApi or AllowedCidrs, against the values the
-// object will hold once the update lands.  current holds the receiver's
-// values, and incoming returns the values the update carries.
+// validateKubernetesApiAccessUpdate checks an update that sends PrivateApi
+// or AllowedCidrs.  The values it would leave are validated, then refused if
+// they differ from the stored ones: nothing applies a change to a runtime that
+// exists, so accepting one would record a restriction the cluster does not
+// have.  Values that mean the same, such as an unset list and an empty one or
+// the same blocks in another order, are not a change.  access returns an
+// object's PrivateApi and AllowedCidrs.
 func validateKubernetesApiAccessUpdate(
 	tx *gorm.DB,
 	infraProvider string,
-	currentPrivateApi *bool,
-	currentAllowedCidrs *datatypes.JSON,
-	incoming func(any) (*bool, *datatypes.JSON, bool),
+	access func(any) (*bool, *datatypes.JSON, bool),
 ) error {
 	privateApiChanged, err := lib.IsFieldChanged(tx, "PrivateApi")
 	if err != nil {
@@ -155,24 +160,67 @@ func validateKubernetesApiAccessUpdate(
 		return nil
 	}
 
-	incomingPrivateApi, incomingAllowedCidrs, ok := incoming(lib.IncomingValues(tx))
-	if !ok {
+	// a patch's receiver is the stored row, while a replace's receiver is
+	// the incoming object, so the stored row is read back for a replace
+	stored := tx.Statement.Model
+	if lib.IsFullReplace(tx) {
+		if stored, err = lib.LoadObjectFromDB(tx); err != nil {
+			return err
+		}
+	}
+	storedPrivateApi, storedAllowedCidrs, storedOk := access(stored)
+	incomingPrivateApi, incomingAllowedCidrs, incomingOk := access(lib.IncomingValues(tx))
+	if !storedOk || !incomingOk {
 		return fmt.Errorf(
 			"cannot validate Kubernetes API access: update carries %T",
 			lib.IncomingValues(tx),
 		)
 	}
 
-	privateApi := currentPrivateApi
+	privateApi := storedPrivateApi
 	if privateApiChanged {
 		privateApi = incomingPrivateApi
 	}
-	allowedCidrs := currentAllowedCidrs
+	allowedCidrs := storedAllowedCidrs
 	if allowedCidrsChanged {
 		allowedCidrs = incomingAllowedCidrs
 	}
 
-	return validateKubernetesApiAccess(infraProvider, privateApi, allowedCidrs)
+	if err := validateKubernetesApiAccess(infraProvider, privateApi, allowedCidrs); err != nil {
+		return err
+	}
+
+	if !sameKubernetesApiAccess(storedPrivateApi, storedAllowedCidrs, privateApi, allowedCidrs) {
+		return util.NewBadRequestError(ErrMsgKubernetesApiAccessImmutable)
+	}
+
+	return nil
+}
+
+// sameKubernetesApiAccess reports whether two pairs of PrivateApi and
+// AllowedCidrs restrict the Kubernetes API in the same way.  A list that
+// cannot be read is taken to differ.
+func sameKubernetesApiAccess(privateApiA *bool, allowedCidrsA *datatypes.JSON, privateApiB *bool, allowedCidrsB *datatypes.JSON) bool {
+	if (privateApiA != nil && *privateApiA) != (privateApiB != nil && *privateApiB) {
+		return false
+	}
+
+	cidrsA, errA := ParseCidrs("AllowedCidrs", allowedCidrsA)
+	cidrsB, errB := ParseCidrs("AllowedCidrs", allowedCidrsB)
+	if errA != nil || errB != nil || len(cidrsA) != len(cidrsB) {
+		return false
+	}
+	inA := make(map[string]bool, len(cidrsA))
+	for _, cidr := range cidrsA {
+		inA[cidr] = true
+	}
+	for _, cidr := range cidrsB {
+		if !inA[cidr] {
+			return false
+		}
+	}
+
+	return true
 }
 
 // validateCidrsUpdate checks field on an update that changes it.

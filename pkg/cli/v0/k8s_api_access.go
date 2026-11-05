@@ -101,3 +101,17 @@ func waitForKubernetesAPI(runtimeInstance *v0.KubernetesRuntimeInstance, allowed
 		restConfig.Host, kubeAPIReachTimeout, allowedCidrs, err,
 	)
 }
+
+// withUnreachableClusterCleanup adds to err how to delete a cluster whose
+// Kubernetes API tptctl up could not reach, which is left in place unless
+// --teardown-on-failure is set.
+func withUnreachableClusterCleanup(err error, controlPlaneName string, teardownOnFailure bool) error {
+	if teardownOnFailure {
+		return err
+	}
+
+	return fmt.Errorf(
+		"%w\nthe cluster has been left in place - delete it with 'tptctl down --name %s --infra-only', or run tptctl up with --teardown-on-failure to delete it on failure",
+		err, controlPlaneName,
+	)
+}

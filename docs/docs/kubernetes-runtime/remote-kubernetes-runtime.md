@@ -82,7 +82,8 @@ OKE up to 120. The Threeport control plane manages the cluster through its
 Kubernetes API, so the list must include the public addresses the control
 plane's outbound traffic comes from, as well as any address you run `kubectl`
 from. A control plane on EKS sends its outbound traffic through the Elastic IPs
-of its cluster's NAT gateways.
+of its cluster's NAT gateways. The list can't be changed once the runtime has
+been created.
 
 Create a `KubernetesRuntime` instance:
 ```bash

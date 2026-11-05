@@ -80,8 +80,8 @@ installs the control plane through the Kubernetes API, and `tptctl down` and
 that it can reach the Kubernetes API before it installs anything. If it can't
 within two minutes, it stops with an error that names the endpoint. The cluster
 is left in place unless you passed `--teardown-on-failure`: delete it with
-`tptctl down --infra-only`, then run `tptctl up` again with your address in the
-list.
+`tptctl down --name test --infra-only`, then run `tptctl up` again with your
+address in the list.
 
 The control plane reaches the cluster it runs on from inside the cluster, so
 it needs no entry in the list.

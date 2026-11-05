@@ -574,10 +574,10 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	if len(cpi.Opts.K8sApiAllowedCidrs) > 0 {
 		Info(fmt.Sprintf("Checking that this machine can reach the Kubernetes API at %s", *kubernetesRuntimeInstance.APIEndpoint))
 		if err := waitForKubernetesAPI(kubernetesRuntimeInstance, cpi.Opts.K8sApiAllowedCidrs); err != nil {
-			if !cpi.Opts.TeardownOnFailure {
-				err = fmt.Errorf("%w\nthe cluster has been left in place - delete it with 'tptctl down --infra-only', or run tptctl up with --teardown-on-failure to delete it on failure", err)
-			}
-			return uninstaller.cleanOnCreateError("failed to reach the Kubernetes API", err)
+			return uninstaller.cleanOnCreateError(
+				"failed to reach the Kubernetes API",
+				withUnreachableClusterCleanup(err, cpi.Opts.ControlPlaneName, cpi.Opts.TeardownOnFailure),
+			)
 		}
 	}
 

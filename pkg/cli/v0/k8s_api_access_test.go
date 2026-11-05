@@ -2,6 +2,7 @@ package v0
 
 import (
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -163,4 +164,19 @@ func TestTptctlUpChecksItCanReachTheKubernetesApi(t *testing.T) {
 		assert.Less(t, time.Since(started), 3*time.Second, "each attempt is cut off rather than left to hang")
 		assert.Contains(t, err.Error(), "--k8s-api-allowed-cidrs")
 	})
+}
+
+// TestAnUnreachableClusterComesWithACommandThatDeletesIt covers the advice
+// given when the check fails: a command that runs as printed, naming the
+// control plane as tptctl down requires, and none when the cluster is torn
+// down anyway.
+func TestAnUnreachableClusterComesWithACommandThatDeletesIt(t *testing.T) {
+	cause := errors.New("could not reach the Kubernetes API")
+
+	kept := withUnreachableClusterCleanup(cause, "prod-east", false)
+	assert.ErrorIs(t, kept, cause)
+	assert.Contains(t, kept.Error(), "'tptctl down --name prod-east --infra-only'")
+	assert.Contains(t, kept.Error(), "--teardown-on-failure")
+
+	assert.Equal(t, cause, withUnreachableClusterCleanup(cause, "prod-east", true))
 }

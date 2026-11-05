@@ -81,14 +81,12 @@ func (g *GcpGkeKubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
 	return validateKubernetesApiAccessUpdate(
 		tx,
 		KubernetesRuntimeInfraProviderGKE,
-		g.PrivateApi,
-		g.AllowedCidrs,
 		func(values any) (*bool, *datatypes.JSON, bool) {
-			incoming, ok := values.(*GcpGkeKubernetesRuntimeDefinition)
+			object, ok := values.(*GcpGkeKubernetesRuntimeDefinition)
 			if !ok {
 				return nil, nil, false
 			}
-			return incoming.PrivateApi, incoming.AllowedCidrs, true
+			return object.PrivateApi, object.AllowedCidrs, true
 		},
 	)
 }

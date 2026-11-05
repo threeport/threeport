@@ -185,8 +185,10 @@ func TestADefinitionCreatedWithoutTheFieldsKeepsAPublicApi(t *testing.T) {
 }
 
 // TestAnUpdateIsCheckedAgainstWhatTheDefinitionWillHold covers both update
-// shapes: a patch is checked together with the values already stored, and
-// a replace with the values it carries.
+// shapes: the values an update would leave are validated, and refused when
+// they would change how the cluster is restricted, since nothing applies the
+// change to it.  An update that sends the same restriction in another form
+// is accepted.
 func TestAnUpdateIsCheckedAgainstWhatTheDefinitionWillHold(t *testing.T) {
 	cases := []struct {
 		name     string
@@ -196,9 +198,31 @@ func TestAnUpdateIsCheckedAgainstWhatTheDefinitionWillHold(t *testing.T) {
 		wantErr  string
 	}{
 		{
-			name: "patch a valid allowlist", provider: KubernetesRuntimeInfraProviderEKS,
+			name: "patch in an allowlist", provider: KubernetesRuntimeInfraProviderEKS,
 			update: func(db *gorm.DB, loaded KubernetesRuntimeDefinition) error {
 				return db.Model(&loaded).Updates(&KubernetesRuntimeDefinition{AllowedCidrs: rawJSON(`["203.0.113.0/24"]`)}).Error
+			},
+			wantErr: ErrMsgKubernetesApiAccessImmutable,
+		},
+		{
+			name: "patch another allowlist over a stored one", provider: KubernetesRuntimeInfraProviderEKS,
+			stored: rawJSON(`["203.0.113.0/24"]`),
+			update: func(db *gorm.DB, loaded KubernetesRuntimeDefinition) error {
+				return db.Model(&loaded).Updates(&KubernetesRuntimeDefinition{AllowedCidrs: rawJSON(`["198.51.100.0/24"]`)}).Error
+			},
+			wantErr: ErrMsgKubernetesApiAccessImmutable,
+		},
+		{
+			name: "patch the same blocks in another order", provider: KubernetesRuntimeInfraProviderEKS,
+			stored: rawJSON(`["203.0.113.0/24","198.51.100.0/24"]`),
+			update: func(db *gorm.DB, loaded KubernetesRuntimeDefinition) error {
+				return db.Model(&loaded).Updates(&KubernetesRuntimeDefinition{AllowedCidrs: rawJSON(`["198.51.100.0/24", "203.0.113.0/24"]`)}).Error
+			},
+		},
+		{
+			name: "patch an empty list over none", provider: KubernetesRuntimeInfraProviderEKS,
+			update: func(db *gorm.DB, loaded KubernetesRuntimeDefinition) error {
+				return db.Model(&loaded).Updates(&KubernetesRuntimeDefinition{AllowedCidrs: rawJSON(`[]`), PrivateApi: util.Ptr(false)}).Error
 			},
 		},
 		{
@@ -263,6 +287,24 @@ func TestAnUpdateIsCheckedAgainstWhatTheDefinitionWillHold(t *testing.T) {
 		{
 			name: "replace clearing the list", provider: KubernetesRuntimeInfraProviderEKS,
 			stored: rawJSON(`["203.0.113.0/24"]`),
+			update: func(db *gorm.DB, loaded KubernetesRuntimeDefinition) error {
+				loaded.AllowedCidrs = nil
+				return db.Save(&loaded).Error
+			},
+			wantErr: ErrMsgKubernetesApiAccessImmutable,
+		},
+		{
+			name: "replace keeping the list", provider: KubernetesRuntimeInfraProviderEKS,
+			stored: rawJSON(`["203.0.113.0/24"]`),
+			update: func(db *gorm.DB, loaded KubernetesRuntimeDefinition) error {
+				loaded.NodeSize = util.Ptr("Large")
+				loaded.AllowedCidrs = rawJSON(`[ "203.0.113.0/24" ]`)
+				return db.Save(&loaded).Error
+			},
+		},
+		{
+			name: "replace an empty list with none", provider: KubernetesRuntimeInfraProviderEKS,
+			stored: rawJSON(`[]`),
 			update: func(db *gorm.DB, loaded KubernetesRuntimeDefinition) error {
 				loaded.AllowedCidrs = nil
 				return db.Save(&loaded).Error
@@ -341,6 +383,14 @@ func TestTheProviderDefinitionsAreCheckedLikeTheirKubernetesRuntimeDefinition(t 
 			err := db.Create(c.build(rawJSON(`["203.0.113.7/24"]`))).Error
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), "has host bits set")
+		})
+		t.Run(c.name+" patched with another list", func(t *testing.T) {
+			db := setupKubernetesApiAccessDB(t)
+			created := c.build(rawJSON(`["203.0.113.0/24"]`))
+			require.NoError(t, db.Create(created).Error)
+			err := db.Model(created).Updates(c.build(rawJSON(`["198.51.100.0/24"]`))).Error
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), ErrMsgKubernetesApiAccessImmutable)
 		})
 		t.Run(c.name+" patched with a bad block", func(t *testing.T) {
 			db := setupKubernetesApiAccessDB(t)

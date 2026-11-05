@@ -78,14 +78,12 @@ func (o *OciOkeKubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
 	return validateKubernetesApiAccessUpdate(
 		tx,
 		KubernetesRuntimeInfraProviderOKE,
-		o.PrivateApi,
-		o.AllowedCidrs,
 		func(values any) (*bool, *datatypes.JSON, bool) {
-			incoming, ok := values.(*OciOkeKubernetesRuntimeDefinition)
+			object, ok := values.(*OciOkeKubernetesRuntimeDefinition)
 			if !ok {
 				return nil, nil, false
 			}
-			return incoming.PrivateApi, incoming.AllowedCidrs, true
+			return object.PrivateApi, object.AllowedCidrs, true
 		},
 	)
 }
