@@ -148,12 +148,18 @@ func (c *ControlPlaneDefinitionConfig) Replace(
 	}
 
 	// construct updated control plane definition object
-	// Replace sends a PUT, a full replace, and the column default only applies
-	// on insert - so a config that does not mention the tier would not fall
-	// back to development, it would leave the definition with no tier at all.
-	// A caller editing an unrelated field is not changing what the control
-	// plane is, so the recorded value is carried forward.
+	// Start from the existing object, so the fields this replace does not set
+	// are kept: the reconciler's (Reconciled and the rest of Reconciliation,
+	// Status) and the ones only the API server or a controller writes. Every
+	// field a user sets through the config is assigned below unconditionally,
+	// a nil value included, so a field left out of the config is cleared
+	// rather than kept. Do not assign the reconciler's fields here: the copy
+	// already carries them.
 	//
+	// The tier is the exception: the column default only applies on insert,
+	// so clearing it would leave the definition with no tier at all rather
+	// than back at development. A config that does not mention the tier is
+	// not changing what the control plane is, so the recorded value is kept.
 	// A config that names a different tier is refused. The tier is decided at
 	// creation and the deployment is built from it; rewriting the record
 	// reconfigures nothing. The API refuses this too - the check is repeated
@@ -170,17 +176,11 @@ func (c *ControlPlaneDefinitionConfig) Replace(
 		tier = controlPlaneDefinitionValues.Tier
 	}
 
-	updatedControlPlaneDefinition := &api_v0.ControlPlaneDefinition{
-		Common: api_v0.Common{
-			ID: existingControlPlaneDefinition.ID,
-		},
-		Definition: api_v0.Definition{
-			Name: controlPlaneDefinitionValues.Name,
-		},
-		AuthEnabled:   controlPlaneDefinitionValues.AuthEnabled,
-		Tier:          tier,
-		OnboardParent: controlPlaneDefinitionValues.OnboardParent,
-	}
+	updatedControlPlaneDefinition := util.Ptr(*existingControlPlaneDefinition)
+	updatedControlPlaneDefinition.Name = controlPlaneDefinitionValues.Name
+	updatedControlPlaneDefinition.AuthEnabled = controlPlaneDefinitionValues.AuthEnabled
+	updatedControlPlaneDefinition.Tier = tier
+	updatedControlPlaneDefinition.OnboardParent = controlPlaneDefinitionValues.OnboardParent
 
 	// replace control plane definition
 	replacedControlPlaneDefinition, err := client_v0.ReplaceControlPlaneDefinition(
