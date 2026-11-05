@@ -99,6 +99,35 @@ Shell, are not let through unless they are in the list.
 The control plane reaches the cluster it runs on from inside the cluster, so
 it needs no entry in the list.
 
+### Make the Kubernetes API Private
+
+To take the Kubernetes API off the public internet altogether, pass
+`--private-k8s-api`:
+
+```bash
+  --private-k8s-api
+```
+
+The cluster then has no public IP endpoint. Its own network, and networks
+connected to it, reach its internal endpoint. `tptctl` and the control plane
+reach it through GKE's DNS-based endpoint, which Google authorizes with IAM
+(`container.clusters.connect`) rather than by address, using the same Google
+credentials `tptctl` already uses. You don't need to list your own address.
+
+With `--private-k8s-api`, `--k8s-api-allowed-cidrs` lists the private networks,
+such as a VPN or a peered network, that may reach the internal endpoint, up to
+100. Without it, any address in the cluster's network or a network connected to
+it can. The cluster's own address ranges are always admitted.
+
+To use `kubectl` against a private cluster, fetch its credentials for the DNS
+endpoint:
+
+```bash
+gcloud container clusters get-credentials threeport-test --region us-central1 --dns-endpoint
+```
+
+`--private-k8s-api` is available only on GKE for now.
+
 ## Validate Deployment
 
 Note: if you would like to use

@@ -18142,7 +18142,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "PrivateApi": {
-                    "description": "If true, the Kubernetes API is not reachable from the public internet.\nIt is reachable only from the cluster's own network, from networks\nconnected to it and, on GKE, through the IAM-authorized DNS endpoint.\nCannot be changed after creation.",
+                    "description": "If true, the Kubernetes API is not reachable from the public internet.\nIt is reachable only from the cluster's own network, from networks\nconnected to it and, on GKE, through the IAM-authorized DNS endpoint.\nSupported on GKE only.  Cannot be changed after creation.",
                     "type": "boolean"
                 },
                 "ProfileID": {

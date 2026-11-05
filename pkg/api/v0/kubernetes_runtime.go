@@ -38,7 +38,7 @@ type KubernetesRuntimeDefinition struct {
 	// If true, the Kubernetes API is not reachable from the public internet.
 	// It is reachable only from the cluster's own network, from networks
 	// connected to it and, on GKE, through the IAM-authorized DNS endpoint.
-	// Cannot be changed after creation.
+	// Supported on GKE only.  Cannot be changed after creation.
 	PrivateApi *bool `validate:"optional" gorm:"default:false"`
 
 	// The CIDR blocks allowed to reach the Kubernetes API, as a JSON array of
