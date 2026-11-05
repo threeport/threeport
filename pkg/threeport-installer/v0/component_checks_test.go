@@ -521,3 +521,45 @@ func TestReconcileControllerSetKeepsSelfControlPlaneController(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, droppedPresent)
 }
+
+// TestDeleteAgentRoleBindingsLeavesOtherControlPlanes deletes one control plane's agent bindings and leaves the other's.
+func TestDeleteAgentRoleBindingsLeavesOtherControlPlanes(t *testing.T) {
+	// install agent bindings for two control planes
+	cpi := NewInstaller()
+	cpi.Opts.Namespace = "child"
+	client := testClient(
+		clusterRoleBinding("child-threeport-agent-manager-rolebinding", "agent"),
+		clusterRoleBinding("child-threeport-agent-proxy-rolebinding", "agent"),
+		clusterRoleBinding("threeport-control-plane-threeport-agent-manager-rolebinding", "agent"),
+		clusterRoleBinding("threeport-control-plane-threeport-agent-proxy-rolebinding", "agent"),
+	)
+	mapper := testMapper()
+
+	// delete the child bindings, then again once they are already gone
+	require.NoError(t, cpi.DeleteAgentRoleBindings(client, mapper))
+	require.NoError(t, cpi.DeleteAgentRoleBindings(client, mapper))
+
+	// confirm the child bindings are gone
+	for _, name := range []string{
+		"child-threeport-agent-manager-rolebinding",
+		"child-threeport-agent-proxy-rolebinding",
+	} {
+		_, present, err := resourceInstalled(
+			client, mapper, "rbac.authorization.k8s.io", "v1", "ClusterRoleBinding", "", name,
+		)
+		require.NoError(t, err)
+		assert.False(t, present)
+	}
+
+	// confirm the other control plane's bindings stayed
+	for _, name := range []string{
+		"threeport-control-plane-threeport-agent-manager-rolebinding",
+		"threeport-control-plane-threeport-agent-proxy-rolebinding",
+	} {
+		_, present, err := resourceInstalled(
+			client, mapper, "rbac.authorization.k8s.io", "v1", "ClusterRoleBinding", "", name,
+		)
+		require.NoError(t, err)
+		assert.True(t, present)
+	}
+}

@@ -863,6 +863,30 @@ func (cpi *ControlPlaneInstaller) deleteController(
 	return nil
 }
 
+// DeleteAgentRoleBindings removes this control plane's agent cluster role bindings.
+// Deleting the control plane namespace leaves them because they are cluster-scoped.
+func (cpi *ControlPlaneInstaller) DeleteAgentRoleBindings(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+) error {
+	// delete the manager and proxy bindings
+	for _, suffix := range []string{
+		"threeport-agent-manager-rolebinding",
+		"threeport-agent-proxy-rolebinding",
+	} {
+		binding := kubeObject(
+			"rbac.authorization.k8s.io/v1",
+			"ClusterRoleBinding",
+			"",
+			fmt.Sprintf("%s-%s", cpi.Opts.Namespace, suffix),
+		)
+		if err := kube.DeleteResource(binding, kubeClient, *mapper); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // kubeObject returns an object with only its name set, for a delete.
 func kubeObject(apiVersion, kind, namespace, name string) *unstructured.Unstructured {
 	metadata := map[string]interface{}{"name": name}
