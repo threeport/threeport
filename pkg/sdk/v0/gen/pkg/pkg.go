@@ -126,6 +126,9 @@ func GenPkg(generator *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		if err := installer.GenInstaller(generator, sdkConfig); err != nil {
 			return fmt.Errorf("failed to generate installer package: %w", err)
 		}
+		if err := installer.GenInstallerDatabasePolicyTest(generator, sdkConfig); err != nil {
+			return fmt.Errorf("failed to generate installer database policy test: %w", err)
+		}
 	}
 
 	return nil
