@@ -192,6 +192,7 @@ func (cpi *ControlPlaneInstaller) runDropMessageBrokerJob(
 								"name":            "drop-message-broker",
 								"securityContext": vendoredContainerSecurityContext(),
 								"image":           natsBoxImage,
+								"resources":       natsBoxResources(),
 								"env": []interface{}{
 									map[string]interface{}{
 										"name":  "NATS_URL",
