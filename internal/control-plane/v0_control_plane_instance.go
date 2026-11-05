@@ -218,7 +218,7 @@ func v0ControlPlaneInstanceCreated(
 			cpi.Opts.Namespace,
 			tpaws.IamTags(
 				cpi.Opts.ControlPlaneName,
-				map[string]string{},
+				provider.ThreeportProviderTags(),
 			),
 			resourceManagerRoleName,
 			*callerIdentity.Account,

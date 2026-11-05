@@ -286,3 +286,67 @@ func TestANewGkeClusterFromConfigReservesItsNatAddress(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, util.Ptr(true), sent.ReservedNatAddress)
 }
+
+// TestReplacingAnEksOrGkeDefinitionKeepsItsKubernetesApiAccess covers the
+// provider definitions the kubernetes runtime controller fills in from a
+// KubernetesRuntimeDefinition.  Their configs don't carry PrivateApi or
+// AllowedCidrs, so a replace sends back the stored values, which the API
+// refuses to change, rather than clearing them.
+func TestReplacingAnEksOrGkeDefinitionKeepsItsKubernetesApiAccess(t *testing.T) {
+	name := "restricted"
+	allowedCidrs := datatypes.JSON(`["203.0.113.0/24"]`)
+
+	t.Run("EKS", func(t *testing.T) {
+		api := &fakeApi{t: t, objects: map[string]interface{}{
+			api_v0.PathAwsEksKubernetesRuntimeDefinitions: api_v0.AwsEksKubernetesRuntimeDefinition{
+				Common:       api_v0.Common{ID: util.Ptr(uint(1))},
+				Definition:   api_v0.Definition{Name: &name},
+				PrivateApi:   util.Ptr(false),
+				AllowedCidrs: &allowedCidrs,
+			},
+		}}
+		config := &AwsEksKubernetesRuntimeDefinitionConfig{AwsEksKubernetesRuntimeDefinition: AwsEksKubernetesRuntimeDefinitionValues{
+			Name:                         util.Ptr("renamed"),
+			ZoneCount:                    util.Ptr(1),
+			DefaultNodeGroupInstanceType: util.Ptr("e2-standard-2"),
+			DefaultNodeGroupInitialSize:  util.Ptr(1),
+			DefaultNodeGroupMinimumSize:  util.Ptr(1),
+			DefaultNodeGroupMaximumSize:  util.Ptr(3),
+		}}
+		_, err := config.Replace(&http.Client{}, api.serve(), name)
+		require.NoError(t, err)
+
+		var sent api_v0.AwsEksKubernetesRuntimeDefinition
+		api.decodeSent(&sent)
+		assert.Equal(t, "renamed", *sent.Name)
+		assert.Equal(t, util.Ptr(false), sent.PrivateApi)
+		require.NotNil(t, sent.AllowedCidrs)
+		assert.JSONEq(t, string(allowedCidrs), string(*sent.AllowedCidrs))
+	})
+	t.Run("GKE", func(t *testing.T) {
+		api := &fakeApi{t: t, objects: map[string]interface{}{
+			api_v0.PathGcpGkeKubernetesRuntimeDefinitions: api_v0.GcpGkeKubernetesRuntimeDefinition{
+				Common:       api_v0.Common{ID: util.Ptr(uint(1))},
+				Definition:   api_v0.Definition{Name: &name},
+				PrivateApi:   util.Ptr(true),
+				AllowedCidrs: &allowedCidrs,
+			},
+		}}
+		config := &GcpGkeKubernetesRuntimeDefinitionConfig{GcpGkeKubernetesRuntimeDefinition: GcpGkeKubernetesRuntimeDefinitionValues{
+			Name:                         util.Ptr("renamed"),
+			ZoneCount:                    util.Ptr(1),
+			DefaultNodeGroupInstanceType: util.Ptr("e2-standard-2"),
+			DefaultNodeGroupInitialSize:  util.Ptr(1),
+			DefaultNodeGroupMinimumSize:  util.Ptr(1),
+			DefaultNodeGroupMaximumSize:  util.Ptr(3),
+		}}
+		_, err := config.Replace(&http.Client{}, api.serve(), name)
+		require.NoError(t, err)
+
+		var sent api_v0.GcpGkeKubernetesRuntimeDefinition
+		api.decodeSent(&sent)
+		assert.Equal(t, util.Ptr(true), sent.PrivateApi)
+		require.NotNil(t, sent.AllowedCidrs)
+		assert.JSONEq(t, string(allowedCidrs), string(*sent.AllowedCidrs))
+	})
+}

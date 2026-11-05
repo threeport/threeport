@@ -182,6 +182,13 @@ jobs:
         PARALLEL_IMAGE_BUILD: "4"
       run: mage build:allImagesDev
 
+    # The images are in the local registry at this point, so scanning them
+    # here costs a scan rather than a second build. Advisory - see the comment
+    # at the top of .github/workflows/security.yml.
+    - name: Scan the component images
+      continue-on-error: true
+      run: ./.github/scripts/scan-images.sh
+
     - name: Build tptctl
       run: mage build:tptctl
 
