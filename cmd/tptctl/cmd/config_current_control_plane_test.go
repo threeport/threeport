@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -140,9 +141,55 @@ func TestFindChildControlPlane(t *testing.T) {
 		assert.ErrorIs(t, err, client_lib.ErrObjectNotFound)
 	})
 
-	t.Run("a current control plane that does not exist is an error", func(t *testing.T) {
+	// #749: the caller tells this apart from a requested control plane that
+	// does not exist, which would otherwise name the wrong control plane
+	t.Run("a current control plane that does not exist is its own error", func(t *testing.T) {
 		_, err := findChildControlPlane(server.Client(), addr, "typo", "child")
-		assert.ErrorIs(t, err, client_lib.ErrObjectNotFound)
+		assert.ErrorIs(t, err, errCurrentControlPlaneNotFound)
+		assert.NotErrorIs(t, err, client_lib.ErrObjectNotFound)
+		assert.NotErrorIs(t, err, errNotChildControlPlane)
+		assert.Contains(t, err.Error(), "typo")
+	})
+}
+
+// TestChildLookupWarning covers the warning the command prints for each
+// answer findChildControlPlane gives, from a real lookup.
+func TestChildLookupWarning(t *testing.T) {
+	server := controlPlaneInstanceServer(t,
+		controlPlaneInstance(1, "genesis", nil),
+		controlPlaneInstance(2, "child", ptrTo(uint(1))),
+		controlPlaneInstance(3, "grandchild", ptrTo(uint(2))),
+	)
+	addr := strings.TrimPrefix(server.URL, "http://")
+	warningFor := func(current, requested string) (string, bool) {
+		_, err := findChildControlPlane(server.Client(), addr, current, requested)
+		require.Error(t, err)
+		return childLookupWarning(err, requested, current)
+	}
+
+	t.Run("a current control plane gone from its API is named as the problem", func(t *testing.T) {
+		warning, ok := warningFor("deleted", "child")
+		require.True(t, ok)
+		assert.Contains(t, warning, "the current control plane deleted was not found on its API")
+		assert.Contains(t, warning, "child could not be checked")
+		assert.NotContains(t, warning, "is not a child")
+	})
+
+	t.Run("a control plane that is not a child is reported as one", func(t *testing.T) {
+		warning, ok := warningFor("genesis", "grandchild")
+		require.True(t, ok)
+		assert.Equal(t, "grandchild is not a child of the current control plane genesis", warning)
+	})
+
+	t.Run("a requested control plane that does not exist is not a child", func(t *testing.T) {
+		warning, ok := warningFor("genesis", "typo")
+		require.True(t, ok)
+		assert.Equal(t, "typo is not a child of the current control plane genesis", warning)
+	})
+
+	t.Run("an API that cannot be reached is an error, not a warning", func(t *testing.T) {
+		_, ok := childLookupWarning(errors.New("connection refused"), "child", "genesis")
+		assert.False(t, ok)
 	})
 }
 
