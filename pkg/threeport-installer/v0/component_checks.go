@@ -76,9 +76,9 @@ func resourceInstalled(
 // though an agent is already there. An installer that only creates cannot
 // replace a running agent, so for one of those presence is the whole question.
 //
-// The certificate is checked for presence whatever the installer can do: an
-// agent with auth enabled and no certificate cannot start, and the install
-// creates it.
+// The CA and certificate secrets are checked for presence whatever the
+// installer can do: an agent with auth enabled and either one missing cannot
+// start, and the install creates it.
 func (cpi *ControlPlaneInstaller) ComputeSpaceControlPlaneComponentsCurrent(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
@@ -174,21 +174,26 @@ func (cpi *ControlPlaneInstaller) agentCurrent(
 		}
 	}
 
+	// The pod mounts both secrets, so it cannot start without either one, and
+	// the install that recreates a missing one only runs when this says not
+	// current.
 	if cpi.Opts.AuthEnabled {
-		_, present, err = resourceInstalled(
-			kubeClient,
-			mapper,
-			"",
-			"v1",
-			"Secret",
-			cpi.Opts.Namespace,
-			agentCertSecretName,
-		)
-		if err != nil {
-			return false, fmt.Errorf("failed to check for the threeport agent certificate: %w", err)
-		}
-		if !present {
-			return false, nil
+		for _, secretName := range []string{agentCaSecretName, agentCertSecretName} {
+			_, present, err = resourceInstalled(
+				kubeClient,
+				mapper,
+				"",
+				"v1",
+				"Secret",
+				cpi.Opts.Namespace,
+				secretName,
+			)
+			if err != nil {
+				return false, fmt.Errorf("failed to check for the threeport agent's %s secret: %w", secretName, err)
+			}
+			if !present {
+				return false, nil
+			}
 		}
 	}
 

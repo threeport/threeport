@@ -1041,6 +1041,10 @@ const (
 	// agentCommonName is the common name of the agent's client certificate.
 	agentCommonName = "threeport-agent"
 
+	// agentCaSecretName is the secret holding the CA the agent verifies the API
+	// server with.
+	agentCaSecretName = "agent-ca"
+
 	// agentCertSecretName is the secret holding the agent's client certificate.
 	agentCertSecretName = "agent-cert"
 )
@@ -1083,7 +1087,7 @@ func (cpi *ControlPlaneInstaller) installThreeportAgent(
 				"kind":       "Secret",
 				"type":       "Opaque",
 				"metadata": map[string]interface{}{
-					"name":      "agent-ca",
+					"name":      agentCaSecretName,
 					"namespace": cpi.Opts.Namespace,
 				},
 				"stringData": map[string]interface{}{

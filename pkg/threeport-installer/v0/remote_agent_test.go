@@ -194,7 +194,7 @@ func TestComputeSpaceAgentCurrent(t *testing.T) {
 		stale := agentDeployment(cpi, "--metrics-bind-address=127.0.0.1:8080", "--leader-elect", "--auth-enabled=false")
 
 		client := testClient(append(
-			[]runtime.Object{stale, testSecret(cpi.Opts.Namespace, agentCertSecretName, nil)},
+			[]runtime.Object{stale, testSecret(cpi.Opts.Namespace, agentCaSecretName, nil), testSecret(cpi.Opts.Namespace, agentCertSecretName, nil)},
 			installedCRDs()...,
 		)...)
 
@@ -208,7 +208,7 @@ func TestComputeSpaceAgentCurrent(t *testing.T) {
 		good := agentDeployment(cpi, argStrings(cpi.getAgentArgs())...)
 
 		client := testClient(append(
-			[]runtime.Object{good, testSecret(cpi.Opts.Namespace, agentCertSecretName, nil)},
+			[]runtime.Object{good, testSecret(cpi.Opts.Namespace, agentCaSecretName, nil), testSecret(cpi.Opts.Namespace, agentCertSecretName, nil)},
 			installedCRDs()...,
 		)...)
 
@@ -226,6 +226,26 @@ func TestComputeSpaceAgentCurrent(t *testing.T) {
 		current, err := cpi.ComputeSpaceControlPlaneComponentsCurrent(client, testMapper())
 		require.NoError(t, err)
 		assert.False(t, current)
+	})
+
+	// the pod mounts both secrets, so either one missing stops it from starting
+	// while the image and args still match
+	t.Run("not current when auth is on and one of the agent's secrets is missing", func(t *testing.T) {
+		for _, missing := range []string{agentCaSecretName, agentCertSecretName} {
+			cpi := remoteAgentInstaller()
+			objects := []runtime.Object{agentDeployment(cpi, argStrings(cpi.getAgentArgs())...)}
+			for _, name := range []string{agentCaSecretName, agentCertSecretName} {
+				if name != missing {
+					objects = append(objects, testSecret(cpi.Opts.Namespace, name, nil))
+				}
+			}
+
+			current, err := cpi.ComputeSpaceControlPlaneComponentsCurrent(
+				testClient(append(objects, installedCRDs()...)...), testMapper(),
+			)
+			require.NoError(t, err)
+			assert.False(t, current, "%s is missing, so the agent cannot start", missing)
+		}
 	})
 
 	t.Run("the agent is not required when the install leaves it out", func(t *testing.T) {
