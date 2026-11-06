@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
+	client_v0 "github.com/threeport/threeport/pkg/client/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -123,6 +124,26 @@ func (c *ControlPlaneConfig) Replace(
 			threeport.ThreeportControllerList,
 		); err != nil {
 			return nil, fmt.Errorf("invalid Apis for control plane: %w", err)
+		}
+	}
+
+	// refuse a tier change before either object is written
+	if c.ControlPlane.Tier != nil && name != "" {
+		existingDefinition, err := client_v0.GetControlPlaneDefinitionByName(
+			apiClient,
+			apiEndpoint,
+			name,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get control plane definition by name: %w", err)
+		}
+		if existingDefinition.Tier != nil && *c.ControlPlane.Tier != *existingDefinition.Tier {
+			return nil, fmt.Errorf(
+				"cannot change the tier of control plane definition %s from %s to %s: the tier is set at creation and cannot be changed",
+				name,
+				*existingDefinition.Tier,
+				*c.ControlPlane.Tier,
+			)
 		}
 	}
 

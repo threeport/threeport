@@ -96,6 +96,40 @@ func TestControlPlaneConfig_RefusedInstanceReplaceLeavesDefinition(t *testing.T)
 	}, calls)
 }
 
+// TestControlPlaneConfig_RefusesTierChangeBeforeWriting refuses a tier change before either object is written.
+func TestControlPlaneConfig_RefusesTierChangeBeforeWriting(t *testing.T) {
+	// serve the stored definition and record any write
+	var calls []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls = append(calls, r.Method+" "+r.URL.RequestURI())
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		_, _ = w.Write([]byte(`{"Data":[{"ID":1,"Name":"child","Tier":"development"}]}`))
+	}))
+	defer server.Close()
+	addr := strings.TrimPrefix(server.URL, "http://")
+
+	// ask for a new tier and a new controller list together, under a new name
+	config := ControlPlaneConfig{ControlPlane: ControlPlaneValues{
+		Name: util.Ptr("renamed"),
+		Apis: util.Ptr("none"),
+		Tier: util.Ptr(api_v0.ControlPlaneTierProduction),
+	}}
+	_, err := config.Replace(http.DefaultClient, addr, "child")
+
+	// the stored definition is the replace name, and nothing is written
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot be changed")
+	assert.Contains(t, err.Error(), api_v0.ControlPlaneTierDevelopment)
+	assert.Contains(t, err.Error(), api_v0.ControlPlaneTierProduction)
+	assert.Equal(t, []string{
+		"GET /v0/control-plane-definitions?name=child",
+	}, calls)
+}
+
 // TestControlPlaneInstanceConfig_RejectsUnknownApis refuses an unknown group before anything is written.
 func TestControlPlaneInstanceConfig_RejectsUnknownApis(t *testing.T) {
 	config := instanceConfig("not-a-group")
