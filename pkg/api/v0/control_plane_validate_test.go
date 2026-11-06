@@ -387,7 +387,7 @@ func TestControlPlaneInstanceUpdateRefusesAForeignDesiredStateChange(t *testing.
 			OrganizationalUnit: auth.OUControlPlane,
 		}))
 		namespace := "threeport"
-		require.NoError(t, authOff.Model(&owned).Updates(&ControlPlaneInstance{ImageNamespace: &namespace}).Error)
+		refused(authOff.Model(&owned).Updates(&ControlPlaneInstance{ImageNamespace: &namespace}).Error, "ImageNamespace")
 
 		alice := db.WithContext(lib.WithCaller(context.Background(), lib.CallerIdentity{
 			CommonName: "alice",
