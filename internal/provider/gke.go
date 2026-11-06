@@ -25,6 +25,7 @@ import (
 	"google.golang.org/grpc/status"
 	"gorm.io/datatypes"
 
+	v0 "github.com/threeport/threeport/pkg/api/v0"
 	gcpauth "github.com/threeport/threeport/pkg/auth/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -98,6 +99,31 @@ type KubernetesRuntimeInfraGKE struct {
 	gcpProjectResolvedFromGcloudINI bool
 	// gcpRegionResolvedFromGcloudINI is true when loadGCPConfig set Region from the active gcloud INI.
 	gcpRegionResolvedFromGcloudINI bool
+
+	// PrivateApi turns off the Kubernetes API's public IP endpoint.  The
+	// nodes and the networks connected to the cluster's network reach its
+	// internal endpoint, and Threeport and tptctl reach its DNS endpoint, which
+	// Google authorizes by IAM rather than by address.
+	PrivateApi bool
+
+	// The CIDR blocks allowed to reach the Kubernetes API: on its public
+	// endpoint, or with PrivateApi, on its internal endpoint.  Empty leaves
+	// the public endpoint open to every address, and the internal endpoint
+	// to the cluster's own network.
+	AllowedCidrs []string
+
+	// The public addresses of the control plane that manages the cluster,
+	// admitted along with AllowedCidrs on the public endpoint when those are
+	// set.  A private cluster does not need them, since the control plane
+	// reaches it through the DNS endpoint.
+	ControlPlaneEgressCidrs []string
+
+	// ReserveNatAddress gives the cluster's Cloud NAT a reserved address, so
+	// that its outbound traffic comes from one address that does not change
+	// and is recorded as the EgressCidrsOutput.  It is set for clusters
+	// created with one and left off for clusters created before, whose NAT
+	// keeps the addresses Google allocates.
+	ReserveNatAddress bool
 }
 
 const (
@@ -133,6 +159,10 @@ func (i *KubernetesRuntimeInfraGKE) InitPulumiProject() *KubernetesRuntimeInfraG
 
 // Create installs a Kubernetes cluster using Google Cloud GKE for threeport workloads.
 func (i *KubernetesRuntimeInfraGKE) Create() (*kube.KubeConnectionInfo, error) {
+	if _, err := i.kubeApiAllowlist(); err != nil {
+		return nil, err
+	}
+
 	// ensure GCP authentication is in place
 	if err := gcpauth.EnsureGCPAuth(i.ServiceAccountCredentials); err != nil {
 		return nil, fmt.Errorf("failed to ensure GCP authentication: %w", err)
@@ -189,6 +219,10 @@ func (i *KubernetesRuntimeInfraGKE) Create() (*kube.KubeConnectionInfo, error) {
 // call createGCPServiceAccountAndCredentials first for the bootstrap path, or ensure
 // credentials and Workload Identity are already configured for the controller path.
 func (i *KubernetesRuntimeInfraGKE) CreateInfra() (*kube.KubeConnectionInfo, error) {
+	if _, err := i.kubeApiAllowlist(); err != nil {
+		return nil, err
+	}
+
 	stack, err := i.SetupStack(i.pulumiProgram())
 	if err != nil {
 		return nil, fmt.Errorf("failed to set up Pulumi workspace: %w", err)
@@ -289,11 +323,36 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 			return fmt.Errorf("failed to create Cloud Router: %w", err)
 		}
 
+		// a cluster with a reserved NAT address sends its outbound traffic
+		// from that one address, which is recorded so that clusters this one
+		// manages can admit it; one at the default of 64 ports per VM serves
+		// about 1,000 nodes.  Other clusters keep the addresses Google
+		// allocates, which can change.
+		natIpAllocateOption := pulumi.String("AUTO_ONLY")
+		var natIps pulumi.StringArray
+		var egressAddresses []pulumi.StringOutput
+		if i.ReserveNatAddress {
+			natAddressName := fmt.Sprintf("%s-nat-ip", i.RuntimeInstanceName)
+			natAddress, err := compute.NewAddress(ctx, natAddressName, &compute.AddressArgs{
+				Name:        pulumi.String(natAddressName),
+				Region:      pulumi.String(i.Region),
+				AddressType: pulumi.String("EXTERNAL"),
+				Labels:      GcpLabelsInput(i.RuntimeInstanceName),
+			}, pulumi.Provider(gcpProvider))
+			if err != nil {
+				return fmt.Errorf("failed to reserve the Cloud NAT address: %w", err)
+			}
+			natIpAllocateOption = pulumi.String("MANUAL_ONLY")
+			natIps = pulumi.StringArray{natAddress.SelfLink}
+			egressAddresses = append(egressAddresses, natAddress.Address)
+		}
+
 		_, err = compute.NewRouterNat(ctx, fmt.Sprintf("%s-nat", i.RuntimeInstanceName), &compute.RouterNatArgs{
 			Name:                          pulumi.String(fmt.Sprintf("%s-nat", i.RuntimeInstanceName)),
 			Router:                        router.Name,
 			Region:                        pulumi.String(i.Region),
-			NatIpAllocateOption:           pulumi.String("AUTO_ONLY"),
+			NatIpAllocateOption:           natIpAllocateOption,
+			NatIps:                        natIps,
 			SourceSubnetworkIpRangesToNat: pulumi.String("ALL_SUBNETWORKS_ALL_IP_RANGES"),
 			LogConfig: &compute.RouterNatLogConfigArgs{
 				Enable: pulumi.Bool(true),
@@ -303,6 +362,22 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 			pulumi.DependsOn([]pulumi.Resource{router}))
 		if err != nil {
 			return fmt.Errorf("failed to create Cloud NAT: %w", err)
+		}
+
+		masterAuthorizedNetworksConfig, err := i.masterAuthorizedNetworksConfig()
+		if err != nil {
+			return err
+		}
+
+		// with PrivateApi the public IP endpoint is off, and the DNS
+		// endpoint is how Threeport and tptctl reach the cluster
+		var controlPlaneEndpointsConfig gkecontainer.ClusterControlPlaneEndpointsConfigPtrInput
+		if i.PrivateApi {
+			controlPlaneEndpointsConfig = &gkecontainer.ClusterControlPlaneEndpointsConfigArgs{
+				DnsEndpointConfig: &gkecontainer.ClusterControlPlaneEndpointsConfigDnsEndpointConfigArgs{
+					AllowExternalTraffic: pulumi.Bool(true),
+				},
+			}
 		}
 
 		cluster, err := gkecontainer.NewCluster(ctx, i.RuntimeInstanceName, &gkecontainer.ClusterArgs{
@@ -322,9 +397,12 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 
 			PrivateClusterConfig: &gkecontainer.ClusterPrivateClusterConfigArgs{
 				EnablePrivateNodes:    pulumi.Bool(true),
-				EnablePrivateEndpoint: pulumi.Bool(false),
+				EnablePrivateEndpoint: pulumi.Bool(i.PrivateApi),
 				MasterIpv4CidrBlock:   pulumi.String("172.16.0.0/28"),
 			},
+
+			MasterAuthorizedNetworksConfig: masterAuthorizedNetworksConfig,
+			ControlPlaneEndpointsConfig:    controlPlaneEndpointsConfig,
 
 			NetworkPolicy: &gkecontainer.ClusterNetworkPolicyArgs{
 				Enabled:  pulumi.Bool(true),
@@ -380,6 +458,8 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 		if err != nil {
 			return fmt.Errorf("failed to create node pool: %w", err)
 		}
+
+		exportEgressCidrs(ctx, egressAddresses)
 
 		return nil
 	}
@@ -487,6 +567,58 @@ func (i *KubernetesRuntimeInfraGKE) DeleteGCPResources() error {
 	return nil
 }
 
+// kubeApiAllowlist returns the blocks the cluster's authorized networks
+// admit.  On the public endpoint these are AllowedCidrs and the managing
+// control plane's addresses.  With PrivateApi they are AllowedCidrs alone,
+// on the internal endpoint, which the control plane's public addresses could
+// not reach anyway.  It fails when the list is longer than GKE admits.
+func (i *KubernetesRuntimeInfraGKE) kubeApiAllowlist() ([]string, error) {
+	if !i.PrivateApi {
+		return kubeApiAllowlist(v0.KubernetesRuntimeInfraProviderGKE, i.AllowedCidrs, i.ControlPlaneEgressCidrs)
+	}
+
+	limit, _ := v0.AllowedCidrsLimit(v0.KubernetesRuntimeInfraProviderGKE, true)
+	if len(i.AllowedCidrs) > limit {
+		return nil, fmt.Errorf(
+			"AllowedCidrs has %d entries, but gke admits at most %d on a private Kubernetes API",
+			len(i.AllowedCidrs), limit,
+		)
+	}
+
+	return i.AllowedCidrs, nil
+}
+
+// masterAuthorizedNetworksConfig returns the authorized networks that limit
+// the Kubernetes API to kubeApiAllowlist, or nil to leave it as it is without
+// them: a public endpoint open to every address, or a private cluster's
+// internal endpoint open to its network and the networks connected to it.
+// On a public cluster the nodes reach the API through the internal endpoint,
+// which these do not limit, and GKE admits a private cluster's own address
+// ranges without them being listed.  Access from Google Cloud's own public
+// addresses is turned off, since it would let any VM in any project past the
+// list.
+func (i *KubernetesRuntimeInfraGKE) masterAuthorizedNetworksConfig() (gkecontainer.ClusterMasterAuthorizedNetworksConfigPtrInput, error) {
+	allowlist, err := i.kubeApiAllowlist()
+	if err != nil {
+		return nil, err
+	}
+	if len(allowlist) == 0 {
+		return nil, nil
+	}
+
+	cidrBlocks := gkecontainer.ClusterMasterAuthorizedNetworksConfigCidrBlockArray{}
+	for _, cidr := range allowlist {
+		cidrBlocks = append(cidrBlocks, &gkecontainer.ClusterMasterAuthorizedNetworksConfigCidrBlockArgs{
+			CidrBlock: pulumi.String(cidr),
+		})
+	}
+
+	return &gkecontainer.ClusterMasterAuthorizedNetworksConfigArgs{
+		CidrBlocks:                  cidrBlocks,
+		GcpPublicCidrsAccessEnabled: pulumi.Bool(false),
+	}, nil
+}
+
 // GetConnection returns the connection information for the GKE cluster.
 func (i *KubernetesRuntimeInfraGKE) GetConnection() (*kube.KubeConnectionInfo, error) {
 	// ensure GCP authentication is in place
@@ -535,10 +667,9 @@ func (i *KubernetesRuntimeInfraGKE) GetConnection() (*kube.KubeConnectionInfo, e
 		return nil, fmt.Errorf("failed to get cluster details: %w", err)
 	}
 
-	// decode the CA certificate
-	caCert, err := base64.StdEncoding.DecodeString(cluster.MasterAuth.ClusterCaCertificate)
+	apiEndpoint, caCert, err := gkeKubeApiEndpoint(cluster)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode CA certificate: %w", err)
+		return nil, err
 	}
 
 	// get an access token for authentication; it lasts about an hour, so a
@@ -553,19 +684,44 @@ func (i *KubernetesRuntimeInfraGKE) GetConnection() (*kube.KubeConnectionInfo, e
 		return nil, fmt.Errorf("failed to get access token: %w", err)
 	}
 
-	// construct the API endpoint
-	// GKE provides the endpoint without the https:// prefix
-	apiEndpoint := fmt.Sprintf("https://%s", cluster.Endpoint)
-
 	// create connection info
 	kubeConnInfo := &kube.KubeConnectionInfo{
 		APIEndpoint:     apiEndpoint,
-		CACertificate:   string(caCert),
+		CACertificate:   caCert,
 		Token:           token.AccessToken,
 		TokenExpiration: token.Expiry,
 	}
 
 	return kubeConnInfo, nil
+}
+
+// gkeKubeApiEndpoint returns the URL the cluster's Kubernetes API is reached
+// at and the CA certificate to verify it with.  That is the IP endpoint and
+// the cluster's own CA, unless the cluster has no public IP endpoint: then
+// it is the DNS endpoint, which Google serves with a publicly trusted
+// certificate, so no CA is returned and the system's roots verify it.
+func gkeKubeApiEndpoint(cluster *containerpb.Cluster) (string, string, error) {
+	ipEndpoints := cluster.GetControlPlaneEndpointsConfig().GetIpEndpointsConfig()
+	publicIpEndpoint := !cluster.GetPrivateClusterConfig().GetEnablePrivateEndpoint() &&
+		(ipEndpoints == nil || ipEndpoints.EnablePublicEndpoint == nil || *ipEndpoints.EnablePublicEndpoint)
+	if publicIpEndpoint {
+		// GKE provides the endpoint without the https:// prefix
+		caCert, err := base64.StdEncoding.DecodeString(cluster.GetMasterAuth().GetClusterCaCertificate())
+		if err != nil {
+			return "", "", fmt.Errorf("failed to decode CA certificate: %w", err)
+		}
+		return fmt.Sprintf("https://%s", cluster.GetEndpoint()), string(caCert), nil
+	}
+
+	dnsEndpoint := cluster.GetControlPlaneEndpointsConfig().GetDnsEndpointConfig()
+	if dnsEndpoint.GetEndpoint() == "" || !dnsEndpoint.GetAllowExternalTraffic() {
+		return "", "", fmt.Errorf(
+			"GKE cluster %s has no public IP endpoint and no DNS endpoint that admits traffic from outside its network, so it cannot be reached",
+			cluster.GetName(),
+		)
+	}
+
+	return fmt.Sprintf("https://%s", dnsEndpoint.GetEndpoint()), "", nil
 }
 
 // ResourcesExist reports whether the GKE cluster for this instance exists in

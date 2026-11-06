@@ -132,6 +132,8 @@ func v0KubernetesRuntimeInstanceCreated(
 			Region:                              &region,
 			KubernetesRuntimeInstanceID:         kubernetesRuntimeInstance.ID,
 			GcpGkeKubernetesRuntimeDefinitionID: gcpGkeKubernetesRuntimeDefinition.ID,
+			// a new cluster sends its outbound traffic from a reserved address
+			ReservedNatAddress: util.Ptr(true),
 		}
 		_, err = client.CreateGcpGkeKubernetesRuntimeInstance(
 			r.APIClient,

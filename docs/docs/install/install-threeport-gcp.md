@@ -73,6 +73,61 @@ its database up to a Cloud Storage bucket in another region. Choose that region 
 `--gcp-backup-region`. See
 [Back Up and Restore a Control Plane](../control-planes/backup-restore.md).
 
+## Restrict Access to the Kubernetes API
+
+By default the cluster's Kubernetes API accepts connections from any address.
+Requests still need credentials. To accept connections only from networks you
+trust, pass `--k8s-api-allowed-cidrs` with a comma-separated list of IPv4 CIDR
+blocks, up to 50:
+
+```bash
+  --k8s-api-allowed-cidrs 203.0.113.7/32,198.51.100.0/24
+```
+
+Include the public address of the machine you run `tptctl` from. `tptctl`
+installs the control plane through the Kubernetes API, and `tptctl down` and
+`tptctl upgrade` use it as well. Once the cluster exists, `tptctl up` checks
+that it can reach the Kubernetes API before it installs anything. If it can't
+within two minutes, it stops with an error that names the endpoint. The cluster
+is left in place unless you passed `--teardown-on-failure`: delete it with
+`tptctl down --name test --infra-only`, then run `tptctl up` again with your
+address in the list.
+
+Addresses that belong to Google Cloud, such as other projects' VMs or Cloud
+Shell, are not let through unless they are in the list.
+
+The control plane reaches the cluster it runs on from inside the cluster, so
+it needs no entry in the list.
+
+### Make the Kubernetes API Private
+
+To take the Kubernetes API off the public internet altogether, pass
+`--private-k8s-api`:
+
+```bash
+  --private-k8s-api
+```
+
+The cluster then has no public IP endpoint. Its own network, and networks
+connected to it, reach its internal endpoint. `tptctl` and the control plane
+reach it through GKE's DNS-based endpoint, which Google authorizes with IAM
+(`container.clusters.connect`) rather than by address, using the same Google
+credentials `tptctl` already uses. You don't need to list your own address.
+
+With `--private-k8s-api`, `--k8s-api-allowed-cidrs` lists the private networks,
+such as a VPN or a peered network, that may reach the internal endpoint, up to
+100. Without it, any address in the cluster's network or a network connected to
+it can. The cluster's own address ranges are always admitted.
+
+To use `kubectl` against a private cluster, fetch its credentials for the DNS
+endpoint:
+
+```bash
+gcloud container clusters get-credentials threeport-test --region us-central1 --dns-endpoint
+```
+
+`--private-k8s-api` is available only on GKE for now.
+
 ## Validate Deployment
 
 Note: if you would like to use

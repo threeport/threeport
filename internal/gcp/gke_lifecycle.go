@@ -131,6 +131,16 @@ func (g *gkeLifecycle) OnCreateConfirmed(infra provider.InfraProvider) error {
 		return fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
 	}
 
+	// record the addresses the cluster's outbound traffic comes from, which
+	// clusters this one may come to manage as a control plane host admit
+	egressCidrs, err := provider.EgressCidrsFromState(latest.ResourceInventory)
+	if err != nil {
+		return fmt.Errorf("failed to read the cluster's egress addresses: %w", err)
+	}
+	if len(egressCidrs) > 0 {
+		kubernetesRuntimeInstance.EgressCidrs = provider.EgressCidrsJSON(egressCidrs)
+	}
+
 	kubeRuntimeReconciled := false
 	kubernetesRuntimeInstance.APIEndpoint = &kubeConnectionInfo.APIEndpoint
 	kubernetesRuntimeInstance.CACertificate = &kubeConnectionInfo.CACertificate
@@ -433,6 +443,11 @@ func buildGkeInfra(
 		return nil, fmt.Errorf("failed to retrieve GCP provider by ID: %w", err)
 	}
 
+	allowedCidrs, err := v0.ParseCidrs("AllowedCidrs", definition.AllowedCidrs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the definition's AllowedCidrs: %w", err)
+	}
+
 	infraGKE := (&provider.KubernetesRuntimeInfraGKE{
 		PulumiWorkspace: provider.PulumiWorkspace{
 			RuntimeInstanceName: *instance.Name,
@@ -444,7 +459,27 @@ func buildGkeInfra(
 		MachineType:            *definition.DefaultNodeGroupInstanceType,
 		MinNodeCount:           int32(*definition.DefaultNodeGroupMinimumSize),
 		MaxNodeCount:           int32(*definition.DefaultNodeGroupMaximumSize),
+		PrivateApi:             definition.PrivateApi != nil && *definition.PrivateApi,
+		AllowedCidrs:           allowedCidrs,
+		ReserveNatAddress:      instance.ReservedNatAddress != nil && *instance.ReservedNatAddress,
 	}).InitPulumiProject()
+
+	// a cluster whose public endpoint is restricted also admits the control
+	// plane that manages it.  The lookup is skipped for a private cluster,
+	// which the control plane reaches through its DNS endpoint, and for a
+	// cluster being deleted, which does not provision anything.
+	if len(allowedCidrs) > 0 && !infraGKE.PrivateApi && instance.DeletionScheduled == nil {
+		controlPlaneEgressCidrs, err := provider.ControlPlaneEgressCidrs(
+			r.APIClient,
+			r.APIServer,
+			*instance.KubernetesRuntimeInstanceID,
+			log,
+		)
+		if err != nil {
+			return nil, err
+		}
+		infraGKE.ControlPlaneEgressCidrs = controlPlaneEgressCidrs
+	}
 
 	// The workload identity binding made after the cluster is created names this
 	// account, so it has to be known before any of the cluster is provisioned -

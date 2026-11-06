@@ -51,6 +51,15 @@ type GcpGkeKubernetesRuntimeDefinition struct {
 	// The maximum number of nodes the default initial node group should have.
 	DefaultNodeGroupMaximumSize *int `validate:"required" gorm:"not null"`
 
+	// If true, the Kubernetes API is not reachable from the public internet.
+	// Set from the KubernetesRuntimeDefinition's PrivateApi.
+	PrivateApi *bool `validate:"optional" gorm:"default:false"`
+
+	// The CIDR blocks allowed to reach the Kubernetes API, as a JSON array of
+	// IPv4 CIDR blocks.  Set from the KubernetesRuntimeDefinition's
+	// AllowedCidrs.
+	AllowedCidrs *datatypes.JSON `validate:"optional" swaggertype:"array,string"`
+
 	// The GCP GKE kubernetes runtime instances derived from this definition.
 	GcpGkeKubernetesRuntimeInstances []*GcpGkeKubernetesRuntimeInstance `validate:"optional,association"`
 
@@ -78,6 +87,14 @@ type GcpGkeKubernetesRuntimeInstance struct {
 
 	// An inventory of all GCP resources for the GKE cluster.
 	ResourceInventory *datatypes.JSON `validate:"optional"`
+
+	// If true, the cluster's Cloud NAT uses an address reserved for it, so
+	// that its outbound traffic comes from one address that does not change
+	// and is recorded as the kubernetes runtime instance's EgressCidrs.  Set
+	// on clusters created since Threeport reserves one; clusters created
+	// before keep the addresses Google allocates.  Cannot be changed after
+	// creation.
+	ReservedNatAddress *bool `validate:"optional" gorm:"default:false"`
 
 	// Set by an operator to allow this instance to be deleted even though its
 	// creation was confirmed and no resource inventory is recorded, or the
