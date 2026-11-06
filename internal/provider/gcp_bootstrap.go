@@ -2,6 +2,8 @@ package provider
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
@@ -22,8 +24,14 @@ import (
 
 // GCP resource naming constants to ensure consistency between create and delete operations
 const (
-	// serviceAccountNameFormat is the format for all Threeport GCP service accounts
-	serviceAccountNameFormat = "threeport-svc-%s"
+	// serviceAccountIDPrefix begins the ID of every Threeport GCP service account
+	serviceAccountIDPrefix = "threeport-svc-"
+	// serviceAccountIDNameLength is how many characters of the name are kept,
+	// sanitized, in a service account ID so it stays recognizable
+	serviceAccountIDNameLength = 9
+	// serviceAccountIDHashLength is how many hex characters of the name's hash
+	// close a service account ID
+	serviceAccountIDHashLength = 6
 	// serviceAccountDisplayFormat is the display name format for all Threeport service accounts
 	serviceAccountDisplayFormat = "Threeport Service Account for %s"
 	// workloadIdentityPoolFormat is the format for Workload Identity pool names
@@ -115,11 +123,6 @@ func (i *KubernetesRuntimeInfraGKE) createGCPServiceAccountAndCredentials() erro
 
 // createGCPServiceAccount creates a new GCP service account for Threeport operations.
 func (i *KubernetesRuntimeInfraGKE) createGCPServiceAccount(iamService *iam.Service) error {
-	// reject a runtime name that would collide after service-account ID truncation
-	if !canonicalGCPAccountName(i.RuntimeInstanceName) {
-		return fmt.Errorf("GCP runtime instance name %q is not a unique service-account identity; use lowercase letters, digits, and hyphens", i.RuntimeInstanceName)
-	}
-
 	serviceAccountID := i.getServiceAccountID()
 	displayName := fmt.Sprintf(serviceAccountDisplayFormat, i.RuntimeInstanceName)
 	description := gkeServiceAccountDescription(i.RuntimeInstanceName)
@@ -131,7 +134,7 @@ func (i *KubernetesRuntimeInfraGKE) createGCPServiceAccount(iamService *iam.Serv
 	}
 
 	// refuse an existing account this runtime did not create
-	if err := refuseUnownedExistingGCPServiceAccount(account, existed, i.RuntimeInstanceName); err != nil {
+	if err := refuseUnownedExistingGCPServiceAccount(account, existed, i.RuntimeInstanceName, createdForRuntime); err != nil {
 		return err
 	}
 
@@ -394,7 +397,7 @@ func (i *KubernetesRuntimeInfraGKE) validateGCPServiceAccountPropagation(
 
 // getServiceAccountID returns the service account ID (without the email domain).
 func (i *KubernetesRuntimeInfraGKE) getServiceAccountID() string {
-	return formatServiceAccountID(serviceAccountNameFormat, i.RuntimeInstanceName)
+	return formatServiceAccountID(i.RuntimeInstanceName)
 }
 
 // getServiceAccountEmail returns the full service account email address.
@@ -432,10 +435,6 @@ func CreateGCPServiceAccountWithKey(projectID, accountName string) (*GCPServiceA
 		return nil, fmt.Errorf("failed to create Cloud Resource Manager service client: %w", err)
 	}
 
-	if !canonicalGCPAccountName(accountName) {
-		return nil, fmt.Errorf("GCP provider name %q is not a unique service-account identity; use lowercase letters, digits, and hyphens", accountName)
-	}
-
 	// Generate service account ID and create the service account
 	serviceAccountID := generateServiceAccountID(accountName)
 	displayName := fmt.Sprintf(serviceAccountDisplayFormat, accountName)
@@ -446,7 +445,7 @@ func CreateGCPServiceAccountWithKey(projectID, accountName string) (*GCPServiceA
 		return nil, fmt.Errorf("failed to create service account: %w", err)
 	}
 
-	if err := refuseUnownedExistingGCPServiceAccount(account, existed, accountName); err != nil {
+	if err := refuseUnownedExistingGCPServiceAccount(account, existed, accountName, providerServiceAccountOwnedBy); err != nil {
 		return nil, err
 	}
 
@@ -523,9 +522,9 @@ func DeleteGCPServiceAccountWithKey(projectID, accountName string) error {
 // Threeport for ownerName.
 //
 // The account is found by deriving its name from the owner's, which is not proof
-// that Threeport created it for that owner: truncation to thirty characters
-// collides, a freed name can be taken by something else, and a provider and a
-// runtime of the same name derive the same one. So the account is read and
+// that Threeport created it for that owner: the hash in the ID can collide, a
+// freed name can be taken by something else, and a provider and a runtime of the
+// same name derive the same one. So the account is read and
 // checked before anything is done to it - stripping a project's IAM bindings and
 // deleting an account is not recoverable by re-running anything.
 //
@@ -573,8 +572,8 @@ func deleteOwnedServiceAccount(
 // re-run after a partial one has to be able to finish. An account that is there
 // but carries no Threeport ownership for this provider belongs to something
 // else, and is refused: the derived name is not proof of ownership, since two
-// provider names can truncate to the same one, and a provider and a runtime of
-// the same name derive the same one. ownedBy says which kind of owner the
+// provider names can hash to the same one, and a provider and a runtime of the
+// same name derive the same one. ownedBy says which kind of owner the
 // account has to have been created for.
 func gcpServiceAccountDeletable(
 	account *iam.ServiceAccount,
@@ -679,24 +678,6 @@ func createServiceAccountForProject(
 	return account, false, nil
 }
 
-// serviceAccountOwnedBy reports whether the account description records the
-// same ownership pair GcpResourceLabels would put on a Compute resource.
-func serviceAccountOwnedBy(account *iam.ServiceAccount, ownerName string) bool {
-	if account == nil {
-		return false
-	}
-	if strings.HasSuffix(account.Description, GcpOwnershipDescription(ownerName)) {
-		return true
-	}
-
-	// Accounts created before the ownership marker existed carry only the
-	// description below. It names the provider it was created for, so it
-	// identifies the owner as precisely as the marker does - and without
-	// recognising it, a provider created by an earlier version could never be
-	// deleted, stranding the account and its project bindings.
-	return account.Description == legacyGcpServiceAccountDescription(ownerName)
-}
-
 // legacyGcpServiceAccountDescription is the description the create path wrote
 // before it began marking ownership.
 func legacyGcpServiceAccountDescription(ownerName string) string {
@@ -759,12 +740,36 @@ func gkeServiceAccountDescription(runtimeInstanceName string) string {
 	)
 }
 
-// refuseUnownedExistingGCPServiceAccount rejects reuse of an account this owner did not create.
-func refuseUnownedExistingGCPServiceAccount(account *iam.ServiceAccount, existed bool, ownerName string) error {
+// createdForRuntime reports whether the account was written by the GKE
+// bootstrap for the runtime instance of this name, in the current format.
+//
+// Unlike runtimeServiceAccountOwnedBy it does not recognise the description
+// written before ownership was marked: that account is deleted with the runtime
+// it names, but a create must not take it over.
+func createdForRuntime(account *iam.ServiceAccount, runtimeInstanceName string) bool {
+	return account != nil && account.Description == gkeServiceAccountDescription(runtimeInstanceName)
+}
+
+// refuseUnownedExistingGCPServiceAccount rejects reuse of an account this owner
+// did not create.
+//
+// Ownership is the owner's whole description, as the delete path checks it, not
+// the marker in it. The marker is lowercased and reduced to label characters, so
+// names that differ only in case or punctuation share one, and so do a provider
+// and a runtime of the same name. Two such names whose IDs collide - the hash in
+// the ID is short enough that a collision can be found on purpose - would
+// otherwise reuse one account, and creating a key for it would hand one owner
+// the other's access.
+func refuseUnownedExistingGCPServiceAccount(
+	account *iam.ServiceAccount,
+	existed bool,
+	ownerName string,
+	ownedBy serviceAccountOwnerCheck,
+) error {
 	if !existed {
 		return nil
 	}
-	if serviceAccountOwnedBy(account, ownerName) {
+	if ownedBy(account, ownerName) {
 		return nil
 	}
 
@@ -868,34 +873,45 @@ func formatIAMServiceAccountCreate403Hint(projectID string) string {
 	)
 }
 
-// formatServiceAccountID generates a valid GCP service account ID from the given
-// format string and name. GCP service account IDs must be 6-30 characters,
-// contain only lowercase letters, digits, and hyphens, and start with a letter.
-func formatServiceAccountID(format, name string) string {
-	id := fmt.Sprintf(format, name)
-	// Convert to lowercase
-	id = strings.ToLower(id)
-	// Replace invalid characters with hyphens
-	var result strings.Builder
-	for _, c := range id {
-		if (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' {
-			result.WriteRune(c)
-		} else {
-			result.WriteRune('-')
+// formatServiceAccountID derives a valid GCP service account ID from a name.
+// GCP service account IDs must be 6-30 characters, contain only lowercase
+// letters, digits, and hyphens, and start with a letter.
+//
+// The ID is serviceAccountIDPrefix, a sanitized fragment of the name so the
+// account can be recognized, and a hash of the whole name as given. The hash is
+// what keeps IDs apart: names sharing a prefix, or differing only in case or in
+// characters an ID cannot hold, derive different IDs, so no name has to be
+// refused for how long it is. The ID is never over 30 characters.
+//
+// The hash is short, so this makes a collision unlikely, not impossible, and
+// one can be found on purpose. Nothing here relies on uniqueness: reuse and
+// delete both check the account's whole description for the owner before
+// touching it.
+//
+// Create and delete both derive the ID here, so changing this derivation
+// orphans every account created under the old one. Treat it as fixed once
+// Threeport has installs.
+func formatServiceAccountID(name string) string {
+	var fragment strings.Builder
+	for _, c := range strings.ToLower(name) {
+		if fragment.Len() == serviceAccountIDNameLength {
+			break
+		}
+		if (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') {
+			fragment.WriteRune(c)
+		} else if !strings.HasSuffix(fragment.String(), "-") {
+			fragment.WriteByte('-')
 		}
 	}
-	id = result.String()
-	// Truncate if necessary (6-30 char limit)
-	if len(id) > 30 {
-		id = id[:30]
+	// a leading hyphen would double the prefix's and a trailing one the separator
+	frag := strings.Trim(fragment.String(), "-")
+	if frag == "" {
+		frag = "svc"
 	}
-	// Ensure it ends with alphanumeric (remove trailing hyphens)
-	id = strings.TrimRight(id, "-")
-	// Ensure minimum length (6 chars required)
-	if len(id) < 6 {
-		id = id + "-svc"
-	}
-	return id
+
+	sum := sha256.Sum256([]byte(name))
+
+	return serviceAccountIDPrefix + frag + "-" + hex.EncodeToString(sum[:])[:serviceAccountIDHashLength]
 }
 
 // isNotFoundError checks if the error is a "not found" error.
@@ -917,24 +933,7 @@ func isNotFoundError(err error) bool {
 // generateServiceAccountID generates a valid GCP service account ID from the given name.
 // This is used when creating service accounts via tptctl create gcp-provider.
 func generateServiceAccountID(name string) string {
-	return formatServiceAccountID(serviceAccountNameFormat, name)
-}
-
-// canonicalGCPAccountName reports whether name is already the unique
-// lowercase [a-z0-9-] form, and whether generateServiceAccountID keeps it
-// without truncating to 30 characters.
-func canonicalGCPAccountName(name string) bool {
-	if name == "" {
-		return false
-	}
-	for _, r := range name {
-		if (r < 'a' || r > 'z') && (r < '0' || r > '9') && r != '-' {
-			return false
-		}
-	}
-	id := generateServiceAccountID(name)
-	full := strings.ToLower(fmt.Sprintf(serviceAccountNameFormat, name))
-	return id == full
+	return formatServiceAccountID(name)
 }
 
 // grantServiceAccountRolesForProject grants the necessary IAM roles to a service account.
