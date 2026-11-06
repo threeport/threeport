@@ -24,8 +24,9 @@ kubectl port-forward svc/nats-js 4222:4222 -n threeport-control-plane
 ```
 
 In another terminal, export the environment the NATS CLI connects with.  It
-writes the CA's certificate to `/tmp/threeport-nats-ca.crt` and also sets the
-variables a local API (`hack/env`) and local controllers read.
+writes the CA's certificate to a new private directory under `$TMPDIR` (or
+`/tmp`), exports its path as `NATS_CA`, and also sets the variables a local
+API (`hack/env`) and local controllers read.
 
 ```bash
 eval "$(make -s dev-nats-env)"
@@ -38,7 +39,7 @@ values.
 ```bash
 nats context save local \
   --server tls://localhost:4222 \
-  --tlsca /tmp/threeport-nats-ca.crt \
+  --tlsca "$NATS_CA" \
   --user threeport \
   --password "$NATS_PASSWORD"
 nats context select local

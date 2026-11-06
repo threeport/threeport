@@ -102,11 +102,16 @@ dev-uninstall-helm:
 	helm ls -A --short | xargs -I {} helm uninstall --namespace threeport-control-plane {}
 
 #dev-nats-env: @ Print the environment that connects the nats CLI, a local API and local controllers to the local message broker over TLS: eval "$$(make -s dev-nats-env)"
+# The CA's certificate goes in a directory of its own that only this user can
+# read, made under a name nobody can know ahead of time, rather than at a fixed
+# path in the shared /tmp that another user could put a symlink at first.
 dev-nats-env:
-	@kubectl get secret nats-ca-cert -n threeport-control-plane -o jsonpath='{.data.ca\.crt}' | base64 --decode > /tmp/threeport-nats-ca.crt
-	@password=$$(kubectl get secret nats-credentials -n threeport-control-plane -o jsonpath='{.data.password}' | base64 --decode); \
-	echo "export NATS_URL=tls://localhost:4222 NATS_CA=/tmp/threeport-nats-ca.crt NATS_USER=threeport NATS_PASSWORD=$$password"; \
-	echo "export MSG_BROKER_CA_FILE=/tmp/threeport-nats-ca.crt MSG_BROKER_USER=threeport MSG_BROKER_PASSWORD=$$password"
+	@dir=$$(mktemp -d "$${TMPDIR:-/tmp}/threeport-nats.XXXXXX") && \
+	kubectl get secret nats-ca-cert -n threeport-control-plane -o jsonpath='{.data.ca\.crt}' | base64 --decode > "$$dir/ca.crt" && \
+	password=$$(kubectl get secret nats-credentials -n threeport-control-plane -o jsonpath='{.data.password}' | base64 --decode) && \
+	echo "export NATS_URL=tls://localhost:4222 NATS_CA=$$dir/ca.crt NATS_USER=threeport NATS_PASSWORD=$$password" && \
+	echo "export NATS_CA_FILE=$$dir/ca.crt" && \
+	echo "export MSG_BROKER_CA_FILE=$$dir/ca.crt MSG_BROKER_USER=threeport MSG_BROKER_PASSWORD=$$password"
 
 #TODO: move to kubectl exec command that uses `nats` binary in contianer
 #dev-sub-nats: @ Subscribe to all messages from nats server locally (must first run `make dev-forward-nats` in another terminal and eval "$$(make -s dev-nats-env)")
