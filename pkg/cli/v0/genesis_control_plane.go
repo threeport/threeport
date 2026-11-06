@@ -589,6 +589,13 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	uninstaller.dynamicKubeClient = dynamicKubeClient
 	uninstaller.mapper = mapper
 
+	// find out whether the control plane namespace is already there before
+	// anything else can fail, since the teardown needs to know whether it may
+	// delete it.  Until this has found out, the teardown leaves it alone.
+	if err := cpi.CheckNamespacePresence(dynamicKubeClient, mapper); err != nil {
+		return uninstaller.cleanOnCreateError("failed to check for the control plane namespace", err)
+	}
+
 	// generate new DB client credentials
 	dbCreds, err := auth.GenerateDbCreds(cpi.Opts.Namespace)
 	if err != nil {
@@ -1580,11 +1587,42 @@ func (u *Uninstaller) cleanOnCreateError(
 		return createErr
 	}
 
-	// if needed, delete control plane workloads to remove related infra, e.g. load
-	// balancers, that will prevent runtime infra deletion
-	// a failure here is not fatal to the teardown: the infra delete below must
-	// still be attempted so the cluster and network are not left behind
-	if u.dynamicKubeClient != nil && u.mapper != nil {
+	// A namespace that was already there when this install started is not
+	// this install's to remove while the cluster it is in outlives the
+	// teardown, which is what --control-plane-only means: it reapplies into a
+	// running cluster, often against a running control plane, and uninstalling
+	// the components deletes the whole namespace - the API, the database and
+	// its data with it. Nobody asked for that by not passing a flag.
+	//
+	// A full install deletes the cluster below, and everything in it goes
+	// with the cluster either way, so the namespace is deleted first as it
+	// always is. Skipping that would keep nothing: it would only leave the
+	// API's load balancer running, which on EKS keeps the stack's subnets
+	// from being deleted, and the disks behind the claims undeleted.
+	//
+	// Only a namespace this install is known to have created is deleted: one
+	// whose presence was never found out, because the install failed before
+	// it checked or the check itself failed, is left alone too.
+	//
+	// The note reaches the operator regardless of whether a Kubernetes client
+	// is even available here - it is informational, not a Kubernetes call.
+	if u.cpi.Opts.ControlPlaneOnly && u.cpi.Opts.NamespacePresence == threeport.NamespacePresent {
+		createErr = fmt.Errorf(
+			"%w\n(the %s namespace was already present, so it was left alone; "+
+				"anything this install added to it is still there)",
+			createErr, u.cpi.Opts.Namespace,
+		)
+	} else if u.cpi.Opts.ControlPlaneOnly && u.cpi.Opts.NamespacePresence != threeport.NamespaceAbsent {
+		createErr = fmt.Errorf(
+			"%w\n(the install failed before it could find out whether it created the %s namespace, "+
+				"so it was left alone; delete it yourself if this install created it)",
+			createErr, u.cpi.Opts.Namespace,
+		)
+	} else if u.dynamicKubeClient != nil && u.mapper != nil {
+		// if needed, delete control plane workloads to remove related infra,
+		// e.g. load balancers, that will prevent runtime infra deletion
+		// a failure here is not fatal to the teardown: the infra delete below must
+		// still be attempted so the cluster and network are not left behind
 		if workloadErr := u.cpi.UnInstallThreeportControlPlaneComponents(u.dynamicKubeClient, u.mapper); workloadErr != nil {
 			Warning(fmt.Sprintf("failed to delete threeport API components: %v", workloadErr))
 			createErr = fmt.Errorf("%w\nfailed to delete threeport API components: %w", createErr, workloadErr)
