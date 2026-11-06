@@ -46,6 +46,7 @@ func main() {
 	var msgBrokerUser = flag.String("msg-broker-user", "", "Threeport message broker user")
 	var msgBrokerPassword = flag.String("msg-broker-password", "", "Threeport message broker user password")
 	var msgBrokerCAFile = flag.String("msg-broker-ca-file", "", "Path of the certificate of the CA that signed the message broker's certificate; when set, the connection uses TLS")
+	var msgBrokerReplicas = flag.Int("msg-broker-replicas", 1, "Number of message broker servers the lock bucket is replicated across")
 	var shutdownPort = flag.String("shutdown-port", "8181", "Port to listen for shutdown calls")
 	var verbose = flag.Bool("verbose", false, "Write logs with v(1).InfoLevel and above")
 	var help = flag.Bool("help", false, "Show help info")
@@ -111,6 +112,7 @@ func main() {
 	kvConfig := natsgo.KeyValueConfig{
 		Bucket:      kubernetesruntime.LockBucketName,
 		Description: kubernetesruntime.LockBucketDescr,
+		Replicas:    *msgBrokerReplicas,
 		TTL:         time.Minute * 20,
 	}
 	kv, err := controller.CreateLockBucketIfNotExists(js, &kvConfig)

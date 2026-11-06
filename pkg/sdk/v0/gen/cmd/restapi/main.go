@@ -557,11 +557,20 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		g.Defer().Id("nc").Dot("Close").Call()
 		g.Line()
 
-		g.Comment("jetstream context")
+		g.Comment("jetstream context, with the streams replicated across the broker's")
+		g.Comment("servers")
+		g.List(Id("natsReplicas"), Err()).Op(":=").Qual(messageBrokerPath, "ParseReplicas").Call(
+			Qual("os", "Getenv").Call(Lit("NATS_REPLICAS")),
+		)
+		g.If(Err().Op("!=").Nil()).Block(
+			Id("e").Dot("Logger").Dot("Fatalf").Call(
+				Lit("failed to read the message broker's replicas: %v"), Err(),
+			),
+		)
 		g.List(Id("js"), Err()).Op(":=").Qual(
 			fmt.Sprintf("%s/cmd/rest-api/util", gen.ModulePath),
 			"InitJetStream",
-		).Call(Id("nc"))
+		).Call(Id("nc"), Id("natsReplicas"))
 		g.If(Err().Op("!=").Nil()).Block(
 			Id("e").Dot("Logger").Dot("Fatalf").Call(
 				Lit("failed to initialize nats jet stream: %v"), Err(),

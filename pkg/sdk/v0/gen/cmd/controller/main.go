@@ -127,6 +127,12 @@ func GenControllerMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				).Call(
 					Lit("msg-broker-ca-file").Op(",").Lit("").Op(",").Lit("Path of the certificate of the CA that signed the message broker's certificate; when set, the connection uses TLS"),
 				),
+				Var().Id("msgBrokerReplicas").Op("=").Qual(
+					"github.com/namsral/flag",
+					"Int",
+				).Call(
+					Lit("msg-broker-replicas").Op(",").Lit(1).Op(",").Lit("Number of message broker servers the lock bucket is replicated across"),
+				),
 				Var().Id("shutdownPort").Op("=").Qual(
 					"github.com/namsral/flag",
 					"String",
@@ -267,7 +273,8 @@ func GenControllerMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						),
 						"LockBucketDescr",
 					),
-					Id("TTL"): Qual("time", "Minute").Op("*").Lit(20),
+					Id("TTL"):      Qual("time", "Minute").Op("*").Lit(20),
+					Id("Replicas"): Op("*").Id("msgBrokerReplicas"),
 				}),
 				List(
 					Id("kv"), Id("err"),
