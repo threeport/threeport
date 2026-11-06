@@ -32,6 +32,7 @@ type ControlPlaneInstanceValues struct {
 	ControlPlaneDefinition    *ControlPlaneDefinitionValues
 	ImageNamespace            *string
 	ImageTag                  *string
+	Apis                      *string
 	CustomComponentInfo       []*api_v0.ControlPlaneComponent
 	Genesis                   *bool
 	Age                       *string
@@ -99,6 +100,7 @@ func (c *ControlPlaneInstanceConfig) Get(
 				ControlPlaneDefinition:    controlPlaneDefinition,
 				ImageNamespace:            controlPlaneInstance.ImageNamespace,
 				ImageTag:                  controlPlaneInstance.ImageTag,
+				Apis:                      controlPlaneInstance.Apis,
 				CustomComponentInfo:       controlPlaneInstance.CustomComponentInfo,
 				Genesis:                   controlPlaneInstance.Genesis,
 				Age:                       util.Ptr(util.GetAgeFormatted(controlPlaneInstance.CreatedAt)),
@@ -151,6 +153,7 @@ func (c *ControlPlaneInstanceConfig) Create(
 		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
 		ImageNamespace:              controlPlaneInstanceValues.ImageNamespace,
 		ImageTag:                    controlPlaneInstanceValues.ImageTag,
+		Apis:                        controlPlaneInstanceValues.Apis,
 		CustomComponentInfo:         controlPlaneInstanceValues.CustomComponentInfo,
 		ControlPlaneDefinitionID:    controlPlaneDefinition.ID,
 	}
@@ -175,6 +178,7 @@ func (c *ControlPlaneInstanceConfig) Create(
 			ControlPlaneDefinition:    controlPlaneInstanceValues.ControlPlaneDefinition,
 			ImageNamespace:            createdControlPlaneInstance.ImageNamespace,
 			ImageTag:                  createdControlPlaneInstance.ImageTag,
+			Apis:                      createdControlPlaneInstance.Apis,
 			CustomComponentInfo:       createdControlPlaneInstance.CustomComponentInfo,
 			Genesis:                   createdControlPlaneInstance.Genesis,
 		},
@@ -209,21 +213,20 @@ func (c *ControlPlaneInstanceConfig) Replace(
 		return nil, fmt.Errorf("failed to find control plane instance with name %s: %w", name, err)
 	}
 
-	// construct updated control plane instance object
-	updatedControlPlaneInstance := &api_v0.ControlPlaneInstance{
-		Common: api_v0.Common{
-			ID: existingControlPlaneInstance.ID,
-		},
-		Instance: api_v0.Instance{
-			Name: controlPlaneInstanceValues.Name,
-		},
-		Namespace:                   controlPlaneInstanceValues.Namespace,
-		KubernetesRuntimeInstanceID: existingControlPlaneInstance.KubernetesRuntimeInstanceID,
-		ImageNamespace:              controlPlaneInstanceValues.ImageNamespace,
-		ImageTag:                    controlPlaneInstanceValues.ImageTag,
-		CustomComponentInfo:         controlPlaneInstanceValues.CustomComponentInfo,
-		ControlPlaneDefinitionID:    existingControlPlaneInstance.ControlPlaneDefinitionID,
-	}
+	// Start from the existing object, so the fields this replace does not set
+	// are kept: the reconciler's (Reconciled and the rest of Reconciliation,
+	// Status) and the ones only the API server or a controller writes. Every
+	// field a user sets through the config is assigned below unconditionally,
+	// a nil value included, so a field left out of the config is cleared
+	// rather than kept. Do not assign the reconciler's fields here: the copy
+	// already carries them.
+	updatedControlPlaneInstance := util.Ptr(*existingControlPlaneInstance)
+	updatedControlPlaneInstance.Name = controlPlaneInstanceValues.Name
+	updatedControlPlaneInstance.Namespace = controlPlaneInstanceValues.Namespace
+	updatedControlPlaneInstance.ImageNamespace = controlPlaneInstanceValues.ImageNamespace
+	updatedControlPlaneInstance.ImageTag = controlPlaneInstanceValues.ImageTag
+	updatedControlPlaneInstance.Apis = controlPlaneInstanceValues.Apis
+	updatedControlPlaneInstance.CustomComponentInfo = controlPlaneInstanceValues.CustomComponentInfo
 
 	// replace control plane instance
 	replacedControlPlaneInstance, err := client_v0.ReplaceControlPlaneInstance(
@@ -245,6 +248,7 @@ func (c *ControlPlaneInstanceConfig) Replace(
 			ControlPlaneDefinition:    controlPlaneInstanceValues.ControlPlaneDefinition,
 			ImageNamespace:            replacedControlPlaneInstance.ImageNamespace,
 			ImageTag:                  replacedControlPlaneInstance.ImageTag,
+			Apis:                      replacedControlPlaneInstance.Apis,
 			CustomComponentInfo:       replacedControlPlaneInstance.CustomComponentInfo,
 			Genesis:                   replacedControlPlaneInstance.Genesis,
 		},
@@ -348,6 +352,16 @@ func (c *ControlPlaneInstanceConfig) Validate() error {
 	// additional one
 	if err := threeport.ValidateComponentOverrides(controlPlaneInstanceValues.CustomComponentInfo); err != nil {
 		multiError.AppendError(fmt.Errorf("invalid CustomComponentInfo: %w", err))
+	}
+
+	// reject an unknown controller group before anything is written
+	if controlPlaneInstanceValues.Apis != nil {
+		if _, err := threeport.SelectControllersByGroup(
+			threeport.ParseApis(*controlPlaneInstanceValues.Apis),
+			threeport.ThreeportControllerList,
+		); err != nil {
+			multiError.AppendError(fmt.Errorf("invalid Apis: %w", err))
+		}
 	}
 
 	return multiError.Error()

@@ -11,7 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-const testModuleNamespace = "widget-module"
+const testModuleSecretsNamespace = "widget-module"
 
 // testSecret returns a secret holding env in its data, as the cluster stores
 // it.
@@ -38,16 +38,16 @@ func TestCopySecretCreatesAModulesCopy(t *testing.T) {
 		testSecret(testControlPlaneNamespace, "MSG_BROKER_PASSWORD=tpSecret", map[string]string{"app": "threeport"}),
 	)
 
-	require.NoError(t, CopySecret(kubeClient, *installerTestMapper(), "controller-config", testControlPlaneNamespace, testModuleNamespace))
+	require.NoError(t, CopySecret(kubeClient, *installerTestMapper(), "controller-config", testControlPlaneNamespace, testModuleSecretsNamespace))
 
-	copied, err := kubeClient.Resource(secretGVR).Namespace(testModuleNamespace).Get(context.Background(), "controller-config", metav1.GetOptions{})
+	copied, err := kubeClient.Resource(secretGVR).Namespace(testModuleSecretsNamespace).Get(context.Background(), "controller-config", metav1.GetOptions{})
 	require.NoError(t, err)
 	value, err := secretValue(copied, "env")
 	require.NoError(t, err)
 	assert.Equal(t, "MSG_BROKER_PASSWORD=tpSecret", value)
 	assert.Equal(t, "Opaque", copied.Object["type"])
 	assert.Equal(t, map[string]string{"app": "threeport"}, copied.GetLabels())
-	assert.Equal(t, testModuleNamespace, copied.GetNamespace())
+	assert.Equal(t, testModuleSecretsNamespace, copied.GetNamespace())
 }
 
 func TestCopySecretRefreshesAModulesOldCopy(t *testing.T) {
@@ -55,12 +55,12 @@ func TestCopySecretRefreshesAModulesOldCopy(t *testing.T) {
 	// without the broker's password
 	_, kubeClient, _ := newBrokerTestClient(
 		testSecret(testControlPlaneNamespace, "MSG_BROKER_PASSWORD=tpSecret", nil),
-		testSecret(testModuleNamespace, "MSG_BROKER_HOST=nats-js", nil),
+		testSecret(testModuleSecretsNamespace, "MSG_BROKER_HOST=nats-js", nil),
 	)
 
-	require.NoError(t, CopySecret(kubeClient, *installerTestMapper(), "controller-config", testControlPlaneNamespace, testModuleNamespace))
+	require.NoError(t, CopySecret(kubeClient, *installerTestMapper(), "controller-config", testControlPlaneNamespace, testModuleSecretsNamespace))
 
-	copied, err := kubeClient.Resource(secretGVR).Namespace(testModuleNamespace).Get(context.Background(), "controller-config", metav1.GetOptions{})
+	copied, err := kubeClient.Resource(secretGVR).Namespace(testModuleSecretsNamespace).Get(context.Background(), "controller-config", metav1.GetOptions{})
 	require.NoError(t, err)
 	value, err := secretValue(copied, "env")
 	require.NoError(t, err)
@@ -77,6 +77,6 @@ func TestCopySecretRefreshesAModulesOldCopy(t *testing.T) {
 func TestCopySecretFailsWithoutTheControlPlanesSecret(t *testing.T) {
 	_, kubeClient, _ := newBrokerTestClient()
 
-	err := CopySecret(kubeClient, *installerTestMapper(), "controller-config", testControlPlaneNamespace, testModuleNamespace)
+	err := CopySecret(kubeClient, *installerTestMapper(), "controller-config", testControlPlaneNamespace, testModuleSecretsNamespace)
 	assert.ErrorContains(t, err, "failed to get Secret 'controller-config' from namespace")
 }
