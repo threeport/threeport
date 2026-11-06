@@ -105,13 +105,18 @@ dev-uninstall-helm:
 # The CA's certificate goes in a directory of its own that only this user can
 # read, made under a name nobody can know ahead of time, rather than at a fixed
 # path in the shared /tmp that another user could put a symlink at first.
+# The printed values are single-quoted, so the eval keeps a TMPDIR or a
+# password with spaces or quotes in it whole.
 dev-nats-env:
-	@dir=$$(mktemp -d "$${TMPDIR:-/tmp}/threeport-nats.XXXXXX") && \
+	@quote() { printf "'%s'" "$$(printf '%s' "$$1" | sed "s/'/'\\\\''/g")"; } && \
+	dir=$$(mktemp -d "$${TMPDIR:-/tmp}/threeport-nats.XXXXXX") && \
 	kubectl get secret nats-ca-cert -n threeport-control-plane -o jsonpath='{.data.ca\.crt}' | base64 --decode > "$$dir/ca.crt" && \
 	password=$$(kubectl get secret nats-credentials -n threeport-control-plane -o jsonpath='{.data.password}' | base64 --decode) && \
-	echo "export NATS_URL=tls://localhost:4222 NATS_CA=$$dir/ca.crt NATS_USER=threeport NATS_PASSWORD=$$password" && \
-	echo "export NATS_CA_FILE=$$dir/ca.crt" && \
-	echo "export MSG_BROKER_CA_FILE=$$dir/ca.crt MSG_BROKER_USER=threeport MSG_BROKER_PASSWORD=$$password"
+	ca=$$(quote "$$dir/ca.crt") && \
+	password=$$(quote "$$password") && \
+	echo "export NATS_URL=tls://localhost:4222 NATS_CA=$$ca NATS_USER=threeport NATS_PASSWORD=$$password" && \
+	echo "export NATS_CA_FILE=$$ca" && \
+	echo "export MSG_BROKER_CA_FILE=$$ca MSG_BROKER_USER=threeport MSG_BROKER_PASSWORD=$$password"
 
 #TODO: move to kubectl exec command that uses `nats` binary in contianer
 #dev-sub-nats: @ Subscribe to all messages from nats server locally (must first run `make dev-forward-nats` in another terminal and eval "$$(make -s dev-nats-env)")
