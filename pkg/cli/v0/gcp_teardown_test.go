@@ -20,11 +20,18 @@ func TestGcpProvidersToCleanUp(t *testing.T) {
 		{Name: util.Ptr("no-project")},
 		{ProjectID: util.Ptr("no-name")},
 		{Name: util.Ptr("two"), ProjectID: util.Ptr("proj-b")},
+		// created before the setting was stored: cleaned up as before
+		{Name: util.Ptr("legacy"), ProjectID: util.Ptr("proj-c"), SyncServiceAccount: nil},
+		{Name: util.Ptr("synced"), ProjectID: util.Ptr("proj-d"), SyncServiceAccount: util.Ptr(true)},
+		// the service account is managed outside Threeport
+		{Name: util.Ptr("kept"), ProjectID: util.Ptr("proj-e"), SyncServiceAccount: util.Ptr(false)},
 	}
 
 	assert.Equal(t, []PendingGcpCleanup{
 		{Name: "one", ProjectID: "proj-a"},
 		{Name: "two", ProjectID: "proj-b"},
+		{Name: "legacy", ProjectID: "proj-c"},
+		{Name: "synced", ProjectID: "proj-d"},
 	}, gcpProvidersToCleanUp(providers))
 }
 
@@ -33,6 +40,17 @@ func TestListPendingGcpCleanup(t *testing.T) {
 
 	t.Run("lists the providers to clean up", func(t *testing.T) {
 		pending, err := listPendingGcpCleanup(func() (*[]v0.GcpProvider, error) { return providers, nil })
+		require.NoError(t, err)
+		assert.Equal(t, []PendingGcpCleanup{{Name: "one", ProjectID: "proj-a"}}, pending)
+	})
+
+	t.Run("a provider created with SyncServiceAccount false is not queued", func(t *testing.T) {
+		pending, err := listPendingGcpCleanup(func() (*[]v0.GcpProvider, error) {
+			return &[]v0.GcpProvider{
+				{Name: util.Ptr("one"), ProjectID: util.Ptr("proj-a")},
+				{Name: util.Ptr("kept"), ProjectID: util.Ptr("proj-b"), SyncServiceAccount: util.Ptr(false)},
+			}, nil
+		})
 		require.NoError(t, err)
 		assert.Equal(t, []PendingGcpCleanup{{Name: "one", ProjectID: "proj-a"}}, pending)
 	})

@@ -11,12 +11,24 @@ import (
 	client "github.com/threeport/threeport/pkg/client/v0"
 )
 
+// gcpProviderKeepsServiceAccount reports whether a GcpProvider was set up to
+// leave its GCP service account alone, because it is managed outside Threeport.
+// A provider with no setting predates the field and is cleaned up.
+func gcpProviderKeepsServiceAccount(gcpProvider v0.GcpProvider) bool {
+	return gcpProvider.SyncServiceAccount != nil && !*gcpProvider.SyncServiceAccount
+}
+
 // gcpProvidersToCleanUp names the GCP service accounts behind a set of
-// GcpProviders. A provider with no name or project cannot have had one created.
+// GcpProviders. A provider with no name or project cannot have had one created,
+// and one created with SyncServiceAccount false has a service account that is
+// not Threeport's to remove.
 func gcpProvidersToCleanUp(providers []v0.GcpProvider) []PendingGcpCleanup {
 	var pending []PendingGcpCleanup
 	for _, gcpProvider := range providers {
 		if gcpProvider.Name == nil || gcpProvider.ProjectID == nil {
+			continue
+		}
+		if gcpProviderKeepsServiceAccount(gcpProvider) {
 			continue
 		}
 		pending = append(pending, PendingGcpCleanup{
@@ -77,6 +89,15 @@ func listPendingGcpCleanup(
 				"to tear down without cleaning them up, re-run with --infra-only and remove any threeport-svc-* service accounts in GCP by hand",
 			err,
 		)
+	}
+
+	for _, gcpProvider := range *providers {
+		if gcpProvider.Name != nil && gcpProviderKeepsServiceAccount(gcpProvider) {
+			Info(fmt.Sprintf(
+				"leaving the GCP service account for gcp provider %s in place: it was created with SyncServiceAccount false",
+				*gcpProvider.Name,
+			))
+		}
 	}
 
 	return gcpProvidersToCleanUp(*providers), nil
