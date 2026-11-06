@@ -16,7 +16,8 @@ import (
 )
 
 // fakeKeyValue is a key-value store that behaves like the one the lock talks
-// to: Create refuses an existing key, Update refuses a stale revision.
+// to: Create refuses an existing key, Update refuses a stale revision.  Delete
+// doesn't check its revision; see Delete.
 //
 // The embedded interface is nil, so any method the lock starts calling that
 // this does not implement panics rather than quietly returning a zero value.
@@ -72,6 +73,10 @@ func (k *fakeKeyValue) Update(key string, value []byte, revision uint64) (uint64
 	return k.revision, nil
 }
 
+// Delete removes the key whatever revision it is given: nats.LastRevision
+// keeps the revision where only the nats package can read it, so this fake
+// can't refuse a stale one.  TestAReleaseDoesNotDeleteALockSomebodyElseTook
+// covers that against a real bucket.
 func (k *fakeKeyValue) Delete(key string, opts ...nats.DeleteOpt) error {
 	k.mu.Lock()
 	defer k.mu.Unlock()

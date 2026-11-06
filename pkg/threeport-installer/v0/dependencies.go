@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -50,15 +51,41 @@ func (cpi *ControlPlaneInstaller) CreateThreeportControlPlaneNamespace(
 	// may remove. Tearing down deletes the namespace, and deleting one this
 	// install did not create takes whatever was in it - on a reapply against
 	// a running control plane, that is the database and its data.
-	existing, err := kube.GetResource(
-		"", "v1", "Namespace", "", cpi.Opts.Namespace, kubeClient, *mapper,
-	)
-	cpi.Opts.NamespacePreexisted = err == nil && existing != nil
+	if err := cpi.CheckNamespacePresence(kubeClient, mapper); err != nil {
+		return err
+	}
 
 	// leave an existing namespace so a reapply does not rewrite the tier label
 	setPersistent(namespace)
 	if err := cpi.CreateOrUpdateKubeResource(namespace, kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed to create/update control plane namespace: %w", err)
+	}
+
+	return nil
+}
+
+// CheckNamespacePresence records in Opts.NamespacePresence whether the
+// control plane namespace is in the cluster, unless an earlier call has
+// already found out: the first check is the one made before this install
+// created anything.  Only a namespace the API says is not found is absent.
+// Any other error is returned and leaves the presence unknown, which a
+// teardown treats as present, since a namespace that is there but couldn't
+// be read for a moment is the one a teardown must not delete.
+func (cpi *ControlPlaneInstaller) CheckNamespacePresence(kubeClient dynamic.Interface, mapper *meta.RESTMapper) error {
+	if cpi.Opts.NamespacePresence != NamespacePresenceUnknown {
+		return nil
+	}
+
+	_, err := kube.GetResource(
+		"", "v1", "Namespace", "", cpi.Opts.Namespace, kubeClient, *mapper,
+	)
+	switch {
+	case err == nil:
+		cpi.Opts.NamespacePresence = NamespacePresent
+	case k8serrors.IsNotFound(err):
+		cpi.Opts.NamespacePresence = NamespaceAbsent
+	default:
+		return fmt.Errorf("failed to check whether the %s namespace exists: %w", cpi.Opts.Namespace, err)
 	}
 
 	return nil

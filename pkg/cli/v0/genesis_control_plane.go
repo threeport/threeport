@@ -589,6 +589,13 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	uninstaller.dynamicKubeClient = dynamicKubeClient
 	uninstaller.mapper = mapper
 
+	// find out whether the control plane namespace is already there before
+	// anything else can fail, since the teardown needs to know whether it may
+	// delete it.  Until this has found out, the teardown leaves it alone.
+	if err := cpi.CheckNamespacePresence(dynamicKubeClient, mapper); err != nil {
+		return uninstaller.cleanOnCreateError("failed to check for the control plane namespace", err)
+	}
+
 	// generate new DB client credentials
 	dbCreds, err := auth.GenerateDbCreds(cpi.Opts.Namespace)
 	if err != nil {
@@ -1574,12 +1581,22 @@ func (u *Uninstaller) cleanOnCreateError(
 	// API's load balancer running, which on EKS keeps the stack's subnets
 	// from being deleted, and the disks behind the claims undeleted.
 	//
+	// Only a namespace this install is known to have created is deleted: one
+	// whose presence was never found out, because the install failed before
+	// it checked or the check itself failed, is left alone too.
+	//
 	// The note reaches the operator regardless of whether a Kubernetes client
 	// is even available here - it is informational, not a Kubernetes call.
-	if u.cpi.Opts.NamespacePreexisted && u.cpi.Opts.ControlPlaneOnly {
+	if u.cpi.Opts.ControlPlaneOnly && u.cpi.Opts.NamespacePresence == threeport.NamespacePresent {
 		createErr = fmt.Errorf(
 			"%w\n(the %s namespace was already present, so it was left alone; "+
 				"anything this install added to it is still there)",
+			createErr, u.cpi.Opts.Namespace,
+		)
+	} else if u.cpi.Opts.ControlPlaneOnly && u.cpi.Opts.NamespacePresence != threeport.NamespaceAbsent {
+		createErr = fmt.Errorf(
+			"%w\n(the install failed before it could find out whether it created the %s namespace, "+
+				"so it was left alone; delete it yourself if this install created it)",
 			createErr, u.cpi.Opts.Namespace,
 		)
 	} else if u.dynamicKubeClient != nil && u.mapper != nil {

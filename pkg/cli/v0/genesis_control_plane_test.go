@@ -197,10 +197,10 @@ func testNamespaceMapper() meta.RESTMapper {
 // fake carrying the control plane's own namespace, since the no-preexisting-
 // namespace case reaches a real DeleteNamespaces call through
 // UnInstallThreeportControlPlaneComponents.
-func testUninstaller(namespacePreexisted, controlPlaneOnly bool, infra *fakeKubernetesRuntimeInfra) *Uninstaller {
+func testUninstaller(namespacePresence threeport.NamespacePresence, controlPlaneOnly bool, infra *fakeKubernetesRuntimeInfra) *Uninstaller {
 	cpi := &threeport.ControlPlaneInstaller{}
 	cpi.Opts.Namespace = "threeport-control-plane"
-	cpi.Opts.NamespacePreexisted = namespacePreexisted
+	cpi.Opts.NamespacePresence = namespacePresence
 	cpi.Opts.ControlPlaneOnly = controlPlaneOnly
 
 	namespace := &unstructured.Unstructured{Object: map[string]interface{}{
@@ -236,7 +236,7 @@ func testUninstaller(namespacePreexisted, controlPlaneOnly bool, infra *fakeKube
 func TestCleanOnCreateErrorSkipsOnlyTheNamespaceDeletion(t *testing.T) {
 	t.Run("a full install deletes the namespace and the infra when the namespace predates it", func(t *testing.T) {
 		infra := &fakeKubernetesRuntimeInfra{}
-		u := testUninstaller(true, false, infra)
+		u := testUninstaller(threeport.NamespacePresent, false, infra)
 
 		err := u.cleanOnCreateError("", fmt.Errorf("create failed"))
 
@@ -254,7 +254,7 @@ func TestCleanOnCreateErrorSkipsOnlyTheNamespaceDeletion(t *testing.T) {
 
 	t.Run("control-plane-only leaves a namespace that predates it, and the infra, alone", func(t *testing.T) {
 		infra := &fakeKubernetesRuntimeInfra{}
-		u := testUninstaller(true, true, infra)
+		u := testUninstaller(threeport.NamespacePresent, true, infra)
 
 		err := u.cleanOnCreateError("", fmt.Errorf("create failed"))
 
@@ -266,7 +266,7 @@ func TestCleanOnCreateErrorSkipsOnlyTheNamespaceDeletion(t *testing.T) {
 
 	t.Run("a namespace this install created is still torn down in full", func(t *testing.T) {
 		infra := &fakeKubernetesRuntimeInfra{}
-		u := testUninstaller(false, false, infra)
+		u := testUninstaller(threeport.NamespaceAbsent, false, infra)
 
 		err := u.cleanOnCreateError("", fmt.Errorf("create failed"))
 
@@ -276,9 +276,36 @@ func TestCleanOnCreateErrorSkipsOnlyTheNamespaceDeletion(t *testing.T) {
 		assert.True(t, infra.deleteCalled)
 	})
 
+	t.Run("control-plane-only leaves a namespace whose presence it never found out alone", func(t *testing.T) {
+		// an install that fails after it has a Kubernetes client but before
+		// it checks for the namespace, or whose check fails, can't tell a
+		// namespace it created from a running control plane's
+		infra := &fakeKubernetesRuntimeInfra{}
+		u := testUninstaller(threeport.NamespacePresenceUnknown, true, infra)
+
+		err := u.cleanOnCreateError("", fmt.Errorf("create failed"))
+
+		require.Error(t, err)
+		assert.False(t, namespaceDeleteRequested(t, u), "it may be a running control plane's")
+		assert.Contains(t, err.Error(), "before it could find out whether it created the threeport-control-plane namespace")
+		assert.NotContains(t, err.Error(), "already present", "it does not know that")
+		assert.False(t, infra.deleteCalled)
+	})
+
+	t.Run("a full install deletes a namespace whose presence it never found out, with the cluster", func(t *testing.T) {
+		infra := &fakeKubernetesRuntimeInfra{}
+		u := testUninstaller(threeport.NamespacePresenceUnknown, false, infra)
+
+		err := u.cleanOnCreateError("", fmt.Errorf("create failed"))
+
+		require.Error(t, err)
+		assert.True(t, namespaceDeleteRequested(t, u), "the cluster goes below, and the namespace with it")
+		assert.True(t, infra.deleteCalled)
+	})
+
 	t.Run("control-plane-only still deletes a namespace it created", func(t *testing.T) {
 		infra := &fakeKubernetesRuntimeInfra{}
-		u := testUninstaller(false, true, infra)
+		u := testUninstaller(threeport.NamespaceAbsent, true, infra)
 
 		err := u.cleanOnCreateError("", fmt.Errorf("create failed"))
 

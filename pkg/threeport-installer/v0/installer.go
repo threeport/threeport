@@ -157,13 +157,15 @@ type Options struct {
 	// Automatically tear down control plane resources if an error is encountered.
 	TeardownOnFailure bool
 
-	// NamespacePreexisted records that the control plane namespace was
+	// NamespacePresence records whether the control plane namespace was
 	// already in the cluster when this install started. A teardown that
 	// leaves the cluster in place must not delete a namespace it did not
 	// create: on a reapply with --control-plane-only that namespace holds a
 	// running control plane, and removing it removes the database with it.
-	// One that deletes the cluster deletes the namespace first regardless.
-	NamespacePreexisted bool
+	// Until CheckNamespacePresence has found out, it is unknown, which a
+	// teardown treats as present. One that deletes the cluster deletes the
+	// namespace first regardless.
+	NamespacePresence NamespacePresence
 
 	// Create and connect local container registry for local control plane
 	// clusters.
@@ -280,3 +282,20 @@ func NewInstaller(os ...InstallerOption) *ControlPlaneInstaller {
 		Opts: opts,
 	}
 }
+
+// NamespacePresence is whether the control plane namespace was in the cluster
+// when an install started.
+type NamespacePresence int
+
+const (
+	// NamespacePresenceUnknown is the state before CheckNamespacePresence
+	// has found out, or after it failed to.  A teardown leaves the namespace
+	// alone, since it can't tell that this install created it.
+	NamespacePresenceUnknown NamespacePresence = iota
+
+	// NamespaceAbsent means this install creates the namespace.
+	NamespaceAbsent
+
+	// NamespacePresent means the namespace was already there.
+	NamespacePresent
+)

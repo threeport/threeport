@@ -22,10 +22,10 @@ import (
 func TestTeardownLeavesANamespaceItDidNotCreate(t *testing.T) {
 	teardown := true
 
-	uninstallerFor := func(preexisted bool) *Uninstaller {
+	uninstallerFor := func(presence threeport.NamespacePresence) *Uninstaller {
 		installer := &threeport.ControlPlaneInstaller{}
 		installer.Opts.Namespace = "threeport-control-plane"
-		installer.Opts.NamespacePreexisted = preexisted
+		installer.Opts.NamespacePresence = presence
 		// --control-plane-only is the path this guard is about, and it also
 		// stops the teardown before it reaches cloud infrastructure these
 		// tests have none of
@@ -40,7 +40,7 @@ func TestTeardownLeavesANamespaceItDidNotCreate(t *testing.T) {
 	t.Run("a namespace that was already there is left alone", func(t *testing.T) {
 		createErr := errors.New("the install failed partway through")
 
-		err := uninstallerFor(true).cleanOnCreateError("", createErr)
+		err := uninstallerFor(threeport.NamespacePresent).cleanOnCreateError("", createErr)
 		require.Error(t, err)
 		assert.ErrorIs(t, err, createErr, "the original failure is still what happened")
 		assert.Contains(
@@ -53,7 +53,7 @@ func TestTeardownLeavesANamespaceItDidNotCreate(t *testing.T) {
 	t.Run("a namespace this install created is not spared", func(t *testing.T) {
 		createErr := errors.New("the install failed partway through")
 
-		err := uninstallerFor(false).cleanOnCreateError("", createErr)
+		err := uninstallerFor(threeport.NamespaceAbsent).cleanOnCreateError("", createErr)
 		require.Error(t, err)
 		assert.NotContains(
 			t, err.Error(), "already present",
@@ -63,7 +63,7 @@ func TestTeardownLeavesANamespaceItDidNotCreate(t *testing.T) {
 
 	t.Run("teardown off still returns without touching anything", func(t *testing.T) {
 		off := false
-		uninstaller := uninstallerFor(false)
+		uninstaller := uninstallerFor(threeport.NamespaceAbsent)
 		uninstaller.teardownOnFailure = &off
 		createErr := errors.New("the install failed partway through")
 
