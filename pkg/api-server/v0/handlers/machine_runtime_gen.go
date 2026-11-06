@@ -236,12 +236,16 @@ func (h Handler) GetMachineRuntimeDefinitions(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/machine-runtime-definitions/{id} [GET]
 func (h Handler) GetMachineRuntimeDefinition(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.MachineRuntimeDefinition).GetFullyQualifiedType()
-	machineRuntimeDefinitionID := c.Param("id")
+	machineRuntimeDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var machineRuntimeDefinition api_v0.MachineRuntimeDefinition
 	if result := h.RequestDB(c).
 		First(&machineRuntimeDefinition, machineRuntimeDefinitionID); result.Error != nil {
@@ -285,7 +289,10 @@ func (h Handler) GetMachineRuntimeDefinition(c echo.Context) error {
 func (h Handler) UpdateMachineRuntimeDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeMachineRuntimeDefinition
 	fullyQualifiedType := new(api_v0.MachineRuntimeDefinition).GetFullyQualifiedType()
-	machineRuntimeDefinitionID := c.Param("id")
+	machineRuntimeDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingMachineRuntimeDefinition api_v0.MachineRuntimeDefinition
 	if result := h.RequestDB(c).First(&existingMachineRuntimeDefinition, machineRuntimeDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -363,7 +370,10 @@ func (h Handler) UpdateMachineRuntimeDefinition(c echo.Context) error {
 func (h Handler) ReplaceMachineRuntimeDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeMachineRuntimeDefinition
 	fullyQualifiedType := new(api_v0.MachineRuntimeDefinition).GetFullyQualifiedType()
-	machineRuntimeDefinitionID := c.Param("id")
+	machineRuntimeDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingMachineRuntimeDefinition api_v0.MachineRuntimeDefinition
 	if result := h.RequestDB(c).First(&existingMachineRuntimeDefinition, machineRuntimeDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -443,13 +453,17 @@ func (h Handler) ReplaceMachineRuntimeDefinition(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/machine-runtime-definitions/{id} [DELETE]
 func (h Handler) DeleteMachineRuntimeDefinition(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.MachineRuntimeDefinition).GetFullyQualifiedType()
-	machineRuntimeDefinitionID := c.Param("id")
+	machineRuntimeDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var machineRuntimeDefinition api_v0.MachineRuntimeDefinition
 	if result := h.RequestDB(c).Preload("MachineRuntimeInstances").First(&machineRuntimeDefinition, machineRuntimeDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -742,12 +756,16 @@ func (h Handler) GetMachineRuntimeInstances(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/machine-runtime-instances/{id} [GET]
 func (h Handler) GetMachineRuntimeInstance(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.MachineRuntimeInstance).GetFullyQualifiedType()
-	machineRuntimeInstanceID := c.Param("id")
+	machineRuntimeInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var machineRuntimeInstance api_v0.MachineRuntimeInstance
 	if result := h.RequestDB(c).
 		First(&machineRuntimeInstance, machineRuntimeInstanceID); result.Error != nil {
@@ -791,7 +809,10 @@ func (h Handler) GetMachineRuntimeInstance(c echo.Context) error {
 func (h Handler) UpdateMachineRuntimeInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeMachineRuntimeInstance
 	fullyQualifiedType := new(api_v0.MachineRuntimeInstance).GetFullyQualifiedType()
-	machineRuntimeInstanceID := c.Param("id")
+	machineRuntimeInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingMachineRuntimeInstance api_v0.MachineRuntimeInstance
 	if result := h.RequestDB(c).First(&existingMachineRuntimeInstance, machineRuntimeInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -891,7 +912,10 @@ func (h Handler) UpdateMachineRuntimeInstance(c echo.Context) error {
 func (h Handler) ReplaceMachineRuntimeInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeMachineRuntimeInstance
 	fullyQualifiedType := new(api_v0.MachineRuntimeInstance).GetFullyQualifiedType()
-	machineRuntimeInstanceID := c.Param("id")
+	machineRuntimeInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingMachineRuntimeInstance api_v0.MachineRuntimeInstance
 	if result := h.RequestDB(c).First(&existingMachineRuntimeInstance, machineRuntimeInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -993,13 +1017,17 @@ func (h Handler) ReplaceMachineRuntimeInstance(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/machine-runtime-instances/{id} [DELETE]
 func (h Handler) DeleteMachineRuntimeInstance(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.MachineRuntimeInstance).GetFullyQualifiedType()
-	machineRuntimeInstanceID := c.Param("id")
+	machineRuntimeInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var machineRuntimeInstance api_v0.MachineRuntimeInstance
 	if result := h.RequestDB(c).First(&machineRuntimeInstance, machineRuntimeInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
