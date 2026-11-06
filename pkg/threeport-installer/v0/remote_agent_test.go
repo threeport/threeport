@@ -35,8 +35,8 @@ func agentDeployment(cpi *ControlPlaneInstaller, args ...string) *unstructured.U
 	return agent
 }
 
-// secret builds a secret with the given name.
-func secret(namespace, name string, data map[string]interface{}) *unstructured.Unstructured {
+// testSecret builds a secret with the given name.
+func testSecret(namespace, name string, data map[string]interface{}) *unstructured.Unstructured {
 	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "v1",
@@ -194,7 +194,7 @@ func TestComputeSpaceAgentCurrent(t *testing.T) {
 		stale := agentDeployment(cpi, "--metrics-bind-address=127.0.0.1:8080", "--leader-elect", "--auth-enabled=false")
 
 		client := testClient(append(
-			[]runtime.Object{stale, secret(cpi.Opts.Namespace, agentCertSecretName, nil)},
+			[]runtime.Object{stale, testSecret(cpi.Opts.Namespace, agentCertSecretName, nil)},
 			installedCRDs()...,
 		)...)
 
@@ -208,7 +208,7 @@ func TestComputeSpaceAgentCurrent(t *testing.T) {
 		good := agentDeployment(cpi, argStrings(cpi.getAgentArgs())...)
 
 		client := testClient(append(
-			[]runtime.Object{good, secret(cpi.Opts.Namespace, agentCertSecretName, nil)},
+			[]runtime.Object{good, testSecret(cpi.Opts.Namespace, agentCertSecretName, nil)},
 			installedCRDs()...,
 		)...)
 
@@ -255,7 +255,7 @@ func TestInstalledExternalApiEndpoint(t *testing.T) {
 	cpi := NewInstaller()
 
 	t.Run("read from the controller config", func(t *testing.T) {
-		client := testClient(secret(cpi.Opts.Namespace, "controller-config", map[string]interface{}{
+		client := testClient(testSecret(cpi.Opts.Namespace, "controller-config", map[string]interface{}{
 			ControllerConfigExternalApiEndpointKey: base64.StdEncoding.EncodeToString([]byte(testExternalEndpoint)),
 		}))
 
@@ -265,7 +265,7 @@ func TestInstalledExternalApiEndpoint(t *testing.T) {
 	})
 
 	t.Run("empty when the config records none", func(t *testing.T) {
-		client := testClient(secret(cpi.Opts.Namespace, "controller-config", map[string]interface{}{}))
+		client := testClient(testSecret(cpi.Opts.Namespace, "controller-config", map[string]interface{}{}))
 
 		endpoint, err := cpi.installedExternalApiEndpoint(client, testMapper())
 		require.NoError(t, err)

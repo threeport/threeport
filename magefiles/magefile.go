@@ -1,9 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"go/build"
+	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -207,12 +210,15 @@ func (Test) Integration() error {
 		return err
 	}
 
+	// gateway retries outlast the default ten minute test timeout
 	cmd := "go"
 	args := []string{
 		"test",
 		"-v",
 		"./test/integration",
 		"-count=1",
+		"-timeout",
+		"20m",
 	}
 	if err := util.RunCommandStreamOutput(cmd, args...); err != nil {
 		return fmt.Errorf("failed to run integration tests: %w", err)
@@ -368,6 +374,20 @@ const (
 // the reconciler fixture in this tree. Input is built here because the fixture
 // has no SDK config or go.mod; a nested go.mod would drop it from go test ./internal/....
 func (Dev) GenerateFixture() error {
+	// read tags, types, and embeds from the model file
+	modelPath := filepath.Join(fixtureRoot, "pkg", "api", "v0", "reconciler_test_fixture.go")
+	structTags, fieldTypes, structEmbeds, err := sdkgen.ParseModelFile(modelPath)
+	if err != nil {
+		return fmt.Errorf("failed to parse reconciler test model: %w", err)
+	}
+
+	// copy promoted component fields onto each object that embeds them
+	supportTags, supportTypes, err := sdkgen.LoadSupportServiceFields()
+	if err != nil {
+		return fmt.Errorf("failed to read support service fields: %w", err)
+	}
+	sdkgen.CopySupportServiceFields(structTags, fieldTypes, structEmbeds, supportTags, supportTypes)
+
 	// describe the persisted and persist-false fixture objects
 	apiObject := &sdkgen.ApiObject{
 		PackageName: "v0",
@@ -398,18 +418,9 @@ func (Dev) GenerateFixture() error {
 				{Name: fixtureObjectName, Versions: []string{"v0"}},
 				{Name: fixtureVolatile, Versions: []string{"v0"}},
 			},
-			StructTags: map[string]map[string]map[string]string{
-				fixtureObjectName: {"Status": {"validate": "optional"}},
-				fixtureVolatile:   {"Data": {"validate": "optional", "persist": "false"}},
-			},
-			FieldTypes: map[string]map[string]string{
-				fixtureObjectName: {"Status": "*string"},
-				fixtureVolatile:   {"Data": "*string"},
-			},
-			StructEmbeds: map[string][]string{
-				fixtureObjectName: {"Common", "Instance", "Reconciliation"},
-				fixtureVolatile:   {"Common", "Instance", "Reconciliation"},
-			},
+			StructTags:   structTags,
+			FieldTypes:   fieldTypes,
+			StructEmbeds: structEmbeds,
 		}},
 		VersionedApiObjectCollections: []sdkgen.VersionedApiObjectCollection{{
 			Version: "v0",
@@ -471,6 +482,20 @@ func checkModuleSwaggerDocsTarget() error {
 		return fmt.Errorf("the module's swagger docs target failed without saying to run '%s': %s", advice, output)
 	}
 
+	if err := generateModuleSwaggerDocs(); err != nil {
+		return err
+	}
+	swaggerJSON, err := os.ReadFile(filepath.Join(moduleTestPath, "pkg", "api-server", "v0", "docs", "swagger.json"))
+	if err != nil {
+		return fmt.Errorf("the module's swagger docs target wrote no swagger.json: %w", err)
+	}
+
+	return checkModuleSwaggerDocs(swaggerJSON)
+}
+
+// generateModuleSwaggerDocs declares swag as a tool of the test module and
+// runs the GenerateSwaggerDocs target generated into it.
+func generateModuleSwaggerDocs() error {
 	if err := util.RunCommandStreamOutputInDir(
 		moduleTestPath,
 		"go", "get", "-tool", "github.com/swaggo/swag/cmd/swag@"+genroot.SwagVersion,
@@ -483,9 +508,102 @@ func checkModuleSwaggerDocsTarget() error {
 	); err != nil {
 		return fmt.Errorf("failed to generate the module's swagger docs: %w", err)
 	}
-	if _, err := os.Stat(filepath.Join(moduleTestPath, "pkg", "api-server", "v0", "docs", "swagger.json")); err != nil {
-		return fmt.Errorf("the module's swagger docs target wrote no swagger.json: %w", err)
+
+	return nil
+}
+
+// checkModuleSwaggerDocs checks a swagger document describes the test
+// module's own API, not the core API's.
+func checkModuleSwaggerDocs(swaggerJSON []byte) error {
+	var docs struct {
+		Info struct {
+			Title string `json:"title"`
+		} `json:"info"`
+		Paths map[string]any `json:"paths"`
 	}
+	if err := json.Unmarshal(swaggerJSON, &docs); err != nil {
+		return fmt.Errorf("failed to parse the module's swagger document: %w", err)
+	}
+	if docs.Info.Title != "Threeport Test Module API" {
+		return fmt.Errorf("the module's swagger docs are titled %q, not the title its sdk-config gives", docs.Info.Title)
+	}
+	// a module's paths are under its API namespace
+	if _, ok := docs.Paths["/module-threeport-io/v0/widget-definitions"]; !ok {
+		return errors.New("the module's swagger docs do not document its own widget-definitions path")
+	}
+	if _, ok := docs.Paths["/v0/control-plane-definitions"]; ok {
+		return errors.New("the module's swagger docs document the core API's paths")
+	}
+
+	return nil
+}
+
+// moduleTestSwaggerPath is where the core API proxies the test module's
+// swagger docs: /swagger/ and the name the module registers its API under.
+const moduleTestSwaggerPath = "/swagger/module.threeport.io/test-module-api"
+
+// checkModuleSwaggerDocsThroughCoreApi requests the installed test module's
+// swagger docs from the core API, as a client does, and checks they are the
+// module's and that the core API's own are still the core API's.
+func checkModuleSwaggerDocsThroughCoreApi() error {
+	cli.InitConfig(nil, "")
+	threeportConfig, controlPlane, err := cli.GetThreeportConfig("")
+	if err != nil {
+		return fmt.Errorf("failed to read the threeport config: %w", err)
+	}
+	apiClient, err := threeportConfig.GetHTTPClient(controlPlane)
+	if err != nil {
+		return fmt.Errorf("failed to get a threeport API client: %w", err)
+	}
+	controlPlaneConfig, err := threeportConfig.GetControlPlaneConfig(controlPlane)
+	if err != nil {
+		return fmt.Errorf("failed to get the control plane config: %w", err)
+	}
+	scheme := "http"
+	if controlPlaneConfig.AuthEnabled {
+		scheme = "https"
+	}
+	get := func(path string) ([]byte, error) {
+		response, err := apiClient.Get(fmt.Sprintf("%s://%s%s", scheme, controlPlaneConfig.APIServer, path))
+		if err != nil {
+			return nil, fmt.Errorf("failed to request %s from the core API: %w", path, err)
+		}
+		defer response.Body.Close()
+		body, err := io.ReadAll(response.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read %s from the core API: %w", path, err)
+		}
+		if response.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("the core API answered %s with %d: %s", path, response.StatusCode, body)
+		}
+
+		return body, nil
+	}
+
+	moduleDocs, err := get(moduleTestSwaggerPath + "/doc.json")
+	if err != nil {
+		return err
+	}
+	if err := checkModuleSwaggerDocs(moduleDocs); err != nil {
+		return fmt.Errorf("through the core API: %w", err)
+	}
+	moduleIndex, err := get(moduleTestSwaggerPath + "/index.html")
+	if err != nil {
+		return err
+	}
+	if !strings.Contains(string(moduleIndex), "swagger-ui") {
+		return errors.New("the core API did not serve the module's swagger UI")
+	}
+
+	coreDocs, err := get("/swagger/doc.json")
+	if err != nil {
+		return err
+	}
+	if !strings.Contains(string(coreDocs), "/v0/control-plane-definitions") {
+		return errors.New("the core API no longer serves its own swagger docs at /swagger")
+	}
+
+	fmt.Printf("module swagger docs served through the core API at %s/index.html\n", moduleTestSwaggerPath)
 
 	return nil
 }
@@ -509,6 +627,10 @@ var moduleTestInputs = []string{"sdk-config.yaml", "README.md", "testdata"}
 // moduleTestConfigPackage is where the generated config abstractions land, and
 // so where a test of them has to sit: the functions it covers are unexported.
 const moduleTestConfigPackage = "pkg/config/v0"
+
+// moduleTestInstallerPackage is the generated module's installer package,
+// whose generated test checks the module's database network policy.
+const moduleTestInstallerPackage = "pkg/installer/v0"
 
 // ModuleGen generates a Threeport module and type-checks it. Generated module
 // code calls this repository's exported API, so a changed signature fails here.
@@ -541,7 +663,9 @@ func (Test) ModuleGen() error {
 	// was a pass for.
 	if err := util.RunCommandStreamOutputInDir(
 		moduleTestPath,
-		"go", "test", "-count=1", "./"+moduleTestConfigPackage+"/...",
+		"go", "test", "-count=1",
+		"./"+moduleTestConfigPackage+"/...",
+		"./"+moduleTestInstallerPackage+"/...",
 	); err != nil {
 		return fmt.Errorf("failed to test the generated module: %w", err)
 	}
@@ -627,6 +751,11 @@ func (Test) ModuleInstall() error {
 		return err
 	}
 
+	// generate the module's swagger docs, so the API server image serves them
+	if err := generateModuleSwaggerDocs(); err != nil {
+		return err
+	}
+
 	// build and push module images to the development registry
 	if err := util.RunCommandStreamOutputInDir(
 		moduleTestPath,
@@ -660,6 +789,13 @@ func (Test) ModuleInstall() error {
 	); err != nil {
 		return fmt.Errorf("failed to install the module: %w", err)
 	}
+
+	// reach the module's swagger docs the way a client does, through the
+	// core API
+	if err := checkModuleSwaggerDocsThroughCoreApi(); err != nil {
+		return err
+	}
+
 	// remove generated files after a successful install
 	if err := resetModuleTestDir(); err != nil {
 		return err
@@ -729,17 +865,39 @@ func generateModuleTest() error {
 		return fmt.Errorf("failed to point the module test at this checkout: %w", err)
 	}
 
-	// scaffold the API objects, then generate the boilerplate
-	for _, subcommand := range []string{"create", "gen"} {
-		if err := util.RunCommandStreamOutputInDir(
-			moduleTestPath,
-			sdkBinary,
-			subcommand,
-			"-c",
-			"sdk-config.yaml",
-		); err != nil {
-			return fmt.Errorf("failed to run threeport-sdk %s for the module test: %w", subcommand, err)
-		}
+	// scaffold the API objects
+	if err := util.RunCommandStreamOutputInDir(
+		moduleTestPath,
+		sdkBinary,
+		"create",
+		"-c",
+		"sdk-config.yaml",
+	); err != nil {
+		return fmt.Errorf("failed to run threeport-sdk create for the module test: %w", err)
+	}
+
+	// add the support service fields the generator reads
+	if err := addModuleSupportServices(); err != nil {
+		return err
+	}
+
+	// resolve the module import before gen lists packages
+	if err := util.RunCommandStreamOutputInDir(
+		moduleTestPath,
+		"go", "mod", "tidy",
+	); err != nil {
+		return fmt.Errorf("failed to resolve the module test dependencies before gen: %w", err)
+	}
+
+	// generate the boilerplate
+	if err := util.RunCommandStreamOutputInDir(
+		moduleTestPath,
+		sdkBinary,
+		"gen",
+		"-c",
+		"sdk-config.yaml",
+	); err != nil {
+		return fmt.Errorf("failed to run threeport-sdk gen for the module test: %w", err)
 	}
 
 	// copy the tracked tests into the generated package. They have to be in it
@@ -757,6 +915,103 @@ func generateModuleTest() error {
 		return fmt.Errorf("failed to resolve the module test dependencies: %w", err)
 	}
 
+	return nil
+}
+
+// addModuleSupportServices embeds the four support services on the generated widget instance.
+func addModuleSupportServices() error {
+	// find the generated instance type
+	apiDir := filepath.Join(moduleTestPath, "pkg", "api", "v0")
+	entries, err := os.ReadDir(apiDir)
+	if err != nil {
+		return fmt.Errorf("failed to read the generated API directory: %w", err)
+	}
+	var path string
+	var text string
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") {
+			continue
+		}
+		candidate := filepath.Join(apiDir, entry.Name())
+		contents, err := os.ReadFile(candidate)
+		if err != nil {
+			return fmt.Errorf("failed to read %s: %w", entry.Name(), err)
+		}
+		if strings.Contains(string(contents), "type WidgetInstance struct") {
+			path = candidate
+			text = string(contents)
+			break
+		}
+	}
+	if path == "" {
+		return fmt.Errorf("generated WidgetInstance struct was not found")
+	}
+	if strings.Contains(text, "SupportServiceIngress") {
+		return nil
+	}
+
+	// take the token before the quoted path when it is not the import keyword
+	alias := "v0"
+	const importPath = `"github.com/threeport/threeport/pkg/api/v0"`
+	for _, line := range strings.Split(text, "\n") {
+		if !strings.Contains(line, importPath) {
+			continue
+		}
+		fields := strings.Fields(line)
+		for i, field := range fields {
+			if !strings.Contains(field, importPath) || i == 0 {
+				continue
+			}
+			if fields[i-1] != "import" {
+				alias = fields[i-1]
+			}
+			break
+		}
+		break
+	}
+
+	// insert the fields before the struct closes
+	marker := "type WidgetInstance struct"
+	start := strings.Index(text, marker)
+	brace := strings.Index(text[start:], "{")
+	if brace < 0 {
+		return fmt.Errorf("WidgetInstance struct has no opening brace")
+	}
+	depth := 0
+	end := -1
+	for i := start + brace; i < len(text); i++ {
+		switch text[i] {
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				end = i
+			}
+		}
+		if end >= 0 {
+			break
+		}
+	}
+	if end < 0 {
+		return fmt.Errorf("WidgetInstance struct has no closing brace")
+	}
+	insertion := "\n\t// The shared component workloads this instance records.\n" +
+		"\t" + alias + ".SupportServiceIngress `mapstructure:\",squash\"`\n" +
+		"\t" + alias + ".SupportServiceCertificates `mapstructure:\",squash\"`\n" +
+		"\t" + alias + ".SupportServiceSecrets `mapstructure:\",squash\"`\n" +
+		"\t" + alias + ".SupportServiceDatabase `mapstructure:\",squash\"`\n" +
+		"\n" +
+		"\t// The cluster the shared components install on.\n" +
+		"\tKubernetesRuntimeInstanceID *uint `validate:\"optional\" relationship:\"requires\"`\n"
+	if err := os.WriteFile(path, []byte(text[:end]+insertion+text[end:]), 0o644); err != nil {
+		return fmt.Errorf("failed to write the widget API file: %w", err)
+	}
+
+	// gofmt's working directory is the API directory
+	if err := util.RunCommandStreamOutputInDir(apiDir, "gofmt", "-w", filepath.Base(path)); err != nil {
+		return fmt.Errorf("failed to format the widget API file: %w", err)
+	}
 	return nil
 }
 

@@ -72,7 +72,7 @@ var GetTerraformsCmd = &cobra.Command{
 		case "v0":
 			// load terraform values
 			terraformConfig := config_v0.TerraformConfig{}
-			if terraformConfigPath != "" {
+			if terraformConfigPath != "" || terraformStdin {
 				configContent, err := cli.ReadConfigContent(terraformConfigPath, terraformStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -337,7 +337,7 @@ var GetTerraformDefinitionsCmd = &cobra.Command{
 		case "v0":
 			// load values
 			terraformDefinitionConfig := config_v0.TerraformDefinitionConfig{}
-			if terraformConfigPath != "" {
+			if terraformConfigPath != "" || terraformStdin {
 				configContent, err := cli.ReadConfigContent(terraformConfigPath, terraformStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -583,7 +583,7 @@ var DeleteTerraformDefinitionCmd = &cobra.Command{
 		switch terraformVersion {
 		case "v0":
 			var terraformDefinitionConfig config_v0.TerraformDefinitionConfig
-			if terraformConfigPath != "" {
+			if terraformConfigPath != "" || terraformStdin {
 				// load terraform definition config
 				configContent, err := cli.ReadConfigContent(terraformConfigPath, terraformStdin)
 				if err != nil {
@@ -685,7 +685,7 @@ var GetTerraformInstancesCmd = &cobra.Command{
 		case "v0":
 			// load values
 			terraformInstanceConfig := config_v0.TerraformInstanceConfig{}
-			if terraformConfigPath != "" {
+			if terraformConfigPath != "" || terraformStdin {
 				configContent, err := cli.ReadConfigContent(terraformConfigPath, terraformStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -935,7 +935,7 @@ var DeleteTerraformInstanceCmd = &cobra.Command{
 		switch terraformVersion {
 		case "v0":
 			var terraformInstanceConfig config_v0.TerraformInstanceConfig
-			if terraformConfigPath != "" {
+			if terraformConfigPath != "" || terraformStdin {
 				// load terraform instance config
 				configContent, err := cli.ReadConfigContent(terraformConfigPath, terraformStdin)
 				if err != nil {

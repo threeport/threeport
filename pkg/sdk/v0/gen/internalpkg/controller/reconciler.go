@@ -22,6 +22,7 @@ func GenReconcilers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	for _, objGroup := range gen.ApiObjectGroups {
 		for _, obj := range objGroup.ReconciledObjects {
 			varObjectName := strcase.ToLowerCamel(obj.Name)
+			components := supportComponents(objGroup.StructTags, obj.Name)
 
 			f := NewFile(objGroup.ControllerPackageName)
 			f.HeaderComment(sdk.HeaderCommentGenNoEdit)
@@ -34,6 +35,9 @@ func GenReconcilers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			f.ImportAlias("github.com/threeport/threeport/pkg/notifications/v0", "notifications")
 			f.ImportAlias("github.com/threeport/threeport/pkg/util/v0", "util")
 			f.ImportAlias("github.com/threeport/threeport/pkg/event/v0", "event")
+			if len(components) > 0 {
+				f.ImportAlias(supportServicesPath, "supportservices")
+			}
 
 			for _, version := range obj.Versions {
 				f.ImportAlias(
@@ -258,9 +262,9 @@ func GenReconcilers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							g.Line()
 							g.Comment("determine which operation and act accordingly")
 							g.Switch(Id("notif").Dot("Operation")).BlockFunc(func(h *Group) {
-								operationCase(h, "create", &obj, varObjectName, gen.ModulePath)
-								operationCase(h, "update", &obj, varObjectName, gen.ModulePath)
-								operationCase(h, "delete", &obj, varObjectName, gen.ModulePath)
+								operationCase(h, "create", &obj, varObjectName, gen.ModulePath, components)
+								operationCase(h, "update", &obj, varObjectName, gen.ModulePath, components)
+								operationCase(h, "delete", &obj, varObjectName, gen.ModulePath, components)
 								h.Default().Block(
 									Id("log").Dot("Error").Call(
 										Line().Id("errors").Dot("New").Call(Lit("unrecognized notifcation operation")),
@@ -613,6 +617,7 @@ func operationCase(
 	obj *gen.ReconciledObject,
 	varObjectName string,
 	modulePath string,
+	components []string,
 ) {
 	uppoerOp := strcase.ToCamel(op)
 	lowerOpPast := op + "d"
@@ -645,8 +650,20 @@ func operationCase(
 		h.Var().Id("customRequeueDelay").Int64()
 		h.Switch(Id(varObjectName).Dot("GetVersion").Call()).BlockFunc(func(j *Group) {
 			for _, version := range obj.Versions {
-				j.Case(Lit(version)).Block(
-					List(Id("requeueDelay"), Id("err")).Op(":=").Id(fmt.Sprintf(
+				j.Case(Lit(version)).BlockFunc(func(b *Group) {
+					if len(components) > 0 && op != "delete" {
+						b.Comment("install the shared components this object requires")
+						emitSupportComponents(
+							b,
+							components,
+							false,
+							varObjectName,
+							obj.Name,
+							version,
+							modulePath,
+						)
+					}
+					handler := List(Id("requeueDelay"), Id("err")).Op(":=").Id(fmt.Sprintf(
 						"%s%s%s",
 						version,
 						obj.Name,
@@ -659,10 +676,35 @@ func operationCase(
 						)),
 						Line().Op("&").Id("log"),
 						Line(),
-					),
-					Id("customRequeueDelay").Op("=").Id("requeueDelay"),
-					Id("operationErr").Op("=").Id("err"),
-				)
+					)
+					record := []Code{
+						handler,
+						Id("customRequeueDelay").Op("=").Id("requeueDelay"),
+						Id("operationErr").Op("=").Id("err"),
+					}
+					if len(components) > 0 && op != "delete" {
+						b.If(Id("operationErr").Op("==").Nil()).Block(record...)
+					} else {
+						// emit each statement on its own line
+						for _, statement := range record {
+							b.Add(statement)
+						}
+					}
+					if len(components) > 0 && op == "delete" {
+						b.If(Id("operationErr").Op("==").Nil()).BlockFunc(func(r *Group) {
+							r.Comment("release the shared components this object required")
+							emitSupportComponents(
+								r,
+								components,
+								true,
+								varObjectName,
+								obj.Name,
+								version,
+								modulePath,
+							)
+						})
+					}
+				})
 			}
 			j.Default().Block(
 				Id("operationErr").Op("=").Qual(
@@ -849,51 +891,69 @@ func operationCase(
 				)),
 				Line(),
 			)
-			h.If(Id("err").Op("!=").Nil()).Block(
-				Id("log").Dot("Error").Call(Id("err"), Lit(fmt.Sprintf(
-					"failed to update %s to mark as deleted",
+			// the object is already gone from the API when another worker or
+			// replica finished deleting it first, so there is nothing left to
+			// mark or delete - requeueing would retry a 404 forever
+			h.If(Qual("errors", "Is").Call(
+				Id("err"),
+				Qual(clientLib, "ErrObjectNotFound"),
+			)).Block(
+				Id("log").Dot("Info").Call(Lit(fmt.Sprintf(
+					"%s already deleted",
 					strcase.ToDelimited(obj.Name, ' '),
 				))),
-				Id("r").Dot("UnlockAndRequeue").Call(
-					Id(varObjectName),
-					Id("requeueDelay"),
-					Id("lockReleased"),
-					Id("msg"),
-				),
-				Continue(),
-			)
-
-			h.Id("_").Op(",").Id("err").Op("=").Qual(
-				fmt.Sprintf("%s/pkg/client/v0", modulePath),
-				fmt.Sprintf("Delete%s", obj.Name),
-			).Call(
-				Line().Id("r").Dot("APIClient"),
-				Line().Id("r").Dot("APIServer"),
-				Line().Id(varObjectName).Dot("GetId").Call(),
-				Line(),
-			)
-			h.If(Id("err").Op("!=").Nil()).BlockFunc(func(k *Group) {
-				// emit the delete-conflict wait before the failure path
-				emitDeleteConflictWait(
-					k,
-					"err",
-					fmt.Sprintf(
-						"conflict deleting %s, requeueing",
+			).Else().BlockFunc(func(e *Group) {
+				e.If(Id("err").Op("!=").Nil()).Block(
+					Id("log").Dot("Error").Call(Id("err"), Lit(fmt.Sprintf(
+						"failed to update %s to mark as deleted",
 						strcase.ToDelimited(obj.Name, ' '),
+					))),
+					Id("r").Dot("UnlockAndRequeue").Call(
+						Id(varObjectName),
+						Id("requeueDelay"),
+						Id("lockReleased"),
+						Id("msg"),
 					),
-					varObjectName,
+					Continue(),
 				)
-				k.Id("log").Dot("Error").Call(Id("err"), Lit(fmt.Sprintf(
-					"failed to delete %s",
-					strcase.ToDelimited(obj.Name, ' '),
-				)))
-				k.Id("r").Dot("UnlockAndRequeue").Call(
-					Id(varObjectName),
-					Id("requeueDelay"),
-					Id("lockReleased"),
-					Id("msg"),
+
+				e.Id("_").Op(",").Id("err").Op("=").Qual(
+					fmt.Sprintf("%s/pkg/client/v0", modulePath),
+					fmt.Sprintf("Delete%s", obj.Name),
+				).Call(
+					Line().Id("r").Dot("APIClient"),
+					Line().Id("r").Dot("APIServer"),
+					Line().Id(varObjectName).Dot("GetId").Call(),
+					Line(),
 				)
-				k.Continue()
+				e.If(
+					Id("err").Op("!=").Nil().Op("&&").Op("!").Qual("errors", "Is").Call(
+						Id("err"),
+						Qual(clientLib, "ErrObjectNotFound"),
+					),
+				).BlockFunc(func(k *Group) {
+					// emit the delete-conflict wait before the failure path
+					emitDeleteConflictWait(
+						k,
+						"err",
+						fmt.Sprintf(
+							"conflict deleting %s, requeueing",
+							strcase.ToDelimited(obj.Name, ' '),
+						),
+						varObjectName,
+					)
+					k.Id("log").Dot("Error").Call(Id("err"), Lit(fmt.Sprintf(
+						"failed to delete %s",
+						strcase.ToDelimited(obj.Name, ' '),
+					)))
+					k.Id("r").Dot("UnlockAndRequeue").Call(
+						Id(varObjectName),
+						Id("requeueDelay"),
+						Id("lockReleased"),
+						Id("msg"),
+					)
+					k.Continue()
+				})
 			})
 		}
 	})

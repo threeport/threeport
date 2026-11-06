@@ -251,18 +251,16 @@ func (g *GcpGkeKubernetesRuntimeInstanceConfig) Replace(
 	}
 
 	// construct updated gcp gke kubernetes runtime instance object
-	updatedGcpGkeKubernetesRuntimeInstance := &api_v0.GcpGkeKubernetesRuntimeInstance{
-		Common: api_v0.Common{
-			ID: existingGcpGkeKubernetesRuntimeInstance.ID,
-		},
-		Instance: api_v0.Instance{
-			Name: gcpGkeKubernetesRuntimeInstanceValues.Name,
-		},
-		Region:                              gcpGkeKubernetesRuntimeInstanceValues.Region,
-		KubernetesRuntimeInstanceID:         existingGcpGkeKubernetesRuntimeInstance.KubernetesRuntimeInstanceID,
-		GcpGkeKubernetesRuntimeDefinitionID: existingGcpGkeKubernetesRuntimeInstance.GcpGkeKubernetesRuntimeDefinitionID,
-		GcpProviderID:                       existingGcpGkeKubernetesRuntimeInstance.GcpProviderID,
-	}
+	// Start from the existing object, so the fields this replace does not set
+	// are kept: the reconciler's (Reconciled and the rest of Reconciliation,
+	// Status) and the ones only the API server or a controller writes. Every
+	// field a user sets through the config is assigned below unconditionally,
+	// a nil value included, so a field left out of the config is cleared
+	// rather than kept. Do not assign the reconciler's fields here: the copy
+	// already carries them.
+	updatedGcpGkeKubernetesRuntimeInstance := util.Ptr(*existingGcpGkeKubernetesRuntimeInstance)
+	updatedGcpGkeKubernetesRuntimeInstance.Name = gcpGkeKubernetesRuntimeInstanceValues.Name
+	updatedGcpGkeKubernetesRuntimeInstance.Region = gcpGkeKubernetesRuntimeInstanceValues.Region
 
 	// replace gcp gke kubernetes runtime instance
 	replacedGcpGkeKubernetesRuntimeInstance, err := client_v0.ReplaceGcpGkeKubernetesRuntimeInstance(
@@ -315,6 +313,24 @@ func (g *GcpGkeKubernetesRuntimeInstanceConfig) Delete(
 		return nil, fmt.Errorf("failed to delete gcp gke kubernetes runtime instance from Threeport API: %w", err)
 	}
 
+	// the API accepting the delete is not the delete finishing: the controller
+	// destroys the cluster afterward and can refuse, so wait for the instance
+	// to go away before reporting it deleted
+	if err := waitForInstanceDelete(
+		"gcp gke kubernetes runtime instance",
+		*gcpGkeKubernetesRuntimeInstance.Name,
+		func() error {
+			_, err := client_v0.GetGcpGkeKubernetesRuntimeInstanceByName(
+				apiClient,
+				apiEndpoint,
+				*gcpGkeKubernetesRuntimeInstance.Name,
+			)
+			return err
+		},
+	); err != nil {
+		return nil, err
+	}
+
 	// construct deleted gcp gke kubernetes runtime instance config
 	deletedGcpGkeKubernetesRuntimeInstanceConfig := &GcpGkeKubernetesRuntimeInstanceConfig{
 		GcpGkeKubernetesRuntimeInstance: GcpGkeKubernetesRuntimeInstanceValues{
@@ -325,6 +341,45 @@ func (g *GcpGkeKubernetesRuntimeInstanceConfig) Delete(
 	}
 
 	return deletedGcpGkeKubernetesRuntimeInstanceConfig, nil
+}
+
+// SetAbandonInfrastructure sets whether the controller may delete the gcp gke kubernetes runtime instance
+// even when creation was confirmed and no resource inventory is recorded, or
+// when the recorded inventory cannot be restored. Without it the controller
+// refuses that delete, because cloud resources may still be running. Setting it
+// true orphans any resources the controller cannot find: they are left in place
+// and no longer tracked by Threeport. The value stays set until it is changed,
+// so a caller that sets it and then fails to delete must set it back to false.
+func (g *GcpGkeKubernetesRuntimeInstanceConfig) SetAbandonInfrastructure(
+	apiClient *http.Client,
+	apiEndpoint string,
+	abandon bool,
+) error {
+	values := g.GcpGkeKubernetesRuntimeInstance
+
+	// get gcp gke kubernetes runtime instance by name
+	instance, err := client_v0.GetGcpGkeKubernetesRuntimeInstanceByName(
+		apiClient,
+		apiEndpoint,
+		util.DerefString(values.Name),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to find gcp gke kubernetes runtime instance with name %s: %w", util.DerefString(values.Name), err)
+	}
+
+	// write only the flag, so nothing the controller owns rides along
+	if _, err := client_v0.UpdateGcpGkeKubernetesRuntimeInstance(
+		apiClient,
+		apiEndpoint,
+		&api_v0.GcpGkeKubernetesRuntimeInstance{
+			Common:                api_v0.Common{ID: instance.ID},
+			AbandonInfrastructure: util.Ptr(abandon),
+		},
+	); err != nil {
+		return fmt.Errorf("failed to set infrastructure abandonment to %t for gcp gke kubernetes runtime instance %s: %w", abandon, util.DerefString(values.Name), err)
+	}
+
+	return nil
 }
 
 // Validate validates inputs to create gcp gke kubernetes runtime instances.

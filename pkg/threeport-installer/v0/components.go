@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -268,6 +269,12 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAPIDeployment(
 		return fmt.Errorf("failed to create DB initialization config map: %w", err)
 	}
 
+	// tell the database migrator where to back the database up to before
+	// migrating
+	if err := cpi.InstallDatabaseBackupConfig(kubeClient, mapper); err != nil {
+		return err
+	}
+
 	var apiSecret = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "v1",
@@ -304,9 +311,9 @@ THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 	}
 
 	// configure ports
-	ports := []map[string]interface{}{
-		{
-			"containerPort": 1323,
+	ports := []interface{}{
+		map[string]interface{}{
+			"containerPort": int64(1323),
 			"name":          "api",
 			"protocol":      "TCP",
 		},
@@ -321,7 +328,8 @@ THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 			"command": []interface{}{
 				fmt.Sprintf("/%s", cpi.Opts.DatabaseMigratorInfo.BinaryName),
 			},
-			"args": []interface{}{"-env-file=/etc/threeport/env", "initialize"},
+			"args":      []interface{}{"-env-file=/etc/threeport/env", "initialize"},
+			"resources": cpi.componentResources(cpi.Opts.DatabaseMigratorInfo.Name),
 			"volumeMounts": []interface{}{
 				map[string]interface{}{
 					"name":      "db-create",
@@ -345,16 +353,15 @@ THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 			"command": []interface{}{
 				fmt.Sprintf("/%s", cpi.Opts.DatabaseMigratorInfo.BinaryName),
 			},
-			"args": dbMigratorArgs,
+			"args":      dbMigratorArgs,
+			"resources": cpi.componentResources(cpi.Opts.DatabaseMigratorInfo.Name),
 			"volumeMounts": []interface{}{
 				map[string]interface{}{
 					"name":      ThreeportApiConfigSecret,
 					"mountPath": "/etc/threeport/",
 				},
-				map[string]interface{}{
-					"name":      "db-threeport-cert",
-					"mountPath": "/etc/threeport/db-certs",
-				},
+				dbMigratorCertsMount(),
+				dbBackupConfigMount(),
 			},
 		},
 	}
@@ -372,6 +379,7 @@ THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 		initContainers = append(initContainers, ic)
 	}
 
+	apiReplicas := cpi.componentReplicas(cpi.Opts.ApiReplicas)
 	var apiDeployment = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "apps/v1",
@@ -381,7 +389,7 @@ THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 				"namespace": cpi.Opts.Namespace,
 			},
 			"spec": map[string]interface{}{
-				"replicas": 1,
+				"replicas": apiReplicas,
 				"selector": map[string]interface{}{
 					"matchLabels": map[string]interface{}{
 						"app.kubernetes.io/name": cpi.Opts.RestApiInfo.ServiceResourceName,
@@ -394,6 +402,7 @@ THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 						},
 					},
 					"spec": map[string]interface{}{
+						"affinity":        componentAntiAffinity(cpi.Opts.RestApiInfo.ServiceResourceName),
 						"securityContext": restrictedPodSecurityContext(),
 						"initContainers":  initContainers,
 						"containers": []interface{}{
@@ -414,6 +423,9 @@ THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 								},
 								"volumeMounts":   apiVolMounts,
 								"readinessProbe": cpi.getReadinessProbe(),
+								"startupProbe":   cpi.getStartupProbe(componentLivenessPath),
+								"livenessProbe":  cpi.getLivenessProbe(componentLivenessPath),
+								"resources":      cpi.componentResources(cpi.Opts.RestApiInfo.Name),
 							},
 						},
 						"imagePullSecrets": apiImagePullSecrets,
@@ -425,6 +437,12 @@ THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 	}
 	if err := cpi.CreateOrUpdateKubeResource(apiDeployment, kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed to create API server deployment: %w", err)
+	}
+
+	if err := cpi.applyComponentDisruptionBudget(
+		kubeClient, mapper, cpi.Opts.RestApiInfo.ServiceResourceName, apiReplicas,
+	); err != nil {
+		return err
 	}
 
 	return nil
@@ -536,7 +554,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 					"kind":       "Secret",
 					"type":       "Opaque",
 					"metadata": map[string]interface{}{
-						"name":      fmt.Sprintf("%s-ca", controller.Name),
+						"name":      controllerCaSecretName(controller.Name),
 						"namespace": cpi.Opts.Namespace,
 					},
 					"stringData": map[string]interface{}{
@@ -550,7 +568,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 				return fmt.Errorf("failed to create API server ca secret for kubernetes workload controller: %w", err)
 			}
 
-			cert := cpi.getTLSSecret(fmt.Sprintf("%s-cert", controller.Name), certificate, privateKey)
+			cert := cpi.getTLSSecret(controllerCertSecretName(controller.Name), certificate, privateKey)
 			if err := cpi.CreateOrUpdateKubeResource(cert, kubeClient, mapper); err != nil {
 				return fmt.Errorf("failed to create API server certificate secret for kubernetes workload controller: %w", err)
 			}
@@ -782,6 +800,216 @@ func setPersistent(resource *unstructured.Unstructured) {
 	resource.SetLabels(labels)
 }
 
+// controllerDeploymentName returns threeport-<name> for a managed controller.
+// Any other controller uses <control plane>-<name>.
+func (cpi *ControlPlaneInstaller) controllerDeploymentName(controller v0.ControlPlaneComponent) string {
+	// use the managed name when this installer owns the controller
+	if cpi.isThreeportManagedController(controller) {
+		return fmt.Sprintf("threeport-%s", controller.Name)
+	}
+	return fmt.Sprintf("%s-%s", cpi.Opts.Name, controller.Name)
+}
+
+// controllerCaSecretName returns <name>-ca for one controller.
+func controllerCaSecretName(name string) string {
+	return fmt.Sprintf("%s-ca", name)
+}
+
+// controllerCertSecretName returns <name>-cert for one controller.
+func controllerCertSecretName(name string) string {
+	return fmt.Sprintf("%s-cert", name)
+}
+
+// unselectedControllers returns catalog controllers absent from ControllerList.
+func (cpi *ControlPlaneInstaller) unselectedControllers() []*v0.ControlPlaneComponent {
+	// collect the names still selected, leaving a disabled controller out
+	selected := map[string]struct{}{}
+	for _, controller := range cpi.Opts.ControllerList {
+		if controller.Enabled != nil && !*controller.Enabled {
+			continue
+		}
+		selected[controller.Name] = struct{}{}
+	}
+
+	// return catalog controllers missing from that set
+	var dropped []*v0.ControlPlaneComponent
+	for _, controller := range ThreeportControllerList {
+		if _, keep := selected[controller.Name]; keep {
+			continue
+		}
+		dropped = append(dropped, controller)
+	}
+	return dropped
+}
+
+// ReconcileControllerSet installs selected controllers with no deployment and deletes the rest of the catalog.
+// The control plane controller stays when retainControlPlaneController is set.
+func (cpi *ControlPlaneInstaller) ReconcileControllerSet(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	authConfig *auth.AuthConfig,
+	retainControlPlaneController bool,
+) error {
+	// delete catalog controllers absent from the selection
+	for _, controller := range cpi.unselectedControllers() {
+		// keep the controller that is applying this change
+		if retainControlPlaneController && controller.Name == ThreeportControlPlaneControllerName {
+			continue
+		}
+		if err := cpi.deleteController(kubeClient, mapper, *controller); err != nil {
+			return fmt.Errorf("failed to delete controller %s: %w", controller.Name, err)
+		}
+	}
+
+	// install selected controllers with no deployment
+	var missing []*v0.ControlPlaneComponent
+	for _, controller := range cpi.Opts.ControllerList {
+		if controller.Enabled != nil && !*controller.Enabled {
+			continue
+		}
+		_, present, err := resourceInstalled(
+			kubeClient,
+			mapper,
+			"apps",
+			"v1",
+			"Deployment",
+			cpi.Opts.Namespace,
+			cpi.controllerDeploymentName(*controller),
+		)
+		if err != nil {
+			return fmt.Errorf("failed to check controller deployment %s: %w", controller.Name, err)
+		}
+		if !present {
+			missing = append(missing, controller)
+		}
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	saved := cpi.Opts.ControllerList
+	savedUpdate := cpi.Opts.CreateOrUpdateKubeResources
+	cpi.Opts.ControllerList = missing
+	cpi.Opts.CreateOrUpdateKubeResources = true
+	err := cpi.InstallThreeportControllers(kubeClient, mapper, authConfig)
+	cpi.Opts.ControllerList = saved
+	cpi.Opts.CreateOrUpdateKubeResources = savedUpdate
+	if err != nil {
+		return fmt.Errorf("failed to install controllers: %w", err)
+	}
+	return nil
+}
+
+// deleteController removes one controller deployment, its service account, its client certificate secrets, and its role bindings.
+func (cpi *ControlPlaneInstaller) deleteController(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	controller v0.ControlPlaneComponent,
+) error {
+	// delete the deployment, the client certificate secrets, and the account when the controller has one
+	objects := []*unstructured.Unstructured{
+		kubeObject("apps/v1", "Deployment", cpi.Opts.Namespace, cpi.controllerDeploymentName(controller)),
+		kubeObject("v1", "Secret", cpi.Opts.Namespace, controllerCaSecretName(controller.Name)),
+		kubeObject("v1", "Secret", cpi.Opts.Namespace, controllerCertSecretName(controller.Name)),
+	}
+	if controller.ServiceAccountName != "" {
+		objects = append(objects,
+			kubeObject("v1", "ServiceAccount", cpi.Opts.Namespace, controller.ServiceAccountName),
+		)
+	}
+	for _, object := range objects {
+		if err := kube.DeleteResource(object, kubeClient, *mapper); err != nil {
+			return err
+		}
+	}
+
+	// delete the role bindings
+	return cpi.deleteControllerRoleBindings(kubeClient, mapper, controller)
+}
+
+// deleteControllerRoleBindings removes one controller's cluster role bindings.
+func (cpi *ControlPlaneInstaller) deleteControllerRoleBindings(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	controller v0.ControlPlaneComponent,
+) error {
+	// skip a controller that has no service account
+	if controller.ServiceAccountName == "" {
+		return nil
+	}
+
+	// delete the workload binding and the cluster-admin binding
+	account := controller.ServiceAccountName
+	for _, suffix := range []string{"threeportworkloads", "cluster-admin"} {
+		binding := kubeObject(
+			"rbac.authorization.k8s.io/v1",
+			"ClusterRoleBinding",
+			"",
+			fmt.Sprintf("%s-%s-%s", cpi.Opts.Namespace, account, suffix),
+		)
+		if err := kube.DeleteResource(binding, kubeClient, *mapper); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// DeleteAgentRoleBindings removes this control plane's agent cluster role bindings.
+// Deleting the control plane namespace leaves them because they are cluster-scoped.
+func (cpi *ControlPlaneInstaller) DeleteAgentRoleBindings(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+) error {
+	// delete the manager and proxy bindings
+	for _, suffix := range []string{
+		"threeport-agent-manager-rolebinding",
+		"threeport-agent-proxy-rolebinding",
+	} {
+		binding := kubeObject(
+			"rbac.authorization.k8s.io/v1",
+			"ClusterRoleBinding",
+			"",
+			fmt.Sprintf("%s-%s", cpi.Opts.Namespace, suffix),
+		)
+		if err := kube.DeleteResource(binding, kubeClient, *mapper); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// DeleteControlPlaneRoleBindings removes this control plane's cluster role bindings.
+// Deleting the namespace leaves them because they are cluster-scoped.
+func (cpi *ControlPlaneInstaller) DeleteControlPlaneRoleBindings(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+) error {
+	// delete the agent bindings
+	if err := cpi.DeleteAgentRoleBindings(kubeClient, mapper); err != nil {
+		return err
+	}
+
+	// delete each controller's bindings
+	for _, controller := range ThreeportControllerList {
+		if err := cpi.deleteControllerRoleBindings(kubeClient, mapper, *controller); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// kubeObject returns an object with only its name set, for a delete.
+func kubeObject(apiVersion, kind, namespace, name string) *unstructured.Unstructured {
+	metadata := map[string]interface{}{"name": name}
+	if namespace != "" {
+		metadata["namespace"] = namespace
+	}
+	return &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": apiVersion,
+		"kind":       kind,
+		"metadata":   metadata,
+	}}
+}
+
 // UpdateControllerDeployment installs a threeport controller by name.
 func (cpi *ControlPlaneInstaller) UpdateControllerDeployment(
 	kubeClient dynamic.Interface,
@@ -789,12 +1017,7 @@ func (cpi *ControlPlaneInstaller) UpdateControllerDeployment(
 	controller v0.ControlPlaneComponent,
 ) error {
 
-	var deployName string
-	if cpi.isThreeportManagedController(controller) {
-		deployName = fmt.Sprintf("threeport-%s", controller.Name)
-	} else {
-		deployName = fmt.Sprintf("%s-%s", cpi.Opts.Name, controller.Name)
-	}
+	deployName := cpi.controllerDeploymentName(controller)
 
 	controllerDeployment, err := cpi.getControllerDeployment(
 		deployName,
@@ -808,7 +1031,10 @@ func (cpi *ControlPlaneInstaller) UpdateControllerDeployment(
 	if err := cpi.CreateOrUpdateKubeResource(controllerDeployment, kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed to create %s deployment: %w", controller.Name, err)
 	}
-	return nil
+
+	return cpi.applyComponentDisruptionBudget(
+		kubeClient, mapper, deployName, cpi.controllerReplicas(controller),
+	)
 }
 
 const (
@@ -1278,6 +1504,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 		return fmt.Errorf("failed to create threeport agent leader election role binding: %w", err)
 	}
 
+	// name the binding by namespace because a shared cluster role binding already belongs to the first control plane
 	var threeportAgentManagerRoleBinding = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "rbac.authorization.k8s.io/v1",
@@ -1291,7 +1518,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
 					"app.kubernetes.io/managed-by": "threeport",
 				},
-				"name": "threeport-agent-manager-rolebinding",
+				"name": fmt.Sprintf("%s-threeport-agent-manager-rolebinding", cpi.Opts.Namespace),
 			},
 			"roleRef": map[string]interface{}{
 				"apiGroup": "rbac.authorization.k8s.io",
@@ -1311,6 +1538,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 		return fmt.Errorf("failed to create threeport agent manager role binding: %w", err)
 	}
 
+	// name the binding by namespace because a shared cluster role binding already belongs to the first control plane
 	var threeportAgentProxyRoleBinding = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "rbac.authorization.k8s.io/v1",
@@ -1324,7 +1552,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
 					"app.kubernetes.io/managed-by": "threeport",
 				},
-				"name": "threeport-agent-proxy-rolebinding",
+				"name": fmt.Sprintf("%s-threeport-agent-proxy-rolebinding", cpi.Opts.Namespace),
 			},
 			"roleRef": map[string]interface{}{
 				"apiGroup": "rbac.authorization.k8s.io",
@@ -1364,7 +1592,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 				"ports": []interface{}{
 					map[string]interface{}{
 						"name":       "https",
-						"port":       8443,
+						"port":       int64(8443),
 						"protocol":   "TCP",
 						"targetPort": "https",
 					},
@@ -1396,7 +1624,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 				"namespace": cpi.Opts.Namespace,
 			},
 			"spec": map[string]interface{}{
-				"replicas": 1,
+				"replicas": int64(1),
 				"selector": map[string]interface{}{
 					"matchLabels": map[string]interface{}{
 						"app.kubernetes.io/name": "threeport-agent",
@@ -1454,7 +1682,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 								"name":            "kube-rbac-proxy",
 								"ports": []interface{}{
 									map[string]interface{}{
-										"containerPort": 8443,
+										"containerPort": int64(8443),
 										"name":          "https",
 										"protocol":      "TCP",
 									},
@@ -1478,41 +1706,19 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 								"image":           agentImage,
 								"imagePullPolicy": cpi.getImagePullPolicy(),
 								"command":         cpi.getCommand(cpi.Opts.AgentInfo.BinaryName),
-								//"livenessProbe": map[string]interface{}{
-								//	"httpGet": map[string]interface{}{
-								//		"path": "/healthz",
-								//		"port": 8081,
-								//	},
-								//	"initialDelaySeconds": 5,
-								//	"periodSeconds":       20,
-								//},
-								"name": ThreeportAgentContainerName,
-								"readinessProbe": map[string]interface{}{
-									"httpGet": map[string]interface{}{
-										"path": "/readyz",
-										"port": 8081,
-									},
-									"initialDelaySeconds": 5,
-									"periodSeconds":       10,
-								},
-								//"resources": map[string]interface{}{
-								//	"limits": map[string]interface{}{
-								//		"cpu":    "500m",
-								//		"memory": "128Mi",
-								//	},
-								//	"requests": map[string]interface{}{
-								//		"cpu":    "10m",
-								//		"memory": "64Mi",
-								//	},
-								//},
-								"volumeMounts": agentVolMounts,
+								"startupProbe":    cpi.getStartupProbe(agentLivenessPath),
+								"livenessProbe":   cpi.getLivenessProbe(agentLivenessPath),
+								"name":            ThreeportAgentContainerName,
+								"readinessProbe":  cpi.getReadinessProbe(),
+								"resources":       cpi.componentResources(cpi.Opts.AgentInfo.Name),
+								"volumeMounts":    agentVolMounts,
 							},
 						},
 						"imagePullSecrets":              agentImagePullSecrets,
 						"volumes":                       agentVols,
 						"securityContext":               restrictedPodSecurityContext(),
 						"serviceAccountName":            ThreeportAgentName,
-						"terminationGracePeriodSeconds": 10,
+						"terminationGracePeriodSeconds": int64(10),
 					},
 				},
 			},
@@ -1533,6 +1739,11 @@ func (cpi *ControlPlaneInstaller) UnInstallThreeportControlPlaneComponents(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 ) error {
+	// delete the cluster role bindings, which the namespace delete leaves behind
+	if err := cpi.DeleteControlPlaneRoleBindings(kubeClient, mapper); err != nil {
+		return fmt.Errorf("failed to delete control plane role bindings: %w", err)
+	}
+
 	// delete the control plane namespace
 	if err := DeleteNamespaces(
 		kubeClient,
@@ -1609,60 +1820,71 @@ func (cpi *ControlPlaneInstaller) GetThreeportAPIEndpoint(
 	kubeClient dynamic.Interface,
 	mapper meta.RESTMapper,
 ) (string, error) {
-	var apiEndpoint string
+	deadline := time.Now().Add(apiLoadBalancerTimeout)
+	for {
+		apiEndpoint, err := cpi.threeportAPILoadBalancerEndpoint(kubeClient, mapper)
+		if err == nil {
+			return apiEndpoint, nil
+		}
+		if time.Now().After(deadline) {
+			return "", fmt.Errorf(
+				"timed out after %s trying to retrieve threeport API load balancer endpoint: %w",
+				apiLoadBalancerTimeout, err,
+			)
+		}
+		time.Sleep(apiLoadBalancerPollInterval)
+	}
+}
 
-	maxAttempts := 12
-	waitSeconds := 5
-	if err := util.Retry(maxAttempts, waitSeconds,
-		func() error {
-			apiService, err := cpi.GetThreeportAPIService(kubeClient, mapper)
-			if err != nil {
-				return fmt.Errorf("failed to get threeport API service resource: %w", err)
-			}
+// apiLoadBalancerTimeout is how long an install waits for the cloud provider
+// to give the threeport API's load balancer an address. A GKE network load
+// balancer regularly takes over a minute, so a wait of one minute failed
+// installs that were seconds from succeeding.
+var apiLoadBalancerTimeout = 5 * time.Minute
 
-			// find the ingress hostname in the service resource
-			status, found, err := unstructured.NestedMap(apiService.Object, "status")
-			if err != nil || !found {
-				return fmt.Errorf("failed to retrieve threeport API service status: %w", err)
-			}
+// apiLoadBalancerPollInterval is how often the install checks for it.
+var apiLoadBalancerPollInterval = 5 * time.Second
 
-			loadBalancer, found, err := unstructured.NestedMap(status, "loadBalancer")
-			if err != nil || !found {
-				return fmt.Errorf("failed to retrieve threeport API load balancer: %w", err)
-			}
+// threeportAPILoadBalancerEndpoint returns the address the cloud provider
+// gave the threeport API's load balancer: a hostname on EKS, an IP on OKE and
+// GKE. It errors while there is none yet.
+func (cpi *ControlPlaneInstaller) threeportAPILoadBalancerEndpoint(
+	kubeClient dynamic.Interface,
+	mapper meta.RESTMapper,
+) (string, error) {
+	apiService, err := cpi.GetThreeportAPIService(kubeClient, mapper)
+	if err != nil {
+		return "", fmt.Errorf("failed to get threeport API service resource: %w", err)
+	}
 
-			ingress, found, err := unstructured.NestedSlice(loadBalancer, "ingress")
-			if err != nil || !found || len(ingress) == 0 {
-				return fmt.Errorf("failed to retrieve threeport API load balancer ingress: %w", err)
-			}
+	ingress, _, err := unstructured.NestedSlice(apiService.Object, "status", "loadBalancer", "ingress")
+	if err != nil {
+		return "", fmt.Errorf("failed to read threeport API load balancer ingress: %w", err)
+	}
+	if len(ingress) == 0 {
+		return "", errors.New("threeport API load balancer has no ingress yet")
+	}
+	firstIngress, ok := ingress[0].(map[string]interface{})
+	if !ok {
+		return "", errors.New("threeport API load balancer ingress is not an object")
+	}
 
-			firstIngress := ingress[0].(map[string]interface{})
+	var field string
+	switch cpi.Opts.InfraProvider {
+	case v0.KubernetesRuntimeInfraProviderEKS:
+		field = "hostname"
+	case v0.KubernetesRuntimeInfraProviderOKE, v0.KubernetesRuntimeInfraProviderGKE:
+		field = "ip"
+	default:
+		return "", fmt.Errorf("unsupported infrastructure provider: %s", cpi.Opts.InfraProvider)
+	}
 
-			switch cpi.Opts.InfraProvider {
-			case v0.KubernetesRuntimeInfraProviderEKS:
-				if apiEndpoint, found, err = unstructured.NestedString(firstIngress, "hostname"); err != nil || !found {
-					return fmt.Errorf("failed to retrieve threeport API load balancer hostname: %w", err)
-				}
-			case v0.KubernetesRuntimeInfraProviderOKE:
-				if apiEndpoint, found, err = unstructured.NestedString(firstIngress, "ip"); err != nil || !found {
-					return fmt.Errorf("failed to retrieve threeport API load balancer ip: %w", err)
-				}
-			case v0.KubernetesRuntimeInfraProviderGKE:
-				if apiEndpoint, found, err = unstructured.NestedString(firstIngress, "ip"); err != nil || !found {
-					return fmt.Errorf("failed to retrieve threeport API load balancer ip: %w", err)
-				}
-			default:
-				return fmt.Errorf("unsupported infrastructure provider: %s", cpi.Opts.InfraProvider)
-			}
-
-			return nil
-		},
-	); err != nil {
-		msg := fmt.Sprintf(
-			"timed out after %d seconds trying to retrieve threeport API load balancer endpoint",
-			maxAttempts*waitSeconds,
-		)
-		return "", fmt.Errorf("%s: %w", msg, err)
+	apiEndpoint, _, err := unstructured.NestedString(firstIngress, field)
+	if err != nil {
+		return "", fmt.Errorf("failed to read threeport API load balancer %s: %w", field, err)
+	}
+	if apiEndpoint == "" {
+		return "", fmt.Errorf("threeport API load balancer has no %s yet", field)
 	}
 
 	return apiEndpoint, nil
@@ -1792,6 +2014,8 @@ func (cpi *ControlPlaneInstaller) getAPIVolumes() ([]interface{}, []interface{},
 				"name": "db-create",
 			},
 		},
+		dbMigratorCertsVolume(),
+		dbBackupConfigVolume(),
 	}
 
 	volMounts := []interface{}{
@@ -1870,8 +2094,8 @@ func (cpi *ControlPlaneInstaller) getControllerVolumes(controller v0.ControlPlan
 	volMounts := []interface{}{}
 
 	if cpi.Opts.AuthEnabled {
-		caVol, caVolMount := cpi.getSecretVols(fmt.Sprintf("%s-ca", controller.Name), "/etc/threeport/ca")
-		certVol, certVolMount := cpi.getSecretVols(fmt.Sprintf("%s-cert", controller.Name), "/etc/threeport/cert")
+		caVol, caVolMount := cpi.getSecretVols(controllerCaSecretName(controller.Name), "/etc/threeport/ca")
+		certVol, certVolMount := cpi.getSecretVols(controllerCertSecretName(controller.Name), "/etc/threeport/cert")
 
 		vols = append(vols, caVol)
 		vols = append(vols, certVol)
@@ -2086,7 +2310,7 @@ func (cpi *ControlPlaneInstaller) getControllerDeployment(
 	controllerArgs := cpi.getControllerArgs()
 	controllerImagePullSecrets := cpi.getImagePullSecrets(controller.ImagePullSecretName)
 
-	ports := []map[string]interface{}{}
+	ports := []interface{}{}
 
 	envFrom := []interface{}{
 		map[string]interface{}{
@@ -2125,7 +2349,7 @@ func (cpi *ControlPlaneInstaller) getControllerDeployment(
 				"namespace": namespace,
 			},
 			"spec": map[string]interface{}{
-				"replicas": 1,
+				"replicas": cpi.controllerReplicas(controller),
 				"selector": map[string]interface{}{
 					"matchLabels": map[string]interface{}{
 						"app.kubernetes.io/name": deployName,
@@ -2138,6 +2362,7 @@ func (cpi *ControlPlaneInstaller) getControllerDeployment(
 						},
 					},
 					"spec": map[string]interface{}{
+						"affinity":           componentAntiAffinity(deployName),
 						"securityContext":    restrictedPodSecurityContext(),
 						"serviceAccountName": controller.ServiceAccountName,
 						"containers": []interface{}{
@@ -2151,6 +2376,9 @@ func (cpi *ControlPlaneInstaller) getControllerDeployment(
 								"envFrom":         envFrom,
 								"volumeMounts":    controllerVolMounts,
 								"readinessProbe":  cpi.getReadinessProbe(),
+								"startupProbe":    cpi.getStartupProbe(componentLivenessPath),
+								"livenessProbe":   cpi.getLivenessProbe(componentLivenessPath),
+								"resources":       cpi.componentResources(controller.Name),
 								"ports":           ports,
 							},
 						},
@@ -2163,18 +2391,68 @@ func (cpi *ControlPlaneInstaller) getControllerDeployment(
 	}, nil
 }
 
+const (
+	// componentLivenessPath is the liveness endpoint the API server and
+	// controllers serve on their health port.
+	componentLivenessPath = "/livez"
+
+	// agentLivenessPath is the liveness endpoint the agent's controller-runtime
+	// manager serves on its health port.
+	agentLivenessPath = "/healthz"
+)
+
+// getReadinessProbe returns the readiness probe for the API server and
+// controllers.  It tolerates a few slow answers in a row, so a brief pause such
+// as a garbage collection does not pull a pod out of its Service.
 func (cpi *ControlPlaneInstaller) getReadinessProbe() map[string]interface{} {
 	return map[string]interface{}{
-		"failureThreshold": 1,
+		"failureThreshold": int64(3),
 		"httpGet": map[string]interface{}{
 			"path":   "/readyz",
-			"port":   8081,
+			"port":   int64(8081),
 			"scheme": "HTTP",
 		},
-		"initialDelaySeconds": 1,
-		"periodSeconds":       2,
-		"successThreshold":    1,
-		"timeoutSeconds":      1,
+		"initialDelaySeconds": int64(1),
+		"periodSeconds":       int64(5),
+		"successThreshold":    int64(1),
+		"timeoutSeconds":      int64(2),
+	}
+}
+
+// getStartupProbe returns a startup probe against a component's liveness
+// endpoint.  Its health server only starts once the component has connected
+// to its dependencies, so until this passes the liveness probe does not run -
+// otherwise a component that is slow to start would be restarted before it
+// ever came up.
+func (cpi *ControlPlaneInstaller) getStartupProbe(path string) map[string]interface{} {
+	return map[string]interface{}{
+		"failureThreshold": int64(60),
+		"httpGet": map[string]interface{}{
+			"path":   path,
+			"port":   int64(8081),
+			"scheme": "HTTP",
+		},
+		"periodSeconds":    int64(5),
+		"successThreshold": int64(1),
+		"timeoutSeconds":   int64(2),
+	}
+}
+
+// getLivenessProbe returns a liveness probe against a component's liveness
+// endpoint, which only checks that the process still answers.  It is more
+// lenient than readiness: a pod that stops being ready is taken out of its
+// Service, while one that fails this is restarted.
+func (cpi *ControlPlaneInstaller) getLivenessProbe(path string) map[string]interface{} {
+	return map[string]interface{}{
+		"failureThreshold": int64(3),
+		"httpGet": map[string]interface{}{
+			"path":   path,
+			"port":   int64(8081),
+			"scheme": "HTTP",
+		},
+		"periodSeconds":    int64(10),
+		"successThreshold": int64(1),
+		"timeoutSeconds":   int64(5),
 	}
 }
 

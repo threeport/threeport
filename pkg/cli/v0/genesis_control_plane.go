@@ -936,7 +936,11 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	}
 
 	// install the support services operator
-	err = threeport.InstallThreeportSupportServicesOperator(dynamicKubeClient, mapper)
+	err = threeport.InstallThreeportSupportServicesOperator(
+		dynamicKubeClient,
+		mapper,
+		threeport.SupportServicesCloud(controlPlane.InfraProvider),
+	)
 	if err != nil {
 		return uninstaller.cleanOnCreateError("failed to install threeport support services operator", err)
 	}
@@ -1013,6 +1017,11 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		ClientKey:                   clientKey,
 		CustomComponentInfo:         componentList,
 		ControlPlaneDefinitionID:    controlPlaneDefinition.ID,
+	}
+	// store the controller groups on the self instance
+	if cpi.Opts.Apis != "" {
+		apis := cpi.Opts.Apis
+		controlPlaneInstance.Apis = &apis
 	}
 
 	// create control plane instance
@@ -1453,11 +1462,21 @@ func ValidateCreateGenesisControlPlaneFlags(
 		return err
 	}
 
-	// ensure name length doesn't exceed maximum
-	if utf8.RuneCountInString(instanceName) > threeport.InstanceNameMaxLength {
+	// ensure name length doesn't exceed the limit on any name a person chooses
+	if utf8.RuneCountInString(instanceName) > provider.NameMaxLength {
 		return fmt.Errorf(
 			"instance name is too long - cannot exceed %d characters",
-			threeport.InstanceNameMaxLength,
+			provider.NameMaxLength,
+		)
+	}
+
+	// ensure name length doesn't exceed the limit AWS puts on role names, which
+	// include the name
+	if infraProvider == string(v0.KubernetesRuntimeInfraProviderEKS) &&
+		utf8.RuneCountInString(instanceName) > threeport.InstanceNameMaxLength {
+		return fmt.Errorf(
+			"instance name is too long for provider %s - cannot exceed %d characters",
+			infraProvider, threeport.InstanceNameMaxLength,
 		)
 	}
 
@@ -1935,6 +1954,11 @@ func ensureBootstrapControlPlane(
 		ClientKey:                   clientKey,
 		CustomComponentInfo:         componentList,
 		ControlPlaneDefinitionID:    definition.ID,
+	}
+	// store the controller groups on the self instance
+	if cpi.Opts.Apis != "" {
+		apis := cpi.Opts.Apis
+		newInstance.Apis = &apis
 	}
 	if _, err := client.CreateControlPlaneInstance(
 		apiClient,

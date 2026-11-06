@@ -87,7 +87,7 @@ func (g *GcpGkeKubernetesRuntimeDefinition) beforeDelete(tx *gorm.DB) error {
 
 // beforeCreate validates the GcpGkeKubernetesRuntimeInstance before create.
 func (g *GcpGkeKubernetesRuntimeInstance) beforeCreate(tx *gorm.DB) error {
-	return nil
+	return rejectAbandonInfrastructureOnCreate(g.AbandonInfrastructure)
 }
 
 // beforeUpdate validates the GcpGkeKubernetesRuntimeInstance before update.
