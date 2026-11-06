@@ -14,6 +14,8 @@ import (
 	k8stesting "k8s.io/client-go/testing"
 
 	dynamicfake "k8s.io/client-go/dynamic/fake"
+
+	apiv0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
 // These checks decide whether a live cluster gets written to, so what matters
@@ -25,10 +27,15 @@ import (
 func testMapper() *meta.RESTMapper {
 	// pass preferred versions so a versionless lookup resolves
 	defaultMapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{
+		{Group: "", Version: "v1"},
 		{Group: "apps", Version: "v1"},
 		{Group: "apiextensions.k8s.io", Version: "v1"},
 		{Group: "rbac.authorization.k8s.io", Version: "v1"},
 	})
+	defaultMapper.Add(
+		schema.GroupVersionKind{Version: "v1", Kind: "Secret"},
+		meta.RESTScopeNamespace,
+	)
 	defaultMapper.Add(
 		schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"},
 		meta.RESTScopeNamespace,
@@ -41,6 +48,14 @@ func testMapper() *meta.RESTMapper {
 		schema.GroupVersionKind{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRoleBinding"},
 		meta.RESTScopeRoot,
 	)
+	defaultMapper.Add(
+		schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Secret"},
+		meta.RESTScopeNamespace,
+	)
+	defaultMapper.Add(
+		schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Service"},
+		meta.RESTScopeNamespace,
+	)
 
 	var mapper meta.RESTMapper = defaultMapper
 
@@ -50,12 +65,30 @@ func testMapper() *meta.RESTMapper {
 // testClient returns a dynamic client holding the given objects.
 func testClient(objects ...runtime.Object) *dynamicfake.FakeDynamicClient {
 	listKinds := map[schema.GroupVersionResource]string{
+		{Group: "", Version: "v1", Resource: "secrets"}:                                       "SecretList",
 		{Group: "apps", Version: "v1", Resource: "deployments"}:                               "DeploymentList",
 		{Group: "apiextensions.k8s.io", Version: "v1", Resource: "customresourcedefinitions"}: "CustomResourceDefinitionList",
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "clusterrolebindings"}:  "ClusterRoleBindingList",
+		{Group: "", Version: "v1", Resource: "secrets"}:                                       "SecretList",
+		{Group: "", Version: "v1", Resource: "services"}:                                      "ServiceList",
 	}
 
 	return dynamicfake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), listKinds, objects...)
+}
+
+// secret builds a namespaced secret.
+func secret(namespace, name string) *unstructured.Unstructured {
+	// build a secret with only its name set
+	return &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Secret",
+			"metadata": map[string]interface{}{
+				"name":      name,
+				"namespace": namespace,
+			},
+		},
+	}
 }
 
 // deployment builds a deployment carrying the given container images.
@@ -435,4 +468,344 @@ func TestResourceInstalledReadsAnUnregisteredKindAsAbsent(t *testing.T) {
 	)
 	require.NoError(t, err)
 	assert.False(t, present)
+}
+
+// TestReconcileControllerSetDeletesDroppedDeployment deletes a catalog controller the selection dropped.
+func TestReconcileControllerSetDeletesDroppedDeployment(t *testing.T) {
+	require.GreaterOrEqual(t, len(ThreeportControllerList), 2)
+
+	// select the first catalog controller and leave the second installed
+	cpi := NewInstaller()
+	cpi.Opts.ControllerList = ThreeportControllerList[:1]
+	keptName := cpi.controllerDeploymentName(*ThreeportControllerList[0])
+	droppedName := cpi.controllerDeploymentName(*ThreeportControllerList[1])
+	client := testClient(
+		deployment(cpi.Opts.Namespace, keptName),
+		deployment(cpi.Opts.Namespace, droppedName),
+	)
+	mapper := testMapper()
+
+	// delete the controller the selection dropped and leave the selected one
+	require.NoError(t, cpi.ReconcileControllerSet(client, mapper, nil, false))
+
+	_, droppedPresent, err := resourceInstalled(
+		client, mapper, "apps", "v1", "Deployment", cpi.Opts.Namespace, droppedName,
+	)
+	require.NoError(t, err)
+	assert.False(t, droppedPresent)
+
+	_, keptPresent, err := resourceInstalled(
+		client, mapper, "apps", "v1", "Deployment", cpi.Opts.Namespace, keptName,
+	)
+	require.NoError(t, err)
+	assert.True(t, keptPresent)
+}
+
+// TestReconcileControllerSetDeletesDisabledController deletes a controller marked disabled.
+func TestReconcileControllerSetDeletesDisabledController(t *testing.T) {
+	require.GreaterOrEqual(t, len(ThreeportControllerList), 2)
+
+	// keep the first controller and disable the second while its deployment is installed
+	kept := ThreeportControllerList[0]
+	disabled := *ThreeportControllerList[1]
+	off := false
+	disabled.Enabled = &off
+	cpi := NewInstaller()
+	cpi.Opts.ControllerList = []*apiv0.ControlPlaneComponent{kept, &disabled}
+	keptName := cpi.controllerDeploymentName(*kept)
+	disabledName := cpi.controllerDeploymentName(disabled)
+	client := testClient(
+		deployment(cpi.Opts.Namespace, keptName),
+		deployment(cpi.Opts.Namespace, disabledName),
+	)
+	mapper := testMapper()
+
+	// delete the disabled controller and leave the selected one
+	require.NoError(t, cpi.ReconcileControllerSet(client, mapper, nil, false))
+
+	_, disabledPresent, err := resourceInstalled(
+		client, mapper, "apps", "v1", "Deployment", cpi.Opts.Namespace, disabledName,
+	)
+	require.NoError(t, err)
+	assert.False(t, disabledPresent)
+
+	_, keptPresent, err := resourceInstalled(
+		client, mapper, "apps", "v1", "Deployment", cpi.Opts.Namespace, keptName,
+	)
+	require.NoError(t, err)
+	assert.True(t, keptPresent)
+}
+
+// TestReconcileControllerSetDeletesDroppedClientSecrets deletes the client certificate secrets of a dropped controller.
+func TestReconcileControllerSetDeletesDroppedClientSecrets(t *testing.T) {
+	require.GreaterOrEqual(t, len(ThreeportControllerList), 2)
+
+	// select the first catalog controller and leave the second installed
+	cpi := NewInstaller()
+	cpi.Opts.ControllerList = ThreeportControllerList[:1]
+	kept := ThreeportControllerList[0]
+	dropped := ThreeportControllerList[1]
+	client := testClient(
+		deployment(cpi.Opts.Namespace, cpi.controllerDeploymentName(*kept)),
+		deployment(cpi.Opts.Namespace, cpi.controllerDeploymentName(*dropped)),
+		secret(cpi.Opts.Namespace, controllerCaSecretName(kept.Name)),
+		secret(cpi.Opts.Namespace, controllerCertSecretName(kept.Name)),
+		secret(cpi.Opts.Namespace, controllerCaSecretName(dropped.Name)),
+		secret(cpi.Opts.Namespace, controllerCertSecretName(dropped.Name)),
+	)
+	mapper := testMapper()
+
+	// delete the dropped controller, then again once its secrets are gone
+	require.NoError(t, cpi.ReconcileControllerSet(client, mapper, nil, false))
+	require.NoError(t, cpi.ReconcileControllerSet(client, mapper, nil, false))
+
+	// confirm the dropped controller's client certificate secrets are gone
+	for _, name := range []string{
+		controllerCaSecretName(dropped.Name),
+		controllerCertSecretName(dropped.Name),
+	} {
+		_, present, err := resourceInstalled(
+			client, mapper, "", "v1", "Secret", cpi.Opts.Namespace, name,
+		)
+		require.NoError(t, err)
+		assert.False(t, present)
+	}
+
+	// confirm the selected controller's client certificate secrets stayed
+	for _, name := range []string{
+		controllerCaSecretName(kept.Name),
+		controllerCertSecretName(kept.Name),
+	} {
+		_, present, err := resourceInstalled(
+			client, mapper, "", "v1", "Secret", cpi.Opts.Namespace, name,
+		)
+		require.NoError(t, err)
+		assert.True(t, present)
+	}
+}
+
+// TestReconcileControllerSetKeepsSelfControlPlaneController checks the self controller stays installed.
+func TestReconcileControllerSetKeepsSelfControlPlaneController(t *testing.T) {
+	// pick the self controller and two others from the catalog
+	var selected *apiv0.ControlPlaneComponent
+	var dropped *apiv0.ControlPlaneComponent
+	var selfController *apiv0.ControlPlaneComponent
+	for _, controller := range ThreeportControllerList {
+		if controller.Name == ThreeportControlPlaneControllerName {
+			selfController = controller
+			continue
+		}
+		if selected == nil {
+			selected = controller
+			continue
+		}
+		if dropped == nil {
+			dropped = controller
+		}
+	}
+	require.NotNil(t, selected)
+	require.NotNil(t, dropped)
+	require.NotNil(t, selfController)
+
+	// leave the selected controller installed and drop another
+	cpi := NewInstaller()
+	cpi.Opts.ControllerList = []*apiv0.ControlPlaneComponent{selected}
+	selectedName := cpi.controllerDeploymentName(*selected)
+	keptName := cpi.controllerDeploymentName(*selfController)
+	droppedName := cpi.controllerDeploymentName(*dropped)
+	client := testClient(
+		deployment(cpi.Opts.Namespace, selectedName),
+		deployment(cpi.Opts.Namespace, keptName),
+		deployment(cpi.Opts.Namespace, droppedName),
+	)
+	mapper := testMapper()
+
+	// reconcile with the self controller retained
+	require.NoError(t, cpi.ReconcileControllerSet(client, mapper, nil, true))
+
+	// confirm the self controller stayed and the other dropped controller did not
+	_, keptPresent, err := resourceInstalled(
+		client, mapper, "apps", "v1", "Deployment", cpi.Opts.Namespace, keptName,
+	)
+	require.NoError(t, err)
+	assert.True(t, keptPresent)
+	_, droppedPresent, err := resourceInstalled(
+		client, mapper, "apps", "v1", "Deployment", cpi.Opts.Namespace, droppedName,
+	)
+	require.NoError(t, err)
+	assert.False(t, droppedPresent)
+}
+
+// TestReconcileControllerSetRestoresUpdateFlag restores the update flag after a failed install.
+func TestReconcileControllerSetRestoresUpdateFlag(t *testing.T) {
+	// leave one selected controller without a deployment
+	cpi := NewInstaller()
+	cpi.Opts.CreateOrUpdateKubeResources = false
+	require.NotEmpty(t, cpi.Opts.ControllerList)
+	selected := cpi.Opts.ControllerList
+	var objects []runtime.Object
+	var omitted bool
+	for _, controller := range selected {
+		if controller.Enabled != nil && !*controller.Enabled {
+			continue
+		}
+		if !omitted {
+			omitted = true
+			continue
+		}
+		objects = append(objects, deployment(
+			cpi.Opts.Namespace,
+			cpi.controllerDeploymentName(*controller),
+		))
+	}
+	require.True(t, omitted)
+	client := testClient(objects...)
+
+	// fail the secret write the install starts with
+	client.PrependReactor("*", "secrets", func(k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, errors.New("secret write failed")
+	})
+
+	// install the missing controller
+	err := cpi.ReconcileControllerSet(client, testMapper(), nil, false)
+
+	// confirm the caller's flag and controller list came back
+	require.Error(t, err)
+	assert.False(t, cpi.Opts.CreateOrUpdateKubeResources)
+	assert.Equal(t, selected, cpi.Opts.ControllerList)
+}
+
+// TestDeleteAgentRoleBindingsLeavesOtherControlPlanes deletes one control plane's agent bindings and leaves the other's.
+func TestDeleteAgentRoleBindingsLeavesOtherControlPlanes(t *testing.T) {
+	// install agent bindings for two control planes
+	cpi := NewInstaller()
+	cpi.Opts.Namespace = "child"
+	client := testClient(
+		clusterRoleBinding("child-threeport-agent-manager-rolebinding", "agent"),
+		clusterRoleBinding("child-threeport-agent-proxy-rolebinding", "agent"),
+		clusterRoleBinding("threeport-control-plane-threeport-agent-manager-rolebinding", "agent"),
+		clusterRoleBinding("threeport-control-plane-threeport-agent-proxy-rolebinding", "agent"),
+	)
+	mapper := testMapper()
+
+	// delete the child bindings, then again once they are already gone
+	require.NoError(t, cpi.DeleteAgentRoleBindings(client, mapper))
+	require.NoError(t, cpi.DeleteAgentRoleBindings(client, mapper))
+
+	// confirm the child bindings are gone
+	for _, name := range []string{
+		"child-threeport-agent-manager-rolebinding",
+		"child-threeport-agent-proxy-rolebinding",
+	} {
+		_, present, err := resourceInstalled(
+			client, mapper, "rbac.authorization.k8s.io", "v1", "ClusterRoleBinding", "", name,
+		)
+		require.NoError(t, err)
+		assert.False(t, present)
+	}
+
+	// confirm the other control plane's bindings stayed
+	for _, name := range []string{
+		"threeport-control-plane-threeport-agent-manager-rolebinding",
+		"threeport-control-plane-threeport-agent-proxy-rolebinding",
+	} {
+		_, present, err := resourceInstalled(
+			client, mapper, "rbac.authorization.k8s.io", "v1", "ClusterRoleBinding", "", name,
+		)
+		require.NoError(t, err)
+		assert.True(t, present)
+	}
+}
+
+// TestDeleteControlPlaneRoleBindingsLeavesOtherControlPlanes deletes one control plane's role bindings and leaves the other's.
+func TestDeleteControlPlaneRoleBindingsLeavesOtherControlPlanes(t *testing.T) {
+	// install this control plane's bindings, another control plane's copies, and one unrelated binding
+	cpi := NewInstaller()
+	cpi.Opts.Namespace = "child"
+	objects := []runtime.Object{
+		clusterRoleBinding("child-threeport-agent-manager-rolebinding", "agent"),
+		clusterRoleBinding("child-threeport-agent-proxy-rolebinding", "agent"),
+		clusterRoleBinding("threeport-control-plane-threeport-agent-manager-rolebinding", "agent"),
+		clusterRoleBinding("threeport-control-plane-threeport-agent-proxy-rolebinding", "agent"),
+		clusterRoleBinding("cluster-autoscaler", "cluster-autoscaler"),
+	}
+	for _, controller := range ThreeportControllerList {
+		if controller.ServiceAccountName == "" {
+			continue
+		}
+		account := controller.ServiceAccountName
+		for _, namespace := range []string{"child", "threeport-control-plane"} {
+			for _, suffix := range []string{"threeportworkloads", "cluster-admin"} {
+				name := fmt.Sprintf("%s-%s-%s", namespace, account, suffix)
+				objects = append(objects, clusterRoleBinding(name, account))
+			}
+		}
+	}
+	client := testClient(objects...)
+	mapper := testMapper()
+
+	// delete the child bindings, then again once they are already gone
+	require.NoError(t, cpi.DeleteControlPlaneRoleBindings(client, mapper))
+	require.NoError(t, cpi.DeleteControlPlaneRoleBindings(client, mapper))
+
+	// confirm the child agent bindings are gone
+	for _, name := range []string{
+		"child-threeport-agent-manager-rolebinding",
+		"child-threeport-agent-proxy-rolebinding",
+	} {
+		_, present, err := resourceInstalled(
+			client, mapper, "rbac.authorization.k8s.io", "v1", "ClusterRoleBinding", "", name,
+		)
+		require.NoError(t, err)
+		assert.False(t, present)
+	}
+
+	// confirm the child controller bindings are gone
+	for _, controller := range ThreeportControllerList {
+		if controller.ServiceAccountName == "" {
+			continue
+		}
+		for _, suffix := range []string{"threeportworkloads", "cluster-admin"} {
+			name := fmt.Sprintf("child-%s-%s", controller.ServiceAccountName, suffix)
+			_, present, err := resourceInstalled(
+				client, mapper, "rbac.authorization.k8s.io", "v1", "ClusterRoleBinding", "", name,
+			)
+			require.NoError(t, err)
+			assert.False(t, present, name)
+		}
+	}
+
+	// confirm the other control plane's agent bindings stayed
+	for _, name := range []string{
+		"threeport-control-plane-threeport-agent-manager-rolebinding",
+		"threeport-control-plane-threeport-agent-proxy-rolebinding",
+	} {
+		_, present, err := resourceInstalled(
+			client, mapper, "rbac.authorization.k8s.io", "v1", "ClusterRoleBinding", "", name,
+		)
+		require.NoError(t, err)
+		assert.True(t, present)
+	}
+
+	// confirm the other control plane's controller bindings stayed
+	for _, controller := range ThreeportControllerList {
+		if controller.ServiceAccountName == "" {
+			continue
+		}
+		for _, suffix := range []string{"threeportworkloads", "cluster-admin"} {
+			name := fmt.Sprintf("threeport-control-plane-%s-%s", controller.ServiceAccountName, suffix)
+			_, present, err := resourceInstalled(
+				client, mapper, "rbac.authorization.k8s.io", "v1", "ClusterRoleBinding", "", name,
+			)
+			require.NoError(t, err)
+			assert.True(t, present, name)
+		}
+	}
+
+	// confirm the unrelated binding stayed
+	_, present, err := resourceInstalled(
+		client, mapper, "rbac.authorization.k8s.io", "v1", "ClusterRoleBinding", "", "cluster-autoscaler",
+	)
+	require.NoError(t, err)
+	assert.True(t, present)
 }

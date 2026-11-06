@@ -187,20 +187,24 @@ func (k *KubernetesRuntimeInstanceConfig) Replace(
 	}
 
 	// construct updated kubernetes runtime instance object
-	updatedKubernetesRuntimeInstance := &api_v0.KubernetesRuntimeInstance{
-		Common: api_v0.Common{
-			ID: existingKubernetesRuntimeInstance.ID,
-		},
-		Instance: api_v0.Instance{
-			Name: kubernetesRuntimeInstanceValues.Name,
-		},
-		KubernetesRuntimeDefinitionID: kubernetesRuntimeDefinition.ID,
-		DefaultRuntime:                kubernetesRuntimeInstanceValues.DefaultRuntime,
-		Location:                      kubernetesRuntimeInstanceValues.Location,
-		ThreeportAgentImage:           kubernetesRuntimeInstanceValues.ThreeportAgentImage,
-	}
+	// Start from the existing object, so the fields this replace does not set
+	// are kept: the reconciler's (Reconciled and the rest of Reconciliation,
+	// Status) and the ones only the API server or a controller writes. Every
+	// field a user sets through the config is assigned below unconditionally,
+	// a nil value included, so a field left out of the config is cleared
+	// rather than kept. Do not assign the reconciler's fields here: the copy
+	// already carries them.
+	updatedKubernetesRuntimeInstance := util.Ptr(*existingKubernetesRuntimeInstance)
+	updatedKubernetesRuntimeInstance.Name = kubernetesRuntimeInstanceValues.Name
+	updatedKubernetesRuntimeInstance.KubernetesRuntimeDefinitionID = kubernetesRuntimeDefinition.ID
+	updatedKubernetesRuntimeInstance.DefaultRuntime = kubernetesRuntimeInstanceValues.DefaultRuntime
+	updatedKubernetesRuntimeInstance.Location = kubernetesRuntimeInstanceValues.Location
+	updatedKubernetesRuntimeInstance.ThreeportAgentImage = kubernetesRuntimeInstanceValues.ThreeportAgentImage
 
-	// set control plane host if provided
+	// Whether the runtime hosts the control plane is the exception: the
+	// control plane's installer records it, and the runtime controller relies
+	// on it to leave the host's access alone. A config that does not mention
+	// it is not moving the control plane, so the recorded value is kept.
 	if kubernetesRuntimeInstanceValues.ThreeportControlPlaneHost != nil {
 		updatedKubernetesRuntimeInstance.ThreeportControlPlaneHost = kubernetesRuntimeInstanceValues.ThreeportControlPlaneHost
 	}
