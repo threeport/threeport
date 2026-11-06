@@ -435,6 +435,9 @@ func v0ControlPlaneInstanceCreated(
 		if !endpointSaved {
 			controlPlaneInstance.ApiServerEndpoint = &threeportAPIEndpoint
 		}
+
+		// the controllers hand this address to agents on the clusters they manage
+		cpi.Opts.ExternalApiEndpoint = threeportAPIEndpoint
 	}
 
 	// set provider values the controller install reads
