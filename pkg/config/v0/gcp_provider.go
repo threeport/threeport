@@ -40,10 +40,28 @@ type GcpProviderValues struct {
 	// If true on create, a GCP service account will be created and the credentials will be exported.
 	// if true on delete, the GCP service account will be deleted and the credentials will be removed.
 	// Defaults to true when creating via tptctl.
+	// The value used at create is stored on the GcpProvider, so a provider
+	// created with false keeps its service account on delete and when the
+	// control plane is torn down. On delete, false here or on the stored
+	// provider keeps the service account.
 	SyncServiceAccount *bool
 
 	// Age is a computed field showing how long ago the object was created.
 	Age *string
+}
+
+// syncServiceAccountEnabled reports whether Threeport may manage the GCP
+// service account behind a provider. Each setting that is not set counts as
+// true, and a false anywhere wins: no one has to repeat an opt-out for it to
+// hold, and nothing here turns an opt-out back on.
+func syncServiceAccountEnabled(settings ...*bool) bool {
+	for _, setting := range settings {
+		if setting != nil && !*setting {
+			return false
+		}
+	}
+
+	return true
 }
 
 // Get gets gcp providers from the Threeport API.
@@ -84,6 +102,8 @@ func (g *GcpProviderConfig) Get(
 				DefaultProvider: gcpProvider.DefaultProvider,
 				DefaultRegion:   gcpProvider.DefaultRegion,
 				Age:             util.Ptr(util.GetAgeFormatted(gcpProvider.CreatedAt)),
+
+				SyncServiceAccount: gcpProvider.SyncServiceAccount,
 			},
 		}
 		gcpProviderConfigs = append(gcpProviderConfigs, gcpProviderConfig)
@@ -117,10 +137,11 @@ func (g *GcpProviderConfig) Create(
 
 	// determine if we should sync the service account
 	// default to true if not specified
-	syncServiceAccount := true
-	if gcpProviderValues.SyncServiceAccount != nil {
-		syncServiceAccount = *gcpProviderValues.SyncServiceAccount
-	}
+	syncServiceAccount := syncServiceAccountEnabled(gcpProviderValues.SyncServiceAccount)
+
+	// record the choice on the provider, so a later command that never sees
+	// this config (tptctl down) can tell whether Threeport owns the account
+	gcpProvider.SyncServiceAccount = &syncServiceAccount
 
 	// create GCP service account and export credentials if requested
 	if syncServiceAccount {
@@ -157,6 +178,8 @@ func (g *GcpProviderConfig) Create(
 			DefaultProvider: createdGcpProvider.DefaultProvider,
 			DefaultRegion:   createdGcpProvider.DefaultRegion,
 			Age:             util.Ptr(util.GetAgeFormatted(createdGcpProvider.CreatedAt)),
+
+			SyncServiceAccount: createdGcpProvider.SyncServiceAccount,
 		},
 	}
 
@@ -204,6 +227,14 @@ func (g *GcpProviderConfig) Replace(
 	updatedGcpProvider.DefaultProvider = gcpProviderValues.DefaultProvider
 	updatedGcpProvider.DefaultRegion = gcpProviderValues.DefaultRegion
 
+	// SyncServiceAccount is not cleared when the config leaves it out: that
+	// would hand a provider whose service account lives outside Threeport
+	// back to teardown. The service account is not created or deleted here,
+	// so this only changes whether later deletes and teardown remove it.
+	if gcpProviderValues.SyncServiceAccount != nil {
+		updatedGcpProvider.SyncServiceAccount = gcpProviderValues.SyncServiceAccount
+	}
+
 	// replace gcp provider
 	replacedGcpProvider, err := client_v0.ReplaceGcpProvider(
 		apiClient,
@@ -230,7 +261,8 @@ func (g *GcpProviderConfig) Replace(
 
 // Delete deletes a gcp provider from the Threeport API.
 // If SyncServiceAccount is true (or not set, defaulting to true), this function
-// will also delete the GCP service account that was created for this provider.
+// will also delete the GCP service account that was created for this provider,
+// unless the provider was created with SyncServiceAccount set to false.
 func (g *GcpProviderConfig) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
@@ -258,11 +290,12 @@ func (g *GcpProviderConfig) Delete(
 	}
 
 	// determine if we should sync (delete) the service account
-	// default to true if not specified
-	syncServiceAccount := true
-	if gcpProviderValues.SyncServiceAccount != nil {
-		syncServiceAccount = *gcpProviderValues.SyncServiceAccount
-	}
+	// default to true if not specified. A provider created with false keeps
+	// its service account even when the delete does not repeat the setting.
+	syncServiceAccount := syncServiceAccountEnabled(
+		gcpProviderValues.SyncServiceAccount,
+		gcpProvider.SyncServiceAccount,
+	)
 
 	// delete GCP service account if requested
 	if syncServiceAccount && gcpProvider.ProjectID != nil {

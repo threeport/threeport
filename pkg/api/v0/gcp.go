@@ -23,6 +23,14 @@ type GcpProvider struct {
 	// Used when the gcp-controller runs outside GCP (e.g., in AWS or on-prem).
 	ServiceAccountCredentials *string `validate:"optional" encrypt:"true"`
 
+	// If true, Threeport owns a GCP service account for this provider: tptctl
+	// created it with the provider and removes it when the provider is deleted
+	// or the control plane is torn down. If false, the service account is
+	// managed outside Threeport (reused, or created by hand) and Threeport
+	// leaves it in place. Not set on providers created before this field
+	// existed, which are treated as true.
+	SyncServiceAccount *bool `validate:"optional" gorm:"default:true"`
+
 	// The cluster instances deployed with this GCP provider.
 	GcpGkeKubernetesRuntimeInstances []*GcpGkeKubernetesRuntimeInstance `validate:"optional,association"`
 }
