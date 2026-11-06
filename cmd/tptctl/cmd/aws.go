@@ -73,7 +73,7 @@ var GetAwsProvidersCmd = &cobra.Command{
 		case "v0":
 			// load values
 			awsProviderConfig := config_v0.AwsProviderConfig{}
-			if awsConfigPath != "" {
+			if awsConfigPath != "" || awsStdin {
 				configContent, err := cli.ReadConfigContent(awsConfigPath, awsStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -321,7 +321,7 @@ var DeleteAwsProviderCmd = &cobra.Command{
 		switch awsVersion {
 		case "v0":
 			var awsProviderConfig config_v0.AwsProviderConfig
-			if awsConfigPath != "" {
+			if awsConfigPath != "" || awsStdin {
 				// load aws provider config
 				configContent, err := cli.ReadConfigContent(awsConfigPath, awsStdin)
 				if err != nil {
@@ -407,7 +407,7 @@ var GetAwsEksKubernetesRuntimesCmd = &cobra.Command{
 		case "v0":
 			// load aws eks kubernetes runtime values
 			awsEksKubernetesRuntimeConfig := config_v0.AwsEksKubernetesRuntimeConfig{}
-			if awsConfigPath != "" {
+			if awsConfigPath != "" || awsStdin {
 				configContent, err := cli.ReadConfigContent(awsConfigPath, awsStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -666,7 +666,7 @@ var GetAwsEksKubernetesRuntimeDefinitionsCmd = &cobra.Command{
 		case "v0":
 			// load values
 			awsEksKubernetesRuntimeDefinitionConfig := config_v0.AwsEksKubernetesRuntimeDefinitionConfig{}
-			if awsConfigPath != "" {
+			if awsConfigPath != "" || awsStdin {
 				configContent, err := cli.ReadConfigContent(awsConfigPath, awsStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -910,7 +910,7 @@ var DeleteAwsEksKubernetesRuntimeDefinitionCmd = &cobra.Command{
 		switch awsVersion {
 		case "v0":
 			var awsEksKubernetesRuntimeDefinitionConfig config_v0.AwsEksKubernetesRuntimeDefinitionConfig
-			if awsConfigPath != "" {
+			if awsConfigPath != "" || awsStdin {
 				// load aws eks kubernetes runtime definition config
 				configContent, err := cli.ReadConfigContent(awsConfigPath, awsStdin)
 				if err != nil {
@@ -995,7 +995,7 @@ var GetAwsEksKubernetesRuntimeInstancesCmd = &cobra.Command{
 		case "v0":
 			// load values
 			awsEksKubernetesRuntimeInstanceConfig := config_v0.AwsEksKubernetesRuntimeInstanceConfig{}
-			if awsConfigPath != "" {
+			if awsConfigPath != "" || awsStdin {
 				configContent, err := cli.ReadConfigContent(awsConfigPath, awsStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -1239,7 +1239,7 @@ var DeleteAwsEksKubernetesRuntimeInstanceCmd = &cobra.Command{
 		switch awsVersion {
 		case "v0":
 			var awsEksKubernetesRuntimeInstanceConfig config_v0.AwsEksKubernetesRuntimeInstanceConfig
-			if awsConfigPath != "" {
+			if awsConfigPath != "" || awsStdin {
 				// load aws eks kubernetes runtime instance config
 				configContent, err := cli.ReadConfigContent(awsConfigPath, awsStdin)
 				if err != nil {
