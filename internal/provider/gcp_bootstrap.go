@@ -577,11 +577,11 @@ func DeleteGCPServiceAccountWithKey(projectID, accountName string) error {
 	serviceAccountEmail := fmt.Sprintf("%s@%s.iam.gserviceaccount.com", serviceAccountID, projectID)
 
 	// The account to delete is found by deriving its name from the provider's,
-	// and two provider names can derive the same one - truncation to thirty
-	// characters collides, and a freed name can be taken by something else. So
-	// the account is read and checked before anything is done to it: stripping a
-	// project's IAM bindings and deleting an account Threeport never created is
-	// not recoverable by re-running anything.
+	// and two provider names can derive the same one - the hash in the ID can
+	// collide, and a freed name can be taken by something else. So the account
+	// is read and checked before anything is done to it: stripping a project's
+	// IAM bindings and deleting an account Threeport never created is not
+	// recoverable by re-running anything.
 	account, found, err := getServiceAccountForProject(iamService, projectID, serviceAccountEmail)
 	if err != nil {
 		return fmt.Errorf("failed to check for the service account: %w", err)
@@ -621,7 +621,7 @@ func DeleteGCPServiceAccountWithKey(projectID, accountName string) error {
 // re-run after a partial one has to be able to finish. An account that is there
 // but carries no Threeport ownership for this provider belongs to something
 // else, and is refused: the derived name is not proof of ownership, since two
-// provider names can truncate to the same one.
+// provider names can hash to the same one.
 func gcpServiceAccountDeletable(
 	account *iam.ServiceAccount,
 	found bool,

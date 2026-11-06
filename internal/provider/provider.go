@@ -13,10 +13,13 @@ const (
 	// exceeding maximum lengths imposed by provider.
 	RuntimeNameMaxLength = 30
 
-	// Max length of a name a person chooses, whatever the provider. A usability
-	// limit, not a provider rule: it is independent of any limit a provider
-	// puts on the resources derived from the name.
-	NameMaxLength = 60
+	// Max length of a name a person chooses, whatever the provider. The agent's
+	// app.kubernetes.io/instance label is "threeport-agent" (15 characters) plus
+	// the control plane name, and Kubernetes rejects a label value over 63
+	// characters on any provider. 45 keeps the label at 60, with margin. Limits
+	// a single provider puts on resources derived from the name, such as the GKE
+	// cluster and node pool names, are not covered by it.
+	NameMaxLength = 45
 
 	// The name of the cloud provider account that is used to create a genesis Threeport
 	// control plane.  When a genesis control plane is created, the account that was used
