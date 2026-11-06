@@ -31,7 +31,7 @@ import (
 )
 
 // @title Threeport RESTful API
-// @version v0.7.0-rc.1
+// @version v0.7.0-rc.2
 // @description Core API server for the Threeport application orchestration control plane.
 // @contact.url https://threeport.io
 // @BasePath /
