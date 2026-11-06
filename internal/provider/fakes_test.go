@@ -20,6 +20,12 @@ var (
 	_ InfraProvider          = (*fakeInfra)(nil)
 	_ StreamableProvider     = (*fakeStreamableInfra)(nil)
 	_ RefreshableProvider    = (*fakeRefreshableInfra)(nil)
+	_ CloudVerifier          = (*fakeVerifierInfra)(nil)
+	_ StateResettable        = (*fakeInfra)(nil)
+	_ StateResettable        = (*KubernetesRuntimeInfraGKE)(nil)
+	_ StateResettable        = (*KubernetesRuntimeInfraEKS)(nil)
+	_ StateResettable        = (*KubernetesRuntimeInfraOKE)(nil)
+	_ CloudVerifier          = (*KubernetesRuntimeInfraGKE)(nil)
 	_ Clock                  = (*fakeClock)(nil)
 )
 
@@ -209,6 +215,13 @@ type fakeInfra struct {
 	setStateCalls int
 	getStateCalls int
 
+	// The number of leading DestroyInfra calls that fail before it follows destroyMode
+	destroyFailFirst int
+	// How many times DeleteStackState has been called
+	resetCalls int
+	// The error DeleteStackState returns
+	resetErr error
+
 	// The arguments passed to SetStackState, in call order
 	restoredStates []*datatypes.JSON
 	// The error SetStackState returns
@@ -252,6 +265,11 @@ func (f *fakeInfra) DestroyInfra() error {
 	mode := f.destroyMode
 	err := f.destroyErr
 	release := f.destroyRelease
+	// fail the leading calls regardless of mode
+	if f.destroyFailFirst > 0 {
+		f.destroyFailFirst--
+		mode = infraError
+	}
 	f.mu.Unlock()
 
 	// run the copied mode after unlocking so a block does not hold mu
@@ -299,6 +317,34 @@ func (f *fakeInfra) GetStackState() (*datatypes.JSON, error) {
 	defer f.mu.Unlock()
 	f.getStateCalls++
 	return f.stackState, f.getStateErr
+}
+
+// DeleteStackState records the call and returns resetErr.
+func (f *fakeInfra) DeleteStackState() error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.resetCalls++
+	return f.resetErr
+}
+
+// failFirstDestroys makes the next n DestroyInfra calls fail.
+func (f *fakeInfra) failFirstDestroys(n int) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.destroyFailFirst = n
+}
+
+// resetCallCount returns how many times DeleteStackState has been called.
+func (f *fakeInfra) resetCallCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.resetCalls
+}
+
+// plainInfra wraps an InfraProvider so only its InfraProvider methods show,
+// standing in for a backend with no local state to discard.
+type plainInfra struct {
+	InfraProvider
 }
 
 // setDeploy sets how DeployInfra completes.
@@ -523,6 +569,16 @@ type fakeLifecycle struct {
 	savedStates []*datatypes.JSON
 	// The last state passed to SaveCreateOutputs
 	createOutputState *datatypes.JSON
+	// The number of SaveCreateOutputs calls still to fail before it succeeds
+	createOutputFailures int
+	// The warning events passed to RecordWarning, in call order
+	warnings []recordedWarning
+}
+
+// recordedWarning is one RecordWarning call.
+type recordedWarning struct {
+	reason string
+	note   string
 }
 
 // newFakeLifecycle returns a fake that serves snaps in order.
@@ -608,6 +664,11 @@ func (f *fakeLifecycle) SaveCreateOutputs(infra InfraProvider, state *datatypes.
 	// record the call and store the output state
 	f.calls["SaveCreateOutputs"]++
 	f.createOutputState = state
+	// fail the first createOutputFailures calls, then succeed
+	if f.createOutputFailures > 0 {
+		f.createOutputFailures--
+		return errFakeInfra
+	}
 	return f.errs["SaveCreateOutputs"]
 }
 
@@ -689,6 +750,29 @@ func (f *fakeLifecycle) setErr(method string, err error) {
 	f.errs[method] = err
 }
 
+// RecordWarning records the warning and returns any configured error.
+func (f *fakeLifecycle) RecordWarning(reason, note string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls["RecordWarning"]++
+	f.warnings = append(f.warnings, recordedWarning{reason: reason, note: note})
+	return f.errs["RecordWarning"]
+}
+
+// recordedWarnings returns the warning events recorded so far.
+func (f *fakeLifecycle) recordedWarnings() []recordedWarning {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]recordedWarning(nil), f.warnings...)
+}
+
+// failCreateOutputs makes the next n SaveCreateOutputs calls fail.
+func (f *fakeLifecycle) failCreateOutputs(n int) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.createOutputFailures = n
+}
+
 // setInfra sets the provider BuildInfra returns.
 func (f *fakeLifecycle) setInfra(infra InfraProvider) {
 	f.mu.Lock()
@@ -732,4 +816,36 @@ func (f *fakeLifecycle) createOutputs() *datatypes.JSON {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.createOutputState
+}
+
+// fakeVerifierInfra is a fake provider that answers cloud existence checks.
+type fakeVerifierInfra struct {
+	*fakeInfra
+
+	vmu sync.Mutex
+	// Whether the cloud reports the infrastructure as existing
+	exists bool
+	// The error ResourcesExist returns
+	existsErr error
+	calls     int
+}
+
+// newFakeVerifierInfra returns a verifier fake that reports exists.
+func newFakeVerifierInfra(exists bool, err error) *fakeVerifierInfra {
+	return &fakeVerifierInfra{fakeInfra: newFakeInfra(), exists: exists, existsErr: err}
+}
+
+// ResourcesExist records the call and returns the configured answer.
+func (f *fakeVerifierInfra) ResourcesExist() (bool, error) {
+	f.vmu.Lock()
+	defer f.vmu.Unlock()
+	f.calls++
+	return f.exists, f.existsErr
+}
+
+// existsCallCount returns how many times ResourcesExist has been called.
+func (f *fakeVerifierInfra) existsCallCount() int {
+	f.vmu.Lock()
+	defer f.vmu.Unlock()
+	return f.calls
 }

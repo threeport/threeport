@@ -16942,6 +16942,10 @@ const docTemplate = `{
                 "Name"
             ],
             "properties": {
+                "AbandonInfrastructure": {
+                    "description": "Set by an operator to allow this instance to be deleted even though its\ncreation was confirmed and no resource inventory is recorded, or the\nrecorded inventory cannot be restored. The controller refuses that delete\notherwise, because cloud resources may still exist. Setting this orphans\nany resources the controller cannot find: they keep running and are no\nlonger tracked by Threeport. Resources it has recorded and can restore are\nstill destroyed. It is rejected on create, and once set it stays set until\nchanged, so tptctl sets it back to false if the delete fails.",
+                    "type": "boolean"
+                },
                 "AwsEksKubernetesRuntimeDefinitionID": {
                     "description": "The definition that configures this instance.",
                     "type": "integer"
@@ -17212,6 +17216,10 @@ const docTemplate = `{
             "properties": {
                 "ApiServerEndpoint": {
                     "description": "Information for connecting to the rest api for the control plane",
+                    "type": "string"
+                },
+                "Apis": {
+                    "description": "The controller groups this control plane installs.\nGroup names are separated by commas.\nAn empty or omitted value installs every controller.\nThe value 'none' installs no controllers.",
                     "type": "string"
                 },
                 "CACert": {
@@ -17795,6 +17803,10 @@ const docTemplate = `{
                 "Name"
             ],
             "properties": {
+                "AbandonInfrastructure": {
+                    "description": "Set by an operator to allow this instance to be deleted even though its\ncreation was confirmed and no resource inventory is recorded, or the\nrecorded inventory cannot be restored. The controller refuses that delete\notherwise, because cloud resources may still exist. Setting this orphans\nany resources the controller cannot find: they keep running and are no\nlonger tracked by Threeport. Resources it has recorded and can restore are\nstill destroyed. It is rejected on create, and once set it stays set until\nchanged, so tptctl sets it back to false if the delete fails.",
+                    "type": "boolean"
+                },
                 "CreationAcknowledged": {
                     "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
                     "type": "string"
@@ -19671,6 +19683,10 @@ const docTemplate = `{
                 "OciProviderID"
             ],
             "properties": {
+                "AbandonInfrastructure": {
+                    "description": "Set by an operator to allow this instance to be deleted even though its\ncreation was confirmed and no resource inventory is recorded, or the\nrecorded inventory cannot be restored. The controller refuses that delete\notherwise, because cloud resources may still exist. Setting this orphans\nany resources the controller cannot find: they keep running and are no\nlonger tracked by Threeport. Resources it has recorded and can restore are\nstill destroyed. It is rejected on create, and once set it stays set until\nchanged, so tptctl sets it back to false if the delete fails.",
+                    "type": "boolean"
+                },
                 "ClusterOCID": {
                     "description": "The OCID for the OKE cluster. Populated by the controller after cluster creation.",
                     "type": "string"

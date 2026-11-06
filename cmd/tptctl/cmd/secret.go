@@ -55,7 +55,7 @@ var GetSecretsCmd = &cobra.Command{
 		case "v0":
 			// load secret values
 			secretConfig := config_v0.SecretConfig{}
-			if secretConfigPath != "" {
+			if secretConfigPath != "" || secretStdin {
 				configContent, err := cli.ReadConfigContent(secretConfigPath, secretStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -316,7 +316,7 @@ var GetSecretDefinitionsCmd = &cobra.Command{
 		case "v0":
 			// load values
 			secretDefinitionConfig := config_v0.SecretDefinitionConfig{}
-			if secretConfigPath != "" {
+			if secretConfigPath != "" || secretStdin {
 				configContent, err := cli.ReadConfigContent(secretConfigPath, secretStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -562,7 +562,7 @@ var DeleteSecretDefinitionCmd = &cobra.Command{
 		switch secretVersion {
 		case "v0":
 			var secretDefinitionConfig config_v0.SecretDefinitionConfig
-			if secretConfigPath != "" {
+			if secretConfigPath != "" || secretStdin {
 				// load secret definition config
 				configContent, err := cli.ReadConfigContent(secretConfigPath, secretStdin)
 				if err != nil {
@@ -648,7 +648,7 @@ var GetSecretInstancesCmd = &cobra.Command{
 		case "v0":
 			// load values
 			secretInstanceConfig := config_v0.SecretInstanceConfig{}
-			if secretConfigPath != "" {
+			if secretConfigPath != "" || secretStdin {
 				configContent, err := cli.ReadConfigContent(secretConfigPath, secretStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -894,7 +894,7 @@ var DeleteSecretInstanceCmd = &cobra.Command{
 		switch secretVersion {
 		case "v0":
 			var secretInstanceConfig config_v0.SecretInstanceConfig
-			if secretConfigPath != "" {
+			if secretConfigPath != "" || secretStdin {
 				// load secret instance config
 				configContent, err := cli.ReadConfigContent(secretConfigPath, secretStdin)
 				if err != nil {

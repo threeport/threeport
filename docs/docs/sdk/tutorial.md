@@ -671,6 +671,14 @@ go mod tidy
 The Threeport SDK provides [mage](https://magefile.org/) targets with convenient
 development utilities.  To see all available mage targets, simple run `mage`.
 
+Generate the module's API docs, which its API server serves through the core
+Threeport API at `swagger/<module API name>/index.html`. Run this again whenever
+the module's API objects change.
+
+```bash
+mage dev:generateSwaggerDocs
+```
+
 Next, let's build the `tptctl` plugin for the WordPress module.
 
 ```bash

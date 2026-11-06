@@ -24,6 +24,9 @@ type Options struct {
 	// List of controllers to install as part of the control plane
 	ControllerList []*v0.ControlPlaneComponent
 
+	// The controller group list stored on the self instance
+	Apis string
+
 	// Info for the Rest Api being installed
 	RestApiInfo *v0.ControlPlaneComponent
 
