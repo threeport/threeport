@@ -26,6 +26,26 @@ func SetNamespaces(
 	workloadInstanceID *uint,
 	discoveryClient *discovery.DiscoveryClient,
 ) (*[]v0.KubernetesWorkloadResourceInstance, error) {
+	return SetNamespacesWith(
+		workloadResourceInstances,
+		workloadInstanceName,
+		workloadInstanceID,
+		func(jsonDef string) (bool, error) {
+			return IsNamespaced(jsonDef, discoveryClient)
+		},
+	)
+}
+
+// SetNamespacesWith does what SetNamespaces does, asking isNamespaced rather than
+// the cluster whether each resource is namespaced - for a caller that already
+// knows of some resources, and must not depend on the cluster still serving
+// the API version they were written in.
+func SetNamespacesWith(
+	workloadResourceInstances *[]v0.KubernetesWorkloadResourceInstance,
+	workloadInstanceName *string,
+	workloadInstanceID *uint,
+	isNamespaced func(jsonDef string) (bool, error),
+) (*[]v0.KubernetesWorkloadResourceInstance, error) {
 	// first check to see if any namespaces are included - if so assume
 	// namespaces are managed by client and do nothing
 	clientManagedNS := ""
@@ -55,10 +75,7 @@ func SetNamespaces(
 	namespacedObjectCount := 0
 	for _, wri := range *workloadResourceInstances {
 		// check to see if this is a namespaced resource
-		namespaced, err := IsNamespaced(
-			string(*wri.JSONDefinition),
-			discoveryClient,
-		)
+		namespaced, err := isNamespaced(string(*wri.JSONDefinition))
 		if err != nil {
 			return &processedWRIs, fmt.Errorf("failed to determine if workload resource instance is namespaced: %w", err)
 		}
