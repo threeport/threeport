@@ -5,6 +5,7 @@ package v0
 import (
 	"fmt"
 
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
 	lib "github.com/threeport/threeport/pkg/api/lib/v0"
@@ -55,7 +56,7 @@ func (k *KubernetesRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
 		)
 	}
 
-	return nil
+	return validateKubernetesApiAccess(*k.InfraProvider, k.PrivateApi, k.AllowedCidrs)
 }
 
 // beforeUpdate validates that no immutable fields are being changed
@@ -94,7 +95,22 @@ func (k *KubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
 			"kubernetes runtime definition high availability cannot be changed after creation",
 		)
 	}
-	return nil
+
+	// InfraProvider is unchanged once past the check above, so the receiver
+	// holds it under both update shapes
+	return validateKubernetesApiAccessUpdate(
+		tx,
+		*k.InfraProvider,
+		k.PrivateApi,
+		k.AllowedCidrs,
+		func(values any) (*bool, *datatypes.JSON, bool) {
+			incoming, ok := values.(*KubernetesRuntimeDefinition)
+			if !ok {
+				return nil, nil, false
+			}
+			return incoming.PrivateApi, incoming.AllowedCidrs, true
+		},
+	)
 }
 
 // beforeDelete validates the KubernetesRuntimeDefinition before delete.
@@ -130,6 +146,10 @@ func (k *KubernetesRuntimeInstance) beforeCreate(tx *gorm.DB) error {
 		}
 	}
 
+	if _, err := ParseCidrs("EgressCidrs", k.EgressCidrs); err != nil {
+		return util.NewBadRequestError(err.Error())
+	}
+
 	return nil
 }
 
@@ -161,6 +181,16 @@ func (k *KubernetesRuntimeInstance) beforeUpdate(tx *gorm.DB) error {
 		return util.NewBadRequestError(
 			"kubernetes runtime instances cannot be moved - location is immutable",
 		)
+	}
+
+	if err := validateCidrsUpdate(tx, "EgressCidrs", func(values any) (*datatypes.JSON, bool) {
+		incoming, ok := values.(*KubernetesRuntimeInstance)
+		if !ok {
+			return nil, false
+		}
+		return incoming.EgressCidrs, true
+	}); err != nil {
+		return err
 	}
 
 	// claim or clear a shared controller slot in this same transaction
