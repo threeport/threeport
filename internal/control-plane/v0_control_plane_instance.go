@@ -931,7 +931,7 @@ func copyManagingParent(
 			if err := o.copyProviderRecords(
 				*runtimeDefinition.InfraProvider,
 				runtimeLink{
-					definitionID: *runtimeDefinition.ID,
+					definitionID: *runtime.KubernetesRuntimeDefinitionID,
 					instanceID:   *runtime.ID,
 				},
 				runtimeLink{
