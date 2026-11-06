@@ -107,6 +107,7 @@ type GenesisControlPlaneCLIArgs struct {
 	KindPortMappings      []string
 	ApiPort               int
 	LocalRegistry         bool
+	K8sApiAllowedCidrs    []string
 }
 
 // Uninstaller contains the necessary information to uninstall a control plane
@@ -216,6 +217,7 @@ func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneI
 	cpi.Opts.TeardownOnFailure = a.TeardownOnFailure
 	cpi.Opts.LocalRegistry = a.LocalRegistry
 	cpi.Opts.KindPortMappings = a.KindPortMappings
+	cpi.Opts.K8sApiAllowedCidrs = a.K8sApiAllowedCidrs
 	// a kind port mapping for the API's node port says the same thing --api-port
 	// says, so the two are folded into one value here. The kind mapping and the
 	// endpoint written to the threeport config both read that value, so they
@@ -266,6 +268,10 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		// tptctl.
 		if existingConfig, err := threeportConfig.GetControlPlaneConfig(cpi.Opts.ControlPlaneName); err == nil {
 			threeportControlPlaneConfig = existingConfig
+			// a prior --infra-only run created the cluster with the
+			// Kubernetes API access it recorded, which
+			// --k8s-api-allowed-cidrs cannot be passed here to change
+			cpi.Opts.K8sApiAllowedCidrs = existingConfig.K8sApiAllowedCidrs
 		} else {
 			threeportControlPlaneConfig = &ControlPlane{}
 		}
@@ -293,6 +299,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		c.Name = cpi.Opts.ControlPlaneName
 		c.Provider = cpi.Opts.InfraProvider
 		c.Genesis = genesis
+		c.K8sApiAllowedCidrs = cpi.Opts.K8sApiAllowedCidrs
 	}); err != nil {
 		return fmt.Errorf("failed to update threeport config: %w", err)
 	}
@@ -371,6 +378,10 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			// bucket in another region
 			ProvisionBackups: cpi.Opts.Tier == threeport.ControlPlaneTier(threeport.ControlPlaneTierProd),
 			BackupRegion:     cpi.Opts.GcpBackupRegion,
+			AllowedCidrs:     cpi.Opts.K8sApiAllowedCidrs,
+			// the control plane's outbound traffic comes from one address,
+			// which clusters it manages admit
+			ReserveNatAddress: true,
 		}).InitPulumiProject()
 		kubernetesRuntimeInfra = kubernetesRuntimeInfraGKE
 		uninstaller.kubernetesRuntimeInfra = kubernetesRuntimeInfraGKE
@@ -427,8 +438,21 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		}
 	}
 
+	// read the addresses the new cluster's outbound traffic comes from,
+	// which the clusters this control plane manages admit when they
+	// restrict their Kubernetes API.  With --control-plane-only these are
+	// the addresses a prior --infra-only run recorded; a cluster tptctl did
+	// not create, and a kind cluster, has none recorded.
+	egressCidrs := threeportControlPlaneConfig.EgressCidrs
+	if reporter, ok := kubernetesRuntimeInfra.(interface{ StackEgressCidrs() ([]string, error) }); ok && !cpi.Opts.ControlPlaneOnly {
+		if egressCidrs, err = reporter.StackEgressCidrs(); err != nil {
+			return uninstaller.cleanOnCreateError("failed to read the cluster's egress addresses", err)
+		}
+	}
+
 	// update threeport config with kube API info
 	if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *ControlPlane) {
+		c.EgressCidrs = egressCidrs
 		c.KubeAPI = KubeAPI{
 			APIEndpoint:   kubeConnectionInfo.APIEndpoint,
 			CACertificate: util.Base64Encode(kubeConnectionInfo.CACertificate),
@@ -561,6 +585,23 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			ConnectionTokenExpiration: &kubeConnectionInfo.TokenExpiration,
 			DefaultRuntime:            &defaultRuntime,
 			Location:                  &location,
+		}
+	}
+
+	// record the cluster's egress addresses on the runtime that hosts the
+	// control plane
+	kubernetesRuntimeInstance.EgressCidrs = provider.EgressCidrsJSON(egressCidrs)
+
+	// with the Kubernetes API limited to --k8s-api-allowed-cidrs, make sure
+	// this machine is on the list before installing anything, so that a list
+	// that leaves it out fails here, with an error that says so
+	if len(cpi.Opts.K8sApiAllowedCidrs) > 0 {
+		Info(fmt.Sprintf("Checking that this machine can reach the Kubernetes API at %s", *kubernetesRuntimeInstance.APIEndpoint))
+		if err := waitForKubernetesAPI(kubernetesRuntimeInstance, cpi.Opts.K8sApiAllowedCidrs); err != nil {
+			return uninstaller.cleanOnCreateError(
+				"failed to reach the Kubernetes API",
+				withUnreachableClusterCleanup(err, cpi.Opts.ControlPlaneName, cpi.Opts.TeardownOnFailure),
+			)
 		}
 	}
 
@@ -823,6 +864,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			kubernetesRuntimeInstName,
 			defReconciled,
 			cpi.Opts.InfraProvider,
+			cpi.Opts.K8sApiAllowedCidrs,
 			kubernetesRuntimeInstance,
 		)
 		if err != nil {
@@ -837,6 +879,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 				Reconciled: &defReconciled,
 			},
 			InfraProvider: &cpi.Opts.InfraProvider,
+			AllowedCidrs:  allowedCidrsJSON(cpi.Opts.K8sApiAllowedCidrs),
 		}
 		kubernetesRuntimeDefResult, err = client.CreateKubernetesRuntimeDefinition(
 			apiClient,
@@ -1648,6 +1691,7 @@ func ensureBootstrapKubernetesRuntime(
 	instName string,
 	defReconciled bool,
 	infraProvider string,
+	allowedCidrs []string,
 	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
 ) (*v0.KubernetesRuntimeDefinition, *v0.KubernetesRuntimeInstance, error) {
 	// look up the definition and create it if missing
@@ -1664,6 +1708,7 @@ func ensureBootstrapKubernetesRuntime(
 				Reconciled: &defReconciled,
 			},
 			InfraProvider: &infraProvider,
+			AllowedCidrs:  allowedCidrsJSON(allowedCidrs),
 		}
 		def, err = client.CreateKubernetesRuntimeDefinition(apiClient, apiEndpoint, &newDef)
 		if err != nil {
@@ -1761,6 +1806,7 @@ func EnsureBootstrapObjects(cpi *threeport.ControlPlaneInstaller) error {
 		runtimeName,
 		defReconciled,
 		controlPlaneConfig.Provider,
+		controlPlaneConfig.K8sApiAllowedCidrs,
 		kubernetesRuntimeInstance,
 	)
 	if err != nil {
@@ -1833,6 +1879,7 @@ func bootstrapKubernetesRuntimeInstance(controlPlaneConfig *ControlPlane) (*v0.K
 		CACertificate:             &caCertificate,
 		DefaultRuntime:            &defaultRuntime,
 		Location:                  &location,
+		EgressCidrs:               provider.EgressCidrsJSON(controlPlaneConfig.EgressCidrs),
 	}
 
 	// set the cert pair when both are present, else the token when set, and leave its expiration unset

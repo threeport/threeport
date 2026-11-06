@@ -68,6 +68,35 @@ to see which locations map to which regions on each cloud provider.
 The `DefaultRuntime` field indicates that, when deploying workloads, if a
 Kubernetes Runtime is not specified, it will use this one by default.
 
+To limit which networks can reach the cluster's Kubernetes API, add
+`AllowedCidrs`, a list of IPv4 CIDR blocks:
+
+```yaml
+  AllowedCidrs:
+    - 203.0.113.0/24
+```
+
+Without it the Kubernetes API accepts connections from any address, though
+requests still need credentials. Include any address you run `kubectl` from.
+The list can't be changed once the runtime has been created.
+
+The Threeport control plane manages the cluster through its Kubernetes API.
+Threeport records the public addresses that each cluster it provisions sends
+its outbound traffic from, as the runtime instance's `EgressCidrs`, and admits
+the addresses of the cluster the control plane runs on along with
+`AllowedCidrs`. You don't need to list them. They count toward the provider's
+limit: EKS accepts up to 40 blocks, GKE up to 50 and OKE up to 120 in all, and
+a runtime whose list doesn't fit fails with the number of entries left for
+`AllowedCidrs`.
+
+A control plane on a cluster Threeport didn't provision has no `EgressCidrs`.
+That covers a kind cluster, a cluster used with `tptctl up --control-plane-only`
+and a cluster provisioned before Threeport recorded them. In those cases, either
+include the control plane's outbound addresses in `AllowedCidrs`, or set
+`EgressCidrs` on the kubernetes runtime instance the control plane runs on
+through the Threeport API. The controller logs a warning when a restricted
+runtime finds none.
+
 Create a `KubernetesRuntime` instance:
 ```bash
 tptctl create kubernetes-runtime --config k8s-runtime.yaml

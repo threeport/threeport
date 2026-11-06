@@ -5,8 +5,10 @@ package v0
 import (
 	"fmt"
 
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
+	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -60,7 +62,7 @@ func (g *GcpProvider) beforeDelete(tx *gorm.DB) error {
 
 // beforeCreate validates the GcpGkeKubernetesRuntimeDefinition before create.
 func (g *GcpGkeKubernetesRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
-	return nil
+	return validateKubernetesApiAccess(KubernetesRuntimeInfraProviderGKE, g.PrivateApi, g.AllowedCidrs)
 }
 
 // beforeUpdate validates the GcpGkeKubernetesRuntimeDefinition before update.
@@ -77,7 +79,17 @@ func (g *GcpGkeKubernetesRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
 // Import:
 //   lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (g *GcpGkeKubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
-	return nil
+	return validateKubernetesApiAccessUpdate(
+		tx,
+		KubernetesRuntimeInfraProviderGKE,
+		func(values any) (*bool, *datatypes.JSON, bool) {
+			object, ok := values.(*GcpGkeKubernetesRuntimeDefinition)
+			if !ok {
+				return nil, nil, false
+			}
+			return object.PrivateApi, object.AllowedCidrs, true
+		},
+	)
 }
 
 // beforeDelete validates the GcpGkeKubernetesRuntimeDefinition before delete.
@@ -104,8 +116,44 @@ func (g *GcpGkeKubernetesRuntimeInstance) beforeCreate(tx *gorm.DB) error {
 // Import:
 //   lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (g *GcpGkeKubernetesRuntimeInstance) beforeUpdate(tx *gorm.DB) error {
+	// ReservedNatAddress decides how the cluster's Cloud NAT is provisioned,
+	// so changing it would change the cluster's outbound addresses under it
+	changed, err := lib.IsFieldChanged(tx, "ReservedNatAddress")
+	if err != nil {
+		return err
+	}
+	if !changed {
+		return nil
+	}
+
+	// a patch's receiver is the stored row, while a replace's receiver is
+	// the incoming object, so the stored row is read back for a replace
+	stored := tx.Statement.Model
+	if lib.IsFullReplace(tx) {
+		if stored, err = lib.LoadObjectFromDB(tx); err != nil {
+			return err
+		}
+	}
+	storedInstance, storedOk := stored.(*GcpGkeKubernetesRuntimeInstance)
+	incomingInstance, incomingOk := lib.IncomingValues(tx).(*GcpGkeKubernetesRuntimeInstance)
+	if !storedOk || !incomingOk {
+		return fmt.Errorf(
+			"cannot check ReservedNatAddress: update carries %T",
+			lib.IncomingValues(tx),
+		)
+	}
+
+	reserved := func(value *bool) bool { return value != nil && *value }
+	if reserved(storedInstance.ReservedNatAddress) != reserved(incomingInstance.ReservedNatAddress) {
+		return util.NewBadRequestError(ErrMsgReservedNatAddressImmutable)
+	}
+
 	return nil
 }
+
+// ErrMsgReservedNatAddressImmutable is the rejection of an update that
+// changes a GKE runtime instance's ReservedNatAddress.
+const ErrMsgReservedNatAddressImmutable = "ReservedNatAddress cannot be changed after creation: it would change the cluster's outbound addresses"
 
 // beforeDelete validates the GcpGkeKubernetesRuntimeInstance before delete.
 func (g *GcpGkeKubernetesRuntimeInstance) beforeDelete(tx *gorm.DB) error {

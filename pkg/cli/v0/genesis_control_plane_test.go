@@ -94,6 +94,7 @@ func TestEnsureBootstrapKubernetesRuntimeReusesExistingRows(t *testing.T) {
 		"threeport-dev",
 		true,
 		"kind",
+		nil,
 		&v0.KubernetesRuntimeInstance{Instance: v0.Instance{Name: util.Ptr("threeport-dev")}},
 	)
 
@@ -130,6 +131,7 @@ func TestEnsureBootstrapKubernetesRuntimeCreatesMissingRows(t *testing.T) {
 		"threeport-dev",
 		true,
 		"kind",
+		nil,
 		&v0.KubernetesRuntimeInstance{Instance: v0.Instance{Name: util.Ptr("threeport-dev")}},
 	)
 
@@ -137,6 +139,45 @@ func TestEnsureBootstrapKubernetesRuntimeCreatesMissingRows(t *testing.T) {
 	require.Equal(2, posts)
 	require.NotNil(def.ID)
 	require.NotNil(inst.ID)
+}
+
+// TestARestoredKubernetesRuntimeDefinitionKeepsItsAllowedCidrs covers a
+// reinstall of a control plane whose cluster limits its Kubernetes API: the
+// definition rebuilt from the tptctl config carries the list again.
+func TestARestoredKubernetesRuntimeDefinitionKeepsItsAllowedCidrs(t *testing.T) {
+	var sentDefinition map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPost {
+			var body map[string]any
+			assert.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+			if r.URL.Path == v0.PathKubernetesRuntimeDefinitions {
+				sentDefinition = body
+			}
+			w.WriteHeader(http.StatusCreated)
+			name, _ := body["Name"].(string)
+			fmt.Fprintf(w, `{"Data":[{"ID":1,"Name":%q}]}`, name)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"Data":[]}`))
+	}))
+	defer server.Close()
+
+	_, _, err := ensureBootstrapKubernetesRuntime(
+		server.Client(),
+		strings.TrimPrefix(server.URL, "http://"),
+		"threeport-prod",
+		"threeport-prod",
+		true,
+		"eks",
+		[]string{"203.0.113.7/32"},
+		&v0.KubernetesRuntimeInstance{Instance: v0.Instance{Name: util.Ptr("threeport-prod")}},
+	)
+
+	require.NoError(t, err)
+	require.NotNil(t, sentDefinition)
+	assert.Equal(t, []any{"203.0.113.7/32"}, sentDefinition["AllowedCidrs"])
 }
 
 // TestEnsureBootstrapKubernetesRuntimeSurfacesLookupErrors covers a failed GET.
@@ -154,6 +195,7 @@ func TestEnsureBootstrapKubernetesRuntimeSurfacesLookupErrors(t *testing.T) {
 		"threeport-dev",
 		true,
 		"kind",
+		nil,
 		&v0.KubernetesRuntimeInstance{Instance: v0.Instance{Name: util.Ptr("threeport-dev")}},
 	)
 
