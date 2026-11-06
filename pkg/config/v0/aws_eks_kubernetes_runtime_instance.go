@@ -316,16 +316,20 @@ func (a *AwsEksKubernetesRuntimeInstanceConfig) Delete(
 	}
 
 	// wait for AWS EKS kubernetes runtime instance to be deleted
-	util.Retry(90, 10, func() error {
-		if _, err := client_v0.GetAwsEksKubernetesRuntimeInstanceByName(
-			apiClient,
-			apiEndpoint,
-			*awsEksKubernetesRuntimeInstance.Name,
-		); err == nil {
-			return errors.New("AWS EKS kubernetes runtime instance not deleted")
-		}
-		return nil
-	})
+	if err := waitForInstanceDelete(
+		"aws eks kubernetes runtime instance",
+		*awsEksKubernetesRuntimeInstance.Name,
+		func() error {
+			_, err := client_v0.GetAwsEksKubernetesRuntimeInstanceByName(
+				apiClient,
+				apiEndpoint,
+				*awsEksKubernetesRuntimeInstance.Name,
+			)
+			return err
+		},
+	); err != nil {
+		return nil, err
+	}
 
 	// get kubernetes runtime instance
 	kubernetesRuntimeInstance, err := client_v0.GetKubernetesRuntimeInstanceByID(
@@ -389,6 +393,45 @@ func (a *AwsEksKubernetesRuntimeInstanceConfig) Delete(
 	}
 
 	return deletedAwsEksKubernetesRuntimeInstanceConfig, nil
+}
+
+// SetAbandonInfrastructure sets whether the controller may delete the aws eks kubernetes runtime instance
+// even when creation was confirmed and no resource inventory is recorded, or
+// when the recorded inventory cannot be restored. Without it the controller
+// refuses that delete, because cloud resources may still be running. Setting it
+// true orphans any resources the controller cannot find: they are left in place
+// and no longer tracked by Threeport. The value stays set until it is changed,
+// so a caller that sets it and then fails to delete must set it back to false.
+func (a *AwsEksKubernetesRuntimeInstanceConfig) SetAbandonInfrastructure(
+	apiClient *http.Client,
+	apiEndpoint string,
+	abandon bool,
+) error {
+	values := a.AwsEksKubernetesRuntimeInstance
+
+	// get aws eks kubernetes runtime instance by name
+	instance, err := client_v0.GetAwsEksKubernetesRuntimeInstanceByName(
+		apiClient,
+		apiEndpoint,
+		util.DerefString(values.Name),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to find aws eks kubernetes runtime instance with name %s: %w", util.DerefString(values.Name), err)
+	}
+
+	// write only the flag, so nothing the controller owns rides along
+	if _, err := client_v0.UpdateAwsEksKubernetesRuntimeInstance(
+		apiClient,
+		apiEndpoint,
+		&api_v0.AwsEksKubernetesRuntimeInstance{
+			Common:                api_v0.Common{ID: instance.ID},
+			AbandonInfrastructure: util.Ptr(abandon),
+		},
+	); err != nil {
+		return fmt.Errorf("failed to set infrastructure abandonment to %t for aws eks kubernetes runtime instance %s: %w", abandon, util.DerefString(values.Name), err)
+	}
+
+	return nil
 }
 
 // Validate validates inputs to create aws eks kubernetes runtime instances.

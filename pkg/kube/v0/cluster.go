@@ -381,7 +381,11 @@ func buildOKETokenGenerator(
 		decryptedPrivateKey,
 		nil,
 	)
-	clusterOCID := *okeRuntimeInstance.ClusterOCID
+	// reject a runtime that has no cluster
+	clusterOCID := util.Deref(okeRuntimeInstance.ClusterOCID)
+	if clusterOCID == "" {
+		return nil, fmt.Errorf("OCI OKE runtime instance %s has no cluster OCID set", *okeRuntimeInstance.Name)
+	}
 	return func() (string, error) {
 		token, _, err := util.GenerateOkeToken(clusterOCID, configProvider)
 		return token, err

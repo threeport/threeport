@@ -126,6 +126,17 @@ definitions:
     type: object
   v0.AwsEksKubernetesRuntimeInstance:
     properties:
+      AbandonInfrastructure:
+        description: |-
+          Set by an operator to allow this instance to be deleted even though its
+          creation was confirmed and no resource inventory is recorded, or the
+          recorded inventory cannot be restored. The controller refuses that delete
+          otherwise, because cloud resources may still exist. Setting this orphans
+          any resources the controller cannot find: they keep running and are no
+          longer tracked by Threeport. Resources it has recorded and can restore are
+          still destroyed. It is rejected on create, and once set it stays set until
+          changed, so tptctl sets it back to false if the delete fails.
+        type: boolean
       AwsEksKubernetesRuntimeDefinitionID:
         description: The definition that configures this instance.
         type: integer
@@ -387,6 +398,13 @@ definitions:
     properties:
       ApiServerEndpoint:
         description: Information for connecting to the rest api for the control plane
+        type: string
+      Apis:
+        description: |-
+          The controller groups this control plane installs.
+          Group names are separated by commas.
+          An empty or omitted value installs every controller.
+          The value 'none' installs no controllers.
         type: string
       CACert:
         description: The CA Cert that is associated with the control plane
@@ -940,6 +958,17 @@ definitions:
     type: object
   v0.GcpGkeKubernetesRuntimeInstance:
     properties:
+      AbandonInfrastructure:
+        description: |-
+          Set by an operator to allow this instance to be deleted even though its
+          creation was confirmed and no resource inventory is recorded, or the
+          recorded inventory cannot be restored. The controller refuses that delete
+          otherwise, because cloud resources may still exist. Setting this orphans
+          any resources the controller cannot find: they keep running and are no
+          longer tracked by Threeport. Resources it has recorded and can restore are
+          still destroyed. It is rejected on create, and once set it stays set until
+          changed, so tptctl sets it back to false if the delete fails.
+        type: boolean
       CreationAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
@@ -2796,6 +2825,17 @@ definitions:
     type: object
   v0.OciOkeKubernetesRuntimeInstance:
     properties:
+      AbandonInfrastructure:
+        description: |-
+          Set by an operator to allow this instance to be deleted even though its
+          creation was confirmed and no resource inventory is recorded, or the
+          recorded inventory cannot be restored. The controller refuses that delete
+          otherwise, because cloud resources may still exist. Setting this orphans
+          any resources the controller cannot find: they keep running and are no
+          longer tracked by Threeport. Resources it has recorded and can restore are
+          still destroyed. It is rejected on create, and once set it stays set until
+          changed, so tptctl sets it back to false if the delete fails.
+        type: boolean
       ClusterOCID:
         description: The OCID for the OKE cluster. Populated by the controller after
           cluster creation.

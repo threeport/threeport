@@ -21,6 +21,8 @@ import (
 	"google.golang.org/api/option"
 	gcpoption "google.golang.org/api/option"
 	"google.golang.org/api/storage/v1"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"gorm.io/datatypes"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -720,6 +722,53 @@ func gkeKubeApiEndpoint(cluster *containerpb.Cluster) (string, string, error) {
 	}
 
 	return fmt.Sprintf("https://%s", dnsEndpoint.GetEndpoint()), "", nil
+}
+
+// ResourcesExist reports whether the GKE cluster for this instance exists in
+// GCP. Only a NotFound response means it does not; any other failure, such as
+// revoked credentials, is returned as an error so a delete is not confirmed on
+// the strength of a lookup that could not be made.
+func (i *KubernetesRuntimeInfraGKE) ResourcesExist() (bool, error) {
+	// ensure GCP authentication is in place
+	if err := gcpauth.EnsureGCPAuth(i.ServiceAccountCredentials); err != nil {
+		return false, fmt.Errorf("failed to ensure GCP authentication: %w", err)
+	}
+	if i.ServiceAccountCredentials != "" {
+		defer gcpauth.CleanupGCPCredentials()
+	}
+
+	if err := i.loadGCPConfig(); err != nil {
+		return false, fmt.Errorf("failed to load GCP configuration: %w", err)
+	}
+
+	ctx := context.Background()
+
+	// act as the service account tied to this GcpProvider, as GetConnection does
+	clusterManagerClientOpts := []option.ClientOption{}
+	if i.ServiceAccountCredentials != "" {
+		clusterManagerClientOpts = append(clusterManagerClientOpts, option.WithCredentialsJSON([]byte(i.ServiceAccountCredentials)))
+	}
+
+	clusterManagerClient, err := container.NewClusterManagerClient(ctx, clusterManagerClientOpts...)
+	if err != nil {
+		return false, fmt.Errorf("failed to create cluster manager client: %w", err)
+	}
+	defer clusterManagerClient.Close()
+
+	_, err = clusterManagerClient.GetCluster(ctx, &containerpb.GetClusterRequest{
+		Name: fmt.Sprintf(
+			"projects/%s/locations/%s/clusters/%s",
+			i.ProjectID, i.Region, i.RuntimeInstanceName,
+		),
+	})
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to look up GKE cluster %s: %w", i.RuntimeInstanceName, err)
+	}
+
+	return true, nil
 }
 
 // tokenSource returns the source of the access tokens the cluster is
