@@ -591,6 +591,45 @@ func TestReconcileControllerSetKeepsSelfControlPlaneController(t *testing.T) {
 	assert.False(t, droppedPresent)
 }
 
+// TestReconcileControllerSetRestoresUpdateFlag restores the update flag after a failed install.
+func TestReconcileControllerSetRestoresUpdateFlag(t *testing.T) {
+	// leave one selected controller without a deployment
+	cpi := NewInstaller()
+	cpi.Opts.CreateOrUpdateKubeResources = false
+	require.NotEmpty(t, cpi.Opts.ControllerList)
+	selected := cpi.Opts.ControllerList
+	var objects []runtime.Object
+	var omitted bool
+	for _, controller := range selected {
+		if controller.Enabled != nil && !*controller.Enabled {
+			continue
+		}
+		if !omitted {
+			omitted = true
+			continue
+		}
+		objects = append(objects, deployment(
+			cpi.Opts.Namespace,
+			cpi.controllerDeploymentName(*controller),
+		))
+	}
+	require.True(t, omitted)
+	client := testClient(objects...)
+
+	// fail the secret write the install starts with
+	client.PrependReactor("*", "secrets", func(k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, errors.New("secret write failed")
+	})
+
+	// install the missing controller
+	err := cpi.ReconcileControllerSet(client, testMapper(), nil, false)
+
+	// confirm the caller's flag and controller list came back
+	require.Error(t, err)
+	assert.False(t, cpi.Opts.CreateOrUpdateKubeResources)
+	assert.Equal(t, selected, cpi.Opts.ControllerList)
+}
+
 // TestDeleteAgentRoleBindingsLeavesOtherControlPlanes deletes one control plane's agent bindings and leaves the other's.
 func TestDeleteAgentRoleBindingsLeavesOtherControlPlanes(t *testing.T) {
 	// install agent bindings for two control planes

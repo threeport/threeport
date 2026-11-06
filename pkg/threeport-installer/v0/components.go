@@ -844,10 +844,12 @@ func (cpi *ControlPlaneInstaller) ReconcileControllerSet(
 		return nil
 	}
 	saved := cpi.Opts.ControllerList
+	savedUpdate := cpi.Opts.CreateOrUpdateKubeResources
 	cpi.Opts.ControllerList = missing
 	cpi.Opts.CreateOrUpdateKubeResources = true
 	err := cpi.InstallThreeportControllers(kubeClient, mapper, authConfig)
 	cpi.Opts.ControllerList = saved
+	cpi.Opts.CreateOrUpdateKubeResources = savedUpdate
 	if err != nil {
 		return fmt.Errorf("failed to install controllers: %w", err)
 	}
