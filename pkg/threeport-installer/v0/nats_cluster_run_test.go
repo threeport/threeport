@@ -3,6 +3,7 @@ package v0
 import (
 	"crypto/tls"
 	"fmt"
+	"io"
 	"net"
 	"net/url"
 	"os"
@@ -145,8 +146,24 @@ func TestAProductionBrokerIsAClusterThatSurvivesTheLossOfAServer(t *testing.T) {
 	_, err = kv.Put("lock", []byte("held"))
 	require.NoError(t, err)
 
-	// lose the server leading the stream
+	// a client that reaches the broker the way the API server and the
+	// controllers do, through a service that sends each new connection to a
+	// server that is up, and is on the leader when it goes
 	lostLeader := info.Cluster.Leader
+	addresses := []string{}
+	for _, srv := range servers {
+		if srv.Name() == lostLeader {
+			addresses = append([]string{srv.Addr().String()}, addresses...)
+		} else {
+			addresses = append(addresses, srv.Addr().String())
+		}
+	}
+	serviceClient := connectThroughService(t, addresses, caFile, password)
+	require.Equal(t, lostLeader, serviceClient.ConnectedServerName())
+	assert.Empty(t, serviceClient.DiscoveredServers(), "the servers must not advertise their own addresses")
+	serviceURL := serviceClient.ConnectedUrl()
+
+	// lose the server leading the stream
 	var survivor *server.Server
 	for _, srv := range servers {
 		if srv.Name() == lostLeader {
@@ -177,4 +194,58 @@ func TestAProductionBrokerIsAClusterThatSurvivesTheLossOfAServer(t *testing.T) {
 	}, 30*time.Second, 250*time.Millisecond, "the lock bucket must keep its entry")
 	_, err = kv2.Put("lock", []byte("taken over"))
 	assert.NoError(t, err, "the lock bucket must keep taking writes")
+
+	// the client that was on the lost server reconnects through the service,
+	// on the same connection, and keeps writing
+	serviceJS, err := serviceClient.JetStream()
+	require.NoError(t, err)
+	require.Eventually(t, func() bool {
+		_, err = serviceJS.Publish(subject, []byte("reconnected"))
+		return err == nil
+	}, 30*time.Second, 250*time.Millisecond, "a client on the lost server must reconnect and publish: %v", err)
+	assert.NotEqual(t, lostLeader, serviceClient.ConnectedServerName())
+	assert.Equal(t, serviceURL, serviceClient.ConnectedUrl(), "it must reconnect through the service, the only address it knows")
+	assert.GreaterOrEqual(t, serviceClient.Stats().Reconnects, uint64(1))
+}
+
+// connectThroughService connects a client as the API server and the
+// controllers do, through a stand-in for the broker's Kubernetes service:
+// a listener that sends each new connection to the first of addresses whose
+// server is up.  The client gets only the service's address, as the
+// clients in the cluster do, and the default reconnect options.
+func connectThroughService(t *testing.T, addresses []string, caFile, password string) *nats.Conn {
+	t.Helper()
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	t.Cleanup(func() { listener.Close() })
+	go func() {
+		for {
+			client, err := listener.Accept()
+			if err != nil {
+				return
+			}
+			go func() {
+				defer client.Close()
+				for _, address := range addresses {
+					backend, err := net.DialTimeout("tcp", address, time.Second)
+					if err != nil {
+						continue
+					}
+					defer backend.Close()
+					go io.Copy(backend, client)
+					io.Copy(client, backend)
+					return
+				}
+			}()
+		}
+	}()
+
+	_, port, err := net.SplitHostPort(listener.Addr().String())
+	require.NoError(t, err)
+	conn, err := messagebroker.Connect(messagebroker.Config{Host: "localhost", Port: port, User: NatsUser, Password: password, CAFile: caFile})
+	require.NoError(t, err)
+	t.Cleanup(conn.Close)
+
+	return conn
 }
