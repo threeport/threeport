@@ -25,8 +25,6 @@ import (
 
 // GCP resource naming constants to ensure consistency between create and delete operations
 const (
-	// serviceAccountIDPrefix begins the ID of every Threeport GCP service account
-	serviceAccountIDPrefix = "threeport-svc-"
 	// serviceAccountIDNameLength is how many characters of the name are kept,
 	// sanitized, in a service account ID so it stays recognizable
 	serviceAccountIDNameLength = 9
@@ -891,8 +889,8 @@ func formatIAMServiceAccountCreate403Hint(projectID string) string {
 // GCP service account IDs must be 6-30 characters, contain only lowercase
 // letters, digits, and hyphens, and start with a letter.
 //
-// The ID is serviceAccountIDPrefix, a sanitized fragment of the name so the
-// account can be recognized, and a hash of the whole name as given. The hash is
+// The ID is a sanitized fragment of the name so the account can be recognized,
+// and a hash of the whole name as given. The hash is
 // what keeps IDs apart: names sharing a prefix, or differing only in case or in
 // characters an ID cannot hold, derive different IDs, so no name has to be
 // refused for how long it is. The ID is never over 30 characters.
@@ -917,15 +915,15 @@ func formatServiceAccountID(name string) string {
 			fragment.WriteByte('-')
 		}
 	}
-	// a leading hyphen would double the prefix's and a trailing one the separator
+	// trim hyphens, and use svc when the id would not start with a letter
 	frag := strings.Trim(fragment.String(), "-")
-	if frag == "" {
+	if frag == "" || frag[0] < 'a' || frag[0] > 'z' {
 		frag = "svc"
 	}
 
 	sum := sha256.Sum256([]byte(name))
 
-	return serviceAccountIDPrefix + frag + "-" + hex.EncodeToString(sum[:])[:serviceAccountIDHashLength]
+	return frag + "-" + hex.EncodeToString(sum[:])[:serviceAccountIDHashLength]
 }
 
 // isNotFoundError checks if the error is a "not found" error.

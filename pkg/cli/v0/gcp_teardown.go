@@ -74,7 +74,7 @@ func listPendingGcpCleanup(
 	if err != nil {
 		return nil, fmt.Errorf(
 			"failed to list gcp providers before teardown, so their GCP service accounts cannot be cleaned up: %w\n"+
-				"to tear down without cleaning them up, re-run with --infra-only and remove any threeport-svc-* service accounts in GCP by hand",
+				"to tear down without cleaning them up, re-run with --infra-only and remove the service accounts this control plane created in GCP by hand",
 			err,
 		)
 	}

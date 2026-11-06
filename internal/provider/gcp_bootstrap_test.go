@@ -61,7 +61,7 @@ func TestFormatServiceAccountID_IsAValidID(t *testing.T) {
 
 	for _, name := range []string{
 		"a", "dev-provider", "threeport-genesis-02", "My_Provider.Name", "!!!",
-		"---", "ünïcödé-name", strings.Repeat("x", 500),
+		"---", "9provider", "ünïcödé-name", strings.Repeat("x", 500),
 	} {
 		id := formatServiceAccountID(name)
 		require.LessOrEqual(t, len(id), 30, name)
@@ -81,13 +81,13 @@ func TestFormatServiceAccountID_IsAValidID(t *testing.T) {
 // accounts.
 func TestFormatServiceAccountID_ExactIDs(t *testing.T) {
 	for name, want := range map[string]string{
-		"dev-provider":         "threeport-svc-dev-provi-6b4a23",
-		"threeport-genesis-01": "threeport-svc-threeport-6c166c",
-		"threeport-genesis-02": "threeport-svc-threeport-813137",
-		"my-provider":          "threeport-svc-my-provid-3c1d9c",
-		"My-Provider":          "threeport-svc-my-provid-7f55f6",
-		"a-very-long-threeport-provider-name-one": "threeport-svc-a-very-lo-549201",
-		"!!!": "threeport-svc-svc-e84c53",
+		"dev-provider":         "dev-provi-6b4a23",
+		"threeport-genesis-01": "threeport-6c166c",
+		"threeport-genesis-02": "threeport-813137",
+		"my-provider":          "my-provid-3c1d9c",
+		"My-Provider":          "my-provid-7f55f6",
+		"a-very-long-threeport-provider-name-one": "a-very-lo-549201",
+		"!!!": "svc-e84c53",
 	} {
 		require.Equal(t, want, formatServiceAccountID(name), name)
 	}
@@ -96,10 +96,10 @@ func TestFormatServiceAccountID_ExactIDs(t *testing.T) {
 // TestFormatServiceAccountID_KeepsReadableFragment covers the name still being
 // visible in the ID.
 func TestFormatServiceAccountID_KeepsReadableFragment(t *testing.T) {
-	require.True(t, strings.HasPrefix(formatServiceAccountID("dev-provider"), "threeport-svc-dev-provi-"))
-	require.True(t, strings.HasPrefix(formatServiceAccountID("a-b"), "threeport-svc-a-b-"))
-	require.True(t, strings.HasPrefix(formatServiceAccountID("!!!"), "threeport-svc-svc-"))
-	require.Len(t, formatServiceAccountID(strings.Repeat("x", 500)), 30)
+	require.True(t, strings.HasPrefix(formatServiceAccountID("dev-provider"), "dev-provi-"))
+	require.True(t, strings.HasPrefix(formatServiceAccountID("a-b"), "a-b-"))
+	require.True(t, strings.HasPrefix(formatServiceAccountID("!!!"), "svc-"))
+	require.Len(t, formatServiceAccountID(strings.Repeat("x", 500)), serviceAccountIDNameLength+1+serviceAccountIDHashLength)
 }
 
 // TestFormatServiceAccountID_DeterministicAndDistinct covers the property
@@ -403,7 +403,7 @@ func TestWorkloadIdentityMembers_NameNoRuntime(t *testing.T) {
 // TestGcpServiceAccountDeletable_RuntimeDeleteRefusesProviderAccount covers the
 // collision between a runtime and a GcpProvider of one name.
 //
-// Both derive threeport-svc-<name>, and the ownership marker in the description
+// Both derive the same account id, and the ownership marker in the description
 // is the same for both, so a check on the marker alone takes the provider's
 // account for the runtime's. Deleting the runtime would then strip the
 // provider's project roles and delete its account, and the provider's stored key
