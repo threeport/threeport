@@ -491,6 +491,41 @@ func TestReconcileControllerSetDeletesDroppedDeployment(t *testing.T) {
 	assert.True(t, keptPresent)
 }
 
+// TestReconcileControllerSetDeletesDisabledController deletes a controller marked disabled.
+func TestReconcileControllerSetDeletesDisabledController(t *testing.T) {
+	require.GreaterOrEqual(t, len(ThreeportControllerList), 2)
+
+	// keep the first controller and disable the second while its deployment is installed
+	kept := ThreeportControllerList[0]
+	disabled := *ThreeportControllerList[1]
+	off := false
+	disabled.Enabled = &off
+	cpi := NewInstaller()
+	cpi.Opts.ControllerList = []*apiv0.ControlPlaneComponent{kept, &disabled}
+	keptName := cpi.controllerDeploymentName(*kept)
+	disabledName := cpi.controllerDeploymentName(disabled)
+	client := testClient(
+		deployment(cpi.Opts.Namespace, keptName),
+		deployment(cpi.Opts.Namespace, disabledName),
+	)
+	mapper := testMapper()
+
+	// delete the disabled controller and leave the selected one
+	require.NoError(t, cpi.ReconcileControllerSet(client, mapper, nil, false))
+
+	_, disabledPresent, err := resourceInstalled(
+		client, mapper, "apps", "v1", "Deployment", cpi.Opts.Namespace, disabledName,
+	)
+	require.NoError(t, err)
+	assert.False(t, disabledPresent)
+
+	_, keptPresent, err := resourceInstalled(
+		client, mapper, "apps", "v1", "Deployment", cpi.Opts.Namespace, keptName,
+	)
+	require.NoError(t, err)
+	assert.True(t, keptPresent)
+}
+
 // TestReconcileControllerSetDeletesDroppedClientSecrets deletes the client certificate secrets of a dropped controller.
 func TestReconcileControllerSetDeletesDroppedClientSecrets(t *testing.T) {
 	require.GreaterOrEqual(t, len(ThreeportControllerList), 2)

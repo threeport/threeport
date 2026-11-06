@@ -782,9 +782,12 @@ func controllerCertSecretName(name string) string {
 
 // unselectedControllers returns catalog controllers absent from ControllerList.
 func (cpi *ControlPlaneInstaller) unselectedControllers() []*v0.ControlPlaneComponent {
-	// collect the names still selected
+	// collect the names still selected, leaving a disabled controller out
 	selected := map[string]struct{}{}
 	for _, controller := range cpi.Opts.ControllerList {
+		if controller.Enabled != nil && !*controller.Enabled {
+			continue
+		}
 		selected[controller.Name] = struct{}{}
 	}
 
