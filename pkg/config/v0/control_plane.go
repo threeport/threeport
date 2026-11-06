@@ -132,13 +132,18 @@ func (c *ControlPlaneConfig) Replace(
 		apiEndpoint,
 	)
 
-	// execute replace operations
-	if err := operations.Replace(name); err != nil {
-		return nil, fmt.Errorf(
-			"failed to execute replace operations for control plane defined instance with name %s: %w",
-			name,
-			err,
-		)
+	// replace the instance before the definition so a refusal leaves the definition unchanged
+	for index := len(operations.Operations) - 1; index >= 0; index-- {
+		operation := operations.Operations[index]
+		err := operation.Replace(name)
+		if err != nil {
+			err = fmt.Errorf("failed to replace %s: %w", operation.Name, err)
+			return nil, fmt.Errorf(
+				"failed to execute replace operations for control plane defined instance with name %s: %w",
+				name,
+				err,
+			)
+		}
 	}
 
 	// assemble the defined instances

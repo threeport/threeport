@@ -62,6 +62,40 @@ func TestControlPlaneConfig_RejectsUnknownApis(t *testing.T) {
 	assert.Contains(t, err.Error(), "not-a-group")
 }
 
+// TestControlPlaneConfig_RefusedInstanceReplaceLeavesDefinition leaves the definition unwritten when the instance replace is refused.
+func TestControlPlaneConfig_RefusedInstanceReplaceLeavesDefinition(t *testing.T) {
+	// record each call and refuse every update
+	var calls []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls = append(calls, r.Method+" "+r.URL.Path)
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPut {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"Status":{"code":400,"error":"cannot update Apis on a control plane this API does not serve"}}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"Data":[{"ID":1,"Name":"child","Namespace":"child","Apis":"gcp"}]}`))
+	}))
+	defer server.Close()
+	addr := strings.TrimPrefix(server.URL, "http://")
+
+	// change the definition and the instance together
+	config := ControlPlaneConfig{ControlPlane: ControlPlaneValues{
+		Name:          util.Ptr("child"),
+		Namespace:     util.Ptr("child"),
+		OnboardParent: util.Ptr(false),
+		Apis:          util.Ptr("none"),
+	}}
+	_, err := config.Replace(http.DefaultClient, addr, "child")
+
+	// the definition is not called
+	require.Error(t, err)
+	assert.Equal(t, []string{
+		"GET /v0/control-plane-instances",
+		"PUT /v0/control-plane-instances/1",
+	}, calls)
+}
+
 // TestControlPlaneInstanceConfig_RejectsUnknownApis refuses an unknown group before anything is written.
 func TestControlPlaneInstanceConfig_RejectsUnknownApis(t *testing.T) {
 	config := instanceConfig("not-a-group")
