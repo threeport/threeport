@@ -175,15 +175,6 @@ func v0ControlPlaneInstanceCreated(
 		}
 	}
 
-	// A child control plane takes the tier recorded on its definition, which
-	// is what tier-dependent install behavior reads. Without this it would
-	// install at the installer's zero value whatever its definition says, and
-	// a production child would come up as a development one.
-	cpi.Opts.Tier = threeport.ControlPlaneTier(util.Deref(controlPlaneDefinition.Tier))
-	if cpi.Opts.Tier == "" {
-		cpi.Opts.Tier = threeport.ControlPlaneTier(threeport.DefaultControlPlaneTier)
-	}
-
 	// The runtime a child is installed onto is chosen separately from the
 	// tier its definition records, so the two only meet here. A production
 	// child on a kind runtime is the same pairing the genesis path refuses,
@@ -1304,6 +1295,12 @@ func prepareInstanceInstaller(
 	cpi.Opts.InfraProvider = *kubernetesRuntimeDefinition.InfraProvider
 	if controlPlaneDefinition.AuthEnabled != nil {
 		cpi.Opts.AuthEnabled = *controlPlaneDefinition.AuthEnabled
+	}
+
+	// copy the definition tier so a production controller runs two replicas
+	cpi.Opts.Tier = threeport.ControlPlaneTier(util.Deref(controlPlaneDefinition.Tier))
+	if cpi.Opts.Tier == "" {
+		cpi.Opts.Tier = threeport.ControlPlaneTier(threeport.DefaultControlPlaneTier)
 	}
 
 	// fetch the parent by ID because the list endpoint omits its components
