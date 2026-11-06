@@ -946,6 +946,68 @@
                 }
             }
         },
+        "/v0/agent-certificates": {
+            "post": {
+                "description": "Signs the public key in a certificate signing request with the control plane's CA.  The certificate's common name is derived from the runtime instance name, and its organization and organizational unit are set by the API; the request's own subject is ignored.  Only the kubernetes runtime controller may call this, and only for a runtime instance that exists.  Available only when the control plane has authentication enabled.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "issues a client certificate to the agent on a managed runtime.",
+                "operationId": "create-v0-agentCertificate",
+                "parameters": [
+                    {
+                        "description": "AgentCertificateRequest object",
+                        "name": "agentCertificateRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.AgentCertificateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/v0/attached-object-references": {
             "get": {
                 "description": "Get all attached object references from the Threeport database.",
@@ -16803,6 +16865,23 @@
         }
     },
     "definitions": {
+        "v0.AgentCertificateRequest": {
+            "type": "object",
+            "required": [
+                "CertificateSigningRequest",
+                "RuntimeInstanceName"
+            ],
+            "properties": {
+                "CertificateSigningRequest": {
+                    "description": "A PEM-encoded certificate signing request for the agent's key.  Only the\npublic key in it is used: the API decides the certificate's subject, so\nwhatever the request says about identity is ignored.",
+                    "type": "string"
+                },
+                "RuntimeInstanceName": {
+                    "description": "The name of the kubernetes runtime instance the agent runs on.  The\ncertificate's common name is derived from it.",
+                    "type": "string"
+                }
+            }
+        },
         "v0.ApiObjectVersions": {
             "type": "object",
             "required": [

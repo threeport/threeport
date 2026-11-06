@@ -1,5 +1,22 @@
 basePath: /
 definitions:
+  v0.AgentCertificateRequest:
+    properties:
+      CertificateSigningRequest:
+        description: |-
+          A PEM-encoded certificate signing request for the agent's key.  Only the
+          public key in it is used: the API decides the certificate's subject, so
+          whatever the request says about identity is ignored.
+        type: string
+      RuntimeInstanceName:
+        description: |-
+          The name of the kubernetes runtime instance the agent runs on.  The
+          certificate's common name is derived from it.
+        type: string
+    required:
+    - CertificateSigningRequest
+    - RuntimeInstanceName
+    type: object
   v0.ApiObjectVersions:
     properties:
       API:
@@ -3928,6 +3945,52 @@ paths:
           schema:
             $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetTierVersions gets the supported versions for the tier API.
+  /v0/agent-certificates:
+    post:
+      consumes:
+      - application/json
+      description: Signs the public key in a certificate signing request with the
+        control plane's CA.  The certificate's common name is derived from the runtime
+        instance name, and its organization and organizational unit are set by the
+        API; the request's own subject is ignored.  Only the kubernetes runtime controller
+        may call this, and only for a runtime instance that exists.  Available only
+        when the control plane has authentication enabled.
+      operationId: create-v0-agentCertificate
+      parameters:
+      - description: AgentCertificateRequest object
+        in: body
+        name: agentCertificateRequest
+        required: true
+        schema:
+          $ref: '#/definitions/v0.AgentCertificateRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: issues a client certificate to the agent on a managed runtime.
   /v0/attached-object-references:
     get:
       consumes:
