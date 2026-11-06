@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/cobra"
 
 	cli "github.com/threeport/threeport/pkg/cli/v0"
+	kube "github.com/threeport/threeport/pkg/kube/v0"
 )
 
 var cliArgs = &cli.GenesisControlPlaneCLIArgs{}
@@ -39,6 +40,9 @@ Visit https://threeport.io for more information.`,
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
+	// tptctl is run by a person, who acts on GKE clusters as themselves
+	kube.AuthenticateToGkeAsOperator()
+
 	// find installed plugins
 	pluginDir, ok := os.LookupEnv("THREEPORT_PLUGIN_DIR")
 	if !ok {
@@ -124,6 +128,14 @@ func CommandPreRunFunc(cmd *cobra.Command, args []string) {
 		cli.Error("could not initialize command in pre run:", err)
 		os.Exit(1)
 	}
+}
+
+// ConfigOnlyPreRunFunc loads the config without resolving a control plane to
+// talk to.  It is for the commands that work on the config itself and have to
+// run when there is no current control plane, which is what tptctl down leaves
+// behind.
+func ConfigOnlyPreRunFunc(cmd *cobra.Command, args []string) {
+	cli.InitConfig(cmd, cliArgs.CfgFile)
 }
 
 // initializeCommandContext initializes the command context.

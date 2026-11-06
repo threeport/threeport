@@ -13,7 +13,6 @@ import (
 	aws_iam "github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/go-logr/logr"
-	"github.com/oracle/oci-go-sdk/v65/common"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
@@ -31,6 +30,40 @@ import (
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
+
+// selectInstanceControllers limits the installer to the groups named in apis.
+// A nil or empty apis leaves the list unchanged, and none clears it.
+func selectInstanceControllers(cpi *threeport.ControlPlaneInstaller, apis *string) error {
+	// leave the list unchanged when apis is unset
+	if util.DerefString(apis) == "" {
+		return nil
+	}
+
+	// clear the list when the only group is none
+	if *apis == "none" {
+		cpi.Opts.ControllerList = nil
+		return nil
+	}
+
+	// keep the controllers for the named groups
+	selected, err := threeport.SelectControllersByGroup(
+		threeport.ParseApis(*apis),
+		cpi.Opts.ControllerList,
+	)
+	if err != nil {
+		return err
+	}
+	cpi.Opts.ControllerList = selected
+	return nil
+}
+
+// clientCertificateRecorded reports whether create already saved the client certificate.
+func clientCertificateRecorded(instance *v0.ControlPlaneInstance) bool {
+	// the certificate, the key, and the CA are saved together
+	return util.DerefString(instance.CACert) != "" &&
+		util.DerefString(instance.ClientCert) != "" &&
+		util.DerefString(instance.ClientKey) != ""
+}
 
 // v0ControlPlaneInstanceCreated performs reconciliation when a v0 ControlPlaneInstance
 // has been created.
@@ -76,7 +109,7 @@ func v0ControlPlaneInstanceCreated(
 	if err != nil {
 		return 0, fmt.Errorf("failed to get control plane definition by ID: %w", err)
 	}
-	if controlPlaneDefinition.Reconciled != nil && !*controlPlaneDefinition.Reconciled {
+	if util.PtrEqual(controlPlaneDefinition.Reconciled, false) {
 		return 0, errors.New("controlplane definition not reconciled")
 	}
 
@@ -91,7 +124,7 @@ func v0ControlPlaneInstanceCreated(
 	}
 
 	// ensure kubernetes runtime instance is reconciled before working with it
-	if kubernetesRuntimeInstance.Reconciled != nil && !*kubernetesRuntimeInstance.Reconciled {
+	if util.PtrEqual(kubernetesRuntimeInstance.Reconciled, false) {
 		return 0, errors.New("kubernetes runtime instance not reconciled")
 	}
 
@@ -114,61 +147,20 @@ func v0ControlPlaneInstanceCreated(
 	// cross-cluster needs a load balancer, same-cluster uses ClusterIP
 	sameCluster := *selfInstance.KubernetesRuntimeInstanceID == *controlPlaneInstance.KubernetesRuntimeInstanceID
 
-	// Configure installer for new control plane instance
-	cpi := threeport.NewInstaller(threeport.Namespace(*controlPlaneInstance.Namespace))
-	cpi.Opts.ControlPlaneName = *controlPlaneInstance.Name
-	cpi.Opts.InThreeport = true
+	// build the installer an update of this instance uses
+	cpi, err := prepareInstanceInstaller(
+		r,
+		controlPlaneInstance,
+		controlPlaneDefinition,
+		kubernetesRuntimeDefinition,
+		selfInstance,
+		notFirstRun,
+	)
+	if err != nil {
+		return 0, err
+	}
 	// enable load balancer for cross-cluster cloud provider deployments
 	cpi.Opts.RestApiLoadBalancer = !sameCluster && *kubernetesRuntimeDefinition.InfraProvider != v0.KubernetesRuntimeInfraProviderKind
-	// If this is not the first run of the creation reconciler, we want to use createOrUpdate mode
-	cpi.Opts.CreateOrUpdateKubeResources = notFirstRun
-
-	componentMap := make(map[string]*v0.ControlPlaneComponent, 0)
-	componentMap["rest-api"] = cpi.Opts.RestApiInfo
-	componentMap["agent"] = cpi.Opts.AgentInfo
-	componentMap["database-migrator"] = cpi.Opts.DatabaseMigratorInfo
-	for _, info := range cpi.Opts.ControllerList {
-		componentMap[info.Name] = info
-	}
-
-	for _, customInfo := range controlPlaneInstance.CustomComponentInfo {
-		installInfo, exists := componentMap[customInfo.Name]
-
-		if !exists {
-			cpi.Opts.ControllerList = append(cpi.Opts.ControllerList, customInfo)
-			continue
-		}
-
-		if customInfo.ImageName != "" {
-			installInfo.ImageName = customInfo.ImageName
-		}
-
-		if customInfo.ImageNamespace != "" {
-			installInfo.ImageNamespace = customInfo.ImageNamespace
-		}
-
-		if customInfo.ImageTag != "" {
-			installInfo.ImageTag = customInfo.ImageTag
-		}
-
-		if customInfo.ServiceAccountName != "" {
-			installInfo.ServiceAccountName = customInfo.ServiceAccountName
-		}
-
-		if customInfo.ServiceResourceName != "" {
-			installInfo.ServiceResourceName = customInfo.ServiceResourceName
-		}
-
-		if customInfo.ImagePullSecretName != "" {
-			installInfo.ImagePullSecretName = customInfo.ImagePullSecretName
-		}
-
-		if customInfo.Enabled != nil {
-			installInfo.Enabled = customInfo.Enabled
-		}
-	}
-
-	cpi.Opts.InfraProvider = *kubernetesRuntimeDefinition.InfraProvider
 
 	// The API refuses this pairing when the instance is created and when the
 	// definition is updated. It is checked once more here because those are
@@ -181,17 +173,6 @@ func v0ControlPlaneInstanceCreated(
 		); err != nil {
 			return 0, err
 		}
-	}
-
-	// A child control plane takes the tier recorded on its definition, which
-	// is what tier-dependent install behavior reads. Without this it would
-	// install at the installer's zero value whatever its definition says, and
-	// a production child would come up as a development one.
-	cpi.Opts.Tier = threeport.ControlPlaneTier(util.Deref(controlPlaneDefinition.Tier))
-	if cpi.Opts.Tier == "" {
-		cpi.Opts.Tier = threeport.ControlPlaneTier(threeport.DefaultControlPlaneTierForProvider(
-			*kubernetesRuntimeDefinition.InfraProvider,
-		))
 	}
 
 	// The runtime a child is installed onto is chosen separately from the
@@ -208,7 +189,6 @@ func v0ControlPlaneInstanceCreated(
 
 	// perform provider specific configuration
 	var callerIdentity *sts.GetCallerIdentityOutput
-	var tokenGenerator func() (string, error)
 	switch *kubernetesRuntimeDefinition.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
 		// Get AWS EKS runtime instance
@@ -251,7 +231,7 @@ func v0ControlPlaneInstanceCreated(
 			cpi.Opts.Namespace,
 			tpaws.IamTags(
 				cpi.Opts.ControlPlaneName,
-				map[string]string{},
+				provider.ThreeportProviderTags(),
 			),
 			resourceManagerRoleName,
 			*callerIdentity.Account,
@@ -313,68 +293,18 @@ func v0ControlPlaneInstanceCreated(
 			return 0, fmt.Errorf("failed to update resource manager role: %w", err)
 		}
 
-	case v0.KubernetesRuntimeInfraProviderOKE:
-		// build OCI config provider for token refresh — OKE tokens are
-		// short-lived and the bootstrap process can outlast them
-		ociRuntimeInstance, err := client.GetOciOkeKubernetesRuntimeInstanceByK8sRuntimeInst(
-			r.APIClient, r.APIServer, *kubernetesRuntimeInstance.ID,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get OCI OKE runtime instance: %w", err)
-		}
-
-		ociProvider, err := client.GetOciProviderByID(
-			r.APIClient, r.APIServer, *ociRuntimeInstance.OciProviderID,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get OCI provider: %w", err)
-		}
-
-		decryptedPrivateKey, err := encryption.Decrypt(r.EncryptionKey, *ociProvider.PrivateKey)
-		if err != nil {
-			return 0, fmt.Errorf("failed to decrypt OCI provider private key: %w", err)
-		}
-
-		configProvider := common.NewRawConfigurationProvider(
-			*ociProvider.TenancyOCID,
-			*ociProvider.UserOCID,
-			*ociProvider.DefaultRegion,
-			*ociProvider.KeyFingerprint,
-			decryptedPrivateKey,
-			nil,
-		)
-
-		// use the cluster OCID already stored on the OKE runtime instance
-		// for token generation — avoids compartment/region lookup issues
-		if ociRuntimeInstance.ClusterOCID == nil || *ociRuntimeInstance.ClusterOCID == "" {
-			return 0, fmt.Errorf("OCI OKE runtime instance %s has no cluster OCID set", *ociRuntimeInstance.Name)
-		}
-		clusterOCID := *ociRuntimeInstance.ClusterOCID
-
-		tokenGenerator = func() (string, error) {
-			t, _, err := util.GenerateOkeToken(clusterOCID, configProvider)
-			return t, err
-		}
 	}
 
-	// create a dynamic client to connect to kube API — use token refresh
-	// for OKE to prevent expiration during the lengthy bootstrap process
+	// create dynamic kube client and rest mapper
 	var dynamicKubeClient dynamic.Interface
 	var mapper *meta.RESTMapper
-	if tokenGenerator != nil {
-		dynamicKubeClient, mapper, err = kube.GetClientWithTokenRefresh(
-			kubernetesRuntimeInstance,
-			tokenGenerator,
-		)
-	} else {
-		dynamicKubeClient, mapper, err = kube.GetClient(
-			kubernetesRuntimeInstance,
-			true,
-			r.APIClient,
-			r.APIServer,
-			r.EncryptionKey,
-		)
-	}
+	dynamicKubeClient, mapper, err = kube.GetClient(
+		kubernetesRuntimeInstance,
+		true,
+		r.APIClient,
+		r.APIServer,
+		r.EncryptionKey,
+	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create dynamic kube API client: %w", err)
 	}
@@ -384,39 +314,65 @@ func v0ControlPlaneInstanceCreated(
 	var newApiClient *http.Client
 	if *controlPlaneDefinition.AuthEnabled {
 		cpi.Opts.AuthEnabled = true
-		// get auth config
-		authConfig, err = auth.GetAuthConfig()
-		if err != nil {
-			return 0, fmt.Errorf("failed to get auth config: %w", err)
-		}
+		// keep the saved client certificate so a retry does not replace it
+		if clientCertificateRecorded(controlPlaneInstance) {
+			authConfig, err = cpi.LoadAuthConfigFromCluster(dynamicKubeClient, mapper)
+			if err != nil {
+				return 0, fmt.Errorf("failed to load auth config from cluster: %w", err)
+			}
+			clientCertificate, err := util.Base64Decode(*controlPlaneInstance.ClientCert)
+			if err != nil {
+				return 0, fmt.Errorf("failed to decode client certificate: %w", err)
+			}
+			clientPrivateKey, err := util.Base64Decode(*controlPlaneInstance.ClientKey)
+			if err != nil {
+				return 0, fmt.Errorf("failed to decode client private key: %w", err)
+			}
+			newApiClient, err = client_lib.GetHTTPClient(
+				true,
+				authConfig.CAPemEncoded,
+				clientCertificate,
+				clientPrivateKey,
+				"",
+			)
+			if err != nil {
+				return 0, fmt.Errorf("failed to create http client for new control plane: %w", err)
+			}
+		} else {
+			// get auth config
+			authConfig, err = auth.GetAuthConfig()
+			if err != nil {
+				return 0, fmt.Errorf("failed to get auth config: %w", err)
+			}
 
-		// generate client certificate
-		clientCertificate, clientPrivateKey, err := auth.GenerateCertificate(
-			authConfig.CAConfig,
-			&authConfig.CAPrivateKey,
-			"threeport-owner",
-			"",
-			"",
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to generate client certificate and private key: %w", err)
-		}
+			// generate client certificate
+			clientCertificate, clientPrivateKey, err := auth.GenerateCertificate(
+				authConfig.CAConfig,
+				&authConfig.CAPrivateKey,
+				"threeport-owner",
+				"",
+				"",
+			)
+			if err != nil {
+				return 0, fmt.Errorf("failed to generate client certificate and private key: %w", err)
+			}
 
-		clientCredentials := &cli.Credential{
-			Name:       cpi.Opts.ControlPlaneName,
-			ClientCert: util.Base64Encode(clientCertificate),
-			ClientKey:  util.Base64Encode(clientPrivateKey),
-		}
+			clientCredentials := &cli.Credential{
+				Name:       cpi.Opts.ControlPlaneName,
+				ClientCert: util.Base64Encode(clientCertificate),
+				ClientKey:  util.Base64Encode(clientPrivateKey),
+			}
 
-		// configure http client for calls to threeport API
-		newApiClient, err = client_lib.GetHTTPClient(true, authConfig.CAPemEncoded, clientCertificate, clientPrivateKey, "")
-		if err != nil {
-			return 0, fmt.Errorf("failed to create http client for new control plane: %w", err)
-		}
+			// configure http client for calls to threeport API
+			newApiClient, err = client_lib.GetHTTPClient(true, authConfig.CAPemEncoded, clientCertificate, clientPrivateKey, "")
+			if err != nil {
+				return 0, fmt.Errorf("failed to create http client for new control plane: %w", err)
+			}
 
-		controlPlaneInstance.CACert = &authConfig.CABase64Encoded
-		controlPlaneInstance.ClientCert = &clientCredentials.ClientCert
-		controlPlaneInstance.ClientKey = &clientCredentials.ClientKey
+			controlPlaneInstance.CACert = &authConfig.CABase64Encoded
+			controlPlaneInstance.ClientCert = &clientCredentials.ClientCert
+			controlPlaneInstance.ClientKey = &clientCredentials.ClientKey
+		}
 	} else {
 		cpi.Opts.AuthEnabled = false
 		newApiClient, err = client_lib.GetHTTPClient(false, "", "", "", "")
@@ -427,7 +383,11 @@ func v0ControlPlaneInstanceCreated(
 
 	_, port := cpi.GetAPIServicePort()
 	threeportAPIEndpoint := fmt.Sprintf("%s.%s:%d", cpi.Opts.RestApiInfo.ServiceResourceName, cpi.Opts.Namespace, port)
-	controlPlaneInstance.ApiServerEndpoint = &threeportAPIEndpoint
+	// keep an endpoint a retry already saved
+	endpointSaved := util.DerefString(controlPlaneInstance.ApiServerEndpoint) != ""
+	if !endpointSaved {
+		controlPlaneInstance.ApiServerEndpoint = &threeportAPIEndpoint
+	}
 
 	// generate encryption key
 	encryptionKey, err := encryption.GenerateKey()
@@ -472,28 +432,22 @@ func v0ControlPlaneInstanceCreated(
 		}
 		_, port := cpi.GetAPIServicePort()
 		threeportAPIEndpoint = fmt.Sprintf("%s:%d", lbEndpoint, port)
-		controlPlaneInstance.ApiServerEndpoint = &threeportAPIEndpoint
+		if !endpointSaved {
+			controlPlaneInstance.ApiServerEndpoint = &threeportAPIEndpoint
+		}
 	}
 
-	// install provider-specific kubernetes resources
-	switch *kubernetesRuntimeDefinition.InfraProvider {
-	case v0.KubernetesRuntimeInfraProviderEKS:
-		// create and configure service accounts for workload and aws controllers,
-		// which will be used to authenticate to AWS via IRSA
-
-		// configure IRSA controllers to use appropriate service account names
-		provider.UpdateIrsaControllerList(cpi.Opts.ControllerList)
-
-		// create IRSA service accounts
-		for _, serviceAccount := range provider.GetIrsaServiceAccounts(
-			cpi.Opts.Namespace,
-			*callerIdentity.Account,
-			provider.GetResourceManagerRoleName(cpi.Opts.ControlPlaneName),
-		) {
-			if err := cpi.CreateOrUpdateKubeResource(serviceAccount, dynamicKubeClient, mapper); err != nil {
-				return 0, fmt.Errorf("failed to create threeport api service account: %w", err)
-			}
-		}
+	// set provider values the controller install reads
+	if err := configureProviderControllers(
+		r,
+		cpi,
+		kubernetesRuntimeInstance,
+		*kubernetesRuntimeDefinition.InfraProvider,
+		dynamicKubeClient,
+		mapper,
+		false,
+	); err != nil {
+		return 0, err
 	}
 
 	// if auth enabled install the threeport API TLS assets that include the alt
@@ -528,6 +482,19 @@ func v0ControlPlaneInstanceCreated(
 		return 0, fmt.Errorf("failed to install threeport controllers: %w", err)
 	}
 
+	// restore provider access install removes from the service accounts
+	if err := configureProviderControllers(
+		r,
+		cpi,
+		kubernetesRuntimeInstance,
+		*kubernetesRuntimeDefinition.InfraProvider,
+		dynamicKubeClient,
+		mapper,
+		true,
+	); err != nil {
+		return 0, err
+	}
+
 	// install the agent
 	if err := cpi.InstallThreeportAgent(
 		dynamicKubeClient,
@@ -555,26 +522,23 @@ func v0ControlPlaneInstanceCreated(
 	// this is necessary to have the updated REST mapping for the CRDs as the
 	// support services operator install includes one of those custom resources
 	time.Sleep(time.Second * 10)
-	if tokenGenerator != nil {
-		dynamicKubeClient, mapper, err = kube.GetClientWithTokenRefresh(
-			kubernetesRuntimeInstance,
-			tokenGenerator,
-		)
-	} else {
-		dynamicKubeClient, mapper, err = kube.GetClient(
-			kubernetesRuntimeInstance,
-			true,
-			r.APIClient,
-			r.APIServer,
-			r.EncryptionKey,
-		)
-	}
+	dynamicKubeClient, mapper, err = kube.GetClient(
+		kubernetesRuntimeInstance,
+		true,
+		r.APIClient,
+		r.APIServer,
+		r.EncryptionKey,
+	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to refresh dynamic kube API client: %w", err)
 	}
 
 	// install the support services operator
-	err = threeport.InstallThreeportSupportServicesOperator(dynamicKubeClient, mapper)
+	err = threeport.InstallThreeportSupportServicesOperator(
+		dynamicKubeClient,
+		mapper,
+		threeport.SupportServicesCloud(v0.KubernetesRuntimeInfraProvider(*kubernetesRuntimeDefinition.InfraProvider)),
+	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to install threeport support services operator: %w", err)
 	}
@@ -616,144 +580,74 @@ func v0ControlPlaneInstanceCreated(
 
 	cloneKubernetesRuntimeDefinition := *kubernetesRuntimeDefinition
 	cloneKubernetesRuntimeDefinition.Common = v0.Common{}
-	createdKubeDef, err := client.CreateKubernetesRuntimeDefinition(
-		newApiClient,
-		threeportAPIEndpoint,
-		&cloneKubernetesRuntimeDefinition,
+	createdKubeDef, err := getOrCreate(
+		"kubernetes runtime definition on the new threeport api",
+		func() (*v0.KubernetesRuntimeDefinition, error) {
+			return client.GetKubernetesRuntimeDefinitionByName(
+				newApiClient, threeportAPIEndpoint, *cloneKubernetesRuntimeDefinition.Name,
+			)
+		},
+		func() (*v0.KubernetesRuntimeDefinition, error) {
+			return client.CreateKubernetesRuntimeDefinition(
+				newApiClient, threeportAPIEndpoint, &cloneKubernetesRuntimeDefinition,
+			)
+		},
 	)
-
 	if err != nil {
-		return 0, fmt.Errorf("failed to create kubernetes runtime definition on new threeport api: %w", err)
-	}
-
-	clonedKubernetesRuntimeInstance := *kubernetesRuntimeInstance
-	clonedKubernetesRuntimeInstance.Common = v0.Common{}
-	if err := decryptField(r.EncryptionKey, &clonedKubernetesRuntimeInstance.CertificateKey, "kubernetes runtime instance certificate key"); err != nil {
 		return 0, err
 	}
 
-	if err := decryptField(r.EncryptionKey, &clonedKubernetesRuntimeInstance.ConnectionToken, "kubernetes runtime instance connection token"); err != nil {
+	onboarder := &runtimeOnboarder{
+		parent:        apiTarget{client: r.APIClient, endpoint: r.APIServer},
+		child:         apiTarget{client: newApiClient, endpoint: threeportAPIEndpoint},
+		encryptionKey: r.EncryptionKey,
+	}
+
+	// the runtime the child is installed on is the child's host and default
+	// runtime
+	createdKubeInstance, err := onboarder.createRuntimeInstance(
+		kubernetesRuntimeInstance,
+		createdKubeDef.ID,
+		true,
+		true,
+	)
+	if err != nil {
 		return 0, err
 	}
 
-	clonedKubernetesRuntimeInstance.KubernetesRuntimeDefinitionID = createdKubeDef.ID
-	createdKubeInstance, err := client.CreateKubernetesRuntimeInstance(
-		newApiClient,
-		threeportAPIEndpoint,
-		&clonedKubernetesRuntimeInstance,
-	)
-
-	if err != nil {
-		return 0, fmt.Errorf("failed to update threeport api with kubernetes runtime instance: %w", err)
-	}
-
-	switch *kubernetesRuntimeDefinition.InfraProvider {
-	case v0.KubernetesRuntimeInfraProviderEKS:
-		// Get associated AWS object and ensure they are in db
-		awsRuntimeDef, err := client.GetAwsEksKubernetesRuntimeDefinitionByK8sRuntimeDef(r.APIClient, r.APIServer, *kubernetesRuntimeDefinition.ID)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get AwsEksKubernetesRuntimeDefinition: %w", err)
-		}
-
-		awsRuntimeInstance, err := client.GetAwsEksKubernetesRuntimeInstanceByK8sRuntimeInst(r.APIClient, r.APIServer, *kubernetesRuntimeInstance.ID)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get AwsEksKubernetesRuntimeInstance: %w", err)
-		}
-
-		awsProvider, err := client.GetAwsProviderByID(r.APIClient, r.APIServer, *awsRuntimeInstance.AwsProviderID)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get AwsProvider: %w", err)
-		}
-
-		awsProvider.Common = v0.Common{}
-		if err := decryptField(r.EncryptionKey, &awsProvider.AccessKeyID, "access key id on aws account"); err != nil {
-			return 0, err
-		}
-
-		if err := decryptField(r.EncryptionKey, &awsProvider.SecretAccessKey, "secret access key on aws account"); err != nil {
-			return 0, err
-		}
-
-		createdAwsProvider, err := client.CreateAwsProvider(newApiClient, threeportAPIEndpoint, awsProvider)
-		if err != nil {
-			return 0, fmt.Errorf("failed to create AwsProvider: %w", err)
-		}
-
-		awsRuntimeDef.Common = v0.Common{}
-		createdAwsRuntimDef, err := client.CreateAwsEksKubernetesRuntimeDefinition(newApiClient, threeportAPIEndpoint, awsRuntimeDef)
-		if err != nil {
-			return 0, fmt.Errorf("failed to create AwsEksKubernetesRuntimeDefinition: %w", err)
-		}
-
-		awsRuntimeInstance.Common = v0.Common{}
-		awsRuntimeInstance.AwsProviderID = createdAwsProvider.ID
-		awsRuntimeInstance.AwsEksKubernetesRuntimeDefinitionID = createdAwsRuntimDef.ID
-		_, err = client.CreateAwsEksKubernetesRuntimeInstance(newApiClient, threeportAPIEndpoint, awsRuntimeInstance)
-		if err != nil {
-			return 0, fmt.Errorf("failed to create AwsEksKubernetesRuntimeInstance: %w", err)
-		}
-
-	case v0.KubernetesRuntimeInfraProviderOKE:
-		// get OCI OKE runtime definition and instance
-		ociRuntimeDef, err := client.GetOciOkeKubernetesRuntimeDefinitionByK8sRuntimeDef(
-			r.APIClient, r.APIServer, *kubernetesRuntimeDefinition.ID)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get OciOkeKubernetesRuntimeDefinition: %w", err)
-		}
-
-		ociRuntimeInstance, err := client.GetOciOkeKubernetesRuntimeInstanceByK8sRuntimeInst(
-			r.APIClient, r.APIServer, *kubernetesRuntimeInstance.ID)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get OciOkeKubernetesRuntimeInstance: %w", err)
-		}
-
-		ociProvider, err := client.GetOciProviderByID(
-			r.APIClient, r.APIServer, *ociRuntimeInstance.OciProviderID)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get OciProvider: %w", err)
-		}
-
-		// decrypt private key
-		ociProvider.Common = v0.Common{}
-		if err := decryptField(r.EncryptionKey, &ociProvider.PrivateKey, "OCI provider private key"); err != nil {
-			return 0, err
-		}
-
-		// create OCI provider in child control plane
-		createdOciProvider, err := client.CreateOciProvider(newApiClient, threeportAPIEndpoint, ociProvider)
-		if err != nil {
-			return 0, fmt.Errorf("failed to create OciProvider: %w", err)
-		}
-
-		// create OCI runtime definition in child control plane
-		ociRuntimeDef.Common = v0.Common{}
-		createdOciRuntimeDef, err := client.CreateOciOkeKubernetesRuntimeDefinition(
-			newApiClient, threeportAPIEndpoint, ociRuntimeDef)
-		if err != nil {
-			return 0, fmt.Errorf("failed to create OciOkeKubernetesRuntimeDefinition: %w", err)
-		}
-
-		// create OCI runtime instance in child control plane
-		ociRuntimeInstance.Common = v0.Common{}
-		ociRuntimeInstance.OciProviderID = createdOciProvider.ID
-		ociRuntimeInstance.OciOkeKubernetesRuntimeDefinitionID = createdOciRuntimeDef.ID
-		_, err = client.CreateOciOkeKubernetesRuntimeInstance(
-			newApiClient, threeportAPIEndpoint, ociRuntimeInstance)
-		if err != nil {
-			return 0, fmt.Errorf("failed to create OciOkeKubernetesRuntimeInstance: %w", err)
-		}
+	if err := onboarder.copyProviderRecords(
+		*kubernetesRuntimeDefinition.InfraProvider,
+		runtimeLink{
+			definitionID: *kubernetesRuntimeDefinition.ID,
+			instanceID:   *kubernetesRuntimeInstance.ID,
+		},
+		runtimeLink{
+			definitionID: *createdKubeDef.ID,
+			instanceID:   *createdKubeInstance.ID,
+		},
+	); err != nil {
+		return 0, fmt.Errorf("failed to onboard %s records for the kubernetes runtime: %w",
+			*kubernetesRuntimeDefinition.InfraProvider, err)
 	}
 
 	// onboard control plane definition and instance to new control plane
 	controlPlaneDefinition.Common = v0.Common{}
 
-	createdControlPlaneDef, err := client.CreateControlPlaneDefinition(
-		newApiClient,
-		threeportAPIEndpoint,
-		controlPlaneDefinition,
+	createdControlPlaneDef, err := getOrCreate(
+		"control plane definition on the new threeport api",
+		func() (*v0.ControlPlaneDefinition, error) {
+			return client.GetControlPlaneDefinitionByName(
+				newApiClient, threeportAPIEndpoint, *controlPlaneDefinition.Name,
+			)
+		},
+		func() (*v0.ControlPlaneDefinition, error) {
+			return client.CreateControlPlaneDefinition(
+				newApiClient, threeportAPIEndpoint, controlPlaneDefinition,
+			)
+		},
 	)
 	if err != nil {
-		return 0, fmt.Errorf("failed to create control plane definition on new threeport api: %w", err)
+		return 0, err
 	}
 
 	reconciled := true
@@ -765,14 +659,23 @@ func v0ControlPlaneInstanceCreated(
 	clonedRuntimeInstance.IsSelf = &self
 	clonedRuntimeInstance.KubernetesRuntimeInstanceID = createdKubeInstance.ID
 	clonedRuntimeInstance.Reconciled = &reconciled
+	recordResolvedComponents(&clonedRuntimeInstance, cpi)
 
-	_, err = client.CreateControlPlaneInstance(
-		newApiClient,
-		threeportAPIEndpoint,
-		&clonedRuntimeInstance,
+	childSelf, err := getOrCreate(
+		"control plane instance on the new threeport api",
+		func() (*v0.ControlPlaneInstance, error) {
+			return client.GetControlPlaneInstanceByName(
+				newApiClient, threeportAPIEndpoint, *clonedRuntimeInstance.Name,
+			)
+		},
+		func() (*v0.ControlPlaneInstance, error) {
+			return client.CreateControlPlaneInstance(
+				newApiClient, threeportAPIEndpoint, &clonedRuntimeInstance,
+			)
+		},
 	)
 	if err != nil {
-		return 0, fmt.Errorf("failed to create new control plane instance on new threeport api: %w", err)
+		return 0, err
 	}
 
 	// Ensure the new control plane has genesis control plane registered
@@ -789,9 +692,17 @@ func v0ControlPlaneInstanceCreated(
 	var genDefID uint
 	if *genesisDef.ID != *controlPlaneInstance.ControlPlaneDefinitionID {
 		genesisDef.Common = v0.Common{}
-		createdDef, err := client.CreateControlPlaneDefinition(newApiClient, threeportAPIEndpoint, genesisDef)
+		createdDef, err := getOrCreate(
+			"genesis control plane definition on the new threeport api",
+			func() (*v0.ControlPlaneDefinition, error) {
+				return client.GetControlPlaneDefinitionByName(newApiClient, threeportAPIEndpoint, *genesisDef.Name)
+			},
+			func() (*v0.ControlPlaneDefinition, error) {
+				return client.CreateControlPlaneDefinition(newApiClient, threeportAPIEndpoint, genesisDef)
+			},
+		)
 		if err != nil {
-			return 0, fmt.Errorf("failed to create genesis control plane definition in new threeport api: %w", err)
+			return 0, err
 		}
 		genDefID = *createdDef.ID
 	} else {
@@ -805,17 +716,30 @@ func v0ControlPlaneInstanceCreated(
 			return 0, fmt.Errorf("failed to get genesis control plane kubernetes runtime instance: %w", err)
 		}
 
+		// the genesis runtime is a cluster the child knows about, not the one
+		// it runs on, so it is neither the host nor the default here
 		var genesisK8DefID uint
-		if *genesisK8Instance.KubernetesRuntimeDefinitionID != *kubernetesRuntimeInstance.KubernetesRuntimeDefinitionID {
+		genesisInfraProvider := *kubernetesRuntimeDefinition.InfraProvider
+		sharedDefinition := *genesisK8Instance.KubernetesRuntimeDefinitionID == *kubernetesRuntimeInstance.KubernetesRuntimeDefinitionID
+		if !sharedDefinition {
 			genesisK8Def, err := client.GetKubernetesRuntimeDefinitionByID(r.APIClient, r.APIServer, *genesisK8Instance.KubernetesRuntimeDefinitionID)
 			if err != nil {
 				return 0, fmt.Errorf("failed to get genesis control plane kubernetes runtime definition: %w", err)
 			}
 
+			genesisInfraProvider = *genesisK8Def.InfraProvider
 			genesisK8Def.Common = v0.Common{}
-			newK8Def, err := client.CreateKubernetesRuntimeDefinition(newApiClient, threeportAPIEndpoint, genesisK8Def)
+			newK8Def, err := getOrCreate(
+				"genesis kubernetes runtime definition on the new threeport api",
+				func() (*v0.KubernetesRuntimeDefinition, error) {
+					return client.GetKubernetesRuntimeDefinitionByName(newApiClient, threeportAPIEndpoint, *genesisK8Def.Name)
+				},
+				func() (*v0.KubernetesRuntimeDefinition, error) {
+					return client.CreateKubernetesRuntimeDefinition(newApiClient, threeportAPIEndpoint, genesisK8Def)
+				},
+			)
 			if err != nil {
-				return 0, fmt.Errorf("failed to create genesis control plane kubernetes runtime def: %w", err)
+				return 0, err
 			}
 
 			genesisK8DefID = *newK8Def.ID
@@ -823,12 +747,25 @@ func v0ControlPlaneInstanceCreated(
 			genesisK8DefID = *createdKubeDef.ID
 		}
 
-		genesisK8Instance.Common = v0.Common{}
-		genesisK8Instance.KubernetesRuntimeDefinitionID = &genesisK8DefID
-
-		newK8Instance, err := client.CreateKubernetesRuntimeInstance(newApiClient, threeportAPIEndpoint, genesisK8Instance)
+		newK8Instance, err := onboarder.createRuntimeInstance(genesisK8Instance, &genesisK8DefID, false, false)
 		if err != nil {
-			return 0, fmt.Errorf("failed to create genesis kubernetes runtime instance: %w", err)
+			return 0, err
+		}
+
+		// A GKE runtime is unusable without its GKE records - a token cannot be
+		// built for it - and the child's workloads can target the genesis
+		// runtime. The other providers' records are not copied for it.
+		if genesisInfraProvider == v0.KubernetesRuntimeInfraProviderGKE {
+			if err := onboarder.copyProviderRecords(
+				genesisInfraProvider,
+				runtimeLink{
+					definitionID: *genesisK8Instance.KubernetesRuntimeDefinitionID,
+					instanceID:   *genesisK8Instance.ID,
+				},
+				runtimeLink{definitionID: genesisK8DefID, instanceID: *newK8Instance.ID},
+			); err != nil {
+				return 0, fmt.Errorf("failed to onboard GKE records for the genesis kubernetes runtime: %w", err)
+			}
 		}
 
 		genKubeRuntimeInstanceID = *newK8Instance.ID
@@ -841,22 +778,555 @@ func v0ControlPlaneInstanceCreated(
 	genesisInstance.IsSelf = &self
 	genesisInstance.ControlPlaneDefinitionID = &genDefID
 	genesisInstance.KubernetesRuntimeInstanceID = &genKubeRuntimeInstanceID
-	_, err = client.CreateControlPlaneInstance(newApiClient, threeportAPIEndpoint, genesisInstance)
+	_, err = getOrCreate(
+		"genesis control plane instance on the new threeport api",
+		func() (*v0.ControlPlaneInstance, error) {
+			return client.GetControlPlaneInstanceByName(newApiClient, threeportAPIEndpoint, *genesisInstance.Name)
+		},
+		func() (*v0.ControlPlaneInstance, error) {
+			return client.CreateControlPlaneInstance(newApiClient, threeportAPIEndpoint, genesisInstance)
+		},
+	)
 	if err != nil {
-		return 0, fmt.Errorf("failed to create genesis control plane instance in new threeport api: %w", err)
+		return 0, err
+	}
+
+	// point the child's own row at the local parent instance
+	if err := recordManagingParent(onboarder, selfInstance, childSelf); err != nil {
+		return 0, err
 	}
 
 	return 0, nil
 }
 
-// v0ControlPlaneInstanceUpdated performs reconciliation when a v0 ControlPlaneInstance
-// has been updated.
+// appliesControlPlane reports whether this API reconciles the instance.
+// A parent reconciles a child it manages, and a root reconciles itself.
+func appliesControlPlane(instance *v0.ControlPlaneInstance) bool {
+	// a parent reconciles the child row and skips the child's own row
+	owned := instance.ParentControlPlaneInstanceID != nil
+	self := instance.IsSelf != nil && *instance.IsSelf
+	if owned {
+		return !self
+	}
+	return self
+}
+
+// recordManagingParent points the child's own row at the local parent instance.
+// The parent's database id is not valid in the child's database.
+func recordManagingParent(
+	o *runtimeOnboarder,
+	parent *v0.ControlPlaneInstance,
+	childSelf *v0.ControlPlaneInstance,
+) error {
+	// use the parent already registered on the child, or copy it
+	localParent, err := client.GetControlPlaneInstanceByName(
+		o.child.client,
+		o.child.endpoint,
+		*parent.Name,
+	)
+	if errors.Is(err, client_lib.ErrObjectNotFound) {
+		localParent, err = copyManagingParent(o, parent)
+	}
+	if err != nil {
+		return err
+	}
+
+	// write the local id while the child's row is still a root
+	_, err = client.UpdateControlPlaneInstance(
+		o.child.client,
+		o.child.endpoint,
+		&v0.ControlPlaneInstance{
+			Common:                       v0.Common{ID: childSelf.ID},
+			ParentControlPlaneInstanceID: localParent.ID,
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to record managing parent on %s: %w", *childSelf.Name, err)
+	}
+	return nil
+}
+
+// copyManagingParent registers the managing parent in the child's API.
+// The copy is not the row this API serves, and it carries no parent of its own.
+func copyManagingParent(
+	o *runtimeOnboarder,
+	parent *v0.ControlPlaneInstance,
+) (*v0.ControlPlaneInstance, error) {
+	// read the parent's definition and runtime from the API that serves the parent
+	if parent.Name == nil || parent.ControlPlaneDefinitionID == nil || parent.KubernetesRuntimeInstanceID == nil {
+		return nil, fmt.Errorf("managing parent is missing a name, definition, or runtime")
+	}
+	definition, err := client.GetControlPlaneDefinitionByID(
+		o.parent.client,
+		o.parent.endpoint,
+		*parent.ControlPlaneDefinitionID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get control plane definition by ID: %w", err)
+	}
+	runtime, err := client.GetKubernetesRuntimeInstanceByID(
+		o.parent.client,
+		o.parent.endpoint,
+		*parent.KubernetesRuntimeInstanceID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get kubernetes runtime instance by ID: %w", err)
+	}
+	if runtime.KubernetesRuntimeDefinitionID == nil {
+		return nil, fmt.Errorf("kubernetes runtime instance %s has no definition", *runtime.Name)
+	}
+	runtimeDefinition, err := client.GetKubernetesRuntimeDefinitionByID(
+		o.parent.client,
+		o.parent.endpoint,
+		*runtime.KubernetesRuntimeDefinitionID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get kubernetes runtime definition by ID: %w", err)
+	}
+
+	// register the definition and the runtime definition on the child
+	definition.Common = v0.Common{}
+	localDefinition, err := getOrCreate(
+		"managing parent definition on the new threeport api",
+		func() (*v0.ControlPlaneDefinition, error) {
+			return client.GetControlPlaneDefinitionByName(o.child.client, o.child.endpoint, *definition.Name)
+		},
+		func() (*v0.ControlPlaneDefinition, error) {
+			return client.CreateControlPlaneDefinition(o.child.client, o.child.endpoint, definition)
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	runtimeDefinition.Common = v0.Common{}
+	localRuntimeDefinition, err := getOrCreate(
+		"managing parent runtime definition on the new threeport api",
+		func() (*v0.KubernetesRuntimeDefinition, error) {
+			return client.GetKubernetesRuntimeDefinitionByName(
+				o.child.client,
+				o.child.endpoint,
+				*runtimeDefinition.Name,
+			)
+		},
+		func() (*v0.KubernetesRuntimeDefinition, error) {
+			return client.CreateKubernetesRuntimeDefinition(o.child.client, o.child.endpoint, runtimeDefinition)
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// copy the runtime only when the child does not already have that name
+	localRuntime, err := client.GetKubernetesRuntimeInstanceByName(
+		o.child.client,
+		o.child.endpoint,
+		*runtime.Name,
+	)
+	if errors.Is(err, client_lib.ErrObjectNotFound) {
+		localRuntime, err = o.createRuntimeInstance(runtime, localRuntimeDefinition.ID, false, false)
+		if err != nil {
+			return nil, err
+		}
+		if runtimeDefinition.InfraProvider != nil {
+			if err := o.copyProviderRecords(
+				*runtimeDefinition.InfraProvider,
+				runtimeLink{
+					definitionID: *runtime.KubernetesRuntimeDefinitionID,
+					instanceID:   *runtime.ID,
+				},
+				runtimeLink{
+					definitionID: *localRuntimeDefinition.ID,
+					instanceID:   *localRuntime.ID,
+				},
+			); err != nil {
+				return nil, fmt.Errorf("failed to copy provider records for %s: %w", *runtime.Name, err)
+			}
+		}
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to get kubernetes runtime instance by name: %w", err)
+	}
+
+	// register the parent as a row the child does not serve
+	notSelf := false
+	reconciled := true
+	clone := *parent
+	clone.Common = v0.Common{}
+	clone.IsSelf = &notSelf
+	clone.ParentControlPlaneInstanceID = nil
+	clone.Reconciled = &reconciled
+	clone.ControlPlaneDefinitionID = localDefinition.ID
+	clone.KubernetesRuntimeInstanceID = localRuntime.ID
+	return getOrCreate(
+		"managing parent on the new threeport api",
+		func() (*v0.ControlPlaneInstance, error) {
+			return client.GetControlPlaneInstanceByName(o.child.client, o.child.endpoint, *clone.Name)
+		},
+		func() (*v0.ControlPlaneInstance, error) {
+			return client.CreateControlPlaneInstance(o.child.client, o.child.endpoint, &clone)
+		},
+	)
+}
+
+// syncManagedChild copies the image and the controller list onto the child's own row.
+func syncManagedChild(r *controller.Reconciler, instance *v0.ControlPlaneInstance) error {
+	// read the stored row, because the notification omits the certificates
+	stored, err := client.GetControlPlaneInstanceByID(r.APIClient, r.APIServer, *instance.ID)
+	if err != nil {
+		return fmt.Errorf("failed to get control plane instance by ID: %w", err)
+	}
+
+	// open the child's API with the certificate stored on this row
+	childClient, endpoint, err := childAPIClient(stored)
+	if err != nil {
+		return err
+	}
+	childSelf, err := client.GetControlPlaneInstanceByName(childClient, endpoint, *stored.Name)
+	if err != nil {
+		return fmt.Errorf("failed to get control plane instance by name: %w", err)
+	}
+
+	// send an empty controller list when Apis was cleared, because a nil field is omitted
+	apis := stored.Apis
+	if apis == nil {
+		cleared := ""
+		apis = &cleared
+	}
+
+	// set the parent link when an older child was created without one
+	update := &v0.ControlPlaneInstance{
+		Common:         v0.Common{ID: childSelf.ID},
+		Apis:           apis,
+		ImageNamespace: stored.ImageNamespace,
+		ImageTag:       stored.ImageTag,
+	}
+	if childSelf.ParentControlPlaneInstanceID == nil {
+		serving, err := client.GetSelfControlPlaneInstance(r.APIClient, r.APIServer)
+		if err != nil {
+			return fmt.Errorf("failed to get self control plane instance: %w", err)
+		}
+		localParent, err := client.GetControlPlaneInstanceByName(childClient, endpoint, *serving.Name)
+		if err != nil {
+			return fmt.Errorf(
+				"failed to find managing parent %s on %s: %w",
+				*serving.Name,
+				*stored.Name,
+				err,
+			)
+		}
+		update.ParentControlPlaneInstanceID = localParent.ID
+	}
+
+	// write the image and the controller list
+	if _, err := client.UpdateControlPlaneInstance(childClient, endpoint, update); err != nil {
+		return fmt.Errorf("failed to update control plane instance on %s: %w", *stored.Name, err)
+	}
+	return nil
+}
+
+// childAPIClient builds a client for the control plane this row manages.
+// An empty client certificate means authentication is off.
+func childAPIClient(instance *v0.ControlPlaneInstance) (*http.Client, string, error) {
+	// require the endpoint the parent stored for this child
+	if instance.ApiServerEndpoint == nil || *instance.ApiServerEndpoint == "" {
+		return nil, "", fmt.Errorf("control plane %s has no api endpoint", *instance.Name)
+	}
+	endpoint := *instance.ApiServerEndpoint
+	if instance.ClientCert == nil || *instance.ClientCert == "" {
+		httpClient, err := client_lib.GetHTTPClient(false, "", "", "", "")
+		if err != nil {
+			return nil, "", err
+		}
+		return httpClient, endpoint, nil
+	}
+
+	// decode the certificates the create path stored as base64
+	if instance.CACert == nil || instance.ClientKey == nil {
+		return nil, "", fmt.Errorf("control plane %s is missing a client certificate", *instance.Name)
+	}
+	ca, err := util.Base64Decode(*instance.CACert)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to decode ca cert: %w", err)
+	}
+	cert, err := util.Base64Decode(*instance.ClientCert)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to decode client cert: %w", err)
+	}
+	key, err := util.Base64Decode(*instance.ClientKey)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to decode client key: %w", err)
+	}
+	httpClient, err := client_lib.GetHTTPClient(true, ca, cert, key, "")
+	if err != nil {
+		return nil, "", err
+	}
+	return httpClient, endpoint, nil
+}
+
+// v0ControlPlaneInstanceUpdated performs reconciliation when a v0 ControlPlaneInstance has been updated.
 func v0ControlPlaneInstanceUpdated(
 	r *controller.Reconciler,
 	controlPlaneInstance *v0.ControlPlaneInstance,
 	log *logr.Logger,
 ) (int64, error) {
+	// reconcile a root, or a child this control plane manages
+	if !appliesControlPlane(controlPlaneInstance) {
+		return 0, nil
+	}
+
+	// read the definition and the runtime this instance installs onto
+	controlPlaneDefinition, err := client.GetControlPlaneDefinitionByID(
+		r.APIClient,
+		r.APIServer,
+		*controlPlaneInstance.ControlPlaneDefinitionID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get control plane definition by ID: %w", err)
+	}
+	if util.PtrEqual(controlPlaneDefinition.Reconciled, false) {
+		return 0, errors.New("controlplane definition not reconciled")
+	}
+	kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(
+		r.APIClient,
+		r.APIServer,
+		*controlPlaneInstance.KubernetesRuntimeInstanceID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get control plane kubernetesRuntime instance by ID: %w", err)
+	}
+	if util.PtrEqual(kubernetesRuntimeInstance.Reconciled, false) {
+		return 0, errors.New("kubernetes runtime instance not reconciled")
+	}
+	kubernetesRuntimeDefinition, err := client.GetKubernetesRuntimeDefinitionByID(
+		r.APIClient,
+		r.APIServer,
+		*kubernetesRuntimeInstance.KubernetesRuntimeDefinitionID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get control plane kubernetesRuntime definition by ID: %w", err)
+	}
+	selfInstance, err := client.GetSelfControlPlaneInstance(r.APIClient, r.APIServer)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get self control plane instance: %w", err)
+	}
+
+	// build the installer create uses, and allow updates of existing objects
+	cpi, err := prepareInstanceInstaller(
+		r,
+		controlPlaneInstance,
+		controlPlaneDefinition,
+		kubernetesRuntimeDefinition,
+		selfInstance,
+		true,
+	)
+	if err != nil {
+		return 0, err
+	}
+
+	// set provider values the controller install reads
+	if err := configureProviderControllers(
+		r,
+		cpi,
+		kubernetesRuntimeInstance,
+		*kubernetesRuntimeDefinition.InfraProvider,
+		nil,
+		nil,
+		false,
+	); err != nil {
+		return 0, err
+	}
+
+	// connect to the cluster this control plane runs on
+	dynamicKubeClient, mapper, err := kube.GetClient(
+		kubernetesRuntimeInstance,
+		true,
+		r.APIClient,
+		r.APIServer,
+		r.EncryptionKey,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get kube client: %w", err)
+	}
+
+	// sign new controller certificates with the CA already in the cluster
+	var authConfig *auth.AuthConfig
+	if cpi.Opts.AuthEnabled {
+		authConfig, err = cpi.LoadAuthConfigFromCluster(dynamicKubeClient, mapper)
+		if err != nil {
+			return 0, fmt.Errorf("failed to load auth config from cluster: %w", err)
+		}
+	}
+
+	// install added controller groups and delete dropped ones.
+	// Keep the controller that runs this reconcile on a root and on a managed child.
+	retainControlPlaneController := true
+	if err := cpi.ReconcileControllerSet(
+		dynamicKubeClient,
+		mapper,
+		authConfig,
+		retainControlPlaneController,
+	); err != nil {
+		return 0, err
+	}
+
+	// restore provider access install removes from the service accounts
+	if err := configureProviderControllers(
+		r,
+		cpi,
+		kubernetesRuntimeInstance,
+		*kubernetesRuntimeDefinition.InfraProvider,
+		dynamicKubeClient,
+		mapper,
+		true,
+	); err != nil {
+		return 0, err
+	}
+
+	// copy the image and the controller list when the child has a row that can accept it
+	if controlPlaneInstance.ParentControlPlaneInstanceID != nil &&
+		(controlPlaneDefinition.OnboardParent == nil || *controlPlaneDefinition.OnboardParent) &&
+		(controlPlaneDefinition.AuthEnabled == nil || *controlPlaneDefinition.AuthEnabled) {
+		if err := syncManagedChild(r, controlPlaneInstance); err != nil {
+			return 0, err
+		}
+	}
+
 	return 0, nil
+}
+
+// configureProviderControllers sets provider values the controller install reads.
+// The second call rewrites service accounts after install replaces them.
+func configureProviderControllers(
+	r *controller.Reconciler,
+	cpi *threeport.ControlPlaneInstaller,
+	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
+	infraProvider string,
+	dynamicKubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	writeServiceAccounts bool,
+) error {
+	switch infraProvider {
+	case v0.KubernetesRuntimeInfraProviderEKS:
+		// point the selected controllers at their service accounts
+		provider.UpdateIrsaControllerList(cpi.Opts.ControllerList)
+		if !writeServiceAccounts {
+			return nil
+		}
+
+		// restore the role annotation install removes from the service account
+		awsEksKubernetesRuntimeInstance, err := client.GetAwsEksKubernetesRuntimeInstanceByK8sRuntimeInst(
+			r.APIClient,
+			r.APIServer,
+			*kubernetesRuntimeInstance.ID,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to get aws eks kubernetes runtime instance by workload instance ID: %w", err)
+		}
+		awsProvider, err := client.GetAwsProviderByID(
+			r.APIClient,
+			r.APIServer,
+			*awsEksKubernetesRuntimeInstance.AwsProviderID,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to get aws provider by ID: %w", err)
+		}
+		awsConfig, err := kube.GetAwsConfigFromAwsProvider(
+			r.EncryptionKey,
+			*awsEksKubernetesRuntimeInstance.Region,
+			awsProvider,
+		)
+		if err != nil {
+			return fmt.Errorf("could not get aws config from aws account: %w", err)
+		}
+		callerIdentity, err := provider.GetCallerIdentity(awsConfig)
+		if err != nil {
+			return fmt.Errorf("failed to get caller identity: %w", err)
+		}
+
+		// rewrite service accounts for the selected controllers
+		selected := map[string]struct{}{}
+		for _, component := range cpi.Opts.ControllerList {
+			selected[component.Name] = struct{}{}
+		}
+		for _, serviceAccount := range provider.GetIrsaServiceAccounts(
+			cpi.Opts.Namespace,
+			*callerIdentity.Account,
+			provider.GetResourceManagerRoleName(cpi.Opts.ControlPlaneName),
+		) {
+			if _, ok := selected[serviceAccount.GetName()]; !ok {
+				continue
+			}
+			if _, err := kube.CreateOrUpdateResource(
+				serviceAccount,
+				dynamicKubeClient,
+				*mapper,
+			); err != nil {
+				return fmt.Errorf("failed to create threeport api service account: %w", err)
+			}
+		}
+		return nil
+	case v0.KubernetesRuntimeInfraProviderGKE:
+		// skip the rewrite on this provider
+		if writeServiceAccounts {
+			return nil
+		}
+
+		// record the project the install writes onto the service account
+		gcpProjectId, err := gkeRuntimeProjectID(
+			r.APIClient,
+			r.APIServer,
+			*kubernetesRuntimeInstance.ID,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to determine the GCP project of the child's runtime: %w", err)
+		}
+		cpi.Opts.GcpProjectId = gcpProjectId
+		return nil
+	default:
+		// kind and oke need no provider values
+		return nil
+	}
+}
+
+// prepareInstanceInstaller copies the parent's component images onto the instance and selects its controllers.
+func prepareInstanceInstaller(
+	r *controller.Reconciler,
+	controlPlaneInstance *v0.ControlPlaneInstance,
+	controlPlaneDefinition *v0.ControlPlaneDefinition,
+	kubernetesRuntimeDefinition *v0.KubernetesRuntimeDefinition,
+	selfInstance *v0.ControlPlaneInstance,
+	createOrUpdate bool,
+) (*threeport.ControlPlaneInstaller, error) {
+	// set the installer identity from the instance and its runtime
+	cpi := threeport.NewInstaller(threeport.Namespace(*controlPlaneInstance.Namespace))
+	cpi.Opts.ControlPlaneName = *controlPlaneInstance.Name
+	cpi.Opts.InThreeport = true
+	cpi.Opts.CreateOrUpdateKubeResources = createOrUpdate
+	cpi.Opts.InfraProvider = *kubernetesRuntimeDefinition.InfraProvider
+	if controlPlaneDefinition.AuthEnabled != nil {
+		cpi.Opts.AuthEnabled = *controlPlaneDefinition.AuthEnabled
+	}
+
+	// copy the definition tier so a production controller runs two replicas
+	cpi.Opts.Tier = threeport.ControlPlaneTier(util.Deref(controlPlaneDefinition.Tier))
+	if cpi.Opts.Tier == "" {
+		cpi.Opts.Tier = threeport.ControlPlaneTier(threeport.DefaultControlPlaneTier)
+	}
+
+	// fetch the parent by ID because the list endpoint omits its components
+	parent, err := client.GetControlPlaneInstanceByID(r.APIClient, r.APIServer, *selfInstance.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get self control plane instance by ID: %w", err)
+	}
+
+	// copy the parent's component images and select this instance's controllers
+	if err := cpi.ConfigureChildComponents(parent, controlPlaneInstance); err != nil {
+		return nil, fmt.Errorf("failed to configure components of control plane instance: %w", err)
+	}
+	if err := selectInstanceControllers(cpi, controlPlaneInstance.Apis); err != nil {
+		return nil, fmt.Errorf("failed to select controllers for control plane instance: %w", err)
+	}
+
+	return cpi, nil
 }
 
 // v0ControlPlaneInstanceDeleted performs reconciliation when a v0 ControlPlaneInstance
@@ -886,58 +1356,22 @@ func v0ControlPlaneInstanceDeleted(
 		return 0, fmt.Errorf("failed to get control plane kubernetesRuntime definition by ID: %w", err)
 	}
 
-	// create a dynamic client to connect to kube API — use token refresh
-	// for OKE to handle short-lived tokens
-	var deleteDynamicClient dynamic.Interface
-	var deleteMapper *meta.RESTMapper
-	switch *kubernetesRuntimeDefinition.InfraProvider {
-	case v0.KubernetesRuntimeInfraProviderOKE:
-		ociRuntimeInstance, err := client.GetOciOkeKubernetesRuntimeInstanceByK8sRuntimeInst(
-			r.APIClient, r.APIServer, *kubernetesRuntimeInstance.ID,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get OCI OKE runtime instance for delete: %w", err)
-		}
-		ociProvider, err := client.GetOciProviderByID(
-			r.APIClient, r.APIServer, *ociRuntimeInstance.OciProviderID,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get OCI provider for delete: %w", err)
-		}
-		decryptedPrivateKey, err := encryption.Decrypt(r.EncryptionKey, *ociProvider.PrivateKey)
-		if err != nil {
-			return 0, fmt.Errorf("failed to decrypt OCI provider private key for delete: %w", err)
-		}
-		configProvider := common.NewRawConfigurationProvider(
-			*ociProvider.TenancyOCID,
-			*ociProvider.UserOCID,
-			*ociProvider.DefaultRegion,
-			*ociProvider.KeyFingerprint,
-			decryptedPrivateKey,
-			nil,
-		)
-		if ociRuntimeInstance.ClusterOCID == nil || *ociRuntimeInstance.ClusterOCID == "" {
-			return 0, fmt.Errorf("OCI OKE runtime instance has no cluster OCID set for delete")
-		}
-		clusterOCID := *ociRuntimeInstance.ClusterOCID
-		deleteDynamicClient, deleteMapper, err = kube.GetClientWithTokenRefresh(
-			kubernetesRuntimeInstance,
-			func() (string, error) {
-				t, _, err := util.GenerateOkeToken(clusterOCID, configProvider)
-				return t, err
-			},
-		)
-	default:
-		deleteDynamicClient, deleteMapper, err = kube.GetClient(
-			kubernetesRuntimeInstance,
-			true,
-			r.APIClient,
-			r.APIServer,
-			r.EncryptionKey,
-		)
-	}
+	// create dynamic kube client and rest mapper
+	deleteDynamicClient, deleteMapper, err := kube.GetClient(
+		kubernetesRuntimeInstance,
+		true,
+		r.APIClient,
+		r.APIServer,
+		r.EncryptionKey,
+	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create dynamic kube API client: %w", err)
+	}
+
+	// delete the cluster role bindings, which the namespace delete leaves behind
+	cpi := threeport.NewInstaller(threeport.Namespace(*controlPlaneInstance.Namespace))
+	if err := cpi.DeleteControlPlaneRoleBindings(deleteDynamicClient, deleteMapper); err != nil {
+		return 0, fmt.Errorf("failed to delete control plane role bindings: %w", err)
 	}
 
 	var namespace = &unstructured.Unstructured{
@@ -981,4 +1415,22 @@ func v0ControlPlaneInstanceDeleted(
 	}
 
 	return 0, nil
+}
+
+// recordResolvedComponents sets the components a control plane records for
+// itself to the ones it actually runs, not the overrides it was asked for, so
+// control planes created from it default to its images in turn.
+//
+// The instance-wide image is cleared. It was already applied to every
+// component it covers, and the components carry the exceptions to it. Left in
+// place, it would be applied again over the recorded components when a child
+// of this control plane is created, replacing each exception with the
+// instance-wide value. An upgrade sets it again when it retags everything.
+func recordResolvedComponents(
+	instance *v0.ControlPlaneInstance,
+	cpi *threeport.ControlPlaneInstaller,
+) {
+	instance.ImageNamespace = nil
+	instance.ImageTag = nil
+	instance.CustomComponentInfo = cpi.RecordedComponents()
 }

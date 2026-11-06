@@ -185,10 +185,14 @@ func (cpi *ControlPlaneInstaller) runDropMessageBrokerJob(
 					},
 					"spec": map[string]interface{}{
 						"restartPolicy": "Never",
+						// the same image as the nats-box utility pod
+						"securityContext": natsBoxPodSecurityContext(),
 						"containers": []interface{}{
 							map[string]interface{}{
-								"name":  "drop-message-broker",
-								"image": natsBoxImage,
+								"name":            "drop-message-broker",
+								"securityContext": vendoredContainerSecurityContext(),
+								"image":           natsBoxImage,
+								"resources":       natsBoxResources(),
 								"env": []interface{}{
 									map[string]interface{}{
 										"name":  "NATS_URL",
@@ -259,10 +263,13 @@ func (cpi *ControlPlaneInstaller) runDropDatabaseJob(
 					},
 					"spec": map[string]interface{}{
 						"restartPolicy": "Never",
+						// the database's user, whose group reads the root client key
+						"securityContext": dependencyPodSecurityContext(),
 						"containers": []interface{}{
 							map[string]interface{}{
-								"name":  "drop-database",
-								"image": fmt.Sprintf("cockroachdb/cockroach:%s", DatabaseImageTag),
+								"name":            "drop-database",
+								"securityContext": restrictedContainerSecurityContext(),
+								"image":           fmt.Sprintf("cockroachdb/cockroach:%s", DatabaseImageTag),
 								"command": []interface{}{
 									"/cockroach/cockroach",
 									"sql",
@@ -455,6 +462,25 @@ func (cpi *ControlPlaneInstaller) getInstalledTier(
 	return ControlPlaneTier(tier), nil
 }
 
+// useInstalledTier sets the installer's tier to the one recorded on the
+// control plane namespace.  A namespace from before the tier was recorded
+// keeps the installer's tier as given.
+func (cpi *ControlPlaneInstaller) useInstalledTier(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+) error {
+	tier, err := cpi.getInstalledTier(kubeClient, mapper)
+	if errors.Is(err, ErrControlPlaneNotDevelopment) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	cpi.Opts.Tier = tier
+
+	return nil
+}
+
 // Reinstall deletes installer-managed stateless resources and installs the
 // control plane again. Persistent resources keep their data and the API endpoint.
 func (cpi *ControlPlaneInstaller) Reinstall(
@@ -463,6 +489,13 @@ func (cpi *ControlPlaneInstaller) Reinstall(
 	authConfig *auth.AuthConfig,
 ) error {
 	ns := cpi.Opts.Namespace
+
+	// replica counts and disruption budgets follow the tier, which a
+	// reinstall is not given, so it is read from the namespace before
+	// anything is deleted
+	if err := cpi.useInstalledTier(kubeClient, mapper); err != nil {
+		return err
+	}
 
 	// delete installer-managed stateless resources
 	if err := cpi.deleteForReinstall(kubeClient, ns); err != nil {

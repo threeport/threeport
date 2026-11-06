@@ -90,14 +90,17 @@ type KubernetesRuntimeInstance struct {
 	// The associated control plane instances running on this kubernetes runtime instance.
 	ControlPlaneInstances []*ControlPlaneInstance `validate:"optional,association"`
 
-	// The KubernetesWorkloadInstanceID of the gateway support service
-	GatewayControllerInstanceID *uint `validate:"optional"`
+	// The workload that runs the ingress component for this runtime.
+	IngressComponentInstanceID *uint `validate:"optional"`
 
-	// The KubernetesWorkloadInstanceID of the dns support service
-	DnsControllerInstanceID *uint `validate:"optional"`
+	// The workload that runs the certificates component for this runtime.
+	CertificatesComponentInstanceID *uint `validate:"optional"`
 
-	// The KubernetesWorkloadInstanceID of the secrets support service
-	SecretsControllerInstanceID *uint `validate:"optional"`
+	// The workload that stores secrets for this runtime.
+	SecretsComponentInstanceID *uint `validate:"optional"`
+
+	// The workload that provides a database for this runtime.
+	DatabaseComponentInstanceID *uint `validate:"optional"`
 
 	// An alternate threeport image to use when deploying threeport agent to
 	// managed Kubernetes runtime clusters.  If not supplied, the official image

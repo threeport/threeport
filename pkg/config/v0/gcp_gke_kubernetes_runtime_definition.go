@@ -177,20 +177,20 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Replace(
 	}
 
 	// construct updated gcp gke kubernetes runtime definition object
-	updatedGcpGkeKubernetesRuntimeDefinition := &api_v0.GcpGkeKubernetesRuntimeDefinition{
-		Common: api_v0.Common{
-			ID: existingGcpGkeKubernetesRuntimeDefinition.ID,
-		},
-		Definition: api_v0.Definition{
-			Name: gcpGkeKubernetesRuntimeDefinitionValues.Name,
-		},
-		ZoneCount:                     gcpGkeKubernetesRuntimeDefinitionValues.ZoneCount,
-		DefaultNodeGroupInstanceType:  gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupInstanceType,
-		DefaultNodeGroupInitialSize:   gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupInitialSize,
-		DefaultNodeGroupMinimumSize:   gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupMinimumSize,
-		DefaultNodeGroupMaximumSize:   gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupMaximumSize,
-		KubernetesRuntimeDefinitionID: existingGcpGkeKubernetesRuntimeDefinition.KubernetesRuntimeDefinitionID,
-	}
+	// Start from the existing object, so the fields this replace does not set
+	// are kept: the reconciler's (Reconciled and the rest of Reconciliation,
+	// Status) and the ones only the API server or a controller writes. Every
+	// field a user sets through the config is assigned below unconditionally,
+	// a nil value included, so a field left out of the config is cleared
+	// rather than kept. Do not assign the reconciler's fields here: the copy
+	// already carries them.
+	updatedGcpGkeKubernetesRuntimeDefinition := util.Ptr(*existingGcpGkeKubernetesRuntimeDefinition)
+	updatedGcpGkeKubernetesRuntimeDefinition.Name = gcpGkeKubernetesRuntimeDefinitionValues.Name
+	updatedGcpGkeKubernetesRuntimeDefinition.ZoneCount = gcpGkeKubernetesRuntimeDefinitionValues.ZoneCount
+	updatedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType = gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupInstanceType
+	updatedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize = gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupInitialSize
+	updatedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize = gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupMinimumSize
+	updatedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize = gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupMaximumSize
 
 	// replace gcp gke kubernetes runtime definition
 	replacedGcpGkeKubernetesRuntimeDefinition, err := client_v0.ReplaceGcpGkeKubernetesRuntimeDefinition(

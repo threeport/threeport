@@ -10,9 +10,11 @@ import (
 	tpapi_lib "github.com/threeport/threeport/pkg/api/lib/v0"
 	tpapi_v0 "github.com/threeport/threeport/pkg/api/v0"
 	tpclient_lib "github.com/threeport/threeport/pkg/client/lib/v0"
+	tpclient "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	event "github.com/threeport/threeport/pkg/event/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
+	supportservices "github.com/threeport/threeport/pkg/supportservices"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"os"
 	"os/signal"
@@ -178,13 +180,86 @@ func ReconcilerTestInstanceReconciler(r *controller.Reconciler) {
 				var customRequeueDelay int64
 				switch reconcilerTestInstance.GetVersion() {
 				case "v0":
-					requeueDelay, err := v0ReconcilerTestInstanceCreated(
-						r,
-						reconcilerTestInstance.(*api_v0.ReconcilerTestInstance),
-						&log,
-					)
-					customRequeueDelay = requeueDelay
-					operationErr = err
+					// install the shared components this object requires
+					componentObject := reconcilerTestInstance.(*api_v0.ReconcilerTestInstance)
+					if componentObject.KubernetesRuntimeInstanceID != nil {
+						runtime, err := tpclient.GetKubernetesRuntimeInstanceByID(
+							r.APIClient,
+							r.APIServer,
+							*componentObject.KubernetesRuntimeInstanceID,
+						)
+						if err != nil {
+							operationErr = fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
+						}
+						if operationErr == nil {
+							if err := supportservices.EnsureIngressComponent(
+								r,
+								runtime,
+								componentObject,
+								&componentObject.IngressComponentInstanceID,
+								client_v0.UpdateReconcilerTestInstance,
+								&log,
+							); err != nil {
+								operationErr = fmt.Errorf("failed to ensure ingress component: %w", err)
+							}
+						}
+						if operationErr == nil {
+							if err := supportservices.EnsureCertificatesComponent(
+								r,
+								runtime,
+								componentObject,
+								&componentObject.CertificatesComponentInstanceID,
+								client_v0.UpdateReconcilerTestInstance,
+								&log,
+							); err != nil {
+								operationErr = fmt.Errorf("failed to ensure certificates component: %w", err)
+							}
+						}
+						if operationErr == nil {
+							provider, err := tpclient.GetInfraProviderByKubernetesRuntimeInstanceID(
+								r.APIClient,
+								r.APIServer,
+								runtime.ID,
+							)
+							if err != nil {
+								operationErr = fmt.Errorf("failed to get infra provider: %w", err)
+							}
+							if operationErr == nil {
+								if err := supportservices.EnsureSecretsComponent(
+									r,
+									runtime,
+									componentObject,
+									&componentObject.SecretsComponentInstanceID,
+									client_v0.UpdateReconcilerTestInstance,
+									provider,
+									&log,
+								); err != nil {
+									operationErr = fmt.Errorf("failed to ensure secrets component: %w", err)
+								}
+							}
+						}
+						if operationErr == nil {
+							if err := supportservices.EnsureDatabaseComponent(
+								r,
+								runtime,
+								componentObject,
+								&componentObject.DatabaseComponentInstanceID,
+								client_v0.UpdateReconcilerTestInstance,
+								&log,
+							); err != nil {
+								operationErr = fmt.Errorf("failed to ensure database component: %w", err)
+							}
+						}
+					}
+					if operationErr == nil {
+						requeueDelay, err := v0ReconcilerTestInstanceCreated(
+							r,
+							reconcilerTestInstance.(*api_v0.ReconcilerTestInstance),
+							&log,
+						)
+						customRequeueDelay = requeueDelay
+						operationErr = err
+					}
 				default:
 					operationErr = errors.New("unrecognized version of reconciler test instance encountered for create operation")
 				}
@@ -202,6 +277,29 @@ func ReconcilerTestInstanceReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the operation has been failing for longer than the retry bound
+					if r.RecordFailure(reconcilerTestInstance, string(notif.Operation)) {
+						giveUpMsg := event.GiveUpNote(
+							"failed to reconcile created reconciler test instance object",
+							controller.DefaultMaxReconcileDuration,
+							operationErr,
+						)
+						log.Error(operationErr, giveUpMsg)
+						if recordErr := r.EventsRecorder.RecordEvent(
+							&tpapi_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonCreateFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							reconcilerTestInstance.GetId(),
+							reconcilerTestInstance.GetFullyQualifiedType(),
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record give-up event")
+						}
+						r.ClearFailure(reconcilerTestInstance, string(notif.Operation))
+						r.ReleaseLock(reconcilerTestInstance, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						reconcilerTestInstance,
 						requeueDelay,
@@ -210,6 +308,7 @@ func ReconcilerTestInstanceReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				r.ClearFailure(reconcilerTestInstance, string(notif.Operation))
 				if customRequeueDelay != 0 {
 					log.Info("create requeued for future reconciliation")
 					r.UnlockAndRequeue(
@@ -243,13 +342,86 @@ func ReconcilerTestInstanceReconciler(r *controller.Reconciler) {
 				var customRequeueDelay int64
 				switch reconcilerTestInstance.GetVersion() {
 				case "v0":
-					requeueDelay, err := v0ReconcilerTestInstanceUpdated(
-						r,
-						reconcilerTestInstance.(*api_v0.ReconcilerTestInstance),
-						&log,
-					)
-					customRequeueDelay = requeueDelay
-					operationErr = err
+					// install the shared components this object requires
+					componentObject := reconcilerTestInstance.(*api_v0.ReconcilerTestInstance)
+					if componentObject.KubernetesRuntimeInstanceID != nil {
+						runtime, err := tpclient.GetKubernetesRuntimeInstanceByID(
+							r.APIClient,
+							r.APIServer,
+							*componentObject.KubernetesRuntimeInstanceID,
+						)
+						if err != nil {
+							operationErr = fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
+						}
+						if operationErr == nil {
+							if err := supportservices.EnsureIngressComponent(
+								r,
+								runtime,
+								componentObject,
+								&componentObject.IngressComponentInstanceID,
+								client_v0.UpdateReconcilerTestInstance,
+								&log,
+							); err != nil {
+								operationErr = fmt.Errorf("failed to ensure ingress component: %w", err)
+							}
+						}
+						if operationErr == nil {
+							if err := supportservices.EnsureCertificatesComponent(
+								r,
+								runtime,
+								componentObject,
+								&componentObject.CertificatesComponentInstanceID,
+								client_v0.UpdateReconcilerTestInstance,
+								&log,
+							); err != nil {
+								operationErr = fmt.Errorf("failed to ensure certificates component: %w", err)
+							}
+						}
+						if operationErr == nil {
+							provider, err := tpclient.GetInfraProviderByKubernetesRuntimeInstanceID(
+								r.APIClient,
+								r.APIServer,
+								runtime.ID,
+							)
+							if err != nil {
+								operationErr = fmt.Errorf("failed to get infra provider: %w", err)
+							}
+							if operationErr == nil {
+								if err := supportservices.EnsureSecretsComponent(
+									r,
+									runtime,
+									componentObject,
+									&componentObject.SecretsComponentInstanceID,
+									client_v0.UpdateReconcilerTestInstance,
+									provider,
+									&log,
+								); err != nil {
+									operationErr = fmt.Errorf("failed to ensure secrets component: %w", err)
+								}
+							}
+						}
+						if operationErr == nil {
+							if err := supportservices.EnsureDatabaseComponent(
+								r,
+								runtime,
+								componentObject,
+								&componentObject.DatabaseComponentInstanceID,
+								client_v0.UpdateReconcilerTestInstance,
+								&log,
+							); err != nil {
+								operationErr = fmt.Errorf("failed to ensure database component: %w", err)
+							}
+						}
+					}
+					if operationErr == nil {
+						requeueDelay, err := v0ReconcilerTestInstanceUpdated(
+							r,
+							reconcilerTestInstance.(*api_v0.ReconcilerTestInstance),
+							&log,
+						)
+						customRequeueDelay = requeueDelay
+						operationErr = err
+					}
 				default:
 					operationErr = errors.New("unrecognized version of reconciler test instance encountered for update operation")
 				}
@@ -267,6 +439,29 @@ func ReconcilerTestInstanceReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the operation has been failing for longer than the retry bound
+					if r.RecordFailure(reconcilerTestInstance, string(notif.Operation)) {
+						giveUpMsg := event.GiveUpNote(
+							"failed to reconcile updated reconciler test instance object",
+							controller.DefaultMaxReconcileDuration,
+							operationErr,
+						)
+						log.Error(operationErr, giveUpMsg)
+						if recordErr := r.EventsRecorder.RecordEvent(
+							&tpapi_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonUpdateFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							reconcilerTestInstance.GetId(),
+							reconcilerTestInstance.GetFullyQualifiedType(),
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record give-up event")
+						}
+						r.ClearFailure(reconcilerTestInstance, string(notif.Operation))
+						r.ReleaseLock(reconcilerTestInstance, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						reconcilerTestInstance,
 						requeueDelay,
@@ -275,6 +470,7 @@ func ReconcilerTestInstanceReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				r.ClearFailure(reconcilerTestInstance, string(notif.Operation))
 				if customRequeueDelay != 0 {
 					log.Info("update requeued for future reconciliation")
 					r.UnlockAndRequeue(
@@ -314,6 +510,56 @@ func ReconcilerTestInstanceReconciler(r *controller.Reconciler) {
 					)
 					customRequeueDelay = requeueDelay
 					operationErr = err
+					if operationErr == nil {
+						// release the shared components this object required
+						componentObject := reconcilerTestInstance.(*api_v0.ReconcilerTestInstance)
+						if componentObject.KubernetesRuntimeInstanceID != nil {
+							runtime, err := tpclient.GetKubernetesRuntimeInstanceByID(
+								r.APIClient,
+								r.APIServer,
+								*componentObject.KubernetesRuntimeInstanceID,
+							)
+							if err != nil {
+								operationErr = fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
+							}
+							if operationErr == nil {
+								if err := supportservices.ReleaseIngressComponent(
+									r,
+									runtime,
+									componentObject,
+								); err != nil {
+									operationErr = fmt.Errorf("failed to release ingress component: %w", err)
+								}
+							}
+							if operationErr == nil {
+								if err := supportservices.ReleaseCertificatesComponent(
+									r,
+									runtime,
+									componentObject,
+								); err != nil {
+									operationErr = fmt.Errorf("failed to release certificates component: %w", err)
+								}
+							}
+							if operationErr == nil {
+								if err := supportservices.ReleaseSecretsComponent(
+									r,
+									runtime,
+									componentObject,
+								); err != nil {
+									operationErr = fmt.Errorf("failed to release secrets component: %w", err)
+								}
+							}
+							if operationErr == nil {
+								if err := supportservices.ReleaseDatabaseComponent(
+									r,
+									runtime,
+									componentObject,
+								); err != nil {
+									operationErr = fmt.Errorf("failed to release database component: %w", err)
+								}
+							}
+						}
+					}
 				default:
 					operationErr = errors.New("unrecognized version of reconciler test instance encountered for delete operation")
 				}
@@ -345,6 +591,29 @@ func ReconcilerTestInstanceReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the operation has been failing for longer than the retry bound
+					if r.RecordFailure(reconcilerTestInstance, string(notif.Operation)) {
+						giveUpMsg := event.GiveUpNote(
+							"failed to reconcile deleted reconciler test instance object",
+							controller.DefaultMaxReconcileDuration,
+							operationErr,
+						)
+						log.Error(operationErr, giveUpMsg)
+						if recordErr := r.EventsRecorder.RecordEvent(
+							&tpapi_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonDeleteFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							reconcilerTestInstance.GetId(),
+							reconcilerTestInstance.GetFullyQualifiedType(),
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record give-up event")
+						}
+						r.ClearFailure(reconcilerTestInstance, string(notif.Operation))
+						r.ReleaseLock(reconcilerTestInstance, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						reconcilerTestInstance,
 						requeueDelay,
@@ -353,6 +622,7 @@ func ReconcilerTestInstanceReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				r.ClearFailure(reconcilerTestInstance, string(notif.Operation))
 				if customRequeueDelay != 0 {
 					log.Info("delete requeued for future reconciliation")
 					r.UnlockAndRequeue(
@@ -377,34 +647,38 @@ func ReconcilerTestInstanceReconciler(r *controller.Reconciler) {
 					r.APIServer,
 					&deletedReconcilerTestInstance,
 				)
-				if err != nil {
-					log.Error(err, "failed to update reconciler test instance to mark as deleted")
-					r.UnlockAndRequeue(reconcilerTestInstance, requeueDelay, lockReleased, msg)
-					continue
-				}
-				_, err = client_v0.DeleteReconcilerTestInstance(
-					r.APIClient,
-					r.APIServer,
-					reconcilerTestInstance.GetId(),
-				)
-				if err != nil {
-					if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
-						log.Info(
-							"conflict deleting reconciler test instance, requeueing",
-							"cause", err.Error(),
-						)
-						// in-progress event already recorded before the handler
-						r.UnlockAndRequeue(
-							reconcilerTestInstance,
-							int64(30),
-							lockReleased,
-							msg,
-						)
+				if errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+					log.Info("reconciler test instance already deleted")
+				} else {
+					if err != nil {
+						log.Error(err, "failed to update reconciler test instance to mark as deleted")
+						r.UnlockAndRequeue(reconcilerTestInstance, requeueDelay, lockReleased, msg)
 						continue
 					}
-					log.Error(err, "failed to delete reconciler test instance")
-					r.UnlockAndRequeue(reconcilerTestInstance, requeueDelay, lockReleased, msg)
-					continue
+					_, err = client_v0.DeleteReconcilerTestInstance(
+						r.APIClient,
+						r.APIServer,
+						reconcilerTestInstance.GetId(),
+					)
+					if err != nil && !errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+						if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
+							log.Info(
+								"conflict deleting reconciler test instance, requeueing",
+								"cause", err.Error(),
+							)
+							// in-progress event already recorded before the handler
+							r.UnlockAndRequeue(
+								reconcilerTestInstance,
+								int64(30),
+								lockReleased,
+								msg,
+							)
+							continue
+						}
+						log.Error(err, "failed to delete reconciler test instance")
+						r.UnlockAndRequeue(reconcilerTestInstance, requeueDelay, lockReleased, msg)
+						continue
+					}
 				}
 			default:
 				log.Error(

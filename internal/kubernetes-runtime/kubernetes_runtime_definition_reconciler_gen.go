@@ -201,6 +201,29 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the operation has been failing for longer than the retry bound
+					if r.RecordFailure(kubernetesRuntimeDefinition, string(notif.Operation)) {
+						giveUpMsg := event.GiveUpNote(
+							"failed to reconcile created kubernetes runtime definition object",
+							controller.DefaultMaxReconcileDuration,
+							operationErr,
+						)
+						log.Error(operationErr, giveUpMsg)
+						if recordErr := r.EventsRecorder.RecordEvent(
+							&api_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonCreateFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							kubernetesRuntimeDefinition.GetId(),
+							kubernetesRuntimeDefinition.GetFullyQualifiedType(),
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record give-up event")
+						}
+						r.ClearFailure(kubernetesRuntimeDefinition, string(notif.Operation))
+						r.ReleaseLock(kubernetesRuntimeDefinition, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						kubernetesRuntimeDefinition,
 						requeueDelay,
@@ -209,6 +232,7 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				r.ClearFailure(kubernetesRuntimeDefinition, string(notif.Operation))
 				if customRequeueDelay != 0 {
 					log.Info("create requeued for future reconciliation")
 					r.UnlockAndRequeue(
@@ -266,6 +290,29 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the operation has been failing for longer than the retry bound
+					if r.RecordFailure(kubernetesRuntimeDefinition, string(notif.Operation)) {
+						giveUpMsg := event.GiveUpNote(
+							"failed to reconcile updated kubernetes runtime definition object",
+							controller.DefaultMaxReconcileDuration,
+							operationErr,
+						)
+						log.Error(operationErr, giveUpMsg)
+						if recordErr := r.EventsRecorder.RecordEvent(
+							&api_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonUpdateFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							kubernetesRuntimeDefinition.GetId(),
+							kubernetesRuntimeDefinition.GetFullyQualifiedType(),
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record give-up event")
+						}
+						r.ClearFailure(kubernetesRuntimeDefinition, string(notif.Operation))
+						r.ReleaseLock(kubernetesRuntimeDefinition, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						kubernetesRuntimeDefinition,
 						requeueDelay,
@@ -274,6 +321,7 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				r.ClearFailure(kubernetesRuntimeDefinition, string(notif.Operation))
 				if customRequeueDelay != 0 {
 					log.Info("update requeued for future reconciliation")
 					r.UnlockAndRequeue(
@@ -344,6 +392,29 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the operation has been failing for longer than the retry bound
+					if r.RecordFailure(kubernetesRuntimeDefinition, string(notif.Operation)) {
+						giveUpMsg := event.GiveUpNote(
+							"failed to reconcile deleted kubernetes runtime definition object",
+							controller.DefaultMaxReconcileDuration,
+							operationErr,
+						)
+						log.Error(operationErr, giveUpMsg)
+						if recordErr := r.EventsRecorder.RecordEvent(
+							&api_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonDeleteFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							kubernetesRuntimeDefinition.GetId(),
+							kubernetesRuntimeDefinition.GetFullyQualifiedType(),
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record give-up event")
+						}
+						r.ClearFailure(kubernetesRuntimeDefinition, string(notif.Operation))
+						r.ReleaseLock(kubernetesRuntimeDefinition, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						kubernetesRuntimeDefinition,
 						requeueDelay,
@@ -352,6 +423,7 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				r.ClearFailure(kubernetesRuntimeDefinition, string(notif.Operation))
 				if customRequeueDelay != 0 {
 					log.Info("delete requeued for future reconciliation")
 					r.UnlockAndRequeue(
@@ -376,34 +448,38 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 					r.APIServer,
 					&deletedKubernetesRuntimeDefinition,
 				)
-				if err != nil {
-					log.Error(err, "failed to update kubernetes runtime definition to mark as deleted")
-					r.UnlockAndRequeue(kubernetesRuntimeDefinition, requeueDelay, lockReleased, msg)
-					continue
-				}
-				_, err = client_v0.DeleteKubernetesRuntimeDefinition(
-					r.APIClient,
-					r.APIServer,
-					kubernetesRuntimeDefinition.GetId(),
-				)
-				if err != nil {
-					if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
-						log.Info(
-							"conflict deleting kubernetes runtime definition, requeueing",
-							"cause", err.Error(),
-						)
-						// in-progress event already recorded before the handler
-						r.UnlockAndRequeue(
-							kubernetesRuntimeDefinition,
-							int64(30),
-							lockReleased,
-							msg,
-						)
+				if errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+					log.Info("kubernetes runtime definition already deleted")
+				} else {
+					if err != nil {
+						log.Error(err, "failed to update kubernetes runtime definition to mark as deleted")
+						r.UnlockAndRequeue(kubernetesRuntimeDefinition, requeueDelay, lockReleased, msg)
 						continue
 					}
-					log.Error(err, "failed to delete kubernetes runtime definition")
-					r.UnlockAndRequeue(kubernetesRuntimeDefinition, requeueDelay, lockReleased, msg)
-					continue
+					_, err = client_v0.DeleteKubernetesRuntimeDefinition(
+						r.APIClient,
+						r.APIServer,
+						kubernetesRuntimeDefinition.GetId(),
+					)
+					if err != nil && !errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+						if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
+							log.Info(
+								"conflict deleting kubernetes runtime definition, requeueing",
+								"cause", err.Error(),
+							)
+							// in-progress event already recorded before the handler
+							r.UnlockAndRequeue(
+								kubernetesRuntimeDefinition,
+								int64(30),
+								lockReleased,
+								msg,
+							)
+							continue
+						}
+						log.Error(err, "failed to delete kubernetes runtime definition")
+						r.UnlockAndRequeue(kubernetesRuntimeDefinition, requeueDelay, lockReleased, msg)
+						continue
+					}
 				}
 			default:
 				log.Error(

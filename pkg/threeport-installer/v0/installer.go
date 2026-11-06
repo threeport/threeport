@@ -24,6 +24,9 @@ type Options struct {
 	// List of controllers to install as part of the control plane
 	ControllerList []*v0.ControlPlaneComponent
 
+	// The controller group list stored on the self instance
+	Apis string
+
 	// Info for the Rest Api being installed
 	RestApiInfo *v0.ControlPlaneComponent
 
@@ -73,6 +76,18 @@ type Options struct {
 	// gcp-controller's Kubernetes ServiceAccount will be annotated to use
 	// this GCP service account via Workload Identity.
 	GcpServiceAccountEmail string
+
+	// The region of the bucket a production GKE control plane's database is
+	// backed up to.  Empty uses the default for the cluster's region.
+	GcpBackupRegion string
+
+	// The bucket the database is backed up to, set once it is provisioned.
+	// When set, the database runs scheduled backups into it.
+	GcpBackupBucket string
+
+	// Whether tearing the control plane down also deletes its backup bucket
+	// and every backup in it.
+	DeleteBackups bool
 
 	// Path to config file for threeport
 	CfgFile string
@@ -153,6 +168,18 @@ type Options struct {
 	// A later install leaves an existing namespace, and its tier label, unchanged
 	Tier ControlPlaneTier
 
+	// ApiReplicas and ControllerReplicas set how many replicas the API server
+	// and each controller run.  Zero uses the tier's default: one on the
+	// development tier and two on production.
+	ApiReplicas        int
+	ControllerReplicas int
+
+	// ComponentResources overrides the CPU and memory a component's container
+	// requests and is limited to, keyed by component name, e.g. "rest-api",
+	// "agent", "database-migrator" or a controller's name.  A value left empty
+	// keeps the default from DefaultComponentResources.
+	ComponentResources map[string]ContainerResources
+
 	// PaginationMode sets the REST API server's pagination strategy through
 	// the `-pagination-mode` flag. Accepted values are `as-of-system-time`
 	// and `materialized-view`. A nil or empty value omits the flag, so the
@@ -228,27 +255,35 @@ func defaultInstallFunction(kubernetesRuntimeInstance *v0.KubernetesRuntimeInsta
 	return nil
 }
 
-var defaultInstallerOptions = Options{
-	Name:                        ControlPlaneName,
-	Namespace:                   ControlPlaneNamespace,
-	ControllerList:              ThreeportControllerList,
-	RestApiInfo:                 ThreeportRestApi,
-	DatabaseMigratorInfo:        DatabaseMigrator,
-	AgentInfo:                   ThreeportAgent,
-	PreInstallFunction:          defaultInstallFunction,
-	PostInstallFunction:         defaultInstallFunction,
-	InThreeport:                 false,
-	AdditionalAwsIrsaConditions: make([]string, 0),
-	AdditionalOptions:           make(map[string]interface{}),
+// defaultOptions returns the installer options every installer starts from.
+//
+// Each call builds the options afresh, components included. The package-level
+// components hold the defaults and nothing writes to them: an installer that
+// shared them would pass one control plane's overrides on to every installer
+// built after it in the same process.
+func defaultOptions() Options {
+	return Options{
+		Name:                        ControlPlaneName,
+		Namespace:                   ControlPlaneNamespace,
+		ControllerList:              copyComponents(ThreeportControllerList),
+		RestApiInfo:                 copyComponent(ThreeportRestApi),
+		DatabaseMigratorInfo:        copyComponent(DatabaseMigrator),
+		AgentInfo:                   copyComponent(ThreeportAgent),
+		PreInstallFunction:          defaultInstallFunction,
+		PostInstallFunction:         defaultInstallFunction,
+		InThreeport:                 false,
+		AdditionalAwsIrsaConditions: make([]string, 0),
+		AdditionalOptions:           make(map[string]interface{}),
+	}
 }
 
 func NewInstaller(os ...InstallerOption) *ControlPlaneInstaller {
-	opts := &defaultInstallerOptions
+	opts := defaultOptions()
 	for _, o := range os {
-		o(opts)
+		o(&opts)
 	}
 
 	return &ControlPlaneInstaller{
-		Opts: *opts,
+		Opts: opts,
 	}
 }

@@ -16931,6 +16931,10 @@ const docTemplate = `{
                 "Name"
             ],
             "properties": {
+                "AbandonInfrastructure": {
+                    "description": "Set by an operator to allow this instance to be deleted even though its\ncreation was confirmed and no resource inventory is recorded, or the\nrecorded inventory cannot be restored. The controller refuses that delete\notherwise, because cloud resources may still exist. Setting this orphans\nany resources the controller cannot find: they keep running and are no\nlonger tracked by Threeport. Resources it has recorded and can restore are\nstill destroyed. It is rejected on create, and once set it stays set until\nchanged, so tptctl sets it back to false if the delete fails.",
+                    "type": "boolean"
+                },
                 "AwsEksKubernetesRuntimeDefinitionID": {
                     "description": "The definition that configures this instance.",
                     "type": "integer"
@@ -17052,6 +17056,10 @@ const docTemplate = `{
                 "Name"
             ],
             "properties": {
+                "Additional": {
+                    "description": "Marks a component of your own, one that is not part of the default control\nplane. A component that matches no default component by name is rejected\nunless this is true, so a mistyped name cannot silently install a\ncomponent nobody asked for.",
+                    "type": "boolean"
+                },
                 "AdditionalEnvRef": {
                     "description": "The additional env reference to be added to the environment variables of the component.",
                     "type": "array",
@@ -17199,6 +17207,10 @@ const docTemplate = `{
                     "description": "Information for connecting to the rest api for the control plane",
                     "type": "string"
                 },
+                "Apis": {
+                    "description": "The controller groups this control plane installs.\nGroup names are separated by commas.\nAn empty or omitted value installs every controller.\nThe value 'none' installs no controllers.",
+                    "type": "string"
+                },
                 "CACert": {
                     "description": "The CA Cert that is associated with the control plane",
                     "type": "string"
@@ -17234,7 +17246,7 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "CustomComponentInfo": {
-                    "description": "Passed in information for the different components of the control plane i.e. controller etc\nWhen not provided, the default values will be used. If provided, they will override the default values.\nDespite being a reference to another database entry, we dont validate association.\nThis allows a user to provide CustomComponentInfo at instance creation time so the reconciler has the info it needs",
+                    "description": "Passed in information for the different components of the control plane i.e. controller etc\nWhen not provided, a component takes the image its parent control plane runs, and the\ncompiled-in default for anything the parent did not record. If provided, they will override those values.\nA name that matches no default component is rejected unless the component is marked Additional.\nDespite being a reference to another database entry, we dont validate association.\nThis allows a user to provide CustomComponentInfo at instance creation time so the reconciler has the info it needs",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/v0.ControlPlaneComponent"
@@ -17255,6 +17267,14 @@ const docTemplate = `{
                 "Genesis": {
                     "description": "Indicates whether this is was the first control plane that was spun up in a control plane group",
                     "type": "boolean"
+                },
+                "ImageNamespace": {
+                    "description": "The image registry and namespace for every default component of the\ncontrol plane, e.g. 'ghcr.io/threeport'. A component named in\nCustomComponentInfo takes its own value instead. When neither is set a\ncomponent takes the image its parent control plane runs.",
+                    "type": "string"
+                },
+                "ImageTag": {
+                    "description": "The image tag for every default component of the control plane. A\ncomponent named in CustomComponentInfo takes its own value instead. When\nneither is set a component takes the tag its parent control plane runs.",
+                    "type": "string"
                 },
                 "InterruptReconciliation": {
                     "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
@@ -17612,6 +17632,10 @@ const docTemplate = `{
                 "Name"
             ],
             "properties": {
+                "CertificatesComponentInstanceID": {
+                    "description": "The workload instance that runs the certificates component for this instance.",
+                    "type": "integer"
+                },
                 "CreationAcknowledged": {
                     "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
                     "type": "string"
@@ -17638,6 +17662,10 @@ const docTemplate = `{
                 },
                 "GatewayDefinitionID": {
                     "description": "GatewayDefinitionID is the definition used to configure the gateway instance.",
+                    "type": "integer"
+                },
+                "IngressComponentInstanceID": {
+                    "description": "The workload instance that runs the ingress component for this instance.",
                     "type": "integer"
                 },
                 "InterruptReconciliation": {
@@ -17753,6 +17781,10 @@ const docTemplate = `{
                 "Name"
             ],
             "properties": {
+                "AbandonInfrastructure": {
+                    "description": "Set by an operator to allow this instance to be deleted even though its\ncreation was confirmed and no resource inventory is recorded, or the\nrecorded inventory cannot be restored. The controller refuses that delete\notherwise, because cloud resources may still exist. Setting this orphans\nany resources the controller cannot find: they keep running and are no\nlonger tracked by Threeport. Resources it has recorded and can restore are\nstill destroyed. It is rejected on create, and once set it stays set until\nchanged, so tptctl sets it back to false if the delete fails.",
+                    "type": "boolean"
+                },
                 "CreationAcknowledged": {
                     "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
                     "type": "string"
@@ -18126,6 +18158,10 @@ const docTemplate = `{
                     "description": "The client certificate key to use for auth to the kube-api.",
                     "type": "string"
                 },
+                "CertificatesComponentInstanceID": {
+                    "description": "The workload that runs the certificates component for this runtime.",
+                    "type": "integer"
+                },
                 "ConnectionToken": {
                     "description": "Used to authenticate with a OIDC provider that implements auth for a\nKubernetes cluster.  It is an alternative to client cert authenticaion.",
                     "type": "string"
@@ -18153,6 +18189,10 @@ const docTemplate = `{
                     "description": "Gets set to true if creation process fails.",
                     "type": "boolean"
                 },
+                "DatabaseComponentInstanceID": {
+                    "description": "The workload that provides a database for this runtime.",
+                    "type": "integer"
+                },
                 "DefaultRuntime": {
                     "description": "If true, this Kubernetes cluster will be used for all workloads if not\notherwise assigned.",
                     "type": "boolean"
@@ -18169,12 +18209,8 @@ const docTemplate = `{
                     "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
                     "type": "string"
                 },
-                "DnsControllerInstanceID": {
-                    "description": "The KubernetesWorkloadInstanceID of the dns support service",
-                    "type": "integer"
-                },
-                "GatewayControllerInstanceID": {
-                    "description": "The KubernetesWorkloadInstanceID of the gateway support service",
+                "IngressComponentInstanceID": {
+                    "description": "The workload that runs the ingress component for this runtime.",
                     "type": "integer"
                 },
                 "InterruptReconciliation": {
@@ -18204,8 +18240,8 @@ const docTemplate = `{
                     "description": "Indicates if object is considered to be reconciled by the object's controller.",
                     "type": "boolean"
                 },
-                "SecretsControllerInstanceID": {
-                    "description": "The KubernetesWorkloadInstanceID of the secrets support service",
+                "SecretsComponentInstanceID": {
+                    "description": "The workload that stores secrets for this runtime.",
                     "type": "integer"
                 },
                 "Status": {
@@ -19592,6 +19628,10 @@ const docTemplate = `{
                 "OciProviderID"
             ],
             "properties": {
+                "AbandonInfrastructure": {
+                    "description": "Set by an operator to allow this instance to be deleted even though its\ncreation was confirmed and no resource inventory is recorded, or the\nrecorded inventory cannot be restored. The controller refuses that delete\notherwise, because cloud resources may still exist. Setting this orphans\nany resources the controller cannot find: they keep running and are no\nlonger tracked by Threeport. Resources it has recorded and can restore are\nstill destroyed. It is rejected on create, and once set it stays set until\nchanged, so tptctl sets it back to false if the delete fails.",
+                    "type": "boolean"
+                },
                 "ClusterOCID": {
                     "description": "The OCID for the OKE cluster. Populated by the controller after cluster creation.",
                     "type": "string"
@@ -19928,6 +19968,10 @@ const docTemplate = `{
                     "description": "The SecretDefinition that the secret instance is derived from.",
                     "type": "integer"
                 },
+                "SecretsComponentInstanceID": {
+                    "description": "The workload instance that runs the secrets component for this instance.",
+                    "type": "integer"
+                },
                 "Status": {
                     "description": "The status of the instance.\nTODO: use a custom type",
                     "type": "string"
@@ -20110,7 +20154,7 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "v0.7.0-rc.0",
+	Version:          "v0.7.0-rc.1",
 	Host:             "",
 	BasePath:         "/",
 	Schemes:          []string{},
