@@ -5,6 +5,7 @@ package v0
 import (
 	"fmt"
 
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -60,7 +61,7 @@ func (g *GcpProvider) beforeDelete(tx *gorm.DB) error {
 
 // beforeCreate validates the GcpGkeKubernetesRuntimeDefinition before create.
 func (g *GcpGkeKubernetesRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
-	return nil
+	return validateKubernetesApiAccess(KubernetesRuntimeInfraProviderGKE, g.PrivateApi, g.AllowedCidrs)
 }
 
 // beforeUpdate validates the GcpGkeKubernetesRuntimeDefinition before update.
@@ -77,7 +78,17 @@ func (g *GcpGkeKubernetesRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
 // Import:
 //   lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (g *GcpGkeKubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
-	return nil
+	return validateKubernetesApiAccessUpdate(
+		tx,
+		KubernetesRuntimeInfraProviderGKE,
+		func(values any) (*bool, *datatypes.JSON, bool) {
+			object, ok := values.(*GcpGkeKubernetesRuntimeDefinition)
+			if !ok {
+				return nil, nil, false
+			}
+			return object.PrivateApi, object.AllowedCidrs, true
+		},
+	)
 }
 
 // beforeDelete validates the GcpGkeKubernetesRuntimeDefinition before delete.

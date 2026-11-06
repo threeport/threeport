@@ -338,17 +338,23 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 		// the cluster's elastic network interfaces live in the private
 		// subnets; the API endpoint is reachable both from inside the VPC and
 		// from the internet so that a control plane hosted elsewhere can
-		// reach it
+		// reach it.  AllowedCidrs, when set, limits the public endpoint to
+		// those blocks; the nodes keep reaching the API through the private
+		// endpoint, which the list does not apply to.
+		vpcConfig := &awseks.ClusterVpcConfigArgs{
+			SubnetIds:             privateSubnetIds,
+			EndpointPrivateAccess: pulumi.Bool(true),
+			EndpointPublicAccess:  pulumi.Bool(true),
+		}
+		if len(i.AllowedCidrs) > 0 {
+			vpcConfig.PublicAccessCidrs = pulumi.ToStringArray(i.AllowedCidrs)
+		}
 		cluster, err := awseks.NewCluster(ctx, i.RuntimeInstanceName, &awseks.ClusterArgs{
-			Name:    pulumi.String(i.RuntimeInstanceName),
-			RoleArn: pulumi.String(i.ClusterRoleArn),
-			Version: pulumi.String(i.kubernetesVersion()),
-			VpcConfig: &awseks.ClusterVpcConfigArgs{
-				SubnetIds:             privateSubnetIds,
-				EndpointPrivateAccess: pulumi.Bool(true),
-				EndpointPublicAccess:  pulumi.Bool(true),
-			},
-			Tags: i.resourceTags(i.RuntimeInstanceName),
+			Name:      pulumi.String(i.RuntimeInstanceName),
+			RoleArn:   pulumi.String(i.ClusterRoleArn),
+			Version:   pulumi.String(i.kubernetesVersion()),
+			VpcConfig: vpcConfig,
+			Tags:      i.resourceTags(i.RuntimeInstanceName),
 		})
 		if err != nil {
 			return fmt.Errorf("failed to create EKS cluster: %w", err)

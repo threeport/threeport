@@ -68,6 +68,23 @@ to see which locations map to which regions on each cloud provider.
 The `DefaultRuntime` field indicates that, when deploying workloads, if a
 Kubernetes Runtime is not specified, it will use this one by default.
 
+To limit which networks can reach the cluster's Kubernetes API, add
+`AllowedCidrs`, a list of IPv4 CIDR blocks:
+
+```yaml
+  AllowedCidrs:
+    - 203.0.113.0/24
+```
+
+Without it the Kubernetes API accepts connections from any address, though
+requests still need credentials. EKS accepts up to 40 blocks, GKE up to 50 and
+OKE up to 120. The Threeport control plane manages the cluster through its
+Kubernetes API, so the list must include the public addresses the control
+plane's outbound traffic comes from, as well as any address you run `kubectl`
+from. A control plane on EKS sends its outbound traffic through the Elastic IPs
+of its cluster's NAT gateways. The list can't be changed once the runtime has
+been created.
+
 Create a `KubernetesRuntime` instance:
 ```bash
 tptctl create kubernetes-runtime --config k8s-runtime.yaml
