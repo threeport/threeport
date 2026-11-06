@@ -1830,6 +1830,10 @@ func (cpi *ControlPlaneInstaller) GetThreeportAPIEndpoint(
 		if err == nil {
 			return apiEndpoint, nil
 		}
+		var permanent permanentEndpointError
+		if errors.As(err, &permanent) {
+			return "", fmt.Errorf("failed to retrieve threeport API load balancer endpoint: %w", err)
+		}
 		if time.Now().After(deadline) {
 			return "", fmt.Errorf(
 				"timed out after %s trying to retrieve threeport API load balancer endpoint: %w",
@@ -1849,30 +1853,26 @@ var apiLoadBalancerTimeout = 5 * time.Minute
 // apiLoadBalancerPollInterval is how often the install checks for it.
 var apiLoadBalancerPollInterval = 5 * time.Second
 
+// permanentEndpointError is an error from threeportAPILoadBalancerEndpoint
+// that checking again cannot clear: the provider has no field for the address,
+// or the Service's status is not shaped the way Kubernetes writes it. The wait
+// returns it at once instead of repeating it until the timeout.
+type permanentEndpointError struct {
+	err error
+}
+
+func (e permanentEndpointError) Error() string { return e.err.Error() }
+
+func (e permanentEndpointError) Unwrap() error { return e.err }
+
 // threeportAPILoadBalancerEndpoint returns the address the cloud provider
 // gave the threeport API's load balancer: a hostname on EKS, an IP on OKE and
-// GKE. It errors while there is none yet.
+// GKE. It errors while there is none yet, and returns a permanentEndpointError
+// for what waiting cannot fix.
 func (cpi *ControlPlaneInstaller) threeportAPILoadBalancerEndpoint(
 	kubeClient dynamic.Interface,
 	mapper meta.RESTMapper,
 ) (string, error) {
-	apiService, err := cpi.GetThreeportAPIService(kubeClient, mapper)
-	if err != nil {
-		return "", fmt.Errorf("failed to get threeport API service resource: %w", err)
-	}
-
-	ingress, _, err := unstructured.NestedSlice(apiService.Object, "status", "loadBalancer", "ingress")
-	if err != nil {
-		return "", fmt.Errorf("failed to read threeport API load balancer ingress: %w", err)
-	}
-	if len(ingress) == 0 {
-		return "", errors.New("threeport API load balancer has no ingress yet")
-	}
-	firstIngress, ok := ingress[0].(map[string]interface{})
-	if !ok {
-		return "", errors.New("threeport API load balancer ingress is not an object")
-	}
-
 	var field string
 	switch cpi.Opts.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
@@ -1880,12 +1880,37 @@ func (cpi *ControlPlaneInstaller) threeportAPILoadBalancerEndpoint(
 	case v0.KubernetesRuntimeInfraProviderOKE, v0.KubernetesRuntimeInfraProviderGKE:
 		field = "ip"
 	default:
-		return "", fmt.Errorf("unsupported infrastructure provider: %s", cpi.Opts.InfraProvider)
+		return "", permanentEndpointError{
+			fmt.Errorf("unsupported infrastructure provider: %s", cpi.Opts.InfraProvider),
+		}
+	}
+
+	apiService, err := cpi.GetThreeportAPIService(kubeClient, mapper)
+	if err != nil {
+		return "", fmt.Errorf("failed to get threeport API service resource: %w", err)
+	}
+
+	ingress, _, err := unstructured.NestedSlice(apiService.Object, "status", "loadBalancer", "ingress")
+	if err != nil {
+		return "", permanentEndpointError{
+			fmt.Errorf("failed to read threeport API load balancer ingress: %w", err),
+		}
+	}
+	if len(ingress) == 0 {
+		return "", errors.New("threeport API load balancer has no ingress yet")
+	}
+	firstIngress, ok := ingress[0].(map[string]interface{})
+	if !ok {
+		return "", permanentEndpointError{
+			errors.New("threeport API load balancer ingress is not an object"),
+		}
 	}
 
 	apiEndpoint, _, err := unstructured.NestedString(firstIngress, field)
 	if err != nil {
-		return "", fmt.Errorf("failed to read threeport API load balancer %s: %w", field, err)
+		return "", permanentEndpointError{
+			fmt.Errorf("failed to read threeport API load balancer %s: %w", field, err),
+		}
 	}
 	if apiEndpoint == "" {
 		return "", fmt.Errorf("threeport API load balancer has no %s yet", field)
