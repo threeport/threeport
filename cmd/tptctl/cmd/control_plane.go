@@ -55,7 +55,7 @@ var GetControlPlanesCmd = &cobra.Command{
 		case "v0":
 			// load control plane values
 			controlPlaneConfig := config_v0.ControlPlaneConfig{}
-			if controlPlaneConfigPath != "" {
+			if controlPlaneConfigPath != "" || controlPlaneStdin {
 				configContent, err := cli.ReadConfigContent(controlPlaneConfigPath, controlPlaneStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -314,7 +314,7 @@ var GetControlPlaneDefinitionsCmd = &cobra.Command{
 		case "v0":
 			// load values
 			controlPlaneDefinitionConfig := config_v0.ControlPlaneDefinitionConfig{}
-			if controlPlaneConfigPath != "" {
+			if controlPlaneConfigPath != "" || controlPlaneStdin {
 				configContent, err := cli.ReadConfigContent(controlPlaneConfigPath, controlPlaneStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -558,7 +558,7 @@ var DeleteControlPlaneDefinitionCmd = &cobra.Command{
 		switch controlPlaneVersion {
 		case "v0":
 			var controlPlaneDefinitionConfig config_v0.ControlPlaneDefinitionConfig
-			if controlPlaneConfigPath != "" {
+			if controlPlaneConfigPath != "" || controlPlaneStdin {
 				// load control plane definition config
 				configContent, err := cli.ReadConfigContent(controlPlaneConfigPath, controlPlaneStdin)
 				if err != nil {
@@ -643,7 +643,7 @@ var GetControlPlaneInstancesCmd = &cobra.Command{
 		case "v0":
 			// load values
 			controlPlaneInstanceConfig := config_v0.ControlPlaneInstanceConfig{}
-			if controlPlaneConfigPath != "" {
+			if controlPlaneConfigPath != "" || controlPlaneStdin {
 				configContent, err := cli.ReadConfigContent(controlPlaneConfigPath, controlPlaneStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -887,7 +887,7 @@ var DeleteControlPlaneInstanceCmd = &cobra.Command{
 		switch controlPlaneVersion {
 		case "v0":
 			var controlPlaneInstanceConfig config_v0.ControlPlaneInstanceConfig
-			if controlPlaneConfigPath != "" {
+			if controlPlaneConfigPath != "" || controlPlaneStdin {
 				// load control plane instance config
 				configContent, err := cli.ReadConfigContent(controlPlaneConfigPath, controlPlaneStdin)
 				if err != nil {
