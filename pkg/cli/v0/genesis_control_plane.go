@@ -1032,6 +1032,11 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		CustomComponentInfo:         componentList,
 		ControlPlaneDefinitionID:    controlPlaneDefinition.ID,
 	}
+	// store the controller groups on the self instance
+	if cpi.Opts.Apis != "" {
+		apis := cpi.Opts.Apis
+		controlPlaneInstance.Apis = &apis
+	}
 
 	// create control plane instance
 	_, err = client.CreateControlPlaneInstance(apiClient, threeportAPIEndpoint, &controlPlaneInstance)
@@ -1956,6 +1961,11 @@ func ensureBootstrapControlPlane(
 		ClientKey:                   clientKey,
 		CustomComponentInfo:         componentList,
 		ControlPlaneDefinitionID:    definition.ID,
+	}
+	// store the controller groups on the self instance
+	if cpi.Opts.Apis != "" {
+		apis := cpi.Opts.Apis
+		newInstance.Apis = &apis
 	}
 	if _, err := client.CreateControlPlaneInstance(
 		apiClient,

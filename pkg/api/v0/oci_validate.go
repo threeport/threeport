@@ -95,7 +95,7 @@ func (o *OciOkeKubernetesRuntimeDefinition) beforeDelete(tx *gorm.DB) error {
 
 // beforeCreate validates the OciOkeKubernetesRuntimeInstance before create.
 func (o *OciOkeKubernetesRuntimeInstance) beforeCreate(tx *gorm.DB) error {
-	return nil
+	return rejectAbandonInfrastructureOnCreate(o.AbandonInfrastructure)
 }
 
 // beforeUpdate validates the OciOkeKubernetesRuntimeInstance before update.

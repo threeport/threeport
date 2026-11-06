@@ -67,6 +67,8 @@ func (g *gkeLifecycle) GetReconciliation() (*provider.ReconciliationSnapshot, er
 		DeletionAcknowledged: latest.DeletionAcknowledged,
 		DeletionConfirmed:    latest.DeletionConfirmed,
 		ResourceInventory:    latest.ResourceInventory,
+
+		AbandonInfrastructure: latest.AbandonInfrastructure != nil && *latest.AbandonInfrastructure,
 	}, nil
 }
 
@@ -101,11 +103,7 @@ func (g *gkeLifecycle) IsCreateComplete() (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to check GKE creation status: %w", err)
 	}
-	if latest.ResourceInventory == nil {
-		return false, nil
-	}
-	inventory := *latest.ResourceInventory
-	return len(inventory) > 0 && string(inventory) != "{}" && string(inventory) != "null", nil
+	return provider.HasInventory(latest.ResourceInventory), nil
 }
 
 // OnCreateConfirmed gets connection info and updates the kubernetes runtime instance.
@@ -325,6 +323,22 @@ func (g *gkeLifecycle) ClearInventory() error {
 	}
 	_, err := client.UpdateGcpGkeKubernetesRuntimeInstance(g.r.APIClient, g.r.APIServer, &clearedUpdate)
 	return err
+}
+
+// RecordWarning records a Warning event against the instance.
+func (g *gkeLifecycle) RecordWarning(reason, note string) error {
+	// a nil Recorder interface and a nil pointer inside one are both "none"
+	if g.r == nil || g.r.EventsRecorder == nil {
+		return provider.RecordWarningEvent(nil, g.instanceID, "", reason, note)
+	}
+
+	return provider.RecordWarningEvent(
+		g.r.EventsRecorder,
+		g.instanceID,
+		new(v0.GcpGkeKubernetesRuntimeInstance).GetFullyQualifiedType(),
+		reason,
+		note,
+	)
 }
 
 // PublishCreateNotification publishes a NATS notification for creation.

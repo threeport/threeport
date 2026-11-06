@@ -146,7 +146,7 @@ func (a *AwsEksKubernetesRuntimeDefinition) beforeDelete(tx *gorm.DB) error {
 
 // beforeCreate validates the AwsEksKubernetesRuntimeInstance before create.
 func (a *AwsEksKubernetesRuntimeInstance) beforeCreate(tx *gorm.DB) error {
-	return nil
+	return rejectAbandonInfrastructureOnCreate(a.AbandonInfrastructure)
 }
 
 // beforeUpdate validates the AwsEksKubernetesRuntimeInstance before update.
