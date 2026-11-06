@@ -985,10 +985,17 @@ func syncManagedChild(r *controller.Reconciler, instance *v0.ControlPlaneInstanc
 		return fmt.Errorf("failed to get control plane instance by name: %w", err)
 	}
 
+	// send an empty controller list when Apis was cleared, because a nil field is omitted
+	apis := stored.Apis
+	if apis == nil {
+		cleared := ""
+		apis = &cleared
+	}
+
 	// set the parent link when an older child was created without one
 	update := &v0.ControlPlaneInstance{
 		Common:         v0.Common{ID: childSelf.ID},
-		Apis:           stored.Apis,
+		Apis:           apis,
 		ImageNamespace: stored.ImageNamespace,
 		ImageTag:       stored.ImageTag,
 	}
