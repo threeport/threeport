@@ -21,6 +21,7 @@ func GenUtilJetstream(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f.HeaderComment(sdk.HeaderCommentGenNoEdit)
 
 	f.ImportAlias("github.com/nats-io/nats.go", "nats")
+	f.ImportAlias("github.com/threeport/threeport/pkg/notifications/v0", "notifications")
 	f.ImportAlias("github.com/threeport/threeport/internal/aws/notif", "aws_notif")
 	f.ImportAlias("github.com/threeport/threeport/internal/control-plane/notif", "controlplane_notif")
 	f.ImportAlias("github.com/threeport/threeport/internal/gateway/notif", "gateway_notif")
@@ -60,6 +61,14 @@ func GenUtilJetstream(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 								fmt.Sprintf("%s/internal/%s/notif", gen.ModulePath, objGroup.ControllerShortName),
 								fmt.Sprintf("Get%sSubjects", strcase.ToCamel(objGroup.ControllerShortName)),
 							).Call(),
+							// each consumer filters on its own subjects, so a
+							// notification is removed once it is acknowledged
+							Id("Retention"): Qual("github.com/nats-io/nats.go", "WorkQueuePolicy"),
+							Id("Storage"):   Qual("github.com/nats-io/nats.go", "FileStorage"),
+							// a stream at its cap rejects new notifications, it does
+							// not discard unacknowledged ones
+							Id("MaxBytes"): Qual("github.com/threeport/threeport/pkg/notifications/v0", "ControllerStreamMaxBytes"),
+							Id("Discard"):  Qual("github.com/nats-io/nats.go", "DiscardNew"),
 						},
 					),
 				)

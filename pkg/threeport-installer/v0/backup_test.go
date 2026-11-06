@@ -153,8 +153,6 @@ func getObject(t *testing.T, kubeClient dynamic.Interface, gvr schema.GroupVersi
 
 var configMapGVR = schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
 
-var statefulSetGVR = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "statefulsets"}
-
 // TestTheDatabaseRunsAsItsOwnServiceAccount covers the identity the database
 // writes its backups as: its own Kubernetes service account, which the
 // backup bucket grants access to by UID.  It acts as no GCP service account,

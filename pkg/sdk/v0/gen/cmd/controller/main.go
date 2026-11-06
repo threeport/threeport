@@ -53,16 +53,7 @@ func GenControllerMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			}
 
 			reconcilerConfigs := &Statement{}
-			durable := true
 			for _, obj := range objGroup.ReconciledObjects {
-				// If any of the reconciled objects has a struct tag with "persist" set to
-				// "false", then set the controller's consumer to be ephemeral. This will
-				// prevent all of the nats streams associated with this controller from
-				// being persisted to disk, and will result in nats messages being lost in the
-				// event of a nats server failure or restart.
-				if obj.DisableNotificationPersistence {
-					durable = false
-				}
 				reconcilerConfigs.Id("reconcilerConfigs").Op("=").Append(Id("reconcilerConfigs").Op(",").Qual(
 					"github.com/threeport/threeport/pkg/controller/v0",
 					"ReconcilerConfig",
@@ -338,7 +329,7 @@ func GenControllerMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				For(
 					Id("_").Op(",").Id("r").Op(":=").Range().Id("reconcilerConfigs"),
 				).BlockFunc(func(g *jen.Group) {
-					ConfigurePullSubscription(g, objGroup, durable, gen.ModulePath)
+					ConfigurePullSubscription(g, objGroup, gen.ModulePath)
 					g.Line().Comment("create exit channel")
 					g.Id("shutdownChan").Op(":=").Make(Chan().Bool(), Lit(1))
 					g.Id("shutdownChans").Op("=").Append(Id("shutdownChans"), Id("shutdownChan"))
@@ -504,46 +495,45 @@ func GenControllerMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 }
 
 // ConfigurePullSubscription adds a durable consumer to a controller's main package.
+// The consumer is always durable: a work queue stream refuses a second
+// consumer on the same subjects, so an ephemeral one would block the
+// replacement pod of a rolling update until the old pod exited.
 func ConfigurePullSubscription(
 	g *jen.Group,
 	objGroup gen.ApiObjectGroup,
-	durable bool,
 	modulePath string,
 ) {
-	consumer := Lit("")
-	if durable {
-		consumer = Id("consumer")
-		g.Line().Comment("create JetStream consumer")
-		g.Id("consumer").Op(":=").Id("r").Dot("Name").Op("+").Lit("Consumer")
-		g.Id("_").Op(",").Id("err").Op("=").Id("js").Dot("AddConsumer").Call(Qual(
-			fmt.Sprintf(
-				"%s/internal/%s/notif",
-				modulePath,
-				objGroup.ControllerShortName,
-			),
-			objGroup.StreamName,
-		).Op(",").Op("&").Qual(
+	consumer := Id("consumer")
+	g.Line().Comment("create JetStream consumer")
+	g.Id("consumer").Op(":=").Id("r").Dot("Name").Op("+").Lit("Consumer")
+	g.Id("_").Op(",").Id("err").Op("=").Id("js").Dot("AddConsumer").Call(Qual(
+		fmt.Sprintf(
+			"%s/internal/%s/notif",
+			modulePath,
+			objGroup.ControllerShortName,
+		),
+		objGroup.StreamName,
+	).Op(",").Op("&").Qual(
+		"github.com/nats-io/nats.go",
+		"ConsumerConfig",
+	).Values(Dict{
+		Id("Durable"): consumer,
+		Id("AckPolicy"): Qual(
 			"github.com/nats-io/nats.go",
-			"ConsumerConfig",
-		).Values(Dict{
-			Id("Durable"): consumer,
-			Id("AckPolicy"): Qual(
-				"github.com/nats-io/nats.go",
-				"AckExplicitPolicy",
-			),
-			Id("FilterSubject"): Id("r").Dot("NotifSubject"),
-		}),
-		)
-		g.If(Id("err").Op("!=").Nil()).Block(
-			Id("log").Dot("Error").Call(
-				Id("err"),
-				Lit("failed to create JetStream consumer for reconciler notifications"),
-				Lit("reconcilerName"),
-				Id("r").Dot("Name"),
-			),
-			Qual("os", "Exit").Call(Lit(1)),
-		)
-	}
+			"AckExplicitPolicy",
+		),
+		Id("FilterSubject"): Id("r").Dot("NotifSubject"),
+	}),
+	)
+	g.If(Id("err").Op("!=").Nil()).Block(
+		Id("log").Dot("Error").Call(
+			Id("err"),
+			Lit("failed to create JetStream consumer for reconciler notifications"),
+			Lit("reconcilerName"),
+			Id("r").Dot("Name"),
+		),
+		Qual("os", "Exit").Call(Lit(1)),
+	)
 
 	g.Line().Comment("create durable pull subscription")
 	g.Id("sub").Op(",").Id("err").Op(":=").Id("js").Dot("PullSubscribe").Call(

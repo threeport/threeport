@@ -158,8 +158,20 @@ func main() {
 	var readyFlags []*atomic.Bool
 	for _, r := range reconcilerConfigs {
 
+		// create JetStream consumer
+		consumer := r.Name + "Consumer"
+		_, err = js.AddConsumer(notif.SecretStreamName, &natsgo.ConsumerConfig{
+			AckPolicy:     natsgo.AckExplicitPolicy,
+			Durable:       consumer,
+			FilterSubject: r.NotifSubject,
+		})
+		if err != nil {
+			log.Error(err, "failed to create JetStream consumer for reconciler notifications", "reconcilerName", r.Name)
+			os.Exit(1)
+		}
+
 		// create durable pull subscription
-		sub, err := js.PullSubscribe(r.NotifSubject, "", natsgo.BindStream(notif.SecretStreamName))
+		sub, err := js.PullSubscribe(r.NotifSubject, consumer, natsgo.BindStream(notif.SecretStreamName))
 		if err != nil {
 			log.Error(err, "failed to create pull subscription for reconciler notifications", "reconcilerName", r.Name)
 			os.Exit(1)
