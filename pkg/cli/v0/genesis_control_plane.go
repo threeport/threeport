@@ -1059,7 +1059,7 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	// succeeds.
 	if threeportControlPlaneConfig.InfraDestroyed {
 		Info("Infrastructure already destroyed, skipping to GCP cleanup")
-		if err := resumeTeardownCleanup(threeportControlPlaneConfig); err != nil {
+		if err := resumeTeardownCleanup(threeportControlPlaneConfig, cpi.Opts.DeleteBackups); err != nil {
 			return err
 		}
 		DeleteThreeportConfigControlPlane(threeportConfig, cpi.Opts.ControlPlaneName)

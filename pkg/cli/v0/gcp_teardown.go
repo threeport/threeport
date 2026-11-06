@@ -197,11 +197,12 @@ func markGkeCleanupPending(controlPlane *ControlPlane, deleteErr error) error {
 
 // resumeTeardownCleanup finishes a teardown whose infrastructure is already
 // destroyed: the GKE service account if its removal failed, then the service
-// accounts of the control plane's gcp providers.
-func resumeTeardownCleanup(controlPlane *ControlPlane) error {
+// accounts of the control plane's gcp providers. deleteBackups is whether this
+// run was asked to delete the database backups, as the first one may have been.
+func resumeTeardownCleanup(controlPlane *ControlPlane, deleteBackups bool) error {
 	if controlPlane.Provider == v0.KubernetesRuntimeInfraProviderGKE &&
 		controlPlane.GKEProviderConfig.ServiceAccountCleanupPending {
-		if err := resumeGkeCleanup(controlPlane); err != nil {
+		if err := resumeGkeCleanup(controlPlane, deleteBackups); err != nil {
 			return err
 		}
 		if _, err := controlPlane.UpdateThreeportConfigInstance(func(c *ControlPlane) {
@@ -214,16 +215,27 @@ func resumeTeardownCleanup(controlPlane *ControlPlane) error {
 	return cleanUpPendingGcpProviders(controlPlane)
 }
 
-// resumeGkeCleanup removes the GCP service account of a GKE runtime whose
-// cluster a previous teardown destroyed.
-func resumeGkeCleanup(controlPlane *ControlPlane) error {
-	infra := &provider.KubernetesRuntimeInfraGKE{
+// resumeGkeInfra describes the GKE runtime whose cluster a previous teardown
+// destroyed, with what its cleanup needs. The backup bucket is part of that: the
+// service account is removed first, so a failure removing the database's access
+// to its bucket, or the backups, leaves the retry to do it - and without the
+// bucket the retry would skip it, report success and drop the config entry.
+func resumeGkeInfra(controlPlane *ControlPlane, deleteBackups bool) *provider.KubernetesRuntimeInfraGKE {
+	return &provider.KubernetesRuntimeInfraGKE{
 		PulumiWorkspace: provider.PulumiWorkspace{
 			RuntimeInstanceName: provider.ThreeportRuntimeName(controlPlane.Name),
 		},
-		ProjectID: controlPlane.GKEProviderConfig.GcpProjectId,
-		Region:    controlPlane.GKEProviderConfig.GcpRegion,
+		ProjectID:     controlPlane.GKEProviderConfig.GcpProjectId,
+		Region:        controlPlane.GKEProviderConfig.GcpRegion,
+		BackupBucket:  controlPlane.GKEProviderConfig.BackupBucket,
+		DeleteBackups: deleteBackups,
 	}
+}
+
+// resumeGkeCleanup removes the GCP service account and backup bucket access of a
+// GKE runtime whose cluster a previous teardown destroyed.
+func resumeGkeCleanup(controlPlane *ControlPlane, deleteBackups bool) error {
+	infra := resumeGkeInfra(controlPlane, deleteBackups)
 	if infra.ProjectID == "" {
 		return fmt.Errorf(
 			"no GCP project recorded for control plane %s; set GKEProviderConfig.GcpProjectId in the threeport config to the project the cluster was in",
@@ -231,7 +243,7 @@ func resumeGkeCleanup(controlPlane *ControlPlane) error {
 		)
 	}
 	if err := infra.InitPulumiProject().CleanUpGCPResources(); err != nil {
-		return fmt.Errorf("failed to clean up GCP service account: %w", err)
+		return fmt.Errorf("failed to clean up GCP resources: %w", err)
 	}
 
 	return nil

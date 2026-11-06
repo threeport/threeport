@@ -120,8 +120,31 @@ func TestMarkGkeCleanupPending_OtherErrorsRecordNothing(t *testing.T) {
 	assert.False(t, controlPlane.GKEProviderConfig.ServiceAccountCleanupPending)
 }
 
+// the bucket a first teardown recorded, and whether this run deletes what is in
+// it, reach the retry: without them it skips the backup cleanup the first run
+// did not finish
+func TestResumeGkeInfra_CarriesBackupCleanup(t *testing.T) {
+	controlPlane := &ControlPlane{
+		Name: "cp",
+		GKEProviderConfig: GKEProviderConfig{
+			GcpProjectId: "proj",
+			GcpRegion:    "us-east1",
+			BackupBucket: "cp-backups",
+		},
+	}
+
+	kept := resumeGkeInfra(controlPlane, false)
+	assert.Equal(t, "cp-backups", kept.BackupBucket)
+	assert.False(t, kept.DeleteBackups)
+	assert.Equal(t, "proj", kept.ProjectID)
+
+	deleted := resumeGkeInfra(controlPlane, true)
+	assert.Equal(t, "cp-backups", deleted.BackupBucket)
+	assert.True(t, deleted.DeleteBackups)
+}
+
 func TestResumeGkeCleanup_RequiresProject(t *testing.T) {
-	err := resumeGkeCleanup(&ControlPlane{Name: "cp"})
+	err := resumeGkeCleanup(&ControlPlane{Name: "cp"}, false)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "GcpProjectId")
@@ -134,12 +157,12 @@ func TestResumeTeardownCleanup_NothingPendingIsDone(t *testing.T) {
 		Name:           "cp",
 		Provider:       v0.KubernetesRuntimeInfraProviderGKE,
 		InfraDestroyed: true,
-	}))
+	}, false))
 	require.NoError(t, resumeTeardownCleanup(&ControlPlane{
 		Name:           "cp",
 		Provider:       v0.KubernetesRuntimeInfraProviderEKS,
 		InfraDestroyed: true,
-	}))
+	}, false))
 }
 
 func TestResumeTeardownCleanup_PendingGkeAccountNeedsProject(t *testing.T) {
@@ -150,7 +173,7 @@ func TestResumeTeardownCleanup_PendingGkeAccountNeedsProject(t *testing.T) {
 		GKEProviderConfig: GKEProviderConfig{
 			ServiceAccountCleanupPending: true,
 		},
-	})
+	}, false)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "GcpProjectId")
