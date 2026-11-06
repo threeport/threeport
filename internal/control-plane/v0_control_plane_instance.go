@@ -1181,8 +1181,10 @@ func v0ControlPlaneInstanceUpdated(
 		return 0, err
 	}
 
-	// copy the image and the controller list onto the child's own row
-	if controlPlaneInstance.ParentControlPlaneInstanceID != nil {
+	// copy the image and the controller list when the child has a row that can accept it
+	if controlPlaneInstance.ParentControlPlaneInstanceID != nil &&
+		(controlPlaneDefinition.OnboardParent == nil || *controlPlaneDefinition.OnboardParent) &&
+		(controlPlaneDefinition.AuthEnabled == nil || *controlPlaneDefinition.AuthEnabled) {
 		if err := syncManagedChild(r, controlPlaneInstance); err != nil {
 			return 0, err
 		}
