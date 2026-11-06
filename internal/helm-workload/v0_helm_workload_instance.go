@@ -490,13 +490,19 @@ func v0HelmWorkloadInstanceDeleted(
 		}
 	}
 
-	// delete the namespace
+	// Delete the namespace. A failure is returned rather than logged: the
+	// namespace holds the release's volume claims, and one left behind keeps
+	// its disks, so the delete is retried and its failure recorded on the
+	// instance. A retry is safe - the release, the ThreeportWorkload and the
+	// namespace are each treated as done once they are gone.
 	if helmWorkloadInstance.ReleaseNamespace != nil {
-		installer.DeleteNamespaces(
+		if err := installer.DeleteNamespaces(
 			kubeClient,
 			mapper,
 			[]string{*helmWorkloadInstance.ReleaseNamespace},
-		)
+		); err != nil {
+			return 0, fmt.Errorf("failed to delete helm workload release namespace: %w", err)
+		}
 	}
 
 	return 0, nil
