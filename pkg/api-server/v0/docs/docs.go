@@ -17207,6 +17207,10 @@ const docTemplate = `{
                     "description": "Information for connecting to the rest api for the control plane",
                     "type": "string"
                 },
+                "Apis": {
+                    "description": "The controller groups this control plane installs.\nGroup names are separated by commas.\nAn empty or omitted value installs every controller.\nThe value 'none' installs no controllers.",
+                    "type": "string"
+                },
                 "CACert": {
                     "description": "The CA Cert that is associated with the control plane",
                     "type": "string"
