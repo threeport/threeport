@@ -101,12 +101,24 @@ dev-purge-streams:
 dev-uninstall-helm:
 	helm ls -A --short | xargs -I {} helm uninstall --namespace threeport-control-plane {}
 
-#TODO: move to kubectl exec command that uses `nats` binary in contianer
-#dev-sub-nats: @ Subscribe to all messages from nats server locally (must first run `make dev-forward-nats` in another terminal)
-dev-sub-nats:
-	nats sub -s "nats://127.0.0.1:4222" ">"
+#dev-nats-env: @ Print the environment that connects the nats CLI, a local API and local controllers to the local message broker over TLS: eval "$$(make -s dev-nats-env)"
+# The CA's certificate goes in a directory of its own that only this user can
+# read, made under a name nobody can know ahead of time, rather than at a fixed
+# path in the shared /tmp that another user could put a symlink at first.
+dev-nats-env:
+	@dir=$$(mktemp -d "$${TMPDIR:-/tmp}/threeport-nats.XXXXXX") && \
+	kubectl get secret nats-ca-cert -n threeport-control-plane -o jsonpath='{.data.ca\.crt}' | base64 --decode > "$$dir/ca.crt" && \
+	password=$$(kubectl get secret nats-credentials -n threeport-control-plane -o jsonpath='{.data.password}' | base64 --decode) && \
+	echo "export NATS_URL=tls://localhost:4222 NATS_CA=$$dir/ca.crt NATS_USER=threeport NATS_PASSWORD=$$password" && \
+	echo "export NATS_CA_FILE=$$dir/ca.crt" && \
+	echo "export MSG_BROKER_CA_FILE=$$dir/ca.crt MSG_BROKER_USER=threeport MSG_BROKER_PASSWORD=$$password"
 
-#dev-debug-api: @ Start debugging session for API (must first run `make dev-forward-nats` in another terminal)
+#TODO: move to kubectl exec command that uses `nats` binary in contianer
+#dev-sub-nats: @ Subscribe to all messages from nats server locally (must first run `make dev-forward-nats` in another terminal and eval "$$(make -s dev-nats-env)")
+dev-sub-nats:
+	nats sub ">"
+
+#dev-debug-api: @ Start debugging session for API (must first run `make dev-forward-nats` in another terminal and eval "$$(make -s dev-nats-env)")
 dev-debug-api:
 	dlv debug cmd/rest-api/main_gen.go -- -env-file hack/env -auto-migrate -verbose
 
