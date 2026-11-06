@@ -31,27 +31,27 @@ func TestGcpResourceLabels_SanitizesOwnerName(t *testing.T) {
 	assert.Equal(t, "unnamed", got[GcpLabelThreeportName])
 }
 
-// TestServiceAccountOwnedBy_RequiresOwnershipDescription covers reuse vs refuse.
-func TestServiceAccountOwnedBy_RequiresOwnershipDescription(t *testing.T) {
+// TestProviderServiceAccountOwnedBy_RequiresOwnershipDescription covers reuse vs refuse.
+func TestProviderServiceAccountOwnedBy_RequiresOwnershipDescription(t *testing.T) {
 	name := "my-provider"
 	owned := &iam.ServiceAccount{
 		Description: "Service account for Threeport GcpProvider my-provider to manage GCP resources; " + GcpOwnershipDescription(name),
 	}
-	require.True(t, serviceAccountOwnedBy(owned, name))
-	require.False(t, serviceAccountOwnedBy(owned, "other-provider"))
-	require.False(t, serviceAccountOwnedBy(&iam.ServiceAccount{Description: "someone else"}, name))
-	require.False(t, serviceAccountOwnedBy(nil, name))
+	require.True(t, providerServiceAccountOwnedBy(owned, name))
+	require.False(t, providerServiceAccountOwnedBy(owned, "other-provider"))
+	require.False(t, providerServiceAccountOwnedBy(&iam.ServiceAccount{Description: "someone else"}, name))
+	require.False(t, providerServiceAccountOwnedBy(nil, name))
 }
 
-// TestServiceAccountOwnedBy_RejectsNamePrefix covers a shorter owner name that
-// is a prefix of the stored threeport-name value.
-func TestServiceAccountOwnedBy_RejectsNamePrefix(t *testing.T) {
+// TestProviderServiceAccountOwnedBy_RejectsNamePrefix covers a shorter owner
+// name that is a prefix of the stored name.
+func TestProviderServiceAccountOwnedBy_RejectsNamePrefix(t *testing.T) {
 	owned := &iam.ServiceAccount{
 		Description: "Service account for Threeport GcpProvider app-prod to manage GCP resources; " + GcpOwnershipDescription("app-prod"),
 	}
 
-	require.True(t, serviceAccountOwnedBy(owned, "app-prod"))
-	require.False(t, serviceAccountOwnedBy(owned, "app"))
+	require.True(t, providerServiceAccountOwnedBy(owned, "app-prod"))
+	require.False(t, providerServiceAccountOwnedBy(owned, "app"))
 }
 
 // TestFormatServiceAccountID_IsAValidID covers the ID GCP accepts
@@ -130,8 +130,8 @@ func TestGkeServiceAccountDescription_EmbedsOwnership(t *testing.T) {
 	got := gkeServiceAccountDescription(name)
 
 	require.Contains(t, got, GcpOwnershipDescription(name))
-	require.True(t, serviceAccountOwnedBy(&iam.ServiceAccount{Description: got}, name))
-	require.False(t, serviceAccountOwnedBy(&iam.ServiceAccount{Description: got}, "other-runtime"))
+	require.True(t, createdForRuntime(&iam.ServiceAccount{Description: got}, name))
+	require.False(t, createdForRuntime(&iam.ServiceAccount{Description: got}, "other-runtime"))
 }
 
 // TestGkeServiceAccountDescription_OldFormatIsUnowned covers a leftover GKE
@@ -143,8 +143,8 @@ func TestGkeServiceAccountDescription_OldFormatIsUnowned(t *testing.T) {
 		Description: fmt.Sprintf("Service account for Threeport instance %s to manage GCP resources", name),
 	}
 
-	require.False(t, serviceAccountOwnedBy(old, name))
-	require.Error(t, refuseUnownedExistingGCPServiceAccount(old, true, name))
+	require.False(t, createdForRuntime(old, name))
+	require.Error(t, refuseUnownedExistingGCPServiceAccount(old, true, name, createdForRuntime))
 }
 
 // TestRefuseUnownedExistingGCPServiceAccount_AllowsOwnedReuse covers create vs reuse.
@@ -155,9 +155,50 @@ func TestRefuseUnownedExistingGCPServiceAccount_AllowsOwnedReuse(t *testing.T) {
 		Description: gkeServiceAccountDescription(name),
 	}
 
-	require.NoError(t, refuseUnownedExistingGCPServiceAccount(owned, false, name))
-	require.NoError(t, refuseUnownedExistingGCPServiceAccount(owned, true, name))
-	require.Error(t, refuseUnownedExistingGCPServiceAccount(owned, true, "other-runtime"))
+	require.NoError(t, refuseUnownedExistingGCPServiceAccount(owned, false, name, createdForRuntime))
+	require.NoError(t, refuseUnownedExistingGCPServiceAccount(owned, true, name, createdForRuntime))
+	require.Error(t, refuseUnownedExistingGCPServiceAccount(owned, true, "other-runtime", createdForRuntime))
+}
+
+// TestRefuseUnownedExistingGCPServiceAccount_RefusesCollidingNames covers two
+// names that derive one service-account ID.
+//
+// The hash in the ID is six hex characters, so a pair that collides can be found
+// on purpose. These two differ only in case, which the ownership marker in the
+// description erases, so a check on the marker alone takes the first name's
+// account for the second's and a key is created for it. The whole description
+// keeps the names apart, as it does on delete.
+func TestRefuseUnownedExistingGCPServiceAccount_RefusesCollidingNames(t *testing.T) {
+	first := "aBCDefGHiJklmnopqrstuvwx"
+	second := "ABcdEfGHijKLMnopqrstuvwx"
+	require.Equal(
+		t, formatServiceAccountID(first), formatServiceAccountID(second),
+		"this test is meaningless unless the two names derive the same account id",
+	)
+	require.Equal(
+		t, GcpOwnershipDescription(first), GcpOwnershipDescription(second),
+		"this test is meaningless unless the ownership marker cannot tell them apart",
+	)
+
+	providerAccount := &iam.ServiceAccount{Description: gcpProviderServiceAccountDescription(first)}
+	require.NoError(t, refuseUnownedExistingGCPServiceAccount(providerAccount, true, first, providerServiceAccountOwnedBy))
+	require.Error(t, refuseUnownedExistingGCPServiceAccount(providerAccount, true, second, providerServiceAccountOwnedBy))
+
+	runtimeAccount := &iam.ServiceAccount{Description: gkeServiceAccountDescription(first)}
+	require.NoError(t, refuseUnownedExistingGCPServiceAccount(runtimeAccount, true, first, createdForRuntime))
+	require.Error(t, refuseUnownedExistingGCPServiceAccount(runtimeAccount, true, second, createdForRuntime))
+}
+
+// TestRefuseUnownedExistingGCPServiceAccount_RefusesTheOtherKind covers a
+// provider and a runtime of one name, which derive one ID and share a marker.
+func TestRefuseUnownedExistingGCPServiceAccount_RefusesTheOtherKind(t *testing.T) {
+	name := "dev"
+
+	providerAccount := &iam.ServiceAccount{Description: gcpProviderServiceAccountDescription(name)}
+	require.Error(t, refuseUnownedExistingGCPServiceAccount(providerAccount, true, name, createdForRuntime))
+
+	runtimeAccount := &iam.ServiceAccount{Description: gkeServiceAccountDescription(name)}
+	require.Error(t, refuseUnownedExistingGCPServiceAccount(runtimeAccount, true, name, providerServiceAccountOwnedBy))
 }
 
 // The delete path finds its service account by deriving the name from the
@@ -228,22 +269,22 @@ func TestGcpServiceAccountDeletable_TruncationCollision(t *testing.T) {
 	assert.False(t, deletable)
 }
 
-// TestServiceAccountOwnedBy_RecognizesLegacyDescription covers accounts created
+// TestProviderServiceAccountOwnedBy_RecognizesLegacyDescription covers accounts created
 // before the ownership marker existed.
 //
 // Their description names the provider but carries no marker. Without
 // recognizing it, a provider created by an earlier version could never be
 // deleted: the check would refuse its own account and leave it, and the
 // project's bindings, in place.
-func TestServiceAccountOwnedBy_RecognizesLegacyDescription(t *testing.T) {
+func TestProviderServiceAccountOwnedBy_RecognizesLegacyDescription(t *testing.T) {
 	legacy := &iam.ServiceAccount{
 		Description: "Service account for Threeport GcpProvider my-provider to manage GCP resources",
 	}
 
-	assert.True(t, serviceAccountOwnedBy(legacy, "my-provider"))
+	assert.True(t, providerServiceAccountOwnedBy(legacy, "my-provider"))
 
 	// it still names one provider, so it does not vouch for another
-	assert.False(t, serviceAccountOwnedBy(legacy, "other-provider"))
+	assert.False(t, providerServiceAccountOwnedBy(legacy, "other-provider"))
 }
 
 // TestGcpServiceAccountDeletable_LegacyAccount covers deleting one end to end
@@ -371,7 +412,7 @@ func TestGcpServiceAccountDeletable_RuntimeDeleteRefusesProviderAccount(t *testi
 	name := "dev"
 	providerAccount := ownedServiceAccount(name)
 	require.True(
-		t, serviceAccountOwnedBy(providerAccount, name),
+		t, strings.HasSuffix(providerAccount.Description, GcpOwnershipDescription(name)),
 		"this test is meaningless unless the marker alone vouches for the account",
 	)
 

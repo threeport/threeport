@@ -134,7 +134,7 @@ func (i *KubernetesRuntimeInfraGKE) createGCPServiceAccount(iamService *iam.Serv
 	}
 
 	// refuse an existing account this runtime did not create
-	if err := refuseUnownedExistingGCPServiceAccount(account, existed, i.RuntimeInstanceName); err != nil {
+	if err := refuseUnownedExistingGCPServiceAccount(account, existed, i.RuntimeInstanceName, createdForRuntime); err != nil {
 		return err
 	}
 
@@ -445,7 +445,7 @@ func CreateGCPServiceAccountWithKey(projectID, accountName string) (*GCPServiceA
 		return nil, fmt.Errorf("failed to create service account: %w", err)
 	}
 
-	if err := refuseUnownedExistingGCPServiceAccount(account, existed, accountName); err != nil {
+	if err := refuseUnownedExistingGCPServiceAccount(account, existed, accountName, providerServiceAccountOwnedBy); err != nil {
 		return nil, err
 	}
 
@@ -678,24 +678,6 @@ func createServiceAccountForProject(
 	return account, false, nil
 }
 
-// serviceAccountOwnedBy reports whether the account description records the
-// same ownership pair GcpResourceLabels would put on a Compute resource.
-func serviceAccountOwnedBy(account *iam.ServiceAccount, ownerName string) bool {
-	if account == nil {
-		return false
-	}
-	if strings.HasSuffix(account.Description, GcpOwnershipDescription(ownerName)) {
-		return true
-	}
-
-	// Accounts created before the ownership marker existed carry only the
-	// description below. It names the provider it was created for, so it
-	// identifies the owner as precisely as the marker does - and without
-	// recognising it, a provider created by an earlier version could never be
-	// deleted, stranding the account and its project bindings.
-	return account.Description == legacyGcpServiceAccountDescription(ownerName)
-}
-
 // legacyGcpServiceAccountDescription is the description the create path wrote
 // before it began marking ownership.
 func legacyGcpServiceAccountDescription(ownerName string) string {
@@ -758,12 +740,36 @@ func gkeServiceAccountDescription(runtimeInstanceName string) string {
 	)
 }
 
-// refuseUnownedExistingGCPServiceAccount rejects reuse of an account this owner did not create.
-func refuseUnownedExistingGCPServiceAccount(account *iam.ServiceAccount, existed bool, ownerName string) error {
+// createdForRuntime reports whether the account was written by the GKE
+// bootstrap for the runtime instance of this name, in the current format.
+//
+// Unlike runtimeServiceAccountOwnedBy it does not recognise the description
+// written before ownership was marked: that account is deleted with the runtime
+// it names, but a create must not take it over.
+func createdForRuntime(account *iam.ServiceAccount, runtimeInstanceName string) bool {
+	return account != nil && account.Description == gkeServiceAccountDescription(runtimeInstanceName)
+}
+
+// refuseUnownedExistingGCPServiceAccount rejects reuse of an account this owner
+// did not create.
+//
+// Ownership is the owner's whole description, as the delete path checks it, not
+// the marker in it. The marker is lowercased and reduced to label characters, so
+// names that differ only in case or punctuation share one, and so do a provider
+// and a runtime of the same name. Two such names whose IDs collide - the hash in
+// the ID is short enough that a collision can be found on purpose - would
+// otherwise reuse one account, and creating a key for it would hand one owner
+// the other's access.
+func refuseUnownedExistingGCPServiceAccount(
+	account *iam.ServiceAccount,
+	existed bool,
+	ownerName string,
+	ownedBy serviceAccountOwnerCheck,
+) error {
 	if !existed {
 		return nil
 	}
-	if serviceAccountOwnedBy(account, ownerName) {
+	if ownedBy(account, ownerName) {
 		return nil
 	}
 
@@ -873,9 +879,14 @@ func formatIAMServiceAccountCreate403Hint(projectID string) string {
 //
 // The ID is serviceAccountIDPrefix, a sanitized fragment of the name so the
 // account can be recognized, and a hash of the whole name as given. The hash is
-// what makes the ID unique: names sharing a prefix, or differing only in case or
-// in characters an ID cannot hold, still derive different IDs, so no name has to
-// be refused for how long it is. The ID is never over 30 characters.
+// what keeps IDs apart: names sharing a prefix, or differing only in case or in
+// characters an ID cannot hold, derive different IDs, so no name has to be
+// refused for how long it is. The ID is never over 30 characters.
+//
+// The hash is short, so this makes a collision unlikely, not impossible, and
+// one can be found on purpose. Nothing here relies on uniqueness: reuse and
+// delete both check the account's whole description for the owner before
+// touching it.
 //
 // Create and delete both derive the ID here, so changing this derivation
 // orphans every account created under the old one. Treat it as fixed once
