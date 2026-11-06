@@ -514,6 +514,34 @@ func v0KubernetesRuntimeInstanceDeleted(
 		if err != nil {
 			return 0, fmt.Errorf("failed to delete GCP GKE runtime instance by ID: %w", err)
 		}
+	case v0.KubernetesRuntimeInfraProviderOKE:
+		// get OCI OKE runtime instance
+		ociOkeKubernetesRuntimeInstance, err := client.GetOciOkeKubernetesRuntimeInstanceByK8sRuntimeInst(
+			r.APIClient,
+			r.APIServer,
+			*kubernetesRuntimeInstance.ID,
+		)
+		if err != nil {
+			if errors.Is(err, client_lib.ErrObjectNotFound) {
+				// OciOke instance already gone - nothing left to delete
+				log.Info(
+					"oci oke runtime instance already deleted, confirming kubernetes runtime instance deletion",
+					"kubernetesRuntimeInstanceID", *kubernetesRuntimeInstance.ID,
+				)
+				return 0, nil
+			}
+			return 0, fmt.Errorf("failed to get OCI OKE runtime instance by kubernetes runtime instance ID: %w", err)
+		}
+
+		// delete OCI OKE runtime instance
+		_, err = client.DeleteOciOkeKubernetesRuntimeInstance(
+			r.APIClient,
+			r.APIServer,
+			*ociOkeKubernetesRuntimeInstance.ID,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to delete OCI OKE runtime instance by ID: %w", err)
+		}
 	}
 
 	return 0, nil
