@@ -459,17 +459,16 @@ func CreateGCPServiceAccountWithKey(projectID, accountName string) (*GCPServiceA
 		return nil, fmt.Errorf("failed to grant IAM roles: %w", err)
 	}
 
-	// create JSON key for controllers running outside GCP
+	// retry the key create while the new account is still propagating
 	keyRequest := &iam.CreateServiceAccountKeyRequest{
 		PrivateKeyType: "TYPE_GOOGLE_CREDENTIALS_FILE",
 	}
-
-	key, err := iamService.Projects.ServiceAccounts.Keys.Create(
-		fmt.Sprintf("projects/%s/serviceAccounts/%s", projectID, account.Email),
-		keyRequest,
-	).Do()
+	keyName := fmt.Sprintf("projects/%s/serviceAccounts/%s", projectID, account.Email)
+	key, err := createServiceAccountKeyWithRetry(func() (*iam.ServiceAccountKey, error) {
+		return iamService.Projects.ServiceAccounts.Keys.Create(keyName, keyRequest).Do()
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create service account key: %w", err)
+		return nil, err
 	}
 
 	// The key is base64 encoded, decode it
@@ -484,6 +483,31 @@ func CreateGCPServiceAccountWithKey(projectID, accountName string) (*GCPServiceA
 		Email:   account.Email,
 		KeyJSON: keyJSON,
 	}, nil
+}
+
+// createServiceAccountKeyWithRetry creates a key for a service account that may not be visible yet.
+// A not-found is retried, and any other error is returned.
+func createServiceAccountKeyWithRetry(create func() (*iam.ServiceAccountKey, error)) (*iam.ServiceAccountKey, error) {
+	var lastErr error
+
+	// retry a not-found key create until the account is visible
+	for attempt := 1; attempt <= iamPolicyAttempts; attempt++ {
+		key, err := create()
+		if err == nil {
+			return key, nil
+		}
+
+		lastErr = err
+		if !isNotFoundError(err) {
+			return nil, fmt.Errorf("failed to create service account key: %w", err)
+		}
+		if attempt < iamPolicyAttempts {
+			fmt.Printf("service account key create failed (attempt %d/%d): %v, retrying in %v...\n", attempt, iamPolicyAttempts, err, iamRetryDelay)
+			time.Sleep(iamRetryDelay)
+		}
+	}
+
+	return nil, fmt.Errorf("failed to create service account key after %d attempts: %w", iamPolicyAttempts, lastErr)
 }
 
 // DeleteGCPServiceAccountWithKey deletes a GCP service account that was created
