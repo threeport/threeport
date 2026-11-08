@@ -146,6 +146,22 @@ func v0KubernetesRuntimeInstanceCreated(
 	return 0, nil
 }
 
+// runtimeAPIHost returns the host of a runtime API endpoint.
+// A nil endpoint is not stored yet, and an endpoint with no host is an error.
+func runtimeAPIHost(endpoint *string) (string, error) {
+	// an unset endpoint is not ready
+	if endpoint == nil {
+		return "", nil
+	}
+
+	// reject a stored endpoint with no host
+	parsed, err := url.Parse(*endpoint)
+	if err != nil || parsed.Host == "" {
+		return "", fmt.Errorf("kubernetes runtime API endpoint %q has no host", *endpoint)
+	}
+	return parsed.Host, nil
+}
+
 // v0KubernetesRuntimeInstanceUpdated performs reconciliation when a v0 KubernetesRuntimeInstance
 // has been updated.
 func v0KubernetesRuntimeInstanceUpdated(
@@ -153,13 +169,12 @@ func v0KubernetesRuntimeInstanceUpdated(
 	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
 	log *logr.Logger,
 ) (int64, error) {
-	// check to see if we have a valid API endpoint - no further reconciliation
-	// can occur until we have that
-	if kubernetesRuntimeInstance.APIEndpoint == nil {
-		return 0, nil
+	// wait while the endpoint is unset, and fail a stored endpoint with no host
+	host, err := runtimeAPIHost(kubernetesRuntimeInstance.APIEndpoint)
+	if err != nil {
+		return 0, err
 	}
-	parsedEndpoint, parseErr := url.Parse(*kubernetesRuntimeInstance.APIEndpoint)
-	if parseErr != nil || parsedEndpoint.Host == "" {
+	if host == "" {
 		return 0, nil
 	}
 
