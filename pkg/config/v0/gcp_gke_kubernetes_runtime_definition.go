@@ -235,6 +235,16 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Delete(
 		return nil, fmt.Errorf("failed to find gcp gke kubernetes runtime definition with name %s: %w", *gcpGkeKubernetesRuntimeDefinitionValues.Name, err)
 	}
 
+	// delete this definition before the kubernetes runtime definition it references
+	deletedGcpGkeKubernetesRuntimeDefinition, err := client_v0.DeleteGcpGkeKubernetesRuntimeDefinition(
+		apiClient,
+		apiEndpoint,
+		*gcpGkeKubernetesRuntimeDefinition.ID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to delete gcp gke kubernetes runtime definition from Threeport API: %w", err)
+	}
+
 	// delete associated kubernetes runtime definition
 	_, err = client_v0.DeleteKubernetesRuntimeDefinition(
 		apiClient,
@@ -243,16 +253,6 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Delete(
 	)
 	if err != nil && !errors.Is(err, client_lib.ErrObjectNotFound) {
 		return nil, fmt.Errorf("failed to delete associated kubernetes runtime definition: %w", err)
-	}
-
-	// delete gcp gke kubernetes runtime definition
-	deletedGcpGkeKubernetesRuntimeDefinition, err := client_v0.DeleteGcpGkeKubernetesRuntimeDefinition(
-		apiClient,
-		apiEndpoint,
-		*gcpGkeKubernetesRuntimeDefinition.ID,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to delete gcp gke kubernetes runtime definition from Threeport API: %w", err)
 	}
 
 	// construct deleted gcp gke kubernetes runtime definition config
