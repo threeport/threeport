@@ -3,6 +3,7 @@ package supportservices
 import (
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -187,22 +188,81 @@ func TestEnsureComponentRejectsAMissingRuntime(t *testing.T) {
 	}
 }
 
-// TestEnsureSecretsComponentSkipsOtherProviders leaves the secrets workload id empty for other providers.
+// TestEnsureSecretsComponentSkipsOtherProviders leaves the secrets workload id empty for a nil provider and for oke.
 func TestEnsureSecretsComponentSkipsOtherProviders(t *testing.T) {
+	// count workload API calls
+	calls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		http.NotFound(w, r)
+	}))
+	t.Cleanup(server.Close)
+	reconciler := &controller.Reconciler{
+		APIClient: server.Client(),
+		APIServer: strings.TrimPrefix(server.URL, "http://"),
+	}
+
 	// skip a provider that does not create the component
 	name := "dev"
-	for _, provider := range []*string{util.Ptr("gke"), nil} {
+	oke := string(api.KubernetesRuntimeInfraProviderOKE)
+	for _, provider := range []*string{nil, &oke} {
+		calls = 0
 		runtime := &api.KubernetesRuntimeInstance{
 			Common:   api.Common{ID: util.Ptr(uint(1))},
 			Instance: api.Instance{Name: &name},
 		}
-		err := EnsureSecretsComponent(nil, runtime, &api.SecretInstance{}, nil, nil, provider, nil)
+		err := EnsureSecretsComponent(reconciler, runtime, &api.SecretInstance{}, nil, nil, provider, nil)
 		if err != nil {
 			t.Fatalf("ensure %v: %v", provider, err)
 		}
 		if runtime.SecretsComponentInstanceID != nil {
 			t.Fatalf("provider %v slot = %v, want empty", provider, runtime.SecretsComponentInstanceID)
 		}
+		if calls != 0 {
+			t.Fatalf("provider %v made %d API requests", provider, calls)
+		}
+	}
+}
+
+// TestEnsureSecretsComponentInstallsOnGKE reaches the workload API for a gke runtime.
+func TestEnsureSecretsComponentInstallsOnGKE(t *testing.T) {
+	// answer the workload lookup with not found
+	calls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		http.NotFound(w, r)
+	}))
+	t.Cleanup(server.Close)
+
+	name := "dev"
+	runtime := &api.KubernetesRuntimeInstance{
+		Common:   api.Common{ID: util.Ptr(uint(1))},
+		Instance: api.Instance{Name: &name},
+	}
+	provider := api.KubernetesRuntimeInfraProviderGKE
+	reconciler := &controller.Reconciler{
+		APIClient: server.Client(),
+		APIServer: strings.TrimPrefix(server.URL, "http://"),
+	}
+
+	// install the secrets component
+	err := EnsureSecretsComponent(
+		reconciler,
+		runtime,
+		&api.SecretInstance{},
+		nil,
+		nil,
+		&provider,
+		nil,
+	)
+	if err == nil {
+		t.Fatal("gke returned without installing the secrets component")
+	}
+	if calls == 0 {
+		t.Fatalf("gke made no API request: %v", err)
+	}
+	if runtime.SecretsComponentInstanceID != nil {
+		t.Fatal("gke recorded a component instance before the workload existed")
 	}
 }
 
