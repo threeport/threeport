@@ -146,6 +146,35 @@ func v0KubernetesRuntimeInstanceCreated(
 	return 0, nil
 }
 
+// runtimeAPIHost returns the host of a runtime API endpoint.
+// A nil endpoint is not stored yet, and an endpoint with no host is an error.
+func runtimeAPIHost(endpoint *string) (string, error) {
+	// an unset endpoint is not ready
+	if endpoint == nil {
+		return "", nil
+	}
+
+	// reject a stored endpoint with no host
+	parsed, err := url.Parse(*endpoint)
+	if err != nil || parsed.Host == "" {
+		return "", fmt.Errorf("kubernetes runtime API endpoint %q has no host", *endpoint)
+	}
+	return parsed.Host, nil
+}
+
+// workloadAPIErr returns a retry when err is a transient network failure.
+// Any other error is returned so the reconciler stops that failure after an hour.
+func workloadAPIErr(log *logr.Logger, err error, message string) (int64, error) {
+	// a nil error keeps this pass off the one-hour failure clock
+	if controller.IsNetworkErr(err) {
+		log.Info("kubernetes API unreachable, retrying", "error", err)
+		return controller.Requeue30s, nil
+	}
+
+	// an API response or a local failure keeps the one-hour limit
+	return 0, fmt.Errorf("%s: %w", message, err)
+}
+
 // v0KubernetesRuntimeInstanceUpdated performs reconciliation when a v0 KubernetesRuntimeInstance
 // has been updated.
 func v0KubernetesRuntimeInstanceUpdated(
@@ -153,14 +182,13 @@ func v0KubernetesRuntimeInstanceUpdated(
 	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
 	log *logr.Logger,
 ) (int64, error) {
-	// check to see if we have a valid API endpoint - no further reconciliation
-	// can occur until we have that
-	if kubernetesRuntimeInstance.APIEndpoint == nil {
-		return 0, nil
+	// wait while the endpoint is unset, and fail a stored endpoint with no host
+	host, err := runtimeAPIHost(kubernetesRuntimeInstance.APIEndpoint)
+	if err != nil {
+		return 0, err
 	}
-	parsedEndpoint, parseErr := url.Parse(*kubernetesRuntimeInstance.APIEndpoint)
-	if parseErr != nil || parsedEndpoint.Host == "" {
-		return 0, nil
+	if host == "" {
+		return controller.Requeue30s, nil
 	}
 
 	// check to see if kubernetes runtime is being deleted - if so no updates
@@ -201,7 +229,7 @@ func v0KubernetesRuntimeInstanceUpdated(
 		r.EncryptionKey,
 	)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get a Kubernetes client and mapper: %w", err)
+		return workloadAPIErr(log, err, "failed to get a Kubernetes client and mapper")
 	}
 
 	// TODO: sort out an elegant way to pass the custom image info for
@@ -266,7 +294,7 @@ func v0KubernetesRuntimeInstanceUpdated(
 	// threeport control plane components
 	computeSpaceCurrent, err := cpi.ComputeSpaceControlPlaneComponentsCurrent(dynamicKubeClient, mapper)
 	if err != nil {
-		return 0, fmt.Errorf("failed to check compute space control plane components: %w", err)
+		return workloadAPIErr(log, err, "failed to check compute space control plane components")
 	}
 	if computeSpaceCurrent {
 		log.V(1).Info("compute space control plane components already current, skipping install")
@@ -277,7 +305,7 @@ func v0KubernetesRuntimeInstanceUpdated(
 			*kubernetesRuntimeInstance.Name,
 			agentAuthConfig(agentAccess),
 		); err != nil {
-			return 0, fmt.Errorf("failed to insall compute space control plane components: %w", err)
+			return workloadAPIErr(log, err, "failed to insall compute space control plane components")
 		}
 
 		// wait for kube API to persist the change and refresh the client and mapper
@@ -292,14 +320,14 @@ func v0KubernetesRuntimeInstanceUpdated(
 			r.EncryptionKey,
 		)
 		if err != nil {
-			return 0, fmt.Errorf("failed to refresh dynamic kube API client: %w", err)
+			return workloadAPIErr(log, err, "failed to refresh dynamic kube API client")
 		}
 	}
 
 	// support services operator
 	operatorInstalled, err := threeport.SupportServicesOperatorInstalled(dynamicKubeClient, mapper)
 	if err != nil {
-		return 0, fmt.Errorf("failed to check support services operator: %w", err)
+		return workloadAPIErr(log, err, "failed to check support services operator")
 	}
 	if operatorInstalled {
 		log.V(1).Info("support services operator already installed, skipping install")
@@ -308,7 +336,7 @@ func v0KubernetesRuntimeInstanceUpdated(
 		mapper,
 		threeport.SupportServicesCloud(v0.KubernetesRuntimeInfraProvider(*kubernetesRuntimeDefinition.InfraProvider)),
 	); err != nil {
-		return 0, fmt.Errorf("failed to install support services operator: %w", err)
+		return workloadAPIErr(log, err, "failed to install support services operator")
 	}
 
 	if *kubernetesRuntimeDefinition.InfraProvider == v0.KubernetesRuntimeInfraProviderEKS {
@@ -325,7 +353,7 @@ func v0KubernetesRuntimeInstanceUpdated(
 		// system components e.g. cluster-autoscaler
 		systemServicesInstalled, err := threeport.EksThreeportSystemServicesInstalled(dynamicKubeClient, mapper)
 		if err != nil {
-			return 0, fmt.Errorf("failed to check EKS system services: %w", err)
+			return workloadAPIErr(log, err, "failed to check EKS system services")
 		}
 		if systemServicesInstalled {
 			log.V(1).Info("EKS system services already installed, skipping install")
@@ -335,7 +363,7 @@ func v0KubernetesRuntimeInstanceUpdated(
 			*kubernetesRuntimeInstance.Name,
 			*awsProvider.AccountID,
 		); err != nil {
-			return 0, fmt.Errorf("failed to install system services: %w", err)
+			return workloadAPIErr(log, err, "failed to install system services")
 		}
 
 		// a claim that names no storage class has nothing to bind to on EKS
@@ -343,7 +371,7 @@ func v0KubernetesRuntimeInstanceUpdated(
 		// services, so a cluster that already has those gets a default too.
 		created, err := threeport.EnsureEksDefaultStorageClass(dynamicKubeClient)
 		if err != nil {
-			return 0, fmt.Errorf("failed to set a default storage class: %w", err)
+			return workloadAPIErr(log, err, "failed to set a default storage class")
 		}
 		if created {
 			log.Info("set a default storage class", "storageClass", threeport.EksDefaultStorageClassName)
@@ -408,7 +436,7 @@ func v0KubernetesRuntimeInstanceUpdated(
 			hostNamespace,
 		)
 		if err != nil {
-			return 0, fmt.Errorf("failed to check workload controller RBAC on managed cluster: %w", err)
+			return workloadAPIErr(log, err, "failed to check workload controller RBAC on managed cluster")
 		}
 		if rbacCurrent {
 			log.V(1).Info("workload controller RBAC already current on managed cluster, skipping install")
@@ -419,7 +447,7 @@ func v0KubernetesRuntimeInstanceUpdated(
 			serviceAccountEmail,
 			hostNamespace,
 		); err != nil {
-			return 0, fmt.Errorf("failed to install workload controller RBAC on managed cluster: %w", err)
+			return workloadAPIErr(log, err, "failed to install workload controller RBAC on managed cluster")
 		}
 	}
 
