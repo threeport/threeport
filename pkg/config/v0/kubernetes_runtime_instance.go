@@ -29,6 +29,7 @@ type KubernetesRuntimeInstanceValues struct {
 	ThreeportControlPlaneHost   *bool
 	DefaultRuntime              *bool
 	Location                    *string
+	APIEndpoint                 *string
 	ThreeportAgentImage         *string
 	KubernetesRuntimeDefinition *KubernetesRuntimeDefinitionValues
 	Age                         *string
@@ -83,6 +84,7 @@ func (k *KubernetesRuntimeInstanceConfig) Get(
 				ThreeportControlPlaneHost:   kubernetesRuntimeInstance.ThreeportControlPlaneHost,
 				DefaultRuntime:              kubernetesRuntimeInstance.DefaultRuntime,
 				Location:                    kubernetesRuntimeInstance.Location,
+				APIEndpoint:                 kubernetesRuntimeInstance.APIEndpoint,
 				ThreeportAgentImage:         kubernetesRuntimeInstance.ThreeportAgentImage,
 				KubernetesRuntimeDefinition: kubernetesRuntimeDefinition,
 				Age:                         util.Ptr(util.GetAgeFormatted(kubernetesRuntimeInstance.CreatedAt)),

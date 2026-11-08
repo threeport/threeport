@@ -80,12 +80,16 @@ func outputGetv0KubernetesRuntimeInstancesCmd(
 	kubernetesRuntimeInstances *[]config_v0.KubernetesRuntimeInstanceConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "NAME\t KUBERNETES RUNTIME DEFINITION\t LOCATION\t DEFAULT RUNTIME\t AGE")
+	fmt.Fprintln(writer, "NAME\t KUBERNETES RUNTIME DEFINITION\t LOCATION\t API ENDPOINT\t DEFAULT RUNTIME\t AGE")
 	for _, kubernetesRuntimeInstance := range *kubernetesRuntimeInstances {
 		definitionName := ""
 		if kubernetesRuntimeInstance.KubernetesRuntimeInstance.KubernetesRuntimeDefinition != nil &&
 			kubernetesRuntimeInstance.KubernetesRuntimeInstance.KubernetesRuntimeDefinition.Name != nil {
 			definitionName = *kubernetesRuntimeInstance.KubernetesRuntimeInstance.KubernetesRuntimeDefinition.Name
+		}
+		apiEndpoint := ""
+		if kubernetesRuntimeInstance.KubernetesRuntimeInstance.APIEndpoint != nil {
+			apiEndpoint = *kubernetesRuntimeInstance.KubernetesRuntimeInstance.APIEndpoint
 		}
 		age := ""
 		if kubernetesRuntimeInstance.KubernetesRuntimeInstance.Age != nil {
@@ -96,6 +100,7 @@ func outputGetv0KubernetesRuntimeInstancesCmd(
 			*kubernetesRuntimeInstance.KubernetesRuntimeInstance.Name, "\t",
 			definitionName, "\t",
 			*kubernetesRuntimeInstance.KubernetesRuntimeInstance.Location, "\t",
+			apiEndpoint, "\t",
 			*kubernetesRuntimeInstance.KubernetesRuntimeInstance.DefaultRuntime, "\t",
 			age,
 		)
