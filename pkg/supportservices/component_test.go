@@ -3,6 +3,7 @@ package supportservices
 import (
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -187,11 +188,11 @@ func TestEnsureComponentRejectsAMissingRuntime(t *testing.T) {
 	}
 }
 
-// TestEnsureSecretsComponentSkipsOtherProviders leaves the secrets workload id empty for other providers.
+// TestEnsureSecretsComponentSkipsOtherProviders leaves the secrets workload id empty when the provider is absent.
 func TestEnsureSecretsComponentSkipsOtherProviders(t *testing.T) {
 	// skip a provider that does not create the component
 	name := "dev"
-	for _, provider := range []*string{util.Ptr("gke"), nil} {
+	for _, provider := range []*string{nil} {
 		runtime := &api.KubernetesRuntimeInstance{
 			Common:   api.Common{ID: util.Ptr(uint(1))},
 			Instance: api.Instance{Name: &name},
@@ -203,6 +204,43 @@ func TestEnsureSecretsComponentSkipsOtherProviders(t *testing.T) {
 		if runtime.SecretsComponentInstanceID != nil {
 			t.Fatalf("provider %v slot = %v, want empty", provider, runtime.SecretsComponentInstanceID)
 		}
+	}
+}
+
+// TestEnsureSecretsComponentInstallsOnGKE reaches the workload API for a gke runtime.
+func TestEnsureSecretsComponentInstallsOnGKE(t *testing.T) {
+	// answer the workload lookup with not found
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.NotFound(w, r)
+	}))
+	t.Cleanup(server.Close)
+
+	name := "dev"
+	runtime := &api.KubernetesRuntimeInstance{
+		Common:   api.Common{ID: util.Ptr(uint(1))},
+		Instance: api.Instance{Name: &name},
+	}
+	provider := api.KubernetesRuntimeInfraProviderGKE
+	reconciler := &controller.Reconciler{
+		APIClient: server.Client(),
+		APIServer: server.URL,
+	}
+
+	// install the secrets component
+	err := EnsureSecretsComponent(
+		reconciler,
+		runtime,
+		&api.SecretInstance{},
+		nil,
+		nil,
+		&provider,
+		nil,
+	)
+	if err == nil {
+		t.Fatal("gke returned without installing the secrets component")
+	}
+	if runtime.SecretsComponentInstanceID != nil {
+		t.Fatal("gke recorded a component instance before the workload existed")
 	}
 }
 
