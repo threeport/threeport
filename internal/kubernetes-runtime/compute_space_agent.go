@@ -7,7 +7,9 @@ import (
 	"os"
 	"path/filepath"
 
+	v0 "github.com/threeport/threeport/pkg/api/v0"
 	auth "github.com/threeport/threeport/pkg/auth/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // computeSpaceAgentAccess is what the agent on a managed cluster needs to report
@@ -64,6 +66,38 @@ func loadComputeSpaceAgentAccess(
 	}
 
 	return &computeSpaceAgentAccess{apiServer: apiServer, authConfig: authConfig}, nil
+}
+
+// setComputeSpaceAgentImage sets the agent image a managed cluster pulls.
+// A named runtime image wins. Otherwise the agent uses the namespace and tag of the control plane that installs it.
+func setComputeSpaceAgentImage(
+	agent *v0.ControlPlaneComponent,
+	runtimeImage *string,
+	controlPlane *v0.ControlPlaneInstance,
+) error {
+	// use the image the runtime names
+	if image := util.DerefString(runtimeImage); image != "" {
+		registry, _, tag, err := util.ParseImage(image)
+		if err != nil {
+			return fmt.Errorf("failed to parse custom threeport agent image: %w", err)
+		}
+		agent.ImageNamespace = registry
+		agent.ImageTag = tag
+		return nil
+	}
+
+	// copy the namespace and tag the control plane recorded
+	if controlPlane == nil {
+		return nil
+	}
+	if namespace := util.DerefString(controlPlane.ImageNamespace); namespace != "" {
+		agent.ImageNamespace = namespace
+	}
+	if tag := util.DerefString(controlPlane.ImageTag); tag != "" {
+		agent.ImageTag = tag
+	}
+
+	return nil
 }
 
 // agentAuthConfig returns the CA to issue an agent certificate from, or nil when

@@ -26,8 +26,29 @@ func TestParseImage(t *testing.T) {
 			wantTag:      "latest",
 		},
 		{
-			name:    "invalid format",
-			image:   "example.com/a/b/c:tag",
+			name:         "ghcr registry",
+			image:        "ghcr.io/threeport/threeport-agent:v0.7.0",
+			wantRegistry: "ghcr.io/threeport",
+			wantName:     "threeport-agent",
+			wantTag:      "v0.7.0",
+		},
+		{
+			name:         "artifact registry",
+			image:        "us-central1-docker.pkg.dev/example-project/threeport/threeport-agent:tag",
+			wantRegistry: "us-central1-docker.pkg.dev/example-project/threeport",
+			wantName:     "threeport-agent",
+			wantTag:      "tag",
+		},
+		{
+			name:         "dev registry with a port",
+			image:        "localhost:5001/threeport-agent:dev",
+			wantRegistry: "localhost:5001",
+			wantName:     "threeport-agent",
+			wantTag:      "dev",
+		},
+		{
+			name:    "no registry",
+			image:   "myimage:tag",
 			wantErr: true,
 		},
 	}
@@ -64,4 +85,3 @@ func TestParseImage_MissingTagPanics(t *testing.T) {
 
 	ParseImage(image)
 }
-

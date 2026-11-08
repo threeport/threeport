@@ -8,7 +8,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	v0 "github.com/threeport/threeport/pkg/api/v0"
 	auth "github.com/threeport/threeport/pkg/auth/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 func TestLoadComputeSpaceAgentAccess(t *testing.T) {
@@ -65,5 +67,74 @@ func TestLoadComputeSpaceAgentAccess(t *testing.T) {
 
 		_, err = loadComputeSpaceAgentAccess(endpoint, dir)
 		assert.Error(t, err)
+	})
+}
+
+// TestSetComputeSpaceAgentImage checks which image a managed cluster pulls.
+func TestSetComputeSpaceAgentImage(t *testing.T) {
+	// the compiled image is what the installer starts with
+	const (
+		compiledNamespace = "ghcr.io/threeport"
+		compiledTag       = "v0.7.0-rc.2"
+		planeNamespace    = "us-central1-docker.pkg.dev/example/threeport"
+		planeTag          = "abcdef12-0123456789ab"
+	)
+
+	compiled := func() *v0.ControlPlaneComponent {
+		return &v0.ControlPlaneComponent{
+			ImageNamespace: compiledNamespace,
+			ImageTag:       compiledTag,
+		}
+	}
+	plane := &v0.ControlPlaneInstance{
+		ImageNamespace: util.Ptr(planeNamespace),
+		ImageTag:       util.Ptr(planeTag),
+	}
+
+	t.Run("the control plane namespace and tag", func(t *testing.T) {
+		agent := compiled()
+		require.NoError(t, setComputeSpaceAgentImage(agent, nil, plane))
+		assert.Equal(t, planeNamespace, agent.ImageNamespace)
+		assert.Equal(t, planeTag, agent.ImageTag)
+	})
+
+	t.Run("a runtime image wins", func(t *testing.T) {
+		agent := compiled()
+		image := "example.com/other/threeport-agent:custom"
+		require.NoError(t, setComputeSpaceAgentImage(agent, &image, plane))
+		assert.Equal(t, "example.com/other", agent.ImageNamespace)
+		assert.Equal(t, "custom", agent.ImageTag)
+	})
+
+	t.Run("an empty runtime image uses the control plane", func(t *testing.T) {
+		agent := compiled()
+		image := ""
+		require.NoError(t, setComputeSpaceAgentImage(agent, &image, plane))
+		assert.Equal(t, planeNamespace, agent.ImageNamespace)
+		assert.Equal(t, planeTag, agent.ImageTag)
+	})
+
+	t.Run("a nil control plane leaves the compiled image", func(t *testing.T) {
+		agent := compiled()
+		require.NoError(t, setComputeSpaceAgentImage(agent, nil, nil))
+		assert.Equal(t, compiledNamespace, agent.ImageNamespace)
+		assert.Equal(t, compiledTag, agent.ImageTag)
+	})
+
+	t.Run("a namespace without a tag keeps the compiled tag", func(t *testing.T) {
+		agent := compiled()
+		plane := &v0.ControlPlaneInstance{ImageNamespace: util.Ptr(planeNamespace)}
+		require.NoError(t, setComputeSpaceAgentImage(agent, nil, plane))
+		assert.Equal(t, planeNamespace, agent.ImageNamespace)
+		assert.Equal(t, compiledTag, agent.ImageTag)
+	})
+
+	t.Run("an image with no registry is an error", func(t *testing.T) {
+		agent := compiled()
+		image := "threeport-agent:custom"
+		err := setComputeSpaceAgentImage(agent, &image, plane)
+		assert.Error(t, err)
+		assert.Equal(t, compiledNamespace, agent.ImageNamespace)
+		assert.Equal(t, compiledTag, agent.ImageTag)
 	})
 }
