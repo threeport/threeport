@@ -71,6 +71,53 @@ func TestResolveControlPlaneRequest(t *testing.T) {
 		assert.Nil(t, resolution.genesis)
 		assert.Nil(t, resolution.any)
 	})
+
+	t.Run("a stored name still reports genesis", func(t *testing.T) {
+		cfg := &cli.ThreeportConfig{ControlPlanes: []cli.ControlPlane{other, genesis}}
+		resolution := resolveControlPlaneRequest(cfg, "other")
+		assert.True(t, resolution.inConfig)
+		require.NotNil(t, resolution.requested)
+		assert.Equal(t, "other", resolution.requested.Name)
+		require.NotNil(t, resolution.genesis)
+		assert.Equal(t, "genesis", resolution.genesis.Name)
+	})
+
+	t.Run("a blank genesis does not replace a named one", func(t *testing.T) {
+		blank := cli.ControlPlane{Genesis: true}
+		cfg := &cli.ThreeportConfig{ControlPlanes: []cli.ControlPlane{genesis, blank}}
+		resolution := resolveControlPlaneRequest(cfg, "missing")
+		require.NotNil(t, resolution.genesis)
+		assert.Equal(t, "genesis", resolution.genesis.Name)
+	})
+}
+
+// TestRefreshControlPlaneClient copies the API address and certificates and leaves the kubeconfig.
+func TestRefreshControlPlaneClient(t *testing.T) {
+	// copy the client fields onto the existing entry
+	existing := &cli.ControlPlane{
+		Name:        "child",
+		APIServer:   "threeport-api-server.child:443",
+		CACert:      "old-ca",
+		KubeAPI:     cli.KubeAPI{APIEndpoint: "https://kube.example"},
+		Credentials: []cli.Credential{{Name: "child", ClientCert: "old-cert", ClientKey: "old-key"}},
+	}
+	from := &cli.ControlPlane{
+		Name:        "child",
+		APIServer:   "34.132.193.86:443",
+		AuthEnabled: true,
+		CACert:      "new-ca",
+		Credentials: []cli.Credential{{Name: "child", ClientCert: "new-cert", ClientKey: "new-key"}},
+	}
+
+	refreshControlPlaneClient(existing, from)
+
+	assert.Equal(t, "34.132.193.86:443", existing.APIServer)
+	assert.True(t, existing.AuthEnabled)
+	assert.Equal(t, "new-ca", existing.CACert)
+	require.Len(t, existing.Credentials, 1)
+	assert.Equal(t, "new-cert", existing.Credentials[0].ClientCert)
+	assert.Equal(t, "new-key", existing.Credentials[0].ClientKey)
+	assert.Equal(t, "https://kube.example", existing.KubeAPI.APIEndpoint)
 }
 
 // controlPlaneInstanceServer answers the by-name lookup the way the API does:

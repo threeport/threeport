@@ -48,6 +48,11 @@ control plane.`,
 		// If found we set and return
 		resolution := resolveControlPlaneRequest(threeportConfig, configCurrentControlPlaneName)
 		if resolution.inConfig {
+			// refresh the stored address and certificates from the genesis API
+			if err := refreshStoredControlPlane(threeportConfig, resolution, configCurrentControlPlaneName); err != nil {
+				cli.Error("failed to refresh control plane in config", err)
+				os.Exit(1)
+			}
 			threeportConfig.SetCurrentControlPlane(configCurrentControlPlaneName)
 			cli.Info("Control plane found in config")
 			cli.Complete(fmt.Sprintf("Threeport control plane %s set as the current control plane", configCurrentControlPlaneName))
@@ -140,9 +145,11 @@ control plane.`,
 // controlPlaneResolution is what the threeport config says about a requested
 // control plane before any API is called.
 type controlPlaneResolution struct {
-	// inConfig is true when the requested control plane is already in the
-	// config.
+	// inConfig is true when the name passed to the command is already in the config.
 	inConfig bool
+
+	// The config entry for the name passed to the command
+	requested *cli.ControlPlane
 
 	// current is the config entry for the current control plane, nil when
 	// there is no current control plane or it is not in the config.
@@ -162,12 +169,12 @@ func resolveControlPlaneRequest(threeportConfig *cli.ThreeportConfig, requested 
 	for i := range threeportConfig.ControlPlanes {
 		controlPlane := &threeportConfig.ControlPlanes[i]
 		if controlPlane.Name == requested {
-			return controlPlaneResolution{inConfig: true}
+			resolution.inConfig = true
+			resolution.requested = controlPlane
 		}
 
-		// In case we dont find the control plane we check if we can find the genesis control plane
-		// User can traverse from it to find it
-		if controlPlane.Genesis {
+		// keep a named genesis when a later entry has no name
+		if controlPlane.Genesis && (resolution.genesis == nil || controlPlane.Name != "") {
 			resolution.genesis = controlPlane
 		}
 
@@ -251,11 +258,58 @@ func updateThreeportConfigWithControlPlaneInstance(
 		return err
 	}
 
+	// keep the kubeconfig and the provider config on an entry that already exists
+	for i := range threeportConfig.ControlPlanes {
+		if threeportConfig.ControlPlanes[i].Name != threeportControlPlaneConfig.Name {
+			continue
+		}
+		refreshControlPlaneClient(&threeportConfig.ControlPlanes[i], threeportControlPlaneConfig)
+		threeportControlPlaneConfig = &threeportConfig.ControlPlanes[i]
+		break
+	}
+
 	if err := cli.UpdateThreeportConfig(threeportConfig, threeportControlPlaneConfig); err != nil {
 		return fmt.Errorf("failed to update threeport config: %w", err)
 	}
 
 	return nil
+}
+
+// refreshStoredControlPlane copies the API address and client certificates from the genesis API.
+func refreshStoredControlPlane(threeportConfig *cli.ThreeportConfig, resolution controlPlaneResolution, name string) error {
+	// a genesis control plane has no parent to read
+	if resolution.requested == nil || resolution.requested.Genesis {
+		return nil
+	}
+
+	// keep the stored entry when the config has no named genesis to ask
+	if resolution.genesis == nil || resolution.genesis.Name == "" || resolution.genesis.APIServer == "" {
+		return nil
+	}
+
+	// read this control plane from the genesis API
+	apiClient, err := threeportConfig.GetHTTPClient(resolution.genesis.Name)
+	if err != nil {
+		return fmt.Errorf("failed to create genesis client: %w", err)
+	}
+	apiEndpoint, err := threeportConfig.GetThreeportAPIEndpoint(resolution.genesis.Name)
+	if err != nil {
+		return fmt.Errorf("failed to get genesis API endpoint: %w", err)
+	}
+	instance, err := client.GetControlPlaneInstanceByName(apiClient, apiEndpoint, name)
+	if err != nil {
+		return fmt.Errorf("failed to get control plane instance by name: %w", err)
+	}
+	return updateThreeportConfigWithControlPlaneInstance(apiClient, apiEndpoint, instance, threeportConfig)
+}
+
+// refreshControlPlaneClient copies the API address and client certificates onto an existing entry.
+func refreshControlPlaneClient(existing, from *cli.ControlPlane) {
+	// leave the kubeconfig and the provider config on the existing entry
+	existing.APIServer = from.APIServer
+	existing.AuthEnabled = from.AuthEnabled
+	existing.CACert = from.CACert
+	existing.Credentials = from.Credentials
 }
 
 // controlPlaneConfigFromInstance builds the threeport config entry for a control
