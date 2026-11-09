@@ -24,6 +24,11 @@ var configCurrentControlPlaneName string
 // child of the control plane that was asked about.
 var errNotChildControlPlane = errors.New("control plane is not a child of the current control plane")
 
+// errCurrentControlPlaneNotFound is returned when the current control plane in
+// the config does not exist on its own API, so the requested control plane
+// could not be checked against it.
+var errCurrentControlPlaneNotFound = errors.New("current control plane instance not found")
+
 // ConfigCurrentControlPlaneCmd represents the current-instance command
 var ConfigCurrentControlPlaneCmd = &cobra.Command{
 	Use:     "current-control-plane",
@@ -75,8 +80,7 @@ control plane.`,
 			// If the requested control plane is not found already in config,
 			// check whether it is a child of the current control plane
 			child, err := findChildControlPlane(apiClient, apiEndpoint, resolution.current.Name, configCurrentControlPlaneName)
-			switch {
-			case err == nil:
+			if err == nil {
 				cli.Info("found requested control plane in children of current control plane")
 				if err := updateThreeportConfigWithControlPlaneInstance(apiClient, apiEndpoint, child, threeportConfig); err != nil {
 					cli.Error("failed to set control plane from its instance", err)
@@ -84,12 +88,13 @@ control plane.`,
 				}
 				cli.Complete(fmt.Sprintf("Threeport control plane %s set as the current control plane", configCurrentControlPlaneName))
 				return
-			case errors.Is(err, client_lib.ErrObjectNotFound), errors.Is(err, errNotChildControlPlane):
-				cli.Warning(fmt.Sprintf("%s is not a child of the current control plane %s", configCurrentControlPlaneName, resolution.current.Name))
-			default:
+			}
+			warning, ok := childLookupWarning(err, configCurrentControlPlaneName, resolution.current.Name)
+			if !ok {
 				cli.Error("failed to check children of the current control plane", err)
 				os.Exit(1)
 			}
+			cli.Warning(warning)
 		} else {
 			cli.Warning("Current control plane not found, cannot search children for requested control plane instance.")
 		}
@@ -194,6 +199,11 @@ func findChildControlPlane(
 	requestedName string,
 ) (*v0.ControlPlaneInstance, error) {
 	current, err := client.GetControlPlaneInstanceByName(apiClient, apiEndpoint, currentName)
+	if errors.Is(err, client_lib.ErrObjectNotFound) {
+		// not wrapped with the API's not-found error, which the caller reads
+		// as the requested control plane not existing
+		return nil, fmt.Errorf("%w: %s", errCurrentControlPlaneNotFound, currentName)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve current control plane instance: %w", err)
 	}
@@ -210,6 +220,24 @@ func findChildControlPlane(
 	}
 
 	return requested, nil
+}
+
+// childLookupWarning returns the warning for a findChildControlPlane error that
+// answers the lookup: the current control plane is gone from its API, or the
+// requested control plane is not its child. It returns false for any other
+// error, such as an API that could not be reached.
+func childLookupWarning(err error, requestedName, currentName string) (string, bool) {
+	switch {
+	case errors.Is(err, errCurrentControlPlaneNotFound):
+		return fmt.Sprintf(
+			"the current control plane %s was not found on its API, so %s could not be checked as one of its children - the config may name a control plane that has been deleted",
+			currentName, requestedName,
+		), true
+	case errors.Is(err, client_lib.ErrObjectNotFound), errors.Is(err, errNotChildControlPlane):
+		return fmt.Sprintf("%s is not a child of the current control plane %s", requestedName, currentName), true
+	}
+
+	return "", false
 }
 
 // updateThreeportConfigWithControlPlaneInstance adds a control plane to the
