@@ -7,9 +7,9 @@ import (
 
 	"gorm.io/gorm"
 
-	util "github.com/threeport/threeport/pkg/util/v0"
 	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 	mapping "github.com/threeport/threeport/pkg/mapping/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // KubernetesRuntimeInfraProvider indicates which infrastructure provider is being
@@ -66,12 +66,15 @@ func (k *KubernetesRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
 // per-field check is:
 //   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
 //     and PUT, handles the DB load internally
+//
 // Lower-level helpers, useful when IsFieldChanged doesn't fit:
 //   - lib.IncomingValues(tx): values being written
 //   - lib.IsFullReplace(tx): true on PUT (Save shape)
 //   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
+//
 // Import:
-//   lib "github.com/threeport/threeport/pkg/api/lib/v0"
+//
+//	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (k *KubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
 	infraChanged, err := lib.IsFieldChanged(tx, "InfraProvider")
 	if err != nil {
@@ -112,6 +115,21 @@ func (k *KubernetesRuntimeInstance) beforeCreate(tx *gorm.DB) error {
 		)
 	}
 
+	// reject a component slot supplied on create
+	// Reconciliation writes the slot after this object exists.
+	for _, slot := range []*uint{
+		k.IngressComponentInstanceID,
+		k.CertificatesComponentInstanceID,
+		k.SecretsComponentInstanceID,
+		k.DatabaseComponentInstanceID,
+	} {
+		if slot != nil {
+			return util.NewBadRequestError(
+				"kubernetes runtime instance component slots are set when the runtime is reconciled",
+			)
+		}
+	}
+
 	return nil
 }
 
@@ -123,12 +141,15 @@ func (k *KubernetesRuntimeInstance) beforeCreate(tx *gorm.DB) error {
 // per-field check is:
 //   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
 //     and PUT, handles the DB load internally
+//
 // Lower-level helpers, useful when IsFieldChanged doesn't fit:
 //   - lib.IncomingValues(tx): values being written
 //   - lib.IsFullReplace(tx): true on PUT (Save shape)
 //   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
+//
 // Import:
-//   lib "github.com/threeport/threeport/pkg/api/lib/v0"
+//
+//	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (k *KubernetesRuntimeInstance) beforeUpdate(tx *gorm.DB) error {
 	locationChanged, err := lib.IsFieldChanged(tx, "Location")
 	if err != nil {
@@ -141,7 +162,25 @@ func (k *KubernetesRuntimeInstance) beforeUpdate(tx *gorm.DB) error {
 			"kubernetes runtime instances cannot be moved - location is immutable",
 		)
 	}
-	return nil
+
+	// claim or clear a shared controller slot in this same transaction
+	return lib.ApplySupportServiceSlots(
+		tx,
+		*k.ID,
+		&KubernetesRuntimeInstance{},
+		[]string{
+			"IngressComponentInstanceID",
+			"CertificatesComponentInstanceID",
+			"SecretsComponentInstanceID",
+			"DatabaseComponentInstanceID",
+		},
+		KubernetesRuntimeInstance{}.TableName(),
+		KubernetesWorkloadInstance{}.TableName(),
+		AttachedObjectReference{}.TableName(),
+		(&KubernetesWorkloadInstance{}).GetFullyQualifiedType(),
+		string(RelationshipRequires),
+		ErrMsgSupportServiceSlotHeld,
+	)
 }
 
 // beforeDelete validates the KubernetesRuntimeInstance before delete.

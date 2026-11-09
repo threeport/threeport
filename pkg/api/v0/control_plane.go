@@ -56,6 +56,12 @@ type ControlPlaneInstance struct {
 	// neither is set a component takes the tag its parent control plane runs.
 	ImageTag *string `validate:"optional"`
 
+	// The controller groups this control plane installs.
+	// Group names are separated by commas.
+	// An empty or omitted value installs every controller.
+	// The value 'none' installs no controllers.
+	Apis *string `validate:"optional"`
+
 	// Indicates whether this is was the first control plane that was spun up in a control plane group
 	Genesis *bool `validate:"optional" gorm:"default:false"`
 

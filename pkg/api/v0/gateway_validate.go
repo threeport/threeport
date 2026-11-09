@@ -2,7 +2,11 @@
 
 package v0
 
-import gorm "gorm.io/gorm"
+import (
+	"errors"
+
+	gorm "gorm.io/gorm"
+)
 
 // beforeCreate runs before the DomainNameDefinition is created.
 func (d *DomainNameDefinition) beforeCreate(tx *gorm.DB) error {
@@ -132,23 +136,50 @@ func (g *GatewayDefinition) afterDelete(tx *gorm.DB) error {
 
 // beforeCreate runs before the GatewayHttpPort is created.
 func (g *GatewayHttpPort) beforeCreate(tx *gorm.DB) error {
-	return nil
+	// default an empty path, then reject a port the controller cannot serve
+	g.defaultHttpPath(true)
+	return g.validateHttpPort(true)
 }
 
 // beforeUpdate runs before the GatewayHttpPort is updated.
-//
-// Receiver semantics depend on the GORM call shape; see
-// pkg/api/lib/v0/update_helpers.go for the full model. The simplest
-// per-field check is:
-//   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
-//     and PUT, handles the DB load internally
-// Lower-level helpers, useful when IsFieldChanged doesn't fit:
-//   - lib.IncomingValues(tx): values being written
-//   - lib.IsFullReplace(tx): true on PUT (Save shape)
-//   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
-// Import:
-//   lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (g *GatewayHttpPort) beforeUpdate(tx *gorm.DB) error {
+	// default an empty path, then reject tls together with a redirect
+	g.defaultHttpPath(false)
+	return g.validateHttpPort(false)
+}
+
+// defaultHttpPath sets an omitted path to / on create, and an empty path to / on any write.
+func (g *GatewayHttpPort) defaultHttpPath(create bool) {
+	// a nil path on update means the write did not include the field
+	if g.Path == nil {
+		if !create {
+			return
+		}
+		path := "/"
+		g.Path = &path
+		return
+	}
+	if *g.Path == "" {
+		path := "/"
+		g.Path = &path
+	}
+}
+
+// validateHttpPort checks the fields present on this port.
+// requirePort is true on create, where a missing port has no stored row to keep.
+func (g *GatewayHttpPort) validateHttpPort(requirePort bool) error {
+	// a create must name the port
+	if requirePort && (g.Port == nil || *g.Port == 0) {
+		return errors.New("port must be set")
+	}
+	// tls and a redirect cannot share one port
+	if g.TLSEnabled != nil &&
+		*g.TLSEnabled &&
+		g.HTTPSRedirect != nil &&
+		*g.HTTPSRedirect {
+		return errors.New("TLS and HTTPS redirect cannot both be enabled on the same port")
+	}
+
 	return nil
 }
 

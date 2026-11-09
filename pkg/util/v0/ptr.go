@@ -27,3 +27,9 @@ func Deref[T any](p *T) T {
 	}
 	return *p
 }
+
+// PtrEqual reports whether p is set and *p equals value.
+// A nil pointer is not equal, including when value is the zero value.
+func PtrEqual[T comparable](p *T, value T) bool {
+	return p != nil && *p == value
+}

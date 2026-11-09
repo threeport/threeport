@@ -76,6 +76,8 @@ func (e *eksLifecycle) GetReconciliation() (*provider.ReconciliationSnapshot, er
 		DeletionAcknowledged: latest.DeletionAcknowledged,
 		DeletionConfirmed:    latest.DeletionConfirmed,
 		ResourceInventory:    latest.ResourceInventory,
+
+		AbandonInfrastructure: latest.AbandonInfrastructure != nil && *latest.AbandonInfrastructure,
 	}, nil
 }
 
@@ -144,11 +146,7 @@ func (e *eksLifecycle) IsCreateComplete() (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to check EKS creation status: %w", err)
 	}
-	if latest.ResourceInventory == nil {
-		return false, nil
-	}
-	inventory := *latest.ResourceInventory
-	if len(inventory) == 0 || string(inventory) == "{}" || string(inventory) == "null" {
+	if !provider.HasInventory(latest.ResourceInventory) {
 		return false, nil
 	}
 
@@ -401,6 +399,22 @@ func (e *eksLifecycle) ClearInventory() error {
 	_, err := client.UpdateAwsEksKubernetesRuntimeInstance(e.r.APIClient, e.r.APIServer, &clearedUpdate)
 
 	return err
+}
+
+// RecordWarning records a Warning event against the instance.
+func (e *eksLifecycle) RecordWarning(reason, note string) error {
+	// a nil Recorder interface and a nil pointer inside one are both "none"
+	if e.r == nil || e.r.EventsRecorder == nil {
+		return provider.RecordWarningEvent(nil, e.instanceID, "", reason, note)
+	}
+
+	return provider.RecordWarningEvent(
+		e.r.EventsRecorder,
+		e.instanceID,
+		new(v0.AwsEksKubernetesRuntimeInstance).GetFullyQualifiedType(),
+		reason,
+		note,
+	)
 }
 
 // PublishCreateNotification publishes a NATS notification for creation.

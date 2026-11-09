@@ -24,6 +24,9 @@ type SecretInstance struct {
 	Instance       `mapstructure:",squash"`
 	Reconciliation `mapstructure:",squash"`
 
+	// The shared component workloads this instance records.
+	SupportServiceSecrets `mapstructure:",squash"`
+
 	// The kubernetes runtime to which the secret is deployed.
 	KubernetesRuntimeInstanceID *uint `validate:"required" gorm:"not null" relationship:"requires"`
 
