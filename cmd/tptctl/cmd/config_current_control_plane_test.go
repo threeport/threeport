@@ -303,6 +303,35 @@ func TestRefreshSources(t *testing.T) {
 	assert.Equal(t, []string{"parent", "genesis", "sibling"}, names)
 }
 
+// TestRefreshStoredControlPlaneOnlyChild keeps a saved child when the config
+// has no other control plane to ask.
+func TestRefreshStoredControlPlaneOnlyChild(t *testing.T) {
+	// the only credential is the child being selected
+	cfg := &cli.ThreeportConfig{
+		CurrentControlPlane: "child",
+		ControlPlanes: []cli.ControlPlane{{
+			Name:      "child",
+			APIServer: "https://child.example",
+			CACert:    "ca-child",
+			Credentials: []cli.Credential{{
+				ClientCert: "client-child",
+			}},
+		}},
+	}
+	resolution := resolveControlPlaneRequest(cfg, "child")
+
+	// the child is not a source for its own record, and genesis is absent
+	require.True(t, resolution.inConfig)
+	assert.Nil(t, resolution.genesis)
+	assert.Empty(t, refreshSources(cfg, resolution))
+
+	// selecting it leaves the saved address and certificates in place
+	require.NoError(t, refreshStoredControlPlane(cfg, resolution, "child"))
+	assert.Equal(t, "https://child.example", cfg.ControlPlanes[0].APIServer)
+	assert.Equal(t, "ca-child", cfg.ControlPlanes[0].CACert)
+	assert.Equal(t, "client-child", cfg.ControlPlanes[0].Credentials[0].ClientCert)
+}
+
 // TestRefreshInstanceFrom uses the first source that has the instance.
 func TestRefreshInstanceFrom(t *testing.T) {
 	// genesis does not have a grandchild, and a down source does not stop the search
