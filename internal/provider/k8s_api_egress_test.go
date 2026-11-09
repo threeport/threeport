@@ -140,7 +140,7 @@ func runtimeAPI(t *testing.T, workloadIsHost bool, host *v0.KubernetesRuntimeIns
 	})
 	api.Mux.HandleFunc(v0.PathKubernetesRuntimeInstances, func(w http.ResponseWriter, r *http.Request) {
 		lookedUp = true
-		assert.Equal(t, "ThreeportControlPlaneHost=true", r.URL.RawQuery)
+		assert.Equal(t, "threeportcontrolplanehost=true", r.URL.RawQuery)
 		hosts := []apiserver_lib.Object{}
 		if host != nil {
 			hosts = append(hosts, *host)
