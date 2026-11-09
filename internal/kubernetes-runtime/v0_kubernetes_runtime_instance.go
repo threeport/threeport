@@ -237,12 +237,18 @@ func v0KubernetesRuntimeInstanceUpdated(
 		}
 	}
 
-	// use the namespace and tag of this control plane unless the runtime names an image
+	// copy the recorded agent image unless the runtime names one
 	var controlPlane *v0.ControlPlaneInstance
 	if util.DerefString(kubernetesRuntimeInstance.ThreeportAgentImage) == "" {
-		controlPlane, err = client.GetSelfControlPlaneInstance(r.APIClient, r.APIServer)
+		selfInstance, err := client.GetSelfControlPlaneInstance(r.APIClient, r.APIServer)
 		if err != nil {
 			return 0, fmt.Errorf("failed to get the control plane installing this runtime: %w", err)
+		}
+
+		// fetch the instance by ID because the list endpoint omits its components
+		controlPlane, err = client.GetControlPlaneInstanceByID(r.APIClient, r.APIServer, *selfInstance.ID)
+		if err != nil {
+			return 0, fmt.Errorf("failed to get self control plane instance by ID: %w", err)
 		}
 	}
 	if err = setComputeSpaceAgentImage(
