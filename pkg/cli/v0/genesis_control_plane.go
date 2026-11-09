@@ -630,6 +630,13 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	uninstaller.dynamicKubeClient = dynamicKubeClient
 	uninstaller.mapper = mapper
 
+	// find out whether the control plane namespace is already there before
+	// anything else can fail, since the teardown needs to know whether it may
+	// delete it.  Until this has found out, the teardown leaves it alone.
+	if err := cpi.CheckNamespacePresence(dynamicKubeClient, mapper); err != nil {
+		return uninstaller.cleanOnCreateError("failed to check for the control plane namespace", err)
+	}
+
 	// generate new DB client credentials
 	dbCreds, err := auth.GenerateDbCreds(cpi.Opts.Namespace)
 	if err != nil {
@@ -779,6 +786,11 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		}); err != nil {
 			return uninstaller.cleanOnCreateError("failed to update threeport config", err)
 		}
+
+		// the controllers hand this address to agents on the clusters they manage
+		cpi.Opts.ExternalApiEndpoint = fmt.Sprintf(
+			"%s:%d", threeportAPIEndpoint, threeport.GetThreeportAPIPort(cpi.Opts.AuthEnabled),
+		)
 
 		// install provider-specific kubernetes resources
 		switch controlPlane.InfraProvider {
@@ -1105,6 +1117,22 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		return fmt.Errorf("failed to get threeport control plane config: %w", err)
 	}
 
+	// a previous teardown destroyed the infrastructure but could not finish
+	// removing GCP service accounts. There is no cluster, stack or API left to
+	// reach, so go straight to the cleanup and keep the config entry until it
+	// succeeds.
+	if threeportControlPlaneConfig.InfraDestroyed {
+		Info("Infrastructure already destroyed, skipping to GCP cleanup")
+		if err := resumeTeardownCleanup(threeportControlPlaneConfig, cpi.Opts.DeleteBackups); err != nil {
+			return err
+		}
+		DeleteThreeportConfigControlPlane(threeportConfig, cpi.Opts.ControlPlaneName)
+		Info("Threeport config updated")
+		Complete(fmt.Sprintf("Threeport control plane %s deleted", cpi.Opts.ControlPlaneName))
+
+		return nil
+	}
+
 	// get threeport certificates
 	ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificatesForControlPlane(cpi.Opts.ControlPlaneName)
 	if err != nil {
@@ -1330,6 +1358,16 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return fmt.Errorf("failed to get a Kubernetes client and mapper: %w", err)
 		}
 
+		// the GcpProviders live in the database that is about to go, and each
+		// has a GCP service account that only they point to
+		if err := recordPendingGcpCleanup(
+			apiClient,
+			threeportControlPlaneConfig.APIServer,
+			threeportControlPlaneConfig,
+		); err != nil {
+			return err
+		}
+
 		if err := cpi.UnInstallThreeportControlPlaneComponents(dynamicKubeClient, mapper); err != nil {
 			return fmt.Errorf("failed to delete control plane components for threeport: %w", err)
 		}
@@ -1350,6 +1388,11 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 
 		// delete control plane infra
 		if err := kubernetesRuntimeInfra.Delete(); err != nil {
+			// keep the control plane in the config: it is the only handle for
+			// retrying what is left
+			if markErr := markGkeCleanupPending(threeportControlPlaneConfig, err); markErr != nil {
+				err = errors.Join(err, markErr)
+			}
 			return fmt.Errorf("failed to delete control plane infra: %w", err)
 		}
 
@@ -1373,6 +1416,19 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 				return fmt.Errorf("failed to delete OCI IAM resources: %w", err)
 			}
 		}
+	}
+
+	// remove the GCP service accounts of the gcp providers, now that the control
+	// plane that held them is gone. When the infrastructure is gone too, record
+	// that first: a failure here leaves the config entry in place, and a repeat
+	// has no cluster or API to reach before it gets back to this cleanup.
+	if len(threeportControlPlaneConfig.PendingGcpCleanup) > 0 && !cpi.Opts.ControlPlaneOnly {
+		if err := markInfraDestroyed(threeportControlPlaneConfig); err != nil {
+			return err
+		}
+	}
+	if err := cleanUpPendingGcpProviders(threeportControlPlaneConfig); err != nil {
+		return err
 	}
 
 	// if control plane only flag is set, hold onto the control plane in the threeport
@@ -1500,11 +1556,21 @@ func ValidateCreateGenesisControlPlaneFlags(
 		return err
 	}
 
-	// ensure name length doesn't exceed maximum
-	if utf8.RuneCountInString(instanceName) > threeport.InstanceNameMaxLength {
+	// ensure name length doesn't exceed the limit on any name a person chooses
+	if utf8.RuneCountInString(instanceName) > provider.NameMaxLength {
 		return fmt.Errorf(
 			"instance name is too long - cannot exceed %d characters",
-			threeport.InstanceNameMaxLength,
+			provider.NameMaxLength,
+		)
+	}
+
+	// ensure name length doesn't exceed the limit AWS puts on role names, which
+	// include the name
+	if infraProvider == string(v0.KubernetesRuntimeInfraProviderEKS) &&
+		utf8.RuneCountInString(instanceName) > threeport.InstanceNameMaxLength {
+		return fmt.Errorf(
+			"instance name is too long for provider %s - cannot exceed %d characters",
+			infraProvider, threeport.InstanceNameMaxLength,
 		)
 	}
 
@@ -1613,11 +1679,42 @@ func (u *Uninstaller) cleanOnCreateError(
 		return createErr
 	}
 
-	// if needed, delete control plane workloads to remove related infra, e.g. load
-	// balancers, that will prevent runtime infra deletion
-	// a failure here is not fatal to the teardown: the infra delete below must
-	// still be attempted so the cluster and network are not left behind
-	if u.dynamicKubeClient != nil && u.mapper != nil {
+	// A namespace that was already there when this install started is not
+	// this install's to remove while the cluster it is in outlives the
+	// teardown, which is what --control-plane-only means: it reapplies into a
+	// running cluster, often against a running control plane, and uninstalling
+	// the components deletes the whole namespace - the API, the database and
+	// its data with it. Nobody asked for that by not passing a flag.
+	//
+	// A full install deletes the cluster below, and everything in it goes
+	// with the cluster either way, so the namespace is deleted first as it
+	// always is. Skipping that would keep nothing: it would only leave the
+	// API's load balancer running, which on EKS keeps the stack's subnets
+	// from being deleted, and the disks behind the claims undeleted.
+	//
+	// Only a namespace this install is known to have created is deleted: one
+	// whose presence was never found out, because the install failed before
+	// it checked or the check itself failed, is left alone too.
+	//
+	// The note reaches the operator regardless of whether a Kubernetes client
+	// is even available here - it is informational, not a Kubernetes call.
+	if u.cpi.Opts.ControlPlaneOnly && u.cpi.Opts.NamespacePresence == threeport.NamespacePresent {
+		createErr = fmt.Errorf(
+			"%w\n(the %s namespace was already present, so it was left alone; "+
+				"anything this install added to it is still there)",
+			createErr, u.cpi.Opts.Namespace,
+		)
+	} else if u.cpi.Opts.ControlPlaneOnly && u.cpi.Opts.NamespacePresence != threeport.NamespaceAbsent {
+		createErr = fmt.Errorf(
+			"%w\n(the install failed before it could find out whether it created the %s namespace, "+
+				"so it was left alone; delete it yourself if this install created it)",
+			createErr, u.cpi.Opts.Namespace,
+		)
+	} else if u.dynamicKubeClient != nil && u.mapper != nil {
+		// if needed, delete control plane workloads to remove related infra,
+		// e.g. load balancers, that will prevent runtime infra deletion
+		// a failure here is not fatal to the teardown: the infra delete below must
+		// still be attempted so the cluster and network are not left behind
 		if workloadErr := u.cpi.UnInstallThreeportControlPlaneComponents(u.dynamicKubeClient, u.mapper); workloadErr != nil {
 			Warning(fmt.Sprintf("failed to delete threeport API components: %v", workloadErr))
 			createErr = fmt.Errorf("%w\nfailed to delete threeport API components: %w", createErr, workloadErr)

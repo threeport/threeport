@@ -101,8 +101,8 @@ func (k *KubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
 	return validateKubernetesApiAccessUpdate(
 		tx,
 		*k.InfraProvider,
-		func(values any) (*bool, *datatypes.JSON, bool) {
-			object, ok := values.(*KubernetesRuntimeDefinition)
+		func(value any) (*bool, *datatypes.JSON, bool) {
+			object, ok := value.(*KubernetesRuntimeDefinition)
 			if !ok {
 				return nil, nil, false
 			}
