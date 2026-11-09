@@ -43,7 +43,7 @@ func v0KubernetesRuntimeInstanceCreated(
 		*kubernetesRuntimeInstance.KubernetesRuntimeDefinitionID,
 	)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get kubernetes runtime definition by ID: %w", err)
+		return controller.RetryOnNetworkErr(err, "failed to get kubernetes runtime definition by ID")
 	}
 
 	// create the provider-specific instance
@@ -59,7 +59,7 @@ func v0KubernetesRuntimeInstanceCreated(
 			*kubernetesRuntimeDefinition.ID,
 		)
 		if err != nil {
-			return 0, fmt.Errorf("failed to get aws eks runtime definition by kubernetes runtime definition ID: %w", err)
+			return controller.RetryOnNetworkErr(err, "failed to get aws eks runtime definition by kubernetes runtime definition ID")
 		}
 
 		// add AWS EKS runtime instance
@@ -81,7 +81,7 @@ func v0KubernetesRuntimeInstanceCreated(
 			&awsEksKubernetesRuntimeInstance,
 		)
 		if err != nil {
-			return 0, fmt.Errorf("failed to create EKS kubernetes runtime instance: %w", err)
+			return controller.RetryOnNetworkErr(err, "failed to create EKS kubernetes runtime instance")
 		}
 	case v0.KubernetesRuntimeInfraProviderGKE:
 		// get GCP GKE runtime definition
@@ -91,7 +91,7 @@ func v0KubernetesRuntimeInstanceCreated(
 			*kubernetesRuntimeDefinition.ID,
 		)
 		if err != nil {
-			return 0, fmt.Errorf("failed to get GCP GKE runtime definition by kubernetes runtime definition ID: %w", err)
+			return controller.RetryOnNetworkErr(err, "failed to get GCP GKE runtime definition by kubernetes runtime definition ID")
 		}
 
 		// look up GCP provider
@@ -104,7 +104,7 @@ func v0KubernetesRuntimeInstanceCreated(
 				*kubernetesRuntimeDefinition.InfraProviderAccountName,
 			)
 			if err != nil {
-				return 0, fmt.Errorf("failed to get GCP provider by provider name: %w", err)
+				return controller.RetryOnNetworkErr(err, "failed to get GCP provider by provider name")
 			}
 			gcpProvider = *provider
 		} else {
@@ -114,7 +114,7 @@ func v0KubernetesRuntimeInstanceCreated(
 				r.APIServer,
 			)
 			if err != nil {
-				return 0, fmt.Errorf("failed to get GCP provider by default: %w", err)
+				return controller.RetryOnNetworkErr(err, "failed to get GCP provider by default")
 			}
 			gcpProvider = *provider
 		}
@@ -139,7 +139,7 @@ func v0KubernetesRuntimeInstanceCreated(
 			&gcpGkeKubernetesRuntimeInstance,
 		)
 		if err != nil {
-			return 0, fmt.Errorf("failed to create GKE kubernetes runtime instance: %w", err)
+			return controller.RetryOnNetworkErr(err, "failed to create GKE kubernetes runtime instance")
 		}
 	}
 
@@ -191,7 +191,7 @@ func v0KubernetesRuntimeInstanceUpdated(
 		*kubernetesRuntimeInstance.KubernetesRuntimeDefinitionID,
 	)
 	if err != nil {
-		return 0, fmt.Errorf("failed to retrieve kubernetes runtime definition by ID: %w", err)
+		return controller.RetryOnNetworkErr(err, "failed to retrieve kubernetes runtime definition by ID")
 	}
 
 	// A GKE-hosted control plane's own cluster has everything this function
@@ -334,7 +334,7 @@ func v0KubernetesRuntimeInstanceUpdated(
 			*kubernetesRuntimeDefinition.InfraProviderAccountName,
 		)
 		if err != nil {
-			return 0, fmt.Errorf("failed to get AWS provider by name: %w", err)
+			return controller.RetryOnNetworkErr(err, "failed to get AWS provider by name")
 		}
 
 		// system components e.g. cluster-autoscaler
@@ -377,7 +377,7 @@ func v0KubernetesRuntimeInstanceUpdated(
 		*kubernetesRuntimeDefinition.InfraProvider == v0.KubernetesRuntimeInfraProviderGKE {
 		controlPlaneGcpProject, err := controlPlaneGkeProject(r)
 		if err != nil {
-			return 0, fmt.Errorf("failed to determine control plane GCP project for workload controller RBAC: %w", err)
+			return controller.RetryOnNetworkErr(err, "failed to determine control plane GCP project for workload controller RBAC")
 		}
 		// Ask the connection path who it arrives as rather than deciding here.
 		// A control plane with ambient Google credentials reaches this cluster as
@@ -391,7 +391,7 @@ func v0KubernetesRuntimeInstanceUpdated(
 			r.EncryptionKey,
 		)
 		if err != nil {
-			return 0, fmt.Errorf("failed to determine the identity for workload controller RBAC: %w", err)
+			return controller.RetryOnNetworkErr(err, "failed to determine the identity for workload controller RBAC")
 		}
 
 		// A Workload Identity principal only exists when the control plane is
@@ -466,7 +466,7 @@ func v0KubernetesRuntimeInstanceDeleted(
 		*kubernetesRuntimeInstance.KubernetesRuntimeDefinitionID,
 	)
 	if err != nil {
-		return 0, fmt.Errorf("failed to retrieve kubernetes runtime definition by ID: %w", err)
+		return controller.RetryOnNetworkErr(err, "failed to retrieve kubernetes runtime definition by ID")
 	}
 
 	// TODO: delete support services svc to elliminate ELB
@@ -489,7 +489,7 @@ func v0KubernetesRuntimeInstanceDeleted(
 				)
 				return 0, nil
 			}
-			return 0, fmt.Errorf("failed to get aws eks runtime instance by kubernetes runtime instance ID: %w", err)
+			return controller.RetryOnNetworkErr(err, "failed to get aws eks runtime instance by kubernetes runtime instance ID")
 		}
 
 		// delete AWS EKS runtime instance
@@ -499,7 +499,7 @@ func v0KubernetesRuntimeInstanceDeleted(
 			*awsEksKubernetesRuntimeInstance.ID,
 		)
 		if err != nil {
-			return 0, fmt.Errorf("failed to delete aws eks runtime instance by ID: %w", err)
+			return controller.RetryOnNetworkErr(err, "failed to delete aws eks runtime instance by ID")
 		}
 	case v0.KubernetesRuntimeInfraProviderGKE:
 		// get GCP GKE runtime instance
@@ -517,7 +517,7 @@ func v0KubernetesRuntimeInstanceDeleted(
 				)
 				return 0, nil
 			}
-			return 0, fmt.Errorf("failed to get GCP GKE runtime instance by kubernetes runtime instance ID: %w", err)
+			return controller.RetryOnNetworkErr(err, "failed to get GCP GKE runtime instance by kubernetes runtime instance ID")
 		}
 
 		// delete GCP GKE runtime instance
@@ -527,7 +527,7 @@ func v0KubernetesRuntimeInstanceDeleted(
 			*gcpGkeKubernetesRuntimeInstance.ID,
 		)
 		if err != nil {
-			return 0, fmt.Errorf("failed to delete GCP GKE runtime instance by ID: %w", err)
+			return controller.RetryOnNetworkErr(err, "failed to delete GCP GKE runtime instance by ID")
 		}
 	case v0.KubernetesRuntimeInfraProviderOKE:
 		// get OCI OKE runtime instance
@@ -545,7 +545,7 @@ func v0KubernetesRuntimeInstanceDeleted(
 				)
 				return 0, nil
 			}
-			return 0, fmt.Errorf("failed to get OCI OKE runtime instance by kubernetes runtime instance ID: %w", err)
+			return controller.RetryOnNetworkErr(err, "failed to get OCI OKE runtime instance by kubernetes runtime instance ID")
 		}
 
 		// delete OCI OKE runtime instance
@@ -555,7 +555,7 @@ func v0KubernetesRuntimeInstanceDeleted(
 			*ociOkeKubernetesRuntimeInstance.ID,
 		)
 		if err != nil {
-			return 0, fmt.Errorf("failed to delete OCI OKE runtime instance by ID: %w", err)
+			return controller.RetryOnNetworkErr(err, "failed to delete OCI OKE runtime instance by ID")
 		}
 	}
 
