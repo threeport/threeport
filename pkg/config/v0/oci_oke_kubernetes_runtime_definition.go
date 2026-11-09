@@ -28,6 +28,8 @@ type OciOkeKubernetesRuntimeDefinitionValues struct {
 	OciProviderName        *string
 	WorkerNodeShape        *string
 	WorkerNodeInitialCount *int
+	PrivateApi             *bool
+	AllowedCidrs           *[]string
 	Age                    *string
 }
 
@@ -72,7 +74,9 @@ func (o *OciOkeKubernetesRuntimeDefinitionConfig) Get(
 					}
 					return nil
 				}(),
-				Age: util.Ptr(util.GetAgeFormatted(ociOkeKubernetesRuntimeDefinition.CreatedAt)),
+				PrivateApi:   ociOkeKubernetesRuntimeDefinition.PrivateApi,
+				AllowedCidrs: cidrsFromJSON(ociOkeKubernetesRuntimeDefinition.AllowedCidrs),
+				Age:          util.Ptr(util.GetAgeFormatted(ociOkeKubernetesRuntimeDefinition.CreatedAt)),
 			},
 		}
 		ociOkeKubernetesRuntimeDefinitionConfigs = append(ociOkeKubernetesRuntimeDefinitionConfigs, ociOkeKubernetesRuntimeDefinitionConfig)
@@ -109,6 +113,8 @@ func (o *OciOkeKubernetesRuntimeDefinitionConfig) Create(
 		},
 		InfraProvider:            &infraProvider,
 		InfraProviderAccountName: ociProvider.Name,
+		PrivateApi:               ociOkeKubernetesRuntimeDefinitionValues.PrivateApi,
+		AllowedCidrs:             cidrsToJSON(ociOkeKubernetesRuntimeDefinitionValues.AllowedCidrs),
 	}
 
 	// create kubernetes runtime definition
@@ -130,6 +136,8 @@ func (o *OciOkeKubernetesRuntimeDefinitionConfig) Create(
 			}
 			return nil
 		}(),
+		PrivateApi:                    ociOkeKubernetesRuntimeDefinitionValues.PrivateApi,
+		AllowedCidrs:                  cidrsToJSON(ociOkeKubernetesRuntimeDefinitionValues.AllowedCidrs),
 		KubernetesRuntimeDefinitionID: createdKubernetesRuntimeDefinition.ID,
 	}
 
@@ -156,7 +164,9 @@ func (o *OciOkeKubernetesRuntimeDefinitionConfig) Create(
 				}
 				return nil
 			}(),
-			Age: util.Ptr(util.GetAgeFormatted(createdOciOkeKubernetesRuntimeDefinition.CreatedAt)),
+			PrivateApi:   createdOciOkeKubernetesRuntimeDefinition.PrivateApi,
+			AllowedCidrs: cidrsFromJSON(createdOciOkeKubernetesRuntimeDefinition.AllowedCidrs),
+			Age:          util.Ptr(util.GetAgeFormatted(createdOciOkeKubernetesRuntimeDefinition.CreatedAt)),
 		},
 	}
 
@@ -206,6 +216,8 @@ func (o *OciOkeKubernetesRuntimeDefinitionConfig) Replace(
 		}
 		return nil
 	}()
+	updatedOciOkeKubernetesRuntimeDefinition.PrivateApi = ociOkeKubernetesRuntimeDefinitionValues.PrivateApi
+	updatedOciOkeKubernetesRuntimeDefinition.AllowedCidrs = cidrsToJSON(ociOkeKubernetesRuntimeDefinitionValues.AllowedCidrs)
 
 	// replace oci oke kubernetes runtime definition
 	replacedOciOkeKubernetesRuntimeDefinition, err := client_v0.ReplaceOciOkeKubernetesRuntimeDefinition(
@@ -215,6 +227,29 @@ func (o *OciOkeKubernetesRuntimeDefinitionConfig) Replace(
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to replace oci oke kubernetes runtime definition in threeport API: %w", err)
+	}
+
+	// keep the kubernetes runtime definition's Kubernetes API access in step
+	// with the OKE definition; unset values are sent as their defaults so
+	// that a replace clears them
+	privateApi := ociOkeKubernetesRuntimeDefinitionValues.PrivateApi
+	if privateApi == nil {
+		privateApi = util.Ptr(false)
+	}
+	allowedCidrs := ociOkeKubernetesRuntimeDefinitionValues.AllowedCidrs
+	if allowedCidrs == nil {
+		allowedCidrs = &[]string{}
+	}
+	if _, err := client_v0.UpdateKubernetesRuntimeDefinition(
+		apiClient,
+		apiEndpoint,
+		&api_v0.KubernetesRuntimeDefinition{
+			Common:       api_v0.Common{ID: existingOciOkeKubernetesRuntimeDefinition.KubernetesRuntimeDefinitionID},
+			PrivateApi:   privateApi,
+			AllowedCidrs: cidrsToJSON(allowedCidrs),
+		},
+	); err != nil {
+		return nil, fmt.Errorf("failed to update the kubernetes runtime definition for oci oke kubernetes runtime definition %s: %w", name, err)
 	}
 
 	// construct updated oci oke kubernetes runtime definition config
@@ -229,7 +264,9 @@ func (o *OciOkeKubernetesRuntimeDefinitionConfig) Replace(
 				}
 				return nil
 			}(),
-			Age: util.Ptr(util.GetAgeFormatted(replacedOciOkeKubernetesRuntimeDefinition.CreatedAt)),
+			PrivateApi:   replacedOciOkeKubernetesRuntimeDefinition.PrivateApi,
+			AllowedCidrs: cidrsFromJSON(replacedOciOkeKubernetesRuntimeDefinition.AllowedCidrs),
+			Age:          util.Ptr(util.GetAgeFormatted(replacedOciOkeKubernetesRuntimeDefinition.CreatedAt)),
 		},
 	}
 
@@ -295,6 +332,11 @@ func (o *OciOkeKubernetesRuntimeDefinitionConfig) Validate() error {
 	// ensure oci provider name is set
 	if ociOkeKubernetesRuntimeDefinitionValues.OciProviderName == nil {
 		multiError.AppendError(errors.New("missing required field in config: OciProviderName"))
+	}
+
+	// validate the CIDR blocks allowed to reach the Kubernetes API
+	if err := validateAllowedCidrs(ociOkeKubernetesRuntimeDefinitionValues.AllowedCidrs); err != nil {
+		multiError.AppendError(err)
 	}
 
 	// ensure WorkerNodeShape is set
