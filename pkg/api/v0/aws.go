@@ -64,6 +64,15 @@ type AwsEksKubernetesRuntimeDefinition struct {
 	// The maximum number of nodes the default initial node group should have.
 	DefaultNodeGroupMaximumSize *int `validate:"required" gorm:"not null"`
 
+	// If true, the Kubernetes API is not reachable from the public internet.
+	// Set from the KubernetesRuntimeDefinition's PrivateApi.
+	PrivateApi *bool `validate:"optional" gorm:"default:false"`
+
+	// The CIDR blocks allowed to reach the Kubernetes API, as a JSON array of
+	// IPv4 CIDR blocks.  Set from the KubernetesRuntimeDefinition's
+	// AllowedCidrs.
+	AllowedCidrs *datatypes.JSON `validate:"optional" swaggertype:"array,string"`
+
 	// The AWS EKS kubernetes runtime instances derived from this definition.
 	AwsEksKubernetesRuntimeInstances []*AwsEksKubernetesRuntimeInstance `validate:"optional,association"`
 

@@ -268,7 +268,10 @@ func GenControllerMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						),
 						"LockBucketDescr",
 					),
-					Id("TTL"): Qual("time", "Minute").Op("*").Lit(20),
+					// the lock is refreshed while a reconcile is running, so
+					// this only has to outlast a controller that died without
+					// releasing it - see controller.LockTTL
+					Id("TTL"): Qual("github.com/threeport/threeport/pkg/controller/v0", "LockTTL"),
 				}),
 				List(
 					Id("kv"), Id("err"),
