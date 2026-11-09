@@ -1,6 +1,8 @@
 package gen
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -376,6 +378,124 @@ func TestValidateTags_RejectsNonStandardEmbed(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "Foo embeds Random")
 	assert.Contains(t, err.Error(), "Common, Definition, Instance, or Reconciliation")
+}
+
+// TestValidateTags_SupportServiceRequiresRuntime rejects a support service
+// embed on an object that has no KubernetesRuntimeInstanceID.
+// Example:
+//
+//	type FooInstance struct {
+//	    SupportServiceSecrets `mapstructure:",squash"`
+//	}
+//
+// Expected: error citing SupportServiceSecrets and KubernetesRuntimeInstanceID.
+func TestValidateTags_SupportServiceRequiresRuntime(t *testing.T) {
+	// build an instance that embeds a support service and declares no runtime id
+	g := fixture(
+		map[string]map[string]map[string]string{
+			"FooInstance": {},
+		},
+		map[string][]string{"FooInstance": {"SupportServiceSecrets"}},
+		nil,
+		nil,
+	)
+
+	// reject the missing runtime id
+	err := g.ValidateTags()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "FooInstance embeds SupportServiceSecrets and requires KubernetesRuntimeInstanceID")
+}
+
+// TestValidateTags_SupportServiceOnDefinition rejects a support service
+// embed on an object that is not an instance.
+// Example:
+//
+//	type FooDefinition struct {
+//	    SupportServiceIngress `mapstructure:",squash"`
+//	    KubernetesRuntimeInstanceID *uint `validate:"optional"`
+//	}
+//
+// Expected: error citing FooDefinition and the instance requirement.
+func TestValidateTags_SupportServiceOnDefinition(t *testing.T) {
+	// build a definition that embeds a support service and declares a runtime id
+	g := fixture(
+		map[string]map[string]map[string]string{
+			"FooDefinition": {
+				"KubernetesRuntimeInstanceID": tag("validate", "optional"),
+			},
+		},
+		map[string][]string{"FooDefinition": {"SupportServiceIngress"}},
+		nil,
+		nil,
+	)
+
+	// reject the embed
+	err := g.ValidateTags()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "FooDefinition embeds SupportServiceIngress: a support service embed belongs on an instance")
+}
+
+// TestValidateTags_SupportServiceWithRuntime accepts a support service embed
+// when the object declares KubernetesRuntimeInstanceID.
+// Example:
+//
+//	type FooInstance struct {
+//	    SupportServiceIngress `mapstructure:",squash"`
+//	    KubernetesRuntimeInstanceID *uint `validate:"optional"`
+//	}
+//
+// Expected: no error.
+func TestValidateTags_SupportServiceWithRuntime(t *testing.T) {
+	// build an instance that embeds every support service and declares a runtime id
+	g := fixture(
+		map[string]map[string]map[string]string{
+			"FooInstance": {
+				"KubernetesRuntimeInstanceID": tag("validate", "optional"),
+			},
+		},
+		map[string][]string{"FooInstance": {
+			"SupportServiceIngress",
+			"SupportServiceCertificates",
+			"SupportServiceSecrets",
+			"SupportServiceDatabase",
+		}},
+		nil,
+		nil,
+	)
+
+	// accept the embeds
+	assert.NoError(t, g.ValidateTags())
+}
+
+// TestParseModelFile_SelectorEmbed records a package-qualified embed by its type name.
+// Example:
+//
+//	tpapi.SupportServiceIngress `mapstructure:",squash"`
+//
+// Expected: the embed list holds SupportServiceIngress.
+func TestParseModelFile_SelectorEmbed(t *testing.T) {
+	// write a model that embeds a support service through a package selector
+	dir := t.TempDir()
+	path := filepath.Join(dir, "model.go")
+	source := "package v0\n" +
+		"type Foo struct {\n" +
+		"\ttpapi.SupportServiceIngress `mapstructure:\",squash\"`\n" +
+		"\ttpapi.SupportServiceCertificates `mapstructure:\",squash\"`\n" +
+		"\ttpapi.SupportServiceSecrets `mapstructure:\",squash\"`\n" +
+		"\ttpapi.SupportServiceDatabase `mapstructure:\",squash\"`\n" +
+		"\tKubernetesRuntimeInstanceID *uint `validate:\"optional\"`\n" +
+		"}\n"
+	require.NoError(t, os.WriteFile(path, []byte(source), 0o644))
+
+	// record the type name after the package selector
+	_, _, embeds, err := ParseModelFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, []string{
+		"SupportServiceIngress",
+		"SupportServiceCertificates",
+		"SupportServiceSecrets",
+		"SupportServiceDatabase",
+	}, embeds["Foo"])
 }
 
 // TestHasFieldWithTagValue_Match returns true when any field on the

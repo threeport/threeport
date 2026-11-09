@@ -55,7 +55,7 @@ var GetKubernetesWorkloadsCmd = &cobra.Command{
 		case "v0":
 			// load workload values
 			k8sWorkloadConfig := config_v0.KubernetesWorkloadConfig{}
-			if k8sWorkloadConfigPath != "" {
+			if k8sWorkloadConfigPath != "" || k8sWorkloadStdin {
 				configContent, err := cli.ReadConfigContent(k8sWorkloadConfigPath, k8sWorkloadStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -316,7 +316,7 @@ var GetKubernetesWorkloadDefinitionsCmd = &cobra.Command{
 		case "v0":
 			// load values
 			k8sWorkloadDefinitionConfig := config_v0.KubernetesWorkloadDefinitionConfig{}
-			if k8sWorkloadConfigPath != "" {
+			if k8sWorkloadConfigPath != "" || k8sWorkloadStdin {
 				configContent, err := cli.ReadConfigContent(k8sWorkloadConfigPath, k8sWorkloadStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -562,7 +562,7 @@ var DeleteKubernetesWorkloadDefinitionCmd = &cobra.Command{
 		switch k8sWorkloadVersion {
 		case "v0":
 			var k8sWorkloadDefinitionConfig config_v0.KubernetesWorkloadDefinitionConfig
-			if k8sWorkloadConfigPath != "" {
+			if k8sWorkloadConfigPath != "" || k8sWorkloadStdin {
 				// load kubernetes workload definition config
 				configContent, err := cli.ReadConfigContent(k8sWorkloadConfigPath, k8sWorkloadStdin)
 				if err != nil {
@@ -648,7 +648,7 @@ var GetKubernetesWorkloadInstancesCmd = &cobra.Command{
 		case "v0":
 			// load values
 			k8sWorkloadInstanceConfig := config_v0.KubernetesWorkloadInstanceConfig{}
-			if k8sWorkloadConfigPath != "" {
+			if k8sWorkloadConfigPath != "" || k8sWorkloadStdin {
 				configContent, err := cli.ReadConfigContent(k8sWorkloadConfigPath, k8sWorkloadStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -892,7 +892,7 @@ var DeleteKubernetesWorkloadInstanceCmd = &cobra.Command{
 		switch k8sWorkloadVersion {
 		case "v0":
 			var k8sWorkloadInstanceConfig config_v0.KubernetesWorkloadInstanceConfig
-			if k8sWorkloadConfigPath != "" {
+			if k8sWorkloadConfigPath != "" || k8sWorkloadStdin {
 				// load kubernetes workload instance config
 				configContent, err := cli.ReadConfigContent(k8sWorkloadConfigPath, k8sWorkloadStdin)
 				if err != nil {

@@ -266,18 +266,22 @@ func (s *SecretInstanceConfig) Replace(
 	}
 
 	// construct updated secret instance object
-	updatedSecretInstance := &api_v0.SecretInstance{
-		Common: api_v0.Common{
-			ID: existingSecretInstance.ID,
-		},
-		Instance: api_v0.Instance{
-			Name: secretInstanceValues.Name,
-		},
-		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
-		SecretDefinitionID:          secretDefinition.ID,
-	}
+	// Start from the existing object, so the fields this replace does not set
+	// are kept: the reconciler's (Reconciled and the rest of Reconciliation,
+	// Status) and the ones only the API server or a controller writes. Every
+	// field a user sets through the config is assigned below unconditionally,
+	// a nil value included, so a field left out of the config is cleared
+	// rather than kept. Do not assign the reconciler's fields here: the copy
+	// already carries them.
+	updatedSecretInstance := util.Ptr(*existingSecretInstance)
+	updatedSecretInstance.Name = secretInstanceValues.Name
+	updatedSecretInstance.KubernetesRuntimeInstanceID = kubernetesRuntimeInstance.ID
+	updatedSecretInstance.SecretDefinitionID = secretDefinition.ID
 
-	// get workload instance
+	// get workload instance, clearing the one the config does not name - the
+	// copy would otherwise keep a workload the secret was moved away from
+	updatedSecretInstance.KubernetesWorkloadInstanceID = nil
+	updatedSecretInstance.HelmWorkloadInstanceID = nil
 	switch {
 	case secretInstanceValues.KubernetesWorkloadInstance != nil:
 		workloadInstance, err := client_v0.GetKubernetesWorkloadInstanceByName(

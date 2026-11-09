@@ -36,6 +36,12 @@ func (c Common) GetOwner() *OwnerRef {
 	return c.Owner
 }
 
+// ObjectID returns the object's ID.
+func (c *Common) ObjectID() *uint {
+	// return the stored id
+	return c.ID
+}
+
 // Reconciliation includes the fields for reconciled objects.  These are
 // leveraged by controllers to persist information related to the reconciliation
 // of system state for objects.

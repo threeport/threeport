@@ -65,6 +65,8 @@ func (o *okeLifecycle) GetReconciliation() (*provider.ReconciliationSnapshot, er
 		DeletionAcknowledged: latest.DeletionAcknowledged,
 		DeletionConfirmed:    latest.DeletionConfirmed,
 		ResourceInventory:    latest.ResourceInventory,
+
+		AbandonInfrastructure: latest.AbandonInfrastructure != nil && *latest.AbandonInfrastructure,
 	}, nil
 }
 
@@ -370,6 +372,22 @@ func (o *okeLifecycle) ClearInventory() error {
 		o.r.APIClient, o.r.APIServer, &clearedUpdate,
 	)
 	return err
+}
+
+// RecordWarning records a Warning event against the instance.
+func (o *okeLifecycle) RecordWarning(reason, note string) error {
+	// a nil Recorder interface and a nil pointer inside one are both "none"
+	if o.r == nil || o.r.EventsRecorder == nil {
+		return provider.RecordWarningEvent(nil, o.instanceID, "", reason, note)
+	}
+
+	return provider.RecordWarningEvent(
+		o.r.EventsRecorder,
+		o.instanceID,
+		new(v0.OciOkeKubernetesRuntimeInstance).GetFullyQualifiedType(),
+		reason,
+		note,
+	)
 }
 
 // PublishCreateNotification publishes a NATS notification for creation.
