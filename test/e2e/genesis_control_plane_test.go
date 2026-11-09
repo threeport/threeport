@@ -30,6 +30,14 @@ const (
 var _ = BeforeSuite(func() {
 	GinkgoWriter.Write([]byte("beginning setup for test suite"))
 
+	if provider == eksProvider {
+		// getKubeClient refreshes the cluster's token in this process, with
+		// the AWS SDK's default credential chain: the saved AwsProvider holds
+		// the role to assume but no credentials to assume it with.  The chain
+		// reads a named profile only from AWS_PROFILE.
+		Expect(os.Setenv("AWS_PROFILE", awsConfigProfile)).To(Succeed())
+	}
+
 	By("building tptctl and tptdev")
 	err := buildCli()
 	Expect(err).NotTo(HaveOccurred(), "failed to build tptctl and tptdev")
