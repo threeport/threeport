@@ -284,6 +284,10 @@ func (c *ControlPlaneDefinition) afterDelete(tx *gorm.DB) error {
 // it to one, which is this object. Checking it at the CLI alone would leave
 // the API as the way around the rail.
 func (c *ControlPlaneInstance) beforeCreate(tx *gorm.DB) error {
+	if err := validateNetworkCidrPool(tx, c.NetworkCidrPool, c.IsSelf != nil && *c.IsSelf); err != nil {
+		return err
+	}
+
 	return validateAuthAgainstRuntime(tx, c)
 }
 
@@ -327,6 +331,11 @@ func (c *ControlPlaneInstance) beforeUpdate(tx *gorm.DB) error {
 	// read the stored row, because a patch often omits IsSelf
 	stored, err := storedControlPlane(tx, c)
 	if err != nil {
+		return err
+	}
+
+	// a new pool is checked whichever control plane the row is
+	if err := validateNetworkCidrPoolUpdate(tx, stored); err != nil {
 		return err
 	}
 
@@ -470,4 +479,22 @@ func (c *ControlPlaneInstance) afterUpdate(tx *gorm.DB) error {
 // afterDelete runs after the ControlPlaneInstance is deleted.
 func (c *ControlPlaneInstance) afterDelete(tx *gorm.DB) error {
 	return nil
+}
+
+// validateNetworkCidrPoolUpdate checks an update that changes NetworkCidrPool.
+func validateNetworkCidrPoolUpdate(tx *gorm.DB, stored *ControlPlaneInstance) error {
+	changed, err := lib.IsFieldChanged(tx, "NetworkCidrPool")
+	if err != nil {
+		return err
+	}
+	if !changed {
+		return nil
+	}
+
+	incoming, ok := lib.IncomingValues(tx).(*ControlPlaneInstance)
+	if !ok {
+		return fmt.Errorf("cannot validate NetworkCidrPool: update carries %T", lib.IncomingValues(tx))
+	}
+
+	return validateNetworkCidrPool(tx, incoming.NetworkCidrPool, stored.IsSelf != nil && *stored.IsSelf)
 }

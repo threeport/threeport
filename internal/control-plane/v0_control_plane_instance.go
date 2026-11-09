@@ -818,6 +818,10 @@ func v0ControlPlaneInstanceCreated(
 	self = false
 	genesisInstance.Common = v0.Common{}
 	genesisInstance.IsSelf = &self
+	// the genesis allocates network ranges from its own pool, in its own
+	// database; on the child its pool would read as one the child must keep
+	// clear of its own ranges
+	genesisInstance.NetworkCidrPool = nil
 	genesisInstance.ControlPlaneDefinitionID = &genDefID
 	genesisInstance.KubernetesRuntimeInstanceID = &genKubeRuntimeInstanceID
 	_, err = getOrCreate(
@@ -995,6 +999,9 @@ func copyManagingParent(
 	clone.Common = v0.Common{}
 	clone.IsSelf = &notSelf
 	clone.ParentControlPlaneInstanceID = nil
+	// the parent allocates network ranges from its pool in its own database,
+	// and the child's runtime was given one of them
+	clone.NetworkCidrPool = nil
 	clone.Reconciled = &reconciled
 	clone.ControlPlaneDefinitionID = localDefinition.ID
 	clone.KubernetesRuntimeInstanceID = localRuntime.ID

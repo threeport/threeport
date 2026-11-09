@@ -148,7 +148,7 @@ func (k *KubernetesRuntimeInstance) beforeCreate(tx *gorm.DB) error {
 		return util.NewBadRequestError(err.Error())
 	}
 
-	return nil
+	return validateRuntimeNetworkCidr(tx, k.NetworkCidr, nil)
 }
 
 // beforeUpdate validates that no immutable fields are being changed
@@ -188,6 +188,10 @@ func (k *KubernetesRuntimeInstance) beforeUpdate(tx *gorm.DB) error {
 		}
 		return incoming.EgressCidrs, true
 	}); err != nil {
+		return err
+	}
+
+	if err := validateRuntimeNetworkCidrUpdate(tx, k); err != nil {
 		return err
 	}
 
@@ -244,4 +248,37 @@ func (k *KubernetesRuntimeInstance) afterUpdate(tx *gorm.DB) error {
 // afterDelete runs after the KubernetesRuntimeInstance is deleted.
 func (k *KubernetesRuntimeInstance) afterDelete(tx *gorm.DB) error {
 	return nil
+}
+
+// validateRuntimeNetworkCidrUpdate checks an update that changes NetworkCidr.
+// A range is set once, when the runtime is created or when the control plane
+// allocates one: a cluster's network can't be moved to another range, so a
+// change would record a range the cluster doesn't have.
+func validateRuntimeNetworkCidrUpdate(tx *gorm.DB, k *KubernetesRuntimeInstance) error {
+	changed, err := lib.IsFieldChanged(tx, "NetworkCidr")
+	if err != nil {
+		return err
+	}
+	if !changed {
+		return nil
+	}
+
+	// a patch's receiver is the stored row, while a replace's receiver is the
+	// incoming object, so the stored row is read back for a replace
+	stored := tx.Statement.Model
+	if lib.IsFullReplace(tx) {
+		if stored, err = lib.LoadObjectFromDB(tx); err != nil {
+			return err
+		}
+	}
+	storedInstance, storedOk := stored.(*KubernetesRuntimeInstance)
+	incoming, incomingOk := lib.IncomingValues(tx).(*KubernetesRuntimeInstance)
+	if !storedOk || !incomingOk {
+		return fmt.Errorf("cannot validate NetworkCidr: update carries %T", lib.IncomingValues(tx))
+	}
+	if storedInstance.NetworkCidr != nil && *storedInstance.NetworkCidr != "" {
+		return util.NewBadRequestError(ErrMsgNetworkCidrImmutable)
+	}
+
+	return validateRuntimeNetworkCidr(tx, incoming.NetworkCidr, k.ID)
 }
