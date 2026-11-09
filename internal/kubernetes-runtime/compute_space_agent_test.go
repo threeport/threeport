@@ -10,6 +10,7 @@ import (
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	auth "github.com/threeport/threeport/pkg/auth/v0"
+	tpi "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -76,8 +77,11 @@ func TestSetComputeSpaceAgentImage(t *testing.T) {
 	const (
 		compiledNamespace = "ghcr.io/threeport"
 		compiledTag       = "v0.7.0-rc.2"
-		planeNamespace    = "us-central1-docker.pkg.dev/example/threeport"
-		planeTag          = "abcdef12-0123456789ab"
+		recordedNamespace = "ghcr.io/threeport"
+		recordedName      = "threeport-agent"
+		recordedTag       = "v1.2.3"
+		apiNamespace      = "us-central1-docker.pkg.dev/example/threeport"
+		apiTag            = "abcdef12-0123456789ab"
 	)
 
 	compiled := func() *v0.ControlPlaneComponent {
@@ -87,15 +91,29 @@ func TestSetComputeSpaceAgentImage(t *testing.T) {
 		}
 	}
 	plane := &v0.ControlPlaneInstance{
-		ImageNamespace: util.Ptr(planeNamespace),
-		ImageTag:       util.Ptr(planeTag),
+		ImageNamespace: util.Ptr(apiNamespace),
+		ImageTag:       util.Ptr(apiTag),
+		CustomComponentInfo: []*v0.ControlPlaneComponent{
+			{
+				Name:           "rest-api",
+				ImageNamespace: apiNamespace,
+				ImageTag:       apiTag,
+			},
+			{
+				Name:           tpi.ThreeportAgentName,
+				ImageNamespace: recordedNamespace,
+				ImageName:      recordedName,
+				ImageTag:       recordedTag,
+			},
+		},
 	}
 
-	t.Run("the control plane namespace and tag", func(t *testing.T) {
+	t.Run("the recorded agent image", func(t *testing.T) {
 		agent := compiled()
 		require.NoError(t, setComputeSpaceAgentImage(agent, nil, plane))
-		assert.Equal(t, planeNamespace, agent.ImageNamespace)
-		assert.Equal(t, planeTag, agent.ImageTag)
+		assert.Equal(t, recordedNamespace, agent.ImageNamespace)
+		assert.Equal(t, recordedName, agent.ImageName)
+		assert.Equal(t, recordedTag, agent.ImageTag)
 	})
 
 	t.Run("a runtime image wins", func(t *testing.T) {
@@ -106,12 +124,12 @@ func TestSetComputeSpaceAgentImage(t *testing.T) {
 		assert.Equal(t, "custom", agent.ImageTag)
 	})
 
-	t.Run("an empty runtime image uses the control plane", func(t *testing.T) {
+	t.Run("an empty runtime image uses the recorded agent", func(t *testing.T) {
 		agent := compiled()
 		image := ""
 		require.NoError(t, setComputeSpaceAgentImage(agent, &image, plane))
-		assert.Equal(t, planeNamespace, agent.ImageNamespace)
-		assert.Equal(t, planeTag, agent.ImageTag)
+		assert.Equal(t, recordedNamespace, agent.ImageNamespace)
+		assert.Equal(t, recordedTag, agent.ImageTag)
 	})
 
 	t.Run("a nil control plane leaves the compiled image", func(t *testing.T) {
@@ -123,9 +141,27 @@ func TestSetComputeSpaceAgentImage(t *testing.T) {
 
 	t.Run("a namespace without a tag keeps the compiled tag", func(t *testing.T) {
 		agent := compiled()
-		plane := &v0.ControlPlaneInstance{ImageNamespace: util.Ptr(planeNamespace)}
+		plane := &v0.ControlPlaneInstance{
+			ImageNamespace: util.Ptr(apiNamespace),
+			ImageTag:       util.Ptr(apiTag),
+			CustomComponentInfo: []*v0.ControlPlaneComponent{{
+				Name:           tpi.ThreeportAgentName,
+				ImageNamespace: recordedNamespace,
+			}},
+		}
 		require.NoError(t, setComputeSpaceAgentImage(agent, nil, plane))
-		assert.Equal(t, planeNamespace, agent.ImageNamespace)
+		assert.Equal(t, recordedNamespace, agent.ImageNamespace)
+		assert.Equal(t, compiledTag, agent.ImageTag)
+	})
+
+	t.Run("instance fields without a recorded agent leave the compiled image", func(t *testing.T) {
+		agent := compiled()
+		plane := &v0.ControlPlaneInstance{
+			ImageNamespace: util.Ptr(apiNamespace),
+			ImageTag:       util.Ptr(apiTag),
+		}
+		require.NoError(t, setComputeSpaceAgentImage(agent, nil, plane))
+		assert.Equal(t, compiledNamespace, agent.ImageNamespace)
 		assert.Equal(t, compiledTag, agent.ImageTag)
 	})
 
