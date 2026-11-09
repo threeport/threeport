@@ -53,6 +53,11 @@ control plane.`,
 		// If found we set and return
 		resolution := resolveControlPlaneRequest(threeportConfig, configCurrentControlPlaneName)
 		if resolution.inConfig {
+			// refresh the stored address and certificates, then select the entry
+			if err := refreshStoredControlPlane(threeportConfig, resolution, configCurrentControlPlaneName); err != nil {
+				cli.Error("failed to refresh control plane in config", err)
+				os.Exit(1)
+			}
 			threeportConfig.SetCurrentControlPlane(configCurrentControlPlaneName)
 			cli.Info("Control plane found in config")
 			cli.Complete(fmt.Sprintf("Threeport control plane %s set as the current control plane", configCurrentControlPlaneName))
@@ -145,9 +150,11 @@ control plane.`,
 // controlPlaneResolution is what the threeport config says about a requested
 // control plane before any API is called.
 type controlPlaneResolution struct {
-	// inConfig is true when the requested control plane is already in the
-	// config.
+	// inConfig is true when the name passed to the command is already in the config.
 	inConfig bool
+
+	// The config entry for the name passed to the command
+	requested *cli.ControlPlane
 
 	// current is the config entry for the current control plane, nil when
 	// there is no current control plane or it is not in the config.
@@ -167,12 +174,12 @@ func resolveControlPlaneRequest(threeportConfig *cli.ThreeportConfig, requested 
 	for i := range threeportConfig.ControlPlanes {
 		controlPlane := &threeportConfig.ControlPlanes[i]
 		if controlPlane.Name == requested {
-			return controlPlaneResolution{inConfig: true}
+			resolution.inConfig = true
+			resolution.requested = controlPlane
 		}
 
-		// In case we dont find the control plane we check if we can find the genesis control plane
-		// User can traverse from it to find it
-		if controlPlane.Genesis {
+		// keep a named genesis when a later entry has no name
+		if controlPlane.Genesis && (resolution.genesis == nil || controlPlane.Name != "") {
 			resolution.genesis = controlPlane
 		}
 
@@ -279,11 +286,125 @@ func updateThreeportConfigWithControlPlaneInstance(
 		return err
 	}
 
+	// keep the kubeconfig and the provider config on an entry that already exists
+	for i := range threeportConfig.ControlPlanes {
+		if threeportConfig.ControlPlanes[i].Name != threeportControlPlaneConfig.Name {
+			continue
+		}
+		refreshControlPlaneClient(&threeportConfig.ControlPlanes[i], threeportControlPlaneConfig)
+		threeportControlPlaneConfig = &threeportConfig.ControlPlanes[i]
+		break
+	}
+
 	if err := cli.UpdateThreeportConfig(threeportConfig, threeportControlPlaneConfig); err != nil {
 		return fmt.Errorf("failed to update threeport config: %w", err)
 	}
 
 	return nil
+}
+
+// refreshStoredControlPlane copies the API address and client certificates from the control plane that manages the saved entry.
+// A manager that is missing or down, or a refresh that fails, leaves the saved entry in place.
+func refreshStoredControlPlane(threeportConfig *cli.ThreeportConfig, resolution controlPlaneResolution, name string) error {
+	// a genesis control plane has no parent to read
+	if resolution.requested == nil || resolution.requested.Genesis {
+		return nil
+	}
+
+	// ask the current control plane, then genesis, then the other configured control planes
+	sources := refreshSources(threeportConfig, resolution)
+	if len(sources) == 0 {
+		return nil
+	}
+
+	// use the first source that manages this saved control plane
+	apiClient, apiEndpoint, instance, found := refreshInstanceFrom(sources, func(source *cli.ControlPlane) (*http.Client, string, *v0.ControlPlaneInstance, error) {
+		sourceClient, err := threeportConfig.GetHTTPClient(source.Name)
+		if err != nil {
+			return nil, "", nil, err
+		}
+		sourceEndpoint, err := threeportConfig.GetThreeportAPIEndpoint(source.Name)
+		if err != nil {
+			return nil, "", nil, err
+		}
+		sourceInstance, err := findChildControlPlane(sourceClient, sourceEndpoint, source.Name, name)
+		if err != nil {
+			return nil, "", nil, err
+		}
+
+		// reject a same-named child of another control plane
+		if !sameSavedControlPlane(resolution.requested, sourceInstance) {
+			return nil, "", nil, errNotChildControlPlane
+		}
+		return sourceClient, sourceEndpoint, sourceInstance, nil
+	})
+
+	// copy the address when the manager answers
+	if found {
+		if err := updateThreeportConfigWithControlPlaneInstance(
+			apiClient,
+			apiEndpoint,
+			instance,
+			threeportConfig,
+		); err == nil {
+			return nil
+		}
+	}
+
+	// a missing manager or a failed refresh leaves the saved entry in place
+	cli.Warning(fmt.Sprintf("Could not refresh control plane %s. Using the saved entry.", name))
+	return nil
+}
+
+// refreshSources lists the configured control planes that can hold the saved entry.
+// The current control plane is first, then genesis, then the rest.
+func refreshSources(threeportConfig *cli.ThreeportConfig, resolution controlPlaneResolution) []*cli.ControlPlane {
+	if resolution.requested == nil {
+		return nil
+	}
+
+	// skip the saved entry. Its registration lives on the control plane that created it.
+	var sources []*cli.ControlPlane
+	seen := map[string]bool{resolution.requested.Name: true}
+	add := func(controlPlane *cli.ControlPlane) {
+		if controlPlane == nil || controlPlane.Name == "" || controlPlane.APIServer == "" || seen[controlPlane.Name] {
+			return
+		}
+		seen[controlPlane.Name] = true
+		sources = append(sources, controlPlane)
+	}
+	add(resolution.current)
+	add(resolution.genesis)
+	for i := range threeportConfig.ControlPlanes {
+		add(&threeportConfig.ControlPlanes[i])
+	}
+	return sources
+}
+
+// refreshInstanceFrom returns the instance from the first source that has it.
+// Skip a source that is down or does not have the instance.
+func refreshInstanceFrom(
+	sources []*cli.ControlPlane,
+	lookup func(*cli.ControlPlane) (*http.Client, string, *v0.ControlPlaneInstance, error),
+) (*http.Client, string, *v0.ControlPlaneInstance, bool) {
+	// take the first source that returns the instance
+	for _, source := range sources {
+		apiClient, apiEndpoint, instance, err := lookup(source)
+		if err != nil {
+			continue
+		}
+		return apiClient, apiEndpoint, instance, true
+	}
+	return nil, "", nil, false
+}
+
+// refreshControlPlaneClient copies the API address and client certificates onto an existing entry.
+func refreshControlPlaneClient(existing, from *cli.ControlPlane) {
+	// leave the kubeconfig and the provider config on the existing entry
+	existing.APIServer = from.APIServer
+	existing.AuthEnabled = from.AuthEnabled
+	existing.CACert = from.CACert
+	existing.Credentials = from.Credentials
 }
 
 // controlPlaneConfigFromInstance builds the threeport config entry for a control
@@ -345,6 +466,38 @@ func controlPlaneConfigFromInstance(
 	}
 
 	return controlPlaneConfig, nil
+}
+
+// sameSavedControlPlane reports whether the instance is the saved control plane.
+// The CA stays when the API address changes, so a same name with a different CA is another control plane.
+func sameSavedControlPlane(saved *cli.ControlPlane, instance *v0.ControlPlaneInstance) bool {
+	if saved == nil || instance == nil {
+		return false
+	}
+
+	// match the CA
+	if saved.CACert != "" && saved.CACert == valueOrEmpty(instance.CACert) {
+		return true
+	}
+
+	// match the client certificate when the CA is absent
+	if cert := savedClientCert(saved); cert != "" && cert == valueOrEmpty(instance.ClientCert) {
+		return true
+	}
+
+	// match the API address when the certificates are absent
+	return saved.APIServer != "" && saved.APIServer == valueOrEmpty(instance.ApiServerEndpoint)
+}
+
+// savedClientCert returns the client certificate stored for this control plane.
+func savedClientCert(saved *cli.ControlPlane) string {
+	// use the credential that holds a client certificate
+	for _, credential := range saved.Credentials {
+		if credential.ClientCert != "" {
+			return credential.ClientCert
+		}
+	}
+	return ""
 }
 
 // valueOrEmpty returns the value a string pointer points at, or an empty
