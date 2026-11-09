@@ -289,7 +289,7 @@ func refreshStoredControlPlane(threeportConfig *cli.ThreeportConfig, resolution 
 		return nil
 	}
 
-	// use the first source that has this control plane
+	// use the first source that manages this saved control plane
 	apiClient, apiEndpoint, instance, found := refreshInstanceFrom(sources, func(source *cli.ControlPlane) (*http.Client, string, *v0.ControlPlaneInstance, error) {
 		sourceClient, err := threeportConfig.GetHTTPClient(source.Name)
 		if err != nil {
@@ -299,9 +299,14 @@ func refreshStoredControlPlane(threeportConfig *cli.ThreeportConfig, resolution 
 		if err != nil {
 			return nil, "", nil, err
 		}
-		sourceInstance, err := client.GetControlPlaneInstanceByName(sourceClient, sourceEndpoint, name)
+		sourceInstance, err := findChildControlPlane(sourceClient, sourceEndpoint, source.Name, name)
 		if err != nil {
 			return nil, "", nil, err
+		}
+
+		// reject a same-named child of another control plane
+		if !sameSavedControlPlane(resolution.requested, sourceInstance) {
+			return nil, "", nil, errNotChildControlPlane
 		}
 		return sourceClient, sourceEndpoint, sourceInstance, nil
 	})
@@ -422,6 +427,38 @@ func controlPlaneConfigFromInstance(
 	}
 
 	return controlPlaneConfig, nil
+}
+
+// sameSavedControlPlane reports whether the instance is the saved control plane.
+// The CA stays when the API address changes, so a same name with a different CA is another control plane.
+func sameSavedControlPlane(saved *cli.ControlPlane, instance *v0.ControlPlaneInstance) bool {
+	if saved == nil || instance == nil {
+		return false
+	}
+
+	// match the CA
+	if saved.CACert != "" && saved.CACert == valueOrEmpty(instance.CACert) {
+		return true
+	}
+
+	// match the client certificate when the CA is absent
+	if cert := savedClientCert(saved); cert != "" && cert == valueOrEmpty(instance.ClientCert) {
+		return true
+	}
+
+	// match the API address when the certificates are absent
+	return saved.APIServer != "" && saved.APIServer == valueOrEmpty(instance.ApiServerEndpoint)
+}
+
+// savedClientCert returns the client certificate stored for this control plane.
+func savedClientCert(saved *cli.ControlPlane) string {
+	// use the credential that holds a client certificate
+	for _, credential := range saved.Credentials {
+		if credential.ClientCert != "" {
+			return credential.ClientCert
+		}
+	}
+	return ""
 }
 
 // valueOrEmpty returns the value a string pointer points at, or an empty

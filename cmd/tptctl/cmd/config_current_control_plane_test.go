@@ -332,3 +332,50 @@ func TestRefreshInstanceFrom(t *testing.T) {
 	assert.False(t, found)
 	assert.Nil(t, missed)
 }
+
+// TestSameSavedControlPlane rejects a same-named child of another control plane.
+func TestSameSavedControlPlane(t *testing.T) {
+	// the saved worker belongs to one genesis
+	saved := &cli.ControlPlane{
+		Name:      "worker",
+		APIServer: "https://worker-a",
+		CACert:    "ca-a",
+		Credentials: []cli.Credential{
+			{ClientCert: "client-a"},
+		},
+	}
+
+	// a new address with the same CA is the saved control plane
+	assert.True(t, sameSavedControlPlane(saved, &v0.ControlPlaneInstance{
+		CACert:            ptrTo("ca-a"),
+		ApiServerEndpoint: ptrTo("https://worker-a-new"),
+	}))
+
+	// another genesis child with the same name is not the saved control plane
+	assert.False(t, sameSavedControlPlane(saved, &v0.ControlPlaneInstance{
+		CACert:            ptrTo("ca-b"),
+		ClientCert:        ptrTo("client-b"),
+		ApiServerEndpoint: ptrTo("https://worker-b"),
+	}))
+
+	// the client certificate matches when the CA is absent
+	noCA := &cli.ControlPlane{
+		APIServer: "https://worker-a",
+		Credentials: []cli.Credential{
+			{ClientCert: "client-a"},
+		},
+	}
+	assert.True(t, sameSavedControlPlane(noCA, &v0.ControlPlaneInstance{
+		ClientCert:        ptrTo("client-a"),
+		ApiServerEndpoint: ptrTo("https://worker-a-new"),
+	}))
+
+	// the API address matches when the certificates are absent
+	noCert := &cli.ControlPlane{Name: "worker", APIServer: "https://worker-a"}
+	assert.True(t, sameSavedControlPlane(noCert, &v0.ControlPlaneInstance{
+		ApiServerEndpoint: ptrTo("https://worker-a"),
+	}))
+	assert.False(t, sameSavedControlPlane(noCert, &v0.ControlPlaneInstance{
+		ApiServerEndpoint: ptrTo("https://worker-b"),
+	}))
+}
