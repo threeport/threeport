@@ -185,7 +185,9 @@ func TestWorkloadIntegration(t *testing.T) {
 		// update gateway definition
 		gatewayDefinition.HttpPorts = []*v0.GatewayHttpPort{
 			{
-				Port: util.Ptr(443),
+				Port:       util.Ptr(443),
+				TLSEnabled: util.Ptr(true),
+				Path:       util.Ptr("/"),
 			},
 		}
 		_, err = client.UpdateGatewayDefinition(
@@ -397,6 +399,117 @@ func TestWorkloadIntegration(t *testing.T) {
 			_, err := client.DeleteGatewayInstance(apiClient, threeportAPIEndpoint, *createdGatewayInstance.ID)
 			return err
 		})
+
+		// wait until the gateway definition's workload holds nginx objects
+		err = util.Retry(60, 1, func() error {
+			def, err := client.GetGatewayDefinitionByID(apiClient, threeportAPIEndpoint, *createdGatewayDef.ID)
+			if err != nil {
+				return err
+			}
+			if def.KubernetesWorkloadDefinitionID == nil {
+				return fmt.Errorf("gateway definition has no workload yet")
+			}
+			resources, err := client.GetKubernetesWorkloadResourceDefinitionsByID(apiClient, threeportAPIEndpoint, *def.KubernetesWorkloadDefinitionID)
+			if err != nil {
+				return err
+			}
+			var sawIngress, sawTransport bool
+			for _, resource := range *resources {
+				if resource.JSONDefinition == nil {
+					continue
+				}
+				body := string(*resource.JSONDefinition)
+				// an nginx ingress is not the operator's IngressComponent
+				if strings.Contains(body, "Ingress") &&
+					strings.Contains(body, "nginx") &&
+					!strings.Contains(body, "IngressComponent") {
+					sawIngress = true
+				}
+				// a tcp listener is a TransportServer
+				if strings.Contains(body, "TransportServer") {
+					sawTransport = true
+				}
+			}
+			if !sawIngress || !sawTransport {
+				return fmt.Errorf("gateway workload missing ingress or transport server")
+			}
+			return nil
+		})
+		require.Nil(t, err, "gateway definition should store an nginx ingress and a transport server")
+
+		// kind uses a self-signed issuer because it has no dns provider.
+		// the issuer is written onto the workload the gateway instance points at.
+		err = util.Retry(90, 1, func() error {
+			resources, err := client.GetKubernetesWorkloadResourceInstancesByID(apiClient, threeportAPIEndpoint, *createdWorkloadInst.ID)
+			if err != nil {
+				return err
+			}
+			for _, resource := range *resources {
+				if resource.JSONDefinition == nil {
+					continue
+				}
+				body := string(*resource.JSONDefinition)
+				// kind has no dns provider, so the issuer is self-signed
+				if strings.Contains(body, "Issuer") &&
+					strings.Contains(body, "selfSigned") {
+					return nil
+				}
+			}
+			return fmt.Errorf("gateway workload has no self-signed issuer")
+		})
+		require.Nil(t, err, "kind gateway should use a self-signed issuer")
+
+		// the runtime's ingress workload installs nginx
+		err = util.Retry(90, 1, func() error {
+			runtime, err := client.GetKubernetesRuntimeInstanceByID(apiClient, threeportAPIEndpoint, *testKubernetesRuntimeInst.ID)
+			if err != nil {
+				return err
+			}
+			if runtime.IngressComponentInstanceID == nil {
+				return fmt.Errorf("ingress component instance is not recorded")
+			}
+			resources, err := client.GetKubernetesWorkloadResourceInstancesByID(apiClient, threeportAPIEndpoint, *runtime.IngressComponentInstanceID)
+			if err != nil {
+				return err
+			}
+			for _, resource := range *resources {
+				if resource.JSONDefinition == nil {
+					continue
+				}
+				body := string(*resource.JSONDefinition)
+				if strings.Contains(body, "IngressComponent") &&
+					strings.Contains(body, "true") {
+					return nil
+				}
+			}
+			return fmt.Errorf("ingress component workload missing nginx")
+		})
+		require.Nil(t, err, "ingress component should install nginx")
+
+		// the runtime's certificates workload installs cert-manager
+		err = util.Retry(90, 1, func() error {
+			runtime, err := client.GetKubernetesRuntimeInstanceByID(apiClient, threeportAPIEndpoint, *testKubernetesRuntimeInst.ID)
+			if err != nil {
+				return err
+			}
+			if runtime.CertificatesComponentInstanceID == nil {
+				return fmt.Errorf("certificates component instance is not recorded")
+			}
+			resources, err := client.GetKubernetesWorkloadResourceInstancesByID(apiClient, threeportAPIEndpoint, *runtime.CertificatesComponentInstanceID)
+			if err != nil {
+				return err
+			}
+			for _, resource := range *resources {
+				if resource.JSONDefinition == nil {
+					continue
+				}
+				if strings.Contains(string(*resource.JSONDefinition), "CertificatesComponent") {
+					return nil
+				}
+			}
+			return fmt.Errorf("certificates component workload missing cert-manager")
+		})
+		require.Nil(t, err, "certificates component should install cert-manager")
 
 		// get the kubernetes runtime instance from the threeport API so we can connect to it
 		kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(

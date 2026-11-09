@@ -137,6 +137,30 @@ func TestKubernetesRuntimeDefinition_beforeUpdate_AllowsMutableFields(t *testing
 	require.NoError(t, err, "non-immutable field changes should pass")
 }
 
+// TestKubernetesRuntimeInstance_beforeCreate_RejectsComponentSlot rejects a
+// create that names a component workload.
+func TestKubernetesRuntimeInstance_beforeCreate_RejectsComponentSlot(t *testing.T) {
+	db := setupKubernetesRuntimeValidateDB(t)
+	parent := createValidKRD(t, db, "kind", false)
+	id := uint(9)
+	cases := []KubernetesRuntimeInstance{
+		{IngressComponentInstanceID: &id},
+		{CertificatesComponentInstanceID: &id},
+		{SecretsComponentInstanceID: &id},
+		{DatabaseComponentInstanceID: &id},
+	}
+	for _, slot := range cases {
+		instance := slot
+		instance.Instance = Instance{Name: util.Ptr("test-kri")}
+		instance.Location = util.Ptr("Local")
+		instance.KubernetesRuntimeDefinitionID = parent.ID
+		err := db.Create(&instance).Error
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "component slots are set when the runtime is reconciled")
+	}
+}
+
 // TestKubernetesRuntimeInstance_beforeUpdate_RejectsPatchLocation
 // pins the PATCH-shape Location immutability check.
 func TestKubernetesRuntimeInstance_beforeUpdate_RejectsPatchLocation(t *testing.T) {

@@ -78,4 +78,14 @@ type GcpGkeKubernetesRuntimeInstance struct {
 
 	// An inventory of all GCP resources for the GKE cluster.
 	ResourceInventory *datatypes.JSON `validate:"optional"`
+
+	// Set by an operator to allow this instance to be deleted even though its
+	// creation was confirmed and no resource inventory is recorded, or the
+	// recorded inventory cannot be restored. The controller refuses that delete
+	// otherwise, because cloud resources may still exist. Setting this orphans
+	// any resources the controller cannot find: they keep running and are no
+	// longer tracked by Threeport. Resources it has recorded and can restore are
+	// still destroyed. It is rejected on create, and once set it stays set until
+	// changed, so tptctl sets it back to false if the delete fails.
+	AbandonInfrastructure *bool `validate:"optional" gorm:"default:false"`
 }

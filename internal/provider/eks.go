@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 
@@ -216,8 +217,31 @@ func DeleteResourceManagerRole(instanceName string, awsConfig aws.Config) error 
 	return nil
 }
 
+// RollBackResourceManagerRole undoes a failed CreateResourceManagerRole,
+// unless the failure was a refusal to adopt.
+//
+// The teardown deletes by name and checks nothing. Running it after a refusal
+// would delete the role the refusal was protecting - a worse outcome than the
+// collision it refused over. Callers pass the error that sent them here rather
+// than deciding for themselves, because there is no way to tell by reading the
+// call site that the decision was needed at all.
+func RollBackResourceManagerRole(instanceName string, awsConfig aws.Config, createErr error) error {
+	if errors.Is(createErr, ErrUnownedIamResource) {
+		return nil
+	}
+
+	return DeleteResourceManagerRole(instanceName, awsConfig)
+}
+
 // CreateResourceManagerRole creates the IAM role needed for resource
 // management.
+//
+// The role and its policies are created if they are not there and adopted if
+// they are, so an install that failed partway can be run again. Adoption is
+// not unconditional: anything already at one of these derived names has to
+// carry the tags this install would have given it, or the call refuses rather
+// than take over a resource somebody else created. See createRoleIfAbsent and
+// createPolicyIfAbsent.
 func CreateResourceManagerRole(
 	namespace string,
 	tags []types.Tag,
@@ -231,6 +255,7 @@ func CreateResourceManagerRole(
 	awsConfig aws.Config,
 	additionalIrsaConditions []string,
 ) (*types.Role, error) {
+	ctx := context.Background()
 	svc := iam.NewFromConfig(awsConfig)
 
 	// ensure role name is valid
@@ -250,53 +275,255 @@ func CreateResourceManagerRole(
 	}
 
 	// create the role
-	resourceManagerRoleResp, err := svc.CreateRole(context.Background(), &createResourceManagerRoleInput)
+	role, err := createRoleIfAbsent(ctx, svc, &createResourceManagerRoleInput, tags, remediateControlPlaneNameCollision)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create role %s: %w", roleName, err)
+		return nil, err
 	}
 
+	if err := attachResourceManagerPolicies(
+		ctx, svc, roleName, accountId, attachAssumeAnyRolePolicy, attachResourceManagerPolicy,
+	); err != nil {
+		return role, err
+	}
+
+	return role, nil
+}
+
+// attachResourceManagerPolicies attaches the policies the resource manager
+// role is asked for.
+//
+// It is separate from CreateResourceManagerRole, which builds its own IAM
+// client from an aws.Config and so cannot be exercised without an account.
+// What has to be exercised is the wrapping: a refusal to adopt a policy
+// reaches pkg/cli/v0 through here, and that is where it decides whether
+// deleting the role by name is safe. A %v in place of a %w on this path
+// compiles, reads the same, and turns that decision off.
+func attachResourceManagerPolicies(
+	ctx context.Context,
+	svc iamRoleClient,
+	roleName string,
+	accountId string,
+	attachAssumeAnyRolePolicy bool,
+	attachResourceManagerPolicy bool,
+) error {
 	// attach assume any role policy
 	if attachAssumeAnyRolePolicy {
-		if err := AttachPolicy(AssumeAnyRolePolicyDocument, roleName, "assume-any-role", svc); err != nil {
-			return resourceManagerRoleResp.Role, fmt.Errorf("failed to attach policy to role %s: %w", roleName, err)
+		if err := AttachPolicy(ctx, AssumeAnyRolePolicyDocument, roleName, "assume-any-role", accountId, svc); err != nil {
+			return fmt.Errorf("failed to attach policy to role %s: %w", roleName, err)
 		}
 	}
 
 	// attach resource manager policy if requested
 	if attachResourceManagerPolicy {
-		if err := AttachPolicy(ResourceManagerPolicyDocument, roleName, "resource-manager", svc); err != nil {
-			return resourceManagerRoleResp.Role, fmt.Errorf("failed to attach policy to role %s: %w", roleName, err)
+		if err := AttachPolicy(ctx, ResourceManagerPolicyDocument, roleName, "resource-manager", accountId, svc); err != nil {
+			return fmt.Errorf("failed to attach policy to role %s: %w", roleName, err)
 		}
 	}
 
-	return resourceManagerRoleResp.Role, nil
+	return nil
 }
 
+// iamRoleClient is the part of the IAM API this file uses.
+//
+// It is an interface so a retry can be exercised without an AWS account: the
+// behaviour being added here only shows up on the second attempt, which is
+// the attempt nobody runs by hand.
+type iamRoleClient interface {
+	iamPolicyAttacher
+	iamPolicyVersionClient
+	CreateRole(context.Context, *iam.CreateRoleInput, ...func(*iam.Options)) (*iam.CreateRoleOutput, error)
+	GetRole(context.Context, *iam.GetRoleInput, ...func(*iam.Options)) (*iam.GetRoleOutput, error)
+	CreatePolicy(context.Context, *iam.CreatePolicyInput, ...func(*iam.Options)) (*iam.CreatePolicyOutput, error)
+	UpdateAssumeRolePolicy(context.Context, *iam.UpdateAssumeRolePolicyInput, ...func(*iam.Options)) (*iam.UpdateAssumeRolePolicyOutput, error)
+}
+
+// createRoleIfAbsent creates the role, or adopts the one already there.
+//
+// The role name is derived from the control plane's, so it is the same on
+// every attempt. An install that failed after creating it - at the node
+// group, or while installing the control plane itself - could not be retried:
+// the second run asked for a role that existed and AWS refused, permanently,
+// until somebody deleted it by hand in a console.
+//
+// An existing role is only adopted if it carries the tags this install would
+// have given it. A name is not proof of ownership, and taking over somebody
+// else's role would be worse than refusing.
+//
+// createIamRole in aws_bootstrap.go, which the EKS refactor got right on the
+// path it introduced while this one was left as it was, is a wrapper around
+// this. One copy of the decision means a later fix - a new retryable code, an
+// eventual-consistency wait on GetRole - lands on both paths at once.
+func createRoleIfAbsent(
+	ctx context.Context,
+	svc iamRoleClient,
+	input *iam.CreateRoleInput,
+	wantTags []types.Tag,
+	remediation string,
+) (*types.Role, error) {
+	roleName := aws.ToString(input.RoleName)
+
+	created, err := svc.CreateRole(ctx, input)
+	if err == nil {
+		return created.Role, nil
+	}
+	if !IsAwsErrorCode(err, errCodeEntityAlreadyExists) {
+		return nil, fmt.Errorf("failed to create role %s: %w", roleName, err)
+	}
+
+	existing, err := svc.GetRole(ctx, &iam.GetRoleInput{RoleName: input.RoleName})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get existing role %s: %w", roleName, err)
+	}
+	if err := refuseUnownedRole(existing.Role, wantTags, remediation); err != nil {
+		return nil, err
+	}
+	if err := syncIamRoleTrustPolicy(
+		ctx, svc, existing.Role, aws.ToString(input.AssumeRolePolicyDocument),
+	); err != nil {
+		return nil, err
+	}
+
+	return existing.Role, nil
+}
+
+// syncIamRoleTrustPolicy brings an adopted role's trust policy in line with
+// the one this attempt asked for.
+//
+// Who may assume the role is not fixed the way its name is. tptctl config
+// aws-cloud-account puts a freshly generated external ID in it, and an attempt
+// that failed after creating the role - while attaching its policies, say -
+// deletes the AwsProvider record and leaves the role. The retry generates a
+// new external ID, adopts the role, and without this the role still demands
+// the one from the attempt that failed: the install reports success and every
+// cross-account request is denied afterwards, with nothing pointing back here.
+//
+// The same holds for the bootstrap's roles whenever a release changes what
+// their trust policy says.
+func syncIamRoleTrustPolicy(
+	ctx context.Context,
+	svc iamRoleClient,
+	role *types.Role,
+	want string,
+) error {
+	roleName := aws.ToString(role.RoleName)
+	if want == "" {
+		return nil
+	}
+
+	// IAM always answers with one, so an empty document means there is nothing
+	// to compare against rather than that the role trusts nobody; writing it
+	// is the answer that cannot leave a stale one in place
+	if stored := aws.ToString(role.AssumeRolePolicyDocument); stored != "" {
+		match, err := iamDocumentsMatch(stored, want)
+		if err != nil {
+			return fmt.Errorf("failed to compare the trust policy of role %s: %w", roleName, err)
+		}
+		if match {
+			return nil
+		}
+	}
+
+	if _, err := svc.UpdateAssumeRolePolicy(ctx, &iam.UpdateAssumeRolePolicyInput{
+		RoleName:       role.RoleName,
+		PolicyDocument: aws.String(want),
+	}); err != nil {
+		return fmt.Errorf("failed to update the trust policy of role %s: %w", roleName, err)
+	}
+
+	return nil
+}
+
+// resourceManagerPolicyPath is the IAM path the resource manager's policies
+// are created under. Empty is the unpathed form, which is what these have
+// always used.
+//
+// It is a constant because the two branches below learn the ARN differently:
+// a freshly created policy reports its own, while an adopted one has to have
+// it assembled. Reading the path from two places is how adding one later would
+// leave the adopt branch building the ARN of a policy that does not exist.
+const resourceManagerPolicyPath = ""
+
 // AttachPolicy attaches a given document to a role.
-func AttachPolicy(document, roleName, policyName string, svc *iam.Client) error {
+//
+// The policy is created if it is not there and adopted if it is, for the same
+// reason the role is: the name is derived and a retry asks for it again.
+func AttachPolicy(ctx context.Context, document, roleName, policyName, accountId string, svc iamRoleClient) error {
 	policyInputName := fmt.Sprintf("%s-%s", roleName, policyName)
 	// create role policy
 	rolePolicyInput := iam.CreatePolicyInput{
 		PolicyName:     &policyInputName,
 		Description:    &roleName,
 		PolicyDocument: &document,
+		Tags:           tpaws.IamTags(policyInputName, ThreeportProviderTags()),
 	}
-	createdRolePolicy, err := svc.CreatePolicy(context.Background(), &rolePolicyInput)
-	if err != nil {
-		return fmt.Errorf("failed to create role policy %s: %w", roleName, err)
-	}
-
-	// attach role policy
-	attachResourceManagerRolePolicyInput := iam.AttachRolePolicyInput{
-		PolicyArn: createdRolePolicy.Policy.Arn,
-		RoleName:  &roleName,
-	}
-	_, err = svc.AttachRolePolicy(context.Background(), &attachResourceManagerRolePolicyInput)
-	if err != nil {
-		return fmt.Errorf("failed to attach role policy %s to %s: %w", *createdRolePolicy.Policy.Arn, roleName, err)
+	if resourceManagerPolicyPath != "" {
+		rolePolicyInput.Path = aws.String(resourceManagerPolicyPath)
 	}
 
-	return nil
+	policyArn, err := createPolicyIfAbsent(ctx, svc, &rolePolicyInput, accountId, remediateControlPlaneNameCollision)
+	if err != nil {
+		return err
+	}
+
+	return attachIamPolicy(ctx, svc, roleName, policyArn)
+}
+
+// createPolicyIfAbsent creates the policy, or adopts the one already there,
+// and returns its ARN.
+//
+// Same shape and same reason as createRoleIfAbsent: the name is derived from
+// the role's, so a second attempt asks for a policy the first one created and
+// AWS refuses it.
+//
+// An existing policy is only adopted if it carries the tags this install would
+// have given it. The role having passed its own check says nothing about this:
+// a policy is a separate IAM resource at the account level, and one sitting at
+// the name derived here could have been left by a partial teardown or by
+// unrelated tooling. Attaching it would hand the role whatever permissions it
+// grants.
+//
+// An adopted policy is also brought in line with the document asked for here,
+// because it was created by whichever release first ran this.
+func createPolicyIfAbsent(
+	ctx context.Context,
+	svc iamRoleClient,
+	input *iam.CreatePolicyInput,
+	accountId string,
+	remediation string,
+) (string, error) {
+	policyName := aws.ToString(input.PolicyName)
+
+	created, err := svc.CreatePolicy(ctx, input)
+	if err == nil {
+		if created.Policy == nil {
+			return "", fmt.Errorf("IAM returned no policy after creating %s", policyName)
+		}
+
+		return aws.ToString(created.Policy.Arn), nil
+	}
+	if !IsAwsErrorCode(err, errCodeEntityAlreadyExists) {
+		return "", fmt.Errorf("failed to create role policy %s: %w", policyName, err)
+	}
+
+	// the policy is already there from an earlier attempt; its ARN is derived
+	// from the account, the path and the name, none of which have changed
+	policyArn := tpaws.IamPolicyArn(accountId, resourceManagerPolicyPath, policyName)
+	existing, err := svc.GetPolicy(ctx, &iam.GetPolicyInput{PolicyArn: aws.String(policyArn)})
+	if err != nil {
+		return "", fmt.Errorf("failed to check ownership of existing policy %s: %w", policyArn, err)
+	}
+	if existing.Policy == nil {
+		return "", fmt.Errorf("IAM returned no policy to check ownership of at %s", policyArn)
+	}
+	if err := refuseUnownedIamResource("policy", policyName, existing.Policy.Tags, input.Tags, remediation); err != nil {
+		return "", err
+	}
+
+	if err := syncIamPolicyDocument(ctx, svc, policyArn, aws.ToString(input.PolicyDocument)); err != nil {
+		return "", err
+	}
+
+	return policyArn, nil
 }
 
 // UpdateResourceManagerRoleTrustPolicy updates the IAM role needed for resource
@@ -330,9 +557,31 @@ func deleteRole(
 	roleName string,
 	awsConfig aws.Config,
 ) error {
-	svc := iam.NewFromConfig(awsConfig)
+	return deleteRoleAndItsPolicies(context.Background(), iam.NewFromConfig(awsConfig), roleName)
+}
+
+// iamRoleDeleteClient is the part of the IAM API the teardown uses.
+type iamRoleDeleteClient interface {
+	iamPolicyVersionDeleter
+	ListAttachedRolePolicies(context.Context, *iam.ListAttachedRolePoliciesInput, ...func(*iam.Options)) (*iam.ListAttachedRolePoliciesOutput, error)
+	DetachRolePolicy(context.Context, *iam.DetachRolePolicyInput, ...func(*iam.Options)) (*iam.DetachRolePolicyOutput, error)
+	DeletePolicy(context.Context, *iam.DeletePolicyInput, ...func(*iam.Options)) (*iam.DeletePolicyOutput, error)
+	DeleteRole(context.Context, *iam.DeleteRoleInput, ...func(*iam.Options)) (*iam.DeleteRoleOutput, error)
+}
+
+// deleteRoleAndItsPolicies detaches and deletes everything on a role, then the
+// role.
+//
+// Every version but the one in force has to go before IAM will delete a
+// policy. That used to be moot here - these policies were created once and
+// never changed - but syncIamPolicyDocument adds a version whenever an
+// adopted policy's document has moved on, so a control plane that was
+// upgraded has policies this would otherwise refuse to delete. The policy is
+// already detached by then, so the failure would leave it behind with nothing
+// pointing at it.
+func deleteRoleAndItsPolicies(ctx context.Context, svc iamRoleDeleteClient, roleName string) error {
 	roles, err := svc.ListAttachedRolePolicies(
-		context.Background(),
+		ctx,
 		&iam.ListAttachedRolePoliciesInput{
 			RoleName: &roleName,
 		},
@@ -342,7 +591,7 @@ func deleteRole(
 	}
 	for _, role := range roles.AttachedPolicies {
 		_, err := svc.DetachRolePolicy(
-			context.Background(),
+			ctx,
 			&iam.DetachRolePolicyInput{
 				PolicyArn: role.PolicyArn,
 				RoleName:  &roleName,
@@ -350,8 +599,11 @@ func deleteRole(
 		if err != nil {
 			return fmt.Errorf("failed to detach role policy: %s", err)
 		}
+		if err := deleteIamPolicyVersions(ctx, svc, aws.ToString(role.PolicyArn)); err != nil {
+			return err
+		}
 		_, err = svc.DeletePolicy(
-			context.Background(),
+			ctx,
 			&iam.DeletePolicyInput{
 				PolicyArn: role.PolicyArn,
 			})
@@ -361,7 +613,7 @@ func deleteRole(
 	}
 
 	_, err = svc.DeleteRole(
-		context.Background(),
+		ctx,
 		&iam.DeleteRoleInput{
 			RoleName: &roleName,
 		})

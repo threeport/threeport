@@ -2,11 +2,15 @@ package provider
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gorm.io/datatypes"
+
+	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
 // testLifecycleConfig returns a test config with production 240s stale
@@ -160,7 +164,8 @@ func TestVerifyState_NoResources(t *testing.T) {
 }
 
 // TestInventoryCleared_Table covers which inventory values count as
-// cleared: nil, empty, {}, and null.
+// cleared: only the {} sentinel ClearInventory writes. Nil, empty, and null
+// are unknown, not cleared.
 func TestInventoryCleared_Table(t *testing.T) {
 	// cases for cleared versus populated inventory
 	cases := []struct {
@@ -169,14 +174,14 @@ func TestInventoryCleared_Table(t *testing.T) {
 		want      bool
 	}{
 		{
-			name:      "nil inventory is cleared",
+			name:      "nil inventory is not cleared",
 			inventory: nil,
-			want:      true,
+			want:      false,
 		},
 		{
-			name:      "zero-length inventory is cleared",
+			name:      "zero-length inventory is not cleared",
 			inventory: jsonPtr(""),
-			want:      true,
+			want:      false,
 		},
 		{
 			name:      "empty object inventory is cleared",
@@ -184,9 +189,9 @@ func TestInventoryCleared_Table(t *testing.T) {
 			want:      true,
 		},
 		{
-			name:      "json null inventory is cleared",
+			name:      "json null inventory is not cleared",
 			inventory: jsonPtr("null"),
-			want:      true,
+			want:      false,
 		},
 		{
 			name:      "populated inventory is not cleared",
@@ -405,4 +410,65 @@ func TestSetLifecycleConfig_SetFieldsSurvive(t *testing.T) {
 	assert.Equal(t, defaultLifecycleConfig.RefreshInterval, got.RefreshInterval)
 	assert.Equal(t, defaultLifecycleConfig.PersistRetries, got.PersistRetries)
 	assert.Equal(t, defaultLifecycleConfig.PersistRetryDelay, got.PersistRetryDelay)
+}
+
+// fakeWarningRecorder captures the events passed to RecordEvent.
+type fakeWarningRecorder struct {
+	events    []*api_v0.Event
+	objectIDs []uint
+	types     []string
+	err       error
+}
+
+// RecordEvent records the call and returns the configured error.
+func (f *fakeWarningRecorder) RecordEvent(event *api_v0.Event, objectID uint, fullyQualifiedType string) error {
+	f.events = append(f.events, event)
+	f.objectIDs = append(f.objectIDs, objectID)
+	f.types = append(f.types, fullyQualifiedType)
+	return f.err
+}
+
+// TestRecordWarningEvent covers the Warning event the adapters record: the
+// type, reason and note, and the object it is bound to.
+func TestRecordWarningEvent(t *testing.T) {
+	recorder := &fakeWarningRecorder{}
+
+	err := RecordWarningEvent(recorder, 7, "example.com/v0.Thing", "SomeReason", "some note")
+
+	require.NoError(t, err)
+	require.Len(t, recorder.events, 1)
+	assert.Equal(t, "Warning", *recorder.events[0].Type)
+	assert.Equal(t, "SomeReason", *recorder.events[0].Reason)
+	assert.Equal(t, "some note", *recorder.events[0].Note)
+	assert.Equal(t, []uint{7}, recorder.objectIDs)
+	assert.Equal(t, []string{"example.com/v0.Thing"}, recorder.types)
+}
+
+// TestRecordWarningEvent_ReturnsRecorderError covers a failed write being
+// reported to the caller.
+func TestRecordWarningEvent_ReturnsRecorderError(t *testing.T) {
+	recorder := &fakeWarningRecorder{err: errors.New("injected: events API down")}
+
+	err := RecordWarningEvent(recorder, 7, "example.com/v0.Thing", "SomeReason", "note")
+
+	assert.ErrorContains(t, err, "events API down")
+}
+
+// TestRecordWarningEvent_NoRecorder covers a controller wired without one.
+func TestRecordWarningEvent_NoRecorder(t *testing.T) {
+	err := RecordWarningEvent(nil, 7, "example.com/v0.Thing", "SomeReason", "note")
+
+	assert.ErrorContains(t, err, "no events recorder")
+}
+
+// TestRecordWarningEvent_TruncatesLongNotes covers a note longer than an event
+// note may be: it is cut to the bound rather than rejected or left to grow the row.
+func TestRecordWarningEvent_TruncatesLongNotes(t *testing.T) {
+	recorder := &fakeWarningRecorder{}
+
+	err := RecordWarningEvent(recorder, 7, "example.com/v0.Thing", "SomeReason", strings.Repeat("x", 2000))
+
+	require.NoError(t, err)
+	require.Len(t, recorder.events, 1)
+	assert.Len(t, *recorder.events[0].Note, 500)
 }
