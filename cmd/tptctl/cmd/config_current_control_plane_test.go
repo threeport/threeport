@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -71,6 +72,53 @@ func TestResolveControlPlaneRequest(t *testing.T) {
 		assert.Nil(t, resolution.genesis)
 		assert.Nil(t, resolution.any)
 	})
+
+	t.Run("a stored name still reports genesis", func(t *testing.T) {
+		cfg := &cli.ThreeportConfig{ControlPlanes: []cli.ControlPlane{other, genesis}}
+		resolution := resolveControlPlaneRequest(cfg, "other")
+		assert.True(t, resolution.inConfig)
+		require.NotNil(t, resolution.requested)
+		assert.Equal(t, "other", resolution.requested.Name)
+		require.NotNil(t, resolution.genesis)
+		assert.Equal(t, "genesis", resolution.genesis.Name)
+	})
+
+	t.Run("a blank genesis does not replace a named one", func(t *testing.T) {
+		blank := cli.ControlPlane{Genesis: true}
+		cfg := &cli.ThreeportConfig{ControlPlanes: []cli.ControlPlane{genesis, blank}}
+		resolution := resolveControlPlaneRequest(cfg, "missing")
+		require.NotNil(t, resolution.genesis)
+		assert.Equal(t, "genesis", resolution.genesis.Name)
+	})
+}
+
+// TestRefreshControlPlaneClient copies the API address and certificates and leaves the kubeconfig.
+func TestRefreshControlPlaneClient(t *testing.T) {
+	// copy the client fields onto the existing entry
+	existing := &cli.ControlPlane{
+		Name:        "child",
+		APIServer:   "threeport-api-server.child:443",
+		CACert:      "old-ca",
+		KubeAPI:     cli.KubeAPI{APIEndpoint: "https://kube.example"},
+		Credentials: []cli.Credential{{Name: "child", ClientCert: "old-cert", ClientKey: "old-key"}},
+	}
+	from := &cli.ControlPlane{
+		Name:        "child",
+		APIServer:   "34.132.193.86:443",
+		AuthEnabled: true,
+		CACert:      "new-ca",
+		Credentials: []cli.Credential{{Name: "child", ClientCert: "new-cert", ClientKey: "new-key"}},
+	}
+
+	refreshControlPlaneClient(existing, from)
+
+	assert.Equal(t, "34.132.193.86:443", existing.APIServer)
+	assert.True(t, existing.AuthEnabled)
+	assert.Equal(t, "new-ca", existing.CACert)
+	require.Len(t, existing.Credentials, 1)
+	assert.Equal(t, "new-cert", existing.Credentials[0].ClientCert)
+	assert.Equal(t, "new-key", existing.Credentials[0].ClientKey)
+	assert.Equal(t, "https://kube.example", existing.KubeAPI.APIEndpoint)
 }
 
 // controlPlaneInstanceServer answers the by-name lookup the way the API does:
@@ -140,9 +188,55 @@ func TestFindChildControlPlane(t *testing.T) {
 		assert.ErrorIs(t, err, client_lib.ErrObjectNotFound)
 	})
 
-	t.Run("a current control plane that does not exist is an error", func(t *testing.T) {
+	// #749: the caller tells this apart from a requested control plane that
+	// does not exist, which would otherwise name the wrong control plane
+	t.Run("a current control plane that does not exist is its own error", func(t *testing.T) {
 		_, err := findChildControlPlane(server.Client(), addr, "typo", "child")
-		assert.ErrorIs(t, err, client_lib.ErrObjectNotFound)
+		assert.ErrorIs(t, err, errCurrentControlPlaneNotFound)
+		assert.NotErrorIs(t, err, client_lib.ErrObjectNotFound)
+		assert.NotErrorIs(t, err, errNotChildControlPlane)
+		assert.Contains(t, err.Error(), "typo")
+	})
+}
+
+// TestChildLookupWarning covers the warning the command prints for each
+// answer findChildControlPlane gives, from a real lookup.
+func TestChildLookupWarning(t *testing.T) {
+	server := controlPlaneInstanceServer(t,
+		controlPlaneInstance(1, "genesis", nil),
+		controlPlaneInstance(2, "child", ptrTo(uint(1))),
+		controlPlaneInstance(3, "grandchild", ptrTo(uint(2))),
+	)
+	addr := strings.TrimPrefix(server.URL, "http://")
+	warningFor := func(current, requested string) (string, bool) {
+		_, err := findChildControlPlane(server.Client(), addr, current, requested)
+		require.Error(t, err)
+		return childLookupWarning(err, requested, current)
+	}
+
+	t.Run("a current control plane gone from its API is named as the problem", func(t *testing.T) {
+		warning, ok := warningFor("deleted", "child")
+		require.True(t, ok)
+		assert.Contains(t, warning, "the current control plane deleted was not found on its API")
+		assert.Contains(t, warning, "child could not be checked")
+		assert.NotContains(t, warning, "is not a child")
+	})
+
+	t.Run("a control plane that is not a child is reported as one", func(t *testing.T) {
+		warning, ok := warningFor("genesis", "grandchild")
+		require.True(t, ok)
+		assert.Equal(t, "grandchild is not a child of the current control plane genesis", warning)
+	})
+
+	t.Run("a requested control plane that does not exist is not a child", func(t *testing.T) {
+		warning, ok := warningFor("genesis", "typo")
+		require.True(t, ok)
+		assert.Equal(t, "typo is not a child of the current control plane genesis", warning)
+	})
+
+	t.Run("an API that cannot be reached is an error, not a warning", func(t *testing.T) {
+		_, ok := childLookupWarning(errors.New("connection refused"), "child", "genesis")
+		assert.False(t, ok)
 	})
 }
 
@@ -229,4 +323,172 @@ func TestControlPlaneConfigFromInstance(t *testing.T) {
 			})
 		})
 	}
+}
+
+// TestRefreshSources asks the current control plane, then genesis, then the rest.
+func TestRefreshSources(t *testing.T) {
+	// a grandchild is registered on its parent, not on genesis
+	cfg := &cli.ThreeportConfig{ControlPlanes: []cli.ControlPlane{
+		{Name: "genesis", APIServer: "https://genesis", Genesis: true},
+		{Name: "parent", APIServer: "https://parent"},
+		{Name: "sibling", APIServer: "https://sibling"},
+		{Name: "grandchild", APIServer: "https://grandchild"},
+		{Name: "offline", APIServer: ""},
+	}}
+	resolution := controlPlaneResolution{
+		requested: &cfg.ControlPlanes[3],
+		current:   &cfg.ControlPlanes[1],
+		genesis:   &cfg.ControlPlanes[0],
+	}
+
+	// leave out the saved entry and a control plane with no API
+	var names []string
+	for _, source := range refreshSources(cfg, resolution) {
+		names = append(names, source.Name)
+	}
+	assert.Equal(t, []string{"parent", "genesis", "sibling"}, names)
+}
+
+// TestRefreshStoredControlPlaneUpdateFailure keeps a saved child.
+// The manager answers, and then the config update fails.
+func TestRefreshStoredControlPlaneUpdateFailure(t *testing.T) {
+	// the parent lists the child, and the child has no definition to build an entry from
+	child := controlPlaneInstance(2, "child", ptrTo(uint(1)))
+	child.CACert = ptrTo("ca-child")
+	child.ApiServerEndpoint = ptrTo("34.1.2.3:443")
+	server := controlPlaneInstanceServer(t,
+		controlPlaneInstance(1, "genesis", nil),
+		child,
+	)
+	addr := strings.TrimPrefix(server.URL, "http://")
+
+	// the saved child is already in the config, and genesis can be asked
+	cfg := &cli.ThreeportConfig{
+		CurrentControlPlane: "genesis",
+		ControlPlanes: []cli.ControlPlane{
+			{Name: "genesis", APIServer: addr, Genesis: true},
+			{
+				Name:      "child",
+				APIServer: "child.example:443",
+				CACert:    "ca-child",
+				Credentials: []cli.Credential{{
+					ClientCert: "client-child",
+				}},
+			},
+		},
+	}
+	resolution := resolveControlPlaneRequest(cfg, "child")
+
+	// the failed update leaves the saved address and certificates in place
+	require.NoError(t, refreshStoredControlPlane(cfg, resolution, "child"))
+	require.Len(t, cfg.ControlPlanes, 2)
+	assert.Equal(t, "child.example:443", cfg.ControlPlanes[1].APIServer)
+	assert.Equal(t, "ca-child", cfg.ControlPlanes[1].CACert)
+	assert.Equal(t, "client-child", cfg.ControlPlanes[1].Credentials[0].ClientCert)
+}
+
+// TestRefreshStoredControlPlaneOnlyChild keeps a saved child when the config
+// has no other control plane to ask.
+func TestRefreshStoredControlPlaneOnlyChild(t *testing.T) {
+	// the only credential is the child being selected
+	cfg := &cli.ThreeportConfig{
+		CurrentControlPlane: "child",
+		ControlPlanes: []cli.ControlPlane{{
+			Name:      "child",
+			APIServer: "https://child.example",
+			CACert:    "ca-child",
+			Credentials: []cli.Credential{{
+				ClientCert: "client-child",
+			}},
+		}},
+	}
+	resolution := resolveControlPlaneRequest(cfg, "child")
+
+	// the child is not a source for its own record, and genesis is absent
+	require.True(t, resolution.inConfig)
+	assert.Nil(t, resolution.genesis)
+	assert.Empty(t, refreshSources(cfg, resolution))
+
+	// selecting it leaves the saved address and certificates in place
+	require.NoError(t, refreshStoredControlPlane(cfg, resolution, "child"))
+	assert.Equal(t, "https://child.example", cfg.ControlPlanes[0].APIServer)
+	assert.Equal(t, "ca-child", cfg.ControlPlanes[0].CACert)
+	assert.Equal(t, "client-child", cfg.ControlPlanes[0].Credentials[0].ClientCert)
+}
+
+// TestRefreshInstanceFrom uses the first source that has the instance.
+func TestRefreshInstanceFrom(t *testing.T) {
+	// genesis does not have a grandchild, and a down source does not stop the search
+	genesis := &cli.ControlPlane{Name: "genesis"}
+	down := &cli.ControlPlane{Name: "down"}
+	parent := &cli.ControlPlane{Name: "parent"}
+	want := &v0.ControlPlaneInstance{Name: ptrTo("grandchild")}
+	lookup := func(source *cli.ControlPlane) (*http.Client, string, *v0.ControlPlaneInstance, error) {
+		switch source.Name {
+		case "genesis":
+			return nil, "", nil, client_lib.ErrObjectNotFound
+		case "down":
+			return nil, "", nil, errors.New("connection refused")
+		default:
+			return &http.Client{}, "https://parent", want, nil
+		}
+	}
+
+	// the parent answers after the earlier sources miss
+	_, endpoint, got, found := refreshInstanceFrom([]*cli.ControlPlane{genesis, down, parent}, lookup)
+	assert.True(t, found)
+	assert.Equal(t, want, got)
+	assert.Equal(t, "https://parent", endpoint)
+
+	// no source leaves the saved entry in place
+	_, _, missed, found := refreshInstanceFrom([]*cli.ControlPlane{genesis, down}, lookup)
+	assert.False(t, found)
+	assert.Nil(t, missed)
+}
+
+// TestSameSavedControlPlane rejects a same-named child of another control plane.
+func TestSameSavedControlPlane(t *testing.T) {
+	// the saved worker belongs to one genesis
+	saved := &cli.ControlPlane{
+		Name:      "worker",
+		APIServer: "https://worker-a",
+		CACert:    "ca-a",
+		Credentials: []cli.Credential{
+			{ClientCert: "client-a"},
+		},
+	}
+
+	// a new address with the same CA is the saved control plane
+	assert.True(t, sameSavedControlPlane(saved, &v0.ControlPlaneInstance{
+		CACert:            ptrTo("ca-a"),
+		ApiServerEndpoint: ptrTo("https://worker-a-new"),
+	}))
+
+	// another genesis child with the same name is not the saved control plane
+	assert.False(t, sameSavedControlPlane(saved, &v0.ControlPlaneInstance{
+		CACert:            ptrTo("ca-b"),
+		ClientCert:        ptrTo("client-b"),
+		ApiServerEndpoint: ptrTo("https://worker-b"),
+	}))
+
+	// the client certificate matches when the CA is absent
+	noCA := &cli.ControlPlane{
+		APIServer: "https://worker-a",
+		Credentials: []cli.Credential{
+			{ClientCert: "client-a"},
+		},
+	}
+	assert.True(t, sameSavedControlPlane(noCA, &v0.ControlPlaneInstance{
+		ClientCert:        ptrTo("client-a"),
+		ApiServerEndpoint: ptrTo("https://worker-a-new"),
+	}))
+
+	// the API address matches when the certificates are absent
+	noCert := &cli.ControlPlane{Name: "worker", APIServer: "https://worker-a"}
+	assert.True(t, sameSavedControlPlane(noCert, &v0.ControlPlaneInstance{
+		ApiServerEndpoint: ptrTo("https://worker-a"),
+	}))
+	assert.False(t, sameSavedControlPlane(noCert, &v0.ControlPlaneInstance{
+		ApiServerEndpoint: ptrTo("https://worker-b"),
+	}))
 }
