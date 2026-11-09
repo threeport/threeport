@@ -12,6 +12,7 @@ import (
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	event "github.com/threeport/threeport/pkg/event/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
+	supportservices "github.com/threeport/threeport/pkg/supportservices"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"os"
 	"os/signal"
@@ -177,13 +178,51 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 				var customRequeueDelay int64
 				switch gatewayInstance.GetVersion() {
 				case "v0":
-					requeueDelay, err := v0GatewayInstanceCreated(
-						r,
-						gatewayInstance.(*api_v0.GatewayInstance),
-						&log,
-					)
-					customRequeueDelay = requeueDelay
-					operationErr = err
+					// install the shared components this object requires
+					componentObject := gatewayInstance.(*api_v0.GatewayInstance)
+					if componentObject.KubernetesRuntimeInstanceID != nil {
+						runtime, err := client_v0.GetKubernetesRuntimeInstanceByID(
+							r.APIClient,
+							r.APIServer,
+							*componentObject.KubernetesRuntimeInstanceID,
+						)
+						if err != nil {
+							operationErr = fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
+						}
+						if operationErr == nil {
+							if err := supportservices.EnsureIngressComponent(
+								r,
+								runtime,
+								componentObject,
+								&componentObject.IngressComponentInstanceID,
+								client_v0.UpdateGatewayInstance,
+								&log,
+							); err != nil {
+								operationErr = fmt.Errorf("failed to ensure ingress component: %w", err)
+							}
+						}
+						if operationErr == nil {
+							if err := supportservices.EnsureCertificatesComponent(
+								r,
+								runtime,
+								componentObject,
+								&componentObject.CertificatesComponentInstanceID,
+								client_v0.UpdateGatewayInstance,
+								&log,
+							); err != nil {
+								operationErr = fmt.Errorf("failed to ensure certificates component: %w", err)
+							}
+						}
+					}
+					if operationErr == nil {
+						requeueDelay, err := v0GatewayInstanceCreated(
+							r,
+							gatewayInstance.(*api_v0.GatewayInstance),
+							&log,
+						)
+						customRequeueDelay = requeueDelay
+						operationErr = err
+					}
 				default:
 					operationErr = errors.New("unrecognized version of gateway instance encountered for create operation")
 				}
@@ -201,6 +240,29 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the operation has been failing for longer than the retry bound
+					if r.RecordFailure(gatewayInstance, string(notif.Operation)) {
+						giveUpMsg := event.GiveUpNote(
+							"failed to reconcile created gateway instance object",
+							controller.DefaultMaxReconcileDuration,
+							operationErr,
+						)
+						log.Error(operationErr, giveUpMsg)
+						if recordErr := r.EventsRecorder.RecordEvent(
+							&api_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonCreateFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							gatewayInstance.GetId(),
+							gatewayInstance.GetFullyQualifiedType(),
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record give-up event")
+						}
+						r.ClearFailure(gatewayInstance, string(notif.Operation))
+						r.ReleaseLock(gatewayInstance, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						gatewayInstance,
 						requeueDelay,
@@ -209,6 +271,7 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				r.ClearFailure(gatewayInstance, string(notif.Operation))
 				if customRequeueDelay != 0 {
 					log.Info("create requeued for future reconciliation")
 					r.UnlockAndRequeue(
@@ -242,13 +305,51 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 				var customRequeueDelay int64
 				switch gatewayInstance.GetVersion() {
 				case "v0":
-					requeueDelay, err := v0GatewayInstanceUpdated(
-						r,
-						gatewayInstance.(*api_v0.GatewayInstance),
-						&log,
-					)
-					customRequeueDelay = requeueDelay
-					operationErr = err
+					// install the shared components this object requires
+					componentObject := gatewayInstance.(*api_v0.GatewayInstance)
+					if componentObject.KubernetesRuntimeInstanceID != nil {
+						runtime, err := client_v0.GetKubernetesRuntimeInstanceByID(
+							r.APIClient,
+							r.APIServer,
+							*componentObject.KubernetesRuntimeInstanceID,
+						)
+						if err != nil {
+							operationErr = fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
+						}
+						if operationErr == nil {
+							if err := supportservices.EnsureIngressComponent(
+								r,
+								runtime,
+								componentObject,
+								&componentObject.IngressComponentInstanceID,
+								client_v0.UpdateGatewayInstance,
+								&log,
+							); err != nil {
+								operationErr = fmt.Errorf("failed to ensure ingress component: %w", err)
+							}
+						}
+						if operationErr == nil {
+							if err := supportservices.EnsureCertificatesComponent(
+								r,
+								runtime,
+								componentObject,
+								&componentObject.CertificatesComponentInstanceID,
+								client_v0.UpdateGatewayInstance,
+								&log,
+							); err != nil {
+								operationErr = fmt.Errorf("failed to ensure certificates component: %w", err)
+							}
+						}
+					}
+					if operationErr == nil {
+						requeueDelay, err := v0GatewayInstanceUpdated(
+							r,
+							gatewayInstance.(*api_v0.GatewayInstance),
+							&log,
+						)
+						customRequeueDelay = requeueDelay
+						operationErr = err
+					}
 				default:
 					operationErr = errors.New("unrecognized version of gateway instance encountered for update operation")
 				}
@@ -266,6 +367,29 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the operation has been failing for longer than the retry bound
+					if r.RecordFailure(gatewayInstance, string(notif.Operation)) {
+						giveUpMsg := event.GiveUpNote(
+							"failed to reconcile updated gateway instance object",
+							controller.DefaultMaxReconcileDuration,
+							operationErr,
+						)
+						log.Error(operationErr, giveUpMsg)
+						if recordErr := r.EventsRecorder.RecordEvent(
+							&api_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonUpdateFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							gatewayInstance.GetId(),
+							gatewayInstance.GetFullyQualifiedType(),
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record give-up event")
+						}
+						r.ClearFailure(gatewayInstance, string(notif.Operation))
+						r.ReleaseLock(gatewayInstance, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						gatewayInstance,
 						requeueDelay,
@@ -274,6 +398,7 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				r.ClearFailure(gatewayInstance, string(notif.Operation))
 				if customRequeueDelay != 0 {
 					log.Info("update requeued for future reconciliation")
 					r.UnlockAndRequeue(
@@ -313,6 +438,38 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 					)
 					customRequeueDelay = requeueDelay
 					operationErr = err
+					if operationErr == nil {
+						// release the shared components this object required
+						componentObject := gatewayInstance.(*api_v0.GatewayInstance)
+						if componentObject.KubernetesRuntimeInstanceID != nil {
+							runtime, err := client_v0.GetKubernetesRuntimeInstanceByID(
+								r.APIClient,
+								r.APIServer,
+								*componentObject.KubernetesRuntimeInstanceID,
+							)
+							if err != nil {
+								operationErr = fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
+							}
+							if operationErr == nil {
+								if err := supportservices.ReleaseIngressComponent(
+									r,
+									runtime,
+									componentObject,
+								); err != nil {
+									operationErr = fmt.Errorf("failed to release ingress component: %w", err)
+								}
+							}
+							if operationErr == nil {
+								if err := supportservices.ReleaseCertificatesComponent(
+									r,
+									runtime,
+									componentObject,
+								); err != nil {
+									operationErr = fmt.Errorf("failed to release certificates component: %w", err)
+								}
+							}
+						}
+					}
 				default:
 					operationErr = errors.New("unrecognized version of gateway instance encountered for delete operation")
 				}
@@ -344,6 +501,29 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the operation has been failing for longer than the retry bound
+					if r.RecordFailure(gatewayInstance, string(notif.Operation)) {
+						giveUpMsg := event.GiveUpNote(
+							"failed to reconcile deleted gateway instance object",
+							controller.DefaultMaxReconcileDuration,
+							operationErr,
+						)
+						log.Error(operationErr, giveUpMsg)
+						if recordErr := r.EventsRecorder.RecordEvent(
+							&api_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonDeleteFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							gatewayInstance.GetId(),
+							gatewayInstance.GetFullyQualifiedType(),
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record give-up event")
+						}
+						r.ClearFailure(gatewayInstance, string(notif.Operation))
+						r.ReleaseLock(gatewayInstance, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						gatewayInstance,
 						requeueDelay,
@@ -352,6 +532,7 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				r.ClearFailure(gatewayInstance, string(notif.Operation))
 				if customRequeueDelay != 0 {
 					log.Info("delete requeued for future reconciliation")
 					r.UnlockAndRequeue(
@@ -376,34 +557,38 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 					r.APIServer,
 					&deletedGatewayInstance,
 				)
-				if err != nil {
-					log.Error(err, "failed to update gateway instance to mark as deleted")
-					r.UnlockAndRequeue(gatewayInstance, requeueDelay, lockReleased, msg)
-					continue
-				}
-				_, err = client_v0.DeleteGatewayInstance(
-					r.APIClient,
-					r.APIServer,
-					gatewayInstance.GetId(),
-				)
-				if err != nil {
-					if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
-						log.Info(
-							"conflict deleting gateway instance, requeueing",
-							"cause", err.Error(),
-						)
-						// in-progress event already recorded before the handler
-						r.UnlockAndRequeue(
-							gatewayInstance,
-							int64(30),
-							lockReleased,
-							msg,
-						)
+				if errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+					log.Info("gateway instance already deleted")
+				} else {
+					if err != nil {
+						log.Error(err, "failed to update gateway instance to mark as deleted")
+						r.UnlockAndRequeue(gatewayInstance, requeueDelay, lockReleased, msg)
 						continue
 					}
-					log.Error(err, "failed to delete gateway instance")
-					r.UnlockAndRequeue(gatewayInstance, requeueDelay, lockReleased, msg)
-					continue
+					_, err = client_v0.DeleteGatewayInstance(
+						r.APIClient,
+						r.APIServer,
+						gatewayInstance.GetId(),
+					)
+					if err != nil && !errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+						if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
+							log.Info(
+								"conflict deleting gateway instance, requeueing",
+								"cause", err.Error(),
+							)
+							// in-progress event already recorded before the handler
+							r.UnlockAndRequeue(
+								gatewayInstance,
+								int64(30),
+								lockReleased,
+								msg,
+							)
+							continue
+						}
+						log.Error(err, "failed to delete gateway instance")
+						r.UnlockAndRequeue(gatewayInstance, requeueDelay, lockReleased, msg)
+						continue
+					}
 				}
 			default:
 				log.Error(
@@ -419,8 +604,8 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 				continue
 			}
 
-			// set the object's Reconciled field to true if not deleted
-			if notif.Operation != notifications.NotificationOperationDeleted {
+			// mark reconciled unless it is already true
+			if notif.Operation != notifications.NotificationOperationDeleted && !tpapi_lib.AlreadyReconciled(gatewayInstance) {
 				reconciledGatewayInstance := api_v0.GatewayInstance{
 					Common:         api_v0.Common{ID: util.Ptr(gatewayInstance.GetId())},
 					Reconciliation: api_v0.Reconciliation{Reconciled: util.Ptr(true)},

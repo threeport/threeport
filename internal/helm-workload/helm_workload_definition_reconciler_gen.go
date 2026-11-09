@@ -201,6 +201,29 @@ func HelmWorkloadDefinitionReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the operation has been failing for longer than the retry bound
+					if r.RecordFailure(helmWorkloadDefinition, string(notif.Operation)) {
+						giveUpMsg := event.GiveUpNote(
+							"failed to reconcile created helm workload definition object",
+							controller.DefaultMaxReconcileDuration,
+							operationErr,
+						)
+						log.Error(operationErr, giveUpMsg)
+						if recordErr := r.EventsRecorder.RecordEvent(
+							&api_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonCreateFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							helmWorkloadDefinition.GetId(),
+							helmWorkloadDefinition.GetFullyQualifiedType(),
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record give-up event")
+						}
+						r.ClearFailure(helmWorkloadDefinition, string(notif.Operation))
+						r.ReleaseLock(helmWorkloadDefinition, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						helmWorkloadDefinition,
 						requeueDelay,
@@ -209,6 +232,7 @@ func HelmWorkloadDefinitionReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				r.ClearFailure(helmWorkloadDefinition, string(notif.Operation))
 				if customRequeueDelay != 0 {
 					log.Info("create requeued for future reconciliation")
 					r.UnlockAndRequeue(
@@ -266,6 +290,29 @@ func HelmWorkloadDefinitionReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the operation has been failing for longer than the retry bound
+					if r.RecordFailure(helmWorkloadDefinition, string(notif.Operation)) {
+						giveUpMsg := event.GiveUpNote(
+							"failed to reconcile updated helm workload definition object",
+							controller.DefaultMaxReconcileDuration,
+							operationErr,
+						)
+						log.Error(operationErr, giveUpMsg)
+						if recordErr := r.EventsRecorder.RecordEvent(
+							&api_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonUpdateFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							helmWorkloadDefinition.GetId(),
+							helmWorkloadDefinition.GetFullyQualifiedType(),
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record give-up event")
+						}
+						r.ClearFailure(helmWorkloadDefinition, string(notif.Operation))
+						r.ReleaseLock(helmWorkloadDefinition, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						helmWorkloadDefinition,
 						requeueDelay,
@@ -274,6 +321,7 @@ func HelmWorkloadDefinitionReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				r.ClearFailure(helmWorkloadDefinition, string(notif.Operation))
 				if customRequeueDelay != 0 {
 					log.Info("update requeued for future reconciliation")
 					r.UnlockAndRequeue(
@@ -344,6 +392,29 @@ func HelmWorkloadDefinitionReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the operation has been failing for longer than the retry bound
+					if r.RecordFailure(helmWorkloadDefinition, string(notif.Operation)) {
+						giveUpMsg := event.GiveUpNote(
+							"failed to reconcile deleted helm workload definition object",
+							controller.DefaultMaxReconcileDuration,
+							operationErr,
+						)
+						log.Error(operationErr, giveUpMsg)
+						if recordErr := r.EventsRecorder.RecordEvent(
+							&api_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonDeleteFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							helmWorkloadDefinition.GetId(),
+							helmWorkloadDefinition.GetFullyQualifiedType(),
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record give-up event")
+						}
+						r.ClearFailure(helmWorkloadDefinition, string(notif.Operation))
+						r.ReleaseLock(helmWorkloadDefinition, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						helmWorkloadDefinition,
 						requeueDelay,
@@ -352,6 +423,7 @@ func HelmWorkloadDefinitionReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				r.ClearFailure(helmWorkloadDefinition, string(notif.Operation))
 				if customRequeueDelay != 0 {
 					log.Info("delete requeued for future reconciliation")
 					r.UnlockAndRequeue(
@@ -376,34 +448,38 @@ func HelmWorkloadDefinitionReconciler(r *controller.Reconciler) {
 					r.APIServer,
 					&deletedHelmWorkloadDefinition,
 				)
-				if err != nil {
-					log.Error(err, "failed to update helm workload definition to mark as deleted")
-					r.UnlockAndRequeue(helmWorkloadDefinition, requeueDelay, lockReleased, msg)
-					continue
-				}
-				_, err = client_v0.DeleteHelmWorkloadDefinition(
-					r.APIClient,
-					r.APIServer,
-					helmWorkloadDefinition.GetId(),
-				)
-				if err != nil {
-					if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
-						log.Info(
-							"conflict deleting helm workload definition, requeueing",
-							"cause", err.Error(),
-						)
-						// in-progress event already recorded before the handler
-						r.UnlockAndRequeue(
-							helmWorkloadDefinition,
-							int64(30),
-							lockReleased,
-							msg,
-						)
+				if errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+					log.Info("helm workload definition already deleted")
+				} else {
+					if err != nil {
+						log.Error(err, "failed to update helm workload definition to mark as deleted")
+						r.UnlockAndRequeue(helmWorkloadDefinition, requeueDelay, lockReleased, msg)
 						continue
 					}
-					log.Error(err, "failed to delete helm workload definition")
-					r.UnlockAndRequeue(helmWorkloadDefinition, requeueDelay, lockReleased, msg)
-					continue
+					_, err = client_v0.DeleteHelmWorkloadDefinition(
+						r.APIClient,
+						r.APIServer,
+						helmWorkloadDefinition.GetId(),
+					)
+					if err != nil && !errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+						if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
+							log.Info(
+								"conflict deleting helm workload definition, requeueing",
+								"cause", err.Error(),
+							)
+							// in-progress event already recorded before the handler
+							r.UnlockAndRequeue(
+								helmWorkloadDefinition,
+								int64(30),
+								lockReleased,
+								msg,
+							)
+							continue
+						}
+						log.Error(err, "failed to delete helm workload definition")
+						r.UnlockAndRequeue(helmWorkloadDefinition, requeueDelay, lockReleased, msg)
+						continue
+					}
 				}
 			default:
 				log.Error(
@@ -419,8 +495,8 @@ func HelmWorkloadDefinitionReconciler(r *controller.Reconciler) {
 				continue
 			}
 
-			// set the object's Reconciled field to true if not deleted
-			if notif.Operation != notifications.NotificationOperationDeleted {
+			// mark reconciled unless it is already true
+			if notif.Operation != notifications.NotificationOperationDeleted && !tpapi_lib.AlreadyReconciled(helmWorkloadDefinition) {
 				reconciledHelmWorkloadDefinition := api_v0.HelmWorkloadDefinition{
 					Common:         api_v0.Common{ID: util.Ptr(helmWorkloadDefinition.GetId())},
 					Reconciliation: api_v0.Reconciliation{Reconciled: util.Ptr(true)},

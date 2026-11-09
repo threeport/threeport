@@ -1,0 +1,213 @@
+package controlplane
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	v0 "github.com/threeport/threeport/pkg/api/v0"
+	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
+)
+
+// TestUpdatedSkipsAControlPlaneThisAPIDoesNotServe returns before reconciling a row this API does not drive.
+// A parent drives a child it manages, and the child's own row stays idle.
+func TestUpdatedSkipsAControlPlaneThisAPIDoesNotServe(t *testing.T) {
+	// skip a row marked for another API
+	delay, err := v0ControlPlaneInstanceUpdated(nil, &v0.ControlPlaneInstance{IsSelf: util.Ptr(false)}, nil)
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), delay)
+
+	// skip a row that has not recorded which API serves it
+	delay, err = v0ControlPlaneInstanceUpdated(nil, &v0.ControlPlaneInstance{}, nil)
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), delay)
+
+	// the child's own row is owned by its parent, so this API does not reconcile it
+	parentID := uint(7)
+	delay, err = v0ControlPlaneInstanceUpdated(nil, &v0.ControlPlaneInstance{
+		IsSelf:                       util.Ptr(true),
+		ParentControlPlaneInstanceID: &parentID,
+	}, nil)
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), delay)
+}
+
+// TestAppliesControlPlane decides which control plane instance this API reconciles.
+func TestAppliesControlPlane(t *testing.T) {
+	// a parent reconciles the child row, and a root reconciles itself
+	parentID := uint(7)
+	cases := []struct {
+		name     string
+		instance *v0.ControlPlaneInstance
+		want     bool
+	}{
+		{name: "root", instance: &v0.ControlPlaneInstance{IsSelf: util.Ptr(true)}, want: true},
+		{
+			name: "managed child",
+			instance: &v0.ControlPlaneInstance{
+				IsSelf:                       util.Ptr(false),
+				ParentControlPlaneInstanceID: &parentID,
+			},
+			want: true,
+		},
+		{
+			name: "owned self",
+			instance: &v0.ControlPlaneInstance{
+				IsSelf:                       util.Ptr(true),
+				ParentControlPlaneInstanceID: &parentID,
+			},
+			want: false,
+		},
+		{name: "foreign copy", instance: &v0.ControlPlaneInstance{IsSelf: util.Ptr(false)}, want: false},
+		{name: "unset", instance: &v0.ControlPlaneInstance{}, want: false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, appliesControlPlane(tc.instance))
+		})
+	}
+}
+
+// A child records what it runs so that its own children can default to the
+// same images. Its children apply an instance-wide image over whatever its
+// record says, so the record cannot keep one next to components that are
+// exceptions to it.
+func TestRecordResolvedComponents_GrandchildKeepsTheChildsExceptions(t *testing.T) {
+	child := &v0.ControlPlaneInstance{
+		ImageNamespace: util.Ptr("wide-registry"),
+		ImageTag:       util.Ptr("wide"),
+		CustomComponentInfo: []*v0.ControlPlaneComponent{
+			{Name: "agent", ImageNamespace: "special-registry", ImageTag: "special"},
+		},
+	}
+	childInstaller := threeport.NewInstaller()
+	require.NoError(t, childInstaller.ConfigureChildComponents(&v0.ControlPlaneInstance{}, child))
+	require.Equal(t, "special", childInstaller.Opts.AgentInfo.ImageTag)
+	require.Equal(t, "wide", childInstaller.Opts.RestApiInfo.ImageTag)
+
+	// what the child writes as its own self record
+	record := *child
+	recordResolvedComponents(&record, childInstaller)
+
+	assert.Nil(t, record.ImageNamespace)
+	assert.Nil(t, record.ImageTag)
+
+	// a control plane created from the child
+	grandchildInstaller := threeport.NewInstaller()
+	require.NoError(t, grandchildInstaller.ConfigureChildComponents(&record, &v0.ControlPlaneInstance{}))
+
+	assert.Equal(t, "special", grandchildInstaller.Opts.AgentInfo.ImageTag)
+	assert.Equal(t, "special-registry", grandchildInstaller.Opts.AgentInfo.ImageNamespace)
+	assert.Equal(t, "wide", grandchildInstaller.Opts.RestApiInfo.ImageTag)
+	assert.Equal(t, "wide-registry", grandchildInstaller.Opts.RestApiInfo.ImageNamespace)
+
+	// the child's own instance is left as it was asked for
+	assert.Equal(t, "wide", *child.ImageTag)
+}
+
+// An upgrade moves every default deployment to one tag and records it as the
+// instance-wide tag of the control plane. The record of the components cannot
+// be updated through the API, so it still carries the tag an exception had
+// before the upgrade. A child created afterwards takes the tag the upgrade left
+// running, which is what its parent runs, and keeps the image name and registry
+// of the exception, which the upgrade does not touch.
+func TestChildAfterUpgradeTakesTheTagTheUpgradeLeftRunning(t *testing.T) {
+	parent := &v0.ControlPlaneInstance{
+		CustomComponentInfo: []*v0.ControlPlaneComponent{
+			{Name: "rest-api", ImageNamespace: "ghcr.io/threeport", ImageName: "threeport-rest-api", ImageTag: "v0.7.0"},
+			{Name: "agent", ImageNamespace: "mirror.example.com", ImageName: "forked-agent", ImageTag: "forked"},
+		},
+	}
+
+	// what `tptctl upgrade control-plane --version v0.7.1` records
+	parent.ImageTag = util.Ptr("v0.7.1")
+
+	cpi := threeport.NewInstaller()
+	require.NoError(t, cpi.ConfigureChildComponents(parent, &v0.ControlPlaneInstance{}))
+
+	assert.Equal(t, "v0.7.1", cpi.Opts.RestApiInfo.ImageTag)
+	assert.Equal(t, "v0.7.1", cpi.Opts.AgentInfo.ImageTag, "the upgrade moved the pinned agent too")
+	assert.Equal(t, "forked-agent", cpi.Opts.AgentInfo.ImageName)
+	assert.Equal(t, "mirror.example.com", cpi.Opts.AgentInfo.ImageNamespace)
+
+	// the child's own settings still win over the upgrade
+	child := &v0.ControlPlaneInstance{
+		CustomComponentInfo: []*v0.ControlPlaneComponent{{Name: "agent", ImageTag: "child-agent"}},
+	}
+	cpi = threeport.NewInstaller()
+	require.NoError(t, cpi.ConfigureChildComponents(parent, child))
+
+	assert.Equal(t, "child-agent", cpi.Opts.AgentInfo.ImageTag)
+	assert.Equal(t, "v0.7.1", cpi.Opts.RestApiInfo.ImageTag)
+}
+
+// TestSelectInstanceControllersKeepsNamedGroup checks that gcp keeps only gcp-controller.
+// The image applied before the select stays on that controller.
+func TestSelectInstanceControllersKeepsNamedGroup(t *testing.T) {
+	childInstaller := threeport.NewInstaller()
+	child := &v0.ControlPlaneInstance{
+		ImageNamespace: util.Ptr("ghcr.io/child"),
+		Apis:           util.Ptr("gcp"),
+	}
+	require.NoError(t, childInstaller.ConfigureChildComponents(&v0.ControlPlaneInstance{}, child))
+
+	// keep gcp-controller after images are set
+	require.NoError(t, selectInstanceControllers(childInstaller, child.Apis))
+
+	require.Len(t, childInstaller.Opts.ControllerList, 1)
+	assert.Equal(t, "gcp-controller", childInstaller.Opts.ControllerList[0].Name)
+	assert.Equal(t, "ghcr.io/child", childInstaller.Opts.ControllerList[0].ImageNamespace)
+}
+
+// TestSelectInstanceControllersNoneClearsTheList checks that none installs no controllers.
+func TestSelectInstanceControllersNoneClearsTheList(t *testing.T) {
+	childInstaller := threeport.NewInstaller()
+
+	// none clears the controller list
+	require.NoError(t, selectInstanceControllers(childInstaller, util.Ptr("none")))
+
+	assert.Nil(t, childInstaller.Opts.ControllerList)
+}
+
+// TestSelectInstanceControllersNilLeavesTheList checks that an omitted Apis installs every controller.
+func TestSelectInstanceControllersNilLeavesTheList(t *testing.T) {
+	childInstaller := threeport.NewInstaller()
+	before := len(childInstaller.Opts.ControllerList)
+
+	// leave the full list when Apis is omitted
+	require.NoError(t, selectInstanceControllers(childInstaller, nil))
+
+	assert.Len(t, childInstaller.Opts.ControllerList, before)
+}
+
+// TestSelectInstanceControllersRejectsUnknownGroup checks that an unknown group returns an error.
+func TestSelectInstanceControllersRejectsUnknownGroup(t *testing.T) {
+	childInstaller := threeport.NewInstaller()
+
+	// an unknown group fails and leaves the list in place
+	err := selectInstanceControllers(childInstaller, util.Ptr("not-a-group"))
+
+	require.Error(t, err)
+	assert.NotEmpty(t, childInstaller.Opts.ControllerList)
+}
+
+// TestClientCertificateRecorded checks that a saved certificate is kept and an empty one is not.
+func TestClientCertificateRecorded(t *testing.T) {
+	empty := ""
+	recorded := &v0.ControlPlaneInstance{
+		CACert:     util.Ptr("ca"),
+		ClientCert: util.Ptr("cert"),
+		ClientKey:  util.Ptr("key"),
+	}
+
+	// a saved certificate is reused on a retry
+	assert.True(t, clientCertificateRecorded(recorded))
+	assert.False(t, clientCertificateRecorded(&v0.ControlPlaneInstance{}))
+	assert.False(t, clientCertificateRecorded(&v0.ControlPlaneInstance{
+		CACert:     &empty,
+		ClientCert: util.Ptr("cert"),
+		ClientKey:  util.Ptr("key"),
+	}))
+}

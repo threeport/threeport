@@ -3,13 +3,43 @@
 package v0
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"reflect"
 
 	gorm "gorm.io/gorm"
 
 	lib "github.com/threeport/threeport/pkg/api/lib/v0"
+	auth "github.com/threeport/threeport/pkg/auth/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
+
+// ValidateAuthEnabledForProvider rejects a control plane served without auth
+// on anything but kind.
+//
+// With auth disabled the API is served over plain HTTP with no client
+// certificate: anything that can reach it is the owner. On kind that is a
+// local, single-node cluster on the operator's own machine, which is the
+// case the flag exists for. On a cloud provider it is a real cluster holding
+// every credential the control plane manages, and the only thing standing
+// between that and the network was a line printed to a terminal nobody reads
+// in a script.
+//
+// The flag's help text has claimed this restriction since it was written -
+// "Can only be disabled when using kind provider" - which is how a setting
+// copied out of a local workflow travels to a cloud one without anybody
+// noticing it should not have.
+func ValidateAuthEnabledForProvider(infraProvider string, authEnabled bool) error {
+	if authEnabled || infraProvider == KubernetesRuntimeInfraProviderKind {
+		return nil
+	}
+
+	return util.NewBadRequestError(fmt.Sprintf(
+		"auth cannot be disabled on the %s provider; it is supported only with %s",
+		infraProvider, KubernetesRuntimeInfraProviderKind,
+	))
+}
 
 // The values ControlPlaneDefinition.Tier accepts.
 //
@@ -76,8 +106,11 @@ func (c *ControlPlaneDefinition) beforeUpdate(tx *gorm.DB) error {
 	if err := validateTier(incomingTier(tx, c)); err != nil {
 		return err
 	}
+	if err := rejectTierChange(tx); err != nil {
+		return err
+	}
 
-	return rejectTierChange(tx)
+	return rejectAuthBeingTurnedOffForACloudInstance(tx, c)
 }
 
 // rejectTierChange keeps the tier as it was recorded at creation.
@@ -106,6 +139,72 @@ func rejectTierChange(tx *gorm.DB) error {
 	return nil
 }
 
+// rejectAuthBeingTurnedOffForACloudInstance closes the gap between creating
+// an instance and installing it.
+//
+// The instance hook checks the pairing when the instance is created, and the
+// control-plane-controller reads the definition again when it installs. Those
+// are not the same moment: an instance can be created on EKS with auth on,
+// pass that check, and have its definition patched to auth off before the
+// controller gets to it. The install then reads the changed value and brings
+// the child up without auth, with every check it passed still true of the
+// moment it passed them.
+//
+// So an update that would turn auth off is refused while any instance of the
+// definition runs somewhere that requires it.
+func rejectAuthBeingTurnedOffForACloudInstance(tx *gorm.DB, stored *ControlPlaneDefinition) error {
+	incoming := incomingAuthEnabled(tx, stored)
+	if incoming == nil || *incoming {
+		return nil
+	}
+
+	if stored.ID == nil {
+		return nil
+	}
+
+	var instances []ControlPlaneInstance
+	if err := tx.Where("control_plane_definition_id = ?", *stored.ID).Find(&instances).Error; err != nil {
+		return err
+	}
+
+	for _, instance := range instances {
+		if instance.KubernetesRuntimeInstanceID == nil {
+			continue
+		}
+		provider, err := providerOfRuntimeInstance(tx, *instance.KubernetesRuntimeInstanceID)
+		if err != nil {
+			return err
+		}
+		if provider == nil {
+			continue
+		}
+		if err := ValidateAuthEnabledForProvider(*provider, false); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// incomingAuthEnabled returns the auth setting this update is writing.
+//
+// Under PATCH the receiver is the row as stored and the values being written
+// are a separate object, so reading the receiver checks what is already
+// there. Under PUT the two are the same object. An update that does not
+// mention auth reports none, so it is not held to a value it is not setting.
+func incomingAuthEnabled(tx *gorm.DB, stored *ControlPlaneDefinition) *bool {
+	if lib.IsPartialUpdate(tx) {
+		incoming, ok := lib.IncomingValues(tx).(*ControlPlaneDefinition)
+		if !ok {
+			return nil
+		}
+
+		return incoming.AuthEnabled
+	}
+
+	return stored.AuthEnabled
+}
+
 // incomingTier returns the tier this update is writing.
 //
 // Under PATCH the receiver is the row as stored and the values being written
@@ -130,6 +229,33 @@ func incomingTier(tx *gorm.DB, stored *ControlPlaneDefinition) *string {
 	return stored.Tier
 }
 
+// providerOfRuntimeInstance resolves the infra provider behind a runtime
+// instance, or nil when the chain does not resolve.
+func providerOfRuntimeInstance(tx *gorm.DB, runtimeInstanceID uint) (*string, error) {
+	var runtimeInstance KubernetesRuntimeInstance
+	if err := tx.First(&runtimeInstance, runtimeInstanceID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+
+		return nil, err
+	}
+	if runtimeInstance.KubernetesRuntimeDefinitionID == nil {
+		return nil, nil
+	}
+
+	var runtimeDefinition KubernetesRuntimeDefinition
+	if err := tx.First(&runtimeDefinition, *runtimeInstance.KubernetesRuntimeDefinitionID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+
+		return nil, err
+	}
+
+	return runtimeDefinition.InfraProvider, nil
+}
+
 // beforeDelete runs before the ControlPlaneDefinition is deleted.
 func (c *ControlPlaneDefinition) beforeDelete(tx *gorm.DB) error {
 	return nil
@@ -151,28 +277,179 @@ func (c *ControlPlaneDefinition) afterDelete(tx *gorm.DB) error {
 }
 
 // beforeCreate runs before the ControlPlaneInstance is created.
+//
+// The check lives here rather than on the definition because a definition
+// does not know where it will run. It carries AuthEnabled and no reference to
+// a runtime of any kind; the provider is only knowable once an instance binds
+// it to one, which is this object. Checking it at the CLI alone would leave
+// the API as the way around the rail.
 func (c *ControlPlaneInstance) beforeCreate(tx *gorm.DB) error {
-	return nil
+	return validateAuthAgainstRuntime(tx, c)
 }
 
-// beforeUpdate runs before the ControlPlaneInstance is updated.
+// validateAuthAgainstRuntime resolves the pairing this instance creates.
 //
-// Receiver semantics depend on the GORM call shape; see
-// pkg/api/lib/v0/update_helpers.go for the full model. The simplest
-// per-field check is:
-//   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
-//     and PUT, handles the DB load internally
-//
-// Lower-level helpers, useful when IsFieldChanged doesn't fit:
-//   - lib.IncomingValues(tx): values being written
-//   - lib.IsFullReplace(tx): true on PUT (Save shape)
-//   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
-//
-// Import:
-//
-//	lib "github.com/threeport/threeport/pkg/api/lib/v0"
+// A missing definition or runtime is left alone: those are the references the
+// generated handler and the relationship hooks already report on, and
+// repeating them here would turn one problem into two messages.
+func validateAuthAgainstRuntime(tx *gorm.DB, instance *ControlPlaneInstance) error {
+	if instance.ControlPlaneDefinitionID == nil || instance.KubernetesRuntimeInstanceID == nil {
+		return nil
+	}
+
+	var definition ControlPlaneDefinition
+	if err := tx.First(&definition, *instance.ControlPlaneDefinitionID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
+
+		return err
+	}
+	// an unset AuthEnabled takes the column default, which is true
+	if definition.AuthEnabled == nil || *definition.AuthEnabled {
+		return nil
+	}
+
+	provider, err := providerOfRuntimeInstance(tx, *instance.KubernetesRuntimeInstanceID)
+	if err != nil {
+		return err
+	}
+	if provider == nil {
+		return nil
+	}
+
+	return ValidateAuthEnabledForProvider(*provider, false)
+}
+
+// beforeUpdate rejects a desired-state change the caller may not make.
+// Reconciliation stays writable, and an empty column may be filled once.
 func (c *ControlPlaneInstance) beforeUpdate(tx *gorm.DB) error {
-	return nil
+	// read the stored row, because a patch often omits IsSelf
+	stored, err := storedControlPlane(tx, c)
+	if err != nil {
+		return err
+	}
+
+	// a root accepts changes sent to the API that serves it
+	owned := stored.ParentControlPlaneInstanceID != nil
+	self := stored.IsSelf != nil && *stored.IsSelf
+	if self && !owned {
+		return nil
+	}
+
+	// the parent may change the image and the controller list on a row it manages
+	allowLifecycle := owned && (!self || parentCaller(tx))
+	field, err := changedForeignField(tx, stored, allowLifecycle)
+	if err != nil {
+		return err
+	}
+	if field == "" {
+		return nil
+	}
+	if self {
+		return util.NewBadRequestError(fmt.Sprintf(
+			"cannot update %s on a control plane its parent manages",
+			field,
+		))
+	}
+	return util.NewBadRequestError(fmt.Sprintf(
+		"cannot update %s on a control plane this API does not serve",
+		field,
+	))
+}
+
+// storedControlPlane returns the row as stored.
+func storedControlPlane(tx *gorm.DB, receiver *ControlPlaneInstance) (*ControlPlaneInstance, error) {
+	// a patch's receiver is the loaded row
+	if lib.IsPartialUpdate(tx) {
+		return receiver, nil
+	}
+
+	// a replace carries the inbound object, so read the stored row
+	loaded, err := lib.LoadObjectFromDB(tx)
+	if err != nil {
+		return nil, err
+	}
+	stored, ok := loaded.(*ControlPlaneInstance)
+	if !ok {
+		return nil, fmt.Errorf("loaded %T is not a control plane instance", loaded)
+	}
+	return stored, nil
+}
+
+// changedForeignField returns the first column a control plane this API does not serve must keep.
+// A managed row may change the image and the controller list.
+func changedForeignField(tx *gorm.DB, stored *ControlPlaneInstance, allowLifecycle bool) (string, error) {
+	if tx.Statement.Schema == nil {
+		return "", errors.New("control plane instance update has no schema")
+	}
+
+	// skip timestamps, then reconciliation, then a column that is still empty
+	storedValue := reflect.ValueOf(stored)
+	for _, field := range tx.Statement.Schema.Fields {
+		if field.PrimaryKey || field.AutoCreateTime > 0 || field.AutoUpdateTime > 0 || field.DBName == "" {
+			continue
+		}
+		changed, err := lib.IsFieldChanged(tx, field.Name)
+		if err != nil {
+			return "", err
+		}
+		if !changed || reconciliationColumn(field.BindNames) {
+			continue
+		}
+		// a managed row may change the image and the controller list
+		if allowLifecycle && blankValueIsTheSetting(field.Name) {
+			continue
+		}
+		if blankValueIsTheSetting(field.Name) || !columnEmpty(field.ValueOf, storedValue) {
+			return field.Name, nil
+		}
+	}
+	return "", nil
+}
+
+// parentCaller reports whether the request is the control plane that manages this one.
+// Authentication off has no certificate name, so it is rejected.
+func parentCaller(tx *gorm.DB) bool {
+	// read the caller the API stored on this request
+	if tx.Statement == nil || tx.Statement.Context == nil {
+		return false
+	}
+	caller := lib.Caller(tx.Statement.Context)
+
+	// reject a caller with no certificate name, which is authentication off
+	if caller.CommonName == "" {
+		return false
+	}
+
+	// accept the owner certificate or a control plane certificate with no organization
+	if caller.CommonName == "threeport-owner" {
+		return true
+	}
+	return caller.OrganizationalUnit == auth.OUControlPlane && caller.Organization == ""
+}
+
+// reconciliationColumn reports whether the column belongs to Reconciliation.
+func reconciliationColumn(bindNames []string) bool {
+	return len(bindNames) > 0 && bindNames[0] == "Reconciliation"
+}
+
+// blankValueIsTheSetting reports whether an empty column is itself a choice.
+// An empty Apis installs every group, and an empty image field inherits the parent.
+func blankValueIsTheSetting(name string) bool {
+	switch name {
+	case "Apis", "ImageNamespace", "ImageTag":
+		return true
+	default:
+		return false
+	}
+}
+
+// columnEmpty reports whether the stored column has no value.
+func columnEmpty(valueOf func(context.Context, reflect.Value) (interface{}, bool), stored reflect.Value) bool {
+	// a nil pointer is empty, and a pointer to false is not
+	_, zero := valueOf(context.Background(), stored)
+	return zero
 }
 
 // beforeDelete runs before the ControlPlaneInstance is deleted.

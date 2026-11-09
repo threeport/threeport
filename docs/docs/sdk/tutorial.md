@@ -22,7 +22,13 @@ mkdir wordpress-threeport-module
 cd wordpress-threeport-module
 git init
 go mod init wordpress-threeport-module
+go get -tool github.com/swaggo/swag/cmd/swag@v1.16.6
 ```
+
+The last command declares [swag](https://github.com/swaggo/swag) as a go tool
+of the module. The generated `mage dev:generateSwaggerDocs` target runs it
+through `go tool`, so the module's API docs are always generated with the
+version its `go.mod` pins, whatever is installed on the machine.
 
 ## Create SDK Config
 
@@ -665,6 +671,14 @@ go mod tidy
 The Threeport SDK provides [mage](https://magefile.org/) targets with convenient
 development utilities.  To see all available mage targets, simple run `mage`.
 
+Generate the module's API docs, which its API server serves through the core
+Threeport API at `swagger/<module API name>/index.html`. Run this again whenever
+the module's API objects change.
+
+```bash
+mage dev:generateSwaggerDocs
+```
+
 Next, let's build the `tptctl` plugin for the WordPress module.
 
 ```bash
@@ -980,10 +994,13 @@ Local or Remote environment.
     tptctl get workloads
     ```
 
+    Threeport removes `ingress-threeport-test` when you delete the last
+    gateway.  Delete that workload here only if the list still shows it.
+
     Delete the support service workloads.
 
     ```bash
-    tptctl delete kubernetes-workload-instance -n gloo-edge-threeport-test
+    tptctl delete kubernetes-workload-instance -n ingress-threeport-test
     tptctl delete kubernetes-workload-instance -n external-dns-threeport-test
     ```
 

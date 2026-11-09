@@ -5,6 +5,16 @@ import "time"
 const (
 	DefaultInitialRequeueDelay = 1
 	DefaultMaxRequeueDelay     = 30
+
+	// DefaultMaxReconcileDuration is how long a reconciler keeps requeueing an
+	// operation that keeps failing, measured from its first failed attempt (see
+	// FailureTracker). The requeue delay is capped
+	// at DefaultMaxRequeueDelay, so without a bound a failure that cannot
+	// resolve itself - a permission that is never granted - is retried every
+	// 30 seconds for as long as the object exists. It is generous enough to
+	// cover waiting on a dependency such as a cluster that is still being
+	// provisioned.
+	DefaultMaxReconcileDuration = time.Hour
 )
 
 // Done is the requeue delay signaling this reconcile pass is complete;

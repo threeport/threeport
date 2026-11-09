@@ -12,6 +12,7 @@ import (
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	event "github.com/threeport/threeport/pkg/event/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
+	supportservices "github.com/threeport/threeport/pkg/supportservices"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"os"
 	"os/signal"
@@ -177,13 +178,50 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 				var customRequeueDelay int64
 				switch secretInstance.GetVersion() {
 				case "v0":
-					requeueDelay, err := v0SecretInstanceCreated(
-						r,
-						secretInstance.(*api_v0.SecretInstance),
-						&log,
-					)
-					customRequeueDelay = requeueDelay
-					operationErr = err
+					// install the shared components this object requires
+					componentObject := secretInstance.(*api_v0.SecretInstance)
+					if componentObject.KubernetesRuntimeInstanceID != nil {
+						runtime, err := client_v0.GetKubernetesRuntimeInstanceByID(
+							r.APIClient,
+							r.APIServer,
+							*componentObject.KubernetesRuntimeInstanceID,
+						)
+						if err != nil {
+							operationErr = fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
+						}
+						if operationErr == nil {
+							provider, err := client_v0.GetInfraProviderByKubernetesRuntimeInstanceID(
+								r.APIClient,
+								r.APIServer,
+								runtime.ID,
+							)
+							if err != nil {
+								operationErr = fmt.Errorf("failed to get infra provider: %w", err)
+							}
+							if operationErr == nil {
+								if err := supportservices.EnsureSecretsComponent(
+									r,
+									runtime,
+									componentObject,
+									&componentObject.SecretsComponentInstanceID,
+									client_v0.UpdateSecretInstance,
+									provider,
+									&log,
+								); err != nil {
+									operationErr = fmt.Errorf("failed to ensure secrets component: %w", err)
+								}
+							}
+						}
+					}
+					if operationErr == nil {
+						requeueDelay, err := v0SecretInstanceCreated(
+							r,
+							secretInstance.(*api_v0.SecretInstance),
+							&log,
+						)
+						customRequeueDelay = requeueDelay
+						operationErr = err
+					}
 				default:
 					operationErr = errors.New("unrecognized version of secret instance encountered for create operation")
 				}
@@ -201,6 +239,29 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the operation has been failing for longer than the retry bound
+					if r.RecordFailure(secretInstance, string(notif.Operation)) {
+						giveUpMsg := event.GiveUpNote(
+							"failed to reconcile created secret instance object",
+							controller.DefaultMaxReconcileDuration,
+							operationErr,
+						)
+						log.Error(operationErr, giveUpMsg)
+						if recordErr := r.EventsRecorder.RecordEvent(
+							&api_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonCreateFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							secretInstance.GetId(),
+							secretInstance.GetFullyQualifiedType(),
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record give-up event")
+						}
+						r.ClearFailure(secretInstance, string(notif.Operation))
+						r.ReleaseLock(secretInstance, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						secretInstance,
 						requeueDelay,
@@ -209,6 +270,7 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				r.ClearFailure(secretInstance, string(notif.Operation))
 				if customRequeueDelay != 0 {
 					log.Info("create requeued for future reconciliation")
 					r.UnlockAndRequeue(
@@ -242,13 +304,50 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 				var customRequeueDelay int64
 				switch secretInstance.GetVersion() {
 				case "v0":
-					requeueDelay, err := v0SecretInstanceUpdated(
-						r,
-						secretInstance.(*api_v0.SecretInstance),
-						&log,
-					)
-					customRequeueDelay = requeueDelay
-					operationErr = err
+					// install the shared components this object requires
+					componentObject := secretInstance.(*api_v0.SecretInstance)
+					if componentObject.KubernetesRuntimeInstanceID != nil {
+						runtime, err := client_v0.GetKubernetesRuntimeInstanceByID(
+							r.APIClient,
+							r.APIServer,
+							*componentObject.KubernetesRuntimeInstanceID,
+						)
+						if err != nil {
+							operationErr = fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
+						}
+						if operationErr == nil {
+							provider, err := client_v0.GetInfraProviderByKubernetesRuntimeInstanceID(
+								r.APIClient,
+								r.APIServer,
+								runtime.ID,
+							)
+							if err != nil {
+								operationErr = fmt.Errorf("failed to get infra provider: %w", err)
+							}
+							if operationErr == nil {
+								if err := supportservices.EnsureSecretsComponent(
+									r,
+									runtime,
+									componentObject,
+									&componentObject.SecretsComponentInstanceID,
+									client_v0.UpdateSecretInstance,
+									provider,
+									&log,
+								); err != nil {
+									operationErr = fmt.Errorf("failed to ensure secrets component: %w", err)
+								}
+							}
+						}
+					}
+					if operationErr == nil {
+						requeueDelay, err := v0SecretInstanceUpdated(
+							r,
+							secretInstance.(*api_v0.SecretInstance),
+							&log,
+						)
+						customRequeueDelay = requeueDelay
+						operationErr = err
+					}
 				default:
 					operationErr = errors.New("unrecognized version of secret instance encountered for update operation")
 				}
@@ -266,6 +365,29 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the operation has been failing for longer than the retry bound
+					if r.RecordFailure(secretInstance, string(notif.Operation)) {
+						giveUpMsg := event.GiveUpNote(
+							"failed to reconcile updated secret instance object",
+							controller.DefaultMaxReconcileDuration,
+							operationErr,
+						)
+						log.Error(operationErr, giveUpMsg)
+						if recordErr := r.EventsRecorder.RecordEvent(
+							&api_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonUpdateFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							secretInstance.GetId(),
+							secretInstance.GetFullyQualifiedType(),
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record give-up event")
+						}
+						r.ClearFailure(secretInstance, string(notif.Operation))
+						r.ReleaseLock(secretInstance, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						secretInstance,
 						requeueDelay,
@@ -274,6 +396,7 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				r.ClearFailure(secretInstance, string(notif.Operation))
 				if customRequeueDelay != 0 {
 					log.Info("update requeued for future reconciliation")
 					r.UnlockAndRequeue(
@@ -313,6 +436,29 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 					)
 					customRequeueDelay = requeueDelay
 					operationErr = err
+					if operationErr == nil {
+						// release the shared components this object required
+						componentObject := secretInstance.(*api_v0.SecretInstance)
+						if componentObject.KubernetesRuntimeInstanceID != nil {
+							runtime, err := client_v0.GetKubernetesRuntimeInstanceByID(
+								r.APIClient,
+								r.APIServer,
+								*componentObject.KubernetesRuntimeInstanceID,
+							)
+							if err != nil {
+								operationErr = fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
+							}
+							if operationErr == nil {
+								if err := supportservices.ReleaseSecretsComponent(
+									r,
+									runtime,
+									componentObject,
+								); err != nil {
+									operationErr = fmt.Errorf("failed to release secrets component: %w", err)
+								}
+							}
+						}
+					}
 				default:
 					operationErr = errors.New("unrecognized version of secret instance encountered for delete operation")
 				}
@@ -344,6 +490,29 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the operation has been failing for longer than the retry bound
+					if r.RecordFailure(secretInstance, string(notif.Operation)) {
+						giveUpMsg := event.GiveUpNote(
+							"failed to reconcile deleted secret instance object",
+							controller.DefaultMaxReconcileDuration,
+							operationErr,
+						)
+						log.Error(operationErr, giveUpMsg)
+						if recordErr := r.EventsRecorder.RecordEvent(
+							&api_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonDeleteFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							secretInstance.GetId(),
+							secretInstance.GetFullyQualifiedType(),
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record give-up event")
+						}
+						r.ClearFailure(secretInstance, string(notif.Operation))
+						r.ReleaseLock(secretInstance, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						secretInstance,
 						requeueDelay,
@@ -352,6 +521,7 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				r.ClearFailure(secretInstance, string(notif.Operation))
 				if customRequeueDelay != 0 {
 					log.Info("delete requeued for future reconciliation")
 					r.UnlockAndRequeue(
@@ -376,34 +546,38 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 					r.APIServer,
 					&deletedSecretInstance,
 				)
-				if err != nil {
-					log.Error(err, "failed to update secret instance to mark as deleted")
-					r.UnlockAndRequeue(secretInstance, requeueDelay, lockReleased, msg)
-					continue
-				}
-				_, err = client_v0.DeleteSecretInstance(
-					r.APIClient,
-					r.APIServer,
-					secretInstance.GetId(),
-				)
-				if err != nil {
-					if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
-						log.Info(
-							"conflict deleting secret instance, requeueing",
-							"cause", err.Error(),
-						)
-						// in-progress event already recorded before the handler
-						r.UnlockAndRequeue(
-							secretInstance,
-							int64(30),
-							lockReleased,
-							msg,
-						)
+				if errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+					log.Info("secret instance already deleted")
+				} else {
+					if err != nil {
+						log.Error(err, "failed to update secret instance to mark as deleted")
+						r.UnlockAndRequeue(secretInstance, requeueDelay, lockReleased, msg)
 						continue
 					}
-					log.Error(err, "failed to delete secret instance")
-					r.UnlockAndRequeue(secretInstance, requeueDelay, lockReleased, msg)
-					continue
+					_, err = client_v0.DeleteSecretInstance(
+						r.APIClient,
+						r.APIServer,
+						secretInstance.GetId(),
+					)
+					if err != nil && !errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+						if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
+							log.Info(
+								"conflict deleting secret instance, requeueing",
+								"cause", err.Error(),
+							)
+							// in-progress event already recorded before the handler
+							r.UnlockAndRequeue(
+								secretInstance,
+								int64(30),
+								lockReleased,
+								msg,
+							)
+							continue
+						}
+						log.Error(err, "failed to delete secret instance")
+						r.UnlockAndRequeue(secretInstance, requeueDelay, lockReleased, msg)
+						continue
+					}
 				}
 			default:
 				log.Error(
@@ -419,8 +593,8 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 				continue
 			}
 
-			// set the object's Reconciled field to true if not deleted
-			if notif.Operation != notifications.NotificationOperationDeleted {
+			// mark reconciled unless it is already true
+			if notif.Operation != notifications.NotificationOperationDeleted && !tpapi_lib.AlreadyReconciled(secretInstance) {
 				reconciledSecretInstance := api_v0.SecretInstance{
 					Common:         api_v0.Common{ID: util.Ptr(secretInstance.GetId())},
 					Reconciliation: api_v0.Reconciliation{Reconciled: util.Ptr(true)},

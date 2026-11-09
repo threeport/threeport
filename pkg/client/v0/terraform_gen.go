@@ -12,6 +12,7 @@ import (
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"net/http"
+	neturl "net/url"
 )
 
 // GetTerraformDefinitions fetches all terraform definitions.
@@ -25,7 +26,7 @@ func GetTerraformDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.Terr
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathTerraformDefinitions)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathTerraformDefinitions, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathTerraformDefinitions, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -134,7 +135,7 @@ func GetTerraformDefinitionByName(apiClient *http.Client, apiAddr, name string) 
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathTerraformDefinitions, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathTerraformDefinitions, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -342,7 +343,7 @@ func GetTerraformInstances(apiClient *http.Client, apiAddr string) (*[]v0.Terraf
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathTerraformInstances)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathTerraformInstances, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathTerraformInstances, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -451,7 +452,7 @@ func GetTerraformInstanceByName(apiClient *http.Client, apiAddr, name string) (*
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathTerraformInstances, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathTerraformInstances, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},

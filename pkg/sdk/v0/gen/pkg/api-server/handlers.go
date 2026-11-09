@@ -60,6 +60,12 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				gen.Module,
 			))
 			f.ImportAlias(util.SetImportAlias(
+				"github.com/threeport/threeport/pkg/api/lib/v0",
+				"api_v0_lib",
+				"tpapi_v0_lib",
+				gen.Module,
+			))
+			f.ImportAlias(util.SetImportAlias(
 				"github.com/threeport/threeport/pkg/util/v0",
 				"util_v0",
 				"tputil_v0",
@@ -138,13 +144,30 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					// that needs nothing, and to do nothing when that is the case.
 					notifyControllersUpdateHandler = Comment("notify controller if the update is notifiable")
 					notifyControllersUpdateHandler.Line()
-					notifyControllersUpdateHandler.If(Qual(
-						"github.com/threeport/threeport/pkg/api/v0",
-						"ReconciliationUpdateNotifiable",
+					notifyControllersUpdateHandler.List(Id("notify"), Id("changed")).Op(":=").Qual(
+						"github.com/threeport/threeport/pkg/api/lib/v0",
+						"ObjectUpdateNotifiable",
 					).Call(
-						Id("prevReconciliation"),
-						Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("Reconciliation"),
-					).Block(
+						Id("prev"+apiObject.TypeName),
+						Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
+					)
+					notifyControllersUpdateHandler.Line()
+					notifyControllersUpdateHandler.Comment("log other fields changed when reconciled becomes true")
+					notifyControllersUpdateHandler.Line()
+					notifyControllersUpdateHandler.If(Len(Id("changed")).Op(">").Lit(0)).Block(
+						Do(func(s *Statement) {
+							if gen.Module {
+								s.Id("h").Dot("Handler")
+							} else {
+								s.Id("h")
+							}
+						}).Dot("Logger").Dot("Warn").Call(
+							Lit("reconciled became true with other fields changed"),
+							Qual("go.uber.org/zap", "Strings").Call(Lit("fields"), Id("changed")),
+						),
+					)
+					notifyControllersUpdateHandler.Line()
+					notifyControllersUpdateHandler.If(Id("notify")).Block(
 						Id("notifPayload").Op(",").Id("err").Op(":=").Id(
 							fmt.Sprintf("existing%s", apiObject.TypeName),
 						).Dot("NotificationPayload").Call(
@@ -187,7 +210,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							),
 							apiObject.UpdateSubject,
 						).Op(",").Op("*").Id("notifPayload")),
-					))
+					)
 
 					// schedule for deletion
 					deleteObjectExecution = &Statement{}
@@ -1508,9 +1531,13 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					)
 					if apiObject.Reconciler {
 						g.Line()
-						g.Comment("snapshot reconciliation state before update so the notify block")
-						g.Comment("can skip publishing when the update did not touch any state marker")
-						g.Id("prevReconciliation").Op(":=").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("Reconciliation")
+						g.Comment("snapshot the loaded row before this update.")
+						g.Id("prev"+apiObject.TypeName).Op(":=").Qual(
+							"github.com/threeport/threeport/pkg/api/lib/v0",
+							"NotifySnapshot",
+						).Call(
+							Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
+						)
 					}
 					g.Line()
 					g.Comment("update object in database")
@@ -1839,9 +1866,13 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					)
 					if apiObject.Reconciler {
 						g.Line()
-						g.Comment("snapshot reconciliation state before replace so the notify block")
-						g.Comment("can skip publishing when the replace did not touch any state marker")
-						g.Id("prevReconciliation").Op(":=").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("Reconciliation")
+						g.Comment("snapshot the loaded row before this replace.")
+						g.Id("prev"+apiObject.TypeName).Op(":=").Qual(
+							"github.com/threeport/threeport/pkg/api/lib/v0",
+							"NotifySnapshot",
+						).Call(
+							Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
+						)
 					}
 					g.Line()
 					g.Comment("persist provided data")

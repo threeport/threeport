@@ -1,0 +1,92 @@
+# Vulnerability scanning for the Go module and the component images.
+#
+# Both scanners are advisory: they report, and they do not fail the build.
+# govulncheck finds 26 vulnerabilities this code reaches today, so a gate
+# turned on with those outstanding would block every unrelated pull request on
+# its first run. Roughly twenty close with version bumps - most of them with a
+# Go patch release - and that is tracked separately. Turning the gate on is
+# removing continue-on-error below, once the count is down to the few that
+# have no fix available.
+#
+# govulncheck is installed at a pinned version rather than added to go.mod's
+# tool directive. Adding it there pulls newer golang.org/x/text and
+# golang.org/x/tools into the module graph, which changes what the shipped
+# binaries are built from - not something a change to CI should do on its way
+# past.
+#
+# The image scan here builds its own images because it runs on a schedule,
+# when no pull request has built any. Pull requests are covered by the scan in
+# test.yml, which reads the images that workflow has already built rather than
+# building them a second time.
+
+name: Security
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  # advisories are published against code that has not changed, so this has to
+  # run on a clock and not only on a diff
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  govulncheck:
+    name: Go vulnerabilities
+    runs-on: ubuntu-24.04
+    steps:
+    - name: Checkout
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+    - name: Set up Go
+      uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+      with:
+        go-version-file: go.mod
+
+    - name: Install govulncheck
+      run: go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
+
+    # govulncheck exits non-zero when it finds something the code reaches
+    - name: Scan the module
+      continue-on-error: true
+      run: govulncheck ./...
+
+  images:
+    name: Image vulnerabilities
+    # only off a schedule or by hand: a pull request's images are scanned in
+    # test.yml, where they are already built
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+    - name: Checkout
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+    - name: Set up Go
+      uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+      with:
+        go-version-file: go.mod
+
+    - name: Install CLI tools
+      run: go install tool
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
+      with:
+        # share host network so buildx reaches the local registry in the
+        # next step, the same as test.yml does
+        driver-opts: network=host
+
+    - name: Create local container registry
+      run: mage dev:localRegistryUp
+
+    - name: Build the component images
+      env:
+        PARALLEL_IMAGE_BUILD: "4"
+      run: mage build:allImagesDev
+
+    - name: Scan the component images
+      continue-on-error: true
+      run: ./.github/scripts/scan-images.sh

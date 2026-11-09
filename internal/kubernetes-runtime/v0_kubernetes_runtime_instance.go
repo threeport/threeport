@@ -179,10 +179,23 @@ func v0KubernetesRuntimeInstanceUpdated(
 		return 0, fmt.Errorf("failed to retrieve kubernetes runtime definition by ID: %w", err)
 	}
 
+	// A GKE-hosted control plane's own cluster has everything this function
+	// would install - the control plane install put it there - and this
+	// controller is not granted read access to the Deployments and CRDs it
+	// would check for in the cluster it runs in. Checking anyway fails with
+	// Forbidden on every pass, forever.
+	if isGkeControlPlaneHost(kubernetesRuntimeInstance, kubernetesRuntimeDefinition) {
+		log.V(1).Info("kubernetes runtime hosts this GKE control plane, skipping compute space component install")
+		return 0, nil
+	}
+
+	// use the in-cluster endpoint when this runtime hosts the control plane
+	controlPlaneHost := kube.HostsControlPlane(kubernetesRuntimeInstance)
+
 	// get kube client to install compute space control plane components
 	dynamicKubeClient, mapper, err := kube.GetClient(
 		kubernetesRuntimeInstance,
-		false,
+		controlPlaneHost,
 		r.APIClient,
 		r.APIServer,
 		r.EncryptionKey,
@@ -199,6 +212,37 @@ func v0KubernetesRuntimeInstanceUpdated(
 	}
 
 	cpi := threeport.NewInstaller()
+
+	// A managed cluster does not host the control plane, so its agent reports
+	// across the network: to the control plane's external address, with a client
+	// certificate of its own. The agent on the host cluster is installed with the
+	// control plane and uses the API's in-cluster service; this install leaves
+	// it as it is.
+	isControlPlaneHost := runtimeHostsControlPlane(kubernetesRuntimeInstance)
+	var agentAccess *computeSpaceAgentAccess
+	if !isControlPlaneHost {
+		agentAccess, err = loadComputeSpaceAgentAccess(
+			os.Getenv(threeport.ControllerConfigExternalApiEndpointKey),
+			threeport.SigningCaMountPath,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to get what the agent needs to report to the control plane: %w", err)
+		}
+		if agentAccess == nil {
+			// nothing the agent could connect to, so none is installed
+			log.Info(
+				"control plane has no external API endpoint, skipping agent install on managed runtime",
+				"kubernetesRuntimeInstance", *kubernetesRuntimeInstance.Name,
+			)
+			cpi.Opts.SkipAgent = true
+		} else {
+			cpi.Opts.AgentApiServer = agentAccess.apiServer
+			cpi.Opts.AuthEnabled = agentAccess.authConfig != nil
+			// an agent already on the cluster has to be brought up to date, not
+			// left as it was installed
+			cpi.Opts.CreateOrUpdateKubeResources = true
+		}
+	}
 
 	if agentImage != "" {
 		agentRegistry, _, agentTag, err := util.ParseImage(agentImage)
@@ -231,6 +275,7 @@ func v0KubernetesRuntimeInstanceUpdated(
 			dynamicKubeClient,
 			mapper,
 			*kubernetesRuntimeInstance.Name,
+			agentAuthConfig(agentAccess),
 		); err != nil {
 			return 0, fmt.Errorf("failed to insall compute space control plane components: %w", err)
 		}
@@ -241,7 +286,7 @@ func v0KubernetesRuntimeInstanceUpdated(
 		time.Sleep(time.Second * 10)
 		dynamicKubeClient, mapper, err = kube.GetClient(
 			kubernetesRuntimeInstance,
-			false,
+			controlPlaneHost,
 			r.APIClient,
 			r.APIServer,
 			r.EncryptionKey,
@@ -258,7 +303,11 @@ func v0KubernetesRuntimeInstanceUpdated(
 	}
 	if operatorInstalled {
 		log.V(1).Info("support services operator already installed, skipping install")
-	} else if err := threeport.InstallThreeportSupportServicesOperator(dynamicKubeClient, mapper); err != nil {
+	} else if err := threeport.InstallThreeportSupportServicesOperator(
+		dynamicKubeClient,
+		mapper,
+		threeport.SupportServicesCloud(v0.KubernetesRuntimeInfraProvider(*kubernetesRuntimeDefinition.InfraProvider)),
+	); err != nil {
 		return 0, fmt.Errorf("failed to install support services operator: %w", err)
 	}
 
@@ -288,6 +337,17 @@ func v0KubernetesRuntimeInstanceUpdated(
 		); err != nil {
 			return 0, fmt.Errorf("failed to install system services: %w", err)
 		}
+
+		// a claim that names no storage class has nothing to bind to on EKS
+		// without a default. Checked on its own rather than with the system
+		// services, so a cluster that already has those gets a default too.
+		created, err := threeport.EnsureEksDefaultStorageClass(dynamicKubeClient)
+		if err != nil {
+			return 0, fmt.Errorf("failed to set a default storage class: %w", err)
+		}
+		if created {
+			log.Info("set a default storage class", "storageClass", threeport.EksDefaultStorageClassName)
+		}
 	}
 
 	// On GKE, the control-plane workload controllers authenticate to this
@@ -298,8 +358,6 @@ func v0KubernetesRuntimeInstanceUpdated(
 	// both this managed cluster and the control-plane host run on GKE; the host
 	// instance is skipped because its bindings are created at control-plane
 	// install time.
-	isControlPlaneHost := kubernetesRuntimeInstance.ThreeportControlPlaneHost != nil &&
-		*kubernetesRuntimeInstance.ThreeportControlPlaneHost
 	if !isControlPlaneHost &&
 		*kubernetesRuntimeDefinition.InfraProvider == v0.KubernetesRuntimeInfraProviderGKE {
 		controlPlaneGcpProject, err := controlPlaneGkeProject(r)
@@ -408,6 +466,14 @@ func v0KubernetesRuntimeInstanceDeleted(
 			*kubernetesRuntimeInstance.ID,
 		)
 		if err != nil {
+			if errors.Is(err, client_lib.ErrObjectNotFound) {
+				// AWS EKS instance already gone - nothing left to delete
+				log.Info(
+					"aws eks runtime instance already deleted, confirming kubernetes runtime instance deletion",
+					"kubernetesRuntimeInstanceID", *kubernetesRuntimeInstance.ID,
+				)
+				return 0, nil
+			}
 			return 0, fmt.Errorf("failed to get aws eks runtime instance by kubernetes runtime instance ID: %w", err)
 		}
 
@@ -430,6 +496,10 @@ func v0KubernetesRuntimeInstanceDeleted(
 		if err != nil {
 			if errors.Is(err, client_lib.ErrObjectNotFound) {
 				// GcpGke instance already gone - nothing left to delete
+				log.Info(
+					"gcp gke runtime instance already deleted, confirming kubernetes runtime instance deletion",
+					"kubernetesRuntimeInstanceID", *kubernetesRuntimeInstance.ID,
+				)
 				return 0, nil
 			}
 			return 0, fmt.Errorf("failed to get GCP GKE runtime instance by kubernetes runtime instance ID: %w", err)
@@ -444,9 +514,54 @@ func v0KubernetesRuntimeInstanceDeleted(
 		if err != nil {
 			return 0, fmt.Errorf("failed to delete GCP GKE runtime instance by ID: %w", err)
 		}
+	case v0.KubernetesRuntimeInfraProviderOKE:
+		// get OCI OKE runtime instance
+		ociOkeKubernetesRuntimeInstance, err := client.GetOciOkeKubernetesRuntimeInstanceByK8sRuntimeInst(
+			r.APIClient,
+			r.APIServer,
+			*kubernetesRuntimeInstance.ID,
+		)
+		if err != nil {
+			if errors.Is(err, client_lib.ErrObjectNotFound) {
+				// OciOke instance already gone - nothing left to delete
+				log.Info(
+					"oci oke runtime instance already deleted, confirming kubernetes runtime instance deletion",
+					"kubernetesRuntimeInstanceID", *kubernetesRuntimeInstance.ID,
+				)
+				return 0, nil
+			}
+			return 0, fmt.Errorf("failed to get OCI OKE runtime instance by kubernetes runtime instance ID: %w", err)
+		}
+
+		// delete OCI OKE runtime instance
+		_, err = client.DeleteOciOkeKubernetesRuntimeInstance(
+			r.APIClient,
+			r.APIServer,
+			*ociOkeKubernetesRuntimeInstance.ID,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to delete OCI OKE runtime instance by ID: %w", err)
+		}
 	}
 
 	return 0, nil
+}
+
+// runtimeHostsControlPlane reports whether a runtime instance is the cluster the
+// control plane itself runs on.
+func runtimeHostsControlPlane(instance *v0.KubernetesRuntimeInstance) bool {
+	return instance.ThreeportControlPlaneHost != nil && *instance.ThreeportControlPlaneHost
+}
+
+// isGkeControlPlaneHost reports whether a runtime instance is a GKE cluster the
+// control plane runs on.
+func isGkeControlPlaneHost(
+	instance *v0.KubernetesRuntimeInstance,
+	definition *v0.KubernetesRuntimeDefinition,
+) bool {
+	return runtimeHostsControlPlane(instance) &&
+		definition.InfraProvider != nil &&
+		*definition.InfraProvider == v0.KubernetesRuntimeInfraProviderGKE
 }
 
 // serviceAccountNamespacePath is where Kubernetes mounts a pod's own namespace.

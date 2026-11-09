@@ -173,6 +173,29 @@ func ReconcilerTestVolatileInstanceReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the operation has been failing for longer than the retry bound
+					if r.RecordFailure(reconcilerTestVolatileInstance, string(notif.Operation)) {
+						giveUpMsg := event.GiveUpNote(
+							"failed to reconcile created reconciler test volatile instance object",
+							controller.DefaultMaxReconcileDuration,
+							operationErr,
+						)
+						log.Error(operationErr, giveUpMsg)
+						if recordErr := r.EventsRecorder.RecordEvent(
+							&tpapi_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonCreateFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							reconcilerTestVolatileInstance.GetId(),
+							reconcilerTestVolatileInstance.GetFullyQualifiedType(),
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record give-up event")
+						}
+						r.ClearFailure(reconcilerTestVolatileInstance, string(notif.Operation))
+						r.ReleaseLock(reconcilerTestVolatileInstance, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						reconcilerTestVolatileInstance,
 						requeueDelay,
@@ -181,6 +204,7 @@ func ReconcilerTestVolatileInstanceReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				r.ClearFailure(reconcilerTestVolatileInstance, string(notif.Operation))
 				if customRequeueDelay != 0 {
 					log.Info("create requeued for future reconciliation")
 					r.UnlockAndRequeue(
@@ -238,6 +262,29 @@ func ReconcilerTestVolatileInstanceReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the operation has been failing for longer than the retry bound
+					if r.RecordFailure(reconcilerTestVolatileInstance, string(notif.Operation)) {
+						giveUpMsg := event.GiveUpNote(
+							"failed to reconcile updated reconciler test volatile instance object",
+							controller.DefaultMaxReconcileDuration,
+							operationErr,
+						)
+						log.Error(operationErr, giveUpMsg)
+						if recordErr := r.EventsRecorder.RecordEvent(
+							&tpapi_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonUpdateFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							reconcilerTestVolatileInstance.GetId(),
+							reconcilerTestVolatileInstance.GetFullyQualifiedType(),
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record give-up event")
+						}
+						r.ClearFailure(reconcilerTestVolatileInstance, string(notif.Operation))
+						r.ReleaseLock(reconcilerTestVolatileInstance, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						reconcilerTestVolatileInstance,
 						requeueDelay,
@@ -246,6 +293,7 @@ func ReconcilerTestVolatileInstanceReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				r.ClearFailure(reconcilerTestVolatileInstance, string(notif.Operation))
 				if customRequeueDelay != 0 {
 					log.Info("update requeued for future reconciliation")
 					r.UnlockAndRequeue(
@@ -316,6 +364,29 @@ func ReconcilerTestVolatileInstanceReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the operation has been failing for longer than the retry bound
+					if r.RecordFailure(reconcilerTestVolatileInstance, string(notif.Operation)) {
+						giveUpMsg := event.GiveUpNote(
+							"failed to reconcile deleted reconciler test volatile instance object",
+							controller.DefaultMaxReconcileDuration,
+							operationErr,
+						)
+						log.Error(operationErr, giveUpMsg)
+						if recordErr := r.EventsRecorder.RecordEvent(
+							&tpapi_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonDeleteFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							reconcilerTestVolatileInstance.GetId(),
+							reconcilerTestVolatileInstance.GetFullyQualifiedType(),
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record give-up event")
+						}
+						r.ClearFailure(reconcilerTestVolatileInstance, string(notif.Operation))
+						r.ReleaseLock(reconcilerTestVolatileInstance, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						reconcilerTestVolatileInstance,
 						requeueDelay,
@@ -324,6 +395,7 @@ func ReconcilerTestVolatileInstanceReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				r.ClearFailure(reconcilerTestVolatileInstance, string(notif.Operation))
 				if customRequeueDelay != 0 {
 					log.Info("delete requeued for future reconciliation")
 					r.UnlockAndRequeue(
@@ -348,34 +420,38 @@ func ReconcilerTestVolatileInstanceReconciler(r *controller.Reconciler) {
 					r.APIServer,
 					&deletedReconcilerTestVolatileInstance,
 				)
-				if err != nil {
-					log.Error(err, "failed to update reconciler test volatile instance to mark as deleted")
-					r.UnlockAndRequeue(reconcilerTestVolatileInstance, requeueDelay, lockReleased, msg)
-					continue
-				}
-				_, err = client_v0.DeleteReconcilerTestVolatileInstance(
-					r.APIClient,
-					r.APIServer,
-					reconcilerTestVolatileInstance.GetId(),
-				)
-				if err != nil {
-					if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
-						log.Info(
-							"conflict deleting reconciler test volatile instance, requeueing",
-							"cause", err.Error(),
-						)
-						// in-progress event already recorded before the handler
-						r.UnlockAndRequeue(
-							reconcilerTestVolatileInstance,
-							int64(30),
-							lockReleased,
-							msg,
-						)
+				if errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+					log.Info("reconciler test volatile instance already deleted")
+				} else {
+					if err != nil {
+						log.Error(err, "failed to update reconciler test volatile instance to mark as deleted")
+						r.UnlockAndRequeue(reconcilerTestVolatileInstance, requeueDelay, lockReleased, msg)
 						continue
 					}
-					log.Error(err, "failed to delete reconciler test volatile instance")
-					r.UnlockAndRequeue(reconcilerTestVolatileInstance, requeueDelay, lockReleased, msg)
-					continue
+					_, err = client_v0.DeleteReconcilerTestVolatileInstance(
+						r.APIClient,
+						r.APIServer,
+						reconcilerTestVolatileInstance.GetId(),
+					)
+					if err != nil && !errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+						if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
+							log.Info(
+								"conflict deleting reconciler test volatile instance, requeueing",
+								"cause", err.Error(),
+							)
+							// in-progress event already recorded before the handler
+							r.UnlockAndRequeue(
+								reconcilerTestVolatileInstance,
+								int64(30),
+								lockReleased,
+								msg,
+							)
+							continue
+						}
+						log.Error(err, "failed to delete reconciler test volatile instance")
+						r.UnlockAndRequeue(reconcilerTestVolatileInstance, requeueDelay, lockReleased, msg)
+						continue
+					}
 				}
 			default:
 				log.Error(
@@ -391,8 +467,8 @@ func ReconcilerTestVolatileInstanceReconciler(r *controller.Reconciler) {
 				continue
 			}
 
-			// set the object's Reconciled field to true if not deleted
-			if notif.Operation != notifications.NotificationOperationDeleted {
+			// mark reconciled unless it is already true
+			if notif.Operation != notifications.NotificationOperationDeleted && !tpapi_lib.AlreadyReconciled(reconcilerTestVolatileInstance) {
 				reconciledReconcilerTestVolatileInstance := api_v0.ReconcilerTestVolatileInstance{
 					Common:         tpapi_v0.Common{ID: util.Ptr(reconcilerTestVolatileInstance.GetId())},
 					Reconciliation: tpapi_v0.Reconciliation{Reconciled: util.Ptr(true)},

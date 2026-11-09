@@ -12,6 +12,7 @@ import (
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"net/http"
+	neturl "net/url"
 )
 
 // GetMachineWorkloadDefinitions fetches all machine workload definitions.
@@ -25,7 +26,7 @@ func GetMachineWorkloadDefinitions(apiClient *http.Client, apiAddr string) (*[]v
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathMachineWorkloadDefinitions)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathMachineWorkloadDefinitions, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathMachineWorkloadDefinitions, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -134,7 +135,7 @@ func GetMachineWorkloadDefinitionByName(apiClient *http.Client, apiAddr, name st
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathMachineWorkloadDefinitions, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathMachineWorkloadDefinitions, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -342,7 +343,7 @@ func GetMachineWorkloadInstances(apiClient *http.Client, apiAddr string) (*[]v0.
 	for !allPagesReceived {
 		url := fmt.Sprintf("%s%s", apiAddr, v0.PathMachineWorkloadInstances)
 		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathMachineWorkloadInstances, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathMachineWorkloadInstances, neturl.QueryEscape(queryId), nextCursor)
 		}
 
 		response, err := client_lib.GetResponse(
@@ -451,7 +452,7 @@ func GetMachineWorkloadInstanceByName(apiClient *http.Client, apiAddr, name stri
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathMachineWorkloadInstances, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathMachineWorkloadInstances, neturl.QueryEscape(name)),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},

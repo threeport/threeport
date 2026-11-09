@@ -201,6 +201,29 @@ func MachineWorkloadInstanceReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the operation has been failing for longer than the retry bound
+					if r.RecordFailure(machineWorkloadInstance, string(notif.Operation)) {
+						giveUpMsg := event.GiveUpNote(
+							"failed to reconcile created machine workload instance object",
+							controller.DefaultMaxReconcileDuration,
+							operationErr,
+						)
+						log.Error(operationErr, giveUpMsg)
+						if recordErr := r.EventsRecorder.RecordEvent(
+							&api_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonCreateFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							machineWorkloadInstance.GetId(),
+							machineWorkloadInstance.GetFullyQualifiedType(),
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record give-up event")
+						}
+						r.ClearFailure(machineWorkloadInstance, string(notif.Operation))
+						r.ReleaseLock(machineWorkloadInstance, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						machineWorkloadInstance,
 						requeueDelay,
@@ -209,6 +232,7 @@ func MachineWorkloadInstanceReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				r.ClearFailure(machineWorkloadInstance, string(notif.Operation))
 				if customRequeueDelay != 0 {
 					log.Info("create requeued for future reconciliation")
 					r.UnlockAndRequeue(
@@ -266,6 +290,29 @@ func MachineWorkloadInstanceReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the operation has been failing for longer than the retry bound
+					if r.RecordFailure(machineWorkloadInstance, string(notif.Operation)) {
+						giveUpMsg := event.GiveUpNote(
+							"failed to reconcile updated machine workload instance object",
+							controller.DefaultMaxReconcileDuration,
+							operationErr,
+						)
+						log.Error(operationErr, giveUpMsg)
+						if recordErr := r.EventsRecorder.RecordEvent(
+							&api_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonUpdateFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							machineWorkloadInstance.GetId(),
+							machineWorkloadInstance.GetFullyQualifiedType(),
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record give-up event")
+						}
+						r.ClearFailure(machineWorkloadInstance, string(notif.Operation))
+						r.ReleaseLock(machineWorkloadInstance, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						machineWorkloadInstance,
 						requeueDelay,
@@ -274,6 +321,7 @@ func MachineWorkloadInstanceReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				r.ClearFailure(machineWorkloadInstance, string(notif.Operation))
 				if customRequeueDelay != 0 {
 					log.Info("update requeued for future reconciliation")
 					r.UnlockAndRequeue(
@@ -344,6 +392,29 @@ func MachineWorkloadInstanceReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the operation has been failing for longer than the retry bound
+					if r.RecordFailure(machineWorkloadInstance, string(notif.Operation)) {
+						giveUpMsg := event.GiveUpNote(
+							"failed to reconcile deleted machine workload instance object",
+							controller.DefaultMaxReconcileDuration,
+							operationErr,
+						)
+						log.Error(operationErr, giveUpMsg)
+						if recordErr := r.EventsRecorder.RecordEvent(
+							&api_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonDeleteFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							machineWorkloadInstance.GetId(),
+							machineWorkloadInstance.GetFullyQualifiedType(),
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record give-up event")
+						}
+						r.ClearFailure(machineWorkloadInstance, string(notif.Operation))
+						r.ReleaseLock(machineWorkloadInstance, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						machineWorkloadInstance,
 						requeueDelay,
@@ -352,6 +423,7 @@ func MachineWorkloadInstanceReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				r.ClearFailure(machineWorkloadInstance, string(notif.Operation))
 				if customRequeueDelay != 0 {
 					log.Info("delete requeued for future reconciliation")
 					r.UnlockAndRequeue(
@@ -376,34 +448,38 @@ func MachineWorkloadInstanceReconciler(r *controller.Reconciler) {
 					r.APIServer,
 					&deletedMachineWorkloadInstance,
 				)
-				if err != nil {
-					log.Error(err, "failed to update machine workload instance to mark as deleted")
-					r.UnlockAndRequeue(machineWorkloadInstance, requeueDelay, lockReleased, msg)
-					continue
-				}
-				_, err = client_v0.DeleteMachineWorkloadInstance(
-					r.APIClient,
-					r.APIServer,
-					machineWorkloadInstance.GetId(),
-				)
-				if err != nil {
-					if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
-						log.Info(
-							"conflict deleting machine workload instance, requeueing",
-							"cause", err.Error(),
-						)
-						// in-progress event already recorded before the handler
-						r.UnlockAndRequeue(
-							machineWorkloadInstance,
-							int64(30),
-							lockReleased,
-							msg,
-						)
+				if errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+					log.Info("machine workload instance already deleted")
+				} else {
+					if err != nil {
+						log.Error(err, "failed to update machine workload instance to mark as deleted")
+						r.UnlockAndRequeue(machineWorkloadInstance, requeueDelay, lockReleased, msg)
 						continue
 					}
-					log.Error(err, "failed to delete machine workload instance")
-					r.UnlockAndRequeue(machineWorkloadInstance, requeueDelay, lockReleased, msg)
-					continue
+					_, err = client_v0.DeleteMachineWorkloadInstance(
+						r.APIClient,
+						r.APIServer,
+						machineWorkloadInstance.GetId(),
+					)
+					if err != nil && !errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+						if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
+							log.Info(
+								"conflict deleting machine workload instance, requeueing",
+								"cause", err.Error(),
+							)
+							// in-progress event already recorded before the handler
+							r.UnlockAndRequeue(
+								machineWorkloadInstance,
+								int64(30),
+								lockReleased,
+								msg,
+							)
+							continue
+						}
+						log.Error(err, "failed to delete machine workload instance")
+						r.UnlockAndRequeue(machineWorkloadInstance, requeueDelay, lockReleased, msg)
+						continue
+					}
 				}
 			default:
 				log.Error(
@@ -419,8 +495,8 @@ func MachineWorkloadInstanceReconciler(r *controller.Reconciler) {
 				continue
 			}
 
-			// set the object's Reconciled field to true if not deleted
-			if notif.Operation != notifications.NotificationOperationDeleted {
+			// mark reconciled unless it is already true
+			if notif.Operation != notifications.NotificationOperationDeleted && !tpapi_lib.AlreadyReconciled(machineWorkloadInstance) {
 				reconciledMachineWorkloadInstance := api_v0.MachineWorkloadInstance{
 					Common:         api_v0.Common{ID: util.Ptr(machineWorkloadInstance.GetId())},
 					Reconciliation: api_v0.Reconciliation{Reconciled: util.Ptr(true)},
