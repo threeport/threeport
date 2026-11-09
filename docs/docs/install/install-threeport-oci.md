@@ -78,10 +78,11 @@ Include the public address of the machine you run `tptctl` from. `tptctl`
 installs the control plane through the Kubernetes API, and `tptctl down` and
 `tptctl upgrade` use it as well. Once the cluster exists, `tptctl up` checks
 that it can reach the Kubernetes API before it installs anything. If it can't
-within two minutes, it stops with an error that names the endpoint. The cluster
-is left in place unless you passed `--teardown-on-failure`: delete it with
-`tptctl down --name test --infra-only`, then run `tptctl up` again with your
-address in the list.
+within two minutes, it stops with an error that names the endpoint, and deletes
+the cluster it created. Run `tptctl up` again with your address in the list.
+To keep the cluster after the error instead, pass
+`--teardown-on-failure=false`, and delete it later with
+`tptctl down --name test --infra-only`.
 
 The control plane reaches the cluster it runs on from inside the cluster, so
 it needs no entry in the list.
