@@ -123,29 +123,23 @@ func validateKubernetesApiAccess(infraProvider string, privateApi *bool, allowed
 }
 
 // validateKubernetesApiAccessUpdate runs validateKubernetesApiAccess on an
-// update that changes PrivateApi or AllowedCidrs, against the values the
-// object will hold once the update lands.  current holds the receiver's
-// values, and incoming returns the values the update carries.
+// update that writes PrivateApi or AllowedCidrs, against the pair the row
+// will hold once the update lands.  fields returns the pair an object of the
+// hook's type holds, and false for any other type.
+//
+// A PUT writes every column, so the pair it carries is the pair the row will
+// hold.  A PATCH writes only the fields it carries, over the row as it is when
+// the write lands.  That isn't the receiver: the handler loaded the receiver
+// before the transaction began, and another update may have changed the other
+// field since.  The row is read again inside the transaction and locked
+// instead, so a concurrent update of the pair waits for this one and is then
+// checked against its result.
 func validateKubernetesApiAccessUpdate(
 	tx *gorm.DB,
 	infraProvider string,
-	currentPrivateApi *bool,
-	currentAllowedCidrs *datatypes.JSON,
-	incoming func(any) (*bool, *datatypes.JSON, bool),
+	fields func(any) (*bool, *datatypes.JSON, bool),
 ) error {
-	privateApiChanged, err := lib.IsFieldChanged(tx, "PrivateApi")
-	if err != nil {
-		return err
-	}
-	allowedCidrsChanged, err := lib.IsFieldChanged(tx, "AllowedCidrs")
-	if err != nil {
-		return err
-	}
-	if !privateApiChanged && !allowedCidrsChanged {
-		return nil
-	}
-
-	incomingPrivateApi, incomingAllowedCidrs, ok := incoming(lib.IncomingValues(tx))
+	incomingPrivateApi, incomingAllowedCidrs, ok := fields(lib.IncomingValues(tx))
 	if !ok {
 		return fmt.Errorf(
 			"cannot validate Kubernetes API access: update carries %T",
@@ -153,12 +147,38 @@ func validateKubernetesApiAccessUpdate(
 		)
 	}
 
-	privateApi := currentPrivateApi
-	if privateApiChanged {
+	if lib.IsFullReplace(tx) {
+		privateApiChanged, err := lib.IsFieldChanged(tx, "PrivateApi")
+		if err != nil {
+			return err
+		}
+		allowedCidrsChanged, err := lib.IsFieldChanged(tx, "AllowedCidrs")
+		if err != nil {
+			return err
+		}
+		if !privateApiChanged && !allowedCidrsChanged {
+			return nil
+		}
+
+		return validateKubernetesApiAccess(infraProvider, incomingPrivateApi, incomingAllowedCidrs)
+	}
+
+	// a PATCH leaves the fields it doesn't carry as they are
+	if incomingPrivateApi == nil && incomingAllowedCidrs == nil {
+		return nil
+	}
+	current, err := lib.LockObjectInDB(tx)
+	if err != nil {
+		return err
+	}
+	privateApi, allowedCidrs, ok := fields(current)
+	if !ok {
+		return fmt.Errorf("cannot validate Kubernetes API access: loaded %T", current)
+	}
+	if incomingPrivateApi != nil {
 		privateApi = incomingPrivateApi
 	}
-	allowedCidrs := currentAllowedCidrs
-	if allowedCidrsChanged {
+	if incomingAllowedCidrs != nil {
 		allowedCidrs = incomingAllowedCidrs
 	}
 

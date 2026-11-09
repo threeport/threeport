@@ -3,6 +3,7 @@ package v0
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -408,4 +409,162 @@ func TestAnInstancesEgressCidrsAreChecked(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "is not an IPv4 CIDR block")
 	})
+}
+
+// TestAPatchIsCheckedAgainstTheRowItWritesOver covers two updates of the same
+// definition that each loaded it before the other wrote.  The second is
+// checked against the row as the first left it, not as it loaded it, so
+// together they can't store a pair neither would be allowed to.
+func TestAPatchIsCheckedAgainstTheRowItWritesOver(t *testing.T) {
+	gkeDefinition := func(privateApi *bool, cidrs *datatypes.JSON) *GcpGkeKubernetesRuntimeDefinition {
+		return &GcpGkeKubernetesRuntimeDefinition{
+			Definition: Definition{Name: util.Ptr("gke")}, ZoneCount: util.Ptr(2),
+			DefaultNodeGroupInstanceType: util.Ptr("e2-standard-4"), DefaultNodeGroupInitialSize: util.Ptr(2),
+			DefaultNodeGroupMinimumSize: util.Ptr(0), DefaultNodeGroupMaximumSize: util.Ptr(5),
+			KubernetesRuntimeDefinitionID: util.Ptr(uint(1)), PrivateApi: privateApi, AllowedCidrs: cidrs,
+		}
+	}
+	types := []struct {
+		name string
+		// build returns a GKE definition, or a patch of one, holding the pair
+		build func(privateApi *bool, cidrs *datatypes.JSON) any
+		// load returns the stored definition, as a handler loads it
+		load func(db *gorm.DB, id uint) any
+		// id returns the ID of a created definition
+		id func(created any) uint
+	}{
+		{
+			name: "KubernetesRuntimeDefinition",
+			build: func(privateApi *bool, cidrs *datatypes.JSON) any {
+				if privateApi == nil && cidrs == nil {
+					return &KubernetesRuntimeDefinition{}
+				}
+				return &KubernetesRuntimeDefinition{PrivateApi: privateApi, AllowedCidrs: cidrs}
+			},
+			load: func(db *gorm.DB, id uint) any {
+				var loaded KubernetesRuntimeDefinition
+				require.NoError(t, db.First(&loaded, id).Error)
+				return &loaded
+			},
+			id: func(created any) uint { return *created.(*KubernetesRuntimeDefinition).ID },
+		},
+		{
+			name: "GcpGkeKubernetesRuntimeDefinition",
+			build: func(privateApi *bool, cidrs *datatypes.JSON) any {
+				return &GcpGkeKubernetesRuntimeDefinition{PrivateApi: privateApi, AllowedCidrs: cidrs}
+			},
+			load: func(db *gorm.DB, id uint) any {
+				var loaded GcpGkeKubernetesRuntimeDefinition
+				require.NoError(t, db.First(&loaded, id).Error)
+				return &loaded
+			},
+			id: func(created any) uint { return *created.(*GcpGkeKubernetesRuntimeDefinition).ID },
+		},
+	}
+	create := func(t *testing.T, db *gorm.DB, typeName string, privateApi *bool, cidrs *datatypes.JSON) any {
+		var created any = gkeDefinition(privateApi, cidrs)
+		if typeName == "KubernetesRuntimeDefinition" {
+			created = newKRD("krd", KubernetesRuntimeInfraProviderGKE, privateApi, cidrs)
+		}
+		require.NoError(t, db.Create(created).Error)
+		return created
+	}
+
+	// 40 blocks fit either kind of GKE API, and 60 only a private one
+	cases := []struct {
+		name          string
+		storedPrivate bool
+		storedCidrs   int
+		first         [2]any
+		second        [2]any
+		wantErr       string
+	}{
+		{
+			name:          "PrivateApi turned off, then the list grown past what a public API admits",
+			storedPrivate: true, storedCidrs: 40,
+			first:   [2]any{util.Ptr(false), nil},
+			second:  [2]any{nil, 60},
+			wantErr: "AllowedCidrs has 60 entries and gke admits at most 50",
+		},
+		{
+			name:          "the list grown, then PrivateApi turned off",
+			storedPrivate: true, storedCidrs: 40,
+			first:   [2]any{nil, 60},
+			second:  [2]any{util.Ptr(false), nil},
+			wantErr: "AllowedCidrs has 60 entries and gke admits at most 50",
+		},
+		{
+			name:          "PrivateApi turned off, then the list it was loaded with sent again",
+			storedPrivate: true, storedCidrs: 60,
+			first:   [2]any{util.Ptr(false), 40},
+			second:  [2]any{nil, 60},
+			wantErr: "AllowedCidrs has 60 entries and gke admits at most 50",
+		},
+		{
+			name:          "PrivateApi turned off, then the list shrunk",
+			storedPrivate: true, storedCidrs: 40,
+			first:  [2]any{util.Ptr(false), nil},
+			second: [2]any{nil, 30},
+		},
+	}
+	pair := func(t *testing.T, values [2]any) (*bool, *datatypes.JSON) {
+		var privateApi *bool
+		if values[0] != nil {
+			privateApi = values[0].(*bool)
+		}
+		var cidrs *datatypes.JSON
+		if values[1] != nil {
+			cidrs = cidrsJSON(t, distinctCidrs(values[1].(int))...)
+		}
+		return privateApi, cidrs
+	}
+	for _, objectType := range types {
+		for _, c := range cases {
+			t.Run(objectType.name+": "+c.name, func(t *testing.T) {
+				db := setupKubernetesApiAccessDB(t)
+				created := create(t, db, objectType.name, util.Ptr(c.storedPrivate), cidrsJSON(t, distinctCidrs(c.storedCidrs)...))
+				id := objectType.id(created)
+
+				// both requests load the definition before either writes
+				firstLoaded := objectType.load(db, id)
+				secondLoaded := objectType.load(db, id)
+
+				require.NoError(t, db.Model(firstLoaded).Updates(objectType.build(pair(t, c.first))).Error)
+				err := db.Model(secondLoaded).Updates(objectType.build(pair(t, c.second))).Error
+				if c.wantErr == "" {
+					require.NoError(t, err)
+					return
+				}
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), c.wantErr)
+			})
+		}
+	}
+}
+
+// TestAPatchLocksTheRowItIsCheckedAgainst checks that the row a PATCH is
+// checked against is read with SELECT ... FOR UPDATE, so that a concurrent
+// update of the same row waits for this one's transaction to end.  SQLite
+// leaves the lock out, so the statement is rendered for Postgres, the
+// dialect the API server talks to CockroachDB in.
+func TestAPatchLocksTheRowItIsCheckedAgainst(t *testing.T) {
+	db := dryRunDB(t)
+	var queries []string
+	require.NoError(t, db.Callback().Query().After("gorm:query").Register(
+		"test:record_query",
+		func(tx *gorm.DB) { queries = append(queries, tx.Statement.SQL.String()) },
+	))
+
+	loaded := newKRD("krd", KubernetesRuntimeInfraProviderGKE, util.Ptr(true), nil)
+	loaded.ID = util.Ptr(uint(7))
+	_ = db.Model(loaded).Updates(&KubernetesRuntimeDefinition{PrivateApi: util.Ptr(false)})
+
+	locked := 0
+	for _, query := range queries {
+		if strings.HasPrefix(query, `SELECT * FROM "v0_kubernetes_runtime_definitions" WHERE`) &&
+			strings.HasSuffix(query, "FOR UPDATE") {
+			locked++
+		}
+	}
+	assert.Equal(t, 1, locked, "queries: %q", queries)
 }

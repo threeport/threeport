@@ -129,14 +129,12 @@ func (a *AwsEksKubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
 	return validateKubernetesApiAccessUpdate(
 		tx,
 		KubernetesRuntimeInfraProviderEKS,
-		a.PrivateApi,
-		a.AllowedCidrs,
-		func(values any) (*bool, *datatypes.JSON, bool) {
-			incoming, ok := values.(*AwsEksKubernetesRuntimeDefinition)
+		func(value any) (*bool, *datatypes.JSON, bool) {
+			object, ok := value.(*AwsEksKubernetesRuntimeDefinition)
 			if !ok {
 				return nil, nil, false
 			}
-			return incoming.PrivateApi, incoming.AllowedCidrs, true
+			return object.PrivateApi, object.AllowedCidrs, true
 		},
 	)
 }
