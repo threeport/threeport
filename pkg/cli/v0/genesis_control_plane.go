@@ -82,6 +82,8 @@ type GenesisControlPlaneCLIArgs struct {
 	OciConfigProfile      string
 	GcpProjectId          string
 	GcpRegion             string
+	GcpBackupRegion       string
+	DeleteBackups         bool
 	CfgFile               string
 	ControlPlaneImageRepo string
 	ControlPlaneImageTag  string
@@ -190,6 +192,8 @@ func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneI
 	cpi.Opts.OciConfigProfile = a.OciConfigProfile
 	cpi.Opts.GcpProjectId = a.GcpProjectId
 	cpi.Opts.GcpRegion = a.GcpRegion
+	cpi.Opts.GcpBackupRegion = a.GcpBackupRegion
+	cpi.Opts.DeleteBackups = a.DeleteBackups
 	cpi.Opts.CfgFile = a.CfgFile
 	cpi.Opts.CreateRootDomain = a.CreateRootDomain
 	cpi.Opts.CreateAdminEmail = a.CreateAdminEmail
@@ -363,6 +367,10 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			MaxNodeCount: int32(10),
 			ProjectID:    cpi.Opts.GcpProjectId,
 			Region:       cpi.Opts.GcpRegion,
+			// a production control plane backs its database up to a
+			// bucket in another region
+			ProvisionBackups: cpi.Opts.Tier == threeport.ControlPlaneTier(threeport.ControlPlaneTierProd),
+			BackupRegion:     cpi.Opts.GcpBackupRegion,
 		}).InitPulumiProject()
 		kubernetesRuntimeInfra = kubernetesRuntimeInfraGKE
 		uninstaller.kubernetesRuntimeInfra = kubernetesRuntimeInfraGKE
@@ -382,6 +390,9 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			if err != nil {
 				return fmt.Errorf("failed to get connection info for GKE kubernetes runtime: %w", err)
 			}
+			if kubernetesRuntimeInfraGKE.ProvisionBackups {
+				Warning("database backups are provisioned only when tptctl creates the GKE cluster, so this control plane has none")
+			}
 		} else {
 			kubeConnectionInfo, err = kubernetesRuntimeInfra.Create()
 			if err != nil {
@@ -390,6 +401,29 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 
 			// pass the GCP service account email to the installer for Workload Identity configuration
 			cpi.Opts.GcpServiceAccountEmail = kubernetesRuntimeInfraGKE.ServiceAccountEmail
+
+			// record the project and region the cluster was created in, which
+			// the flags may have left empty for the environment or the gcloud
+			// defaults to fill in, so a later restore finds this cluster
+			// rather than whatever those defaults say by then
+			if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *ControlPlane) {
+				c.GKEProviderConfig.GcpProjectId = kubernetesRuntimeInfraGKE.ProjectID
+				c.GKEProviderConfig.GcpRegion = kubernetesRuntimeInfraGKE.Region
+			}); err != nil {
+				return fmt.Errorf("failed to record the GKE project and region in threeport config: %w", err)
+			}
+
+			// pass the backup bucket to the installer, and record it for a
+			// later restore and for teardown
+			if kubernetesRuntimeInfraGKE.BackupBucket != "" {
+				cpi.Opts.GcpBackupBucket = kubernetesRuntimeInfraGKE.BackupBucket
+				if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *ControlPlane) {
+					c.GKEProviderConfig.BackupBucket = kubernetesRuntimeInfraGKE.BackupBucket
+				}); err != nil {
+					return fmt.Errorf("failed to record the backup bucket in threeport config: %w", err)
+				}
+				Info(fmt.Sprintf("database backups go to gs://%s", kubernetesRuntimeInfraGKE.BackupBucket))
+			}
 		}
 	}
 
@@ -555,6 +589,13 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	uninstaller.dynamicKubeClient = dynamicKubeClient
 	uninstaller.mapper = mapper
 
+	// find out whether the control plane namespace is already there before
+	// anything else can fail, since the teardown needs to know whether it may
+	// delete it.  Until this has found out, the teardown leaves it alone.
+	if err := cpi.CheckNamespacePresence(dynamicKubeClient, mapper); err != nil {
+		return uninstaller.cleanOnCreateError("failed to check for the control plane namespace", err)
+	}
+
 	// generate new DB client credentials
 	dbCreds, err := auth.GenerateDbCreds(cpi.Opts.Namespace)
 	if err != nil {
@@ -570,6 +611,18 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		dbCreds,
 	); err != nil {
 		return uninstaller.cleanOnCreateError("failed to install threeport control plane dependencies", err)
+	}
+
+	// let the database write its backups, now that the account it runs as
+	// exists and before the API server's start creates the backup schedule
+	if gkeInfra, ok := kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraGKE); ok && cpi.Opts.GcpBackupBucket != "" {
+		uid, err := cpi.DatabaseServiceAccountUID(dynamicKubeClient)
+		if err != nil {
+			return uninstaller.cleanOnCreateError("failed to read the database service account", err)
+		}
+		if err := gkeInfra.GrantDatabaseBackupAccess(uid); err != nil {
+			return uninstaller.cleanOnCreateError("failed to grant the database access to its backup bucket", err)
+		}
 	}
 
 	// if auth is enabled, generate client certificate and add to local config
@@ -692,6 +745,11 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		}); err != nil {
 			return uninstaller.cleanOnCreateError("failed to update threeport config", err)
 		}
+
+		// the controllers hand this address to agents on the clusters they manage
+		cpi.Opts.ExternalApiEndpoint = fmt.Sprintf(
+			"%s:%d", threeportAPIEndpoint, threeport.GetThreeportAPIPort(cpi.Opts.AuthEnabled),
+		)
 
 		// install provider-specific kubernetes resources
 		switch controlPlane.InfraProvider {
@@ -885,7 +943,11 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	}
 
 	// install the support services operator
-	err = threeport.InstallThreeportSupportServicesOperator(dynamicKubeClient, mapper)
+	err = threeport.InstallThreeportSupportServicesOperator(
+		dynamicKubeClient,
+		mapper,
+		threeport.SupportServicesCloud(controlPlane.InfraProvider),
+	)
 	if err != nil {
 		return uninstaller.cleanOnCreateError("failed to install threeport support services operator", err)
 	}
@@ -963,6 +1025,11 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		CustomComponentInfo:         componentList,
 		ControlPlaneDefinitionID:    controlPlaneDefinition.ID,
 	}
+	// store the controller groups on the self instance
+	if cpi.Opts.Apis != "" {
+		apis := cpi.Opts.Apis
+		controlPlaneInstance.Apis = &apis
+	}
 
 	// create control plane instance
 	_, err = client.CreateControlPlaneInstance(apiClient, threeportAPIEndpoint, &controlPlaneInstance)
@@ -1005,6 +1072,22 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	threeportControlPlaneConfig, err := threeportConfig.GetControlPlaneConfig(requestedControlPlane)
 	if err != nil {
 		return fmt.Errorf("failed to get threeport control plane config: %w", err)
+	}
+
+	// a previous teardown destroyed the infrastructure but could not finish
+	// removing GCP service accounts. There is no cluster, stack or API left to
+	// reach, so go straight to the cleanup and keep the config entry until it
+	// succeeds.
+	if threeportControlPlaneConfig.InfraDestroyed {
+		Info("Infrastructure already destroyed, skipping to GCP cleanup")
+		if err := resumeTeardownCleanup(threeportControlPlaneConfig, cpi.Opts.DeleteBackups); err != nil {
+			return err
+		}
+		DeleteThreeportConfigControlPlane(threeportConfig, cpi.Opts.ControlPlaneName)
+		Info("Threeport config updated")
+		Complete(fmt.Sprintf("Threeport control plane %s deleted", cpi.Opts.ControlPlaneName))
+
+		return nil
 	}
 
 	// get threeport certificates
@@ -1125,6 +1208,8 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			PulumiWorkspace: provider.PulumiWorkspace{
 				RuntimeInstanceName: provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
 			},
+			BackupBucket:  threeportControlPlaneConfig.GKEProviderConfig.BackupBucket,
+			DeleteBackups: cpi.Opts.DeleteBackups,
 		}).InitPulumiProject()
 		// load the GCP project ID and region from the existing Pulumi stack configuration
 		if err := kubernetesRuntimeInfraGKE.LoadConfigFromStack(); err != nil {
@@ -1230,6 +1315,16 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return fmt.Errorf("failed to get a Kubernetes client and mapper: %w", err)
 		}
 
+		// the GcpProviders live in the database that is about to go, and each
+		// has a GCP service account that only they point to
+		if err := recordPendingGcpCleanup(
+			apiClient,
+			threeportControlPlaneConfig.APIServer,
+			threeportControlPlaneConfig,
+		); err != nil {
+			return err
+		}
+
 		if err := cpi.UnInstallThreeportControlPlaneComponents(dynamicKubeClient, mapper); err != nil {
 			return fmt.Errorf("failed to delete control plane components for threeport: %w", err)
 		}
@@ -1250,6 +1345,11 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 
 		// delete control plane infra
 		if err := kubernetesRuntimeInfra.Delete(); err != nil {
+			// keep the control plane in the config: it is the only handle for
+			// retrying what is left
+			if markErr := markGkeCleanupPending(threeportControlPlaneConfig, err); markErr != nil {
+				err = errors.Join(err, markErr)
+			}
 			return fmt.Errorf("failed to delete control plane infra: %w", err)
 		}
 
@@ -1273,6 +1373,19 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 				return fmt.Errorf("failed to delete OCI IAM resources: %w", err)
 			}
 		}
+	}
+
+	// remove the GCP service accounts of the gcp providers, now that the control
+	// plane that held them is gone. When the infrastructure is gone too, record
+	// that first: a failure here leaves the config entry in place, and a repeat
+	// has no cluster or API to reach before it gets back to this cleanup.
+	if len(threeportControlPlaneConfig.PendingGcpCleanup) > 0 && !cpi.Opts.ControlPlaneOnly {
+		if err := markInfraDestroyed(threeportControlPlaneConfig); err != nil {
+			return err
+		}
+	}
+	if err := cleanUpPendingGcpProviders(threeportControlPlaneConfig); err != nil {
+		return err
 	}
 
 	// if control plane only flag is set, hold onto the control plane in the threeport
@@ -1309,6 +1422,31 @@ func apiPortFromKindMappings(kindPortMappings []string) int {
 	}
 
 	return 0
+}
+
+// ValidateGcpBackupRegionFlag refuses a backup region given for a control
+// plane that has no backups: only a production control plane whose GKE
+// cluster tptctl creates backs its database up.
+func ValidateGcpBackupRegionFlag(
+	backupRegion string,
+	infraProvider string,
+	tier string,
+	controlPlaneOnly bool,
+) error {
+	if backupRegion == "" {
+		return nil
+	}
+	if infraProvider != v0.KubernetesRuntimeInfraProviderGKE || tier != threeport.ControlPlaneTierProd {
+		return fmt.Errorf(
+			"--gcp-backup-region applies only to a %s tier control plane on the %s provider",
+			threeport.ControlPlaneTierProd, v0.KubernetesRuntimeInfraProviderGKE,
+		)
+	}
+	if controlPlaneOnly {
+		return errors.New("--gcp-backup-region does not apply with --control-plane-only, since backups are provisioned only when tptctl creates the GKE cluster")
+	}
+
+	return nil
 }
 
 // ResolveControlPlaneTier returns the tier tptctl up installs at: the one
@@ -1375,11 +1513,21 @@ func ValidateCreateGenesisControlPlaneFlags(
 		return err
 	}
 
-	// ensure name length doesn't exceed maximum
-	if utf8.RuneCountInString(instanceName) > threeport.InstanceNameMaxLength {
+	// ensure name length doesn't exceed the limit on any name a person chooses
+	if utf8.RuneCountInString(instanceName) > provider.NameMaxLength {
 		return fmt.Errorf(
 			"instance name is too long - cannot exceed %d characters",
-			threeport.InstanceNameMaxLength,
+			provider.NameMaxLength,
+		)
+	}
+
+	// ensure name length doesn't exceed the limit AWS puts on role names, which
+	// include the name
+	if infraProvider == string(v0.KubernetesRuntimeInfraProviderEKS) &&
+		utf8.RuneCountInString(instanceName) > threeport.InstanceNameMaxLength {
+		return fmt.Errorf(
+			"instance name is too long for provider %s - cannot exceed %d characters",
+			infraProvider, threeport.InstanceNameMaxLength,
 		)
 	}
 
@@ -1488,11 +1636,42 @@ func (u *Uninstaller) cleanOnCreateError(
 		return createErr
 	}
 
-	// if needed, delete control plane workloads to remove related infra, e.g. load
-	// balancers, that will prevent runtime infra deletion
-	// a failure here is not fatal to the teardown: the infra delete below must
-	// still be attempted so the cluster and network are not left behind
-	if u.dynamicKubeClient != nil && u.mapper != nil {
+	// A namespace that was already there when this install started is not
+	// this install's to remove while the cluster it is in outlives the
+	// teardown, which is what --control-plane-only means: it reapplies into a
+	// running cluster, often against a running control plane, and uninstalling
+	// the components deletes the whole namespace - the API, the database and
+	// its data with it. Nobody asked for that by not passing a flag.
+	//
+	// A full install deletes the cluster below, and everything in it goes
+	// with the cluster either way, so the namespace is deleted first as it
+	// always is. Skipping that would keep nothing: it would only leave the
+	// API's load balancer running, which on EKS keeps the stack's subnets
+	// from being deleted, and the disks behind the claims undeleted.
+	//
+	// Only a namespace this install is known to have created is deleted: one
+	// whose presence was never found out, because the install failed before
+	// it checked or the check itself failed, is left alone too.
+	//
+	// The note reaches the operator regardless of whether a Kubernetes client
+	// is even available here - it is informational, not a Kubernetes call.
+	if u.cpi.Opts.ControlPlaneOnly && u.cpi.Opts.NamespacePresence == threeport.NamespacePresent {
+		createErr = fmt.Errorf(
+			"%w\n(the %s namespace was already present, so it was left alone; "+
+				"anything this install added to it is still there)",
+			createErr, u.cpi.Opts.Namespace,
+		)
+	} else if u.cpi.Opts.ControlPlaneOnly && u.cpi.Opts.NamespacePresence != threeport.NamespaceAbsent {
+		createErr = fmt.Errorf(
+			"%w\n(the install failed before it could find out whether it created the %s namespace, "+
+				"so it was left alone; delete it yourself if this install created it)",
+			createErr, u.cpi.Opts.Namespace,
+		)
+	} else if u.dynamicKubeClient != nil && u.mapper != nil {
+		// if needed, delete control plane workloads to remove related infra,
+		// e.g. load balancers, that will prevent runtime infra deletion
+		// a failure here is not fatal to the teardown: the infra delete below must
+		// still be attempted so the cluster and network are not left behind
 		if workloadErr := u.cpi.UnInstallThreeportControlPlaneComponents(u.dynamicKubeClient, u.mapper); workloadErr != nil {
 			Warning(fmt.Sprintf("failed to delete threeport API components: %v", workloadErr))
 			createErr = fmt.Errorf("%w\nfailed to delete threeport API components: %w", createErr, workloadErr)
@@ -1857,6 +2036,11 @@ func ensureBootstrapControlPlane(
 		ClientKey:                   clientKey,
 		CustomComponentInfo:         componentList,
 		ControlPlaneDefinitionID:    definition.ID,
+	}
+	// store the controller groups on the self instance
+	if cpi.Opts.Apis != "" {
+		apis := cpi.Opts.Apis
+		newInstance.Apis = &apis
 	}
 	if _, err := client.CreateControlPlaneInstance(
 		apiClient,

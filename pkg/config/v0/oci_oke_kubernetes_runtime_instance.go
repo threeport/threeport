@@ -291,17 +291,18 @@ func (o *OciOkeKubernetesRuntimeInstanceConfig) Replace(
 	}
 
 	// construct updated oci oke kubernetes runtime instance object
-	updatedOciOkeKubernetesRuntimeInstance := &api_v0.OciOkeKubernetesRuntimeInstance{
-		Common: api_v0.Common{
-			ID: existingOciOkeKubernetesRuntimeInstance.ID,
-		},
-		Instance: api_v0.Instance{
-			Name: ociOkeKubernetesRuntimeInstanceValues.Name,
-		},
-		OciProviderID:                       ociProviderID,
-		Region:                              ociOkeKubernetesRuntimeInstanceValues.Region,
-		OciOkeKubernetesRuntimeDefinitionID: ociOkeKubernetesRuntimeDefinitionID,
-	}
+	// Start from the existing object, so the fields this replace does not set
+	// are kept: the reconciler's (Reconciled and the rest of Reconciliation,
+	// Status) and the ones only the API server or a controller writes. Every
+	// field a user sets through the config is assigned below unconditionally,
+	// a nil value included, so a field left out of the config is cleared
+	// rather than kept. Do not assign the reconciler's fields here: the copy
+	// already carries them.
+	updatedOciOkeKubernetesRuntimeInstance := util.Ptr(*existingOciOkeKubernetesRuntimeInstance)
+	updatedOciOkeKubernetesRuntimeInstance.Name = ociOkeKubernetesRuntimeInstanceValues.Name
+	updatedOciOkeKubernetesRuntimeInstance.OciProviderID = ociProviderID
+	updatedOciOkeKubernetesRuntimeInstance.Region = ociOkeKubernetesRuntimeInstanceValues.Region
+	updatedOciOkeKubernetesRuntimeInstance.OciOkeKubernetesRuntimeDefinitionID = ociOkeKubernetesRuntimeDefinitionID
 
 	// replace oci oke kubernetes runtime instance
 	replacedOciOkeKubernetesRuntimeInstance, err := client_v0.ReplaceOciOkeKubernetesRuntimeInstance(
@@ -353,17 +354,19 @@ func (o *OciOkeKubernetesRuntimeInstanceConfig) Delete(
 	}
 
 	// wait for OCI OKE kubernetes runtime instance to be deleted
-	if err := util.Retry(90, 10, func() error {
-		if _, err := client_v0.GetOciOkeKubernetesRuntimeInstanceByName(
-			apiClient,
-			apiEndpoint,
-			*ociOkeKubernetesRuntimeInstance.Name,
-		); err == nil {
-			return errors.New("OCI OKE kubernetes runtime instance not deleted")
-		}
-		return nil
-	}); err != nil {
-		return nil, fmt.Errorf("timed out waiting for OCI OKE kubernetes runtime instance to be deleted: %w", err)
+	if err := waitForInstanceDelete(
+		"oci oke kubernetes runtime instance",
+		*ociOkeKubernetesRuntimeInstance.Name,
+		func() error {
+			_, err := client_v0.GetOciOkeKubernetesRuntimeInstanceByName(
+				apiClient,
+				apiEndpoint,
+				*ociOkeKubernetesRuntimeInstance.Name,
+			)
+			return err
+		},
+	); err != nil {
+		return nil, err
 	}
 
 	// get associated kubernetes runtime instance
@@ -429,6 +432,45 @@ func (o *OciOkeKubernetesRuntimeInstanceConfig) Delete(
 	}
 
 	return deletedOciOkeKubernetesRuntimeInstanceConfig, nil
+}
+
+// SetAbandonInfrastructure sets whether the controller may delete the oci oke kubernetes runtime instance
+// even when creation was confirmed and no resource inventory is recorded, or
+// when the recorded inventory cannot be restored. Without it the controller
+// refuses that delete, because cloud resources may still be running. Setting it
+// true orphans any resources the controller cannot find: they are left in place
+// and no longer tracked by Threeport. The value stays set until it is changed,
+// so a caller that sets it and then fails to delete must set it back to false.
+func (o *OciOkeKubernetesRuntimeInstanceConfig) SetAbandonInfrastructure(
+	apiClient *http.Client,
+	apiEndpoint string,
+	abandon bool,
+) error {
+	values := o.OciOkeKubernetesRuntimeInstance
+
+	// get oci oke kubernetes runtime instance by name
+	instance, err := client_v0.GetOciOkeKubernetesRuntimeInstanceByName(
+		apiClient,
+		apiEndpoint,
+		util.DerefString(values.Name),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to find oci oke kubernetes runtime instance with name %s: %w", util.DerefString(values.Name), err)
+	}
+
+	// write only the flag, so nothing the controller owns rides along
+	if _, err := client_v0.UpdateOciOkeKubernetesRuntimeInstance(
+		apiClient,
+		apiEndpoint,
+		&api_v0.OciOkeKubernetesRuntimeInstance{
+			Common:                api_v0.Common{ID: instance.ID},
+			AbandonInfrastructure: util.Ptr(abandon),
+		},
+	); err != nil {
+		return fmt.Errorf("failed to set infrastructure abandonment to %t for oci oke kubernetes runtime instance %s: %w", abandon, util.DerefString(values.Name), err)
+	}
+
+	return nil
 }
 
 // Validate validates inputs to create oci oke kubernetes runtime instances.

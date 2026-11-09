@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -12,11 +13,17 @@ import (
 	"github.com/threeport/threeport/pkg/api-server/v0/database"
 	auth "github.com/threeport/threeport/pkg/auth/v0"
 	"github.com/threeport/threeport/pkg/encryption/v0"
+	kube "github.com/threeport/threeport/pkg/kube/v0"
 )
 
 const (
 	dbCredsSecretName = "db-certs"
 	natsServiceName   = "nats-js"
+
+	// DatabaseServiceAccountName is the Kubernetes service account the
+	// database runs as.  On a production GKE control plane the backup bucket
+	// grants it access by its UID, through Workload Identity Federation.
+	DatabaseServiceAccountName = "crdb"
 
 	// natsBoxImage is the nats CLI image shared by the nats-box pod and the stream drop job.
 	natsBoxImage = "docker.io/natsio/nats-box:0.16.0-nonroot"
@@ -40,6 +47,14 @@ func (cpi *ControlPlaneInstaller) CreateThreeportControlPlaneNamespace(
 			},
 		},
 	}
+	// Whether the namespace was already there decides what a failed install
+	// may remove. Tearing down deletes the namespace, and deleting one this
+	// install did not create takes whatever was in it - on a reapply against
+	// a running control plane, that is the database and its data.
+	if err := cpi.CheckNamespacePresence(kubeClient, mapper); err != nil {
+		return err
+	}
+
 	// leave an existing namespace so a reapply does not rewrite the tier label
 	setPersistent(namespace)
 	if err := cpi.CreateOrUpdateKubeResource(namespace, kubeClient, mapper); err != nil {
@@ -49,18 +64,36 @@ func (cpi *ControlPlaneInstaller) CreateThreeportControlPlaneNamespace(
 	return nil
 }
 
+// CheckNamespacePresence records in Opts.NamespacePresence whether the
+// control plane namespace is in the cluster, unless an earlier call has
+// already found out: the first check is the one made before this install
+// created anything.  Only a namespace the API says is not found is absent.
+// Any other error is returned and leaves the presence unknown, which a
+// teardown treats as present, since a namespace that is there but couldn't
+// be read for a moment is the one a teardown must not delete.
+func (cpi *ControlPlaneInstaller) CheckNamespacePresence(kubeClient dynamic.Interface, mapper *meta.RESTMapper) error {
+	if cpi.Opts.NamespacePresence != NamespacePresenceUnknown {
+		return nil
+	}
+
+	_, err := kube.GetResource(
+		"", "v1", "Namespace", "", cpi.Opts.Namespace, kubeClient, *mapper,
+	)
+	switch {
+	case err == nil:
+		cpi.Opts.NamespacePresence = NamespacePresent
+	case k8serrors.IsNotFound(err):
+		cpi.Opts.NamespacePresence = NamespaceAbsent
+	default:
+		return fmt.Errorf("failed to check whether the %s namespace exists: %w", cpi.Opts.Namespace, err)
+	}
+
+	return nil
+}
+
 // InstallThreeportControlPlaneDependencies installs the necessary components
 // for the threeport REST API and controllers to operate.  It includes the
 // database and message broker.
-
-// natsBoxUID and natsBoxGID are the numeric uid/gid behind the nats-box
-// image's USER nats:nats (confirmed with `docker run --entrypoint id`). The
-// kubelet needs the number, not the name, to verify runAsNonRoot.
-const (
-	natsBoxUID = int64(1000)
-	natsBoxGID = int64(1000)
-)
-
 func (cpi *ControlPlaneInstaller) InstallThreeportControlPlaneDependencies(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
@@ -271,38 +304,15 @@ store_dir: /data
 						},
 					},
 					"spec": map[string]interface{}{
-						"volumes": nil,
-						// natsio/nats-box:0.16.0-nonroot declares USER nats:nats, so
-						// this one can be held to it. The other dependencies cannot.
-						//
-						// runAsUser and runAsGroup still have to be given
-						// numerically: the kubelet does not resolve a named
-						// USER against the image's /etc/passwd on its own, so
-						// runAsNonRoot alone fails every container with
-						// CreateContainerConfigError, "image has non-numeric
-						// user (nats), cannot verify user is non-root" -
-						// confirmed against a running kind cluster, not
-						// assumed from the image's declared USER.
-						"securityContext": map[string]interface{}{
-							"runAsNonRoot": true,
-							"runAsUser":    natsBoxUID,
-							"runAsGroup":   natsBoxGID,
-							"seccompProfile": map[string]interface{}{
-								"type": "RuntimeDefault",
-							},
-						},
+						"volumes":         nil,
+						"securityContext": natsBoxPodSecurityContext(),
 						"containers": []interface{}{
 							map[string]interface{}{
-								"name": "nats-box",
-								"securityContext": map[string]interface{}{
-									"allowPrivilegeEscalation": false,
-									"capabilities": map[string]interface{}{
-										"drop": []interface{}{"ALL"},
-									},
-								},
+								"name":            "nats-box",
+								"securityContext": vendoredContainerSecurityContext(),
 								"image":           natsBoxImage,
 								"imagePullPolicy": "IfNotPresent",
-								"resources":       nil,
+								"resources":       natsBoxResources(),
 								"env": []interface{}{
 									map[string]interface{}{
 										"name":  "NATS_URL",
@@ -396,27 +406,19 @@ store_dir: /data
 						//               #
 						//################
 						"terminationGracePeriodSeconds": 60,
-						// The image runs as root, so runAsNonRoot is not set: the
-						// kubelet refuses to start a container that declares no user
-						// when it is required to be non-root. Pinning a user is the
-						// same question and is tracked separately.
-						"securityContext": map[string]interface{}{
-							"seccompProfile": map[string]interface{}{
-								"type": "RuntimeDefault",
-							},
-						},
+						// All three containers run as one user: the reloader signals
+						// the server through the shared process namespace, and with
+						// every capability dropped a process can only signal its own
+						// user's.
+						"securityContext": dependencyPodSecurityContext(),
 						"containers": []interface{}{
 							map[string]interface{}{
 								"name": "nats",
-								"securityContext": map[string]interface{}{
-									"allowPrivilegeEscalation": false,
-									"capabilities": map[string]interface{}{
-										"drop": []interface{}{"ALL"},
-									},
-								},
+								// writes only its store and its pid file, both volumes
+								"securityContext": restrictedContainerSecurityContext(),
 								"image":           "docker.io/library/nats:2.10.25-alpine",
 								"imagePullPolicy": "IfNotPresent",
-								"resources":       map[string]interface{}{},
+								"resources":       natsServerResources(),
 								"ports": []interface{}{
 									map[string]interface{}{
 										"containerPort": 4222,
@@ -464,6 +466,12 @@ store_dir: /data
 										"name":  "CLUSTER_ADVERTISE",
 										"value": "$(POD_NAME).nats-js.$(POD_NAMESPACE).svc.cluster.local",
 									},
+									// keeps the Go runtime collecting before the
+									// container reaches its memory limit
+									map[string]interface{}{
+										"name":  "GOMEMLIMIT",
+										"value": natsServerGoMemLimit,
+									},
 								},
 								"volumeMounts": []interface{}{
 									map[string]interface{}{
@@ -484,17 +492,22 @@ store_dir: /data
 								// Healthcheck Probes  #
 								//                     #
 								//######################
-								//"livenessProbe": map[string]interface{}{
-								//	"failureThreshold": 3,
-								//	"httpGet": map[string]interface{}{
-								//		"path": "/",
-								//		"port": 8222,
-								//	},
-								//	"initialDelaySeconds": 10,
-								//	"periodSeconds":       30,
-								//	"successThreshold":    1,
-								//	"timeoutSeconds":      5,
-								//},
+								// restarts a server that stopped answering; it checks only
+								// that JetStream is enabled, since the full health check
+								// also fails while JetStream catches up, which a restart
+								// would only interrupt.  The startup probe holds it off
+								// until the server is up.
+								"livenessProbe": map[string]interface{}{
+									"failureThreshold": 3,
+									"httpGet": map[string]interface{}{
+										"path": natsLivenessPath,
+										"port": 8222,
+									},
+									"initialDelaySeconds": 10,
+									"periodSeconds":       30,
+									"successThreshold":    1,
+									"timeoutSeconds":      5,
+								},
 								"readinessProbe": map[string]interface{}{
 									"failureThreshold": 3,
 									"httpGet": map[string]interface{}{
@@ -542,16 +555,11 @@ store_dir: /data
 							//                               #
 							//################################
 							map[string]interface{}{
-								"name": "reloader",
-								"securityContext": map[string]interface{}{
-									"allowPrivilegeEscalation": false,
-									"capabilities": map[string]interface{}{
-										"drop": []interface{}{"ALL"},
-									},
-								},
+								"name":            "reloader",
+								"securityContext": restrictedContainerSecurityContext(),
 								"image":           "docker.io/natsio/nats-server-config-reloader:0.16.1",
 								"imagePullPolicy": "IfNotPresent",
-								"resources":       nil,
+								"resources":       natsReloaderResources(),
 								"command": []interface{}{
 									"nats-server-config-reloader",
 									"-pid",
@@ -580,16 +588,11 @@ store_dir: /data
 							//                            #
 							//#############################
 							map[string]interface{}{
-								"name": "metrics",
-								"securityContext": map[string]interface{}{
-									"allowPrivilegeEscalation": false,
-									"capabilities": map[string]interface{}{
-										"drop": []interface{}{"ALL"},
-									},
-								},
+								"name":            "metrics",
+								"securityContext": restrictedContainerSecurityContext(),
 								"image":           "docker.io/natsio/prometheus-nats-exporter:0.16.0",
 								"imagePullPolicy": "IfNotPresent",
-								"resources":       map[string]interface{}{},
+								"resources":       natsExporterResources(),
 								"args": []interface{}{
 									"-connz",
 									"-routez",
@@ -797,27 +800,16 @@ store_dir: /data
 								"whenUnsatisfiable": "ScheduleAnyway",
 							},
 						},
+						"serviceAccountName": DatabaseServiceAccountName,
 						// No pre-stop hook is required, a SIGTERM plus some time is all that's
 						// needed for graceful shutdown of a node.
 						"terminationGracePeriodSeconds": 60,
-						// The image runs as root, so runAsNonRoot is not set: the
-						// kubelet refuses to start a container that declares no user
-						// when it is required to be non-root. Pinning a user is the
-						// same question and is tracked separately.
-						"securityContext": map[string]interface{}{
-							"seccompProfile": map[string]interface{}{
-								"type": "RuntimeDefault",
-							},
-						},
+						"securityContext":               dependencyPodSecurityContext(),
 						"containers": []interface{}{
 							map[string]interface{}{
 								"name": "db",
-								"securityContext": map[string]interface{}{
-									"allowPrivilegeEscalation": false,
-									"capabilities": map[string]interface{}{
-										"drop": []interface{}{"ALL"},
-									},
-								},
+								// writes only its data directory, a volume
+								"securityContext": restrictedContainerSecurityContext(),
 								"image":           fmt.Sprintf("docker.io/cockroachdb/cockroach:%s", DatabaseImageTag),
 								"imagePullPolicy": "IfNotPresent",
 								"args": []interface{}{
@@ -903,6 +895,12 @@ store_dir: /data
 				},
 			},
 		},
+	}
+
+	// the database runs as its own service account, which is what its
+	// backups are written as
+	if err := cpi.installDatabaseServiceAccount(kubeClient, mapper); err != nil {
+		return err
 	}
 
 	// leave the database stateful set in place when it already exists
@@ -1175,26 +1173,24 @@ echo "$out"`,
 			"spec": map[string]interface{}{
 				"backoffLimit": int64(crdbInitJobBackoffLimit),
 				"template": map[string]interface{}{
+					// the label the database network policy admits: a
+					// reinstall runs this job again, against a database the
+					// policy already guards
+					"metadata": map[string]interface{}{
+						"labels": map[string]interface{}{LabelMaintenance: "true"},
+					},
 					"spec": map[string]interface{}{
 						"restartPolicy": "Never",
-						// the cockroach image runs as root, as for the
-						// StatefulSet it initializes
-						"securityContext": map[string]interface{}{
-							"seccompProfile": map[string]interface{}{
-								"type": "RuntimeDefault",
-							},
-						},
+						// the same user as the StatefulSet it initializes,
+						// whose group can read the root-owned certificates
+						"securityContext": dependencyPodSecurityContext(),
 						"containers": []interface{}{
 							map[string]interface{}{
 								"name": "crdb-init",
-								"securityContext": map[string]interface{}{
-									"allowPrivilegeEscalation": false,
-									"capabilities": map[string]interface{}{
-										"drop": []interface{}{"ALL"},
-									},
-								},
-								"image":   fmt.Sprintf("docker.io/cockroachdb/cockroach:%s", DatabaseImageTag),
-								"command": []interface{}{"/bin/sh", "-c", script},
+								// writes nothing; it only talks to the cluster
+								"securityContext": restrictedContainerSecurityContext(),
+								"image":           fmt.Sprintf("docker.io/cockroachdb/cockroach:%s", DatabaseImageTag),
+								"command":         []interface{}{"/bin/sh", "-c", script},
 								"volumeMounts": []interface{}{
 									map[string]interface{}{
 										"name":      dbCredsSecretName,

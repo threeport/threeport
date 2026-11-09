@@ -4,6 +4,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	networkpolicytest "github.com/threeport/threeport/pkg/networkpolicytest/v0"
 )
 
 func testInstaller(controlPlaneName string, controllers ...string) *ControlPlaneInstaller {
@@ -43,9 +45,6 @@ var (
 	supportStack   = map[string]string{"control-plane": "controller-manager"}
 	maintenanceJob = map[string]string{LabelMaintenance: "true"}
 	modulePod      = map[string]string{"app.kubernetes.io/name": "threeport-test-api-server"}
-
-	moduleNamespace     = map[string]string{LabelModule: LabelModuleValue}
-	unlabelledNamespace = map[string]string{"kubernetes.io/metadata.name": "someone-elses"}
 )
 
 // selectorMatches reports whether a pod selector matches a pod's labels.
@@ -128,47 +127,6 @@ func admits(t *testing.T, policy *unstructured.Unstructured, pod map[string]stri
 	return false
 }
 
-// admitsNamespace reports whether the policy lets a pod in a namespace
-// carrying these labels open a connection on a port.
-//
-// This is a separate question from admits: a peer naming a namespaceSelector
-// and no podSelector admits every pod in a matching namespace, wherever it
-// runs, while a peer naming only a podSelector admits pods of this namespace.
-// Reading one as the other is how a cross-namespace rule looks correct and
-// is not.
-func admitsNamespace(t *testing.T, policy *unstructured.Unstructured, namespace map[string]string, port int) bool {
-	t.Helper()
-	rules, _, err := unstructured.NestedSlice(policy.Object, "spec", "ingress")
-	require.NoError(t, err)
-
-	for _, rawRule := range rules {
-		rule := rawRule.(map[string]interface{})
-		if !ruleCoversPort(t, rule, port) {
-			continue
-		}
-
-		peers, _, err := unstructured.NestedSlice(rule, "from")
-		require.NoError(t, err)
-		for _, rawPeer := range peers {
-			peer := rawPeer.(map[string]interface{})
-			selector, found, err := unstructured.NestedMap(peer, "namespaceSelector")
-			require.NoError(t, err)
-			if !found || !selectorMatches(t, selector, namespace) {
-				continue
-			}
-			// a podSelector alongside it narrows the namespace to some of its
-			// pods, which is not what this asks about
-			if _, hasPods, err := unstructured.NestedMap(peer, "podSelector"); err == nil && hasPods {
-				continue
-			}
-
-			return true
-		}
-	}
-
-	return false
-}
-
 // TestOnlyTheApiServerReachesTheDatabase covers the restriction this exists
 // for.
 //
@@ -209,39 +167,49 @@ func TestOnlyTheApiServerReachesTheDatabase(t *testing.T) {
 	)
 }
 
-// TestAModuleReachesTheDatabaseFromItsOwnNamespace covers the exception that
-// three attempts at this policy broke.
+// TestTheDatabasePolicyAdmitsNoOtherNamespace covers what the module
+// policies rely on.
 //
-// A module keeps its own database inside the control plane's CockroachDB and
-// connects to it directly - db-init, the database-migrator and the module's
-// API server all do - and lander2k2 confirmed on #617 that this is intended
-// rather than something to route through the API server. A module installs
-// into a namespace of its own, so the namespace is what the policy admits.
-func TestAModuleReachesTheDatabaseFromItsOwnNamespace(t *testing.T) {
+// A module is admitted by a policy of its own, which matches its namespace
+// by the name the Kubernetes API server keeps and its API server's pods by
+// their labels. Policies selecting the same pods add up, so a rule here
+// admitting a namespace by a label of threeport's own would let in any
+// namespace labelled that way, whatever the module policies say - and
+// anything allowed to patch a namespace can label one.
+func TestTheDatabasePolicyAdmitsNoOtherNamespace(t *testing.T) {
 	policy := testInstaller("dev-0", "kubernetes-workload").databasePolicy()
 
-	assert.True(
-		t, admitsNamespace(t, policy, moduleNamespace, cockroachSqlPort),
-		"a module that cannot reach the database installs and then fails, which is what this policy did three times",
-	)
-	assert.False(
-		t, admitsNamespace(t, policy, unlabelledNamespace, cockroachSqlPort),
-		"admitting any namespace would leave the database open to the whole cluster, which is what the issue was about",
-	)
-	assert.False(
-		t, admitsNamespace(t, policy, moduleNamespace, cockroachConsolePort),
-		"a module has no business on the console, and the narrower rule costs nothing",
-	)
+	for name, peer := range map[string]networkpolicytest.Peer{
+		"a module's API server": {
+			Namespace: "threeport-test",
+			PodLabels: modulePod,
+		},
+		"a pod of a namespace labelled as a module's": {
+			Namespace:       "someone-elses",
+			NamespaceLabels: map[string]string{"threeport.io/module": "true"},
+			PodLabels:       modulePod,
+		},
+		"a pod of another namespace carrying the API server's labels": {
+			Namespace: "someone-elses",
+			PodLabels: apiServerPod,
+		},
+	} {
+		admitted, err := networkpolicytest.Admits(policy, peer, cockroachSqlPort)
+		require.NoError(t, err)
+		assert.False(t, admitted, "%s must be admitted by its own module policy, not this one", name)
+	}
 }
 
-// TestTheLabelTheSdkWritesIsTheOneThePolicyAdmits covers the half of this
-// that lives in another repository.
+// TestTheSdkInstallsTheModuleDatabasePolicy covers the half of this that
+// lives in another repository.
 //
-// The generator stamps the label onto the namespace it creates for a module,
-// and the policy admits that label. They are written in different packages and
-// nothing but this ties them together: a rename on either side compiles, and
-// the module installs and then cannot reach its own data.
-func TestTheLabelTheSdkWritesIsTheOneThePolicyAdmits(t *testing.T) {
+// The generated module installer creates the module's database policy, and
+// nothing else admits a module to the database. They are written in
+// different packages and nothing but this ties them together: a rename here
+// compiles until a module is generated, and a generator that stopped calling
+// it compiles too, and the module installs and then cannot reach its own
+// data.
+func TestTheSdkInstallsTheModuleDatabasePolicy(t *testing.T) {
 	generator, err := parser.ParseFile(
 		token.NewFileSet(),
 		"../../sdk/v0/gen/pkg/installer/installer.go",
@@ -251,8 +219,9 @@ func TestTheLabelTheSdkWritesIsTheOneThePolicyAdmits(t *testing.T) {
 	require.NoError(t, err)
 
 	// the generator emits code rather than running it, so the reference is a
-	// Qual("<this package>", "LabelModule") naming the constant by string
-	var writesLabel bool
+	// Qual("<this package>", "InstallModuleDatabasePolicy") naming the
+	// function by string
+	var installsPolicy bool
 	ast.Inspect(generator, func(node ast.Node) bool {
 		call, ok := node.(*ast.CallExpr)
 		if !ok || len(call.Args) != 2 {
@@ -266,16 +235,16 @@ func TestTheLabelTheSdkWritesIsTheOneThePolicyAdmits(t *testing.T) {
 		name, nameOk := stringLit(call.Args[1])
 		if pkgOk && nameOk &&
 			strings.HasSuffix(pkg, "pkg/threeport-installer/v0") &&
-			name == "LabelModule" {
-			writesLabel = true
+			name == "InstallModuleDatabasePolicy" {
+			installsPolicy = true
 		}
 
 		return true
 	})
 
 	assert.True(
-		t, writesLabel,
-		"the SDK no longer writes LabelModule onto the module namespace, so every module generated "+
+		t, installsPolicy,
+		"the SDK no longer installs the module's database policy, so every module generated "+
 			"from it installs and then cannot reach its own database",
 	)
 }
@@ -327,47 +296,55 @@ func TestNothingButTheDatabaseIsRestricted(t *testing.T) {
 // TestMaintenanceJobsCarryTheLabelTheDatabasePolicyAdmits covers the two
 // halves of one decision.
 //
-// The policy admits pods carrying LabelMaintenance. A drop job that does not
-// set it is denied the database, and the drop runs after the control plane
-// has been scaled to zero - so the failure leaves the installation down
-// rather than refusing to start.
+// The policy admits pods carrying LabelMaintenance. A job that reaches the
+// database without it is denied: the drop and the restore run after the
+// control plane has been scaled to zero, so the failure leaves the
+// installation down rather than refusing to start, and the CockroachDB init
+// job a reinstall runs again fails the reinstall. Every job the installer
+// writes is checked, in every file, so a new one cannot be left out.
 func TestMaintenanceJobsCarryTheLabelTheDatabasePolicyAdmits(t *testing.T) {
-	fileSet := token.NewFileSet()
-	file, err := parser.ParseFile(fileSet, "reinstall.go", nil, 0)
+	paths, err := filepath.Glob("*.go")
 	require.NoError(t, err)
 
-	jobs, labelled := 0, 0
-	ast.Inspect(file, func(node ast.Node) bool {
-		literal, ok := node.(*ast.CompositeLit)
-		if !ok {
-			return true
+	jobs := 0
+	for _, path := range paths {
+		if strings.HasSuffix(path, "_test.go") {
+			continue
 		}
-		keys := map[string]bool{}
-		for _, element := range literal.Elts {
-			keyed, ok := element.(*ast.KeyValueExpr)
+		fileSet := token.NewFileSet()
+		file, err := parser.ParseFile(fileSet, path, nil, 0)
+		require.NoError(t, err)
+
+		ast.Inspect(file, func(node ast.Node) bool {
+			literal, ok := node.(*ast.CompositeLit)
 			if !ok {
-				continue
+				return true
 			}
-			if basic, ok := keyed.Key.(*ast.BasicLit); ok {
-				keys[basic.Value] = true
+			keys := map[string]bool{}
+			for _, element := range literal.Elts {
+				keyed, ok := element.(*ast.KeyValueExpr)
+				if !ok {
+					continue
+				}
+				if basic, ok := keyed.Key.(*ast.BasicLit); ok {
+					keys[basic.Value] = true
+				}
 			}
-		}
-		if !keys[`"template"`] {
+			if !keys[`"template"`] || !keys[`"backoffLimit"`] {
+				return true
+			}
+			jobs++
+			assert.True(
+				t, containsIdent(literal, "LabelMaintenance"),
+				"%s: a job does not carry the label the database policy admits",
+				fileSet.Position(literal.Pos()),
+			)
+
 			return true
-		}
-		jobs++
-		if containsIdent(literal, "LabelMaintenance") {
-			labelled++
-		}
+		})
+	}
 
-		return true
-	})
-
-	require.NotZero(t, jobs, "no job template found to check")
-	assert.Equal(
-		t, jobs, labelled,
-		"every maintenance job must carry the label the database policy admits",
-	)
+	assert.GreaterOrEqual(t, jobs, 4, "the drop, message broker drop, restore and CockroachDB init jobs were not all found")
 }
 
 // TestReinstallReappliesTheNetworkPolicy covers the install path a
