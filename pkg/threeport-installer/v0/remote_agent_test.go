@@ -207,10 +207,10 @@ func TestComputeSpaceAgentCurrent(t *testing.T) {
 		cpi := remoteAgentInstaller()
 		good := agentDeployment(cpi, argStrings(cpi.getAgentArgs())...)
 
-		client := testClient(append(
+		client := testClient(append(append(
 			[]runtime.Object{good, testSecret(cpi.Opts.Namespace, agentCaSecretName, nil), testSecret(cpi.Opts.Namespace, agentCertSecretName, nil)},
 			installedCRDs()...,
-		)...)
+		), agentBindings(cpi)...)...)
 
 		current, err := cpi.ComputeSpaceControlPlaneComponentsCurrent(client, testMapper())
 		require.NoError(t, err)
@@ -263,7 +263,7 @@ func TestComputeSpaceAgentCurrent(t *testing.T) {
 		cpi := NewInstaller()
 		stale := agentDeployment(cpi, "--leader-elect")
 
-		client := testClient(append([]runtime.Object{stale}, installedCRDs()...)...)
+		client := testClient(append(append([]runtime.Object{stale}, installedCRDs()...), agentBindings(cpi)...)...)
 
 		current, err := cpi.ComputeSpaceControlPlaneComponentsCurrent(client, testMapper())
 		require.NoError(t, err)

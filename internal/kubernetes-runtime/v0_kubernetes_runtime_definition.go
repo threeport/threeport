@@ -58,6 +58,8 @@ func v0KubernetesRuntimeDefinitionCreated(
 			DefaultNodeGroupInitialSize:   &defaultNodeGroupInitialSize,
 			DefaultNodeGroupMinimumSize:   &defaultNodeGroupMinSize,
 			DefaultNodeGroupMaximumSize:   kubernetesRuntimeDefinition.NodeMaximum,
+			PrivateApi:                    kubernetesRuntimeDefinition.PrivateApi,
+			AllowedCidrs:                  kubernetesRuntimeDefinition.AllowedCidrs,
 			KubernetesRuntimeDefinitionID: kubernetesRuntimeDefinition.ID,
 		}
 		_, err = client.CreateAwsEksKubernetesRuntimeDefinition(
@@ -95,6 +97,8 @@ func v0KubernetesRuntimeDefinitionCreated(
 			DefaultNodeGroupInitialSize:   &defaultNodeGroupInitialSize,
 			DefaultNodeGroupMinimumSize:   &defaultNodeGroupMinSize,
 			DefaultNodeGroupMaximumSize:   kubernetesRuntimeDefinition.NodeMaximum,
+			PrivateApi:                    kubernetesRuntimeDefinition.PrivateApi,
+			AllowedCidrs:                  kubernetesRuntimeDefinition.AllowedCidrs,
 			KubernetesRuntimeDefinitionID: kubernetesRuntimeDefinition.ID,
 		}
 		_, err = client.CreateGcpGkeKubernetesRuntimeDefinition(
