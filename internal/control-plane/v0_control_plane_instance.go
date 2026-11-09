@@ -435,6 +435,9 @@ func v0ControlPlaneInstanceCreated(
 		if !endpointSaved {
 			controlPlaneInstance.ApiServerEndpoint = &threeportAPIEndpoint
 		}
+
+		// the controllers hand this address to agents on the clusters they manage
+		cpi.Opts.ExternalApiEndpoint = threeportAPIEndpoint
 	}
 
 	// set provider values the controller install reads
@@ -1425,7 +1428,10 @@ func v0ControlPlaneInstanceDeleted(
 // component it covers, and the components carry the exceptions to it. Left in
 // place, it would be applied again over the recorded components when a child
 // of this control plane is created, replacing each exception with the
-// instance-wide value. An upgrade sets it again when it retags everything.
+// instance-wide value. An upgrade sets it again when it retags everything, which
+// is correct for the tag: the upgrade moves every default deployment to it, so
+// it is what the control plane runs. The tags recorded for the components are
+// stale after that, and the API cannot update them.
 func recordResolvedComponents(
 	instance *v0.ControlPlaneInstance,
 	cpi *threeport.ControlPlaneInstaller,
