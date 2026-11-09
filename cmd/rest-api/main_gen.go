@@ -6,12 +6,10 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"flag"
-	"fmt"
 	validator "github.com/go-playground/validator/v10"
 	godotenv "github.com/joho/godotenv"
 	echo "github.com/labstack/echo/v4"
 	middleware "github.com/labstack/echo/v4/middleware"
-	natsgo "github.com/nats-io/nats.go"
 	util "github.com/threeport/threeport/cmd/rest-api/util"
 	version "github.com/threeport/threeport/internal/version"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
@@ -23,6 +21,7 @@ import (
 	versions_v0 "github.com/threeport/threeport/pkg/api-server/v0/versions"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	log "github.com/threeport/threeport/pkg/log/v0"
+	messagebroker "github.com/threeport/threeport/pkg/messagebroker/v0"
 	zap "go.uber.org/zap"
 	stdlog "log"
 	"net/http"
@@ -142,15 +141,15 @@ func main() {
 	// run cleanup of old materialized views every 60 seconds and drop views older than 15 minutes
 	apiserver_lib.CleanupMaterializedViews(db, &logger, 60, 15)
 
-	// nats connection
-	natsConn := fmt.Sprintf(
-		"nats://%s:%s@%s:%s",
-		os.Getenv("NATS_USER"),
-		os.Getenv("NATS_PASSWORD"),
-		os.Getenv("NATS_HOST"),
-		os.Getenv("NATS_PORT"),
-	)
-	nc, err := natsgo.Connect(natsConn)
+	// nats connection, over TLS with the API server's credentials, which go
+	// apart from the URL so they never reach a log line
+	nc, err := messagebroker.Connect(messagebroker.Config{
+		CAFile:   os.Getenv("NATS_CA_FILE"),
+		Host:     os.Getenv("NATS_HOST"),
+		Password: os.Getenv("NATS_PASSWORD"),
+		Port:     os.Getenv("NATS_PORT"),
+		User:     os.Getenv("NATS_USER"),
+	})
 	if err != nil {
 		e.Logger.Fatalf("failed to establish nats connection: %v", err)
 	}

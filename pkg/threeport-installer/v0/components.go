@@ -269,6 +269,12 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAPIDeployment(
 		return fmt.Errorf("failed to create DB initialization config map: %w", err)
 	}
 
+	// the API server connects to the message broker as the threeport user
+	brokerCredentials, err := cpi.messageBrokerCredentials(kubeClient)
+	if err != nil {
+		return fmt.Errorf("failed to read the message broker credentials: %w", err)
+	}
+
 	// tell the database migrator where to back the database up to before
 	// migrating
 	if err := cpi.InstallDatabaseBackupConfig(kubeClient, mapper); err != nil {
@@ -291,6 +297,9 @@ DB_PORT=%[5]s
 DB_SSL_MODE=%[6]s
 NATS_HOST=%[7]s.%[2]s.svc.cluster.local
 NATS_PORT=4222
+NATS_USER=%[9]s
+NATS_PASSWORD=%[10]s
+NATS_CA_FILE=%[11]s
 THREEPORT_API_ENDPOINT=%[8]s.%[2]s.svc.cluster.local
 THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 `,
@@ -302,6 +311,9 @@ THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 					database.ThreeportDatabaseSslMode,
 					natsServiceName,
 					ThreeportAPIServiceResourceName,
+					brokerCredentials.User,
+					brokerCredentials.Password,
+					NatsClientCAFile,
 				),
 			},
 		},
@@ -490,7 +502,13 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 	mapper *meta.RESTMapper,
 	authConfig *auth.AuthConfig,
 ) error {
-	controllerSecret := cpi.getControllerSecret("controller", cpi.Opts.Namespace)
+	// the controllers connect to the message broker as the threeport user
+	brokerCredentials, err := cpi.messageBrokerCredentials(kubeClient)
+	if err != nil {
+		return fmt.Errorf("failed to read the message broker credentials: %w", err)
+	}
+
+	controllerSecret := cpi.getControllerSecret("controller", cpi.Opts.Namespace, brokerCredentials)
 	if err := cpi.CreateOrUpdateKubeResource(controllerSecret, kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed to create controller secret: %w", err)
 	}
@@ -2033,6 +2051,10 @@ func (cpi *ControlPlaneInstaller) getAPIVolumes() ([]interface{}, []interface{},
 		},
 	}
 
+	// the CA's certificate, which the API server verifies the message broker with
+	vols = append(vols, NatsClientCAVolume())
+	volMounts = append(volMounts, NatsClientCAVolumeMount())
+
 	additionalVolumes := make([]map[string]interface{}, 0)
 	if cpi.Opts.RestApiInfo.AdditionalVolumes != nil {
 		var v []map[string]interface{}
@@ -2297,7 +2319,12 @@ func agentProxyBindingNameFor(namespace string) string {
 	return fmt.Sprintf("%s-threeport-agent-proxy-rolebinding", namespace)
 }
 
-func (cpi *ControlPlaneInstaller) getControllerSecret(name, namespace string) *unstructured.Unstructured {
+// getControllerSecret returns the config secret the controllers read their
+// flags from, which connects them to the API and to the message broker.
+func (cpi *ControlPlaneInstaller) getControllerSecret(
+	name, namespace string,
+	brokerCredentials *natsCredentials,
+) *unstructured.Unstructured {
 	secret := &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "v1",
@@ -2311,6 +2338,9 @@ func (cpi *ControlPlaneInstaller) getControllerSecret(name, namespace string) *u
 				"API_SERVER":            fmt.Sprintf("%s.%s.svc.cluster.local", cpi.Opts.RestApiInfo.ServiceResourceName, cpi.Opts.Namespace),
 				"MSG_BROKER_HOST":       fmt.Sprintf("%s.%s.svc.cluster.local", natsServiceName, cpi.Opts.Namespace),
 				"MSG_BROKER_PORT":       "4222",
+				"MSG_BROKER_USER":       brokerCredentials.User,
+				"MSG_BROKER_PASSWORD":   brokerCredentials.Password,
+				"MSG_BROKER_CA_FILE":    NatsClientCAFile,
 				"AWS_ROLE_SESSION_NAME": util.AwsResourceManagerRoleSessionName,
 				"CONTROL_PLANE_NAME":    cpi.Opts.ControlPlaneName,
 			},
@@ -2347,6 +2377,10 @@ func (cpi *ControlPlaneInstaller) getControllerDeployment(
 	if err != nil {
 		return nil, fmt.Errorf("could not get vols for controller %s: %w", controller.Name, err)
 	}
+
+	// the CA's certificate, which the controller verifies the message broker with
+	controllerVols = append(controllerVols, NatsClientCAVolume())
+	controllerVolMounts = append(controllerVolMounts, NatsClientCAVolumeMount())
 
 	controllerArgs := cpi.getControllerArgs()
 	controllerImagePullSecrets := cpi.getImagePullSecrets(controller.ImagePullSecretName)

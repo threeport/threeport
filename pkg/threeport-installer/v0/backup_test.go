@@ -153,8 +153,6 @@ func getObject(t *testing.T, kubeClient dynamic.Interface, gvr schema.GroupVersi
 
 var configMapGVR = schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
 
-var statefulSetGVR = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "statefulsets"}
-
 // TestTheDatabaseRunsAsItsOwnServiceAccount covers the identity the database
 // writes its backups as: its own Kubernetes service account, which the
 // backup bucket grants access to by UID.  It acts as no GCP service account,
@@ -239,6 +237,9 @@ func installAPIServer(t *testing.T, cpi *ControlPlaneInstaller) *dynamicfake.Fak
 	mapper := backupTestMapper()
 	dbCreds, err := auth.GenerateDbCreds(cpi.Opts.Namespace)
 	require.NoError(t, err)
+	// the dependencies install, which runs first, leaves the message
+	// broker's secrets the API server connects with
+	require.NoError(t, cpi.ensureMessageBrokerSecrets(normalizingClient{fakeClient}))
 	require.NoError(t, cpi.UpdateThreeportAPIDeployment(normalizingClient{fakeClient}, &mapper, dbCreds))
 
 	return fakeClient

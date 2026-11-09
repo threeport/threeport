@@ -108,7 +108,7 @@ func TestControllerConfigExternalApiEndpoint(t *testing.T) {
 		cpi.Opts.ExternalApiEndpoint = testExternalEndpoint
 
 		data, _, err := unstructured.NestedStringMap(
-			cpi.getControllerSecret("controller", cpi.Opts.Namespace).Object, "stringData",
+			cpi.getControllerSecret("controller", cpi.Opts.Namespace, &natsCredentials{User: NatsUser, Password: "tpSecret"}).Object, "stringData",
 		)
 		require.NoError(t, err)
 		assert.Equal(t, testExternalEndpoint, data[ControllerConfigExternalApiEndpointKey])
@@ -118,7 +118,7 @@ func TestControllerConfigExternalApiEndpoint(t *testing.T) {
 		cpi := NewInstaller()
 
 		data, _, err := unstructured.NestedStringMap(
-			cpi.getControllerSecret("controller", cpi.Opts.Namespace).Object, "stringData",
+			cpi.getControllerSecret("controller", cpi.Opts.Namespace, &natsCredentials{User: NatsUser, Password: "tpSecret"}).Object, "stringData",
 		)
 		require.NoError(t, err)
 		assert.NotContains(t, data, ControllerConfigExternalApiEndpointKey)

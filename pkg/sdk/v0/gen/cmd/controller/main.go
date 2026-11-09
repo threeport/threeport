@@ -16,6 +16,10 @@ import (
 	"github.com/threeport/threeport/pkg/sdk/v0/util"
 )
 
+// messageBrokerPath is the package controllers connect to the message broker
+// with.
+const messageBrokerPath = "github.com/threeport/threeport/pkg/messagebroker/v0"
+
 // GenControllerMain generates source code for controllers' main packages.
 func GenControllerMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	pluralize := pluralize.NewClient()
@@ -30,6 +34,7 @@ func GenControllerMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			f.ImportAlias("github.com/threeport/threeport/pkg/event/v0", "event")
 			f.ImportAlias("github.com/threeport/threeport/pkg/encryption/v0", "encryption")
 			f.ImportAlias("github.com/threeport/threeport/pkg/util/v0", "util")
+			f.ImportAlias(messageBrokerPath, "messagebroker")
 
 			concurrencyFlags := &Statement{}
 			for _, obj := range objGroup.ReconciledObjects {
@@ -115,6 +120,12 @@ func GenControllerMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					"String",
 				).Call(
 					Lit("msg-broker-password").Op(",").Lit("").Op(",").Lit("Threeport message broker user password"),
+				),
+				Var().Id("msgBrokerCAFile").Op("=").Qual(
+					"github.com/namsral/flag",
+					"String",
+				).Call(
+					Lit("msg-broker-ca-file").Op(",").Lit("").Op(",").Lit("Path of the certificate of the CA that signed the message broker's certificate; when set, the connection uses TLS"),
 				),
 				Var().Id("shutdownPort").Op("=").Qual(
 					"github.com/namsral/flag",
@@ -207,29 +218,17 @@ func GenControllerMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					Id("log"),
 				),
 
-				Line().Comment("connect to NATS server"),
-				Id("natsConn").Op(":=").Qual("fmt", "Sprintf").Call(
-					Line().Lit("nats://%s:%s@%s:%s"),
-					Line().Op("*").Id("msgBrokerUser"),
-					Line().Op("*").Id("msgBrokerPassword"),
-					Line().Op("*").Id("msgBrokerHost"),
-					Line().Op("*").Id("msgBrokerPort"),
-					Line(),
-				),
-				Line().Comment("the broker address without the credentials, for logging. The"),
-				Comment("connection string carries the broker password, and a controller's"),
-				Comment("container logs are readable by anyone who can read pods in the"),
-				Comment("control plane namespace."),
-				Id("natsEndpoint").Op(":=").Qual("fmt", "Sprintf").Call(
-					Line().Lit("%s:%s"),
-					Line().Op("*").Id("msgBrokerHost"),
-					Line().Op("*").Id("msgBrokerPort"),
-					Line(),
-				),
-				List(Id("nc"), Id("err")).Op(":=").Qual(
-					"github.com/nats-io/nats.go",
-					"Connect",
-				).Call(Id("natsConn")),
+				Line().Comment("connect to NATS server over TLS with the controller's credentials,"),
+				Comment("which go apart from the URL so they never reach a log line"),
+				Id("brokerConfig").Op(":=").Qual(messageBrokerPath, "Config").Values(Dict{
+					Id("Host"):     Op("*").Id("msgBrokerHost"),
+					Id("Port"):     Op("*").Id("msgBrokerPort"),
+					Id("User"):     Op("*").Id("msgBrokerUser"),
+					Id("Password"): Op("*").Id("msgBrokerPassword"),
+					Id("CAFile"):   Op("*").Id("msgBrokerCAFile"),
+				}),
+				Id("natsEndpoint").Op(":=").Id("brokerConfig").Dot("URL").Call(),
+				List(Id("nc"), Id("err")).Op(":=").Qual(messageBrokerPath, "Connect").Call(Id("brokerConfig")),
 				If(Err().Op("!=").Nil()).Block(
 					Id("log").Dot("Error").Call(
 						Err(),
