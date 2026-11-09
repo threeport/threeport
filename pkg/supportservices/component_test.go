@@ -2,10 +2,12 @@ package supportservices
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/go-logr/logr"
 
 	"github.com/threeport/threeport/internal/machinetest"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
@@ -188,43 +190,96 @@ func TestEnsureComponentRejectsAMissingRuntime(t *testing.T) {
 	}
 }
 
-// TestEnsureSecretsComponentInstalls reaches the workload API.
+// TestEnsureSecretsComponentInstalls creates the secrets workload and records its id.
+// The install returns while that workload is still unreconciled.
 func TestEnsureSecretsComponentInstalls(t *testing.T) {
-	// answer the workload lookup with not found
-	calls := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		calls++
-		http.NotFound(w, r)
-	}))
-	t.Cleanup(server.Close)
-
 	name := "dev"
+	runtimeID := uint(1)
+	definitionID := uint(11)
+	workloadID := uint(22)
 	runtime := &api.KubernetesRuntimeInstance{
-		Common:   api.Common{ID: util.Ptr(uint(1))},
+		Common:   api.Common{ID: &runtimeID},
 		Instance: api.Instance{Name: &name},
 	}
-	reconciler := &controller.Reconciler{
-		APIClient: server.Client(),
-		APIServer: strings.TrimPrefix(server.URL, "http://"),
-	}
+
+	// serve a missing workload definition, then the created workload
+	var calls []string
+	stub := machinetest.NewAPIStub(t)
+	stub.Mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		calls = append(calls, r.Method+" "+r.URL.Path)
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == api.PathKubernetesWorkloadDefinitions:
+			if r.URL.Query().Get("name") != SecretsComponentName+"-"+name {
+				t.Fatalf("lookup %s", r.URL.RawQuery)
+			}
+			machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{})
+		case r.Method == http.MethodPost && r.URL.Path == api.PathKubernetesWorkloadDefinitions:
+			var got api.KubernetesWorkloadDefinition
+			if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+				t.Fatal(err)
+			}
+			if got.Name == nil || *got.Name != SecretsComponentName+"-"+name {
+				t.Fatalf("definition name %v", got.Name)
+			}
+			if got.YAMLDocument == nil || *got.YAMLDocument == "" {
+				t.Fatal("definition has no manifest")
+			}
+			got.ID = &definitionID
+			machinetest.WriteResponse(t, w, http.StatusCreated, []apiserver_lib.Object{&got})
+		case r.Method == http.MethodPost && r.URL.Path == api.PathKubernetesWorkloadInstances:
+			var got api.KubernetesWorkloadInstance
+			if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+				t.Fatal(err)
+			}
+			if got.KubernetesWorkloadDefinitionID == nil || *got.KubernetesWorkloadDefinitionID != definitionID {
+				t.Fatalf("instance definition %v", got.KubernetesWorkloadDefinitionID)
+			}
+			if got.KubernetesRuntimeInstanceID == nil || *got.KubernetesRuntimeInstanceID != runtimeID {
+				t.Fatalf("instance runtime %v", got.KubernetesRuntimeInstanceID)
+			}
+			got.ID = &workloadID
+			machinetest.WriteResponse(t, w, http.StatusCreated, []apiserver_lib.Object{&got})
+		case r.Method == http.MethodGet && r.URL.Path == api.PathKubernetesRuntimeInstances+"/1":
+			machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{runtime})
+		case r.Method == http.MethodPatch && r.URL.Path == api.PathKubernetesRuntimeInstances+"/1":
+			var got api.KubernetesRuntimeInstance
+			if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+				t.Fatal(err)
+			}
+			if got.SecretsComponentInstanceID == nil || *got.SecretsComponentInstanceID != workloadID {
+				t.Fatalf("claimed slot %v", got.SecretsComponentInstanceID)
+			}
+			machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{&got})
+		default:
+			t.Fatalf("unexpected %s %s", r.Method, r.URL.RequestURI())
+		}
+	})
 
 	// install the secrets component
+	log := logr.Discard()
+	var recorded *uint
 	err := EnsureSecretsComponent(
-		reconciler,
+		&controller.Reconciler{APIClient: stub.Client, APIServer: stub.Addr},
 		runtime,
 		&api.SecretInstance{},
+		&recorded,
 		nil,
-		nil,
-		nil,
+		&log,
 	)
-	if err == nil {
-		t.Fatal("returned without installing the secrets component")
+	want := fmt.Sprintf("secrets component workload %d not reconciled", workloadID)
+	if err == nil || err.Error() != want {
+		t.Fatalf("error %v, want %q", err, want)
 	}
-	if calls == 0 {
-		t.Fatalf("made no API request: %v", err)
+
+	// record the workload id on the runtime and the attached instance
+	if runtime.SecretsComponentInstanceID == nil || *runtime.SecretsComponentInstanceID != workloadID {
+		t.Fatalf("runtime slot %v", runtime.SecretsComponentInstanceID)
 	}
-	if runtime.SecretsComponentInstanceID != nil {
-		t.Fatal("recorded a component instance before the workload existed")
+	if recorded == nil || *recorded != workloadID {
+		t.Fatalf("recorded id %v", recorded)
+	}
+	if len(calls) != 5 {
+		t.Fatalf("calls %v", calls)
 	}
 }
 
