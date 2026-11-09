@@ -51,6 +51,11 @@ func TestParseImage(t *testing.T) {
 			image:   "myimage:tag",
 			wantErr: true,
 		},
+		{
+			name:    "no tag",
+			image:   "gcr.io/myimage",
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -71,17 +76,4 @@ func TestParseImage(t *testing.T) {
 			}
 		})
 	}
-}
-
-// This documents the current behavior when no tag is present: ParseImage panics.
-func TestParseImage_MissingTagPanics(t *testing.T) {
-	image := "gcr.io/myimage"
-
-	defer func() {
-		if r := recover(); r == nil {
-			t.Fatalf("ParseImage(%q) expected panic due to missing tag, but did not panic", image)
-		}
-	}()
-
-	ParseImage(image)
 }

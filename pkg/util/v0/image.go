@@ -18,6 +18,9 @@ func ParseImage(image string) (string, string, string, error) {
 
 	// split the image tag from the image name
 	tagSplit := strings.Split(imageName, ":")
+	if len(tagSplit) < 2 || tagSplit[1] == "" {
+		return "", "", "", fmt.Errorf("failed to parse image %s, image has no tag", image)
+	}
 	imageName = tagSplit[0]
 	imageTag := tagSplit[1]
 
