@@ -129,8 +129,8 @@ func (a *AwsEksKubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
 	return validateKubernetesApiAccessUpdate(
 		tx,
 		KubernetesRuntimeInfraProviderEKS,
-		func(values any) (*bool, *datatypes.JSON, bool) {
-			object, ok := values.(*AwsEksKubernetesRuntimeDefinition)
+		func(value any) (*bool, *datatypes.JSON, bool) {
+			object, ok := value.(*AwsEksKubernetesRuntimeDefinition)
 			if !ok {
 				return nil, nil, false
 			}

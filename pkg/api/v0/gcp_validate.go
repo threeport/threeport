@@ -81,8 +81,8 @@ func (g *GcpGkeKubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
 	return validateKubernetesApiAccessUpdate(
 		tx,
 		KubernetesRuntimeInfraProviderGKE,
-		func(values any) (*bool, *datatypes.JSON, bool) {
-			object, ok := values.(*GcpGkeKubernetesRuntimeDefinition)
+		func(value any) (*bool, *datatypes.JSON, bool) {
+			object, ok := value.(*GcpGkeKubernetesRuntimeDefinition)
 			if !ok {
 				return nil, nil, false
 			}
