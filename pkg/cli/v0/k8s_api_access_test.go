@@ -371,3 +371,35 @@ func TestAPrivateGkeControlPlaneIsRegisteredPrivate(t *testing.T) {
 		})
 	}
 }
+
+// TestAControlPlaneOnlyReinstallKeepsTheSavedAllowlist covers a reinstall with
+// --control-plane-only, which can't take --k8s-api-allowed-cidrs. It wrote the
+// config entry back with an empty list, so the cluster stayed restricted while
+// tptctl, and the kubernetes runtime definitions it registers, recorded none.
+func TestAControlPlaneOnlyReinstallKeepsTheSavedAllowlist(t *testing.T) {
+	saved := []string{"203.0.113.0/24", "198.51.100.7/32"}
+	threeportConfig := &ThreeportConfig{ControlPlanes: []ControlPlane{
+		{Name: "other", K8sApiAllowedCidrs: []string{"192.0.2.0/24"}},
+		{Name: "restricted", K8sApiAllowedCidrs: saved, PrivateK8sApi: true},
+	}}
+
+	t.Run("an entry saved by an earlier run", func(t *testing.T) {
+		opts := threeport.Options{ControlPlaneName: "restricted"}
+
+		entry := reusedControlPlaneConfig(threeportConfig, &opts)
+
+		assert.Equal(t, "restricted", entry.Name)
+		assert.Equal(t, saved, opts.K8sApiAllowedCidrs)
+		assert.True(t, opts.PrivateK8sApi)
+	})
+
+	t.Run("a cluster provisioned outside of tptctl", func(t *testing.T) {
+		opts := threeport.Options{ControlPlaneName: "new"}
+
+		entry := reusedControlPlaneConfig(threeportConfig, &opts)
+
+		assert.Equal(t, &ControlPlane{}, entry)
+		assert.Empty(t, opts.K8sApiAllowedCidrs)
+		assert.False(t, opts.PrivateK8sApi)
+	})
+}

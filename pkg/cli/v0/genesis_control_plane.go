@@ -264,20 +264,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	genesis := true
 
 	if cpi.Opts.ControlPlaneOnly {
-		// load the matching entry if one exists from a prior run;
-		// otherwise fall through to a new entry, which is the case when
-		// deploying to infrastructure that was provisioned outside of
-		// tptctl.
-		if existingConfig, err := threeportConfig.GetControlPlaneConfig(cpi.Opts.ControlPlaneName); err == nil {
-			threeportControlPlaneConfig = existingConfig
-			// a prior --infra-only run created the cluster with the
-			// Kubernetes API access it recorded, which --private-k8s-api
-			// and --k8s-api-allowed-cidrs cannot be passed here to change
-			cpi.Opts.K8sApiAllowedCidrs = existingConfig.K8sApiAllowedCidrs
-			cpi.Opts.PrivateK8sApi = existingConfig.PrivateK8sApi
-		} else {
-			threeportControlPlaneConfig = &ControlPlane{}
-		}
+		threeportControlPlaneConfig = reusedControlPlaneConfig(threeportConfig, &cpi.Opts)
 	} else {
 		// overwrite or reject a same-name config entry, leaving other entries in place
 		if err := dropSameNameControlPlane(
