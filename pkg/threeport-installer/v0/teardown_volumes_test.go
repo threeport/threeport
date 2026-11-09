@@ -166,6 +166,36 @@ func TestTheWaitEndsWhenTheApiServerStopsAnswering(t *testing.T) {
 	}
 }
 
+// TestTheListingEndsWhenTheApiServerStopsAnswering covers the listing of the
+// volumes to wait for, which runs before the wait: an API server that accepts
+// the request and never answers it would otherwise hang the teardown there.
+func TestTheListingEndsWhenTheApiServerStopsAnswering(t *testing.T) {
+	fastVolumeWait(t, 200*time.Millisecond)
+	release := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-release:
+		case <-r.Context().Done():
+		}
+	}))
+	t.Cleanup(func() { close(release); server.Close() })
+	kubeClient, err := dynamic.NewForConfig(&rest.Config{Host: server.URL})
+	require.NoError(t, err)
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := volumesDeletedWithNamespace(kubeClient, teardownTestNamespace)
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		require.Error(t, err)
+		assert.ErrorIs(t, err, context.DeadlineExceeded)
+	case <-time.After(5 * time.Second):
+		t.Fatal("listing the volumes did not end with an API server that stopped answering")
+	}
+}
+
 // TestAWaitThatRunsOutNamesOnlyTheVolumesStillThere covers the error a
 // deadline ends the wait with. It named every volume the wait started with,
 // so a volume already confirmed deleted - by an earlier pass, or earlier in

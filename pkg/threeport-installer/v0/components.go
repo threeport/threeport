@@ -1791,8 +1791,15 @@ var volumeDeletePollInterval = 2 * time.Second
 // in a namespace that are deleted along with their claims. A volume whose
 // reclaim policy keeps it is left out: it outlives its claim on purpose, and
 // waiting for it would never end.
+//
+// The listing is bounded by volumeDeleteTimeout, as the wait is: an API server
+// that accepts the request and never answers it would otherwise hold the
+// teardown forever, before the wait's deadline applies.
 func volumesDeletedWithNamespace(kubeClient dynamic.Interface, namespace string) ([]string, error) {
-	list, err := kubeClient.Resource(persistentVolumeGVR).List(context.TODO(), metav1.ListOptions{})
+	ctx, cancel := context.WithTimeout(context.Background(), volumeDeleteTimeout)
+	defer cancel()
+
+	list, err := kubeClient.Resource(persistentVolumeGVR).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list persistent volumes: %w", err)
 	}
