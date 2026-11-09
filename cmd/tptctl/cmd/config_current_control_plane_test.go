@@ -303,6 +303,44 @@ func TestRefreshSources(t *testing.T) {
 	assert.Equal(t, []string{"parent", "genesis", "sibling"}, names)
 }
 
+// TestRefreshStoredControlPlaneUpdateFailure keeps a saved child.
+// The manager answers, and then the config update fails.
+func TestRefreshStoredControlPlaneUpdateFailure(t *testing.T) {
+	// the parent lists the child, and the child has no definition to build an entry from
+	child := controlPlaneInstance(2, "child", ptrTo(uint(1)))
+	child.CACert = ptrTo("ca-child")
+	child.ApiServerEndpoint = ptrTo("34.1.2.3:443")
+	server := controlPlaneInstanceServer(t,
+		controlPlaneInstance(1, "genesis", nil),
+		child,
+	)
+	addr := strings.TrimPrefix(server.URL, "http://")
+
+	// the saved child is already in the config, and genesis can be asked
+	cfg := &cli.ThreeportConfig{
+		CurrentControlPlane: "genesis",
+		ControlPlanes: []cli.ControlPlane{
+			{Name: "genesis", APIServer: addr, Genesis: true},
+			{
+				Name:      "child",
+				APIServer: "child.example:443",
+				CACert:    "ca-child",
+				Credentials: []cli.Credential{{
+					ClientCert: "client-child",
+				}},
+			},
+		},
+	}
+	resolution := resolveControlPlaneRequest(cfg, "child")
+
+	// the failed update leaves the saved address and certificates in place
+	require.NoError(t, refreshStoredControlPlane(cfg, resolution, "child"))
+	require.Len(t, cfg.ControlPlanes, 2)
+	assert.Equal(t, "child.example:443", cfg.ControlPlanes[1].APIServer)
+	assert.Equal(t, "ca-child", cfg.ControlPlanes[1].CACert)
+	assert.Equal(t, "client-child", cfg.ControlPlanes[1].Credentials[0].ClientCert)
+}
+
 // TestRefreshStoredControlPlaneOnlyChild keeps a saved child when the config
 // has no other control plane to ask.
 func TestRefreshStoredControlPlaneOnlyChild(t *testing.T) {

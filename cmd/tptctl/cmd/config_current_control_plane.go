@@ -276,7 +276,7 @@ func updateThreeportConfigWithControlPlaneInstance(
 }
 
 // refreshStoredControlPlane copies the API address and client certificates from the control plane that manages the saved entry.
-// A manager that is missing or down leaves the saved entry in place.
+// A manager that is missing or down, or a refresh that fails, leaves the saved entry in place.
 func refreshStoredControlPlane(threeportConfig *cli.ThreeportConfig, resolution controlPlaneResolution, name string) error {
 	// a genesis control plane has no parent to read
 	if resolution.requested == nil || resolution.requested.Genesis {
@@ -310,11 +310,22 @@ func refreshStoredControlPlane(threeportConfig *cli.ThreeportConfig, resolution 
 		}
 		return sourceClient, sourceEndpoint, sourceInstance, nil
 	})
-	if !found {
-		cli.Warning(fmt.Sprintf("Could not refresh control plane %s. Using the saved entry.", name))
-		return nil
+
+	// copy the address when the manager answers
+	if found {
+		if err := updateThreeportConfigWithControlPlaneInstance(
+			apiClient,
+			apiEndpoint,
+			instance,
+			threeportConfig,
+		); err == nil {
+			return nil
+		}
 	}
-	return updateThreeportConfigWithControlPlaneInstance(apiClient, apiEndpoint, instance, threeportConfig)
+
+	// a missing manager or a failed refresh leaves the saved entry in place
+	cli.Warning(fmt.Sprintf("Could not refresh control plane %s. Using the saved entry.", name))
+	return nil
 }
 
 // refreshSources lists the configured control planes that can hold the saved entry.
