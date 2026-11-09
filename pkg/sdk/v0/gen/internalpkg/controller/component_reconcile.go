@@ -114,54 +114,6 @@ func emitComponentCall(
 ) {
 	g.If(Id("operationErr").Op("==").Nil()).BlockFunc(func(b *Group) {
 		switch component {
-		case "secrets":
-			if release {
-				assignComponentErr(
-					b,
-					Qual(supportServicesPath, "ReleaseSecretsComponent").Call(
-						Line().Id("r"),
-						Line().Id("runtime"),
-						Line().Id("componentObject"),
-						Line(),
-					),
-					"failed to release secrets component",
-				)
-				return
-			}
-
-			// secrets takes the runtime's infra provider
-			b.List(Id("provider"), Err()).Op(":=").Qual(
-				supportClientPath,
-				"GetInfraProviderByKubernetesRuntimeInstanceID",
-			).Call(
-				Line().Id("r").Dot("APIClient"),
-				Line().Id("r").Dot("APIServer"),
-				Line().Id("runtime").Dot("ID"),
-				Line(),
-			)
-			b.If(Err().Op("!=").Nil()).Block(
-				Id("operationErr").Op("=").Qual("fmt", "Errorf").Call(
-					Lit("failed to get infra provider: %w"),
-					Err(),
-				),
-			)
-			// skip the secrets install when the provider load fails
-			b.If(Id("operationErr").Op("==").Nil()).BlockFunc(func(s *Group) {
-				assignComponentErr(
-					s,
-					Qual(supportServicesPath, "EnsureSecretsComponent").Call(
-						Line().Id("r"),
-						Line().Id("runtime"),
-						Line().Id("componentObject"),
-						Line().Op("&").Id("componentObject").Dot("SecretsComponentInstanceID"),
-						Line().Qual(modulePath+"/pkg/client/"+version, "Update"+typeName),
-						Line().Id("provider"),
-						Line().Op("&").Id("log"),
-						Line(),
-					),
-					"failed to ensure secrets component",
-				)
-			})
 		default:
 			name := "Ensure" + exportComponent(component) + "Component"
 			message := "failed to ensure " + component + " component"
@@ -214,6 +166,8 @@ func exportComponent(component string) string {
 		return "Certificates"
 	case "database":
 		return "Database"
+	case "secrets":
+		return "Secrets"
 	default:
 		return ""
 	}
