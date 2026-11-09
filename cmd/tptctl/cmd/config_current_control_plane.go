@@ -48,7 +48,7 @@ control plane.`,
 		// If found we set and return
 		resolution := resolveControlPlaneRequest(threeportConfig, configCurrentControlPlaneName)
 		if resolution.inConfig {
-			// refresh the stored address and certificates from the genesis API
+			// refresh the stored address and certificates, then select the entry
 			if err := refreshStoredControlPlane(threeportConfig, resolution, configCurrentControlPlaneName); err != nil {
 				cli.Error("failed to refresh control plane in config", err)
 				os.Exit(1)
@@ -275,32 +275,83 @@ func updateThreeportConfigWithControlPlaneInstance(
 	return nil
 }
 
-// refreshStoredControlPlane copies the API address and client certificates from the genesis API.
+// refreshStoredControlPlane copies the API address and client certificates from the control plane that manages the saved entry.
+// A manager that is missing or down leaves the saved entry in place.
 func refreshStoredControlPlane(threeportConfig *cli.ThreeportConfig, resolution controlPlaneResolution, name string) error {
 	// a genesis control plane has no parent to read
 	if resolution.requested == nil || resolution.requested.Genesis {
 		return nil
 	}
 
-	// keep the stored entry when the config has no named genesis to ask
-	if resolution.genesis == nil || resolution.genesis.Name == "" || resolution.genesis.APIServer == "" {
+	// ask the current control plane, then genesis, then the other configured control planes
+	sources := refreshSources(threeportConfig, resolution)
+	if len(sources) == 0 {
 		return nil
 	}
 
-	// read this control plane from the genesis API
-	apiClient, err := threeportConfig.GetHTTPClient(resolution.genesis.Name)
-	if err != nil {
-		return fmt.Errorf("failed to create genesis client: %w", err)
-	}
-	apiEndpoint, err := threeportConfig.GetThreeportAPIEndpoint(resolution.genesis.Name)
-	if err != nil {
-		return fmt.Errorf("failed to get genesis API endpoint: %w", err)
-	}
-	instance, err := client.GetControlPlaneInstanceByName(apiClient, apiEndpoint, name)
-	if err != nil {
-		return fmt.Errorf("failed to get control plane instance by name: %w", err)
+	// use the first source that has this control plane
+	apiClient, apiEndpoint, instance, found := refreshInstanceFrom(sources, func(source *cli.ControlPlane) (*http.Client, string, *v0.ControlPlaneInstance, error) {
+		sourceClient, err := threeportConfig.GetHTTPClient(source.Name)
+		if err != nil {
+			return nil, "", nil, err
+		}
+		sourceEndpoint, err := threeportConfig.GetThreeportAPIEndpoint(source.Name)
+		if err != nil {
+			return nil, "", nil, err
+		}
+		sourceInstance, err := client.GetControlPlaneInstanceByName(sourceClient, sourceEndpoint, name)
+		if err != nil {
+			return nil, "", nil, err
+		}
+		return sourceClient, sourceEndpoint, sourceInstance, nil
+	})
+	if !found {
+		cli.Warning(fmt.Sprintf("Could not refresh control plane %s. Using the saved entry.", name))
+		return nil
 	}
 	return updateThreeportConfigWithControlPlaneInstance(apiClient, apiEndpoint, instance, threeportConfig)
+}
+
+// refreshSources lists the configured control planes that can hold the saved entry.
+// The current control plane is first, then genesis, then the rest.
+func refreshSources(threeportConfig *cli.ThreeportConfig, resolution controlPlaneResolution) []*cli.ControlPlane {
+	if resolution.requested == nil {
+		return nil
+	}
+
+	// skip the saved entry. Its registration lives on the control plane that created it.
+	var sources []*cli.ControlPlane
+	seen := map[string]bool{resolution.requested.Name: true}
+	add := func(controlPlane *cli.ControlPlane) {
+		if controlPlane == nil || controlPlane.Name == "" || controlPlane.APIServer == "" || seen[controlPlane.Name] {
+			return
+		}
+		seen[controlPlane.Name] = true
+		sources = append(sources, controlPlane)
+	}
+	add(resolution.current)
+	add(resolution.genesis)
+	for i := range threeportConfig.ControlPlanes {
+		add(&threeportConfig.ControlPlanes[i])
+	}
+	return sources
+}
+
+// refreshInstanceFrom returns the instance from the first source that has it.
+// Skip a source that is down or does not have the instance.
+func refreshInstanceFrom(
+	sources []*cli.ControlPlane,
+	lookup func(*cli.ControlPlane) (*http.Client, string, *v0.ControlPlaneInstance, error),
+) (*http.Client, string, *v0.ControlPlaneInstance, bool) {
+	// take the first source that returns the instance
+	for _, source := range sources {
+		apiClient, apiEndpoint, instance, err := lookup(source)
+		if err != nil {
+			continue
+		}
+		return apiClient, apiEndpoint, instance, true
+	}
+	return nil, "", nil, false
 }
 
 // refreshControlPlaneClient copies the API address and client certificates onto an existing entry.

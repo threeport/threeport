@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -276,4 +277,58 @@ func TestControlPlaneConfigFromInstance(t *testing.T) {
 			})
 		})
 	}
+}
+
+// TestRefreshSources asks the current control plane, then genesis, then the rest.
+func TestRefreshSources(t *testing.T) {
+	// a grandchild is registered on its parent, not on genesis
+	cfg := &cli.ThreeportConfig{ControlPlanes: []cli.ControlPlane{
+		{Name: "genesis", APIServer: "https://genesis", Genesis: true},
+		{Name: "parent", APIServer: "https://parent"},
+		{Name: "sibling", APIServer: "https://sibling"},
+		{Name: "grandchild", APIServer: "https://grandchild"},
+		{Name: "offline", APIServer: ""},
+	}}
+	resolution := controlPlaneResolution{
+		requested: &cfg.ControlPlanes[3],
+		current:   &cfg.ControlPlanes[1],
+		genesis:   &cfg.ControlPlanes[0],
+	}
+
+	// leave out the saved entry and a control plane with no API
+	var names []string
+	for _, source := range refreshSources(cfg, resolution) {
+		names = append(names, source.Name)
+	}
+	assert.Equal(t, []string{"parent", "genesis", "sibling"}, names)
+}
+
+// TestRefreshInstanceFrom uses the first source that has the instance.
+func TestRefreshInstanceFrom(t *testing.T) {
+	// genesis does not have a grandchild, and a down source does not stop the search
+	genesis := &cli.ControlPlane{Name: "genesis"}
+	down := &cli.ControlPlane{Name: "down"}
+	parent := &cli.ControlPlane{Name: "parent"}
+	want := &v0.ControlPlaneInstance{Name: ptrTo("grandchild")}
+	lookup := func(source *cli.ControlPlane) (*http.Client, string, *v0.ControlPlaneInstance, error) {
+		switch source.Name {
+		case "genesis":
+			return nil, "", nil, client_lib.ErrObjectNotFound
+		case "down":
+			return nil, "", nil, errors.New("connection refused")
+		default:
+			return &http.Client{}, "https://parent", want, nil
+		}
+	}
+
+	// the parent answers after the earlier sources miss
+	_, endpoint, got, found := refreshInstanceFrom([]*cli.ControlPlane{genesis, down, parent}, lookup)
+	assert.True(t, found)
+	assert.Equal(t, want, got)
+	assert.Equal(t, "https://parent", endpoint)
+
+	// no source leaves the saved entry in place
+	_, _, missed, found := refreshInstanceFrom([]*cli.ControlPlane{genesis, down}, lookup)
+	assert.False(t, found)
+	assert.Nil(t, missed)
 }
