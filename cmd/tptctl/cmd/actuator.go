@@ -48,7 +48,7 @@ var GetProfilesCmd = &cobra.Command{
 		case "v0":
 			// load values
 			profileConfig := config_v0.ProfileConfig{}
-			if actuatorConfigPath != "" {
+			if actuatorConfigPath != "" || actuatorStdin {
 				configContent, err := cli.ReadConfigContent(actuatorConfigPath, actuatorStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -289,7 +289,7 @@ var DeleteProfileCmd = &cobra.Command{
 		switch actuatorVersion {
 		case "v0":
 			var profileConfig config_v0.ProfileConfig
-			if actuatorConfigPath != "" {
+			if actuatorConfigPath != "" || actuatorStdin {
 				// load profile config
 				configContent, err := cli.ReadConfigContent(actuatorConfigPath, actuatorStdin)
 				if err != nil {
@@ -374,7 +374,7 @@ var GetTiersCmd = &cobra.Command{
 		case "v0":
 			// load values
 			tierConfig := config_v0.TierConfig{}
-			if actuatorConfigPath != "" {
+			if actuatorConfigPath != "" || actuatorStdin {
 				configContent, err := cli.ReadConfigContent(actuatorConfigPath, actuatorStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -615,7 +615,7 @@ var DeleteTierCmd = &cobra.Command{
 		switch actuatorVersion {
 		case "v0":
 			var tierConfig config_v0.TierConfig
-			if actuatorConfigPath != "" {
+			if actuatorConfigPath != "" || actuatorStdin {
 				// load tier config
 				configContent, err := cli.ReadConfigContent(actuatorConfigPath, actuatorStdin)
 				if err != nil {

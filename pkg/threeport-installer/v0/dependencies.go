@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -12,6 +13,7 @@ import (
 	"github.com/threeport/threeport/pkg/api-server/v0/database"
 	auth "github.com/threeport/threeport/pkg/auth/v0"
 	"github.com/threeport/threeport/pkg/encryption/v0"
+	kube "github.com/threeport/threeport/pkg/kube/v0"
 )
 
 const (
@@ -45,10 +47,45 @@ func (cpi *ControlPlaneInstaller) CreateThreeportControlPlaneNamespace(
 			},
 		},
 	}
+	// Whether the namespace was already there decides what a failed install
+	// may remove. Tearing down deletes the namespace, and deleting one this
+	// install did not create takes whatever was in it - on a reapply against
+	// a running control plane, that is the database and its data.
+	if err := cpi.CheckNamespacePresence(kubeClient, mapper); err != nil {
+		return err
+	}
+
 	// leave an existing namespace so a reapply does not rewrite the tier label
 	setPersistent(namespace)
 	if err := cpi.CreateOrUpdateKubeResource(namespace, kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed to create/update control plane namespace: %w", err)
+	}
+
+	return nil
+}
+
+// CheckNamespacePresence records in Opts.NamespacePresence whether the
+// control plane namespace is in the cluster, unless an earlier call has
+// already found out: the first check is the one made before this install
+// created anything.  Only a namespace the API says is not found is absent.
+// Any other error is returned and leaves the presence unknown, which a
+// teardown treats as present, since a namespace that is there but couldn't
+// be read for a moment is the one a teardown must not delete.
+func (cpi *ControlPlaneInstaller) CheckNamespacePresence(kubeClient dynamic.Interface, mapper *meta.RESTMapper) error {
+	if cpi.Opts.NamespacePresence != NamespacePresenceUnknown {
+		return nil
+	}
+
+	_, err := kube.GetResource(
+		"", "v1", "Namespace", "", cpi.Opts.Namespace, kubeClient, *mapper,
+	)
+	switch {
+	case err == nil:
+		cpi.Opts.NamespacePresence = NamespacePresent
+	case k8serrors.IsNotFound(err):
+		cpi.Opts.NamespacePresence = NamespaceAbsent
+	default:
+		return fmt.Errorf("failed to check whether the %s namespace exists: %w", cpi.Opts.Namespace, err)
 	}
 
 	return nil
@@ -275,7 +312,7 @@ store_dir: /data
 								"securityContext": vendoredContainerSecurityContext(),
 								"image":           natsBoxImage,
 								"imagePullPolicy": "IfNotPresent",
-								"resources":       nil,
+								"resources":       natsBoxResources(),
 								"env": []interface{}{
 									map[string]interface{}{
 										"name":  "NATS_URL",
@@ -381,7 +418,7 @@ store_dir: /data
 								"securityContext": restrictedContainerSecurityContext(),
 								"image":           "docker.io/library/nats:2.10.25-alpine",
 								"imagePullPolicy": "IfNotPresent",
-								"resources":       map[string]interface{}{},
+								"resources":       natsServerResources(),
 								"ports": []interface{}{
 									map[string]interface{}{
 										"containerPort": 4222,
@@ -429,6 +466,12 @@ store_dir: /data
 										"name":  "CLUSTER_ADVERTISE",
 										"value": "$(POD_NAME).nats-js.$(POD_NAMESPACE).svc.cluster.local",
 									},
+									// keeps the Go runtime collecting before the
+									// container reaches its memory limit
+									map[string]interface{}{
+										"name":  "GOMEMLIMIT",
+										"value": natsServerGoMemLimit,
+									},
 								},
 								"volumeMounts": []interface{}{
 									map[string]interface{}{
@@ -449,17 +492,22 @@ store_dir: /data
 								// Healthcheck Probes  #
 								//                     #
 								//######################
-								//"livenessProbe": map[string]interface{}{
-								//	"failureThreshold": 3,
-								//	"httpGet": map[string]interface{}{
-								//		"path": "/",
-								//		"port": 8222,
-								//	},
-								//	"initialDelaySeconds": 10,
-								//	"periodSeconds":       30,
-								//	"successThreshold":    1,
-								//	"timeoutSeconds":      5,
-								//},
+								// restarts a server that stopped answering; it checks only
+								// that JetStream is enabled, since the full health check
+								// also fails while JetStream catches up, which a restart
+								// would only interrupt.  The startup probe holds it off
+								// until the server is up.
+								"livenessProbe": map[string]interface{}{
+									"failureThreshold": 3,
+									"httpGet": map[string]interface{}{
+										"path": natsLivenessPath,
+										"port": 8222,
+									},
+									"initialDelaySeconds": 10,
+									"periodSeconds":       30,
+									"successThreshold":    1,
+									"timeoutSeconds":      5,
+								},
 								"readinessProbe": map[string]interface{}{
 									"failureThreshold": 3,
 									"httpGet": map[string]interface{}{
@@ -511,7 +559,7 @@ store_dir: /data
 								"securityContext": restrictedContainerSecurityContext(),
 								"image":           "docker.io/natsio/nats-server-config-reloader:0.16.1",
 								"imagePullPolicy": "IfNotPresent",
-								"resources":       nil,
+								"resources":       natsReloaderResources(),
 								"command": []interface{}{
 									"nats-server-config-reloader",
 									"-pid",
@@ -544,7 +592,7 @@ store_dir: /data
 								"securityContext": restrictedContainerSecurityContext(),
 								"image":           "docker.io/natsio/prometheus-nats-exporter:0.16.0",
 								"imagePullPolicy": "IfNotPresent",
-								"resources":       map[string]interface{}{},
+								"resources":       natsExporterResources(),
 								"args": []interface{}{
 									"-connz",
 									"-routez",
