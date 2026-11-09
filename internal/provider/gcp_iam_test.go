@@ -204,6 +204,63 @@ func TestUpdateProjectPolicy_GivesUpAfterTheAttemptLimit(t *testing.T) {
 	assert.Equal(t, iamPolicyAttempts, store.sets)
 }
 
+// TestCreateServiceAccountKeyWithRetry_RetriesNotFound checks a not-found key create.
+// The next attempt returns the key.
+func TestCreateServiceAccountKeyWithRetry_RetriesNotFound(t *testing.T) {
+	// create the key after one not-found
+	withNoIAMRetryDelay(t)
+	missing := &googleapi.Error{Code: 404}
+	calls := 0
+
+	key, err := createServiceAccountKeyWithRetry(func() (*iam.ServiceAccountKey, error) {
+		calls++
+		if calls == 1 {
+			return nil, missing
+		}
+		return &iam.ServiceAccountKey{PrivateKeyData: "a2V5"}, nil
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, "a2V5", key.PrivateKeyData)
+	assert.Equal(t, 2, calls)
+}
+
+// TestCreateServiceAccountKeyWithRetry_ReturnsOtherErrors checks a non-not-found failure.
+// That error is returned on the first attempt.
+func TestCreateServiceAccountKeyWithRetry_ReturnsOtherErrors(t *testing.T) {
+	// return a permission error without retrying
+	withNoIAMRetryDelay(t)
+	denied := &googleapi.Error{Code: 403}
+	calls := 0
+
+	_, err := createServiceAccountKeyWithRetry(func() (*iam.ServiceAccountKey, error) {
+		calls++
+		return nil, denied
+	})
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, denied)
+	assert.Equal(t, 1, calls)
+}
+
+// TestCreateServiceAccountKeyWithRetry_GivesUpAfterTheAttemptLimit checks a lasting not-found.
+// The create stops after the shared attempt limit.
+func TestCreateServiceAccountKeyWithRetry_GivesUpAfterTheAttemptLimit(t *testing.T) {
+	// keep returning not-found through the attempt limit
+	withNoIAMRetryDelay(t)
+	missing := &googleapi.Error{Code: 404}
+	calls := 0
+
+	_, err := createServiceAccountKeyWithRetry(func() (*iam.ServiceAccountKey, error) {
+		calls++
+		return nil, missing
+	})
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, missing)
+	assert.Equal(t, iamPolicyAttempts, calls)
+}
+
 func TestIsNotFoundError(t *testing.T) {
 	assert.True(t, isNotFoundError(&googleapi.Error{Code: 404}))
 	assert.True(t, isNotFoundError(fmt.Errorf("wrapped: %w", &googleapi.Error{Code: 404})))
