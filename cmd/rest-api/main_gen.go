@@ -31,7 +31,7 @@ import (
 )
 
 // @title Threeport RESTful API
-// @version v0.7.0-rc.1
+// @version v0.7.0-rc.3
 // @description Core API server for the Threeport application orchestration control plane.
 // @contact.url https://threeport.io
 // @BasePath /
@@ -236,6 +236,13 @@ func main() {
 func configureHealthCheckEndpoint() {
 	// set up health check endpoint
 	http.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+
+	// liveness only asks whether the process still answers, so a
+	// database or NATS outage does not restart every replica
+	http.HandleFunc("/livez", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})

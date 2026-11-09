@@ -71,10 +71,19 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	routeRegistration := &Statement{}
 	routeRegistration.Comment("routes")
 	routeRegistration.Line()
-	routeRegistration.Qual(
-		"github.com/threeport/threeport/pkg/api-server/v0/routes",
-		"SwaggerRoutes",
-	).Call(Id("e"))
+	if gen.Module {
+		// the module's own swagger docs, served under the path the core API
+		// proxies to this module
+		routeRegistration.Id("e").Dot("GET").Call(
+			Qual(fmt.Sprintf("%s/pkg/api-server/v0", gen.ModulePath), "SwaggerPath").Op("+").Lit("/*"),
+			Qual("github.com/swaggo/echo-swagger", "WrapHandler"),
+		)
+	} else {
+		routeRegistration.Qual(
+			"github.com/threeport/threeport/pkg/api-server/v0/routes",
+			"SwaggerRoutes",
+		).Call(Id("e"))
+	}
 	routeRegistration.Line()
 	routeRegistration.Qual(
 		fmt.Sprintf("%s/cmd/rest-api/util", gen.ModulePath),
@@ -171,7 +180,9 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	} else {
 		f.ImportAlias("github.com/threeport/threeport/pkg/api/v0", "api_v0")
 	}
-	f.Anon("github.com/threeport/threeport/pkg/api-server/v0/docs")
+	// the swagger docs this API server serves: a module's own, described
+	// from its own API, not the core API's
+	f.Anon(fmt.Sprintf("%s/pkg/api-server/v0/docs", gen.ModulePath))
 
 	// swagger docs
 	if sdkConfig.ApiDocs.Title != "" {
@@ -658,6 +669,16 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		Comment("set up health check endpoint"),
 		Qual("net/http", "HandleFunc").Call(
 			Lit("/readyz"),
+			Func().Params(Id("w").Qual("net/http", "ResponseWriter"), Id("r").Op("*").Qual("net/http", "Request")).Block(
+				Id("w").Dot("WriteHeader").Call(Qual("net/http", "StatusOK")),
+				Id("w").Dot("Write").Call(Index().Byte().Call(Lit("OK"))),
+			),
+		),
+		Line(),
+		Comment("liveness only asks whether the process still answers, so a"),
+		Comment("database or NATS outage does not restart every replica"),
+		Qual("net/http", "HandleFunc").Call(
+			Lit("/livez"),
 			Func().Params(Id("w").Qual("net/http", "ResponseWriter"), Id("r").Op("*").Qual("net/http", "Request")).Block(
 				Id("w").Dot("WriteHeader").Call(Qual("net/http", "StatusOK")),
 				Id("w").Dot("Write").Call(Index().Byte().Call(Lit("OK"))),

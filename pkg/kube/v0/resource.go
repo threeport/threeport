@@ -391,6 +391,33 @@ func GetJsonResourcesFromYamlDoc(yamlDoc string) ([][]byte, error) {
 	return jsonObjects, nil
 }
 
+// GetYamlDocuments returns each YAML document in the manifest.
+func GetYamlDocuments(yamlDoc string) ([]string, error) {
+	// decode each document and encode it on its own
+	decoder := yamlv3.NewDecoder(strings.NewReader(yamlDoc))
+	documents := []string{}
+	for {
+		var content map[string]interface{}
+		err := decoder.Decode(&content)
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode yaml document in manifest: %w", err)
+		}
+		if content == nil {
+			continue
+		}
+		rendered, err := yamlv3.Marshal(content)
+		if err != nil {
+			return nil, fmt.Errorf("failed to encode yaml document in manifest: %w", err)
+		}
+		documents = append(documents, string(rendered))
+	}
+
+	return documents, nil
+}
+
 // getResourceMapping gets the REST mapping for a given unstructured Kubernetes
 // object.
 func getResourceMapping(kubeObject *unstructured.Unstructured, mapper meta.RESTMapper) (*meta.RESTMapping, error) {

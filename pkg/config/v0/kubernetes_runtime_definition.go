@@ -150,17 +150,18 @@ func (k *KubernetesRuntimeDefinitionConfig) Replace(
 	}
 
 	// construct updated kubernetes runtime definition object
-	updatedKubernetesRuntimeDefinition := &api_v0.KubernetesRuntimeDefinition{
-		Common: api_v0.Common{
-			ID: existingKubernetesRuntimeDefinition.ID,
-		},
-		Definition: api_v0.Definition{
-			Name: kubernetesRuntimeDefinitionValues.Name,
-		},
-		InfraProvider:            kubernetesRuntimeDefinitionValues.InfraProvider,
-		HighAvailability:         kubernetesRuntimeDefinitionValues.HighAvailability,
-		InfraProviderAccountName: kubernetesRuntimeDefinitionValues.InfraProviderAccountName,
-	}
+	// Start from the existing object, so the fields this replace does not set
+	// are kept: the reconciler's (Reconciled and the rest of Reconciliation,
+	// Status) and the ones only the API server or a controller writes. Every
+	// field a user sets through the config is assigned below unconditionally,
+	// a nil value included, so a field left out of the config is cleared
+	// rather than kept. Do not assign the reconciler's fields here: the copy
+	// already carries them.
+	updatedKubernetesRuntimeDefinition := util.Ptr(*existingKubernetesRuntimeDefinition)
+	updatedKubernetesRuntimeDefinition.Name = kubernetesRuntimeDefinitionValues.Name
+	updatedKubernetesRuntimeDefinition.InfraProvider = kubernetesRuntimeDefinitionValues.InfraProvider
+	updatedKubernetesRuntimeDefinition.HighAvailability = kubernetesRuntimeDefinitionValues.HighAvailability
+	updatedKubernetesRuntimeDefinition.InfraProviderAccountName = kubernetesRuntimeDefinitionValues.InfraProviderAccountName
 
 	// replace kubernetes runtime definition
 	replacedKubernetesRuntimeDefinition, err := client_v0.ReplaceKubernetesRuntimeDefinition(

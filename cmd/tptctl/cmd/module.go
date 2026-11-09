@@ -56,7 +56,7 @@ var GetModuleApisCmd = &cobra.Command{
 		case "v0":
 			// load values
 			moduleApiConfig := config_v0.ModuleApiConfig{}
-			if moduleConfigPath != "" {
+			if moduleConfigPath != "" || moduleStdin {
 				configContent, err := cli.ReadConfigContent(moduleConfigPath, moduleStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -381,7 +381,7 @@ var GetModuleApiRoutesCmd = &cobra.Command{
 		case "v0":
 			// load values
 			moduleApiRouteConfig := config_v0.ModuleApiRouteConfig{}
-			if moduleConfigPath != "" {
+			if moduleConfigPath != "" || moduleStdin {
 				configContent, err := cli.ReadConfigContent(moduleConfigPath, moduleStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -706,7 +706,7 @@ var GetModuleControllersCmd = &cobra.Command{
 		case "v0":
 			// load values
 			moduleControllerConfig := config_v0.ModuleControllerConfig{}
-			if moduleConfigPath != "" {
+			if moduleConfigPath != "" || moduleStdin {
 				configContent, err := cli.ReadConfigContent(moduleConfigPath, moduleStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -1031,7 +1031,7 @@ var GetModuleObjectsCmd = &cobra.Command{
 		case "v0":
 			// load values
 			moduleObjectConfig := config_v0.ModuleObjectConfig{}
-			if moduleConfigPath != "" {
+			if moduleConfigPath != "" || moduleStdin {
 				configContent, err := cli.ReadConfigContent(moduleConfigPath, moduleStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)

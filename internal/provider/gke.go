@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"os"
 
@@ -21,11 +22,12 @@ import (
 	"google.golang.org/api/option"
 	gcpoption "google.golang.org/api/option"
 	"google.golang.org/api/storage/v1"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"gorm.io/datatypes"
 
 	gcpauth "github.com/threeport/threeport/pkg/auth/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
-	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // KubernetesRuntimeInfraGKE represents the infrastructure for a threeport-managed
@@ -340,8 +342,8 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 			return fmt.Errorf("failed to create GKE cluster: %w", err)
 		}
 
-		_, err = gkecontainer.NewNodePool(ctx, fmt.Sprintf("%s-nodepool", i.RuntimeInstanceName), &gkecontainer.NodePoolArgs{
-			Name:     pulumi.String(fmt.Sprintf("%s-nodepool", i.RuntimeInstanceName)),
+		_, err = gkecontainer.NewNodePool(ctx, i.workerNodePoolName(), &gkecontainer.NodePoolArgs{
+			Name:     pulumi.String(i.workerNodePoolName()),
 			Cluster:  cluster.Name,
 			Location: pulumi.String(i.Region),
 
@@ -391,11 +393,16 @@ func (i *KubernetesRuntimeInfraGKE) Delete() error {
 		return err
 	}
 
+	// A failed cleanup is returned, not logged: the caller removes the only
+	// record of this instance once Delete succeeds, and what is left here is a
+	// service account and project roles that nothing else will find to retry.
+	// The stack is already gone by now, so the error says so - a retry has no
+	// stack to load and must go straight to CleanUpGCPResources.
 	if err := i.DeleteGCPResources(); err != nil {
-		if i.Logger != nil {
-			i.Logger.Info("warning: failed to clean up GCP resources", "error", err.Error())
-		} else {
-			util.CliOutputWarning(fmt.Sprintf("failed to clean up GCP resources: %v", err))
+		return &GcpCleanupError{
+			ServiceAccountEmail: i.getServiceAccountEmail(),
+			ProjectID:           i.ProjectID,
+			Err:                 err,
 		}
 	}
 
@@ -421,6 +428,40 @@ func (i *KubernetesRuntimeInfraGKE) destroyInfraStack() error {
 	}
 
 	return nil
+}
+
+// GcpCleanupError reports that a GKE cluster's infrastructure was destroyed but
+// the GCP service account and project roles created for it could not be removed.
+type GcpCleanupError struct {
+	ServiceAccountEmail string
+	ProjectID           string
+	Err                 error
+}
+
+func (e *GcpCleanupError) Error() string {
+	return fmt.Sprintf(
+		"infrastructure destroyed, but failed to clean up GCP service account %s in project %s: %v",
+		e.ServiceAccountEmail, e.ProjectID, e.Err,
+	)
+}
+
+func (e *GcpCleanupError) Unwrap() error { return e.Err }
+
+// CleanUpGCPResources removes the GCP service account and project roles for a
+// runtime whose infrastructure is already destroyed. It authenticates as Delete
+// does, and is safe to repeat: an account that is gone is not an error.
+func (i *KubernetesRuntimeInfraGKE) CleanUpGCPResources() error {
+	if i.ProjectID == "" {
+		return errors.New("GCP project ID is required to clean up GCP resources")
+	}
+	if err := gcpauth.EnsureGCPAuth(i.ServiceAccountCredentials); err != nil {
+		return fmt.Errorf("failed to ensure GCP authentication: %w", err)
+	}
+	if i.ServiceAccountCredentials != "" {
+		defer gcpauth.CleanupGCPCredentials()
+	}
+
+	return i.DeleteGCPResources()
 }
 
 // DeleteGCPResources deletes the GCP service account Create made for this
@@ -485,23 +526,31 @@ func (i *KubernetesRuntimeInfraGKE) DeleteGCPResources() error {
 	return nil
 }
 
-// GetConnection returns the connection information for the GKE cluster.
-func (i *KubernetesRuntimeInfraGKE) GetConnection() (*kube.KubeConnectionInfo, error) {
+// useGCPAuth puts GCP authentication and configuration in place for a call that
+// reaches GCP directly. The returned function releases what was set up and must
+// be called when the call is done.
+func (i *KubernetesRuntimeInfraGKE) useGCPAuth() (func(), error) {
 	// ensure GCP authentication is in place
 	if err := gcpauth.EnsureGCPAuth(i.ServiceAccountCredentials); err != nil {
 		return nil, fmt.Errorf("failed to ensure GCP authentication: %w", err)
 	}
+	cleanup := func() {}
 	if i.ServiceAccountCredentials != "" {
-		defer gcpauth.CleanupGCPCredentials()
+		cleanup = gcpauth.CleanupGCPCredentials
 	}
 
 	// load GCP configuration from gcloud CLI config or environment variables
 	if err := i.loadGCPConfig(); err != nil {
+		cleanup()
 		return nil, fmt.Errorf("failed to load GCP configuration: %w", err)
 	}
 
-	ctx := context.Background()
+	return cleanup, nil
+}
 
+// getCluster fetches the GKE cluster as GCP reports it right now.  The caller
+// has put GCP authentication in place.
+func (i *KubernetesRuntimeInfraGKE) getCluster(ctx context.Context) (*containerpb.Cluster, error) {
 	// Use ServiceAccountCredentials directly when available, for the same
 	// reason as the other GCP clients constructed in this file: this call
 	// must act as the service account tied to this GcpProvider, not
@@ -531,6 +580,107 @@ func (i *KubernetesRuntimeInfraGKE) GetConnection() (*kube.KubeConnectionInfo, e
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cluster details: %w", err)
+	}
+
+	return cluster, nil
+}
+
+// gkeClusterReady returns an error naming what keeps the cluster from being
+// connected to yet.  GCP returns a cluster that is still being created with no
+// endpoint, and an endpoint on its own does not make it usable.
+func gkeClusterReady(cluster *containerpb.Cluster) error {
+	if cluster.GetStatus() != containerpb.Cluster_RUNNING {
+		return fmt.Errorf("cluster is %s, not RUNNING", cluster.GetStatus())
+	}
+	if cluster.GetEndpoint() == "" {
+		return errors.New("cluster has no API endpoint yet")
+	}
+	if cluster.GetMasterAuth().GetClusterCaCertificate() == "" {
+		return errors.New("cluster has no CA certificate yet")
+	}
+
+	return nil
+}
+
+// workerNodePoolName is the name of the node pool the stack creates for
+// workloads. The create check looks for it by this name, so it is named once.
+func (i *KubernetesRuntimeInfraGKE) workerNodePoolName() string {
+	return fmt.Sprintf("%s-nodepool", i.RuntimeInstanceName)
+}
+
+// gkeWorkerPoolReady returns an error unless the named worker node pool exists
+// and is RUNNING. Any other pool does not count: the cluster is created with a
+// default pool that the stack removes before it creates the worker pool, so a
+// running default pool says the create has not reached the workers yet.
+func gkeWorkerPoolReady(cluster *containerpb.Cluster, workerPool string) error {
+	for _, nodePool := range cluster.GetNodePools() {
+		if nodePool.GetName() != workerPool {
+			continue
+		}
+		if nodePool.GetStatus() != containerpb.NodePool_RUNNING {
+			return fmt.Errorf("node pool %s is %s, not RUNNING", workerPool, nodePool.GetStatus())
+		}
+		return nil
+	}
+
+	return fmt.Errorf("worker node pool %s does not exist yet", workerPool)
+}
+
+// CreateComplete reports whether the whole create finished, as GCP sees it
+// rather than as the streamed Pulumi state does.  The stack state is saved
+// while the stack is still being built, so state alone only says that
+// provisioning started.  The cluster and its worker node pool are running and the
+// Workload Identity binding is in place only when CreateInfra has run to its
+// last step.  A cluster GCP does not know yet is not complete, not an error.
+func (i *KubernetesRuntimeInfraGKE) CreateComplete() (bool, error) {
+	release, err := i.useGCPAuth()
+	if err != nil {
+		return false, err
+	}
+	defer release()
+
+	ctx := context.Background()
+	cluster, err := i.getCluster(ctx)
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return false, nil
+		}
+		return false, err
+	}
+	if gkeClusterReady(cluster) != nil || gkeWorkerPoolReady(cluster, i.workerNodePoolName()) != nil {
+		return false, nil
+	}
+
+	// The binding is made after the stack is up, so it is checked last.
+	clientOpts := []gcpoption.ClientOption{gcpoption.WithScopes(gcpiam.CloudPlatformScope)}
+	if i.ServiceAccountCredentials != "" {
+		clientOpts = append(clientOpts, gcpoption.WithCredentialsJSON([]byte(i.ServiceAccountCredentials)))
+	}
+	iamService, err := gcpiam.NewService(ctx, clientOpts...)
+	if err != nil {
+		return false, fmt.Errorf("failed to create IAM service client: %w", err)
+	}
+
+	return i.workloadIdentityBound(iamService)
+}
+
+// GetConnection returns the connection information for the GKE cluster.  It
+// fails while the cluster is not ready to be connected to, so that a caller
+// never records the endpoint of a cluster that does not have one yet.
+func (i *KubernetesRuntimeInfraGKE) GetConnection() (*kube.KubeConnectionInfo, error) {
+	release, err := i.useGCPAuth()
+	if err != nil {
+		return nil, err
+	}
+	defer release()
+
+	ctx := context.Background()
+	cluster, err := i.getCluster(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := gkeClusterReady(cluster); err != nil {
+		return nil, fmt.Errorf("GKE cluster is not ready for connection: %w", err)
 	}
 
 	// decode the CA certificate
@@ -564,6 +714,53 @@ func (i *KubernetesRuntimeInfraGKE) GetConnection() (*kube.KubeConnectionInfo, e
 	}
 
 	return kubeConnInfo, nil
+}
+
+// ResourcesExist reports whether the GKE cluster for this instance exists in
+// GCP. Only a NotFound response means it does not; any other failure, such as
+// revoked credentials, is returned as an error so a delete is not confirmed on
+// the strength of a lookup that could not be made.
+func (i *KubernetesRuntimeInfraGKE) ResourcesExist() (bool, error) {
+	// ensure GCP authentication is in place
+	if err := gcpauth.EnsureGCPAuth(i.ServiceAccountCredentials); err != nil {
+		return false, fmt.Errorf("failed to ensure GCP authentication: %w", err)
+	}
+	if i.ServiceAccountCredentials != "" {
+		defer gcpauth.CleanupGCPCredentials()
+	}
+
+	if err := i.loadGCPConfig(); err != nil {
+		return false, fmt.Errorf("failed to load GCP configuration: %w", err)
+	}
+
+	ctx := context.Background()
+
+	// act as the service account tied to this GcpProvider, as GetConnection does
+	clusterManagerClientOpts := []option.ClientOption{}
+	if i.ServiceAccountCredentials != "" {
+		clusterManagerClientOpts = append(clusterManagerClientOpts, option.WithCredentialsJSON([]byte(i.ServiceAccountCredentials)))
+	}
+
+	clusterManagerClient, err := container.NewClusterManagerClient(ctx, clusterManagerClientOpts...)
+	if err != nil {
+		return false, fmt.Errorf("failed to create cluster manager client: %w", err)
+	}
+	defer clusterManagerClient.Close()
+
+	_, err = clusterManagerClient.GetCluster(ctx, &containerpb.GetClusterRequest{
+		Name: fmt.Sprintf(
+			"projects/%s/locations/%s/clusters/%s",
+			i.ProjectID, i.Region, i.RuntimeInstanceName,
+		),
+	})
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to look up GKE cluster %s: %w", i.RuntimeInstanceName, err)
+	}
+
+	return true, nil
 }
 
 // tokenSource returns the source of the access tokens the cluster is
