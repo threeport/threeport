@@ -78,7 +78,7 @@ func EnsureCertificatesComponent[T componentAttacher](
 }
 
 // EnsureSecretsComponent attaches an API instance to the secrets component of the support services operator.
-// The shared workload is named external-secrets-<runtime>. eks, kind, and gke install it.
+// The shared workload is named external-secrets-<runtime>. eks, kind, and gke install it, and an instance that edits the manifest syncs that edit.
 func EnsureSecretsComponent[T componentAttacher](
 	r *controller.Reconciler,
 	runtime *api.KubernetesRuntimeInstance,
@@ -113,7 +113,7 @@ func EnsureSecretsComponent[T componentAttacher](
 		fmt.Sprintf("%s-%s", SecretsComponentName, *runtime.Name),
 		secretsColumn,
 		record,
-		nil,
+		attacherManifest(attacher),
 		secretsComponentYaml,
 		log,
 	)
