@@ -24,7 +24,6 @@ import (
 	"os"
 	"sync"
 	"sync/atomic"
-	"time"
 )
 
 func main() {
@@ -113,7 +112,7 @@ func main() {
 		Bucket:      controlplane.LockBucketName,
 		Description: controlplane.LockBucketDescr,
 		Replicas:    *msgBrokerReplicas,
-		TTL:         time.Minute * 20,
+		TTL:         controller.LockTTL,
 	}
 	kv, err := controller.CreateLockBucketIfNotExists(js, &kvConfig)
 	if err != nil {

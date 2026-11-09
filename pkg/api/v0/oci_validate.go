@@ -5,6 +5,7 @@ package v0
 import (
 	"fmt"
 
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -57,7 +58,7 @@ func (o *OciProvider) beforeDelete(tx *gorm.DB) error {
 
 // beforeCreate validates the OciOkeKubernetesRuntimeDefinition before create.
 func (o *OciOkeKubernetesRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
-	return nil
+	return validateKubernetesApiAccess(KubernetesRuntimeInfraProviderOKE, o.PrivateApi, o.AllowedCidrs)
 }
 
 // beforeUpdate validates the OciOkeKubernetesRuntimeDefinition before update.
@@ -74,7 +75,17 @@ func (o *OciOkeKubernetesRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
 // Import:
 //   lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (o *OciOkeKubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
-	return nil
+	return validateKubernetesApiAccessUpdate(
+		tx,
+		KubernetesRuntimeInfraProviderOKE,
+		func(value any) (*bool, *datatypes.JSON, bool) {
+			object, ok := value.(*OciOkeKubernetesRuntimeDefinition)
+			if !ok {
+				return nil, nil, false
+			}
+			return object.PrivateApi, object.AllowedCidrs, true
+		},
+	)
 }
 
 // beforeDelete validates the OciOkeKubernetesRuntimeDefinition before delete.

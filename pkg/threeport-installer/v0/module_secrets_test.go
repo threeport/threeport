@@ -13,9 +13,9 @@ import (
 
 const testModuleSecretsNamespace = "widget-module"
 
-// testSecret returns a secret holding env in its data, as the cluster stores
-// it.
-func testSecret(namespace, env string, labels map[string]string) *unstructured.Unstructured {
+// testControllerConfigSecret returns a controller-config secret holding env
+// in its data, as the cluster stores it.
+func testControllerConfigSecret(namespace, env string, labels map[string]string) *unstructured.Unstructured {
 	secret := &unstructured.Unstructured{Object: map[string]interface{}{
 		"apiVersion": "v1",
 		"kind":       "Secret",
@@ -35,7 +35,7 @@ func testSecret(namespace, env string, labels map[string]string) *unstructured.U
 
 func TestCopySecretCreatesAModulesCopy(t *testing.T) {
 	_, kubeClient, _ := newBrokerTestClient(
-		testSecret(testControlPlaneNamespace, "MSG_BROKER_PASSWORD=tpSecret", map[string]string{"app": "threeport"}),
+		testControllerConfigSecret(testControlPlaneNamespace, "MSG_BROKER_PASSWORD=tpSecret", map[string]string{"app": "threeport"}),
 	)
 
 	require.NoError(t, CopySecret(kubeClient, *installerTestMapper(), "controller-config", testControlPlaneNamespace, testModuleSecretsNamespace))
@@ -54,8 +54,8 @@ func TestCopySecretRefreshesAModulesOldCopy(t *testing.T) {
 	// a module installed before the broker required TLS holds a copy
 	// without the broker's password
 	_, kubeClient, _ := newBrokerTestClient(
-		testSecret(testControlPlaneNamespace, "MSG_BROKER_PASSWORD=tpSecret", nil),
-		testSecret(testModuleSecretsNamespace, "MSG_BROKER_HOST=nats-js", nil),
+		testControllerConfigSecret(testControlPlaneNamespace, "MSG_BROKER_PASSWORD=tpSecret", nil),
+		testControllerConfigSecret(testModuleSecretsNamespace, "MSG_BROKER_HOST=nats-js", nil),
 	)
 
 	require.NoError(t, CopySecret(kubeClient, *installerTestMapper(), "controller-config", testControlPlaneNamespace, testModuleSecretsNamespace))
