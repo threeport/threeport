@@ -310,7 +310,7 @@ func TestComputeSpaceControlPlaneComponentsCurrent(t *testing.T) {
 		}()} {
 			for i := range agentBindings(installer) {
 				present := append(
-					[]runtime.Object{deployment(installer.Opts.Namespace, ThreeportAgentDeployName, agentImageFor(installer))},
+					[]runtime.Object{agentDeployment(installer, argStrings(installer.getAgentArgs())...)},
 					installedCRDs()...,
 				)
 				for j, binding := range agentBindings(installer) {
@@ -342,7 +342,10 @@ func TestComputeSpaceControlPlaneComponentsCurrent(t *testing.T) {
 	})
 
 	// an updating install can replace a binding's subject, so one that
-	// names another service account is a repair to make
+	// names another service account is a repair to make. The agent's args
+	// are compared first, so the fixture carries the right ones: without
+	// them the check returns before it reaches the bindings and the test
+	// passes whether or not the subject is compared.
 	t.Run("not current when an updating install finds the wrong subject", func(t *testing.T) {
 		updating := NewInstaller()
 		updating.Opts.CreateOrUpdateKubeResources = true
@@ -356,7 +359,7 @@ func TestComputeSpaceControlPlaneComponentsCurrent(t *testing.T) {
 		}
 
 		client := testClient(append(append(
-			[]runtime.Object{deployment(updating.Opts.Namespace, ThreeportAgentDeployName, agentImageFor(updating))},
+			[]runtime.Object{agentDeployment(updating, argStrings(updating.getAgentArgs())...)},
 			installedCRDs()...,
 		), bindings...)...)
 
