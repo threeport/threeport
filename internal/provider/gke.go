@@ -632,10 +632,11 @@ func (i *KubernetesRuntimeInfraGKE) kubeApiAllowlist() ([]string, error) {
 // them: a public endpoint open to every address, or a private cluster's
 // internal endpoint open to its network and the networks connected to it.
 // On a public cluster the nodes reach the API through the internal endpoint,
-// which these do not limit, and GKE admits a private cluster's own address
-// ranges without them being listed.  Access from Google Cloud's own public
-// addresses is turned off, since it would let any VM in any project past the
-// list.
+// which these do not limit.  On a private cluster they are enforced on the
+// internal endpoint, which GKE does only when asked to; GKE still admits the
+// cluster's own node, Pod and Service ranges there without them being listed.
+// Access from Google Cloud's own public addresses is turned off, since it
+// would let any VM in any project past the list.
 func (i *KubernetesRuntimeInfraGKE) masterAuthorizedNetworksConfig() (gkecontainer.ClusterMasterAuthorizedNetworksConfigPtrInput, error) {
 	allowlist, err := i.kubeApiAllowlist()
 	if err != nil {
@@ -652,10 +653,15 @@ func (i *KubernetesRuntimeInfraGKE) masterAuthorizedNetworksConfig() (gkecontain
 		})
 	}
 
-	return &gkecontainer.ClusterMasterAuthorizedNetworksConfigArgs{
+	config := &gkecontainer.ClusterMasterAuthorizedNetworksConfigArgs{
 		CidrBlocks:                  cidrBlocks,
 		GcpPublicCidrsAccessEnabled: pulumi.Bool(false),
-	}, nil
+	}
+	if i.PrivateApi {
+		config.PrivateEndpointEnforcementEnabled = pulumi.Bool(true)
+	}
+
+	return config, nil
 }
 
 // useGCPAuth puts GCP authentication and configuration in place for a call that

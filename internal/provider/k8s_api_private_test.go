@@ -45,6 +45,8 @@ func TestAPrivateGkeClusterHasNoPublicIpEndpoint(t *testing.T) {
 		infra.ControlPlaneEgressCidrs = []string{"198.51.100.20/32"}
 		config := gkeClusterResourceInputs(t, infra)["masterAuthorizedNetworksConfig"].(map[string]any)
 		assert.Equal(t, []any{map[string]any{"cidrBlock": "10.8.0.0/16"}}, config["cidrBlocks"])
+		assert.Equal(t, true, config["privateEndpointEnforcementEnabled"],
+			"GKE applies the list to the internal endpoint only when told to")
 	})
 	t.Run("private admits GKE's private limit", func(t *testing.T) {
 		infra := testGkeInfra()
