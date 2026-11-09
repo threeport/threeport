@@ -355,6 +355,14 @@ func TestDivergentComponents(t *testing.T) {
 			want: []string{"agent"},
 		},
 		{
+			name: "a component that is not a controller is installed whatever Enabled says",
+			recorded: []*v0.ControlPlaneComponent{
+				recorded("rest-api", "ghcr.io/threeport", "v0.7.0"),
+				{Name: "agent", ImageNamespace: "mirror.example.com", ImageTag: "forked", Enabled: util.Ptr(false)},
+			},
+			want: []string{"agent"},
+		},
+		{
 			name: "an explicitly enabled pin is reported",
 			recorded: []*v0.ControlPlaneComponent{
 				recorded("rest-api", "ghcr.io/threeport", "v0.7.0"),

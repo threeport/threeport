@@ -38,6 +38,19 @@ func IsDefaultComponent(name string) bool {
 	return false
 }
 
+// isDefaultController returns true if name is one of the controllers a control
+// plane installs by default, as opposed to the rest api, the agent or the
+// database migrator.
+func isDefaultController(name string) bool {
+	for _, controller := range ThreeportControllerList {
+		if name == controller.Name {
+			return true
+		}
+	}
+
+	return false
+}
+
 // copyComponent returns a copy of a component that shares no memory with the
 // original, so a write to one is never seen through the other.
 //
@@ -232,9 +245,12 @@ func (cpi *ControlPlaneInstaller) ConfigureChildComponents(
 // so each component returned is one an upgrade is about to overwrite. A
 // component recorded with no tag has nothing to overwrite and is not
 // reported. Components that are not default components are left alone by the
-// upgrade and are not reported either. Neither is a component recorded with
+// upgrade and are not reported either. Neither is a controller recorded with
 // Enabled false: the installer creates no deployment for it, so there is
-// nothing running for the upgrade to replace.
+// nothing running for the upgrade to replace. Only controllers are
+// installed conditionally. The rest api, the agent and the database migrator
+// are installed whatever their Enabled says, so a pin on one of them is
+// reported either way.
 func DivergentComponents(recorded []*v0.ControlPlaneComponent) []string {
 	var reference string
 	for _, component := range recorded {
@@ -249,8 +265,10 @@ func DivergentComponents(recorded []*v0.ControlPlaneComponent) []string {
 
 	var divergent []string
 	for _, component := range recorded {
-		if component == nil || !IsDefaultComponent(component.Name) ||
-			(component.Enabled != nil && !*component.Enabled) {
+		if component == nil || !IsDefaultComponent(component.Name) {
+			continue
+		}
+		if isDefaultController(component.Name) && component.Enabled != nil && !*component.Enabled {
 			continue
 		}
 		if component.ImageTag != "" && component.ImageTag != reference {
