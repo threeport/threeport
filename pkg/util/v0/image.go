@@ -6,9 +6,9 @@ import (
 )
 
 // ParseImage splits a full image into the registry, name, and tag.
-// The registry is every path segment except the last.
+// The registry is every path segment except the last, including a host port.
 func ParseImage(image string) (string, string, string, error) {
-	// split the image name from the registry
+	// keep all but the last slash segment as the registry
 	imageSplit := strings.Split(image, "/")
 	if len(imageSplit) < 2 {
 		return "", "", "", fmt.Errorf("unable to parse image %s", image)
@@ -16,7 +16,7 @@ func ParseImage(image string) (string, string, string, error) {
 	imageRegistry := strings.Join(imageSplit[:len(imageSplit)-1], "/")
 	imageName := imageSplit[len(imageSplit)-1]
 
-	// split the image tag from the image name
+	// split the tag from the colon in that last segment
 	tagSplit := strings.Split(imageName, ":")
 	if len(tagSplit) < 2 || tagSplit[1] == "" {
 		return "", "", "", fmt.Errorf("failed to parse image %s, image has no tag", image)
