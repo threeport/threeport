@@ -165,14 +165,15 @@ func runtimeAPIHost(endpoint *string) (string, error) {
 // workloadAPIErr returns a retry when err is a transient network failure.
 // Any other error is returned so the reconciler stops that failure after an hour.
 func workloadAPIErr(log *logr.Logger, err error, message string) (int64, error) {
-	// a nil error keeps this pass off the one-hour failure clock
-	if controller.IsNetworkErr(err) {
+	// a network error requeues. Drop the error so the one-hour limit does not start.
+	delay, retryErr := controller.RetryOnNetworkErr(err, message)
+	if delay != 0 {
 		log.Info("kubernetes API unreachable, retrying", "error", err)
-		return controller.Requeue30s, nil
+		return delay, nil
 	}
 
 	// an API response or a local failure keeps the one-hour limit
-	return 0, fmt.Errorf("%s: %w", message, err)
+	return 0, retryErr
 }
 
 // v0KubernetesRuntimeInstanceUpdated performs reconciliation when a v0 KubernetesRuntimeInstance
