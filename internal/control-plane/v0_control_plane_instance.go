@@ -70,6 +70,24 @@ func clientEndpointReplace(saved, internal string) bool {
 	return saved == "" || saved == internal
 }
 
+// apiEndpointUpdate returns the address to store, and whether that address is a load balancer.
+// A service that is not a load balancer keeps the internal address.
+func apiEndpointUpdate(saved, internal, serviceType string) (string, bool) {
+	// keep an address that is already public
+	if !clientEndpointReplace(saved, internal) {
+		return saved, false
+	}
+
+	// keep the internal address when the service has no load balancer
+	if serviceType != "LoadBalancer" {
+		if saved == "" {
+			return internal, false
+		}
+		return saved, false
+	}
+	return "", true
+}
+
 // unfinishedChild reports whether create acknowledged the row and never stored its parent.
 func unfinishedChild(instance *v0.ControlPlaneInstance) bool {
 	// skip a root, which reconciles itself
@@ -1180,20 +1198,37 @@ func v0ControlPlaneInstanceUpdated(
 		}
 	}
 
-	// replace a missing address or the in-cluster name with the load balancer.
+	// read the service before choosing an address.
 	// Kind has no load balancer, so its address stays as it is.
 	clientFieldsChanged := false
 	if *kubernetesRuntimeDefinition.InfraProvider != v0.KubernetesRuntimeInfraProviderKind {
 		_, clientPort := cpi.GetAPIServicePort()
 		internalEndpoint := fmt.Sprintf("%s.%s:%d", cpi.Opts.RestApiInfo.ServiceResourceName, cpi.Opts.Namespace, clientPort)
-		if clientEndpointReplace(util.DerefString(controlPlaneInstance.ApiServerEndpoint), internalEndpoint) {
-			lbEndpoint, lbErr := cpi.GetThreeportAPIEndpoint(dynamicKubeClient, *mapper)
-			if lbErr != nil {
-				return 0, fmt.Errorf("failed to get threeport API load balancer endpoint: %w", lbErr)
+		savedEndpoint := util.DerefString(controlPlaneInstance.ApiServerEndpoint)
+		if clientEndpointReplace(savedEndpoint, internalEndpoint) {
+			service, svcErr := cpi.GetThreeportAPIService(dynamicKubeClient, *mapper)
+			if svcErr != nil {
+				return 0, fmt.Errorf("failed to get threeport API service: %w", svcErr)
 			}
-			publicEndpoint := fmt.Sprintf("%s:%d", lbEndpoint, clientPort)
-			controlPlaneInstance.ApiServerEndpoint = &publicEndpoint
-			clientFieldsChanged = true
+			serviceType, _, typeErr := unstructured.NestedString(service.Object, "spec", "type")
+			if typeErr != nil {
+				return 0, fmt.Errorf("failed to get threeport API service type: %w", typeErr)
+			}
+
+			// keep the internal address when the service is not a load balancer.
+			// The service is persistent, so this reconcile does not convert it.
+			address, readLoadBalancer := apiEndpointUpdate(savedEndpoint, internalEndpoint, serviceType)
+			if readLoadBalancer {
+				lbEndpoint, lbErr := cpi.GetThreeportAPIEndpoint(dynamicKubeClient, *mapper)
+				if lbErr != nil {
+					return 0, fmt.Errorf("failed to get threeport API load balancer endpoint: %w", lbErr)
+				}
+				address = fmt.Sprintf("%s:%d", lbEndpoint, clientPort)
+			}
+			if address != savedEndpoint {
+				controlPlaneInstance.ApiServerEndpoint = &address
+				clientFieldsChanged = true
+			}
 		}
 	}
 

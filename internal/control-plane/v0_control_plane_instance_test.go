@@ -93,6 +93,34 @@ func TestClientEndpointReplace(t *testing.T) {
 	}
 }
 
+// TestAPIEndpointUpdate keeps the internal address when the service is not a load balancer.
+func TestAPIEndpointUpdate(t *testing.T) {
+	// a ClusterIP service has no address to wait for
+	internal := "threeport-api-server.primary-01:443"
+	public := "34.132.193.86:443"
+	cases := []struct {
+		name        string
+		saved       string
+		serviceType string
+		want        string
+		readLB      bool
+	}{
+		{name: "empty clusterip", saved: "", serviceType: "ClusterIP", want: internal, readLB: false},
+		{name: "internal clusterip", saved: internal, serviceType: "ClusterIP", want: internal, readLB: false},
+		{name: "empty type", saved: "", serviceType: "", want: internal, readLB: false},
+		{name: "internal load balancer", saved: internal, serviceType: "LoadBalancer", want: "", readLB: true},
+		{name: "public load balancer", saved: public, serviceType: "LoadBalancer", want: public, readLB: false},
+		{name: "public clusterip", saved: public, serviceType: "ClusterIP", want: public, readLB: false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, readLB := apiEndpointUpdate(tc.saved, internal, tc.serviceType)
+			assert.Equal(t, tc.want, got)
+			assert.Equal(t, tc.readLB, readLB)
+		})
+	}
+}
+
 // TestUnfinishedChild reports a child whose create never stored a parent.
 func TestUnfinishedChild(t *testing.T) {
 	// a root, a copied genesis, and a finished child stay out
