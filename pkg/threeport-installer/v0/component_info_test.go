@@ -345,6 +345,23 @@ func TestDivergentComponents(t *testing.T) {
 				nil,
 			},
 		},
+		{
+			name: "a disabled component has nothing running to replace",
+			recorded: []*v0.ControlPlaneComponent{
+				recorded("rest-api", "ghcr.io/threeport", "v0.7.0"),
+				{Name: "gcp-controller", ImageNamespace: "ghcr.io/threeport", ImageTag: "hotfix", Enabled: util.Ptr(false)},
+				recorded("agent", "mirror.example.com", "forked"),
+			},
+			want: []string{"agent"},
+		},
+		{
+			name: "an explicitly enabled pin is reported",
+			recorded: []*v0.ControlPlaneComponent{
+				recorded("rest-api", "ghcr.io/threeport", "v0.7.0"),
+				{Name: "gcp-controller", ImageNamespace: "ghcr.io/threeport", ImageTag: "hotfix", Enabled: util.Ptr(true)},
+			},
+			want: []string{"gcp-controller"},
+		},
 	}
 
 	for _, tt := range tests {

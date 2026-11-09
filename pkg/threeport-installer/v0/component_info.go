@@ -232,7 +232,9 @@ func (cpi *ControlPlaneInstaller) ConfigureChildComponents(
 // so each component returned is one an upgrade is about to overwrite. A
 // component recorded with no tag has nothing to overwrite and is not
 // reported. Components that are not default components are left alone by the
-// upgrade and are not reported either.
+// upgrade and are not reported either. Neither is a component recorded with
+// Enabled false: the installer creates no deployment for it, so there is
+// nothing running for the upgrade to replace.
 func DivergentComponents(recorded []*v0.ControlPlaneComponent) []string {
 	var reference string
 	for _, component := range recorded {
@@ -247,7 +249,8 @@ func DivergentComponents(recorded []*v0.ControlPlaneComponent) []string {
 
 	var divergent []string
 	for _, component := range recorded {
-		if component == nil || !IsDefaultComponent(component.Name) {
+		if component == nil || !IsDefaultComponent(component.Name) ||
+			(component.Enabled != nil && !*component.Enabled) {
 			continue
 		}
 		if component.ImageTag != "" && component.ImageTag != reference {
