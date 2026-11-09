@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -472,7 +473,7 @@ func v0HelmWorkloadInstanceDeleted(
 	helmWorkloadInstances, err := client.GetHelmWorkloadInstancesByQueryString(
 		r.APIClient,
 		r.APIServer,
-		fmt.Sprintf("kubernetes-runtime-instance-id=%d", *helmWorkloadInstance.KubernetesRuntimeInstanceID),
+		sharedNamespaceQuery(helmWorkloadInstance),
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get helm workload instances by query string: %w", err)
@@ -480,15 +481,8 @@ func v0HelmWorkloadInstanceDeleted(
 
 	// if any other helm workload instances are using the namespace, do not
 	// delete it
-	if helmWorkloadInstance.ReleaseNamespace != nil && *helmWorkloadInstance.ReleaseNamespace != "" {
-		for _, hwi := range *helmWorkloadInstances {
-			if hwi.ReleaseNamespace != nil &&
-				*hwi.ReleaseNamespace == *helmWorkloadInstance.ReleaseNamespace &&
-				hwi.ID != nil &&
-				*hwi.ID != *helmWorkloadInstance.ID {
-				return 0, nil
-			}
-		}
+	if releaseNamespaceShared(helmWorkloadInstance, *helmWorkloadInstances) {
+		return 0, nil
 	}
 
 	// delete the namespace
@@ -501,6 +495,46 @@ func v0HelmWorkloadInstanceDeleted(
 	}
 
 	return 0, nil
+}
+
+// sharedNamespaceQuery returns the query string that lists the helm workload
+// instances that may share the release namespace of the one given: those on
+// the same kubernetes runtime and, when the instance has a release namespace,
+// in that namespace. Filtering on the namespace keeps the list short, because
+// the API returns a single page (100 by default) and an instance pushed off it
+// would go unseen, letting a namespace still in use be deleted. The API
+// server's query binder accepts only the lowercased field name as a key, and
+// rejects any other spelling with a 400, so keys must not be hyphenated.
+func sharedNamespaceQuery(helmWorkloadInstance *v0.HelmWorkloadInstance) string {
+	query := fmt.Sprintf(
+		"kubernetesruntimeinstanceid=%d",
+		*helmWorkloadInstance.KubernetesRuntimeInstanceID,
+	)
+	if helmWorkloadInstance.ReleaseNamespace != nil && *helmWorkloadInstance.ReleaseNamespace != "" {
+		query += "&releasenamespace=" + url.QueryEscape(*helmWorkloadInstance.ReleaseNamespace)
+	}
+	return query
+}
+
+// releaseNamespaceShared reports whether any instance in others, other than
+// helmWorkloadInstance itself, uses the same release namespace. An instance
+// with no persisted release namespace never counts as sharing one.
+func releaseNamespaceShared(
+	helmWorkloadInstance *v0.HelmWorkloadInstance,
+	others []v0.HelmWorkloadInstance,
+) bool {
+	if helmWorkloadInstance.ReleaseNamespace == nil || *helmWorkloadInstance.ReleaseNamespace == "" {
+		return false
+	}
+	for _, hwi := range others {
+		if hwi.ReleaseNamespace != nil &&
+			*hwi.ReleaseNamespace == *helmWorkloadInstance.ReleaseNamespace &&
+			hwi.ID != nil &&
+			*hwi.ID != *helmWorkloadInstance.ID {
+			return true
+		}
+	}
+	return false
 }
 
 // uninstallHelmRelease uninstalls a named helm release.

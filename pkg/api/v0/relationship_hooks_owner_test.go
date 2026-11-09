@@ -419,7 +419,7 @@ func TestWorkloadOwnedByRuntimeWritesTheRowsTogether(t *testing.T) {
 			Owner: &OwnerRef{
 				Type:  strPtr(runtime.GetFullyQualifiedType()),
 				ID:    runtime.ID,
-				Field: strPtr("GatewayControllerInstanceID"),
+				Field: strPtr("IngressComponentInstanceID"),
 			},
 		},
 		Instance:                       Instance{Name: strPtr("owned")},
@@ -431,8 +431,8 @@ func TestWorkloadOwnedByRuntimeWritesTheRowsTogether(t *testing.T) {
 	assert.Equal(t, before+4, rowCount(t, db))
 	var stored KubernetesRuntimeInstance
 	require.NoError(t, db.First(&stored, *runtime.ID).Error)
-	require.NotNil(t, stored.GatewayControllerInstanceID)
-	assert.Equal(t, *workload.ID, *stored.GatewayControllerInstanceID)
+	require.NotNil(t, stored.IngressComponentInstanceID)
+	assert.Equal(t, *workload.ID, *stored.IngressComponentInstanceID)
 }
 
 func TestWorkloadOwnerConflictRollsBackTheRows(t *testing.T) {

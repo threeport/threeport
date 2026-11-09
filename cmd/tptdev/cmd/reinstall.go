@@ -169,6 +169,38 @@ Dev environments only. Does not build images; run 'tptdev build
 				cli.Error("failed to restore module deployments", err)
 			}
 		}
+		// admit to the database the modules installed before their installer
+		// created a database network policy
+		//
+		// A module generated against a current SDK creates its policy when it
+		// is installed. One installed before does not, and nothing regenerates
+		// it on its own - without this, the database policy would cut a running
+		// module away from its own database, and the first anyone would hear of
+		// it is the module failing well after the reinstall reported success.
+		//
+		// It runs before the drop below, because afterwards the registry that
+		// says which modules there are is gone. The policies are not removed
+		// by the reinstall that follows.
+		//
+		// It is best-effort rather than fatal: reaching the Threeport API is
+		// exactly what a reinstall with no other flags exists to repair, and a
+		// module installed before the policy is the much narrower case, which
+		// running reinstall again once the API is back covers.
+		if policyClient, err := threeportConfig.GetHTTPClient(requestedControlPlane); err != nil {
+			cli.Warning(fmt.Sprintf("could not get a Threeport API client to find modules to admit to the database: %s", err))
+		} else if policyConfig, err := threeportConfig.GetControlPlaneConfig(requestedControlPlane); err != nil {
+			cli.Warning(fmt.Sprintf("could not get the threeport control plane config to find modules to admit to the database: %s", err))
+		} else if moduleApiServers, err := cpi.DiscoverModuleApiServers(policyClient, policyConfig.APIServer); err != nil {
+			cli.Warning(fmt.Sprintf(
+				"could not reach the Threeport API to find modules to admit to the database (%s) - "+
+					"a module installed before its database network policy existed may lose "+
+					"access to its own database; run reinstall again once the API is reachable",
+				err,
+			))
+		} else if err := cpi.InstallModuleDatabasePolicies(kubeClient, mapper, moduleApiServers); err != nil {
+			cli.Warning(fmt.Sprintf("failed to install module database network policies: %s", err))
+		}
+
 		// read module namespaces from the api before the drop scales it down
 		if reinstallDropDatabase {
 			// refuse a non-development tier before any deployment is scaled down

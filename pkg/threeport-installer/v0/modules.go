@@ -96,6 +96,75 @@ func (cpi *ControlPlaneInstaller) DiscoverModuleDeployments(
 	return deployments, nil
 }
 
+// DiscoverModuleApiServers returns the API server of every registered,
+// non-core module, independent of whether it has any controllers.
+//
+// DiscoverModuleDeployments finds namespaces through ModuleController rows,
+// and the SDK supports a module with no reconcilable objects at all - one
+// that registers no ModuleController. Its namespace would never surface
+// through that path, and its API server would be left without a database
+// network policy and cut off from its own database.
+//
+// Every module registers exactly one ModuleApi, controllers or not, and the
+// installer always writes its Endpoint as <service>.<namespace>.svc.cluster.local
+// (see MODULE_API_ENDPOINT in the generated installer package) - so the
+// service and its namespace are read from there instead of inferred from a
+// controller.
+func (cpi *ControlPlaneInstaller) DiscoverModuleApiServers(
+	apiClient *http.Client,
+	apiEndpoint string,
+) ([]ModuleApiServer, error) {
+	moduleApis, err := client.GetModuleApis(apiClient, apiEndpoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get registered module APIs: %w", err)
+	}
+
+	seen := map[ModuleApiServer]bool{}
+	var apiServers []ModuleApiServer
+	for _, moduleApi := range *moduleApis {
+		if moduleApi.Core != nil && *moduleApi.Core {
+			continue
+		}
+
+		apiServer, ok := moduleApiServerFromEndpoint(moduleApi.Endpoint)
+		if !ok || apiServer.Namespace == cpi.Opts.Namespace || seen[apiServer] {
+			continue
+		}
+		seen[apiServer] = true
+		apiServers = append(apiServers, apiServer)
+	}
+
+	return apiServers, nil
+}
+
+// clusterLocalSuffix is what the installer appends after a module's
+// namespace when it writes MODULE_API_ENDPOINT.
+const clusterLocalSuffix = ".svc.cluster.local"
+
+// moduleApiServerFromEndpoint reads the service and namespace out of a
+// module's registered endpoint, which the installer always writes as
+// <service>.<namespace>.svc.cluster.local.
+//
+// A nil endpoint, or one not shaped this way - an external endpoint, say, or
+// the core API's own - reports false rather than guessing: admitting the
+// wrong pods to the database is worse than leaving one module out.
+func moduleApiServerFromEndpoint(endpoint *string) (ModuleApiServer, bool) {
+	if endpoint == nil {
+		return ModuleApiServer{}, false
+	}
+	host, hasSuffix := strings.CutSuffix(*endpoint, clusterLocalSuffix)
+	if !hasSuffix {
+		return ModuleApiServer{}, false
+	}
+
+	parts := strings.Split(host, ".")
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return ModuleApiServer{}, false
+	}
+
+	return ModuleApiServer{Namespace: parts[1], Service: parts[0]}, true
+}
+
 // ScaleDownModules scales each named module controller deployment with a
 // non-zero replica count to zero. An error still returns counts already scaled.
 func (cpi *ControlPlaneInstaller) ScaleDownModules(
@@ -250,7 +319,7 @@ func (cpi *ControlPlaneInstaller) setDeploymentReplicas(
 	replicas int64,
 ) error {
 	// patch the deployment replica count
-	patch := []byte(fmt.Sprintf(`{"spec":{"replicas":%d}}`, replicas))
+	patch := fmt.Appendf(nil, `{"spec":{"replicas":%d}}`, replicas)
 	_, err := kubeClient.Resource(deploymentGVR).Namespace(namespace).Patch(
 		context.Background(),
 		name,

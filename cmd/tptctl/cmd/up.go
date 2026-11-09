@@ -84,10 +84,8 @@ control planes if they are used to create or are created by another control plan
 			cliArgs.ClusterName = provider.ThreeportRuntimeName(cliArgs.ControlPlaneName)
 		}
 
-		// default --tier from the infra provider when empty
-		if cliArgs.Tier == "" {
-			cliArgs.Tier = threeport.DefaultControlPlaneTierForProvider(cliArgs.InfraProvider)
-		}
+		// default --tier when empty, the same on every provider
+		cliArgs.Tier = cli.ResolveControlPlaneTier(cliArgs.InfraProvider, cliArgs.Tier)
 
 		// flag validation
 		if err := cli.ValidateCreateGenesisControlPlaneFlags(
@@ -100,6 +98,15 @@ control planes if they are used to create or are created by another control plan
 			cliArgs.ControlPlaneOnly,
 			cliArgs.ClusterName,
 			cliArgs.ApiPort,
+		); err != nil {
+			cli.Error("flag validation failed:", err)
+			os.Exit(1)
+		}
+		if err := cli.ValidateGcpBackupRegionFlag(
+			cliArgs.GcpBackupRegion,
+			cliArgs.InfraProvider,
+			cliArgs.Tier,
+			cliArgs.ControlPlaneOnly,
 		); err != nil {
 			cli.Error("flag validation failed:", err)
 			os.Exit(1)
@@ -136,6 +143,9 @@ control planes if they are used to create or are created by another control plan
 			cpi.Opts.ControllerList = selected
 		}
 
+		// record the group list on the self instance
+		cpi.Opts.Apis = upApis
+
 		err = cli.CreateGenesisControlPlane(cpi)
 		if err != nil {
 			cli.Error("failed to create threeport control plane", err)
@@ -163,10 +173,10 @@ func init() {
 	UpCmd.Flags().StringVar(
 		&cliArgs.Tier,
 		"tier", "", fmt.Sprintf(
-			"Determines the level of availability and data retention for the control plane. One of: [%s, %s]. Defaults to %s on the kind provider and %s on every cloud provider. Pass %s explicitly for a cloud-backed dev or test control plane whose database may be dropped.",
+			"Determines the level of availability and data retention for the control plane. One of: [%s, %s]. Defaults to %s on every provider. Pass --tier %s for a production control plane, which the kind provider cannot run.",
 			threeport.ControlPlaneTierDev, threeport.ControlPlaneTierProd,
-			threeport.ControlPlaneTierDev, threeport.ControlPlaneTierProd,
-			threeport.ControlPlaneTierDev,
+			threeport.DefaultControlPlaneTier,
+			threeport.ControlPlaneTierProd,
 		),
 	)
 	UpCmd.Flags().StringVar(
@@ -201,6 +211,10 @@ func init() {
 		&cliArgs.GcpRegion,
 		"gcp-region", "", "Google Cloud region code to install threeport in when using gke provider. If provided, will take precedence over environment variables.",
 	)
+	UpCmd.Flags().StringVar(
+		&cliArgs.GcpBackupRegion,
+		"gcp-backup-region", "", "Google Cloud region of the bucket a production control plane on gke backs its database up to. Must differ from --gcp-region. Defaults to another region on the same continent.",
+	)
 	UpCmd.Flags().BoolVar(
 		&cliArgs.ForceOverwriteConfig,
 		"force-overwrite-config", false, "Force the overwrite of an existing Threeport instance config.  Warning: this will erase the connection info for the existing instance.  Only do this if the existing instance has already been deleted and is no longer in use.",
@@ -233,9 +247,14 @@ func init() {
 		&cliArgs.Debug,
 		"debug", false, "Enable debug mode. Defaults to false.",
 	)
+	// Defaults to true. A failed install leaves whatever it got as far as
+	// creating - a VPC, an IAM role, a cluster - running and billing, and the
+	// operator has to know to go and remove it. Pass
+	// --teardown-on-failure=false to keep the partial state for inspection.
 	UpCmd.Flags().BoolVar(
 		&cliArgs.TeardownOnFailure,
-		"teardown-on-failure", false, "Automatically tear down control plane resources if an error is encountered.",
+		"teardown-on-failure", true,
+		"Tear down control plane resources if the install fails. Pass =false to leave partial state in place for debugging.",
 	)
 	UpCmd.Flags().BoolVar(
 		&cliArgs.ControlPlaneOnly,

@@ -201,6 +201,29 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the operation has been failing for longer than the retry bound
+					if r.RecordFailure(gatewayDefinition, string(notif.Operation)) {
+						giveUpMsg := event.GiveUpNote(
+							"failed to reconcile created gateway definition object",
+							controller.DefaultMaxReconcileDuration,
+							operationErr,
+						)
+						log.Error(operationErr, giveUpMsg)
+						if recordErr := r.EventsRecorder.RecordEvent(
+							&api_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonCreateFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							gatewayDefinition.GetId(),
+							gatewayDefinition.GetFullyQualifiedType(),
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record give-up event")
+						}
+						r.ClearFailure(gatewayDefinition, string(notif.Operation))
+						r.ReleaseLock(gatewayDefinition, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						gatewayDefinition,
 						requeueDelay,
@@ -209,6 +232,7 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				r.ClearFailure(gatewayDefinition, string(notif.Operation))
 				if customRequeueDelay != 0 {
 					log.Info("create requeued for future reconciliation")
 					r.UnlockAndRequeue(
@@ -266,6 +290,29 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the operation has been failing for longer than the retry bound
+					if r.RecordFailure(gatewayDefinition, string(notif.Operation)) {
+						giveUpMsg := event.GiveUpNote(
+							"failed to reconcile updated gateway definition object",
+							controller.DefaultMaxReconcileDuration,
+							operationErr,
+						)
+						log.Error(operationErr, giveUpMsg)
+						if recordErr := r.EventsRecorder.RecordEvent(
+							&api_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonUpdateFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							gatewayDefinition.GetId(),
+							gatewayDefinition.GetFullyQualifiedType(),
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record give-up event")
+						}
+						r.ClearFailure(gatewayDefinition, string(notif.Operation))
+						r.ReleaseLock(gatewayDefinition, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						gatewayDefinition,
 						requeueDelay,
@@ -274,6 +321,7 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				r.ClearFailure(gatewayDefinition, string(notif.Operation))
 				if customRequeueDelay != 0 {
 					log.Info("update requeued for future reconciliation")
 					r.UnlockAndRequeue(
@@ -344,6 +392,29 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 						operationErr,
 						&log,
 					)
+					// stop requeueing once the operation has been failing for longer than the retry bound
+					if r.RecordFailure(gatewayDefinition, string(notif.Operation)) {
+						giveUpMsg := event.GiveUpNote(
+							"failed to reconcile deleted gateway definition object",
+							controller.DefaultMaxReconcileDuration,
+							operationErr,
+						)
+						log.Error(operationErr, giveUpMsg)
+						if recordErr := r.EventsRecorder.RecordEvent(
+							&api_v0.Event{
+								Note:   util.Ptr(giveUpMsg),
+								Reason: util.Ptr(event.ReasonDeleteFailed),
+								Type:   util.Ptr(event.TypeWarning),
+							},
+							gatewayDefinition.GetId(),
+							gatewayDefinition.GetFullyQualifiedType(),
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record give-up event")
+						}
+						r.ClearFailure(gatewayDefinition, string(notif.Operation))
+						r.ReleaseLock(gatewayDefinition, lockReleased, msg, true)
+						continue
+					}
 					r.UnlockAndRequeue(
 						gatewayDefinition,
 						requeueDelay,
@@ -352,6 +423,7 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				r.ClearFailure(gatewayDefinition, string(notif.Operation))
 				if customRequeueDelay != 0 {
 					log.Info("delete requeued for future reconciliation")
 					r.UnlockAndRequeue(
@@ -376,34 +448,38 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 					r.APIServer,
 					&deletedGatewayDefinition,
 				)
-				if err != nil {
-					log.Error(err, "failed to update gateway definition to mark as deleted")
-					r.UnlockAndRequeue(gatewayDefinition, requeueDelay, lockReleased, msg)
-					continue
-				}
-				_, err = client_v0.DeleteGatewayDefinition(
-					r.APIClient,
-					r.APIServer,
-					gatewayDefinition.GetId(),
-				)
-				if err != nil {
-					if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
-						log.Info(
-							"conflict deleting gateway definition, requeueing",
-							"cause", err.Error(),
-						)
-						// in-progress event already recorded before the handler
-						r.UnlockAndRequeue(
-							gatewayDefinition,
-							int64(30),
-							lockReleased,
-							msg,
-						)
+				if errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+					log.Info("gateway definition already deleted")
+				} else {
+					if err != nil {
+						log.Error(err, "failed to update gateway definition to mark as deleted")
+						r.UnlockAndRequeue(gatewayDefinition, requeueDelay, lockReleased, msg)
 						continue
 					}
-					log.Error(err, "failed to delete gateway definition")
-					r.UnlockAndRequeue(gatewayDefinition, requeueDelay, lockReleased, msg)
-					continue
+					_, err = client_v0.DeleteGatewayDefinition(
+						r.APIClient,
+						r.APIServer,
+						gatewayDefinition.GetId(),
+					)
+					if err != nil && !errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+						if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
+							log.Info(
+								"conflict deleting gateway definition, requeueing",
+								"cause", err.Error(),
+							)
+							// in-progress event already recorded before the handler
+							r.UnlockAndRequeue(
+								gatewayDefinition,
+								int64(30),
+								lockReleased,
+								msg,
+							)
+							continue
+						}
+						log.Error(err, "failed to delete gateway definition")
+						r.UnlockAndRequeue(gatewayDefinition, requeueDelay, lockReleased, msg)
+						continue
+					}
 				}
 			default:
 				log.Error(

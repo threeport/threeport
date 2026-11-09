@@ -45,3 +45,28 @@ type RefreshableProvider interface {
 	// RefreshStack refreshes the state to match cloud reality.
 	RefreshStack() error
 }
+
+// CloudVerifier supports asking the cloud whether infrastructure for an
+// instance exists, independent of any recorded state. The lifecycle uses it to
+// check a delete against reality, so a missing inventory cannot make the
+// controller confirm a delete while the infrastructure keeps running.
+type CloudVerifier interface {
+	InfraProvider
+
+	// ResourcesExist reports whether the cloud still holds the instance's
+	// primary infrastructure, such as its cluster. It returns an error when
+	// that cannot be determined, never false.
+	ResourcesExist() (bool, error)
+}
+
+// StateResettable supports discarding the state a provider keeps locally, so an
+// operation can start from a clean workspace. The lifecycle uses it when a
+// delete has to go ahead without a recorded inventory it could not restore: a
+// local checkpoint that is corrupt would otherwise fail the destroy as well, and
+// the delete could never finish. Pulumi-backed providers implement it.
+type StateResettable interface {
+	InfraProvider
+
+	// DeleteStackState discards the locally kept state.
+	DeleteStackState() error
+}

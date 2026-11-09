@@ -7,6 +7,8 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"net"
+	"strconv"
 	"strings"
 	"time"
 
@@ -155,8 +157,8 @@ func (cpi *ControlPlaneInstaller) runDropMessageBrokerJob(
 	namespace string,
 ) error {
 	// delete a leftover job because its pod template is immutable
-	if err := cpi.deleteDropJob(
-		kubeClient, namespace, dropMessageBrokerJobName, "message broker",
+	if err := cpi.deleteJob(
+		kubeClient, namespace, dropMessageBrokerJobName, "message broker drop",
 	); err != nil {
 		return err
 	}
@@ -177,12 +179,22 @@ func (cpi *ControlPlaneInstaller) runDropMessageBrokerJob(
 			"spec": map[string]interface{}{
 				"backoffLimit": int64(dropMessageBrokerJobBackoffLimit),
 				"template": map[string]interface{}{
+					// the label the database network policy admits; a drop runs
+					// while the API server is scaled to zero, so it is the one
+					// thing that has to reach the database directly
+					"metadata": map[string]interface{}{
+						"labels": map[string]interface{}{LabelMaintenance: "true"},
+					},
 					"spec": map[string]interface{}{
 						"restartPolicy": "Never",
+						// the same image as the nats-box utility pod
+						"securityContext": natsBoxPodSecurityContext(),
 						"containers": []interface{}{
 							map[string]interface{}{
-								"name":  "drop-message-broker",
-								"image": natsBoxImage,
+								"name":            "drop-message-broker",
+								"securityContext": vendoredContainerSecurityContext(),
+								"image":           natsBoxImage,
+								"resources":       natsBoxResources(),
 								"env": []interface{}{
 									map[string]interface{}{
 										"name":  "NATS_URL",
@@ -206,14 +218,14 @@ func (cpi *ControlPlaneInstaller) runDropMessageBrokerJob(
 	}
 
 	// wait for the job to finish
-	if err := cpi.waitForDropJob(
-		kubeClient, namespace, dropMessageBrokerJobName, dropMessageBrokerJobBackoffLimit, "message broker",
+	if err := cpi.waitForJob(
+		kubeClient, namespace, dropMessageBrokerJobName, dropMessageBrokerJobBackoffLimit, "message broker drop",
 	); err != nil {
 		return err
 	}
 
 	// delete the finished job
-	return cpi.deleteDropJob(kubeClient, namespace, dropMessageBrokerJobName, "message broker")
+	return cpi.deleteJob(kubeClient, namespace, dropMessageBrokerJobName, "message broker drop")
 }
 
 // runDropDatabaseJob runs a one-shot Job that drops the control plane database.
@@ -222,7 +234,7 @@ func (cpi *ControlPlaneInstaller) runDropDatabaseJob(
 	namespace string,
 ) error {
 	// delete a leftover job because its pod template is immutable
-	if err := cpi.deleteDropJob(kubeClient, namespace, dropDatabaseJobName, "database"); err != nil {
+	if err := cpi.deleteJob(kubeClient, namespace, dropDatabaseJobName, "database drop"); err != nil {
 		return err
 	}
 
@@ -245,12 +257,21 @@ func (cpi *ControlPlaneInstaller) runDropDatabaseJob(
 			"spec": map[string]interface{}{
 				"backoffLimit": int64(dropDatabaseJobBackoffLimit),
 				"template": map[string]interface{}{
+					// the label the database network policy admits; a drop runs
+					// while the API server is scaled to zero, so it is the one
+					// thing that has to reach the database directly
+					"metadata": map[string]interface{}{
+						"labels": map[string]interface{}{LabelMaintenance: "true"},
+					},
 					"spec": map[string]interface{}{
 						"restartPolicy": "Never",
+						// the database's user, whose group reads the root client key
+						"securityContext": dependencyPodSecurityContext(),
 						"containers": []interface{}{
 							map[string]interface{}{
-								"name":  "drop-database",
-								"image": fmt.Sprintf("cockroachdb/cockroach:%s", DatabaseImageTag),
+								"name":            "drop-database",
+								"securityContext": restrictedContainerSecurityContext(),
+								"image":           fmt.Sprintf("cockroachdb/cockroach:%s", DatabaseImageTag),
 								"command": []interface{}{
 									"/cockroach/cockroach",
 									"sql",
@@ -291,19 +312,23 @@ func (cpi *ControlPlaneInstaller) runDropDatabaseJob(
 	}
 
 	// wait for the job to finish
-	if err := cpi.waitForDropJob(
-		kubeClient, namespace, dropDatabaseJobName, dropDatabaseJobBackoffLimit, "database",
+	if err := cpi.waitForJob(
+		kubeClient, namespace, dropDatabaseJobName, dropDatabaseJobBackoffLimit, "database drop",
 	); err != nil {
 		return err
 	}
 
 	// delete the finished job
-	return cpi.deleteDropJob(kubeClient, namespace, dropDatabaseJobName, "database")
+	return cpi.deleteJob(kubeClient, namespace, dropDatabaseJobName, "database drop")
 }
 
-// waitForDropJob polls until the Job succeeds or its failed-pod count passes
-// the backoff limit. Exhausted retries are returned at once because the job will not recover.
-func (cpi *ControlPlaneInstaller) waitForDropJob(
+// waitForJob polls until the Job succeeds or its failed-pod count passes
+// the backoff limit. Exhausted retries are returned at once because the job
+// will not recover.
+//
+// subject is a phrase describing the job for its error messages - "database
+// drop", "crdb init" - read as "<subject> job <name> ...".
+func (cpi *ControlPlaneInstaller) waitForJob(
 	kubeClient dynamic.Interface,
 	namespace string,
 	jobName string,
@@ -319,14 +344,14 @@ func (cpi *ControlPlaneInstaller) waitForDropJob(
 			context.Background(), jobName, metav1.GetOptions{},
 		)
 		if err != nil {
-			return fmt.Errorf("failed to read %s drop job status: %w", subject, err)
+			return fmt.Errorf("failed to read %s job status: %w", subject, err)
 		}
 
 		// stop polling once failed pods pass the backoff limit
 		failed, _, _ := util.NestedInt64OrFloat64(job.Object, "status", "failed")
 		if failed > backoffLimit {
 			jobFailed = fmt.Errorf(
-				"%s drop job %s failed after %d pod attempt(s): inspect its pod logs in namespace %s",
+				"%s job %s failed after %d pod attempt(s): inspect its pod logs in namespace %s",
 				subject, jobName, failed, namespace,
 			)
 			return nil
@@ -339,18 +364,18 @@ func (cpi *ControlPlaneInstaller) waitForDropJob(
 		}
 
 		// keep polling while the job is still running
-		return fmt.Errorf("%s drop job %s has not completed", subject, jobName)
+		return fmt.Errorf("%s job %s has not completed", subject, jobName)
 	}); err != nil {
-		return fmt.Errorf("%s drop did not complete: %w", subject, err)
+		return fmt.Errorf("%s did not complete: %w", subject, err)
 	}
 
 	// return a recorded job failure instead of a retry timeout
 	return jobFailed
 }
 
-// deleteDropJob removes a drop Job and waits until the object is gone so the
-// same name can be created again.
-func (cpi *ControlPlaneInstaller) deleteDropJob(
+// deleteJob removes a Job and waits until the object is gone so the same
+// name can be created again.
+func (cpi *ControlPlaneInstaller) deleteJob(
 	kubeClient dynamic.Interface,
 	namespace string,
 	jobName string,
@@ -363,7 +388,7 @@ func (cpi *ControlPlaneInstaller) deleteDropJob(
 	if err := kubeClient.Resource(jobGVR).Namespace(namespace).Delete(
 		context.Background(), jobName, deleteOpts,
 	); err != nil && !k8serrors.IsNotFound(err) {
-		return fmt.Errorf("failed to delete %s drop job %s: %w", subject, jobName, err)
+		return fmt.Errorf("failed to delete %s job %s: %w", subject, jobName, err)
 	}
 
 	// wait until the job object is gone
@@ -372,15 +397,15 @@ func (cpi *ControlPlaneInstaller) deleteDropJob(
 			context.Background(), jobName, metav1.GetOptions{},
 		)
 		if err == nil {
-			return fmt.Errorf("%s drop job %s still terminating", subject, jobName)
+			return fmt.Errorf("%s job %s still terminating", subject, jobName)
 		}
 		if !k8serrors.IsNotFound(err) {
-			return fmt.Errorf("failed to check %s drop job %s: %w", subject, jobName, err)
+			return fmt.Errorf("failed to check %s job %s: %w", subject, jobName, err)
 		}
 
 		return nil
 	}); err != nil {
-		return fmt.Errorf("%s drop job did not finish terminating: %w", subject, err)
+		return fmt.Errorf("%s job did not finish terminating: %w", subject, err)
 	}
 
 	return nil
@@ -439,6 +464,97 @@ func (cpi *ControlPlaneInstaller) getInstalledTier(
 	return ControlPlaneTier(tier), nil
 }
 
+// installedExternalApiEndpoint returns the external API endpoint recorded in
+// the installed controller config, or an empty string when there is none.
+func (cpi *ControlPlaneInstaller) installedExternalApiEndpoint(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+) (string, error) {
+	secret, present, err := resourceInstalled(
+		kubeClient, mapper, "", "v1", "Secret", cpi.Opts.Namespace, "controller-config",
+	)
+	if err != nil {
+		return "", err
+	}
+	if !present {
+		return "", nil
+	}
+
+	encoded, found, err := unstructured.NestedString(
+		secret.Object, "data", ControllerConfigExternalApiEndpointKey,
+	)
+	if err != nil || !found {
+		return "", err
+	}
+	decoded, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode %s: %w", ControllerConfigExternalApiEndpointKey, err)
+	}
+
+	return string(decoded), nil
+}
+
+// loadBalancerApiEndpoint returns the host:port the installed API's load
+// balancer is reached at, or an empty string when the API has no load balancer
+// or it has no address yet.  Unlike GetThreeportAPIEndpoint it does not wait
+// for one: an API with no load balancer is an ordinary state, not a failure.
+func (cpi *ControlPlaneInstaller) loadBalancerApiEndpoint(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+) (string, error) {
+	service, present, err := resourceInstalled(
+		kubeClient, mapper, "", "v1", "Service",
+		cpi.Opts.Namespace, cpi.Opts.RestApiInfo.ServiceResourceName,
+	)
+	if err != nil {
+		return "", err
+	}
+	if !present {
+		return "", nil
+	}
+
+	ingress, _, err := unstructured.NestedSlice(service.Object, "status", "loadBalancer", "ingress")
+	if err != nil || len(ingress) == 0 {
+		return "", err
+	}
+	first, ok := ingress[0].(map[string]interface{})
+	if !ok {
+		return "", nil
+	}
+
+	// providers differ: EKS gives a hostname, GKE and OKE an IP
+	host, _, _ := unstructured.NestedString(first, "hostname")
+	if host == "" {
+		host, _, _ = unstructured.NestedString(first, "ip")
+	}
+	if host == "" {
+		return "", nil
+	}
+
+	_, port := cpi.GetAPIServicePort()
+
+	return net.JoinHostPort(host, strconv.Itoa(int(port))), nil
+}
+
+// useInstalledTier sets the installer's tier to the one recorded on the
+// control plane namespace.  A namespace from before the tier was recorded
+// keeps the installer's tier as given.
+func (cpi *ControlPlaneInstaller) useInstalledTier(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+) error {
+	tier, err := cpi.getInstalledTier(kubeClient, mapper)
+	if errors.Is(err, ErrControlPlaneNotDevelopment) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	cpi.Opts.Tier = tier
+
+	return nil
+}
+
 // Reinstall deletes installer-managed stateless resources and installs the
 // control plane again. Persistent resources keep their data and the API endpoint.
 func (cpi *ControlPlaneInstaller) Reinstall(
@@ -447,6 +563,32 @@ func (cpi *ControlPlaneInstaller) Reinstall(
 	authConfig *auth.AuthConfig,
 ) error {
 	ns := cpi.Opts.Namespace
+
+	// The controller config is recreated below and the external API endpoint is
+	// not part of what this call is given, so carry the one the install recorded
+	// across or the controllers lose the address they hand to agents.  A control
+	// plane installed before the address was recorded has none saved, so it is
+	// read from the API's load balancer, which the delete below removes.
+	if cpi.Opts.ExternalApiEndpoint == "" {
+		endpoint, err := cpi.installedExternalApiEndpoint(kubeClient, mapper)
+		if err != nil {
+			return fmt.Errorf("failed to read the installed external API endpoint: %w", err)
+		}
+		if endpoint == "" {
+			endpoint, err = cpi.loadBalancerApiEndpoint(kubeClient, mapper)
+			if err != nil {
+				return fmt.Errorf("failed to read the API load balancer endpoint: %w", err)
+			}
+		}
+		cpi.Opts.ExternalApiEndpoint = endpoint
+	}
+
+	// replica counts and disruption budgets follow the tier, which a
+	// reinstall is not given, so it is read from the namespace before
+	// anything is deleted
+	if err := cpi.useInstalledTier(kubeClient, mapper); err != nil {
+		return err
+	}
 
 	// delete installer-managed stateless resources
 	if err := cpi.deleteForReinstall(kubeClient, ns); err != nil {
@@ -478,6 +620,16 @@ func (cpi *ControlPlaneInstaller) Reinstall(
 	fmt.Println("Info: installing threeport agent")
 	if err := cpi.InstallThreeportAgent(kubeClient, mapper, authConfig); err != nil {
 		return fmt.Errorf("failed to install threeport agent: %w", err)
+	}
+
+	// reapply the network policies
+	//
+	// deleteForReinstall removes installer-managed resources, and the policies
+	// describe the namespace rather than any one component, so they are
+	// applied here for the same reason the install applies them: whatever is
+	// running afterwards has to be covered.
+	if err := cpi.InstallThreeportNetworkPolicies(kubeClient, mapper); err != nil {
+		return fmt.Errorf("failed to install network policies: %w", err)
 	}
 
 	// wait for the rest api deployment to become ready

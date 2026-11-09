@@ -17,6 +17,7 @@ import (
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	encryption "github.com/threeport/threeport/pkg/encryption/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -66,6 +67,8 @@ func (g *gkeLifecycle) GetReconciliation() (*provider.ReconciliationSnapshot, er
 		DeletionAcknowledged: latest.DeletionAcknowledged,
 		DeletionConfirmed:    latest.DeletionConfirmed,
 		ResourceInventory:    latest.ResourceInventory,
+
+		AbandonInfrastructure: latest.AbandonInfrastructure != nil && *latest.AbandonInfrastructure,
 	}, nil
 }
 
@@ -100,11 +103,7 @@ func (g *gkeLifecycle) IsCreateComplete() (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to check GKE creation status: %w", err)
 	}
-	if latest.ResourceInventory == nil {
-		return false, nil
-	}
-	inventory := *latest.ResourceInventory
-	return len(inventory) > 0 && string(inventory) != "{}" && string(inventory) != "null", nil
+	return provider.HasInventory(latest.ResourceInventory), nil
 }
 
 // OnCreateConfirmed gets connection info and updates the kubernetes runtime instance.
@@ -326,6 +325,22 @@ func (g *gkeLifecycle) ClearInventory() error {
 	return err
 }
 
+// RecordWarning records a Warning event against the instance.
+func (g *gkeLifecycle) RecordWarning(reason, note string) error {
+	// a nil Recorder interface and a nil pointer inside one are both "none"
+	if g.r == nil || g.r.EventsRecorder == nil {
+		return provider.RecordWarningEvent(nil, g.instanceID, "", reason, note)
+	}
+
+	return provider.RecordWarningEvent(
+		g.r.EventsRecorder,
+		g.instanceID,
+		new(v0.GcpGkeKubernetesRuntimeInstance).GetFullyQualifiedType(),
+		reason,
+		note,
+	)
+}
+
 // PublishCreateNotification publishes a NATS notification for creation.
 func (g *gkeLifecycle) PublishCreateNotification() error {
 	notifPayload, err := g.instance.NotificationPayload(
@@ -436,7 +451,14 @@ func buildGkeInfra(
 	// not discovered missing once the network, control plane and node pool are
 	// already up.
 	if gcpProvider.ServiceAccountCredentials != nil && *gcpProvider.ServiceAccountCredentials != "" {
-		infraGKE.ServiceAccountCredentials = *gcpProvider.ServiceAccountCredentials
+		// the API stores and returns this field encrypted; the auth and Pulumi
+		// paths need the service account JSON itself
+		decryptedCredentials, err := encryption.Decrypt(r.EncryptionKey, *gcpProvider.ServiceAccountCredentials)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decrypt GCP provider service account credentials: %w", err)
+		}
+
+		infraGKE.ServiceAccountCredentials = decryptedCredentials
 		email, err := util.GcpServiceAccountEmail(infraGKE.ServiceAccountCredentials)
 		if err != nil {
 			return nil, fmt.Errorf("failed to extract service account email: %w", err)

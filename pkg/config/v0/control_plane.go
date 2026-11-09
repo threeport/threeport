@@ -7,6 +7,8 @@ import (
 	"net/http"
 
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
+	client_v0 "github.com/threeport/threeport/pkg/client/v0"
+	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -28,6 +30,9 @@ type ControlPlaneValues struct {
 	OnboardParent             *bool
 	Tier                      *string
 	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues
+	ImageNamespace            *string
+	ImageTag                  *string
+	Apis                      *string
 	CustomComponentInfo       []*api_v0.ControlPlaneComponent
 	Genesis                   *bool
 	Age                       *string
@@ -63,6 +68,22 @@ func (c *ControlPlaneConfig) Create(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]ControlPlaneConfig, error) {
+	// reject component info that names no default component before the
+	// definition is written, so a bad override leaves nothing behind
+	if err := threeport.ValidateComponentOverrides(c.ControlPlane.CustomComponentInfo); err != nil {
+		return nil, fmt.Errorf("invalid CustomComponentInfo for control plane: %w", err)
+	}
+
+	// reject an unknown controller group before the definition is written
+	if c.ControlPlane.Apis != nil {
+		if _, err := threeport.SelectControllersByGroup(
+			threeport.ParseApis(*c.ControlPlane.Apis),
+			threeport.ThreeportControllerList,
+		); err != nil {
+			return nil, fmt.Errorf("invalid Apis for control plane: %w", err)
+		}
+	}
+
 	// get operations
 	operations, controlPlaneDefinitions, controlPlaneInstances := c.GetOperations(
 		apiClient,
@@ -90,19 +111,60 @@ func (c *ControlPlaneConfig) Replace(
 	apiEndpoint string,
 	name string,
 ) (*[]ControlPlaneConfig, error) {
+	// reject component info that names no default component before the
+	// definition is written, so a bad override leaves nothing behind
+	if err := threeport.ValidateComponentOverrides(c.ControlPlane.CustomComponentInfo); err != nil {
+		return nil, fmt.Errorf("invalid CustomComponentInfo for control plane: %w", err)
+	}
+
+	// reject an unknown controller group before the definition is written
+	if c.ControlPlane.Apis != nil {
+		if _, err := threeport.SelectControllersByGroup(
+			threeport.ParseApis(*c.ControlPlane.Apis),
+			threeport.ThreeportControllerList,
+		); err != nil {
+			return nil, fmt.Errorf("invalid Apis for control plane: %w", err)
+		}
+	}
+
+	// refuse a tier change before either object is written
+	if c.ControlPlane.Tier != nil && name != "" {
+		existingDefinition, err := client_v0.GetControlPlaneDefinitionByName(
+			apiClient,
+			apiEndpoint,
+			name,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get control plane definition by name: %w", err)
+		}
+		if existingDefinition.Tier != nil && *c.ControlPlane.Tier != *existingDefinition.Tier {
+			return nil, fmt.Errorf(
+				"cannot change the tier of control plane definition %s from %s to %s: the tier is set at creation and cannot be changed",
+				name,
+				*existingDefinition.Tier,
+				*c.ControlPlane.Tier,
+			)
+		}
+	}
+
 	// get operations
 	operations, controlPlaneDefinitions, controlPlaneInstances := c.GetOperations(
 		apiClient,
 		apiEndpoint,
 	)
 
-	// execute replace operations
-	if err := operations.Replace(name); err != nil {
-		return nil, fmt.Errorf(
-			"failed to execute replace operations for control plane defined instance with name %s: %w",
-			name,
-			err,
-		)
+	// replace the instance before the definition so a refusal leaves the definition unchanged
+	for index := len(operations.Operations) - 1; index >= 0; index-- {
+		operation := operations.Operations[index]
+		err := operation.Replace(name)
+		if err != nil {
+			err = fmt.Errorf("failed to replace %s: %w", operation.Name, err)
+			return nil, fmt.Errorf(
+				"failed to execute replace operations for control plane defined instance with name %s: %w",
+				name,
+				err,
+			)
+		}
 	}
 
 	// assemble the defined instances
@@ -196,6 +258,9 @@ func (c *ControlPlaneConfig) GetOperations(
 			Name:                      c.ControlPlane.Name,
 			Namespace:                 c.ControlPlane.Namespace,
 			KubernetesRuntimeInstance: c.ControlPlane.KubernetesRuntimeInstance,
+			ImageNamespace:            c.ControlPlane.ImageNamespace,
+			ImageTag:                  c.ControlPlane.ImageTag,
+			Apis:                      c.ControlPlane.Apis,
 			CustomComponentInfo:       c.ControlPlane.CustomComponentInfo,
 			ControlPlaneDefinition: &ControlPlaneDefinitionValues{
 				Name: c.ControlPlane.Name,
@@ -262,6 +327,9 @@ func mapToControlPlaneDefinedInstances(
 						OnboardParent:             def.ControlPlaneDefinition.OnboardParent,
 						Tier:                      def.ControlPlaneDefinition.Tier,
 						KubernetesRuntimeInstance: inst.ControlPlaneInstance.KubernetesRuntimeInstance,
+						ImageNamespace:            inst.ControlPlaneInstance.ImageNamespace,
+						ImageTag:                  inst.ControlPlaneInstance.ImageTag,
+						Apis:                      inst.ControlPlaneInstance.Apis,
 						CustomComponentInfo:       inst.ControlPlaneInstance.CustomComponentInfo,
 						Genesis:                   inst.ControlPlaneInstance.Genesis,
 						Age:                       inst.ControlPlaneInstance.Age,

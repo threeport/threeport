@@ -113,6 +113,17 @@ definitions:
     type: object
   v0.AwsEksKubernetesRuntimeInstance:
     properties:
+      AbandonInfrastructure:
+        description: |-
+          Set by an operator to allow this instance to be deleted even though its
+          creation was confirmed and no resource inventory is recorded, or the
+          recorded inventory cannot be restored. The controller refuses that delete
+          otherwise, because cloud resources may still exist. Setting this orphans
+          any resources the controller cannot find: they keep running and are no
+          longer tracked by Threeport. Resources it has recorded and can restore are
+          still destroyed. It is rejected on create, and once set it stays set until
+          changed, so tptctl sets it back to false if the delete fails.
+        type: boolean
       AwsEksKubernetesRuntimeDefinitionID:
         description: The definition that configures this instance.
         type: integer
@@ -221,6 +232,13 @@ definitions:
     type: object
   v0.ControlPlaneComponent:
     properties:
+      Additional:
+        description: |-
+          Marks a component of your own, one that is not part of the default control
+          plane. A component that matches no default component by name is rejected
+          unless this is true, so a mistyped name cannot silently install a
+          component nobody asked for.
+        type: boolean
       AdditionalEnvRef:
         description: The additional env reference to be added to the environment variables
           of the component.
@@ -368,6 +386,13 @@ definitions:
       ApiServerEndpoint:
         description: Information for connecting to the rest api for the control plane
         type: string
+      Apis:
+        description: |-
+          The controller groups this control plane installs.
+          Group names are separated by commas.
+          An empty or omitted value installs every controller.
+          The value 'none' installs no controllers.
+        type: string
       CACert:
         description: The CA Cert that is associated with the control plane
         type: string
@@ -399,7 +424,9 @@ definitions:
       CustomComponentInfo:
         description: |-
           Passed in information for the different components of the control plane i.e. controller etc
-          When not provided, the default values will be used. If provided, they will override the default values.
+          When not provided, a component takes the image its parent control plane runs, and the
+          compiled-in default for anything the parent did not record. If provided, they will override those values.
+          A name that matches no default component is rejected unless the component is marked Additional.
           Despite being a reference to another database entry, we dont validate association.
           This allows a user to provide CustomComponentInfo at instance creation time so the reconciler has the info it needs
         items:
@@ -423,6 +450,19 @@ definitions:
         description: Indicates whether this is was the first control plane that was
           spun up in a control plane group
         type: boolean
+      ImageNamespace:
+        description: |-
+          The image registry and namespace for every default component of the
+          control plane, e.g. 'ghcr.io/threeport'. A component named in
+          CustomComponentInfo takes its own value instead. When neither is set a
+          component takes the image its parent control plane runs.
+        type: string
+      ImageTag:
+        description: |-
+          The image tag for every default component of the control plane. A
+          component named in CustomComponentInfo takes its own value instead. When
+          neither is set a component takes the tag its parent control plane runs.
+        type: string
       InterruptReconciliation:
         description: |-
           InterruptReconciliation is used by the controller to indicated that future
@@ -756,6 +796,10 @@ definitions:
     type: object
   v0.GatewayInstance:
     properties:
+      CertificatesComponentInstanceID:
+        description: The workload instance that runs the certificates component for
+          this instance.
+        type: integer
       CreationAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
@@ -784,6 +828,10 @@ definitions:
         type: string
       GatewayDefinitionID:
         description: GatewayDefinitionID is the definition used to configure the gateway
+          instance.
+        type: integer
+      IngressComponentInstanceID:
+        description: The workload instance that runs the ingress component for this
           instance.
         type: integer
       InterruptReconciliation:
@@ -884,6 +932,17 @@ definitions:
     type: object
   v0.GcpGkeKubernetesRuntimeInstance:
     properties:
+      AbandonInfrastructure:
+        description: |-
+          Set by an operator to allow this instance to be deleted even though its
+          creation was confirmed and no resource inventory is recorded, or the
+          recorded inventory cannot be restored. The controller refuses that delete
+          otherwise, because cloud resources may still exist. Setting this orphans
+          any resources the controller cannot find: they keep running and are no
+          longer tracked by Threeport. Resources it has recorded and can restore are
+          still destroyed. It is rejected on create, and once set it stays set until
+          changed, so tptctl sets it back to false if the delete fails.
+        type: boolean
       CreationAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
@@ -1257,6 +1316,9 @@ definitions:
       CertificateKey:
         description: The client certificate key to use for auth to the kube-api.
         type: string
+      CertificatesComponentInstanceID:
+        description: The workload that runs the certificates component for this runtime.
+        type: integer
       ConnectionToken:
         description: |-
           Used to authenticate with a OIDC provider that implements auth for a
@@ -1285,6 +1347,9 @@ definitions:
       CreationFailed:
         description: Gets set to true if creation process fails.
         type: boolean
+      DatabaseComponentInstanceID:
+        description: The workload that provides a database for this runtime.
+        type: integer
       DefaultRuntime:
         description: |-
           If true, this Kubernetes cluster will be used for all workloads if not
@@ -1304,11 +1369,8 @@ definitions:
           Used to inform reconcilers that an object is being deleted so they may
           complete delete reconciliation before actually deleting the object from the database.
         type: string
-      DnsControllerInstanceID:
-        description: The KubernetesWorkloadInstanceID of the dns support service
-        type: integer
-      GatewayControllerInstanceID:
-        description: The KubernetesWorkloadInstanceID of the gateway support service
+      IngressComponentInstanceID:
+        description: The workload that runs the ingress component for this runtime.
         type: integer
       InterruptReconciliation:
         description: |-
@@ -1339,8 +1401,8 @@ definitions:
         description: Indicates if object is considered to be reconciled by the object's
           controller.
         type: boolean
-      SecretsControllerInstanceID:
-        description: The KubernetesWorkloadInstanceID of the secrets support service
+      SecretsComponentInstanceID:
+        description: The workload that stores secrets for this runtime.
         type: integer
       Status:
         description: |-
@@ -2685,6 +2747,17 @@ definitions:
     type: object
   v0.OciOkeKubernetesRuntimeInstance:
     properties:
+      AbandonInfrastructure:
+        description: |-
+          Set by an operator to allow this instance to be deleted even though its
+          creation was confirmed and no resource inventory is recorded, or the
+          recorded inventory cannot be restored. The controller refuses that delete
+          otherwise, because cloud resources may still exist. Setting this orphans
+          any resources the controller cannot find: they keep running and are no
+          longer tracked by Threeport. Resources it has recorded and can restore are
+          still destroyed. It is rejected on create, and once set it stays set until
+          changed, so tptctl sets it back to false if the delete fails.
+        type: boolean
       ClusterOCID:
         description: The OCID for the OKE cluster. Populated by the controller after
           cluster creation.
@@ -2991,6 +3064,10 @@ definitions:
       SecretDefinitionID:
         description: The SecretDefinition that the secret instance is derived from.
         type: integer
+      SecretsComponentInstanceID:
+        description: The workload instance that runs the secrets component for this
+          instance.
+        type: integer
       Status:
         description: |-
           The status of the instance.
@@ -3181,7 +3258,7 @@ info:
   description: Core API server for the Threeport application orchestration control
     plane.
   title: Threeport RESTful API
-  version: v0.7.0-rc.0
+  version: v0.7.0-rc.3
 paths:
   /attached-object-references/versions:
     get:

@@ -3,6 +3,8 @@ package provider
 import (
 	"errors"
 	"fmt"
+	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -29,36 +31,95 @@ func TestGcpResourceLabels_SanitizesOwnerName(t *testing.T) {
 	assert.Equal(t, "unnamed", got[GcpLabelThreeportName])
 }
 
-// TestServiceAccountOwnedBy_RequiresOwnershipDescription covers reuse vs refuse.
-func TestServiceAccountOwnedBy_RequiresOwnershipDescription(t *testing.T) {
+// TestProviderServiceAccountOwnedBy_RequiresOwnershipDescription covers reuse vs refuse.
+func TestProviderServiceAccountOwnedBy_RequiresOwnershipDescription(t *testing.T) {
 	name := "my-provider"
 	owned := &iam.ServiceAccount{
 		Description: "Service account for Threeport GcpProvider my-provider to manage GCP resources; " + GcpOwnershipDescription(name),
 	}
-	require.True(t, serviceAccountOwnedBy(owned, name))
-	require.False(t, serviceAccountOwnedBy(owned, "other-provider"))
-	require.False(t, serviceAccountOwnedBy(&iam.ServiceAccount{Description: "someone else"}, name))
-	require.False(t, serviceAccountOwnedBy(nil, name))
+	require.True(t, providerServiceAccountOwnedBy(owned, name))
+	require.False(t, providerServiceAccountOwnedBy(owned, "other-provider"))
+	require.False(t, providerServiceAccountOwnedBy(&iam.ServiceAccount{Description: "someone else"}, name))
+	require.False(t, providerServiceAccountOwnedBy(nil, name))
 }
 
-// TestServiceAccountOwnedBy_RejectsNamePrefix covers a shorter owner name that
-// is a prefix of the stored threeport-name value.
-func TestServiceAccountOwnedBy_RejectsNamePrefix(t *testing.T) {
+// TestProviderServiceAccountOwnedBy_RejectsNamePrefix covers a shorter owner
+// name that is a prefix of the stored name.
+func TestProviderServiceAccountOwnedBy_RejectsNamePrefix(t *testing.T) {
 	owned := &iam.ServiceAccount{
 		Description: "Service account for Threeport GcpProvider app-prod to manage GCP resources; " + GcpOwnershipDescription("app-prod"),
 	}
 
-	require.True(t, serviceAccountOwnedBy(owned, "app-prod"))
-	require.False(t, serviceAccountOwnedBy(owned, "app"))
+	require.True(t, providerServiceAccountOwnedBy(owned, "app-prod"))
+	require.False(t, providerServiceAccountOwnedBy(owned, "app"))
 }
 
-// TestCanonicalGCPAccountName_RejectsCaseFolding covers names that would
-// share a service-account ID with a lowercase sibling.
-func TestCanonicalGCPAccountName_RejectsCaseFolding(t *testing.T) {
-	require.True(t, canonicalGCPAccountName("my-provider"))
-	require.False(t, canonicalGCPAccountName("My-Provider"))
-	require.False(t, canonicalGCPAccountName("my_provider"))
-	require.False(t, canonicalGCPAccountName("aaaaaaaaaaaaaaaaa"))
+// TestFormatServiceAccountID_IsAValidID covers the ID GCP accepts
+// for names of every length and character set.
+func TestFormatServiceAccountID_IsAValidID(t *testing.T) {
+	valid := regexp.MustCompile(`^[a-z][a-z0-9-]{4,28}[a-z0-9]$`)
+
+	for _, name := range []string{
+		"a", "dev-provider", "threeport-genesis-02", "My_Provider.Name", "!!!",
+		"---", "ünïcödé-name", strings.Repeat("x", 500),
+	} {
+		id := formatServiceAccountID(name)
+		require.LessOrEqual(t, len(id), 30, name)
+		require.Regexp(t, valid, id, name)
+		require.NotContains(t, id, "--", name)
+	}
+}
+
+// TestFormatServiceAccountID_ExactIDs pins the ID derived for fixed names.
+//
+// Delete finds an account by deriving its ID again, so the exact output is a
+// contract with every account already created: a change to the hash input, the
+// hash length or the separator would leave those accounts unfound and orphaned
+// while every comparison of the function with itself still passed. The hashes
+// were computed apart from this code, as the first six hex characters of the
+// sha256 of the name as given. Change these only by also migrating existing
+// accounts.
+func TestFormatServiceAccountID_ExactIDs(t *testing.T) {
+	for name, want := range map[string]string{
+		"dev-provider":         "threeport-svc-dev-provi-6b4a23",
+		"threeport-genesis-01": "threeport-svc-threeport-6c166c",
+		"threeport-genesis-02": "threeport-svc-threeport-813137",
+		"my-provider":          "threeport-svc-my-provid-3c1d9c",
+		"My-Provider":          "threeport-svc-my-provid-7f55f6",
+		"a-very-long-threeport-provider-name-one": "threeport-svc-a-very-lo-549201",
+		"!!!": "threeport-svc-svc-e84c53",
+	} {
+		require.Equal(t, want, formatServiceAccountID(name), name)
+	}
+}
+
+// TestFormatServiceAccountID_KeepsReadableFragment covers the name still being
+// visible in the ID.
+func TestFormatServiceAccountID_KeepsReadableFragment(t *testing.T) {
+	require.True(t, strings.HasPrefix(formatServiceAccountID("dev-provider"), "threeport-svc-dev-provi-"))
+	require.True(t, strings.HasPrefix(formatServiceAccountID("a-b"), "threeport-svc-a-b-"))
+	require.True(t, strings.HasPrefix(formatServiceAccountID("!!!"), "threeport-svc-svc-"))
+	require.Len(t, formatServiceAccountID(strings.Repeat("x", 500)), 30)
+}
+
+// TestFormatServiceAccountID_DeterministicAndDistinct covers the property
+// create and delete rely on: the same name always derives the same ID, and
+// names a truncation or case-fold would merge do not.
+func TestFormatServiceAccountID_DeterministicAndDistinct(t *testing.T) {
+	require.Equal(t, formatServiceAccountID("my-provider"), formatServiceAccountID("my-provider"))
+
+	names := []string{
+		"threeport-genesis-01", "threeport-genesis-02", // share more than nine characters
+		"my-provider", "My-Provider", "my_provider", // differ only by case or character
+		"a-very-long-threeport-provider-name-one", "a-very-long-threeport-provider-name-two",
+	}
+	seen := map[string]string{}
+	for _, name := range names {
+		id := formatServiceAccountID(name)
+		other, dup := seen[id]
+		require.False(t, dup, "%q and %q derive %s", name, other, id)
+		seen[id] = name
+	}
 }
 
 // TestGkeServiceAccountDescription_EmbedsOwnership covers the GKE create path
@@ -69,8 +130,8 @@ func TestGkeServiceAccountDescription_EmbedsOwnership(t *testing.T) {
 	got := gkeServiceAccountDescription(name)
 
 	require.Contains(t, got, GcpOwnershipDescription(name))
-	require.True(t, serviceAccountOwnedBy(&iam.ServiceAccount{Description: got}, name))
-	require.False(t, serviceAccountOwnedBy(&iam.ServiceAccount{Description: got}, "other-runtime"))
+	require.True(t, createdForRuntime(&iam.ServiceAccount{Description: got}, name))
+	require.False(t, createdForRuntime(&iam.ServiceAccount{Description: got}, "other-runtime"))
 }
 
 // TestGkeServiceAccountDescription_OldFormatIsUnowned covers a leftover GKE
@@ -82,8 +143,8 @@ func TestGkeServiceAccountDescription_OldFormatIsUnowned(t *testing.T) {
 		Description: fmt.Sprintf("Service account for Threeport instance %s to manage GCP resources", name),
 	}
 
-	require.False(t, serviceAccountOwnedBy(old, name))
-	require.Error(t, refuseUnownedExistingGCPServiceAccount(old, true, name))
+	require.False(t, createdForRuntime(old, name))
+	require.Error(t, refuseUnownedExistingGCPServiceAccount(old, true, name, createdForRuntime))
 }
 
 // TestRefuseUnownedExistingGCPServiceAccount_AllowsOwnedReuse covers create vs reuse.
@@ -94,9 +155,50 @@ func TestRefuseUnownedExistingGCPServiceAccount_AllowsOwnedReuse(t *testing.T) {
 		Description: gkeServiceAccountDescription(name),
 	}
 
-	require.NoError(t, refuseUnownedExistingGCPServiceAccount(owned, false, name))
-	require.NoError(t, refuseUnownedExistingGCPServiceAccount(owned, true, name))
-	require.Error(t, refuseUnownedExistingGCPServiceAccount(owned, true, "other-runtime"))
+	require.NoError(t, refuseUnownedExistingGCPServiceAccount(owned, false, name, createdForRuntime))
+	require.NoError(t, refuseUnownedExistingGCPServiceAccount(owned, true, name, createdForRuntime))
+	require.Error(t, refuseUnownedExistingGCPServiceAccount(owned, true, "other-runtime", createdForRuntime))
+}
+
+// TestRefuseUnownedExistingGCPServiceAccount_RefusesCollidingNames covers two
+// names that derive one service-account ID.
+//
+// The hash in the ID is six hex characters, so a pair that collides can be found
+// on purpose. These two differ only in case, which the ownership marker in the
+// description erases, so a check on the marker alone takes the first name's
+// account for the second's and a key is created for it. The whole description
+// keeps the names apart, as it does on delete.
+func TestRefuseUnownedExistingGCPServiceAccount_RefusesCollidingNames(t *testing.T) {
+	first := "aBCDefGHiJklmnopqrstuvwx"
+	second := "ABcdEfGHijKLMnopqrstuvwx"
+	require.Equal(
+		t, formatServiceAccountID(first), formatServiceAccountID(second),
+		"this test is meaningless unless the two names derive the same account id",
+	)
+	require.Equal(
+		t, GcpOwnershipDescription(first), GcpOwnershipDescription(second),
+		"this test is meaningless unless the ownership marker cannot tell them apart",
+	)
+
+	providerAccount := &iam.ServiceAccount{Description: gcpProviderServiceAccountDescription(first)}
+	require.NoError(t, refuseUnownedExistingGCPServiceAccount(providerAccount, true, first, providerServiceAccountOwnedBy))
+	require.Error(t, refuseUnownedExistingGCPServiceAccount(providerAccount, true, second, providerServiceAccountOwnedBy))
+
+	runtimeAccount := &iam.ServiceAccount{Description: gkeServiceAccountDescription(first)}
+	require.NoError(t, refuseUnownedExistingGCPServiceAccount(runtimeAccount, true, first, createdForRuntime))
+	require.Error(t, refuseUnownedExistingGCPServiceAccount(runtimeAccount, true, second, createdForRuntime))
+}
+
+// TestRefuseUnownedExistingGCPServiceAccount_RefusesTheOtherKind covers a
+// provider and a runtime of one name, which derive one ID and share a marker.
+func TestRefuseUnownedExistingGCPServiceAccount_RefusesTheOtherKind(t *testing.T) {
+	name := "dev"
+
+	providerAccount := &iam.ServiceAccount{Description: gcpProviderServiceAccountDescription(name)}
+	require.Error(t, refuseUnownedExistingGCPServiceAccount(providerAccount, true, name, createdForRuntime))
+
+	runtimeAccount := &iam.ServiceAccount{Description: gkeServiceAccountDescription(name)}
+	require.Error(t, refuseUnownedExistingGCPServiceAccount(runtimeAccount, true, name, providerServiceAccountOwnedBy))
 }
 
 // The delete path finds its service account by deriving the name from the
@@ -118,7 +220,7 @@ func ownedServiceAccount(ownerName string) *iam.ServiceAccount {
 
 func TestGcpServiceAccountDeletable_OwnedAccount(t *testing.T) {
 	deletable, err := gcpServiceAccountDeletable(
-		ownedServiceAccount("my-provider"), true, "my-provider", "my-provider@a-project.iam.gserviceaccount.com",
+		ownedServiceAccount("my-provider"), true, "my-provider", "my-provider@a-project.iam.gserviceaccount.com", providerServiceAccountOwnedBy,
 	)
 	require.NoError(t, err)
 	assert.True(t, deletable)
@@ -127,7 +229,7 @@ func TestGcpServiceAccountDeletable_OwnedAccount(t *testing.T) {
 // a delete re-run after a partial one has to be able to finish
 func TestGcpServiceAccountDeletable_MissingAccountIsNothingToDo(t *testing.T) {
 	deletable, err := gcpServiceAccountDeletable(
-		nil, false, "my-provider", "my-provider@a-project.iam.gserviceaccount.com",
+		nil, false, "my-provider", "my-provider@a-project.iam.gserviceaccount.com", providerServiceAccountOwnedBy,
 	)
 	require.NoError(t, err)
 	assert.False(t, deletable)
@@ -141,52 +243,48 @@ func TestGcpServiceAccountDeletable_UnownedAccountIsRefused(t *testing.T) {
 	}
 
 	deletable, err := gcpServiceAccountDeletable(
-		unowned, true, "my-provider", unowned.Email,
+		unowned, true, "my-provider", unowned.Email, providerServiceAccountOwnedBy,
 	)
 	require.Error(t, err)
 	assert.False(t, deletable)
 	assert.Contains(t, err.Error(), "not created by Threeport")
 }
 
-// TestGcpServiceAccountDeletable_TruncationCollision covers the case the derived
-// name cannot distinguish.
+// TestGcpServiceAccountDeletable_TruncationCollision covers an account that is
+// at the address a name derives, but is another name's.
 //
-// Two provider names longer than the thirty characters a service account id
-// allows can derive the same id, so deleting one would find the other's account.
+// Derived IDs are hashed so two names do not share one, but a hash can still
+// collide, and a freed address can be taken by an account Threeport never made.
 // The ownership marker carries the full provider name, which is what separates
 // them.
 func TestGcpServiceAccountDeletable_TruncationCollision(t *testing.T) {
 	first := "a-very-long-threeport-provider-name-one"
 	second := "a-very-long-threeport-provider-name-two"
-	require.Equal(
-		t, generateServiceAccountID(first), generateServiceAccountID(second),
-		"this test is meaningless unless the two names derive the same account id",
-	)
 
 	// deleting the second must not touch the account the first owns
 	deletable, err := gcpServiceAccountDeletable(
-		ownedServiceAccount(first), true, second, "shared@a-project.iam.gserviceaccount.com",
+		ownedServiceAccount(first), true, second, "shared@a-project.iam.gserviceaccount.com", providerServiceAccountOwnedBy,
 	)
 	require.Error(t, err)
 	assert.False(t, deletable)
 }
 
-// TestServiceAccountOwnedBy_RecognizesLegacyDescription covers accounts created
+// TestProviderServiceAccountOwnedBy_RecognizesLegacyDescription covers accounts created
 // before the ownership marker existed.
 //
 // Their description names the provider but carries no marker. Without
 // recognizing it, a provider created by an earlier version could never be
 // deleted: the check would refuse its own account and leave it, and the
 // project's bindings, in place.
-func TestServiceAccountOwnedBy_RecognizesLegacyDescription(t *testing.T) {
+func TestProviderServiceAccountOwnedBy_RecognizesLegacyDescription(t *testing.T) {
 	legacy := &iam.ServiceAccount{
 		Description: "Service account for Threeport GcpProvider my-provider to manage GCP resources",
 	}
 
-	assert.True(t, serviceAccountOwnedBy(legacy, "my-provider"))
+	assert.True(t, providerServiceAccountOwnedBy(legacy, "my-provider"))
 
 	// it still names one provider, so it does not vouch for another
-	assert.False(t, serviceAccountOwnedBy(legacy, "other-provider"))
+	assert.False(t, providerServiceAccountOwnedBy(legacy, "other-provider"))
 }
 
 // TestGcpServiceAccountDeletable_LegacyAccount covers deleting one end to end
@@ -197,7 +295,7 @@ func TestGcpServiceAccountDeletable_LegacyAccount(t *testing.T) {
 		Description: "Service account for Threeport GcpProvider my-provider to manage GCP resources",
 	}
 
-	deletable, err := gcpServiceAccountDeletable(legacy, true, "my-provider", legacy.Email)
+	deletable, err := gcpServiceAccountDeletable(legacy, true, "my-provider", legacy.Email, providerServiceAccountOwnedBy)
 	require.NoError(t, err)
 	assert.True(t, deletable)
 }
@@ -238,21 +336,16 @@ func TestClassifyServiceAccountGet(t *testing.T) {
 // the gate refuses to assume.
 //
 // With no account there is nothing to read ownership from, and the derived email
-// is not proof of it: two provider names can derive the same one. So a missing
+// is not proof of it: a hash can collide and a freed address can be retaken. So a missing
 // account is not deletable and not something to strip bindings from either -
 // leaving a dangling binding is recoverable, removing another provider's is not.
 func TestGcpServiceAccountDeletable_MissingAccountCannotBeVouchedFor(t *testing.T) {
-	first := "a-very-long-threeport-provider-name-one"
 	second := "a-very-long-threeport-provider-name-two"
-	require.Equal(
-		t, generateServiceAccountID(first), generateServiceAccountID(second),
-		"this test is meaningless unless the two names derive the same account id",
-	)
 
 	// deleting the second finds no account, and must not conclude the shared
 	// email's bindings are its to remove
 	deletable, err := gcpServiceAccountDeletable(
-		nil, false, second, "shared@a-project.iam.gserviceaccount.com",
+		nil, false, second, "shared@a-project.iam.gserviceaccount.com", providerServiceAccountOwnedBy,
 	)
 	require.NoError(t, err)
 	assert.False(t, deletable)
@@ -305,4 +398,103 @@ func TestWorkloadIdentityMembers_NameNoRuntime(t *testing.T) {
 	for _, member := range first.getWorkloadIdentityMembers(pool) {
 		assert.NotContains(t, member, "runtime-one")
 	}
+}
+
+// TestGcpServiceAccountDeletable_RuntimeDeleteRefusesProviderAccount covers the
+// collision between a runtime and a GcpProvider of one name.
+//
+// Both derive threeport-svc-<name>, and the ownership marker in the description
+// is the same for both, so a check on the marker alone takes the provider's
+// account for the runtime's. Deleting the runtime would then strip the
+// provider's project roles and delete its account, and the provider's stored key
+// would stop working.
+func TestGcpServiceAccountDeletable_RuntimeDeleteRefusesProviderAccount(t *testing.T) {
+	name := "dev"
+	providerAccount := ownedServiceAccount(name)
+	require.True(
+		t, strings.HasSuffix(providerAccount.Description, GcpOwnershipDescription(name)),
+		"this test is meaningless unless the marker alone vouches for the account",
+	)
+
+	deletable, err := gcpServiceAccountDeletable(
+		providerAccount, true, name, providerAccount.Email, runtimeServiceAccountOwnedBy,
+	)
+	require.Error(t, err)
+	assert.False(t, deletable)
+	assert.Contains(t, err.Error(), "not created by Threeport")
+}
+
+// TestGcpServiceAccountDeletable_ProviderDeleteRefusesRuntimeAccount is the same
+// collision from the other side: deleting a GcpProvider must not take an account
+// the GKE bootstrap made for a runtime of the same name.
+func TestGcpServiceAccountDeletable_ProviderDeleteRefusesRuntimeAccount(t *testing.T) {
+	name := "dev"
+	runtimeAccount := &iam.ServiceAccount{
+		Email:       "threeport-svc-dev@a-project.iam.gserviceaccount.com",
+		Description: gkeServiceAccountDescription(name),
+	}
+
+	deletable, err := gcpServiceAccountDeletable(
+		runtimeAccount, true, name, runtimeAccount.Email, providerServiceAccountOwnedBy,
+	)
+	require.Error(t, err)
+	assert.False(t, deletable)
+}
+
+// TestRuntimeServiceAccountOwnedBy covers what the runtime delete accepts.
+func TestRuntimeServiceAccountOwnedBy(t *testing.T) {
+	name := "threeport-my-cp"
+
+	t.Run("its own account", func(t *testing.T) {
+		account := &iam.ServiceAccount{Description: gkeServiceAccountDescription(name)}
+		assert.True(t, runtimeServiceAccountOwnedBy(account, name))
+	})
+
+	// without this, tptctl down on an install made before the ownership marker
+	// would refuse its own account and strand it with its project roles
+	t.Run("an account from before the ownership marker", func(t *testing.T) {
+		account := &iam.ServiceAccount{Description: legacyGkeServiceAccountDescription(name)}
+		assert.True(t, runtimeServiceAccountOwnedBy(account, name))
+		assert.False(t, runtimeServiceAccountOwnedBy(account, "other-runtime"))
+	})
+
+	t.Run("another runtime's account", func(t *testing.T) {
+		account := &iam.ServiceAccount{Description: gkeServiceAccountDescription("other-runtime")}
+		assert.False(t, runtimeServiceAccountOwnedBy(account, name))
+	})
+
+	t.Run("a provider's account of the same name", func(t *testing.T) {
+		assert.False(t, runtimeServiceAccountOwnedBy(ownedServiceAccount(name), name))
+		assert.False(t, runtimeServiceAccountOwnedBy(
+			&iam.ServiceAccount{Description: legacyGcpServiceAccountDescription(name)}, name,
+		))
+	})
+
+	t.Run("a hand-made or missing account", func(t *testing.T) {
+		assert.False(t, runtimeServiceAccountOwnedBy(&iam.ServiceAccount{Description: "someone else"}, name))
+		assert.False(t, runtimeServiceAccountOwnedBy(nil, name))
+	})
+}
+
+// TestProviderServiceAccountOwnedBy covers the provider side of the same split.
+func TestProviderServiceAccountOwnedBy(t *testing.T) {
+	name := "my-provider"
+
+	assert.True(t, providerServiceAccountOwnedBy(ownedServiceAccount(name), name))
+	assert.False(t, providerServiceAccountOwnedBy(ownedServiceAccount(name), "other-provider"))
+	assert.False(t, providerServiceAccountOwnedBy(
+		&iam.ServiceAccount{Description: gkeServiceAccountDescription(name)}, name,
+	))
+	assert.False(t, providerServiceAccountOwnedBy(
+		&iam.ServiceAccount{Description: legacyGkeServiceAccountDescription(name)}, name,
+	))
+	assert.False(t, providerServiceAccountOwnedBy(nil, name))
+}
+
+// TestGcpProviderServiceAccountDescription_MatchesWhatTheCreatePathWrites keeps
+// the description the delete compares against the one create writes.
+func TestGcpProviderServiceAccountDescription_MatchesWhatTheCreatePathWrites(t *testing.T) {
+	name := "my-provider"
+
+	assert.Equal(t, ownedServiceAccount(name).Description, gcpProviderServiceAccountDescription(name))
 }

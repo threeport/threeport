@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -302,7 +303,7 @@ func TestRefuseUnownedRole(t *testing.T) {
 			RoleName: aws.String("secrets-manager-role-my-cluster"),
 			Tags:     wantTags,
 		}
-		assert.NoError(t, refuseUnownedRole(ours, wantTags))
+		assert.NoError(t, refuseUnownedRole(ours, wantTags, remediateRuntimeNameCollision))
 	})
 
 	t.Run("a role carrying extra tags is still ours", func(t *testing.T) {
@@ -313,7 +314,7 @@ func TestRefuseUnownedRole(t *testing.T) {
 				types.Tag{Key: aws.String("CostCenter"), Value: aws.String("platform")},
 			),
 		}
-		assert.NoError(t, refuseUnownedRole(ours, wantTags))
+		assert.NoError(t, refuseUnownedRole(ours, wantTags, remediateRuntimeNameCollision))
 	})
 
 	t.Run("somebody else's role of the same name is refused", func(t *testing.T) {
@@ -323,7 +324,7 @@ func TestRefuseUnownedRole(t *testing.T) {
 				{Key: aws.String("Owner"), Value: aws.String("platform-team")},
 			},
 		}
-		err := refuseUnownedRole(theirs, wantTags)
+		err := refuseUnownedRole(theirs, wantTags, remediateRuntimeNameCollision)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "not created by threeport")
 	})
@@ -331,11 +332,44 @@ func TestRefuseUnownedRole(t *testing.T) {
 	t.Run("an untagged role of the same name is refused", func(t *testing.T) {
 		require.Error(t, refuseUnownedRole(&types.Role{
 			RoleName: aws.String("secrets-manager-role-my-cluster"),
-		}, wantTags))
+		}, wantTags, remediateRuntimeNameCollision))
 	})
 
 	t.Run("no role at all is an error, not an approval", func(t *testing.T) {
-		require.Error(t, refuseUnownedRole(nil, wantTags))
+		require.Error(t, refuseUnownedRole(nil, wantTags, remediateRuntimeNameCollision))
+	})
+
+	t.Run("the refusal is distinguishable from any other failure", func(t *testing.T) {
+		theirs := &types.Role{
+			RoleName: aws.String("secrets-manager-role-my-cluster"),
+			Tags:     []types.Tag{{Key: aws.String("Owner"), Value: aws.String("platform-team")}},
+		}
+
+		err := refuseUnownedRole(theirs, wantTags, remediateRuntimeNameCollision)
+		assert.ErrorIs(
+			t, err, ErrUnownedIamResource,
+			"callers roll back a failed create by deleting the role by name, so a refusal "+
+				"they cannot recognise gets the stranger's role deleted",
+		)
+		assert.NotErrorIs(
+			t, errors.New("some other failure"), ErrUnownedIamResource,
+			"and anything else has to stay outside it, or a real failure would skip its rollback",
+		)
+	})
+
+	t.Run("the remediation is the caller's, not this function's", func(t *testing.T) {
+		theirs := &types.Role{
+			RoleName: aws.String("resource-manager-role-my-control-plane"),
+			Tags:     []types.Tag{{Key: aws.String("Owner"), Value: aws.String("platform-team")}},
+		}
+
+		err := refuseUnownedRole(theirs, wantTags, remediateControlPlaneNameCollision)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "rename the control plane")
+		assert.NotContains(
+			t, err.Error(), "kubernetes runtime instance",
+			"this role is not named after one, so telling somebody to rename theirs is a dead end",
+		)
 	})
 }
 
@@ -350,20 +384,20 @@ func TestRefuseUnownedIamResource(t *testing.T) {
 	want := tpaws.IamTags("some-policy", ThreeportProviderTags())
 
 	assert.NoError(
-		t, refuseUnownedIamResource("policy", "some-policy", want, want),
+		t, refuseUnownedIamResource("policy", "some-policy", want, want, remediateRuntimeNameCollision),
 		"a resource carrying threeport's tags is ours to use",
 	)
 
 	// the same key with a different value is the dangerous case: another
 	// threeport install, or another cluster of a different name
 	foreign := []types.Tag{{Key: aws.String("Name"), Value: aws.String("someone-elses")}}
-	err := refuseUnownedIamResource("policy", "some-policy", foreign, want)
+	err := refuseUnownedIamResource("policy", "some-policy", foreign, want, remediateRuntimeNameCollision)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "policy")
 	assert.Contains(t, err.Error(), "not created by threeport")
 
 	assert.Error(
-		t, refuseUnownedIamResource("OIDC provider", "arn:aws:iam::1:oidc-provider/x", nil, want),
+		t, refuseUnownedIamResource("OIDC provider", "arn:aws:iam::1:oidc-provider/x", nil, want, remediateRuntimeNameCollision),
 		"an untagged resource is not ours either",
 	)
 }
