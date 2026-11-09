@@ -170,7 +170,7 @@ func ControlPlaneEgressCidrs(
 		return nil, nil
 	}
 
-	hosts, err := client.GetKubernetesRuntimeInstancesByQueryString(apiClient, apiServer, "ThreeportControlPlaneHost=true")
+	hosts, err := client.GetKubernetesRuntimeInstancesByQueryString(apiClient, apiServer, "threeportcontrolplanehost=true")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get the kubernetes runtime instance that hosts the control plane: %w", err)
 	}

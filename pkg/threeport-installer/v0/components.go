@@ -32,16 +32,41 @@ const (
 	ThreeportApiConfigSecret  = "api-config"
 	dbRootCertSecretName      = "db-root-cert"
 	dbThreeportCertSecretName = "db-threeport-cert"
+
+	// ControllerConfigExternalApiEndpointKey is the key in the controller config
+	// secret holding the address the threeport API is reachable at from outside
+	// its cluster.  Controllers read it from their environment.
+	ControllerConfigExternalApiEndpointKey = "API_EXTERNAL_ENDPOINT"
+
+	// SigningCaMountPath is where the kubernetes runtime controller finds the
+	// control plane's CA certificate and private key, which it signs agent
+	// client certificates with.
+	SigningCaMountPath = "/etc/threeport/signing-ca"
+
+	signingCaVolumeName = "api-ca-signing"
 )
 
 // InstallComputeSpaceControlPlaneComponents installs the Threeport control
 // plane components that are deployed to Threeport-managed compute space
 // clusters, i.e. clusters that do not have the Threeport control plane installed.
+//
+// The agent on such a cluster reports to the control plane that manages it, over
+// the network.  It is told that control plane's external address through
+// cpi.Opts.AgentApiServer, and when authConfig is set it is issued a client
+// certificate of its own from that control plane's CA.  The caller sets
+// cpi.Opts.AuthEnabled to match authConfig so the agent is given the
+// certificate it is issued.  The agent is left out when cpi.Opts.SkipAgent is
+// set.
 func (cpi *ControlPlaneInstaller) InstallComputeSpaceControlPlaneComponents(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	runtimeInstanceName string,
+	authConfig *auth.AuthConfig,
 ) error {
+	if authConfig != nil && !cpi.Opts.AuthEnabled {
+		return errors.New("an agent client certificate was requested but the installer has auth disabled")
+	}
+
 	// threeport control plane namespace
 	if err := cpi.CreateThreeportControlPlaneNamespace(
 		kubeClient,
@@ -51,12 +76,15 @@ func (cpi *ControlPlaneInstaller) InstallComputeSpaceControlPlaneComponents(
 	}
 
 	// threeport agent
-	if err := cpi.InstallThreeportAgent(
-		kubeClient,
-		mapper,
-		nil,
-	); err != nil {
-		return fmt.Errorf("failed to install threeport agent: %w", err)
+	if !cpi.Opts.SkipAgent {
+		if err := cpi.installThreeportAgent(
+			kubeClient,
+			mapper,
+			authConfig,
+			ComputeSpaceAgentCommonName(runtimeInstanceName),
+		); err != nil {
+			return fmt.Errorf("failed to install threeport agent: %w", err)
+		}
 	}
 
 	// threeport CRDs
@@ -65,6 +93,17 @@ func (cpi *ControlPlaneInstaller) InstallComputeSpaceControlPlaneComponents(
 	}
 
 	return nil
+}
+
+// ComputeSpaceAgentCommonName returns the common name of the client certificate
+// issued to the agent on a managed runtime, so each runtime's agent is
+// distinguishable in the API's logs.
+func ComputeSpaceAgentCommonName(runtimeInstanceName string) string {
+	if runtimeInstanceName == "" {
+		return agentCommonName
+	}
+
+	return fmt.Sprintf("%s-%s", agentCommonName, runtimeInstanceName)
 }
 
 // computeSpaceWorkloadControllerSubject returns the identity a control plane
@@ -921,15 +960,15 @@ func (cpi *ControlPlaneInstaller) DeleteAgentRoleBindings(
 	mapper *meta.RESTMapper,
 ) error {
 	// delete the manager and proxy bindings
-	for _, suffix := range []string{
-		"threeport-agent-manager-rolebinding",
-		"threeport-agent-proxy-rolebinding",
+	for _, name := range []string{
+		cpi.agentManagerBindingName(),
+		cpi.agentProxyBindingName(),
 	} {
 		binding := kubeObject(
 			"rbac.authorization.k8s.io/v1",
 			"ClusterRoleBinding",
 			"",
-			fmt.Sprintf("%s-%s", cpi.Opts.Namespace, suffix),
+			name,
 		)
 		if err := kube.DeleteResource(binding, kubeClient, *mapper); err != nil {
 			return err
@@ -998,11 +1037,34 @@ func (cpi *ControlPlaneInstaller) UpdateControllerDeployment(
 	)
 }
 
+const (
+	// agentCommonName is the common name of the agent's client certificate.
+	agentCommonName = "threeport-agent"
+
+	// agentCaSecretName is the secret holding the CA the agent verifies the API
+	// server with.
+	agentCaSecretName = "agent-ca"
+
+	// agentCertSecretName is the secret holding the agent's client certificate.
+	agentCertSecretName = "agent-cert"
+)
+
 // InstallThreeportAgent installs the threeport agent on a Kubernetes cluster.
 func (cpi *ControlPlaneInstaller) InstallThreeportAgent(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	authConfig *auth.AuthConfig,
+) error {
+	return cpi.installThreeportAgent(kubeClient, mapper, authConfig, agentCommonName)
+}
+
+// installThreeportAgent installs the threeport agent, issuing it a client
+// certificate with the given common name when auth is enabled.
+func (cpi *ControlPlaneInstaller) installThreeportAgent(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	authConfig *auth.AuthConfig,
+	commonName string,
 ) error {
 
 	// if auth is enabled on API, generate client cert and key and store in
@@ -1011,7 +1073,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAgent(
 		agentCertificate, agentPrivateKey, err := auth.GenerateCertificate(
 			authConfig.CAConfig,
 			&authConfig.CAPrivateKey,
-			"threeport-agent",
+			commonName,
 			apilib.CoreApiNamespace,
 			auth.OUControlPlane,
 		)
@@ -1025,7 +1087,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAgent(
 				"kind":       "Secret",
 				"type":       "Opaque",
 				"metadata": map[string]interface{}{
-					"name":      "agent-ca",
+					"name":      agentCaSecretName,
 					"namespace": cpi.Opts.Namespace,
 				},
 				"stringData": map[string]interface{}{
@@ -1039,7 +1101,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAgent(
 			return fmt.Errorf("failed to create/update API server ca secret for threeport agent: %w", err)
 		}
 
-		var agentCert = cpi.getTLSSecret("agent-cert", agentCertificate, agentPrivateKey)
+		var agentCert = cpi.getTLSSecret(agentCertSecretName, agentCertificate, agentPrivateKey)
 		if err := cpi.CreateOrUpdateKubeResource(agentCert, kubeClient, mapper); err != nil {
 			return fmt.Errorf("failed to create/update API server certificate secret for threeport agent: %w", err)
 		}
@@ -1181,7 +1243,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + cpi.Opts.ControlPlaneName + "",
+					"app.kubernetes.io/instance":   cpi.agentInstanceLabel(),
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
@@ -1203,7 +1265,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + cpi.Opts.ControlPlaneName + "",
+					"app.kubernetes.io/instance":   cpi.agentInstanceLabel(),
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
@@ -1343,7 +1405,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + cpi.Opts.ControlPlaneName + "",
+					"app.kubernetes.io/instance":   cpi.agentInstanceLabel(),
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
@@ -1374,7 +1436,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + cpi.Opts.ControlPlaneName + "",
+					"app.kubernetes.io/instance":   cpi.agentInstanceLabel(),
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
@@ -1419,7 +1481,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + cpi.Opts.ControlPlaneName + "",
+					"app.kubernetes.io/instance":   cpi.agentInstanceLabel(),
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
@@ -1454,13 +1516,13 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + cpi.Opts.ControlPlaneName + "",
+					"app.kubernetes.io/instance":   cpi.agentInstanceLabel(),
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
 					"app.kubernetes.io/managed-by": "threeport",
 				},
-				"name": fmt.Sprintf("%s-threeport-agent-manager-rolebinding", cpi.Opts.Namespace),
+				"name": cpi.agentManagerBindingName(),
 			},
 			"roleRef": map[string]interface{}{
 				"apiGroup": "rbac.authorization.k8s.io",
@@ -1488,13 +1550,13 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + cpi.Opts.ControlPlaneName + "",
+					"app.kubernetes.io/instance":   cpi.agentInstanceLabel(),
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
 					"app.kubernetes.io/managed-by": "threeport",
 				},
-				"name": fmt.Sprintf("%s-threeport-agent-proxy-rolebinding", cpi.Opts.Namespace),
+				"name": cpi.agentProxyBindingName(),
 			},
 			"roleRef": map[string]interface{}{
 				"apiGroup": "rbac.authorization.k8s.io",
@@ -1521,7 +1583,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + cpi.Opts.ControlPlaneName + "",
+					"app.kubernetes.io/instance":   cpi.agentInstanceLabel(),
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
@@ -1556,7 +1618,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + cpi.Opts.ControlPlaneName + "",
+					"app.kubernetes.io/instance":   cpi.agentInstanceLabel(),
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
@@ -2043,6 +2105,18 @@ func (cpi *ControlPlaneInstaller) getControllerVolumes(controller v0.ControlPlan
 		vols = append(vols, certVol)
 		volMounts = append(volMounts, caVolMount)
 		volMounts = append(volMounts, certVolMount)
+
+		// The kubernetes runtime controller installs an agent on every managed
+		// cluster and issues each one a client certificate, so it holds the CA's
+		// private key.  No other controller does.
+		if controller.Name == ThreeportKubernetesRuntimeControllerName {
+			signingVol, signingVolMount := cpi.getSecretVols(ThreeportApiCaSecret, SigningCaMountPath)
+			signingVol["name"] = signingCaVolumeName
+			signingVolMount["name"] = signingCaVolumeName
+
+			vols = append(vols, signingVol)
+			volMounts = append(volMounts, signingVolMount)
+		}
 	}
 
 	additionalVolumes := make([]map[string]interface{}, 0)
@@ -2168,33 +2242,63 @@ func (cpi *ControlPlaneInstaller) GetAPIServicePort() (string, int32) {
 
 // getAgentArgs returns the args that are passed to the threeport agent.  In
 // tptdev, auth is disabled by default.  In tptctl auth is enabled by
-// default.
+// default.  An agent that reports to a control plane on another cluster is
+// given that control plane's address; otherwise it uses its default, the API's
+// in-cluster service.
 func (cpi *ControlPlaneInstaller) getAgentArgs() []interface{} {
-	switch {
-	case cpi.Opts.Debug:
-		args := []interface{}{
-			"--metrics-bind-address=127.0.0.1:8080",
-			"--leader-elect",
-		}
-		if !cpi.Opts.AuthEnabled {
-			args = append(args, "--auth-enabled=false")
-		}
-		return args
-	default:
-		// disable auth if authConfig is not set on non-dev deployment
-		args := []interface{}{
-			"--metrics-bind-address=127.0.0.1:8080",
-			"--leader-elect",
-		}
-		if !cpi.Opts.AuthEnabled {
-			args = append(args, "--auth-enabled=false")
-		}
-		return args
+	args := []interface{}{
+		"--metrics-bind-address=127.0.0.1:8080",
+		"--leader-elect",
 	}
+	if cpi.Opts.ControlPlaneName != "" {
+		args = append(args, fmt.Sprintf("--control-plane-name=%s", cpi.Opts.ControlPlaneName))
+	}
+	if cpi.Opts.AgentApiServer != "" {
+		args = append(args, fmt.Sprintf("--threeport-api-server=%s", cpi.Opts.AgentApiServer))
+	}
+	// disable auth if authConfig is not set on non-dev deployment
+	if !cpi.Opts.AuthEnabled {
+		args = append(args, "--auth-enabled=false")
+	}
+
+	return args
+}
+
+// agentInstanceLabel returns the app.kubernetes.io/instance label value for
+// the threeport agent's resources.  The control plane name is only joined
+// when set: the compute space agent installed by a runtime instance may have
+// none, and a label value cannot end in a hyphen.
+func (cpi *ControlPlaneInstaller) agentInstanceLabel() string {
+	if cpi.Opts.ControlPlaneName == "" {
+		return "threeport-agent"
+	}
+	return "threeport-agent-" + cpi.Opts.ControlPlaneName
+}
+
+// agentManagerBindingName returns the name of the agent's manager
+// ClusterRoleBinding.  It is cluster-scoped, so it is qualified with the
+// namespace to keep agents installed in different namespaces of one cluster
+// from sharing a binding.
+func (cpi *ControlPlaneInstaller) agentManagerBindingName() string {
+	return agentManagerBindingNameFor(cpi.Opts.Namespace)
+}
+
+func agentManagerBindingNameFor(namespace string) string {
+	return fmt.Sprintf("%s-threeport-agent-manager-rolebinding", namespace)
+}
+
+// agentProxyBindingName returns the name of the agent's proxy
+// ClusterRoleBinding.  See agentManagerBindingName.
+func (cpi *ControlPlaneInstaller) agentProxyBindingName() string {
+	return agentProxyBindingNameFor(cpi.Opts.Namespace)
+}
+
+func agentProxyBindingNameFor(namespace string) string {
+	return fmt.Sprintf("%s-threeport-agent-proxy-rolebinding", namespace)
 }
 
 func (cpi *ControlPlaneInstaller) getControllerSecret(name, namespace string) *unstructured.Unstructured {
-	return &unstructured.Unstructured{
+	secret := &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "v1",
 			"kind":       "Secret",
@@ -2208,9 +2312,18 @@ func (cpi *ControlPlaneInstaller) getControllerSecret(name, namespace string) *u
 				"MSG_BROKER_HOST":       fmt.Sprintf("%s.%s.svc.cluster.local", natsServiceName, cpi.Opts.Namespace),
 				"MSG_BROKER_PORT":       "4222",
 				"AWS_ROLE_SESSION_NAME": util.AwsResourceManagerRoleSessionName,
+				"CONTROL_PLANE_NAME":    cpi.Opts.ControlPlaneName,
 			},
 		},
 	}
+
+	// the address agents on other clusters report to, when the API has one
+	if cpi.Opts.ExternalApiEndpoint != "" {
+		stringData := secret.Object["stringData"].(map[string]interface{})
+		stringData[ControllerConfigExternalApiEndpointKey] = cpi.Opts.ExternalApiEndpoint
+	}
+
+	return secret
 }
 
 // getImagePullPolicy returns the image pull policy based on debug mode.

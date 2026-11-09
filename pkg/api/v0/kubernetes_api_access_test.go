@@ -3,6 +3,7 @@ package v0
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -472,6 +473,142 @@ func TestAnInstancesEgressCidrsAreChecked(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "is not an IPv4 CIDR block")
 	})
+}
+
+// TestAPatchIsCheckedAgainstTheRowItWritesOver covers a PATCH of a
+// definition that another write changed after the PATCH's handler loaded it.
+// The PATCH is checked against the row as that write left it, not as the
+// handler loaded it: sending back the values it loaded would otherwise pass as
+// no change and undo the other write.
+func TestAPatchIsCheckedAgainstTheRowItWritesOver(t *testing.T) {
+	types := []struct {
+		name   string
+		create func(t *testing.T, db *gorm.DB, privateApi *bool, cidrs *datatypes.JSON) uint
+		load   func(t *testing.T, db *gorm.DB, id uint) any
+		patch  func(privateApi *bool, cidrs *datatypes.JSON) any
+		model  any
+	}{
+		{
+			name: "KubernetesRuntimeDefinition",
+			create: func(t *testing.T, db *gorm.DB, privateApi *bool, cidrs *datatypes.JSON) uint {
+				created := newKRD("krd", KubernetesRuntimeInfraProviderGKE, privateApi, cidrs)
+				require.NoError(t, db.Create(created).Error)
+				return *created.ID
+			},
+			load: func(t *testing.T, db *gorm.DB, id uint) any {
+				var loaded KubernetesRuntimeDefinition
+				require.NoError(t, db.First(&loaded, id).Error)
+				return &loaded
+			},
+			patch: func(privateApi *bool, cidrs *datatypes.JSON) any {
+				return &KubernetesRuntimeDefinition{PrivateApi: privateApi, AllowedCidrs: cidrs}
+			},
+			model: &KubernetesRuntimeDefinition{},
+		},
+		{
+			name: "GcpGkeKubernetesRuntimeDefinition",
+			create: func(t *testing.T, db *gorm.DB, privateApi *bool, cidrs *datatypes.JSON) uint {
+				created := &GcpGkeKubernetesRuntimeDefinition{
+					Definition: Definition{Name: util.Ptr("gke")}, ZoneCount: util.Ptr(2),
+					DefaultNodeGroupInstanceType: util.Ptr("e2-standard-4"), DefaultNodeGroupInitialSize: util.Ptr(2),
+					DefaultNodeGroupMinimumSize: util.Ptr(0), DefaultNodeGroupMaximumSize: util.Ptr(5),
+					KubernetesRuntimeDefinitionID: util.Ptr(uint(1)), PrivateApi: privateApi, AllowedCidrs: cidrs,
+				}
+				require.NoError(t, db.Create(created).Error)
+				return *created.ID
+			},
+			load: func(t *testing.T, db *gorm.DB, id uint) any {
+				var loaded GcpGkeKubernetesRuntimeDefinition
+				require.NoError(t, db.First(&loaded, id).Error)
+				return &loaded
+			},
+			patch: func(privateApi *bool, cidrs *datatypes.JSON) any {
+				return &GcpGkeKubernetesRuntimeDefinition{PrivateApi: privateApi, AllowedCidrs: cidrs}
+			},
+			model: &GcpGkeKubernetesRuntimeDefinition{},
+		},
+	}
+
+	cases := []struct {
+		name string
+		// written is what the other write leaves in the row
+		written map[string]any
+		// patchPrivateApi and patchCidrs are what the PATCH sends
+		patchPrivateApi *bool
+		patchCidrs      int
+		wantErr         string
+	}{
+		{
+			name:            "PrivateApi sent back as loaded after the other write turned it on",
+			written:         map[string]any{"private_api": true},
+			patchPrivateApi: util.Ptr(false),
+			wantErr:         ErrMsgKubernetesApiAccessImmutable,
+		},
+		{
+			name:       "the list sent back as loaded after the other write shrank it",
+			written:    map[string]any{"allowed_cidrs": cidrsJSON(t, distinctCidrs(30)...)},
+			patchCidrs: 40,
+			wantErr:    ErrMsgKubernetesApiAccessImmutable,
+		},
+		{
+			name:       "the list the other write left sent back",
+			written:    map[string]any{"allowed_cidrs": cidrsJSON(t, distinctCidrs(30)...)},
+			patchCidrs: 30,
+		},
+	}
+	for _, objectType := range types {
+		for _, c := range cases {
+			t.Run(objectType.name+": "+c.name, func(t *testing.T) {
+				db := setupKubernetesApiAccessDB(t)
+				id := objectType.create(t, db, util.Ptr(false), cidrsJSON(t, distinctCidrs(40)...))
+
+				// the PATCH's handler loads the definition, then the other
+				// write changes it
+				loaded := objectType.load(t, db, id)
+				require.NoError(t, db.Session(&gorm.Session{SkipHooks: true}).
+					Model(objectType.model).Where("id = ?", id).Updates(c.written).Error)
+
+				var cidrs *datatypes.JSON
+				if c.patchCidrs > 0 {
+					cidrs = cidrsJSON(t, distinctCidrs(c.patchCidrs)...)
+				}
+				err := db.Model(loaded).Updates(objectType.patch(c.patchPrivateApi, cidrs)).Error
+				if c.wantErr == "" {
+					require.NoError(t, err)
+					return
+				}
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), c.wantErr)
+			})
+		}
+	}
+}
+
+// TestAPatchLocksTheRowItIsCheckedAgainst checks that the row a PATCH is
+// checked against is read with SELECT ... FOR UPDATE, so that a concurrent
+// update of the same row waits for this one's transaction to end.  SQLite
+// leaves the lock out, so the statement is rendered for Postgres, the
+// dialect the API server talks to CockroachDB in.
+func TestAPatchLocksTheRowItIsCheckedAgainst(t *testing.T) {
+	db := dryRunDB(t)
+	var queries []string
+	require.NoError(t, db.Callback().Query().After("gorm:query").Register(
+		"test:record_query",
+		func(tx *gorm.DB) { queries = append(queries, tx.Statement.SQL.String()) },
+	))
+
+	loaded := newKRD("krd", KubernetesRuntimeInfraProviderGKE, util.Ptr(true), nil)
+	loaded.ID = util.Ptr(uint(7))
+	_ = db.Model(loaded).Updates(&KubernetesRuntimeDefinition{PrivateApi: util.Ptr(false)})
+
+	locked := 0
+	for _, query := range queries {
+		if strings.HasPrefix(query, `SELECT * FROM "v0_kubernetes_runtime_definitions" WHERE`) &&
+			strings.HasSuffix(query, "FOR UPDATE") {
+			locked++
+		}
+	}
+	assert.Equal(t, 1, locked, "queries: %q", queries)
 }
 
 // TestAGkeClustersReservedNatAddressCannotBeChanged covers

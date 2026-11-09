@@ -4,7 +4,6 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -17,15 +16,15 @@ import (
 	"gorm.io/datatypes"
 
 	"github.com/threeport/threeport/internal/provider"
+	"github.com/threeport/threeport/internal/pulumitest"
 )
 
-// requirePulumi skips the test when the pulumi CLI is not on PATH.
+// requirePulumi skips the test when the pulumi CLI is not on PATH, or fails
+// it in CI (see pulumitest.RequireCLI).
 // SetStackState shells out through the local workspace, so that path cannot run without it.
 func requirePulumi(t *testing.T) {
 	t.Helper()
-	if _, err := exec.LookPath("pulumi"); err != nil {
-		t.Skip("pulumi CLI not found on PATH; skipping pulumi-backed test")
-	}
+	pulumitest.RequireCLI(t)
 }
 
 // recordedResource is one NewResource call captured by recordingMocks.

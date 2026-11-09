@@ -138,53 +138,79 @@ func validateKubernetesApiAccess(infraProvider string, privateApi *bool, allowed
 }
 
 // validateKubernetesApiAccessUpdate checks an update that sends PrivateApi
-// or AllowedCidrs.  The values it would leave are validated, then refused if
-// they differ from the stored ones: nothing applies a change to a runtime that
-// exists, so accepting one would record a restriction the cluster does not
-// have.  Values that mean the same, such as an unset list and an empty one or
-// the same blocks in another order, are not a change.  access returns an
-// object's PrivateApi and AllowedCidrs.
+// or AllowedCidrs.  The pair the row will hold once the update lands is
+// validated, then refused if it differs from the stored one: nothing applies a
+// change to a runtime that exists, so accepting one would record a restriction
+// the cluster does not have.  Values that mean the same, such as an unset list
+// and an empty one or the same blocks in another order, are not a change.
+// fields returns the pair an object of the hook's type holds, and false for
+// any other type.
+//
+// A PUT writes every column, so the pair it carries is the pair the row will
+// hold.  A PATCH writes only the fields it carries, over the row as it is when
+// the write lands.  That isn't the receiver: the handler loaded the receiver
+// before the transaction began, and another update may have changed the row
+// since.  The row is read again inside the transaction and locked instead, so
+// a concurrent update of the pair waits for this one and is then checked
+// against its result.
 func validateKubernetesApiAccessUpdate(
 	tx *gorm.DB,
 	infraProvider string,
-	access func(any) (*bool, *datatypes.JSON, bool),
+	fields func(any) (*bool, *datatypes.JSON, bool),
 ) error {
-	privateApiChanged, err := lib.IsFieldChanged(tx, "PrivateApi")
-	if err != nil {
-		return err
-	}
-	allowedCidrsChanged, err := lib.IsFieldChanged(tx, "AllowedCidrs")
-	if err != nil {
-		return err
-	}
-	if !privateApiChanged && !allowedCidrsChanged {
-		return nil
-	}
-
-	// a patch's receiver is the stored row, while a replace's receiver is
-	// the incoming object, so the stored row is read back for a replace
-	stored := tx.Statement.Model
-	if lib.IsFullReplace(tx) {
-		if stored, err = lib.LoadObjectFromDB(tx); err != nil {
-			return err
-		}
-	}
-	storedPrivateApi, storedAllowedCidrs, storedOk := access(stored)
-	incomingPrivateApi, incomingAllowedCidrs, incomingOk := access(lib.IncomingValues(tx))
-	if !storedOk || !incomingOk {
+	incomingPrivateApi, incomingAllowedCidrs, ok := fields(lib.IncomingValues(tx))
+	if !ok {
 		return fmt.Errorf(
 			"cannot validate Kubernetes API access: update carries %T",
 			lib.IncomingValues(tx),
 		)
 	}
 
-	privateApi := storedPrivateApi
-	if privateApiChanged {
-		privateApi = incomingPrivateApi
+	var stored any
+	var privateApi *bool
+	var allowedCidrs *datatypes.JSON
+	if lib.IsFullReplace(tx) {
+		privateApiChanged, err := lib.IsFieldChanged(tx, "PrivateApi")
+		if err != nil {
+			return err
+		}
+		allowedCidrsChanged, err := lib.IsFieldChanged(tx, "AllowedCidrs")
+		if err != nil {
+			return err
+		}
+		if !privateApiChanged && !allowedCidrsChanged {
+			return nil
+		}
+
+		// a replace's receiver is the incoming object, so the stored row is
+		// read back
+		if stored, err = lib.LoadObjectFromDB(tx); err != nil {
+			return err
+		}
+		privateApi, allowedCidrs = incomingPrivateApi, incomingAllowedCidrs
+	} else {
+		// a PATCH leaves the fields it doesn't carry as they are
+		if incomingPrivateApi == nil && incomingAllowedCidrs == nil {
+			return nil
+		}
+
+		var err error
+		if stored, err = lib.LockObjectInDB(tx); err != nil {
+			return err
+		}
 	}
-	allowedCidrs := storedAllowedCidrs
-	if allowedCidrsChanged {
-		allowedCidrs = incomingAllowedCidrs
+	storedPrivateApi, storedAllowedCidrs, ok := fields(stored)
+	if !ok {
+		return fmt.Errorf("cannot validate Kubernetes API access: loaded %T", stored)
+	}
+	if !lib.IsFullReplace(tx) {
+		privateApi, allowedCidrs = storedPrivateApi, storedAllowedCidrs
+		if incomingPrivateApi != nil {
+			privateApi = incomingPrivateApi
+		}
+		if incomingAllowedCidrs != nil {
+			allowedCidrs = incomingAllowedCidrs
+		}
 	}
 
 	if err := validateKubernetesApiAccess(infraProvider, privateApi, allowedCidrs); err != nil {

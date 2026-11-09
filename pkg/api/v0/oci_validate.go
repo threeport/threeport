@@ -78,8 +78,8 @@ func (o *OciOkeKubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
 	return validateKubernetesApiAccessUpdate(
 		tx,
 		KubernetesRuntimeInfraProviderOKE,
-		func(values any) (*bool, *datatypes.JSON, bool) {
-			object, ok := values.(*OciOkeKubernetesRuntimeDefinition)
+		func(value any) (*bool, *datatypes.JSON, bool) {
+			object, ok := value.(*OciOkeKubernetesRuntimeDefinition)
 			if !ok {
 				return nil, nil, false
 			}

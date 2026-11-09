@@ -3,10 +3,12 @@ package gcp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -506,81 +508,6 @@ func testGkeDefinition() *api_v0.GcpGkeKubernetesRuntimeDefinition {
 	}
 }
 
-// TestBuildGkeInfra_APrivateClusterIsBuiltPrivate covers #729: a definition
-// with PrivateApi builds a private cluster, with its AllowedCidrs on the
-// internal endpoint and without looking up the control plane's addresses,
-// which the control plane does not need to reach it through the DNS
-// endpoint.
-func TestBuildGkeInfra_APrivateClusterIsBuiltPrivate(t *testing.T) {
-	projectID := "some-project"
-	gcpProviderID := uint(1)
-	serviceAccountCredentials := `{"type":"service_account","project_id":"some-project","client_email":"threeport@some-project.iam.gserviceaccount.com"}`
-	encryptionKey, storedCredentials := encryptedCredentials(t, serviceAccountCredentials)
-	gcpProvider := api_v0.GcpProvider{
-		Common:                    api_v0.Common{ID: &gcpProviderID},
-		ProjectID:                 &projectID,
-		ServiceAccountCredentials: &storedCredentials,
-	}
-
-	runtimeLookups := 0
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.Contains(r.URL.Path, "kubernetes-runtime-instances") {
-			runtimeLookups++
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		body, err := json.Marshal(apiserver_lib.Response{
-			Status: apiserver_lib.Status{Code: http.StatusOK, Message: "OK"},
-			Data:   []apiserver_lib.Object{gcpProvider},
-		})
-		require.NoError(t, err)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write(body)
-	}))
-	defer srv.Close()
-
-	r := &controller.Reconciler{
-		APIClient:     &http.Client{},
-		APIServer:     strings.TrimPrefix(srv.URL, "http://"),
-		EncryptionKey: encryptionKey,
-	}
-
-	instanceName := "private-instance"
-	region := "us-east1"
-	runtimeInstanceID := uint(7)
-	instance := &api_v0.GcpGkeKubernetesRuntimeInstance{
-		Instance:                    api_v0.Instance{Name: &instanceName},
-		Region:                      &region,
-		GcpProviderID:               &gcpProviderID,
-		KubernetesRuntimeInstanceID: &runtimeInstanceID,
-	}
-	machineType := "e2-standard-4"
-	size := 1
-	privateApi := true
-	allowedCidrs := []byte(`["10.8.0.0/16"]`)
-	definition := &api_v0.GcpGkeKubernetesRuntimeDefinition{
-		DefaultNodeGroupInstanceType: &machineType,
-		DefaultNodeGroupInitialSize:  &size,
-		DefaultNodeGroupMinimumSize:  &size,
-		DefaultNodeGroupMaximumSize:  &size,
-		PrivateApi:                   &privateApi,
-		AllowedCidrs:                 (*datatypes.JSON)(&allowedCidrs),
-	}
-
-	infra, err := buildGkeInfra(r, instance, definition, nil)
-	require.NoError(t, err)
-	assert.True(t, infra.PrivateApi)
-	assert.Equal(t, []string{"10.8.0.0/16"}, infra.AllowedCidrs)
-	assert.Empty(t, infra.ControlPlaneEgressCidrs)
-	assert.Zero(t, runtimeLookups, "a private cluster does not look up the control plane's addresses")
-
-	privateApi = false
-	_, err = buildGkeInfra(r, instance, definition, nil)
-	require.Error(t, err, "a public one does, which this server fails")
-	assert.Equal(t, 1, runtimeLookups)
-}
-
 // TestGkeLifecycle_GetReconciliation_AbandonInfrastructure covers the operator
 // override reaching the shared delete state machine. A snapshot that drops it
 // leaves a held delete refused no matter what the operator sets.
@@ -674,4 +601,197 @@ func TestGkeLifecycle_RecordWarning_NoRecorder(t *testing.T) {
 	lifecycle := &gkeLifecycle{r: &controller.Reconciler{}, instanceID: 7}
 
 	assert.Error(t, lifecycle.RecordWarning("Reason", "note"))
+}
+
+// gkeInstanceServer serves one GcpGkeKubernetesRuntimeInstance, so
+// IsCreateComplete can read the inventory the way the controller does.
+func gkeInstanceServer(t *testing.T, instance api_v0.GcpGkeKubernetesRuntimeInstance) *httptest.Server {
+	t.Helper()
+
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := json.Marshal(apiserver_lib.Response{
+			Status: apiserver_lib.Status{Code: http.StatusOK, Message: "OK"},
+			Data:   []apiserver_lib.Object{instance},
+		})
+		require.NoError(t, err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(body)
+	}))
+}
+
+// newTestGkeLifecycle returns a lifecycle reading an instance that holds the
+// inventory, with GCP stood in for by ready. The returned counter is how many
+// times GCP was asked.
+func newTestGkeLifecycle(
+	t *testing.T,
+	inventory *datatypes.JSON,
+	ready func() (bool, error),
+) (*gkeLifecycle, *atomic.Int32) {
+	t.Helper()
+
+	instanceID := uint(7)
+	srv := gkeInstanceServer(t, api_v0.GcpGkeKubernetesRuntimeInstance{
+		Common:            api_v0.Common{ID: &instanceID},
+		ResourceInventory: inventory,
+	})
+	t.Cleanup(srv.Close)
+
+	asked := &atomic.Int32{}
+	logger := logr.Discard()
+	g := newGkeLifecycleProvider(
+		&controller.Reconciler{
+			APIClient: &http.Client{},
+			APIServer: strings.TrimPrefix(srv.URL, "http://"),
+		},
+		&api_v0.GcpGkeKubernetesRuntimeInstance{Common: api_v0.Common{ID: &instanceID}},
+		&logger,
+	)
+	g.createReady = func(*api_v0.GcpGkeKubernetesRuntimeInstance) (bool, error) {
+		asked.Add(1)
+		return ready()
+	}
+
+	return g, asked
+}
+
+// TestGkeIsCreateComplete_PartialStateIsNotComplete covers the state the stack
+// streams while the create is still running. The inventory is non-empty, so it
+// was enough to confirm the create before the cluster had an endpoint.
+func TestGkeIsCreateComplete_PartialStateIsNotComplete(t *testing.T) {
+	partial := datatypes.JSON(`{"version":3,"deployment":{"resources":[{"urn":"urn:pulumi:stack::gke::gcp:compute/network:Network::net"}]}}`)
+	g, asked := newTestGkeLifecycle(t, &partial, func() (bool, error) { return false, nil })
+
+	complete, err := g.IsCreateComplete()
+
+	require.NoError(t, err)
+	assert.False(t, complete)
+	assert.Equal(t, int32(1), asked.Load(), "non-empty state must still be checked against GCP")
+}
+
+// TestGkeIsCreateComplete_CompleteOnceGcpSaysSo covers the same state once the
+// create has run to its last step.
+func TestGkeIsCreateComplete_CompleteOnceGcpSaysSo(t *testing.T) {
+	state := datatypes.JSON(`{"version":3,"deployment":{"resources":[{"urn":"urn:x"}]}}`)
+	g, _ := newTestGkeLifecycle(t, &state, func() (bool, error) { return true, nil })
+
+	complete, err := g.IsCreateComplete()
+
+	require.NoError(t, err)
+	assert.True(t, complete)
+}
+
+// TestGkeIsCreateComplete_NoStateSkipsGcp covers a create that has saved
+// nothing, which cannot be complete and needs no call to GCP.
+func TestGkeIsCreateComplete_NoStateSkipsGcp(t *testing.T) {
+	empty := datatypes.JSON(`{}`)
+	for name, inventory := range map[string]*datatypes.JSON{
+		"nil":   nil,
+		"empty": &empty,
+		"null":  jsonPtr(`null`),
+	} {
+		t.Run(name, func(t *testing.T) {
+			g, asked := newTestGkeLifecycle(t, inventory, func() (bool, error) { return true, nil })
+
+			complete, err := g.IsCreateComplete()
+
+			require.NoError(t, err)
+			assert.False(t, complete)
+			assert.Equal(t, int32(0), asked.Load())
+		})
+	}
+}
+
+// TestGkeIsCreateComplete_GcpErrorPropagates covers a failed check, which must
+// not read as complete or as not complete.
+func TestGkeIsCreateComplete_GcpErrorPropagates(t *testing.T) {
+	state := datatypes.JSON(`{"deployment":{"resources":[{"urn":"urn:x"}]}}`)
+	errGcp := errors.New("gcp unavailable")
+	g, _ := newTestGkeLifecycle(t, &state, func() (bool, error) { return false, errGcp })
+
+	complete, err := g.IsCreateComplete()
+
+	require.ErrorIs(t, err, errGcp)
+	assert.False(t, complete)
+}
+
+// jsonPtr returns a pointer to s as JSON bytes.
+func jsonPtr(s string) *datatypes.JSON {
+	j := datatypes.JSON(s)
+	return &j
+}
+
+// TestBuildGkeInfra_APrivateClusterIsBuiltPrivate covers #729: a definition
+// with PrivateApi builds a private cluster, with its AllowedCidrs on the
+// internal endpoint and without looking up the control plane's addresses,
+// which the control plane does not need to reach it through the DNS
+// endpoint.
+func TestBuildGkeInfra_APrivateClusterIsBuiltPrivate(t *testing.T) {
+	projectID := "some-project"
+	gcpProviderID := uint(1)
+	serviceAccountCredentials := `{"type":"service_account","project_id":"some-project","client_email":"threeport@some-project.iam.gserviceaccount.com"}`
+	encryptionKey, storedCredentials := encryptedCredentials(t, serviceAccountCredentials)
+	gcpProvider := api_v0.GcpProvider{
+		Common:                    api_v0.Common{ID: &gcpProviderID},
+		ProjectID:                 &projectID,
+		ServiceAccountCredentials: &storedCredentials,
+	}
+
+	runtimeLookups := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "kubernetes-runtime-instances") {
+			runtimeLookups++
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		body, err := json.Marshal(apiserver_lib.Response{
+			Status: apiserver_lib.Status{Code: http.StatusOK, Message: "OK"},
+			Data:   []apiserver_lib.Object{gcpProvider},
+		})
+		require.NoError(t, err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+
+	r := &controller.Reconciler{
+		APIClient:     &http.Client{},
+		APIServer:     strings.TrimPrefix(srv.URL, "http://"),
+		EncryptionKey: encryptionKey,
+	}
+
+	instanceName := "private-instance"
+	region := "us-east1"
+	runtimeInstanceID := uint(7)
+	instance := &api_v0.GcpGkeKubernetesRuntimeInstance{
+		Instance:                    api_v0.Instance{Name: &instanceName},
+		Region:                      &region,
+		GcpProviderID:               &gcpProviderID,
+		KubernetesRuntimeInstanceID: &runtimeInstanceID,
+	}
+	machineType := "e2-standard-4"
+	size := 1
+	privateApi := true
+	allowedCidrs := []byte(`["10.8.0.0/16"]`)
+	definition := &api_v0.GcpGkeKubernetesRuntimeDefinition{
+		DefaultNodeGroupInstanceType: &machineType,
+		DefaultNodeGroupInitialSize:  &size,
+		DefaultNodeGroupMinimumSize:  &size,
+		DefaultNodeGroupMaximumSize:  &size,
+		PrivateApi:                   &privateApi,
+		AllowedCidrs:                 (*datatypes.JSON)(&allowedCidrs),
+	}
+
+	infra, err := buildGkeInfra(r, instance, definition, nil)
+	require.NoError(t, err)
+	assert.True(t, infra.PrivateApi)
+	assert.Equal(t, []string{"10.8.0.0/16"}, infra.AllowedCidrs)
+	assert.Empty(t, infra.ControlPlaneEgressCidrs)
+	assert.Zero(t, runtimeLookups, "a private cluster does not look up the control plane's addresses")
+
+	privateApi = false
+	_, err = buildGkeInfra(r, instance, definition, nil)
+	require.Error(t, err, "a public one does, which this server fails")
+	assert.Equal(t, 1, runtimeLookups)
 }
