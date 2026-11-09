@@ -220,7 +220,7 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Replace(
 
 // Delete deletes a gcp gke kubernetes runtime definition from the Threeport API by name.
 // Delete removes the provider definition before the kubernetes runtime definition it references.
-// When the provider definition is missing, Delete removes the runtime definition that shares its name.
+// When the provider definition is missing, Delete removes a gke runtime definition that shares its name.
 func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
@@ -256,7 +256,7 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Delete(
 			*gcpGkeKubernetesRuntimeDefinition.KubernetesRuntimeDefinitionID,
 		)
 	} else {
-		// delete the runtime definition that shares the missing provider definition name
+		// delete a gke runtime definition that shares the missing provider definition name
 		kubernetesRuntimeDefinition, getErr := client_v0.GetKubernetesRuntimeDefinitionByName(
 			apiClient,
 			apiEndpoint,
@@ -266,6 +266,10 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Delete(
 			return nil, fmt.Errorf("failed to find kubernetes runtime definition with name %s: %w", *gcpGkeKubernetesRuntimeDefinitionValues.Name, getErr)
 		}
 		if getErr == nil {
+			gkeProvider := string(api_v0.KubernetesRuntimeInfraProviderGKE)
+			if kubernetesRuntimeDefinition.InfraProvider == nil || *kubernetesRuntimeDefinition.InfraProvider != gkeProvider {
+				return nil, fmt.Errorf("kubernetes runtime definition %s is not a gke runtime", *gcpGkeKubernetesRuntimeDefinitionValues.Name)
+			}
 			_, err = client_v0.DeleteKubernetesRuntimeDefinition(
 				apiClient,
 				apiEndpoint,

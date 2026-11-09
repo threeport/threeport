@@ -87,9 +87,11 @@ func TestGcpGkeKubernetesRuntimeDefinitionConfig_DeleteRetriesRuntimeDefinition(
 		Definition:                    api_v0.Definition{Name: &name},
 		KubernetesRuntimeDefinitionID: &kubernetesRuntimeDefinitionID,
 	}
+	gke := string(api_v0.KubernetesRuntimeInfraProviderGKE)
 	runtimeDefinition := api_v0.KubernetesRuntimeDefinition{
-		Common:     api_v0.Common{ID: &kubernetesRuntimeDefinitionID},
-		Definition: api_v0.Definition{Name: &name},
+		Common:        api_v0.Common{ID: &kubernetesRuntimeDefinitionID},
+		Definition:    api_v0.Definition{Name: &name},
+		InfraProvider: &gke,
 	}
 
 	// fail the first runtime definition delete, then let the retry finish it
@@ -156,5 +158,54 @@ func TestGcpGkeKubernetesRuntimeDefinitionConfig_DeleteRetriesRuntimeDefinition(
 		"GET " + api_v0.PathGcpGkeKubernetesRuntimeDefinitions,
 		"GET " + api_v0.PathKubernetesRuntimeDefinitions,
 		"DELETE " + api_v0.PathKubernetesRuntimeDefinitions + "/9",
+	}, calls)
+}
+
+// TestGcpGkeKubernetesRuntimeDefinitionConfig_DeleteLeavesOtherProviders checks a same-named runtime.
+// Delete returns an error and leaves a kind runtime definition in place.
+func TestGcpGkeKubernetesRuntimeDefinitionConfig_DeleteLeavesOtherProviders(t *testing.T) {
+	name := "dev-01"
+	runtimeID := uint(9)
+	kind := string(api_v0.KubernetesRuntimeInfraProviderKind)
+	runtimeDefinition := api_v0.KubernetesRuntimeDefinition{
+		Common:        api_v0.Common{ID: &runtimeID},
+		Definition:    api_v0.Definition{Name: &name},
+		InfraProvider: &kind,
+	}
+
+	// serve a missing provider definition and a kind runtime definition
+	var calls []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls = append(calls, r.Method+" "+r.URL.Path)
+		if r.Method == http.MethodDelete {
+			t.Errorf("deleted %s", r.URL.Path)
+		}
+
+		data := []apiserver_lib.Object{}
+		if r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, api_v0.PathKubernetesRuntimeDefinitions) {
+			data = []apiserver_lib.Object{runtimeDefinition}
+		}
+		body, err := json.Marshal(apiserver_lib.Response{
+			Status: apiserver_lib.Status{Code: http.StatusOK, Message: "OK"},
+			Data:   data,
+		})
+		require.NoError(t, err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, err = w.Write(body)
+		require.NoError(t, err)
+	}))
+	defer server.Close()
+
+	config := &GcpGkeKubernetesRuntimeDefinitionConfig{
+		GcpGkeKubernetesRuntimeDefinition: GcpGkeKubernetesRuntimeDefinitionValues{
+			Name: &name,
+		},
+	}
+	_, err := config.Delete(http.DefaultClient, strings.TrimPrefix(server.URL, "http://"))
+	require.Error(t, err)
+	require.Equal(t, []string{
+		"GET " + api_v0.PathGcpGkeKubernetesRuntimeDefinitions,
+		"GET " + api_v0.PathKubernetesRuntimeDefinitions,
 	}, calls)
 }
