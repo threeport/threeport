@@ -118,9 +118,11 @@ func TestSetComputeSpaceAgentImage(t *testing.T) {
 
 	t.Run("a runtime image wins", func(t *testing.T) {
 		agent := compiled()
+		agent.ImageName = "compiled-agent"
 		image := "example.com/other/threeport-agent:custom"
 		require.NoError(t, setComputeSpaceAgentImage(agent, &image, plane))
 		assert.Equal(t, "example.com/other", agent.ImageNamespace)
+		assert.Equal(t, "threeport-agent", agent.ImageName)
 		assert.Equal(t, "custom", agent.ImageTag)
 	})
 

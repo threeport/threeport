@@ -78,11 +78,12 @@ func setComputeSpaceAgentImage(
 ) error {
 	// use the image the runtime names
 	if image := util.DerefString(runtimeImage); image != "" {
-		registry, _, tag, err := util.ParseImage(image)
+		registry, name, tag, err := util.ParseImage(image)
 		if err != nil {
 			return fmt.Errorf("failed to parse custom threeport agent image: %w", err)
 		}
 		agent.ImageNamespace = registry
+		agent.ImageName = name
 		agent.ImageTag = tag
 		return nil
 	}
