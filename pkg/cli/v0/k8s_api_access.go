@@ -12,6 +12,7 @@ import (
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
+	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 )
 
 // ValidateK8sApiAllowedCidrsFlag checks --k8s-api-allowed-cidrs: the blocks
@@ -114,4 +115,22 @@ func withUnreachableClusterCleanup(err error, controlPlaneName string, teardownO
 		"%w\nthe cluster has been left in place - delete it with 'tptctl down --name %s --infra-only', or run tptctl up with --teardown-on-failure to delete it on failure",
 		err, controlPlaneName,
 	)
+}
+
+// reusedControlPlaneConfig returns the config entry a --control-plane-only
+// install uses: the one a prior run saved under the control plane's name, or
+// a new one when the cluster was provisioned outside of tptctl.
+//
+// The cluster keeps the Kubernetes API allowlist it was created with, which
+// --k8s-api-allowed-cidrs can't name on this path.  The saved list is put back
+// in opts, so that the config entry keeps it and the kubernetes runtime
+// definition records it.
+func reusedControlPlaneConfig(threeportConfig *ThreeportConfig, opts *threeport.Options) *ControlPlane {
+	existingConfig, err := threeportConfig.GetControlPlaneConfig(opts.ControlPlaneName)
+	if err != nil {
+		return &ControlPlane{}
+	}
+	opts.K8sApiAllowedCidrs = existingConfig.K8sApiAllowedCidrs
+
+	return existingConfig
 }
