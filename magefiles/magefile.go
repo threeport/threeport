@@ -193,14 +193,21 @@ func (Test) E2eAwsDev(region, profile string, clean bool) error {
 }
 
 // ensureEcrRepository creates an ECR repository unless it already exists.
+// Only a lookup that reports the repository missing leads to a create.  Any
+// other failure, such as expired credentials or a profile that doesn't exist,
+// is returned with the CLI's output.
 func ensureEcrRepository(region, profile, name string) error {
-	if err := exec.Command(
+	output, err := exec.Command(
 		"aws", "ecr", "describe-repositories",
 		"--repository-names", name,
 		"--region", region,
 		"--profile", profile,
-	).Run(); err == nil {
+	).CombinedOutput()
+	if err == nil {
 		return nil
+	}
+	if !strings.Contains(string(output), "RepositoryNotFoundException") {
+		return fmt.Errorf("failed to look up ECR repository %s with output %s: %w", name, output, err)
 	}
 
 	if output, err := exec.Command(
