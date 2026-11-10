@@ -128,3 +128,36 @@ func TestAResumedEksCreateKeepsTheClustersUpgradePolicy(t *testing.T) {
 		"a cluster created before the policy was set")
 	assert.Equal(t, map[string]any{"supportType": "STANDARD"}, upgradePolicy(`{"resources":[]}`), "a new stack")
 }
+
+// TestTheClusterCreateKeptIsReported covers what each provider reports it
+// created the cluster with, for tptctl up to record: the version and channel
+// asked for on a new stack, and the ones a resumed stack kept, none for a GKE
+// cluster created before they were set.
+func TestTheClusterCreateKeptIsReported(t *testing.T) {
+	gke := &KubernetesRuntimeInfraGKE{Version: "1.36", ReleaseChannel: "STABLE"}
+	assert.Equal(t, "1.36", gke.CreatedKubernetesVersion())
+	assert.Equal(t, "STABLE", gke.CreatedReleaseChannel())
+	assert.Equal(t, DefaultEksKubernetesVersion, (&KubernetesRuntimeInfraGKE{}).CreatedKubernetesVersion())
+	assert.Equal(t, "REGULAR", (&KubernetesRuntimeInfraGKE{}).CreatedReleaseChannel())
+
+	gke.keepStackMinMasterVersion([]byte(`{"resources":[{"type":"gcp:container/cluster:Cluster","inputs":{"minMasterVersion":"1.35","releaseChannel":{"channel":"REGULAR"}}}]}`))
+	gke.keepStackReleaseChannel([]byte(`{"resources":[{"type":"gcp:container/cluster:Cluster","inputs":{"minMasterVersion":"1.35","releaseChannel":{"channel":"REGULAR"}}}]}`))
+	assert.Equal(t, "1.35", gke.CreatedKubernetesVersion())
+	assert.Equal(t, "REGULAR", gke.CreatedReleaseChannel())
+
+	old := &KubernetesRuntimeInfraGKE{Version: "1.36", ReleaseChannel: "STABLE"}
+	old.keepStackMinMasterVersion([]byte(`{"resources":[{"type":"gcp:container/cluster:Cluster","inputs":{}}]}`))
+	old.keepStackReleaseChannel([]byte(`{"resources":[{"type":"gcp:container/cluster:Cluster","inputs":{}}]}`))
+	assert.Empty(t, old.CreatedKubernetesVersion())
+	assert.Empty(t, old.CreatedReleaseChannel())
+
+	eks := &KubernetesRuntimeInfraEKS{KubernetesVersion: "1.36"}
+	eks.keepStackVersion([]byte(`{"resources":[{"type":"aws:eks/cluster:Cluster","inputs":{"version":"1.32"}}]}`))
+	assert.Equal(t, "1.32", eks.CreatedKubernetesVersion())
+
+	oke := &KubernetesRuntimeInfraOKE{Version: "1.36"}
+	assert.Equal(t, "1.36", oke.CreatedKubernetesVersion(), "before the release is resolved")
+	oke.keepStackVersion([]byte(`{"resources":[{"type":"oci:ContainerEngine/cluster:Cluster","inputs":{"kubernetesVersion":"v1.35.10"}}]}`))
+	assert.Equal(t, "1.35", oke.CreatedKubernetesVersion())
+	assert.Empty(t, (&KubernetesRuntimeInfraOKE{Version: "garbage"}).CreatedKubernetesVersion())
+}

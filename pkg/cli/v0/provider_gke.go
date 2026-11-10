@@ -65,7 +65,11 @@ func ConfigureControlPlaneWithGkeConfig(
 	}
 	// a cluster tptctl didn't create, with --control-plane-only, records none
 	if !cpi.Opts.ControlPlaneOnly {
-		recordGkeUpgradeSettings(&gcpGkeKubernetesRuntimeDef, kubernetesRuntimeInfraGKE)
+		recordGkeUpgradeSettings(
+			&gcpGkeKubernetesRuntimeDef,
+			kubernetesRuntimeInfraGKE.CreatedReleaseChannel(),
+			kubernetesRuntimeInfraGKE,
+		)
 	}
 	createdGcpGkeKubernetesRuntimeDef, err := ensureGcpGkeKubernetesRuntimeDefinition(
 		apiClient,
@@ -121,12 +125,17 @@ func gkeReleaseChannel(tier threeport.ControlPlaneTier) string {
 }
 
 // recordGkeUpgradeSettings records on a GKE definition the release channel
-// and maintenance window tptctl up created its cluster with.
+// and maintenance window tptctl up created its cluster with.  The channel is
+// the infra's CreatedReleaseChannel: a create resumed on a stack that already
+// held the cluster kept its channel, and one GKE chose, "", isn't recorded.
 func recordGkeUpgradeSettings(
 	definition *v0.GcpGkeKubernetesRuntimeDefinition,
+	channel string,
 	infra *provider.KubernetesRuntimeInfraGKE,
 ) {
-	definition.ReleaseChannel = util.Ptr(v0.GkeReleaseChannelOrDefault(&infra.ReleaseChannel))
+	if channel != "" {
+		definition.ReleaseChannel = &channel
+	}
 	definition.MaintenanceWindowDays = util.Ptr(v0.GkeMaintenanceWindowDaysOrDefault(&infra.MaintenanceWindowDays))
 	definition.MaintenanceWindowStart = util.Ptr(v0.GkeMaintenanceWindowStartOrDefault(&infra.MaintenanceWindowStart))
 	definition.MaintenanceWindowHours = util.Ptr(v0.GkeMaintenanceWindowHoursOrDefault(&infra.MaintenanceWindowHours))

@@ -148,6 +148,23 @@ func okeImageArch(shape string) string {
 	return "x86_64"
 }
 
+// minorVersion returns the minor version of a Kubernetes version such as
+// "v1.36.4" or "1.36", "1.36" for both.
+func minorVersion(version string) string {
+	parts := strings.SplitN(strings.TrimPrefix(version, "v"), ".", 3)
+	if len(parts) < 2 {
+		return ""
+	}
+
+	return parts[0] + "." + parts[1]
+}
+
+// CreatedKubernetesVersion returns the Kubernetes minor version of the
+// cluster Create created or found in the stack, such as "1.36".
+func (i *KubernetesRuntimeInfraOKE) CreatedKubernetesVersion() string {
+	return minorVersion(i.Version)
+}
+
 // clusterInputInStack returns an input of the cluster an exported deployment
 // holds, and whether it holds the cluster at all.  An input nested in an
 // object is named by its path, such as "releaseChannel.channel".  The input is

@@ -289,6 +289,28 @@ func (i *KubernetesRuntimeInfraGKE) minMasterVersion() pulumi.StringPtrInput {
 	return pulumi.String(v0.KubernetesVersionOrDefault(&i.Version))
 }
 
+// CreatedKubernetesVersion returns the Kubernetes minor version Create asked
+// for the cluster it created or found in the stack, such as "1.36": "" for one
+// created before the version was set, which GKE chose.
+func (i *KubernetesRuntimeInfraGKE) CreatedKubernetesVersion() string {
+	if i.stackMinMasterVersion != nil {
+		return *i.stackMinMasterVersion
+	}
+
+	return v0.KubernetesVersionOrDefault(&i.Version)
+}
+
+// CreatedReleaseChannel returns the release channel of the cluster Create
+// created or found in the stack: "" for one created before the channel was
+// set, which GKE chose.
+func (i *KubernetesRuntimeInfraGKE) CreatedReleaseChannel() string {
+	if i.stackReleaseChannel != nil {
+		return *i.stackReleaseChannel
+	}
+
+	return v0.GkeReleaseChannelOrDefault(&i.ReleaseChannel)
+}
+
 // keepStackReleaseChannel records the release channel of the cluster the
 // stack's deployment holds, if it holds one, for the program to keep.
 func (i *KubernetesRuntimeInfraGKE) keepStackReleaseChannel(deployment json.RawMessage) {
@@ -303,12 +325,9 @@ func (i *KubernetesRuntimeInfraGKE) keepStackReleaseChannel(deployment json.RawM
 // than one offering its version, so a cluster created before the channel was
 // set keeps the one GKE chose for it.
 func (i *KubernetesRuntimeInfraGKE) releaseChannel() gkecontainer.ClusterReleaseChannelPtrInput {
-	channel := v0.GkeReleaseChannelOrDefault(&i.ReleaseChannel)
-	if i.stackReleaseChannel != nil {
-		if *i.stackReleaseChannel == "" {
-			return nil
-		}
-		channel = *i.stackReleaseChannel
+	channel := i.CreatedReleaseChannel()
+	if channel == "" {
+		return nil
 	}
 
 	return &gkecontainer.ClusterReleaseChannelArgs{Channel: pulumi.String(channel)}

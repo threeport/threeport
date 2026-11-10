@@ -30,23 +30,36 @@ func TestAProductionControlPlanesGkeClusterIsOnTheStableChannel(t *testing.T) {
 // the cluster tptctl up creates: the ones it was created with, and the
 // defaults for the ones it left unset.
 func TestTheGenesisGkeDefinitionRecordsTheClustersUpgradeSettings(t *testing.T) {
+	infra := &provider.KubernetesRuntimeInfraGKE{ReleaseChannel: "STABLE"}
 	var definition v0.GcpGkeKubernetesRuntimeDefinition
-	recordGkeUpgradeSettings(&definition, &provider.KubernetesRuntimeInfraGKE{ReleaseChannel: "STABLE"})
+	recordGkeUpgradeSettings(&definition, infra.CreatedReleaseChannel(), infra)
 	assert.Equal(t, "STABLE", *definition.ReleaseChannel)
 	assert.Equal(t, "SA,SU", *definition.MaintenanceWindowDays)
 	assert.Equal(t, "04:00", *definition.MaintenanceWindowStart)
 	assert.Equal(t, 8, *definition.MaintenanceWindowHours)
 
-	definition = v0.GcpGkeKubernetesRuntimeDefinition{}
-	recordGkeUpgradeSettings(&definition, &provider.KubernetesRuntimeInfraGKE{
+	infra = &provider.KubernetesRuntimeInfraGKE{
 		MaintenanceWindowDays:  "WE",
 		MaintenanceWindowStart: "01:30",
 		MaintenanceWindowHours: 5,
-	})
+	}
+	definition = v0.GcpGkeKubernetesRuntimeDefinition{}
+	recordGkeUpgradeSettings(&definition, infra.CreatedReleaseChannel(), infra)
 	assert.Equal(t, "REGULAR", *definition.ReleaseChannel)
 	assert.Equal(t, "WE", *definition.MaintenanceWindowDays)
 	assert.Equal(t, "01:30", *definition.MaintenanceWindowStart)
 	assert.Equal(t, 5, *definition.MaintenanceWindowHours)
+
+	// a resumed create records the channel the stack kept, and none when GKE
+	// chose it
+	infra = &provider.KubernetesRuntimeInfraGKE{ReleaseChannel: "STABLE"}
+	definition = v0.GcpGkeKubernetesRuntimeDefinition{}
+	recordGkeUpgradeSettings(&definition, "REGULAR", infra)
+	assert.Equal(t, "REGULAR", *definition.ReleaseChannel)
+	definition = v0.GcpGkeKubernetesRuntimeDefinition{}
+	recordGkeUpgradeSettings(&definition, "", infra)
+	assert.Nil(t, definition.ReleaseChannel)
+	assert.Equal(t, "SA,SU", *definition.MaintenanceWindowDays, "the window is applied in place")
 }
 
 // TestAGkeClusterTptctlDidntCreateRecordsNoUpgradeSettings covers the GKE

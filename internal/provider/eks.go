@@ -128,6 +128,12 @@ func (i *KubernetesRuntimeInfraEKS) keepStackVersion(deployment json.RawMessage)
 	}
 }
 
+// CreatedKubernetesVersion returns the Kubernetes minor version of the
+// cluster Create created or found in the stack, such as "1.36".
+func (i *KubernetesRuntimeInfraEKS) CreatedKubernetesVersion() string {
+	return i.kubernetesVersion()
+}
+
 // keepStackSupportType records the support type of the cluster the stack's
 // deployment holds, if it holds one, for the program to keep.
 func (i *KubernetesRuntimeInfraEKS) keepStackSupportType(deployment json.RawMessage) {
