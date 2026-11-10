@@ -339,8 +339,7 @@ func rewriteNamespace(value interface{}) {
 	}
 }
 
-// setManagerMemoryLimit caps the manager container.
-// A reconcile loop with no limit can take the node.
+// setManagerMemoryLimit sets the manager container memory limit.
 func setManagerMemoryLimit(object map[string]interface{}) {
 	containers, found, err := unstructured.NestedSlice(object, "spec", "template", "spec", "containers")
 	if err != nil || !found {
@@ -351,11 +350,18 @@ func setManagerMemoryLimit(object map[string]interface{}) {
 		if !ok || typed["name"] != "manager" {
 			continue
 		}
-		typed["resources"] = map[string]interface{}{
-			"limits": map[string]interface{}{
-				"memory": supportServicesOperatorMemoryLimit,
-			},
+		// set the memory limit and leave the other resources in place
+		resources, _ := typed["resources"].(map[string]interface{})
+		if resources == nil {
+			resources = map[string]interface{}{}
+			typed["resources"] = resources
 		}
+		limits, _ := resources["limits"].(map[string]interface{})
+		if limits == nil {
+			limits = map[string]interface{}{}
+			resources["limits"] = limits
+		}
+		limits["memory"] = supportServicesOperatorMemoryLimit
 	}
 	_ = unstructured.SetNestedSlice(object, containers, "spec", "template", "spec", "containers")
 }
