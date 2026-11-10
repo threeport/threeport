@@ -20,6 +20,7 @@ import (
 	"flag"
 	"os"
 	"sync"
+	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -60,6 +61,13 @@ func init() {
 	//+kubebuilder:scaffold:scheme
 }
 
+// agentLeaseTimings returns the leader election timings.
+// controller-runtime times out the lease GET at half of the renew deadline.
+func agentLeaseTimings() (time.Duration, time.Duration, time.Duration) {
+	// return the lease, renew, and retry intervals
+	return 60 * time.Second, 40 * time.Second, 5 * time.Second
+}
+
 func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
@@ -90,12 +98,18 @@ func main() {
 		setupLog.Info("no control plane name set, watching ThreeportWorkloads from all control planes")
 	}
 
+	// controller-runtime times out the lease GET at half of the renew deadline
+	leaseDuration, renewDeadline, retryPeriod := agentLeaseTimings()
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		Cache:                  controller.CacheOptions(controlPlaneName),
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "563c770d.threeport.io",
+		LeaseDuration:          &leaseDuration,
+		RenewDeadline:          &renewDeadline,
+		RetryPeriod:            &retryPeriod,
 		Metrics: metricsserver.Options{
 			BindAddress: metricsAddr,
 		},
