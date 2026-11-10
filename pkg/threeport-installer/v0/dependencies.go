@@ -825,6 +825,15 @@ store_dir: /data
 								"securityContext": restrictedContainerSecurityContext(),
 								"image":           fmt.Sprintf("docker.io/cockroachdb/cockroach:%s", DatabaseImageTag),
 								"imagePullPolicy": "IfNotPresent",
+								// cap memory so the 25% cache flags use this limit instead of the node
+								"resources": map[string]interface{}{
+									"requests": map[string]interface{}{
+										"memory": "256Mi",
+									},
+									"limits": map[string]interface{}{
+										"memory": "1Gi",
+									},
+								},
 								"args": []interface{}{
 									"shell",
 									"-ecx",
@@ -874,6 +883,7 @@ store_dir: /data
 									"initialDelaySeconds": 10,
 									"periodSeconds":       5,
 									"failureThreshold":    2,
+									"timeoutSeconds":      5,
 								},
 							},
 						},
