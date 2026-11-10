@@ -1,6 +1,8 @@
 package controlplane
 
 import (
+	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -8,6 +10,7 @@ import (
 	"gorm.io/datatypes"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	controller "github.com/threeport/threeport/pkg/controller/v0"
 	"github.com/threeport/threeport/pkg/encryption/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -54,4 +57,42 @@ func TestAChildKeepsItsRuntimesRangeButNotItsParentsPool(t *testing.T) {
 	assert.Nil(t, instances[0]["NetworkCidrPool"])
 	assert.Equal(t, false, instances[0]["IsSelf"])
 	assert.Equal(t, &pool, parentInstance.NetworkCidrPool, "the parent's own record is left as it was")
+}
+
+// TestTheParentSyncsAChildsPoolToTheChild covers a change to a child's pool:
+// the parent checks it against the ranges it has allocated, on the row it
+// keeps for the child, and copies it to the child's own row, the one the
+// child allocates from.  A cleared pool is sent as an empty one, because a
+// nil field is left out of a patch.
+func TestTheParentSyncsAChildsPoolToTheChild(t *testing.T) {
+	for name, tc := range map[string]struct {
+		pool any
+		sent string
+	}{
+		"a changed pool": {pool: []any{"10.48.0.0/12"}, sent: `["10.48.0.0/12"]`},
+		"a cleared pool": {pool: nil, sent: `[]`},
+	} {
+		t.Run(name, func(t *testing.T) {
+			child := newFakeAPI(t, 500)
+			child.seed(v0.PathControlPlaneInstances, map[string]any{
+				"ID": 7, "Name": "child", "IsSelf": true, "ParentControlPlaneInstanceID": 8,
+				"NetworkCidrPool": []any{"10.32.0.0/12"},
+			})
+			parent := newFakeAPI(t, 1)
+			parent.seed(v0.PathControlPlaneInstances, map[string]any{
+				"ID": 3, "Name": "child", "IsSelf": false, "ParentControlPlaneInstanceID": 1,
+				"ApiServerEndpoint": strings.TrimPrefix(child.server.URL, "http://"),
+				"NetworkCidrPool":   tc.pool,
+			})
+			r := &controller.Reconciler{APIClient: parent.server.Client(), APIServer: parent.target().endpoint}
+
+			require.NoError(t, syncManagedChild(r, &v0.ControlPlaneInstance{Common: v0.Common{ID: util.Ptr(uint(3))}}))
+
+			patches := child.patchedOn(v0.PathControlPlaneInstances)
+			require.Len(t, patches, 1)
+			sent, err := json.Marshal(patches[0]["NetworkCidrPool"])
+			require.NoError(t, err)
+			assert.JSONEq(t, tc.sent, string(sent))
+		})
+	}
 }

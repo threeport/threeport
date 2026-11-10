@@ -263,13 +263,12 @@ func validateRuntimeNetworkCidrUpdate(tx *gorm.DB, k *KubernetesRuntimeInstance)
 		return nil
 	}
 
-	// a patch's receiver is the stored row, while a replace's receiver is the
-	// incoming object, so the stored row is read back for a replace
-	stored := tx.Statement.Model
-	if lib.IsFullReplace(tx) {
-		if stored, err = lib.LoadObjectFromDB(tx); err != nil {
-			return err
-		}
+	// the row is read back and locked inside the write: a patch's receiver
+	// was loaded before the transaction began, and another update may have
+	// set the range since
+	stored, err := lib.LockObjectInDB(tx)
+	if err != nil {
+		return err
 	}
 	storedInstance, storedOk := stored.(*KubernetesRuntimeInstance)
 	incoming, incomingOk := lib.IncomingValues(tx).(*KubernetesRuntimeInstance)

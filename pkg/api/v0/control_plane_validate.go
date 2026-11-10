@@ -346,7 +346,7 @@ func (c *ControlPlaneInstance) beforeUpdate(tx *gorm.DB) error {
 		return nil
 	}
 
-	// the parent may change the image and the controller list on a row it manages
+	// the parent may change the image, the controller list and the pool on a row it manages
 	allowLifecycle := owned && (!self || parentCaller(tx))
 	field, err := changedForeignField(tx, stored, allowLifecycle)
 	if err != nil {
@@ -387,7 +387,7 @@ func storedControlPlane(tx *gorm.DB, receiver *ControlPlaneInstance) (*ControlPl
 }
 
 // changedForeignField returns the first column a control plane this API does not serve must keep.
-// A managed row may change the image and the controller list.
+// A managed row may change the image, the controller list and the pool.
 func changedForeignField(tx *gorm.DB, stored *ControlPlaneInstance, allowLifecycle bool) (string, error) {
 	if tx.Statement.Schema == nil {
 		return "", errors.New("control plane instance update has no schema")
@@ -406,7 +406,7 @@ func changedForeignField(tx *gorm.DB, stored *ControlPlaneInstance, allowLifecyc
 		if !changed || reconciliationColumn(field.BindNames) {
 			continue
 		}
-		// a managed row may change the image and the controller list
+		// a managed row may change the image, the controller list and the pool
 		if allowLifecycle && blankValueIsTheSetting(field.Name) {
 			continue
 		}
@@ -444,10 +444,11 @@ func reconciliationColumn(bindNames []string) bool {
 }
 
 // blankValueIsTheSetting reports whether an empty column is itself a choice.
-// An empty Apis installs every group, and an empty image field inherits the parent.
+// An empty Apis installs every group, an empty image field inherits the
+// parent, and an empty NetworkCidrPool allocates from the default pool.
 func blankValueIsTheSetting(name string) bool {
 	switch name {
-	case "Apis", "ImageNamespace", "ImageTag":
+	case "Apis", "ImageNamespace", "ImageTag", "NetworkCidrPool":
 		return true
 	default:
 		return false

@@ -13,6 +13,7 @@ import (
 	aws_iam "github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/go-logr/logr"
+	"gorm.io/datatypes"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
@@ -1016,7 +1017,8 @@ func copyManagingParent(
 	)
 }
 
-// syncManagedChild copies the image and the controller list onto the child's own row.
+// syncManagedChild copies the image, the controller list and the network
+// range pool onto the child's own row.
 func syncManagedChild(r *controller.Reconciler, instance *v0.ControlPlaneInstance) error {
 	// read the stored row, because the notification omits the certificates
 	stored, err := client.GetControlPlaneInstanceByID(r.APIClient, r.APIServer, *instance.ID)
@@ -1041,12 +1043,20 @@ func syncManagedChild(r *controller.Reconciler, instance *v0.ControlPlaneInstanc
 		apis = &cleared
 	}
 
+	// send an empty pool when the pool was cleared, for the same reason
+	pool := stored.NetworkCidrPool
+	if pool == nil {
+		cleared := datatypes.JSON("[]")
+		pool = &cleared
+	}
+
 	// set the parent link when an older child was created without one
 	update := &v0.ControlPlaneInstance{
-		Common:         v0.Common{ID: childSelf.ID},
-		Apis:           apis,
-		ImageNamespace: stored.ImageNamespace,
-		ImageTag:       stored.ImageTag,
+		Common:          v0.Common{ID: childSelf.ID},
+		Apis:            apis,
+		ImageNamespace:  stored.ImageNamespace,
+		ImageTag:        stored.ImageTag,
+		NetworkCidrPool: pool,
 	}
 	if childSelf.ParentControlPlaneInstanceID == nil {
 		serving, err := client.GetSelfControlPlaneInstance(r.APIClient, r.APIServer)
@@ -1065,7 +1075,7 @@ func syncManagedChild(r *controller.Reconciler, instance *v0.ControlPlaneInstanc
 		update.ParentControlPlaneInstanceID = localParent.ID
 	}
 
-	// write the image and the controller list
+	// write the image, the controller list and the pool
 	if _, err := client.UpdateControlPlaneInstance(childClient, endpoint, update); err != nil {
 		return fmt.Errorf("failed to update control plane instance on %s: %w", *stored.Name, err)
 	}
@@ -1298,7 +1308,7 @@ func v0ControlPlaneInstanceUpdated(
 		return 0, err
 	}
 
-	// copy the image and the controller list when the child has a row that can accept it
+	// copy the image, the controller list and the pool when the child has a row that can accept it
 	if controlPlaneInstance.ParentControlPlaneInstanceID != nil &&
 		(controlPlaneDefinition.OnboardParent == nil || *controlPlaneDefinition.OnboardParent) &&
 		(controlPlaneDefinition.AuthEnabled == nil || *controlPlaneDefinition.AuthEnabled) {

@@ -1,6 +1,7 @@
 package v0
 
 import (
+	"context"
 	"encoding/json"
 	"net/netip"
 	"testing"
@@ -10,6 +11,7 @@ import (
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
+	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -257,6 +259,25 @@ func TestNoTwoRuntimesHoldOverlappingNetworkRanges(t *testing.T) {
 		require.NoError(t, db.Model(load()).Updates(&KubernetesRuntimeInstance{DefaultRuntime: util.Ptr(true)}).Error)
 		assert.Equal(t, "10.16.0.0/16", *load().NetworkCidr)
 	})
+
+	t.Run("a patch is checked against the row it writes over", func(t *testing.T) {
+		db := setupControlPlaneAuthDB(t)
+		created, err := runtimeWithNetworkCidr(t, db, "allocated-twice", nil)
+		require.NoError(t, err)
+
+		// a patch's receiver is loaded before its transaction begins, and
+		// another allocation commits in between
+		var stale KubernetesRuntimeInstance
+		require.NoError(t, db.First(&stale, *created.ID).Error)
+		require.NoError(t, db.Session(&gorm.Session{SkipHooks: true}).Model(&KubernetesRuntimeInstance{}).
+			Where("id = ?", *created.ID).Update("network_cidr", "10.16.0.0/16").Error)
+
+		err = db.Model(&stale).Updates(&KubernetesRuntimeInstance{NetworkCidr: util.Ptr("10.18.0.0/16")}).Error
+		assert.ErrorContains(t, err, ErrMsgNetworkCidrImmutable)
+		var stored KubernetesRuntimeInstance
+		require.NoError(t, db.First(&stored, *created.ID).Error)
+		assert.Equal(t, "10.16.0.0/16", *stored.NetworkCidr)
+	})
 }
 
 // controlPlaneWithPool creates a control plane instance with a pool,
@@ -305,6 +326,8 @@ func TestAChildsPoolIsClearOfItsParentsRanges(t *testing.T) {
 		require.NoError(t, err)
 		child, err := controlPlaneWithPool(t, db, "child", false, nil)
 		require.NoError(t, err)
+		// this control plane manages the child
+		require.NoError(t, db.Model(child).Updates(&ControlPlaneInstance{ParentControlPlaneInstanceID: self.ID}).Error)
 		load := func(id *uint) *ControlPlaneInstance {
 			var loaded ControlPlaneInstance
 			require.NoError(t, db.First(&loaded, *id).Error)
@@ -322,5 +345,40 @@ func TestAChildsPoolIsClearOfItsParentsRanges(t *testing.T) {
 		replaced.NetworkCidrPool = poolJSON(t, "10.16.0.0/12")
 		assert.ErrorContains(t, db.Save(replaced).Error, "overlaps 10.16.0.0/16")
 		require.NoError(t, db.Model(load(child.ID)).Updates(&ControlPlaneInstance{NetworkCidrPool: poolJSON(t, "10.32.0.0/12")}).Error)
+
+		// a pool affects only later allocations, so it can change again
+		require.NoError(t, db.Model(load(child.ID)).Updates(&ControlPlaneInstance{NetworkCidrPool: poolJSON(t, "10.48.0.0/12")}).Error)
+		assert.JSONEq(t, `["10.48.0.0/12"]`, string(*load(child.ID).NetworkCidrPool))
+		err = db.Model(load(child.ID)).Updates(&ControlPlaneInstance{NetworkCidrPool: poolJSON(t, "10.0.0.0/11")}).Error
+		assert.ErrorContains(t, err, "overlaps 10.16.0.0/16", "a change is checked as a first pool is")
+		cleared := load(child.ID)
+		cleared.NetworkCidrPool = nil
+		require.NoError(t, db.Save(cleared).Error, "an empty pool is the default pool")
+		assert.Nil(t, load(child.ID).NetworkCidrPool)
+	})
+
+	t.Run("only the parent sets the pool of a row it manages", func(t *testing.T) {
+		db := setupControlPlaneAuthDB(t)
+		parent, err := controlPlaneWithPool(t, db, "parent", false, nil)
+		require.NoError(t, err)
+		owned, err := controlPlaneWithPool(t, db, "owned-self", true, poolJSON(t, "10.32.0.0/12"))
+		require.NoError(t, err)
+		require.NoError(t, db.Model(owned).Updates(&ControlPlaneInstance{ParentControlPlaneInstanceID: parent.ID}).Error)
+		load := func(id *uint) *ControlPlaneInstance {
+			var loaded ControlPlaneInstance
+			require.NoError(t, db.First(&loaded, *id).Error)
+			return &loaded
+		}
+
+		// the parent checked the pool against its own ranges, which this API
+		// can't see
+		err = db.Model(load(owned.ID)).Updates(&ControlPlaneInstance{NetworkCidrPool: poolJSON(t, "10.48.0.0/12")}).Error
+		assert.ErrorContains(t, err, "cannot update NetworkCidrPool on a control plane its parent manages")
+		owner := db.WithContext(lib.WithCaller(context.Background(), lib.CallerIdentity{CommonName: "threeport-owner"}))
+		require.NoError(t, owner.Model(load(owned.ID)).Updates(&ControlPlaneInstance{NetworkCidrPool: poolJSON(t, "10.48.0.0/12")}).Error)
+
+		// the parent's row here allocates nothing, so it carries no pool
+		err = db.Model(load(parent.ID)).Updates(&ControlPlaneInstance{NetworkCidrPool: poolJSON(t, "10.64.0.0/12")}).Error
+		assert.ErrorContains(t, err, "cannot update NetworkCidrPool on a control plane this API does not serve")
 	})
 }
