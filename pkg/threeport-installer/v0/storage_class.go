@@ -96,3 +96,58 @@ func EnsureEksDefaultStorageClass(kubeClient dynamic.Interface) (bool, error) {
 
 	return true, nil
 }
+
+// checkDatabaseVolumeBinding refuses a production database whose volumes
+// would be created before its pods are scheduled.
+//
+// A production database is spread strictly across zones, and a zonal volume
+// holds its pod to the volume's zone.  A class that binds immediately creates
+// each volume in a zone of the provisioner's choosing, and two of them in one
+// zone leave a replica Pending: its zone already has one, and its volume
+// can't follow it to another.  With WaitForFirstConsumer, the volume is
+// created in the zone its pod is scheduled to.  The class is the one the
+// database's claims name, or the cluster's default.  A cluster with neither
+// is left to fail as it would have, on the claims.
+func checkDatabaseVolumeBinding(kubeClient dynamic.Interface, claimSpec map[string]interface{}) error {
+	var class *unstructured.Unstructured
+	if name, ok := claimSpec["storageClassName"].(string); ok && name != "" {
+		named, err := kubeClient.Resource(storageClassGVR).Get(context.TODO(), name, metav1.GetOptions{})
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("failed to get storage class %s: %w", name, err)
+		}
+		class = named
+	} else {
+		classes, err := kubeClient.Resource(storageClassGVR).List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to list storage classes: %w", err)
+		}
+		for i := range classes.Items {
+			if isDefaultStorageClass(classes.Items[i]) {
+				class = &classes.Items[i]
+				break
+			}
+		}
+	}
+	if class == nil {
+		return nil
+	}
+
+	// an unset binding mode is Immediate
+	bindingMode, _, _ := unstructured.NestedString(class.Object, "volumeBindingMode")
+	if bindingMode == "WaitForFirstConsumer" {
+		return nil
+	}
+	if bindingMode == "" {
+		bindingMode = "Immediate"
+	}
+
+	return fmt.Errorf(
+		"storage class %s creates volumes before their pods are scheduled (volumeBindingMode %s): "+
+			"a production control plane's database is spread across zones, and a volume created first can hold a replica "+
+			"to a zone another replica already has; use a class with volumeBindingMode WaitForFirstConsumer for the database",
+		class.GetName(), bindingMode,
+	)
+}

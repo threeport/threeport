@@ -903,6 +903,13 @@ store_dir: /data
 		return err
 	}
 
+	// a production database's volumes have to follow its pods across zones
+	if string(cpi.Opts.Tier) == ControlPlaneTierProd {
+		if err := checkDatabaseVolumeBinding(kubeClient, cpi.getVolClaimTemplateSpec("")); err != nil {
+			return err
+		}
+	}
+
 	// leave the database stateful set in place when it already exists
 	setPersistent(crdbStatefulSet)
 	if err := cpi.CreateOrUpdateKubeResource(crdbStatefulSet, kubeClient, mapper); err != nil {
