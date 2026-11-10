@@ -106,11 +106,14 @@ func InstallThreeportCRDs(
 }
 
 // InstallEksThreeportSystemServices installs the support services CRDs and operator.
+// clusterName is the EKS cluster's name and kubernetesVersion its minor version,
+// such as "1.36", for the cluster autoscaler.
 func InstallEksThreeportSystemServices(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	clusterName string,
 	accountID string,
+	kubernetesVersion string,
 ) error {
 	// install the definitions, then the operator that reconciles them
 	if err := InstallThreeportCRDs(kubeClient, mapper); err != nil {
@@ -121,7 +124,7 @@ func InstallEksThreeportSystemServices(
 	}
 
 	// the autoscaler is not part of the operator manifest
-	return installEksClusterAutoscaler(kubeClient, mapper, clusterName, accountID)
+	return installEksClusterAutoscaler(kubeClient, mapper, clusterName, accountID, kubernetesVersion)
 }
 
 // SupportServicesCloud maps an infra provider to a SupportServices cloud value.

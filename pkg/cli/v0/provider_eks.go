@@ -168,6 +168,7 @@ func DeployEksInfra(
 		DefaultNodeGroupInitialNodes: int32(3),
 		DefaultNodeGroupMinNodes:     int32(3),
 		DefaultNodeGroupMaxNodes:     int32(250),
+		KubernetesVersion:            v0.KubernetesVersionOrDefault(&cpi.Opts.KubernetesVersion),
 	}).InitPulumiProject()
 	*kubernetesRuntimeInfra = kubernetesRuntimeInfraEKS
 	uninstaller.kubernetesRuntimeInfra = *kubernetesRuntimeInfra

@@ -36,6 +36,29 @@ type each one translates to on every supported cloud provider.  All Kubernetes
 Runtimes use cluster autoscaling and you can specify the maximum number of
 nodes to allow in the cluster.
 
+### Kubernetes Version
+
+On EKS, GKE and OKE, `KubernetesVersion` sets the Kubernetes minor version the
+clusters are created on, such as `1.36`. The supported versions are `1.35` and
+`1.36`, and `1.36` is the default. Each is offered by all three providers: in
+standard support on EKS, in GKE's `REGULAR` and `STABLE` release channels, and
+as a production release on OKE.
+
+- **EKS** creates the cluster and its node group on that version. The cluster
+  autoscaler's release matches it.
+- **GKE** creates the control plane on the release its channel offers for that
+  version, and the nodes on the control plane's. GKE upgrades both past it on
+  its own.
+- **OKE** creates the cluster and its nodes on the newest release of that
+  version that OKE offers and has a worker node image for the node shape.
+
+The version is recorded on the EKS, GKE or OKE definition, and it can't be
+changed once the definition exists: Threeport doesn't upgrade a cluster yet. A
+kind cluster's version comes with its node image, so it takes none.
+
+`tptctl up` sets the version of the cluster it creates with
+`--kubernetes-version`.
+
 Reference:
 [KubernetesRuntimeDefinition](https://pkg.go.dev/github.com/threeport/threeport/pkg/api/v0#KubernetesRuntimeDefinition)
 

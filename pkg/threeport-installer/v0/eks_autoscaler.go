@@ -11,14 +11,48 @@ import (
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 )
 
+// clusterAutoscalerImages are the cluster autoscaler images, by the
+// Kubernetes minor version each is released for.  The autoscaler's minor
+// version must match the cluster's.
+var clusterAutoscalerImages = map[string]string{
+	"1.30": "registry.k8s.io/autoscaling/cluster-autoscaler:v1.30.7",
+	"1.31": "registry.k8s.io/autoscaling/cluster-autoscaler:v1.31.5",
+	"1.32": "registry.k8s.io/autoscaling/cluster-autoscaler:v1.32.7",
+	"1.33": "registry.k8s.io/autoscaling/cluster-autoscaler:v1.33.6",
+	"1.34": "registry.k8s.io/autoscaling/cluster-autoscaler:v1.34.6",
+	"1.35": "registry.k8s.io/autoscaling/cluster-autoscaler:v1.35.3",
+	"1.36": "registry.k8s.io/autoscaling/cluster-autoscaler:v1.36.2",
+	"1.37": "registry.k8s.io/autoscaling/cluster-autoscaler:v1.37.0",
+}
+
+// ClusterAutoscalerImage returns the cluster autoscaler image for a cluster
+// on a Kubernetes minor version such as "1.36".
+func ClusterAutoscalerImage(kubernetesVersion string) (string, error) {
+	image, ok := clusterAutoscalerImages[kubernetesVersion]
+	if !ok {
+		return "", fmt.Errorf("no cluster autoscaler image is known for Kubernetes %s", kubernetesVersion)
+	}
+
+	return image, nil
+}
+
 // installEksClusterAutoscaler installs the cluster autoscaler RBAC and deployment.
-// clusterName is the runtime name. EksClusterAutoscalingRoleArn takes the account first.
+// clusterName is the EKS cluster's name, which the autoscaler finds its node
+// groups by, and kubernetesVersion its minor version, which the autoscaler's
+// must match. EksClusterAutoscalingRoleArn takes the account first.
 func installEksClusterAutoscaler(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	clusterName string,
 	accountId string,
+	kubernetesVersion string,
 ) error {
+	// choose the image before anything is created
+	image, err := ClusterAutoscalerImage(kubernetesVersion)
+	if err != nil {
+		return err
+	}
+
 	// create the service account
 	var clusterAutoscalerServiceAcct = &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -399,7 +433,7 @@ func installEksClusterAutoscaler(
 						"serviceAccountName": "cluster-autoscaler",
 						"containers": []interface{}{
 							map[string]interface{}{
-								"image": "registry.k8s.io/autoscaling/cluster-autoscaler:v1.26.2",
+								"image": image,
 								"name":  "cluster-autoscaler",
 								"resources": map[string]interface{}{
 									"limits": map[string]interface{}{

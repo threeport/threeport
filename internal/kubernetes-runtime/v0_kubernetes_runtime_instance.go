@@ -355,13 +355,31 @@ func v0KubernetesRuntimeInstanceUpdated(
 		}
 		if systemServicesInstalled {
 			log.V(1).Info("EKS system services already installed, skipping install")
-		} else if err := threeport.InstallEksThreeportSystemServices(
-			dynamicKubeClient,
-			mapper,
-			*kubernetesRuntimeInstance.Name,
-			*awsProvider.AccountID,
-		); err != nil {
-			return controller.RetryOnNetworkErr(err, "failed to install system services")
+		} else {
+			// the cluster autoscaler's version matches the cluster's
+			discoveryClient, err := kube.GetDiscoveryClient(
+				kubernetesRuntimeInstance,
+				controlPlaneHost,
+				r.APIClient,
+				r.APIServer,
+				r.EncryptionKey,
+			)
+			if err != nil {
+				return controller.RetryOnNetworkErr(err, "failed to create discovery client")
+			}
+			kubernetesVersion, err := kube.ServerMinorVersion(discoveryClient)
+			if err != nil {
+				return controller.RetryOnNetworkErr(err, "failed to get the cluster's Kubernetes version")
+			}
+			if err := threeport.InstallEksThreeportSystemServices(
+				dynamicKubeClient,
+				mapper,
+				*kubernetesRuntimeInstance.Name,
+				*awsProvider.AccountID,
+				kubernetesVersion,
+			); err != nil {
+				return controller.RetryOnNetworkErr(err, "failed to install system services")
+			}
 		}
 
 		// a claim that names no storage class has nothing to bind to on EKS

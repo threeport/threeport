@@ -486,6 +486,7 @@ func buildGkeInfra(
 		MachineType:            *definition.DefaultNodeGroupInstanceType,
 		MinNodeCount:           int32(*definition.DefaultNodeGroupMinimumSize),
 		MaxNodeCount:           int32(*definition.DefaultNodeGroupMaximumSize),
+		Version:                v0.KubernetesVersionOrDefault(definition.KubernetesVersion),
 	}).InitPulumiProject()
 
 	// The workload identity binding made after the cluster is created names this

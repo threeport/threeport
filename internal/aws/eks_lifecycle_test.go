@@ -36,6 +36,7 @@ func TestEksInfraFromApiObjects_MapsDefinitionNodeGroupFields(t *testing.T) {
 		DefaultNodeGroupInitialSize:  util.Ptr(2),
 		DefaultNodeGroupMinimumSize:  util.Ptr(3),
 		DefaultNodeGroupMaximumSize:  util.Ptr(7),
+		KubernetesVersion:            util.Ptr("1.35"),
 	}
 	awsConfig := &aws.Config{Region: "us-east-1"}
 	providerCredentials := tpaws.AwsProviderCredentials{
@@ -65,6 +66,12 @@ func TestEksInfraFromApiObjects_MapsDefinitionNodeGroupFields(t *testing.T) {
 	assert.Equal(t, int32(2), infra.DefaultNodeGroupInitialNodes)
 	assert.Equal(t, int32(3), infra.DefaultNodeGroupMinNodes)
 	assert.Equal(t, int32(7), infra.DefaultNodeGroupMaxNodes)
+	assert.Equal(t, "1.35", infra.KubernetesVersion)
+
+	// a definition created before versions were recorded gets the default
+	definition.KubernetesVersion = nil
+	infra = eksInfraFromApiObjects(instance, definition, "123456789012", awsConfig, providerCredentials, nil)
+	assert.Equal(t, v0.DefaultKubernetesVersion, infra.KubernetesVersion)
 }
 
 // TestEksInfraSatisfiesLifecycleInterfaces checks the infra object plugs into

@@ -66,6 +66,10 @@ type Options struct {
 	// The OCI compartment OCID to install threeport control plane in.
 	OciCompartmentOcid string
 
+	// The Kubernetes minor version of the cluster tptctl creates on EKS, GKE or
+	// OKE, such as "1.36".  Empty uses the default version.
+	KubernetesVersion string
+
 	// The Google Cloud project ID where the cluster infra is provisioned.
 	GcpProjectId string
 

@@ -33,7 +33,7 @@ func DeployOkeInfra(
 			// StackConfigs set by LoadOCIConfig after region is resolved
 		},
 		WorkerNodeShape:        "VM.Standard.A1.Flex",
-		Version:                provider.DefaultOKEKubernetesVersion,
+		Version:                cpi.Opts.KubernetesVersion,
 		WorkerNodeInitialCount: int32(2),
 		Region:                 cpi.Opts.OciRegion,
 	}

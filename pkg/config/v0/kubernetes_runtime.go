@@ -27,6 +27,7 @@ type KubernetesRuntimeValues struct {
 	HighAvailability          *bool
 	PrivateApi                *bool
 	AllowedCidrs              *[]string
+	KubernetesVersion         *string
 	Location                  *string
 	ThreeportControlPlaneHost *bool
 	DefaultRuntime            *bool
@@ -159,6 +160,7 @@ func (k *KubernetesRuntimeConfig) GetOperations(
 			HighAvailability:         kubernetesRuntimeValues.HighAvailability,
 			PrivateApi:               kubernetesRuntimeValues.PrivateApi,
 			AllowedCidrs:             kubernetesRuntimeValues.AllowedCidrs,
+			KubernetesVersion:        kubernetesRuntimeValues.KubernetesVersion,
 		},
 	}
 	operations.AppendOperation(util.Operation{
@@ -269,6 +271,7 @@ func mapToKubernetesRuntimeDefinedInstances(
 						HighAvailability:          def.KubernetesRuntimeDefinition.HighAvailability,
 						PrivateApi:                def.KubernetesRuntimeDefinition.PrivateApi,
 						AllowedCidrs:              def.KubernetesRuntimeDefinition.AllowedCidrs,
+						KubernetesVersion:         def.KubernetesRuntimeDefinition.KubernetesVersion,
 						ThreeportControlPlaneHost: inst.KubernetesRuntimeInstance.ThreeportControlPlaneHost,
 						Location:                  inst.KubernetesRuntimeInstance.Location,
 						DefaultRuntime:            inst.KubernetesRuntimeInstance.DefaultRuntime,

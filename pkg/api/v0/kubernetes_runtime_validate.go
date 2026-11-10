@@ -56,7 +56,11 @@ func (k *KubernetesRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
 		)
 	}
 
-	return validateKubernetesApiAccess(*k.InfraProvider, k.PrivateApi, k.AllowedCidrs)
+	if err := validateKubernetesApiAccess(*k.InfraProvider, k.PrivateApi, k.AllowedCidrs); err != nil {
+		return err
+	}
+
+	return validateKubernetesVersionCreate(*k.InfraProvider, k.KubernetesVersion)
 }
 
 // beforeUpdate validates that no immutable fields are being changed
@@ -94,6 +98,9 @@ func (k *KubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
 		return util.NewBadRequestError(
 			"kubernetes runtime definition high availability cannot be changed after creation",
 		)
+	}
+	if err := validateKubernetesVersionUpdate(tx); err != nil {
+		return err
 	}
 
 	// InfraProvider is unchanged once past the check above, so the receiver

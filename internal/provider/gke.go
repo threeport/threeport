@@ -26,6 +26,7 @@ import (
 	"google.golang.org/grpc/status"
 	"gorm.io/datatypes"
 
+	v0 "github.com/threeport/threeport/pkg/api/v0"
 	gcpauth "github.com/threeport/threeport/pkg/auth/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 )
@@ -37,7 +38,10 @@ type KubernetesRuntimeInfraGKE struct {
 	// (aligned with KubernetesRuntimeInfraOKE).
 	PulumiWorkspace
 
-	// Kubernetes version of the GKE cluster.
+	// Kubernetes minor version of the GKE cluster, such as "1.36".  If empty,
+	// the default version is used.  GKE creates the control plane on the
+	// release its channel offers for that minor version, and the nodes on the
+	// control plane's.
 	Version string
 
 	// The Google Cloud project ID where the cluster infra is provisioned.
@@ -316,6 +320,9 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 				ClusterSecondaryRangeName:  pulumi.String("pods"),
 				ServicesSecondaryRangeName: pulumi.String("services"),
 			},
+
+			// a minimum: GKE upgrades the control plane past it on its own
+			MinMasterVersion: pulumi.String(v0.KubernetesVersionOrDefault(&i.Version)),
 
 			InitialNodeCount:      pulumi.Int(1),
 			RemoveDefaultNodePool: pulumi.Bool(true),

@@ -7,12 +7,14 @@ import (
 	"github.com/pulumi/pulumi-aws/sdk/v6/go/aws/ec2"
 	awseks "github.com/pulumi/pulumi-aws/sdk/v6/go/aws/eks"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
+
+	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
 const (
 	// DefaultEksKubernetesVersion is the Kubernetes version used for an EKS
 	// cluster when the runtime definition does not pin one.
-	DefaultEksKubernetesVersion = "1.32"
+	DefaultEksKubernetesVersion = v0.DefaultKubernetesVersion
 
 	// eksVpcCidr is the CIDR block for the VPC the cluster runs in.
 	eksVpcCidr = "10.0.0.0/16"
