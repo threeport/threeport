@@ -27,19 +27,21 @@ func (r ContainerResources) manifest() map[string]interface{} {
 // container gets unless Options.ComponentResources overrides them.
 //
 // Measured on a development control plane under the integration suite, every
-// component stayed under 35m CPU and 50Mi memory. Requests sit near that, so a
-// small cluster can schedule the whole control plane, and limits leave room for
-// load the suite does not generate. Controllers that run infrastructure tools
-// get far more memory than the suite ever asked of them: the terraform
-// controller runs the terraform binary and its providers inside its own
-// container, the aws, oci and gcp controllers run pulumi and its provider
+// component other than the agent stayed under 35m CPU and 50Mi memory.
+// Requests for those components sit near that, so a small cluster can schedule
+// the whole control plane, and limits leave room for load the suite does not
+// generate. The agent needs more memory than that measurement. Controllers
+// that run infrastructure tools get far more memory than the suite ever asked
+// of them: the terraform controller runs the terraform binary and its
+// providers inside its own container, the aws, oci and gcp controllers run
+// pulumi and its provider
 // plugins the same way, and the helm workload controller renders charts in
 // process.
 func DefaultComponentResources(name string) ContainerResources {
 	switch name {
 	case ThreeportRestApiName:
 		return ContainerResources{RequestCPU: "50m", RequestMemory: "64Mi", LimitCPU: "1", LimitMemory: "512Mi"}
-	// 256Mi killed the manager, and a 10m CPU request missed its probes
+	// raise the memory limit past the out-of-memory kill, and the cpu request past the missed probes
 	case ThreeportAgentName:
 		return ContainerResources{RequestCPU: "100m", RequestMemory: "1280Mi", LimitCPU: "500m", LimitMemory: "1280Mi"}
 	case ThreeportTerraformControllerName,
