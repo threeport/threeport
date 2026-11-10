@@ -62,8 +62,10 @@ func init() {
 }
 
 // leaderElectionTimings returns the lease, renew, and retry intervals.
+// These replace controller-runtime's 15s lease, 10s renew deadline, and 2s retry.
 func leaderElectionTimings() (time.Duration, time.Duration, time.Duration) {
-	// controller-runtime times out the lease request at half of the renew deadline
+	// controller-runtime times out the lease request at half of the renew deadline.
+	// The default 10s renew deadline gives that request 5s.
 	return 60 * time.Second, 40 * time.Second, 5 * time.Second
 }
 
