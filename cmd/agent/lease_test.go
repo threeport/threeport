@@ -5,10 +5,10 @@ import (
 	"time"
 )
 
-// TestAgentLeaseTimings checks the intervals handed to controller-runtime.
-func TestAgentLeaseTimings(t *testing.T) {
+// TestLeaderElectionTimings checks the lease, renew, and retry intervals.
+func TestLeaderElectionTimings(t *testing.T) {
 	// read the intervals
-	leaseDuration, renewDeadline, retryPeriod := agentLeaseTimings()
+	leaseDuration, renewDeadline, retryPeriod := leaderElectionTimings()
 
 	// keep the renew inside the lease, with a client timeout of at least 15s
 	if leaseDuration != 60*time.Second {

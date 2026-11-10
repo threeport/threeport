@@ -61,10 +61,9 @@ func init() {
 	//+kubebuilder:scaffold:scheme
 }
 
-// agentLeaseTimings returns the leader election timings.
-// controller-runtime times out the lease GET at half of the renew deadline.
-func agentLeaseTimings() (time.Duration, time.Duration, time.Duration) {
-	// return the lease, renew, and retry intervals
+// leaderElectionTimings returns the lease, renew, and retry intervals.
+func leaderElectionTimings() (time.Duration, time.Duration, time.Duration) {
+	// controller-runtime times out the lease request at half of the renew deadline
 	return 60 * time.Second, 40 * time.Second, 5 * time.Second
 }
 
@@ -98,8 +97,8 @@ func main() {
 		setupLog.Info("no control plane name set, watching ThreeportWorkloads from all control planes")
 	}
 
-	// controller-runtime times out the lease GET at half of the renew deadline
-	leaseDuration, renewDeadline, retryPeriod := agentLeaseTimings()
+	// set the leader election timings
+	leaseDuration, renewDeadline, retryPeriod := leaderElectionTimings()
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
@@ -107,9 +106,9 @@ func main() {
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "563c770d.threeport.io",
-		LeaseDuration:          &leaseDuration,
-		RenewDeadline:          &renewDeadline,
-		RetryPeriod:            &retryPeriod,
+		LeaseDuration:          util.Ptr(leaseDuration),
+		RenewDeadline:          util.Ptr(renewDeadline),
+		RetryPeriod:            util.Ptr(retryPeriod),
 		Metrics: metricsserver.Options{
 			BindAddress: metricsAddr,
 		},
