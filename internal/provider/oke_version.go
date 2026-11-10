@@ -63,6 +63,18 @@ func (i *KubernetesRuntimeInfraOKE) resolveKubernetesVersion() error {
 	return nil
 }
 
+// keepStackVersion sets Version to the release of the cluster the stack's
+// deployment holds, and reports whether it holds one.
+func (i *KubernetesRuntimeInfraOKE) keepStackVersion(deployment json.RawMessage) bool {
+	version, held := clusterInputInStack(deployment, "oci:ContainerEngine/cluster:Cluster", "kubernetesVersion")
+	if !held || version == "" {
+		return false
+	}
+	i.Version = version
+
+	return true
+}
+
 // newestOkePatch returns the newest release of minor, such as "v1.36.4" for
 // "1.36", among the versions OKE offers for clusters, that has a worker node
 // image for arch.
@@ -136,17 +148,17 @@ func okeImageArch(shape string) string {
 	return "x86_64"
 }
 
-// okeClusterVersionInStack returns the Kubernetes version of the OKE cluster
-// an exported deployment holds, and false when it holds none.  A create
-// resumed on that stack keeps the version, rather than resolving the minor
-// version again and moving the cluster to a newer patch.
-func okeClusterVersionInStack(deployment json.RawMessage) (string, bool) {
+// clusterInputInStack returns an input of the cluster an exported deployment
+// holds, and whether it holds the cluster at all.  The input is "" when the
+// cluster was created without it.  A create resumed on that stack keeps the
+// cluster's version, rather than asking for the one its definition records:
+// the stack may predate it, and a provider upgrades a cluster one minor
+// version at a time, if it can upgrade it in place at all.
+func clusterInputInStack(deployment json.RawMessage, clusterType, input string) (string, bool) {
 	var contents struct {
 		Resources []struct {
-			Type   string `json:"type"`
-			Inputs struct {
-				KubernetesVersion string `json:"kubernetesVersion"`
-			} `json:"inputs"`
+			Type   string         `json:"type"`
+			Inputs map[string]any `json:"inputs"`
 		} `json:"resources"`
 	}
 	if len(deployment) == 0 || json.Unmarshal(deployment, &contents) != nil {
@@ -154,8 +166,9 @@ func okeClusterVersionInStack(deployment json.RawMessage) (string, bool) {
 	}
 
 	for _, resource := range contents.Resources {
-		if resource.Type == "oci:ContainerEngine/cluster:Cluster" && resource.Inputs.KubernetesVersion != "" {
-			return resource.Inputs.KubernetesVersion, true
+		if resource.Type == clusterType {
+			value, _ := resource.Inputs[input].(string)
+			return value, true
 		}
 	}
 

@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // eksEndOfStandardSupport is when each Kubernetes version Threeport creates
@@ -131,23 +132,87 @@ func TestAnOkeMinorVersionResolvesToItsNewestReleaseWithAnImage(t *testing.T) {
 	assert.Empty(t, okeImageFor(images, "v1.36.1", "x86_64"), "1.36.1 doesn't match an image of 1.36.10")
 }
 
-// TestAResumedOkeCreateKeepsItsClustersRelease covers a create resumed on a
-// stack that holds the cluster: it keeps the release the cluster was created
-// on rather than moving it to a newer one.
-func TestAResumedOkeCreateKeepsItsClustersRelease(t *testing.T) {
-	version, ok := okeClusterVersionInStack([]byte(`{"resources":[
+// TestAResumedCreateKeepsItsClustersVersion covers a create resumed on a
+// stack that holds the cluster: it keeps the version the cluster was created
+// on, which may predate the one its definition records, rather than asking
+// for that one.
+func TestAResumedCreateKeepsItsClustersVersion(t *testing.T) {
+	deployment := []byte(`{"resources":[
 		{"type":"oci:core/vcn:Vcn","inputs":{}},
-		{"type":"oci:ContainerEngine/cluster:Cluster","inputs":{"kubernetesVersion":"v1.36.1"}}
-	]}`))
-	assert.True(t, ok)
+		{"type":"oci:ContainerEngine/cluster:Cluster","inputs":{"kubernetesVersion":"v1.36.1"}},
+		{"type":"aws:eks/cluster:Cluster","inputs":{"name":"eks","version":"1.32"}},
+		{"type":"gcp:container/cluster:Cluster","inputs":{"name":"gke"}}
+	]}`)
+
+	version, held := clusterInputInStack(deployment, "oci:ContainerEngine/cluster:Cluster", "kubernetesVersion")
+	assert.True(t, held)
 	assert.Equal(t, "v1.36.1", version)
+	version, held = clusterInputInStack(deployment, "aws:eks/cluster:Cluster", "version")
+	assert.True(t, held)
+	assert.Equal(t, "1.32", version)
+	version, held = clusterInputInStack(deployment, "gcp:container/cluster:Cluster", "minMasterVersion")
+	assert.True(t, held, "a GKE cluster created before the version was set")
+	assert.Empty(t, version)
 
 	for name, deployment := range map[string]string{
 		"a new stack":          ``,
 		"no cluster yet":       `{"resources":[{"type":"oci:core/vcn:Vcn","inputs":{}}]}`,
 		"an unreadable record": `{"resources":`,
 	} {
-		_, ok := okeClusterVersionInStack([]byte(deployment))
-		assert.False(t, ok, name)
+		_, held := clusterInputInStack([]byte(deployment), "oci:ContainerEngine/cluster:Cluster", "kubernetesVersion")
+		assert.False(t, held, name)
 	}
+
+	// each provider keeps what its stack holds over the definition's version
+	eks := &KubernetesRuntimeInfraEKS{KubernetesVersion: "1.36"}
+	eks.keepStackVersion(deployment)
+	assert.Equal(t, "1.32", eks.KubernetesVersion)
+	eks = &KubernetesRuntimeInfraEKS{KubernetesVersion: "1.36"}
+	eks.keepStackVersion([]byte(`{"resources":[]}`))
+	assert.Equal(t, "1.36", eks.KubernetesVersion, "a new stack takes the definition's")
+
+	oke := &KubernetesRuntimeInfraOKE{Version: "1.36"}
+	assert.True(t, oke.keepStackVersion(deployment))
+	assert.Equal(t, "v1.36.1", oke.Version)
+	oke = &KubernetesRuntimeInfraOKE{Version: "1.36"}
+	assert.False(t, oke.keepStackVersion([]byte(`{"resources":[]}`)), "a new stack resolves the definition's")
+	assert.Equal(t, "1.36", oke.Version)
+
+	gke := &KubernetesRuntimeInfraGKE{Version: "1.36"}
+	gke.keepStackMinMasterVersion(deployment)
+	require.NotNil(t, gke.stackMinMasterVersion)
+	assert.Empty(t, *gke.stackMinMasterVersion)
+	gke = &KubernetesRuntimeInfraGKE{Version: "1.36"}
+	gke.keepStackMinMasterVersion([]byte(`{"resources":[]}`))
+	assert.Nil(t, gke.stackMinMasterVersion)
+}
+
+// TestAResumedGkeCreateKeepsTheClustersMinimumVersion covers the minimum
+// version the GKE program asks for on a stack that already holds the
+// cluster: the one it was created with, and none for a cluster created
+// before the version was set, rather than the definition's.
+func TestAResumedGkeCreateKeepsTheClustersMinimumVersion(t *testing.T) {
+	minMasterVersion := func(stack *string) any {
+		infra := &KubernetesRuntimeInfraGKE{
+			PulumiWorkspace:        PulumiWorkspace{RuntimeInstanceName: "gke-resume-test", ProjectName: "gke"},
+			Version:                "1.36",
+			ProjectID:              "test-project",
+			Region:                 "us-central1",
+			WorkerNodeInitialCount: 1,
+			stackMinMasterVersion:  stack,
+		}
+		mocks := &gkeRecordingMocks{}
+		require.NoError(t, pulumi.RunErr(infra.pulumiProgram(), pulumi.WithMocks("gke", "test-stack", mocks)))
+		for _, r := range mocks.resources {
+			if r.typeToken == gkeClusterTypeToken {
+				return r.inputs["minMasterVersion"]
+			}
+		}
+		t.Fatal("the program registered no cluster")
+		return nil
+	}
+
+	assert.Equal(t, "1.36", minMasterVersion(nil), "a new stack")
+	assert.Equal(t, "1.35", minMasterVersion(util.Ptr("1.35")))
+	assert.Nil(t, minMasterVersion(util.Ptr("")))
 }

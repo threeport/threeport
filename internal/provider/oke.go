@@ -627,10 +627,10 @@ func (i *KubernetesRuntimeInfraOKE) CreateInfra() (*kube.KubeConnectionInfo, err
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the stack's OKE cluster: %w", err)
 	}
-	if version, ok := okeClusterVersionInStack(exported.Deployment); ok {
-		i.Version = version
-	} else if err := i.resolveKubernetesVersion(); err != nil {
-		return nil, fmt.Errorf("failed to resolve Kubernetes version %s: %w", i.Version, err)
+	if !i.keepStackVersion(exported.Deployment) {
+		if err := i.resolveKubernetesVersion(); err != nil {
+			return nil, fmt.Errorf("failed to resolve Kubernetes version %s: %w", i.Version, err)
+		}
 	}
 
 	// deploy the stack

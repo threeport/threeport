@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -97,6 +98,11 @@ type KubernetesRuntimeInfraGKE struct {
 	// every backup in it.  The bucket is kept by default, since its backups
 	// may still be needed after the control plane is gone.
 	DeleteBackups bool
+
+	// stackMinMasterVersion is set by CreateInfra when the stack already holds
+	// the cluster, to the minimum version the cluster was created with: ""
+	// for one created before the version was set.  The program keeps it.
+	stackMinMasterVersion *string
 
 	// gcpProjectResolvedFromGcloudINI is true when loadGCPConfig set ProjectID from the active gcloud INI.
 	gcpProjectResolvedFromGcloudINI bool
@@ -198,7 +204,14 @@ func (i *KubernetesRuntimeInfraGKE) CreateInfra() (*kube.KubeConnectionInfo, err
 		return nil, fmt.Errorf("failed to set up Pulumi workspace: %w", err)
 	}
 
+	// a create resumed on a stack that holds the cluster keeps its version
 	ctx := context.Background()
+	exported, err := stack.Export(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the stack's GKE cluster: %w", err)
+	}
+	i.keepStackMinMasterVersion(exported.Deployment)
+
 	if _, err = i.RunUp(ctx, stack); err != nil {
 		return nil, fmt.Errorf("failed to deploy stack: %w", err)
 	}
@@ -228,6 +241,29 @@ func (i *KubernetesRuntimeInfraGKE) DeployInfra() error {
 // provider off. Delete is the bootstrap path that also cleans up the account.
 func (i *KubernetesRuntimeInfraGKE) DestroyInfra() error {
 	return i.destroyInfraStack()
+}
+
+// keepStackMinMasterVersion records the minimum version of the cluster the
+// stack's deployment holds, if it holds one, for the program to keep.
+func (i *KubernetesRuntimeInfraGKE) keepStackMinMasterVersion(deployment json.RawMessage) {
+	if version, held := clusterInputInStack(deployment, "gcp:container/cluster:Cluster", "minMasterVersion"); held {
+		i.stackMinMasterVersion = &version
+	}
+}
+
+// minMasterVersion returns the minimum version the program asks for the
+// control plane: the cluster's, when the stack already holds it, and the
+// definition's or the default otherwise.  A cluster created before the version
+// was set keeps having none.
+func (i *KubernetesRuntimeInfraGKE) minMasterVersion() pulumi.StringPtrInput {
+	if i.stackMinMasterVersion != nil {
+		if *i.stackMinMasterVersion == "" {
+			return nil
+		}
+		return pulumi.String(*i.stackMinMasterVersion)
+	}
+
+	return pulumi.String(v0.KubernetesVersionOrDefault(&i.Version))
 }
 
 // pulumiProgram defines the Pulumi resources for the GKE stack.
@@ -322,7 +358,7 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 			},
 
 			// a minimum: GKE upgrades the control plane past it on its own
-			MinMasterVersion: pulumi.String(v0.KubernetesVersionOrDefault(&i.Version)),
+			MinMasterVersion: i.minMasterVersion(),
 
 			InitialNodeCount:      pulumi.Int(1),
 			RemoveDefaultNodePool: pulumi.Bool(true),

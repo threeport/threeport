@@ -54,11 +54,13 @@ func ConfigureControlPlaneWithGkeConfig(
 		Definition: v0.Definition{
 			Name: &gkeRuntimeDefName,
 		},
-		ZoneCount:                     &zoneCount,
-		DefaultNodeGroupInstanceType:  util.Ptr("e2-medium"),
-		DefaultNodeGroupInitialSize:   util.Ptr(int(kubernetesRuntimeInfraGKE.WorkerNodeInitialCount)),
-		DefaultNodeGroupMinimumSize:   util.Ptr(int(kubernetesRuntimeInfraGKE.WorkerNodeInitialCount)),
-		DefaultNodeGroupMaximumSize:   util.Ptr(int(kubernetesRuntimeInfraGKE.WorkerNodeInitialCount)),
+		ZoneCount:                    &zoneCount,
+		DefaultNodeGroupInstanceType: util.Ptr("e2-medium"),
+		DefaultNodeGroupInitialSize:  util.Ptr(int(kubernetesRuntimeInfraGKE.WorkerNodeInitialCount)),
+		DefaultNodeGroupMinimumSize:  util.Ptr(int(kubernetesRuntimeInfraGKE.WorkerNodeInitialCount)),
+		DefaultNodeGroupMaximumSize:  util.Ptr(int(kubernetesRuntimeInfraGKE.WorkerNodeInitialCount)),
+		// the version tptctl created the cluster on, none for an existing one
+		KubernetesVersion:             kubernetesRuntimeDefResult.KubernetesVersion,
 		KubernetesRuntimeDefinitionID: kubernetesRuntimeDefResult.ID,
 	}
 	createdGcpGkeKubernetesRuntimeDef, err := ensureGcpGkeKubernetesRuntimeDefinition(

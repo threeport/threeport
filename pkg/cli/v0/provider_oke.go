@@ -140,8 +140,10 @@ func ConfigureControlPlaneWithOkeConfig(
 		Definition: v0.Definition{
 			Name: &okeRuntimeDefName,
 		},
-		WorkerNodeShape:               &kubernetesRuntimeInfraOKE.WorkerNodeShape,
-		WorkerNodeInitialCount:        util.Ptr(kubernetesRuntimeInfraOKE.WorkerNodeInitialCount),
+		WorkerNodeShape:        &kubernetesRuntimeInfraOKE.WorkerNodeShape,
+		WorkerNodeInitialCount: util.Ptr(kubernetesRuntimeInfraOKE.WorkerNodeInitialCount),
+		// the version tptctl created the cluster on, none for an existing one
+		KubernetesVersion:             kubernetesRuntimeDefResult.KubernetesVersion,
 		KubernetesRuntimeDefinitionID: kubernetesRuntimeDefResult.ID,
 	}
 	createdociOkeKubernetesRuntimeDef, err := ensureOciOkeKubernetesRuntimeDefinition(
