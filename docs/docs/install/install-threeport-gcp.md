@@ -73,6 +73,31 @@ its database up to a Cloud Storage bucket in another region. Choose that region 
 `--gcp-backup-region`. See
 [Back Up and Restore a Control Plane](../control-planes/backup-restore.md).
 
+### Production Cluster
+
+A production control plane runs its database as three replicas, and its
+cluster is built to keep serving after the loss of one zone:
+
+| | Development | Production |
+|---|---|---|
+| Zones | 3 (regional cluster) | 3 (regional cluster) |
+| Machine type | `e2-medium`: shared-core, 1 vCPU and 4 GB, bursting above its baseline | `e2-standard-4`: 4 vCPU and 16 GB, no bursting |
+| Nodes per zone | 2 to start, 1 to 10 | 1 to start, 1 to 10 |
+| Placing new nodes | in any zone with capacity (`ANY`) | keeping the zones even (`BALANCED`) |
+| Database replicas | 1 | 3, each in its own zone and on its own node |
+
+A production cluster therefore starts with three `e2-standard-4` nodes, one
+per zone, where a development cluster starts with six `e2-medium` nodes. See
+[Compute Engine pricing](https://cloud.google.com/compute/vm-instance-pricing)
+for what each costs in your region. A database replica that can't be placed
+in a zone of its own stays `Pending`, rather than sharing a zone it would be
+lost with.
+
+The control plane's kubernetes runtime definition records the cluster:
+`HighAvailability`, and the `NodeSize` and `NodeProfile` its machine type maps
+from (`Large` and `Balanced` for production, `Medium` and `Balanced` for
+development).
+
 ## Validate Deployment
 
 Note: if you would like to use

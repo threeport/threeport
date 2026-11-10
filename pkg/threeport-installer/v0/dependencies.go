@@ -798,22 +798,9 @@ store_dir: /data
 						},
 					},
 					"spec": map[string]interface{}{
-						"affinity": crdbAntiAffinity(cpi.Opts.Tier),
-						"topologySpreadConstraints": []interface{}{
-							map[string]interface{}{
-								"labelSelector": map[string]interface{}{
-									"matchLabels": map[string]interface{}{
-										"app.kubernetes.io/name":      "cockroachdb",
-										"app.kubernetes.io/instance":  "crdb",
-										"app.kubernetes.io/component": "cockroachdb",
-									},
-								},
-								"maxSkew":           1,
-								"topologyKey":       "topology.kubernetes.io/zone",
-								"whenUnsatisfiable": "ScheduleAnyway",
-							},
-						},
-						"serviceAccountName": DatabaseServiceAccountName,
+						"affinity":                  crdbAntiAffinity(cpi.Opts.Tier),
+						"topologySpreadConstraints": crdbZoneSpread(cpi.Opts.Tier),
+						"serviceAccountName":        DatabaseServiceAccountName,
 						// No pre-stop hook is required, a SIGTERM plus some time is all that's
 						// needed for graceful shutdown of a node.
 						"terminationGracePeriodSeconds": 60,
@@ -1061,6 +1048,35 @@ func crdbAntiAffinity(tier ControlPlaneTier) map[string]interface{} {
 					},
 				},
 			},
+		},
+	}
+}
+
+// crdbZoneSpread spreads CockroachDB pods across zones, strictly for
+// production and as a preference for development.
+//
+// The hostname anti-affinity keeps production's three replicas on three
+// nodes, but two of those nodes can be in one zone, and losing that zone
+// loses two of three replicas and the Raft majority with them.  Production
+// refuses that placement as it refuses two replicas on one node: a replica
+// that can't be placed in a zone of its own stays visibly Pending.  A skew of
+// one still admits two replicas in one zone on a cluster with only two zones,
+// so it holds a cluster that can't survive the loss of a zone to no more than
+// it can do.
+func crdbZoneSpread(tier ControlPlaneTier) []interface{} {
+	whenUnsatisfiable := "ScheduleAnyway"
+	if string(tier) == ControlPlaneTierProd {
+		whenUnsatisfiable = "DoNotSchedule"
+	}
+
+	return []interface{}{
+		map[string]interface{}{
+			"labelSelector": map[string]interface{}{
+				"matchLabels": crdbAntiAffinityLabels,
+			},
+			"maxSkew":           1,
+			"topologyKey":       "topology.kubernetes.io/zone",
+			"whenUnsatisfiable": whenUnsatisfiable,
 		},
 	}
 }
