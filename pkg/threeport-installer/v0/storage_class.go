@@ -97,6 +97,32 @@ func EnsureEksDefaultStorageClass(kubeClient dynamic.Interface) (bool, error) {
 	return true, nil
 }
 
+// persistentVolumeClaimGVR is the core v1 persistentvolumeclaims resource.
+var persistentVolumeClaimGVR = schema.GroupVersionResource{Version: "v1", Resource: "persistentvolumeclaims"}
+
+// checkDatabaseStorage refuses a production install or reinstall whose
+// database would get a volume before its pod is scheduled.  A replica whose
+// claim already exists keeps its volume, whose zone is already set, so the
+// storage class is checked only when a replica's claim has yet to be created.
+func (cpi *ControlPlaneInstaller) checkDatabaseStorage(kubeClient dynamic.Interface) error {
+	if string(cpi.Opts.Tier) != ControlPlaneTierProd {
+		return nil
+	}
+
+	for replica := int64(0); replica < crdbReplicas(cpi.Opts.Tier); replica++ {
+		name := fmt.Sprintf("datadir-crdb-%d", replica)
+		_, err := kubeClient.Resource(persistentVolumeClaimGVR).Namespace(cpi.Opts.Namespace).Get(context.TODO(), name, metav1.GetOptions{})
+		if k8serrors.IsNotFound(err) {
+			return checkDatabaseVolumeBinding(kubeClient, cpi.getVolClaimTemplateSpec(""))
+		}
+		if err != nil {
+			return fmt.Errorf("failed to get the database's volume claim %s: %w", name, err)
+		}
+	}
+
+	return nil
+}
+
 // checkDatabaseVolumeBinding refuses a production database whose volumes
 // would be created before its pods are scheduled.
 //

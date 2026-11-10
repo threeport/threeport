@@ -3,6 +3,7 @@ package v0
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -208,4 +209,54 @@ func TestOnlyAProductionInstallChecksTheDatabasesStorage(t *testing.T) {
 	development.Opts.GcpBackupBucket = ""
 	_, err = installDependenciesOn(t, development, bindingStorageClass("standard", "Immediate", true))
 	assert.NoError(t, err)
+}
+
+// TestADatabasesExistingVolumesAreKept covers a reinstall of a production
+// database whose claims exist: their volumes' zones are already set, so the
+// storage class, even one that now binds immediately, isn't checked.  A
+// replica whose claim is missing gets a new volume, so the class is checked
+// then.
+func TestADatabasesExistingVolumesAreKept(t *testing.T) {
+	immediate := bindingStorageClass("standard", "Immediate", true)
+	claims := func(replicas ...int) []runtime.Object {
+		objects := []runtime.Object{immediate}
+		for _, replica := range replicas {
+			objects = append(objects, testVolumeClaim(fmt.Sprintf("datadir-crdb-%d", replica), ControlPlaneNamespace))
+		}
+		return objects
+	}
+	production := componentsTestInstaller()
+	production.Opts.Tier = ControlPlaneTier(ControlPlaneTierProd)
+
+	assert.NoError(t, production.checkDatabaseStorage(testKubeClient(claims(0, 1, 2)...)))
+	assert.ErrorContains(t, production.checkDatabaseStorage(testKubeClient(claims(0, 2)...)),
+		"storage class standard creates volumes before their pods are scheduled")
+	assert.ErrorContains(t, production.checkDatabaseStorage(testKubeClient(claims()...)), "storage class standard")
+
+	development := componentsTestInstaller()
+	development.Opts.Tier = ControlPlaneTier(ControlPlaneTierDev)
+	assert.NoError(t, development.checkDatabaseStorage(testKubeClient(claims()...)))
+}
+
+// TestARefusedReinstallLeavesTheControlPlaneUp covers a reinstall the
+// storage class check refuses: it refuses before it deletes anything, so the
+// control plane's deployments are still there.
+func TestARefusedReinstallLeavesTheControlPlaneUp(t *testing.T) {
+	kubeClient := testKubeClient(
+		testNamespace(ControlPlaneNamespace, ControlPlaneTierProd),
+		testManagedDeployment("threeport-api-server", ControlPlaneNamespace),
+		bindingStorageClass("standard", "Immediate", true),
+	)
+	mapper := testComponentMapper()
+
+	err := componentsTestInstaller().Reinstall(kubeClient, &mapper, nil)
+	assert.ErrorContains(t, err, "storage class standard creates volumes before their pods are scheduled")
+
+	_, getErr := kubeClient.Resource(schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}).
+		Namespace(ControlPlaneNamespace).Get(context.Background(), "threeport-api-server", metav1.GetOptions{})
+	assert.NoError(t, getErr, "the reinstall deleted the API server before refusing")
+	for _, action := range kubeClient.Actions() {
+		assert.NotContains(t, []string{"delete", "delete-collection", "patch", "update"}, action.GetVerb(),
+			"the refused reinstall changed %s", action.GetResource().Resource)
+	}
 }
