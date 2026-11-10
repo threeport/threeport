@@ -39,8 +39,9 @@ func DefaultComponentResources(name string) ContainerResources {
 	switch name {
 	case ThreeportRestApiName:
 		return ContainerResources{RequestCPU: "50m", RequestMemory: "64Mi", LimitCPU: "1", LimitMemory: "512Mi"}
+	// 256Mi killed the manager, and a 10m CPU request missed its probes
 	case ThreeportAgentName:
-		return ContainerResources{RequestCPU: "10m", RequestMemory: "64Mi", LimitCPU: "500m", LimitMemory: "256Mi"}
+		return ContainerResources{RequestCPU: "100m", RequestMemory: "1280Mi", LimitCPU: "500m", LimitMemory: "1280Mi"}
 	case ThreeportTerraformControllerName,
 		ThreeportAwsControllerName,
 		ThreeportOciControllerName,
