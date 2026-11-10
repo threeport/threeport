@@ -41,7 +41,8 @@ You need:
   where the GKE cluster will run (for example `us-central1`).
 
 Ensure your principal has sufficient permissions to create GKE clusters,
-networking, IAM service accounts, and related resources in that project. For
+networking, IAM service accounts and project IAM bindings, and related
+resources in that project. For
 exploratory setups, a role such as `roles/owner` or `roles/editor` on the project
 is often enough; tighten permissions for production use.
 
@@ -72,6 +73,42 @@ A production control plane, which you ask for with `--tier production`, backs
 its database up to a Cloud Storage bucket in another region. Choose that region with
 `--gcp-backup-region`. See
 [Back Up and Restore a Control Plane](../control-planes/backup-restore.md).
+
+## Node Service Account
+
+The cluster's nodes run as a service account created for the cluster, not as
+the project's default Compute Engine service account. Its ID starts with
+`threeport-svc-`, and its display name is `Threeport GKE nodes of
+threeport-test` for a control plane named `test`. It is created and deleted
+with the cluster.
+
+The account has only the
+[Kubernetes Engine Default Node Service Account](https://cloud.google.com/kubernetes-engine/docs/how-to/service-accounts)
+role (`roles/container.defaultNodeServiceAccount`) on the project. That lets
+the nodes write logs to Cloud Logging and metrics to Cloud Monitoring, and
+nothing else. Pods don't run as this account: they use Workload Identity.
+
+Threeport's own images are public, so the nodes don't need access to a
+registry. To run workloads from private images in Artifact Registry, grant the
+node account read access to the repository:
+
+```bash
+gcloud artifacts repositories add-iam-policy-binding [repository] \
+  --project [gcp project id] \
+  --location [repository location] \
+  --member serviceAccount:[node service account email] \
+  --role roles/artifactregistry.reader
+```
+
+Find the node account's email with:
+
+```bash
+gcloud container node-pools describe threeport-test-nodepool \
+  --cluster threeport-test \
+  --region [gcp region] \
+  --project [gcp project id] \
+  --format 'value(config.serviceAccount)'
+```
 
 ## Validate Deployment
 
