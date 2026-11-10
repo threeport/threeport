@@ -63,6 +63,10 @@ func ConfigureControlPlaneWithGkeConfig(
 		KubernetesVersion:             kubernetesRuntimeDefResult.KubernetesVersion,
 		KubernetesRuntimeDefinitionID: kubernetesRuntimeDefResult.ID,
 	}
+	// a cluster tptctl didn't create, with --control-plane-only, records none
+	if !cpi.Opts.ControlPlaneOnly {
+		recordGkeUpgradeSettings(&gcpGkeKubernetesRuntimeDef, kubernetesRuntimeInfraGKE)
+	}
 	createdGcpGkeKubernetesRuntimeDef, err := ensureGcpGkeKubernetesRuntimeDefinition(
 		apiClient,
 		threeportAPIEndpoint,
@@ -104,6 +108,28 @@ func ConfigureControlPlaneWithGkeConfig(
 	}
 
 	return nil
+}
+
+// gkeReleaseChannel returns the release channel of the cluster tptctl up
+// creates for a control plane of tier.
+func gkeReleaseChannel(tier threeport.ControlPlaneTier) string {
+	if tier == threeport.ControlPlaneTier(threeport.ControlPlaneTierProd) {
+		return v0.ProductionGkeReleaseChannel
+	}
+
+	return v0.DefaultGkeReleaseChannel
+}
+
+// recordGkeUpgradeSettings records on a GKE definition the release channel
+// and maintenance window tptctl up created its cluster with.
+func recordGkeUpgradeSettings(
+	definition *v0.GcpGkeKubernetesRuntimeDefinition,
+	infra *provider.KubernetesRuntimeInfraGKE,
+) {
+	definition.ReleaseChannel = util.Ptr(v0.GkeReleaseChannelOrDefault(&infra.ReleaseChannel))
+	definition.MaintenanceWindowDays = util.Ptr(v0.GkeMaintenanceWindowDaysOrDefault(&infra.MaintenanceWindowDays))
+	definition.MaintenanceWindowStart = util.Ptr(v0.GkeMaintenanceWindowStartOrDefault(&infra.MaintenanceWindowStart))
+	definition.MaintenanceWindowHours = util.Ptr(v0.GkeMaintenanceWindowHoursOrDefault(&infra.MaintenanceWindowHours))
 }
 
 // ensureGcpProvider returns the named GCP provider, creating it when

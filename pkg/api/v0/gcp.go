@@ -66,6 +66,27 @@ type GcpGkeKubernetesRuntimeDefinition struct {
 	// can't be changed after creation.
 	KubernetesVersion *string `validate:"optional"`
 
+	// The GKE release channel of the clusters, REGULAR or STABLE.  GKE
+	// upgrades their control planes and nodes to its releases on its own,
+	// within the maintenance window.  If unset, REGULAR is used.  It can't be
+	// changed after creation.
+	ReleaseChannel *string `validate:"optional"`
+
+	// The days the clusters' maintenance window recurs on, in UTC, as an
+	// RRULE writes them: such as "SA,SU".  GKE upgrades a cluster only in that
+	// window, apart from an upgrade it can't defer.  If unset, "SA,SU" is used.
+	// It can't be changed after creation.
+	MaintenanceWindowDays *string `validate:"optional"`
+
+	// The time of day the maintenance window starts on each of its days, in
+	// UTC, such as "04:00".  If unset, "04:00" is used.  It can't be changed
+	// after creation.
+	MaintenanceWindowStart *string `validate:"optional"`
+
+	// How many hours the maintenance window lasts, from 4 to 24.  If unset, 8
+	// is used.  It can't be changed after creation.
+	MaintenanceWindowHours *int `validate:"optional"`
+
 	// The GCP GKE kubernetes runtime instances derived from this definition.
 	GcpGkeKubernetesRuntimeInstances []*GcpGkeKubernetesRuntimeInstance `validate:"optional,association"`
 

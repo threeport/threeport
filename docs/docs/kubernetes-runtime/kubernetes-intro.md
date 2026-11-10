@@ -59,6 +59,25 @@ kind cluster's version comes with its node image, so it takes none.
 `tptctl up` sets the version of the cluster it creates with
 `--kubernetes-version`.
 
+### Upgrades
+
+Each provider upgrades a cluster on its own in some cases. Threeport sets
+how:
+
+- **GKE** enrolls the cluster in a release channel, `REGULAR` by default, and
+  upgrades its control plane and nodes to that channel's releases within a
+  weekly maintenance window, apart from an upgrade GKE can't defer. The window
+  defaults to Saturday and Sunday from 04:00 to 12:00 UTC. A GKE definition
+  sets them with `ReleaseChannel` (`REGULAR` or `STABLE`),
+  `MaintenanceWindowDays` (such as `SA,SU`), `MaintenanceWindowStart` (a UTC
+  time of day, such as `04:00`) and `MaintenanceWindowHours` (4 to 24). The
+  cluster of a production control plane that `tptctl up` creates is on
+  `STABLE`. Like the version, they can't be changed once the definition
+  exists.
+- **EKS** upgrades the control plane to the next version when its version
+  leaves standard support, rather than keeping it on extended support at a
+  higher hourly charge. The node group isn't upgraded with it.
+
 Reference:
 [KubernetesRuntimeDefinition](https://pkg.go.dev/github.com/threeport/threeport/pkg/api/v0#KubernetesRuntimeDefinition)
 

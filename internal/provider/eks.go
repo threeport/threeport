@@ -70,6 +70,11 @@ type KubernetesRuntimeInfraEKS struct {
 
 	// The maximum number of nodes allowed in the default node group.
 	DefaultNodeGroupMaxNodes int32
+
+	// stackSupportType is set by CreateInfra when the stack already holds the
+	// cluster, to the support type the cluster was created with: "" for one
+	// created before it was set.  The program keeps it.
+	stackSupportType *string
 }
 
 // Create provisions an AWS EKS cluster for threeport workloads and returns the
@@ -100,6 +105,7 @@ func (i *KubernetesRuntimeInfraEKS) CreateInfra() (*kube.KubeConnectionInfo, err
 		return nil, fmt.Errorf("failed to read the stack's EKS cluster: %w", err)
 	}
 	i.keepStackVersion(exported.Deployment)
+	i.keepStackSupportType(exported.Deployment)
 
 	if _, err := i.RunUp(context.Background(), stack); err != nil {
 		return nil, fmt.Errorf("failed to deploy stack: %w", err)
@@ -119,6 +125,14 @@ func (i *KubernetesRuntimeInfraEKS) CreateInfra() (*kube.KubeConnectionInfo, err
 func (i *KubernetesRuntimeInfraEKS) keepStackVersion(deployment json.RawMessage) {
 	if version, held := clusterInputInStack(deployment, "aws:eks/cluster:Cluster", "version"); held && version != "" {
 		i.KubernetesVersion = version
+	}
+}
+
+// keepStackSupportType records the support type of the cluster the stack's
+// deployment holds, if it holds one, for the program to keep.
+func (i *KubernetesRuntimeInfraEKS) keepStackSupportType(deployment json.RawMessage) {
+	if supportType, held := clusterInputInStack(deployment, "aws:eks/cluster:Cluster", "upgradePolicy.supportType"); held {
+		i.stackSupportType = &supportType
 	}
 }
 

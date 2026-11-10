@@ -487,6 +487,10 @@ func buildGkeInfra(
 		MinNodeCount:           int32(*definition.DefaultNodeGroupMinimumSize),
 		MaxNodeCount:           int32(*definition.DefaultNodeGroupMaximumSize),
 		Version:                v0.KubernetesVersionOrDefault(definition.KubernetesVersion),
+		ReleaseChannel:         v0.GkeReleaseChannelOrDefault(definition.ReleaseChannel),
+		MaintenanceWindowDays:  v0.GkeMaintenanceWindowDaysOrDefault(definition.MaintenanceWindowDays),
+		MaintenanceWindowStart: v0.GkeMaintenanceWindowStartOrDefault(definition.MaintenanceWindowStart),
+		MaintenanceWindowHours: v0.GkeMaintenanceWindowHoursOrDefault(definition.MaintenanceWindowHours),
 	}).InitPulumiProject()
 
 	// The workload identity binding made after the cluster is created names this

@@ -360,6 +360,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 				RuntimeInstanceName: runtimeInstanceName(cpi.Opts),
 			},
 			Version:                cpi.Opts.KubernetesVersion,
+			ReleaseChannel:         gkeReleaseChannel(cpi.Opts.Tier),
 			WorkerNodeInitialCount: int32(2),
 			// preserves the node pool defaults this CLI-driven bootstrap path
 			// used before MachineType/MinNodeCount/MaxNodeCount became

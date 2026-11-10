@@ -149,8 +149,9 @@ func okeImageArch(shape string) string {
 }
 
 // clusterInputInStack returns an input of the cluster an exported deployment
-// holds, and whether it holds the cluster at all.  The input is "" when the
-// cluster was created without it.  A create resumed on that stack keeps the
+// holds, and whether it holds the cluster at all.  An input nested in an
+// object is named by its path, such as "releaseChannel.channel".  The input is
+// "" when the cluster was created without it.  A create resumed on that stack keeps the
 // cluster's version, rather than asking for the one its definition records:
 // the stack may predate it, and a provider upgrades a cluster one minor
 // version at a time, if it can upgrade it in place at all.
@@ -167,8 +168,13 @@ func clusterInputInStack(deployment json.RawMessage, clusterType, input string) 
 
 	for _, resource := range contents.Resources {
 		if resource.Type == clusterType {
-			value, _ := resource.Inputs[input].(string)
-			return value, true
+			var value any = resource.Inputs
+			for _, key := range strings.Split(input, ".") {
+				object, _ := value.(map[string]any)
+				value = object[key]
+			}
+			text, _ := value.(string)
+			return text, true
 		}
 	}
 
