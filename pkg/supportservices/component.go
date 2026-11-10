@@ -78,27 +78,18 @@ func EnsureCertificatesComponent[T componentAttacher](
 }
 
 // EnsureSecretsComponent attaches an API instance to the secrets component of the support services operator.
-// The shared workload is named external-secrets-<runtime>. eks, kind, and gke install it, and an instance that edits the manifest syncs that edit.
+// The shared workload is named external-secrets-<runtime>. An instance that edits the manifest syncs that edit.
 func EnsureSecretsComponent[T componentAttacher](
 	r *controller.Reconciler,
 	runtime *api.KubernetesRuntimeInstance,
 	attacher T,
 	field **uint,
 	update objectUpdate[T],
-	provider *string,
 	log *logr.Logger,
 ) error {
 	// require the runtime before reading its secrets workload id
 	if err := requireRuntime(runtime, "secrets component", true); err != nil {
 		return err
-	}
-
-	// install the secrets component on eks, kind, and gke
-	if provider == nil ||
-		(*provider != api.KubernetesRuntimeInfraProviderEKS &&
-			*provider != api.KubernetesRuntimeInfraProviderKind &&
-			*provider != api.KubernetesRuntimeInfraProviderGKE) {
-		return nil
 	}
 
 	// store the secrets workload id on the attached API instance

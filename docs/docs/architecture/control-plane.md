@@ -41,6 +41,13 @@ NATS to re-queue reconciliation as needed (when unmet conditions prevent
 immediate reconciliation) and to place distributed locks on particular objects
 during reconciliation.
 
+The NATS server only accepts connections over TLS from clients that
+authenticate with a password.  The installer creates the CA that signs the
+server's certificate and the password the first time it installs the control
+plane, keeps them in secrets in the control plane namespace, and reuses them on
+every install after that.  The API, the controllers, and the controllers of
+installed modules verify the server against that CA.
+
 ## Threeport Agent
 
 The Threeport agent is a [Kubernetes

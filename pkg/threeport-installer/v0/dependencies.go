@@ -104,6 +104,12 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControlPlaneDependencies(
 		return fmt.Errorf("failed in create threeport control plane namespace: %w", err)
 	}
 
+	// the message broker's CA, certificate and client credentials, which the
+	// broker and every client below mount
+	if err := cpi.ensureMessageBrokerSecrets(kubeClient); err != nil {
+		return fmt.Errorf("failed to create the message broker's certificates and credentials: %w", err)
+	}
+
 	var encryptionSecret = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "v1",
@@ -209,7 +215,7 @@ jetstream {
 lame_duck_grace_period: 10s
 lame_duck_duration: 30s
 store_dir: /data
-`,
+` + natsServerTLSAuthConfig,
 			},
 		},
 	}
@@ -304,7 +310,10 @@ store_dir: /data
 						},
 					},
 					"spec": map[string]interface{}{
-						"volumes":         nil,
+						// the nats CLI connects over TLS as the threeport user
+						"volumes": []interface{}{
+							NatsClientCAVolume(),
+						},
 						"securityContext": natsBoxPodSecurityContext(),
 						"containers": []interface{}{
 							map[string]interface{}{
@@ -313,18 +322,15 @@ store_dir: /data
 								"image":           natsBoxImage,
 								"imagePullPolicy": "IfNotPresent",
 								"resources":       natsBoxResources(),
-								"env": []interface{}{
-									map[string]interface{}{
-										"name":  "NATS_URL",
-										"value": "nats-js",
-									},
-								},
+								"env":             natsCLIEnv(),
 								"command": []interface{}{
 									"tail",
 									"-f",
 									"/dev/null",
 								},
-								"volumeMounts": nil,
+								"volumeMounts": []interface{}{
+									NatsClientCAVolumeMount(),
+								},
 							},
 						},
 					},
@@ -389,12 +395,9 @@ store_dir: /data
 								"name":     "pid",
 								"emptyDir": map[string]interface{}{},
 							},
+							// The server's certificate, which clients verify.
+							natsServerCertVolume(),
 						},
-						//################
-						//               #
-						//  TLS Volumes  #
-						//               #
-						//################
 
 						"serviceAccountName": "nats-js",
 						// Required to be able to HUP signal and apply config
@@ -466,6 +469,10 @@ store_dir: /data
 										"name":  "CLUSTER_ADVERTISE",
 										"value": "$(POD_NAME).nats-js.$(POD_NAMESPACE).svc.cluster.local",
 									},
+									// The user and password the config's
+									// authorization block reads.
+									natsSecretEnv("NATS_USER", "user"),
+									natsSecretEnv("NATS_PASSWORD", "password"),
 									// keeps the Go runtime collecting before the
 									// container reaches its memory limit
 									map[string]interface{}{
@@ -486,6 +493,7 @@ store_dir: /data
 										"name":      "datadir",
 										"mountPath": "/data",
 									},
+									natsServerCertVolumeMount(),
 								},
 								//######################
 								//                     #
@@ -580,6 +588,9 @@ store_dir: /data
 										"name":      "datadir",
 										"mountPath": "/data",
 									},
+									// the reloader watches the files the
+									// config names, the certificate among them
+									natsServerCertVolumeMount(),
 								},
 							},
 							//#############################
@@ -625,9 +636,11 @@ store_dir: /data
 		},
 	}
 
-	// leave the message broker stateful set in place when it already exists
+	// keep the message broker stateful set and its volume, and roll an
+	// existing one onto the current pod template, so a control plane
+	// installed before the broker required TLS moves onto it with its data
 	setPersistent(natsStatefulSet)
-	if err := cpi.CreateOrUpdateKubeResource(natsStatefulSet, kubeClient, mapper); err != nil {
+	if err := cpi.createOrUpdateStatefulSet(natsStatefulSet, kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed to create/update API server secret for kubernetes workload controller: %w", err)
 	}
 

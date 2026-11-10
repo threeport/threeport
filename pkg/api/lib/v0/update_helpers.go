@@ -5,6 +5,7 @@ import (
 	"reflect"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -201,13 +202,35 @@ func IncomingValues(tx *gorm.DB) interface{} {
 // updating an existing row). Returns an error if Model has no ID or
 // the DB load fails.
 func LoadObjectFromDB(tx *gorm.DB) (interface{}, error) {
+	return loadObjectFromDB(tx, NewCleanSession(tx), "LoadObjectFromDB")
+}
+
+// LockObjectInDB is LoadObjectFromDB, and also locks the row until the
+// update's transaction ends (SELECT ... FOR UPDATE).
+//
+// A hook checks a PATCH against the fields it doesn't write with this. The
+// receiver holds the row as the handler loaded it before the transaction
+// began, and another update may have changed those fields since. The row
+// read here is the one the update writes over, and the lock makes a
+// concurrent update of the same row wait until this one commits, so that
+// update's hooks read the result.
+func LockObjectInDB(tx *gorm.DB) (interface{}, error) {
+	return loadObjectFromDB(
+		tx,
+		NewCleanSession(tx).Clauses(clause.Locking{Strength: "UPDATE"}),
+		"LockObjectInDB",
+	)
+}
+
+// loadObjectFromDB loads the row tx.Statement.Model names through session.
+func loadObjectFromDB(tx, session *gorm.DB, caller string) (interface{}, error) {
 	model := tx.Statement.Model
 	id := util.ObjectID(model)
 	if id == nil {
-		return nil, fmt.Errorf("LoadObjectFromDB: %T has no ID", model)
+		return nil, fmt.Errorf("%s: %T has no ID", caller, model)
 	}
 	loaded := reflect.New(reflect.TypeOf(model).Elem()).Interface()
-	if err := NewCleanSession(tx).First(loaded, *id).Error; err != nil {
+	if err := session.First(loaded, *id).Error; err != nil {
 		return nil, fmt.Errorf(
 			"failed to load %s/%d from database: %w",
 			util.ObjectTypeName(model), *id, err,

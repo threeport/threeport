@@ -82,6 +82,23 @@ recreate manifests, RBAC, or configmaps. Use tptctl reinstall for those.`,
 			os.Exit(1)
 		}
 
+		// The upgrade moves every default component to one tag. Say so before
+		// it happens when a component was pinned to another. The list endpoint
+		// leaves the recorded components out, so the instance is fetched by ID.
+		// The notice is advisory, so a failure to read the record is reported
+		// and the upgrade goes on.
+		if recordedInstance, err := client.GetControlPlaneInstanceByID(
+			apiClient,
+			apiEndpoint,
+			*controlPlaneInstance.ID,
+		); err != nil {
+			cli.Warning(fmt.Sprintf(
+				"could not read the recorded components to check for pinned images: %s", err,
+			))
+		} else if warning := pinnedComponentsWarning(recordedInstance, updateImageTag); warning != "" {
+			cli.Warning(warning)
+		}
+
 		// the bucket scheduled backups go to, which the database migrator backs
 		// up to before migrating
 		controlPlaneConfig, err := config.GetControlPlaneConfig(requestedControlPlane)
@@ -102,8 +119,17 @@ recreate manifests, RBAC, or configmaps. Use tptctl reinstall for those.`,
 			os.Exit(1)
 		}
 
-		// children created from here on default to the images this control plane
-		// runs, so record the tag the deployments were just moved to
+		// Children created from here on default to the images this control plane
+		// runs, so record the tag the deployments were just moved to.
+		//
+		// This is the instance-wide tag, not a rewrite of the recorded
+		// components: the API cannot change a component once it is recorded, an
+		// update to an instance leaves them as they are. The instance-wide tag
+		// is applied over the recorded components when a child is created, so
+		// the child gets the tag the deployments are now on, which is what the
+		// recorded tags of the components named in the warning above no longer
+		// describe. What a component records beyond its tag, its image name and
+		// registry, is untouched by the upgrade and is still inherited.
 		if _, err := client.UpdateControlPlaneInstance(
 			apiClient,
 			apiEndpoint,
@@ -118,6 +144,35 @@ recreate manifests, RBAC, or configmaps. Use tptctl reinstall for those.`,
 
 		cli.Complete(fmt.Sprintf("Succesfully updates all threeport deployments to image: %s", updateImageTag))
 	},
+}
+
+// pinnedComponentsWarning says which components of a control plane were pinned
+// to an image tag other than the rest api's, and that the upgrade is about to
+// move them to imageTag with everything else. It returns "" when nothing was
+// pinned.
+//
+// A control plane that records an instance-wide tag has been upgraded before.
+// That upgrade moved every default deployment to the tag, so the components
+// all run it and nothing is pinned any more, whatever tags the recorded
+// components still carry: the API cannot update them, so they keep the tag
+// from before the upgrade. Reading them again would warn about a pin that
+// the earlier upgrade already replaced.
+func pinnedComponentsWarning(instance *api_v0.ControlPlaneInstance, imageTag string) string {
+	if instance == nil || util.DerefString(instance.ImageTag) != "" {
+		return ""
+	}
+	pinned := installer.DivergentComponents(instance.CustomComponentInfo)
+	if len(pinned) == 0 {
+		return ""
+	}
+
+	return fmt.Sprintf(
+		"%s run a different image tag than the rest of the control plane. "+
+			"The upgrade moves every default component to %s, so those are replaced too, "+
+			"and control planes created from here on get %s for them. "+
+			"Rebuild or re-pin them after the upgrade if they must stay on their own tag.",
+		strings.Join(pinned, ", "), imageTag, imageTag,
+	)
 }
 
 func updateDeploymentImageTag(
