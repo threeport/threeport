@@ -701,11 +701,9 @@ func (i *KubernetesRuntimeInfraGKE) GetConnection() (*kube.KubeConnectionInfo, e
 		return nil, fmt.Errorf("failed to get access token: %w", err)
 	}
 
-	// refuse an empty host so creation is not confirmed
-	apiEndpoint, err := gkeAPIEndpoint(cluster.Endpoint, i.RuntimeInstanceName)
-	if err != nil {
-		return nil, err
-	}
+	// construct the API endpoint
+	// GKE provides the endpoint without the https:// prefix
+	apiEndpoint := fmt.Sprintf("https://%s", cluster.Endpoint)
 
 	// create connection info
 	kubeConnInfo := &kube.KubeConnectionInfo{
@@ -716,17 +714,6 @@ func (i *KubernetesRuntimeInfraGKE) GetConnection() (*kube.KubeConnectionInfo, e
 	}
 
 	return kubeConnInfo, nil
-}
-
-// gkeAPIEndpoint returns the Kubernetes API address for a GKE cluster endpoint.
-// An empty endpoint is refused so creation is not confirmed without a host.
-func gkeAPIEndpoint(endpoint, runtimeName string) (string, error) {
-	// refuse an empty cluster endpoint
-	if endpoint == "" {
-		return "", fmt.Errorf("GKE cluster %s has no API endpoint yet", runtimeName)
-	}
-
-	return "https://" + endpoint, nil
 }
 
 // ResourcesExist reports whether the GKE cluster for this instance exists in
