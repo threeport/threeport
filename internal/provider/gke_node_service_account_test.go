@@ -106,23 +106,45 @@ func TestNodePoolRunsAsDefaultServiceAccount(t *testing.T) {
 }
 
 // TestGkeNodeServiceAccountID covers the node account's ID for runtime names
-// of any length: a valid GCP ID, apart from the Threeport account of the same
-// runtime.  The IDs are pinned because Pulumi finds the account by the ID it
-// created it with.
+// of any length: a valid GCP ID, under a prefix of its own.  The IDs are
+// pinned because Pulumi finds the account by the ID it created it with.
 func TestGkeNodeServiceAccountID(t *testing.T) {
 	for name, want := range map[string]string{
-		"test":                               "threeport-svc-test-node-562f28",
-		"threeport-genesis-01":               "threeport-svc-threeport-b4f5a2",
-		"a-very-long-threeport-runtime-name": "threeport-svc-a-very-lo-d6e01d",
+		"test":                               "threeport-node-test-9f86d0",
+		"threeport-genesis-01":               "threeport-node-threepor-6c166c",
+		"a-very-long-threeport-runtime-name": "threeport-node-a-very-l-e932d8",
 	} {
 		i := &KubernetesRuntimeInfraGKE{PulumiWorkspace: PulumiWorkspace{RuntimeInstanceName: name}}
 		assert.Equal(t, want, i.nodeServiceAccountID(), name)
 	}
 
-	for _, name := range []string{"a", "threeport-test", strings.Repeat("x", 200)} {
+	for _, name := range []string{"a", "threeport-test", "!!!", strings.Repeat("x", 200)} {
+		i := &KubernetesRuntimeInfraGKE{PulumiWorkspace: PulumiWorkspace{RuntimeInstanceName: name}}
+		assert.Regexp(t, `^[a-z][a-z0-9-]{4,28}[a-z0-9]$`, i.nodeServiceAccountID(), name)
+	}
+}
+
+// TestNoNodeAccountTakesAThreeportAccountsID covers runtimes whose names make
+// one's node account and another's Threeport account collide under a shared
+// scheme: a runtime named threeport-test-node, and a GcpProvider of that name,
+// derive the Threeport account formatServiceAccountID("threeport-test-node").
+func TestNoNodeAccountTakesAThreeportAccountsID(t *testing.T) {
+	names := []string{"threeport-test", "threeport-test-node", "test", "test-node", "a", "x-node-node"}
+	threeportAccounts := map[string]string{}
+	for _, name := range names {
+		i := &KubernetesRuntimeInfraGKE{PulumiWorkspace: PulumiWorkspace{RuntimeInstanceName: name}}
+		threeportAccounts[i.getServiceAccountID()] = name
+		threeportAccounts[generateServiceAccountID(name)] = name
+	}
+
+	nodeAccounts := map[string]string{}
+	for _, name := range names {
 		i := &KubernetesRuntimeInfraGKE{PulumiWorkspace: PulumiWorkspace{RuntimeInstanceName: name}}
 		id := i.nodeServiceAccountID()
-		assert.Regexp(t, `^[a-z][a-z0-9-]{4,28}[a-z0-9]$`, id, name)
-		assert.NotEqual(t, i.getServiceAccountID(), id, name)
+		other, taken := threeportAccounts[id]
+		assert.False(t, taken, "the node account of %q is the Threeport account of %q: %s", name, other, id)
+		other, taken = nodeAccounts[id]
+		assert.False(t, taken, "%q and %q have the same node account %s", name, other, id)
+		nodeAccounts[id] = name
 	}
 }

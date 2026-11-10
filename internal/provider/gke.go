@@ -422,9 +422,10 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 }
 
 // nodeServiceAccountID returns the ID of the service account the cluster's
-// nodes run as.
+// nodes run as.  Its prefix is its own, so it never matches the ID of a
+// Threeport account, which is derived from a runtime or provider name.
 func (i *KubernetesRuntimeInfraGKE) nodeServiceAccountID() string {
-	return formatServiceAccountID(i.RuntimeInstanceName + "-node")
+	return formatPrefixedServiceAccountID(nodeServiceAccountIDPrefix, nodeServiceAccountIDNameLength, i.RuntimeInstanceName)
 }
 
 // nodeServiceAccount adds the service account the cluster's nodes run as to

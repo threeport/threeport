@@ -78,7 +78,7 @@ its database up to a Cloud Storage bucket in another region. Choose that region 
 
 The cluster's nodes run as a service account created for the cluster, not as
 the project's default Compute Engine service account. Its ID starts with
-`threeport-svc-`, and its display name is `Threeport GKE nodes of
+`threeport-node-`, and its display name is `Threeport GKE nodes of
 threeport-test` for a control plane named `test`. It is created and deleted
 with the cluster.
 
