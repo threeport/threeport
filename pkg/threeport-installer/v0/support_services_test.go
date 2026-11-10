@@ -101,3 +101,33 @@ func TestSupportServicesCloud(t *testing.T) {
 	require.Equal(t, SupportServicesCloudLocal, SupportServicesCloud(api.KubernetesRuntimeInfraProviderKind))
 	require.Equal(t, SupportServicesCloudAWS, supportServicesObject(SupportServicesCloudAWS).Object["spec"].(map[string]interface{})["cloud"])
 }
+
+// TestSetManagerMemoryLimitCapsTheManager checks that only the manager gets the cap.
+func TestSetManagerMemoryLimitCapsTheManager(t *testing.T) {
+	object := map[string]interface{}{
+		"spec": map[string]interface{}{
+			"template": map[string]interface{}{
+				"spec": map[string]interface{}{
+					"containers": []interface{}{
+						map[string]interface{}{"name": "manager"},
+						map[string]interface{}{"name": "kube-rbac-proxy"},
+					},
+				},
+			},
+		},
+	}
+
+	// cap the manager
+	setManagerMemoryLimit(object)
+
+	// read the containers back
+	containers, found, err := unstructured.NestedSlice(object, "spec", "template", "spec", "containers")
+	require.NoError(t, err)
+	require.True(t, found)
+	manager := containers[0].(map[string]interface{})
+	resources := manager["resources"].(map[string]interface{})
+	limits := resources["limits"].(map[string]interface{})
+	require.Equal(t, supportServicesOperatorMemoryLimit, limits["memory"])
+	_, otherHasResources := containers[1].(map[string]interface{})["resources"]
+	require.False(t, otherHasResources)
+}

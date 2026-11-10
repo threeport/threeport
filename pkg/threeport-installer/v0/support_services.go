@@ -45,7 +45,10 @@ const (
 	// create, and what the checks that guard those installs look up
 	ClusterAutoscalerDeployName       = "cluster-autoscaler"
 	SupportServicesOperatorDeployName = "support-services-operator-controller-manager"
-	ThreeportCertManagerCRDName       = "certificatescomponents.platform.addons.nukleros.io"
+
+	// cap the manager so a reconcile loop cannot take the node
+	supportServicesOperatorMemoryLimit = "256Mi"
+	ThreeportCertManagerCRDName        = "certificatescomponents.platform.addons.nukleros.io"
 
 	supportServicesOperatorNamespace = "support-services-operator-system"
 	supportServicesOperatorImage     = "controller:latest"
@@ -304,7 +307,7 @@ func supportServicesOperatorObjects() ([]*unstructured.Unstructured, error) {
 	return objects, nil
 }
 
-// prepareSupportServicesOperatorObject sets the namespace and the controller image.
+// prepareSupportServicesOperatorObject sets the namespace, the controller image, and the manager memory limit.
 func prepareSupportServicesOperatorObject(object map[string]interface{}) map[string]interface{} {
 	kind, _ := object["kind"].(string)
 	if kind == "Namespace" {
@@ -313,6 +316,7 @@ func prepareSupportServicesOperatorObject(object map[string]interface{}) map[str
 	rewriteNamespace(object)
 	if kind == "Deployment" {
 		setManagerImage(object)
+		setManagerMemoryLimit(object)
 	}
 	return object
 }
@@ -333,6 +337,27 @@ func rewriteNamespace(value interface{}) {
 			rewriteNamespace(child)
 		}
 	}
+}
+
+// setManagerMemoryLimit caps the manager container.
+// A reconcile loop with no limit can take the node.
+func setManagerMemoryLimit(object map[string]interface{}) {
+	containers, found, err := unstructured.NestedSlice(object, "spec", "template", "spec", "containers")
+	if err != nil || !found {
+		return
+	}
+	for _, container := range containers {
+		typed, ok := container.(map[string]interface{})
+		if !ok || typed["name"] != "manager" {
+			continue
+		}
+		typed["resources"] = map[string]interface{}{
+			"limits": map[string]interface{}{
+				"memory": supportServicesOperatorMemoryLimit,
+			},
+		}
+	}
+	_ = unstructured.SetNestedSlice(object, containers, "spec", "template", "spec", "containers")
 }
 
 // setManagerImage sets the controller container image.
