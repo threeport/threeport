@@ -81,3 +81,38 @@ func TestAnAddonsDefaultVersionIsTheOneForTheClustersVersion(t *testing.T) {
 	_, err = defaultAddonVersion(addons, "1.37")
 	assert.ErrorContains(t, err, "no default version is offered for Kubernetes 1.37")
 }
+
+// TestAControlPlaneEksMovedAheadKeepsItsVersion covers an upgrade of nodes
+// more than one minor version behind a control plane EKS upgraded on its own:
+// the control plane and the add-ons keep the version the control plane runs,
+// which EKS can't downgrade, and only the node group takes the step's.
+func TestAControlPlaneEksMovedAheadKeepsItsVersion(t *testing.T) {
+	for _, c := range []struct{ controlPlane, step, kept string }{
+		{"1.35", "1.33", "1.35"},
+		{"1.36", "1.36", ""},
+		{"1.35", "1.36", ""},
+	} {
+		infra := testEksInfra(2)
+		infra.KubernetesVersion = c.step
+		require.NoError(t, infra.keepNewerControlPlane(c.controlPlane))
+		assert.Equal(t, c.kept, infra.controlPlaneVersion, "control plane %s, step %s", c.controlPlane, c.step)
+	}
+	infra := testEksInfra(2)
+	infra.KubernetesVersion = "1.33"
+	assert.Error(t, infra.keepNewerControlPlane("v1.35"))
+
+	infra = testEksInfra(2)
+	infra.KubernetesVersion = "1.33"
+	require.NoError(t, infra.keepNewerControlPlane("1.35"))
+	mocks := runEksPulumiProgram(t, infra)
+	assert.Equal(t, "1.35", mocks.byType(eksClusterTypeToken)[0].inputs["version"])
+	assert.Equal(t, "1.33", mocks.byType(eksNodeGroupTypeToken)[0].inputs["version"])
+	for _, addon := range mocks.byType(eksAddonTypeToken) {
+		assert.Equal(t, addon.inputs["addonName"].(string)+"-for-1.35", addon.inputs["addonVersion"])
+	}
+
+	// a step on the control plane's version clears what an earlier one kept
+	infra.KubernetesVersion = "1.35"
+	require.NoError(t, infra.keepNewerControlPlane("1.35"))
+	assert.Empty(t, infra.controlPlaneVersion)
+}

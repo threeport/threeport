@@ -444,13 +444,13 @@ func TestTheLowerOfTwoVersionsIsTheClusters(t *testing.T) {
 	assert.Equal(t, "1.36", minorVersion("1.36.4-gke.2046003"), "a GKE release")
 }
 
-// TestAnUpgradeThatReachedItsVersionIsFinished covers an upgrade left
+// TestAnUpgradeThatReachedItsVersionFinishesItsStep covers an upgrade left
 // unrecorded after the cluster reached its definition's version: one
-// interrupted before it recorded its outcome, one whose last step failed, and
-// a refused one the provider has since done on its own.  Each is finished,
-// with its flags cleared and the post-upgrade work run, rather than left
-// looking unfinished.
-func TestAnUpgradeThatReachedItsVersionIsFinished(t *testing.T) {
+// interrupted before it recorded its outcome, and one whose last step failed,
+// as it does when an add-on EKS moves after the node group fails.  The step
+// runs again on the version the cluster runs, so its last work is done before
+// the upgrade is recorded as finished.
+func TestAnUpgradeThatReachedItsVersionFinishesItsStep(t *testing.T) {
 	clock := newFakeClock(time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC))
 	restore := setLifecycleClock(clock)
 	defer restore()
@@ -459,34 +459,89 @@ func TestAnUpgradeThatReachedItsVersionIsFinished(t *testing.T) {
 	for name, snapshot := range map[string]UpgradeSnapshot{
 		"interrupted": {Upgrading: true, Acknowledged: stale, RecordedVersion: "1.35", Status: "upgrading from Kubernetes 1.35 to 1.36"},
 		"failed":      {Failed: true, Acknowledged: stale, RecordedVersion: "1.35", Status: "failed to upgrade"},
-		"refused":     {Refused: true, Acknowledged: stale, RecordedVersion: "1.35", Status: "refused to upgrade"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			infra := newFakeUpgradeInfra("1.36")
 			fl := newFakeUpgradeLifecycle(infra, "1.36")
 			fl.setUpgrade(snapshot)
 
-			requeue, err := HandleInfraUpdate(fl, newTestLogger())
+			_, err := HandleInfraUpdate(fl, newTestLogger())
 			require.NoError(t, err)
-			assert.Equal(t, int64(0), requeue)
-			require.Len(t, fl.finishedOutcomes(), 1)
-			assert.Equal(t, UpgradeOutcome{Version: "1.36", Status: "upgraded to Kubernetes 1.36"}, fl.finishedOutcomes()[0])
-			assert.Equal(t, 1, fl.callCount("OnUpgraded"), "the post-upgrade work an interruption skipped")
-			assert.Empty(t, infra.upgrades())
+			assert.Equal(t, []string{"finishing the upgrade to Kubernetes 1.36"}, fl.acked)
+			assert.Equal(t, UpgradeOutcome{Version: "1.36", Status: "upgraded to Kubernetes 1.36"}, fl.waitFinished(t))
+			assert.Equal(t, []string{"1.36"}, infra.upgrades(), "the step again, on the version the cluster runs")
+			assert.Equal(t, 1, fl.callCount("OnUpgraded"))
 
 			upgrade, err := fl.GetUpgrade()
 			require.NoError(t, err)
 			assert.False(t, upgrade.Upgrading || upgrade.Failed || upgrade.Refused)
+
+			// and then the cluster is left as it is
+			_, err = HandleInfraUpdate(fl, newTestLogger())
+			require.NoError(t, err)
+			assert.Len(t, infra.upgrades(), 1)
 		})
 	}
 
-	// one the provider took past the definition's version keeps saying so
-	infra := newFakeUpgradeInfra("1.37")
+	// work that fails again leaves the upgrade failed, to be tried again
+	infra := newFakeUpgradeInfra("1.36")
+	infra.upgradeErr = errors.New("the coredns add-on update failed")
 	fl := newFakeUpgradeLifecycle(infra, "1.36")
-	fl.setUpgrade(UpgradeSnapshot{Refused: true, RecordedVersion: "1.35"})
+	fl.setUpgrade(UpgradeSnapshot{Failed: true, Acknowledged: stale, RecordedVersion: "1.35"})
 	_, err := HandleInfraUpdate(fl, newTestLogger())
 	require.NoError(t, err)
+	outcome := fl.waitFinished(t)
+	assert.True(t, outcome.Failed)
+	assert.Equal(t, "failed to upgrade to Kubernetes 1.36: the coredns add-on update failed", outcome.Status)
+	assert.Equal(t, 0, fl.callCount("OnUpgraded"))
+}
+
+// TestAnUpgradeTheProviderFinishedIsRecorded covers a refused upgrade the
+// provider has since done on its own, and one the provider took past the
+// definition's version: each is finished without running a step, with its
+// flags cleared and the post-upgrade work run.  A step refused on the version
+// the cluster still runs stays refused.
+func TestAnUpgradeTheProviderFinishedIsRecorded(t *testing.T) {
+	infra := newFakeUpgradeInfra("1.36")
+	fl := newFakeUpgradeLifecycle(infra, "1.36")
+	fl.setUpgrade(UpgradeSnapshot{Refused: true, RecordedVersion: "1.35", Status: "refused to upgrade"})
+	requeue, err := HandleInfraUpdate(fl, newTestLogger())
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), requeue)
 	require.Len(t, fl.finishedOutcomes(), 1)
-	assert.Equal(t, "1.37", fl.finishedOutcomes()[0].Version)
-	assert.Contains(t, fl.finishedOutcomes()[0].Status, "newer than its definition's 1.36")
+	assert.Equal(t, UpgradeOutcome{Version: "1.36", Status: "upgraded to Kubernetes 1.36"}, fl.finishedOutcomes()[0])
+	assert.Equal(t, 1, fl.callCount("OnUpgraded"))
+	assert.Empty(t, infra.upgrades())
+	upgrade, err := fl.GetUpgrade()
+	require.NoError(t, err)
+	assert.False(t, upgrade.Upgrading || upgrade.Failed || upgrade.Refused)
+
+	infra = newFakeUpgradeInfra("1.36")
+	fl = newFakeUpgradeLifecycle(infra, "1.36")
+	fl.setUpgrade(UpgradeSnapshot{Refused: true, RecordedVersion: "1.36", Status: "refused to upgrade to Kubernetes 1.36"})
+	_, err = HandleInfraUpdate(fl, newTestLogger())
+	require.NoError(t, err)
+	assert.Empty(t, fl.finishedOutcomes())
+	assert.Empty(t, infra.upgrades())
+	upgrade, err = fl.GetUpgrade()
+	require.NoError(t, err)
+	assert.True(t, upgrade.Refused, "refused until the definition asks for another version")
+
+	// one the provider took past the definition's version keeps saying so
+	for name, snapshot := range map[string]UpgradeSnapshot{
+		"refused": {Refused: true, RecordedVersion: "1.35"},
+		"failed":  {Failed: true, RecordedVersion: "1.35"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			infra := newFakeUpgradeInfra("1.37")
+			fl := newFakeUpgradeLifecycle(infra, "1.36")
+			fl.setUpgrade(snapshot)
+			_, err := HandleInfraUpdate(fl, newTestLogger())
+			require.NoError(t, err)
+			require.Len(t, fl.finishedOutcomes(), 1)
+			assert.Equal(t, "1.37", fl.finishedOutcomes()[0].Version)
+			assert.Contains(t, fl.finishedOutcomes()[0].Status, "newer than its definition's 1.36")
+			assert.Empty(t, infra.upgrades())
+		})
+	}
 }

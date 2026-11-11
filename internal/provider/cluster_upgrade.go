@@ -26,11 +26,19 @@ func (i *KubernetesRuntimeInfraEKS) ClusterKubernetesVersion() (string, error) {
 }
 
 // UpgradeInfra upgrades the EKS cluster's control plane, then its node group,
-// then its add-ons, to version.  The stack keeps the cluster's upgrade policy, as a
-// resumed create does, and the roles the create gave the cluster and its node
-// group.
+// then its add-ons, to version.  A control plane EKS already moved past
+// version keeps the one it runs, as do the add-ons, and only the node group
+// is upgraded.  The stack keeps the cluster's upgrade policy, as a resumed
+// create does, and the roles the create gave the cluster and its node group.
 func (i *KubernetesRuntimeInfraEKS) UpgradeInfra(version string) error {
 	i.KubernetesVersion = version
+	controlPlane, err := tpaws.EksClusterVersion(i.AwsConfig, i.RuntimeInstanceName)
+	if err != nil {
+		return err
+	}
+	if err := i.keepNewerControlPlane(controlPlane); err != nil {
+		return err
+	}
 	if err := i.lookupClusterIam(); err != nil {
 		return err
 	}
@@ -49,7 +57,23 @@ func (i *KubernetesRuntimeInfraEKS) UpgradeInfra(version string) error {
 		return err
 	}
 
-	return i.upgradeEbsStorageAddon(version)
+	return i.upgradeEbsStorageAddon(i.clusterVersion())
+}
+
+// keepNewerControlPlane sets the control plane's version to the one it runs
+// when that is newer than the version the node group is upgraded to, as it
+// is when EKS upgraded the control plane on its own more than once.
+func (i *KubernetesRuntimeInfraEKS) keepNewerControlPlane(controlPlane string) error {
+	comparison, err := api_v0.CompareKubernetesVersions(controlPlane, i.kubernetesVersion())
+	if err != nil {
+		return fmt.Errorf("failed to compare the EKS control plane's Kubernetes version with the upgrade's: %w", err)
+	}
+	i.controlPlaneVersion = ""
+	if comparison > 0 {
+		i.controlPlaneVersion = controlPlane
+	}
+
+	return nil
 }
 
 // ClusterKubernetesVersion returns the Kubernetes minor version the GKE

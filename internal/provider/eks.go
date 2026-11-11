@@ -75,6 +75,12 @@ type KubernetesRuntimeInfraEKS struct {
 	// cluster, to the support type the cluster was created with: "" for one
 	// created before it was set.  The program keeps it.
 	stackSupportType *string
+
+	// controlPlaneVersion is set by UpgradeInfra to the version the cluster's
+	// control plane runs when EKS moved it past the one the node group is
+	// upgraded to.  The control plane and the add-ons keep it, since EKS
+	// can't downgrade a control plane.
+	controlPlaneVersion string
 }
 
 // Create provisions an AWS EKS cluster for threeport workloads and returns the

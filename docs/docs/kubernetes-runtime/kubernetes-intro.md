@@ -100,7 +100,10 @@ The controller upgrades each cluster one minor version at a time. Each step:
      replaces one at a time, then the add-ons: `vpc-cni`, `coredns`,
      `kube-proxy` and `aws-ebs-csi-driver`, each to the version EKS gives for
      the new Kubernetes version. The cluster autoscaler is then updated to the
-     release for the new version.
+     release for the new version. A control plane EKS has already moved past
+     the step's version, as it does when the version leaves standard support,
+     keeps its version, as do the add-ons, and only the node group is
+     upgraded.
    - **GKE:** the control plane, to its release channel's release of the
      version. GKE upgrades the nodes after it, within the maintenance window.
 
@@ -108,6 +111,9 @@ Progress and failures are on the EKS or GKE runtime instance: the version the
 cluster runs in `KubernetesVersion`, and what the controller last did in
 `UpgradeStatus`. A refused or failed upgrade is also recorded as a warning
 event on the instance. A failed upgrade is tried again after 15 minutes. A
+step that failed or was interrupted after the cluster reached its version,
+such as one whose add-ons failed to update, is run again on that version to
+finish its work before the upgrade is recorded as done. A
 refused one isn't tried again until the definition asks for another version,
 or `UpgradeRefused` is set back to `false` on the instance.
 `UpgradeRequestedVersion` records the version each instance was last asked

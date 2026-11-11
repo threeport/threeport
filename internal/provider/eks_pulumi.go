@@ -166,6 +166,17 @@ func (i *KubernetesRuntimeInfraEKS) kubernetesVersion() string {
 	return i.KubernetesVersion
 }
 
+// clusterVersion returns the Kubernetes version of the cluster's control
+// plane: the one it runs when EKS moved it past the node group's, and the
+// node group's otherwise.
+func (i *KubernetesRuntimeInfraEKS) clusterVersion() string {
+	if i.controlPlaneVersion != "" {
+		return i.controlPlaneVersion
+	}
+
+	return i.kubernetesVersion()
+}
+
 // nodeGroupName returns the name of the cluster's node group.
 func (i *KubernetesRuntimeInfraEKS) nodeGroupName() string {
 	return fmt.Sprintf("%s-private-node-group", i.RuntimeInstanceName)
@@ -378,7 +389,7 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 		cluster, err := awseks.NewCluster(ctx, i.RuntimeInstanceName, &awseks.ClusterArgs{
 			Name:          pulumi.String(i.RuntimeInstanceName),
 			RoleArn:       pulumi.String(i.ClusterRoleArn),
-			Version:       pulumi.String(i.kubernetesVersion()),
+			Version:       pulumi.String(i.clusterVersion()),
 			UpgradePolicy: i.upgradePolicy(),
 			VpcConfig: &awseks.ClusterVpcConfigArgs{
 				SubnetIds:             privateSubnetIds,
@@ -424,7 +435,7 @@ var eksManagedAddons = []string{"vpc-cni", "coredns", "kube-proxy"}
 const eksAddonResolveConflicts = "OVERWRITE"
 
 // managedAddons registers the cluster's EKS add-ons, each on the version EKS
-// gives for the cluster's Kubernetes version.  They come after the node
+// gives for the control plane's Kubernetes version.  They come after the node
 // groups: an upgrade moves them once the nodes run the new version, and
 // coredns can't start before there are nodes to run it.
 func (i *KubernetesRuntimeInfraEKS) managedAddons(
@@ -435,10 +446,10 @@ func (i *KubernetesRuntimeInfraEKS) managedAddons(
 	for _, addonName := range eksManagedAddons {
 		addonVersion, err := awseks.GetAddonVersion(ctx, &awseks.GetAddonVersionArgs{
 			AddonName:         addonName,
-			KubernetesVersion: i.kubernetesVersion(),
+			KubernetesVersion: i.clusterVersion(),
 		})
 		if err != nil {
-			return fmt.Errorf("failed to get the %s add-on version for Kubernetes %s: %w", addonName, i.kubernetesVersion(), err)
+			return fmt.Errorf("failed to get the %s add-on version for Kubernetes %s: %w", addonName, i.clusterVersion(), err)
 		}
 
 		resourceName := fmt.Sprintf("%s-%s", i.RuntimeInstanceName, addonName)
