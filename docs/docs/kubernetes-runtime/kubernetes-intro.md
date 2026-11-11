@@ -44,8 +44,10 @@ clusters are created on, such as `1.36`. The supported versions are `1.35` and
 standard support on EKS, in GKE's `REGULAR` and `STABLE` release channels, and
 as a production release on OKE.
 
-- **EKS** creates the cluster and its node group on that version. The cluster
-  autoscaler's release matches it.
+- **EKS** creates the cluster and its node group on that version. Its
+  `vpc-cni`, `coredns` and `kube-proxy` run as EKS add-ons, on the versions EKS
+  gives for it, rather than the copies EKS installs with a cluster, which
+  nothing upgrades. The cluster autoscaler's release matches it.
 - **GKE** creates the control plane on the release its channel offers for that
   version, and the nodes on the control plane's. GKE upgrades both past it on
   its own.
@@ -95,7 +97,9 @@ The controller upgrades each cluster one minor version at a time. Each step:
    would replace or delete any of the cluster's resources.
 4. Upgrades the cluster:
    - **EKS:** the control plane, then the node group, whose nodes EKS
-     replaces one at a time. The cluster autoscaler is then updated to the
+     replaces one at a time, then the add-ons: `vpc-cni`, `coredns`,
+     `kube-proxy` and `aws-ebs-csi-driver`, each to the version EKS gives for
+     the new Kubernetes version. The cluster autoscaler is then updated to the
      release for the new version.
    - **GKE:** the control plane, to its release channel's release of the
      version. GKE upgrades the nodes after it, within the maintenance window.

@@ -67,6 +67,13 @@ func (m *eksRecordingMocks) Call(args pulumi.MockCallArgs) (resource.PropertyMap
 		}, nil
 	}
 
+	if args.Token == "aws:eks/getAddonVersion:getAddonVersion" {
+		inputs := args.Args.Mappable()
+		return resource.PropertyMap{
+			"version": resource.NewStringProperty(fmt.Sprintf("%s-for-%s", inputs["addonName"], inputs["kubernetesVersion"])),
+		}, nil
+	}
+
 	return resource.PropertyMap{}, nil
 }
 

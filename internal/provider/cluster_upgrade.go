@@ -25,8 +25,8 @@ func (i *KubernetesRuntimeInfraEKS) ClusterKubernetesVersion() (string, error) {
 	return lowerKubernetesVersion(controlPlane, nodeGroup)
 }
 
-// UpgradeInfra upgrades the EKS cluster's control plane, and then its node
-// group, to version.  The stack keeps the cluster's upgrade policy, as a
+// UpgradeInfra upgrades the EKS cluster's control plane, then its node group,
+// then its add-ons, to version.  The stack keeps the cluster's upgrade policy, as a
 // resumed create does, and the roles the create gave the cluster and its node
 // group.
 func (i *KubernetesRuntimeInfraEKS) UpgradeInfra(version string) error {
@@ -45,7 +45,11 @@ func (i *KubernetesRuntimeInfraEKS) UpgradeInfra(version string) error {
 	}
 	i.keepStackSupportType(exported.Deployment)
 
-	return i.upgradeStack(stack)
+	if err := i.upgradeStack(stack); err != nil {
+		return err
+	}
+
+	return i.upgradeEbsStorageAddon(version)
 }
 
 // ClusterKubernetesVersion returns the Kubernetes minor version the GKE
