@@ -187,6 +187,26 @@ func validateKubernetesVersionUpgrade(
 	return nil
 }
 
+// ErrMsgKubernetesRuntimeVersionImmutable is the error a change to a
+// kubernetes runtime definition's KubernetesVersion returns.  It records the
+// version asked for when the definition was created; the version its clusters
+// run, and are upgraded to, is on its EKS, GKE or OKE definition.
+const ErrMsgKubernetesRuntimeVersionImmutable = "KubernetesVersion cannot be changed on a kubernetes runtime definition: change it on its EKS or GKE definition, which upgrades the clusters"
+
+// validateKubernetesRuntimeVersionUpdate refuses an update that changes a
+// kubernetes runtime definition's KubernetesVersion.
+func validateKubernetesRuntimeVersionUpdate(tx *gorm.DB) error {
+	changed, err := lib.IsFieldChanged(tx, "KubernetesVersion")
+	if err != nil {
+		return err
+	}
+	if changed {
+		return util.NewBadRequestError(ErrMsgKubernetesRuntimeVersionImmutable)
+	}
+
+	return nil
+}
+
 // validateKubernetesVersionUpdate refuses an update that changes a
 // definition's KubernetesVersion, on a provider Threeport can't upgrade
 // clusters on yet.

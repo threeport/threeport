@@ -230,13 +230,12 @@ func TestTheEksAndGkeRuntimeConfigsSendTheirKubernetesVersion(t *testing.T) {
 	assert.Equal(t, "1.35", (*provider)["KubernetesVersion"])
 }
 
-// TestReplacingAnEksOrGkeDefinitionAsksForItsVersion covers a replace from
-// an EKS or GKE config: the provider definition keeps the version it records,
-// and a new version is asked of the kubernetes runtime definition, whose
-// controller records it on the provider definition and upgrades the clusters.
-// Written to the provider definition instead, it would read as already
-// recorded there, and no cluster would be upgraded.
-func TestReplacingAnEksOrGkeDefinitionAsksForItsVersion(t *testing.T) {
+// TestReplacingAnEksOrGkeDefinitionSendsItsVersion covers a replace from an
+// EKS or GKE config: a new version is sent on the provider definition, whose
+// update asks its clusters to be upgraded, and a config that leaves it out
+// keeps the recorded one.  The kubernetes runtime definition, which keeps the
+// version asked for at creation, isn't touched.
+func TestReplacingAnEksOrGkeDefinitionSendsItsVersion(t *testing.T) {
 	type sentRequests struct {
 		replaced map[string]any
 		patched  []map[string]any
@@ -309,14 +308,10 @@ func TestReplacingAnEksOrGkeDefinitionAsksForItsVersion(t *testing.T) {
 			assert.Equal(t, "1.35", sent.replaced["KubernetesVersion"], "a config that leaves the version out keeps it")
 			assert.Empty(t, sent.patched)
 
-			sent = replace(util.Ptr("1.35"))
-			assert.Empty(t, sent.patched, "the version it records is no change")
 
 			sent = replace(util.Ptr("1.36"))
-			assert.Equal(t, "1.35", sent.replaced["KubernetesVersion"], "the provider definition's is recorded by the controller")
-			require.Len(t, sent.patched, 1)
-			assert.Equal(t, api_v0.PathKubernetesRuntimeDefinitions+"/5", sent.paths[0])
-			assert.Equal(t, "1.36", sent.patched[0]["KubernetesVersion"])
+			assert.Equal(t, "1.36", sent.replaced["KubernetesVersion"])
+			assert.Empty(t, sent.patched)
 		})
 	}
 }

@@ -144,11 +144,6 @@ func handleUpgrade(p UpgradeLifecycleProvider, snap *ReconciliationSnapshot, log
 		return upgradeRequeueSeconds, nil
 	}
 
-	// a refused upgrade waits for the definition to ask for another version
-	if upgrade.Refused {
-		return 0, nil
-	}
-
 	// a failed upgrade is tried again after a wait
 	if upgrade.Failed && upgrade.Acknowledged != nil {
 		if wait := upgradeRetryDelay - currentClock().Now().UTC().Sub(*upgrade.Acknowledged); wait > 0 {
@@ -191,11 +186,33 @@ func handleUpgrade(p UpgradeLifecycleProvider, snap *ReconciliationSnapshot, log
 				current, target,
 			)
 		}
+
+		// an upgrade that reached the version without recording it, because
+		// it was interrupted or its last step failed, is finished here, as is
+		// a refused one the provider has since done on its own
+		if upgrade.Upgrading || upgrade.Failed || upgrade.Refused {
+			if comparison == 0 {
+				status = fmt.Sprintf("upgraded to Kubernetes %s", current)
+			}
+			if err := p.OnUpgraded(upgradeable); err != nil {
+				return 0, fmt.Errorf("failed to finish the upgrade: %w", err)
+			}
+			if err := p.FinishUpgrade(UpgradeOutcome{Version: current, Status: status}); err != nil {
+				return 0, fmt.Errorf("failed to record the finished upgrade: %w", err)
+			}
+			return 0, nil
+		}
+
 		if current != upgrade.RecordedVersion || status != upgrade.Status {
 			if err := p.RecordUpgradeStatus(current, status); err != nil {
 				return 0, fmt.Errorf("failed to record the cluster's Kubernetes version: %w", err)
 			}
 		}
+		return 0, nil
+	}
+
+	// a refused upgrade waits for the definition to ask for another version
+	if upgrade.Refused {
 		return 0, nil
 	}
 

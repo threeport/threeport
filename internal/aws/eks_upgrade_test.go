@@ -9,6 +9,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -103,4 +104,32 @@ func TestTheEksInstanceRecordsItsUpgrade(t *testing.T) {
 	assert.Equal(t, false, updates[1].fields["Upgrading"])
 	assert.Contains(t, updates[2].path, "/kubernetes-runtime-instances/11")
 	assert.Equal(t, false, updates[2].fields["Reconciled"])
+}
+
+// TestAnEksUpdateReachesTheUpgradeHandler covers the EKS update reconciler:
+// it runs the shared update handler, which upgrades clusters, rather than
+// returning without looking.  An instance whose creation isn't confirmed is
+// held for the create, which only that handler does.
+func TestAnEksUpdateReachesTheUpgradeHandler(t *testing.T) {
+	instance := v0.AwsEksKubernetesRuntimeInstance{
+		Common:   v0.Common{ID: util.Ptr(uint(7))},
+		Instance: v0.Instance{Name: util.Ptr("eks")},
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := json.Marshal(apiserver_lib.Response{
+			Status: apiserver_lib.Status{Code: http.StatusOK, Message: "OK"},
+			Data:   []apiserver_lib.Object{instance},
+		})
+		require.NoError(t, err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(body)
+	}))
+	defer server.Close()
+	r := &controller.Reconciler{APIClient: &http.Client{}, APIServer: strings.TrimPrefix(server.URL, "http://")}
+	log := logr.Discard()
+
+	requeue, err := v0AwsEksKubernetesRuntimeInstanceUpdated(r, &instance, &log)
+	require.NoError(t, err)
+	assert.Equal(t, int64(120), requeue)
 }

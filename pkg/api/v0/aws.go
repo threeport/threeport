@@ -77,8 +77,10 @@ type AwsEksKubernetesRuntimeDefinition struct {
 
 	// The Kubernetes minor version of the clusters, such as "1.36": the
 	// KubernetesRuntimeDefinition's KubernetesVersion, or the default version
-	// when that is unset.  If unset here, the default version is used.  It
-	// can't be changed after creation.
+	// when that is unset.  If unset here, the default version is used.
+	// Raising it to another supported version upgrades the clusters, one minor
+	// version at a time.  It can't be lowered, since a cluster can't be
+	// downgraded, or cleared.
 	KubernetesVersion *string `validate:"optional"`
 
 	// The AWS EKS kubernetes runtime instances derived from this definition.
@@ -121,6 +123,12 @@ type AwsEksKubernetesRuntimeInstance struct {
 	// lower of its control plane's and its node group's, which EKS upgrades
 	// separately.
 	KubernetesVersion *string `validate:"optional"`
+
+	// The definition's KubernetesVersion the cluster was last asked to be
+	// upgraded to.  The kubernetes runtime definition's controller sets it
+	// when it asks, so a request it was interrupted making is finished on
+	// the next attempt.
+	UpgradeRequestedVersion *string `validate:"optional"`
 
 	// Set by the controller when it starts upgrading the cluster to the
 	// definition's KubernetesVersion, and refreshed while the upgrade runs.

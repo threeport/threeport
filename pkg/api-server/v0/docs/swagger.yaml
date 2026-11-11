@@ -98,8 +98,10 @@ definitions:
         description: |-
           The Kubernetes minor version of the clusters, such as "1.36": the
           KubernetesRuntimeDefinition's KubernetesVersion, or the default version
-          when that is unset.  If unset here, the default version is used.  It
-          can't be changed after creation.
+          when that is unset.  If unset here, the default version is used.
+          Raising it to another supported version upgrades the clusters, one minor
+          version at a time.  It can't be lowered, since a cluster can't be
+          downgraded, or cleared.
         type: string
       Name:
         description: An arbitrary name for the definition.
@@ -230,6 +232,13 @@ definitions:
           Threeport didn't create the cluster.  It doesn't try again until the
           definition's KubernetesVersion changes, or this is set back to false.
         type: boolean
+      UpgradeRequestedVersion:
+        description: |-
+          The definition's KubernetesVersion the cluster was last asked to be
+          upgraded to.  The kubernetes runtime definition's controller sets it
+          when it asks, so a request it was interrupted making is finished on
+          the next attempt.
+        type: string
       UpgradeStatus:
         description: |-
           What the controller last did to upgrade the cluster, or why it
@@ -969,8 +978,10 @@ definitions:
         description: |-
           The Kubernetes minor version of the clusters, such as "1.36": the
           KubernetesRuntimeDefinition's KubernetesVersion, or the default version
-          when that is unset.  If unset here, the default version is used.  It
-          can't be changed after creation.
+          when that is unset.  If unset here, the default version is used.
+          Raising it to another supported version upgrades the clusters, one minor
+          version at a time.  It can't be lowered, since a cluster can't be
+          downgraded, or cleared.
         type: string
       MaintenanceWindowDays:
         description: |-
@@ -1125,6 +1136,13 @@ definitions:
           Threeport didn't create the cluster.  It doesn't try again until the
           definition's KubernetesVersion changes, or this is set back to false.
         type: boolean
+      UpgradeRequestedVersion:
+        description: |-
+          The definition's KubernetesVersion the cluster was last asked to be
+          upgraded to.  The kubernetes runtime definition's controller sets it
+          when it asks, so a request it was interrupted making is finished on
+          the next attempt.
+        type: string
       UpgradeStatus:
         description: |-
           What the controller last did to upgrade the cluster, or why it
@@ -1410,8 +1428,10 @@ definitions:
         description: |-
           The Kubernetes minor version of the clusters, such as "1.36", on EKS,
           GKE and OKE.  If unset, the default version is used, and the EKS, GKE
-          or OKE definition records it.  It can't be changed after creation.  A
-          kind cluster's version comes with its node image, so it takes none.
+          or OKE definition records it.  It records the version asked for at
+          creation and can't be changed: the clusters are upgraded by raising the
+          EKS or GKE definition's KubernetesVersion.  A kind cluster's version
+          comes with its node image, so it takes none.
         type: string
       Name:
         description: An arbitrary name for the definition.

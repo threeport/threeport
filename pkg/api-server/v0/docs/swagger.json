@@ -16905,7 +16905,7 @@
                     "type": "integer"
                 },
                 "KubernetesVersion": {
-                    "description": "The Kubernetes minor version of the clusters, such as \"1.36\": the\nKubernetesRuntimeDefinition's KubernetesVersion, or the default version\nwhen that is unset.  If unset here, the default version is used.  It\ncan't be changed after creation.",
+                    "description": "The Kubernetes minor version of the clusters, such as \"1.36\": the\nKubernetesRuntimeDefinition's KubernetesVersion, or the default version\nwhen that is unset.  If unset here, the default version is used.\nRaising it to another supported version upgrades the clusters, one minor\nversion at a time.  It can't be lowered, since a cluster can't be\ndowngraded, or cleared.",
                     "type": "string"
                 },
                 "Name": {
@@ -17021,6 +17021,10 @@
                 "UpgradeRefused": {
                     "description": "True when the controller refused to upgrade the cluster: because the\nupgrade would replace or delete any of its resources, or because\nThreeport didn't create the cluster.  It doesn't try again until the\ndefinition's KubernetesVersion changes, or this is set back to false.",
                     "type": "boolean"
+                },
+                "UpgradeRequestedVersion": {
+                    "description": "The definition's KubernetesVersion the cluster was last asked to be\nupgraded to.  The kubernetes runtime definition's controller sets it\nwhen it asks, so a request it was interrupted making is finished on\nthe next attempt.",
+                    "type": "string"
                 },
                 "UpgradeStatus": {
                     "description": "What the controller last did to upgrade the cluster, or why it\ncouldn't.",
@@ -17794,7 +17798,7 @@
                     "type": "integer"
                 },
                 "KubernetesVersion": {
-                    "description": "The Kubernetes minor version of the clusters, such as \"1.36\": the\nKubernetesRuntimeDefinition's KubernetesVersion, or the default version\nwhen that is unset.  If unset here, the default version is used.  It\ncan't be changed after creation.",
+                    "description": "The Kubernetes minor version of the clusters, such as \"1.36\": the\nKubernetesRuntimeDefinition's KubernetesVersion, or the default version\nwhen that is unset.  If unset here, the default version is used.\nRaising it to another supported version upgrades the clusters, one minor\nversion at a time.  It can't be lowered, since a cluster can't be\ndowngraded, or cleared.",
                     "type": "string"
                 },
                 "MaintenanceWindowDays": {
@@ -17926,6 +17930,10 @@
                 "UpgradeRefused": {
                     "description": "True when the controller refused to upgrade the cluster: because the\nupgrade would replace or delete any of its resources, or because\nThreeport didn't create the cluster.  It doesn't try again until the\ndefinition's KubernetesVersion changes, or this is set back to false.",
                     "type": "boolean"
+                },
+                "UpgradeRequestedVersion": {
+                    "description": "The definition's KubernetesVersion the cluster was last asked to be\nupgraded to.  The kubernetes runtime definition's controller sets it\nwhen it asks, so a request it was interrupted making is finished on\nthe next attempt.",
+                    "type": "string"
                 },
                 "UpgradeStatus": {
                     "description": "What the controller last did to upgrade the cluster, or why it\ncouldn't.",
@@ -18199,7 +18207,7 @@
                     }
                 },
                 "KubernetesVersion": {
-                    "description": "The Kubernetes minor version of the clusters, such as \"1.36\", on EKS,\nGKE and OKE.  If unset, the default version is used, and the EKS, GKE\nor OKE definition records it.  It can't be changed after creation.  A\nkind cluster's version comes with its node image, so it takes none.",
+                    "description": "The Kubernetes minor version of the clusters, such as \"1.36\", on EKS,\nGKE and OKE.  If unset, the default version is used, and the EKS, GKE\nor OKE definition records it.  It records the version asked for at\ncreation and can't be changed: the clusters are upgraded by raising the\nEKS or GKE definition's KubernetesVersion.  A kind cluster's version\ncomes with its node image, so it takes none.",
                     "type": "string"
                 },
                 "Name": {

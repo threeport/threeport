@@ -443,3 +443,50 @@ func TestTheLowerOfTwoVersionsIsTheClusters(t *testing.T) {
 
 	assert.Equal(t, "1.36", minorVersion("1.36.4-gke.2046003"), "a GKE release")
 }
+
+// TestAnUpgradeThatReachedItsVersionIsFinished covers an upgrade left
+// unrecorded after the cluster reached its definition's version: one
+// interrupted before it recorded its outcome, one whose last step failed, and
+// a refused one the provider has since done on its own.  Each is finished,
+// with its flags cleared and the post-upgrade work run, rather than left
+// looking unfinished.
+func TestAnUpgradeThatReachedItsVersionIsFinished(t *testing.T) {
+	clock := newFakeClock(time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC))
+	restore := setLifecycleClock(clock)
+	defer restore()
+	stale := util.Ptr(clock.Now().Add(-time.Hour))
+
+	for name, snapshot := range map[string]UpgradeSnapshot{
+		"interrupted": {Upgrading: true, Acknowledged: stale, RecordedVersion: "1.35", Status: "upgrading from Kubernetes 1.35 to 1.36"},
+		"failed":      {Failed: true, Acknowledged: stale, RecordedVersion: "1.35", Status: "failed to upgrade"},
+		"refused":     {Refused: true, Acknowledged: stale, RecordedVersion: "1.35", Status: "refused to upgrade"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			infra := newFakeUpgradeInfra("1.36")
+			fl := newFakeUpgradeLifecycle(infra, "1.36")
+			fl.setUpgrade(snapshot)
+
+			requeue, err := HandleInfraUpdate(fl, newTestLogger())
+			require.NoError(t, err)
+			assert.Equal(t, int64(0), requeue)
+			require.Len(t, fl.finishedOutcomes(), 1)
+			assert.Equal(t, UpgradeOutcome{Version: "1.36", Status: "upgraded to Kubernetes 1.36"}, fl.finishedOutcomes()[0])
+			assert.Equal(t, 1, fl.callCount("OnUpgraded"), "the post-upgrade work an interruption skipped")
+			assert.Empty(t, infra.upgrades())
+
+			upgrade, err := fl.GetUpgrade()
+			require.NoError(t, err)
+			assert.False(t, upgrade.Upgrading || upgrade.Failed || upgrade.Refused)
+		})
+	}
+
+	// one the provider took past the definition's version keeps saying so
+	infra := newFakeUpgradeInfra("1.37")
+	fl := newFakeUpgradeLifecycle(infra, "1.36")
+	fl.setUpgrade(UpgradeSnapshot{Refused: true, RecordedVersion: "1.35"})
+	_, err := HandleInfraUpdate(fl, newTestLogger())
+	require.NoError(t, err)
+	require.Len(t, fl.finishedOutcomes(), 1)
+	assert.Equal(t, "1.37", fl.finishedOutcomes()[0].Version)
+	assert.Contains(t, fl.finishedOutcomes()[0].Status, "newer than its definition's 1.36")
+}

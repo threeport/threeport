@@ -99,18 +99,12 @@ func (k *KubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
 			"kubernetes runtime definition high availability cannot be changed after creation",
 		)
 	}
-	// InfraProvider is unchanged once past the check above, so the receiver
-	// holds it under both update shapes
-	if err := validateKubernetesVersionUpgrade(tx, *k.InfraProvider, func(value any) (*string, bool) {
-		object, ok := value.(*KubernetesRuntimeDefinition)
-		if !ok {
-			return nil, false
-		}
-		return object.KubernetesVersion, true
-	}); err != nil {
+	if err := validateKubernetesRuntimeVersionUpdate(tx); err != nil {
 		return err
 	}
 
+	// InfraProvider is unchanged once past the check above, so the receiver
+	// holds it under both update shapes
 	return validateKubernetesApiAccessUpdate(
 		tx,
 		*k.InfraProvider,

@@ -78,12 +78,12 @@ how:
 
 ### Upgrading a Cluster
 
-On EKS and GKE, changing `KubernetesVersion` on a kubernetes runtime
-definition upgrades its clusters to that version. Set it in the
-`KubernetesRuntime` config file, or in the `AwsEksKubernetesRuntime` or
-`GcpGkeKubernetesRuntime` one, and replace the definition. The new version must
-be a supported one, no older than the one it replaces: a cluster can't be
-downgraded. OKE clusters can't be upgraded yet.
+On EKS and GKE, raising `KubernetesVersion` on an `AwsEksKubernetesRuntime` or
+`GcpGkeKubernetesRuntime` definition upgrades its clusters to that version. Set
+it in the config file and replace the definition, or update the definition
+through the API. The new version must be a supported one, no older than the one
+it replaces: a cluster can't be downgraded. The kubernetes runtime definition
+keeps the version it was created with. OKE clusters can't be upgraded yet.
 
 The controller upgrades each cluster one minor version at a time. Each step:
 
@@ -105,9 +105,10 @@ cluster runs in `KubernetesVersion`, and what the controller last did in
 `UpgradeStatus`. A refused or failed upgrade is also recorded as a warning
 event on the instance. A failed upgrade is tried again after 15 minutes. A
 refused one isn't tried again until the definition asks for another version,
-or `UpgradeRefused` is set back to `false` on the instance. A cluster
-Threeport didn't create, such as one `tptctl up --control-plane-only` was
-installed on, isn't upgraded.
+or `UpgradeRefused` is set back to `false` on the instance.
+`UpgradeRequestedVersion` records the version each instance was last asked
+for. A cluster Threeport didn't create, such as one `tptctl up
+--control-plane-only` was installed on, isn't upgraded.
 
 Reference:
 [KubernetesRuntimeDefinition](https://pkg.go.dev/github.com/threeport/threeport/pkg/api/v0#KubernetesRuntimeDefinition)

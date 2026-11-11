@@ -212,9 +212,11 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Replace(
 	updatedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize = gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupInitialSize
 	updatedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize = gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupMinimumSize
 	updatedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize = gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupMaximumSize
-	// the version is kept here: a new one is asked of the kubernetes runtime
-	// definition below, whose controller records it here and upgrades the
-	// clusters to it
+	// a new version upgrades the clusters, and a config that leaves it out
+	// keeps the one recorded
+	if gcpGkeKubernetesRuntimeDefinitionValues.KubernetesVersion != nil {
+		updatedGcpGkeKubernetesRuntimeDefinition.KubernetesVersion = gcpGkeKubernetesRuntimeDefinitionValues.KubernetesVersion
+	}
 	// the release channel and maintenance window are recorded on create and
 	// can't change, so a config that leaves one out keeps it
 	if gcpGkeKubernetesRuntimeDefinitionValues.ReleaseChannel != nil {
@@ -238,17 +240,6 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Replace(
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to replace gcp gke kubernetes runtime definition in threeport API: %w", err)
-	}
-
-	// ask the kubernetes runtime definition for a new version
-	if gcpGkeKubernetesRuntimeDefinitionValues.KubernetesVersion != nil &&
-		*gcpGkeKubernetesRuntimeDefinitionValues.KubernetesVersion != api_v0.KubernetesVersionOrDefault(existingGcpGkeKubernetesRuntimeDefinition.KubernetesVersion) {
-		if _, err := client_v0.UpdateKubernetesRuntimeDefinition(apiClient, apiEndpoint, &api_v0.KubernetesRuntimeDefinition{
-			Common:            api_v0.Common{ID: existingGcpGkeKubernetesRuntimeDefinition.KubernetesRuntimeDefinitionID},
-			KubernetesVersion: gcpGkeKubernetesRuntimeDefinitionValues.KubernetesVersion,
-		}); err != nil {
-			return nil, fmt.Errorf("failed to ask for Kubernetes version %s: %w", *gcpGkeKubernetesRuntimeDefinitionValues.KubernetesVersion, err)
-		}
 	}
 
 	// construct updated gcp gke kubernetes runtime definition config
