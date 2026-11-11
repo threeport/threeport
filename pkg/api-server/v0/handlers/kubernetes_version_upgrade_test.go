@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -37,12 +38,18 @@ type recordingJetStream struct {
 
 	mu        sync.Mutex
 	published []publishedMessage
+	// The number of publishes still to fail before they succeed
+	failures int
 }
 
-// Publish records the message.
+// Publish records the message, or fails while failures remain.
 func (r *recordingJetStream) Publish(subject string, data []byte, _ ...nats.PubOpt) (*nats.PubAck, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if r.failures > 0 {
+		r.failures--
+		return nil, errors.New("nats: no responders available for request")
+	}
 	r.published = append(r.published, publishedMessage{subject: subject, payload: data})
 	return &nats.PubAck{}, nil
 }
@@ -187,4 +194,41 @@ func TestAnEksDefinitionUpdateAsksItsClustersToUpgrade(t *testing.T) {
 	assert.Len(t, h.PutGcpGkeKubernetesRuntimeDefinitionMiddleware(), 1)
 	assert.Empty(t, h.AddAwsEksKubernetesRuntimeDefinitionMiddleware())
 	assert.Empty(t, h.DeleteGcpGkeKubernetesRuntimeDefinitionMiddleware())
+}
+
+// TestAnUpgradeRequestWhoseNotificationFailedIsAskedAgain covers a
+// notification that fails to publish: the instance isn't recorded as asked,
+// so the next update of the definition asks it again, and records it once its
+// controller has been told.
+func TestAnUpgradeRequestWhoseNotificationFailedIsAskedAgain(t *testing.T) {
+	h, stream := newUpgradeHandler(t)
+	stream.failures = 1
+	seed := h.DB.Session(&gorm.Session{SkipHooks: true})
+	require.NoError(t, seed.Create(&api.GcpGkeKubernetesRuntimeDefinition{
+		Common: api.Common{ID: util.Ptr(uint(3))}, Definition: api.Definition{Name: util.Ptr("gke")},
+		ZoneCount: util.Ptr(3), DefaultNodeGroupInstanceType: util.Ptr("e2-medium"), DefaultNodeGroupInitialSize: util.Ptr(1),
+		DefaultNodeGroupMinimumSize: util.Ptr(1), DefaultNodeGroupMaximumSize: util.Ptr(3),
+		KubernetesRuntimeDefinitionID: util.Ptr(uint(1)), KubernetesVersion: util.Ptr("1.36"),
+	}).Error)
+	require.NoError(t, seed.Create(&api.GcpGkeKubernetesRuntimeInstance{
+		Common:                              api.Common{ID: util.Ptr(uint(21))},
+		Instance:                            api.Instance{Name: util.Ptr("gke-21")},
+		Reconciliation:                      api.Reconciliation{Reconciled: util.Ptr(true)},
+		GcpGkeKubernetesRuntimeDefinitionID: util.Ptr(uint(3)),
+		GcpProviderID:                       util.Ptr(uint(1)),
+		KubernetesRuntimeInstanceID:         util.Ptr(uint(21)),
+	}).Error)
+	requested := func() *string {
+		var loaded api.GcpGkeKubernetesRuntimeInstance
+		require.NoError(t, h.DB.First(&loaded, 21).Error)
+		return loaded.UpgradeRequestedVersion
+	}
+
+	runDefinitionUpdate(t, h.RequestGcpGkeUpgrades, "3", http.StatusOK)
+	assert.Empty(t, stream.published)
+	assert.Nil(t, requested(), "its controller wasn't told, so it isn't recorded as asked")
+
+	runDefinitionUpdate(t, h.RequestGcpGkeUpgrades, "3", http.StatusOK)
+	assert.Len(t, stream.published, 1)
+	assert.Equal(t, util.Ptr("1.36"), requested())
 }

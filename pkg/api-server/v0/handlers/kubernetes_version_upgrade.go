@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -21,8 +22,9 @@ import (
 // controller of their own, so the request is made here, once the update is
 // saved: each instance not yet asked for the version is marked unreconciled,
 // with a refused or failed upgrade cleared, and its controller is notified.
-// Each instance records the version it was asked for, so a request this
-// failed to finish is finished by the next update of the definition.
+// Each instance records the version it was asked for once its controller has
+// been notified, so a request this failed to finish, an instance it couldn't
+// mark or notify, is finished by the next update of the definition.
 
 func (h *Handler) AddAwsEksKubernetesRuntimeDefinitionMiddleware() []echo.MiddlewareFunc {
 	return []echo.MiddlewareFunc{}
@@ -106,10 +108,9 @@ func (h Handler) RequestAwsEksUpgrades(next echo.HandlerFunc) echo.HandlerFunc {
 				continue
 			}
 			request := v0.AwsEksKubernetesRuntimeInstance{
-				Reconciliation:          v0.Reconciliation{Reconciled: util.Ptr(false)},
-				UpgradeRequestedVersion: &version,
-				UpgradeRefused:          util.Ptr(false),
-				UpgradeFailed:           util.Ptr(false),
+				Reconciliation: v0.Reconciliation{Reconciled: util.Ptr(false)},
+				UpgradeRefused: util.Ptr(false),
+				UpgradeFailed:  util.Ptr(false),
 			}
 			if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
 				return db.Model(instance).Updates(&request)
@@ -117,9 +118,20 @@ func (h Handler) RequestAwsEksUpgrades(next echo.HandlerFunc) echo.HandlerFunc {
 				h.Logger.Error("failed to request an EKS cluster upgrade", zap.Uint("instanceID", *instance.ID), zap.Error(result.Error))
 				continue
 			}
-			instance.Reconciled, instance.UpgradeRequestedVersion = request.Reconciled, request.UpgradeRequestedVersion
+			instance.Reconciled = request.Reconciled
 			instance.UpgradeRefused, instance.UpgradeFailed = request.UpgradeRefused, request.UpgradeFailed
-			h.publishUpgradeRequest(awsnotif.AwsEksKubernetesRuntimeInstanceUpdateSubject, instance)
+			if err := h.publishUpgradeRequest(awsnotif.AwsEksKubernetesRuntimeInstanceUpdateSubject, instance); err != nil {
+				h.Logger.Error("failed to notify an EKS cluster's controller of an upgrade request", zap.Uint("instanceID", *instance.ID), zap.Error(err))
+				continue
+			}
+
+			// recorded only once the controller has been told, so an instance
+			// whose notification failed is asked again
+			if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+				return db.Model(instance).Update("upgrade_requested_version", version)
+			}); result.Error != nil {
+				h.Logger.Error("failed to record an EKS cluster upgrade request", zap.Uint("instanceID", *instance.ID), zap.Error(result.Error))
+			}
 		}
 
 		return nil
@@ -154,10 +166,9 @@ func (h Handler) RequestGcpGkeUpgrades(next echo.HandlerFunc) echo.HandlerFunc {
 				continue
 			}
 			request := v0.GcpGkeKubernetesRuntimeInstance{
-				Reconciliation:          v0.Reconciliation{Reconciled: util.Ptr(false)},
-				UpgradeRequestedVersion: &version,
-				UpgradeRefused:          util.Ptr(false),
-				UpgradeFailed:           util.Ptr(false),
+				Reconciliation: v0.Reconciliation{Reconciled: util.Ptr(false)},
+				UpgradeRefused: util.Ptr(false),
+				UpgradeFailed:  util.Ptr(false),
 			}
 			if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
 				return db.Model(instance).Updates(&request)
@@ -165,9 +176,20 @@ func (h Handler) RequestGcpGkeUpgrades(next echo.HandlerFunc) echo.HandlerFunc {
 				h.Logger.Error("failed to request a GKE cluster upgrade", zap.Uint("instanceID", *instance.ID), zap.Error(result.Error))
 				continue
 			}
-			instance.Reconciled, instance.UpgradeRequestedVersion = request.Reconciled, request.UpgradeRequestedVersion
+			instance.Reconciled = request.Reconciled
 			instance.UpgradeRefused, instance.UpgradeFailed = request.UpgradeRefused, request.UpgradeFailed
-			h.publishUpgradeRequest(gcpnotif.GcpGkeKubernetesRuntimeInstanceUpdateSubject, instance)
+			if err := h.publishUpgradeRequest(gcpnotif.GcpGkeKubernetesRuntimeInstanceUpdateSubject, instance); err != nil {
+				h.Logger.Error("failed to notify a GKE cluster's controller of an upgrade request", zap.Uint("instanceID", *instance.ID), zap.Error(err))
+				continue
+			}
+
+			// recorded only once the controller has been told, so an instance
+			// whose notification failed is asked again
+			if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+				return db.Model(instance).Update("upgrade_requested_version", version)
+			}); result.Error != nil {
+				h.Logger.Error("failed to record a GKE cluster upgrade request", zap.Uint("instanceID", *instance.ID), zap.Error(result.Error))
+			}
 		}
 
 		return nil
@@ -182,13 +204,14 @@ type upgradeRequestNotifier interface {
 
 // publishUpgradeRequest notifies an instance's controller that its cluster
 // was asked to be upgraded.
-func (h Handler) publishUpgradeRequest(subject string, instance upgradeRequestNotifier) {
+func (h Handler) publishUpgradeRequest(subject string, instance upgradeRequestNotifier) error {
 	payload, err := instance.NotificationPayload(notifications.NotificationOperationUpdated, false, time.Now().Unix())
 	if err != nil {
-		h.Logger.Error("failed to create an upgrade request notification", zap.Error(err))
-		return
+		return fmt.Errorf("failed to create the notification: %w", err)
 	}
 	if _, err := h.JS.Publish(subject, *payload); err != nil {
-		h.Logger.Error("failed to publish an upgrade request notification", zap.Error(err))
+		return fmt.Errorf("failed to publish the notification: %w", err)
 	}
+
+	return nil
 }
