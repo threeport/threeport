@@ -166,6 +166,11 @@ func (i *KubernetesRuntimeInfraEKS) kubernetesVersion() string {
 	return i.KubernetesVersion
 }
 
+// nodeGroupName returns the name of the cluster's node group.
+func (i *KubernetesRuntimeInfraEKS) nodeGroupName() string {
+	return fmt.Sprintf("%s-private-node-group", i.RuntimeInstanceName)
+}
+
 // upgradePolicy returns the cluster's upgrade policy: the cluster's, when the
 // stack already holds it, and eksSupportType otherwise.  A cluster in extended
 // support can't leave it, so one created before the policy was set keeps the
@@ -386,7 +391,7 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 			return fmt.Errorf("failed to create EKS cluster: %w", err)
 		}
 
-		nodeGroupName := fmt.Sprintf("%s-private-node-group", i.RuntimeInstanceName)
+		nodeGroupName := i.nodeGroupName()
 		if _, err := awseks.NewNodeGroup(ctx, nodeGroupName, &awseks.NodeGroupArgs{
 			ClusterName:   cluster.Name,
 			NodeGroupName: pulumi.String(nodeGroupName),

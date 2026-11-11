@@ -43,21 +43,35 @@ func TestAKubernetesVersionIsASupportedMinorVersion(t *testing.T) {
 	assert.Equal(t, "1.35", KubernetesVersionOrDefault(util.Ptr("1.35")))
 }
 
-// TestAKubernetesRuntimeDefinitionsVersionIsCheckedAndKept covers
+// TestAKubernetesRuntimeDefinitionsVersionIsCheckedAndUpgraded covers
 // KubernetesVersion on a kubernetes runtime definition: checked on create,
-// left unset when none is given, and refused a change on either update shape.
-func TestAKubernetesRuntimeDefinitionsVersionIsCheckedAndKept(t *testing.T) {
+// left unset when none is given, and changed on either update shape only to
+// a supported version no older than the one it replaces, on a provider
+// Threeport upgrades clusters on.
+func TestAKubernetesRuntimeDefinitionsVersionIsCheckedAndUpgraded(t *testing.T) {
 	db := setupKubernetesApiAccessDB(t)
+	create := func(name, provider string, version *string) *KubernetesRuntimeDefinition {
+		definition := newKRD(name, provider, nil, nil)
+		definition.KubernetesVersion = version
+		require.NoError(t, db.Create(definition).Error)
+		return definition
+	}
+	load := func(id *uint) *KubernetesRuntimeDefinition {
+		var loaded KubernetesRuntimeDefinition
+		require.NoError(t, db.Session(&gorm.Session{}).First(&loaded, *id).Error)
+		return &loaded
+	}
+	patch := func(id *uint, version *string) error {
+		return db.Session(&gorm.Session{}).Model(load(id)).Updates(&KubernetesRuntimeDefinition{KubernetesVersion: version}).Error
+	}
+	replace := func(id *uint, version *string) error {
+		replaced := load(id)
+		replaced.KubernetesVersion = version
+		return db.Session(&gorm.Session{}).Save(replaced).Error
+	}
 
-	asked := newKRD("asked", KubernetesRuntimeInfraProviderEKS, nil, nil)
-	asked.KubernetesVersion = util.Ptr("1.35")
-	require.NoError(t, db.Create(asked).Error)
-
-	unset := newKRD("unset", KubernetesRuntimeInfraProviderGKE, nil, nil)
-	require.NoError(t, db.Create(unset).Error)
-	var stored KubernetesRuntimeDefinition
-	require.NoError(t, db.First(&stored, *unset.ID).Error)
-	assert.Nil(t, stored.KubernetesVersion,
+	unset := create("unset", KubernetesRuntimeInfraProviderGKE, nil)
+	assert.Nil(t, load(unset.ID).KubernetesVersion,
 		"the default is recorded on the provider definition, so a cluster tptctl didn't create keeps no version it may not run")
 
 	unsupported := newKRD("unsupported", KubernetesRuntimeInfraProviderOKE, nil, nil)
@@ -67,32 +81,43 @@ func TestAKubernetesRuntimeDefinitionsVersionIsCheckedAndKept(t *testing.T) {
 	kind.KubernetesVersion = util.Ptr(DefaultKubernetesVersion)
 	assert.ErrorContains(t, db.Create(kind).Error, "cannot be set on a kind cluster")
 
-	load := func(id *uint) *KubernetesRuntimeDefinition {
-		var loaded KubernetesRuntimeDefinition
-		require.NoError(t, db.First(&loaded, *id).Error)
-		return &loaded
-	}
-	err := db.Model(load(asked.ID)).Updates(&KubernetesRuntimeDefinition{KubernetesVersion: util.Ptr("1.36")}).Error
-	assert.ErrorContains(t, err, ErrMsgKubernetesVersionImmutable)
-	replaced := load(asked.ID)
-	replaced.KubernetesVersion = util.Ptr("1.36")
-	assert.ErrorContains(t, db.Save(replaced).Error, ErrMsgKubernetesVersionImmutable)
-	cleared := load(asked.ID)
-	cleared.KubernetesVersion = nil
-	assert.ErrorContains(t, db.Save(cleared).Error, ErrMsgKubernetesVersionImmutable)
-	err = db.Model(load(unset.ID)).Updates(&KubernetesRuntimeDefinition{KubernetesVersion: util.Ptr("1.36")}).Error
-	assert.ErrorContains(t, err, ErrMsgKubernetesVersionImmutable, "nor can one be set later, since the clusters run the default")
+	// EKS and GKE clusters are upgraded, on either update shape
+	for _, provider := range []string{KubernetesRuntimeInfraProviderEKS, KubernetesRuntimeInfraProviderGKE} {
+		patched := create("patched-"+provider, provider, util.Ptr("1.35"))
+		require.NoError(t, patch(patched.ID, util.Ptr("1.36")), provider)
+		assert.Equal(t, "1.36", *load(patched.ID).KubernetesVersion)
+		replaced := create("replaced-"+provider, provider, util.Ptr("1.35"))
+		require.NoError(t, replace(replaced.ID, util.Ptr("1.36")), provider)
+		assert.Equal(t, "1.36", *load(replaced.ID).KubernetesVersion)
 
-	require.NoError(t, db.Model(load(asked.ID)).Updates(&KubernetesRuntimeDefinition{KubernetesVersion: util.Ptr("1.35")}).Error,
-		"sending the version it holds is not a change")
-	require.NoError(t, db.Save(load(asked.ID)).Error, "nor is a replace that keeps it")
-	require.NoError(t, db.Model(load(asked.ID)).Updates(&KubernetesRuntimeDefinition{NodeMaximum: util.Ptr(12)}).Error)
-	assert.Equal(t, "1.35", *load(asked.ID).KubernetesVersion)
+		// not downgraded, cleared, or moved to a version Threeport doesn't support
+		assert.ErrorContains(t, patch(patched.ID, util.Ptr("1.35")), `KubernetesVersion "1.35" is older than "1.36": a cluster can't be downgraded`)
+		assert.ErrorContains(t, replace(patched.ID, util.Ptr("1.35")), "can't be downgraded")
+		assert.ErrorContains(t, replace(patched.ID, nil), "KubernetesVersion cannot be cleared")
+		assert.ErrorContains(t, patch(patched.ID, util.Ptr("1.37")), `KubernetesVersion "1.37" is not supported`)
+		assert.Equal(t, "1.36", *load(patched.ID).KubernetesVersion)
+	}
+
+	// a definition with no version runs the default, which it can't go below
+	assert.ErrorContains(t, patch(unset.ID, util.Ptr("1.35")), `older than "1.36"`)
+	require.NoError(t, patch(unset.ID, util.Ptr("1.36")), "the default itself is no change to its clusters")
+
+	// OKE clusters aren't upgraded yet
+	oke := create("oke", KubernetesRuntimeInfraProviderOKE, util.Ptr("1.35"))
+	assert.ErrorContains(t, patch(oke.ID, util.Ptr("1.36")), ErrMsgKubernetesVersionImmutable)
+	assert.ErrorContains(t, replace(oke.ID, util.Ptr("1.36")), ErrMsgKubernetesVersionImmutable)
+
+	held := create("held", KubernetesRuntimeInfraProviderEKS, util.Ptr("1.35"))
+	require.NoError(t, patch(held.ID, util.Ptr("1.35")), "sending the version it holds is not a change")
+	require.NoError(t, replace(held.ID, util.Ptr("1.35")), "nor is a replace that keeps it")
+	require.NoError(t, db.Session(&gorm.Session{}).Model(load(held.ID)).Updates(&KubernetesRuntimeDefinition{NodeMaximum: util.Ptr(12)}).Error)
+	assert.Equal(t, "1.35", *load(held.ID).KubernetesVersion)
 }
 
 // TestTheProviderDefinitionsVersionIsCheckedAndKept covers KubernetesVersion
 // on the EKS, GKE and OKE definitions, which record the version their
-// clusters are created on.
+// clusters are created on, and on EKS and GKE the version they are upgraded
+// to.
 func TestTheProviderDefinitionsVersionIsCheckedAndKept(t *testing.T) {
 	krdID := util.Ptr(uint(1))
 	common := func(name string) Definition { return Definition{Name: util.Ptr(name)} }
@@ -125,9 +150,48 @@ func TestTheProviderDefinitionsVersionIsCheckedAndKept(t *testing.T) {
 
 			created := build(util.Ptr("1.35"))
 			require.NoError(t, db.Create(created).Error)
-			err := db.Model(created).Updates(build(util.Ptr("1.36"))).Error
-			assert.ErrorContains(t, err, ErrMsgKubernetesVersionImmutable)
 			require.NoError(t, db.Session(&gorm.Session{}).Model(created).Updates(build(util.Ptr("1.35"))).Error)
+			err := db.Session(&gorm.Session{}).Model(created).Updates(build(util.Ptr("1.36"))).Error
+			if name == "OKE" {
+				assert.ErrorContains(t, err, ErrMsgKubernetesVersionImmutable, "OKE clusters aren't upgraded yet")
+				return
+			}
+			require.NoError(t, err, "the kubernetes runtime definition's controller records the upgraded version")
+			err = db.Session(&gorm.Session{}).Model(created).Updates(build(util.Ptr("1.35"))).Error
+			assert.ErrorContains(t, err, "can't be downgraded")
 		})
 	}
+}
+
+// TestKubernetesVersionsAreComparedByNumber covers comparing minor versions
+// and the version an upgrade moves a cluster to.
+func TestKubernetesVersionsAreComparedByNumber(t *testing.T) {
+	for _, c := range []struct {
+		a, b string
+		want int
+	}{
+		{"1.35", "1.36", -1},
+		{"1.36", "1.36", 0},
+		{"1.100", "1.99", 1},
+		{"2.0", "1.99", 1},
+	} {
+		got, err := CompareKubernetesVersions(c.a, c.b)
+		require.NoError(t, err)
+		assert.Equal(t, c.want, got, "%s against %s", c.a, c.b)
+	}
+	for _, bad := range []string{"1", "v1.36", "1.36.4", "1.x", ""} {
+		_, err := CompareKubernetesVersions(bad, "1.36")
+		assert.Error(t, err, bad)
+		_, err = CompareKubernetesVersions("1.36", bad)
+		assert.Error(t, err, bad)
+	}
+
+	next, err := NextKubernetesVersion("1.35")
+	require.NoError(t, err)
+	assert.Equal(t, "1.36", next)
+	next, err = NextKubernetesVersion("1.99")
+	require.NoError(t, err)
+	assert.Equal(t, "1.100", next)
+	_, err = NextKubernetesVersion("1.36.4")
+	assert.Error(t, err)
 }

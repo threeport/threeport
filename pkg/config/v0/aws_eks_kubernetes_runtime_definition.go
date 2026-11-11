@@ -195,11 +195,9 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Replace(
 	updatedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize = awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupInitialSize
 	updatedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize = awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupMinimumSize
 	updatedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize = awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupMaximumSize
-	// the version is recorded on create and can't change, so a config that
-	// leaves it out keeps it
-	if awsEksKubernetesRuntimeDefinitionValues.KubernetesVersion != nil {
-		updatedAwsEksKubernetesRuntimeDefinition.KubernetesVersion = awsEksKubernetesRuntimeDefinitionValues.KubernetesVersion
-	}
+	// the version is kept here: a new one is asked of the kubernetes runtime
+	// definition below, whose controller records it here and upgrades the
+	// clusters to it
 
 	// replace aws eks kubernetes runtime definition
 	replacedAwsEksKubernetesRuntimeDefinition, err := client_v0.ReplaceAwsEksKubernetesRuntimeDefinition(
@@ -209,6 +207,17 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Replace(
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to replace aws eks kubernetes runtime definition in threeport API: %w", err)
+	}
+
+	// ask the kubernetes runtime definition for a new version
+	if awsEksKubernetesRuntimeDefinitionValues.KubernetesVersion != nil &&
+		*awsEksKubernetesRuntimeDefinitionValues.KubernetesVersion != api_v0.KubernetesVersionOrDefault(existingAwsEksKubernetesRuntimeDefinition.KubernetesVersion) {
+		if _, err := client_v0.UpdateKubernetesRuntimeDefinition(apiClient, apiEndpoint, &api_v0.KubernetesRuntimeDefinition{
+			Common:            api_v0.Common{ID: existingAwsEksKubernetesRuntimeDefinition.KubernetesRuntimeDefinitionID},
+			KubernetesVersion: awsEksKubernetesRuntimeDefinitionValues.KubernetesVersion,
+		}); err != nil {
+			return nil, fmt.Errorf("failed to ask for Kubernetes version %s: %w", *awsEksKubernetesRuntimeDefinitionValues.KubernetesVersion, err)
+		}
 	}
 
 	// construct updated aws eks kubernetes runtime definition config

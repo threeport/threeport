@@ -186,6 +186,13 @@ definitions:
       KubernetesRuntimeInstanceID:
         description: The kubernetes runtime instance associated with the AWS EKS cluster.
         type: integer
+      KubernetesVersion:
+        description: |-
+          The Kubernetes minor version the cluster runs, such as "1.36", as the
+          controller last read it from the provider.  That is the
+          lower of its control plane's and its node group's, which EKS upgrades
+          separately.
+        type: string
       Name:
         description: An arbitrary name the instance
         type: string
@@ -206,6 +213,31 @@ definitions:
           The status of the instance.
           TODO: use a custom type
         type: string
+      UpgradeAcknowledged:
+        description: |-
+          Set by the controller when it starts upgrading the cluster to the
+          definition's KubernetesVersion, and refreshed while the upgrade runs.
+        type: string
+      UpgradeFailed:
+        description: |-
+          True when the last upgrade failed.  The controller tries it again after
+          a wait.
+        type: boolean
+      UpgradeRefused:
+        description: |-
+          True when the controller refused to upgrade the cluster: because the
+          upgrade would replace or delete any of its resources, or because
+          Threeport didn't create the cluster.  It doesn't try again until the
+          definition's KubernetesVersion changes, or this is set back to false.
+        type: boolean
+      UpgradeStatus:
+        description: |-
+          What the controller last did to upgrade the cluster, or why it
+          couldn't.
+        type: string
+      Upgrading:
+        description: True while the controller upgrades the cluster.
+        type: boolean
     required:
     - AwsEksKubernetesRuntimeDefinitionID
     - AwsProviderID
@@ -1050,6 +1082,12 @@ definitions:
       KubernetesRuntimeInstanceID:
         description: The kubernetes runtime instance associated with the GKE cluster.
         type: integer
+      KubernetesVersion:
+        description: |-
+          The Kubernetes minor version the cluster runs, such as "1.36", as the
+          controller last read it from the provider.  That is its control
+          plane's: GKE upgrades its nodes to it in the maintenance window.
+        type: string
       Name:
         description: An arbitrary name the instance
         type: string
@@ -1070,6 +1108,31 @@ definitions:
           The status of the instance.
           TODO: use a custom type
         type: string
+      UpgradeAcknowledged:
+        description: |-
+          Set by the controller when it starts upgrading the cluster to the
+          definition's KubernetesVersion, and refreshed while the upgrade runs.
+        type: string
+      UpgradeFailed:
+        description: |-
+          True when the last upgrade failed.  The controller tries it again after
+          a wait.
+        type: boolean
+      UpgradeRefused:
+        description: |-
+          True when the controller refused to upgrade the cluster: because the
+          upgrade would replace or delete any of its resources, or because
+          Threeport didn't create the cluster.  It doesn't try again until the
+          definition's KubernetesVersion changes, or this is set back to false.
+        type: boolean
+      UpgradeStatus:
+        description: |-
+          What the controller last did to upgrade the cluster, or why it
+          couldn't.
+        type: string
+      Upgrading:
+        description: True while the controller upgrades the cluster.
+        type: boolean
     required:
     - GcpGkeKubernetesRuntimeDefinitionID
     - GcpProviderID

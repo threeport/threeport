@@ -164,3 +164,94 @@ func TestTheGkeDefinitionRecordsItsUpgradeSettings(t *testing.T) {
 	assert.Equal(t, "04:00", sent["MaintenanceWindowStart"])
 	assert.Equal(t, float64(8), sent["MaintenanceWindowHours"])
 }
+
+// TestAChangedVersionReachesTheClusters covers a kubernetes runtime
+// definition whose KubernetesVersion changed: the EKS or GKE definition
+// records it, and each of its instances is marked unreconciled, with a refused
+// or failed upgrade cleared, so its controller upgrades the cluster.  An update
+// that leaves the version as the provider definition records it reaches
+// nothing.
+func TestAChangedVersionReachesTheClusters(t *testing.T) {
+	for _, c := range []struct {
+		provider        string
+		definitionsPath string
+		instancesPath   string
+		instancesQuery  string
+	}{
+		{v0.KubernetesRuntimeInfraProviderEKS, v0.PathAwsEksKubernetesRuntimeDefinitions, v0.PathAwsEksKubernetesRuntimeInstances, "awsekskubernetesruntimedefinitionid=3"},
+		{v0.KubernetesRuntimeInfraProviderGKE, v0.PathGcpGkeKubernetesRuntimeDefinitions, v0.PathGcpGkeKubernetesRuntimeInstances, "gcpgkekubernetesruntimedefinitionid=3"},
+	} {
+		t.Run(c.provider, func(t *testing.T) {
+			run := func(recorded string) (map[string]any, []map[string]any) {
+				api := machinetest.NewAPIStub(t)
+				var definitionUpdate map[string]any
+				var instanceUpdates []map[string]any
+				api.Mux.HandleFunc(c.definitionsPath, func(w http.ResponseWriter, r *http.Request) {
+					assert.Equal(t, "kubernetesruntimedefinitionid=7", r.URL.RawQuery)
+					machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{
+						map[string]any{"ID": 3, "KubernetesVersion": recorded},
+					})
+				})
+				api.Mux.HandleFunc(c.definitionsPath+"/3", func(w http.ResponseWriter, r *http.Request) {
+					require.Equal(t, http.MethodPatch, r.Method)
+					require.NoError(t, json.NewDecoder(r.Body).Decode(&definitionUpdate))
+					machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{definitionUpdate})
+				})
+				api.Mux.HandleFunc(c.instancesPath, func(w http.ResponseWriter, r *http.Request) {
+					assert.Equal(t, c.instancesQuery, r.URL.RawQuery)
+					machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{
+						map[string]any{"ID": 21, "Name": "one"},
+						map[string]any{"ID": 22, "Name": "two"},
+					})
+				})
+				for _, id := range []string{"/21", "/22"} {
+					api.Mux.HandleFunc(c.instancesPath+id, func(w http.ResponseWriter, r *http.Request) {
+						require.Equal(t, http.MethodPatch, r.Method)
+						var update map[string]any
+						require.NoError(t, json.NewDecoder(r.Body).Decode(&update))
+						instanceUpdates = append(instanceUpdates, update)
+						machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{update})
+					})
+				}
+
+				r := &controller.Reconciler{APIClient: api.Client, APIServer: api.Addr}
+				log := logr.Discard()
+				requeue, err := v0KubernetesRuntimeDefinitionUpdated(r, &v0.KubernetesRuntimeDefinition{
+					Common:            v0.Common{ID: util.Ptr(uint(7))},
+					InfraProvider:     util.Ptr(c.provider),
+					KubernetesVersion: util.Ptr("1.36"),
+				}, &log)
+				require.NoError(t, err)
+				assert.Equal(t, int64(0), requeue)
+				return definitionUpdate, instanceUpdates
+			}
+
+			definitionUpdate, instanceUpdates := run("1.35")
+			assert.Equal(t, "1.36", definitionUpdate["KubernetesVersion"])
+			require.Len(t, instanceUpdates, 2)
+			for _, update := range instanceUpdates {
+				assert.Equal(t, false, update["Reconciled"])
+				assert.Equal(t, false, update["UpgradeRefused"])
+				assert.Equal(t, false, update["UpgradeFailed"])
+			}
+
+			definitionUpdate, instanceUpdates = run("1.36")
+			assert.Nil(t, definitionUpdate)
+			assert.Empty(t, instanceUpdates)
+		})
+	}
+
+	// a definition with no version, or on a provider whose clusters aren't
+	// upgraded, reaches nothing: the stub serves no route
+	api := machinetest.NewAPIStub(t)
+	r := &controller.Reconciler{APIClient: api.Client, APIServer: api.Addr}
+	log := logr.Discard()
+	for _, definition := range []*v0.KubernetesRuntimeDefinition{
+		{Common: v0.Common{ID: util.Ptr(uint(7))}, InfraProvider: util.Ptr(v0.KubernetesRuntimeInfraProviderEKS)},
+		{Common: v0.Common{ID: util.Ptr(uint(7))}, InfraProvider: util.Ptr(v0.KubernetesRuntimeInfraProviderOKE), KubernetesVersion: util.Ptr("1.36")},
+		{Common: v0.Common{ID: util.Ptr(uint(7))}, InfraProvider: util.Ptr(v0.KubernetesRuntimeInfraProviderKind)},
+	} {
+		_, err := v0KubernetesRuntimeDefinitionUpdated(r, definition, &log)
+		require.NoError(t, err)
+	}
+}

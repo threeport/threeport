@@ -1,6 +1,10 @@
 package v0
 
-import "gorm.io/datatypes"
+import (
+	"time"
+
+	"gorm.io/datatypes"
+)
 
 // GcpProvider represents a Google Cloud Platform (GCP) project in an account with the GCP service provider.
 type GcpProvider struct {
@@ -124,4 +128,30 @@ type GcpGkeKubernetesRuntimeInstance struct {
 	// still destroyed. It is rejected on create, and once set it stays set until
 	// changed, so tptctl sets it back to false if the delete fails.
 	AbandonInfrastructure *bool `validate:"optional" gorm:"default:false"`
+
+	// The Kubernetes minor version the cluster runs, such as "1.36", as the
+	// controller last read it from the provider.  That is its control
+	// plane's: GKE upgrades its nodes to it in the maintenance window.
+	KubernetesVersion *string `validate:"optional"`
+
+	// Set by the controller when it starts upgrading the cluster to the
+	// definition's KubernetesVersion, and refreshed while the upgrade runs.
+	UpgradeAcknowledged *time.Time `validate:"optional"`
+
+	// True while the controller upgrades the cluster.
+	Upgrading *bool `validate:"optional" gorm:"default:false"`
+
+	// True when the last upgrade failed.  The controller tries it again after
+	// a wait.
+	UpgradeFailed *bool `validate:"optional" gorm:"default:false"`
+
+	// True when the controller refused to upgrade the cluster: because the
+	// upgrade would replace or delete any of its resources, or because
+	// Threeport didn't create the cluster.  It doesn't try again until the
+	// definition's KubernetesVersion changes, or this is set back to false.
+	UpgradeRefused *bool `validate:"optional" gorm:"default:false"`
+
+	// What the controller last did to upgrade the cluster, or why it
+	// couldn't.
+	UpgradeStatus *string `validate:"optional"`
 }

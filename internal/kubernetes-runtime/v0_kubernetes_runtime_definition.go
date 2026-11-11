@@ -123,11 +123,93 @@ func v0KubernetesRuntimeDefinitionCreated(
 
 // v0KubernetesRuntimeDefinitionUpdated performs reconciliation when a v0 KubernetesRuntimeDefinition
 // has been updated.
+//
+// A changed KubernetesVersion is copied to the EKS or GKE definition, and the
+// instances of that definition are marked unreconciled, so their controller
+// upgrades their clusters to it.
 func v0KubernetesRuntimeDefinitionUpdated(
 	r *controller.Reconciler,
 	kubernetesRuntimeDefinition *v0.KubernetesRuntimeDefinition,
 	log *logr.Logger,
 ) (int64, error) {
+	if kubernetesRuntimeDefinition.KubernetesVersion == nil || kubernetesRuntimeDefinition.InfraProvider == nil {
+		return 0, nil
+	}
+	version := *kubernetesRuntimeDefinition.KubernetesVersion
+
+	switch *kubernetesRuntimeDefinition.InfraProvider {
+	case v0.KubernetesRuntimeInfraProviderEKS:
+		definition, err := client.GetAwsEksKubernetesRuntimeDefinitionByK8sRuntimeDef(
+			r.APIClient, r.APIServer, *kubernetesRuntimeDefinition.ID,
+		)
+		if err != nil {
+			return controller.RetryOnNetworkErr(err, "failed to get the AWS EKS kubernetes runtime definition")
+		}
+		if v0.KubernetesVersionOrDefault(definition.KubernetesVersion) == version {
+			return 0, nil
+		}
+		if _, err := client.UpdateAwsEksKubernetesRuntimeDefinition(r.APIClient, r.APIServer, &v0.AwsEksKubernetesRuntimeDefinition{
+			Common:            v0.Common{ID: definition.ID},
+			KubernetesVersion: &version,
+		}); err != nil {
+			return controller.RetryOnNetworkErr(err, "failed to update the AWS EKS kubernetes runtime definition's Kubernetes version")
+		}
+		instances, err := client.GetAwsEksKubernetesRuntimeInstancesByQueryString(
+			r.APIClient, r.APIServer, fmt.Sprintf("awsekskubernetesruntimedefinitionid=%d", *definition.ID),
+		)
+		if err != nil {
+			return controller.RetryOnNetworkErr(err, "failed to get the AWS EKS kubernetes runtime instances")
+		}
+		for _, instance := range *instances {
+			if _, err := client.UpdateAwsEksKubernetesRuntimeInstance(r.APIClient, r.APIServer, &v0.AwsEksKubernetesRuntimeInstance{
+				Common:         v0.Common{ID: instance.ID},
+				Reconciliation: v0.Reconciliation{Reconciled: util.Ptr(false)},
+				// a request for another version clears a refused or failed
+				// upgrade
+				UpgradeRefused: util.Ptr(false),
+				UpgradeFailed:  util.Ptr(false),
+			}); err != nil {
+				return controller.RetryOnNetworkErr(err, "failed to mark an AWS EKS kubernetes runtime instance for upgrade")
+			}
+			log.Info("asked for the cluster to be upgraded", "instance", util.DerefString(instance.Name), "kubernetesVersion", version)
+		}
+	case v0.KubernetesRuntimeInfraProviderGKE:
+		definition, err := client.GetGcpGkeKubernetesRuntimeDefinitionByK8sRuntimeDef(
+			r.APIClient, r.APIServer, *kubernetesRuntimeDefinition.ID,
+		)
+		if err != nil {
+			return controller.RetryOnNetworkErr(err, "failed to get the GCP GKE kubernetes runtime definition")
+		}
+		if v0.KubernetesVersionOrDefault(definition.KubernetesVersion) == version {
+			return 0, nil
+		}
+		if _, err := client.UpdateGcpGkeKubernetesRuntimeDefinition(r.APIClient, r.APIServer, &v0.GcpGkeKubernetesRuntimeDefinition{
+			Common:            v0.Common{ID: definition.ID},
+			KubernetesVersion: &version,
+		}); err != nil {
+			return controller.RetryOnNetworkErr(err, "failed to update the GCP GKE kubernetes runtime definition's Kubernetes version")
+		}
+		instances, err := client.GetGcpGkeKubernetesRuntimeInstancesByQueryString(
+			r.APIClient, r.APIServer, fmt.Sprintf("gcpgkekubernetesruntimedefinitionid=%d", *definition.ID),
+		)
+		if err != nil {
+			return controller.RetryOnNetworkErr(err, "failed to get the GCP GKE kubernetes runtime instances")
+		}
+		for _, instance := range *instances {
+			if _, err := client.UpdateGcpGkeKubernetesRuntimeInstance(r.APIClient, r.APIServer, &v0.GcpGkeKubernetesRuntimeInstance{
+				Common:         v0.Common{ID: instance.ID},
+				Reconciliation: v0.Reconciliation{Reconciled: util.Ptr(false)},
+				// a request for another version clears a refused or failed
+				// upgrade
+				UpgradeRefused: util.Ptr(false),
+				UpgradeFailed:  util.Ptr(false),
+			}); err != nil {
+				return controller.RetryOnNetworkErr(err, "failed to mark a GCP GKE kubernetes runtime instance for upgrade")
+			}
+			log.Info("asked for the cluster to be upgraded", "instance", util.DerefString(instance.Name), "kubernetesVersion", version)
+		}
+	}
+
 	return 0, nil
 }
 

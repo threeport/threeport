@@ -79,6 +79,8 @@ var lifecycleGoroutineNames = []string{
 	"provider.executeInfraDelete",
 	"provider.launchInfraCreate",
 	"provider.launchInfraDelete",
+	"provider.executeInfraUpgrade",
+	"provider.launchInfraUpgrade",
 }
 
 // lifecycleGoroutineStacks returns a runtime.Stack dump of every goroutine.

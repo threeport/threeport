@@ -16983,6 +16983,10 @@
                     "description": "The kubernetes runtime instance associated with the AWS EKS cluster.",
                     "type": "integer"
                 },
+                "KubernetesVersion": {
+                    "description": "The Kubernetes minor version the cluster runs, such as \"1.36\", as the\ncontroller last read it from the provider.  That is the\nlower of its control plane's and its node group's, which EKS upgrades\nseparately.",
+                    "type": "string"
+                },
                 "Name": {
                     "description": "An arbitrary name the instance",
                     "type": "string"
@@ -17005,6 +17009,26 @@
                 "Status": {
                     "description": "The status of the instance.\nTODO: use a custom type",
                     "type": "string"
+                },
+                "UpgradeAcknowledged": {
+                    "description": "Set by the controller when it starts upgrading the cluster to the\ndefinition's KubernetesVersion, and refreshed while the upgrade runs.",
+                    "type": "string"
+                },
+                "UpgradeFailed": {
+                    "description": "True when the last upgrade failed.  The controller tries it again after\na wait.",
+                    "type": "boolean"
+                },
+                "UpgradeRefused": {
+                    "description": "True when the controller refused to upgrade the cluster: because the\nupgrade would replace or delete any of its resources, or because\nThreeport didn't create the cluster.  It doesn't try again until the\ndefinition's KubernetesVersion changes, or this is set back to false.",
+                    "type": "boolean"
+                },
+                "UpgradeStatus": {
+                    "description": "What the controller last did to upgrade the cluster, or why it\ncouldn't.",
+                    "type": "string"
+                },
+                "Upgrading": {
+                    "description": "True while the controller upgrades the cluster.",
+                    "type": "boolean"
                 }
             }
         },
@@ -17864,6 +17888,10 @@
                     "description": "The kubernetes runtime instance associated with the GKE cluster.",
                     "type": "integer"
                 },
+                "KubernetesVersion": {
+                    "description": "The Kubernetes minor version the cluster runs, such as \"1.36\", as the\ncontroller last read it from the provider.  That is its control\nplane's: GKE upgrades its nodes to it in the maintenance window.",
+                    "type": "string"
+                },
                 "Name": {
                     "description": "An arbitrary name the instance",
                     "type": "string"
@@ -17886,6 +17914,26 @@
                 "Status": {
                     "description": "The status of the instance.\nTODO: use a custom type",
                     "type": "string"
+                },
+                "UpgradeAcknowledged": {
+                    "description": "Set by the controller when it starts upgrading the cluster to the\ndefinition's KubernetesVersion, and refreshed while the upgrade runs.",
+                    "type": "string"
+                },
+                "UpgradeFailed": {
+                    "description": "True when the last upgrade failed.  The controller tries it again after\na wait.",
+                    "type": "boolean"
+                },
+                "UpgradeRefused": {
+                    "description": "True when the controller refused to upgrade the cluster: because the\nupgrade would replace or delete any of its resources, or because\nThreeport didn't create the cluster.  It doesn't try again until the\ndefinition's KubernetesVersion changes, or this is set back to false.",
+                    "type": "boolean"
+                },
+                "UpgradeStatus": {
+                    "description": "What the controller last did to upgrade the cluster, or why it\ncouldn't.",
+                    "type": "string"
+                },
+                "Upgrading": {
+                    "description": "True while the controller upgrades the cluster.",
+                    "type": "boolean"
                 }
             }
         },
