@@ -269,10 +269,15 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAPIDeployment(
 		return fmt.Errorf("failed to create DB initialization config map: %w", err)
 	}
 
-	// the API server connects to the message broker as the threeport user
+	// the API server connects to the message broker as the threeport user,
+	// and replicates its streams across the broker's servers
 	brokerCredentials, err := cpi.messageBrokerCredentials(kubeClient)
 	if err != nil {
 		return fmt.Errorf("failed to read the message broker credentials: %w", err)
+	}
+	brokerReplicas, err := cpi.messageBrokerReplicas(kubeClient)
+	if err != nil {
+		return err
 	}
 
 	// tell the database migrator where to back the database up to before
@@ -300,6 +305,7 @@ NATS_PORT=4222
 NATS_USER=%[9]s
 NATS_PASSWORD=%[10]s
 NATS_CA_FILE=%[11]s
+NATS_REPLICAS=%[12]d
 THREEPORT_API_ENDPOINT=%[8]s.%[2]s.svc.cluster.local
 THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 `,
@@ -314,6 +320,7 @@ THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 					brokerCredentials.User,
 					brokerCredentials.Password,
 					NatsClientCAFile,
+					brokerReplicas,
 				),
 			},
 		},
@@ -502,13 +509,18 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 	mapper *meta.RESTMapper,
 	authConfig *auth.AuthConfig,
 ) error {
-	// the controllers connect to the message broker as the threeport user
+	// the controllers connect to the message broker as the threeport user,
+	// and replicate their lock buckets across the broker's servers
 	brokerCredentials, err := cpi.messageBrokerCredentials(kubeClient)
 	if err != nil {
 		return fmt.Errorf("failed to read the message broker credentials: %w", err)
 	}
+	brokerReplicas, err := cpi.messageBrokerReplicas(kubeClient)
+	if err != nil {
+		return err
+	}
 
-	controllerSecret := cpi.getControllerSecret("controller", cpi.Opts.Namespace, brokerCredentials)
+	controllerSecret := cpi.getControllerSecret("controller", cpi.Opts.Namespace, brokerCredentials, brokerReplicas)
 	if err := cpi.CreateOrUpdateKubeResource(controllerSecret, kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed to create controller secret: %w", err)
 	}
@@ -2481,6 +2493,7 @@ func agentProxyBindingNameFor(namespace string) string {
 func (cpi *ControlPlaneInstaller) getControllerSecret(
 	name, namespace string,
 	brokerCredentials *natsCredentials,
+	brokerReplicas int64,
 ) *unstructured.Unstructured {
 	secret := &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -2498,6 +2511,7 @@ func (cpi *ControlPlaneInstaller) getControllerSecret(
 				"MSG_BROKER_USER":       brokerCredentials.User,
 				"MSG_BROKER_PASSWORD":   brokerCredentials.Password,
 				"MSG_BROKER_CA_FILE":    NatsClientCAFile,
+				"MSG_BROKER_REPLICAS":   fmt.Sprint(brokerReplicas),
 				"AWS_ROLE_SESSION_NAME": util.AwsResourceManagerRoleSessionName,
 				"CONTROL_PLANE_NAME":    cpi.Opts.ControlPlaneName,
 			},
