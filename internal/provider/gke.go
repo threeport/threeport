@@ -40,6 +40,13 @@ type KubernetesRuntimeInfraGKE struct {
 	// Kubernetes version of the GKE cluster.
 	Version string
 
+	// The network range allocated to the cluster, such as "10.16.0.0/16", its
+	// KubernetesRuntimeInstance's NetworkCidr.  Its nodes', pods' and
+	// services' ranges are laid out in it.  If empty, the cluster gets the
+	// ranges every cluster got before ranges were allocated, as one created
+	// then has.
+	NetworkCidr string
+
 	// The Google Cloud project ID where the cluster infra is provisioned.
 	ProjectID string
 
@@ -195,6 +202,11 @@ func (i *KubernetesRuntimeInfraGKE) CreateInfra() (*kube.KubeConnectionInfo, err
 	}
 
 	ctx := context.Background()
+	exported, err := stack.Export(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the stack's network: %w", err)
+	}
+	i.keepStackNetwork(exported.Deployment)
 	if _, err = i.RunUp(ctx, stack); err != nil {
 		return nil, fmt.Errorf("failed to deploy stack: %w", err)
 	}
@@ -258,19 +270,23 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 			return fmt.Errorf("failed to create VPC network: %w", err)
 		}
 
+		ranges, err := gkeLayout(i.NetworkCidr)
+		if err != nil {
+			return err
+		}
 		subnet, err := compute.NewSubnetwork(ctx, fmt.Sprintf("%s-subnet", i.RuntimeInstanceName), &compute.SubnetworkArgs{
 			Name:        pulumi.String(fmt.Sprintf("%s-subnet", i.RuntimeInstanceName)),
-			IpCidrRange: pulumi.String("10.0.0.0/16"),
+			IpCidrRange: pulumi.String(ranges.Nodes),
 			Region:      pulumi.String(i.Region),
 			Network:     network.ID(),
 			SecondaryIpRanges: compute.SubnetworkSecondaryIpRangeArray{
 				&compute.SubnetworkSecondaryIpRangeArgs{
 					RangeName:   pulumi.String("pods"),
-					IpCidrRange: pulumi.String("10.1.0.0/16"),
+					IpCidrRange: pulumi.String(ranges.Pods),
 				},
 				&compute.SubnetworkSecondaryIpRangeArgs{
 					RangeName:   pulumi.String("services"),
-					IpCidrRange: pulumi.String("10.2.0.0/20"),
+					IpCidrRange: pulumi.String(ranges.Services),
 				},
 			},
 		}, pulumi.Provider(gcpProvider),

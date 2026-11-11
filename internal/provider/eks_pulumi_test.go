@@ -222,7 +222,8 @@ func TestEksPulumiProgram_SubnetTagsAndCidrs(t *testing.T) {
 	infra := testEksInfra(2)
 	mocks := runEksPulumiProgram(t, infra)
 
-	subnetCidrs := eksSubnetCidrs()
+	network, err := eksLayout("")
+	require.NoError(t, err)
 	publicSubnets := 0
 	privateSubnets := 0
 	for _, subnet := range mocks.byType(eksSubnetTypeToken) {
@@ -242,7 +243,7 @@ func TestEksPulumiProgram_SubnetTagsAndCidrs(t *testing.T) {
 			assert.Equal(t, "1", tags["kubernetes.io/role/elb"])
 			assert.NotContains(t, tags, "kubernetes.io/role/internal-elb")
 			assert.Equal(t, true, subnet.inputs["mapPublicIpOnLaunch"])
-			assert.Equal(t, subnetCidrs[zoneIndex*2], subnet.inputs["cidrBlock"])
+			assert.Equal(t, network.PublicSubnets[zoneIndex], subnet.inputs["cidrBlock"])
 			continue
 		}
 
@@ -250,7 +251,7 @@ func TestEksPulumiProgram_SubnetTagsAndCidrs(t *testing.T) {
 		assert.Equal(t, "1", tags["kubernetes.io/role/internal-elb"])
 		// a node in a private subnet must not get a public IP
 		assert.NotEqual(t, true, subnet.inputs["mapPublicIpOnLaunch"])
-		assert.Equal(t, subnetCidrs[zoneIndex*2+1], subnet.inputs["cidrBlock"])
+		assert.Equal(t, network.PrivateSubnets[zoneIndex], subnet.inputs["cidrBlock"])
 	}
 
 	assert.Equal(t, 2, publicSubnets)

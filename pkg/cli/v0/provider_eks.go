@@ -164,6 +164,7 @@ func DeployEksInfra(
 		ProviderCredentials:          providerCredentials,
 		Region:                       awsConfigResourceManager.Region,
 		ZoneCount:                    int32(2),
+		NetworkCidr:                  cpi.Opts.NetworkCidr,
 		DefaultNodeGroupInstanceType: "t3.medium",
 		DefaultNodeGroupInitialNodes: int32(3),
 		DefaultNodeGroupMinNodes:     int32(3),

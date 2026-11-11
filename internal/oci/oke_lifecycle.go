@@ -11,6 +11,7 @@ import (
 	"gorm.io/datatypes"
 
 	notif "github.com/threeport/threeport/internal/oci/notif"
+	"github.com/threeport/threeport/internal/networkcidr"
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
@@ -88,7 +89,17 @@ func (o *okeLifecycle) BuildInfra() (provider.InfraProvider, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get OKE definition: %w", err)
 	}
-	return buildOkeInfra(o.r, latest, def, o.log)
+	infra, err := buildOkeInfra(o.r, latest, def, o.log)
+	if err != nil {
+		return nil, err
+	}
+	if infra.NetworkCidr, err = networkcidr.ClusterNetworkCidr(
+		o.r.APIClient, o.r.APIServer, latest.KubernetesRuntimeInstanceID, latest.Reconciliation, latest.ResourceInventory,
+	); err != nil {
+		return nil, fmt.Errorf("failed to get the OKE cluster's network range: %w", err)
+	}
+
+	return infra, nil
 }
 
 // IsCreateComplete checks whether the OKE cluster OCID has been set.

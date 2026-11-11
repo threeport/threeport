@@ -14,15 +14,12 @@ const (
 	// cluster when the runtime definition does not pin one.
 	DefaultEksKubernetesVersion = "1.32"
 
-	// eksVpcCidr is the CIDR block for the VPC the cluster runs in.
-	eksVpcCidr = "10.0.0.0/16"
-
 	// eksDefaultZoneCount is the number of availability zones used when the
 	// runtime definition does not ask for a specific count.
 	eksDefaultZoneCount = 2
 
 	// eksMaxZoneCount caps how many availability zones the cluster spans.  It
-	// is bounded by the number of subnet CIDRs carved out of the VPC.
+	// is bounded by the number of subnets the network layout carves out.
 	eksMaxZoneCount = 3
 
 	// eksDefaultRouteCidr is the destination that sends traffic to the
@@ -30,20 +27,6 @@ const (
 	// ones.
 	eksDefaultRouteCidr = "0.0.0.0/0"
 )
-
-// eksSubnetCidrs returns the CIDR blocks carved out of the VPC for subnets.
-// Each availability zone takes two: the public subnet first, then the private
-// one.
-func eksSubnetCidrs() []string {
-	return []string{
-		"10.0.0.0/22",
-		"10.0.4.0/22",
-		"10.0.8.0/22",
-		"10.0.12.0/22",
-		"10.0.16.0/22",
-		"10.0.20.0/22",
-	}
-}
 
 // InitPulumiProject fills in the Pulumi project identity and stack config, and
 // returns the receiver so a caller can set it at construction.
@@ -197,8 +180,13 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 		}
 		zones := availabilityZones.Names[:zoneCount]
 
+		network, err := eksLayout(i.NetworkCidr)
+		if err != nil {
+			return err
+		}
+
 		vpc, err := ec2.NewVpc(ctx, fmt.Sprintf("%s-vpc", i.RuntimeInstanceName), &ec2.VpcArgs{
-			CidrBlock: pulumi.String(eksVpcCidr),
+			CidrBlock: pulumi.String(network.Vpc),
 			// the cluster's nodes resolve one another, and the AWS services
 			// they talk to, by DNS name
 			EnableDnsSupport:   pulumi.Bool(true),
@@ -241,7 +229,6 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 			return fmt.Errorf("failed to create public route table: %w", err)
 		}
 
-		subnetCidrs := eksSubnetCidrs()
 		privateSubnetIds := pulumi.StringArray{}
 		for zoneIndex, zone := range zones {
 			publicSubnetName := fmt.Sprintf("%s-public-subnet-%d", i.RuntimeInstanceName, zoneIndex)
@@ -252,7 +239,7 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 			publicSubnet, err := ec2.NewSubnet(ctx, publicSubnetName, &ec2.SubnetArgs{
 				VpcId:               vpc.ID(),
 				AvailabilityZone:    pulumi.String(zone),
-				CidrBlock:           pulumi.String(subnetCidrs[zoneIndex*2]),
+				CidrBlock:           pulumi.String(network.PublicSubnets[zoneIndex]),
 				MapPublicIpOnLaunch: pulumi.Bool(true),
 				Tags:                publicSubnetTags,
 			})
@@ -279,7 +266,7 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 			privateSubnet, err := ec2.NewSubnet(ctx, privateSubnetName, &ec2.SubnetArgs{
 				VpcId:            vpc.ID(),
 				AvailabilityZone: pulumi.String(zone),
-				CidrBlock:        pulumi.String(subnetCidrs[zoneIndex*2+1]),
+				CidrBlock:        pulumi.String(network.PrivateSubnets[zoneIndex]),
 				Tags:             privateSubnetTags,
 			})
 			if err != nil {
@@ -339,7 +326,7 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 		// subnets; the API endpoint is reachable both from inside the VPC and
 		// from the internet so that a control plane hosted elsewhere can
 		// reach it
-		cluster, err := awseks.NewCluster(ctx, i.RuntimeInstanceName, &awseks.ClusterArgs{
+		clusterArgs := &awseks.ClusterArgs{
 			Name:    pulumi.String(i.RuntimeInstanceName),
 			RoleArn: pulumi.String(i.ClusterRoleArn),
 			Version: pulumi.String(i.kubernetesVersion()),
@@ -349,7 +336,15 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 				EndpointPublicAccess:  pulumi.Bool(true),
 			},
 			Tags: i.resourceTags(i.RuntimeInstanceName),
-		})
+		}
+		// a cluster created before the service range was set keeps the one
+		// EKS chose: setting it would replace the cluster
+		if network.ServiceCidr != "" {
+			clusterArgs.KubernetesNetworkConfig = &awseks.ClusterKubernetesNetworkConfigArgs{
+				ServiceIpv4Cidr: pulumi.String(network.ServiceCidr),
+			}
+		}
+		cluster, err := awseks.NewCluster(ctx, i.RuntimeInstanceName, clusterArgs)
 		if err != nil {
 			return fmt.Errorf("failed to create EKS cluster: %w", err)
 		}

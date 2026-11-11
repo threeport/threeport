@@ -10,6 +10,7 @@ import (
 	"gorm.io/datatypes"
 
 	notif "github.com/threeport/threeport/internal/aws/notif"
+	"github.com/threeport/threeport/internal/networkcidr"
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	tpaws "github.com/threeport/threeport/pkg/aws/v0"
@@ -120,6 +121,11 @@ func (e *eksLifecycle) buildInfraFrom(
 	infra, err := buildEksInfra(e.r, latest, definition, e.log)
 	if err != nil {
 		return nil, err
+	}
+	if infra.NetworkCidr, err = networkcidr.ClusterNetworkCidr(
+		e.r.APIClient, e.r.APIServer, latest.KubernetesRuntimeInstanceID, latest.Reconciliation, latest.ResourceInventory,
+	); err != nil {
+		return nil, fmt.Errorf("failed to get the EKS cluster's network range: %w", err)
 	}
 	e.infra = infra
 

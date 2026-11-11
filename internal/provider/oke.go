@@ -31,14 +31,12 @@ const DefaultOKEKubernetesVersion = "v1.32.1"
 // ociPluginVersion must match github.com/pulumi/pulumi-oci/sdk version in go.mod
 const ociPluginVersion = "3.9.0"
 
-// network CIDR blocks for OKE cluster networking
+// the ranges an OKE cluster's pods and services get addresses from, used only
+// inside the cluster, so the same on every cluster and left out of the pool
+// network ranges are allocated from
 const (
-	vcnCidrBlock                = "10.0.0.0/16"
-	publicSubnetCidrBlock       = "10.0.0.0/28"
-	privateSubnetCidrBlock      = "10.0.10.0/24"
-	loadBalancerSubnetCidrBlock = "10.0.20.0/24"
-	podsCidrBlock               = "10.244.0.0/16"
-	servicesCidrBlock           = "10.96.0.0/16"
+	podsCidrBlock     = "10.244.0.0/16"
+	servicesCidrBlock = "10.96.0.0/16"
 )
 
 // KubernetesRuntimeInfraOKE represents the infrastructure for a threeport-managed OKE
@@ -49,6 +47,12 @@ type KubernetesRuntimeInfraOKE struct {
 
 	// Kubernetes version of the OKE cluster.
 	Version string
+
+	// The network range allocated to the cluster, such as "10.16.0.0/16", its
+	// KubernetesRuntimeInstance's NetworkCidr.  Its VCN and subnets are laid
+	// out in it.  If empty, the cluster gets the ranges every cluster got
+	// before ranges were allocated, as one created then has.
+	NetworkCidr string
 
 	// The Oracle Cloud compartment ID where resources will be created.
 	// For genesis bootstrap, this starts as the tenancy OCID and is overwritten
@@ -100,6 +104,12 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 // It does not create IAM resources — call CreateIAM() first for the bootstrap path,
 // or set ServiceUserOCID/Fingerprint/PrivateKeyPEM directly for the controller path.
 func (i *KubernetesRuntimeInfraOKE) CreateInfra() (*kube.KubeConnectionInfo, error) {
+	// a range that can't be laid out fails before anything is created
+	network, err := okeLayout(i.NetworkCidr)
+	if err != nil {
+		return nil, err
+	}
+
 	// derive tenancy OCID from config provider for Pulumi provider configuration
 	tenancyOCID, err := i.ConfigProvider.TenancyOCID()
 	if err != nil {
@@ -147,7 +157,7 @@ func (i *KubernetesRuntimeInfraOKE) CreateInfra() (*kube.KubeConnectionInfo, err
 		// create VCN for the cluster
 		vcn, err := core.NewVcn(ctx, fmt.Sprintf("%s-vcn", i.RuntimeInstanceName), &core.VcnArgs{
 			CompartmentId: pulumi.String(i.CompartmentOCID),
-			CidrBlock:     pulumi.String(vcnCidrBlock),
+			CidrBlock:     pulumi.String(network.Vcn),
 			DisplayName:   pulumi.String(fmt.Sprintf("%s-vcn", i.RuntimeInstanceName)),
 			DnsLabel:      pulumi.String(createDNSLabel(i.RuntimeInstanceName)),
 			IsIpv6enabled: pulumi.Bool(false),
@@ -274,7 +284,7 @@ func (i *KubernetesRuntimeInfraOKE) CreateInfra() (*kube.KubeConnectionInfo, err
 				// allow Kubernetes API server traffic from private subnet
 				&core.SecurityListIngressSecurityRuleArgs{
 					Protocol: pulumi.String("6"), // TCP
-					Source:   pulumi.String(privateSubnetCidrBlock),
+					Source:   pulumi.String(network.Private),
 					TcpOptions: &core.SecurityListIngressSecurityRuleTcpOptionsArgs{
 						Max: pulumi.Int(6443),
 						Min: pulumi.Int(6443),
@@ -284,7 +294,7 @@ func (i *KubernetesRuntimeInfraOKE) CreateInfra() (*kube.KubeConnectionInfo, err
 				// allow port 12250 from private subnet
 				&core.SecurityListIngressSecurityRuleArgs{
 					Protocol: pulumi.String("6"), // TCP
-					Source:   pulumi.String(privateSubnetCidrBlock),
+					Source:   pulumi.String(network.Private),
 					TcpOptions: &core.SecurityListIngressSecurityRuleTcpOptionsArgs{
 						Max: pulumi.Int(12250),
 						Min: pulumi.Int(12250),
@@ -294,7 +304,7 @@ func (i *KubernetesRuntimeInfraOKE) CreateInfra() (*kube.KubeConnectionInfo, err
 				// allow ICMP type 3 code 4 from private subnet
 				&core.SecurityListIngressSecurityRuleArgs{
 					Protocol: pulumi.String("1"), // ICMP
-					Source:   pulumi.String(privateSubnetCidrBlock),
+					Source:   pulumi.String(network.Private),
 					IcmpOptions: &core.SecurityListIngressSecurityRuleIcmpOptionsArgs{
 						Type: pulumi.Int(3),
 						Code: pulumi.Int(4),
@@ -317,13 +327,13 @@ func (i *KubernetesRuntimeInfraOKE) CreateInfra() (*kube.KubeConnectionInfo, err
 				// allow all TCP traffic to private subnet
 				&core.SecurityListEgressSecurityRuleArgs{
 					Protocol:    pulumi.String("6"), // TCP
-					Destination: pulumi.String(privateSubnetCidrBlock),
+					Destination: pulumi.String(network.Private),
 					Stateless:   pulumi.Bool(false),
 				},
 				// allow ICMP type 3 code 4 to private subnet
 				&core.SecurityListEgressSecurityRuleArgs{
 					Protocol:    pulumi.String("1"), // ICMP
-					Destination: pulumi.String(privateSubnetCidrBlock),
+					Destination: pulumi.String(network.Private),
 					IcmpOptions: &core.SecurityListEgressSecurityRuleIcmpOptionsArgs{
 						Type: pulumi.Int(3),
 						Code: pulumi.Int(4),
@@ -347,13 +357,13 @@ func (i *KubernetesRuntimeInfraOKE) CreateInfra() (*kube.KubeConnectionInfo, err
 				// allow all traffic from private subnet
 				&core.SecurityListIngressSecurityRuleArgs{
 					Protocol:  pulumi.String("all"),
-					Source:    pulumi.String(privateSubnetCidrBlock),
+					Source:    pulumi.String(network.Private),
 					Stateless: pulumi.Bool(false),
 				},
 				// allow ICMP type 3 code 4 from public subnet
 				&core.SecurityListIngressSecurityRuleArgs{
 					Protocol: pulumi.String("1"), // ICMP
-					Source:   pulumi.String(publicSubnetCidrBlock),
+					Source:   pulumi.String(network.Public),
 					IcmpOptions: &core.SecurityListIngressSecurityRuleIcmpOptionsArgs{
 						Type: pulumi.Int(3),
 						Code: pulumi.Int(4),
@@ -363,13 +373,13 @@ func (i *KubernetesRuntimeInfraOKE) CreateInfra() (*kube.KubeConnectionInfo, err
 				// allow all TCP traffic from public subnet
 				&core.SecurityListIngressSecurityRuleArgs{
 					Protocol:  pulumi.String("6"), // TCP
-					Source:    pulumi.String(publicSubnetCidrBlock),
+					Source:    pulumi.String(network.Public),
 					Stateless: pulumi.Bool(false),
 				},
 				// allow all traffic from load balancer subnet
 				&core.SecurityListIngressSecurityRuleArgs{
 					Protocol:  pulumi.String("all"),
-					Source:    pulumi.String(loadBalancerSubnetCidrBlock),
+					Source:    pulumi.String(network.LoadBalancer),
 					Stateless: pulumi.Bool(false),
 				},
 			},
@@ -377,13 +387,13 @@ func (i *KubernetesRuntimeInfraOKE) CreateInfra() (*kube.KubeConnectionInfo, err
 				// allow all traffic to private subnet
 				&core.SecurityListEgressSecurityRuleArgs{
 					Protocol:    pulumi.String("all"),
-					Destination: pulumi.String(privateSubnetCidrBlock),
+					Destination: pulumi.String(network.Private),
 					Stateless:   pulumi.Bool(false),
 				},
 				// allow Kubernetes API server traffic to public subnet
 				&core.SecurityListEgressSecurityRuleArgs{
 					Protocol:    pulumi.String("6"), // TCP
-					Destination: pulumi.String(publicSubnetCidrBlock),
+					Destination: pulumi.String(network.Public),
 					TcpOptions: &core.SecurityListEgressSecurityRuleTcpOptionsArgs{
 						Max: pulumi.Int(6443),
 						Min: pulumi.Int(6443),
@@ -393,7 +403,7 @@ func (i *KubernetesRuntimeInfraOKE) CreateInfra() (*kube.KubeConnectionInfo, err
 				// allow TCP port 12250 to public subnet
 				&core.SecurityListEgressSecurityRuleArgs{
 					Protocol:    pulumi.String("6"), // TCP
-					Destination: pulumi.String(publicSubnetCidrBlock),
+					Destination: pulumi.String(network.Public),
 					TcpOptions: &core.SecurityListEgressSecurityRuleTcpOptionsArgs{
 						Max: pulumi.Int(12250),
 						Min: pulumi.Int(12250),
@@ -403,7 +413,7 @@ func (i *KubernetesRuntimeInfraOKE) CreateInfra() (*kube.KubeConnectionInfo, err
 				// allow ICMP type 3 code 4 to public subnet
 				&core.SecurityListEgressSecurityRuleArgs{
 					Protocol:    pulumi.String("1"), // ICMP
-					Destination: pulumi.String(publicSubnetCidrBlock),
+					Destination: pulumi.String(network.Public),
 					IcmpOptions: &core.SecurityListEgressSecurityRuleIcmpOptionsArgs{
 						Type: pulumi.Int(3),
 						Code: pulumi.Int(4),
@@ -476,7 +486,7 @@ func (i *KubernetesRuntimeInfraOKE) CreateInfra() (*kube.KubeConnectionInfo, err
 				// allow all traffic to private subnet
 				&core.SecurityListEgressSecurityRuleArgs{
 					Protocol:    pulumi.String("all"),
-					Destination: pulumi.String(privateSubnetCidrBlock),
+					Destination: pulumi.String(network.Private),
 					Stateless:   pulumi.Bool(false),
 				},
 			},
@@ -488,7 +498,7 @@ func (i *KubernetesRuntimeInfraOKE) CreateInfra() (*kube.KubeConnectionInfo, err
 
 		// create public subnet
 		publicSubnet, err := core.NewSubnet(ctx, fmt.Sprintf("%s-public-subnet", i.RuntimeInstanceName), &core.SubnetArgs{
-			CidrBlock:              pulumi.String(publicSubnetCidrBlock),
+			CidrBlock:              pulumi.String(network.Public),
 			CompartmentId:          pulumi.String(i.CompartmentOCID),
 			VcnId:                  vcn.ID(),
 			DisplayName:            pulumi.String(fmt.Sprintf("%s-public-subnet", i.RuntimeInstanceName)),
@@ -505,7 +515,7 @@ func (i *KubernetesRuntimeInfraOKE) CreateInfra() (*kube.KubeConnectionInfo, err
 
 		// create private subnet
 		privateSubnet, err := core.NewSubnet(ctx, fmt.Sprintf("%s-private-subnet", i.RuntimeInstanceName), &core.SubnetArgs{
-			CidrBlock:              pulumi.String(privateSubnetCidrBlock),
+			CidrBlock:              pulumi.String(network.Private),
 			CompartmentId:          pulumi.String(i.CompartmentOCID),
 			VcnId:                  vcn.ID(),
 			DisplayName:            pulumi.String(fmt.Sprintf("%s-private-subnet", i.RuntimeInstanceName)),
@@ -522,7 +532,7 @@ func (i *KubernetesRuntimeInfraOKE) CreateInfra() (*kube.KubeConnectionInfo, err
 
 		// create load balancer subnet
 		loadBalancerSubnet, err := core.NewSubnet(ctx, fmt.Sprintf("%s-lb-subnet", i.RuntimeInstanceName), &core.SubnetArgs{
-			CidrBlock:              pulumi.String(loadBalancerSubnetCidrBlock),
+			CidrBlock:              pulumi.String(network.LoadBalancer),
 			CompartmentId:          pulumi.String(i.CompartmentOCID),
 			VcnId:                  vcn.ID(),
 			DisplayName:            pulumi.String(fmt.Sprintf("%s-lb-subnet", i.RuntimeInstanceName)),
@@ -621,6 +631,19 @@ func (i *KubernetesRuntimeInfraOKE) CreateInfra() (*kube.KubeConnectionInfo, err
 
 	// create a context for the automation API
 	ctx := context.Background()
+
+	// a create resumed on a stack that holds the VCN keeps the range it was
+	// laid out in; the program reads network when it runs
+	exported, err := stack.Export(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the stack's network: %w", err)
+	}
+	if block, held := okeStackNetwork(exported.Deployment); held {
+		i.NetworkCidr = block
+		if network, err = okeLayout(block); err != nil {
+			return nil, err
+		}
+	}
 
 	// deploy the stack
 	_, err = i.RunUp(ctx, stack)
