@@ -60,6 +60,11 @@ type ControlPlane struct {
 	// The infra provider hosting the threeport control plane.
 	Provider string
 
+	// The CIDR blocks allowed to reach the Kubernetes API of the cluster
+	// hosting the threeport control plane, as given to tptctl up.  Kept so
+	// that a reinstall records them again.
+	K8sApiAllowedCidrs []string
+
 	// Provider configuration for EKS-hosted threeport control planes.
 	EKSProviderConfig EKSProviderConfig
 

@@ -110,6 +110,7 @@ type GenesisControlPlaneCLIArgs struct {
 	KindPortMappings      []string
 	ApiPort               int
 	LocalRegistry         bool
+	K8sApiAllowedCidrs    []string
 }
 
 // Uninstaller contains the necessary information to uninstall a control plane
@@ -219,6 +220,7 @@ func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneI
 	cpi.Opts.TeardownOnFailure = a.TeardownOnFailure
 	cpi.Opts.LocalRegistry = a.LocalRegistry
 	cpi.Opts.KindPortMappings = a.KindPortMappings
+	cpi.Opts.K8sApiAllowedCidrs = a.K8sApiAllowedCidrs
 	// a kind port mapping for the API's node port says the same thing --api-port
 	// says, so the two are folded into one value here. The kind mapping and the
 	// endpoint written to the threeport config both read that value, so they
@@ -263,15 +265,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	genesis := true
 
 	if cpi.Opts.ControlPlaneOnly {
-		// load the matching entry if one exists from a prior run;
-		// otherwise fall through to a new entry, which is the case when
-		// deploying to infrastructure that was provisioned outside of
-		// tptctl.
-		if existingConfig, err := threeportConfig.GetControlPlaneConfig(cpi.Opts.ControlPlaneName); err == nil {
-			threeportControlPlaneConfig = existingConfig
-		} else {
-			threeportControlPlaneConfig = &ControlPlane{}
-		}
+		threeportControlPlaneConfig = reusedControlPlaneConfig(threeportConfig, &cpi.Opts)
 	} else {
 		// overwrite or reject a same-name config entry, leaving other entries in place
 		if err := dropSameNameControlPlane(
@@ -296,6 +290,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		c.Name = cpi.Opts.ControlPlaneName
 		c.Provider = cpi.Opts.InfraProvider
 		c.Genesis = genesis
+		c.K8sApiAllowedCidrs = cpi.Opts.K8sApiAllowedCidrs
 	}); err != nil {
 		return fmt.Errorf("failed to update threeport config: %w", err)
 	}
@@ -374,6 +369,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			// bucket in another region
 			ProvisionBackups: cpi.Opts.Tier == threeport.ControlPlaneTier(threeport.ControlPlaneTierProd),
 			BackupRegion:     cpi.Opts.GcpBackupRegion,
+			AllowedCidrs:     cpi.Opts.K8sApiAllowedCidrs,
 		}).InitPulumiProject()
 		kubernetesRuntimeInfra = kubernetesRuntimeInfraGKE
 		uninstaller.kubernetesRuntimeInfra = kubernetesRuntimeInfraGKE
@@ -564,6 +560,19 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			ConnectionTokenExpiration: &kubeConnectionInfo.TokenExpiration,
 			DefaultRuntime:            &defaultRuntime,
 			Location:                  &location,
+		}
+	}
+
+	// with the Kubernetes API limited to --k8s-api-allowed-cidrs, make sure
+	// this machine is on the list before installing anything, so that a list
+	// that leaves it out fails here, with an error that says so
+	if len(cpi.Opts.K8sApiAllowedCidrs) > 0 {
+		Info(fmt.Sprintf("Checking that this machine can reach the Kubernetes API at %s", *kubernetesRuntimeInstance.APIEndpoint))
+		if err := waitForKubernetesAPI(kubernetesRuntimeInstance, cpi.Opts.K8sApiAllowedCidrs); err != nil {
+			return uninstaller.cleanOnCreateError(
+				"failed to reach the Kubernetes API",
+				withUnreachableClusterCleanup(err, cpi.Opts.ControlPlaneName, cpi.Opts.TeardownOnFailure),
+			)
 		}
 	}
 
@@ -838,6 +847,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			kubernetesRuntimeInstName,
 			defReconciled,
 			cpi.Opts.InfraProvider,
+			cpi.Opts.K8sApiAllowedCidrs,
 			kubernetesRuntimeInstance,
 		)
 		if err != nil {
@@ -852,6 +862,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 				Reconciled: &defReconciled,
 			},
 			InfraProvider: &cpi.Opts.InfraProvider,
+			AllowedCidrs:  allowedCidrsJSON(cpi.Opts.K8sApiAllowedCidrs),
 		}
 		kubernetesRuntimeDefResult, err = client.CreateKubernetesRuntimeDefinition(
 			apiClient,
@@ -1780,6 +1791,7 @@ func ensureBootstrapKubernetesRuntime(
 	instName string,
 	defReconciled bool,
 	infraProvider string,
+	allowedCidrs []string,
 	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
 ) (*v0.KubernetesRuntimeDefinition, *v0.KubernetesRuntimeInstance, error) {
 	// look up the definition and create it if missing
@@ -1796,6 +1808,7 @@ func ensureBootstrapKubernetesRuntime(
 				Reconciled: &defReconciled,
 			},
 			InfraProvider: &infraProvider,
+			AllowedCidrs:  allowedCidrsJSON(allowedCidrs),
 		}
 		def, err = client.CreateKubernetesRuntimeDefinition(apiClient, apiEndpoint, &newDef)
 		if err != nil {
@@ -1893,6 +1906,7 @@ func EnsureBootstrapObjects(cpi *threeport.ControlPlaneInstaller) error {
 		runtimeName,
 		defReconciled,
 		controlPlaneConfig.Provider,
+		controlPlaneConfig.K8sApiAllowedCidrs,
 		kubernetesRuntimeInstance,
 	)
 	if err != nil {
