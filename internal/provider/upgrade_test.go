@@ -496,6 +496,59 @@ func TestAnUpgradeThatReachedItsVersionFinishesItsStep(t *testing.T) {
 	assert.Equal(t, 0, fl.callCount("OnUpgraded"))
 }
 
+// TestARefusedRepairRunsOnceTheRefusalIsCleared covers a step run again to
+// finish an upgrade's work whose preview would replace a resource: it is
+// refused, and left alone while the refusal stands, but the upgrade stays
+// unfinished, so clearing the refusal runs the step again.
+func TestARefusedRepairRunsOnceTheRefusalIsCleared(t *testing.T) {
+	clock := newFakeClock(time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC))
+	restore := setLifecycleClock(clock)
+	defer restore()
+
+	infra := newFakeUpgradeInfra("1.36")
+	infra.upgradeErr = &UpgradeRefusedError{Steps: []string{"replace aws:eks/addon:Addon eks-test-coredns"}}
+	fl := newFakeUpgradeLifecycle(infra, "1.36")
+	fl.setUpgrade(UpgradeSnapshot{Failed: true, Acknowledged: util.Ptr(clock.Now().Add(-time.Hour)), RecordedVersion: "1.35"})
+
+	_, err := HandleInfraUpdate(fl, newTestLogger())
+	require.NoError(t, err)
+	outcome := fl.waitFinished(t)
+	assert.Equal(t, UpgradeOutcome{
+		Version: "1.36",
+		Failed:  true,
+		Refused: true,
+		Status:  "refused to upgrade to Kubernetes 1.36: the upgrade would replace or delete resources, so nothing was changed: replace aws:eks/addon:Addon eks-test-coredns",
+	}, outcome)
+	assert.Equal(t, 0, fl.callCount("OnUpgraded"))
+
+	// left alone while the refusal stands, however long it does, with no
+	// wait to try it again after
+	for _, advance := range []time.Duration{0, time.Hour} {
+		clock.Advance(advance)
+		requeue, err := HandleInfraUpdate(fl, newTestLogger())
+		require.NoError(t, err)
+		assert.Equal(t, int64(0), requeue, "after %s", advance)
+	}
+	assert.Len(t, infra.upgrades(), 1)
+	assert.Len(t, fl.finishedOutcomes(), 1, "not taken for an upgrade the provider made")
+
+	// the operator fixes what would be replaced, and clears the refusal
+	infra.versionMu.Lock()
+	infra.upgradeErr = nil
+	infra.versionMu.Unlock()
+	upgrade, err := fl.GetUpgrade()
+	require.NoError(t, err)
+	upgrade.Refused = false
+	fl.setUpgrade(*upgrade)
+
+	_, err = HandleInfraUpdate(fl, newTestLogger())
+	require.NoError(t, err)
+	require.Eventually(t, func() bool { return len(fl.finishedOutcomes()) == 2 }, 5*time.Second, 5*time.Millisecond)
+	assert.Equal(t, UpgradeOutcome{Version: "1.36", Status: "upgraded to Kubernetes 1.36"}, fl.finishedOutcomes()[1])
+	assert.Equal(t, []string{"1.36", "1.36"}, infra.upgrades())
+	assert.Equal(t, 1, fl.callCount("OnUpgraded"))
+}
+
 // TestAnUpgradeTheProviderFinishedIsRecorded covers a refused upgrade the
 // provider has since done on its own, and one the provider took past the
 // definition's version: each is finished without running a step, with its

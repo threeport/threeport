@@ -115,7 +115,9 @@ step that failed or was interrupted after the cluster reached its version,
 such as one whose add-ons failed to update, is run again on that version to
 finish its work before the upgrade is recorded as done. A
 refused one isn't tried again until the definition asks for another version,
-or `UpgradeRefused` is set back to `false` on the instance.
+or `UpgradeRefused` is set back to `false` on the instance. A step run again
+to finish an upgrade's work that is refused is recorded as failed as well,
+so once `UpgradeRefused` is set back to `false` it runs again.
 `UpgradeRequestedVersion` records the version each instance was last asked
 for. A cluster Threeport didn't create, such as one `tptctl up
 --control-plane-only` was installed on, isn't upgraded.

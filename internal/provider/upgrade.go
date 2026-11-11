@@ -144,8 +144,8 @@ func handleUpgrade(p UpgradeLifecycleProvider, snap *ReconciliationSnapshot, log
 		return upgradeRequeueSeconds, nil
 	}
 
-	// a failed upgrade is tried again after a wait
-	if upgrade.Failed && upgrade.Acknowledged != nil {
+	// a failed upgrade is tried again after a wait, unless it was refused
+	if upgrade.Failed && !upgrade.Refused && upgrade.Acknowledged != nil {
 		if wait := upgradeRetryDelay - currentClock().Now().UTC().Sub(*upgrade.Acknowledged); wait > 0 {
 			return int64(wait.Seconds()) + 1, nil
 		}
@@ -190,8 +190,11 @@ func handleUpgrade(p UpgradeLifecycleProvider, snap *ReconciliationSnapshot, log
 		// an upgrade that reached the version without recording it, because
 		// it was interrupted or its last step failed, may have left the
 		// step's last work undone, such as the add-ons EKS moves after its
-		// node group, so the step runs again on the version the cluster runs
-		if comparison == 0 && (upgrade.Upgrading || upgrade.Failed) {
+		// node group, so the step runs again on the version the cluster runs.
+		// One refused when it ran again stays failed as well as refused, so
+		// the work is still there to do once the refusal is cleared.
+		unfinished := (upgrade.Upgrading || upgrade.Failed) && !upgrade.Refused
+		if comparison == 0 && unfinished {
 			if err := p.AckUpgrade(fmt.Sprintf("finishing the upgrade to Kubernetes %s", current)); err != nil {
 				return 0, fmt.Errorf("failed to acknowledge the upgrade: %w", err)
 			}
@@ -210,7 +213,7 @@ func handleUpgrade(p UpgradeLifecycleProvider, snap *ReconciliationSnapshot, log
 		// version the cluster still runs, as one run again to finish its
 		// work can be, stays refused.
 		providerUpgraded := upgrade.Refused && current != upgrade.RecordedVersion
-		if upgrade.Upgrading || upgrade.Failed || providerUpgraded {
+		if unfinished || providerUpgraded {
 			if comparison == 0 {
 				status = fmt.Sprintf("upgraded to Kubernetes %s", current)
 			}
@@ -382,8 +385,16 @@ func executeInfraUpgrade(config upgradeConfig) {
 
 	var refused *UpgradeRefusedError
 	if errors.As(upgradeErr, &refused) {
+		// a step run again to finish an upgrade's work is also recorded as
+		// failed: the upgrade is unfinished, and runs the step again once the
+		// refusal is cleared
 		status := fmt.Sprintf("refused to upgrade %s: %v", config.step(), refused)
-		finishUpgrade(config, UpgradeOutcome{Version: config.From, Refused: true, Status: status})
+		finishUpgrade(config, UpgradeOutcome{
+			Version: config.From,
+			Failed:  config.From == config.To,
+			Refused: true,
+			Status:  status,
+		})
 		warnUpgrade(config.Provider, event.ReasonUpgradeRefused, status, config.Log)
 		return
 	}
