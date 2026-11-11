@@ -230,6 +230,15 @@ func (i *KubernetesRuntimeInfraGKE) DestroyInfra() error {
 	return i.destroyInfraStack()
 }
 
+// gkeNodePoolIgnoredChanges are the node pool properties Pulumi sets only when
+// it creates the node pool. GKE's autoscaler changes the node count with the
+// load, and an up on an existing stack runs after a refresh from GCP (see
+// setupStack), so setting the initial count again would scale a busy cluster
+// back down. Moving to InitialNodeCount instead would replace the node pool of
+// every existing stack, since the provider replaces a node pool whose initial
+// node count changes.
+var gkeNodePoolIgnoredChanges = []string{"nodeCount"}
+
 // pulumiProgram defines the Pulumi resources for the GKE stack.
 func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 	return func(ctx *pulumi.Context) error {
@@ -382,7 +391,8 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 				AutoUpgrade: pulumi.Bool(true),
 			},
 		}, pulumi.Provider(gcpProvider),
-			pulumi.DependsOn([]pulumi.Resource{cluster}))
+			pulumi.DependsOn([]pulumi.Resource{cluster}),
+			pulumi.IgnoreChanges(gkeNodePoolIgnoredChanges))
 		if err != nil {
 			return fmt.Errorf("failed to create node pool: %w", err)
 		}
