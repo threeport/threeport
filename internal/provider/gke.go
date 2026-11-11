@@ -321,6 +321,10 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 			return fmt.Errorf("failed to create Cloud NAT: %w", err)
 		}
 
+		var podsPerNode pulumi.IntPtrInput
+		if ranges.PodsPerNode > 0 {
+			podsPerNode = pulumi.IntPtr(ranges.PodsPerNode)
+		}
 		cluster, err := gkecontainer.NewCluster(ctx, i.RuntimeInstanceName, &gkecontainer.ClusterArgs{
 			Name:           pulumi.String(i.RuntimeInstanceName),
 			Location:       pulumi.String(i.Region),
@@ -332,6 +336,7 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 				ClusterSecondaryRangeName:  pulumi.String("pods"),
 				ServicesSecondaryRangeName: pulumi.String("services"),
 			},
+			DefaultMaxPodsPerNode: podsPerNode,
 
 			InitialNodeCount:      pulumi.Int(1),
 			RemoveDefaultNodePool: pulumi.Bool(true),

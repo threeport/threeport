@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/netip"
+	"slices"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
@@ -31,12 +32,23 @@ type eksNetworkLayout struct {
 	ServiceCidr string
 }
 
+// gkePodsPerNode is the most pods a node of a GKE cluster with a range runs.
+// GKE gives each node a pod range twice that size, a /25, so the cluster's
+// /17 of pods holds 256 nodes, as many as the /16 of a cluster created before
+// ranges were allocated did at GKE's default of 110, a /24 each.
+const gkePodsPerNode = 64
+
 // gkeNetworkLayout is the network of a GKE cluster: its nodes' subnet and the
 // secondary ranges of its pods and services.
 type gkeNetworkLayout struct {
 	Nodes    string
 	Pods     string
 	Services string
+
+	// The most pods a node runs, 0 for GKE's default, which a cluster
+	// created before ranges were allocated keeps, since changing it would
+	// replace the cluster.
+	PodsPerNode int
 }
 
 // okeNetworkLayout is the network of an OKE cluster: its VCN and the subnets of
@@ -76,8 +88,8 @@ func eksLayout(block string) (eksNetworkLayout, error) {
 }
 
 // gkeLayout returns the GKE network for a block, or the one every cluster
-// used to get when block is "".  With a block, the pods' /17 holds a /24 for
-// each of 128 nodes at 110 pods per node, GKE's default.
+// used to get when block is "".  With a block, the pods' /17 holds a /25 for
+// each of 256 nodes at gkePodsPerNode.
 func gkeLayout(block string) (gkeNetworkLayout, error) {
 	if block == "" {
 		return gkeNetworkLayout{Nodes: "10.0.0.0/16", Pods: "10.1.0.0/16", Services: "10.2.0.0/20"}, nil
@@ -89,9 +101,10 @@ func gkeLayout(block string) (gkeNetworkLayout, error) {
 	}
 
 	return gkeNetworkLayout{
-		Pods:     base.subnet(0, 17),
-		Nodes:    base.subnet(128, 20),
-		Services: base.subnet(144, 20),
+		Pods:        base.subnet(0, 17),
+		Nodes:       base.subnet(128, 20),
+		Services:    base.subnet(144, 20),
+		PodsPerNode: gkePodsPerNode,
 	}, nil
 }
 
@@ -146,6 +159,17 @@ func (b networkBase) subnet(offset byte, bits int) string {
 // resourceInputInStack returns an input of the first resource of a type an
 // exported deployment holds, and whether it holds one.
 func resourceInputInStack(deployment json.RawMessage, resourceType, input string) (string, bool) {
+	values := resourceInputsInStack(deployment, resourceType, input)
+	if len(values) == 0 {
+		return "", false
+	}
+
+	return values[0], true
+}
+
+// resourceInputsInStack returns an input of each resource of a type an
+// exported deployment holds, in the deployment's order.
+func resourceInputsInStack(deployment json.RawMessage, resourceType, input string) []string {
 	var contents struct {
 		Resources []struct {
 			Type   string         `json:"type"`
@@ -153,16 +177,17 @@ func resourceInputInStack(deployment json.RawMessage, resourceType, input string
 		} `json:"resources"`
 	}
 	if len(deployment) == 0 || json.Unmarshal(deployment, &contents) != nil {
-		return "", false
+		return nil
 	}
+	var values []string
 	for _, resource := range contents.Resources {
 		if resource.Type == resourceType {
 			value, _ := resource.Inputs[input].(string)
-			return value, true
+			values = append(values, value)
 		}
 	}
 
-	return "", false
+	return values
 }
 
 // A create resumed on a stack that already holds the cluster's network keeps
@@ -171,17 +196,36 @@ func resourceInputInStack(deployment json.RawMessage, resourceType, input string
 // allocated, or have been created with another.
 
 // keepStackNetwork sets NetworkCidr to the range of the VPC the stack holds,
-// if it holds one: "" for one laid out before ranges were allocated.
+// if it holds one: "" for one laid out before ranges were allocated.  A
+// cluster may be laid out in 10.0.0.0/16, the VPC every cluster used to get,
+// so the layout is told by the subnets: the old one's are /22s.  A stack
+// stopped before its subnets keeps the range asked for when that is its VPC's.
 func (i *KubernetesRuntimeInfraEKS) keepStackNetwork(deployment json.RawMessage) {
 	vpc, held := resourceInputInStack(deployment, "aws:ec2/vpc:Vpc", "cidrBlock")
 	if !held {
 		return
 	}
 	legacy, _ := eksLayout("")
-	if vpc == legacy.Vpc {
-		vpc = ""
+	if vpc != legacy.Vpc {
+		i.NetworkCidr = vpc
+		return
 	}
-	i.NetworkCidr = vpc
+
+	subnets := resourceInputsInStack(deployment, "aws:ec2/subnet:Subnet", "cidrBlock")
+	if len(subnets) == 0 {
+		if i.NetworkCidr != vpc {
+			i.NetworkCidr = ""
+		}
+		return
+	}
+	legacySubnets := append(append([]string{}, legacy.PublicSubnets...), legacy.PrivateSubnets...)
+	for _, subnet := range subnets {
+		if !slices.Contains(legacySubnets, subnet) {
+			i.NetworkCidr = vpc
+			return
+		}
+	}
+	i.NetworkCidr = ""
 }
 
 // keepStackNetwork sets NetworkCidr to the range the subnet the stack holds

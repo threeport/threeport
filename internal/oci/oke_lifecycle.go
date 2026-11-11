@@ -10,8 +10,8 @@ import (
 	ociidentity "github.com/oracle/oci-go-sdk/v65/identity"
 	"gorm.io/datatypes"
 
-	notif "github.com/threeport/threeport/internal/oci/notif"
 	"github.com/threeport/threeport/internal/networkcidr"
+	notif "github.com/threeport/threeport/internal/oci/notif"
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"

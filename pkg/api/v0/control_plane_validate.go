@@ -284,7 +284,7 @@ func (c *ControlPlaneDefinition) afterDelete(tx *gorm.DB) error {
 // it to one, which is this object. Checking it at the CLI alone would leave
 // the API as the way around the rail.
 func (c *ControlPlaneInstance) beforeCreate(tx *gorm.DB) error {
-	if err := validateNetworkCidrPool(tx, c.NetworkCidrPool, c.IsSelf != nil && *c.IsSelf); err != nil {
+	if err := validateNetworkCidrPool(tx, c.NetworkCidrPool, c.IsSelf != nil && *c.IsSelf, nil); err != nil {
 		return err
 	}
 
@@ -497,5 +497,12 @@ func validateNetworkCidrPoolUpdate(tx *gorm.DB, stored *ControlPlaneInstance) er
 		return fmt.Errorf("cannot validate NetworkCidrPool: update carries %T", lib.IncomingValues(tx))
 	}
 
-	return validateNetworkCidrPool(tx, incoming.NetworkCidrPool, stored.IsSelf != nil && *stored.IsSelf)
+	self := stored.IsSelf != nil && *stored.IsSelf
+	if !self {
+		if err := validateNetworkCidrPoolGrows(stored.NetworkCidrPool, incoming.NetworkCidrPool); err != nil {
+			return err
+		}
+	}
+
+	return validateNetworkCidrPool(tx, incoming.NetworkCidrPool, self, stored.ID)
 }

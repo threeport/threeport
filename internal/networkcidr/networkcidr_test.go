@@ -137,6 +137,41 @@ func TestARuntimeIsAllocatedTheFirstFreeBlockOfThePool(t *testing.T) {
 	assert.Equal(t, "172.24.0.0/16", cidr)
 }
 
+// TestAChildAllocatesOnlyFromThePoolItsParentGaveIt covers a child control
+// plane: with no pool it allocates nothing, since the default pool is its
+// parent's, whose ranges its database doesn't hold, so its clusters keep the
+// layout every cluster used to get.  With a pool, it allocates from it.
+func TestAChildAllocatesOnlyFromThePoolItsParentGaveIt(t *testing.T) {
+	f := &fakeControlPlane{
+		runtimes: map[uint]*v0.KubernetesRuntimeInstance{1: runtime(1, nil)},
+		controlPlanes: []v0.ControlPlaneInstance{
+			{Common: v0.Common{ID: util.Ptr(uint(1))}, IsSelf: util.Ptr(true), ParentControlPlaneInstanceID: util.Ptr(uint(2))},
+			{Common: v0.Common{ID: util.Ptr(uint(2))}, Instance: v0.Instance{Name: util.Ptr("parent")}},
+		},
+	}
+	api := f.serve(t)
+
+	cidr, err := EnsureRuntimeNetworkCidr(api.Client, api.Addr, 1)
+	require.NoError(t, err)
+	assert.Empty(t, cidr)
+	assert.Empty(t, f.written, "nothing is recorded")
+	cidr, err = ClusterNetworkCidr(api.Client, api.Addr, util.Ptr(uint(1)), v0.Reconciliation{}, nil)
+	require.NoError(t, err)
+	assert.Empty(t, cidr, "a new cluster gets the layout every cluster used to get")
+
+	f.controlPlanes[0].NetworkCidrPool = pool("10.48.0.0/12")
+	cidr, err = EnsureRuntimeNetworkCidr(api.Client, api.Addr, 1)
+	require.NoError(t, err)
+	assert.Equal(t, "10.48.0.0/16", cidr)
+
+	// an empty pool is no pool
+	f.controlPlanes[0].NetworkCidrPool = pool()
+	f.runtimes[2] = runtime(2, nil)
+	cidr, err = EnsureRuntimeNetworkCidr(api.Client, api.Addr, 2)
+	require.NoError(t, err)
+	assert.Empty(t, cidr)
+}
+
 // TestARangeAnotherRuntimeTookIsAllocatedAgain covers the API refusing a range
 // another runtime took at the same time: the allocation reads the ranges in
 // use again and retries, a bounded number of times.

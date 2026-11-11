@@ -24,6 +24,11 @@ const allocationAttempts = 5
 // plane's pool that no runtime has, outside the pools of its child control
 // planes.  The API refuses a range another runtime took at the same time,
 // and the allocation is then made again.
+//
+// A child control plane allocates only from the pool its parent gave it.
+// With none, it returns "" and allocates nothing, and the cluster gets the
+// layout every cluster used to get: the default pool is its parent's, whose
+// ranges this database doesn't hold.
 func EnsureRuntimeNetworkCidr(apiClient *http.Client, apiServer string, runtimeID uint) (string, error) {
 	var lastErr error
 	for attempt := 0; attempt < allocationAttempts; attempt++ {
@@ -35,9 +40,12 @@ func EnsureRuntimeNetworkCidr(apiClient *http.Client, apiServer string, runtimeI
 			return *runtime.NetworkCidr, nil
 		}
 
-		block, err := nextNetworkCidr(apiClient, apiServer)
+		block, allocates, err := nextNetworkCidr(apiClient, apiServer)
 		if err != nil {
 			return "", err
+		}
+		if !allocates {
+			return "", nil
 		}
 		cidr := block.String()
 		if _, err := client.UpdateKubernetesRuntimeInstance(apiClient, apiServer, &v0.KubernetesRuntimeInstance{
@@ -56,23 +64,32 @@ func EnsureRuntimeNetworkCidr(apiClient *http.Client, apiServer string, runtimeI
 }
 
 // nextNetworkCidr returns the next block of this control plane's pool that
-// no runtime and no child control plane's pool uses.
-func nextNetworkCidr(apiClient *http.Client, apiServer string) (netip.Prefix, error) {
+// no runtime and no child control plane's pool uses, and whether this control
+// plane allocates at all: a child with no pool doesn't.
+func nextNetworkCidr(apiClient *http.Client, apiServer string) (netip.Prefix, bool, error) {
 	self, err := client.GetSelfControlPlaneInstance(apiClient, apiServer)
 	if err != nil {
-		return netip.Prefix{}, fmt.Errorf("failed to get this control plane's instance: %w", err)
+		return netip.Prefix{}, false, fmt.Errorf("failed to get this control plane's instance: %w", err)
+	}
+	ownPool, err := v0.ParseNetworkCidrPool(self.NetworkCidrPool)
+	if err != nil {
+		return netip.Prefix{}, false, fmt.Errorf("failed to read this control plane's network range pool: %w", err)
+	}
+	if self.ParentControlPlaneInstanceID != nil && len(ownPool) == 0 {
+		return netip.Prefix{}, false, nil
 	}
 	pool, err := v0.NetworkCidrPoolOrDefault(self.NetworkCidrPool)
 	if err != nil {
-		return netip.Prefix{}, fmt.Errorf("failed to read this control plane's network range pool: %w", err)
+		return netip.Prefix{}, false, fmt.Errorf("failed to read this control plane's network range pool: %w", err)
 	}
 
 	inUse, err := networkCidrsInUse(apiClient, apiServer, self)
 	if err != nil {
-		return netip.Prefix{}, err
+		return netip.Prefix{}, false, err
 	}
+	block, err := v0.AllocateNetworkCidr(pool, inUse)
 
-	return v0.AllocateNetworkCidr(pool, inUse)
+	return block, true, err
 }
 
 // networkCidrsInUse returns the ranges a new runtime's range must stay clear

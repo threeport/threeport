@@ -49,9 +49,12 @@ func TestAClustersNetworkIsLaidOutInItsRange(t *testing.T) {
 
 	gke, err := gkeLayout("10.17.0.0/16")
 	require.NoError(t, err)
-	assert.Equal(t, gkeNetworkLayout{Pods: "10.17.0.0/17", Nodes: "10.17.128.0/20", Services: "10.17.144.0/20"}, gke)
+	assert.Equal(t, gkeNetworkLayout{Pods: "10.17.0.0/17", Nodes: "10.17.128.0/20", Services: "10.17.144.0/20", PodsPerNode: 64}, gke)
 	assertDisjointInside(t, "10.17.0.0/16", []string{gke.Pods, gke.Nodes, gke.Services})
-	assert.Equal(t, 128, 1<<(24-17), "a /24 of pods for each of 128 nodes")
+	// GKE gives each node a pod range of twice its most pods, rounded up to
+	// a power of two
+	assert.Equal(t, 256, 1<<(25-17), "a /25 of pods for each of 256 nodes")
+	assert.Equal(t, 256, 1<<(24-16), "as many as the old /16 held at 110 pods, a /24 each")
 
 	oke, err := okeLayout("10.18.0.0/16")
 	require.NoError(t, err)
@@ -64,7 +67,8 @@ func TestAClustersNetworkIsLaidOutInItsRange(t *testing.T) {
 	assert.Equal(t, "10.20.0.0/15", wide.Vpc)
 	assert.Equal(t, "10.20.0.0/18", wide.PrivateSubnets[0])
 
-	for _, bad := range []string{"10.16.1.0/16", "10.16.0.0/17", "10.96.0.0/16", "not-a-range"} {
+	// 172.16.0.0/16 holds the GKE control plane's private endpoint range
+	for _, bad := range []string{"10.16.1.0/16", "10.16.0.0/17", "10.96.0.0/16", "172.16.0.0/16", "not-a-range"} {
 		_, err := eksLayout(bad)
 		assert.Error(t, err, bad)
 		_, err = gkeLayout(bad)
@@ -123,9 +127,10 @@ func TestTheEksProgramLaysOutItsRange(t *testing.T) {
 }
 
 // TestTheGkeProgramLaysOutItsRange covers the GKE program with and without a
-// range: its subnet's nodes, pods and services ranges.
+// range: its subnet's nodes, pods and services ranges, and the most pods a
+// node runs, set only with a range.
 func TestTheGkeProgramLaysOutItsRange(t *testing.T) {
-	subnetRanges := func(block string) (any, any) {
+	run := func(block string) *gkeRecordingMocks {
 		infra := &KubernetesRuntimeInfraGKE{
 			PulumiWorkspace:        PulumiWorkspace{RuntimeInstanceName: "gke-network-test", ProjectName: "gke"},
 			NetworkCidr:            block,
@@ -135,28 +140,36 @@ func TestTheGkeProgramLaysOutItsRange(t *testing.T) {
 		}
 		mocks := &gkeRecordingMocks{}
 		require.NoError(t, pulumi.RunErr(infra.pulumiProgram(), pulumi.WithMocks("gke", "test-stack", mocks)))
+		return mocks
+	}
+	inputs := func(mocks *gkeRecordingMocks, typeToken string) map[string]any {
 		for _, r := range mocks.resources {
-			if r.typeToken == "gcp:compute/subnetwork:Subnetwork" {
-				return r.inputs["ipCidrRange"], r.inputs["secondaryIpRanges"]
+			if r.typeToken == typeToken {
+				return r.inputs
 			}
 		}
-		t.Fatal("the program registered no subnet")
-		return nil, nil
+		t.Fatalf("the program registered no %s", typeToken)
+		return nil
 	}
 
-	nodes, secondary := subnetRanges("10.17.0.0/16")
-	assert.Equal(t, "10.17.128.0/20", nodes)
+	mocks := run("10.17.0.0/16")
+	subnet := inputs(mocks, "gcp:compute/subnetwork:Subnetwork")
+	assert.Equal(t, "10.17.128.0/20", subnet["ipCidrRange"])
 	assert.Equal(t, []any{
 		map[string]any{"rangeName": "pods", "ipCidrRange": "10.17.0.0/17"},
 		map[string]any{"rangeName": "services", "ipCidrRange": "10.17.144.0/20"},
-	}, secondary)
+	}, subnet["secondaryIpRanges"])
+	assert.EqualValues(t, 64, inputs(mocks, "gcp:container/cluster:Cluster")["defaultMaxPodsPerNode"])
 
-	nodes, secondary = subnetRanges("")
-	assert.Equal(t, "10.0.0.0/16", nodes)
+	mocks = run("")
+	subnet = inputs(mocks, "gcp:compute/subnetwork:Subnetwork")
+	assert.Equal(t, "10.0.0.0/16", subnet["ipCidrRange"])
 	assert.Equal(t, []any{
 		map[string]any{"rangeName": "pods", "ipCidrRange": "10.1.0.0/16"},
 		map[string]any{"rangeName": "services", "ipCidrRange": "10.2.0.0/20"},
-	}, secondary)
+	}, subnet["secondaryIpRanges"])
+	assert.NotContains(t, inputs(mocks, "gcp:container/cluster:Cluster"), "defaultMaxPodsPerNode",
+		"setting it on a cluster created without it would replace the cluster")
 }
 
 // TestAResumedCreateKeepsItsStacksNetwork covers a create resumed on a stack
@@ -176,6 +189,32 @@ func TestAResumedCreateKeepsItsStacksNetwork(t *testing.T) {
 	eks := &KubernetesRuntimeInfraEKS{NetworkCidr: "10.16.0.0/16"}
 	eks.keepStackNetwork([]byte(`{"resources":[]}`))
 	assert.Equal(t, "10.16.0.0/16", eks.NetworkCidr, "a new stack lays out the range asked for")
+
+	// a cluster laid out in 10.0.0.0/16, the VPC every cluster used to get,
+	// is told from one laid out before ranges by its subnets
+	vpcAndSubnets := func(subnets ...string) []byte {
+		resources := `{"type":"aws:ec2/vpc:Vpc","inputs":{"cidrBlock":"10.0.0.0/16"}}`
+		for _, subnet := range subnets {
+			resources += `,{"type":"aws:ec2/subnet:Subnet","inputs":{"cidrBlock":"` + subnet + `"}}`
+		}
+		return []byte(`{"resources":[` + resources + `]}`)
+	}
+	for _, c := range []struct {
+		name    string
+		asked   string
+		stack   []byte
+		network string
+	}{
+		{"laid out in 10.0.0.0/16", "10.16.0.0/16", vpcAndSubnets("10.0.0.0/18", "10.0.192.0/22"), "10.0.0.0/16"},
+		{"laid out before ranges", "10.16.0.0/16", vpcAndSubnets("10.0.0.0/22", "10.0.4.0/22"), ""},
+		{"laid out before ranges, resumed with 10.0.0.0/16", "10.0.0.0/16", vpcAndSubnets("10.0.0.0/22", "10.0.4.0/22"), ""},
+		{"stopped before its subnets, asked for its VPC's range", "10.0.0.0/16", vpcAndSubnets(), "10.0.0.0/16"},
+		{"stopped before its subnets, asked for another", "10.16.0.0/16", vpcAndSubnets(), ""},
+	} {
+		eks := &KubernetesRuntimeInfraEKS{NetworkCidr: c.asked}
+		eks.keepStackNetwork(c.stack)
+		assert.Equal(t, c.network, eks.NetworkCidr, c.name)
+	}
 
 	for held, want := range map[string]string{"10.0.0.0/16": "", "10.30.128.0/20": "10.30.0.0/16"} {
 		gke := &KubernetesRuntimeInfraGKE{NetworkCidr: "10.16.0.0/16"}
