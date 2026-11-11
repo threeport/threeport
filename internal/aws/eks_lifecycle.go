@@ -524,5 +524,6 @@ func eksInfraFromApiObjects(
 		DefaultNodeGroupInitialNodes: int32(*definition.DefaultNodeGroupInitialSize),
 		DefaultNodeGroupMinNodes:     int32(*definition.DefaultNodeGroupMinimumSize),
 		DefaultNodeGroupMaxNodes:     int32(*definition.DefaultNodeGroupMaximumSize),
+		NodeGroupPerZone:             definition.NodeGroupPerZone != nil && *definition.NodeGroupPerZone,
 	}).InitPulumiProject()
 }

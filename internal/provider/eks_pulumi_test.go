@@ -67,8 +67,23 @@ func (m *eksRecordingMocks) Call(args pulumi.MockCallArgs) (resource.PropertyMap
 		}, nil
 	}
 
+	if args.Token == "aws:ec2/getInstanceTypeOfferings:getInstanceTypeOfferings" {
+		zones := make([]resource.PropertyValue, 0, len(testInstanceTypeZones))
+		for _, zone := range testInstanceTypeZones {
+			zones = append(zones, resource.NewStringProperty(zone))
+		}
+		return resource.PropertyMap{
+			"locations": resource.NewArrayProperty(zones),
+		}, nil
+	}
+
 	return resource.PropertyMap{}, nil
 }
+
+// testInstanceTypeZones are the zones the mocked getInstanceTypeOfferings
+// call says offer the instance type: all but us-east-1b, as m8i isn't in
+// every zone.
+var testInstanceTypeZones = []string{"us-east-1d", "us-east-1a", "us-east-1c"}
 
 // byType returns the recorded resources of a given type.
 func (m *eksRecordingMocks) byType(typeToken string) []eksRecordedResource {

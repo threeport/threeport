@@ -62,24 +62,41 @@ func gkeControlPlaneProfile(tier threeport.ControlPlaneTier) (gkeClusterProfile,
 }
 
 // eksClusterProfile is the EKS cluster tptctl up creates for a control plane.
+// With a node group per zone, the node counts are per node group.
 type eksClusterProfile struct {
 	NodeSize         string
 	InstanceType     string
 	ZoneCount        int32
+	NodeGroupPerZone bool
 	InitialNodeCount int32
 	MinNodeCount     int32
 	MaxNodeCount     int32
 }
 
-// eksControlPlaneProfile returns the EKS cluster for a control plane, the
-// one tptctl has always created.
-func eksControlPlaneProfile() (eksClusterProfile, error) {
+// eksControlPlaneProfile returns the EKS cluster for a control plane tier.
+//
+// A production cluster spans three zones, so losing one leaves two of the
+// database's three replicas, with a node group in each zone, so the cluster
+// autoscaler can replace a lost node in the zone its replica's volume is in,
+// on general purpose instances that don't depend on CPU bursting.  A
+// development cluster is the one tptctl has always created.
+func eksControlPlaneProfile(tier threeport.ControlPlaneTier) (eksClusterProfile, error) {
 	profile := eksClusterProfile{
 		NodeSize:         "Medium",
 		ZoneCount:        2,
 		InitialNodeCount: 3,
 		MinNodeCount:     3,
 		MaxNodeCount:     250,
+	}
+	if string(tier) == threeport.ControlPlaneTierProd {
+		profile = eksClusterProfile{
+			NodeSize:         "Large",
+			ZoneCount:        3,
+			NodeGroupPerZone: true,
+			InitialNodeCount: 1,
+			MinNodeCount:     1,
+			MaxNodeCount:     10,
+		}
 	}
 
 	instanceType, err := mapping.GetMachineType(util.AwsProvider, controlPlaneNodeProfile, profile.NodeSize)
@@ -109,13 +126,15 @@ func recordClusterProfile(definition *v0.KubernetesRuntimeDefinition, tier three
 		definition.NodeSize = util.Ptr(profile.NodeSize)
 		definition.NodeMaximum = util.Ptr(int(profile.MaxNodeCount))
 	case v0.KubernetesRuntimeInfraProviderEKS:
-		profile, err := eksControlPlaneProfile()
+		profile, err := eksControlPlaneProfile(tier)
 		if err != nil {
 			return err
 		}
 		definition.HighAvailability = util.Ptr(profile.ZoneCount >= 3)
 		definition.NodeProfile = util.Ptr(controlPlaneNodeProfile)
 		definition.NodeSize = util.Ptr(profile.NodeSize)
+		// the maximum of the default node group, which a production
+		// cluster runs one of in each zone
 		definition.NodeMaximum = util.Ptr(int(profile.MaxNodeCount))
 	}
 

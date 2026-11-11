@@ -418,6 +418,11 @@ func installEksClusterAutoscaler(
 									"--cloud-provider=aws",
 									"--skip-nodes-with-local-storage=false",
 									"--expander=least-waste",
+									// a production cluster has a node group per zone,
+									// which this keeps the same size, so each zone has
+									// room for its share of the pods; with one node group
+									// it has nothing to balance
+									"--balance-similar-node-groups",
 									fmt.Sprintf("--node-group-auto-discovery=asg:tag=k8s.io/cluster-autoscaler/enabled,k8s.io/cluster-autoscaler/%s", clusterName),
 								},
 								"volumeMounts": []interface{}{

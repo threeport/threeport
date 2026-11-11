@@ -126,6 +126,16 @@ func (a *AwsEksKubernetesRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
 // Import:
 //   lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (a *AwsEksKubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
+	nodeGroupPerZoneChanged, err := lib.IsFieldChanged(tx, "NodeGroupPerZone")
+	if err != nil {
+		return err
+	}
+	if nodeGroupPerZoneChanged {
+		return util.NewBadRequestError(
+			"aws eks kubernetes runtime definition NodeGroupPerZone cannot be changed after creation, since that replaces the node groups",
+		)
+	}
+
 	return validateKubernetesApiAccessUpdate(
 		tx,
 		KubernetesRuntimeInfraProviderEKS,

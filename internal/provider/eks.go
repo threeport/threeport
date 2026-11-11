@@ -70,6 +70,14 @@ type KubernetesRuntimeInfraEKS struct {
 
 	// The maximum number of nodes allowed in the default node group.
 	DefaultNodeGroupMaxNodes int32
+
+	// NodeGroupPerZone makes the cluster's nodes run in a node group per
+	// availability zone, each with the default node group's instance type and
+	// node counts, rather than one node group spanning every zone.  The
+	// cluster autoscaler can then add a node in a given zone, as a pod bound to
+	// a volume there needs, and keep the zones balanced.  The zones are chosen
+	// from those that offer the instance type.
+	NodeGroupPerZone bool
 }
 
 // Create provisions an AWS EKS cluster for threeport workloads and returns the
