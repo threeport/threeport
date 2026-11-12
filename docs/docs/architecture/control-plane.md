@@ -48,6 +48,20 @@ plane, keeps them in secrets in the control plane namespace, and reuses them on
 every install after that.  The API, the controllers, and the controllers of
 installed modules verify the server against that CA.
 
+A development control plane runs a single NATS server.  A production control
+plane, which you ask for with `--tier production`, runs three servers on
+separate nodes, joined into one cluster.  The servers route to each other over
+TLS, and each presents its certificate from the same CA, so only a server the
+installer issued a certificate to can join.  The API creates every notification
+stream with a copy on each of the three servers, and each controller does the
+same for its lock bucket, so the control plane keeps reconciling through the
+loss of one server or its node.  The production cluster needs three
+schedulable nodes: a server that can't be placed on a node of its own stays
+`Pending` rather than sharing one.
+
+A control plane installed with a single server keeps it when it is reinstalled,
+since a reinstall doesn't change how many servers the broker runs.
+
 ## Threeport Agent
 
 The Threeport agent is a [Kubernetes

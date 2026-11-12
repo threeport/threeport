@@ -59,6 +59,7 @@ func ConfigureControlPlaneWithGkeConfig(
 		DefaultNodeGroupInitialSize:   util.Ptr(int(kubernetesRuntimeInfraGKE.WorkerNodeInitialCount)),
 		DefaultNodeGroupMinimumSize:   util.Ptr(int(kubernetesRuntimeInfraGKE.WorkerNodeInitialCount)),
 		DefaultNodeGroupMaximumSize:   util.Ptr(int(kubernetesRuntimeInfraGKE.WorkerNodeInitialCount)),
+		AllowedCidrs:                  allowedCidrsJSON(kubernetesRuntimeInfraGKE.AllowedCidrs),
 		KubernetesRuntimeDefinitionID: kubernetesRuntimeDefResult.ID,
 	}
 	createdGcpGkeKubernetesRuntimeDef, err := ensureGcpGkeKubernetesRuntimeDefinition(

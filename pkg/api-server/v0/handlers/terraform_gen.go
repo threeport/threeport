@@ -250,12 +250,16 @@ func (h Handler) GetTerraformDefinitions(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/terraform-definitions/{id} [GET]
 func (h Handler) GetTerraformDefinition(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.TerraformDefinition).GetFullyQualifiedType()
-	terraformDefinitionID := c.Param("id")
+	terraformDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var terraformDefinition api_v0.TerraformDefinition
 	if result := h.RequestDB(c).
 		First(&terraformDefinition, terraformDefinitionID); result.Error != nil {
@@ -299,7 +303,10 @@ func (h Handler) GetTerraformDefinition(c echo.Context) error {
 func (h Handler) UpdateTerraformDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeTerraformDefinition
 	fullyQualifiedType := new(api_v0.TerraformDefinition).GetFullyQualifiedType()
-	terraformDefinitionID := c.Param("id")
+	terraformDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingTerraformDefinition api_v0.TerraformDefinition
 	if result := h.RequestDB(c).First(&existingTerraformDefinition, terraformDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -399,7 +406,10 @@ func (h Handler) UpdateTerraformDefinition(c echo.Context) error {
 func (h Handler) ReplaceTerraformDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeTerraformDefinition
 	fullyQualifiedType := new(api_v0.TerraformDefinition).GetFullyQualifiedType()
-	terraformDefinitionID := c.Param("id")
+	terraformDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingTerraformDefinition api_v0.TerraformDefinition
 	if result := h.RequestDB(c).First(&existingTerraformDefinition, terraformDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -501,13 +511,17 @@ func (h Handler) ReplaceTerraformDefinition(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/terraform-definitions/{id} [DELETE]
 func (h Handler) DeleteTerraformDefinition(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.TerraformDefinition).GetFullyQualifiedType()
-	terraformDefinitionID := c.Param("id")
+	terraformDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var terraformDefinition api_v0.TerraformDefinition
 	if result := h.RequestDB(c).Preload("TerraformInstances").First(&terraformDefinition, terraformDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -854,12 +868,16 @@ func (h Handler) GetTerraformInstances(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/terraform-instances/{id} [GET]
 func (h Handler) GetTerraformInstance(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.TerraformInstance).GetFullyQualifiedType()
-	terraformInstanceID := c.Param("id")
+	terraformInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var terraformInstance api_v0.TerraformInstance
 	if result := h.RequestDB(c).
 		First(&terraformInstance, terraformInstanceID); result.Error != nil {
@@ -903,7 +921,10 @@ func (h Handler) GetTerraformInstance(c echo.Context) error {
 func (h Handler) UpdateTerraformInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeTerraformInstance
 	fullyQualifiedType := new(api_v0.TerraformInstance).GetFullyQualifiedType()
-	terraformInstanceID := c.Param("id")
+	terraformInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingTerraformInstance api_v0.TerraformInstance
 	if result := h.RequestDB(c).First(&existingTerraformInstance, terraformInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -1003,7 +1024,10 @@ func (h Handler) UpdateTerraformInstance(c echo.Context) error {
 func (h Handler) ReplaceTerraformInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeTerraformInstance
 	fullyQualifiedType := new(api_v0.TerraformInstance).GetFullyQualifiedType()
-	terraformInstanceID := c.Param("id")
+	terraformInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingTerraformInstance api_v0.TerraformInstance
 	if result := h.RequestDB(c).First(&existingTerraformInstance, terraformInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -1105,13 +1129,17 @@ func (h Handler) ReplaceTerraformInstance(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/terraform-instances/{id} [DELETE]
 func (h Handler) DeleteTerraformInstance(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.TerraformInstance).GetFullyQualifiedType()
-	terraformInstanceID := c.Param("id")
+	terraformInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var terraformInstance api_v0.TerraformInstance
 	if result := h.RequestDB(c).First(&terraformInstance, terraformInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
