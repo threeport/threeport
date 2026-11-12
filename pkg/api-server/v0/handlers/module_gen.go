@@ -231,12 +231,16 @@ func (h Handler) GetModuleApis(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/module-apis/{id} [GET]
 func (h Handler) GetModuleApi(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.ModuleApi).GetFullyQualifiedType()
-	moduleApiID := c.Param("id")
+	moduleApiID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var moduleApi api_v0.ModuleApi
 	if result := h.RequestDB(c).
 		First(&moduleApi, moduleApiID); result.Error != nil {
@@ -280,7 +284,10 @@ func (h Handler) GetModuleApi(c echo.Context) error {
 func (h Handler) UpdateModuleApi(c echo.Context) error {
 	objectType := api_v0.ObjectTypeModuleApi
 	fullyQualifiedType := new(api_v0.ModuleApi).GetFullyQualifiedType()
-	moduleApiID := c.Param("id")
+	moduleApiID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingModuleApi api_v0.ModuleApi
 	if result := h.RequestDB(c).First(&existingModuleApi, moduleApiID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -358,7 +365,10 @@ func (h Handler) UpdateModuleApi(c echo.Context) error {
 func (h Handler) ReplaceModuleApi(c echo.Context) error {
 	objectType := api_v0.ObjectTypeModuleApi
 	fullyQualifiedType := new(api_v0.ModuleApi).GetFullyQualifiedType()
-	moduleApiID := c.Param("id")
+	moduleApiID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingModuleApi api_v0.ModuleApi
 	if result := h.RequestDB(c).First(&existingModuleApi, moduleApiID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -438,13 +448,17 @@ func (h Handler) ReplaceModuleApi(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/module-apis/{id} [DELETE]
 func (h Handler) DeleteModuleApi(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.ModuleApi).GetFullyQualifiedType()
-	moduleApiID := c.Param("id")
+	moduleApiID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var moduleApi api_v0.ModuleApi
 	if result := h.RequestDB(c).First(&moduleApi, moduleApiID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -717,12 +731,16 @@ func (h Handler) GetModuleApiRoutes(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/module-api-routes/{id} [GET]
 func (h Handler) GetModuleApiRoute(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.ModuleApiRoute).GetFullyQualifiedType()
-	moduleApiRouteID := c.Param("id")
+	moduleApiRouteID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var moduleApiRoute api_v0.ModuleApiRoute
 	if result := h.RequestDB(c).
 		First(&moduleApiRoute, moduleApiRouteID); result.Error != nil {
@@ -766,7 +784,10 @@ func (h Handler) GetModuleApiRoute(c echo.Context) error {
 func (h Handler) UpdateModuleApiRoute(c echo.Context) error {
 	objectType := api_v0.ObjectTypeModuleApiRoute
 	fullyQualifiedType := new(api_v0.ModuleApiRoute).GetFullyQualifiedType()
-	moduleApiRouteID := c.Param("id")
+	moduleApiRouteID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingModuleApiRoute api_v0.ModuleApiRoute
 	if result := h.RequestDB(c).First(&existingModuleApiRoute, moduleApiRouteID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -844,7 +865,10 @@ func (h Handler) UpdateModuleApiRoute(c echo.Context) error {
 func (h Handler) ReplaceModuleApiRoute(c echo.Context) error {
 	objectType := api_v0.ObjectTypeModuleApiRoute
 	fullyQualifiedType := new(api_v0.ModuleApiRoute).GetFullyQualifiedType()
-	moduleApiRouteID := c.Param("id")
+	moduleApiRouteID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingModuleApiRoute api_v0.ModuleApiRoute
 	if result := h.RequestDB(c).First(&existingModuleApiRoute, moduleApiRouteID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -924,13 +948,17 @@ func (h Handler) ReplaceModuleApiRoute(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/module-api-routes/{id} [DELETE]
 func (h Handler) DeleteModuleApiRoute(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.ModuleApiRoute).GetFullyQualifiedType()
-	moduleApiRouteID := c.Param("id")
+	moduleApiRouteID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var moduleApiRoute api_v0.ModuleApiRoute
 	if result := h.RequestDB(c).First(&moduleApiRoute, moduleApiRouteID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -1203,12 +1231,16 @@ func (h Handler) GetModuleControllers(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/module-controllers/{id} [GET]
 func (h Handler) GetModuleController(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.ModuleController).GetFullyQualifiedType()
-	moduleControllerID := c.Param("id")
+	moduleControllerID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var moduleController api_v0.ModuleController
 	if result := h.RequestDB(c).
 		First(&moduleController, moduleControllerID); result.Error != nil {
@@ -1252,7 +1284,10 @@ func (h Handler) GetModuleController(c echo.Context) error {
 func (h Handler) UpdateModuleController(c echo.Context) error {
 	objectType := api_v0.ObjectTypeModuleController
 	fullyQualifiedType := new(api_v0.ModuleController).GetFullyQualifiedType()
-	moduleControllerID := c.Param("id")
+	moduleControllerID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingModuleController api_v0.ModuleController
 	if result := h.RequestDB(c).First(&existingModuleController, moduleControllerID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -1330,7 +1365,10 @@ func (h Handler) UpdateModuleController(c echo.Context) error {
 func (h Handler) ReplaceModuleController(c echo.Context) error {
 	objectType := api_v0.ObjectTypeModuleController
 	fullyQualifiedType := new(api_v0.ModuleController).GetFullyQualifiedType()
-	moduleControllerID := c.Param("id")
+	moduleControllerID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingModuleController api_v0.ModuleController
 	if result := h.RequestDB(c).First(&existingModuleController, moduleControllerID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -1410,13 +1448,17 @@ func (h Handler) ReplaceModuleController(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/module-controllers/{id} [DELETE]
 func (h Handler) DeleteModuleController(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.ModuleController).GetFullyQualifiedType()
-	moduleControllerID := c.Param("id")
+	moduleControllerID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var moduleController api_v0.ModuleController
 	if result := h.RequestDB(c).First(&moduleController, moduleControllerID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -1689,12 +1731,16 @@ func (h Handler) GetModuleObjects(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/module-objects/{id} [GET]
 func (h Handler) GetModuleObject(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.ModuleObject).GetFullyQualifiedType()
-	moduleObjectID := c.Param("id")
+	moduleObjectID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var moduleObject api_v0.ModuleObject
 	if result := h.RequestDB(c).
 		First(&moduleObject, moduleObjectID); result.Error != nil {
@@ -1738,7 +1784,10 @@ func (h Handler) GetModuleObject(c echo.Context) error {
 func (h Handler) UpdateModuleObject(c echo.Context) error {
 	objectType := api_v0.ObjectTypeModuleObject
 	fullyQualifiedType := new(api_v0.ModuleObject).GetFullyQualifiedType()
-	moduleObjectID := c.Param("id")
+	moduleObjectID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingModuleObject api_v0.ModuleObject
 	if result := h.RequestDB(c).First(&existingModuleObject, moduleObjectID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -1816,7 +1865,10 @@ func (h Handler) UpdateModuleObject(c echo.Context) error {
 func (h Handler) ReplaceModuleObject(c echo.Context) error {
 	objectType := api_v0.ObjectTypeModuleObject
 	fullyQualifiedType := new(api_v0.ModuleObject).GetFullyQualifiedType()
-	moduleObjectID := c.Param("id")
+	moduleObjectID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingModuleObject api_v0.ModuleObject
 	if result := h.RequestDB(c).First(&existingModuleObject, moduleObjectID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -1896,13 +1948,17 @@ func (h Handler) ReplaceModuleObject(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/module-objects/{id} [DELETE]
 func (h Handler) DeleteModuleObject(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.ModuleObject).GetFullyQualifiedType()
-	moduleObjectID := c.Param("id")
+	moduleObjectID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var moduleObject api_v0.ModuleObject
 	if result := h.RequestDB(c).First(&moduleObject, moduleObjectID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {

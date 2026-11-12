@@ -98,6 +98,10 @@ type KubernetesRuntimeInfraGKE struct {
 	gcpProjectResolvedFromGcloudINI bool
 	// gcpRegionResolvedFromGcloudINI is true when loadGCPConfig set Region from the active gcloud INI.
 	gcpRegionResolvedFromGcloudINI bool
+
+	// The CIDR blocks allowed to reach the Kubernetes API's public endpoint.
+	// Empty leaves it open to every address.
+	AllowedCidrs []string
 }
 
 const (
@@ -226,6 +230,15 @@ func (i *KubernetesRuntimeInfraGKE) DestroyInfra() error {
 	return i.destroyInfraStack()
 }
 
+// gkeNodePoolIgnoredChanges are the node pool properties Pulumi sets only when
+// it creates the node pool. GKE's autoscaler changes the node count with the
+// load, and an up on an existing stack runs after a refresh from GCP (see
+// setupStack), so setting the initial count again would scale a busy cluster
+// back down. Moving to InitialNodeCount instead would replace the node pool of
+// every existing stack, since the provider replaces a node pool whose initial
+// node count changes.
+var gkeNodePoolIgnoredChanges = []string{"nodeCount"}
+
 // pulumiProgram defines the Pulumi resources for the GKE stack.
 func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 	return func(ctx *pulumi.Context) error {
@@ -326,6 +339,8 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 				MasterIpv4CidrBlock:   pulumi.String("172.16.0.0/28"),
 			},
 
+			MasterAuthorizedNetworksConfig: i.masterAuthorizedNetworksConfig(),
+
 			NetworkPolicy: &gkecontainer.ClusterNetworkPolicyArgs{
 				Enabled:  pulumi.Bool(true),
 				Provider: pulumi.String("CALICO"),
@@ -376,7 +391,8 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 				AutoUpgrade: pulumi.Bool(true),
 			},
 		}, pulumi.Provider(gcpProvider),
-			pulumi.DependsOn([]pulumi.Resource{cluster}))
+			pulumi.DependsOn([]pulumi.Resource{cluster}),
+			pulumi.IgnoreChanges(gkeNodePoolIgnoredChanges))
 		if err != nil {
 			return fmt.Errorf("failed to create node pool: %w", err)
 		}
@@ -524,6 +540,30 @@ func (i *KubernetesRuntimeInfraGKE) DeleteGCPResources() error {
 	}
 
 	return nil
+}
+
+// masterAuthorizedNetworksConfig returns the authorized networks that limit
+// the public endpoint to AllowedCidrs, or nil to leave it open as it is
+// without them.  The nodes reach the API through the private endpoint, which
+// authorized networks do not apply to.  Access from Google Cloud's own public
+// addresses is turned off, since it would let any VM in any project past the
+// list.
+func (i *KubernetesRuntimeInfraGKE) masterAuthorizedNetworksConfig() gkecontainer.ClusterMasterAuthorizedNetworksConfigPtrInput {
+	if len(i.AllowedCidrs) == 0 {
+		return nil
+	}
+
+	cidrBlocks := gkecontainer.ClusterMasterAuthorizedNetworksConfigCidrBlockArray{}
+	for _, cidr := range i.AllowedCidrs {
+		cidrBlocks = append(cidrBlocks, &gkecontainer.ClusterMasterAuthorizedNetworksConfigCidrBlockArgs{
+			CidrBlock: pulumi.String(cidr),
+		})
+	}
+
+	return &gkecontainer.ClusterMasterAuthorizedNetworksConfigArgs{
+		CidrBlocks:                  cidrBlocks,
+		GcpPublicCidrsAccessEnabled: pulumi.Bool(false),
+	}
 }
 
 // useGCPAuth puts GCP authentication and configuration in place for a call that

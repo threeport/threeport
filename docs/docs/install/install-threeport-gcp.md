@@ -73,6 +73,33 @@ its database up to a Cloud Storage bucket in another region. Choose that region 
 `--gcp-backup-region`. See
 [Back Up and Restore a Control Plane](../control-planes/backup-restore.md).
 
+## Restrict Access to the Kubernetes API
+
+By default the cluster's Kubernetes API accepts connections from any address.
+Requests still need credentials. To accept connections only from networks you
+trust, pass `--k8s-api-allowed-cidrs` with a comma-separated list of IPv4 CIDR
+blocks, up to 50:
+
+```bash
+  --k8s-api-allowed-cidrs 203.0.113.7/32,198.51.100.0/24
+```
+
+Include the public address of the machine you run `tptctl` from. `tptctl`
+installs the control plane through the Kubernetes API, and `tptctl down` and
+`tptctl upgrade` use it as well. Once the cluster exists, `tptctl up` checks
+that it can reach the Kubernetes API before it installs anything. If it can't
+within two minutes, it stops with an error that names the endpoint, and deletes
+the cluster it created. Run `tptctl up` again with your address in the list.
+To keep the cluster after the error instead, pass
+`--teardown-on-failure=false`, and delete it later with
+`tptctl down --name test --infra-only`.
+
+Addresses that belong to Google Cloud, such as other projects' VMs or Cloud
+Shell, are not let through unless they are in the list.
+
+The control plane reaches the cluster it runs on from inside the cluster, so
+it needs no entry in the list.
+
 ## Validate Deployment
 
 Note: if you would like to use
