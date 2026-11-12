@@ -28,6 +28,13 @@ const (
 	eksDefaultRouteCidr = "0.0.0.0/0"
 )
 
+// eksNodeGroupIgnoredChanges are the node group properties Pulumi sets only when
+// it creates the node group.  The cluster autoscaler moves the desired size
+// with the load, and an up on an existing stack runs after a refresh from AWS
+// (see setupStack), so setting the initial size again would scale a busy
+// cluster back down and evict its workloads.
+var eksNodeGroupIgnoredChanges = []string{"scalingConfig.desiredSize"}
+
 // InitPulumiProject fills in the Pulumi project identity and stack config, and
 // returns the receiver so a caller can set it at construction.
 //
@@ -325,17 +332,23 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 		// the cluster's elastic network interfaces live in the private
 		// subnets; the API endpoint is reachable both from inside the VPC and
 		// from the internet so that a control plane hosted elsewhere can
-		// reach it
+		// reach it.  AllowedCidrs, when set, limits the public endpoint to
+		// those blocks; the nodes keep reaching the API through the private
+		// endpoint, which the list does not apply to.
+		vpcConfig := &awseks.ClusterVpcConfigArgs{
+			SubnetIds:             privateSubnetIds,
+			EndpointPrivateAccess: pulumi.Bool(true),
+			EndpointPublicAccess:  pulumi.Bool(true),
+		}
+		if len(i.AllowedCidrs) > 0 {
+			vpcConfig.PublicAccessCidrs = pulumi.ToStringArray(i.AllowedCidrs)
+		}
 		clusterArgs := &awseks.ClusterArgs{
-			Name:    pulumi.String(i.RuntimeInstanceName),
-			RoleArn: pulumi.String(i.ClusterRoleArn),
-			Version: pulumi.String(i.kubernetesVersion()),
-			VpcConfig: &awseks.ClusterVpcConfigArgs{
-				SubnetIds:             privateSubnetIds,
-				EndpointPrivateAccess: pulumi.Bool(true),
-				EndpointPublicAccess:  pulumi.Bool(true),
-			},
-			Tags: i.resourceTags(i.RuntimeInstanceName),
+			Name:      pulumi.String(i.RuntimeInstanceName),
+			RoleArn:   pulumi.String(i.ClusterRoleArn),
+			Version:   pulumi.String(i.kubernetesVersion()),
+			VpcConfig: vpcConfig,
+			Tags:      i.resourceTags(i.RuntimeInstanceName),
 		}
 		// a cluster created before the service range was set keeps the one
 		// EKS chose: setting it would replace the cluster
@@ -363,7 +376,7 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 				MaxSize:     pulumi.Int(i.DefaultNodeGroupMaxNodes),
 			},
 			Tags: i.resourceTags(nodeGroupName),
-		}); err != nil {
+		}, pulumi.IgnoreChanges(eksNodeGroupIgnoredChanges)); err != nil {
 			return fmt.Errorf("failed to create EKS node group: %w", err)
 		}
 

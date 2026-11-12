@@ -146,13 +146,12 @@ func TestAKubernetesRuntimeDefinitionIsCheckedForItsProvider(t *testing.T) {
 		{"nothing set on kind", KubernetesRuntimeInfraProviderKind, nil, nil, ""},
 		{"public on kind", KubernetesRuntimeInfraProviderKind, util.Ptr(false), rawJSON("[]"), ""},
 		{"an allowlist", KubernetesRuntimeInfraProviderEKS, nil, rawJSON(`["203.0.113.0/24"]`), ""},
-		{"private", KubernetesRuntimeInfraProviderGKE, util.Ptr(true), nil, ""},
-		{"private with an allowlist", KubernetesRuntimeInfraProviderOKE, util.Ptr(true), rawJSON(`["10.8.0.0/16"]`), ""},
+		{"private", KubernetesRuntimeInfraProviderGKE, util.Ptr(true), nil, ErrMsgPrivateApiNotSupported},
+		{"private with an allowlist", KubernetesRuntimeInfraProviderOKE, util.Ptr(true), rawJSON(`["10.8.0.0/16"]`), ErrMsgPrivateApiNotSupported},
+		{"explicitly public", KubernetesRuntimeInfraProviderGKE, util.Ptr(false), rawJSON(`["203.0.113.0/24"]`), ""},
 		{"EKS at its limit", KubernetesRuntimeInfraProviderEKS, nil, cidrsJSON(t, distinctCidrs(40)...), ""},
 		{"EKS past its limit", KubernetesRuntimeInfraProviderEKS, nil, cidrsJSON(t, distinctCidrs(41)...), "AllowedCidrs has 41 entries and eks admits at most 40"},
 		{"public GKE past its limit", KubernetesRuntimeInfraProviderGKE, util.Ptr(false), cidrsJSON(t, distinctCidrs(51)...), "admits at most 50"},
-		{"private GKE within its larger limit", KubernetesRuntimeInfraProviderGKE, util.Ptr(true), cidrsJSON(t, distinctCidrs(100)...), ""},
-		{"private GKE past its limit", KubernetesRuntimeInfraProviderGKE, util.Ptr(true), cidrsJSON(t, distinctCidrs(101)...), "admits at most 100"},
 		{"OKE past its limit", KubernetesRuntimeInfraProviderOKE, nil, cidrsJSON(t, distinctCidrs(121)...), "admits at most 120"},
 		{"a bad block", KubernetesRuntimeInfraProviderEKS, nil, rawJSON(`["203.0.113.7/24"]`), "has host bits set"},
 		{"private on kind", KubernetesRuntimeInfraProviderKind, util.Ptr(true), nil, "not supported on kind runtimes"},
@@ -187,21 +186,44 @@ func TestADefinitionCreatedWithoutTheFieldsKeepsAPublicApi(t *testing.T) {
 }
 
 // TestAnUpdateIsCheckedAgainstWhatTheDefinitionWillHold covers both update
-// shapes: a patch is checked together with the values already stored, and
-// a replace with the values it carries.
+// shapes: the values an update would leave are validated, and refused when
+// they would change how the cluster is restricted, since nothing applies the
+// change to it.  An update that sends the same restriction in another form
+// is accepted.
 func TestAnUpdateIsCheckedAgainstWhatTheDefinitionWillHold(t *testing.T) {
 	cases := []struct {
 		name     string
 		provider string
 		stored   *datatypes.JSON
-		storedPA *bool
 		update   func(db *gorm.DB, loaded KubernetesRuntimeDefinition) error
 		wantErr  string
 	}{
 		{
-			name: "patch a valid allowlist", provider: KubernetesRuntimeInfraProviderEKS,
+			name: "patch in an allowlist", provider: KubernetesRuntimeInfraProviderEKS,
 			update: func(db *gorm.DB, loaded KubernetesRuntimeDefinition) error {
 				return db.Model(&loaded).Updates(&KubernetesRuntimeDefinition{AllowedCidrs: rawJSON(`["203.0.113.0/24"]`)}).Error
+			},
+			wantErr: ErrMsgKubernetesApiAccessImmutable,
+		},
+		{
+			name: "patch another allowlist over a stored one", provider: KubernetesRuntimeInfraProviderEKS,
+			stored: rawJSON(`["203.0.113.0/24"]`),
+			update: func(db *gorm.DB, loaded KubernetesRuntimeDefinition) error {
+				return db.Model(&loaded).Updates(&KubernetesRuntimeDefinition{AllowedCidrs: rawJSON(`["198.51.100.0/24"]`)}).Error
+			},
+			wantErr: ErrMsgKubernetesApiAccessImmutable,
+		},
+		{
+			name: "patch the same blocks in another order", provider: KubernetesRuntimeInfraProviderEKS,
+			stored: rawJSON(`["203.0.113.0/24","198.51.100.0/24"]`),
+			update: func(db *gorm.DB, loaded KubernetesRuntimeDefinition) error {
+				return db.Model(&loaded).Updates(&KubernetesRuntimeDefinition{AllowedCidrs: rawJSON(`["198.51.100.0/24", "203.0.113.0/24"]`)}).Error
+			},
+		},
+		{
+			name: "patch an empty list over none", provider: KubernetesRuntimeInfraProviderEKS,
+			update: func(db *gorm.DB, loaded KubernetesRuntimeDefinition) error {
+				return db.Model(&loaded).Updates(&KubernetesRuntimeDefinition{AllowedCidrs: rawJSON(`[]`), PrivateApi: util.Ptr(false)}).Error
 			},
 		},
 		{
@@ -219,22 +241,27 @@ func TestAnUpdateIsCheckedAgainstWhatTheDefinitionWillHold(t *testing.T) {
 			wantErr: "admits at most 40",
 		},
 		{
-			// 60 blocks fit a private GKE cluster, so turning PrivateApi off
-			// leaves more than a public one admits
-			name: "patch PrivateApi off under a list only a private API admits", provider: KubernetesRuntimeInfraProviderGKE,
-			stored: cidrsJSON(t, distinctCidrs(60)...), storedPA: util.Ptr(true),
+			name: "patch PrivateApi on", provider: KubernetesRuntimeInfraProviderGKE,
+			stored: rawJSON(`["203.0.113.0/24"]`),
 			update: func(db *gorm.DB, loaded KubernetesRuntimeDefinition) error {
-				return db.Model(&loaded).Updates(map[string]any{"PrivateApi": false}).Error
+				return db.Model(&loaded).Updates(&KubernetesRuntimeDefinition{PrivateApi: util.Ptr(true)}).Error
 			},
-			wantErr: "cannot validate Kubernetes API access",
+			wantErr: ErrMsgPrivateApiNotSupported,
 		},
 		{
-			name: "patch PrivateApi off with a struct under a list only a private API admits", provider: KubernetesRuntimeInfraProviderGKE,
-			stored: cidrsJSON(t, distinctCidrs(60)...), storedPA: util.Ptr(true),
+			name: "replace with PrivateApi on", provider: KubernetesRuntimeInfraProviderEKS,
 			update: func(db *gorm.DB, loaded KubernetesRuntimeDefinition) error {
-				return db.Model(&loaded).Updates(&KubernetesRuntimeDefinition{PrivateApi: util.Ptr(false)}).Error
+				loaded.PrivateApi = util.Ptr(true)
+				return db.Save(&loaded).Error
 			},
-			wantErr: "admits at most 50",
+			wantErr: ErrMsgPrivateApiNotSupported,
+		},
+		{
+			name: "patch PrivateApi with a map", provider: KubernetesRuntimeInfraProviderGKE,
+			update: func(db *gorm.DB, loaded KubernetesRuntimeDefinition) error {
+				return db.Model(&loaded).Updates(map[string]any{"PrivateApi": true}).Error
+			},
+			wantErr: "cannot validate Kubernetes API access",
 		},
 		{
 			name: "patch PrivateApi on on kind", provider: KubernetesRuntimeInfraProviderKind,
@@ -265,12 +292,30 @@ func TestAnUpdateIsCheckedAgainstWhatTheDefinitionWillHold(t *testing.T) {
 				loaded.AllowedCidrs = nil
 				return db.Save(&loaded).Error
 			},
+			wantErr: ErrMsgKubernetesApiAccessImmutable,
+		},
+		{
+			name: "replace keeping the list", provider: KubernetesRuntimeInfraProviderEKS,
+			stored: rawJSON(`["203.0.113.0/24"]`),
+			update: func(db *gorm.DB, loaded KubernetesRuntimeDefinition) error {
+				loaded.NodeSize = util.Ptr("Large")
+				loaded.AllowedCidrs = rawJSON(`[ "203.0.113.0/24" ]`)
+				return db.Save(&loaded).Error
+			},
+		},
+		{
+			name: "replace an empty list with none", provider: KubernetesRuntimeInfraProviderEKS,
+			stored: rawJSON(`[]`),
+			update: func(db *gorm.DB, loaded KubernetesRuntimeDefinition) error {
+				loaded.AllowedCidrs = nil
+				return db.Save(&loaded).Error
+			},
 		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			db := setupKubernetesApiAccessDB(t)
-			created := newKRD("krd", c.provider, c.storedPA, c.stored)
+			created := newKRD("krd", c.provider, nil, c.stored)
 			require.NoError(t, db.Create(created).Error)
 			var loaded KubernetesRuntimeDefinition
 			require.NoError(t, db.First(&loaded, *created.ID).Error)
@@ -339,6 +384,14 @@ func TestTheProviderDefinitionsAreCheckedLikeTheirKubernetesRuntimeDefinition(t 
 			err := db.Create(c.build(rawJSON(`["203.0.113.7/24"]`))).Error
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), "has host bits set")
+		})
+		t.Run(c.name+" patched with another list", func(t *testing.T) {
+			db := setupKubernetesApiAccessDB(t)
+			created := c.build(rawJSON(`["203.0.113.0/24"]`))
+			require.NoError(t, db.Create(created).Error)
+			err := db.Model(created).Updates(c.build(rawJSON(`["198.51.100.0/24"]`))).Error
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), ErrMsgKubernetesApiAccessImmutable)
 		})
 		t.Run(c.name+" patched with a bad block", func(t *testing.T) {
 			db := setupKubernetesApiAccessDB(t)
@@ -411,126 +464,104 @@ func TestAnInstancesEgressCidrsAreChecked(t *testing.T) {
 	})
 }
 
-// TestAPatchIsCheckedAgainstTheRowItWritesOver covers two updates of the same
-// definition that each loaded it before the other wrote.  The second is
-// checked against the row as the first left it, not as it loaded it, so
-// together they can't store a pair neither would be allowed to.
+// TestAPatchIsCheckedAgainstTheRowItWritesOver covers a PATCH of a
+// definition that another write changed after the PATCH's handler loaded it.
+// The PATCH is checked against the row as that write left it, not as the
+// handler loaded it: sending back the values it loaded would otherwise pass as
+// no change and undo the other write.
 func TestAPatchIsCheckedAgainstTheRowItWritesOver(t *testing.T) {
-	gkeDefinition := func(privateApi *bool, cidrs *datatypes.JSON) *GcpGkeKubernetesRuntimeDefinition {
-		return &GcpGkeKubernetesRuntimeDefinition{
-			Definition: Definition{Name: util.Ptr("gke")}, ZoneCount: util.Ptr(2),
-			DefaultNodeGroupInstanceType: util.Ptr("e2-standard-4"), DefaultNodeGroupInitialSize: util.Ptr(2),
-			DefaultNodeGroupMinimumSize: util.Ptr(0), DefaultNodeGroupMaximumSize: util.Ptr(5),
-			KubernetesRuntimeDefinitionID: util.Ptr(uint(1)), PrivateApi: privateApi, AllowedCidrs: cidrs,
-		}
-	}
 	types := []struct {
-		name string
-		// build returns a GKE definition, or a patch of one, holding the pair
-		build func(privateApi *bool, cidrs *datatypes.JSON) any
-		// load returns the stored definition, as a handler loads it
-		load func(db *gorm.DB, id uint) any
-		// id returns the ID of a created definition
-		id func(created any) uint
+		name   string
+		create func(t *testing.T, db *gorm.DB, privateApi *bool, cidrs *datatypes.JSON) uint
+		load   func(t *testing.T, db *gorm.DB, id uint) any
+		patch  func(privateApi *bool, cidrs *datatypes.JSON) any
+		model  any
 	}{
 		{
 			name: "KubernetesRuntimeDefinition",
-			build: func(privateApi *bool, cidrs *datatypes.JSON) any {
-				if privateApi == nil && cidrs == nil {
-					return &KubernetesRuntimeDefinition{}
-				}
-				return &KubernetesRuntimeDefinition{PrivateApi: privateApi, AllowedCidrs: cidrs}
+			create: func(t *testing.T, db *gorm.DB, privateApi *bool, cidrs *datatypes.JSON) uint {
+				created := newKRD("krd", KubernetesRuntimeInfraProviderGKE, privateApi, cidrs)
+				require.NoError(t, db.Create(created).Error)
+				return *created.ID
 			},
-			load: func(db *gorm.DB, id uint) any {
+			load: func(t *testing.T, db *gorm.DB, id uint) any {
 				var loaded KubernetesRuntimeDefinition
 				require.NoError(t, db.First(&loaded, id).Error)
 				return &loaded
 			},
-			id: func(created any) uint { return *created.(*KubernetesRuntimeDefinition).ID },
+			patch: func(privateApi *bool, cidrs *datatypes.JSON) any {
+				return &KubernetesRuntimeDefinition{PrivateApi: privateApi, AllowedCidrs: cidrs}
+			},
+			model: &KubernetesRuntimeDefinition{},
 		},
 		{
 			name: "GcpGkeKubernetesRuntimeDefinition",
-			build: func(privateApi *bool, cidrs *datatypes.JSON) any {
-				return &GcpGkeKubernetesRuntimeDefinition{PrivateApi: privateApi, AllowedCidrs: cidrs}
+			create: func(t *testing.T, db *gorm.DB, privateApi *bool, cidrs *datatypes.JSON) uint {
+				created := &GcpGkeKubernetesRuntimeDefinition{
+					Definition: Definition{Name: util.Ptr("gke")}, ZoneCount: util.Ptr(2),
+					DefaultNodeGroupInstanceType: util.Ptr("e2-standard-4"), DefaultNodeGroupInitialSize: util.Ptr(2),
+					DefaultNodeGroupMinimumSize: util.Ptr(0), DefaultNodeGroupMaximumSize: util.Ptr(5),
+					KubernetesRuntimeDefinitionID: util.Ptr(uint(1)), PrivateApi: privateApi, AllowedCidrs: cidrs,
+				}
+				require.NoError(t, db.Create(created).Error)
+				return *created.ID
 			},
-			load: func(db *gorm.DB, id uint) any {
+			load: func(t *testing.T, db *gorm.DB, id uint) any {
 				var loaded GcpGkeKubernetesRuntimeDefinition
 				require.NoError(t, db.First(&loaded, id).Error)
 				return &loaded
 			},
-			id: func(created any) uint { return *created.(*GcpGkeKubernetesRuntimeDefinition).ID },
+			patch: func(privateApi *bool, cidrs *datatypes.JSON) any {
+				return &GcpGkeKubernetesRuntimeDefinition{PrivateApi: privateApi, AllowedCidrs: cidrs}
+			},
+			model: &GcpGkeKubernetesRuntimeDefinition{},
 		},
-	}
-	create := func(t *testing.T, db *gorm.DB, typeName string, privateApi *bool, cidrs *datatypes.JSON) any {
-		var created any = gkeDefinition(privateApi, cidrs)
-		if typeName == "KubernetesRuntimeDefinition" {
-			created = newKRD("krd", KubernetesRuntimeInfraProviderGKE, privateApi, cidrs)
-		}
-		require.NoError(t, db.Create(created).Error)
-		return created
 	}
 
-	// 40 blocks fit either kind of GKE API, and 60 only a private one
 	cases := []struct {
-		name          string
-		storedPrivate bool
-		storedCidrs   int
-		first         [2]any
-		second        [2]any
-		wantErr       string
+		name string
+		// written is what the other write leaves in the row
+		written map[string]any
+		// patchPrivateApi and patchCidrs are what the PATCH sends
+		patchPrivateApi *bool
+		patchCidrs      int
+		wantErr         string
 	}{
 		{
-			name:          "PrivateApi turned off, then the list grown past what a public API admits",
-			storedPrivate: true, storedCidrs: 40,
-			first:   [2]any{util.Ptr(false), nil},
-			second:  [2]any{nil, 60},
-			wantErr: "AllowedCidrs has 60 entries and gke admits at most 50",
+			name:            "PrivateApi sent back as loaded after the other write turned it on",
+			written:         map[string]any{"private_api": true},
+			patchPrivateApi: util.Ptr(false),
+			wantErr:         ErrMsgKubernetesApiAccessImmutable,
 		},
 		{
-			name:          "the list grown, then PrivateApi turned off",
-			storedPrivate: true, storedCidrs: 40,
-			first:   [2]any{nil, 60},
-			second:  [2]any{util.Ptr(false), nil},
-			wantErr: "AllowedCidrs has 60 entries and gke admits at most 50",
+			name:       "the list sent back as loaded after the other write shrank it",
+			written:    map[string]any{"allowed_cidrs": cidrsJSON(t, distinctCidrs(30)...)},
+			patchCidrs: 40,
+			wantErr:    ErrMsgKubernetesApiAccessImmutable,
 		},
 		{
-			name:          "PrivateApi turned off, then the list it was loaded with sent again",
-			storedPrivate: true, storedCidrs: 60,
-			first:   [2]any{util.Ptr(false), 40},
-			second:  [2]any{nil, 60},
-			wantErr: "AllowedCidrs has 60 entries and gke admits at most 50",
+			name:       "the list the other write left sent back",
+			written:    map[string]any{"allowed_cidrs": cidrsJSON(t, distinctCidrs(30)...)},
+			patchCidrs: 30,
 		},
-		{
-			name:          "PrivateApi turned off, then the list shrunk",
-			storedPrivate: true, storedCidrs: 40,
-			first:  [2]any{util.Ptr(false), nil},
-			second: [2]any{nil, 30},
-		},
-	}
-	pair := func(t *testing.T, values [2]any) (*bool, *datatypes.JSON) {
-		var privateApi *bool
-		if values[0] != nil {
-			privateApi = values[0].(*bool)
-		}
-		var cidrs *datatypes.JSON
-		if values[1] != nil {
-			cidrs = cidrsJSON(t, distinctCidrs(values[1].(int))...)
-		}
-		return privateApi, cidrs
 	}
 	for _, objectType := range types {
 		for _, c := range cases {
 			t.Run(objectType.name+": "+c.name, func(t *testing.T) {
 				db := setupKubernetesApiAccessDB(t)
-				created := create(t, db, objectType.name, util.Ptr(c.storedPrivate), cidrsJSON(t, distinctCidrs(c.storedCidrs)...))
-				id := objectType.id(created)
+				id := objectType.create(t, db, util.Ptr(false), cidrsJSON(t, distinctCidrs(40)...))
 
-				// both requests load the definition before either writes
-				firstLoaded := objectType.load(db, id)
-				secondLoaded := objectType.load(db, id)
+				// the PATCH's handler loads the definition, then the other
+				// write changes it
+				loaded := objectType.load(t, db, id)
+				require.NoError(t, db.Session(&gorm.Session{SkipHooks: true}).
+					Model(objectType.model).Where("id = ?", id).Updates(c.written).Error)
 
-				require.NoError(t, db.Model(firstLoaded).Updates(objectType.build(pair(t, c.first))).Error)
-				err := db.Model(secondLoaded).Updates(objectType.build(pair(t, c.second))).Error
+				var cidrs *datatypes.JSON
+				if c.patchCidrs > 0 {
+					cidrs = cidrsJSON(t, distinctCidrs(c.patchCidrs)...)
+				}
+				err := db.Model(loaded).Updates(objectType.patch(c.patchPrivateApi, cidrs)).Error
 				if c.wantErr == "" {
 					require.NoError(t, err)
 					return
