@@ -88,6 +88,17 @@ a range the parent has allocated, and it can only grow: a block can be added,
 or replaced by a larger one that holds it, but not removed, since the child may
 have allocated from it.
 
+The clusters a child allocated from its pool live in the child's database, and
+may outlive the child. So when a child with a pool is deleted, its pool is
+recorded in `ReservedNetworkCidrs` on the control plane instance that
+represents its parent, and the parent doesn't allocate from it or accept a
+runtime range or child pool that overlaps it. Once the clusters allocated from
+a reserved block are gone, release it by removing it from
+`ReservedNetworkCidrs`: get the control plane instance with `tptctl get
+control-plane-instance -o yaml`, remove the block, and apply the file with
+`tptctl replace control-plane-instance`. A config file that leaves
+`ReservedNetworkCidrs` out keeps the reservations as they are.
+
 A cluster created before ranges were allocated keeps its network, and records
 no range. So does one whose create is resumed on a stack that holds its network
 already: it keeps the range that network was laid out in. Separate Threeport

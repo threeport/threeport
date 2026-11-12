@@ -445,3 +445,54 @@ func TestAChildsPoolIsClearOfItsParentsRanges(t *testing.T) {
 		assert.ErrorContains(t, err, "cannot update NetworkCidrPool on a control plane this API does not serve")
 	})
 }
+
+// TestADeletedChildsPoolStaysReserved covers deleting a child control plane
+// with a pool: the clusters it allocated from the pool are in its own
+// database and may outlive it, so the pool is reserved on this control
+// plane's instance, and no runtime's range or other child's pool may take it
+// until an operator releases it.
+func TestADeletedChildsPoolStaysReserved(t *testing.T) {
+	db := setupControlPlaneAuthDB(t)
+	self, err := controlPlaneWithPool(t, db, "self", true, poolJSON(t, "10.0.0.0/8"))
+	require.NoError(t, err)
+	first, err := controlPlaneWithPool(t, db, "first-child", false, poolJSON(t, "10.32.0.0/12"))
+	require.NoError(t, err)
+	second, err := controlPlaneWithPool(t, db, "second-child", false, poolJSON(t, "10.64.0.0/12"))
+	require.NoError(t, err)
+	withoutPool, err := controlPlaneWithPool(t, db, "child-without-a-pool", false, nil)
+	require.NoError(t, err)
+	reserved := func() string {
+		var loaded ControlPlaneInstance
+		require.NoError(t, db.First(&loaded, *self.ID).Error)
+		if loaded.ReservedNetworkCidrs == nil {
+			return ""
+		}
+		return string(*loaded.ReservedNetworkCidrs)
+	}
+
+	require.NoError(t, db.Delete(first).Error)
+	assert.JSONEq(t, `["10.32.0.0/12"]`, reserved())
+	require.NoError(t, db.Delete(withoutPool).Error)
+	assert.JSONEq(t, `["10.32.0.0/12"]`, reserved(), "a child without a pool reserves nothing")
+	require.NoError(t, db.Delete(second).Error)
+	assert.JSONEq(t, `["10.32.0.0/12", "10.64.0.0/12"]`, reserved())
+
+	_, err = runtimeWithNetworkCidr(t, db, "in-a-deleted-childs-pool", util.Ptr("10.33.0.0/16"))
+	assert.ErrorContains(t, err, "NetworkCidr 10.33.0.0/16 overlaps 10.32.0.0/12, reserved for the clusters of a deleted child control plane")
+	_, err = controlPlaneWithPool(t, db, "new-child", false, poolJSON(t, "10.40.0.0/13"))
+	assert.ErrorContains(t, err, "NetworkCidrPool entry 10.40.0.0/13 overlaps 10.32.0.0/12, reserved for the clusters of a deleted child control plane")
+	_, err = runtimeWithNetworkCidr(t, db, "elsewhere", util.Ptr("10.16.0.0/16"))
+	require.NoError(t, err, "outside the reserved blocks")
+
+	// an operator releases a block once the clusters allocated from it are gone
+	var loaded ControlPlaneInstance
+	require.NoError(t, db.First(&loaded, *self.ID).Error)
+	require.NoError(t, db.Model(&loaded).Updates(&ControlPlaneInstance{ReservedNetworkCidrs: poolJSON(t, "10.64.0.0/12")}).Error)
+	_, err = runtimeWithNetworkCidr(t, db, "released", util.Ptr("10.33.0.0/16"))
+	assert.NoError(t, err)
+
+	var again ControlPlaneInstance
+	require.NoError(t, db.First(&again, *self.ID).Error)
+	err = db.Model(&again).Updates(&ControlPlaneInstance{ReservedNetworkCidrs: poolJSON(t, "10.16.0.0/20")}).Error
+	assert.ErrorContains(t, err, "smaller than a /16")
+}

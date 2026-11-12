@@ -11,6 +11,7 @@ import (
 
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 )
 
@@ -93,11 +94,15 @@ func nextNetworkCidr(apiClient *http.Client, apiServer string) (netip.Prefix, bo
 }
 
 // networkCidrsInUse returns the ranges a new runtime's range must stay clear
-// of: every runtime's range, and every child control plane's pool.  The
+// of: every runtime's range, every child control plane's pool, and the pools
+// of deleted children this control plane has reserved for their clusters.  The
 // control planes this one keeps rows for that aren't itself are its children;
 // the rows for its parent and the genesis carry no pool.
 func networkCidrsInUse(apiClient *http.Client, apiServer string, self *v0.ControlPlaneInstance) ([]netip.Prefix, error) {
-	var inUse []netip.Prefix
+	inUse, err := v0.ParseReservedNetworkCidrs(self.ReservedNetworkCidrs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read this control plane's reserved network ranges: %w", err)
+	}
 
 	runtimes, err := client.GetKubernetesRuntimeInstances(apiClient, apiServer)
 	if err != nil {
@@ -143,7 +148,8 @@ func networkCidrsInUse(apiClient *http.Client, apiServer string, self *v0.Contro
 // deletion scheduled, is allocated a range when its runtime has none.  One
 // already provisioned keeps what its runtime records: none for a cluster
 // created before ranges were allocated, whose network was laid out without
-// one and would be replaced by a new layout.
+// one and would be replaced by a new layout.  A cluster being deleted whose
+// runtime is already gone has none.
 func ClusterNetworkCidr(
 	apiClient *http.Client,
 	apiServer string,
@@ -158,6 +164,13 @@ func ClusterNetworkCidr(
 	provisioned := reconciliation.CreationConfirmed != nil || provider.HasInventory(inventory)
 	if provisioned || reconciliation.DeletionScheduled != nil {
 		runtime, err := client.GetKubernetesRuntimeInstanceByID(apiClient, apiServer, *runtimeID)
+		// the runtime controller may remove the runtime before the provider's
+		// deletion has destroyed the cluster.  The destroy doesn't lay the
+		// network out, and a create resumed on the stack keeps its range, so
+		// a cluster being deleted needs none
+		if reconciliation.DeletionScheduled != nil && errors.Is(err, client_lib.ErrObjectNotFound) {
+			return "", nil
+		}
 		if err != nil {
 			return "", fmt.Errorf("failed to get kubernetes runtime instance %d: %w", *runtimeID, err)
 		}

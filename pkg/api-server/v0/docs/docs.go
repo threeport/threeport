@@ -17955,6 +17955,13 @@ const docTemplate = `{
                     "description": "Indicates if object is considered to be reconciled by the object's controller.",
                     "type": "boolean"
                 },
+                "ReservedNetworkCidrs": {
+                    "description": "The address blocks this control plane doesn't allocate from, and that\nno runtime's range and no child control plane's pool may overlap, as a\nJSON array of IPv4 CIDR blocks.  They are the pools of its deleted\nchildren, recorded on the instance that represents this control plane\nas each child is deleted, since the clusters a child allocated from its\npool may outlive it.  Remove a block once the clusters allocated from it\nare gone.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "Status": {
                     "description": "The status of the instance.\nTODO: use a custom type",
                     "type": "string"

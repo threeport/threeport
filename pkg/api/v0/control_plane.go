@@ -78,6 +78,15 @@ type ControlPlaneInstance struct {
 	// ranges, and its clusters keep the network every cluster used to get.
 	NetworkCidrPool *datatypes.JSON `validate:"optional" swaggertype:"array,string"`
 
+	// The address blocks this control plane doesn't allocate from, and that
+	// no runtime's range and no child control plane's pool may overlap, as a
+	// JSON array of IPv4 CIDR blocks.  They are the pools of its deleted
+	// children, recorded on the instance that represents this control plane
+	// as each child is deleted, since the clusters a child allocated from its
+	// pool may outlive it.  Remove a block once the clusters allocated from it
+	// are gone.
+	ReservedNetworkCidrs *datatypes.JSON `validate:"optional" swaggertype:"array,string"`
+
 	// Indicates whether this is was the first control plane that was spun up in a control plane group
 	Genesis *bool `validate:"optional" gorm:"default:false"`
 

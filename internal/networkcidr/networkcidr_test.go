@@ -73,7 +73,10 @@ func (f *fakeControlPlane) serve(t *testing.T) *machinetest.APIStub {
 			}
 		}
 		runtime := f.runtimes[id]
-		require.NotNil(t, runtime, r.URL.Path)
+		if runtime == nil {
+			machinetest.WriteResponse(t, w, http.StatusNotFound, nil)
+			return
+		}
 		if r.Method == http.MethodPatch {
 			var update v0.KubernetesRuntimeInstance
 			require.NoError(t, json.NewDecoder(r.Body).Decode(&update))
@@ -241,4 +244,45 @@ func TestOnlyAClusterYetToBeProvisionedIsAllocatedARange(t *testing.T) {
 
 	_, err = ClusterNetworkCidr(api.Client, api.Addr, nil, v0.Reconciliation{}, nil)
 	assert.ErrorContains(t, err, "names no kubernetes runtime instance")
+}
+
+// TestADeletedClustersRuntimeMayAlreadyBeGone covers the provider's deletion
+// running after the runtime controller removed the runtime: the cluster is
+// destroyed without a range, which the destroy doesn't need, rather than the
+// lookup stopping it.  A provisioned cluster whose runtime is missing, which
+// isn't being deleted, is still an error.
+func TestADeletedClustersRuntimeMayAlreadyBeGone(t *testing.T) {
+	f := &fakeControlPlane{
+		runtimes:      map[uint]*v0.KubernetesRuntimeInstance{},
+		controlPlanes: []v0.ControlPlaneInstance{{Common: v0.Common{ID: util.Ptr(uint(1))}, IsSelf: util.Ptr(true)}},
+	}
+	api := f.serve(t)
+	deleting := v0.Reconciliation{CreationConfirmed: util.Ptr(time.Now()), DeletionScheduled: util.Ptr(time.Now())}
+
+	cidr, err := ClusterNetworkCidr(api.Client, api.Addr, util.Ptr(uint(7)), deleting, nil)
+	require.NoError(t, err)
+	assert.Empty(t, cidr)
+
+	_, err = ClusterNetworkCidr(api.Client, api.Addr, util.Ptr(uint(7)), v0.Reconciliation{CreationConfirmed: util.Ptr(time.Now())}, nil)
+	assert.ErrorContains(t, err, "failed to get kubernetes runtime instance 7")
+}
+
+// TestAllocationSkipsADeletedChildsReservedPool covers the pools of deleted
+// children, which this control plane reserves on its own instance: no
+// runtime is allocated a range in them.
+func TestAllocationSkipsADeletedChildsReservedPool(t *testing.T) {
+	f := &fakeControlPlane{
+		runtimes: map[uint]*v0.KubernetesRuntimeInstance{1: runtime(1, nil)},
+		controlPlanes: []v0.ControlPlaneInstance{{
+			Common:               v0.Common{ID: util.Ptr(uint(1))},
+			IsSelf:               util.Ptr(true),
+			NetworkCidrPool:      pool("10.16.0.0/12"),
+			ReservedNetworkCidrs: pool("10.16.0.0/14", "10.20.0.0/16"),
+		}},
+	}
+	api := f.serve(t)
+
+	cidr, err := EnsureRuntimeNetworkCidr(api.Client, api.Addr, 1)
+	require.NoError(t, err)
+	assert.Equal(t, "10.21.0.0/16", cidr, "past the reserved blocks")
 }
