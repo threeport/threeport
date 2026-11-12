@@ -29,6 +29,10 @@ type gkeLifecycle struct {
 	instanceID uint
 	instance   *v0.GcpGkeKubernetesRuntimeInstance
 	log        *logr.Logger
+
+	// createReady asks GCP whether the create ran to its last step.  It is a
+	// field so a test can stand in for GCP.
+	createReady func(latest *v0.GcpGkeKubernetesRuntimeInstance) (bool, error)
 }
 
 // newGkeLifecycleProvider constructs an InfraLifecycleProvider for GKE.
@@ -37,12 +41,15 @@ func newGkeLifecycleProvider(
 	instance *v0.GcpGkeKubernetesRuntimeInstance,
 	log *logr.Logger,
 ) *gkeLifecycle {
-	return &gkeLifecycle{
+	g := &gkeLifecycle{
 		r:          r,
 		instanceID: *instance.ID,
 		instance:   instance,
 		log:        log,
 	}
+	g.createReady = g.cloudCreateReady
+
+	return g
 }
 
 // GetReconciliation fetches the latest reconciliation state from the API.
@@ -82,6 +89,14 @@ func (g *gkeLifecycle) BuildInfra() (provider.InfraProvider, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get GKE instance for infra build: %w", err)
 	}
+	return g.buildInfraFrom(latest)
+}
+
+// buildInfraFrom builds the infra from an instance the caller already has, so a
+// caller that just fetched it does not fetch it again.
+func (g *gkeLifecycle) buildInfraFrom(
+	latest *v0.GcpGkeKubernetesRuntimeInstance,
+) (*provider.KubernetesRuntimeInfraGKE, error) {
 	def, err := client.GetGcpGkeKubernetesRuntimeDefinitionByID(
 		g.r.APIClient,
 		g.r.APIServer,
@@ -93,7 +108,15 @@ func (g *gkeLifecycle) BuildInfra() (provider.InfraProvider, error) {
 	return buildGkeInfra(g.r, latest, def, g.log)
 }
 
-// IsCreateComplete checks whether resource inventory has been persisted.
+// IsCreateComplete reports whether the whole create finished, not just the
+// Pulumi stack.
+//
+// Stack state is streamed to ResourceInventory within seconds of the stack
+// being created, so a non-empty inventory only says that provisioning started.
+// Confirming on it reads the connection info of a cluster that has no endpoint
+// yet, and the confirmation is never revisited.  GCP is asked instead whether
+// the cluster and node pools are running and the Workload Identity binding, the
+// last step of the create, is in place.
 func (g *gkeLifecycle) IsCreateComplete() (bool, error) {
 	latest, err := client.GetGcpGkeKubernetesRuntimeInstanceByID(
 		g.r.APIClient,
@@ -103,7 +126,26 @@ func (g *gkeLifecycle) IsCreateComplete() (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to check GKE creation status: %w", err)
 	}
-	return provider.HasInventory(latest.ResourceInventory), nil
+	if !provider.HasInventory(latest.ResourceInventory) {
+		return false, nil
+	}
+
+	return g.createReady(latest)
+}
+
+// cloudCreateReady asks GCP whether the create ran to its last step.
+func (g *gkeLifecycle) cloudCreateReady(latest *v0.GcpGkeKubernetesRuntimeInstance) (bool, error) {
+	infra, err := g.buildInfraFrom(latest)
+	if err != nil {
+		return false, fmt.Errorf("failed to build infra to check GKE creation status: %w", err)
+	}
+
+	complete, err := infra.CreateComplete()
+	if err != nil {
+		return false, fmt.Errorf("failed to check whether the GKE create finished: %w", err)
+	}
+
+	return complete, nil
 }
 
 // OnCreateConfirmed gets connection info and updates the kubernetes runtime instance.
@@ -433,6 +475,11 @@ func buildGkeInfra(
 		return nil, fmt.Errorf("failed to retrieve GCP provider by ID: %w", err)
 	}
 
+	allowedCidrs, err := v0.ParseCidrs("AllowedCidrs", definition.AllowedCidrs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the definition's AllowedCidrs: %w", err)
+	}
+
 	infraGKE := (&provider.KubernetesRuntimeInfraGKE{
 		PulumiWorkspace: provider.PulumiWorkspace{
 			RuntimeInstanceName: *instance.Name,
@@ -444,6 +491,7 @@ func buildGkeInfra(
 		MachineType:            *definition.DefaultNodeGroupInstanceType,
 		MinNodeCount:           int32(*definition.DefaultNodeGroupMinimumSize),
 		MaxNodeCount:           int32(*definition.DefaultNodeGroupMaximumSize),
+		AllowedCidrs:           allowedCidrs,
 	}).InitPulumiProject()
 
 	// The workload identity binding made after the cluster is created names this

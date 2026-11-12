@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -30,9 +31,12 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/threeport/threeport/internal/agent"
 	"github.com/threeport/threeport/internal/agent/notify"
@@ -50,6 +54,12 @@ type ThreeportWorkloadReconciler struct {
 	RESTConfig        *rest.Config
 	NotifChan         *chan notify.ThreeportNotif
 	InformerStopChans []InformerStopChannels
+
+	// LegacyCache holds the ThreeportWorkloads that carry no control plane
+	// label, which the manager's own cache, scoped to this control plane's
+	// label, does not.  It is nil when the agent is not scoped.  See
+	// CacheOptions.
+	LegacyCache cache.Cache
 }
 
 type InformerStopChannels struct {
@@ -74,7 +84,7 @@ func (r *ThreeportWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 	// get the ThreeportWorkload resource
 	var threeportWorkload agentapi.ThreeportWorkload
-	if err := r.Get(ctx, req.NamespacedName, &threeportWorkload); err != nil {
+	if err := r.getThreeportWorkload(ctx, req.NamespacedName, &threeportWorkload); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 	logger = logger.WithValues("kubernetesWorkloadInstanceID", threeportWorkload.Spec.KubernetesWorkloadInstanceID)
@@ -298,7 +308,34 @@ func (r *ThreeportWorkloadReconciler) stopInformersOnInterrupt(
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ThreeportWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&agentapi.ThreeportWorkload{}).
-		Complete(r)
+	blder := ctrl.NewControllerManagedBy(mgr).
+		For(&agentapi.ThreeportWorkload{})
+
+	// workloads that predate the control plane label are not in the manager's
+	// cache, so they are watched through their own
+	if r.LegacyCache != nil {
+		blder = blder.WatchesRawSource(source.Kind(
+			r.LegacyCache,
+			&agentapi.ThreeportWorkload{},
+			&handler.TypedEnqueueRequestForObject[*agentapi.ThreeportWorkload]{},
+		))
+	}
+
+	return blder.Complete(r)
+}
+
+// getThreeportWorkload gets a ThreeportWorkload from the manager's cache, which
+// holds those labeled for this control plane, and falls back to the cache of
+// those with no label.  A workload in neither is not this agent's.
+func (r *ThreeportWorkloadReconciler) getThreeportWorkload(
+	ctx context.Context,
+	key types.NamespacedName,
+	threeportWorkload *agentapi.ThreeportWorkload,
+) error {
+	err := r.Get(ctx, key, threeportWorkload)
+	if err != nil && r.LegacyCache != nil && apierrors.IsNotFound(err) {
+		return r.LegacyCache.Get(ctx, key, threeportWorkload)
+	}
+
+	return err
 }

@@ -250,12 +250,16 @@ func (h Handler) GetHelmWorkloadDefinitions(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/helm-workload-definitions/{id} [GET]
 func (h Handler) GetHelmWorkloadDefinition(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.HelmWorkloadDefinition).GetFullyQualifiedType()
-	helmWorkloadDefinitionID := c.Param("id")
+	helmWorkloadDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var helmWorkloadDefinition api_v0.HelmWorkloadDefinition
 	if result := h.RequestDB(c).
 		First(&helmWorkloadDefinition, helmWorkloadDefinitionID); result.Error != nil {
@@ -299,7 +303,10 @@ func (h Handler) GetHelmWorkloadDefinition(c echo.Context) error {
 func (h Handler) UpdateHelmWorkloadDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeHelmWorkloadDefinition
 	fullyQualifiedType := new(api_v0.HelmWorkloadDefinition).GetFullyQualifiedType()
-	helmWorkloadDefinitionID := c.Param("id")
+	helmWorkloadDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingHelmWorkloadDefinition api_v0.HelmWorkloadDefinition
 	if result := h.RequestDB(c).First(&existingHelmWorkloadDefinition, helmWorkloadDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -399,7 +406,10 @@ func (h Handler) UpdateHelmWorkloadDefinition(c echo.Context) error {
 func (h Handler) ReplaceHelmWorkloadDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeHelmWorkloadDefinition
 	fullyQualifiedType := new(api_v0.HelmWorkloadDefinition).GetFullyQualifiedType()
-	helmWorkloadDefinitionID := c.Param("id")
+	helmWorkloadDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingHelmWorkloadDefinition api_v0.HelmWorkloadDefinition
 	if result := h.RequestDB(c).First(&existingHelmWorkloadDefinition, helmWorkloadDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -501,13 +511,17 @@ func (h Handler) ReplaceHelmWorkloadDefinition(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/helm-workload-definitions/{id} [DELETE]
 func (h Handler) DeleteHelmWorkloadDefinition(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.HelmWorkloadDefinition).GetFullyQualifiedType()
-	helmWorkloadDefinitionID := c.Param("id")
+	helmWorkloadDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var helmWorkloadDefinition api_v0.HelmWorkloadDefinition
 	if result := h.RequestDB(c).Preload("HelmWorkloadInstances").First(&helmWorkloadDefinition, helmWorkloadDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -854,12 +868,16 @@ func (h Handler) GetHelmWorkloadInstances(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/helm-workload-instances/{id} [GET]
 func (h Handler) GetHelmWorkloadInstance(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.HelmWorkloadInstance).GetFullyQualifiedType()
-	helmWorkloadInstanceID := c.Param("id")
+	helmWorkloadInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var helmWorkloadInstance api_v0.HelmWorkloadInstance
 	if result := h.RequestDB(c).
 		First(&helmWorkloadInstance, helmWorkloadInstanceID); result.Error != nil {
@@ -903,7 +921,10 @@ func (h Handler) GetHelmWorkloadInstance(c echo.Context) error {
 func (h Handler) UpdateHelmWorkloadInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeHelmWorkloadInstance
 	fullyQualifiedType := new(api_v0.HelmWorkloadInstance).GetFullyQualifiedType()
-	helmWorkloadInstanceID := c.Param("id")
+	helmWorkloadInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingHelmWorkloadInstance api_v0.HelmWorkloadInstance
 	if result := h.RequestDB(c).First(&existingHelmWorkloadInstance, helmWorkloadInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -1003,7 +1024,10 @@ func (h Handler) UpdateHelmWorkloadInstance(c echo.Context) error {
 func (h Handler) ReplaceHelmWorkloadInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeHelmWorkloadInstance
 	fullyQualifiedType := new(api_v0.HelmWorkloadInstance).GetFullyQualifiedType()
-	helmWorkloadInstanceID := c.Param("id")
+	helmWorkloadInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingHelmWorkloadInstance api_v0.HelmWorkloadInstance
 	if result := h.RequestDB(c).First(&existingHelmWorkloadInstance, helmWorkloadInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -1105,13 +1129,17 @@ func (h Handler) ReplaceHelmWorkloadInstance(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/helm-workload-instances/{id} [DELETE]
 func (h Handler) DeleteHelmWorkloadInstance(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.HelmWorkloadInstance).GetFullyQualifiedType()
-	helmWorkloadInstanceID := c.Param("id")
+	helmWorkloadInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var helmWorkloadInstance api_v0.HelmWorkloadInstance
 	if result := h.RequestDB(c).First(&helmWorkloadInstance, helmWorkloadInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {

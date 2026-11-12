@@ -20,8 +20,9 @@ import (
 	terraform_notif "github.com/threeport/threeport/internal/terraform/notif"
 )
 
-// Initialize the NATS Jet stream context with controller streams
-func InitJetStream(nc *nats.Conn) (*nats.JetStreamContext, error) {
+// Initialize the NATS Jet stream context with controller streams, each
+// replicated across replicas of the message broker's servers
+func InitJetStream(nc *nats.Conn, replicas int) (*nats.JetStreamContext, error) {
 	js, err := nc.JetStream(nats.PublishAsyncMaxPending(256))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create jetstream context: %w", err)
@@ -30,6 +31,7 @@ func InitJetStream(nc *nats.Conn) (*nats.JetStreamContext, error) {
 	// add controller streams
 	_, err = js.AddStream(&nats.StreamConfig{
 		Name:     secret_notif.SecretStreamName,
+		Replicas: replicas,
 		Subjects: secret_notif.GetSecretSubjects(),
 	})
 	if err != nil {
@@ -38,6 +40,7 @@ func InitJetStream(nc *nats.Conn) (*nats.JetStreamContext, error) {
 
 	_, err = js.AddStream(&nats.StreamConfig{
 		Name:     aws_notif.AwsStreamName,
+		Replicas: replicas,
 		Subjects: aws_notif.GetAwsSubjects(),
 	})
 	if err != nil {
@@ -46,6 +49,7 @@ func InitJetStream(nc *nats.Conn) (*nats.JetStreamContext, error) {
 
 	_, err = js.AddStream(&nats.StreamConfig{
 		Name:     notif.OciStreamName,
+		Replicas: replicas,
 		Subjects: notif.GetOciSubjects(),
 	})
 	if err != nil {
@@ -54,6 +58,7 @@ func InitJetStream(nc *nats.Conn) (*nats.JetStreamContext, error) {
 
 	_, err = js.AddStream(&nats.StreamConfig{
 		Name:     notif1.GcpStreamName,
+		Replicas: replicas,
 		Subjects: notif1.GetGcpSubjects(),
 	})
 	if err != nil {
@@ -62,6 +67,7 @@ func InitJetStream(nc *nats.Conn) (*nats.JetStreamContext, error) {
 
 	_, err = js.AddStream(&nats.StreamConfig{
 		Name:     controlplane_notif.ControlPlaneStreamName,
+		Replicas: replicas,
 		Subjects: controlplane_notif.GetControlPlaneSubjects(),
 	})
 	if err != nil {
@@ -70,6 +76,7 @@ func InitJetStream(nc *nats.Conn) (*nats.JetStreamContext, error) {
 
 	_, err = js.AddStream(&nats.StreamConfig{
 		Name:     gateway_notif.GatewayStreamName,
+		Replicas: replicas,
 		Subjects: gateway_notif.GetGatewaySubjects(),
 	})
 	if err != nil {
@@ -78,6 +85,7 @@ func InitJetStream(nc *nats.Conn) (*nats.JetStreamContext, error) {
 
 	_, err = js.AddStream(&nats.StreamConfig{
 		Name:     helmworkload_notif.HelmWorkloadStreamName,
+		Replicas: replicas,
 		Subjects: helmworkload_notif.GetHelmWorkloadSubjects(),
 	})
 	if err != nil {
@@ -86,6 +94,7 @@ func InitJetStream(nc *nats.Conn) (*nats.JetStreamContext, error) {
 
 	_, err = js.AddStream(&nats.StreamConfig{
 		Name:     notif2.MachineRuntimeStreamName,
+		Replicas: replicas,
 		Subjects: notif2.GetMachineRuntimeSubjects(),
 	})
 	if err != nil {
@@ -94,6 +103,7 @@ func InitJetStream(nc *nats.Conn) (*nats.JetStreamContext, error) {
 
 	_, err = js.AddStream(&nats.StreamConfig{
 		Name:     notif3.MachineWorkloadStreamName,
+		Replicas: replicas,
 		Subjects: notif3.GetMachineWorkloadSubjects(),
 	})
 	if err != nil {
@@ -102,6 +112,7 @@ func InitJetStream(nc *nats.Conn) (*nats.JetStreamContext, error) {
 
 	_, err = js.AddStream(&nats.StreamConfig{
 		Name:     kubernetesruntime_notif.KubernetesRuntimeStreamName,
+		Replicas: replicas,
 		Subjects: kubernetesruntime_notif.GetKubernetesRuntimeSubjects(),
 	})
 	if err != nil {
@@ -110,6 +121,7 @@ func InitJetStream(nc *nats.Conn) (*nats.JetStreamContext, error) {
 
 	_, err = js.AddStream(&nats.StreamConfig{
 		Name:     observability_notif.ObservabilityStreamName,
+		Replicas: replicas,
 		Subjects: observability_notif.GetObservabilitySubjects(),
 	})
 	if err != nil {
@@ -118,6 +130,7 @@ func InitJetStream(nc *nats.Conn) (*nats.JetStreamContext, error) {
 
 	_, err = js.AddStream(&nats.StreamConfig{
 		Name:     terraform_notif.TerraformStreamName,
+		Replicas: replicas,
 		Subjects: terraform_notif.GetTerraformSubjects(),
 	})
 	if err != nil {
@@ -126,6 +139,7 @@ func InitJetStream(nc *nats.Conn) (*nats.JetStreamContext, error) {
 
 	_, err = js.AddStream(&nats.StreamConfig{
 		Name:     kubernetesworkload_notif.KubernetesWorkloadStreamName,
+		Replicas: replicas,
 		Subjects: kubernetesworkload_notif.GetKubernetesWorkloadSubjects(),
 	})
 	if err != nil {

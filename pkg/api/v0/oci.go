@@ -47,6 +47,15 @@ type OciOkeKubernetesRuntimeDefinition struct {
 	// The number of nodes in the worker node pool.
 	WorkerNodeInitialCount *int32 `validate:"required" gorm:"not null"`
 
+	// If true, the Kubernetes API is not reachable from the public internet.
+	// Set from the KubernetesRuntimeDefinition's PrivateApi.
+	PrivateApi *bool `validate:"optional" gorm:"default:false"`
+
+	// The CIDR blocks allowed to reach the Kubernetes API, as a JSON array of
+	// IPv4 CIDR blocks.  Set from the KubernetesRuntimeDefinition's
+	// AllowedCidrs.
+	AllowedCidrs *datatypes.JSON `validate:"optional" swaggertype:"array,string"`
+
 	// The OCI OKE kubernetes runtime instances derived from this definition.
 	OciOkeKubernetesRuntimeInstances []*OciOkeKubernetesRuntimeInstance `validate:"optional,association"`
 
