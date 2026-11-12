@@ -1969,11 +1969,12 @@ func volumeHandle(volume unstructured.Unstructured) string {
 	return ""
 }
 
-// namespaceDeleteAttempts and namespaceDeletePollSeconds bound the wait for a
-// namespace to be deleted: two minutes, checked every second.
+// namespaceDeleteTimeout bounds the whole wait for the namespaces to be
+// deleted, however the API server answers, and namespaceDeletePollInterval is
+// how often it checks.
 var (
-	namespaceDeleteAttempts    = 120
-	namespaceDeletePollSeconds = 1
+	namespaceDeleteTimeout      = 2 * time.Minute
+	namespaceDeletePollInterval = time.Second
 )
 
 // DeleteNamespace deletes a list of namespaces from a Kubernetes cluster.
@@ -2005,27 +2006,48 @@ func DeleteNamespaces(
 
 	// wait for all namespaces to be deleted - a namespace counts as deleted
 	// only once the API server says it is not found, not when it could not
-	// be checked
+	// be checked.  One deadline bounds the whole wait, so an API server that
+	// stops answering ends it on time rather than after every request has
+	// run out its own.
+	ctx, cancel := context.WithTimeout(context.Background(), namespaceDeleteTimeout)
+	defer cancel()
 	for _, name := range namespaces {
-		if err := util.Retry(namespaceDeleteAttempts, namespaceDeletePollSeconds, func() error {
-			ctx, cancel := context.WithTimeout(context.Background(), kubeRequestTimeout)
-			defer cancel()
-
-			_, err := namespaceResource.Get(ctx, name, metav1.GetOptions{})
-			switch {
-			case k8serrors.IsNotFound(err):
-				return nil
-			case err != nil:
-				return fmt.Errorf("failed to check namespace: %w", err)
-			default:
-				return errors.New("namespace is still present")
-			}
-		}); err != nil {
+		if err := waitForNamespaceDeleted(ctx, namespaceResource, name); err != nil {
 			return fmt.Errorf("namespace %s was not deleted: %w", name, err)
 		}
 	}
 
 	return nil
+}
+
+// waitForNamespaceDeleted checks a namespace until the API server says it is
+// not found, or ctx ends.  Each request is also bounded by kubeRequestTimeout.
+func waitForNamespaceDeleted(
+	ctx context.Context,
+	namespaceResource dynamic.NamespaceableResourceInterface,
+	name string,
+) error {
+	for {
+		requestCtx, cancel := context.WithTimeout(ctx, kubeRequestTimeout)
+		_, err := namespaceResource.Get(requestCtx, name, metav1.GetOptions{})
+		cancel()
+
+		var last error
+		switch {
+		case k8serrors.IsNotFound(err):
+			return nil
+		case err != nil:
+			last = fmt.Errorf("failed to check namespace: %w", err)
+		default:
+			last = errors.New("namespace is still present")
+		}
+
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("still not deleted after %s: %w", namespaceDeleteTimeout, last)
+		case <-time.After(namespaceDeletePollInterval):
+		}
+	}
 }
 
 // GetThreeportAPIEndpoint retrieves the endpoint given to the threeport API
