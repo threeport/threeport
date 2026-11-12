@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/datatypes"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	"github.com/threeport/threeport/pkg/encryption/v0"
@@ -221,6 +222,7 @@ func parentGkeRuntime(t *testing.T, parent *fakeAPI, encryptionKey string, withC
 		"GcpGkeKubernetesRuntimeDefinitionID": 5,
 		"KubernetesRuntimeInstanceID":         20,
 		"Reconciled":                          false,
+		"ReservedNatAddress":                  true,
 	})
 }
 
@@ -255,6 +257,8 @@ func TestCopyGkeRecords_CreatesRecordsOnChild(t *testing.T) {
 	assert.EqualValues(t, 200, instances[0]["KubernetesRuntimeInstanceID"])
 	assert.EqualValues(t, 500, instances[0]["GcpProviderID"], "points at the provider created on the child")
 	assert.EqualValues(t, 501, instances[0]["GcpGkeKubernetesRuntimeDefinitionID"], "points at the definition created on the child")
+	assert.Equal(t, true, instances[0]["ReservedNatAddress"],
+		"the child keeps the cluster's NAT as it was provisioned")
 }
 
 func TestCopyGkeRecords_NoCredentialsStaysUnset(t *testing.T) {
@@ -326,6 +330,7 @@ func TestCreateRuntimeInstance_SetsFlagsAndDecryptsSecrets(t *testing.T) {
 		ConnectionToken:           &encryptedToken,
 		ThreeportControlPlaneHost: util.Ptr(true),
 		DefaultRuntime:            util.Ptr(true),
+		EgressCidrs:               util.Ptr(datatypes.JSON(`["198.51.100.20/32"]`)),
 	}
 
 	tests := []struct {
@@ -352,6 +357,8 @@ func TestCreateRuntimeInstance_SetsFlagsAndDecryptsSecrets(t *testing.T) {
 			assert.EqualValues(t, 100, posted[0]["KubernetesRuntimeDefinitionID"])
 			assert.Equal(t, "private-key", posted[0]["CertificateKey"])
 			assert.Equal(t, "bearer-token", posted[0]["ConnectionToken"])
+			assert.Equal(t, []any{"198.51.100.20/32"}, posted[0]["EgressCidrs"],
+				"the child's control plane admits the cluster's addresses on the clusters it manages")
 			assert.Nil(t, posted[0]["ID"])
 		})
 	}

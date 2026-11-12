@@ -184,6 +184,16 @@ func (g *gkeLifecycle) OnCreateConfirmed(infra provider.InfraProvider) error {
 		return fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
 	}
 
+	// record the addresses the cluster's outbound traffic comes from, which
+	// clusters this one may come to manage as a control plane host admit
+	egressCidrs, err := provider.EgressCidrsFromState(latest.ResourceInventory)
+	if err != nil {
+		return fmt.Errorf("failed to read the cluster's egress addresses: %w", err)
+	}
+	if len(egressCidrs) > 0 {
+		kubernetesRuntimeInstance.EgressCidrs = provider.EgressCidrsJSON(egressCidrs)
+	}
+
 	kubeRuntimeReconciled := false
 	kubernetesRuntimeInstance.APIEndpoint = &kubeConnectionInfo.APIEndpoint
 	kubernetesRuntimeInstance.CACertificate = &kubeConnectionInfo.CACertificate
@@ -503,7 +513,24 @@ func buildGkeInfra(
 		MinNodeCount:           int32(*definition.DefaultNodeGroupMinimumSize),
 		MaxNodeCount:           int32(*definition.DefaultNodeGroupMaximumSize),
 		AllowedCidrs:           allowedCidrs,
+		ReserveNatAddress:      instance.ReservedNatAddress != nil && *instance.ReservedNatAddress,
 	}).InitPulumiProject()
+
+	// a cluster whose API is restricted also admits the control plane that
+	// manages it; the lookup is skipped for a cluster being deleted, which
+	// does not provision anything
+	if len(allowedCidrs) > 0 && instance.DeletionScheduled == nil {
+		controlPlaneEgressCidrs, err := provider.ControlPlaneEgressCidrs(
+			r.APIClient,
+			r.APIServer,
+			*instance.KubernetesRuntimeInstanceID,
+			log,
+		)
+		if err != nil {
+			return nil, err
+		}
+		infraGKE.ControlPlaneEgressCidrs = controlPlaneEgressCidrs
+	}
 
 	// The workload identity binding made after the cluster is created names this
 	// account, so it has to be known before any of the cluster is provisioned -
