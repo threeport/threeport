@@ -47,6 +47,13 @@ func eksSubnetCidrs() []string {
 	}
 }
 
+// eksNodeGroupIgnoredChanges are the node group properties Pulumi sets only when
+// it creates the node group.  The cluster autoscaler moves the desired size
+// with the load, and an up on an existing stack runs after a refresh from AWS
+// (see setupStack), so setting the initial size again would scale a busy
+// cluster back down and evict its workloads.
+var eksNodeGroupIgnoredChanges = []string{"scalingConfig.desiredSize"}
+
 // InitPulumiProject fills in the Pulumi project identity and stack config, and
 // returns the receiver so a caller can set it at construction.
 //
@@ -385,7 +392,7 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 				MaxSize:     pulumi.Int(i.DefaultNodeGroupMaxNodes),
 			},
 			Tags: i.resourceTags(nodeGroupName),
-		}); err != nil {
+		}, pulumi.IgnoreChanges(eksNodeGroupIgnoredChanges)); err != nil {
 			return fmt.Errorf("failed to create EKS node group: %w", err)
 		}
 

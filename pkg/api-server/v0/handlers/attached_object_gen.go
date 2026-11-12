@@ -231,12 +231,16 @@ func (h Handler) GetAttachedObjectReferences(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/attached-object-references/{id} [GET]
 func (h Handler) GetAttachedObjectReference(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.AttachedObjectReference).GetFullyQualifiedType()
-	attachedObjectReferenceID := c.Param("id")
+	attachedObjectReferenceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var attachedObjectReference api_v0.AttachedObjectReference
 	if result := h.RequestDB(c).
 		First(&attachedObjectReference, attachedObjectReferenceID); result.Error != nil {
@@ -280,7 +284,10 @@ func (h Handler) GetAttachedObjectReference(c echo.Context) error {
 func (h Handler) UpdateAttachedObjectReference(c echo.Context) error {
 	objectType := api_v0.ObjectTypeAttachedObjectReference
 	fullyQualifiedType := new(api_v0.AttachedObjectReference).GetFullyQualifiedType()
-	attachedObjectReferenceID := c.Param("id")
+	attachedObjectReferenceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingAttachedObjectReference api_v0.AttachedObjectReference
 	if result := h.RequestDB(c).First(&existingAttachedObjectReference, attachedObjectReferenceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -358,7 +365,10 @@ func (h Handler) UpdateAttachedObjectReference(c echo.Context) error {
 func (h Handler) ReplaceAttachedObjectReference(c echo.Context) error {
 	objectType := api_v0.ObjectTypeAttachedObjectReference
 	fullyQualifiedType := new(api_v0.AttachedObjectReference).GetFullyQualifiedType()
-	attachedObjectReferenceID := c.Param("id")
+	attachedObjectReferenceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingAttachedObjectReference api_v0.AttachedObjectReference
 	if result := h.RequestDB(c).First(&existingAttachedObjectReference, attachedObjectReferenceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -438,13 +448,17 @@ func (h Handler) ReplaceAttachedObjectReference(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/attached-object-references/{id} [DELETE]
 func (h Handler) DeleteAttachedObjectReference(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.AttachedObjectReference).GetFullyQualifiedType()
-	attachedObjectReferenceID := c.Param("id")
+	attachedObjectReferenceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var attachedObjectReference api_v0.AttachedObjectReference
 	if result := h.RequestDB(c).First(&attachedObjectReference, attachedObjectReferenceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {

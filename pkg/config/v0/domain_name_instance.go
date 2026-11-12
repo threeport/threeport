@@ -290,12 +290,12 @@ func (d *DomainNameInstanceConfig) Delete(
 	}
 
 	// wait for domain name instance to be deleted
-	util.Retry(60, 1, func() error {
-		if _, err := client_v0.GetDomainNameInstanceByName(apiClient, apiEndpoint, domainNameInstanceValues.getDomainNameInstanceName()); err == nil {
-			return errors.New("domain name instance not deleted")
-		}
-		return nil
-	})
+	if err := pollInstanceDeleted("domain name instance", domainNameInstanceValues.getDomainNameInstanceName(), 60, 1, func() error {
+		_, err := client_v0.GetDomainNameInstanceByName(apiClient, apiEndpoint, domainNameInstanceValues.getDomainNameInstanceName())
+		return err
+	}); err != nil {
+		return nil, err
+	}
 
 	// construct deleted domain name instance config
 	deletedDomainNameInstanceConfig := &DomainNameInstanceConfig{
