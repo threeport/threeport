@@ -92,6 +92,17 @@ type KubernetesRuntimeInstance struct {
 	// control plane can reach them.
 	EgressCidrs *datatypes.JSON `validate:"optional" swaggertype:"array,string"`
 
+	// The IPv4 network range of the cluster's network, such as 10.16.0.0/16:
+	// its VPC on EKS, its VCN on OKE, and its node, Pod and Service ranges on
+	// GKE.  No two runtimes may overlap, so that their networks can be
+	// connected.  If unset when the runtime is provisioned, the control plane
+	// allocates the next free /16 from its NetworkCidrPool.  If set, it must be
+	// a /16 or larger, overlap no other runtime's range and stay clear of the
+	// ranges clusters use internally (10.96.0.0/16, 10.244.0.0/16 and
+	// 172.20.0.0/16); it does not have to be in the pool.  Cannot be changed
+	// once set.
+	NetworkCidr *string `validate:"optional" gorm:"uniqueIndex:,where:deleted_at IS NULL"`
+
 	// The CA certificate used to generate the cert and key if
 	// self-signed.
 	CACertificate *string `validate:"optional"`

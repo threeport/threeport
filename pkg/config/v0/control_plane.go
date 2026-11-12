@@ -32,6 +32,7 @@ type ControlPlaneValues struct {
 	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues
 	ImageNamespace            *string
 	ImageTag                  *string
+	NetworkCidrPool           *[]string
 	Apis                      *string
 	CustomComponentInfo       []*api_v0.ControlPlaneComponent
 	Genesis                   *bool
@@ -260,6 +261,7 @@ func (c *ControlPlaneConfig) GetOperations(
 			KubernetesRuntimeInstance: c.ControlPlane.KubernetesRuntimeInstance,
 			ImageNamespace:            c.ControlPlane.ImageNamespace,
 			ImageTag:                  c.ControlPlane.ImageTag,
+			NetworkCidrPool:           c.ControlPlane.NetworkCidrPool,
 			Apis:                      c.ControlPlane.Apis,
 			CustomComponentInfo:       c.ControlPlane.CustomComponentInfo,
 			ControlPlaneDefinition: &ControlPlaneDefinitionValues{
@@ -329,6 +331,7 @@ func mapToControlPlaneDefinedInstances(
 						KubernetesRuntimeInstance: inst.ControlPlaneInstance.KubernetesRuntimeInstance,
 						ImageNamespace:            inst.ControlPlaneInstance.ImageNamespace,
 						ImageTag:                  inst.ControlPlaneInstance.ImageTag,
+						NetworkCidrPool:           inst.ControlPlaneInstance.NetworkCidrPool,
 						Apis:                      inst.ControlPlaneInstance.Apis,
 						CustomComponentInfo:       inst.ControlPlaneInstance.CustomComponentInfo,
 						Genesis:                   inst.ControlPlaneInstance.Genesis,

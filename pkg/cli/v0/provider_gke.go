@@ -95,6 +95,7 @@ func ConfigureControlPlaneWithGkeConfig(
 		GcpGkeKubernetesRuntimeDefinitionID: createdGcpGkeKubernetesRuntimeDef.ID,
 		KubernetesRuntimeInstanceID:         kubernetesRuntimeInstResult.ID,
 		ResourceInventory:                   resourceInventory,
+		ReservedNatAddress:                  util.Ptr(kubernetesRuntimeInfraGKE.ReserveNatAddress),
 	}
 	if _, err = ensureGcpGkeKubernetesRuntimeInstance(
 		apiClient,
