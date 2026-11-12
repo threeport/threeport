@@ -45,4 +45,17 @@ func TestAnEksDefinitionsNodeGroupPerZoneIsKept(t *testing.T) {
 		&AwsEksKubernetesRuntimeDefinition{DefaultNodeGroupMaximumSize: util.Ptr(12)},
 	).Error)
 	assert.True(t, *load(perZone.ID).NodeGroupPerZone)
+
+	// a client that doesn't know the field sends none, which is one node
+	// group spanning every zone, as false is
+	omitted := load(unset.ID)
+	omitted.NodeGroupPerZone = nil
+	omitted.DefaultNodeGroupMaximumSize = util.Ptr(12)
+	require.NoError(t, db.Session(&gorm.Session{}).Save(omitted).Error, "a replace without the field keeps one node group")
+	perZoneOmitted := load(perZone.ID)
+	perZoneOmitted.NodeGroupPerZone = nil
+	assert.ErrorContains(t, db.Session(&gorm.Session{}).Save(perZoneOmitted).Error, "NodeGroupPerZone cannot be changed after creation",
+		"which would move a cluster with a node group per zone to one")
+	err = db.Session(&gorm.Session{}).Model(load(unset.ID)).Updates(map[string]any{"NodeGroupPerZone": true}).Error
+	assert.ErrorContains(t, err, "NodeGroupPerZone cannot be changed after creation")
 }
