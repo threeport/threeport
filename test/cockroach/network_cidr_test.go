@@ -98,6 +98,9 @@ func TestTwoAllocationsToOneRuntimeOnCockroach(t *testing.T) {
 
 	// the first allocation holds its transaction open while the second starts
 	first := testDb.Begin()
+	// releases the row's lock if the test fails before the first commits;
+	// after the commit it does nothing
+	defer first.Rollback()
 	require.NoError(t, first.Model(firstLoaded).Updates(&api_v0.KubernetesRuntimeInstance{
 		NetworkCidr: util.Ptr("10.201.0.0/16"),
 	}).Error)
