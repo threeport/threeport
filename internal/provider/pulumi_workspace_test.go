@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -12,17 +11,17 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/common/apitype"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/threeport/threeport/internal/pulumitest"
 )
 
-// requirePulumiCLI skips the test when the pulumi CLI is not on PATH,
-// then points HOME at a temp dir and disables the CLI update check.
+// requirePulumiCLI skips the test when the pulumi CLI is not on PATH (fails
+// it in CI), then points HOME at a temp dir and disables the CLI update check.
 func requirePulumiCLI(t *testing.T) {
 	// register as a test helper
 	t.Helper()
-	// skip when the pulumi CLI is not on PATH
-	if _, err := exec.LookPath("pulumi"); err != nil {
-		t.Skip("pulumi CLI not found on PATH; skipping test that needs a real pulumi backend")
-	}
+	// skip when the pulumi CLI is not on PATH, or fail when CI requires it
+	pulumitest.RequireCLI(t)
 	// point HOME at a temp dir so workspace setup stays off the real home
 	t.Setenv("HOME", t.TempDir())
 	// disable checking for a new pulumi version

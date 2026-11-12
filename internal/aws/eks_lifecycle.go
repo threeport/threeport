@@ -497,7 +497,7 @@ func buildEksInfra(
 		awsConfig,
 		*providerCredentials,
 		log,
-	), nil
+	)
 }
 
 // eksInfraFromApiObjects maps the runtime instance and definition onto the
@@ -509,7 +509,12 @@ func eksInfraFromApiObjects(
 	awsConfig *aws.Config,
 	providerCredentials tpaws.AwsProviderCredentials,
 	log *logr.Logger,
-) *provider.KubernetesRuntimeInfraEKS {
+) (*provider.KubernetesRuntimeInfraEKS, error) {
+	allowedCidrs, err := v0.ParseCidrs("AllowedCidrs", definition.AllowedCidrs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the definition's AllowedCidrs: %w", err)
+	}
+
 	return (&provider.KubernetesRuntimeInfraEKS{
 		PulumiWorkspace: provider.PulumiWorkspace{
 			RuntimeInstanceName: *instance.Name,
@@ -524,5 +529,6 @@ func eksInfraFromApiObjects(
 		DefaultNodeGroupInitialNodes: int32(*definition.DefaultNodeGroupInitialSize),
 		DefaultNodeGroupMinNodes:     int32(*definition.DefaultNodeGroupMinimumSize),
 		DefaultNodeGroupMaxNodes:     int32(*definition.DefaultNodeGroupMaximumSize),
-	}).InitPulumiProject()
+		AllowedCidrs:                 allowedCidrs,
+	}).InitPulumiProject(), nil
 }

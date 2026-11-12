@@ -98,6 +98,10 @@ type KubernetesRuntimeInfraGKE struct {
 	gcpProjectResolvedFromGcloudINI bool
 	// gcpRegionResolvedFromGcloudINI is true when loadGCPConfig set Region from the active gcloud INI.
 	gcpRegionResolvedFromGcloudINI bool
+
+	// The CIDR blocks allowed to reach the Kubernetes API's public endpoint.
+	// Empty leaves it open to every address.
+	AllowedCidrs []string
 }
 
 const (
@@ -226,6 +230,15 @@ func (i *KubernetesRuntimeInfraGKE) DestroyInfra() error {
 	return i.destroyInfraStack()
 }
 
+// gkeNodePoolIgnoredChanges are the node pool properties Pulumi sets only when
+// it creates the node pool. GKE's autoscaler changes the node count with the
+// load, and an up on an existing stack runs after a refresh from GCP (see
+// setupStack), so setting the initial count again would scale a busy cluster
+// back down. Moving to InitialNodeCount instead would replace the node pool of
+// every existing stack, since the provider replaces a node pool whose initial
+// node count changes.
+var gkeNodePoolIgnoredChanges = []string{"nodeCount"}
+
 // pulumiProgram defines the Pulumi resources for the GKE stack.
 func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 	return func(ctx *pulumi.Context) error {
@@ -326,6 +339,8 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 				MasterIpv4CidrBlock:   pulumi.String("172.16.0.0/28"),
 			},
 
+			MasterAuthorizedNetworksConfig: i.masterAuthorizedNetworksConfig(),
+
 			NetworkPolicy: &gkecontainer.ClusterNetworkPolicyArgs{
 				Enabled:  pulumi.Bool(true),
 				Provider: pulumi.String("CALICO"),
@@ -342,8 +357,8 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 			return fmt.Errorf("failed to create GKE cluster: %w", err)
 		}
 
-		_, err = gkecontainer.NewNodePool(ctx, fmt.Sprintf("%s-nodepool", i.RuntimeInstanceName), &gkecontainer.NodePoolArgs{
-			Name:     pulumi.String(fmt.Sprintf("%s-nodepool", i.RuntimeInstanceName)),
+		_, err = gkecontainer.NewNodePool(ctx, i.workerNodePoolName(), &gkecontainer.NodePoolArgs{
+			Name:     pulumi.String(i.workerNodePoolName()),
 			Cluster:  cluster.Name,
 			Location: pulumi.String(i.Region),
 
@@ -376,7 +391,8 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 				AutoUpgrade: pulumi.Bool(true),
 			},
 		}, pulumi.Provider(gcpProvider),
-			pulumi.DependsOn([]pulumi.Resource{cluster}))
+			pulumi.DependsOn([]pulumi.Resource{cluster}),
+			pulumi.IgnoreChanges(gkeNodePoolIgnoredChanges))
 		if err != nil {
 			return fmt.Errorf("failed to create node pool: %w", err)
 		}
@@ -526,23 +542,55 @@ func (i *KubernetesRuntimeInfraGKE) DeleteGCPResources() error {
 	return nil
 }
 
-// GetConnection returns the connection information for the GKE cluster.
-func (i *KubernetesRuntimeInfraGKE) GetConnection() (*kube.KubeConnectionInfo, error) {
+// masterAuthorizedNetworksConfig returns the authorized networks that limit
+// the public endpoint to AllowedCidrs, or nil to leave it open as it is
+// without them.  The nodes reach the API through the private endpoint, which
+// authorized networks do not apply to.  Access from Google Cloud's own public
+// addresses is turned off, since it would let any VM in any project past the
+// list.
+func (i *KubernetesRuntimeInfraGKE) masterAuthorizedNetworksConfig() gkecontainer.ClusterMasterAuthorizedNetworksConfigPtrInput {
+	if len(i.AllowedCidrs) == 0 {
+		return nil
+	}
+
+	cidrBlocks := gkecontainer.ClusterMasterAuthorizedNetworksConfigCidrBlockArray{}
+	for _, cidr := range i.AllowedCidrs {
+		cidrBlocks = append(cidrBlocks, &gkecontainer.ClusterMasterAuthorizedNetworksConfigCidrBlockArgs{
+			CidrBlock: pulumi.String(cidr),
+		})
+	}
+
+	return &gkecontainer.ClusterMasterAuthorizedNetworksConfigArgs{
+		CidrBlocks:                  cidrBlocks,
+		GcpPublicCidrsAccessEnabled: pulumi.Bool(false),
+	}
+}
+
+// useGCPAuth puts GCP authentication and configuration in place for a call that
+// reaches GCP directly. The returned function releases what was set up and must
+// be called when the call is done.
+func (i *KubernetesRuntimeInfraGKE) useGCPAuth() (func(), error) {
 	// ensure GCP authentication is in place
 	if err := gcpauth.EnsureGCPAuth(i.ServiceAccountCredentials); err != nil {
 		return nil, fmt.Errorf("failed to ensure GCP authentication: %w", err)
 	}
+	cleanup := func() {}
 	if i.ServiceAccountCredentials != "" {
-		defer gcpauth.CleanupGCPCredentials()
+		cleanup = gcpauth.CleanupGCPCredentials
 	}
 
 	// load GCP configuration from gcloud CLI config or environment variables
 	if err := i.loadGCPConfig(); err != nil {
+		cleanup()
 		return nil, fmt.Errorf("failed to load GCP configuration: %w", err)
 	}
 
-	ctx := context.Background()
+	return cleanup, nil
+}
 
+// getCluster fetches the GKE cluster as GCP reports it right now.  The caller
+// has put GCP authentication in place.
+func (i *KubernetesRuntimeInfraGKE) getCluster(ctx context.Context) (*containerpb.Cluster, error) {
 	// Use ServiceAccountCredentials directly when available, for the same
 	// reason as the other GCP clients constructed in this file: this call
 	// must act as the service account tied to this GcpProvider, not
@@ -572,6 +620,107 @@ func (i *KubernetesRuntimeInfraGKE) GetConnection() (*kube.KubeConnectionInfo, e
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cluster details: %w", err)
+	}
+
+	return cluster, nil
+}
+
+// gkeClusterReady returns an error naming what keeps the cluster from being
+// connected to yet.  GCP returns a cluster that is still being created with no
+// endpoint, and an endpoint on its own does not make it usable.
+func gkeClusterReady(cluster *containerpb.Cluster) error {
+	if cluster.GetStatus() != containerpb.Cluster_RUNNING {
+		return fmt.Errorf("cluster is %s, not RUNNING", cluster.GetStatus())
+	}
+	if cluster.GetEndpoint() == "" {
+		return errors.New("cluster has no API endpoint yet")
+	}
+	if cluster.GetMasterAuth().GetClusterCaCertificate() == "" {
+		return errors.New("cluster has no CA certificate yet")
+	}
+
+	return nil
+}
+
+// workerNodePoolName is the name of the node pool the stack creates for
+// workloads. The create check looks for it by this name, so it is named once.
+func (i *KubernetesRuntimeInfraGKE) workerNodePoolName() string {
+	return fmt.Sprintf("%s-nodepool", i.RuntimeInstanceName)
+}
+
+// gkeWorkerPoolReady returns an error unless the named worker node pool exists
+// and is RUNNING. Any other pool does not count: the cluster is created with a
+// default pool that the stack removes before it creates the worker pool, so a
+// running default pool says the create has not reached the workers yet.
+func gkeWorkerPoolReady(cluster *containerpb.Cluster, workerPool string) error {
+	for _, nodePool := range cluster.GetNodePools() {
+		if nodePool.GetName() != workerPool {
+			continue
+		}
+		if nodePool.GetStatus() != containerpb.NodePool_RUNNING {
+			return fmt.Errorf("node pool %s is %s, not RUNNING", workerPool, nodePool.GetStatus())
+		}
+		return nil
+	}
+
+	return fmt.Errorf("worker node pool %s does not exist yet", workerPool)
+}
+
+// CreateComplete reports whether the whole create finished, as GCP sees it
+// rather than as the streamed Pulumi state does.  The stack state is saved
+// while the stack is still being built, so state alone only says that
+// provisioning started.  The cluster and its worker node pool are running and the
+// Workload Identity binding is in place only when CreateInfra has run to its
+// last step.  A cluster GCP does not know yet is not complete, not an error.
+func (i *KubernetesRuntimeInfraGKE) CreateComplete() (bool, error) {
+	release, err := i.useGCPAuth()
+	if err != nil {
+		return false, err
+	}
+	defer release()
+
+	ctx := context.Background()
+	cluster, err := i.getCluster(ctx)
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return false, nil
+		}
+		return false, err
+	}
+	if gkeClusterReady(cluster) != nil || gkeWorkerPoolReady(cluster, i.workerNodePoolName()) != nil {
+		return false, nil
+	}
+
+	// The binding is made after the stack is up, so it is checked last.
+	clientOpts := []gcpoption.ClientOption{gcpoption.WithScopes(gcpiam.CloudPlatformScope)}
+	if i.ServiceAccountCredentials != "" {
+		clientOpts = append(clientOpts, gcpoption.WithCredentialsJSON([]byte(i.ServiceAccountCredentials)))
+	}
+	iamService, err := gcpiam.NewService(ctx, clientOpts...)
+	if err != nil {
+		return false, fmt.Errorf("failed to create IAM service client: %w", err)
+	}
+
+	return i.workloadIdentityBound(iamService)
+}
+
+// GetConnection returns the connection information for the GKE cluster.  It
+// fails while the cluster is not ready to be connected to, so that a caller
+// never records the endpoint of a cluster that does not have one yet.
+func (i *KubernetesRuntimeInfraGKE) GetConnection() (*kube.KubeConnectionInfo, error) {
+	release, err := i.useGCPAuth()
+	if err != nil {
+		return nil, err
+	}
+	defer release()
+
+	ctx := context.Background()
+	cluster, err := i.getCluster(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := gkeClusterReady(cluster); err != nil {
+		return nil, fmt.Errorf("GKE cluster is not ready for connection: %w", err)
 	}
 
 	// decode the CA certificate

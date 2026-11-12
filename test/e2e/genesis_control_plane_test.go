@@ -30,6 +30,14 @@ const (
 var _ = BeforeSuite(func() {
 	GinkgoWriter.Write([]byte("beginning setup for test suite"))
 
+	if provider == eksProvider {
+		// getKubeClient refreshes the cluster's token in this process, with
+		// the AWS SDK's default credential chain: the saved AwsProvider holds
+		// the role to assume but no credentials to assume it with.  The chain
+		// reads a named profile only from AWS_PROFILE.
+		Expect(os.Setenv("AWS_PROFILE", awsConfigProfile)).To(Succeed())
+	}
+
 	By("building tptctl and tptdev")
 	err := buildCli()
 	Expect(err).NotTo(HaveOccurred(), "failed to build tptctl and tptdev")
@@ -69,14 +77,26 @@ var _ = AfterSuite(func() {
 	if clean {
 		GinkgoWriter.Write([]byte("beginning cleanup for test suite"))
 
+		// every step runs even when an earlier one failed, so a single failure
+		// cannot leave the registry running or hide leaked AWS resources -
+		// the failures are reported together at the end
+		var cleanupErrors []error
+
+		By("remove workload instances a failed test left behind")
+		if err := removeLeftoverWorkloadInstances(); err != nil {
+			cleanupErrors = append(cleanupErrors, fmt.Errorf("failed to remove leftover workload instances: %w", err))
+		}
+
 		By("remove genesis control plane")
-		err := removeControlPlane()
-		Expect(err).NotTo(HaveOccurred(), "failed to remove control plane")
+		if err := removeControlPlane(); err != nil {
+			cleanupErrors = append(cleanupErrors, fmt.Errorf("failed to remove control plane: %w", err))
+		}
 
 		if usingLocalRegistry() {
 			By("remove the local container registry")
-			err = removeLocalRegistry()
-			Expect(err).NotTo(HaveOccurred(), "failed to remove local container registry")
+			if err := removeLocalRegistry(); err != nil {
+				cleanupErrors = append(cleanupErrors, fmt.Errorf("failed to remove local container registry: %w", err))
+			}
 		}
 
 		if provider == eksProvider {
@@ -86,13 +106,18 @@ var _ = AfterSuite(func() {
 			// not remove.
 			By("checking the teardown left no AWS resources behind")
 			leaked, err := leakedAwsResourcesAfterTeardown()
-			Expect(err).NotTo(HaveOccurred(), "failed to check for leaked AWS resources")
-			Expect(leaked).To(
-				BeEmpty(),
-				"the teardown left AWS resources behind:\n  %s",
-				strings.Join(leaked, "\n  "),
-			)
+			if err != nil {
+				cleanupErrors = append(cleanupErrors, fmt.Errorf("failed to check for leaked AWS resources: %w", err))
+			}
+			if len(leaked) > 0 {
+				cleanupErrors = append(cleanupErrors, fmt.Errorf(
+					"the teardown left AWS resources behind:\n  %s",
+					strings.Join(leaked, "\n  "),
+				))
+			}
 		}
+
+		Expect(errors.Join(cleanupErrors...)).NotTo(HaveOccurred(), "cleanup failed")
 	}
 })
 
@@ -269,6 +294,8 @@ func buildContainerImages() error {
 		getImageRepo(imageRepo),
 		"-t",
 		imageTag,
+		"--arch",
+		imageArch,
 		"--push",
 	}
 	if err := runCommandStreamOutput(

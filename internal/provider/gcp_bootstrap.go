@@ -239,6 +239,46 @@ func (i *KubernetesRuntimeInfraGKE) configureWorkloadIdentityBinding(iamService 
 	return nil
 }
 
+// workloadIdentityBound reports whether the service account already carries the
+// Workload Identity binding for every Threeport controller account.  It reads
+// the policy and changes nothing, so it is safe to ask while the binding is
+// still being made.
+func (i *KubernetesRuntimeInfraGKE) workloadIdentityBound(iamService *iam.Service) (bool, error) {
+	if err := i.requireServiceAccountEmail(); err != nil {
+		return false, err
+	}
+
+	serviceAccountResource := fmt.Sprintf("projects/%s/serviceAccounts/%s", i.ProjectID, i.ServiceAccountEmail)
+	policy, err := iamService.Projects.ServiceAccounts.GetIamPolicy(serviceAccountResource).Do()
+	if err != nil {
+		return false, fmt.Errorf("failed to get service account IAM policy: %w", err)
+	}
+
+	workloadIdentityPool := fmt.Sprintf(workloadIdentityPoolFormat, i.ProjectID)
+	return policyGrantsWorkloadIdentity(policy, i.getWorkloadIdentityMembers(workloadIdentityPool)), nil
+}
+
+// policyGrantsWorkloadIdentity reports whether the policy binds every member to
+// roles/iam.workloadIdentityUser.
+func policyGrantsWorkloadIdentity(policy *iam.Policy, members []string) bool {
+	granted := map[string]bool{}
+	for _, binding := range policy.Bindings {
+		if binding.Role != "roles/iam.workloadIdentityUser" {
+			continue
+		}
+		for _, member := range binding.Members {
+			granted[member] = true
+		}
+	}
+	for _, member := range members {
+		if !granted[member] {
+			return false
+		}
+	}
+
+	return true
+}
+
 // getWorkloadIdentityMembers returns the list of Kubernetes service accounts
 // that should be allowed to impersonate the GCP service account.
 func (i *KubernetesRuntimeInfraGKE) getWorkloadIdentityMembers(workloadIdentityPool string) []string {
@@ -459,17 +499,16 @@ func CreateGCPServiceAccountWithKey(projectID, accountName string) (*GCPServiceA
 		return nil, fmt.Errorf("failed to grant IAM roles: %w", err)
 	}
 
-	// create JSON key for controllers running outside GCP
+	// retry the key create while the new account is still propagating
 	keyRequest := &iam.CreateServiceAccountKeyRequest{
 		PrivateKeyType: "TYPE_GOOGLE_CREDENTIALS_FILE",
 	}
-
-	key, err := iamService.Projects.ServiceAccounts.Keys.Create(
-		fmt.Sprintf("projects/%s/serviceAccounts/%s", projectID, account.Email),
-		keyRequest,
-	).Do()
+	keyName := fmt.Sprintf("projects/%s/serviceAccounts/%s", projectID, account.Email)
+	key, err := createServiceAccountKeyWithRetry(func() (*iam.ServiceAccountKey, error) {
+		return iamService.Projects.ServiceAccounts.Keys.Create(keyName, keyRequest).Do()
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create service account key: %w", err)
+		return nil, err
 	}
 
 	// The key is base64 encoded, decode it
@@ -484,6 +523,31 @@ func CreateGCPServiceAccountWithKey(projectID, accountName string) (*GCPServiceA
 		Email:   account.Email,
 		KeyJSON: keyJSON,
 	}, nil
+}
+
+// createServiceAccountKeyWithRetry creates a key for a service account that may not be visible yet.
+// A not-found is retried, and any other error is returned.
+func createServiceAccountKeyWithRetry(create func() (*iam.ServiceAccountKey, error)) (*iam.ServiceAccountKey, error) {
+	var lastErr error
+
+	// retry a not-found key create until the account is visible
+	for attempt := 1; attempt <= iamPolicyAttempts; attempt++ {
+		key, err := create()
+		if err == nil {
+			return key, nil
+		}
+
+		lastErr = err
+		if !isNotFoundError(err) {
+			return nil, fmt.Errorf("failed to create service account key: %w", err)
+		}
+		if attempt < iamPolicyAttempts {
+			fmt.Printf("service account key create failed (attempt %d/%d): %v, retrying in %v...\n", attempt, iamPolicyAttempts, err, iamRetryDelay)
+			time.Sleep(iamRetryDelay)
+		}
+	}
+
+	return nil, fmt.Errorf("failed to create service account key after %d attempts: %w", iamPolicyAttempts, lastErr)
 }
 
 // DeleteGCPServiceAccountWithKey deletes a GCP service account that was created
