@@ -109,16 +109,25 @@ To take the Kubernetes API off the public internet altogether, pass
   --private-k8s-api
 ```
 
-The cluster then has no public IP endpoint. Its own network, and networks
-connected to it, reach its internal endpoint. `tptctl` and the control plane
+The cluster then has no public IP endpoint. `tptctl` and the control plane
 reach it through GKE's DNS-based endpoint, which Google authorizes with IAM
 (`container.clusters.connect`) rather than by address, using the same Google
 credentials `tptctl` already uses. You don't need to list your own address.
 
 With `--private-k8s-api`, `--k8s-api-allowed-cidrs` lists the private networks,
 such as a VPN or a peered network, that may reach the internal endpoint, up to
-100. Without it, any address in the cluster's network or a network connected to
-it can. The cluster's own address ranges are always admitted.
+100. The cluster's own address ranges are always admitted, and without the flag
+they're the only ones.
+
+The control plane's controllers reach the private clusters it manages in its
+project through their DNS endpoints too, as their own Workload Identity
+principals. So `tptctl up` grants every Kubernetes service account in the
+control plane's namespace the Kubernetes Engine Cluster Viewer role
+(`roles/container.clusterViewer`) on the project, the narrowest role with
+`container.clusters.connect`. It lets them see clusters and connect to them;
+each cluster's RBAC still decides what they may do. The control planes in a
+project that use the same namespace share the grant, so `tptctl down` removes
+it only when no other cluster Threeport provisioned is left in the project.
 
 To use `kubectl` against a private cluster, fetch its credentials for the DNS
 endpoint:

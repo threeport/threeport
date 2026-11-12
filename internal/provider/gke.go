@@ -203,6 +203,13 @@ func (i *KubernetesRuntimeInfraGKE) Create() (*kube.KubeConnectionInfo, error) {
 		return nil, err
 	}
 
+	// let the control plane's controllers reach the project's private
+	// clusters through their DNS endpoints, once the cluster, and with it the
+	// workload identity pool the grant names, exists
+	if err := i.grantControlPlaneClusterConnect(); err != nil {
+		return nil, err
+	}
+
 	// provision the database backups once the cluster, and with it the
 	// workload identity pool the backup binding names, exists
 	if i.ProvisionBackups {
@@ -597,6 +604,16 @@ func (i *KubernetesRuntimeInfraGKE) DeleteGCPResources() error {
 		return err
 	}
 
+	// the control plane's connect role, unless another cluster Threeport
+	// provisioned is still in the project
+	clusterManagerClientOpts := []option.ClientOption{}
+	if i.ServiceAccountCredentials != "" {
+		clusterManagerClientOpts = append(clusterManagerClientOpts, option.WithCredentialsJSON([]byte(i.ServiceAccountCredentials)))
+	}
+	if err := i.revokeControlPlaneClusterConnect(crmService, clusterManagerClientOpts); err != nil {
+		return err
+	}
+
 	// Remove the database's access to its backup bucket, and the backups
 	// when asked to
 	if i.BackupBucket != "" {
@@ -638,9 +655,11 @@ func (i *KubernetesRuntimeInfraGKE) kubeApiAllowlist() ([]string, error) {
 }
 
 // masterAuthorizedNetworksConfig returns the authorized networks that limit
-// the Kubernetes API to kubeApiAllowlist, or nil to leave it as it is without
-// them: a public endpoint open to every address, or a private cluster's
-// internal endpoint open to its network and the networks connected to it.
+// the Kubernetes API to kubeApiAllowlist.  With none to list, a public
+// cluster gets none, which leaves its endpoint open to every address, and a
+// private cluster, which GKE refuses without them, gets them enabled with
+// none listed, so its internal endpoint admits only the cluster's own node,
+// Pod and Service ranges.
 // On a public cluster the nodes reach the API through the internal endpoint,
 // which these do not limit.  On a private cluster they are enforced on the
 // internal endpoint, which GKE does only when asked to; GKE still admits the
@@ -653,7 +672,17 @@ func (i *KubernetesRuntimeInfraGKE) masterAuthorizedNetworksConfig() (gkecontain
 		return nil, err
 	}
 	if len(allowlist) == 0 {
-		return nil, nil
+		if !i.PrivateApi {
+			return nil, nil
+		}
+		// GKE refuses a private endpoint without authorized networks, and
+		// enforces them on it, as it is told here so a later up plans no
+		// change.  With none listed, the internal endpoint admits the
+		// cluster's own ranges, and the DNS endpoint everyone IAM lets in
+		return &gkecontainer.ClusterMasterAuthorizedNetworksConfigArgs{
+			GcpPublicCidrsAccessEnabled:       pulumi.Bool(false),
+			PrivateEndpointEnforcementEnabled: pulumi.Bool(true),
+		}, nil
 	}
 
 	cidrBlocks := gkecontainer.ClusterMasterAuthorizedNetworksConfigCidrBlockArray{}

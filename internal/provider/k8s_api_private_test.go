@@ -35,8 +35,13 @@ func TestAPrivateGkeClusterHasNoPublicIpEndpoint(t *testing.T) {
 		assert.Equal(t, map[string]any{
 			"dnsEndpointConfig": map[string]any{"allowExternalTraffic": true},
 		}, inputs["controlPlaneEndpointsConfig"])
-		assert.NotContains(t, inputs, "masterAuthorizedNetworksConfig",
-			"with no AllowedCidrs the internal endpoint stays open to the cluster's network and those connected to it")
+		// GKE refuses a private endpoint without authorized networks, and
+		// enforces them on it, so they're enabled with none listed: the
+		// internal endpoint admits the cluster's own ranges
+		assert.Equal(t, map[string]any{
+			"gcpPublicCidrsAccessEnabled":       false,
+			"privateEndpointEnforcementEnabled": true,
+		}, inputs["masterAuthorizedNetworksConfig"])
 	})
 	t.Run("private with AllowedCidrs", func(t *testing.T) {
 		infra := testGkeInfra()
