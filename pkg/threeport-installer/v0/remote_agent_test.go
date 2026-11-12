@@ -97,11 +97,6 @@ func TestGetAgentArgs(t *testing.T) {
 	})
 }
 
-func TestComputeSpaceAgentCommonName(t *testing.T) {
-	assert.Equal(t, "threeport-agent-gke-01", ComputeSpaceAgentCommonName("gke-01"))
-	assert.Equal(t, "threeport-agent", ComputeSpaceAgentCommonName(""))
-}
-
 func TestControllerConfigExternalApiEndpoint(t *testing.T) {
 	t.Run("recorded when the API has an external address", func(t *testing.T) {
 		cpi := NewInstaller()
@@ -125,17 +120,19 @@ func TestControllerConfigExternalApiEndpoint(t *testing.T) {
 	})
 }
 
-// TestSigningCaMount covers who is given the CA's private key: the controller
-// that issues agent certificates, and no other.
-func TestSigningCaMount(t *testing.T) {
+// TestOnlyTheAPIMountsTheCaKey covers who holds the CA's private key: the API,
+// which signs agent certificates when a controller asks, and nothing else.  A
+// controller that held it could sign a certificate any control plane component
+// would accept, so none does, the kubernetes runtime controller that installs
+// agents included.
+func TestOnlyTheAPIMountsTheCaKey(t *testing.T) {
 	cpi := NewInstaller()
 	cpi.Opts.AuthEnabled = true
 
-	mountsSigningCa := func(controller string) bool {
-		_, mounts, err := cpi.getControllerVolumes(controllerNamed(t, cpi, controller))
-		require.NoError(t, err)
-		for _, mount := range mounts {
-			if mount.(map[string]interface{})["mountPath"] == SigningCaMountPath {
+	mountsCaKey := func(vols []interface{}) bool {
+		for _, vol := range vols {
+			secretSource, ok := vol.(map[string]interface{})["secret"].(map[string]interface{})
+			if ok && secretSource["secretName"] == ThreeportApiCaSecret {
 				return true
 			}
 		}
@@ -143,36 +140,19 @@ func TestSigningCaMount(t *testing.T) {
 		return false
 	}
 
-	assert.True(t, mountsSigningCa(ThreeportKubernetesRuntimeControllerName))
-	for _, controller := range ThreeportControllerList {
-		if controller.Name == ThreeportKubernetesRuntimeControllerName {
-			continue
-		}
-		assert.False(t, mountsSigningCa(controller.Name), "%s must not hold the CA key", controller.Name)
+	apiVols, _, err := cpi.getAPIVolumes()
+	require.NoError(t, err)
+	assert.True(t, mountsCaKey(apiVols), "the API signs agent certificates, so it needs the key")
+
+	components := []v0.ControlPlaneComponent{*cpi.Opts.AgentInfo}
+	for _, controller := range cpi.Opts.ControllerList {
+		components = append(components, *controller)
 	}
-
-	t.Run("not mounted when auth is off", func(t *testing.T) {
-		noAuth := NewInstaller()
-		_, mounts, err := noAuth.getControllerVolumes(controllerNamed(t, noAuth, ThreeportKubernetesRuntimeControllerName))
+	for _, component := range components {
+		vols, _, err := cpi.getControllerVolumes(component)
 		require.NoError(t, err)
-		for _, mount := range mounts {
-			assert.NotEqual(t, SigningCaMountPath, mount.(map[string]interface{})["mountPath"])
-		}
-	})
-
-	t.Run("mounts the api-ca secret", func(t *testing.T) {
-		vols, _, err := cpi.getControllerVolumes(controllerNamed(t, cpi, ThreeportKubernetesRuntimeControllerName))
-		require.NoError(t, err)
-		var found bool
-		for _, vol := range vols {
-			v := vol.(map[string]interface{})
-			if v["name"] == signingCaVolumeName {
-				found = true
-				assert.Equal(t, ThreeportApiCaSecret, v["secret"].(map[string]interface{})["secretName"])
-			}
-		}
-		assert.True(t, found)
-	})
+		assert.False(t, mountsCaKey(vols), "%s must not hold the CA key", component.Name)
+	}
 }
 
 func controllerNamed(t *testing.T, cpi *ControlPlaneInstaller, name string) v0.ControlPlaneComponent {
