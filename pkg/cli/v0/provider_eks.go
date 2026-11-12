@@ -169,6 +169,7 @@ func DeployEksInfra(
 		DefaultNodeGroupMinNodes:     int32(3),
 		DefaultNodeGroupMaxNodes:     int32(250),
 		KubernetesVersion:            v0.KubernetesVersionOrDefault(&cpi.Opts.KubernetesVersion),
+		AllowedCidrs:                 cpi.Opts.K8sApiAllowedCidrs,
 	}).InitPulumiProject()
 	*kubernetesRuntimeInfra = kubernetesRuntimeInfraEKS
 	uninstaller.kubernetesRuntimeInfra = *kubernetesRuntimeInfra
@@ -342,6 +343,7 @@ func ConfigureControlPlaneWithEksConfig(
 		DefaultNodeGroupInitialSize:  util.Ptr(int(kubernetesRuntimeInfraEKS.DefaultNodeGroupInitialNodes)),
 		DefaultNodeGroupMinimumSize:  util.Ptr(int(kubernetesRuntimeInfraEKS.DefaultNodeGroupMinNodes)),
 		DefaultNodeGroupMaximumSize:  util.Ptr(int(kubernetesRuntimeInfraEKS.DefaultNodeGroupMaxNodes)),
+		AllowedCidrs:                 allowedCidrsJSON(kubernetesRuntimeInfraEKS.AllowedCidrs),
 		// the version tptctl created the cluster on, none for an existing one
 		KubernetesVersion:             kubernetesRuntimeDefResult.KubernetesVersion,
 		KubernetesRuntimeDefinitionID: kubernetesRuntimeDefResult.ID,

@@ -475,6 +475,11 @@ func buildGkeInfra(
 		return nil, fmt.Errorf("failed to retrieve GCP provider by ID: %w", err)
 	}
 
+	allowedCidrs, err := v0.ParseCidrs("AllowedCidrs", definition.AllowedCidrs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the definition's AllowedCidrs: %w", err)
+	}
+
 	infraGKE := (&provider.KubernetesRuntimeInfraGKE{
 		PulumiWorkspace: provider.PulumiWorkspace{
 			RuntimeInstanceName: *instance.Name,
@@ -487,6 +492,7 @@ func buildGkeInfra(
 		MinNodeCount:           int32(*definition.DefaultNodeGroupMinimumSize),
 		MaxNodeCount:           int32(*definition.DefaultNodeGroupMaximumSize),
 		Version:                v0.KubernetesVersionOrDefault(definition.KubernetesVersion),
+		AllowedCidrs:           allowedCidrs,
 	}).InitPulumiProject()
 
 	// The workload identity binding made after the cluster is created names this

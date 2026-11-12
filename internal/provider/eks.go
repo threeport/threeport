@@ -70,6 +70,10 @@ type KubernetesRuntimeInfraEKS struct {
 
 	// The maximum number of nodes allowed in the default node group.
 	DefaultNodeGroupMaxNodes int32
+
+	// The CIDR blocks allowed to reach the Kubernetes API's public endpoint.
+	// Empty leaves it open to every address.
+	AllowedCidrs []string
 }
 
 // Create provisions an AWS EKS cluster for threeport workloads and returns the

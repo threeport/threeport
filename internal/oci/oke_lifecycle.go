@@ -461,6 +461,11 @@ func buildOkeInfra(
 		nil,
 	)
 
+	allowedCidrs, err := v0.ParseCidrs("AllowedCidrs", definition.AllowedCidrs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the definition's AllowedCidrs: %w", err)
+	}
+
 	// use instance region if set, otherwise fall back to provider default region
 	region := *ociProvider.DefaultRegion
 	if instance.Region != nil && *instance.Region != "" {
@@ -483,6 +488,7 @@ func buildOkeInfra(
 		ServiceUserOCID:        *ociProvider.UserOCID,
 		Fingerprint:            *ociProvider.KeyFingerprint,
 		PrivateKeyPEM:          decryptedPrivateKey,
+		AllowedCidrs:           allowedCidrs,
 	}
 
 	// resolve the compartment OCID by looking up the workload compartment
