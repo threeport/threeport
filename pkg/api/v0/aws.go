@@ -73,6 +73,12 @@ type AwsEksKubernetesRuntimeDefinition struct {
 	// AllowedCidrs.
 	AllowedCidrs *datatypes.JSON `validate:"optional" swaggertype:"array,string"`
 
+	// The Kubernetes minor version of the clusters, such as "1.36": the
+	// KubernetesRuntimeDefinition's KubernetesVersion, or the default version
+	// when that is unset.  If unset here, the default version is used.  It
+	// can't be changed after creation.
+	KubernetesVersion *string `validate:"optional"`
+
 	// The AWS EKS kubernetes runtime instances derived from this definition.
 	AwsEksKubernetesRuntimeInstances []*AwsEksKubernetesRuntimeInstance `validate:"optional,association"`
 
