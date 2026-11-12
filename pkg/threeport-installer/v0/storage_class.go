@@ -2,6 +2,7 @@ package v0
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -95,4 +96,123 @@ func EnsureEksDefaultStorageClass(kubeClient dynamic.Interface) (bool, error) {
 	}
 
 	return true, nil
+}
+
+// persistentVolumeClaimGVR is the core v1 persistentvolumeclaims resource.
+var persistentVolumeClaimGVR = schema.GroupVersionResource{Version: "v1", Resource: "persistentvolumeclaims"}
+
+// checkDatabaseStorage refuses a production install or reinstall whose
+// database would get a volume before its pod is scheduled.  A replica whose
+// claim already exists keeps its volume, whose zone is already set, so the
+// storage class is checked only when a replica's claim has yet to be created.
+// The class checked is the one the database's claims are created with: that
+// of the database's StatefulSet, when it is there, as on a reinstall, and the
+// installer's otherwise.
+func (cpi *ControlPlaneInstaller) checkDatabaseStorage(kubeClient dynamic.Interface) error {
+	if string(cpi.Opts.Tier) != ControlPlaneTierProd {
+		return nil
+	}
+
+	for replica := int64(0); replica < crdbReplicas(cpi.Opts.Tier); replica++ {
+		name := fmt.Sprintf("datadir-crdb-%d", replica)
+		_, err := kubeClient.Resource(persistentVolumeClaimGVR).Namespace(cpi.Opts.Namespace).Get(context.TODO(), name, metav1.GetOptions{})
+		if k8serrors.IsNotFound(err) {
+			claimSpec, err := cpi.databaseClaimSpec(kubeClient)
+			if err != nil {
+				return err
+			}
+			return checkDatabaseVolumeBinding(kubeClient, claimSpec)
+		}
+		if err != nil {
+			return fmt.Errorf("failed to get the database's volume claim %s: %w", name, err)
+		}
+	}
+
+	return nil
+}
+
+// databaseClaimSpec returns the spec the database's claims are created with.
+// A database's StatefulSet that is already there, as on a reinstall, creates
+// a missing replica's claim from its own template, which the installer's can
+// differ from: a reinstall isn't given the infra provider whose storage class
+// the template names.
+func (cpi *ControlPlaneInstaller) databaseClaimSpec(kubeClient dynamic.Interface) (map[string]interface{}, error) {
+	statefulSet, err := kubeClient.Resource(statefulSetGVR).Namespace(cpi.Opts.Namespace).Get(context.TODO(), "crdb", metav1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		return cpi.getVolClaimTemplateSpec(""), nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the database's stateful set: %w", err)
+	}
+
+	templates, _, _ := unstructured.NestedSlice(statefulSet.Object, "spec", "volumeClaimTemplates")
+	for _, template := range templates {
+		claim, ok := template.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if name, _, _ := unstructured.NestedString(claim, "metadata", "name"); name != "datadir" {
+			continue
+		}
+		if spec, found, _ := unstructured.NestedMap(claim, "spec"); found {
+			return spec, nil
+		}
+	}
+
+	return nil, errors.New("the database's stateful set has no datadir volume claim template")
+}
+
+// checkDatabaseVolumeBinding refuses a production database whose volumes
+// would be created before its pods are scheduled.
+//
+// A production database is spread strictly across zones, and a zonal volume
+// holds its pod to the volume's zone.  A class that binds immediately creates
+// each volume in a zone of the provisioner's choosing, and two of them in one
+// zone leave a replica Pending: its zone already has one, and its volume
+// can't follow it to another.  With WaitForFirstConsumer, the volume is
+// created in the zone its pod is scheduled to.  The class is the one the
+// database's claims name, or the cluster's default.  A cluster with neither
+// is left to fail as it would have, on the claims.
+func checkDatabaseVolumeBinding(kubeClient dynamic.Interface, claimSpec map[string]interface{}) error {
+	var class *unstructured.Unstructured
+	if name, ok := claimSpec["storageClassName"].(string); ok && name != "" {
+		named, err := kubeClient.Resource(storageClassGVR).Get(context.TODO(), name, metav1.GetOptions{})
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("failed to get storage class %s: %w", name, err)
+		}
+		class = named
+	} else {
+		classes, err := kubeClient.Resource(storageClassGVR).List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to list storage classes: %w", err)
+		}
+		for i := range classes.Items {
+			if isDefaultStorageClass(classes.Items[i]) {
+				class = &classes.Items[i]
+				break
+			}
+		}
+	}
+	if class == nil {
+		return nil
+	}
+
+	// an unset binding mode is Immediate
+	bindingMode, _, _ := unstructured.NestedString(class.Object, "volumeBindingMode")
+	if bindingMode == "WaitForFirstConsumer" {
+		return nil
+	}
+	if bindingMode == "" {
+		bindingMode = "Immediate"
+	}
+
+	return fmt.Errorf(
+		"storage class %s creates volumes before their pods are scheduled (volumeBindingMode %s): "+
+			"a production control plane's database is spread across zones, and a volume created first can hold a replica "+
+			"to a zone another replica already has; use a class with volumeBindingMode WaitForFirstConsumer for the database",
+		class.GetName(), bindingMode,
+	)
 }
