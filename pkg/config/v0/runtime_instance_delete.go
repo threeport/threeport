@@ -2,10 +2,6 @@ package v0
 
 import (
 	"errors"
-	"fmt"
-
-	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
-	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // ErrDeleteTimedOut is returned when the API accepted a delete for a runtime
@@ -27,24 +23,11 @@ var instanceDeleteWait = struct{ attempts, intervalSeconds int }{attempts: 90, i
 // request, and the controller can refuse, so the API accepting the delete is
 // not the delete being done.
 func waitForInstanceDelete(kind, name string, get func() error) error {
-	err := util.Retry(instanceDeleteWait.attempts, instanceDeleteWait.intervalSeconds, func() error {
-		err := get()
-		switch {
-		case err == nil:
-			return fmt.Errorf("%s %s is still present", kind, name)
-		case errors.Is(err, client_lib.ErrObjectNotFound):
-			return nil
-		default:
-			return fmt.Errorf("failed to check whether %s %s was deleted: %w", kind, name, err)
-		}
-	})
-	if err != nil {
-		return fmt.Errorf(
-			"%w: %s %s was not deleted, so the controller has not finished or has refused the delete; "+
-				"check its events for the reason (tptctl get events): %w",
-			ErrDeleteTimedOut, kind, name, err,
-		)
-	}
-
-	return nil
+	return pollInstanceDeleted(
+		kind,
+		name,
+		instanceDeleteWait.attempts,
+		instanceDeleteWait.intervalSeconds,
+		get,
+	)
 }

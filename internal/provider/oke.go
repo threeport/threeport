@@ -74,6 +74,10 @@ type KubernetesRuntimeInfraOKE struct {
 	PrivateKeyPEM   string
 	PublicKeyPEM    string
 	Fingerprint     string
+
+	// The CIDR blocks allowed to reach the Kubernetes API's public endpoint.
+	// Empty leaves it open to every address.
+	AllowedCidrs []string
 }
 
 // Create installs a Kubernetes cluster using Oracle Cloud OKE for threeport workloads.
@@ -260,17 +264,9 @@ func (i *KubernetesRuntimeInfraOKE) CreateInfra() (*kube.KubeConnectionInfo, err
 			VcnId:         vcn.ID(),
 			DisplayName:   pulumi.String(fmt.Sprintf("%s-public-seclist", i.RuntimeInstanceName)),
 			FreeformTags:  pulumi.StringMap{"threeport-instance": pulumi.String(i.RuntimeInstanceName)},
-			IngressSecurityRules: core.SecurityListIngressSecurityRuleArray{
-				// allow Kubernetes API server traffic from anywhere
-				&core.SecurityListIngressSecurityRuleArgs{
-					Protocol: pulumi.String("6"), // TCP
-					Source:   pulumi.String("0.0.0.0/0"),
-					TcpOptions: &core.SecurityListIngressSecurityRuleTcpOptionsArgs{
-						Max: pulumi.Int(6443),
-						Min: pulumi.Int(6443),
-					},
-					Stateless: pulumi.Bool(false),
-				},
+			// allow Kubernetes API server traffic from anywhere, or from
+			// AllowedCidrs only, then from the worker nodes
+			IngressSecurityRules: append(i.publicKubeApiIngressRules(), core.SecurityListIngressSecurityRuleArray{
 				// allow Kubernetes API server traffic from private subnet
 				&core.SecurityListIngressSecurityRuleArgs{
 					Protocol: pulumi.String("6"), // TCP
@@ -301,7 +297,7 @@ func (i *KubernetesRuntimeInfraOKE) CreateInfra() (*kube.KubeConnectionInfo, err
 					},
 					Stateless: pulumi.Bool(false),
 				},
-			},
+			}...),
 			EgressSecurityRules: core.SecurityListEgressSecurityRuleArray{
 				// allow traffic to Oracle Services Network
 				&core.SecurityListEgressSecurityRuleArgs{
@@ -684,6 +680,32 @@ func (i *KubernetesRuntimeInfraOKE) GetClusterOCID(okeClusterName string) (strin
 	}
 
 	return "", fmt.Errorf("no active cluster found with name %s", okeClusterName)
+}
+
+// publicKubeApiIngressRules returns the rules that admit traffic to the
+// Kubernetes API endpoint from outside the VCN: from anywhere, or one rule
+// per block when AllowedCidrs is set.  The worker nodes reach the endpoint
+// through the rule for the private subnet, which the list does not replace.
+func (i *KubernetesRuntimeInfraOKE) publicKubeApiIngressRules() core.SecurityListIngressSecurityRuleArray {
+	sources := i.AllowedCidrs
+	if len(sources) == 0 {
+		sources = []string{"0.0.0.0/0"}
+	}
+
+	rules := core.SecurityListIngressSecurityRuleArray{}
+	for _, source := range sources {
+		rules = append(rules, &core.SecurityListIngressSecurityRuleArgs{
+			Protocol: pulumi.String("6"), // TCP
+			Source:   pulumi.String(source),
+			TcpOptions: &core.SecurityListIngressSecurityRuleTcpOptionsArgs{
+				Max: pulumi.Int(6443),
+				Min: pulumi.Int(6443),
+			},
+			Stateless: pulumi.Bool(false),
+		})
+	}
+
+	return rules
 }
 
 // GetConnection gets the latest connection info for authentication to an OKE cluster.

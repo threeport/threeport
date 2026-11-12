@@ -7,6 +7,8 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"net"
+	"strconv"
 	"strings"
 	"time"
 
@@ -162,7 +164,6 @@ func (cpi *ControlPlaneInstaller) runDropMessageBrokerJob(
 	}
 
 	// remove every stream, which also removes key-value buckets stored as streams
-	script := "set -e; for stream in $(nats stream ls --names); do nats stream rm \"$stream\" --force; done"
 	fmt.Println("Info: removing every message broker stream and key-value bucket")
 
 	// create the message broker drop job
@@ -193,14 +194,15 @@ func (cpi *ControlPlaneInstaller) runDropMessageBrokerJob(
 								"securityContext": vendoredContainerSecurityContext(),
 								"image":           natsBoxImage,
 								"resources":       natsBoxResources(),
-								"env": []interface{}{
-									map[string]interface{}{
-										"name":  "NATS_URL",
-										"value": natsServiceName,
-									},
+								"env":             natsDropJobEnv(),
+								"command":         []interface{}{"/bin/sh", "-c", natsDropJobScript},
+								"volumeMounts": []interface{}{
+									NatsClientCAVolumeMount(),
 								},
-								"command": []interface{}{"/bin/sh", "-c", script},
 							},
+						},
+						"volumes": []interface{}{
+							natsDropJobCAVolume(),
 						},
 					},
 				},
@@ -462,6 +464,78 @@ func (cpi *ControlPlaneInstaller) getInstalledTier(
 	return ControlPlaneTier(tier), nil
 }
 
+// installedExternalApiEndpoint returns the external API endpoint recorded in
+// the installed controller config, or an empty string when there is none.
+func (cpi *ControlPlaneInstaller) installedExternalApiEndpoint(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+) (string, error) {
+	secret, present, err := resourceInstalled(
+		kubeClient, mapper, "", "v1", "Secret", cpi.Opts.Namespace, "controller-config",
+	)
+	if err != nil {
+		return "", err
+	}
+	if !present {
+		return "", nil
+	}
+
+	encoded, found, err := unstructured.NestedString(
+		secret.Object, "data", ControllerConfigExternalApiEndpointKey,
+	)
+	if err != nil || !found {
+		return "", err
+	}
+	decoded, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode %s: %w", ControllerConfigExternalApiEndpointKey, err)
+	}
+
+	return string(decoded), nil
+}
+
+// loadBalancerApiEndpoint returns the host:port the installed API's load
+// balancer is reached at, or an empty string when the API has no load balancer
+// or it has no address yet.  Unlike GetThreeportAPIEndpoint it does not wait
+// for one: an API with no load balancer is an ordinary state, not a failure.
+func (cpi *ControlPlaneInstaller) loadBalancerApiEndpoint(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+) (string, error) {
+	service, present, err := resourceInstalled(
+		kubeClient, mapper, "", "v1", "Service",
+		cpi.Opts.Namespace, cpi.Opts.RestApiInfo.ServiceResourceName,
+	)
+	if err != nil {
+		return "", err
+	}
+	if !present {
+		return "", nil
+	}
+
+	ingress, _, err := unstructured.NestedSlice(service.Object, "status", "loadBalancer", "ingress")
+	if err != nil || len(ingress) == 0 {
+		return "", err
+	}
+	first, ok := ingress[0].(map[string]interface{})
+	if !ok {
+		return "", nil
+	}
+
+	// providers differ: EKS gives a hostname, GKE and OKE an IP
+	host, _, _ := unstructured.NestedString(first, "hostname")
+	if host == "" {
+		host, _, _ = unstructured.NestedString(first, "ip")
+	}
+	if host == "" {
+		return "", nil
+	}
+
+	_, port := cpi.GetAPIServicePort()
+
+	return net.JoinHostPort(host, strconv.Itoa(int(port))), nil
+}
+
 // useInstalledTier sets the installer's tier to the one recorded on the
 // control plane namespace.  A namespace from before the tier was recorded
 // keeps the installer's tier as given.
@@ -489,6 +563,25 @@ func (cpi *ControlPlaneInstaller) Reinstall(
 	authConfig *auth.AuthConfig,
 ) error {
 	ns := cpi.Opts.Namespace
+
+	// The controller config is recreated below and the external API endpoint is
+	// not part of what this call is given, so carry the one the install recorded
+	// across or the controllers lose the address they hand to agents.  A control
+	// plane installed before the address was recorded has none saved, so it is
+	// read from the API's load balancer, which the delete below removes.
+	if cpi.Opts.ExternalApiEndpoint == "" {
+		endpoint, err := cpi.installedExternalApiEndpoint(kubeClient, mapper)
+		if err != nil {
+			return fmt.Errorf("failed to read the installed external API endpoint: %w", err)
+		}
+		if endpoint == "" {
+			endpoint, err = cpi.loadBalancerApiEndpoint(kubeClient, mapper)
+			if err != nil {
+				return fmt.Errorf("failed to read the API load balancer endpoint: %w", err)
+			}
+		}
+		cpi.Opts.ExternalApiEndpoint = endpoint
+	}
 
 	// replica counts and disruption budgets follow the tier, which a
 	// reinstall is not given, so it is read from the namespace before
@@ -652,6 +745,11 @@ func (cpi *ControlPlaneInstaller) deleteForReinstall(
 // clusterBindingFor reports whether a cluster role or binding belongs to this namespace.
 // A longer sibling namespace wins when the name starts with that sibling too.
 func clusterBindingFor(name, namespace string, namespaces []string) bool {
+	// the agent's bindings are matched whole rather than by suffix, so a
+	// sibling namespace's name cannot be mistaken for this one's
+	if name == agentManagerBindingNameFor(namespace) || name == agentProxyBindingNameFor(namespace) {
+		return true
+	}
 	if !strings.HasPrefix(name, namespace+"-") {
 		return false
 	}

@@ -73,7 +73,7 @@ var GetOciProvidersCmd = &cobra.Command{
 		case "v0":
 			// load values
 			ociProviderConfig := config_v0.OciProviderConfig{}
-			if ociConfigPath != "" {
+			if ociConfigPath != "" || ociStdin {
 				configContent, err := cli.ReadConfigContent(ociConfigPath, ociStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -321,7 +321,7 @@ var DeleteOciProviderCmd = &cobra.Command{
 		switch ociVersion {
 		case "v0":
 			var ociProviderConfig config_v0.OciProviderConfig
-			if ociConfigPath != "" {
+			if ociConfigPath != "" || ociStdin {
 				// load oci provider config
 				configContent, err := cli.ReadConfigContent(ociConfigPath, ociStdin)
 				if err != nil {
@@ -407,7 +407,7 @@ var GetOciOkeKubernetesRuntimesCmd = &cobra.Command{
 		case "v0":
 			// load oci oke kubernetes runtime values
 			ociOkeKubernetesRuntimeConfig := config_v0.OciOkeKubernetesRuntimeConfig{}
-			if ociConfigPath != "" {
+			if ociConfigPath != "" || ociStdin {
 				configContent, err := cli.ReadConfigContent(ociConfigPath, ociStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -666,7 +666,7 @@ var GetOciOkeKubernetesRuntimeDefinitionsCmd = &cobra.Command{
 		case "v0":
 			// load values
 			ociOkeKubernetesRuntimeDefinitionConfig := config_v0.OciOkeKubernetesRuntimeDefinitionConfig{}
-			if ociConfigPath != "" {
+			if ociConfigPath != "" || ociStdin {
 				configContent, err := cli.ReadConfigContent(ociConfigPath, ociStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -910,7 +910,7 @@ var DeleteOciOkeKubernetesRuntimeDefinitionCmd = &cobra.Command{
 		switch ociVersion {
 		case "v0":
 			var ociOkeKubernetesRuntimeDefinitionConfig config_v0.OciOkeKubernetesRuntimeDefinitionConfig
-			if ociConfigPath != "" {
+			if ociConfigPath != "" || ociStdin {
 				// load oci oke kubernetes runtime definition config
 				configContent, err := cli.ReadConfigContent(ociConfigPath, ociStdin)
 				if err != nil {
@@ -995,7 +995,7 @@ var GetOciOkeKubernetesRuntimeInstancesCmd = &cobra.Command{
 		case "v0":
 			// load values
 			ociOkeKubernetesRuntimeInstanceConfig := config_v0.OciOkeKubernetesRuntimeInstanceConfig{}
-			if ociConfigPath != "" {
+			if ociConfigPath != "" || ociStdin {
 				configContent, err := cli.ReadConfigContent(ociConfigPath, ociStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -1239,7 +1239,7 @@ var DeleteOciOkeKubernetesRuntimeInstanceCmd = &cobra.Command{
 		switch ociVersion {
 		case "v0":
 			var ociOkeKubernetesRuntimeInstanceConfig config_v0.OciOkeKubernetesRuntimeInstanceConfig
-			if ociConfigPath != "" {
+			if ociConfigPath != "" || ociStdin {
 				// load oci oke kubernetes runtime instance config
 				configContent, err := cli.ReadConfigContent(ociConfigPath, ociStdin)
 				if err != nil {

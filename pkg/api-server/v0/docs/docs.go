@@ -1131,6 +1131,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -1228,6 +1234,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -1430,6 +1442,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -1527,6 +1545,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -1729,6 +1753,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -1826,6 +1856,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -2028,6 +2064,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -2125,6 +2167,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -2327,6 +2375,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -2424,6 +2478,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -2626,6 +2686,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -2723,6 +2789,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -2925,6 +2997,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -3022,6 +3100,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -3224,6 +3308,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -3321,6 +3411,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -3606,6 +3702,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -3703,6 +3805,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -3905,6 +4013,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -4002,6 +4116,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -4204,6 +4324,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -4301,6 +4427,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -4503,6 +4635,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -4600,6 +4738,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -4802,6 +4946,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -4899,6 +5049,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -5101,6 +5257,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -5198,6 +5360,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -5400,6 +5568,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -5497,6 +5671,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -5699,6 +5879,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -5796,6 +5982,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -5998,6 +6190,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -6095,6 +6293,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -6297,6 +6501,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -6394,6 +6604,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -6596,6 +6812,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -6693,6 +6915,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -6895,6 +7123,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -6992,6 +7226,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -7194,6 +7434,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -7291,6 +7537,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -7493,6 +7745,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -7590,6 +7848,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -7839,6 +8103,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -7936,6 +8206,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -8138,6 +8414,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -8235,6 +8517,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -8437,6 +8725,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -8534,6 +8828,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -8736,6 +9036,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -8833,6 +9139,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -9035,6 +9347,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -9132,6 +9450,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -9334,6 +9658,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -9431,6 +9761,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -9633,6 +9969,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -9730,6 +10072,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -9932,6 +10280,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -10029,6 +10383,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -10231,6 +10591,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -10328,6 +10694,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -10530,6 +10902,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -10627,6 +11005,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -10829,6 +11213,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -10926,6 +11316,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -11128,6 +11524,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -11225,6 +11627,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -11427,6 +11835,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -11524,6 +11938,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -11770,6 +12190,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -11867,6 +12293,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -12069,6 +12501,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -12166,6 +12604,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -12418,6 +12862,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -12515,6 +12965,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -12758,6 +13214,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -12796,6 +13258,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -12897,6 +13365,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -13099,6 +13573,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -13196,6 +13676,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -13398,6 +13884,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -13495,6 +13987,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -13697,6 +14195,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -13794,6 +14298,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -13996,6 +14506,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -14093,6 +14609,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -14295,6 +14817,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -14392,6 +14920,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -14594,6 +15128,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -14691,6 +15231,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -14893,6 +15439,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -14990,6 +15542,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -15192,6 +15750,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -15289,6 +15853,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -15491,6 +16061,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -15588,6 +16164,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -15790,6 +16372,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -15887,6 +16475,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -16089,6 +16683,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -16186,6 +16786,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -16388,6 +16994,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -16485,6 +17097,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -16687,6 +17305,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v0.Response"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -16784,6 +17408,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -16956,6 +17586,13 @@ const docTemplate = `{
                 "ZoneCount"
             ],
             "properties": {
+                "AllowedCidrs": {
+                    "description": "The CIDR blocks allowed to reach the Kubernetes API, as a JSON array of\nIPv4 CIDR blocks.  Set from the KubernetesRuntimeDefinition's\nAllowedCidrs.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "AwsEksKubernetesRuntimeInstances": {
                     "description": "The AWS EKS kubernetes runtime instances derived from this definition.",
                     "type": "array",
@@ -16986,6 +17623,10 @@ const docTemplate = `{
                 "Name": {
                     "description": "An arbitrary name for the definition.",
                     "type": "string"
+                },
+                "PrivateApi": {
+                    "description": "If true, the Kubernetes API is not reachable from the public internet.\nSet from the KubernetesRuntimeDefinition's PrivateApi.",
+                    "type": "boolean"
                 },
                 "ProfileID": {
                     "description": "The profile to associate with the definition.  Profile is a named\nstandard configuration for a definition object.",
@@ -17284,6 +17925,10 @@ const docTemplate = `{
             "properties": {
                 "ApiServerEndpoint": {
                     "description": "Information for connecting to the rest api for the control plane",
+                    "type": "string"
+                },
+                "Apis": {
+                    "description": "The controller groups this control plane installs.\nGroup names are separated by commas.\nAn empty or omitted value installs every controller.\nThe value 'none' installs no controllers.",
                     "type": "string"
                 },
                 "CACert": {
@@ -17802,6 +18447,13 @@ const docTemplate = `{
                 "ZoneCount"
             ],
             "properties": {
+                "AllowedCidrs": {
+                    "description": "The CIDR blocks allowed to reach the Kubernetes API, as a JSON array of\nIPv4 CIDR blocks.  Set from the KubernetesRuntimeDefinition's\nAllowedCidrs.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "DefaultNodeGroupInitialSize": {
                     "description": "The number of nodes in the default initial node group.",
                     "type": "integer"
@@ -17832,6 +18484,10 @@ const docTemplate = `{
                 "Name": {
                     "description": "An arbitrary name for the definition.",
                     "type": "string"
+                },
+                "PrivateApi": {
+                    "description": "If true, the Kubernetes API is not reachable from the public internet.\nSet from the KubernetesRuntimeDefinition's PrivateApi.",
+                    "type": "boolean"
                 },
                 "ProfileID": {
                     "description": "The profile to associate with the definition.  Profile is a named\nstandard configuration for a definition object.",
@@ -18132,6 +18788,13 @@ const docTemplate = `{
                 "Name"
             ],
             "properties": {
+                "AllowedCidrs": {
+                    "description": "The CIDR blocks allowed to reach the Kubernetes API, as a JSON array of\nIPv4 CIDR blocks.  With PrivateApi false, this restricts the public\nendpoint.  With PrivateApi true, it lists the private networks, such as\na VPN or a peered network, that may reach the private endpoint.  Empty\nmeans no restriction beyond PrivateApi.  EKS admits up to 40 blocks,\nGKE up to 50 (100 with PrivateApi) and OKE up to 120.  Cannot be\nchanged after creation.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "CreationAcknowledged": {
                     "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
                     "type": "string"
@@ -18194,6 +18857,10 @@ const docTemplate = `{
                 "NodeSize": {
                     "description": "Sets the compute capacity of the machine type for the default node group.",
                     "type": "string"
+                },
+                "PrivateApi": {
+                    "description": "If true, the Kubernetes API is not reachable from the public internet.\nIt is reachable only from the cluster's own network, from networks\nconnected to it and, on GKE, through the IAM-authorized DNS endpoint.\nCannot be changed after creation.",
+                    "type": "boolean"
                 },
                 "ProfileID": {
                     "description": "The profile to associate with the definition.  Profile is a named\nstandard configuration for a definition object.",
@@ -18283,6 +18950,13 @@ const docTemplate = `{
                 "DeletionScheduled": {
                     "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
                     "type": "string"
+                },
+                "EgressCidrs": {
+                    "description": "The public addresses that this cluster's outbound internet traffic\ncomes from, as a JSON array of CIDR blocks, one /32 per address.\nRecorded for every cluster Threeport provisions.  Workload runtimes\nthat restrict their Kubernetes API with AllowedCidrs also admit the\naddresses of the runtime that hosts the control plane, so that the\ncontrol plane can reach them.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "IngressComponentInstanceID": {
                     "description": "The workload that runs the ingress component for this runtime.",
@@ -19661,6 +20335,13 @@ const docTemplate = `{
                 "WorkerNodeShape"
             ],
             "properties": {
+                "AllowedCidrs": {
+                    "description": "The CIDR blocks allowed to reach the Kubernetes API, as a JSON array of\nIPv4 CIDR blocks.  Set from the KubernetesRuntimeDefinition's\nAllowedCidrs.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "KubernetesRuntimeDefinitionID": {
                     "description": "The kubernetes runtime definition for an OKE cluster in OCI.",
                     "type": "integer"
@@ -19675,6 +20356,10 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/v0.OciOkeKubernetesRuntimeInstance"
                     }
+                },
+                "PrivateApi": {
+                    "description": "If true, the Kubernetes API is not reachable from the public internet.\nSet from the KubernetesRuntimeDefinition's PrivateApi.",
+                    "type": "boolean"
                 },
                 "ProfileID": {
                     "description": "The profile to associate with the definition.  Profile is a named\nstandard configuration for a definition object.",
@@ -20229,7 +20914,7 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "v0.7.0-rc.1",
+	Version:          "v0.7.0-rc.3",
 	Host:             "",
 	BasePath:         "/",
 	Schemes:          []string{},

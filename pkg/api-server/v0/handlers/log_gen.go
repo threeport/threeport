@@ -231,12 +231,16 @@ func (h Handler) GetLogBackends(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/log-backends/{id} [GET]
 func (h Handler) GetLogBackend(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.LogBackend).GetFullyQualifiedType()
-	logBackendID := c.Param("id")
+	logBackendID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var logBackend api_v0.LogBackend
 	if result := h.RequestDB(c).
 		First(&logBackend, logBackendID); result.Error != nil {
@@ -280,7 +284,10 @@ func (h Handler) GetLogBackend(c echo.Context) error {
 func (h Handler) UpdateLogBackend(c echo.Context) error {
 	objectType := api_v0.ObjectTypeLogBackend
 	fullyQualifiedType := new(api_v0.LogBackend).GetFullyQualifiedType()
-	logBackendID := c.Param("id")
+	logBackendID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingLogBackend api_v0.LogBackend
 	if result := h.RequestDB(c).First(&existingLogBackend, logBackendID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -358,7 +365,10 @@ func (h Handler) UpdateLogBackend(c echo.Context) error {
 func (h Handler) ReplaceLogBackend(c echo.Context) error {
 	objectType := api_v0.ObjectTypeLogBackend
 	fullyQualifiedType := new(api_v0.LogBackend).GetFullyQualifiedType()
-	logBackendID := c.Param("id")
+	logBackendID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingLogBackend api_v0.LogBackend
 	if result := h.RequestDB(c).First(&existingLogBackend, logBackendID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -438,13 +448,17 @@ func (h Handler) ReplaceLogBackend(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/log-backends/{id} [DELETE]
 func (h Handler) DeleteLogBackend(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.LogBackend).GetFullyQualifiedType()
-	logBackendID := c.Param("id")
+	logBackendID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var logBackend api_v0.LogBackend
 	if result := h.RequestDB(c).First(&logBackend, logBackendID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -717,12 +731,16 @@ func (h Handler) GetLogStorageDefinitions(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/log-storage-definitions/{id} [GET]
 func (h Handler) GetLogStorageDefinition(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.LogStorageDefinition).GetFullyQualifiedType()
-	logStorageDefinitionID := c.Param("id")
+	logStorageDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var logStorageDefinition api_v0.LogStorageDefinition
 	if result := h.RequestDB(c).
 		First(&logStorageDefinition, logStorageDefinitionID); result.Error != nil {
@@ -766,7 +784,10 @@ func (h Handler) GetLogStorageDefinition(c echo.Context) error {
 func (h Handler) UpdateLogStorageDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeLogStorageDefinition
 	fullyQualifiedType := new(api_v0.LogStorageDefinition).GetFullyQualifiedType()
-	logStorageDefinitionID := c.Param("id")
+	logStorageDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingLogStorageDefinition api_v0.LogStorageDefinition
 	if result := h.RequestDB(c).First(&existingLogStorageDefinition, logStorageDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -844,7 +865,10 @@ func (h Handler) UpdateLogStorageDefinition(c echo.Context) error {
 func (h Handler) ReplaceLogStorageDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeLogStorageDefinition
 	fullyQualifiedType := new(api_v0.LogStorageDefinition).GetFullyQualifiedType()
-	logStorageDefinitionID := c.Param("id")
+	logStorageDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingLogStorageDefinition api_v0.LogStorageDefinition
 	if result := h.RequestDB(c).First(&existingLogStorageDefinition, logStorageDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -924,13 +948,17 @@ func (h Handler) ReplaceLogStorageDefinition(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/log-storage-definitions/{id} [DELETE]
 func (h Handler) DeleteLogStorageDefinition(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.LogStorageDefinition).GetFullyQualifiedType()
-	logStorageDefinitionID := c.Param("id")
+	logStorageDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var logStorageDefinition api_v0.LogStorageDefinition
 	if result := h.RequestDB(c).Preload("LogStorageInstances").First(&logStorageDefinition, logStorageDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -1209,12 +1237,16 @@ func (h Handler) GetLogStorageInstances(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/log-storage-instances/{id} [GET]
 func (h Handler) GetLogStorageInstance(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.LogStorageInstance).GetFullyQualifiedType()
-	logStorageInstanceID := c.Param("id")
+	logStorageInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var logStorageInstance api_v0.LogStorageInstance
 	if result := h.RequestDB(c).
 		First(&logStorageInstance, logStorageInstanceID); result.Error != nil {
@@ -1258,7 +1290,10 @@ func (h Handler) GetLogStorageInstance(c echo.Context) error {
 func (h Handler) UpdateLogStorageInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeLogStorageInstance
 	fullyQualifiedType := new(api_v0.LogStorageInstance).GetFullyQualifiedType()
-	logStorageInstanceID := c.Param("id")
+	logStorageInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingLogStorageInstance api_v0.LogStorageInstance
 	if result := h.RequestDB(c).First(&existingLogStorageInstance, logStorageInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -1336,7 +1371,10 @@ func (h Handler) UpdateLogStorageInstance(c echo.Context) error {
 func (h Handler) ReplaceLogStorageInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeLogStorageInstance
 	fullyQualifiedType := new(api_v0.LogStorageInstance).GetFullyQualifiedType()
-	logStorageInstanceID := c.Param("id")
+	logStorageInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingLogStorageInstance api_v0.LogStorageInstance
 	if result := h.RequestDB(c).First(&existingLogStorageInstance, logStorageInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -1416,13 +1454,17 @@ func (h Handler) ReplaceLogStorageInstance(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/log-storage-instances/{id} [DELETE]
 func (h Handler) DeleteLogStorageInstance(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.LogStorageInstance).GetFullyQualifiedType()
-	logStorageInstanceID := c.Param("id")
+	logStorageInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var logStorageInstance api_v0.LogStorageInstance
 	if result := h.RequestDB(c).First(&logStorageInstance, logStorageInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {

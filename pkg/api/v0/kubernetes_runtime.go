@@ -1,6 +1,10 @@
 package v0
 
-import "time"
+import (
+	"time"
+
+	"gorm.io/datatypes"
+)
 
 // KubernetesRuntimeDefinition is the configuration for a Kubernetes cluster.
 type KubernetesRuntimeDefinition struct {
@@ -31,6 +35,21 @@ type KubernetesRuntimeDefinition struct {
 	// Sets the maximum number of nodes for the default node group.
 	NodeMaximum *int `validate:"optional" gorm:"default:250"`
 
+	// If true, the Kubernetes API is not reachable from the public internet.
+	// It is reachable only from the cluster's own network, from networks
+	// connected to it and, on GKE, through the IAM-authorized DNS endpoint.
+	// Cannot be changed after creation.
+	PrivateApi *bool `validate:"optional" gorm:"default:false"`
+
+	// The CIDR blocks allowed to reach the Kubernetes API, as a JSON array of
+	// IPv4 CIDR blocks.  With PrivateApi false, this restricts the public
+	// endpoint.  With PrivateApi true, it lists the private networks, such as
+	// a VPN or a peered network, that may reach the private endpoint.  Empty
+	// means no restriction beyond PrivateApi.  EKS admits up to 40 blocks,
+	// GKE up to 50 (100 with PrivateApi) and OKE up to 120.  Cannot be
+	// changed after creation.
+	AllowedCidrs *datatypes.JSON `validate:"optional" swaggertype:"array,string"`
+
 	// TODO: add fields for location limitations
 	// LocationsAllowed
 	// LocationsForbidden
@@ -58,6 +77,14 @@ type KubernetesRuntimeInstance struct {
 
 	// The network endpoint at which to reach the kube-api.
 	APIEndpoint *string `validate:"optional"`
+
+	// The public addresses that this cluster's outbound internet traffic
+	// comes from, as a JSON array of CIDR blocks, one /32 per address.
+	// Recorded for every cluster Threeport provisions.  Workload runtimes
+	// that restrict their Kubernetes API with AllowedCidrs also admit the
+	// addresses of the runtime that hosts the control plane, so that the
+	// control plane can reach them.
+	EgressCidrs *datatypes.JSON `validate:"optional" swaggertype:"array,string"`
 
 	// The CA certificate used to generate the cert and key if
 	// self-signed.

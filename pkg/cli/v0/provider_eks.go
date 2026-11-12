@@ -168,6 +168,7 @@ func DeployEksInfra(
 		DefaultNodeGroupInitialNodes: int32(3),
 		DefaultNodeGroupMinNodes:     int32(3),
 		DefaultNodeGroupMaxNodes:     int32(250),
+		AllowedCidrs:                 cpi.Opts.K8sApiAllowedCidrs,
 	}).InitPulumiProject()
 	*kubernetesRuntimeInfra = kubernetesRuntimeInfraEKS
 	uninstaller.kubernetesRuntimeInfra = *kubernetesRuntimeInfra
@@ -341,6 +342,7 @@ func ConfigureControlPlaneWithEksConfig(
 		DefaultNodeGroupInitialSize:   util.Ptr(int(kubernetesRuntimeInfraEKS.DefaultNodeGroupInitialNodes)),
 		DefaultNodeGroupMinimumSize:   util.Ptr(int(kubernetesRuntimeInfraEKS.DefaultNodeGroupMinNodes)),
 		DefaultNodeGroupMaximumSize:   util.Ptr(int(kubernetesRuntimeInfraEKS.DefaultNodeGroupMaxNodes)),
+		AllowedCidrs:                  allowedCidrsJSON(kubernetesRuntimeInfraEKS.AllowedCidrs),
 		KubernetesRuntimeDefinitionID: kubernetesRuntimeDefResult.ID,
 	}
 	createdAwsEksKubernetesRuntimeDef, err := client.CreateAwsEksKubernetesRuntimeDefinition(
