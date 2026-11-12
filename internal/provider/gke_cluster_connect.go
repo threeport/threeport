@@ -16,9 +16,15 @@ import (
 // in the same project as their own Workload Identity principals, which
 // Kubernetes RBAC on each cluster authorizes.  A private cluster is reached
 // through its DNS endpoint, which also requires container.clusters.connect in
-// IAM, so the control plane's namespace is granted a role with it on the
-// project.  The role lets a caller see clusters and connect to them; what it
-// may do inside a cluster is still RBAC's to decide.
+// IAM, so while the project holds a private cluster Threeport provisioned,
+// the control plane's namespace holds a role with it on the project.  The
+// role lets a caller see clusters and connect to them; what it may do inside
+// a cluster is still RBAC's to decide.
+//
+// The grant is on the project because it cannot be narrowed to one cluster:
+// GKE has no IAM policy of its own on a cluster, and a project binding whose
+// IAM condition names the cluster by resource type and name did not let a
+// caller connect to it, 17 minutes after it was made.
 const (
 	// gkeClusterConnectRole is the narrowest predefined role with
 	// container.clusters.connect: that, container.clusters.get and list, and
@@ -38,70 +44,132 @@ func controlPlaneConnectMember(projectNumber int64, projectID string) string {
 	return fmt.Sprintf(workloadIdentityNamespaceFormat, projectNumber, projectID, installer.ControlPlaneNamespace)
 }
 
-// grantControlPlaneClusterConnect lets the control plane's controllers reach
-// the project's private clusters through their DNS endpoints.  It is granted
-// once the cluster, and with it the project's Workload Identity pool, exists.
-func (i *KubernetesRuntimeInfraGKE) grantControlPlaneClusterConnect() error {
+// clusterConnectClientOptions authenticates as the runtime's own credentials
+// when it has them, and as the process's otherwise.
+func (i *KubernetesRuntimeInfraGKE) clusterConnectClientOptions(scope string) []option.ClientOption {
+	clientOpts := []option.ClientOption{option.WithScopes(scope)}
+	if i.ServiceAccountCredentials != "" {
+		clientOpts = append(clientOpts, option.WithCredentialsJSON([]byte(i.ServiceAccountCredentials)))
+	}
+
+	return clientOpts
+}
+
+// clusterConnectPolicies returns the project policy store and the member the
+// role is granted to.
+func (i *KubernetesRuntimeInfraGKE) clusterConnectPolicies() (projectPolicies, string, error) {
 	crmService, err := cloudresourcemanager.NewService(
 		context.Background(),
-		option.WithScopes(cloudresourcemanager.CloudPlatformScope),
+		i.clusterConnectClientOptions(cloudresourcemanager.CloudPlatformScope)...,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create Cloud Resource Manager service client: %w", err)
+		return nil, "", fmt.Errorf("failed to create Cloud Resource Manager service client: %w", err)
 	}
 	projectNumber, err := i.projectNumber(crmService)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return crmProjectPolicies{service: crmService}, controlPlaneConnectMember(projectNumber, i.ProjectID), nil
+}
+
+// grantControlPlaneClusterConnect lets the control plane's controllers reach
+// a private cluster through its DNS endpoint.  A cluster with a public IP
+// endpoint is reached there, without the IAM check, and grants nothing.  It
+// is granted once the cluster, and with it the project's Workload Identity
+// pool, exists.
+func (i *KubernetesRuntimeInfraGKE) grantControlPlaneClusterConnect() error {
+	if !i.PrivateApi {
+		return nil
+	}
+	policies, member, err := i.clusterConnectPolicies()
 	if err != nil {
 		return err
 	}
 
-	return grantClusterConnect(crmProjectPolicies{service: crmService}, i.ProjectID, controlPlaneConnectMember(projectNumber, i.ProjectID))
+	return grantClusterConnect(policies, i.ProjectID, member)
+}
+
+// revokeControlPlaneClusterConnect removes the control plane's connect role
+// once the project holds no private cluster Threeport provisioned other than
+// this one.  The member is the namespace on every cluster in the project, so
+// it is shared by every control plane there that uses the same namespace.
+func (i *KubernetesRuntimeInfraGKE) revokeControlPlaneClusterConnect() error {
+	policies, member, err := i.clusterConnectPolicies()
+	if err != nil {
+		return err
+	}
+	listClusters := func() ([]*containerpb.Cluster, error) {
+		ctx := context.Background()
+		clusterManagerClient, err := container.NewClusterManagerClient(
+			ctx,
+			i.clusterConnectClientOptions(cloudresourcemanager.CloudPlatformScope)...,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create cluster manager client: %w", err)
+		}
+		defer clusterManagerClient.Close()
+
+		response, err := clusterManagerClient.ListClusters(ctx, &containerpb.ListClustersRequest{
+			Parent: fmt.Sprintf("projects/%s/locations/-", i.ProjectID),
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to list the project's GKE clusters: %w", err)
+		}
+
+		return response.GetClusters(), nil
+	}
+
+	return revokeClusterConnect(policies, i.ProjectID, member, listClusters, i.RuntimeInstanceName, i.Region)
 }
 
 // grantClusterConnect binds member to gkeClusterConnectRole on a project.
+//
+// The policy is written even when member already holds the role.  A
+// concurrent revoke decides from the clusters it lists after reading the
+// policy, and the write changes the policy's etag, so a revoke that listed
+// before this cluster existed fails on its stale etag and decides again, and
+// one that lists after sees it.
 func grantClusterConnect(policies projectPolicies, projectID, member string) error {
 	if _, err := updateProjectPolicy(policies, projectID, isTransientIAMError, func(p *cloudresourcemanager.Policy) bool {
-		return addMemberToPolicy(p, member, []string{gkeClusterConnectRole})
+		addMemberToPolicy(p, member, []string{gkeClusterConnectRole})
+		return true
 	}); err != nil {
-		return fmt.Errorf("failed to let the control plane connect to the project's GKE clusters: %w", err)
+		return fmt.Errorf("failed to let the control plane connect to the project's private GKE clusters: %w", err)
 	}
 
 	return nil
 }
 
-// revokeControlPlaneClusterConnect removes the control plane's connect role
-// once the project holds no cluster Threeport provisioned.  The member is the
-// namespace on every cluster in the project, so it is shared by every control
-// plane there that uses the same namespace, and one that may still reach a
-// cluster keeps it.
-func (i *KubernetesRuntimeInfraGKE) revokeControlPlaneClusterConnect(
-	crmService *cloudresourcemanager.Service,
-	clientOpts []option.ClientOption,
+// revokeClusterConnect removes member from gkeClusterConnectRole on a
+// project, leaving any other role it holds, unless the project holds a
+// private cluster Threeport provisioned other than the one named name in
+// location.  The clusters are listed after each read of the policy, so the
+// decision is made against the policy it is written to; see
+// grantClusterConnect.
+func revokeClusterConnect(
+	policies projectPolicies,
+	projectID, member string,
+	listClusters func() ([]*containerpb.Cluster, error),
+	name, location string,
 ) error {
-	remaining, err := i.otherThreeportClustersRemain(clientOpts)
-	if err != nil {
-		return err
-	}
-	if remaining {
-		return nil
-	}
-	projectNumber, err := i.projectNumber(crmService)
-	if err != nil {
-		return err
-	}
-
-	return revokeClusterConnect(crmProjectPolicies{service: crmService}, i.ProjectID, controlPlaneConnectMember(projectNumber, i.ProjectID))
-}
-
-// revokeClusterConnect removes member from gkeClusterConnectRole on a project,
-// leaving any other role it holds.
-func revokeClusterConnect(policies projectPolicies, projectID, member string) error {
+	var listErr error
 	if _, err := updateProjectPolicy(policies, projectID, isTransientIAMError, func(p *cloudresourcemanager.Policy) bool {
-		return removeMemberFromRole(p, member, gkeClusterConnectRole)
+		if !removeMemberFromRole(p, member, gkeClusterConnectRole) {
+			return false
+		}
+		clusters, err := listClusters()
+		if err != nil {
+			listErr = err
+			return false
+		}
+
+		return !privateThreeportClusterOtherThan(clusters, name, location)
 	}); err != nil {
 		return fmt.Errorf("failed to remove the control plane's connect role from project %s: %w", projectID, err)
 	}
 
-	return nil
+	return listErr
 }
 
 // removeMemberFromRole drops member from role's unconditional binding, and
@@ -132,35 +200,20 @@ func removeMemberFromRole(policy *cloudresourcemanager.Policy, member, role stri
 	return changed
 }
 
-// otherThreeportClustersRemain reports whether the project holds a GKE
-// cluster Threeport provisioned other than this one.
-func (i *KubernetesRuntimeInfraGKE) otherThreeportClustersRemain(clientOpts []option.ClientOption) (bool, error) {
-	ctx := context.Background()
-	clusterManagerClient, err := container.NewClusterManagerClient(ctx, clientOpts...)
-	if err != nil {
-		return false, fmt.Errorf("failed to create cluster manager client: %w", err)
-	}
-	defer clusterManagerClient.Close()
-
-	response, err := clusterManagerClient.ListClusters(ctx, &containerpb.ListClustersRequest{
-		Parent: fmt.Sprintf("projects/%s/locations/-", i.ProjectID),
-	})
-	if err != nil {
-		return false, fmt.Errorf("failed to list the project's GKE clusters: %w", err)
-	}
-
-	return threeportClusterOtherThan(response.GetClusters(), i.RuntimeInstanceName, i.Region), nil
-}
-
-// threeportClusterOtherThan reports whether clusters holds one Threeport
-// provisioned other than the one named name in location.  Clusters in
-// different locations may share a name, so the location tells them apart.
-func threeportClusterOtherThan(clusters []*containerpb.Cluster, name, location string) bool {
+// privateThreeportClusterOtherThan reports whether clusters holds a private
+// one Threeport provisioned other than the one named name in location.
+// Clusters in different locations may share a name, so the location tells
+// them apart.  A cluster still being created counts, as it may already be
+// one whose create granted the role.
+func privateThreeportClusterOtherThan(clusters []*containerpb.Cluster, name, location string) bool {
 	for _, cluster := range clusters {
 		if cluster.GetResourceLabels()[GcpLabelProvisionedBy] != GcpLabelProvisionedByValue {
 			continue
 		}
-		if cluster.GetName() != name || cluster.GetLocation() != location {
+		if cluster.GetName() == name && cluster.GetLocation() == location {
+			continue
+		}
+		if !gkeHasPublicIpEndpoint(cluster) {
 			return true
 		}
 	}

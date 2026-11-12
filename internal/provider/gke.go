@@ -208,13 +208,6 @@ func (i *KubernetesRuntimeInfraGKE) Create() (*kube.KubeConnectionInfo, error) {
 		return nil, err
 	}
 
-	// let the control plane's controllers reach the project's private
-	// clusters through their DNS endpoints, once the cluster, and with it the
-	// workload identity pool the grant names, exists
-	if err := i.grantControlPlaneClusterConnect(); err != nil {
-		return nil, err
-	}
-
 	// provision the database backups once the cluster, and with it the
 	// workload identity pool the backup binding names, exists
 	if i.ProvisionBackups {
@@ -251,6 +244,13 @@ func (i *KubernetesRuntimeInfraGKE) CreateInfra() (*kube.KubeConnectionInfo, err
 		return nil, fmt.Errorf("failed to configure Workload Identity binding: %w", err)
 	}
 
+	// let the control plane's controllers reach a private cluster through its
+	// DNS endpoint, once the cluster, and with it the workload identity pool
+	// the grant names, exists
+	if err := i.grantControlPlaneClusterConnect(); err != nil {
+		return nil, err
+	}
+
 	return i.GetConnection()
 }
 
@@ -269,7 +269,14 @@ func (i *KubernetesRuntimeInfraGKE) DeployInfra() error {
 // a GcpProvider of the same name, for one - and removing it would cut that
 // provider off. Delete is the bootstrap path that also cleans up the account.
 func (i *KubernetesRuntimeInfraGKE) DestroyInfra() error {
-	return i.destroyInfraStack()
+	if err := i.destroyInfraStack(); err != nil {
+		return err
+	}
+
+	// the control plane's connect role, unless another private cluster
+	// Threeport provisioned is still in the project.  A failure is returned
+	// so the delete is retried; destroying a stack already gone does nothing.
+	return i.revokeControlPlaneClusterConnect()
 }
 
 // locationPolicy returns the node pool autoscaler's location policy.
@@ -618,13 +625,9 @@ func (i *KubernetesRuntimeInfraGKE) DeleteGCPResources() error {
 		return err
 	}
 
-	// the control plane's connect role, unless another cluster Threeport
-	// provisioned is still in the project
-	clusterManagerClientOpts := []option.ClientOption{}
-	if i.ServiceAccountCredentials != "" {
-		clusterManagerClientOpts = append(clusterManagerClientOpts, option.WithCredentialsJSON([]byte(i.ServiceAccountCredentials)))
-	}
-	if err := i.revokeControlPlaneClusterConnect(crmService, clusterManagerClientOpts); err != nil {
+	// the control plane's connect role, unless another private cluster
+	// Threeport provisioned is still in the project
+	if err := i.revokeControlPlaneClusterConnect(); err != nil {
 		return err
 	}
 
@@ -902,16 +905,23 @@ func (i *KubernetesRuntimeInfraGKE) GetConnection() (*kube.KubeConnectionInfo, e
 	return kubeConnInfo, nil
 }
 
+// gkeHasPublicIpEndpoint reports whether a cluster's Kubernetes API has a
+// public IP endpoint.  One created before the endpoints config, or without
+// its public endpoint set, has one unless it is a private cluster.
+func gkeHasPublicIpEndpoint(cluster *containerpb.Cluster) bool {
+	ipEndpoints := cluster.GetControlPlaneEndpointsConfig().GetIpEndpointsConfig()
+
+	return !cluster.GetPrivateClusterConfig().GetEnablePrivateEndpoint() &&
+		(ipEndpoints == nil || ipEndpoints.EnablePublicEndpoint == nil || *ipEndpoints.EnablePublicEndpoint)
+}
+
 // gkeKubeApiEndpoint returns the URL the cluster's Kubernetes API is reached
 // at and the CA certificate to verify it with.  That is the IP endpoint and
 // the cluster's own CA, unless the cluster has no public IP endpoint: then
 // it is the DNS endpoint, which Google serves with a publicly trusted
 // certificate, so no CA is returned and the system's roots verify it.
 func gkeKubeApiEndpoint(cluster *containerpb.Cluster) (string, string, error) {
-	ipEndpoints := cluster.GetControlPlaneEndpointsConfig().GetIpEndpointsConfig()
-	publicIpEndpoint := !cluster.GetPrivateClusterConfig().GetEnablePrivateEndpoint() &&
-		(ipEndpoints == nil || ipEndpoints.EnablePublicEndpoint == nil || *ipEndpoints.EnablePublicEndpoint)
-	if publicIpEndpoint {
+	if gkeHasPublicIpEndpoint(cluster) {
 		// GKE provides the endpoint without the https:// prefix
 		caCert, err := base64.StdEncoding.DecodeString(cluster.GetMasterAuth().GetClusterCaCertificate())
 		if err != nil {

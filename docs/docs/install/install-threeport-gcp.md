@@ -146,13 +146,16 @@ they're the only ones.
 
 The control plane's controllers reach the private clusters it manages in its
 project through their DNS endpoints too, as their own Workload Identity
-principals. So `tptctl up` grants every Kubernetes service account in the
-control plane's namespace the Kubernetes Engine Cluster Viewer role
-(`roles/container.clusterViewer`) on the project, the narrowest role with
-`container.clusters.connect`. It lets them see clusters and connect to them;
-each cluster's RBAC still decides what they may do. The control planes in a
-project that use the same namespace share the grant, so `tptctl down` removes
-it only when no other cluster Threeport provisioned is left in the project.
+principals. So creating a private cluster grants every Kubernetes service
+account in the control plane's namespace the Kubernetes Engine Cluster Viewer
+role (`roles/container.clusterViewer`) on the project, the narrowest role with
+`container.clusters.connect`. GKE doesn't let that permission be granted on one
+cluster alone. It lets them see the project's
+clusters and connect to them; each cluster's RBAC still decides what they may
+do. Creating a cluster with a public endpoint grants nothing. The control
+planes in a project that use the same namespace share the grant, so deleting a
+private cluster removes it only when no other private cluster Threeport
+provisioned is left in the project.
 
 To use `kubectl` against a private cluster, fetch its credentials for the DNS
 endpoint:
