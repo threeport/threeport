@@ -1,6 +1,6 @@
-# Application Life Cycle Orchestration (ALCO)
+# Application Lifecycle Orchestration
 
-Application Life Cycle Orchestration (ALCO) is an approach to software delivery that favors software engineering over configuration management.  Similar to how user-facing applications are often designed, Threeport employs event-driven and service-oriented architecture to manage the deployment and ongoing management of applications.
+Application Lifecycle Orchestration (ALCO) is an approach to software delivery that favors software engineering over configuration management.  Similar to how user-facing applications are often designed, Threeport employs event-driven and service-oriented architecture to manage the deployment and ongoing management of applications.
 
 In order to clarify, let's compare two approaches:
 
@@ -23,7 +23,7 @@ The problem with both DSLs, templates and overlays is that they manage logical c
 
 The end result of config management systems is a rapid deterioration of maintainability as complexity grows.  Because of their limitations, they become littered with workarounds, complex combinations and enormous text file configs that are very challenging for humans to manage.
 
-## ALCO Approach
+## Application Lifecycle Orchestration Approach
 
 With Threeport, we use a software engineering approach to solving the challenge of software delivery.  Event-driven and service-oriented architectures are powerful and effective when executed well.  We are applying these principles to application platforms.
 
@@ -183,7 +183,7 @@ through the Threeport control plane.
 
 ## Summary
 
-Application Life Cycle Orchestration (ALCO) uses a control plane to execute application
+Application Lifecycle Orchestration (ALCO) uses a control plane to execute application
 deployment and ongoing management.  It scales well with complex software systems that
 have many dependencies on infrastructure and other services.
 

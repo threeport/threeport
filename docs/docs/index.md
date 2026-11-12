@@ -1,8 +1,8 @@
 # Threeport
 
-Threeport is an "Application Life Cycle Orchestrator."
+Threeport is an "Application Lifecycle Orchestrator."
 
-Application Life Cycle Orchestration (ALCO) is a software engineering approach to software delivery that replaces the config management practices of DevOps and GitOps with purpose-built controllers.  Instead of writing and maintaining text-file configs that get executed by a CD pipeline, you build controllers that manage those same concerns in software.
+Application Lifecycle Orchestration (ALCO) is a software engineering approach to software delivery that replaces the config management practices of DevOps and GitOps with purpose-built controllers.  Instead of writing and maintaining text-file configs that get executed by a CD pipeline, you build controllers that manage those same concerns in software.
 
 More concretely, Threeport is an open source application platform and platform engineering framework.
 
@@ -19,9 +19,9 @@ Threeport consists of two parts:
 
 Software delivery had been dominated by DevOps practices for the past decade or so.  This is primarily a configuration management practice.  Modern software has become increasingly complex to manage and config management is just no longer sufficient for the task.
 
-Threeport takes a software engineering - rather than a config management - approach to application platforms.  We call this approach Application Life Cycle Orchestration, or ALCO.
+Threeport takes a software engineering - rather than a config management - approach to application platforms.  We call this approach Application Lifecycle Orchestration, or ALCO.
 
-To learn more on this topic, see the [Application Life Cycle Orchestration concepts document](./concepts/application-orchestration.md).
+To learn more on this topic, see the [Application Lifecycle Orchestration concepts document](./concepts/application-orchestration.md).
 
 Fundamentally, Threeport exists to reduce engineering toil, improve resource
 efficiency, and make the most complex software systems manageable by
@@ -35,7 +35,7 @@ Better software.  Lower costs.
 Check out the [Getting Started guide](getting-started.md) to try out Threeport
 for yourself.
 
-See our [Application Life Cycle Orchestration (ALCO)
+See our [Application Lifecycle Orchestration (ALCO)
 document](concepts/application-orchestration.md) in our Concepts section for more
 information on how Threeport approaches software delivery.
 

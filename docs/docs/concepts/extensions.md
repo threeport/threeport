@@ -99,7 +99,7 @@ reads from the Threeport API, which a file-driven workflow does not give you.
 
 ![Custom AWS Services](../img/ThreeportExtensionCustomAWSServices.drawio.svg)
 
-### Advanced ALCO
+### Advanced Application Lifecycle Orchestration
 
 This approach is more involved to develop but produces the best outcome. It is most 
 appropriate for the highest value revenue-generating applications, especially those that 
