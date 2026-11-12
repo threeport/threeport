@@ -164,3 +164,46 @@ func TestTheGkeDefinitionRecordsItsUpgradeSettings(t *testing.T) {
 	assert.Equal(t, "04:00", sent["MaintenanceWindowStart"])
 	assert.Equal(t, float64(8), sent["MaintenanceWindowHours"])
 }
+
+// TestANewGkeWorkloadClusterReservesItsNatAddress covers the GKE instance
+// the reconciler creates for a new kubernetes runtime instance: it is a new
+// cluster, so its Cloud NAT gets a reserved address that the cluster's
+// EgressCidrs record.
+func TestANewGkeWorkloadClusterReservesItsNatAddress(t *testing.T) {
+	api := machinetest.NewAPIStub(t)
+	api.Mux.HandleFunc(v0.PathKubernetesRuntimeDefinitions+"/3", func(w http.ResponseWriter, r *http.Request) {
+		machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{v0.KubernetesRuntimeDefinition{
+			Common:                   v0.Common{ID: util.Ptr(uint(3))},
+			InfraProvider:            util.Ptr(v0.KubernetesRuntimeInfraProviderGKE),
+			InfraProviderAccountName: util.Ptr("gcp-account"),
+		}})
+	})
+	api.Mux.HandleFunc(v0.PathGcpGkeKubernetesRuntimeDefinitions, func(w http.ResponseWriter, r *http.Request) {
+		machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{v0.GcpGkeKubernetesRuntimeDefinition{
+			Common: v0.Common{ID: util.Ptr(uint(2))},
+		}})
+	})
+	api.Mux.HandleFunc(v0.PathGcpProviders, func(w http.ResponseWriter, r *http.Request) {
+		machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{v0.GcpProvider{
+			Common: v0.Common{ID: util.Ptr(uint(1))}, Name: util.Ptr("gcp-account"),
+		}})
+	})
+	var sent v0.GcpGkeKubernetesRuntimeInstance
+	api.Mux.HandleFunc(v0.PathGcpGkeKubernetesRuntimeInstances, func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, http.MethodPost, r.Method)
+		assert.NoError(t, json.NewDecoder(r.Body).Decode(&sent))
+		machinetest.WriteResponse(t, w, http.StatusCreated, []apiserver_lib.Object{sent})
+	})
+	r := &controller.Reconciler{APIClient: api.Client, APIServer: api.Addr}
+	log := logr.Discard()
+
+	_, err := v0KubernetesRuntimeInstanceCreated(r, &v0.KubernetesRuntimeInstance{
+		Common:                        v0.Common{ID: util.Ptr(uint(4))},
+		Instance:                      v0.Instance{Name: util.Ptr("gke-remote")},
+		Reconciliation:                v0.Reconciliation{Reconciled: util.Ptr(false)},
+		Location:                      util.Ptr("NorthAmerica:NewYork"),
+		KubernetesRuntimeDefinitionID: util.Ptr(uint(3)),
+	}, &log)
+	require.NoError(t, err)
+	assert.Equal(t, util.Ptr(true), sent.ReservedNatAddress)
+}

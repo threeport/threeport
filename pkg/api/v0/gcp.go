@@ -124,4 +124,12 @@ type GcpGkeKubernetesRuntimeInstance struct {
 	// still destroyed. It is rejected on create, and once set it stays set until
 	// changed, so tptctl sets it back to false if the delete fails.
 	AbandonInfrastructure *bool `validate:"optional" gorm:"default:false"`
+
+	// If true, the cluster's Cloud NAT uses an address reserved for it, so
+	// that its outbound traffic comes from one address that does not change
+	// and is recorded as the kubernetes runtime instance's EgressCidrs.  Set
+	// on clusters created since Threeport reserves one; clusters created
+	// before keep the addresses Google allocates.  Cannot be changed after
+	// creation.
+	ReservedNatAddress *bool `validate:"optional" gorm:"default:false"`
 }

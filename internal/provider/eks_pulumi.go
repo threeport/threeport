@@ -274,6 +274,9 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 
 		subnetCidrs := eksSubnetCidrs()
 		privateSubnetIds := pulumi.StringArray{}
+		// the public addresses of the NAT gateways, which all outbound
+		// traffic from the nodes leaves through
+		var egressAddresses []pulumi.StringOutput
 		for zoneIndex, zone := range zones {
 			publicSubnetName := fmt.Sprintf("%s-public-subnet-%d", i.RuntimeInstanceName, zoneIndex)
 			publicSubnetTags := i.resourceTags(publicSubnetName)
@@ -328,6 +331,7 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 			if err != nil {
 				return fmt.Errorf("failed to create elastic IP in zone %s: %w", zone, err)
 			}
+			egressAddresses = append(egressAddresses, elasticIp.PublicIp)
 
 			natGatewayName := fmt.Sprintf("%s-nat-gateway-%d", i.RuntimeInstanceName, zoneIndex)
 			natGateway, err := ec2.NewNatGateway(ctx, natGatewayName, &ec2.NatGatewayArgs{
@@ -370,15 +374,20 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 		// subnets; the API endpoint is reachable both from inside the VPC and
 		// from the internet so that a control plane hosted elsewhere can
 		// reach it.  AllowedCidrs, when set, limits the public endpoint to
-		// those blocks; the nodes keep reaching the API through the private
-		// endpoint, which the list does not apply to.
+		// those blocks and the managing control plane's addresses; the nodes
+		// keep reaching the API through the private endpoint, which the list
+		// does not apply to.
 		vpcConfig := &awseks.ClusterVpcConfigArgs{
 			SubnetIds:             privateSubnetIds,
 			EndpointPrivateAccess: pulumi.Bool(true),
 			EndpointPublicAccess:  pulumi.Bool(true),
 		}
-		if len(i.AllowedCidrs) > 0 {
-			vpcConfig.PublicAccessCidrs = pulumi.ToStringArray(i.AllowedCidrs)
+		allowlist, err := kubeApiAllowlist(v0.KubernetesRuntimeInfraProviderEKS, i.AllowedCidrs, i.ControlPlaneEgressCidrs)
+		if err != nil {
+			return err
+		}
+		if len(allowlist) > 0 {
+			vpcConfig.PublicAccessCidrs = pulumi.ToStringArray(allowlist)
 		}
 		cluster, err := awseks.NewCluster(ctx, i.RuntimeInstanceName, &awseks.ClusterArgs{
 			Name:          pulumi.String(i.RuntimeInstanceName),
@@ -409,6 +418,8 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 		}, pulumi.IgnoreChanges(eksNodeGroupIgnoredChanges)); err != nil {
 			return fmt.Errorf("failed to create EKS node group: %w", err)
 		}
+
+		exportEgressCidrs(ctx, egressAddresses)
 
 		return nil
 	}

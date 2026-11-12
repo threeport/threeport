@@ -65,6 +65,11 @@ type ControlPlane struct {
 	// that a reinstall records them again.
 	K8sApiAllowedCidrs []string
 
+	// The public addresses the outbound traffic of the cluster hosting the
+	// threeport control plane comes from, recorded when tptctl up creates the
+	// cluster.  Kept so that a reinstall records them again.
+	EgressCidrs []string
+
 	// Provider configuration for EKS-hosted threeport control planes.
 	EKSProviderConfig EKSProviderConfig
 
