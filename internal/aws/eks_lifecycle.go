@@ -192,6 +192,16 @@ func (e *eksLifecycle) OnCreateConfirmed(infra provider.InfraProvider) error {
 		return fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
 	}
 
+	// record the addresses the cluster's outbound traffic comes from, which
+	// clusters this one may come to manage as a control plane host admit
+	egressCidrs, err := provider.EgressCidrsFromState(latest.ResourceInventory)
+	if err != nil {
+		return fmt.Errorf("failed to read the cluster's egress addresses: %w", err)
+	}
+	if len(egressCidrs) > 0 {
+		kubernetesRuntimeInstance.EgressCidrs = provider.EgressCidrsJSON(egressCidrs)
+	}
+
 	kubeRuntimeReconciled := false
 	kubernetesRuntimeInstance.APIEndpoint = &kubeConnectionInfo.APIEndpoint
 	kubernetesRuntimeInstance.CACertificate = &kubeConnectionInfo.CACertificate
@@ -490,7 +500,7 @@ func buildEksInfra(
 		return nil, fmt.Errorf("failed to resolve AWS provider credentials: %w", err)
 	}
 
-	return eksInfraFromApiObjects(
+	infraEKS, err := eksInfraFromApiObjects(
 		instance,
 		definition,
 		*awsProvider.AccountID,
@@ -498,6 +508,27 @@ func buildEksInfra(
 		*providerCredentials,
 		log,
 	)
+	if err != nil {
+		return nil, err
+	}
+
+	// a cluster whose API is restricted also admits the control plane that
+	// manages it; the lookup is skipped for a cluster being deleted, which
+	// does not provision anything
+	if len(infraEKS.AllowedCidrs) > 0 && instance.DeletionScheduled == nil {
+		controlPlaneEgressCidrs, err := provider.ControlPlaneEgressCidrs(
+			r.APIClient,
+			r.APIServer,
+			*instance.KubernetesRuntimeInstanceID,
+			log,
+		)
+		if err != nil {
+			return nil, err
+		}
+		infraEKS.ControlPlaneEgressCidrs = controlPlaneEgressCidrs
+	}
+
+	return infraEKS, nil
 }
 
 // eksInfraFromApiObjects maps the runtime instance and definition onto the

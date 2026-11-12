@@ -75,6 +75,10 @@ type KubernetesRuntimeInfraEKS struct {
 	// Empty leaves it open to every address.
 	AllowedCidrs []string
 
+	// The public addresses of the control plane that manages the cluster,
+	// admitted along with AllowedCidrs when those are set.
+	ControlPlaneEgressCidrs []string
+
 	// NodeGroupPerZone makes the cluster's nodes run in a node group per
 	// availability zone, each with the default node group's instance type and
 	// node counts, rather than one node group spanning every zone.  The
@@ -94,6 +98,9 @@ func (i *KubernetesRuntimeInfraEKS) Create() (*kube.KubeConnectionInfo, error) {
 // networking, the cluster and its node group with Pulumi, and then creates the
 // IAM that only exists once the cluster does.
 func (i *KubernetesRuntimeInfraEKS) CreateInfra() (*kube.KubeConnectionInfo, error) {
+	if err := checkKubeApiAllowlist(v0.KubernetesRuntimeInfraProviderEKS, i.AllowedCidrs, i.ControlPlaneEgressCidrs); err != nil {
+		return nil, err
+	}
 
 	// EKS will not create a cluster or a node group without the roles they
 	// assume, so these come before the stack

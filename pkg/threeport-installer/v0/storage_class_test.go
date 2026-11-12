@@ -248,6 +248,64 @@ func TestADatabasesExistingVolumesAreKept(t *testing.T) {
 	assert.NoError(t, development.checkDatabaseStorage(testKubeClient(claims()...)))
 }
 
+// databaseStatefulSet returns the database's stateful set as an install
+// left it, its claims created from a template that names class.
+func databaseStatefulSet(class string) *unstructured.Unstructured {
+	claimSpec := map[string]interface{}{"accessModes": []interface{}{"ReadWriteOnce"}}
+	if class != "" {
+		claimSpec["storageClassName"] = class
+	}
+	return &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "apps/v1",
+		"kind":       "StatefulSet",
+		"metadata":   map[string]interface{}{"name": "crdb", "namespace": ControlPlaneNamespace},
+		"spec": map[string]interface{}{
+			"volumeClaimTemplates": []interface{}{
+				map[string]interface{}{"metadata": map[string]interface{}{"name": "datadir"}, "spec": claimSpec},
+			},
+		},
+	}}
+}
+
+// TestAReinstallChecksTheClassItsDatabaseUses covers a reinstall, which
+// isn't given the infra provider: a replica missing its claim gets one from
+// the database's stateful set, so the class checked is the one its template
+// names, not the cluster's default.  With no stateful set, as on an install,
+// it is the installer's.
+func TestAReinstallChecksTheClassItsDatabaseUses(t *testing.T) {
+	immediateDefault := bindingStorageClass("standard", "Immediate", true)
+	waitingGp2 := bindingStorageClass("gp2", "WaitForFirstConsumer", false)
+	reinstall := componentsTestInstaller()
+	reinstall.Opts.Tier = ControlPlaneTier(ControlPlaneTierProd)
+	reinstall.Opts.InfraProvider = "kind"
+
+	assert.NoError(t, reinstall.checkDatabaseStorage(testKubeClient(immediateDefault, waitingGp2, databaseStatefulSet("gp2"))),
+		"the stateful set's gp2, though the default binds immediately")
+	assert.ErrorContains(t,
+		reinstall.checkDatabaseStorage(testKubeClient(waitingGp2, bindingStorageClass("gp2-immediate", "Immediate", false), databaseStatefulSet("gp2-immediate"))),
+		"storage class gp2-immediate creates volumes before their pods are scheduled")
+	assert.ErrorContains(t, reinstall.checkDatabaseStorage(testKubeClient(immediateDefault, waitingGp2, databaseStatefulSet(""))),
+		"storage class standard", "a template naming no class takes the default")
+	assert.ErrorContains(t, reinstall.checkDatabaseStorage(testKubeClient(immediateDefault, waitingGp2)),
+		"storage class standard", "no stateful set, so the installer's template, which names none on kind")
+
+	// the datadir template, not another one before it
+	twoTemplates := databaseStatefulSet("gp2")
+	templates := twoTemplates.Object["spec"].(map[string]interface{})["volumeClaimTemplates"].([]interface{})
+	twoTemplates.Object["spec"].(map[string]interface{})["volumeClaimTemplates"] = append([]interface{}{
+		map[string]interface{}{
+			"metadata": map[string]interface{}{"name": "scratch"},
+			"spec":     map[string]interface{}{"storageClassName": "standard"},
+		},
+	}, templates...)
+	assert.NoError(t, reinstall.checkDatabaseStorage(testKubeClient(immediateDefault, waitingGp2, twoTemplates)))
+
+	broken := databaseStatefulSet("gp2")
+	broken.Object["spec"] = map[string]interface{}{}
+	assert.ErrorContains(t, reinstall.checkDatabaseStorage(testKubeClient(immediateDefault, broken)),
+		"no datadir volume claim template")
+}
+
 // TestARefusedReinstallLeavesTheControlPlaneUp covers a reinstall the
 // storage class check refuses: it refuses before it deletes anything, so the
 // control plane's deployments are still there.

@@ -7,10 +7,13 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -180,6 +183,84 @@ func TestAnUnreachableClusterComesWithACommandThatDeletesIt(t *testing.T) {
 	assert.Contains(t, kept.Error(), "--teardown-on-failure")
 
 	assert.Equal(t, cause, withUnreachableClusterCleanup(cause, "prod-east", true))
+}
+
+// TestAReinstallRecordsTheControlPlanesEgressCidrsAgain covers a reinstall,
+// which rebuilds the runtime hosting the control plane from the tptctl
+// config: the addresses tptctl up recorded there are restored with it, so
+// the clusters the control plane manages keep admitting it.
+func TestAReinstallRecordsTheControlPlanesEgressCidrsAgain(t *testing.T) {
+	config := &ControlPlane{
+		Name:              "prod-east",
+		Provider:          v0.KubernetesRuntimeInfraProviderGKE,
+		GKEProviderConfig: GKEProviderConfig{GcpRegion: "us-central1"},
+		KubeAPI:           KubeAPI{APIEndpoint: "https://gke.example.com", Token: util.Base64Encode("token")},
+		EgressCidrs:       []string{"198.51.100.20/32", "198.51.100.21/32"},
+	}
+	instance, err := bootstrapKubernetesRuntimeInstance(config)
+	require.NoError(t, err)
+	require.NotNil(t, instance.EgressCidrs)
+	assert.JSONEq(t, `["198.51.100.20/32","198.51.100.21/32"]`, string(*instance.EgressCidrs))
+
+	config.EgressCidrs = nil
+	instance, err = bootstrapKubernetesRuntimeInstance(config)
+	require.NoError(t, err)
+	assert.Nil(t, instance.EgressCidrs, "a control plane installed before has none recorded")
+}
+
+// TestASplitInstallKeepsWhatTheInfraOnlyRunRecorded covers --control-plane-only
+// after --infra-only: the second run reads neither list from the cluster or
+// a flag, so it keeps the ones the first run recorded.
+func TestASplitInstallKeepsWhatTheInfraOnlyRunRecorded(t *testing.T) {
+	dir := t.TempDir()
+	kubeconfig := filepath.Join(dir, "kubeconfig")
+	require.NoError(t, os.WriteFile(kubeconfig, []byte(`apiVersion: v1
+kind: Config
+current-context: threeport-split
+clusters:
+- name: threeport-split
+  cluster:
+    server: https://127.0.0.1:6443
+contexts:
+- name: threeport-split
+  context:
+    cluster: threeport-split
+    user: threeport-split
+users:
+- name: threeport-split
+  user:
+    token: token
+`), 0600))
+
+	configFile := filepath.Join(dir, "config.yaml")
+	require.NoError(t, os.WriteFile(configFile, nil, 0600))
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+	viper.SetConfigFile(configFile)
+	_, err := (&ControlPlane{
+		Name:               "split",
+		Provider:           v0.KubernetesRuntimeInfraProviderKind,
+		K8sApiAllowedCidrs: []string{"203.0.113.7/32"},
+		EgressCidrs:        []string{"198.51.100.20/32"},
+	}).UpdateThreeportConfigInstance(func(*ControlPlane) {})
+	require.NoError(t, err)
+
+	cpi := threeport.NewInstaller()
+	cpi.Opts.ControlPlaneName = "split"
+	cpi.Opts.InfraProvider = v0.KubernetesRuntimeInfraProviderKind
+	cpi.Opts.KubeconfigPath = kubeconfig
+	cpi.Opts.ControlPlaneOnly = true
+	cpi.Opts.InfraOnly = true
+	cpi.Opts.AuthEnabled = true
+	require.NoError(t, CreateGenesisControlPlane(cpi))
+
+	threeportConfig, _, err := GetThreeportConfig("")
+	require.NoError(t, err)
+	saved, err := threeportConfig.GetControlPlaneConfig("split")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"203.0.113.7/32"}, saved.K8sApiAllowedCidrs)
+	assert.Equal(t, []string{"198.51.100.20/32"}, saved.EgressCidrs)
+	assert.Equal(t, "https://127.0.0.1:6443", saved.KubeAPI.APIEndpoint, "the run did write the config")
 }
 
 // TestAControlPlaneOnlyReinstallKeepsTheSavedAllowlist covers a reinstall with
