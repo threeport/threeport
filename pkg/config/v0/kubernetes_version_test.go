@@ -122,3 +122,93 @@ func TestAnOkeDefinitionRecordsTheVersionItsClustersRun(t *testing.T) {
 		assert.NotContains(t, rec.krdPatched, "KubernetesVersion")
 	})
 }
+
+// TestEksAndGkeDefinitionsRecordTheVersionTheirClustersRun covers the EKS
+// and GKE config files, which create both definitions themselves: a version
+// the config gives is checked before it is sent, the kubernetes runtime
+// definition gets it, and the provider definition the version its clusters
+// are created on, the default when none is given.  A replace that leaves it
+// out keeps the stored one.
+func TestEksAndGkeDefinitionsRecordTheVersionTheirClustersRun(t *testing.T) {
+	type sentDefinitions struct{ runtime, provider, replaced map[string]any }
+	serve := func(t *testing.T, providerPath string, stored map[string]any) (*machinetest.APIStub, *sentDefinitions) {
+		api := machinetest.NewAPIStub(t)
+		sent := &sentDefinitions{}
+		decode := func(r *http.Request) map[string]any {
+			var body map[string]any
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+			body["ID"] = 1
+			return body
+		}
+		api.Mux.HandleFunc(api_v0.PathKubernetesRuntimeDefinitions, func(w http.ResponseWriter, r *http.Request) {
+			sent.runtime = decode(r)
+			machinetest.WriteResponse(t, w, http.StatusCreated, []apiserver_lib.Object{sent.runtime})
+		})
+		api.Mux.HandleFunc(providerPath, func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodGet {
+				machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{stored})
+				return
+			}
+			sent.provider = decode(r)
+			machinetest.WriteResponse(t, w, http.StatusCreated, []apiserver_lib.Object{sent.provider})
+		})
+		api.Mux.HandleFunc(providerPath+"/", func(w http.ResponseWriter, r *http.Request) {
+			sent.replaced = decode(r)
+			machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{sent.replaced})
+		})
+		return api, sent
+	}
+	stored := map[string]any{"ID": 1, "Name": "remote", "KubernetesVersion": "1.35"}
+
+	t.Run("EKS", func(t *testing.T) {
+		config := func(version *string) *AwsEksKubernetesRuntimeDefinitionConfig {
+			return &AwsEksKubernetesRuntimeDefinitionConfig{AwsEksKubernetesRuntimeDefinition: AwsEksKubernetesRuntimeDefinitionValues{
+				Name: util.Ptr("remote"), ZoneCount: util.Ptr(2), DefaultNodeGroupInstanceType: util.Ptr("t3.medium"),
+				DefaultNodeGroupInitialSize: util.Ptr(1), DefaultNodeGroupMinimumSize: util.Ptr(1), DefaultNodeGroupMaximumSize: util.Ptr(3),
+				KubernetesVersion: version,
+			}}
+		}
+		assert.ErrorContains(t, config(util.Ptr("1.32")).Validate(), `KubernetesVersion "1.32" is not supported`)
+
+		api, sent := serve(t, api_v0.PathAwsEksKubernetesRuntimeDefinitions, stored)
+		created, err := config(util.Ptr("1.35")).Create(api.Client, api.Addr)
+		require.NoError(t, err)
+		assert.Equal(t, "1.35", sent.runtime["KubernetesVersion"])
+		assert.Equal(t, "1.35", sent.provider["KubernetesVersion"])
+		assert.Equal(t, util.Ptr("1.35"), created.AwsEksKubernetesRuntimeDefinition.KubernetesVersion)
+
+		_, err = config(nil).Create(api.Client, api.Addr)
+		require.NoError(t, err)
+		assert.NotContains(t, sent.runtime, "KubernetesVersion")
+		assert.Equal(t, api_v0.DefaultKubernetesVersion, sent.provider["KubernetesVersion"])
+
+		_, err = config(nil).Replace(api.Client, api.Addr, "remote")
+		require.NoError(t, err)
+		assert.Equal(t, "1.35", sent.replaced["KubernetesVersion"], "a replace without it keeps the stored one")
+	})
+	t.Run("GKE", func(t *testing.T) {
+		config := func(version *string) *GcpGkeKubernetesRuntimeDefinitionConfig {
+			return &GcpGkeKubernetesRuntimeDefinitionConfig{GcpGkeKubernetesRuntimeDefinition: GcpGkeKubernetesRuntimeDefinitionValues{
+				Name: util.Ptr("remote"), ZoneCount: util.Ptr(3), DefaultNodeGroupInstanceType: util.Ptr("e2-medium"),
+				DefaultNodeGroupInitialSize: util.Ptr(1), DefaultNodeGroupMinimumSize: util.Ptr(1), DefaultNodeGroupMaximumSize: util.Ptr(3),
+				KubernetesVersion: version,
+			}}
+		}
+		assert.ErrorContains(t, config(util.Ptr("v1.36.4")).Validate(), `KubernetesVersion "v1.36.4" is not supported`)
+
+		api, sent := serve(t, api_v0.PathGcpGkeKubernetesRuntimeDefinitions, stored)
+		created, err := config(util.Ptr("1.36")).Create(api.Client, api.Addr)
+		require.NoError(t, err)
+		assert.Equal(t, "1.36", sent.runtime["KubernetesVersion"])
+		assert.Equal(t, "1.36", sent.provider["KubernetesVersion"])
+		assert.Equal(t, util.Ptr("1.36"), created.GcpGkeKubernetesRuntimeDefinition.KubernetesVersion)
+
+		_, err = config(nil).Create(api.Client, api.Addr)
+		require.NoError(t, err)
+		assert.Equal(t, api_v0.DefaultKubernetesVersion, sent.provider["KubernetesVersion"])
+
+		_, err = config(nil).Replace(api.Client, api.Addr, "remote")
+		require.NoError(t, err)
+		assert.Equal(t, "1.35", sent.replaced["KubernetesVersion"], "a replace without it keeps the stored one")
+	})
+}
