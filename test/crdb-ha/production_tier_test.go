@@ -67,7 +67,7 @@ func TestProductionTierCockroachDBSurvivesANodeLoss(t *testing.T) {
 
 	podNames := []string{"crdb-0", "crdb-1", "crdb-2"}
 
-	t.Run("three replicas land on three distinct nodes", func(t *testing.T) {
+	t.Run("three replicas land on three distinct nodes in three distinct zones", func(t *testing.T) {
 		nodes := map[string]string{}
 		for _, pod := range podNames {
 			node := waitForPodScheduled(t, pod)
@@ -83,6 +83,22 @@ func TestProductionTierCockroachDBSurvivesANodeLoss(t *testing.T) {
 				)
 			}
 			seen[node] = true
+		}
+
+		zones := map[string]string{}
+		for pod, node := range nodes {
+			n, err := typedClient.CoreV1().Nodes().Get(context.Background(), node, metav1.GetOptions{})
+			if err != nil {
+				t.Fatalf("failed to get node %s: %v", node, err)
+			}
+			zone := n.Labels[zoneLabel]
+			if other, found := zones[zone]; found {
+				t.Errorf(
+					"%s shares zone %s with %s - the zone spread did not hold",
+					pod, zone, other,
+				)
+			}
+			zones[zone] = pod
 		}
 	})
 

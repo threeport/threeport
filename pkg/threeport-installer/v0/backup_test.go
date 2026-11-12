@@ -121,24 +121,36 @@ func backupInstaller() *ControlPlaneInstaller {
 func installDependencies(t *testing.T, cpi *ControlPlaneInstaller) *dynamicfake.FakeDynamicClient {
 	t.Helper()
 
-	// a reinstall lists what it deletes
+	fakeClient, err := installDependenciesOn(t, cpi)
+	require.NoError(t, err)
+
+	return fakeClient
+}
+
+// installDependenciesOn installs the control plane dependencies into a fake
+// cluster holding objects, and returns the cluster and the install's error.
+func installDependenciesOn(t *testing.T, cpi *ControlPlaneInstaller, objects ...runtime.Object) (*dynamicfake.FakeDynamicClient, error) {
+	t.Helper()
+
+	// a reinstall lists what it deletes, and a production install the
+	// storage classes
 	listKinds := map[schema.GroupVersionResource]string{
 		{Version: "v1", Resource: "namespaces"}: "NamespaceList",
 		{Version: "v1", Resource: "pods"}:       "PodList",
+		storageClassGVR:                         "StorageClassList",
 	}
 	for _, target := range deleteTargets {
 		listKinds[target.gvr] = "List"
 	}
-	fakeClient := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), listKinds)
+	fakeClient := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), listKinds, objects...)
 	// a production install bootstraps the database with a job, which no
 	// fake cluster runs
 	succeedDropJob(fakeClient)
 	mapper := backupTestMapper()
 	dbCreds, err := auth.GenerateDbCreds(cpi.Opts.Namespace)
 	require.NoError(t, err)
-	require.NoError(t, cpi.InstallThreeportControlPlaneDependencies(normalizingClient{fakeClient}, &mapper, "", dbCreds))
 
-	return fakeClient
+	return fakeClient, cpi.InstallThreeportControlPlaneDependencies(normalizingClient{fakeClient}, &mapper, "", dbCreds)
 }
 
 // getObject reads an object back from the fake cluster.
