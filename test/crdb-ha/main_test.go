@@ -12,6 +12,7 @@
 package crdbha
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -26,6 +27,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/threeport/threeport/internal/provider"
 )
@@ -40,6 +43,10 @@ const clusterName = "crdb-ha-test"
 // able to run a pod. kind's control-plane node is tainted and does not
 // count, so this is worker nodes alone.
 const schedulableNodes = 3
+
+// zoneLabel is the label a production CockroachDB cluster spreads its pods
+// across.  Every GKE and EKS node carries it; a kind node doesn't.
+const zoneLabel = "topology.kubernetes.io/zone"
 
 var (
 	dynamicClient dynamic.Interface
@@ -115,6 +122,12 @@ func TestMain(m *testing.M) {
 	restMapper = restmapper.NewDiscoveryRESTMapper(groupResources)
 	restConfig = config
 
+	if err := labelWorkerZones(); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to label worker zones: %v\n", err)
+		_ = infra.Delete()
+		os.Exit(1)
+	}
+
 	code := m.Run()
 
 	if err := infra.Delete(); err != nil {
@@ -125,4 +138,30 @@ func TestMain(m *testing.M) {
 	}
 
 	os.Exit(code)
+}
+
+// labelWorkerZones puts each worker node in a zone of its own, as GKE and EKS
+// do.  A production CockroachDB pod refuses a node without a zone, so on an
+// unlabeled kind cluster none of them would ever be scheduled.
+func labelWorkerZones() error {
+	nodes, err := typedClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{
+		LabelSelector: "!node-role.kubernetes.io/control-plane",
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list worker nodes: %w", err)
+	}
+	if len(nodes.Items) != schedulableNodes {
+		return fmt.Errorf("expected %d worker nodes, found %d", schedulableNodes, len(nodes.Items))
+	}
+
+	for i, node := range nodes.Items {
+		patch := fmt.Sprintf(`{"metadata":{"labels":{%q:"zone-%c"}}}`, zoneLabel, 'a'+i)
+		if _, err := typedClient.CoreV1().Nodes().Patch(
+			context.Background(), node.Name, types.MergePatchType, []byte(patch), metav1.PatchOptions{},
+		); err != nil {
+			return fmt.Errorf("failed to label %s with a zone: %w", node.Name, err)
+		}
+	}
+
+	return nil
 }
