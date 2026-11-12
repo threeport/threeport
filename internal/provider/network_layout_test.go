@@ -7,6 +7,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/datatypes"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
@@ -244,4 +245,31 @@ func TestAResumedCreateKeepsItsStacksNetwork(t *testing.T) {
 		assert.False(t, oke.keepStackNetwork([]byte(deployment)), name)
 		assert.Equal(t, "10.16.0.0/16", oke.NetworkCidr, "%s lays out the range asked for", name)
 	}
+}
+
+// TestAClustersNetworkIsReadFromItsRecordedState covers the networks a
+// provider instance's recorded state holds, in either form the state is
+// recorded in: an export, or a checkpoint.  A state with none holds nothing.
+func TestAClustersNetworkIsReadFromItsRecordedState(t *testing.T) {
+	resources := `{"resources":[` +
+		`{"type":"aws:ec2/vpc:Vpc","inputs":{"cidrBlock":"10.16.0.0/16"}},` +
+		`{"type":"gcp:compute/subnetwork:Subnetwork","inputs":{"ipCidrRange":"10.17.128.0/20","secondaryIpRanges":[{"ipCidrRange":"10.17.0.0/17"},{"ipCidrRange":"10.17.144.0/20"}]}},` +
+		`{"type":"oci:Core/vcn:Vcn","inputs":{"cidrBlock":"10.18.0.0/16"}},` +
+		`{"type":"aws:ec2/subnet:Subnet","inputs":{"cidrBlock":"10.16.0.0/18"}}]}`
+	want := []netip.Prefix{
+		netip.MustParsePrefix("10.16.0.0/16"), netip.MustParsePrefix("10.18.0.0/16"), netip.MustParsePrefix("10.17.128.0/20"),
+		netip.MustParsePrefix("10.17.0.0/17"), netip.MustParsePrefix("10.17.144.0/20"),
+	}
+	for name, raw := range map[string]string{
+		"an export":         `{"version":3,"deployment":` + resources + `}`,
+		"a checkpoint":      `{"version":3,"checkpoint":{"latest":` + resources + `}}`,
+		"a bare checkpoint": `{"version":3,"latest":` + resources + `}`,
+	} {
+		state := datatypes.JSON(raw)
+		assert.ElementsMatch(t, want, NetworkCidrsInInventory(&state), name)
+	}
+
+	empty := datatypes.JSON(`{}`)
+	assert.Empty(t, NetworkCidrsInInventory(&empty))
+	assert.Empty(t, NetworkCidrsInInventory(nil))
 }

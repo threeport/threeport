@@ -6,6 +6,8 @@ import (
 	"net/netip"
 	"slices"
 
+	"gorm.io/datatypes"
+
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
@@ -267,4 +269,76 @@ func (i *KubernetesRuntimeInfraOKE) keepStackNetwork(deployment json.RawMessage)
 	i.NetworkCidr = vcn
 
 	return true
+}
+
+// NetworkCidrsInInventory returns the network ranges a provider instance's
+// recorded Pulumi state holds: an EKS cluster's VPC, an OKE cluster's VCN,
+// and a GKE cluster's subnet with its Pod and Service ranges.  The network
+// stays in the state until the cluster's destroy removes it, so these are
+// the ranges a cluster being deleted still uses after its runtime is gone.
+func NetworkCidrsInInventory(inventory *datatypes.JSON) []netip.Prefix {
+	if !HasInventory(inventory) {
+		return nil
+	}
+	var state struct {
+		Deployment json.RawMessage `json:"deployment"`
+		Latest     json.RawMessage `json:"latest"`
+		Checkpoint struct {
+			Latest json.RawMessage `json:"latest"`
+		} `json:"checkpoint"`
+	}
+	if json.Unmarshal(*inventory, &state) != nil {
+		return nil
+	}
+	deployment := state.Deployment
+	if len(deployment) == 0 {
+		deployment = state.Latest
+	}
+	if len(deployment) == 0 {
+		deployment = state.Checkpoint.Latest
+	}
+
+	var cidrs []string
+	cidrs = append(cidrs, resourceInputsInStack(deployment, "aws:ec2/vpc:Vpc", "cidrBlock")...)
+	cidrs = append(cidrs, resourceInputsInStack(deployment, "oci:Core/vcn:Vcn", "cidrBlock")...)
+	cidrs = append(cidrs, resourceInputsInStack(deployment, "gcp:compute/subnetwork:Subnetwork", "ipCidrRange")...)
+	cidrs = append(cidrs, subnetSecondaryRanges(deployment)...)
+
+	var prefixes []netip.Prefix
+	for _, cidr := range cidrs {
+		if prefix, err := netip.ParsePrefix(cidr); err == nil {
+			prefixes = append(prefixes, prefix)
+		}
+	}
+
+	return prefixes
+}
+
+// subnetSecondaryRanges returns the secondary ranges of each GKE subnet an
+// exported deployment holds.
+func subnetSecondaryRanges(deployment json.RawMessage) []string {
+	var contents struct {
+		Resources []struct {
+			Type   string `json:"type"`
+			Inputs struct {
+				SecondaryIpRanges []struct {
+					IpCidrRange string `json:"ipCidrRange"`
+				} `json:"secondaryIpRanges"`
+			} `json:"inputs"`
+		} `json:"resources"`
+	}
+	if len(deployment) == 0 || json.Unmarshal(deployment, &contents) != nil {
+		return nil
+	}
+	var ranges []string
+	for _, resource := range contents.Resources {
+		if resource.Type != "gcp:compute/subnetwork:Subnetwork" {
+			continue
+		}
+		for _, secondary := range resource.Inputs.SecondaryIpRanges {
+			ranges = append(ranges, secondary.IpCidrRange)
+		}
+	}
+
+	return ranges
 }

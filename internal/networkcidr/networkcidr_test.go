@@ -29,6 +29,11 @@ type fakeControlPlane struct {
 	// another runtime took first
 	refusals int
 	written  []string
+	// the EKS, GKE and OKE instances, whose recorded state holds the
+	// networks of their clusters
+	eksInstances []v0.AwsEksKubernetesRuntimeInstance
+	gkeInstances []v0.GcpGkeKubernetesRuntimeInstance
+	okeInstances []v0.OciOkeKubernetesRuntimeInstance
 }
 
 // pool returns a pool as the JSON a control plane instance stores.
@@ -51,6 +56,27 @@ func (f *fakeControlPlane) serve(t *testing.T) *machinetest.APIStub {
 				continue
 			}
 			objects = append(objects, controlPlane)
+		}
+		machinetest.WriteResponse(t, w, http.StatusOK, objects)
+	})
+	api.Mux.HandleFunc(v0.PathAwsEksKubernetesRuntimeInstances, func(w http.ResponseWriter, r *http.Request) {
+		objects := []apiserver_lib.Object{}
+		for _, instance := range f.eksInstances {
+			objects = append(objects, instance)
+		}
+		machinetest.WriteResponse(t, w, http.StatusOK, objects)
+	})
+	api.Mux.HandleFunc(v0.PathGcpGkeKubernetesRuntimeInstances, func(w http.ResponseWriter, r *http.Request) {
+		objects := []apiserver_lib.Object{}
+		for _, instance := range f.gkeInstances {
+			objects = append(objects, instance)
+		}
+		machinetest.WriteResponse(t, w, http.StatusOK, objects)
+	})
+	api.Mux.HandleFunc(v0.PathOciOkeKubernetesRuntimeInstances, func(w http.ResponseWriter, r *http.Request) {
+		objects := []apiserver_lib.Object{}
+		for _, instance := range f.okeInstances {
+			objects = append(objects, instance)
 		}
 		machinetest.WriteResponse(t, w, http.StatusOK, objects)
 	})
@@ -285,4 +311,36 @@ func TestAllocationSkipsADeletedChildsReservedPool(t *testing.T) {
 	cidr, err := EnsureRuntimeNetworkCidr(api.Client, api.Addr, 1)
 	require.NoError(t, err)
 	assert.Equal(t, "10.21.0.0/16", cidr, "past the reserved blocks")
+}
+
+// inventory returns a provider instance's recorded state holding resources,
+// each a type and its inputs.
+func inventory(resources ...string) *datatypes.JSON {
+	raw := datatypes.JSON(`{"version":3,"deployment":{"resources":[` + strings.Join(resources, ",") + `]}}`)
+	return &raw
+}
+
+// TestAClusterBeingDestroyedKeepsItsRange covers a cluster whose runtime the
+// runtime controller has already removed while its provider's destroy runs:
+// its network is still in the provider instance's state, so no runtime is
+// allocated a range that overlaps it, on EKS, GKE or OKE.
+func TestAClusterBeingDestroyedKeepsItsRange(t *testing.T) {
+	f := &fakeControlPlane{
+		runtimes:      map[uint]*v0.KubernetesRuntimeInstance{1: runtime(1, nil)},
+		controlPlanes: []v0.ControlPlaneInstance{{Common: v0.Common{ID: util.Ptr(uint(1))}, IsSelf: util.Ptr(true)}},
+		eksInstances: []v0.AwsEksKubernetesRuntimeInstance{{ResourceInventory: inventory(
+			`{"type":"aws:ec2/vpc:Vpc","inputs":{"cidrBlock":"10.16.0.0/16"}}`,
+		)}},
+		gkeInstances: []v0.GcpGkeKubernetesRuntimeInstance{{ResourceInventory: inventory(
+			`{"type":"gcp:compute/subnetwork:Subnetwork","inputs":{"ipCidrRange":"10.17.128.0/20","secondaryIpRanges":[{"rangeName":"pods","ipCidrRange":"10.18.0.0/17"}]}}`,
+		)}},
+		okeInstances: []v0.OciOkeKubernetesRuntimeInstance{{ResourceInventory: inventory(
+			`{"type":"oci:Core/vcn:Vcn","inputs":{"cidrBlock":"10.19.0.0/16"}}`,
+		)}},
+	}
+	api := f.serve(t)
+
+	cidr, err := EnsureRuntimeNetworkCidr(api.Client, api.Addr, 1)
+	require.NoError(t, err)
+	assert.Equal(t, "10.20.0.0/16", cidr, "past the EKS VPC, the GKE nodes and Pods, and the OKE VCN")
 }

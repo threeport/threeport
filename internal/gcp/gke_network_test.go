@@ -59,6 +59,11 @@ func TestAGkeClusterIsLaidOutInItsAllocatedRange(t *testing.T) {
 				runtime.NetworkCidr = update.NetworkCidr
 			}
 			respond(w, runtime)
+		case r.URL.Path == api_v0.PathAwsEksKubernetesRuntimeInstances,
+			r.URL.Path == api_v0.PathGcpGkeKubernetesRuntimeInstances,
+			r.URL.Path == api_v0.PathOciOkeKubernetesRuntimeInstances:
+			// no cluster is being destroyed
+			respond(w)
 		default:
 			t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
 		}

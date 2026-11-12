@@ -94,8 +94,9 @@ func nextNetworkCidr(apiClient *http.Client, apiServer string) (netip.Prefix, bo
 }
 
 // networkCidrsInUse returns the ranges a new runtime's range must stay clear
-// of: every runtime's range, every child control plane's pool, and the pools
-// of deleted children this control plane has reserved for their clusters.  The
+// of: every runtime's range, every child control plane's pool, the pools of
+// deleted children this control plane has reserved for their clusters, and
+// the networks of clusters still being destroyed.  The
 // control planes this one keeps rows for that aren't itself are its children;
 // the rows for its parent and the genesis carry no pool.
 func networkCidrsInUse(apiClient *http.Client, apiServer string, self *v0.ControlPlaneInstance) ([]netip.Prefix, error) {
@@ -137,6 +138,46 @@ func networkCidrsInUse(apiClient *http.Client, apiServer string, self *v0.Contro
 				deref(controlPlane.Name), err)
 		}
 		inUse = append(inUse, pool...)
+	}
+
+	clusters, err := clusterNetworksInUse(apiClient, apiServer)
+	if err != nil {
+		return nil, err
+	}
+
+	return append(inUse, clusters...), nil
+}
+
+// clusterNetworksInUse returns the networks the EKS, GKE and OKE clusters
+// still hold, from their provider instances' recorded state.  The runtime
+// controller removes a runtime once it schedules its provider's deletion,
+// while the cluster's network lives until the destroy removes it, so a
+// range is in use as long as a cluster's state holds it.
+func clusterNetworksInUse(apiClient *http.Client, apiServer string) ([]netip.Prefix, error) {
+	var inUse []netip.Prefix
+
+	eksInstances, err := client.GetAwsEksKubernetesRuntimeInstances(apiClient, apiServer)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get EKS kubernetes runtime instances: %w", err)
+	}
+	for _, instance := range *eksInstances {
+		inUse = append(inUse, provider.NetworkCidrsInInventory(instance.ResourceInventory)...)
+	}
+
+	gkeInstances, err := client.GetGcpGkeKubernetesRuntimeInstances(apiClient, apiServer)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get GKE kubernetes runtime instances: %w", err)
+	}
+	for _, instance := range *gkeInstances {
+		inUse = append(inUse, provider.NetworkCidrsInInventory(instance.ResourceInventory)...)
+	}
+
+	okeInstances, err := client.GetOciOkeKubernetesRuntimeInstances(apiClient, apiServer)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get OKE kubernetes runtime instances: %w", err)
+	}
+	for _, instance := range *okeInstances {
+		inUse = append(inUse, provider.NetworkCidrsInInventory(instance.ResourceInventory)...)
 	}
 
 	return inUse, nil
