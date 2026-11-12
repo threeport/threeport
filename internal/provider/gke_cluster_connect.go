@@ -149,14 +149,18 @@ func (i *KubernetesRuntimeInfraGKE) otherThreeportClustersRemain(clientOpts []op
 		return false, fmt.Errorf("failed to list the project's GKE clusters: %w", err)
 	}
 
-	return threeportClusterOtherThan(response.GetClusters(), i.RuntimeInstanceName), nil
+	return threeportClusterOtherThan(response.GetClusters(), i.RuntimeInstanceName, i.Region), nil
 }
 
 // threeportClusterOtherThan reports whether clusters holds one Threeport
-// provisioned that isn't named name.
-func threeportClusterOtherThan(clusters []*containerpb.Cluster, name string) bool {
+// provisioned other than the one named name in location.  Clusters in
+// different locations may share a name, so the location tells them apart.
+func threeportClusterOtherThan(clusters []*containerpb.Cluster, name, location string) bool {
 	for _, cluster := range clusters {
-		if cluster.GetResourceLabels()[GcpLabelProvisionedBy] == GcpLabelProvisionedByValue && cluster.GetName() != name {
+		if cluster.GetResourceLabels()[GcpLabelProvisionedBy] != GcpLabelProvisionedByValue {
+			continue
+		}
+		if cluster.GetName() != name || cluster.GetLocation() != location {
 			return true
 		}
 	}

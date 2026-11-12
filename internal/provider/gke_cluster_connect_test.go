@@ -45,15 +45,22 @@ func TestTheControlPlaneCanConnectToTheProjectsClusters(t *testing.T) {
 // in the project that uses it, so the role stays while the project holds a
 // cluster Threeport provisioned other than the one going.
 func TestTheConnectRoleStaysWhileAnotherThreeportClusterRemains(t *testing.T) {
-	cluster := func(name string, threeport bool) *containerpb.Cluster {
+	cluster := func(name, location string, threeport bool) *containerpb.Cluster {
 		labels := map[string]string{}
 		if threeport {
 			labels = GcpResourceLabels(name)
 		}
-		return &containerpb.Cluster{Name: name, ResourceLabels: labels}
+		return &containerpb.Cluster{Name: name, Location: location, ResourceLabels: labels}
 	}
 
-	assert.False(t, threeportClusterOtherThan(nil, "going"))
-	assert.False(t, threeportClusterOtherThan([]*containerpb.Cluster{cluster("going", true), cluster("someone-elses", false)}, "going"))
-	assert.True(t, threeportClusterOtherThan([]*containerpb.Cluster{cluster("going", true), cluster("workload", true)}, "going"))
+	assert.False(t, threeportClusterOtherThan(nil, "going", "us-central1"))
+	assert.False(t, threeportClusterOtherThan([]*containerpb.Cluster{
+		cluster("going", "us-central1", true), cluster("someone-elses", "us-central1", false),
+	}, "going", "us-central1"))
+	assert.True(t, threeportClusterOtherThan([]*containerpb.Cluster{
+		cluster("going", "us-central1", true), cluster("workload", "us-central1", true),
+	}, "going", "us-central1"))
+	assert.True(t, threeportClusterOtherThan([]*containerpb.Cluster{
+		cluster("going", "us-central1", true), cluster("going", "us-east1", true),
+	}, "going", "us-central1"), "a cluster of the same name in another region")
 }
