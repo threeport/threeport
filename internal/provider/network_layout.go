@@ -249,17 +249,22 @@ func (i *KubernetesRuntimeInfraGKE) keepStackNetwork(deployment json.RawMessage)
 	i.NetworkCidr = netip.PrefixFrom(netip.AddrFrom4([4]byte{address[0], address[1], 0, 0}), v0.NetworkCidrPrefixLength).String()
 }
 
-// okeStackNetwork returns the range of the VCN a stack holds, and whether it
-// holds one: "" for one laid out before ranges were allocated.
-func okeStackNetwork(deployment json.RawMessage) (string, bool) {
+// keepStackNetwork sets NetworkCidr to the range of the VCN the stack holds,
+// if it holds one, and reports whether it does: "" for one laid out before
+// ranges were allocated.  A VCN of 10.0.0.0/16, the one every cluster used to
+// get, laid out in that range is the same network, so it is told by the range
+// asked for: when that is the VCN's, the cluster keeps it, and with it the
+// range its runtime records.
+func (i *KubernetesRuntimeInfraOKE) keepStackNetwork(deployment json.RawMessage) bool {
 	vcn, held := resourceInputInStack(deployment, "oci:Core/vcn:Vcn", "cidrBlock")
 	if !held {
-		return "", false
+		return false
 	}
 	legacy, _ := okeLayout("")
-	if vcn == legacy.Vcn {
-		return "", true
+	if vcn == legacy.Vcn && i.NetworkCidr != vcn {
+		vcn = ""
 	}
+	i.NetworkCidr = vcn
 
-	return vcn, true
+	return true
 }

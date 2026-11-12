@@ -638,9 +638,8 @@ func (i *KubernetesRuntimeInfraOKE) CreateInfra() (*kube.KubeConnectionInfo, err
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the stack's network: %w", err)
 	}
-	if block, held := okeStackNetwork(exported.Deployment); held {
-		i.NetworkCidr = block
-		if network, err = okeLayout(block); err != nil {
+	if i.keepStackNetwork(exported.Deployment) {
+		if network, err = okeLayout(i.NetworkCidr); err != nil {
 			return nil, err
 		}
 	}

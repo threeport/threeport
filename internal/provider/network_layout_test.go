@@ -225,14 +225,23 @@ func TestAResumedCreateKeepsItsStacksNetwork(t *testing.T) {
 	gke.keepStackNetwork([]byte(`{"resources":[]}`))
 	assert.Equal(t, "10.16.0.0/16", gke.NetworkCidr)
 
-	block, held := okeStackNetwork(stack("oci:Core/vcn:Vcn", "cidrBlock", "10.0.0.0/16"))
-	assert.True(t, held)
-	assert.Empty(t, block)
-	block, held = okeStackNetwork(stack("oci:Core/vcn:Vcn", "cidrBlock", "10.30.0.0/16"))
-	assert.True(t, held)
-	assert.Equal(t, "10.30.0.0/16", block)
-	_, held = okeStackNetwork([]byte(`{"resources":[]}`))
-	assert.False(t, held)
-	_, held = okeStackNetwork([]byte(`{"resources":`))
-	assert.False(t, held, "an unreadable record")
+	vcn := func(cidr string) []byte { return stack("oci:Core/vcn:Vcn", "cidrBlock", cidr) }
+	for _, c := range []struct {
+		name, asked, held, want string
+	}{
+		{"laid out before ranges", "10.16.0.0/16", "10.0.0.0/16", ""},
+		{"laid out before ranges, with no range asked", "", "10.0.0.0/16", ""},
+		{"laid out in a range", "10.16.0.0/16", "10.30.0.0/16", "10.30.0.0/16"},
+		// the same network as the old one, whose range the runtime records
+		{"laid out in 10.0.0.0/16", "10.0.0.0/16", "10.0.0.0/16", "10.0.0.0/16"},
+	} {
+		oke := &KubernetesRuntimeInfraOKE{NetworkCidr: c.asked}
+		assert.True(t, oke.keepStackNetwork(vcn(c.held)), c.name)
+		assert.Equal(t, c.want, oke.NetworkCidr, c.name)
+	}
+	for name, deployment := range map[string]string{"a new stack": `{"resources":[]}`, "an unreadable record": `{"resources":`} {
+		oke := &KubernetesRuntimeInfraOKE{NetworkCidr: "10.16.0.0/16"}
+		assert.False(t, oke.keepStackNetwork([]byte(deployment)), name)
+		assert.Equal(t, "10.16.0.0/16", oke.NetworkCidr, "%s lays out the range asked for", name)
+	}
 }
