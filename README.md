@@ -1,6 +1,6 @@
 <img src="docs/dev/img/threeport-logo-green.jpg">
 
-Threeport is an "Application Lifecycle Orchestrator."
+Threeport is an *Application Lifecycle Orchestrator*.
 
 Application Lifecycle Orchestration (ALCO) is a software engineering approach to software delivery that replaces the config management practices of DevOps and GitOps with purpose-built controllers.  Instead of writing and maintaining text-file configs that get executed by a CD pipeline, you build controllers that manage those same concerns in software.
 
