@@ -68,6 +68,11 @@ type KubernetesRuntimeInfraGKE struct {
 	// scale up to.
 	MaxNodeCount int32
 
+	// How the worker node pool's autoscaler places nodes across zones:
+	// "BALANCED" keeps the zones even, and "ANY", used when this is empty,
+	// places nodes wherever capacity is.
+	LocationPolicy string
+
 	// The email address of the GCP service account created for Threeport.
 	// This service account is used with Workload Identity to allow
 	// Threeport controllers to manage GCP resources.
@@ -260,6 +265,15 @@ func (i *KubernetesRuntimeInfraGKE) DeployInfra() error {
 // provider off. Delete is the bootstrap path that also cleans up the account.
 func (i *KubernetesRuntimeInfraGKE) DestroyInfra() error {
 	return i.destroyInfraStack()
+}
+
+// locationPolicy returns the node pool autoscaler's location policy.
+func (i *KubernetesRuntimeInfraGKE) locationPolicy() string {
+	if i.LocationPolicy == "" {
+		return "ANY"
+	}
+
+	return i.LocationPolicy
 }
 
 // gkeNodePoolIgnoredChanges are the node pool properties Pulumi sets only when
@@ -455,7 +469,7 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 			Autoscaling: &gkecontainer.NodePoolAutoscalingArgs{
 				MinNodeCount:   pulumi.Int(int(i.MinNodeCount)),
 				MaxNodeCount:   pulumi.Int(int(i.MaxNodeCount)),
-				LocationPolicy: pulumi.String("ANY"),
+				LocationPolicy: pulumi.String(i.locationPolicy()),
 			},
 
 			Management: &gkecontainer.NodePoolManagementArgs{

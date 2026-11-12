@@ -10,6 +10,16 @@ install method is useful for testing Threeport on a remote cloud provider.
 If you would prefer to test out Threeport locally, see our guide to [Install
 Threeport Locally](install-threeport-local.md).
 
+!!! warning "Not production ready"
+    Threeport on Oracle Cloud Infrastructure is not production ready. A
+    control plane on OCI doesn't back up its database, and `tptctl restore`
+    doesn't support OCI. If the database is lost, every Threeport object in it
+    is lost too. This applies to `--tier production` control planes as well.
+
+    Use OCI for development and evaluation. Run production control planes on a
+    provider that backs up the control plane's database; see
+    [Back Up and Restore a Control Plane](../control-planes/backup-restore.md).
+
 Note: this guide requires you to have our tptctl command-line tool installed. See
 our [Install tptctl guide](install-tptctl.md) to install if you haven't already.
 
@@ -62,6 +72,10 @@ Kubernetes runtime for tenant workloads.
 
 Other `tptctl up` flags you may use include `--debug`, `--teardown-on-failure`,
 and `--force-overwrite-config`. Run `tptctl up --help` for the full list.
+
+`--tier production` is accepted on OCI. It runs three database replicas, so
+the control plane survives the loss of a node, but it doesn't back the
+database up.
 
 ## Restrict Access to the Kubernetes API
 

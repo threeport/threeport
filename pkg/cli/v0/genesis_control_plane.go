@@ -361,22 +361,25 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return fmt.Errorf("failed to deploy oke infrastructure: %w", err)
 		}
 	case v0.KubernetesRuntimeInfraProviderGKE:
+		// the node pool this CLI-driven bootstrap path creates for the tier;
+		// it has no GcpGkeKubernetesRuntimeDefinition to read it from
+		gkeProfile, err := gkeControlPlaneProfile(cpi.Opts.Tier)
+		if err != nil {
+			return err
+		}
 		kubernetesRuntimeInfraGKE := (&provider.KubernetesRuntimeInfraGKE{
 			PulumiWorkspace: provider.PulumiWorkspace{
 				RuntimeInstanceName: runtimeInstanceName(cpi.Opts),
 			},
 			NetworkCidr:            cpi.Opts.NetworkCidr,
 			Version:                kube.KubernetesDefaultVersion,
-			WorkerNodeInitialCount: int32(2),
-			// preserves the node pool defaults this CLI-driven bootstrap path
-			// used before MachineType/MinNodeCount/MaxNodeCount became
-			// definition-driven fields for the controller-driven path; this
-			// path has no GcpGkeKubernetesRuntimeDefinition to read them from.
-			MachineType:  "e2-medium",
-			MinNodeCount: int32(1),
-			MaxNodeCount: int32(10),
-			ProjectID:    cpi.Opts.GcpProjectId,
-			Region:       cpi.Opts.GcpRegion,
+			WorkerNodeInitialCount: gkeProfile.InitialNodeCount,
+			MachineType:            gkeProfile.MachineType,
+			MinNodeCount:           gkeProfile.MinNodeCount,
+			MaxNodeCount:           gkeProfile.MaxNodeCount,
+			LocationPolicy:         gkeProfile.LocationPolicy,
+			ProjectID:              cpi.Opts.GcpProjectId,
+			Region:                 cpi.Opts.GcpRegion,
 			// a production control plane backs its database up to a
 			// bucket in another region
 			ProvisionBackups: cpi.Opts.Tier == threeport.ControlPlaneTier(threeport.ControlPlaneTierProd),
@@ -900,6 +903,9 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			},
 			InfraProvider: &cpi.Opts.InfraProvider,
 			AllowedCidrs:  allowedCidrsJSON(cpi.Opts.K8sApiAllowedCidrs),
+		}
+		if err := recordClusterProfile(&kubernetesRuntimeDefinition, cpi.Opts.Tier); err != nil {
+			return uninstaller.cleanOnCreateError("failed to describe the control plane's cluster", err)
 		}
 		kubernetesRuntimeDefResult, err = client.CreateKubernetesRuntimeDefinition(
 			apiClient,
