@@ -236,12 +236,16 @@ func (h Handler) GetOciOkeKubernetesRuntimeDefinitions(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/oci-oke-kubernetes-runtime-definitions/{id} [GET]
 func (h Handler) GetOciOkeKubernetesRuntimeDefinition(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.OciOkeKubernetesRuntimeDefinition).GetFullyQualifiedType()
-	ociOkeKubernetesRuntimeDefinitionID := c.Param("id")
+	ociOkeKubernetesRuntimeDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var ociOkeKubernetesRuntimeDefinition api_v0.OciOkeKubernetesRuntimeDefinition
 	if result := h.RequestDB(c).
 		First(&ociOkeKubernetesRuntimeDefinition, ociOkeKubernetesRuntimeDefinitionID); result.Error != nil {
@@ -285,7 +289,10 @@ func (h Handler) GetOciOkeKubernetesRuntimeDefinition(c echo.Context) error {
 func (h Handler) UpdateOciOkeKubernetesRuntimeDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeOciOkeKubernetesRuntimeDefinition
 	fullyQualifiedType := new(api_v0.OciOkeKubernetesRuntimeDefinition).GetFullyQualifiedType()
-	ociOkeKubernetesRuntimeDefinitionID := c.Param("id")
+	ociOkeKubernetesRuntimeDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingOciOkeKubernetesRuntimeDefinition api_v0.OciOkeKubernetesRuntimeDefinition
 	if result := h.RequestDB(c).First(&existingOciOkeKubernetesRuntimeDefinition, ociOkeKubernetesRuntimeDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -363,7 +370,10 @@ func (h Handler) UpdateOciOkeKubernetesRuntimeDefinition(c echo.Context) error {
 func (h Handler) ReplaceOciOkeKubernetesRuntimeDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeOciOkeKubernetesRuntimeDefinition
 	fullyQualifiedType := new(api_v0.OciOkeKubernetesRuntimeDefinition).GetFullyQualifiedType()
-	ociOkeKubernetesRuntimeDefinitionID := c.Param("id")
+	ociOkeKubernetesRuntimeDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingOciOkeKubernetesRuntimeDefinition api_v0.OciOkeKubernetesRuntimeDefinition
 	if result := h.RequestDB(c).First(&existingOciOkeKubernetesRuntimeDefinition, ociOkeKubernetesRuntimeDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -443,13 +453,17 @@ func (h Handler) ReplaceOciOkeKubernetesRuntimeDefinition(c echo.Context) error 
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/oci-oke-kubernetes-runtime-definitions/{id} [DELETE]
 func (h Handler) DeleteOciOkeKubernetesRuntimeDefinition(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.OciOkeKubernetesRuntimeDefinition).GetFullyQualifiedType()
-	ociOkeKubernetesRuntimeDefinitionID := c.Param("id")
+	ociOkeKubernetesRuntimeDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var ociOkeKubernetesRuntimeDefinition api_v0.OciOkeKubernetesRuntimeDefinition
 	if result := h.RequestDB(c).Preload("OciOkeKubernetesRuntimeInstances").First(&ociOkeKubernetesRuntimeDefinition, ociOkeKubernetesRuntimeDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -742,12 +756,16 @@ func (h Handler) GetOciOkeKubernetesRuntimeInstances(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/oci-oke-kubernetes-runtime-instances/{id} [GET]
 func (h Handler) GetOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.OciOkeKubernetesRuntimeInstance).GetFullyQualifiedType()
-	ociOkeKubernetesRuntimeInstanceID := c.Param("id")
+	ociOkeKubernetesRuntimeInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var ociOkeKubernetesRuntimeInstance api_v0.OciOkeKubernetesRuntimeInstance
 	if result := h.RequestDB(c).
 		First(&ociOkeKubernetesRuntimeInstance, ociOkeKubernetesRuntimeInstanceID); result.Error != nil {
@@ -791,7 +809,10 @@ func (h Handler) GetOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 func (h Handler) UpdateOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeOciOkeKubernetesRuntimeInstance
 	fullyQualifiedType := new(api_v0.OciOkeKubernetesRuntimeInstance).GetFullyQualifiedType()
-	ociOkeKubernetesRuntimeInstanceID := c.Param("id")
+	ociOkeKubernetesRuntimeInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingOciOkeKubernetesRuntimeInstance api_v0.OciOkeKubernetesRuntimeInstance
 	if result := h.RequestDB(c).First(&existingOciOkeKubernetesRuntimeInstance, ociOkeKubernetesRuntimeInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -891,7 +912,10 @@ func (h Handler) UpdateOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 func (h Handler) ReplaceOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeOciOkeKubernetesRuntimeInstance
 	fullyQualifiedType := new(api_v0.OciOkeKubernetesRuntimeInstance).GetFullyQualifiedType()
-	ociOkeKubernetesRuntimeInstanceID := c.Param("id")
+	ociOkeKubernetesRuntimeInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingOciOkeKubernetesRuntimeInstance api_v0.OciOkeKubernetesRuntimeInstance
 	if result := h.RequestDB(c).First(&existingOciOkeKubernetesRuntimeInstance, ociOkeKubernetesRuntimeInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -993,13 +1017,17 @@ func (h Handler) ReplaceOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/oci-oke-kubernetes-runtime-instances/{id} [DELETE]
 func (h Handler) DeleteOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.OciOkeKubernetesRuntimeInstance).GetFullyQualifiedType()
-	ociOkeKubernetesRuntimeInstanceID := c.Param("id")
+	ociOkeKubernetesRuntimeInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var ociOkeKubernetesRuntimeInstance api_v0.OciOkeKubernetesRuntimeInstance
 	if result := h.RequestDB(c).First(&ociOkeKubernetesRuntimeInstance, ociOkeKubernetesRuntimeInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -1326,12 +1354,16 @@ func (h Handler) GetOciProviders(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/oci-providers/{id} [GET]
 func (h Handler) GetOciProvider(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.OciProvider).GetFullyQualifiedType()
-	ociProviderID := c.Param("id")
+	ociProviderID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var ociProvider api_v0.OciProvider
 	if result := h.RequestDB(c).
 		First(&ociProvider, ociProviderID); result.Error != nil {
@@ -1375,7 +1407,10 @@ func (h Handler) GetOciProvider(c echo.Context) error {
 func (h Handler) UpdateOciProvider(c echo.Context) error {
 	objectType := api_v0.ObjectTypeOciProvider
 	fullyQualifiedType := new(api_v0.OciProvider).GetFullyQualifiedType()
-	ociProviderID := c.Param("id")
+	ociProviderID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingOciProvider api_v0.OciProvider
 	if result := h.RequestDB(c).First(&existingOciProvider, ociProviderID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -1453,7 +1488,10 @@ func (h Handler) UpdateOciProvider(c echo.Context) error {
 func (h Handler) ReplaceOciProvider(c echo.Context) error {
 	objectType := api_v0.ObjectTypeOciProvider
 	fullyQualifiedType := new(api_v0.OciProvider).GetFullyQualifiedType()
-	ociProviderID := c.Param("id")
+	ociProviderID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingOciProvider api_v0.OciProvider
 	if result := h.RequestDB(c).First(&existingOciProvider, ociProviderID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -1533,13 +1571,17 @@ func (h Handler) ReplaceOciProvider(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/oci-providers/{id} [DELETE]
 func (h Handler) DeleteOciProvider(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.OciProvider).GetFullyQualifiedType()
-	ociProviderID := c.Param("id")
+	ociProviderID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var ociProvider api_v0.OciProvider
 	if result := h.RequestDB(c).First(&ociProvider, ociProviderID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
