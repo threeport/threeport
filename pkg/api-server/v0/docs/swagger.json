@@ -17930,6 +17930,13 @@
                     "description": "The namespace to deploy the control plane in",
                     "type": "string"
                 },
+                "NetworkCidrPool": {
+                    "description": "The address blocks from which this control plane allocates a /16\nnetwork range to each Kubernetes runtime it provisions, as a JSON array\nof IPv4 CIDR blocks such as [\"10.16.0.0/12\"].  Each block must be a /16\nor larger, and the blocks must not overlap.  If empty, the default pool\nis used: 10.16.0.0/16 through 10.255.0.0/16, except 10.96.0.0/16 and\n10.244.0.0/16.  A change affects only later allocations.  On a child\ncontrol plane, the pool must be clear of the ranges its parent has\nallocated, and the parent does not allocate from it.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "Parent": {
                     "$ref": "#/definitions/v0.ControlPlaneInstance"
                 },
@@ -18901,6 +18908,10 @@
                 },
                 "Name": {
                     "description": "An arbitrary name the instance",
+                    "type": "string"
+                },
+                "NetworkCidr": {
+                    "description": "The IPv4 network range of the cluster's network, such as 10.16.0.0/16:\nits VPC on EKS, its VCN on OKE, and its node, Pod and Service ranges on\nGKE.  No two runtimes may overlap, so that their networks can be\nconnected.  If unset when the runtime is provisioned, the control plane\nallocates the next free /16 from its NetworkCidrPool.  If set, it must be\na /16 or larger, overlap no other runtime's range and stay clear of the\nranges clusters use internally (10.96.0.0/16, 10.244.0.0/16 and\n172.20.0.0/16); it does not have to be in the pool.  Cannot be changed\nonce set.",
                     "type": "string"
                 },
                 "Reconciled": {
