@@ -18,8 +18,8 @@ import (
 )
 
 // fakeAPI is a threeport API held in memory: enough of the REST surface for the
-// client library to create objects, list them by a query filter and fetch them
-// by ID. Objects are kept as the JSON the client sent, so a test sees exactly
+// client library to create objects, list them by a query filter, fetch them
+// by ID and patch them. Objects are kept as the JSON the client sent, so a test sees exactly
 // what went over the wire.
 type fakeAPI struct {
 	t      *testing.T
@@ -29,6 +29,7 @@ type fakeAPI struct {
 	nextID  int
 	objects map[string][]map[string]any
 	posted  map[string][]map[string]any
+	patched map[string][]map[string]any
 }
 
 // newFakeAPI starts a fake API that numbers the objects created on it from
@@ -39,6 +40,7 @@ func newFakeAPI(t *testing.T, firstID int) *fakeAPI {
 		nextID:  firstID,
 		objects: map[string][]map[string]any{},
 		posted:  map[string][]map[string]any{},
+		patched: map[string][]map[string]any{},
 	}
 	api.server = httptest.NewServer(http.HandlerFunc(api.handle))
 	t.Cleanup(api.server.Close)
@@ -66,6 +68,13 @@ func (a *fakeAPI) createdOn(path string) []map[string]any {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return a.posted[path]
+}
+
+// patchedOn returns the patches the test's code sent to objects at a path.
+func (a *fakeAPI) patchedOn(path string) []map[string]any {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.patched[path]
 }
 
 func (a *fakeAPI) handle(w http.ResponseWriter, r *http.Request) {
@@ -115,6 +124,24 @@ func (a *fakeAPI) handle(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		respond(http.StatusOK, matches...)
+
+	case http.MethodPatch:
+		i := strings.LastIndex(r.URL.Path, "/")
+		id, err := strconv.Atoi(r.URL.Path[i+1:])
+		require.NoError(a.t, err)
+		var patch map[string]any
+		require.NoError(a.t, json.NewDecoder(r.Body).Decode(&patch))
+		a.patched[r.URL.Path[:i]] = append(a.patched[r.URL.Path[:i]], cloneObject(patch))
+		for _, object := range a.objects[r.URL.Path[:i]] {
+			if number(object["ID"]) == id {
+				for field, value := range patch {
+					object[field] = value
+				}
+				respond(http.StatusOK, object)
+				return
+			}
+		}
+		respond(http.StatusNotFound)
 
 	default:
 		respond(http.StatusMethodNotAllowed)

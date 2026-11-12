@@ -32,6 +32,7 @@ type ControlPlaneInstanceValues struct {
 	ControlPlaneDefinition    *ControlPlaneDefinitionValues
 	ImageNamespace            *string
 	ImageTag                  *string
+	NetworkCidrPool           *[]string
 	Apis                      *string
 	CustomComponentInfo       []*api_v0.ControlPlaneComponent
 	Genesis                   *bool
@@ -100,6 +101,7 @@ func (c *ControlPlaneInstanceConfig) Get(
 				ControlPlaneDefinition:    controlPlaneDefinition,
 				ImageNamespace:            controlPlaneInstance.ImageNamespace,
 				ImageTag:                  controlPlaneInstance.ImageTag,
+				NetworkCidrPool:           cidrsFromJSON(controlPlaneInstance.NetworkCidrPool),
 				Apis:                      controlPlaneInstance.Apis,
 				CustomComponentInfo:       controlPlaneInstance.CustomComponentInfo,
 				Genesis:                   controlPlaneInstance.Genesis,
@@ -153,6 +155,7 @@ func (c *ControlPlaneInstanceConfig) Create(
 		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
 		ImageNamespace:              controlPlaneInstanceValues.ImageNamespace,
 		ImageTag:                    controlPlaneInstanceValues.ImageTag,
+		NetworkCidrPool:             cidrsToJSON(controlPlaneInstanceValues.NetworkCidrPool),
 		Apis:                        controlPlaneInstanceValues.Apis,
 		CustomComponentInfo:         controlPlaneInstanceValues.CustomComponentInfo,
 		ControlPlaneDefinitionID:    controlPlaneDefinition.ID,
@@ -178,6 +181,7 @@ func (c *ControlPlaneInstanceConfig) Create(
 			ControlPlaneDefinition:    controlPlaneInstanceValues.ControlPlaneDefinition,
 			ImageNamespace:            createdControlPlaneInstance.ImageNamespace,
 			ImageTag:                  createdControlPlaneInstance.ImageTag,
+			NetworkCidrPool:           cidrsFromJSON(createdControlPlaneInstance.NetworkCidrPool),
 			Apis:                      createdControlPlaneInstance.Apis,
 			CustomComponentInfo:       createdControlPlaneInstance.CustomComponentInfo,
 			Genesis:                   createdControlPlaneInstance.Genesis,
@@ -225,6 +229,7 @@ func (c *ControlPlaneInstanceConfig) Replace(
 	updatedControlPlaneInstance.Namespace = controlPlaneInstanceValues.Namespace
 	updatedControlPlaneInstance.ImageNamespace = controlPlaneInstanceValues.ImageNamespace
 	updatedControlPlaneInstance.ImageTag = controlPlaneInstanceValues.ImageTag
+	updatedControlPlaneInstance.NetworkCidrPool = cidrsToJSON(controlPlaneInstanceValues.NetworkCidrPool)
 	updatedControlPlaneInstance.Apis = controlPlaneInstanceValues.Apis
 	updatedControlPlaneInstance.CustomComponentInfo = controlPlaneInstanceValues.CustomComponentInfo
 
@@ -248,6 +253,7 @@ func (c *ControlPlaneInstanceConfig) Replace(
 			ControlPlaneDefinition:    controlPlaneInstanceValues.ControlPlaneDefinition,
 			ImageNamespace:            replacedControlPlaneInstance.ImageNamespace,
 			ImageTag:                  replacedControlPlaneInstance.ImageTag,
+			NetworkCidrPool:           cidrsFromJSON(replacedControlPlaneInstance.NetworkCidrPool),
 			Apis:                      replacedControlPlaneInstance.Apis,
 			CustomComponentInfo:       replacedControlPlaneInstance.CustomComponentInfo,
 			Genesis:                   replacedControlPlaneInstance.Genesis,
