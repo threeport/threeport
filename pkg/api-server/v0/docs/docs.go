@@ -18496,6 +18496,10 @@ const docTemplate = `{
                     "description": "The GCP region in which the cluster is provisioned.",
                     "type": "string"
                 },
+                "ReservedNatAddress": {
+                    "description": "If true, the cluster's Cloud NAT uses an address reserved for it, so\nthat its outbound traffic comes from one address that does not change\nand is recorded as the kubernetes runtime instance's EgressCidrs.  Set\non clusters created since Threeport reserves one; clusters created\nbefore keep the addresses Google allocates.  Cannot be changed after\ncreation.",
+                    "type": "boolean"
+                },
                 "ResourceInventory": {
                     "description": "An inventory of all GCP resources for the GKE cluster.",
                     "type": "array",

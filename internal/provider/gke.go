@@ -26,6 +26,7 @@ import (
 	"google.golang.org/grpc/status"
 	"gorm.io/datatypes"
 
+	v0 "github.com/threeport/threeport/pkg/api/v0"
 	gcpauth "github.com/threeport/threeport/pkg/auth/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 )
@@ -102,6 +103,17 @@ type KubernetesRuntimeInfraGKE struct {
 	// The CIDR blocks allowed to reach the Kubernetes API's public endpoint.
 	// Empty leaves it open to every address.
 	AllowedCidrs []string
+
+	// The public addresses of the control plane that manages the cluster,
+	// admitted along with AllowedCidrs when those are set.
+	ControlPlaneEgressCidrs []string
+
+	// ReserveNatAddress gives the cluster's Cloud NAT a reserved address, so
+	// that its outbound traffic comes from one address that does not change
+	// and is recorded as the EgressCidrsOutput.  It is set for clusters
+	// created with one and left off for clusters created before, whose NAT
+	// keeps the addresses Google allocates.
+	ReserveNatAddress bool
 }
 
 const (
@@ -137,6 +149,10 @@ func (i *KubernetesRuntimeInfraGKE) InitPulumiProject() *KubernetesRuntimeInfraG
 
 // Create installs a Kubernetes cluster using Google Cloud GKE for threeport workloads.
 func (i *KubernetesRuntimeInfraGKE) Create() (*kube.KubeConnectionInfo, error) {
+	if err := checkKubeApiAllowlist(v0.KubernetesRuntimeInfraProviderGKE, i.AllowedCidrs, i.ControlPlaneEgressCidrs); err != nil {
+		return nil, err
+	}
+
 	// ensure GCP authentication is in place
 	if err := gcpauth.EnsureGCPAuth(i.ServiceAccountCredentials); err != nil {
 		return nil, fmt.Errorf("failed to ensure GCP authentication: %w", err)
@@ -193,6 +209,10 @@ func (i *KubernetesRuntimeInfraGKE) Create() (*kube.KubeConnectionInfo, error) {
 // call createGCPServiceAccountAndCredentials first for the bootstrap path, or ensure
 // credentials and Workload Identity are already configured for the controller path.
 func (i *KubernetesRuntimeInfraGKE) CreateInfra() (*kube.KubeConnectionInfo, error) {
+	if err := checkKubeApiAllowlist(v0.KubernetesRuntimeInfraProviderGKE, i.AllowedCidrs, i.ControlPlaneEgressCidrs); err != nil {
+		return nil, err
+	}
+
 	stack, err := i.SetupStack(i.pulumiProgram())
 	if err != nil {
 		return nil, fmt.Errorf("failed to set up Pulumi workspace: %w", err)
@@ -302,11 +322,36 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 			return fmt.Errorf("failed to create Cloud Router: %w", err)
 		}
 
+		// a cluster with a reserved NAT address sends its outbound traffic
+		// from that one address, which is recorded so that clusters this one
+		// manages can admit it; one at the default of 64 ports per VM serves
+		// about 1,000 nodes.  Other clusters keep the addresses Google
+		// allocates, which can change.
+		natIpAllocateOption := pulumi.String("AUTO_ONLY")
+		var natIps pulumi.StringArray
+		var egressAddresses []pulumi.StringOutput
+		if i.ReserveNatAddress {
+			natAddressName := fmt.Sprintf("%s-nat-ip", i.RuntimeInstanceName)
+			natAddress, err := compute.NewAddress(ctx, natAddressName, &compute.AddressArgs{
+				Name:        pulumi.String(natAddressName),
+				Region:      pulumi.String(i.Region),
+				AddressType: pulumi.String("EXTERNAL"),
+				Labels:      GcpLabelsInput(i.RuntimeInstanceName),
+			}, pulumi.Provider(gcpProvider))
+			if err != nil {
+				return fmt.Errorf("failed to reserve the Cloud NAT address: %w", err)
+			}
+			natIpAllocateOption = pulumi.String("MANUAL_ONLY")
+			natIps = pulumi.StringArray{natAddress.SelfLink}
+			egressAddresses = append(egressAddresses, natAddress.Address)
+		}
+
 		_, err = compute.NewRouterNat(ctx, fmt.Sprintf("%s-nat", i.RuntimeInstanceName), &compute.RouterNatArgs{
 			Name:                          pulumi.String(fmt.Sprintf("%s-nat", i.RuntimeInstanceName)),
 			Router:                        router.Name,
 			Region:                        pulumi.String(i.Region),
-			NatIpAllocateOption:           pulumi.String("AUTO_ONLY"),
+			NatIpAllocateOption:           natIpAllocateOption,
+			NatIps:                        natIps,
 			SourceSubnetworkIpRangesToNat: pulumi.String("ALL_SUBNETWORKS_ALL_IP_RANGES"),
 			LogConfig: &compute.RouterNatLogConfigArgs{
 				Enable: pulumi.Bool(true),
@@ -316,6 +361,11 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 			pulumi.DependsOn([]pulumi.Resource{router}))
 		if err != nil {
 			return fmt.Errorf("failed to create Cloud NAT: %w", err)
+		}
+
+		masterAuthorizedNetworksConfig, err := i.masterAuthorizedNetworksConfig()
+		if err != nil {
+			return err
 		}
 
 		cluster, err := gkecontainer.NewCluster(ctx, i.RuntimeInstanceName, &gkecontainer.ClusterArgs{
@@ -339,7 +389,7 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 				MasterIpv4CidrBlock:   pulumi.String("172.16.0.0/28"),
 			},
 
-			MasterAuthorizedNetworksConfig: i.masterAuthorizedNetworksConfig(),
+			MasterAuthorizedNetworksConfig: masterAuthorizedNetworksConfig,
 
 			NetworkPolicy: &gkecontainer.ClusterNetworkPolicyArgs{
 				Enabled:  pulumi.Bool(true),
@@ -396,6 +446,8 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 		if err != nil {
 			return fmt.Errorf("failed to create node pool: %w", err)
 		}
+
+		exportEgressCidrs(ctx, egressAddresses)
 
 		return nil
 	}
@@ -543,18 +595,22 @@ func (i *KubernetesRuntimeInfraGKE) DeleteGCPResources() error {
 }
 
 // masterAuthorizedNetworksConfig returns the authorized networks that limit
-// the public endpoint to AllowedCidrs, or nil to leave it open as it is
-// without them.  The nodes reach the API through the private endpoint, which
-// authorized networks do not apply to.  Access from Google Cloud's own public
-// addresses is turned off, since it would let any VM in any project past the
-// list.
-func (i *KubernetesRuntimeInfraGKE) masterAuthorizedNetworksConfig() gkecontainer.ClusterMasterAuthorizedNetworksConfigPtrInput {
-	if len(i.AllowedCidrs) == 0 {
-		return nil
+// the public endpoint to AllowedCidrs and the managing control plane's
+// addresses, or nil to leave it open as it is without them.  The nodes reach
+// the API through the private endpoint, which authorized networks do not apply
+// to.  Access from Google Cloud's own public addresses is turned off, since it
+// would let any VM in any project past the list.
+func (i *KubernetesRuntimeInfraGKE) masterAuthorizedNetworksConfig() (gkecontainer.ClusterMasterAuthorizedNetworksConfigPtrInput, error) {
+	allowlist, err := kubeApiAllowlist(v0.KubernetesRuntimeInfraProviderGKE, i.AllowedCidrs, i.ControlPlaneEgressCidrs)
+	if err != nil {
+		return nil, err
+	}
+	if len(allowlist) == 0 {
+		return nil, nil
 	}
 
 	cidrBlocks := gkecontainer.ClusterMasterAuthorizedNetworksConfigCidrBlockArray{}
-	for _, cidr := range i.AllowedCidrs {
+	for _, cidr := range allowlist {
 		cidrBlocks = append(cidrBlocks, &gkecontainer.ClusterMasterAuthorizedNetworksConfigCidrBlockArgs{
 			CidrBlock: pulumi.String(cidr),
 		})
@@ -563,7 +619,7 @@ func (i *KubernetesRuntimeInfraGKE) masterAuthorizedNetworksConfig() gkecontaine
 	return &gkecontainer.ClusterMasterAuthorizedNetworksConfigArgs{
 		CidrBlocks:                  cidrBlocks,
 		GcpPublicCidrsAccessEnabled: pulumi.Bool(false),
-	}
+	}, nil
 }
 
 // useGCPAuth puts GCP authentication and configuration in place for a call that

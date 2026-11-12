@@ -370,6 +370,9 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			ProvisionBackups: cpi.Opts.Tier == threeport.ControlPlaneTier(threeport.ControlPlaneTierProd),
 			BackupRegion:     cpi.Opts.GcpBackupRegion,
 			AllowedCidrs:     cpi.Opts.K8sApiAllowedCidrs,
+			// the control plane's outbound traffic comes from one address,
+			// which clusters it manages admit
+			ReserveNatAddress: true,
 		}).InitPulumiProject()
 		kubernetesRuntimeInfra = kubernetesRuntimeInfraGKE
 		uninstaller.kubernetesRuntimeInfra = kubernetesRuntimeInfraGKE
@@ -426,8 +429,21 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		}
 	}
 
+	// read the addresses the new cluster's outbound traffic comes from,
+	// which the clusters this control plane manages admit when they
+	// restrict their Kubernetes API.  With --control-plane-only these are
+	// the addresses a prior --infra-only run recorded; a cluster tptctl did
+	// not create, and a kind cluster, has none recorded.
+	egressCidrs := threeportControlPlaneConfig.EgressCidrs
+	if reporter, ok := kubernetesRuntimeInfra.(interface{ StackEgressCidrs() ([]string, error) }); ok && !cpi.Opts.ControlPlaneOnly {
+		if egressCidrs, err = reporter.StackEgressCidrs(); err != nil {
+			return uninstaller.cleanOnCreateError("failed to read the cluster's egress addresses", err)
+		}
+	}
+
 	// update threeport config with kube API info
 	if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *ControlPlane) {
+		c.EgressCidrs = egressCidrs
 		c.KubeAPI = KubeAPI{
 			APIEndpoint:   kubeConnectionInfo.APIEndpoint,
 			CACertificate: util.Base64Encode(kubeConnectionInfo.CACertificate),
@@ -562,6 +578,10 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			Location:                  &location,
 		}
 	}
+
+	// record the cluster's egress addresses on the runtime that hosts the
+	// control plane
+	kubernetesRuntimeInstance.EgressCidrs = provider.EgressCidrsJSON(egressCidrs)
 
 	// with the Kubernetes API limited to --k8s-api-allowed-cidrs, make sure
 	// this machine is on the list before installing anything, so that a list
@@ -1979,6 +1999,7 @@ func bootstrapKubernetesRuntimeInstance(controlPlaneConfig *ControlPlane) (*v0.K
 		CACertificate:             &caCertificate,
 		DefaultRuntime:            &defaultRuntime,
 		Location:                  &location,
+		EgressCidrs:               provider.EgressCidrsJSON(controlPlaneConfig.EgressCidrs),
 	}
 
 	// set the cert pair when both are present, else the token when set, and leave its expiration unset
