@@ -59,9 +59,9 @@ Other application services (Redis, etc.) are expected to follow the same
 pattern.
 
 Both categories of capability are built from manifests maintained in sibling
-repositories - [platform-component-library](https://github.com/lander2k2/platform-component-library)
+repositories - [platform-component-library](https://github.com/nukleros/platform-component-library)
 for platform services and
-[application-component-library](https://github.com/lander2k2/application-component-library)
+[application-component-library](https://github.com/nukleros/application-component-library)
 for application services. SSO itself is generated with [Operator
 Builder](https://github.com/nukleros/operator-builder) from those component
 manifests.
