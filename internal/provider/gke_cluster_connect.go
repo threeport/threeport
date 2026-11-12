@@ -90,6 +90,42 @@ func (i *KubernetesRuntimeInfraGKE) grantControlPlaneClusterConnect() error {
 	return grantClusterConnect(policies, i.ProjectID, member)
 }
 
+// controlPlaneClusterConnectGranted reports whether the control plane's
+// controllers hold the connect role a private cluster's create grants.  A
+// cluster with a public IP endpoint needs none.
+func (i *KubernetesRuntimeInfraGKE) controlPlaneClusterConnectGranted() (bool, error) {
+	if !i.PrivateApi {
+		return true, nil
+	}
+	policies, member, err := i.clusterConnectPolicies()
+	if err != nil {
+		return false, err
+	}
+
+	return clusterConnectGranted(policies, i.ProjectID, member)
+}
+
+// clusterConnectGranted reports whether member holds gkeClusterConnectRole on
+// a project, as grantClusterConnect binds it: unconditionally.
+func clusterConnectGranted(policies projectPolicies, projectID, member string) (bool, error) {
+	policy, err := policies.get(projectID)
+	if err != nil {
+		return false, fmt.Errorf("failed to get the IAM policy of project %s: %w", projectID, err)
+	}
+	for _, binding := range policy.Bindings {
+		if binding.Role != gkeClusterConnectRole || binding.Condition != nil {
+			continue
+		}
+		for _, m := range binding.Members {
+			if m == member {
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
+}
+
 // revokeControlPlaneClusterConnect removes the control plane's connect role
 // once the project holds no private cluster Threeport provisioned other than
 // this one.  The member is the namespace on every cluster in the project, so

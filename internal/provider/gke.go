@@ -887,7 +887,9 @@ func (i *KubernetesRuntimeInfraGKE) CreateComplete() (bool, error) {
 		return false, nil
 	}
 
-	// The binding is made after the stack is up, so it is checked last.
+	// The binding and the connect grant are made after the stack is up, in
+	// that order, so they are checked last.  A create interrupted before
+	// either is not complete, and is run again.
 	clientOpts := []gcpoption.ClientOption{gcpoption.WithScopes(gcpiam.CloudPlatformScope)}
 	if i.ServiceAccountCredentials != "" {
 		clientOpts = append(clientOpts, gcpoption.WithCredentialsJSON([]byte(i.ServiceAccountCredentials)))
@@ -896,8 +898,11 @@ func (i *KubernetesRuntimeInfraGKE) CreateComplete() (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to create IAM service client: %w", err)
 	}
+	if bound, err := i.workloadIdentityBound(iamService); err != nil || !bound {
+		return false, err
+	}
 
-	return i.workloadIdentityBound(iamService)
+	return i.controlPlaneClusterConnectGranted()
 }
 
 // GetConnection returns the connection information for the GKE cluster.  It

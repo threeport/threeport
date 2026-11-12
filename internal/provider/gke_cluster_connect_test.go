@@ -93,6 +93,44 @@ func TestTheControlPlaneCanConnectToTheProjectsPrivateClusters(t *testing.T) {
 	assert.Equal(t, sets, alone.sets)
 }
 
+// TestACreateIsCompleteOnceTheConnectRoleIsGranted covers the check that
+// tells an interrupted create from a finished one: a private cluster's create
+// is complete only once the control plane's namespace holds the role, as
+// grantClusterConnect binds it, so a create stopped before the grant is run
+// again.  A public cluster needs none.
+func TestACreateIsCompleteOnceTheConnectRoleIsGranted(t *testing.T) {
+	withNoIAMRetryDelay(t)
+	member := controlPlaneConnectMember(1, "proj")
+	store := &fakePolicies{policy: policyWith(
+		binding("roles/storage.objectViewer", member),
+		binding(gkeClusterConnectRole, "user:someone@example.com"),
+	)}
+	conditional := binding(gkeClusterConnectRole, member)
+	conditional.Condition = &cloudresourcemanager.Expr{Expression: "request.time < timestamp('2030-01-01T00:00:00Z')"}
+	store.policy.Bindings = append(store.policy.Bindings, conditional)
+
+	granted, err := clusterConnectGranted(store, "proj", member)
+	require.NoError(t, err)
+	assert.False(t, granted, "another role, another member, or the role under a condition")
+
+	require.NoError(t, grantClusterConnect(store, "proj", member))
+	granted, err = clusterConnectGranted(store, "proj", member)
+	require.NoError(t, err)
+	assert.True(t, granted)
+
+	store.getErrs = []error{errors.New("get failed")}
+	_, err = clusterConnectGranted(store, "proj", member)
+	require.ErrorContains(t, err, "get failed")
+
+	public := &KubernetesRuntimeInfraGKE{ProjectID: "proj", ServiceAccountCredentials: "not json"}
+	granted, err = public.controlPlaneClusterConnectGranted()
+	require.NoError(t, err)
+	assert.True(t, granted, "a public cluster is complete without it, and makes no client")
+	public.PrivateApi = true
+	_, err = public.controlPlaneClusterConnectGranted()
+	require.Error(t, err, "a private cluster checks")
+}
+
 // TestAPublicClusterGrantsNoConnectRole covers which clusters are granted the
 // role: a cluster with a public IP endpoint is reached there, so nothing is
 // granted for it, nor any client made.
