@@ -54,13 +54,15 @@ func ConfigureControlPlaneWithGkeConfig(
 		Definition: v0.Definition{
 			Name: &gkeRuntimeDefName,
 		},
-		ZoneCount:                     &zoneCount,
-		DefaultNodeGroupInstanceType:  &kubernetesRuntimeInfraGKE.MachineType,
-		DefaultNodeGroupInitialSize:   util.Ptr(int(kubernetesRuntimeInfraGKE.WorkerNodeInitialCount)),
-		DefaultNodeGroupMinimumSize:   util.Ptr(int(kubernetesRuntimeInfraGKE.MinNodeCount)),
-		DefaultNodeGroupMaximumSize:   util.Ptr(int(kubernetesRuntimeInfraGKE.MaxNodeCount)),
-		PrivateApi:                    privateApiField(kubernetesRuntimeInfraGKE.PrivateApi),
-		AllowedCidrs:                  allowedCidrsJSON(kubernetesRuntimeInfraGKE.AllowedCidrs),
+		ZoneCount:                    &zoneCount,
+		DefaultNodeGroupInstanceType: &kubernetesRuntimeInfraGKE.MachineType,
+		DefaultNodeGroupInitialSize:  util.Ptr(int(kubernetesRuntimeInfraGKE.WorkerNodeInitialCount)),
+		DefaultNodeGroupMinimumSize:  util.Ptr(int(kubernetesRuntimeInfraGKE.MinNodeCount)),
+		DefaultNodeGroupMaximumSize:  util.Ptr(int(kubernetesRuntimeInfraGKE.MaxNodeCount)),
+		PrivateApi:                   privateApiField(kubernetesRuntimeInfraGKE.PrivateApi),
+		AllowedCidrs:                 allowedCidrsJSON(kubernetesRuntimeInfraGKE.AllowedCidrs),
+		// the version tptctl created the cluster on, none for an existing one
+		KubernetesVersion:             kubernetesRuntimeDefResult.KubernetesVersion,
 		KubernetesRuntimeDefinitionID: kubernetesRuntimeDefResult.ID,
 	}
 	createdGcpGkeKubernetesRuntimeDef, err := ensureGcpGkeKubernetesRuntimeDefinition(

@@ -26,9 +26,6 @@ import (
 	yaml "sigs.k8s.io/yaml"
 )
 
-// DefaultOKEKubernetesVersion is the default Kubernetes version for OKE clusters.
-const DefaultOKEKubernetesVersion = "v1.32.1"
-
 // ociPluginVersion must match github.com/pulumi/pulumi-oci/sdk version in go.mod
 const ociPluginVersion = "3.9.0"
 
@@ -48,7 +45,9 @@ type KubernetesRuntimeInfraOKE struct {
 	// PulumiWorkspace provides all Pulumi workspace, stack, and state management.
 	PulumiWorkspace
 
-	// Kubernetes version of the OKE cluster.
+	// Kubernetes version of the OKE cluster: a minor version such as "1.36",
+	// which CreateInfra resolves to a release OKE offers, or a release such as
+	// "v1.36.4".  If empty, the default minor version is used.
 	Version string
 
 	// The Oracle Cloud compartment ID where resources will be created.
@@ -640,6 +639,18 @@ func (i *KubernetesRuntimeInfraOKE) CreateInfra() (*kube.KubeConnectionInfo, err
 	// create a context for the automation API
 	ctx := context.Background()
 
+	// resolve the release the cluster and its nodes run; a create resumed on
+	// a stack that holds the cluster keeps the release it was created on
+	exported, err := stack.Export(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the stack's OKE cluster: %w", err)
+	}
+	if !i.keepStackVersion(exported.Deployment) {
+		if err := i.resolveKubernetesVersion(); err != nil {
+			return nil, fmt.Errorf("failed to resolve Kubernetes version %s: %w", i.Version, err)
+		}
+	}
+
 	// deploy the stack
 	_, err = i.RunUp(ctx, stack)
 	if err != nil {
@@ -1042,21 +1053,13 @@ func (i *KubernetesRuntimeInfraOKE) getOKEWorkerNodeImageOCID() (string, error) 
 	}
 
 	// determine image architecture from node shape
-	arch := "x86_64"
-	if strings.Contains(i.WorkerNodeShape, ".A1.") {
-		arch = "aarch64"
-	}
+	arch := okeImageArch(i.WorkerNodeShape)
 
 	// find an image with the specified Kubernetes version and architecture
-	// use delimiter after version to avoid partial matches (e.g., 1.32.1 matching 1.32.10)
-	versionWithoutV := strings.TrimPrefix(i.Version, "v")
-	versionPattern := fmt.Sprintf("OKE-%s-", versionWithoutV)
 	for _, source := range response.Sources {
 		// try to get the concrete type
-		if sourceType, ok := source.(ocicontainerengine.NodeSourceViaImageOption); ok {
-			name := *sourceType.SourceName
-			if strings.Contains(name, versionPattern) &&
-				strings.Contains(name, arch) {
+		if sourceType, ok := source.(ocicontainerengine.NodeSourceViaImageOption); ok && sourceType.SourceName != nil {
+			if okeImageFor([]string{*sourceType.SourceName}, i.Version, arch) != "" {
 				return *sourceType.ImageId, nil
 			}
 		}

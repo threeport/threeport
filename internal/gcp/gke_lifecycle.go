@@ -502,6 +502,7 @@ func buildGkeInfra(
 		MinNodeCount:           int32(*definition.DefaultNodeGroupMinimumSize),
 		MaxNodeCount:           int32(*definition.DefaultNodeGroupMaximumSize),
 		PrivateApi:             definition.PrivateApi != nil && *definition.PrivateApi,
+		Version:                v0.KubernetesVersionOrDefault(definition.KubernetesVersion),
 		AllowedCidrs:           allowedCidrs,
 		ReserveNatAddress:      instance.ReservedNatAddress != nil && *instance.ReservedNatAddress,
 	}).InitPulumiProject()

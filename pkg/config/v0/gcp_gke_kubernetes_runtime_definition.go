@@ -30,6 +30,7 @@ type GcpGkeKubernetesRuntimeDefinitionValues struct {
 	DefaultNodeGroupInitialSize  *int
 	DefaultNodeGroupMinimumSize  *int
 	DefaultNodeGroupMaximumSize  *int
+	KubernetesVersion            *string
 	Age                          *string
 }
 
@@ -72,6 +73,7 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Get(
 				DefaultNodeGroupInitialSize:  gcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize,
 				DefaultNodeGroupMinimumSize:  gcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
 				DefaultNodeGroupMaximumSize:  gcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
+				KubernetesVersion:            gcpGkeKubernetesRuntimeDefinition.KubernetesVersion,
 				Age:                          util.Ptr(util.GetAgeFormatted(gcpGkeKubernetesRuntimeDefinition.CreatedAt)),
 			},
 		}
@@ -102,7 +104,8 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Create(
 		Reconciliation: api_v0.Reconciliation{
 			Reconciled: util.Ptr(true),
 		},
-		InfraProvider: &infraProvider,
+		InfraProvider:     &infraProvider,
+		KubernetesVersion: gcpGkeKubernetesRuntimeDefinitionValues.KubernetesVersion,
 	}
 
 	// create kubernetes runtime definition
@@ -121,6 +124,7 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Create(
 		DefaultNodeGroupInitialSize:   gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupInitialSize,
 		DefaultNodeGroupMinimumSize:   gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupMinimumSize,
 		DefaultNodeGroupMaximumSize:   gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupMaximumSize,
+		KubernetesVersion:             util.Ptr(api_v0.KubernetesVersionOrDefault(gcpGkeKubernetesRuntimeDefinitionValues.KubernetesVersion)),
 		KubernetesRuntimeDefinitionID: createdKubernetesRuntimeDefinition.ID,
 	}
 
@@ -144,6 +148,7 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Create(
 			DefaultNodeGroupInitialSize:  createdGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize,
 			DefaultNodeGroupMinimumSize:  createdGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
 			DefaultNodeGroupMaximumSize:  createdGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
+			KubernetesVersion:            createdGcpGkeKubernetesRuntimeDefinition.KubernetesVersion,
 		},
 	}
 
@@ -191,6 +196,10 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Replace(
 	updatedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize = gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupInitialSize
 	updatedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize = gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupMinimumSize
 	updatedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize = gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupMaximumSize
+	// the version a config leaves out is kept, rather than cleared
+	if gcpGkeKubernetesRuntimeDefinitionValues.KubernetesVersion != nil {
+		updatedGcpGkeKubernetesRuntimeDefinition.KubernetesVersion = gcpGkeKubernetesRuntimeDefinitionValues.KubernetesVersion
+	}
 
 	// replace gcp gke kubernetes runtime definition
 	replacedGcpGkeKubernetesRuntimeDefinition, err := client_v0.ReplaceGcpGkeKubernetesRuntimeDefinition(
@@ -212,6 +221,7 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Replace(
 			DefaultNodeGroupInitialSize:  replacedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize,
 			DefaultNodeGroupMinimumSize:  replacedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
 			DefaultNodeGroupMaximumSize:  replacedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
+			KubernetesVersion:            replacedGcpGkeKubernetesRuntimeDefinition.KubernetesVersion,
 		},
 	}
 
@@ -275,6 +285,7 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Delete(
 			DefaultNodeGroupInitialSize:  deletedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize,
 			DefaultNodeGroupMinimumSize:  deletedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
 			DefaultNodeGroupMaximumSize:  deletedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
+			KubernetesVersion:            deletedGcpGkeKubernetesRuntimeDefinition.KubernetesVersion,
 		}
 	}
 
@@ -316,6 +327,14 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Validate() error {
 	// ensure node group maximum size is set
 	if gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupMaximumSize == nil {
 		multiError.AppendError(errors.New("missing required field in config: DefaultNodeGroupMaximumSize"))
+	}
+
+	// validate the Kubernetes version before the API is asked
+	if err := api_v0.ValidateKubernetesVersion(
+		api_v0.KubernetesRuntimeInfraProviderGKE,
+		gcpGkeKubernetesRuntimeDefinitionValues.KubernetesVersion,
+	); err != nil {
+		multiError.AppendError(err)
 	}
 
 	return multiError.Error()

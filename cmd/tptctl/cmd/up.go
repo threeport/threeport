@@ -111,6 +111,14 @@ control planes if they are used to create or are created by another control plan
 			cli.Error("flag validation failed:", err)
 			os.Exit(1)
 		}
+		if err := cli.ValidateKubernetesVersionFlag(
+			cliArgs.KubernetesVersion,
+			cliArgs.InfraProvider,
+			cliArgs.ControlPlaneOnly,
+		); err != nil {
+			cli.Error("flag validation failed:", err)
+			os.Exit(1)
+		}
 		if err := cli.ValidateK8sApiAccessFlags(
 			cliArgs.PrivateK8sApi,
 			cliArgs.K8sApiAllowedCidrs,
@@ -223,6 +231,13 @@ func init() {
 	UpCmd.Flags().StringVar(
 		&cliArgs.GcpBackupRegion,
 		"gcp-backup-region", "", "Google Cloud region of the bucket a production control plane on gke backs its database up to. Must differ from --gcp-region. Defaults to another region on the same continent.",
+	)
+	UpCmd.Flags().StringVar(
+		&cliArgs.KubernetesVersion,
+		"kubernetes-version", "", fmt.Sprintf(
+			"Kubernetes minor version of the cluster tptctl creates on eks, gke or oke. One of %s. Defaults to %s.",
+			strings.Join(v0.SupportedKubernetesVersions, ", "), v0.DefaultKubernetesVersion,
+		),
 	)
 	UpCmd.Flags().BoolVar(
 		&cliArgs.ForceOverwriteConfig,

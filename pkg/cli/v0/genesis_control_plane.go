@@ -25,6 +25,7 @@ import (
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	auth "github.com/threeport/threeport/pkg/auth/v0"
+	tpaws "github.com/threeport/threeport/pkg/aws/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	"github.com/threeport/threeport/pkg/encryption/v0"
@@ -86,6 +87,7 @@ type GenesisControlPlaneCLIArgs struct {
 	GcpProjectId          string
 	GcpRegion             string
 	GcpBackupRegion       string
+	KubernetesVersion     string
 	DeleteBackups         bool
 	CfgFile               string
 	ControlPlaneImageRepo string
@@ -198,6 +200,7 @@ func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneI
 	cpi.Opts.GcpProjectId = a.GcpProjectId
 	cpi.Opts.GcpRegion = a.GcpRegion
 	cpi.Opts.GcpBackupRegion = a.GcpBackupRegion
+	cpi.Opts.KubernetesVersion = a.KubernetesVersion
 	cpi.Opts.DeleteBackups = a.DeleteBackups
 	cpi.Opts.CfgFile = a.CfgFile
 	cpi.Opts.CreateRootDomain = a.CreateRootDomain
@@ -363,7 +366,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			PulumiWorkspace: provider.PulumiWorkspace{
 				RuntimeInstanceName: runtimeInstanceName(cpi.Opts),
 			},
-			Version:                kube.KubernetesDefaultVersion,
+			Version:                cpi.Opts.KubernetesVersion,
 			WorkerNodeInitialCount: gkeProfile.InitialNodeCount,
 			MachineType:            gkeProfile.MachineType,
 			MinNodeCount:           gkeProfile.MinNodeCount,
@@ -891,9 +894,10 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			Reconciliation: v0.Reconciliation{
 				Reconciled: &defReconciled,
 			},
-			InfraProvider: &cpi.Opts.InfraProvider,
-			PrivateApi:    privateApiField(cpi.Opts.PrivateK8sApi),
-			AllowedCidrs:  allowedCidrsJSON(cpi.Opts.K8sApiAllowedCidrs),
+			InfraProvider:     &cpi.Opts.InfraProvider,
+			KubernetesVersion: genesisKubernetesVersion(cpi.Opts),
+			PrivateApi:        privateApiField(cpi.Opts.PrivateK8sApi),
+			AllowedCidrs:      allowedCidrsJSON(cpi.Opts.K8sApiAllowedCidrs),
 		}
 		if err := recordClusterProfile(&kubernetesRuntimeDefinition, cpi.Opts.Tier); err != nil {
 			return uninstaller.cleanOnCreateError("failed to describe the control plane's cluster", err)
@@ -1003,11 +1007,20 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	// install provider-specific system services
 	switch controlPlane.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
+		// the autoscaler finds node groups by the cluster's own name, which
+		// with --control-plane-only is the one given, and matches the
+		// cluster's version, which that cluster was created with elsewhere
+		clusterName := runtimeInstanceName(cpi.Opts)
+		kubernetesVersion, err := tpaws.EksClusterVersion(&awsConfigUser, clusterName)
+		if err != nil {
+			return uninstaller.cleanOnCreateError("failed to get the EKS cluster's Kubernetes version", err)
+		}
 		if err := threeport.InstallEksThreeportSystemServices(
 			dynamicKubeClient,
 			mapper,
-			cpi.Opts.Name+"-"+cpi.Opts.ControlPlaneName,
+			clusterName,
 			*callerIdentity.Account,
+			kubernetesVersion,
 		); err != nil {
 			return uninstaller.cleanOnCreateError("failed to install system services", err)
 		}
@@ -1502,6 +1515,36 @@ func apiPortFromKindMappings(kindPortMappings []string) int {
 	}
 
 	return 0
+}
+
+// genesisKubernetesVersion returns the Kubernetes version recorded on the
+// definition of the cluster tptctl up creates: the one asked for, or the
+// default.  A kind cluster's version comes with its node image, so it records
+// none.
+func genesisKubernetesVersion(opts threeport.Options) *string {
+	if opts.InfraProvider == v0.KubernetesRuntimeInfraProviderKind {
+		return nil
+	}
+	version := v0.KubernetesVersionOrDefault(&opts.KubernetesVersion)
+
+	return &version
+}
+
+// ValidateKubernetesVersionFlag refuses a --kubernetes-version that tptctl up
+// can't create a cluster on: one Threeport doesn't support on the provider,
+// or one given with --control-plane-only, whose cluster already exists.
+func ValidateKubernetesVersionFlag(version, infraProvider string, controlPlaneOnly bool) error {
+	if version == "" {
+		return nil
+	}
+	if controlPlaneOnly {
+		return errors.New("--kubernetes-version does not apply with --control-plane-only, since tptctl does not create the cluster")
+	}
+	if err := v0.ValidateKubernetesVersion(infraProvider, &version); err != nil {
+		return fmt.Errorf("--kubernetes-version: %w", err)
+	}
+
+	return nil
 }
 
 // ValidateGcpBackupRegionFlag refuses a backup region given for a control

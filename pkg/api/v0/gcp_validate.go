@@ -62,7 +62,11 @@ func (g *GcpProvider) beforeDelete(tx *gorm.DB) error {
 
 // beforeCreate validates the GcpGkeKubernetesRuntimeDefinition before create.
 func (g *GcpGkeKubernetesRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
-	return validateKubernetesApiAccess(KubernetesRuntimeInfraProviderGKE, g.PrivateApi, g.AllowedCidrs)
+	if err := validateKubernetesApiAccess(KubernetesRuntimeInfraProviderGKE, g.PrivateApi, g.AllowedCidrs); err != nil {
+		return err
+	}
+
+	return validateKubernetesVersionCreate(KubernetesRuntimeInfraProviderGKE, g.KubernetesVersion)
 }
 
 // beforeUpdate validates the GcpGkeKubernetesRuntimeDefinition before update.
@@ -79,6 +83,10 @@ func (g *GcpGkeKubernetesRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
 // Import:
 //   lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (g *GcpGkeKubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
+	if err := validateKubernetesVersionUpdate(tx); err != nil {
+		return err
+	}
+
 	return validateKubernetesApiAccessUpdate(
 		tx,
 		KubernetesRuntimeInfraProviderGKE,
