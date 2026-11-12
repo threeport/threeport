@@ -222,13 +222,6 @@ func v0KubernetesRuntimeInstanceUpdated(
 		return controller.RetryOnNetworkErr(err, "failed to get a Kubernetes client and mapper")
 	}
 
-	// TODO: sort out an elegant way to pass the custom image info for
-	// install compute space control plane components
-	var agentImage string
-	if kubernetesRuntimeInstance.ThreeportAgentImage != nil {
-		agentImage = *kubernetesRuntimeInstance.ThreeportAgentImage
-	}
-
 	cpi := threeport.NewInstaller()
 
 	// the compute space agent reports on this control plane's workloads, so
@@ -267,14 +260,26 @@ func v0KubernetesRuntimeInstanceUpdated(
 		}
 	}
 
-	if agentImage != "" {
-		agentRegistry, _, agentTag, err := util.ParseImage(agentImage)
+	// copy the recorded agent image unless the runtime names one
+	var controlPlane *v0.ControlPlaneInstance
+	if util.DerefString(kubernetesRuntimeInstance.ThreeportAgentImage) == "" {
+		selfInstance, err := client.GetSelfControlPlaneInstance(r.APIClient, r.APIServer)
 		if err != nil {
-			return 0, fmt.Errorf("failed to parse custom threeport agent image: %w", err)
+			return 0, fmt.Errorf("failed to get the control plane installing this runtime: %w", err)
 		}
 
-		cpi.Opts.AgentInfo.ImageNamespace = agentRegistry
-		cpi.Opts.AgentInfo.ImageTag = agentTag
+		// fetch the instance by ID because the list endpoint omits its components
+		controlPlane, err = client.GetControlPlaneInstanceByID(r.APIClient, r.APIServer, *selfInstance.ID)
+		if err != nil {
+			return 0, fmt.Errorf("failed to get self control plane instance by ID: %w", err)
+		}
+	}
+	if err = setComputeSpaceAgentImage(
+		cpi.Opts.AgentInfo,
+		kubernetesRuntimeInstance.ThreeportAgentImage,
+		controlPlane,
+	); err != nil {
+		return 0, err
 	}
 
 	// This function runs on every update notification for this object, and the

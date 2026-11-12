@@ -1197,6 +1197,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				f.Comment("@Produce json")
 				f.Comment("@Param id path int true \"ID\"")
 				f.Comment("@Success 200 {object} v0.Response \"OK\"")
+				f.Comment("@Failure 400 {object} v0.Response \"Bad Request\"")
 				f.Comment("@Failure 404 {object} v0.Response \"Not Found\"")
 				f.Comment("@Failure 500 {object} v0.Response \"Internal Server Error\"")
 				if gen.Module {
@@ -1224,9 +1225,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					Error(),
 				)).Block(
 					Id("fullyQualifiedType").Op(":=").Id("new").Call(Qual(fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version), apiObject.TypeName)).Dot("GetFullyQualifiedType").Call(),
-					Id(fmt.Sprintf(
-						"%sID", strcase.ToLowerCamel(apiObject.TypeName),
-					)).Op(":=").Id("c").Dot("Param").Call(Lit("id")),
+					parseObjectID(apiObject.TypeName),
 					Var().Id(strcase.ToLowerCamel(apiObject.TypeName)).Qual(
 						fmt.Sprintf(
 							"%s/pkg/api/%s",
@@ -1380,9 +1379,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					),
 						fmt.Sprintf("ObjectType%s", apiObject.TypeName))
 					g.Id("fullyQualifiedType").Op(":=").Id("new").Call(Qual(fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version), apiObject.TypeName)).Dot("GetFullyQualifiedType").Call()
-					g.Id(fmt.Sprintf(
-						"%sID", strcase.ToLowerCamel(apiObject.TypeName),
-					)).Op(":=").Id("c").Dot("Param").Call(Lit("id"))
+					g.Add(parseObjectID(apiObject.TypeName))
 					g.Var().Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Qual(
 						fmt.Sprintf(
 							"%s/pkg/api/%s",
@@ -1687,9 +1684,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					),
 						fmt.Sprintf("ObjectType%s", apiObject.TypeName))
 					g.Id("fullyQualifiedType").Op(":=").Id("new").Call(Qual(fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version), apiObject.TypeName)).Dot("GetFullyQualifiedType").Call()
-					g.Id(fmt.Sprintf(
-						"%sID", strcase.ToLowerCamel(apiObject.TypeName),
-					)).Op(":=").Id("c").Dot("Param").Call(Lit("id"))
+					g.Add(parseObjectID(apiObject.TypeName))
 					g.Var().Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Qual(
 						fmt.Sprintf(
 							"%s/pkg/api/%s",
@@ -2022,6 +2017,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				f.Comment("@Produce json")
 				f.Comment("@Param id path int true \"ID\"")
 				f.Comment("@Success 200 {object} v0.Response \"OK\"")
+				f.Comment("@Failure 400 {object} v0.Response \"Bad Request\"")
 				f.Comment("@Failure 404 {object} v0.Response \"Not Found\"")
 				f.Comment("@Failure 409 {object} v0.Response \"Conflict\"")
 				f.Comment("@Failure 500 {object} v0.Response \"Internal Server Error\"")
@@ -2050,9 +2046,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					Error(),
 				)).Block(
 					Id("fullyQualifiedType").Op(":=").Id("new").Call(Qual(fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version), apiObject.TypeName)).Dot("GetFullyQualifiedType").Call(),
-					Id(fmt.Sprintf(
-						"%sID", strcase.ToLowerCamel(apiObject.TypeName),
-					)).Op(":=").Id("c").Dot("Param").Call(Lit("id")),
+					parseObjectID(apiObject.TypeName),
 					Var().Id(strcase.ToLowerCamel(apiObject.TypeName)).Qual(
 						fmt.Sprintf(
 							"%s/pkg/api/%s",
@@ -2131,6 +2125,24 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	}
 
 	return nil
+}
+
+// parseObjectID emits the statements that read a by-ID route's object ID and
+// answer 400 when it is not a number. The ID reaches GORM as the condition of
+// First, which reads a string it does not parse as a number as SQL, so the raw
+// path parameter must never get there.
+func parseObjectID(typeName string) *Statement {
+	return Id(fmt.Sprintf(
+		"%sID", strcase.ToLowerCamel(typeName),
+	)).Op(",").Id("err").Op(":=").Qual(
+		"github.com/threeport/threeport/pkg/api-server/lib/v0",
+		"ParseObjectID",
+	).Call(Id("c")).Line().If(Id("err").Op("!=").Nil()).Block(
+		Return(Qual(
+			"github.com/threeport/threeport/pkg/api-server/lib/v0",
+			"ResponseStatus400",
+		).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("fullyQualifiedType"))),
+	)
 }
 
 // postCommitReconcile emits the call that brings an object's process state in

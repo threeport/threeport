@@ -113,6 +113,7 @@ func testKubeClient(objects ...runtime.Object) *dynamicfake.FakeDynamicClient {
 	for _, listKind := range []schema.GroupVersionKind{
 		{Version: "v1", Kind: "NamespaceList"},
 		{Version: "v1", Kind: "PersistentVolumeClaimList"},
+		{Version: "v1", Kind: "PersistentVolumeList"},
 		{Version: "v1", Kind: "PodList"},
 		{Group: "apps", Version: "v1", Kind: "DeploymentList"},
 		{Group: "apps", Version: "v1", Kind: "StatefulSetList"},
@@ -403,6 +404,18 @@ func TestDropMessageBrokerStateRemovesEveryStreamOnDevelopmentControlPlane(t *te
 			t.Errorf("expected the drop script to contain %q, got %q", want, script)
 		}
 	}
+
+	// assert the job connects as the broker requires, over TLS when it can
+	if script != natsDropJobScript {
+		t.Errorf("expected the drop job to run the drop script, got %q", script)
+	}
+	podSpec := testPodSpec(t, createdJob)
+	assertMountsSecret(t, podSpec, "drop-message-broker", NatsCACertSecretName, NatsClientCAPath)
+	dropContainer := testContainer(t, podSpec, "drop-message-broker")
+	if got := envValue(dropContainer, "NATS_URL"); got != "tls://nats-js:4222" {
+		t.Errorf("expected the drop job to dial the broker over TLS first, got %q", got)
+	}
+	assertEnvFromCredentials(t, dropContainer, "NATS_PASSWORD", "password")
 
 	// assert the finished job is removed
 	if _, err := kubeClient.Resource(jobGVR).Namespace(namespace).Get(
