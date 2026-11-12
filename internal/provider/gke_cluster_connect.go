@@ -153,10 +153,21 @@ func (i *KubernetesRuntimeInfraGKE) revokeControlPlaneClusterConnect() error {
 			return nil, fmt.Errorf("failed to list the project's GKE clusters: %w", err)
 		}
 
-		return response.GetClusters(), nil
+		return completeClusterList(response)
 	}
 
 	return revokeClusterConnect(policies, i.ProjectID, member, listClusters, i.RuntimeInstanceName, i.Region)
+}
+
+// completeClusterList returns the clusters a listing found, or an error when
+// GKE could not reach some of the project's locations: a cluster there would
+// be missing from the list, and the role revoked from under it.
+func completeClusterList(response *containerpb.ListClustersResponse) ([]*containerpb.Cluster, error) {
+	if missing := response.GetMissingZones(); len(missing) > 0 {
+		return nil, fmt.Errorf("GKE could not list the clusters in %v, so the control plane's connect role is kept until it can", missing)
+	}
+
+	return response.GetClusters(), nil
 }
 
 // grantClusterConnect binds member to gkeClusterConnectRole on a project.

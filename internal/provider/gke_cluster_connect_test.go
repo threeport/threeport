@@ -184,6 +184,19 @@ func TestTheConnectRoleStaysWhileAnotherPrivateThreeportClusterRemains(t *testin
 	assert.Equal(t, []string{member}, store.policy.Bindings[0].Members, "a failed listing removes nothing")
 }
 
+// TestAPartialClusterListingKeepsTheConnectRole covers a listing GKE could
+// not complete: a location it could not reach may hold another private
+// cluster, so the listing fails and the role is kept.
+func TestAPartialClusterListingKeepsTheConnectRole(t *testing.T) {
+	clusters := []*containerpb.Cluster{gkeCluster("public", "us-central1", true, false)}
+	listed, err := completeClusterList(&containerpb.ListClustersResponse{Clusters: clusters})
+	require.NoError(t, err)
+	assert.Equal(t, clusters, listed)
+
+	_, err = completeClusterList(&containerpb.ListClustersResponse{Clusters: clusters, MissingZones: []string{"us-east1"}})
+	require.ErrorContains(t, err, "us-east1")
+}
+
 // TestARevokeDecidesAgainWhenACreateGrantsMeanwhile covers a teardown that
 // overlaps a create in the same project: the create's grant is written after
 // the revoke read the policy and listed the clusters, before the revoke wrote
