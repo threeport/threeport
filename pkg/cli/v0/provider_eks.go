@@ -173,6 +173,7 @@ func DeployEksInfra(
 		DefaultNodeGroupInitialNodes: eksProfile.InitialNodeCount,
 		DefaultNodeGroupMinNodes:     eksProfile.MinNodeCount,
 		DefaultNodeGroupMaxNodes:     eksProfile.MaxNodeCount,
+		AllowedCidrs:                 cpi.Opts.K8sApiAllowedCidrs,
 	}).InitPulumiProject()
 	*kubernetesRuntimeInfra = kubernetesRuntimeInfraEKS
 	uninstaller.kubernetesRuntimeInfra = *kubernetesRuntimeInfra
@@ -402,6 +403,7 @@ func eksGenesisDefinition(
 		DefaultNodeGroupMinimumSize:   util.Ptr(int(infra.DefaultNodeGroupMinNodes)),
 		DefaultNodeGroupMaximumSize:   util.Ptr(int(infra.DefaultNodeGroupMaxNodes)),
 		NodeGroupPerZone:              util.Ptr(infra.NodeGroupPerZone),
+		AllowedCidrs:                  allowedCidrsJSON(infra.AllowedCidrs),
 		KubernetesRuntimeDefinitionID: kubernetesRuntimeDefinitionID,
 	}
 }

@@ -71,6 +71,10 @@ type KubernetesRuntimeInfraEKS struct {
 	// The maximum number of nodes allowed in the default node group.
 	DefaultNodeGroupMaxNodes int32
 
+	// The CIDR blocks allowed to reach the Kubernetes API's public endpoint.
+	// Empty leaves it open to every address.
+	AllowedCidrs []string
+
 	// NodeGroupPerZone makes the cluster's nodes run in a node group per
 	// availability zone, each with the default node group's instance type and
 	// node counts, rather than one node group spanning every zone.  The
