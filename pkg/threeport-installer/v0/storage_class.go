@@ -2,6 +2,7 @@ package v0
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -104,6 +105,9 @@ var persistentVolumeClaimGVR = schema.GroupVersionResource{Version: "v1", Resour
 // database would get a volume before its pod is scheduled.  A replica whose
 // claim already exists keeps its volume, whose zone is already set, so the
 // storage class is checked only when a replica's claim has yet to be created.
+// The class checked is the one the database's claims are created with: that
+// of the database's StatefulSet, when it is there, as on a reinstall, and the
+// installer's otherwise.
 func (cpi *ControlPlaneInstaller) checkDatabaseStorage(kubeClient dynamic.Interface) error {
 	if string(cpi.Opts.Tier) != ControlPlaneTierProd {
 		return nil
@@ -113,7 +117,11 @@ func (cpi *ControlPlaneInstaller) checkDatabaseStorage(kubeClient dynamic.Interf
 		name := fmt.Sprintf("datadir-crdb-%d", replica)
 		_, err := kubeClient.Resource(persistentVolumeClaimGVR).Namespace(cpi.Opts.Namespace).Get(context.TODO(), name, metav1.GetOptions{})
 		if k8serrors.IsNotFound(err) {
-			return checkDatabaseVolumeBinding(kubeClient, cpi.getVolClaimTemplateSpec(""))
+			claimSpec, err := cpi.databaseClaimSpec(kubeClient)
+			if err != nil {
+				return err
+			}
+			return checkDatabaseVolumeBinding(kubeClient, claimSpec)
 		}
 		if err != nil {
 			return fmt.Errorf("failed to get the database's volume claim %s: %w", name, err)
@@ -121,6 +129,37 @@ func (cpi *ControlPlaneInstaller) checkDatabaseStorage(kubeClient dynamic.Interf
 	}
 
 	return nil
+}
+
+// databaseClaimSpec returns the spec the database's claims are created with.
+// A database's StatefulSet that is already there, as on a reinstall, creates
+// a missing replica's claim from its own template, which the installer's can
+// differ from: a reinstall isn't given the infra provider whose storage class
+// the template names.
+func (cpi *ControlPlaneInstaller) databaseClaimSpec(kubeClient dynamic.Interface) (map[string]interface{}, error) {
+	statefulSet, err := kubeClient.Resource(statefulSetGVR).Namespace(cpi.Opts.Namespace).Get(context.TODO(), "crdb", metav1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		return cpi.getVolClaimTemplateSpec(""), nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the database's stateful set: %w", err)
+	}
+
+	templates, _, _ := unstructured.NestedSlice(statefulSet.Object, "spec", "volumeClaimTemplates")
+	for _, template := range templates {
+		claim, ok := template.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if name, _, _ := unstructured.NestedString(claim, "metadata", "name"); name != "datadir" {
+			continue
+		}
+		if spec, found, _ := unstructured.NestedMap(claim, "spec"); found {
+			return spec, nil
+		}
+	}
+
+	return nil, errors.New("the database's stateful set has no datadir volume claim template")
 }
 
 // checkDatabaseVolumeBinding refuses a production database whose volumes
