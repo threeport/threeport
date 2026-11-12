@@ -177,6 +177,13 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControlPlaneDependencies(
 		return fmt.Errorf("failed to create/update API server secret for kubernetes workload controller: %w", err)
 	}
 
+	// how many servers the broker runs: the tier's on a new install, and the
+	// count it already has on a reinstall, which doesn't change it
+	brokerReplicas, err := cpi.messageBrokerReplicas(kubeClient)
+	if err != nil {
+		return err
+	}
+
 	var natsConfig = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "v1",
@@ -215,7 +222,7 @@ jetstream {
 lame_duck_grace_period: 10s
 lame_duck_duration: 30s
 store_dir: /data
-` + natsServerTLSAuthConfig,
+` + natsServerTLSAuthConfig + natsClusterConfig(cpi.Opts.Namespace, brokerReplicas),
 			},
 		},
 	}
@@ -365,7 +372,7 @@ store_dir: /data
 						"app.kubernetes.io/instance": "nats-js",
 					},
 				},
-				"replicas":            1,
+				"replicas":            brokerReplicas,
 				"serviceName":         "nats-js",
 				"podManagementPolicy": "Parallel",
 				"template": map[string]interface{}{
@@ -634,6 +641,13 @@ store_dir: /data
 				},
 			},
 		},
+	}
+
+	// spread a clustered broker's servers over separate nodes
+	if affinity := natsAntiAffinity(brokerReplicas); affinity != nil {
+		if err := unstructured.SetNestedField(natsStatefulSet.Object, affinity, "spec", "template", "spec", "affinity"); err != nil {
+			return fmt.Errorf("failed to set the message broker's anti-affinity: %w", err)
+		}
 	}
 
 	// keep the message broker stateful set and its volume, and roll an

@@ -11,13 +11,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	k8stesting "k8s.io/client-go/testing"
-
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -97,6 +96,7 @@ func TestEnsureBootstrapKubernetesRuntimeReusesExistingRows(t *testing.T) {
 		"threeport-dev",
 		true,
 		"kind",
+		nil,
 		&v0.KubernetesRuntimeInstance{Instance: v0.Instance{Name: util.Ptr("threeport-dev")}},
 	)
 
@@ -133,6 +133,7 @@ func TestEnsureBootstrapKubernetesRuntimeCreatesMissingRows(t *testing.T) {
 		"threeport-dev",
 		true,
 		"kind",
+		nil,
 		&v0.KubernetesRuntimeInstance{Instance: v0.Instance{Name: util.Ptr("threeport-dev")}},
 	)
 
@@ -140,6 +141,45 @@ func TestEnsureBootstrapKubernetesRuntimeCreatesMissingRows(t *testing.T) {
 	require.Equal(2, posts)
 	require.NotNil(def.ID)
 	require.NotNil(inst.ID)
+}
+
+// TestARestoredKubernetesRuntimeDefinitionKeepsItsAllowedCidrs covers a
+// reinstall of a control plane whose cluster limits its Kubernetes API: the
+// definition rebuilt from the tptctl config carries the list again.
+func TestARestoredKubernetesRuntimeDefinitionKeepsItsAllowedCidrs(t *testing.T) {
+	var sentDefinition map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPost {
+			var body map[string]any
+			assert.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+			if r.URL.Path == v0.PathKubernetesRuntimeDefinitions {
+				sentDefinition = body
+			}
+			w.WriteHeader(http.StatusCreated)
+			name, _ := body["Name"].(string)
+			fmt.Fprintf(w, `{"Data":[{"ID":1,"Name":%q}]}`, name)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"Data":[]}`))
+	}))
+	defer server.Close()
+
+	_, _, err := ensureBootstrapKubernetesRuntime(
+		server.Client(),
+		strings.TrimPrefix(server.URL, "http://"),
+		"threeport-prod",
+		"threeport-prod",
+		true,
+		"eks",
+		[]string{"203.0.113.7/32"},
+		&v0.KubernetesRuntimeInstance{Instance: v0.Instance{Name: util.Ptr("threeport-prod")}},
+	)
+
+	require.NoError(t, err)
+	require.NotNil(t, sentDefinition)
+	assert.Equal(t, []any{"203.0.113.7/32"}, sentDefinition["AllowedCidrs"])
 }
 
 // TestEnsureBootstrapKubernetesRuntimeSurfacesLookupErrors covers a failed GET.
@@ -157,6 +197,7 @@ func TestEnsureBootstrapKubernetesRuntimeSurfacesLookupErrors(t *testing.T) {
 		"threeport-dev",
 		true,
 		"kind",
+		nil,
 		&v0.KubernetesRuntimeInstance{Instance: v0.Instance{Name: util.Ptr("threeport-dev")}},
 	)
 
@@ -208,7 +249,7 @@ func testUninstaller(namespacePresence threeport.NamespacePresence, controlPlane
 		"kind":       "Namespace",
 		"metadata":   map[string]interface{}{"name": "threeport-control-plane"},
 	}}
-	kubeClient := dynamic.Interface(dynamicfake.NewSimpleDynamicClient(runtime.NewScheme(), namespace))
+	kubeClient := dynamic.Interface(newTeardownKubeClient(namespace))
 	mapper := meta.RESTMapper(testNamespaceMapper())
 
 	return &Uninstaller{
@@ -344,6 +385,21 @@ func (f *fakeRuntimeInfra) Delete() error {
 
 var _ provider.KubernetesRuntimeInfra = (*fakeRuntimeInfra)(nil)
 
+// newTeardownKubeClient returns a fake cluster holding objects that the
+// uninstall can run against. The uninstall lists the persistent volumes
+// behind the control plane's claims before deleting its namespace, and the
+// fake client can list only the kinds it is told about.
+func newTeardownKubeClient(objects ...runtime.Object) *dynamicfake.FakeDynamicClient {
+	return dynamicfake.NewSimpleDynamicClientWithCustomListKinds(
+		runtime.NewScheme(),
+		map[schema.GroupVersionResource]string{
+			{Version: "v1", Resource: "namespaces"}:        "NamespaceList",
+			{Version: "v1", Resource: "persistentvolumes"}: "PersistentVolumeList",
+		},
+		objects...,
+	)
+}
+
 // newTestUninstaller returns an Uninstaller set to tear down on failure and
 // the infra fake it deletes through.
 func newTestUninstaller(client dynamic.Interface) (*Uninstaller, *fakeRuntimeInfra) {
@@ -378,7 +434,7 @@ func TestCleanOnCreateErrorNilClientStillDeletesInfra(t *testing.T) {
 
 // TestCleanOnCreateErrorDeletesWorkloadsThenInfra covers the normal cleanup.
 func TestCleanOnCreateErrorDeletesWorkloadsThenInfra(t *testing.T) {
-	client := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
+	client := newTeardownKubeClient()
 	u, infra := newTestUninstaller(client)
 
 	err := u.cleanOnCreateError("install failed", assert.AnError)
@@ -397,7 +453,7 @@ func TestCleanOnCreateErrorDeletesWorkloadsThenInfra(t *testing.T) {
 // TestCleanOnCreateErrorWorkloadFailureStillDeletesInfra covers a workload
 // delete that fails, e.g. an expired token: the infra delete must still run.
 func TestCleanOnCreateErrorWorkloadFailureStillDeletesInfra(t *testing.T) {
-	client := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
+	client := newTeardownKubeClient()
 	workloadErr := fmt.Errorf("unauthorized")
 	client.PrependReactor("delete", "namespaces", func(k8stesting.Action) (bool, runtime.Object, error) {
 		return true, nil, workloadErr
@@ -415,7 +471,7 @@ func TestCleanOnCreateErrorWorkloadFailureStillDeletesInfra(t *testing.T) {
 // uninstaller keeps the earlier client, cleanup deletes the namespace with it,
 // and the infra is still deleted.
 func TestRefreshKubeClientFailureKeepsEarlierClient(t *testing.T) {
-	earlier := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
+	earlier := newTeardownKubeClient()
 	u, infra := newTestUninstaller(earlier)
 	earlierMapper := u.mapper
 
@@ -450,10 +506,10 @@ func TestRefreshKubeClientFailureKeepsEarlierClient(t *testing.T) {
 // TestRefreshKubeClientSuccessReplacesClient covers a successful refresh: the
 // uninstaller adopts the new client and mapper.
 func TestRefreshKubeClientSuccessReplacesClient(t *testing.T) {
-	earlier := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
+	earlier := newTeardownKubeClient()
 	u, _ := newTestUninstaller(earlier)
 
-	refreshed := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
+	refreshed := newTeardownKubeClient()
 	refreshedMapper := meta.RESTMapper(meta.NewDefaultRESTMapper(nil))
 	client, mapper, err := u.refreshKubeClient(
 		func() (dynamic.Interface, *meta.RESTMapper, error) {

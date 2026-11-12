@@ -111,6 +111,14 @@ control planes if they are used to create or are created by another control plan
 			cli.Error("flag validation failed:", err)
 			os.Exit(1)
 		}
+		if err := cli.ValidateK8sApiAllowedCidrsFlag(
+			cliArgs.K8sApiAllowedCidrs,
+			cliArgs.InfraProvider,
+			cliArgs.ControlPlaneOnly,
+		); err != nil {
+			cli.Error("flag validation failed:", err)
+			os.Exit(1)
+		}
 
 		cpi, err := cliArgs.CreateInstaller()
 		if err != nil {
@@ -271,6 +279,10 @@ func init() {
 	UpCmd.Flags().BoolVar(
 		&cliArgs.LocalRegistry,
 		"local-registry", false, "Connects a local container registry to Threeport control plane cluster.  Only applicable with provider 'kind'.",
+	)
+	UpCmd.Flags().StringSliceVar(
+		&cliArgs.K8sApiAllowedCidrs,
+		"k8s-api-allowed-cidrs", []string{}, "Optional. Comma-separated IPv4 CIDR blocks allowed to reach the Kubernetes API of the control plane cluster, e.g. 203.0.113.7/32.  Include this machine's public address: tptctl needs the Kubernetes API to install the control plane, and fails before installing anything if it cannot reach it.  Defaults to empty, which leaves the Kubernetes API open to every address.  Not applicable with provider 'kind' or --control-plane-only.",
 	)
 	UpCmd.Flags().StringSliceVar(
 		&cliArgs.KindPortMappings,
