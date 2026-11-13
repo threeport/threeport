@@ -59,8 +59,9 @@ recreate manifests, RBAC, or configmaps. Use tptctl reinstall for those.`,
 
 		// reject a child connection before any deployment changes
 		// a name, when set, is a descendant to roll instead of this API
+		connectedControlPlane := controlPlaneInstance
 		controlPlaneInstance, err = upgradeRollTarget(
-			controlPlaneInstance,
+			connectedControlPlane,
 			upgradeName,
 			func(name string) (*api_v0.ControlPlaneInstance, error) {
 				return client.GetControlPlaneInstanceByName(apiClient, apiEndpoint, name)
@@ -146,6 +147,22 @@ recreate manifests, RBAC, or configmaps. Use tptctl reinstall for those.`,
 		controllers, err := controllersForRecordedApis(recordedInstance)
 		if err != nil {
 			cli.Error("failed to select controllers from the recorded apis list", err)
+			os.Exit(1)
+		}
+		err = rollNamespaceImages(
+			connectedControlPlane,
+			upgradeName,
+			func(name string) (*api_v0.ControlPlaneInstance, error) {
+				return client.GetControlPlaneInstanceByName(apiClient, apiEndpoint, name)
+			},
+			func(id uint) (*api_v0.ControlPlaneInstance, error) {
+				return client.GetControlPlaneInstanceByID(apiClient, apiEndpoint, id)
+			},
+			dynamicKubeClient,
+			updateImageTag,
+		)
+		if err != nil {
+			cli.Error("failed to set deployment image tags", err)
 			os.Exit(1)
 		}
 		err = installer.UpdateDeploymentImageTag(

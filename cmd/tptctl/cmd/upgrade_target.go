@@ -1,7 +1,14 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
+	"strings"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -37,6 +44,54 @@ func upgradeRollTarget(
 		)
 	}
 	return target, nil
+}
+
+// rollNamespaceImages selects the control plane and sets its deployment image tags.
+// A refused connection returns before any deployment is changed.
+func rollNamespaceImages(
+	self *api_v0.ControlPlaneInstance,
+	name string,
+	byName func(string) (*api_v0.ControlPlaneInstance, error),
+	byID func(uint) (*api_v0.ControlPlaneInstance, error),
+	kube dynamic.Interface,
+	tag string,
+) error {
+	// choose the control plane before touching a deployment
+	target, err := upgradeRollTarget(self, name, byName, byID)
+	if err != nil {
+		return err
+	}
+	return tagDeployments(kube, util.DerefString(target.Namespace), tag)
+}
+
+// tagDeployments sets the image tag on every deployment in one namespace.
+func tagDeployments(kube dynamic.Interface, namespace, tag string) error {
+	// set the tag on each deployment in the selected namespace
+	gvr := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
+	list, err := kube.Resource(gvr).Namespace(namespace).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+	for i := range list.Items {
+		item := &list.Items[i]
+		containers, _, _ := unstructured.NestedSlice(item.Object, "spec", "template", "spec", "containers")
+		for n, raw := range containers {
+			container, _ := raw.(map[string]interface{})
+			image, _ := container["image"].(string)
+			if colon := strings.LastIndex(image, ":"); colon >= 0 {
+				image = image[:colon]
+			}
+			container["image"] = image + ":" + tag
+			containers[n] = container
+		}
+		if err := unstructured.SetNestedSlice(item.Object, containers, "spec", "template", "spec", "containers"); err != nil {
+			return err
+		}
+		if _, err := kube.Resource(gvr).Namespace(namespace).Update(context.Background(), item, metav1.UpdateOptions{}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // controlPlaneDescendsFrom reports whether target's parent chain reaches ancestor.
