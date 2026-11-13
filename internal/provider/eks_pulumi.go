@@ -389,14 +389,25 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 		if len(allowlist) > 0 {
 			vpcConfig.PublicAccessCidrs = pulumi.ToStringArray(allowlist)
 		}
+		clusterDependencies, err := i.auditLogGroup(ctx)
+		if err != nil {
+			return err
+		}
 		cluster, err := awseks.NewCluster(ctx, i.RuntimeInstanceName, &awseks.ClusterArgs{
-			Name:          pulumi.String(i.RuntimeInstanceName),
-			RoleArn:       pulumi.String(i.ClusterRoleArn),
-			Version:       pulumi.String(i.kubernetesVersion()),
-			UpgradePolicy: i.upgradePolicy(),
-			VpcConfig:     vpcConfig,
-			Tags:          i.resourceTags(i.RuntimeInstanceName),
-		})
+			Name:                   pulumi.String(i.RuntimeInstanceName),
+			RoleArn:                pulumi.String(i.ClusterRoleArn),
+			Version:                pulumi.String(i.kubernetesVersion()),
+			UpgradePolicy:          i.upgradePolicy(),
+			VpcConfig:              vpcConfig,
+			EnabledClusterLogTypes: i.clusterLogTypes(),
+			AccessConfig:           i.accessConfig(),
+			Tags:                   i.resourceTags(i.RuntimeInstanceName),
+		},
+			pulumi.DependsOn(clusterDependencies),
+			// set only when a cluster is created; a cluster created before
+			// access entries keeps the creator's access as it is
+			pulumi.IgnoreChanges([]string{"accessConfig.bootstrapClusterCreatorAdminPermissions"}),
+		)
 		if err != nil {
 			return fmt.Errorf("failed to create EKS cluster: %w", err)
 		}

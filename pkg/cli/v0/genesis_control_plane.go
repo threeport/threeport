@@ -898,6 +898,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			InfraProvider:     &cpi.Opts.InfraProvider,
 			KubernetesVersion: genesisKubernetesVersion(cpi.Opts.InfraProvider, kubernetesRuntimeInfra),
 			PrivateApi:        privateApiField(cpi.Opts.PrivateK8sApi),
+			AuditLog:          util.Ptr(genesisAuditLog(cpi.Opts)),
 			AllowedCidrs:      allowedCidrsJSON(cpi.Opts.K8sApiAllowedCidrs),
 		}
 		if err := recordClusterProfile(&kubernetesRuntimeDefinition, cpi.Opts.Tier); err != nil {
@@ -1535,6 +1536,14 @@ func genesisKubernetesVersion(infraProvider string, infra provider.KubernetesRun
 	}
 
 	return &version
+}
+
+// genesisAuditLog reports whether the cluster tptctl up creates has its
+// Kubernetes API audit log enabled: a production control plane's does.  A
+// kind cluster has no provider to send it to.
+func genesisAuditLog(opts threeport.Options) bool {
+	return opts.InfraProvider != v0.KubernetesRuntimeInfraProviderKind &&
+		opts.Tier == threeport.ControlPlaneTier(threeport.ControlPlaneTierProd)
 }
 
 // ValidateKubernetesVersionFlag refuses a --kubernetes-version that tptctl up

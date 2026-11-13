@@ -207,3 +207,45 @@ func TestANewGkeWorkloadClusterReservesItsNatAddress(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, util.Ptr(true), sent.ReservedNatAddress)
 }
+
+// TestTheProviderDefinitionRecordsItsAuditLog covers the EKS or GKE
+// definition the reconciler creates: it has an audit log when the kubernetes
+// runtime definition asks for one, and records false otherwise.
+func TestTheProviderDefinitionRecordsItsAuditLog(t *testing.T) {
+	for _, c := range []struct {
+		provider string
+		path     string
+		asked    *bool
+		want     bool
+	}{
+		{v0.KubernetesRuntimeInfraProviderEKS, v0.PathAwsEksKubernetesRuntimeDefinitions, util.Ptr(true), true},
+		{v0.KubernetesRuntimeInfraProviderGKE, v0.PathGcpGkeKubernetesRuntimeDefinitions, util.Ptr(true), true},
+		{v0.KubernetesRuntimeInfraProviderEKS, v0.PathAwsEksKubernetesRuntimeDefinitions, nil, false},
+		{v0.KubernetesRuntimeInfraProviderGKE, v0.PathGcpGkeKubernetesRuntimeDefinitions, util.Ptr(false), false},
+	} {
+		api := machinetest.NewAPIStub(t)
+		var sent map[string]any
+		api.Mux.HandleFunc(c.path, func(w http.ResponseWriter, r *http.Request) {
+			body, err := io.ReadAll(r.Body)
+			require.NoError(t, err)
+			require.NoError(t, json.Unmarshal(body, &sent))
+			machinetest.WriteResponse(t, w, http.StatusCreated, []apiserver_lib.Object{sent})
+		})
+		r := &controller.Reconciler{APIClient: api.Client, APIServer: api.Addr}
+		log := logr.Discard()
+
+		_, err := v0KubernetesRuntimeDefinitionCreated(r, &v0.KubernetesRuntimeDefinition{
+			Common:           v0.Common{ID: util.Ptr(uint(7))},
+			Definition:       v0.Definition{Name: util.Ptr("remote")},
+			Reconciliation:   v0.Reconciliation{Reconciled: util.Ptr(false)},
+			InfraProvider:    util.Ptr(c.provider),
+			HighAvailability: util.Ptr(false),
+			NodeSize:         util.Ptr("Medium"),
+			NodeProfile:      util.Ptr("Balanced"),
+			NodeMaximum:      util.Ptr(10),
+			AuditLog:         c.asked,
+		}, &log)
+		require.NoError(t, err)
+		assert.Equal(t, c.want, sent["AuditLog"], c.provider)
+	}
+}

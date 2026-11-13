@@ -133,6 +133,15 @@ func (a *AwsEksKubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
 	if err := validateKubernetesVersionUpdate(tx); err != nil {
 		return err
 	}
+	if err := validateAuditLogUpdate(tx, func(value any) (*bool, bool) {
+		object, ok := value.(*AwsEksKubernetesRuntimeDefinition)
+		if !ok {
+			return nil, false
+		}
+		return object.AuditLog, true
+	}); err != nil {
+		return err
+	}
 
 	return validateKubernetesApiAccessUpdate(
 		tx,

@@ -79,6 +79,12 @@ type AwsEksKubernetesRuntimeDefinition struct {
 	// can't be changed after creation.
 	KubernetesVersion *string `validate:"optional"`
 
+	// If true, the clusters' Kubernetes API server audit log, with its API and
+	// authenticator logs, is sent to CloudWatch Logs, in the log group
+	// /aws/eks/<cluster>/cluster, which keeps it for 90 days and is deleted
+	// with the cluster.  It can't be changed after creation.
+	AuditLog *bool `validate:"optional" gorm:"default:false"`
+
 	// The AWS EKS kubernetes runtime instances derived from this definition.
 	AwsEksKubernetesRuntimeInstances []*AwsEksKubernetesRuntimeInstance `validate:"optional,association"`
 

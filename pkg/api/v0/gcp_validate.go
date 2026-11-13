@@ -90,6 +90,15 @@ func (g *GcpGkeKubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
 	if err := validateKubernetesVersionUpdate(tx); err != nil {
 		return err
 	}
+	if err := validateAuditLogUpdate(tx, func(value any) (*bool, bool) {
+		object, ok := value.(*GcpGkeKubernetesRuntimeDefinition)
+		if !ok {
+			return nil, false
+		}
+		return object.AuditLog, true
+	}); err != nil {
+		return err
+	}
 	if err := validateGkeUpgradeSettingsUpdate(tx); err != nil {
 		return err
 	}

@@ -84,6 +84,35 @@ how:
 Reference:
 [KubernetesRuntimeDefinition](https://pkg.go.dev/github.com/threeport/threeport/pkg/api/v0#KubernetesRuntimeDefinition)
 
+### Audit Log
+
+With `AuditLog: true`, a cluster records who did what through its Kubernetes
+API. It is set when the clusters are created and can't be changed afterwards.
+`tptctl up --tier production` turns it on for the control plane's cluster.
+
+| Provider | What `AuditLog` does |
+|---|---|
+| EKS | The API server's audit log, with its API and authenticator logs, goes to CloudWatch Logs, in the log group `/aws/eks/<cluster>/cluster`. Threeport creates the group with the cluster, keeps the logs for 90 days, and deletes the group with the cluster. |
+| GKE | Nothing: GKE always records the Kubernetes API's writes in Cloud Audit Logs, as Admin Activity audit logs. Reads, Data Access audit logs, are configured for the whole Google Cloud project, not per cluster. |
+| OKE | Nothing: OKE offers no Kubernetes API server audit log. OCI's Audit service records calls to the OCI API, such as creating or deleting the cluster. |
+
+An audit log can be large. CloudWatch Logs charges for each GB it ingests and
+stores; see [CloudWatch pricing](https://aws.amazon.com/cloudwatch/pricing/).
+Export the logs you need to keep for longer than 90 days, or past the
+cluster's deletion.
+
+On an account set up before audit logs, the role Threeport provisions EKS
+clusters with needs the CloudWatch Logs permissions to create the log group.
+Run `tptctl config aws-provider` for the account again to update the role.
+
+### EKS Access Entries
+
+A new EKS cluster authorizes IAM principals with access entries alone, with no
+`aws-auth` ConfigMap. The IAM role Threeport creates the cluster and reaches it
+as gets administrator access as an access entry EKS creates with the cluster,
+so it shows among the cluster's access entries and can be revoked. A cluster
+created before access entries keeps its configuration.
+
 ## KubernetesRuntimeInstance
 
 This represents a deployed instance of a Kubernetes cluster.  You can specify

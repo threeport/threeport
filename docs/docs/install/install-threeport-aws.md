@@ -49,6 +49,10 @@ EKS Kubernetes cluster and install all of the core system components.  It will a
 register the same EKS cluster as the default Kubernetes cluster
 for tenant workloads.
 
+A production control plane, which you ask for with `--tier production`, sends
+its cluster's Kubernetes API audit log to CloudWatch Logs. See [Audit
+Log](../kubernetes-runtime/kubernetes-intro.md#audit-log).
+
 ## Restrict Access to the Kubernetes API
 
 By default the cluster's Kubernetes API accepts connections from any address.

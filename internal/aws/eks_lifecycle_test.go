@@ -75,6 +75,13 @@ func TestEksInfraFromApiObjects_MapsDefinitionNodeGroupFields(t *testing.T) {
 	infra, err = eksInfraFromApiObjects(instance, definition, "123456789012", awsConfig, providerCredentials, nil)
 	require.NoError(t, err)
 	assert.Equal(t, v0.DefaultKubernetesVersion, infra.KubernetesVersion)
+	assert.False(t, infra.AuditLog, "a definition without an audit log")
+
+	// a definition with an audit log builds a cluster with one
+	definition.AuditLog = util.Ptr(true)
+	infra, err = eksInfraFromApiObjects(instance, definition, "123456789012", awsConfig, providerCredentials, nil)
+	require.NoError(t, err)
+	assert.True(t, infra.AuditLog)
 }
 
 // TestEksInfraSatisfiesLifecycleInterfaces checks the infra object plugs into

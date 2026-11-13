@@ -32,6 +32,7 @@ type KubernetesRuntimeDefinitionValues struct {
 	PrivateApi               *bool
 	AllowedCidrs             *[]string
 	KubernetesVersion        *string
+	AuditLog                 *bool
 	Age                      *string
 }
 
@@ -74,6 +75,7 @@ func (k *KubernetesRuntimeDefinitionConfig) Get(
 				PrivateApi:               kubernetesRuntimeDefinition.PrivateApi,
 				AllowedCidrs:             cidrsFromJSON(kubernetesRuntimeDefinition.AllowedCidrs),
 				KubernetesVersion:        kubernetesRuntimeDefinition.KubernetesVersion,
+				AuditLog:                 kubernetesRuntimeDefinition.AuditLog,
 				Age:                      util.Ptr(util.GetAgeFormatted(kubernetesRuntimeDefinition.CreatedAt)),
 			},
 		}
@@ -106,6 +108,7 @@ func (k *KubernetesRuntimeDefinitionConfig) Create(
 		PrivateApi:               kubernetesRuntimeDefinitionValues.PrivateApi,
 		AllowedCidrs:             cidrsToJSON(kubernetesRuntimeDefinitionValues.AllowedCidrs),
 		KubernetesVersion:        kubernetesRuntimeDefinitionValues.KubernetesVersion,
+		AuditLog:                 kubernetesRuntimeDefinitionValues.AuditLog,
 	}
 
 	// create kubernetes runtime definition
@@ -129,6 +132,7 @@ func (k *KubernetesRuntimeDefinitionConfig) Create(
 			PrivateApi:               createdKubernetesRuntimeDefinition.PrivateApi,
 			AllowedCidrs:             cidrsFromJSON(createdKubernetesRuntimeDefinition.AllowedCidrs),
 			KubernetesVersion:        createdKubernetesRuntimeDefinition.KubernetesVersion,
+			AuditLog:                 createdKubernetesRuntimeDefinition.AuditLog,
 		},
 	}
 
@@ -181,6 +185,11 @@ func (k *KubernetesRuntimeDefinitionConfig) Replace(
 	if kubernetesRuntimeDefinitionValues.KubernetesVersion != nil {
 		updatedKubernetesRuntimeDefinition.KubernetesVersion = kubernetesRuntimeDefinitionValues.KubernetesVersion
 	}
+	// the audit log is set on create and can't change, so a config that
+	// leaves it out keeps it
+	if kubernetesRuntimeDefinitionValues.AuditLog != nil {
+		updatedKubernetesRuntimeDefinition.AuditLog = kubernetesRuntimeDefinitionValues.AuditLog
+	}
 
 	// replace kubernetes runtime definition
 	replacedKubernetesRuntimeDefinition, err := client_v0.ReplaceKubernetesRuntimeDefinition(
@@ -203,6 +212,7 @@ func (k *KubernetesRuntimeDefinitionConfig) Replace(
 			PrivateApi:               replacedKubernetesRuntimeDefinition.PrivateApi,
 			AllowedCidrs:             cidrsFromJSON(replacedKubernetesRuntimeDefinition.AllowedCidrs),
 			KubernetesVersion:        replacedKubernetesRuntimeDefinition.KubernetesVersion,
+			AuditLog:                 replacedKubernetesRuntimeDefinition.AuditLog,
 		},
 	}
 
@@ -246,6 +256,7 @@ func (k *KubernetesRuntimeDefinitionConfig) Delete(
 			PrivateApi:               deletedKubernetesRuntimeDefinition.PrivateApi,
 			AllowedCidrs:             cidrsFromJSON(deletedKubernetesRuntimeDefinition.AllowedCidrs),
 			KubernetesVersion:        deletedKubernetesRuntimeDefinition.KubernetesVersion,
+			AuditLog:                 deletedKubernetesRuntimeDefinition.AuditLog,
 		},
 	}
 

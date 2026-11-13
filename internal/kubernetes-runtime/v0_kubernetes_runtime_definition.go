@@ -62,6 +62,7 @@ func v0KubernetesRuntimeDefinitionCreated(
 			PrivateApi:                    kubernetesRuntimeDefinition.PrivateApi,
 			AllowedCidrs:                  kubernetesRuntimeDefinition.AllowedCidrs,
 			KubernetesVersion:             util.Ptr(v0.KubernetesVersionOrDefault(kubernetesRuntimeDefinition.KubernetesVersion)),
+			AuditLog:                      util.Ptr(util.Deref(kubernetesRuntimeDefinition.AuditLog)),
 			KubernetesRuntimeDefinitionID: kubernetesRuntimeDefinition.ID,
 		}
 		_, err = client.CreateAwsEksKubernetesRuntimeDefinition(
@@ -102,6 +103,7 @@ func v0KubernetesRuntimeDefinitionCreated(
 			PrivateApi:                    kubernetesRuntimeDefinition.PrivateApi,
 			AllowedCidrs:                  kubernetesRuntimeDefinition.AllowedCidrs,
 			KubernetesVersion:             util.Ptr(v0.KubernetesVersionOrDefault(kubernetesRuntimeDefinition.KubernetesVersion)),
+			AuditLog:                      util.Ptr(util.Deref(kubernetesRuntimeDefinition.AuditLog)),
 			ReleaseChannel:                util.Ptr(v0.DefaultGkeReleaseChannel),
 			MaintenanceWindowDays:         util.Ptr(v0.DefaultGkeMaintenanceWindowDays),
 			MaintenanceWindowStart:        util.Ptr(v0.DefaultGkeMaintenanceWindowStart),

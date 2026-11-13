@@ -66,6 +66,11 @@ type GcpGkeKubernetesRuntimeDefinition struct {
 	// can't be changed after creation.
 	KubernetesVersion *string `validate:"optional"`
 
+	// Recorded for the kubernetes runtime definition's AuditLog.  It has no
+	// effect on GKE, which always records the Kubernetes API's writes in
+	// Cloud Audit Logs.  It can't be changed after creation.
+	AuditLog *bool `validate:"optional" gorm:"default:false"`
+
 	// The GKE release channel of the clusters, REGULAR or STABLE.  GKE
 	// upgrades their control planes and nodes to its releases on its own,
 	// within the maintenance window.  If unset, REGULAR is used.  It can't be
