@@ -34,7 +34,7 @@ func DeployOkeInfra(
 		},
 		NetworkCidr:            cpi.Opts.NetworkCidr,
 		WorkerNodeShape:        "VM.Standard.A1.Flex",
-		Version:                provider.DefaultOKEKubernetesVersion,
+		Version:                cpi.Opts.KubernetesVersion,
 		WorkerNodeInitialCount: int32(2),
 		Region:                 cpi.Opts.OciRegion,
 		AllowedCidrs:           cpi.Opts.K8sApiAllowedCidrs,
@@ -142,9 +142,11 @@ func ConfigureControlPlaneWithOkeConfig(
 		Definition: v0.Definition{
 			Name: &okeRuntimeDefName,
 		},
-		WorkerNodeShape:               &kubernetesRuntimeInfraOKE.WorkerNodeShape,
-		WorkerNodeInitialCount:        util.Ptr(kubernetesRuntimeInfraOKE.WorkerNodeInitialCount),
-		AllowedCidrs:                  allowedCidrsJSON(kubernetesRuntimeInfraOKE.AllowedCidrs),
+		WorkerNodeShape:        &kubernetesRuntimeInfraOKE.WorkerNodeShape,
+		WorkerNodeInitialCount: util.Ptr(kubernetesRuntimeInfraOKE.WorkerNodeInitialCount),
+		AllowedCidrs:           allowedCidrsJSON(kubernetesRuntimeInfraOKE.AllowedCidrs),
+		// the version tptctl created the cluster on, none for an existing one
+		KubernetesVersion:             kubernetesRuntimeDefResult.KubernetesVersion,
 		KubernetesRuntimeDefinitionID: kubernetesRuntimeDefResult.ID,
 	}
 	createdociOkeKubernetesRuntimeDef, err := ensureOciOkeKubernetesRuntimeDefinition(

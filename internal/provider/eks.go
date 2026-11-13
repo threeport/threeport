@@ -110,11 +110,16 @@ func (i *KubernetesRuntimeInfraEKS) CreateInfra() (*kube.KubeConnectionInfo, err
 	if err != nil {
 		return nil, fmt.Errorf("failed to set up Pulumi workspace: %w", err)
 	}
+
+	// a create resumed on a stack that holds the cluster keeps its version
+	// and the range its network was laid out in
 	exported, err := stack.Export(context.Background())
 	if err != nil {
-		return nil, fmt.Errorf("failed to read the stack's network: %w", err)
+		return nil, fmt.Errorf("failed to read the stack: %w", err)
 	}
+	i.keepStackVersion(exported.Deployment)
 	i.keepStackNetwork(exported.Deployment)
+
 	if _, err := i.RunUp(context.Background(), stack); err != nil {
 		return nil, fmt.Errorf("failed to deploy stack: %w", err)
 	}
@@ -126,6 +131,14 @@ func (i *KubernetesRuntimeInfraEKS) CreateInfra() (*kube.KubeConnectionInfo, err
 	}
 
 	return i.GetConnection()
+}
+
+// keepStackVersion sets KubernetesVersion to the version of the cluster the
+// stack's deployment holds, if it holds one.
+func (i *KubernetesRuntimeInfraEKS) keepStackVersion(deployment json.RawMessage) {
+	if version, held := clusterInputInStack(deployment, "aws:eks/cluster:Cluster", "version"); held && version != "" {
+		i.KubernetesVersion = version
+	}
 }
 
 // DeployInfra runs CreateInfra and discards the connection info.  It satisfies

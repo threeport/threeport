@@ -156,3 +156,77 @@ func TestTheWaitForTheApiLoadBalancerEnds(t *testing.T) {
 		})
 	}
 }
+
+// TestTheWaitForTheApiLoadBalancerStopsAtWhatWaitingCannotFix covers #748: a
+// provider with no address field, or a Service status not shaped the way
+// Kubernetes writes it, stays that way however long the install waits, so
+// the wait returns it on the check that finds it rather than at the timeout.
+func TestTheWaitForTheApiLoadBalancerStopsAtWhatWaitingCannotFix(t *testing.T) {
+	fastApiLoadBalancerWait(t, 5*time.Second)
+
+	for name, testCase := range map[string]struct {
+		provider string
+		service  *unstructured.Unstructured
+		want     string
+		wantGets int32
+	}{
+		// the provider is known before the Service is read, so it is not read
+		"an unsupported provider": {
+			provider: v0.KubernetesRuntimeInfraProviderKind,
+			service:  apiServiceWithIngress(map[string]interface{}{"ip": "34.1.2.3"}),
+			want:     "unsupported infrastructure provider: kind",
+			wantGets: 0,
+		},
+		"no provider": {
+			provider: "",
+			service:  apiServiceWithIngress(map[string]interface{}{"ip": "34.1.2.3"}),
+			want:     "unsupported infrastructure provider",
+			wantGets: 0,
+		},
+		"an ingress that is not a list": {
+			provider: v0.KubernetesRuntimeInfraProviderGKE,
+			service:  apiServiceWithStatus(map[string]interface{}{"ingress": "34.1.2.3"}),
+			want:     "failed to read threeport API load balancer ingress",
+			wantGets: 1,
+		},
+		"an ingress entry that is not an object": {
+			provider: v0.KubernetesRuntimeInfraProviderGKE,
+			service:  apiServiceWithIngress("34.1.2.3"),
+			want:     "ingress is not an object",
+			wantGets: 1,
+		},
+		"an address that is not a string": {
+			provider: v0.KubernetesRuntimeInfraProviderEKS,
+			service:  apiServiceWithIngress(map[string]interface{}{"hostname": int64(5)}),
+			want:     "failed to read threeport API load balancer hostname",
+			wantGets: 1,
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			kubeClient := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme(), testCase.service)
+			var gets atomic.Int32
+			kubeClient.PrependReactor("get", "services", func(k8stesting.Action) (bool, runtime.Object, error) {
+				gets.Add(1)
+				return false, nil, nil
+			})
+
+			start := time.Now()
+			_, err := apiEndpointTestInstaller(testCase.provider).GetThreeportAPIEndpoint(kubeClient, apiServiceMapper())
+
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), testCase.want)
+			assert.NotContains(t, err.Error(), "timed out")
+			assert.Less(t, time.Since(start), time.Second)
+			assert.Equal(t, testCase.wantGets, gets.Load())
+		})
+	}
+}
+
+// apiServiceWithStatus returns the threeport API's Service with the given load
+// balancer status.
+func apiServiceWithStatus(loadBalancer map[string]interface{}) *unstructured.Unstructured {
+	service := apiServiceWithIngress()
+	service.Object["status"] = map[string]interface{}{"loadBalancer": loadBalancer}
+
+	return service
+}

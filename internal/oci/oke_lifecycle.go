@@ -505,7 +505,7 @@ func buildOkeInfra(
 		ConfigProvider:         configProvider,
 		WorkerNodeShape:        *definition.WorkerNodeShape,
 		WorkerNodeInitialCount: *definition.WorkerNodeInitialCount,
-		Version:                provider.DefaultOKEKubernetesVersion,
+		Version:                v0.KubernetesVersionOrDefault(definition.KubernetesVersion),
 		ServiceUserOCID:        *ociProvider.UserOCID,
 		Fingerprint:            *ociProvider.KeyFingerprint,
 		PrivateKeyPEM:          decryptedPrivateKey,

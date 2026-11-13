@@ -14,7 +14,7 @@ import (
 const (
 	// DefaultEksKubernetesVersion is the Kubernetes version used for an EKS
 	// cluster when the runtime definition does not pin one.
-	DefaultEksKubernetesVersion = "1.32"
+	DefaultEksKubernetesVersion = v0.DefaultKubernetesVersion
 
 	// eksDefaultZoneCount is the number of availability zones used when the
 	// runtime definition does not ask for a specific count.

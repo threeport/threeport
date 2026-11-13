@@ -173,6 +173,7 @@ func DeployEksInfra(
 		DefaultNodeGroupMinNodes:     eksProfile.MinNodeCount,
 		DefaultNodeGroupMaxNodes:     eksProfile.MaxNodeCount,
 		NetworkCidr:                  cpi.Opts.NetworkCidr,
+		KubernetesVersion:            v0.KubernetesVersionOrDefault(&cpi.Opts.KubernetesVersion),
 		AllowedCidrs:                 cpi.Opts.K8sApiAllowedCidrs,
 	}).InitPulumiProject()
 	*kubernetesRuntimeInfra = kubernetesRuntimeInfraEKS
@@ -342,12 +343,14 @@ func ConfigureControlPlaneWithEksConfig(
 		Definition: v0.Definition{
 			Name: &eksRuntimeDefName,
 		},
-		ZoneCount:                     &zoneCount,
-		DefaultNodeGroupInstanceType:  &kubernetesRuntimeInfraEKS.DefaultNodeGroupInstanceType,
-		DefaultNodeGroupInitialSize:   util.Ptr(int(kubernetesRuntimeInfraEKS.DefaultNodeGroupInitialNodes)),
-		DefaultNodeGroupMinimumSize:   util.Ptr(int(kubernetesRuntimeInfraEKS.DefaultNodeGroupMinNodes)),
-		DefaultNodeGroupMaximumSize:   util.Ptr(int(kubernetesRuntimeInfraEKS.DefaultNodeGroupMaxNodes)),
-		AllowedCidrs:                  allowedCidrsJSON(kubernetesRuntimeInfraEKS.AllowedCidrs),
+		ZoneCount:                    &zoneCount,
+		DefaultNodeGroupInstanceType: &kubernetesRuntimeInfraEKS.DefaultNodeGroupInstanceType,
+		DefaultNodeGroupInitialSize:  util.Ptr(int(kubernetesRuntimeInfraEKS.DefaultNodeGroupInitialNodes)),
+		DefaultNodeGroupMinimumSize:  util.Ptr(int(kubernetesRuntimeInfraEKS.DefaultNodeGroupMinNodes)),
+		DefaultNodeGroupMaximumSize:  util.Ptr(int(kubernetesRuntimeInfraEKS.DefaultNodeGroupMaxNodes)),
+		AllowedCidrs:                 allowedCidrsJSON(kubernetesRuntimeInfraEKS.AllowedCidrs),
+		// the version tptctl created the cluster on, none for an existing one
+		KubernetesVersion:             kubernetesRuntimeDefResult.KubernetesVersion,
 		KubernetesRuntimeDefinitionID: kubernetesRuntimeDefResult.ID,
 	}
 	createdAwsEksKubernetesRuntimeDef, err := client.CreateAwsEksKubernetesRuntimeDefinition(
