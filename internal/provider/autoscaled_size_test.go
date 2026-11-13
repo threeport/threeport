@@ -75,8 +75,10 @@ func TestTheNodeGroupSizeIsSetOnlyWhenTheNodeGroupIsCreated(t *testing.T) {
 		}
 		ignored := ignoredChangesByType(t, infra.pulumiProgram(), &gkeRecordingMocks{}, "gke")
 
-		require.Len(t, ignored[gkeNodePoolTypeToken], 1)
-		assert.Equal(t, []string{"nodeCount"}, ignored[gkeNodePoolTypeToken][0])
+		require.Len(t, ignored[gkeNodePoolTypeToken], 2)
+		for _, changes := range ignored[gkeNodePoolTypeToken] {
+			assert.Equal(t, []string{"nodeCount"}, changes)
+		}
 		assertNothingElseIgnoresChanges(t, ignored, gkeNodePoolTypeToken)
 	})
 }

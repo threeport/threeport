@@ -217,8 +217,8 @@ func gkeGCPLabels(t *testing.T, r gkeRecordedResource, path string) map[string]s
 	return out
 }
 
-// TestTheGkeNodePoolsLocationPolicy covers how the node pool's autoscaler
-// places nodes across zones: as configured, and anywhere when unset.
+// TestTheGkeNodePoolsLocationPolicy covers how the worker node pool's
+// autoscaler places nodes across zones: as configured, and anywhere when unset.
 func TestTheGkeNodePoolsLocationPolicy(t *testing.T) {
 	for configured, want := range map[string]string{"": "ANY", "BALANCED": "BALANCED"} {
 		i := &KubernetesRuntimeInfraGKE{
@@ -229,11 +229,15 @@ func TestTheGkeNodePoolsLocationPolicy(t *testing.T) {
 			LocationPolicy:         configured,
 		}
 		mocks := &gkeRecordingMocks{}
+
+		// run the program with the configured policy
 		if err := pulumi.RunErr(i.pulumiProgram(), pulumi.WithMocks("gke", "test-stack", mocks)); err != nil {
 			t.Fatalf("RunErr: %v", err)
 		}
+
+		// check the worker pool
 		for _, r := range mocks.resources {
-			if r.typeToken != gkeNodePoolTypeToken {
+			if r.typeToken != gkeNodePoolTypeToken || r.name != i.workerNodePoolName() {
 				continue
 			}
 			autoscaling, _ := r.inputs["autoscaling"].(map[string]any)

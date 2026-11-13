@@ -543,7 +543,8 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 				AutoUpgrade: pulumi.Bool(true),
 			},
 		}, pulumi.Provider(gcpProvider),
-			pulumi.DependsOn([]pulumi.Resource{cluster}))
+			pulumi.DependsOn([]pulumi.Resource{cluster}),
+			pulumi.IgnoreChanges(gkeNodePoolIgnoredChanges))
 		if err != nil {
 			return fmt.Errorf("failed to create standard node pool: %w", err)
 		}
