@@ -1176,13 +1176,14 @@ func (cpi *ControlPlaneInstaller) ControllerAPIClient(
 		return nil, "", err
 	}
 
-	// dial the API service in this namespace
-	apiClient, err := client_lib.GetHTTPClient(false, ca, cert, key, "")
+	// dial the API with the controller certificate
+	apiClient, err := client_lib.GetHTTPClient(true, ca, cert, key, "")
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to build API client for %s: %w", cpi.Opts.Namespace, err)
 	}
+	// pass host and port so the client adds https
 	endpoint := fmt.Sprintf(
-		"https://%s.%s.svc.cluster.local:%d",
+		"%s.%s:%d",
 		ThreeportAPIServiceResourceName,
 		cpi.Opts.Namespace,
 		GetThreeportAPIPort(true),
