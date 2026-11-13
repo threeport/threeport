@@ -14,6 +14,7 @@ import (
 	"k8s.io/client-go/dynamic/fake"
 
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
+	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -82,19 +83,23 @@ func TestUpgradeRollTargetMatrix(t *testing.T) {
 	}
 	for _, row := range rows {
 		t.Run(row.name, func(t *testing.T) {
-			kube := deploymentClient(t)
-			err := rollNamespaceImages(row.self, row.roll, byName, byID, kube, "new-tag")
+			kube := matrixCluster(t)
+			target, err := upgradeRollTarget(row.self, row.roll, byName, byID)
 			if row.refused {
 				require.ErrorIs(t, err, api_v0.ErrRequestMustBeMadeToParent)
-				require.Equal(t, "repo:old", deploymentImage(t, kube, "genesis-ns"))
-				require.Equal(t, "repo:old", deploymentImage(t, kube, "primary-ns"))
+				require.Contains(t, apiImage(t, kube, "genesis-ns"), "v0.6.0")
+				require.Contains(t, apiImage(t, kube, "primary-ns"), "v0.6.0")
 				t.Logf("%s refused parent connection, images unchanged", row.name)
 				return
 			}
 			require.NoError(t, err)
-			require.Equal(t, "repo:new-tag", deploymentImage(t, kube, row.want+"-ns"))
-			if row.want != "genesis" {
-				require.Equal(t, "repo:old", deploymentImage(t, kube, "genesis-ns"))
+			namespace := util.DerefString(target.Namespace)
+			require.NoError(t, installer.UpdateDeploymentImageTag(
+				"new-tag", namespace, "", kube, upgradeTestMapper(), []*api_v0.ControlPlaneComponent{}, false,
+			))
+			require.Contains(t, apiImage(t, kube, namespace), "new-tag")
+			if namespace != "genesis-ns" {
+				require.Contains(t, apiImage(t, kube, "genesis-ns"), "v0.6.0")
 			}
 			t.Logf("%s rolls %s", row.name, row.want)
 		})
@@ -113,6 +118,46 @@ func childSelf(id, parent uint) *api_v0.ControlPlaneInstance {
 		IsSelf:                       util.Ptr(true),
 		ParentControlPlaneInstanceID: &parent,
 	}
+}
+
+// matrixCluster holds the API and agent deployments in each control plane namespace.
+func matrixCluster(t *testing.T) dynamic.Interface {
+	// copy the installer's rollout fixtures into genesis, primary, and child
+	var objects []runtime.Object
+	for _, ns := range []string{"genesis-ns", "primary-ns", "child-ns"} {
+		api := apiServerFromBeforeMigrationBackups()
+		api.SetNamespace(ns)
+		agent := rolledOutDeployment(installer.ThreeportAgentDeployName, map[string]interface{}{
+			"containers": []interface{}{
+				container(installer.ThreeportAgentContainerName, "ghcr.io/threeport/threeport-agent:v0.6.0"),
+			},
+		})
+		agent.SetNamespace(ns)
+		objects = append(objects, api, agent)
+	}
+	return fake.NewSimpleDynamicClientWithCustomListKinds(
+		runtime.NewScheme(),
+		map[schema.GroupVersionResource]string{deploymentsGVR: "DeploymentList", configMapsGVR: "ConfigMapList"},
+		objects...,
+	)
+}
+
+// apiImage reads the API server container tag in one namespace.
+func apiImage(t *testing.T, kube dynamic.Interface, namespace string) string {
+	// read the image UpdateDeploymentImageTag wrote
+	got, err := kube.Resource(deploymentsGVR).Namespace(namespace).Get(
+		t.Context(), installer.ThreeportRestApi.ServiceResourceName, metav1.GetOptions{},
+	)
+	require.NoError(t, err)
+	containers, _, _ := unstructured.NestedSlice(got.Object, "spec", "template", "spec", "containers")
+	for _, raw := range containers {
+		container := raw.(map[string]interface{})
+		if container["name"] == installer.ThreeportApiServerContainerName {
+			return container["image"].(string)
+		}
+	}
+	t.Fatal("api container missing")
+	return ""
 }
 
 // deploymentClient holds one deployment in each control plane namespace.
