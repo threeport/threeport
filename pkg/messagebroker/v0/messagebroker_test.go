@@ -126,3 +126,18 @@ func TestAConfigWithoutAnAddressIsRefused(t *testing.T) {
 	_, err := Connect(Config{Port: "4222"})
 	assert.ErrorIs(t, err, ErrNoAddress)
 }
+
+// TestTheReplicasAreAPositiveNumber covers how many servers a component is
+// told the broker runs: one when it is told nothing, as a single server is,
+// and an error for anything it couldn't replicate across.
+func TestTheReplicasAreAPositiveNumber(t *testing.T) {
+	for value, want := range map[string]int{"": 1, "1": 1, "3": 3} {
+		replicas, err := ParseReplicas(value)
+		require.NoError(t, err, value)
+		assert.Equal(t, want, replicas, value)
+	}
+	for _, value := range []string{"0", "-1", "three", "3.0"} {
+		_, err := ParseReplicas(value)
+		assert.ErrorContains(t, err, "must be a positive number", value)
+	}
+}

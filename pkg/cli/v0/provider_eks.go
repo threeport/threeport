@@ -157,18 +157,23 @@ func DeployEksInfra(
 		provider.GetResourceManagerRoleArn(cpi.Opts.ControlPlaneName, *callerIdentity.Account),
 	)
 
+	eksProfile, err := eksControlPlaneProfile()
+	if err != nil {
+		return nil, err
+	}
 	kubernetesRuntimeInfraEKS := (&provider.KubernetesRuntimeInfraEKS{
 		RuntimeInstanceName:          runtimeInstanceName(cpi.Opts),
 		AwsAccountID:                 *callerIdentity.Account,
 		AwsConfig:                    awsConfigResourceManager,
 		ProviderCredentials:          providerCredentials,
 		Region:                       awsConfigResourceManager.Region,
-		ZoneCount:                    int32(2),
-		DefaultNodeGroupInstanceType: "t3.medium",
-		DefaultNodeGroupInitialNodes: int32(3),
-		DefaultNodeGroupMinNodes:     int32(3),
-		DefaultNodeGroupMaxNodes:     int32(250),
+		ZoneCount:                    eksProfile.ZoneCount,
+		DefaultNodeGroupInstanceType: eksProfile.InstanceType,
+		DefaultNodeGroupInitialNodes: eksProfile.InitialNodeCount,
+		DefaultNodeGroupMinNodes:     eksProfile.MinNodeCount,
+		DefaultNodeGroupMaxNodes:     eksProfile.MaxNodeCount,
 		KubernetesVersion:            v0.KubernetesVersionOrDefault(&cpi.Opts.KubernetesVersion),
+		AllowedCidrs:                 cpi.Opts.K8sApiAllowedCidrs,
 	}).InitPulumiProject()
 	*kubernetesRuntimeInfra = kubernetesRuntimeInfraEKS
 	uninstaller.kubernetesRuntimeInfra = *kubernetesRuntimeInfra
@@ -342,6 +347,7 @@ func ConfigureControlPlaneWithEksConfig(
 		DefaultNodeGroupInitialSize:  util.Ptr(int(kubernetesRuntimeInfraEKS.DefaultNodeGroupInitialNodes)),
 		DefaultNodeGroupMinimumSize:  util.Ptr(int(kubernetesRuntimeInfraEKS.DefaultNodeGroupMinNodes)),
 		DefaultNodeGroupMaximumSize:  util.Ptr(int(kubernetesRuntimeInfraEKS.DefaultNodeGroupMaxNodes)),
+		AllowedCidrs:                 allowedCidrsJSON(kubernetesRuntimeInfraEKS.AllowedCidrs),
 		// the version tptctl created the cluster on, none for an existing one
 		KubernetesVersion:             kubernetesRuntimeDefResult.KubernetesVersion,
 		KubernetesRuntimeDefinitionID: kubernetesRuntimeDefResult.ID,

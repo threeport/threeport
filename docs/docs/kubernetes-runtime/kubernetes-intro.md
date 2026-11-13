@@ -28,7 +28,10 @@ by defining the API types and the controller that reconciles them.
 
 The definition allows you to specify which infrastructure provider to use.
 EKS on AWS, OKE on OCI and GKE on GCP are supported, as well as kind for
-local development.  You can also specify the node sizes and profiles.
+local development.  A Threeport control plane on OCI is not production ready,
+because its database isn't backed up.  See [Install Threeport on
+OCI](../install/install-threeport-oci.md).  You can also specify the node
+sizes and profiles.
 Currently, you can reference the [source
 code](https://github.com/threeport/threeport/blob/main/pkg/mapping/v0/node.go)
 to see which NodeSize and NodeProfile values are available and what machine

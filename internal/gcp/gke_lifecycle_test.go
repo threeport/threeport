@@ -744,3 +744,78 @@ func jsonPtr(s string) *datatypes.JSON {
 	j := datatypes.JSON(s)
 	return &j
 }
+
+// TestBuildGkeInfra_APrivateClusterIsBuiltPrivate covers #729: a definition
+// with PrivateApi builds a private cluster, with its AllowedCidrs on the
+// internal endpoint and without looking up the control plane's addresses,
+// which the control plane does not need to reach it through the DNS
+// endpoint.
+func TestBuildGkeInfra_APrivateClusterIsBuiltPrivate(t *testing.T) {
+	projectID := "some-project"
+	gcpProviderID := uint(1)
+	serviceAccountCredentials := `{"type":"service_account","project_id":"some-project","client_email":"threeport@some-project.iam.gserviceaccount.com"}`
+	encryptionKey, storedCredentials := encryptedCredentials(t, serviceAccountCredentials)
+	gcpProvider := api_v0.GcpProvider{
+		Common:                    api_v0.Common{ID: &gcpProviderID},
+		ProjectID:                 &projectID,
+		ServiceAccountCredentials: &storedCredentials,
+	}
+
+	runtimeLookups := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "kubernetes-runtime-instances") {
+			runtimeLookups++
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		body, err := json.Marshal(apiserver_lib.Response{
+			Status: apiserver_lib.Status{Code: http.StatusOK, Message: "OK"},
+			Data:   []apiserver_lib.Object{gcpProvider},
+		})
+		require.NoError(t, err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+
+	r := &controller.Reconciler{
+		APIClient:     &http.Client{},
+		APIServer:     strings.TrimPrefix(srv.URL, "http://"),
+		EncryptionKey: encryptionKey,
+	}
+
+	instanceName := "private-instance"
+	region := "us-east1"
+	runtimeInstanceID := uint(7)
+	instance := &api_v0.GcpGkeKubernetesRuntimeInstance{
+		Instance:                    api_v0.Instance{Name: &instanceName},
+		Region:                      &region,
+		GcpProviderID:               &gcpProviderID,
+		KubernetesRuntimeInstanceID: &runtimeInstanceID,
+	}
+	machineType := "e2-standard-4"
+	size := 1
+	privateApi := true
+	allowedCidrs := []byte(`["10.8.0.0/16"]`)
+	definition := &api_v0.GcpGkeKubernetesRuntimeDefinition{
+		DefaultNodeGroupInstanceType: &machineType,
+		DefaultNodeGroupInitialSize:  &size,
+		DefaultNodeGroupMinimumSize:  &size,
+		DefaultNodeGroupMaximumSize:  &size,
+		PrivateApi:                   &privateApi,
+		AllowedCidrs:                 (*datatypes.JSON)(&allowedCidrs),
+	}
+
+	infra, err := buildGkeInfra(r, instance, definition, nil)
+	require.NoError(t, err)
+	assert.True(t, infra.PrivateApi)
+	assert.Equal(t, []string{"10.8.0.0/16"}, infra.AllowedCidrs)
+	assert.Empty(t, infra.ControlPlaneEgressCidrs)
+	assert.Zero(t, runtimeLookups, "a private cluster does not look up the control plane's addresses")
+
+	privateApi = false
+	_, err = buildGkeInfra(r, instance, definition, nil)
+	require.Error(t, err, "a public one does, which this server fails")
+	assert.Equal(t, 1, runtimeLookups)
+}

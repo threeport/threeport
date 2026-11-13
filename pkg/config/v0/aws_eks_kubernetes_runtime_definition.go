@@ -317,7 +317,10 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Validate() error {
 	}
 
 	// validate the Kubernetes version before the API is asked
-	if err := api_v0.ValidateKubernetesVersion(api_v0.KubernetesRuntimeInfraProviderEKS, awsEksKubernetesRuntimeDefinitionValues.KubernetesVersion); err != nil {
+	if err := api_v0.ValidateKubernetesVersion(
+		api_v0.KubernetesRuntimeInfraProviderEKS,
+		awsEksKubernetesRuntimeDefinitionValues.KubernetesVersion,
+	); err != nil {
 		multiError.AppendError(err)
 	}
 

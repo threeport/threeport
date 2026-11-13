@@ -369,7 +369,10 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Validate() error {
 	}
 
 	// validate the Kubernetes version before the API is asked
-	if err := api_v0.ValidateKubernetesVersion(api_v0.KubernetesRuntimeInfraProviderGKE, gcpGkeKubernetesRuntimeDefinitionValues.KubernetesVersion); err != nil {
+	if err := api_v0.ValidateKubernetesVersion(
+		api_v0.KubernetesRuntimeInfraProviderGKE,
+		gcpGkeKubernetesRuntimeDefinitionValues.KubernetesVersion,
+	); err != nil {
 		multiError.AppendError(err)
 	}
 

@@ -235,9 +235,10 @@ definitions:
       UpgradeRequestedVersion:
         description: |-
           The definition's KubernetesVersion the cluster was last asked to be
-          upgraded to.  The kubernetes runtime definition's controller sets it
-          when it asks, so a request it was interrupted making is finished on
-          the next attempt.
+          upgraded to.  The API server sets it when an update of the EKS
+          definition asks the cluster to upgrade, once the cluster's controller
+          has been notified, so a request it couldn't finish is made again by the
+          definition's next update.
         type: string
       UpgradeStatus:
         description: |-
@@ -545,6 +546,19 @@ definitions:
       Namespace:
         description: The namespace to deploy the control plane in
         type: string
+      NetworkCidrPool:
+        description: |-
+          The address blocks from which this control plane allocates a /16
+          network range to each Kubernetes runtime it provisions, as a JSON array
+          of IPv4 CIDR blocks such as ["10.16.0.0/12"].  Each block must be a /16
+          or larger, and the blocks must not overlap.  If empty, the default pool
+          is used: 10.16.0.0/16 through 10.255.0.0/16, except 10.96.0.0/16 and
+          10.244.0.0/16.  A change affects only later allocations.  On a child
+          control plane, the pool must be clear of the ranges its parent has
+          allocated, and the parent does not allocate from it.
+        items:
+          type: string
+        type: array
       Parent:
         $ref: '#/definitions/v0.ControlPlaneInstance'
       ParentControlPlaneInstanceID:
@@ -1109,6 +1123,15 @@ definitions:
       Region:
         description: The GCP region in which the cluster is provisioned.
         type: string
+      ReservedNatAddress:
+        description: |-
+          If true, the cluster's Cloud NAT uses an address reserved for it, so
+          that its outbound traffic comes from one address that does not change
+          and is recorded as the kubernetes runtime instance's EgressCidrs.  Set
+          on clusters created since Threeport reserves one; clusters created
+          before keep the addresses Google allocates.  Cannot be changed after
+          creation.
+        type: boolean
       ResourceInventory:
         description: An inventory of all GCP resources for the GKE cluster.
         items:
@@ -1139,9 +1162,10 @@ definitions:
       UpgradeRequestedVersion:
         description: |-
           The definition's KubernetesVersion the cluster was last asked to be
-          upgraded to.  The kubernetes runtime definition's controller sets it
-          when it asks, so a request it was interrupted making is finished on
-          the next attempt.
+          upgraded to.  The API server sets it when an update of the GKE
+          definition asks the cluster to upgrade, once the cluster's controller
+          has been notified, so a request it couldn't finish is made again by the
+          definition's next update.
         type: string
       UpgradeStatus:
         description: |-
@@ -1364,7 +1388,8 @@ definitions:
           endpoint.  With PrivateApi true, it lists the private networks, such as
           a VPN or a peered network, that may reach the private endpoint.  Empty
           means no restriction beyond PrivateApi.  EKS admits up to 40 blocks,
-          GKE up to 50 (100 with PrivateApi) and OKE up to 120.
+          GKE up to 50 (100 with PrivateApi) and OKE up to 120.  Cannot be
+          changed after creation.
         items:
           type: string
         type: array
@@ -1453,6 +1478,7 @@ definitions:
           If true, the Kubernetes API is not reachable from the public internet.
           It is reachable only from the cluster's own network, from networks
           connected to it and, on GKE, through the IAM-authorized DNS endpoint.
+          Supported on GKE only.  Cannot be changed after creation.
         type: boolean
       ProfileID:
         description: |-
@@ -1579,6 +1605,18 @@ definitions:
         type: string
       Name:
         description: An arbitrary name the instance
+        type: string
+      NetworkCidr:
+        description: |-
+          The IPv4 network range of the cluster's network, such as 10.16.0.0/16:
+          its VPC on EKS, its VCN on OKE, and its node, Pod and Service ranges on
+          GKE.  No two runtimes may overlap, so that their networks can be
+          connected.  If unset when the runtime is provisioned, the control plane
+          allocates the next free /16 from its NetworkCidrPool.  If set, it must be
+          a /16 or larger, overlap no other runtime's range and stay clear of the
+          ranges clusters use internally (10.96.0.0/16, 10.244.0.0/16 and
+          172.20.0.0/16); it does not have to be in the pool.  Cannot be changed
+          once set.
         type: string
       Reconciled:
         description: Indicates if object is considered to be reconciled by the object's
@@ -4216,6 +4254,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -4245,6 +4287,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -4431,6 +4477,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -4461,6 +4511,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -4648,6 +4702,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -4677,6 +4735,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -4861,6 +4923,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -4890,6 +4956,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -5072,6 +5142,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -5101,6 +5175,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -5284,6 +5362,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -5313,6 +5395,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -5496,6 +5582,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -5525,6 +5615,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -5708,6 +5802,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -5737,6 +5835,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -5983,6 +6085,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -6012,6 +6118,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -6194,6 +6304,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -6223,6 +6337,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -6405,6 +6523,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -6434,6 +6556,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -6616,6 +6742,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -6645,6 +6775,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -6827,6 +6961,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -6856,6 +6994,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -7041,6 +7183,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -7071,6 +7217,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -7258,6 +7408,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -7287,6 +7441,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -7471,6 +7629,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -7500,6 +7662,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -7682,6 +7848,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -7711,6 +7881,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -7894,6 +8068,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -7923,6 +8101,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -8106,6 +8288,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -8135,6 +8321,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -8318,6 +8508,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -8347,6 +8541,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -8530,6 +8728,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -8559,6 +8761,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -8742,6 +8948,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -8771,6 +8981,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -8990,6 +9204,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -9020,6 +9238,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -9207,6 +9429,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -9237,6 +9463,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -9421,6 +9651,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -9450,6 +9684,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -9632,6 +9870,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -9661,6 +9903,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -9844,6 +10090,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -9873,6 +10123,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -10055,6 +10309,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -10084,6 +10342,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -10266,6 +10528,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -10295,6 +10561,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -10477,6 +10747,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -10506,6 +10780,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -10689,6 +10967,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -10718,6 +11000,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -10901,6 +11187,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -10930,6 +11220,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -11113,6 +11407,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -11142,6 +11440,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -11325,6 +11627,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -11354,6 +11660,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -11536,6 +11846,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -11565,6 +11879,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -11780,6 +12098,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -11809,6 +12131,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -11991,6 +12317,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -12020,6 +12350,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -12241,6 +12575,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -12270,6 +12608,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -12481,6 +12823,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -12507,6 +12853,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -12538,6 +12888,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -12722,6 +13076,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -12751,6 +13109,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -12934,6 +13296,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -12963,6 +13329,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -13146,6 +13516,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -13175,6 +13549,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -13358,6 +13736,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -13387,6 +13769,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -13573,6 +13959,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -13603,6 +13993,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -13790,6 +14184,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -13819,6 +14217,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -14003,6 +14405,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -14032,6 +14438,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -14214,6 +14624,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -14243,6 +14657,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -14425,6 +14843,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -14454,6 +14876,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -14636,6 +15062,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -14665,6 +15095,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -14847,6 +15281,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -14876,6 +15314,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -15058,6 +15500,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -15087,6 +15533,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":
@@ -15269,6 +15719,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
         "404":
           description: Not Found
           schema:
@@ -15298,6 +15752,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/v0.Response'
         "404":

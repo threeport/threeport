@@ -125,9 +125,10 @@ type AwsEksKubernetesRuntimeInstance struct {
 	KubernetesVersion *string `validate:"optional"`
 
 	// The definition's KubernetesVersion the cluster was last asked to be
-	// upgraded to.  The kubernetes runtime definition's controller sets it
-	// when it asks, so a request it was interrupted making is finished on
-	// the next attempt.
+	// upgraded to.  The API server sets it when an update of the EKS
+	// definition asks the cluster to upgrade, once the cluster's controller
+	// has been notified, so a request it couldn't finish is made again by the
+	// definition's next update.
 	UpgradeRequestedVersion *string `validate:"optional"`
 
 	// Set by the controller when it starts upgrading the cluster to the

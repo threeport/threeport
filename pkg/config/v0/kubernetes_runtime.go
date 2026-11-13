@@ -32,6 +32,7 @@ type KubernetesRuntimeValues struct {
 	ThreeportControlPlaneHost *bool
 	DefaultRuntime            *bool
 	ThreeportAgentImage       *string
+	NetworkCidr               *string
 	Age                       *string
 }
 
@@ -206,6 +207,7 @@ func (k *KubernetesRuntimeConfig) GetOperations(
 			DefaultRuntime:            kubernetesRuntimeValues.DefaultRuntime,
 			Location:                  kubernetesRuntimeValues.Location,
 			ThreeportAgentImage:       kubernetesRuntimeValues.ThreeportAgentImage,
+			NetworkCidr:               kubernetesRuntimeValues.NetworkCidr,
 			KubernetesRuntimeDefinition: &KubernetesRuntimeDefinitionValues{
 				Name: kubernetesRuntimeValues.Name,
 			},
@@ -276,6 +278,7 @@ func mapToKubernetesRuntimeDefinedInstances(
 						Location:                  inst.KubernetesRuntimeInstance.Location,
 						DefaultRuntime:            inst.KubernetesRuntimeInstance.DefaultRuntime,
 						ThreeportAgentImage:       inst.KubernetesRuntimeInstance.ThreeportAgentImage,
+						NetworkCidr:               inst.KubernetesRuntimeInstance.NetworkCidr,
 						Age:                       inst.KubernetesRuntimeInstance.Age,
 					},
 				}

@@ -1,5 +1,7 @@
 package v0
 
+import "gorm.io/datatypes"
+
 // ControlPlaneDefinition is the configuration for a Threeport Control Plane.
 type ControlPlaneDefinition struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
@@ -61,6 +63,16 @@ type ControlPlaneInstance struct {
 	// An empty or omitted value installs every controller.
 	// The value 'none' installs no controllers.
 	Apis *string `validate:"optional"`
+
+	// The address blocks from which this control plane allocates a /16
+	// network range to each Kubernetes runtime it provisions, as a JSON array
+	// of IPv4 CIDR blocks such as ["10.16.0.0/12"].  Each block must be a /16
+	// or larger, and the blocks must not overlap.  If empty, the default pool
+	// is used: 10.16.0.0/16 through 10.255.0.0/16, except 10.96.0.0/16 and
+	// 10.244.0.0/16.  A change affects only later allocations.  On a child
+	// control plane, the pool must be clear of the ranges its parent has
+	// allocated, and the parent does not allocate from it.
+	NetworkCidrPool *datatypes.JSON `validate:"optional" swaggertype:"array,string"`
 
 	// Indicates whether this is was the first control plane that was spun up in a control plane group
 	Genesis *bool `validate:"optional" gorm:"default:false"`

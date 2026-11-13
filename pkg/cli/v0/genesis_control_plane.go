@@ -2,6 +2,7 @@ package v0
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,9 +15,11 @@ import (
 	"unicode/utf8"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/threeport/threeport/internal/provider"
@@ -109,6 +112,8 @@ type GenesisControlPlaneCLIArgs struct {
 	KindPortMappings      []string
 	ApiPort               int
 	LocalRegistry         bool
+	K8sApiAllowedCidrs    []string
+	PrivateK8sApi         bool
 }
 
 // Uninstaller contains the necessary information to uninstall a control plane
@@ -219,6 +224,8 @@ func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneI
 	cpi.Opts.TeardownOnFailure = a.TeardownOnFailure
 	cpi.Opts.LocalRegistry = a.LocalRegistry
 	cpi.Opts.KindPortMappings = a.KindPortMappings
+	cpi.Opts.K8sApiAllowedCidrs = a.K8sApiAllowedCidrs
+	cpi.Opts.PrivateK8sApi = a.PrivateK8sApi
 	// a kind port mapping for the API's node port says the same thing --api-port
 	// says, so the two are folded into one value here. The kind mapping and the
 	// endpoint written to the threeport config both read that value, so they
@@ -263,15 +270,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	genesis := true
 
 	if cpi.Opts.ControlPlaneOnly {
-		// load the matching entry if one exists from a prior run;
-		// otherwise fall through to a new entry, which is the case when
-		// deploying to infrastructure that was provisioned outside of
-		// tptctl.
-		if existingConfig, err := threeportConfig.GetControlPlaneConfig(cpi.Opts.ControlPlaneName); err == nil {
-			threeportControlPlaneConfig = existingConfig
-		} else {
-			threeportControlPlaneConfig = &ControlPlane{}
-		}
+		threeportControlPlaneConfig = reusedControlPlaneConfig(threeportConfig, &cpi.Opts)
 	} else {
 		// overwrite or reject a same-name config entry, leaving other entries in place
 		if err := dropSameNameControlPlane(
@@ -296,6 +295,8 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		c.Name = cpi.Opts.ControlPlaneName
 		c.Provider = cpi.Opts.InfraProvider
 		c.Genesis = genesis
+		c.K8sApiAllowedCidrs = cpi.Opts.K8sApiAllowedCidrs
+		c.PrivateK8sApi = cpi.Opts.PrivateK8sApi
 	}); err != nil {
 		return fmt.Errorf("failed to update threeport config: %w", err)
 	}
@@ -355,26 +356,34 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return fmt.Errorf("failed to deploy oke infrastructure: %w", err)
 		}
 	case v0.KubernetesRuntimeInfraProviderGKE:
+		// the node pool this CLI-driven bootstrap path creates for the tier;
+		// it has no GcpGkeKubernetesRuntimeDefinition to read it from
+		gkeProfile, err := gkeControlPlaneProfile(cpi.Opts.Tier)
+		if err != nil {
+			return err
+		}
 		kubernetesRuntimeInfraGKE := (&provider.KubernetesRuntimeInfraGKE{
 			PulumiWorkspace: provider.PulumiWorkspace{
 				RuntimeInstanceName: runtimeInstanceName(cpi.Opts),
 			},
 			Version:                cpi.Opts.KubernetesVersion,
 			ReleaseChannel:         gkeReleaseChannel(cpi.Opts.Tier),
-			WorkerNodeInitialCount: int32(2),
-			// preserves the node pool defaults this CLI-driven bootstrap path
-			// used before MachineType/MinNodeCount/MaxNodeCount became
-			// definition-driven fields for the controller-driven path; this
-			// path has no GcpGkeKubernetesRuntimeDefinition to read them from.
-			MachineType:  "e2-medium",
-			MinNodeCount: int32(1),
-			MaxNodeCount: int32(10),
-			ProjectID:    cpi.Opts.GcpProjectId,
-			Region:       cpi.Opts.GcpRegion,
+			WorkerNodeInitialCount: gkeProfile.InitialNodeCount,
+			MachineType:            gkeProfile.MachineType,
+			MinNodeCount:           gkeProfile.MinNodeCount,
+			MaxNodeCount:           gkeProfile.MaxNodeCount,
+			LocationPolicy:         gkeProfile.LocationPolicy,
+			ProjectID:              cpi.Opts.GcpProjectId,
+			Region:                 cpi.Opts.GcpRegion,
 			// a production control plane backs its database up to a
 			// bucket in another region
 			ProvisionBackups: cpi.Opts.Tier == threeport.ControlPlaneTier(threeport.ControlPlaneTierProd),
 			BackupRegion:     cpi.Opts.GcpBackupRegion,
+			PrivateApi:       cpi.Opts.PrivateK8sApi,
+			AllowedCidrs:     cpi.Opts.K8sApiAllowedCidrs,
+			// the control plane's outbound traffic comes from one address,
+			// which clusters it manages admit
+			ReserveNatAddress: true,
 		}).InitPulumiProject()
 		kubernetesRuntimeInfra = kubernetesRuntimeInfraGKE
 		uninstaller.kubernetesRuntimeInfra = kubernetesRuntimeInfraGKE
@@ -431,8 +440,21 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		}
 	}
 
+	// read the addresses the new cluster's outbound traffic comes from,
+	// which the clusters this control plane manages admit when they
+	// restrict their Kubernetes API.  With --control-plane-only these are
+	// the addresses a prior --infra-only run recorded; a cluster tptctl did
+	// not create, and a kind cluster, has none recorded.
+	egressCidrs := threeportControlPlaneConfig.EgressCidrs
+	if reporter, ok := kubernetesRuntimeInfra.(interface{ StackEgressCidrs() ([]string, error) }); ok && !cpi.Opts.ControlPlaneOnly {
+		if egressCidrs, err = reporter.StackEgressCidrs(); err != nil {
+			return uninstaller.cleanOnCreateError("failed to read the cluster's egress addresses", err)
+		}
+	}
+
 	// update threeport config with kube API info
 	if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *ControlPlane) {
+		c.EgressCidrs = egressCidrs
 		c.KubeAPI = KubeAPI{
 			APIEndpoint:   kubeConnectionInfo.APIEndpoint,
 			CACertificate: util.Base64Encode(kubeConnectionInfo.CACertificate),
@@ -565,6 +587,25 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			ConnectionTokenExpiration: &kubeConnectionInfo.TokenExpiration,
 			DefaultRuntime:            &defaultRuntime,
 			Location:                  &location,
+		}
+	}
+
+	// record the cluster's egress addresses on the runtime that hosts the
+	// control plane
+	kubernetesRuntimeInstance.EgressCidrs = provider.EgressCidrsJSON(egressCidrs)
+
+	// with the Kubernetes API's public endpoint limited to
+	// --k8s-api-allowed-cidrs, make sure this machine is on the list before
+	// installing anything, so that a list that leaves it out fails here,
+	// with an error that says so.  A private cluster is reached through its
+	// DNS endpoint, which the list does not apply to.
+	if len(cpi.Opts.K8sApiAllowedCidrs) > 0 && !cpi.Opts.PrivateK8sApi {
+		Info(fmt.Sprintf("Checking that this machine can reach the Kubernetes API at %s", *kubernetesRuntimeInstance.APIEndpoint))
+		if err := waitForKubernetesAPI(kubernetesRuntimeInstance, cpi.Opts.K8sApiAllowedCidrs); err != nil {
+			return uninstaller.cleanOnCreateError(
+				"failed to reach the Kubernetes API",
+				withUnreachableClusterCleanup(err, cpi.Opts.ControlPlaneName, cpi.Opts.TeardownOnFailure),
+			)
 		}
 	}
 
@@ -839,6 +880,8 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			kubernetesRuntimeInstName,
 			defReconciled,
 			cpi.Opts.InfraProvider,
+			cpi.Opts.PrivateK8sApi,
+			cpi.Opts.K8sApiAllowedCidrs,
 			kubernetesRuntimeInstance,
 		)
 		if err != nil {
@@ -854,6 +897,11 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			},
 			InfraProvider:     &cpi.Opts.InfraProvider,
 			KubernetesVersion: genesisKubernetesVersion(cpi.Opts.InfraProvider, kubernetesRuntimeInfra),
+			PrivateApi:        privateApiField(cpi.Opts.PrivateK8sApi),
+			AllowedCidrs:      allowedCidrsJSON(cpi.Opts.K8sApiAllowedCidrs),
+		}
+		if err := recordClusterProfile(&kubernetesRuntimeDefinition, cpi.Opts.Tier); err != nil {
+			return uninstaller.cleanOnCreateError("failed to describe the control plane's cluster", err)
 		}
 		kubernetesRuntimeDefResult, err = client.CreateKubernetesRuntimeDefinition(
 			apiClient,
@@ -1357,6 +1405,26 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		}
 	} else {
 
+		// read which of the control plane's disks are retained while the
+		// cluster that says so still exists: the disks left behind are
+		// cleaned up after it is gone, and these have to be left alone
+		var retainedEksVolumes []string
+		retainedEksVolumesKnown := false
+		if threeportControlPlaneConfig.Provider == v0.KubernetesRuntimeInfraProviderEKS {
+			retainedEksVolumes, err = retainedEksControlPlaneVolumes(
+				kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS),
+				cpi.Opts.Namespace,
+			)
+			if err != nil {
+				Warning(fmt.Sprintf(
+					"could not read which control plane volumes are retained, so none left behind will be deleted: %s",
+					err,
+				))
+			} else {
+				retainedEksVolumesKnown = true
+			}
+		}
+
 		// delete control plane infra
 		if err := kubernetesRuntimeInfra.Delete(); err != nil {
 			// keep the control plane in the config: it is the only handle for
@@ -1370,6 +1438,18 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		// perform provider-specfic post-deletion cleanup
 		switch threeportControlPlaneConfig.Provider {
 		case v0.KubernetesRuntimeInfraProviderEKS:
+
+			// delete the disks the storage driver left for the control
+			// plane's claims: --infra-only does not delete the control plane
+			// first, and the driver can still be deleting one when the
+			// cluster goes
+			deleteLeftoverEksVolumes(
+				kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS).RuntimeInstanceName,
+				cpi.Opts.Namespace,
+				awsConfigUser,
+				retainedEksVolumes,
+				retainedEksVolumesKnown,
+			)
 
 			// delete AWS IAM resources
 			err = provider.DeleteResourceManagerRole(cpi.Opts.ControlPlaneName, *awsConfigUser)
@@ -1795,6 +1875,8 @@ func ensureBootstrapKubernetesRuntime(
 	instName string,
 	defReconciled bool,
 	infraProvider string,
+	privateApi bool,
+	allowedCidrs []string,
 	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
 ) (*v0.KubernetesRuntimeDefinition, *v0.KubernetesRuntimeInstance, error) {
 	// look up the definition and create it if missing
@@ -1811,6 +1893,8 @@ func ensureBootstrapKubernetesRuntime(
 				Reconciled: &defReconciled,
 			},
 			InfraProvider: &infraProvider,
+			PrivateApi:    privateApiField(privateApi),
+			AllowedCidrs:  allowedCidrsJSON(allowedCidrs),
 		}
 		def, err = client.CreateKubernetesRuntimeDefinition(apiClient, apiEndpoint, &newDef)
 		if err != nil {
@@ -1908,6 +1992,8 @@ func EnsureBootstrapObjects(cpi *threeport.ControlPlaneInstaller) error {
 		runtimeName,
 		defReconciled,
 		controlPlaneConfig.Provider,
+		controlPlaneConfig.PrivateK8sApi,
+		controlPlaneConfig.K8sApiAllowedCidrs,
 		kubernetesRuntimeInstance,
 	)
 	if err != nil {
@@ -1980,6 +2066,7 @@ func bootstrapKubernetesRuntimeInstance(controlPlaneConfig *ControlPlane) (*v0.K
 		CACertificate:             &caCertificate,
 		DefaultRuntime:            &defaultRuntime,
 		Location:                  &location,
+		EgressCidrs:               provider.EgressCidrsJSON(controlPlaneConfig.EgressCidrs),
 	}
 
 	// set the cert pair when both are present, else the token when set, and leave its expiration unset
@@ -2123,4 +2210,82 @@ func dropSameNameControlPlane(cfg *ThreeportConfig, name string, force bool) err
 	)
 
 	return nil
+}
+
+// leftoverVolumeCleanupTimeout bounds the cleanup of the disks a deleted
+// cluster left behind, and the read of which of them are retained.
+const leftoverVolumeCleanupTimeout = 2 * time.Minute
+
+// retainedEksControlPlaneVolumes returns the EBS volume ids behind the
+// control plane's persistent volumes that outlive their claims. It connects
+// to the cluster through EKS rather than through the Threeport API, which a
+// teardown with --infra-only does not rely on.
+func retainedEksControlPlaneVolumes(eksInfra *provider.KubernetesRuntimeInfraEKS, namespace string) ([]string, error) {
+	connection, err := eksInfra.GetConnection()
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to cluster %s: %w", eksInfra.RuntimeInstanceName, err)
+	}
+	kubeClient, err := dynamic.NewForConfig(&rest.Config{
+		Host:            connection.APIEndpoint,
+		BearerToken:     connection.Token,
+		TLSClientConfig: rest.TLSClientConfig{CAData: []byte(connection.CACertificate)},
+		Timeout:         leftoverVolumeCleanupTimeout,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create a client for cluster %s: %w", eksInfra.RuntimeInstanceName, err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), leftoverVolumeCleanupTimeout)
+	defer cancel()
+
+	return threeport.RetainedVolumeHandles(ctx, kubeClient, namespace)
+}
+
+// deleteLeftoverEksVolumes deletes the EBS volumes the cluster's storage
+// driver left for claims in the control plane's namespace, except the
+// retained ones, and reports them. When which are retained could not be read,
+// it deletes none and names them instead, since a retained one cannot be told
+// from the others. A failure is a warning naming the volumes rather than an
+// error: the cluster is already gone, so the teardown has nothing left to
+// retry, and the volumes can be deleted by hand.
+func deleteLeftoverEksVolumes(
+	clusterName string,
+	namespace string,
+	awsConfig *aws.Config,
+	retained []string,
+	retainedKnown bool,
+) {
+	if awsConfig == nil {
+		Warning(fmt.Sprintf("no AWS config to check for EBS volumes left by cluster %s", clusterName))
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), leftoverVolumeCleanupTimeout)
+	defer cancel()
+	ec2Client := ec2.NewFromConfig(*awsConfig)
+
+	if !retainedKnown {
+		leftover, err := provider.LeftoverEksVolumes(ctx, ec2Client, clusterName, namespace)
+		if err != nil {
+			Warning(fmt.Sprintf("failed to list EBS volumes left by cluster %s: %s", clusterName, err))
+			return
+		}
+		if len(leftover) > 0 {
+			Warning(fmt.Sprintf(
+				"EBS volumes left by cluster %s for namespace %s were not deleted, since which are retained is unknown - delete the ones not meant to be kept by hand: %s",
+				clusterName, namespace, strings.Join(leftover, ", "),
+			))
+		}
+		return
+	}
+
+	deleted, err := provider.DeleteLeftoverEksVolumes(ctx, ec2Client, clusterName, namespace, retained)
+	if len(deleted) > 0 {
+		Info(fmt.Sprintf("deleted EBS volumes left by cluster %s: %s", clusterName, strings.Join(deleted, ", ")))
+	}
+	if err != nil {
+		Warning(fmt.Sprintf(
+			"failed to delete EBS volumes left by cluster %s for namespace %s - delete any that remain by hand: %s",
+			clusterName, namespace, err,
+		))
+	}
 }
