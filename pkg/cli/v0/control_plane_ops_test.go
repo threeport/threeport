@@ -1,10 +1,16 @@
 package v0
 
 import (
+	"encoding/base64"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	dynamicfake "k8s.io/client-go/dynamic/fake"
+
+	"github.com/threeport/threeport/pkg/encryption/v0"
+	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 )
 
 // TestBlueGreenControlPlaneCopiesTheClientEntry covers the client entry recorded
@@ -69,6 +75,28 @@ func TestAPIHostDropsTheSchemeAndPort(t *testing.T) {
 	require.Equal(t, "10.0.0.1", apiHost("10.0.0.1:443"))
 	require.Equal(t, "api.example.com", apiHost("api.example.com"))
 	require.Equal(t, "", apiHost(""))
+}
+
+// TestEncryptionKeyFromClientDecodesTheSecret covers the key a client entry stores.
+func TestEncryptionKeyFromClientDecodesTheSecret(t *testing.T) {
+	// store the key the way a secret stores it
+	secret := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "Secret",
+		"metadata": map[string]interface{}{
+			"name":      threeport.EncryptionKeySecret,
+			"namespace": "child",
+		},
+		"data": map[string]interface{}{
+			encryption.KeyEnvVar: base64.StdEncoding.EncodeToString([]byte("plain-key")),
+		},
+	}}
+	kube := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme(), secret)
+
+	// the entry keeps the key, not the secret's encoding
+	got, err := encryptionKeyFromClient(kube, "child")
+	require.NoError(t, err)
+	require.Equal(t, "plain-key", got)
 }
 
 // TestNamespaceForAPIHostUsesTheLoadBalancer covers the namespace a backup must use.

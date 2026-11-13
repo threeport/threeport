@@ -2,6 +2,7 @@ package v0
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/http"
@@ -322,15 +323,16 @@ func encryptionKeyFromClient(kubeClient dynamic.Interface, namespace string) (st
 		return "", fmt.Errorf("failed to load encryption key secret: %w", err)
 	}
 
-	// return the key stored for the API
-	key, _, err := unstructured.NestedString(secret.Object, "data", encryption.KeyEnvVar)
+	// decode the key the API stores
+	keyB64, _, err := unstructured.NestedString(secret.Object, "data", encryption.KeyEnvVar)
 	if err != nil {
 		return "", fmt.Errorf("failed to load encryption key secret: %w", err)
 	}
-	if key == "" {
-		return "", fmt.Errorf("failed to load encryption key secret")
+	key, err := base64.StdEncoding.DecodeString(keyB64)
+	if err != nil || len(key) == 0 {
+		return "", fmt.Errorf("failed to load encryption key secret: %w", err)
 	}
-	return key, nil
+	return string(key), nil
 }
 
 // RecordRestoredParent stores the encryption key for the restored control plane and makes it current.
