@@ -1190,8 +1190,7 @@ const crdbAlreadyInitializedMarker = "already been initialized"
 // failure, so the one-time step does not become a reason every later
 // install attempt fails.
 //
-// The job mounts db-certs rather than db-root-cert, even though the latter
-// is what the other one-shot admin jobs in this package use. db-root-cert is
+// The job mounts db-certs rather than db-root-cert. db-root-cert is
 // created later, by UpdateThreeportAPIDeployment, which runs only after this
 // whole function returns - a fresh install waiting on this job for a secret
 // that does not exist yet would never create it, and would time out instead

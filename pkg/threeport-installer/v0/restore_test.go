@@ -102,6 +102,7 @@ type restoreCluster struct {
 	jobs        []string
 	commands    map[string][]string
 	backoffs    map[string]int64
+	certSecrets map[string]string
 	jobDeleteOK bool
 	// how many more pod listings report a pod still there
 	podListsLeft int
@@ -118,6 +119,7 @@ func newRestoreCluster(t *testing.T, outcomes map[string]jobOutcome, replicas ma
 		outcomes:          outcomes,
 		commands:          map[string][]string{},
 		backoffs:          map[string]int64{},
+		certSecrets:       map[string]string{},
 		jobDeleteOK:       true,
 	}
 	for name, count := range replicas {
@@ -213,6 +215,9 @@ func newRestoreCluster(t *testing.T, outcomes map[string]jobOutcome, replicas ma
 		}
 		cluster.commands[phase] = command
 		cluster.backoffs[phase], _, _ = unstructured.NestedInt64(job.Object, "spec", "backoffLimit")
+		volumes, _, _ := unstructured.NestedSlice(job.Object, "spec", "template", "spec", "volumes")
+		secret := volumes[0].(map[string]interface{})["secret"].(map[string]interface{})
+		cluster.certSecrets[phase] = secret["secretName"].(string)
 		outcome := cluster.outcomes[phase]
 		cluster.mu.Unlock()
 
@@ -320,6 +325,7 @@ func TestRestoreScalesTheControlPlaneDownAndBack(t *testing.T) {
 	phases, err := DatabaseRestoreStatements(DatabaseName, "threeport", DatabaseBackupURI(testBucket, ControlPlaneNamespace), DatabaseBackupURI(testBucket, ControlPlaneNamespace), LatestBackup)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"prepare", "swap", "backup"}, cluster.jobs)
+	assert.Equal(t, dbCredsSecretName, cluster.certSecrets["prepare"])
 	assert.Equal(t, phases.Prepare, cluster.executed("prepare"))
 	assert.Equal(t, phases.Swap, cluster.executed("swap"))
 	assert.Equal(t, phases.Backup, cluster.executed("backup"))

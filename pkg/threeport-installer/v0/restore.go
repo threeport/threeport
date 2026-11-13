@@ -540,17 +540,18 @@ func runRestorePhase(kubeClient dynamic.Interface, namespace, jobName string, st
 								"command": command,
 								"volumeMounts": []interface{}{
 									map[string]interface{}{
-										"name":      dbRootCertSecretName,
+										"name":      dbCredsSecretName,
 										"mountPath": dbRootCertsMountPath,
 									},
 								},
 							},
 						},
+						// mount db-certs, which exists before UpdateThreeportAPIDeployment creates db-root-cert
 						"volumes": []interface{}{
 							map[string]interface{}{
-								"name": dbRootCertSecretName,
+								"name": dbCredsSecretName,
 								"secret": map[string]interface{}{
-									"secretName":  dbRootCertSecretName,
+									"secretName":  dbCredsSecretName,
 									"defaultMode": int64(dbRootCertsFileMode),
 								},
 							},
