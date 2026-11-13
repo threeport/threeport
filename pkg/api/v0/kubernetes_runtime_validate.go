@@ -99,7 +99,7 @@ func (k *KubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
 			"kubernetes runtime definition high availability cannot be changed after creation",
 		)
 	}
-	if err := validateKubernetesVersionUpdate(tx); err != nil {
+	if err := validateKubernetesRuntimeVersionUpdate(tx); err != nil {
 		return err
 	}
 

@@ -199,14 +199,42 @@ func (i *KubernetesRuntimeInfraEKS) zoneCount() int {
 	return zoneCount
 }
 
+// controlPlaneKubernetesVersion returns the Kubernetes version of the
+// cluster's control plane: the version an upgrade keeps it on, when it is
+// already past the one the node group is upgraded to, and the version to
+// provision the cluster with otherwise.
+func (i *KubernetesRuntimeInfraEKS) controlPlaneKubernetesVersion() string {
+	if i.controlPlaneVersion != "" {
+		return i.controlPlaneVersion
+	}
+
+	return i.kubernetesVersion()
+}
+
 // kubernetesVersion returns the Kubernetes version to provision the cluster
-// with.
+// with: its node group's, and its control plane's unless an upgrade keeps
+// that on a later one.
 func (i *KubernetesRuntimeInfraEKS) kubernetesVersion() string {
 	if i.KubernetesVersion == "" {
 		return DefaultEksKubernetesVersion
 	}
 
 	return i.KubernetesVersion
+}
+
+// nodeGroupNames returns the names of the cluster's node groups: one spanning
+// every zone, or one in each zone, in the order of the zones.
+func (i *KubernetesRuntimeInfraEKS) nodeGroupNames() []string {
+	name := fmt.Sprintf("%s-private-node-group", i.RuntimeInstanceName)
+	if !i.NodeGroupPerZone {
+		return []string{name}
+	}
+	names := make([]string, 0, i.zoneCount())
+	for zoneIndex := range i.zoneCount() {
+		names = append(names, fmt.Sprintf("%s-%d", name, zoneIndex))
+	}
+
+	return names
 }
 
 // upgradePolicy returns the cluster's upgrade policy: the cluster's, when the
@@ -431,7 +459,7 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 		cluster, err := awseks.NewCluster(ctx, i.RuntimeInstanceName, &awseks.ClusterArgs{
 			Name:          pulumi.String(i.RuntimeInstanceName),
 			RoleArn:       pulumi.String(i.ClusterRoleArn),
-			Version:       pulumi.String(i.kubernetesVersion()),
+			Version:       pulumi.String(i.controlPlaneKubernetesVersion()),
 			UpgradePolicy: i.upgradePolicy(),
 			VpcConfig:     vpcConfig,
 			Tags:          i.resourceTags(i.RuntimeInstanceName),
@@ -440,7 +468,14 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 			return fmt.Errorf("failed to create EKS cluster: %w", err)
 		}
 
-		newNodeGroup := func(nodeGroupName string, subnetIds pulumi.StringArray) error {
+		nodeGroupNames := i.nodeGroupNames()
+		for index, nodeGroupName := range nodeGroupNames {
+			// one node group spans every zone's subnet, and a node group per
+			// zone takes its zone's
+			subnetIds := privateSubnetIds
+			if len(nodeGroupNames) > 1 {
+				subnetIds = pulumi.StringArray{privateSubnetIds[index]}
+			}
 			if _, err := awseks.NewNodeGroup(ctx, nodeGroupName, &awseks.NodeGroupArgs{
 				ClusterName:   cluster.Name,
 				NodeGroupName: pulumi.String(nodeGroupName),
@@ -456,20 +491,6 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 				Tags: i.resourceTags(nodeGroupName),
 			}, pulumi.IgnoreChanges(eksNodeGroupIgnoredChanges)); err != nil {
 				return fmt.Errorf("failed to create EKS node group %s: %w", nodeGroupName, err)
-			}
-			return nil
-		}
-
-		if !i.NodeGroupPerZone {
-			if err := newNodeGroup(fmt.Sprintf("%s-private-node-group", i.RuntimeInstanceName), privateSubnetIds); err != nil {
-				return err
-			}
-		} else {
-			for zoneIndex, subnetId := range privateSubnetIds {
-				nodeGroupName := fmt.Sprintf("%s-private-node-group-%d", i.RuntimeInstanceName, zoneIndex)
-				if err := newNodeGroup(nodeGroupName, pulumi.StringArray{subnetId}); err != nil {
-					return err
-				}
 			}
 		}
 

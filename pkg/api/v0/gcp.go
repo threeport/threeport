@@ -1,6 +1,10 @@
 package v0
 
-import "gorm.io/datatypes"
+import (
+	"time"
+
+	"gorm.io/datatypes"
+)
 
 // GcpProvider represents a Google Cloud Platform (GCP) project in an account with the GCP service provider.
 type GcpProvider struct {
@@ -62,8 +66,10 @@ type GcpGkeKubernetesRuntimeDefinition struct {
 
 	// The Kubernetes minor version of the clusters, such as "1.36": the
 	// KubernetesRuntimeDefinition's KubernetesVersion, or the default version
-	// when that is unset.  If unset here, the default version is used.  It
-	// can't be changed after creation.
+	// when that is unset.  If unset here, the default version is used.
+	// Raising it to another supported version upgrades the clusters, one minor
+	// version at a time.  It can't be lowered, since a cluster can't be
+	// downgraded, or cleared.
 	KubernetesVersion *string `validate:"optional"`
 
 	// The GKE release channel of the clusters, REGULAR or STABLE.  GKE
@@ -132,4 +138,37 @@ type GcpGkeKubernetesRuntimeInstance struct {
 	// before keep the addresses Google allocates.  Cannot be changed after
 	// creation.
 	ReservedNatAddress *bool `validate:"optional" gorm:"default:false"`
+
+	// The Kubernetes minor version the cluster runs, such as "1.36", as the
+	// controller last read it from the provider.  That is its control
+	// plane's: GKE upgrades its nodes to it in the maintenance window.
+	KubernetesVersion *string `validate:"optional"`
+
+	// The definition's KubernetesVersion the cluster was last asked to be
+	// upgraded to.  The API server sets it when an update of the GKE
+	// definition asks the cluster to upgrade, once the cluster's controller
+	// has been notified, so a request it couldn't finish is made again by the
+	// definition's next update.
+	UpgradeRequestedVersion *string `validate:"optional"`
+
+	// Set by the controller when it starts upgrading the cluster to the
+	// definition's KubernetesVersion, and refreshed while the upgrade runs.
+	UpgradeAcknowledged *time.Time `validate:"optional"`
+
+	// True while the controller upgrades the cluster.
+	Upgrading *bool `validate:"optional" gorm:"default:false"`
+
+	// True when the last upgrade failed.  The controller tries it again after
+	// a wait.
+	UpgradeFailed *bool `validate:"optional" gorm:"default:false"`
+
+	// True when the controller refused to upgrade the cluster: because the
+	// upgrade would replace or delete any of its resources, or because
+	// Threeport didn't create the cluster.  It doesn't try again until the
+	// definition's KubernetesVersion changes, or this is set back to false.
+	UpgradeRefused *bool `validate:"optional" gorm:"default:false"`
+
+	// What the controller last did to upgrade the cluster, or why it
+	// couldn't.
+	UpgradeStatus *string `validate:"optional"`
 }

@@ -11,7 +11,7 @@ import (
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
-// TestNodeGroupPerZoneMigratesAnExistingDatabase covers 000006 on a database
+// TestNodeGroupPerZoneMigratesAnExistingDatabase covers 000007 on a database
 // built before EKS definitions recorded NodeGroupPerZone, as a deployed
 // control plane's is: it adds the column, false for the clusters already
 // there, with the type and default 000001 builds it with.  On a database
@@ -39,14 +39,14 @@ func TestNodeGroupPerZoneMigratesAnExistingDatabase(t *testing.T) {
 	require.NoError(t, migrations.Up000001(ctx, nil))
 	require.True(t, hasColumn())
 	installed := column()
-	require.NoError(t, migrations.Up000006(ctx, sqlDb), "000006 finds it there")
+	require.NoError(t, migrations.Up000007(ctx, sqlDb), "000007 finds it there")
 
 	// a database built before the field
-	require.NoError(t, migrations.Down000006(ctx, sqlDb))
+	require.NoError(t, migrations.Down000007(ctx, sqlDb))
 	assert.False(t, hasColumn())
-	require.NoError(t, migrations.Down000006(ctx, sqlDb), "a down migration with nothing left to remove")
+	require.NoError(t, migrations.Down000007(ctx, sqlDb), "a down migration with nothing left to remove")
 
-	require.NoError(t, migrations.Up000006(ctx, sqlDb))
+	require.NoError(t, migrations.Up000007(ctx, sqlDb))
 	assert.True(t, hasColumn())
 	assert.Equal(t, installed, column(), "the type and default 000001 builds it with")
 	assert.Contains(t, column(), "false", "existing clusters run one node group spanning every zone")

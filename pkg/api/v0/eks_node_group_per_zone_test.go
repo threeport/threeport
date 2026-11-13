@@ -34,7 +34,7 @@ func TestAnEksDefinitionsNodeGroupPerZoneIsKept(t *testing.T) {
 
 	perZone := build("per-zone", 2, util.Ptr(true))
 	require.NoError(t, db.Create(perZone).Error)
-	err := db.Session(&gorm.Session{}).Model(load(perZone.ID)).Updates(map[string]any{"NodeGroupPerZone": false}).Error
+	err := db.Session(&gorm.Session{}).Model(load(perZone.ID)).Updates(&AwsEksKubernetesRuntimeDefinition{NodeGroupPerZone: util.Ptr(false)}).Error
 	assert.ErrorContains(t, err, "NodeGroupPerZone cannot be changed after creation")
 	replaced := load(perZone.ID)
 	replaced.NodeGroupPerZone = util.Ptr(false)
@@ -56,6 +56,6 @@ func TestAnEksDefinitionsNodeGroupPerZoneIsKept(t *testing.T) {
 	perZoneOmitted.NodeGroupPerZone = nil
 	assert.ErrorContains(t, db.Session(&gorm.Session{}).Save(perZoneOmitted).Error, "NodeGroupPerZone cannot be changed after creation",
 		"which would move a cluster with a node group per zone to one")
-	err = db.Session(&gorm.Session{}).Model(load(unset.ID)).Updates(map[string]any{"NodeGroupPerZone": true}).Error
+	err = db.Session(&gorm.Session{}).Model(load(unset.ID)).Updates(&AwsEksKubernetesRuntimeDefinition{NodeGroupPerZone: util.Ptr(true)}).Error
 	assert.ErrorContains(t, err, "NodeGroupPerZone cannot be changed after creation")
 }

@@ -98,8 +98,10 @@ definitions:
         description: |-
           The Kubernetes minor version of the clusters, such as "1.36": the
           KubernetesRuntimeDefinition's KubernetesVersion, or the default version
-          when that is unset.  If unset here, the default version is used.  It
-          can't be changed after creation.
+          when that is unset.  If unset here, the default version is used.
+          Raising it to another supported version upgrades the clusters, one minor
+          version at a time.  It can't be lowered, since a cluster can't be
+          downgraded, or cleared.
         type: string
       Name:
         description: An arbitrary name for the definition.
@@ -195,6 +197,13 @@ definitions:
       KubernetesRuntimeInstanceID:
         description: The kubernetes runtime instance associated with the AWS EKS cluster.
         type: integer
+      KubernetesVersion:
+        description: |-
+          The Kubernetes minor version the cluster runs, such as "1.36", as the
+          controller last read it from the provider.  That is the
+          lower of its control plane's and its node group's, which EKS upgrades
+          separately.
+        type: string
       Name:
         description: An arbitrary name the instance
         type: string
@@ -215,6 +224,39 @@ definitions:
           The status of the instance.
           TODO: use a custom type
         type: string
+      UpgradeAcknowledged:
+        description: |-
+          Set by the controller when it starts upgrading the cluster to the
+          definition's KubernetesVersion, and refreshed while the upgrade runs.
+        type: string
+      UpgradeFailed:
+        description: |-
+          True when the last upgrade failed.  The controller tries it again after
+          a wait.
+        type: boolean
+      UpgradeRefused:
+        description: |-
+          True when the controller refused to upgrade the cluster: because the
+          upgrade would replace or delete any of its resources, or because
+          Threeport didn't create the cluster.  It doesn't try again until the
+          definition's KubernetesVersion changes, or this is set back to false.
+        type: boolean
+      UpgradeRequestedVersion:
+        description: |-
+          The definition's KubernetesVersion the cluster was last asked to be
+          upgraded to.  The API server sets it when an update of the EKS
+          definition asks the cluster to upgrade, once the cluster's controller
+          has been notified, so a request it couldn't finish is made again by the
+          definition's next update.
+        type: string
+      UpgradeStatus:
+        description: |-
+          What the controller last did to upgrade the cluster, or why it
+          couldn't.
+        type: string
+      Upgrading:
+        description: True while the controller upgrades the cluster.
+        type: boolean
     required:
     - AwsEksKubernetesRuntimeDefinitionID
     - AwsProviderID
@@ -959,8 +1001,10 @@ definitions:
         description: |-
           The Kubernetes minor version of the clusters, such as "1.36": the
           KubernetesRuntimeDefinition's KubernetesVersion, or the default version
-          when that is unset.  If unset here, the default version is used.  It
-          can't be changed after creation.
+          when that is unset.  If unset here, the default version is used.
+          Raising it to another supported version upgrades the clusters, one minor
+          version at a time.  It can't be lowered, since a cluster can't be
+          downgraded, or cleared.
         type: string
       MaintenanceWindowDays:
         description: |-
@@ -1072,6 +1116,12 @@ definitions:
       KubernetesRuntimeInstanceID:
         description: The kubernetes runtime instance associated with the GKE cluster.
         type: integer
+      KubernetesVersion:
+        description: |-
+          The Kubernetes minor version the cluster runs, such as "1.36", as the
+          controller last read it from the provider.  That is its control
+          plane's: GKE upgrades its nodes to it in the maintenance window.
+        type: string
       Name:
         description: An arbitrary name the instance
         type: string
@@ -1101,6 +1151,39 @@ definitions:
           The status of the instance.
           TODO: use a custom type
         type: string
+      UpgradeAcknowledged:
+        description: |-
+          Set by the controller when it starts upgrading the cluster to the
+          definition's KubernetesVersion, and refreshed while the upgrade runs.
+        type: string
+      UpgradeFailed:
+        description: |-
+          True when the last upgrade failed.  The controller tries it again after
+          a wait.
+        type: boolean
+      UpgradeRefused:
+        description: |-
+          True when the controller refused to upgrade the cluster: because the
+          upgrade would replace or delete any of its resources, or because
+          Threeport didn't create the cluster.  It doesn't try again until the
+          definition's KubernetesVersion changes, or this is set back to false.
+        type: boolean
+      UpgradeRequestedVersion:
+        description: |-
+          The definition's KubernetesVersion the cluster was last asked to be
+          upgraded to.  The API server sets it when an update of the GKE
+          definition asks the cluster to upgrade, once the cluster's controller
+          has been notified, so a request it couldn't finish is made again by the
+          definition's next update.
+        type: string
+      UpgradeStatus:
+        description: |-
+          What the controller last did to upgrade the cluster, or why it
+          couldn't.
+        type: string
+      Upgrading:
+        description: True while the controller upgrades the cluster.
+        type: boolean
     required:
     - GcpGkeKubernetesRuntimeDefinitionID
     - GcpProviderID
@@ -1379,8 +1462,10 @@ definitions:
         description: |-
           The Kubernetes minor version of the clusters, such as "1.36", on EKS,
           GKE and OKE.  If unset, the default version is used, and the EKS, GKE
-          or OKE definition records it.  It can't be changed after creation.  A
-          kind cluster's version comes with its node image, so it takes none.
+          or OKE definition records it.  It records the version asked for at
+          creation and can't be changed: the clusters are upgraded by raising the
+          EKS or GKE definition's KubernetesVersion.  A kind cluster's version
+          comes with its node image, so it takes none.
         type: string
       Name:
         description: An arbitrary name for the definition.

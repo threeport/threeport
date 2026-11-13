@@ -136,7 +136,13 @@ func (a *AwsEksKubernetesRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
 //
 //	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (a *AwsEksKubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
-	if err := validateKubernetesVersionUpdate(tx); err != nil {
+	if err := validateKubernetesVersionUpgrade(tx, KubernetesRuntimeInfraProviderEKS, func(value any) (*string, bool) {
+		object, ok := value.(*AwsEksKubernetesRuntimeDefinition)
+		if !ok {
+			return nil, false
+		}
+		return object.KubernetesVersion, true
+	}); err != nil {
 		return err
 	}
 	nodeGroupPerZoneChanged, err := lib.IsFieldChanged(tx, "NodeGroupPerZone")

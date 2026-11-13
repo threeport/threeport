@@ -46,6 +46,7 @@ ApiObjectGroups:
         - v0
       Tptctl:
         Enabled: true
+      AllowCustomMiddleware: true
     - Name: AwsEksKubernetesRuntimeInstance
       Versions:
         - v0
@@ -84,6 +85,7 @@ ApiObjectGroups:
         - v0
       Tptctl:
         Enabled: true
+      AllowCustomMiddleware: true
     - Name: GcpGkeKubernetesRuntimeInstance
       Versions:
         - v0
