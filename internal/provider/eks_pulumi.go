@@ -498,6 +498,7 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 		}
 
 		nodeGroupNames := i.nodeGroupNames()
+		nodeGroups := make([]pulumi.Resource, 0, len(nodeGroupNames))
 		for index, nodeGroupName := range nodeGroupNames {
 			// one node group spans every zone's subnet, and a node group per
 			// zone takes its zone's
@@ -505,7 +506,7 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 			if len(nodeGroupNames) > 1 {
 				subnetIds = pulumi.StringArray{privateSubnetIds[index]}
 			}
-			if _, err := awseks.NewNodeGroup(ctx, nodeGroupName, &awseks.NodeGroupArgs{
+			nodeGroup, err := awseks.NewNodeGroup(ctx, nodeGroupName, &awseks.NodeGroupArgs{
 				ClusterName:   cluster.Name,
 				NodeGroupName: pulumi.String(nodeGroupName),
 				NodeRoleArn:   pulumi.String(i.NodeRoleArn),
@@ -518,13 +519,59 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 					MaxSize:     pulumi.Int(i.DefaultNodeGroupMaxNodes),
 				},
 				Tags: i.resourceTags(nodeGroupName),
-			}, pulumi.IgnoreChanges(eksNodeGroupIgnoredChanges)); err != nil {
+			}, pulumi.IgnoreChanges(eksNodeGroupIgnoredChanges))
+			if err != nil {
 				return fmt.Errorf("failed to create EKS node group %s: %w", nodeGroupName, err)
 			}
+			nodeGroups = append(nodeGroups, nodeGroup)
 		}
 
 		exportEgressCidrs(ctx, egressAddresses)
 
-		return nil
+		// the add-ons run on the nodes, so they come after the node groups
+		return i.managedAddons(ctx, cluster, nodeGroups)
 	}
+}
+
+// eksManagedAddons are the add-ons EKS installs on a cluster it creates, as
+// copies nothing upgrades with the cluster.  The program takes them over as
+// EKS add-ons, whose versions EKS sets for the cluster's version.
+var eksManagedAddons = []string{"vpc-cni", "coredns", "kube-proxy"}
+
+// eksAddonResolveConflicts takes over the copies EKS installed, and their
+// configuration, rather than failing on them.
+const eksAddonResolveConflicts = "OVERWRITE"
+
+// managedAddons registers the cluster's EKS add-ons, each on the version EKS
+// gives for the control plane's Kubernetes version.  They come after the node
+// groups: an upgrade moves them once the nodes run the new version, and
+// coredns can't start before there are nodes to run it.
+func (i *KubernetesRuntimeInfraEKS) managedAddons(
+	ctx *pulumi.Context,
+	cluster *awseks.Cluster,
+	nodeGroups []pulumi.Resource,
+) error {
+	for _, addonName := range eksManagedAddons {
+		addonVersion, err := awseks.GetAddonVersion(ctx, &awseks.GetAddonVersionArgs{
+			AddonName:         addonName,
+			KubernetesVersion: i.controlPlaneKubernetesVersion(),
+		})
+		if err != nil {
+			return fmt.Errorf("failed to get the %s add-on version for Kubernetes %s: %w", addonName, i.controlPlaneKubernetesVersion(), err)
+		}
+
+		resourceName := fmt.Sprintf("%s-%s", i.RuntimeInstanceName, addonName)
+		if _, err := awseks.NewAddon(ctx, resourceName, &awseks.AddonArgs{
+			ClusterName:              cluster.Name,
+			AddonName:                pulumi.String(addonName),
+			AddonVersion:             pulumi.String(addonVersion.Version),
+			ResolveConflictsOnCreate: pulumi.String(eksAddonResolveConflicts),
+			ResolveConflictsOnUpdate: pulumi.String(eksAddonResolveConflicts),
+			Tags:                     i.resourceTags(resourceName),
+		}, pulumi.DependsOn(nodeGroups)); err != nil {
+			return fmt.Errorf("failed to create the %s add-on: %w", addonName, err)
+		}
+	}
+
+	return nil
 }

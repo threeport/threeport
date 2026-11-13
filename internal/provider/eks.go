@@ -99,8 +99,8 @@ type KubernetesRuntimeInfraEKS struct {
 	// controlPlaneVersion is set by UpgradeInfra to the control plane's
 	// version when it is already past the version the node group is upgraded
 	// to, as when EKS upgraded it on its own at the end of standard support.
-	// The program keeps the control plane on it rather than ask EKS for a
-	// downgrade, which it refuses.
+	// The program keeps the control plane, and the add-ons, which follow it,
+	// on it rather than ask EKS for a downgrade, which it refuses.
 	controlPlaneVersion string
 
 	// nodeGroupVersions is set by UpgradeInfra to the versions of the node
@@ -111,8 +111,7 @@ type KubernetesRuntimeInfraEKS struct {
 
 	// stackZones is set by CreateInfra and UpgradeInfra when the stack
 	// already holds the cluster's subnets, to their zones in order, "" where
-	// the stack holds no subnet.  The
-	// program keeps them: a subnet's zone can't change without replacing it,
+	// the stack holds no subnet.  The program keeps them: a subnet's zone can't change without replacing it,
 	// and the zones the region offers, or that offer the node instance type,
 	// change over time.
 	stackZones []string
