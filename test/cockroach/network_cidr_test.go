@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -16,11 +17,17 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// migrateRuntimeTables migrates the runtime tables once: a second AutoMigrate
-// of a table with a unique column fails on CockroachDB, which has no named
-// constraint for it to find.
+// migrateRuntimeTables migrates the runtime tables, and the control plane
+// tables whose children's pools a runtime's range is checked against, once: a
+// second AutoMigrate of a table with a unique column fails on CockroachDB,
+// which has no named constraint for it to find.
 var migrateRuntimeTables = sync.OnceValue(func() error {
-	return testDb.AutoMigrate(&api_v0.KubernetesRuntimeDefinition{}, &api_v0.KubernetesRuntimeInstance{})
+	return testDb.AutoMigrate(
+		&api_v0.KubernetesRuntimeDefinition{},
+		&api_v0.KubernetesRuntimeInstance{},
+		&api_v0.ControlPlaneDefinition{},
+		&api_v0.ControlPlaneInstance{},
+	)
 })
 
 // setupRuntimeTables readies the runtime tables and the key their hooks
@@ -124,4 +131,114 @@ func TestTwoAllocationsToOneRuntimeOnCockroach(t *testing.T) {
 		t.Fatal("the second allocation did not finish after the first committed")
 	}
 	assert.Equal(t, "10.201.0.0/16", *load().NetworkCidr)
+}
+
+// TestChildPoolsOnCockroach covers the pools of child control planes on
+// CockroachDB: a child's pool can't overlap another child's, and a runtime's
+// range can't overlap a child's pool, while this control plane's own pool
+// holds its runtimes' ranges.
+func TestChildPoolsOnCockroach(t *testing.T) {
+	setupRuntimeTables(t)
+
+	runtimeDefinition := &api_v0.KubernetesRuntimeDefinition{
+		Definition:    api_v0.Definition{Name: util.Ptr("child-pool-runtime-definition")},
+		InfraProvider: util.Ptr(api_v0.KubernetesRuntimeInfraProviderEKS),
+	}
+	require.NoError(t, testDb.Create(runtimeDefinition).Error)
+	runtime := func(name string, networkCidr *string) error {
+		return testDb.Create(&api_v0.KubernetesRuntimeInstance{
+			Instance:                      api_v0.Instance{Name: util.Ptr(name)},
+			Location:                      util.Ptr("Local"),
+			KubernetesRuntimeDefinitionID: runtimeDefinition.ID,
+			NetworkCidr:                   networkCidr,
+		}).Error
+	}
+	require.NoError(t, runtime("child-pool-host", nil))
+	var host api_v0.KubernetesRuntimeInstance
+	require.NoError(t, testDb.Where("name = ?", "child-pool-host").First(&host).Error)
+	controlPlaneDefinition := &api_v0.ControlPlaneDefinition{Definition: api_v0.Definition{Name: util.Ptr("child-pool-control-plane-definition")}}
+	require.NoError(t, testDb.Create(controlPlaneDefinition).Error)
+	controlPlane := func(name string, self bool, pool string) error {
+		raw := datatypes.JSON(pool)
+		return testDb.Create(&api_v0.ControlPlaneInstance{
+			Instance:                    api_v0.Instance{Name: util.Ptr(name)},
+			Namespace:                   util.Ptr("threeport-control-plane"),
+			IsSelf:                      util.Ptr(self),
+			ControlPlaneDefinitionID:    controlPlaneDefinition.ID,
+			KubernetesRuntimeInstanceID: host.ID,
+			NetworkCidrPool:             &raw,
+		}).Error
+	}
+
+	require.NoError(t, controlPlane("child-pool-self", true, `["10.0.0.0/8"]`))
+	require.NoError(t, controlPlane("child-pool-first", false, `["10.48.0.0/12"]`))
+	err := controlPlane("child-pool-overlapping", false, `["10.48.0.0/16"]`)
+	assert.ErrorContains(t, err, "overlaps 10.48.0.0/12, in the network range pool of child control plane child-pool-first")
+	require.NoError(t, controlPlane("child-pool-second", false, `["10.64.0.0/12"]`))
+
+	err = runtime("child-pool-inside-a-child", util.Ptr("10.50.0.0/16"))
+	assert.ErrorContains(t, err, "NetworkCidr 10.50.0.0/16 overlaps 10.48.0.0/12, in the network range pool of child control plane child-pool-first")
+	assert.NoError(t, runtime("child-pool-in-its-own-pool", util.Ptr("10.120.0.0/16")))
+}
+
+// TestADeletedChildsPoolStaysReservedOnCockroach covers deleting a child
+// control plane with a pool on CockroachDB: the pool is recorded on this
+// control plane's instance in the delete's transaction, and a runtime's range
+// in it is refused.  It has a database of its own, which holds this control
+// plane's one instance, as a control plane's does.
+func TestADeletedChildsPoolStaysReservedOnCockroach(t *testing.T) {
+	key, err := encryption.GenerateKey()
+	require.NoError(t, err)
+	t.Setenv(encryption.KeyEnvVar, key)
+	db := freshDatabase(t, "reserved_pool")
+	require.NoError(t, db.AutoMigrate(
+		&api_v0.AttachedObjectReference{},
+		&api_v0.KubernetesRuntimeDefinition{},
+		&api_v0.KubernetesRuntimeInstance{},
+		&api_v0.ControlPlaneDefinition{},
+		&api_v0.ControlPlaneInstance{},
+	))
+
+	runtimeDefinition := &api_v0.KubernetesRuntimeDefinition{
+		Definition:    api_v0.Definition{Name: util.Ptr("reserved-pool-runtime-definition")},
+		InfraProvider: util.Ptr(api_v0.KubernetesRuntimeInfraProviderEKS),
+	}
+	require.NoError(t, db.Create(runtimeDefinition).Error)
+	host := &api_v0.KubernetesRuntimeInstance{
+		Instance:                      api_v0.Instance{Name: util.Ptr("reserved-pool-host")},
+		Location:                      util.Ptr("Local"),
+		KubernetesRuntimeDefinitionID: runtimeDefinition.ID,
+	}
+	require.NoError(t, db.Create(host).Error)
+	controlPlaneDefinition := &api_v0.ControlPlaneDefinition{Definition: api_v0.Definition{Name: util.Ptr("reserved-pool-control-plane-definition")}}
+	require.NoError(t, db.Create(controlPlaneDefinition).Error)
+	controlPlane := func(name string, self bool, pool string) *api_v0.ControlPlaneInstance {
+		raw := datatypes.JSON(pool)
+		instance := &api_v0.ControlPlaneInstance{
+			Instance:                    api_v0.Instance{Name: util.Ptr(name)},
+			Namespace:                   util.Ptr("threeport-control-plane"),
+			IsSelf:                      util.Ptr(self),
+			ControlPlaneDefinitionID:    controlPlaneDefinition.ID,
+			KubernetesRuntimeInstanceID: host.ID,
+			NetworkCidrPool:             &raw,
+		}
+		require.NoError(t, db.Create(instance).Error)
+		return instance
+	}
+	self := controlPlane("reserved-pool-self", true, `["10.0.0.0/8"]`)
+	child := controlPlane("reserved-pool-child", false, `["10.32.0.0/12"]`)
+
+	require.NoError(t, db.Delete(child).Error)
+	var loaded api_v0.ControlPlaneInstance
+	require.NoError(t, db.First(&loaded, *self.ID).Error)
+	require.NotNil(t, loaded.ReservedNetworkCidrs)
+	assert.JSONEq(t, `["10.32.0.0/12"]`, string(*loaded.ReservedNetworkCidrs))
+
+	err = db.Create(&api_v0.KubernetesRuntimeInstance{
+		Instance:                      api_v0.Instance{Name: util.Ptr("reserved-pool-runtime")},
+		Location:                      util.Ptr("Local"),
+		KubernetesRuntimeDefinitionID: runtimeDefinition.ID,
+		NetworkCidr:                   util.Ptr("10.33.0.0/16"),
+	}).Error
+	assert.ErrorContains(t, err, "reserved for the clusters of a deleted child control plane")
 }

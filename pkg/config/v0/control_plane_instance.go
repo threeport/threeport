@@ -33,6 +33,7 @@ type ControlPlaneInstanceValues struct {
 	ImageNamespace            *string
 	ImageTag                  *string
 	NetworkCidrPool           *[]string
+	ReservedNetworkCidrs      *[]string
 	Apis                      *string
 	CustomComponentInfo       []*api_v0.ControlPlaneComponent
 	Genesis                   *bool
@@ -102,6 +103,7 @@ func (c *ControlPlaneInstanceConfig) Get(
 				ImageNamespace:            controlPlaneInstance.ImageNamespace,
 				ImageTag:                  controlPlaneInstance.ImageTag,
 				NetworkCidrPool:           cidrsFromJSON(controlPlaneInstance.NetworkCidrPool),
+				ReservedNetworkCidrs:      cidrsFromJSON(controlPlaneInstance.ReservedNetworkCidrs),
 				Apis:                      controlPlaneInstance.Apis,
 				CustomComponentInfo:       controlPlaneInstance.CustomComponentInfo,
 				Genesis:                   controlPlaneInstance.Genesis,
@@ -156,6 +158,7 @@ func (c *ControlPlaneInstanceConfig) Create(
 		ImageNamespace:              controlPlaneInstanceValues.ImageNamespace,
 		ImageTag:                    controlPlaneInstanceValues.ImageTag,
 		NetworkCidrPool:             cidrsToJSON(controlPlaneInstanceValues.NetworkCidrPool),
+		ReservedNetworkCidrs:        cidrsToJSON(controlPlaneInstanceValues.ReservedNetworkCidrs),
 		Apis:                        controlPlaneInstanceValues.Apis,
 		CustomComponentInfo:         controlPlaneInstanceValues.CustomComponentInfo,
 		ControlPlaneDefinitionID:    controlPlaneDefinition.ID,
@@ -182,6 +185,7 @@ func (c *ControlPlaneInstanceConfig) Create(
 			ImageNamespace:            createdControlPlaneInstance.ImageNamespace,
 			ImageTag:                  createdControlPlaneInstance.ImageTag,
 			NetworkCidrPool:           cidrsFromJSON(createdControlPlaneInstance.NetworkCidrPool),
+			ReservedNetworkCidrs:      cidrsFromJSON(createdControlPlaneInstance.ReservedNetworkCidrs),
 			Apis:                      createdControlPlaneInstance.Apis,
 			CustomComponentInfo:       createdControlPlaneInstance.CustomComponentInfo,
 			Genesis:                   createdControlPlaneInstance.Genesis,
@@ -230,6 +234,12 @@ func (c *ControlPlaneInstanceConfig) Replace(
 	updatedControlPlaneInstance.ImageNamespace = controlPlaneInstanceValues.ImageNamespace
 	updatedControlPlaneInstance.ImageTag = controlPlaneInstanceValues.ImageTag
 	updatedControlPlaneInstance.NetworkCidrPool = cidrsToJSON(controlPlaneInstanceValues.NetworkCidrPool)
+	// a reservation is released only by naming what stays, so a config that
+	// leaves the field out keeps the stored one rather than releasing every
+	// deleted child's pool
+	if controlPlaneInstanceValues.ReservedNetworkCidrs != nil {
+		updatedControlPlaneInstance.ReservedNetworkCidrs = cidrsToJSON(controlPlaneInstanceValues.ReservedNetworkCidrs)
+	}
 	updatedControlPlaneInstance.Apis = controlPlaneInstanceValues.Apis
 	updatedControlPlaneInstance.CustomComponentInfo = controlPlaneInstanceValues.CustomComponentInfo
 
@@ -254,6 +264,7 @@ func (c *ControlPlaneInstanceConfig) Replace(
 			ImageNamespace:            replacedControlPlaneInstance.ImageNamespace,
 			ImageTag:                  replacedControlPlaneInstance.ImageTag,
 			NetworkCidrPool:           cidrsFromJSON(replacedControlPlaneInstance.NetworkCidrPool),
+			ReservedNetworkCidrs:      cidrsFromJSON(replacedControlPlaneInstance.ReservedNetworkCidrs),
 			Apis:                      replacedControlPlaneInstance.Apis,
 			CustomComponentInfo:       replacedControlPlaneInstance.CustomComponentInfo,
 			Genesis:                   replacedControlPlaneInstance.Genesis,

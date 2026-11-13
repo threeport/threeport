@@ -59,6 +59,12 @@ type KubernetesRuntimeInfraEKS struct {
 	// The number of availability zones the EKS cluster will be deployed across.
 	ZoneCount int32
 
+	// The network range allocated to the cluster, such as "10.16.0.0/16", its
+	// KubernetesRuntimeInstance's NetworkCidr.  Its VPC and subnets are laid
+	// out in it.  If empty, the cluster gets the range every cluster got
+	// before ranges were allocated, as one created then has.
+	NetworkCidr string
+
 	// The AWS isntance type used for the default node group.
 	DefaultNodeGroupInstanceType string
 
@@ -106,11 +112,13 @@ func (i *KubernetesRuntimeInfraEKS) CreateInfra() (*kube.KubeConnectionInfo, err
 	}
 
 	// a create resumed on a stack that holds the cluster keeps its version
+	// and the range its network was laid out in
 	exported, err := stack.Export(context.Background())
 	if err != nil {
-		return nil, fmt.Errorf("failed to read the stack's EKS cluster: %w", err)
+		return nil, fmt.Errorf("failed to read the stack: %w", err)
 	}
 	i.keepStackVersion(exported.Deployment)
+	i.keepStackNetwork(exported.Deployment)
 
 	if _, err := i.RunUp(context.Background(), stack); err != nil {
 		return nil, fmt.Errorf("failed to deploy stack: %w", err)

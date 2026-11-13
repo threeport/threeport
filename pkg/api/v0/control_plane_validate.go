@@ -284,8 +284,11 @@ func (c *ControlPlaneDefinition) afterDelete(tx *gorm.DB) error {
 // it to one, which is this object. Checking it at the CLI alone would leave
 // the API as the way around the rail.
 func (c *ControlPlaneInstance) beforeCreate(tx *gorm.DB) error {
-	if err := validateNetworkCidrPool(tx, c.NetworkCidrPool, c.IsSelf != nil && *c.IsSelf); err != nil {
+	if err := validateNetworkCidrPool(tx, c.NetworkCidrPool, c.IsSelf != nil && *c.IsSelf, nil); err != nil {
 		return err
+	}
+	if _, err := ParseReservedNetworkCidrs(c.ReservedNetworkCidrs); err != nil {
+		return util.NewBadRequestError(err.Error())
 	}
 
 	return validateAuthAgainstRuntime(tx, c)
@@ -337,6 +340,11 @@ func (c *ControlPlaneInstance) beforeUpdate(tx *gorm.DB) error {
 	// a new pool is checked whichever control plane the row is
 	if err := validateNetworkCidrPoolUpdate(tx, stored); err != nil {
 		return err
+	}
+	if incoming, ok := lib.IncomingValues(tx).(*ControlPlaneInstance); ok {
+		if _, err := ParseReservedNetworkCidrs(incoming.ReservedNetworkCidrs); err != nil {
+			return util.NewBadRequestError(err.Error())
+		}
 	}
 
 	// a root accepts changes sent to the API that serves it
@@ -462,9 +470,11 @@ func columnEmpty(valueOf func(context.Context, reflect.Value) (interface{}, bool
 	return zero
 }
 
-// beforeDelete runs before the ControlPlaneInstance is deleted.
+// beforeDelete runs before the ControlPlaneInstance is deleted.  A deleted
+// child's pool stays reserved on this control plane's own instance, since the
+// clusters the child allocated from it may outlive the child.
 func (c *ControlPlaneInstance) beforeDelete(tx *gorm.DB) error {
-	return nil
+	return reserveDeletedChildPool(tx, c)
 }
 
 // afterCreate runs after the ControlPlaneInstance is created.
@@ -497,5 +507,12 @@ func validateNetworkCidrPoolUpdate(tx *gorm.DB, stored *ControlPlaneInstance) er
 		return fmt.Errorf("cannot validate NetworkCidrPool: update carries %T", lib.IncomingValues(tx))
 	}
 
-	return validateNetworkCidrPool(tx, incoming.NetworkCidrPool, stored.IsSelf != nil && *stored.IsSelf)
+	self := stored.IsSelf != nil && *stored.IsSelf
+	if !self {
+		if err := validateNetworkCidrPoolGrows(stored.NetworkCidrPool, incoming.NetworkCidrPool); err != nil {
+			return err
+		}
+	}
+
+	return validateNetworkCidrPool(tx, incoming.NetworkCidrPool, self, stored.ID)
 }

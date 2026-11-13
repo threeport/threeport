@@ -71,8 +71,21 @@ type ControlPlaneInstance struct {
 	// is used: 10.16.0.0/16 through 10.255.0.0/16, except 10.96.0.0/16 and
 	// 10.244.0.0/16.  A change affects only later allocations.  On a child
 	// control plane, the pool must be clear of the ranges its parent has
-	// allocated, and the parent does not allocate from it.
+	// allocated and of its other children's pools, and the parent does not
+	// allocate from it.  A child's pool can only grow, since the child may
+	// have allocated from any of its blocks: a block can be added, or replaced
+	// by a larger one that holds it.  A child with no pool allocates no
+	// ranges, and its clusters keep the network every cluster used to get.
 	NetworkCidrPool *datatypes.JSON `validate:"optional" swaggertype:"array,string"`
+
+	// The address blocks this control plane doesn't allocate from, and that
+	// no runtime's range and no child control plane's pool may overlap, as a
+	// JSON array of IPv4 CIDR blocks.  They are the pools of its deleted
+	// children, recorded on the instance that represents this control plane
+	// as each child is deleted, since the clusters a child allocated from its
+	// pool may outlive it.  Remove a block once the clusters allocated from it
+	// are gone.
+	ReservedNetworkCidrs *datatypes.JSON `validate:"optional" swaggertype:"array,string"`
 
 	// Indicates whether this is was the first control plane that was spun up in a control plane group
 	Genesis *bool `validate:"optional" gorm:"default:false"`
