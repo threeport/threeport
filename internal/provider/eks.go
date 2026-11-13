@@ -78,6 +78,11 @@ type KubernetesRuntimeInfraEKS struct {
 	// The public addresses of the control plane that manages the cluster,
 	// admitted along with AllowedCidrs when those are set.
 	ControlPlaneEgressCidrs []string
+
+	// stackSupportType is set by CreateInfra when the stack already holds the
+	// cluster, to the support type the cluster was created with: "" for one
+	// created before it was set.  The program keeps it.
+	stackSupportType *string
 }
 
 // Create provisions an AWS EKS cluster for threeport workloads and returns the
@@ -111,6 +116,7 @@ func (i *KubernetesRuntimeInfraEKS) CreateInfra() (*kube.KubeConnectionInfo, err
 		return nil, fmt.Errorf("failed to read the stack's EKS cluster: %w", err)
 	}
 	i.keepStackVersion(exported.Deployment)
+	i.keepStackSupportType(exported.Deployment)
 
 	if _, err := i.RunUp(context.Background(), stack); err != nil {
 		return nil, fmt.Errorf("failed to deploy stack: %w", err)
@@ -130,6 +136,20 @@ func (i *KubernetesRuntimeInfraEKS) CreateInfra() (*kube.KubeConnectionInfo, err
 func (i *KubernetesRuntimeInfraEKS) keepStackVersion(deployment json.RawMessage) {
 	if version, held := clusterInputInStack(deployment, "aws:eks/cluster:Cluster", "version"); held && version != "" {
 		i.KubernetesVersion = version
+	}
+}
+
+// CreatedKubernetesVersion returns the Kubernetes minor version of the
+// cluster Create created or found in the stack, such as "1.36".
+func (i *KubernetesRuntimeInfraEKS) CreatedKubernetesVersion() string {
+	return i.kubernetesVersion()
+}
+
+// keepStackSupportType records the support type of the cluster the stack's
+// deployment holds, if it holds one, for the program to keep.
+func (i *KubernetesRuntimeInfraEKS) keepStackSupportType(deployment json.RawMessage) {
+	if supportType, held := clusterInputInStack(deployment, "aws:eks/cluster:Cluster", "upgradePolicy.supportType"); held {
+		i.stackSupportType = &supportType
 	}
 }
 

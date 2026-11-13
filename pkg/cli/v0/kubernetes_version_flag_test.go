@@ -32,15 +32,25 @@ func TestTheKubernetesVersionFlagNamesAVersionTptctlCreatesAClusterOn(t *testing
 }
 
 // TestTheGenesisDefinitionRecordsTheVersionTptctlCreatesItsClusterOn covers
-// the version on the definition of the cluster tptctl up creates.
+// the version on the definition of the cluster tptctl up creates: the one
+// asked for, or the default, on a new stack.
 func TestTheGenesisDefinitionRecordsTheVersionTptctlCreatesItsClusterOn(t *testing.T) {
-	assert.Equal(t, "1.35", *genesisKubernetesVersion(threeport.Options{
-		InfraProvider: v0.KubernetesRuntimeInfraProviderGKE, KubernetesVersion: "1.35",
-	}))
-	assert.Equal(t, v0.DefaultKubernetesVersion, *genesisKubernetesVersion(threeport.Options{
-		InfraProvider: v0.KubernetesRuntimeInfraProviderOKE,
-	}))
-	assert.Nil(t, genesisKubernetesVersion(threeport.Options{InfraProvider: v0.KubernetesRuntimeInfraProviderKind}))
+	assert.Equal(t, "1.35", *genesisKubernetesVersion(v0.KubernetesRuntimeInfraProviderGKE,
+		&provider.KubernetesRuntimeInfraGKE{Version: "1.35"}))
+	assert.Equal(t, v0.DefaultKubernetesVersion, *genesisKubernetesVersion(v0.KubernetesRuntimeInfraProviderEKS,
+		&provider.KubernetesRuntimeInfraEKS{}))
+	assert.Equal(t, "1.35", *genesisKubernetesVersion(v0.KubernetesRuntimeInfraProviderOKE,
+		&provider.KubernetesRuntimeInfraOKE{Version: "v1.35.2"}), "the release OKE resolved")
+	assert.Nil(t, genesisKubernetesVersion(v0.KubernetesRuntimeInfraProviderKind, &provider.KubernetesRuntimeInfraKind{}))
+
+	// a resumed create kept the version of the cluster its stack held, which
+	// may be one Threeport no longer supports
+	assert.Equal(t, "1.36", *genesisKubernetesVersion(v0.KubernetesRuntimeInfraProviderEKS,
+		&provider.KubernetesRuntimeInfraEKS{KubernetesVersion: "1.36"}))
+	assert.Nil(t, genesisKubernetesVersion(v0.KubernetesRuntimeInfraProviderEKS,
+		&provider.KubernetesRuntimeInfraEKS{KubernetesVersion: "1.32"}))
+	assert.Nil(t, genesisKubernetesVersion(v0.KubernetesRuntimeInfraProviderOKE,
+		&provider.KubernetesRuntimeInfraOKE{Version: "v1.32.1"}))
 }
 
 // TestTheGenesisGkeDefinitionRecordsTheClustersVersion covers the GKE

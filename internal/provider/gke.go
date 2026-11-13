@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"time"
 
 	container "cloud.google.com/go/container/apiv1"
 	containerpb "cloud.google.com/go/container/apiv1/containerpb"
@@ -46,6 +47,22 @@ type KubernetesRuntimeInfraGKE struct {
 	// release its channel offers for that minor version, and the nodes on the
 	// control plane's.
 	Version string
+
+	// The GKE release channel the cluster is enrolled in, such as "STABLE".
+	// If empty, the default channel is used.
+	ReleaseChannel string
+
+	// The days the cluster's maintenance window recurs on, in UTC, such as
+	// "SA,SU".  If empty, the default days are used.
+	MaintenanceWindowDays string
+
+	// The time of day the maintenance window starts, in UTC, such as "04:00".
+	// If empty, the default start is used.
+	MaintenanceWindowStart string
+
+	// How many hours the maintenance window lasts.  If zero, the default
+	// duration is used.
+	MaintenanceWindowHours int
 
 	// The Google Cloud project ID where the cluster infra is provisioned.
 	ProjectID string
@@ -110,6 +127,11 @@ type KubernetesRuntimeInfraGKE struct {
 	// the cluster, to the minimum version the cluster was created with: ""
 	// for one created before the version was set.  The program keeps it.
 	stackMinMasterVersion *string
+
+	// stackReleaseChannel is set by CreateInfra when the stack already holds
+	// the cluster, to the release channel the cluster was created with: ""
+	// for one created before the channel was set.  The program keeps it.
+	stackReleaseChannel *string
 
 	// nodesKeepDefaultServiceAccount is set by CreateInfra when the stack
 	// already holds a node pool whose nodes run as the project's default
@@ -255,8 +277,8 @@ func (i *KubernetesRuntimeInfraGKE) CreateInfra() (*kube.KubeConnectionInfo, err
 		return nil, fmt.Errorf("failed to set up Pulumi workspace: %w", err)
 	}
 
-	// a create resumed on a stack that holds the cluster keeps its version,
-	// and one whose node pool was created before the nodes had their own
+	// a create resumed on a stack that holds the cluster keeps its version
+	// and release channel, and one whose node pool was created before the nodes had their own
 	// service account leaves that node pool as it is
 	ctx := context.Background()
 	exported, err := stack.Export(ctx)
@@ -264,6 +286,7 @@ func (i *KubernetesRuntimeInfraGKE) CreateInfra() (*kube.KubeConnectionInfo, err
 		return nil, fmt.Errorf("failed to read the stack's GKE cluster: %w", err)
 	}
 	i.keepStackMinMasterVersion(exported.Deployment)
+	i.keepStackReleaseChannel(exported.Deployment)
 	i.nodesKeepDefaultServiceAccount = nodePoolRunsAsDefaultServiceAccount(exported.Deployment)
 
 	if _, err = i.RunUp(ctx, stack); err != nil {
@@ -332,6 +355,75 @@ func (i *KubernetesRuntimeInfraGKE) minMasterVersion() pulumi.StringPtrInput {
 	}
 
 	return pulumi.String(v0.KubernetesVersionOrDefault(&i.Version))
+}
+
+// CreatedKubernetesVersion returns the Kubernetes minor version Create asked
+// for the cluster it created or found in the stack, such as "1.36": "" for one
+// created before the version was set, which GKE chose.
+func (i *KubernetesRuntimeInfraGKE) CreatedKubernetesVersion() string {
+	if i.stackMinMasterVersion != nil {
+		return *i.stackMinMasterVersion
+	}
+
+	return v0.KubernetesVersionOrDefault(&i.Version)
+}
+
+// CreatedReleaseChannel returns the release channel of the cluster Create
+// created or found in the stack: "" for one created before the channel was
+// set, which GKE chose.
+func (i *KubernetesRuntimeInfraGKE) CreatedReleaseChannel() string {
+	if i.stackReleaseChannel != nil {
+		return *i.stackReleaseChannel
+	}
+
+	return v0.GkeReleaseChannelOrDefault(&i.ReleaseChannel)
+}
+
+// keepStackReleaseChannel records the release channel of the cluster the
+// stack's deployment holds, if it holds one, for the program to keep.
+func (i *KubernetesRuntimeInfraGKE) keepStackReleaseChannel(deployment json.RawMessage) {
+	if channel, held := clusterInputInStack(deployment, "gcp:container/cluster:Cluster", "releaseChannel.channel"); held {
+		i.stackReleaseChannel = &channel
+	}
+}
+
+// releaseChannel returns the release channel the program enrolls the cluster
+// in: the cluster's, when the stack already holds it, and the definition's or
+// the default otherwise.  GKE refuses to move a cluster to a slower channel
+// than one offering its version, so a cluster created before the channel was
+// set keeps the one GKE chose for it.
+func (i *KubernetesRuntimeInfraGKE) releaseChannel() gkecontainer.ClusterReleaseChannelPtrInput {
+	channel := i.CreatedReleaseChannel()
+	if channel == "" {
+		return nil
+	}
+
+	return &gkecontainer.ClusterReleaseChannelArgs{Channel: pulumi.String(channel)}
+}
+
+// maintenanceWindowAnchor is the date the maintenance window's recurrence
+// starts from.  A fixed date in the past keeps the window the program asks for
+// the same on every run.
+var maintenanceWindowAnchor = time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
+
+// maintenancePolicy returns the cluster's maintenance window: each of its
+// days from its start, for its hours, in UTC.  GKE upgrades the control plane
+// and nodes only in that window, apart from an upgrade it can't defer.
+func (i *KubernetesRuntimeInfraGKE) maintenancePolicy() (*gkecontainer.ClusterMaintenancePolicyArgs, error) {
+	start, err := time.Parse("15:04", v0.GkeMaintenanceWindowStartOrDefault(&i.MaintenanceWindowStart))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse the maintenance window's start: %w", err)
+	}
+	startTime := maintenanceWindowAnchor.Add(time.Duration(start.Hour())*time.Hour + time.Duration(start.Minute())*time.Minute)
+	endTime := startTime.Add(time.Duration(v0.GkeMaintenanceWindowHoursOrDefault(&i.MaintenanceWindowHours)) * time.Hour)
+
+	return &gkecontainer.ClusterMaintenancePolicyArgs{
+		RecurringWindow: &gkecontainer.ClusterMaintenancePolicyRecurringWindowArgs{
+			StartTime:  pulumi.String(startTime.Format(time.RFC3339)),
+			EndTime:    pulumi.String(endTime.Format(time.RFC3339)),
+			Recurrence: pulumi.String("FREQ=WEEKLY;BYDAY=" + v0.GkeMaintenanceWindowDaysOrDefault(&i.MaintenanceWindowDays)),
+		},
+	}, nil
 }
 
 // locationPolicy returns the node pool autoscaler's location policy.
@@ -456,6 +548,10 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 			return fmt.Errorf("failed to create Cloud NAT: %w", err)
 		}
 
+		maintenancePolicy, err := i.maintenancePolicy()
+		if err != nil {
+			return err
+		}
 		masterAuthorizedNetworksConfig, err := i.masterAuthorizedNetworksConfig()
 		if err != nil {
 			return err
@@ -484,8 +580,11 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 				ServicesSecondaryRangeName: pulumi.String("services"),
 			},
 
-			// a minimum: GKE upgrades the control plane past it on its own
-			MinMasterVersion: i.minMasterVersion(),
+			// a minimum: GKE upgrades the control plane past it on its own,
+			// to its channel's releases, within the maintenance window
+			MinMasterVersion:  i.minMasterVersion(),
+			ReleaseChannel:    i.releaseChannel(),
+			MaintenancePolicy: maintenancePolicy,
 
 			InitialNodeCount:      pulumi.Int(1),
 			RemoveDefaultNodePool: pulumi.Bool(true),

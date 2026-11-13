@@ -97,6 +97,10 @@ func TestBuildGkeInfra_MapsDefinitionNodePoolFields(t *testing.T) {
 		DefaultNodeGroupMinimumSize:  &minSize,
 		DefaultNodeGroupMaximumSize:  &maxSize,
 		KubernetesVersion:            util.Ptr("1.35"),
+		ReleaseChannel:               util.Ptr("STABLE"),
+		MaintenanceWindowDays:        util.Ptr("SU"),
+		MaintenanceWindowStart:       util.Ptr("22:00"),
+		MaintenanceWindowHours:       util.Ptr(6),
 	}
 
 	infra, err := buildGkeInfra(r, instance, definition, nil)
@@ -107,12 +111,24 @@ func TestBuildGkeInfra_MapsDefinitionNodePoolFields(t *testing.T) {
 	assert.Equal(t, int32(3), infra.MinNodeCount)
 	assert.Equal(t, int32(7), infra.MaxNodeCount)
 	assert.Equal(t, "1.35", infra.Version)
+	assert.Equal(t, "STABLE", infra.ReleaseChannel)
+	assert.Equal(t, "SU", infra.MaintenanceWindowDays)
+	assert.Equal(t, "22:00", infra.MaintenanceWindowStart)
+	assert.Equal(t, 6, infra.MaintenanceWindowHours)
 
-	// a definition created before versions were recorded gets the default
+	// a definition created before these were recorded gets the defaults
 	definition.KubernetesVersion = nil
+	definition.ReleaseChannel = nil
+	definition.MaintenanceWindowDays = nil
+	definition.MaintenanceWindowStart = nil
+	definition.MaintenanceWindowHours = nil
 	infra, err = buildGkeInfra(r, instance, definition, nil)
 	require.NoError(t, err)
 	assert.Equal(t, api_v0.DefaultKubernetesVersion, infra.Version)
+	assert.Equal(t, api_v0.DefaultGkeReleaseChannel, infra.ReleaseChannel)
+	assert.Equal(t, api_v0.DefaultGkeMaintenanceWindowDays, infra.MaintenanceWindowDays)
+	assert.Equal(t, api_v0.DefaultGkeMaintenanceWindowStart, infra.MaintenanceWindowStart)
+	assert.Equal(t, api_v0.DefaultGkeMaintenanceWindowHours, infra.MaintenanceWindowHours)
 }
 
 // TestBuildGkeInfra_RefusesWithoutAnAccountToBind covers a provider with no

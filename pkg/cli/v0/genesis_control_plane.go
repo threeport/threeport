@@ -367,6 +367,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 				RuntimeInstanceName: runtimeInstanceName(cpi.Opts),
 			},
 			Version:                cpi.Opts.KubernetesVersion,
+			ReleaseChannel:         gkeReleaseChannel(cpi.Opts.Tier),
 			WorkerNodeInitialCount: gkeProfile.InitialNodeCount,
 			MachineType:            gkeProfile.MachineType,
 			MinNodeCount:           gkeProfile.MinNodeCount,
@@ -895,7 +896,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 				Reconciled: &defReconciled,
 			},
 			InfraProvider:     &cpi.Opts.InfraProvider,
-			KubernetesVersion: genesisKubernetesVersion(cpi.Opts),
+			KubernetesVersion: genesisKubernetesVersion(cpi.Opts.InfraProvider, kubernetesRuntimeInfra),
 			PrivateApi:        privateApiField(cpi.Opts.PrivateK8sApi),
 			AllowedCidrs:      allowedCidrsJSON(cpi.Opts.K8sApiAllowedCidrs),
 		}
@@ -1518,14 +1519,20 @@ func apiPortFromKindMappings(kindPortMappings []string) int {
 }
 
 // genesisKubernetesVersion returns the Kubernetes version recorded on the
-// definition of the cluster tptctl up creates: the one asked for, or the
-// default.  A kind cluster's version comes with its node image, so it records
-// none.
-func genesisKubernetesVersion(opts threeport.Options) *string {
-	if opts.InfraProvider == v0.KubernetesRuntimeInfraProviderKind {
+// definition of the cluster tptctl up created: the one the infra created it
+// on, which a create resumed on a stack that already held the cluster keeps
+// from the stack rather than taking the one asked for.  A version that isn't
+// known, or that Threeport no longer supports, isn't recorded, nor is a kind
+// cluster's, which comes with its node image.
+func genesisKubernetesVersion(infraProvider string, infra provider.KubernetesRuntimeInfra) *string {
+	created, ok := infra.(interface{ CreatedKubernetesVersion() string })
+	if !ok {
 		return nil
 	}
-	version := v0.KubernetesVersionOrDefault(&opts.KubernetesVersion)
+	version := created.CreatedKubernetesVersion()
+	if version == "" || v0.ValidateKubernetesVersion(infraProvider, &version) != nil {
+		return nil
+	}
 
 	return &version
 }

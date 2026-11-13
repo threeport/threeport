@@ -503,6 +503,10 @@ func buildGkeInfra(
 		MaxNodeCount:           int32(*definition.DefaultNodeGroupMaximumSize),
 		PrivateApi:             definition.PrivateApi != nil && *definition.PrivateApi,
 		Version:                v0.KubernetesVersionOrDefault(definition.KubernetesVersion),
+		ReleaseChannel:         v0.GkeReleaseChannelOrDefault(definition.ReleaseChannel),
+		MaintenanceWindowDays:  v0.GkeMaintenanceWindowDaysOrDefault(definition.MaintenanceWindowDays),
+		MaintenanceWindowStart: v0.GkeMaintenanceWindowStartOrDefault(definition.MaintenanceWindowStart),
+		MaintenanceWindowHours: v0.GkeMaintenanceWindowHoursOrDefault(definition.MaintenanceWindowHours),
 		AllowedCidrs:           allowedCidrs,
 		ReserveNatAddress:      instance.ReservedNatAddress != nil && *instance.ReservedNatAddress,
 	}).InitPulumiProject()
