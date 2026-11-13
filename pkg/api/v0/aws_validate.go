@@ -133,6 +133,20 @@ func (a *AwsEksKubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
 	if err := validateKubernetesVersionUpdate(tx); err != nil {
 		return err
 	}
+	if err := validateDeletionProtectionUpdate(
+		tx,
+		func(value any) (*bool, *uint, bool) {
+			object, ok := value.(*AwsEksKubernetesRuntimeDefinition)
+			if !ok {
+				return nil, nil, false
+			}
+			return object.DeletionProtection, object.ID, true
+		},
+		&AwsEksKubernetesRuntimeInstance{},
+		"aws_eks_kubernetes_runtime_definition_id",
+	); err != nil {
+		return err
+	}
 
 	return validateKubernetesApiAccessUpdate(
 		tx,

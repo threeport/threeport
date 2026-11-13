@@ -75,7 +75,8 @@ OKE are protected from being deleted by mistake:
 
 - Threeport refuses to delete a runtime instance whose cluster is protected,
   answering `409`, and `tptctl down` refuses to tear down a control plane
-  whose cluster is protected. Neither deletes anything.
+  whose cluster is protected. Neither deletes anything. `tptctl down
+  --control-plane-only` leaves the cluster as it is, so it isn't refused.
 - Pulumi protects the cluster and its node group or node pool, so a change
   that would destroy or replace them fails before it changes anything.
 
@@ -122,6 +123,11 @@ Use `gcp-gke-kubernetes-runtime-definition` or
 Turning protection off on a definition lets every runtime instance of it be
 deleted. Threeport removes the cluster's protection just before it destroys
 the cluster, without applying any other change to it.
+
+A cluster is protected when it is created, so protection can't be turned on
+for a definition that already has runtime instances: their clusters would
+stay unprotected while the definition said otherwise. Create the clusters to
+protect from a definition with `DeletionProtection: true`.
 
 `tptctl down --infra-only` tears down a cluster whose control plane may no
 longer be running. It checks `DeletionProtection` when the Threeport API

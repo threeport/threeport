@@ -5,6 +5,9 @@ import (
 	"fmt"
 
 	"gorm.io/gorm"
+
+	lib "github.com/threeport/threeport/pkg/api/lib/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // DeleteRefuser is implemented by an API object whose delete the API server
@@ -174,4 +177,61 @@ func (o *OciOkeKubernetesRuntimeInstance) RefuseDelete(db *gorm.DB) error {
 	return refuseProtectedDelete(&OciOkeKubernetesRuntimeDefinition{}, func(dest any) *gorm.DB {
 		return db.Session(&gorm.Session{NewDB: true}).First(dest, *o.OciOkeKubernetesRuntimeDefinitionID)
 	})
+}
+
+// ErrMsgDeletionProtectionTurnedOn is the error a definition with runtime
+// instances is refused when an update turns its DeletionProtection on.
+const ErrMsgDeletionProtectionTurnedOn = "DeletionProtection can't be turned on for a definition that has runtime instances: " +
+	"a cluster is protected when it is created, so its existing clusters would stay unprotected. " +
+	"Create the clusters to protect from a definition with DeletionProtection: true"
+
+// validateDeletionProtectionUpdate refuses an update of an EKS, GKE or OKE
+// definition that turns DeletionProtection on while the definition has
+// runtime instances.  Protection is put on a cluster, in Pulumi and on EKS,
+// when the cluster is created, so the definition would report its existing
+// clusters protected while nothing protects them.  Turning it off is
+// allowed, and so is turning it on for a definition with no instances yet.
+// protection returns a definition's DeletionProtection and ID; instances is
+// the model of its runtime instances, whose definitionColumn holds the ID.
+func validateDeletionProtectionUpdate(
+	tx *gorm.DB,
+	protection func(any) (*bool, *uint, bool),
+	instances any,
+	definitionColumn string,
+) error {
+	incoming, _, ok := protection(lib.IncomingValues(tx))
+	if !ok {
+		return fmt.Errorf("cannot validate DeletionProtection: update carries %T", lib.IncomingValues(tx))
+	}
+	if incoming == nil || !*incoming {
+		return nil
+	}
+
+	var stored any
+	var err error
+	if lib.IsFullReplace(tx) {
+		stored, err = lib.LoadObjectFromDB(tx)
+	} else {
+		stored, err = lib.LockObjectInDB(tx)
+	}
+	if err != nil {
+		return err
+	}
+	storedProtection, id, ok := protection(stored)
+	if !ok {
+		return fmt.Errorf("cannot validate DeletionProtection: loaded %T", stored)
+	}
+	if (storedProtection != nil && *storedProtection) || id == nil {
+		return nil
+	}
+
+	var count int64
+	if result := lib.NewCleanSession(tx).Model(instances).Where(definitionColumn+" = ?", *id).Count(&count); result.Error != nil {
+		return fmt.Errorf("failed to count the definition's runtime instances: %w", result.Error)
+	}
+	if count > 0 {
+		return util.NewBadRequestError(ErrMsgDeletionProtectionTurnedOn)
+	}
+
+	return nil
 }

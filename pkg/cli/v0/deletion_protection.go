@@ -10,6 +10,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
+	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 )
 
 // teardownProtectionCheckTimeout bounds each call tptctl down --infra-only
@@ -119,4 +120,41 @@ func apiUnreachable(err error) bool {
 	var netErr net.Error
 
 	return errors.As(err, &netErr)
+}
+
+// checkTeardownProtection runs checkTeardownDeletionProtection for tptctl
+// down, and tells the user what it found: a check it skipped, or that the
+// cluster's protection is removed before it is destroyed.  A
+// --control-plane-only teardown leaves the cluster as it is, so it isn't
+// checked.
+func checkTeardownProtection(
+	apiClient *http.Client,
+	controlPlaneConfig *ControlPlane,
+	instance *v0.KubernetesRuntimeInstance,
+	opts threeport.Options,
+) error {
+	if opts.ControlPlaneOnly {
+		return nil
+	}
+	skipped, err := checkTeardownDeletionProtection(
+		apiClient,
+		controlPlaneConfig.APIServer,
+		controlPlaneConfig.Provider,
+		instance,
+		opts.InfraOnly,
+	)
+	if err != nil {
+		return err
+	}
+	if skipped != nil {
+		Warning(fmt.Sprintf(
+			"The Threeport API could not be reached (%v), so the cluster's deletion protection was not checked",
+			skipped,
+		))
+	}
+	if controlPlaneConfig.Provider != v0.KubernetesRuntimeInfraProviderKind {
+		Info("Removing the cluster's deletion protection, where it has any, before destroying it")
+	}
+
+	return nil
 }

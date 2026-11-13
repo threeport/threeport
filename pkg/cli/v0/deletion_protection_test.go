@@ -182,3 +182,20 @@ func TestTptctlDownInfraOnlySkipsTheCheckOnlyWithoutAnApi(t *testing.T) {
 	assert.Nil(t, skipped)
 	assert.Error(t, err)
 }
+
+// TestTptctlDownControlPlaneOnlyLeavesAProtectedClusterAlone covers
+// --control-plane-only, which removes the control plane and leaves its
+// cluster as it is: a protected cluster doesn't stop it, while a teardown of
+// the cluster is refused.
+func TestTptctlDownControlPlaneOnlyLeavesAProtectedClusterAlone(t *testing.T) {
+	server := teardownAPI(t, util.Ptr(true), 0, 0)
+	controlPlane := &ControlPlane{
+		APIServer: strings.TrimPrefix(server.URL, "http://"),
+		Provider:  v0.KubernetesRuntimeInfraProviderEKS,
+	}
+	instance := &v0.KubernetesRuntimeInstance{Common: v0.Common{ID: util.Ptr(uint(3))}}
+
+	assert.NoError(t, checkTeardownProtection(server.Client(), controlPlane, instance, threeport.Options{ControlPlaneOnly: true}))
+	var protected *v0.DeletionProtectedError
+	assert.True(t, errors.As(checkTeardownProtection(server.Client(), controlPlane, instance, threeport.Options{}), &protected))
+}

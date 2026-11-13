@@ -1170,24 +1170,13 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	}
 
 	// refuse before anything is deleted while the cluster is protected
-	protectionCheckSkipped, err := checkTeardownDeletionProtection(
+	if err := checkTeardownProtection(
 		apiClient,
-		threeportControlPlaneConfig.APIServer,
-		threeportControlPlaneConfig.Provider,
+		threeportControlPlaneConfig,
 		kubernetesRuntimeInstance,
-		cpi.Opts.InfraOnly,
-	)
-	if err != nil {
+		cpi.Opts,
+	); err != nil {
 		return err
-	}
-	if protectionCheckSkipped != nil {
-		Warning(fmt.Sprintf(
-			"The Threeport API could not be reached (%v), so the cluster's deletion protection was not checked",
-			protectionCheckSkipped,
-		))
-	}
-	if threeportControlPlaneConfig.Provider != v0.KubernetesRuntimeInfraProviderKind {
-		Info("Removing the cluster's deletion protection, where it has any, before destroying it")
 	}
 
 	var kubernetesRuntimeInfra provider.KubernetesRuntimeInfra

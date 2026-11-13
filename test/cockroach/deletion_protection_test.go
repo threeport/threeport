@@ -1,6 +1,7 @@
 package cockroach
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -194,4 +195,81 @@ func TestAnUnprotectedClusterCanBeDeleted(t *testing.T) {
 	}
 	require.NoError(t, db.Session(&gorm.Session{SkipHooks: true}).Create(&kind).Error)
 	assert.NoError(t, api_v0.CheckDeleteRefused(db, &api_v0.KubernetesRuntimeInstance{KubernetesRuntimeDefinitionID: kind.ID}))
+}
+
+// TestProtectionCantBeTurnedOnForExistingClusters covers an update of an
+// EKS definition's DeletionProtection, by replace and by patch.  Turning it
+// on while the definition has runtime instances is refused, since their
+// clusters were created unprotected and the definition would report them
+// protected.  Turning it off is allowed, and so is turning it on for a
+// definition with no instances yet, or leaving it on.
+func TestProtectionCantBeTurnedOnForExistingClusters(t *testing.T) {
+	db := runtimeDatabase(t, "deletion_protection_update")
+	handler := handlers.Handler{DB: db, Logger: zap.NewNop()}
+	registerValidateTags(string(api_v0.ObjectTypeAwsEksKubernetesRuntimeDefinition), new(api_v0.AwsEksKubernetesRuntimeDefinition))
+	unprotected := createEksRuntime(t, db, "update-unprotected", util.Ptr(false))
+	protected := createEksRuntime(t, db, "update-protected", util.Ptr(true))
+	empty := createEksRuntime(t, db, "update-empty", nil)
+	require.NoError(t, db.Session(&gorm.Session{SkipHooks: true}).Delete(&empty.eksInstance).Error)
+
+	update := func(method string, definition api_v0.AwsEksKubernetesRuntimeDefinition, protection bool) (int, string) {
+		t.Helper()
+		var body []byte
+		var err error
+		if method == http.MethodPatch {
+			body, err = json.Marshal(map[string]any{"DeletionProtection": protection})
+		} else {
+			definition.DeletionProtection = util.Ptr(protection)
+			body, err = json.Marshal(definition)
+			require.NoError(t, err)
+			// CockroachDB's IDs don't fit a float64, so numbers are kept as written
+			fields := map[string]any{}
+			decoder := json.NewDecoder(bytes.NewReader(body))
+			decoder.UseNumber()
+			require.NoError(t, decoder.Decode(&fields))
+			// a replace carries the definition's own fields, as tptctl's does
+			for _, model := range []string{"ID", "CreatedAt", "UpdatedAt", "DeletedAt"} {
+				delete(fields, model)
+			}
+			for field, value := range fields {
+				if value == nil {
+					delete(fields, field)
+				}
+			}
+			body, err = json.Marshal(fields)
+		}
+		require.NoError(t, err)
+		c, recorder := newAPIRequest(method, api_v0.PathAwsEksKubernetesRuntimeDefinitions+"/:id", fmt.Sprint(*definition.ID), string(body))
+		if method == http.MethodPatch {
+			require.NoError(t, handler.UpdateAwsEksKubernetesRuntimeDefinition(c))
+		} else {
+			require.NoError(t, handler.ReplaceAwsEksKubernetesRuntimeDefinition(c))
+		}
+		return recorder.Code, recorder.Body.String()
+	}
+	stored := func(runtime *protectedEksRuntime) *bool {
+		var definition api_v0.AwsEksKubernetesRuntimeDefinition
+		require.NoError(t, db.First(&definition, *runtime.eksDefinition.ID).Error)
+		return definition.DeletionProtection
+	}
+
+	for _, method := range []string{http.MethodPut, http.MethodPatch} {
+		code, body := update(method, unprotected.eksDefinition, true)
+		assert.Equal(t, http.StatusBadRequest, code, method)
+		assert.Contains(t, body, "can't be turned on for a definition that has runtime instances", method)
+		assert.Equal(t, util.Ptr(false), stored(unprotected), method)
+	}
+
+	code, body := update(http.MethodPut, unprotected.eksDefinition, false)
+	assert.Equal(t, http.StatusOK, code, "a replace that leaves it off: %s", body)
+
+	code, body = update(http.MethodPatch, protected.eksDefinition, true)
+	assert.Equal(t, http.StatusOK, code, "leaving it on: %s", body)
+	code, body = update(http.MethodPut, protected.eksDefinition, false)
+	assert.Equal(t, http.StatusOK, code, "turning it off: %s", body)
+	assert.Equal(t, util.Ptr(false), stored(protected))
+
+	code, body = update(http.MethodPatch, empty.eksDefinition, true)
+	assert.Equal(t, http.StatusOK, code, "a definition with no instances: %s", body)
+	assert.Equal(t, util.Ptr(true), stored(empty))
 }
