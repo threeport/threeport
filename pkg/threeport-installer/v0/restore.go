@@ -1357,6 +1357,7 @@ func (cpi *ControlPlaneInstaller) StopSourceAndRestore(
 	replicas, scales, err := source.StopWritersAndBackup(kubeClient, apiClient, apiEndpoint, bucket)
 	if err != nil {
 		return nil, resumeSourceWriters(
+			cpi,
 			source,
 			kubeClient,
 			replicas,
@@ -1367,6 +1368,7 @@ func (cpi *ControlPlaneInstaller) StopSourceAndRestore(
 	}
 	if err := cpi.RestoreFromNamespace(kubeClient, bucket); err != nil {
 		return nil, resumeSourceWriters(
+			cpi,
 			source,
 			kubeClient,
 			replicas,
@@ -1400,7 +1402,10 @@ func (cpi *ControlPlaneInstaller) clearRestoreRecord(kubeClient dynamic.Interfac
 
 // resumeSourceWriters brings the source back up after a failed stop or restore.
 // It returns the original error when the resume succeeds.
+// resumeSourceWriters drops the saved restore and starts the source writers.
+// The next restore takes a new backup instead of reusing the saved snapshot.
 func resumeSourceWriters(
+	replacement *ControlPlaneInstaller,
 	source *ControlPlaneInstaller,
 	kubeClient dynamic.Interface,
 	replicas map[string]int64,
@@ -1408,6 +1413,10 @@ func resumeSourceWriters(
 	namespace string,
 	cause error,
 ) error {
+	// the source is writing again, so the saved snapshot cannot be reused
+	if err := replacement.clearRestoreRecord(kubeClient); err != nil {
+		return fmt.Errorf("%w (clear restore record: %v)", cause, err)
+	}
 	if resumeErr := source.ResumeWriters(kubeClient, replicas, scales); resumeErr != nil {
 		return fmt.Errorf("%w (resume of %s also failed: %v)", cause, namespace, resumeErr)
 	}
