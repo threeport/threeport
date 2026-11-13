@@ -62,6 +62,10 @@ func (g *GcpProvider) beforeDelete(tx *gorm.DB) error {
 
 // beforeCreate validates the GcpGkeKubernetesRuntimeDefinition before create.
 func (g *GcpGkeKubernetesRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
+	counts, _ := gkeNodeCounts(g)
+	if err := validateNodeCounts(counts); err != nil {
+		return err
+	}
 	if err := validateKubernetesApiAccess(KubernetesRuntimeInfraProviderGKE, g.PrivateApi, g.AllowedCidrs); err != nil {
 		return err
 	}
@@ -91,6 +95,9 @@ func (g *GcpGkeKubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
 		return err
 	}
 	if err := validateGkeUpgradeSettingsUpdate(tx); err != nil {
+		return err
+	}
+	if err := validateNodeCountsUpdate(tx, gkeNodeCounts); err != nil {
 		return err
 	}
 

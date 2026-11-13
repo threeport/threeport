@@ -59,6 +59,9 @@ func (k *KubernetesRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
 	if err := validateKubernetesApiAccess(*k.InfraProvider, k.PrivateApi, k.AllowedCidrs); err != nil {
 		return err
 	}
+	if err := validateKubernetesRuntimeNodeMaximum(k); err != nil {
+		return err
+	}
 
 	return validateKubernetesVersionCreate(*k.InfraProvider, k.KubernetesVersion)
 }

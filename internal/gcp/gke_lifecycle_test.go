@@ -111,6 +111,7 @@ func TestBuildGkeInfra_MapsDefinitionNodePoolFields(t *testing.T) {
 	assert.Equal(t, int32(3), infra.MinNodeCount)
 	assert.Equal(t, int32(7), infra.MaxNodeCount)
 	assert.Equal(t, "1.35", infra.Version)
+	assert.Zero(t, infra.ZoneCount, "a definition that records no zones")
 	assert.Equal(t, "STABLE", infra.ReleaseChannel)
 	assert.Equal(t, "SU", infra.MaintenanceWindowDays)
 	assert.Equal(t, "22:00", infra.MaintenanceWindowStart)
@@ -129,6 +130,12 @@ func TestBuildGkeInfra_MapsDefinitionNodePoolFields(t *testing.T) {
 	assert.Equal(t, api_v0.DefaultGkeMaintenanceWindowDays, infra.MaintenanceWindowDays)
 	assert.Equal(t, api_v0.DefaultGkeMaintenanceWindowStart, infra.MaintenanceWindowStart)
 	assert.Equal(t, api_v0.DefaultGkeMaintenanceWindowHours, infra.MaintenanceWindowHours)
+
+	// the zones the definition's clusters run their nodes in
+	definition.ZoneCount = util.Ptr(3)
+	infra, err = buildGkeInfra(r, instance, definition, nil)
+	require.NoError(t, err)
+	assert.Equal(t, int32(3), infra.ZoneCount)
 }
 
 // TestBuildGkeInfra_RefusesWithoutAnAccountToBind covers a provider with no

@@ -497,6 +497,7 @@ func buildGkeInfra(
 		},
 		ProjectID:              *gcpProvider.ProjectID,
 		Region:                 *instance.Region,
+		ZoneCount:              int32(util.Deref(definition.ZoneCount)),
 		WorkerNodeInitialCount: int32(*definition.DefaultNodeGroupInitialSize),
 		MachineType:            *definition.DefaultNodeGroupInstanceType,
 		MinNodeCount:           int32(*definition.DefaultNodeGroupMinimumSize),

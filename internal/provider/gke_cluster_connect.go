@@ -248,16 +248,17 @@ func removeMemberFromRole(policy *cloudresourcemanager.Policy, member, role stri
 }
 
 // privateThreeportClusterOtherThan reports whether clusters holds a private
-// one Threeport provisioned other than the one named name in location.
-// Clusters in different locations may share a name, so the location tells
-// them apart.  A cluster still being created counts, as it may already be
-// one whose create granted the role.
+// one Threeport provisioned other than the one named name in the region
+// location.  Clusters in different regions may share a name, so the region
+// tells them apart; the cluster itself is in the region, or in one of its
+// zones when it is zonal.  A cluster still being created counts, as it may
+// already be one whose create granted the role.
 func privateThreeportClusterOtherThan(clusters []*containerpb.Cluster, name, location string) bool {
 	for _, cluster := range clusters {
 		if cluster.GetResourceLabels()[GcpLabelProvisionedBy] != GcpLabelProvisionedByValue {
 			continue
 		}
-		if cluster.GetName() == name && cluster.GetLocation() == location {
+		if cluster.GetName() == name && gkeLocationInRegion(cluster.GetLocation(), location) {
 			continue
 		}
 		if !gkeHasPublicIpEndpoint(cluster) {
