@@ -112,7 +112,11 @@ func (a *AwsProvider) beforeDelete(tx *gorm.DB) error {
 
 // beforeCreate validates the AwsEksKubernetesRuntimeDefinition before create.
 func (a *AwsEksKubernetesRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
-	return validateKubernetesApiAccess(KubernetesRuntimeInfraProviderEKS, a.PrivateApi, a.AllowedCidrs)
+	if err := validateKubernetesApiAccess(KubernetesRuntimeInfraProviderEKS, a.PrivateApi, a.AllowedCidrs); err != nil {
+		return err
+	}
+
+	return validateKubernetesVersionCreate(KubernetesRuntimeInfraProviderEKS, a.KubernetesVersion)
 }
 
 // beforeUpdate validates the AwsEksKubernetesRuntimeDefinition before update.
@@ -132,6 +136,9 @@ func (a *AwsEksKubernetesRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
 //
 //	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (a *AwsEksKubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
+	if err := validateKubernetesVersionUpdate(tx); err != nil {
+		return err
+	}
 	nodeGroupPerZoneChanged, err := lib.IsFieldChanged(tx, "NodeGroupPerZone")
 	if err != nil {
 		return err

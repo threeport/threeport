@@ -37,6 +37,7 @@ func TestEksInfraFromApiObjects_MapsDefinitionNodeGroupFields(t *testing.T) {
 		DefaultNodeGroupInitialSize:  util.Ptr(2),
 		DefaultNodeGroupMinimumSize:  util.Ptr(3),
 		DefaultNodeGroupMaximumSize:  util.Ptr(7),
+		KubernetesVersion:            util.Ptr("1.35"),
 		NodeGroupPerZone:             util.Ptr(true),
 	}
 	awsConfig := &aws.Config{Region: "us-east-1"}
@@ -68,6 +69,13 @@ func TestEksInfraFromApiObjects_MapsDefinitionNodeGroupFields(t *testing.T) {
 	assert.Equal(t, int32(2), infra.DefaultNodeGroupInitialNodes)
 	assert.Equal(t, int32(3), infra.DefaultNodeGroupMinNodes)
 	assert.Equal(t, int32(7), infra.DefaultNodeGroupMaxNodes)
+	assert.Equal(t, "1.35", infra.KubernetesVersion)
+
+	// a definition created before versions were recorded gets the default
+	definition.KubernetesVersion = nil
+	infra, err = eksInfraFromApiObjects(instance, definition, "123456789012", awsConfig, providerCredentials, nil)
+	require.NoError(t, err)
+	assert.Equal(t, v0.DefaultKubernetesVersion, infra.KubernetesVersion)
 	assert.True(t, infra.NodeGroupPerZone)
 
 	// a definition created before node groups per zone has one spanning them

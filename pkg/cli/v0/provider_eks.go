@@ -173,6 +173,7 @@ func DeployEksInfra(
 		DefaultNodeGroupInitialNodes: eksProfile.InitialNodeCount,
 		DefaultNodeGroupMinNodes:     eksProfile.MinNodeCount,
 		DefaultNodeGroupMaxNodes:     eksProfile.MaxNodeCount,
+		KubernetesVersion:            v0.KubernetesVersionOrDefault(&cpi.Opts.KubernetesVersion),
 		AllowedCidrs:                 cpi.Opts.K8sApiAllowedCidrs,
 	}).InitPulumiProject()
 	*kubernetesRuntimeInfra = kubernetesRuntimeInfraEKS
@@ -341,6 +342,8 @@ func ConfigureControlPlaneWithEksConfig(
 		kubernetesRuntimeInfraEKS,
 		kubernetesRuntimeDefResult.ID,
 	)
+	// the version tptctl created the cluster on, none for an existing one
+	awsEksKubernetesRuntimeDef.KubernetesVersion = kubernetesRuntimeDefResult.KubernetesVersion
 	createdAwsEksKubernetesRuntimeDef, err := client.CreateAwsEksKubernetesRuntimeDefinition(
 		apiClient,
 		threeportAPIEndpoint,

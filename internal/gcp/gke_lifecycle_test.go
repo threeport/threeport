@@ -96,6 +96,7 @@ func TestBuildGkeInfra_MapsDefinitionNodePoolFields(t *testing.T) {
 		DefaultNodeGroupInitialSize:  &initialSize,
 		DefaultNodeGroupMinimumSize:  &minSize,
 		DefaultNodeGroupMaximumSize:  &maxSize,
+		KubernetesVersion:            util.Ptr("1.35"),
 	}
 
 	infra, err := buildGkeInfra(r, instance, definition, nil)
@@ -105,6 +106,13 @@ func TestBuildGkeInfra_MapsDefinitionNodePoolFields(t *testing.T) {
 	assert.Equal(t, int32(2), infra.WorkerNodeInitialCount)
 	assert.Equal(t, int32(3), infra.MinNodeCount)
 	assert.Equal(t, int32(7), infra.MaxNodeCount)
+	assert.Equal(t, "1.35", infra.Version)
+
+	// a definition created before versions were recorded gets the default
+	definition.KubernetesVersion = nil
+	infra, err = buildGkeInfra(r, instance, definition, nil)
+	require.NoError(t, err)
+	assert.Equal(t, api_v0.DefaultKubernetesVersion, infra.Version)
 }
 
 // TestBuildGkeInfra_RefusesWithoutAnAccountToBind covers a provider with no

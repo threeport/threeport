@@ -17541,6 +17541,10 @@ const docTemplate = `{
                     "description": "The kubernetes runtime definition for an EKS cluster in AWS.",
                     "type": "integer"
                 },
+                "KubernetesVersion": {
+                    "description": "The Kubernetes minor version of the clusters, such as \"1.36\": the\nKubernetesRuntimeDefinition's KubernetesVersion, or the default version\nwhen that is unset.  If unset here, the default version is used.  It\ncan't be changed after creation.",
+                    "type": "string"
+                },
                 "Name": {
                     "description": "An arbitrary name for the definition.",
                     "type": "string"
@@ -18413,6 +18417,10 @@ const docTemplate = `{
                     "description": "The kubernetes runtime definition for a GKE cluster in GCP.",
                     "type": "integer"
                 },
+                "KubernetesVersion": {
+                    "description": "The Kubernetes minor version of the clusters, such as \"1.36\": the\nKubernetesRuntimeDefinition's KubernetesVersion, or the default version\nwhen that is unset.  If unset here, the default version is used.  It\ncan't be changed after creation.",
+                    "type": "string"
+                },
                 "Name": {
                     "description": "An arbitrary name for the definition.",
                     "type": "string"
@@ -18777,6 +18785,10 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/v0.KubernetesRuntimeInstance"
                     }
+                },
+                "KubernetesVersion": {
+                    "description": "The Kubernetes minor version of the clusters, such as \"1.36\", on EKS,\nGKE and OKE.  If unset, the default version is used, and the EKS, GKE\nor OKE definition records it.  It can't be changed after creation.  A\nkind cluster's version comes with its node image, so it takes none.",
+                    "type": "string"
                 },
                 "Name": {
                     "description": "An arbitrary name for the definition.",
@@ -20285,6 +20297,10 @@ const docTemplate = `{
                 "KubernetesRuntimeDefinitionID": {
                     "description": "The kubernetes runtime definition for an OKE cluster in OCI.",
                     "type": "integer"
+                },
+                "KubernetesVersion": {
+                    "description": "The Kubernetes minor version of the clusters, such as \"1.36\": the\nKubernetesRuntimeDefinition's KubernetesVersion, or the default version\nwhen that is unset.  If unset here, the default version is used.  It\ncan't be changed after creation.",
+                    "type": "string"
                 },
                 "Name": {
                     "description": "An arbitrary name for the definition.",
