@@ -11,7 +11,7 @@ import (
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
-// TestModuleImageColumnsMigrateAnExistingDatabase covers 000007 on a database
+// TestModuleImageColumnsMigrateAnExistingDatabase covers 000008 on a database
 // built before a module recorded its image, and on one 000001 built with the
 // columns already there.
 func TestModuleImageColumnsMigrateAnExistingDatabase(t *testing.T) {
@@ -34,13 +34,13 @@ func TestModuleImageColumnsMigrateAnExistingDatabase(t *testing.T) {
 	// a new install: 000001 builds the fields from the model
 	require.NoError(t, migrations.Up000001(ctx, nil))
 	require.Equal(t, len(columns), present())
-	require.NoError(t, migrations.Up000007(ctx, sqlDb), "000007 finds them there")
+	require.NoError(t, migrations.Up000008(ctx, sqlDb), "000008 finds them there")
 
 	// a database built before the fields
-	require.NoError(t, migrations.Down000007(ctx, sqlDb))
+	require.NoError(t, migrations.Down000008(ctx, sqlDb))
 	assert.Zero(t, present())
-	require.NoError(t, migrations.Down000007(ctx, sqlDb), "a down migration with nothing left to remove")
+	require.NoError(t, migrations.Down000008(ctx, sqlDb), "a down migration with nothing left to remove")
 
-	require.NoError(t, migrations.Up000007(ctx, sqlDb))
+	require.NoError(t, migrations.Up000008(ctx, sqlDb))
 	assert.Equal(t, len(columns), present())
 }

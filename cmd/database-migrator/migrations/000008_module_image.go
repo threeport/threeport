@@ -11,7 +11,7 @@ import (
 // init registers the module image migration.
 func init() {
 	// register the up and down steps
-	goose.AddMigrationNoTxContext(Up000007, Down000007)
+	goose.AddMigrationNoTxContext(Up000008, Down000008)
 }
 
 // moduleImageColumns are the repository and tag a module was installed from.
@@ -20,11 +20,11 @@ var moduleImageColumns = [][2]string{
 	{"image_tag", "STRING"},
 }
 
-// Up000007 adds the image repository and tag a module was installed from.
+// Up000008 adds the image repository and tag a module was installed from.
 // Cockroach rejects ADD COLUMN inside a transaction, so this migration runs outside one.
 // 000001 builds its tables from the current models, so a database it created after
 // the fields were added has them already, and each is added only where it is missing.
-func Up000007(ctx context.Context, db *sql.DB) error {
+func Up000008(ctx context.Context, db *sql.DB) error {
 	// add the image a module was installed from
 	for _, column := range moduleImageColumns {
 		statement := fmt.Sprintf(
@@ -38,8 +38,8 @@ func Up000007(ctx context.Context, db *sql.DB) error {
 	return nil
 }
 
-// Down000007 drops the recorded module image.
-func Down000007(ctx context.Context, db *sql.DB) error {
+// Down000008 drops the recorded module image.
+func Down000008(ctx context.Context, db *sql.DB) error {
 	// drop the recorded image
 	for _, column := range moduleImageColumns {
 		statement := fmt.Sprintf(
