@@ -501,6 +501,7 @@ func buildGkeInfra(
 		MachineType:            *definition.DefaultNodeGroupInstanceType,
 		MinNodeCount:           int32(*definition.DefaultNodeGroupMinimumSize),
 		MaxNodeCount:           int32(*definition.DefaultNodeGroupMaximumSize),
+		PrivateApi:             definition.PrivateApi != nil && *definition.PrivateApi,
 		Version:                v0.KubernetesVersionOrDefault(definition.KubernetesVersion),
 		ReleaseChannel:         v0.GkeReleaseChannelOrDefault(definition.ReleaseChannel),
 		MaintenanceWindowDays:  v0.GkeMaintenanceWindowDaysOrDefault(definition.MaintenanceWindowDays),
@@ -510,10 +511,11 @@ func buildGkeInfra(
 		ReserveNatAddress:      instance.ReservedNatAddress != nil && *instance.ReservedNatAddress,
 	}).InitPulumiProject()
 
-	// a cluster whose API is restricted also admits the control plane that
-	// manages it; the lookup is skipped for a cluster being deleted, which
-	// does not provision anything
-	if len(allowedCidrs) > 0 && instance.DeletionScheduled == nil {
+	// a cluster whose public endpoint is restricted also admits the control
+	// plane that manages it.  The lookup is skipped for a private cluster,
+	// which the control plane reaches through its DNS endpoint, and for a
+	// cluster being deleted, which does not provision anything.
+	if len(allowedCidrs) > 0 && !infraGKE.PrivateApi && instance.DeletionScheduled == nil {
 		controlPlaneEgressCidrs, err := provider.ControlPlaneEgressCidrs(
 			r.APIClient,
 			r.APIServer,

@@ -14,6 +14,8 @@ import (
 	"github.com/pulumi/pulumi-gcp/sdk/v8/go/gcp"
 	"github.com/pulumi/pulumi-gcp/sdk/v8/go/gcp/compute"
 	gkecontainer "github.com/pulumi/pulumi-gcp/sdk/v8/go/gcp/container"
+	"github.com/pulumi/pulumi-gcp/sdk/v8/go/gcp/projects"
+	"github.com/pulumi/pulumi-gcp/sdk/v8/go/gcp/serviceaccount"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"golang.org/x/oauth2"
@@ -131,17 +133,33 @@ type KubernetesRuntimeInfraGKE struct {
 	// for one created before the channel was set.  The program keeps it.
 	stackReleaseChannel *string
 
+	// nodesKeepDefaultServiceAccount is set by CreateInfra when the stack
+	// already holds a node pool whose nodes run as the project's default
+	// Compute Engine service account.  The program then leaves them on it,
+	// since changing a node pool's service account replaces the node pool.
+	nodesKeepDefaultServiceAccount bool
+
 	// gcpProjectResolvedFromGcloudINI is true when loadGCPConfig set ProjectID from the active gcloud INI.
 	gcpProjectResolvedFromGcloudINI bool
 	// gcpRegionResolvedFromGcloudINI is true when loadGCPConfig set Region from the active gcloud INI.
 	gcpRegionResolvedFromGcloudINI bool
 
-	// The CIDR blocks allowed to reach the Kubernetes API's public endpoint.
-	// Empty leaves it open to every address.
+	// PrivateApi turns off the Kubernetes API's public IP endpoint.  The
+	// nodes and the networks connected to the cluster's network reach its
+	// internal endpoint, and Threeport and tptctl reach its DNS endpoint, which
+	// Google authorizes by IAM rather than by address.
+	PrivateApi bool
+
+	// The CIDR blocks allowed to reach the Kubernetes API: on its public
+	// endpoint, or with PrivateApi, on its internal endpoint.  Empty leaves
+	// the public endpoint open to every address, and the internal endpoint
+	// to the cluster's own network.
 	AllowedCidrs []string
 
 	// The public addresses of the control plane that manages the cluster,
-	// admitted along with AllowedCidrs when those are set.
+	// admitted along with AllowedCidrs on the public endpoint when those are
+	// set.  A private cluster does not need them, since the control plane
+	// reaches it through the DNS endpoint.
 	ControlPlaneEgressCidrs []string
 
 	// ReserveNatAddress gives the cluster's Cloud NAT a reserved address, so
@@ -155,6 +173,11 @@ type KubernetesRuntimeInfraGKE struct {
 const (
 	gkePulumiProjectName        = "gke"
 	gkePulumiProjectDescription = "Google Kubernetes Engine (GKE) cluster for Threeport"
+
+	// gkeNodeServiceAccountRole is the only role granted to the service
+	// account a cluster's nodes run as.  Google provides it for that account:
+	// it lets the nodes write logs and metrics.
+	gkeNodeServiceAccountRole = "roles/container.defaultNodeServiceAccount"
 )
 
 // InitPulumiProject fills in the Pulumi project identity and stack config, and
@@ -185,7 +208,7 @@ func (i *KubernetesRuntimeInfraGKE) InitPulumiProject() *KubernetesRuntimeInfraG
 
 // Create installs a Kubernetes cluster using Google Cloud GKE for threeport workloads.
 func (i *KubernetesRuntimeInfraGKE) Create() (*kube.KubeConnectionInfo, error) {
-	if err := checkKubeApiAllowlist(v0.KubernetesRuntimeInfraProviderGKE, i.AllowedCidrs, i.ControlPlaneEgressCidrs); err != nil {
+	if _, err := i.kubeApiAllowlist(); err != nil {
 		return nil, err
 	}
 
@@ -245,7 +268,7 @@ func (i *KubernetesRuntimeInfraGKE) Create() (*kube.KubeConnectionInfo, error) {
 // call createGCPServiceAccountAndCredentials first for the bootstrap path, or ensure
 // credentials and Workload Identity are already configured for the controller path.
 func (i *KubernetesRuntimeInfraGKE) CreateInfra() (*kube.KubeConnectionInfo, error) {
-	if err := checkKubeApiAllowlist(v0.KubernetesRuntimeInfraProviderGKE, i.AllowedCidrs, i.ControlPlaneEgressCidrs); err != nil {
+	if _, err := i.kubeApiAllowlist(); err != nil {
 		return nil, err
 	}
 
@@ -255,6 +278,8 @@ func (i *KubernetesRuntimeInfraGKE) CreateInfra() (*kube.KubeConnectionInfo, err
 	}
 
 	// a create resumed on a stack that holds the cluster keeps its version
+	// and release channel, and one whose node pool was created before the nodes had their own
+	// service account leaves that node pool as it is
 	ctx := context.Background()
 	exported, err := stack.Export(ctx)
 	if err != nil {
@@ -262,6 +287,7 @@ func (i *KubernetesRuntimeInfraGKE) CreateInfra() (*kube.KubeConnectionInfo, err
 	}
 	i.keepStackMinMasterVersion(exported.Deployment)
 	i.keepStackReleaseChannel(exported.Deployment)
+	i.nodesKeepDefaultServiceAccount = nodePoolRunsAsDefaultServiceAccount(exported.Deployment)
 
 	if _, err = i.RunUp(ctx, stack); err != nil {
 		return nil, fmt.Errorf("failed to deploy stack: %w", err)
@@ -271,6 +297,13 @@ func (i *KubernetesRuntimeInfraGKE) CreateInfra() (*kube.KubeConnectionInfo, err
 	// This allows Kubernetes service accounts to impersonate the GCP service account
 	if err := i.configureWorkloadIdentityBindingPostCreate(); err != nil {
 		return nil, fmt.Errorf("failed to configure Workload Identity binding: %w", err)
+	}
+
+	// let the control plane's controllers reach a private cluster through its
+	// DNS endpoint, once the cluster, and with it the workload identity pool
+	// the grant names, exists
+	if err := i.grantControlPlaneClusterConnect(); err != nil {
+		return nil, err
 	}
 
 	return i.GetConnection()
@@ -291,7 +324,14 @@ func (i *KubernetesRuntimeInfraGKE) DeployInfra() error {
 // a GcpProvider of the same name, for one - and removing it would cut that
 // provider off. Delete is the bootstrap path that also cleans up the account.
 func (i *KubernetesRuntimeInfraGKE) DestroyInfra() error {
-	return i.destroyInfraStack()
+	if err := i.destroyInfraStack(); err != nil {
+		return err
+	}
+
+	// the control plane's connect role, unless another private cluster
+	// Threeport provisioned is still in the project.  A failure is returned
+	// so the delete is retried; destroying a stack already gone does nothing.
+	return i.revokeControlPlaneClusterConnect()
 }
 
 // keepStackMinMasterVersion records the minimum version of the cluster the
@@ -517,6 +557,17 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 			return err
 		}
 
+		// with PrivateApi the public IP endpoint is off, and the DNS
+		// endpoint is how Threeport and tptctl reach the cluster
+		var controlPlaneEndpointsConfig gkecontainer.ClusterControlPlaneEndpointsConfigPtrInput
+		if i.PrivateApi {
+			controlPlaneEndpointsConfig = &gkecontainer.ClusterControlPlaneEndpointsConfigArgs{
+				DnsEndpointConfig: &gkecontainer.ClusterControlPlaneEndpointsConfigDnsEndpointConfigArgs{
+					AllowExternalTraffic: pulumi.Bool(true),
+				},
+			}
+		}
+
 		cluster, err := gkecontainer.NewCluster(ctx, i.RuntimeInstanceName, &gkecontainer.ClusterArgs{
 			Name:           pulumi.String(i.RuntimeInstanceName),
 			Location:       pulumi.String(i.Region),
@@ -540,11 +591,12 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 
 			PrivateClusterConfig: &gkecontainer.ClusterPrivateClusterConfigArgs{
 				EnablePrivateNodes:    pulumi.Bool(true),
-				EnablePrivateEndpoint: pulumi.Bool(false),
+				EnablePrivateEndpoint: pulumi.Bool(i.PrivateApi),
 				MasterIpv4CidrBlock:   pulumi.String("172.16.0.0/28"),
 			},
 
 			MasterAuthorizedNetworksConfig: masterAuthorizedNetworksConfig,
+			ControlPlaneEndpointsConfig:    controlPlaneEndpointsConfig,
 
 			NetworkPolicy: &gkecontainer.ClusterNetworkPolicyArgs{
 				Enabled:  pulumi.Bool(true),
@@ -562,6 +614,34 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 			return fmt.Errorf("failed to create GKE cluster: %w", err)
 		}
 
+		// the cloud-platform scope is kept: the node service account's role
+		// is what limits the nodes
+		nodeConfig := &gkecontainer.NodePoolNodeConfigArgs{
+			MachineType: pulumi.String(i.MachineType),
+			DiskSizeGb:  pulumi.Int(50),
+			DiskType:    pulumi.String("pd-standard"),
+			OauthScopes: pulumi.StringArray{
+				pulumi.String("https://www.googleapis.com/auth/cloud-platform"),
+			},
+			Labels: pulumi.StringMap{
+				kube.ThreeportManagedByLabelKey: pulumi.String(kube.ThreeportManagedByLabelValue),
+			},
+			ResourceLabels: GcpLabelsInput(i.RuntimeInstanceName),
+			WorkloadMetadataConfig: &gkecontainer.NodePoolNodeConfigWorkloadMetadataConfigArgs{
+				Mode: pulumi.String("GKE_METADATA"),
+			},
+		}
+		nodePoolDependencies := []pulumi.Resource{cluster}
+		if !i.nodesKeepDefaultServiceAccount {
+			nodeServiceAccount, nodeRole, err := i.nodeServiceAccount(ctx, gcpProvider)
+			if err != nil {
+				return err
+			}
+			nodeConfig.ServiceAccount = nodeServiceAccount.Email
+			// the nodes can write logs and metrics from the start
+			nodePoolDependencies = append(nodePoolDependencies, nodeRole)
+		}
+
 		_, err = gkecontainer.NewNodePool(ctx, i.workerNodePoolName(), &gkecontainer.NodePoolArgs{
 			Name:     pulumi.String(i.workerNodePoolName()),
 			Cluster:  cluster.Name,
@@ -569,21 +649,7 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 
 			NodeCount: pulumi.Int(int(i.WorkerNodeInitialCount)),
 
-			NodeConfig: &gkecontainer.NodePoolNodeConfigArgs{
-				MachineType: pulumi.String(i.MachineType),
-				DiskSizeGb:  pulumi.Int(50),
-				DiskType:    pulumi.String("pd-standard"),
-				OauthScopes: pulumi.StringArray{
-					pulumi.String("https://www.googleapis.com/auth/cloud-platform"),
-				},
-				Labels: pulumi.StringMap{
-					kube.ThreeportManagedByLabelKey: pulumi.String(kube.ThreeportManagedByLabelValue),
-				},
-				ResourceLabels: GcpLabelsInput(i.RuntimeInstanceName),
-				WorkloadMetadataConfig: &gkecontainer.NodePoolNodeConfigWorkloadMetadataConfigArgs{
-					Mode: pulumi.String("GKE_METADATA"),
-				},
-			},
+			NodeConfig: nodeConfig,
 
 			Autoscaling: &gkecontainer.NodePoolAutoscalingArgs{
 				MinNodeCount:   pulumi.Int(int(i.MinNodeCount)),
@@ -596,7 +662,7 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 				AutoUpgrade: pulumi.Bool(true),
 			},
 		}, pulumi.Provider(gcpProvider),
-			pulumi.DependsOn([]pulumi.Resource{cluster}),
+			pulumi.DependsOn(nodePoolDependencies),
 			pulumi.IgnoreChanges(gkeNodePoolIgnoredChanges))
 		if err != nil {
 			return fmt.Errorf("failed to create node pool: %w", err)
@@ -606,6 +672,78 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 
 		return nil
 	}
+}
+
+// nodeServiceAccountID returns the ID of the service account the cluster's
+// nodes run as.  Its prefix is its own, so it never matches the ID of a
+// Threeport account, which is derived from a runtime or provider name.
+func (i *KubernetesRuntimeInfraGKE) nodeServiceAccountID() string {
+	return formatPrefixedServiceAccountID(nodeServiceAccountIDPrefix, nodeServiceAccountIDNameLength, i.RuntimeInstanceName)
+}
+
+// nodeServiceAccount adds the service account the cluster's nodes run as to
+// the stack, with gkeNodeServiceAccountRole on the project and nothing else.
+// The account is the cluster's own, rather than the project's default Compute
+// Engine account, which every VM in the project shares and which has the
+// Editor role in older projects and no role at all where the organization
+// policy iam.automaticIamGrantsForDefaultServiceAccounts is enforced.  Being
+// in the stack, the account and its role are deleted with the cluster.
+func (i *KubernetesRuntimeInfraGKE) nodeServiceAccount(
+	ctx *pulumi.Context,
+	gcpProvider *gcp.Provider,
+) (*serviceaccount.Account, *projects.IAMMember, error) {
+	account, err := serviceaccount.NewAccount(ctx, fmt.Sprintf("%s-node-sa", i.RuntimeInstanceName), &serviceaccount.AccountArgs{
+		AccountId:   pulumi.String(i.nodeServiceAccountID()),
+		Project:     pulumi.String(i.ProjectID),
+		DisplayName: pulumi.String(fmt.Sprintf("Threeport GKE nodes of %s", i.RuntimeInstanceName)),
+		Description: pulumi.String(fmt.Sprintf("Nodes of the Threeport GKE cluster %s run as this account", i.RuntimeInstanceName)),
+	}, pulumi.Provider(gcpProvider))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create node service account: %w", err)
+	}
+
+	role, err := projects.NewIAMMember(ctx, fmt.Sprintf("%s-node-sa-role", i.RuntimeInstanceName), &projects.IAMMemberArgs{
+		Project: pulumi.String(i.ProjectID),
+		Role:    pulumi.String(gkeNodeServiceAccountRole),
+		Member:  account.Member,
+	}, pulumi.Provider(gcpProvider))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to grant the node service account its role: %w", err)
+	}
+
+	return account, role, nil
+}
+
+// nodePoolRunsAsDefaultServiceAccount reports whether an exported deployment
+// holds a node pool created without a service account, whose nodes run as the
+// project's default Compute Engine account.  A deployment that can't be read
+// is taken to hold one, since a node pool that is there would otherwise be
+// replaced.
+func nodePoolRunsAsDefaultServiceAccount(deployment json.RawMessage) bool {
+	var contents struct {
+		Resources []struct {
+			Type   string `json:"type"`
+			Inputs struct {
+				NodeConfig struct {
+					ServiceAccount string `json:"serviceAccount"`
+				} `json:"nodeConfig"`
+			} `json:"inputs"`
+		} `json:"resources"`
+	}
+	if len(deployment) == 0 {
+		return false
+	}
+	if err := json.Unmarshal(deployment, &contents); err != nil {
+		return true
+	}
+
+	for _, resource := range contents.Resources {
+		if resource.Type == "gcp:container/nodePool:NodePool" && resource.Inputs.NodeConfig.ServiceAccount == "" {
+			return true
+		}
+	}
+
+	return false
 }
 
 // Delete deletes a GKE cluster and the threeport control plane with it, along
@@ -730,6 +868,12 @@ func (i *KubernetesRuntimeInfraGKE) DeleteGCPResources() error {
 		return err
 	}
 
+	// the control plane's connect role, unless another private cluster
+	// Threeport provisioned is still in the project
+	if err := i.revokeControlPlaneClusterConnect(); err != nil {
+		return err
+	}
+
 	// Remove the database's access to its backup bucket, and the backups
 	// when asked to
 	if i.BackupBucket != "" {
@@ -749,19 +893,56 @@ func (i *KubernetesRuntimeInfraGKE) DeleteGCPResources() error {
 	return nil
 }
 
+// kubeApiAllowlist returns the blocks the cluster's authorized networks
+// admit.  On the public endpoint these are AllowedCidrs and the managing
+// control plane's addresses.  With PrivateApi they are AllowedCidrs alone,
+// on the internal endpoint, which the control plane's public addresses could
+// not reach anyway.  It fails when the list is longer than GKE admits.
+func (i *KubernetesRuntimeInfraGKE) kubeApiAllowlist() ([]string, error) {
+	if !i.PrivateApi {
+		return kubeApiAllowlist(v0.KubernetesRuntimeInfraProviderGKE, i.AllowedCidrs, i.ControlPlaneEgressCidrs)
+	}
+
+	limit, _ := v0.AllowedCidrsLimit(v0.KubernetesRuntimeInfraProviderGKE, true)
+	if len(i.AllowedCidrs) > limit {
+		return nil, fmt.Errorf(
+			"AllowedCidrs has %d entries, but gke admits at most %d on a private Kubernetes API",
+			len(i.AllowedCidrs), limit,
+		)
+	}
+
+	return i.AllowedCidrs, nil
+}
+
 // masterAuthorizedNetworksConfig returns the authorized networks that limit
-// the public endpoint to AllowedCidrs and the managing control plane's
-// addresses, or nil to leave it open as it is without them.  The nodes reach
-// the API through the private endpoint, which authorized networks do not apply
-// to.  Access from Google Cloud's own public addresses is turned off, since it
+// the Kubernetes API to kubeApiAllowlist.  With none to list, a public
+// cluster gets none, which leaves its endpoint open to every address, and a
+// private cluster, which GKE refuses without them, gets them enabled with
+// none listed, so its internal endpoint admits only the cluster's own node,
+// Pod and Service ranges.
+// On a public cluster the nodes reach the API through the internal endpoint,
+// which these do not limit.  On a private cluster they are enforced on the
+// internal endpoint, which GKE does only when asked to; GKE still admits the
+// cluster's own node, Pod and Service ranges there without them being listed.
+// Access from Google Cloud's own public addresses is turned off, since it
 // would let any VM in any project past the list.
 func (i *KubernetesRuntimeInfraGKE) masterAuthorizedNetworksConfig() (gkecontainer.ClusterMasterAuthorizedNetworksConfigPtrInput, error) {
-	allowlist, err := kubeApiAllowlist(v0.KubernetesRuntimeInfraProviderGKE, i.AllowedCidrs, i.ControlPlaneEgressCidrs)
+	allowlist, err := i.kubeApiAllowlist()
 	if err != nil {
 		return nil, err
 	}
 	if len(allowlist) == 0 {
-		return nil, nil
+		if !i.PrivateApi {
+			return nil, nil
+		}
+		// GKE refuses a private endpoint without authorized networks, and
+		// enforces them on it, as it is told here so a later up plans no
+		// change.  With none listed, the internal endpoint admits the
+		// cluster's own ranges, and the DNS endpoint everyone IAM lets in
+		return &gkecontainer.ClusterMasterAuthorizedNetworksConfigArgs{
+			GcpPublicCidrsAccessEnabled:       pulumi.Bool(false),
+			PrivateEndpointEnforcementEnabled: pulumi.Bool(true),
+		}, nil
 	}
 
 	cidrBlocks := gkecontainer.ClusterMasterAuthorizedNetworksConfigCidrBlockArray{}
@@ -771,10 +952,15 @@ func (i *KubernetesRuntimeInfraGKE) masterAuthorizedNetworksConfig() (gkecontain
 		})
 	}
 
-	return &gkecontainer.ClusterMasterAuthorizedNetworksConfigArgs{
+	config := &gkecontainer.ClusterMasterAuthorizedNetworksConfigArgs{
 		CidrBlocks:                  cidrBlocks,
 		GcpPublicCidrsAccessEnabled: pulumi.Bool(false),
-	}, nil
+	}
+	if i.PrivateApi {
+		config.PrivateEndpointEnforcementEnabled = pulumi.Bool(true)
+	}
+
+	return config, nil
 }
 
 // useGCPAuth puts GCP authentication and configuration in place for a call that
@@ -902,7 +1088,9 @@ func (i *KubernetesRuntimeInfraGKE) CreateComplete() (bool, error) {
 		return false, nil
 	}
 
-	// The binding is made after the stack is up, so it is checked last.
+	// The binding and the connect grant are made after the stack is up, in
+	// that order, so they are checked last.  A create interrupted before
+	// either is not complete, and is run again.
 	clientOpts := []gcpoption.ClientOption{gcpoption.WithScopes(gcpiam.CloudPlatformScope)}
 	if i.ServiceAccountCredentials != "" {
 		clientOpts = append(clientOpts, gcpoption.WithCredentialsJSON([]byte(i.ServiceAccountCredentials)))
@@ -911,8 +1099,11 @@ func (i *KubernetesRuntimeInfraGKE) CreateComplete() (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to create IAM service client: %w", err)
 	}
+	if bound, err := i.workloadIdentityBound(iamService); err != nil || !bound {
+		return false, err
+	}
 
-	return i.workloadIdentityBound(iamService)
+	return i.controlPlaneClusterConnectGranted()
 }
 
 // GetConnection returns the connection information for the GKE cluster.  It
@@ -934,10 +1125,9 @@ func (i *KubernetesRuntimeInfraGKE) GetConnection() (*kube.KubeConnectionInfo, e
 		return nil, fmt.Errorf("GKE cluster is not ready for connection: %w", err)
 	}
 
-	// decode the CA certificate
-	caCert, err := base64.StdEncoding.DecodeString(cluster.MasterAuth.ClusterCaCertificate)
+	apiEndpoint, caCert, err := gkeKubeApiEndpoint(cluster)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode CA certificate: %w", err)
+		return nil, err
 	}
 
 	// get an access token for authentication; it lasts about an hour, so a
@@ -952,19 +1142,51 @@ func (i *KubernetesRuntimeInfraGKE) GetConnection() (*kube.KubeConnectionInfo, e
 		return nil, fmt.Errorf("failed to get access token: %w", err)
 	}
 
-	// construct the API endpoint
-	// GKE provides the endpoint without the https:// prefix
-	apiEndpoint := fmt.Sprintf("https://%s", cluster.Endpoint)
-
 	// create connection info
 	kubeConnInfo := &kube.KubeConnectionInfo{
 		APIEndpoint:     apiEndpoint,
-		CACertificate:   string(caCert),
+		CACertificate:   caCert,
 		Token:           token.AccessToken,
 		TokenExpiration: token.Expiry,
 	}
 
 	return kubeConnInfo, nil
+}
+
+// gkeHasPublicIpEndpoint reports whether a cluster's Kubernetes API has a
+// public IP endpoint.  One created before the endpoints config, or without
+// its public endpoint set, has one unless it is a private cluster.
+func gkeHasPublicIpEndpoint(cluster *containerpb.Cluster) bool {
+	ipEndpoints := cluster.GetControlPlaneEndpointsConfig().GetIpEndpointsConfig()
+
+	return !cluster.GetPrivateClusterConfig().GetEnablePrivateEndpoint() &&
+		(ipEndpoints == nil || ipEndpoints.EnablePublicEndpoint == nil || *ipEndpoints.EnablePublicEndpoint)
+}
+
+// gkeKubeApiEndpoint returns the URL the cluster's Kubernetes API is reached
+// at and the CA certificate to verify it with.  That is the IP endpoint and
+// the cluster's own CA, unless the cluster has no public IP endpoint: then
+// it is the DNS endpoint, which Google serves with a publicly trusted
+// certificate, so no CA is returned and the system's roots verify it.
+func gkeKubeApiEndpoint(cluster *containerpb.Cluster) (string, string, error) {
+	if gkeHasPublicIpEndpoint(cluster) {
+		// GKE provides the endpoint without the https:// prefix
+		caCert, err := base64.StdEncoding.DecodeString(cluster.GetMasterAuth().GetClusterCaCertificate())
+		if err != nil {
+			return "", "", fmt.Errorf("failed to decode CA certificate: %w", err)
+		}
+		return fmt.Sprintf("https://%s", cluster.GetEndpoint()), string(caCert), nil
+	}
+
+	dnsEndpoint := cluster.GetControlPlaneEndpointsConfig().GetDnsEndpointConfig()
+	if dnsEndpoint.GetEndpoint() == "" || !dnsEndpoint.GetAllowExternalTraffic() {
+		return "", "", fmt.Errorf(
+			"GKE cluster %s has no public IP endpoint and no DNS endpoint that admits traffic from outside its network, so it cannot be reached",
+			cluster.GetName(),
+		)
+	}
+
+	return fmt.Sprintf("https://%s", dnsEndpoint.GetEndpoint()), "", nil
 }
 
 // ResourcesExist reports whether the GKE cluster for this instance exists in
