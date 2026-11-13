@@ -18421,6 +18421,18 @@ const docTemplate = `{
                     "description": "The Kubernetes minor version of the clusters, such as \"1.36\": the\nKubernetesRuntimeDefinition's KubernetesVersion, or the default version\nwhen that is unset.  If unset here, the default version is used.  It\ncan't be changed after creation.",
                     "type": "string"
                 },
+                "MaintenanceWindowDays": {
+                    "description": "The days the clusters' maintenance window recurs on, in UTC, as an\nRRULE writes them: such as \"SA,SU\".  GKE upgrades a cluster only in that\nwindow, apart from an upgrade it can't defer.  If unset, \"SA,SU\" is used.\nIt can't be changed after creation.",
+                    "type": "string"
+                },
+                "MaintenanceWindowHours": {
+                    "description": "How many hours the maintenance window lasts, from 4 to 24.  If unset, 8\nis used.  It can't be changed after creation.",
+                    "type": "integer"
+                },
+                "MaintenanceWindowStart": {
+                    "description": "The time of day the maintenance window starts on each of its days, in\nUTC, such as \"04:00\".  If unset, \"04:00\" is used.  It can't be changed\nafter creation.",
+                    "type": "string"
+                },
                 "Name": {
                     "description": "An arbitrary name for the definition.",
                     "type": "string"
@@ -18432,6 +18444,10 @@ const docTemplate = `{
                 "ProfileID": {
                     "description": "The profile to associate with the definition.  Profile is a named\nstandard configuration for a definition object.",
                     "type": "integer"
+                },
+                "ReleaseChannel": {
+                    "description": "The GKE release channel of the clusters, REGULAR or STABLE.  GKE\nupgrades their control planes and nodes to its releases on its own,\nwithin the maintenance window.  If unset, REGULAR is used.  It can't be\nchanged after creation.",
+                    "type": "string"
                 },
                 "TierID": {
                     "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
@@ -18807,7 +18823,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "PrivateApi": {
-                    "description": "If true, the Kubernetes API is not reachable from the public internet.\nIt is reachable only from the cluster's own network, from networks\nconnected to it and, on GKE, through the IAM-authorized DNS endpoint.\nCannot be changed after creation.",
+                    "description": "If true, the Kubernetes API is not reachable from the public internet.\nIt is reachable only from the cluster's own network, from networks\nconnected to it and, on GKE, through the IAM-authorized DNS endpoint.\nSupported on GKE only.  Cannot be changed after creation.",
                     "type": "boolean"
                 },
                 "ProfileID": {

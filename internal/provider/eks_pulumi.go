@@ -17,6 +17,12 @@ const (
 	// cluster when the runtime definition does not pin one.
 	DefaultEksKubernetesVersion = v0.DefaultKubernetesVersion
 
+	// eksSupportType is what happens to the cluster when its version leaves
+	// EKS standard support.  EKS's own default, EXTENDED, keeps it on that
+	// version at a higher hourly charge.  STANDARD has AWS upgrade the control
+	// plane to the next version instead.
+	eksSupportType = "STANDARD"
+
 	// eksVpcCidr is the CIDR block for the VPC the cluster runs in.
 	eksVpcCidr = "10.0.0.0/16"
 
@@ -201,6 +207,22 @@ func (i *KubernetesRuntimeInfraEKS) kubernetesVersion() string {
 	}
 
 	return i.KubernetesVersion
+}
+
+// upgradePolicy returns the cluster's upgrade policy: the cluster's, when the
+// stack already holds it, and eksSupportType otherwise.  A cluster in extended
+// support can't leave it, so one created before the policy was set keeps the
+// one EKS gave it.
+func (i *KubernetesRuntimeInfraEKS) upgradePolicy() awseks.ClusterUpgradePolicyPtrInput {
+	supportType := eksSupportType
+	if i.stackSupportType != nil {
+		if *i.stackSupportType == "" {
+			return nil
+		}
+		supportType = *i.stackSupportType
+	}
+
+	return &awseks.ClusterUpgradePolicyArgs{SupportType: pulumi.String(supportType)}
 }
 
 // resourceTags returns the tags applied to every AWS resource in the stack,
@@ -407,11 +429,12 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 			vpcConfig.PublicAccessCidrs = pulumi.ToStringArray(allowlist)
 		}
 		cluster, err := awseks.NewCluster(ctx, i.RuntimeInstanceName, &awseks.ClusterArgs{
-			Name:      pulumi.String(i.RuntimeInstanceName),
-			RoleArn:   pulumi.String(i.ClusterRoleArn),
-			Version:   pulumi.String(i.kubernetesVersion()),
-			VpcConfig: vpcConfig,
-			Tags:      i.resourceTags(i.RuntimeInstanceName),
+			Name:          pulumi.String(i.RuntimeInstanceName),
+			RoleArn:       pulumi.String(i.ClusterRoleArn),
+			Version:       pulumi.String(i.kubernetesVersion()),
+			UpgradePolicy: i.upgradePolicy(),
+			VpcConfig:     vpcConfig,
+			Tags:          i.resourceTags(i.RuntimeInstanceName),
 		})
 		if err != nil {
 			return fmt.Errorf("failed to create EKS cluster: %w", err)

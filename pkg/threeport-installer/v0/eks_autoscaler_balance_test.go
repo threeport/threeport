@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	v0 "github.com/threeport/threeport/pkg/api/v0"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -64,7 +65,7 @@ func TestTheAutoscalerBalancesANodeGroupPerZone(t *testing.T) {
 	kubeClient, err := dynamic.NewForConfig(&rest.Config{Host: server.URL})
 	require.NoError(t, err)
 
-	require.NoError(t, installEksClusterAutoscaler(kubeClient, balanceTestMapper(), "production", "123456789012"))
+	require.NoError(t, installEksClusterAutoscaler(kubeClient, balanceTestMapper(), "production", "123456789012", v0.DefaultKubernetesVersion))
 
 	mu.Lock()
 	defer mu.Unlock()
