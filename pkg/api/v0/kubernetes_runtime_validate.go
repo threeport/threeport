@@ -102,6 +102,12 @@ func (k *KubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
 			"kubernetes runtime definition high availability cannot be changed after creation",
 		)
 	}
+	// on EKS and GKE, the node size, profile and maximum are copied into the
+	// provider definition when it is created, and nothing applies a change
+	// to them afterwards
+	if err := validateKubernetesRuntimeNodeSettingsUpdate(tx); err != nil {
+		return err
+	}
 	if err := validateKubernetesVersionUpdate(tx); err != nil {
 		return err
 	}
@@ -290,4 +296,37 @@ func validateRuntimeNetworkCidrUpdate(tx *gorm.DB, k *KubernetesRuntimeInstance)
 	}
 
 	return validateRuntimeNetworkCidr(tx, incoming.NetworkCidr, k.ID)
+}
+
+// validateKubernetesRuntimeNodeSettingsUpdate refuses an update that changes
+// the NodeSize, NodeProfile or NodeMaximum of a kubernetes runtime definition
+// on EKS or GKE.  The definition reconciler turns them into the EKS or GKE
+// definition's node group when it creates it, and nothing applies a change to
+// them afterwards, so a change would be saved without taking effect.  On kind
+// and OKE they make nothing, and changing them is left alone.
+func validateKubernetesRuntimeNodeSettingsUpdate(tx *gorm.DB) error {
+	current, err := lib.LoadObjectFromDB(tx)
+	if err != nil {
+		return err
+	}
+	stored, ok := current.(*KubernetesRuntimeDefinition)
+	if !ok || stored.InfraProvider == nil ||
+		(*stored.InfraProvider != KubernetesRuntimeInfraProviderEKS && *stored.InfraProvider != KubernetesRuntimeInfraProviderGKE) {
+		return nil
+	}
+
+	for _, field := range []string{"NodeSize", "NodeProfile", "NodeMaximum"} {
+		changed, err := lib.IsFieldChanged(tx, field)
+		if err != nil {
+			return err
+		}
+		if changed {
+			return util.NewBadRequestError(fmt.Sprintf(
+				"kubernetes runtime definition %s cannot be changed after creation: change the node group sizes on its EKS or GKE definition",
+				field,
+			))
+		}
+	}
+
+	return nil
 }

@@ -59,7 +59,14 @@ available GKE cluster, whose zones need a node each.
 
 GKE creates a node pool's initial nodes in each of its zones, so the initial
 count is divided across the zones and rounded up: a highly available GKE
-cluster starts with one node in each of its three zones.
+cluster starts with one node in each of its three zones. A GKE definition
+whose initial count, rounded up that way, is more than its maximum is
+refused.
+
+On EKS and GKE, `NodeSize`, `NodeProfile` and `NodeMaximum` are copied into the
+EKS or GKE definition when it's created, and can't be changed on the
+kubernetes runtime definition afterwards. Change the node group's sizes on the
+EKS or GKE definition instead.
 
 Set them, with `NodeSize` and `NodeProfile`, in a config file:
 

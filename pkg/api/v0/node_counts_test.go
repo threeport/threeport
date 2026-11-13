@@ -41,7 +41,10 @@ func TestADefinitionsNodeCountsAreChecked(t *testing.T) {
 			assert.ErrorContains(t, session().Create(build(sizes{3, 2, 10, 3})).Error, "DefaultNodeGroupMinimumSize 3 is more than DefaultNodeGroupInitialSize 2")
 			assert.ErrorContains(t, session().Create(build(sizes{0, 12, 10, 3})).Error, "DefaultNodeGroupInitialSize 12 is more than DefaultNodeGroupMaximumSize 10")
 			if name == "GKE" {
-				assert.ErrorContains(t, session().Create(build(sizes{0, 2, 2, 3})).Error, "DefaultNodeGroupMaximumSize 2 is less than the 3 zones the nodes run in")
+				assert.ErrorContains(t, session().Create(build(sizes{0, 4, 5, 3})).Error, "DefaultNodeGroupInitialSize 4 starts 6 nodes")
+				assert.ErrorContains(t, session().Create(build(sizes{0, 2, 2, 3})).Error, "DefaultNodeGroupMaximumSize 2 is less than the 3 zones")
+				assert.ErrorContains(t, session().Create(build(sizes{0, 4, 4, 3})).Error,
+					"DefaultNodeGroupInitialSize 4 starts 6 nodes, the same number in each of the 3 zones, which is more than DefaultNodeGroupMaximumSize 4")
 			} else {
 				counts, ok := eksNodeCounts(build(sizes{0, 2, 2, 3}))
 				require.True(t, ok)
@@ -103,4 +106,43 @@ func TestAKubernetesRuntimeDefinitionsNodeMaximumIsChecked(t *testing.T) {
 	var stored KubernetesRuntimeDefinition
 	require.NoError(t, db.First(&stored, *defaulted.ID).Error)
 	assert.Equal(t, util.Ptr(60), stored.NodeMaximum, "a definition without one gets 60")
+}
+
+// TestAKubernetesRuntimeDefinitionsNodeSettingsCantChangeOnEksOrGke covers
+// NodeSize, NodeProfile and NodeMaximum on a kubernetes runtime definition on
+// EKS or GKE, which are copied into its provider definition when that is
+// created: a patch or a replace that changes one is refused, since nothing
+// would apply it, and one that leaves them is accepted.  On kind they make
+// nothing and are left alone.
+func TestAKubernetesRuntimeDefinitionsNodeSettingsCantChangeOnEksOrGke(t *testing.T) {
+	for _, infraProvider := range []string{KubernetesRuntimeInfraProviderEKS, KubernetesRuntimeInfraProviderGKE} {
+		db := setupKubernetesApiAccessDB(t)
+		created := newKRD("krd", infraProvider, nil, nil)
+		require.NoError(t, db.Create(created).Error)
+		load := func() *KubernetesRuntimeDefinition {
+			var loaded KubernetesRuntimeDefinition
+			require.NoError(t, db.First(&loaded, *created.ID).Error)
+			return &loaded
+		}
+
+		for field, patch := range map[string]*KubernetesRuntimeDefinition{
+			"NodeSize":    {NodeSize: util.Ptr("Large")},
+			"NodeProfile": {NodeProfile: util.Ptr("Memory")},
+			"NodeMaximum": {NodeMaximum: util.Ptr(12)},
+		} {
+			assert.ErrorContains(t, db.Session(&gorm.Session{}).Model(load()).Updates(patch).Error,
+				"kubernetes runtime definition "+field+" cannot be changed after creation", infraProvider)
+		}
+		replaced := load()
+		replaced.NodeMaximum = util.Ptr(12)
+		assert.ErrorContains(t, db.Session(&gorm.Session{}).Save(replaced).Error, "NodeMaximum cannot be changed after creation", infraProvider)
+
+		assert.NoError(t, db.Session(&gorm.Session{}).Save(load()).Error, "a replace that keeps them")
+		assert.NoError(t, db.Session(&gorm.Session{}).Model(load()).Updates(&KubernetesRuntimeDefinition{InfraProviderAccountName: util.Ptr("other")}).Error)
+	}
+
+	db := setupKubernetesApiAccessDB(t)
+	kind := newKRD("kind", KubernetesRuntimeInfraProviderKind, nil, nil)
+	require.NoError(t, db.Create(kind).Error)
+	assert.NoError(t, db.Session(&gorm.Session{}).Model(kind).Updates(&KubernetesRuntimeDefinition{NodeMaximum: util.Ptr(12)}).Error)
 }

@@ -14,6 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // gkeZoneMocks records the GKE program's cluster and node pool, and answers
@@ -189,8 +191,57 @@ func TestAGkeClusterIsFoundWhereverItIsInItsRegion(t *testing.T) {
 	require.Error(t, err)
 	assert.NotEqual(t, codes.NotFound, status.Code(err), "a partial listing isn't a cluster that is gone")
 
+	// two of the name in the region: the stack's location tells them apart,
+	// and without it neither is taken
+	twins := &fakeGkeClusterLister{clusters: []*containerpb.Cluster{
+		{Name: "gke-zones", Location: "us-central1-b"}, {Name: "gke-zones", Location: "us-central1-c"},
+	}}
+	_, err = infra.findCluster(ctx, twins)
+	assert.ErrorContains(t, err, "found 2 GKE clusters named gke-zones in region us-central1")
+	assert.NotEqual(t, codes.NotFound, status.Code(err))
+	infra.stackLocation = util.Ptr("us-central1-c")
+	cluster, err := infra.findCluster(ctx, twins)
+	require.NoError(t, err)
+	assert.Equal(t, "us-central1-c", cluster.GetLocation())
+	infra.stackLocation = nil
+
 	assert.True(t, gkeLocationInRegion("us-central1", "us-central1"))
 	assert.True(t, gkeLocationInRegion("us-central1-f", "us-central1"))
 	assert.False(t, gkeLocationInRegion("us-central2-a", "us-central1"))
 	assert.False(t, gkeLocationInRegion("us-central10", "us-central1"))
+}
+
+// TestAGkeCreateResumedWithoutItsNodePoolGivesItItsZones covers a create
+// that made the cluster and failed before its node pool: the cluster stays
+// where it is, and the node pool still gets the zones, the whole-pool limits
+// and the divided initial count a new cluster's would.  A zonal cluster's
+// node pool is in its zone.
+func TestAGkeCreateResumedWithoutItsNodePoolGivesItItsZones(t *testing.T) {
+	clusterOnly := func(location string) json.RawMessage {
+		return json.RawMessage(`{"resources": [{"type": "gcp:container/cluster:Cluster", "inputs": {"location": "` + location + `"}}]}`)
+	}
+
+	regional := gkeZoneInfra(3, 3, 1, 60)
+	regional.keepStackShape(clusterOnly("us-central1"))
+	assert.False(t, regional.stackNodePool)
+	_, cluster, nodePool := runGkeZoneProgram(t, regional)
+	assert.Equal(t, "us-central1", cluster["location"])
+	assert.Equal(t, []any{"us-central1-a", "us-central1-b", "us-central1-c"}, nodePool["nodeLocations"])
+	assert.Equal(t, float64(1), nodePool["nodeCount"], "3 nodes across 3 zones, not 3 in each")
+	assert.Equal(t, map[string]any{"totalMinNodeCount": float64(1), "totalMaxNodeCount": float64(60), "locationPolicy": "ANY"}, nodePool["autoscaling"])
+
+	// a zone count of 1 doesn't move a regional cluster to a zone
+	oneZone := gkeZoneInfra(1, 2, 1, 60)
+	oneZone.keepStackShape(clusterOnly("us-central1"))
+	_, cluster, nodePool = runGkeZoneProgram(t, oneZone)
+	assert.Equal(t, "us-central1", cluster["location"])
+	assert.Equal(t, []any{"us-central1-a"}, nodePool["nodeLocations"])
+
+	zonal := gkeZoneInfra(1, 2, 1, 60)
+	zonal.keepStackShape(clusterOnly("us-central1-c"))
+	mocks, cluster, nodePool := runGkeZoneProgram(t, zonal)
+	assert.Equal(t, "us-central1-c", cluster["location"])
+	assert.Equal(t, "us-central1-c", nodePool["location"])
+	assert.Nil(t, nodePool["nodeLocations"])
+	assert.Zero(t, mocks.zoneCalls)
 }

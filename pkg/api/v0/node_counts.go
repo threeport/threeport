@@ -22,8 +22,9 @@ type nodeCounts struct {
 }
 
 // validateNodeCounts checks a default node group's sizes: the initial size
-// between the minimum and the maximum, and a maximum that allows a node in
-// each of the zones the nodes run in.  A size that isn't set isn't checked.
+// between the minimum and the maximum, the nodes it starts across the zones
+// the nodes run in within the maximum, and a maximum that allows a node in
+// each of those zones.  A size that isn't set isn't checked.
 func validateNodeCounts(counts nodeCounts) error {
 	if counts.minimum != nil && counts.initial != nil && *counts.minimum > *counts.initial {
 		return util.NewBadRequestError(fmt.Sprintf(
@@ -48,6 +49,17 @@ func validateNodeCounts(counts nodeCounts) error {
 			"DefaultNodeGroupMaximumSize %d is less than the %d zones the nodes run in: each zone needs a node",
 			*counts.maximum, counts.zones,
 		))
+	}
+	// GKE starts a node pool's initial nodes in each of its zones, the
+	// initial size divided across them and rounded up
+	if counts.initial != nil && counts.maximum != nil && counts.zones > 1 {
+		started := (*counts.initial + counts.zones - 1) / counts.zones * counts.zones
+		if started > *counts.maximum {
+			return util.NewBadRequestError(fmt.Sprintf(
+				"DefaultNodeGroupInitialSize %d starts %d nodes, the same number in each of the %d zones, which is more than DefaultNodeGroupMaximumSize %d",
+				*counts.initial, started, counts.zones, *counts.maximum,
+			))
+		}
 	}
 
 	return nil

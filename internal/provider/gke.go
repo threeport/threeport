@@ -153,6 +153,12 @@ type KubernetesRuntimeInfraGKE struct {
 	// The program keeps it, since changing a cluster's location replaces it.
 	stackLocation *string
 
+	// stackNodePool is set by CreateInfra when the stack already holds the
+	// worker node pool, whose zones are then kept.  A cluster whose create
+	// failed before its node pool was made has none, and the node pool still
+	// gets the zones a new cluster's would.
+	stackNodePool bool
+
 	// stackPerZoneNodeLimits is set by CreateInfra when the stack already
 	// holds a node pool whose autoscaler limits each zone, as the node pools
 	// created before ZoneCount was set do.  The program keeps it so.
@@ -460,7 +466,27 @@ func (i *KubernetesRuntimeInfraGKE) keepStackShape(deployment json.RawMessage) {
 	if location, held := clusterInputInStack(deployment, "gcp:container/cluster:Cluster", "location"); held && location != "" {
 		i.stackLocation = &location
 	}
+	i.stackNodePool = stackHoldsResource(deployment, "gcp:container/nodePool:NodePool")
 	i.stackPerZoneNodeLimits = stackInputSet(deployment, "gcp:container/nodePool:NodePool", "autoscaling.maxNodeCount")
+}
+
+// stackHoldsResource reports whether a stack's deployment holds a resource of
+// a type.
+func stackHoldsResource(deployment json.RawMessage, resourceType string) bool {
+	var contents struct {
+		Resources []struct {
+			Type string `json:"type"`
+		} `json:"resources"`
+	}
+	if len(deployment) == 0 || json.Unmarshal(deployment, &contents) != nil {
+		return false
+	}
+
+	return slices.ContainsFunc(contents.Resources, func(resource struct {
+		Type string `json:"type"`
+	}) bool {
+		return resource.Type == resourceType
+	})
 }
 
 // stackInputSet reports whether the first resource of a type in a stack's
@@ -493,21 +519,29 @@ func stackInputSet(deployment json.RawMessage, resourceType, input string) bool 
 // clusterLocation returns where the program creates the cluster and its node
 // pool, and the zones the node pool's nodes run in when the cluster is
 // regional and they don't run in every zone of the region.  A cluster the
-// stack holds stays where it is.  Without a ZoneCount the cluster is regional
-// with nodes in every zone, as clusters were before it was set.  Otherwise
-// the zones are the region's first, by name, that are up.
+// stack holds stays where it is, and so does a node pool the stack holds; a
+// regional cluster whose node pool wasn't made yet, as when its create failed
+// part way, gives its node pool the zones a new cluster's would.  Without a
+// ZoneCount the cluster is regional with nodes in every zone, as clusters
+// were before it was set.  Otherwise the zones are the region's first, by
+// name, that are up.
 func (i *KubernetesRuntimeInfraGKE) clusterLocation(
 	ctx *pulumi.Context,
 	gcpProvider *gcp.Provider,
 ) (string, []string, error) {
-	if i.stackLocation != nil {
-		return *i.stackLocation, nil, nil
-	}
 	if i.ZoneCount <= 0 {
+		if i.stackLocation != nil {
+			return *i.stackLocation, nil, nil
+		}
 		return i.Region, nil, nil
 	}
+	// a cluster in the stack stays where it is, and a node pool in the
+	// stack keeps its zones; a zonal cluster's node pool is in its zone
+	if i.stackLocation != nil && (i.stackNodePool || *i.stackLocation != i.Region) {
+		return *i.stackLocation, nil, nil
+	}
 
-	zones, err := compute.GetZones(ctx, &compute.GetZonesArgs{
+	available, err := compute.GetZones(ctx, &compute.GetZonesArgs{
 		Project: &i.ProjectID,
 		Region:  &i.Region,
 		Status:  util.Ptr("UP"),
@@ -515,16 +549,22 @@ func (i *KubernetesRuntimeInfraGKE) clusterLocation(
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to list the zones of region %s: %w", i.Region, err)
 	}
-	names := slices.Clone(zones.Names)
+	names := slices.Clone(available.Names)
 	slices.Sort(names)
 	if len(names) == 0 {
 		return "", nil, fmt.Errorf("region %s has no zone that is up", i.Region)
+	}
+	zones := names[:min(int(i.ZoneCount), len(names))]
+	// a regional cluster in the stack whose node pool wasn't made yet stays
+	// regional, and its node pool takes the zones
+	if i.stackLocation != nil {
+		return *i.stackLocation, zones, nil
 	}
 	if i.ZoneCount == 1 {
 		return names[0], nil, nil
 	}
 
-	return i.Region, names[:min(int(i.ZoneCount), len(names))], nil
+	return i.Region, zones, nil
 }
 
 // nodeLocationsInput returns a node pool's zones as the program sets them:
@@ -1170,7 +1210,9 @@ type gkeClusterLister interface {
 // wherever in the region it is: the region itself for a regional cluster, or
 // one of its zones for a zonal one.  A cluster that isn't there is a NotFound
 // error, and a listing GKE couldn't complete is an error of its own, so it
-// isn't taken for a cluster that is gone.
+// isn't taken for a cluster that is gone.  Where more than one cluster in the
+// region has the name, the one in the location the stack records is this
+// runtime's, and without one it is an error rather than a guess.
 func (i *KubernetesRuntimeInfraGKE) findCluster(ctx context.Context, client gkeClusterLister) (*containerpb.Cluster, error) {
 	response, err := client.ListClusters(ctx, &containerpb.ListClustersRequest{
 		Parent: fmt.Sprintf("projects/%s/locations/-", i.ProjectID),
@@ -1178,16 +1220,37 @@ func (i *KubernetesRuntimeInfraGKE) findCluster(ctx context.Context, client gkeC
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the project's GKE clusters: %w", err)
 	}
+	var matches []*containerpb.Cluster
 	for _, cluster := range response.GetClusters() {
 		if cluster.GetName() == i.RuntimeInstanceName && gkeLocationInRegion(cluster.GetLocation(), i.Region) {
-			return cluster, nil
+			matches = append(matches, cluster)
 		}
 	}
 	if _, err := completeClusterList(response); err != nil {
 		return nil, err
 	}
 
-	return nil, status.Errorf(codes.NotFound, "GKE cluster %s not found in region %s", i.RuntimeInstanceName, i.Region)
+	switch len(matches) {
+	case 0:
+		return nil, status.Errorf(codes.NotFound, "GKE cluster %s not found in region %s", i.RuntimeInstanceName, i.Region)
+	case 1:
+		return matches[0], nil
+	}
+	// clusters in different zones of a region may share a name: the one the
+	// stack created is the one in its location, and without the stack none
+	// is taken for it
+	locations := make([]string, 0, len(matches))
+	for _, cluster := range matches {
+		if i.stackLocation != nil && cluster.GetLocation() == *i.stackLocation {
+			return cluster, nil
+		}
+		locations = append(locations, cluster.GetLocation())
+	}
+
+	return nil, fmt.Errorf(
+		"found %d GKE clusters named %s in region %s, in %v, and can't tell which is this runtime's",
+		len(matches), i.RuntimeInstanceName, i.Region, locations,
+	)
 }
 
 // gkeLocationInRegion reports whether a GKE location is a region or one of
