@@ -105,7 +105,7 @@ func controlPlaneKubeClient(controlPlane *ControlPlane) (dynamic.Interface, erro
 func eksControlPlaneKubeClient(controlPlane *ControlPlane) (dynamic.Interface, error) {
 	// load the caller's AWS credentials
 	cfg := controlPlane.EKSProviderConfig
-	awsConfig, err := tpaws.LoadAwsConfig(cfg.AwsConfigProfile, cfg.AwsRegion)
+	awsConfig, err := tpaws.LoadAwsConfig(controlPlane.EKSProviderConfig.AwsConfigProfile, cfg.AwsRegion)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load AWS config: %w", err)
 	}
@@ -160,6 +160,14 @@ func okeControlPlaneKubeClient(controlPlane *ControlPlane) (dynamic.Interface, e
 // RestoreControlPlaneDatabase restores a control plane database from sourceBucket.
 // The fresh backup goes to the recorded schedule bucket, and the call uses the provider credentials because the API can be down.
 func RestoreControlPlaneDatabase(controlPlane *ControlPlane, sourceBucket, backup, namespace, fromNamespace string, stopControllers bool) error {
+	// a provider with no database backup is refused before the cluster is touched
+	if controlPlane.Provider != v0.KubernetesRuntimeInfraProviderGKE {
+		return fmt.Errorf(
+			"a database backup is not supported for control planes on %s",
+			controlPlane.Provider,
+		)
+	}
+
 	// reach the cluster for this provider, since the API can be down
 	kubeClient, err := controlPlaneKubeClient(controlPlane)
 	if err != nil {
