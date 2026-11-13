@@ -60,6 +60,8 @@ var threeportServiceAccountRoles = []string{
 	"roles/resourcemanager.projectIamAdmin",
 	// Service account token creator for Workload Identity
 	"roles/iam.workloadIdentityUser",
+	// backup buckets the controller grants to a restored database
+	"roles/storage.admin",
 }
 
 // ServiceAccountInfo holds information about the created GCP service account
