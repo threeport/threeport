@@ -395,6 +395,9 @@ func UpgradeBlueGreen(
 	if err != nil {
 		return err
 	}
+	if source.Instance.ParentControlPlaneInstanceID != nil {
+		return fmt.Errorf("control plane %s: %w", sourceName, api.ErrRequestMustBeMadeToParent)
+	}
 	namespace := util.DerefString(source.Instance.Namespace)
 	if namespace == "" {
 		return fmt.Errorf("control plane %s has no namespace", sourceName)
