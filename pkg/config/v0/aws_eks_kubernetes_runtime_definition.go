@@ -31,6 +31,7 @@ type AwsEksKubernetesRuntimeDefinitionValues struct {
 	DefaultNodeGroupMinimumSize  *int
 	DefaultNodeGroupMaximumSize  *int
 	KubernetesVersion            *string
+	AuditLog                     *bool
 	Age                          *string
 }
 
@@ -73,6 +74,7 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Get(
 				DefaultNodeGroupMinimumSize:  awsEksKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
 				DefaultNodeGroupMaximumSize:  awsEksKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
 				KubernetesVersion:            awsEksKubernetesRuntimeDefinition.KubernetesVersion,
+				AuditLog:                     awsEksKubernetesRuntimeDefinition.AuditLog,
 				Age:                          util.Ptr(util.GetAgeFormatted(awsEksKubernetesRuntimeDefinition.CreatedAt)),
 			},
 		}
@@ -105,6 +107,7 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Create(
 		},
 		InfraProvider:     &infraProvider,
 		KubernetesVersion: awsEksKubernetesRuntimeDefinitionValues.KubernetesVersion,
+		AuditLog:          awsEksKubernetesRuntimeDefinitionValues.AuditLog,
 	}
 
 	// create kubernetes runtime definition
@@ -124,6 +127,7 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Create(
 		DefaultNodeGroupMinimumSize:   awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupMinimumSize,
 		DefaultNodeGroupMaximumSize:   awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupMaximumSize,
 		KubernetesVersion:             util.Ptr(api_v0.KubernetesVersionOrDefault(awsEksKubernetesRuntimeDefinitionValues.KubernetesVersion)),
+		AuditLog:                      awsEksKubernetesRuntimeDefinitionValues.AuditLog,
 		KubernetesRuntimeDefinitionID: createdKubernetesRuntimeDefinition.ID,
 	}
 
@@ -148,6 +152,7 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Create(
 			DefaultNodeGroupMinimumSize:  createdAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
 			DefaultNodeGroupMaximumSize:  createdAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
 			KubernetesVersion:            createdAwsEksKubernetesRuntimeDefinition.KubernetesVersion,
+			AuditLog:                     createdAwsEksKubernetesRuntimeDefinition.AuditLog,
 		},
 	}
 
@@ -199,6 +204,11 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Replace(
 	if awsEksKubernetesRuntimeDefinitionValues.KubernetesVersion != nil {
 		updatedAwsEksKubernetesRuntimeDefinition.KubernetesVersion = awsEksKubernetesRuntimeDefinitionValues.KubernetesVersion
 	}
+	// the audit log is set on create and can't change, so a config that
+	// leaves it out keeps it
+	if awsEksKubernetesRuntimeDefinitionValues.AuditLog != nil {
+		updatedAwsEksKubernetesRuntimeDefinition.AuditLog = awsEksKubernetesRuntimeDefinitionValues.AuditLog
+	}
 
 	// replace aws eks kubernetes runtime definition
 	replacedAwsEksKubernetesRuntimeDefinition, err := client_v0.ReplaceAwsEksKubernetesRuntimeDefinition(
@@ -221,6 +231,7 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Replace(
 			DefaultNodeGroupMinimumSize:  replacedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
 			DefaultNodeGroupMaximumSize:  replacedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
 			KubernetesVersion:            replacedAwsEksKubernetesRuntimeDefinition.KubernetesVersion,
+			AuditLog:                     replacedAwsEksKubernetesRuntimeDefinition.AuditLog,
 		},
 	}
 
@@ -274,6 +285,7 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Delete(
 			DefaultNodeGroupMinimumSize:  deletedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
 			DefaultNodeGroupMaximumSize:  deletedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
 			KubernetesVersion:            deletedAwsEksKubernetesRuntimeDefinition.KubernetesVersion,
+			AuditLog:                     deletedAwsEksKubernetesRuntimeDefinition.AuditLog,
 		},
 	}
 

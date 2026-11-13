@@ -62,6 +62,11 @@ type OciOkeKubernetesRuntimeDefinition struct {
 	// can't be changed after creation.
 	KubernetesVersion *string `validate:"optional"`
 
+	// Recorded for the kubernetes runtime definition's AuditLog.  It has no
+	// effect on OKE, which has no Kubernetes API server audit log.  It can't
+	// be changed after creation.
+	AuditLog *bool `validate:"optional" gorm:"default:false"`
+
 	// The OCI OKE kubernetes runtime instances derived from this definition.
 	OciOkeKubernetesRuntimeInstances []*OciOkeKubernetesRuntimeInstance `validate:"optional,association"`
 

@@ -38,6 +38,11 @@ type KubernetesRuntimeInfraEKS struct {
 	// Kubernetes version of the EKS cluster.
 	KubernetesVersion string
 
+	// If true, the cluster's Kubernetes API server audit, API and
+	// authenticator logs are sent to CloudWatch Logs, in a log group the
+	// stack creates first with a retention period.
+	AuditLog bool
+
 	// The ARN of the IAM role the EKS control plane assumes.  Created by the
 	// IAM bootstrap that runs outside the Pulumi program.
 	ClusterRoleArn string
@@ -83,6 +88,13 @@ type KubernetesRuntimeInfraEKS struct {
 	// cluster, to the support type the cluster was created with: "" for one
 	// created before it was set.  The program keeps it.
 	stackSupportType *string
+
+	// stackAccessEntries is set by CreateInfra when the stack already holds
+	// the cluster, to whether it was created with access entries.  A cluster
+	// created before them keeps its access as it is: the creator's hidden
+	// administrator access, which only the cluster's creation can grant or
+	// withhold.
+	stackAccessEntries *bool
 }
 
 // Create provisions an AWS EKS cluster for threeport workloads and returns the
@@ -117,6 +129,7 @@ func (i *KubernetesRuntimeInfraEKS) CreateInfra() (*kube.KubeConnectionInfo, err
 	}
 	i.keepStackVersion(exported.Deployment)
 	i.keepStackSupportType(exported.Deployment)
+	i.keepStackAccessEntries(exported.Deployment)
 
 	if _, err := i.RunUp(context.Background(), stack); err != nil {
 		return nil, fmt.Errorf("failed to deploy stack: %w", err)
@@ -150,6 +163,17 @@ func (i *KubernetesRuntimeInfraEKS) CreatedKubernetesVersion() string {
 func (i *KubernetesRuntimeInfraEKS) keepStackSupportType(deployment json.RawMessage) {
 	if supportType, held := clusterInputInStack(deployment, "aws:eks/cluster:Cluster", "upgradePolicy.supportType"); held {
 		i.stackSupportType = &supportType
+	}
+}
+
+// keepStackAccessEntries records whether the cluster the stack's deployment
+// holds, if it holds one, was created with access entries, for the program
+// to keep.
+func (i *KubernetesRuntimeInfraEKS) keepStackAccessEntries(deployment json.RawMessage) {
+	if _, held := clusterInputInStack(deployment, "aws:eks/cluster:Cluster", "name"); held {
+		authenticationMode, _ := clusterInputInStack(deployment, "aws:eks/cluster:Cluster", "accessConfig.authenticationMode")
+		accessEntries := authenticationMode != ""
+		i.stackAccessEntries = &accessEntries
 	}
 }
 
@@ -922,6 +946,23 @@ const (
 					"eks:CreateAddon",
 					"eks:DeleteAddon",
 					"eks:UpdateAddon"
+				],
+				"Resource": "*"
+			},
+			{
+				"Sid": "CloudWatchLogsPermissions",
+				"Effect": "Allow",
+				"Action": [
+					"logs:CreateLogGroup",
+					"logs:DeleteLogGroup",
+					"logs:PutRetentionPolicy",
+					"logs:DeleteRetentionPolicy",
+					"logs:DescribeLogGroups",
+					"logs:ListTagsForResource",
+					"logs:ListTagsLogGroup",
+					"logs:TagResource",
+					"logs:UntagResource",
+					"logs:TagLogGroup"
 				],
 				"Resource": "*"
 			},

@@ -72,6 +72,13 @@ definitions:
         items:
           type: string
         type: array
+      AuditLog:
+        description: |-
+          If true, the clusters' Kubernetes API server audit log, with its API and
+          authenticator logs, is sent to CloudWatch Logs, in the log group
+          /aws/eks/<cluster>/cluster, which keeps it for 90 days and is deleted
+          with the cluster.  It can't be changed after creation.
+        type: boolean
       AwsEksKubernetesRuntimeInstances:
         description: The AWS EKS kubernetes runtime instances derived from this definition.
         items:
@@ -924,6 +931,12 @@ definitions:
         items:
           type: string
         type: array
+      AuditLog:
+        description: |-
+          Recorded for the kubernetes runtime definition's AuditLog.  It has no
+          effect on GKE, which always records the Kubernetes API's writes in
+          Cloud Audit Logs.  It can't be changed after creation.
+        type: boolean
       DefaultNodeGroupInitialSize:
         description: The number of nodes in the default initial node group.
         type: integer
@@ -1310,6 +1323,14 @@ definitions:
         items:
           type: string
         type: array
+      AuditLog:
+        description: |-
+          If true, the clusters' Kubernetes API server audit log is enabled and
+          sent to the infra provider's logging service: CloudWatch Logs on EKS.
+          GKE always records the API's writes in Cloud Audit Logs, and OKE has no
+          API server audit log, so it has no effect on either.  It is copied into
+          the EKS, GKE or OKE definition, and can't be changed after creation.
+        type: boolean
       CreationAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
@@ -2856,6 +2877,12 @@ definitions:
         items:
           type: string
         type: array
+      AuditLog:
+        description: |-
+          Recorded for the kubernetes runtime definition's AuditLog.  It has no
+          effect on OKE, which has no Kubernetes API server audit log.  It can't
+          be changed after creation.
+        type: boolean
       KubernetesRuntimeDefinitionID:
         description: The kubernetes runtime definition for an OKE cluster in OCI.
         type: integer
