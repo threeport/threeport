@@ -18,11 +18,13 @@ func init() {
 // Cockroach rejects ADD COLUMN inside a transaction, so this migration runs outside one.
 func Up000006(ctx context.Context, db *sql.DB) error {
 	// add the image a module was installed from
-	if _, err := db.ExecContext(ctx, `
-ALTER TABLE v0_module_apis ADD COLUMN IF NOT EXISTS image_namespace STRING;
-ALTER TABLE v0_module_apis ADD COLUMN IF NOT EXISTS image_tag STRING;
-`); err != nil {
-		return fmt.Errorf("failed to add module image columns: %w", err)
+	for _, statement := range []string{
+		`ALTER TABLE v0_module_apis ADD COLUMN image_namespace STRING`,
+		`ALTER TABLE v0_module_apis ADD COLUMN image_tag STRING`,
+	} {
+		if _, err := db.ExecContext(ctx, statement); err != nil {
+			return fmt.Errorf("failed to add module image columns: %w", err)
+		}
 	}
 	return nil
 }

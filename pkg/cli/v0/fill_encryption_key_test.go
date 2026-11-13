@@ -1,7 +1,12 @@
 package v0
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/spf13/viper"
 
 	tpapi "github.com/threeport/threeport/pkg/api/v0"
 )
@@ -25,5 +30,28 @@ func TestFillEncryptionKeyLeavesTheConfigWhenTheClusterCannotOpen(t *testing.T) 
 	}
 	if controlPlane.CACert != "ca" {
 		t.Fatalf("CACert %q", controlPlane.CACert)
+	}
+
+	// save the child in a config file after the key read is skipped
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(path, []byte("{}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	viper.SetConfigFile(path)
+	viper.SetConfigType("yaml")
+	if err := viper.ReadInConfig(); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &ThreeportConfig{}
+	if err := UpdateThreeportConfig(cfg, controlPlane); err != nil {
+		t.Fatal(err)
+	}
+	saved, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(saved)
+	if !strings.Contains(text, "child") || !strings.Contains(text, "kind") {
+		t.Fatalf("config %s", text)
 	}
 }

@@ -608,12 +608,27 @@ func UpgradeBlueGreen(
 	if err := created.RestoreModuleScale(source.Kube, modules); err != nil {
 		return fmt.Errorf("failed to restore module scale: %w", err)
 	}
-	if namespace != "" && namespace != newNamespace && !installer.KeepSourceNamespace(namespace) {
-		if err := installer.DeleteNamespaces(source.Kube, source.Mapper, []string{namespace}); err != nil {
-			return fmt.Errorf("failed to delete source namespace %s: %w", namespace, err)
-		}
+	if err := removeReplacedNamespace(source.Kube, source.Mapper, namespace, newNamespace); err != nil {
+		return err
 	}
 	fmt.Printf("Info: control plane %s is up in %s, source namespace %s deleted\n", newName, newNamespace, namespace)
+	return nil
+}
+
+// removeReplacedNamespace deletes the namespace the restore came from.
+// The shared support-services namespace is left in place.
+func removeReplacedNamespace(
+	kube dynamic.Interface,
+	mapper *meta.RESTMapper,
+	namespace, newNamespace string,
+) error {
+	// keep the namespace that holds the shared operator
+	if namespace == "" || namespace == newNamespace || installer.KeepSourceNamespace(namespace) {
+		return nil
+	}
+	if err := installer.DeleteNamespaces(kube, mapper, []string{namespace}); err != nil {
+		return fmt.Errorf("failed to delete source namespace %s: %w", namespace, err)
+	}
 	return nil
 }
 
