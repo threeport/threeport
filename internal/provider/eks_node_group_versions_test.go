@@ -112,12 +112,43 @@ func TestAnEksClusterKeepsTheZonesOfItsSubnets(t *testing.T) {
 	}
 	assert.Equal(t, map[string]bool{"us-east-1c": true, "us-east-1d": true}, zones, "not the region's first zones, us-east-1a and -b")
 
+	// a create that stopped after the first zone's subnets: its zone is
+	// kept, and the rest are chosen as a new cluster's would be, so every
+	// node group has a subnet
+	partial := testEksInfra(3)
+	partial.NodeGroupPerZone = true
+	partial.keepStackZones(json.RawMessage(`{"resources": [
+		{"urn": "urn:pulumi:stack::eks::aws:ec2/subnet:Subnet::eks-test-private-subnet-0", "type": "aws:ec2/subnet:Subnet", "inputs": {"availabilityZone": "us-east-1d"}}
+	]}`))
+	assert.Equal(t, []string{"us-east-1d"}, partial.stackZones)
+	mocks = runEksPulumiProgram(t, partial)
+	assert.Len(t, mocks.byType(eksNodeGroupTypeToken), 3)
+	privateZones := map[string]string{}
+	for _, subnet := range mocks.byType(eksSubnetTypeToken) {
+		privateZones[subnet.name] = subnet.inputs["availabilityZone"].(string)
+	}
+	assert.Equal(t, "us-east-1d", privateZones["eks-test-private-subnet-0"])
+	assert.NotEqual(t, "us-east-1d", privateZones["eks-test-private-subnet-1"])
+	assert.NotEqual(t, "us-east-1d", privateZones["eks-test-private-subnet-2"])
+	assert.NotEqual(t, privateZones["eks-test-private-subnet-1"], privateZones["eks-test-private-subnet-2"])
+
+	// a subnet missing from the middle: the others keep their zones, and its
+	// zone is chosen from the rest
 	gap := testEksInfra(3)
 	gap.keepStackZones(json.RawMessage(`{"resources": [
-		{"urn": "urn:pulumi:stack::eks::aws:ec2/subnet:Subnet::eks-test-private-subnet-0", "type": "aws:ec2/subnet:Subnet", "inputs": {"availabilityZone": "us-east-1a"}},
-		{"urn": "urn:pulumi:stack::eks::aws:ec2/subnet:Subnet::eks-test-private-subnet-2", "type": "aws:ec2/subnet:Subnet", "inputs": {"availabilityZone": "us-east-1c"}}
+		{"urn": "urn:pulumi:stack::eks::aws:ec2/subnet:Subnet::eks-test-private-subnet-0", "type": "aws:ec2/subnet:Subnet", "inputs": {"availabilityZone": "us-east-1c"}},
+		{"urn": "urn:pulumi:stack::eks::aws:ec2/subnet:Subnet::eks-test-private-subnet-2", "type": "aws:ec2/subnet:Subnet", "inputs": {"availabilityZone": "us-east-1a"}}
 	]}`))
-	assert.Nil(t, gap.stackZones)
+	assert.Equal(t, []string{"us-east-1c", "", "us-east-1a"}, gap.stackZones)
+	mocks = runEksPulumiProgram(t, gap)
+	privateZones = map[string]string{}
+	for _, subnet := range mocks.byType(eksSubnetTypeToken) {
+		privateZones[subnet.name] = subnet.inputs["availabilityZone"].(string)
+	}
+	assert.Equal(t, "us-east-1c", privateZones["eks-test-private-subnet-0"])
+	assert.Equal(t, "us-east-1b", privateZones["eks-test-private-subnet-1"], "the region's first zone not taken")
+	assert.Equal(t, "us-east-1a", privateZones["eks-test-private-subnet-2"])
+
 	none := testEksInfra(3)
 	none.keepStackZones(json.RawMessage(`{"resources": []}`))
 	assert.Nil(t, none.stackZones)

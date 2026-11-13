@@ -148,9 +148,13 @@ func (i *KubernetesRuntimeInfraEKS) InitPulumiProject() *KubernetesRuntimeInfraE
 // that offer the node instance type are used: a node group in one that doesn't
 // can't start a node, and a newer type such as m8i isn't in every zone.
 func (i *KubernetesRuntimeInfraEKS) clusterZones(ctx *pulumi.Context, available []string) ([]string, error) {
-	// a cluster the stack holds stays in the zones its subnets are in
-	if len(i.stackZones) > 0 {
-		return i.stackZones, nil
+	// a cluster the stack holds stays in the zones its subnets are in, and a
+	// create that stopped before making every zone's subnets gets the rest
+	zoneCount := i.zoneCount()
+	zones := make([]string, zoneCount)
+	copy(zones, i.stackZones)
+	if !slices.Contains(zones, "") {
+		return zones, nil
 	}
 
 	candidates := available
@@ -173,8 +177,16 @@ func (i *KubernetesRuntimeInfraEKS) clusterZones(ctx *pulumi.Context, available 
 		}
 	}
 
-	zoneCount := i.zoneCount()
-	if len(candidates) < zoneCount {
+	for _, zone := range candidates {
+		position := slices.Index(zones, "")
+		if position < 0 {
+			break
+		}
+		if !slices.Contains(zones, zone) {
+			zones[position] = zone
+		}
+	}
+	if slices.Contains(zones, "") {
 		if i.NodeGroupPerZone {
 			return nil, fmt.Errorf(
 				"region %s has %d availability zones offering %s, %d required",
@@ -187,7 +199,7 @@ func (i *KubernetesRuntimeInfraEKS) clusterZones(ctx *pulumi.Context, available 
 		)
 	}
 
-	return candidates[:zoneCount], nil
+	return zones, nil
 }
 
 // zoneCount returns how many availability zones the cluster spans, bounded by

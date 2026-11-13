@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -108,7 +110,8 @@ type KubernetesRuntimeInfraEKS struct {
 	nodeGroupVersions map[string]string
 
 	// stackZones is set by CreateInfra and UpgradeInfra when the stack
-	// already holds the cluster's subnets, to their zones in order.  The
+	// already holds the cluster's subnets, to their zones in order, "" where
+	// the stack holds no subnet.  The
 	// program keeps them: a subnet's zone can't change without replacing it,
 	// and the zones the region offers, or that offer the node instance type,
 	// change over time.
@@ -1080,14 +1083,11 @@ func (i *KubernetesRuntimeInfraEKS) keepStackZones(deployment json.RawMessage) {
 	if len(zonesByIndex) == 0 {
 		return
 	}
-	zones := make([]string, 0, len(zonesByIndex))
-	for index := range len(zonesByIndex) {
-		zone, held := zonesByIndex[index]
-		if !held {
-			// subnets missing from the middle: let the program choose again
-			return
-		}
-		zones = append(zones, zone)
+	// a zone whose subnet the stack doesn't hold, as after a create that
+	// stopped part way, is left "" for the program to choose
+	zones := make([]string, slices.Max(slices.Collect(maps.Keys(zonesByIndex)))+1)
+	for index, zone := range zonesByIndex {
+		zones[index] = zone
 	}
 	i.stackZones = zones
 }
