@@ -22,8 +22,8 @@ import (
 
 const assertDatabaseJobName = "threeport-assert-database"
 
-// assertRestoredControlPlane requires certificates, database state, and ready workloads.
-func (cpi *ControlPlaneInstaller) assertRestoredControlPlane(
+// AssertRestoredControlPlane requires certificates, database state, and ready workloads.
+func (cpi *ControlPlaneInstaller) AssertRestoredControlPlane(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 ) error {

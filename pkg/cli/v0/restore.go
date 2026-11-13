@@ -168,28 +168,14 @@ func BackupControlPlaneWithClient(
 	kubeClient dynamic.Interface,
 	writers BackupWriters,
 ) (map[string]int64, []threeport.ModuleDeploymentScale, error) {
-	// read module names while the API is still up
 	cpi := threeport.NewInstaller()
 	if namespace != "" {
 		cpi.Opts.Namespace = namespace
 	}
-	controllers, err := cpi.DiscoverModuleDeployments(apiClient, apiEndpoint)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to discover registered module deployments: %w", err)
+	replicas, scales, err := cpi.StopWritersAndBackup(kubeClient, apiClient, apiEndpoint, bucket)
+	if err != nil && replicas == nil && scales == nil {
+		return nil, nil, err
 	}
-	apiServers, err := cpi.DiscoverModuleApiServers(apiClient, apiEndpoint)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to discover module API servers: %w", err)
-	}
-
-	// scale module writers before the control plane API
-	scales, err := cpi.ScaleDownModuleWriters(kubeClient, controllers, apiServers)
-	if err != nil {
-		return finishBackup(cpi, kubeClient, nil, scales, writers, err)
-	}
-
-	// scale the control plane writers to zero and back up
-	replicas, err := cpi.ScaleDownAndBackup(kubeClient, bucket)
 	return finishBackup(cpi, kubeClient, replicas, scales, writers, err)
 }
 

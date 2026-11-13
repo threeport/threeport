@@ -110,13 +110,30 @@ func unfinishedChild(instance *v0.ControlPlaneInstance) bool {
 	return instance.CreationAcknowledged != nil
 }
 
-// v0ControlPlaneInstanceCreated performs reconciliation when a v0 ControlPlaneInstance
-// has been created.
+// v0ControlPlaneInstanceCreated reconciles a created v0 ControlPlaneInstance.
 func v0ControlPlaneInstanceCreated(
 	r *controller.Reconciler,
 	controlPlaneInstance *v0.ControlPlaneInstance,
 	log *logr.Logger,
-) (int64, error) {
+) (requeueDelay int64, installErr error) {
+	var resumeSource func() error
+	apiServing := false
+	// bring the source writers back when this returns before the new API answers
+	defer func() {
+		if resumeSource == nil || apiServing {
+			return
+		}
+		resumeErr := resumeSource()
+		if resumeErr == nil {
+			return
+		}
+		if installErr != nil {
+			installErr = fmt.Errorf("%w (resuming source writers: %v)", installErr, resumeErr)
+			return
+		}
+		installErr = fmt.Errorf("failed to resume source writers: %w", resumeErr)
+	}()
+
 	var notFirstRun bool
 	if controlPlaneInstance.CreationAcknowledged == nil {
 		notFirstRun = false
@@ -472,14 +489,16 @@ func v0ControlPlaneInstanceCreated(
 		return 0, err
 	}
 
-	// restore the database before the API serves it
-	if err := restoreInstalledDatabase(
+	// stop the source writers, back up once, and restore
+	resumeSource, err = restoreInstalledDatabase(
 		r,
 		cpi,
 		dynamicKubeClient,
 		kubernetesRuntimeInstance,
 		kubernetesRuntimeDefinition,
-	); err != nil {
+		util.DerefString(selfInstance.Namespace),
+	)
+	if err != nil {
 		return 0, err
 	}
 
@@ -645,6 +664,14 @@ func v0ControlPlaneInstanceCreated(
 		return 0, fmt.Errorf("threeport API did not come up: %w", err)
 	}
 	cli.Info("Threeport API is running")
+
+	// the API answered, so a later failure leaves the source writers stopped
+	apiServing = true
+	if cpi.Opts.FromNamespace != "" {
+		if err := cpi.AssertRestoredControlPlane(dynamicKubeClient, mapper); err != nil {
+			return 0, err
+		}
+	}
 
 	// point installed modules at this control plane
 	if cpi.Opts.FromNamespace != "" {
@@ -1508,18 +1535,35 @@ func configureProviderControllers(
 	}
 }
 
-// restoreInstalledDatabase restores the latest backup into a new control plane.
-// A source namespace on a runtime other than GKE is an error.
+// restoreInstalledDatabase stops the source writers, backs that database up once, and restores it.
+// resume brings those writers back when the new API does not come up.
 func restoreInstalledDatabase(
 	r *controller.Reconciler,
 	cpi *threeport.ControlPlaneInstaller,
 	kubeClient dynamic.Interface,
 	runtimeInstance *v0.KubernetesRuntimeInstance,
 	runtimeDefinition *v0.KubernetesRuntimeDefinition,
-) error {
+	selfNamespace string,
+) (func() error, error) {
 	// skip a fresh install
 	if cpi.Opts.FromNamespace == "" {
-		return nil
+		return nil, nil
+	}
+
+	// a new namespace has to differ from the source
+	if cpi.Opts.FromNamespace == cpi.Opts.Namespace {
+		return nil, fmt.Errorf(
+			"new namespace must differ from source namespace %s",
+			cpi.Opts.FromNamespace,
+		)
+	}
+
+	// scaling this namespace to zero stops the reconcile and the parent API
+	if cpi.Opts.FromNamespace == selfNamespace {
+		return nil, fmt.Errorf(
+			"refusing to stop writers in %s: this reconcile runs there",
+			cpi.Opts.FromNamespace,
+		)
 	}
 
 	// restore for this provider
@@ -1530,24 +1574,28 @@ func restoreInstalledDatabase(
 	switch providerName {
 	case v0.KubernetesRuntimeInfraProviderGKE:
 		if runtimeInstance == nil || runtimeInstance.Name == nil || runtimeInstance.ID == nil {
-			return fmt.Errorf("restore from %s needs the runtime instance name and id", cpi.Opts.FromNamespace)
+			return nil, fmt.Errorf(
+				"restore from %s needs the runtime instance name and id",
+				cpi.Opts.FromNamespace,
+			)
 		}
 		if kubeClient == nil {
-			return fmt.Errorf("restore from %s needs a kube client", cpi.Opts.FromNamespace)
+			return nil, fmt.Errorf("restore from %s needs a kube client", cpi.Opts.FromNamespace)
 		}
 
 		// read the runtime backup bucket
 		projectID, err := gkeRuntimeProjectID(r.APIClient, r.APIServer, *runtimeInstance.ID)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		bucket := provider.GkeBackupBucketName(*runtimeInstance.Name, projectID)
 
-		// restore the latest backup and record the source
-		return cpi.RestoreFromNamespace(kubeClient, bucket)
+		// remember the bucket so the restored database check requires the schedule
+		cpi.Opts.GcpBackupBucket = bucket
+		return cpi.StopSourceAndRestore(kubeClient, bucket)
 	default:
 		// kind, eks, and oke have no backup to restore
-		return fmt.Errorf("restore from %s is only supported on GKE", cpi.Opts.FromNamespace)
+		return nil, fmt.Errorf("restore from %s is only supported on GKE", cpi.Opts.FromNamespace)
 	}
 }
 

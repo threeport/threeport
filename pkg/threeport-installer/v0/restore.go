@@ -25,6 +25,7 @@ import (
 
 	"github.com/threeport/threeport/pkg/api-server/v0/database"
 	auth "github.com/threeport/threeport/pkg/auth/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	"github.com/threeport/threeport/pkg/encryption/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -1106,6 +1107,154 @@ func (cpi *ControlPlaneInstaller) AuthConfigForInstall(
 	return auth.GetAuthConfig()
 }
 
+// StopWritersAndBackup stops writers in this namespace and backs that database up once.
+// The writers stay stopped. The caller resumes them when the replacement API does not come up.
+func (cpi *ControlPlaneInstaller) StopWritersAndBackup(
+	kubeClient dynamic.Interface,
+	apiClient *http.Client,
+	apiEndpoint string,
+	bucket string,
+) (map[string]int64, []ModuleDeploymentScale, error) {
+	// read module names while the API is still up
+	controllers, err := cpi.DiscoverModuleDeployments(apiClient, apiEndpoint)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to discover registered module deployments: %w", err)
+	}
+	apiServers, err := cpi.DiscoverModuleApiServers(apiClient, apiEndpoint)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to discover module API servers: %w", err)
+	}
+
+	// scale module writers before the control plane API
+	scales, err := cpi.ScaleDownModuleWriters(kubeClient, controllers, apiServers)
+	if err != nil {
+		if scales == nil {
+			scales = []ModuleDeploymentScale{}
+		}
+		return nil, scales, err
+	}
+
+	// scale the control plane writers to zero and back up
+	replicas, err := cpi.ScaleDownAndBackup(kubeClient, bucket)
+	return replicas, scales, err
+}
+
+// ControllerAPIClient returns a client for the API in this installer's namespace.
+// It uses the control plane controller certificate stored in that namespace.
+func (cpi *ControlPlaneInstaller) ControllerAPIClient(
+	kubeClient dynamic.Interface,
+) (*http.Client, string, error) {
+	// read the controller certificate and its CA
+	certObj, err := cpi.getSecret(
+		kubeClient,
+		controllerCertSecretName(ThreeportControlPlaneControllerName),
+	)
+	if err != nil {
+		return nil, "", fmt.Errorf(
+			"failed to get controller certificate in %s: %w",
+			cpi.Opts.Namespace,
+			err,
+		)
+	}
+	caObj, err := cpi.getSecret(
+		kubeClient,
+		controllerCaSecretName(ThreeportControlPlaneControllerName),
+	)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to get controller CA in %s: %w", cpi.Opts.Namespace, err)
+	}
+	cert, err := secretValue(certObj, "tls.crt")
+	if err != nil {
+		return nil, "", err
+	}
+	key, err := secretValue(certObj, "tls.key")
+	if err != nil {
+		return nil, "", err
+	}
+	ca, err := secretValue(caObj, "tls.crt")
+	if err != nil {
+		return nil, "", err
+	}
+
+	// dial the API service in this namespace
+	apiClient, err := client_lib.GetHTTPClient(false, ca, cert, key, "")
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to build API client for %s: %w", cpi.Opts.Namespace, err)
+	}
+	endpoint := fmt.Sprintf(
+		"https://%s.%s.svc.cluster.local:%d",
+		ThreeportAPIServiceResourceName,
+		cpi.Opts.Namespace,
+		GetThreeportAPIPort(true),
+	)
+	return apiClient, endpoint, nil
+}
+
+// StopSourceAndRestore stops the source writers, backs that database up once, and restores it.
+// A restore already recorded here is left unchanged. Resume brings the source writers back.
+func (cpi *ControlPlaneInstaller) StopSourceAndRestore(
+	kubeClient dynamic.Interface,
+	bucket string,
+) (resume func() error, err error) {
+	if cpi.Opts.FromNamespace == "" {
+		return nil, nil
+	}
+	recorded, err := cpi.restoreRecorded(kubeClient)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check the restore record for %s: %w", cpi.Opts.Namespace, err)
+	}
+	if recorded {
+		return nil, nil
+	}
+
+	// stop the source and take one backup before restoring it here
+	source := NewInstaller(Namespace(cpi.Opts.FromNamespace))
+	apiClient, apiEndpoint, err := source.ControllerAPIClient(kubeClient)
+	if err != nil {
+		return nil, fmt.Errorf("failed to reach the API in %s: %w", cpi.Opts.FromNamespace, err)
+	}
+	replicas, scales, err := source.StopWritersAndBackup(kubeClient, apiClient, apiEndpoint, bucket)
+	if err != nil {
+		return nil, resumeSourceWriters(
+			source,
+			kubeClient,
+			replicas,
+			scales,
+			cpi.Opts.FromNamespace,
+			err,
+		)
+	}
+	if err := cpi.RestoreFromNamespace(kubeClient, bucket); err != nil {
+		return nil, resumeSourceWriters(
+			source,
+			kubeClient,
+			replicas,
+			scales,
+			cpi.Opts.FromNamespace,
+			err,
+		)
+	}
+	return func() error {
+		return source.ResumeWriters(kubeClient, replicas, scales)
+	}, nil
+}
+
+// resumeSourceWriters brings the source back up after a failed stop or restore.
+// It returns the original error when the resume succeeds.
+func resumeSourceWriters(
+	source *ControlPlaneInstaller,
+	kubeClient dynamic.Interface,
+	replicas map[string]int64,
+	scales []ModuleDeploymentScale,
+	namespace string,
+	cause error,
+) error {
+	if resumeErr := source.ResumeWriters(kubeClient, replicas, scales); resumeErr != nil {
+		return fmt.Errorf("%w (resume of %s also failed: %v)", cause, namespace, resumeErr)
+	}
+	return cause
+}
+
 // ScaleDownAndBackup records writer counts, scales them to zero, and backs up the database.
 // The writers stay stopped.
 func (cpi *ControlPlaneInstaller) ScaleDownAndBackup(
@@ -1311,7 +1460,7 @@ func (cpi *ControlPlaneInstaller) InstallRestored(
 	}
 
 	// check certificates, database state, and ready workloads
-	if err := cpi.assertRestoredControlPlane(kubeClient, mapper); err != nil {
+	if err := cpi.AssertRestoredControlPlane(kubeClient, mapper); err != nil {
 		return true, err
 	}
 
