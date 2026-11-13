@@ -344,6 +344,33 @@ func (i *KubernetesRuntimeInfraEKS) CreateClusterIam() error {
 	return nil
 }
 
+// lookupClusterIam sets ClusterRoleArn and NodeRoleArn to the roles
+// CreateClusterIam created for the cluster, without changing them.  The
+// program sets both on the cluster and its node group, so a stack run without
+// them asks for different roles, which replaces both.
+func (i *KubernetesRuntimeInfraEKS) lookupClusterIam() error {
+	if i.AwsConfig == nil {
+		return fmt.Errorf("cannot look up the cluster IAM roles without an AWS config")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), iamBootstrapTimeout)
+	defer cancel()
+
+	iamClient := iam.NewFromConfig(*i.AwsConfig)
+	for roleName, arn := range map[string]*string{
+		tpaws.EksClusterRoleName(i.RuntimeInstanceName): &i.ClusterRoleArn,
+		tpaws.EksNodeRoleName(i.RuntimeInstanceName):    &i.NodeRoleArn,
+	} {
+		role, err := iamClient.GetRole(ctx, &iam.GetRoleInput{RoleName: aws.String(roleName)})
+		if err != nil {
+			return fmt.Errorf("failed to get IAM role %s: %w", roleName, err)
+		}
+		*arn = *role.Role.Arn
+	}
+
+	return nil
+}
+
 // CreateIrsaIam registers the cluster's OIDC issuer as an identity provider in
 // IAM, creates the roles the cluster's add-ons assume through it, and installs
 // the EBS CSI addon bound to the storage management role.  It runs after the

@@ -53,8 +53,10 @@ type KubernetesRuntimeDefinition struct {
 
 	// The Kubernetes minor version of the clusters, such as "1.36", on EKS,
 	// GKE and OKE.  If unset, the default version is used, and the EKS, GKE
-	// or OKE definition records it.  It can't be changed after creation.  A
-	// kind cluster's version comes with its node image, so it takes none.
+	// or OKE definition records it.  It records the version asked for at
+	// creation and can't be changed: the clusters are upgraded by raising the
+	// EKS or GKE definition's KubernetesVersion.  A kind cluster's version
+	// comes with its node image, so it takes none.
 	KubernetesVersion *string `validate:"optional"`
 
 	// TODO: add fields for location limitations

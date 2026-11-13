@@ -96,9 +96,8 @@ as a production release on OKE.
 - **OKE** creates the cluster and its nodes on the newest release of that
   version that OKE offers and has a worker node image for the node shape.
 
-The version is recorded on the EKS, GKE or OKE definition, and it can't be
-changed once the definition exists: Threeport doesn't upgrade a cluster yet. A
-kind cluster's version comes with its node image, so it takes none.
+The version is recorded on the EKS, GKE or OKE definition. A kind cluster's
+version comes with its node image, so it takes none.
 
 `tptctl up` sets the version of the cluster it creates with
 `--kubernetes-version`.
@@ -116,11 +115,44 @@ how:
   `MaintenanceWindowDays` (such as `SA,SU`), `MaintenanceWindowStart` (a UTC
   time of day, such as `04:00`) and `MaintenanceWindowHours` (4 to 24). The
   cluster of a production control plane that `tptctl up` creates is on
-  `STABLE`. Like the version, they can't be changed once the definition
-  exists.
+  `STABLE`. They can't be changed once the definition exists.
 - **EKS** upgrades the control plane to the next version when its version
   leaves standard support, rather than keeping it on extended support at a
   higher hourly charge. The node group isn't upgraded with it.
+
+### Upgrading a Cluster
+
+On EKS and GKE, raising `KubernetesVersion` on an `AwsEksKubernetesRuntime` or
+`GcpGkeKubernetesRuntime` definition upgrades its clusters to that version. Set
+it in the config file and replace the definition, or update the definition
+through the API. The new version must be a supported one, no older than the one
+it replaces: a cluster can't be downgraded. The kubernetes runtime definition
+keeps the version it was created with. OKE clusters can't be upgraded yet.
+
+The controller upgrades each cluster one minor version at a time. Each step:
+
+1. Reads the version the cluster runs from the provider, so an upgrade the
+   provider made on its own is recognized, and a cluster newer than its
+   definition isn't downgraded.
+2. Refreshes the cluster's Pulumi stack against the provider.
+3. Previews the upgrade, and refuses it, without changing anything, when it
+   would replace or delete any of the cluster's resources.
+4. Upgrades the cluster:
+   - **EKS:** the control plane, then the node group, whose nodes EKS
+     replaces one at a time. The cluster autoscaler is then updated to the
+     release for the new version.
+   - **GKE:** the control plane, to its release channel's release of the
+     version. GKE upgrades the nodes after it, within the maintenance window.
+
+Progress and failures are on the EKS or GKE runtime instance: the version the
+cluster runs in `KubernetesVersion`, and what the controller last did in
+`UpgradeStatus`. A refused or failed upgrade is also recorded as a warning
+event on the instance. A failed upgrade is tried again after 15 minutes. A
+refused one isn't tried again until the definition asks for another version,
+or `UpgradeRefused` is set back to `false` on the instance.
+`UpgradeRequestedVersion` records the version each instance was last asked
+for. A cluster Threeport didn't create, such as one `tptctl up
+--control-plane-only` was installed on, isn't upgraded.
 
 Reference:
 [KubernetesRuntimeDefinition](https://pkg.go.dev/github.com/threeport/threeport/pkg/api/v0#KubernetesRuntimeDefinition)

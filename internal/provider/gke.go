@@ -1210,9 +1210,9 @@ type gkeClusterLister interface {
 // wherever in the region it is: the region itself for a regional cluster, or
 // one of its zones for a zonal one.  A cluster that isn't there is a NotFound
 // error, and a listing GKE couldn't complete is an error of its own, so it
-// isn't taken for a cluster that is gone.  Where more than one cluster in the
-// region has the name, the one in the location the stack records is this
-// runtime's, and without one it is an error rather than a guess.
+// isn't taken for a cluster that is gone.  A cluster of the name is this
+// runtime's as isThisRuntimesCluster decides, and where more than one may be,
+// it is an error rather than a guess.
 func (i *KubernetesRuntimeInfraGKE) findCluster(ctx context.Context, client gkeClusterLister) (*containerpb.Cluster, error) {
 	response, err := client.ListClusters(ctx, &containerpb.ListClustersRequest{
 		Parent: fmt.Sprintf("projects/%s/locations/-", i.ProjectID),
@@ -1222,9 +1222,14 @@ func (i *KubernetesRuntimeInfraGKE) findCluster(ctx context.Context, client gkeC
 	}
 	var matches []*containerpb.Cluster
 	for _, cluster := range response.GetClusters() {
-		if cluster.GetName() == i.RuntimeInstanceName && gkeLocationInRegion(cluster.GetLocation(), i.Region) {
+		if cluster.GetName() == i.RuntimeInstanceName && i.isThisRuntimesCluster(cluster) {
 			matches = append(matches, cluster)
 		}
+	}
+	// a cluster found at its recorded location is the one, wherever else GKE
+	// couldn't list; otherwise one in a zone it couldn't list may be missing
+	if i.stackLocation != nil && len(matches) == 1 {
+		return matches[0], nil
 	}
 	if _, err := completeClusterList(response); err != nil {
 		return nil, err
@@ -1236,14 +1241,8 @@ func (i *KubernetesRuntimeInfraGKE) findCluster(ctx context.Context, client gkeC
 	case 1:
 		return matches[0], nil
 	}
-	// clusters in different zones of a region may share a name: the one the
-	// stack created is the one in its location, and without the stack none
-	// is taken for it
 	locations := make([]string, 0, len(matches))
 	for _, cluster := range matches {
-		if i.stackLocation != nil && cluster.GetLocation() == *i.stackLocation {
-			return cluster, nil
-		}
 		locations = append(locations, cluster.GetLocation())
 	}
 
@@ -1251,6 +1250,74 @@ func (i *KubernetesRuntimeInfraGKE) findCluster(ctx context.Context, client gkeC
 		"found %d GKE clusters named %s in region %s, in %v, and can't tell which is this runtime's",
 		len(matches), i.RuntimeInstanceName, i.Region, locations,
 	)
+}
+
+// isThisRuntimesCluster reports whether a cluster of this runtime's name may
+// be its cluster.  Where the stack, or the runtime's resource inventory,
+// records the cluster's location, only the cluster there is.  Otherwise a
+// cluster in the region that carries this runtime's Threeport labels is, and
+// so is one in the region itself, as every cluster was before zonal ones: a
+// cluster of the name in one of the region's zones that isn't labelled for
+// this runtime is someone else's.
+func (i *KubernetesRuntimeInfraGKE) isThisRuntimesCluster(cluster *containerpb.Cluster) bool {
+	if i.stackLocation != nil {
+		return cluster.GetLocation() == *i.stackLocation
+	}
+	if !gkeLocationInRegion(cluster.GetLocation(), i.Region) {
+		return false
+	}
+	labels := cluster.GetResourceLabels()
+
+	return cluster.GetLocation() == i.Region ||
+		(labels[GcpLabelProvisionedBy] == GcpLabelProvisionedByValue &&
+			labels[GcpLabelThreeportName] == GcpResourceLabels(i.RuntimeInstanceName)[GcpLabelThreeportName])
+}
+
+// RecordedClusterLocation returns the location the cluster is found at, from
+// the stack or the runtime's resource inventory, "" when neither records one.
+func (i *KubernetesRuntimeInfraGKE) RecordedClusterLocation() string {
+	if i.stackLocation == nil {
+		return ""
+	}
+
+	return *i.stackLocation
+}
+
+// KeepInventoryLocation records the location of the cluster a runtime's
+// resource inventory holds, a stack export or checkpoint, so the cluster is
+// found where it was created.  An inventory that holds no cluster records
+// nothing.
+func (i *KubernetesRuntimeInfraGKE) KeepInventoryLocation(inventory *datatypes.JSON) {
+	if inventory == nil {
+		return
+	}
+	var state struct {
+		Resources  json.RawMessage `json:"resources"`
+		Deployment struct {
+			Resources json.RawMessage `json:"resources"`
+		} `json:"deployment"`
+		Checkpoint struct {
+			Latest struct {
+				Resources json.RawMessage `json:"resources"`
+			} `json:"latest"`
+		} `json:"checkpoint"`
+	}
+	if json.Unmarshal(*inventory, &state) != nil {
+		return
+	}
+	for _, resources := range []json.RawMessage{state.Resources, state.Deployment.Resources, state.Checkpoint.Latest.Resources} {
+		if len(resources) == 0 {
+			continue
+		}
+		deployment, err := json.Marshal(map[string]json.RawMessage{"resources": resources})
+		if err != nil {
+			return
+		}
+		if location, held := clusterInputInStack(deployment, "gcp:container/cluster:Cluster", "location"); held && location != "" {
+			i.stackLocation = &location
+			return
+		}
+	}
 }
 
 // gkeLocationInRegion reports whether a GKE location is a region or one of

@@ -136,6 +136,15 @@ func TestBuildGkeInfra_MapsDefinitionNodePoolFields(t *testing.T) {
 	infra, err = buildGkeInfra(r, instance, definition, nil)
 	require.NoError(t, err)
 	assert.Equal(t, int32(3), infra.ZoneCount)
+	assert.Empty(t, infra.RecordedClusterLocation(), "an instance with no inventory")
+
+	// an instance's inventory records where its cluster is
+	inventory := datatypes.JSON(`{"deployment": {"resources": [{"type": "gcp:container/cluster:Cluster", "inputs": {"location": "us-central1-b"}}]}}`)
+	instance.ResourceInventory = &inventory
+	infra, err = buildGkeInfra(r, instance, definition, nil)
+	require.NoError(t, err)
+	assert.Equal(t, "us-central1-b", infra.RecordedClusterLocation())
+	instance.ResourceInventory = nil
 }
 
 // TestBuildGkeInfra_RefusesWithoutAnAccountToBind covers a provider with no

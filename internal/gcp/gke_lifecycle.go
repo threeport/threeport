@@ -393,6 +393,99 @@ func (g *gkeLifecycle) RecordWarning(reason, note string) error {
 	)
 }
 
+// GetUpgrade fetches the instance's upgrade state from the API.
+func (g *gkeLifecycle) GetUpgrade() (*provider.UpgradeSnapshot, error) {
+	latest, err := client.GetGcpGkeKubernetesRuntimeInstanceByID(g.r.APIClient, g.r.APIServer, g.instanceID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get latest GKE instance: %w", err)
+	}
+
+	return &provider.UpgradeSnapshot{
+		RecordedVersion: util.DerefString(latest.KubernetesVersion),
+		Acknowledged:    latest.UpgradeAcknowledged,
+		Upgrading:       latest.Upgrading != nil && *latest.Upgrading,
+		Failed:          latest.UpgradeFailed != nil && *latest.UpgradeFailed,
+		Refused:         latest.UpgradeRefused != nil && *latest.UpgradeRefused,
+		Status:          util.DerefString(latest.UpgradeStatus),
+	}, nil
+}
+
+// GetUpgradeTarget fetches the version the instance's definition asks for.
+func (g *gkeLifecycle) GetUpgradeTarget() (string, error) {
+	latest, err := client.GetGcpGkeKubernetesRuntimeInstanceByID(g.r.APIClient, g.r.APIServer, g.instanceID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get latest GKE instance: %w", err)
+	}
+	definition, err := client.GetGcpGkeKubernetesRuntimeDefinitionByID(g.r.APIClient, g.r.APIServer, *latest.GcpGkeKubernetesRuntimeDefinitionID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get GKE definition: %w", err)
+	}
+
+	return v0.KubernetesVersionOrDefault(definition.KubernetesVersion), nil
+}
+
+// RecordUpgradeStatus records the version the cluster runs and what the
+// controller found.
+func (g *gkeLifecycle) RecordUpgradeStatus(version, status string) error {
+	update := v0.GcpGkeKubernetesRuntimeInstance{
+		Common:        v0.Common{ID: &g.instanceID},
+		UpgradeStatus: &status,
+	}
+	if version != "" {
+		update.KubernetesVersion = &version
+	}
+	_, err := client.UpdateGcpGkeKubernetesRuntimeInstance(g.r.APIClient, g.r.APIServer, &update)
+	return err
+}
+
+// AckUpgrade records that an upgrade started.
+func (g *gkeLifecycle) AckUpgrade(status string) error {
+	timestamp := time.Now().UTC()
+	update := v0.GcpGkeKubernetesRuntimeInstance{
+		Common:              v0.Common{ID: &g.instanceID},
+		UpgradeAcknowledged: &timestamp,
+		Upgrading:           util.Ptr(true),
+		UpgradeFailed:       util.Ptr(false),
+		UpgradeRefused:      util.Ptr(false),
+		UpgradeStatus:       &status,
+	}
+	_, err := client.UpdateGcpGkeKubernetesRuntimeInstance(g.r.APIClient, g.r.APIServer, &update)
+	return err
+}
+
+// RefreshUpgradeAck updates UpgradeAcknowledged to prevent stale detection.
+func (g *gkeLifecycle) RefreshUpgradeAck() error {
+	timestamp := time.Now().UTC()
+	update := v0.GcpGkeKubernetesRuntimeInstance{
+		Common:              v0.Common{ID: &g.instanceID},
+		UpgradeAcknowledged: &timestamp,
+	}
+	_, err := client.UpdateGcpGkeKubernetesRuntimeInstance(g.r.APIClient, g.r.APIServer, &update)
+	return err
+}
+
+// FinishUpgrade records how an upgrade ended.
+func (g *gkeLifecycle) FinishUpgrade(outcome provider.UpgradeOutcome) error {
+	update := v0.GcpGkeKubernetesRuntimeInstance{
+		Common:         v0.Common{ID: &g.instanceID},
+		Upgrading:      util.Ptr(false),
+		UpgradeFailed:  util.Ptr(outcome.Failed),
+		UpgradeRefused: util.Ptr(outcome.Refused),
+		UpgradeStatus:  &outcome.Status,
+	}
+	if outcome.Version != "" {
+		update.KubernetesVersion = &outcome.Version
+	}
+	_, err := client.UpdateGcpGkeKubernetesRuntimeInstance(g.r.APIClient, g.r.APIServer, &update)
+	return err
+}
+
+// OnUpgraded has nothing to do: GKE upgrades the nodes, and Threeport runs no
+// component whose version follows the cluster's.
+func (g *gkeLifecycle) OnUpgraded(_ provider.InfraProvider) error {
+	return nil
+}
+
 // PublishCreateNotification publishes a NATS notification for creation.
 func (g *gkeLifecycle) PublishCreateNotification() error {
 	notifPayload, err := g.instance.NotificationPayload(
@@ -511,6 +604,9 @@ func buildGkeInfra(
 		AllowedCidrs:           allowedCidrs,
 		ReserveNatAddress:      instance.ReservedNatAddress != nil && *instance.ReservedNatAddress,
 	}).InitPulumiProject()
+	// the cluster is found where it was created, which a zonal cluster's
+	// region alone doesn't say
+	infraGKE.KeepInventoryLocation(instance.ResourceInventory)
 
 	// a cluster whose public endpoint is restricted also admits the control
 	// plane that manages it.  The lookup is skipped for a private cluster,

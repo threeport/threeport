@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"gorm.io/datatypes"
 
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -167,42 +168,59 @@ func (f *fakeGkeClusterLister) ListClusters(_ context.Context, req *containerpb.
 }
 
 // TestAGkeClusterIsFoundWhereverItIsInItsRegion covers how a runtime's GKE
-// cluster is found: by its name in its region, whether it is regional or in
-// one of the region's zones.  A cluster of that name in another region isn't
-// it, one that isn't there is NotFound, and a listing GKE couldn't complete
-// is an error rather than a cluster that is gone.
+// cluster is found: by its name in its region, at the location its stack or
+// resource inventory records when one does.  Without one, a cluster in the
+// region itself, as every cluster was before zonal ones, or one in a zone
+// carrying this runtime's Threeport labels, is it.  A cluster of the name in
+// another region, or unlabelled in a zone, is someone else's, so it isn't
+// taken for this runtime's after that one is gone.  One that isn't there is
+// NotFound, a listing GKE couldn't complete is an error rather than a cluster
+// that is gone, and more than one candidate is an error rather than a guess.
 func TestAGkeClusterIsFoundWhereverItIsInItsRegion(t *testing.T) {
-	infra := gkeZoneInfra(1, 2, 0, 60)
 	ctx := context.Background()
-	elsewhere := &containerpb.Cluster{Name: "gke-zones", Location: "us-east1-b"}
+	labelled := func(location string) *containerpb.Cluster {
+		return &containerpb.Cluster{Name: "gke-zones", Location: location, ResourceLabels: GcpResourceLabels("gke-zones")}
+	}
+	elsewhere := labelled("us-east1-b")
+	someoneElses := &containerpb.Cluster{Name: "gke-zones", Location: "us-central1-f"}
+	anotherRuntimes := &containerpb.Cluster{Name: "gke-zones", Location: "us-central1-a", ResourceLabels: GcpResourceLabels("another-runtime")}
 
-	for _, location := range []string{"us-central1", "us-central1-c"} {
-		lister := &fakeGkeClusterLister{clusters: []*containerpb.Cluster{elsewhere, {Name: "gke-zones", Location: location}}}
-		cluster, err := infra.findCluster(ctx, lister)
+	infra := gkeZoneInfra(1, 2, 0, 60)
+	for _, cluster := range []*containerpb.Cluster{{Name: "gke-zones", Location: "us-central1"}, labelled("us-central1-c")} {
+		lister := &fakeGkeClusterLister{clusters: []*containerpb.Cluster{elsewhere, someoneElses, anotherRuntimes, cluster}}
+		found, err := infra.findCluster(ctx, lister)
 		require.NoError(t, err)
-		assert.Equal(t, location, cluster.GetLocation())
+		assert.Equal(t, cluster.GetLocation(), found.GetLocation())
 		assert.Equal(t, "projects/test-project/locations/-", lister.parent)
 	}
 
-	_, err := infra.findCluster(ctx, &fakeGkeClusterLister{clusters: []*containerpb.Cluster{elsewhere}})
+	// this runtime's cluster is gone: someone else's of the name isn't it
+	_, err := infra.findCluster(ctx, &fakeGkeClusterLister{clusters: []*containerpb.Cluster{elsewhere, someoneElses, anotherRuntimes}})
 	assert.Equal(t, codes.NotFound, status.Code(err))
 
 	_, err = infra.findCluster(ctx, &fakeGkeClusterLister{missing: []string{"us-central1-a"}})
 	require.Error(t, err)
 	assert.NotEqual(t, codes.NotFound, status.Code(err), "a partial listing isn't a cluster that is gone")
 
-	// two of the name in the region: the stack's location tells them apart,
-	// and without it neither is taken
-	twins := &fakeGkeClusterLister{clusters: []*containerpb.Cluster{
-		{Name: "gke-zones", Location: "us-central1-b"}, {Name: "gke-zones", Location: "us-central1-c"},
-	}}
+	// two candidates of the name in the region, and no recorded location
+	twins := &fakeGkeClusterLister{clusters: []*containerpb.Cluster{labelled("us-central1-b"), labelled("us-central1-c")}}
 	_, err = infra.findCluster(ctx, twins)
 	assert.ErrorContains(t, err, "found 2 GKE clusters named gke-zones in region us-central1")
 	assert.NotEqual(t, codes.NotFound, status.Code(err))
+
+	// with a recorded location, only the cluster there is this runtime's,
+	// labelled or not, even where GKE couldn't list other zones
 	infra.stackLocation = util.Ptr("us-central1-c")
-	cluster, err := infra.findCluster(ctx, twins)
+	found, err := infra.findCluster(ctx, twins)
 	require.NoError(t, err)
-	assert.Equal(t, "us-central1-c", cluster.GetLocation())
+	assert.Equal(t, "us-central1-c", found.GetLocation())
+	found, err = infra.findCluster(ctx, &fakeGkeClusterLister{
+		clusters: []*containerpb.Cluster{{Name: "gke-zones", Location: "us-central1-c"}}, missing: []string{"us-central1-a"},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "us-central1-c", found.GetLocation())
+	_, err = infra.findCluster(ctx, &fakeGkeClusterLister{clusters: []*containerpb.Cluster{labelled("us-central1-b")}})
+	assert.Equal(t, codes.NotFound, status.Code(err), "a cluster of the name elsewhere in the region, after this one is gone")
 	infra.stackLocation = nil
 
 	assert.True(t, gkeLocationInRegion("us-central1", "us-central1"))
@@ -244,4 +262,29 @@ func TestAGkeCreateResumedWithoutItsNodePoolGivesItItsZones(t *testing.T) {
 	assert.Equal(t, "us-central1-c", nodePool["location"])
 	assert.Nil(t, nodePool["nodeLocations"])
 	assert.Zero(t, mocks.zoneCalls)
+}
+
+// TestAGkeRuntimesInventoryRecordsItsClustersLocation covers the location a
+// runtime's resource inventory records for its cluster, in the export and
+// checkpoint shapes a stack's state is kept in: the cluster is then found
+// there.  An inventory without a cluster records nothing.
+func TestAGkeRuntimesInventoryRecordsItsClustersLocation(t *testing.T) {
+	resources := `[{"type": "gcp:container/cluster:Cluster", "inputs": {"location": "us-central1-c"}}]`
+	for name, inventory := range map[string]string{
+		"export":     `{"version": 3, "deployment": {"resources": ` + resources + `}}`,
+		"checkpoint": `{"version": 3, "checkpoint": {"latest": {"resources": ` + resources + `}}}`,
+		"deployment": `{"resources": ` + resources + `}`,
+	} {
+		infra := gkeZoneInfra(1, 2, 0, 60)
+		state := datatypes.JSON(inventory)
+		infra.KeepInventoryLocation(&state)
+		require.NotNil(t, infra.stackLocation, name)
+		assert.Equal(t, "us-central1-c", *infra.stackLocation, name)
+	}
+
+	for _, inventory := range []*datatypes.JSON{nil, util.Ptr(datatypes.JSON(`{}`)), util.Ptr(datatypes.JSON(`{"resources": []}`))} {
+		infra := gkeZoneInfra(1, 2, 0, 60)
+		infra.KeepInventoryLocation(inventory)
+		assert.Nil(t, infra.stackLocation)
+	}
 }

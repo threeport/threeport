@@ -108,7 +108,7 @@ func (k *KubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
 	if err := validateKubernetesRuntimeNodeSettingsUpdate(tx); err != nil {
 		return err
 	}
-	if err := validateKubernetesVersionUpdate(tx); err != nil {
+	if err := validateKubernetesRuntimeVersionUpdate(tx); err != nil {
 		return err
 	}
 
