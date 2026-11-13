@@ -156,14 +156,32 @@ func (i *KubernetesRuntimeInfraEKS) zoneCount() int {
 	return zoneCount
 }
 
+// controlPlaneKubernetesVersion returns the Kubernetes version of the
+// cluster's control plane: the version an upgrade keeps it on, when it is
+// already past the one the node group is upgraded to, and the version to
+// provision the cluster with otherwise.
+func (i *KubernetesRuntimeInfraEKS) controlPlaneKubernetesVersion() string {
+	if i.controlPlaneVersion != "" {
+		return i.controlPlaneVersion
+	}
+
+	return i.kubernetesVersion()
+}
+
 // kubernetesVersion returns the Kubernetes version to provision the cluster
-// with.
+// with: its node group's, and its control plane's unless an upgrade keeps
+// that on a later one.
 func (i *KubernetesRuntimeInfraEKS) kubernetesVersion() string {
 	if i.KubernetesVersion == "" {
 		return DefaultEksKubernetesVersion
 	}
 
 	return i.KubernetesVersion
+}
+
+// nodeGroupName returns the name of the cluster's node group.
+func (i *KubernetesRuntimeInfraEKS) nodeGroupName() string {
+	return fmt.Sprintf("%s-private-node-group", i.RuntimeInstanceName)
 }
 
 // upgradePolicy returns the cluster's upgrade policy: the cluster's, when the
@@ -392,7 +410,7 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 		cluster, err := awseks.NewCluster(ctx, i.RuntimeInstanceName, &awseks.ClusterArgs{
 			Name:          pulumi.String(i.RuntimeInstanceName),
 			RoleArn:       pulumi.String(i.ClusterRoleArn),
-			Version:       pulumi.String(i.kubernetesVersion()),
+			Version:       pulumi.String(i.controlPlaneKubernetesVersion()),
 			UpgradePolicy: i.upgradePolicy(),
 			VpcConfig:     vpcConfig,
 			Tags:          i.resourceTags(i.RuntimeInstanceName),
@@ -401,7 +419,7 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 			return fmt.Errorf("failed to create EKS cluster: %w", err)
 		}
 
-		nodeGroupName := fmt.Sprintf("%s-private-node-group", i.RuntimeInstanceName)
+		nodeGroupName := i.nodeGroupName()
 		if _, err := awseks.NewNodeGroup(ctx, nodeGroupName, &awseks.NodeGroupArgs{
 			ClusterName:   cluster.Name,
 			NodeGroupName: pulumi.String(nodeGroupName),

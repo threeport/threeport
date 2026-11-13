@@ -486,8 +486,10 @@ func installEksClusterAutoscaler(
 			},
 		},
 	}
-	if _, err := kube.CreateResource(clusterAutoscalerDeployment, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to create cluster autoscaler deployment: %w", err)
+	// an autoscaler already installed is updated, so an upgraded cluster gets
+	// the release of its new version
+	if _, err := kube.CreateOrUpdateResource(clusterAutoscalerDeployment, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create or update cluster autoscaler deployment: %w", err)
 	}
 
 	return nil

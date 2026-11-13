@@ -454,3 +454,46 @@ func TestNotificationHelpers(t *testing.T) {
 		gated{Reconciled: util.Ptr(true), InterruptReconciliation: util.Ptr(true)},
 	), false)
 }
+
+// upgradingObject is a saved object a controller upgrades.
+type upgradingObject struct {
+	UpdatedAt *time.Time
+	Reconciliation
+	UpgradeAcknowledged *time.Time
+	UpgradeStatus       *string
+}
+
+// TestAnUpgradeAcknowledgementRestampDoesNotNotify covers the controller
+// refreshing UpgradeAcknowledged while it upgrades: the restamp alone notifies
+// no one, since the controller restamping it is the one it would notify, but
+// the first stamp and a restamp with anything else in it do.
+func TestAnUpgradeAcknowledgementRestampDoesNotNotify(t *testing.T) {
+	no := false
+	earlier := time.Now().Add(-time.Minute)
+	later := time.Now()
+	upgrading := "upgrading"
+	upgraded := "upgraded"
+
+	before := upgradingObject{
+		Reconciliation:      Reconciliation{Reconciled: &no},
+		UpgradeAcknowledged: &earlier,
+		UpgradeStatus:       &upgrading,
+	}
+
+	restamped := before
+	restamped.UpgradeAcknowledged = &later
+	assertUpdate(t, before, restamped, false)
+
+	restampedWithStatus := restamped
+	restampedWithStatus.UpgradeStatus = &upgraded
+	assertUpdate(t, before, restampedWithStatus, true)
+
+	unacknowledged := before
+	unacknowledged.UpgradeAcknowledged = nil
+	// the first stamp starts an upgrade
+	assertUpdate(t, unacknowledged, before, true)
+
+	deleting := restamped
+	deleting.DeletionScheduled = &later
+	assertUpdate(t, before, deleting, true)
+}

@@ -195,7 +195,8 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Replace(
 	updatedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize = awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupInitialSize
 	updatedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize = awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupMinimumSize
 	updatedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize = awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupMaximumSize
-	// the version a config leaves out is kept, rather than cleared
+	// a new version upgrades the clusters, and a config that leaves it out
+	// keeps the one recorded
 	if awsEksKubernetesRuntimeDefinitionValues.KubernetesVersion != nil {
 		updatedAwsEksKubernetesRuntimeDefinition.KubernetesVersion = awsEksKubernetesRuntimeDefinitionValues.KubernetesVersion
 	}

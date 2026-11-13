@@ -88,6 +88,9 @@ func deepCopy(value reflect.Value) reflect.Value {
 
 // ObjectUpdateNotifiable reports whether a saved object should notify the controller.
 // When Reconciled becomes true, the other changed fields are named and the write does not notify.
+// Neither does a write that only restamps an acknowledgement, a creation,
+// deletion or upgrade one, since the controller that restamps it is the one
+// it would notify.
 func ObjectUpdateNotifiable(before, after any) (bool, []string) {
 	left, right, ok := persistedStructs(before, after)
 
@@ -113,6 +116,9 @@ func ObjectUpdateNotifiable(before, after any) (bool, []string) {
 
 	// suppress an acknowledgement restamp that changes nothing else
 	if restamped && !specChanged && !markersChanged {
+		return false, nil
+	}
+	if upgradeAcknowledgementRefreshed(left, right) && !markersChanged {
 		return false, nil
 	}
 
@@ -244,6 +250,20 @@ func reconciliationFrom(object reflect.Value) (any, bool) {
 func acknowledgementRefreshed(a, b any) bool {
 	return timePtrRefreshed(timeField(a, "CreationAcknowledged"), timeField(b, "CreationAcknowledged")) ||
 		timePtrRefreshed(timeField(a, "DeletionAcknowledged"), timeField(b, "DeletionAcknowledged"))
+}
+
+// upgradeAcknowledgementRefreshed reports a write that only restamps an
+// UpgradeAcknowledged a controller set when it started upgrading the object.
+func upgradeAcknowledgementRefreshed(left, right reflect.Value) bool {
+	changed := changedStructFields(left, right)
+	if len(changed) != 1 || changed[0] != "UpgradeAcknowledged" {
+		return false
+	}
+
+	return timePtrRefreshed(
+		timeField(left.Interface(), "UpgradeAcknowledged"),
+		timeField(right.Interface(), "UpgradeAcknowledged"),
+	)
 }
 
 // fieldByName returns an exported field of a struct or a pointer to one.

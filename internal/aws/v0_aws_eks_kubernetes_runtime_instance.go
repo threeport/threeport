@@ -34,7 +34,14 @@ func v0AwsEksKubernetesRuntimeInstanceUpdated(
 	awsEksKubernetesRuntimeInstance *v0.AwsEksKubernetesRuntimeInstance,
 	log *logr.Logger,
 ) (int64, error) {
-	return 0, nil
+	reconLog := log.WithValues(
+		"awsEksKubernetesRuntimeInstanceID", *awsEksKubernetesRuntimeInstance.ID,
+		"awsEksKubernetesRuntimeInstanceName", *awsEksKubernetesRuntimeInstance.Name,
+	)
+
+	p := newEksLifecycleProvider(r, awsEksKubernetesRuntimeInstance, &reconLog)
+
+	return provider.HandleInfraUpdate(p, &reconLog)
 }
 
 // v0AwsEksKubernetesRuntimeInstanceDeleted performs reconciliation when a v0 AwsEksKubernetesRuntimeInstance
