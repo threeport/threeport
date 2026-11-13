@@ -195,8 +195,7 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Replace(
 	updatedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize = awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupInitialSize
 	updatedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize = awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupMinimumSize
 	updatedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize = awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupMaximumSize
-	// the version is recorded on create and can't change, so a config that
-	// leaves it out keeps it
+	// the version a config leaves out is kept, rather than cleared
 	if awsEksKubernetesRuntimeDefinitionValues.KubernetesVersion != nil {
 		updatedAwsEksKubernetesRuntimeDefinition.KubernetesVersion = awsEksKubernetesRuntimeDefinitionValues.KubernetesVersion
 	}
@@ -317,7 +316,10 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Validate() error {
 	}
 
 	// validate the Kubernetes version before the API is asked
-	if err := api_v0.ValidateKubernetesVersion(api_v0.KubernetesRuntimeInfraProviderEKS, awsEksKubernetesRuntimeDefinitionValues.KubernetesVersion); err != nil {
+	if err := api_v0.ValidateKubernetesVersion(
+		api_v0.KubernetesRuntimeInfraProviderEKS,
+		awsEksKubernetesRuntimeDefinitionValues.KubernetesVersion,
+	); err != nil {
 		multiError.AppendError(err)
 	}
 

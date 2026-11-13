@@ -212,8 +212,7 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Replace(
 	updatedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize = gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupInitialSize
 	updatedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize = gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupMinimumSize
 	updatedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize = gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupMaximumSize
-	// the version is recorded on create and can't change, so a config that
-	// leaves it out keeps it
+	// the version a config leaves out is kept, rather than cleared
 	if gcpGkeKubernetesRuntimeDefinitionValues.KubernetesVersion != nil {
 		updatedGcpGkeKubernetesRuntimeDefinition.KubernetesVersion = gcpGkeKubernetesRuntimeDefinitionValues.KubernetesVersion
 	}
@@ -369,7 +368,10 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Validate() error {
 	}
 
 	// validate the Kubernetes version before the API is asked
-	if err := api_v0.ValidateKubernetesVersion(api_v0.KubernetesRuntimeInfraProviderGKE, gcpGkeKubernetesRuntimeDefinitionValues.KubernetesVersion); err != nil {
+	if err := api_v0.ValidateKubernetesVersion(
+		api_v0.KubernetesRuntimeInfraProviderGKE,
+		gcpGkeKubernetesRuntimeDefinitionValues.KubernetesVersion,
+	); err != nil {
 		multiError.AppendError(err)
 	}
 
