@@ -129,7 +129,7 @@ func gkeControlPlaneKubeClient(controlPlane *ControlPlane) (dynamic.Interface, e
 		return nil, fmt.Errorf("cannot find the GKE cluster of control plane %s: %w", controlPlane.Name, err)
 	}
 
-	connection, err := infra.GetConnection()
+	connection, err := infra.GetExistingClusterConnection()
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to the GKE cluster of control plane %s: %w", controlPlane.Name, err)
 	}
