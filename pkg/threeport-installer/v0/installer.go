@@ -15,6 +15,21 @@ type Options struct {
 	// Namespace of the control plane
 	Namespace string
 
+	// The namespace to copy the CA and encryption key from and to schedule away from
+	FromNamespace string
+
+	// The file holding the CA certificate to install
+	CACertFile string
+
+	// The file holding the CA private key to install
+	CAKeyFile string
+
+	// The file holding the encryption key to install
+	EncryptionKeyFile string
+
+	// The choice to leave controllers stopped after a restore
+	RestoreControllersStopped bool
+
 	// A function that is run prior to installing the components for the control plane.
 	PreInstallFunction CustomInstallFunction
 

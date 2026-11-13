@@ -75,6 +75,9 @@ type KubernetesRuntimeInfraGKE struct {
 	// Threeport controllers to manage GCP resources.
 	ServiceAccountEmail string
 
+	// The namespace whose controllers impersonate the cluster account.
+	WorkloadIdentityNamespace string
+
 	// ServiceAccountCredentials contains the JSON key for a GCP service account.
 	// Used when running outside GCP (e.g., in AWS or on-prem) where Workload
 	// Identity is not available. This is the contents of a service account key
@@ -210,7 +213,7 @@ func (i *KubernetesRuntimeInfraGKE) Create() (*kube.KubeConnectionInfo, error) {
 	// provision the database backups once the cluster, and with it the
 	// workload identity pool the backup binding names, exists
 	if i.ProvisionBackups {
-		if err := i.provisionBackups(); err != nil {
+		if err := i.ProvisionDatabaseBackups(); err != nil {
 			return nil, fmt.Errorf("failed to provision database backups: %w", err)
 		}
 	}
@@ -504,6 +507,46 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 		}
 
 		exportEgressCidrs(ctx, egressAddresses)
+
+		// add a pool that can schedule a 2Gi request
+		_, err = gkecontainer.NewNodePool(ctx, i.standardNodePoolName(), &gkecontainer.NodePoolArgs{
+			Name:     pulumi.String(i.standardNodePoolName()),
+			Cluster:  cluster.Name,
+			Location: pulumi.String(i.Region),
+
+			NodeCount: pulumi.Int(standardNodeInitialCount),
+
+			NodeConfig: &gkecontainer.NodePoolNodeConfigArgs{
+				MachineType: pulumi.String(standardNodeMachineType),
+				DiskSizeGb:  pulumi.Int(standardNodeDiskSizeGb),
+				DiskType:    pulumi.String(standardNodeDiskType),
+				OauthScopes: pulumi.StringArray{
+					pulumi.String("https://www.googleapis.com/auth/cloud-platform"),
+				},
+				Labels: pulumi.StringMap{
+					kube.ThreeportManagedByLabelKey: pulumi.String(kube.ThreeportManagedByLabelValue),
+				},
+				ResourceLabels: GcpLabelsInput(i.RuntimeInstanceName),
+				WorkloadMetadataConfig: &gkecontainer.NodePoolNodeConfigWorkloadMetadataConfigArgs{
+					Mode: pulumi.String("GKE_METADATA"),
+				},
+			},
+
+			Autoscaling: &gkecontainer.NodePoolAutoscalingArgs{
+				MinNodeCount:   pulumi.Int(standardNodeMinCount),
+				MaxNodeCount:   pulumi.Int(standardNodeMaxCount),
+				LocationPolicy: pulumi.String(standardNodeLocationPolicy),
+			},
+
+			Management: &gkecontainer.NodePoolManagementArgs{
+				AutoRepair:  pulumi.Bool(true),
+				AutoUpgrade: pulumi.Bool(true),
+			},
+		}, pulumi.Provider(gcpProvider),
+			pulumi.DependsOn([]pulumi.Resource{cluster}))
+		if err != nil {
+			return fmt.Errorf("failed to create standard node pool: %w", err)
+		}
 
 		return nil
 	}

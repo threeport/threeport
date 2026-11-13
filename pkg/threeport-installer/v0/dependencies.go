@@ -115,7 +115,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControlPlaneDependencies(
 			"apiVersion": "v1",
 			"kind":       "Secret",
 			"metadata": map[string]interface{}{
-				"name":      "encryption-key",
+				"name":      EncryptionKeySecret,
 				"namespace": cpi.Opts.Namespace,
 			},
 			"stringData": map[string]interface{}{
@@ -296,7 +296,7 @@ store_dir: /data
 			"apiVersion": "apps/v1",
 			"kind":       "Deployment",
 			"metadata": map[string]interface{}{
-				"name":      "nats-js-box",
+				"name":      natsBoxDeployName,
 				"namespace": cpi.Opts.Namespace,
 				"labels": map[string]interface{}{
 					"app":   "nats-js-box",
@@ -826,6 +826,7 @@ store_dir: /data
 								"securityContext": restrictedContainerSecurityContext(),
 								"image":           fmt.Sprintf("docker.io/cockroachdb/cockroach:%s", DatabaseImageTag),
 								"imagePullPolicy": "IfNotPresent",
+								"resources":       crdbResources(cpi.Opts.Tier),
 								"args": []interface{}{
 									"shell",
 									"-ecx",
@@ -1098,6 +1099,18 @@ func crdbZoneSpread(tier ControlPlaneTier) []interface{} {
 			"whenUnsatisfiable": whenUnsatisfiable,
 		},
 	}
+}
+
+// crdbResources returns the CockroachDB container's requests and limits.
+// A 1Gi limit leaves nothing after the 25 percent cache and SQL reservations.
+func crdbResources(tier ControlPlaneTier) map[string]interface{} {
+	// development stays inside a kind node
+	if string(tier) != ControlPlaneTierProd {
+		return containerResources("10m", "256Mi", "500m", "1Gi")
+	}
+
+	// production keeps a gigabyte after the cache and SQL reservations
+	return containerResources("100m", "2Gi", "2", "2Gi")
 }
 
 // crdbStartCommand returns the shell command each CockroachDB container

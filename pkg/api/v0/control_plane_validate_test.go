@@ -374,7 +374,7 @@ func TestControlPlaneInstanceUpdateRefusesAForeignDesiredStateChange(t *testing.
 		apis := "agent"
 		err := db.Model(&owned).Updates(&ControlPlaneInstance{Apis: &apis}).Error
 		refused(err, "Apis")
-		assert.ErrorContains(t, err, "its parent manages")
+		assert.ErrorContains(t, err, ErrRequestMustBeMadeToParent.Error())
 
 		owner := db.WithContext(lib.WithCaller(context.Background(), lib.CallerIdentity{
 			CommonName: "threeport-owner",
@@ -407,4 +407,74 @@ func TestControlPlaneInstanceUpdateRefusesAForeignDesiredStateChange(t *testing.
 			},
 		}).Error)
 	})
+}
+
+// TestChildControlPlaneRequest rejects a command aimed at the control plane a parent manages.
+func TestChildControlPlaneRequest(t *testing.T) {
+	parent := uint(9)
+	self := true
+	other := false
+
+	// allow a root and the child row a parent stores
+	require.NoError(t, ChildControlPlaneRequest(nil))
+	require.NoError(t, ChildControlPlaneRequest(&ControlPlaneInstance{IsSelf: &self}))
+	require.NoError(t, ChildControlPlaneRequest(&ControlPlaneInstance{
+		ParentControlPlaneInstanceID: &parent,
+		IsSelf:                       &other,
+	}))
+
+	// reject the child itself
+	err := ChildControlPlaneRequest(&ControlPlaneInstance{
+		ParentControlPlaneInstanceID: &parent,
+		IsSelf:                       &self,
+	})
+	require.EqualError(t, err, "request must be made to parent")
+}
+
+// TestBeforeDeleteRejectsChildSelf checks a stored row before it is deleted.
+func TestBeforeDeleteRejectsChildSelf(t *testing.T) {
+	db := setupControlPlaneAuthDB(t)
+	runtime := runtimeOn(t, db, KubernetesRuntimeInfraProviderKind, "delete-runtime")
+	definition := controlPlaneDefinitionWithAuth(t, db, "delete-definition", true)
+
+	// insert the root, the child deleting itself, and the parent-operated row
+	root := controlPlaneRow(t, db, "delete-root", definition, runtime, nil, util.Ptr(true))
+	childSelf := controlPlaneRow(t, db, "delete-child-self", definition, runtime, root.ID, util.Ptr(true))
+	parentRow := controlPlaneRow(t, db, "delete-parent-row", definition, runtime, root.ID, util.Ptr(false))
+
+	require.ErrorIs(t, callBeforeDelete(db, childSelf), ErrRequestMustBeMadeToParent)
+	require.NoError(t, callBeforeDelete(db, parentRow))
+	require.NoError(t, callBeforeDelete(db, root))
+}
+
+// controlPlaneRow inserts a control plane with the parent and self flags under test.
+func controlPlaneRow(
+	t *testing.T,
+	db *gorm.DB,
+	name string,
+	definitionID *uint,
+	runtimeID *uint,
+	parentID *uint,
+	isSelf *bool,
+) *ControlPlaneInstance {
+	t.Helper()
+	row := &ControlPlaneInstance{
+		Instance:                     Instance{Name: util.Ptr(name)},
+		Namespace:                    util.Ptr("threeport-control-plane"),
+		ControlPlaneDefinitionID:     definitionID,
+		KubernetesRuntimeInstanceID:  runtimeID,
+		ParentControlPlaneInstanceID: parentID,
+		IsSelf:                       isSelf,
+	}
+	require.NoError(t, db.Session(&gorm.Session{SkipHooks: true}).Create(row).Error)
+	return row
+}
+
+// callBeforeDelete loads the stored row and runs the delete check.
+func callBeforeDelete(db *gorm.DB, row *ControlPlaneInstance) error {
+	// load the stored row rather than the values on the caller
+	tx := db.Session(&gorm.Session{NewDB: true})
+	tx.Statement.Model = row
+	tx.Statement.Dest = row
+	return row.beforeDelete(tx)
 }

@@ -320,3 +320,52 @@ func TestClientCertificateRecorded(t *testing.T) {
 		ClientKey:  util.Ptr("key"),
 	}))
 }
+
+// TestGrantInstalledDatabaseBackupSkipsARuntimeOtherThanGKE returns before any client call.
+func TestGrantInstalledDatabaseBackupSkipsARuntimeOtherThanGKE(t *testing.T) {
+	kind := v0.KubernetesRuntimeInfraProviderKind
+	eks := v0.KubernetesRuntimeInfraProviderEKS
+
+	// a kind runtime has no backup bucket
+	err := grantInstalledDatabaseBackup(nil, nil, nil, nil, &v0.KubernetesRuntimeDefinition{
+		InfraProvider: &kind,
+	})
+	require.NoError(t, err)
+
+	// an eks runtime has no backup bucket
+	err = grantInstalledDatabaseBackup(nil, nil, nil, nil, &v0.KubernetesRuntimeDefinition{
+		InfraProvider: &eks,
+	})
+	require.NoError(t, err)
+
+	// a runtime with no provider has no backup bucket
+	err = grantInstalledDatabaseBackup(nil, nil, nil, nil, nil)
+	require.NoError(t, err)
+}
+
+// TestGrantInstalledDatabaseBackupRequiresTheRuntimeIdentity fails before any client call.
+func TestGrantInstalledDatabaseBackupRequiresTheRuntimeIdentity(t *testing.T) {
+	gke := v0.KubernetesRuntimeInfraProviderGKE
+	definition := &v0.KubernetesRuntimeDefinition{InfraProvider: &gke}
+
+	// a GKE runtime needs its name and id
+	err := grantInstalledDatabaseBackup(nil, nil, nil, nil, definition)
+	require.EqualError(t, err, "a GKE control plane needs the runtime instance name and id")
+
+	name := "threeport-example"
+	err = grantInstalledDatabaseBackup(nil, nil, nil, &v0.KubernetesRuntimeInstance{
+		Name: &name,
+	}, definition)
+	require.EqualError(t, err, "a GKE control plane needs the runtime instance name and id")
+
+	// a GKE runtime needs a kube client to read the database account
+	id := uint(1)
+	err = grantInstalledDatabaseBackup(
+		nil,
+		nil,
+		nil,
+		&v0.KubernetesRuntimeInstance{Name: &name, ID: &id},
+		definition,
+	)
+	require.EqualError(t, err, "a GKE control plane needs a kube client")
+}

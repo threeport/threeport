@@ -15,6 +15,25 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
+// ErrRequestMustBeMadeToParent is the refusal to upgrade or restore a control plane its parent manages.
+var ErrRequestMustBeMadeToParent = errors.New("request must be made to parent")
+
+// ChildControlPlaneRequest rejects a command aimed at a control plane its parent manages.
+// A row this API stores for a child is the parent's own record, so it is allowed.
+func ChildControlPlaneRequest(instance *ControlPlaneInstance) error {
+	// allow a control plane with no parent
+	if instance == nil || instance.ParentControlPlaneInstanceID == nil {
+		return nil
+	}
+
+	// allow the row a parent stores for its child
+	if instance.IsSelf != nil && !*instance.IsSelf {
+		return nil
+	}
+
+	return ErrRequestMustBeMadeToParent
+}
+
 // ValidateAuthEnabledForProvider rejects a control plane served without auth
 // on anything but kind.
 //
@@ -357,8 +376,9 @@ func (c *ControlPlaneInstance) beforeUpdate(tx *gorm.DB) error {
 	}
 	if self {
 		return util.NewBadRequestError(fmt.Sprintf(
-			"cannot update %s on a control plane its parent manages",
+			"cannot update %s: %s",
 			field,
+			ErrRequestMustBeMadeToParent.Error(),
 		))
 	}
 	return util.NewBadRequestError(fmt.Sprintf(
@@ -462,9 +482,15 @@ func columnEmpty(valueOf func(context.Context, reflect.Value) (interface{}, bool
 	return zero
 }
 
-// beforeDelete runs before the ControlPlaneInstance is deleted.
+// beforeDelete rejects a child deleting itself.
 func (c *ControlPlaneInstance) beforeDelete(tx *gorm.DB) error {
-	return nil
+	// load the stored row and reject a child deleting itself
+	stored, err := storedControlPlane(tx, c)
+	if err != nil {
+		return err
+	}
+
+	return ChildControlPlaneRequest(stored)
 }
 
 // afterCreate runs after the ControlPlaneInstance is created.

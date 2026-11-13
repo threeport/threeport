@@ -315,4 +315,24 @@ func init() {
 			threeport.DefaultLocalAPIPortAuthDisabled,
 		),
 	)
+	UpCmd.Flags().StringVar(
+		&cliArgs.Namespace,
+		"namespace", "", "Namespace to install the control plane into. Defaults to threeport-control-plane.",
+	)
+	UpCmd.Flags().StringVar(
+		&cliArgs.FromNamespace,
+		"from-namespace", "", "Namespace to copy the certificate authority and encryption key from. Pods prefer nodes that are not already running that namespace.",
+	)
+	UpCmd.Flags().StringVar(
+		&cliArgs.CACertFile,
+		"ca-cert", "", "File holding the certificate authority certificate to install.",
+	)
+	UpCmd.Flags().StringVar(
+		&cliArgs.CAKeyFile,
+		"ca-key", "", "File holding the certificate authority private key to install.",
+	)
+	UpCmd.Flags().StringVar(
+		&cliArgs.EncryptionKeyFile,
+		"encryption-key-file", "", "File holding the encryption key to install.",
+	)
 }

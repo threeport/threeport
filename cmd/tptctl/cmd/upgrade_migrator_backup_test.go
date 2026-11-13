@@ -78,7 +78,7 @@ func migratorMounts(t *testing.T, kubeClient *dynamicfake.FakeDynamicClient) (ma
 
 	initContainers, _, err := unstructured.NestedSlice(deployment.Object, "spec", "template", "spec", "initContainers")
 	require.NoError(t, err)
-	migrator, err := containerNamed(initContainers, installer.ThreeportDatabaseMigratorContainerName)
+	migrator, err := installer.ContainerNamed(initContainers, installer.ThreeportDatabaseMigratorContainerName)
 	require.NoError(t, err)
 	mounts := map[string]string{}
 	for _, item := range migrator["volumeMounts"].([]interface{}) {
@@ -102,9 +102,9 @@ func migratorMounts(t *testing.T, kubeClient *dynamicfake.FakeDynamicClient) (ma
 // else, so the new migrator found no backup location and migrated without a
 // backup, even on a control plane whose scheduled backups go to a bucket.
 func TestTheUpgradeGivesTheMigratorWhatItBacksUpWith(t *testing.T) {
-	originalAttempts, originalPoll := rolloutAttempts, rolloutPollSeconds
-	rolloutAttempts, rolloutPollSeconds = 1, 0
-	t.Cleanup(func() { rolloutAttempts, rolloutPollSeconds = originalAttempts, originalPoll })
+	originalAttempts, originalPoll := installer.RolloutAttempts, installer.RolloutPollSeconds
+	installer.RolloutAttempts, installer.RolloutPollSeconds = 1, 0
+	t.Cleanup(func() { installer.RolloutAttempts, installer.RolloutPollSeconds = originalAttempts, originalPoll })
 
 	upgrade := func(t *testing.T, bucket string) *dynamicfake.FakeDynamicClient {
 		t.Helper()
@@ -118,7 +118,7 @@ func TestTheUpgradeGivesTheMigratorWhatItBacksUpWith(t *testing.T) {
 				},
 			}),
 		)
-		require.NoError(t, updateDeploymentImageTag("v0.7.0", upgradeTestNamespace, bucket, kubeClient, upgradeTestMapper()))
+		require.NoError(t, installer.UpdateDeploymentImageTag("v0.7.0", upgradeTestNamespace, bucket, kubeClient, upgradeTestMapper(), true))
 
 		return kubeClient
 	}
@@ -131,7 +131,7 @@ func TestTheUpgradeGivesTheMigratorWhatItBacksUpWith(t *testing.T) {
 		)
 		require.NoError(t, err, "the migrator is told where to back up")
 		uri, _, _ := unstructured.NestedString(backupConfig.Object, "data", installer.DbBackupURIFilename)
-		assert.Equal(t, installer.DatabaseBackupURI("threeport-prod-backups-acme-prod"), uri)
+		assert.Equal(t, installer.DatabaseBackupURI("threeport-prod-backups-acme-prod", ""), uri)
 
 		mounts, volumes := migratorMounts(t, kubeClient)
 		assert.Equal(t, installer.DbBackupConfigLocation, mounts[installer.DbBackupConfigName])

@@ -15,4 +15,9 @@ const (
 	LabelPersistentValue = "true"
 	// Label key for the control plane availability and data retention level
 	LabelTier = "threeport.io/tier"
+	// Label key naming the install a workload belongs to
+	LabelInstall = "threeport.io/install"
 )
+
+// natsBoxDeployName is the Deployment that runs the nats CLI.
+const natsBoxDeployName = "nats-js-box"

@@ -57,6 +57,7 @@ func TestOnlyTheSwapTouchesTheLiveDatabase(t *testing.T) {
 		assert.NotContains(t, statement, "RENAME", statement)
 	}
 	assert.Contains(t, phases.Swap, "DROP DATABASE IF EXISTS threeport_api CASCADE")
+	assert.Contains(t, phases.Swap, "CREATE USER IF NOT EXISTS threeport")
 	assert.True(t, strings.HasPrefix(phases.Prepare[len(phases.Prepare)-1], "RESTORE "))
 }
 
@@ -316,7 +317,7 @@ func TestRestoreScalesTheControlPlaneDownAndBack(t *testing.T) {
 		assert.NotContains(t, annotations, replicasBeforeRestoreAnnotation, name)
 	}
 
-	phases, err := DatabaseRestoreStatements(DatabaseName, "threeport", DatabaseBackupURI(testBucket), DatabaseBackupURI(testBucket), LatestBackup)
+	phases, err := DatabaseRestoreStatements(DatabaseName, "threeport", DatabaseBackupURI(testBucket, ControlPlaneNamespace), DatabaseBackupURI(testBucket, ControlPlaneNamespace), LatestBackup)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"prepare", "swap", "backup"}, cluster.jobs)
 	assert.Equal(t, phases.Prepare, cluster.executed("prepare"))

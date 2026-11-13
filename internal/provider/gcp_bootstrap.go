@@ -279,22 +279,45 @@ func policyGrantsWorkloadIdentity(policy *iam.Policy, members []string) bool {
 	return true
 }
 
-// getWorkloadIdentityMembers returns the list of Kubernetes service accounts
-// that should be allowed to impersonate the GCP service account.
+// workloadIdentityNamespace returns the namespace whose controllers impersonate the cluster account.
+func (i *KubernetesRuntimeInfraGKE) workloadIdentityNamespace() string {
+	// use the install namespace when the control plane is not in the default one
+	if i.WorkloadIdentityNamespace != "" {
+		return i.WorkloadIdentityNamespace
+	}
+	return installer.ControlPlaneNamespace
+}
+
+// getWorkloadIdentityMembers returns the accounts that impersonate the cluster service account.
 func (i *KubernetesRuntimeInfraGKE) getWorkloadIdentityMembers(workloadIdentityPool string) []string {
-	// These are the Threeport controller service accounts that need GCP access
-	controllerServiceAccounts := []string{
+	// bind the controllers that call Google as the cluster account
+	namespace := i.workloadIdentityNamespace()
+	accounts := []string{
 		installer.ThreeportGcpControllerName,
+		installer.ThreeportControlPlaneControllerName,
 	}
-
-	members := make([]string, 0, len(controllerServiceAccounts))
-	for _, sa := range controllerServiceAccounts {
-		// Format: serviceAccount:PROJECT_ID.svc.id.goog[NAMESPACE/KSA_NAME]
-		member := fmt.Sprintf("serviceAccount:%s[%s/%s]", workloadIdentityPool, installer.ControlPlaneNamespace, sa)
-		members = append(members, member)
+	members := make([]string, 0, len(accounts))
+	for _, account := range accounts {
+		members = append(members, fmt.Sprintf(
+			"serviceAccount:%s[%s/%s]",
+			workloadIdentityPool,
+			namespace,
+			account,
+		))
 	}
-
 	return members
+}
+
+// BindControlPlaneWorkloadIdentity lets this namespace's controllers impersonate the cluster account.
+func (i *KubernetesRuntimeInfraGKE) BindControlPlaneWorkloadIdentity(namespace string) error {
+	// use the cluster account when the caller has not named one
+	if i.ServiceAccountEmail == "" {
+		i.ServiceAccountEmail = i.getServiceAccountEmail()
+	}
+	i.WorkloadIdentityNamespace = namespace
+
+	// add the controllers that are not already members
+	return i.configureWorkloadIdentityBindingPostCreate()
 }
 
 // validateGCPServiceAccountPropagation validates that the service account and its

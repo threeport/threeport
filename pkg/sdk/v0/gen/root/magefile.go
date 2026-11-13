@@ -161,6 +161,58 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	emitImageDevFunc(f, buildDbMigratorDevImageFuncName, buildDbMigratorImageFuncName, "database migrator", "database-migrator", installerPkg, gen.ModulePath)
 	emitImageReleaseFunc(f, buildDbMigratorReleaseImageFuncName, buildDbMigratorImageFuncName, "database migrator", "database-migrator", installerPkg, releaseImageRepoConst, gen.ModulePath)
 
+	// name the plugin binary after its cmd directory so the image copy finds it
+	if gen.Module {
+		pluginDir := fmt.Sprintf("cmd/%s", strcase.ToSnake(sdkConfig.ModuleName))
+		pluginBinaryName := strcase.ToSnake(sdkConfig.ModuleName)
+		pluginImageName := fmt.Sprintf(
+			"threeport-%s-tptctl",
+			strcase.ToKebab(sdkConfig.ModuleName),
+		)
+		buildTptctlFuncName := "TptctlBin"
+		buildTptctlDevFuncName := "TptctlBinDev"
+		buildTptctlReleaseFuncName := "TptctlBinRelease"
+		buildTptctlImageFuncName := "TptctlImage"
+		buildTptctlDevImageFuncName := "TptctlImageDev"
+		buildTptctlReleaseImageFuncName := "TptctlImageRelease"
+		tptctlPackageFuncName := "tptctlImagePackage"
+
+		buildFuncNames = append(buildFuncNames, buildTptctlFuncName)
+		buildDevFuncNames = append(buildDevFuncNames, buildTptctlDevFuncName)
+		buildReleaseFuncNames = append(buildReleaseFuncNames, buildTptctlReleaseFuncName)
+		allComponents = append(allComponents, componentSpec{
+			BinaryName:       pluginBinaryName,
+			PackageDir:       pluginDir,
+			ImageName:        pluginImageName,
+			PackageFuncName:  tptctlPackageFuncName,
+			DockerfileTarget: "release",
+		})
+		emitBinFunc(f, buildTptctlFuncName, "tptctl plugin", pluginBinaryName, pluginDir)
+		emitBinDevFunc(f, buildTptctlDevFuncName, buildTptctlFuncName, "tptctl plugin", pluginBinaryName)
+		emitBinReleaseFunc(f, buildTptctlReleaseFuncName, buildTptctlFuncName, "tptctl plugin", pluginBinaryName)
+		emitImagePackageFunc(f, tptctlPackageFuncName, "tptctl plugin", "release", pluginBinaryName, pluginImageName)
+		emitImageFunc(f, buildTptctlImageFuncName, "tptctl plugin", pluginBinaryName, pluginDir, tptctlPackageFuncName)
+		emitImageDevFunc(
+			f,
+			buildTptctlDevImageFuncName,
+			buildTptctlImageFuncName,
+			"tptctl plugin",
+			pluginBinaryName,
+			installerPkg,
+			gen.ModulePath,
+		)
+		emitImageReleaseFunc(
+			f,
+			buildTptctlReleaseImageFuncName,
+			buildTptctlImageFuncName,
+			"tptctl plugin",
+			pluginBinaryName,
+			installerPkg,
+			releaseImageRepoConst,
+			gen.ModulePath,
+		)
+	}
+
 	if !gen.Module {
 		// add function names to "build all" functions
 		buildFuncNames = append(buildFuncNames, buildAgentFuncName)

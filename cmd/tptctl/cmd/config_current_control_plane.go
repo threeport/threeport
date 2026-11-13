@@ -296,6 +296,25 @@ func updateThreeportConfigWithControlPlaneInstance(
 		break
 	}
 
+	// copy the cluster location and the encryption key the entry does not have
+	namespace := ""
+	if controlPlaneInstanceToSet.Namespace != nil {
+		namespace = *controlPlaneInstanceToSet.Namespace
+	}
+	if namespace == "" &&
+		controlPlaneInstanceToSet.Name != nil {
+		namespace = *controlPlaneInstanceToSet.Name
+	}
+	cli.FillClusterLocation(threeportConfig, apiEndpoint, threeportControlPlaneConfig)
+	if err := cli.FillEncryptionKey(
+		threeportConfig,
+		apiEndpoint,
+		threeportControlPlaneConfig,
+		namespace,
+	); err != nil {
+		return err
+	}
+
 	if err := cli.UpdateThreeportConfig(threeportConfig, threeportControlPlaneConfig); err != nil {
 		return fmt.Errorf("failed to update threeport config: %w", err)
 	}

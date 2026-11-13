@@ -31,6 +31,12 @@ type ModuleApi struct {
 	// objects.
 	Endpoint *string `validate:"required" gorm:"not null"`
 
+	// The repository the module's images are pulled from.
+	ImageNamespace *string `validate:"optional"`
+
+	// The tag on each of the module's images.
+	ImageTag *string `validate:"optional"`
+
 	// The routes as URL paths to proxy requests to the API server's endpoint.
 	// All supported routes for an module API should be added so that it is
 	// proxied.

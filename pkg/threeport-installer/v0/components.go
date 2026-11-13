@@ -29,6 +29,7 @@ const (
 	DbBackupScheduleFilename  = "backup-schedule.sql"
 	DbInitLocation            = "/etc/threeport/db-create"
 	ThreeportApiCaSecret      = "api-ca"
+	EncryptionKeySecret       = "encryption-key"
 	ThreeportApiConfigSecret  = "api-config"
 	dbRootCertSecretName      = "db-root-cert"
 	dbThreeportCertSecretName = "db-threeport-cert"
@@ -173,6 +174,121 @@ func (cpi *ControlPlaneInstaller) InstallComputeSpaceWorkloadControllerRBAC(
 	return nil
 }
 
+// ensureDbClientSecrets writes the root and threeport client secrets.
+// A stored database secret supplies them, because a retry generates a new CA.
+func (cpi *ControlPlaneInstaller) ensureDbClientSecrets(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	dbCreds *auth.DbCreds,
+) error {
+	// leave client secrets that are already stored
+	_, err := kube.GetResource("", "v1", "Secret", cpi.Opts.Namespace, dbRootCertSecretName, kubeClient, *mapper)
+	if err == nil {
+		return nil
+	}
+	if !k8serrors.IsNotFound(err) {
+		return fmt.Errorf("failed to read DB root cert secret: %w", err)
+	}
+
+	// take the certificates the database secret already holds
+	ca, rootCert, rootKey, threeportCert, threeportKey, err := cpi.dbClientCerts(kubeClient, mapper, dbCreds)
+	if err != nil {
+		return err
+	}
+
+	// write the root client secret
+	dbRootCertsSecret := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Secret",
+			"metadata": map[string]interface{}{
+				"name":      dbRootCertSecretName,
+				"namespace": cpi.Opts.Namespace,
+			},
+			"stringData": map[string]interface{}{
+				"ca.crt":          ca,
+				"client.root.crt": rootCert,
+				"client.root.key": rootKey,
+			},
+		},
+	}
+	setPersistent(dbRootCertsSecret)
+	if err := cpi.CreateOrUpdateKubeResource(dbRootCertsSecret, kubeClient, mapper); err != nil {
+		return fmt.Errorf("failed to create DB root user certs secret: %w", err)
+	}
+
+	// write the threeport client secret
+	dbThreeportCertsSecret := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Secret",
+			"metadata": map[string]interface{}{
+				"name":      dbThreeportCertSecretName,
+				"namespace": cpi.Opts.Namespace,
+			},
+			"stringData": map[string]interface{}{
+				"ca.crt":               ca,
+				"client.threeport.crt": threeportCert,
+				"client.threeport.key": threeportKey,
+			},
+		},
+	}
+	setPersistent(dbThreeportCertsSecret)
+	if err := cpi.CreateOrUpdateKubeResource(dbThreeportCertsSecret, kubeClient, mapper); err != nil {
+		return fmt.Errorf("failed to create DB threeport user certs secret: %w", err)
+	}
+
+	return nil
+}
+
+// dbClientCerts returns the CA and client certificates the database is using.
+// A stored database secret wins, because a retry generates a new CA.
+func (cpi *ControlPlaneInstaller) dbClientCerts(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	dbCreds *auth.DbCreds,
+) (string, string, string, string, string, error) {
+	// read the certificates stored with the database
+	stored, err := kube.GetResource("", "v1", "Secret", cpi.Opts.Namespace, dbCredsSecretName, kubeClient, *mapper)
+	if err == nil {
+		ca, err := secretValue(stored, "ca.crt")
+		if err != nil {
+			return "", "", "", "", "", err
+		}
+		rootCert, err := secretValue(stored, "client.root.crt")
+		if err != nil {
+			return "", "", "", "", "", err
+		}
+		rootKey, err := secretValue(stored, "client.root.key")
+		if err != nil {
+			return "", "", "", "", "", err
+		}
+		threeportCert, err := secretValue(stored, "client.threeport.crt")
+		if err != nil {
+			return "", "", "", "", "", err
+		}
+		threeportKey, err := secretValue(stored, "client.threeport.key")
+		if err != nil {
+			return "", "", "", "", "", err
+		}
+		return ca, rootCert, rootKey, threeportCert, threeportKey, nil
+	}
+	if !k8serrors.IsNotFound(err) {
+		return "", "", "", "", "", fmt.Errorf("failed to read DB certs secret: %w", err)
+	}
+
+	// use the credentials from this attempt
+	if dbCreds == nil {
+		return "", "", "", "", "", fmt.Errorf("DB client certs are not stored")
+	}
+	return dbCreds.AuthConfig.CAPemEncoded,
+		dbCreds.RootCert,
+		dbCreds.RootKey,
+		dbCreds.ThreeportCert,
+		dbCreds.ThreeportKey,
+		nil
+}
+
 // UpdateThreeportAPIDeployment installs the threeport API in a Kubernetes
 // cluster.
 func (cpi *ControlPlaneInstaller) UpdateThreeportAPIDeployment(
@@ -198,59 +314,9 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAPIDeployment(
 
 	dbMigratorArgs := []interface{}{"-env-file=/etc/threeport/env", "up"}
 
-	// only create DB cert secrets if they don't already exist — regenerating
-	// them would break TLS against a running CRDB whose node certs are signed
-	// by the original CA (e.g. tptdev debug). On reconciler retry the secrets
-	// may not exist yet, so we check rather than relying on CreateOrUpdateKubeResources.
-	_, dbCertErr := kube.GetResource("", "v1", "Secret", cpi.Opts.Namespace, dbRootCertSecretName, kubeClient, *mapper)
-	if dbCertErr != nil {
-		// secret for 'root' user credentials to database - used for database
-		// initialization
-		var dbRootCertsSecret = &unstructured.Unstructured{
-			Object: map[string]interface{}{
-				"apiVersion": "v1",
-				"kind":       "Secret",
-				"metadata": map[string]interface{}{
-					"name":      dbRootCertSecretName,
-					"namespace": cpi.Opts.Namespace,
-				},
-				"stringData": map[string]interface{}{
-					"ca.crt":          dbCreds.AuthConfig.CAPemEncoded,
-					"client.root.crt": dbCreds.RootCert,
-					"client.root.key": dbCreds.RootKey,
-				},
-			},
-		}
-
-		// keep the root database cert across install
-		setPersistent(dbRootCertsSecret)
-		if err := cpi.CreateOrUpdateKubeResource(dbRootCertsSecret, kubeClient, mapper); err != nil {
-			return fmt.Errorf("failed to create DB root user certs secret: %w", err)
-		}
-
-		// secret for 'threeport' user credentials to database - used by threeport
-		// API for DB connectectivity
-		var dbThreeportCertsSecret = &unstructured.Unstructured{
-			Object: map[string]interface{}{
-				"apiVersion": "v1",
-				"kind":       "Secret",
-				"metadata": map[string]interface{}{
-					"name":      dbThreeportCertSecretName,
-					"namespace": cpi.Opts.Namespace,
-				},
-				"stringData": map[string]interface{}{
-					"ca.crt":               dbCreds.AuthConfig.CAPemEncoded,
-					"client.threeport.crt": dbCreds.ThreeportCert,
-					"client.threeport.key": dbCreds.ThreeportKey,
-				},
-			},
-		}
-
-		// keep the threeport database cert across install
-		setPersistent(dbThreeportCertsSecret)
-		if err := cpi.CreateOrUpdateKubeResource(dbThreeportCertsSecret, kubeClient, mapper); err != nil {
-			return fmt.Errorf("failed to create DB threeport user certs secret: %w", err)
-		}
+	// write the client secrets from the CA the database is already using
+	if err := cpi.ensureDbClientSecrets(kubeClient, mapper, dbCreds); err != nil {
+		return err
 	}
 
 	var dbCreateConfig = &unstructured.Unstructured{
@@ -610,8 +676,10 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 			"namespace": cpi.Opts.Namespace,
 		}
 
-		// add Workload Identity annotation for gcp-controller when GCP service account is configured
-		if controller.Name == ThreeportGcpControllerName && cpi.Opts.GcpServiceAccountEmail != "" {
+		// annotate the controllers that call Google as the cluster account
+		if cpi.Opts.GcpServiceAccountEmail != "" &&
+			(controller.Name == ThreeportGcpControllerName ||
+				controller.Name == ThreeportControlPlaneControllerName) {
 			serviceAccountMetadata["annotations"] = map[string]interface{}{
 				"iam.gke.io/gcp-service-account": cpi.Opts.GcpServiceAccountEmail,
 			}
@@ -736,6 +804,11 @@ func (cpi *ControlPlaneInstaller) CreateOrUpdateKubeResource(
 	// set the installer managed-by label
 	setManagedByLabel(resource)
 
+	// label the workload with this install
+	if err := applyInstallPlacement(resource, cpi.Opts.Namespace); err != nil {
+		return fmt.Errorf("failed to set install placement for %s: %w", resource.GetName(), err)
+	}
+
 	// do not write a persistent resource that already exists
 	if isPersistent(resource) {
 		group, version := splitAPIVersion(resource.GetAPIVersion())
@@ -813,7 +886,7 @@ GRANT ALL ON DATABASE threeport_api TO threeport;
 `,
 	}
 	if cpi.Opts.GcpBackupBucket != "" {
-		data[DbBackupScheduleFilename] = DatabaseBackupScheduleSQL(DatabaseBackupURI(cpi.Opts.GcpBackupBucket))
+		data[DbBackupScheduleFilename] = DatabaseBackupScheduleSQL(DatabaseBackupURI(cpi.Opts.GcpBackupBucket, cpi.Opts.Namespace))
 	}
 
 	return data

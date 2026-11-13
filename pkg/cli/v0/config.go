@@ -129,6 +129,9 @@ type GKEProviderConfig struct {
 	GcpProjectId string
 	GcpRegion    string
 
+	// The GKE cluster this control plane runs on. Empty means threeport- plus the control plane name.
+	ClusterName string
+
 	// The bucket a production control plane's database is backed up to.
 	BackupBucket string
 
@@ -412,16 +415,17 @@ func (cfg *ThreeportConfig) SetCurrentInstance(instanceName string) {
 // if this value is received, it is returned.  If not, it checks the environment
 // variable for a config file path.  If neither are provided, it returns the default
 // path to the threeport config file.
+// DetermineThreeportConfigPath returns the threeport config file path.
 func DetermineThreeportConfigPath(cfgFile string) string {
 	// return config file path if provided
 	if cfgFile != "" {
-		return cfgFile
+		return configPathWithoutPastedTilde(cfgFile)
 	}
 
 	// return config file path if provided in environment variable set
 	envConfig, exists := os.LookupEnv(ThreeportConfigEnvKey)
 	if exists {
-		return envConfig
+		return configPathWithoutPastedTilde(envConfig)
 	}
 
 	home, err := homedir.Dir()
@@ -434,6 +438,23 @@ func DetermineThreeportConfigPath(cfgFile string) string {
 	)
 
 	return cfgFile
+}
+
+// configPathWithoutPastedTilde drops a trailing tilde pasted onto a config path.
+// configPathWithoutPastedTilde keeps the path when that tilde names a file.
+func configPathWithoutPastedTilde(path string) string {
+	if !strings.HasSuffix(path, "~") {
+		return path
+	}
+	without := strings.TrimSuffix(path, "~")
+	// keep the path when the tilde names a file
+	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+		return path
+	}
+	if _, err := os.Stat(without); err != nil {
+		return path
+	}
+	return without
 }
 
 // GetThreeportConfig retrieves the threeport config and name of the

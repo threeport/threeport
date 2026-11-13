@@ -9,8 +9,6 @@ import (
 )
 
 const (
-	gkeClusterTypeToken  = "gcp:container/cluster:Cluster"
-	gkeNodePoolTypeToken = "gcp:container/nodePool:NodePool"
 	gkeNetworkTypeToken  = "gcp:compute/network:Network"
 	gkeSubnetTypeToken   = "gcp:compute/subnetwork:Subnetwork"
 	gkeRouterTypeToken   = "gcp:compute/router:Router"
@@ -126,6 +124,65 @@ func TestGKEPulumiProgram_LabelableResourcesCarryProvisionedBy(t *testing.T) {
 	}
 	if !sawNodePool {
 		t.Error("the GKE node pool resource was not registered")
+	}
+}
+
+// TestGKEPulumiProgramStandardPool checks the second pool can schedule a 2Gi request.
+func TestGKEPulumiProgramStandardPool(t *testing.T) {
+	// run the program
+	infra := &KubernetesRuntimeInfraGKE{
+		PulumiWorkspace: PulumiWorkspace{
+			RuntimeInstanceName: "gke-label-test",
+			ProjectName:         "gke",
+		},
+		ProjectID:              "test-project",
+		Region:                 "us-central1",
+		WorkerNodeInitialCount: 1,
+		MachineType:            "e2-medium",
+	}
+	mocks := &gkeRecordingMocks{}
+	if err := pulumi.RunErr(infra.pulumiProgram(), pulumi.WithMocks("gke", "test-stack", mocks)); err != nil {
+		t.Fatalf("RunErr: %v", err)
+	}
+
+	// find the standard pool
+	var standard map[string]any
+	for _, r := range mocks.resources {
+		if r.typeToken != gkeNodePoolTypeToken {
+			continue
+		}
+		if r.inputs["name"] == infra.standardNodePoolName() {
+			standard = r.inputs
+			break
+		}
+	}
+	if standard == nil {
+		t.Fatal("standard node pool was not registered")
+	}
+
+	// check the machine type, disk, count, and autoscaling
+	nodeConfig, ok := standard["nodeConfig"].(map[string]any)
+	if !ok {
+		t.Fatal("standard node pool has no nodeConfig")
+	}
+	if nodeConfig["machineType"] != standardNodeMachineType {
+		t.Errorf("machineType = %v, want %s", nodeConfig["machineType"], standardNodeMachineType)
+	}
+	if nodeConfig["diskSizeGb"] != float64(standardNodeDiskSizeGb) ||
+		nodeConfig["diskType"] != standardNodeDiskType {
+		t.Errorf("disk = %v %v", nodeConfig["diskSizeGb"], nodeConfig["diskType"])
+	}
+	if standard["nodeCount"] != float64(standardNodeInitialCount) {
+		t.Errorf("nodeCount = %v, want %d", standard["nodeCount"], standardNodeInitialCount)
+	}
+	autoscaling, ok := standard["autoscaling"].(map[string]any)
+	if !ok {
+		t.Fatal("standard node pool has no autoscaling")
+	}
+	if autoscaling["minNodeCount"] != float64(standardNodeMinCount) ||
+		autoscaling["maxNodeCount"] != float64(standardNodeMaxCount) ||
+		autoscaling["locationPolicy"] != standardNodeLocationPolicy {
+		t.Errorf("autoscaling = %#v", autoscaling)
 	}
 }
 

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/discovery"
@@ -15,6 +16,9 @@ import (
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
 )
+
+// apiRequestTimeout bounds one API call so a connection to a replaced API pod cannot wait forever.
+const apiRequestTimeout = 2 * time.Minute
 
 // GetHTTPClient returns an HTTP client with TLS configuration when authEnabled
 // is true, and an HTTP client without TLS when authEnabled is false.  If used
@@ -31,6 +35,7 @@ func GetHTTPClient(
 ) (*http.Client, error) {
 	if !authEnabled {
 		return &http.Client{
+			Timeout: apiRequestTimeout,
 			Transport: &CustomTransport{
 				CustomRoundTripper: Chain(nil),
 				IsTlsEnabled:       false,
@@ -118,6 +123,7 @@ func GetHTTPClient(
 	}
 
 	apiClient = &http.Client{
+		Timeout:   apiRequestTimeout,
 		Transport: customTransport,
 	}
 

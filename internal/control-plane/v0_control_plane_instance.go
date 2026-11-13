@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/go-logr/logr"
 	"gorm.io/datatypes"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
@@ -26,7 +27,6 @@ import (
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
-	"github.com/threeport/threeport/pkg/encryption/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -380,8 +380,8 @@ func v0ControlPlaneInstanceCreated(
 				return 0, fmt.Errorf("failed to create http client for new control plane: %w", err)
 			}
 		} else {
-			// get auth config
-			authConfig, err = auth.GetAuthConfig()
+			// copy or generate the CA
+			authConfig, err = cpi.AuthConfigForInstall(dynamicKubeClient, mapper)
 			if err != nil {
 				return 0, fmt.Errorf("failed to get auth config: %w", err)
 			}
@@ -432,10 +432,17 @@ func v0ControlPlaneInstanceCreated(
 		controlPlaneInstance.ApiServerEndpoint = &internalEndpoint
 	}
 
-	// generate encryption key
-	encryptionKey, err := encryption.GenerateKey()
+	// keep an installed key, otherwise copy or generate one
+	encryptionKey, err := cpi.EncryptionKeyFromNamespace(
+		dynamicKubeClient,
+		mapper,
+		cpi.Opts.Namespace,
+	)
 	if err != nil {
-		return 0, fmt.Errorf("failed to generate encryption key: %w", err)
+		encryptionKey, err = cpi.EncryptionKeyForInstall(dynamicKubeClient, mapper)
+	}
+	if err != nil {
+		return 0, fmt.Errorf("failed to get encryption key for install: %w", err)
 	}
 
 	// generate new DB client credentials
@@ -452,6 +459,28 @@ func v0ControlPlaneInstanceCreated(
 		dbCreds,
 	); err != nil {
 		return 0, fmt.Errorf("failed to install threeport control plane dependencies: %w", err)
+	}
+
+	// grant the database account access to the backup bucket
+	if err := grantInstalledDatabaseBackup(
+		r,
+		cpi,
+		dynamicKubeClient,
+		kubernetesRuntimeInstance,
+		kubernetesRuntimeDefinition,
+	); err != nil {
+		return 0, err
+	}
+
+	// restore the database before the API serves it
+	if err := restoreInstalledDatabase(
+		r,
+		cpi,
+		dynamicKubeClient,
+		kubernetesRuntimeInstance,
+		kubernetesRuntimeDefinition,
+	); err != nil {
+		return 0, err
 	}
 
 	// install the API
@@ -616,6 +645,18 @@ func v0ControlPlaneInstanceCreated(
 		return 0, fmt.Errorf("threeport API did not come up: %w", err)
 	}
 	cli.Info("Threeport API is running")
+
+	// point installed modules at this control plane
+	if cpi.Opts.FromNamespace != "" {
+		if err := cpi.RedeployInstalledModules(
+			dynamicKubeClient,
+			mapper,
+			newApiClient,
+			threeportAPIEndpoint,
+		); err != nil {
+			return 0, fmt.Errorf("failed to retarget installed modules: %w", err)
+		}
+	}
 
 	if !*controlPlaneDefinition.OnboardParent {
 		return 0, nil
@@ -1317,6 +1358,44 @@ func v0ControlPlaneInstanceUpdated(
 		}
 	}
 
+	// roll the control plane image, then the module images recorded on its api
+	if appliesControlPlane(controlPlaneInstance) {
+		if tag := util.DerefString(controlPlaneInstance.ImageTag); tag != "" {
+			err := threeport.UpdateDeploymentImageTag(
+				tag,
+				util.DerefString(controlPlaneInstance.Namespace),
+				"",
+				dynamicKubeClient,
+				mapper,
+				false,
+			)
+			if err != nil && !k8serrors.IsNotFound(err) {
+				return 0, fmt.Errorf("failed to update control plane image tag: %w", err)
+			}
+		}
+
+		moduleClient := r.APIClient
+		moduleEndpoint := r.APIServer
+		if !sameControlPlane {
+			var err error
+			moduleClient, moduleEndpoint, err = childAPIClient(controlPlaneInstance)
+			if err != nil {
+				log.Error(err, "failed to build child api client for module images")
+				return 0, err
+			}
+		}
+		if err := threeport.ReconcileInstalledModuleImages(
+			dynamicKubeClient,
+			mapper,
+			moduleClient,
+			moduleEndpoint,
+			controlPlaneInstance,
+			&threeport.ControlPlaneInstaller{},
+		); err != nil {
+			return 0, fmt.Errorf("failed to reconcile module images: %w", err)
+		}
+	}
+
 	return 0, nil
 }
 
@@ -1407,9 +1486,115 @@ func configureProviderControllers(
 			return fmt.Errorf("failed to determine the GCP project of the child's runtime: %w", err)
 		}
 		cpi.Opts.GcpProjectId = gcpProjectId
+		if dynamicKubeClient == nil || kubernetesRuntimeInstance.Name == nil {
+			return nil
+		}
+
+		// let this namespace's controllers use the cluster account
+		gkeInfra := &provider.KubernetesRuntimeInfraGKE{
+			PulumiWorkspace: provider.PulumiWorkspace{
+				RuntimeInstanceName: *kubernetesRuntimeInstance.Name,
+			},
+			ProjectID: gcpProjectId,
+		}
+		if err := gkeInfra.BindControlPlaneWorkloadIdentity(cpi.Opts.Namespace); err != nil {
+			return fmt.Errorf("failed to bind workload identity for the control plane: %w", err)
+		}
+		cpi.Opts.GcpServiceAccountEmail = gkeInfra.ServiceAccountEmail
 		return nil
 	default:
 		// kind and oke need no provider values
+		return nil
+	}
+}
+
+// restoreInstalledDatabase restores the latest backup into a new control plane.
+// A source namespace on a runtime other than GKE is an error.
+func restoreInstalledDatabase(
+	r *controller.Reconciler,
+	cpi *threeport.ControlPlaneInstaller,
+	kubeClient dynamic.Interface,
+	runtimeInstance *v0.KubernetesRuntimeInstance,
+	runtimeDefinition *v0.KubernetesRuntimeDefinition,
+) error {
+	// skip a fresh install
+	if cpi.Opts.FromNamespace == "" {
+		return nil
+	}
+
+	// restore for this provider
+	providerName := ""
+	if runtimeDefinition != nil && runtimeDefinition.InfraProvider != nil {
+		providerName = *runtimeDefinition.InfraProvider
+	}
+	switch providerName {
+	case v0.KubernetesRuntimeInfraProviderGKE:
+		if runtimeInstance == nil || runtimeInstance.Name == nil || runtimeInstance.ID == nil {
+			return fmt.Errorf("restore from %s needs the runtime instance name and id", cpi.Opts.FromNamespace)
+		}
+		if kubeClient == nil {
+			return fmt.Errorf("restore from %s needs a kube client", cpi.Opts.FromNamespace)
+		}
+
+		// read the runtime backup bucket
+		projectID, err := gkeRuntimeProjectID(r.APIClient, r.APIServer, *runtimeInstance.ID)
+		if err != nil {
+			return err
+		}
+		bucket := provider.GkeBackupBucketName(*runtimeInstance.Name, projectID)
+
+		// restore the latest backup and record the source
+		return cpi.RestoreFromNamespace(kubeClient, bucket)
+	default:
+		// kind, eks, and oke have no backup to restore
+		return fmt.Errorf("restore from %s is only supported on GKE", cpi.Opts.FromNamespace)
+	}
+}
+
+// grantInstalledDatabaseBackup gives the database account access to the runtime backup bucket, and leaves any other runtime unchanged.
+func grantInstalledDatabaseBackup(
+	r *controller.Reconciler,
+	cpi *threeport.ControlPlaneInstaller,
+	kubeClient dynamic.Interface,
+	runtimeInstance *v0.KubernetesRuntimeInstance,
+	runtimeDefinition *v0.KubernetesRuntimeDefinition,
+) error {
+	// grant the database account for this provider
+	providerName := ""
+	if runtimeDefinition != nil && runtimeDefinition.InfraProvider != nil {
+		providerName = *runtimeDefinition.InfraProvider
+	}
+	switch providerName {
+	case v0.KubernetesRuntimeInfraProviderGKE:
+		if runtimeInstance == nil || runtimeInstance.Name == nil || runtimeInstance.ID == nil {
+			return errors.New("a GKE control plane needs the runtime instance name and id")
+		}
+		if kubeClient == nil {
+			return errors.New("a GKE control plane needs a kube client")
+		}
+
+		// read the project and the database account
+		projectID, err := gkeRuntimeProjectID(r.APIClient, r.APIServer, *runtimeInstance.ID)
+		if err != nil {
+			return err
+		}
+		uid, err := cpi.DatabaseServiceAccountUID(kubeClient)
+		if err != nil {
+			return err
+		}
+
+		// grant object read and write on the runtime bucket
+		gkeInfra := &provider.KubernetesRuntimeInfraGKE{
+			PulumiWorkspace: provider.PulumiWorkspace{RuntimeInstanceName: *runtimeInstance.Name},
+			ProjectID:       projectID,
+			BackupBucket:    provider.GkeBackupBucketName(*runtimeInstance.Name, projectID),
+		}
+		if err := gkeInfra.GrantDatabaseBackupAccess(uid); err != nil {
+			return fmt.Errorf("failed to grant backup access for %s: %w", cpi.Opts.Namespace, err)
+		}
+		return nil
+	default:
+		// kind, eks, and oke have no backup bucket
 		return nil
 	}
 }
@@ -1429,6 +1614,9 @@ func prepareInstanceInstaller(
 	cpi.Opts.InThreeport = true
 	cpi.Opts.CreateOrUpdateKubeResources = createOrUpdate
 	cpi.Opts.InfraProvider = *kubernetesRuntimeDefinition.InfraProvider
+	if controlPlaneInstance.FromNamespace != nil {
+		cpi.Opts.FromNamespace = *controlPlaneInstance.FromNamespace
+	}
 	if controlPlaneDefinition.AuthEnabled != nil {
 		cpi.Opts.AuthEnabled = *controlPlaneDefinition.AuthEnabled
 	}
