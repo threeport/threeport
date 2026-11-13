@@ -97,6 +97,9 @@ func (i *KubernetesRuntimeInfraGKE) UpgradeInfra(version string) error {
 		return fmt.Errorf("failed to read the stack's GKE cluster: %w", err)
 	}
 	i.keepStackReleaseChannel(exported.Deployment)
+	// the cluster stays where it is, and its node pool keeps its zones and
+	// how its autoscaler limits the nodes
+	i.keepStackShape(exported.Deployment)
 
 	return i.upgradeStack(stack)
 }

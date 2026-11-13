@@ -7,10 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
+	"strings"
 	"time"
 
 	container "cloud.google.com/go/container/apiv1"
 	containerpb "cloud.google.com/go/container/apiv1/containerpb"
+	gax "github.com/googleapis/gax-go/v2"
 	"github.com/pulumi/pulumi-gcp/sdk/v8/go/gcp"
 	"github.com/pulumi/pulumi-gcp/sdk/v8/go/gcp/compute"
 	gkecontainer "github.com/pulumi/pulumi-gcp/sdk/v8/go/gcp/container"
@@ -33,6 +36,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	gcpauth "github.com/threeport/threeport/pkg/auth/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // KubernetesRuntimeInfraGKE represents the infrastructure for a threeport-managed
@@ -69,6 +73,17 @@ type KubernetesRuntimeInfraGKE struct {
 
 	// The Google Cloud region where the cluster infra is provisioned.
 	Region string
+
+	// The number of zones the cluster's nodes run in.  One makes a zonal
+	// cluster: a single control plane replica, and its nodes in one zone of
+	// the region.  More make a regional cluster: its control plane replicated
+	// across the region's zones, and its nodes in that many of them.  With it
+	// set, MinNodeCount and MaxNodeCount limit the whole node pool, and
+	// WorkerNodeInitialCount is spread across the zones, rounded up to a
+	// multiple of them.  Zero keeps the shape of the clusters created before
+	// it was set: regional, with nodes in every zone of the region and the
+	// node counts applied to each zone.
+	ZoneCount int32
 
 	// The number of nodes initially created for the worker node pool.
 	WorkerNodeInitialCount int32
@@ -132,6 +147,22 @@ type KubernetesRuntimeInfraGKE struct {
 	// the cluster, to the release channel the cluster was created with: ""
 	// for one created before the channel was set.  The program keeps it.
 	stackReleaseChannel *string
+
+	// stackLocation is set by CreateInfra when the stack already holds the
+	// cluster, to the location it was created in: its region, or its zone.
+	// The program keeps it, since changing a cluster's location replaces it.
+	stackLocation *string
+
+	// stackNodePool is set by CreateInfra when the stack already holds the
+	// worker node pool, whose zones are then kept.  A cluster whose create
+	// failed before its node pool was made has none, and the node pool still
+	// gets the zones a new cluster's would.
+	stackNodePool bool
+
+	// stackPerZoneNodeLimits is set by CreateInfra when the stack already
+	// holds a node pool whose autoscaler limits each zone, as the node pools
+	// created before ZoneCount was set do.  The program keeps it so.
+	stackPerZoneNodeLimits bool
 
 	// nodesKeepDefaultServiceAccount is set by CreateInfra when the stack
 	// already holds a node pool whose nodes run as the project's default
@@ -277,9 +308,10 @@ func (i *KubernetesRuntimeInfraGKE) CreateInfra() (*kube.KubeConnectionInfo, err
 		return nil, fmt.Errorf("failed to set up Pulumi workspace: %w", err)
 	}
 
-	// a create resumed on a stack that holds the cluster keeps its version
-	// and release channel, and one whose node pool was created before the nodes had their own
-	// service account leaves that node pool as it is
+	// a create resumed on a stack that holds the cluster keeps its version,
+	// release channel, location and node limits, and one whose node pool was
+	// created before the nodes had their own service account leaves that node
+	// pool as it is
 	ctx := context.Background()
 	exported, err := stack.Export(ctx)
 	if err != nil {
@@ -287,6 +319,7 @@ func (i *KubernetesRuntimeInfraGKE) CreateInfra() (*kube.KubeConnectionInfo, err
 	}
 	i.keepStackMinMasterVersion(exported.Deployment)
 	i.keepStackReleaseChannel(exported.Deployment)
+	i.keepStackShape(exported.Deployment)
 	i.nodesKeepDefaultServiceAccount = nodePoolRunsAsDefaultServiceAccount(exported.Deployment)
 
 	if _, err = i.RunUp(ctx, stack); err != nil {
@@ -424,6 +457,163 @@ func (i *KubernetesRuntimeInfraGKE) maintenancePolicy() (*gkecontainer.ClusterMa
 			Recurrence: pulumi.String("FREQ=WEEKLY;BYDAY=" + v0.GkeMaintenanceWindowDaysOrDefault(&i.MaintenanceWindowDays)),
 		},
 	}, nil
+}
+
+// keepStackShape records where the cluster the stack's deployment holds was
+// created, and how its node pool's autoscaler limits the nodes, for the
+// program to keep.
+func (i *KubernetesRuntimeInfraGKE) keepStackShape(deployment json.RawMessage) {
+	if location, held := clusterInputInStack(deployment, "gcp:container/cluster:Cluster", "location"); held && location != "" {
+		i.stackLocation = &location
+	}
+	i.stackNodePool = stackHoldsResource(deployment, "gcp:container/nodePool:NodePool")
+	i.stackPerZoneNodeLimits = stackInputSet(deployment, "gcp:container/nodePool:NodePool", "autoscaling.maxNodeCount")
+}
+
+// stackHoldsResource reports whether a stack's deployment holds a resource of
+// a type.
+func stackHoldsResource(deployment json.RawMessage, resourceType string) bool {
+	var contents struct {
+		Resources []struct {
+			Type string `json:"type"`
+		} `json:"resources"`
+	}
+	if len(deployment) == 0 || json.Unmarshal(deployment, &contents) != nil {
+		return false
+	}
+
+	return slices.ContainsFunc(contents.Resources, func(resource struct {
+		Type string `json:"type"`
+	}) bool {
+		return resource.Type == resourceType
+	})
+}
+
+// stackInputSet reports whether the first resource of a type in a stack's
+// deployment has an input set at a dotted path.
+func stackInputSet(deployment json.RawMessage, resourceType, input string) bool {
+	var contents struct {
+		Resources []struct {
+			Type   string         `json:"type"`
+			Inputs map[string]any `json:"inputs"`
+		} `json:"resources"`
+	}
+	if len(deployment) == 0 || json.Unmarshal(deployment, &contents) != nil {
+		return false
+	}
+	for _, resource := range contents.Resources {
+		if resource.Type != resourceType {
+			continue
+		}
+		var value any = resource.Inputs
+		for _, key := range strings.Split(input, ".") {
+			object, _ := value.(map[string]any)
+			value = object[key]
+		}
+		return value != nil
+	}
+
+	return false
+}
+
+// clusterLocation returns where the program creates the cluster and its node
+// pool, and the zones the node pool's nodes run in when the cluster is
+// regional and they don't run in every zone of the region.  A cluster the
+// stack holds stays where it is, and so does a node pool the stack holds; a
+// regional cluster whose node pool wasn't made yet, as when its create failed
+// part way, gives its node pool the zones a new cluster's would.  Without a
+// ZoneCount the cluster is regional with nodes in every zone, as clusters
+// were before it was set.  Otherwise the zones are the region's first, by
+// name, that are up.
+func (i *KubernetesRuntimeInfraGKE) clusterLocation(
+	ctx *pulumi.Context,
+	gcpProvider *gcp.Provider,
+) (string, []string, error) {
+	if i.ZoneCount <= 0 {
+		if i.stackLocation != nil {
+			return *i.stackLocation, nil, nil
+		}
+		return i.Region, nil, nil
+	}
+	// a cluster in the stack stays where it is, and a node pool in the
+	// stack keeps its zones; a zonal cluster's node pool is in its zone
+	if i.stackLocation != nil && (i.stackNodePool || *i.stackLocation != i.Region) {
+		return *i.stackLocation, nil, nil
+	}
+
+	available, err := compute.GetZones(ctx, &compute.GetZonesArgs{
+		Project: &i.ProjectID,
+		Region:  &i.Region,
+		Status:  util.Ptr("UP"),
+	}, pulumi.Provider(gcpProvider))
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to list the zones of region %s: %w", i.Region, err)
+	}
+	names := slices.Clone(available.Names)
+	slices.Sort(names)
+	if len(names) == 0 {
+		return "", nil, fmt.Errorf("region %s has no zone that is up", i.Region)
+	}
+	zones := names[:min(int(i.ZoneCount), len(names))]
+	// a regional cluster in the stack whose node pool wasn't made yet stays
+	// regional, and its node pool takes the zones
+	if i.stackLocation != nil {
+		return *i.stackLocation, zones, nil
+	}
+	if i.ZoneCount == 1 {
+		return names[0], nil, nil
+	}
+
+	return i.Region, zones, nil
+}
+
+// nodeLocationsInput returns a node pool's zones as the program sets them:
+// none when its nodes run in the cluster's own location.
+func nodeLocationsInput(zones []string) pulumi.StringArrayInput {
+	if len(zones) == 0 {
+		return nil
+	}
+
+	return pulumi.ToStringArray(zones)
+}
+
+// perZoneNodeLimits reports whether the node counts apply to each zone, as on
+// the clusters created before ZoneCount was set, rather than to the whole
+// node pool.
+func (i *KubernetesRuntimeInfraGKE) perZoneNodeLimits() bool {
+	return i.ZoneCount <= 0 || i.stackPerZoneNodeLimits
+}
+
+// initialNodeCountPerZone returns the node pool's initial node count, which
+// GKE applies to each of its zones: WorkerNodeInitialCount divided across the
+// zones, rounded up, or WorkerNodeInitialCount itself where the node counts
+// are per zone.  nodeZones is the number of zones the node pool's nodes were
+// placed in, none for a zonal cluster's.
+func (i *KubernetesRuntimeInfraGKE) initialNodeCountPerZone(nodeZones int) int {
+	initial := int(i.WorkerNodeInitialCount)
+	if i.perZoneNodeLimits() || nodeZones <= 1 {
+		return initial
+	}
+
+	return (initial + nodeZones - 1) / nodeZones
+}
+
+// autoscaling returns the node pool autoscaler's limits: on the whole node
+// pool, or on each zone where the node counts are per zone.  GKE takes one
+// or the other, not both.
+func (i *KubernetesRuntimeInfraGKE) autoscaling() *gkecontainer.NodePoolAutoscalingArgs {
+	autoscaling := &gkecontainer.NodePoolAutoscalingArgs{
+		LocationPolicy: pulumi.String(i.locationPolicy()),
+	}
+	if i.perZoneNodeLimits() {
+		autoscaling.MinNodeCount = pulumi.Int(int(i.MinNodeCount))
+		autoscaling.MaxNodeCount = pulumi.Int(int(i.MaxNodeCount))
+	} else {
+		autoscaling.TotalMinNodeCount = pulumi.Int(int(i.MinNodeCount))
+		autoscaling.TotalMaxNodeCount = pulumi.Int(int(i.MaxNodeCount))
+	}
+
+	return autoscaling
 }
 
 // locationPolicy returns the node pool autoscaler's location policy.
@@ -568,9 +758,14 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 			}
 		}
 
+		location, nodeLocations, err := i.clusterLocation(ctx, gcpProvider)
+		if err != nil {
+			return err
+		}
+
 		cluster, err := gkecontainer.NewCluster(ctx, i.RuntimeInstanceName, &gkecontainer.ClusterArgs{
 			Name:           pulumi.String(i.RuntimeInstanceName),
-			Location:       pulumi.String(i.Region),
+			Location:       pulumi.String(location),
 			Network:        network.Name,
 			Subnetwork:     subnet.Name,
 			ResourceLabels: GcpLabelsInput(i.RuntimeInstanceName),
@@ -643,19 +838,17 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 		}
 
 		_, err = gkecontainer.NewNodePool(ctx, i.workerNodePoolName(), &gkecontainer.NodePoolArgs{
-			Name:     pulumi.String(i.workerNodePoolName()),
-			Cluster:  cluster.Name,
-			Location: pulumi.String(i.Region),
+			Name:          pulumi.String(i.workerNodePoolName()),
+			Cluster:       cluster.Name,
+			Location:      pulumi.String(location),
+			NodeLocations: nodeLocationsInput(nodeLocations),
 
-			NodeCount: pulumi.Int(int(i.WorkerNodeInitialCount)),
+			// per zone, which a node pool's initial count always is
+			NodeCount: pulumi.Int(i.initialNodeCountPerZone(len(nodeLocations))),
 
 			NodeConfig: nodeConfig,
 
-			Autoscaling: &gkecontainer.NodePoolAutoscalingArgs{
-				MinNodeCount:   pulumi.Int(int(i.MinNodeCount)),
-				MaxNodeCount:   pulumi.Int(int(i.MaxNodeCount)),
-				LocationPolicy: pulumi.String(i.locationPolicy()),
-			},
+			Autoscaling: i.autoscaling(),
 
 			Management: &gkecontainer.NodePoolManagementArgs{
 				AutoRepair:  pulumi.Bool(true),
@@ -1004,22 +1197,133 @@ func (i *KubernetesRuntimeInfraGKE) getCluster(ctx context.Context) (*containerp
 	}
 	defer clusterManagerClient.Close()
 
-	// construct the cluster name in the format required by GKE API
-	// Format: projects/{project}/locations/{location}/clusters/{cluster}
-	clusterName := fmt.Sprintf(
-		"projects/%s/locations/%s/clusters/%s",
-		i.ProjectID, i.Region, i.RuntimeInstanceName,
-	)
+	return i.findCluster(ctx, clusterManagerClient)
+}
 
-	// get cluster details
-	cluster, err := clusterManagerClient.GetCluster(ctx, &containerpb.GetClusterRequest{
-		Name: clusterName,
+// gkeClusterLister is the part of the GKE cluster manager client that finds
+// a cluster.
+type gkeClusterLister interface {
+	ListClusters(ctx context.Context, req *containerpb.ListClustersRequest, opts ...gax.CallOption) (*containerpb.ListClustersResponse, error)
+}
+
+// findCluster returns the cluster named for this runtime in its region,
+// wherever in the region it is: the region itself for a regional cluster, or
+// one of its zones for a zonal one.  A cluster that isn't there is a NotFound
+// error, and a listing GKE couldn't complete is an error of its own, so it
+// isn't taken for a cluster that is gone.  A cluster of the name is this
+// runtime's as isThisRuntimesCluster decides, and where more than one may be,
+// it is an error rather than a guess.
+func (i *KubernetesRuntimeInfraGKE) findCluster(ctx context.Context, client gkeClusterLister) (*containerpb.Cluster, error) {
+	response, err := client.ListClusters(ctx, &containerpb.ListClustersRequest{
+		Parent: fmt.Sprintf("projects/%s/locations/-", i.ProjectID),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get cluster details: %w", err)
+		return nil, fmt.Errorf("failed to list the project's GKE clusters: %w", err)
+	}
+	var matches []*containerpb.Cluster
+	for _, cluster := range response.GetClusters() {
+		if cluster.GetName() == i.RuntimeInstanceName && i.isThisRuntimesCluster(cluster) {
+			matches = append(matches, cluster)
+		}
+	}
+	// a cluster found at its recorded location is the one, wherever else GKE
+	// couldn't list; otherwise one in a zone it couldn't list may be missing
+	if i.stackLocation != nil && len(matches) == 1 {
+		return matches[0], nil
+	}
+	if _, err := completeClusterList(response); err != nil {
+		return nil, err
 	}
 
-	return cluster, nil
+	switch len(matches) {
+	case 0:
+		return nil, status.Errorf(codes.NotFound, "GKE cluster %s not found in region %s", i.RuntimeInstanceName, i.Region)
+	case 1:
+		return matches[0], nil
+	}
+	locations := make([]string, 0, len(matches))
+	for _, cluster := range matches {
+		locations = append(locations, cluster.GetLocation())
+	}
+
+	return nil, fmt.Errorf(
+		"found %d GKE clusters named %s in region %s, in %v, and can't tell which is this runtime's",
+		len(matches), i.RuntimeInstanceName, i.Region, locations,
+	)
+}
+
+// isThisRuntimesCluster reports whether a cluster of this runtime's name may
+// be its cluster.  Where the stack, or the runtime's resource inventory,
+// records the cluster's location, only the cluster there is.  Otherwise a
+// cluster in the region that carries this runtime's Threeport labels is, and
+// so is one in the region itself, as every cluster was before zonal ones: a
+// cluster of the name in one of the region's zones that isn't labelled for
+// this runtime is someone else's.
+func (i *KubernetesRuntimeInfraGKE) isThisRuntimesCluster(cluster *containerpb.Cluster) bool {
+	if i.stackLocation != nil {
+		return cluster.GetLocation() == *i.stackLocation
+	}
+	if !gkeLocationInRegion(cluster.GetLocation(), i.Region) {
+		return false
+	}
+	labels := cluster.GetResourceLabels()
+
+	return cluster.GetLocation() == i.Region ||
+		(labels[GcpLabelProvisionedBy] == GcpLabelProvisionedByValue &&
+			labels[GcpLabelThreeportName] == GcpResourceLabels(i.RuntimeInstanceName)[GcpLabelThreeportName])
+}
+
+// RecordedClusterLocation returns the location the cluster is found at, from
+// the stack or the runtime's resource inventory, "" when neither records one.
+func (i *KubernetesRuntimeInfraGKE) RecordedClusterLocation() string {
+	if i.stackLocation == nil {
+		return ""
+	}
+
+	return *i.stackLocation
+}
+
+// KeepInventoryLocation records the location of the cluster a runtime's
+// resource inventory holds, a stack export or checkpoint, so the cluster is
+// found where it was created.  An inventory that holds no cluster records
+// nothing.
+func (i *KubernetesRuntimeInfraGKE) KeepInventoryLocation(inventory *datatypes.JSON) {
+	if inventory == nil {
+		return
+	}
+	var state struct {
+		Resources  json.RawMessage `json:"resources"`
+		Deployment struct {
+			Resources json.RawMessage `json:"resources"`
+		} `json:"deployment"`
+		Checkpoint struct {
+			Latest struct {
+				Resources json.RawMessage `json:"resources"`
+			} `json:"latest"`
+		} `json:"checkpoint"`
+	}
+	if json.Unmarshal(*inventory, &state) != nil {
+		return
+	}
+	for _, resources := range []json.RawMessage{state.Resources, state.Deployment.Resources, state.Checkpoint.Latest.Resources} {
+		if len(resources) == 0 {
+			continue
+		}
+		deployment, err := json.Marshal(map[string]json.RawMessage{"resources": resources})
+		if err != nil {
+			return
+		}
+		if location, held := clusterInputInStack(deployment, "gcp:container/cluster:Cluster", "location"); held && location != "" {
+			i.stackLocation = &location
+			return
+		}
+	}
+}
+
+// gkeLocationInRegion reports whether a GKE location is a region or one of
+// its zones, whose names are the region's followed by a letter.
+func gkeLocationInRegion(location, region string) bool {
+	return location == region || strings.HasPrefix(location, region+"-")
 }
 
 // gkeClusterReady returns an error naming what keeps the cluster from being
@@ -1220,12 +1524,7 @@ func (i *KubernetesRuntimeInfraGKE) ResourcesExist() (bool, error) {
 	}
 	defer clusterManagerClient.Close()
 
-	_, err = clusterManagerClient.GetCluster(ctx, &containerpb.GetClusterRequest{
-		Name: fmt.Sprintf(
-			"projects/%s/locations/%s/clusters/%s",
-			i.ProjectID, i.Region, i.RuntimeInstanceName,
-		),
-	})
+	_, err = i.findCluster(ctx, clusterManagerClient)
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			return false, nil

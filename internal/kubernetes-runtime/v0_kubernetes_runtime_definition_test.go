@@ -207,3 +207,46 @@ func TestANewGkeWorkloadClusterReservesItsNatAddress(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, util.Ptr(true), sent.ReservedNatAddress)
 }
+
+// TestTheGkeDefinitionsZonesFollowHighAvailability covers the GKE definition
+// the reconciler creates: a highly available cluster is regional with nodes
+// in three zones, and any other is zonal, in one.  EKS keeps two zones for a
+// cluster that isn't highly available.
+func TestTheGkeDefinitionsZonesFollowHighAvailability(t *testing.T) {
+	for _, c := range []struct {
+		provider         string
+		path             string
+		highAvailability bool
+		zones            float64
+	}{
+		{v0.KubernetesRuntimeInfraProviderGKE, v0.PathGcpGkeKubernetesRuntimeDefinitions, true, 3},
+		{v0.KubernetesRuntimeInfraProviderGKE, v0.PathGcpGkeKubernetesRuntimeDefinitions, false, 1},
+		{v0.KubernetesRuntimeInfraProviderEKS, v0.PathAwsEksKubernetesRuntimeDefinitions, true, 3},
+		{v0.KubernetesRuntimeInfraProviderEKS, v0.PathAwsEksKubernetesRuntimeDefinitions, false, 2},
+	} {
+		api := machinetest.NewAPIStub(t)
+		var sent map[string]any
+		api.Mux.HandleFunc(c.path, func(w http.ResponseWriter, r *http.Request) {
+			body, err := io.ReadAll(r.Body)
+			require.NoError(t, err)
+			require.NoError(t, json.Unmarshal(body, &sent))
+			machinetest.WriteResponse(t, w, http.StatusCreated, []apiserver_lib.Object{sent})
+		})
+		r := &controller.Reconciler{APIClient: api.Client, APIServer: api.Addr}
+		log := logr.Discard()
+
+		_, err := v0KubernetesRuntimeDefinitionCreated(r, &v0.KubernetesRuntimeDefinition{
+			Common:           v0.Common{ID: util.Ptr(uint(7))},
+			Definition:       v0.Definition{Name: util.Ptr("remote")},
+			Reconciliation:   v0.Reconciliation{Reconciled: util.Ptr(false)},
+			InfraProvider:    util.Ptr(c.provider),
+			HighAvailability: util.Ptr(c.highAvailability),
+			NodeSize:         util.Ptr("Medium"),
+			NodeProfile:      util.Ptr("Balanced"),
+			NodeMaximum:      util.Ptr(60),
+		}, &log)
+		require.NoError(t, err)
+		assert.Equal(t, c.zones, sent["ZoneCount"], "%s highly available %t", c.provider, c.highAvailability)
+		assert.Equal(t, float64(60), sent["DefaultNodeGroupMaximumSize"])
+	}
+}

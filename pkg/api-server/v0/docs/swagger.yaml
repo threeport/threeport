@@ -1462,7 +1462,9 @@ definitions:
         description: An arbitrary name for the definition.
         type: string
       NodeMaximum:
-        description: Sets the maximum number of nodes for the default node group.
+        description: |-
+          Sets the maximum number of nodes for the default node group, across
+          all its zones.  If unset, it is 60.
         type: integer
       NodeProfile:
         description: |-

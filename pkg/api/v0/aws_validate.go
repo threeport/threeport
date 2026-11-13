@@ -109,6 +109,10 @@ func (a *AwsProvider) beforeDelete(tx *gorm.DB) error {
 
 // beforeCreate validates the AwsEksKubernetesRuntimeDefinition before create.
 func (a *AwsEksKubernetesRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
+	counts, _ := eksNodeCounts(a)
+	if err := validateNodeCounts(counts); err != nil {
+		return err
+	}
 	if err := validateKubernetesApiAccess(KubernetesRuntimeInfraProviderEKS, a.PrivateApi, a.AllowedCidrs); err != nil {
 		return err
 	}
@@ -137,6 +141,9 @@ func (a *AwsEksKubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
 		}
 		return object.KubernetesVersion, true
 	}); err != nil {
+		return err
+	}
+	if err := validateNodeCountsUpdate(tx, eksNodeCounts); err != nil {
 		return err
 	}
 

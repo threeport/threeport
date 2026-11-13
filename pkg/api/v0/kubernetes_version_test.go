@@ -88,7 +88,7 @@ func TestAKubernetesRuntimeDefinitionsVersionIsCheckedAndKept(t *testing.T) {
 	require.NoError(t, db.Session(&gorm.Session{}).Model(load(asked.ID)).Updates(&KubernetesRuntimeDefinition{KubernetesVersion: util.Ptr("1.35")}).Error,
 		"sending the version it holds is not a change")
 	require.NoError(t, db.Session(&gorm.Session{}).Save(load(asked.ID)).Error, "nor is a replace that keeps it")
-	require.NoError(t, db.Session(&gorm.Session{}).Model(load(asked.ID)).Updates(&KubernetesRuntimeDefinition{NodeMaximum: util.Ptr(12)}).Error)
+	require.NoError(t, db.Session(&gorm.Session{}).Model(load(asked.ID)).Updates(&KubernetesRuntimeDefinition{InfraProviderAccountName: util.Ptr("other-account")}).Error)
 	assert.Equal(t, "1.35", *load(asked.ID).KubernetesVersion)
 }
 

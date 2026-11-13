@@ -18863,7 +18863,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "NodeMaximum": {
-                    "description": "Sets the maximum number of nodes for the default node group.",
+                    "description": "Sets the maximum number of nodes for the default node group, across\nall its zones.  If unset, it is 60.",
                     "type": "integer"
                 },
                 "NodeProfile": {

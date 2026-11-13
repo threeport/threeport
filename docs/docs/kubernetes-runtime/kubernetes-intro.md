@@ -39,6 +39,47 @@ type each one translates to on every supported cloud provider.  All Kubernetes
 Runtimes use cluster autoscaling and you can specify the maximum number of
 nodes to allow in the cluster.
 
+### High Availability and Node Counts
+
+`HighAvailability` decides how many zones a cluster runs in:
+
+| Provider | `HighAvailability: true` | `HighAvailability: false` |
+|---|---|---|
+| EKS | nodes in 3 zones | nodes in 2 zones |
+| GKE | a regional cluster: its control plane replicated across the region's zones, and its nodes in 3 of them | a zonal cluster: a single control plane replica, and its nodes in one zone |
+
+On GKE the zones are the region's first, by name, that are up. A cluster stays
+in the zones it was created in, since moving it to others replaces it.
+
+`NodeMaximum` limits the number of nodes in the whole cluster, across all its
+zones, on both EKS and GKE. It is 60 when a definition doesn't set it. It was
+250 before, and a definition created then keeps its own. It must be at least
+2, the number of nodes a cluster starts with, and at least 3 for a highly
+available GKE cluster, whose zones need a node each.
+
+GKE creates a node pool's initial nodes in each of its zones, so the initial
+count is divided across the zones and rounded up: a highly available GKE
+cluster starts with one node in each of its three zones. A GKE definition
+whose initial count, rounded up that way, is more than its maximum is
+refused.
+
+On EKS and GKE, `NodeSize`, `NodeProfile` and `NodeMaximum` are copied into the
+EKS or GKE definition when it's created, and can't be changed on the
+kubernetes runtime definition afterwards. Change the node group's sizes on the
+EKS or GKE definition instead.
+
+Set them, with `NodeSize` and `NodeProfile`, in a config file:
+
+```yaml
+KubernetesRuntimeDefinition:
+  Name: production
+  InfraProvider: gke
+  HighAvailability: true
+  NodeSize: Large
+  NodeProfile: Balanced
+  NodeMaximum: 30
+```
+
 ### Kubernetes Version
 
 On EKS, GKE and OKE, `KubernetesVersion` sets the Kubernetes minor version the

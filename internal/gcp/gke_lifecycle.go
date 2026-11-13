@@ -590,6 +590,7 @@ func buildGkeInfra(
 		},
 		ProjectID:              *gcpProvider.ProjectID,
 		Region:                 *instance.Region,
+		ZoneCount:              int32(util.Deref(definition.ZoneCount)),
 		WorkerNodeInitialCount: int32(*definition.DefaultNodeGroupInitialSize),
 		MachineType:            *definition.DefaultNodeGroupInstanceType,
 		MinNodeCount:           int32(*definition.DefaultNodeGroupMinimumSize),
@@ -603,6 +604,9 @@ func buildGkeInfra(
 		AllowedCidrs:           allowedCidrs,
 		ReserveNatAddress:      instance.ReservedNatAddress != nil && *instance.ReservedNatAddress,
 	}).InitPulumiProject()
+	// the cluster is found where it was created, which a zonal cluster's
+	// region alone doesn't say
+	infraGKE.KeepInventoryLocation(instance.ResourceInventory)
 
 	// a cluster whose public endpoint is restricted also admits the control
 	// plane that manages it.  The lookup is skipped for a private cluster,
