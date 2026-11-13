@@ -149,22 +149,6 @@ recreate manifests, RBAC, or configmaps. Use tptctl reinstall for those.`,
 			cli.Error("failed to select controllers from the recorded apis list", err)
 			os.Exit(1)
 		}
-		err = rollNamespaceImages(
-			connectedControlPlane,
-			upgradeName,
-			func(name string) (*api_v0.ControlPlaneInstance, error) {
-				return client.GetControlPlaneInstanceByName(apiClient, apiEndpoint, name)
-			},
-			func(id uint) (*api_v0.ControlPlaneInstance, error) {
-				return client.GetControlPlaneInstanceByID(apiClient, apiEndpoint, id)
-			},
-			dynamicKubeClient,
-			updateImageTag,
-		)
-		if err != nil {
-			cli.Error("failed to set deployment image tags", err)
-			os.Exit(1)
-		}
 		err = installer.UpdateDeploymentImageTag(
 			updateImageTag,
 			*controlPlaneInstance.Namespace,
