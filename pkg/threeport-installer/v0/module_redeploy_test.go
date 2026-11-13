@@ -19,6 +19,18 @@ func TestRedeployInstalledModuleSkipsCore(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// TestRetargetControlPlaneHostRewritesTheDatabase points a restored address at the replacement.
+func TestRetargetControlPlaneHostRewritesTheDatabase(t *testing.T) {
+	// the database host names the plane the module was installed on
+	got := retargetControlPlaneHost(
+		"cockroach sql --host crdb.old-plane.svc.cluster.local",
+		"new-plane",
+	)
+	if got != "cockroach sql --host crdb.new-plane.svc.cluster.local" {
+		t.Fatalf("host = %s", got)
+	}
+}
+
 // TestModuleDeploymentNamesUsesTheInstalledName checks the module-prefixed deployment name.
 func TestModuleDeploymentNamesUsesTheInstalledName(t *testing.T) {
 	// the install puts the module in front of the recorded controller name

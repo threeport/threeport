@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -357,6 +358,91 @@ func restoreStoppedReplicas(deployment *unstructured.Unstructured) error {
 	annotations := deployment.GetAnnotations()
 	delete(annotations, replicasBeforeRestoreAnnotation)
 	deployment.SetAnnotations(annotations)
+	return nil
+}
+
+// controlPlaneHost matches a control plane service address in a restored manifest.
+var controlPlaneHost = regexp.MustCompile(
+	`(crdb(?:-0\.crdb)?|nats-js|threeport-api-server)\.[a-z0-9-]+\.svc\.cluster\.local`,
+)
+
+// retargetControlPlaneHost points a restored address at the replacement plane.
+func retargetControlPlaneHost(value, namespace string) string {
+	if namespace == "" {
+		return value
+	}
+	return controlPlaneHost.ReplaceAllString(value, "${1}."+namespace+".svc.cluster.local")
+}
+
+// retargetHostsIn rewrites control plane addresses in a deployment object.
+func retargetHostsIn(value interface{}, namespace string) bool {
+	switch typed := value.(type) {
+	case string:
+		return false
+	case map[string]interface{}:
+		changed := false
+		for key, item := range typed {
+			if text, ok := item.(string); ok {
+				next := retargetControlPlaneHost(text, namespace)
+				if next != text {
+					typed[key] = next
+					changed = true
+				}
+				continue
+			}
+			if retargetHostsIn(item, namespace) {
+				changed = true
+			}
+		}
+		return changed
+	case []interface{}:
+		changed := false
+		for i, item := range typed {
+			if text, ok := item.(string); ok {
+				next := retargetControlPlaneHost(text, namespace)
+				if next != text {
+					typed[i] = next
+					changed = true
+				}
+				continue
+			}
+			if retargetHostsIn(item, namespace) {
+				changed = true
+			}
+		}
+		return changed
+	default:
+		return false
+	}
+}
+
+// retargetModuleDeployment points a module Deployment at the replacement plane.
+// A missing Deployment is left alone.
+func retargetModuleDeployment(
+	kubeClient dynamic.Interface,
+	namespace, name, controlPlaneNamespace string,
+) error {
+	// read the deployment the install created
+	deployment, err := kubeClient.Resource(deploymentGVR).Namespace(namespace).Get(
+		context.Background(), name, metav1.GetOptions{},
+	)
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("failed to get deployment %s/%s: %w", namespace, name, err)
+	}
+
+	// write the deployment when an address still names another plane
+	if !retargetHostsIn(deployment.Object, controlPlaneNamespace) {
+		return nil
+	}
+	_, err = kubeClient.Resource(deploymentGVR).Namespace(namespace).Update(
+		context.Background(), deployment, metav1.UpdateOptions{},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to retarget deployment %s/%s: %w", namespace, name, err)
+	}
 	return nil
 }
 

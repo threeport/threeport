@@ -114,6 +114,12 @@ func ReconcileInstalledModuleImages(
 		kebab := ModuleKebab(util.DerefString(module.Name))
 		workloadNamespace := moduleWorkloadNamespace(&module)
 		imageNamespace, imageTag := recordedModuleImages(&module)
+		controlPlaneNamespace := util.DerefString(inst.Namespace)
+		if err := retargetModuleDeployment(
+			kubeClient, workloadNamespace, ModuleAPIDeploymentName(kebab), controlPlaneNamespace,
+		); err != nil {
+			return err
+		}
 		if imageNamespace == "" || imageTag == "" {
 			if err := resumeModuleByName(
 				kubeClient, workloadNamespace, ModuleAPIDeploymentName(kebab),
@@ -129,6 +135,16 @@ func ReconcileInstalledModuleImages(
 			continue
 		}
 		for _, controller := range byAPI[*module.ID] {
+			namespace, recorded, splitErr := splitDeploymentName(util.DerefString(controller.DeploymentName))
+			if splitErr == nil {
+				if name, nameErr := installedModuleDeployment(kubeClient, namespace, recorded, kebab); nameErr == nil {
+					if err := retargetModuleDeployment(
+						kubeClient, namespace, name, controlPlaneNamespace,
+					); err != nil {
+						return err
+					}
+				}
+			}
 			if imageNamespace == "" || imageTag == "" {
 				if err := resumeRecordedController(kubeClient, &controller, kebab); err != nil {
 					return err
