@@ -406,7 +406,7 @@ func UpgradeBlueGreen(
 	}
 
 	// back up the namespace serving this API, because a restored database keeps the old namespace
-	serving, err := namespaceServingAPI(source.Kube, currentEndpoint)
+	serving, err := namespaceServingAPI(source.Kube, source.APIEndpoint)
 	if err != nil {
 		return err
 	}
