@@ -77,3 +77,28 @@ func TestADefinitionsAuditLogCantChange(t *testing.T) {
 		})
 	}
 }
+
+// TestAKubernetesRuntimeDefinitionsAuditLogCantChange covers AuditLog on the
+// kubernetes runtime definition, which its EKS, GKE or OKE definition is
+// created with: a patch or a replace that changes it is refused, as on those,
+// and one that leaves it is accepted.
+func TestAKubernetesRuntimeDefinitionsAuditLogCantChange(t *testing.T) {
+	db := setupKubernetesApiAccessDB(t)
+	created := newKRD("krd", KubernetesRuntimeInfraProviderEKS, nil, nil)
+	created.AuditLog = util.Ptr(true)
+	require.NoError(t, db.Create(created).Error)
+	load := func() *KubernetesRuntimeDefinition {
+		var loaded KubernetesRuntimeDefinition
+		require.NoError(t, db.First(&loaded, *created.ID).Error)
+		return &loaded
+	}
+
+	assert.ErrorContains(t, db.Session(&gorm.Session{}).Model(load()).Updates(&KubernetesRuntimeDefinition{AuditLog: util.Ptr(false)}).Error, ErrMsgAuditLogImmutable)
+	replaced := load()
+	replaced.AuditLog = util.Ptr(false)
+	assert.ErrorContains(t, db.Session(&gorm.Session{}).Save(replaced).Error, ErrMsgAuditLogImmutable)
+
+	assert.NoError(t, db.Session(&gorm.Session{}).Model(load()).Updates(&KubernetesRuntimeDefinition{AuditLog: util.Ptr(true)}).Error)
+	assert.NoError(t, db.Session(&gorm.Session{}).Save(load()).Error, "a replace that keeps it")
+	assert.True(t, *load().AuditLog)
+}

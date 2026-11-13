@@ -105,7 +105,7 @@ func (k *KubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
 
 	// InfraProvider is unchanged once past the check above, so the receiver
 	// holds it under both update shapes
-	return validateKubernetesApiAccessUpdate(
+	if err := validateKubernetesApiAccessUpdate(
 		tx,
 		*k.InfraProvider,
 		func(value any) (*bool, *datatypes.JSON, bool) {
@@ -115,7 +115,21 @@ func (k *KubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
 			}
 			return object.PrivateApi, object.AllowedCidrs, true
 		},
-	)
+	); err != nil {
+		return err
+	}
+
+	if err := validateAuditLogUpdate(tx, func(value any) (*bool, bool) {
+		object, ok := value.(*KubernetesRuntimeDefinition)
+		if !ok {
+			return nil, false
+		}
+		return object.AuditLog, true
+	}); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // beforeDelete validates the KubernetesRuntimeDefinition before delete.
