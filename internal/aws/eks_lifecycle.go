@@ -668,6 +668,7 @@ func eksInfraFromApiObjects(
 		DefaultNodeGroupMinNodes:     int32(*definition.DefaultNodeGroupMinimumSize),
 		DefaultNodeGroupMaxNodes:     int32(*definition.DefaultNodeGroupMaximumSize),
 		KubernetesVersion:            v0.KubernetesVersionOrDefault(definition.KubernetesVersion),
+		NodeGroupPerZone:             definition.NodeGroupPerZone != nil && *definition.NodeGroupPerZone,
 		AllowedCidrs:                 allowedCidrs,
 	}).InitPulumiProject(), nil
 }

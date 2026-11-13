@@ -82,6 +82,13 @@ type AwsEksKubernetesRuntimeDefinition struct {
 	// version at a time.  It can't be lowered, since a cluster can't be
 	// downgraded, or cleared.
 	KubernetesVersion *string `validate:"optional"`
+	// If true, the clusters run a node group in each zone, each with the
+	// default node group's instance type and sizes, rather than one node
+	// group spanning every zone.  The cluster autoscaler can then add a node
+	// in a given zone, as a pod bound to a volume there needs.  The zones are
+	// chosen from those that offer the instance type.  It can't be changed
+	// after creation, since that replaces the node groups.
+	NodeGroupPerZone *bool `validate:"optional" gorm:"default:false"`
 
 	// The AWS EKS kubernetes runtime instances derived from this definition.
 	AwsEksKubernetesRuntimeInstances []*AwsEksKubernetesRuntimeInstance `validate:"optional,association"`

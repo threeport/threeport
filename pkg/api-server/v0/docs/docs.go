@@ -17549,6 +17549,10 @@ const docTemplate = `{
                     "description": "An arbitrary name for the definition.",
                     "type": "string"
                 },
+                "NodeGroupPerZone": {
+                    "description": "If true, the clusters run a node group in each zone, each with the\ndefault node group's instance type and sizes, rather than one node\ngroup spanning every zone.  The cluster autoscaler can then add a node\nin a given zone, as a pod bound to a volume there needs.  The zones are\nchosen from those that offer the instance type.  It can't be changed\nafter creation, since that replaces the node groups.",
+                    "type": "boolean"
+                },
                 "PrivateApi": {
                     "description": "If true, the Kubernetes API is not reachable from the public internet.\nSet from the KubernetesRuntimeDefinition's PrivateApi.",
                     "type": "boolean"

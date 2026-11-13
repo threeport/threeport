@@ -157,7 +157,7 @@ func DeployEksInfra(
 		provider.GetResourceManagerRoleArn(cpi.Opts.ControlPlaneName, *callerIdentity.Account),
 	)
 
-	eksProfile, err := eksControlPlaneProfile()
+	eksProfile, err := eksControlPlaneProfile(cpi.Opts.Tier)
 	if err != nil {
 		return nil, err
 	}
@@ -168,6 +168,7 @@ func DeployEksInfra(
 		ProviderCredentials:          providerCredentials,
 		Region:                       awsConfigResourceManager.Region,
 		ZoneCount:                    eksProfile.ZoneCount,
+		NodeGroupPerZone:             eksProfile.NodeGroupPerZone,
 		DefaultNodeGroupInstanceType: eksProfile.InstanceType,
 		DefaultNodeGroupInitialNodes: eksProfile.InitialNodeCount,
 		DefaultNodeGroupMinNodes:     eksProfile.MinNodeCount,
@@ -335,23 +336,14 @@ func ConfigureControlPlaneWithEksConfig(
 	}
 
 	// create aws eks k8s runtime definition
-	eksRuntimeDefName := provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName)
 	kubernetesRuntimeInfraEKS := (*kubernetesRuntimeInfra).(*provider.KubernetesRuntimeInfraEKS)
-	zoneCount := int(kubernetesRuntimeInfraEKS.ZoneCount)
-	awsEksKubernetesRuntimeDef := v0.AwsEksKubernetesRuntimeDefinition{
-		Definition: v0.Definition{
-			Name: &eksRuntimeDefName,
-		},
-		ZoneCount:                    &zoneCount,
-		DefaultNodeGroupInstanceType: &kubernetesRuntimeInfraEKS.DefaultNodeGroupInstanceType,
-		DefaultNodeGroupInitialSize:  util.Ptr(int(kubernetesRuntimeInfraEKS.DefaultNodeGroupInitialNodes)),
-		DefaultNodeGroupMinimumSize:  util.Ptr(int(kubernetesRuntimeInfraEKS.DefaultNodeGroupMinNodes)),
-		DefaultNodeGroupMaximumSize:  util.Ptr(int(kubernetesRuntimeInfraEKS.DefaultNodeGroupMaxNodes)),
-		AllowedCidrs:                 allowedCidrsJSON(kubernetesRuntimeInfraEKS.AllowedCidrs),
-		// the version tptctl created the cluster on, none for an existing one
-		KubernetesVersion:             kubernetesRuntimeDefResult.KubernetesVersion,
-		KubernetesRuntimeDefinitionID: kubernetesRuntimeDefResult.ID,
-	}
+	awsEksKubernetesRuntimeDef := eksGenesisDefinition(
+		provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
+		kubernetesRuntimeInfraEKS,
+		kubernetesRuntimeDefResult.ID,
+	)
+	// the version tptctl created the cluster on, none for an existing one
+	awsEksKubernetesRuntimeDef.KubernetesVersion = kubernetesRuntimeDefResult.KubernetesVersion
 	createdAwsEksKubernetesRuntimeDef, err := client.CreateAwsEksKubernetesRuntimeDefinition(
 		apiClient,
 		threeportAPIEndpoint,
@@ -394,6 +386,29 @@ func ConfigureControlPlaneWithEksConfig(
 	}
 
 	return nil
+}
+
+// eksGenesisDefinition returns the EKS definition tptctl up registers for the
+// cluster it created, describing it as the infra created it: its zones, its
+// node group's instance type and sizes, and whether it runs one in each zone.
+func eksGenesisDefinition(
+	name string,
+	infra *provider.KubernetesRuntimeInfraEKS,
+	kubernetesRuntimeDefinitionID *uint,
+) v0.AwsEksKubernetesRuntimeDefinition {
+	return v0.AwsEksKubernetesRuntimeDefinition{
+		Definition: v0.Definition{
+			Name: &name,
+		},
+		ZoneCount:                     util.Ptr(int(infra.ZoneCount)),
+		DefaultNodeGroupInstanceType:  util.Ptr(infra.DefaultNodeGroupInstanceType),
+		DefaultNodeGroupInitialSize:   util.Ptr(int(infra.DefaultNodeGroupInitialNodes)),
+		DefaultNodeGroupMinimumSize:   util.Ptr(int(infra.DefaultNodeGroupMinNodes)),
+		DefaultNodeGroupMaximumSize:   util.Ptr(int(infra.DefaultNodeGroupMaxNodes)),
+		NodeGroupPerZone:              util.Ptr(infra.NodeGroupPerZone),
+		AllowedCidrs:                  allowedCidrsJSON(infra.AllowedCidrs),
+		KubernetesRuntimeDefinitionID: kubernetesRuntimeDefinitionID,
+	}
 }
 
 // PrepForEksDeletion prepares the control plane for deletion by deleting

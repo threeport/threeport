@@ -29,6 +29,31 @@ func isDefaultStorageClass(class unstructured.Unstructured) bool {
 		annotations[betaDefaultStorageClassAnnotation] == "true"
 }
 
+// defaultStorageClass returns the class Kubernetes gives a claim that names
+// none, or nil when no class is the default.  A cluster can mark more than one
+// as the default, as it can while moving to a new one, and Kubernetes then
+// takes the newest, and of those created at the same time, the first by name.
+func defaultStorageClass(classes []unstructured.Unstructured) *unstructured.Unstructured {
+	var chosen *unstructured.Unstructured
+	for i := range classes {
+		class := &classes[i]
+		if !isDefaultStorageClass(*class) {
+			continue
+		}
+		if chosen == nil {
+			chosen = class
+			continue
+		}
+		created, chosenCreated := class.GetCreationTimestamp(), chosen.GetCreationTimestamp()
+		if created.After(chosenCreated.Time) ||
+			(created.Equal(&chosenCreated) && class.GetName() < chosen.GetName()) {
+			chosen = class
+		}
+	}
+
+	return chosen
+}
+
 // EksDefaultStorageClassName is the default StorageClass threeport gives an
 // EKS cluster. It is named for threeport rather than "gp3" so it never
 // collides with, or changes, a class of that name a user created.
@@ -189,12 +214,7 @@ func checkDatabaseVolumeBinding(kubeClient dynamic.Interface, claimSpec map[stri
 		if err != nil {
 			return fmt.Errorf("failed to list storage classes: %w", err)
 		}
-		for i := range classes.Items {
-			if isDefaultStorageClass(classes.Items[i]) {
-				class = &classes.Items[i]
-				break
-			}
-		}
+		class = defaultStorageClass(classes.Items)
 	}
 	if class == nil {
 		return nil
