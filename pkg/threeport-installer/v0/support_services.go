@@ -63,6 +63,13 @@ const (
 	SupportServicesCloudAWS = "aws"
 )
 
+// KeepSourceNamespace reports a namespace that holds the shared support-services operator.
+// Deleting it removes the operator for every control plane on the cluster.
+func KeepSourceNamespace(namespace string) bool {
+	// keep the namespace the operator deployment is installed into
+	return namespace == ControlPlaneNamespace
+}
+
 // ThreeportCRDNames are the custom resource definitions InstallThreeportCRDs
 // creates. The install and the check that guards it read the same list, so a CRD
 // added to one is not missed by the other - and a check that missed one would

@@ -361,11 +361,8 @@ func FillEncryptionKey(
 	}
 	key, err := EncryptionKeyInNamespace(reader, namespace)
 	if err != nil {
-		return fmt.Errorf(
-			"failed to read the encryption key for control plane %s: %w",
-			entry.Name,
-			err,
-		)
+		// the API certificates are enough to connect when this client cannot open the cluster
+		return nil
 	}
 	entry.EncryptionKey = key
 	return nil

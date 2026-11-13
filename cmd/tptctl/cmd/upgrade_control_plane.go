@@ -21,6 +21,10 @@ import (
 
 var updateImageTag string
 
+// upgradeName is a child, or a child of a child, to roll.
+// Empty rolls the control plane the command is connected to.
+var upgradeName string
+
 // UpCmd represents the create threeport command
 var UpgradeControlPlaneCmd = &cobra.Command{
 	Use:     "control-plane",
@@ -63,8 +67,19 @@ recreate manifests, RBAC, or configmaps. Use tptctl reinstall for those.`,
 			os.Exit(1)
 		}
 
-		// reject a child before any deployment changes
-		if err := api_v0.ChildControlPlaneRequest(controlPlaneInstance); err != nil {
+		// reject a child connection before any deployment changes
+		// a name, when set, is a descendant to roll instead of this API
+		controlPlaneInstance, err = upgradeRollTarget(
+			controlPlaneInstance,
+			upgradeName,
+			func(name string) (*api_v0.ControlPlaneInstance, error) {
+				return client.GetControlPlaneInstanceByName(apiClient, apiEndpoint, name)
+			},
+			func(id uint) (*api_v0.ControlPlaneInstance, error) {
+				return client.GetControlPlaneInstanceByID(apiClient, apiEndpoint, id)
+			},
+		)
+		if err != nil {
 			cli.Error(err.Error(), nil)
 			os.Exit(1)
 		}
@@ -205,6 +220,19 @@ func pinnedComponentsWarning(instance *api_v0.ControlPlaneInstance, imageTag str
 func init() {
 	// register the command and its flags
 	UpgradeCmd.AddCommand(UpgradeControlPlaneCmd)
+
+	UpgradeControlPlaneCmd.Flags().StringVar(
+		&cliArgs.ControlPlaneName,
+		"control-plane-name",
+		"",
+		"Name of the control plane to connect to. Defaults to the current control plane.",
+	)
+	UpgradeControlPlaneCmd.Flags().StringVar(
+		&upgradeName,
+		"name",
+		"",
+		"Name of a child control plane to roll. The command stays connected to the parent.",
+	)
 
 	UpgradeControlPlaneCmd.Flags().StringVarP(
 		&updateImageTag,

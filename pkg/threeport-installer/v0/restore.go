@@ -1376,8 +1376,26 @@ func (cpi *ControlPlaneInstaller) StopSourceAndRestore(
 		)
 	}
 	return func() error {
+		// drop the saved source before the writers resume
+		if err := cpi.clearRestoreRecord(kubeClient); err != nil {
+			return err
+		}
 		return source.ResumeWriters(kubeClient, replicas, scales)
 	}, nil
+}
+
+// clearRestoreRecord drops the saved source so a later restore takes a new backup.
+func (cpi *ControlPlaneInstaller) clearRestoreRecord(kubeClient dynamic.Interface) error {
+	// delete the config map that names the restored source
+	err := kubeClient.Resource(configMapResource).Namespace(cpi.Opts.Namespace).Delete(
+		context.Background(),
+		databaseRestoredConfigName,
+		metav1.DeleteOptions{},
+	)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return fmt.Errorf("failed to clear the restore record in %s: %w", cpi.Opts.Namespace, err)
+	}
+	return nil
 }
 
 // resumeSourceWriters brings the source back up after a failed stop or restore.

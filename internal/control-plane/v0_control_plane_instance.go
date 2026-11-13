@@ -685,7 +685,9 @@ func v0ControlPlaneInstanceCreated(
 		); err != nil {
 			return 0, fmt.Errorf("failed to retarget installed modules: %w", err)
 		}
-		if cpi.Opts.FromNamespace != "" && cpi.Opts.FromNamespace != cpi.Opts.Namespace {
+		if cpi.Opts.FromNamespace != "" &&
+			cpi.Opts.FromNamespace != cpi.Opts.Namespace &&
+			!threeport.KeepSourceNamespace(cpi.Opts.FromNamespace) {
 			if err := threeport.DeleteNamespaces(
 				dynamicKubeClient,
 				mapper,

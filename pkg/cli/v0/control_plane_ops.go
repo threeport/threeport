@@ -608,7 +608,7 @@ func UpgradeBlueGreen(
 	if err := created.RestoreModuleScale(source.Kube, modules); err != nil {
 		return fmt.Errorf("failed to restore module scale: %w", err)
 	}
-	if namespace != "" && namespace != newNamespace {
+	if namespace != "" && namespace != newNamespace && !installer.KeepSourceNamespace(namespace) {
 		if err := installer.DeleteNamespaces(source.Kube, source.Mapper, []string{namespace}); err != nil {
 			return fmt.Errorf("failed to delete source namespace %s: %w", namespace, err)
 		}

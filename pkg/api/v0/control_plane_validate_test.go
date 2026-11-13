@@ -485,6 +485,22 @@ func TestControlPlaneFleetMatrix(t *testing.T) {
 	parentName := "fleet-parent-renamed"
 	err = db.Model(parentOfChild).Updates(&ControlPlaneInstance{Instance: Instance{Name: &parentName}}).Error
 	require.ErrorContains(t, err, "does not serve")
+
+	// the parent caller changes the child and the grandchild this API serves
+	parentCaller := db.WithContext(lib.WithCaller(context.Background(), lib.CallerIdentity{
+		CommonName: "threeport-owner",
+	}))
+	apis := "agent"
+	require.NoError(t, parentCaller.Model(child).Updates(&ControlPlaneInstance{Apis: &apis}).Error)
+	childName := "fleet-child-from-parent"
+	require.NoError(t, parentCaller.Model(child).Updates(&ControlPlaneInstance{Instance: Instance{Name: &childName}}).Error)
+	require.NoError(t, parentCaller.Model(grandchild).Updates(&ControlPlaneInstance{Apis: &apis}).Error)
+	grandchildName := "fleet-grandchild-from-parent"
+	require.NoError(t, parentCaller.Model(grandchild).Updates(&ControlPlaneInstance{Instance: Instance{Name: &grandchildName}}).Error)
+
+	// the same caller still cannot rename a stored parent row
+	err = parentCaller.Model(parentOfChild).Updates(&ControlPlaneInstance{Instance: Instance{Name: &parentName}}).Error
+	require.ErrorContains(t, err, "does not serve")
 }
 
 // controlPlaneRow inserts a control plane with the parent and self flags under test.
