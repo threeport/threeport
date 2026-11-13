@@ -44,7 +44,10 @@ func (f *fakeEbsStorageAddon) DescribeAddonVersions(context.Context, *awseks.Des
 	}}}}}, nil
 }
 
-func (f *fakeEbsStorageAddon) UpdateAddon(_ context.Context, input *awseks.UpdateAddonInput, _ ...func(*awseks.Options)) (*awseks.UpdateAddonOutput, error) {
+func (f *fakeEbsStorageAddon) UpdateAddon(ctx context.Context, input *awseks.UpdateAddonInput, _ ...func(*awseks.Options)) (*awseks.UpdateAddonOutput, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.updatedTo = aws.ToString(input.AddonVersion)
@@ -56,15 +59,19 @@ func (f *fakeEbsStorageAddon) UpdateAddon(_ context.Context, input *awseks.Updat
 // EBS CSI driver add-on while it is still updating: it waits for the add-on
 // to be active, updates it to the version EKS defaults to for the cluster's,
 // and waits for it to be active again.  Each wait makes its own deadline of
-// ebsStorageAddonUpgradeTimeout, rather than share the calls', so the time
-// the first takes doesn't come out of the second.
+// ebsStorageAddonUpgradeTimeout, and the update its own request deadline,
+// rather than share the lookups', so the time a wait takes doesn't come out
+// of what comes after it.
 func TestTheEbsAddonUpgradeWaitsBeforeAndAfterItsUpdate(t *testing.T) {
-	timeout, interval, newClient := ebsStorageAddonUpgradeTimeout, ebsStorageAddonPollInterval, newEbsStorageAddonClient
+	timeout, request, interval, newClient := ebsStorageAddonUpgradeTimeout, ebsStorageAddonRequestTimeout, ebsStorageAddonPollInterval, newEbsStorageAddonClient
 	t.Cleanup(func() {
-		ebsStorageAddonUpgradeTimeout, ebsStorageAddonPollInterval, newEbsStorageAddonClient = timeout, interval, newClient
+		ebsStorageAddonUpgradeTimeout, ebsStorageAddonRequestTimeout, ebsStorageAddonPollInterval, newEbsStorageAddonClient = timeout, request, interval, newClient
 	})
 	ebsStorageAddonPollInterval = time.Second
 	ebsStorageAddonUpgradeTimeout = 10 * time.Second
+	// the wait before the update outlasts the lookups' deadline, which the
+	// update doesn't share
+	ebsStorageAddonRequestTimeout = 200 * time.Millisecond
 	addon := &fakeEbsStorageAddon{statuses: []ekstypes.AddonStatus{
 		ekstypes.AddonStatusUpdating,                             // the upgrade's first look
 		ekstypes.AddonStatusUpdating, ekstypes.AddonStatusActive, // the wait before the update

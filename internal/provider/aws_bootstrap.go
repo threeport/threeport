@@ -983,7 +983,7 @@ var (
 	ebsStorageAddonUpgradeTimeout = 20 * time.Minute
 
 	// ebsStorageAddonRequestTimeout bounds the calls an upgrade of the add-on
-	// makes to look it up and update it.
+	// makes to look it up, and, on its own, the call that updates it.
 	ebsStorageAddonRequestTimeout = 2 * time.Minute
 
 	// ebsStorageAddonPollInterval is how often a wait for the add-on asks
@@ -1014,9 +1014,8 @@ func (i *KubernetesRuntimeInfraEKS) upgradeEbsStorageAddon(kubernetesVersion str
 		return errors.New("cannot upgrade the EBS storage addon without an AWS config")
 	}
 
-	// the calls share a deadline of their own, and each wait gets its full
-	// timeout, so a long wait for the add-on to settle before the update
-	// doesn't cut short the wait for the update itself
+	// the lookups, the update and each wait get deadlines of their own, so a
+	// long wait for the add-on to settle doesn't cut short what comes after it
 	ctx, cancel := context.WithTimeout(context.Background(), ebsStorageAddonRequestTimeout)
 	defer cancel()
 	eksClient := newEbsStorageAddonClient(*i.AwsConfig)
@@ -1061,7 +1060,9 @@ func (i *KubernetesRuntimeInfraEKS) upgradeEbsStorageAddon(kubernetesVersion str
 		}
 	}
 
-	if _, err := eksClient.UpdateAddon(ctx, &awseks.UpdateAddonInput{
+	updateCtx, cancelUpdate := context.WithTimeout(context.Background(), ebsStorageAddonRequestTimeout)
+	defer cancelUpdate()
+	if _, err := eksClient.UpdateAddon(updateCtx, &awseks.UpdateAddonInput{
 		AddonName:        addon.AddonName,
 		ClusterName:      addon.ClusterName,
 		AddonVersion:     aws.String(version),
