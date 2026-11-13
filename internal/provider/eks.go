@@ -5,7 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/url"
+	"slices"
+	"strconv"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
@@ -71,16 +75,46 @@ type KubernetesRuntimeInfraEKS struct {
 	// The maximum number of nodes allowed in the default node group.
 	DefaultNodeGroupMaxNodes int32
 
+	// The CIDR blocks allowed to reach the Kubernetes API's public endpoint.
+	// Empty leaves it open to every address.
+	AllowedCidrs []string
+
+	// The public addresses of the control plane that manages the cluster,
+	// admitted along with AllowedCidrs when those are set.
+	ControlPlaneEgressCidrs []string
+
+	// NodeGroupPerZone makes the cluster's nodes run in a node group per
+	// availability zone, each with the default node group's instance type and
+	// node counts, rather than one node group spanning every zone.  The
+	// cluster autoscaler can then add a node in a given zone, as a pod bound to
+	// a volume there needs, and keep the zones balanced.  The zones are chosen
+	// from those that offer the instance type.
+	NodeGroupPerZone bool
+
 	// stackSupportType is set by CreateInfra when the stack already holds the
 	// cluster, to the support type the cluster was created with: "" for one
 	// created before it was set.  The program keeps it.
 	stackSupportType *string
 
-	// controlPlaneVersion is set by UpgradeInfra to the version the cluster's
-	// control plane runs when EKS moved it past the one the node group is
-	// upgraded to.  The control plane and the add-ons keep it, since EKS
-	// can't downgrade a control plane.
+	// controlPlaneVersion is set by UpgradeInfra to the control plane's
+	// version when it is already past the version the node group is upgraded
+	// to, as when EKS upgraded it on its own at the end of standard support.
+	// The program keeps the control plane, and the add-ons, which follow it,
+	// on it rather than ask EKS for a downgrade, which it refuses.
 	controlPlaneVersion string
+
+	// nodeGroupVersions is set by UpgradeInfra to the versions of the node
+	// groups already past the version the cluster is upgraded to, by name, as
+	// a node group EKS or an operator upgraded on its own is.  The program
+	// keeps each on its version rather than ask EKS for a downgrade.
+	nodeGroupVersions map[string]string
+
+	// stackZones is set by CreateInfra and UpgradeInfra when the stack
+	// already holds the cluster's subnets, to their zones in order, "" where
+	// the stack holds no subnet.  The program keeps them: a subnet's zone can't change without replacing it,
+	// and the zones the region offers, or that offer the node instance type,
+	// change over time.
+	stackZones []string
 }
 
 // Create provisions an AWS EKS cluster for threeport workloads and returns the
@@ -93,6 +127,9 @@ func (i *KubernetesRuntimeInfraEKS) Create() (*kube.KubeConnectionInfo, error) {
 // networking, the cluster and its node group with Pulumi, and then creates the
 // IAM that only exists once the cluster does.
 func (i *KubernetesRuntimeInfraEKS) CreateInfra() (*kube.KubeConnectionInfo, error) {
+	if err := checkKubeApiAllowlist(v0.KubernetesRuntimeInfraProviderEKS, i.AllowedCidrs, i.ControlPlaneEgressCidrs); err != nil {
+		return nil, err
+	}
 
 	// EKS will not create a cluster or a node group without the roles they
 	// assume, so these come before the stack
@@ -112,6 +149,7 @@ func (i *KubernetesRuntimeInfraEKS) CreateInfra() (*kube.KubeConnectionInfo, err
 	}
 	i.keepStackVersion(exported.Deployment)
 	i.keepStackSupportType(exported.Deployment)
+	i.keepStackZones(exported.Deployment)
 
 	if _, err := i.RunUp(context.Background(), stack); err != nil {
 		return nil, fmt.Errorf("failed to deploy stack: %w", err)
@@ -1007,3 +1045,48 @@ const (
 		]
 	}`
 )
+
+// keepStackZones records the zones of the private subnets the stack's
+// deployment holds, in the order of their names' zone index, for the program
+// to keep.
+func (i *KubernetesRuntimeInfraEKS) keepStackZones(deployment json.RawMessage) {
+	var contents struct {
+		Resources []struct {
+			Urn    string         `json:"urn"`
+			Type   string         `json:"type"`
+			Inputs map[string]any `json:"inputs"`
+		} `json:"resources"`
+	}
+	if len(deployment) == 0 || json.Unmarshal(deployment, &contents) != nil {
+		return
+	}
+
+	zonesByIndex := map[int]string{}
+	prefix := fmt.Sprintf("::%s-private-subnet-", i.RuntimeInstanceName)
+	for _, resource := range contents.Resources {
+		if resource.Type != "aws:ec2/subnet:Subnet" {
+			continue
+		}
+		position := strings.LastIndex(resource.Urn, prefix)
+		if position < 0 {
+			continue
+		}
+		index, err := strconv.Atoi(resource.Urn[position+len(prefix):])
+		zone, _ := resource.Inputs["availabilityZone"].(string)
+		if err != nil || zone == "" {
+			continue
+		}
+		zonesByIndex[index] = zone
+	}
+
+	if len(zonesByIndex) == 0 {
+		return
+	}
+	// a zone whose subnet the stack doesn't hold, as after a create that
+	// stopped part way, is left "" for the program to choose
+	zones := make([]string, slices.Max(slices.Collect(maps.Keys(zonesByIndex)))+1)
+	for index, zone := range zonesByIndex {
+		zones[index] = zone
+	}
+	i.stackZones = zones
+}

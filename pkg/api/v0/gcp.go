@@ -131,15 +131,24 @@ type GcpGkeKubernetesRuntimeInstance struct {
 	// changed, so tptctl sets it back to false if the delete fails.
 	AbandonInfrastructure *bool `validate:"optional" gorm:"default:false"`
 
+	// If true, the cluster's Cloud NAT uses an address reserved for it, so
+	// that its outbound traffic comes from one address that does not change
+	// and is recorded as the kubernetes runtime instance's EgressCidrs.  Set
+	// on clusters created since Threeport reserves one; clusters created
+	// before keep the addresses Google allocates.  Cannot be changed after
+	// creation.
+	ReservedNatAddress *bool `validate:"optional" gorm:"default:false"`
+
 	// The Kubernetes minor version the cluster runs, such as "1.36", as the
 	// controller last read it from the provider.  That is its control
 	// plane's: GKE upgrades its nodes to it in the maintenance window.
 	KubernetesVersion *string `validate:"optional"`
 
 	// The definition's KubernetesVersion the cluster was last asked to be
-	// upgraded to.  The kubernetes runtime definition's controller sets it
-	// when it asks, so a request it was interrupted making is finished on
-	// the next attempt.
+	// upgraded to.  The API server sets it when an update of the GKE
+	// definition asks the cluster to upgrade, once the cluster's controller
+	// has been notified, so a request it couldn't finish is made again by the
+	// definition's next update.
 	UpgradeRequestedVersion *string `validate:"optional"`
 
 	// Set by the controller when it starts upgrading the cluster to the

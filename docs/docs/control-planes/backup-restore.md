@@ -14,6 +14,9 @@ Backups are provisioned for production control planes whose GKE cluster
 existing cluster with `--control-plane-only`, and control planes on other
 providers have none.
 
+Control planes on OCI aren't backed up, so Threeport on OCI is not production
+ready.
+
 Backups cover the `threeport_api` database, which holds every Threeport API
 object. The databases of installed modules are not included.
 

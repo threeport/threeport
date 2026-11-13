@@ -49,6 +49,59 @@ EKS Kubernetes cluster and install all of the core system components.  It will a
 register the same EKS cluster as the default Kubernetes cluster
 for tenant workloads.
 
+### Production Cluster
+
+A production control plane, which you ask for with `--tier production`, runs
+its database as three replicas, and its cluster is built to keep serving after
+the loss of one availability zone:
+
+| | Development | Production |
+|---|---|---|
+| Zones | 2 | 3, chosen from the region's zones that offer the instance type |
+| Instance type | `t3.medium`: 2 vCPU and 4 GiB, bursting above its baseline | `m8i.large`: 2 vCPU and 8 GiB, no bursting |
+| Node groups | one spanning both zones: 3 nodes to start, 3 to 250 | one in each zone: 1 node to start, 1 to 10 each |
+| Database replicas | 1 | 3, each in its own zone and on its own node |
+
+With a node group in each zone, the cluster autoscaler can replace a lost node
+in the zone its database replica's volume is in, and it keeps the node groups
+the same size (`--balance-similar-node-groups`). A production cluster
+therefore starts with three `m8i.large` nodes, one per zone, where a
+development cluster starts with three `t3.medium` nodes. See
+[Amazon EC2 pricing](https://aws.amazon.com/ec2/pricing/on-demand/) for what
+each costs in your region. Each zone also has its own NAT gateway. A database
+replica that can't be placed in a zone of its own stays `Pending`, rather than
+sharing a zone it would be lost with.
+
+The control plane's kubernetes runtime definition records the cluster:
+`HighAvailability`, and the `NodeSize` and `NodeProfile` its instance type
+maps from (`Large` and `Balanced` for production, `Medium` and `Balanced` for
+development). Its EKS definition records the zones, the instance type, each
+node group's sizes, and `NodeGroupPerZone`.
+
+## Restrict Access to the Kubernetes API
+
+By default the cluster's Kubernetes API accepts connections from any address.
+Requests still need credentials. To accept connections only from networks you
+trust, pass `--k8s-api-allowed-cidrs` with a comma-separated list of IPv4 CIDR
+blocks, up to 40:
+
+```bash
+  --k8s-api-allowed-cidrs 203.0.113.7/32,198.51.100.0/24
+```
+
+Include the public address of the machine you run `tptctl` from. `tptctl`
+installs the control plane through the Kubernetes API, and `tptctl down` and
+`tptctl upgrade` use it as well. Once the cluster exists, `tptctl up` checks
+that it can reach the Kubernetes API before it installs anything. If it can't
+within two minutes, it stops with an error that names the endpoint, and deletes
+the cluster it created. Run `tptctl up` again with your address in the list.
+To keep the cluster after the error instead, pass
+`--teardown-on-failure=false`, and delete it later with
+`tptctl down --name test --infra-only`.
+
+The control plane reaches the cluster it runs on from inside the cluster, so
+it needs no entry in the list.
+
 ## Validate Deployment
 
 Note: if you would like to use

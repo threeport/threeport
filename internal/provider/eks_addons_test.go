@@ -7,6 +7,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ekstypes "github.com/aws/aws-sdk-go-v2/service/eks/types"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/resource"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -87,32 +88,60 @@ func TestAnAddonsDefaultVersionIsTheOneForTheClustersVersion(t *testing.T) {
 // the control plane and the add-ons keep the version the control plane runs,
 // which EKS can't downgrade, and only the node group takes the step's.
 func TestAControlPlaneEksMovedAheadKeepsItsVersion(t *testing.T) {
-	for _, c := range []struct{ controlPlane, step, kept string }{
-		{"1.35", "1.33", "1.35"},
-		{"1.36", "1.36", ""},
-		{"1.35", "1.36", ""},
-	} {
-		infra := testEksInfra(2)
-		infra.KubernetesVersion = c.step
-		require.NoError(t, infra.keepNewerControlPlane(c.controlPlane))
-		assert.Equal(t, c.kept, infra.controlPlaneVersion, "control plane %s, step %s", c.controlPlane, c.step)
-	}
 	infra := testEksInfra(2)
 	infra.KubernetesVersion = "1.33"
-	assert.Error(t, infra.keepNewerControlPlane("v1.35"))
-
-	infra = testEksInfra(2)
-	infra.KubernetesVersion = "1.33"
-	require.NoError(t, infra.keepNewerControlPlane("1.35"))
+	kept, err := versionKeptForUpgrade("1.35", infra.KubernetesVersion)
+	require.NoError(t, err)
+	infra.controlPlaneVersion = kept
 	mocks := runEksPulumiProgram(t, infra)
 	assert.Equal(t, "1.35", mocks.byType(eksClusterTypeToken)[0].inputs["version"])
 	assert.Equal(t, "1.33", mocks.byType(eksNodeGroupTypeToken)[0].inputs["version"])
-	for _, addon := range mocks.byType(eksAddonTypeToken) {
+	addons := mocks.byType(eksAddonTypeToken)
+	require.NotEmpty(t, addons)
+	for _, addon := range addons {
 		assert.Equal(t, addon.inputs["addonName"].(string)+"-for-1.35", addon.inputs["addonVersion"])
 	}
 
-	// a step on the control plane's version clears what an earlier one kept
-	infra.KubernetesVersion = "1.35"
-	require.NoError(t, infra.keepNewerControlPlane("1.35"))
-	assert.Empty(t, infra.controlPlaneVersion)
+	// without a control plane ahead, the add-ons take the step's version
+	mocks = runEksPulumiProgram(t, testEksInfra(2))
+	for _, addon := range mocks.byType(eksAddonTypeToken) {
+		assert.Equal(t, addon.inputs["addonName"].(string)+"-for-"+DefaultEksKubernetesVersion, addon.inputs["addonVersion"])
+	}
+}
+
+// eksDependencyMocks records what each EKS resource the program registers
+// depends on, by type and name.
+type eksDependencyMocks struct {
+	eksRecordingMocks
+	dependencies map[string][]string
+}
+
+func (m *eksDependencyMocks) NewResource(args pulumi.MockResourceArgs) (string, resource.PropertyMap, error) {
+	m.mu.Lock()
+	if m.dependencies == nil {
+		m.dependencies = map[string][]string{}
+	}
+	m.dependencies[args.Name] = append(m.dependencies[args.Name], args.RegisterRPC.GetDependencies()...)
+	m.mu.Unlock()
+
+	return m.eksRecordingMocks.NewResource(args)
+}
+
+// TestTheAddonsWaitForEveryNodeGroup covers a cluster with a node group in
+// each zone: each EKS add-on runs on the nodes, so it waits for all of the
+// node groups, not only one.
+func TestTheAddonsWaitForEveryNodeGroup(t *testing.T) {
+	infra := testEksInfra(3)
+	infra.NodeGroupPerZone = true
+	mocks := &eksDependencyMocks{}
+	require.NoError(t, pulumi.RunErr(infra.pulumiProgram(), pulumi.WithMocks("eks", "test-stack", mocks)))
+
+	addons := mocks.byType(eksAddonTypeToken)
+	require.NotEmpty(t, addons)
+	for _, addon := range addons {
+		for _, nodeGroupName := range infra.nodeGroupNames() {
+			assert.Contains(t, mocks.dependencies[addon.name],
+				"urn:pulumi:test-stack::eks::aws:eks/nodeGroup:NodeGroup::"+nodeGroupName, addon.name)
+		}
+	}
 }

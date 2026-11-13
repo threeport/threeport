@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/events"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/apitype"
 	"github.com/stretchr/testify/assert"
@@ -596,5 +597,46 @@ func TestAnUpgradeTheProviderFinishedIsRecorded(t *testing.T) {
 			assert.Contains(t, fl.finishedOutcomes()[0].Status, "newer than its definition's 1.36")
 			assert.Empty(t, infra.upgrades())
 		})
+	}
+}
+
+// TestAnEksControlPlaneAheadOfItsNodesIsKept covers an EKS cluster whose
+// control plane EKS upgraded on its own past its node group: the upgrade
+// brings the node group up and keeps the control plane where it is, rather
+// than ask EKS to downgrade it.
+func TestAnEksControlPlaneAheadOfItsNodesIsKept(t *testing.T) {
+	for _, c := range []struct{ controlPlane, version, keep string }{
+		{"1.37", "1.36", "1.37"},
+		{"1.35", "1.36", ""},
+		{"1.36", "1.36", ""},
+	} {
+		keep, err := versionKeptForUpgrade(c.controlPlane, c.version)
+		require.NoError(t, err)
+		assert.Equal(t, c.keep, keep, "control plane %s, upgrade to %s", c.controlPlane, c.version)
+	}
+	_, err := versionKeptForUpgrade("v1.37", "1.36")
+	assert.Error(t, err)
+
+	// UpgradeInfra reads the control plane before it plans the upgrade
+	read := eksControlPlaneVersion
+	t.Cleanup(func() { eksControlPlaneVersion = read })
+	eksControlPlaneVersion = func(*aws.Config, string) (string, error) { return "1.37", nil }
+	infra := testEksInfra(2)
+	infra.AwsConfig = nil
+	_ = infra.UpgradeInfra("1.36")
+	assert.Equal(t, "1.37", infra.controlPlaneVersion)
+	assert.Equal(t, "1.36", infra.KubernetesVersion)
+
+	eksControlPlaneVersion = func(*aws.Config, string) (string, error) { return "", errors.New("throttled") }
+	assert.ErrorContains(t, testEksInfra(2).UpgradeInfra("1.36"), "throttled")
+
+	// the program then asks for each version on its own resource
+	infra = testEksInfra(2)
+	infra.KubernetesVersion = "1.36"
+	infra.controlPlaneVersion = "1.37"
+	mocks := runEksPulumiProgram(t, infra)
+	assert.Equal(t, "1.37", mocks.byType(eksClusterTypeToken)[0].inputs["version"])
+	for _, nodeGroup := range mocks.byType(eksNodeGroupTypeToken) {
+		assert.Equal(t, "1.36", nodeGroup.inputs["version"])
 	}
 }

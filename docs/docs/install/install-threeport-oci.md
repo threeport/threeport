@@ -10,6 +10,16 @@ install method is useful for testing Threeport on a remote cloud provider.
 If you would prefer to test out Threeport locally, see our guide to [Install
 Threeport Locally](install-threeport-local.md).
 
+!!! warning "Not production ready"
+    Threeport on Oracle Cloud Infrastructure is not production ready. A
+    control plane on OCI doesn't back up its database, and `tptctl restore`
+    doesn't support OCI. If the database is lost, every Threeport object in it
+    is lost too. This applies to `--tier production` control planes as well.
+
+    Use OCI for development and evaluation. Run production control planes on a
+    provider that backs up the control plane's database; see
+    [Back Up and Restore a Control Plane](../control-planes/backup-restore.md).
+
 Note: this guide requires you to have our tptctl command-line tool installed. See
 our [Install tptctl guide](install-tptctl.md) to install if you haven't already.
 
@@ -62,6 +72,34 @@ Kubernetes runtime for tenant workloads.
 
 Other `tptctl up` flags you may use include `--debug`, `--teardown-on-failure`,
 and `--force-overwrite-config`. Run `tptctl up --help` for the full list.
+
+`--tier production` is accepted on OCI. It runs three database replicas, so
+the control plane survives the loss of a node, but it doesn't back the
+database up.
+
+## Restrict Access to the Kubernetes API
+
+By default the cluster's Kubernetes API accepts connections from any address.
+Requests still need credentials. To accept connections only from networks you
+trust, pass `--k8s-api-allowed-cidrs` with a comma-separated list of IPv4 CIDR
+blocks, up to 120:
+
+```bash
+  --k8s-api-allowed-cidrs 203.0.113.7/32,198.51.100.0/24
+```
+
+Include the public address of the machine you run `tptctl` from. `tptctl`
+installs the control plane through the Kubernetes API, and `tptctl down` and
+`tptctl upgrade` use it as well. Once the cluster exists, `tptctl up` checks
+that it can reach the Kubernetes API before it installs anything. If it can't
+within two minutes, it stops with an error that names the endpoint, and deletes
+the cluster it created. Run `tptctl up` again with your address in the list.
+To keep the cluster after the error instead, pass
+`--teardown-on-failure=false`, and delete it later with
+`tptctl down --name test --infra-only`.
+
+The control plane reaches the cluster it runs on from inside the cluster, so
+it needs no entry in the list.
 
 ## Validate Deployment
 

@@ -54,12 +54,15 @@ func (a *AwsProvider) beforeCreate(tx *gorm.DB) error {
 // per-field check is:
 //   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
 //     and PUT, handles the DB load internally
+//
 // Lower-level helpers, useful when IsFieldChanged doesn't fit:
 //   - lib.IncomingValues(tx): values being written
 //   - lib.IsFullReplace(tx): true on PUT (Save shape)
 //   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
+//
 // Import:
-//   lib "github.com/threeport/threeport/pkg/api/lib/v0"
+//
+//	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (a *AwsProvider) beforeUpdate(tx *gorm.DB) error {
 	// Re-enforce the create-time rule: both keys set, or neither.
 	accessKeyIDChanged, err := lib.IsFieldChanged(tx, "AccessKeyID")
@@ -123,12 +126,15 @@ func (a *AwsEksKubernetesRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
 // per-field check is:
 //   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
 //     and PUT, handles the DB load internally
+//
 // Lower-level helpers, useful when IsFieldChanged doesn't fit:
 //   - lib.IncomingValues(tx): values being written
 //   - lib.IsFullReplace(tx): true on PUT (Save shape)
 //   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
+//
 // Import:
-//   lib "github.com/threeport/threeport/pkg/api/lib/v0"
+//
+//	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (a *AwsEksKubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
 	if err := validateKubernetesVersionUpgrade(tx, KubernetesRuntimeInfraProviderEKS, func(value any) (*string, bool) {
 		object, ok := value.(*AwsEksKubernetesRuntimeDefinition)
@@ -138,6 +144,21 @@ func (a *AwsEksKubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
 		return object.KubernetesVersion, true
 	}); err != nil {
 		return err
+	}
+	nodeGroupPerZoneChanged, err := lib.IsFieldChanged(tx, "NodeGroupPerZone")
+	if err != nil {
+		return err
+	}
+	if nodeGroupPerZoneChanged {
+		stored, incoming, err := nodeGroupPerZoneLayouts(tx, a)
+		if err != nil {
+			return err
+		}
+		if stored != incoming {
+			return util.NewBadRequestError(
+				"aws eks kubernetes runtime definition NodeGroupPerZone cannot be changed after creation, since that replaces the node groups",
+			)
+		}
 	}
 
 	return validateKubernetesApiAccessUpdate(
@@ -170,12 +191,15 @@ func (a *AwsEksKubernetesRuntimeInstance) beforeCreate(tx *gorm.DB) error {
 // per-field check is:
 //   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
 //     and PUT, handles the DB load internally
+//
 // Lower-level helpers, useful when IsFieldChanged doesn't fit:
 //   - lib.IncomingValues(tx): values being written
 //   - lib.IsFullReplace(tx): true on PUT (Save shape)
 //   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
+//
 // Import:
-//   lib "github.com/threeport/threeport/pkg/api/lib/v0"
+//
+//	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (a *AwsEksKubernetesRuntimeInstance) beforeUpdate(tx *gorm.DB) error {
 	return nil
 }
@@ -228,4 +252,42 @@ func (a *AwsEksKubernetesRuntimeInstance) afterUpdate(tx *gorm.DB) error {
 // afterDelete runs after the AwsEksKubernetesRuntimeInstance is deleted.
 func (a *AwsEksKubernetesRuntimeInstance) afterDelete(tx *gorm.DB) error {
 	return nil
+}
+
+// nodeGroupPerZoneLayouts returns whether the stored definition and the
+// update run a node group per zone.  Unset is one node group spanning every
+// zone, as false is, so a replace from a client that doesn't send the field
+// keeps the layout rather than being refused.
+func nodeGroupPerZoneLayouts(tx *gorm.DB, receiver *AwsEksKubernetesRuntimeDefinition) (bool, bool, error) {
+	perZone := func(value *bool) bool { return value != nil && *value }
+
+	// a replace's receiver is what it writes, and the stored row is read back
+	if !lib.IsPartialUpdate(tx) {
+		loaded, err := lib.LoadObjectFromDB(tx)
+		if err != nil {
+			return false, false, err
+		}
+		stored, ok := loaded.(*AwsEksKubernetesRuntimeDefinition)
+		if !ok {
+			return false, false, fmt.Errorf("loaded %T is not an aws eks kubernetes runtime definition", loaded)
+		}
+		return perZone(stored.NodeGroupPerZone), perZone(receiver.NodeGroupPerZone), nil
+	}
+
+	// a patch's receiver is the stored row, and it sends a struct or a map
+	switch incoming := lib.IncomingValues(tx).(type) {
+	case *AwsEksKubernetesRuntimeDefinition:
+		return perZone(receiver.NodeGroupPerZone), perZone(incoming.NodeGroupPerZone), nil
+	case map[string]interface{}:
+		switch value := incoming["NodeGroupPerZone"].(type) {
+		case bool:
+			return perZone(receiver.NodeGroupPerZone), value, nil
+		case *bool:
+			return perZone(receiver.NodeGroupPerZone), perZone(value), nil
+		case nil:
+			return perZone(receiver.NodeGroupPerZone), false, nil
+		}
+	}
+
+	return false, false, fmt.Errorf("cannot check NodeGroupPerZone: update carries %T", lib.IncomingValues(tx))
 }

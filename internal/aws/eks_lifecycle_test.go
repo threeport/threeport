@@ -12,6 +12,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/datatypes"
 
 	"github.com/threeport/threeport/internal/provider"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
@@ -37,6 +38,7 @@ func TestEksInfraFromApiObjects_MapsDefinitionNodeGroupFields(t *testing.T) {
 		DefaultNodeGroupMinimumSize:  util.Ptr(3),
 		DefaultNodeGroupMaximumSize:  util.Ptr(7),
 		KubernetesVersion:            util.Ptr("1.35"),
+		NodeGroupPerZone:             util.Ptr(true),
 	}
 	awsConfig := &aws.Config{Region: "us-east-1"}
 	providerCredentials := tpaws.AwsProviderCredentials{
@@ -45,7 +47,7 @@ func TestEksInfraFromApiObjects_MapsDefinitionNodeGroupFields(t *testing.T) {
 		AssumeRoleArn:   "arn:aws:iam::123456789012:role/some-role",
 	}
 
-	infra := eksInfraFromApiObjects(
+	infra, err := eksInfraFromApiObjects(
 		instance,
 		definition,
 		"123456789012",
@@ -53,6 +55,7 @@ func TestEksInfraFromApiObjects_MapsDefinitionNodeGroupFields(t *testing.T) {
 		providerCredentials,
 		nil,
 	)
+	require.NoError(t, err)
 
 	assert.Equal(t, "test-instance", infra.RuntimeInstanceName)
 	assert.Equal(t, "123456789012", infra.AwsAccountID)
@@ -70,8 +73,16 @@ func TestEksInfraFromApiObjects_MapsDefinitionNodeGroupFields(t *testing.T) {
 
 	// a definition created before versions were recorded gets the default
 	definition.KubernetesVersion = nil
-	infra = eksInfraFromApiObjects(instance, definition, "123456789012", awsConfig, providerCredentials, nil)
+	infra, err = eksInfraFromApiObjects(instance, definition, "123456789012", awsConfig, providerCredentials, nil)
+	require.NoError(t, err)
 	assert.Equal(t, v0.DefaultKubernetesVersion, infra.KubernetesVersion)
+	assert.True(t, infra.NodeGroupPerZone)
+
+	// a definition created before node groups per zone has one spanning them
+	definition.NodeGroupPerZone = nil
+	infra, err = eksInfraFromApiObjects(instance, definition, "123456789012", awsConfig, providerCredentials, nil)
+	require.NoError(t, err)
+	assert.False(t, infra.NodeGroupPerZone)
 }
 
 // TestEksInfraSatisfiesLifecycleInterfaces checks the infra object plugs into
@@ -115,7 +126,7 @@ func TestEksLifecycleSatisfiesInfraLifecycleProvider(t *testing.T) {
 // mid-provision has persisted nothing, and the retry starts over with the first
 // attempt's resources still in the account.
 func TestEksInfraFromApiObjects_PulumiProjectSetAtConstruction(t *testing.T) {
-	infra := eksInfraFromApiObjects(
+	infra, err := eksInfraFromApiObjects(
 		&v0.AwsEksKubernetesRuntimeInstance{
 			Instance: v0.Instance{Name: util.Ptr("test-instance")},
 			Region:   util.Ptr("us-east-1"),
@@ -132,6 +143,7 @@ func TestEksInfraFromApiObjects_PulumiProjectSetAtConstruction(t *testing.T) {
 		tpaws.AwsProviderCredentials{},
 		nil,
 	)
+	require.NoError(t, err)
 
 	require.NotEmpty(
 		t, infra.ProjectName,
@@ -181,6 +193,43 @@ func TestBuildInfraIsCachedForTheAttempt(t *testing.T) {
 	fromInstance, err := lifecycle.buildInfraFrom(nil)
 	require.NoError(t, err)
 	assert.Same(t, cached, fromInstance)
+}
+
+// TestAnEksWorkloadClusterIsGivenItsDefinitionsAllowedCidrs covers #729 for
+// clusters the control plane provisions: the definition's AllowedCidrs reach
+// the infra the Pulumi program limits the public endpoint with.
+func TestAnEksWorkloadClusterIsGivenItsDefinitionsAllowedCidrs(t *testing.T) {
+	instance := &v0.AwsEksKubernetesRuntimeInstance{
+		Instance: v0.Instance{Name: util.Ptr("test-instance")},
+		Region:   util.Ptr("us-east-1"),
+	}
+	definition := func(allowedCidrs *datatypes.JSON) *v0.AwsEksKubernetesRuntimeDefinition {
+		return &v0.AwsEksKubernetesRuntimeDefinition{
+			ZoneCount:                    util.Ptr(2),
+			DefaultNodeGroupInstanceType: util.Ptr("t3.medium"),
+			DefaultNodeGroupInitialSize:  util.Ptr(3),
+			DefaultNodeGroupMinimumSize:  util.Ptr(3),
+			DefaultNodeGroupMaximumSize:  util.Ptr(5),
+			AllowedCidrs:                 allowedCidrs,
+		}
+	}
+	build := func(allowedCidrs *datatypes.JSON) (*provider.KubernetesRuntimeInfraEKS, error) {
+		return eksInfraFromApiObjects(instance, definition(allowedCidrs), "123456789012", &aws.Config{}, tpaws.AwsProviderCredentials{}, nil)
+	}
+
+	allowed := datatypes.JSON(`["203.0.113.0/24", "198.51.100.7/32"]`)
+	infra, err := build(&allowed)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"203.0.113.0/24", "198.51.100.7/32"}, infra.AllowedCidrs)
+
+	infra, err = build(nil)
+	require.NoError(t, err)
+	assert.Empty(t, infra.AllowedCidrs)
+
+	bad := datatypes.JSON(`"203.0.113.0/24"`)
+	_, err = build(&bad)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to read the definition's AllowedCidrs")
 }
 
 // TestEksLifecycle_GetReconciliation_AbandonInfrastructure covers the operator

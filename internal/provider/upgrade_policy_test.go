@@ -10,9 +10,9 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// gkeClusterInputs runs the GKE program on infra and returns the inputs of
+// gkeProgramClusterInputs runs the GKE program on infra and returns the inputs of
 // the cluster it registers.
-func gkeClusterInputs(t *testing.T, infra *KubernetesRuntimeInfraGKE) map[string]any {
+func gkeProgramClusterInputs(t *testing.T, infra *KubernetesRuntimeInfraGKE) map[string]any {
 	t.Helper()
 
 	infra.PulumiWorkspace = PulumiWorkspace{RuntimeInstanceName: "gke-upgrade-test", ProjectName: "gke"}
@@ -34,7 +34,7 @@ func gkeClusterInputs(t *testing.T, infra *KubernetesRuntimeInfraGKE) map[string
 // the GKE program enrolls the cluster in: the definition's, or REGULAR.
 func TestTheGkeClusterIsEnrolledInItsReleaseChannel(t *testing.T) {
 	for asked, want := range map[string]string{"STABLE": "STABLE", "REGULAR": "REGULAR", "": "REGULAR"} {
-		inputs := gkeClusterInputs(t, &KubernetesRuntimeInfraGKE{ReleaseChannel: asked})
+		inputs := gkeProgramClusterInputs(t, &KubernetesRuntimeInfraGKE{ReleaseChannel: asked})
 		assert.Equal(t, map[string]any{"channel": want}, inputs["releaseChannel"], "asked for %q", asked)
 	}
 }
@@ -44,7 +44,7 @@ func TestTheGkeClusterIsEnrolledInItsReleaseChannel(t *testing.T) {
 // or Saturday and Sunday from 04:00 to 12:00.
 func TestTheGkeClusterUpgradesOnlyInItsMaintenanceWindow(t *testing.T) {
 	window := func(infra *KubernetesRuntimeInfraGKE) any {
-		policy, _ := gkeClusterInputs(t, infra)["maintenancePolicy"].(map[string]any)
+		policy, _ := gkeProgramClusterInputs(t, infra)["maintenancePolicy"].(map[string]any)
 		return policy["recurringWindow"]
 	}
 
@@ -88,15 +88,15 @@ func TestAResumedGkeCreateKeepsTheClustersReleaseChannel(t *testing.T) {
 
 	infra := &KubernetesRuntimeInfraGKE{ReleaseChannel: "STABLE"}
 	infra.keepStackReleaseChannel(deployment)
-	assert.Equal(t, map[string]any{"channel": "REGULAR"}, gkeClusterInputs(t, infra)["releaseChannel"])
+	assert.Equal(t, map[string]any{"channel": "REGULAR"}, gkeProgramClusterInputs(t, infra)["releaseChannel"])
 
 	infra = &KubernetesRuntimeInfraGKE{ReleaseChannel: "STABLE"}
 	infra.keepStackReleaseChannel([]byte(`{"resources":[]}`))
 	assert.Nil(t, infra.stackReleaseChannel)
-	assert.Equal(t, map[string]any{"channel": "STABLE"}, gkeClusterInputs(t, infra)["releaseChannel"], "a new stack")
+	assert.Equal(t, map[string]any{"channel": "STABLE"}, gkeProgramClusterInputs(t, infra)["releaseChannel"], "a new stack")
 
 	infra = &KubernetesRuntimeInfraGKE{ReleaseChannel: "STABLE", stackReleaseChannel: util.Ptr("")}
-	assert.NotContains(t, gkeClusterInputs(t, infra), "releaseChannel")
+	assert.NotContains(t, gkeProgramClusterInputs(t, infra), "releaseChannel")
 }
 
 // TestTheEksClusterIsUpgradedWhenStandardSupportEnds covers the EKS upgrade

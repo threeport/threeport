@@ -132,6 +132,9 @@ func TestTheProviderDefinitionsVersionIsCheckedAndKept(t *testing.T) {
 			created := build(util.Ptr("1.35"))
 			require.NoError(t, db.Create(created).Error)
 			require.NoError(t, update(created, util.Ptr("1.35")), "sending the version it holds is not a change")
+			// a copy loaded before another update raises the version
+			stale := build(nil)
+			require.NoError(t, db.Session(&gorm.Session{}).First(stale, 1).Error)
 			err := update(created, util.Ptr("1.36"))
 			if name == "OKE" {
 				assert.ErrorContains(t, err, ErrMsgKubernetesVersionImmutable, "OKE clusters aren't upgraded yet")
@@ -139,6 +142,8 @@ func TestTheProviderDefinitionsVersionIsCheckedAndKept(t *testing.T) {
 			}
 			require.NoError(t, err, "raising it upgrades the clusters")
 			assert.ErrorContains(t, update(created, util.Ptr("1.35")), `KubernetesVersion "1.35" is older than "1.36": a cluster can't be downgraded`)
+			assert.ErrorContains(t, update(stale, util.Ptr("1.35")), `KubernetesVersion "1.35" is older than "1.36": a cluster can't be downgraded`,
+				"an update that loaded the definition before it was raised doesn't downgrade it")
 			assert.ErrorContains(t, update(created, util.Ptr("1.37")), `KubernetesVersion "1.37" is not supported`)
 
 			replaced := build(nil)

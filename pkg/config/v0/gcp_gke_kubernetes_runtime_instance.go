@@ -197,6 +197,8 @@ func (g *GcpGkeKubernetesRuntimeInstanceConfig) Create(
 		Region:                              gcpGkeKubernetesRuntimeInstanceValues.Region,
 		KubernetesRuntimeInstanceID:         createdKubernetesRuntimeInstance.ID,
 		GcpGkeKubernetesRuntimeDefinitionID: gcpGkeKubernetesRuntimeDefinition.ID,
+		// a new cluster sends its outbound traffic from a reserved address
+		ReservedNatAddress: util.Ptr(true),
 	}
 
 	// create gcp gke kubernetes runtime instance
