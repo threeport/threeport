@@ -10,14 +10,14 @@ import (
 
 // init registers the migration with goose at startup.
 func init() {
-	goose.AddMigrationNoTxContext(Up000005, Down000005)
+	goose.AddMigrationNoTxContext(Up000006, Down000006)
 }
 
-// Up000005 adds from_namespace to the control plane instance table.
+// Up000006 adds from_namespace to the control plane instance table.
 // A restored control plane records the namespace it replaced. 000001 builds
 // its tables from the current models, so a database created after the field
 // was added has it already, and it is added only where it is missing.
-func Up000005(ctx context.Context, db *sql.DB) error {
+func Up000006(ctx context.Context, db *sql.DB) error {
 	// add from_namespace on the control plane instance
 	statement := "ALTER TABLE v0_control_plane_instances " +
 		"ADD COLUMN IF NOT EXISTS from_namespace STRING"
@@ -28,8 +28,8 @@ func Up000005(ctx context.Context, db *sql.DB) error {
 	return nil
 }
 
-// Down000005 drops from_namespace from the control plane instance table.
-func Down000005(ctx context.Context, db *sql.DB) error {
+// Down000006 drops from_namespace from the control plane instance table.
+func Down000006(ctx context.Context, db *sql.DB) error {
 	// drop from_namespace on the control plane instance
 	statement := "ALTER TABLE v0_control_plane_instances DROP COLUMN IF EXISTS from_namespace"
 	if _, err := db.ExecContext(ctx, statement); err != nil {
