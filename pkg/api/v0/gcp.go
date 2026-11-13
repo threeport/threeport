@@ -51,6 +51,42 @@ type GcpGkeKubernetesRuntimeDefinition struct {
 	// The maximum number of nodes the default initial node group should have.
 	DefaultNodeGroupMaximumSize *int `validate:"required" gorm:"not null"`
 
+	// If true, the Kubernetes API is not reachable from the public internet.
+	// Set from the KubernetesRuntimeDefinition's PrivateApi.
+	PrivateApi *bool `validate:"optional" gorm:"default:false"`
+
+	// The CIDR blocks allowed to reach the Kubernetes API, as a JSON array of
+	// IPv4 CIDR blocks.  Set from the KubernetesRuntimeDefinition's
+	// AllowedCidrs.
+	AllowedCidrs *datatypes.JSON `validate:"optional" swaggertype:"array,string"`
+
+	// The Kubernetes minor version of the clusters, such as "1.36": the
+	// KubernetesRuntimeDefinition's KubernetesVersion, or the default version
+	// when that is unset.  If unset here, the default version is used.  It
+	// can't be changed after creation.
+	KubernetesVersion *string `validate:"optional"`
+
+	// The GKE release channel of the clusters, REGULAR or STABLE.  GKE
+	// upgrades their control planes and nodes to its releases on its own,
+	// within the maintenance window.  If unset, REGULAR is used.  It can't be
+	// changed after creation.
+	ReleaseChannel *string `validate:"optional"`
+
+	// The days the clusters' maintenance window recurs on, in UTC, as an
+	// RRULE writes them: such as "SA,SU".  GKE upgrades a cluster only in that
+	// window, apart from an upgrade it can't defer.  If unset, "SA,SU" is used.
+	// It can't be changed after creation.
+	MaintenanceWindowDays *string `validate:"optional"`
+
+	// The time of day the maintenance window starts on each of its days, in
+	// UTC, such as "04:00".  If unset, "04:00" is used.  It can't be changed
+	// after creation.
+	MaintenanceWindowStart *string `validate:"optional"`
+
+	// How many hours the maintenance window lasts, from 4 to 24.  If unset, 8
+	// is used.  It can't be changed after creation.
+	MaintenanceWindowHours *int `validate:"optional"`
+
 	// The GCP GKE kubernetes runtime instances derived from this definition.
 	GcpGkeKubernetesRuntimeInstances []*GcpGkeKubernetesRuntimeInstance `validate:"optional,association"`
 
@@ -78,4 +114,22 @@ type GcpGkeKubernetesRuntimeInstance struct {
 
 	// An inventory of all GCP resources for the GKE cluster.
 	ResourceInventory *datatypes.JSON `validate:"optional"`
+
+	// Set by an operator to allow this instance to be deleted even though its
+	// creation was confirmed and no resource inventory is recorded, or the
+	// recorded inventory cannot be restored. The controller refuses that delete
+	// otherwise, because cloud resources may still exist. Setting this orphans
+	// any resources the controller cannot find: they keep running and are no
+	// longer tracked by Threeport. Resources it has recorded and can restore are
+	// still destroyed. It is rejected on create, and once set it stays set until
+	// changed, so tptctl sets it back to false if the delete fails.
+	AbandonInfrastructure *bool `validate:"optional" gorm:"default:false"`
+
+	// If true, the cluster's Cloud NAT uses an address reserved for it, so
+	// that its outbound traffic comes from one address that does not change
+	// and is recorded as the kubernetes runtime instance's EgressCidrs.  Set
+	// on clusters created since Threeport reserves one; clusters created
+	// before keep the addresses Google allocates.  Cannot be changed after
+	// creation.
+	ReservedNatAddress *bool `validate:"optional" gorm:"default:false"`
 }

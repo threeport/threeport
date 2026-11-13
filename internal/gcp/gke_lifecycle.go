@@ -29,6 +29,10 @@ type gkeLifecycle struct {
 	instanceID uint
 	instance   *v0.GcpGkeKubernetesRuntimeInstance
 	log        *logr.Logger
+
+	// createReady asks GCP whether the create ran to its last step.  It is a
+	// field so a test can stand in for GCP.
+	createReady func(latest *v0.GcpGkeKubernetesRuntimeInstance) (bool, error)
 }
 
 // newGkeLifecycleProvider constructs an InfraLifecycleProvider for GKE.
@@ -37,12 +41,15 @@ func newGkeLifecycleProvider(
 	instance *v0.GcpGkeKubernetesRuntimeInstance,
 	log *logr.Logger,
 ) *gkeLifecycle {
-	return &gkeLifecycle{
+	g := &gkeLifecycle{
 		r:          r,
 		instanceID: *instance.ID,
 		instance:   instance,
 		log:        log,
 	}
+	g.createReady = g.cloudCreateReady
+
+	return g
 }
 
 // GetReconciliation fetches the latest reconciliation state from the API.
@@ -67,6 +74,8 @@ func (g *gkeLifecycle) GetReconciliation() (*provider.ReconciliationSnapshot, er
 		DeletionAcknowledged: latest.DeletionAcknowledged,
 		DeletionConfirmed:    latest.DeletionConfirmed,
 		ResourceInventory:    latest.ResourceInventory,
+
+		AbandonInfrastructure: latest.AbandonInfrastructure != nil && *latest.AbandonInfrastructure,
 	}, nil
 }
 
@@ -80,6 +89,14 @@ func (g *gkeLifecycle) BuildInfra() (provider.InfraProvider, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get GKE instance for infra build: %w", err)
 	}
+	return g.buildInfraFrom(latest)
+}
+
+// buildInfraFrom builds the infra from an instance the caller already has, so a
+// caller that just fetched it does not fetch it again.
+func (g *gkeLifecycle) buildInfraFrom(
+	latest *v0.GcpGkeKubernetesRuntimeInstance,
+) (*provider.KubernetesRuntimeInfraGKE, error) {
 	def, err := client.GetGcpGkeKubernetesRuntimeDefinitionByID(
 		g.r.APIClient,
 		g.r.APIServer,
@@ -91,7 +108,15 @@ func (g *gkeLifecycle) BuildInfra() (provider.InfraProvider, error) {
 	return buildGkeInfra(g.r, latest, def, g.log)
 }
 
-// IsCreateComplete checks whether resource inventory has been persisted.
+// IsCreateComplete reports whether the whole create finished, not just the
+// Pulumi stack.
+//
+// Stack state is streamed to ResourceInventory within seconds of the stack
+// being created, so a non-empty inventory only says that provisioning started.
+// Confirming on it reads the connection info of a cluster that has no endpoint
+// yet, and the confirmation is never revisited.  GCP is asked instead whether
+// the cluster and node pools are running and the Workload Identity binding, the
+// last step of the create, is in place.
 func (g *gkeLifecycle) IsCreateComplete() (bool, error) {
 	latest, err := client.GetGcpGkeKubernetesRuntimeInstanceByID(
 		g.r.APIClient,
@@ -101,11 +126,26 @@ func (g *gkeLifecycle) IsCreateComplete() (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to check GKE creation status: %w", err)
 	}
-	if latest.ResourceInventory == nil {
+	if !provider.HasInventory(latest.ResourceInventory) {
 		return false, nil
 	}
-	inventory := *latest.ResourceInventory
-	return len(inventory) > 0 && string(inventory) != "{}" && string(inventory) != "null", nil
+
+	return g.createReady(latest)
+}
+
+// cloudCreateReady asks GCP whether the create ran to its last step.
+func (g *gkeLifecycle) cloudCreateReady(latest *v0.GcpGkeKubernetesRuntimeInstance) (bool, error) {
+	infra, err := g.buildInfraFrom(latest)
+	if err != nil {
+		return false, fmt.Errorf("failed to build infra to check GKE creation status: %w", err)
+	}
+
+	complete, err := infra.CreateComplete()
+	if err != nil {
+		return false, fmt.Errorf("failed to check whether the GKE create finished: %w", err)
+	}
+
+	return complete, nil
 }
 
 // OnCreateConfirmed gets connection info and updates the kubernetes runtime instance.
@@ -131,6 +171,16 @@ func (g *gkeLifecycle) OnCreateConfirmed(infra provider.InfraProvider) error {
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
+	}
+
+	// record the addresses the cluster's outbound traffic comes from, which
+	// clusters this one may come to manage as a control plane host admit
+	egressCidrs, err := provider.EgressCidrsFromState(latest.ResourceInventory)
+	if err != nil {
+		return fmt.Errorf("failed to read the cluster's egress addresses: %w", err)
+	}
+	if len(egressCidrs) > 0 {
+		kubernetesRuntimeInstance.EgressCidrs = provider.EgressCidrsJSON(egressCidrs)
 	}
 
 	kubeRuntimeReconciled := false
@@ -327,6 +377,22 @@ func (g *gkeLifecycle) ClearInventory() error {
 	return err
 }
 
+// RecordWarning records a Warning event against the instance.
+func (g *gkeLifecycle) RecordWarning(reason, note string) error {
+	// a nil Recorder interface and a nil pointer inside one are both "none"
+	if g.r == nil || g.r.EventsRecorder == nil {
+		return provider.RecordWarningEvent(nil, g.instanceID, "", reason, note)
+	}
+
+	return provider.RecordWarningEvent(
+		g.r.EventsRecorder,
+		g.instanceID,
+		new(v0.GcpGkeKubernetesRuntimeInstance).GetFullyQualifiedType(),
+		reason,
+		note,
+	)
+}
+
 // PublishCreateNotification publishes a NATS notification for creation.
 func (g *gkeLifecycle) PublishCreateNotification() error {
 	notifPayload, err := g.instance.NotificationPayload(
@@ -419,6 +485,11 @@ func buildGkeInfra(
 		return nil, fmt.Errorf("failed to retrieve GCP provider by ID: %w", err)
 	}
 
+	allowedCidrs, err := v0.ParseCidrs("AllowedCidrs", definition.AllowedCidrs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the definition's AllowedCidrs: %w", err)
+	}
+
 	infraGKE := (&provider.KubernetesRuntimeInfraGKE{
 		PulumiWorkspace: provider.PulumiWorkspace{
 			RuntimeInstanceName: *instance.Name,
@@ -430,7 +501,32 @@ func buildGkeInfra(
 		MachineType:            *definition.DefaultNodeGroupInstanceType,
 		MinNodeCount:           int32(*definition.DefaultNodeGroupMinimumSize),
 		MaxNodeCount:           int32(*definition.DefaultNodeGroupMaximumSize),
+		PrivateApi:             definition.PrivateApi != nil && *definition.PrivateApi,
+		Version:                v0.KubernetesVersionOrDefault(definition.KubernetesVersion),
+		ReleaseChannel:         v0.GkeReleaseChannelOrDefault(definition.ReleaseChannel),
+		MaintenanceWindowDays:  v0.GkeMaintenanceWindowDaysOrDefault(definition.MaintenanceWindowDays),
+		MaintenanceWindowStart: v0.GkeMaintenanceWindowStartOrDefault(definition.MaintenanceWindowStart),
+		MaintenanceWindowHours: v0.GkeMaintenanceWindowHoursOrDefault(definition.MaintenanceWindowHours),
+		AllowedCidrs:           allowedCidrs,
+		ReserveNatAddress:      instance.ReservedNatAddress != nil && *instance.ReservedNatAddress,
 	}).InitPulumiProject()
+
+	// a cluster whose public endpoint is restricted also admits the control
+	// plane that manages it.  The lookup is skipped for a private cluster,
+	// which the control plane reaches through its DNS endpoint, and for a
+	// cluster being deleted, which does not provision anything.
+	if len(allowedCidrs) > 0 && !infraGKE.PrivateApi && instance.DeletionScheduled == nil {
+		controlPlaneEgressCidrs, err := provider.ControlPlaneEgressCidrs(
+			r.APIClient,
+			r.APIServer,
+			*instance.KubernetesRuntimeInstanceID,
+			log,
+		)
+		if err != nil {
+			return nil, err
+		}
+		infraGKE.ControlPlaneEgressCidrs = controlPlaneEgressCidrs
+	}
 
 	// The workload identity binding made after the cluster is created names this
 	// account, so it has to be known before any of the cluster is provisioned -

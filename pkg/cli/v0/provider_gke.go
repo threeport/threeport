@@ -54,12 +54,24 @@ func ConfigureControlPlaneWithGkeConfig(
 		Definition: v0.Definition{
 			Name: &gkeRuntimeDefName,
 		},
-		ZoneCount:                     &zoneCount,
-		DefaultNodeGroupInstanceType:  util.Ptr("e2-medium"),
-		DefaultNodeGroupInitialSize:   util.Ptr(int(kubernetesRuntimeInfraGKE.WorkerNodeInitialCount)),
-		DefaultNodeGroupMinimumSize:   util.Ptr(int(kubernetesRuntimeInfraGKE.WorkerNodeInitialCount)),
-		DefaultNodeGroupMaximumSize:   util.Ptr(int(kubernetesRuntimeInfraGKE.WorkerNodeInitialCount)),
+		ZoneCount:                    &zoneCount,
+		DefaultNodeGroupInstanceType: &kubernetesRuntimeInfraGKE.MachineType,
+		DefaultNodeGroupInitialSize:  util.Ptr(int(kubernetesRuntimeInfraGKE.WorkerNodeInitialCount)),
+		DefaultNodeGroupMinimumSize:  util.Ptr(int(kubernetesRuntimeInfraGKE.MinNodeCount)),
+		DefaultNodeGroupMaximumSize:  util.Ptr(int(kubernetesRuntimeInfraGKE.MaxNodeCount)),
+		PrivateApi:                   privateApiField(kubernetesRuntimeInfraGKE.PrivateApi),
+		AllowedCidrs:                 allowedCidrsJSON(kubernetesRuntimeInfraGKE.AllowedCidrs),
+		// the version tptctl created the cluster on, none for an existing one
+		KubernetesVersion:             kubernetesRuntimeDefResult.KubernetesVersion,
 		KubernetesRuntimeDefinitionID: kubernetesRuntimeDefResult.ID,
+	}
+	// a cluster tptctl didn't create, with --control-plane-only, records none
+	if !cpi.Opts.ControlPlaneOnly {
+		recordGkeUpgradeSettings(
+			&gcpGkeKubernetesRuntimeDef,
+			kubernetesRuntimeInfraGKE.CreatedReleaseChannel(),
+			kubernetesRuntimeInfraGKE,
+		)
 	}
 	createdGcpGkeKubernetesRuntimeDef, err := ensureGcpGkeKubernetesRuntimeDefinition(
 		apiClient,
@@ -92,6 +104,7 @@ func ConfigureControlPlaneWithGkeConfig(
 		GcpGkeKubernetesRuntimeDefinitionID: createdGcpGkeKubernetesRuntimeDef.ID,
 		KubernetesRuntimeInstanceID:         kubernetesRuntimeInstResult.ID,
 		ResourceInventory:                   resourceInventory,
+		ReservedNatAddress:                  util.Ptr(kubernetesRuntimeInfraGKE.ReserveNatAddress),
 	}
 	if _, err = ensureGcpGkeKubernetesRuntimeInstance(
 		apiClient,
@@ -102,6 +115,33 @@ func ConfigureControlPlaneWithGkeConfig(
 	}
 
 	return nil
+}
+
+// gkeReleaseChannel returns the release channel of the cluster tptctl up
+// creates for a control plane of tier.
+func gkeReleaseChannel(tier threeport.ControlPlaneTier) string {
+	if tier == threeport.ControlPlaneTier(threeport.ControlPlaneTierProd) {
+		return v0.ProductionGkeReleaseChannel
+	}
+
+	return v0.DefaultGkeReleaseChannel
+}
+
+// recordGkeUpgradeSettings records on a GKE definition the release channel
+// and maintenance window tptctl up created its cluster with.  The channel is
+// the infra's CreatedReleaseChannel: a create resumed on a stack that already
+// held the cluster kept its channel, and one GKE chose, "", isn't recorded.
+func recordGkeUpgradeSettings(
+	definition *v0.GcpGkeKubernetesRuntimeDefinition,
+	channel string,
+	infra *provider.KubernetesRuntimeInfraGKE,
+) {
+	if channel != "" {
+		definition.ReleaseChannel = &channel
+	}
+	definition.MaintenanceWindowDays = util.Ptr(v0.GkeMaintenanceWindowDaysOrDefault(&infra.MaintenanceWindowDays))
+	definition.MaintenanceWindowStart = util.Ptr(v0.GkeMaintenanceWindowStartOrDefault(&infra.MaintenanceWindowStart))
+	definition.MaintenanceWindowHours = util.Ptr(v0.GkeMaintenanceWindowHoursOrDefault(&infra.MaintenanceWindowHours))
 }
 
 // ensureGcpProvider returns the named GCP provider, creating it when

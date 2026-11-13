@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
@@ -95,6 +96,8 @@ func TestEnsureBootstrapKubernetesRuntimeReusesExistingRows(t *testing.T) {
 		"threeport-dev",
 		true,
 		"kind",
+		false,
+		nil,
 		&v0.KubernetesRuntimeInstance{Instance: v0.Instance{Name: util.Ptr("threeport-dev")}},
 	)
 
@@ -131,6 +134,8 @@ func TestEnsureBootstrapKubernetesRuntimeCreatesMissingRows(t *testing.T) {
 		"threeport-dev",
 		true,
 		"kind",
+		false,
+		nil,
 		&v0.KubernetesRuntimeInstance{Instance: v0.Instance{Name: util.Ptr("threeport-dev")}},
 	)
 
@@ -138,6 +143,66 @@ func TestEnsureBootstrapKubernetesRuntimeCreatesMissingRows(t *testing.T) {
 	require.Equal(2, posts)
 	require.NotNil(def.ID)
 	require.NotNil(inst.ID)
+}
+
+// TestARestoredKubernetesRuntimeDefinitionKeepsItsApiAccess covers a
+// reinstall of a control plane whose cluster limits its Kubernetes API: the
+// definition rebuilt from the tptctl config carries the list again, and
+// PrivateApi for a private cluster.
+func TestARestoredKubernetesRuntimeDefinitionKeepsItsApiAccess(t *testing.T) {
+	var sentDefinition map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPost {
+			var body map[string]any
+			assert.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+			if r.URL.Path == v0.PathKubernetesRuntimeDefinitions {
+				sentDefinition = body
+			}
+			w.WriteHeader(http.StatusCreated)
+			name, _ := body["Name"].(string)
+			fmt.Fprintf(w, `{"Data":[{"ID":1,"Name":%q}]}`, name)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"Data":[]}`))
+	}))
+	defer server.Close()
+
+	_, _, err := ensureBootstrapKubernetesRuntime(
+		server.Client(),
+		strings.TrimPrefix(server.URL, "http://"),
+		"threeport-prod",
+		"threeport-prod",
+		true,
+		"eks",
+		false,
+		[]string{"203.0.113.7/32"},
+		&v0.KubernetesRuntimeInstance{Instance: v0.Instance{Name: util.Ptr("threeport-prod")}},
+	)
+
+	require.NoError(t, err)
+	require.NotNil(t, sentDefinition)
+	assert.Equal(t, []any{"203.0.113.7/32"}, sentDefinition["AllowedCidrs"])
+	assert.NotContains(t, sentDefinition, "PrivateApi", "a public cluster's definition is sent as before")
+
+	sentDefinition = nil
+	_, _, err = ensureBootstrapKubernetesRuntime(
+		server.Client(),
+		strings.TrimPrefix(server.URL, "http://"),
+		"threeport-private",
+		"threeport-private",
+		true,
+		"gke",
+		true,
+		[]string{"10.8.0.0/16"},
+		&v0.KubernetesRuntimeInstance{Instance: v0.Instance{Name: util.Ptr("threeport-private")}},
+	)
+
+	require.NoError(t, err)
+	require.NotNil(t, sentDefinition)
+	assert.Equal(t, true, sentDefinition["PrivateApi"])
+	assert.Equal(t, []any{"10.8.0.0/16"}, sentDefinition["AllowedCidrs"])
 }
 
 // TestEnsureBootstrapKubernetesRuntimeSurfacesLookupErrors covers a failed GET.
@@ -155,6 +220,8 @@ func TestEnsureBootstrapKubernetesRuntimeSurfacesLookupErrors(t *testing.T) {
 		"threeport-dev",
 		true,
 		"kind",
+		false,
+		nil,
 		&v0.KubernetesRuntimeInstance{Instance: v0.Instance{Name: util.Ptr("threeport-dev")}},
 	)
 
@@ -162,16 +229,170 @@ func TestEnsureBootstrapKubernetesRuntimeSurfacesLookupErrors(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to look up kubernetes runtime definition by name")
 }
 
-// newFakeKubeClient returns a fake cluster for teardown tests. Tearing down a
-// control plane lists its cluster role bindings, and the fake client panics on a
-// list it was not told the kind of.
-func newFakeKubeClient() *dynamicfake.FakeDynamicClient {
-	return dynamicfake.NewSimpleDynamicClientWithCustomListKinds(
-		runtime.NewScheme(),
-		map[schema.GroupVersionResource]string{
-			{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "clusterrolebindings"}: "ClusterRoleBindingList",
-		},
-	)
+// fakeKubernetesRuntimeInfra is a KubernetesRuntimeInfra that records whether
+// Delete was called, without touching a real cloud account.
+type fakeKubernetesRuntimeInfra struct {
+	deleteCalled bool
+	deleteErr    error
+}
+
+func (f *fakeKubernetesRuntimeInfra) Create() (*kube.KubeConnectionInfo, error) {
+	return nil, nil
+}
+
+func (f *fakeKubernetesRuntimeInfra) Delete() error {
+	f.deleteCalled = true
+
+	return f.deleteErr
+}
+
+// testNamespaceMapper returns a mapper that resolves a core namespace,
+// matching the one threeport-installer/v0's own tests use for the same
+// DeleteNamespaces call this one reaches.
+func testNamespaceMapper() meta.RESTMapper {
+	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Version: "v1"}})
+	mapper.Add(schema.GroupVersionKind{Version: "v1", Kind: "Namespace"}, meta.RESTScopeRoot)
+
+	return mapper
+}
+
+// testUninstaller builds an Uninstaller that cleanOnCreateError can run
+// against without a cloud account: the kind provider skips the AWS/OCI
+// branch of the switch below the infra delete. The Kubernetes client is a
+// fake carrying the control plane's own namespace, since the no-preexisting-
+// namespace case reaches a real DeleteNamespaces call through
+// UnInstallThreeportControlPlaneComponents.
+func testUninstaller(namespacePresence threeport.NamespacePresence, controlPlaneOnly bool, infra *fakeKubernetesRuntimeInfra) *Uninstaller {
+	cpi := &threeport.ControlPlaneInstaller{}
+	cpi.Opts.Namespace = "threeport-control-plane"
+	cpi.Opts.NamespacePresence = namespacePresence
+	cpi.Opts.ControlPlaneOnly = controlPlaneOnly
+
+	namespace := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "Namespace",
+		"metadata":   map[string]interface{}{"name": "threeport-control-plane"},
+	}}
+	kubeClient := dynamic.Interface(newTeardownKubeClient(namespace))
+	mapper := meta.RESTMapper(testNamespaceMapper())
+
+	return &Uninstaller{
+		controlPlane:           &threeport.ControlPlane{InfraProvider: v0.KubernetesRuntimeInfraProviderKind},
+		kubernetesRuntimeInfra: infra,
+		dynamicKubeClient:      kubeClient,
+		mapper:                 &mapper,
+		cleanConfig:            util.Ptr(false),
+		cpi:                    cpi,
+		teardownOnFailure:      util.Ptr(true),
+	}
+}
+
+// TestCleanOnCreateErrorSkipsOnlyTheNamespaceDeletion covers what lander2k2
+// found on #625: the guard against deleting a namespace this install did not
+// create was returning from the whole function, not just the one step that
+// could destroy it.
+//
+// A namespace left alone is right for --control-plane-only, which reapplies
+// into a namespace a running control plane already owns. It is not a reason
+// to skip the infra teardown on a full install's retry: the same preexisting
+// namespace can show up there too, by way of --force-overwrite-config reusing
+// a name whose earlier attempt got partway through creating the namespace
+// before failing.
+func TestCleanOnCreateErrorSkipsOnlyTheNamespaceDeletion(t *testing.T) {
+	t.Run("a full install deletes the namespace and the infra when the namespace predates it", func(t *testing.T) {
+		infra := &fakeKubernetesRuntimeInfra{}
+		u := testUninstaller(threeport.NamespacePresent, false, infra)
+
+		err := u.cleanOnCreateError("", fmt.Errorf("create failed"))
+
+		require.Error(t, err)
+		assert.True(
+			t, namespaceDeleteRequested(t, u),
+			"the cluster is deleted below, so keeping the namespace keeps nothing - it only leaves the API's load balancer behind, which on EKS blocks the stack's subnets",
+		)
+		assert.NotContains(t, err.Error(), "already present", "the namespace was not left alone")
+		assert.True(
+			t, infra.deleteCalled,
+			"returning early here is what left EKS/VPC/IAM resources running on a --force-overwrite-config retry",
+		)
+	})
+
+	t.Run("control-plane-only leaves a namespace that predates it, and the infra, alone", func(t *testing.T) {
+		infra := &fakeKubernetesRuntimeInfra{}
+		u := testUninstaller(threeport.NamespacePresent, true, infra)
+
+		err := u.cleanOnCreateError("", fmt.Errorf("create failed"))
+
+		require.Error(t, err)
+		assert.False(t, namespaceDeleteRequested(t, u), "the running control plane's API, database and data are in it")
+		assert.Contains(t, err.Error(), "already present", "the operator is told why it is still there")
+		assert.False(t, infra.deleteCalled, "there is no infra to tear down for a control-plane-only reapply")
+	})
+
+	t.Run("a namespace this install created is still torn down in full", func(t *testing.T) {
+		infra := &fakeKubernetesRuntimeInfra{}
+		u := testUninstaller(threeport.NamespaceAbsent, false, infra)
+
+		err := u.cleanOnCreateError("", fmt.Errorf("create failed"))
+
+		require.Error(t, err)
+		assert.True(t, namespaceDeleteRequested(t, u))
+		assert.NotContains(t, err.Error(), "already present", "this install owns the namespace, so there is nothing to excuse")
+		assert.True(t, infra.deleteCalled)
+	})
+
+	t.Run("control-plane-only leaves a namespace whose presence it never found out alone", func(t *testing.T) {
+		// an install that fails after it has a Kubernetes client but before
+		// it checks for the namespace, or whose check fails, can't tell a
+		// namespace it created from a running control plane's
+		infra := &fakeKubernetesRuntimeInfra{}
+		u := testUninstaller(threeport.NamespacePresenceUnknown, true, infra)
+
+		err := u.cleanOnCreateError("", fmt.Errorf("create failed"))
+
+		require.Error(t, err)
+		assert.False(t, namespaceDeleteRequested(t, u), "it may be a running control plane's")
+		assert.Contains(t, err.Error(), "before it could find out whether it created the threeport-control-plane namespace")
+		assert.NotContains(t, err.Error(), "already present", "it does not know that")
+		assert.False(t, infra.deleteCalled)
+	})
+
+	t.Run("a full install deletes a namespace whose presence it never found out, with the cluster", func(t *testing.T) {
+		infra := &fakeKubernetesRuntimeInfra{}
+		u := testUninstaller(threeport.NamespacePresenceUnknown, false, infra)
+
+		err := u.cleanOnCreateError("", fmt.Errorf("create failed"))
+
+		require.Error(t, err)
+		assert.True(t, namespaceDeleteRequested(t, u), "the cluster goes below, and the namespace with it")
+		assert.True(t, infra.deleteCalled)
+	})
+
+	t.Run("control-plane-only still deletes a namespace it created", func(t *testing.T) {
+		infra := &fakeKubernetesRuntimeInfra{}
+		u := testUninstaller(threeport.NamespaceAbsent, true, infra)
+
+		err := u.cleanOnCreateError("", fmt.Errorf("create failed"))
+
+		require.Error(t, err)
+		assert.True(t, namespaceDeleteRequested(t, u))
+		assert.False(t, infra.deleteCalled)
+	})
+}
+
+// namespaceDeleteRequested reports whether the uninstaller asked its fake
+// cluster to delete a namespace.
+func namespaceDeleteRequested(t *testing.T, u *Uninstaller) bool {
+	t.Helper()
+	client, ok := u.dynamicKubeClient.(*dynamicfake.FakeDynamicClient)
+	require.True(t, ok)
+	for _, action := range client.Actions() {
+		if action.Matches("delete", "namespaces") {
+			return true
+		}
+	}
+
+	return false
 }
 
 // fakeRuntimeInfra records infra deletes for cleanOnCreateError tests.
@@ -187,6 +408,23 @@ func (f *fakeRuntimeInfra) Delete() error {
 }
 
 var _ provider.KubernetesRuntimeInfra = (*fakeRuntimeInfra)(nil)
+
+// newTeardownKubeClient returns a fake cluster holding objects that the
+// uninstall can run against. The uninstall lists the persistent volumes
+// behind the control plane's claims before deleting its namespace and the
+// cluster role bindings after it, and the fake client can list only the kinds
+// it is told about.
+func newTeardownKubeClient(objects ...runtime.Object) *dynamicfake.FakeDynamicClient {
+	return dynamicfake.NewSimpleDynamicClientWithCustomListKinds(
+		runtime.NewScheme(),
+		map[schema.GroupVersionResource]string{
+			{Version: "v1", Resource: "namespaces"}:                                              "NamespaceList",
+			{Version: "v1", Resource: "persistentvolumes"}:                                       "PersistentVolumeList",
+			{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "clusterrolebindings"}: "ClusterRoleBindingList",
+		},
+		objects...,
+	)
+}
 
 // newTestUninstaller returns an Uninstaller set to tear down on failure and
 // the infra fake it deletes through.
@@ -222,7 +460,7 @@ func TestCleanOnCreateErrorNilClientStillDeletesInfra(t *testing.T) {
 
 // TestCleanOnCreateErrorDeletesWorkloadsThenInfra covers the normal cleanup.
 func TestCleanOnCreateErrorDeletesWorkloadsThenInfra(t *testing.T) {
-	client := newFakeKubeClient()
+	client := newTeardownKubeClient()
 	u, infra := newTestUninstaller(client)
 
 	err := u.cleanOnCreateError("install failed", assert.AnError)
@@ -241,7 +479,7 @@ func TestCleanOnCreateErrorDeletesWorkloadsThenInfra(t *testing.T) {
 // TestCleanOnCreateErrorWorkloadFailureStillDeletesInfra covers a workload
 // delete that fails, e.g. an expired token: the infra delete must still run.
 func TestCleanOnCreateErrorWorkloadFailureStillDeletesInfra(t *testing.T) {
-	client := newFakeKubeClient()
+	client := newTeardownKubeClient()
 	workloadErr := fmt.Errorf("unauthorized")
 	client.PrependReactor("delete", "namespaces", func(k8stesting.Action) (bool, runtime.Object, error) {
 		return true, nil, workloadErr
@@ -259,7 +497,7 @@ func TestCleanOnCreateErrorWorkloadFailureStillDeletesInfra(t *testing.T) {
 // uninstaller keeps the earlier client, cleanup deletes the namespace with it,
 // and the infra is still deleted.
 func TestRefreshKubeClientFailureKeepsEarlierClient(t *testing.T) {
-	earlier := newFakeKubeClient()
+	earlier := newTeardownKubeClient()
 	u, infra := newTestUninstaller(earlier)
 	earlierMapper := u.mapper
 
@@ -294,10 +532,10 @@ func TestRefreshKubeClientFailureKeepsEarlierClient(t *testing.T) {
 // TestRefreshKubeClientSuccessReplacesClient covers a successful refresh: the
 // uninstaller adopts the new client and mapper.
 func TestRefreshKubeClientSuccessReplacesClient(t *testing.T) {
-	earlier := newFakeKubeClient()
+	earlier := newTeardownKubeClient()
 	u, _ := newTestUninstaller(earlier)
 
-	refreshed := newFakeKubeClient()
+	refreshed := newTeardownKubeClient()
 	refreshedMapper := meta.RESTMapper(meta.NewDefaultRESTMapper(nil))
 	client, mapper, err := u.refreshKubeClient(
 		func() (dynamic.Interface, *meta.RESTMapper, error) {

@@ -1,16 +1,24 @@
 package aws
 
 import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/datatypes"
 
 	"github.com/threeport/threeport/internal/provider"
+	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	tpaws "github.com/threeport/threeport/pkg/aws/v0"
+	controller "github.com/threeport/threeport/pkg/controller/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -29,6 +37,7 @@ func TestEksInfraFromApiObjects_MapsDefinitionNodeGroupFields(t *testing.T) {
 		DefaultNodeGroupInitialSize:  util.Ptr(2),
 		DefaultNodeGroupMinimumSize:  util.Ptr(3),
 		DefaultNodeGroupMaximumSize:  util.Ptr(7),
+		KubernetesVersion:            util.Ptr("1.35"),
 	}
 	awsConfig := &aws.Config{Region: "us-east-1"}
 	providerCredentials := tpaws.AwsProviderCredentials{
@@ -37,7 +46,7 @@ func TestEksInfraFromApiObjects_MapsDefinitionNodeGroupFields(t *testing.T) {
 		AssumeRoleArn:   "arn:aws:iam::123456789012:role/some-role",
 	}
 
-	infra := eksInfraFromApiObjects(
+	infra, err := eksInfraFromApiObjects(
 		instance,
 		definition,
 		"123456789012",
@@ -45,6 +54,7 @@ func TestEksInfraFromApiObjects_MapsDefinitionNodeGroupFields(t *testing.T) {
 		providerCredentials,
 		nil,
 	)
+	require.NoError(t, err)
 
 	assert.Equal(t, "test-instance", infra.RuntimeInstanceName)
 	assert.Equal(t, "123456789012", infra.AwsAccountID)
@@ -58,6 +68,13 @@ func TestEksInfraFromApiObjects_MapsDefinitionNodeGroupFields(t *testing.T) {
 	assert.Equal(t, int32(2), infra.DefaultNodeGroupInitialNodes)
 	assert.Equal(t, int32(3), infra.DefaultNodeGroupMinNodes)
 	assert.Equal(t, int32(7), infra.DefaultNodeGroupMaxNodes)
+	assert.Equal(t, "1.35", infra.KubernetesVersion)
+
+	// a definition created before versions were recorded gets the default
+	definition.KubernetesVersion = nil
+	infra, err = eksInfraFromApiObjects(instance, definition, "123456789012", awsConfig, providerCredentials, nil)
+	require.NoError(t, err)
+	assert.Equal(t, v0.DefaultKubernetesVersion, infra.KubernetesVersion)
 }
 
 // TestEksInfraSatisfiesLifecycleInterfaces checks the infra object plugs into
@@ -101,7 +118,7 @@ func TestEksLifecycleSatisfiesInfraLifecycleProvider(t *testing.T) {
 // mid-provision has persisted nothing, and the retry starts over with the first
 // attempt's resources still in the account.
 func TestEksInfraFromApiObjects_PulumiProjectSetAtConstruction(t *testing.T) {
-	infra := eksInfraFromApiObjects(
+	infra, err := eksInfraFromApiObjects(
 		&v0.AwsEksKubernetesRuntimeInstance{
 			Instance: v0.Instance{Name: util.Ptr("test-instance")},
 			Region:   util.Ptr("us-east-1"),
@@ -118,6 +135,7 @@ func TestEksInfraFromApiObjects_PulumiProjectSetAtConstruction(t *testing.T) {
 		tpaws.AwsProviderCredentials{},
 		nil,
 	)
+	require.NoError(t, err)
 
 	require.NotEmpty(
 		t, infra.ProjectName,
@@ -167,4 +185,136 @@ func TestBuildInfraIsCachedForTheAttempt(t *testing.T) {
 	fromInstance, err := lifecycle.buildInfraFrom(nil)
 	require.NoError(t, err)
 	assert.Same(t, cached, fromInstance)
+}
+
+// TestAnEksWorkloadClusterIsGivenItsDefinitionsAllowedCidrs covers #729 for
+// clusters the control plane provisions: the definition's AllowedCidrs reach
+// the infra the Pulumi program limits the public endpoint with.
+func TestAnEksWorkloadClusterIsGivenItsDefinitionsAllowedCidrs(t *testing.T) {
+	instance := &v0.AwsEksKubernetesRuntimeInstance{
+		Instance: v0.Instance{Name: util.Ptr("test-instance")},
+		Region:   util.Ptr("us-east-1"),
+	}
+	definition := func(allowedCidrs *datatypes.JSON) *v0.AwsEksKubernetesRuntimeDefinition {
+		return &v0.AwsEksKubernetesRuntimeDefinition{
+			ZoneCount:                    util.Ptr(2),
+			DefaultNodeGroupInstanceType: util.Ptr("t3.medium"),
+			DefaultNodeGroupInitialSize:  util.Ptr(3),
+			DefaultNodeGroupMinimumSize:  util.Ptr(3),
+			DefaultNodeGroupMaximumSize:  util.Ptr(5),
+			AllowedCidrs:                 allowedCidrs,
+		}
+	}
+	build := func(allowedCidrs *datatypes.JSON) (*provider.KubernetesRuntimeInfraEKS, error) {
+		return eksInfraFromApiObjects(instance, definition(allowedCidrs), "123456789012", &aws.Config{}, tpaws.AwsProviderCredentials{}, nil)
+	}
+
+	allowed := datatypes.JSON(`["203.0.113.0/24", "198.51.100.7/32"]`)
+	infra, err := build(&allowed)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"203.0.113.0/24", "198.51.100.7/32"}, infra.AllowedCidrs)
+
+	infra, err = build(nil)
+	require.NoError(t, err)
+	assert.Empty(t, infra.AllowedCidrs)
+
+	bad := datatypes.JSON(`"203.0.113.0/24"`)
+	_, err = build(&bad)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to read the definition's AllowedCidrs")
+}
+
+// TestEksLifecycle_GetReconciliation_AbandonInfrastructure covers the operator
+// override reaching the shared delete state machine. A snapshot that drops it
+// leaves a held delete refused no matter what the operator sets.
+func TestEksLifecycle_GetReconciliation_AbandonInfrastructure(t *testing.T) {
+	cases := []struct {
+		name    string
+		abandon *bool
+		want    bool
+	}{
+		{name: "unset is not abandoned", abandon: nil, want: false},
+		{name: "false is not abandoned", abandon: util.Ptr(false), want: false},
+		{name: "true is abandoned", abandon: util.Ptr(true), want: true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			instanceID := uint(7)
+			instance := v0.AwsEksKubernetesRuntimeInstance{
+				Common:                v0.Common{ID: &instanceID},
+				AbandonInfrastructure: tc.abandon,
+			}
+
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				body, err := json.Marshal(apiserver_lib.Response{
+					Status: apiserver_lib.Status{Code: http.StatusOK, Message: "OK"},
+					Data:   []apiserver_lib.Object{instance},
+				})
+				require.NoError(t, err)
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write(body)
+			}))
+			defer srv.Close()
+
+			lifecycle := &eksLifecycle{
+				r: &controller.Reconciler{
+					APIClient: &http.Client{},
+					APIServer: strings.TrimPrefix(srv.URL, "http://"),
+				},
+				instanceID: instanceID,
+			}
+
+			snap, err := lifecycle.GetReconciliation()
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, snap.AbandonInfrastructure)
+		})
+	}
+}
+
+// recordingRecorder captures the events passed to RecordEvent.
+type recordingRecorder struct {
+	events    []*v0.Event
+	objectIDs []uint
+	types     []string
+}
+
+// RecordEvent records the call.
+func (r *recordingRecorder) RecordEvent(event *v0.Event, objectID uint, fullyQualifiedType string) error {
+	r.events = append(r.events, event)
+	r.objectIDs = append(r.objectIDs, objectID)
+	r.types = append(r.types, fullyQualifiedType)
+	return nil
+}
+
+// HandleEventOverride is unused by the lifecycle.
+func (r *recordingRecorder) HandleEventOverride(*v0.Event, uint, string, error, *logr.Logger) {}
+
+// TestEksLifecycle_RecordWarning covers the Warning event reaching the
+// instance's events, bound to the right object type and ID.
+func TestEksLifecycle_RecordWarning(t *testing.T) {
+	recorder := &recordingRecorder{}
+	lifecycle := &eksLifecycle{
+		r:          &controller.Reconciler{EventsRecorder: recorder},
+		instanceID: 7,
+	}
+
+	err := lifecycle.RecordWarning("InfrastructureAbandoned", "left running")
+
+	require.NoError(t, err)
+	require.Len(t, recorder.events, 1)
+	assert.Equal(t, "Warning", *recorder.events[0].Type)
+	assert.Equal(t, "InfrastructureAbandoned", *recorder.events[0].Reason)
+	assert.Equal(t, "left running", *recorder.events[0].Note)
+	assert.Equal(t, []uint{7}, recorder.objectIDs)
+	assert.Equal(t, []string{new(v0.AwsEksKubernetesRuntimeInstance).GetFullyQualifiedType()}, recorder.types)
+}
+
+// TestEksLifecycle_RecordWarning_NoRecorder covers a reconciler built
+// without an events recorder: an error, not a panic.
+func TestEksLifecycle_RecordWarning_NoRecorder(t *testing.T) {
+	lifecycle := &eksLifecycle{r: &controller.Reconciler{}, instanceID: 7}
+
+	assert.Error(t, lifecycle.RecordWarning("Reason", "note"))
 }

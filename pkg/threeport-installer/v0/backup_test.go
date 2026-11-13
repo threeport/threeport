@@ -121,24 +121,36 @@ func backupInstaller() *ControlPlaneInstaller {
 func installDependencies(t *testing.T, cpi *ControlPlaneInstaller) *dynamicfake.FakeDynamicClient {
 	t.Helper()
 
-	// a reinstall lists what it deletes
+	fakeClient, err := installDependenciesOn(t, cpi)
+	require.NoError(t, err)
+
+	return fakeClient
+}
+
+// installDependenciesOn installs the control plane dependencies into a fake
+// cluster holding objects, and returns the cluster and the install's error.
+func installDependenciesOn(t *testing.T, cpi *ControlPlaneInstaller, objects ...runtime.Object) (*dynamicfake.FakeDynamicClient, error) {
+	t.Helper()
+
+	// a reinstall lists what it deletes, and a production install the
+	// storage classes
 	listKinds := map[schema.GroupVersionResource]string{
 		{Version: "v1", Resource: "namespaces"}: "NamespaceList",
 		{Version: "v1", Resource: "pods"}:       "PodList",
+		storageClassGVR:                         "StorageClassList",
 	}
 	for _, target := range deleteTargets {
 		listKinds[target.gvr] = "List"
 	}
-	fakeClient := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), listKinds)
+	fakeClient := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), listKinds, objects...)
 	// a production install bootstraps the database with a job, which no
 	// fake cluster runs
 	succeedDropJob(fakeClient)
 	mapper := backupTestMapper()
 	dbCreds, err := auth.GenerateDbCreds(cpi.Opts.Namespace)
 	require.NoError(t, err)
-	require.NoError(t, cpi.InstallThreeportControlPlaneDependencies(normalizingClient{fakeClient}, &mapper, "", dbCreds))
 
-	return fakeClient
+	return fakeClient, cpi.InstallThreeportControlPlaneDependencies(normalizingClient{fakeClient}, &mapper, "", dbCreds)
 }
 
 // getObject reads an object back from the fake cluster.
@@ -152,8 +164,6 @@ func getObject(t *testing.T, kubeClient dynamic.Interface, gvr schema.GroupVersi
 }
 
 var configMapGVR = schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
-
-var statefulSetGVR = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "statefulsets"}
 
 // TestTheDatabaseRunsAsItsOwnServiceAccount covers the identity the database
 // writes its backups as: its own Kubernetes service account, which the
@@ -228,6 +238,103 @@ func TestTheBackupScheduleIsCreatedOnlyWithABucket(t *testing.T) {
 	// the init script is the same either way, and never schedules a backup
 	assert.Equal(t, withBucket[DbInitFilename], withoutBucket[DbInitFilename])
 	assert.NotContains(t, strings.ToUpper(withBucket[DbInitFilename].(string)), "SCHEDULE")
+}
+
+// installAPIServer installs the API server into a fake cluster and returns
+// it.
+func installAPIServer(t *testing.T, cpi *ControlPlaneInstaller) *dynamicfake.FakeDynamicClient {
+	t.Helper()
+
+	fakeClient := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
+	mapper := backupTestMapper()
+	dbCreds, err := auth.GenerateDbCreds(cpi.Opts.Namespace)
+	require.NoError(t, err)
+	// the dependencies install, which runs first, leaves the message
+	// broker's secrets the API server connects with
+	require.NoError(t, cpi.ensureMessageBrokerSecrets(normalizingClient{fakeClient}))
+	require.NoError(t, cpi.UpdateThreeportAPIDeployment(normalizingClient{fakeClient}, &mapper, dbCreds))
+
+	return fakeClient
+}
+
+// TestTheMigratorIsToldWhereToBackUp covers the location the database
+// migrator backs the database up to before migrating: given on a control
+// plane with a backup bucket, in a ConfigMap a reinstall keeps, and absent
+// on any other.
+func TestTheMigratorIsToldWhereToBackUp(t *testing.T) {
+	kubeClient := installAPIServer(t, backupInstaller())
+
+	backupConfig := getObject(t, kubeClient, configMapGVR, DbBackupConfigName)
+	uri, _, err := unstructured.NestedString(backupConfig.Object, "data", DbBackupURIFilename)
+	require.NoError(t, err)
+	assert.Equal(t, "gs://threeport-prod-backups-acme-prod/threeport_api?AUTH=implicit", uri)
+	assert.Equal(t, LabelPersistentValue, backupConfig.GetLabels()[LabelPersistent])
+
+	cpi := backupInstaller()
+	cpi.Opts.GcpBackupBucket = ""
+	withoutBackups := installAPIServer(t, cpi)
+	_, err = withoutBackups.Resource(configMapGVR).Namespace(ControlPlaneNamespace).Get(context.Background(), DbBackupConfigName, metav1.GetOptions{})
+	assert.Error(t, err, "a control plane without backups is told where to back up")
+}
+
+// TestTheMigratorCanBackUp covers what the database migrator mounts to back
+// up: the backup location, optional so a control plane without one still
+// starts, and the root client certificate next to its own, since only an
+// admin may back up to cloud storage with the node's identity.
+func TestTheMigratorCanBackUp(t *testing.T) {
+	cpi := backupInstaller()
+	cpi.Opts.GcpBackupBucket = ""
+	kubeClient := installAPIServer(t, cpi)
+	deployment := getObject(t, kubeClient, schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}, ThreeportAPIServiceResourceName)
+
+	initContainers, _, err := unstructured.NestedSlice(deployment.Object, "spec", "template", "spec", "initContainers")
+	require.NoError(t, err)
+	mounts := map[string]string{}
+	for _, item := range initContainers {
+		container := item.(map[string]interface{})
+		if container["name"] != "database-migrator" {
+			continue
+		}
+		for _, mount := range container["volumeMounts"].([]interface{}) {
+			m := mount.(map[string]interface{})
+			mounts[m["name"].(string)] = m["mountPath"].(string)
+		}
+	}
+	assert.Equal(t, DbBackupConfigLocation, mounts[DbBackupConfigName])
+	assert.Equal(t, "/etc/threeport/db-certs", mounts[dbMigratorCertsVolumeName])
+
+	volumes, _, err := unstructured.NestedSlice(deployment.Object, "spec", "template", "spec", "volumes")
+	require.NoError(t, err)
+	var certSources []interface{}
+	var backupOptional bool
+	for _, item := range volumes {
+		volume := item.(map[string]interface{})
+		switch volume["name"] {
+		case dbMigratorCertsVolumeName:
+			certSources, _, _ = unstructured.NestedSlice(volume, "projected", "sources")
+		case DbBackupConfigName:
+			backupOptional, _, _ = unstructured.NestedBool(volume, "configMap", "optional")
+		}
+	}
+	assert.True(t, backupOptional, "the API server cannot start without a backup location")
+
+	keys := []string{}
+	for _, source := range certSources {
+		secret := source.(map[string]interface{})["secret"].(map[string]interface{})
+		items, found := secret["items"].([]interface{})
+		if !found {
+			keys = append(keys, secret["name"].(string)+"/*")
+			continue
+		}
+		for _, item := range items {
+			keys = append(keys, secret["name"].(string)+"/"+item.(map[string]interface{})["key"].(string))
+		}
+	}
+	assert.ElementsMatch(t, []string{
+		dbThreeportCertSecretName + "/*",
+		dbRootCertSecretName + "/client.root.crt",
+		dbRootCertSecretName + "/client.root.key",
+	}, keys, "the migrator's certificates")
 }
 
 // TestAReinstallRecreatesTheBackupSchedule covers a reinstall of a control

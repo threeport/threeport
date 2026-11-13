@@ -64,6 +64,21 @@ type AwsEksKubernetesRuntimeDefinition struct {
 	// The maximum number of nodes the default initial node group should have.
 	DefaultNodeGroupMaximumSize *int `validate:"required" gorm:"not null"`
 
+	// If true, the Kubernetes API is not reachable from the public internet.
+	// Set from the KubernetesRuntimeDefinition's PrivateApi.
+	PrivateApi *bool `validate:"optional" gorm:"default:false"`
+
+	// The CIDR blocks allowed to reach the Kubernetes API, as a JSON array of
+	// IPv4 CIDR blocks.  Set from the KubernetesRuntimeDefinition's
+	// AllowedCidrs.
+	AllowedCidrs *datatypes.JSON `validate:"optional" swaggertype:"array,string"`
+
+	// The Kubernetes minor version of the clusters, such as "1.36": the
+	// KubernetesRuntimeDefinition's KubernetesVersion, or the default version
+	// when that is unset.  If unset here, the default version is used.  It
+	// can't be changed after creation.
+	KubernetesVersion *string `validate:"optional"`
+
 	// The AWS EKS kubernetes runtime instances derived from this definition.
 	AwsEksKubernetesRuntimeInstances []*AwsEksKubernetesRuntimeInstance `validate:"optional,association"`
 
@@ -88,6 +103,16 @@ type AwsEksKubernetesRuntimeInstance struct {
 
 	// An inventory of all AWS resources for the EKS cluster.
 	ResourceInventory *datatypes.JSON `validate:"optional"`
+
+	// Set by an operator to allow this instance to be deleted even though its
+	// creation was confirmed and no resource inventory is recorded, or the
+	// recorded inventory cannot be restored. The controller refuses that delete
+	// otherwise, because cloud resources may still exist. Setting this orphans
+	// any resources the controller cannot find: they keep running and are no
+	// longer tracked by Threeport. Resources it has recorded and can restore are
+	// still destroyed. It is rejected on create, and once set it stays set until
+	// changed, so tptctl sets it back to false if the delete fails.
+	AbandonInfrastructure *bool `validate:"optional" gorm:"default:false"`
 
 	// The kubernetes runtime instance associated with the AWS EKS cluster.
 	KubernetesRuntimeInstanceID *uint `validate:"required" gorm:"not null" relationship:"marries"`

@@ -65,6 +65,8 @@ func (o *okeLifecycle) GetReconciliation() (*provider.ReconciliationSnapshot, er
 		DeletionAcknowledged: latest.DeletionAcknowledged,
 		DeletionConfirmed:    latest.DeletionConfirmed,
 		ResourceInventory:    latest.ResourceInventory,
+
+		AbandonInfrastructure: latest.AbandonInfrastructure != nil && *latest.AbandonInfrastructure,
 	}, nil
 }
 
@@ -133,6 +135,16 @@ func (o *okeLifecycle) OnCreateConfirmed(infra provider.InfraProvider) error {
 	}
 
 	// update kube connection info
+	// record the addresses the cluster's outbound traffic comes from, which
+	// clusters this one may come to manage as a control plane host admit
+	egressCidrs, err := provider.EgressCidrsFromState(latest.ResourceInventory)
+	if err != nil {
+		return fmt.Errorf("failed to read the cluster's egress addresses: %w", err)
+	}
+	if len(egressCidrs) > 0 {
+		kubernetesRuntimeInstance.EgressCidrs = provider.EgressCidrsJSON(egressCidrs)
+	}
+
 	kubeRuntimeReconciled := false
 	kubernetesRuntimeInstance.APIEndpoint = &kubeConnectionInfo.APIEndpoint
 	kubernetesRuntimeInstance.CACertificate = &kubeConnectionInfo.CACertificate
@@ -372,6 +384,22 @@ func (o *okeLifecycle) ClearInventory() error {
 	return err
 }
 
+// RecordWarning records a Warning event against the instance.
+func (o *okeLifecycle) RecordWarning(reason, note string) error {
+	// a nil Recorder interface and a nil pointer inside one are both "none"
+	if o.r == nil || o.r.EventsRecorder == nil {
+		return provider.RecordWarningEvent(nil, o.instanceID, "", reason, note)
+	}
+
+	return provider.RecordWarningEvent(
+		o.r.EventsRecorder,
+		o.instanceID,
+		new(v0.OciOkeKubernetesRuntimeInstance).GetFullyQualifiedType(),
+		reason,
+		note,
+	)
+}
+
 // PublishCreateNotification publishes a NATS notification for creation.
 func (o *okeLifecycle) PublishCreateNotification() error {
 	notifPayload, err := o.instance.NotificationPayload(
@@ -443,6 +471,11 @@ func buildOkeInfra(
 		nil,
 	)
 
+	allowedCidrs, err := v0.ParseCidrs("AllowedCidrs", definition.AllowedCidrs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the definition's AllowedCidrs: %w", err)
+	}
+
 	// use instance region if set, otherwise fall back to provider default region
 	region := *ociProvider.DefaultRegion
 	if instance.Region != nil && *instance.Region != "" {
@@ -461,10 +494,27 @@ func buildOkeInfra(
 		ConfigProvider:         configProvider,
 		WorkerNodeShape:        *definition.WorkerNodeShape,
 		WorkerNodeInitialCount: *definition.WorkerNodeInitialCount,
-		Version:                provider.DefaultOKEKubernetesVersion,
+		Version:                v0.KubernetesVersionOrDefault(definition.KubernetesVersion),
 		ServiceUserOCID:        *ociProvider.UserOCID,
 		Fingerprint:            *ociProvider.KeyFingerprint,
 		PrivateKeyPEM:          decryptedPrivateKey,
+		AllowedCidrs:           allowedCidrs,
+	}
+
+	// a cluster whose API is restricted also admits the control plane that
+	// manages it; the lookup is skipped for a cluster being deleted, which
+	// does not provision anything
+	if len(allowedCidrs) > 0 && instance.DeletionScheduled == nil {
+		controlPlaneEgressCidrs, err := provider.ControlPlaneEgressCidrs(
+			r.APIClient,
+			r.APIServer,
+			*instance.KubernetesRuntimeInstanceID,
+			log,
+		)
+		if err != nil {
+			return nil, err
+		}
+		infraOKE.ControlPlaneEgressCidrs = controlPlaneEgressCidrs
 	}
 
 	// resolve the compartment OCID by looking up the workload compartment

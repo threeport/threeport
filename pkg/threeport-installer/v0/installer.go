@@ -24,6 +24,9 @@ type Options struct {
 	// List of controllers to install as part of the control plane
 	ControllerList []*v0.ControlPlaneComponent
 
+	// The controller group list stored on the self instance
+	Apis string
+
 	// Info for the Rest Api being installed
 	RestApiInfo *v0.ControlPlaneComponent
 
@@ -62,6 +65,10 @@ type Options struct {
 
 	// The OCI compartment OCID to install threeport control plane in.
 	OciCompartmentOcid string
+
+	// The Kubernetes minor version of the cluster tptctl creates on EKS, GKE or
+	// OKE, such as "1.36".  Empty uses the default version.
+	KubernetesVersion string
 
 	// The Google Cloud project ID where the cluster infra is provisioned.
 	GcpProjectId string
@@ -138,12 +145,36 @@ type Options struct {
 	// Port mappings for kind infra provider
 	KindPortMappings []string
 
+	// The CIDR blocks allowed to reach the control plane cluster's Kubernetes
+	// API.  Empty leaves it open to every address.
+	K8sApiAllowedCidrs []string
+
+	// If true, the control plane cluster's Kubernetes API has no public IP
+	// endpoint.  Supported on GKE only.
+	PrivateK8sApi bool
+
 	// The host port to publish the Threeport API on for a local control plane.
 	// Zero means the default for the auth setting applies.
 	ApiPort int
 
 	// If true, a cloud load balancer is provisioned for the threeport API.
 	RestApiLoadBalancer bool
+
+	// The address, as host:port, at which the threeport API is reachable from
+	// outside the cluster that hosts it.  Empty when the API is only reachable
+	// inside its own cluster.  It is recorded in the controller config so a
+	// controller can hand the address to agents installed on other clusters.
+	ExternalApiEndpoint string
+
+	// The address, as host:port, the threeport agent is told to report to.
+	// Empty leaves the agent on its default, the API's in-cluster service,
+	// which only resolves on the cluster that hosts the control plane.
+	AgentApiServer string
+
+	// If true, the compute space install leaves the threeport agent out.  For a
+	// cluster whose control plane has no address to give an agent, one installed
+	// anyway could only crash-loop.
+	SkipAgent bool
 
 	// verbose logging
 	Verbose bool
@@ -157,6 +188,16 @@ type Options struct {
 	// Automatically tear down control plane resources if an error is encountered.
 	TeardownOnFailure bool
 
+	// NamespacePresence records whether the control plane namespace was
+	// already in the cluster when this install started. A teardown that
+	// leaves the cluster in place must not delete a namespace it did not
+	// create: on a reapply with --control-plane-only that namespace holds a
+	// running control plane, and removing it removes the database with it.
+	// Until CheckNamespacePresence has found out, it is unknown, which a
+	// teardown treats as present. One that deletes the cluster deletes the
+	// namespace first regardless.
+	NamespacePresence NamespacePresence
+
 	// Create and connect local container registry for local control plane
 	// clusters.
 	LocalRegistry bool
@@ -164,6 +205,18 @@ type Options struct {
 	// The tier written on the control plane namespace when that namespace is created
 	// A later install leaves an existing namespace, and its tier label, unchanged
 	Tier ControlPlaneTier
+
+	// ApiReplicas and ControllerReplicas set how many replicas the API server
+	// and each controller run.  Zero uses the tier's default: one on the
+	// development tier and two on production.
+	ApiReplicas        int
+	ControllerReplicas int
+
+	// ComponentResources overrides the CPU and memory a component's container
+	// requests and is limited to, keyed by component name, e.g. "rest-api",
+	// "agent", "database-migrator" or a controller's name.  A value left empty
+	// keeps the default from DefaultComponentResources.
+	ComponentResources map[string]ContainerResources
 
 	// PaginationMode sets the REST API server's pagination strategy through
 	// the `-pagination-mode` flag. Accepted values are `as-of-system-time`
@@ -272,3 +325,20 @@ func NewInstaller(os ...InstallerOption) *ControlPlaneInstaller {
 		Opts: opts,
 	}
 }
+
+// NamespacePresence is whether the control plane namespace was in the cluster
+// when an install started.
+type NamespacePresence int
+
+const (
+	// NamespacePresenceUnknown is the state before CheckNamespacePresence
+	// has found out, or after it failed to.  A teardown leaves the namespace
+	// alone, since it can't tell that this install created it.
+	NamespacePresenceUnknown NamespacePresence = iota
+
+	// NamespaceAbsent means this install creates the namespace.
+	NamespaceAbsent
+
+	// NamespacePresent means the namespace was already there.
+	NamespacePresent
+)

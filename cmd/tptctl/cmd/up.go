@@ -111,6 +111,23 @@ control planes if they are used to create or are created by another control plan
 			cli.Error("flag validation failed:", err)
 			os.Exit(1)
 		}
+		if err := cli.ValidateKubernetesVersionFlag(
+			cliArgs.KubernetesVersion,
+			cliArgs.InfraProvider,
+			cliArgs.ControlPlaneOnly,
+		); err != nil {
+			cli.Error("flag validation failed:", err)
+			os.Exit(1)
+		}
+		if err := cli.ValidateK8sApiAccessFlags(
+			cliArgs.PrivateK8sApi,
+			cliArgs.K8sApiAllowedCidrs,
+			cliArgs.InfraProvider,
+			cliArgs.ControlPlaneOnly,
+		); err != nil {
+			cli.Error("flag validation failed:", err)
+			os.Exit(1)
+		}
 
 		cpi, err := cliArgs.CreateInstaller()
 		if err != nil {
@@ -142,6 +159,9 @@ control planes if they are used to create or are created by another control plan
 			))
 			cpi.Opts.ControllerList = selected
 		}
+
+		// record the group list on the self instance
+		cpi.Opts.Apis = upApis
 
 		err = cli.CreateGenesisControlPlane(cpi)
 		if err != nil {
@@ -212,6 +232,13 @@ func init() {
 		&cliArgs.GcpBackupRegion,
 		"gcp-backup-region", "", "Google Cloud region of the bucket a production control plane on gke backs its database up to. Must differ from --gcp-region. Defaults to another region on the same continent.",
 	)
+	UpCmd.Flags().StringVar(
+		&cliArgs.KubernetesVersion,
+		"kubernetes-version", "", fmt.Sprintf(
+			"Kubernetes minor version of the cluster tptctl creates on eks, gke or oke. One of %s. Defaults to %s.",
+			strings.Join(v0.SupportedKubernetesVersions, ", "), v0.DefaultKubernetesVersion,
+		),
+	)
 	UpCmd.Flags().BoolVar(
 		&cliArgs.ForceOverwriteConfig,
 		"force-overwrite-config", false, "Force the overwrite of an existing Threeport instance config.  Warning: this will erase the connection info for the existing instance.  Only do this if the existing instance has already been deleted and is no longer in use.",
@@ -244,9 +271,14 @@ func init() {
 		&cliArgs.Debug,
 		"debug", false, "Enable debug mode. Defaults to false.",
 	)
+	// Defaults to true. A failed install leaves whatever it got as far as
+	// creating - a VPC, an IAM role, a cluster - running and billing, and the
+	// operator has to know to go and remove it. Pass
+	// --teardown-on-failure=false to keep the partial state for inspection.
 	UpCmd.Flags().BoolVar(
 		&cliArgs.TeardownOnFailure,
-		"teardown-on-failure", false, "Automatically tear down control plane resources if an error is encountered.",
+		"teardown-on-failure", true,
+		"Tear down control plane resources if the install fails. Pass =false to leave partial state in place for debugging.",
 	)
 	UpCmd.Flags().BoolVar(
 		&cliArgs.ControlPlaneOnly,
@@ -263,6 +295,14 @@ func init() {
 	UpCmd.Flags().BoolVar(
 		&cliArgs.LocalRegistry,
 		"local-registry", false, "Connects a local container registry to Threeport control plane cluster.  Only applicable with provider 'kind'.",
+	)
+	UpCmd.Flags().BoolVar(
+		&cliArgs.PrivateK8sApi,
+		"private-k8s-api", false, "Turn off the public IP endpoint of the control plane cluster's Kubernetes API.  tptctl and the control plane reach it through GKE's DNS endpoint, which Google authorizes by IAM, and the cluster's network and those connected to it reach its internal endpoint.  Defaults to false.  Only applicable with provider 'gke', and not with --control-plane-only.",
+	)
+	UpCmd.Flags().StringSliceVar(
+		&cliArgs.K8sApiAllowedCidrs,
+		"k8s-api-allowed-cidrs", []string{}, "Optional. Comma-separated IPv4 CIDR blocks allowed to reach the Kubernetes API of the control plane cluster, e.g. 203.0.113.7/32.  Include this machine's public address: tptctl needs the Kubernetes API to install the control plane, and fails before installing anything if it cannot reach it.  Defaults to empty, which leaves the Kubernetes API open to every address.  With --private-k8s-api, these are the private networks, such as a VPN, that may reach the internal endpoint, and this machine's address is not needed.  Not applicable with provider 'kind' or --control-plane-only.",
 	)
 	UpCmd.Flags().StringSliceVar(
 		&cliArgs.KindPortMappings,

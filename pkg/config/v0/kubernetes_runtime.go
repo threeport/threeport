@@ -25,10 +25,14 @@ type KubernetesRuntimeValues struct {
 	InfraProvider             *string
 	InfraProviderAccountName  *string
 	HighAvailability          *bool
+	PrivateApi                *bool
+	AllowedCidrs              *[]string
+	KubernetesVersion         *string
 	Location                  *string
 	ThreeportControlPlaneHost *bool
 	DefaultRuntime            *bool
 	ThreeportAgentImage       *string
+	NetworkCidr               *string
 	Age                       *string
 }
 
@@ -155,6 +159,9 @@ func (k *KubernetesRuntimeConfig) GetOperations(
 			InfraProvider:            kubernetesRuntimeValues.InfraProvider,
 			InfraProviderAccountName: kubernetesRuntimeValues.InfraProviderAccountName,
 			HighAvailability:         kubernetesRuntimeValues.HighAvailability,
+			PrivateApi:               kubernetesRuntimeValues.PrivateApi,
+			AllowedCidrs:             kubernetesRuntimeValues.AllowedCidrs,
+			KubernetesVersion:        kubernetesRuntimeValues.KubernetesVersion,
 		},
 	}
 	operations.AppendOperation(util.Operation{
@@ -200,6 +207,7 @@ func (k *KubernetesRuntimeConfig) GetOperations(
 			DefaultRuntime:            kubernetesRuntimeValues.DefaultRuntime,
 			Location:                  kubernetesRuntimeValues.Location,
 			ThreeportAgentImage:       kubernetesRuntimeValues.ThreeportAgentImage,
+			NetworkCidr:               kubernetesRuntimeValues.NetworkCidr,
 			KubernetesRuntimeDefinition: &KubernetesRuntimeDefinitionValues{
 				Name: kubernetesRuntimeValues.Name,
 			},
@@ -263,10 +271,14 @@ func mapToKubernetesRuntimeDefinedInstances(
 						InfraProvider:             def.KubernetesRuntimeDefinition.InfraProvider,
 						InfraProviderAccountName:  def.KubernetesRuntimeDefinition.InfraProviderAccountName,
 						HighAvailability:          def.KubernetesRuntimeDefinition.HighAvailability,
+						PrivateApi:                def.KubernetesRuntimeDefinition.PrivateApi,
+						AllowedCidrs:              def.KubernetesRuntimeDefinition.AllowedCidrs,
+						KubernetesVersion:         def.KubernetesRuntimeDefinition.KubernetesVersion,
 						ThreeportControlPlaneHost: inst.KubernetesRuntimeInstance.ThreeportControlPlaneHost,
 						Location:                  inst.KubernetesRuntimeInstance.Location,
 						DefaultRuntime:            inst.KubernetesRuntimeInstance.DefaultRuntime,
 						ThreeportAgentImage:       inst.KubernetesRuntimeInstance.ThreeportAgentImage,
+						NetworkCidr:               inst.KubernetesRuntimeInstance.NetworkCidr,
 						Age:                       inst.KubernetesRuntimeInstance.Age,
 					},
 				}

@@ -30,6 +30,11 @@ type GcpGkeKubernetesRuntimeDefinitionValues struct {
 	DefaultNodeGroupInitialSize  *int
 	DefaultNodeGroupMinimumSize  *int
 	DefaultNodeGroupMaximumSize  *int
+	KubernetesVersion            *string
+	ReleaseChannel               *string
+	MaintenanceWindowDays        *string
+	MaintenanceWindowStart       *string
+	MaintenanceWindowHours       *int
 	Age                          *string
 }
 
@@ -72,6 +77,11 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Get(
 				DefaultNodeGroupInitialSize:  gcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize,
 				DefaultNodeGroupMinimumSize:  gcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
 				DefaultNodeGroupMaximumSize:  gcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
+				KubernetesVersion:            gcpGkeKubernetesRuntimeDefinition.KubernetesVersion,
+				ReleaseChannel:               gcpGkeKubernetesRuntimeDefinition.ReleaseChannel,
+				MaintenanceWindowDays:        gcpGkeKubernetesRuntimeDefinition.MaintenanceWindowDays,
+				MaintenanceWindowStart:       gcpGkeKubernetesRuntimeDefinition.MaintenanceWindowStart,
+				MaintenanceWindowHours:       gcpGkeKubernetesRuntimeDefinition.MaintenanceWindowHours,
 				Age:                          util.Ptr(util.GetAgeFormatted(gcpGkeKubernetesRuntimeDefinition.CreatedAt)),
 			},
 		}
@@ -102,7 +112,8 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Create(
 		Reconciliation: api_v0.Reconciliation{
 			Reconciled: util.Ptr(true),
 		},
-		InfraProvider: &infraProvider,
+		InfraProvider:     &infraProvider,
+		KubernetesVersion: gcpGkeKubernetesRuntimeDefinitionValues.KubernetesVersion,
 	}
 
 	// create kubernetes runtime definition
@@ -121,6 +132,11 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Create(
 		DefaultNodeGroupInitialSize:   gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupInitialSize,
 		DefaultNodeGroupMinimumSize:   gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupMinimumSize,
 		DefaultNodeGroupMaximumSize:   gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupMaximumSize,
+		KubernetesVersion:             util.Ptr(api_v0.KubernetesVersionOrDefault(gcpGkeKubernetesRuntimeDefinitionValues.KubernetesVersion)),
+		ReleaseChannel:                util.Ptr(api_v0.GkeReleaseChannelOrDefault(gcpGkeKubernetesRuntimeDefinitionValues.ReleaseChannel)),
+		MaintenanceWindowDays:         util.Ptr(api_v0.GkeMaintenanceWindowDaysOrDefault(gcpGkeKubernetesRuntimeDefinitionValues.MaintenanceWindowDays)),
+		MaintenanceWindowStart:        util.Ptr(api_v0.GkeMaintenanceWindowStartOrDefault(gcpGkeKubernetesRuntimeDefinitionValues.MaintenanceWindowStart)),
+		MaintenanceWindowHours:        util.Ptr(api_v0.GkeMaintenanceWindowHoursOrDefault(gcpGkeKubernetesRuntimeDefinitionValues.MaintenanceWindowHours)),
 		KubernetesRuntimeDefinitionID: createdKubernetesRuntimeDefinition.ID,
 	}
 
@@ -144,6 +160,11 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Create(
 			DefaultNodeGroupInitialSize:  createdGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize,
 			DefaultNodeGroupMinimumSize:  createdGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
 			DefaultNodeGroupMaximumSize:  createdGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
+			KubernetesVersion:            createdGcpGkeKubernetesRuntimeDefinition.KubernetesVersion,
+			ReleaseChannel:               createdGcpGkeKubernetesRuntimeDefinition.ReleaseChannel,
+			MaintenanceWindowDays:        createdGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowDays,
+			MaintenanceWindowStart:       createdGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowStart,
+			MaintenanceWindowHours:       createdGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowHours,
 		},
 	}
 
@@ -177,19 +198,37 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Replace(
 	}
 
 	// construct updated gcp gke kubernetes runtime definition object
-	updatedGcpGkeKubernetesRuntimeDefinition := &api_v0.GcpGkeKubernetesRuntimeDefinition{
-		Common: api_v0.Common{
-			ID: existingGcpGkeKubernetesRuntimeDefinition.ID,
-		},
-		Definition: api_v0.Definition{
-			Name: gcpGkeKubernetesRuntimeDefinitionValues.Name,
-		},
-		ZoneCount:                     gcpGkeKubernetesRuntimeDefinitionValues.ZoneCount,
-		DefaultNodeGroupInstanceType:  gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupInstanceType,
-		DefaultNodeGroupInitialSize:   gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupInitialSize,
-		DefaultNodeGroupMinimumSize:   gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupMinimumSize,
-		DefaultNodeGroupMaximumSize:   gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupMaximumSize,
-		KubernetesRuntimeDefinitionID: existingGcpGkeKubernetesRuntimeDefinition.KubernetesRuntimeDefinitionID,
+	// Start from the existing object, so the fields this replace does not set
+	// are kept: the reconciler's (Reconciled and the rest of Reconciliation,
+	// Status) and the ones only the API server or a controller writes. Every
+	// field a user sets through the config is assigned below unconditionally,
+	// a nil value included, so a field left out of the config is cleared
+	// rather than kept. Do not assign the reconciler's fields here: the copy
+	// already carries them.
+	updatedGcpGkeKubernetesRuntimeDefinition := util.Ptr(*existingGcpGkeKubernetesRuntimeDefinition)
+	updatedGcpGkeKubernetesRuntimeDefinition.Name = gcpGkeKubernetesRuntimeDefinitionValues.Name
+	updatedGcpGkeKubernetesRuntimeDefinition.ZoneCount = gcpGkeKubernetesRuntimeDefinitionValues.ZoneCount
+	updatedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType = gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupInstanceType
+	updatedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize = gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupInitialSize
+	updatedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize = gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupMinimumSize
+	updatedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize = gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupMaximumSize
+	// the version a config leaves out is kept, rather than cleared
+	if gcpGkeKubernetesRuntimeDefinitionValues.KubernetesVersion != nil {
+		updatedGcpGkeKubernetesRuntimeDefinition.KubernetesVersion = gcpGkeKubernetesRuntimeDefinitionValues.KubernetesVersion
+	}
+	// the release channel and maintenance window are recorded on create and
+	// can't change, so a config that leaves one out keeps it
+	if gcpGkeKubernetesRuntimeDefinitionValues.ReleaseChannel != nil {
+		updatedGcpGkeKubernetesRuntimeDefinition.ReleaseChannel = gcpGkeKubernetesRuntimeDefinitionValues.ReleaseChannel
+	}
+	if gcpGkeKubernetesRuntimeDefinitionValues.MaintenanceWindowDays != nil {
+		updatedGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowDays = gcpGkeKubernetesRuntimeDefinitionValues.MaintenanceWindowDays
+	}
+	if gcpGkeKubernetesRuntimeDefinitionValues.MaintenanceWindowStart != nil {
+		updatedGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowStart = gcpGkeKubernetesRuntimeDefinitionValues.MaintenanceWindowStart
+	}
+	if gcpGkeKubernetesRuntimeDefinitionValues.MaintenanceWindowHours != nil {
+		updatedGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowHours = gcpGkeKubernetesRuntimeDefinitionValues.MaintenanceWindowHours
 	}
 
 	// replace gcp gke kubernetes runtime definition
@@ -212,40 +251,43 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Replace(
 			DefaultNodeGroupInitialSize:  replacedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize,
 			DefaultNodeGroupMinimumSize:  replacedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
 			DefaultNodeGroupMaximumSize:  replacedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
+			KubernetesVersion:            replacedGcpGkeKubernetesRuntimeDefinition.KubernetesVersion,
+			ReleaseChannel:               replacedGcpGkeKubernetesRuntimeDefinition.ReleaseChannel,
+			MaintenanceWindowDays:        replacedGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowDays,
+			MaintenanceWindowStart:       replacedGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowStart,
+			MaintenanceWindowHours:       replacedGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowHours,
 		},
 	}
 
 	return updatedGcpGkeKubernetesRuntimeDefinitionConfig, nil
 }
 
-// Delete deletes a gcp gke kubernetes runtime definition from the Threeport API.
+// Delete deletes a gcp gke kubernetes runtime definition from the Threeport API by name.
+// Delete removes the provider definition, then removes the runtime definition at KubernetesRuntimeDefinitionID.
 func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*GcpGkeKubernetesRuntimeDefinitionConfig, error) {
 	gcpGkeKubernetesRuntimeDefinitionValues := g.GcpGkeKubernetesRuntimeDefinition
 
-	// get gcp gke kubernetes runtime definition by name
+	// find the provider definition that holds the runtime definition id
 	gcpGkeKubernetesRuntimeDefinition, err := client_v0.GetGcpGkeKubernetesRuntimeDefinitionByName(
 		apiClient,
 		apiEndpoint,
 		*gcpGkeKubernetesRuntimeDefinitionValues.Name,
 	)
+
+	// return the config values when the provider definition is missing
+	if errors.Is(err, client_lib.ErrObjectNotFound) {
+		return &GcpGkeKubernetesRuntimeDefinitionConfig{
+			GcpGkeKubernetesRuntimeDefinition: gcpGkeKubernetesRuntimeDefinitionValues,
+		}, nil
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to find gcp gke kubernetes runtime definition with name %s: %w", *gcpGkeKubernetesRuntimeDefinitionValues.Name, err)
 	}
 
-	// delete associated kubernetes runtime definition
-	_, err = client_v0.DeleteKubernetesRuntimeDefinition(
-		apiClient,
-		apiEndpoint,
-		*gcpGkeKubernetesRuntimeDefinition.KubernetesRuntimeDefinitionID,
-	)
-	if err != nil && !errors.Is(err, client_lib.ErrObjectNotFound) {
-		return nil, fmt.Errorf("failed to delete associated kubernetes runtime definition: %w", err)
-	}
-
-	// delete gcp gke kubernetes runtime definition
+	// delete the provider definition so its reference stops blocking the runtime definition
 	deletedGcpGkeKubernetesRuntimeDefinition, err := client_v0.DeleteGcpGkeKubernetesRuntimeDefinition(
 		apiClient,
 		apiEndpoint,
@@ -255,19 +297,39 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Delete(
 		return nil, fmt.Errorf("failed to delete gcp gke kubernetes runtime definition from Threeport API: %w", err)
 	}
 
-	// construct deleted gcp gke kubernetes runtime definition config
-	deletedGcpGkeKubernetesRuntimeDefinitionConfig := &GcpGkeKubernetesRuntimeDefinitionConfig{
-		GcpGkeKubernetesRuntimeDefinition: GcpGkeKubernetesRuntimeDefinitionValues{
+	// delete the runtime definition at the stored id
+	if gcpGkeKubernetesRuntimeDefinition.KubernetesRuntimeDefinitionID != nil {
+		_, err = client_v0.DeleteKubernetesRuntimeDefinition(
+			apiClient,
+			apiEndpoint,
+			*gcpGkeKubernetesRuntimeDefinition.KubernetesRuntimeDefinitionID,
+		)
+		if err != nil && !errors.Is(err, client_lib.ErrObjectNotFound) {
+			return nil, fmt.Errorf("failed to delete associated kubernetes runtime definition: %w", err)
+		}
+	}
+
+	// return the deleted provider fields
+	returned := gcpGkeKubernetesRuntimeDefinitionValues
+	if deletedGcpGkeKubernetesRuntimeDefinition != nil {
+		returned = GcpGkeKubernetesRuntimeDefinitionValues{
 			Name:                         deletedGcpGkeKubernetesRuntimeDefinition.Name,
 			ZoneCount:                    deletedGcpGkeKubernetesRuntimeDefinition.ZoneCount,
 			DefaultNodeGroupInstanceType: deletedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType,
 			DefaultNodeGroupInitialSize:  deletedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize,
 			DefaultNodeGroupMinimumSize:  deletedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
 			DefaultNodeGroupMaximumSize:  deletedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
-		},
+			KubernetesVersion:            deletedGcpGkeKubernetesRuntimeDefinition.KubernetesVersion,
+			ReleaseChannel:               deletedGcpGkeKubernetesRuntimeDefinition.ReleaseChannel,
+			MaintenanceWindowDays:        deletedGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowDays,
+			MaintenanceWindowStart:       deletedGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowStart,
+			MaintenanceWindowHours:       deletedGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowHours,
+		}
 	}
 
-	return deletedGcpGkeKubernetesRuntimeDefinitionConfig, nil
+	return &GcpGkeKubernetesRuntimeDefinitionConfig{
+		GcpGkeKubernetesRuntimeDefinition: returned,
+	}, nil
 }
 
 // Validate validates inputs to create gcp gke kubernetes runtime definitions.
@@ -303,6 +365,24 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Validate() error {
 	// ensure node group maximum size is set
 	if gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupMaximumSize == nil {
 		multiError.AppendError(errors.New("missing required field in config: DefaultNodeGroupMaximumSize"))
+	}
+
+	// validate the Kubernetes version before the API is asked
+	if err := api_v0.ValidateKubernetesVersion(
+		api_v0.KubernetesRuntimeInfraProviderGKE,
+		gcpGkeKubernetesRuntimeDefinitionValues.KubernetesVersion,
+	); err != nil {
+		multiError.AppendError(err)
+	}
+
+	// validate the release channel and maintenance window before the API is asked
+	if err := api_v0.ValidateGkeUpgradeSettings(
+		gcpGkeKubernetesRuntimeDefinitionValues.ReleaseChannel,
+		gcpGkeKubernetesRuntimeDefinitionValues.MaintenanceWindowDays,
+		gcpGkeKubernetesRuntimeDefinitionValues.MaintenanceWindowStart,
+		gcpGkeKubernetesRuntimeDefinitionValues.MaintenanceWindowHours,
+	); err != nil {
+		multiError.AppendError(err)
 	}
 
 	return multiError.Error()

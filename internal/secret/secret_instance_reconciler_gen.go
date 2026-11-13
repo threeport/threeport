@@ -190,26 +190,15 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 							operationErr = fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
 						}
 						if operationErr == nil {
-							provider, err := client_v0.GetInfraProviderByKubernetesRuntimeInstanceID(
-								r.APIClient,
-								r.APIServer,
-								runtime.ID,
-							)
-							if err != nil {
-								operationErr = fmt.Errorf("failed to get infra provider: %w", err)
-							}
-							if operationErr == nil {
-								if err := supportservices.EnsureSecretsComponent(
-									r,
-									runtime,
-									componentObject,
-									&componentObject.SecretsComponentInstanceID,
-									client_v0.UpdateSecretInstance,
-									provider,
-									&log,
-								); err != nil {
-									operationErr = fmt.Errorf("failed to ensure secrets component: %w", err)
-								}
+							if err := supportservices.EnsureSecretsComponent(
+								r,
+								runtime,
+								componentObject,
+								&componentObject.SecretsComponentInstanceID,
+								client_v0.UpdateSecretInstance,
+								&log,
+							); err != nil {
+								operationErr = fmt.Errorf("failed to ensure secrets component: %w", err)
 							}
 						}
 					}
@@ -316,26 +305,15 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 							operationErr = fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
 						}
 						if operationErr == nil {
-							provider, err := client_v0.GetInfraProviderByKubernetesRuntimeInstanceID(
-								r.APIClient,
-								r.APIServer,
-								runtime.ID,
-							)
-							if err != nil {
-								operationErr = fmt.Errorf("failed to get infra provider: %w", err)
-							}
-							if operationErr == nil {
-								if err := supportservices.EnsureSecretsComponent(
-									r,
-									runtime,
-									componentObject,
-									&componentObject.SecretsComponentInstanceID,
-									client_v0.UpdateSecretInstance,
-									provider,
-									&log,
-								); err != nil {
-									operationErr = fmt.Errorf("failed to ensure secrets component: %w", err)
-								}
+							if err := supportservices.EnsureSecretsComponent(
+								r,
+								runtime,
+								componentObject,
+								&componentObject.SecretsComponentInstanceID,
+								client_v0.UpdateSecretInstance,
+								&log,
+							); err != nil {
+								operationErr = fmt.Errorf("failed to ensure secrets component: %w", err)
 							}
 						}
 					}
@@ -546,34 +524,38 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 					r.APIServer,
 					&deletedSecretInstance,
 				)
-				if err != nil {
-					log.Error(err, "failed to update secret instance to mark as deleted")
-					r.UnlockAndRequeue(secretInstance, requeueDelay, lockReleased, msg)
-					continue
-				}
-				_, err = client_v0.DeleteSecretInstance(
-					r.APIClient,
-					r.APIServer,
-					secretInstance.GetId(),
-				)
-				if err != nil {
-					if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
-						log.Info(
-							"conflict deleting secret instance, requeueing",
-							"cause", err.Error(),
-						)
-						// in-progress event already recorded before the handler
-						r.UnlockAndRequeue(
-							secretInstance,
-							int64(30),
-							lockReleased,
-							msg,
-						)
+				if errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+					log.Info("secret instance already deleted")
+				} else {
+					if err != nil {
+						log.Error(err, "failed to update secret instance to mark as deleted")
+						r.UnlockAndRequeue(secretInstance, requeueDelay, lockReleased, msg)
 						continue
 					}
-					log.Error(err, "failed to delete secret instance")
-					r.UnlockAndRequeue(secretInstance, requeueDelay, lockReleased, msg)
-					continue
+					_, err = client_v0.DeleteSecretInstance(
+						r.APIClient,
+						r.APIServer,
+						secretInstance.GetId(),
+					)
+					if err != nil && !errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+						if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
+							log.Info(
+								"conflict deleting secret instance, requeueing",
+								"cause", err.Error(),
+							)
+							// in-progress event already recorded before the handler
+							r.UnlockAndRequeue(
+								secretInstance,
+								int64(30),
+								lockReleased,
+								msg,
+							)
+							continue
+						}
+						log.Error(err, "failed to delete secret instance")
+						r.UnlockAndRequeue(secretInstance, requeueDelay, lockReleased, msg)
+						continue
+					}
 				}
 			default:
 				log.Error(

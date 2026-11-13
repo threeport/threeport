@@ -28,6 +28,11 @@ type GcpGkeKubernetesRuntimeValues struct {
 	DefaultNodeGroupInitialSize  *int
 	DefaultNodeGroupMinimumSize  *int
 	DefaultNodeGroupMaximumSize  *int
+	KubernetesVersion            *string
+	ReleaseChannel               *string
+	MaintenanceWindowDays        *string
+	MaintenanceWindowStart       *string
+	MaintenanceWindowHours       *int
 	Region                       *string
 	Reconciled                   *bool
 	Age                          *string
@@ -155,6 +160,11 @@ func (g *GcpGkeKubernetesRuntimeConfig) GetOperations(
 			DefaultNodeGroupInitialSize:  g.GcpGkeKubernetesRuntime.DefaultNodeGroupInitialSize,
 			DefaultNodeGroupMinimumSize:  g.GcpGkeKubernetesRuntime.DefaultNodeGroupMinimumSize,
 			DefaultNodeGroupMaximumSize:  g.GcpGkeKubernetesRuntime.DefaultNodeGroupMaximumSize,
+			KubernetesVersion:            g.GcpGkeKubernetesRuntime.KubernetesVersion,
+			ReleaseChannel:               g.GcpGkeKubernetesRuntime.ReleaseChannel,
+			MaintenanceWindowDays:        g.GcpGkeKubernetesRuntime.MaintenanceWindowDays,
+			MaintenanceWindowStart:       g.GcpGkeKubernetesRuntime.MaintenanceWindowStart,
+			MaintenanceWindowHours:       g.GcpGkeKubernetesRuntime.MaintenanceWindowHours,
 		},
 	}
 	operations.AppendOperation(util.Operation{
@@ -264,6 +274,11 @@ func mapToGcpGkeKubernetesRuntimeDefinedInstances(
 						DefaultNodeGroupInitialSize:  def.GcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize,
 						DefaultNodeGroupMinimumSize:  def.GcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
 						DefaultNodeGroupMaximumSize:  def.GcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
+						KubernetesVersion:            def.GcpGkeKubernetesRuntimeDefinition.KubernetesVersion,
+						ReleaseChannel:               def.GcpGkeKubernetesRuntimeDefinition.ReleaseChannel,
+						MaintenanceWindowDays:        def.GcpGkeKubernetesRuntimeDefinition.MaintenanceWindowDays,
+						MaintenanceWindowStart:       def.GcpGkeKubernetesRuntimeDefinition.MaintenanceWindowStart,
+						MaintenanceWindowHours:       def.GcpGkeKubernetesRuntimeDefinition.MaintenanceWindowHours,
 						Region:                       inst.GcpGkeKubernetesRuntimeInstance.Region,
 						Reconciled:                   inst.GcpGkeKubernetesRuntimeInstance.Reconciled,
 						Age:                          inst.GcpGkeKubernetesRuntimeInstance.Age,

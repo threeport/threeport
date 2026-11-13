@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"gorm.io/gorm/schema"
 
@@ -108,7 +109,11 @@ func (a *AwsProvider) beforeDelete(tx *gorm.DB) error {
 
 // beforeCreate validates the AwsEksKubernetesRuntimeDefinition before create.
 func (a *AwsEksKubernetesRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
-	return nil
+	if err := validateKubernetesApiAccess(KubernetesRuntimeInfraProviderEKS, a.PrivateApi, a.AllowedCidrs); err != nil {
+		return err
+	}
+
+	return validateKubernetesVersionCreate(KubernetesRuntimeInfraProviderEKS, a.KubernetesVersion)
 }
 
 // beforeUpdate validates the AwsEksKubernetesRuntimeDefinition before update.
@@ -125,7 +130,21 @@ func (a *AwsEksKubernetesRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
 // Import:
 //   lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (a *AwsEksKubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
-	return nil
+	if err := validateKubernetesVersionUpdate(tx); err != nil {
+		return err
+	}
+
+	return validateKubernetesApiAccessUpdate(
+		tx,
+		KubernetesRuntimeInfraProviderEKS,
+		func(value any) (*bool, *datatypes.JSON, bool) {
+			object, ok := value.(*AwsEksKubernetesRuntimeDefinition)
+			if !ok {
+				return nil, nil, false
+			}
+			return object.PrivateApi, object.AllowedCidrs, true
+		},
+	)
 }
 
 // beforeDelete validates the AwsEksKubernetesRuntimeDefinition before delete.
@@ -135,7 +154,7 @@ func (a *AwsEksKubernetesRuntimeDefinition) beforeDelete(tx *gorm.DB) error {
 
 // beforeCreate validates the AwsEksKubernetesRuntimeInstance before create.
 func (a *AwsEksKubernetesRuntimeInstance) beforeCreate(tx *gorm.DB) error {
-	return nil
+	return rejectAbandonInfrastructureOnCreate(a.AbandonInfrastructure)
 }
 
 // beforeUpdate validates the AwsEksKubernetesRuntimeInstance before update.

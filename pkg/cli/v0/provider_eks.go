@@ -80,7 +80,7 @@ func DeployEksInfra(
 			cpi.Opts.Namespace,
 			tpaws.IamTags(
 				cpi.Opts.Name,
-				map[string]string{},
+				provider.ThreeportProviderTags(),
 			),
 			resourceManagerRoleName,
 			*callerIdentity.Account,
@@ -93,7 +93,7 @@ func DeployEksInfra(
 			cpi.Opts.AdditionalAwsIrsaConditions,
 		)
 		if err != nil {
-			deleteErr := provider.DeleteResourceManagerRole(cpi.Opts.ControlPlaneName, *awsConfigUser)
+			deleteErr := provider.RollBackResourceManagerRole(cpi.Opts.ControlPlaneName, *awsConfigUser, err)
 			if deleteErr != nil {
 				return nil, fmt.Errorf("failed to create runtime manager role: %w, failed to delete IAM resources: %w", err, deleteErr)
 			}
@@ -157,17 +157,23 @@ func DeployEksInfra(
 		provider.GetResourceManagerRoleArn(cpi.Opts.ControlPlaneName, *callerIdentity.Account),
 	)
 
+	eksProfile, err := eksControlPlaneProfile()
+	if err != nil {
+		return nil, err
+	}
 	kubernetesRuntimeInfraEKS := (&provider.KubernetesRuntimeInfraEKS{
 		RuntimeInstanceName:          runtimeInstanceName(cpi.Opts),
 		AwsAccountID:                 *callerIdentity.Account,
 		AwsConfig:                    awsConfigResourceManager,
 		ProviderCredentials:          providerCredentials,
 		Region:                       awsConfigResourceManager.Region,
-		ZoneCount:                    int32(2),
-		DefaultNodeGroupInstanceType: "t3.medium",
-		DefaultNodeGroupInitialNodes: int32(3),
-		DefaultNodeGroupMinNodes:     int32(3),
-		DefaultNodeGroupMaxNodes:     int32(250),
+		ZoneCount:                    eksProfile.ZoneCount,
+		DefaultNodeGroupInstanceType: eksProfile.InstanceType,
+		DefaultNodeGroupInitialNodes: eksProfile.InitialNodeCount,
+		DefaultNodeGroupMinNodes:     eksProfile.MinNodeCount,
+		DefaultNodeGroupMaxNodes:     eksProfile.MaxNodeCount,
+		KubernetesVersion:            v0.KubernetesVersionOrDefault(&cpi.Opts.KubernetesVersion),
+		AllowedCidrs:                 cpi.Opts.K8sApiAllowedCidrs,
 	}).InitPulumiProject()
 	*kubernetesRuntimeInfra = kubernetesRuntimeInfraEKS
 	uninstaller.kubernetesRuntimeInfra = *kubernetesRuntimeInfra
@@ -336,11 +342,14 @@ func ConfigureControlPlaneWithEksConfig(
 		Definition: v0.Definition{
 			Name: &eksRuntimeDefName,
 		},
-		ZoneCount:                     &zoneCount,
-		DefaultNodeGroupInstanceType:  &kubernetesRuntimeInfraEKS.DefaultNodeGroupInstanceType,
-		DefaultNodeGroupInitialSize:   util.Ptr(int(kubernetesRuntimeInfraEKS.DefaultNodeGroupInitialNodes)),
-		DefaultNodeGroupMinimumSize:   util.Ptr(int(kubernetesRuntimeInfraEKS.DefaultNodeGroupMinNodes)),
-		DefaultNodeGroupMaximumSize:   util.Ptr(int(kubernetesRuntimeInfraEKS.DefaultNodeGroupMaxNodes)),
+		ZoneCount:                    &zoneCount,
+		DefaultNodeGroupInstanceType: &kubernetesRuntimeInfraEKS.DefaultNodeGroupInstanceType,
+		DefaultNodeGroupInitialSize:  util.Ptr(int(kubernetesRuntimeInfraEKS.DefaultNodeGroupInitialNodes)),
+		DefaultNodeGroupMinimumSize:  util.Ptr(int(kubernetesRuntimeInfraEKS.DefaultNodeGroupMinNodes)),
+		DefaultNodeGroupMaximumSize:  util.Ptr(int(kubernetesRuntimeInfraEKS.DefaultNodeGroupMaxNodes)),
+		AllowedCidrs:                 allowedCidrsJSON(kubernetesRuntimeInfraEKS.AllowedCidrs),
+		// the version tptctl created the cluster on, none for an existing one
+		KubernetesVersion:             kubernetesRuntimeDefResult.KubernetesVersion,
 		KubernetesRuntimeDefinitionID: kubernetesRuntimeDefResult.ID,
 	}
 	createdAwsEksKubernetesRuntimeDef, err := client.CreateAwsEksKubernetesRuntimeDefinition(

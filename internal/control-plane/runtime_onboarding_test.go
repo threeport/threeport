@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/datatypes"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	"github.com/threeport/threeport/pkg/encryption/v0"
@@ -18,8 +19,8 @@ import (
 )
 
 // fakeAPI is a threeport API held in memory: enough of the REST surface for the
-// client library to create objects, list them by a query filter and fetch them
-// by ID. Objects are kept as the JSON the client sent, so a test sees exactly
+// client library to create objects, list them by a query filter, fetch them
+// by ID and patch them. Objects are kept as the JSON the client sent, so a test sees exactly
 // what went over the wire.
 type fakeAPI struct {
 	t      *testing.T
@@ -29,6 +30,7 @@ type fakeAPI struct {
 	nextID  int
 	objects map[string][]map[string]any
 	posted  map[string][]map[string]any
+	patched map[string][]map[string]any
 }
 
 // newFakeAPI starts a fake API that numbers the objects created on it from
@@ -39,6 +41,7 @@ func newFakeAPI(t *testing.T, firstID int) *fakeAPI {
 		nextID:  firstID,
 		objects: map[string][]map[string]any{},
 		posted:  map[string][]map[string]any{},
+		patched: map[string][]map[string]any{},
 	}
 	api.server = httptest.NewServer(http.HandlerFunc(api.handle))
 	t.Cleanup(api.server.Close)
@@ -66,6 +69,13 @@ func (a *fakeAPI) createdOn(path string) []map[string]any {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return a.posted[path]
+}
+
+// patchedOn returns the patches the test's code sent to objects at a path.
+func (a *fakeAPI) patchedOn(path string) []map[string]any {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.patched[path]
 }
 
 func (a *fakeAPI) handle(w http.ResponseWriter, r *http.Request) {
@@ -115,6 +125,24 @@ func (a *fakeAPI) handle(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		respond(http.StatusOK, matches...)
+
+	case http.MethodPatch:
+		i := strings.LastIndex(r.URL.Path, "/")
+		id, err := strconv.Atoi(r.URL.Path[i+1:])
+		require.NoError(a.t, err)
+		var patch map[string]any
+		require.NoError(a.t, json.NewDecoder(r.Body).Decode(&patch))
+		a.patched[r.URL.Path[:i]] = append(a.patched[r.URL.Path[:i]], cloneObject(patch))
+		for _, object := range a.objects[r.URL.Path[:i]] {
+			if number(object["ID"]) == id {
+				for field, value := range patch {
+					object[field] = value
+				}
+				respond(http.StatusOK, object)
+				return
+			}
+		}
+		respond(http.StatusNotFound)
 
 	default:
 		respond(http.StatusMethodNotAllowed)
@@ -194,6 +222,7 @@ func parentGkeRuntime(t *testing.T, parent *fakeAPI, encryptionKey string, withC
 		"GcpGkeKubernetesRuntimeDefinitionID": 5,
 		"KubernetesRuntimeInstanceID":         20,
 		"Reconciled":                          false,
+		"ReservedNatAddress":                  true,
 	})
 }
 
@@ -228,6 +257,8 @@ func TestCopyGkeRecords_CreatesRecordsOnChild(t *testing.T) {
 	assert.EqualValues(t, 200, instances[0]["KubernetesRuntimeInstanceID"])
 	assert.EqualValues(t, 500, instances[0]["GcpProviderID"], "points at the provider created on the child")
 	assert.EqualValues(t, 501, instances[0]["GcpGkeKubernetesRuntimeDefinitionID"], "points at the definition created on the child")
+	assert.Equal(t, true, instances[0]["ReservedNatAddress"],
+		"the child keeps the cluster's NAT as it was provisioned")
 }
 
 func TestCopyGkeRecords_NoCredentialsStaysUnset(t *testing.T) {
@@ -299,6 +330,7 @@ func TestCreateRuntimeInstance_SetsFlagsAndDecryptsSecrets(t *testing.T) {
 		ConnectionToken:           &encryptedToken,
 		ThreeportControlPlaneHost: util.Ptr(true),
 		DefaultRuntime:            util.Ptr(true),
+		EgressCidrs:               util.Ptr(datatypes.JSON(`["198.51.100.20/32"]`)),
 	}
 
 	tests := []struct {
@@ -325,6 +357,8 @@ func TestCreateRuntimeInstance_SetsFlagsAndDecryptsSecrets(t *testing.T) {
 			assert.EqualValues(t, 100, posted[0]["KubernetesRuntimeDefinitionID"])
 			assert.Equal(t, "private-key", posted[0]["CertificateKey"])
 			assert.Equal(t, "bearer-token", posted[0]["ConnectionToken"])
+			assert.Equal(t, []any{"198.51.100.20/32"}, posted[0]["EgressCidrs"],
+				"the child's control plane admits the cluster's addresses on the clusters it manages")
 			assert.Nil(t, posted[0]["ID"])
 		})
 	}

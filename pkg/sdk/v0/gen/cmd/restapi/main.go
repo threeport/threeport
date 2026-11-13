@@ -16,6 +16,11 @@ import (
 )
 
 // GenRestApiMain generates source code for the REST API main package.
+
+// messageBrokerPath is the package the API server connects to the message
+// broker with.
+const messageBrokerPath = "github.com/threeport/threeport/pkg/messagebroker/v0"
+
 func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	// get project version
 	projectVersionBytes, err := os.ReadFile("internal/version/version.txt")
@@ -71,10 +76,19 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	routeRegistration := &Statement{}
 	routeRegistration.Comment("routes")
 	routeRegistration.Line()
-	routeRegistration.Qual(
-		"github.com/threeport/threeport/pkg/api-server/v0/routes",
-		"SwaggerRoutes",
-	).Call(Id("e"))
+	if gen.Module {
+		// the module's own swagger docs, served under the path the core API
+		// proxies to this module
+		routeRegistration.Id("e").Dot("GET").Call(
+			Qual(fmt.Sprintf("%s/pkg/api-server/v0", gen.ModulePath), "SwaggerPath").Op("+").Lit("/*"),
+			Qual("github.com/swaggo/echo-swagger", "WrapHandler"),
+		)
+	} else {
+		routeRegistration.Qual(
+			"github.com/threeport/threeport/pkg/api-server/v0/routes",
+			"SwaggerRoutes",
+		).Call(Id("e"))
+	}
 	routeRegistration.Line()
 	routeRegistration.Qual(
 		fmt.Sprintf("%s/cmd/rest-api/util", gen.ModulePath),
@@ -136,6 +150,7 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 	}
 	f.ImportAlias("github.com/labstack/echo/v4", "echo")
+	f.ImportAlias(messageBrokerPath, "messagebroker")
 	f.ImportAlias("github.com/go-playground/validator/v10", "validator")
 	f.ImportAlias("log", "stdlog")
 	f.ImportAlias(util.SetImportAlias(
@@ -171,7 +186,9 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	} else {
 		f.ImportAlias("github.com/threeport/threeport/pkg/api/v0", "api_v0")
 	}
-	f.Anon("github.com/threeport/threeport/pkg/api-server/v0/docs")
+	// the swagger docs this API server serves: a module's own, described
+	// from its own API, not the core API's
+	f.Anon(fmt.Sprintf("%s/pkg/api-server/v0/docs", gen.ModulePath))
 
 	// swagger docs
 	if sdkConfig.ApiDocs.Title != "" {
@@ -532,19 +549,17 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			g.Line()
 		}
 
-		g.Comment("nats connection")
-		g.Id("natsConn").Op(":=").Qual("fmt", "Sprintf").Call(
-			Line().Lit("nats://%s:%s@%s:%s"),
-			Line().Qual("os", "Getenv").Call(Lit("NATS_USER")),
-			Line().Qual("os", "Getenv").Call(Lit("NATS_PASSWORD")),
-			Line().Qual("os", "Getenv").Call(Lit("NATS_HOST")),
-			Line().Qual("os", "Getenv").Call(Lit("NATS_PORT")),
-			Line(),
+		g.Comment("nats connection, over TLS with the API server's credentials, which go")
+		g.Comment("apart from the URL so they never reach a log line")
+		g.List(Id("nc"), Err()).Op(":=").Qual(messageBrokerPath, "Connect").Call(
+			Qual(messageBrokerPath, "Config").Values(Dict{
+				Id("Host"):     Qual("os", "Getenv").Call(Lit("NATS_HOST")),
+				Id("Port"):     Qual("os", "Getenv").Call(Lit("NATS_PORT")),
+				Id("User"):     Qual("os", "Getenv").Call(Lit("NATS_USER")),
+				Id("Password"): Qual("os", "Getenv").Call(Lit("NATS_PASSWORD")),
+				Id("CAFile"):   Qual("os", "Getenv").Call(Lit("NATS_CA_FILE")),
+			}),
 		)
-		g.List(Id("nc"), Err()).Op(":=").Qual(
-			"github.com/nats-io/nats.go",
-			"Connect",
-		).Call(Id("natsConn"))
 		g.If(Err().Op("!=").Nil()).Block(
 			Id("e").Dot("Logger").Dot("Fatalf").Call(
 				Lit("failed to establish nats connection: %v"), Err(),
@@ -553,11 +568,20 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		g.Defer().Id("nc").Dot("Close").Call()
 		g.Line()
 
-		g.Comment("jetstream context")
+		g.Comment("jetstream context, with the streams replicated across the broker's")
+		g.Comment("servers")
+		g.List(Id("natsReplicas"), Err()).Op(":=").Qual(messageBrokerPath, "ParseReplicas").Call(
+			Qual("os", "Getenv").Call(Lit("NATS_REPLICAS")),
+		)
+		g.If(Err().Op("!=").Nil()).Block(
+			Id("e").Dot("Logger").Dot("Fatalf").Call(
+				Lit("failed to read the message broker's replicas: %v"), Err(),
+			),
+		)
 		g.List(Id("js"), Err()).Op(":=").Qual(
 			fmt.Sprintf("%s/cmd/rest-api/util", gen.ModulePath),
 			"InitJetStream",
-		).Call(Id("nc"))
+		).Call(Id("nc"), Id("natsReplicas"))
 		g.If(Err().Op("!=").Nil()).Block(
 			Id("e").Dot("Logger").Dot("Fatalf").Call(
 				Lit("failed to initialize nats jet stream: %v"), Err(),
@@ -658,6 +682,16 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		Comment("set up health check endpoint"),
 		Qual("net/http", "HandleFunc").Call(
 			Lit("/readyz"),
+			Func().Params(Id("w").Qual("net/http", "ResponseWriter"), Id("r").Op("*").Qual("net/http", "Request")).Block(
+				Id("w").Dot("WriteHeader").Call(Qual("net/http", "StatusOK")),
+				Id("w").Dot("Write").Call(Index().Byte().Call(Lit("OK"))),
+			),
+		),
+		Line(),
+		Comment("liveness only asks whether the process still answers, so a"),
+		Comment("database or NATS outage does not restart every replica"),
+		Qual("net/http", "HandleFunc").Call(
+			Lit("/livez"),
 			Func().Params(Id("w").Qual("net/http", "ResponseWriter"), Id("r").Op("*").Qual("net/http", "Request")).Block(
 				Id("w").Dot("WriteHeader").Call(Qual("net/http", "StatusOK")),
 				Id("w").Dot("Write").Call(Index().Byte().Call(Lit("OK"))),

@@ -31,6 +31,11 @@ const (
 	ReasonDeleteSuccessful = "DeleteSuccessful"
 	ReasonDeleteFailed     = "DeleteFailed"
 
+	// ReasonInfrastructureAbandoned marks a delete that went ahead on an
+	// operator's explicit request even though cloud resources may be left
+	// running and no longer tracked.
+	ReasonInfrastructureAbandoned = "InfrastructureAbandoned"
+
 	// Default event types
 	TypeNormal  = "Normal"
 	TypeWarning = "Warning"
@@ -121,6 +126,12 @@ func truncateNote(note string) string {
 		return note[:maxNoteLength]
 	}
 	return note
+}
+
+// TruncateNote cuts a note down to the length an event note is bounded to, for
+// a caller that records its own events rather than through HandleEventOverride.
+func TruncateNote(note string) string {
+	return truncateNote(note)
 }
 
 // GiveUpNote returns the note for the event a reconciler records when it stops

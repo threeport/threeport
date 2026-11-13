@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -12,6 +13,7 @@ import (
 	"github.com/threeport/threeport/pkg/api-server/v0/database"
 	auth "github.com/threeport/threeport/pkg/auth/v0"
 	"github.com/threeport/threeport/pkg/encryption/v0"
+	kube "github.com/threeport/threeport/pkg/kube/v0"
 )
 
 const (
@@ -45,10 +47,45 @@ func (cpi *ControlPlaneInstaller) CreateThreeportControlPlaneNamespace(
 			},
 		},
 	}
+	// Whether the namespace was already there decides what a failed install
+	// may remove. Tearing down deletes the namespace, and deleting one this
+	// install did not create takes whatever was in it - on a reapply against
+	// a running control plane, that is the database and its data.
+	if err := cpi.CheckNamespacePresence(kubeClient, mapper); err != nil {
+		return err
+	}
+
 	// leave an existing namespace so a reapply does not rewrite the tier label
 	setPersistent(namespace)
 	if err := cpi.CreateOrUpdateKubeResource(namespace, kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed to create/update control plane namespace: %w", err)
+	}
+
+	return nil
+}
+
+// CheckNamespacePresence records in Opts.NamespacePresence whether the
+// control plane namespace is in the cluster, unless an earlier call has
+// already found out: the first check is the one made before this install
+// created anything.  Only a namespace the API says is not found is absent.
+// Any other error is returned and leaves the presence unknown, which a
+// teardown treats as present, since a namespace that is there but couldn't
+// be read for a moment is the one a teardown must not delete.
+func (cpi *ControlPlaneInstaller) CheckNamespacePresence(kubeClient dynamic.Interface, mapper *meta.RESTMapper) error {
+	if cpi.Opts.NamespacePresence != NamespacePresenceUnknown {
+		return nil
+	}
+
+	_, err := kube.GetResource(
+		"", "v1", "Namespace", "", cpi.Opts.Namespace, kubeClient, *mapper,
+	)
+	switch {
+	case err == nil:
+		cpi.Opts.NamespacePresence = NamespacePresent
+	case k8serrors.IsNotFound(err):
+		cpi.Opts.NamespacePresence = NamespaceAbsent
+	default:
+		return fmt.Errorf("failed to check whether the %s namespace exists: %w", cpi.Opts.Namespace, err)
 	}
 
 	return nil
@@ -65,6 +102,12 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControlPlaneDependencies(
 ) error {
 	if err := cpi.CreateThreeportControlPlaneNamespace(kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed in create threeport control plane namespace: %w", err)
+	}
+
+	// the message broker's CA, certificate and client credentials, which the
+	// broker and every client below mount
+	if err := cpi.ensureMessageBrokerSecrets(kubeClient); err != nil {
+		return fmt.Errorf("failed to create the message broker's certificates and credentials: %w", err)
 	}
 
 	var encryptionSecret = &unstructured.Unstructured{
@@ -134,6 +177,13 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControlPlaneDependencies(
 		return fmt.Errorf("failed to create/update API server secret for kubernetes workload controller: %w", err)
 	}
 
+	// how many servers the broker runs: the tier's on a new install, and the
+	// count it already has on a reinstall, which doesn't change it
+	brokerReplicas, err := cpi.messageBrokerReplicas(kubeClient)
+	if err != nil {
+		return err
+	}
+
 	var natsConfig = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "v1",
@@ -172,7 +222,7 @@ jetstream {
 lame_duck_grace_period: 10s
 lame_duck_duration: 30s
 store_dir: /data
-`,
+` + natsServerTLSAuthConfig + natsClusterConfig(cpi.Opts.Namespace, brokerReplicas),
 			},
 		},
 	}
@@ -267,7 +317,10 @@ store_dir: /data
 						},
 					},
 					"spec": map[string]interface{}{
-						"volumes":         nil,
+						// the nats CLI connects over TLS as the threeport user
+						"volumes": []interface{}{
+							NatsClientCAVolume(),
+						},
 						"securityContext": natsBoxPodSecurityContext(),
 						"containers": []interface{}{
 							map[string]interface{}{
@@ -275,19 +328,16 @@ store_dir: /data
 								"securityContext": vendoredContainerSecurityContext(),
 								"image":           natsBoxImage,
 								"imagePullPolicy": "IfNotPresent",
-								"resources":       nil,
-								"env": []interface{}{
-									map[string]interface{}{
-										"name":  "NATS_URL",
-										"value": "nats-js",
-									},
-								},
+								"resources":       natsBoxResources(),
+								"env":             natsCLIEnv(),
 								"command": []interface{}{
 									"tail",
 									"-f",
 									"/dev/null",
 								},
-								"volumeMounts": nil,
+								"volumeMounts": []interface{}{
+									NatsClientCAVolumeMount(),
+								},
 							},
 						},
 					},
@@ -322,7 +372,7 @@ store_dir: /data
 						"app.kubernetes.io/instance": "nats-js",
 					},
 				},
-				"replicas":            1,
+				"replicas":            brokerReplicas,
 				"serviceName":         "nats-js",
 				"podManagementPolicy": "Parallel",
 				"template": map[string]interface{}{
@@ -352,12 +402,9 @@ store_dir: /data
 								"name":     "pid",
 								"emptyDir": map[string]interface{}{},
 							},
+							// The server's certificate, which clients verify.
+							natsServerCertVolume(),
 						},
-						//################
-						//               #
-						//  TLS Volumes  #
-						//               #
-						//################
 
 						"serviceAccountName": "nats-js",
 						// Required to be able to HUP signal and apply config
@@ -381,7 +428,7 @@ store_dir: /data
 								"securityContext": restrictedContainerSecurityContext(),
 								"image":           "docker.io/library/nats:2.10.25-alpine",
 								"imagePullPolicy": "IfNotPresent",
-								"resources":       map[string]interface{}{},
+								"resources":       natsServerResources(),
 								"ports": []interface{}{
 									map[string]interface{}{
 										"containerPort": 4222,
@@ -429,6 +476,16 @@ store_dir: /data
 										"name":  "CLUSTER_ADVERTISE",
 										"value": "$(POD_NAME).nats-js.$(POD_NAMESPACE).svc.cluster.local",
 									},
+									// The user and password the config's
+									// authorization block reads.
+									natsSecretEnv("NATS_USER", "user"),
+									natsSecretEnv("NATS_PASSWORD", "password"),
+									// keeps the Go runtime collecting before the
+									// container reaches its memory limit
+									map[string]interface{}{
+										"name":  "GOMEMLIMIT",
+										"value": natsServerGoMemLimit,
+									},
 								},
 								"volumeMounts": []interface{}{
 									map[string]interface{}{
@@ -443,23 +500,29 @@ store_dir: /data
 										"name":      "datadir",
 										"mountPath": "/data",
 									},
+									natsServerCertVolumeMount(),
 								},
 								//######################
 								//                     #
 								// Healthcheck Probes  #
 								//                     #
 								//######################
-								//"livenessProbe": map[string]interface{}{
-								//	"failureThreshold": 3,
-								//	"httpGet": map[string]interface{}{
-								//		"path": "/",
-								//		"port": 8222,
-								//	},
-								//	"initialDelaySeconds": 10,
-								//	"periodSeconds":       30,
-								//	"successThreshold":    1,
-								//	"timeoutSeconds":      5,
-								//},
+								// restarts a server that stopped answering; it checks only
+								// that JetStream is enabled, since the full health check
+								// also fails while JetStream catches up, which a restart
+								// would only interrupt.  The startup probe holds it off
+								// until the server is up.
+								"livenessProbe": map[string]interface{}{
+									"failureThreshold": 3,
+									"httpGet": map[string]interface{}{
+										"path": natsLivenessPath,
+										"port": 8222,
+									},
+									"initialDelaySeconds": 10,
+									"periodSeconds":       30,
+									"successThreshold":    1,
+									"timeoutSeconds":      5,
+								},
 								"readinessProbe": map[string]interface{}{
 									"failureThreshold": 3,
 									"httpGet": map[string]interface{}{
@@ -511,7 +574,7 @@ store_dir: /data
 								"securityContext": restrictedContainerSecurityContext(),
 								"image":           "docker.io/natsio/nats-server-config-reloader:0.16.1",
 								"imagePullPolicy": "IfNotPresent",
-								"resources":       nil,
+								"resources":       natsReloaderResources(),
 								"command": []interface{}{
 									"nats-server-config-reloader",
 									"-pid",
@@ -532,6 +595,9 @@ store_dir: /data
 										"name":      "datadir",
 										"mountPath": "/data",
 									},
+									// the reloader watches the files the
+									// config names, the certificate among them
+									natsServerCertVolumeMount(),
 								},
 							},
 							//#############################
@@ -544,7 +610,7 @@ store_dir: /data
 								"securityContext": restrictedContainerSecurityContext(),
 								"image":           "docker.io/natsio/prometheus-nats-exporter:0.16.0",
 								"imagePullPolicy": "IfNotPresent",
-								"resources":       map[string]interface{}{},
+								"resources":       natsExporterResources(),
 								"args": []interface{}{
 									"-connz",
 									"-routez",
@@ -577,9 +643,18 @@ store_dir: /data
 		},
 	}
 
-	// leave the message broker stateful set in place when it already exists
+	// spread a clustered broker's servers over separate nodes
+	if affinity := natsAntiAffinity(brokerReplicas); affinity != nil {
+		if err := unstructured.SetNestedField(natsStatefulSet.Object, affinity, "spec", "template", "spec", "affinity"); err != nil {
+			return fmt.Errorf("failed to set the message broker's anti-affinity: %w", err)
+		}
+	}
+
+	// keep the message broker stateful set and its volume, and roll an
+	// existing one onto the current pod template, so a control plane
+	// installed before the broker required TLS moves onto it with its data
 	setPersistent(natsStatefulSet)
-	if err := cpi.CreateOrUpdateKubeResource(natsStatefulSet, kubeClient, mapper); err != nil {
+	if err := cpi.createOrUpdateStatefulSet(natsStatefulSet, kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed to create/update API server secret for kubernetes workload controller: %w", err)
 	}
 
@@ -737,22 +812,9 @@ store_dir: /data
 						},
 					},
 					"spec": map[string]interface{}{
-						"affinity": crdbAntiAffinity(cpi.Opts.Tier),
-						"topologySpreadConstraints": []interface{}{
-							map[string]interface{}{
-								"labelSelector": map[string]interface{}{
-									"matchLabels": map[string]interface{}{
-										"app.kubernetes.io/name":      "cockroachdb",
-										"app.kubernetes.io/instance":  "crdb",
-										"app.kubernetes.io/component": "cockroachdb",
-									},
-								},
-								"maxSkew":           1,
-								"topologyKey":       "topology.kubernetes.io/zone",
-								"whenUnsatisfiable": "ScheduleAnyway",
-							},
-						},
-						"serviceAccountName": DatabaseServiceAccountName,
+						"affinity":                  crdbAntiAffinity(cpi.Opts.Tier),
+						"topologySpreadConstraints": crdbZoneSpread(cpi.Opts.Tier),
+						"serviceAccountName":        DatabaseServiceAccountName,
 						// No pre-stop hook is required, a SIGTERM plus some time is all that's
 						// needed for graceful shutdown of a node.
 						"terminationGracePeriodSeconds": 60,
@@ -852,6 +914,11 @@ store_dir: /data
 	// the database runs as its own service account, which is what its
 	// backups are written as
 	if err := cpi.installDatabaseServiceAccount(kubeClient, mapper); err != nil {
+		return err
+	}
+
+	// a production database's volumes have to follow its pods across zones
+	if err := cpi.checkDatabaseStorage(kubeClient); err != nil {
 		return err
 	}
 
@@ -1000,6 +1067,35 @@ func crdbAntiAffinity(tier ControlPlaneTier) map[string]interface{} {
 					},
 				},
 			},
+		},
+	}
+}
+
+// crdbZoneSpread spreads CockroachDB pods across zones, strictly for
+// production and as a preference for development.
+//
+// The hostname anti-affinity keeps production's three replicas on three
+// nodes, but two of those nodes can be in one zone, and losing that zone
+// loses two of three replicas and the Raft majority with them.  Production
+// refuses that placement as it refuses two replicas on one node: a replica
+// that can't be placed in a zone of its own stays visibly Pending.  A skew of
+// one still admits two replicas in one zone on a cluster with only two zones,
+// so it holds a cluster that can't survive the loss of a zone to no more than
+// it can do.
+func crdbZoneSpread(tier ControlPlaneTier) []interface{} {
+	whenUnsatisfiable := "ScheduleAnyway"
+	if string(tier) == ControlPlaneTierProd {
+		whenUnsatisfiable = "DoNotSchedule"
+	}
+
+	return []interface{}{
+		map[string]interface{}{
+			"labelSelector": map[string]interface{}{
+				"matchLabels": crdbAntiAffinityLabels,
+			},
+			"maxSkew":           1,
+			"topologyKey":       "topology.kubernetes.io/zone",
+			"whenUnsatisfiable": whenUnsatisfiable,
 		},
 	}
 }

@@ -7,12 +7,20 @@ import (
 	"github.com/pulumi/pulumi-aws/sdk/v6/go/aws/ec2"
 	awseks "github.com/pulumi/pulumi-aws/sdk/v6/go/aws/eks"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
+
+	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
 const (
 	// DefaultEksKubernetesVersion is the Kubernetes version used for an EKS
 	// cluster when the runtime definition does not pin one.
-	DefaultEksKubernetesVersion = "1.32"
+	DefaultEksKubernetesVersion = v0.DefaultKubernetesVersion
+
+	// eksSupportType is what happens to the cluster when its version leaves
+	// EKS standard support.  EKS's own default, EXTENDED, keeps it on that
+	// version at a higher hourly charge.  STANDARD has AWS upgrade the control
+	// plane to the next version instead.
+	eksSupportType = "STANDARD"
 
 	// eksVpcCidr is the CIDR block for the VPC the cluster runs in.
 	eksVpcCidr = "10.0.0.0/16"
@@ -44,6 +52,13 @@ func eksSubnetCidrs() []string {
 		"10.0.20.0/22",
 	}
 }
+
+// eksNodeGroupIgnoredChanges are the node group properties Pulumi sets only when
+// it creates the node group.  The cluster autoscaler moves the desired size
+// with the load, and an up on an existing stack runs after a refresh from AWS
+// (see setupStack), so setting the initial size again would scale a busy
+// cluster back down and evict its workloads.
+var eksNodeGroupIgnoredChanges = []string{"scalingConfig.desiredSize"}
 
 // InitPulumiProject fills in the Pulumi project identity and stack config, and
 // returns the receiver so a caller can set it at construction.
@@ -151,6 +166,22 @@ func (i *KubernetesRuntimeInfraEKS) kubernetesVersion() string {
 	return i.KubernetesVersion
 }
 
+// upgradePolicy returns the cluster's upgrade policy: the cluster's, when the
+// stack already holds it, and eksSupportType otherwise.  A cluster in extended
+// support can't leave it, so one created before the policy was set keeps the
+// one EKS gave it.
+func (i *KubernetesRuntimeInfraEKS) upgradePolicy() awseks.ClusterUpgradePolicyPtrInput {
+	supportType := eksSupportType
+	if i.stackSupportType != nil {
+		if *i.stackSupportType == "" {
+			return nil
+		}
+		supportType = *i.stackSupportType
+	}
+
+	return &awseks.ClusterUpgradePolicyArgs{SupportType: pulumi.String(supportType)}
+}
+
 // resourceTags returns the tags applied to every AWS resource in the stack,
 // with a Name identifying the individual resource.
 func (i *KubernetesRuntimeInfraEKS) resourceTags(name string) pulumi.StringMap {
@@ -243,6 +274,9 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 
 		subnetCidrs := eksSubnetCidrs()
 		privateSubnetIds := pulumi.StringArray{}
+		// the public addresses of the NAT gateways, which all outbound
+		// traffic from the nodes leaves through
+		var egressAddresses []pulumi.StringOutput
 		for zoneIndex, zone := range zones {
 			publicSubnetName := fmt.Sprintf("%s-public-subnet-%d", i.RuntimeInstanceName, zoneIndex)
 			publicSubnetTags := i.resourceTags(publicSubnetName)
@@ -297,6 +331,7 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 			if err != nil {
 				return fmt.Errorf("failed to create elastic IP in zone %s: %w", zone, err)
 			}
+			egressAddresses = append(egressAddresses, elasticIp.PublicIp)
 
 			natGatewayName := fmt.Sprintf("%s-nat-gateway-%d", i.RuntimeInstanceName, zoneIndex)
 			natGateway, err := ec2.NewNatGateway(ctx, natGatewayName, &ec2.NatGatewayArgs{
@@ -338,17 +373,29 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 		// the cluster's elastic network interfaces live in the private
 		// subnets; the API endpoint is reachable both from inside the VPC and
 		// from the internet so that a control plane hosted elsewhere can
-		// reach it
+		// reach it.  AllowedCidrs, when set, limits the public endpoint to
+		// those blocks and the managing control plane's addresses; the nodes
+		// keep reaching the API through the private endpoint, which the list
+		// does not apply to.
+		vpcConfig := &awseks.ClusterVpcConfigArgs{
+			SubnetIds:             privateSubnetIds,
+			EndpointPrivateAccess: pulumi.Bool(true),
+			EndpointPublicAccess:  pulumi.Bool(true),
+		}
+		allowlist, err := kubeApiAllowlist(v0.KubernetesRuntimeInfraProviderEKS, i.AllowedCidrs, i.ControlPlaneEgressCidrs)
+		if err != nil {
+			return err
+		}
+		if len(allowlist) > 0 {
+			vpcConfig.PublicAccessCidrs = pulumi.ToStringArray(allowlist)
+		}
 		cluster, err := awseks.NewCluster(ctx, i.RuntimeInstanceName, &awseks.ClusterArgs{
-			Name:    pulumi.String(i.RuntimeInstanceName),
-			RoleArn: pulumi.String(i.ClusterRoleArn),
-			Version: pulumi.String(i.kubernetesVersion()),
-			VpcConfig: &awseks.ClusterVpcConfigArgs{
-				SubnetIds:             privateSubnetIds,
-				EndpointPrivateAccess: pulumi.Bool(true),
-				EndpointPublicAccess:  pulumi.Bool(true),
-			},
-			Tags: i.resourceTags(i.RuntimeInstanceName),
+			Name:          pulumi.String(i.RuntimeInstanceName),
+			RoleArn:       pulumi.String(i.ClusterRoleArn),
+			Version:       pulumi.String(i.kubernetesVersion()),
+			UpgradePolicy: i.upgradePolicy(),
+			VpcConfig:     vpcConfig,
+			Tags:          i.resourceTags(i.RuntimeInstanceName),
 		})
 		if err != nil {
 			return fmt.Errorf("failed to create EKS cluster: %w", err)
@@ -368,9 +415,11 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 				MaxSize:     pulumi.Int(i.DefaultNodeGroupMaxNodes),
 			},
 			Tags: i.resourceTags(nodeGroupName),
-		}); err != nil {
+		}, pulumi.IgnoreChanges(eksNodeGroupIgnoredChanges)); err != nil {
 			return fmt.Errorf("failed to create EKS node group: %w", err)
 		}
+
+		exportEgressCidrs(ctx, egressAddresses)
 
 		return nil
 	}

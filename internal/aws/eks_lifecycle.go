@@ -76,6 +76,8 @@ func (e *eksLifecycle) GetReconciliation() (*provider.ReconciliationSnapshot, er
 		DeletionAcknowledged: latest.DeletionAcknowledged,
 		DeletionConfirmed:    latest.DeletionConfirmed,
 		ResourceInventory:    latest.ResourceInventory,
+
+		AbandonInfrastructure: latest.AbandonInfrastructure != nil && *latest.AbandonInfrastructure,
 	}, nil
 }
 
@@ -144,11 +146,7 @@ func (e *eksLifecycle) IsCreateComplete() (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to check EKS creation status: %w", err)
 	}
-	if latest.ResourceInventory == nil {
-		return false, nil
-	}
-	inventory := *latest.ResourceInventory
-	if len(inventory) == 0 || string(inventory) == "{}" || string(inventory) == "null" {
+	if !provider.HasInventory(latest.ResourceInventory) {
 		return false, nil
 	}
 
@@ -192,6 +190,16 @@ func (e *eksLifecycle) OnCreateConfirmed(infra provider.InfraProvider) error {
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
+	}
+
+	// record the addresses the cluster's outbound traffic comes from, which
+	// clusters this one may come to manage as a control plane host admit
+	egressCidrs, err := provider.EgressCidrsFromState(latest.ResourceInventory)
+	if err != nil {
+		return fmt.Errorf("failed to read the cluster's egress addresses: %w", err)
+	}
+	if len(egressCidrs) > 0 {
+		kubernetesRuntimeInstance.EgressCidrs = provider.EgressCidrsJSON(egressCidrs)
 	}
 
 	kubeRuntimeReconciled := false
@@ -403,6 +411,22 @@ func (e *eksLifecycle) ClearInventory() error {
 	return err
 }
 
+// RecordWarning records a Warning event against the instance.
+func (e *eksLifecycle) RecordWarning(reason, note string) error {
+	// a nil Recorder interface and a nil pointer inside one are both "none"
+	if e.r == nil || e.r.EventsRecorder == nil {
+		return provider.RecordWarningEvent(nil, e.instanceID, "", reason, note)
+	}
+
+	return provider.RecordWarningEvent(
+		e.r.EventsRecorder,
+		e.instanceID,
+		new(v0.AwsEksKubernetesRuntimeInstance).GetFullyQualifiedType(),
+		reason,
+		note,
+	)
+}
+
 // PublishCreateNotification publishes a NATS notification for creation.
 func (e *eksLifecycle) PublishCreateNotification() error {
 	notifPayload, err := e.instance.NotificationPayload(
@@ -476,14 +500,35 @@ func buildEksInfra(
 		return nil, fmt.Errorf("failed to resolve AWS provider credentials: %w", err)
 	}
 
-	return eksInfraFromApiObjects(
+	infraEKS, err := eksInfraFromApiObjects(
 		instance,
 		definition,
 		*awsProvider.AccountID,
 		awsConfig,
 		*providerCredentials,
 		log,
-	), nil
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// a cluster whose API is restricted also admits the control plane that
+	// manages it; the lookup is skipped for a cluster being deleted, which
+	// does not provision anything
+	if len(infraEKS.AllowedCidrs) > 0 && instance.DeletionScheduled == nil {
+		controlPlaneEgressCidrs, err := provider.ControlPlaneEgressCidrs(
+			r.APIClient,
+			r.APIServer,
+			*instance.KubernetesRuntimeInstanceID,
+			log,
+		)
+		if err != nil {
+			return nil, err
+		}
+		infraEKS.ControlPlaneEgressCidrs = controlPlaneEgressCidrs
+	}
+
+	return infraEKS, nil
 }
 
 // eksInfraFromApiObjects maps the runtime instance and definition onto the
@@ -495,7 +540,12 @@ func eksInfraFromApiObjects(
 	awsConfig *aws.Config,
 	providerCredentials tpaws.AwsProviderCredentials,
 	log *logr.Logger,
-) *provider.KubernetesRuntimeInfraEKS {
+) (*provider.KubernetesRuntimeInfraEKS, error) {
+	allowedCidrs, err := v0.ParseCidrs("AllowedCidrs", definition.AllowedCidrs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the definition's AllowedCidrs: %w", err)
+	}
+
 	return (&provider.KubernetesRuntimeInfraEKS{
 		PulumiWorkspace: provider.PulumiWorkspace{
 			RuntimeInstanceName: *instance.Name,
@@ -510,5 +560,7 @@ func eksInfraFromApiObjects(
 		DefaultNodeGroupInitialNodes: int32(*definition.DefaultNodeGroupInitialSize),
 		DefaultNodeGroupMinNodes:     int32(*definition.DefaultNodeGroupMinimumSize),
 		DefaultNodeGroupMaxNodes:     int32(*definition.DefaultNodeGroupMaximumSize),
-	}).InitPulumiProject()
+		KubernetesVersion:            v0.KubernetesVersionOrDefault(definition.KubernetesVersion),
+		AllowedCidrs:                 allowedCidrs,
+	}).InitPulumiProject(), nil
 }

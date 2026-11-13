@@ -1,9 +1,13 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"go/build"
+	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -120,6 +124,99 @@ func (Test) E2eAws(region string, clean bool) error {
 	}
 	if err := util.RunCommandStreamOutput(cmd, args...); err != nil {
 		return fmt.Errorf("failed to run e2e tests on AWS: %w", err)
+	}
+
+	return nil
+}
+
+// E2eAwsDev runs the AWS end-to-end tests against control plane images built
+// from the working tree rather than the released ones, so a branch can be
+// tested on EKS before it is released.  It pushes the images to ECR in the
+// account of the given AWS config profile, the same profile the suite
+// installs with, creating any repository that does not exist yet.  The images are built
+// for amd64, the architecture of the EKS nodes, whatever machine runs this.
+// The repositories are left in place for the next run.
+func (Test) E2eAwsDev(region, profile string, clean bool) error {
+	threeportPath, err := os.Getwd() // mage must be run from repo root
+	if err != nil {
+		return fmt.Errorf("failed to get path to Threeport repo: %w", err)
+	}
+
+	account, err := exec.Command(
+		"aws", "sts", "get-caller-identity",
+		"--profile", profile,
+		"--query", "Account",
+		"--output", "text",
+	).Output()
+	if err != nil {
+		return fmt.Errorf("failed to get AWS account ID: %w", err)
+	}
+	registry := fmt.Sprintf("%s.dkr.ecr.%s.amazonaws.com", strings.TrimSpace(string(account)), region)
+
+	for _, component := range append(installer.AllControlPlaneComponents(), installer.DatabaseMigrator) {
+		if err := ensureEcrRepository(region, profile, component.ImageName); err != nil {
+			return err
+		}
+	}
+
+	password, err := exec.Command(
+		"aws", "ecr", "get-login-password",
+		"--region", region,
+		"--profile", profile,
+	).Output()
+	if err != nil {
+		return fmt.Errorf("failed to get ECR login password: %w", err)
+	}
+	login := exec.Command("docker", "login", "--username", "AWS", "--password-stdin", registry)
+	login.Stdin = bytes.NewReader(password)
+	if output, err := login.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to log in to %s with output %s: %w", registry, output, err)
+	}
+
+	cmd := "ginkgo"
+	args := []string{
+		"test/e2e",
+		"--",
+		"-provider=eks",
+		fmt.Sprintf("-aws-region=%s", region),
+		fmt.Sprintf("-aws-config-profile=%s", profile),
+		fmt.Sprintf("-threeport-path=%s", threeportPath),
+		fmt.Sprintf("-clean=%t", clean),
+		fmt.Sprintf("-image-repo=%s", registry),
+		"-image-arch=amd64",
+	}
+	if err := util.RunCommandStreamOutput(cmd, args...); err != nil {
+		return fmt.Errorf("failed to run e2e tests on AWS: %w", err)
+	}
+
+	return nil
+}
+
+// ensureEcrRepository creates an ECR repository unless it already exists.
+// Only a lookup that reports the repository missing leads to a create.  Any
+// other failure, such as expired credentials or a profile that doesn't exist,
+// is returned with the CLI's output.
+func ensureEcrRepository(region, profile, name string) error {
+	output, err := exec.Command(
+		"aws", "ecr", "describe-repositories",
+		"--repository-names", name,
+		"--region", region,
+		"--profile", profile,
+	).CombinedOutput()
+	if err == nil {
+		return nil
+	}
+	if !strings.Contains(string(output), "RepositoryNotFoundException") {
+		return fmt.Errorf("failed to look up ECR repository %s with output %s: %w", name, output, err)
+	}
+
+	if output, err := exec.Command(
+		"aws", "ecr", "create-repository",
+		"--repository-name", name,
+		"--region", region,
+		"--profile", profile,
+	).CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to create ECR repository %s with output %s: %w", name, output, err)
 	}
 
 	return nil
@@ -479,6 +576,20 @@ func checkModuleSwaggerDocsTarget() error {
 		return fmt.Errorf("the module's swagger docs target failed without saying to run '%s': %s", advice, output)
 	}
 
+	if err := generateModuleSwaggerDocs(); err != nil {
+		return err
+	}
+	swaggerJSON, err := os.ReadFile(filepath.Join(moduleTestPath, "pkg", "api-server", "v0", "docs", "swagger.json"))
+	if err != nil {
+		return fmt.Errorf("the module's swagger docs target wrote no swagger.json: %w", err)
+	}
+
+	return checkModuleSwaggerDocs(swaggerJSON)
+}
+
+// generateModuleSwaggerDocs declares swag as a tool of the test module and
+// runs the GenerateSwaggerDocs target generated into it.
+func generateModuleSwaggerDocs() error {
 	if err := util.RunCommandStreamOutputInDir(
 		moduleTestPath,
 		"go", "get", "-tool", "github.com/swaggo/swag/cmd/swag@"+genroot.SwagVersion,
@@ -491,9 +602,102 @@ func checkModuleSwaggerDocsTarget() error {
 	); err != nil {
 		return fmt.Errorf("failed to generate the module's swagger docs: %w", err)
 	}
-	if _, err := os.Stat(filepath.Join(moduleTestPath, "pkg", "api-server", "v0", "docs", "swagger.json")); err != nil {
-		return fmt.Errorf("the module's swagger docs target wrote no swagger.json: %w", err)
+
+	return nil
+}
+
+// checkModuleSwaggerDocs checks a swagger document describes the test
+// module's own API, not the core API's.
+func checkModuleSwaggerDocs(swaggerJSON []byte) error {
+	var docs struct {
+		Info struct {
+			Title string `json:"title"`
+		} `json:"info"`
+		Paths map[string]any `json:"paths"`
 	}
+	if err := json.Unmarshal(swaggerJSON, &docs); err != nil {
+		return fmt.Errorf("failed to parse the module's swagger document: %w", err)
+	}
+	if docs.Info.Title != "Threeport Test Module API" {
+		return fmt.Errorf("the module's swagger docs are titled %q, not the title its sdk-config gives", docs.Info.Title)
+	}
+	// a module's paths are under its API namespace
+	if _, ok := docs.Paths["/module-threeport-io/v0/widget-definitions"]; !ok {
+		return errors.New("the module's swagger docs do not document its own widget-definitions path")
+	}
+	if _, ok := docs.Paths["/v0/control-plane-definitions"]; ok {
+		return errors.New("the module's swagger docs document the core API's paths")
+	}
+
+	return nil
+}
+
+// moduleTestSwaggerPath is where the core API proxies the test module's
+// swagger docs: /swagger/ and the name the module registers its API under.
+const moduleTestSwaggerPath = "/swagger/module.threeport.io/test-module-api"
+
+// checkModuleSwaggerDocsThroughCoreApi requests the installed test module's
+// swagger docs from the core API, as a client does, and checks they are the
+// module's and that the core API's own are still the core API's.
+func checkModuleSwaggerDocsThroughCoreApi() error {
+	cli.InitConfig(nil, "")
+	threeportConfig, controlPlane, err := cli.GetThreeportConfig("")
+	if err != nil {
+		return fmt.Errorf("failed to read the threeport config: %w", err)
+	}
+	apiClient, err := threeportConfig.GetHTTPClient(controlPlane)
+	if err != nil {
+		return fmt.Errorf("failed to get a threeport API client: %w", err)
+	}
+	controlPlaneConfig, err := threeportConfig.GetControlPlaneConfig(controlPlane)
+	if err != nil {
+		return fmt.Errorf("failed to get the control plane config: %w", err)
+	}
+	scheme := "http"
+	if controlPlaneConfig.AuthEnabled {
+		scheme = "https"
+	}
+	get := func(path string) ([]byte, error) {
+		response, err := apiClient.Get(fmt.Sprintf("%s://%s%s", scheme, controlPlaneConfig.APIServer, path))
+		if err != nil {
+			return nil, fmt.Errorf("failed to request %s from the core API: %w", path, err)
+		}
+		defer response.Body.Close()
+		body, err := io.ReadAll(response.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read %s from the core API: %w", path, err)
+		}
+		if response.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("the core API answered %s with %d: %s", path, response.StatusCode, body)
+		}
+
+		return body, nil
+	}
+
+	moduleDocs, err := get(moduleTestSwaggerPath + "/doc.json")
+	if err != nil {
+		return err
+	}
+	if err := checkModuleSwaggerDocs(moduleDocs); err != nil {
+		return fmt.Errorf("through the core API: %w", err)
+	}
+	moduleIndex, err := get(moduleTestSwaggerPath + "/index.html")
+	if err != nil {
+		return err
+	}
+	if !strings.Contains(string(moduleIndex), "swagger-ui") {
+		return errors.New("the core API did not serve the module's swagger UI")
+	}
+
+	coreDocs, err := get("/swagger/doc.json")
+	if err != nil {
+		return err
+	}
+	if !strings.Contains(string(coreDocs), "/v0/control-plane-definitions") {
+		return errors.New("the core API no longer serves its own swagger docs at /swagger")
+	}
+
+	fmt.Printf("module swagger docs served through the core API at %s/index.html\n", moduleTestSwaggerPath)
 
 	return nil
 }
@@ -517,6 +721,10 @@ var moduleTestInputs = []string{"sdk-config.yaml", "README.md", "testdata"}
 // moduleTestConfigPackage is where the generated config abstractions land, and
 // so where a test of them has to sit: the functions it covers are unexported.
 const moduleTestConfigPackage = "pkg/config/v0"
+
+// moduleTestInstallerPackage is the generated module's installer package,
+// whose generated test checks the module's database network policy.
+const moduleTestInstallerPackage = "pkg/installer/v0"
 
 // ModuleGen generates a Threeport module and type-checks it. Generated module
 // code calls this repository's exported API, so a changed signature fails here.
@@ -549,7 +757,9 @@ func (Test) ModuleGen() error {
 	// was a pass for.
 	if err := util.RunCommandStreamOutputInDir(
 		moduleTestPath,
-		"go", "test", "-count=1", "./"+moduleTestConfigPackage+"/...",
+		"go", "test", "-count=1",
+		"./"+moduleTestConfigPackage+"/...",
+		"./"+moduleTestInstallerPackage+"/...",
 	); err != nil {
 		return fmt.Errorf("failed to test the generated module: %w", err)
 	}
@@ -635,6 +845,11 @@ func (Test) ModuleInstall() error {
 		return err
 	}
 
+	// generate the module's swagger docs, so the API server image serves them
+	if err := generateModuleSwaggerDocs(); err != nil {
+		return err
+	}
+
 	// build and push module images to the development registry
 	if err := util.RunCommandStreamOutputInDir(
 		moduleTestPath,
@@ -668,6 +883,13 @@ func (Test) ModuleInstall() error {
 	); err != nil {
 		return fmt.Errorf("failed to install the module: %w", err)
 	}
+
+	// reach the module's swagger docs the way a client does, through the
+	// core API
+	if err := checkModuleSwaggerDocsThroughCoreApi(); err != nil {
+		return err
+	}
+
 	// remove generated files after a successful install
 	if err := resetModuleTestDir(); err != nil {
 		return err

@@ -216,26 +216,15 @@ func ReconcilerTestInstanceReconciler(r *controller.Reconciler) {
 							}
 						}
 						if operationErr == nil {
-							provider, err := tpclient.GetInfraProviderByKubernetesRuntimeInstanceID(
-								r.APIClient,
-								r.APIServer,
-								runtime.ID,
-							)
-							if err != nil {
-								operationErr = fmt.Errorf("failed to get infra provider: %w", err)
-							}
-							if operationErr == nil {
-								if err := supportservices.EnsureSecretsComponent(
-									r,
-									runtime,
-									componentObject,
-									&componentObject.SecretsComponentInstanceID,
-									client_v0.UpdateReconcilerTestInstance,
-									provider,
-									&log,
-								); err != nil {
-									operationErr = fmt.Errorf("failed to ensure secrets component: %w", err)
-								}
+							if err := supportservices.EnsureSecretsComponent(
+								r,
+								runtime,
+								componentObject,
+								&componentObject.SecretsComponentInstanceID,
+								client_v0.UpdateReconcilerTestInstance,
+								&log,
+							); err != nil {
+								operationErr = fmt.Errorf("failed to ensure secrets component: %w", err)
 							}
 						}
 						if operationErr == nil {
@@ -378,26 +367,15 @@ func ReconcilerTestInstanceReconciler(r *controller.Reconciler) {
 							}
 						}
 						if operationErr == nil {
-							provider, err := tpclient.GetInfraProviderByKubernetesRuntimeInstanceID(
-								r.APIClient,
-								r.APIServer,
-								runtime.ID,
-							)
-							if err != nil {
-								operationErr = fmt.Errorf("failed to get infra provider: %w", err)
-							}
-							if operationErr == nil {
-								if err := supportservices.EnsureSecretsComponent(
-									r,
-									runtime,
-									componentObject,
-									&componentObject.SecretsComponentInstanceID,
-									client_v0.UpdateReconcilerTestInstance,
-									provider,
-									&log,
-								); err != nil {
-									operationErr = fmt.Errorf("failed to ensure secrets component: %w", err)
-								}
+							if err := supportservices.EnsureSecretsComponent(
+								r,
+								runtime,
+								componentObject,
+								&componentObject.SecretsComponentInstanceID,
+								client_v0.UpdateReconcilerTestInstance,
+								&log,
+							); err != nil {
+								operationErr = fmt.Errorf("failed to ensure secrets component: %w", err)
 							}
 						}
 						if operationErr == nil {
@@ -647,34 +625,38 @@ func ReconcilerTestInstanceReconciler(r *controller.Reconciler) {
 					r.APIServer,
 					&deletedReconcilerTestInstance,
 				)
-				if err != nil {
-					log.Error(err, "failed to update reconciler test instance to mark as deleted")
-					r.UnlockAndRequeue(reconcilerTestInstance, requeueDelay, lockReleased, msg)
-					continue
-				}
-				_, err = client_v0.DeleteReconcilerTestInstance(
-					r.APIClient,
-					r.APIServer,
-					reconcilerTestInstance.GetId(),
-				)
-				if err != nil {
-					if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
-						log.Info(
-							"conflict deleting reconciler test instance, requeueing",
-							"cause", err.Error(),
-						)
-						// in-progress event already recorded before the handler
-						r.UnlockAndRequeue(
-							reconcilerTestInstance,
-							int64(30),
-							lockReleased,
-							msg,
-						)
+				if errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+					log.Info("reconciler test instance already deleted")
+				} else {
+					if err != nil {
+						log.Error(err, "failed to update reconciler test instance to mark as deleted")
+						r.UnlockAndRequeue(reconcilerTestInstance, requeueDelay, lockReleased, msg)
 						continue
 					}
-					log.Error(err, "failed to delete reconciler test instance")
-					r.UnlockAndRequeue(reconcilerTestInstance, requeueDelay, lockReleased, msg)
-					continue
+					_, err = client_v0.DeleteReconcilerTestInstance(
+						r.APIClient,
+						r.APIServer,
+						reconcilerTestInstance.GetId(),
+					)
+					if err != nil && !errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+						if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
+							log.Info(
+								"conflict deleting reconciler test instance, requeueing",
+								"cause", err.Error(),
+							)
+							// in-progress event already recorded before the handler
+							r.UnlockAndRequeue(
+								reconcilerTestInstance,
+								int64(30),
+								lockReleased,
+								msg,
+							)
+							continue
+						}
+						log.Error(err, "failed to delete reconciler test instance")
+						r.UnlockAndRequeue(reconcilerTestInstance, requeueDelay, lockReleased, msg)
+						continue
+					}
 				}
 			default:
 				log.Error(
