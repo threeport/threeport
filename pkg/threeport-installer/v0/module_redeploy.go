@@ -2,6 +2,7 @@ package v0
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/base64"
 	"fmt"
 	"net/http"
@@ -458,21 +459,45 @@ func refreshModuleTrust(
 		return false, err
 	}
 
-	// the recorded client credential is the one the replacement API accepts
+	// copy the broker CA the module mounts, then the client pair in one write
+	if natsCA != "" {
+		if _, err := setSecretData(kubeClient, moduleNamespace, brokerCASecret, brokerCAKey, natsCA); err != nil {
+			return false, err
+		}
+	}
 	cert := util.DerefString(inst.ClientCert)
 	key := util.DerefString(inst.ClientKey)
 	if cert == "" || key == "" {
 		return changed, nil
 	}
-	certChanged, err := setSecretData(kubeClient, moduleNamespace, "threeport-api-client-cert", "tls.crt", cert)
+	if err := clientCredential(cert, key); err != nil {
+		return false, err
+	}
+	clientChanged, err := setSecretEntries(kubeClient, moduleNamespace, "threeport-api-client-cert", map[string]string{
+		"tls.crt": cert,
+		"tls.key": key,
+	})
 	if err != nil {
 		return false, err
 	}
-	keyChanged, err := setSecretData(kubeClient, moduleNamespace, "threeport-api-client-cert", "tls.key", key)
+	return changed || clientChanged, nil
+}
+
+// clientCredential checks that the stored certificate and key are one pair.
+func clientCredential(cert, key string) error {
+	// decode the stored values and refuse a pair that will not load
+	pemCert, err := base64.StdEncoding.DecodeString(cert)
 	if err != nil {
-		return false, err
+		return fmt.Errorf("failed to decode the module client certificate: %w", err)
 	}
-	return changed || certChanged || keyChanged, nil
+	pemKey, err := base64.StdEncoding.DecodeString(key)
+	if err != nil {
+		return fmt.Errorf("failed to decode the module client key: %w", err)
+	}
+	if _, err := tls.X509KeyPair(pemCert, pemKey); err != nil {
+		return fmt.Errorf("module client certificate does not match its key: %w", err)
+	}
+	return nil
 }
 
 // secretData reads one key from a secret.
@@ -492,6 +517,13 @@ func secretData(kubeClient dynamic.Interface, namespace, name, key string) (stri
 
 // setSecretData writes one secret key when the stored value differs.
 func setSecretData(kubeClient dynamic.Interface, namespace, name, key, value string) (bool, error) {
+	return setSecretEntries(kubeClient, namespace, name, map[string]string{key: value})
+}
+
+// setSecretEntries writes every key in one update when a stored value differs.
+func setSecretEntries(
+	kubeClient dynamic.Interface, namespace, name string, values map[string]string,
+) (bool, error) {
 	secret, err := kubeClient.Resource(secretGVR).Namespace(namespace).Get(
 		context.Background(), name, metav1.GetOptions{},
 	)
@@ -501,15 +533,24 @@ func setSecretData(kubeClient dynamic.Interface, namespace, name, key, value str
 	if err != nil {
 		return false, fmt.Errorf("failed to get secret %s/%s: %w", namespace, name, err)
 	}
-	current, _, err := unstructured.NestedString(secret.Object, "data", key)
-	if err != nil {
-		return false, err
+
+	// replace only the keys that differ, then write the secret once
+	changed := false
+	for key, value := range values {
+		current, _, err := unstructured.NestedString(secret.Object, "data", key)
+		if err != nil {
+			return false, err
+		}
+		if current == value {
+			continue
+		}
+		if err := unstructured.SetNestedField(secret.Object, value, "data", key); err != nil {
+			return false, err
+		}
+		changed = true
 	}
-	if current == value {
+	if !changed {
 		return false, nil
-	}
-	if err := unstructured.SetNestedField(secret.Object, value, "data", key); err != nil {
-		return false, err
 	}
 	if _, err := kubeClient.Resource(secretGVR).Namespace(namespace).Update(
 		context.Background(), secret, metav1.UpdateOptions{},
@@ -517,6 +558,99 @@ func setSecretData(kubeClient dynamic.Interface, namespace, name, key, value str
 		return false, fmt.Errorf("failed to update secret %s/%s: %w", namespace, name, err)
 	}
 	return true, nil
+}
+
+const (
+	brokerCASecret     = "nats-ca-cert"
+	brokerCAKey        = "ca.crt"
+	brokerCAVolume     = "nats-ca"
+	brokerCAMount      = "/etc/threeport/nats-ca"
+	brokerCASystemFile = "/etc/ssl/certs/threeport-nats-ca.crt"
+)
+
+// ensureBrokerCA mounts the broker CA for a module that verifies the server itself.
+// A module built before that file still uses the system pool, so the same CA is mounted there too.
+func ensureBrokerCA(deployment *unstructured.Unstructured) bool {
+	spec, _, err := unstructured.NestedMap(deployment.Object, "spec", "template", "spec")
+	if err != nil || spec == nil {
+		return false
+	}
+
+	// add the secret volume when the deployment does not already have it
+	changed := false
+	volumes, _, _ := unstructured.NestedSlice(spec, "volumes")
+	if !namedObject(volumes, brokerCAVolume) {
+		volumes = append(volumes, map[string]interface{}{
+			"name": brokerCAVolume,
+			"secret": map[string]interface{}{
+				"secretName": brokerCASecret,
+			},
+		})
+		_ = unstructured.SetNestedSlice(spec, volumes, "volumes")
+		changed = true
+	}
+
+	// mount the CA where the current module reads it and where the system pool scans
+	containers, _, _ := unstructured.NestedSlice(spec, "containers")
+	for i, item := range containers {
+		container, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		mounts, _, _ := unstructured.NestedSlice(container, "volumeMounts")
+		added := false
+		if !mountNamed(mounts, brokerCAMount) {
+			mounts = append(mounts, map[string]interface{}{
+				"name":      brokerCAVolume,
+				"mountPath": brokerCAMount,
+				"readOnly":  true,
+			})
+			added = true
+		}
+		if !mountNamed(mounts, brokerCASystemFile) {
+			mounts = append(mounts, map[string]interface{}{
+				"name":      brokerCAVolume,
+				"mountPath": brokerCASystemFile,
+				"subPath":   brokerCAKey,
+				"readOnly":  true,
+			})
+			added = true
+		}
+		if !added {
+			continue
+		}
+		_ = unstructured.SetNestedSlice(container, mounts, "volumeMounts")
+		containers[i] = container
+		changed = true
+	}
+	if !changed {
+		return false
+	}
+	_ = unstructured.SetNestedSlice(spec, containers, "containers")
+	_ = unstructured.SetNestedMap(deployment.Object, spec, "spec", "template", "spec")
+	return true
+}
+
+// namedObject reports whether a list already holds an object with that name.
+func namedObject(items []interface{}, name string) bool {
+	for _, item := range items {
+		object, ok := item.(map[string]interface{})
+		if ok && object["name"] == name {
+			return true
+		}
+	}
+	return false
+}
+
+// mountNamed reports whether a container already mounts that path.
+func mountNamed(items []interface{}, path string) bool {
+	for _, item := range items {
+		object, ok := item.(map[string]interface{})
+		if ok && object["mountPath"] == path {
+			return true
+		}
+	}
+	return false
 }
 
 // retargetModuleDeployment points a module Deployment at the replacement plane.
@@ -536,8 +670,12 @@ func retargetModuleDeployment(
 		return fmt.Errorf("failed to get deployment %s/%s: %w", namespace, name, err)
 	}
 
-	// write the deployment when an address still names another plane
-	if !retargetHostsIn(deployment.Object, controlPlaneNamespace) {
+	// write the deployment when an address or the broker CA mount is missing
+	changed := retargetHostsIn(deployment.Object, controlPlaneNamespace)
+	if ensureBrokerCA(deployment) {
+		changed = true
+	}
+	if !changed {
 		return nil
 	}
 	_, err = kubeClient.Resource(deploymentGVR).Namespace(namespace).Update(

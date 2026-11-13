@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	api "github.com/threeport/threeport/pkg/api/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -90,4 +91,42 @@ func TestSplitDeploymentName(t *testing.T) {
 
 	_, _, err = splitDeploymentName("threeport-acme-widget-controller")
 	require.Error(t, err)
+}
+
+// TestClientCredentialRejectsAMismatch refuses a certificate that does not match its key.
+func TestClientCredentialRejectsAMismatch(t *testing.T) {
+	// decode succeeds and the pair does not load
+	err := clientCredential(
+		base64.StdEncoding.EncodeToString([]byte("not-a-cert")),
+		base64.StdEncoding.EncodeToString([]byte("not-a-key")),
+	)
+	require.Error(t, err)
+}
+
+// TestEnsureBrokerCAMountsTheSecret adds the broker CA once.
+func TestEnsureBrokerCAMountsTheSecret(t *testing.T) {
+	// a module deployment has no broker volume yet
+	deployment := &unstructured.Unstructured{Object: map[string]interface{}{
+		"spec": map[string]interface{}{
+			"template": map[string]interface{}{
+				"spec": map[string]interface{}{
+					"containers": []interface{}{
+						map[string]interface{}{"name": "api"},
+					},
+				},
+			},
+		},
+	}}
+	require.True(t, ensureBrokerCA(deployment))
+	require.False(t, ensureBrokerCA(deployment))
+
+	volumes, _, err := unstructured.NestedSlice(deployment.Object, "spec", "template", "spec", "volumes")
+	require.NoError(t, err)
+	require.True(t, namedObject(volumes, brokerCAVolume))
+	containers, _, err := unstructured.NestedSlice(deployment.Object, "spec", "template", "spec", "containers")
+	require.NoError(t, err)
+	mounts, _, err := unstructured.NestedSlice(containers[0].(map[string]interface{}), "volumeMounts")
+	require.NoError(t, err)
+	require.True(t, mountNamed(mounts, brokerCAMount))
+	require.True(t, mountNamed(mounts, brokerCASystemFile))
 }
