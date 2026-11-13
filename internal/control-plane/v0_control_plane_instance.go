@@ -1193,6 +1193,16 @@ func syncManagedChild(r *controller.Reconciler, instance *v0.ControlPlaneInstanc
 	}
 
 	// write the image, the controller list and the pool
+	_, err = client.UpdateControlPlaneInstance(childClient, endpoint, update)
+	if err == nil {
+		return nil
+	}
+
+	// a child built before the pool field drops that field and retries
+	if !strings.Contains(err.Error(), "NetworkCidrPool") {
+		return fmt.Errorf("failed to update control plane instance on %s: %w", *stored.Name, err)
+	}
+	update.NetworkCidrPool = nil
 	if _, err := client.UpdateControlPlaneInstance(childClient, endpoint, update); err != nil {
 		return fmt.Errorf("failed to update control plane instance on %s: %w", *stored.Name, err)
 	}
