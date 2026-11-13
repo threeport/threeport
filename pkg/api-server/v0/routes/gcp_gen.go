@@ -12,12 +12,12 @@ import (
 func GcpGkeKubernetesRuntimeDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
 	e.GET(v0.PathGcpGkeKubernetesRuntimeDefinitionVersions, h.GetGcpGkeKubernetesRuntimeDefinitionVersions)
 
-	e.POST(v0.PathGcpGkeKubernetesRuntimeDefinitions, h.AddGcpGkeKubernetesRuntimeDefinition)
-	e.GET(v0.PathGcpGkeKubernetesRuntimeDefinitions, h.GetGcpGkeKubernetesRuntimeDefinitions)
-	e.GET(v0.PathGcpGkeKubernetesRuntimeDefinitions+"/:id", h.GetGcpGkeKubernetesRuntimeDefinition)
-	e.PATCH(v0.PathGcpGkeKubernetesRuntimeDefinitions+"/:id", h.UpdateGcpGkeKubernetesRuntimeDefinition)
-	e.PUT(v0.PathGcpGkeKubernetesRuntimeDefinitions+"/:id", h.ReplaceGcpGkeKubernetesRuntimeDefinition)
-	e.DELETE(v0.PathGcpGkeKubernetesRuntimeDefinitions+"/:id", h.DeleteGcpGkeKubernetesRuntimeDefinition)
+	e.POST(v0.PathGcpGkeKubernetesRuntimeDefinitions, h.AddGcpGkeKubernetesRuntimeDefinition, h.AddGcpGkeKubernetesRuntimeDefinitionMiddleware()...)
+	e.GET(v0.PathGcpGkeKubernetesRuntimeDefinitions, h.GetGcpGkeKubernetesRuntimeDefinitions, h.GetGcpGkeKubernetesRuntimeDefinitionMiddleware()...)
+	e.GET(v0.PathGcpGkeKubernetesRuntimeDefinitions+"/:id", h.GetGcpGkeKubernetesRuntimeDefinition, h.GetGcpGkeKubernetesRuntimeDefinitionMiddleware()...)
+	e.PATCH(v0.PathGcpGkeKubernetesRuntimeDefinitions+"/:id", h.UpdateGcpGkeKubernetesRuntimeDefinition, h.PatchGcpGkeKubernetesRuntimeDefinitionMiddleware()...)
+	e.PUT(v0.PathGcpGkeKubernetesRuntimeDefinitions+"/:id", h.ReplaceGcpGkeKubernetesRuntimeDefinition, h.PutGcpGkeKubernetesRuntimeDefinitionMiddleware()...)
+	e.DELETE(v0.PathGcpGkeKubernetesRuntimeDefinitions+"/:id", h.DeleteGcpGkeKubernetesRuntimeDefinition, h.DeleteGcpGkeKubernetesRuntimeDefinitionMiddleware()...)
 }
 
 // GcpGkeKubernetesRuntimeInstanceRoutes sets up all routes for the GcpGkeKubernetesRuntimeInstance handlers.
