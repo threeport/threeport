@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -40,6 +41,26 @@ func gcpProvidersToCleanUp(providers []v0.GcpProvider) []PendingGcpCleanup {
 	return pending
 }
 
+// gcpProvidersToKeep names the GCP service accounts behind the GcpProviders that
+// were set up to leave theirs alone. Teardown uses it to drop entries it saved
+// on an earlier attempt, before the provider was changed to opt out.
+func gcpProvidersToKeep(providers []v0.GcpProvider) []PendingGcpCleanup {
+	var kept []PendingGcpCleanup
+	for _, gcpProvider := range providers {
+		if gcpProvider.Name == nil || gcpProvider.ProjectID == nil {
+			continue
+		}
+		if gcpProviderKeepsServiceAccount(gcpProvider) {
+			kept = append(kept, PendingGcpCleanup{
+				Name:      *gcpProvider.Name,
+				ProjectID: *gcpProvider.ProjectID,
+			})
+		}
+	}
+
+	return kept
+}
+
 // runGcpCleanups removes each service account with cleanup and returns the ones
 // that remain. An account that is not Threeport's is dropped with a warning:
 // nothing here is entitled to remove it, so keeping it would block teardown
@@ -67,7 +88,7 @@ func runGcpCleanups(
 }
 
 // listPendingGcpCleanup lists the GcpProviders whose GCP service accounts
-// teardown must clean up.
+// teardown must clean up, and those whose service accounts it must leave alone.
 //
 // A server that answers not found has no GcpProvider route - it predates GCP
 // support - so no provider can exist and there is nothing to record. Any other
@@ -78,13 +99,13 @@ func runGcpCleanups(
 // which does not depend on it.
 func listPendingGcpCleanup(
 	list func() (*[]v0.GcpProvider, error),
-) ([]PendingGcpCleanup, error) {
+) (pending, kept []PendingGcpCleanup, err error) {
 	providers, err := list()
 	if errors.Is(err, client_lib.ErrObjectNotFound) {
-		return nil, nil
+		return nil, nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf(
+		return nil, nil, fmt.Errorf(
 			"failed to list gcp providers before teardown, so their GCP service accounts cannot be cleaned up: %w\n"+
 				"to tear down without cleaning them up, re-run with --infra-only and remove any threeport-svc-* service accounts in GCP by hand",
 			err,
@@ -100,7 +121,7 @@ func listPendingGcpCleanup(
 		}
 	}
 
-	return gcpProvidersToCleanUp(*providers), nil
+	return gcpProvidersToCleanUp(*providers), gcpProvidersToKeep(*providers), nil
 }
 
 // recordPendingGcpCleanup lists the control plane's GcpProviders and saves what
@@ -112,23 +133,44 @@ func recordPendingGcpCleanup(
 	apiEndpoint string,
 	controlPlane *ControlPlane,
 ) error {
-	pending, err := listPendingGcpCleanup(func() (*[]v0.GcpProvider, error) {
+	pending, kept, err := listPendingGcpCleanup(func() (*[]v0.GcpProvider, error) {
 		return client.GetGcpProviders(apiClient, apiEndpoint)
 	})
 	if err != nil {
 		return err
 	}
-	if len(pending) == 0 {
+
+	// nothing to add or drop leaves the config alone
+	if slices.Equal(
+		controlPlane.PendingGcpCleanup,
+		reconcilePendingGcpCleanup(controlPlane.PendingGcpCleanup, pending, kept),
+	) {
 		return nil
 	}
 
 	if _, err := controlPlane.UpdateThreeportConfigInstance(func(c *ControlPlane) {
-		c.PendingGcpCleanup = mergePendingGcpCleanup(c.PendingGcpCleanup, pending)
+		c.PendingGcpCleanup = reconcilePendingGcpCleanup(c.PendingGcpCleanup, pending, kept)
 	}); err != nil {
 		return fmt.Errorf("failed to record gcp providers to clean up: %w", err)
 	}
 
 	return nil
+}
+
+// reconcilePendingGcpCleanup brings the entries saved by an earlier teardown
+// attempt up to date with the providers as they are now: those now set to keep
+// their service account are dropped, so a retry after opting out does not delete
+// what the user kept, and those newly listed are added. Entries for providers
+// that are no longer listed stay, since the account they name may still exist.
+func reconcilePendingGcpCleanup(existing, pending, kept []PendingGcpCleanup) []PendingGcpCleanup {
+	var current []PendingGcpCleanup
+	for _, e := range existing {
+		if !slices.Contains(kept, e) {
+			current = append(current, e)
+		}
+	}
+
+	return mergePendingGcpCleanup(current, pending)
 }
 
 // mergePendingGcpCleanup adds the entries of extra that existing lacks.
