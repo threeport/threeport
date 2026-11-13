@@ -365,9 +365,10 @@ func (c *ControlPlaneInstance) beforeUpdate(tx *gorm.DB) error {
 		return nil
 	}
 
-	// the parent may change the image, the controller list and the pool on a row it manages
-	allowLifecycle := owned && (!self || parentCaller(tx))
-	field, err := changedForeignField(tx, stored, allowLifecycle)
+	// the parent may change the image, the controller list, the pool and the restored identity
+	callerIsParent := parentCaller(tx)
+	allowLifecycle := owned && (!self || callerIsParent)
+	field, err := changedForeignField(tx, stored, allowLifecycle, self && callerIsParent)
 	if err != nil {
 		return err
 	}
@@ -408,7 +409,7 @@ func storedControlPlane(tx *gorm.DB, receiver *ControlPlaneInstance) (*ControlPl
 
 // changedForeignField returns the first column a control plane this API does not serve must keep.
 // A managed row may change the image, the controller list and the pool.
-func changedForeignField(tx *gorm.DB, stored *ControlPlaneInstance, allowLifecycle bool) (string, error) {
+func changedForeignField(tx *gorm.DB, stored *ControlPlaneInstance, allowLifecycle, managing bool) (string, error) {
 	if tx.Statement.Schema == nil {
 		return "", errors.New("control plane instance update has no schema")
 	}
@@ -428,6 +429,10 @@ func changedForeignField(tx *gorm.DB, stored *ControlPlaneInstance, allowLifecyc
 		}
 		// a managed row may change the image, the controller list and the pool
 		if allowLifecycle && blankValueIsTheSetting(field.Name) {
+			continue
+		}
+		// the managing caller may retarget a restored row
+		if managing && restoredIdentity(field.Name) {
 			continue
 		}
 		if blankValueIsTheSetting(field.Name) || !columnEmpty(field.ValueOf, storedValue) {
@@ -461,6 +466,17 @@ func parentCaller(tx *gorm.DB) bool {
 // reconciliationColumn reports whether the column belongs to Reconciliation.
 func reconciliationColumn(bindNames []string) bool {
 	return len(bindNames) > 0 && bindNames[0] == "Reconciliation"
+}
+
+// restoredIdentity reports whether a column is the name a restore copies from the source.
+func restoredIdentity(name string) bool {
+	// the source name, its namespace, and the two ids the replacement owns
+	switch name {
+	case "Name", "Namespace", "ControlPlaneDefinitionID", "KubernetesRuntimeInstanceID":
+		return true
+	default:
+		return false
+	}
 }
 
 // blankValueIsTheSetting reports whether an empty column is itself a choice.

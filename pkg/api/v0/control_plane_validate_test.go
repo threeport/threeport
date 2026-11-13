@@ -395,8 +395,13 @@ func TestControlPlaneInstanceUpdateRefusesAForeignDesiredStateChange(t *testing.
 		other := "rest-api"
 		refused(alice.Model(&owned).Updates(&ControlPlaneInstance{Apis: &other}).Error, "Apis")
 
+		// the owner retargets the restored name and namespace
 		otherNamespace := "threeport-other"
-		refused(owner.Model(&owned).Updates(&ControlPlaneInstance{Namespace: &otherNamespace}).Error, "Namespace")
+		require.NoError(t, owner.Model(&owned).Updates(&ControlPlaneInstance{Namespace: &otherNamespace}).Error)
+		renamed := "owned-self-renamed"
+		require.NoError(t, owner.Model(&owned).Updates(&ControlPlaneInstance{Name: &renamed}).Error)
+		aliceNamespace := "threeport-alice"
+		refused(alice.Model(&owned).Updates(&ControlPlaneInstance{Namespace: &aliceNamespace}).Error, "Namespace")
 
 		scheduled := time.Now().UTC()
 		reconciled := false
