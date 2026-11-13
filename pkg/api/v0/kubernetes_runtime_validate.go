@@ -56,7 +56,11 @@ func (k *KubernetesRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
 		)
 	}
 
-	return validateKubernetesApiAccess(*k.InfraProvider, k.PrivateApi, k.AllowedCidrs)
+	if err := validateKubernetesApiAccess(*k.InfraProvider, k.PrivateApi, k.AllowedCidrs); err != nil {
+		return err
+	}
+
+	return validateKubernetesVersionCreate(*k.InfraProvider, k.KubernetesVersion)
 }
 
 // beforeUpdate validates that no immutable fields are being changed
@@ -94,6 +98,9 @@ func (k *KubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
 		return util.NewBadRequestError(
 			"kubernetes runtime definition high availability cannot be changed after creation",
 		)
+	}
+	if err := validateKubernetesVersionUpdate(tx); err != nil {
+		return err
 	}
 
 	// InfraProvider is unchanged once past the check above, so the receiver
@@ -148,7 +155,7 @@ func (k *KubernetesRuntimeInstance) beforeCreate(tx *gorm.DB) error {
 		return util.NewBadRequestError(err.Error())
 	}
 
-	return nil
+	return validateRuntimeNetworkCidr(tx, k.NetworkCidr, nil)
 }
 
 // beforeUpdate validates that no immutable fields are being changed
@@ -188,6 +195,10 @@ func (k *KubernetesRuntimeInstance) beforeUpdate(tx *gorm.DB) error {
 		}
 		return incoming.EgressCidrs, true
 	}); err != nil {
+		return err
+	}
+
+	if err := validateRuntimeNetworkCidrUpdate(tx, k); err != nil {
 		return err
 	}
 
@@ -244,4 +255,36 @@ func (k *KubernetesRuntimeInstance) afterUpdate(tx *gorm.DB) error {
 // afterDelete runs after the KubernetesRuntimeInstance is deleted.
 func (k *KubernetesRuntimeInstance) afterDelete(tx *gorm.DB) error {
 	return nil
+}
+
+// validateRuntimeNetworkCidrUpdate checks an update that changes NetworkCidr.
+// A range is set once, when the runtime is created or when the control plane
+// allocates one: a cluster's network can't be moved to another range, so a
+// change would record a range the cluster doesn't have.
+func validateRuntimeNetworkCidrUpdate(tx *gorm.DB, k *KubernetesRuntimeInstance) error {
+	changed, err := lib.IsFieldChanged(tx, "NetworkCidr")
+	if err != nil {
+		return err
+	}
+	if !changed {
+		return nil
+	}
+
+	// the row is read back and locked inside the write: a patch's receiver
+	// was loaded before the transaction began, and another update may have
+	// set the range since
+	stored, err := lib.LockObjectInDB(tx)
+	if err != nil {
+		return err
+	}
+	storedInstance, storedOk := stored.(*KubernetesRuntimeInstance)
+	incoming, incomingOk := lib.IncomingValues(tx).(*KubernetesRuntimeInstance)
+	if !storedOk || !incomingOk {
+		return fmt.Errorf("cannot validate NetworkCidr: update carries %T", lib.IncomingValues(tx))
+	}
+	if storedInstance.NetworkCidr != nil && *storedInstance.NetworkCidr != "" {
+		return util.NewBadRequestError(ErrMsgNetworkCidrImmutable)
+	}
+
+	return validateRuntimeNetworkCidr(tx, incoming.NetworkCidr, k.ID)
 }

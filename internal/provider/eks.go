@@ -74,6 +74,10 @@ type KubernetesRuntimeInfraEKS struct {
 	// The CIDR blocks allowed to reach the Kubernetes API's public endpoint.
 	// Empty leaves it open to every address.
 	AllowedCidrs []string
+
+	// The public addresses of the control plane that manages the cluster,
+	// admitted along with AllowedCidrs when those are set.
+	ControlPlaneEgressCidrs []string
 }
 
 // Create provisions an AWS EKS cluster for threeport workloads and returns the
@@ -86,6 +90,9 @@ func (i *KubernetesRuntimeInfraEKS) Create() (*kube.KubeConnectionInfo, error) {
 // networking, the cluster and its node group with Pulumi, and then creates the
 // IAM that only exists once the cluster does.
 func (i *KubernetesRuntimeInfraEKS) CreateInfra() (*kube.KubeConnectionInfo, error) {
+	if err := checkKubeApiAllowlist(v0.KubernetesRuntimeInfraProviderEKS, i.AllowedCidrs, i.ControlPlaneEgressCidrs); err != nil {
+		return nil, err
+	}
 
 	// EKS will not create a cluster or a node group without the roles they
 	// assume, so these come before the stack
@@ -97,6 +104,14 @@ func (i *KubernetesRuntimeInfraEKS) CreateInfra() (*kube.KubeConnectionInfo, err
 	if err != nil {
 		return nil, fmt.Errorf("failed to set up Pulumi workspace: %w", err)
 	}
+
+	// a create resumed on a stack that holds the cluster keeps its version
+	exported, err := stack.Export(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the stack's EKS cluster: %w", err)
+	}
+	i.keepStackVersion(exported.Deployment)
+
 	if _, err := i.RunUp(context.Background(), stack); err != nil {
 		return nil, fmt.Errorf("failed to deploy stack: %w", err)
 	}
@@ -108,6 +123,14 @@ func (i *KubernetesRuntimeInfraEKS) CreateInfra() (*kube.KubeConnectionInfo, err
 	}
 
 	return i.GetConnection()
+}
+
+// keepStackVersion sets KubernetesVersion to the version of the cluster the
+// stack's deployment holds, if it holds one.
+func (i *KubernetesRuntimeInfraEKS) keepStackVersion(deployment json.RawMessage) {
+	if version, held := clusterInputInStack(deployment, "aws:eks/cluster:Cluster", "version"); held && version != "" {
+		i.KubernetesVersion = version
+	}
 }
 
 // DeployInfra runs CreateInfra and discards the connection info.  It satisfies

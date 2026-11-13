@@ -146,8 +146,12 @@ func TestAKubernetesRuntimeDefinitionIsCheckedForItsProvider(t *testing.T) {
 		{"nothing set on kind", KubernetesRuntimeInfraProviderKind, nil, nil, ""},
 		{"public on kind", KubernetesRuntimeInfraProviderKind, util.Ptr(false), rawJSON("[]"), ""},
 		{"an allowlist", KubernetesRuntimeInfraProviderEKS, nil, rawJSON(`["203.0.113.0/24"]`), ""},
-		{"private", KubernetesRuntimeInfraProviderGKE, util.Ptr(true), nil, ErrMsgPrivateApiNotSupported},
-		{"private with an allowlist", KubernetesRuntimeInfraProviderOKE, util.Ptr(true), rawJSON(`["10.8.0.0/16"]`), ErrMsgPrivateApiNotSupported},
+		{"private GKE", KubernetesRuntimeInfraProviderGKE, util.Ptr(true), nil, ""},
+		{"private GKE with an allowlist", KubernetesRuntimeInfraProviderGKE, util.Ptr(true), rawJSON(`["10.8.0.0/16"]`), ""},
+		{"private GKE at its limit", KubernetesRuntimeInfraProviderGKE, util.Ptr(true), cidrsJSON(t, distinctCidrs(100)...), ""},
+		{"private GKE past its limit", KubernetesRuntimeInfraProviderGKE, util.Ptr(true), cidrsJSON(t, distinctCidrs(101)...), "AllowedCidrs has 101 entries and gke admits at most 100"},
+		{"private EKS", KubernetesRuntimeInfraProviderEKS, util.Ptr(true), nil, ErrMsgPrivateApiNotSupported},
+		{"private OKE with an allowlist", KubernetesRuntimeInfraProviderOKE, util.Ptr(true), rawJSON(`["10.8.0.0/16"]`), ErrMsgPrivateApiNotSupported},
 		{"explicitly public", KubernetesRuntimeInfraProviderGKE, util.Ptr(false), rawJSON(`["203.0.113.0/24"]`), ""},
 		{"EKS at its limit", KubernetesRuntimeInfraProviderEKS, nil, cidrsJSON(t, distinctCidrs(40)...), ""},
 		{"EKS past its limit", KubernetesRuntimeInfraProviderEKS, nil, cidrsJSON(t, distinctCidrs(41)...), "AllowedCidrs has 41 entries and eks admits at most 40"},
@@ -243,6 +247,13 @@ func TestAnUpdateIsCheckedAgainstWhatTheDefinitionWillHold(t *testing.T) {
 		{
 			name: "patch PrivateApi on", provider: KubernetesRuntimeInfraProviderGKE,
 			stored: rawJSON(`["203.0.113.0/24"]`),
+			update: func(db *gorm.DB, loaded KubernetesRuntimeDefinition) error {
+				return db.Model(&loaded).Updates(&KubernetesRuntimeDefinition{PrivateApi: util.Ptr(true)}).Error
+			},
+			wantErr: ErrMsgKubernetesApiAccessImmutable,
+		},
+		{
+			name: "patch PrivateApi on, on EKS", provider: KubernetesRuntimeInfraProviderEKS,
 			update: func(db *gorm.DB, loaded KubernetesRuntimeDefinition) error {
 				return db.Model(&loaded).Updates(&KubernetesRuntimeDefinition{PrivateApi: util.Ptr(true)}).Error
 			},
@@ -598,4 +609,67 @@ func TestAPatchLocksTheRowItIsCheckedAgainst(t *testing.T) {
 		}
 	}
 	assert.Equal(t, 1, locked, "queries: %q", queries)
+}
+
+// TestAGkeClustersReservedNatAddressCannotBeChanged covers
+// ReservedNatAddress, which decides how the cluster's Cloud NAT is
+// provisioned: changing it would change the cluster's outbound addresses.
+// The lifecycle's own sparse updates, which leave it out, still go through.
+func TestAGkeClustersReservedNatAddressCannotBeChanged(t *testing.T) {
+	create := func(t *testing.T, reserved *bool) (*gorm.DB, GcpGkeKubernetesRuntimeInstance) {
+		t.Helper()
+		db := setupKubernetesApiAccessDB(t)
+		require.NoError(t, db.AutoMigrate(&GcpGkeKubernetesRuntimeInstance{}))
+		created := &GcpGkeKubernetesRuntimeInstance{
+			Instance:                            Instance{Name: util.Ptr("gke")},
+			GcpProviderID:                       util.Ptr(uint(1)),
+			GcpGkeKubernetesRuntimeDefinitionID: util.Ptr(uint(1)),
+			KubernetesRuntimeInstanceID:         util.Ptr(uint(1)),
+			ReservedNatAddress:                  reserved,
+		}
+		require.NoError(t, db.Create(created).Error)
+		var loaded GcpGkeKubernetesRuntimeInstance
+		require.NoError(t, db.First(&loaded, *created.ID).Error)
+		return db, loaded
+	}
+
+	cases := []struct {
+		name    string
+		stored  *bool
+		update  func(db *gorm.DB, loaded GcpGkeKubernetesRuntimeInstance) error
+		wantErr bool
+	}{
+		{"patch it off", util.Ptr(true), func(db *gorm.DB, loaded GcpGkeKubernetesRuntimeInstance) error {
+			return db.Model(&loaded).Updates(&GcpGkeKubernetesRuntimeInstance{ReservedNatAddress: util.Ptr(false)}).Error
+		}, true},
+		{"patch it on", nil, func(db *gorm.DB, loaded GcpGkeKubernetesRuntimeInstance) error {
+			return db.Model(&loaded).Updates(&GcpGkeKubernetesRuntimeInstance{ReservedNatAddress: util.Ptr(true)}).Error
+		}, true},
+		{"replace dropping it", util.Ptr(true), func(db *gorm.DB, loaded GcpGkeKubernetesRuntimeInstance) error {
+			loaded.ReservedNatAddress = nil
+			return db.Save(&loaded).Error
+		}, true},
+		{"patch another field", util.Ptr(true), func(db *gorm.DB, loaded GcpGkeKubernetesRuntimeInstance) error {
+			return db.Model(&loaded).Updates(&GcpGkeKubernetesRuntimeInstance{ResourceInventory: rawJSON(`{}`)}).Error
+		}, false},
+		{"replace keeping it", util.Ptr(true), func(db *gorm.DB, loaded GcpGkeKubernetesRuntimeInstance) error {
+			loaded.Region = util.Ptr("us-central1")
+			return db.Save(&loaded).Error
+		}, false},
+		{"patch false over unset", nil, func(db *gorm.DB, loaded GcpGkeKubernetesRuntimeInstance) error {
+			return db.Model(&loaded).Updates(&GcpGkeKubernetesRuntimeInstance{ReservedNatAddress: util.Ptr(false)}).Error
+		}, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			db, loaded := create(t, c.stored)
+			err := c.update(db, loaded)
+			if c.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), ErrMsgReservedNatAddressImmutable)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
 }

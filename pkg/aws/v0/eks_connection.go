@@ -132,6 +132,28 @@ func EksOidcIssuerUrl(awsConfig *aws.Config, clusterName string) (string, error)
 	return *cluster.Identity.Oidc.Issuer, nil
 }
 
+// EksClusterVersion returns the Kubernetes minor version an EKS cluster runs,
+// such as "1.36".
+func EksClusterVersion(awsConfig *aws.Config, clusterName string) (string, error) {
+	if awsConfig == nil {
+		return "", errors.New("cannot get the EKS cluster version without an AWS config")
+	}
+
+	eksClient := eks.NewFromConfig(*awsConfig)
+	describeClusterOutput, err := eksClient.DescribeCluster(
+		context.Background(),
+		&eks.DescribeClusterInput{Name: aws.String(clusterName)},
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to describe EKS cluster: %w", err)
+	}
+	if describeClusterOutput.Cluster == nil || describeClusterOutput.Cluster.Version == nil {
+		return "", fmt.Errorf("EKS cluster %s reports no Kubernetes version", clusterName)
+	}
+
+	return *describeClusterOutput.Cluster.Version, nil
+}
+
 // EksStorageAddonActive reports whether the EBS CSI addon is installed and
 // running on a cluster.  It is the last thing the EKS create does, so it
 // stands for the create having finished rather than merely started.

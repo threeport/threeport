@@ -11,6 +11,7 @@ import (
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	mapping "github.com/threeport/threeport/pkg/mapping/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // v0KubernetesRuntimeDefinitionCreated performs reconciliation when a v0 KubernetesRuntimeDefinition
@@ -60,6 +61,7 @@ func v0KubernetesRuntimeDefinitionCreated(
 			DefaultNodeGroupMaximumSize:   kubernetesRuntimeDefinition.NodeMaximum,
 			PrivateApi:                    kubernetesRuntimeDefinition.PrivateApi,
 			AllowedCidrs:                  kubernetesRuntimeDefinition.AllowedCidrs,
+			KubernetesVersion:             util.Ptr(v0.KubernetesVersionOrDefault(kubernetesRuntimeDefinition.KubernetesVersion)),
 			KubernetesRuntimeDefinitionID: kubernetesRuntimeDefinition.ID,
 		}
 		_, err = client.CreateAwsEksKubernetesRuntimeDefinition(
@@ -99,6 +101,7 @@ func v0KubernetesRuntimeDefinitionCreated(
 			DefaultNodeGroupMaximumSize:   kubernetesRuntimeDefinition.NodeMaximum,
 			PrivateApi:                    kubernetesRuntimeDefinition.PrivateApi,
 			AllowedCidrs:                  kubernetesRuntimeDefinition.AllowedCidrs,
+			KubernetesVersion:             util.Ptr(v0.KubernetesVersionOrDefault(kubernetesRuntimeDefinition.KubernetesVersion)),
 			KubernetesRuntimeDefinitionID: kubernetesRuntimeDefinition.ID,
 		}
 		_, err = client.CreateGcpGkeKubernetesRuntimeDefinition(

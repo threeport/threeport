@@ -27,6 +27,7 @@ type OciOkeKubernetesRuntimeValues struct {
 	WorkerNodeInitialCount *int
 	PrivateApi             *bool
 	AllowedCidrs           *[]string
+	KubernetesVersion      *string
 	Region                 *string
 	Age                    *string
 }
@@ -156,6 +157,7 @@ func (o *OciOkeKubernetesRuntimeConfig) GetOperations(
 			WorkerNodeInitialCount: ociOkeKubernetesRuntimeValues.WorkerNodeInitialCount,
 			PrivateApi:             ociOkeKubernetesRuntimeValues.PrivateApi,
 			AllowedCidrs:           ociOkeKubernetesRuntimeValues.AllowedCidrs,
+			KubernetesVersion:      ociOkeKubernetesRuntimeValues.KubernetesVersion,
 		},
 	}
 	operations.AppendOperation(util.Operation{
@@ -262,6 +264,7 @@ func mapToOciOkeKubernetesRuntimeDefinedInstances(
 						WorkerNodeInitialCount: def.OciOkeKubernetesRuntimeDefinition.WorkerNodeInitialCount,
 						PrivateApi:             def.OciOkeKubernetesRuntimeDefinition.PrivateApi,
 						AllowedCidrs:           def.OciOkeKubernetesRuntimeDefinition.AllowedCidrs,
+						KubernetesVersion:      def.OciOkeKubernetesRuntimeDefinition.KubernetesVersion,
 						Region:                 inst.OciOkeKubernetesRuntimeInstance.Region,
 						Age:                    inst.OciOkeKubernetesRuntimeInstance.Age,
 					},

@@ -66,6 +66,10 @@ type Options struct {
 	// The OCI compartment OCID to install threeport control plane in.
 	OciCompartmentOcid string
 
+	// The Kubernetes minor version of the cluster tptctl creates on EKS, GKE or
+	// OKE, such as "1.36".  Empty uses the default version.
+	KubernetesVersion string
+
 	// The Google Cloud project ID where the cluster infra is provisioned.
 	GcpProjectId string
 
@@ -144,6 +148,10 @@ type Options struct {
 	// The CIDR blocks allowed to reach the control plane cluster's Kubernetes
 	// API.  Empty leaves it open to every address.
 	K8sApiAllowedCidrs []string
+
+	// If true, the control plane cluster's Kubernetes API has no public IP
+	// endpoint.  Supported on GKE only.
+	PrivateK8sApi bool
 
 	// The host port to publish the Threeport API on for a local control plane.
 	// Zero means the default for the auth setting applies.

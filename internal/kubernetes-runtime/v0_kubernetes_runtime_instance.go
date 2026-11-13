@@ -133,6 +133,8 @@ func v0KubernetesRuntimeInstanceCreated(
 			Region:                              &region,
 			KubernetesRuntimeInstanceID:         kubernetesRuntimeInstance.ID,
 			GcpGkeKubernetesRuntimeDefinitionID: gcpGkeKubernetesRuntimeDefinition.ID,
+			// a new cluster sends its outbound traffic from a reserved address
+			ReservedNatAddress: util.Ptr(true),
 		}
 		_, err = client.CreateGcpGkeKubernetesRuntimeInstance(
 			r.APIClient,
@@ -355,13 +357,21 @@ func v0KubernetesRuntimeInstanceUpdated(
 		}
 		if systemServicesInstalled {
 			log.V(1).Info("EKS system services already installed, skipping install")
-		} else if err := threeport.InstallEksThreeportSystemServices(
-			dynamicKubeClient,
-			mapper,
-			*kubernetesRuntimeInstance.Name,
-			*awsProvider.AccountID,
-		); err != nil {
-			return controller.RetryOnNetworkErr(err, "failed to install system services")
+		} else {
+			// the cluster autoscaler's version matches the cluster's
+			kubernetesVersion, err := clusterMinorVersion(r, *kubernetesRuntimeInstance.ID, controlPlaneHost)
+			if err != nil {
+				return controller.RetryOnNetworkErr(err, "failed to get the cluster's Kubernetes version")
+			}
+			if err := threeport.InstallEksThreeportSystemServices(
+				dynamicKubeClient,
+				mapper,
+				*kubernetesRuntimeInstance.Name,
+				*awsProvider.AccountID,
+				kubernetesVersion,
+			); err != nil {
+				return controller.RetryOnNetworkErr(err, "failed to install system services")
+			}
 		}
 
 		// a claim that names no storage class has nothing to bind to on EKS
@@ -643,4 +653,22 @@ func GetCloudProviderForInfraProvider(input string) (string, error) {
 	default:
 		return "", fmt.Errorf("failed to get provider, infra provider %s not supported", input)
 	}
+}
+
+// clusterMinorVersion returns the Kubernetes minor version a runtime's API
+// server runs, such as "1.36".  It reads the runtime from the API rather than
+// taking a copy: building a client refreshes an expiring EKS token on the
+// copy it is given, leaving the token there unencrypted, and a REST config
+// built from that copy again would fail to decrypt it.
+func clusterMinorVersion(r *controller.Reconciler, runtimeID uint, controlPlaneHost bool) (string, error) {
+	runtime, err := client.GetKubernetesRuntimeInstanceByID(r.APIClient, r.APIServer, runtimeID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
+	}
+	discoveryClient, err := kube.GetDiscoveryClient(runtime, controlPlaneHost, r.APIClient, r.APIServer, r.EncryptionKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to create discovery client: %w", err)
+	}
+
+	return kube.ServerMinorVersion(discoveryClient)
 }

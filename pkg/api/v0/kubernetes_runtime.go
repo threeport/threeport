@@ -38,7 +38,7 @@ type KubernetesRuntimeDefinition struct {
 	// If true, the Kubernetes API is not reachable from the public internet.
 	// It is reachable only from the cluster's own network, from networks
 	// connected to it and, on GKE, through the IAM-authorized DNS endpoint.
-	// Cannot be changed after creation.
+	// Supported on GKE only.  Cannot be changed after creation.
 	PrivateApi *bool `validate:"optional" gorm:"default:false"`
 
 	// The CIDR blocks allowed to reach the Kubernetes API, as a JSON array of
@@ -49,6 +49,12 @@ type KubernetesRuntimeDefinition struct {
 	// GKE up to 50 (100 with PrivateApi) and OKE up to 120.  Cannot be
 	// changed after creation.
 	AllowedCidrs *datatypes.JSON `validate:"optional" swaggertype:"array,string"`
+
+	// The Kubernetes minor version of the clusters, such as "1.36", on EKS,
+	// GKE and OKE.  If unset, the default version is used, and the EKS, GKE
+	// or OKE definition records it.  It can't be changed after creation.  A
+	// kind cluster's version comes with its node image, so it takes none.
+	KubernetesVersion *string `validate:"optional"`
 
 	// TODO: add fields for location limitations
 	// LocationsAllowed
@@ -85,6 +91,17 @@ type KubernetesRuntimeInstance struct {
 	// addresses of the runtime that hosts the control plane, so that the
 	// control plane can reach them.
 	EgressCidrs *datatypes.JSON `validate:"optional" swaggertype:"array,string"`
+
+	// The IPv4 network range of the cluster's network, such as 10.16.0.0/16:
+	// its VPC on EKS, its VCN on OKE, and its node, Pod and Service ranges on
+	// GKE.  No two runtimes may overlap, so that their networks can be
+	// connected.  If unset when the runtime is provisioned, the control plane
+	// allocates the next free /16 from its NetworkCidrPool.  If set, it must be
+	// a /16 or larger, overlap no other runtime's range and stay clear of the
+	// ranges clusters use internally (10.96.0.0/16, 10.244.0.0/16 and
+	// 172.20.0.0/16); it does not have to be in the pool.  Cannot be changed
+	// once set.
+	NetworkCidr *string `validate:"optional" gorm:"uniqueIndex:,where:deleted_at IS NULL"`
 
 	// The CA certificate used to generate the cert and key if
 	// self-signed.

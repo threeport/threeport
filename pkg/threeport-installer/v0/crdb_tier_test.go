@@ -234,3 +234,54 @@ func TestCrdbAntiAffinityIsRequiredOnlyForProduction(t *testing.T) {
 		t.Errorf("expected production's requirement to key on the host, got %q", topologyKey)
 	}
 }
+
+// TestCrdbZoneSpreadIsStrictOnlyForProduction covers the zone spread: two
+// production replicas in one zone are lost together with it, so a replica
+// that can't have a zone of its own stays Pending, as one that can't have a
+// node of its own does.
+func TestCrdbZoneSpreadIsStrictOnlyForProduction(t *testing.T) {
+	for tier, want := range map[ControlPlaneTier]string{
+		ControlPlaneTierDev:  "ScheduleAnyway",
+		ControlPlaneTierProd: "DoNotSchedule",
+	} {
+		constraints := crdbZoneSpread(tier)
+		if len(constraints) != 1 {
+			t.Fatalf("%s: expected one spread constraint, got %v", tier, constraints)
+		}
+		constraint := constraints[0].(map[string]interface{})
+		if constraint["whenUnsatisfiable"] != want {
+			t.Errorf("%s: whenUnsatisfiable is %v, want %s", tier, constraint["whenUnsatisfiable"], want)
+		}
+		if constraint["topologyKey"] != "topology.kubernetes.io/zone" || constraint["maxSkew"] != 1 {
+			t.Errorf("%s: expected a skew of one across zones, got %v", tier, constraint)
+		}
+	}
+}
+
+// TestTheProductionDatabaseIsSpreadAcrossZones covers the StatefulSet a
+// production install creates: its pods are spread strictly across zones, by
+// the labels they carry.
+func TestTheProductionDatabaseIsSpreadAcrossZones(t *testing.T) {
+	kubeClient := installDependencies(t, backupInstaller())
+	statefulSet := getObject(t, kubeClient, statefulSetGVR, "crdb")
+
+	constraints, found, err := unstructured.NestedSlice(statefulSet.Object, "spec", "template", "spec", "topologySpreadConstraints")
+	if err != nil || !found || len(constraints) != 1 {
+		t.Fatalf("expected one spread constraint on the database pods, got %v (err: %v)", constraints, err)
+	}
+	constraint := constraints[0].(map[string]interface{})
+	if constraint["whenUnsatisfiable"] != "DoNotSchedule" {
+		t.Errorf("expected the production database to be spread strictly, got %v", constraint["whenUnsatisfiable"])
+	}
+
+	podLabels, _, _ := unstructured.NestedStringMap(statefulSet.Object, "spec", "template", "metadata", "labels")
+	selected, _, _ := unstructured.NestedStringMap(constraint, "labelSelector", "matchLabels")
+	if len(selected) == 0 {
+		t.Fatal("the spread selects no pods")
+	}
+	for key, value := range selected {
+		if podLabels[key] != value {
+			t.Errorf("the spread selects %s=%s, which the database pods don't carry", key, value)
+		}
+	}
+}

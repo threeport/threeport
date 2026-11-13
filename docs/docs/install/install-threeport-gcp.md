@@ -74,6 +74,31 @@ its database up to a Cloud Storage bucket in another region. Choose that region 
 `--gcp-backup-region`. See
 [Back Up and Restore a Control Plane](../control-planes/backup-restore.md).
 
+### Production Cluster
+
+A production control plane runs its database as three replicas, and its
+cluster is built to keep serving after the loss of one zone:
+
+| | Development | Production |
+|---|---|---|
+| Zones | 3 (regional cluster) | 3 (regional cluster) |
+| Machine type | `e2-medium`: shared-core, 1 vCPU and 4 GB, bursting above its baseline | `e2-standard-4`: 4 vCPU and 16 GB, no bursting |
+| Nodes per zone | 2 to start, 1 to 10 | 1 to start, 1 to 10 |
+| Placing new nodes | in any zone with capacity (`ANY`) | keeping the zones even (`BALANCED`) |
+| Database replicas | 1 | 3, each in its own zone and on its own node |
+
+A production cluster therefore starts with three `e2-standard-4` nodes, one
+per zone, where a development cluster starts with six `e2-medium` nodes. See
+[Compute Engine pricing](https://cloud.google.com/compute/vm-instance-pricing)
+for what each costs in your region. A database replica that can't be placed
+in a zone of its own stays `Pending`, rather than sharing a zone it would be
+lost with.
+
+The control plane's kubernetes runtime definition records the cluster:
+`HighAvailability`, and the `NodeSize` and `NodeProfile` its machine type maps
+from (`Large` and `Balanced` for production, `Medium` and `Balanced` for
+development).
+
 ## Restrict Access to the Kubernetes API
 
 By default the cluster's Kubernetes API accepts connections from any address.
@@ -100,6 +125,47 @@ Shell, are not let through unless they are in the list.
 
 The control plane reaches the cluster it runs on from inside the cluster, so
 it needs no entry in the list.
+
+### Make the Kubernetes API Private
+
+To take the Kubernetes API off the public internet altogether, pass
+`--private-k8s-api`:
+
+```bash
+  --private-k8s-api
+```
+
+The cluster then has no public IP endpoint. `tptctl` and the control plane
+reach it through GKE's DNS-based endpoint, which Google authorizes with IAM
+(`container.clusters.connect`) rather than by address, using the same Google
+credentials `tptctl` already uses. You don't need to list your own address.
+
+With `--private-k8s-api`, `--k8s-api-allowed-cidrs` lists the private networks,
+such as a VPN or a peered network, that may reach the internal endpoint, up to
+100. The cluster's own address ranges are always admitted, and without the flag
+they're the only ones.
+
+The control plane's controllers reach the private clusters it manages in its
+project through their DNS endpoints too, as their own Workload Identity
+principals. So creating a private cluster grants every Kubernetes service
+account in the control plane's namespace the Kubernetes Engine Cluster Viewer
+role (`roles/container.clusterViewer`) on the project, the narrowest role with
+`container.clusters.connect`. GKE doesn't let that permission be granted on one
+cluster alone. It lets them see the project's
+clusters and connect to them; each cluster's RBAC still decides what they may
+do. Creating a cluster with a public endpoint grants nothing. The control
+planes in a project that use the same namespace share the grant, so deleting a
+private cluster removes it only when no other private cluster Threeport
+provisioned is left in the project.
+
+To use `kubectl` against a private cluster, fetch its credentials for the DNS
+endpoint:
+
+```bash
+gcloud container clusters get-credentials threeport-test --region us-central1 --dns-endpoint
+```
+
+`--private-k8s-api` is available only on GKE for now.
 
 ## Node Service Account
 

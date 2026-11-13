@@ -77,13 +77,39 @@ To limit which networks can reach the cluster's Kubernetes API, add
 ```
 
 Without it the Kubernetes API accepts connections from any address, though
-requests still need credentials. EKS accepts up to 40 blocks, GKE up to 50 and
-OKE up to 120. The Threeport control plane manages the cluster through its
-Kubernetes API, so the list must include the public addresses the control
-plane's outbound traffic comes from, as well as any address you run `kubectl`
-from. A control plane on EKS sends its outbound traffic through the Elastic IPs
-of its cluster's NAT gateways. The list can't be changed once the runtime has
-been created.
+requests still need credentials. Include any address you run `kubectl` from.
+The list can't be changed once the runtime has been created.
+
+The Threeport control plane manages the cluster through its Kubernetes API.
+Threeport records the public addresses that each cluster it provisions sends
+its outbound traffic from, as the runtime instance's `EgressCidrs`, and admits
+the addresses of the cluster the control plane runs on along with
+`AllowedCidrs`. You don't need to list them. They count toward the provider's
+limit: EKS accepts up to 40 blocks, GKE up to 50 and OKE up to 120 in all, and
+a runtime whose list doesn't fit fails with the number of entries left for
+`AllowedCidrs`.
+
+A control plane on a cluster Threeport didn't provision has no `EgressCidrs`.
+That covers a kind cluster, a cluster used with `tptctl up --control-plane-only`
+and a cluster provisioned before Threeport recorded them. In those cases, either
+include the control plane's outbound addresses in `AllowedCidrs`, or set
+`EgressCidrs` on the kubernetes runtime instance the control plane runs on
+through the Threeport API. The controller logs a warning when a restricted
+runtime finds none.
+
+On GKE you can instead take the Kubernetes API off the public internet with
+`PrivateApi`:
+
+```yaml
+  PrivateApi: true
+```
+
+The cluster then has no public IP endpoint. The control plane reaches it through
+GKE's DNS-based endpoint, which Google authorizes with IAM rather than by
+address, so the control plane's addresses aren't added. `AllowedCidrs` then
+lists the private networks, such as a VPN, that may reach the internal
+endpoint, up to 100. `PrivateApi` can't be changed once the runtime has been
+created, and EKS and OKE runtimes don't accept it yet.
 
 Create a `KubernetesRuntime` instance:
 ```bash
