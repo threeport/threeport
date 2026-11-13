@@ -118,7 +118,7 @@ func TestTheUpgradeGivesTheMigratorWhatItBacksUpWith(t *testing.T) {
 				},
 			}),
 		)
-		require.NoError(t, installer.UpdateDeploymentImageTag("v0.7.0", upgradeTestNamespace, bucket, kubeClient, upgradeTestMapper(), true))
+		require.NoError(t, installer.UpdateDeploymentImageTag("v0.7.0", upgradeTestNamespace, bucket, kubeClient, upgradeTestMapper(), nil, true))
 
 		return kubeClient
 	}

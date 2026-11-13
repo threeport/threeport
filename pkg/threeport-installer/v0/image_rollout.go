@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 
+	v0 "github.com/threeport/threeport/pkg/api/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -25,6 +26,7 @@ func UpdateDeploymentImageTag(
 	backupBucket string,
 	dynamicKubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
+	controllers []*v0.ControlPlaneComponent,
 	wait bool,
 ) error {
 	// The new database migrator backs the database up before migrating, from
@@ -123,8 +125,12 @@ func UpdateDeploymentImageTag(
 		rolledOut = append(rolledOut, retagged{name: ThreeportAgentDeployName, previous: agentReplaced})
 	}
 
-	// Update controller deployments
-	controllerList := ThreeportControllerList
+	// update the controllers named by the recorded apis list
+	// a nil list is the full default set
+	controllerList := controllers
+	if controllerList == nil {
+		controllerList = ThreeportControllerList
+	}
 
 	for _, c := range controllerList {
 		deploymentResourceName := fmt.Sprintf("threeport-%s", c.Name)

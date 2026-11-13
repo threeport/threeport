@@ -1462,6 +1462,7 @@ func v0ControlPlaneInstanceUpdated(
 				"",
 				dynamicKubeClient,
 				mapper,
+				cpi.Opts.ControllerList,
 				false,
 			)
 			if err != nil && !k8serrors.IsNotFound(err) {

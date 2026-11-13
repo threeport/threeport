@@ -88,11 +88,12 @@ recreate manifests, RBAC, or configmaps. Use tptctl reinstall for those.`,
 		// leaves the recorded components out, so the instance is fetched by ID.
 		// The notice is advisory, so a failure to read the record is reported
 		// and the upgrade goes on.
-		if recordedInstance, err := client.GetControlPlaneInstanceByID(
+		recordedInstance, err := client.GetControlPlaneInstanceByID(
 			apiClient,
 			apiEndpoint,
 			*controlPlaneInstance.ID,
-		); err != nil {
+		)
+		if err != nil {
 			cli.Warning(fmt.Sprintf(
 				"could not read the recorded components to check for pinned images: %s", err,
 			))
@@ -108,12 +109,18 @@ recreate manifests, RBAC, or configmaps. Use tptctl reinstall for those.`,
 			os.Exit(1)
 		}
 
+		controllers, err := controllersForRecordedApis(recordedInstance)
+		if err != nil {
+			cli.Error("failed to select controllers from the recorded apis list", err)
+			os.Exit(1)
+		}
 		err = installer.UpdateDeploymentImageTag(
 			updateImageTag,
 			*controlPlaneInstance.Namespace,
 			cli.ScheduledBackupBucket(controlPlaneConfig),
 			dynamicKubeClient,
 			mapper,
+			controllers,
 			true,
 		)
 		if err != nil {
@@ -163,6 +170,19 @@ recreate manifests, RBAC, or configmaps. Use tptctl reinstall for those.`,
 // components still carry: the API cannot update them, so they keep the tag
 // from before the upgrade. Reading them again would warn about a pin that
 // the earlier upgrade already replaced.
+// controllersForRecordedApis returns the controllers named by the recorded apis list.
+// A missing record uses the full default set.
+func controllersForRecordedApis(instance *api_v0.ControlPlaneInstance) ([]*api_v0.ControlPlaneComponent, error) {
+	// an unread record keeps the full default set
+	if instance == nil {
+		return nil, nil
+	}
+	return installer.SelectControllersByGroup(
+		installer.ParseApis(util.DerefString(instance.Apis)),
+		installer.ThreeportControllerList,
+	)
+}
+
 func pinnedComponentsWarning(instance *api_v0.ControlPlaneInstance, imageTag string) string {
 	if instance == nil || util.DerefString(instance.ImageTag) != "" {
 		return ""
@@ -193,4 +213,3 @@ func init() {
 
 	UpgradeControlPlaneCmd.MarkFlagRequired("version")
 }
-
