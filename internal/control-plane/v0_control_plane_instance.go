@@ -685,6 +685,15 @@ func v0ControlPlaneInstanceCreated(
 		); err != nil {
 			return 0, fmt.Errorf("failed to retarget installed modules: %w", err)
 		}
+		if cpi.Opts.FromNamespace != "" && cpi.Opts.FromNamespace != cpi.Opts.Namespace {
+			if err := threeport.DeleteNamespaces(
+				dynamicKubeClient,
+				mapper,
+				[]string{cpi.Opts.FromNamespace},
+			); err != nil {
+				return 0, fmt.Errorf("failed to delete source namespace %s: %w", cpi.Opts.FromNamespace, err)
+			}
+		}
 	}
 
 	if !*controlPlaneDefinition.OnboardParent {

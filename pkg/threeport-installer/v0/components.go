@@ -2047,6 +2047,10 @@ func DeleteNamespaces(
 			name,
 			deleteOptions,
 		); err != nil {
+			// a second delete of a namespace the upgrade already removed is success
+			if k8serrors.IsNotFound(err) {
+				continue
+			}
 			return fmt.Errorf("failed to delete namespace: %w", err)
 		}
 	}

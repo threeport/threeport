@@ -600,7 +600,17 @@ func UpgradeBlueGreen(
 	if installErr != nil {
 		return fmt.Errorf("new control plane API is up, source writers left stopped: %w", installErr)
 	}
-	fmt.Printf("Info: control plane %s is up in %s, source writers in %s stay stopped\n", newName, newNamespace, namespace)
+
+	// bring the modules back, then remove the control plane the restore came from
+	if err := created.RestoreModuleScale(source.Kube, modules); err != nil {
+		return fmt.Errorf("failed to restore module scale: %w", err)
+	}
+	if namespace != "" && namespace != newNamespace {
+		if err := installer.DeleteNamespaces(source.Kube, source.Mapper, []string{namespace}); err != nil {
+			return fmt.Errorf("failed to delete source namespace %s: %w", namespace, err)
+		}
+	}
+	fmt.Printf("Info: control plane %s is up in %s, source namespace %s deleted\n", newName, newNamespace, namespace)
 	return nil
 }
 

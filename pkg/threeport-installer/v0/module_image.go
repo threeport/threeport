@@ -143,6 +143,11 @@ func SetNamedContainerImage(deployment *unstructured.Unstructured, listKey, cont
 			continue
 		}
 		container["image"] = image
+		namespace, tag := splitModuleImage(image)
+		if namespace != "" && tag != "" {
+			setContainerEnvValue(container, "MODULE_IMAGE_NAMESPACE", namespace)
+			setContainerEnvValue(container, "MODULE_IMAGE_TAG", tag)
+		}
 		containers[i] = container
 		updated = true
 	}
@@ -156,6 +161,43 @@ func SetNamedContainerImage(deployment *unstructured.Unstructured, listKey, cont
 	}
 
 	return nil
+}
+
+// splitModuleImage returns the repository and tag of a container image.
+// The repository is everything before the last slash, so a registry port stays in it.
+func splitModuleImage(image string) (string, string) {
+	slash := strings.LastIndex(image, "/")
+	if slash <= 0 {
+		return "", ""
+	}
+	name := image[slash+1:]
+	colon := strings.LastIndex(name, ":")
+	if colon <= 0 || colon == len(name)-1 {
+		return "", ""
+	}
+	return image[:slash], name[colon+1:]
+}
+
+// setContainerEnvValue sets one environment value on a container.
+func setContainerEnvValue(container map[string]interface{}, name, value string) {
+	// replace an existing entry, or append one
+	env, _, _ := unstructured.NestedSlice(container, "env")
+	for i, item := range env {
+		entry, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		current, _, _ := unstructured.NestedString(entry, "name")
+		if current != name {
+			continue
+		}
+		entry["value"] = value
+		env[i] = entry
+		_ = unstructured.SetNestedSlice(container, env, "env")
+		return
+	}
+	env = append(env, map[string]interface{}{"name": name, "value": value})
+	_ = unstructured.SetNestedSlice(container, env, "env")
 }
 
 // RestartDeployment sets the pod-template restart annotation.

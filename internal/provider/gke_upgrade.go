@@ -33,6 +33,11 @@ func (i *KubernetesRuntimeInfraGKE) standardNodePoolName() string {
 // Upgrade previews the infrastructure program against the deployed stack and applies it if accept returns true.
 // A declined change leaves the deployed stack as it was.
 func (i *KubernetesRuntimeInfraGKE) Upgrade(ctx context.Context, accept func(string) bool) error {
+	// an empty recorded type would recreate the pool at the zero default
+	if i.MachineType == "" {
+		return fmt.Errorf("recorded machine type is empty")
+	}
+
 	// authenticate before reading the stack
 	cleanup, err := i.useGCPAuth()
 	if err != nil {

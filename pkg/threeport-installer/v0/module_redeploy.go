@@ -3,7 +3,9 @@ package v0
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
+	"encoding/pem"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -473,6 +475,14 @@ func refreshModuleTrust(
 	if err := clientCredential(cert, key); err != nil {
 		return false, err
 	}
+	// keep a serving certificate that names a DNS host
+	serving, err := secretCertHasDNSNames(kubeClient, moduleNamespace, "threeport-api-client-cert")
+	if err != nil {
+		return false, err
+	}
+	if serving {
+		return changed, nil
+	}
 	clientChanged, err := setSecretEntries(kubeClient, moduleNamespace, "threeport-api-client-cert", map[string]string{
 		"tls.crt": cert,
 		"tls.key": key,
@@ -481,6 +491,34 @@ func refreshModuleTrust(
 		return false, err
 	}
 	return changed || clientChanged, nil
+}
+
+// secretCertHasDNSNames reports a secret whose tls.crt names a DNS host.
+func secretCertHasDNSNames(kubeClient dynamic.Interface, namespace, name string) (bool, error) {
+	// read the stored certificate
+	encoded, err := secretData(kubeClient, namespace, name, "tls.crt")
+	if err != nil || encoded == "" {
+		return false, err
+	}
+	return certificateHasDNSNames(encoded), nil
+}
+
+// certificateHasDNSNames reports whether a stored certificate names a DNS host.
+func certificateHasDNSNames(encoded string) bool {
+	// decode the secret value, then the PEM block
+	raw, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return false
+	}
+	block, _ := pem.Decode(raw)
+	if block == nil {
+		return false
+	}
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return false
+	}
+	return len(cert.DNSNames) > 0
 }
 
 // clientCredential checks that the stored certificate and key are one pair.

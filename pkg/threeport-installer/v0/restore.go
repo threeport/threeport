@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -21,6 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 
 	"github.com/threeport/threeport/pkg/api-server/v0/database"
@@ -873,12 +875,28 @@ func (cpi *ControlPlaneInstaller) recordRestore(kubeClient dynamic.Interface) er
 // restoreLockName is the ConfigMap a restore holds while it runs.
 const restoreLockName = "threeport-restore-lock"
 
+// dataKind returns the kind recorded on a restore lock.
+func dataKind(obj *unstructured.Unstructured) string {
+	// a missing lock has no kind
+	if obj == nil {
+		return ""
+	}
+	kind, _, _ := unstructured.NestedString(obj.Object, "data", "kind")
+	return kind
+}
+
 // acquireRestoreLock claims the restore of a control plane for this command,
 // and returns a function that releases it.  Creating the ConfigMap is atomic,
 // so of two restores started together only one gets it.
 func acquireRestoreLock(kubeClient dynamic.Interface, namespace string) (func() error, error) {
 	host, _ := os.Hostname()
 	holder := fmt.Sprintf("%s (pid %d)", host, os.Getpid())
+
+	// record whether this holder is a pod
+	kind := "process"
+	if os.Getenv("KUBERNETES_SERVICE_HOST") != "" {
+		kind = "pod"
+	}
 	_, err := kubeClient.Resource(configMapResource).Namespace(namespace).Create(
 		context.Background(),
 		&unstructured.Unstructured{Object: map[string]interface{}{
@@ -890,6 +908,7 @@ func acquireRestoreLock(kubeClient dynamic.Interface, namespace string) (func() 
 			},
 			"data": map[string]interface{}{
 				"holder":  holder,
+				"kind":    kind,
 				"started": time.Now().UTC().Format(time.RFC3339),
 			},
 		}},
@@ -905,7 +924,7 @@ func acquireRestoreLock(kubeClient dynamic.Interface, namespace string) (func() 
 			otherHolder, otherStarted = data["holder"], data["started"]
 		}
 		// drop a lock whose holder pod is gone, then claim it
-		if restoreLockHolderGone(kubeClient, otherHolder) {
+		if dataKind(existing) == "pod" && restoreLockHolderGone(kubeClient, otherHolder) {
 			delErr := kubeClient.Resource(configMapResource).Namespace(namespace).Delete(
 				context.Background(), restoreLockName, metav1.DeleteOptions{},
 			)
@@ -1256,6 +1275,57 @@ func (cpi *ControlPlaneInstaller) ControllerAPIClient(
 	return apiClient, endpoint, nil
 }
 
+// holdWritersStopped sets the source control plane writers to zero replicas.
+// The patch leaves a recorded count in place so a later resume can restore it.
+func (cpi *ControlPlaneInstaller) holdWritersStopped(kubeClient dynamic.Interface) error {
+	// list the managed deployments in the source namespace
+	deployments, err := kubeClient.Resource(deploymentGVR).Namespace(cpi.Opts.Namespace).List(
+		context.Background(),
+		metav1.ListOptions{LabelSelector: fmt.Sprintf("%s=%s", LabelManagedBy, LabelManagedByValue)},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to list deployments in %s: %w", cpi.Opts.Namespace, err)
+	}
+
+	// set each writer to zero without clearing its recorded count
+	for _, deployment := range deployments.Items {
+		persistent, _, _ := unstructured.NestedString(deployment.Object, "metadata", "labels", LabelPersistent)
+		if persistent == LabelPersistentValue {
+			continue
+		}
+		replicas, _, _ := unstructured.NestedInt64(deployment.Object, "spec", "replicas")
+		if replicas == 0 {
+			continue
+		}
+		patch := map[string]interface{}{
+			"spec": map[string]interface{}{
+				"replicas": int64(0),
+			},
+		}
+		if deployment.GetAnnotations()[replicasBeforeRestoreAnnotation] == "" {
+			patch["metadata"] = map[string]interface{}{
+				"annotations": map[string]interface{}{
+					replicasBeforeRestoreAnnotation: fmt.Sprintf("%d", replicas),
+				},
+			}
+		}
+		payload, err := json.Marshal(patch)
+		if err != nil {
+			return fmt.Errorf("failed to marshal replica patch for %s: %w", deployment.GetName(), err)
+		}
+		if _, err := kubeClient.Resource(deploymentGVR).Namespace(cpi.Opts.Namespace).Patch(
+			context.Background(),
+			deployment.GetName(),
+			types.MergePatchType,
+			payload,
+			metav1.PatchOptions{},
+		); err != nil {
+			return fmt.Errorf("failed to stop %s/%s: %w", cpi.Opts.Namespace, deployment.GetName(), err)
+		}
+	}
+	return nil
+}
+
 // StopSourceAndRestore stops the source writers, backs that database up once, and restores it.
 // A restore already recorded here is left unchanged. Resume brings the source writers back.
 func (cpi *ControlPlaneInstaller) StopSourceAndRestore(
@@ -1270,6 +1340,11 @@ func (cpi *ControlPlaneInstaller) StopSourceAndRestore(
 		return nil, fmt.Errorf("failed to check the restore record for %s: %w", cpi.Opts.Namespace, err)
 	}
 	if recorded {
+		// a retry must not start the source writers again
+		source := NewInstaller(Namespace(cpi.Opts.FromNamespace))
+		if err := source.holdWritersStopped(kubeClient); err != nil {
+			return nil, fmt.Errorf("failed to keep the writers in %s stopped: %w", cpi.Opts.FromNamespace, err)
+		}
 		return nil, nil
 	}
 

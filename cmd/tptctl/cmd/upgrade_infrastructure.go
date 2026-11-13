@@ -29,7 +29,7 @@ var upgradeInfrastructureCmd = &cobra.Command{
 	PreRun:       CommandPreRunFunc,
 	Run: func(cmd *cobra.Command, args []string) {
 		// load the control plane config
-		_, threeportConfig, _, requestedControlPlane := GetClientContext(cmd)
+		apiClient, threeportConfig, apiEndpoint, requestedControlPlane := GetClientContext(cmd)
 		if threeportConfig == nil {
 			cli.Error("failed to get threeport config", fmt.Errorf("threeport config is empty"))
 			os.Exit(1)
@@ -44,6 +44,10 @@ var upgradeInfrastructureCmd = &cobra.Command{
 		infra, err := cli.GkeInfraForUpgrade(controlPlane)
 		if err != nil {
 			cli.Error("failed to prepare infrastructure upgrade", err)
+			os.Exit(1)
+		}
+		if err := cli.KeepRecordedGkePool(infra, apiClient, apiEndpoint, infra.RuntimeInstanceName); err != nil {
+			cli.Error("failed to load the recorded node pool", err)
 			os.Exit(1)
 		}
 		err = infra.Upgrade(cmd.Context(), acceptInfrastructureUpgrade)

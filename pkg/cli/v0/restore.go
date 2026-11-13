@@ -12,7 +12,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 
+	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	tpaws "github.com/threeport/threeport/pkg/aws/v0"
 	"github.com/threeport/threeport/pkg/encryption/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
@@ -87,12 +89,72 @@ func controlPlaneKubeClient(controlPlane *ControlPlane) (dynamic.Interface, erro
 	switch controlPlane.Provider {
 	case v0.KubernetesRuntimeInfraProviderGKE:
 		return gkeControlPlaneKubeClient(controlPlane)
+	case v0.KubernetesRuntimeInfraProviderEKS:
+		return eksControlPlaneKubeClient(controlPlane)
+	case v0.KubernetesRuntimeInfraProviderOKE:
+		return okeControlPlaneKubeClient(controlPlane)
 	default:
 		return nil, fmt.Errorf(
 			"a database backup is not supported for control planes on %s",
 			controlPlane.Provider,
 		)
 	}
+}
+
+// eksControlPlaneKubeClient returns a client for the EKS cluster, refreshing the token on each use.
+func eksControlPlaneKubeClient(controlPlane *ControlPlane) (dynamic.Interface, error) {
+	// load the caller's AWS credentials
+	cfg := controlPlane.EKSProviderConfig
+	awsConfig, err := tpaws.LoadAwsConfig(cfg.AwsConfigProfile, cfg.AwsRegion)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load AWS config: %w", err)
+	}
+	infra := &provider.KubernetesRuntimeInfraEKS{
+		PulumiWorkspace: provider.PulumiWorkspace{RuntimeInstanceName: controlPlane.Name},
+		AwsConfig:       awsConfig,
+		AwsAccountID:    cfg.AwsAccountID,
+		Region:          cfg.AwsRegion,
+	}
+
+	// mint a fresh token whenever the client needs one
+	connection, err := infra.GetConnection()
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to EKS: %w", err)
+	}
+	return refreshingKubeClient(connection, func() (string, error) {
+		refreshed, err := infra.GetConnection()
+		if err != nil {
+			return "", err
+		}
+		return refreshed.Token, nil
+	})
+}
+
+// okeControlPlaneKubeClient returns a client for the OKE cluster, refreshing the token on each use.
+func okeControlPlaneKubeClient(controlPlane *ControlPlane) (dynamic.Interface, error) {
+	// load the caller's OCI credentials
+	cfg := controlPlane.OKEProviderConfig
+	infra := &provider.KubernetesRuntimeInfraOKE{
+		PulumiWorkspace: provider.PulumiWorkspace{RuntimeInstanceName: controlPlane.Name},
+		Region:          cfg.OciRegion,
+		CompartmentOCID: cfg.OciCompartmentOcid,
+	}
+	if err := infra.LoadOCIConfig(cfg.OciRegion, cfg.OciConfigProfile, cfg.OciCompartmentOcid); err != nil {
+		return nil, fmt.Errorf("failed to load OCI config: %w", err)
+	}
+
+	// mint a fresh token whenever the client needs one
+	connection, err := infra.GetConnection()
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to OKE: %w", err)
+	}
+	return refreshingKubeClient(connection, func() (string, error) {
+		refreshed, err := infra.GetConnection()
+		if err != nil {
+			return "", err
+		}
+		return refreshed.Token, nil
+	})
 }
 
 // RestoreControlPlaneDatabase restores a control plane database from sourceBucket.

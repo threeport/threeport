@@ -255,6 +255,61 @@ func GkeInfraForUpgrade(controlPlane *ControlPlane) (*provider.KubernetesRuntime
 	return infra, nil
 }
 
+// ApplyRecordedGkePool copies the recorded node pool onto an upgrade.
+// An empty machine type is refused so the pool is not recreated at zero.
+func ApplyRecordedGkePool(
+	infra *provider.KubernetesRuntimeInfraGKE,
+	definition *v0.GcpGkeKubernetesRuntimeDefinition,
+	instance *v0.GcpGkeKubernetesRuntimeInstance,
+) error {
+	// refuse a missing type
+	if definition == nil || definition.DefaultNodeGroupInstanceType == nil || *definition.DefaultNodeGroupInstanceType == "" {
+		return fmt.Errorf("recorded machine type is empty")
+	}
+	infra.MachineType = *definition.DefaultNodeGroupInstanceType
+
+	// copy the recorded sizes
+	if definition.DefaultNodeGroupInitialSize != nil {
+		infra.WorkerNodeInitialCount = int32(*definition.DefaultNodeGroupInitialSize)
+	}
+	if definition.DefaultNodeGroupMinimumSize != nil {
+		infra.MinNodeCount = int32(*definition.DefaultNodeGroupMinimumSize)
+	}
+	if definition.DefaultNodeGroupMaximumSize != nil {
+		infra.MaxNodeCount = int32(*definition.DefaultNodeGroupMaximumSize)
+	}
+	if instance != nil && instance.ReservedNatAddress != nil {
+		infra.ReserveNatAddress = *instance.ReservedNatAddress
+	}
+	return nil
+}
+
+// KeepRecordedGkePool loads the recorded node pool for a cluster and copies it onto the upgrade.
+// A missing record is an error. There is no default size.
+func KeepRecordedGkePool(
+	infra *provider.KubernetesRuntimeInfraGKE,
+	apiClient *http.Client,
+	apiEndpoint string,
+	clusterName string,
+) error {
+	// load the recorded instance
+	gkeInstance, err := client.GetGcpGkeKubernetesRuntimeInstanceByName(apiClient, apiEndpoint, clusterName)
+	if err != nil || gkeInstance == nil || gkeInstance.KubernetesRuntimeInstanceID == nil {
+		return fmt.Errorf("recorded GKE instance %s was not found: %w", clusterName, err)
+	}
+	runtime, err := client.GetKubernetesRuntimeInstanceByID(apiClient, apiEndpoint, *gkeInstance.KubernetesRuntimeInstanceID)
+	if err != nil || runtime == nil || runtime.KubernetesRuntimeDefinitionID == nil {
+		return fmt.Errorf("recorded runtime for %s was not found: %w", clusterName, err)
+	}
+	definition, err := client.GetGcpGkeKubernetesRuntimeDefinitionByK8sRuntimeDef(apiClient, apiEndpoint, *runtime.KubernetesRuntimeDefinitionID)
+	if err != nil || definition == nil {
+		return fmt.Errorf("recorded GKE definition for %s was not found: %w", clusterName, err)
+	}
+
+	// copy the recorded pool
+	return ApplyRecordedGkePool(infra, definition, gkeInstance)
+}
+
 // gkeControlPlaneKubeClient returns a client for the GKE cluster a control
 // plane runs on, authenticated as the caller's own Google credentials.
 func gkeControlPlaneKubeClient(controlPlane *ControlPlane) (dynamic.Interface, error) {

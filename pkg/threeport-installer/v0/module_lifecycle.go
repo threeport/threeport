@@ -110,6 +110,11 @@ func ReconcileInstalledModuleImages(
 		return nil
 	}
 	for _, module := range *modules {
+		// a core module has no image of its own
+		if module.Core != nil && *module.Core {
+			continue
+		}
+
 		// bring a stopped module back even when it has no recorded image
 		kebab := ModuleKebab(util.DerefString(module.Name))
 		workloadNamespace := moduleWorkloadNamespace(&module)
@@ -275,7 +280,7 @@ func retagModuleController(
 }
 
 // EnsureModuleInstallJob creates the install job when the module is not already installing.
-// A failed job is replaced. A running or finished job is left in place.
+// A finished job is replaced. A running job is left in place.
 func EnsureModuleInstallJob(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
@@ -283,14 +288,17 @@ func EnsureModuleInstallJob(
 	cpi *ControlPlaneInstaller,
 	module *api.ModuleApi,
 ) error {
-	// leave a job that is running or finished
+	// leave a job that is still running
 	kebab := ModuleKebab(util.DerefString(module.Name))
 	namespace := controlPlaneNamespace(inst, cpi)
 	name := moduleInstallJobName(kebab)
 	existing, err := kube.GetResource(
 		"batch", "v1", "Job", namespace, name, kubeClient, *mapper,
 	)
-	if err == nil && !jobFailed(existing) {
+	if err == nil && jobActive(existing) {
+		return nil
+	}
+	if err == nil && !jobFinished(existing) {
 		return nil
 	}
 	if err != nil && !k8serrors.IsNotFound(err) {
@@ -422,6 +430,21 @@ func namedContainerImage(obj *unstructured.Unstructured, listKey, containerName 
 	}
 
 	return "", false
+}
+
+// jobActive reports a job that still has a running pod.
+func jobActive(job *unstructured.Unstructured) bool {
+	active, _, _ := unstructured.NestedInt64(job.Object, "status", "active")
+	return active > 0
+}
+
+// jobFinished reports a job that succeeded or failed.
+func jobFinished(job *unstructured.Unstructured) bool {
+	succeeded, _, _ := unstructured.NestedInt64(job.Object, "status", "succeeded")
+	if succeeded > 0 {
+		return true
+	}
+	return jobFailed(job)
 }
 
 // jobFailed reports whether a job has failed and is neither running nor finished.

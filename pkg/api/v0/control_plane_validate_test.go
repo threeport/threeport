@@ -452,6 +452,41 @@ func TestBeforeDeleteRejectsChildSelf(t *testing.T) {
 	require.NoError(t, callBeforeDelete(db, root))
 }
 
+// TestControlPlaneFleetMatrix covers root, child, parent record, and grandchild.
+func TestControlPlaneFleetMatrix(t *testing.T) {
+	db := setupControlPlaneAuthDB(t)
+	runtime := runtimeOn(t, db, KubernetesRuntimeInfraProviderKind, "fleet-runtime")
+	definition := controlPlaneDefinitionWithAuth(t, db, "fleet-definition", true)
+
+	// build the chain root, child, grandchild, and a parent row that itself has a parent
+	root := controlPlaneRow(t, db, "fleet-root", definition, runtime, nil, util.Ptr(true))
+	child := controlPlaneRow(t, db, "fleet-child", definition, runtime, root.ID, util.Ptr(true))
+	grandchild := controlPlaneRow(t, db, "fleet-grandchild", definition, runtime, child.ID, util.Ptr(true))
+	parentOfChild := controlPlaneRow(t, db, "fleet-parent-row", definition, runtime, root.ID, util.Ptr(false))
+
+	// a request about the child or grandchild itself is refused
+	require.NoError(t, ChildControlPlaneRequest(root))
+	require.ErrorIs(t, ChildControlPlaneRequest(child), ErrRequestMustBeMadeToParent)
+	require.ErrorIs(t, ChildControlPlaneRequest(grandchild), ErrRequestMustBeMadeToParent)
+	require.NoError(t, ChildControlPlaneRequest(parentOfChild))
+
+	// delete follows the same shapes, including a parent row that has its own parent
+	require.NoError(t, callBeforeDelete(db, root))
+	require.ErrorIs(t, callBeforeDelete(db, child), ErrRequestMustBeMadeToParent)
+	require.ErrorIs(t, callBeforeDelete(db, grandchild), ErrRequestMustBeMadeToParent)
+	require.NoError(t, callBeforeDelete(db, parentOfChild))
+
+	// a name change on the grandchild is a request to the parent
+	renamed := "fleet-grandchild-renamed"
+	err := db.Model(grandchild).Updates(&ControlPlaneInstance{Instance: Instance{Name: &renamed}}).Error
+	require.ErrorContains(t, err, ErrRequestMustBeMadeToParent.Error())
+
+	// a name change on a stored parent row is not a request this API serves
+	parentName := "fleet-parent-renamed"
+	err = db.Model(parentOfChild).Updates(&ControlPlaneInstance{Instance: Instance{Name: &parentName}}).Error
+	require.ErrorContains(t, err, "does not serve")
+}
+
 // controlPlaneRow inserts a control plane with the parent and self flags under test.
 func controlPlaneRow(
 	t *testing.T,
