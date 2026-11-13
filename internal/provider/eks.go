@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strconv"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
@@ -98,6 +100,19 @@ type KubernetesRuntimeInfraEKS struct {
 	// The program keeps the control plane on it rather than ask EKS for a
 	// downgrade, which it refuses.
 	controlPlaneVersion string
+
+	// nodeGroupVersions is set by UpgradeInfra to the versions of the node
+	// groups already past the version the cluster is upgraded to, by name, as
+	// a node group EKS or an operator upgraded on its own is.  The program
+	// keeps each on its version rather than ask EKS for a downgrade.
+	nodeGroupVersions map[string]string
+
+	// stackZones is set by CreateInfra and UpgradeInfra when the stack
+	// already holds the cluster's subnets, to their zones in order.  The
+	// program keeps them: a subnet's zone can't change without replacing it,
+	// and the zones the region offers, or that offer the node instance type,
+	// change over time.
+	stackZones []string
 }
 
 // Create provisions an AWS EKS cluster for threeport workloads and returns the
@@ -132,6 +147,7 @@ func (i *KubernetesRuntimeInfraEKS) CreateInfra() (*kube.KubeConnectionInfo, err
 	}
 	i.keepStackVersion(exported.Deployment)
 	i.keepStackSupportType(exported.Deployment)
+	i.keepStackZones(exported.Deployment)
 
 	if _, err := i.RunUp(context.Background(), stack); err != nil {
 		return nil, fmt.Errorf("failed to deploy stack: %w", err)
@@ -1027,3 +1043,51 @@ const (
 		]
 	}`
 )
+
+// keepStackZones records the zones of the private subnets the stack's
+// deployment holds, in the order of their names' zone index, for the program
+// to keep.
+func (i *KubernetesRuntimeInfraEKS) keepStackZones(deployment json.RawMessage) {
+	var contents struct {
+		Resources []struct {
+			Urn    string         `json:"urn"`
+			Type   string         `json:"type"`
+			Inputs map[string]any `json:"inputs"`
+		} `json:"resources"`
+	}
+	if len(deployment) == 0 || json.Unmarshal(deployment, &contents) != nil {
+		return
+	}
+
+	zonesByIndex := map[int]string{}
+	prefix := fmt.Sprintf("::%s-private-subnet-", i.RuntimeInstanceName)
+	for _, resource := range contents.Resources {
+		if resource.Type != "aws:ec2/subnet:Subnet" {
+			continue
+		}
+		position := strings.LastIndex(resource.Urn, prefix)
+		if position < 0 {
+			continue
+		}
+		index, err := strconv.Atoi(resource.Urn[position+len(prefix):])
+		zone, _ := resource.Inputs["availabilityZone"].(string)
+		if err != nil || zone == "" {
+			continue
+		}
+		zonesByIndex[index] = zone
+	}
+
+	if len(zonesByIndex) == 0 {
+		return
+	}
+	zones := make([]string, 0, len(zonesByIndex))
+	for index := range len(zonesByIndex) {
+		zone, held := zonesByIndex[index]
+		if !held {
+			// subnets missing from the middle: let the program choose again
+			return
+		}
+		zones = append(zones, zone)
+	}
+	i.stackZones = zones
+}

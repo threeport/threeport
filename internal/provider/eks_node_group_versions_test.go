@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -49,4 +50,75 @@ func TestAnEksClustersVersionIsItsOldestNodeGroups(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "1.36", version)
 	assert.Equal(t, []string{"eks-test-private-node-group"}, asked)
+}
+
+// TestAnUpgradeKeepsNodeGroupsThatAreAhead covers an EKS upgrade of a cluster
+// whose node groups run different versions: the upgrade's step is one past
+// the oldest, and a node group already past it keeps its own version, as the
+// control plane does, rather than ask EKS for a downgrade it refuses.
+func TestAnUpgradeKeepsNodeGroupsThatAreAhead(t *testing.T) {
+	readControlPlane, readNodeGroup := eksControlPlaneVersion, eksNodeGroupVersion
+	t.Cleanup(func() { eksControlPlaneVersion, eksNodeGroupVersion = readControlPlane, readNodeGroup })
+	eksControlPlaneVersion = func(*aws.Config, string) (string, error) { return "1.37", nil }
+	versions := map[string]string{
+		"eks-test-private-node-group-0": "1.37",
+		"eks-test-private-node-group-1": "1.35",
+		"eks-test-private-node-group-2": "1.36",
+	}
+	eksNodeGroupVersion = func(_ *aws.Config, _ string, nodeGroupName string) (string, error) {
+		return versions[nodeGroupName], nil
+	}
+
+	infra := testEksInfra(3)
+	infra.NodeGroupPerZone = true
+	infra.AwsConfig = nil
+	// the IAM lookup after the versions fails without an AWS config
+	_ = infra.UpgradeInfra("1.36")
+	assert.Equal(t, "1.37", infra.controlPlaneVersion)
+	assert.Equal(t, map[string]string{"eks-test-private-node-group-0": "1.37"}, infra.nodeGroupVersions)
+
+	mocks := runEksPulumiProgram(t, infra)
+	asked := map[string]any{}
+	for _, nodeGroup := range mocks.byType(eksNodeGroupTypeToken) {
+		asked[nodeGroup.inputs["nodeGroupName"].(string)] = nodeGroup.inputs["version"]
+	}
+	assert.Equal(t, map[string]any{
+		"eks-test-private-node-group-0": "1.37",
+		"eks-test-private-node-group-1": "1.36",
+		"eks-test-private-node-group-2": "1.36",
+	}, asked)
+}
+
+// TestAnEksClusterKeepsTheZonesOfItsSubnets covers an up of a stack that
+// already holds the cluster's subnets: the cluster stays in their zones,
+// rather than the ones the region would offer now, since a subnet can't move
+// to another zone without being replaced.  A stack missing a subnet from the
+// middle, or holding none, lets the program choose.
+func TestAnEksClusterKeepsTheZonesOfItsSubnets(t *testing.T) {
+	deployment := json.RawMessage(`{"resources": [
+		{"urn": "urn:pulumi:stack::eks::aws:ec2/subnet:Subnet::eks-test-private-subnet-1", "type": "aws:ec2/subnet:Subnet", "inputs": {"availabilityZone": "us-east-1d"}},
+		{"urn": "urn:pulumi:stack::eks::aws:ec2/subnet:Subnet::eks-test-public-subnet-0", "type": "aws:ec2/subnet:Subnet", "inputs": {"availabilityZone": "us-east-1z"}},
+		{"urn": "urn:pulumi:stack::eks::aws:ec2/subnet:Subnet::eks-test-private-subnet-0", "type": "aws:ec2/subnet:Subnet", "inputs": {"availabilityZone": "us-east-1c"}},
+		{"urn": "urn:pulumi:stack::eks::aws:ec2/vpc:Vpc::eks-test-vpc", "type": "aws:ec2/vpc:Vpc", "inputs": {}}
+	]}`)
+	infra := testEksInfra(2)
+	infra.keepStackZones(deployment)
+	assert.Equal(t, []string{"us-east-1c", "us-east-1d"}, infra.stackZones)
+
+	mocks := runEksPulumiProgram(t, infra)
+	zones := map[string]bool{}
+	for _, subnet := range mocks.byType(eksSubnetTypeToken) {
+		zones[subnet.inputs["availabilityZone"].(string)] = true
+	}
+	assert.Equal(t, map[string]bool{"us-east-1c": true, "us-east-1d": true}, zones, "not the region's first zones, us-east-1a and -b")
+
+	gap := testEksInfra(3)
+	gap.keepStackZones(json.RawMessage(`{"resources": [
+		{"urn": "urn:pulumi:stack::eks::aws:ec2/subnet:Subnet::eks-test-private-subnet-0", "type": "aws:ec2/subnet:Subnet", "inputs": {"availabilityZone": "us-east-1a"}},
+		{"urn": "urn:pulumi:stack::eks::aws:ec2/subnet:Subnet::eks-test-private-subnet-2", "type": "aws:ec2/subnet:Subnet", "inputs": {"availabilityZone": "us-east-1c"}}
+	]}`))
+	assert.Nil(t, gap.stackZones)
+	none := testEksInfra(3)
+	none.keepStackZones(json.RawMessage(`{"resources": []}`))
+	assert.Nil(t, none.stackZones)
 }

@@ -148,6 +148,11 @@ func (i *KubernetesRuntimeInfraEKS) InitPulumiProject() *KubernetesRuntimeInfraE
 // that offer the node instance type are used: a node group in one that doesn't
 // can't start a node, and a newer type such as m8i isn't in every zone.
 func (i *KubernetesRuntimeInfraEKS) clusterZones(ctx *pulumi.Context, available []string) ([]string, error) {
+	// a cluster the stack holds stays in the zones its subnets are in
+	if len(i.stackZones) > 0 {
+		return i.stackZones, nil
+	}
+
 	candidates := available
 	if i.NodeGroupPerZone {
 		offerings, err := ec2.GetInstanceTypeOfferings(ctx, &ec2.GetInstanceTypeOfferingsArgs{
@@ -220,6 +225,18 @@ func (i *KubernetesRuntimeInfraEKS) kubernetesVersion() string {
 	}
 
 	return i.KubernetesVersion
+}
+
+// nodeGroupKubernetesVersion returns the Kubernetes version of a node group:
+// the version an upgrade keeps it on, when it is already past the one the
+// cluster is upgraded to, and the version to provision the cluster with
+// otherwise.
+func (i *KubernetesRuntimeInfraEKS) nodeGroupKubernetesVersion(nodeGroupName string) string {
+	if version, kept := i.nodeGroupVersions[nodeGroupName]; kept {
+		return version
+	}
+
+	return i.kubernetesVersion()
 }
 
 // nodeGroupNames returns the names of the cluster's node groups: one spanning
@@ -482,7 +499,7 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 				NodeRoleArn:   pulumi.String(i.NodeRoleArn),
 				SubnetIds:     subnetIds,
 				InstanceTypes: pulumi.StringArray{pulumi.String(i.DefaultNodeGroupInstanceType)},
-				Version:       pulumi.String(i.kubernetesVersion()),
+				Version:       pulumi.String(i.nodeGroupKubernetesVersion(nodeGroupName)),
 				ScalingConfig: &awseks.NodeGroupScalingConfigArgs{
 					DesiredSize: pulumi.Int(i.DefaultNodeGroupInitialNodes),
 					MinSize:     pulumi.Int(i.DefaultNodeGroupMinNodes),

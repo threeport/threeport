@@ -502,11 +502,11 @@ func TestAnEksControlPlaneAheadOfItsNodesIsKept(t *testing.T) {
 		{"1.35", "1.36", ""},
 		{"1.36", "1.36", ""},
 	} {
-		keep, err := controlPlaneVersionForUpgrade(c.controlPlane, c.version)
+		keep, err := versionKeptForUpgrade(c.controlPlane, c.version)
 		require.NoError(t, err)
 		assert.Equal(t, c.keep, keep, "control plane %s, upgrade to %s", c.controlPlane, c.version)
 	}
-	_, err := controlPlaneVersionForUpgrade("v1.37", "1.36")
+	_, err := versionKeptForUpgrade("v1.37", "1.36")
 	assert.Error(t, err)
 
 	// UpgradeInfra reads the control plane before it plans the upgrade

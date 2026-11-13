@@ -46,8 +46,24 @@ func (i *KubernetesRuntimeInfraEKS) UpgradeInfra(version string) error {
 	if err != nil {
 		return err
 	}
-	if i.controlPlaneVersion, err = controlPlaneVersionForUpgrade(controlPlane, version); err != nil {
+	if i.controlPlaneVersion, err = versionKeptForUpgrade(controlPlane, version); err != nil {
 		return err
+	}
+	// a node group already past the version keeps its own, as the control
+	// plane does
+	i.nodeGroupVersions = map[string]string{}
+	for _, nodeGroupName := range i.nodeGroupNames() {
+		nodeGroup, err := eksNodeGroupVersion(i.AwsConfig, i.RuntimeInstanceName, nodeGroupName)
+		if err != nil {
+			return err
+		}
+		keep, err := versionKeptForUpgrade(nodeGroup, version)
+		if err != nil {
+			return err
+		}
+		if keep != "" {
+			i.nodeGroupVersions[nodeGroupName] = keep
+		}
 	}
 	if err := i.lookupClusterIam(); err != nil {
 		return err
@@ -62,6 +78,7 @@ func (i *KubernetesRuntimeInfraEKS) UpgradeInfra(version string) error {
 		return fmt.Errorf("failed to read the stack's EKS cluster: %w", err)
 	}
 	i.keepStackSupportType(exported.Deployment)
+	i.keepStackZones(exported.Deployment)
 
 	return i.upgradeStack(stack)
 }
@@ -114,17 +131,17 @@ func (i *KubernetesRuntimeInfraGKE) UpgradeInfra(version string) error {
 // stands in for it.
 var eksControlPlaneVersion = tpaws.EksClusterVersion
 
-// controlPlaneVersionForUpgrade returns the version to keep the control plane
-// on while the cluster is upgraded to version: its own when it is already
-// past version, as a downgrade would be refused, and "" to upgrade it to
-// version with the node group otherwise.
-func controlPlaneVersionForUpgrade(controlPlane, version string) (string, error) {
-	comparison, err := api_v0.CompareKubernetesVersions(controlPlane, version)
+// versionKeptForUpgrade returns the version to keep the control plane, or a
+// node group, on while the cluster is upgraded to version: its own, current,
+// when it is already past version, as a downgrade would be refused, and "" to
+// upgrade it to version otherwise.
+func versionKeptForUpgrade(current, version string) (string, error) {
+	comparison, err := api_v0.CompareKubernetesVersions(current, version)
 	if err != nil {
 		return "", err
 	}
 	if comparison > 0 {
-		return controlPlane, nil
+		return current, nil
 	}
 
 	return "", nil
