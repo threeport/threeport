@@ -31,6 +31,7 @@ type OciOkeKubernetesRuntimeDefinitionValues struct {
 	PrivateApi             *bool
 	AllowedCidrs           *[]string
 	KubernetesVersion      *string
+	DeletionProtection     *bool
 	Age                    *string
 }
 
@@ -75,10 +76,11 @@ func (o *OciOkeKubernetesRuntimeDefinitionConfig) Get(
 					}
 					return nil
 				}(),
-				PrivateApi:        ociOkeKubernetesRuntimeDefinition.PrivateApi,
-				AllowedCidrs:      cidrsFromJSON(ociOkeKubernetesRuntimeDefinition.AllowedCidrs),
-				KubernetesVersion: ociOkeKubernetesRuntimeDefinition.KubernetesVersion,
-				Age:               util.Ptr(util.GetAgeFormatted(ociOkeKubernetesRuntimeDefinition.CreatedAt)),
+				PrivateApi:         ociOkeKubernetesRuntimeDefinition.PrivateApi,
+				AllowedCidrs:       cidrsFromJSON(ociOkeKubernetesRuntimeDefinition.AllowedCidrs),
+				KubernetesVersion:  ociOkeKubernetesRuntimeDefinition.KubernetesVersion,
+				DeletionProtection: ociOkeKubernetesRuntimeDefinition.DeletionProtection,
+				Age:                util.Ptr(util.GetAgeFormatted(ociOkeKubernetesRuntimeDefinition.CreatedAt)),
 			},
 		}
 		ociOkeKubernetesRuntimeDefinitionConfigs = append(ociOkeKubernetesRuntimeDefinitionConfigs, ociOkeKubernetesRuntimeDefinitionConfig)
@@ -118,6 +120,7 @@ func (o *OciOkeKubernetesRuntimeDefinitionConfig) Create(
 		PrivateApi:               ociOkeKubernetesRuntimeDefinitionValues.PrivateApi,
 		AllowedCidrs:             cidrsToJSON(ociOkeKubernetesRuntimeDefinitionValues.AllowedCidrs),
 		KubernetesVersion:        ociOkeKubernetesRuntimeDefinitionValues.KubernetesVersion,
+		DeletionProtection:       ociOkeKubernetesRuntimeDefinitionValues.DeletionProtection,
 	}
 
 	// create kubernetes runtime definition
@@ -144,6 +147,7 @@ func (o *OciOkeKubernetesRuntimeDefinitionConfig) Create(
 		// the version the cluster is created on, the default when the config
 		// sets none
 		KubernetesVersion:             util.Ptr(api_v0.KubernetesVersionOrDefault(ociOkeKubernetesRuntimeDefinitionValues.KubernetesVersion)),
+		DeletionProtection:            ociOkeKubernetesRuntimeDefinitionValues.DeletionProtection,
 		KubernetesRuntimeDefinitionID: createdKubernetesRuntimeDefinition.ID,
 	}
 
@@ -170,10 +174,11 @@ func (o *OciOkeKubernetesRuntimeDefinitionConfig) Create(
 				}
 				return nil
 			}(),
-			PrivateApi:        createdOciOkeKubernetesRuntimeDefinition.PrivateApi,
-			AllowedCidrs:      cidrsFromJSON(createdOciOkeKubernetesRuntimeDefinition.AllowedCidrs),
-			KubernetesVersion: createdOciOkeKubernetesRuntimeDefinition.KubernetesVersion,
-			Age:               util.Ptr(util.GetAgeFormatted(createdOciOkeKubernetesRuntimeDefinition.CreatedAt)),
+			PrivateApi:         createdOciOkeKubernetesRuntimeDefinition.PrivateApi,
+			AllowedCidrs:       cidrsFromJSON(createdOciOkeKubernetesRuntimeDefinition.AllowedCidrs),
+			KubernetesVersion:  createdOciOkeKubernetesRuntimeDefinition.KubernetesVersion,
+			DeletionProtection: createdOciOkeKubernetesRuntimeDefinition.DeletionProtection,
+			Age:                util.Ptr(util.GetAgeFormatted(createdOciOkeKubernetesRuntimeDefinition.CreatedAt)),
 		},
 	}
 
@@ -230,6 +235,11 @@ func (o *OciOkeKubernetesRuntimeDefinitionConfig) Replace(
 	if ociOkeKubernetesRuntimeDefinitionValues.KubernetesVersion != nil {
 		updatedOciOkeKubernetesRuntimeDefinition.KubernetesVersion = ociOkeKubernetesRuntimeDefinitionValues.KubernetesVersion
 	}
+	// DeletionProtection a config leaves out is kept: only an explicit
+	// false turns it off
+	if ociOkeKubernetesRuntimeDefinitionValues.DeletionProtection != nil {
+		updatedOciOkeKubernetesRuntimeDefinition.DeletionProtection = ociOkeKubernetesRuntimeDefinitionValues.DeletionProtection
+	}
 
 	// replace oci oke kubernetes runtime definition
 	replacedOciOkeKubernetesRuntimeDefinition, err := client_v0.ReplaceOciOkeKubernetesRuntimeDefinition(
@@ -276,10 +286,11 @@ func (o *OciOkeKubernetesRuntimeDefinitionConfig) Replace(
 				}
 				return nil
 			}(),
-			PrivateApi:        replacedOciOkeKubernetesRuntimeDefinition.PrivateApi,
-			AllowedCidrs:      cidrsFromJSON(replacedOciOkeKubernetesRuntimeDefinition.AllowedCidrs),
-			KubernetesVersion: replacedOciOkeKubernetesRuntimeDefinition.KubernetesVersion,
-			Age:               util.Ptr(util.GetAgeFormatted(replacedOciOkeKubernetesRuntimeDefinition.CreatedAt)),
+			PrivateApi:         replacedOciOkeKubernetesRuntimeDefinition.PrivateApi,
+			AllowedCidrs:       cidrsFromJSON(replacedOciOkeKubernetesRuntimeDefinition.AllowedCidrs),
+			KubernetesVersion:  replacedOciOkeKubernetesRuntimeDefinition.KubernetesVersion,
+			DeletionProtection: replacedOciOkeKubernetesRuntimeDefinition.DeletionProtection,
+			Age:                util.Ptr(util.GetAgeFormatted(replacedOciOkeKubernetesRuntimeDefinition.CreatedAt)),
 		},
 	}
 

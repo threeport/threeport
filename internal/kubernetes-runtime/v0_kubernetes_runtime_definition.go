@@ -62,6 +62,7 @@ func v0KubernetesRuntimeDefinitionCreated(
 			PrivateApi:                    kubernetesRuntimeDefinition.PrivateApi,
 			AllowedCidrs:                  kubernetesRuntimeDefinition.AllowedCidrs,
 			KubernetesVersion:             util.Ptr(v0.KubernetesVersionOrDefault(kubernetesRuntimeDefinition.KubernetesVersion)),
+			DeletionProtection:            util.Ptr(kubernetesRuntimeDefinition.DeletionProtection != nil && *kubernetesRuntimeDefinition.DeletionProtection),
 			KubernetesRuntimeDefinitionID: kubernetesRuntimeDefinition.ID,
 		}
 		_, err = client.CreateAwsEksKubernetesRuntimeDefinition(
@@ -102,6 +103,7 @@ func v0KubernetesRuntimeDefinitionCreated(
 			PrivateApi:                    kubernetesRuntimeDefinition.PrivateApi,
 			AllowedCidrs:                  kubernetesRuntimeDefinition.AllowedCidrs,
 			KubernetesVersion:             util.Ptr(v0.KubernetesVersionOrDefault(kubernetesRuntimeDefinition.KubernetesVersion)),
+			DeletionProtection:            util.Ptr(kubernetesRuntimeDefinition.DeletionProtection != nil && *kubernetesRuntimeDefinition.DeletionProtection),
 			KubernetesRuntimeDefinitionID: kubernetesRuntimeDefinition.ID,
 		}
 		_, err = client.CreateGcpGkeKubernetesRuntimeDefinition(

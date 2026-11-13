@@ -38,6 +38,11 @@ type KubernetesRuntimeInfraEKS struct {
 	// Kubernetes version of the EKS cluster.
 	KubernetesVersion string
 
+	// If true, Pulumi refuses to destroy or replace the cluster and its node
+	// group, and EKS refuses to delete the cluster.  Delete removes the
+	// protection first.
+	DeletionProtection bool
+
 	// The ARN of the IAM role the EKS control plane assumes.  Created by the
 	// IAM bootstrap that runs outside the Pulumi program.
 	ClusterRoleArn string
@@ -116,6 +121,12 @@ func (i *KubernetesRuntimeInfraEKS) CreateInfra() (*kube.KubeConnectionInfo, err
 		return nil, fmt.Errorf("failed to deploy stack: %w", err)
 	}
 
+	// EKS turns its deletion protection on only for an active cluster, which
+	// the stack leaves it
+	if err := i.setEksDeletionProtection(i.DeletionProtection); err != nil {
+		return nil, err
+	}
+
 	// the OIDC issuer the add-ons' roles are bound to is stood up with the
 	// cluster, so these come after the stack
 	if err := i.CreateIrsaIam(); err != nil {
@@ -150,6 +161,12 @@ func (i *KubernetesRuntimeInfraEKS) DestroyInfra() error {
 // Delete destroys an AWS EKS cluster and the IAM resources created alongside
 // it.
 func (i *KubernetesRuntimeInfraEKS) Delete() error {
+	// EKS refuses to delete a cluster with its deletion protection on, so it
+	// is turned off first; Pulumi's is removed by the destroy
+	if err := i.setEksDeletionProtection(false); err != nil {
+		return err
+	}
+
 	if err := i.DestroyStack(); err != nil {
 		// A destroy that leaves subnets behind is usually the VPC CNI's doing:
 		// it allocates secondary interfaces on the worker nodes for pod

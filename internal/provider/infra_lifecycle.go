@@ -275,6 +275,15 @@ type InfraLifecycleProvider interface {
 	PublishDeleteNotification() error
 }
 
+// DeletionGuard is implemented by an InfraLifecycleProvider whose cluster can
+// be protected from deletion.  DeletionRefusal returns a
+// *api_v0.DeletionProtectedError while the cluster is protected, and nil when
+// it may be destroyed.  The API refuses a delete of a protected cluster before
+// scheduling it, and this catches a protection set after that.
+type DeletionGuard interface {
+	DeletionRefusal() error
+}
+
 // HandleInfraCreate implements the create state machine for any infrastructure
 // provider. It checks reconciliation state, manages ack/confirm transitions,
 // and launches the create goroutine when needed.
@@ -519,6 +528,18 @@ func HandleInfraDelete(p InfraLifecycleProvider, log *logr.Logger) (int64, error
 			// fall through to re-launch
 		} else {
 			return 60, nil
+		}
+	}
+
+	// hold a delete while the cluster is protected, as it may have been since
+	// the delete was scheduled
+	if guard, ok := p.(DeletionGuard); ok {
+		if err := guard.DeletionRefusal(); err != nil {
+			var protected *api_v0.DeletionProtectedError
+			if errors.As(err, &protected) {
+				return hold(err)
+			}
+			return 0, fmt.Errorf("failed to check the cluster's deletion protection: %w", err)
 		}
 	}
 

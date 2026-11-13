@@ -62,6 +62,73 @@ kind cluster's version comes with its node image, so it takes none.
 `tptctl up` sets the version of the cluster it creates with
 `--kubernetes-version`.
 
+### Deletion Protection
+
+With `DeletionProtection: true`, the clusters of a definition on EKS, GKE or
+OKE are protected from being deleted by mistake:
+
+| Provider | Protected against deletion through |
+|---|---|
+| EKS | Threeport, Pulumi, and EKS itself: the AWS console, CLI and API refuse to delete the cluster. |
+| GKE | Threeport and Pulumi. GKE has no deletion protection of its own, so the cluster can still be deleted in the Google Cloud console or with `gcloud`. |
+| OKE | Threeport and Pulumi. OKE has no deletion protection of its own, so the cluster can still be deleted in the OCI console or with the OCI CLI. |
+
+- Threeport refuses to delete a runtime instance whose cluster is protected,
+  answering `409`, and `tptctl down` refuses to tear down a control plane
+  whose cluster is protected. Neither deletes anything.
+- Pulumi protects the cluster and its node group or node pool, so a change
+  that would destroy or replace them fails before it changes anything.
+
+`tptctl up --tier production` protects the cluster it creates. Otherwise it
+is off by default, so development clusters stay quick to tear down.
+
+The kubernetes runtime definition asks for it when the clusters are created,
+and it is copied into the EKS, GKE or OKE definition. That definition's
+`DeletionProtection` is the one that counts afterwards: the kubernetes runtime
+definition can't be changed once it exists.
+
+To delete a protected cluster, turn its protection off on the EKS, GKE or OKE
+definition first, here for EKS:
+
+```bash
+tptctl get aws-eks-kubernetes-runtime-definition --name <definition> -o yaml
+```
+
+Write the definition's fields to a config file, with `DeletionProtection:
+false`:
+
+```yaml
+AwsEksKubernetesRuntimeDefinition:
+  Name: <definition>
+  ZoneCount: 3
+  DefaultNodeGroupInstanceType: t3.xlarge
+  DefaultNodeGroupInitialSize: 3
+  DefaultNodeGroupMinimumSize: 3
+  DefaultNodeGroupMaximumSize: 10
+  DeletionProtection: false
+```
+
+Then replace the definition with it, and delete the runtime instance or run
+`tptctl down`:
+
+```bash
+tptctl replace aws-eks-kubernetes-runtime-definition --config definition.yaml --name <definition>
+```
+
+Use `gcp-gke-kubernetes-runtime-definition` or
+`oci-oke-kubernetes-runtime-definition` on GKE or OKE. A replace that leaves
+`DeletionProtection` out keeps it as it is.
+
+Turning protection off on a definition lets every runtime instance of it be
+deleted. Threeport removes the cluster's protection just before it destroys
+the cluster, without applying any other change to it.
+
+`tptctl down --infra-only` tears down a cluster whose control plane may no
+longer be running. It checks `DeletionProtection` when the Threeport API
+answers, and refuses when the API answers with an error. When the API can't
+be reached, or doesn't answer within 30 seconds, it warns that it skipped the
+check and tears the cluster down.
+
 Reference:
 [KubernetesRuntimeDefinition](https://pkg.go.dev/github.com/threeport/threeport/pkg/api/v0#KubernetesRuntimeDefinition)
 

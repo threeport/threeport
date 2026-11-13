@@ -45,6 +45,10 @@ type KubernetesRuntimeInfraGKE struct {
 	// control plane's.
 	Version string
 
+	// If true, Pulumi refuses to destroy or replace the cluster and its node
+	// pool.  The destroy removes the protection first.
+	DeletionProtection bool
+
 	// The Google Cloud project ID where the cluster infra is provisioned.
 	ProjectID string
 
@@ -456,9 +460,12 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 				WorkloadPool: pulumi.String(fmt.Sprintf("%s.svc.id.goog", i.ProjectID)),
 			},
 
+			// pulumi-gcp's own check, which duplicates Protect; GKE has no
+			// deletion protection of its own
 			DeletionProtection: pulumi.Bool(false),
 		}, pulumi.Provider(gcpProvider),
-			pulumi.DependsOn([]pulumi.Resource{subnet}))
+			pulumi.DependsOn([]pulumi.Resource{subnet}),
+			pulumi.Protect(i.DeletionProtection))
 		if err != nil {
 			return fmt.Errorf("failed to create GKE cluster: %w", err)
 		}
@@ -498,7 +505,8 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 			},
 		}, pulumi.Provider(gcpProvider),
 			pulumi.DependsOn([]pulumi.Resource{cluster}),
-			pulumi.IgnoreChanges(gkeNodePoolIgnoredChanges))
+			pulumi.IgnoreChanges(gkeNodePoolIgnoredChanges),
+			pulumi.Protect(i.DeletionProtection))
 		if err != nil {
 			return fmt.Errorf("failed to create node pool: %w", err)
 		}

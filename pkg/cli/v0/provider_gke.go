@@ -62,6 +62,7 @@ func ConfigureControlPlaneWithGkeConfig(
 		AllowedCidrs:                 allowedCidrsJSON(kubernetesRuntimeInfraGKE.AllowedCidrs),
 		// the version tptctl created the cluster on, none for an existing one
 		KubernetesVersion:             kubernetesRuntimeDefResult.KubernetesVersion,
+		DeletionProtection:            kubernetesRuntimeDefResult.DeletionProtection,
 		KubernetesRuntimeDefinitionID: kubernetesRuntimeDefResult.ID,
 	}
 	createdGcpGkeKubernetesRuntimeDef, err := ensureGcpGkeKubernetesRuntimeDefinition(

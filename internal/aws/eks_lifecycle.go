@@ -561,6 +561,27 @@ func eksInfraFromApiObjects(
 		DefaultNodeGroupMinNodes:     int32(*definition.DefaultNodeGroupMinimumSize),
 		DefaultNodeGroupMaxNodes:     int32(*definition.DefaultNodeGroupMaximumSize),
 		KubernetesVersion:            v0.KubernetesVersionOrDefault(definition.KubernetesVersion),
+		DeletionProtection:           definition.DeletionProtection != nil && *definition.DeletionProtection,
 		AllowedCidrs:                 allowedCidrs,
 	}).InitPulumiProject(), nil
+}
+
+// DeletionRefusal returns a *v0.DeletionProtectedError while the EKS
+// definition of the cluster has DeletionProtection set.  It reads the
+// definition again, as it may have changed since the delete was scheduled.
+func (e *eksLifecycle) DeletionRefusal() error {
+	latest, err := client.GetAwsEksKubernetesRuntimeInstanceByID(e.r.APIClient, e.r.APIServer, e.instanceID)
+	if err != nil {
+		return fmt.Errorf("failed to get EKS instance for its deletion protection: %w", err)
+	}
+	definition, err := client.GetAwsEksKubernetesRuntimeDefinitionByID(
+		e.r.APIClient,
+		e.r.APIServer,
+		*latest.AwsEksKubernetesRuntimeDefinitionID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get EKS definition for its deletion protection: %w", err)
+	}
+
+	return v0.ProviderDefinitionDeletionProtection(definition)
 }

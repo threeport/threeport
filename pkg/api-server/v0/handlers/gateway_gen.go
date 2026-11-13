@@ -1053,6 +1053,14 @@ func (h Handler) DeleteDomainNameInstance(c echo.Context) error {
 	// if scheduled and reconciled, delete object from DB
 	// if scheduled but not reconciled, return 409 (controller is working on it)
 	if domainNameInstance.DeletionScheduled == nil {
+		// refuse a delete the object itself refuses, such as a protected one
+		if refuseErr := api_v0.CheckDeleteRefused(h.RequestDB(c), &domainNameInstance); refuseErr != nil {
+			var refusedErr *api_v0.DeleteRefusedError
+			if errors.As(refuseErr, &refusedErr) {
+				return apiserver_lib.ResponseStatus409(c, nil, refusedErr, fullyQualifiedType)
+			}
+			return apiserver_lib.ResponseStatus500(c, nil, refuseErr, fullyQualifiedType)
+		}
 		// schedule for deletion
 		reconciled := false
 		timestamp := time.Now().UTC()
@@ -1671,6 +1679,14 @@ func (h Handler) DeleteGatewayDefinition(c echo.Context) error {
 	// if scheduled and reconciled, delete object from DB
 	// if scheduled but not reconciled, return 409 (controller is working on it)
 	if gatewayDefinition.DeletionScheduled == nil {
+		// refuse a delete the object itself refuses, such as a protected one
+		if refuseErr := api_v0.CheckDeleteRefused(h.RequestDB(c), &gatewayDefinition); refuseErr != nil {
+			var refusedErr *api_v0.DeleteRefusedError
+			if errors.As(refuseErr, &refusedErr) {
+				return apiserver_lib.ResponseStatus409(c, nil, refusedErr, fullyQualifiedType)
+			}
+			return apiserver_lib.ResponseStatus500(c, nil, refuseErr, fullyQualifiedType)
+		}
 		// schedule for deletion
 		reconciled := false
 		timestamp := time.Now().UTC()
@@ -2783,6 +2799,14 @@ func (h Handler) DeleteGatewayInstance(c echo.Context) error {
 	// if scheduled and reconciled, delete object from DB
 	// if scheduled but not reconciled, return 409 (controller is working on it)
 	if gatewayInstance.DeletionScheduled == nil {
+		// refuse a delete the object itself refuses, such as a protected one
+		if refuseErr := api_v0.CheckDeleteRefused(h.RequestDB(c), &gatewayInstance); refuseErr != nil {
+			var refusedErr *api_v0.DeleteRefusedError
+			if errors.As(refuseErr, &refusedErr) {
+				return apiserver_lib.ResponseStatus409(c, nil, refusedErr, fullyQualifiedType)
+			}
+			return apiserver_lib.ResponseStatus500(c, nil, refuseErr, fullyQualifiedType)
+		}
 		// schedule for deletion
 		reconciled := false
 		timestamp := time.Now().UTC()

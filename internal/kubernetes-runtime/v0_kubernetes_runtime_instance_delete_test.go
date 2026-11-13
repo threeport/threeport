@@ -48,6 +48,13 @@ func providerRecordGoneServer(t *testing.T, infraProvider string) (*httptest.Ser
 // so a delete of it can succeed.
 func providerRecordServer(t *testing.T, infraProvider string, recordPresent bool) (*httptest.Server, func() []string) {
 	t.Helper()
+	return protectedProviderRecordServer(t, infraProvider, recordPresent, false)
+}
+
+// protectedProviderRecordServer is providerRecordServer whose EKS, GKE or OKE
+// definition has DeletionProtection as given.
+func protectedProviderRecordServer(t *testing.T, infraProvider string, recordPresent, protected bool) (*httptest.Server, func() []string) {
+	t.Helper()
 
 	var mu sync.Mutex
 	var requests []string
@@ -60,11 +67,17 @@ func providerRecordServer(t *testing.T, infraProvider string, recordPresent bool
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		switch {
+		case strings.Contains(r.URL.Path, "-kubernetes-runtime-definitions"):
+			fmt.Fprintf(w, `{"Data":[{"ID":4,"Name":"remote","DeletionProtection":%t}]}`, protected)
 		case strings.Contains(r.URL.Path, "kubernetes-runtime-definitions"):
 			fmt.Fprintf(w, `{"Data":[{"ID":3,"InfraProvider":%q}]}`, infraProvider)
 		case recordPresent && r.Method == http.MethodDelete,
 			recordPresent && r.URL.Query().Get("kubernetesruntimeinstanceid") == strconv.Itoa(kubernetesRuntimeInstanceID):
-			fmt.Fprintf(w, `{"Data":[{"ID":%d}]}`, providerRecordID)
+			fmt.Fprintf(
+				w,
+				`{"Data":[{"ID":%d,"AwsEksKubernetesRuntimeDefinitionID":4,"GcpGkeKubernetesRuntimeDefinitionID":4,"OciOkeKubernetesRuntimeDefinitionID":4}]}`,
+				providerRecordID,
+			)
 		default:
 			fmt.Fprint(w, `{"Data":[]}`)
 		}
@@ -150,6 +163,42 @@ func TestKubernetesRuntimeInstanceDeleted_ProviderRecordPresent(t *testing.T) {
 				fmt.Sprintf("%s %s/%d", http.MethodDelete, path, providerRecordID),
 				"the provider-specific record must be deleted",
 			)
+		})
+	}
+}
+
+// TestKubernetesRuntimeInstanceDeleted_ProtectedClusterWaits covers a delete
+// scheduled before the cluster's EKS, GKE or OKE definition was protected: the
+// provider record isn't deleted, and the delete is looked at again until the
+// definition is no longer protected.
+func TestKubernetesRuntimeInstanceDeleted_ProtectedClusterWaits(t *testing.T) {
+	for _, infraProvider := range []string{
+		v0.KubernetesRuntimeInfraProviderEKS,
+		v0.KubernetesRuntimeInfraProviderGKE,
+		v0.KubernetesRuntimeInfraProviderOKE,
+	} {
+		t.Run(infraProvider, func(t *testing.T) {
+			server, requests := protectedProviderRecordServer(t, infraProvider, true, true)
+			r := &controller.Reconciler{
+				APIServer: strings.TrimPrefix(server.URL, "http://"),
+				APIClient: server.Client(),
+			}
+			instance := &v0.KubernetesRuntimeInstance{
+				Common:                        v0.Common{ID: util.Ptr(uint(kubernetesRuntimeInstanceID))},
+				KubernetesRuntimeDefinitionID: util.Ptr(uint(3)),
+				Reconciliation: v0.Reconciliation{
+					DeletionScheduled: util.Ptr(time.Now().UTC()),
+				},
+			}
+			log := logr.Discard()
+
+			requeueDelay, err := v0KubernetesRuntimeInstanceDeleted(r, instance, &log)
+
+			require.NoError(t, err, "a held delete is a requeue, not a failure the reconciler gives up on")
+			assert.Equal(t, protectedDeleteRequeueSeconds, requeueDelay)
+			for _, request := range requests() {
+				assert.False(t, strings.HasPrefix(request, http.MethodDelete), "nothing is deleted: %s", request)
+			}
 		})
 	}
 }

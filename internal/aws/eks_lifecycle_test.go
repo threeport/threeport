@@ -75,6 +75,13 @@ func TestEksInfraFromApiObjects_MapsDefinitionNodeGroupFields(t *testing.T) {
 	infra, err = eksInfraFromApiObjects(instance, definition, "123456789012", awsConfig, providerCredentials, nil)
 	require.NoError(t, err)
 	assert.Equal(t, v0.DefaultKubernetesVersion, infra.KubernetesVersion)
+	assert.False(t, infra.DeletionProtection, "a definition without it isn't protected")
+
+	// a protected definition builds a protected cluster
+	definition.DeletionProtection = util.Ptr(true)
+	infra, err = eksInfraFromApiObjects(instance, definition, "123456789012", awsConfig, providerCredentials, nil)
+	require.NoError(t, err)
+	assert.True(t, infra.DeletionProtection)
 }
 
 // TestEksInfraSatisfiesLifecycleInterfaces checks the infra object plugs into

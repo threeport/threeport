@@ -378,7 +378,8 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			AllowedCidrs:     cpi.Opts.K8sApiAllowedCidrs,
 			// the control plane's outbound traffic comes from one address,
 			// which clusters it manages admit
-			ReserveNatAddress: true,
+			ReserveNatAddress:  true,
+			DeletionProtection: genesisDeletionProtection(cpi.Opts),
 		}).InitPulumiProject()
 		kubernetesRuntimeInfra = kubernetesRuntimeInfraGKE
 		uninstaller.kubernetesRuntimeInfra = kubernetesRuntimeInfraGKE
@@ -887,9 +888,10 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			Reconciliation: v0.Reconciliation{
 				Reconciled: &defReconciled,
 			},
-			InfraProvider:     &cpi.Opts.InfraProvider,
-			KubernetesVersion: genesisKubernetesVersion(cpi.Opts),
-			AllowedCidrs:      allowedCidrsJSON(cpi.Opts.K8sApiAllowedCidrs),
+			InfraProvider:      &cpi.Opts.InfraProvider,
+			KubernetesVersion:  genesisKubernetesVersion(cpi.Opts),
+			AllowedCidrs:       allowedCidrsJSON(cpi.Opts.K8sApiAllowedCidrs),
+			DeletionProtection: util.Ptr(genesisDeletionProtection(cpi.Opts)),
 		}
 		if err := recordClusterProfile(&kubernetesRuntimeDefinition, cpi.Opts.Tier); err != nil {
 			return uninstaller.cleanOnCreateError("failed to describe the control plane's cluster", err)
@@ -1165,6 +1167,27 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		if err != nil {
 			return fmt.Errorf("failed to retrieve kubernetes runtime instance from threeport API: %w", err)
 		}
+	}
+
+	// refuse before anything is deleted while the cluster is protected
+	protectionCheckSkipped, err := checkTeardownDeletionProtection(
+		apiClient,
+		threeportControlPlaneConfig.APIServer,
+		threeportControlPlaneConfig.Provider,
+		kubernetesRuntimeInstance,
+		cpi.Opts.InfraOnly,
+	)
+	if err != nil {
+		return err
+	}
+	if protectionCheckSkipped != nil {
+		Warning(fmt.Sprintf(
+			"The Threeport API could not be reached (%v), so the cluster's deletion protection was not checked",
+			protectionCheckSkipped,
+		))
+	}
+	if threeportControlPlaneConfig.Provider != v0.KubernetesRuntimeInfraProviderKind {
+		Info("Removing the cluster's deletion protection, where it has any, before destroying it")
 	}
 
 	var kubernetesRuntimeInfra provider.KubernetesRuntimeInfra
@@ -1520,6 +1543,14 @@ func genesisKubernetesVersion(opts threeport.Options) *string {
 	version := v0.KubernetesVersionOrDefault(&opts.KubernetesVersion)
 
 	return &version
+}
+
+// genesisDeletionProtection reports whether the cluster tptctl up creates is
+// protected from deletion: a production control plane's is.  A kind cluster
+// has no infrastructure to protect.
+func genesisDeletionProtection(opts threeport.Options) bool {
+	return opts.InfraProvider != v0.KubernetesRuntimeInfraProviderKind &&
+		opts.Tier == threeport.ControlPlaneTier(threeport.ControlPlaneTierProd)
 }
 
 // ValidateKubernetesVersionFlag refuses a --kubernetes-version that tptctl up

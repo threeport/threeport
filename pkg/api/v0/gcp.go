@@ -66,6 +66,14 @@ type GcpGkeKubernetesRuntimeDefinition struct {
 	// can't be changed after creation.
 	KubernetesVersion *string `validate:"optional"`
 
+	// If true, the runtime instances derived from this definition can't be
+	// deleted, and Pulumi refuses to destroy or replace their clusters and
+	// node pools.  GKE has no deletion protection of its own, so a cluster can
+	// still be deleted in the Google Cloud console or with gcloud.  Set it to
+	// false to let every instance of the definition be deleted.  If unset, it
+	// is false.
+	DeletionProtection *bool `validate:"optional" gorm:"default:false"`
+
 	// The GCP GKE kubernetes runtime instances derived from this definition.
 	GcpGkeKubernetesRuntimeInstances []*GcpGkeKubernetesRuntimeInstance `validate:"optional,association"`
 

@@ -17,6 +17,7 @@ import (
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	event "github.com/threeport/threeport/pkg/event/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	mapping "github.com/threeport/threeport/pkg/mapping/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
@@ -513,6 +514,20 @@ func v0KubernetesRuntimeInstanceDeleted(
 			return controller.RetryOnNetworkErr(err, "failed to get aws eks runtime instance by kubernetes runtime instance ID")
 		}
 
+		// a protected cluster waits until its definition is no longer
+		// protected
+		awsEksDefinition, err := client.GetAwsEksKubernetesRuntimeDefinitionByID(
+			r.APIClient,
+			r.APIServer,
+			*awsEksKubernetesRuntimeInstance.AwsEksKubernetesRuntimeDefinitionID,
+		)
+		if err != nil {
+			return controller.RetryOnNetworkErr(err, "failed to get aws eks runtime definition for its deletion protection")
+		}
+		if err := v0.ProviderDefinitionDeletionProtection(awsEksDefinition); err != nil {
+			return holdProtectedDelete(r, kubernetesRuntimeInstance, err, log), nil
+		}
+
 		// delete AWS EKS runtime instance
 		_, err = client.DeleteAwsEksKubernetesRuntimeInstance(
 			r.APIClient,
@@ -539,6 +554,20 @@ func v0KubernetesRuntimeInstanceDeleted(
 				return 0, nil
 			}
 			return controller.RetryOnNetworkErr(err, "failed to get GCP GKE runtime instance by kubernetes runtime instance ID")
+		}
+
+		// a protected cluster waits until its definition is no longer
+		// protected
+		gcpGkeDefinition, err := client.GetGcpGkeKubernetesRuntimeDefinitionByID(
+			r.APIClient,
+			r.APIServer,
+			*gcpGkeKubernetesRuntimeInstance.GcpGkeKubernetesRuntimeDefinitionID,
+		)
+		if err != nil {
+			return controller.RetryOnNetworkErr(err, "failed to get GCP GKE runtime definition for its deletion protection")
+		}
+		if err := v0.ProviderDefinitionDeletionProtection(gcpGkeDefinition); err != nil {
+			return holdProtectedDelete(r, kubernetesRuntimeInstance, err, log), nil
 		}
 
 		// delete GCP GKE runtime instance
@@ -569,6 +598,20 @@ func v0KubernetesRuntimeInstanceDeleted(
 			return controller.RetryOnNetworkErr(err, "failed to get OCI OKE runtime instance by kubernetes runtime instance ID")
 		}
 
+		// a protected cluster waits until its definition is no longer
+		// protected
+		ociOkeDefinition, err := client.GetOciOkeKubernetesRuntimeDefinitionByID(
+			r.APIClient,
+			r.APIServer,
+			*ociOkeKubernetesRuntimeInstance.OciOkeKubernetesRuntimeDefinitionID,
+		)
+		if err != nil {
+			return controller.RetryOnNetworkErr(err, "failed to get OCI OKE runtime definition for its deletion protection")
+		}
+		if err := v0.ProviderDefinitionDeletionProtection(ociOkeDefinition); err != nil {
+			return holdProtectedDelete(r, kubernetesRuntimeInstance, err, log), nil
+		}
+
 		// delete OCI OKE runtime instance
 		_, err = client.DeleteOciOkeKubernetesRuntimeInstance(
 			r.APIClient,
@@ -581,6 +624,37 @@ func v0KubernetesRuntimeInstanceDeleted(
 	}
 
 	return 0, nil
+}
+
+// protectedDeleteRequeueSeconds is how often a delete held by deletion
+// protection is looked at again.
+const protectedDeleteRequeueSeconds int64 = 60
+
+// holdProtectedDelete holds the delete of a runtime instance whose EKS, GKE
+// or OKE definition was protected after the delete was scheduled, recording
+// why on the instance, and returns when to look at it again.
+func holdProtectedDelete(
+	r *controller.Reconciler,
+	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
+	protectedErr error,
+	log *logr.Logger,
+) int64 {
+	log.Info("delete held", "reason", protectedErr.Error())
+	if r.EventsRecorder != nil {
+		if err := r.EventsRecorder.RecordEvent(
+			&v0.Event{
+				Note:   util.Ptr(event.TruncateNote(protectedErr.Error())),
+				Reason: util.Ptr(event.ReasonDeleteFailed),
+				Type:   util.Ptr(event.TypeWarning),
+			},
+			*kubernetesRuntimeInstance.ID,
+			kubernetesRuntimeInstance.GetFullyQualifiedType(),
+		); err != nil {
+			log.Error(err, "failed to record warning event for held delete")
+		}
+	}
+
+	return protectedDeleteRequeueSeconds
 }
 
 // runtimeHostsControlPlane reports whether a runtime instance is the cluster the

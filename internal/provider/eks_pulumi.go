@@ -373,7 +373,7 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 			Version:   pulumi.String(i.kubernetesVersion()),
 			VpcConfig: vpcConfig,
 			Tags:      i.resourceTags(i.RuntimeInstanceName),
-		})
+		}, pulumi.Protect(i.DeletionProtection))
 		if err != nil {
 			return fmt.Errorf("failed to create EKS cluster: %w", err)
 		}
@@ -392,7 +392,7 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 				MaxSize:     pulumi.Int(i.DefaultNodeGroupMaxNodes),
 			},
 			Tags: i.resourceTags(nodeGroupName),
-		}, pulumi.IgnoreChanges(eksNodeGroupIgnoredChanges)); err != nil {
+		}, pulumi.IgnoreChanges(eksNodeGroupIgnoredChanges), pulumi.Protect(i.DeletionProtection)); err != nil {
 			return fmt.Errorf("failed to create EKS node group: %w", err)
 		}
 

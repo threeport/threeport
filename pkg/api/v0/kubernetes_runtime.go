@@ -56,6 +56,14 @@ type KubernetesRuntimeDefinition struct {
 	// kind cluster's version comes with its node image, so it takes none.
 	KubernetesVersion *string `validate:"optional"`
 
+	// If true, the clusters and their node groups are created protected from
+	// deletion: their runtime instances can't be deleted, and Pulumi refuses
+	// to destroy or replace them, as EKS also refuses to delete the cluster.
+	// It is copied into the EKS, GKE or OKE definition, whose
+	// DeletionProtection is the one that counts afterwards: this definition
+	// can't be changed once that one exists.
+	DeletionProtection *bool `validate:"optional" gorm:"default:false"`
+
 	// TODO: add fields for location limitations
 	// LocationsAllowed
 	// LocationsForbidden

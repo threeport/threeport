@@ -32,6 +32,7 @@ type KubernetesRuntimeDefinitionValues struct {
 	PrivateApi               *bool
 	AllowedCidrs             *[]string
 	KubernetesVersion        *string
+	DeletionProtection       *bool
 	Age                      *string
 }
 
@@ -74,6 +75,7 @@ func (k *KubernetesRuntimeDefinitionConfig) Get(
 				PrivateApi:               kubernetesRuntimeDefinition.PrivateApi,
 				AllowedCidrs:             cidrsFromJSON(kubernetesRuntimeDefinition.AllowedCidrs),
 				KubernetesVersion:        kubernetesRuntimeDefinition.KubernetesVersion,
+				DeletionProtection:       kubernetesRuntimeDefinition.DeletionProtection,
 				Age:                      util.Ptr(util.GetAgeFormatted(kubernetesRuntimeDefinition.CreatedAt)),
 			},
 		}
@@ -106,6 +108,7 @@ func (k *KubernetesRuntimeDefinitionConfig) Create(
 		PrivateApi:               kubernetesRuntimeDefinitionValues.PrivateApi,
 		AllowedCidrs:             cidrsToJSON(kubernetesRuntimeDefinitionValues.AllowedCidrs),
 		KubernetesVersion:        kubernetesRuntimeDefinitionValues.KubernetesVersion,
+		DeletionProtection:       kubernetesRuntimeDefinitionValues.DeletionProtection,
 	}
 
 	// create kubernetes runtime definition
@@ -129,6 +132,7 @@ func (k *KubernetesRuntimeDefinitionConfig) Create(
 			PrivateApi:               createdKubernetesRuntimeDefinition.PrivateApi,
 			AllowedCidrs:             cidrsFromJSON(createdKubernetesRuntimeDefinition.AllowedCidrs),
 			KubernetesVersion:        createdKubernetesRuntimeDefinition.KubernetesVersion,
+			DeletionProtection:       createdKubernetesRuntimeDefinition.DeletionProtection,
 		},
 	}
 
@@ -181,6 +185,11 @@ func (k *KubernetesRuntimeDefinitionConfig) Replace(
 	if kubernetesRuntimeDefinitionValues.KubernetesVersion != nil {
 		updatedKubernetesRuntimeDefinition.KubernetesVersion = kubernetesRuntimeDefinitionValues.KubernetesVersion
 	}
+	// DeletionProtection a config leaves out is kept: only an explicit
+	// false turns it off
+	if kubernetesRuntimeDefinitionValues.DeletionProtection != nil {
+		updatedKubernetesRuntimeDefinition.DeletionProtection = kubernetesRuntimeDefinitionValues.DeletionProtection
+	}
 
 	// replace kubernetes runtime definition
 	replacedKubernetesRuntimeDefinition, err := client_v0.ReplaceKubernetesRuntimeDefinition(
@@ -203,6 +212,7 @@ func (k *KubernetesRuntimeDefinitionConfig) Replace(
 			PrivateApi:               replacedKubernetesRuntimeDefinition.PrivateApi,
 			AllowedCidrs:             cidrsFromJSON(replacedKubernetesRuntimeDefinition.AllowedCidrs),
 			KubernetesVersion:        replacedKubernetesRuntimeDefinition.KubernetesVersion,
+			DeletionProtection:       replacedKubernetesRuntimeDefinition.DeletionProtection,
 		},
 	}
 
@@ -246,6 +256,7 @@ func (k *KubernetesRuntimeDefinitionConfig) Delete(
 			PrivateApi:               deletedKubernetesRuntimeDefinition.PrivateApi,
 			AllowedCidrs:             cidrsFromJSON(deletedKubernetesRuntimeDefinition.AllowedCidrs),
 			KubernetesVersion:        deletedKubernetesRuntimeDefinition.KubernetesVersion,
+			DeletionProtection:       deletedKubernetesRuntimeDefinition.DeletionProtection,
 		},
 	}
 

@@ -31,6 +31,7 @@ type AwsEksKubernetesRuntimeDefinitionValues struct {
 	DefaultNodeGroupMinimumSize  *int
 	DefaultNodeGroupMaximumSize  *int
 	KubernetesVersion            *string
+	DeletionProtection           *bool
 	Age                          *string
 }
 
@@ -73,6 +74,7 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Get(
 				DefaultNodeGroupMinimumSize:  awsEksKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
 				DefaultNodeGroupMaximumSize:  awsEksKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
 				KubernetesVersion:            awsEksKubernetesRuntimeDefinition.KubernetesVersion,
+				DeletionProtection:           awsEksKubernetesRuntimeDefinition.DeletionProtection,
 				Age:                          util.Ptr(util.GetAgeFormatted(awsEksKubernetesRuntimeDefinition.CreatedAt)),
 			},
 		}
@@ -103,8 +105,9 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Create(
 		Reconciliation: api_v0.Reconciliation{
 			Reconciled: util.Ptr(true),
 		},
-		InfraProvider:     &infraProvider,
-		KubernetesVersion: awsEksKubernetesRuntimeDefinitionValues.KubernetesVersion,
+		InfraProvider:      &infraProvider,
+		KubernetesVersion:  awsEksKubernetesRuntimeDefinitionValues.KubernetesVersion,
+		DeletionProtection: awsEksKubernetesRuntimeDefinitionValues.DeletionProtection,
 	}
 
 	// create kubernetes runtime definition
@@ -124,6 +127,7 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Create(
 		DefaultNodeGroupMinimumSize:   awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupMinimumSize,
 		DefaultNodeGroupMaximumSize:   awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupMaximumSize,
 		KubernetesVersion:             util.Ptr(api_v0.KubernetesVersionOrDefault(awsEksKubernetesRuntimeDefinitionValues.KubernetesVersion)),
+		DeletionProtection:            awsEksKubernetesRuntimeDefinitionValues.DeletionProtection,
 		KubernetesRuntimeDefinitionID: createdKubernetesRuntimeDefinition.ID,
 	}
 
@@ -148,6 +152,7 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Create(
 			DefaultNodeGroupMinimumSize:  createdAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
 			DefaultNodeGroupMaximumSize:  createdAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
 			KubernetesVersion:            createdAwsEksKubernetesRuntimeDefinition.KubernetesVersion,
+			DeletionProtection:           createdAwsEksKubernetesRuntimeDefinition.DeletionProtection,
 		},
 	}
 
@@ -199,6 +204,11 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Replace(
 	if awsEksKubernetesRuntimeDefinitionValues.KubernetesVersion != nil {
 		updatedAwsEksKubernetesRuntimeDefinition.KubernetesVersion = awsEksKubernetesRuntimeDefinitionValues.KubernetesVersion
 	}
+	// DeletionProtection a config leaves out is kept: only an explicit
+	// false turns it off
+	if awsEksKubernetesRuntimeDefinitionValues.DeletionProtection != nil {
+		updatedAwsEksKubernetesRuntimeDefinition.DeletionProtection = awsEksKubernetesRuntimeDefinitionValues.DeletionProtection
+	}
 
 	// replace aws eks kubernetes runtime definition
 	replacedAwsEksKubernetesRuntimeDefinition, err := client_v0.ReplaceAwsEksKubernetesRuntimeDefinition(
@@ -221,6 +231,7 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Replace(
 			DefaultNodeGroupMinimumSize:  replacedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
 			DefaultNodeGroupMaximumSize:  replacedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
 			KubernetesVersion:            replacedAwsEksKubernetesRuntimeDefinition.KubernetesVersion,
+			DeletionProtection:           replacedAwsEksKubernetesRuntimeDefinition.DeletionProtection,
 		},
 	}
 
@@ -274,6 +285,7 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Delete(
 			DefaultNodeGroupMinimumSize:  deletedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
 			DefaultNodeGroupMaximumSize:  deletedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
 			KubernetesVersion:            deletedAwsEksKubernetesRuntimeDefinition.KubernetesVersion,
+			DeletionProtection:           deletedAwsEksKubernetesRuntimeDefinition.DeletionProtection,
 		},
 	}
 

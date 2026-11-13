@@ -17530,6 +17530,10 @@
                     "description": "The minimum number of nodes the default initial node group should have.",
                     "type": "integer"
                 },
+                "DeletionProtection": {
+                    "description": "If true, the runtime instances derived from this definition can't be\ndeleted, Pulumi refuses to destroy or replace their clusters and node\ngroups, and EKS refuses to delete the clusters through its own API.  Set\nit to false to let every instance of the definition be deleted.  If\nunset, it is false.",
+                    "type": "boolean"
+                },
                 "KubernetesRuntimeDefinitionID": {
                     "description": "The kubernetes runtime definition for an EKS cluster in AWS.",
                     "type": "integer"
@@ -18395,6 +18399,10 @@
                     "description": "The minimum number of nodes the default initial node group should have.",
                     "type": "integer"
                 },
+                "DeletionProtection": {
+                    "description": "If true, the runtime instances derived from this definition can't be\ndeleted, and Pulumi refuses to destroy or replace their clusters and\nnode pools.  GKE has no deletion protection of its own, so a cluster can\nstill be deleted in the Google Cloud console or with gcloud.  Set it to\nfalse to let every instance of the definition be deleted.  If unset, it\nis false.",
+                    "type": "boolean"
+                },
                 "GcpGkeKubernetesRuntimeInstances": {
                     "description": "The GCP GKE kubernetes runtime instances derived from this definition.",
                     "type": "array",
@@ -18747,6 +18755,10 @@
                 "DeletionConfirmed": {
                     "description": "Used by controllers to confirm deletion of an object.",
                     "type": "string"
+                },
+                "DeletionProtection": {
+                    "description": "If true, the clusters and their node groups are created protected from\ndeletion: their runtime instances can't be deleted, and Pulumi refuses\nto destroy or replace them, as EKS also refuses to delete the cluster.\nIt is copied into the EKS, GKE or OKE definition, whose\nDeletionProtection is the one that counts afterwards: this definition\ncan't be changed once that one exists.",
+                    "type": "boolean"
                 },
                 "DeletionScheduled": {
                     "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
@@ -20282,6 +20294,10 @@
                     "items": {
                         "type": "string"
                     }
+                },
+                "DeletionProtection": {
+                    "description": "If true, the runtime instances derived from this definition can't be\ndeleted, and Pulumi refuses to destroy or replace their clusters and\nnode pools.  OKE has no deletion protection of its own, so a cluster can\nstill be deleted in the OCI console or with the OCI CLI.  Set it to false\nto let every instance of the definition be deleted.  If unset, it is\nfalse.",
+                    "type": "boolean"
                 },
                 "KubernetesRuntimeDefinitionID": {
                     "description": "The kubernetes runtime definition for an OKE cluster in OCI.",

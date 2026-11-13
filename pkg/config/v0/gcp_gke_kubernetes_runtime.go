@@ -28,6 +28,7 @@ type GcpGkeKubernetesRuntimeValues struct {
 	DefaultNodeGroupInitialSize  *int
 	DefaultNodeGroupMinimumSize  *int
 	DefaultNodeGroupMaximumSize  *int
+	DeletionProtection           *bool
 	Region                       *string
 	Reconciled                   *bool
 	Age                          *string
@@ -155,6 +156,7 @@ func (g *GcpGkeKubernetesRuntimeConfig) GetOperations(
 			DefaultNodeGroupInitialSize:  g.GcpGkeKubernetesRuntime.DefaultNodeGroupInitialSize,
 			DefaultNodeGroupMinimumSize:  g.GcpGkeKubernetesRuntime.DefaultNodeGroupMinimumSize,
 			DefaultNodeGroupMaximumSize:  g.GcpGkeKubernetesRuntime.DefaultNodeGroupMaximumSize,
+			DeletionProtection:           g.GcpGkeKubernetesRuntime.DeletionProtection,
 		},
 	}
 	operations.AppendOperation(util.Operation{
@@ -264,6 +266,7 @@ func mapToGcpGkeKubernetesRuntimeDefinedInstances(
 						DefaultNodeGroupInitialSize:  def.GcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize,
 						DefaultNodeGroupMinimumSize:  def.GcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
 						DefaultNodeGroupMaximumSize:  def.GcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
+						DeletionProtection:           def.GcpGkeKubernetesRuntimeDefinition.DeletionProtection,
 						Region:                       inst.GcpGkeKubernetesRuntimeInstance.Region,
 						Reconciled:                   inst.GcpGkeKubernetesRuntimeInstance.Reconciled,
 						Age:                          inst.GcpGkeKubernetesRuntimeInstance.Age,

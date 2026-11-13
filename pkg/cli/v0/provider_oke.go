@@ -37,6 +37,7 @@ func DeployOkeInfra(
 		WorkerNodeInitialCount: int32(2),
 		Region:                 cpi.Opts.OciRegion,
 		AllowedCidrs:           cpi.Opts.K8sApiAllowedCidrs,
+		DeletionProtection:     genesisDeletionProtection(cpi.Opts),
 	}
 	*kubernetesRuntimeInfra = &kubernetesRuntimeInfraOKE
 	uninstaller.kubernetesRuntimeInfra = &kubernetesRuntimeInfraOKE
@@ -146,6 +147,7 @@ func ConfigureControlPlaneWithOkeConfig(
 		AllowedCidrs:           allowedCidrsJSON(kubernetesRuntimeInfraOKE.AllowedCidrs),
 		// the version tptctl created the cluster on, none for an existing one
 		KubernetesVersion:             kubernetesRuntimeDefResult.KubernetesVersion,
+		DeletionProtection:            kubernetesRuntimeDefResult.DeletionProtection,
 		KubernetesRuntimeDefinitionID: kubernetesRuntimeDefResult.ID,
 	}
 	createdociOkeKubernetesRuntimeDef, err := ensureOciOkeKubernetesRuntimeDefinition(

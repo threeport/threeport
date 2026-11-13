@@ -106,3 +106,7 @@ uninstall Threeport:
 ```bash
 tptctl down --name test
 ```
+
+A production control plane's cluster is protected from deletion, so `tptctl
+down` refuses to tear it down until you turn the protection off. See
+[Deletion Protection](../kubernetes-runtime/kubernetes-intro.md#deletion-protection).

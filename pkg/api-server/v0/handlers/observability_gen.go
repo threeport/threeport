@@ -553,6 +553,14 @@ func (h Handler) DeleteLoggingDefinition(c echo.Context) error {
 	// if scheduled and reconciled, delete object from DB
 	// if scheduled but not reconciled, return 409 (controller is working on it)
 	if loggingDefinition.DeletionScheduled == nil {
+		// refuse a delete the object itself refuses, such as a protected one
+		if refuseErr := api_v0.CheckDeleteRefused(h.RequestDB(c), &loggingDefinition); refuseErr != nil {
+			var refusedErr *api_v0.DeleteRefusedError
+			if errors.As(refuseErr, &refusedErr) {
+				return apiserver_lib.ResponseStatus409(c, nil, refusedErr, fullyQualifiedType)
+			}
+			return apiserver_lib.ResponseStatus500(c, nil, refuseErr, fullyQualifiedType)
+		}
 		// schedule for deletion
 		reconciled := false
 		timestamp := time.Now().UTC()
@@ -1165,6 +1173,14 @@ func (h Handler) DeleteLoggingInstance(c echo.Context) error {
 	// if scheduled and reconciled, delete object from DB
 	// if scheduled but not reconciled, return 409 (controller is working on it)
 	if loggingInstance.DeletionScheduled == nil {
+		// refuse a delete the object itself refuses, such as a protected one
+		if refuseErr := api_v0.CheckDeleteRefused(h.RequestDB(c), &loggingInstance); refuseErr != nil {
+			var refusedErr *api_v0.DeleteRefusedError
+			if errors.As(refuseErr, &refusedErr) {
+				return apiserver_lib.ResponseStatus409(c, nil, refusedErr, fullyQualifiedType)
+			}
+			return apiserver_lib.ResponseStatus500(c, nil, refuseErr, fullyQualifiedType)
+		}
 		// schedule for deletion
 		reconciled := false
 		timestamp := time.Now().UTC()
@@ -1783,6 +1799,14 @@ func (h Handler) DeleteMetricsDefinition(c echo.Context) error {
 	// if scheduled and reconciled, delete object from DB
 	// if scheduled but not reconciled, return 409 (controller is working on it)
 	if metricsDefinition.DeletionScheduled == nil {
+		// refuse a delete the object itself refuses, such as a protected one
+		if refuseErr := api_v0.CheckDeleteRefused(h.RequestDB(c), &metricsDefinition); refuseErr != nil {
+			var refusedErr *api_v0.DeleteRefusedError
+			if errors.As(refuseErr, &refusedErr) {
+				return apiserver_lib.ResponseStatus409(c, nil, refusedErr, fullyQualifiedType)
+			}
+			return apiserver_lib.ResponseStatus500(c, nil, refuseErr, fullyQualifiedType)
+		}
 		// schedule for deletion
 		reconciled := false
 		timestamp := time.Now().UTC()
@@ -2395,6 +2419,14 @@ func (h Handler) DeleteMetricsInstance(c echo.Context) error {
 	// if scheduled and reconciled, delete object from DB
 	// if scheduled but not reconciled, return 409 (controller is working on it)
 	if metricsInstance.DeletionScheduled == nil {
+		// refuse a delete the object itself refuses, such as a protected one
+		if refuseErr := api_v0.CheckDeleteRefused(h.RequestDB(c), &metricsInstance); refuseErr != nil {
+			var refusedErr *api_v0.DeleteRefusedError
+			if errors.As(refuseErr, &refusedErr) {
+				return apiserver_lib.ResponseStatus409(c, nil, refusedErr, fullyQualifiedType)
+			}
+			return apiserver_lib.ResponseStatus500(c, nil, refuseErr, fullyQualifiedType)
+		}
 		// schedule for deletion
 		reconciled := false
 		timestamp := time.Now().UTC()
@@ -3013,6 +3045,14 @@ func (h Handler) DeleteObservabilityDashboardDefinition(c echo.Context) error {
 	// if scheduled and reconciled, delete object from DB
 	// if scheduled but not reconciled, return 409 (controller is working on it)
 	if observabilityDashboardDefinition.DeletionScheduled == nil {
+		// refuse a delete the object itself refuses, such as a protected one
+		if refuseErr := api_v0.CheckDeleteRefused(h.RequestDB(c), &observabilityDashboardDefinition); refuseErr != nil {
+			var refusedErr *api_v0.DeleteRefusedError
+			if errors.As(refuseErr, &refusedErr) {
+				return apiserver_lib.ResponseStatus409(c, nil, refusedErr, fullyQualifiedType)
+			}
+			return apiserver_lib.ResponseStatus500(c, nil, refuseErr, fullyQualifiedType)
+		}
 		// schedule for deletion
 		reconciled := false
 		timestamp := time.Now().UTC()
@@ -3625,6 +3665,14 @@ func (h Handler) DeleteObservabilityDashboardInstance(c echo.Context) error {
 	// if scheduled and reconciled, delete object from DB
 	// if scheduled but not reconciled, return 409 (controller is working on it)
 	if observabilityDashboardInstance.DeletionScheduled == nil {
+		// refuse a delete the object itself refuses, such as a protected one
+		if refuseErr := api_v0.CheckDeleteRefused(h.RequestDB(c), &observabilityDashboardInstance); refuseErr != nil {
+			var refusedErr *api_v0.DeleteRefusedError
+			if errors.As(refuseErr, &refusedErr) {
+				return apiserver_lib.ResponseStatus409(c, nil, refusedErr, fullyQualifiedType)
+			}
+			return apiserver_lib.ResponseStatus500(c, nil, refuseErr, fullyQualifiedType)
+		}
 		// schedule for deletion
 		reconciled := false
 		timestamp := time.Now().UTC()
@@ -4243,6 +4291,14 @@ func (h Handler) DeleteObservabilityStackDefinition(c echo.Context) error {
 	// if scheduled and reconciled, delete object from DB
 	// if scheduled but not reconciled, return 409 (controller is working on it)
 	if observabilityStackDefinition.DeletionScheduled == nil {
+		// refuse a delete the object itself refuses, such as a protected one
+		if refuseErr := api_v0.CheckDeleteRefused(h.RequestDB(c), &observabilityStackDefinition); refuseErr != nil {
+			var refusedErr *api_v0.DeleteRefusedError
+			if errors.As(refuseErr, &refusedErr) {
+				return apiserver_lib.ResponseStatus409(c, nil, refusedErr, fullyQualifiedType)
+			}
+			return apiserver_lib.ResponseStatus500(c, nil, refuseErr, fullyQualifiedType)
+		}
 		// schedule for deletion
 		reconciled := false
 		timestamp := time.Now().UTC()
@@ -4855,6 +4911,14 @@ func (h Handler) DeleteObservabilityStackInstance(c echo.Context) error {
 	// if scheduled and reconciled, delete object from DB
 	// if scheduled but not reconciled, return 409 (controller is working on it)
 	if observabilityStackInstance.DeletionScheduled == nil {
+		// refuse a delete the object itself refuses, such as a protected one
+		if refuseErr := api_v0.CheckDeleteRefused(h.RequestDB(c), &observabilityStackInstance); refuseErr != nil {
+			var refusedErr *api_v0.DeleteRefusedError
+			if errors.As(refuseErr, &refusedErr) {
+				return apiserver_lib.ResponseStatus409(c, nil, refusedErr, fullyQualifiedType)
+			}
+			return apiserver_lib.ResponseStatus500(c, nil, refuseErr, fullyQualifiedType)
+		}
 		// schedule for deletion
 		reconciled := false
 		timestamp := time.Now().UTC()

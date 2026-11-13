@@ -553,6 +553,14 @@ func (h Handler) DeleteKubernetesWorkloadDefinition(c echo.Context) error {
 	// if scheduled and reconciled, delete object from DB
 	// if scheduled but not reconciled, return 409 (controller is working on it)
 	if kubernetesWorkloadDefinition.DeletionScheduled == nil {
+		// refuse a delete the object itself refuses, such as a protected one
+		if refuseErr := api_v0.CheckDeleteRefused(h.RequestDB(c), &kubernetesWorkloadDefinition); refuseErr != nil {
+			var refusedErr *api_v0.DeleteRefusedError
+			if errors.As(refuseErr, &refusedErr) {
+				return apiserver_lib.ResponseStatus409(c, nil, refusedErr, fullyQualifiedType)
+			}
+			return apiserver_lib.ResponseStatus500(c, nil, refuseErr, fullyQualifiedType)
+		}
 		// schedule for deletion
 		reconciled := false
 		timestamp := time.Now().UTC()
@@ -1165,6 +1173,14 @@ func (h Handler) DeleteKubernetesWorkloadInstance(c echo.Context) error {
 	// if scheduled and reconciled, delete object from DB
 	// if scheduled but not reconciled, return 409 (controller is working on it)
 	if kubernetesWorkloadInstance.DeletionScheduled == nil {
+		// refuse a delete the object itself refuses, such as a protected one
+		if refuseErr := api_v0.CheckDeleteRefused(h.RequestDB(c), &kubernetesWorkloadInstance); refuseErr != nil {
+			var refusedErr *api_v0.DeleteRefusedError
+			if errors.As(refuseErr, &refusedErr) {
+				return apiserver_lib.ResponseStatus409(c, nil, refusedErr, fullyQualifiedType)
+			}
+			return apiserver_lib.ResponseStatus500(c, nil, refuseErr, fullyQualifiedType)
+		}
 		// schedule for deletion
 		reconciled := false
 		timestamp := time.Now().UTC()
