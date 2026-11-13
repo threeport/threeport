@@ -48,16 +48,6 @@ recreate manifests, RBAC, or configmaps. Use tptctl reinstall for those.`,
 		}
 
 		// get the kubernetes runtime instance object
-		kubernetesRuntimeInstance, err := client.GetThreeportControlPlaneKubernetesRuntimeInstance(
-			apiClient,
-			apiEndpoint,
-		)
-		if err != nil {
-			cli.Error("failed to retrieve kubernetes runtime instance from threeport API:", err)
-			os.Exit(1)
-		}
-
-		// get the kubernetes runtime instance object
 		controlPlaneInstance, err := client.GetSelfControlPlaneInstance(
 			apiClient,
 			apiEndpoint,
@@ -81,6 +71,27 @@ recreate manifests, RBAC, or configmaps. Use tptctl reinstall for those.`,
 		)
 		if err != nil {
 			cli.Error(err.Error(), nil)
+			os.Exit(1)
+		}
+
+		// the cluster the selected control plane runs on, not the one this API serves
+		var kubernetesRuntimeInstance *api_v0.KubernetesRuntimeInstance
+		if controlPlaneInstance.KubernetesRuntimeInstanceID != nil {
+			kubernetesRuntimeInstance, err = client.GetKubernetesRuntimeInstanceByID(
+				apiClient,
+				apiEndpoint,
+				*controlPlaneInstance.KubernetesRuntimeInstanceID,
+			)
+		} else if upgradeName == "" {
+			kubernetesRuntimeInstance, err = client.GetThreeportControlPlaneKubernetesRuntimeInstance(
+				apiClient,
+				apiEndpoint,
+			)
+		} else {
+			err = fmt.Errorf("control plane %s has no kubernetes runtime", *controlPlaneInstance.Name)
+		}
+		if err != nil {
+			cli.Error("failed to retrieve kubernetes runtime instance from threeport API:", err)
 			os.Exit(1)
 		}
 
@@ -117,8 +128,16 @@ recreate manifests, RBAC, or configmaps. Use tptctl reinstall for those.`,
 		}
 
 		// the bucket scheduled backups go to, which the database migrator backs
-		// up to before migrating
-		controlPlaneConfig, err := config.GetControlPlaneConfig(requestedControlPlane)
+		// up to before migrating. A child uses its own config entry when one exists.
+		backupName := requestedControlPlane
+		if controlPlaneInstance.Name != nil && *controlPlaneInstance.Name != "" {
+			backupName = *controlPlaneInstance.Name
+		}
+		controlPlaneConfig, err := config.GetControlPlaneConfig(backupName)
+		if err != nil && backupName != requestedControlPlane {
+			controlPlaneConfig = &cli.ControlPlane{}
+			err = nil
+		}
 		if err != nil {
 			cli.Error("failed to get control plane config:", err)
 			os.Exit(1)

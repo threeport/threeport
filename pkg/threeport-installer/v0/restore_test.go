@@ -681,6 +681,8 @@ func TestOneRestoreAtATime(t *testing.T) {
 // TestAGoneHolderLetsTheNextRestoreStart drops a lock whose holder pod is gone.
 // The next restore then runs.
 func TestAGoneHolderLetsTheNextRestoreStart(t *testing.T) {
+	// a pod lock is what a gone holder can be stolen from
+	t.Setenv("KUBERNETES_SERVICE_HOST", "1")
 	// hold the lock, then report that holder pod gone
 	cluster := newRestoreCluster(t, map[string]jobOutcome{}, productionReplicas)
 	cluster.holderGone = true
