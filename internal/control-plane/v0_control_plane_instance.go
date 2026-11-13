@@ -623,16 +623,6 @@ func v0ControlPlaneInstanceCreated(
 		return 0, fmt.Errorf("failed to refresh dynamic kube API client: %w", err)
 	}
 
-	// install the support services operator
-	err = threeport.InstallThreeportSupportServicesOperator(
-		dynamicKubeClient,
-		mapper,
-		threeport.SupportServicesCloud(v0.KubernetesRuntimeInfraProvider(*kubernetesRuntimeDefinition.InfraProvider)),
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to install threeport support services operator: %w", err)
-	}
-
 	// record the parent and the client address before the reachability check.
 	// A failed dial still leaves the address for the CLI to read.
 	controlPlaneInstance.ParentControlPlaneInstanceID = selfInstance.ID
@@ -667,6 +657,17 @@ func v0ControlPlaneInstanceCreated(
 
 	// the API answered, so a later failure leaves the source writers stopped
 	apiServing = true
+
+	// install the support services operator
+	err = threeport.InstallThreeportSupportServicesOperator(
+		dynamicKubeClient,
+		mapper,
+		threeport.SupportServicesCloud(v0.KubernetesRuntimeInfraProvider(*kubernetesRuntimeDefinition.InfraProvider)),
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to install threeport support services operator: %w", err)
+	}
+
 	if cpi.Opts.FromNamespace != "" {
 		if err := cpi.AssertRestoredControlPlane(dynamicKubeClient, mapper); err != nil {
 			return 0, err

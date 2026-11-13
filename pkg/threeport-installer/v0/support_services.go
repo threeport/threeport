@@ -154,9 +154,15 @@ func InstallThreeportSupportServicesOperator(
 		return err
 	}
 
-	// the namespace threeport-control-plane already exists
+	// create the operator namespace from the manifest
 	for _, object := range objects {
-		if object.GetKind() == "CustomResourceDefinition" || object.GetKind() == "Namespace" {
+		if object.GetKind() == "CustomResourceDefinition" {
+			continue
+		}
+		if object.GetKind() == "Namespace" {
+			if _, err := kube.CreateResource(object, kubeClient, *mapper); err != nil && !kubeerr.IsAlreadyExists(err) {
+				return fmt.Errorf("failed to install support services operator namespace: %w", err)
+			}
 			continue
 		}
 		if object.GetKind() == "Deployment" {
