@@ -156,8 +156,10 @@ func (i *KubernetesRuntimeInfraEKS) zoneCount() int {
 	return zoneCount
 }
 
-// kubernetesVersion returns the Kubernetes version to provision the cluster
-// with.
+// controlPlaneKubernetesVersion returns the Kubernetes version of the
+// cluster's control plane: the version an upgrade keeps it on, when it is
+// already past the one the node group is upgraded to, and the version to
+// provision the cluster with otherwise.
 func (i *KubernetesRuntimeInfraEKS) controlPlaneKubernetesVersion() string {
 	if i.controlPlaneVersion != "" {
 		return i.controlPlaneVersion
@@ -166,6 +168,9 @@ func (i *KubernetesRuntimeInfraEKS) controlPlaneKubernetesVersion() string {
 	return i.kubernetesVersion()
 }
 
+// kubernetesVersion returns the Kubernetes version to provision the cluster
+// with: its node group's, and its control plane's unless an upgrade keeps
+// that on a later one.
 func (i *KubernetesRuntimeInfraEKS) kubernetesVersion() string {
 	if i.KubernetesVersion == "" {
 		return DefaultEksKubernetesVersion
