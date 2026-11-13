@@ -148,9 +148,27 @@ func okeImageArch(shape string) string {
 	return "x86_64"
 }
 
+// minorVersion returns the minor version of a Kubernetes version such as
+// "v1.36.4" or "1.36", "1.36" for both.
+func minorVersion(version string) string {
+	parts := strings.SplitN(strings.TrimPrefix(version, "v"), ".", 3)
+	if len(parts) < 2 {
+		return ""
+	}
+
+	return parts[0] + "." + parts[1]
+}
+
+// CreatedKubernetesVersion returns the Kubernetes minor version of the
+// cluster Create created or found in the stack, such as "1.36".
+func (i *KubernetesRuntimeInfraOKE) CreatedKubernetesVersion() string {
+	return minorVersion(i.Version)
+}
+
 // clusterInputInStack returns an input of the cluster an exported deployment
-// holds, and whether it holds the cluster at all.  The input is "" when the
-// cluster was created without it.  A create resumed on that stack keeps the
+// holds, and whether it holds the cluster at all.  An input nested in an
+// object is named by its path, such as "releaseChannel.channel".  The input is
+// "" when the cluster was created without it.  A create resumed on that stack keeps the
 // cluster's version, rather than asking for the one its definition records:
 // the stack may predate it, and a provider upgrades a cluster one minor
 // version at a time, if it can upgrade it in place at all.
@@ -167,8 +185,13 @@ func clusterInputInStack(deployment json.RawMessage, clusterType, input string) 
 
 	for _, resource := range contents.Resources {
 		if resource.Type == clusterType {
-			value, _ := resource.Inputs[input].(string)
-			return value, true
+			var value any = resource.Inputs
+			for _, key := range strings.Split(input, ".") {
+				object, _ := value.(map[string]any)
+				value = object[key]
+			}
+			text, _ := value.(string)
+			return text, true
 		}
 	}
 

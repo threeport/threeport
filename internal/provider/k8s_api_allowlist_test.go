@@ -82,6 +82,8 @@ func TestAGkeClusterAdmitsOnlyItsAllowedCidrs(t *testing.T) {
 			map[string]any{"cidrBlock": "198.51.100.7/32"},
 		}, config["cidrBlocks"])
 		assert.Equal(t, false, config["gcpPublicCidrsAccessEnabled"])
+		assert.NotContains(t, config, "privateEndpointEnforcementEnabled",
+			"a public cluster's nodes reach the API through the internal endpoint, which the list leaves alone")
 
 		privateCluster, ok := inputs["privateClusterConfig"].(map[string]any)
 		require.True(t, ok)

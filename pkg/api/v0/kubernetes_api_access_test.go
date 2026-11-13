@@ -146,8 +146,12 @@ func TestAKubernetesRuntimeDefinitionIsCheckedForItsProvider(t *testing.T) {
 		{"nothing set on kind", KubernetesRuntimeInfraProviderKind, nil, nil, ""},
 		{"public on kind", KubernetesRuntimeInfraProviderKind, util.Ptr(false), rawJSON("[]"), ""},
 		{"an allowlist", KubernetesRuntimeInfraProviderEKS, nil, rawJSON(`["203.0.113.0/24"]`), ""},
-		{"private", KubernetesRuntimeInfraProviderGKE, util.Ptr(true), nil, ErrMsgPrivateApiNotSupported},
-		{"private with an allowlist", KubernetesRuntimeInfraProviderOKE, util.Ptr(true), rawJSON(`["10.8.0.0/16"]`), ErrMsgPrivateApiNotSupported},
+		{"private GKE", KubernetesRuntimeInfraProviderGKE, util.Ptr(true), nil, ""},
+		{"private GKE with an allowlist", KubernetesRuntimeInfraProviderGKE, util.Ptr(true), rawJSON(`["10.8.0.0/16"]`), ""},
+		{"private GKE at its limit", KubernetesRuntimeInfraProviderGKE, util.Ptr(true), cidrsJSON(t, distinctCidrs(100)...), ""},
+		{"private GKE past its limit", KubernetesRuntimeInfraProviderGKE, util.Ptr(true), cidrsJSON(t, distinctCidrs(101)...), "AllowedCidrs has 101 entries and gke admits at most 100"},
+		{"private EKS", KubernetesRuntimeInfraProviderEKS, util.Ptr(true), nil, ErrMsgPrivateApiNotSupported},
+		{"private OKE with an allowlist", KubernetesRuntimeInfraProviderOKE, util.Ptr(true), rawJSON(`["10.8.0.0/16"]`), ErrMsgPrivateApiNotSupported},
 		{"explicitly public", KubernetesRuntimeInfraProviderGKE, util.Ptr(false), rawJSON(`["203.0.113.0/24"]`), ""},
 		{"EKS at its limit", KubernetesRuntimeInfraProviderEKS, nil, cidrsJSON(t, distinctCidrs(40)...), ""},
 		{"EKS past its limit", KubernetesRuntimeInfraProviderEKS, nil, cidrsJSON(t, distinctCidrs(41)...), "AllowedCidrs has 41 entries and eks admits at most 40"},
@@ -243,6 +247,13 @@ func TestAnUpdateIsCheckedAgainstWhatTheDefinitionWillHold(t *testing.T) {
 		{
 			name: "patch PrivateApi on", provider: KubernetesRuntimeInfraProviderGKE,
 			stored: rawJSON(`["203.0.113.0/24"]`),
+			update: func(db *gorm.DB, loaded KubernetesRuntimeDefinition) error {
+				return db.Model(&loaded).Updates(&KubernetesRuntimeDefinition{PrivateApi: util.Ptr(true)}).Error
+			},
+			wantErr: ErrMsgKubernetesApiAccessImmutable,
+		},
+		{
+			name: "patch PrivateApi on, on EKS", provider: KubernetesRuntimeInfraProviderEKS,
 			update: func(db *gorm.DB, loaded KubernetesRuntimeDefinition) error {
 				return db.Model(&loaded).Updates(&KubernetesRuntimeDefinition{PrivateApi: util.Ptr(true)}).Error
 			},

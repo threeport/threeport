@@ -96,6 +96,7 @@ func TestEnsureBootstrapKubernetesRuntimeReusesExistingRows(t *testing.T) {
 		"threeport-dev",
 		true,
 		"kind",
+		false,
 		nil,
 		&v0.KubernetesRuntimeInstance{Instance: v0.Instance{Name: util.Ptr("threeport-dev")}},
 	)
@@ -133,6 +134,7 @@ func TestEnsureBootstrapKubernetesRuntimeCreatesMissingRows(t *testing.T) {
 		"threeport-dev",
 		true,
 		"kind",
+		false,
 		nil,
 		&v0.KubernetesRuntimeInstance{Instance: v0.Instance{Name: util.Ptr("threeport-dev")}},
 	)
@@ -143,10 +145,11 @@ func TestEnsureBootstrapKubernetesRuntimeCreatesMissingRows(t *testing.T) {
 	require.NotNil(inst.ID)
 }
 
-// TestARestoredKubernetesRuntimeDefinitionKeepsItsAllowedCidrs covers a
+// TestARestoredKubernetesRuntimeDefinitionKeepsItsApiAccess covers a
 // reinstall of a control plane whose cluster limits its Kubernetes API: the
-// definition rebuilt from the tptctl config carries the list again.
-func TestARestoredKubernetesRuntimeDefinitionKeepsItsAllowedCidrs(t *testing.T) {
+// definition rebuilt from the tptctl config carries the list again, and
+// PrivateApi for a private cluster.
+func TestARestoredKubernetesRuntimeDefinitionKeepsItsApiAccess(t *testing.T) {
 	var sentDefinition map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -173,6 +176,7 @@ func TestARestoredKubernetesRuntimeDefinitionKeepsItsAllowedCidrs(t *testing.T) 
 		"threeport-prod",
 		true,
 		"eks",
+		false,
 		[]string{"203.0.113.7/32"},
 		&v0.KubernetesRuntimeInstance{Instance: v0.Instance{Name: util.Ptr("threeport-prod")}},
 	)
@@ -180,6 +184,25 @@ func TestARestoredKubernetesRuntimeDefinitionKeepsItsAllowedCidrs(t *testing.T) 
 	require.NoError(t, err)
 	require.NotNil(t, sentDefinition)
 	assert.Equal(t, []any{"203.0.113.7/32"}, sentDefinition["AllowedCidrs"])
+	assert.NotContains(t, sentDefinition, "PrivateApi", "a public cluster's definition is sent as before")
+
+	sentDefinition = nil
+	_, _, err = ensureBootstrapKubernetesRuntime(
+		server.Client(),
+		strings.TrimPrefix(server.URL, "http://"),
+		"threeport-private",
+		"threeport-private",
+		true,
+		"gke",
+		true,
+		[]string{"10.8.0.0/16"},
+		&v0.KubernetesRuntimeInstance{Instance: v0.Instance{Name: util.Ptr("threeport-private")}},
+	)
+
+	require.NoError(t, err)
+	require.NotNil(t, sentDefinition)
+	assert.Equal(t, true, sentDefinition["PrivateApi"])
+	assert.Equal(t, []any{"10.8.0.0/16"}, sentDefinition["AllowedCidrs"])
 }
 
 // TestEnsureBootstrapKubernetesRuntimeSurfacesLookupErrors covers a failed GET.
@@ -197,6 +220,7 @@ func TestEnsureBootstrapKubernetesRuntimeSurfacesLookupErrors(t *testing.T) {
 		"threeport-dev",
 		true,
 		"kind",
+		false,
 		nil,
 		&v0.KubernetesRuntimeInstance{Instance: v0.Instance{Name: util.Ptr("threeport-dev")}},
 	)

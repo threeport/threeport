@@ -164,6 +164,10 @@ type Options struct {
 	// API.  Empty leaves it open to every address.
 	K8sApiAllowedCidrs []string
 
+	// If true, the control plane cluster's Kubernetes API has no public IP
+	// endpoint.  Supported on GKE only.
+	PrivateK8sApi bool
+
 	// The host port to publish the Threeport API on for a local control plane.
 	// Zero means the default for the auth setting applies.
 	ApiPort int

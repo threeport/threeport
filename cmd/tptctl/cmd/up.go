@@ -119,7 +119,8 @@ control planes if they are used to create or are created by another control plan
 			cli.Error("flag validation failed:", err)
 			os.Exit(1)
 		}
-		if err := cli.ValidateK8sApiAllowedCidrsFlag(
+		if err := cli.ValidateK8sApiAccessFlags(
+			cliArgs.PrivateK8sApi,
 			cliArgs.K8sApiAllowedCidrs,
 			cliArgs.InfraProvider,
 			cliArgs.ControlPlaneOnly,
@@ -295,9 +296,13 @@ func init() {
 		&cliArgs.LocalRegistry,
 		"local-registry", false, "Connects a local container registry to Threeport control plane cluster.  Only applicable with provider 'kind'.",
 	)
+	UpCmd.Flags().BoolVar(
+		&cliArgs.PrivateK8sApi,
+		"private-k8s-api", false, "Turn off the public IP endpoint of the control plane cluster's Kubernetes API.  tptctl and the control plane reach it through GKE's DNS endpoint, which Google authorizes by IAM, and the cluster's network and those connected to it reach its internal endpoint.  Defaults to false.  Only applicable with provider 'gke', and not with --control-plane-only.",
+	)
 	UpCmd.Flags().StringSliceVar(
 		&cliArgs.K8sApiAllowedCidrs,
-		"k8s-api-allowed-cidrs", []string{}, "Optional. Comma-separated IPv4 CIDR blocks allowed to reach the Kubernetes API of the control plane cluster, e.g. 203.0.113.7/32.  Include this machine's public address: tptctl needs the Kubernetes API to install the control plane, and fails before installing anything if it cannot reach it.  Defaults to empty, which leaves the Kubernetes API open to every address.  Not applicable with provider 'kind' or --control-plane-only.",
+		"k8s-api-allowed-cidrs", []string{}, "Optional. Comma-separated IPv4 CIDR blocks allowed to reach the Kubernetes API of the control plane cluster, e.g. 203.0.113.7/32.  Include this machine's public address: tptctl needs the Kubernetes API to install the control plane, and fails before installing anything if it cannot reach it.  Defaults to empty, which leaves the Kubernetes API open to every address.  With --private-k8s-api, these are the private networks, such as a VPN, that may reach the internal endpoint, and this machine's address is not needed.  Not applicable with provider 'kind' or --control-plane-only.",
 	)
 	UpCmd.Flags().StringSliceVar(
 		&cliArgs.KindPortMappings,
