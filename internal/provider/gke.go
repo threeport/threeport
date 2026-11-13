@@ -13,6 +13,8 @@ import (
 	"github.com/pulumi/pulumi-gcp/sdk/v8/go/gcp"
 	"github.com/pulumi/pulumi-gcp/sdk/v8/go/gcp/compute"
 	gkecontainer "github.com/pulumi/pulumi-gcp/sdk/v8/go/gcp/container"
+	"github.com/pulumi/pulumi-gcp/sdk/v8/go/gcp/projects"
+	"github.com/pulumi/pulumi-gcp/sdk/v8/go/gcp/serviceaccount"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"golang.org/x/oauth2"
@@ -109,6 +111,12 @@ type KubernetesRuntimeInfraGKE struct {
 	// for one created before the version was set.  The program keeps it.
 	stackMinMasterVersion *string
 
+	// nodesKeepDefaultServiceAccount is set by CreateInfra when the stack
+	// already holds a node pool whose nodes run as the project's default
+	// Compute Engine service account.  The program then leaves them on it,
+	// since changing a node pool's service account replaces the node pool.
+	nodesKeepDefaultServiceAccount bool
+
 	// gcpProjectResolvedFromGcloudINI is true when loadGCPConfig set ProjectID from the active gcloud INI.
 	gcpProjectResolvedFromGcloudINI bool
 	// gcpRegionResolvedFromGcloudINI is true when loadGCPConfig set Region from the active gcloud INI.
@@ -143,6 +151,11 @@ type KubernetesRuntimeInfraGKE struct {
 const (
 	gkePulumiProjectName        = "gke"
 	gkePulumiProjectDescription = "Google Kubernetes Engine (GKE) cluster for Threeport"
+
+	// gkeNodeServiceAccountRole is the only role granted to the service
+	// account a cluster's nodes run as.  Google provides it for that account:
+	// it lets the nodes write logs and metrics.
+	gkeNodeServiceAccountRole = "roles/container.defaultNodeServiceAccount"
 )
 
 // InitPulumiProject fills in the Pulumi project identity and stack config, and
@@ -242,13 +255,16 @@ func (i *KubernetesRuntimeInfraGKE) CreateInfra() (*kube.KubeConnectionInfo, err
 		return nil, fmt.Errorf("failed to set up Pulumi workspace: %w", err)
 	}
 
-	// a create resumed on a stack that holds the cluster keeps its version
+	// a create resumed on a stack that holds the cluster keeps its version,
+	// and one whose node pool was created before the nodes had their own
+	// service account leaves that node pool as it is
 	ctx := context.Background()
 	exported, err := stack.Export(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the stack's GKE cluster: %w", err)
 	}
 	i.keepStackMinMasterVersion(exported.Deployment)
+	i.nodesKeepDefaultServiceAccount = nodePoolRunsAsDefaultServiceAccount(exported.Deployment)
 
 	if _, err = i.RunUp(ctx, stack); err != nil {
 		return nil, fmt.Errorf("failed to deploy stack: %w", err)
@@ -499,6 +515,34 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 			return fmt.Errorf("failed to create GKE cluster: %w", err)
 		}
 
+		// the cloud-platform scope is kept: the node service account's role
+		// is what limits the nodes
+		nodeConfig := &gkecontainer.NodePoolNodeConfigArgs{
+			MachineType: pulumi.String(i.MachineType),
+			DiskSizeGb:  pulumi.Int(50),
+			DiskType:    pulumi.String("pd-standard"),
+			OauthScopes: pulumi.StringArray{
+				pulumi.String("https://www.googleapis.com/auth/cloud-platform"),
+			},
+			Labels: pulumi.StringMap{
+				kube.ThreeportManagedByLabelKey: pulumi.String(kube.ThreeportManagedByLabelValue),
+			},
+			ResourceLabels: GcpLabelsInput(i.RuntimeInstanceName),
+			WorkloadMetadataConfig: &gkecontainer.NodePoolNodeConfigWorkloadMetadataConfigArgs{
+				Mode: pulumi.String("GKE_METADATA"),
+			},
+		}
+		nodePoolDependencies := []pulumi.Resource{cluster}
+		if !i.nodesKeepDefaultServiceAccount {
+			nodeServiceAccount, nodeRole, err := i.nodeServiceAccount(ctx, gcpProvider)
+			if err != nil {
+				return err
+			}
+			nodeConfig.ServiceAccount = nodeServiceAccount.Email
+			// the nodes can write logs and metrics from the start
+			nodePoolDependencies = append(nodePoolDependencies, nodeRole)
+		}
+
 		_, err = gkecontainer.NewNodePool(ctx, i.workerNodePoolName(), &gkecontainer.NodePoolArgs{
 			Name:     pulumi.String(i.workerNodePoolName()),
 			Cluster:  cluster.Name,
@@ -506,21 +550,7 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 
 			NodeCount: pulumi.Int(int(i.WorkerNodeInitialCount)),
 
-			NodeConfig: &gkecontainer.NodePoolNodeConfigArgs{
-				MachineType: pulumi.String(i.MachineType),
-				DiskSizeGb:  pulumi.Int(50),
-				DiskType:    pulumi.String("pd-standard"),
-				OauthScopes: pulumi.StringArray{
-					pulumi.String("https://www.googleapis.com/auth/cloud-platform"),
-				},
-				Labels: pulumi.StringMap{
-					kube.ThreeportManagedByLabelKey: pulumi.String(kube.ThreeportManagedByLabelValue),
-				},
-				ResourceLabels: GcpLabelsInput(i.RuntimeInstanceName),
-				WorkloadMetadataConfig: &gkecontainer.NodePoolNodeConfigWorkloadMetadataConfigArgs{
-					Mode: pulumi.String("GKE_METADATA"),
-				},
-			},
+			NodeConfig: nodeConfig,
 
 			Autoscaling: &gkecontainer.NodePoolAutoscalingArgs{
 				MinNodeCount:   pulumi.Int(int(i.MinNodeCount)),
@@ -533,7 +563,7 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 				AutoUpgrade: pulumi.Bool(true),
 			},
 		}, pulumi.Provider(gcpProvider),
-			pulumi.DependsOn([]pulumi.Resource{cluster}),
+			pulumi.DependsOn(nodePoolDependencies),
 			pulumi.IgnoreChanges(gkeNodePoolIgnoredChanges))
 		if err != nil {
 			return fmt.Errorf("failed to create node pool: %w", err)
@@ -543,6 +573,78 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 
 		return nil
 	}
+}
+
+// nodeServiceAccountID returns the ID of the service account the cluster's
+// nodes run as.  Its prefix is its own, so it never matches the ID of a
+// Threeport account, which is derived from a runtime or provider name.
+func (i *KubernetesRuntimeInfraGKE) nodeServiceAccountID() string {
+	return formatPrefixedServiceAccountID(nodeServiceAccountIDPrefix, nodeServiceAccountIDNameLength, i.RuntimeInstanceName)
+}
+
+// nodeServiceAccount adds the service account the cluster's nodes run as to
+// the stack, with gkeNodeServiceAccountRole on the project and nothing else.
+// The account is the cluster's own, rather than the project's default Compute
+// Engine account, which every VM in the project shares and which has the
+// Editor role in older projects and no role at all where the organization
+// policy iam.automaticIamGrantsForDefaultServiceAccounts is enforced.  Being
+// in the stack, the account and its role are deleted with the cluster.
+func (i *KubernetesRuntimeInfraGKE) nodeServiceAccount(
+	ctx *pulumi.Context,
+	gcpProvider *gcp.Provider,
+) (*serviceaccount.Account, *projects.IAMMember, error) {
+	account, err := serviceaccount.NewAccount(ctx, fmt.Sprintf("%s-node-sa", i.RuntimeInstanceName), &serviceaccount.AccountArgs{
+		AccountId:   pulumi.String(i.nodeServiceAccountID()),
+		Project:     pulumi.String(i.ProjectID),
+		DisplayName: pulumi.String(fmt.Sprintf("Threeport GKE nodes of %s", i.RuntimeInstanceName)),
+		Description: pulumi.String(fmt.Sprintf("Nodes of the Threeport GKE cluster %s run as this account", i.RuntimeInstanceName)),
+	}, pulumi.Provider(gcpProvider))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create node service account: %w", err)
+	}
+
+	role, err := projects.NewIAMMember(ctx, fmt.Sprintf("%s-node-sa-role", i.RuntimeInstanceName), &projects.IAMMemberArgs{
+		Project: pulumi.String(i.ProjectID),
+		Role:    pulumi.String(gkeNodeServiceAccountRole),
+		Member:  account.Member,
+	}, pulumi.Provider(gcpProvider))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to grant the node service account its role: %w", err)
+	}
+
+	return account, role, nil
+}
+
+// nodePoolRunsAsDefaultServiceAccount reports whether an exported deployment
+// holds a node pool created without a service account, whose nodes run as the
+// project's default Compute Engine account.  A deployment that can't be read
+// is taken to hold one, since a node pool that is there would otherwise be
+// replaced.
+func nodePoolRunsAsDefaultServiceAccount(deployment json.RawMessage) bool {
+	var contents struct {
+		Resources []struct {
+			Type   string `json:"type"`
+			Inputs struct {
+				NodeConfig struct {
+					ServiceAccount string `json:"serviceAccount"`
+				} `json:"nodeConfig"`
+			} `json:"inputs"`
+		} `json:"resources"`
+	}
+	if len(deployment) == 0 {
+		return false
+	}
+	if err := json.Unmarshal(deployment, &contents); err != nil {
+		return true
+	}
+
+	for _, resource := range contents.Resources {
+		if resource.Type == "gcp:container/nodePool:NodePool" && resource.Inputs.NodeConfig.ServiceAccount == "" {
+			return true
+		}
+	}
+
+	return false
 }
 
 // Delete deletes a GKE cluster and the threeport control plane with it, along

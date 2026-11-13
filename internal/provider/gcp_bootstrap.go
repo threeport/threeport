@@ -33,6 +33,13 @@ const (
 	// serviceAccountIDHashLength is how many hex characters of the name's hash
 	// close a service account ID
 	serviceAccountIDHashLength = 6
+	// nodeServiceAccountIDPrefix begins the ID of the service account a GKE
+	// cluster's nodes run as.  It differs from serviceAccountIDPrefix so that
+	// no runtime's node account can take the ID of a Threeport account.
+	nodeServiceAccountIDPrefix = "threeport-node-"
+	// nodeServiceAccountIDNameLength is serviceAccountIDNameLength for node
+	// accounts, one character shorter for the longer prefix
+	nodeServiceAccountIDNameLength = 8
 	// serviceAccountDisplayFormat is the display name format for all Threeport service accounts
 	serviceAccountDisplayFormat = "Threeport Service Account for %s"
 	// workloadIdentityPoolFormat is the format for Workload Identity pool names
@@ -970,9 +977,16 @@ func formatIAMServiceAccountCreate403Hint(projectID string) string {
 // orphans every account created under the old one. Treat it as fixed once
 // Threeport has installs.
 func formatServiceAccountID(name string) string {
+	return formatPrefixedServiceAccountID(serviceAccountIDPrefix, serviceAccountIDNameLength, name)
+}
+
+// formatPrefixedServiceAccountID is formatServiceAccountID with the prefix and
+// the length of the name's fragment given.  The prefix, the fragment, the
+// separator and the hash must fit in 30 characters.
+func formatPrefixedServiceAccountID(prefix string, nameLength int, name string) string {
 	var fragment strings.Builder
 	for _, c := range strings.ToLower(name) {
-		if fragment.Len() == serviceAccountIDNameLength {
+		if fragment.Len() == nameLength {
 			break
 		}
 		if (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') {
@@ -989,7 +1003,7 @@ func formatServiceAccountID(name string) string {
 
 	sum := sha256.Sum256([]byte(name))
 
-	return serviceAccountIDPrefix + frag + "-" + hex.EncodeToString(sum[:])[:serviceAccountIDHashLength]
+	return prefix + frag + "-" + hex.EncodeToString(sum[:])[:serviceAccountIDHashLength]
 }
 
 // isNotFoundError checks if the error is a "not found" error.
