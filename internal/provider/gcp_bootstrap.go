@@ -1062,11 +1062,20 @@ type crmProjectPolicies struct {
 	service *cloudresourcemanager.Service
 }
 
+// conditionalPolicyVersion is the IAM policy version that carries conditional
+// bindings.  A policy read at an older version leaves their conditions out,
+// and writing it back is refused, so a project policy is read and written at
+// this one: the project may hold conditional bindings someone else made.
+const conditionalPolicyVersion = 3
+
 func (c crmProjectPolicies) get(projectID string) (*cloudresourcemanager.Policy, error) {
-	return c.service.Projects.GetIamPolicy(projectID, &cloudresourcemanager.GetIamPolicyRequest{}).Do()
+	return c.service.Projects.GetIamPolicy(projectID, &cloudresourcemanager.GetIamPolicyRequest{
+		Options: &cloudresourcemanager.GetPolicyOptions{RequestedPolicyVersion: conditionalPolicyVersion},
+	}).Do()
 }
 
 func (c crmProjectPolicies) set(projectID string, policy *cloudresourcemanager.Policy) (*cloudresourcemanager.Policy, error) {
+	policy.Version = conditionalPolicyVersion
 	return c.service.Projects.SetIamPolicy(projectID, &cloudresourcemanager.SetIamPolicyRequest{Policy: policy}).Do()
 }
 

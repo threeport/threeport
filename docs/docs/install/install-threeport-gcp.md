@@ -125,6 +125,47 @@ Shell, are not let through unless they are in the list.
 The control plane reaches the cluster it runs on from inside the cluster, so
 it needs no entry in the list.
 
+### Make the Kubernetes API Private
+
+To take the Kubernetes API off the public internet altogether, pass
+`--private-k8s-api`:
+
+```bash
+  --private-k8s-api
+```
+
+The cluster then has no public IP endpoint. `tptctl` and the control plane
+reach it through GKE's DNS-based endpoint, which Google authorizes with IAM
+(`container.clusters.connect`) rather than by address, using the same Google
+credentials `tptctl` already uses. You don't need to list your own address.
+
+With `--private-k8s-api`, `--k8s-api-allowed-cidrs` lists the private networks,
+such as a VPN or a peered network, that may reach the internal endpoint, up to
+100. The cluster's own address ranges are always admitted, and without the flag
+they're the only ones.
+
+The control plane's controllers reach the private clusters it manages in its
+project through their DNS endpoints too, as their own Workload Identity
+principals. So creating a private cluster grants every Kubernetes service
+account in the control plane's namespace the Kubernetes Engine Cluster Viewer
+role (`roles/container.clusterViewer`) on the project, the narrowest role with
+`container.clusters.connect`. GKE doesn't let that permission be granted on one
+cluster alone. It lets them see the project's
+clusters and connect to them; each cluster's RBAC still decides what they may
+do. Creating a cluster with a public endpoint grants nothing. The control
+planes in a project that use the same namespace share the grant, so deleting a
+private cluster removes it only when no other private cluster Threeport
+provisioned is left in the project.
+
+To use `kubectl` against a private cluster, fetch its credentials for the DNS
+endpoint:
+
+```bash
+gcloud container clusters get-credentials threeport-test --region us-central1 --dns-endpoint
+```
+
+`--private-k8s-api` is available only on GKE for now.
+
 ## Validate Deployment
 
 Note: if you would like to use
