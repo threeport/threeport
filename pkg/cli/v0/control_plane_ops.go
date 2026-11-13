@@ -557,9 +557,11 @@ func UpgradeBlueGreen(
 				return err
 			}
 			gke := &provider.KubernetesRuntimeInfraGKE{
-				RuntimeInstanceName: util.DerefString(runtimeInst.Name),
-				ProjectID:           projectID,
-				BackupBucket:        bucket,
+				PulumiWorkspace: provider.PulumiWorkspace{
+					RuntimeInstanceName: util.DerefString(runtimeInst.Name),
+				},
+				ProjectID:    projectID,
+				BackupBucket: bucket,
 			}
 			return gke.GrantDatabaseBackupAccess(uid)
 		}
