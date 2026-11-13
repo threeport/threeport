@@ -2,6 +2,7 @@ package v0
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -414,6 +415,108 @@ func retargetHostsIn(value interface{}, namespace string) bool {
 	default:
 		return false
 	}
+}
+
+// trustBundle joins the API CA and the broker CA the module client verifies.
+func trustBundle(apiCA, natsCA string) (string, error) {
+	if natsCA == "" || natsCA == apiCA {
+		return apiCA, nil
+	}
+	apiPEM, err := base64.StdEncoding.DecodeString(apiCA)
+	if err != nil {
+		return "", err
+	}
+	natsPEM, err := base64.StdEncoding.DecodeString(natsCA)
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(append(append(apiPEM, '\n'), natsPEM...)), nil
+}
+
+// refreshModuleTrust copies the replacement plane's trust into the module namespace.
+// A module without those secrets is left alone.
+func refreshModuleTrust(
+	kubeClient dynamic.Interface,
+	moduleNamespace, controlPlaneNamespace string,
+	inst *api.ControlPlaneInstance,
+) (bool, error) {
+	// the API CA is the one the replacement server presents
+	apiCA, err := secretData(kubeClient, controlPlaneNamespace, "api-ca", "tls.crt")
+	if err != nil || apiCA == "" {
+		return false, err
+	}
+	natsCA, err := secretData(kubeClient, controlPlaneNamespace, "nats-ca-cert", "ca.crt")
+	if err != nil {
+		return false, err
+	}
+	bundle, err := trustBundle(apiCA, natsCA)
+	if err != nil {
+		return false, fmt.Errorf("failed to build the module trust bundle: %w", err)
+	}
+	changed, err := setSecretData(kubeClient, moduleNamespace, "threeport-api-ca", "tls.crt", bundle)
+	if err != nil {
+		return false, err
+	}
+
+	// the recorded client credential is the one the replacement API accepts
+	cert := util.DerefString(inst.ClientCert)
+	key := util.DerefString(inst.ClientKey)
+	if cert == "" || key == "" {
+		return changed, nil
+	}
+	certChanged, err := setSecretData(kubeClient, moduleNamespace, "threeport-api-client-cert", "tls.crt", cert)
+	if err != nil {
+		return false, err
+	}
+	keyChanged, err := setSecretData(kubeClient, moduleNamespace, "threeport-api-client-cert", "tls.key", key)
+	if err != nil {
+		return false, err
+	}
+	return changed || certChanged || keyChanged, nil
+}
+
+// secretData reads one key from a secret.
+func secretData(kubeClient dynamic.Interface, namespace, name, key string) (string, error) {
+	secret, err := kubeClient.Resource(secretGVR).Namespace(namespace).Get(
+		context.Background(), name, metav1.GetOptions{},
+	)
+	if k8serrors.IsNotFound(err) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("failed to get secret %s/%s: %w", namespace, name, err)
+	}
+	value, _, err := unstructured.NestedString(secret.Object, "data", key)
+	return value, err
+}
+
+// setSecretData writes one secret key when the stored value differs.
+func setSecretData(kubeClient dynamic.Interface, namespace, name, key, value string) (bool, error) {
+	secret, err := kubeClient.Resource(secretGVR).Namespace(namespace).Get(
+		context.Background(), name, metav1.GetOptions{},
+	)
+	if k8serrors.IsNotFound(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("failed to get secret %s/%s: %w", namespace, name, err)
+	}
+	current, _, err := unstructured.NestedString(secret.Object, "data", key)
+	if err != nil {
+		return false, err
+	}
+	if current == value {
+		return false, nil
+	}
+	if err := unstructured.SetNestedField(secret.Object, value, "data", key); err != nil {
+		return false, err
+	}
+	if _, err := kubeClient.Resource(secretGVR).Namespace(namespace).Update(
+		context.Background(), secret, metav1.UpdateOptions{},
+	); err != nil {
+		return false, fmt.Errorf("failed to update secret %s/%s: %w", namespace, name, err)
+	}
+	return true, nil
 }
 
 // retargetModuleDeployment points a module Deployment at the replacement plane.

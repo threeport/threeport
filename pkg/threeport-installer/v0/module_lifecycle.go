@@ -115,6 +115,11 @@ func ReconcileInstalledModuleImages(
 		workloadNamespace := moduleWorkloadNamespace(&module)
 		imageNamespace, imageTag := recordedModuleImages(&module)
 		controlPlaneNamespace := util.DerefString(inst.Namespace)
+		if _, err := refreshModuleTrust(
+			kubeClient, workloadNamespace, controlPlaneNamespace, inst,
+		); err != nil {
+			return err
+		}
 		if err := retargetModuleDeployment(
 			kubeClient, workloadNamespace, ModuleAPIDeploymentName(kebab), controlPlaneNamespace,
 		); err != nil {

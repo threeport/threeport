@@ -1,6 +1,7 @@
 package v0
 
 import (
+	"encoding/base64"
 	"testing"
 	"time"
 
@@ -17,6 +18,20 @@ func TestRedeployInstalledModuleSkipsCore(t *testing.T) {
 	cpi := &ControlPlaneInstaller{}
 	err := cpi.redeployInstalledModule(nil, nil, api.ModuleApi{Core: util.Ptr(true)}, nil, time.Time{})
 	require.NoError(t, err)
+}
+
+// TestTrustBundleKeepsBothAuthorities joins the API CA and the broker CA.
+func TestTrustBundleKeepsBothAuthorities(t *testing.T) {
+	apiCA := base64.StdEncoding.EncodeToString([]byte("api"))
+	natsCA := base64.StdEncoding.EncodeToString([]byte("nats"))
+	got, err := trustBundle(apiCA, natsCA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plain, err := base64.StdEncoding.DecodeString(got)
+	if err != nil || string(plain) != "api\nnats" {
+		t.Fatalf("bundle = %q", plain)
+	}
 }
 
 // TestRetargetControlPlaneHostRewritesTheDatabase points a restored address at the replacement.
