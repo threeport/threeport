@@ -359,3 +359,70 @@ func restoreStoppedReplicas(deployment *unstructured.Unstructured) error {
 	deployment.SetAnnotations(annotations)
 	return nil
 }
+
+// resumeStoppedDeployment writes a stopped Deployment back to its recorded count.
+// A running Deployment is left as it is.
+func resumeStoppedDeployment(
+	kubeClient dynamic.Interface,
+	namespace string,
+	deployment *unstructured.Unstructured,
+) error {
+	// leave a deployment that is already running
+	replicas, _, err := unstructured.NestedInt64(deployment.Object, "spec", "replicas")
+	if err != nil {
+		return err
+	}
+	if replicas > 0 {
+		return nil
+	}
+
+	// write the restored count
+	if err := restoreStoppedReplicas(deployment); err != nil {
+		return err
+	}
+	_, err = kubeClient.Resource(deploymentGVR).Namespace(namespace).Update(
+		context.Background(), deployment, metav1.UpdateOptions{},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to resume deployment %s/%s: %w", namespace, deployment.GetName(), err)
+	}
+	return nil
+}
+
+// resumeModuleByName brings one stopped module Deployment back up.
+// A missing Deployment is left alone.
+func resumeModuleByName(kubeClient dynamic.Interface, namespace, name string) error {
+	// read the deployment the install created
+	deployment, err := kubeClient.Resource(deploymentGVR).Namespace(namespace).Get(
+		context.Background(), name, metav1.GetOptions{},
+	)
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("failed to get deployment %s/%s: %w", namespace, name, err)
+	}
+	return resumeStoppedDeployment(kubeClient, namespace, deployment)
+}
+
+// resumeRecordedController brings the installed controller Deployment back up.
+// A missing controller is left alone.
+func resumeRecordedController(
+	kubeClient dynamic.Interface,
+	controller *api.ModuleController,
+	kebab string,
+) error {
+	// find the deployment the install created
+	namespace, recorded, err := splitDeploymentName(util.DerefString(controller.DeploymentName))
+	if err != nil {
+		return nil
+	}
+	name, err := installedModuleDeployment(kubeClient, namespace, recorded, kebab)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	return resumeModuleByName(kubeClient, namespace, name)
+}

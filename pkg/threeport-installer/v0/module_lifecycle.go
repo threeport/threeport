@@ -110,12 +110,18 @@ func ReconcileInstalledModuleImages(
 		return nil
 	}
 	for _, module := range *modules {
-		namespace, tag := recordedModuleImages(&module)
-		if namespace == "" || tag == "" {
-			continue
-		}
-		if err := retagModuleAPI(
-			kubeClient, mapper, inst, cpi, &module, namespace, tag,
+		// bring a stopped module back even when it has no recorded image
+		kebab := ModuleKebab(util.DerefString(module.Name))
+		workloadNamespace := moduleWorkloadNamespace(&module)
+		imageNamespace, imageTag := recordedModuleImages(&module)
+		if imageNamespace == "" || imageTag == "" {
+			if err := resumeModuleByName(
+				kubeClient, workloadNamespace, ModuleAPIDeploymentName(kebab),
+			); err != nil {
+				return err
+			}
+		} else if err := retagModuleAPI(
+			kubeClient, mapper, inst, cpi, &module, imageNamespace, imageTag,
 		); err != nil {
 			return err
 		}
@@ -123,8 +129,14 @@ func ReconcileInstalledModuleImages(
 			continue
 		}
 		for _, controller := range byAPI[*module.ID] {
+			if imageNamespace == "" || imageTag == "" {
+				if err := resumeRecordedController(kubeClient, &controller, kebab); err != nil {
+					return err
+				}
+				continue
+			}
 			if err := retagModuleController(
-				kubeClient, mapper, &controller, namespace, tag,
+				kubeClient, mapper, &controller, kebab, imageNamespace, imageTag,
 			); err != nil {
 				return err
 			}
@@ -156,6 +168,9 @@ func retagModuleAPI(
 	}
 	if err != nil {
 		return fmt.Errorf("failed to get module API deployment %s/%s: %w", namespace, name, err)
+	}
+	if err := resumeStoppedDeployment(kubeClient, namespace, deployment); err != nil {
+		return err
 	}
 
 	// leave a deployment whose containers are missing or already current
@@ -192,12 +207,19 @@ func retagModuleController(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	controller *api.ModuleController,
-	imageNamespace, imageTag string,
+	kebab, imageNamespace, imageTag string,
 ) error {
-	// read the controller deployment
-	namespace, name, err := splitDeploymentName(util.DerefString(controller.DeploymentName))
+	// read the controller deployment the install created
+	namespace, recorded, err := splitDeploymentName(util.DerefString(controller.DeploymentName))
 	if err != nil {
 		return nil
+	}
+	name, err := installedModuleDeployment(kubeClient, namespace, recorded, kebab)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		return err
 	}
 	deployment, err := kube.GetResource(
 		"apps", "v1", "Deployment", namespace, name, kubeClient, *mapper,
@@ -208,11 +230,13 @@ func retagModuleController(
 	if err != nil {
 		return fmt.Errorf("failed to get module controller %s/%s: %w", namespace, name, err)
 	}
+	if err := resumeStoppedDeployment(kubeClient, namespace, deployment); err != nil {
+		return err
+	}
 
 	// leave a deployment whose container is missing or already current
-	deploymentName := util.DerefString(controller.DeploymentName)
-	container := ModuleControllerContainerName(deploymentName)
-	image := ModuleControllerImage(imageNamespace, deploymentName, imageTag)
+	container := ModuleControllerContainerName(name)
+	image := ModuleControllerImage(imageNamespace, name, imageTag)
 	current, ok := namedContainerImage(deployment, "containers", container)
 	if !ok || current == image {
 		return nil
