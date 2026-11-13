@@ -479,7 +479,7 @@ func moduleInstallConfig(
 
 // moduleInstallJob returns the job that runs one module install.
 func moduleInstallJob(namespace, kebab string, module *api.ModuleApi) *unstructured.Unstructured {
-	// mount the config where the CLI reads it and run the install
+	// label the pod the database admits, mount the config, and run the install
 	return &unstructured.Unstructured{Object: map[string]interface{}{
 		"apiVersion": "batch/v1",
 		"kind":       "Job",
@@ -490,6 +490,9 @@ func moduleInstallJob(namespace, kebab string, module *api.ModuleApi) *unstructu
 		"spec": map[string]interface{}{
 			"backoffLimit": int64(1),
 			"template": map[string]interface{}{
+				"metadata": map[string]interface{}{
+					"labels": map[string]interface{}{LabelMaintenance: "true"},
+				},
 				"spec": map[string]interface{}{
 					"restartPolicy": "Never",
 					"containers": []interface{}{

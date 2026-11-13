@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -189,9 +190,13 @@ func (cpi *ControlPlaneInstaller) redeployInstalledModule(
 		return nil
 	}
 	for _, deploymentName := range controllersByAPI[*moduleAPI.ID] {
-		namespace, name, splitErr := splitDeploymentName(deploymentName)
+		namespace, recorded, splitErr := splitDeploymentName(deploymentName)
 		if splitErr != nil {
 			return fmt.Errorf("module %s: %w", util.DerefString(moduleAPI.Name), splitErr)
+		}
+		name, err := installedModuleDeployment(kubeClient, namespace, recorded, kebab)
+		if err != nil {
+			return fmt.Errorf("module %s: %w", util.DerefString(moduleAPI.Name), err)
 		}
 		if err := restartModuleDeployment(
 			kubeClient,
@@ -259,6 +264,11 @@ func restartModuleDeployment(
 		return fmt.Errorf("failed to get deployment %s/%s: %w", namespace, name, err)
 	}
 
+	// bring a deployment stopped for the backup back to its recorded count
+	if err := restoreStoppedReplicas(deployment); err != nil {
+		return fmt.Errorf("failed to restore replicas on deployment %s/%s: %w", namespace, name, err)
+	}
+
 	// set each recorded image
 	for listKey, image := range images {
 		if err := SetNamedContainerImage(deployment, listKey, containerNames[listKey], image); err != nil {
@@ -278,5 +288,74 @@ func restartModuleDeployment(
 		return fmt.Errorf("failed to update deployment %s/%s: %w", namespace, name, err)
 	}
 
+	return nil
+}
+
+// installedModuleDeployment returns the Deployment a module install created.
+// The recorded name omits the module, so the installed name is tried second.
+func installedModuleDeployment(
+	kubeClient dynamic.Interface,
+	namespace string,
+	recorded string,
+	kebab string,
+) (string, error) {
+	// try the recorded name, then the name the install actually created
+	var lastErr error
+	for _, name := range moduleDeploymentNames(recorded, kebab) {
+		_, err := kubeClient.Resource(deploymentGVR).Namespace(namespace).Get(
+			context.Background(), name, metav1.GetOptions{},
+		)
+		if err == nil {
+			return name, nil
+		}
+		if !k8serrors.IsNotFound(err) {
+			return "", err
+		}
+		lastErr = err
+	}
+	if lastErr == nil {
+		lastErr = fmt.Errorf("deployment %s/%s was not found", namespace, recorded)
+	}
+	return "", fmt.Errorf("failed to get deployment %s/%s: %w", namespace, recorded, lastErr)
+}
+
+// moduleDeploymentNames is the recorded name, then the installed name.
+func moduleDeploymentNames(recorded, kebab string) []string {
+	names := []string{recorded}
+	const prefix = "threeport-"
+	if kebab == "" || !strings.HasPrefix(recorded, prefix) {
+		return names
+	}
+	prefixed := prefix + kebab + "-" + strings.TrimPrefix(recorded, prefix)
+	if prefixed == recorded {
+		return names
+	}
+	return append(names, prefixed)
+}
+
+// restoreStoppedReplicas sets a stopped Deployment back to its recorded count.
+// A missing record comes back at one replica.
+func restoreStoppedReplicas(deployment *unstructured.Unstructured) error {
+	// leave a running deployment at its current count
+	replicas, _, err := unstructured.NestedInt64(deployment.Object, "spec", "replicas")
+	if err != nil {
+		return err
+	}
+	if replicas > 0 {
+		return nil
+	}
+
+	// use the count recorded before the stop
+	count := int64(1)
+	recorded := deployment.GetAnnotations()[replicasBeforeRestoreAnnotation]
+	if parsed, parseErr := strconv.ParseInt(recorded, 10, 64); parseErr == nil && parsed > 0 {
+		count = parsed
+	}
+	if err := unstructured.SetNestedField(deployment.Object, count, "spec", "replicas"); err != nil {
+		return err
+	}
+	annotations := deployment.GetAnnotations()
+	delete(annotations, replicasBeforeRestoreAnnotation)
+	deployment.SetAnnotations(annotations)
 	return nil
 }

@@ -107,6 +107,8 @@ type restoreCluster struct {
 	// how many more pod listings report a pod still there
 	podListsLeft int
 	podLists     int
+	// a lock holder named in a field selector is gone
+	holderGone bool
 }
 
 func newRestoreCluster(t *testing.T, outcomes map[string]jobOutcome, replicas map[string]int64) *restoreCluster {
@@ -175,8 +177,20 @@ func newRestoreCluster(t *testing.T, outcomes map[string]jobOutcome, replicas ma
 	cluster.PrependReactor("list", "pods", func(action k8stesting.Action) (bool, runtime.Object, error) {
 		cluster.mu.Lock()
 		defer cluster.mu.Unlock()
-		cluster.podLists++
 		list := &unstructured.UnstructuredList{Object: map[string]interface{}{"apiVersion": "v1", "kind": "PodList"}}
+		// a lookup by name is the restore lock holder, not a writer pod
+		if fields := action.(k8stesting.ListAction).GetListRestrictions().Fields; fields != nil && fields.String() != "" {
+			if !cluster.holderGone {
+				name := strings.TrimPrefix(fields.String(), "metadata.name=")
+				list.Items = append(list.Items, unstructured.Unstructured{Object: map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "Pod",
+					"metadata":   map[string]interface{}{"name": name, "namespace": ControlPlaneNamespace},
+				}})
+			}
+			return true, list, nil
+		}
+		cluster.podLists++
 		if cluster.podListsLeft > 0 {
 			cluster.podListsLeft--
 			// the pod carries the labels the listing selects by, as the
@@ -662,6 +676,21 @@ func TestOneRestoreAtATime(t *testing.T) {
 
 	require.NoError(t, release())
 	require.NoError(t, restore(cluster))
+}
+
+// TestAGoneHolderLetsTheNextRestoreStart drops a lock whose holder pod is gone.
+// The next restore then runs.
+func TestAGoneHolderLetsTheNextRestoreStart(t *testing.T) {
+	// hold the lock, then report that holder pod gone
+	cluster := newRestoreCluster(t, map[string]jobOutcome{}, productionReplicas)
+	cluster.holderGone = true
+	release, err := acquireRestoreLock(cluster, ControlPlaneNamespace)
+	require.NoError(t, err)
+
+	require.NoError(t, restore(cluster))
+
+	assert.False(t, cluster.lockHeld())
+	require.NoError(t, release())
 }
 
 // TestTheLockIsReleasedEitherWay covers the lock after a restore that

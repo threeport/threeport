@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	aws_iam "github.com/aws/aws-sdk-go-v2/service/iam"
@@ -773,6 +774,11 @@ func v0ControlPlaneInstanceCreated(
 	clonedRuntimeInstance.Reconciled = &reconciled
 	recordResolvedComponents(&clonedRuntimeInstance, cpi)
 
+	if cpi.Opts.FromNamespace != "" {
+		if err := retargetRestoredSelf(newApiClient, threeportAPIEndpoint, &clonedRuntimeInstance); err != nil {
+			return 0, err
+		}
+	}
 	childSelf, err := getOrCreate(
 		"control plane instance on the new threeport api",
 		func() (*v0.ControlPlaneInstance, error) {
@@ -1086,6 +1092,44 @@ func copyManagingParent(
 	)
 }
 
+// retargetRestoredSelf renames the restored self row to the replacement plane.
+// A database with no self row is left for the caller to create.
+func retargetRestoredSelf(
+	apiClient *http.Client,
+	endpoint string,
+	replacement *v0.ControlPlaneInstance,
+) error {
+	// a database with no self row is created by the caller
+	self, err := client.GetSelfControlPlaneInstance(apiClient, endpoint)
+	if err != nil {
+		if strings.Contains(err.Error(), "no local control plane instance") {
+			return nil
+		}
+		return fmt.Errorf("failed to get the restored control plane instance: %w", err)
+	}
+
+	// leave a row that already names the replacement and its definition
+	sameName := self.Name != nil && replacement.Name != nil && *self.Name == *replacement.Name
+	sameNamespace := self.Namespace != nil && replacement.Namespace != nil && *self.Namespace == *replacement.Namespace
+	sameDefinition := self.ControlPlaneDefinitionID != nil && replacement.ControlPlaneDefinitionID != nil &&
+		*self.ControlPlaneDefinitionID == *replacement.ControlPlaneDefinitionID
+	sameRuntime := self.KubernetesRuntimeInstanceID != nil && replacement.KubernetesRuntimeInstanceID != nil &&
+		*self.KubernetesRuntimeInstanceID == *replacement.KubernetesRuntimeInstanceID
+	if sameName && sameNamespace && sameDefinition && sameRuntime {
+		return nil
+	}
+
+	// point the restored row at the replacement
+	self.Name = replacement.Name
+	self.Namespace = replacement.Namespace
+	self.ControlPlaneDefinitionID = replacement.ControlPlaneDefinitionID
+	self.KubernetesRuntimeInstanceID = replacement.KubernetesRuntimeInstanceID
+	if _, err := client.UpdateControlPlaneInstance(apiClient, endpoint, self); err != nil {
+		return fmt.Errorf("failed to retarget the restored control plane instance: %w", err)
+	}
+	return nil
+}
+
 // syncManagedChild copies the image, the controller list and the network
 // range pool onto the child's own row.
 func syncManagedChild(r *controller.Reconciler, instance *v0.ControlPlaneInstance) error {
@@ -1101,6 +1145,10 @@ func syncManagedChild(r *controller.Reconciler, instance *v0.ControlPlaneInstanc
 		return err
 	}
 	childSelf, err := client.GetControlPlaneInstanceByName(childClient, endpoint, *stored.Name)
+	if err != nil {
+		// a restored database still names its self row after the source
+		childSelf, err = client.GetSelfControlPlaneInstance(childClient, endpoint)
+	}
 	if err != nil {
 		return fmt.Errorf("failed to get control plane instance by name: %w", err)
 	}

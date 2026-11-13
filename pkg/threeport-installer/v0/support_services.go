@@ -317,7 +317,8 @@ func supportServicesOperatorObjects() ([]*unstructured.Unstructured, error) {
 func prepareSupportServicesOperatorObject(object map[string]interface{}) map[string]interface{} {
 	kind, _ := object["kind"].(string)
 	if kind == "Namespace" {
-		return nil
+		rewriteNamespace(object)
+		return object
 	}
 	rewriteNamespace(object)
 	if kind == "Deployment" {

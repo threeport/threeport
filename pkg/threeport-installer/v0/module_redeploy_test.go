@@ -19,6 +19,15 @@ func TestRedeployInstalledModuleSkipsCore(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// TestModuleDeploymentNamesUsesTheInstalledName checks the module-prefixed deployment name.
+func TestModuleDeploymentNamesUsesTheInstalledName(t *testing.T) {
+	// the install puts the module in front of the recorded controller name
+	names := moduleDeploymentNames("threeport-core-controller", "acme")
+	if len(names) != 2 || names[1] != "threeport-acme-core-controller" {
+		t.Fatalf("names = %v", names)
+	}
+}
+
 // TestRecordedModuleImages checks when a retarget is allowed to change images.
 func TestRecordedModuleImages(t *testing.T) {
 	// require both values and skip a core module

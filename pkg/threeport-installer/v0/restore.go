@@ -441,6 +441,17 @@ func (cpi *ControlPlaneInstaller) scaleDeployments(
 	namespace string,
 	replicas map[string]int64,
 ) error {
+	// a failed discover leaves no map, so use the counts recorded on the deployments
+	if len(replicas) == 0 {
+		loaded, err := recordedDeploymentReplicas(kubeClient, namespace)
+		if err != nil {
+			return err
+		}
+		replicas = loaded
+	}
+	if len(replicas) == 0 {
+		return nil
+	}
 	if cpi.Opts.RestoreControllersStopped {
 		fmt.Println("Info: scaling the API back up and leaving controllers stopped")
 	} else {
@@ -472,6 +483,34 @@ func (cpi *ControlPlaneInstaller) scaleDeployments(
 	}
 
 	return errors.Join(scaleErrors...)
+}
+
+// recordedDeploymentReplicas reads the replica counts a stop wrote onto the deployments.
+func recordedDeploymentReplicas(kubeClient dynamic.Interface, namespace string) (map[string]int64, error) {
+	list, err := kubeClient.Resource(deploymentGVR).Namespace(namespace).List(
+		context.Background(), metav1.ListOptions{},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list deployments in %s: %w", namespace, err)
+	}
+
+	// keep only deployments that recorded a count before they were stopped
+	replicas := map[string]int64{}
+	for _, item := range list.Items {
+		recorded := item.GetAnnotations()[replicasBeforeRestoreAnnotation]
+		if recorded == "" {
+			continue
+		}
+		var count int64
+		if _, err := fmt.Sscan(recorded, &count); err != nil {
+			return nil, fmt.Errorf(
+				"deployment %s recorded an unreadable replica count %q",
+				item.GetName(), recorded,
+			)
+		}
+		replicas[item.GetName()] = count
+	}
+	return replicas, nil
 }
 
 // restorePhaseNames are the phases of a restore, in the order they run.
@@ -865,6 +904,15 @@ func acquireRestoreLock(kubeClient dynamic.Interface, namespace string) (func() 
 			data, _, _ := unstructured.NestedStringMap(existing.Object, "data")
 			otherHolder, otherStarted = data["holder"], data["started"]
 		}
+		// drop a lock whose holder pod is gone, then claim it
+		if restoreLockHolderGone(kubeClient, otherHolder) {
+			delErr := kubeClient.Resource(configMapResource).Namespace(namespace).Delete(
+				context.Background(), restoreLockName, metav1.DeleteOptions{},
+			)
+			if delErr == nil || k8serrors.IsNotFound(delErr) {
+				return acquireRestoreLock(kubeClient, namespace)
+			}
+		}
 		return nil, fmt.Errorf(
 			"another restore of this control plane is running, started at %s by %s, so nothing was changed; "+
 				"if it is not running any more, delete config map %s in namespace %s and run the restore again",
@@ -887,6 +935,22 @@ func acquireRestoreLock(kubeClient dynamic.Interface, namespace string) (func() 
 		}
 		return nil
 	}, nil
+}
+
+// restoreLockHolderGone reports whether the pod named in a lock holder is gone.
+func restoreLockHolderGone(kubeClient dynamic.Interface, holder string) bool {
+	// the holder text is the pod name, then the process id
+	name, _, ok := strings.Cut(holder, " (")
+	if !ok || name == "" {
+		return false
+	}
+	list, err := kubeClient.Resource(podResource).List(context.Background(), metav1.ListOptions{
+		FieldSelector: "metadata.name=" + name,
+	})
+	if err != nil {
+		return false
+	}
+	return len(list.Items) == 0
 }
 
 // podResource is the core v1 pods resource.
