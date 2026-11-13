@@ -26,11 +26,20 @@ func (i *KubernetesRuntimeInfraEKS) ClusterKubernetesVersion() (string, error) {
 }
 
 // UpgradeInfra upgrades the EKS cluster's control plane, and then its node
-// group, to version.  The stack keeps the cluster's upgrade policy, as a
-// resumed create does, and the roles the create gave the cluster and its node
-// group.
+// group, to version.  A control plane already past version, which EKS
+// upgraded on its own while the node group stayed behind, is kept where it
+// is, and only the node group catches up.  The stack keeps the cluster's
+// upgrade policy, as a resumed create does, and the roles the create gave
+// the cluster and its node group.
 func (i *KubernetesRuntimeInfraEKS) UpgradeInfra(version string) error {
 	i.KubernetesVersion = version
+	controlPlane, err := eksControlPlaneVersion(i.AwsConfig, i.RuntimeInstanceName)
+	if err != nil {
+		return err
+	}
+	if i.controlPlaneVersion, err = controlPlaneVersionForUpgrade(controlPlane, version); err != nil {
+		return err
+	}
 	if err := i.lookupClusterIam(); err != nil {
 		return err
 	}
@@ -90,6 +99,26 @@ func (i *KubernetesRuntimeInfraGKE) UpgradeInfra(version string) error {
 	i.keepStackReleaseChannel(exported.Deployment)
 
 	return i.upgradeStack(stack)
+}
+
+// eksControlPlaneVersion reads the EKS control plane's minor version.  A test
+// stands in for it.
+var eksControlPlaneVersion = tpaws.EksClusterVersion
+
+// controlPlaneVersionForUpgrade returns the version to keep the control plane
+// on while the cluster is upgraded to version: its own when it is already
+// past version, as a downgrade would be refused, and "" to upgrade it to
+// version with the node group otherwise.
+func controlPlaneVersionForUpgrade(controlPlane, version string) (string, error) {
+	comparison, err := api_v0.CompareKubernetesVersions(controlPlane, version)
+	if err != nil {
+		return "", err
+	}
+	if comparison > 0 {
+		return controlPlane, nil
+	}
+
+	return "", nil
 }
 
 // lowerKubernetesVersion returns the older of two minor versions.

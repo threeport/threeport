@@ -158,6 +158,14 @@ func (i *KubernetesRuntimeInfraEKS) zoneCount() int {
 
 // kubernetesVersion returns the Kubernetes version to provision the cluster
 // with.
+func (i *KubernetesRuntimeInfraEKS) controlPlaneKubernetesVersion() string {
+	if i.controlPlaneVersion != "" {
+		return i.controlPlaneVersion
+	}
+
+	return i.kubernetesVersion()
+}
+
 func (i *KubernetesRuntimeInfraEKS) kubernetesVersion() string {
 	if i.KubernetesVersion == "" {
 		return DefaultEksKubernetesVersion
@@ -397,7 +405,7 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 		cluster, err := awseks.NewCluster(ctx, i.RuntimeInstanceName, &awseks.ClusterArgs{
 			Name:          pulumi.String(i.RuntimeInstanceName),
 			RoleArn:       pulumi.String(i.ClusterRoleArn),
-			Version:       pulumi.String(i.kubernetesVersion()),
+			Version:       pulumi.String(i.controlPlaneKubernetesVersion()),
 			UpgradePolicy: i.upgradePolicy(),
 			VpcConfig:     vpcConfig,
 			Tags:          i.resourceTags(i.RuntimeInstanceName),

@@ -138,31 +138,23 @@ func validateKubernetesVersionCreate(infraProvider string, version *string) erro
 // upgrades clusters on, to a supported version no older than the one it
 // replaces, since a cluster can't be downgraded.  version reads the field from
 // the update's incoming values and from the stored definition.
+//
+// A version the update gives is compared with the definition's row as it is
+// locked for the update, not with the copy the handler loaded before: another
+// update may have raised the version since, and a write of the older one would
+// then downgrade it.
 func validateKubernetesVersionUpgrade(
 	tx *gorm.DB,
 	infraProvider string,
 	version func(any) (*string, bool),
 ) error {
-	changed, err := lib.IsFieldChanged(tx, "KubernetesVersion")
-	if err != nil {
-		return err
-	}
-	if !changed {
-		return nil
-	}
-	if !slices.Contains(KubernetesVersionUpgradeProviders, infraProvider) {
-		return util.NewBadRequestError(ErrMsgKubernetesVersionImmutable)
-	}
-
 	incoming, ok := version(lib.IncomingValues(tx))
 	if !ok {
 		return fmt.Errorf("cannot validate KubernetesVersion: update carries %T", lib.IncomingValues(tx))
 	}
-	if incoming == nil {
-		return util.NewBadRequestError("KubernetesVersion cannot be cleared: its clusters run the version it records")
-	}
-	if err := ValidateKubernetesVersion(infraProvider, incoming); err != nil {
-		return util.NewBadRequestError(err.Error())
+	// a PATCH without the version leaves it as it is
+	if incoming == nil && !lib.IsFullReplace(tx) {
+		return nil
 	}
 
 	current, err := lib.LockObjectInDB(tx)
@@ -172,6 +164,19 @@ func validateKubernetesVersionUpgrade(
 	stored, ok := version(current)
 	if !ok {
 		return fmt.Errorf("cannot validate KubernetesVersion: loaded %T", current)
+	}
+	if (incoming == nil && stored == nil) || (incoming != nil && stored != nil && *incoming == *stored) {
+		return nil
+	}
+
+	if !slices.Contains(KubernetesVersionUpgradeProviders, infraProvider) {
+		return util.NewBadRequestError(ErrMsgKubernetesVersionImmutable)
+	}
+	if incoming == nil {
+		return util.NewBadRequestError("KubernetesVersion cannot be cleared: its clusters run the version it records")
+	}
+	if err := ValidateKubernetesVersion(infraProvider, incoming); err != nil {
+		return util.NewBadRequestError(err.Error())
 	}
 	storedVersion := KubernetesVersionOrDefault(stored)
 	comparison, err := CompareKubernetesVersions(*incoming, storedVersion)
