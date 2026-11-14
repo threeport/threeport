@@ -1216,6 +1216,15 @@ definitions:
           This is the contents of a service account key file exported from GCP Console.
           Used when the gcp-controller runs outside GCP (e.g., in AWS or on-prem).
         type: string
+      SyncServiceAccount:
+        description: |-
+          If true, Threeport owns a GCP service account for this provider: tptctl
+          created it with the provider and removes it when the provider is deleted
+          or the control plane is torn down. If false, the service account is
+          managed outside Threeport (reused, or created by hand) and Threeport
+          leaves it in place. Not set on providers created before this field
+          existed, which are treated as true.
+        type: boolean
     required:
     - DefaultRegion
     - Name

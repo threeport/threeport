@@ -18631,6 +18631,10 @@ const docTemplate = `{
                 "ServiceAccountCredentials": {
                     "description": "The service account key JSON for authenticating to GCP from outside GCP.\nThis is the contents of a service account key file exported from GCP Console.\nUsed when the gcp-controller runs outside GCP (e.g., in AWS or on-prem).",
                     "type": "string"
+                },
+                "SyncServiceAccount": {
+                    "description": "If true, Threeport owns a GCP service account for this provider: tptctl\ncreated it with the provider and removes it when the provider is deleted\nor the control plane is torn down. If false, the service account is\nmanaged outside Threeport (reused, or created by hand) and Threeport\nleaves it in place. Not set on providers created before this field\nexisted, which are treated as true.",
+                    "type": "boolean"
                 }
             }
         },
