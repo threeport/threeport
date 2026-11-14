@@ -788,9 +788,14 @@ func delegateBlueGreen(
 	return waitForChildBlueGreen(currentClient, currentEndpoint, newName)
 }
 
+// childBlueGreenWait matches how long the controller keeps retrying one reconcile.
+const childBlueGreenWait = time.Hour
+
 // waitForChildBlueGreen returns when the controller clears the recorded request.
+// It returns an error when the wait passes an hour.
 func waitForChildBlueGreen(apiClient *http.Client, apiEndpoint, name string) error {
 	// the controller clears FromNamespace after the new namespace is up
+	deadline := time.Now().Add(childBlueGreenWait)
 	for {
 		inst, err := client.GetControlPlaneInstanceByName(apiClient, apiEndpoint, name)
 		if err != nil {
@@ -798,6 +803,9 @@ func waitForChildBlueGreen(apiClient *http.Client, apiEndpoint, name string) err
 		}
 		if inst.FromNamespace == nil || *inst.FromNamespace == "" {
 			return nil
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("control plane %s did not finish blue-green within %s", name, childBlueGreenWait)
 		}
 		time.Sleep(5 * time.Second)
 	}
