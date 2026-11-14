@@ -73,6 +73,7 @@ func runModuleImageUpgrade(cmd *cobra.Command, args []string) {
 		moduleUpgradeName,
 		moduleUpgradeImageNamespace,
 		moduleUpgradeImageTag,
+		true,
 	); err != nil {
 		cli.Error("failed to upgrade module", err)
 		os.Exit(1)
@@ -113,6 +114,7 @@ func runModuleBlueGreenUpgrade(cmd *cobra.Command, args []string) {
 				moduleUpgradeName,
 				moduleUpgradeImageNamespace,
 				moduleUpgradeImageTag,
+				false,
 			)
 		},
 		func() error {

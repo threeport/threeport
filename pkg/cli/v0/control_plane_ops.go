@@ -175,7 +175,7 @@ func InstallModule(
 }
 
 // UpgradeModule records a module image.
-// A connected parent wakes its controller. A named child is left for that controller.
+// wake is false when a blue-green install still has to set the source namespace.
 func UpgradeModule(
 	currentClient *http.Client,
 	currentEndpoint string,
@@ -184,6 +184,7 @@ func UpgradeModule(
 	moduleName string,
 	imageNamespace string,
 	imageTag string,
+	wake bool,
 ) error {
 	// reject a child connection before writing
 	self, err := client.GetSelfControlPlaneInstance(currentClient, currentEndpoint)
@@ -214,6 +215,9 @@ func UpgradeModule(
 	}
 
 	// wake the row the parent controller reconciles, including a named child
+	if !wake {
+		return nil
+	}
 	if _, err := client.UpdateControlPlaneInstance(
 		currentClient,
 		currentEndpoint,
