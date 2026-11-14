@@ -605,6 +605,7 @@ func runBlueGreen(
 	created.Opts.RestApiLoadBalancer = providerName != api.KubernetesRuntimeInfraProviderKind
 	created.Opts.GcpProjectId = projectID
 	created.Opts.GcpBackupBucket = bucket
+	created.Opts.HoldReplicasForRestore = true
 	if tier := util.DerefString(definition.Tier); tier != "" {
 		created.Opts.Tier = installer.ControlPlaneTier(tier)
 	}

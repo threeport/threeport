@@ -18,6 +18,9 @@ type Options struct {
 	// The namespace to copy the CA and encryption key from and to schedule away from
 	FromNamespace string
 
+	// Whether this install restores a database and creates deployments with no pods
+	HoldReplicasForRestore bool
+
 	// The file holding the CA certificate to install
 	CACertFile string
 

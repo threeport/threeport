@@ -718,9 +718,9 @@ func TestHoldReplicasForRestore(t *testing.T) {
 		"spec":       map[string]interface{}{"replicas": 3},
 	}}
 	cpi := &ControlPlaneInstaller{Opts: Options{
-		Namespace:       "genesis-07",
-		FromNamespace:   "genesis-06",
-		GcpBackupBucket: "threeport-genesis-01-backups",
+		Namespace:              "genesis-07",
+		FromNamespace:          "genesis-06",
+		HoldReplicasForRestore: true,
 	}}
 	client := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
 	require.NoError(t, cpi.holdReplicasForRestore(deployment, client))

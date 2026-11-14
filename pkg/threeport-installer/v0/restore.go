@@ -378,9 +378,9 @@ func (cpi *ControlPlaneInstaller) holdReplicasForRestore(
 	resource *unstructured.Unstructured,
 	kubeClient dynamic.Interface,
 ) error {
-	// leave a normal install, a copied identity, and a persistent deployment at its replica count.
-	// A copied identity sets FromNamespace and leaves GcpBackupBucket empty.
-	if cpi.Opts.FromNamespace == "" || cpi.Opts.GcpBackupBucket == "" || resource.GetKind() != "Deployment" || isPersistent(resource) {
+	// leave a normal install and a persistent deployment at its replica count.
+	// FromNamespace is also set when only the identity is copied.
+	if !cpi.Opts.HoldReplicasForRestore || resource.GetKind() != "Deployment" || isPersistent(resource) {
 		return nil
 	}
 

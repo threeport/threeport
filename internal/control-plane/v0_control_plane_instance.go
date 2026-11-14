@@ -1839,6 +1839,9 @@ func prepareInstanceInstaller(
 	cpi.Opts.InfraProvider = *kubernetesRuntimeDefinition.InfraProvider
 	if controlPlaneInstance.FromNamespace != nil {
 		cpi.Opts.FromNamespace = *controlPlaneInstance.FromNamespace
+		if *controlPlaneInstance.FromNamespace != *controlPlaneInstance.Namespace {
+			cpi.Opts.HoldReplicasForRestore = true
+		}
 	}
 	if controlPlaneDefinition.AuthEnabled != nil {
 		cpi.Opts.AuthEnabled = *controlPlaneDefinition.AuthEnabled
