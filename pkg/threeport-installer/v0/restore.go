@@ -585,6 +585,9 @@ var restorePhaseNames = []string{"prepare", "swap", "backup"}
 // running: it neither finished in time nor could be confirmed gone.
 var errRestoreJobNotStopped = errors.New("the restore job could not be confirmed stopped")
 
+// errNoRestoredControlPlane is an empty control plane table in the restored database.
+var errNoRestoredControlPlane = errors.New("no local control plane instance")
+
 // runRestorePhase runs the statements of a phase in a one-shot Job with the
 // database's own client, and returns once the Job's pods are no longer
 // running.  A Job that does not finish in time is deleted, and the phase
@@ -1722,6 +1725,10 @@ func (cpi *ControlPlaneInstaller) retargetRestoredSelf(apiClient *http.Client, e
 		self, err = cpi.restoredSourceInstance(apiClient, endpoint)
 	}
 	if err != nil {
+		// a database with no control plane row is left for the caller to create
+		if errors.Is(err, errNoRestoredControlPlane) {
+			return nil
+		}
 		return fmt.Errorf("failed to get restored self control plane: %w", err)
 	}
 	isSelf := true
@@ -1754,10 +1761,19 @@ func (cpi *ControlPlaneInstaller) restoredSourceInstance(apiClient *http.Client,
 	if err != nil {
 		return nil, err
 	}
-	if instances == nil {
-		return nil, fmt.Errorf("no local control plane instance")
+	if err := missingRestoredControlPlane(instances); err != nil {
+		return nil, err
 	}
 	return matchRestoredSource(*instances, cpi.Opts.FromNamespace, cpi.Opts.SourceName)
+}
+
+// missingRestoredControlPlane reports a restore that copied no control plane rows.
+func missingRestoredControlPlane(instances *[]api.ControlPlaneInstance) error {
+	// an empty table means the parent holds the control plane row
+	if instances == nil || len(*instances) == 0 {
+		return errNoRestoredControlPlane
+	}
+	return nil
 }
 
 // matchRestoredSource picks the source row by its namespace, then by its name.

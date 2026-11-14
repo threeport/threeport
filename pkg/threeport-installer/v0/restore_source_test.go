@@ -32,3 +32,12 @@ func TestMatchRestoredSourceUsesTheStoredName(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "primary-05", util.DerefString(got.Name))
 }
+
+// TestEmptyRestoreHasNoControlPlane covers a child database that stores no control plane row.
+func TestEmptyRestoreHasNoControlPlane(t *testing.T) {
+	// the parent api holds the control plane, so an empty restore is that case
+	empty := []api.ControlPlaneInstance{}
+	require.ErrorIs(t, missingRestoredControlPlane(nil), errNoRestoredControlPlane)
+	require.ErrorIs(t, missingRestoredControlPlane(&empty), errNoRestoredControlPlane)
+	require.NoError(t, missingRestoredControlPlane(&[]api.ControlPlaneInstance{{}}))
+}
