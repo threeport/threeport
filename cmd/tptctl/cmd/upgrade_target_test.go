@@ -95,7 +95,7 @@ func TestUpgradeRollTargetMatrix(t *testing.T) {
 			require.NoError(t, err)
 			namespace := util.DerefString(target.Namespace)
 			require.NoError(t, installer.UpdateDeploymentImageTag(
-				"new-tag", namespace, "", kube, upgradeTestMapper(), []*api_v0.ControlPlaneComponent{}, false,
+				"new-tag", "", namespace, "", kube, upgradeTestMapper(), []*api_v0.ControlPlaneComponent{}, false,
 			))
 			require.Contains(t, apiImage(t, kube, namespace), "new-tag")
 			if namespace != "genesis-ns" {

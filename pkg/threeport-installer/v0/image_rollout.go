@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"path"
 	"strings"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -22,6 +23,7 @@ import (
 // A deployment that already runs that tag is left in place. When wait is set, the call blocks until each changed deployment is ready.
 func UpdateDeploymentImageTag(
 	imageTag string,
+	imageNamespace string,
 	namespace string,
 	backupBucket string,
 	dynamicKubeClient dynamic.Interface,
@@ -64,7 +66,7 @@ func UpdateDeploymentImageTag(
 	}
 
 	// return the rest-api image update error
-	apiReplaced, err := UpdateImageTagInDeployment(deployment, imageTag, ThreeportRestApi.Name)
+	apiReplaced, err := UpdateImageTagInDeployment(deployment, imageTag, imageNamespace, ThreeportRestApi.Name)
 	if err != nil {
 		return err
 	}
@@ -110,7 +112,7 @@ func UpdateDeploymentImageTag(
 		return fmt.Errorf("failed to read deployment for %s: %w", ThreeportAgent.Name, err)
 	}
 
-	agentReplaced, err := UpdateImageTagInDeployment(deployment, imageTag, ThreeportAgent.Name)
+	agentReplaced, err := UpdateImageTagInDeployment(deployment, imageTag, imageNamespace, ThreeportAgent.Name)
 	if err != nil {
 		return err
 	}
@@ -156,7 +158,7 @@ func UpdateDeploymentImageTag(
 		}
 
 		// return the controller image update error
-		controllerReplaced, err := UpdateImageTagInDeployment(deployment, imageTag, c.Name)
+		controllerReplaced, err := UpdateImageTagInDeployment(deployment, imageTag, imageNamespace, c.Name)
 		if err != nil {
 			return err
 		}
@@ -274,7 +276,7 @@ func WaitForRollout(
 // UpdateImageTagInDeployment retags the containers this command owns and
 // returns the images they were on, so a failed rollout can say what to go
 // back to.
-func UpdateImageTagInDeployment(deployment *unstructured.Unstructured, imageTag string, name string) ([]string, error) {
+func UpdateImageTagInDeployment(deployment *unstructured.Unstructured, imageTag, imageNamespace, name string) ([]string, error) {
 	var replaced []string
 	deploymentContent := deployment.UnstructuredContent()
 
@@ -319,7 +321,7 @@ func UpdateImageTagInDeployment(deployment *unstructured.Unstructured, imageTag 
 		if err != nil {
 			return nil, fmt.Errorf("could not find the init container to retag for %s: %w", name, err)
 		}
-		previous, err := RetagContainer(migrator, imageTag)
+		previous, err := RetagContainer(migrator, imageTag, imageNamespace)
 		if err != nil {
 			return nil, fmt.Errorf("could not retag the init container for %s: %w", name, err)
 		}
@@ -337,7 +339,7 @@ func UpdateImageTagInDeployment(deployment *unstructured.Unstructured, imageTag 
 	if err != nil {
 		return nil, fmt.Errorf("could not find the container to retag for %s: %w", name, err)
 	}
-	previous, err := RetagContainer(container, imageTag)
+	previous, err := RetagContainer(container, imageTag, imageNamespace)
 	if err != nil {
 		return nil, fmt.Errorf("could not retag the container for %s: %w", name, err)
 	}
@@ -437,12 +439,22 @@ func ContainerNamed(containers []interface{}, name string) (map[string]interface
 // The previous image is returned rather than discarded because the only
 // advice worth giving when a rollout fails is what to go back to, and by then
 // it has been overwritten in the cluster.
-func RetagContainer(container map[string]interface{}, imageTag string) (string, error) {
+func RetagContainer(container map[string]interface{}, imageTag, imageNamespace string) (string, error) {
 	currentImage, ok := container["image"].(string)
 	if !ok {
 		return "", fmt.Errorf("container %v has no image to retag", container["name"])
 	}
-	container["image"] = fmt.Sprintf("%s:%s", util.ImageWithoutTag(currentImage), imageTag)
+
+	// a tag that already names a repo is the whole image
+	name := path.Base(util.ImageWithoutTag(currentImage))
+	switch {
+	case strings.Contains(imageTag, "/"):
+		container["image"] = imageTag
+	case imageNamespace != "":
+		container["image"] = fmt.Sprintf("%s/%s:%s", imageNamespace, name, imageTag)
+	default:
+		container["image"] = fmt.Sprintf("%s:%s", util.ImageWithoutTag(currentImage), imageTag)
+	}
 
 	return currentImage, nil
 }

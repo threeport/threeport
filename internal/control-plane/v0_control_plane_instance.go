@@ -1562,6 +1562,7 @@ func v0ControlPlaneInstanceUpdated(
 		if tag := util.DerefString(controlPlaneInstance.ImageTag); tag != "" {
 			err := threeport.UpdateDeploymentImageTag(
 				tag,
+				util.DerefString(controlPlaneInstance.ImageNamespace),
 				util.DerefString(controlPlaneInstance.Namespace),
 				"",
 				dynamicKubeClient,

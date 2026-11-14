@@ -169,6 +169,7 @@ recreate manifests, RBAC, or configmaps. Use tptctl reinstall for those.`,
 		// roll the connected deployments; the repo is recorded with the tag
 		err = installer.UpdateDeploymentImageTag(
 			upgradeImageTag,
+			upgradeImageNamespace,
 			*controlPlaneInstance.Namespace,
 			cli.ScheduledBackupBucket(controlPlaneConfig),
 			dynamicKubeClient,
