@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -491,8 +492,12 @@ func runBlueGreen(
 		return fmt.Errorf("control plane %s has no namespace", sourceName)
 	}
 
+	// the parent api holds the catalog ids, and the child api holds the database
+	parentClient, parentEndpoint := currentClient, currentEndpoint
+	childClient, childEndpoint := source.APIClient, source.APIEndpoint
+
 	// connect while the API still answers
-	if err := source.clusterClient(currentClient, currentEndpoint, encryptionKey); err != nil {
+	if err := source.clusterClient(parentClient, parentEndpoint, encryptionKey); err != nil {
 		return err
 	}
 
@@ -516,8 +521,8 @@ func runBlueGreen(
 		return fmt.Errorf("control plane %s has no runtime or definition", sourceName)
 	}
 	runtimeInst, err := client.GetKubernetesRuntimeInstanceByID(
-		currentClient,
-		currentEndpoint,
+		parentClient,
+		parentEndpoint,
 		*source.Instance.KubernetesRuntimeInstanceID,
 	)
 	if err != nil {
@@ -527,8 +532,8 @@ func runBlueGreen(
 		return fmt.Errorf("kubernetes runtime %s has no definition", util.DerefString(runtimeInst.Name))
 	}
 	runtimeDef, err := client.GetKubernetesRuntimeDefinitionByID(
-		currentClient,
-		currentEndpoint,
+		parentClient,
+		parentEndpoint,
 		*runtimeInst.KubernetesRuntimeDefinitionID,
 	)
 	if err != nil {
@@ -536,8 +541,8 @@ func runBlueGreen(
 	}
 	providerName := util.DerefString(runtimeDef.InfraProvider)
 	definition, err := client.GetControlPlaneDefinitionByID(
-		currentClient,
-		currentEndpoint,
+		parentClient,
+		parentEndpoint,
 		*source.Instance.ControlPlaneDefinitionID,
 	)
 	if err != nil {
@@ -548,8 +553,8 @@ func runBlueGreen(
 	projectID := ""
 	if providerName == api.KubernetesRuntimeInfraProviderGKE {
 		gkeInst, err := client.GetGcpGkeKubernetesRuntimeInstanceByK8sRuntimeInst(
-			currentClient,
-			currentEndpoint,
+			parentClient,
+			parentEndpoint,
 			*source.Instance.KubernetesRuntimeInstanceID,
 		)
 		if err != nil {
@@ -559,8 +564,8 @@ func runBlueGreen(
 			return fmt.Errorf("gke runtime %s has no provider", util.DerefString(runtimeInst.Name))
 		}
 		gcpProvider, err := client.GetGcpProviderByID(
-			currentClient,
-			currentEndpoint,
+			parentClient,
+			parentEndpoint,
 			*gkeInst.GcpProviderID,
 		)
 		if err != nil {
@@ -580,8 +585,8 @@ func runBlueGreen(
 	replicas, modules, err := BackupControlPlaneWithClient(
 		namespace,
 		bucket,
-		source.APIClient,
-		source.APIEndpoint,
+		childClient,
+		childEndpoint,
 		source.Kube,
 		LeaveWritersStopped,
 	)
@@ -666,7 +671,7 @@ func runBlueGreen(
 	apiUp, installErr := created.InstallRestored(
 		source.Kube,
 		source.Mapper,
-		source.APIClient,
+		childClient,
 		bucket,
 		grant,
 	)
@@ -779,7 +784,23 @@ func delegateBlueGreen(
 	); err != nil {
 		return fmt.Errorf("failed to record control plane %s: %w", newName, err)
 	}
-	return nil
+	fmt.Printf("Info: recorded blue-green request for %s\n", newName)
+	return waitForChildBlueGreen(currentClient, currentEndpoint, newName)
+}
+
+// waitForChildBlueGreen returns when the controller clears the recorded request.
+func waitForChildBlueGreen(apiClient *http.Client, apiEndpoint, name string) error {
+	// the controller clears FromNamespace after the new namespace is up
+	for {
+		inst, err := client.GetControlPlaneInstanceByName(apiClient, apiEndpoint, name)
+		if err != nil {
+			return fmt.Errorf("failed to get control plane %s: %w", name, err)
+		}
+		if inst.FromNamespace == nil || *inst.FromNamespace == "" {
+			return nil
+		}
+		time.Sleep(5 * time.Second)
+	}
 }
 
 // childBlueGreenUpdate is the patch a child blue-green stores.
