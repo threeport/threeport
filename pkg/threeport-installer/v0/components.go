@@ -1790,7 +1790,7 @@ func (cpi *ControlPlaneInstaller) UnInstallThreeportControlPlaneComponents(
 		kubeClient,
 		mapper,
 		[]string{cpi.Opts.Namespace},
-	); err != nil && !k8serrors.IsNotFound(err) {
+	); err != nil {
 		return fmt.Errorf("failed to delete control plane namespace: %w", err)
 	}
 
@@ -1968,17 +1968,23 @@ func DeleteNamespaces(
 			PropagationPolicy: &deletePolicy,
 		}
 
-		// delete the namespace
+		// Delete the namespace. One that is already gone is what this was
+		// for, which is what a retry finds once an earlier attempt finished
+		// after its caller stopped waiting. One already terminating needs no
+		// care: the API server accepts the delete again.
 		if err := namespaceResource.Delete(
 			context.TODO(),
 			name,
 			deleteOptions,
-		); err != nil {
-			return fmt.Errorf("failed to delete namespace: %w", err)
+		); err != nil && !k8serrors.IsNotFound(err) {
+			return fmt.Errorf("failed to delete namespace %s: %w", name, err)
 		}
 	}
 
-	// wait for all namespaces to be deleted
+	// Wait for all namespaces to be deleted. A namespace still present when
+	// the wait ends is a failure - one held by a finalizer keeps its claims,
+	// and with them their disks - and so is one whose presence could not be
+	// checked: only the API server saying it is gone means it is.
 	for _, name := range namespaces {
 		if err := util.Retry(namespaceDeleteAttempts, namespaceDeletePollSeconds, func() error {
 			_, err := kube.GetResource(
@@ -1990,11 +1996,14 @@ func DeleteNamespaces(
 				kubeClient,
 				*mapper,
 			)
-			if err == nil {
-				return errors.New("namespace is still present")
+			switch {
+			case k8serrors.IsNotFound(err):
+				return nil
+			case err != nil:
+				return err
 			}
 
-			return nil
+			return errors.New("namespace is still present")
 		}); err != nil {
 			return fmt.Errorf("namespace %s was not deleted: %w", name, err)
 		}

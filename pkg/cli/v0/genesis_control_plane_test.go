@@ -428,7 +428,11 @@ func newTeardownKubeClient(objects ...runtime.Object) *dynamicfake.FakeDynamicCl
 // the infra fake it deletes through.
 func newTestUninstaller(client dynamic.Interface) (*Uninstaller, *fakeRuntimeInfra) {
 	infra := &fakeRuntimeInfra{}
-	mapper := meta.RESTMapper(meta.NewDefaultRESTMapper(nil))
+	// the uninstall waits for the control plane namespace to be gone, which
+	// it can only check through a mapper that knows namespaces
+	defaultMapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Version: "v1"}})
+	defaultMapper.Add(schema.GroupVersionKind{Version: "v1", Kind: "Namespace"}, meta.RESTScopeRoot)
+	mapper := meta.RESTMapper(defaultMapper)
 	u := &Uninstaller{
 		controlPlane:           &threeport.ControlPlane{InfraProvider: v0.KubernetesRuntimeInfraProviderKind},
 		kubernetesRuntimeInfra: infra,
