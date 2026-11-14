@@ -57,6 +57,7 @@ func TestOnlyTheSwapTouchesTheLiveDatabase(t *testing.T) {
 		assert.NotContains(t, statement, "RENAME", statement)
 	}
 	assert.Contains(t, phases.Swap, "DROP DATABASE IF EXISTS threeport_api CASCADE")
+	assert.Contains(t, phases.Swap, "CREATE USER IF NOT EXISTS threeport")
 	assert.True(t, strings.HasPrefix(phases.Prepare[len(phases.Prepare)-1], "RESTORE "))
 }
 
@@ -101,10 +102,13 @@ type restoreCluster struct {
 	jobs        []string
 	commands    map[string][]string
 	backoffs    map[string]int64
+	certSecrets map[string]string
 	jobDeleteOK bool
 	// how many more pod listings report a pod still there
 	podListsLeft int
 	podLists     int
+	// a lock holder named in a field selector is gone
+	holderGone bool
 }
 
 func newRestoreCluster(t *testing.T, outcomes map[string]jobOutcome, replicas map[string]int64) *restoreCluster {
@@ -117,6 +121,7 @@ func newRestoreCluster(t *testing.T, outcomes map[string]jobOutcome, replicas ma
 		outcomes:          outcomes,
 		commands:          map[string][]string{},
 		backoffs:          map[string]int64{},
+		certSecrets:       map[string]string{},
 		jobDeleteOK:       true,
 	}
 	for name, count := range replicas {
@@ -172,8 +177,20 @@ func newRestoreCluster(t *testing.T, outcomes map[string]jobOutcome, replicas ma
 	cluster.PrependReactor("list", "pods", func(action k8stesting.Action) (bool, runtime.Object, error) {
 		cluster.mu.Lock()
 		defer cluster.mu.Unlock()
-		cluster.podLists++
 		list := &unstructured.UnstructuredList{Object: map[string]interface{}{"apiVersion": "v1", "kind": "PodList"}}
+		// a lookup by name is the restore lock holder, not a writer pod
+		if fields := action.(k8stesting.ListAction).GetListRestrictions().Fields; fields != nil && fields.String() != "" {
+			if !cluster.holderGone {
+				name := strings.TrimPrefix(fields.String(), "metadata.name=")
+				list.Items = append(list.Items, unstructured.Unstructured{Object: map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "Pod",
+					"metadata":   map[string]interface{}{"name": name, "namespace": ControlPlaneNamespace},
+				}})
+			}
+			return true, list, nil
+		}
+		cluster.podLists++
 		if cluster.podListsLeft > 0 {
 			cluster.podListsLeft--
 			// the pod carries the labels the listing selects by, as the
@@ -212,6 +229,9 @@ func newRestoreCluster(t *testing.T, outcomes map[string]jobOutcome, replicas ma
 		}
 		cluster.commands[phase] = command
 		cluster.backoffs[phase], _, _ = unstructured.NestedInt64(job.Object, "spec", "backoffLimit")
+		volumes, _, _ := unstructured.NestedSlice(job.Object, "spec", "template", "spec", "volumes")
+		secret := volumes[0].(map[string]interface{})["secret"].(map[string]interface{})
+		cluster.certSecrets[phase] = secret["secretName"].(string)
 		outcome := cluster.outcomes[phase]
 		cluster.mu.Unlock()
 
@@ -316,9 +336,10 @@ func TestRestoreScalesTheControlPlaneDownAndBack(t *testing.T) {
 		assert.NotContains(t, annotations, replicasBeforeRestoreAnnotation, name)
 	}
 
-	phases, err := DatabaseRestoreStatements(DatabaseName, "threeport", DatabaseBackupURI(testBucket), DatabaseBackupURI(testBucket), LatestBackup)
+	phases, err := DatabaseRestoreStatements(DatabaseName, "threeport", DatabaseBackupURI(testBucket, ControlPlaneNamespace), DatabaseBackupURI(testBucket, ControlPlaneNamespace), LatestBackup)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"prepare", "swap", "backup"}, cluster.jobs)
+	assert.Equal(t, dbCredsSecretName, cluster.certSecrets["prepare"])
 	assert.Equal(t, phases.Prepare, cluster.executed("prepare"))
 	assert.Equal(t, phases.Swap, cluster.executed("swap"))
 	assert.Equal(t, phases.Backup, cluster.executed("backup"))
@@ -655,6 +676,23 @@ func TestOneRestoreAtATime(t *testing.T) {
 
 	require.NoError(t, release())
 	require.NoError(t, restore(cluster))
+}
+
+// TestAGoneHolderLetsTheNextRestoreStart drops a lock whose holder pod is gone.
+// The next restore then runs.
+func TestAGoneHolderLetsTheNextRestoreStart(t *testing.T) {
+	// a pod lock is what a gone holder can be stolen from
+	t.Setenv("KUBERNETES_SERVICE_HOST", "1")
+	// hold the lock, then report that holder pod gone
+	cluster := newRestoreCluster(t, map[string]jobOutcome{}, productionReplicas)
+	cluster.holderGone = true
+	release, err := acquireRestoreLock(cluster, ControlPlaneNamespace)
+	require.NoError(t, err)
+
+	require.NoError(t, restore(cluster))
+
+	assert.False(t, cluster.lockHeld())
+	require.NoError(t, release())
 }
 
 // TestTheLockIsReleasedEitherWay covers the lock after a restore that

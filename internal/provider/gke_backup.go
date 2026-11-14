@@ -140,10 +140,9 @@ func (i *KubernetesRuntimeInfraGKE) backupClientOpts(scope string) []option.Clie
 	return opts
 }
 
-// provisionBackups creates the backup bucket.  Access to it is granted once
-// the database's Kubernetes service account exists, with
-// GrantDatabaseBackupAccess.
-func (i *KubernetesRuntimeInfraGKE) provisionBackups() error {
+// ProvisionDatabaseBackups creates the backup bucket.
+// Access is granted later, by GrantDatabaseBackupAccess.
+func (i *KubernetesRuntimeInfraGKE) ProvisionDatabaseBackups() error {
 	ctx := context.Background()
 	storageClientOpts := i.backupClientOpts(storage.DevstorageFullControlScope)
 	storageService, err := storage.NewService(ctx, storageClientOpts...)

@@ -35,6 +35,14 @@ func replicas(t *testing.T, deployment *unstructured.Unstructured) int64 {
 	return count
 }
 
+// TestComponentReplicas checks the tier default a module install uses.
+func TestComponentReplicas(t *testing.T) {
+	// production runs two and every other tier runs one
+	assert.Equal(t, int64(productionComponentReplicas), ComponentReplicas(ControlPlaneTierProd))
+	assert.Equal(t, int64(1), ComponentReplicas(ControlPlaneTierDev))
+	assert.Equal(t, int64(1), ComponentReplicas(""))
+}
+
 // TestReplicasFollowTheTier covers the issue's own split: production runs the
 // API server and controllers with a second replica to fail over to, while
 // development keeps one, as does an install that records no tier at all.  The

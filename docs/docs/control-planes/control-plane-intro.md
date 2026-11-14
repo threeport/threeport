@@ -44,6 +44,90 @@ rather than deployed as a child of another Threeport control plane.
 Reference:
 [ControlPlaneInstance](https://pkg.go.dev/github.com/threeport/threeport/pkg/api/v0#ControlPlaneInstance)
 
+## Upgrading a Child
+
+Stay connected to the parent.  A command pointed at a child is refused.
+`--image-namespace` and `--module-image-namespace` are optional.
+Blue-green needs a storage bucket, and that exists only for GCP.
+The new namespace is the new control plane name.
+
+Patch the connected control plane.
+
+```bash
+tptctl upgrade control-plane image \
+  --image-tag [image tag]
+```
+
+Patch a child.  The parent controller applies the tag.
+
+```bash
+tptctl upgrade control-plane image \
+  --control-plane-name [child name] \
+  --image-tag [image tag]
+```
+
+Install a new deployment of the connected control plane at this tptctl
+version.
+
+```bash
+tptctl upgrade control-plane blue-green \
+  --new-control-plane-name [new control plane name]
+```
+
+Ask the parent controller to install a new deployment of a child at the
+controller version.
+
+```bash
+tptctl upgrade control-plane blue-green \
+  --control-plane-name [child name] \
+  --new-control-plane-name [new control plane name]
+```
+
+Patch a module image on the connected control plane.
+
+```bash
+tptctl upgrade module image \
+  --module-name [module name] \
+  --module-image-tag [module image tag]
+```
+
+Patch a module image on a child.
+
+```bash
+tptctl upgrade module image \
+  --control-plane-name [child name] \
+  --module-name [module name] \
+  --module-image-tag [module image tag]
+```
+
+Redeploy the connected control plane at this tptctl version with a new
+module image.
+
+```bash
+tptctl upgrade module blue-green \
+  --module-name [module name] \
+  --module-image-tag [module image tag] \
+  --new-control-plane-name [new control plane name]
+```
+
+Ask the parent controller to redeploy a child at the controller version
+with a new module image.
+
+```bash
+tptctl upgrade module blue-green \
+  --control-plane-name [child name] \
+  --module-name [module name] \
+  --module-image-tag [module image tag] \
+  --new-control-plane-name [new control plane name]
+```
+
+Preview the infrastructure diff and apply it if you accept.
+`--yes` skips the prompt.
+
+```bash
+tptctl upgrade infrastructure
+```
+
 ## Next Steps
 
 For more information about Threeport architecture to understand how Threeport

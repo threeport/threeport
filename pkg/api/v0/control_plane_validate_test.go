@@ -374,7 +374,7 @@ func TestControlPlaneInstanceUpdateRefusesAForeignDesiredStateChange(t *testing.
 		apis := "agent"
 		err := db.Model(&owned).Updates(&ControlPlaneInstance{Apis: &apis}).Error
 		refused(err, "Apis")
-		assert.ErrorContains(t, err, "its parent manages")
+		assert.ErrorContains(t, err, ErrRequestMustBeMadeToParent.Error())
 
 		owner := db.WithContext(lib.WithCaller(context.Background(), lib.CallerIdentity{
 			CommonName: "threeport-owner",
@@ -395,8 +395,13 @@ func TestControlPlaneInstanceUpdateRefusesAForeignDesiredStateChange(t *testing.
 		other := "rest-api"
 		refused(alice.Model(&owned).Updates(&ControlPlaneInstance{Apis: &other}).Error, "Apis")
 
+		// the owner retargets the restored name and namespace
 		otherNamespace := "threeport-other"
-		refused(owner.Model(&owned).Updates(&ControlPlaneInstance{Namespace: &otherNamespace}).Error, "Namespace")
+		require.NoError(t, owner.Model(&owned).Updates(&ControlPlaneInstance{Namespace: &otherNamespace}).Error)
+		renamed := "owned-self-renamed"
+		require.NoError(t, owner.Model(&owned).Updates(&ControlPlaneInstance{Name: &renamed}).Error)
+		aliceNamespace := "threeport-alice"
+		refused(alice.Model(&owned).Updates(&ControlPlaneInstance{Namespace: &aliceNamespace}).Error, "Namespace")
 
 		scheduled := time.Now().UTC()
 		reconciled := false
@@ -407,4 +412,124 @@ func TestControlPlaneInstanceUpdateRefusesAForeignDesiredStateChange(t *testing.
 			},
 		}).Error)
 	})
+}
+
+// TestChildControlPlaneRequest rejects a command aimed at the control plane a parent manages.
+func TestChildControlPlaneRequest(t *testing.T) {
+	parent := uint(9)
+	self := true
+	other := false
+
+	// allow a root and the child row a parent stores
+	require.NoError(t, ChildControlPlaneRequest(nil))
+	require.NoError(t, ChildControlPlaneRequest(&ControlPlaneInstance{IsSelf: &self}))
+	require.NoError(t, ChildControlPlaneRequest(&ControlPlaneInstance{
+		ParentControlPlaneInstanceID: &parent,
+		IsSelf:                       &other,
+	}))
+
+	// reject the child itself
+	err := ChildControlPlaneRequest(&ControlPlaneInstance{
+		ParentControlPlaneInstanceID: &parent,
+		IsSelf:                       &self,
+	})
+	require.EqualError(t, err, "request must be made to parent")
+}
+
+// TestBeforeDeleteRejectsChildSelf checks a stored row before it is deleted.
+func TestBeforeDeleteRejectsChildSelf(t *testing.T) {
+	db := setupControlPlaneAuthDB(t)
+	runtime := runtimeOn(t, db, KubernetesRuntimeInfraProviderKind, "delete-runtime")
+	definition := controlPlaneDefinitionWithAuth(t, db, "delete-definition", true)
+
+	// insert the root, the child deleting itself, and the parent-operated row
+	root := controlPlaneRow(t, db, "delete-root", definition, runtime, nil, util.Ptr(true))
+	childSelf := controlPlaneRow(t, db, "delete-child-self", definition, runtime, root.ID, util.Ptr(true))
+	parentRow := controlPlaneRow(t, db, "delete-parent-row", definition, runtime, root.ID, util.Ptr(false))
+
+	require.ErrorIs(t, callBeforeDelete(db, childSelf), ErrRequestMustBeMadeToParent)
+	require.NoError(t, callBeforeDelete(db, parentRow))
+	require.NoError(t, callBeforeDelete(db, root))
+}
+
+// TestControlPlaneFleetMatrix covers root, child, parent record, and grandchild.
+func TestControlPlaneFleetMatrix(t *testing.T) {
+	db := setupControlPlaneAuthDB(t)
+	runtime := runtimeOn(t, db, KubernetesRuntimeInfraProviderKind, "fleet-runtime")
+	definition := controlPlaneDefinitionWithAuth(t, db, "fleet-definition", true)
+
+	// build the chain root, child, grandchild, and a parent row that itself has a parent
+	root := controlPlaneRow(t, db, "fleet-root", definition, runtime, nil, util.Ptr(true))
+	child := controlPlaneRow(t, db, "fleet-child", definition, runtime, root.ID, util.Ptr(true))
+	grandchild := controlPlaneRow(t, db, "fleet-grandchild", definition, runtime, child.ID, util.Ptr(true))
+	parentOfChild := controlPlaneRow(t, db, "fleet-parent-row", definition, runtime, root.ID, util.Ptr(false))
+
+	// a request about the child or grandchild itself is refused
+	require.NoError(t, ChildControlPlaneRequest(root))
+	require.ErrorIs(t, ChildControlPlaneRequest(child), ErrRequestMustBeMadeToParent)
+	require.ErrorIs(t, ChildControlPlaneRequest(grandchild), ErrRequestMustBeMadeToParent)
+	require.NoError(t, ChildControlPlaneRequest(parentOfChild))
+
+	// delete follows the same shapes, including a parent row that has its own parent
+	require.NoError(t, callBeforeDelete(db, root))
+	require.ErrorIs(t, callBeforeDelete(db, child), ErrRequestMustBeMadeToParent)
+	require.ErrorIs(t, callBeforeDelete(db, grandchild), ErrRequestMustBeMadeToParent)
+	require.NoError(t, callBeforeDelete(db, parentOfChild))
+
+	// a name change on the grandchild is a request to the parent
+	renamed := "fleet-grandchild-renamed"
+	err := db.Model(grandchild).Updates(&ControlPlaneInstance{Instance: Instance{Name: &renamed}}).Error
+	require.ErrorContains(t, err, ErrRequestMustBeMadeToParent.Error())
+
+	// a name change on a stored parent row is not a request this API serves
+	parentName := "fleet-parent-renamed"
+	err = db.Model(parentOfChild).Updates(&ControlPlaneInstance{Instance: Instance{Name: &parentName}}).Error
+	require.ErrorContains(t, err, "does not serve")
+
+	// the parent caller changes the child and the grandchild this API serves
+	parentCaller := db.WithContext(lib.WithCaller(context.Background(), lib.CallerIdentity{
+		CommonName: "threeport-owner",
+	}))
+	apis := "agent"
+	require.NoError(t, parentCaller.Model(child).Updates(&ControlPlaneInstance{Apis: &apis}).Error)
+	childName := "fleet-child-from-parent"
+	require.NoError(t, parentCaller.Model(child).Updates(&ControlPlaneInstance{Instance: Instance{Name: &childName}}).Error)
+	require.NoError(t, parentCaller.Model(grandchild).Updates(&ControlPlaneInstance{Apis: &apis}).Error)
+	grandchildName := "fleet-grandchild-from-parent"
+	require.NoError(t, parentCaller.Model(grandchild).Updates(&ControlPlaneInstance{Instance: Instance{Name: &grandchildName}}).Error)
+
+	// the parent caller retargets the child row this API stores
+	require.NoError(t, parentCaller.Model(parentOfChild).Updates(&ControlPlaneInstance{Instance: Instance{Name: &parentName}}).Error)
+}
+
+// controlPlaneRow inserts a control plane with the parent and self flags under test.
+func controlPlaneRow(
+	t *testing.T,
+	db *gorm.DB,
+	name string,
+	definitionID *uint,
+	runtimeID *uint,
+	parentID *uint,
+	isSelf *bool,
+) *ControlPlaneInstance {
+	t.Helper()
+	row := &ControlPlaneInstance{
+		Instance:                     Instance{Name: util.Ptr(name)},
+		Namespace:                    util.Ptr("threeport-control-plane"),
+		ControlPlaneDefinitionID:     definitionID,
+		KubernetesRuntimeInstanceID:  runtimeID,
+		ParentControlPlaneInstanceID: parentID,
+		IsSelf:                       isSelf,
+	}
+	require.NoError(t, db.Session(&gorm.Session{SkipHooks: true}).Create(row).Error)
+	return row
+}
+
+// callBeforeDelete loads the stored row and runs the delete check.
+func callBeforeDelete(db *gorm.DB, row *ControlPlaneInstance) error {
+	// load the stored row rather than the values on the caller
+	tx := db.Session(&gorm.Session{NewDB: true})
+	tx.Statement.Model = row
+	tx.Statement.Dest = row
+	return row.beforeDelete(tx)
 }

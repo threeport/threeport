@@ -15,6 +15,25 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
+// ErrRequestMustBeMadeToParent is the refusal to upgrade or restore a control plane its parent manages.
+var ErrRequestMustBeMadeToParent = errors.New("request must be made to parent")
+
+// ChildControlPlaneRequest rejects a command aimed at a control plane its parent manages.
+// A row this API stores for a child is the parent's own record, so it is allowed.
+func ChildControlPlaneRequest(instance *ControlPlaneInstance) error {
+	// allow a control plane with no parent
+	if instance == nil || instance.ParentControlPlaneInstanceID == nil {
+		return nil
+	}
+
+	// allow the row a parent stores for its child
+	if instance.IsSelf != nil && !*instance.IsSelf {
+		return nil
+	}
+
+	return ErrRequestMustBeMadeToParent
+}
+
 // ValidateAuthEnabledForProvider rejects a control plane served without auth
 // on anything but kind.
 //
@@ -346,9 +365,10 @@ func (c *ControlPlaneInstance) beforeUpdate(tx *gorm.DB) error {
 		return nil
 	}
 
-	// the parent may change the image, the controller list and the pool on a row it manages
-	allowLifecycle := owned && (!self || parentCaller(tx))
-	field, err := changedForeignField(tx, stored, allowLifecycle)
+	// the parent may change the image, the controller list, the pool and the restored identity
+	callerIsParent := parentCaller(tx)
+	allowLifecycle := owned && (!self || callerIsParent)
+	field, err := changedForeignField(tx, stored, allowLifecycle, callerIsParent)
 	if err != nil {
 		return err
 	}
@@ -357,8 +377,9 @@ func (c *ControlPlaneInstance) beforeUpdate(tx *gorm.DB) error {
 	}
 	if self {
 		return util.NewBadRequestError(fmt.Sprintf(
-			"cannot update %s on a control plane its parent manages",
+			"cannot update %s: %s",
 			field,
+			ErrRequestMustBeMadeToParent.Error(),
 		))
 	}
 	return util.NewBadRequestError(fmt.Sprintf(
@@ -388,7 +409,7 @@ func storedControlPlane(tx *gorm.DB, receiver *ControlPlaneInstance) (*ControlPl
 
 // changedForeignField returns the first column a control plane this API does not serve must keep.
 // A managed row may change the image, the controller list and the pool.
-func changedForeignField(tx *gorm.DB, stored *ControlPlaneInstance, allowLifecycle bool) (string, error) {
+func changedForeignField(tx *gorm.DB, stored *ControlPlaneInstance, allowLifecycle, managing bool) (string, error) {
 	if tx.Statement.Schema == nil {
 		return "", errors.New("control plane instance update has no schema")
 	}
@@ -408,6 +429,10 @@ func changedForeignField(tx *gorm.DB, stored *ControlPlaneInstance, allowLifecyc
 		}
 		// a managed row may change the image, the controller list and the pool
 		if allowLifecycle && blankValueIsTheSetting(field.Name) {
+			continue
+		}
+		// the managing caller may retarget a restored row
+		if managing && restoredIdentity(field.Name) {
 			continue
 		}
 		if blankValueIsTheSetting(field.Name) || !columnEmpty(field.ValueOf, storedValue) {
@@ -443,6 +468,17 @@ func reconciliationColumn(bindNames []string) bool {
 	return len(bindNames) > 0 && bindNames[0] == "Reconciliation"
 }
 
+// restoredIdentity reports whether a column is the name a restore copies from the source.
+func restoredIdentity(name string) bool {
+	// the source name, its namespace, and the two ids the replacement owns
+	switch name {
+	case "Name", "Namespace", "FromNamespace", "ApiServerEndpoint", "ControlPlaneDefinitionID", "KubernetesRuntimeInstanceID":
+		return true
+	default:
+		return false
+	}
+}
+
 // blankValueIsTheSetting reports whether an empty column is itself a choice.
 // An empty Apis installs every group, an empty image field inherits the
 // parent, and an empty NetworkCidrPool allocates from the default pool.
@@ -462,9 +498,15 @@ func columnEmpty(valueOf func(context.Context, reflect.Value) (interface{}, bool
 	return zero
 }
 
-// beforeDelete runs before the ControlPlaneInstance is deleted.
+// beforeDelete rejects a child deleting itself.
 func (c *ControlPlaneInstance) beforeDelete(tx *gorm.DB) error {
-	return nil
+	// load the stored row and reject a child deleting itself
+	stored, err := storedControlPlane(tx, c)
+	if err != nil {
+		return err
+	}
+
+	return ChildControlPlaneRequest(stored)
 }
 
 // afterCreate runs after the ControlPlaneInstance is created.

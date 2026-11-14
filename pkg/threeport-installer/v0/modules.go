@@ -252,6 +252,58 @@ func (cpi *ControlPlaneInstaller) ScaleDownModules(
 	return scales, nil
 }
 
+// ScaleDownModuleWriters scales module controllers and API servers to zero and returns the counts it stopped.
+func (cpi *ControlPlaneInstaller) ScaleDownModuleWriters(
+	kubeClient dynamic.Interface,
+	controllers []ModuleDeploymentScale,
+	apiServers []ModuleApiServer,
+) ([]ModuleDeploymentScale, error) {
+	// scale controller deployments and keep the counts
+	scales, err := cpi.ScaleDownModules(kubeClient, controllers)
+	if err != nil {
+		return scales, err
+	}
+
+	// record each module API server, then scale it to zero
+	apiNames := map[string]map[string]int64{}
+	for _, server := range apiServers {
+		deployment, err := kubeClient.Resource(deploymentGVR).Namespace(server.Namespace).Get(
+			context.Background(), server.Service, metav1.GetOptions{},
+		)
+		if k8serrors.IsNotFound(err) {
+			continue
+		}
+		if err != nil {
+			return scales, fmt.Errorf("failed to get module API deployment %s/%s: %w", server.Namespace, server.Service, err)
+		}
+		replicas, _, _ := util.NestedInt64OrFloat64(deployment.Object, "spec", "replicas")
+		if replicas == 0 {
+			continue
+		}
+		if err := cpi.setDeploymentReplicas(kubeClient, server.Namespace, server.Service, 0); err != nil {
+			return scales, err
+		}
+		scales = append(scales, ModuleDeploymentScale{
+			Namespace: server.Namespace,
+			Name:      server.Service,
+			Replicas:  replicas,
+		})
+		if apiNames[server.Namespace] == nil {
+			apiNames[server.Namespace] = map[string]int64{}
+		}
+		apiNames[server.Namespace][server.Service] = 0
+	}
+
+	// wait until the scaled API pods are gone
+	for namespace, names := range apiNames {
+		if err := waitForPodsGone(kubeClient, namespace, names); err != nil {
+			return scales, err
+		}
+	}
+
+	return scales, nil
+}
+
 // moduleControllerDeployment reports whether the deployment is a module
 // controller. Module installers do not stamp the managed-by label.
 func moduleControllerDeployment(deployment *unstructured.Unstructured) bool {

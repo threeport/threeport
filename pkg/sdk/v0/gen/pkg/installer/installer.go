@@ -246,15 +246,7 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		g.Line()
 
 		g.Comment("copy secrets into module namespace")
-		copySecrets := []string{
-			"db-root-cert",
-			"db-threeport-cert",
-			"encryption-key",
-			"controller-config",
-			installer.ThreeportApiConfigSecret,
-			installer.NatsCACertSecretName,
-		}
-		for _, secretName := range copySecrets {
+		for _, secretName := range installer.ModuleCopiedSecretNames() {
 			g.If(Err().Op(":=").Qual(
 				"github.com/threeport/threeport/pkg/threeport-installer/v0",
 				"CopySecret",
@@ -276,31 +268,14 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		g.Line()
 
 		g.Comment("add secret for module API config")
-		g.Var().Id("moduleApiSecret").Op("=").Op("&").Qual(
-			"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured",
-			"Unstructured",
-		).Values(Dict{
-			Line().Id("Object"): Map(String()).Interface().Values(Dict{
-				Lit("apiVersion"): Lit("v1"),
-				Lit("kind"):       Lit("Secret"),
-				Lit("metadata"): Map(String()).Interface().Values(Dict{
-					Lit("name"):      Id("ModuleApiConfigSecret"),
-					Lit("namespace"): Id("i.ModuleNamespace"),
-				}),
-				Lit("stringData"): Map(String()).Interface().Values(Dict{
-					Line().Lit("env"): Qual("fmt", "Sprintf").Call(
-						Lit(fmt.Sprintf(`MODULE_API_ENDPOINT=%%[1]s.%%[2]s.svc.cluster.local
-MODULE_NAMESPACE=%%[2]s
-THREEPORT_AUTH_ENABLED=%%[3]t
-`)),
-						Line().Id("apiServerName"),
-						Line().Id("i.ModuleNamespace"),
-						Line().Id("i.AuthEnabled"),
-						Line(),
-					).Op(",").Line(),
-				}),
-			}).Op(",").Line(),
-		})
+		g.Id("moduleApiSecret").Op(":=").Qual(
+			"github.com/threeport/threeport/pkg/threeport-installer/v0",
+			"ModuleApiConfigSecret",
+		).Call(
+			Id("i.ModuleNamespace"),
+			Id("apiServerName"),
+			Id("i.AuthEnabled"),
+		)
 		g.If(List(Id("_"), Err()).Op(":=").Qual(
 			"github.com/threeport/threeport/pkg/kube/v0",
 			"CreateOrUpdateResource",
@@ -547,6 +522,29 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 			Lit("mountPath"): Lit("/etc/threeport/db-certs"),
 			Lit("name"):      Lit("db-threeport-cert"),
 		}))
+		g.Comment("read the control plane tier")
+		g.List(Id("controlPlaneNamespace"), Err()).Op(":=").Qual("github.com/threeport/threeport/pkg/kube/v0", "GetResource").Call(
+			Lit(""),
+			Lit("v1"),
+			Lit("Namespace"),
+			Lit(""),
+			Id("i").Dot("ThreeportNamespace"),
+			Id("i").Dot("KubeClient"),
+			Op("*").Id("i").Dot("KubeRestMapper"),
+		)
+		g.If(Err().Op("!=").Nil()).Block(
+			Return(Qual("fmt", "Errorf").Call(
+				Lit("failed to read control plane namespace %s: %w"),
+				Id("i").Dot("ThreeportNamespace"),
+				Err(),
+			)),
+		)
+		g.Id("replicas").Op(":=").Qual("github.com/threeport/threeport/pkg/threeport-installer/v0", "ComponentReplicas").Call(
+			Id("controlPlaneNamespace").Dot("GetLabels").Call().Index(
+				Qual("github.com/threeport/threeport/pkg/threeport-installer/v0", "LabelTier"),
+			),
+		)
+		g.Line()
 		g.Var().Id(fmt.Sprintf(
 			"%sApiDeploy",
 			moduleNameLowerCamel,
@@ -562,7 +560,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 					Lit("namespace"): Id("i.ModuleNamespace"),
 				}),
 				Lit("spec"): Map(String()).Interface().Values(Dict{
-					Lit("replicas"): Lit(1),
+					Lit("replicas"): Id("replicas"),
 					Lit("selector"): Map(String()).Interface().Values(Dict{
 						Line().Lit("matchLabels"): Map(String()).Interface().Values(Dict{
 							Line().Lit("app.kubernetes.io/name"): Id("apiServerName").Op(",").Line(),
@@ -589,6 +587,16 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 									Lit("command"): Index().Interface().Values(
 										Line().Lit("/rest-api"),
 										Line(),
+									),
+									Lit("env"): Index().Interface().Values(
+										Line().Map(String()).Interface().Values(Dict{
+											Line().Lit("name"):  Lit("MODULE_IMAGE_NAMESPACE"),
+											Line().Lit("value"): Id("i").Dot("ControlPlaneImageRepo"),
+										}),
+										Line().Map(String()).Interface().Values(Dict{
+											Line().Lit("name"):  Lit("MODULE_IMAGE_TAG"),
+											Line().Lit("value"): Id("i").Dot("ControlPlaneImageTag"),
+										}).Op(",").Line(),
 									),
 									Lit("envFrom"): Index().Interface().Values(
 										Line().Map(String()).Interface().Values(Dict{
@@ -813,7 +821,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 						Lit("namespace"): Id("i.ModuleNamespace"),
 					}),
 					Lit("spec"): Map(String()).Interface().Values(Dict{
-						Lit("replicas"): Lit(1),
+						Lit("replicas"): Id("replicas"),
 						Lit("selector"): Map(String()).Interface().Values(Dict{
 							Line().Lit("matchLabels"): Map(String()).Interface().Values(Dict{
 								Line().Lit("app.kubernetes.io/name"): Lit(fmt.Sprintf(

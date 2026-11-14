@@ -373,7 +373,7 @@ func TestAChildsPoolIsClearOfItsParentsRanges(t *testing.T) {
 		// the parent checked the pool against its own ranges, which this API
 		// can't see
 		err = db.Model(load(owned.ID)).Updates(&ControlPlaneInstance{NetworkCidrPool: poolJSON(t, "10.48.0.0/12")}).Error
-		assert.ErrorContains(t, err, "cannot update NetworkCidrPool on a control plane its parent manages")
+		assert.ErrorContains(t, err, "cannot update NetworkCidrPool: request must be made to parent")
 		owner := db.WithContext(lib.WithCaller(context.Background(), lib.CallerIdentity{CommonName: "threeport-owner"}))
 		require.NoError(t, owner.Model(load(owned.ID)).Updates(&ControlPlaneInstance{NetworkCidrPool: poolJSON(t, "10.48.0.0/12")}).Error)
 

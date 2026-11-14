@@ -2,8 +2,14 @@ package v0
 
 import (
 	"context"
+	"crypto/x509"
+	"encoding/base64"
+	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
+	"net"
+	"net/http"
 	"os"
 	"regexp"
 	"sort"
@@ -12,12 +18,19 @@ import (
 	"time"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 
 	"github.com/threeport/threeport/pkg/api-server/v0/database"
+	auth "github.com/threeport/threeport/pkg/auth/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
+	client "github.com/threeport/threeport/pkg/client/v0"
+	"github.com/threeport/threeport/pkg/encryption/v0"
+	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -31,6 +44,9 @@ const (
 
 	// restoreJobNamePrefix names the Job of each restore phase.
 	restoreJobNamePrefix = "threeport-restore-database-"
+
+	// backupJobName is the Job that backs the database up.
+	backupJobName = "threeport-backup-database"
 
 	// restoreDatabaseJobBackoffLimit is how many failed pods end the prepare
 	// and backup phases, whose statements can be run again as they are.  The
@@ -126,6 +142,8 @@ func DatabaseRestoreStatements(databaseName, ownerName, sourceURI, scheduleURI, 
 			fmt.Sprintf("DROP DATABASE IF EXISTS %s CASCADE", databaseName),
 			fmt.Sprintf("ALTER DATABASE %s RENAME TO %s", restoring, databaseName),
 			fmt.Sprintf("USE %s", databaseName),
+			// A new cluster has no database user until the API starts.
+			fmt.Sprintf("CREATE USER IF NOT EXISTS %s", ownerName),
 			fmt.Sprintf("REASSIGN OWNED BY root TO %s", ownerName),
 			fmt.Sprintf("ALTER DATABASE %s OWNER TO root", databaseName),
 			"ALTER SCHEMA public OWNER TO root",
@@ -176,17 +194,22 @@ func (cpi *ControlPlaneInstaller) RestoreDatabase(
 	if !bucketNamePattern.MatchString(sourceBucket) {
 		return fmt.Errorf("invalid backup bucket name %q", sourceBucket)
 	}
+	// read the replaced namespace, and schedule backups under this one
+	sourceNamespace := cpi.Opts.Namespace
+	if cpi.Opts.FromNamespace != "" {
+		sourceNamespace = cpi.Opts.FromNamespace
+	}
 	scheduleURI := ""
 	if scheduleBucket != "" {
 		if !bucketNamePattern.MatchString(scheduleBucket) {
 			return fmt.Errorf("invalid backup bucket name %q", scheduleBucket)
 		}
-		scheduleURI = DatabaseBackupURI(scheduleBucket)
+		scheduleURI = DatabaseBackupURI(scheduleBucket, cpi.Opts.Namespace)
 	}
 	phases, err := DatabaseRestoreStatements(
 		database.ThreeportDatabaseName,
 		database.ThreeportDatabaseUser,
-		DatabaseBackupURI(sourceBucket),
+		DatabaseBackupURI(sourceBucket, sourceNamespace),
 		scheduleURI,
 		backup,
 	)
@@ -268,7 +291,7 @@ func (cpi *ControlPlaneInstaller) restoreDatabaseLocked(
 	// prepare: the live database is untouched, so a failure brings the
 	// control plane back on it once the Job is no longer running - unless an
 	// earlier swap left the database part way
-	if err := runRestorePhase(kubeClient, namespace, "prepare", phases.Prepare, restoreDatabaseJobBackoffLimit); err != nil {
+	if err := runRestorePhase(kubeClient, namespace, restoreJobNamePrefix+"prepare", phases.Prepare, restoreDatabaseJobBackoffLimit); err != nil {
 		if swapStarted {
 			return fmt.Errorf(
 				"the restore failed before replacing the database, but an earlier restore stopped while replacing it, "+
@@ -299,7 +322,7 @@ func (cpi *ControlPlaneInstaller) restoreDatabaseLocked(
 		}
 		return prepareErr
 	}
-	if err := runRestorePhase(kubeClient, namespace, "swap", phases.Swap, 0); err != nil {
+	if err := runRestorePhase(kubeClient, namespace, restoreJobNamePrefix+"swap", phases.Swap, 0); err != nil {
 		return fmt.Errorf(
 			"the restore failed while replacing the database, which may be part way between the live and the restored one; "+
 				"the control plane is left scaled down, and running the restore again with the same backup finishes it: %w",
@@ -311,7 +334,7 @@ func (cpi *ControlPlaneInstaller) restoreDatabaseLocked(
 	// backup: the database is restored either way
 	backupErr := swapRecordErr
 	if len(phases.Backup) > 0 {
-		if err := runRestorePhase(kubeClient, namespace, "backup", phases.Backup, restoreDatabaseJobBackoffLimit); err != nil {
+		if err := runRestorePhase(kubeClient, namespace, restoreJobNamePrefix+"backup", phases.Backup, restoreDatabaseJobBackoffLimit); err != nil {
 			backupErr = errors.Join(swapRecordErr, fmt.Errorf(
 				"the database was restored, but the full backup into %s failed, so scheduled incremental backups fail until the next scheduled full one: %w",
 				scheduleURI, err,
@@ -326,7 +349,21 @@ func (cpi *ControlPlaneInstaller) restoreDatabaseLocked(
 		return errors.Join(backupErr, err)
 	}
 
-	// wait for the API server to serve the restored database
+	// wait for the API server when this namespace already has one
+	if cpi.Opts.RestApiInfo == nil {
+		return errors.Join(backupErr, errors.New("no rest-api deployment name"))
+	}
+	_, err = kubeClient.Resource(deploymentGVR).Namespace(namespace).Get(
+		context.Background(),
+		cpi.Opts.RestApiInfo.ServiceResourceName,
+		metav1.GetOptions{},
+	)
+	if k8serrors.IsNotFound(err) {
+		return backupErr
+	}
+	if err != nil {
+		return errors.Join(backupErr, fmt.Errorf("failed to read rest-api deployment: %w", err))
+	}
 	fmt.Printf("Info: waiting for rest-api deployment to become ready (timeout %s)\n", restApiDeploymentReadyTimeout)
 	if err := cpi.waitForRestAPIReady(kubeClient, namespace, restApiDeploymentReadyTimeout); err != nil {
 		return errors.Join(backupErr, fmt.Errorf("rest-api did not become ready after the restore: %w", err))
@@ -386,6 +423,20 @@ func (cpi *ControlPlaneInstaller) recordReplicasBeforeRestore(
 	return replicas, nil
 }
 
+// restoreReplicaCount returns the replica count and whether to clear the recorded annotation.
+// A stopped restore brings back only the API and the nats CLI and keeps the recorded count.
+func restoreReplicaCount(name string, recorded int64, controllersStopped bool) (int64, bool) {
+	if controllersStopped && !restoreBringsBack(name) {
+		return 0, false
+	}
+	return recorded, true
+}
+
+// restoreBringsBack reports whether a stopped restore sets this Deployment back to its recorded count.
+func restoreBringsBack(name string) bool {
+	return name == ThreeportAPIServiceResourceName || name == natsBoxDeployName
+}
+
 // scaleDeployments sets each Deployment to its replica count and removes the
 // count recorded before the restore.
 func (cpi *ControlPlaneInstaller) scaleDeployments(
@@ -393,13 +444,36 @@ func (cpi *ControlPlaneInstaller) scaleDeployments(
 	namespace string,
 	replicas map[string]int64,
 ) error {
-	fmt.Println("Info: scaling control plane deployments back up")
+	// a failed discover leaves no map, so use the counts recorded on the deployments
+	if len(replicas) == 0 {
+		loaded, err := recordedDeploymentReplicas(kubeClient, namespace)
+		if err != nil {
+			return err
+		}
+		replicas = loaded
+	}
+	if len(replicas) == 0 {
+		return nil
+	}
+	if cpi.Opts.RestoreControllersStopped {
+		fmt.Println("Info: scaling the API back up and leaving controllers stopped")
+	} else {
+		fmt.Println("Info: scaling control plane deployments back up")
+	}
+
+	// scale each recorded deployment
 	var scaleErrors []error
-	for name, count := range replicas {
-		patch := []byte(fmt.Sprintf(
-			`{"metadata":{"annotations":{%q:null}},"spec":{"replicas":%d}}`,
-			replicasBeforeRestoreAnnotation, count,
-		))
+	for name, recorded := range replicas {
+		count, clearRecord := restoreReplicaCount(name, recorded, cpi.Opts.RestoreControllersStopped)
+		var patch []byte
+		if clearRecord {
+			patch = []byte(fmt.Sprintf(
+				`{"metadata":{"annotations":{%q:null}},"spec":{"replicas":%d}}`,
+				replicasBeforeRestoreAnnotation, count,
+			))
+		} else {
+			patch = []byte(fmt.Sprintf(`{"spec":{"replicas":%d}}`, count))
+		}
 		if _, err := kubeClient.Resource(deploymentGVR).Namespace(namespace).Patch(
 			context.Background(),
 			name,
@@ -412,6 +486,34 @@ func (cpi *ControlPlaneInstaller) scaleDeployments(
 	}
 
 	return errors.Join(scaleErrors...)
+}
+
+// recordedDeploymentReplicas reads the replica counts a stop wrote onto the deployments.
+func recordedDeploymentReplicas(kubeClient dynamic.Interface, namespace string) (map[string]int64, error) {
+	list, err := kubeClient.Resource(deploymentGVR).Namespace(namespace).List(
+		context.Background(), metav1.ListOptions{},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list deployments in %s: %w", namespace, err)
+	}
+
+	// keep only deployments that recorded a count before they were stopped
+	replicas := map[string]int64{}
+	for _, item := range list.Items {
+		recorded := item.GetAnnotations()[replicasBeforeRestoreAnnotation]
+		if recorded == "" {
+			continue
+		}
+		var count int64
+		if _, err := fmt.Sscan(recorded, &count); err != nil {
+			return nil, fmt.Errorf(
+				"deployment %s recorded an unreadable replica count %q",
+				item.GetName(), recorded,
+			)
+		}
+		replicas[item.GetName()] = count
+	}
+	return replicas, nil
 }
 
 // restorePhaseNames are the phases of a restore, in the order they run.
@@ -427,12 +529,10 @@ var errRestoreJobNotStopped = errors.New("the restore job could not be confirmed
 // returns only once it is gone; one that cannot be confirmed gone returns
 // errRestoreJobNotStopped.  A Job that failed is left in place so its pod
 // logs can be read.
-func runRestorePhase(kubeClient dynamic.Interface, namespace, phase string, statements []string, backoffLimit int64) error {
-	jobName := restoreJobNamePrefix + phase
-
+func runRestorePhase(kubeClient dynamic.Interface, namespace, jobName string, statements []string, backoffLimit int64) error {
 	// a leftover job is removed first, since its pod template cannot change
 	if err := deleteJob(kubeClient, namespace, jobName); err != nil {
-		return fmt.Errorf("%w: failed to remove the leftover %s job: %w", errRestoreJobNotStopped, phase, err)
+		return fmt.Errorf("%w: failed to remove the leftover job %s: %w", errRestoreJobNotStopped, jobName, err)
 	}
 
 	// every statement runs on its own: a RESTORE cannot run in a transaction
@@ -447,6 +547,12 @@ func runRestorePhase(kubeClient dynamic.Interface, namespace, phase string, stat
 	for _, statement := range statements {
 		fmt.Printf("Info: running %q against the database\n", statement)
 		command = append(command, "--execute", statement)
+	}
+
+	// name a backup job for the backup it runs
+	containerName := "restore-database"
+	if jobName == backupJobName {
+		containerName = "backup-database"
 	}
 
 	job := &unstructured.Unstructured{
@@ -471,22 +577,23 @@ func runRestorePhase(kubeClient dynamic.Interface, namespace, phase string, stat
 						"restartPolicy": "Never",
 						"containers": []interface{}{
 							map[string]interface{}{
-								"name":    "restore-database",
+								"name":    containerName,
 								"image":   fmt.Sprintf("cockroachdb/cockroach:%s", DatabaseImageTag),
 								"command": command,
 								"volumeMounts": []interface{}{
 									map[string]interface{}{
-										"name":      dbRootCertSecretName,
+										"name":      dbCredsSecretName,
 										"mountPath": dbRootCertsMountPath,
 									},
 								},
 							},
 						},
+						// mount db-certs, which exists before UpdateThreeportAPIDeployment creates db-root-cert
 						"volumes": []interface{}{
 							map[string]interface{}{
-								"name": dbRootCertSecretName,
+								"name": dbCredsSecretName,
 								"secret": map[string]interface{}{
-									"secretName":  dbRootCertSecretName,
+									"secretName":  dbCredsSecretName,
 									"defaultMode": int64(dbRootCertsFileMode),
 								},
 							},
@@ -499,7 +606,7 @@ func runRestorePhase(kubeClient dynamic.Interface, namespace, phase string, stat
 	if _, err := kubeClient.Resource(jobGVR).Namespace(namespace).Create(
 		context.Background(), job, metav1.CreateOptions{},
 	); err != nil {
-		return fmt.Errorf("failed to create the %s job: %w", phase, err)
+		return fmt.Errorf("failed to create job %s: %w", jobName, err)
 	}
 
 	succeeded, failure, err := waitForRestoreJob(kubeClient, namespace, jobName)
@@ -507,15 +614,15 @@ func runRestorePhase(kubeClient dynamic.Interface, namespace, phase string, stat
 		// stop a job that did not finish in time before anything relies on
 		// it not running
 		if deleteErr := deleteJob(kubeClient, namespace, jobName); deleteErr != nil {
-			return fmt.Errorf("%w: the %s job %s did not finish (%w) and could not be deleted: %w",
-				errRestoreJobNotStopped, phase, jobName, err, deleteErr)
+			return fmt.Errorf("%w: job %s did not finish (%w) and could not be deleted: %w",
+				errRestoreJobNotStopped, jobName, err, deleteErr)
 		}
-		return fmt.Errorf("the %s job %s did not finish and was stopped: %w", phase, jobName, err)
+		return fmt.Errorf("job %s did not finish and was stopped: %w", jobName, err)
 	}
 	if !succeeded {
 		return fmt.Errorf(
-			"the %s job %s failed (%s): inspect its pod logs in namespace %s",
-			phase, jobName, failure, namespace,
+			"job %s failed (%s): inspect its pod logs in namespace %s",
+			jobName, failure, namespace,
 		)
 	}
 
@@ -662,8 +769,122 @@ func clearSwapStarted(kubeClient dynamic.Interface, namespace string) error {
 	return nil
 }
 
+const (
+	databaseRestoredConfigName = "threeport-database-restored"
+	databaseRestoredFromKey    = "fromNamespace"
+)
+
+// RestoreFromNamespace restores the latest backup from Opts.FromNamespace once.
+// A later reconcile that finds the same source recorded returns without replacing the database.
+func (cpi *ControlPlaneInstaller) RestoreFromNamespace(kubeClient dynamic.Interface, bucket string) error {
+	// skip when no source namespace is set
+	if cpi.Opts.FromNamespace == "" {
+		return nil
+	}
+	if bucket == "" {
+		return fmt.Errorf("a backup bucket is required to restore from %s", cpi.Opts.FromNamespace)
+	}
+
+	// skip a restore that already finished for this source
+	recorded, err := cpi.restoreRecorded(kubeClient)
+	if err != nil {
+		return err
+	}
+	if recorded {
+		return nil
+	}
+
+	// restore the latest backup and record the source
+	if err := cpi.RestoreDatabase(kubeClient, bucket, bucket, LatestBackup); err != nil {
+		return err
+	}
+	return cpi.recordRestore(kubeClient)
+}
+
+// restoreRecorded reports whether this namespace was already restored from Opts.FromNamespace.
+func (cpi *ControlPlaneInstaller) restoreRecorded(kubeClient dynamic.Interface) (bool, error) {
+	// read the recorded source namespace
+	cm, err := kubeClient.Resource(configMapResource).Namespace(cpi.Opts.Namespace).Get(
+		context.Background(),
+		databaseRestoredConfigName,
+		metav1.GetOptions{},
+	)
+	if k8serrors.IsNotFound(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("failed to read the restore record: %w", err)
+	}
+	data, _, _ := unstructured.NestedStringMap(cm.Object, "data")
+	return data[databaseRestoredFromKey] == cpi.Opts.FromNamespace, nil
+}
+
+// recordRestore stores Opts.FromNamespace so a later reconcile does not restore again.
+func (cpi *ControlPlaneInstaller) recordRestore(kubeClient dynamic.Interface) error {
+	// write the source namespace
+	obj := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata": map[string]interface{}{
+			"name":      databaseRestoredConfigName,
+			"namespace": cpi.Opts.Namespace,
+		},
+		"data": map[string]interface{}{
+			databaseRestoredFromKey: cpi.Opts.FromNamespace,
+		},
+	}}
+	_, err := kubeClient.Resource(configMapResource).Namespace(cpi.Opts.Namespace).Create(
+		context.Background(),
+		obj,
+		metav1.CreateOptions{},
+	)
+	if err == nil || !k8serrors.IsAlreadyExists(err) {
+		if err != nil {
+			return fmt.Errorf("failed to record the restore: %w", err)
+		}
+		return nil
+	}
+
+	// update the record when it already exists
+	existing, err := kubeClient.Resource(configMapResource).Namespace(cpi.Opts.Namespace).Get(
+		context.Background(),
+		databaseRestoredConfigName,
+		metav1.GetOptions{},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to read the restore record: %w", err)
+	}
+	data, _, _ := unstructured.NestedMap(existing.Object, "data")
+	if data == nil {
+		data = map[string]interface{}{}
+	}
+	data[databaseRestoredFromKey] = cpi.Opts.FromNamespace
+	if err := unstructured.SetNestedMap(existing.Object, data, "data"); err != nil {
+		return fmt.Errorf("failed to set the restore record: %w", err)
+	}
+	_, err = kubeClient.Resource(configMapResource).Namespace(cpi.Opts.Namespace).Update(
+		context.Background(),
+		existing,
+		metav1.UpdateOptions{},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to record the restore: %w", err)
+	}
+	return nil
+}
+
 // restoreLockName is the ConfigMap a restore holds while it runs.
 const restoreLockName = "threeport-restore-lock"
+
+// dataKind returns the kind recorded on a restore lock.
+func dataKind(obj *unstructured.Unstructured) string {
+	// a missing lock has no kind
+	if obj == nil {
+		return ""
+	}
+	kind, _, _ := unstructured.NestedString(obj.Object, "data", "kind")
+	return kind
+}
 
 // acquireRestoreLock claims the restore of a control plane for this command,
 // and returns a function that releases it.  Creating the ConfigMap is atomic,
@@ -671,6 +892,12 @@ const restoreLockName = "threeport-restore-lock"
 func acquireRestoreLock(kubeClient dynamic.Interface, namespace string) (func() error, error) {
 	host, _ := os.Hostname()
 	holder := fmt.Sprintf("%s (pid %d)", host, os.Getpid())
+
+	// record whether this holder is a pod
+	kind := "process"
+	if os.Getenv("KUBERNETES_SERVICE_HOST") != "" {
+		kind = "pod"
+	}
 	_, err := kubeClient.Resource(configMapResource).Namespace(namespace).Create(
 		context.Background(),
 		&unstructured.Unstructured{Object: map[string]interface{}{
@@ -682,6 +909,7 @@ func acquireRestoreLock(kubeClient dynamic.Interface, namespace string) (func() 
 			},
 			"data": map[string]interface{}{
 				"holder":  holder,
+				"kind":    kind,
 				"started": time.Now().UTC().Format(time.RFC3339),
 			},
 		}},
@@ -695,6 +923,15 @@ func acquireRestoreLock(kubeClient dynamic.Interface, namespace string) (func() 
 		if getErr == nil {
 			data, _, _ := unstructured.NestedStringMap(existing.Object, "data")
 			otherHolder, otherStarted = data["holder"], data["started"]
+		}
+		// drop a lock whose holder pod is gone, then claim it
+		if dataKind(existing) == "pod" && restoreLockHolderGone(kubeClient, otherHolder) {
+			delErr := kubeClient.Resource(configMapResource).Namespace(namespace).Delete(
+				context.Background(), restoreLockName, metav1.DeleteOptions{},
+			)
+			if delErr == nil || k8serrors.IsNotFound(delErr) {
+				return acquireRestoreLock(kubeClient, namespace)
+			}
 		}
 		return nil, fmt.Errorf(
 			"another restore of this control plane is running, started at %s by %s, so nothing was changed; "+
@@ -718,6 +955,22 @@ func acquireRestoreLock(kubeClient dynamic.Interface, namespace string) (func() 
 		}
 		return nil
 	}, nil
+}
+
+// restoreLockHolderGone reports whether the pod named in a lock holder is gone.
+func restoreLockHolderGone(kubeClient dynamic.Interface, holder string) bool {
+	// the holder text is the pod name, then the process id
+	name, _, ok := strings.Cut(holder, " (")
+	if !ok || name == "" {
+		return false
+	}
+	list, err := kubeClient.Resource(podResource).List(context.Background(), metav1.ListOptions{
+		FieldSelector: "metadata.name=" + name,
+	})
+	if err != nil {
+		return false
+	}
+	return len(list.Items) == 0
 }
 
 // podResource is the core v1 pods resource.
@@ -777,4 +1030,674 @@ func waitForPodsGone(kubeClient dynamic.Interface, namespace string, deployments
 		}
 		return nil
 	})
+}
+
+// LoadAuthConfigFromNamespace rebuilds the API certificate authority from a namespace.
+// The returned config signs new certificates without rotating that CA.
+func (cpi *ControlPlaneInstaller) LoadAuthConfigFromNamespace(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	namespace string,
+) (*auth.AuthConfig, error) {
+	// read the api ca secret
+	secret, err := kube.GetResource(
+		"", "v1", "Secret",
+		namespace, ThreeportApiCaSecret,
+		kubeClient, *mapper,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load api-ca secret: %w", err)
+	}
+
+	// read the cert and key fields
+	caB64, _, err := unstructured.NestedString(secret.Object, "data", "tls.crt")
+	if err != nil || caB64 == "" {
+		return nil, errors.New("tls.crt not found in api-ca secret")
+	}
+	keyB64, _, err := unstructured.NestedString(secret.Object, "data", "tls.key")
+	if err != nil || keyB64 == "" {
+		return nil, errors.New("tls.key not found in api-ca secret")
+	}
+
+	// decode the cert and key
+	caPem, err := base64.StdEncoding.DecodeString(caB64)
+	if err != nil {
+		return nil, fmt.Errorf("failed to base64-decode ca cert: %w", err)
+	}
+	keyPem, err := base64.StdEncoding.DecodeString(keyB64)
+	if err != nil {
+		return nil, fmt.Errorf("failed to base64-decode ca key: %w", err)
+	}
+
+	return AuthConfigFromPEM(caPem, keyPem)
+}
+
+// AuthConfigFromPEM parses a CA certificate and private key into the fields an install stores.
+func AuthConfigFromPEM(caPem, keyPem []byte) (*auth.AuthConfig, error) {
+	// parse the certificate
+	caBlock, _ := pem.Decode(caPem)
+	if caBlock == nil {
+		return nil, errors.New("ca cert pem block not found")
+	}
+	caCert, err := x509.ParseCertificate(caBlock.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse ca cert: %w", err)
+	}
+
+	// parse the private key
+	keyBlock, _ := pem.Decode(keyPem)
+	if keyBlock == nil {
+		return nil, errors.New("ca key pem block not found")
+	}
+	caKey, err := x509.ParsePKCS1PrivateKey(keyBlock.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse ca key: %w", err)
+	}
+
+	// return the auth config with raw and base64 forms
+	return &auth.AuthConfig{
+		CAConfig:                  caCert,
+		CAPrivateKey:              *caKey,
+		CA:                        caBlock.Bytes,
+		CAPemEncoded:              string(caPem),
+		CABase64Encoded:           util.Base64Encode(string(caPem)),
+		CAPrivateKeyPemEncoded:    string(keyPem),
+		CAPrivateKeyBase64Encoded: util.Base64Encode(string(keyPem)),
+	}, nil
+}
+
+// EncryptionKeyFromNamespace reads the encryption key secret from a namespace.
+func (cpi *ControlPlaneInstaller) EncryptionKeyFromNamespace(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	namespace string,
+) (string, error) {
+	// read the encryption key secret
+	secret, err := kube.GetResource(
+		"", "v1", "Secret",
+		namespace, EncryptionKeySecret,
+		kubeClient, *mapper,
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to load encryption key secret: %w", err)
+	}
+
+	// decode the key
+	keyB64, _, err := unstructured.NestedString(secret.Object, "data", encryption.KeyEnvVar)
+	if err != nil || keyB64 == "" {
+		return "", errors.New("encryption key not found in secret")
+	}
+	key, err := base64.StdEncoding.DecodeString(keyB64)
+	if err != nil {
+		return "", fmt.Errorf("failed to base64-decode encryption key: %w", err)
+	}
+	if len(key) == 0 {
+		return "", errors.New("encryption key secret is empty")
+	}
+
+	return string(key), nil
+}
+
+// EncryptionKeyForInstall copies, reads, or generates the encryption key for a new install.
+func (cpi *ControlPlaneInstaller) EncryptionKeyForInstall(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+) (string, error) {
+	// copy the key from the other install
+	if cpi.Opts.FromNamespace != "" {
+		return cpi.EncryptionKeyFromNamespace(kubeClient, mapper, cpi.Opts.FromNamespace)
+	}
+
+	// read the key from a file
+	if cpi.Opts.EncryptionKeyFile != "" {
+		key, err := os.ReadFile(cpi.Opts.EncryptionKeyFile)
+		if err != nil {
+			return "", fmt.Errorf("failed to read encryption key file: %w", err)
+		}
+		key = []byte(strings.TrimRight(string(key), "\r\n"))
+		if len(key) == 0 {
+			return "", errors.New("encryption key file is empty")
+		}
+		return string(key), nil
+	}
+
+	// generate a new key
+	return encryption.GenerateKey()
+}
+
+// AuthConfigForInstall copies, reads, or generates the CA for a new install.
+func (cpi *ControlPlaneInstaller) AuthConfigForInstall(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+) (*auth.AuthConfig, error) {
+	// copy the CA from the other install
+	if cpi.Opts.FromNamespace != "" {
+		return cpi.LoadAuthConfigFromNamespace(kubeClient, mapper, cpi.Opts.FromNamespace)
+	}
+
+	// read the CA from files
+	if cpi.Opts.CACertFile != "" {
+		certPEM, err := os.ReadFile(cpi.Opts.CACertFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read CA certificate file: %w", err)
+		}
+		keyPEM, err := os.ReadFile(cpi.Opts.CAKeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read CA private key file: %w", err)
+		}
+		return AuthConfigFromPEM(certPEM, keyPEM)
+	}
+
+	// generate a new CA
+	return auth.GetAuthConfig()
+}
+
+// StopWritersAndBackup stops writers in this namespace and backs that database up once.
+// The writers stay stopped. The caller resumes them when the replacement API does not come up.
+func (cpi *ControlPlaneInstaller) StopWritersAndBackup(
+	kubeClient dynamic.Interface,
+	apiClient *http.Client,
+	apiEndpoint string,
+	bucket string,
+) (map[string]int64, []ModuleDeploymentScale, error) {
+	// read module names while the API is still up
+	controllers, err := cpi.DiscoverModuleDeployments(apiClient, apiEndpoint)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to discover registered module deployments: %w", err)
+	}
+	apiServers, err := cpi.DiscoverModuleApiServers(apiClient, apiEndpoint)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to discover module API servers: %w", err)
+	}
+
+	// scale module writers before the control plane API
+	scales, err := cpi.ScaleDownModuleWriters(kubeClient, controllers, apiServers)
+	if err != nil {
+		if scales == nil {
+			scales = []ModuleDeploymentScale{}
+		}
+		return nil, scales, err
+	}
+
+	// scale the control plane writers to zero and back up
+	replicas, err := cpi.ScaleDownAndBackup(kubeClient, bucket)
+	return replicas, scales, err
+}
+
+// ControllerAPIClient returns a client for the API in this installer's namespace.
+// It uses the control plane controller certificate stored in that namespace.
+func (cpi *ControlPlaneInstaller) ControllerAPIClient(
+	kubeClient dynamic.Interface,
+) (*http.Client, string, error) {
+	// read the controller certificate and its CA
+	certObj, err := cpi.getSecret(
+		kubeClient,
+		controllerCertSecretName(ThreeportControlPlaneControllerName),
+	)
+	if err != nil {
+		return nil, "", fmt.Errorf(
+			"failed to get controller certificate in %s: %w",
+			cpi.Opts.Namespace,
+			err,
+		)
+	}
+	caObj, err := cpi.getSecret(
+		kubeClient,
+		controllerCaSecretName(ThreeportControlPlaneControllerName),
+	)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to get controller CA in %s: %w", cpi.Opts.Namespace, err)
+	}
+	cert, err := secretValue(certObj, "tls.crt")
+	if err != nil {
+		return nil, "", err
+	}
+	key, err := secretValue(certObj, "tls.key")
+	if err != nil {
+		return nil, "", err
+	}
+	ca, err := secretValue(caObj, "tls.crt")
+	if err != nil {
+		return nil, "", err
+	}
+
+	// dial the API with the controller certificate
+	apiClient, err := client_lib.GetHTTPClient(true, ca, cert, key, "")
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to build API client for %s: %w", cpi.Opts.Namespace, err)
+	}
+	// pass host and port so the client adds https
+	endpoint := fmt.Sprintf(
+		"%s.%s:%d",
+		ThreeportAPIServiceResourceName,
+		cpi.Opts.Namespace,
+		GetThreeportAPIPort(true),
+	)
+	return apiClient, endpoint, nil
+}
+
+// holdWritersStopped sets the source control plane writers to zero replicas.
+// The patch leaves a recorded count in place so a later resume can restore it.
+func (cpi *ControlPlaneInstaller) holdWritersStopped(kubeClient dynamic.Interface) error {
+	// list the managed deployments in the source namespace
+	deployments, err := kubeClient.Resource(deploymentGVR).Namespace(cpi.Opts.Namespace).List(
+		context.Background(),
+		metav1.ListOptions{LabelSelector: fmt.Sprintf("%s=%s", LabelManagedBy, LabelManagedByValue)},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to list deployments in %s: %w", cpi.Opts.Namespace, err)
+	}
+
+	// set each writer to zero without clearing its recorded count
+	for _, deployment := range deployments.Items {
+		persistent, _, _ := unstructured.NestedString(deployment.Object, "metadata", "labels", LabelPersistent)
+		if persistent == LabelPersistentValue {
+			continue
+		}
+		replicas, _, _ := unstructured.NestedInt64(deployment.Object, "spec", "replicas")
+		if replicas == 0 {
+			continue
+		}
+		patch := map[string]interface{}{
+			"spec": map[string]interface{}{
+				"replicas": int64(0),
+			},
+		}
+		if deployment.GetAnnotations()[replicasBeforeRestoreAnnotation] == "" {
+			patch["metadata"] = map[string]interface{}{
+				"annotations": map[string]interface{}{
+					replicasBeforeRestoreAnnotation: fmt.Sprintf("%d", replicas),
+				},
+			}
+		}
+		payload, err := json.Marshal(patch)
+		if err != nil {
+			return fmt.Errorf("failed to marshal replica patch for %s: %w", deployment.GetName(), err)
+		}
+		if _, err := kubeClient.Resource(deploymentGVR).Namespace(cpi.Opts.Namespace).Patch(
+			context.Background(),
+			deployment.GetName(),
+			types.MergePatchType,
+			payload,
+			metav1.PatchOptions{},
+		); err != nil {
+			return fmt.Errorf("failed to stop %s/%s: %w", cpi.Opts.Namespace, deployment.GetName(), err)
+		}
+	}
+	return nil
+}
+
+// StopSourceAndRestore stops the source writers, backs that database up once, and restores it.
+// A restore already recorded here is left unchanged. Resume brings the source writers back.
+func (cpi *ControlPlaneInstaller) StopSourceAndRestore(
+	kubeClient dynamic.Interface,
+	bucket string,
+) (resume func() error, err error) {
+	if cpi.Opts.FromNamespace == "" {
+		return nil, nil
+	}
+	recorded, err := cpi.restoreRecorded(kubeClient)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check the restore record for %s: %w", cpi.Opts.Namespace, err)
+	}
+	if recorded {
+		// a retry must not start the source writers again
+		source := NewInstaller(Namespace(cpi.Opts.FromNamespace))
+		if err := source.holdWritersStopped(kubeClient); err != nil {
+			return nil, fmt.Errorf("failed to keep the writers in %s stopped: %w", cpi.Opts.FromNamespace, err)
+		}
+		return nil, nil
+	}
+
+	// stop the source and take one backup before restoring it here
+	source := NewInstaller(Namespace(cpi.Opts.FromNamespace))
+	apiClient, apiEndpoint, err := source.ControllerAPIClient(kubeClient)
+	if err != nil {
+		return nil, fmt.Errorf("failed to reach the API in %s: %w", cpi.Opts.FromNamespace, err)
+	}
+	replicas, scales, err := source.StopWritersAndBackup(kubeClient, apiClient, apiEndpoint, bucket)
+	if err != nil {
+		return nil, resumeSourceWriters(
+			cpi,
+			source,
+			kubeClient,
+			replicas,
+			scales,
+			cpi.Opts.FromNamespace,
+			err,
+		)
+	}
+	if err := cpi.RestoreFromNamespace(kubeClient, bucket); err != nil {
+		return nil, resumeSourceWriters(
+			cpi,
+			source,
+			kubeClient,
+			replicas,
+			scales,
+			cpi.Opts.FromNamespace,
+			err,
+		)
+	}
+	return func() error {
+		// drop the saved source before the writers resume
+		if err := cpi.clearRestoreRecord(kubeClient); err != nil {
+			return err
+		}
+		return source.ResumeWriters(kubeClient, replicas, scales)
+	}, nil
+}
+
+// clearRestoreRecord drops the saved source so a later restore takes a new backup.
+func (cpi *ControlPlaneInstaller) clearRestoreRecord(kubeClient dynamic.Interface) error {
+	// delete the config map that names the restored source
+	err := kubeClient.Resource(configMapResource).Namespace(cpi.Opts.Namespace).Delete(
+		context.Background(),
+		databaseRestoredConfigName,
+		metav1.DeleteOptions{},
+	)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return fmt.Errorf("failed to clear the restore record in %s: %w", cpi.Opts.Namespace, err)
+	}
+	return nil
+}
+
+// resumeSourceWriters brings the source back up after a failed stop or restore.
+// It returns the original error when the resume succeeds.
+// resumeSourceWriters drops the saved restore and starts the source writers.
+// The next restore takes a new backup instead of reusing the saved snapshot.
+func resumeSourceWriters(
+	replacement *ControlPlaneInstaller,
+	source *ControlPlaneInstaller,
+	kubeClient dynamic.Interface,
+	replicas map[string]int64,
+	scales []ModuleDeploymentScale,
+	namespace string,
+	cause error,
+) error {
+	// the source is writing again, so the saved snapshot cannot be reused
+	if err := replacement.clearRestoreRecord(kubeClient); err != nil {
+		return fmt.Errorf("%w (clear restore record: %v)", cause, err)
+	}
+	if resumeErr := source.ResumeWriters(kubeClient, replicas, scales); resumeErr != nil {
+		return fmt.Errorf("%w (resume of %s also failed: %v)", cause, namespace, resumeErr)
+	}
+	return cause
+}
+
+// ScaleDownAndBackup records writer counts, scales them to zero, and backs up the database.
+// The writers stay stopped.
+func (cpi *ControlPlaneInstaller) ScaleDownAndBackup(
+	kubeClient dynamic.Interface,
+	bucket string,
+) (map[string]int64, error) {
+	// record the counts before any deployment is scaled
+	replicas, err := cpi.recordReplicasBeforeRestore(kubeClient, cpi.Opts.Namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	// list the installer-managed deployments that are not persistent
+	fmt.Println("Info: scaling control plane deployments to zero")
+	selector := fmt.Sprintf(
+		"%s=%s,%s!=%s",
+		LabelManagedBy, LabelManagedByValue,
+		LabelPersistent, LabelPersistentValue,
+	)
+	deployments, err := kubeClient.Resource(deploymentGVR).Namespace(cpi.Opts.Namespace).List(
+		context.Background(), metav1.ListOptions{LabelSelector: selector},
+	)
+	if err != nil {
+		return replicas, fmt.Errorf("failed to list control plane deployments: %w", err)
+	}
+	writers := map[string]int64{}
+	api := map[string]int64{}
+	for _, deployment := range deployments.Items {
+		if deployment.GetName() == ThreeportAPIServiceResourceName {
+			api[deployment.GetName()] = 0
+			continue
+		}
+		writers[deployment.GetName()] = 0
+	}
+
+	// scale every writer except the API
+	if err := scaleDeploymentsToZero(kubeClient, cpi.Opts.Namespace, writers); err != nil {
+		return replicas, err
+	}
+	if err := waitForPodsGone(kubeClient, cpi.Opts.Namespace, writers); err != nil {
+		return replicas, err
+	}
+
+	// scale the API last so the others finish their writes
+	if err := scaleDeploymentsToZero(kubeClient, cpi.Opts.Namespace, api); err != nil {
+		return replicas, err
+	}
+	if err := waitForPodsGone(kubeClient, cpi.Opts.Namespace, api); err != nil {
+		return replicas, err
+	}
+
+	// back up once, with no writer left to change the database
+	uri := DatabaseBackupURI(bucket, cpi.Opts.Namespace)
+	statement := fmt.Sprintf("BACKUP DATABASE %s INTO '%s';", DatabaseName, uri)
+	if err := runRestorePhase(
+		kubeClient,
+		cpi.Opts.Namespace,
+		backupJobName,
+		[]string{statement},
+		restoreDatabaseJobBackoffLimit,
+	); err != nil {
+		return replicas, err
+	}
+	fmt.Println(uri)
+	fmt.Println("Info: database backup complete")
+
+	return replicas, nil
+}
+
+// ResumeWriters scales the recorded control plane and module writers back up.
+func (cpi *ControlPlaneInstaller) ResumeWriters(
+	kubeClient dynamic.Interface,
+	replicas map[string]int64,
+	modules []ModuleDeploymentScale,
+) error {
+	// restore the control plane deployments
+	if err := cpi.scaleDeployments(kubeClient, cpi.Opts.Namespace, replicas); err != nil {
+		return err
+	}
+
+	// restore the module deployments
+	if err := cpi.RestoreModuleScale(kubeClient, modules); err != nil {
+		return err
+	}
+
+	// wait until the API deployment is ready
+	return cpi.waitForRestAPIReady(kubeClient, cpi.Opts.Namespace, restApiDeploymentReadyTimeout)
+}
+
+// InstallRestored installs a control plane from a backup and reports whether its API came up.
+// A true result with an error means the API is serving and the source writers must stay stopped.
+func (cpi *ControlPlaneInstaller) InstallRestored(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	apiClient *http.Client,
+	bucket string,
+	grant func() error,
+) (bool, error) {
+	if mapper == nil {
+		return false, errors.New("no kubernetes rest mapper")
+	}
+	if cpi.Opts.FromNamespace == "" {
+		return false, errors.New("a restored install needs a source namespace")
+	}
+
+	// copy the source CA and encryption key into this install
+	authConfig, err := cpi.AuthConfigForInstall(kubeClient, mapper)
+	if err != nil {
+		return false, err
+	}
+	encryptionKey, err := cpi.EncryptionKeyForInstall(kubeClient, mapper)
+	if err != nil {
+		return false, err
+	}
+	cpi.Opts.EncryptionKey = encryptionKey
+
+	// install the database before restoring into it
+	dbCreds, err := auth.GenerateDbCreds(cpi.Opts.Namespace)
+	if err != nil {
+		return false, fmt.Errorf("failed to generate database credentials: %w", err)
+	}
+	if err := cpi.InstallThreeportControlPlaneDependencies(kubeClient, mapper, encryptionKey, dbCreds); err != nil {
+		return false, err
+	}
+
+	// grant the new database access to the backup
+	if grant != nil {
+		if err := grant(); err != nil {
+			return false, err
+		}
+	}
+	// write the client certs the restore job mounts
+	if err := cpi.ensureDbClientSecrets(kubeClient, mapper, dbCreds); err != nil {
+		return false, err
+	}
+	// restore the backup into the new database
+	if err := cpi.RestoreFromNamespace(kubeClient, bucket); err != nil {
+		return false, err
+	}
+
+	// install the certificate before the server when the address is already known
+	if !cpi.Opts.RestApiLoadBalancer {
+		endpoint := GetLocalThreeportAPIEndpoint(cpi.Opts.AuthEnabled, cpi.Opts.ApiPort)
+		cpi.Opts.ExternalApiEndpoint = endpoint
+		if cpi.Opts.AuthEnabled {
+			altNames := append(ThreeportApiAltNames(cpi.Opts.Namespace), endpoint)
+			if err := cpi.InstallThreeportAPITLS(kubeClient, mapper, authConfig, altNames...); err != nil {
+				return false, err
+			}
+		}
+	}
+
+	// install the API server
+	if err := cpi.UpdateThreeportAPIDeployment(kubeClient, mapper, dbCreds); err != nil {
+		return false, err
+	}
+
+	// read the load balancer address, then install its certificate
+	if cpi.Opts.RestApiLoadBalancer {
+		endpoint, err := cpi.GetThreeportAPIEndpoint(kubeClient, *mapper)
+		if err != nil {
+			return false, err
+		}
+		cpi.Opts.ExternalApiEndpoint = fmt.Sprintf(
+			"%s:%d",
+			endpoint,
+			GetThreeportAPIPort(cpi.Opts.AuthEnabled),
+		)
+		if cpi.Opts.AuthEnabled {
+			altNames := append(ThreeportApiAltNames(cpi.Opts.Namespace), endpoint)
+			if err := cpi.InstallThreeportAPITLS(kubeClient, mapper, authConfig, altNames...); err != nil {
+				return false, err
+			}
+		}
+	}
+
+	// install the components that call the API
+	if err := cpi.InstallThreeportControllers(kubeClient, mapper, authConfig); err != nil {
+		return false, err
+	}
+	if !cpi.Opts.SkipAgent {
+		if err := cpi.InstallThreeportAgent(kubeClient, mapper, authConfig); err != nil {
+			return false, err
+		}
+	}
+
+	// the API deployment is the health check for rolling the source back
+	if err := cpi.waitForRestAPIReady(kubeClient, cpi.Opts.Namespace, restApiDeploymentReadyTimeout); err != nil {
+		return false, err
+	}
+
+	// dial the load balancer, a ready deployment can still refuse the port
+	if endpoint := cpi.Opts.ExternalApiEndpoint; endpoint != "" {
+		if err := util.Retry(60, 2, func() error {
+			conn, dialErr := net.DialTimeout("tcp", endpoint, 5*time.Second)
+			if dialErr != nil {
+				return dialErr
+			}
+			return conn.Close()
+		}); err != nil {
+			return true, fmt.Errorf("failed to reach rest-api endpoint %s: %w", endpoint, err)
+		}
+	}
+
+	// check certificates, database state, and ready workloads
+	if err := cpi.AssertRestoredControlPlane(kubeClient, mapper); err != nil {
+		return true, err
+	}
+
+	// finish the install now that the API is serving
+	if err := cpi.InstallThreeportNetworkPolicies(kubeClient, mapper); err != nil {
+		return true, err
+	}
+	if err := InstallThreeportCRDs(kubeClient, mapper); err != nil {
+		return true, err
+	}
+	if err := cpi.RedeployInstalledModules(kubeClient, mapper, apiClient, cpi.Opts.ExternalApiEndpoint); err != nil {
+		return true, err
+	}
+
+	// write the replacement identity onto the restored self row
+	if err := cpi.retargetRestoredSelf(apiClient, cpi.Opts.ExternalApiEndpoint); err != nil {
+		return true, err
+	}
+
+	return true, nil
+}
+
+// retargetRestoredSelf writes the replacement name, namespace, endpoint, and image onto the self row the backup restored.
+func (cpi *ControlPlaneInstaller) retargetRestoredSelf(apiClient *http.Client, endpoint string) error {
+	// read the self row the backup restored
+	self, err := client.GetSelfControlPlaneInstance(apiClient, endpoint)
+	if err != nil {
+		return fmt.Errorf("failed to get restored self control plane: %w", err)
+	}
+
+	// write the replacement identity and the image the replacement is running
+	name := cpi.Opts.Name
+	namespace := cpi.Opts.Namespace
+	imageNamespace := cpi.Opts.RestApiInfo.ImageNamespace
+	imageTag := cpi.Opts.RestApiInfo.ImageTag
+	self.Name = &name
+	self.Namespace = &namespace
+	self.ApiServerEndpoint = &endpoint
+	self.ImageNamespace = &imageNamespace
+	self.ImageTag = &imageTag
+	if _, err := client.UpdateControlPlaneInstance(apiClient, endpoint, self); err != nil {
+		return fmt.Errorf("failed to retarget restored self control plane: %w", err)
+	}
+
+	return nil
+}
+
+// scaleDeploymentsToZero sets each named deployment to zero replicas.
+// A deployment that is already gone is skipped.
+func scaleDeploymentsToZero(kubeClient dynamic.Interface, namespace string, names map[string]int64) error {
+	// set each deployment to zero replicas
+	patch := []byte(`{"spec":{"replicas":0}}`)
+	var scaleErrors []error
+	for name := range names {
+		_, err := kubeClient.Resource(deploymentGVR).Namespace(namespace).Patch(
+			context.Background(),
+			name,
+			"application/merge-patch+json",
+			patch,
+			metav1.PatchOptions{},
+		)
+		if k8serrors.IsNotFound(err) {
+			continue
+		}
+		if err != nil {
+			scaleErrors = append(scaleErrors, fmt.Errorf("failed to scale deployment %s to zero: %w", name, err))
+		}
+	}
+
+	return errors.Join(scaleErrors...)
 }

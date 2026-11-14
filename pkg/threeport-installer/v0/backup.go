@@ -45,20 +45,33 @@ const (
 	dbMigratorCertsVolumeName = "db-migrator-certs"
 )
 
-// DatabaseBackupURI returns the location in a GCS bucket the database is
-// backed up to.  The database authenticates as the GCP service account its
-// Kubernetes service account is bound to, rather than with a key.
-func DatabaseBackupURI(bucket string) string {
-	return fmt.Sprintf("gs://%s/%s?AUTH=implicit", bucket, DatabaseName)
+// DatabaseBackupURI returns the location in a GCS bucket the database is backed up to.
+// The default namespace keeps the collection written before each control plane had its own.
+func DatabaseBackupURI(bucket, namespace string) string {
+	// keep the original collection for the default namespace
+	location := DatabaseName
+	if namespace != "" && namespace != ControlPlaneNamespace {
+		location = namespace + "/" + DatabaseName
+	}
+	return fmt.Sprintf("gs://%s/%s?AUTH=implicit", bucket, location)
 }
 
-// DatabaseBackupScheduleSQL returns the statement that schedules the
-// database's backups into the given URI: an incremental backup every hour
-// on top of a full one every day, the first taken as soon as the schedule
-// is created.  It does nothing when the schedule already exists.
+// BackupScheduleBucket returns the bucket the migrator should schedule.
+// A replacement leaves it empty because the schedule's first run is immediate.
+func (cpi *ControlPlaneInstaller) BackupScheduleBucket(bucket string) string {
+	// withhold the schedule when this install copies an existing database
+	if bucket == "" || cpi.Opts.FromNamespace != "" {
+		return ""
+	}
+	return bucket
+}
+
+// DatabaseBackupScheduleSQL returns the CREATE SCHEDULE statement for uri.
+// The schedule runs immediately, keeps an existing schedule, and ignores backups already stored at uri.
 func DatabaseBackupScheduleSQL(uri string) string {
+	// ignore backups already at uri, or a restore that wrote one cannot create the schedule
 	return fmt.Sprintf(
-		"CREATE SCHEDULE IF NOT EXISTS %s FOR BACKUP DATABASE %s INTO '%s' RECURRING '%s' FULL BACKUP '%s' WITH SCHEDULE OPTIONS first_run = 'now';\n",
+		"CREATE SCHEDULE IF NOT EXISTS %s FOR BACKUP DATABASE %s INTO '%s' RECURRING '%s' FULL BACKUP '%s' WITH SCHEDULE OPTIONS first_run = 'now', ignore_existing_backups;\n",
 		DatabaseBackupScheduleLabel,
 		DatabaseName,
 		uri,
@@ -138,7 +151,7 @@ func (cpi *ControlPlaneInstaller) InstallDatabaseBackupConfig(
 				"namespace": cpi.Opts.Namespace,
 			},
 			"data": map[string]interface{}{
-				DbBackupURIFilename: DatabaseBackupURI(cpi.Opts.GcpBackupBucket),
+				DbBackupURIFilename: DatabaseBackupURI(cpi.Opts.GcpBackupBucket, cpi.Opts.Namespace),
 			},
 		},
 	}
@@ -154,6 +167,9 @@ func (cpi *ControlPlaneInstaller) InstallDatabaseBackupConfig(
 // client certificates.
 const dbMigratorCertsPath = "/etc/threeport/db-certs"
 
+// dbClientKeyFileMode is the mode lib/pq accepts on a root-owned key.
+const dbClientKeyFileMode = 0640
+
 // dbMigratorCertsVolume is the database migrator's client certificates: the
 // threeport user's, which it connects as, and root's, which it backs the
 // database up as before migrating, since only an admin may back up to cloud
@@ -162,6 +178,7 @@ func dbMigratorCertsVolume() map[string]interface{} {
 	return map[string]interface{}{
 		"name": dbMigratorCertsVolumeName,
 		"projected": map[string]interface{}{
+			"defaultMode": int64(dbClientKeyFileMode),
 			"sources": []interface{}{
 				map[string]interface{}{
 					"secret": map[string]interface{}{"name": dbThreeportCertSecretName},

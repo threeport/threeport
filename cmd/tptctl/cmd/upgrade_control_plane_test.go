@@ -41,7 +41,7 @@ func imageOf(t *testing.T, deployment *unstructured.Unstructured, key, name stri
 	require.NoError(t, err)
 	require.True(t, found)
 
-	found_, err := containerNamed(list, name)
+	found_, err := installer.ContainerNamed(list, name)
 	require.NoError(t, err)
 
 	return found_["image"].(string)
@@ -71,7 +71,7 @@ func TestRetaggingFindsContainersByNameNotPosition(t *testing.T) {
 			},
 		)
 
-		_, err := updateImageTagInDeployment(deployment, "v0.7.0", installer.ThreeportRestApi.Name)
+		_, err := installer.UpdateImageTagInDeployment(deployment, "v0.7.0", "", installer.ThreeportRestApi.Name)
 		require.NoError(t, err)
 		assert.Equal(
 			t, "ghcr.io/threeport/threeport-database-migrator:v0.7.0",
@@ -88,6 +88,19 @@ func TestRetaggingFindsContainersByNameNotPosition(t *testing.T) {
 		)
 	})
 
+	t.Run("an image namespace replaces the registry and keeps the image name", func(t *testing.T) {
+		deployment := deploymentWith(nil, []interface{}{
+			container(installer.ThreeportAgentContainerName, "ghcr.io/threeport/threeport-agent:v0.6.0"),
+		})
+
+		_, err := installer.UpdateImageTagInDeployment(deployment, "v0.7.0", "localhost:5001", installer.ThreeportAgent.Name)
+		require.NoError(t, err)
+		assert.Equal(
+			t, "localhost:5001/threeport-agent:v0.7.0",
+			imageOf(t, deployment, "containers", installer.ThreeportAgentContainerName),
+		)
+	})
+
 	t.Run("the agent is retagged with its containers reordered", func(t *testing.T) {
 		deployment := deploymentWith(nil, []interface{}{
 			// manager first, where the index expected the proxy
@@ -95,7 +108,7 @@ func TestRetaggingFindsContainersByNameNotPosition(t *testing.T) {
 			container("kube-rbac-proxy", "ghcr.io/kube-rbac-proxy/kube-rbac-proxy:v0.22.0"),
 		})
 
-		_, err := updateImageTagInDeployment(deployment, "v0.7.0", installer.ThreeportAgent.Name)
+		_, err := installer.UpdateImageTagInDeployment(deployment, "v0.7.0", "", installer.ThreeportAgent.Name)
 		require.NoError(t, err)
 		assert.Equal(
 			t, "ghcr.io/threeport/threeport-agent:v0.7.0",
@@ -113,7 +126,7 @@ func TestRetaggingFindsContainersByNameNotPosition(t *testing.T) {
 			container("kubernetes-workload-controller", "ghcr.io/threeport/threeport-kubernetes-workload-controller:v0.6.0"),
 		})
 
-		_, err := updateImageTagInDeployment(deployment, "v0.7.0", "kubernetes-workload-controller")
+		_, err := installer.UpdateImageTagInDeployment(deployment, "v0.7.0", "", "kubernetes-workload-controller")
 		require.NoError(t, err)
 		assert.Equal(
 			t, "ghcr.io/threeport/threeport-kubernetes-workload-controller:v0.7.0",
@@ -134,7 +147,7 @@ func TestRetaggingReportsWhatItCouldNotFind(t *testing.T) {
 			container("something-else", "example.com/other:v1"),
 		})
 
-		_, err := updateImageTagInDeployment(deployment, "v0.7.0", "kubernetes-workload-controller")
+		_, err := installer.UpdateImageTagInDeployment(deployment, "v0.7.0", "", "kubernetes-workload-controller")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "kubernetes-workload-controller")
 		assert.Contains(t, err.Error(), "something-else", "the error says what the pod does have")
@@ -146,7 +159,7 @@ func TestRetaggingReportsWhatItCouldNotFind(t *testing.T) {
 			[]interface{}{container(installer.ThreeportApiServerContainerName, "example.com/api:v1")},
 		)
 
-		_, err := updateImageTagInDeployment(deployment, "v0.7.0", installer.ThreeportRestApi.Name)
+		_, err := installer.UpdateImageTagInDeployment(deployment, "v0.7.0", "", installer.ThreeportRestApi.Name)
 		require.Error(t, err, "indexing position 1 of a one-element list is a panic, not an error")
 		assert.Contains(t, err.Error(), installer.ThreeportDatabaseMigratorContainerName)
 	})
@@ -156,7 +169,7 @@ func TestRetaggingReportsWhatItCouldNotFind(t *testing.T) {
 			map[string]interface{}{"name": "kubernetes-workload-controller"},
 		})
 
-		_, err := updateImageTagInDeployment(deployment, "v0.7.0", "kubernetes-workload-controller")
+		_, err := installer.UpdateImageTagInDeployment(deployment, "v0.7.0", "", "kubernetes-workload-controller")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "no image to retag")
 	})
@@ -166,7 +179,7 @@ func TestRetaggingReportsWhatItCouldNotFind(t *testing.T) {
 			map[string]interface{}{"name": "kubernetes-workload-controller", "image": 42},
 		})
 
-		_, err := updateImageTagInDeployment(deployment, "v0.7.0", "kubernetes-workload-controller")
+		_, err := installer.UpdateImageTagInDeployment(deployment, "v0.7.0", "", "kubernetes-workload-controller")
 		require.Error(t, err, "an unchecked assertion here was a panic")
 	})
 }
@@ -185,7 +198,7 @@ func TestTheContainerNamesMatchWhatTheInstallerWrites(t *testing.T) {
 		"kubernetes-workload-controller": "kubernetes-workload-controller",
 	} {
 		assert.Equal(
-			t, expected, imageContainerName(component),
+			t, expected, installer.ImageContainerName(component),
 			"%s carries its image in a container named %s", component, expected,
 		)
 	}
@@ -232,9 +245,9 @@ func TestTheUpgradeWaitsForTheRolloutRatherThanTheApiCall(t *testing.T) {
 	listKinds := map[schema.GroupVersionResource]string{resource: "DeploymentList"}
 
 	// seconds, not minutes, for the cases that are meant to give up
-	originalAttempts, originalPoll := rolloutAttempts, rolloutPollSeconds
-	rolloutAttempts, rolloutPollSeconds = 2, 1
-	t.Cleanup(func() { rolloutAttempts, rolloutPollSeconds = originalAttempts, originalPoll })
+	originalAttempts, originalPoll := installer.RolloutAttempts, installer.RolloutPollSeconds
+	installer.RolloutAttempts, installer.RolloutPollSeconds = 2, 1
+	t.Cleanup(func() { installer.RolloutAttempts, installer.RolloutPollSeconds = originalAttempts, originalPoll })
 
 	for name, test := range map[string]struct {
 		deployment *unstructured.Unstructured
@@ -270,7 +283,7 @@ func TestTheUpgradeWaitsForTheRolloutRatherThanTheApiCall(t *testing.T) {
 				runtime.NewScheme(), listKinds, test.deployment,
 			)
 
-			err := waitForRollout(
+			err := installer.WaitForRollout(
 				client, resource, "threeport-control-plane", test.deployment.GetName(),
 				[]string{"ghcr.io/threeport/threeport-rest-api:v0.6.0"},
 			)

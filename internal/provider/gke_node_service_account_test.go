@@ -45,20 +45,28 @@ func TestGkeNodesRunAsTheClustersOwnServiceAccount(t *testing.T) {
 	assert.Equal(t, "test-project", roles[0].inputs["project"])
 
 	nodePools := mocks.ofType(gkeNodePoolTypeToken)
-	require.Len(t, nodePools, 1)
-	nodeConfig := nodePools[0].inputs["nodeConfig"].(map[string]any)
+	require.Len(t, nodePools, 2)
+	var nodeConfig map[string]any
+	for _, pool := range nodePools {
+		if config, ok := pool.inputs["nodeConfig"].(map[string]any); ok && config["serviceAccount"] != nil {
+			nodeConfig = config
+		}
+	}
+	require.NotNil(t, nodeConfig)
 	assert.Equal(t, email, nodeConfig["serviceAccount"])
 	assert.Equal(t, []any{"https://www.googleapis.com/auth/cloud-platform"}, nodeConfig["oauthScopes"],
 		"the role, not the scope, limits the nodes")
 
 	// the nodes start with the role, so their first logs and metrics are kept
 	var roleURN string
-	for _, dependency := range nodePools[0].dependencies {
-		if strings.HasSuffix(dependency, "::"+roles[0].name) {
-			roleURN = dependency
+	for _, pool := range nodePools {
+		for _, dependency := range pool.dependencies {
+			if strings.HasSuffix(dependency, "::"+roles[0].name) {
+				roleURN = dependency
+			}
 		}
 	}
-	assert.NotEmpty(t, roleURN, "the node pool waits for the role: %v", nodePools[0].dependencies)
+	assert.NotEmpty(t, roleURN, "a node pool waits for the role")
 }
 
 // TestAGkeNodePoolCreatedOnTheDefaultAccountKeepsIt covers a create resumed on
@@ -75,8 +83,10 @@ func TestAGkeNodePoolCreatedOnTheDefaultAccountKeepsIt(t *testing.T) {
 	assert.Empty(t, mocks.ofType(gkeAccountTypeToken))
 	assert.Empty(t, mocks.ofType(gkeIAMMemberToken))
 	nodePools := mocks.ofType(gkeNodePoolTypeToken)
-	require.Len(t, nodePools, 1)
-	assert.NotContains(t, nodePools[0].inputs["nodeConfig"], "serviceAccount")
+	require.Len(t, nodePools, 2)
+	for _, pool := range nodePools {
+		assert.NotContains(t, pool.inputs["nodeConfig"], "serviceAccount")
+	}
 }
 
 // TestNodePoolRunsAsDefaultServiceAccount covers how CreateInfra tells a node

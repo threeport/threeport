@@ -378,8 +378,8 @@ func TestRequireServiceAccountEmail(t *testing.T) {
 // TestWorkloadIdentityMembers_NameNoRuntime states why deleting a runtime does
 // not revoke the workload identity grant.
 //
-// The member names the project, the control plane namespace and the controller's
-// service account - nothing about the runtime. Two runtimes in one project
+// The member names the project, the control plane namespace and the controller
+// service accounts, nothing about the runtime. Two runtimes in one project
 // produce the same member, so revoking on a delete would take the grant away
 // from the ones still running. The grant belongs to the control plane, which
 // outlives any runtime it creates.
@@ -395,9 +395,15 @@ func TestWorkloadIdentityMembers_NameNoRuntime(t *testing.T) {
 		"two runtimes in one project share the grant, so it is not one runtime's to revoke",
 	)
 
-	for _, member := range first.getWorkloadIdentityMembers(pool) {
-		assert.NotContains(t, member, "runtime-one")
-	}
+	joined := strings.Join(first.getWorkloadIdentityMembers(pool), " ")
+	assert.NotContains(t, joined, "runtime-one")
+	assert.Contains(t, joined, "control-plane-controller")
+	custom := &KubernetesRuntimeInfraGKE{WorkloadIdentityNamespace: "replacement"}
+	assert.Contains(
+		t,
+		strings.Join(custom.getWorkloadIdentityMembers(pool), " "),
+		"[replacement/control-plane-controller]",
+	)
 }
 
 // TestGcpServiceAccountDeletable_RuntimeDeleteRefusesProviderAccount covers the

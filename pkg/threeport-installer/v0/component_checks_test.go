@@ -376,13 +376,13 @@ func TestSupportServicesOperatorInstalled(t *testing.T) {
 			deployment(ControlPlaneNamespace, SupportServicesOperatorDeployName, "operator:v1"),
 		)
 
-		installed, err := SupportServicesOperatorInstalled(client, testMapper())
+		installed, err := SupportServicesOperatorInstalled(client, testMapper(), ControlPlaneNamespace)
 		require.NoError(t, err)
 		assert.True(t, installed)
 	})
 
 	t.Run("not installed on an empty cluster", func(t *testing.T) {
-		installed, err := SupportServicesOperatorInstalled(testClient(), testMapper())
+		installed, err := SupportServicesOperatorInstalled(testClient(), testMapper(), ControlPlaneNamespace)
 		require.NoError(t, err)
 		assert.False(t, installed)
 	})

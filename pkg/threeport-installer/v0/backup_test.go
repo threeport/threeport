@@ -226,7 +226,7 @@ func TestTheBackupScheduleIsCreatedOnlyWithABucket(t *testing.T) {
 	assert.Equal(t,
 		"CREATE SCHEDULE IF NOT EXISTS threeport_api_backup FOR BACKUP DATABASE threeport_api "+
 			"INTO 'gs://threeport-prod-backups-acme-prod/threeport_api?AUTH=implicit' "+
-			"RECURRING '@hourly' FULL BACKUP '@daily' WITH SCHEDULE OPTIONS first_run = 'now';\n",
+			"RECURRING '@hourly' FULL BACKUP '@daily' WITH SCHEDULE OPTIONS first_run = 'now', ignore_existing_backups;\n",
 		withBucket[DbBackupScheduleFilename],
 	)
 
@@ -312,6 +312,8 @@ func TestTheMigratorCanBackUp(t *testing.T) {
 		switch volume["name"] {
 		case dbMigratorCertsVolumeName:
 			certSources, _, _ = unstructured.NestedSlice(volume, "projected", "sources")
+			mode, _, _ := unstructured.NestedInt64(volume, "projected", "defaultMode")
+			assert.Equal(t, int64(dbClientKeyFileMode), mode)
 		case DbBackupConfigName:
 			backupOptional, _, _ = unstructured.NestedBool(volume, "configMap", "optional")
 		}
@@ -358,5 +360,5 @@ func TestAReinstallRecreatesTheBackupSchedule(t *testing.T) {
 
 	require.NoError(t, cpi.UpdateThreeportAPIDeployment(normalizingClient{kubeClient}, &mapper, nil))
 	data := getObject(t, kubeClient, configMapGVR, "db-create").Object["data"].(map[string]interface{})
-	assert.Equal(t, DatabaseBackupScheduleSQL(DatabaseBackupURI(cpi.Opts.GcpBackupBucket)), data[DbBackupScheduleFilename])
+	assert.Equal(t, DatabaseBackupScheduleSQL(DatabaseBackupURI(cpi.Opts.GcpBackupBucket, cpi.Opts.Namespace)), data[DbBackupScheduleFilename])
 }

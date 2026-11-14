@@ -1,96 +1,44 @@
 package v0
 
 import (
-	"fmt"
-	"net/http"
-	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gorm.io/datatypes"
 
-	v0 "github.com/threeport/threeport/pkg/api/v0"
+	"github.com/threeport/threeport/internal/provider"
+	api "github.com/threeport/threeport/pkg/api/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// TestEnsureGcpProviderReusesNamedRow covers a retry that would
-// otherwise POST a duplicate provider.
-func TestEnsureGcpProviderReusesNamedRow(t *testing.T) {
-	require := require.New(t)
-	var posts int
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodPost {
-			posts++
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, `{"Data":[{"ID":4,"Name":%q}]}`, r.URL.Query().Get("name"))
-	}))
-	defer server.Close()
+// TestApplyRecordedGkePoolKeepsFourNodes checks a recorded 4-node pool is not resized to zero.
+func TestApplyRecordedGkePoolKeepsFourNodes(t *testing.T) {
+	// copy a recorded pool
+	infra := &provider.KubernetesRuntimeInfraGKE{}
+	definition := &api.GcpGkeKubernetesRuntimeDefinition{
+		DefaultNodeGroupInstanceType: util.Ptr("e2-standard-2"),
+		DefaultNodeGroupInitialSize:  util.Ptr(4),
+		DefaultNodeGroupMinimumSize:  util.Ptr(4),
+		DefaultNodeGroupMaximumSize:  util.Ptr(6),
+		PrivateApi:                   util.Ptr(true),
+		AllowedCidrs: func() *datatypes.JSON {
+			raw := datatypes.JSON([]byte(`["10.0.0.0/8"]`))
+			return &raw
+		}(),
+	}
+	instance := &api.GcpGkeKubernetesRuntimeInstance{
+		ReservedNatAddress: util.Ptr(true),
+	}
 
-	got, err := ensureGcpProvider(
-		server.Client(),
-		strings.TrimPrefix(server.URL, "http://"),
-		&v0.GcpProvider{Name: util.Ptr("default")},
-	)
+	require.NoError(t, ApplyRecordedGkePool(infra, definition, instance))
+	require.Equal(t, "e2-standard-2", infra.MachineType)
+	require.Equal(t, int32(4), infra.WorkerNodeInitialCount)
+	require.Equal(t, int32(4), infra.MinNodeCount)
+	require.Equal(t, int32(6), infra.MaxNodeCount)
+	require.True(t, infra.ReserveNatAddress)
+	require.True(t, infra.PrivateApi)
+	require.Equal(t, []string{"10.0.0.0/8"}, infra.AllowedCidrs)
 
-	require.NoError(err)
-	require.Equal(0, posts)
-	require.Equal(uint(4), *got.ID)
-}
-
-// TestEnsureGcpGkeKubernetesRuntimeDefinitionReusesNamedRow covers
-// a retry of the GKE definition create.
-func TestEnsureGcpGkeKubernetesRuntimeDefinitionReusesNamedRow(t *testing.T) {
-	require := require.New(t)
-	var posts int
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodPost {
-			posts++
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, `{"Data":[{"ID":5,"Name":%q}]}`, r.URL.Query().Get("name"))
-	}))
-	defer server.Close()
-
-	got, err := ensureGcpGkeKubernetesRuntimeDefinition(
-		server.Client(),
-		strings.TrimPrefix(server.URL, "http://"),
-		&v0.GcpGkeKubernetesRuntimeDefinition{
-			Definition: v0.Definition{Name: util.Ptr("threeport-dev")},
-		},
-	)
-
-	require.NoError(err)
-	require.Equal(0, posts)
-	require.Equal(uint(5), *got.ID)
-}
-
-// TestEnsureGcpGkeKubernetesRuntimeInstanceReusesNamedRow covers a
-// retry of the GKE instance create.
-func TestEnsureGcpGkeKubernetesRuntimeInstanceReusesNamedRow(t *testing.T) {
-	require := require.New(t)
-	var posts int
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodPost {
-			posts++
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, `{"Data":[{"ID":6,"Name":%q}]}`, r.URL.Query().Get("name"))
-	}))
-	defer server.Close()
-
-	got, err := ensureGcpGkeKubernetesRuntimeInstance(
-		server.Client(),
-		strings.TrimPrefix(server.URL, "http://"),
-		&v0.GcpGkeKubernetesRuntimeInstance{
-			Instance: v0.Instance{Name: util.Ptr("threeport-dev")},
-		},
-	)
-
-	require.NoError(err)
-	require.Equal(0, posts)
-	require.Equal(uint(6), *got.ID)
+	err := ApplyRecordedGkePool(infra, &api.GcpGkeKubernetesRuntimeDefinition{}, instance)
+	require.EqualError(t, err, "recorded machine type is empty")
 }

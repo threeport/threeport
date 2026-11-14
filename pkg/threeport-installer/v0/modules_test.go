@@ -353,6 +353,48 @@ func TestScaleDownModulesSkipsDeploymentsAlreadyStopped(t *testing.T) {
 	}
 }
 
+// TestScaleDownModuleWritersStopsTheApiServer covers the API server, which
+// ScaleDownModules leaves running because it is not a controller.
+func TestScaleDownModuleWritersStopsTheApiServer(t *testing.T) {
+	// seed a controller and the API server named by the module endpoint
+	namespace := "example-namespace"
+	controller := testControllerDeployment("threeport-example-controller", namespace, 1)
+	apiServer := testModuleDeployment("example-api-server", namespace, 1)
+	unstructured.SetNestedStringMap(controller.Object, map[string]string{
+		"app.kubernetes.io/name": "threeport-example-controller",
+	}, "spec", "selector", "matchLabels")
+	unstructured.SetNestedStringMap(apiServer.Object, map[string]string{
+		"app.kubernetes.io/name": "example-api-server",
+	}, "spec", "selector", "matchLabels")
+	kubeClient := testKubeClient(controller, apiServer)
+	var patched []string
+	recordDeploymentScaling(kubeClient, &patched)
+	cpi := &ControlPlaneInstaller{Opts: Options{Namespace: "threeport-control-plane"}}
+
+	// scale both writers
+	scales, err := cpi.ScaleDownModuleWriters(kubeClient, []ModuleDeploymentScale{
+		{Namespace: namespace, Name: "threeport-example-controller"},
+	}, []ModuleApiServer{
+		{Namespace: namespace, Service: "example-api-server"},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// check that the returned counts are the replicas stopped, not zero
+	if len(scales) != 2 || scales[0].Replicas != 1 || scales[1].Name != "example-api-server" || scales[1].Replicas != 1 {
+		t.Errorf("expected both writers recorded at 1 replica, got %v", scales)
+	}
+
+	// check that both deployments are scaled to zero
+	if !containsString(patched, "example-namespace/threeport-example-controller=0") {
+		t.Errorf("expected the controller to be scaled down, got %v", patched)
+	}
+	if !containsString(patched, "example-namespace/example-api-server=0") {
+		t.Errorf("expected the API server to be scaled down, got %v", patched)
+	}
+}
+
 // TestScaleDownModulesLeavesOtherWorkloadsRunning covers a registered name
 // that points at a workload other than a module controller.
 func TestScaleDownModulesLeavesOtherWorkloadsRunning(t *testing.T) {

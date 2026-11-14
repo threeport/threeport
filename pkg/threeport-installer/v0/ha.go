@@ -24,7 +24,14 @@ func (cpi *ControlPlaneInstaller) componentReplicas(configured int) int64 {
 	if configured > 0 {
 		return int64(configured)
 	}
-	if cpi.Opts.Tier == ControlPlaneTier(ControlPlaneTierProd) {
+
+	return ComponentReplicas(string(cpi.Opts.Tier))
+}
+
+// ComponentReplicas returns the API server and controller replica count for a tier.
+func ComponentReplicas(tier string) int64 {
+	// production keeps a second replica serving
+	if tier == ControlPlaneTierProd {
 		return productionComponentReplicas
 	}
 
@@ -118,6 +125,29 @@ func (cpi *ControlPlaneInstaller) applyComponentDisruptionBudget(
 
 	if err := kube.DeleteResource(budget, kubeClient, *mapper); err != nil {
 		return fmt.Errorf("failed to remove pod disruption budget for %s: %w", deployName, err)
+	}
+
+	return nil
+}
+
+// applyInstallPlacement labels a workload with its install.
+func applyInstallPlacement(resource *unstructured.Unstructured, namespace string) error {
+	kind := resource.GetKind()
+	if kind != "Deployment" && kind != "StatefulSet" {
+		return nil
+	}
+
+	// label the pod with this install
+	labels, _, err := unstructured.NestedStringMap(resource.Object, "spec", "template", "metadata", "labels")
+	if err != nil {
+		return fmt.Errorf("failed to read pod labels: %w", err)
+	}
+	if labels == nil {
+		labels = map[string]string{}
+	}
+	labels[LabelInstall] = namespace
+	if err := unstructured.SetNestedStringMap(resource.Object, labels, "spec", "template", "metadata", "labels"); err != nil {
+		return fmt.Errorf("failed to set pod labels: %w", err)
 	}
 
 	return nil

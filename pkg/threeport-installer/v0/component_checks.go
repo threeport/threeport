@@ -258,6 +258,7 @@ func (cpi *ControlPlaneInstaller) agentCurrent(
 func SupportServicesOperatorInstalled(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
+	namespace string,
 ) (bool, error) {
 	_, present, err := resourceInstalled(
 		kubeClient,
@@ -265,7 +266,7 @@ func SupportServicesOperatorInstalled(
 		"apps",
 		"v1",
 		"Deployment",
-		ControlPlaneNamespace,
+		namespace,
 		SupportServicesOperatorDeployName,
 	)
 	if err != nil {
