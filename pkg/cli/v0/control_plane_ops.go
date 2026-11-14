@@ -460,7 +460,7 @@ func runBlueGreen(
 	if err := api.ChildControlPlaneRequest(self); err != nil {
 		return fmt.Errorf("control plane %s: %w", util.DerefString(self.Name), err)
 	}
-	if sourceName != "" && sourceName != util.DerefString(self.Name) {
+	if rejectChild && sourceName != "" && sourceName != util.DerefString(self.Name) {
 		return delegateBlueGreen(local, currentClient, currentEndpoint, sourceName, newName, childTag)
 	}
 
