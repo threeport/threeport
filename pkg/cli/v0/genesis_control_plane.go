@@ -421,6 +421,8 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			c.GKEProviderConfig = GKEProviderConfig{
 				GcpProjectId: cpi.Opts.GcpProjectId,
 				GcpRegion:    cpi.Opts.GcpRegion,
+				PrivateApi:   privateApiField(cpi.Opts.PrivateK8sApi),
+				AllowedCidrs: cpi.Opts.K8sApiAllowedCidrs,
 			}
 		}); err != nil {
 			return fmt.Errorf("failed to update threeport config: %w", err)

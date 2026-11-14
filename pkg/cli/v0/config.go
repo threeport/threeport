@@ -140,6 +140,12 @@ type GKEProviderConfig struct {
 	// The bucket a production control plane's database is backed up to.
 	BackupBucket string
 
+	// PrivateApi keeps a private GKE endpoint on an infrastructure upgrade.
+	PrivateApi *bool
+
+	// AllowedCidrs are the networks allowed to reach that endpoint.
+	AllowedCidrs []string
+
 	// ServiceAccountCleanupPending is set when teardown destroyed the cluster
 	// but could not remove the GCP service account created for it. The next
 	// teardown retries that removal.

@@ -264,13 +264,19 @@ func GkeInfraForUpgrade(controlPlane *ControlPlane) (*provider.KubernetesRuntime
 		return nil, fmt.Errorf("control plane %s is not a GKE control plane", controlPlane.Name)
 	}
 
-	// copy the recorded project and region
+	// copy the recorded project, region, and endpoint access
+	privateAPI := false
+	if controlPlane.GKEProviderConfig.PrivateApi != nil {
+		privateAPI = *controlPlane.GKEProviderConfig.PrivateApi
+	}
 	infra := &provider.KubernetesRuntimeInfraGKE{
 		PulumiWorkspace: provider.PulumiWorkspace{
 			RuntimeInstanceName: gkeClusterName(controlPlane),
 		},
-		ProjectID: controlPlane.GKEProviderConfig.GcpProjectId,
-		Region:    controlPlane.GKEProviderConfig.GcpRegion,
+		ProjectID:    controlPlane.GKEProviderConfig.GcpProjectId,
+		Region:       controlPlane.GKEProviderConfig.GcpRegion,
+		PrivateApi:   privateAPI,
+		AllowedCidrs: controlPlane.GKEProviderConfig.AllowedCidrs,
 	}
 
 	// read project and region from the stack when the config omits either
