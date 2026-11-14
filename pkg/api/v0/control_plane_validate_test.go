@@ -498,9 +498,8 @@ func TestControlPlaneFleetMatrix(t *testing.T) {
 	grandchildName := "fleet-grandchild-from-parent"
 	require.NoError(t, parentCaller.Model(grandchild).Updates(&ControlPlaneInstance{Instance: Instance{Name: &grandchildName}}).Error)
 
-	// the same caller still cannot rename a stored parent row
-	err = parentCaller.Model(parentOfChild).Updates(&ControlPlaneInstance{Instance: Instance{Name: &parentName}}).Error
-	require.ErrorContains(t, err, "does not serve")
+	// the parent caller retargets the child row this API stores
+	require.NoError(t, parentCaller.Model(parentOfChild).Updates(&ControlPlaneInstance{Instance: Instance{Name: &parentName}}).Error)
 }
 
 // controlPlaneRow inserts a control plane with the parent and self flags under test.

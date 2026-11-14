@@ -368,7 +368,7 @@ func (c *ControlPlaneInstance) beforeUpdate(tx *gorm.DB) error {
 	// the parent may change the image, the controller list, the pool and the restored identity
 	callerIsParent := parentCaller(tx)
 	allowLifecycle := owned && (!self || callerIsParent)
-	field, err := changedForeignField(tx, stored, allowLifecycle, self && callerIsParent)
+	field, err := changedForeignField(tx, stored, allowLifecycle, callerIsParent)
 	if err != nil {
 		return err
 	}
