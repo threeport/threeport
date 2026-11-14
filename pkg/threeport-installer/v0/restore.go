@@ -372,6 +372,66 @@ func (cpi *ControlPlaneInstaller) restoreDatabaseLocked(
 	return backupErr
 }
 
+// holdReplicasForRestore creates a deployment at zero replicas when this install
+// restores a database, and records the real count for the scale-up.
+func (cpi *ControlPlaneInstaller) holdReplicasForRestore(
+	resource *unstructured.Unstructured,
+	kubeClient dynamic.Interface,
+) error {
+	// leave a normal install, and a persistent deployment, at its replica count
+	if cpi.Opts.FromNamespace == "" || resource.GetKind() != "Deployment" || isPersistent(resource) {
+		return nil
+	}
+
+	// leave the deployment alone once this source has been restored
+	recorded, err := cpi.restoreRecorded(kubeClient)
+	if err != nil {
+		return err
+	}
+	if recorded {
+		return nil
+	}
+
+	// record the replica count the manifest would have used
+	replicas, err := manifestReplicas(resource)
+	if err != nil {
+		return err
+	}
+	annotations := resource.GetAnnotations()
+	if annotations == nil {
+		annotations = map[string]string{}
+	}
+	if annotations[replicasBeforeRestoreAnnotation] == "" {
+		annotations[replicasBeforeRestoreAnnotation] = strconv.FormatInt(replicas, 10)
+		resource.SetAnnotations(annotations)
+	}
+
+	// create the deployment with no pods
+	return unstructured.SetNestedField(resource.Object, int64(0), "spec", "replicas")
+}
+
+// manifestReplicas reads spec.replicas. An omitted count is one replica.
+func manifestReplicas(resource *unstructured.Unstructured) (int64, error) {
+	// read the count the manifest set
+	value, found, err := unstructured.NestedFieldNoCopy(resource.Object, "spec", "replicas")
+	if err != nil {
+		return 0, err
+	}
+	if !found {
+		return 1, nil
+	}
+	switch n := value.(type) {
+	case int:
+		return int64(n), nil
+	case int64:
+		return n, nil
+	case float64:
+		return int64(n), nil
+	default:
+		return 0, fmt.Errorf("failed to read the replica count for %s", resource.GetName())
+	}
+}
+
 // recordReplicasBeforeRestore returns the replica count each control plane
 // Deployment a restore scales down should come back to, and records it on the
 // Deployment.  A count already recorded by an earlier restore that left the

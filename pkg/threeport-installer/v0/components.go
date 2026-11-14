@@ -809,6 +809,11 @@ func (cpi *ControlPlaneInstaller) CreateOrUpdateKubeResource(
 		return fmt.Errorf("failed to set install placement for %s: %w", resource.GetName(), err)
 	}
 
+	// a restore install creates deployments with no pods
+	if err := cpi.holdReplicasForRestore(resource, kubeClient); err != nil {
+		return err
+	}
+
 	// do not write a persistent resource that already exists
 	if isPersistent(resource) {
 		group, version := splitAPIVersion(resource.GetAPIVersion())

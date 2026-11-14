@@ -706,3 +706,67 @@ func TestTheLockIsReleasedEitherWay(t *testing.T) {
 	require.Error(t, restore(failed))
 	assert.False(t, failed.lockHeld())
 }
+
+// TestHoldReplicasForRestore covers a restore install creating a deployment
+// with no pods, and recording the count the manifest asked for.
+func TestHoldReplicasForRestore(t *testing.T) {
+	// hold a deployment that a restore install would create
+	deployment := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "apps/v1",
+		"kind":       "Deployment",
+		"metadata":   map[string]interface{}{"name": "threeport-api"},
+		"spec":       map[string]interface{}{"replicas": 3},
+	}}
+	cpi := &ControlPlaneInstaller{Opts: Options{
+		Namespace:     "genesis-07",
+		FromNamespace: "genesis-06",
+	}}
+	client := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
+	require.NoError(t, cpi.holdReplicasForRestore(deployment, client))
+	replicas, _, err := unstructured.NestedInt64(deployment.Object, "spec", "replicas")
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), replicas)
+	assert.Equal(t, "3", deployment.GetAnnotations()[replicasBeforeRestoreAnnotation])
+
+	// leave a normal install and a persistent deployment at their replica count
+	plain := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "apps/v1",
+		"kind":       "Deployment",
+		"metadata":   map[string]interface{}{"name": "threeport-api"},
+		"spec":       map[string]interface{}{"replicas": 3},
+	}}
+	normal := &ControlPlaneInstaller{Opts: Options{Namespace: "genesis-07"}}
+	require.NoError(t, normal.holdReplicasForRestore(plain, client))
+	kept, _, err := unstructured.NestedFieldNoCopy(plain.Object, "spec", "replicas")
+	require.NoError(t, err)
+	assert.Equal(t, 3, kept)
+	assert.Empty(t, plain.GetAnnotations()[replicasBeforeRestoreAnnotation])
+
+	persistent := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "apps/v1",
+		"kind":       "Deployment",
+		"metadata": map[string]interface{}{
+			"name":   "cockroachdb",
+			"labels": map[string]interface{}{LabelPersistent: LabelPersistentValue},
+		},
+		"spec": map[string]interface{}{"replicas": 3},
+	}}
+	require.NoError(t, cpi.holdReplicasForRestore(persistent, client))
+	kept, _, err = unstructured.NestedFieldNoCopy(persistent.Object, "spec", "replicas")
+	require.NoError(t, err)
+	assert.Equal(t, 3, kept)
+
+	// leave the deployment alone once this source has been restored
+	require.NoError(t, cpi.recordRestore(client))
+	recorded := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "apps/v1",
+		"kind":       "Deployment",
+		"metadata":   map[string]interface{}{"name": "threeport-api"},
+		"spec":       map[string]interface{}{"replicas": 3},
+	}}
+	require.NoError(t, cpi.holdReplicasForRestore(recorded, client))
+	kept, _, err = unstructured.NestedFieldNoCopy(recorded.Object, "spec", "replicas")
+	require.NoError(t, err)
+	assert.Equal(t, 3, kept)
+	assert.Empty(t, recorded.GetAnnotations()[replicasBeforeRestoreAnnotation])
+}
