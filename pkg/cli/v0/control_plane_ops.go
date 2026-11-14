@@ -809,6 +809,8 @@ func removeReplacedNamespace(
 	if namespace == "" || namespace == newNamespace || installer.KeepSourceNamespace(namespace) {
 		return nil
 	}
+	// delete the replaced control plane namespace
+	fmt.Printf("Info: deleting source namespace %s\n", namespace)
 	if err := installer.DeleteNamespaces(kube, mapper, []string{namespace}); err != nil {
 		return fmt.Errorf("failed to delete source namespace %s: %w", namespace, err)
 	}
