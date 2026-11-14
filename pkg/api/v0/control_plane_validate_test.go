@@ -500,6 +500,17 @@ func TestControlPlaneFleetMatrix(t *testing.T) {
 
 	// the parent caller retargets the child row this API stores
 	require.NoError(t, parentCaller.Model(parentOfChild).Updates(&ControlPlaneInstance{Instance: Instance{Name: &parentName}}).Error)
+
+	// a controller certificate carries the API namespace and still clears the request
+	from := "primary-06"
+	require.NoError(t, parentCaller.Model(child).Updates(&ControlPlaneInstance{FromNamespace: &from}).Error)
+	controller := db.WithContext(lib.WithCaller(context.Background(), lib.CallerIdentity{
+		CommonName:         "control-plane-controller",
+		OrganizationalUnit: auth.OUControlPlane,
+		Organization:       "threeport-api",
+	}))
+	cleared := ""
+	require.NoError(t, controller.Model(child).Updates(&ControlPlaneInstance{FromNamespace: &cleared}).Error)
 }
 
 // controlPlaneRow inserts a control plane with the parent and self flags under test.

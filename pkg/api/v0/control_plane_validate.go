@@ -456,11 +456,12 @@ func parentCaller(tx *gorm.DB) bool {
 		return false
 	}
 
-	// accept the owner certificate or a control plane certificate with no organization
+	// accept the owner certificate or a control plane controller certificate
 	if caller.CommonName == "threeport-owner" {
 		return true
 	}
-	return caller.OrganizationalUnit == auth.OUControlPlane && caller.Organization == ""
+	// the installer puts the API namespace in the certificate organization
+	return caller.OrganizationalUnit == auth.OUControlPlane
 }
 
 // reconciliationColumn reports whether the column belongs to Reconciliation.
