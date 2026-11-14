@@ -26,6 +26,7 @@ import (
 	"k8s.io/client-go/dynamic"
 
 	"github.com/threeport/threeport/pkg/api-server/v0/database"
+	api "github.com/threeport/threeport/pkg/api/v0"
 	auth "github.com/threeport/threeport/pkg/auth/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
@@ -1718,8 +1719,13 @@ func (cpi *ControlPlaneInstaller) retargetRestoredSelf(apiClient *http.Client, e
 	// read the self row the backup restored
 	self, err := client.GetSelfControlPlaneInstance(apiClient, endpoint)
 	if err != nil {
+		self, err = cpi.restoredSourceInstance(apiClient, endpoint)
+	}
+	if err != nil {
 		return fmt.Errorf("failed to get restored self control plane: %w", err)
 	}
+	isSelf := true
+	self.IsSelf = &isSelf
 
 	// write the replacement identity and the image the replacement is running
 	name := cpi.Opts.Name
@@ -1739,6 +1745,42 @@ func (cpi *ControlPlaneInstaller) retargetRestoredSelf(apiClient *http.Client, e
 	}
 
 	return nil
+}
+
+// restoredSourceInstance returns the backup's own control plane when no row is marked self.
+func (cpi *ControlPlaneInstaller) restoredSourceInstance(apiClient *http.Client, endpoint string) (*api.ControlPlaneInstance, error) {
+	// list the rows the restore copied
+	instances, err := client.GetControlPlaneInstances(apiClient, endpoint)
+	if err != nil {
+		return nil, err
+	}
+	if instances == nil {
+		return nil, fmt.Errorf("no local control plane instance")
+	}
+	return matchRestoredSource(*instances, cpi.Opts.FromNamespace, cpi.Opts.SourceName)
+}
+
+// matchRestoredSource picks the source row by its namespace, then by its name.
+func matchRestoredSource(instances []api.ControlPlaneInstance, fromNamespace, sourceName string) (*api.ControlPlaneInstance, error) {
+	// the backup still records the namespace it was taken from
+	for i := range instances {
+		if fromNamespace != "" && util.DerefString(instances[i].Namespace) == fromNamespace {
+			return &instances[i], nil
+		}
+	}
+
+	// a renamed source keeps its old name in the backup
+	for _, name := range []string{sourceName, fromNamespace} {
+		if name == "" {
+			continue
+		}
+		for i := range instances {
+			if util.DerefString(instances[i].Name) == name {
+				return &instances[i], nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("no local control plane instance")
 }
 
 // scaleDeploymentsToZero sets each named deployment to zero replicas.

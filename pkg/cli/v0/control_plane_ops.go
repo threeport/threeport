@@ -612,6 +612,7 @@ func runBlueGreen(
 	)
 	created.Opts.ControlPlaneName = newName
 	created.Opts.FromNamespace = namespace
+	created.Opts.SourceName = util.DerefString(source.Instance.Name)
 	created.Opts.ControlPlaneOnly = true
 	created.Opts.InfraProvider = providerName
 	created.Opts.AuthEnabled = definition.AuthEnabled == nil || *definition.AuthEnabled

@@ -18,6 +18,9 @@ type Options struct {
 	// The namespace to copy the CA and encryption key from and to schedule away from
 	FromNamespace string
 
+	// The control plane name stored in the backup
+	SourceName string
+
 	// Whether this install restores a database and creates deployments with no pods
 	HoldReplicasForRestore bool
 
