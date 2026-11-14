@@ -312,6 +312,8 @@ func TestTheMigratorCanBackUp(t *testing.T) {
 		switch volume["name"] {
 		case dbMigratorCertsVolumeName:
 			certSources, _, _ = unstructured.NestedSlice(volume, "projected", "sources")
+			mode, _, _ := unstructured.NestedInt64(volume, "projected", "defaultMode")
+			assert.Equal(t, int64(dbClientKeyFileMode), mode)
 		case DbBackupConfigName:
 			backupOptional, _, _ = unstructured.NestedBool(volume, "configMap", "optional")
 		}

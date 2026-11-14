@@ -167,6 +167,9 @@ func (cpi *ControlPlaneInstaller) InstallDatabaseBackupConfig(
 // client certificates.
 const dbMigratorCertsPath = "/etc/threeport/db-certs"
 
+// dbClientKeyFileMode is the mode lib/pq accepts on a root-owned key.
+const dbClientKeyFileMode = 0640
+
 // dbMigratorCertsVolume is the database migrator's client certificates: the
 // threeport user's, which it connects as, and root's, which it backs the
 // database up as before migrating, since only an admin may back up to cloud
@@ -175,6 +178,7 @@ func dbMigratorCertsVolume() map[string]interface{} {
 	return map[string]interface{}{
 		"name": dbMigratorCertsVolumeName,
 		"projected": map[string]interface{}{
+			"defaultMode": int64(dbClientKeyFileMode),
 			"sources": []interface{}{
 				map[string]interface{}{
 					"secret": map[string]interface{}{"name": dbThreeportCertSecretName},
