@@ -20,6 +20,32 @@ func TestParentChainReaches(t *testing.T) {
 	}
 }
 
+// TestReparentDetachedSkipsAncestors leaves a parent and a genesis copy alone.
+func TestReparentDetachedSkipsAncestors(t *testing.T) {
+	// a detached child points at self, and the reference rows do not
+	self := uint(2)
+	parent := uint(8)
+	genesis := uint(1)
+	primary := uint(5)
+	missing := uint(9)
+	genesisRow := true
+	byID := map[uint]api.ControlPlaneInstance{
+		self:    {ID: &self, ParentControlPlaneInstanceID: &parent},
+		parent:  {ID: &parent},
+		genesis: {ID: &genesis, Genesis: &genesisRow},
+		primary: {ID: &primary, ParentControlPlaneInstanceID: &missing},
+	}
+	if reparentDetached(byID, self, byID[parent]) {
+		t.Fatal("managing parent was treated as a child")
+	}
+	if reparentDetached(byID, self, byID[genesis]) {
+		t.Fatal("genesis reference was treated as a child")
+	}
+	if !reparentDetached(byID, self, byID[primary]) {
+		t.Fatal("detached child was left off self")
+	}
+}
+
 // rows builds the id map parentChainReaches walks.
 func rows(self uint, selfParent *uint, primary uint, primaryParent *uint) map[uint]api.ControlPlaneInstance {
 	// map each id to its parent

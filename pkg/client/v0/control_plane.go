@@ -36,8 +36,8 @@ func GetSelfControlPlaneInstance(apiClient *http.Client, apiAddr string) (*v0.Co
 	return &(*controlPlaneInstances)[0], nil
 }
 
-// ReparentDetachedControlPlanes points each control plane whose parent chain
-// does not reach self at that self row.
+// ReparentDetachedControlPlanes points a detached child at self.
+// A parent of self and a copied genesis row stay as they are.
 func ReparentDetachedControlPlanes(apiClient *http.Client, apiAddr string, self *v0.ControlPlaneInstance) error {
 	// read every control plane in the restored database
 	if self == nil || self.ID == nil {
@@ -48,7 +48,7 @@ func ReparentDetachedControlPlanes(apiClient *http.Client, apiAddr string, self 
 		return fmt.Errorf("failed to get control plane instances: %w", err)
 	}
 
-	// point a row at self when its parents do not reach self
+	// point a detached child at self
 	byID := map[uint]v0.ControlPlaneInstance{}
 	for _, instance := range *instances {
 		if instance.ID != nil {
@@ -57,7 +57,7 @@ func ReparentDetachedControlPlanes(apiClient *http.Client, apiAddr string, self 
 	}
 	var updateErrors []error
 	for _, instance := range *instances {
-		if instance.ID == nil || *instance.ID == *self.ID || parentChainReaches(byID, *instance.ID, *self.ID) {
+		if !reparentDetached(byID, *self.ID, instance) {
 			continue
 		}
 		name := ""
@@ -70,6 +70,23 @@ func ReparentDetachedControlPlanes(apiClient *http.Client, apiAddr string, self 
 		}
 	}
 	return errors.Join(updateErrors...)
+}
+
+// reparentDetached reports whether a row should point at self.
+func reparentDetached(byID map[uint]v0.ControlPlaneInstance, selfID uint, instance v0.ControlPlaneInstance) bool {
+	// leave a row that already reaches self
+	if instance.ID == nil || *instance.ID == selfID || parentChainReaches(byID, *instance.ID, selfID) {
+		return false
+	}
+
+	// leave a parent of self and the copied genesis row
+	if parentChainReaches(byID, selfID, *instance.ID) {
+		return false
+	}
+	if instance.Genesis != nil && *instance.Genesis {
+		return false
+	}
+	return true
 }
 
 // parentChainReaches reports whether start's parent chain reaches ancestor.
