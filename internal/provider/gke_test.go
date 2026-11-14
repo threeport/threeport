@@ -174,6 +174,7 @@ func TestGKEPulumiProgramStandardPool(t *testing.T) {
 		Region:                 "us-central1",
 		WorkerNodeInitialCount: 1,
 		MachineType:            "e2-medium",
+		Tier:                   v0.ControlPlaneTierProduction,
 	}
 	mocks := &gkeRecordingMocks{}
 	if err := pulumi.RunErr(infra.pulumiProgram(), pulumi.WithMocks("gke", "test-stack", mocks)); err != nil {
