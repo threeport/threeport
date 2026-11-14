@@ -1839,7 +1839,7 @@ func prepareInstanceInstaller(
 	cpi.Opts.InfraProvider = *kubernetesRuntimeDefinition.InfraProvider
 	if controlPlaneInstance.FromNamespace != nil {
 		cpi.Opts.FromNamespace = *controlPlaneInstance.FromNamespace
-		if *controlPlaneInstance.FromNamespace != *controlPlaneInstance.Namespace {
+		if *controlPlaneInstance.FromNamespace != "" && *controlPlaneInstance.FromNamespace != *controlPlaneInstance.Namespace {
 			cpi.Opts.HoldReplicasForRestore = true
 		}
 	}
