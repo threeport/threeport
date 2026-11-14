@@ -17,7 +17,7 @@ import (
 func TestChildBlueGreenUpdateStoresTheNewName(t *testing.T) {
 	// the new name is the deployment namespace, and the tag is this tptctl version
 	id := uint(7)
-	update := childBlueGreenUpdate(&id, "restored", "child-ns", "v0.7.2")
+	update := childBlueGreenUpdate(&id, "restored", "child-ns", "v0.7.2", "")
 
 	require.Equal(t, &id, update.ID)
 	require.Equal(t, "restored", *update.Name)
@@ -25,6 +25,11 @@ func TestChildBlueGreenUpdateStoresTheNewName(t *testing.T) {
 	require.Equal(t, "child-ns", *update.FromNamespace)
 	require.Equal(t, "v0.7.2", *update.ImageTag)
 	require.Nil(t, update.ImageNamespace)
+
+	// a set namespace is the one the controller installs
+	tagged := childBlueGreenUpdate(&id, "restored", "child-ns", "built", "private.example/threeport")
+	require.Equal(t, "built", *tagged.ImageTag)
+	require.Equal(t, "private.example/threeport", *tagged.ImageNamespace)
 }
 
 // TestBlueGreenControlPlaneCopiesTheClientEntry covers the client entry recorded

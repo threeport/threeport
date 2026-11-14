@@ -20,8 +20,8 @@ var UpgradeBlueGreenCmd = &cobra.Command{
 	Long: `Back up the source control plane and create a new one that restores from it.
 
 The new control plane runs this tptctl version in a namespace of the same name.
-The source image namespace is kept.
-A --control-plane-name selects a child, and the control plane controller installs it.
+--image-namespace and --image-tag override that image. Omit them to keep the default.
+A --control-plane-name selects a child. The controller installs the image recorded on that child.
 The source stays stopped unless the new control plane fails to come up.`,
 	SilenceUsage: true,
 	PreRun:       blueGreenPreRun,
@@ -85,6 +85,8 @@ The source stays stopped unless the new control plane fails to come up.`,
 			sourceName,
 			blueGreenNewName,
 			childTag,
+			upgradeImageNamespace,
+			upgradeImageTag,
 		); err != nil {
 			cli.Error("failed to create control plane", err)
 			os.Exit(1)
@@ -111,4 +113,12 @@ func init() {
 		"new-control-plane-name", "", "Name of the new control plane",
 	)
 	UpgradeBlueGreenCmd.MarkFlagRequired("new-control-plane-name")
+	UpgradeBlueGreenCmd.Flags().StringVar(
+		&upgradeImageNamespace,
+		"image-namespace", "", "Image namespace of the new control plane. Empty keeps the source namespace.",
+	)
+	UpgradeBlueGreenCmd.Flags().StringVar(
+		&upgradeImageTag,
+		"image-tag", "", "Image tag of the new control plane. Empty uses this tptctl version, or the parent controller tag for a child.",
+	)
 }

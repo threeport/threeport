@@ -388,6 +388,8 @@ func UpgradeBlueGreen(
 	sourceName string,
 	newName string,
 	childTag string,
+	imageNamespace string,
+	imageTag string,
 ) error {
 	rejectChild, updateConfig := blueGreenOptions(true)
 	return runBlueGreen(
@@ -399,6 +401,8 @@ func UpgradeBlueGreen(
 		sourceName,
 		newName,
 		childTag,
+		imageNamespace,
+		imageTag,
 		rejectChild,
 		updateConfig,
 	)
@@ -426,6 +430,8 @@ func InstallBlueGreen(
 		util.DerefString(source.Instance.Name),
 		newName,
 		"",
+		"",
+		"",
 		rejectChild,
 		updateConfig,
 	)
@@ -448,6 +454,8 @@ func runBlueGreen(
 	sourceName string,
 	newName string,
 	childTag string,
+	imageNamespace string,
+	imageTag string,
 	rejectChild bool,
 	updateConfig bool,
 ) error {
@@ -460,7 +468,7 @@ func runBlueGreen(
 		return fmt.Errorf("control plane %s: %w", util.DerefString(self.Name), err)
 	}
 	if rejectChild && sourceName != "" && sourceName != util.DerefString(self.Name) {
-		return delegateBlueGreen(local, currentClient, currentEndpoint, sourceName, newName, childTag)
+		return delegateBlueGreen(local, currentClient, currentEndpoint, sourceName, newName, childTag, imageNamespace, imageTag)
 	}
 
 	// the connected control plane is the source
@@ -473,7 +481,7 @@ func runBlueGreen(
 	}
 	newNamespace := newName
 	if rejectChild && source.Instance.ParentControlPlaneInstanceID != nil {
-		return delegateBlueGreen(local, currentClient, currentEndpoint, sourceName, newName, childTag)
+		return delegateBlueGreen(local, currentClient, currentEndpoint, sourceName, newName, childTag, imageNamespace, imageTag)
 	}
 	namespace := util.DerefString(source.Instance.FromNamespace)
 	if namespace == "" {
@@ -625,10 +633,16 @@ func runBlueGreen(
 			created.Opts.ControllerList = selected
 		}
 	}
-	if imageNamespace := util.DerefString(source.Instance.ImageNamespace); imageNamespace != "" {
+	if imageNamespace != "" {
 		created.SetAllImageRepo(imageNamespace)
+	} else if storedNamespace := util.DerefString(source.Instance.ImageNamespace); storedNamespace != "" {
+		created.SetAllImageRepo(storedNamespace)
 	}
-	created.SetAllImageTags(version.GetVersion())
+	tag := version.GetVersion()
+	if imageTag != "" {
+		tag = imageTag
+	}
+	created.SetAllImageTags(tag)
 	var grant func() error
 	if providerName == api.KubernetesRuntimeInfraProviderGKE {
 		grant = func() error {
@@ -702,6 +716,8 @@ func delegateBlueGreen(
 	sourceName string,
 	newName string,
 	childTag string,
+	imageNamespace string,
+	imageTag string,
 ) error {
 	// load the child from the API this command is connected to
 	inst, err := client.GetControlPlaneInstanceByName(currentClient, currentEndpoint, sourceName)
@@ -749,13 +765,15 @@ func delegateBlueGreen(
 
 	// record the new name and this tptctl version, and leave the install to the controller
 	tag := childTag
-	if tag == "" {
+	if imageTag != "" {
+		tag = imageTag
+	} else if tag == "" {
 		tag = version.GetVersion()
 	}
 	if _, err := client.UpdateControlPlaneInstance(
 		currentClient,
 		currentEndpoint,
-		childBlueGreenUpdate(inst.ID, newName, namespace, tag),
+		childBlueGreenUpdate(inst.ID, newName, namespace, tag, imageNamespace),
 	); err != nil {
 		return fmt.Errorf("failed to record control plane %s: %w", newName, err)
 	}
@@ -764,15 +782,19 @@ func delegateBlueGreen(
 
 // childBlueGreenUpdate is the patch a child blue-green stores.
 // Name and Namespace are the new control plane, and FromNamespace is the one it replaces.
-func childBlueGreenUpdate(id *uint, newName, sourceNamespace, tag string) *api.ControlPlaneInstance {
-	// point the child row at the new control plane and this tptctl version
-	return &api.ControlPlaneInstance{
+func childBlueGreenUpdate(id *uint, newName, sourceNamespace, tag, imageNamespace string) *api.ControlPlaneInstance {
+	// point the child row at the new control plane and the image the controller installs
+	update := &api.ControlPlaneInstance{
 		Common:        api.Common{ID: id},
 		Instance:      api.Instance{Name: &newName},
 		Namespace:     &newName,
 		FromNamespace: &sourceNamespace,
 		ImageTag:      &tag,
 	}
+	if imageNamespace != "" {
+		update.ImageNamespace = &imageNamespace
+	}
+	return update
 }
 
 // removeReplacedNamespace deletes the namespace the restore came from.
