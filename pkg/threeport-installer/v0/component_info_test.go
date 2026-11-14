@@ -199,14 +199,13 @@ func TestConfigureChildComponents_Precedence(t *testing.T) {
 	assert.Equal(t, "parent-wide", componentByName(t, cpi, "oci-controller").ImageTag)
 }
 
-// TestConfigureChildComponents_InstanceImageOverridesRecordedComponents checks a set instance image wins over recorded component images.
-func TestConfigureChildComponents_InstanceImageOverridesRecordedComponents(t *testing.T) {
+// TestConfigureChildComponents_InstanceImageFillsComponentsWithoutARecord checks a set instance image fills components that have no record, and a record keeps its own image.
+func TestConfigureChildComponents_InstanceImageFillsComponentsWithoutARecord(t *testing.T) {
 	cpi := NewInstaller()
 	child := &v0.ControlPlaneInstance{
 		ImageNamespace: util.Ptr("flag-registry"),
 		ImageTag:       util.Ptr("flag-tag"),
 		CustomComponentInfo: []*v0.ControlPlaneComponent{
-			recorded("rest-api", "recorded-registry", "recorded-tag"),
 			recorded("agent", "recorded-registry", "recorded-tag"),
 		},
 	}
@@ -216,8 +215,8 @@ func TestConfigureChildComponents_InstanceImageOverridesRecordedComponents(t *te
 
 	assert.Equal(t, "flag-registry", cpi.Opts.RestApiInfo.ImageNamespace)
 	assert.Equal(t, "flag-tag", cpi.Opts.RestApiInfo.ImageTag)
-	assert.Equal(t, "flag-registry", cpi.Opts.AgentInfo.ImageNamespace)
-	assert.Equal(t, "flag-tag", cpi.Opts.AgentInfo.ImageTag)
+	assert.Equal(t, "recorded-registry", cpi.Opts.AgentInfo.ImageNamespace)
+	assert.Equal(t, "recorded-tag", cpi.Opts.AgentInfo.ImageTag)
 }
 
 func TestConfigureChildComponents_AppliesOverrides(t *testing.T) {

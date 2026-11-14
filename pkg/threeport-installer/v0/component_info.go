@@ -169,8 +169,8 @@ func ValidateComponentOverrides(overrides []*v0.ControlPlaneComponent) error {
 //  1. the compiled-in defaults the installer starts with;
 //  2. the images the parent control plane runs, as the parent recorded them
 //     for itself, and the parent's own instance-wide image;
-//  3. the component info the child supplies;
-//  4. the instance-wide image of the child, which overrides a recorded component image.
+//  3. the instance-wide image of the child;
+//  4. the component info the child supplies.
 //
 // Without 2 a child pulls ghcr.io images at the version this controller was
 // built from, whatever its parent runs: a development image, a private mirror
@@ -200,6 +200,7 @@ func (cpi *ControlPlaneInstaller) ConfigureChildComponents(
 		}
 		setInstanceImage(components, parent)
 	}
+	setInstanceImage(components, child)
 
 	for _, override := range child.CustomComponentInfo {
 		component, exists := components[override.Name]
@@ -227,9 +228,6 @@ func (cpi *ControlPlaneInstaller) ConfigureChildComponents(
 			component.Enabled = copyPtr(override.Enabled)
 		}
 	}
-
-	// apply the child's instance image over its component records
-	setInstanceImage(components, child)
 
 	return nil
 }
