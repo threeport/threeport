@@ -430,8 +430,8 @@ func InstallBlueGreen(
 		util.DerefString(source.Instance.Name),
 		newName,
 		"",
-		"",
-		"",
+		util.DerefString(source.Instance.ImageNamespace),
+		util.DerefString(source.Instance.ImageTag),
 		rejectChild,
 		updateConfig,
 	)
