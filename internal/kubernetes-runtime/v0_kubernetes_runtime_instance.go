@@ -235,16 +235,10 @@ func v0KubernetesRuntimeInstanceUpdated(
 	// control plane and uses the API's in-cluster service; this install leaves
 	// it as it is.
 	isControlPlaneHost := runtimeHostsControlPlane(kubernetesRuntimeInstance)
-	var agentAccess *computeSpaceAgentAccess
+	var issueAgentCertificate threeport.AgentCertificateIssuer
 	if !isControlPlaneHost {
-		agentAccess, err = loadComputeSpaceAgentAccess(
-			os.Getenv(threeport.ControllerConfigExternalApiEndpointKey),
-			threeport.SigningCaMountPath,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get what the agent needs to report to the control plane: %w", err)
-		}
-		if agentAccess == nil {
+		apiServer := os.Getenv(threeport.ControllerConfigExternalApiEndpointKey)
+		if apiServer == "" {
 			// nothing the agent could connect to, so none is installed
 			log.Info(
 				"control plane has no external API endpoint, skipping agent install on managed runtime",
@@ -252,11 +246,16 @@ func v0KubernetesRuntimeInstanceUpdated(
 			)
 			cpi.Opts.SkipAgent = true
 		} else {
-			cpi.Opts.AgentApiServer = agentAccess.apiServer
-			cpi.Opts.AuthEnabled = agentAccess.authConfig != nil
+			cpi.Opts.AgentApiServer = apiServer
+			cpi.Opts.AuthEnabled = apiAuthEnabled(r.APIClient)
 			// an agent already on the cluster has to be brought up to date, not
 			// left as it was installed
 			cpi.Opts.CreateOrUpdateKubeResources = true
+
+			// with auth on, the API issues the agent's certificate
+			if cpi.Opts.AuthEnabled {
+				issueAgentCertificate = agentCertificateIssuer(r, *kubernetesRuntimeInstance.Name)
+			}
 		}
 	}
 
@@ -302,8 +301,7 @@ func v0KubernetesRuntimeInstanceUpdated(
 		if err := cpi.InstallComputeSpaceControlPlaneComponents(
 			dynamicKubeClient,
 			mapper,
-			*kubernetesRuntimeInstance.Name,
-			agentAuthConfig(agentAccess),
+			issueAgentCertificate,
 		); err != nil {
 			return controller.RetryOnNetworkErr(err, "failed to insall compute space control plane components")
 		}
