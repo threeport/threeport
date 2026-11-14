@@ -31,10 +31,10 @@ type ebsVolumeApi interface {
 // attached to nothing, once the cluster is gone.
 //
 // Tearing down a control plane waits for the driver to delete the disks
-// behind its claims, but a teardown with --infra-only does not delete the
-// control plane at all, and a driver that has not finished when the cluster
-// goes takes the rest of the deletion with it. Either way the volume is left
-// unattached and billing.
+// behind its claims, but a teardown with --infra-only goes on when the control
+// plane cannot be deleted, and a driver that has not finished when the
+// cluster goes takes the rest of the deletion with it. Either way the volume
+// is left unattached and billing.
 //
 // Only a volume that matches all three is returned: tagged for this cluster,
 // created for a claim in namespace, and attached to nothing. A volume still

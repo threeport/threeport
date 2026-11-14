@@ -118,9 +118,7 @@ func TestUninstallReportsANamespaceThatIsNotDeleted(t *testing.T) {
 		return true, nil, nil
 	})
 
-	previousAttempts, previousPoll := namespaceDeleteAttempts, namespaceDeletePollSeconds
-	namespaceDeleteAttempts, namespaceDeletePollSeconds = 3, 0
-	t.Cleanup(func() { namespaceDeleteAttempts, namespaceDeletePollSeconds = previousAttempts, previousPoll })
+	fastNamespaceWait(t, 50*time.Millisecond)
 
 	mapper := testNamespaceMapper()
 	err := DeleteNamespaces(kubeClient, &mapper, []string{teardownTestNamespace})
@@ -170,7 +168,7 @@ func TestTheWaitEndsWhenTheApiServerStopsAnswering(t *testing.T) {
 // volumes to wait for, which runs before the wait: an API server that accepts
 // the request and never answers it would otherwise hang the teardown there.
 func TestTheListingEndsWhenTheApiServerStopsAnswering(t *testing.T) {
-	fastVolumeWait(t, 200*time.Millisecond)
+	fastKubeRequests(t)
 	release := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		select {
@@ -297,4 +295,134 @@ func TestRetainedVolumeHandlesAreTheDisksKeptAfterTheirClaims(t *testing.T) {
 	require.NoError(t, err)
 	assert.ElementsMatch(t, []string{"vol-kept", "vol-recycled", "vol-in-tree"}, handles,
 		"every volume the namespace's claims keep, by its disk's id, and none that goes with its claim or belongs to another namespace")
+}
+
+// TestDeletedVolumeHandlesAreTheDisksThatGoWithTheirClaims covers the disks a
+// teardown cleans up when the cluster is deleted before the driver deletes
+// them: exactly those of the namespace's claims that go with their claims.
+func TestDeletedVolumeHandlesAreTheDisksThatGoWithTheirClaims(t *testing.T) {
+	kubeClient := testKubeClient(
+		testCsiPersistentVolume("pvc-crdb", teardownTestNamespace, "Delete", "projects/p/zones/us-east1-b/disks/pvc-crdb"),
+		testCsiPersistentVolume("pvc-nats", teardownTestNamespace, "Delete", "projects/p/zones/us-east1-c/disks/pvc-nats"),
+		testCsiPersistentVolume("pvc-kept", teardownTestNamespace, "Retain", "projects/p/zones/us-east1-b/disks/pvc-kept"),
+		testCsiPersistentVolume("pvc-elsewhere", "someone-elses", "Delete", "projects/p/zones/us-east1-b/disks/pvc-elsewhere"),
+		testPersistentVolume("pvc-no-disk", teardownTestNamespace, "Delete"),
+	)
+
+	handles, err := DeletedVolumeHandles(context.Background(), kubeClient, teardownTestNamespace)
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{
+		"projects/p/zones/us-east1-b/disks/pvc-crdb",
+		"projects/p/zones/us-east1-c/disks/pvc-nats",
+	}, handles, "every volume that goes with the namespace's claims, by its disk's id, and none that is kept, belongs to another namespace or names no disk")
+}
+
+// fastNamespaceWait shortens the wait for namespaces to be deleted for the
+// length of a test.
+func fastNamespaceWait(t *testing.T, timeout time.Duration) {
+	t.Helper()
+	previousTimeout, previousInterval := namespaceDeleteTimeout, namespaceDeletePollInterval
+	namespaceDeleteTimeout, namespaceDeletePollInterval = timeout, 10*time.Millisecond
+	t.Cleanup(func() { namespaceDeleteTimeout, namespaceDeletePollInterval = previousTimeout, previousInterval })
+}
+
+// fastKubeRequests shortens the deadline of each teardown request for the
+// length of a test.
+func fastKubeRequests(t *testing.T) {
+	t.Helper()
+	previous := kubeRequestTimeout
+	kubeRequestTimeout = 100 * time.Millisecond
+	t.Cleanup(func() { kubeRequestTimeout = previous })
+}
+
+// TestTheUninstallEndsWhenTheApiServerStopsAnswering covers an API server
+// that accepts each of the uninstall's requests and never answers it, through
+// a client with no timeout of its own, as the one a normal teardown makes:
+// every request has to be bounded, or the teardown hangs.
+func TestTheUninstallEndsWhenTheApiServerStopsAnswering(t *testing.T) {
+	fastKubeRequests(t)
+	release := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-release:
+		case <-r.Context().Done():
+		}
+	}))
+	t.Cleanup(func() { close(release); server.Close() })
+	kubeClient, err := dynamic.NewForConfig(&rest.Config{Host: server.URL})
+	require.NoError(t, err)
+	mapper := testNamespaceMapper()
+
+	for name, call := range map[string]func() error{
+		"listing the volumes": func() error {
+			_, err := volumesDeletedWithNamespace(kubeClient, teardownTestNamespace)
+			return err
+		},
+		"deleting the namespace": func() error {
+			return DeleteNamespaces(kubeClient, &mapper, []string{teardownTestNamespace})
+		},
+	} {
+		done := make(chan error, 1)
+		go func() { done <- call() }()
+		select {
+		case err := <-done:
+			assert.Error(t, err, name)
+		case <-time.After(5 * time.Second):
+			t.Fatalf("%s did not end with an API server that stopped answering", name)
+		}
+	}
+}
+
+// TestANamespaceThatCannotBeCheckedIsNotTakenAsDeleted covers the wait for a
+// namespace: one the API server cannot be asked about is not gone, and the
+// teardown does not go on as if it were.
+func TestANamespaceThatCannotBeCheckedIsNotTakenAsDeleted(t *testing.T) {
+	kubeClient := testKubeClient(testNamespace(teardownTestNamespace, ""))
+	kubeClient.PrependReactor("delete", "namespaces", func(k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, nil
+	})
+	kubeClient.PrependReactor("get", "namespaces", func(k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, errors.New("connection reset")
+	})
+
+	fastNamespaceWait(t, 50*time.Millisecond)
+
+	mapper := testNamespaceMapper()
+	err := DeleteNamespaces(kubeClient, &mapper, []string{teardownTestNamespace})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to check namespace")
+}
+
+// TestTheNamespaceWaitEndsOnItsOwnDeadline covers an API server that accepts
+// the namespace delete and then never answers a check: the whole wait ends at
+// its own deadline, not after every check has run out a request deadline of
+// its own, which would hold a teardown for an hour.
+func TestTheNamespaceWaitEndsOnItsOwnDeadline(t *testing.T) {
+	previous := kubeRequestTimeout
+	kubeRequestTimeout = 5 * time.Second
+	t.Cleanup(func() { kubeRequestTimeout = previous })
+	fastNamespaceWait(t, 300*time.Millisecond)
+
+	release := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"kind":"Status","apiVersion":"v1","status":"Success"}`))
+			return
+		}
+		select {
+		case <-release:
+		case <-r.Context().Done():
+		}
+	}))
+	t.Cleanup(func() { close(release); server.Close() })
+	kubeClient, err := dynamic.NewForConfig(&rest.Config{Host: server.URL})
+	require.NoError(t, err)
+	mapper := testNamespaceMapper()
+
+	start := time.Now()
+	err = DeleteNamespaces(kubeClient, &mapper, []string{teardownTestNamespace})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "still not deleted after 300ms")
+	assert.Less(t, time.Since(start), 2*time.Second, "the wait's deadline, well before one request's")
 }
