@@ -793,6 +793,9 @@ func removeReplacedNamespace(
 func blueGreenControlPlane(source *ControlPlane, name, endpoint string) *ControlPlane {
 	// copy the source entry and point it at the new control plane
 	entry := *source
+	if entry.GKEProviderConfig.GcpProjectId != "" && entry.GKEProviderConfig.ClusterName == "" {
+		entry.GKEProviderConfig.ClusterName = gkeClusterName(source)
+	}
 	entry.Name = name
 	if endpoint != "" {
 		entry.APIServer = endpoint
