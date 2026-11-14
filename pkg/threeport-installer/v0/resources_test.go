@@ -249,3 +249,14 @@ func TestDefaultComponentResourcesAreValid(t *testing.T) {
 		}
 	}
 }
+
+// TestAgentMemoryStaysResident checks the agent request matches its limit.
+func TestAgentMemoryStaysResident(t *testing.T) {
+	// read the agent resources
+	agent := DefaultComponentResources(ThreeportAgentName)
+
+	// keep memory equal so the manager is not the first eviction candidate
+	assert.Equal(t, "1280Mi", agent.RequestMemory)
+	assert.Equal(t, "1280Mi", agent.LimitMemory)
+	assert.Equal(t, "100m", agent.RequestCPU)
+}
