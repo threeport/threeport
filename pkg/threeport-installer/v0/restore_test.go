@@ -718,8 +718,9 @@ func TestHoldReplicasForRestore(t *testing.T) {
 		"spec":       map[string]interface{}{"replicas": 3},
 	}}
 	cpi := &ControlPlaneInstaller{Opts: Options{
-		Namespace:     "genesis-07",
-		FromNamespace: "genesis-06",
+		Namespace:       "genesis-07",
+		FromNamespace:   "genesis-06",
+		GcpBackupBucket: "threeport-genesis-01-backups",
 	}}
 	client := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
 	require.NoError(t, cpi.holdReplicasForRestore(deployment, client))
@@ -727,6 +728,23 @@ func TestHoldReplicasForRestore(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), replicas)
 	assert.Equal(t, "3", deployment.GetAnnotations()[replicasBeforeRestoreAnnotation])
+
+	// leave a copied identity at its replica count
+	copied := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "apps/v1",
+		"kind":       "Deployment",
+		"metadata":   map[string]interface{}{"name": "threeport-api"},
+		"spec":       map[string]interface{}{"replicas": 3},
+	}}
+	identity := &ControlPlaneInstaller{Opts: Options{
+		Namespace:     "genesis-07",
+		FromNamespace: "genesis-06",
+	}}
+	require.NoError(t, identity.holdReplicasForRestore(copied, client))
+	kept, _, err := unstructured.NestedFieldNoCopy(copied.Object, "spec", "replicas")
+	require.NoError(t, err)
+	assert.Equal(t, 3, kept)
+	assert.Empty(t, copied.GetAnnotations()[replicasBeforeRestoreAnnotation])
 
 	// leave a normal install and a persistent deployment at their replica count
 	plain := &unstructured.Unstructured{Object: map[string]interface{}{
@@ -737,7 +755,7 @@ func TestHoldReplicasForRestore(t *testing.T) {
 	}}
 	normal := &ControlPlaneInstaller{Opts: Options{Namespace: "genesis-07"}}
 	require.NoError(t, normal.holdReplicasForRestore(plain, client))
-	kept, _, err := unstructured.NestedFieldNoCopy(plain.Object, "spec", "replicas")
+	kept, _, err = unstructured.NestedFieldNoCopy(plain.Object, "spec", "replicas")
 	require.NoError(t, err)
 	assert.Equal(t, 3, kept)
 	assert.Empty(t, plain.GetAnnotations()[replicasBeforeRestoreAnnotation])
