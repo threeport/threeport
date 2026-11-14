@@ -693,9 +693,10 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 			NodeCount: pulumi.Int(standardCount),
 
 			NodeConfig: &gkecontainer.NodePoolNodeConfigArgs{
-				MachineType: pulumi.String(standardNodeMachineType),
-				DiskSizeGb:  pulumi.Int(standardNodeDiskSizeGb),
-				DiskType:    pulumi.String(standardNodeDiskType),
+				MachineType:    pulumi.String(standardNodeMachineType),
+				DiskSizeGb:     pulumi.Int(standardNodeDiskSizeGb),
+				DiskType:       pulumi.String(standardNodeDiskType),
+				ServiceAccount: nodeConfig.ServiceAccount,
 				OauthScopes: pulumi.StringArray{
 					pulumi.String("https://www.googleapis.com/auth/cloud-platform"),
 				},
@@ -719,7 +720,7 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 				AutoUpgrade: pulumi.Bool(true),
 			},
 		}, pulumi.Provider(gcpProvider),
-			pulumi.DependsOn([]pulumi.Resource{cluster}),
+			pulumi.DependsOn(nodePoolDependencies),
 			pulumi.IgnoreChanges(gkeNodePoolIgnoredChanges))
 		if err != nil {
 			return fmt.Errorf("failed to create standard node pool: %w", err)
