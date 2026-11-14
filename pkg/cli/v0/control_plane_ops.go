@@ -19,6 +19,7 @@ import (
 	"github.com/threeport/threeport/internal/version"
 	api "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
+	encryption "github.com/threeport/threeport/pkg/encryption/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -551,6 +552,7 @@ func runBlueGreen(
 
 	// a GKE restore needs the project before the API is stopped
 	projectID := ""
+	providerCredentials := ""
 	if providerName == api.KubernetesRuntimeInfraProviderGKE {
 		gkeInst, err := client.GetGcpGkeKubernetesRuntimeInstanceByK8sRuntimeInst(
 			parentClient,
@@ -574,6 +576,11 @@ func runBlueGreen(
 		projectID = util.DerefString(gcpProvider.ProjectID)
 		if projectID == "" {
 			return fmt.Errorf("gcp provider for %s has no project", util.DerefString(runtimeInst.Name))
+		}
+		// decrypt the stored service account for the bucket grant
+		providerCredentials, err = decryptedProviderCredentials(encryptionKey, gcpProvider.ServiceAccountCredentials)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -662,8 +669,9 @@ func runBlueGreen(
 				PulumiWorkspace: provider.PulumiWorkspace{
 					RuntimeInstanceName: util.DerefString(runtimeInst.Name),
 				},
-				ProjectID:    projectID,
-				BackupBucket: bucket,
+				ProjectID:                 projectID,
+				BackupBucket:              bucket,
+				ServiceAccountCredentials: providerCredentials,
 			}
 			return gke.GrantDatabaseBackupAccess(uid)
 		}
@@ -786,6 +794,19 @@ func delegateBlueGreen(
 	}
 	fmt.Printf("Info: recorded blue-green request for %s\n", newName)
 	return waitForChildBlueGreen(currentClient, currentEndpoint, *inst.ID, util.DerefString(inst.Name))
+}
+
+// decryptedProviderCredentials returns the service account JSON the API stores encrypted.
+func decryptedProviderCredentials(key string, stored *string) (string, error) {
+	// an empty field leaves the caller on its process identity
+	if stored == nil || *stored == "" {
+		return "", nil
+	}
+	decrypted, err := encryption.Decrypt(key, *stored)
+	if err != nil {
+		return "", fmt.Errorf("failed to decrypt gcp provider credentials: %w", err)
+	}
+	return decrypted, nil
 }
 
 // childBlueGreenWait matches how long the controller keeps retrying one reconcile.

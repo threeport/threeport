@@ -32,6 +32,23 @@ func TestChildBlueGreenUpdateStoresTheNewName(t *testing.T) {
 	require.Equal(t, "private.example/threeport", *tagged.ImageNamespace)
 }
 
+// TestDecryptedProviderCredentialsReturnsTheStoredJSON covers the credential the bucket grant uses.
+func TestDecryptedProviderCredentialsReturnsTheStoredJSON(t *testing.T) {
+	// decrypt the JSON the API stores
+	key, err := encryption.GenerateKey()
+	require.NoError(t, err)
+	stored, err := encryption.Encrypt(key, `{"type":"service_account"}`)
+	require.NoError(t, err)
+	got, err := decryptedProviderCredentials(key, &stored)
+	require.NoError(t, err)
+	require.Equal(t, `{"type":"service_account"}`, got)
+
+	// an empty field leaves the caller on its process identity
+	empty, err := decryptedProviderCredentials(key, nil)
+	require.NoError(t, err)
+	require.Equal(t, "", empty)
+}
+
 // TestBlueGreenControlPlaneCopiesTheClientEntry covers the client entry recorded
 // once a restored control plane answers.
 func TestBlueGreenControlPlaneCopiesTheClientEntry(t *testing.T) {
