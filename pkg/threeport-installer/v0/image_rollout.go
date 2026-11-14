@@ -20,7 +20,7 @@ import (
 )
 
 // UpdateDeploymentImageTag sets imageTag on the control plane deployments that already exist.
-// A deployment that already runs that tag is left in place. When wait is set, the call blocks until each changed deployment is ready.
+// A deployment that already runs that image is left in place. When wait is set, the call blocks until each deployment is ready.
 func UpdateDeploymentImageTag(
 	imageTag string,
 	imageNamespace string,
@@ -90,7 +90,7 @@ func UpdateDeploymentImageTag(
 	if err != nil {
 		return err
 	}
-	if changed {
+	if changed || wait {
 		rolledOut = append(rolledOut, retagged{name: deployment.GetName(), previous: apiReplaced})
 	}
 
@@ -123,7 +123,7 @@ func UpdateDeploymentImageTag(
 	if err != nil {
 		return err
 	}
-	if changed {
+	if changed || wait {
 		rolledOut = append(rolledOut, retagged{name: ThreeportAgentDeployName, previous: agentReplaced})
 	}
 
@@ -178,7 +178,7 @@ func UpdateDeploymentImageTag(
 		if err != nil {
 			return err
 		}
-		if changed {
+		if changed || wait {
 			rolledOut = append(rolledOut, retagged{name: deploymentResourceName, previous: controllerReplaced})
 		}
 	}
