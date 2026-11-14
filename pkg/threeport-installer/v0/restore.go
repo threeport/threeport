@@ -1734,6 +1734,9 @@ func (cpi *ControlPlaneInstaller) retargetRestoredSelf(apiClient *http.Client, e
 	if _, err := client.UpdateControlPlaneInstance(apiClient, endpoint, self); err != nil {
 		return fmt.Errorf("failed to retarget restored self control plane: %w", err)
 	}
+	if err := client.ReparentDetachedControlPlanes(apiClient, endpoint, self); err != nil {
+		return err
+	}
 
 	return nil
 }

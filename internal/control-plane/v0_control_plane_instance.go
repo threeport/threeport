@@ -1128,20 +1128,20 @@ func retargetRestoredSelf(
 	sameRuntime := self.KubernetesRuntimeInstanceID != nil && replacement.KubernetesRuntimeInstanceID != nil &&
 		*self.KubernetesRuntimeInstanceID == *replacement.KubernetesRuntimeInstanceID
 	sameEndpoint := util.DerefString(self.ApiServerEndpoint) == util.DerefString(replacement.ApiServerEndpoint)
-	if sameName && sameNamespace && sameDefinition && sameRuntime && sameEndpoint {
-		return nil
+	if !(sameName && sameNamespace && sameDefinition && sameRuntime && sameEndpoint) {
+		// point the restored row at the replacement
+		self.Name = replacement.Name
+		self.Namespace = replacement.Namespace
+		self.ApiServerEndpoint = replacement.ApiServerEndpoint
+		self.ControlPlaneDefinitionID = replacement.ControlPlaneDefinitionID
+		self.KubernetesRuntimeInstanceID = replacement.KubernetesRuntimeInstanceID
+		if _, err := client.UpdateControlPlaneInstance(apiClient, endpoint, self); err != nil {
+			return fmt.Errorf("failed to retarget the restored control plane instance: %w", err)
+		}
 	}
 
-	// point the restored row at the replacement
-	self.Name = replacement.Name
-	self.Namespace = replacement.Namespace
-	self.ApiServerEndpoint = replacement.ApiServerEndpoint
-	self.ControlPlaneDefinitionID = replacement.ControlPlaneDefinitionID
-	self.KubernetesRuntimeInstanceID = replacement.KubernetesRuntimeInstanceID
-	if _, err := client.UpdateControlPlaneInstance(apiClient, endpoint, self); err != nil {
-		return fmt.Errorf("failed to retarget the restored control plane instance: %w", err)
-	}
-	return nil
+	// attach rows whose parent chain does not reach this self row
+	return client.ReparentDetachedControlPlanes(apiClient, endpoint, self)
 }
 
 // syncManagedChild copies the image, the controller list and the network
