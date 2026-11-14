@@ -44,6 +44,37 @@ rather than deployed as a child of another Threeport control plane.
 Reference:
 [ControlPlaneInstance](https://pkg.go.dev/github.com/threeport/threeport/pkg/api/v0#ControlPlaneInstance)
 
+## Deleting a Control Plane
+
+Deleting a control plane deletes its namespace and the cluster-scoped
+`ClusterRoleBinding`s the installer created for its controllers.  The bindings
+are named after the namespace, e.g. `<namespace>-helm-workload-controller-cluster-admin`,
+and are labeled `threeport.io/control-plane-namespace=<namespace>`.  The
+`threeport-controllers-threeportworkloads` cluster role is shared by every
+control plane on the cluster and is left in place.
+
+Earlier versions did not delete these bindings.  The `cluster-admin` ones kept
+granting access to any service account of the same name that later appeared in a
+namespace of the same name.  To find leftovers on a cluster, list the bindings
+whose subjects are all service accounts in namespaces that no longer exist:
+
+```bash
+kubectl get clusterrolebindings -o json | jq -r --argjson ns \
+  "$(kubectl get namespaces -o json | jq '[.items[].metadata.name]')" '
+  .items[]
+  | select(((.subjects // []) | length) > 0
+      and all(.subjects[]; .kind == "ServiceAccount" and ((.namespace // "") as $n | $n != "" and ($ns | index($n) | not))))
+  | .metadata.name'
+```
+
+Review the output before deleting anything with `kubectl delete
+clusterrolebinding <name>`.  Bindings the installer made have names that start
+with the deleted control plane's namespace and end in `-threeportworkloads` or
+`-cluster-admin`.  Running `tptctl reinstall` adds the label to its bindings, so
+a later delete finds them by label.  `tptctl upgrade control-plane` only updates
+images and does not add this label.  A delete finds bindings that lack the label
+by their names and subjects.
+
 ## Next Steps
 
 For more information about Threeport architecture to understand how Threeport

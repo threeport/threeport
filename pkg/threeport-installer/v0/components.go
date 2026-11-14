@@ -628,90 +628,12 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 			return fmt.Errorf("failed to create controller service account: %w", err)
 		}
 
-		// Bind the shared ClusterRole to this controller's service account so it
-		// can manage ThreeportWorkload resources.
-		threeportWorkloadSubjects := []interface{}{
-			map[string]interface{}{
-				"kind":      "ServiceAccount",
-				"name":      controller.ServiceAccountName,
-				"namespace": cpi.Opts.Namespace,
-			},
-		}
-		// On GKE with Workload Identity enabled, the kube-apiserver authenticates
-		// pod tokens as "serviceAccount:PROJECT.svc.id.goog[NAMESPACE/KSA]" rather
-		// than "system:serviceaccount:NAMESPACE:NAME". The kind:ServiceAccount
-		// subject only matches the latter, so we add a kind:User subject for the
-		// WI principal to ensure RBAC applies to the actual pod identity.
-		if cpi.Opts.InfraProvider == v0.KubernetesRuntimeInfraProviderGKE && cpi.Opts.GcpProjectId != "" {
-			threeportWorkloadSubjects = append(threeportWorkloadSubjects, map[string]interface{}{
-				"kind":     "User",
-				"name":     fmt.Sprintf("serviceAccount:%s.svc.id.goog[%s/%s]", cpi.Opts.GcpProjectId, cpi.Opts.Namespace, controller.ServiceAccountName),
-				"apiGroup": "rbac.authorization.k8s.io",
-			})
-		}
-		threeportWorkloadClusterRoleBinding := &unstructured.Unstructured{
-			Object: map[string]interface{}{
-				"apiVersion": "rbac.authorization.k8s.io/v1",
-				"kind":       "ClusterRoleBinding",
-				"metadata": map[string]interface{}{
-					"name": fmt.Sprintf("%s-%s-threeportworkloads", cpi.Opts.Namespace, controller.ServiceAccountName),
-				},
-				"roleRef": map[string]interface{}{
-					"apiGroup": "rbac.authorization.k8s.io",
-					"kind":     "ClusterRole",
-					"name":     "threeport-controllers-threeportworkloads",
-				},
-				"subjects": threeportWorkloadSubjects,
-			},
-		}
-		if err := cpi.CreateOrUpdateKubeResource(threeportWorkloadClusterRoleBinding, kubeClient, mapper); err != nil {
-			return fmt.Errorf("failed to create threeportworkloads cluster role binding for %s: %w", controller.Name, err)
-		}
-
-		// The helm-workload-controller and kubernetes-workload-controller deploy
-		// arbitrary resources — Helm charts or raw manifests — that can define any
-		// Kubernetes resource type in any namespace (including creating
-		// namespaces). The control-plane-controller similarly creates namespaces,
-		// secrets, service accounts, and StatefulSets/Deployments directly when
-		// bootstrapping a new child control plane. cluster-admin is required so
-		// they can manage the full lifecycle of those resources. On GKE with
-		// Workload Identity, each controller authenticates to the target cluster
-		// as its own WI principal (via per-request ADC tokens), so both the
-		// ServiceAccount and User subjects are bound.
-		if controller.Name == ThreeportHelmWorkloadControllerName ||
-			controller.Name == ThreeportKubernetesWorkloadControllerName ||
-			controller.Name == ThreeportControlPlaneControllerName {
-			clusterAdminSubjects := []interface{}{
-				map[string]interface{}{
-					"kind":      "ServiceAccount",
-					"name":      controller.ServiceAccountName,
-					"namespace": cpi.Opts.Namespace,
-				},
-			}
-			if cpi.Opts.InfraProvider == v0.KubernetesRuntimeInfraProviderGKE && cpi.Opts.GcpProjectId != "" {
-				clusterAdminSubjects = append(clusterAdminSubjects, map[string]interface{}{
-					"kind":     "User",
-					"name":     fmt.Sprintf("serviceAccount:%s.svc.id.goog[%s/%s]", cpi.Opts.GcpProjectId, cpi.Opts.Namespace, controller.ServiceAccountName),
-					"apiGroup": "rbac.authorization.k8s.io",
-				})
-			}
-			clusterAdminBinding := &unstructured.Unstructured{
-				Object: map[string]interface{}{
-					"apiVersion": "rbac.authorization.k8s.io/v1",
-					"kind":       "ClusterRoleBinding",
-					"metadata": map[string]interface{}{
-						"name": fmt.Sprintf("%s-%s-cluster-admin", cpi.Opts.Namespace, controller.ServiceAccountName),
-					},
-					"roleRef": map[string]interface{}{
-						"apiGroup": "rbac.authorization.k8s.io",
-						"kind":     "ClusterRole",
-						"name":     "cluster-admin",
-					},
-					"subjects": clusterAdminSubjects,
-				},
-			}
-			if err := cpi.CreateOrUpdateKubeResource(clusterAdminBinding, kubeClient, mapper); err != nil {
-				return fmt.Errorf("failed to create %s cluster-admin binding: %w", controller.Name, err)
+		// Bind this controller's service account to the cluster roles it needs.
+		// The bindings are cluster-scoped, so they outlive the namespace and are
+		// labeled with it for the teardown to find them.
+		for _, binding := range cpi.controllerClusterRoleBindings(controller) {
+			if err := cpi.CreateOrUpdateKubeResource(binding, kubeClient, mapper); err != nil {
+				return fmt.Errorf("failed to create %s cluster role binding for %s: %w", binding.GetName(), controller.Name, err)
 			}
 		}
 
@@ -1792,6 +1714,11 @@ func (cpi *ControlPlaneInstaller) UnInstallThreeportControlPlaneComponents(
 		[]string{cpi.Opts.Namespace},
 	); err != nil && !k8serrors.IsNotFound(err) {
 		return fmt.Errorf("failed to delete control plane namespace: %w", err)
+	}
+
+	// delete the cluster-scoped bindings the namespace delete leaves behind
+	if err := DeleteControlPlaneClusterRoleBindings(kubeClient, cpi.Opts.Namespace); err != nil {
+		return fmt.Errorf("failed to delete control plane cluster role bindings: %w", err)
 	}
 
 	// The namespace is gone once its claims are, but the disks behind them

@@ -1516,6 +1516,15 @@ func v0ControlPlaneInstanceDeleted(
 		return 0, fmt.Errorf("failed to delete the control plane namespace: %w", err)
 	}
 
+	// delete the cluster-scoped role bindings the namespace delete leaves
+	// behind, before provider cleanup so a failure there does not skip it
+	if err := threeport.DeleteControlPlaneClusterRoleBindings(
+		deleteDynamicClient,
+		*controlPlaneInstance.Namespace,
+	); err != nil {
+		return 0, fmt.Errorf("failed to delete the control plane cluster role bindings: %w", err)
+	}
+
 	// perform provider specific configuration
 	switch *kubernetesRuntimeDefinition.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
