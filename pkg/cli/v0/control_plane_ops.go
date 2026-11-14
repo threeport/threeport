@@ -213,12 +213,7 @@ func UpgradeModule(
 		return fmt.Errorf("failed to update module api: %w", err)
 	}
 
-	// leave a named child for its controller to apply
-	if controlPlaneName != "" {
-		return nil
-	}
-
-	// wake the connected control plane without patching its deployments
+	// wake the row the parent controller reconciles, including a named child
 	if _, err := client.UpdateControlPlaneInstance(
 		currentClient,
 		currentEndpoint,
