@@ -780,12 +780,12 @@ func delegateBlueGreen(
 	if _, err := client.UpdateControlPlaneInstance(
 		currentClient,
 		currentEndpoint,
-		childBlueGreenUpdate(inst.ID, newName, namespace, tag, imageNamespace),
+		childBlueGreenUpdate(inst.ID, util.DerefString(inst.Name), newName, namespace, tag, imageNamespace),
 	); err != nil {
 		return fmt.Errorf("failed to record control plane %s: %w", newName, err)
 	}
 	fmt.Printf("Info: recorded blue-green request for %s\n", newName)
-	return waitForChildBlueGreen(currentClient, currentEndpoint, newName)
+	return waitForChildBlueGreen(currentClient, currentEndpoint, *inst.ID, util.DerefString(inst.Name))
 }
 
 // childBlueGreenWait matches how long the controller keeps retrying one reconcile.
@@ -793,11 +793,11 @@ const childBlueGreenWait = time.Hour
 
 // waitForChildBlueGreen returns when the controller clears the recorded request.
 // It returns an error when the wait passes an hour.
-func waitForChildBlueGreen(apiClient *http.Client, apiEndpoint, name string) error {
+func waitForChildBlueGreen(apiClient *http.Client, apiEndpoint string, id uint, name string) error {
 	// the controller clears FromNamespace after the new namespace is up
 	deadline := time.Now().Add(childBlueGreenWait)
 	for {
-		inst, err := client.GetControlPlaneInstanceByName(apiClient, apiEndpoint, name)
+		inst, err := client.GetControlPlaneInstanceByID(apiClient, apiEndpoint, id)
 		if err != nil {
 			return fmt.Errorf("failed to get control plane %s: %w", name, err)
 		}
@@ -812,12 +812,13 @@ func waitForChildBlueGreen(apiClient *http.Client, apiEndpoint, name string) err
 }
 
 // childBlueGreenUpdate is the patch a child blue-green stores.
-// Name and Namespace are the new control plane, and FromNamespace is the one it replaces.
-func childBlueGreenUpdate(id *uint, newName, sourceNamespace, tag, imageNamespace string) *api.ControlPlaneInstance {
-	// point the child row at the new control plane and the image the controller installs
+// Name stays the current control plane until the install finishes.
+// Namespace is the new deployment, and FromNamespace is the one it replaces.
+func childBlueGreenUpdate(id *uint, currentName, newName, sourceNamespace, tag, imageNamespace string) *api.ControlPlaneInstance {
+	// record the new deployment and the image the controller installs
 	update := &api.ControlPlaneInstance{
 		Common:        api.Common{ID: id},
-		Instance:      api.Instance{Name: &newName},
+		Instance:      api.Instance{Name: &currentName},
 		Namespace:     &newName,
 		FromNamespace: &sourceNamespace,
 		ImageTag:      &tag,

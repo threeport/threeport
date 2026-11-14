@@ -1333,11 +1333,13 @@ func installChildBlueGreen(
 		r.APIServer,
 		r.EncryptionKey,
 		&cli.ControlPlaneTarget{Instance: instance, Kube: kubeClient, Mapper: mapper},
-		util.DerefString(instance.Name),
+		util.DerefString(instance.Namespace),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to install blue-green control plane: %w", err)
 	}
+	// the install finished, so the row can take the new name
+	instance.Name = instance.Namespace
 	cleared := ""
 	instance.FromNamespace = &cleared
 	_, err = saveControlPlaneInstance(r.APIClient, r.APIServer, instance)
