@@ -28,6 +28,7 @@ import (
 	"github.com/threeport/threeport/pkg/api-server/v0/database"
 	auth "github.com/threeport/threeport/pkg/auth/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
+	client "github.com/threeport/threeport/pkg/client/v0"
 	"github.com/threeport/threeport/pkg/encryption/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -1643,7 +1644,33 @@ func (cpi *ControlPlaneInstaller) InstallRestored(
 		return true, err
 	}
 
+	// write the replacement identity onto the restored self row
+	if err := cpi.retargetRestoredSelf(apiClient, cpi.Opts.ExternalApiEndpoint); err != nil {
+		return true, err
+	}
+
 	return true, nil
+}
+
+// retargetRestoredSelf writes the replacement name, namespace, and endpoint onto the self row the backup restored.
+func (cpi *ControlPlaneInstaller) retargetRestoredSelf(apiClient *http.Client, endpoint string) error {
+	// read the self row the backup restored
+	self, err := client.GetSelfControlPlaneInstance(apiClient, endpoint)
+	if err != nil {
+		return fmt.Errorf("failed to get restored self control plane: %w", err)
+	}
+
+	// write the replacement identity
+	name := cpi.Opts.Name
+	namespace := cpi.Opts.Namespace
+	self.Name = &name
+	self.Namespace = &namespace
+	self.ApiServerEndpoint = &endpoint
+	if _, err := client.UpdateControlPlaneInstance(apiClient, endpoint, self); err != nil {
+		return fmt.Errorf("failed to retarget restored self control plane: %w", err)
+	}
+
+	return nil
 }
 
 // scaleDeploymentsToZero sets each named deployment to zero replicas.

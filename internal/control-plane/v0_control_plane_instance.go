@@ -1127,7 +1127,8 @@ func retargetRestoredSelf(
 		*self.ControlPlaneDefinitionID == *replacement.ControlPlaneDefinitionID
 	sameRuntime := self.KubernetesRuntimeInstanceID != nil && replacement.KubernetesRuntimeInstanceID != nil &&
 		*self.KubernetesRuntimeInstanceID == *replacement.KubernetesRuntimeInstanceID
-	if sameName && sameNamespace && sameDefinition && sameRuntime {
+	sameEndpoint := util.DerefString(self.ApiServerEndpoint) == util.DerefString(replacement.ApiServerEndpoint)
+	if sameName && sameNamespace && sameDefinition && sameRuntime && sameEndpoint {
 		return nil
 	}
 
