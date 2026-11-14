@@ -1134,6 +1134,7 @@ func retargetRestoredSelf(
 	// point the restored row at the replacement
 	self.Name = replacement.Name
 	self.Namespace = replacement.Namespace
+	self.ApiServerEndpoint = replacement.ApiServerEndpoint
 	self.ControlPlaneDefinitionID = replacement.ControlPlaneDefinitionID
 	self.KubernetesRuntimeInstanceID = replacement.KubernetesRuntimeInstanceID
 	if _, err := client.UpdateControlPlaneInstance(apiClient, endpoint, self); err != nil {

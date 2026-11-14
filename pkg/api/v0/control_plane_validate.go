@@ -472,7 +472,7 @@ func reconciliationColumn(bindNames []string) bool {
 func restoredIdentity(name string) bool {
 	// the source name, its namespace, and the two ids the replacement owns
 	switch name {
-	case "Name", "Namespace", "ControlPlaneDefinitionID", "KubernetesRuntimeInstanceID":
+	case "Name", "Namespace", "FromNamespace", "ApiServerEndpoint", "ControlPlaneDefinitionID", "KubernetesRuntimeInstanceID":
 		return true
 	default:
 		return false
