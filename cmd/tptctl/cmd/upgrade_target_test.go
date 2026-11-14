@@ -64,7 +64,7 @@ func TestUpgradeRollTargetMatrix(t *testing.T) {
 		}
 	}
 
-	// each row is the connection the command already resolved, plus --name
+	// each row is the connection the command already resolved, plus --control-plane-name
 	rows := []struct {
 		name    string
 		self    *api_v0.ControlPlaneInstance

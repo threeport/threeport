@@ -44,6 +44,33 @@ rather than deployed as a child of another Threeport control plane.
 Reference:
 [ControlPlaneInstance](https://pkg.go.dev/github.com/threeport/threeport/pkg/api/v0#ControlPlaneInstance)
 
+## Upgrading a Child
+
+A child control plane runs the manifests compiled into the controller that
+reconciles it.  Change the root control plane image first.  Then copy the
+child into a new namespace so that new controller installs it.
+
+Update the root image.
+
+```bash
+tptctl upgrade control-plane image \
+  --image-tag [image tag]
+```
+
+Copy the child from the current control plane.
+
+```bash
+tptctl upgrade control-plane blue-green \
+  --name [new control plane name] \
+  --namespace [new namespace] \
+  --image-namespace [image namespace] \
+  --image-tag [image tag]
+```
+
+A module shares the control plane database, so a module upgrade is a control
+plane upgrade.  `tptctl [module name]` talks to that module's API.  A child
+is upgraded by the parent controller, not by that direct call.
+
 ## Next Steps
 
 For more information about Threeport architecture to understand how Threeport

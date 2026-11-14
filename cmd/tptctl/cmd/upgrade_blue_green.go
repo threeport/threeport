@@ -6,14 +6,12 @@ import (
 
 	"github.com/spf13/cobra"
 
+	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
+	client "github.com/threeport/threeport/pkg/client/v0"
 )
 
-var blueGreenName string
-var blueGreenNamespace string
-var blueGreenSource string
-var blueGreenImageNamespace string
-var blueGreenImageTag string
+var blueGreenNewName string
 
 // UpgradeBlueGreenCmd creates a new control plane from a backup of an existing one.
 var UpgradeBlueGreenCmd = &cobra.Command{
@@ -21,17 +19,45 @@ var UpgradeBlueGreenCmd = &cobra.Command{
 	Short: "Create a new control plane beside an existing one",
 	Long: `Back up the source control plane and create a new one that restores from it.
 
---image-namespace and --image-tag set the image the new control plane installs.
+The new control plane runs this tptctl version in a namespace of the same name.
+The source image namespace is kept.
+A --control-plane-name selects a child, and the control plane controller installs it.
 The source stays stopped unless the new control plane fails to come up.`,
 	SilenceUsage: true,
-	PreRun:       CommandPreRunFunc,
+	PreRun:       blueGreenPreRun,
 	Run: func(cmd *cobra.Command, args []string) {
-		if blueGreenName == "" || blueGreenNamespace == "" {
-			cli.Error("name and namespace are required", fmt.Errorf("name %q namespace %q", blueGreenName, blueGreenNamespace))
+		apiClient, threeportConfig, apiEndpoint, requestedControlPlane := GetClientContext(cmd)
+
+		// refuse a connection to a child before selecting a source
+		self, err := client.GetSelfControlPlaneInstance(apiClient, apiEndpoint)
+		if err != nil {
+			cli.Error("failed to get control plane instance", err)
+			os.Exit(1)
+		}
+		if err := api_v0.ChildControlPlaneRequest(self); err != nil {
+			cli.Error("failed to create control plane", fmt.Errorf("control plane %s: %w", requestedControlPlane, err))
 			os.Exit(1)
 		}
 
-		apiClient, threeportConfig, apiEndpoint, requestedControlPlane := GetClientContext(cmd)
+		// a name is a descendant, and the controller installs it
+		sourceName := ""
+		if cliArgs.ControlPlaneName != "" {
+			if _, err := upgradeRollTarget(
+				self,
+				cliArgs.ControlPlaneName,
+				func(name string) (*api_v0.ControlPlaneInstance, error) {
+					return client.GetControlPlaneInstanceByName(apiClient, apiEndpoint, name)
+				},
+				func(id uint) (*api_v0.ControlPlaneInstance, error) {
+					return client.GetControlPlaneInstanceByID(apiClient, apiEndpoint, id)
+				},
+			); err != nil {
+				cli.Error("failed to create control plane", err)
+				os.Exit(1)
+			}
+			sourceName = cliArgs.ControlPlaneName
+		}
+
 		controlPlane, err := threeportConfig.GetControlPlaneConfig(requestedControlPlane)
 		if err != nil {
 			cli.Error("failed to get control plane config", err)
@@ -42,51 +68,47 @@ The source stays stopped unless the new control plane fails to come up.`,
 			cli.Error("failed to get encryption key", err)
 			os.Exit(1)
 		}
+		childTag := ""
+		if sourceName != "" {
+			_, childTag, err = parentControlPlaneImage(apiClient, apiEndpoint, encryptionKey, true)
+			if err != nil {
+				cli.Error("failed to read control plane controller image", err)
+				os.Exit(1)
+			}
+		}
 		if err := cli.UpgradeBlueGreen(
 			threeportConfig,
 			controlPlane,
 			apiClient,
 			apiEndpoint,
 			encryptionKey,
-			blueGreenSource,
-			blueGreenName,
-			blueGreenNamespace,
-			blueGreenImageNamespace,
-			blueGreenImageTag,
+			sourceName,
+			blueGreenNewName,
+			childTag,
 		); err != nil {
 			cli.Error("failed to create control plane", err)
 			os.Exit(1)
 		}
-		cli.Complete(fmt.Sprintf("control plane %s created", blueGreenName))
+		cli.Complete(fmt.Sprintf("control plane %s created", blueGreenNewName))
 	},
+}
+
+// blueGreenPreRun connects to the current control plane.
+// blueGreenPreRun keeps the name flag from retargeting that client.
+func blueGreenPreRun(cmd *cobra.Command, args []string) {
+	// connect as the current control plane, then restore the child name
+	name := cliArgs.ControlPlaneName
+	cliArgs.ControlPlaneName = ""
+	CommandPreRunFunc(cmd, args)
+	cliArgs.ControlPlaneName = name
 }
 
 // init registers the blue-green upgrade command and its flags.
 func init() {
-	// register the command and its flags
-	UpgradeCmd.AddCommand(UpgradeBlueGreenCmd)
+	// register the new control plane name
 	UpgradeBlueGreenCmd.Flags().StringVar(
-		&blueGreenName,
-		"name", "", "Name of the new control plane",
+		&blueGreenNewName,
+		"new-control-plane-name", "", "Name of the new control plane",
 	)
-	UpgradeBlueGreenCmd.Flags().StringVar(
-		&blueGreenNamespace,
-		"namespace", "", "Namespace of the new control plane",
-	)
-	UpgradeBlueGreenCmd.Flags().StringVar(
-		&blueGreenSource,
-		"control-plane", "", "Name of the control plane to copy. Defaults to the current control plane. A child cannot copy itself.",
-	)
-	UpgradeBlueGreenCmd.Flags().StringVar(
-		&blueGreenImageNamespace,
-		"image-namespace", "", "Image namespace of the new control plane",
-	)
-	UpgradeBlueGreenCmd.Flags().StringVar(
-		&blueGreenImageTag,
-		"image-tag", "", "Image tag of the new control plane",
-	)
-	UpgradeBlueGreenCmd.MarkFlagRequired("name")
-	UpgradeBlueGreenCmd.MarkFlagRequired("namespace")
-	UpgradeBlueGreenCmd.MarkFlagRequired("image-namespace")
-	UpgradeBlueGreenCmd.MarkFlagRequired("image-tag")
+	UpgradeBlueGreenCmd.MarkFlagRequired("new-control-plane-name")
 }

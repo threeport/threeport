@@ -13,6 +13,20 @@ import (
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 )
 
+// TestChildBlueGreenUpdateStoresTheNewName covers the patch a child blue-green records.
+func TestChildBlueGreenUpdateStoresTheNewName(t *testing.T) {
+	// the new name is the deployment namespace, and the tag is this tptctl version
+	id := uint(7)
+	update := childBlueGreenUpdate(&id, "restored", "child-ns", "v0.7.2")
+
+	require.Equal(t, &id, update.ID)
+	require.Equal(t, "restored", *update.Name)
+	require.Equal(t, "restored", *update.Namespace)
+	require.Equal(t, "child-ns", *update.FromNamespace)
+	require.Equal(t, "v0.7.2", *update.ImageTag)
+	require.Nil(t, update.ImageNamespace)
+}
+
 // TestBlueGreenControlPlaneCopiesTheClientEntry covers the client entry recorded
 // once a restored control plane answers.
 func TestBlueGreenControlPlaneCopiesTheClientEntry(t *testing.T) {

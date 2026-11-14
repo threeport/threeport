@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 
@@ -19,16 +20,26 @@ import (
 	"k8s.io/client-go/dynamic"
 )
 
-var updateImageTag string
+// upgradeImageTag is the image tag the command writes.
+var upgradeImageTag string
 
-// upgradeName is a child, or a child of a child, to roll.
-// Empty rolls the control plane the command is connected to.
-var upgradeName string
+// upgradeImageNamespace is the image repo to record when the flag is set.
+var upgradeImageNamespace string
 
-// UpCmd represents the create threeport command
+// upgradeControlPlaneCmd is the parent of the image and blue-green commands.
+var upgradeControlPlaneCmd = &cobra.Command{
+	Use:   "control-plane",
+	Short: "Upgrade a control plane",
+	Run: func(cmd *cobra.Command, args []string) {
+		missingErr("upgrade control-plane")
+		os.Exit(1)
+	},
+}
+
+// UpgradeControlPlaneCmd updates the image on a control plane.
 var UpgradeControlPlaneCmd = &cobra.Command{
-	Use:     "control-plane",
-	Example: "tptctl upgrade control-plane --version=v0.5.0",
+	Use:     "image",
+	Example: "tptctl upgrade control-plane image",
 	Short:   "Upgrades the version of the Threeport control plane",
 	Long: `Update the image tag on existing control plane Deployments.
 
@@ -57,12 +68,10 @@ recreate manifests, RBAC, or configmaps. Use tptctl reinstall for those.`,
 			os.Exit(1)
 		}
 
-		// reject a child connection before any deployment changes
-		// a name, when set, is a descendant to roll instead of this API
-		connectedControlPlane := controlPlaneInstance
+		// reject a child connection, then select the named descendant
 		controlPlaneInstance, err = upgradeRollTarget(
-			connectedControlPlane,
-			upgradeName,
+			controlPlaneInstance,
+			cliArgs.ControlPlaneName,
 			func(name string) (*api_v0.ControlPlaneInstance, error) {
 				return client.GetControlPlaneInstanceByName(apiClient, apiEndpoint, name)
 			},
@@ -75,7 +84,17 @@ recreate manifests, RBAC, or configmaps. Use tptctl reinstall for those.`,
 			os.Exit(1)
 		}
 
-		// the cluster the selected control plane runs on, not the one this API serves
+		// record the child and let its controller roll the deployments
+		if cliArgs.ControlPlaneName != "" {
+			if err := recordControlPlaneImage(apiClient, apiEndpoint, controlPlaneInstance.ID); err != nil {
+				cli.Error("failed to record control plane image", err)
+				os.Exit(1)
+			}
+			cli.Complete(fmt.Sprintf("recorded image %s on %s", upgradeImageTag, cliArgs.ControlPlaneName))
+			return
+		}
+
+		// the cluster the connected control plane runs on
 		var kubernetesRuntimeInstance *api_v0.KubernetesRuntimeInstance
 		if controlPlaneInstance.KubernetesRuntimeInstanceID != nil {
 			kubernetesRuntimeInstance, err = client.GetKubernetesRuntimeInstanceByID(
@@ -83,13 +102,11 @@ recreate manifests, RBAC, or configmaps. Use tptctl reinstall for those.`,
 				apiEndpoint,
 				*controlPlaneInstance.KubernetesRuntimeInstanceID,
 			)
-		} else if upgradeName == "" {
+		} else {
 			kubernetesRuntimeInstance, err = client.GetThreeportControlPlaneKubernetesRuntimeInstance(
 				apiClient,
 				apiEndpoint,
 			)
-		} else {
-			err = fmt.Errorf("control plane %s has no kubernetes runtime", *controlPlaneInstance.Name)
 		}
 		if err != nil {
 			cli.Error("failed to retrieve kubernetes runtime instance from threeport API:", err)
@@ -124,7 +141,7 @@ recreate manifests, RBAC, or configmaps. Use tptctl reinstall for those.`,
 			cli.Warning(fmt.Sprintf(
 				"could not read the recorded components to check for pinned images: %s", err,
 			))
-		} else if warning := pinnedComponentsWarning(recordedInstance, updateImageTag); warning != "" {
+		} else if warning := pinnedComponentsWarning(recordedInstance, upgradeImageTag); warning != "" {
 			cli.Warning(warning)
 		}
 
@@ -149,8 +166,9 @@ recreate manifests, RBAC, or configmaps. Use tptctl reinstall for those.`,
 			cli.Error("failed to select controllers from the recorded apis list", err)
 			os.Exit(1)
 		}
+		// roll the connected deployments; the repo is recorded with the tag
 		err = installer.UpdateDeploymentImageTag(
-			updateImageTag,
+			upgradeImageTag,
 			*controlPlaneInstance.Namespace,
 			cli.ScheduledBackupBucket(controlPlaneConfig),
 			dynamicKubeClient,
@@ -176,22 +194,29 @@ recreate manifests, RBAC, or configmaps. Use tptctl reinstall for those.`,
 		// registry, is untouched by the upgrade and is still inherited.
 		// retry the tag write until the replaced API answers
 		if err := util.Retry(5, 2, func() error {
-			_, err := client.UpdateControlPlaneInstance(
-				apiClient,
-				apiEndpoint,
-				&api_v0.ControlPlaneInstance{
-					Common:   api_v0.Common{ID: controlPlaneInstance.ID},
-					ImageTag: &updateImageTag,
-				},
-			)
-			return err
+			return recordControlPlaneImage(apiClient, apiEndpoint, controlPlaneInstance.ID)
 		}); err != nil {
 			cli.Error("deployments were updated but the new image tag could not be recorded for child control planes:", err)
 			os.Exit(1)
 		}
 
-		cli.Complete(fmt.Sprintf("Succesfully updates all threeport deployments to image: %s", updateImageTag))
+		cli.Complete(fmt.Sprintf("Succesfully updates all threeport deployments to image: %s", upgradeImageTag))
 	},
+}
+
+// recordControlPlaneImage writes the image tag, and the repo when the flag is set.
+// UpdateDeploymentImageTag takes only a tag, so the repo is stored on the instance.
+func recordControlPlaneImage(apiClient *http.Client, apiEndpoint string, id *uint) error {
+	// write the tag, and the repo when the flag is set
+	instance := &api_v0.ControlPlaneInstance{
+		Common:   api_v0.Common{ID: id},
+		ImageTag: &upgradeImageTag,
+	}
+	if upgradeImageNamespace != "" {
+		instance.ImageNamespace = &upgradeImageNamespace
+	}
+	_, err := client.UpdateControlPlaneInstance(apiClient, apiEndpoint, instance)
+	return err
 }
 
 // pinnedComponentsWarning says which components of a control plane were pinned
@@ -239,25 +264,25 @@ func pinnedComponentsWarning(instance *api_v0.ControlPlaneInstance, imageTag str
 // init registers the control plane image upgrade command.
 func init() {
 	// register the command and its flags
-	UpgradeCmd.AddCommand(UpgradeControlPlaneCmd)
-
-	UpgradeControlPlaneCmd.Flags().StringVar(
+	upgradeControlPlaneCmd.AddCommand(UpgradeControlPlaneCmd)
+	upgradeControlPlaneCmd.AddCommand(UpgradeBlueGreenCmd)
+	UpgradeCmd.AddCommand(upgradeControlPlaneCmd)
+	upgradeControlPlaneCmd.PersistentFlags().StringVarP(
 		&cliArgs.ControlPlaneName,
-		"control-plane-name",
+		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+
+	UpgradeControlPlaneCmd.Flags().StringVar(
+		&upgradeImageNamespace,
+		"image-namespace",
 		"",
-		"Name of the control plane to connect to. Defaults to the current control plane.",
+		"Image namespace to record. Omit to leave the recorded repo unchanged.",
 	)
 	UpgradeControlPlaneCmd.Flags().StringVar(
-		&upgradeName,
-		"name",
+		&upgradeImageTag,
+		"image-tag",
 		"",
-		"Name of a child control plane to roll. The command stays connected to the parent.",
+		"Image tag to roll the control plane to.",
 	)
-
-	UpgradeControlPlaneCmd.Flags().StringVarP(
-		&updateImageTag,
-		"version", "t", "", "version to update Threeport Control plane.",
-	)
-
-	UpgradeControlPlaneCmd.MarkFlagRequired("version")
+	UpgradeControlPlaneCmd.MarkFlagRequired("image-tag")
 }

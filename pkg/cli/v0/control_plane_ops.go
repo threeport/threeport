@@ -15,6 +15,7 @@ import (
 	"k8s.io/client-go/dynamic"
 
 	"github.com/threeport/threeport/internal/provider"
+	"github.com/threeport/threeport/internal/version"
 	api "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
@@ -174,7 +175,7 @@ func InstallModule(
 }
 
 // UpgradeModule records a module image.
-// A child rolls its own images. A parent wakes the controller that owns the row.
+// A connected parent wakes its controller. A named child is left for that controller.
 func UpgradeModule(
 	currentClient *http.Client,
 	currentEndpoint string,
@@ -184,39 +185,40 @@ func UpgradeModule(
 	imageNamespace string,
 	imageTag string,
 ) error {
-	// a child may upgrade its own modules
-	target, err := ResolveControlPlane(currentClient, currentEndpoint, controlPlaneName, true)
+	// reject a child connection before writing
+	self, err := client.GetSelfControlPlaneInstance(currentClient, currentEndpoint)
+	if err != nil {
+		return fmt.Errorf("failed to get control plane instance: %w", err)
+	}
+	if err := api.ChildControlPlaneRequest(self); err != nil {
+		return err
+	}
+
+	// load the named child, or the connected control plane when the name is empty
+	target, err := ResolveControlPlane(currentClient, currentEndpoint, controlPlaneName, false)
 	if err != nil {
 		return err
 	}
 
-	// record the image on the module row that lives on the target API
+	// record the tag and, when set, the namespace
 	module, err := client.GetModuleApiByName(target.APIClient, target.APIEndpoint, moduleName)
 	if err != nil {
 		return fmt.Errorf("failed to get module api: %w", err)
 	}
-	module.ImageNamespace = &imageNamespace
 	module.ImageTag = &imageTag
+	if imageNamespace != "" {
+		module.ImageNamespace = &imageNamespace
+	}
 	if _, err := client.UpdateModuleApi(target.APIClient, target.APIEndpoint, module); err != nil {
 		return fmt.Errorf("failed to update module api: %w", err)
 	}
 
-	// roll module images on a child, whose controller does not apply them
-	if api.ChildControlPlaneRequest(target.Instance) != nil {
-		if err := target.clusterClient(currentClient, currentEndpoint, encryptionKey); err != nil {
-			return err
-		}
-		return installer.ReconcileInstalledModuleImages(
-			target.Kube,
-			target.Mapper,
-			target.APIClient,
-			target.APIEndpoint,
-			target.Instance,
-			&installer.ControlPlaneInstaller{},
-		)
+	// leave a named child for its controller to apply
+	if controlPlaneName != "" {
+		return nil
 	}
 
-	// wake the control plane row on the current API without changing its image
+	// wake the connected control plane without patching its deployments
 	if _, err := client.UpdateControlPlaneInstance(
 		currentClient,
 		currentEndpoint,
@@ -377,7 +379,7 @@ func RedeployRestoredModules(
 }
 
 // UpgradeBlueGreen stops the source writers, backs up once, and installs a new control plane from that backup.
-// The source stays stopped and the new control plane becomes current once its API answers.
+// A named source is a child, and the control plane controller installs that one.
 func UpgradeBlueGreen(
 	threeportConfig *ThreeportConfig,
 	local *ControlPlane,
@@ -386,19 +388,98 @@ func UpgradeBlueGreen(
 	encryptionKey string,
 	sourceName string,
 	newName string,
-	newNamespace string,
-	imageNamespace string,
-	imageTag string,
+	childTag string,
 ) error {
-	// reject a child control plane before anything is stopped
+	rejectChild, updateConfig := blueGreenOptions(true)
+	return runBlueGreen(
+		threeportConfig,
+		local,
+		currentClient,
+		currentEndpoint,
+		encryptionKey,
+		sourceName,
+		newName,
+		childTag,
+		rejectChild,
+		updateConfig,
+	)
+}
+
+// InstallBlueGreen runs the same restore tptctl runs for a control plane that is not a child.
+func InstallBlueGreen(
+	local *ControlPlane,
+	currentClient *http.Client,
+	currentEndpoint string,
+	encryptionKey string,
+	source *ControlPlaneTarget,
+	newName string,
+) error {
+	if source == nil || source.Instance == nil {
+		return fmt.Errorf("control plane is unset")
+	}
+	rejectChild, updateConfig := blueGreenOptions(false)
+	return runBlueGreen(
+		nil,
+		local,
+		currentClient,
+		currentEndpoint,
+		encryptionKey,
+		util.DerefString(source.Instance.Name),
+		newName,
+		"",
+		rejectChild,
+		updateConfig,
+	)
+}
+
+// blueGreenOptions reports whether this caller refuses a child connection and rewrites the tptctl config.
+// tptctl does both. The controller does neither.
+func blueGreenOptions(tptctl bool) (rejectChild bool, updateConfig bool) {
+	// one pair of flags for both callers
+	return tptctl, tptctl
+}
+
+// runBlueGreen backs up a control plane and installs it under a new name.
+func runBlueGreen(
+	threeportConfig *ThreeportConfig,
+	local *ControlPlane,
+	currentClient *http.Client,
+	currentEndpoint string,
+	encryptionKey string,
+	sourceName string,
+	newName string,
+	childTag string,
+	rejectChild bool,
+	updateConfig bool,
+) error {
+	// reject a child connection before anything is stopped
+	self, err := client.GetSelfControlPlaneInstance(currentClient, currentEndpoint)
+	if err != nil {
+		return fmt.Errorf("failed to get control plane instance: %w", err)
+	}
+	if err := api.ChildControlPlaneRequest(self); err != nil {
+		return fmt.Errorf("control plane %s: %w", util.DerefString(self.Name), err)
+	}
+	if sourceName != "" && sourceName != util.DerefString(self.Name) {
+		return delegateBlueGreen(local, currentClient, currentEndpoint, sourceName, newName, childTag)
+	}
+
+	// the connected control plane is the source
 	source, err := ResolveControlPlane(currentClient, currentEndpoint, sourceName, false)
 	if err != nil {
 		return err
 	}
-	if source.Instance.ParentControlPlaneInstanceID != nil {
-		return fmt.Errorf("control plane %s: %w", sourceName, api.ErrRequestMustBeMadeToParent)
+	if sourceName == "" {
+		sourceName = util.DerefString(source.Instance.Name)
 	}
-	namespace := util.DerefString(source.Instance.Namespace)
+	newNamespace := newName
+	if rejectChild && source.Instance.ParentControlPlaneInstanceID != nil {
+		return delegateBlueGreen(local, currentClient, currentEndpoint, sourceName, newName, childTag)
+	}
+	namespace := util.DerefString(source.Instance.FromNamespace)
+	if namespace == "" {
+		namespace = util.DerefString(source.Instance.Namespace)
+	}
 	if namespace == "" {
 		return fmt.Errorf("control plane %s has no namespace", sourceName)
 	}
@@ -545,12 +626,10 @@ func UpgradeBlueGreen(
 			created.Opts.ControllerList = selected
 		}
 	}
-	if imageNamespace != "" {
+	if imageNamespace := util.DerefString(source.Instance.ImageNamespace); imageNamespace != "" {
 		created.SetAllImageRepo(imageNamespace)
 	}
-	if imageTag != "" {
-		created.SetAllImageTags(imageTag)
-	}
+	created.SetAllImageTags(version.GetVersion())
 	var grant func() error
 	if providerName == api.KubernetesRuntimeInfraProviderGKE {
 		grant = func() error {
@@ -586,7 +665,7 @@ func UpgradeBlueGreen(
 	}
 
 	// record the new control plane once its API answers
-	if apiUp {
+	if apiUp && updateConfig {
 		if err := UpdateThreeportConfig(
 			threeportConfig,
 			blueGreenControlPlane(local, newName, created.Opts.ExternalApiEndpoint),
@@ -613,6 +692,88 @@ func UpgradeBlueGreen(
 	}
 	fmt.Printf("Info: control plane %s is up in %s, source namespace %s deleted\n", newName, newNamespace, namespace)
 	return nil
+}
+
+// delegateBlueGreen records a child blue-green for the control plane controller.
+// The new name is the deployment namespace, and the image namespace already stored is left as it is.
+func delegateBlueGreen(
+	local *ControlPlane,
+	currentClient *http.Client,
+	currentEndpoint string,
+	sourceName string,
+	newName string,
+	childTag string,
+) error {
+	// load the child from the API this command is connected to
+	inst, err := client.GetControlPlaneInstanceByName(currentClient, currentEndpoint, sourceName)
+	if err != nil {
+		return fmt.Errorf("failed to get control plane instance: %w", err)
+	}
+	namespace := util.DerefString(inst.Namespace)
+	if newName == "" || newName == namespace {
+		return fmt.Errorf("new namespace must differ from source namespace %s", namespace)
+	}
+	if inst.KubernetesRuntimeInstanceID == nil {
+		return fmt.Errorf("control plane %s has no runtime or definition", sourceName)
+	}
+
+	// a restore needs a GKE runtime and the bucket recorded for this control plane
+	runtimeInst, err := client.GetKubernetesRuntimeInstanceByID(
+		currentClient,
+		currentEndpoint,
+		*inst.KubernetesRuntimeInstanceID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
+	}
+	if runtimeInst.KubernetesRuntimeDefinitionID == nil {
+		return fmt.Errorf("kubernetes runtime %s has no definition", util.DerefString(runtimeInst.Name))
+	}
+	runtimeDef, err := client.GetKubernetesRuntimeDefinitionByID(
+		currentClient,
+		currentEndpoint,
+		*runtimeInst.KubernetesRuntimeDefinitionID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get kubernetes runtime definition: %w", err)
+	}
+	providerName := util.DerefString(runtimeDef.InfraProvider)
+	if providerName != api.KubernetesRuntimeInfraProviderGKE {
+		return fmt.Errorf(
+			"%w: database backups are not provisioned for control planes on %s",
+			ErrNoBackupBucket, providerName,
+		)
+	}
+	if _, err := RestoreBackupBucket(local, ""); err != nil {
+		return err
+	}
+
+	// record the new name and this tptctl version, and leave the install to the controller
+	tag := childTag
+	if tag == "" {
+		tag = version.GetVersion()
+	}
+	if _, err := client.UpdateControlPlaneInstance(
+		currentClient,
+		currentEndpoint,
+		childBlueGreenUpdate(inst.ID, newName, namespace, tag),
+	); err != nil {
+		return fmt.Errorf("failed to record control plane %s: %w", newName, err)
+	}
+	return nil
+}
+
+// childBlueGreenUpdate is the patch a child blue-green stores.
+// Name and Namespace are the new control plane, and FromNamespace is the one it replaces.
+func childBlueGreenUpdate(id *uint, newName, sourceNamespace, tag string) *api.ControlPlaneInstance {
+	// point the child row at the new control plane and this tptctl version
+	return &api.ControlPlaneInstance{
+		Common:        api.Common{ID: id},
+		Instance:      api.Instance{Name: &newName},
+		Namespace:     &newName,
+		FromNamespace: &sourceNamespace,
+		ImageTag:      &tag,
+	}
 }
 
 // removeReplacedNamespace deletes the namespace the restore came from.

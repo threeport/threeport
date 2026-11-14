@@ -10,13 +10,13 @@ import (
 
 const (
 	// e2-medium cannot schedule a 2Gi request, and changing the first pool replaces it.
-	standardNodeMachineType    = "e2-standard-2"
-	standardNodeInitialCount   = 2
-	standardNodeMinCount       = 1
-	standardNodeMaxCount       = 2
-	standardNodeLocationPolicy = "BALANCED"
-	standardNodeDiskSizeGb     = 100
-	standardNodeDiskType       = "pd-balanced"
+	standardNodeMachineType      = "e2-standard-2"
+	developmentStandardNodeCount = 1
+	productionStandardNodeCount  = 3
+	productionWorkerMinCount     = 0
+	standardNodeLocationPolicy   = "BALANCED"
+	standardNodeDiskSizeGb       = 100
+	standardNodeDiskType         = "pd-balanced"
 
 	gkeNodePoolTypeToken = "gcp:container/nodePool:NodePool"
 	gkeClusterTypeToken  = "gcp:container/cluster:Cluster"

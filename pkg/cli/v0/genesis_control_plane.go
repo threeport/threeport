@@ -404,6 +404,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			WorkloadIdentityNamespace: cpi.Opts.Namespace,
 			// a production control plane backs its database up to a
 			// bucket in another region
+			Tier:             string(cpi.Opts.Tier),
 			ProvisionBackups: cpi.Opts.Tier == threeport.ControlPlaneTier(threeport.ControlPlaneTierProd),
 			BackupRegion:     cpi.Opts.GcpBackupRegion,
 			PrivateApi:       cpi.Opts.PrivateK8sApi,
@@ -1039,6 +1040,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		dynamicKubeClient,
 		mapper,
 		threeport.SupportServicesCloud(controlPlane.InfraProvider),
+		cpi.Opts.Namespace,
 	)
 	if err != nil {
 		return uninstaller.cleanOnCreateError("failed to install threeport support services operator", err)
@@ -1061,6 +1063,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			clusterName,
 			*callerIdentity.Account,
 			kubernetesVersion,
+			cpi.Opts.Namespace,
 		); err != nil {
 			return uninstaller.cleanOnCreateError("failed to install system services", err)
 		}

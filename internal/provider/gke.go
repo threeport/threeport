@@ -18,6 +18,7 @@ import (
 	"github.com/pulumi/pulumi-gcp/sdk/v8/go/gcp/serviceaccount"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
+	v0 "github.com/threeport/threeport/pkg/api/v0"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/cloudresourcemanager/v1"
@@ -30,7 +31,6 @@ import (
 	"google.golang.org/grpc/status"
 	"gorm.io/datatypes"
 
-	v0 "github.com/threeport/threeport/pkg/api/v0"
 	gcpauth "github.com/threeport/threeport/pkg/auth/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 )
@@ -83,6 +83,9 @@ type KubernetesRuntimeInfraGKE struct {
 	// The maximum number of nodes the worker node pool's autoscaler will
 	// scale up to.
 	MaxNodeCount int32
+
+	// Tier is the control plane tier. Production sizes the larger pool for three nodes.
+	Tier string
 
 	// How the worker node pool's autoscaler places nodes across zones:
 	// "BALANCED" keeps the zones even, and "ANY", used when this is empty,
@@ -645,6 +648,10 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 			nodePoolDependencies = append(nodePoolDependencies, nodeRole)
 		}
 
+		workerMin := i.MinNodeCount
+		if i.Tier == v0.ControlPlaneTierProduction {
+			workerMin = productionWorkerMinCount
+		}
 		_, err = gkecontainer.NewNodePool(ctx, i.workerNodePoolName(), &gkecontainer.NodePoolArgs{
 			Name:     pulumi.String(i.workerNodePoolName()),
 			Cluster:  cluster.Name,
@@ -655,7 +662,7 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 			NodeConfig: nodeConfig,
 
 			Autoscaling: &gkecontainer.NodePoolAutoscalingArgs{
-				MinNodeCount:   pulumi.Int(int(i.MinNodeCount)),
+				MinNodeCount:   pulumi.Int(int(workerMin)),
 				MaxNodeCount:   pulumi.Int(int(i.MaxNodeCount)),
 				LocationPolicy: pulumi.String(i.locationPolicy()),
 			},
@@ -673,13 +680,17 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 
 		exportEgressCidrs(ctx, egressAddresses)
 
-		// add a pool that can schedule a 2Gi request
+		// add the larger pool beside the smaller one
+		standardCount := developmentStandardNodeCount
+		if i.Tier == v0.ControlPlaneTierProduction {
+			standardCount = productionStandardNodeCount
+		}
 		_, err = gkecontainer.NewNodePool(ctx, i.standardNodePoolName(), &gkecontainer.NodePoolArgs{
 			Name:     pulumi.String(i.standardNodePoolName()),
 			Cluster:  cluster.Name,
 			Location: pulumi.String(i.Region),
 
-			NodeCount: pulumi.Int(standardNodeInitialCount),
+			NodeCount: pulumi.Int(standardCount),
 
 			NodeConfig: &gkecontainer.NodePoolNodeConfigArgs{
 				MachineType: pulumi.String(standardNodeMachineType),
@@ -698,8 +709,8 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 			},
 
 			Autoscaling: &gkecontainer.NodePoolAutoscalingArgs{
-				MinNodeCount:   pulumi.Int(standardNodeMinCount),
-				MaxNodeCount:   pulumi.Int(standardNodeMaxCount),
+				MinNodeCount:   pulumi.Int(standardCount),
+				MaxNodeCount:   pulumi.Int(standardCount),
 				LocationPolicy: pulumi.String(standardNodeLocationPolicy),
 			},
 

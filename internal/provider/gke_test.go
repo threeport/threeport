@@ -7,6 +7,7 @@ import (
 
 	"github.com/pulumi/pulumi/sdk/v3/go/common/resource"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
+	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
 const (
@@ -80,6 +81,7 @@ func TestGKEPulumiProgram_LabelableResourcesCarryProvisionedBy(t *testing.T) {
 		ProjectID:              "test-project",
 		Region:                 "us-central1",
 		WorkerNodeInitialCount: 1,
+		Tier:                   v0.ControlPlaneTierProduction,
 	}
 
 	mocks := &gkeRecordingMocks{}
@@ -205,15 +207,15 @@ func TestGKEPulumiProgramStandardPool(t *testing.T) {
 		nodeConfig["diskType"] != standardNodeDiskType {
 		t.Errorf("disk = %v %v", nodeConfig["diskSizeGb"], nodeConfig["diskType"])
 	}
-	if standard["nodeCount"] != float64(standardNodeInitialCount) {
-		t.Errorf("nodeCount = %v, want %d", standard["nodeCount"], standardNodeInitialCount)
+	if standard["nodeCount"] != float64(productionStandardNodeCount) {
+		t.Errorf("nodeCount = %v, want %d", standard["nodeCount"], productionStandardNodeCount)
 	}
 	autoscaling, ok := standard["autoscaling"].(map[string]any)
 	if !ok {
 		t.Fatal("standard node pool has no autoscaling")
 	}
-	if autoscaling["minNodeCount"] != float64(standardNodeMinCount) ||
-		autoscaling["maxNodeCount"] != float64(standardNodeMaxCount) ||
+	if autoscaling["minNodeCount"] != float64(productionStandardNodeCount) ||
+		autoscaling["maxNodeCount"] != float64(productionStandardNodeCount) ||
 		autoscaling["locationPolicy"] != standardNodeLocationPolicy {
 		t.Errorf("autoscaling = %#v", autoscaling)
 	}

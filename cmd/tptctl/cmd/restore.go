@@ -229,6 +229,6 @@ func init() {
 	)
 	RestoreCmd.Flags().StringVar(
 		&tptctlRestoreControlPlane,
-		"control-plane", "", "Name of a control plane instance to restore. A child cannot restore itself.",
+		"control-plane-name", "", "Name of a control plane instance to restore. A child cannot restore itself.",
 	)
 }

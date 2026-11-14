@@ -330,11 +330,11 @@ func init() {
 	)
 	UpCmd.Flags().StringVar(
 		&cliArgs.CACertFile,
-		"ca-cert", "", "File holding the certificate authority certificate to install.",
+		"ca-cert-file", "", "File holding the certificate authority certificate to install.",
 	)
 	UpCmd.Flags().StringVar(
 		&cliArgs.CAKeyFile,
-		"ca-key", "", "File holding the certificate authority private key to install.",
+		"ca-key-file", "", "File holding the certificate authority private key to install.",
 	)
 	UpCmd.Flags().StringVar(
 		&cliArgs.EncryptionKeyFile,

@@ -664,6 +664,7 @@ func v0ControlPlaneInstanceCreated(
 		dynamicKubeClient,
 		mapper,
 		threeport.SupportServicesCloud(v0.KubernetesRuntimeInfraProvider(*kubernetesRuntimeDefinition.InfraProvider)),
+		cpi.Opts.Namespace,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to install threeport support services operator: %w", err)
@@ -1259,6 +1260,91 @@ func childAPIClient(instance *v0.ControlPlaneInstance) (*http.Client, string, er
 	return httpClient, endpoint, nil
 }
 
+// installBlueGreen is the install tptctl and the controller share. Tests replace it.
+var installBlueGreen = cli.InstallBlueGreen
+
+// lookupGkeProject reads the project id the bucket name includes. Tests replace it.
+var lookupGkeProject = gkeRuntimeProjectID
+
+// saveControlPlaneInstance writes the child row. Tests replace it.
+var saveControlPlaneInstance = client.UpdateControlPlaneInstance
+
+// childBlueGreenRequested reports a new deployment was asked for this child.
+func childBlueGreenRequested(instance *v0.ControlPlaneInstance) bool {
+	from := util.DerefString(instance.FromNamespace)
+	return from != "" && from != util.DerefString(instance.Namespace)
+}
+
+// blueGreenLocal returns the provider config InstallBlueGreen reads for its bucket.
+// Every provider calls that one install. Only GKE has a bucket.
+func blueGreenLocal(
+	definition *v0.KubernetesRuntimeDefinition,
+	runtimeName string,
+	projectID string,
+) (*cli.ControlPlane, error) {
+	local := &cli.ControlPlane{Name: runtimeName}
+	providerName := ""
+	if definition != nil && definition.InfraProvider != nil {
+		providerName = *definition.InfraProvider
+	}
+	switch providerName {
+	case v0.KubernetesRuntimeInfraProviderGKE:
+		local.Provider = v0.KubernetesRuntimeInfraProviderGKE
+		local.GKEProviderConfig.BackupBucket = provider.GkeBackupBucketName(runtimeName, projectID)
+		return local, nil
+	default:
+		return nil, fmt.Errorf(
+			"%w: database backups are not provisioned for control planes on %s",
+			cli.ErrNoBackupBucket, providerName,
+		)
+	}
+}
+
+// installChildBlueGreen runs the same blue-green install tptctl runs for a control plane that is not a child.
+func installChildBlueGreen(
+	r *controller.Reconciler,
+	instance *v0.ControlPlaneInstance,
+	runtime *v0.KubernetesRuntimeInstance,
+	definition *v0.KubernetesRuntimeDefinition,
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+) error {
+	// the bucket name is the one tptctl computes, including the project id
+	var projectID string
+	var err error
+	if runtime.ID != nil {
+		projectID, err = lookupGkeProject(r.APIClient, r.APIServer, *runtime.ID)
+	}
+	if err != nil && definition != nil && definition.InfraProvider != nil &&
+		*definition.InfraProvider == v0.KubernetesRuntimeInfraProviderGKE {
+		return err
+	}
+	local, err := blueGreenLocal(definition, util.DerefString(runtime.Name), projectID)
+	if err != nil {
+		return err
+	}
+
+	// install the new deployment, then clear the request so the next reconcile does not repeat it
+	err = installBlueGreen(
+		local,
+		r.APIClient,
+		r.APIServer,
+		r.EncryptionKey,
+		&cli.ControlPlaneTarget{Instance: instance, Kube: kubeClient, Mapper: mapper},
+		util.DerefString(instance.Name),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to install blue-green control plane: %w", err)
+	}
+	cleared := ""
+	instance.FromNamespace = &cleared
+	_, err = saveControlPlaneInstance(r.APIClient, r.APIServer, instance)
+	if err != nil {
+		return fmt.Errorf("failed to clear blue-green request: %w", err)
+	}
+	return nil
+}
+
 // v0ControlPlaneInstanceUpdated performs reconciliation when a v0 ControlPlaneInstance has been updated.
 func v0ControlPlaneInstanceUpdated(
 	r *controller.Reconciler,
@@ -1342,6 +1428,21 @@ func v0ControlPlaneInstanceUpdated(
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get kube client: %w", err)
+	}
+
+	// a recorded source namespace means tptctl asked for a new deployment of this child
+	if from := util.DerefString(controlPlaneInstance.FromNamespace); from != "" && from != util.DerefString(controlPlaneInstance.Namespace) {
+		if err := installChildBlueGreen(
+			r,
+			controlPlaneInstance,
+			kubernetesRuntimeInstance,
+			kubernetesRuntimeDefinition,
+			dynamicKubeClient,
+			mapper,
+		); err != nil {
+			return 0, err
+		}
+		return 0, nil
 	}
 
 	// sign new controller certificates with the CA already in the cluster

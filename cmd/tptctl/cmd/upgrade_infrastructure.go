@@ -14,15 +14,17 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/threeport/threeport/internal/provider"
+	api "github.com/threeport/threeport/pkg/api/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
+	client "github.com/threeport/threeport/pkg/client/v0"
 )
 
 var upgradeInfraYes bool
 
-// upgradeInfrastructureCmd previews the GKE infrastructure change and applies it if the operator accepts.
-var upgradeInfrastructureCmd = &cobra.Command{
+// UpgradeInfrastructureCmd previews the GKE infrastructure change and applies it if the operator accepts.
+var UpgradeInfrastructureCmd = &cobra.Command{
 	Use:          "infrastructure",
-	Example:      "tptctl upgrade infrastructure --name my-threeport",
+	Example:      "tptctl upgrade infrastructure",
 	Short:        "Preview and apply an infrastructure change",
 	Long:         "Compare the current infrastructure program to the deployed stack, print the diff, and apply it if the operator accepts.\n\nThe --yes flag skips the prompt. The command still prints the diff.",
 	SilenceUsage: true,
@@ -37,6 +39,17 @@ var upgradeInfrastructureCmd = &cobra.Command{
 		controlPlane, err := threeportConfig.GetControlPlaneConfig(requestedControlPlane)
 		if err != nil {
 			cli.Error("failed to get control plane config", err)
+			os.Exit(1)
+		}
+
+		// reject a child connection before preparing the change
+		controlPlaneInstance, err := client.GetSelfControlPlaneInstance(apiClient, apiEndpoint)
+		if err != nil {
+			cli.Error("failed to retrieve self control plane instance from threeport API", err)
+			os.Exit(1)
+		}
+		if controlPlaneInstance.ParentControlPlaneInstanceID != nil {
+			cli.Error("failed to prepare infrastructure upgrade", api.ErrRequestMustBeMadeToParent)
 			os.Exit(1)
 		}
 
@@ -89,11 +102,15 @@ func acceptInfrastructureUpgrade(diff string) bool {
 // init registers the infrastructure upgrade command.
 func init() {
 	// add the yes flag and the command
-	upgradeInfrastructureCmd.Flags().BoolVar(
+	UpgradeCmd.AddCommand(UpgradeInfrastructureCmd)
+	UpgradeInfrastructureCmd.Flags().StringVarP(
+		&cliArgs.ControlPlaneName,
+		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	UpgradeInfrastructureCmd.Flags().BoolVar(
 		&upgradeInfraYes,
 		"yes",
 		false,
 		"apply the change without a prompt",
 	)
-	UpgradeCmd.AddCommand(upgradeInfrastructureCmd)
 }

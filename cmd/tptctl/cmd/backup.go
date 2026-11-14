@@ -108,6 +108,6 @@ func init() {
 	)
 	BackupCmd.Flags().StringVar(
 		&tptctlBackupControlPlane,
-		"control-plane", "", "Name of a control plane instance to back up. A child may back itself up.",
+		"control-plane-name", "", "Name of a control plane instance to back up. A child may back itself up.",
 	)
 }
