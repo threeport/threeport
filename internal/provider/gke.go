@@ -1029,6 +1029,31 @@ func gkeClusterReady(cluster *containerpb.Cluster) error {
 	if cluster.GetStatus() != containerpb.Cluster_RUNNING {
 		return fmt.Errorf("cluster is %s, not RUNNING", cluster.GetStatus())
 	}
+
+	return gkeClusterHasEndpoint(cluster)
+}
+
+// gkeClusterConnectable returns an error naming what keeps an existing cluster
+// from being connected to.  It is for callers that want a kubeconfig for a
+// cluster that is already built, such as tptctl tearing one down.  Unlike
+// gkeClusterReady it accepts a RECONCILING cluster: GKE reports that during
+// routine maintenance, such as a node pool or control plane auto-upgrade, and a
+// cluster that has been built keeps its endpoint and CA certificate through it.
+// It still requires both, and refuses every other status.
+func gkeClusterConnectable(cluster *containerpb.Cluster) error {
+	switch cluster.GetStatus() {
+	case containerpb.Cluster_RUNNING, containerpb.Cluster_RECONCILING:
+	default:
+		return fmt.Errorf("cluster is %s, not RUNNING or RECONCILING", cluster.GetStatus())
+	}
+
+	return gkeClusterHasEndpoint(cluster)
+}
+
+// gkeClusterHasEndpoint returns an error unless the cluster has an API endpoint
+// and a CA certificate.  Both the strict and the looser readiness check
+// require it, so it is kept in one place.
+func gkeClusterHasEndpoint(cluster *containerpb.Cluster) error {
 	if cluster.GetEndpoint() == "" {
 		return errors.New("cluster has no API endpoint yet")
 	}
@@ -1108,8 +1133,31 @@ func (i *KubernetesRuntimeInfraGKE) CreateComplete() (bool, error) {
 
 // GetConnection returns the connection information for the GKE cluster.  It
 // fails while the cluster is not ready to be connected to, so that a caller
-// never records the endpoint of a cluster that does not have one yet.
+// never records the endpoint of a cluster that does not have one yet.  It is
+// for callers that have just built the cluster or that record what it returns;
+// a caller that connects to a cluster that is already built uses
+// GetExistingClusterConnection.
 func (i *KubernetesRuntimeInfraGKE) GetConnection() (*kube.KubeConnectionInfo, error) {
+	return i.getConnection(gkeClusterReady, "GKE cluster is not ready for connection")
+}
+
+// GetExistingClusterConnection returns the connection information for a GKE
+// cluster that is already built.  It also works while GKE is reconciling the
+// cluster for maintenance, which GetConnection refuses, so that tptctl can
+// still tear down, restore or install onto a cluster during an auto-upgrade.
+// It still fails for a cluster with no endpoint or CA certificate, or one in any
+// other state than RUNNING or RECONCILING.
+func (i *KubernetesRuntimeInfraGKE) GetExistingClusterConnection() (*kube.KubeConnectionInfo, error) {
+	return i.getConnection(gkeClusterConnectable, "GKE cluster cannot be connected to")
+}
+
+// getConnection returns the connection information for the GKE cluster once
+// check accepts the cluster as GCP reports it.  A rejection is wrapped with
+// rejection.
+func (i *KubernetesRuntimeInfraGKE) getConnection(
+	check func(*containerpb.Cluster) error,
+	rejection string,
+) (*kube.KubeConnectionInfo, error) {
 	release, err := i.useGCPAuth()
 	if err != nil {
 		return nil, err
@@ -1121,8 +1169,8 @@ func (i *KubernetesRuntimeInfraGKE) GetConnection() (*kube.KubeConnectionInfo, e
 	if err != nil {
 		return nil, err
 	}
-	if err := gkeClusterReady(cluster); err != nil {
-		return nil, fmt.Errorf("GKE cluster is not ready for connection: %w", err)
+	if err := check(cluster); err != nil {
+		return nil, fmt.Errorf("%s: %w", rejection, err)
 	}
 
 	apiEndpoint, caCert, err := gkeKubeApiEndpoint(cluster)

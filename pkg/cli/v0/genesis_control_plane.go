@@ -399,7 +399,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		}
 
 		if cpi.Opts.ControlPlaneOnly {
-			kubeConnectionInfo, err = kubernetesRuntimeInfraGKE.GetConnection()
+			kubeConnectionInfo, err = kubernetesRuntimeInfraGKE.GetExistingClusterConnection()
 			if err != nil {
 				return fmt.Errorf("failed to get connection info for GKE kubernetes runtime: %w", err)
 			}
@@ -1277,7 +1277,7 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		if err := kubernetesRuntimeInfraGKE.LoadConfigFromStack(); err != nil {
 			return fmt.Errorf("failed to load GKE config from Pulumi stack: %w", err)
 		}
-		if kubeConnection, err = kubernetesRuntimeInfraGKE.GetConnection(); err != nil {
+		if kubeConnection, err = kubernetesRuntimeInfraGKE.GetExistingClusterConnection(); err != nil {
 			return fmt.Errorf("failed to get connection for GKE kubernetes runtime infra: %w", err)
 		}
 		kubernetesRuntimeInfra = kubernetesRuntimeInfraGKE
