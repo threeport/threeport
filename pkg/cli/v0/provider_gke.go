@@ -323,6 +323,14 @@ func ApplyRecordedGkePool(
 	if instance != nil && instance.ReservedNatAddress != nil {
 		infra.ReserveNatAddress = *instance.ReservedNatAddress
 	}
+
+	// copy the recorded endpoint access so an upgrade does not open a private API
+	infra.PrivateApi = definition.PrivateApi != nil && *definition.PrivateApi
+	cidrs, err := v0.ParseCidrs("AllowedCidrs", definition.AllowedCidrs)
+	if err != nil {
+		return err
+	}
+	infra.AllowedCidrs = cidrs
 	return nil
 }
 

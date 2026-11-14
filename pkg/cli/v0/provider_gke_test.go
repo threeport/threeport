@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gorm.io/datatypes"
 
 	"github.com/threeport/threeport/internal/provider"
 	api "github.com/threeport/threeport/pkg/api/v0"
@@ -19,6 +20,11 @@ func TestApplyRecordedGkePoolKeepsFourNodes(t *testing.T) {
 		DefaultNodeGroupInitialSize:  util.Ptr(4),
 		DefaultNodeGroupMinimumSize:  util.Ptr(4),
 		DefaultNodeGroupMaximumSize:  util.Ptr(6),
+		PrivateApi:                   util.Ptr(true),
+		AllowedCidrs: func() *datatypes.JSON {
+			raw := datatypes.JSON([]byte(`["10.0.0.0/8"]`))
+			return &raw
+		}(),
 	}
 	instance := &api.GcpGkeKubernetesRuntimeInstance{
 		ReservedNatAddress: util.Ptr(true),
@@ -30,6 +36,8 @@ func TestApplyRecordedGkePoolKeepsFourNodes(t *testing.T) {
 	require.Equal(t, int32(4), infra.MinNodeCount)
 	require.Equal(t, int32(6), infra.MaxNodeCount)
 	require.True(t, infra.ReserveNatAddress)
+	require.True(t, infra.PrivateApi)
+	require.Equal(t, []string{"10.0.0.0/8"}, infra.AllowedCidrs)
 
 	err := ApplyRecordedGkePool(infra, &api.GcpGkeKubernetesRuntimeDefinition{}, instance)
 	require.EqualError(t, err, "recorded machine type is empty")
