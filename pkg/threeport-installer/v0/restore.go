@@ -1652,7 +1652,7 @@ func (cpi *ControlPlaneInstaller) InstallRestored(
 	return true, nil
 }
 
-// retargetRestoredSelf writes the replacement name, namespace, and endpoint onto the self row the backup restored.
+// retargetRestoredSelf writes the replacement name, namespace, endpoint, and image onto the self row the backup restored.
 func (cpi *ControlPlaneInstaller) retargetRestoredSelf(apiClient *http.Client, endpoint string) error {
 	// read the self row the backup restored
 	self, err := client.GetSelfControlPlaneInstance(apiClient, endpoint)
@@ -1660,12 +1660,16 @@ func (cpi *ControlPlaneInstaller) retargetRestoredSelf(apiClient *http.Client, e
 		return fmt.Errorf("failed to get restored self control plane: %w", err)
 	}
 
-	// write the replacement identity
+	// write the replacement identity and the image the replacement is running
 	name := cpi.Opts.Name
 	namespace := cpi.Opts.Namespace
+	imageNamespace := cpi.Opts.RestApiInfo.ImageNamespace
+	imageTag := cpi.Opts.RestApiInfo.ImageTag
 	self.Name = &name
 	self.Namespace = &namespace
 	self.ApiServerEndpoint = &endpoint
+	self.ImageNamespace = &imageNamespace
+	self.ImageTag = &imageTag
 	if _, err := client.UpdateControlPlaneInstance(apiClient, endpoint, self); err != nil {
 		return fmt.Errorf("failed to retarget restored self control plane: %w", err)
 	}
