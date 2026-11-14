@@ -511,12 +511,13 @@ func runBlueGreen(
 	}
 
 	// load the provider and auth while the API still answers
+	// The runtime id belongs to the api that stored this control plane.
 	if source.Instance.KubernetesRuntimeInstanceID == nil || source.Instance.ControlPlaneDefinitionID == nil {
 		return fmt.Errorf("control plane %s has no runtime or definition", sourceName)
 	}
 	runtimeInst, err := client.GetKubernetesRuntimeInstanceByID(
-		source.APIClient,
-		source.APIEndpoint,
+		currentClient,
+		currentEndpoint,
 		*source.Instance.KubernetesRuntimeInstanceID,
 	)
 	if err != nil {
@@ -526,8 +527,8 @@ func runBlueGreen(
 		return fmt.Errorf("kubernetes runtime %s has no definition", util.DerefString(runtimeInst.Name))
 	}
 	runtimeDef, err := client.GetKubernetesRuntimeDefinitionByID(
-		source.APIClient,
-		source.APIEndpoint,
+		currentClient,
+		currentEndpoint,
 		*runtimeInst.KubernetesRuntimeDefinitionID,
 	)
 	if err != nil {
@@ -535,8 +536,8 @@ func runBlueGreen(
 	}
 	providerName := util.DerefString(runtimeDef.InfraProvider)
 	definition, err := client.GetControlPlaneDefinitionByID(
-		source.APIClient,
-		source.APIEndpoint,
+		currentClient,
+		currentEndpoint,
 		*source.Instance.ControlPlaneDefinitionID,
 	)
 	if err != nil {
@@ -547,8 +548,8 @@ func runBlueGreen(
 	projectID := ""
 	if providerName == api.KubernetesRuntimeInfraProviderGKE {
 		gkeInst, err := client.GetGcpGkeKubernetesRuntimeInstanceByK8sRuntimeInst(
-			source.APIClient,
-			source.APIEndpoint,
+			currentClient,
+			currentEndpoint,
 			*source.Instance.KubernetesRuntimeInstanceID,
 		)
 		if err != nil {
@@ -558,8 +559,8 @@ func runBlueGreen(
 			return fmt.Errorf("gke runtime %s has no provider", util.DerefString(runtimeInst.Name))
 		}
 		gcpProvider, err := client.GetGcpProviderByID(
-			source.APIClient,
-			source.APIEndpoint,
+			currentClient,
+			currentEndpoint,
 			*gkeInst.GcpProviderID,
 		)
 		if err != nil {
