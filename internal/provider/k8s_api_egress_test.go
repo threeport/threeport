@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"testing"
@@ -17,6 +18,43 @@ import (
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
+
+// TestEgressCidrsAreReadBackFromARealStack covers #729 against a real
+// Pulumi backend: what a program exports with exportEgressCidrs is what
+// StackEgressCidrs reads from the state file tptctl keeps, and what
+// EgressCidrsFromState reads from the copy the controllers store.
+func TestEgressCidrsAreReadBackFromARealStack(t *testing.T) {
+	requirePulumiCLI(t)
+
+	w := NewPulumiWorkspace("egress-instance", "egressproj", WithStateDirRoot(t.TempDir()))
+	stack, err := w.SetupStack(func(ctx *pulumi.Context) error {
+		exportEgressCidrs(ctx, []pulumi.StringOutput{
+			pulumi.String("203.0.113.7").ToStringOutput(),
+			pulumi.String("198.51.100.20").ToStringOutput(),
+		})
+		return nil
+	})
+	require.NoError(t, err)
+	_, err = stack.Up(context.Background())
+	require.NoError(t, err)
+
+	fromStateFile, err := w.StackEgressCidrs()
+	require.NoError(t, err)
+	assert.Equal(t, []string{"203.0.113.7/32", "198.51.100.20/32"}, fromStateFile)
+
+	state, err := w.ReadStateFile()
+	require.NoError(t, err)
+	fromStoredState, err := EgressCidrsFromState(state)
+	require.NoError(t, err)
+	assert.Equal(t, fromStateFile, fromStoredState)
+
+	exported, err := stack.Export(context.Background())
+	require.NoError(t, err)
+	exportFormat := datatypes.JSON(`{"version":3,"deployment":` + string(exported.Deployment) + `}`)
+	fromExport, err := EgressCidrsFromState(&exportFormat)
+	require.NoError(t, err)
+	assert.Equal(t, fromStateFile, fromExport, "the export format is read too")
+}
 
 // TestAStateWithoutEgressCidrsHasNone covers clusters provisioned before the
 // output existed, and states that cannot be read.
