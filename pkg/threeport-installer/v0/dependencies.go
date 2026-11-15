@@ -998,6 +998,10 @@ func (cpi *ControlPlaneInstaller) getVolClaimTemplateSpec(
 	return volClaimTemplateSpec
 }
 
+// ProductionCrdbReplicas is the number of CockroachDB nodes a production
+// control plane runs.
+const ProductionCrdbReplicas = 3
+
 // crdbReplicas returns how many CockroachDB nodes a given tier runs.
 //
 // Development stays at the single node it has always been - lightweight and
@@ -1007,7 +1011,7 @@ func (cpi *ControlPlaneInstaller) getVolClaimTemplateSpec(
 // without losing quorum.
 func crdbReplicas(tier ControlPlaneTier) int64 {
 	if string(tier) == ControlPlaneTierProd {
-		return 3
+		return ProductionCrdbReplicas
 	}
 
 	return 1

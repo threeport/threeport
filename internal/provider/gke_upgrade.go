@@ -6,13 +6,16 @@ import (
 	"fmt"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optpreview"
+
+	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 )
 
 const (
 	// e2-medium cannot schedule a 2Gi request, and changing the first pool replaces it.
-	standardNodeMachineType        = "e2-standard-2"
-	productionStandardNodeCount    = 3
-	productionStandardMaxNodeCount = 6
+	standardNodeMachineType     = "e2-standard-2"
+	productionStandardNodeCount = 3
+	// twice the database replicas, so each can move to a new node as the old one upgrades
+	productionStandardMaxNodeCount = 2 * threeport.ProductionCrdbReplicas
 	productionWorkerMinCount       = 0
 	standardNodeLocationPolicy     = "BALANCED"
 	standardNodeDiskSizeGb         = 100
