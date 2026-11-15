@@ -831,8 +831,13 @@ func waitForChildBlueGreen(apiClient *http.Client, apiEndpoint string, id uint, 
 	deadline := time.Now().Add(childBlueGreenWait)
 	for {
 		inst, err := client.GetControlPlaneInstanceByID(apiClient, apiEndpoint, id)
+		// a brief API error is not a failed upgrade; the controller keeps working
 		if err != nil {
-			return fmt.Errorf("failed to get control plane %s: %w", name, err)
+			if time.Now().After(deadline) {
+				return fmt.Errorf("failed to get control plane %s: %w", name, err)
+			}
+			time.Sleep(5 * time.Second)
+			continue
 		}
 		if inst.FromNamespace == nil || *inst.FromNamespace == "" {
 			return nil
