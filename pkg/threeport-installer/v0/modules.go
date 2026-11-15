@@ -336,10 +336,7 @@ func (cpi *ControlPlaneInstaller) recordModuleReplicas(
 	deployment *unstructured.Unstructured,
 	replicas int64,
 ) error {
-	// leave a count that an earlier attempt already stored
-	if _, ok := recordedModuleReplicas(deployment); ok {
-		return nil
-	}
+	// replace a count left by an earlier backup with the live count
 	patch := fmt.Appendf(
 		nil,
 		`{"metadata":{"annotations":{%q:%q}}}`,

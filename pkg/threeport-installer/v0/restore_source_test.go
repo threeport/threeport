@@ -1,9 +1,11 @@
 package v0
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	api "github.com/threeport/threeport/pkg/api/v0"
@@ -81,4 +83,31 @@ func TestRememberedModuleScalesSurviveAStoppedAPI(t *testing.T) {
 	got, err := cpi.rememberedModuleScales(kubeClient)
 	require.NoError(t, err)
 	require.Equal(t, want, got)
+}
+
+// TestRecordModuleReplicasReplacesAStaleCount covers a module scaled after an earlier backup.
+func TestRecordModuleReplicasReplacesAStaleCount(t *testing.T) {
+	// the deployment is running at five after an earlier backup stored two
+	deployment := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "apps/v1",
+		"kind":       "Deployment",
+		"metadata": map[string]interface{}{
+			"name":      "example-controller",
+			"namespace": "example",
+			"annotations": map[string]interface{}{
+				replicasBeforeRestoreAnnotation: "2",
+			},
+		},
+		"spec": map[string]interface{}{"replicas": int64(5)},
+	}}
+	kubeClient := testKubeClient(deployment)
+	cpi := &ControlPlaneInstaller{}
+	require.NoError(t, cpi.recordModuleReplicas(kubeClient, deployment, 5))
+
+	// the next stop must restore five, not the earlier two
+	updated, err := kubeClient.Resource(deploymentGVR).Namespace("example").Get(
+		context.Background(), "example-controller", metav1.GetOptions{},
+	)
+	require.NoError(t, err)
+	require.Equal(t, "5", updated.GetAnnotations()[replicasBeforeRestoreAnnotation])
 }
