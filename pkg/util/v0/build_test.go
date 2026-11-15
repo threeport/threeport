@@ -333,3 +333,41 @@ func TestImageSelected_MatchesListedNames(t *testing.T) {
 		}
 	}
 }
+
+// TestImageSelected_MatchesCaseSensitively covers that a name differing only
+// in case does not match.
+func TestImageSelected_MatchesCaseSensitively(t *testing.T) {
+	// a mixed-case entry does not select the lowercase binary name
+	if ImageSelected("Rest-API", "rest-api") {
+		t.Errorf("ImageSelected(Rest-API, rest-api) = true, want false")
+	}
+}
+
+// TestImageSelected_IgnoresEmptyEntries covers that stray commas neither
+// select nor hide a listed name.
+func TestImageSelected_IgnoresEmptyEntries(t *testing.T) {
+	// the listed names around empty entries still match
+	for _, name := range []string{"rest-api", "agent"} {
+		if !ImageSelected("rest-api,,agent,", name) {
+			t.Errorf("ImageSelected(rest-api,,agent,, %s) = false, want true", name)
+		}
+	}
+}
+
+// TestUnknownImages_ReportsUnlistedNames covers that entries naming no known
+// component are returned in order and empty entries are skipped.
+func TestUnknownImages_ReportsUnlistedNames(t *testing.T) {
+	known := []string{"rest-api", "agent"}
+
+	// known names and empty entries produce no unknown names
+	if got := UnknownImages("rest-api, agent,,", known); len(got) != 0 {
+		t.Errorf("UnknownImages with known names = %v, want none", got)
+	}
+
+	// unknown names are returned in the order listed
+	got := UnknownImages("rest-api,databse-migrator,Agent", known)
+	want := []string{"databse-migrator", "Agent"}
+	if !slices.Equal(got, want) {
+		t.Errorf("UnknownImages = %v, want %v", got, want)
+	}
+}

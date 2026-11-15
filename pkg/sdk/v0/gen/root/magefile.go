@@ -298,8 +298,10 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f.Comment("Set PARALLEL_IMAGE_BUILD >= 1 to cap packaging concurrency (e.g.")
 	f.Comment("`PARALLEL_IMAGE_BUILD=4 mage build:allImages ghcr.io/foo v1 amd64,arm64`).")
 	f.Comment("Set IMAGES to a comma-separated list of component binary names to build")
-	f.Comment("only those (e.g. `IMAGES=rest-api,database-migrator mage build:allImages ...`).")
-	f.Comment("All components build when IMAGES is unset.")
+	f.Comment("only those (e.g. IMAGES=rest-api,database-migrator mage build:allImages ...).")
+	f.Comment("All components build when IMAGES is unset, and a name that matches no")
+	f.Comment("component is an error. package:allManifests ignores IMAGES, so run it only")
+	f.Comment("after an unfiltered build.")
 	f.Func().Params(Id("Build")).Id(buildAllImagesFuncName).Params(
 		Line().Id("imageRepo").String(),
 		Line().Id("imageTag").String(),
@@ -314,6 +316,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 		g.Id("build").Op(":=").Id("Build").Values()
 		emitWrapHelper(g, Id("imageRepo"), Id("imageTag"))
+		g.Comment("collect the packaging tasks of the selected components")
 		g.Var().Id("tasks").Index().Func().Params().Error()
 		for _, c := range allComponents {
 			g.If(imageSelectedCall(c.BinaryName)).Block(
@@ -1022,12 +1025,34 @@ func emitPrebuildBlock(g *Group, components []componentSpec, filterByImages bool
 	g.Line()
 
 	if filterByImages {
+		g.Comment("reject selected names that match no component")
+		g.If(
+			Id("unknown").Op(":=").Qual("github.com/threeport/threeport/pkg/util/v0", "UnknownImages").Call(
+				Id("selection"),
+				Index().String().ValuesFunc(func(v *Group) {
+					for _, c := range components {
+						v.Line().Lit(c.BinaryName)
+					}
+					v.Line()
+				}),
+			).Op(";").Len(Id("unknown")).Op(">").Lit(0),
+		).Block(
+			Return(Qual("fmt", "Errorf").Call(
+				Lit("IMAGES names unknown components: %s"),
+				Qual("strings", "Join").Call(Id("unknown"), Lit(", ")),
+			)),
+		)
+		g.Line()
+
+		g.Comment("collect the package dirs of the selected components")
 		g.Var().Id("packageDirs").Index().String()
 		for _, c := range components {
 			g.If(imageSelectedCall(c.BinaryName)).Block(
 				Id("packageDirs").Op("=").Append(Id("packageDirs"), Lit(c.PackageDir)),
 			)
 		}
+
+		g.Comment("fail when the selection lists no component")
 		g.If(Len(Id("packageDirs")).Op("==").Lit(0)).Block(
 			Return(Qual("fmt", "Errorf").Call(
 				Lit("IMAGES matched no component: %q"),

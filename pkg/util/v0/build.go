@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -454,18 +455,37 @@ func ParseArches(arch string) []string {
 }
 
 // ImageSelected reports whether a component binary name is listed in a
-// comma-separated selection, ignoring whitespace around each entry. An
-// empty selection lists every component.
+// comma-separated selection. Names match exactly, including case, and
+// whitespace around each entry is ignored. An empty selection lists every
+// component.
 func ImageSelected(selection, binaryName string) bool {
+	// treat an empty selection as every component
 	if strings.TrimSpace(selection) == "" {
 		return true
 	}
+
+	// match the name against each listed entry
 	for _, name := range strings.Split(selection, ",") {
 		if strings.TrimSpace(name) == binaryName {
 			return true
 		}
 	}
 	return false
+}
+
+// UnknownImages returns the entries of a comma-separated selection that are
+// not in binaryNames, in the order listed. Empty entries are ignored.
+func UnknownImages(selection string, binaryNames []string) []string {
+	var unknown []string
+
+	// collect each non-empty entry that names no known component
+	for _, name := range strings.Split(selection, ",") {
+		name = strings.TrimSpace(name)
+		if name != "" && !slices.Contains(binaryNames, name) {
+			unknown = append(unknown, name)
+		}
+	}
+	return unknown
 }
 
 // PushMultiArchManifest stitches per-arch image tags into a multi-arch
