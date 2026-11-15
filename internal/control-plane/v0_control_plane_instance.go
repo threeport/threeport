@@ -1943,19 +1943,16 @@ func restoreInstalledDatabase(
 		}
 		bucket := provider.GkeBackupBucketName(*runtimeInstance.Name, projectID)
 
-		// let the source namespace's database write the backup it is stopped for
-		sourceUID, err := threeport.NewInstaller(threeport.Namespace(cpi.Opts.FromNamespace)).
-			DatabaseServiceAccountUID(kubeClient)
+		// let the source namespace's database write the backup it is stopped for,
+		// unless the restore is already recorded as complete and the source may be gone
+		restored, err := cpi.RestoreRecorded(kubeClient)
 		if err != nil {
 			return nil, err
 		}
-		gkeInfra := &provider.KubernetesRuntimeInfraGKE{
-			PulumiWorkspace: provider.PulumiWorkspace{RuntimeInstanceName: *runtimeInstance.Name},
-			ProjectID:       projectID,
-			BackupBucket:    bucket,
-		}
-		if err := gkeInfra.GrantDatabaseBackupAccess(sourceUID); err != nil {
-			return nil, fmt.Errorf("failed to grant backup access for source namespace %s: %w", cpi.Opts.FromNamespace, err)
+		if !restored {
+			if err := grantSourceDatabaseBackup(cpi, kubeClient, *runtimeInstance.Name, projectID, bucket); err != nil {
+				return nil, err
+			}
 		}
 
 		// remember the bucket so the restored database check requires the schedule
@@ -1965,6 +1962,34 @@ func restoreInstalledDatabase(
 		// kind, eks, and oke have no backup to restore
 		return nil, fmt.Errorf("restore from %s is only supported on GKE", cpi.Opts.FromNamespace)
 	}
+}
+
+// grantSourceDatabaseBackup gives the database account of the namespace an install restores from access to the runtime backup bucket.
+func grantSourceDatabaseBackup(
+	cpi *threeport.ControlPlaneInstaller,
+	kubeClient dynamic.Interface,
+	runtimeName string,
+	projectID string,
+	bucket string,
+) error {
+	// read the source database account
+	sourceUID, err := threeport.NewInstaller(threeport.Namespace(cpi.Opts.FromNamespace)).
+		DatabaseServiceAccountUID(kubeClient)
+	if err != nil {
+		return err
+	}
+
+	// grant it object read and write on the bucket
+	gkeInfra := &provider.KubernetesRuntimeInfraGKE{
+		PulumiWorkspace: provider.PulumiWorkspace{RuntimeInstanceName: runtimeName},
+		ProjectID:       projectID,
+		BackupBucket:    bucket,
+	}
+	if err := gkeInfra.GrantDatabaseBackupAccess(sourceUID); err != nil {
+		return fmt.Errorf("failed to grant backup access for source namespace %s: %w", cpi.Opts.FromNamespace, err)
+	}
+
+	return nil
 }
 
 // grantInstalledDatabaseBackup gives the database account access to the runtime backup bucket, and leaves any other runtime unchanged.

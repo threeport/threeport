@@ -384,7 +384,7 @@ func (cpi *ControlPlaneInstaller) holdReplicasForRestore(
 	}
 
 	// leave the deployment alone once this source has been restored
-	recorded, err := cpi.restoreRecorded(kubeClient)
+	recorded, err := cpi.RestoreRecorded(kubeClient)
 	if err != nil {
 		return err
 	}
@@ -864,7 +864,7 @@ func (cpi *ControlPlaneInstaller) restoreFromNamespace(kubeClient dynamic.Interf
 	}
 
 	// skip a restore that already finished for this source
-	recorded, err := cpi.restoreRecorded(kubeClient)
+	recorded, err := cpi.RestoreRecorded(kubeClient)
 	if err != nil {
 		return err
 	}
@@ -879,8 +879,8 @@ func (cpi *ControlPlaneInstaller) restoreFromNamespace(kubeClient dynamic.Interf
 	return cpi.recordRestore(kubeClient)
 }
 
-// restoreRecorded reports whether this namespace was already restored from Opts.FromNamespace.
-func (cpi *ControlPlaneInstaller) restoreRecorded(kubeClient dynamic.Interface) (bool, error) {
+// RestoreRecorded reports whether this namespace was already restored from Opts.FromNamespace.
+func (cpi *ControlPlaneInstaller) RestoreRecorded(kubeClient dynamic.Interface) (bool, error) {
 	// read the recorded source namespace
 	cm, err := kubeClient.Resource(configMapResource).Namespace(cpi.Opts.Namespace).Get(
 		context.Background(),
@@ -1413,7 +1413,7 @@ func (cpi *ControlPlaneInstaller) StopSourceAndRestore(
 	if cpi.Opts.FromNamespace == "" {
 		return nil, nil
 	}
-	recorded, err := cpi.restoreRecorded(kubeClient)
+	recorded, err := cpi.RestoreRecorded(kubeClient)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check the restore record for %s: %w", cpi.Opts.Namespace, err)
 	}

@@ -44,7 +44,7 @@ func TestRestoreRecordedIsFalseForAnotherSource(t *testing.T) {
 
 	// a different source is not recorded
 	cpi.Opts.FromNamespace = "threeport-primary-02"
-	recorded, err := cpi.restoreRecorded(kubeClient)
+	recorded, err := cpi.RestoreRecorded(kubeClient)
 	if err != nil {
 		t.Fatal(err)
 	}

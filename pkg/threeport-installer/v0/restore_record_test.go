@@ -15,7 +15,7 @@ func TestClearRestoreRecordLetsTheNextRestoreStart(t *testing.T) {
 	if err := cpi.recordRestore(client); err != nil {
 		t.Fatal(err)
 	}
-	recorded, err := cpi.restoreRecorded(client)
+	recorded, err := cpi.RestoreRecorded(client)
 	if err != nil || !recorded {
 		t.Fatalf("recorded %v err %v", recorded, err)
 	}
@@ -24,7 +24,7 @@ func TestClearRestoreRecordLetsTheNextRestoreStart(t *testing.T) {
 	if err := cpi.clearRestoreRecord(client); err != nil {
 		t.Fatal(err)
 	}
-	recorded, err = cpi.restoreRecorded(client)
+	recorded, err = cpi.RestoreRecorded(client)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +51,7 @@ func TestResumeDropsTheSavedRestoreSoTheRetryBacksUpAgain(t *testing.T) {
 			t.Fatal(err)
 		}
 	}()
-	recorded, err := cpi.restoreRecorded(client)
+	recorded, err := cpi.RestoreRecorded(client)
 	if err != nil {
 		t.Fatal(err)
 	}
