@@ -142,7 +142,7 @@ func TestEnsureBrokerCAMountsTheSecret(t *testing.T) {
 
 // TestMissingModuleNamespaceIsAbsent covers a removed module namespace.
 func TestMissingModuleNamespaceIsAbsent(t *testing.T) {
-	present, err := moduleNamespacePresent(testKubeClient(), "threeport-wan-aware")
+	present, err := moduleNamespacePresent(testKubeClient(), "threeport-example")
 	require.NoError(t, err)
 	require.False(t, present)
 }
