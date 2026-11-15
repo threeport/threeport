@@ -302,3 +302,34 @@ func TestBuildxArgs_ContextAndDockerfilePathsJoined(t *testing.T) {
 		t.Errorf("expected -f /repo/subdir/Dockerfile, got args: %v", args)
 	}
 }
+
+// TestImageSelected_EmptySelectionListsEveryComponent covers the default of
+// building every component when no selection is given.
+func TestImageSelected_EmptySelectionListsEveryComponent(t *testing.T) {
+	// an empty or whitespace-only selection selects any binary name
+	for _, selection := range []string{"", "  "} {
+		if !ImageSelected(selection, "rest-api") {
+			t.Errorf("ImageSelected(%q, rest-api) = false, want true", selection)
+		}
+	}
+}
+
+// TestImageSelected_MatchesListedNames covers exact matching against a
+// comma-separated selection with surrounding whitespace.
+func TestImageSelected_MatchesListedNames(t *testing.T) {
+	selection := "rest-api, gateway-controller"
+
+	// listed names match, with whitespace around an entry ignored
+	for _, name := range []string{"rest-api", "gateway-controller"} {
+		if !ImageSelected(selection, name) {
+			t.Errorf("ImageSelected(%q, %s) = false, want true", selection, name)
+		}
+	}
+
+	// unlisted names and partial names do not match
+	for _, name := range []string{"agent", "rest", "gateway"} {
+		if ImageSelected(selection, name) {
+			t.Errorf("ImageSelected(%q, %s) = true, want false", selection, name)
+		}
+	}
+}

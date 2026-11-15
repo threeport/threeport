@@ -453,6 +453,21 @@ func ParseArches(arch string) []string {
 	return out
 }
 
+// ImageSelected reports whether a component binary name is listed in a
+// comma-separated selection, ignoring whitespace around each entry. An
+// empty selection lists every component.
+func ImageSelected(selection, binaryName string) bool {
+	if strings.TrimSpace(selection) == "" {
+		return true
+	}
+	for _, name := range strings.Split(selection, ",") {
+		if strings.TrimSpace(name) == binaryName {
+			return true
+		}
+	}
+	return false
+}
+
 // PushMultiArchManifest stitches per-arch image tags into a multi-arch
 // manifest list and pushes the result under the canonical tag. Sources
 // are assumed to already exist at <repo>/<image>:<tag>-<arch> for each

@@ -306,13 +306,17 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		Line().Id("arch").String(),
 		Line(),
 	).Error().BlockFunc(func(g *Group) {
+		g.Comment("read the optional comma-separated component selection")
+		g.Id("selection").Op(":=").Qual("os", "Getenv").Call(Lit("IMAGES"))
+		g.Line()
+
 		emitPrebuildBlock(g, allComponents, true)
 
 		g.Id("build").Op(":=").Id("Build").Values()
 		emitWrapHelper(g, Id("imageRepo"), Id("imageTag"))
 		g.Var().Id("tasks").Index().Func().Params().Error()
 		for _, c := range allComponents {
-			g.If(Id("imageSelected").Call(Lit(c.BinaryName))).Block(
+			g.If(imageSelectedCall(c.BinaryName)).Block(
 				Id("tasks").Op("=").Append(Id("tasks"), Id("wrap").Call(Id("build").Dot(c.PackageFuncName))),
 			)
 		}
@@ -460,23 +464,6 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		)
 		g.Return(Id("n"))
 	})
-
-	// helper: report whether a component is selected by the IMAGES env var
-	f.Comment("imageSelected reports whether a component binary name is listed in the")
-	f.Comment("comma-separated IMAGES env var. Every component is selected when IMAGES is unset.")
-	f.Func().Id("imageSelected").Params(Id("binaryName").String()).Bool().BlockFunc(func(g *Group) {
-		g.Id("v").Op(":=").Qual("os", "Getenv").Call(Lit("IMAGES"))
-		g.If(Id("v").Op("==").Lit("")).Block(
-			Return(True()),
-		)
-		g.For(List(Id("_"), Id("name")).Op(":=").Range().Qual("strings", "Split").Call(Id("v"), Lit(","))).Block(
-			If(Qual("strings", "TrimSpace").Call(Id("name")).Op("==").Id("binaryName")).Block(
-				Return(True()),
-			),
-		)
-		g.Return(False())
-	})
-	f.Line()
 
 	// dev image loads to kind clusters
 	f.Comment("LoadImage builds and loads an image to the provided kind cluster.")
@@ -1018,7 +1005,8 @@ func emitImageReleaseFunc(f *File, funcName, baseFuncName, displayName, binaryNa
 // emitPrebuildBlock writes the upfront BuildBinaries call shared by
 // AllImages and its Dev/Release wrappers. Expects `arch` in the caller's
 // scope; declares workingDir locally via getBuildVals. When filterByImages is
-// set, only components named by the IMAGES env var are pre-built.
+// set, it also expects `selection` in the caller's scope and pre-builds only
+// the components that selection lists.
 func emitPrebuildBlock(g *Group, components []componentSpec, filterByImages bool) {
 	g.Comment("pre-compile every binary for every requested arch in one go build")
 	g.Comment("per arch (arches run in parallel) so dependency compilation is")
@@ -1036,14 +1024,14 @@ func emitPrebuildBlock(g *Group, components []componentSpec, filterByImages bool
 	if filterByImages {
 		g.Var().Id("packageDirs").Index().String()
 		for _, c := range components {
-			g.If(Id("imageSelected").Call(Lit(c.BinaryName))).Block(
+			g.If(imageSelectedCall(c.BinaryName)).Block(
 				Id("packageDirs").Op("=").Append(Id("packageDirs"), Lit(c.PackageDir)),
 			)
 		}
 		g.If(Len(Id("packageDirs")).Op("==").Lit(0)).Block(
 			Return(Qual("fmt", "Errorf").Call(
 				Lit("IMAGES matched no component: %q"),
-				Qual("os", "Getenv").Call(Lit("IMAGES")),
+				Id("selection"),
 			)),
 		)
 	} else {
@@ -1069,6 +1057,15 @@ func emitPrebuildBlock(g *Group, components []componentSpec, filterByImages bool
 		Return(Qual("fmt", "Errorf").Call(Lit("failed to pre-build binaries: %w"), Err())),
 	)
 	g.Line()
+}
+
+// imageSelectedCall returns the generated check that a component's binary name
+// is listed in the `selection` variable of the enclosing function.
+func imageSelectedCall(binaryName string) Code {
+	return Qual("github.com/threeport/threeport/pkg/util/v0", "ImageSelected").Call(
+		Id("selection"),
+		Lit(binaryName),
+	)
 }
 
 // emitWrapHelper writes a `wrap` closure into the AllImages* function
