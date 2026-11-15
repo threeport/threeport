@@ -201,6 +201,14 @@ func TestTierCannotBeChangedAfterCreation(t *testing.T) {
 	})
 }
 
+// TestModuleInstallKeptDropsTheClearMarker keeps an empty value after a clear.
+func TestModuleInstallKeptDropsTheClearMarker(t *testing.T) {
+	request := "example.com/example-module-api@example/v1"
+	clear := ModuleInstallClear(request)
+	assert.Equal(t, "", ModuleInstallKept("", clear))
+	assert.Equal(t, request, ModuleInstallKept(request, request))
+}
+
 // TestModuleInstallUpdateKeepsAPendingRequest rejects a second request that still sees an empty field.
 // The first update commits, and the copy loaded before that update then conflicts.
 func TestModuleInstallUpdateKeepsAPendingRequest(t *testing.T) {

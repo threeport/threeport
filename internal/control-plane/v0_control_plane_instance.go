@@ -1479,13 +1479,18 @@ func v0ControlPlaneInstanceUpdated(
 		}
 		if write != "" {
 			fresh.ModuleInstall = &write
-			if _, err = client.UpdateControlPlaneInstance(
+			// keep the stored value, because a clear marker is not what the row holds
+			updated, err := client.UpdateControlPlaneInstance(
 				r.APIClient,
 				r.APIServer,
 				fresh,
-			); err != nil {
+			)
+			if err != nil {
 				return 0, fmt.Errorf("failed to clear module install request: %w", err)
 			}
+			kept := v0.ModuleInstallKept(next, write)
+			updated.ModuleInstall = &kept
+			fresh = updated
 		}
 		controlPlaneInstance.ModuleInstall = fresh.ModuleInstall
 	}

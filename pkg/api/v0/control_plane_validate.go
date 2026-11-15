@@ -26,6 +26,16 @@ var ErrModuleInstallPending = errors.New("a module install is already pending")
 // A module name does not contain a newline, so a stored request cannot match this prefix.
 const moduleInstallClearPrefix = "clear\n"
 
+// ModuleInstallKept returns the request stored after a successful update.
+// A clear marker is not stored. The column holds an empty value.
+func ModuleInstallKept(next string, write string) string {
+	// a clear leaves the column empty
+	if next == "" {
+		return ""
+	}
+	return write
+}
+
 // ModuleInstallClear is the value that clears one stored request.
 func ModuleInstallClear(started string) string {
 	// name the request this clear finishes
