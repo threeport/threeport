@@ -47,3 +47,22 @@ func TestGkeInfraForUpgradeBuildsTheTierProfile(t *testing.T) {
 		require.False(t, infra.ProvisionBackups, "tier %q", tier)
 	}
 }
+
+// TestImageNamespaceOfDropsTheNameTagAndDigest covers the image namespace read
+// from a running image: everything before the last slash.
+func TestImageNamespaceOfDropsTheNameTagAndDigest(t *testing.T) {
+	for image, want := range map[string]string{
+		"us-central1-docker.pkg.dev/qleet-shared/threeport/threeport-rest-api:v0.7.0": "us-central1-docker.pkg.dev/qleet-shared/threeport",
+		"ghcr.io/threeport/threeport-rest-api@sha256:abc":                             "ghcr.io/threeport",
+		"localhost:5001/threeport-rest-api:dev":                                       "localhost:5001",
+	} {
+		// read the namespace from the image
+		got, err := imageNamespaceOf(image)
+		require.NoError(t, err, image)
+		require.Equal(t, want, got, image)
+	}
+
+	// refuse an image with no namespace
+	_, err := imageNamespaceOf("threeport-rest-api:dev")
+	require.Error(t, err)
+}
