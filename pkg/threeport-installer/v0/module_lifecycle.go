@@ -29,6 +29,11 @@ const (
 	moduleInstallServiceAccount = "module-install"
 )
 
+// moduleInstallBindingName returns the cluster role binding for one control plane.
+func moduleInstallBindingName(namespace string) string {
+	return moduleInstallServiceAccount + "-" + namespace
+}
+
 // moduleInstallConfigFile is the config the install job reads.
 // The field names match the CLI config, which has no yaml tags.
 type moduleInstallConfigFile struct {
@@ -425,9 +430,15 @@ func WorkloadRESTMapper() meta.RESTMapper {
 		{Version: "v1"},
 		{Group: "apps", Version: "v1"},
 		{Group: "batch", Version: "v1"},
+		{Group: "rbac.authorization.k8s.io", Version: "v1"},
 	})
 	mapper.Add(schema.GroupVersionKind{Version: "v1", Kind: "Secret"}, meta.RESTScopeNamespace)
+	mapper.Add(schema.GroupVersionKind{Version: "v1", Kind: "ServiceAccount"}, meta.RESTScopeNamespace)
 	mapper.Add(schema.GroupVersionKind{Version: "v1", Kind: "Namespace"}, meta.RESTScopeRoot)
+	mapper.Add(
+		schema.GroupVersionKind{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRoleBinding"},
+		meta.RESTScopeRoot,
+	)
 	mapper.Add(
 		schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"},
 		meta.RESTScopeNamespace,
@@ -630,7 +641,7 @@ func ensureModuleInstallAccount(
 		"apiVersion": "rbac.authorization.k8s.io/v1",
 		"kind":       "ClusterRoleBinding",
 		"metadata": map[string]interface{}{
-			"name": moduleInstallServiceAccount + "-" + namespace,
+			"name": moduleInstallBindingName(namespace),
 		},
 		"roleRef": map[string]interface{}{
 			"apiGroup": "rbac.authorization.k8s.io",
