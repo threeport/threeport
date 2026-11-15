@@ -6,7 +6,7 @@ import "testing"
 func TestRestoreFromNamespaceSkipsWhenUnset(t *testing.T) {
 	// skip when no source namespace is set
 	cpi := &ControlPlaneInstaller{}
-	if err := cpi.RestoreFromNamespace(nil, ""); err != nil {
+	if err := cpi.restoreFromNamespace(nil, ""); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -15,7 +15,7 @@ func TestRestoreFromNamespaceSkipsWhenUnset(t *testing.T) {
 func TestRestoreFromNamespaceRequiresBucket(t *testing.T) {
 	// refuse a restore that names a source and no bucket
 	cpi := &ControlPlaneInstaller{Opts: Options{FromNamespace: "threeport-primary-01"}}
-	if err := cpi.RestoreFromNamespace(nil, ""); err == nil {
+	if err := cpi.restoreFromNamespace(nil, ""); err == nil {
 		t.Fatal("expected an error")
 	}
 }
@@ -28,7 +28,7 @@ func TestRestoreFromNamespaceSkipsWhenRecorded(t *testing.T) {
 	if err := cpi.recordRestore(kubeClient); err != nil {
 		t.Fatal(err)
 	}
-	if err := cpi.RestoreFromNamespace(kubeClient, "backup-bucket"); err != nil {
+	if err := cpi.restoreFromNamespace(kubeClient, "backup-bucket"); err != nil {
 		t.Fatal(err)
 	}
 }

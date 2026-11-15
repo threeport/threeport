@@ -21,9 +21,9 @@ const (
 	controllerConfigSecretName  = "controller-config"
 )
 
-// ModuleKebab returns the image-name segment of a module API name.
+// moduleKebab returns the image-name segment of a module API name.
 // A name that does not end in "-module-api" returns an empty string.
-func ModuleKebab(moduleAPIName string) string {
+func moduleKebab(moduleAPIName string) string {
 	name := path.Base(moduleAPIName)
 	if !strings.HasSuffix(name, moduleAPINameSuffix) {
 		return ""
@@ -32,9 +32,9 @@ func ModuleKebab(moduleAPIName string) string {
 	return strings.TrimSuffix(name, moduleAPINameSuffix)
 }
 
-// ModuleImage returns namespace/name:tag.
+// moduleImage returns namespace/name:tag.
 // An empty namespace, name, or tag returns an empty string.
-func ModuleImage(namespace, name, tag string) string {
+func moduleImage(namespace, name, tag string) string {
 	if namespace == "" || name == "" || tag == "" {
 		return ""
 	}
@@ -42,34 +42,34 @@ func ModuleImage(namespace, name, tag string) string {
 	return fmt.Sprintf("%s/%s:%s", namespace, name, tag)
 }
 
-// ModuleRestAPIImage returns the module API image reference.
-func ModuleRestAPIImage(namespace, kebab, tag string) string {
-	return ModuleImage(namespace, fmt.Sprintf("%s%s-rest-api", moduleImageNamePrefix, kebab), tag)
+// moduleRestAPIImage returns the module API image reference.
+func moduleRestAPIImage(namespace, kebab, tag string) string {
+	return moduleImage(namespace, fmt.Sprintf("%s%s-rest-api", moduleImageNamePrefix, kebab), tag)
 }
 
-// ModuleMigratorImage returns the module database migrator image reference.
-func ModuleMigratorImage(namespace, kebab, tag string) string {
-	return ModuleImage(namespace, fmt.Sprintf("%s%s-database-migrator", moduleImageNamePrefix, kebab), tag)
+// moduleMigratorImage returns the module database migrator image reference.
+func moduleMigratorImage(namespace, kebab, tag string) string {
+	return moduleImage(namespace, fmt.Sprintf("%s%s-database-migrator", moduleImageNamePrefix, kebab), tag)
 }
 
-// ModuleControllerImage returns the controller image reference.
+// moduleControllerImage returns the controller image reference.
 // The image name is the last segment of the recorded deployment name.
-func ModuleControllerImage(namespace, deploymentName, tag string) string {
-	return ModuleImage(namespace, path.Base(deploymentName), tag)
+func moduleControllerImage(namespace, deploymentName, tag string) string {
+	return moduleImage(namespace, path.Base(deploymentName), tag)
 }
 
-// ModuleTptctlImage returns the module tptctl plugin image reference.
-func ModuleTptctlImage(namespace, kebab, tag string) string {
-	return ModuleImage(namespace, fmt.Sprintf("%s%s-tptctl", moduleImageNamePrefix, kebab), tag)
+// moduleTptctlImage returns the module tptctl plugin image reference.
+func moduleTptctlImage(namespace, kebab, tag string) string {
+	return moduleImage(namespace, fmt.Sprintf("%s%s-tptctl", moduleImageNamePrefix, kebab), tag)
 }
 
-// ModuleAPIDeploymentName returns the module API deployment name.
-func ModuleAPIDeploymentName(kebab string) string {
+// moduleAPIDeploymentName returns the module API deployment name.
+func moduleAPIDeploymentName(kebab string) string {
 	return fmt.Sprintf("%s%s-api-server", moduleImageNamePrefix, kebab)
 }
 
-// ModuleControllerContainerName returns the container name on a controller deployment.
-func ModuleControllerContainerName(deploymentName string) string {
+// moduleControllerContainerName returns the container name on a controller deployment.
+func moduleControllerContainerName(deploymentName string) string {
 	return strings.TrimPrefix(path.Base(deploymentName), moduleImageNamePrefix)
 }
 
@@ -113,9 +113,9 @@ func ModuleApiConfigSecret(namespace, apiServerName string, authEnabled bool) *u
 	}
 }
 
-// SetNamedContainerImage sets one container image on a deployment.
+// setNamedContainerImage sets one container image on a deployment.
 // An empty image leaves the container unchanged.
-func SetNamedContainerImage(deployment *unstructured.Unstructured, listKey, containerName, image string) error {
+func setNamedContainerImage(deployment *unstructured.Unstructured, listKey, containerName, image string) error {
 	if image == "" || containerName == "" {
 		return nil
 	}
@@ -200,8 +200,8 @@ func setContainerEnvValue(container map[string]interface{}, name, value string) 
 	_ = unstructured.SetNestedSlice(container, env, "env")
 }
 
-// RestartDeployment sets the pod-template restart annotation.
-func RestartDeployment(deployment *unstructured.Unstructured, at time.Time) error {
+// restartDeployment sets the pod-template restart annotation.
+func restartDeployment(deployment *unstructured.Unstructured, at time.Time) error {
 	// set the restart annotation
 	annotations, _, err := unstructured.NestedStringMap(
 		deployment.Object,

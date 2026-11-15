@@ -84,7 +84,7 @@ type KubernetesRuntimeInfraEKS struct {
 	// created before it was set.  The program keeps it.
 	stackSupportType *string
 
-	// controlPlaneVersion is set by UpgradeInfra to the control plane's
+	// controlPlaneVersion is set by upgradeInfra to the control plane's
 	// version when it is already past the version the node group is upgraded
 	// to, as when EKS upgraded it on its own at the end of standard support.
 	// The program keeps the control plane on it rather than ask EKS for a

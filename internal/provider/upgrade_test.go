@@ -141,11 +141,11 @@ type fakeUpgradeInfra struct {
 
 	versionMu sync.Mutex
 	version   string
-	// The error UpgradeInfra returns
+	// The error upgradeInfra returns
 	upgradeErr error
-	// Whether UpgradeInfra leaves the cluster on its version
+	// Whether upgradeInfra leaves the cluster on its version
 	upgradeIgnored bool
-	// The versions passed to UpgradeInfra
+	// The versions passed to upgradeInfra
 	upgradedTo []string
 }
 
@@ -154,16 +154,16 @@ func newFakeUpgradeInfra(version string) *fakeUpgradeInfra {
 	return &fakeUpgradeInfra{fakeInfra: newFakeInfra(), version: version}
 }
 
-// ClusterKubernetesVersion returns the version the fake cluster runs.
-func (f *fakeUpgradeInfra) ClusterKubernetesVersion() (string, error) {
+// clusterKubernetesVersion returns the version the fake cluster runs.
+func (f *fakeUpgradeInfra) clusterKubernetesVersion() (string, error) {
 	f.versionMu.Lock()
 	defer f.versionMu.Unlock()
 	return f.version, nil
 }
 
-// UpgradeInfra records the version and moves the fake cluster to it, unless
+// upgradeInfra records the version and moves the fake cluster to it, unless
 // set to fail or to be ignored.
-func (f *fakeUpgradeInfra) UpgradeInfra(version string) error {
+func (f *fakeUpgradeInfra) upgradeInfra(version string) error {
 	f.versionMu.Lock()
 	defer f.versionMu.Unlock()
 	f.upgradedTo = append(f.upgradedTo, version)
@@ -176,7 +176,7 @@ func (f *fakeUpgradeInfra) UpgradeInfra(version string) error {
 	return nil
 }
 
-// upgrades returns the versions passed to UpgradeInfra.
+// upgrades returns the versions passed to upgradeInfra.
 func (f *fakeUpgradeInfra) upgrades() []string {
 	f.versionMu.Lock()
 	defer f.versionMu.Unlock()
@@ -509,18 +509,18 @@ func TestAnEksControlPlaneAheadOfItsNodesIsKept(t *testing.T) {
 	_, err := controlPlaneVersionForUpgrade("v1.37", "1.36")
 	assert.Error(t, err)
 
-	// UpgradeInfra reads the control plane before it plans the upgrade
+	// upgradeInfra reads the control plane before it plans the upgrade
 	read := eksControlPlaneVersion
 	t.Cleanup(func() { eksControlPlaneVersion = read })
 	eksControlPlaneVersion = func(*aws.Config, string) (string, error) { return "1.37", nil }
 	infra := testEksInfra(2)
 	infra.AwsConfig = nil
-	_ = infra.UpgradeInfra("1.36")
+	_ = infra.upgradeInfra("1.36")
 	assert.Equal(t, "1.37", infra.controlPlaneVersion)
 	assert.Equal(t, "1.36", infra.KubernetesVersion)
 
 	eksControlPlaneVersion = func(*aws.Config, string) (string, error) { return "", errors.New("throttled") }
-	assert.ErrorContains(t, testEksInfra(2).UpgradeInfra("1.36"), "throttled")
+	assert.ErrorContains(t, testEksInfra(2).upgradeInfra("1.36"), "throttled")
 
 	// the program then asks for each version on its own resource
 	infra = testEksInfra(2)

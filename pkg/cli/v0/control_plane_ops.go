@@ -54,9 +54,9 @@ type ControlPlaneTarget struct {
 	RuntimeName *string
 }
 
-// ResolveControlPlane loads a control plane from the current API.
+// resolveControlPlane loads a control plane from the current API.
 // An empty name selects the control plane serving the request.
-func ResolveControlPlane(
+func resolveControlPlane(
 	currentClient *http.Client,
 	currentEndpoint string,
 	name string,
@@ -161,7 +161,7 @@ func UpgradeModule(
 	}
 
 	// load the named child, or the connected control plane when the name is empty
-	target, err := ResolveControlPlane(currentClient, currentEndpoint, controlPlaneName, false)
+	target, err := resolveControlPlane(currentClient, currentEndpoint, controlPlaneName, false)
 	if err != nil {
 		return err
 	}
@@ -193,36 +193,6 @@ func UpgradeModule(
 	return nil
 }
 
-// UninstallModule deletes the module workload namespace and its API row.
-func UninstallModule(
-	currentClient *http.Client,
-	currentEndpoint string,
-	encryptionKey string,
-	controlPlaneName string,
-	moduleName string,
-) error {
-	// fail before deleting anything when the cluster cannot be reached
-	target, err := ResolveControlPlane(currentClient, currentEndpoint, controlPlaneName, false)
-	if err != nil {
-		return err
-	}
-	if err := target.clusterClient(currentClient, currentEndpoint, encryptionKey); err != nil {
-		return err
-	}
-	module, err := client.GetModuleApiByName(target.APIClient, target.APIEndpoint, moduleName)
-	if err != nil {
-		return fmt.Errorf("failed to get module api: %w", err)
-	}
-
-	return installer.UninstallModule(
-		target.Kube,
-		target.Mapper,
-		target.APIClient,
-		target.APIEndpoint,
-		module,
-	)
-}
-
 // BackupNamedControlPlane backs up the named control plane. A child may back itself up.
 // An empty namespace uses the instance namespace.
 // The writers are brought back up or left stopped, as writers says.
@@ -237,7 +207,7 @@ func BackupNamedControlPlane(
 	writers BackupWriters,
 ) error {
 	// a child backing itself up is allowed
-	target, err := ResolveControlPlane(currentClient, currentEndpoint, controlPlaneName, true)
+	target, err := resolveControlPlane(currentClient, currentEndpoint, controlPlaneName, true)
 	if err != nil {
 		return err
 	}
@@ -254,7 +224,7 @@ func BackupNamedControlPlane(
 		return fmt.Errorf("failed to resolve backup bucket: %w", err)
 	}
 	// back up, then resume the writers when the caller asked
-	_, _, err = BackupControlPlaneWithClient(
+	_, _, err = backupControlPlaneWithClient(
 		namespace,
 		resolved,
 		target.APIClient,
@@ -280,7 +250,7 @@ func RestoreNamedControlPlane(
 	stopControllers bool,
 ) error {
 	// a child restoring itself is rejected
-	target, err := ResolveControlPlane(currentClient, currentEndpoint, controlPlaneName, false)
+	target, err := resolveControlPlane(currentClient, currentEndpoint, controlPlaneName, false)
 	if err != nil {
 		return err
 	}
@@ -296,7 +266,7 @@ func RestoreNamedControlPlane(
 	if err != nil {
 		return fmt.Errorf("failed to resolve backup bucket: %w", err)
 	}
-	if err := RestoreControlPlaneDatabaseWithClient(
+	if err := restoreControlPlaneDatabaseWithClient(
 		local,
 		resolved,
 		backup,
@@ -437,7 +407,7 @@ func runBlueGreen(
 	}
 
 	// the connected control plane is the source
-	source, err := ResolveControlPlane(currentClient, currentEndpoint, sourceName, false)
+	source, err := resolveControlPlane(currentClient, currentEndpoint, sourceName, false)
 	if err != nil {
 		return err
 	}
@@ -552,7 +522,7 @@ func runBlueGreen(
 	if err != nil {
 		return err
 	}
-	replicas, modules, err := BackupControlPlaneWithClient(
+	replicas, modules, err := backupControlPlaneWithClient(
 		namespace,
 		bucket,
 		childClient,

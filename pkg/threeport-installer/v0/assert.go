@@ -71,7 +71,7 @@ func (cpi *ControlPlaneInstaller) AssertRestoredControlPlane(
 	if !cpi.Opts.AuthEnabled || cpi.Opts.ExternalApiEndpoint == "" {
 		return nil
 	}
-	authConfig, err := cpi.LoadAuthConfigFromNamespace(kubeClient, mapper, cpi.Opts.Namespace)
+	authConfig, err := cpi.loadAuthConfigFromNamespace(kubeClient, mapper, cpi.Opts.Namespace)
 	if err != nil {
 		return fmt.Errorf("failed to read the control plane CA: %w", err)
 	}

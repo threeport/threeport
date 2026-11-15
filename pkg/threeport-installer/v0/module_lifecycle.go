@@ -84,7 +84,7 @@ func ReconcileInstalledModuleImages(
 		}
 
 		// bring a stopped module back even when it has no recorded image
-		kebab := ModuleKebab(util.DerefString(module.Name))
+		kebab := moduleKebab(util.DerefString(module.Name))
 		workloadNamespace := moduleWorkloadNamespace(&module)
 		imageNamespace, imageTag := recordedModuleImages(&module)
 		controlPlaneNamespace := util.DerefString(inst.Namespace)
@@ -94,13 +94,13 @@ func ReconcileInstalledModuleImages(
 			return err
 		}
 		if err := retargetModuleDeployment(
-			kubeClient, workloadNamespace, ModuleAPIDeploymentName(kebab), controlPlaneNamespace,
+			kubeClient, workloadNamespace, moduleAPIDeploymentName(kebab), controlPlaneNamespace,
 		); err != nil {
 			return err
 		}
 		if imageNamespace == "" || imageTag == "" {
 			if err := resumeModuleByName(
-				kubeClient, workloadNamespace, ModuleAPIDeploymentName(kebab),
+				kubeClient, workloadNamespace, moduleAPIDeploymentName(kebab),
 			); err != nil {
 				return err
 			}
@@ -149,9 +149,9 @@ func retagModuleAPI(
 	imageNamespace, imageTag, controlPlaneNamespace string,
 ) error {
 	// read the API deployment
-	kebab := ModuleKebab(util.DerefString(module.Name))
+	kebab := moduleKebab(util.DerefString(module.Name))
 	namespace := moduleWorkloadNamespace(module)
-	name := ModuleAPIDeploymentName(kebab)
+	name := moduleAPIDeploymentName(kebab)
 	deployment, err := kube.GetResource(
 		"apps", "v1", "Deployment", namespace, name, kubeClient, *mapper,
 	)
@@ -163,8 +163,8 @@ func retagModuleAPI(
 	}
 
 	// leave a deployment whose containers are missing or already current
-	apiImage := ModuleRestAPIImage(imageNamespace, kebab, imageTag)
-	migratorImage := ModuleMigratorImage(imageNamespace, kebab, imageTag)
+	apiImage := moduleRestAPIImage(imageNamespace, kebab, imageTag)
+	migratorImage := moduleMigratorImage(imageNamespace, kebab, imageTag)
 	currentAPI, apiOK := namedContainerImage(deployment, "containers", moduleAPIContainerName)
 	currentMigrator, migratorOK := namedContainerImage(
 		deployment, "initContainers", moduleMigratorContainerName,
@@ -225,8 +225,8 @@ func retagModuleController(
 	}
 
 	// leave a deployment whose container is missing or already current
-	container := ModuleControllerContainerName(name)
-	image := ModuleControllerImage(imageNamespace, name, imageTag)
+	container := moduleControllerContainerName(name)
+	image := moduleControllerImage(imageNamespace, name, imageTag)
 	current, ok := namedContainerImage(deployment, "containers", container)
 	if !ok || current == image {
 		return nil
@@ -242,35 +242,6 @@ func retagModuleController(
 		map[string]string{"containers": container},
 		time.Now().UTC(),
 	)
-}
-
-// UninstallModule deletes the module namespace and then the module API row.
-func UninstallModule(
-	kubeClient dynamic.Interface,
-	mapper *meta.RESTMapper,
-	apiClient *http.Client,
-	apiEndpoint string,
-	module *api.ModuleApi,
-) error {
-	// delete the workload namespace
-	namespace := moduleWorkloadNamespace(module)
-	ns := &unstructured.Unstructured{}
-	ns.SetAPIVersion("v1")
-	ns.SetKind("Namespace")
-	ns.SetName(namespace)
-	if err := kube.DeleteResource(ns, kubeClient, *mapper); err != nil && !k8serrors.IsNotFound(err) {
-		return fmt.Errorf("failed to delete module namespace %s: %w", namespace, err)
-	}
-
-	// delete the module API row
-	if module.ID == nil {
-		return fmt.Errorf("failed to delete module %s: id is empty", util.DerefString(module.Name))
-	}
-	if _, err := client.DeleteModuleApi(apiClient, apiEndpoint, *module.ID); err != nil {
-		return fmt.Errorf("failed to delete module %s: %w", util.DerefString(module.Name), err)
-	}
-
-	return nil
 }
 
 // WorkloadRESTMapper returns a mapper for the workloads a control plane upgrade touches.
@@ -308,7 +279,7 @@ func moduleWorkloadNamespace(module *api.ModuleApi) string {
 		return server.Namespace
 	}
 
-	return moduleWorkloadPrefix + ModuleKebab(util.DerefString(module.Name))
+	return moduleWorkloadPrefix + moduleKebab(util.DerefString(module.Name))
 }
 
 // namedContainerImage returns the image of one container.

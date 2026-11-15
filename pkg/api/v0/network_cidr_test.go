@@ -38,7 +38,7 @@ func poolJSON(t *testing.T, cidrs ...string) *datatypes.JSON {
 // ranges a runtime may be given by hand.
 func TestANetworkCidrIsARoutableBlockClearOfTheClusterInternalRanges(t *testing.T) {
 	for _, valid := range []string{"10.16.0.0/16", "10.0.0.0/15", "192.168.0.0/16", "172.21.0.0/16"} {
-		_, err := ParseNetworkCidr("NetworkCidr", valid)
+		_, err := parseNetworkCidr("NetworkCidr", valid)
 		assert.NoError(t, err, valid)
 	}
 
@@ -55,7 +55,7 @@ func TestANetworkCidrIsARoutableBlockClearOfTheClusterInternalRanges(t *testing.
 		"10.240.0.0/12":   "overlaps 10.244.0.0/16",
 		"203.0.113.0/250": "not a CIDR block",
 	} {
-		_, err := ParseNetworkCidr("NetworkCidr", cidr)
+		_, err := parseNetworkCidr("NetworkCidr", cidr)
 		if assert.Error(t, err, cidr) {
 			assert.Contains(t, err.Error(), want, cidr)
 		}
@@ -65,13 +65,13 @@ func TestANetworkCidrIsARoutableBlockClearOfTheClusterInternalRanges(t *testing.
 // TestANetworkCidrPoolHoldsBlocksOfASixteenOrLargerThatDontOverlap covers
 // the pool a control plane allocates from.
 func TestANetworkCidrPoolHoldsBlocksOfASixteenOrLargerThatDontOverlap(t *testing.T) {
-	pool, err := ParseNetworkCidrPool(poolJSON(t, "10.16.0.0/12", "192.168.0.0/16", "172.16.0.0/12"))
+	pool, err := parseNetworkCidrPool(poolJSON(t, "10.16.0.0/12", "192.168.0.0/16", "172.16.0.0/12"))
 	require.NoError(t, err)
 	assert.Equal(t, prefixes(t, "10.16.0.0/12", "192.168.0.0/16", "172.16.0.0/12"), pool,
 		"a pool may include cluster-internal ranges, which allocation skips")
 
 	for _, empty := range []*datatypes.JSON{nil, poolJSON(t), rawJSON("null")} {
-		pool, err := ParseNetworkCidrPool(empty)
+		pool, err := parseNetworkCidrPool(empty)
 		require.NoError(t, err)
 		assert.Empty(t, pool)
 	}
@@ -87,7 +87,7 @@ func TestANetworkCidrPoolHoldsBlocksOfASixteenOrLargerThatDontOverlap(t *testing
 		"IPv6":               {poolJSON(t, "fd00::/8"), "not an IPv4 CIDR block"},
 		"not a list":         {rawJSON(`"10.16.0.0/12"`), "must be a JSON array"},
 	} {
-		_, err := ParseNetworkCidrPool(test.pool)
+		_, err := parseNetworkCidrPool(test.pool)
 		if assert.Error(t, err, name) {
 			assert.Contains(t, err.Error(), test.want, name)
 		}
@@ -98,12 +98,12 @@ func TestANetworkCidrPoolHoldsBlocksOfASixteenOrLargerThatDontOverlap(t *testing
 // pool: 10.16.0.0/16 through 10.255.0.0/16, in order, without the two OKE
 // ranges.
 func TestTheDefaultPoolHoldsTwoHundredAndThirtyEightBlocks(t *testing.T) {
-	pool, err := NetworkCidrPoolOrDefault(nil)
+	pool, err := networkCidrPoolOrDefault(nil)
 	require.NoError(t, err)
 
 	var allocated []netip.Prefix
 	for {
-		block, err := AllocateNetworkCidr(pool, allocated)
+		block, err := allocateNetworkCidr(pool, allocated)
 		if err != nil {
 			assert.Contains(t, err.Error(), "no /16 is left to allocate in the network CIDR pool 10.16.0.0/12, 10.32.0.0/11, 10.64.0.0/10, 10.128.0.0/9")
 			break
@@ -129,7 +129,7 @@ func TestTheDefaultPoolHoldsTwoHundredAndThirtyEightBlocks(t *testing.T) {
 		second++
 	}
 
-	pool, err = NetworkCidrPoolOrDefault(poolJSON(t, "192.168.0.0/16"))
+	pool, err = networkCidrPoolOrDefault(poolJSON(t, "192.168.0.0/16"))
 	require.NoError(t, err)
 	assert.Equal(t, prefixes(t, "192.168.0.0/16"), pool, "a pool that is set replaces the default")
 }
@@ -153,14 +153,14 @@ func TestAllocationSkipsWhatIsInUse(t *testing.T) {
 		"entries in the order the pool lists them": {[]string{"192.168.0.0/16", "10.16.0.0/12"}, nil, "192.168.0.0/16"},
 		"the last block of the address space":      {[]string{"255.255.0.0/16"}, nil, "255.255.0.0/16"},
 	} {
-		block, err := AllocateNetworkCidr(prefixes(t, test.pool...), prefixes(t, test.inUse...))
+		block, err := allocateNetworkCidr(prefixes(t, test.pool...), prefixes(t, test.inUse...))
 		require.NoError(t, err, name)
 		assert.Equal(t, test.want, block.String(), name)
 	}
 
-	_, err := AllocateNetworkCidr(prefixes(t, "10.96.0.0/16"), nil)
+	_, err := allocateNetworkCidr(prefixes(t, "10.96.0.0/16"), nil)
 	assert.ErrorContains(t, err, "no /16 is left to allocate in the network CIDR pool 10.96.0.0/16")
-	_, err = AllocateNetworkCidr(prefixes(t, "10.16.0.0/15"), prefixes(t, "10.16.0.0/16", "10.17.0.0/16"))
+	_, err = allocateNetworkCidr(prefixes(t, "10.16.0.0/15"), prefixes(t, "10.16.0.0/16", "10.17.0.0/16"))
 	assert.ErrorContains(t, err, "no /16 is left")
 }
 

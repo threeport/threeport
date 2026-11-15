@@ -12,9 +12,9 @@ import (
 // TestModuleKebab checks the image-name segment of a module API name.
 func TestModuleKebab(t *testing.T) {
 	// accept a module API name and reject anything else
-	assert.Equal(t, "acme", ModuleKebab("example.com/acme-module-api"))
-	assert.Equal(t, "", ModuleKebab("example.com/threeport-api"))
-	assert.Equal(t, "", ModuleKebab(""))
+	assert.Equal(t, "acme", moduleKebab("example.com/acme-module-api"))
+	assert.Equal(t, "", moduleKebab("example.com/threeport-api"))
+	assert.Equal(t, "", moduleKebab(""))
 }
 
 // TestModuleImages checks the image references a retarget writes.
@@ -23,17 +23,17 @@ func TestModuleImages(t *testing.T) {
 	assert.Equal(
 		t,
 		"repo.example/threeport-acme-rest-api:v1",
-		ModuleRestAPIImage("repo.example", "acme", "v1"),
+		moduleRestAPIImage("repo.example", "acme", "v1"),
 	)
 	assert.Equal(
 		t,
 		"repo.example/threeport-acme-database-migrator:v1",
-		ModuleMigratorImage("repo.example", "acme", "v1"),
+		moduleMigratorImage("repo.example", "acme", "v1"),
 	)
 	assert.Equal(
 		t,
 		"repo.example/threeport-acme-widget-controller:v1",
-		ModuleControllerImage(
+		moduleControllerImage(
 			"repo.example",
 			"threeport-acme/threeport-acme-widget-controller",
 			"v1",
@@ -42,15 +42,15 @@ func TestModuleImages(t *testing.T) {
 	assert.Equal(
 		t,
 		"repo.example/threeport-acme-tptctl:v1",
-		ModuleTptctlImage("repo.example", "acme", "v1"),
+		moduleTptctlImage("repo.example", "acme", "v1"),
 	)
-	assert.Equal(t, "", ModuleRestAPIImage("", "acme", "v1"))
-	assert.Equal(t, "", ModuleRestAPIImage("repo.example", "acme", ""))
-	assert.Equal(t, "threeport-acme-api-server", ModuleAPIDeploymentName("acme"))
+	assert.Equal(t, "", moduleRestAPIImage("", "acme", "v1"))
+	assert.Equal(t, "", moduleRestAPIImage("repo.example", "acme", ""))
+	assert.Equal(t, "threeport-acme-api-server", moduleAPIDeploymentName("acme"))
 	assert.Equal(
 		t,
 		"acme-widget-controller",
-		ModuleControllerContainerName("ns/threeport-acme-widget-controller"),
+		moduleControllerContainerName("ns/threeport-acme-widget-controller"),
 	)
 }
 
@@ -87,8 +87,8 @@ func TestSetNamedContainerImageLeavesAnEmptyImage(t *testing.T) {
 	// leave both containers on their current images
 	deployment := imageRetargetDeployment()
 
-	require.NoError(t, SetNamedContainerImage(deployment, "containers", moduleAPIContainerName, ""))
-	require.NoError(t, SetNamedContainerImage(deployment, "initContainers", moduleMigratorContainerName, ""))
+	require.NoError(t, setNamedContainerImage(deployment, "containers", moduleAPIContainerName, ""))
+	require.NoError(t, setNamedContainerImage(deployment, "initContainers", moduleMigratorContainerName, ""))
 
 	assert.Equal(t, "old-api", containerImage(t, deployment, "containers", moduleAPIContainerName))
 	assert.Equal(t, "old-migrator", containerImage(t, deployment, "initContainers", moduleMigratorContainerName))
@@ -99,19 +99,19 @@ func TestSetNamedContainerImageReplacesTheNamedContainer(t *testing.T) {
 	// replace the named containers and stamp the restart annotation
 	deployment := imageRetargetDeployment()
 
-	require.NoError(t, SetNamedContainerImage(
+	require.NoError(t, setNamedContainerImage(
 		deployment,
 		"containers",
 		moduleAPIContainerName,
 		"repo.example/threeport-acme-rest-api:v2",
 	))
-	require.NoError(t, SetNamedContainerImage(
+	require.NoError(t, setNamedContainerImage(
 		deployment,
 		"initContainers",
 		moduleMigratorContainerName,
 		"repo.example/threeport-acme-database-migrator:v2",
 	))
-	require.NoError(t, RestartDeployment(deployment, time.Date(2026, 11, 12, 15, 4, 5, 0, time.UTC)))
+	require.NoError(t, restartDeployment(deployment, time.Date(2026, 11, 12, 15, 4, 5, 0, time.UTC)))
 
 	assert.Equal(
 		t,

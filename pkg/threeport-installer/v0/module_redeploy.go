@@ -102,7 +102,7 @@ func (cpi *ControlPlaneInstaller) redeployInstalledModule(
 			util.DerefString(moduleAPI.Name),
 		)
 	}
-	kebab := ModuleKebab(util.DerefString(moduleAPI.Name))
+	kebab := moduleKebab(util.DerefString(moduleAPI.Name))
 	if kebab == "" {
 		return fmt.Errorf(
 			"module %s has no image name",
@@ -199,11 +199,11 @@ func (cpi *ControlPlaneInstaller) redeployInstalledModule(
 	if err := restartModuleDeployment(
 		kubeClient,
 		apiServer.Namespace,
-		ModuleAPIDeploymentName(kebab),
+		moduleAPIDeploymentName(kebab),
 		cpi.Opts.Namespace,
 		map[string]string{
-			"containers":     ModuleRestAPIImage(imageNamespace, kebab, imageTag),
-			"initContainers": ModuleMigratorImage(imageNamespace, kebab, imageTag),
+			"containers":     moduleRestAPIImage(imageNamespace, kebab, imageTag),
+			"initContainers": moduleMigratorImage(imageNamespace, kebab, imageTag),
 		},
 		map[string]string{
 			"containers":     moduleAPIContainerName,
@@ -233,10 +233,10 @@ func (cpi *ControlPlaneInstaller) redeployInstalledModule(
 			name,
 			cpi.Opts.Namespace,
 			map[string]string{
-				"containers": ModuleControllerImage(imageNamespace, name, imageTag),
+				"containers": moduleControllerImage(imageNamespace, name, imageTag),
 			},
 			map[string]string{
-				"containers": ModuleControllerContainerName(name),
+				"containers": moduleControllerContainerName(name),
 			},
 			restartedAt,
 		); err != nil {
@@ -308,13 +308,13 @@ func restartModuleDeployment(
 
 	// set each recorded image
 	for listKey, image := range images {
-		if err := SetNamedContainerImage(deployment, listKey, containerNames[listKey], image); err != nil {
+		if err := setNamedContainerImage(deployment, listKey, containerNames[listKey], image); err != nil {
 			return fmt.Errorf("failed to set the image on deployment %s/%s: %w", namespace, name, err)
 		}
 	}
 
 	// restart so the init containers run against this database
-	if err := RestartDeployment(deployment, restartedAt); err != nil {
+	if err := restartDeployment(deployment, restartedAt); err != nil {
 		return fmt.Errorf("failed to restart deployment %s/%s: %w", namespace, name, err)
 	}
 	if _, err := kubeClient.Resource(deploymentGVR).Namespace(namespace).Update(

@@ -35,11 +35,11 @@ func (h *Handler) GetAwsEksKubernetesRuntimeDefinitionMiddleware() []echo.Middle
 }
 
 func (h *Handler) PatchAwsEksKubernetesRuntimeDefinitionMiddleware() []echo.MiddlewareFunc {
-	return []echo.MiddlewareFunc{h.RequestAwsEksUpgrades}
+	return []echo.MiddlewareFunc{h.requestAwsEksUpgrades}
 }
 
 func (h *Handler) PutAwsEksKubernetesRuntimeDefinitionMiddleware() []echo.MiddlewareFunc {
-	return []echo.MiddlewareFunc{h.RequestAwsEksUpgrades}
+	return []echo.MiddlewareFunc{h.requestAwsEksUpgrades}
 }
 
 func (h *Handler) DeleteAwsEksKubernetesRuntimeDefinitionMiddleware() []echo.MiddlewareFunc {
@@ -55,11 +55,11 @@ func (h *Handler) GetGcpGkeKubernetesRuntimeDefinitionMiddleware() []echo.Middle
 }
 
 func (h *Handler) PatchGcpGkeKubernetesRuntimeDefinitionMiddleware() []echo.MiddlewareFunc {
-	return []echo.MiddlewareFunc{h.RequestGcpGkeUpgrades}
+	return []echo.MiddlewareFunc{h.requestGcpGkeUpgrades}
 }
 
 func (h *Handler) PutGcpGkeKubernetesRuntimeDefinitionMiddleware() []echo.MiddlewareFunc {
-	return []echo.MiddlewareFunc{h.RequestGcpGkeUpgrades}
+	return []echo.MiddlewareFunc{h.requestGcpGkeUpgrades}
 }
 
 func (h *Handler) DeleteGcpGkeKubernetesRuntimeDefinitionMiddleware() []echo.MiddlewareFunc {
@@ -80,9 +80,9 @@ func updatedDefinitionID(c echo.Context, err error) (uint, bool) {
 	return uint(id), true
 }
 
-// RequestAwsEksUpgrades asks the instances of an updated EKS definition to
+// requestAwsEksUpgrades asks the instances of an updated EKS definition to
 // upgrade their clusters to its KubernetesVersion.
-func (h Handler) RequestAwsEksUpgrades(next echo.HandlerFunc) echo.HandlerFunc {
+func (h Handler) requestAwsEksUpgrades(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		err := next(c)
 		id, saved := updatedDefinitionID(c, err)
@@ -138,9 +138,9 @@ func (h Handler) RequestAwsEksUpgrades(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
-// RequestGcpGkeUpgrades asks the instances of an updated GKE definition to
+// requestGcpGkeUpgrades asks the instances of an updated GKE definition to
 // upgrade their clusters to its KubernetesVersion.
-func (h Handler) RequestGcpGkeUpgrades(next echo.HandlerFunc) echo.HandlerFunc {
+func (h Handler) requestGcpGkeUpgrades(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		err := next(c)
 		id, saved := updatedDefinitionID(c, err)

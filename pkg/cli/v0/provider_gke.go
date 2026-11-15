@@ -240,10 +240,10 @@ func gkeClusterName(controlPlane *ControlPlane) string {
 	return provider.ThreeportRuntimeName(controlPlane.Name)
 }
 
-// RequireGkeLocation refuses an empty GCP project or region, which would
+// requireGkeLocation refuses an empty GCP project or region, which would
 // otherwise be filled from the caller's current Google defaults and could
 // name another cluster.
-func RequireGkeLocation(projectID, region string) error {
+func requireGkeLocation(projectID, region string) error {
 	if projectID == "" || region == "" {
 		return fmt.Errorf("the GCP project %q and region %q must both be known", projectID, region)
 	}
@@ -290,16 +290,16 @@ func GkeInfraForUpgrade(controlPlane *ControlPlane) (*provider.KubernetesRuntime
 	}
 
 	// require a project and a region
-	if err := RequireGkeLocation(infra.ProjectID, infra.Region); err != nil {
+	if err := requireGkeLocation(infra.ProjectID, infra.Region); err != nil {
 		return nil, fmt.Errorf("cannot find the GKE cluster of control plane %s: %w", controlPlane.Name, err)
 	}
 
 	return infra, nil
 }
 
-// ApplyRecordedGkePool copies the recorded node pool onto an upgrade.
+// applyRecordedGkePool copies the recorded node pool onto an upgrade.
 // An empty machine type is refused so the pool is not recreated at zero.
-func ApplyRecordedGkePool(
+func applyRecordedGkePool(
 	infra *provider.KubernetesRuntimeInfraGKE,
 	definition *v0.GcpGkeKubernetesRuntimeDefinition,
 	instance *v0.GcpGkeKubernetesRuntimeInstance,
@@ -357,7 +357,7 @@ func KeepRecordedGkePool(
 	}
 
 	// copy the recorded pool
-	return ApplyRecordedGkePool(infra, definition, gkeInstance)
+	return applyRecordedGkePool(infra, definition, gkeInstance)
 }
 
 // gkeControlPlaneKubeClient returns a client for the GKE cluster a control
@@ -383,7 +383,7 @@ func gkeControlPlaneKubeClient(controlPlane *ControlPlane) (dynamic.Interface, e
 			)
 		}
 	}
-	if err := RequireGkeLocation(infra.ProjectID, infra.Region); err != nil {
+	if err := requireGkeLocation(infra.ProjectID, infra.Region); err != nil {
 		return nil, fmt.Errorf("cannot find the GKE cluster of control plane %s: %w", controlPlane.Name, err)
 	}
 

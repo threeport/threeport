@@ -268,8 +268,8 @@ func (cpi *ControlPlaneInstaller) ScaleDownModules(
 	return scales, nil
 }
 
-// ScaleDownModuleWriters scales module controllers and API servers to zero and returns the counts it stopped.
-func (cpi *ControlPlaneInstaller) ScaleDownModuleWriters(
+// scaleDownModuleWriters scales module controllers and API servers to zero and returns the counts it stopped.
+func (cpi *ControlPlaneInstaller) scaleDownModuleWriters(
 	kubeClient dynamic.Interface,
 	controllers []ModuleDeploymentScale,
 	apiServers []ModuleApiServer,

@@ -30,7 +30,7 @@ func TestApplyRecordedGkePoolKeepsFourNodes(t *testing.T) {
 		ReservedNatAddress: util.Ptr(true),
 	}
 
-	require.NoError(t, ApplyRecordedGkePool(infra, definition, instance))
+	require.NoError(t, applyRecordedGkePool(infra, definition, instance))
 	require.Equal(t, "e2-standard-2", infra.MachineType)
 	require.Equal(t, int32(4), infra.WorkerNodeInitialCount)
 	require.Equal(t, int32(4), infra.MinNodeCount)
@@ -39,6 +39,6 @@ func TestApplyRecordedGkePoolKeepsFourNodes(t *testing.T) {
 	require.True(t, infra.PrivateApi)
 	require.Equal(t, []string{"10.0.0.0/8"}, infra.AllowedCidrs)
 
-	err := ApplyRecordedGkePool(infra, &api.GcpGkeKubernetesRuntimeDefinition{}, instance)
+	err := applyRecordedGkePool(infra, &api.GcpGkeKubernetesRuntimeDefinition{}, instance)
 	require.EqualError(t, err, "recorded machine type is empty")
 }

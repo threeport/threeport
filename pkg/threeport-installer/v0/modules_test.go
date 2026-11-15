@@ -372,7 +372,7 @@ func TestScaleDownModuleWritersStopsTheApiServer(t *testing.T) {
 	cpi := &ControlPlaneInstaller{Opts: Options{Namespace: "threeport-control-plane"}}
 
 	// scale both writers
-	scales, err := cpi.ScaleDownModuleWriters(kubeClient, []ModuleDeploymentScale{
+	scales, err := cpi.scaleDownModuleWriters(kubeClient, []ModuleDeploymentScale{
 		{Namespace: namespace, Name: "threeport-example-controller"},
 	}, []ModuleApiServer{
 		{Namespace: namespace, Service: "example-api-server"},
@@ -449,7 +449,7 @@ func TestScaleDownModuleWritersStopsAControllerInTheApiNamespace(t *testing.T) {
 	cpi := &ControlPlaneInstaller{Opts: Options{Namespace: "threeport-control-plane"}}
 
 	// scale writers with no registered controller names
-	scales, err := cpi.ScaleDownModuleWriters(kubeClient, nil, []ModuleApiServer{{
+	scales, err := cpi.scaleDownModuleWriters(kubeClient, nil, []ModuleApiServer{{
 		Namespace: namespace,
 		Service:   "missing-api",
 	}})

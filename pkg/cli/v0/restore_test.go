@@ -61,7 +61,7 @@ func TestRestoreRefusesAnUnsupportedProvider(t *testing.T) {
 // by a project and region it knows, never by an empty one the caller's
 // current Google defaults would fill in and point at another cluster.
 func TestRestoreNeedsTheClusterLocation(t *testing.T) {
-	assert.NoError(t, RequireGkeLocation("acme-prod", "us-east4"))
-	assert.Error(t, RequireGkeLocation("", "us-east4"))
-	assert.Error(t, RequireGkeLocation("acme-prod", ""))
+	assert.NoError(t, requireGkeLocation("acme-prod", "us-east4"))
+	assert.Error(t, requireGkeLocation("", "us-east4"))
+	assert.Error(t, requireGkeLocation("acme-prod", ""))
 }

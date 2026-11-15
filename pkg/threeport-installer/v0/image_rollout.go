@@ -321,7 +321,7 @@ func UpdateImageTagInDeployment(deployment *unstructured.Unstructured, imageTag,
 		if err != nil {
 			return nil, fmt.Errorf("could not find the init container to retag for %s: %w", name, err)
 		}
-		previous, err := RetagContainer(migrator, imageTag, imageNamespace)
+		previous, err := retagContainer(migrator, imageTag, imageNamespace)
 		if err != nil {
 			return nil, fmt.Errorf("could not retag the init container for %s: %w", name, err)
 		}
@@ -339,7 +339,7 @@ func UpdateImageTagInDeployment(deployment *unstructured.Unstructured, imageTag,
 	if err != nil {
 		return nil, fmt.Errorf("could not find the container to retag for %s: %w", name, err)
 	}
-	previous, err := RetagContainer(container, imageTag, imageNamespace)
+	previous, err := retagContainer(container, imageTag, imageNamespace)
 	if err != nil {
 		return nil, fmt.Errorf("could not retag the container for %s: %w", name, err)
 	}
@@ -439,7 +439,7 @@ func ContainerNamed(containers []interface{}, name string) (map[string]interface
 // The previous image is returned rather than discarded because the only
 // advice worth giving when a rollout fails is what to go back to, and by then
 // it has been overwritten in the cluster.
-func RetagContainer(container map[string]interface{}, imageTag, imageNamespace string) (string, error) {
+func retagContainer(container map[string]interface{}, imageTag, imageNamespace string) (string, error) {
 	currentImage, ok := container["image"].(string)
 	if !ok {
 		return "", fmt.Errorf("container %v has no image to retag", container["name"])

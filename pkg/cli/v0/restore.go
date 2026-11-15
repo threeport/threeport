@@ -174,13 +174,13 @@ func RestoreControlPlaneDatabase(controlPlane *ControlPlane, sourceBucket, backu
 		return err
 	}
 
-	return RestoreControlPlaneDatabaseWithClient(
+	return restoreControlPlaneDatabaseWithClient(
 		controlPlane, sourceBucket, backup, namespace, fromNamespace, stopControllers, kubeClient,
 	)
 }
 
-// RestoreControlPlaneDatabaseWithClient restores a database with a cluster client the caller already has.
-func RestoreControlPlaneDatabaseWithClient(
+// restoreControlPlaneDatabaseWithClient restores a database with a cluster client the caller already has.
+func restoreControlPlaneDatabaseWithClient(
 	controlPlane *ControlPlane,
 	sourceBucket, backup, namespace, fromNamespace string,
 	stopControllers bool,
@@ -224,15 +224,15 @@ func BackupControlPlane(
 	}
 
 	// back up, then resume the writers when the caller asked
-	_, _, err = BackupControlPlaneWithClient(
+	_, _, err = backupControlPlaneWithClient(
 		namespace, bucket, apiClient, apiEndpoint, kubeClient, writers,
 	)
 	return err
 }
 
-// BackupControlPlaneWithClient backs up a control plane with a cluster client the caller already has.
+// backupControlPlaneWithClient backs up a control plane with a cluster client the caller already has.
 // It returns the writer counts it stopped, and brings them back up when writers says to.
-func BackupControlPlaneWithClient(
+func backupControlPlaneWithClient(
 	namespace, bucket string,
 	apiClient *http.Client,
 	apiEndpoint string,
@@ -300,8 +300,8 @@ func RestoringNamedControlPlane(name, namespace string) bool {
 	return namespace == name
 }
 
-// ControlPlaneForEndpoint returns the configured control plane that serves apiEndpoint.
-func ControlPlaneForEndpoint(cfg *ThreeportConfig, apiEndpoint string) *ControlPlane {
+// controlPlaneForEndpoint returns the configured control plane that serves apiEndpoint.
+func controlPlaneForEndpoint(cfg *ThreeportConfig, apiEndpoint string) *ControlPlane {
 	if cfg == nil {
 		return nil
 	}
@@ -325,7 +325,7 @@ func FillClusterLocation(cfg *ThreeportConfig, apiEndpoint string, entry *Contro
 	}
 
 	// copy the location from the control plane that served the API
-	host := ControlPlaneForEndpoint(cfg, apiEndpoint)
+	host := controlPlaneForEndpoint(cfg, apiEndpoint)
 	if host == nil ||
 		host.Name == entry.Name {
 		return
@@ -355,11 +355,11 @@ func FillEncryptionKey(
 	// read the key from the cluster that can reach the namespace
 	reader := entry
 	if reader.GKEProviderConfig.GcpProjectId == "" {
-		if host := ControlPlaneForEndpoint(cfg, apiEndpoint); host != nil {
+		if host := controlPlaneForEndpoint(cfg, apiEndpoint); host != nil {
 			reader = host
 		}
 	}
-	key, err := EncryptionKeyInNamespace(reader, namespace)
+	key, err := encryptionKeyInNamespace(reader, namespace)
 	if err != nil {
 		// the API certificates are enough to connect when this client cannot open the cluster
 		return nil
@@ -368,8 +368,8 @@ func FillEncryptionKey(
 	return nil
 }
 
-// EncryptionKeyInNamespace reads the encryption key secret in namespace.
-func EncryptionKeyInNamespace(controlPlane *ControlPlane, namespace string) (string, error) {
+// encryptionKeyInNamespace reads the encryption key secret in namespace.
+func encryptionKeyInNamespace(controlPlane *ControlPlane, namespace string) (string, error) {
 	// open the cluster that holds the control plane
 	kubeClient, err := controlPlaneKubeClient(controlPlane)
 	if err != nil {

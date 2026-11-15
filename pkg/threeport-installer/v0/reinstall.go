@@ -881,7 +881,7 @@ func (cpi *ControlPlaneInstaller) LoadAuthConfigFromCluster(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 ) (*auth.AuthConfig, error) {
-	return cpi.LoadAuthConfigFromNamespace(kubeClient, mapper, cpi.Opts.Namespace)
+	return cpi.loadAuthConfigFromNamespace(kubeClient, mapper, cpi.Opts.Namespace)
 }
 
 // DetectAuthEnabled reports whether the installed API was started with auth.

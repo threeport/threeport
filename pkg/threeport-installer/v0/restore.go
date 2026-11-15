@@ -2,10 +2,8 @@ package v0
 
 import (
 	"context"
-	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"net"
@@ -854,9 +852,9 @@ const (
 	databaseRestoredFromKey    = "fromNamespace"
 )
 
-// RestoreFromNamespace restores the latest backup from Opts.FromNamespace once.
+// restoreFromNamespace restores the latest backup from Opts.FromNamespace once.
 // A later reconcile that finds the same source recorded returns without replacing the database.
-func (cpi *ControlPlaneInstaller) RestoreFromNamespace(kubeClient dynamic.Interface, bucket string) error {
+func (cpi *ControlPlaneInstaller) restoreFromNamespace(kubeClient dynamic.Interface, bucket string) error {
 	// skip when no source namespace is set
 	if cpi.Opts.FromNamespace == "" {
 		return nil
@@ -1112,9 +1110,9 @@ func waitForPodsGone(kubeClient dynamic.Interface, namespace string, deployments
 	})
 }
 
-// LoadAuthConfigFromNamespace rebuilds the API certificate authority from a namespace.
+// loadAuthConfigFromNamespace rebuilds the API certificate authority from a namespace.
 // The returned config signs new certificates without rotating that CA.
-func (cpi *ControlPlaneInstaller) LoadAuthConfigFromNamespace(
+func (cpi *ControlPlaneInstaller) loadAuthConfigFromNamespace(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	namespace string,
@@ -1149,41 +1147,7 @@ func (cpi *ControlPlaneInstaller) LoadAuthConfigFromNamespace(
 		return nil, fmt.Errorf("failed to base64-decode ca key: %w", err)
 	}
 
-	return AuthConfigFromPEM(caPem, keyPem)
-}
-
-// AuthConfigFromPEM parses a CA certificate and private key into the fields an install stores.
-func AuthConfigFromPEM(caPem, keyPem []byte) (*auth.AuthConfig, error) {
-	// parse the certificate
-	caBlock, _ := pem.Decode(caPem)
-	if caBlock == nil {
-		return nil, errors.New("ca cert pem block not found")
-	}
-	caCert, err := x509.ParseCertificate(caBlock.Bytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse ca cert: %w", err)
-	}
-
-	// parse the private key
-	keyBlock, _ := pem.Decode(keyPem)
-	if keyBlock == nil {
-		return nil, errors.New("ca key pem block not found")
-	}
-	caKey, err := x509.ParsePKCS1PrivateKey(keyBlock.Bytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse ca key: %w", err)
-	}
-
-	// return the auth config with raw and base64 forms
-	return &auth.AuthConfig{
-		CAConfig:                  caCert,
-		CAPrivateKey:              *caKey,
-		CA:                        caBlock.Bytes,
-		CAPemEncoded:              string(caPem),
-		CABase64Encoded:           util.Base64Encode(string(caPem)),
-		CAPrivateKeyPemEncoded:    string(keyPem),
-		CAPrivateKeyBase64Encoded: util.Base64Encode(string(keyPem)),
-	}, nil
+	return authConfigFromPEM(caPem, keyPem)
 }
 
 // EncryptionKeyFromNamespace reads the encryption key secret from a namespace.
@@ -1252,7 +1216,7 @@ func (cpi *ControlPlaneInstaller) AuthConfigForInstall(
 ) (*auth.AuthConfig, error) {
 	// copy the CA from the other install
 	if cpi.Opts.FromNamespace != "" {
-		return cpi.LoadAuthConfigFromNamespace(kubeClient, mapper, cpi.Opts.FromNamespace)
+		return cpi.loadAuthConfigFromNamespace(kubeClient, mapper, cpi.Opts.FromNamespace)
 	}
 
 	// read the CA from files
@@ -1265,7 +1229,7 @@ func (cpi *ControlPlaneInstaller) AuthConfigForInstall(
 		if err != nil {
 			return nil, fmt.Errorf("failed to read CA private key file: %w", err)
 		}
-		return AuthConfigFromPEM(certPEM, keyPEM)
+		return authConfigFromPEM(certPEM, keyPEM)
 	}
 
 	// generate a new CA
@@ -1300,7 +1264,7 @@ func (cpi *ControlPlaneInstaller) StopWritersAndBackup(
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to discover module API servers: %w", err)
 		}
-		scales, err = cpi.ScaleDownModuleWriters(kubeClient, controllers, apiServers)
+		scales, err = cpi.scaleDownModuleWriters(kubeClient, controllers, apiServers)
 		if scales == nil {
 			scales = []ModuleDeploymentScale{}
 		}
@@ -1313,13 +1277,13 @@ func (cpi *ControlPlaneInstaller) StopWritersAndBackup(
 	}
 
 	// scale the control plane writers to zero and back up
-	replicas, err := cpi.ScaleDownAndBackup(kubeClient, bucket)
+	replicas, err := cpi.scaleDownAndBackup(kubeClient, bucket)
 	return replicas, scales, err
 }
 
-// ControllerAPIClient returns a client for the API in this installer's namespace.
+// controllerAPIClient returns a client for the API in this installer's namespace.
 // It uses the control plane controller certificate stored in that namespace.
-func (cpi *ControlPlaneInstaller) ControllerAPIClient(
+func (cpi *ControlPlaneInstaller) controllerAPIClient(
 	kubeClient dynamic.Interface,
 ) (*http.Client, string, error) {
 	// read the controller certificate and its CA
@@ -1444,7 +1408,7 @@ func (cpi *ControlPlaneInstaller) StopSourceAndRestore(
 
 	// stop the source and take one backup before restoring it here
 	source := NewInstaller(Namespace(cpi.Opts.FromNamespace))
-	apiClient, apiEndpoint, err := source.ControllerAPIClient(kubeClient)
+	apiClient, apiEndpoint, err := source.controllerAPIClient(kubeClient)
 	if err != nil {
 		return nil, fmt.Errorf("failed to reach the API in %s: %w", cpi.Opts.FromNamespace, err)
 	}
@@ -1460,7 +1424,7 @@ func (cpi *ControlPlaneInstaller) StopSourceAndRestore(
 			err,
 		)
 	}
-	if err := cpi.RestoreFromNamespace(kubeClient, bucket); err != nil {
+	if err := cpi.restoreFromNamespace(kubeClient, bucket); err != nil {
 		return nil, resumeSourceWriters(
 			cpi,
 			source,
@@ -1517,9 +1481,9 @@ func resumeSourceWriters(
 	return cause
 }
 
-// ScaleDownAndBackup records writer counts, scales them to zero, and backs up the database.
+// scaleDownAndBackup records writer counts, scales them to zero, and backs up the database.
 // The writers stay stopped.
-func (cpi *ControlPlaneInstaller) ScaleDownAndBackup(
+func (cpi *ControlPlaneInstaller) scaleDownAndBackup(
 	kubeClient dynamic.Interface,
 	bucket string,
 ) (map[string]int64, error) {
@@ -1653,7 +1617,7 @@ func (cpi *ControlPlaneInstaller) InstallRestored(
 		return false, err
 	}
 	// restore the backup into the new database
-	if err := cpi.RestoreFromNamespace(kubeClient, bucket); err != nil {
+	if err := cpi.restoreFromNamespace(kubeClient, bucket); err != nil {
 		return false, err
 	}
 

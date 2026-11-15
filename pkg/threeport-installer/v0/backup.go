@@ -56,9 +56,9 @@ func DatabaseBackupURI(bucket, namespace string) string {
 	return fmt.Sprintf("gs://%s/%s?AUTH=implicit", bucket, location)
 }
 
-// BackupScheduleBucket returns the bucket the migrator should schedule.
+// backupScheduleBucket returns the bucket the migrator should schedule.
 // A replacement leaves it empty because the schedule's first run is immediate.
-func (cpi *ControlPlaneInstaller) BackupScheduleBucket(bucket string) string {
+func (cpi *ControlPlaneInstaller) backupScheduleBucket(bucket string) string {
 	// withhold the schedule when this install copies an existing database
 	if bucket == "" || cpi.Opts.FromNamespace != "" {
 		return ""
