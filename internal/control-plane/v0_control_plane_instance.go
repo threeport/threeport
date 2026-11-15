@@ -119,13 +119,16 @@ func v0ControlPlaneInstanceCreated(
 	controlPlaneInstance *v0.ControlPlaneInstance,
 	log *logr.Logger,
 ) (requeueDelay int64, installErr error) {
+	// track the source writers and whether the new API answers
 	var resumeSource func() error
 	apiServing := false
+
 	// bring the source writers back when this returns before the new API answers
 	defer func() {
 		if resumeSource == nil || apiServing {
 			return
 		}
+		// resume the writers, keeping the install error first
 		resumeErr := resumeSource()
 		if resumeErr == nil {
 			return
@@ -672,6 +675,7 @@ func v0ControlPlaneInstanceCreated(
 		return 0, fmt.Errorf("failed to install threeport support services operator: %w", err)
 	}
 
+	// check the restored database holds the control plane it was restored for
 	if cpi.Opts.FromNamespace != "" {
 		if err := cpi.AssertRestoredControlPlane(dynamicKubeClient, mapper); err != nil {
 			return 0, err
@@ -688,8 +692,9 @@ func v0ControlPlaneInstanceCreated(
 		); err != nil {
 			return 0, fmt.Errorf("failed to retarget installed modules: %w", err)
 		}
-		if cpi.Opts.FromNamespace != "" &&
-			cpi.Opts.FromNamespace != cpi.Opts.Namespace &&
+
+		// delete the source namespace unless it holds the shared support services
+		if cpi.Opts.FromNamespace != cpi.Opts.Namespace &&
 			!threeport.KeepSourceNamespace(cpi.Opts.FromNamespace) {
 			if err := threeport.DeleteNamespaces(
 				dynamicKubeClient,
@@ -701,10 +706,12 @@ func v0ControlPlaneInstanceCreated(
 		}
 	}
 
+	// stop here when the new API is not onboarded to a parent
 	if !*controlPlaneDefinition.OnboardParent {
 		return 0, nil
 	}
 
+	// copy the runtime definition to the new API
 	cloneKubernetesRuntimeDefinition := *kubernetesRuntimeDefinition
 	cloneKubernetesRuntimeDefinition.Common = v0.Common{}
 	createdKubeDef, err := getOrCreate(
@@ -1123,12 +1130,10 @@ func retargetRestoredSelf(
 	}
 
 	// leave a row that already names the replacement and its definition
-	sameName := self.Name != nil && replacement.Name != nil && *self.Name == *replacement.Name
-	sameNamespace := self.Namespace != nil && replacement.Namespace != nil && *self.Namespace == *replacement.Namespace
-	sameDefinition := self.ControlPlaneDefinitionID != nil && replacement.ControlPlaneDefinitionID != nil &&
-		*self.ControlPlaneDefinitionID == *replacement.ControlPlaneDefinitionID
-	sameRuntime := self.KubernetesRuntimeInstanceID != nil && replacement.KubernetesRuntimeInstanceID != nil &&
-		*self.KubernetesRuntimeInstanceID == *replacement.KubernetesRuntimeInstanceID
+	sameName := util.DerefString(self.Name) == util.DerefString(replacement.Name)
+	sameNamespace := util.DerefString(self.Namespace) == util.DerefString(replacement.Namespace)
+	sameDefinition := util.Deref(self.ControlPlaneDefinitionID) == util.Deref(replacement.ControlPlaneDefinitionID)
+	sameRuntime := util.Deref(self.KubernetesRuntimeInstanceID) == util.Deref(replacement.KubernetesRuntimeInstanceID)
 	sameEndpoint := util.DerefString(self.ApiServerEndpoint) == util.DerefString(replacement.ApiServerEndpoint)
 	if !(sameName && sameNamespace && sameDefinition && sameRuntime && sameEndpoint) {
 		// point the restored row at the replacement
@@ -1148,10 +1153,13 @@ func retargetRestoredSelf(
 
 // ensureManagingParent copies the control plane that manages this child.
 func ensureManagingParent(r *controller.Reconciler, childClient *http.Client, endpoint string) error {
+	// read the control plane this reconcile runs in
 	serving, err := client.GetSelfControlPlaneInstance(r.APIClient, r.APIServer)
 	if err != nil {
 		return fmt.Errorf("failed to get the managing control plane: %w", err)
 	}
+
+	// copy it to the child as the child's managing parent
 	onboarder := &runtimeOnboarder{
 		parent:        apiTarget{client: r.APIClient, endpoint: r.APIServer},
 		child:         apiTarget{client: childClient, endpoint: endpoint},
@@ -1190,10 +1198,14 @@ func seedMissingChild(
 	if err != nil {
 		return fmt.Errorf("failed to get control plane definition by ID: %w", err)
 	}
+
+	// clear the row identity so the child assigns its own
 	runtimeCopy := *runtime
 	runtimeCopy.Common = v0.Common{}
 	definitionCopy := *runtimeDefinition
 	definitionCopy.Common = v0.Common{}
+
+	// create the runtime definition on the child
 	createdRuntimeDefinition, err := getOrCreate(
 		"kubernetes runtime definition on the new threeport api",
 		func() (*v0.KubernetesRuntimeDefinition, error) {
@@ -1206,6 +1218,8 @@ func seedMissingChild(
 	if err != nil {
 		return err
 	}
+
+	// create the runtime instance on the child, marked as host
 	onboarder := &runtimeOnboarder{
 		parent:        apiTarget{client: r.APIClient, endpoint: r.APIServer},
 		child:         apiTarget{client: childClient, endpoint: endpoint},
@@ -1215,6 +1229,8 @@ func seedMissingChild(
 	if err != nil {
 		return err
 	}
+
+	// copy the provider records the runtime depends on
 	if definitionCopy.InfraProvider != nil {
 		if err := onboarder.copyProviderRecords(
 			*definitionCopy.InfraProvider,
@@ -1240,6 +1256,8 @@ func seedMissingChild(
 	if err != nil {
 		return err
 	}
+
+	// link the child to its managing parent before its own row is written
 	if err := ensureManagingParent(r, childClient, endpoint); err != nil {
 		return err
 	}
@@ -1300,15 +1318,13 @@ func syncManagedChild(r *controller.Reconciler, instance *v0.ControlPlaneInstanc
 	// send an empty controller list when Apis was cleared, because a nil field is omitted
 	apis := stored.Apis
 	if apis == nil {
-		cleared := ""
-		apis = &cleared
+		apis = util.Ptr("")
 	}
 
 	// send an empty pool when the pool was cleared, for the same reason
 	pool := stored.NetworkCidrPool
 	if pool == nil {
-		cleared := datatypes.JSON("[]")
-		pool = &cleared
+		pool = util.Ptr(datatypes.JSON("[]"))
 	}
 
 	// set the parent link when an older child was created without one
@@ -1367,6 +1383,8 @@ func childAPIClient(instance *v0.ControlPlaneInstance) (*http.Client, string, er
 		return nil, "", fmt.Errorf("control plane %s has no api endpoint", *instance.Name)
 	}
 	endpoint := *instance.ApiServerEndpoint
+
+	// use a plain client when the child has no client certificate
 	if instance.ClientCert == nil || *instance.ClientCert == "" {
 		httpClient, err := client_lib.GetHTTPClient(false, "", "", "", "")
 		if err != nil {
@@ -1383,6 +1401,8 @@ func childAPIClient(instance *v0.ControlPlaneInstance) (*http.Client, string, er
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to decode ca cert: %w", err)
 	}
+
+	// decode the client certificate and key
 	cert, err := util.Base64Decode(*instance.ClientCert)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to decode client cert: %w", err)
@@ -1425,8 +1445,8 @@ func blueGreenLocal(
 ) (*cli.ControlPlane, error) {
 	local := &cli.ControlPlane{Name: runtimeName}
 	providerName := ""
-	if definition != nil && definition.InfraProvider != nil {
-		providerName = *definition.InfraProvider
+	if definition != nil {
+		providerName = util.DerefString(definition.InfraProvider)
 	}
 	switch providerName {
 	case v0.KubernetesRuntimeInfraProviderGKE:
@@ -1456,8 +1476,8 @@ func installChildBlueGreen(
 	if runtime.ID != nil {
 		projectID, err = lookupGkeProject(r.APIClient, r.APIServer, *runtime.ID)
 	}
-	if err != nil && definition != nil && definition.InfraProvider != nil &&
-		*definition.InfraProvider == v0.KubernetesRuntimeInfraProviderGKE {
+	if err != nil && definition != nil &&
+		util.PtrEqual(definition.InfraProvider, v0.KubernetesRuntimeInfraProviderGKE) {
 		return err
 	}
 	local, err := blueGreenLocal(definition, util.DerefString(runtime.Name), projectID)
@@ -1468,15 +1488,11 @@ func installChildBlueGreen(
 	// reject a name another control plane already holds, before the source is removed
 	newName := util.DerefString(instance.Namespace)
 	found, lookupErr := lookupControlPlaneByName(r.APIClient, r.APIServer, newName)
-	sourceID := uint(0)
-	if instance.ID != nil {
-		sourceID = *instance.ID
-	}
-	if err := cli.ReplacementNameTaken(sourceID, newName, found, lookupErr); err != nil {
+	if err := cli.ReplacementNameTaken(util.Deref(instance.ID), newName, found, lookupErr); err != nil {
 		return err
 	}
 
-	// install the new deployment, then clear the request so the next reconcile does not repeat it
+	// install the new deployment
 	err = installBlueGreen(
 		local,
 		r.APIClient,
@@ -1488,10 +1504,9 @@ func installChildBlueGreen(
 	if err != nil {
 		return fmt.Errorf("failed to install blue-green control plane: %w", err)
 	}
-	// the install finished, so the row can take the new name
+	// take the new name and clear the request so the next reconcile does not repeat it
 	instance.Name = instance.Namespace
-	cleared := ""
-	instance.FromNamespace = &cleared
+	instance.FromNamespace = util.Ptr("")
 	_, err = saveControlPlaneInstance(r.APIClient, r.APIServer, instance)
 	if err != nil {
 		return fmt.Errorf("failed to clear blue-green request: %w", err)
@@ -1585,7 +1600,7 @@ func v0ControlPlaneInstanceUpdated(
 	}
 
 	// a recorded source namespace means tptctl asked for a new deployment of this child
-	if from := util.DerefString(controlPlaneInstance.FromNamespace); from != "" && from != util.DerefString(controlPlaneInstance.Namespace) {
+	if childBlueGreenRequested(controlPlaneInstance) {
 		if err := installChildBlueGreen(
 			r,
 			controlPlaneInstance,
@@ -1661,7 +1676,7 @@ func v0ControlPlaneInstanceUpdated(
 	}
 
 	// set the parent when this row is not the root
-	sameControlPlane := controlPlaneInstance.ID != nil && selfInstance.ID != nil && *controlPlaneInstance.ID == *selfInstance.ID
+	sameControlPlane := controlPlaneInstance.ID != nil && util.PtrEqual(selfInstance.ID, *controlPlaneInstance.ID)
 	if controlPlaneInstance.ParentControlPlaneInstanceID == nil && !sameControlPlane {
 		controlPlaneInstance.ParentControlPlaneInstanceID = selfInstance.ID
 		clientFieldsChanged = true
@@ -1892,8 +1907,8 @@ func restoreInstalledDatabase(
 
 	// restore for this provider
 	providerName := ""
-	if runtimeDefinition != nil && runtimeDefinition.InfraProvider != nil {
-		providerName = *runtimeDefinition.InfraProvider
+	if runtimeDefinition != nil {
+		providerName = util.DerefString(runtimeDefinition.InfraProvider)
 	}
 	switch providerName {
 	case v0.KubernetesRuntimeInfraProviderGKE:
@@ -1933,8 +1948,8 @@ func grantInstalledDatabaseBackup(
 ) error {
 	// grant the database account for this provider
 	providerName := ""
-	if runtimeDefinition != nil && runtimeDefinition.InfraProvider != nil {
-		providerName = *runtimeDefinition.InfraProvider
+	if runtimeDefinition != nil {
+		providerName = util.DerefString(runtimeDefinition.InfraProvider)
 	}
 	switch providerName {
 	case v0.KubernetesRuntimeInfraProviderGKE:
@@ -1986,11 +2001,9 @@ func prepareInstanceInstaller(
 	cpi.Opts.InThreeport = true
 	cpi.Opts.CreateOrUpdateKubeResources = createOrUpdate
 	cpi.Opts.InfraProvider = *kubernetesRuntimeDefinition.InfraProvider
-	if controlPlaneInstance.FromNamespace != nil {
-		cpi.Opts.FromNamespace = *controlPlaneInstance.FromNamespace
-		if *controlPlaneInstance.FromNamespace != "" && *controlPlaneInstance.FromNamespace != *controlPlaneInstance.Namespace {
-			cpi.Opts.HoldReplicasForRestore = true
-		}
+	cpi.Opts.FromNamespace = util.DerefString(controlPlaneInstance.FromNamespace)
+	if childBlueGreenRequested(controlPlaneInstance) {
+		cpi.Opts.HoldReplicasForRestore = true
 	}
 	if controlPlaneDefinition.AuthEnabled != nil {
 		cpi.Opts.AuthEnabled = *controlPlaneDefinition.AuthEnabled
