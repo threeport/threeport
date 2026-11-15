@@ -629,7 +629,14 @@ func moduleInstallJob(namespace, kebab string, module *api.ModuleApi) *unstructu
 								kebab,
 								util.DerefString(module.ImageTag),
 							),
-							"args": []interface{}{kebab, "install"},
+							"command": []interface{}{
+								"/wan-aware",
+								"install",
+								"--control-plane-image-namespace",
+								util.DerefString(module.ImageNamespace),
+								"--control-plane-image-tag",
+								util.DerefString(module.ImageTag),
+							},
 							"env": []interface{}{
 								map[string]interface{}{"name": "HOME", "value": "/root"},
 							},
