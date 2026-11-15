@@ -21,9 +21,6 @@ var moduleImageColumns = [][2]string{
 }
 
 // Up000009 adds the image repository and tag a module was installed from.
-// Cockroach rejects ADD COLUMN inside a transaction, so this migration runs outside one.
-// 000001 builds its tables from the current models, so a database it created after
-// the fields were added has them already, and each is added only where it is missing.
 func Up000009(ctx context.Context, db *sql.DB) error {
 	// add the image a module was installed from
 	for _, column := range moduleImageColumns {
