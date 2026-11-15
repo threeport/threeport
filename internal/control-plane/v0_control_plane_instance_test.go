@@ -109,7 +109,7 @@ func TestAPIEndpointUpdate(t *testing.T) {
 		{name: "internal clusterip", saved: internal, serviceType: "ClusterIP", want: internal, readLB: false},
 		{name: "empty type", saved: "", serviceType: "", want: internal, readLB: false},
 		{name: "internal load balancer", saved: internal, serviceType: "LoadBalancer", want: "", readLB: true},
-		{name: "public load balancer", saved: public, serviceType: "LoadBalancer", want: public, readLB: false},
+		{name: "public load balancer", saved: public, serviceType: "LoadBalancer", want: "", readLB: true},
 		{name: "public clusterip", saved: public, serviceType: "ClusterIP", want: public, readLB: false},
 	}
 	for _, tc := range cases {
