@@ -42,3 +42,18 @@ func TestApplyRecordedGkePoolKeepsFourNodes(t *testing.T) {
 	err := applyRecordedGkePool(infra, &api.GcpGkeKubernetesRuntimeDefinition{}, instance)
 	require.EqualError(t, err, "recorded machine type is empty")
 }
+
+// TestKeepTierGkeMaxNodesRaisesProductionOnly covers the maximum worker node count an upgrade takes per tier.
+func TestKeepTierGkeMaxNodesRaisesProductionOnly(t *testing.T) {
+	// raise a production pool recorded below the profile's maximum
+	infra := &provider.KubernetesRuntimeInfraGKE{MaxNodeCount: 2}
+	require.NoError(t, KeepTierGkeMaxNodes(infra, "production"))
+	require.Equal(t, int32(10), infra.MaxNodeCount)
+
+	// keep the recorded count on a development tier and on an empty tier
+	for _, tier := range []string{"development", ""} {
+		infra = &provider.KubernetesRuntimeInfraGKE{MaxNodeCount: 2}
+		require.NoError(t, KeepTierGkeMaxNodes(infra, tier))
+		require.Equal(t, int32(2), infra.MaxNodeCount, "tier %q", tier)
+	}
+}

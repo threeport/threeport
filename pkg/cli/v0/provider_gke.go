@@ -360,6 +360,26 @@ func KeepRecordedGkePool(
 	return applyRecordedGkePool(infra, definition, gkeInstance)
 }
 
+// KeepTierGkeMaxNodes raises the upgrade's maximum worker node count to the
+// production cluster profile's, so a production cluster keeps the headroom it
+// was created with whatever its recorded definition holds.
+// Other tiers keep the recorded count.
+func KeepTierGkeMaxNodes(infra *provider.KubernetesRuntimeInfraGKE, tier string) error {
+	// leave a non-production tier on its recorded count
+	if tier != threeport.ControlPlaneTierProd {
+		return nil
+	}
+
+	// take the production profile's maximum
+	profile, err := gkeControlPlaneProfile(threeport.ControlPlaneTier(tier))
+	if err != nil {
+		return err
+	}
+	infra.MaxNodeCount = profile.MaxNodeCount
+
+	return nil
+}
+
 // gkeControlPlaneKubeClient returns a client for the GKE cluster a control
 // plane runs on, authenticated as the caller's own Google credentials.
 func gkeControlPlaneKubeClient(controlPlane *ControlPlane) (dynamic.Interface, error) {

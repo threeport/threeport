@@ -94,6 +94,10 @@ var UpgradeInfrastructureCmd = &cobra.Command{
 			tier = util.DerefString(controlPlaneDefinition.Tier)
 		}
 		infra.Tier = tier
+		if err := cli.KeepTierGkeMaxNodes(infra, tier); err != nil {
+			cli.Error("failed to size the node pool for the tier", err)
+			os.Exit(1)
+		}
 
 		// preview and apply the change
 		err = infra.Upgrade(cmd.Context(), acceptInfrastructureUpgrade)
