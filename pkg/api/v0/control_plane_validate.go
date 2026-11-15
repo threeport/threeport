@@ -18,6 +18,9 @@ import (
 // ErrRequestMustBeMadeToParent is the refusal to upgrade or restore a control plane its parent manages.
 var ErrRequestMustBeMadeToParent = errors.New("request must be made to parent")
 
+// ErrModuleInstallPending is the refusal to replace a module install that is still stored.
+var ErrModuleInstallPending = errors.New("a module install is already pending")
+
 // ChildControlPlaneRequest rejects a command aimed at a control plane its parent manages.
 // A row this API stores for a child is the parent's own record, so it is allowed.
 func ChildControlPlaneRequest(instance *ControlPlaneInstance) error {
@@ -347,6 +350,11 @@ func validateAuthAgainstRuntime(tx *gorm.DB, instance *ControlPlaneInstance) err
 // beforeUpdate rejects a desired-state change the caller may not make.
 // Reconciliation stays writable, and an empty column may be filled once.
 func (c *ControlPlaneInstance) beforeUpdate(tx *gorm.DB) error {
+	// reject a second module install while one is stored
+	if err := rejectReplacingModuleInstall(tx); err != nil {
+		return err
+	}
+
 	// read the stored row, because a patch often omits IsSelf
 	stored, err := storedControlPlane(tx, c)
 	if err != nil {
@@ -386,6 +394,39 @@ func (c *ControlPlaneInstance) beforeUpdate(tx *gorm.DB) error {
 		"cannot update %s on a control plane this API does not serve",
 		field,
 	))
+}
+
+// rejectReplacingModuleInstall keeps a stored module install until it is cleared.
+// The lock reads the row this update writes over, so a second request waits and then conflicts.
+func rejectReplacingModuleInstall(tx *gorm.DB) error {
+	// skip a patch that does not write the request
+	changed, err := lib.IsFieldChanged(tx, "ModuleInstall")
+	if err != nil || !changed {
+		return err
+	}
+	incoming, ok := lib.IncomingValues(tx).(*ControlPlaneInstance)
+	if !ok || incoming.ModuleInstall == nil {
+		return nil
+	}
+	next := util.DerefString(incoming.ModuleInstall)
+	if next == "" {
+		return nil
+	}
+
+	// lock the row, then keep a different request that is already stored
+	loaded, err := lib.LockObjectInDB(tx)
+	if err != nil {
+		return err
+	}
+	stored, ok := loaded.(*ControlPlaneInstance)
+	if !ok {
+		return fmt.Errorf("loaded %T is not a control plane instance", loaded)
+	}
+	current := util.DerefString(stored.ModuleInstall)
+	if current != "" && current != next {
+		return util.NewConflictError(ErrModuleInstallPending.Error())
+	}
+	return nil
 }
 
 // storedControlPlane returns the row as stored.
