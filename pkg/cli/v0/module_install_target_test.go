@@ -33,15 +33,11 @@ func TestModuleInstallDelegatesOnlyFromARoot(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, delegates)
 
-	// a command pointed at the control plane installs there
-	delegates, err = moduleInstallDelegates(child, "")
-	require.NoError(t, err)
-	require.False(t, delegates)
-	delegates, err = moduleInstallDelegates(child, "primary")
-	require.NoError(t, err)
-	require.False(t, delegates)
-
-	// a child cannot name a different control plane
+	// a child connection is rejected, including an install of itself
+	_, err = moduleInstallDelegates(child, "")
+	require.ErrorIs(t, err, api.ErrRequestMustBeMadeToParent)
+	_, err = moduleInstallDelegates(child, "primary")
+	require.ErrorIs(t, err, api.ErrRequestMustBeMadeToParent)
 	_, err = moduleInstallDelegates(child, "other")
 	require.ErrorIs(t, err, api.ErrRequestMustBeMadeToParent)
 }
