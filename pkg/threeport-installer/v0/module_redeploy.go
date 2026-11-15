@@ -110,6 +110,11 @@ func (cpi *ControlPlaneInstaller) redeployInstalledModule(
 		)
 	}
 
+	// the live broker CA is nats-ca, which the copied list does not include
+	if err := copyBrokerCASecret(kubeClient, cpi.Opts.Namespace, apiServer.Namespace); err != nil {
+		return fmt.Errorf("failed to copy the broker CA into %s: %w", apiServer.Namespace, err)
+	}
+
 	// copy the secrets the installer copies
 	for _, secretName := range ModuleCopiedSecretNames() {
 		if err := CopySecret(
@@ -177,6 +182,7 @@ func (cpi *ControlPlaneInstaller) redeployInstalledModule(
 		kubeClient,
 		apiServer.Namespace,
 		ModuleAPIDeploymentName(kebab),
+		cpi.Opts.Namespace,
 		map[string]string{
 			"containers":     ModuleRestAPIImage(imageNamespace, kebab, imageTag),
 			"initContainers": ModuleMigratorImage(imageNamespace, kebab, imageTag),
@@ -207,6 +213,7 @@ func (cpi *ControlPlaneInstaller) redeployInstalledModule(
 			kubeClient,
 			namespace,
 			name,
+			cpi.Opts.Namespace,
 			map[string]string{
 				"containers": ModuleControllerImage(imageNamespace, name, imageTag),
 			},
@@ -255,6 +262,7 @@ func restartModuleDeployment(
 	kubeClient dynamic.Interface,
 	namespace string,
 	name string,
+	controlPlaneNamespace string,
 	images map[string]string,
 	containerNames map[string]string,
 	restartedAt time.Time,
@@ -267,6 +275,11 @@ func restartModuleDeployment(
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get deployment %s/%s: %w", namespace, name, err)
+	}
+
+	// point database and API addresses at this control plane
+	if controlPlaneNamespace != "" {
+		retargetHostsIn(deployment.Object, controlPlaneNamespace)
 	}
 
 	// bring a deployment stopped for the backup back to its recorded count

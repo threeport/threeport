@@ -137,7 +137,7 @@ func ReconcileInstalledModuleImages(
 				return err
 			}
 		} else if err := retagModuleAPI(
-			kubeClient, mapper, inst, cpi, &module, imageNamespace, imageTag,
+			kubeClient, mapper, inst, cpi, &module, imageNamespace, imageTag, controlPlaneNamespace,
 		); err != nil {
 			return err
 		}
@@ -162,7 +162,7 @@ func ReconcileInstalledModuleImages(
 				continue
 			}
 			if err := retagModuleController(
-				kubeClient, mapper, &controller, kebab, imageNamespace, imageTag,
+				kubeClient, mapper, &controller, kebab, imageNamespace, imageTag, controlPlaneNamespace,
 			); err != nil {
 				return err
 			}
@@ -180,7 +180,7 @@ func retagModuleAPI(
 	inst *api.ControlPlaneInstance,
 	cpi *ControlPlaneInstaller,
 	module *api.ModuleApi,
-	imageNamespace, imageTag string,
+	imageNamespace, imageTag, controlPlaneNamespace string,
 ) error {
 	// read the API deployment
 	kebab := ModuleKebab(util.DerefString(module.Name))
@@ -215,6 +215,7 @@ func retagModuleAPI(
 		kubeClient,
 		namespace,
 		name,
+		controlPlaneNamespace,
 		map[string]string{
 			"containers":     apiImage,
 			"initContainers": migratorImage,
@@ -233,7 +234,7 @@ func retagModuleController(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	controller *api.ModuleController,
-	kebab, imageNamespace, imageTag string,
+	kebab, imageNamespace, imageTag, controlPlaneNamespace string,
 ) error {
 	// read the controller deployment the install created
 	namespace, recorded, err := splitDeploymentName(util.DerefString(controller.DeploymentName))
@@ -273,6 +274,7 @@ func retagModuleController(
 		kubeClient,
 		namespace,
 		name,
+		controlPlaneNamespace,
 		map[string]string{"containers": image},
 		map[string]string{"containers": container},
 		time.Now().UTC(),

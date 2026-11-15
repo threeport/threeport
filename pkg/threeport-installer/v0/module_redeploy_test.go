@@ -1,12 +1,14 @@
 package v0
 
 import (
+	"context"
 	"encoding/base64"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	api "github.com/threeport/threeport/pkg/api/v0"
@@ -136,4 +138,57 @@ func TestEnsureBrokerCAMountsTheSecret(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, mountNamed(mounts, brokerCAMount))
 	require.True(t, mountNamed(mounts, brokerCASystemFile))
+}
+
+// TestRestartPointsTheDatabaseAtTheReplacement covers a module restart
+// rewriting the database host stored in the init command.
+func TestRestartPointsTheDatabaseAtTheReplacement(t *testing.T) {
+	// seed a deployment whose init command still names the source plane
+	deployment := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "apps/v1",
+		"kind":       "Deployment",
+		"metadata": map[string]interface{}{
+			"name":      "threeport-example-api-server",
+			"namespace": "threeport-example",
+		},
+		"spec": map[string]interface{}{
+			"replicas": int64(1),
+			"template": map[string]interface{}{
+				"spec": map[string]interface{}{
+					"initContainers": []interface{}{
+						map[string]interface{}{
+							"name": "db-init",
+							"command": []interface{}{
+								"--host crdb.primary-12.svc.cluster.local",
+							},
+						},
+					},
+				},
+			},
+		},
+	}}
+	kubeClient := testKubeClient(deployment)
+
+	// restart the deployment onto the replacement plane
+	err := restartModuleDeployment(
+		kubeClient,
+		"threeport-example",
+		"threeport-example-api-server",
+		"primary-13",
+		map[string]string{},
+		map[string]string{},
+		time.Now(),
+	)
+	require.NoError(t, err)
+
+	// check that the stored command names the replacement
+	updated, err := kubeClient.Resource(deploymentGVR).Namespace("threeport-example").Get(
+		context.Background(), "threeport-example-api-server", metav1.GetOptions{},
+	)
+	require.NoError(t, err)
+	initContainers, _, err := unstructured.NestedSlice(updated.Object, "spec", "template", "spec", "initContainers")
+	require.NoError(t, err)
+	command, _, err := unstructured.NestedSlice(initContainers[0].(map[string]interface{}), "command")
+	require.NoError(t, err)
+	require.Contains(t, command[0], "crdb.primary-13.svc.cluster.local")
 }
