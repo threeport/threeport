@@ -1244,6 +1244,26 @@ func (cpi *ControlPlaneInstaller) StopWritersAndBackup(
 	apiEndpoint string,
 	bucket string,
 ) (map[string]int64, []ModuleDeploymentScale, error) {
+	// one backup at a time: two would delete each other's running job
+	release, err := acquireRestoreLock(kubeClient, cpi.Opts.Namespace)
+	if err != nil {
+		return nil, nil, err
+	}
+	replicas, scales, backupErr := cpi.stopWritersAndBackupLocked(kubeClient, apiClient, apiEndpoint, bucket)
+	if err := release(); err != nil {
+		return replicas, scales, errors.Join(backupErr, err)
+	}
+
+	return replicas, scales, backupErr
+}
+
+// stopWritersAndBackupLocked stops writers and backs up holding the restore lock.
+func (cpi *ControlPlaneInstaller) stopWritersAndBackupLocked(
+	kubeClient dynamic.Interface,
+	apiClient *http.Client,
+	apiEndpoint string,
+	bucket string,
+) (map[string]int64, []ModuleDeploymentScale, error) {
 	// a retry finds the API already scaled to zero, so it must not dial that API
 	stopped, err := apiDeploymentStopped(kubeClient, cpi.Opts.Namespace)
 	if err != nil {
