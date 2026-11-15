@@ -599,6 +599,24 @@ func runBlueGreen(
 	created.SetAllImageTags(tag)
 	var grant func() error
 	if providerName == api.KubernetesRuntimeInfraProviderGKE {
+		// let the new namespace's controllers call Google as the cluster account
+		workloadIdentity := &provider.KubernetesRuntimeInfraGKE{
+			PulumiWorkspace: provider.PulumiWorkspace{
+				RuntimeInstanceName: util.DerefString(runtimeInst.Name),
+			},
+			ProjectID:                 projectID,
+			ServiceAccountCredentials: providerCredentials,
+		}
+		if err := workloadIdentity.BindControlPlaneWorkloadIdentity(newNamespace); err != nil {
+			fmt.Printf("Info: workload identity binding failed, resuming writers in %s\n", namespace)
+			resumeErr := resumeSourceWriters(source, namespace, replicas, modules)
+			if resumeErr != nil {
+				return fmt.Errorf("failed to bind workload identity: %w (resuming source writers: %v)", err, resumeErr)
+			}
+			return fmt.Errorf("failed to bind workload identity, source writers resumed: %w", err)
+		}
+		created.Opts.GcpServiceAccountEmail = workloadIdentity.ServiceAccountEmail
+
 		grant = func() error {
 			// grant the new database account access to the backup bucket
 			uid, err := created.DatabaseServiceAccountUID(source.Kube)
