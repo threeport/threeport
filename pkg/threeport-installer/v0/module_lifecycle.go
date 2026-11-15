@@ -22,6 +22,10 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
+// ModuleInstallJobEnv names the environment variable the install job sets so the
+// module plugin installs on the control plane it is connected to.
+const ModuleInstallJobEnv = "THREEPORT_MODULE_INSTALL_JOB"
+
 const (
 	moduleInstallConfigKey      = "config.yaml"
 	moduleInstallConfigPath     = "/root/.threeport/config.yaml"
@@ -698,6 +702,7 @@ func moduleInstallJob(namespace, kebab string, module *api.ModuleApi) *unstructu
 							},
 							"env": []interface{}{
 								map[string]interface{}{"name": "HOME", "value": "/root"},
+									map[string]interface{}{"name": ModuleInstallJobEnv, "value": "true"},
 							},
 							"volumeMounts": []interface{}{
 								map[string]interface{}{

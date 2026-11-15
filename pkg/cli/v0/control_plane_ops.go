@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -187,6 +188,11 @@ func InstallThroughController(
 	imageNamespace string,
 	imageTag string,
 ) (bool, error) {
+	// install on the connected control plane when the controller's install job runs this
+	if os.Getenv(installer.ModuleInstallJobEnv) != "" {
+		return false, nil
+	}
+
 	// the connected control plane decides which install runs
 	self, err := client.GetSelfControlPlaneInstance(currentClient, currentEndpoint)
 	if err != nil {

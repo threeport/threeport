@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	api "github.com/threeport/threeport/pkg/api/v0"
+	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -40,4 +41,16 @@ func TestModuleInstallDelegatesOnlyFromARoot(t *testing.T) {
 	require.ErrorIs(t, err, api.ErrRequestMustBeMadeToParent)
 	_, err = moduleInstallDelegates(child, "other")
 	require.ErrorIs(t, err, api.ErrRequestMustBeMadeToParent)
+}
+
+// TestInstallThroughControllerSkipsRejectionInInstallJob asserts the controller's install job
+// installs on the child it is connected to instead of being rejected.
+func TestInstallThroughControllerSkipsRejectionInInstallJob(t *testing.T) {
+	// mark the process as the controller's install job
+	t.Setenv(installer.ModuleInstallJobEnv, "true")
+
+	// the call returns before it contacts any API, so no client is needed
+	delegated, err := InstallThroughController(nil, "", "", "", "module", "ns", "tag")
+	require.NoError(t, err)
+	require.False(t, delegated)
 }
