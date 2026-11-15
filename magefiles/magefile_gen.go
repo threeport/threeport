@@ -2380,8 +2380,10 @@ func (Build) AllBinsRelease() error {
 // Set PARALLEL_IMAGE_BUILD >= 1 to cap packaging concurrency (e.g.
 // `PARALLEL_IMAGE_BUILD=4 mage build:allImages ghcr.io/foo v1 amd64,arm64`).
 // Set IMAGES to a comma-separated list of component binary names to build
-// only those (e.g. `IMAGES=rest-api,database-migrator mage build:allImages ...`).
-// All components build when IMAGES is unset.
+// only those (e.g. IMAGES=rest-api,database-migrator mage build:allImages ...).
+// All components build when IMAGES is unset, and a name that matches no
+// component is an error. package:allManifests ignores IMAGES, so run it only
+// after an unfiltered build.
 func (Build) AllImages(
 	imageRepo string,
 	imageTag string,
@@ -2401,6 +2403,29 @@ func (Build) AllImages(
 
 	arches := util.ParseArches(arch)
 
+	// reject selected names that match no component
+	if unknown := util.UnknownImages(selection, []string{
+		"rest-api",
+		"database-migrator",
+		"agent",
+		"secret-controller",
+		"aws-controller",
+		"oci-controller",
+		"gcp-controller",
+		"control-plane-controller",
+		"gateway-controller",
+		"helm-workload-controller",
+		"machine-runtime-controller",
+		"machine-workload-controller",
+		"kubernetes-runtime-controller",
+		"observability-controller",
+		"terraform-controller",
+		"kubernetes-workload-controller",
+	}); len(unknown) > 0 {
+		return fmt.Errorf("IMAGES names unknown components: %s", strings.Join(unknown, ", "))
+	}
+
+	// collect the package dirs of the selected components
 	var packageDirs []string
 	if util.ImageSelected(selection, "rest-api") {
 		packageDirs = append(packageDirs, "cmd/rest-api")
@@ -2450,6 +2475,7 @@ func (Build) AllImages(
 	if util.ImageSelected(selection, "kubernetes-workload-controller") {
 		packageDirs = append(packageDirs, "cmd/kubernetes-workload-controller")
 	}
+	// fail when the selection lists no component
 	if len(packageDirs) == 0 {
 		return fmt.Errorf("IMAGES matched no component: %q", selection)
 	}
@@ -2469,6 +2495,7 @@ func (Build) AllImages(
 			return fn(workingDir, imageRepo, imageTag, arch)
 		}
 	}
+	// collect the packaging tasks of the selected components
 	var tasks []func() error
 	if util.ImageSelected(selection, "rest-api") {
 		tasks = append(tasks, wrap(build.restApiImagePackage))
