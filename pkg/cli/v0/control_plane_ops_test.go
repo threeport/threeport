@@ -2,6 +2,7 @@ package v0
 
 import (
 	"encoding/base64"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -177,4 +178,11 @@ func serviceWithAddress(namespace, ip string) unstructured.Unstructured {
 			},
 		},
 	}}
+}
+
+// TestReplacementNameTakenTreatsAMissingRowAsFree accepts the client's missing-row error.
+func TestReplacementNameTakenTreatsAMissingRowAsFree(t *testing.T) {
+	// the client reports a missing name as plain text
+	err := ReplacementNameTaken(1, "primary-12", nil, errors.New("no local control plane instance"))
+	require.NoError(t, err)
 }

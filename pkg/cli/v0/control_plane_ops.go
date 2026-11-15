@@ -857,7 +857,8 @@ var ErrReplacementNameTaken = errors.New("control plane name is already in use")
 func ReplacementNameTaken(sourceID uint, newName string, found *api.ControlPlaneInstance, lookupErr error) error {
 	// a missing name is free to take
 	if lookupErr != nil {
-		if errors.Is(lookupErr, client_lib.ErrObjectNotFound) {
+		// a missing name is returned as a plain error, not ErrObjectNotFound
+		if errors.Is(lookupErr, client_lib.ErrObjectNotFound) || strings.Contains(lookupErr.Error(), "no local control plane instance") {
 			return nil
 		}
 		return lookupErr
