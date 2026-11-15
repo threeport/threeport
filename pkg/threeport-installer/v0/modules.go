@@ -274,6 +274,13 @@ func (cpi *ControlPlaneInstaller) ScaleDownModuleWriters(
 	controllers []ModuleDeploymentScale,
 	apiServers []ModuleApiServer,
 ) ([]ModuleDeploymentScale, error) {
+	// include controllers that live in a module API namespace but are not registered by name
+	found, err := moduleNamespaceControllers(kubeClient, apiServers, controllers)
+	if err != nil {
+		return nil, err
+	}
+	controllers = append(controllers, found...)
+
 	// scale controller deployments and keep the counts
 	scales, err := cpi.ScaleDownModules(kubeClient, controllers)
 	if err != nil {
@@ -357,6 +364,55 @@ func (cpi *ControlPlaneInstaller) recordModuleReplicas(
 		)
 	}
 	return nil
+}
+
+// moduleNamespaceControllers returns controller deployments in each module API namespace.
+func moduleNamespaceControllers(
+	kubeClient dynamic.Interface,
+	apiServers []ModuleApiServer,
+	known []ModuleDeploymentScale,
+) ([]ModuleDeploymentScale, error) {
+	// skip names the registry already returned
+	seen := map[string]bool{}
+	for _, item := range known {
+		seen[item.Namespace+"/"+item.Name] = true
+	}
+	seenNamespace := map[string]bool{}
+	var found []ModuleDeploymentScale
+	for _, server := range apiServers {
+		if server.Namespace == "" || seenNamespace[server.Namespace] {
+			continue
+		}
+		seenNamespace[server.Namespace] = true
+
+		// list the deployments in the module namespace
+		list, err := kubeClient.Resource(deploymentGVR).Namespace(server.Namespace).List(
+			context.Background(),
+			metav1.ListOptions{},
+		)
+		if k8serrors.IsNotFound(err) {
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to list deployments in %s: %w", server.Namespace, err)
+		}
+		for i := range list.Items {
+			deployment := &list.Items[i]
+			if !moduleControllerDeployment(deployment) {
+				continue
+			}
+			key := deployment.GetNamespace() + "/" + deployment.GetName()
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			found = append(found, ModuleDeploymentScale{
+				Namespace: deployment.GetNamespace(),
+				Name:      deployment.GetName(),
+			})
+		}
+	}
+	return found, nil
 }
 
 // recordedModuleReplicas reads the count stored before a module writer was stopped.

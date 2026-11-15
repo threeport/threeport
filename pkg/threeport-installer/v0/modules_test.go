@@ -433,6 +433,37 @@ func TestScaleDownModulesLeavesOtherWorkloadsRunning(t *testing.T) {
 	}
 }
 
+// TestScaleDownModuleWritersStopsAControllerInTheApiNamespace covers a controller
+// that is not registered by name and lives beside the module API.
+func TestScaleDownModuleWritersStopsAControllerInTheApiNamespace(t *testing.T) {
+	// seed an unlabeled controller in the module API namespace
+	namespace := "example-namespace"
+	controller := testControllerDeployment("example-core-controller", namespace, 1)
+	unstructured.RemoveNestedField(controller.Object, "spec", "template", "metadata", "labels")
+	containers, _, _ := unstructured.NestedSlice(controller.Object, "spec", "template", "spec", "containers")
+	containers[0].(map[string]interface{})["command"] = []interface{}{"/core-controller"}
+	_ = unstructured.SetNestedSlice(controller.Object, containers, "spec", "template", "spec", "containers")
+	kubeClient := testKubeClient(controller)
+	var patched []string
+	recordDeploymentScaling(kubeClient, &patched)
+	cpi := &ControlPlaneInstaller{Opts: Options{Namespace: "threeport-control-plane"}}
+
+	// scale writers with no registered controller names
+	scales, err := cpi.ScaleDownModuleWriters(kubeClient, nil, []ModuleApiServer{{
+		Namespace: namespace,
+		Service:   "missing-api",
+	}})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(scales) != 1 || scales[0].Name != "example-core-controller" || scales[0].Replicas != 1 {
+		t.Fatalf("expected the namespace controller recorded at 1 replica, got %v", scales)
+	}
+	if !containsString(patched, "example-namespace/example-core-controller=0") {
+		t.Errorf("expected the namespace controller to be scaled down, got %v", patched)
+	}
+}
+
 // TestScaleDownModulesStopsAnUnlabeledController covers a module controller
 // whose installer does not set app.kubernetes.io/name.
 func TestScaleDownModulesStopsAnUnlabeledController(t *testing.T) {
