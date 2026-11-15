@@ -2,13 +2,17 @@ package v0
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 
 	client "github.com/threeport/threeport/pkg/client/v0"
@@ -188,9 +192,18 @@ func (cpi *ControlPlaneInstaller) ScaleDownModules(
 			)
 		}
 
-		// skip a deployment already at zero so it stays out of the record
+		// a retry keeps the count stored before the first scale to zero
 		replicas, _, _ := util.NestedInt64OrFloat64(deployment.Object, "spec", "replicas")
 		if replicas == 0 {
+			recorded, ok := recordedModuleReplicas(deployment)
+			if !ok {
+				continue
+			}
+			scales = append(scales, ModuleDeploymentScale{
+				Namespace: target.Namespace,
+				Name:      target.Name,
+				Replicas:  recorded,
+			})
 			continue
 		}
 
@@ -201,6 +214,9 @@ func (cpi *ControlPlaneInstaller) ScaleDownModules(
 		}
 
 		// scale the deployment to zero and record its prior count
+		if err := cpi.recordModuleReplicas(kubeClient, deployment, replicas); err != nil {
+			return scales, err
+		}
 		if err := cpi.setDeploymentReplicas(kubeClient, target.Namespace, target.Name, 0); err != nil {
 			return scales, err
 		}
@@ -278,7 +294,13 @@ func (cpi *ControlPlaneInstaller) ScaleDownModuleWriters(
 		}
 		replicas, _, _ := util.NestedInt64OrFloat64(deployment.Object, "spec", "replicas")
 		if replicas == 0 {
-			continue
+			recorded, ok := recordedModuleReplicas(deployment)
+			if !ok {
+				continue
+			}
+			replicas = recorded
+		} else if err := cpi.recordModuleReplicas(kubeClient, deployment, replicas); err != nil {
+			return scales, err
 		}
 		if err := cpi.setDeploymentReplicas(kubeClient, server.Namespace, server.Service, 0); err != nil {
 			return scales, err
@@ -301,6 +323,111 @@ func (cpi *ControlPlaneInstaller) ScaleDownModuleWriters(
 		}
 	}
 
+	return scales, nil
+}
+
+const moduleWriterScaleConfigMap = "module-writer-scales"
+
+var moduleConfigMapGVR = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+
+// recordModuleReplicas stores the count that a later retry has to restore.
+func (cpi *ControlPlaneInstaller) recordModuleReplicas(
+	kubeClient dynamic.Interface,
+	deployment *unstructured.Unstructured,
+	replicas int64,
+) error {
+	// leave a count that an earlier attempt already stored
+	if _, ok := recordedModuleReplicas(deployment); ok {
+		return nil
+	}
+	patch := fmt.Appendf(
+		nil,
+		`{"metadata":{"annotations":{%q:%q}}}`,
+		replicasBeforeRestoreAnnotation,
+		strconv.FormatInt(replicas, 10),
+	)
+	_, err := kubeClient.Resource(deploymentGVR).Namespace(deployment.GetNamespace()).Patch(
+		context.Background(),
+		deployment.GetName(),
+		types.MergePatchType,
+		patch,
+		metav1.PatchOptions{},
+	)
+	if err != nil {
+		return fmt.Errorf(
+			"failed to record replicas for %s/%s: %w",
+			deployment.GetNamespace(), deployment.GetName(), err,
+		)
+	}
+	return nil
+}
+
+// recordedModuleReplicas reads the count stored before a module writer was stopped.
+func recordedModuleReplicas(deployment *unstructured.Unstructured) (int64, bool) {
+	// ignore a deployment that was never stopped by this restore
+	raw := deployment.GetAnnotations()[replicasBeforeRestoreAnnotation]
+	count, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || count <= 0 {
+		return 0, false
+	}
+	return count, true
+}
+
+// rememberModuleScales stores the module writer counts in the control plane namespace.
+func (cpi *ControlPlaneInstaller) rememberModuleScales(
+	kubeClient dynamic.Interface,
+	scales []ModuleDeploymentScale,
+) error {
+	// keep an empty list so a retry can tell discovery was skipped on purpose
+	if scales == nil {
+		scales = []ModuleDeploymentScale{}
+	}
+	encoded, err := json.Marshal(scales)
+	if err != nil {
+		return fmt.Errorf("failed to encode module writer scales: %w", err)
+	}
+	object := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata": map[string]interface{}{
+			"name":      moduleWriterScaleConfigMap,
+			"namespace": cpi.Opts.Namespace,
+		},
+		"data": map[string]interface{}{"scales": string(encoded)},
+	}}
+	_, err = kubeClient.Resource(moduleConfigMapGVR).Namespace(cpi.Opts.Namespace).Create(
+		context.Background(), object, metav1.CreateOptions{},
+	)
+	if k8serrors.IsAlreadyExists(err) {
+		_, err = kubeClient.Resource(moduleConfigMapGVR).Namespace(cpi.Opts.Namespace).Update(
+			context.Background(), object, metav1.UpdateOptions{},
+		)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to store module writer scales: %w", err)
+	}
+	return nil
+}
+
+// rememberedModuleScales reads the module writer counts stored before the API was stopped.
+func (cpi *ControlPlaneInstaller) rememberedModuleScales(
+	kubeClient dynamic.Interface,
+) ([]ModuleDeploymentScale, error) {
+	// a missing record means this attempt never stopped the module writers
+	object, err := kubeClient.Resource(moduleConfigMapGVR).Namespace(cpi.Opts.Namespace).Get(
+		context.Background(), moduleWriterScaleConfigMap, metav1.GetOptions{},
+	)
+	if k8serrors.IsNotFound(err) {
+		return []ModuleDeploymentScale{}, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to read module writer scales: %w", err)
+	}
+	raw, _, _ := unstructured.NestedString(object.Object, "data", "scales")
+	var scales []ModuleDeploymentScale
+	if err := json.Unmarshal([]byte(raw), &scales); err != nil {
+		return nil, fmt.Errorf("failed to decode module writer scales: %w", err)
+	}
 	return scales, nil
 }
 

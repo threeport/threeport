@@ -1285,26 +1285,31 @@ func (cpi *ControlPlaneInstaller) StopWritersAndBackup(
 	if err != nil {
 		return nil, nil, err
 	}
-	var controllers []ModuleDeploymentScale
-	var apiServers []ModuleApiServer
-	if !stopped {
-		controllers, err = cpi.DiscoverModuleDeployments(apiClient, apiEndpoint)
+	var scales []ModuleDeploymentScale
+	if stopped {
+		scales, err = cpi.rememberedModuleScales(kubeClient)
+		if err != nil {
+			return nil, nil, err
+		}
+	} else {
+		controllers, err := cpi.DiscoverModuleDeployments(apiClient, apiEndpoint)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to discover registered module deployments: %w", err)
 		}
-		apiServers, err = cpi.DiscoverModuleApiServers(apiClient, apiEndpoint)
+		apiServers, err := cpi.DiscoverModuleApiServers(apiClient, apiEndpoint)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to discover module API servers: %w", err)
 		}
-	}
-
-	// scale module writers before the control plane API
-	scales, err := cpi.ScaleDownModuleWriters(kubeClient, controllers, apiServers)
-	if err != nil {
+		scales, err = cpi.ScaleDownModuleWriters(kubeClient, controllers, apiServers)
 		if scales == nil {
 			scales = []ModuleDeploymentScale{}
 		}
-		return nil, scales, err
+		if saveErr := cpi.rememberModuleScales(kubeClient, scales); saveErr != nil {
+			return nil, scales, saveErr
+		}
+		if err != nil {
+			return nil, scales, err
+		}
 	}
 
 	// scale the control plane writers to zero and back up

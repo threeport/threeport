@@ -112,6 +112,7 @@ func testKubeClient(objects ...runtime.Object) *dynamicfake.FakeDynamicClient {
 	// register list kinds so the fake client can list each resource
 	for _, listKind := range []schema.GroupVersionKind{
 		{Version: "v1", Kind: "NamespaceList"},
+		{Version: "v1", Kind: "ConfigMapList"},
 		{Version: "v1", Kind: "PersistentVolumeClaimList"},
 		{Version: "v1", Kind: "PersistentVolumeList"},
 		{Version: "v1", Kind: "PodList"},

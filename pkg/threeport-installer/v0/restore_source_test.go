@@ -64,3 +64,21 @@ func TestAPIDeploymentStoppedSkipsADial(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, stopped)
 }
+
+// TestRememberedModuleScalesSurviveAStoppedAPI covers a retry that cannot dial the API.
+func TestRememberedModuleScalesSurviveAStoppedAPI(t *testing.T) {
+	// the first attempt stored the counts before the API was scaled to zero
+	cpi := &ControlPlaneInstaller{Opts: Options{Namespace: "primary-13"}}
+	kubeClient := testKubeClient()
+	want := []ModuleDeploymentScale{{
+		Namespace: "example",
+		Name:      "example-controller",
+		Replicas:  1,
+	}}
+	require.NoError(t, cpi.rememberModuleScales(kubeClient, want))
+
+	// the retry reads that record instead of discovering through the stopped API
+	got, err := cpi.rememberedModuleScales(kubeClient)
+	require.NoError(t, err)
+	require.Equal(t, want, got)
+}
