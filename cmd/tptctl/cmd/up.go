@@ -326,7 +326,7 @@ func init() {
 	)
 	UpCmd.Flags().StringVar(
 		&cliArgs.FromNamespace,
-		"from-namespace", "", "Namespace to copy the certificate authority and encryption key from. Pods prefer nodes that are not already running that namespace.",
+		"from-namespace", "", "Namespace to copy the certificate authority and encryption key from. Only applicable with --control-plane-only, since the namespace has to exist in the cluster you install into.",
 	)
 	UpCmd.Flags().StringVar(
 		&cliArgs.CACertFile,

@@ -34,7 +34,9 @@ var BackupCmd = &cobra.Command{
 Module names are read from the API before that API is scaled down.
 The writers are scaled back up after the backup. The backup goes to the bucket recorded
 when the control plane was installed, or to the bucket given with --bucket.
-The cluster is reached with your own credentials for that provider.`,
+The cluster is reached with your own credentials for that provider.
+
+Backups are supported only on Google Cloud Storage (GCS) buckets right now.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// get the control plane's config
 		threeportConfig, requestedControlPlane, err := cli.GetThreeportConfig(cliArgs.ControlPlaneName)
