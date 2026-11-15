@@ -251,9 +251,42 @@ func requireGkeLocation(projectID, region string) error {
 	return nil
 }
 
+// gkeInfraForTier builds the GKE infrastructure a fresh install creates for a tier.
+// The caller sets the project, region, and endpoint access.
+func gkeInfraForTier(
+	clusterName string,
+	tier threeport.ControlPlaneTier,
+) (*provider.KubernetesRuntimeInfraGKE, error) {
+	// take the node pool the tier gets
+	gkeProfile, err := gkeControlPlaneProfile(tier)
+	if err != nil {
+		return nil, err
+	}
+
+	return &provider.KubernetesRuntimeInfraGKE{
+		PulumiWorkspace: provider.PulumiWorkspace{
+			RuntimeInstanceName: clusterName,
+		},
+		ReleaseChannel:         gkeReleaseChannel(tier),
+		WorkerNodeInitialCount: gkeProfile.InitialNodeCount,
+		MachineType:            gkeProfile.MachineType,
+		MinNodeCount:           gkeProfile.MinNodeCount,
+		MaxNodeCount:           gkeProfile.MaxNodeCount,
+		LocationPolicy:         gkeProfile.LocationPolicy,
+		// a production control plane backs its database up to a
+		// bucket in another region
+		Tier:             string(tier),
+		ProvisionBackups: tier == threeport.ControlPlaneTier(threeport.ControlPlaneTierProd),
+		// the control plane's outbound traffic comes from one address,
+		// which clusters it manages admit
+		ReserveNatAddress: true,
+	}, nil
+}
+
 // GkeInfraForUpgrade builds the GKE infrastructure object for an in-place upgrade.
+// It holds what a fresh install of the tier creates, so the preview shows every difference from the deployed stack.
 // The deployed stack fills an empty project or region so Google defaults cannot select another cluster.
-func GkeInfraForUpgrade(controlPlane *ControlPlane) (*provider.KubernetesRuntimeInfraGKE, error) {
+func GkeInfraForUpgrade(controlPlane *ControlPlane, tier string) (*provider.KubernetesRuntimeInfraGKE, error) {
 	// refuse a missing control plane
 	if controlPlane == nil {
 		return nil, fmt.Errorf("control plane is missing")
@@ -264,20 +297,15 @@ func GkeInfraForUpgrade(controlPlane *ControlPlane) (*provider.KubernetesRuntime
 		return nil, fmt.Errorf("control plane %s is not a GKE control plane", controlPlane.Name)
 	}
 
-	// copy the recorded project, region, and endpoint access
-	privateAPI := false
-	if controlPlane.GKEProviderConfig.PrivateApi != nil {
-		privateAPI = *controlPlane.GKEProviderConfig.PrivateApi
+	// build the tier's infrastructure and copy the recorded project, region, and endpoint access
+	infra, err := gkeInfraForTier(gkeClusterName(controlPlane), threeport.ControlPlaneTier(tier))
+	if err != nil {
+		return nil, err
 	}
-	infra := &provider.KubernetesRuntimeInfraGKE{
-		PulumiWorkspace: provider.PulumiWorkspace{
-			RuntimeInstanceName: gkeClusterName(controlPlane),
-		},
-		ProjectID:    controlPlane.GKEProviderConfig.GcpProjectId,
-		Region:       controlPlane.GKEProviderConfig.GcpRegion,
-		PrivateApi:   privateAPI,
-		AllowedCidrs: controlPlane.GKEProviderConfig.AllowedCidrs,
-	}
+	infra.ProjectID = controlPlane.GKEProviderConfig.GcpProjectId
+	infra.Region = controlPlane.GKEProviderConfig.GcpRegion
+	infra.PrivateApi = controlPlane.GKEProviderConfig.PrivateApi != nil && *controlPlane.GKEProviderConfig.PrivateApi
+	infra.AllowedCidrs = controlPlane.GKEProviderConfig.AllowedCidrs
 
 	// read project and region from the stack when the config omits either
 	if infra.ProjectID == "" || infra.Region == "" {
@@ -295,89 +323,6 @@ func GkeInfraForUpgrade(controlPlane *ControlPlane) (*provider.KubernetesRuntime
 	}
 
 	return infra, nil
-}
-
-// applyRecordedGkePool copies the recorded node pool onto an upgrade.
-// An empty machine type is refused so the pool is not recreated at zero.
-func applyRecordedGkePool(
-	infra *provider.KubernetesRuntimeInfraGKE,
-	definition *v0.GcpGkeKubernetesRuntimeDefinition,
-	instance *v0.GcpGkeKubernetesRuntimeInstance,
-) error {
-	// refuse a missing type
-	if definition == nil || definition.DefaultNodeGroupInstanceType == nil || *definition.DefaultNodeGroupInstanceType == "" {
-		return fmt.Errorf("recorded machine type is empty")
-	}
-	infra.MachineType = *definition.DefaultNodeGroupInstanceType
-
-	// copy the recorded sizes
-	if definition.DefaultNodeGroupInitialSize != nil {
-		infra.WorkerNodeInitialCount = int32(*definition.DefaultNodeGroupInitialSize)
-	}
-	if definition.DefaultNodeGroupMinimumSize != nil {
-		infra.MinNodeCount = int32(*definition.DefaultNodeGroupMinimumSize)
-	}
-	if definition.DefaultNodeGroupMaximumSize != nil {
-		infra.MaxNodeCount = int32(*definition.DefaultNodeGroupMaximumSize)
-	}
-	if instance != nil && instance.ReservedNatAddress != nil {
-		infra.ReserveNatAddress = *instance.ReservedNatAddress
-	}
-
-	// copy the recorded endpoint access so an upgrade does not open a private API
-	infra.PrivateApi = definition.PrivateApi != nil && *definition.PrivateApi
-	cidrs, err := v0.ParseCidrs("AllowedCidrs", definition.AllowedCidrs)
-	if err != nil {
-		return err
-	}
-	infra.AllowedCidrs = cidrs
-	return nil
-}
-
-// KeepRecordedGkePool loads the recorded node pool for a cluster and copies it onto the upgrade.
-// A missing record is an error. There is no default size.
-func KeepRecordedGkePool(
-	infra *provider.KubernetesRuntimeInfraGKE,
-	apiClient *http.Client,
-	apiEndpoint string,
-	clusterName string,
-) error {
-	// load the recorded instance
-	gkeInstance, err := client.GetGcpGkeKubernetesRuntimeInstanceByName(apiClient, apiEndpoint, clusterName)
-	if err != nil || gkeInstance == nil || gkeInstance.KubernetesRuntimeInstanceID == nil {
-		return fmt.Errorf("recorded GKE instance %s was not found: %w", clusterName, err)
-	}
-	runtime, err := client.GetKubernetesRuntimeInstanceByID(apiClient, apiEndpoint, *gkeInstance.KubernetesRuntimeInstanceID)
-	if err != nil || runtime == nil || runtime.KubernetesRuntimeDefinitionID == nil {
-		return fmt.Errorf("recorded runtime for %s was not found: %w", clusterName, err)
-	}
-	definition, err := client.GetGcpGkeKubernetesRuntimeDefinitionByK8sRuntimeDef(apiClient, apiEndpoint, *runtime.KubernetesRuntimeDefinitionID)
-	if err != nil || definition == nil {
-		return fmt.Errorf("recorded GKE definition for %s was not found: %w", clusterName, err)
-	}
-
-	// copy the recorded pool
-	return applyRecordedGkePool(infra, definition, gkeInstance)
-}
-
-// KeepTierGkeMaxNodes raises the upgrade's maximum worker node count to the
-// production cluster profile's, so a production cluster keeps the headroom it
-// was created with whatever its recorded definition holds.
-// Other tiers keep the recorded count.
-func KeepTierGkeMaxNodes(infra *provider.KubernetesRuntimeInfraGKE, tier string) error {
-	// leave a non-production tier on its recorded count
-	if tier != threeport.ControlPlaneTierProd {
-		return nil
-	}
-
-	// take the production profile's maximum
-	profile, err := gkeControlPlaneProfile(threeport.ControlPlaneTier(tier))
-	if err != nil {
-		return err
-	}
-	infra.MaxNodeCount = profile.MaxNodeCount
-
-	return nil
 }
 
 // gkeControlPlaneKubeClient returns a client for the GKE cluster a control

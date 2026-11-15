@@ -64,18 +64,7 @@ var UpgradeInfrastructureCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// preview the diff and apply it if the operator accepts
-		infra, err := cli.GkeInfraForUpgrade(controlPlane)
-		if err != nil {
-			cli.Error("failed to prepare infrastructure upgrade", err)
-			os.Exit(1)
-		}
-		if err := cli.KeepRecordedGkePool(infra, apiClient, apiEndpoint, infra.RuntimeInstanceName); err != nil {
-			cli.Error("failed to load the recorded node pool", err)
-			os.Exit(1)
-		}
-
-		// size the infrastructure for the tier given, or else the recorded tier
+		// use the tier given, or else the recorded tier
 		tier := upgradeInfraTier
 		if tier == "" {
 			if controlPlaneInstance.ControlPlaneDefinitionID == nil {
@@ -93,9 +82,11 @@ var UpgradeInfrastructureCmd = &cobra.Command{
 			}
 			tier = util.DerefString(controlPlaneDefinition.Tier)
 		}
-		infra.Tier = tier
-		if err := cli.KeepTierGkeMaxNodes(infra, tier); err != nil {
-			cli.Error("failed to size the node pool for the tier", err)
+
+		// build the infrastructure a fresh install of the tier creates
+		infra, err := cli.GkeInfraForUpgrade(controlPlane, tier)
+		if err != nil {
+			cli.Error("failed to prepare infrastructure upgrade", err)
 			os.Exit(1)
 		}
 

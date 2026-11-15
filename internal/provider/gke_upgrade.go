@@ -41,11 +41,6 @@ func (i *KubernetesRuntimeInfraGKE) standardNodePoolName() string {
 // Upgrade previews the infrastructure program against the deployed stack and applies it if accept returns true.
 // A declined change leaves the deployed stack as it was.
 func (i *KubernetesRuntimeInfraGKE) Upgrade(ctx context.Context, accept func(string) bool) error {
-	// an empty recorded type would recreate the pool at the zero default
-	if i.MachineType == "" {
-		return fmt.Errorf("recorded machine type is empty")
-	}
-
 	// authenticate before reading the stack
 	cleanup, err := i.useGCPAuth()
 	if err != nil {
@@ -61,14 +56,6 @@ func (i *KubernetesRuntimeInfraGKE) Upgrade(ctx context.Context, accept func(str
 	if err != nil {
 		return err
 	}
-
-	// keep the cluster's recorded version and release channel
-	exported, err := stack.Export(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to read the stack's GKE cluster: %w", err)
-	}
-	i.keepStackMinMasterVersion(exported.Deployment)
-	i.keepStackReleaseChannel(exported.Deployment)
 
 	// preview the change
 	preview, err := stack.Preview(ctx, optpreview.Diff())

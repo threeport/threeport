@@ -4,56 +4,47 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gorm.io/datatypes"
 
-	"github.com/threeport/threeport/internal/provider"
 	api "github.com/threeport/threeport/pkg/api/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// TestApplyRecordedGkePoolKeepsFourNodes checks a recorded 4-node pool is not resized to zero.
-func TestApplyRecordedGkePoolKeepsFourNodes(t *testing.T) {
-	// copy a recorded pool
-	infra := &provider.KubernetesRuntimeInfraGKE{}
-	definition := &api.GcpGkeKubernetesRuntimeDefinition{
-		DefaultNodeGroupInstanceType: util.Ptr("e2-standard-2"),
-		DefaultNodeGroupInitialSize:  util.Ptr(4),
-		DefaultNodeGroupMinimumSize:  util.Ptr(4),
-		DefaultNodeGroupMaximumSize:  util.Ptr(6),
-		PrivateApi:                   util.Ptr(true),
-		AllowedCidrs: func() *datatypes.JSON {
-			raw := datatypes.JSON([]byte(`["10.0.0.0/8"]`))
-			return &raw
-		}(),
+// TestGkeInfraForUpgradeBuildsTheTierProfile covers the node pool and endpoint access an upgrade takes from the tier and the recorded config.
+func TestGkeInfraForUpgradeBuildsTheTierProfile(t *testing.T) {
+	// build a production upgrade from a recorded config
+	controlPlane := &ControlPlane{
+		Name:     "prod",
+		Provider: api.KubernetesRuntimeInfraProviderGKE,
+		GKEProviderConfig: GKEProviderConfig{
+			GcpProjectId: "test-project",
+			GcpRegion:    "us-central1",
+			PrivateApi:   util.Ptr(true),
+			AllowedCidrs: []string{"10.0.0.0/8"},
+		},
 	}
-	instance := &api.GcpGkeKubernetesRuntimeInstance{
-		ReservedNatAddress: util.Ptr(true),
-	}
+	infra, err := GkeInfraForUpgrade(controlPlane, "production")
+	require.NoError(t, err)
 
-	require.NoError(t, applyRecordedGkePool(infra, definition, instance))
-	require.Equal(t, "e2-standard-2", infra.MachineType)
-	require.Equal(t, int32(4), infra.WorkerNodeInitialCount)
-	require.Equal(t, int32(4), infra.MinNodeCount)
-	require.Equal(t, int32(6), infra.MaxNodeCount)
+	// assert the production profile, with no recorded sizes copied over it
+	require.Equal(t, "production", infra.Tier)
+	require.Equal(t, int32(1), infra.MinNodeCount)
+	require.Equal(t, int32(10), infra.MaxNodeCount)
+	require.Equal(t, "BALANCED", infra.LocationPolicy)
+	require.True(t, infra.ProvisionBackups)
 	require.True(t, infra.ReserveNatAddress)
+
+	// assert the recorded project, region, and endpoint access
+	require.Equal(t, "test-project", infra.ProjectID)
+	require.Equal(t, "us-central1", infra.Region)
 	require.True(t, infra.PrivateApi)
 	require.Equal(t, []string{"10.0.0.0/8"}, infra.AllowedCidrs)
 
-	err := applyRecordedGkePool(infra, &api.GcpGkeKubernetesRuntimeDefinition{}, instance)
-	require.EqualError(t, err, "recorded machine type is empty")
-}
-
-// TestKeepTierGkeMaxNodesRaisesProductionOnly covers the maximum worker node count an upgrade takes per tier.
-func TestKeepTierGkeMaxNodesRaisesProductionOnly(t *testing.T) {
-	// raise a production pool recorded below the profile's maximum
-	infra := &provider.KubernetesRuntimeInfraGKE{MaxNodeCount: 2}
-	require.NoError(t, KeepTierGkeMaxNodes(infra, "production"))
-	require.Equal(t, int32(10), infra.MaxNodeCount)
-
-	// keep the recorded count on a development tier and on an empty tier
+	// assert the development profile for a development or empty tier
 	for _, tier := range []string{"development", ""} {
-		infra = &provider.KubernetesRuntimeInfraGKE{MaxNodeCount: 2}
-		require.NoError(t, KeepTierGkeMaxNodes(infra, tier))
-		require.Equal(t, int32(2), infra.MaxNodeCount, "tier %q", tier)
+		infra, err = GkeInfraForUpgrade(controlPlane, tier)
+		require.NoError(t, err)
+		require.Equal(t, int32(2), infra.WorkerNodeInitialCount, "tier %q", tier)
+		require.Equal(t, "ANY", infra.LocationPolicy, "tier %q", tier)
+		require.False(t, infra.ProvisionBackups, "tier %q", tier)
 	}
 }

@@ -384,35 +384,18 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	case v0.KubernetesRuntimeInfraProviderGKE:
 		// the node pool this CLI-driven bootstrap path creates for the tier;
 		// it has no GcpGkeKubernetesRuntimeDefinition to read it from
-		gkeProfile, err := gkeControlPlaneProfile(cpi.Opts.Tier)
+		gkeInfra, err := gkeInfraForTier(runtimeInstanceName(cpi.Opts), cpi.Opts.Tier)
 		if err != nil {
 			return err
 		}
-		kubernetesRuntimeInfraGKE := (&provider.KubernetesRuntimeInfraGKE{
-			PulumiWorkspace: provider.PulumiWorkspace{
-				RuntimeInstanceName: runtimeInstanceName(cpi.Opts),
-			},
-			Version:                   cpi.Opts.KubernetesVersion,
-			ReleaseChannel:            gkeReleaseChannel(cpi.Opts.Tier),
-			WorkerNodeInitialCount:    gkeProfile.InitialNodeCount,
-			MachineType:               gkeProfile.MachineType,
-			MinNodeCount:              gkeProfile.MinNodeCount,
-			MaxNodeCount:              gkeProfile.MaxNodeCount,
-			LocationPolicy:            gkeProfile.LocationPolicy,
-			ProjectID:                 cpi.Opts.GcpProjectId,
-			Region:                    cpi.Opts.GcpRegion,
-			WorkloadIdentityNamespace: cpi.Opts.Namespace,
-			// a production control plane backs its database up to a
-			// bucket in another region
-			Tier:             string(cpi.Opts.Tier),
-			ProvisionBackups: cpi.Opts.Tier == threeport.ControlPlaneTier(threeport.ControlPlaneTierProd),
-			BackupRegion:     cpi.Opts.GcpBackupRegion,
-			PrivateApi:       cpi.Opts.PrivateK8sApi,
-			AllowedCidrs:     cpi.Opts.K8sApiAllowedCidrs,
-			// the control plane's outbound traffic comes from one address,
-			// which clusters it manages admit
-			ReserveNatAddress: true,
-		}).InitPulumiProject()
+		gkeInfra.Version = cpi.Opts.KubernetesVersion
+		gkeInfra.ProjectID = cpi.Opts.GcpProjectId
+		gkeInfra.Region = cpi.Opts.GcpRegion
+		gkeInfra.WorkloadIdentityNamespace = cpi.Opts.Namespace
+		gkeInfra.BackupRegion = cpi.Opts.GcpBackupRegion
+		gkeInfra.PrivateApi = cpi.Opts.PrivateK8sApi
+		gkeInfra.AllowedCidrs = cpi.Opts.K8sApiAllowedCidrs
+		kubernetesRuntimeInfraGKE := gkeInfra.InitPulumiProject()
 		kubernetesRuntimeInfra = kubernetesRuntimeInfraGKE
 		uninstaller.kubernetesRuntimeInfra = kubernetesRuntimeInfraGKE
 
