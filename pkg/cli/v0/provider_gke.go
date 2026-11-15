@@ -275,7 +275,6 @@ func gkeInfraForTier(
 		LocationPolicy:         gkeProfile.LocationPolicy,
 		// a production control plane backs its database up to a
 		// bucket in another region
-		Tier:             string(tier),
 		ProvisionBackups: tier == threeport.ControlPlaneTier(threeport.ControlPlaneTierProd),
 		// the control plane's outbound traffic comes from one address,
 		// which clusters it manages admit

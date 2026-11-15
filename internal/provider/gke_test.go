@@ -7,10 +7,11 @@ import (
 
 	"github.com/pulumi/pulumi/sdk/v3/go/common/resource"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
 const (
+	gkeClusterTypeToken  = "gcp:container/cluster:Cluster"
+	gkeNodePoolTypeToken = "gcp:container/nodePool:NodePool"
 	gkeNetworkTypeToken  = "gcp:compute/network:Network"
 	gkeSubnetTypeToken   = "gcp:compute/subnetwork:Subnetwork"
 	gkeRouterTypeToken   = "gcp:compute/router:Router"
@@ -81,7 +82,6 @@ func TestGKEPulumiProgram_LabelableResourcesCarryProvisionedBy(t *testing.T) {
 		ProjectID:              "test-project",
 		Region:                 "us-central1",
 		WorkerNodeInitialCount: 1,
-		Tier:                   v0.ControlPlaneTierProduction,
 	}
 
 	mocks := &gkeRecordingMocks{}
@@ -162,93 +162,6 @@ func TestGKEPulumiProgram_LabelableResourcesCarryProvisionedBy(t *testing.T) {
 	}
 }
 
-// TestGKEPulumiProgramStandardPool checks the second pool can schedule a 2Gi request.
-func TestGKEPulumiProgramStandardPool(t *testing.T) {
-	// run the program
-	infra := &KubernetesRuntimeInfraGKE{
-		PulumiWorkspace: PulumiWorkspace{
-			RuntimeInstanceName: "gke-label-test",
-			ProjectName:         "gke",
-		},
-		ProjectID:              "test-project",
-		Region:                 "us-central1",
-		WorkerNodeInitialCount: 1,
-		MachineType:            "e2-medium",
-		Tier:                   v0.ControlPlaneTierProduction,
-	}
-	mocks := &gkeRecordingMocks{}
-	if err := pulumi.RunErr(infra.pulumiProgram(), pulumi.WithMocks("gke", "test-stack", mocks)); err != nil {
-		t.Fatalf("RunErr: %v", err)
-	}
-
-	// find the standard pool
-	var standard map[string]any
-	for _, r := range mocks.resources {
-		if r.typeToken != gkeNodePoolTypeToken {
-			continue
-		}
-		if r.inputs["name"] == infra.standardNodePoolName() {
-			standard = r.inputs
-			break
-		}
-	}
-	if standard == nil {
-		t.Fatal("standard node pool was not registered")
-	}
-
-	// check the machine type, disk, count, and autoscaling
-	nodeConfig, ok := standard["nodeConfig"].(map[string]any)
-	if !ok {
-		t.Fatal("standard node pool has no nodeConfig")
-	}
-	if nodeConfig["machineType"] != standardNodeMachineType {
-		t.Errorf("machineType = %v, want %s", nodeConfig["machineType"], standardNodeMachineType)
-	}
-	if nodeConfig["diskSizeGb"] != float64(standardNodeDiskSizeGb) ||
-		nodeConfig["diskType"] != standardNodeDiskType {
-		t.Errorf("disk = %v %v", nodeConfig["diskSizeGb"], nodeConfig["diskType"])
-	}
-	if standard["nodeCount"] != float64(productionStandardNodeCount) {
-		t.Errorf("nodeCount = %v, want %d", standard["nodeCount"], productionStandardNodeCount)
-	}
-	autoscaling, ok := standard["autoscaling"].(map[string]any)
-	if !ok {
-		t.Fatal("standard node pool has no autoscaling")
-	}
-	if autoscaling["minNodeCount"] != float64(productionStandardNodeCount) ||
-		autoscaling["maxNodeCount"] != float64(productionStandardMaxNodeCount) ||
-		autoscaling["locationPolicy"] != standardNodeLocationPolicy {
-		t.Errorf("autoscaling = %#v", autoscaling)
-	}
-}
-
-// TestGKEPulumiProgramDevelopmentHasNoStandardPool checks a development tier registers no second pool.
-func TestGKEPulumiProgramDevelopmentHasNoStandardPool(t *testing.T) {
-	// run the program on the development tier
-	infra := &KubernetesRuntimeInfraGKE{
-		PulumiWorkspace: PulumiWorkspace{
-			RuntimeInstanceName: "gke-label-test",
-			ProjectName:         "gke",
-		},
-		ProjectID:              "test-project",
-		Region:                 "us-central1",
-		WorkerNodeInitialCount: 1,
-		MachineType:            "e2-medium",
-		Tier:                   v0.ControlPlaneTierDevelopment,
-	}
-	mocks := &gkeRecordingMocks{}
-	if err := pulumi.RunErr(infra.pulumiProgram(), pulumi.WithMocks("gke", "test-stack", mocks)); err != nil {
-		t.Fatalf("RunErr: %v", err)
-	}
-
-	// assert no pool carries the standard name
-	for _, r := range mocks.resources {
-		if r.typeToken == gkeNodePoolTypeToken && r.inputs["name"] == infra.standardNodePoolName() {
-			t.Error("standard node pool was registered on the development tier")
-		}
-	}
-}
-
 // gkeGCPLabels returns a nested labels map from recorded Pulumi inputs.
 func gkeGCPLabels(t *testing.T, r gkeRecordedResource, path string) map[string]string {
 	t.Helper()
@@ -280,8 +193,8 @@ func gkeGCPLabels(t *testing.T, r gkeRecordedResource, path string) map[string]s
 	return out
 }
 
-// TestTheGkeNodePoolsLocationPolicy covers how the worker node pool's
-// autoscaler places nodes across zones: as configured, and anywhere when unset.
+// TestTheGkeNodePoolsLocationPolicy covers how the node pool's autoscaler
+// places nodes across zones: as configured, and anywhere when unset.
 func TestTheGkeNodePoolsLocationPolicy(t *testing.T) {
 	for configured, want := range map[string]string{"": "ANY", "BALANCED": "BALANCED"} {
 		i := &KubernetesRuntimeInfraGKE{
@@ -292,15 +205,11 @@ func TestTheGkeNodePoolsLocationPolicy(t *testing.T) {
 			LocationPolicy:         configured,
 		}
 		mocks := &gkeRecordingMocks{}
-
-		// run the program with the configured policy
 		if err := pulumi.RunErr(i.pulumiProgram(), pulumi.WithMocks("gke", "test-stack", mocks)); err != nil {
 			t.Fatalf("RunErr: %v", err)
 		}
-
-		// check the worker pool
 		for _, r := range mocks.resources {
-			if r.typeToken != gkeNodePoolTypeToken || r.name != i.workerNodePoolName() {
+			if r.typeToken != gkeNodePoolTypeToken {
 				continue
 			}
 			autoscaling, _ := r.inputs["autoscaling"].(map[string]any)

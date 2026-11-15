@@ -26,7 +26,6 @@ func TestGkeInfraForUpgradeBuildsTheTierProfile(t *testing.T) {
 	require.NoError(t, err)
 
 	// assert the production profile, with no recorded sizes copied over it
-	require.Equal(t, "production", infra.Tier)
 	require.Equal(t, int32(1), infra.MinNodeCount)
 	require.Equal(t, int32(10), infra.MaxNodeCount)
 	require.Equal(t, "BALANCED", infra.LocationPolicy)

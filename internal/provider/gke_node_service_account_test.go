@@ -7,8 +7,6 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	api "github.com/threeport/threeport/pkg/api/v0"
 )
 
 // runGkeProgram runs the GKE program against mocks for a runtime.
@@ -31,10 +29,7 @@ func runGkeProgram(t *testing.T, i *KubernetesRuntimeInfraGKE) *gkeRecordingMock
 // provides for node service accounts, in place of the project's default
 // Compute Engine account.
 func TestGkeNodesRunAsTheClustersOwnServiceAccount(t *testing.T) {
-	i := &KubernetesRuntimeInfraGKE{
-		PulumiWorkspace: PulumiWorkspace{RuntimeInstanceName: "threeport-test"},
-		Tier:            api.ControlPlaneTierProduction,
-	}
+	i := &KubernetesRuntimeInfraGKE{PulumiWorkspace: PulumiWorkspace{RuntimeInstanceName: "threeport-test"}}
 	mocks := runGkeProgram(t, i)
 
 	accounts := mocks.ofType(gkeAccountTypeToken)
@@ -50,28 +45,20 @@ func TestGkeNodesRunAsTheClustersOwnServiceAccount(t *testing.T) {
 	assert.Equal(t, "test-project", roles[0].inputs["project"])
 
 	nodePools := mocks.ofType(gkeNodePoolTypeToken)
-	require.Len(t, nodePools, 2)
-	var nodeConfig map[string]any
-	for _, pool := range nodePools {
-		if config, ok := pool.inputs["nodeConfig"].(map[string]any); ok && config["serviceAccount"] != nil {
-			nodeConfig = config
-		}
-	}
-	require.NotNil(t, nodeConfig)
+	require.Len(t, nodePools, 1)
+	nodeConfig := nodePools[0].inputs["nodeConfig"].(map[string]any)
 	assert.Equal(t, email, nodeConfig["serviceAccount"])
 	assert.Equal(t, []any{"https://www.googleapis.com/auth/cloud-platform"}, nodeConfig["oauthScopes"],
 		"the role, not the scope, limits the nodes")
 
 	// the nodes start with the role, so their first logs and metrics are kept
 	var roleURN string
-	for _, pool := range nodePools {
-		for _, dependency := range pool.dependencies {
-			if strings.HasSuffix(dependency, "::"+roles[0].name) {
-				roleURN = dependency
-			}
+	for _, dependency := range nodePools[0].dependencies {
+		if strings.HasSuffix(dependency, "::"+roles[0].name) {
+			roleURN = dependency
 		}
 	}
-	assert.NotEmpty(t, roleURN, "a node pool waits for the role")
+	assert.NotEmpty(t, roleURN, "the node pool waits for the role: %v", nodePools[0].dependencies)
 }
 
 // TestAGkeNodePoolCreatedOnTheDefaultAccountKeepsIt covers a create resumed on
@@ -90,35 +77,6 @@ func TestAGkeNodePoolCreatedOnTheDefaultAccountKeepsIt(t *testing.T) {
 	nodePools := mocks.ofType(gkeNodePoolTypeToken)
 	require.Len(t, nodePools, 1)
 	assert.NotContains(t, nodePools[0].inputs["nodeConfig"], "serviceAccount")
-}
-
-// TestAProductionStandardPoolRunsAsTheClustersAccountBesideADefaultAccountPool covers
-// a production cluster whose existing node pool runs on the default account:
-// the existing pool keeps it, and the standard pool added beside it runs as the
-// cluster's own account.
-func TestAProductionStandardPoolRunsAsTheClustersAccountBesideADefaultAccountPool(t *testing.T) {
-	i := &KubernetesRuntimeInfraGKE{
-		PulumiWorkspace:                PulumiWorkspace{RuntimeInstanceName: "threeport-test"},
-		nodesKeepDefaultServiceAccount: true,
-		Tier:                           api.ControlPlaneTierProduction,
-	}
-	mocks := runGkeProgram(t, i)
-
-	// the account and its role are created for the standard pool
-	require.Len(t, mocks.ofType(gkeAccountTypeToken), 1)
-	require.Len(t, mocks.ofType(gkeIAMMemberToken), 1)
-
-	// the worker pool stays on the default account, and the standard pool takes the new one
-	email := i.nodeServiceAccountID() + "@test-project.iam.gserviceaccount.com"
-	for _, pool := range mocks.ofType(gkeNodePoolTypeToken) {
-		nodeConfig, ok := pool.inputs["nodeConfig"].(map[string]any)
-		require.True(t, ok)
-		if pool.inputs["name"] == i.standardNodePoolName() {
-			assert.Equal(t, email, nodeConfig["serviceAccount"])
-			continue
-		}
-		assert.NotContains(t, nodeConfig, "serviceAccount")
-	}
 }
 
 // TestNodePoolRunsAsDefaultServiceAccount covers how CreateInfra tells a node

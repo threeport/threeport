@@ -84,9 +84,6 @@ type KubernetesRuntimeInfraGKE struct {
 	// scale up to.
 	MaxNodeCount int32
 
-	// Tier is the control plane tier. Production sizes the larger pool for three nodes.
-	Tier string
-
 	// How the worker node pool's autoscaler places nodes across zones:
 	// "BALANCED" keeps the zones even, and "ANY", used when this is empty,
 	// places nodes wherever capacity is.
@@ -450,16 +447,6 @@ func (i *KubernetesRuntimeInfraGKE) locationPolicy() string {
 // node count changes.
 var gkeNodePoolIgnoredChanges = []string{"nodeCount"}
 
-// gkeWorkerNodePoolIgnoredChanges adds the properties of the worker node pool
-// that are set only when the pool is created. Either one forces a new node
-// pool when it changes, so a cluster created before the production profile
-// keeps its smaller machines and its location policy.
-var gkeWorkerNodePoolIgnoredChanges = []string{
-	"nodeCount",
-	"nodeConfig.machineType",
-	"autoscaling.locationPolicy",
-}
-
 // pulumiProgram defines the Pulumi resources for the GKE stack.
 func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 	return func(ctx *pulumi.Context) error {
@@ -648,23 +635,14 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 			},
 		}
 		nodePoolDependencies := []pulumi.Resource{cluster}
-		standardDependencies := []pulumi.Resource{cluster}
-		var standardServiceAccount pulumi.StringPtrInput
-
-		// an existing pool on the default account keeps it, but the standard
-		// pool always runs as the cluster's own account
-		if !i.nodesKeepDefaultServiceAccount || i.Tier == v0.ControlPlaneTierProduction {
+		if !i.nodesKeepDefaultServiceAccount {
 			nodeServiceAccount, nodeRole, err := i.nodeServiceAccount(ctx, gcpProvider)
 			if err != nil {
 				return err
 			}
-			standardServiceAccount = nodeServiceAccount.Email
+			nodeConfig.ServiceAccount = nodeServiceAccount.Email
 			// the nodes can write logs and metrics from the start
-			standardDependencies = append(standardDependencies, nodeRole)
-			if !i.nodesKeepDefaultServiceAccount {
-				nodeConfig.ServiceAccount = nodeServiceAccount.Email
-				nodePoolDependencies = append(nodePoolDependencies, nodeRole)
-			}
+			nodePoolDependencies = append(nodePoolDependencies, nodeRole)
 		}
 
 		_, err = gkecontainer.NewNodePool(ctx, i.workerNodePoolName(), &gkecontainer.NodePoolArgs{
@@ -688,56 +666,12 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 			},
 		}, pulumi.Provider(gcpProvider),
 			pulumi.DependsOn(nodePoolDependencies),
-			pulumi.IgnoreChanges(gkeWorkerNodePoolIgnoredChanges))
+			pulumi.IgnoreChanges(gkeNodePoolIgnoredChanges))
 		if err != nil {
 			return fmt.Errorf("failed to create node pool: %w", err)
 		}
 
 		exportEgressCidrs(ctx, egressAddresses)
-
-		// add the larger pool beside the smaller one for production only
-		if i.Tier == v0.ControlPlaneTierProduction {
-			_, err = gkecontainer.NewNodePool(ctx, i.standardNodePoolName(), &gkecontainer.NodePoolArgs{
-				Name:     pulumi.String(i.standardNodePoolName()),
-				Cluster:  cluster.Name,
-				Location: pulumi.String(i.Region),
-
-				NodeCount: pulumi.Int(productionStandardNodeCount),
-
-				NodeConfig: &gkecontainer.NodePoolNodeConfigArgs{
-					MachineType:    pulumi.String(standardNodeMachineType),
-					DiskSizeGb:     pulumi.Int(standardNodeDiskSizeGb),
-					DiskType:       pulumi.String(standardNodeDiskType),
-					ServiceAccount: standardServiceAccount,
-					OauthScopes: pulumi.StringArray{
-						pulumi.String("https://www.googleapis.com/auth/cloud-platform"),
-					},
-					Labels: pulumi.StringMap{
-						kube.ThreeportManagedByLabelKey: pulumi.String(kube.ThreeportManagedByLabelValue),
-					},
-					ResourceLabels: GcpLabelsInput(i.RuntimeInstanceName),
-					WorkloadMetadataConfig: &gkecontainer.NodePoolNodeConfigWorkloadMetadataConfigArgs{
-						Mode: pulumi.String("GKE_METADATA"),
-					},
-				},
-
-				Autoscaling: &gkecontainer.NodePoolAutoscalingArgs{
-					MinNodeCount:   pulumi.Int(productionStandardNodeCount),
-					MaxNodeCount:   pulumi.Int(productionStandardMaxNodeCount),
-					LocationPolicy: pulumi.String(standardNodeLocationPolicy),
-				},
-
-				Management: &gkecontainer.NodePoolManagementArgs{
-					AutoRepair:  pulumi.Bool(true),
-					AutoUpgrade: pulumi.Bool(true),
-				},
-			}, pulumi.Provider(gcpProvider),
-				pulumi.DependsOn(standardDependencies),
-				pulumi.IgnoreChanges(gkeNodePoolIgnoredChanges))
-			if err != nil {
-				return fmt.Errorf("failed to create standard node pool: %w", err)
-			}
-		}
 
 		return nil
 	}

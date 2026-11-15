@@ -1,15 +1,12 @@
 package provider
 
 import (
-	"sort"
 	"sync"
 	"testing"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	api "github.com/threeport/threeport/pkg/api/v0"
 )
 
 // ignoredChangesByType runs a Pulumi program against mocks and returns the
@@ -75,18 +72,11 @@ func TestTheNodeGroupSizeIsSetOnlyWhenTheNodeGroupIsCreated(t *testing.T) {
 			WorkerNodeInitialCount: 1,
 			MinNodeCount:           1,
 			MaxNodeCount:           3,
-			Tier:                   api.ControlPlaneTierProduction,
 		}
 		ignored := ignoredChangesByType(t, infra.pulumiProgram(), &gkeRecordingMocks{}, "gke")
 
-		// the worker pool also keeps its machine type and location policy
-		// once created, and the standard pool only its node count
-		require.Len(t, ignored[gkeNodePoolTypeToken], 2)
-		sort.Slice(ignored[gkeNodePoolTypeToken], func(a, b int) bool {
-			return len(ignored[gkeNodePoolTypeToken][a]) < len(ignored[gkeNodePoolTypeToken][b])
-		})
+		require.Len(t, ignored[gkeNodePoolTypeToken], 1)
 		assert.Equal(t, []string{"nodeCount"}, ignored[gkeNodePoolTypeToken][0])
-		assert.Equal(t, gkeWorkerNodePoolIgnoredChanges, ignored[gkeNodePoolTypeToken][1])
 		assertNothingElseIgnoresChanges(t, ignored, gkeNodePoolTypeToken)
 	})
 }
