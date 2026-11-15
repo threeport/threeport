@@ -21,11 +21,6 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f.HeaderComment(sdk.HeaderCommentGenMod)
 
 	installerPkg := fmt.Sprintf("%s/pkg/installer/v0", gen.ModulePath)
-	moduleAPIName := fmt.Sprintf(
-		"%s/%s-module-api",
-		sdkConfig.ApiNamespace,
-		strcase.ToKebab(sdkConfig.ModuleName),
-	)
 
 	f.ImportAlias("github.com/threeport/threeport/cmd/tptctl/cmd", "tptctl_cmd")
 	f.ImportAlias("github.com/threeport/threeport/pkg/cli/v0", "cli")
@@ -37,7 +32,6 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		Id("debug").Bool(),
 		Id("controlPlaneImageRepo").String(),
 		Id("controlPlaneImageTag").String(),
-		Id("installControlPlaneName").String(),
 		Id("imagePullSecretFile").String(),
 	)
 
@@ -56,7 +50,7 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			"Install the %s module to an existing Threeport control plane",
 			sdkConfig.ModuleName,
 		)),
-		Id("PreRun"):       Id("CommandPreRunFunc"),
+		Id("PreRun"): Id("CommandPreRunFunc"),
 		Id("SilenceUsage"): Lit(true),
 		Id("Run"): Func().Params(Id("cmd").Op("*").Qual(
 			"github.com/spf13/cobra",
@@ -121,36 +115,6 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					"Error",
 				).Call(Lit("failed to get Threeport API encryption key"), Id("err")),
 				Qual("os", "Exit").Call(Lit(1)),
-			),
-			Line(),
-
-			Comment("record the install on a child when this command is pointed at a parent"),
-			List(Id("delegated"), Err()).Op(":=").Qual(
-				"github.com/threeport/threeport/pkg/cli/v0",
-				"InstallThroughController",
-			).Call(
-				Line().Id("apiClient"),
-				Line().Id("apiEndpoint"),
-				Line().Id("encryptionKey"),
-				Line().Id("installControlPlaneName"),
-				Line().Lit(moduleAPIName),
-				Line().Id("controlPlaneImageRepo"),
-				Line().Id("controlPlaneImageTag"),
-				Line(),
-			),
-			If(Err().Op("!=").Nil()).Block(
-				Qual(
-					"github.com/threeport/threeport/pkg/cli/v0",
-					"Error",
-				).Call(Lit("failed to install module"), Id("err")),
-				Qual("os", "Exit").Call(Lit(1)),
-			),
-			If(Id("delegated")).Block(
-				Qual(
-					"github.com/threeport/threeport/pkg/cli/v0",
-					"Complete",
-				).Call(Lit("module install started")),
-				Return(),
 			),
 			Line(),
 
@@ -264,15 +228,6 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					"GetVersion",
 				).Call(),
 				Lit("Image tag for threeport control plane images."),
-			),
-			Line(),
-		),
-		Id("installCmd").Dot("Flags").Call().Dot("StringVar").Call(
-			Line().Op("&").Id("installControlPlaneName"),
-			Line().List(
-				Lit("control-plane-name"),
-				Lit(""),
-				Lit("Name of a child control plane. Empty installs on the connected control plane."),
 			),
 			Line(),
 		),

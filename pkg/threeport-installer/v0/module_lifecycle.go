@@ -1,19 +1,15 @@
 package v0
 
 import (
-	"context"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
-	"sigs.k8s.io/yaml"
 
 	api "github.com/threeport/threeport/pkg/api/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
@@ -22,45 +18,7 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// ModuleInstallJobEnv names the environment variable the install job sets so the
-// module plugin installs on the control plane it is connected to.
-const ModuleInstallJobEnv = "THREEPORT_MODULE_INSTALL_JOB"
-
-const (
-	moduleInstallConfigKey      = "config.yaml"
-	moduleInstallConfigPath     = "/root/.threeport/config.yaml"
-	moduleWorkloadPrefix        = "threeport-"
-	moduleInstallServiceAccount = "module-install"
-)
-
-// moduleInstallBindingName returns the cluster role binding for one control plane.
-func moduleInstallBindingName(namespace string) string {
-	return moduleInstallServiceAccount + "-" + namespace
-}
-
-// moduleInstallConfigFile is the config the install job reads.
-// The field names match the CLI config, which has no yaml tags.
-type moduleInstallConfigFile struct {
-	CurrentControlPlane string
-	ControlPlanes       []moduleInstallControlPlane
-}
-
-// moduleInstallControlPlane is one control plane entry in that config.
-type moduleInstallControlPlane struct {
-	Name          string
-	AuthEnabled   bool
-	APIServer     string
-	CACert        string
-	EncryptionKey string
-	Credentials   []moduleInstallCredential
-}
-
-// moduleInstallCredential is the client certificate for that control plane.
-type moduleInstallCredential struct {
-	Name       string
-	ClientCert string
-	ClientKey  string
-}
+const moduleWorkloadPrefix = "threeport-"
 
 // HTTPClientForInstance builds an API client from the certificates stored on a control plane.
 // An empty client certificate means auth is off.
@@ -88,14 +46,13 @@ func HTTPClientForInstance(inst *api.ControlPlaneInstance) (*http.Client, error)
 }
 
 // ReconcileInstalledModuleImages applies recorded module images to the deployments that exist.
-// A missing API deployment becomes an install job when the module names an image.
+// A missing deployment is left alone.
 func ReconcileInstalledModuleImages(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	apiClient *http.Client,
 	apiEndpoint string,
 	inst *api.ControlPlaneInstance,
-	cpi *ControlPlaneInstaller,
 ) error {
 	// list the modules and the controllers that belong to them
 	modules, err := client.GetModuleApis(apiClient, apiEndpoint)
@@ -148,7 +105,7 @@ func ReconcileInstalledModuleImages(
 				return err
 			}
 		} else if err := retagModuleAPI(
-			kubeClient, mapper, inst, cpi, &module, imageNamespace, imageTag, controlPlaneNamespace,
+			kubeClient, mapper, &module, imageNamespace, imageTag, controlPlaneNamespace,
 		); err != nil {
 			return err
 		}
@@ -184,12 +141,10 @@ func ReconcileInstalledModuleImages(
 }
 
 // retagModuleAPI restarts the API deployment when its image differs.
-// A missing deployment is installed instead.
+// A missing deployment is an error.
 func retagModuleAPI(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
-	inst *api.ControlPlaneInstance,
-	cpi *ControlPlaneInstaller,
 	module *api.ModuleApi,
 	imageNamespace, imageTag, controlPlaneNamespace string,
 ) error {
@@ -200,9 +155,6 @@ func retagModuleAPI(
 	deployment, err := kube.GetResource(
 		"apps", "v1", "Deployment", namespace, name, kubeClient, *mapper,
 	)
-	if k8serrors.IsNotFound(err) {
-		return EnsureModuleInstallJob(kubeClient, mapper, inst, cpi, module)
-	}
 	if err != nil {
 		return fmt.Errorf("failed to get module API deployment %s/%s: %w", namespace, name, err)
 	}
@@ -292,112 +244,6 @@ func retagModuleController(
 	)
 }
 
-// ModuleInstallAfterRun returns the request the controller stores after a run.
-// The controller keeps a stored value that differs from the request it ran.
-func ModuleInstallAfterRun(stored string, started string) string {
-	// keep a stored request that is not the one this run started
-	if stored != started {
-		return stored
-	}
-	return ""
-}
-
-// ModuleInstallRequest is the value stored for the parent controller to run.
-func ModuleInstallRequest(module *api.ModuleApi) string {
-	// keep the three fields in an order the controller can split
-	return strings.Join([]string{
-		util.DerefString(module.Name),
-		util.DerefString(module.ImageNamespace),
-		util.DerefString(module.ImageTag),
-	}, " ")
-}
-
-// moduleFromInstallRequest reads the stored name, image namespace, and tag.
-func moduleFromInstallRequest(raw string) (*api.ModuleApi, error) {
-	// reject a request that is missing one of the three fields
-	parts := strings.SplitN(raw, " ", 3)
-	if len(parts) != 3 || parts[0] == "" || parts[1] == "" || parts[2] == "" {
-		return nil, fmt.Errorf("module install request %q is missing a field", raw)
-	}
-	return &api.ModuleApi{
-		Name:           &parts[0],
-		ImageNamespace: &parts[1],
-		ImageTag:       &parts[2],
-	}, nil
-}
-
-// InstallRequestedModule creates the install job with the caller's kube client.
-// The controller passes the client it already uses for the control plane.
-func InstallRequestedModule(
-	kubeClient dynamic.Interface,
-	mapper *meta.RESTMapper,
-	inst *api.ControlPlaneInstance,
-	cpi *ControlPlaneInstaller,
-) error {
-	// leave a row that is not asking for an install
-	raw := util.DerefString(inst.ModuleInstall)
-	if raw == "" {
-		return nil
-	}
-	module, err := moduleFromInstallRequest(raw)
-	if err != nil {
-		return err
-	}
-	return EnsureModuleInstallJob(kubeClient, mapper, inst, cpi, module)
-}
-
-// EnsureModuleInstallJob creates the install job when the module is not already installing.
-// A finished job is replaced. A running job is left in place.
-func EnsureModuleInstallJob(
-	kubeClient dynamic.Interface,
-	mapper *meta.RESTMapper,
-	inst *api.ControlPlaneInstance,
-	cpi *ControlPlaneInstaller,
-	module *api.ModuleApi,
-) error {
-	// leave a job that is still running
-	kebab := ModuleKebab(util.DerefString(module.Name))
-	namespace := controlPlaneNamespace(inst, cpi)
-	name := moduleInstallJobName(kebab)
-	existing, err := kube.GetResource(
-		"batch", "v1", "Job", namespace, name, kubeClient, *mapper,
-	)
-	if err == nil && jobActive(existing) {
-		return nil
-	}
-	if err == nil && !jobFinished(existing) {
-		return nil
-	}
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return fmt.Errorf("failed to get module install job %s: %w", name, err)
-	}
-
-	// replace a failed job so its pods are removed
-	if err == nil {
-		if err := deleteModuleInstallJob(kubeClient, namespace, name); err != nil {
-			return err
-		}
-	}
-
-	// write the config the install reads, then create the job
-	if err := ensureModuleInstallAccount(kubeClient, mapper, namespace); err != nil {
-		return err
-	}
-	if err := ensureModuleInstallConfig(
-		kubeClient, mapper, inst, cpi, namespace, kebab,
-	); err != nil {
-		return err
-	}
-	_, err = kube.CreateResource(
-		moduleInstallJob(namespace, kebab, module), kubeClient, *mapper,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create module install job %s: %w", name, err)
-	}
-
-	return nil
-}
-
 // UninstallModule deletes the module namespace and then the module API row.
 func UninstallModule(
 	kubeClient dynamic.Interface,
@@ -465,26 +311,6 @@ func moduleWorkloadNamespace(module *api.ModuleApi) string {
 	return moduleWorkloadPrefix + ModuleKebab(util.DerefString(module.Name))
 }
 
-// moduleInstallJobName returns the install job name for one module.
-func moduleInstallJobName(kebab string) string {
-	return "module-install-" + kebab
-}
-
-// moduleInstallSecretName returns the config secret name for one module.
-func moduleInstallSecretName(kebab string) string {
-	return "module-install-" + kebab + "-config"
-}
-
-// controlPlaneNamespace returns the namespace the control plane runs in.
-func controlPlaneNamespace(inst *api.ControlPlaneInstance, cpi *ControlPlaneInstaller) string {
-	// the installer option wins when the caller set one
-	if cpi != nil && cpi.Opts.Namespace != "" {
-		return cpi.Opts.Namespace
-	}
-
-	return util.DerefString(inst.Namespace)
-}
-
 // namedContainerImage returns the image of one container.
 func namedContainerImage(obj *unstructured.Unstructured, listKey, containerName string) (string, bool) {
 	// walk the named container list
@@ -506,223 +332,4 @@ func namedContainerImage(obj *unstructured.Unstructured, listKey, containerName 
 	}
 
 	return "", false
-}
-
-// jobActive reports a job that still has a running pod.
-func jobActive(job *unstructured.Unstructured) bool {
-	active, _, _ := unstructured.NestedInt64(job.Object, "status", "active")
-	return active > 0
-}
-
-// jobFinished reports a job that succeeded or failed.
-func jobFinished(job *unstructured.Unstructured) bool {
-	succeeded, _, _ := unstructured.NestedInt64(job.Object, "status", "succeeded")
-	if succeeded > 0 {
-		return true
-	}
-	return jobFailed(job)
-}
-
-// jobFailed reports whether a job has failed and is neither running nor finished.
-func jobFailed(job *unstructured.Unstructured) bool {
-	// a succeeded or active job stays
-	succeeded, _, _ := unstructured.NestedInt64(job.Object, "status", "succeeded")
-	if succeeded > 0 {
-		return false
-	}
-	active, _, _ := unstructured.NestedInt64(job.Object, "status", "active")
-	if active > 0 {
-		return false
-	}
-
-	// only a failed count means replace the job
-	failed, _, _ := unstructured.NestedInt64(job.Object, "status", "failed")
-	return failed > 0
-}
-
-// deleteModuleInstallJob removes a failed install job and its pods.
-func deleteModuleInstallJob(kubeClient dynamic.Interface, namespace, name string) error {
-	// background deletion removes the pods with the job
-	policy := metav1.DeletePropagationBackground
-	err := kubeClient.Resource(schema.GroupVersionResource{
-		Group: "batch", Version: "v1", Resource: "jobs",
-	}).Namespace(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{
-		PropagationPolicy: &policy,
-	})
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return fmt.Errorf("failed to delete module install job %s: %w", name, err)
-	}
-
-	return nil
-}
-
-// ensureModuleInstallConfig writes the config secret the install job mounts.
-func ensureModuleInstallConfig(
-	kubeClient dynamic.Interface,
-	mapper *meta.RESTMapper,
-	inst *api.ControlPlaneInstance,
-	cpi *ControlPlaneInstaller,
-	namespace, kebab string,
-) error {
-	// build the config the CLI reads from its home directory
-	configYAML, err := moduleInstallConfig(kubeClient, mapper, inst, cpi, namespace)
-	if err != nil {
-		return err
-	}
-	secret := &unstructured.Unstructured{Object: map[string]interface{}{
-		"apiVersion": "v1",
-		"kind":       "Secret",
-		"metadata": map[string]interface{}{
-			"name":      moduleInstallSecretName(kebab),
-			"namespace": namespace,
-		},
-		"data": map[string]interface{}{
-			moduleInstallConfigKey: util.Base64Encode(string(configYAML)),
-		},
-	}}
-	if _, err := kube.CreateOrUpdateResource(secret, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to write module install config: %w", err)
-	}
-
-	return nil
-}
-
-// moduleInstallConfig renders the config file for one control plane.
-func moduleInstallConfig(
-	kubeClient dynamic.Interface,
-	mapper *meta.RESTMapper,
-	inst *api.ControlPlaneInstance,
-	cpi *ControlPlaneInstaller,
-	namespace string,
-) ([]byte, error) {
-	// read the decoded encryption key the CLI stores in its config
-	key, err := cpi.EncryptionKeyFromNamespace(kubeClient, mapper, namespace)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read encryption key: %w", err)
-	}
-	name := util.DerefString(inst.Name)
-	authEnabled := util.DerefString(inst.ClientCert) != ""
-	config := moduleInstallConfigFile{
-		CurrentControlPlane: name,
-		ControlPlanes: []moduleInstallControlPlane{{
-			Name:          name,
-			AuthEnabled:   authEnabled,
-			APIServer:     util.DerefString(inst.ApiServerEndpoint),
-			CACert:        util.DerefString(inst.CACert),
-			EncryptionKey: key,
-			Credentials: []moduleInstallCredential{{
-				Name:       name,
-				ClientCert: util.DerefString(inst.ClientCert),
-				ClientKey:  util.DerefString(inst.ClientKey),
-			}},
-		}},
-	}
-
-	return yaml.Marshal(config)
-}
-
-// ensureModuleInstallAccount creates the account the install job runs as.
-// It binds that account to cluster-admin in this control plane namespace.
-func ensureModuleInstallAccount(
-	kubeClient dynamic.Interface,
-	mapper *meta.RESTMapper,
-	namespace string,
-) error {
-	// create the account the job runs as
-	account := &unstructured.Unstructured{Object: map[string]interface{}{
-		"apiVersion": "v1",
-		"kind":       "ServiceAccount",
-		"metadata": map[string]interface{}{
-			"name":      moduleInstallServiceAccount,
-			"namespace": namespace,
-		},
-	}}
-	if _, err := kube.CreateResource(account, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to create the module install account: %w", err)
-	}
-	// bind that account to cluster-admin
-	binding := &unstructured.Unstructured{Object: map[string]interface{}{
-		"apiVersion": "rbac.authorization.k8s.io/v1",
-		"kind":       "ClusterRoleBinding",
-		"metadata": map[string]interface{}{
-			"name": moduleInstallBindingName(namespace),
-		},
-		"roleRef": map[string]interface{}{
-			"apiGroup": "rbac.authorization.k8s.io",
-			"kind":     "ClusterRole",
-			"name":     "cluster-admin",
-		},
-		"subjects": []interface{}{
-			map[string]interface{}{
-				"kind":      "ServiceAccount",
-				"name":      moduleInstallServiceAccount,
-				"namespace": namespace,
-			},
-		},
-	}}
-	if _, err := kube.CreateResource(binding, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to bind the module install account: %w", err)
-	}
-	return nil
-}
-
-// moduleInstallJob returns the job that runs one module install.
-func moduleInstallJob(namespace, kebab string, module *api.ModuleApi) *unstructured.Unstructured {
-	// label the pod the database admits, mount the config, and run the install
-	return &unstructured.Unstructured{Object: map[string]interface{}{
-		"apiVersion": "batch/v1",
-		"kind":       "Job",
-		"metadata": map[string]interface{}{
-			"name":      moduleInstallJobName(kebab),
-			"namespace": namespace,
-		},
-		"spec": map[string]interface{}{
-			"backoffLimit": int64(1),
-			"template": map[string]interface{}{
-				"metadata": map[string]interface{}{
-					"labels": map[string]interface{}{LabelMaintenance: "true"},
-				},
-				"spec": map[string]interface{}{
-					"restartPolicy":      "Never",
-					"serviceAccountName": moduleInstallServiceAccount,
-					"containers": []interface{}{
-						map[string]interface{}{
-							"name": "install",
-							"image": ModuleTptctlImage(
-								util.DerefString(module.ImageNamespace),
-								kebab,
-								util.DerefString(module.ImageTag),
-							),
-							"args": []interface{}{
-								"install",
-								"--control-plane-image-namespace",
-								util.DerefString(module.ImageNamespace),
-								"--control-plane-image-tag",
-								util.DerefString(module.ImageTag),
-							},
-							"env": []interface{}{
-								map[string]interface{}{"name": "HOME", "value": "/root"},
-									map[string]interface{}{"name": ModuleInstallJobEnv, "value": "true"},
-							},
-							"volumeMounts": []interface{}{
-								map[string]interface{}{
-									"name":      "config",
-									"mountPath": moduleInstallConfigPath,
-									"subPath":   moduleInstallConfigKey,
-								},
-							},
-						},
-					},
-					"volumes": []interface{}{
-						map[string]interface{}{
-							"name": "config",
-							"secret": map[string]interface{}{
-								"secretName": moduleInstallSecretName(kebab),
-							},
-						},
-					},
-				},
-			},
-		},
-	}}
 }

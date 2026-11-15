@@ -1096,17 +1096,6 @@ func (cpi *ControlPlaneInstaller) DeleteControlPlaneRoleBindings(
 		return err
 	}
 
-	// delete the module install binding
-	binding := kubeObject(
-		"rbac.authorization.k8s.io/v1",
-		"ClusterRoleBinding",
-		"",
-		moduleInstallBindingName(cpi.Opts.Namespace),
-	)
-	if err := kube.DeleteResource(binding, kubeClient, *mapper); err != nil {
-		return err
-	}
-
 	// delete each controller's bindings
 	for _, controller := range ThreeportControllerList {
 		if err := cpi.deleteControllerRoleBindings(kubeClient, mapper, *controller); err != nil {

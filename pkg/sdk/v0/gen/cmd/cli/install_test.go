@@ -44,10 +44,7 @@ func TestGenPluginInstallCmd_PreRunUsesLocalFunc(t *testing.T) {
 	})
 
 	testGen := &gen.Generator{ModulePath: "example.com/testmodule"}
-	testSdkConfig := &sdk.SdkConfig{
-		ModuleName:   "testmodule",
-		ApiNamespace: "example.com",
-	}
+	testSdkConfig := &sdk.SdkConfig{ModuleName: "testmodule"}
 
 	if err := GenPluginInstallCmd(testGen, testSdkConfig); err != nil {
 		t.Fatalf("GenPluginInstallCmd returned an error: %v", err)
@@ -84,17 +81,5 @@ func TestGenPluginInstallCmd_PreRunUsesLocalFunc(t *testing.T) {
 	// only the PreRun wiring itself is wrong, not the import.
 	if !strings.Contains(text, "tptctl_cmd") {
 		t.Error("generated install.go no longer references tptctl_cmd at all - GetClientContext should still be called through it in Run")
-	}
-	if !strings.Contains(text, "cli.InstallThroughController") {
-		t.Error("generated install.go does not call cli.InstallThroughController")
-	}
-	if !strings.Contains(text, `"control-plane-name"`) {
-		t.Error("generated install.go does not register --control-plane-name")
-	}
-	if !strings.Contains(text, `"example.com/testmodule-module-api"`) {
-		t.Error("generated install.go does not pass the registered module API name")
-	}
-	if !regexp.MustCompile(`if delegated \{\s+cli\.Complete\("module install started"\)\s+return\s+\}`).MatchString(text) {
-		t.Error("generated install.go does not return after a delegated install")
 	}
 }
