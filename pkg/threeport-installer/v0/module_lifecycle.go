@@ -282,6 +282,16 @@ func retagModuleController(
 	)
 }
 
+// ModuleInstallAfterRun returns the request the controller stores after a run.
+// The controller keeps a stored value that differs from the request it ran.
+func ModuleInstallAfterRun(stored string, started string) string {
+	// keep a stored request that is not the one this run started
+	if stored != started {
+		return stored
+	}
+	return ""
+}
+
 // ModuleInstallRequest is the value stored for the parent controller to run.
 func ModuleInstallRequest(module *api.ModuleApi) string {
 	// keep the three fields in an order the controller can split

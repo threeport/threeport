@@ -65,6 +65,17 @@ func TestInstallRequestedModuleCreatesTheJob(t *testing.T) {
 	require.Equal(t, "module-install-example", job.GetName())
 }
 
+// TestModuleInstallAfterRunKeepsAReplacement checks a different request stays stored.
+func TestModuleInstallAfterRunKeepsAReplacement(t *testing.T) {
+	// a stored request that is not the one this run started stays
+	got := ModuleInstallAfterRun("example.com/other registry.example def456", "example.com/example-module-api registry.example abc123")
+	require.Equal(t, "example.com/other registry.example def456", got)
+
+	// the request this run started is cleared
+	got = ModuleInstallAfterRun("example.com/example-module-api registry.example abc123", "example.com/example-module-api registry.example abc123")
+	require.Equal(t, "", got)
+}
+
 // TestInstallRequestedModuleSkipsAnEmptyRequest checks a blank field creates nothing.
 func TestInstallRequestedModuleSkipsAnEmptyRequest(t *testing.T) {
 	// call with a row that stores no install request

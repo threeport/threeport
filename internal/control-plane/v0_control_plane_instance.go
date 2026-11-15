@@ -1451,7 +1451,7 @@ func v0ControlPlaneInstanceUpdated(
 	}
 
 	// create a requested module install with this control plane's kube client
-	if util.DerefString(controlPlaneInstance.ModuleInstall) != "" {
+	if started := util.DerefString(controlPlaneInstance.ModuleInstall); started != "" {
 		if err := threeport.InstallRequestedModule(
 			dynamicKubeClient,
 			mapper,
@@ -1460,17 +1460,26 @@ func v0ControlPlaneInstanceUpdated(
 		); err != nil {
 			return 0, err
 		}
-		cleared := ""
-		stored := *controlPlaneInstance
-		stored.ModuleInstall = &cleared
-		if _, err = client.UpdateControlPlaneInstance(
+		fresh, err := client.GetControlPlaneInstanceByID(
 			r.APIClient,
 			r.APIServer,
-			&stored,
-		); err != nil {
-			return 0, fmt.Errorf("failed to clear module install request: %w", err)
+			*controlPlaneInstance.ID,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to reload module install request: %w", err)
 		}
-		controlPlaneInstance.ModuleInstall = &cleared
+		next := threeport.ModuleInstallAfterRun(util.DerefString(fresh.ModuleInstall), started)
+		if next != util.DerefString(fresh.ModuleInstall) {
+			fresh.ModuleInstall = &next
+			if _, err = client.UpdateControlPlaneInstance(
+				r.APIClient,
+				r.APIServer,
+				fresh,
+			); err != nil {
+				return 0, fmt.Errorf("failed to clear module install request: %w", err)
+			}
+		}
+		controlPlaneInstance.ModuleInstall = fresh.ModuleInstall
 	}
 
 	// a recorded source namespace means tptctl asked for a new deployment of this child

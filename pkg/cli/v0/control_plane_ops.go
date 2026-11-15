@@ -156,6 +156,11 @@ func InstallModule(
 		return err
 	}
 
+	// one pending request at a time, so a second call cannot replace the first
+	if util.DerefString(target.Instance.ModuleInstall) != "" {
+		return fmt.Errorf("a module install is already pending")
+	}
+
 	// record the request so the parent controller creates the job
 	module := &api.ModuleApi{
 		Name:           &moduleName,
