@@ -14,7 +14,7 @@ const (
 	// e2-medium cannot schedule a 2Gi request, and changing the first pool replaces it.
 	standardNodeMachineType     = "e2-standard-2"
 	productionStandardNodeCount = 3
-	// twice the database replicas, so each can move to a new node as the old one upgrades
+	// twice the database replicas, so a replacement node can run beside each current node until its pod moves
 	productionStandardMaxNodeCount = 2 * threeport.ProductionCrdbReplicas
 	productionWorkerMinCount       = 0
 	standardNodeLocationPolicy     = "BALANCED"
