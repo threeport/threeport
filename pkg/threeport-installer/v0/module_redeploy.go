@@ -123,6 +123,15 @@ func (cpi *ControlPlaneInstaller) redeployInstalledModule(
 	if err := copyBrokerCASecret(kubeClient, cpi.Opts.Namespace, apiServer.Namespace); err != nil {
 		return fmt.Errorf("failed to copy the broker CA into %s: %w", apiServer.Namespace, err)
 	}
+	if err := CopySecret(
+		kubeClient,
+		mapper,
+		natsCredentialsSecretName,
+		cpi.Opts.Namespace,
+		apiServer.Namespace,
+	); err != nil {
+		return fmt.Errorf("failed to copy the broker credentials into %s: %w", apiServer.Namespace, err)
+	}
 
 	// copy the secrets the installer copies
 	for _, secretName := range ModuleCopiedSecretNames() {
@@ -286,9 +295,10 @@ func restartModuleDeployment(
 		return fmt.Errorf("failed to get deployment %s/%s: %w", namespace, name, err)
 	}
 
-	// point database and API addresses at this control plane
+	// point database, API, and broker credentials at this control plane
 	if controlPlaneNamespace != "" {
 		retargetHostsIn(deployment.Object, controlPlaneNamespace)
+		pointBrokerCredentials(deployment.Object)
 	}
 
 	// bring a deployment stopped for the backup back to its recorded count
@@ -398,6 +408,99 @@ func retargetControlPlaneHost(value, namespace string) string {
 		return value
 	}
 	return controlPlaneHost.ReplaceAllString(value, "${1}."+namespace+".svc.cluster.local")
+}
+
+const (
+	msgBrokerUserFlag     = "-msg-broker-user"
+	msgBrokerPasswordFlag = "-msg-broker-password"
+	natsUserEnv           = "NATS_USER"
+	natsPasswordEnv       = "NATS_PASSWORD"
+)
+
+// pointBrokerCredentials makes broker flags expand the credentials secret.
+// A restored manifest stores the source plane's user and password as arguments.
+func pointBrokerCredentials(object map[string]interface{}) {
+	// rewrite each container that logs into the broker
+	for _, listKey := range []string{"containers", "initContainers"} {
+		containers, found, err := unstructured.NestedSlice(object, "spec", "template", "spec", listKey)
+		if err != nil || !found {
+			continue
+		}
+		for i, item := range containers {
+			container, ok := item.(map[string]interface{})
+			if !ok || !rewriteBrokerArgs(container) {
+				continue
+			}
+			ensureBrokerCredentialEnv(container)
+			containers[i] = container
+		}
+		_ = unstructured.SetNestedSlice(object, containers, "spec", "template", "spec", listKey)
+	}
+}
+
+// rewriteBrokerArgs replaces stored broker credentials with secret references.
+func rewriteBrokerArgs(container map[string]interface{}) bool {
+	// leave a container that does not log into the broker
+	args, _, err := unstructured.NestedStringSlice(container, "args")
+	if err != nil || len(args) == 0 {
+		return false
+	}
+	replacements := map[string]string{
+		msgBrokerUserFlag:     "$(" + natsUserEnv + ")",
+		msgBrokerPasswordFlag: "$(" + natsPasswordEnv + ")",
+	}
+	changed := false
+	for i, arg := range args {
+		for flag, ref := range replacements {
+			if arg == flag && i+1 < len(args) && args[i+1] != ref {
+				args[i+1] = ref
+				changed = true
+			}
+			prefix := flag + "="
+			if strings.HasPrefix(arg, prefix) && arg != prefix+ref {
+				args[i] = prefix + ref
+				changed = true
+			}
+		}
+	}
+	if !changed {
+		return false
+	}
+	rewritten := make([]interface{}, len(args))
+	for i, arg := range args {
+		rewritten[i] = arg
+	}
+	_ = unstructured.SetNestedSlice(container, rewritten, "args")
+	return true
+}
+
+// ensureBrokerCredentialEnv sets the variables the broker flags expand.
+func ensureBrokerCredentialEnv(container map[string]interface{}) {
+	// replace a stored password and add a missing reference
+	env, _, _ := unstructured.NestedSlice(container, "env")
+	wanted := map[string]string{natsUserEnv: "user", natsPasswordEnv: "password"}
+	seen := map[string]bool{}
+	for i, item := range env {
+		entry, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		name, _ := entry["name"].(string)
+		key, wantedKey := wanted[name]
+		if !wantedKey {
+			continue
+		}
+		seen[name] = true
+		if _, literal := entry["value"]; literal {
+			env[i] = natsSecretEnv(name, key)
+		}
+	}
+	for name, key := range wanted {
+		if !seen[name] {
+			env = append(env, natsSecretEnv(name, key))
+		}
+	}
+	_ = unstructured.SetNestedSlice(container, env, "env")
 }
 
 // retargetHostsIn rewrites control plane addresses in a deployment object.

@@ -170,6 +170,22 @@ func TestRestartPointsTheDatabaseAtTheReplacement(t *testing.T) {
 							},
 						},
 					},
+					"containers": []interface{}{
+						map[string]interface{}{
+							"name": "controller",
+							"args": []interface{}{
+								"-msg-broker-host=nats-js.primary-12.svc.cluster.local",
+								"-msg-broker-user=old-user",
+								"-msg-broker-password=old-password",
+							},
+							"env": []interface{}{
+								map[string]interface{}{
+									"name":  "NATS_USER",
+									"value": "old-user",
+								},
+							},
+						},
+					},
 				},
 			},
 		},
@@ -198,4 +214,14 @@ func TestRestartPointsTheDatabaseAtTheReplacement(t *testing.T) {
 	command, _, err := unstructured.NestedSlice(initContainers[0].(map[string]interface{}), "command")
 	require.NoError(t, err)
 	require.Contains(t, command[0], "crdb.primary-13.svc.cluster.local")
+	containers, _, err := unstructured.NestedSlice(updated.Object, "spec", "template", "spec", "containers")
+	require.NoError(t, err)
+	args, _, err := unstructured.NestedStringSlice(containers[0].(map[string]interface{}), "args")
+	require.NoError(t, err)
+	require.Contains(t, args, "-msg-broker-host=nats-js.primary-13.svc.cluster.local")
+	require.Contains(t, args, "-msg-broker-user=$(NATS_USER)")
+	require.Contains(t, args, "-msg-broker-password=$(NATS_PASSWORD)")
+	env, _, err := unstructured.NestedSlice(containers[0].(map[string]interface{}), "env")
+	require.NoError(t, err)
+	require.Len(t, env, 2)
 }
