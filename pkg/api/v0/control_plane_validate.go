@@ -284,6 +284,10 @@ func (c *ControlPlaneDefinition) afterDelete(tx *gorm.DB) error {
 // it to one, which is this object. Checking it at the CLI alone would leave
 // the API as the way around the rail.
 func (c *ControlPlaneInstance) beforeCreate(tx *gorm.DB) error {
+	if err := validateNetworkCidrPool(tx, c.NetworkCidrPool, c.IsSelf != nil && *c.IsSelf); err != nil {
+		return err
+	}
+
 	return validateAuthAgainstRuntime(tx, c)
 }
 
@@ -330,6 +334,11 @@ func (c *ControlPlaneInstance) beforeUpdate(tx *gorm.DB) error {
 		return err
 	}
 
+	// a new pool is checked whichever control plane the row is
+	if err := validateNetworkCidrPoolUpdate(tx, stored); err != nil {
+		return err
+	}
+
 	// a root accepts changes sent to the API that serves it
 	owned := stored.ParentControlPlaneInstanceID != nil
 	self := stored.IsSelf != nil && *stored.IsSelf
@@ -337,7 +346,7 @@ func (c *ControlPlaneInstance) beforeUpdate(tx *gorm.DB) error {
 		return nil
 	}
 
-	// the parent may change the image and the controller list on a row it manages
+	// the parent may change the image, the controller list and the pool on a row it manages
 	allowLifecycle := owned && (!self || parentCaller(tx))
 	field, err := changedForeignField(tx, stored, allowLifecycle)
 	if err != nil {
@@ -378,7 +387,7 @@ func storedControlPlane(tx *gorm.DB, receiver *ControlPlaneInstance) (*ControlPl
 }
 
 // changedForeignField returns the first column a control plane this API does not serve must keep.
-// A managed row may change the image and the controller list.
+// A managed row may change the image, the controller list and the pool.
 func changedForeignField(tx *gorm.DB, stored *ControlPlaneInstance, allowLifecycle bool) (string, error) {
 	if tx.Statement.Schema == nil {
 		return "", errors.New("control plane instance update has no schema")
@@ -397,7 +406,7 @@ func changedForeignField(tx *gorm.DB, stored *ControlPlaneInstance, allowLifecyc
 		if !changed || reconciliationColumn(field.BindNames) {
 			continue
 		}
-		// a managed row may change the image and the controller list
+		// a managed row may change the image, the controller list and the pool
 		if allowLifecycle && blankValueIsTheSetting(field.Name) {
 			continue
 		}
@@ -435,10 +444,11 @@ func reconciliationColumn(bindNames []string) bool {
 }
 
 // blankValueIsTheSetting reports whether an empty column is itself a choice.
-// An empty Apis installs every group, and an empty image field inherits the parent.
+// An empty Apis installs every group, an empty image field inherits the
+// parent, and an empty NetworkCidrPool allocates from the default pool.
 func blankValueIsTheSetting(name string) bool {
 	switch name {
-	case "Apis", "ImageNamespace", "ImageTag":
+	case "Apis", "ImageNamespace", "ImageTag", "NetworkCidrPool":
 		return true
 	default:
 		return false
@@ -470,4 +480,22 @@ func (c *ControlPlaneInstance) afterUpdate(tx *gorm.DB) error {
 // afterDelete runs after the ControlPlaneInstance is deleted.
 func (c *ControlPlaneInstance) afterDelete(tx *gorm.DB) error {
 	return nil
+}
+
+// validateNetworkCidrPoolUpdate checks an update that changes NetworkCidrPool.
+func validateNetworkCidrPoolUpdate(tx *gorm.DB, stored *ControlPlaneInstance) error {
+	changed, err := lib.IsFieldChanged(tx, "NetworkCidrPool")
+	if err != nil {
+		return err
+	}
+	if !changed {
+		return nil
+	}
+
+	incoming, ok := lib.IncomingValues(tx).(*ControlPlaneInstance)
+	if !ok {
+		return fmt.Errorf("cannot validate NetworkCidrPool: update carries %T", lib.IncomingValues(tx))
+	}
+
+	return validateNetworkCidrPool(tx, incoming.NetworkCidrPool, stored.IsSelf != nil && *stored.IsSelf)
 }

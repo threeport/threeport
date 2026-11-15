@@ -50,7 +50,7 @@ func TestControllerSecretCarriesControlPlaneName(t *testing.T) {
 	cpi.Opts.ControlPlaneName = "my-control-plane"
 	cpi.Opts.RestApiInfo = ThreeportRestApi
 
-	secret := cpi.getControllerSecret("controller", cpi.Opts.Namespace, &natsCredentials{User: NatsUser, Password: "tpSecret"})
+	secret := cpi.getControllerSecret("controller", cpi.Opts.Namespace, &natsCredentials{User: NatsUser, Password: "tpSecret"}, 1)
 	data := secret.Object["stringData"].(map[string]interface{})
 	assert.Equal(t, "my-control-plane", data["CONTROL_PLANE_NAME"])
 }

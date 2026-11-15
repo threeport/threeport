@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -27,13 +28,17 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// Cockroach runs test/cockroach against a docker CockroachDB.
+// Cockroach runs test/cockroach against a docker CockroachDB.  The suite
+// takes longer with each migration, since every migration's test builds a
+// database of its own and TestEveryMigrationRollsBack walks them all, so it
+// outgrew go test's default timeout of ten minutes.
 func (Test) Cockroach() error {
 	cmd := "go"
 	args := []string{
 		"test",
 		"-v",
 		"-count=1",
+		"-timeout=30m",
 		"./test/cockroach",
 	}
 	if err := util.RunCommandStreamOutput(cmd, args...); err != nil {
@@ -123,6 +128,99 @@ func (Test) E2eAws(region string, clean bool) error {
 	}
 	if err := util.RunCommandStreamOutput(cmd, args...); err != nil {
 		return fmt.Errorf("failed to run e2e tests on AWS: %w", err)
+	}
+
+	return nil
+}
+
+// E2eAwsDev runs the AWS end-to-end tests against control plane images built
+// from the working tree rather than the released ones, so a branch can be
+// tested on EKS before it is released.  It pushes the images to ECR in the
+// account of the given AWS config profile, the same profile the suite
+// installs with, creating any repository that does not exist yet.  The images are built
+// for amd64, the architecture of the EKS nodes, whatever machine runs this.
+// The repositories are left in place for the next run.
+func (Test) E2eAwsDev(region, profile string, clean bool) error {
+	threeportPath, err := os.Getwd() // mage must be run from repo root
+	if err != nil {
+		return fmt.Errorf("failed to get path to Threeport repo: %w", err)
+	}
+
+	account, err := exec.Command(
+		"aws", "sts", "get-caller-identity",
+		"--profile", profile,
+		"--query", "Account",
+		"--output", "text",
+	).Output()
+	if err != nil {
+		return fmt.Errorf("failed to get AWS account ID: %w", err)
+	}
+	registry := fmt.Sprintf("%s.dkr.ecr.%s.amazonaws.com", strings.TrimSpace(string(account)), region)
+
+	for _, component := range append(installer.AllControlPlaneComponents(), installer.DatabaseMigrator) {
+		if err := ensureEcrRepository(region, profile, component.ImageName); err != nil {
+			return err
+		}
+	}
+
+	password, err := exec.Command(
+		"aws", "ecr", "get-login-password",
+		"--region", region,
+		"--profile", profile,
+	).Output()
+	if err != nil {
+		return fmt.Errorf("failed to get ECR login password: %w", err)
+	}
+	login := exec.Command("docker", "login", "--username", "AWS", "--password-stdin", registry)
+	login.Stdin = bytes.NewReader(password)
+	if output, err := login.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to log in to %s with output %s: %w", registry, output, err)
+	}
+
+	cmd := "ginkgo"
+	args := []string{
+		"test/e2e",
+		"--",
+		"-provider=eks",
+		fmt.Sprintf("-aws-region=%s", region),
+		fmt.Sprintf("-aws-config-profile=%s", profile),
+		fmt.Sprintf("-threeport-path=%s", threeportPath),
+		fmt.Sprintf("-clean=%t", clean),
+		fmt.Sprintf("-image-repo=%s", registry),
+		"-image-arch=amd64",
+	}
+	if err := util.RunCommandStreamOutput(cmd, args...); err != nil {
+		return fmt.Errorf("failed to run e2e tests on AWS: %w", err)
+	}
+
+	return nil
+}
+
+// ensureEcrRepository creates an ECR repository unless it already exists.
+// Only a lookup that reports the repository missing leads to a create.  Any
+// other failure, such as expired credentials or a profile that doesn't exist,
+// is returned with the CLI's output.
+func ensureEcrRepository(region, profile, name string) error {
+	output, err := exec.Command(
+		"aws", "ecr", "describe-repositories",
+		"--repository-names", name,
+		"--region", region,
+		"--profile", profile,
+	).CombinedOutput()
+	if err == nil {
+		return nil
+	}
+	if !strings.Contains(string(output), "RepositoryNotFoundException") {
+		return fmt.Errorf("failed to look up ECR repository %s with output %s: %w", name, output, err)
+	}
+
+	if output, err := exec.Command(
+		"aws", "ecr", "create-repository",
+		"--repository-name", name,
+		"--region", region,
+		"--profile", profile,
+	).CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to create ECR repository %s with output %s: %w", name, output, err)
 	}
 
 	return nil

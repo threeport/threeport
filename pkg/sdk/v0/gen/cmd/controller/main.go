@@ -127,6 +127,12 @@ func GenControllerMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				).Call(
 					Lit("msg-broker-ca-file").Op(",").Lit("").Op(",").Lit("Path of the certificate of the CA that signed the message broker's certificate; when set, the connection uses TLS"),
 				),
+				Var().Id("msgBrokerReplicas").Op("=").Qual(
+					"github.com/namsral/flag",
+					"Int",
+				).Call(
+					Lit("msg-broker-replicas").Op(",").Lit(1).Op(",").Lit("Number of message broker servers the lock bucket is replicated across"),
+				),
 				Var().Id("shutdownPort").Op("=").Qual(
 					"github.com/namsral/flag",
 					"String",
@@ -270,7 +276,8 @@ func GenControllerMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					// the lock is refreshed while a reconcile is running, so
 					// this only has to outlast a controller that died without
 					// releasing it - see controller.LockTTL
-					Id("TTL"): Qual("github.com/threeport/threeport/pkg/controller/v0", "LockTTL"),
+					Id("TTL"):      Qual("github.com/threeport/threeport/pkg/controller/v0", "LockTTL"),
+					Id("Replicas"): Op("*").Id("msgBrokerReplicas"),
 				}),
 				List(
 					Id("kv"), Id("err"),

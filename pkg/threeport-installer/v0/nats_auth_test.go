@@ -568,7 +568,7 @@ func TestTheAPIServerConnectsOverTLSAsTheThreeportUser(t *testing.T) {
 func TestTheControllersConnectOverTLSAsTheThreeportUser(t *testing.T) {
 	_, _, cpi := newBrokerTestClient()
 
-	secret := cpi.getControllerSecret("controller", testControlPlaneNamespace, &natsCredentials{User: NatsUser, Password: "tpSecret"})
+	secret := cpi.getControllerSecret("controller", testControlPlaneNamespace, &natsCredentials{User: NatsUser, Password: "tpSecret"}, 3)
 	values, _, _ := unstructured.NestedStringMap(secret.Object, "stringData")
 	assert.Equal(t, NatsUser, values["MSG_BROKER_USER"])
 	assert.Equal(t, "tpSecret", values["MSG_BROKER_PASSWORD"])

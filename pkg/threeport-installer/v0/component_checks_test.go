@@ -388,24 +388,40 @@ func TestSupportServicesOperatorInstalled(t *testing.T) {
 	})
 }
 
-// TestEksThreeportSystemServicesInstalled covers the EKS check. The install it
+// TestEksThreeportSystemServicesCurrent covers the EKS check. The install it
 // guards only runs on EKS, but the check itself is ordinary API reads and is
 // covered here rather than left to a cluster nobody can reach from a test.
-func TestEksThreeportSystemServicesInstalled(t *testing.T) {
-	t.Run("installed when the cluster autoscaler is there", func(t *testing.T) {
-		client := testClient(
-			deployment(ClusterAutoscalerNamespace, ClusterAutoscalerDeployName, "autoscaler:v1"),
-		)
+func TestEksThreeportSystemServicesCurrent(t *testing.T) {
+	image136, err := ClusterAutoscalerImage("1.36")
+	require.NoError(t, err)
+	image135, err := ClusterAutoscalerImage("1.35")
+	require.NoError(t, err)
 
-		installed, err := EksThreeportSystemServicesInstalled(client, testMapper())
+	t.Run("current when the cluster autoscaler is the cluster version's release", func(t *testing.T) {
+		client := testClient(deployment(ClusterAutoscalerNamespace, ClusterAutoscalerDeployName, image136))
+
+		current, err := EksThreeportSystemServicesCurrent(client, testMapper(), "1.36")
 		require.NoError(t, err)
-		assert.True(t, installed)
+		assert.True(t, current)
 	})
 
-	t.Run("not installed on an empty cluster", func(t *testing.T) {
-		installed, err := EksThreeportSystemServicesInstalled(testClient(), testMapper())
+	t.Run("not current when an upgraded cluster has the previous version's", func(t *testing.T) {
+		client := testClient(deployment(ClusterAutoscalerNamespace, ClusterAutoscalerDeployName, image135))
+
+		current, err := EksThreeportSystemServicesCurrent(client, testMapper(), "1.36")
 		require.NoError(t, err)
-		assert.False(t, installed)
+		assert.False(t, current)
+	})
+
+	t.Run("not current on an empty cluster", func(t *testing.T) {
+		current, err := EksThreeportSystemServicesCurrent(testClient(), testMapper(), "1.36")
+		require.NoError(t, err)
+		assert.False(t, current)
+	})
+
+	t.Run("an error for a version with no autoscaler release", func(t *testing.T) {
+		_, err := EksThreeportSystemServicesCurrent(testClient(), testMapper(), "1.99")
+		assert.Error(t, err)
 	})
 }
 

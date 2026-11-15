@@ -36,6 +36,14 @@ const (
 	// running and no longer tracked.
 	ReasonInfrastructureAbandoned = "InfrastructureAbandoned"
 
+	// ReasonUpgradeRefused marks a cluster upgrade the controller refused:
+	// it would have replaced or deleted the cluster's resources, or
+	// Threeport didn't create the cluster.
+	ReasonUpgradeRefused = "UpgradeRefused"
+
+	// ReasonUpgradeFailed marks a cluster upgrade that failed.
+	ReasonUpgradeFailed = "UpgradeFailed"
+
 	// Default event types
 	TypeNormal  = "Normal"
 	TypeWarning = "Warning"

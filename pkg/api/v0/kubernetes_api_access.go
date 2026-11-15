@@ -32,6 +32,14 @@ const (
 	OkeAllowedCidrsLimit = 120
 )
 
+// ErrMsgPrivateApiNotSupported is the rejection of PrivateApi: true on a
+// provider that cannot make a Kubernetes API private yet.
+const ErrMsgPrivateApiNotSupported = "PrivateApi is supported only on GKE for now: Threeport reaches a private GKE cluster through its DNS endpoint, while a private EKS or OKE cluster needs a network path from the control plane that Threeport does not set up yet - restrict the API with AllowedCidrs instead"
+
+// ErrMsgKubernetesApiAccessImmutable is the rejection of an update that
+// changes PrivateApi or AllowedCidrs.
+const ErrMsgKubernetesApiAccessImmutable = "PrivateApi and AllowedCidrs cannot be changed after creation: the change would not be applied to the cluster"
+
 // AllowedCidrsLimit returns how many CIDR blocks infraProvider admits in the
 // allowlist on a cluster's Kubernetes API, and false for a provider whose
 // Kubernetes API Threeport cannot restrict.
@@ -112,6 +120,13 @@ func validateKubernetesApiAccess(infraProvider string, privateApi *bool, allowed
 		return nil
 	}
 
+	// only the GKE program makes the endpoint private, so accepting
+	// PrivateApi elsewhere would leave a cluster public that was asked to
+	// be private
+	if private && infraProvider != KubernetesRuntimeInfraProviderGKE {
+		return util.NewBadRequestError(ErrMsgPrivateApiNotSupported)
+	}
+
 	if len(cidrs) > limit {
 		return util.NewBadRequestError(fmt.Sprintf(
 			"AllowedCidrs has %d entries and %s admits at most %d",
@@ -122,18 +137,22 @@ func validateKubernetesApiAccess(infraProvider string, privateApi *bool, allowed
 	return nil
 }
 
-// validateKubernetesApiAccessUpdate runs validateKubernetesApiAccess on an
-// update that writes PrivateApi or AllowedCidrs, against the pair the row
-// will hold once the update lands.  fields returns the pair an object of the
-// hook's type holds, and false for any other type.
+// validateKubernetesApiAccessUpdate checks an update that sends PrivateApi
+// or AllowedCidrs.  The pair the row will hold once the update lands is
+// validated, then refused if it differs from the stored one: nothing applies a
+// change to a runtime that exists, so accepting one would record a restriction
+// the cluster does not have.  Values that mean the same, such as an unset list
+// and an empty one or the same blocks in another order, are not a change.
+// fields returns the pair an object of the hook's type holds, and false for
+// any other type.
 //
 // A PUT writes every column, so the pair it carries is the pair the row will
 // hold.  A PATCH writes only the fields it carries, over the row as it is when
 // the write lands.  That isn't the receiver: the handler loaded the receiver
-// before the transaction began, and another update may have changed the other
-// field since.  The row is read again inside the transaction and locked
-// instead, so a concurrent update of the pair waits for this one and is then
-// checked against its result.
+// before the transaction began, and another update may have changed the row
+// since.  The row is read again inside the transaction and locked instead, so
+// a concurrent update of the pair waits for this one and is then checked
+// against its result.
 func validateKubernetesApiAccessUpdate(
 	tx *gorm.DB,
 	infraProvider string,
@@ -147,6 +166,9 @@ func validateKubernetesApiAccessUpdate(
 		)
 	}
 
+	var stored any
+	var privateApi *bool
+	var allowedCidrs *datatypes.JSON
 	if lib.IsFullReplace(tx) {
 		privateApiChanged, err := lib.IsFieldChanged(tx, "PrivateApi")
 		if err != nil {
@@ -160,29 +182,72 @@ func validateKubernetesApiAccessUpdate(
 			return nil
 		}
 
-		return validateKubernetesApiAccess(infraProvider, incomingPrivateApi, incomingAllowedCidrs)
+		// a replace's receiver is the incoming object, so the stored row is
+		// read back
+		if stored, err = lib.LoadObjectFromDB(tx); err != nil {
+			return err
+		}
+		privateApi, allowedCidrs = incomingPrivateApi, incomingAllowedCidrs
+	} else {
+		// a PATCH leaves the fields it doesn't carry as they are
+		if incomingPrivateApi == nil && incomingAllowedCidrs == nil {
+			return nil
+		}
+
+		var err error
+		if stored, err = lib.LockObjectInDB(tx); err != nil {
+			return err
+		}
+	}
+	storedPrivateApi, storedAllowedCidrs, ok := fields(stored)
+	if !ok {
+		return fmt.Errorf("cannot validate Kubernetes API access: loaded %T", stored)
+	}
+	if !lib.IsFullReplace(tx) {
+		privateApi, allowedCidrs = storedPrivateApi, storedAllowedCidrs
+		if incomingPrivateApi != nil {
+			privateApi = incomingPrivateApi
+		}
+		if incomingAllowedCidrs != nil {
+			allowedCidrs = incomingAllowedCidrs
+		}
 	}
 
-	// a PATCH leaves the fields it doesn't carry as they are
-	if incomingPrivateApi == nil && incomingAllowedCidrs == nil {
-		return nil
-	}
-	current, err := lib.LockObjectInDB(tx)
-	if err != nil {
+	if err := validateKubernetesApiAccess(infraProvider, privateApi, allowedCidrs); err != nil {
 		return err
 	}
-	privateApi, allowedCidrs, ok := fields(current)
-	if !ok {
-		return fmt.Errorf("cannot validate Kubernetes API access: loaded %T", current)
-	}
-	if incomingPrivateApi != nil {
-		privateApi = incomingPrivateApi
-	}
-	if incomingAllowedCidrs != nil {
-		allowedCidrs = incomingAllowedCidrs
+
+	if !sameKubernetesApiAccess(storedPrivateApi, storedAllowedCidrs, privateApi, allowedCidrs) {
+		return util.NewBadRequestError(ErrMsgKubernetesApiAccessImmutable)
 	}
 
-	return validateKubernetesApiAccess(infraProvider, privateApi, allowedCidrs)
+	return nil
+}
+
+// sameKubernetesApiAccess reports whether two pairs of PrivateApi and
+// AllowedCidrs restrict the Kubernetes API in the same way.  A list that
+// cannot be read is taken to differ.
+func sameKubernetesApiAccess(privateApiA *bool, allowedCidrsA *datatypes.JSON, privateApiB *bool, allowedCidrsB *datatypes.JSON) bool {
+	if (privateApiA != nil && *privateApiA) != (privateApiB != nil && *privateApiB) {
+		return false
+	}
+
+	cidrsA, errA := ParseCidrs("AllowedCidrs", allowedCidrsA)
+	cidrsB, errB := ParseCidrs("AllowedCidrs", allowedCidrsB)
+	if errA != nil || errB != nil || len(cidrsA) != len(cidrsB) {
+		return false
+	}
+	inA := make(map[string]bool, len(cidrsA))
+	for _, cidr := range cidrsA {
+		inA[cidr] = true
+	}
+	for _, cidr := range cidrsB {
+		if !inA[cidr] {
+			return false
+		}
+	}
+
+	return true
 }
 
 // validateCidrsUpdate checks field on an update that changes it.

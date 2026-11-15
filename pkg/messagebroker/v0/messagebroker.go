@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strconv"
 
 	"github.com/nats-io/nats.go"
 )
@@ -76,4 +77,20 @@ func Connect(c Config, options ...nats.Option) (*nats.Conn, error) {
 	}
 
 	return conn, nil
+}
+
+// ParseReplicas reads how many servers the broker runs, which a component
+// replicates its streams or its lock bucket across: one when unset, as a
+// single server is, and an error for anything but a positive number.
+func ParseReplicas(value string) (int, error) {
+	if value == "" {
+		return 1, nil
+	}
+
+	replicas, err := strconv.Atoi(value)
+	if err != nil || replicas < 1 {
+		return 0, fmt.Errorf("the message broker's replicas must be a positive number, not %q", value)
+	}
+
+	return replicas, nil
 }

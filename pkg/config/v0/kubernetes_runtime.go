@@ -27,10 +27,12 @@ type KubernetesRuntimeValues struct {
 	HighAvailability          *bool
 	PrivateApi                *bool
 	AllowedCidrs              *[]string
+	KubernetesVersion         *string
 	Location                  *string
 	ThreeportControlPlaneHost *bool
 	DefaultRuntime            *bool
 	ThreeportAgentImage       *string
+	NetworkCidr               *string
 	Age                       *string
 }
 
@@ -159,6 +161,7 @@ func (k *KubernetesRuntimeConfig) GetOperations(
 			HighAvailability:         kubernetesRuntimeValues.HighAvailability,
 			PrivateApi:               kubernetesRuntimeValues.PrivateApi,
 			AllowedCidrs:             kubernetesRuntimeValues.AllowedCidrs,
+			KubernetesVersion:        kubernetesRuntimeValues.KubernetesVersion,
 		},
 	}
 	operations.AppendOperation(util.Operation{
@@ -204,6 +207,7 @@ func (k *KubernetesRuntimeConfig) GetOperations(
 			DefaultRuntime:            kubernetesRuntimeValues.DefaultRuntime,
 			Location:                  kubernetesRuntimeValues.Location,
 			ThreeportAgentImage:       kubernetesRuntimeValues.ThreeportAgentImage,
+			NetworkCidr:               kubernetesRuntimeValues.NetworkCidr,
 			KubernetesRuntimeDefinition: &KubernetesRuntimeDefinitionValues{
 				Name: kubernetesRuntimeValues.Name,
 			},
@@ -269,10 +273,12 @@ func mapToKubernetesRuntimeDefinedInstances(
 						HighAvailability:          def.KubernetesRuntimeDefinition.HighAvailability,
 						PrivateApi:                def.KubernetesRuntimeDefinition.PrivateApi,
 						AllowedCidrs:              def.KubernetesRuntimeDefinition.AllowedCidrs,
+						KubernetesVersion:         def.KubernetesRuntimeDefinition.KubernetesVersion,
 						ThreeportControlPlaneHost: inst.KubernetesRuntimeInstance.ThreeportControlPlaneHost,
 						Location:                  inst.KubernetesRuntimeInstance.Location,
 						DefaultRuntime:            inst.KubernetesRuntimeInstance.DefaultRuntime,
 						ThreeportAgentImage:       inst.KubernetesRuntimeInstance.ThreeportAgentImage,
+						NetworkCidr:               inst.KubernetesRuntimeInstance.NetworkCidr,
 						Age:                       inst.KubernetesRuntimeInstance.Age,
 					},
 				}

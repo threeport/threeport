@@ -250,12 +250,16 @@ func (h Handler) GetKubernetesWorkloadDefinitions(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/kubernetes-workload-definitions/{id} [GET]
 func (h Handler) GetKubernetesWorkloadDefinition(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.KubernetesWorkloadDefinition).GetFullyQualifiedType()
-	kubernetesWorkloadDefinitionID := c.Param("id")
+	kubernetesWorkloadDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var kubernetesWorkloadDefinition api_v0.KubernetesWorkloadDefinition
 	if result := h.RequestDB(c).
 		First(&kubernetesWorkloadDefinition, kubernetesWorkloadDefinitionID); result.Error != nil {
@@ -299,7 +303,10 @@ func (h Handler) GetKubernetesWorkloadDefinition(c echo.Context) error {
 func (h Handler) UpdateKubernetesWorkloadDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeKubernetesWorkloadDefinition
 	fullyQualifiedType := new(api_v0.KubernetesWorkloadDefinition).GetFullyQualifiedType()
-	kubernetesWorkloadDefinitionID := c.Param("id")
+	kubernetesWorkloadDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingKubernetesWorkloadDefinition api_v0.KubernetesWorkloadDefinition
 	if result := h.RequestDB(c).First(&existingKubernetesWorkloadDefinition, kubernetesWorkloadDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -399,7 +406,10 @@ func (h Handler) UpdateKubernetesWorkloadDefinition(c echo.Context) error {
 func (h Handler) ReplaceKubernetesWorkloadDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeKubernetesWorkloadDefinition
 	fullyQualifiedType := new(api_v0.KubernetesWorkloadDefinition).GetFullyQualifiedType()
-	kubernetesWorkloadDefinitionID := c.Param("id")
+	kubernetesWorkloadDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingKubernetesWorkloadDefinition api_v0.KubernetesWorkloadDefinition
 	if result := h.RequestDB(c).First(&existingKubernetesWorkloadDefinition, kubernetesWorkloadDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -501,13 +511,17 @@ func (h Handler) ReplaceKubernetesWorkloadDefinition(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/kubernetes-workload-definitions/{id} [DELETE]
 func (h Handler) DeleteKubernetesWorkloadDefinition(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.KubernetesWorkloadDefinition).GetFullyQualifiedType()
-	kubernetesWorkloadDefinitionID := c.Param("id")
+	kubernetesWorkloadDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var kubernetesWorkloadDefinition api_v0.KubernetesWorkloadDefinition
 	if result := h.RequestDB(c).Preload("KubernetesWorkloadInstances").First(&kubernetesWorkloadDefinition, kubernetesWorkloadDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -854,12 +868,16 @@ func (h Handler) GetKubernetesWorkloadInstances(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/kubernetes-workload-instances/{id} [GET]
 func (h Handler) GetKubernetesWorkloadInstance(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.KubernetesWorkloadInstance).GetFullyQualifiedType()
-	kubernetesWorkloadInstanceID := c.Param("id")
+	kubernetesWorkloadInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var kubernetesWorkloadInstance api_v0.KubernetesWorkloadInstance
 	if result := h.RequestDB(c).
 		First(&kubernetesWorkloadInstance, kubernetesWorkloadInstanceID); result.Error != nil {
@@ -903,7 +921,10 @@ func (h Handler) GetKubernetesWorkloadInstance(c echo.Context) error {
 func (h Handler) UpdateKubernetesWorkloadInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeKubernetesWorkloadInstance
 	fullyQualifiedType := new(api_v0.KubernetesWorkloadInstance).GetFullyQualifiedType()
-	kubernetesWorkloadInstanceID := c.Param("id")
+	kubernetesWorkloadInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingKubernetesWorkloadInstance api_v0.KubernetesWorkloadInstance
 	if result := h.RequestDB(c).First(&existingKubernetesWorkloadInstance, kubernetesWorkloadInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -1003,7 +1024,10 @@ func (h Handler) UpdateKubernetesWorkloadInstance(c echo.Context) error {
 func (h Handler) ReplaceKubernetesWorkloadInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeKubernetesWorkloadInstance
 	fullyQualifiedType := new(api_v0.KubernetesWorkloadInstance).GetFullyQualifiedType()
-	kubernetesWorkloadInstanceID := c.Param("id")
+	kubernetesWorkloadInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingKubernetesWorkloadInstance api_v0.KubernetesWorkloadInstance
 	if result := h.RequestDB(c).First(&existingKubernetesWorkloadInstance, kubernetesWorkloadInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -1105,13 +1129,17 @@ func (h Handler) ReplaceKubernetesWorkloadInstance(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/kubernetes-workload-instances/{id} [DELETE]
 func (h Handler) DeleteKubernetesWorkloadInstance(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.KubernetesWorkloadInstance).GetFullyQualifiedType()
-	kubernetesWorkloadInstanceID := c.Param("id")
+	kubernetesWorkloadInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var kubernetesWorkloadInstance api_v0.KubernetesWorkloadInstance
 	if result := h.RequestDB(c).First(&kubernetesWorkloadInstance, kubernetesWorkloadInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -1438,12 +1466,16 @@ func (h Handler) GetKubernetesWorkloadResourceDefinitions(c echo.Context) error 
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/kubernetes-workload-resource-definitions/{id} [GET]
 func (h Handler) GetKubernetesWorkloadResourceDefinition(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.KubernetesWorkloadResourceDefinition).GetFullyQualifiedType()
-	kubernetesWorkloadResourceDefinitionID := c.Param("id")
+	kubernetesWorkloadResourceDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var kubernetesWorkloadResourceDefinition api_v0.KubernetesWorkloadResourceDefinition
 	if result := h.RequestDB(c).
 		First(&kubernetesWorkloadResourceDefinition, kubernetesWorkloadResourceDefinitionID); result.Error != nil {
@@ -1487,7 +1519,10 @@ func (h Handler) GetKubernetesWorkloadResourceDefinition(c echo.Context) error {
 func (h Handler) UpdateKubernetesWorkloadResourceDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeKubernetesWorkloadResourceDefinition
 	fullyQualifiedType := new(api_v0.KubernetesWorkloadResourceDefinition).GetFullyQualifiedType()
-	kubernetesWorkloadResourceDefinitionID := c.Param("id")
+	kubernetesWorkloadResourceDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingKubernetesWorkloadResourceDefinition api_v0.KubernetesWorkloadResourceDefinition
 	if result := h.RequestDB(c).First(&existingKubernetesWorkloadResourceDefinition, kubernetesWorkloadResourceDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -1565,7 +1600,10 @@ func (h Handler) UpdateKubernetesWorkloadResourceDefinition(c echo.Context) erro
 func (h Handler) ReplaceKubernetesWorkloadResourceDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeKubernetesWorkloadResourceDefinition
 	fullyQualifiedType := new(api_v0.KubernetesWorkloadResourceDefinition).GetFullyQualifiedType()
-	kubernetesWorkloadResourceDefinitionID := c.Param("id")
+	kubernetesWorkloadResourceDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingKubernetesWorkloadResourceDefinition api_v0.KubernetesWorkloadResourceDefinition
 	if result := h.RequestDB(c).First(&existingKubernetesWorkloadResourceDefinition, kubernetesWorkloadResourceDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -1645,13 +1683,17 @@ func (h Handler) ReplaceKubernetesWorkloadResourceDefinition(c echo.Context) err
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/kubernetes-workload-resource-definitions/{id} [DELETE]
 func (h Handler) DeleteKubernetesWorkloadResourceDefinition(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.KubernetesWorkloadResourceDefinition).GetFullyQualifiedType()
-	kubernetesWorkloadResourceDefinitionID := c.Param("id")
+	kubernetesWorkloadResourceDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var kubernetesWorkloadResourceDefinition api_v0.KubernetesWorkloadResourceDefinition
 	if result := h.RequestDB(c).First(&kubernetesWorkloadResourceDefinition, kubernetesWorkloadResourceDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -1924,12 +1966,16 @@ func (h Handler) GetKubernetesWorkloadResourceInstances(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/kubernetes-workload-resource-instances/{id} [GET]
 func (h Handler) GetKubernetesWorkloadResourceInstance(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.KubernetesWorkloadResourceInstance).GetFullyQualifiedType()
-	kubernetesWorkloadResourceInstanceID := c.Param("id")
+	kubernetesWorkloadResourceInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var kubernetesWorkloadResourceInstance api_v0.KubernetesWorkloadResourceInstance
 	if result := h.RequestDB(c).
 		First(&kubernetesWorkloadResourceInstance, kubernetesWorkloadResourceInstanceID); result.Error != nil {
@@ -1973,7 +2019,10 @@ func (h Handler) GetKubernetesWorkloadResourceInstance(c echo.Context) error {
 func (h Handler) UpdateKubernetesWorkloadResourceInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeKubernetesWorkloadResourceInstance
 	fullyQualifiedType := new(api_v0.KubernetesWorkloadResourceInstance).GetFullyQualifiedType()
-	kubernetesWorkloadResourceInstanceID := c.Param("id")
+	kubernetesWorkloadResourceInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingKubernetesWorkloadResourceInstance api_v0.KubernetesWorkloadResourceInstance
 	if result := h.RequestDB(c).First(&existingKubernetesWorkloadResourceInstance, kubernetesWorkloadResourceInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -2051,7 +2100,10 @@ func (h Handler) UpdateKubernetesWorkloadResourceInstance(c echo.Context) error 
 func (h Handler) ReplaceKubernetesWorkloadResourceInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeKubernetesWorkloadResourceInstance
 	fullyQualifiedType := new(api_v0.KubernetesWorkloadResourceInstance).GetFullyQualifiedType()
-	kubernetesWorkloadResourceInstanceID := c.Param("id")
+	kubernetesWorkloadResourceInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingKubernetesWorkloadResourceInstance api_v0.KubernetesWorkloadResourceInstance
 	if result := h.RequestDB(c).First(&existingKubernetesWorkloadResourceInstance, kubernetesWorkloadResourceInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -2131,13 +2183,17 @@ func (h Handler) ReplaceKubernetesWorkloadResourceInstance(c echo.Context) error
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/kubernetes-workload-resource-instances/{id} [DELETE]
 func (h Handler) DeleteKubernetesWorkloadResourceInstance(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.KubernetesWorkloadResourceInstance).GetFullyQualifiedType()
-	kubernetesWorkloadResourceInstanceID := c.Param("id")
+	kubernetesWorkloadResourceInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var kubernetesWorkloadResourceInstance api_v0.KubernetesWorkloadResourceInstance
 	if result := h.RequestDB(c).First(&kubernetesWorkloadResourceInstance, kubernetesWorkloadResourceInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {

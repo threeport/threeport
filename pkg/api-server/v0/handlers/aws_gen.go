@@ -236,12 +236,16 @@ func (h Handler) GetAwsEksKubernetesRuntimeDefinitions(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/aws-eks-kubernetes-runtime-definitions/{id} [GET]
 func (h Handler) GetAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.AwsEksKubernetesRuntimeDefinition).GetFullyQualifiedType()
-	awsEksKubernetesRuntimeDefinitionID := c.Param("id")
+	awsEksKubernetesRuntimeDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var awsEksKubernetesRuntimeDefinition api_v0.AwsEksKubernetesRuntimeDefinition
 	if result := h.RequestDB(c).
 		First(&awsEksKubernetesRuntimeDefinition, awsEksKubernetesRuntimeDefinitionID); result.Error != nil {
@@ -285,7 +289,10 @@ func (h Handler) GetAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 func (h Handler) UpdateAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeAwsEksKubernetesRuntimeDefinition
 	fullyQualifiedType := new(api_v0.AwsEksKubernetesRuntimeDefinition).GetFullyQualifiedType()
-	awsEksKubernetesRuntimeDefinitionID := c.Param("id")
+	awsEksKubernetesRuntimeDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingAwsEksKubernetesRuntimeDefinition api_v0.AwsEksKubernetesRuntimeDefinition
 	if result := h.RequestDB(c).First(&existingAwsEksKubernetesRuntimeDefinition, awsEksKubernetesRuntimeDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -363,7 +370,10 @@ func (h Handler) UpdateAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 func (h Handler) ReplaceAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeAwsEksKubernetesRuntimeDefinition
 	fullyQualifiedType := new(api_v0.AwsEksKubernetesRuntimeDefinition).GetFullyQualifiedType()
-	awsEksKubernetesRuntimeDefinitionID := c.Param("id")
+	awsEksKubernetesRuntimeDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingAwsEksKubernetesRuntimeDefinition api_v0.AwsEksKubernetesRuntimeDefinition
 	if result := h.RequestDB(c).First(&existingAwsEksKubernetesRuntimeDefinition, awsEksKubernetesRuntimeDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -443,13 +453,17 @@ func (h Handler) ReplaceAwsEksKubernetesRuntimeDefinition(c echo.Context) error 
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/aws-eks-kubernetes-runtime-definitions/{id} [DELETE]
 func (h Handler) DeleteAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.AwsEksKubernetesRuntimeDefinition).GetFullyQualifiedType()
-	awsEksKubernetesRuntimeDefinitionID := c.Param("id")
+	awsEksKubernetesRuntimeDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var awsEksKubernetesRuntimeDefinition api_v0.AwsEksKubernetesRuntimeDefinition
 	if result := h.RequestDB(c).Preload("AwsEksKubernetesRuntimeInstances").First(&awsEksKubernetesRuntimeDefinition, awsEksKubernetesRuntimeDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -742,12 +756,16 @@ func (h Handler) GetAwsEksKubernetesRuntimeInstances(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/aws-eks-kubernetes-runtime-instances/{id} [GET]
 func (h Handler) GetAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.AwsEksKubernetesRuntimeInstance).GetFullyQualifiedType()
-	awsEksKubernetesRuntimeInstanceID := c.Param("id")
+	awsEksKubernetesRuntimeInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var awsEksKubernetesRuntimeInstance api_v0.AwsEksKubernetesRuntimeInstance
 	if result := h.RequestDB(c).
 		First(&awsEksKubernetesRuntimeInstance, awsEksKubernetesRuntimeInstanceID); result.Error != nil {
@@ -791,7 +809,10 @@ func (h Handler) GetAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 func (h Handler) UpdateAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeAwsEksKubernetesRuntimeInstance
 	fullyQualifiedType := new(api_v0.AwsEksKubernetesRuntimeInstance).GetFullyQualifiedType()
-	awsEksKubernetesRuntimeInstanceID := c.Param("id")
+	awsEksKubernetesRuntimeInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingAwsEksKubernetesRuntimeInstance api_v0.AwsEksKubernetesRuntimeInstance
 	if result := h.RequestDB(c).First(&existingAwsEksKubernetesRuntimeInstance, awsEksKubernetesRuntimeInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -891,7 +912,10 @@ func (h Handler) UpdateAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 func (h Handler) ReplaceAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeAwsEksKubernetesRuntimeInstance
 	fullyQualifiedType := new(api_v0.AwsEksKubernetesRuntimeInstance).GetFullyQualifiedType()
-	awsEksKubernetesRuntimeInstanceID := c.Param("id")
+	awsEksKubernetesRuntimeInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingAwsEksKubernetesRuntimeInstance api_v0.AwsEksKubernetesRuntimeInstance
 	if result := h.RequestDB(c).First(&existingAwsEksKubernetesRuntimeInstance, awsEksKubernetesRuntimeInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -993,13 +1017,17 @@ func (h Handler) ReplaceAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/aws-eks-kubernetes-runtime-instances/{id} [DELETE]
 func (h Handler) DeleteAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.AwsEksKubernetesRuntimeInstance).GetFullyQualifiedType()
-	awsEksKubernetesRuntimeInstanceID := c.Param("id")
+	awsEksKubernetesRuntimeInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var awsEksKubernetesRuntimeInstance api_v0.AwsEksKubernetesRuntimeInstance
 	if result := h.RequestDB(c).First(&awsEksKubernetesRuntimeInstance, awsEksKubernetesRuntimeInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -1326,12 +1354,16 @@ func (h Handler) GetAwsProviders(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/aws-providers/{id} [GET]
 func (h Handler) GetAwsProvider(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.AwsProvider).GetFullyQualifiedType()
-	awsProviderID := c.Param("id")
+	awsProviderID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var awsProvider api_v0.AwsProvider
 	if result := h.RequestDB(c).
 		First(&awsProvider, awsProviderID); result.Error != nil {
@@ -1375,7 +1407,10 @@ func (h Handler) GetAwsProvider(c echo.Context) error {
 func (h Handler) UpdateAwsProvider(c echo.Context) error {
 	objectType := api_v0.ObjectTypeAwsProvider
 	fullyQualifiedType := new(api_v0.AwsProvider).GetFullyQualifiedType()
-	awsProviderID := c.Param("id")
+	awsProviderID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingAwsProvider api_v0.AwsProvider
 	if result := h.RequestDB(c).First(&existingAwsProvider, awsProviderID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -1453,7 +1488,10 @@ func (h Handler) UpdateAwsProvider(c echo.Context) error {
 func (h Handler) ReplaceAwsProvider(c echo.Context) error {
 	objectType := api_v0.ObjectTypeAwsProvider
 	fullyQualifiedType := new(api_v0.AwsProvider).GetFullyQualifiedType()
-	awsProviderID := c.Param("id")
+	awsProviderID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingAwsProvider api_v0.AwsProvider
 	if result := h.RequestDB(c).First(&existingAwsProvider, awsProviderID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -1533,13 +1571,17 @@ func (h Handler) ReplaceAwsProvider(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/aws-providers/{id} [DELETE]
 func (h Handler) DeleteAwsProvider(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.AwsProvider).GetFullyQualifiedType()
-	awsProviderID := c.Param("id")
+	awsProviderID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var awsProvider api_v0.AwsProvider
 	if result := h.RequestDB(c).First(&awsProvider, awsProviderID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {

@@ -590,6 +590,12 @@ func (cpi *ControlPlaneInstaller) Reinstall(
 		return err
 	}
 
+	// refuse storage the database's missing volumes can't be created on
+	// before anything is deleted, so a refusal leaves the control plane up
+	if err := cpi.checkDatabaseStorage(kubeClient); err != nil {
+		return err
+	}
+
 	// delete installer-managed stateless resources
 	if err := cpi.deleteForReinstall(kubeClient, ns); err != nil {
 		return fmt.Errorf("failed to delete control plane resources: %w", err)

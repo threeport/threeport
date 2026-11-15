@@ -46,8 +46,9 @@ func (f *fakePolicies) get(string) (*cloudresourcemanager.Policy, error) {
 	copied := &cloudresourcemanager.Policy{Etag: fmt.Sprint(f.etag)}
 	for _, b := range f.policy.Bindings {
 		copied.Bindings = append(copied.Bindings, &cloudresourcemanager.Binding{
-			Role:    b.Role,
-			Members: append([]string(nil), b.Members...),
+			Role:      b.Role,
+			Members:   append([]string(nil), b.Members...),
+			Condition: b.Condition,
 		})
 	}
 	return copied, nil

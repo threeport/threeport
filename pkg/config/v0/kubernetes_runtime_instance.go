@@ -30,6 +30,7 @@ type KubernetesRuntimeInstanceValues struct {
 	DefaultRuntime              *bool
 	Location                    *string
 	ThreeportAgentImage         *string
+	NetworkCidr                 *string
 	KubernetesRuntimeDefinition *KubernetesRuntimeDefinitionValues
 	Age                         *string
 }
@@ -84,6 +85,7 @@ func (k *KubernetesRuntimeInstanceConfig) Get(
 				DefaultRuntime:              kubernetesRuntimeInstance.DefaultRuntime,
 				Location:                    kubernetesRuntimeInstance.Location,
 				ThreeportAgentImage:         kubernetesRuntimeInstance.ThreeportAgentImage,
+				NetworkCidr:                 kubernetesRuntimeInstance.NetworkCidr,
 				KubernetesRuntimeDefinition: kubernetesRuntimeDefinition,
 				Age:                         util.Ptr(util.GetAgeFormatted(kubernetesRuntimeInstance.CreatedAt)),
 			},
@@ -121,6 +123,7 @@ func (k *KubernetesRuntimeInstanceConfig) Create(
 		DefaultRuntime:                kubernetesRuntimeInstanceValues.DefaultRuntime,
 		Location:                      kubernetesRuntimeInstanceValues.Location,
 		ThreeportAgentImage:           kubernetesRuntimeInstanceValues.ThreeportAgentImage,
+		NetworkCidr:                   kubernetesRuntimeInstanceValues.NetworkCidr,
 	}
 
 	// set control plane host if provided
@@ -146,6 +149,7 @@ func (k *KubernetesRuntimeInstanceConfig) Create(
 			DefaultRuntime:              createdKubernetesRuntimeInstance.DefaultRuntime,
 			Location:                    createdKubernetesRuntimeInstance.Location,
 			ThreeportAgentImage:         createdKubernetesRuntimeInstance.ThreeportAgentImage,
+			NetworkCidr:                 createdKubernetesRuntimeInstance.NetworkCidr,
 			ThreeportControlPlaneHost:   createdKubernetesRuntimeInstance.ThreeportControlPlaneHost,
 			KubernetesRuntimeDefinition: kubernetesRuntimeInstanceValues.KubernetesRuntimeDefinition,
 		},
@@ -209,6 +213,14 @@ func (k *KubernetesRuntimeInstanceConfig) Replace(
 		updatedKubernetesRuntimeInstance.ThreeportControlPlaneHost = kubernetesRuntimeInstanceValues.ThreeportControlPlaneHost
 	}
 
+	// So is the network range, which is set once, by a config or by the
+	// control plane when it provisions the cluster: a config that does not
+	// mention it keeps the recorded one rather than clearing it, which the API
+	// refuses.
+	if kubernetesRuntimeInstanceValues.NetworkCidr != nil {
+		updatedKubernetesRuntimeInstance.NetworkCidr = kubernetesRuntimeInstanceValues.NetworkCidr
+	}
+
 	// replace kubernetes runtime instance
 	replacedKubernetesRuntimeInstance, err := client_v0.ReplaceKubernetesRuntimeInstance(
 		apiClient,
@@ -227,6 +239,7 @@ func (k *KubernetesRuntimeInstanceConfig) Replace(
 			DefaultRuntime:            replacedKubernetesRuntimeInstance.DefaultRuntime,
 			Location:                  replacedKubernetesRuntimeInstance.Location,
 			ThreeportAgentImage:       replacedKubernetesRuntimeInstance.ThreeportAgentImage,
+			NetworkCidr:               replacedKubernetesRuntimeInstance.NetworkCidr,
 			ThreeportControlPlaneHost: replacedKubernetesRuntimeInstance.ThreeportControlPlaneHost,
 		},
 	}
@@ -276,6 +289,7 @@ func (k *KubernetesRuntimeInstanceConfig) Delete(
 			DefaultRuntime:            deletedKubernetesRuntimeInstance.DefaultRuntime,
 			Location:                  deletedKubernetesRuntimeInstance.Location,
 			ThreeportAgentImage:       deletedKubernetesRuntimeInstance.ThreeportAgentImage,
+			NetworkCidr:               deletedKubernetesRuntimeInstance.NetworkCidr,
 			ThreeportControlPlaneHost: deletedKubernetesRuntimeInstance.ThreeportControlPlaneHost,
 		},
 	}
