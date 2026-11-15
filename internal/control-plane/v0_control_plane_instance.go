@@ -1146,6 +1146,116 @@ func retargetRestoredSelf(
 	return client.ReparentDetachedControlPlanes(apiClient, endpoint, self)
 }
 
+// seedMissingChild writes the host runtime and the child's own row when a
+// restore left that database empty.
+func seedMissingChild(
+	r *controller.Reconciler,
+	stored *v0.ControlPlaneInstance,
+	childClient *http.Client,
+	endpoint string,
+) error {
+	// copy the runtime this child runs on and mark it as the host
+	runtime, err := client.GetKubernetesRuntimeInstanceByID(
+		r.APIClient, r.APIServer, *stored.KubernetesRuntimeInstanceID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get kubernetes runtime instance by ID: %w", err)
+	}
+	runtimeDefinition, err := client.GetKubernetesRuntimeDefinitionByID(
+		r.APIClient, r.APIServer, *runtime.KubernetesRuntimeDefinitionID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get kubernetes runtime definition by ID: %w", err)
+	}
+	definition, err := client.GetControlPlaneDefinitionByID(
+		r.APIClient, r.APIServer, *stored.ControlPlaneDefinitionID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get control plane definition by ID: %w", err)
+	}
+	runtimeCopy := *runtime
+	runtimeCopy.Common = v0.Common{}
+	definitionCopy := *runtimeDefinition
+	definitionCopy.Common = v0.Common{}
+	createdRuntimeDefinition, err := getOrCreate(
+		"kubernetes runtime definition on the new threeport api",
+		func() (*v0.KubernetesRuntimeDefinition, error) {
+			return client.GetKubernetesRuntimeDefinitionByName(childClient, endpoint, *definitionCopy.Name)
+		},
+		func() (*v0.KubernetesRuntimeDefinition, error) {
+			return client.CreateKubernetesRuntimeDefinition(childClient, endpoint, &definitionCopy)
+		},
+	)
+	if err != nil {
+		return err
+	}
+	onboarder := &runtimeOnboarder{
+		parent:        apiTarget{client: r.APIClient, endpoint: r.APIServer},
+		child:         apiTarget{client: childClient, endpoint: endpoint},
+		encryptionKey: r.EncryptionKey,
+	}
+	createdRuntime, err := onboarder.createRuntimeInstance(&runtimeCopy, createdRuntimeDefinition.ID, true, true)
+	if err != nil {
+		return err
+	}
+	if definitionCopy.InfraProvider != nil {
+		if err := onboarder.copyProviderRecords(
+			*definitionCopy.InfraProvider,
+			runtimeLink{definitionID: *runtime.KubernetesRuntimeDefinitionID, instanceID: *runtime.ID},
+			runtimeLink{definitionID: *createdRuntimeDefinition.ID, instanceID: *createdRuntime.ID},
+		); err != nil {
+			return fmt.Errorf("failed to onboard provider records: %w", err)
+		}
+	}
+
+	// write the child's definition and its self row
+	planeCopy := *definition
+	planeCopy.Common = v0.Common{}
+	createdDefinition, err := getOrCreate(
+		"control plane definition on the new threeport api",
+		func() (*v0.ControlPlaneDefinition, error) {
+			return client.GetControlPlaneDefinitionByName(childClient, endpoint, *planeCopy.Name)
+		},
+		func() (*v0.ControlPlaneDefinition, error) {
+			return client.CreateControlPlaneDefinition(childClient, endpoint, &planeCopy)
+		},
+	)
+	if err != nil {
+		return err
+	}
+	self := true
+	reconciled := true
+	clone := *stored
+	clone.Common = v0.Common{}
+	clone.ParentControlPlaneInstanceID = nil
+	clone.ControlPlaneDefinitionID = createdDefinition.ID
+	clone.KubernetesRuntimeInstanceID = createdRuntime.ID
+	clone.IsSelf = &self
+	clone.Reconciled = &reconciled
+	if _, err := getOrCreate(
+		"control plane instance on the new threeport api",
+		func() (*v0.ControlPlaneInstance, error) {
+			return client.GetControlPlaneInstanceByName(childClient, endpoint, *clone.Name)
+		},
+		func() (*v0.ControlPlaneInstance, error) {
+			return client.CreateControlPlaneInstance(childClient, endpoint, &clone)
+		},
+	); err != nil {
+		return err
+	}
+
+	// register the control plane that manages this child
+	serving, err := client.GetSelfControlPlaneInstance(r.APIClient, r.APIServer)
+	if err != nil {
+		return fmt.Errorf("failed to get the managing control plane: %w", err)
+	}
+	if _, err := copyManagingParent(onboarder, serving); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // syncManagedChild copies the image, the controller list and the network
 // range pool onto the child's own row.
 func syncManagedChild(r *controller.Reconciler, instance *v0.ControlPlaneInstance) error {
@@ -1164,6 +1274,13 @@ func syncManagedChild(r *controller.Reconciler, instance *v0.ControlPlaneInstanc
 	if err != nil {
 		// a restored database still names its self row after the source
 		childSelf, err = client.GetSelfControlPlaneInstance(childClient, endpoint)
+	}
+	if err != nil && strings.Contains(err.Error(), "no local control plane instance") {
+		// a restore of an empty database leaves the child with no host runtime
+		if err := seedMissingChild(r, stored, childClient, endpoint); err != nil {
+			return err
+		}
+		childSelf, err = client.GetControlPlaneInstanceByName(childClient, endpoint, *stored.Name)
 	}
 	if err != nil {
 		return fmt.Errorf("failed to get control plane instance by name: %w", err)

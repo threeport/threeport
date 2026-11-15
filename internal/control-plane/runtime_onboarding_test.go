@@ -178,6 +178,9 @@ func toString(value any) string {
 	if s, ok := value.(string); ok {
 		return s
 	}
+	if b, ok := value.(bool); ok {
+		return strconv.FormatBool(b)
+	}
 	return ""
 }
 
