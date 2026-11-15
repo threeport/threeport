@@ -680,50 +680,48 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 
 		exportEgressCidrs(ctx, egressAddresses)
 
-		// add the larger pool beside the smaller one
-		standardCount := developmentStandardNodeCount
+		// add the larger pool beside the smaller one for production only
 		if i.Tier == v0.ControlPlaneTierProduction {
-			standardCount = productionStandardNodeCount
-		}
-		_, err = gkecontainer.NewNodePool(ctx, i.standardNodePoolName(), &gkecontainer.NodePoolArgs{
-			Name:     pulumi.String(i.standardNodePoolName()),
-			Cluster:  cluster.Name,
-			Location: pulumi.String(i.Region),
+			_, err = gkecontainer.NewNodePool(ctx, i.standardNodePoolName(), &gkecontainer.NodePoolArgs{
+				Name:     pulumi.String(i.standardNodePoolName()),
+				Cluster:  cluster.Name,
+				Location: pulumi.String(i.Region),
 
-			NodeCount: pulumi.Int(standardCount),
+				NodeCount: pulumi.Int(productionStandardNodeCount),
 
-			NodeConfig: &gkecontainer.NodePoolNodeConfigArgs{
-				MachineType:    pulumi.String(standardNodeMachineType),
-				DiskSizeGb:     pulumi.Int(standardNodeDiskSizeGb),
-				DiskType:       pulumi.String(standardNodeDiskType),
-				ServiceAccount: nodeConfig.ServiceAccount,
-				OauthScopes: pulumi.StringArray{
-					pulumi.String("https://www.googleapis.com/auth/cloud-platform"),
+				NodeConfig: &gkecontainer.NodePoolNodeConfigArgs{
+					MachineType:    pulumi.String(standardNodeMachineType),
+					DiskSizeGb:     pulumi.Int(standardNodeDiskSizeGb),
+					DiskType:       pulumi.String(standardNodeDiskType),
+					ServiceAccount: nodeConfig.ServiceAccount,
+					OauthScopes: pulumi.StringArray{
+						pulumi.String("https://www.googleapis.com/auth/cloud-platform"),
+					},
+					Labels: pulumi.StringMap{
+						kube.ThreeportManagedByLabelKey: pulumi.String(kube.ThreeportManagedByLabelValue),
+					},
+					ResourceLabels: GcpLabelsInput(i.RuntimeInstanceName),
+					WorkloadMetadataConfig: &gkecontainer.NodePoolNodeConfigWorkloadMetadataConfigArgs{
+						Mode: pulumi.String("GKE_METADATA"),
+					},
 				},
-				Labels: pulumi.StringMap{
-					kube.ThreeportManagedByLabelKey: pulumi.String(kube.ThreeportManagedByLabelValue),
-				},
-				ResourceLabels: GcpLabelsInput(i.RuntimeInstanceName),
-				WorkloadMetadataConfig: &gkecontainer.NodePoolNodeConfigWorkloadMetadataConfigArgs{
-					Mode: pulumi.String("GKE_METADATA"),
-				},
-			},
 
-			Autoscaling: &gkecontainer.NodePoolAutoscalingArgs{
-				MinNodeCount:   pulumi.Int(standardCount),
-				MaxNodeCount:   pulumi.Int(standardCount),
-				LocationPolicy: pulumi.String(standardNodeLocationPolicy),
-			},
+				Autoscaling: &gkecontainer.NodePoolAutoscalingArgs{
+					MinNodeCount:   pulumi.Int(productionStandardNodeCount),
+					MaxNodeCount:   pulumi.Int(productionStandardNodeCount),
+					LocationPolicy: pulumi.String(standardNodeLocationPolicy),
+				},
 
-			Management: &gkecontainer.NodePoolManagementArgs{
-				AutoRepair:  pulumi.Bool(true),
-				AutoUpgrade: pulumi.Bool(true),
-			},
-		}, pulumi.Provider(gcpProvider),
-			pulumi.DependsOn(nodePoolDependencies),
-			pulumi.IgnoreChanges(gkeNodePoolIgnoredChanges))
-		if err != nil {
-			return fmt.Errorf("failed to create standard node pool: %w", err)
+				Management: &gkecontainer.NodePoolManagementArgs{
+					AutoRepair:  pulumi.Bool(true),
+					AutoUpgrade: pulumi.Bool(true),
+				},
+			}, pulumi.Provider(gcpProvider),
+				pulumi.DependsOn(nodePoolDependencies),
+				pulumi.IgnoreChanges(gkeNodePoolIgnoredChanges))
+			if err != nil {
+				return fmt.Errorf("failed to create standard node pool: %w", err)
+			}
 		}
 
 		return nil

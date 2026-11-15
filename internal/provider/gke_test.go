@@ -222,6 +222,33 @@ func TestGKEPulumiProgramStandardPool(t *testing.T) {
 	}
 }
 
+// TestGKEPulumiProgramDevelopmentHasNoStandardPool checks a development tier registers no second pool.
+func TestGKEPulumiProgramDevelopmentHasNoStandardPool(t *testing.T) {
+	// run the program on the development tier
+	infra := &KubernetesRuntimeInfraGKE{
+		PulumiWorkspace: PulumiWorkspace{
+			RuntimeInstanceName: "gke-label-test",
+			ProjectName:         "gke",
+		},
+		ProjectID:              "test-project",
+		Region:                 "us-central1",
+		WorkerNodeInitialCount: 1,
+		MachineType:            "e2-medium",
+		Tier:                   v0.ControlPlaneTierDevelopment,
+	}
+	mocks := &gkeRecordingMocks{}
+	if err := pulumi.RunErr(infra.pulumiProgram(), pulumi.WithMocks("gke", "test-stack", mocks)); err != nil {
+		t.Fatalf("RunErr: %v", err)
+	}
+
+	// assert no pool carries the standard name
+	for _, r := range mocks.resources {
+		if r.typeToken == gkeNodePoolTypeToken && r.inputs["name"] == infra.standardNodePoolName() {
+			t.Error("standard node pool was registered on the development tier")
+		}
+	}
+}
+
 // gkeGCPLabels returns a nested labels map from recorded Pulumi inputs.
 func gkeGCPLabels(t *testing.T, r gkeRecordedResource, path string) map[string]string {
 	t.Helper()
