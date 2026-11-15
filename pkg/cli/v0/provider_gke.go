@@ -344,6 +344,46 @@ func KeepRecordedNatAddress(
 	return nil
 }
 
+// RecordGkePool writes the node pool an upgrade applied to the cluster's
+// recorded definition, so the record matches the deployed cluster.
+func RecordGkePool(
+	infra *provider.KubernetesRuntimeInfraGKE,
+	apiClient *http.Client,
+	apiEndpoint string,
+	clusterName string,
+) error {
+	// load the recorded definition
+	gkeInstance, err := client.GetGcpGkeKubernetesRuntimeInstanceByName(apiClient, apiEndpoint, clusterName)
+	if err != nil {
+		return fmt.Errorf("recorded GKE instance %s was not found: %w", clusterName, err)
+	}
+	runtime, err := client.GetKubernetesRuntimeInstanceByID(apiClient, apiEndpoint, *gkeInstance.KubernetesRuntimeInstanceID)
+	if err != nil {
+		return fmt.Errorf("recorded runtime for %s was not found: %w", clusterName, err)
+	}
+	definition, err := client.GetGcpGkeKubernetesRuntimeDefinitionByK8sRuntimeDef(apiClient, apiEndpoint, *runtime.KubernetesRuntimeDefinitionID)
+	if err != nil {
+		return fmt.Errorf("recorded GKE definition for %s was not found: %w", clusterName, err)
+	}
+
+	// write the applied machine type and sizes
+	if _, err := client.UpdateGcpGkeKubernetesRuntimeDefinition(
+		apiClient,
+		apiEndpoint,
+		&v0.GcpGkeKubernetesRuntimeDefinition{
+			Common:                       v0.Common{ID: definition.ID},
+			DefaultNodeGroupInstanceType: util.Ptr(infra.MachineType),
+			DefaultNodeGroupInitialSize:  util.Ptr(int(infra.WorkerNodeInitialCount)),
+			DefaultNodeGroupMinimumSize:  util.Ptr(int(infra.MinNodeCount)),
+			DefaultNodeGroupMaximumSize:  util.Ptr(int(infra.MaxNodeCount)),
+		},
+	); err != nil {
+		return fmt.Errorf("failed to record the node pool for %s: %w", clusterName, err)
+	}
+
+	return nil
+}
+
 // gkeControlPlaneKubeClient returns a client for the GKE cluster a control
 // plane runs on, authenticated as the caller's own Google credentials.
 func gkeControlPlaneKubeClient(controlPlane *ControlPlane) (dynamic.Interface, error) {
