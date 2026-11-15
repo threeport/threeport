@@ -1468,9 +1468,17 @@ func v0ControlPlaneInstanceUpdated(
 		if err != nil {
 			return 0, fmt.Errorf("failed to reload module install request: %w", err)
 		}
-		next := threeport.ModuleInstallAfterRun(util.DerefString(fresh.ModuleInstall), started)
-		if next != util.DerefString(fresh.ModuleInstall) {
-			fresh.ModuleInstall = &next
+		// clear the request this run started, or store a newer one
+		stored := util.DerefString(fresh.ModuleInstall)
+		next := threeport.ModuleInstallAfterRun(stored, started)
+		write := ""
+		if next == "" {
+			write = v0.ModuleInstallClear(started)
+		} else if next != stored {
+			write = next
+		}
+		if write != "" {
+			fresh.ModuleInstall = &write
 			if _, err = client.UpdateControlPlaneInstance(
 				r.APIClient,
 				r.APIServer,

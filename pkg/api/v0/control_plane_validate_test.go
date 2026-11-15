@@ -225,9 +225,18 @@ func TestModuleInstallUpdateKeepsAPendingRequest(t *testing.T) {
 	require.NoError(t, db.First(&row, *stored.ID).Error)
 	assert.Equal(t, first, util.DerefString(row.ModuleInstall))
 
-	// a clear leaves the column empty, and the next request is stored
-	cleared := ""
-	require.NoError(t, db.Model(&stale).Updates(&ControlPlaneInstance{ModuleInstall: &cleared}).Error)
+	// an empty value does not clear the stored request
+	blank := ""
+	err = db.Model(&stale).Updates(&ControlPlaneInstance{ModuleInstall: &blank}).Error
+	require.Error(t, err)
+	require.NoError(t, db.First(&row, *stored.ID).Error)
+	assert.Equal(t, first, util.DerefString(row.ModuleInstall))
+
+	// a clear names the request it finishes, and the next request is stored
+	clear := ModuleInstallClear(first)
+	require.NoError(t, db.Model(&stale).Updates(&ControlPlaneInstance{ModuleInstall: &clear}).Error)
+	require.NoError(t, db.First(&row, *stored.ID).Error)
+	assert.Empty(t, util.DerefString(row.ModuleInstall))
 	require.NoError(t, db.Model(&stale).Updates(&ControlPlaneInstance{ModuleInstall: &second}).Error)
 	require.NoError(t, db.First(&row, *stored.ID).Error)
 	assert.Equal(t, second, util.DerefString(row.ModuleInstall))

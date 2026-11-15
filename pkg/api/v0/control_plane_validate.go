@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 
 	gorm "gorm.io/gorm"
 
@@ -20,6 +21,16 @@ var ErrRequestMustBeMadeToParent = errors.New("request must be made to parent")
 
 // ErrModuleInstallPending is the refusal to replace a module install that is still stored.
 var ErrModuleInstallPending = errors.New("a module install is already pending")
+
+// moduleInstallClearPrefix marks a clear of one request.
+// A module name does not contain a newline, so a stored request cannot match this prefix.
+const moduleInstallClearPrefix = "clear\n"
+
+// ModuleInstallClear is the value that clears one stored request.
+func ModuleInstallClear(started string) string {
+	// name the request this clear finishes
+	return moduleInstallClearPrefix + started
+}
 
 // ChildControlPlaneRequest rejects a command aimed at a control plane its parent manages.
 // A row this API stores for a child is the parent's own record, so it is allowed.
@@ -409,9 +420,7 @@ func rejectReplacingModuleInstall(tx *gorm.DB) error {
 		return nil
 	}
 	next := util.DerefString(incoming.ModuleInstall)
-	if next == "" {
-		return nil
-	}
+	expected, clearing := moduleInstallBeingCleared(next)
 
 	// lock the row, then keep a different request that is already stored
 	loaded, err := lib.LockObjectInDB(tx)
@@ -423,10 +432,28 @@ func rejectReplacingModuleInstall(tx *gorm.DB) error {
 		return fmt.Errorf("loaded %T is not a control plane instance", loaded)
 	}
 	current := util.DerefString(stored.ModuleInstall)
+	if clearing {
+		if current != expected {
+			return util.NewConflictError(ErrModuleInstallPending.Error())
+		}
+		empty := ""
+		incoming.ModuleInstall = &empty
+		return nil
+	}
 	if current != "" && current != next {
 		return util.NewConflictError(ErrModuleInstallPending.Error())
 	}
 	return nil
+}
+
+// moduleInstallBeingCleared reads the request a clear names.
+func moduleInstallBeingCleared(next string) (string, bool) {
+	// read the request after the clear marker
+	expected, ok := strings.CutPrefix(next, moduleInstallClearPrefix)
+	if !ok || expected == "" {
+		return "", false
+	}
+	return expected, true
 }
 
 // storedControlPlane returns the row as stored.
