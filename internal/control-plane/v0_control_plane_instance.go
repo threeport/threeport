@@ -1271,6 +1271,9 @@ var lookupGkeProject = gkeRuntimeProjectID
 // saveControlPlaneInstance writes the child row. Tests replace it.
 var saveControlPlaneInstance = client.UpdateControlPlaneInstance
 
+// lookupControlPlaneByName reads the row that already holds a name. Tests replace it.
+var lookupControlPlaneByName = client.GetControlPlaneInstanceByName
+
 // childBlueGreenRequested reports a new deployment was asked for this child.
 func childBlueGreenRequested(instance *v0.ControlPlaneInstance) bool {
 	from := util.DerefString(instance.FromNamespace)
@@ -1323,6 +1326,17 @@ func installChildBlueGreen(
 	}
 	local, err := blueGreenLocal(definition, util.DerefString(runtime.Name), projectID)
 	if err != nil {
+		return err
+	}
+
+	// reject a name another control plane already holds, before the source is removed
+	newName := util.DerefString(instance.Namespace)
+	found, lookupErr := lookupControlPlaneByName(r.APIClient, r.APIServer, newName)
+	sourceID := uint(0)
+	if instance.ID != nil {
+		sourceID = *instance.ID
+	}
+	if err := cli.ReplacementNameTaken(sourceID, newName, found, lookupErr); err != nil {
 		return err
 	}
 

@@ -9,6 +9,7 @@ import (
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -33,11 +34,16 @@ func TestChildBlueGreenInstallsThenClearsFromNamespace(t *testing.T) {
 	oldInstall := installBlueGreen
 	oldSave := saveControlPlaneInstance
 	oldProject := lookupGkeProject
+	oldLookup := lookupControlPlaneByName
 	t.Cleanup(func() {
 		installBlueGreen = oldInstall
 		saveControlPlaneInstance = oldSave
 		lookupGkeProject = oldProject
+		lookupControlPlaneByName = oldLookup
 	})
+	lookupControlPlaneByName = func(*http.Client, string, string) (*v0.ControlPlaneInstance, error) {
+		return nil, client_lib.ErrObjectNotFound
+	}
 	lookupGkeProject = func(*http.Client, string, uint) (string, error) {
 		return "project-1", nil
 	}
@@ -91,4 +97,47 @@ func TestBlueGreenProviderSwitch(t *testing.T) {
 		"project-1",
 	)
 	require.ErrorIs(t, err, cli.ErrNoBackupBucket)
+}
+
+// TestTakenReplacementNameSkipsInstall checks a name another control plane holds never starts the install.
+func TestTakenReplacementNameSkipsInstall(t *testing.T) {
+	from := "old-ns"
+	name := "taken-ns"
+	id := uint(7)
+	other := uint(9)
+	instance := &v0.ControlPlaneInstance{
+		Common:        v0.Common{ID: &id},
+		Name:          &name,
+		Namespace:     &name,
+		FromNamespace: &from,
+	}
+	gke := v0.KubernetesRuntimeInfraProviderGKE
+	definition := &v0.KubernetesRuntimeDefinition{InfraProvider: &gke}
+	runtimeName := "runtime"
+	runtime := &v0.KubernetesRuntimeInstance{Common: v0.Common{ID: &id}, Name: &runtimeName}
+
+	called := false
+	oldInstall := installBlueGreen
+	oldLookup := lookupControlPlaneByName
+	oldProject := lookupGkeProject
+	t.Cleanup(func() {
+		installBlueGreen = oldInstall
+		lookupControlPlaneByName = oldLookup
+		lookupGkeProject = oldProject
+	})
+	lookupGkeProject = func(*http.Client, string, uint) (string, error) {
+		return "project-1", nil
+	}
+	lookupControlPlaneByName = func(*http.Client, string, string) (*v0.ControlPlaneInstance, error) {
+		return &v0.ControlPlaneInstance{Common: v0.Common{ID: &other}}, nil
+	}
+	installBlueGreen = func(*cli.ControlPlane, *http.Client, string, string, *cli.ControlPlaneTarget, string) error {
+		called = true
+		return nil
+	}
+
+	// install must stop before the source namespace is replaced
+	err := installChildBlueGreen(&controller.Reconciler{}, instance, runtime, definition, nil, nil)
+	require.ErrorIs(t, err, cli.ErrReplacementNameTaken)
+	require.False(t, called)
 }

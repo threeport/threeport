@@ -18,6 +18,7 @@ import (
 	"github.com/threeport/threeport/internal/provider"
 	"github.com/threeport/threeport/internal/version"
 	api "github.com/threeport/threeport/pkg/api/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	encryption "github.com/threeport/threeport/pkg/encryption/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
@@ -779,6 +780,16 @@ func delegateBlueGreen(
 		return err
 	}
 
+	// reject a name another control plane already holds, before the source is removed
+	found, lookupErr := client.GetControlPlaneInstanceByName(currentClient, currentEndpoint, newName)
+	sourceID := uint(0)
+	if inst.ID != nil {
+		sourceID = *inst.ID
+	}
+	if err := ReplacementNameTaken(sourceID, newName, found, lookupErr); err != nil {
+		return err
+	}
+
 	// record the new name and this tptctl version, and leave the install to the controller
 	tag := childTag
 	if imageTag != "" {
@@ -831,6 +842,25 @@ func waitForChildBlueGreen(apiClient *http.Client, apiEndpoint string, id uint, 
 		}
 		time.Sleep(5 * time.Second)
 	}
+}
+
+// ErrReplacementNameTaken is returned when another control plane already has the new name.
+var ErrReplacementNameTaken = errors.New("control plane name is already in use")
+
+// ReplacementNameTaken reports another row already holds newName.
+// A missing row is free. The source row may already carry the name.
+func ReplacementNameTaken(sourceID uint, newName string, found *api.ControlPlaneInstance, lookupErr error) error {
+	// a missing name is free to take
+	if lookupErr != nil {
+		if errors.Is(lookupErr, client_lib.ErrObjectNotFound) {
+			return nil
+		}
+		return lookupErr
+	}
+	if found != nil && found.ID != nil && *found.ID != sourceID {
+		return fmt.Errorf("control plane %s: %w", newName, ErrReplacementNameTaken)
+	}
+	return nil
 }
 
 // childBlueGreenUpdate is the patch a child blue-green stores.
