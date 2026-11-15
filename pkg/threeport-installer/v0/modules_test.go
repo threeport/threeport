@@ -433,6 +433,36 @@ func TestScaleDownModulesLeavesOtherWorkloadsRunning(t *testing.T) {
 	}
 }
 
+// TestScaleDownModulesStopsAnUnlabeledController covers a module controller
+// whose installer does not set app.kubernetes.io/name.
+func TestScaleDownModulesStopsAnUnlabeledController(t *testing.T) {
+	// seed a controller with a -controller command and no name label
+	namespace := "example-namespace"
+	controller := testControllerDeployment("example-core-controller", namespace, 1)
+	unstructured.RemoveNestedField(controller.Object, "spec", "template", "metadata", "labels")
+	containers, _, _ := unstructured.NestedSlice(controller.Object, "spec", "template", "spec", "containers")
+	containers[0].(map[string]interface{})["command"] = []interface{}{"/core-controller"}
+	_ = unstructured.SetNestedSlice(controller.Object, containers, "spec", "template", "spec", "containers")
+	kubeClient := testKubeClient(controller)
+	var patched []string
+	recordDeploymentScaling(kubeClient, &patched)
+	cpi := &ControlPlaneInstaller{Opts: Options{Namespace: "threeport-control-plane"}}
+
+	// scale the unlabeled controller
+	scales, err := cpi.ScaleDownModules(kubeClient, []ModuleDeploymentScale{
+		{Namespace: namespace, Name: "example-core-controller"},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(scales) != 1 || scales[0].Replicas != 1 {
+		t.Fatalf("expected the unlabeled controller recorded at 1 replica, got %v", scales)
+	}
+	if !containsString(patched, "example-namespace/example-core-controller=0") {
+		t.Errorf("expected the unlabeled controller to be scaled down, got %v", patched)
+	}
+}
+
 // TestScaleDownModulesReturnsCountsWhenALaterScaleFails covers an error after
 // an earlier controller was already scaled to zero.
 func TestScaleDownModulesReturnsCountsWhenALaterScaleFails(t *testing.T) {

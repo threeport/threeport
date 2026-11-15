@@ -1461,14 +1461,16 @@ func v0ControlPlaneInstanceUpdated(
 			return 0, err
 		}
 		cleared := ""
-		controlPlaneInstance.ModuleInstall = &cleared
+		stored := *controlPlaneInstance
+		stored.ModuleInstall = &cleared
 		if _, err = client.UpdateControlPlaneInstance(
 			r.APIClient,
 			r.APIServer,
-			controlPlaneInstance,
+			&stored,
 		); err != nil {
 			return 0, fmt.Errorf("failed to clear module install request: %w", err)
 		}
+		controlPlaneInstance.ModuleInstall = &cleared
 	}
 
 	// a recorded source namespace means tptctl asked for a new deployment of this child

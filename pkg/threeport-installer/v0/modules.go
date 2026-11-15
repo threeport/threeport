@@ -437,9 +437,9 @@ func moduleControllerDeployment(deployment *unstructured.Unstructured) bool {
 		return false
 	}
 
-	// require the pod label to match that name
+	// a present name label must match. An installer that stamps none is still a controller
 	labels, _, _ := unstructured.NestedStringMap(deployment.Object, "spec", "template", "metadata", "labels")
-	if labels["app.kubernetes.io/name"] != name {
+	if label := labels["app.kubernetes.io/name"]; label != "" && label != name {
 		return false
 	}
 
