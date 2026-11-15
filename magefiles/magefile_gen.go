@@ -2379,6 +2379,9 @@ func (Build) AllBinsRelease() error {
 // stitch single-arch tags from separate runs into a multi-arch manifest list.
 // Set PARALLEL_IMAGE_BUILD >= 1 to cap packaging concurrency (e.g.
 // `PARALLEL_IMAGE_BUILD=4 mage build:allImages ghcr.io/foo v1 amd64,arm64`).
+// Set IMAGES to a comma-separated list of component binary names to build
+// only those (e.g. `IMAGES=rest-api,database-migrator mage build:allImages ...`).
+// All components build when IMAGES is unset.
 func (Build) AllImages(
 	imageRepo string,
 	imageTag string,
@@ -2395,23 +2398,57 @@ func (Build) AllImages(
 
 	arches := util.ParseArches(arch)
 
-	packageDirs := []string{
-		"cmd/rest-api",
-		"cmd/database-migrator",
-		"cmd/agent",
-		"cmd/secret-controller",
-		"cmd/aws-controller",
-		"cmd/oci-controller",
-		"cmd/gcp-controller",
-		"cmd/control-plane-controller",
-		"cmd/gateway-controller",
-		"cmd/helm-workload-controller",
-		"cmd/machine-runtime-controller",
-		"cmd/machine-workload-controller",
-		"cmd/kubernetes-runtime-controller",
-		"cmd/observability-controller",
-		"cmd/terraform-controller",
-		"cmd/kubernetes-workload-controller",
+	var packageDirs []string
+	if imageSelected("rest-api") {
+		packageDirs = append(packageDirs, "cmd/rest-api")
+	}
+	if imageSelected("database-migrator") {
+		packageDirs = append(packageDirs, "cmd/database-migrator")
+	}
+	if imageSelected("agent") {
+		packageDirs = append(packageDirs, "cmd/agent")
+	}
+	if imageSelected("secret-controller") {
+		packageDirs = append(packageDirs, "cmd/secret-controller")
+	}
+	if imageSelected("aws-controller") {
+		packageDirs = append(packageDirs, "cmd/aws-controller")
+	}
+	if imageSelected("oci-controller") {
+		packageDirs = append(packageDirs, "cmd/oci-controller")
+	}
+	if imageSelected("gcp-controller") {
+		packageDirs = append(packageDirs, "cmd/gcp-controller")
+	}
+	if imageSelected("control-plane-controller") {
+		packageDirs = append(packageDirs, "cmd/control-plane-controller")
+	}
+	if imageSelected("gateway-controller") {
+		packageDirs = append(packageDirs, "cmd/gateway-controller")
+	}
+	if imageSelected("helm-workload-controller") {
+		packageDirs = append(packageDirs, "cmd/helm-workload-controller")
+	}
+	if imageSelected("machine-runtime-controller") {
+		packageDirs = append(packageDirs, "cmd/machine-runtime-controller")
+	}
+	if imageSelected("machine-workload-controller") {
+		packageDirs = append(packageDirs, "cmd/machine-workload-controller")
+	}
+	if imageSelected("kubernetes-runtime-controller") {
+		packageDirs = append(packageDirs, "cmd/kubernetes-runtime-controller")
+	}
+	if imageSelected("observability-controller") {
+		packageDirs = append(packageDirs, "cmd/observability-controller")
+	}
+	if imageSelected("terraform-controller") {
+		packageDirs = append(packageDirs, "cmd/terraform-controller")
+	}
+	if imageSelected("kubernetes-workload-controller") {
+		packageDirs = append(packageDirs, "cmd/kubernetes-workload-controller")
+	}
+	if len(packageDirs) == 0 {
+		return fmt.Errorf("IMAGES matched no component: %q", os.Getenv("IMAGES"))
 	}
 
 	if err := util.BuildBinaries(
@@ -2429,24 +2466,56 @@ func (Build) AllImages(
 			return fn(workingDir, imageRepo, imageTag, arch)
 		}
 	}
-	tasks := []func() error{
-		wrap(build.restApiImagePackage),
-		wrap(build.dbMigratorImagePackage),
-		wrap(build.agentImagePackage),
-		wrap(build.secretControllerImagePackage),
-		wrap(build.awsControllerImagePackage),
-		wrap(build.ociControllerImagePackage),
-		wrap(build.gcpControllerImagePackage),
-		wrap(build.controlPlaneControllerImagePackage),
-		wrap(build.gatewayControllerImagePackage),
-		wrap(build.helmWorkloadControllerImagePackage),
-		wrap(build.machineRuntimeControllerImagePackage),
-		wrap(build.machineWorkloadControllerImagePackage),
-		wrap(build.kubernetesRuntimeControllerImagePackage),
-		wrap(build.observabilityControllerImagePackage),
-		wrap(build.terraformControllerImagePackage),
-		wrap(build.kubernetesWorkloadControllerImagePackage),
+	var tasks []func() error
+	if imageSelected("rest-api") {
+		tasks = append(tasks, wrap(build.restApiImagePackage))
 	}
+	if imageSelected("database-migrator") {
+		tasks = append(tasks, wrap(build.dbMigratorImagePackage))
+	}
+	if imageSelected("agent") {
+		tasks = append(tasks, wrap(build.agentImagePackage))
+	}
+	if imageSelected("secret-controller") {
+		tasks = append(tasks, wrap(build.secretControllerImagePackage))
+	}
+	if imageSelected("aws-controller") {
+		tasks = append(tasks, wrap(build.awsControllerImagePackage))
+	}
+	if imageSelected("oci-controller") {
+		tasks = append(tasks, wrap(build.ociControllerImagePackage))
+	}
+	if imageSelected("gcp-controller") {
+		tasks = append(tasks, wrap(build.gcpControllerImagePackage))
+	}
+	if imageSelected("control-plane-controller") {
+		tasks = append(tasks, wrap(build.controlPlaneControllerImagePackage))
+	}
+	if imageSelected("gateway-controller") {
+		tasks = append(tasks, wrap(build.gatewayControllerImagePackage))
+	}
+	if imageSelected("helm-workload-controller") {
+		tasks = append(tasks, wrap(build.helmWorkloadControllerImagePackage))
+	}
+	if imageSelected("machine-runtime-controller") {
+		tasks = append(tasks, wrap(build.machineRuntimeControllerImagePackage))
+	}
+	if imageSelected("machine-workload-controller") {
+		tasks = append(tasks, wrap(build.machineWorkloadControllerImagePackage))
+	}
+	if imageSelected("kubernetes-runtime-controller") {
+		tasks = append(tasks, wrap(build.kubernetesRuntimeControllerImagePackage))
+	}
+	if imageSelected("observability-controller") {
+		tasks = append(tasks, wrap(build.observabilityControllerImagePackage))
+	}
+	if imageSelected("terraform-controller") {
+		tasks = append(tasks, wrap(build.terraformControllerImagePackage))
+	}
+	if imageSelected("kubernetes-workload-controller") {
+		tasks = append(tasks, wrap(build.kubernetesWorkloadControllerImagePackage))
+	}
+
 	return util.RunParallel(parallelFromEnv(), tasks)
 }
 
@@ -2581,6 +2650,21 @@ func parallelFromEnv() int {
 		return 1
 	}
 	return n
+}
+
+// imageSelected reports whether a component binary name is listed in the
+// comma-separated IMAGES env var. Every component is selected when IMAGES is unset.
+func imageSelected(binaryName string) bool {
+	v := os.Getenv("IMAGES")
+	if v == "" {
+		return true
+	}
+	for _, name := range strings.Split(v, ",") {
+		if strings.TrimSpace(name) == binaryName {
+			return true
+		}
+	}
+	return false
 }
 
 // LoadImage builds and loads an image to the provided kind cluster.

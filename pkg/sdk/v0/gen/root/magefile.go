@@ -297,22 +297,26 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f.Comment("stitch single-arch tags from separate runs into a multi-arch manifest list.")
 	f.Comment("Set PARALLEL_IMAGE_BUILD >= 1 to cap packaging concurrency (e.g.")
 	f.Comment("`PARALLEL_IMAGE_BUILD=4 mage build:allImages ghcr.io/foo v1 amd64,arm64`).")
+	f.Comment("Set IMAGES to a comma-separated list of component binary names to build")
+	f.Comment("only those (e.g. `IMAGES=rest-api,database-migrator mage build:allImages ...`).")
+	f.Comment("All components build when IMAGES is unset.")
 	f.Func().Params(Id("Build")).Id(buildAllImagesFuncName).Params(
 		Line().Id("imageRepo").String(),
 		Line().Id("imageTag").String(),
 		Line().Id("arch").String(),
 		Line(),
 	).Error().BlockFunc(func(g *Group) {
-		emitPrebuildBlock(g, allComponents)
+		emitPrebuildBlock(g, allComponents, true)
 
 		g.Id("build").Op(":=").Id("Build").Values()
 		emitWrapHelper(g, Id("imageRepo"), Id("imageTag"))
-		g.Id("tasks").Op(":=").Index().Func().Params().Error().ValuesFunc(func(v *Group) {
-			for _, c := range allComponents {
-				v.Line().Id("wrap").Call(Id("build").Dot(c.PackageFuncName))
-			}
-			v.Line()
-		})
+		g.Var().Id("tasks").Index().Func().Params().Error()
+		for _, c := range allComponents {
+			g.If(Id("imageSelected").Call(Lit(c.BinaryName))).Block(
+				Id("tasks").Op("=").Append(Id("tasks"), Id("wrap").Call(Id("build").Dot(c.PackageFuncName))),
+			)
+		}
+		g.Line()
 
 		g.Return().Qual("github.com/threeport/threeport/pkg/util/v0", "RunParallel").Call(
 			Id("parallelFromEnv").Call(),
@@ -331,7 +335,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		)
 		g.Line()
 
-		emitPrebuildBlock(g, allComponents)
+		emitPrebuildBlock(g, allComponents, false)
 
 		g.Id("build").Op(":=").Id("Build").Values()
 		emitWrapHelper(g,
@@ -456,6 +460,23 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		)
 		g.Return(Id("n"))
 	})
+
+	// helper: report whether a component is selected by the IMAGES env var
+	f.Comment("imageSelected reports whether a component binary name is listed in the")
+	f.Comment("comma-separated IMAGES env var. Every component is selected when IMAGES is unset.")
+	f.Func().Id("imageSelected").Params(Id("binaryName").String()).Bool().BlockFunc(func(g *Group) {
+		g.Id("v").Op(":=").Qual("os", "Getenv").Call(Lit("IMAGES"))
+		g.If(Id("v").Op("==").Lit("")).Block(
+			Return(True()),
+		)
+		g.For(List(Id("_"), Id("name")).Op(":=").Range().Qual("strings", "Split").Call(Id("v"), Lit(","))).Block(
+			If(Qual("strings", "TrimSpace").Call(Id("name")).Op("==").Id("binaryName")).Block(
+				Return(True()),
+			),
+		)
+		g.Return(False())
+	})
+	f.Line()
 
 	// dev image loads to kind clusters
 	f.Comment("LoadImage builds and loads an image to the provided kind cluster.")
@@ -996,8 +1017,9 @@ func emitImageReleaseFunc(f *File, funcName, baseFuncName, displayName, binaryNa
 
 // emitPrebuildBlock writes the upfront BuildBinaries call shared by
 // AllImages and its Dev/Release wrappers. Expects `arch` in the caller's
-// scope; declares workingDir locally via getBuildVals.
-func emitPrebuildBlock(g *Group, components []componentSpec) {
+// scope; declares workingDir locally via getBuildVals. When filterByImages is
+// set, only components named by the IMAGES env var are pre-built.
+func emitPrebuildBlock(g *Group, components []componentSpec, filterByImages bool) {
 	g.Comment("pre-compile every binary for every requested arch in one go build")
 	g.Comment("per arch (arches run in parallel) so dependency compilation is")
 	g.Comment("shared across components within an arch. Each per-image task")
@@ -1011,12 +1033,27 @@ func emitPrebuildBlock(g *Group, components []componentSpec) {
 	g.Id("arches").Op(":=").Qual("github.com/threeport/threeport/pkg/util/v0", "ParseArches").Call(Id("arch"))
 	g.Line()
 
-	g.Id("packageDirs").Op(":=").Index().String().ValuesFunc(func(v *Group) {
+	if filterByImages {
+		g.Var().Id("packageDirs").Index().String()
 		for _, c := range components {
-			v.Line().Lit(c.PackageDir)
+			g.If(Id("imageSelected").Call(Lit(c.BinaryName))).Block(
+				Id("packageDirs").Op("=").Append(Id("packageDirs"), Lit(c.PackageDir)),
+			)
 		}
-		v.Line()
-	})
+		g.If(Len(Id("packageDirs")).Op("==").Lit(0)).Block(
+			Return(Qual("fmt", "Errorf").Call(
+				Lit("IMAGES matched no component: %q"),
+				Qual("os", "Getenv").Call(Lit("IMAGES")),
+			)),
+		)
+	} else {
+		g.Id("packageDirs").Op(":=").Index().String().ValuesFunc(func(v *Group) {
+			for _, c := range components {
+				v.Line().Lit(c.PackageDir)
+			}
+			v.Line()
+		})
+	}
 	g.Line()
 
 	g.If(Err().Op(":=").Qual(
