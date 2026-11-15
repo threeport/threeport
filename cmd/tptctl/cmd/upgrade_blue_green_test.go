@@ -12,7 +12,7 @@ func TestUpgradeBlueGreenFlags(t *testing.T) {
 	require.NotNil(t, UpgradeBlueGreenCmd.Flags().Lookup("new-control-plane-name"))
 	require.Nil(t, UpgradeBlueGreenCmd.Flags().Lookup("name"))
 	require.Nil(t, UpgradeBlueGreenCmd.Flags().Lookup("namespace"))
-	require.NotNil(t, UpgradeBlueGreenCmd.Flags().Lookup("image-tag"))
-	require.NotNil(t, UpgradeBlueGreenCmd.Flags().Lookup("image-namespace"))
+	require.NotNil(t, UpgradeBlueGreenCmd.Flags().Lookup("control-plane-image-tag"))
+	require.NotNil(t, UpgradeBlueGreenCmd.Flags().Lookup("control-plane-image-namespace"))
 	require.NotNil(t, upgradeControlPlaneCmd.PersistentFlags().Lookup("control-plane-name"))
 }

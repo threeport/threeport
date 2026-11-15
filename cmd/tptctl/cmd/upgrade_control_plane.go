@@ -275,15 +275,15 @@ func init() {
 
 	UpgradeControlPlaneCmd.Flags().StringVar(
 		&upgradeImageNamespace,
-		"image-namespace",
+		"control-plane-image-namespace",
 		"",
 		"Image namespace to record. Omit to leave the recorded repo unchanged.",
 	)
 	UpgradeControlPlaneCmd.Flags().StringVar(
 		&upgradeImageTag,
-		"image-tag",
+		"control-plane-image-tag",
 		"",
 		"Image tag to roll the control plane to.",
 	)
-	UpgradeControlPlaneCmd.MarkFlagRequired("image-tag")
+	UpgradeControlPlaneCmd.MarkFlagRequired("control-plane-image-tag")
 }

@@ -47,7 +47,8 @@ Reference:
 ## Upgrading a Child
 
 Stay connected to the parent.  A command pointed at a child is refused.
-`--image-namespace` and `--module-image-namespace` are optional.
+`--control-plane-image-namespace` and `--module-image-namespace` are
+optional.
 Blue-green needs a storage bucket, and that exists only for GCP.
 The new namespace is the new control plane name.
 
@@ -55,7 +56,7 @@ Patch the connected control plane.
 
 ```bash
 tptctl upgrade control-plane image \
-  --image-tag [image tag]
+  --control-plane-image-tag [image tag]
 ```
 
 Patch a child.  The parent controller applies the tag.
@@ -63,7 +64,7 @@ Patch a child.  The parent controller applies the tag.
 ```bash
 tptctl upgrade control-plane image \
   --control-plane-name [child name] \
-  --image-tag [image tag]
+  --control-plane-image-tag [image tag]
 ```
 
 Install a new deployment of the connected control plane at this tptctl
@@ -71,7 +72,9 @@ version.
 
 ```bash
 tptctl upgrade control-plane blue-green \
-  --new-control-plane-name [new control plane name]
+  --new-control-plane-name [new control plane name] \
+  --control-plane-image-namespace [image namespace] \
+  --control-plane-image-tag [image tag]
 ```
 
 Ask the parent controller to install a new deployment of a child at the
@@ -80,7 +83,9 @@ controller version.
 ```bash
 tptctl upgrade control-plane blue-green \
   --control-plane-name [child name] \
-  --new-control-plane-name [new control plane name]
+  --new-control-plane-name [new control plane name] \
+  --control-plane-image-namespace [image namespace] \
+  --control-plane-image-tag [image tag]
 ```
 
 Patch a module image on the connected control plane.
@@ -107,7 +112,9 @@ module image.
 tptctl upgrade module blue-green \
   --module-name [module name] \
   --module-image-tag [module image tag] \
-  --new-control-plane-name [new control plane name]
+  --new-control-plane-name [new control plane name] \
+  --control-plane-image-namespace [image namespace] \
+  --control-plane-image-tag [image tag]
 ```
 
 Ask the parent controller to redeploy a child at the controller version
@@ -118,7 +125,26 @@ tptctl upgrade module blue-green \
   --control-plane-name [child name] \
   --module-name [module name] \
   --module-image-tag [module image tag] \
-  --new-control-plane-name [new control plane name]
+  --new-control-plane-name [new control plane name] \
+  --control-plane-image-namespace [image namespace] \
+  --control-plane-image-tag [image tag]
+```
+
+Install the module on the connected control plane.
+
+```bash
+tptctl $module install \
+  --control-plane-image-namespace [image namespace] \
+  --control-plane-image-tag [image tag]
+```
+
+Ask the parent controller to install the module on a child.
+
+```bash
+tptctl $module install \
+  --control-plane-name [child name] \
+  --control-plane-image-namespace [image namespace] \
+  --control-plane-image-tag [image tag]
 ```
 
 Preview the infrastructure diff and apply it if you accept.

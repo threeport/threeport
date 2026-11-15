@@ -258,10 +258,10 @@ func init() {
 	UpgradeModuleBlueGreenCmd.MarkFlagRequired("new-control-plane-name")
 	UpgradeModuleBlueGreenCmd.Flags().StringVar(
 		&upgradeImageNamespace,
-		"image-namespace", "", "Image namespace of the new control plane. Empty keeps the source namespace.",
+		"control-plane-image-namespace", "", "Image namespace of the new control plane. Empty keeps the source namespace.",
 	)
 	UpgradeModuleBlueGreenCmd.Flags().StringVar(
 		&upgradeImageTag,
-		"image-tag", "", "Image tag of the new control plane. Empty uses this tptctl version, or the parent controller tag for a child.",
+		"control-plane-image-tag", "", "Image tag of the new control plane. Empty uses this tptctl version, or the parent controller tag for a child.",
 	)
 }
