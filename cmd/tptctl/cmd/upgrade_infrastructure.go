@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -21,6 +22,9 @@ import (
 )
 
 var upgradeInfraYes bool
+
+// The control plane tier to size the infrastructure for
+var upgradeInfraTier string
 
 // UpgradeInfrastructureCmd previews the GKE infrastructure change and applies it if the operator accepts.
 var UpgradeInfrastructureCmd = &cobra.Command{
@@ -54,6 +58,12 @@ var UpgradeInfrastructureCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		// reject a tier outside the known set before touching the stack
+		if upgradeInfraTier != "" && !slices.Contains(api.ControlPlaneTiers, upgradeInfraTier) {
+			cli.Error("invalid --tier", fmt.Errorf("must be one of %s", strings.Join(api.ControlPlaneTiers, ", ")))
+			os.Exit(1)
+		}
+
 		// preview the diff and apply it if the operator accepts
 		infra, err := cli.GkeInfraForUpgrade(controlPlane)
 		if err != nil {
@@ -65,21 +75,25 @@ var UpgradeInfrastructureCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// carry the recorded tier so a production cluster keeps its standard node pool
-		if controlPlaneInstance.ControlPlaneDefinitionID == nil {
-			cli.Error("failed to load the recorded tier", errors.New("control plane instance has no definition"))
-			os.Exit(1)
+		// size the infrastructure for the tier given, or else the recorded tier
+		tier := upgradeInfraTier
+		if tier == "" {
+			if controlPlaneInstance.ControlPlaneDefinitionID == nil {
+				cli.Error("failed to load the recorded tier", errors.New("control plane instance has no definition"))
+				os.Exit(1)
+			}
+			controlPlaneDefinition, err := client.GetControlPlaneDefinitionByID(
+				apiClient,
+				apiEndpoint,
+				*controlPlaneInstance.ControlPlaneDefinitionID,
+			)
+			if err != nil {
+				cli.Error("failed to load the recorded tier", err)
+				os.Exit(1)
+			}
+			tier = util.DerefString(controlPlaneDefinition.Tier)
 		}
-		controlPlaneDefinition, err := client.GetControlPlaneDefinitionByID(
-			apiClient,
-			apiEndpoint,
-			*controlPlaneInstance.ControlPlaneDefinitionID,
-		)
-		if err != nil {
-			cli.Error("failed to load the recorded tier", err)
-			os.Exit(1)
-		}
-		infra.Tier = util.DerefString(controlPlaneDefinition.Tier)
+		infra.Tier = tier
 
 		// preview and apply the change
 		err = infra.Upgrade(cmd.Context(), acceptInfrastructureUpgrade)
@@ -125,6 +139,13 @@ func init() {
 	UpgradeInfrastructureCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	UpgradeInfrastructureCmd.Flags().StringVar(
+		&upgradeInfraTier,
+		"tier", "", fmt.Sprintf(
+			"Optional. Control plane tier to size the infrastructure for. One of %s. Defaults to the tier recorded for the control plane.",
+			strings.Join(api.ControlPlaneTiers, ", "),
+		),
 	)
 	UpgradeInfrastructureCmd.Flags().BoolVar(
 		&upgradeInfraYes,
