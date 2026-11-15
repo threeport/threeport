@@ -61,6 +61,9 @@ type ControlPlaneInstance struct {
 	// neither is set a component takes the tag its parent control plane runs.
 	ImageTag *string `validate:"optional"`
 
+	// The module install the parent controller runs, as name, image namespace, and tag separated by spaces
+	ModuleInstall *string `validate:"optional"`
+
 	// The controller groups this control plane installs.
 	// Group names are separated by commas.
 	// An empty or omitted value installs every controller.

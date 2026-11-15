@@ -1450,6 +1450,27 @@ func v0ControlPlaneInstanceUpdated(
 		return 0, fmt.Errorf("failed to get kube client: %w", err)
 	}
 
+	// create a requested module install with this control plane's kube client
+	if util.DerefString(controlPlaneInstance.ModuleInstall) != "" {
+		if err := threeport.InstallRequestedModule(
+			dynamicKubeClient,
+			mapper,
+			controlPlaneInstance,
+			cpi,
+		); err != nil {
+			return 0, err
+		}
+		cleared := ""
+		controlPlaneInstance.ModuleInstall = &cleared
+		if _, err = client.UpdateControlPlaneInstance(
+			r.APIClient,
+			r.APIServer,
+			controlPlaneInstance,
+		); err != nil {
+			return 0, fmt.Errorf("failed to clear module install request: %w", err)
+		}
+	}
+
 	// a recorded source namespace means tptctl asked for a new deployment of this child
 	if from := util.DerefString(controlPlaneInstance.FromNamespace); from != "" && from != util.DerefString(controlPlaneInstance.Namespace) {
 		if err := installChildBlueGreen(

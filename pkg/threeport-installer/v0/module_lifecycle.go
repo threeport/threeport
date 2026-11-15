@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -279,6 +280,50 @@ func retagModuleController(
 		map[string]string{"containers": container},
 		time.Now().UTC(),
 	)
+}
+
+// ModuleInstallRequest is the value stored for the parent controller to run.
+func ModuleInstallRequest(module *api.ModuleApi) string {
+	// keep the three fields in an order the controller can split
+	return strings.Join([]string{
+		util.DerefString(module.Name),
+		util.DerefString(module.ImageNamespace),
+		util.DerefString(module.ImageTag),
+	}, " ")
+}
+
+// moduleFromInstallRequest reads the stored name, image namespace, and tag.
+func moduleFromInstallRequest(raw string) (*api.ModuleApi, error) {
+	// reject a request that is missing one of the three fields
+	parts := strings.SplitN(raw, " ", 3)
+	if len(parts) != 3 || parts[0] == "" || parts[1] == "" || parts[2] == "" {
+		return nil, fmt.Errorf("module install request %q is missing a field", raw)
+	}
+	return &api.ModuleApi{
+		Name:           &parts[0],
+		ImageNamespace: &parts[1],
+		ImageTag:       &parts[2],
+	}, nil
+}
+
+// InstallRequestedModule creates the install job with the caller's kube client.
+// The controller passes the client it already uses for the control plane.
+func InstallRequestedModule(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	inst *api.ControlPlaneInstance,
+	cpi *ControlPlaneInstaller,
+) error {
+	// leave a row that is not asking for an install
+	raw := util.DerefString(inst.ModuleInstall)
+	if raw == "" {
+		return nil
+	}
+	module, err := moduleFromInstallRequest(raw)
+	if err != nil {
+		return err
+	}
+	return EnsureModuleInstallJob(kubeClient, mapper, inst, cpi, module)
 }
 
 // EnsureModuleInstallJob creates the install job when the module is not already installing.

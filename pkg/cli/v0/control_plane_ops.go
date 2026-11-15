@@ -139,8 +139,8 @@ func (target *ControlPlaneTarget) clusterClient(
 	return nil
 }
 
-// InstallModule creates the module install job on the target cluster.
-// It does not create the module API row. The plugin install does that.
+// InstallModule records a module install for the parent controller.
+// The controller creates the job. The plugin install creates the module API row.
 func InstallModule(
 	currentClient *http.Client,
 	currentEndpoint string,
@@ -150,31 +150,24 @@ func InstallModule(
 	imageNamespace string,
 	imageTag string,
 ) error {
-	// resolve the control plane and its cluster before creating anything
+	// resolve the control plane the parent controller reconciles
 	target, err := ResolveControlPlane(currentClient, currentEndpoint, controlPlaneName, false)
 	if err != nil {
 		return err
 	}
-	if err := target.clusterClient(currentClient, currentEndpoint, encryptionKey); err != nil {
-		return err
-	}
 
-	// run the install job from the image coordinates, without writing a module row
+	// record the request so the parent controller creates the job
 	module := &api.ModuleApi{
 		Name:           &moduleName,
 		ImageNamespace: &imageNamespace,
 		ImageTag:       &imageTag,
 	}
-	cpi := installer.NewInstaller(
-		installer.Namespace(util.DerefString(target.Instance.Namespace)),
-	)
-	return installer.EnsureModuleInstallJob(
-		target.Kube,
-		target.Mapper,
-		target.Instance,
-		cpi,
-		module,
-	)
+	request := installer.ModuleInstallRequest(module)
+	target.Instance.ModuleInstall = &request
+	if _, err := client.UpdateControlPlaneInstance(currentClient, currentEndpoint, target.Instance); err != nil {
+		return fmt.Errorf("failed to record module install: %w", err)
+	}
+	return nil
 }
 
 // UpgradeModule records a module image.

@@ -485,7 +485,7 @@ func restoredIdentity(name string) bool {
 // parent, and an empty NetworkCidrPool allocates from the default pool.
 func blankValueIsTheSetting(name string) bool {
 	switch name {
-	case "Apis", "ImageNamespace", "ImageTag", "NetworkCidrPool":
+	case "Apis", "ImageNamespace", "ImageTag", "ModuleInstall", "NetworkCidrPool":
 		return true
 	default:
 		return false
