@@ -1811,6 +1811,45 @@ func matchRestoredSource(instances []api.ControlPlaneInstance, fromNamespace, so
 	return nil, fmt.Errorf("no local control plane instance")
 }
 
+// ScaleStatefulSetsToZero sets every StatefulSet in a namespace to zero replicas
+// and returns the names it scaled down. A StatefulSet already at zero is left
+// alone. The volumes stay.
+func ScaleStatefulSetsToZero(kubeClient dynamic.Interface, namespace string) ([]string, error) {
+	// list the StatefulSets in the namespace
+	list, err := kubeClient.Resource(statefulSetGVR).Namespace(namespace).List(
+		context.Background(),
+		metav1.ListOptions{},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list StatefulSets in %s: %w", namespace, err)
+	}
+
+	// set each running StatefulSet to zero replicas
+	patch := []byte(`{"spec":{"replicas":0}}`)
+	var scaled []string
+	var scaleErrors []error
+	for _, statefulSet := range list.Items {
+		replicas, found, err := unstructured.NestedInt64(statefulSet.Object, "spec", "replicas")
+		if err == nil && found && replicas == 0 {
+			continue
+		}
+		_, err = kubeClient.Resource(statefulSetGVR).Namespace(namespace).Patch(
+			context.Background(),
+			statefulSet.GetName(),
+			"application/merge-patch+json",
+			patch,
+			metav1.PatchOptions{},
+		)
+		if err != nil {
+			scaleErrors = append(scaleErrors, fmt.Errorf("failed to scale StatefulSet %s to zero: %w", statefulSet.GetName(), err))
+			continue
+		}
+		scaled = append(scaled, statefulSet.GetName())
+	}
+
+	return scaled, errors.Join(scaleErrors...)
+}
+
 // scaleDeploymentsToZero sets each named deployment to zero replicas.
 // A deployment that is already gone is skipped.
 func scaleDeploymentsToZero(kubeClient dynamic.Interface, namespace string, names map[string]int64) error {

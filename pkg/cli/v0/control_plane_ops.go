@@ -658,7 +658,7 @@ func runBlueGreen(
 	if err := removeReplacedNamespace(source.Kube, source.Mapper, namespace, newNamespace); err != nil {
 		return err
 	}
-	fmt.Printf("Info: control plane %s is up in %s, source namespace %s deleted\n", newName, newNamespace, namespace)
+	fmt.Printf("Info: control plane %s is up in %s\n", newName, newNamespace)
 	return nil
 }
 
@@ -826,21 +826,38 @@ func childBlueGreenUpdate(id *uint, currentName, newName, sourceNamespace, tag, 
 }
 
 // removeReplacedNamespace deletes the namespace the restore came from.
-// The shared support-services namespace is left in place.
+// The namespace that holds the shared support-services operator is kept, and
+// the StatefulSets of the replaced control plane in it are scaled to zero.
 func removeReplacedNamespace(
 	kube dynamic.Interface,
 	mapper *meta.RESTMapper,
 	namespace, newNamespace string,
 ) error {
-	// keep the namespace that holds the shared operator
-	if namespace == "" || namespace == newNamespace || installer.KeepSourceNamespace(namespace) {
+	// leave a namespace that is empty or is the new control plane's
+	if namespace == "" || namespace == newNamespace {
 		return nil
 	}
+
+	// keep the namespace that holds the shared operator and stop what else runs in it
+	if installer.KeepSourceNamespace(namespace) {
+		scaled, err := installer.ScaleStatefulSetsToZero(kube, namespace)
+		if err != nil {
+			return fmt.Errorf("failed to scale down the kept source namespace %s: %w", namespace, err)
+		}
+		fmt.Printf(
+			"Info: kept source namespace %s, which holds the shared support services operator, and scaled its StatefulSets to zero: %s\n",
+			namespace,
+			strings.Join(scaled, ", "),
+		)
+		return nil
+	}
+
 	// delete the replaced control plane namespace
 	fmt.Printf("Info: deleting source namespace %s\n", namespace)
 	if err := installer.DeleteNamespaces(kube, mapper, []string{namespace}); err != nil {
 		return fmt.Errorf("failed to delete source namespace %s: %w", namespace, err)
 	}
+	fmt.Printf("Info: deleted source namespace %s\n", namespace)
 	return nil
 }
 

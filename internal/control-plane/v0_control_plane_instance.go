@@ -704,6 +704,20 @@ func v0ControlPlaneInstanceCreated(
 				return 0, fmt.Errorf("failed to delete source namespace %s: %w", cpi.Opts.FromNamespace, err)
 			}
 		}
+
+		// stop the replaced control plane's StatefulSets in a source namespace kept for the shared services
+		if cpi.Opts.FromNamespace != cpi.Opts.Namespace &&
+			threeport.KeepSourceNamespace(cpi.Opts.FromNamespace) {
+			scaled, err := threeport.ScaleStatefulSetsToZero(dynamicKubeClient, cpi.Opts.FromNamespace)
+			if err != nil {
+				return 0, fmt.Errorf("failed to scale down source namespace %s: %w", cpi.Opts.FromNamespace, err)
+			}
+			log.Info(
+				"kept source namespace and scaled its StatefulSets to zero",
+				"namespace", cpi.Opts.FromNamespace,
+				"statefulSets", scaled,
+			)
+		}
 	}
 
 	// stop here when the new API is not onboarded to a parent

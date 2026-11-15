@@ -15,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	k8stesting "k8s.io/client-go/testing"
 )
@@ -787,4 +788,51 @@ func TestHoldReplicasForRestore(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 3, kept)
 	assert.Empty(t, recorded.GetAnnotations()[replicasBeforeRestoreAnnotation])
+}
+
+// TestScaleStatefulSetsToZeroStopsOnlyRunningStatefulSets covers stopping the
+// database and message broker of a replaced control plane in a namespace that
+// is kept: every running StatefulSet goes to zero and is named, one already at
+// zero is left alone, and a Deployment in the namespace is not touched.
+func TestScaleStatefulSetsToZeroStopsOnlyRunningStatefulSets(t *testing.T) {
+	// set up a namespace with two running StatefulSets, a stopped one, and a Deployment
+	newWorkload := func(kind, name string, replicas int64) *unstructured.Unstructured {
+		return &unstructured.Unstructured{Object: map[string]interface{}{
+			"apiVersion": "apps/v1",
+			"kind":       kind,
+			"metadata":   map[string]interface{}{"name": name, "namespace": "kept"},
+			"spec":       map[string]interface{}{"replicas": replicas},
+		}}
+	}
+	kubeClient := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(
+		runtime.NewScheme(),
+		map[schema.GroupVersionResource]string{statefulSetGVR: "StatefulSetList"},
+		newWorkload("StatefulSet", "crdb", 3),
+		newWorkload("StatefulSet", "nats-js", 1),
+		newWorkload("StatefulSet", "stopped", 0),
+		newWorkload("Deployment", "operator", 1),
+	)
+
+	// scale the namespace's StatefulSets down
+	scaled, err := ScaleStatefulSetsToZero(kubeClient, "kept")
+	require.NoError(t, err)
+
+	// assert the running StatefulSets are named and stopped
+	assert.ElementsMatch(t, []string{"crdb", "nats-js"}, scaled)
+	for _, name := range []string{"crdb", "nats-js", "stopped"} {
+		statefulSet, err := kubeClient.Resource(statefulSetGVR).Namespace("kept").Get(
+			context.Background(), name, metav1.GetOptions{},
+		)
+		require.NoError(t, err, name)
+		replicas, _, _ := unstructured.NestedInt64(statefulSet.Object, "spec", "replicas")
+		assert.Equal(t, int64(0), replicas, name)
+	}
+
+	// assert the Deployment keeps its replicas
+	deployment, err := kubeClient.Resource(deploymentGVR).Namespace("kept").Get(
+		context.Background(), "operator", metav1.GetOptions{},
+	)
+	require.NoError(t, err)
+	replicas, _, _ := unstructured.NestedInt64(deployment.Object, "spec", "replicas")
+	assert.Equal(t, int64(1), replicas)
 }

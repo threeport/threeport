@@ -15,8 +15,10 @@ import (
 )
 
 // TestUpgradeLeavesTheSharedOperator calls the namespace delete the upgrade uses.
+// The shared namespace stays with its operator and its StatefulSets at zero, and
+// a dedicated namespace is deleted.
 func TestUpgradeLeavesTheSharedOperator(t *testing.T) {
-	// install the operator in the shared namespace and a workload in a dedicated one
+	// install the operator and a database in the shared namespace and a workload in a dedicated one
 	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Version: "v1"}})
 	mapper.Add(schema.GroupVersionKind{Version: "v1", Kind: "Namespace"}, meta.RESTScopeRoot)
 	var rest meta.RESTMapper = mapper
@@ -30,11 +32,22 @@ func TestUpgradeLeavesTheSharedOperator(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// the replaced control plane's StatefulSets in the shared namespace are stopped
+	statefulSet, err := kube.Resource(statefulSetGVR()).Namespace(installer.ControlPlaneNamespace).Get(
+		t.Context(), "crdb", metav1.GetOptions{},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if replicas, _, _ := unstructured.NestedInt64(statefulSet.Object, "spec", "replicas"); replicas != 0 {
+		t.Fatalf("shared namespace database replicas = %d, want 0", replicas)
+	}
+
 	// a dedicated source namespace is removed
 	if err := removeReplacedNamespace(kube, &rest, "primary-02", "primary-05"); err != nil {
 		t.Fatal(err)
 	}
-	_, err := kube.Resource(schema.GroupVersionResource{Version: "v1", Resource: "namespaces"}).Get(
+	_, err = kube.Resource(schema.GroupVersionResource{Version: "v1", Resource: "namespaces"}).Get(
 		t.Context(), "primary-02", metav1.GetOptions{},
 	)
 	if err == nil {
@@ -65,12 +78,35 @@ func operatorCluster() dynamic.Interface {
 				"namespace": installer.ControlPlaneNamespace,
 			},
 		}},
+		&unstructured.Unstructured{Object: map[string]interface{}{
+			"apiVersion": "apps/v1",
+			"kind":       "StatefulSet",
+			"metadata": map[string]interface{}{
+				"name":      "crdb",
+				"namespace": installer.ControlPlaneNamespace,
+			},
+			"spec": map[string]interface{}{"replicas": int64(3)},
+		}},
 	}
-	return fake.NewSimpleDynamicClient(scheme, objects...)
+	return fake.NewSimpleDynamicClientWithCustomListKinds(
+		scheme,
+		map[schema.GroupVersionResource]string{
+			{Version: "v1", Resource: "namespaces"}: "NamespaceList",
+			deployGVR():                             "DeploymentList",
+			statefulSetGVR():                        "StatefulSetList",
+		},
+		objects...,
+	)
 }
 
 // deployGVR is the apps deployment resource the operator test reads.
 func deployGVR() schema.GroupVersionResource {
 	// name the deployment resource
 	return schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
+}
+
+// statefulSetGVR is the apps StatefulSet resource the operator test reads.
+func statefulSetGVR() schema.GroupVersionResource {
+	// name the StatefulSet resource
+	return schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "statefulsets"}
 }
