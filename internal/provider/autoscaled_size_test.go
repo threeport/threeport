@@ -7,6 +7,8 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	api "github.com/threeport/threeport/pkg/api/v0"
 )
 
 // ignoredChangesByType runs a Pulumi program against mocks and returns the
@@ -72,6 +74,7 @@ func TestTheNodeGroupSizeIsSetOnlyWhenTheNodeGroupIsCreated(t *testing.T) {
 			WorkerNodeInitialCount: 1,
 			MinNodeCount:           1,
 			MaxNodeCount:           3,
+			Tier:                   api.ControlPlaneTierProduction,
 		}
 		ignored := ignoredChangesByType(t, infra.pulumiProgram(), &gkeRecordingMocks{}, "gke")
 

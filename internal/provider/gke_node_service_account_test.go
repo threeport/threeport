@@ -7,6 +7,8 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	api "github.com/threeport/threeport/pkg/api/v0"
 )
 
 // runGkeProgram runs the GKE program against mocks for a runtime.
@@ -29,7 +31,10 @@ func runGkeProgram(t *testing.T, i *KubernetesRuntimeInfraGKE) *gkeRecordingMock
 // provides for node service accounts, in place of the project's default
 // Compute Engine account.
 func TestGkeNodesRunAsTheClustersOwnServiceAccount(t *testing.T) {
-	i := &KubernetesRuntimeInfraGKE{PulumiWorkspace: PulumiWorkspace{RuntimeInstanceName: "threeport-test"}}
+	i := &KubernetesRuntimeInfraGKE{
+		PulumiWorkspace: PulumiWorkspace{RuntimeInstanceName: "threeport-test"},
+		Tier:            api.ControlPlaneTierProduction,
+	}
 	mocks := runGkeProgram(t, i)
 
 	accounts := mocks.ofType(gkeAccountTypeToken)
@@ -77,6 +82,7 @@ func TestAGkeNodePoolCreatedOnTheDefaultAccountKeepsIt(t *testing.T) {
 	i := &KubernetesRuntimeInfraGKE{
 		PulumiWorkspace:                PulumiWorkspace{RuntimeInstanceName: "threeport-test"},
 		nodesKeepDefaultServiceAccount: true,
+		Tier:                           api.ControlPlaneTierProduction,
 	}
 	mocks := runGkeProgram(t, i)
 
