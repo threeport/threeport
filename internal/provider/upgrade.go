@@ -144,8 +144,8 @@ func handleUpgrade(p UpgradeLifecycleProvider, snap *ReconciliationSnapshot, log
 		return upgradeRequeueSeconds, nil
 	}
 
-	// a failed upgrade is tried again after a wait
-	if upgrade.Failed && upgrade.Acknowledged != nil {
+	// a failed upgrade is tried again after a wait, unless it was refused
+	if upgrade.Failed && !upgrade.Refused && upgrade.Acknowledged != nil {
 		if wait := upgradeRetryDelay - currentClock().Now().UTC().Sub(*upgrade.Acknowledged); wait > 0 {
 			return int64(wait.Seconds()) + 1, nil
 		}
@@ -188,9 +188,32 @@ func handleUpgrade(p UpgradeLifecycleProvider, snap *ReconciliationSnapshot, log
 		}
 
 		// an upgrade that reached the version without recording it, because
-		// it was interrupted or its last step failed, is finished here, as is
-		// a refused one the provider has since done on its own
-		if upgrade.Upgrading || upgrade.Failed || upgrade.Refused {
+		// it was interrupted or its last step failed, may have left the
+		// step's last work undone, such as the add-ons EKS moves after its
+		// node group, so the step runs again on the version the cluster runs.
+		// One refused when it ran again stays failed as well as refused, so
+		// the work is still there to do once the refusal is cleared.
+		unfinished := (upgrade.Upgrading || upgrade.Failed) && !upgrade.Refused
+		if comparison == 0 && unfinished {
+			if err := p.AckUpgrade(fmt.Sprintf("finishing the upgrade to Kubernetes %s", current)); err != nil {
+				return 0, fmt.Errorf("failed to acknowledge the upgrade: %w", err)
+			}
+			return launchInfraUpgrade(upgradeConfig{
+				Provider:      p,
+				Infra:         upgradeable,
+				ExistingState: snap.ResourceInventory,
+				From:          current,
+				To:            current,
+				Log:           log,
+			})
+		}
+
+		// one taken past the version is finished here, as is a refused one
+		// the provider has since done on its own.  A step refused on the
+		// version the cluster still runs, as one run again to finish its
+		// work can be, stays refused.
+		providerUpgraded := upgrade.Refused && current != upgrade.RecordedVersion
+		if unfinished || providerUpgraded {
 			if comparison == 0 {
 				status = fmt.Sprintf("upgraded to Kubernetes %s", current)
 			}
@@ -262,6 +285,25 @@ type upgradeConfig struct {
 	Log           *logr.Logger
 }
 
+// step describes the upgrade step, as "from Kubernetes 1.35 to 1.36", or as
+// "to Kubernetes 1.36" for one run again on the version the cluster runs.
+func (c upgradeConfig) step() string {
+	if c.From == c.To {
+		return fmt.Sprintf("to Kubernetes %s", c.To)
+	}
+
+	return fmt.Sprintf("from Kubernetes %s to %s", c.From, c.To)
+}
+
+// upgradedStatus describes a finished upgrade step.
+func upgradedStatus(from, version string) string {
+	if from == version {
+		return fmt.Sprintf("upgraded to Kubernetes %s", version)
+	}
+
+	return fmt.Sprintf("upgraded from Kubernetes %s to %s", from, version)
+}
+
 // launchInfraUpgrade acquires the concurrency semaphore, then launches
 // executeInfraUpgrade in a background goroutine.  It returns a requeue delay
 // for the reconciler.
@@ -284,7 +326,7 @@ func launchInfraUpgrade(config upgradeConfig) (int64, error) {
 				config.Log.Error(err, "recovered panic in infrastructure upgrade goroutine")
 				finishUpgrade(config, UpgradeOutcome{
 					Failed: true,
-					Status: fmt.Sprintf("failed to upgrade from Kubernetes %s to %s: %v", config.From, config.To, err),
+					Status: fmt.Sprintf("failed to upgrade %s: %v", config.step(), err),
 				})
 			}
 		}()
@@ -309,7 +351,7 @@ func executeInfraUpgrade(config upgradeConfig) {
 		config.Log.Error(err, "failed to upgrade the cluster", "from", config.From, "to", config.To)
 		finishUpgrade(config, UpgradeOutcome{
 			Failed: true,
-			Status: fmt.Sprintf("failed to upgrade from Kubernetes %s to %s: %v", config.From, config.To, err),
+			Status: fmt.Sprintf("failed to upgrade %s: %v", config.step(), err),
 		})
 	}
 
@@ -343,15 +385,23 @@ func executeInfraUpgrade(config upgradeConfig) {
 
 	var refused *UpgradeRefusedError
 	if errors.As(upgradeErr, &refused) {
-		status := fmt.Sprintf("refused to upgrade from Kubernetes %s to %s: %v", config.From, config.To, refused)
-		finishUpgrade(config, UpgradeOutcome{Version: config.From, Refused: true, Status: status})
+		// a step run again to finish an upgrade's work is also recorded as
+		// failed: the upgrade is unfinished, and runs the step again once the
+		// refusal is cleared
+		status := fmt.Sprintf("refused to upgrade %s: %v", config.step(), refused)
+		finishUpgrade(config, UpgradeOutcome{
+			Version: config.From,
+			Failed:  config.From == config.To,
+			Refused: true,
+			Status:  status,
+		})
 		warnUpgrade(config.Provider, event.ReasonUpgradeRefused, status, config.Log)
 		return
 	}
 	if upgradeErr != nil {
 		failed(upgradeErr)
 		warnUpgrade(config.Provider, event.ReasonUpgradeFailed, fmt.Sprintf(
-			"failed to upgrade from Kubernetes %s to %s: %v", config.From, config.To, upgradeErr,
+			"failed to upgrade %s: %v", config.step(), upgradeErr,
 		), config.Log)
 		return
 	}
@@ -378,7 +428,7 @@ func executeInfraUpgrade(config upgradeConfig) {
 	}
 	finishUpgrade(config, UpgradeOutcome{
 		Version: version,
-		Status:  fmt.Sprintf("upgraded from Kubernetes %s to %s", config.From, version),
+		Status:  upgradedStatus(config.From, version),
 	})
 }
 

@@ -9,26 +9,36 @@ import (
 )
 
 // clusterKubernetesVersion returns the Kubernetes minor version the EKS
-// cluster runs: the lower of its control plane's and its node group's.  EKS
+// cluster runs: the lowest of its control plane's and its node groups'.  EKS
 // upgrades the control plane on its own when its version leaves standard
-// support, and leaves the node group behind.
+// support, and leaves the node groups behind.
 func (i *KubernetesRuntimeInfraEKS) clusterKubernetesVersion() (string, error) {
-	controlPlane, err := tpaws.EksClusterVersion(i.AwsConfig, i.RuntimeInstanceName)
+	version, err := eksControlPlaneVersion(i.AwsConfig, i.RuntimeInstanceName)
 	if err != nil {
 		return "", err
 	}
-	nodeGroup, err := tpaws.EksNodeGroupVersion(i.AwsConfig, i.RuntimeInstanceName, i.nodeGroupName())
-	if err != nil {
-		return "", err
+	for _, nodeGroupName := range i.nodeGroupNames() {
+		nodeGroup, err := eksNodeGroupVersion(i.AwsConfig, i.RuntimeInstanceName, nodeGroupName)
+		if err != nil {
+			return "", err
+		}
+		if version, err = lowerKubernetesVersion(version, nodeGroup); err != nil {
+			return "", err
+		}
 	}
 
-	return lowerKubernetesVersion(controlPlane, nodeGroup)
+	return version, nil
 }
 
-// upgradeInfra upgrades the EKS cluster's control plane, and then its node
-// group, to version.  A control plane already past version, which EKS
-// upgraded on its own while the node group stayed behind, is kept where it
-// is, and only the node group catches up.  The stack keeps the cluster's
+// eksNodeGroupVersion reads an EKS node group's minor version.  A test stands
+// in for it.
+var eksNodeGroupVersion = tpaws.EksNodeGroupVersion
+
+// upgradeInfra upgrades the EKS cluster's control plane, then its node
+// groups, then its add-ons, to version.  A control plane already past
+// version, which EKS upgraded on its own while the node groups stayed
+// behind, is kept where it is, as are the add-ons, which follow the control
+// plane, and a node group already past it.  The stack keeps the cluster's
 // upgrade policy, as a resumed create does, and the roles the create gave
 // the cluster and its node group.
 func (i *KubernetesRuntimeInfraEKS) upgradeInfra(version string) error {
@@ -37,8 +47,24 @@ func (i *KubernetesRuntimeInfraEKS) upgradeInfra(version string) error {
 	if err != nil {
 		return err
 	}
-	if i.controlPlaneVersion, err = controlPlaneVersionForUpgrade(controlPlane, version); err != nil {
+	if i.controlPlaneVersion, err = versionKeptForUpgrade(controlPlane, version); err != nil {
 		return err
+	}
+	// a node group already past the version keeps its own, as the control
+	// plane does
+	i.nodeGroupVersions = map[string]string{}
+	for _, nodeGroupName := range i.nodeGroupNames() {
+		nodeGroup, err := eksNodeGroupVersion(i.AwsConfig, i.RuntimeInstanceName, nodeGroupName)
+		if err != nil {
+			return err
+		}
+		keep, err := versionKeptForUpgrade(nodeGroup, version)
+		if err != nil {
+			return err
+		}
+		if keep != "" {
+			i.nodeGroupVersions[nodeGroupName] = keep
+		}
 	}
 	if err := i.lookupClusterIam(); err != nil {
 		return err
@@ -53,8 +79,13 @@ func (i *KubernetesRuntimeInfraEKS) upgradeInfra(version string) error {
 		return fmt.Errorf("failed to read the stack's EKS cluster: %w", err)
 	}
 	i.keepStackSupportType(exported.Deployment)
+	i.keepStackZones(exported.Deployment)
 
-	return i.upgradeStack(stack)
+	if err := i.upgradeStack(stack); err != nil {
+		return err
+	}
+
+	return i.upgradeEbsStorageAddon(i.controlPlaneKubernetesVersion())
 }
 
 // clusterKubernetesVersion returns the Kubernetes minor version the GKE
@@ -105,17 +136,17 @@ func (i *KubernetesRuntimeInfraGKE) upgradeInfra(version string) error {
 // stands in for it.
 var eksControlPlaneVersion = tpaws.EksClusterVersion
 
-// controlPlaneVersionForUpgrade returns the version to keep the control plane
-// on while the cluster is upgraded to version: its own when it is already
-// past version, as a downgrade would be refused, and "" to upgrade it to
-// version with the node group otherwise.
-func controlPlaneVersionForUpgrade(controlPlane, version string) (string, error) {
-	comparison, err := api_v0.CompareKubernetesVersions(controlPlane, version)
+// versionKeptForUpgrade returns the version to keep the control plane, or a
+// node group, on while the cluster is upgraded to version: its own, current,
+// when it is already past version, as a downgrade would be refused, and "" to
+// upgrade it to version otherwise.
+func versionKeptForUpgrade(current, version string) (string, error) {
+	comparison, err := api_v0.CompareKubernetesVersions(current, version)
 	if err != nil {
 		return "", err
 	}
 	if comparison > 0 {
-		return controlPlane, nil
+		return current, nil
 	}
 
 	return "", nil

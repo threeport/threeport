@@ -17,6 +17,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awseks "github.com/aws/aws-sdk-go-v2/service/eks"
+	ekstypes "github.com/aws/aws-sdk-go-v2/service/eks/types"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/aws/smithy-go"
@@ -974,6 +975,134 @@ func (i *KubernetesRuntimeInfraEKS) createEbsStorageAddon(ctx context.Context, s
 	}
 
 	return nil
+}
+
+var (
+	// ebsStorageAddonUpgradeTimeout bounds each wait for the EBS CSI driver
+	// add-on to be active: before its upgrade, and after it.
+	ebsStorageAddonUpgradeTimeout = 20 * time.Minute
+
+	// ebsStorageAddonRequestTimeout bounds the calls an upgrade of the add-on
+	// makes to look it up, and, on its own, the call that updates it.
+	ebsStorageAddonRequestTimeout = 2 * time.Minute
+
+	// ebsStorageAddonPollInterval is how often a wait for the add-on asks
+	// whether it is active.
+	ebsStorageAddonPollInterval = 15 * time.Second
+)
+
+// ebsStorageAddonAPI is the part of the EKS API an upgrade of the EBS CSI
+// driver add-on uses.
+type ebsStorageAddonAPI interface {
+	awseks.DescribeAddonAPIClient
+	awseks.DescribeAddonVersionsAPIClient
+	UpdateAddon(context.Context, *awseks.UpdateAddonInput, ...func(*awseks.Options)) (*awseks.UpdateAddonOutput, error)
+}
+
+// newEbsStorageAddonClient returns the EKS client for an AWS config.  A test
+// stands in for it.
+var newEbsStorageAddonClient = func(cfg aws.Config) ebsStorageAddonAPI {
+	return awseks.NewFromConfig(cfg)
+}
+
+// upgradeEbsStorageAddon moves the EBS CSI driver add-on to the version EKS
+// gives for kubernetesVersion, and waits for it to be active.  It is created
+// outside the stack, once the cluster's OIDC issuer exists, so the stack's
+// upgrade doesn't move it.  A cluster without it has nothing to upgrade.
+func (i *KubernetesRuntimeInfraEKS) upgradeEbsStorageAddon(kubernetesVersion string) error {
+	if i.AwsConfig == nil {
+		return errors.New("cannot upgrade the EBS storage addon without an AWS config")
+	}
+
+	// the lookups, the update and each wait get deadlines of their own, so a
+	// long wait for the add-on to settle doesn't cut short what comes after it
+	ctx, cancel := context.WithTimeout(context.Background(), ebsStorageAddonRequestTimeout)
+	defer cancel()
+	eksClient := newEbsStorageAddonClient(*i.AwsConfig)
+	addon := &awseks.DescribeAddonInput{
+		AddonName:   aws.String(tpaws.EksEbsStorageAddonName),
+		ClusterName: aws.String(i.RuntimeInstanceName),
+	}
+
+	current, err := eksClient.DescribeAddon(ctx, addon)
+	if IsAwsErrorCode(err, "ResourceNotFoundException") {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("failed to describe the EBS storage addon: %w", err)
+	}
+
+	var versions []ekstypes.AddonInfo
+	paginator := awseks.NewDescribeAddonVersionsPaginator(eksClient, &awseks.DescribeAddonVersionsInput{
+		AddonName:         aws.String(tpaws.EksEbsStorageAddonName),
+		KubernetesVersion: aws.String(kubernetesVersion),
+	})
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get the EBS storage addon's versions: %w", err)
+		}
+		versions = append(versions, page.Addons...)
+	}
+	version, err := defaultAddonVersion(versions, kubernetesVersion)
+	if err != nil {
+		return fmt.Errorf("failed to choose the EBS storage addon's version: %w", err)
+	}
+	if aws.ToString(current.Addon.AddonVersion) == version {
+		return nil
+	}
+
+	// EKS refuses to update an add-on it is still creating or updating, as
+	// it can be right after the cluster's create
+	if status := current.Addon.Status; status == ekstypes.AddonStatusCreating || status == ekstypes.AddonStatusUpdating {
+		if err := waitForAddonActive(eksClient, addon); err != nil {
+			return fmt.Errorf("failed waiting for the EBS storage addon to be active before its upgrade: %w", err)
+		}
+	}
+
+	updateCtx, cancelUpdate := context.WithTimeout(context.Background(), ebsStorageAddonRequestTimeout)
+	defer cancelUpdate()
+	if _, err := eksClient.UpdateAddon(updateCtx, &awseks.UpdateAddonInput{
+		AddonName:        addon.AddonName,
+		ClusterName:      addon.ClusterName,
+		AddonVersion:     aws.String(version),
+		ResolveConflicts: ekstypes.ResolveConflictsOverwrite,
+	}); err != nil {
+		return fmt.Errorf("failed to upgrade the EBS storage addon to %s: %w", version, err)
+	}
+	if err := waitForAddonActive(eksClient, addon); err != nil {
+		return fmt.Errorf("failed waiting for the EBS storage addon to be active on %s: %w", version, err)
+	}
+
+	return nil
+}
+
+// waitForAddonActive waits for an add-on to be active, for up to
+// ebsStorageAddonUpgradeTimeout of its own.
+func waitForAddonActive(eksClient awseks.DescribeAddonAPIClient, addon *awseks.DescribeAddonInput) error {
+	ctx, cancel := context.WithTimeout(context.Background(), ebsStorageAddonUpgradeTimeout)
+	defer cancel()
+
+	return awseks.NewAddonActiveWaiter(eksClient, func(options *awseks.AddonActiveWaiterOptions) {
+		options.MinDelay = ebsStorageAddonPollInterval
+		options.MaxDelay = ebsStorageAddonPollInterval
+	}).Wait(ctx, addon, ebsStorageAddonUpgradeTimeout)
+}
+
+// defaultAddonVersion returns the version of an add-on EKS marks as the
+// default for kubernetesVersion.
+func defaultAddonVersion(addons []ekstypes.AddonInfo, kubernetesVersion string) (string, error) {
+	for _, addon := range addons {
+		for _, version := range addon.AddonVersions {
+			for _, compatibility := range version.Compatibilities {
+				if compatibility.DefaultVersion && aws.ToString(compatibility.ClusterVersion) == kubernetesVersion {
+					return aws.ToString(version.AddonVersion), nil
+				}
+			}
+		}
+	}
+
+	return "", fmt.Errorf("no default version is offered for Kubernetes %s", kubernetesVersion)
 }
 
 // oidcIssuerThumbprint returns the SHA1 thumbprint of the root certificate the

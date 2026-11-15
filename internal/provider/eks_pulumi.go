@@ -2,6 +2,7 @@ package provider
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/pulumi/pulumi-aws/sdk/v6/go/aws"
 	"github.com/pulumi/pulumi-aws/sdk/v6/go/aws/ec2"
@@ -142,6 +143,65 @@ func (i *KubernetesRuntimeInfraEKS) InitPulumiProject() *KubernetesRuntimeInfraE
 	return i
 }
 
+// clusterZones returns the availability zones the cluster spans, from the
+// region's available ones in order.  With a node group per zone, only zones
+// that offer the node instance type are used: a node group in one that doesn't
+// can't start a node, and a newer type such as m8i isn't in every zone.
+func (i *KubernetesRuntimeInfraEKS) clusterZones(ctx *pulumi.Context, available []string) ([]string, error) {
+	// a cluster the stack holds stays in the zones its subnets are in, and a
+	// create that stopped before making every zone's subnets gets the rest
+	zoneCount := i.zoneCount()
+	zones := make([]string, zoneCount)
+	copy(zones, i.stackZones)
+	if !slices.Contains(zones, "") {
+		return zones, nil
+	}
+
+	candidates := available
+	if i.NodeGroupPerZone {
+		offerings, err := ec2.GetInstanceTypeOfferings(ctx, &ec2.GetInstanceTypeOfferingsArgs{
+			LocationType: pulumi.StringRef("availability-zone"),
+			Filters: []ec2.GetInstanceTypeOfferingsFilter{{
+				Name:   "instance-type",
+				Values: []string{i.DefaultNodeGroupInstanceType},
+			}},
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to get the zones offering %s in region %s: %w", i.DefaultNodeGroupInstanceType, i.Region, err)
+		}
+		candidates = nil
+		for _, zone := range available {
+			if slices.Contains(offerings.Locations, zone) {
+				candidates = append(candidates, zone)
+			}
+		}
+	}
+
+	for _, zone := range candidates {
+		position := slices.Index(zones, "")
+		if position < 0 {
+			break
+		}
+		if !slices.Contains(zones, zone) {
+			zones[position] = zone
+		}
+	}
+	if slices.Contains(zones, "") {
+		if i.NodeGroupPerZone {
+			return nil, fmt.Errorf(
+				"region %s has %d availability zones offering %s, %d required",
+				i.Region, len(candidates), i.DefaultNodeGroupInstanceType, zoneCount,
+			)
+		}
+		return nil, fmt.Errorf(
+			"region %s has %d availability zones available, %d required",
+			i.Region, len(candidates), zoneCount,
+		)
+	}
+
+	return zones, nil
+}
+
 // zoneCount returns how many availability zones the cluster spans, bounded by
 // the number of subnet CIDRs available.
 func (i *KubernetesRuntimeInfraEKS) zoneCount() int {
@@ -179,9 +239,31 @@ func (i *KubernetesRuntimeInfraEKS) kubernetesVersion() string {
 	return i.KubernetesVersion
 }
 
-// nodeGroupName returns the name of the cluster's node group.
-func (i *KubernetesRuntimeInfraEKS) nodeGroupName() string {
-	return fmt.Sprintf("%s-private-node-group", i.RuntimeInstanceName)
+// nodeGroupKubernetesVersion returns the Kubernetes version of a node group:
+// the version an upgrade keeps it on, when it is already past the one the
+// cluster is upgraded to, and the version to provision the cluster with
+// otherwise.
+func (i *KubernetesRuntimeInfraEKS) nodeGroupKubernetesVersion(nodeGroupName string) string {
+	if version, kept := i.nodeGroupVersions[nodeGroupName]; kept {
+		return version
+	}
+
+	return i.kubernetesVersion()
+}
+
+// nodeGroupNames returns the names of the cluster's node groups: one spanning
+// every zone, or one in each zone, in the order of the zones.
+func (i *KubernetesRuntimeInfraEKS) nodeGroupNames() []string {
+	name := fmt.Sprintf("%s-private-node-group", i.RuntimeInstanceName)
+	if !i.NodeGroupPerZone {
+		return []string{name}
+	}
+	names := make([]string, 0, i.zoneCount())
+	for zoneIndex := range i.zoneCount() {
+		names = append(names, fmt.Sprintf("%s-%d", name, zoneIndex))
+	}
+
+	return names
 }
 
 // upgradePolicy returns the cluster's upgrade policy: the cluster's, when the
@@ -237,14 +319,10 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 		if err != nil {
 			return fmt.Errorf("failed to get availability zones for region %s: %w", i.Region, err)
 		}
-		zoneCount := i.zoneCount()
-		if len(availabilityZones.Names) < zoneCount {
-			return fmt.Errorf(
-				"region %s has %d availability zones available, %d required",
-				i.Region, len(availabilityZones.Names), zoneCount,
-			)
+		zones, err := i.clusterZones(ctx, availabilityZones.Names)
+		if err != nil {
+			return err
 		}
-		zones := availabilityZones.Names[:zoneCount]
 
 		vpc, err := ec2.NewVpc(ctx, fmt.Sprintf("%s-vpc", i.RuntimeInstanceName), &ec2.VpcArgs{
 			CidrBlock: pulumi.String(eksVpcCidr),
@@ -419,26 +497,81 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 			return fmt.Errorf("failed to create EKS cluster: %w", err)
 		}
 
-		nodeGroupName := i.nodeGroupName()
-		if _, err := awseks.NewNodeGroup(ctx, nodeGroupName, &awseks.NodeGroupArgs{
-			ClusterName:   cluster.Name,
-			NodeGroupName: pulumi.String(nodeGroupName),
-			NodeRoleArn:   pulumi.String(i.NodeRoleArn),
-			SubnetIds:     privateSubnetIds,
-			InstanceTypes: pulumi.StringArray{pulumi.String(i.DefaultNodeGroupInstanceType)},
-			Version:       pulumi.String(i.kubernetesVersion()),
-			ScalingConfig: &awseks.NodeGroupScalingConfigArgs{
-				DesiredSize: pulumi.Int(i.DefaultNodeGroupInitialNodes),
-				MinSize:     pulumi.Int(i.DefaultNodeGroupMinNodes),
-				MaxSize:     pulumi.Int(i.DefaultNodeGroupMaxNodes),
-			},
-			Tags: i.resourceTags(nodeGroupName),
-		}, pulumi.IgnoreChanges(eksNodeGroupIgnoredChanges)); err != nil {
-			return fmt.Errorf("failed to create EKS node group: %w", err)
+		nodeGroupNames := i.nodeGroupNames()
+		nodeGroups := make([]pulumi.Resource, 0, len(nodeGroupNames))
+		for index, nodeGroupName := range nodeGroupNames {
+			// one node group spans every zone's subnet, and a node group per
+			// zone takes its zone's
+			subnetIds := privateSubnetIds
+			if len(nodeGroupNames) > 1 {
+				subnetIds = pulumi.StringArray{privateSubnetIds[index]}
+			}
+			nodeGroup, err := awseks.NewNodeGroup(ctx, nodeGroupName, &awseks.NodeGroupArgs{
+				ClusterName:   cluster.Name,
+				NodeGroupName: pulumi.String(nodeGroupName),
+				NodeRoleArn:   pulumi.String(i.NodeRoleArn),
+				SubnetIds:     subnetIds,
+				InstanceTypes: pulumi.StringArray{pulumi.String(i.DefaultNodeGroupInstanceType)},
+				Version:       pulumi.String(i.nodeGroupKubernetesVersion(nodeGroupName)),
+				ScalingConfig: &awseks.NodeGroupScalingConfigArgs{
+					DesiredSize: pulumi.Int(i.DefaultNodeGroupInitialNodes),
+					MinSize:     pulumi.Int(i.DefaultNodeGroupMinNodes),
+					MaxSize:     pulumi.Int(i.DefaultNodeGroupMaxNodes),
+				},
+				Tags: i.resourceTags(nodeGroupName),
+			}, pulumi.IgnoreChanges(eksNodeGroupIgnoredChanges))
+			if err != nil {
+				return fmt.Errorf("failed to create EKS node group %s: %w", nodeGroupName, err)
+			}
+			nodeGroups = append(nodeGroups, nodeGroup)
 		}
 
 		exportEgressCidrs(ctx, egressAddresses)
 
-		return nil
+		// the add-ons run on the nodes, so they come after the node groups
+		return i.managedAddons(ctx, cluster, nodeGroups)
 	}
+}
+
+// eksManagedAddons are the add-ons EKS installs on a cluster it creates, as
+// copies nothing upgrades with the cluster.  The program takes them over as
+// EKS add-ons, whose versions EKS sets for the cluster's version.
+var eksManagedAddons = []string{"vpc-cni", "coredns", "kube-proxy"}
+
+// eksAddonResolveConflicts takes over the copies EKS installed, and their
+// configuration, rather than failing on them.
+const eksAddonResolveConflicts = "OVERWRITE"
+
+// managedAddons registers the cluster's EKS add-ons, each on the version EKS
+// gives for the control plane's Kubernetes version.  They come after the node
+// groups: an upgrade moves them once the nodes run the new version, and
+// coredns can't start before there are nodes to run it.
+func (i *KubernetesRuntimeInfraEKS) managedAddons(
+	ctx *pulumi.Context,
+	cluster *awseks.Cluster,
+	nodeGroups []pulumi.Resource,
+) error {
+	for _, addonName := range eksManagedAddons {
+		addonVersion, err := awseks.GetAddonVersion(ctx, &awseks.GetAddonVersionArgs{
+			AddonName:         addonName,
+			KubernetesVersion: i.controlPlaneKubernetesVersion(),
+		})
+		if err != nil {
+			return fmt.Errorf("failed to get the %s add-on version for Kubernetes %s: %w", addonName, i.controlPlaneKubernetesVersion(), err)
+		}
+
+		resourceName := fmt.Sprintf("%s-%s", i.RuntimeInstanceName, addonName)
+		if _, err := awseks.NewAddon(ctx, resourceName, &awseks.AddonArgs{
+			ClusterName:              cluster.Name,
+			AddonName:                pulumi.String(addonName),
+			AddonVersion:             pulumi.String(addonVersion.Version),
+			ResolveConflictsOnCreate: pulumi.String(eksAddonResolveConflicts),
+			ResolveConflictsOnUpdate: pulumi.String(eksAddonResolveConflicts),
+			Tags:                     i.resourceTags(resourceName),
+		}, pulumi.DependsOn(nodeGroups)); err != nil {
+			return fmt.Errorf("failed to create the %s add-on: %w", addonName, err)
+		}
+	}
+
+	return nil
 }
