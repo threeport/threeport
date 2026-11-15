@@ -2,6 +2,7 @@ package controlplane
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -463,4 +464,25 @@ func TestCreateRuntimeInstance_IsResumable(t *testing.T) {
 
 	assert.Len(t, child.createdOn(v0.PathKubernetesRuntimeInstances), 1)
 	assert.Equal(t, *first.ID, *second.ID, "the rerun returns the instance the first run created")
+}
+
+// TestChildVersionHintNamesAnOlderChild covers the error an operator reads when
+// a child API refuses the fields of a newer record: it names the version
+// difference, keeps the original error, and leaves any other error alone.
+func TestChildVersionHintNamesAnOlderChild(t *testing.T) {
+	// name an older child when it refuses unsupported fields
+	refused := errors.New("bad request: Unsupported fields are not allowed : ReservedNatAddress")
+	hinted := childVersionHint(refused)
+	if !errors.Is(hinted, refused) || !strings.Contains(hinted.Error(), "upgrade the child") {
+		t.Fatalf("hinted error = %v", hinted)
+	}
+
+	// leave another error and no error alone
+	other := errors.New("connection refused")
+	if childVersionHint(other) != other {
+		t.Fatal("another error was changed")
+	}
+	if childVersionHint(nil) != nil {
+		t.Fatal("no error became an error")
+	}
 }
