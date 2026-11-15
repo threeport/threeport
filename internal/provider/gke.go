@@ -256,17 +256,17 @@ func (i *KubernetesRuntimeInfraGKE) Create() (*kube.KubeConnectionInfo, error) {
 		return nil, fmt.Errorf("failed to create GCP service account: %w", err)
 	}
 
-	connection, err := i.CreateInfra()
-	if err != nil {
-		return nil, err
-	}
-
-	// provision the database backups once the cluster, and with it the
-	// workload identity pool the backup binding names, exists
+	// provision the backup bucket first, since the stack grants the Threeport
+	// service account access to it
 	if i.ProvisionBackups {
 		if err := i.ProvisionDatabaseBackups(); err != nil {
 			return nil, fmt.Errorf("failed to provision database backups: %w", err)
 		}
+	}
+
+	connection, err := i.CreateInfra()
+	if err != nil {
+		return nil, err
 	}
 
 	return connection, nil
@@ -687,6 +687,13 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 		}
 
 		exportEgressCidrs(ctx, egressAddresses)
+
+		// let the controller manage access to the backup bucket
+		if i.ProvisionBackups {
+			if err := i.controllerBucketAccess(ctx, gcpProvider); err != nil {
+				return err
+			}
+		}
 
 		return nil
 	}

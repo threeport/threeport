@@ -21,6 +21,13 @@ func (i *KubernetesRuntimeInfraGKE) Upgrade(ctx context.Context, accept func(str
 	}
 	defer cleanup()
 
+	// refuse an upgrade whose backup bucket the stack would grant access to but cannot find
+	if i.ProvisionBackups {
+		if err := i.requireBackupBucket(); err != nil {
+			return err
+		}
+	}
+
 	// prepare the program
 	if i.ProjectName == "" {
 		i.InitPulumiProject()
