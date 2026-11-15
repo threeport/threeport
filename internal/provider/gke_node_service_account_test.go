@@ -82,16 +82,42 @@ func TestAGkeNodePoolCreatedOnTheDefaultAccountKeepsIt(t *testing.T) {
 	i := &KubernetesRuntimeInfraGKE{
 		PulumiWorkspace:                PulumiWorkspace{RuntimeInstanceName: "threeport-test"},
 		nodesKeepDefaultServiceAccount: true,
-		Tier:                           api.ControlPlaneTierProduction,
 	}
 	mocks := runGkeProgram(t, i)
 
 	assert.Empty(t, mocks.ofType(gkeAccountTypeToken))
 	assert.Empty(t, mocks.ofType(gkeIAMMemberToken))
 	nodePools := mocks.ofType(gkeNodePoolTypeToken)
-	require.Len(t, nodePools, 2)
-	for _, pool := range nodePools {
-		assert.NotContains(t, pool.inputs["nodeConfig"], "serviceAccount")
+	require.Len(t, nodePools, 1)
+	assert.NotContains(t, nodePools[0].inputs["nodeConfig"], "serviceAccount")
+}
+
+// TestAProductionStandardPoolRunsAsTheClustersAccountBesideADefaultAccountPool covers
+// a production cluster whose existing node pool runs on the default account:
+// the existing pool keeps it, and the standard pool added beside it runs as the
+// cluster's own account.
+func TestAProductionStandardPoolRunsAsTheClustersAccountBesideADefaultAccountPool(t *testing.T) {
+	i := &KubernetesRuntimeInfraGKE{
+		PulumiWorkspace:                PulumiWorkspace{RuntimeInstanceName: "threeport-test"},
+		nodesKeepDefaultServiceAccount: true,
+		Tier:                           api.ControlPlaneTierProduction,
+	}
+	mocks := runGkeProgram(t, i)
+
+	// the account and its role are created for the standard pool
+	require.Len(t, mocks.ofType(gkeAccountTypeToken), 1)
+	require.Len(t, mocks.ofType(gkeIAMMemberToken), 1)
+
+	// the worker pool stays on the default account, and the standard pool takes the new one
+	email := i.nodeServiceAccountID() + "@test-project.iam.gserviceaccount.com"
+	for _, pool := range mocks.ofType(gkeNodePoolTypeToken) {
+		nodeConfig, ok := pool.inputs["nodeConfig"].(map[string]any)
+		require.True(t, ok)
+		if pool.inputs["name"] == i.standardNodePoolName() {
+			assert.Equal(t, email, nodeConfig["serviceAccount"])
+			continue
+		}
+		assert.NotContains(t, nodeConfig, "serviceAccount")
 	}
 }
 

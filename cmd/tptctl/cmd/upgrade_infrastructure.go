@@ -90,6 +90,12 @@ var UpgradeInfrastructureCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		// keep the egress address the cluster has
+		if err := cli.KeepRecordedNatAddress(infra, apiClient, apiEndpoint, infra.RuntimeInstanceName); err != nil {
+			cli.Error("failed to load the recorded NAT address setting", err)
+			os.Exit(1)
+		}
+
 		// preview and apply the change
 		err = infra.Upgrade(cmd.Context(), acceptInfrastructureUpgrade)
 		if errors.Is(err, provider.ErrUpgradeDeclined) {

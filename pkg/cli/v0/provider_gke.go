@@ -325,6 +325,26 @@ func GkeInfraForUpgrade(controlPlane *ControlPlane, tier string) (*provider.Kube
 	return infra, nil
 }
 
+// KeepRecordedNatAddress copies the recorded NAT address setting onto an upgrade,
+// so an existing cluster keeps the egress address it has.
+func KeepRecordedNatAddress(
+	infra *provider.KubernetesRuntimeInfraGKE,
+	apiClient *http.Client,
+	apiEndpoint string,
+	clusterName string,
+) error {
+	// load the recorded instance
+	gkeInstance, err := client.GetGcpGkeKubernetesRuntimeInstanceByName(apiClient, apiEndpoint, clusterName)
+	if err != nil {
+		return fmt.Errorf("recorded GKE instance %s was not found: %w", clusterName, err)
+	}
+
+	// copy the recorded setting
+	infra.ReserveNatAddress = util.PtrEqual(gkeInstance.ReservedNatAddress, true)
+
+	return nil
+}
+
 // gkeControlPlaneKubeClient returns a client for the GKE cluster a control
 // plane runs on, authenticated as the caller's own Google credentials.
 func gkeControlPlaneKubeClient(controlPlane *ControlPlane) (dynamic.Interface, error) {

@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"sort"
 	"sync"
 	"testing"
 
@@ -78,10 +79,14 @@ func TestTheNodeGroupSizeIsSetOnlyWhenTheNodeGroupIsCreated(t *testing.T) {
 		}
 		ignored := ignoredChangesByType(t, infra.pulumiProgram(), &gkeRecordingMocks{}, "gke")
 
+		// the worker pool also keeps its machine type and location policy
+		// once created, and the standard pool only its node count
 		require.Len(t, ignored[gkeNodePoolTypeToken], 2)
-		for _, changes := range ignored[gkeNodePoolTypeToken] {
-			assert.Equal(t, []string{"nodeCount"}, changes)
-		}
+		sort.Slice(ignored[gkeNodePoolTypeToken], func(a, b int) bool {
+			return len(ignored[gkeNodePoolTypeToken][a]) < len(ignored[gkeNodePoolTypeToken][b])
+		})
+		assert.Equal(t, []string{"nodeCount"}, ignored[gkeNodePoolTypeToken][0])
+		assert.Equal(t, gkeWorkerNodePoolIgnoredChanges, ignored[gkeNodePoolTypeToken][1])
 		assertNothingElseIgnoresChanges(t, ignored, gkeNodePoolTypeToken)
 	})
 }
