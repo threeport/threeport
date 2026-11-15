@@ -607,13 +607,22 @@ func runBlueGreen(
 			ProjectID:                 projectID,
 			ServiceAccountCredentials: providerCredentials,
 		}
-		if err := workloadIdentity.BindControlPlaneWorkloadIdentity(newNamespace); err != nil {
+
+		// use the account the runtime's credentials belong to, else the cluster's own
+		var bindErr error
+		if providerCredentials != "" {
+			workloadIdentity.ServiceAccountEmail, bindErr = util.GcpServiceAccountEmail(providerCredentials)
+		}
+		if bindErr == nil {
+			bindErr = workloadIdentity.BindControlPlaneWorkloadIdentity(newNamespace)
+		}
+		if bindErr != nil {
 			fmt.Printf("Info: workload identity binding failed, resuming writers in %s\n", namespace)
 			resumeErr := resumeSourceWriters(source, namespace, replicas, modules)
 			if resumeErr != nil {
-				return fmt.Errorf("failed to bind workload identity: %w (resuming source writers: %v)", err, resumeErr)
+				return fmt.Errorf("failed to bind workload identity: %w (resuming source writers: %v)", bindErr, resumeErr)
 			}
-			return fmt.Errorf("failed to bind workload identity, source writers resumed: %w", err)
+			return fmt.Errorf("failed to bind workload identity, source writers resumed: %w", bindErr)
 		}
 		created.Opts.GcpServiceAccountEmail = workloadIdentity.ServiceAccountEmail
 
