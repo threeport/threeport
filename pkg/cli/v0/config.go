@@ -426,17 +426,21 @@ func (cfg *ThreeportConfig) SetCurrentInstance(instanceName string) {
 // if this value is received, it is returned.  If not, it checks the environment
 // variable for a config file path.  If neither are provided, it returns the default
 // path to the threeport config file.
-// DetermineThreeportConfigPath returns the threeport config file path.
+// DetermineThreeportConfigPath determines the path to the threeport config file.
+// It accepts a path to a config file provided by the user (provided by flag) and
+// if this value is received, it is returned.  If not, it checks the environment
+// variable for a config file path.  If neither are provided, it returns the default
+// path to the threeport config file.
 func DetermineThreeportConfigPath(cfgFile string) string {
 	// return config file path if provided
 	if cfgFile != "" {
-		return configPathWithoutPastedTilde(cfgFile)
+		return cfgFile
 	}
 
 	// return config file path if provided in environment variable set
 	envConfig, exists := os.LookupEnv(ThreeportConfigEnvKey)
 	if exists {
-		return configPathWithoutPastedTilde(envConfig)
+		return envConfig
 	}
 
 	home, err := homedir.Dir()
@@ -449,23 +453,6 @@ func DetermineThreeportConfigPath(cfgFile string) string {
 	)
 
 	return cfgFile
-}
-
-// configPathWithoutPastedTilde drops a trailing tilde pasted onto a config path.
-// configPathWithoutPastedTilde keeps the path when that tilde names a file.
-func configPathWithoutPastedTilde(path string) string {
-	if !strings.HasSuffix(path, "~") {
-		return path
-	}
-	without := strings.TrimSuffix(path, "~")
-	// keep the path when the tilde names a file
-	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
-		return path
-	}
-	if _, err := os.Stat(without); err != nil {
-		return path
-	}
-	return without
 }
 
 // GetThreeportConfig retrieves the threeport config and name of the
