@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	api "github.com/threeport/threeport/pkg/api/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -40,4 +41,26 @@ func TestEmptyRestoreHasNoControlPlane(t *testing.T) {
 	require.ErrorIs(t, missingRestoredControlPlane(nil), errNoRestoredControlPlane)
 	require.ErrorIs(t, missingRestoredControlPlane(&empty), errNoRestoredControlPlane)
 	require.NoError(t, missingRestoredControlPlane(&[]api.ControlPlaneInstance{{}}))
+}
+
+// TestAPIDeploymentStoppedSkipsADial covers a retry that finds the API already scaled to zero.
+func TestAPIDeploymentStoppedSkipsADial(t *testing.T) {
+	// the API deployment is already at zero replicas
+	deployment := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "apps/v1",
+		"kind":       "Deployment",
+		"metadata": map[string]interface{}{
+			"name":      ThreeportAPIServiceResourceName,
+			"namespace": "primary-13",
+		},
+		"spec": map[string]interface{}{
+			"replicas": int64(0),
+		},
+	}}
+	kubeClient := testKubeClient(deployment)
+
+	// a stopped API must not be dialed for module discovery
+	stopped, err := apiDeploymentStopped(kubeClient, "primary-13")
+	require.NoError(t, err)
+	require.True(t, stopped)
 }

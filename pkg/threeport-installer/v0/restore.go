@@ -550,6 +550,21 @@ func (cpi *ControlPlaneInstaller) scaleDeployments(
 	return errors.Join(scaleErrors...)
 }
 
+// apiDeploymentStopped reports whether the API deployment is already scaled to zero.
+func apiDeploymentStopped(kubeClient dynamic.Interface, namespace string) (bool, error) {
+	deployment, err := kubeClient.Resource(deploymentGVR).Namespace(namespace).Get(
+		context.Background(), ThreeportAPIServiceResourceName, metav1.GetOptions{},
+	)
+	if k8serrors.IsNotFound(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("failed to get the API deployment in %s: %w", namespace, err)
+	}
+	replicas, _, _ := util.NestedInt64OrFloat64(deployment.Object, "spec", "replicas")
+	return replicas == 0, nil
+}
+
 // recordedDeploymentReplicas reads the replica counts a stop wrote onto the deployments.
 func recordedDeploymentReplicas(kubeClient dynamic.Interface, namespace string) (map[string]int64, error) {
 	list, err := kubeClient.Resource(deploymentGVR).Namespace(namespace).List(
@@ -1265,14 +1280,22 @@ func (cpi *ControlPlaneInstaller) StopWritersAndBackup(
 	apiEndpoint string,
 	bucket string,
 ) (map[string]int64, []ModuleDeploymentScale, error) {
-	// read module names while the API is still up
-	controllers, err := cpi.DiscoverModuleDeployments(apiClient, apiEndpoint)
+	// a retry finds the API already scaled to zero, so it must not dial that API
+	stopped, err := apiDeploymentStopped(kubeClient, cpi.Opts.Namespace)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to discover registered module deployments: %w", err)
+		return nil, nil, err
 	}
-	apiServers, err := cpi.DiscoverModuleApiServers(apiClient, apiEndpoint)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to discover module API servers: %w", err)
+	var controllers []ModuleDeploymentScale
+	var apiServers []ModuleApiServer
+	if !stopped {
+		controllers, err = cpi.DiscoverModuleDeployments(apiClient, apiEndpoint)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to discover registered module deployments: %w", err)
+		}
+		apiServers, err = cpi.DiscoverModuleApiServers(apiClient, apiEndpoint)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to discover module API servers: %w", err)
+		}
 	}
 
 	// scale module writers before the control plane API
