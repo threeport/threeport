@@ -619,7 +619,8 @@ func moduleInstallJob(namespace, kebab string, module *api.ModuleApi) *unstructu
 					"labels": map[string]interface{}{LabelMaintenance: "true"},
 				},
 				"spec": map[string]interface{}{
-					"restartPolicy": "Never",
+					"restartPolicy":      "Never",
+					"serviceAccountName": ThreeportKubernetesWorkloadControllerName,
 					"containers": []interface{}{
 						map[string]interface{}{
 							"name": "install",
