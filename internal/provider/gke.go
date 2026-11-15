@@ -97,6 +97,12 @@ type KubernetesRuntimeInfraGKE struct {
 	// The namespace whose controllers impersonate the cluster account.
 	WorkloadIdentityNamespace string
 
+	// The image registry and namespace the control plane images are pulled
+	// from, such as "us-central1-docker.pkg.dev/my-project/threeport". When it
+	// names an Artifact Registry repository, the nodes' service account is
+	// granted read access to that repository.
+	ImageNamespace string
+
 	// ServiceAccountCredentials contains the JSON key for a GCP service account.
 	// Used when running outside GCP (e.g., in AWS or on-prem) where Workload
 	// Identity is not available. This is the contents of a service account key
@@ -643,6 +649,15 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 			nodeConfig.ServiceAccount = nodeServiceAccount.Email
 			// the nodes can write logs and metrics from the start
 			nodePoolDependencies = append(nodePoolDependencies, nodeRole)
+
+			// the nodes can pull the control plane images from the start
+			imageReader, err := i.imageReaderGrant(ctx, gcpProvider, nodeServiceAccount.Email)
+			if err != nil {
+				return err
+			}
+			if imageReader != nil {
+				nodePoolDependencies = append(nodePoolDependencies, imageReader)
+			}
 		}
 
 		_, err = gkecontainer.NewNodePool(ctx, i.workerNodePoolName(), &gkecontainer.NodePoolArgs{

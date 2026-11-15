@@ -90,6 +90,10 @@ var UpgradeInfrastructureCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		// let the nodes pull from the registry the control plane images come from
+		cliArgs.GetControlPlaneEnvVars()
+		infra.ImageNamespace = cliArgs.ControlPlaneImageRepo
+
 		// keep the egress address the cluster has
 		if err := cli.KeepRecordedNatAddress(infra, apiClient, apiEndpoint, infra.RuntimeInstanceName); err != nil {
 			cli.Error("failed to load the recorded NAT address setting", err)
@@ -146,6 +150,10 @@ func init() {
 	UpgradeInfrastructureCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	UpgradeInfrastructureCmd.Flags().StringVar(
+		&cliArgs.ControlPlaneImageRepo,
+		"control-plane-image-namespace", "", "Optional. Image namespace the control plane images are pulled from. When it names an Artifact Registry repository, the cluster's node service account is granted read access to it. Defaults to the CONTROL_PLANE_IMAGE_REPO environment variable.",
 	)
 	UpgradeInfrastructureCmd.Flags().StringVar(
 		&upgradeInfraTier,

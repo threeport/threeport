@@ -392,6 +392,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		gkeInfra.ProjectID = cpi.Opts.GcpProjectId
 		gkeInfra.Region = cpi.Opts.GcpRegion
 		gkeInfra.WorkloadIdentityNamespace = cpi.Opts.Namespace
+		gkeInfra.ImageNamespace = cpi.Opts.RestApiInfo.ImageNamespace
 		gkeInfra.BackupRegion = cpi.Opts.GcpBackupRegion
 		gkeInfra.PrivateApi = cpi.Opts.PrivateK8sApi
 		gkeInfra.AllowedCidrs = cpi.Opts.K8sApiAllowedCidrs
