@@ -24,17 +24,17 @@ func TestModuleInstallJobUsesTheWorkloadControllerAccount(t *testing.T) {
 	require.True(t, ok)
 	pod, ok := template["spec"].(map[string]interface{})
 	require.True(t, ok)
-	require.Equal(t, ThreeportKubernetesWorkloadControllerName, pod["serviceAccountName"])
+	require.Equal(t, moduleInstallServiceAccount, pod["serviceAccountName"])
 	containers, ok := pod["containers"].([]interface{})
 	require.True(t, ok)
 	container, ok := containers[0].(map[string]interface{})
 	require.True(t, ok)
+	require.Nil(t, container["command"])
 	require.Equal(t, []interface{}{
-		"/wan-aware",
 		"install",
 		"--control-plane-image-namespace",
 		namespace,
 		"--control-plane-image-tag",
 		tag,
-	}, container["command"])
+	}, container["args"])
 }

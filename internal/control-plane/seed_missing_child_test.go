@@ -62,3 +62,49 @@ func TestSeedMissingChildWritesTheHostRuntime(t *testing.T) {
 	}
 	require.True(t, foundSelf)
 }
+
+// TestSyncCopiesTheManagingParentWhenTheSelfRowExists checks a child that
+// already has its own row still receives the managing parent.
+func TestSyncCopiesTheManagingParentWhenTheSelfRowExists(t *testing.T) {
+	// stand up a child that already serves itself and has no parent row
+	parent := newFakeAPI(t, 1)
+	child := newFakeAPI(t, 500)
+	parent.seed(v0.PathKubernetesRuntimeDefinitions, map[string]any{
+		"ID": 3, "Name": "cluster", "InfraProvider": v0.KubernetesRuntimeInfraProviderKind,
+	})
+	parent.seed(v0.PathKubernetesRuntimeInstances, map[string]any{
+		"ID": 4, "Name": "cluster", "KubernetesRuntimeDefinitionID": 3,
+	})
+	parent.seed(v0.PathControlPlaneDefinitions, map[string]any{"ID": 2, "Name": "def"})
+	childEndpoint := strings.TrimPrefix(child.server.URL, "http://")
+	parent.seed(v0.PathControlPlaneInstances, map[string]any{
+		"ID": 6, "Name": "child", "Namespace": "child-ns", "IsSelf": false,
+		"ApiServerEndpoint":           childEndpoint,
+		"ControlPlaneDefinitionID":    2,
+		"KubernetesRuntimeInstanceID": 4,
+	})
+	parent.seed(v0.PathControlPlaneInstances, map[string]any{
+		"ID": 1, "Name": "serving", "Namespace": "serving-ns", "IsSelf": true,
+		"ApiServerEndpoint":           parent.target().endpoint,
+		"ControlPlaneDefinitionID":    2,
+		"KubernetesRuntimeInstanceID": 4,
+	})
+	child.seed(v0.PathControlPlaneInstances, map[string]any{
+		"ID": 9, "Name": "child", "Namespace": "child-ns", "IsSelf": true,
+	})
+
+	reconciler := &controller.Reconciler{
+		APIClient: parent.server.Client(),
+		APIServer: parent.target().endpoint,
+	}
+	stored := &v0.ControlPlaneInstance{Common: v0.Common{ID: util.Ptr(uint(6))}}
+	require.NoError(t, syncManagedChild(reconciler, stored))
+
+	foundParent := false
+	for _, instance := range child.createdOn(v0.PathControlPlaneInstances) {
+		if instance["Name"] == "serving" {
+			foundParent = true
+		}
+	}
+	require.True(t, foundParent)
+}

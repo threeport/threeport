@@ -23,9 +23,10 @@ import (
 )
 
 const (
-	moduleInstallConfigKey  = "config.yaml"
-	moduleInstallConfigPath = "/root/.threeport/config.yaml"
-	moduleWorkloadPrefix    = "threeport-"
+	moduleInstallConfigKey      = "config.yaml"
+	moduleInstallConfigPath     = "/root/.threeport/config.yaml"
+	moduleWorkloadPrefix        = "threeport-"
+	moduleInstallServiceAccount = "module-install"
 )
 
 // moduleInstallConfigFile is the config the install job reads.
@@ -370,6 +371,9 @@ func EnsureModuleInstallJob(
 	}
 
 	// write the config the install reads, then create the job
+	if err := ensureModuleInstallAccount(kubeClient, mapper, namespace); err != nil {
+		return err
+	}
 	if err := ensureModuleInstallConfig(
 		kubeClient, mapper, inst, cpi, namespace, kebab,
 	); err != nil {
@@ -602,6 +606,51 @@ func moduleInstallConfig(
 	return yaml.Marshal(config)
 }
 
+// ensureModuleInstallAccount creates the account the install job runs as.
+// It binds that account to cluster-admin in this control plane namespace.
+func ensureModuleInstallAccount(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	namespace string,
+) error {
+	// create the account the job runs as
+	account := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "ServiceAccount",
+		"metadata": map[string]interface{}{
+			"name":      moduleInstallServiceAccount,
+			"namespace": namespace,
+		},
+	}}
+	if _, err := kube.CreateResource(account, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create the module install account: %w", err)
+	}
+	// bind that account to cluster-admin
+	binding := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "rbac.authorization.k8s.io/v1",
+		"kind":       "ClusterRoleBinding",
+		"metadata": map[string]interface{}{
+			"name": moduleInstallServiceAccount + "-" + namespace,
+		},
+		"roleRef": map[string]interface{}{
+			"apiGroup": "rbac.authorization.k8s.io",
+			"kind":     "ClusterRole",
+			"name":     "cluster-admin",
+		},
+		"subjects": []interface{}{
+			map[string]interface{}{
+				"kind":      "ServiceAccount",
+				"name":      moduleInstallServiceAccount,
+				"namespace": namespace,
+			},
+		},
+	}}
+	if _, err := kube.CreateResource(binding, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to bind the module install account: %w", err)
+	}
+	return nil
+}
+
 // moduleInstallJob returns the job that runs one module install.
 func moduleInstallJob(namespace, kebab string, module *api.ModuleApi) *unstructured.Unstructured {
 	// label the pod the database admits, mount the config, and run the install
@@ -620,7 +669,7 @@ func moduleInstallJob(namespace, kebab string, module *api.ModuleApi) *unstructu
 				},
 				"spec": map[string]interface{}{
 					"restartPolicy":      "Never",
-					"serviceAccountName": ThreeportKubernetesWorkloadControllerName,
+					"serviceAccountName": moduleInstallServiceAccount,
 					"containers": []interface{}{
 						map[string]interface{}{
 							"name": "install",
@@ -629,8 +678,7 @@ func moduleInstallJob(namespace, kebab string, module *api.ModuleApi) *unstructu
 								kebab,
 								util.DerefString(module.ImageTag),
 							),
-							"command": []interface{}{
-								"/wan-aware",
+							"args": []interface{}{
 								"install",
 								"--control-plane-image-namespace",
 								util.DerefString(module.ImageNamespace),

@@ -1146,6 +1146,23 @@ func retargetRestoredSelf(
 	return client.ReparentDetachedControlPlanes(apiClient, endpoint, self)
 }
 
+// ensureManagingParent copies the control plane that manages this child.
+func ensureManagingParent(r *controller.Reconciler, childClient *http.Client, endpoint string) error {
+	serving, err := client.GetSelfControlPlaneInstance(r.APIClient, r.APIServer)
+	if err != nil {
+		return fmt.Errorf("failed to get the managing control plane: %w", err)
+	}
+	onboarder := &runtimeOnboarder{
+		parent:        apiTarget{client: r.APIClient, endpoint: r.APIServer},
+		child:         apiTarget{client: childClient, endpoint: endpoint},
+		encryptionKey: r.EncryptionKey,
+	}
+	if _, err := copyManagingParent(onboarder, serving); err != nil {
+		return err
+	}
+	return nil
+}
+
 // seedMissingChild writes the host runtime and the child's own row when a
 // restore left that database empty.
 func seedMissingChild(
@@ -1223,6 +1240,9 @@ func seedMissingChild(
 	if err != nil {
 		return err
 	}
+	if err := ensureManagingParent(r, childClient, endpoint); err != nil {
+		return err
+	}
 	self := true
 	reconciled := true
 	clone := *stored
@@ -1241,15 +1261,6 @@ func seedMissingChild(
 			return client.CreateControlPlaneInstance(childClient, endpoint, &clone)
 		},
 	); err != nil {
-		return err
-	}
-
-	// register the control plane that manages this child
-	serving, err := client.GetSelfControlPlaneInstance(r.APIClient, r.APIServer)
-	if err != nil {
-		return fmt.Errorf("failed to get the managing control plane: %w", err)
-	}
-	if _, err := copyManagingParent(onboarder, serving); err != nil {
 		return err
 	}
 
@@ -1314,6 +1325,12 @@ func syncManagedChild(r *controller.Reconciler, instance *v0.ControlPlaneInstanc
 			return fmt.Errorf("failed to get self control plane instance: %w", err)
 		}
 		localParent, err := client.GetControlPlaneInstanceByName(childClient, endpoint, *serving.Name)
+		if err != nil {
+			if err := ensureManagingParent(r, childClient, endpoint); err != nil {
+				return err
+			}
+			localParent, err = client.GetControlPlaneInstanceByName(childClient, endpoint, *serving.Name)
+		}
 		if err != nil {
 			return fmt.Errorf(
 				"failed to find managing parent %s on %s: %w",
