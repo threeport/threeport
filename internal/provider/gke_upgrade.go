@@ -13,14 +13,14 @@ import (
 const (
 	// e2-medium cannot schedule a 2Gi request, and changing the first pool replaces it.
 	standardNodeMachineType = "e2-standard-2"
-	// A production database replica needs a node of its own, and a production
-	// cluster runs a genesis and a primary database, so the pool starts with
-	// two sets of replicas.
-	productionStandardNodeCount = 2 * threeport.ProductionCrdbReplicas
-	// The maximum adds a third set, for the new database of a blue-green
+	// A production database replica needs a node of its own within a control
+	// plane, but the genesis and primary control planes can share nodes, so
+	// the pool starts with one node per replica.
+	productionStandardNodeCount = threeport.ProductionCrdbReplicas
+	// The maximum doubles that, for the new database of a blue-green
 	// deployment, or a replacement node that runs beside a node being
 	// upgraded until its pod moves.
-	productionStandardMaxNodeCount = 3 * threeport.ProductionCrdbReplicas
+	productionStandardMaxNodeCount = 2 * threeport.ProductionCrdbReplicas
 	productionWorkerMinCount       = 0
 	standardNodeLocationPolicy     = "BALANCED"
 	standardNodeDiskSizeGb         = 100
