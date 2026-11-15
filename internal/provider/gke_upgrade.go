@@ -62,6 +62,14 @@ func (i *KubernetesRuntimeInfraGKE) Upgrade(ctx context.Context, accept func(str
 		return err
 	}
 
+	// keep the cluster's recorded version and release channel
+	exported, err := stack.Export(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to read the stack's GKE cluster: %w", err)
+	}
+	i.keepStackMinMasterVersion(exported.Deployment)
+	i.keepStackReleaseChannel(exported.Deployment)
+
 	// preview the change
 	preview, err := stack.Preview(ctx, optpreview.Diff())
 	if err != nil {
