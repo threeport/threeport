@@ -240,10 +240,10 @@ func gkeClusterName(controlPlane *ControlPlane) string {
 	return provider.ThreeportRuntimeName(controlPlane.Name)
 }
 
-// requireGkeLocation refuses an empty GCP project or region, which would
+// RequireGkeLocation refuses an empty GCP project or region, which would
 // otherwise be filled from the caller's current Google defaults and could
 // name another cluster.
-func requireGkeLocation(projectID, region string) error {
+func RequireGkeLocation(projectID, region string) error {
 	if projectID == "" || region == "" {
 		return fmt.Errorf("the GCP project %q and region %q must both be known", projectID, region)
 	}
@@ -317,7 +317,7 @@ func GkeInfraForUpgrade(controlPlane *ControlPlane, tier string) (*provider.Kube
 	}
 
 	// require a project and a region
-	if err := requireGkeLocation(infra.ProjectID, infra.Region); err != nil {
+	if err := RequireGkeLocation(infra.ProjectID, infra.Region); err != nil {
 		return nil, fmt.Errorf("cannot find the GKE cluster of control plane %s: %w", controlPlane.Name, err)
 	}
 
@@ -367,7 +367,7 @@ func gkeControlPlaneKubeClient(controlPlane *ControlPlane) (dynamic.Interface, e
 			)
 		}
 	}
-	if err := requireGkeLocation(infra.ProjectID, infra.Region); err != nil {
+	if err := RequireGkeLocation(infra.ProjectID, infra.Region); err != nil {
 		return nil, fmt.Errorf("cannot find the GKE cluster of control plane %s: %w", controlPlane.Name, err)
 	}
 

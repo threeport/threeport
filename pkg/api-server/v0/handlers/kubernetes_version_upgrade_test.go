@@ -129,11 +129,11 @@ func TestAGkeDefinitionUpdateAsksItsClustersToUpgrade(t *testing.T) {
 		return loaded
 	}
 
-	runDefinitionUpdate(t, h.requestGcpGkeUpgrades, "3", http.StatusBadRequest)
+	runDefinitionUpdate(t, h.RequestGcpGkeUpgrades, "3", http.StatusBadRequest)
 	assert.Empty(t, stream.published, "an update that wasn't saved asks nothing")
 	assert.True(t, *load(21).Reconciled)
 
-	runDefinitionUpdate(t, h.requestGcpGkeUpgrades, "3", http.StatusOK)
+	runDefinitionUpdate(t, h.RequestGcpGkeUpgrades, "3", http.StatusOK)
 	for _, id := range []uint{21, 22} {
 		asked := load(id)
 		assert.False(t, *asked.Reconciled, "instance %d", id)
@@ -154,7 +154,7 @@ func TestAGkeDefinitionUpdateAsksItsClustersToUpgrade(t *testing.T) {
 	}
 
 	// the next update finds every instance asked
-	runDefinitionUpdate(t, h.requestGcpGkeUpgrades, "3", http.StatusOK)
+	runDefinitionUpdate(t, h.RequestGcpGkeUpgrades, "3", http.StatusOK)
 	assert.Len(t, stream.published, 2)
 }
 
@@ -178,7 +178,7 @@ func TestAnEksDefinitionUpdateAsksItsClustersToUpgrade(t *testing.T) {
 		KubernetesRuntimeInstanceID:         util.Ptr(uint(11)),
 	}).Error)
 
-	runDefinitionUpdate(t, h.requestAwsEksUpgrades, "3", http.StatusOK)
+	runDefinitionUpdate(t, h.RequestAwsEksUpgrades, "3", http.StatusOK)
 
 	var asked api.AwsEksKubernetesRuntimeInstance
 	require.NoError(t, h.DB.First(&asked, 21).Error)
@@ -224,11 +224,11 @@ func TestAnUpgradeRequestWhoseNotificationFailedIsAskedAgain(t *testing.T) {
 		return loaded.UpgradeRequestedVersion
 	}
 
-	runDefinitionUpdate(t, h.requestGcpGkeUpgrades, "3", http.StatusOK)
+	runDefinitionUpdate(t, h.RequestGcpGkeUpgrades, "3", http.StatusOK)
 	assert.Empty(t, stream.published)
 	assert.Nil(t, requested(), "its controller wasn't told, so it isn't recorded as asked")
 
-	runDefinitionUpdate(t, h.requestGcpGkeUpgrades, "3", http.StatusOK)
+	runDefinitionUpdate(t, h.RequestGcpGkeUpgrades, "3", http.StatusOK)
 	assert.Len(t, stream.published, 1)
 	assert.Equal(t, util.Ptr("1.36"), requested())
 }

@@ -15,7 +15,7 @@ type Options struct {
 	// Namespace of the control plane
 	Namespace string
 
-	// The namespace to copy the CA and encryption key from and to schedule away from
+	// The namespace to copy the CA and encryption key from
 	FromNamespace string
 
 	// The control plane name stored in the backup

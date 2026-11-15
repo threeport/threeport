@@ -96,20 +96,20 @@ type KubernetesRuntimeInfraEKS struct {
 	// created before it was set.  The program keeps it.
 	stackSupportType *string
 
-	// controlPlaneVersion is set by upgradeInfra to the control plane's
+	// controlPlaneVersion is set by UpgradeInfra to the control plane's
 	// version when it is already past the version the node group is upgraded
 	// to, as when EKS upgraded it on its own at the end of standard support.
 	// The program keeps the control plane, and the add-ons, which follow it,
 	// on it rather than ask EKS for a downgrade, which it refuses.
 	controlPlaneVersion string
 
-	// nodeGroupVersions is set by upgradeInfra to the versions of the node
+	// nodeGroupVersions is set by UpgradeInfra to the versions of the node
 	// groups already past the version the cluster is upgraded to, by name, as
 	// a node group EKS or an operator upgraded on its own is.  The program
 	// keeps each on its version rather than ask EKS for a downgrade.
 	nodeGroupVersions map[string]string
 
-	// stackZones is set by CreateInfra and upgradeInfra when the stack
+	// stackZones is set by CreateInfra and UpgradeInfra when the stack
 	// already holds the cluster's subnets, to their zones in order, "" where
 	// the stack holds no subnet.  The program keeps them: a subnet's zone can't change without replacing it,
 	// and the zones the region offers, or that offer the node instance type,

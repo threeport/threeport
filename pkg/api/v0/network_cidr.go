@@ -47,10 +47,10 @@ var ClusterInternalCidrs = []string{
 	"172.20.0.0/16",
 }
 
-// parseNetworkCidr reads a network range for a Kubernetes runtime: an IPv4
+// ParseNetworkCidr reads a network range for a Kubernetes runtime: an IPv4
 // CIDR block, written as its network address, no smaller than a /16 and clear
 // of ClusterInternalCidrs.
-func parseNetworkCidr(field, cidr string) (netip.Prefix, error) {
+func ParseNetworkCidr(field, cidr string) (netip.Prefix, error) {
 	prefix, err := parseNetworkBlock(field, cidr)
 	if err != nil {
 		return netip.Prefix{}, err
@@ -67,11 +67,11 @@ func parseNetworkCidr(field, cidr string) (netip.Prefix, error) {
 	return prefix, nil
 }
 
-// parseNetworkCidrPool reads a NetworkCidrPool: a JSON array of IPv4 CIDR
+// ParseNetworkCidrPool reads a NetworkCidrPool: a JSON array of IPv4 CIDR
 // blocks, each no smaller than a /16, none overlapping another.  A pool may
 // include cluster-internal ranges, which allocation skips.  An unset or empty
 // pool holds no blocks.
-func parseNetworkCidrPool(raw *datatypes.JSON) ([]netip.Prefix, error) {
+func ParseNetworkCidrPool(raw *datatypes.JSON) ([]netip.Prefix, error) {
 	cidrs, err := ParseCidrs("NetworkCidrPool", raw)
 	if err != nil {
 		return nil, err
@@ -94,10 +94,10 @@ func parseNetworkCidrPool(raw *datatypes.JSON) ([]netip.Prefix, error) {
 	return pool, nil
 }
 
-// networkCidrPoolOrDefault returns the pool a control plane allocates from:
+// NetworkCidrPoolOrDefault returns the pool a control plane allocates from:
 // its NetworkCidrPool, or DefaultNetworkCidrPool when that is empty.
-func networkCidrPoolOrDefault(raw *datatypes.JSON) ([]netip.Prefix, error) {
-	pool, err := parseNetworkCidrPool(raw)
+func NetworkCidrPoolOrDefault(raw *datatypes.JSON) ([]netip.Prefix, error) {
+	pool, err := ParseNetworkCidrPool(raw)
 	if err != nil {
 		return nil, err
 	}
@@ -113,11 +113,11 @@ func networkCidrPoolOrDefault(raw *datatypes.JSON) ([]netip.Prefix, error) {
 	return defaultPool, nil
 }
 
-// allocateNetworkCidr returns the first /16 in pool, in the pool's order, that
+// AllocateNetworkCidr returns the first /16 in pool, in the pool's order, that
 // overlaps none of the ranges in use and none of ClusterInternalCidrs.  The
 // ranges in use are the other runtimes' network ranges and the pools of the
 // control plane's children, which allocate from those themselves.
-func allocateNetworkCidr(pool []netip.Prefix, inUse []netip.Prefix) (netip.Prefix, error) {
+func AllocateNetworkCidr(pool []netip.Prefix, inUse []netip.Prefix) (netip.Prefix, error) {
 	unavailable := append(clusterInternalPrefixes(), inUse...)
 	for _, entry := range pool {
 		for block := netip.PrefixFrom(entry.Addr(), NetworkCidrPrefixLength); entry.Contains(block.Addr()); block = nextBlock(block) {
@@ -245,7 +245,7 @@ func validateRuntimeNetworkCidr(tx *gorm.DB, networkCidr *string, id *uint) erro
 	if networkCidr == nil {
 		return nil
 	}
-	prefix, err := parseNetworkCidr("NetworkCidr", *networkCidr)
+	prefix, err := ParseNetworkCidr("NetworkCidr", *networkCidr)
 	if err != nil {
 		return util.NewBadRequestError(err.Error())
 	}
@@ -271,7 +271,7 @@ func validateRuntimeNetworkCidr(tx *gorm.DB, networkCidr *string, id *uint) erro
 // clear of the network ranges this control plane has allocated, so that the
 // child never hands out a range already in use here.
 func validateNetworkCidrPool(tx *gorm.DB, raw *datatypes.JSON, self bool) error {
-	pool, err := parseNetworkCidrPool(raw)
+	pool, err := ParseNetworkCidrPool(raw)
 	if err != nil {
 		return util.NewBadRequestError(err.Error())
 	}

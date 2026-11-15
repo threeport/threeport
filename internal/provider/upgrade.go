@@ -101,18 +101,18 @@ type UpgradeLifecycleProvider interface {
 type UpgradeableInfra interface {
 	InfraProvider
 
-	// clusterKubernetesVersion reads from the provider the Kubernetes minor
+	// ClusterKubernetesVersion reads from the provider the Kubernetes minor
 	// version the cluster runs, such as "1.36".
-	clusterKubernetesVersion() (string, error)
+	ClusterKubernetesVersion() (string, error)
 
-	// upgradeInfra upgrades the cluster to version, one minor version past the
+	// UpgradeInfra upgrades the cluster to version, one minor version past the
 	// one it runs.  It refreshes the stack against the provider first, and
 	// returns an UpgradeRefusedError without changing anything when the
 	// upgrade would replace or delete any of the stack's resources.
-	upgradeInfra(version string) error
+	UpgradeInfra(version string) error
 }
 
-// UpgradeRefusedError is returned by upgradeInfra when the upgrade would
+// UpgradeRefusedError is returned by UpgradeInfra when the upgrade would
 // replace or delete resources.
 type UpgradeRefusedError struct {
 	// The resources the upgrade would replace or delete, each as its
@@ -167,7 +167,7 @@ func handleUpgrade(p UpgradeLifecycleProvider, snap *ReconciliationSnapshot, log
 
 	// the cluster, not the stack, says what it runs: the provider may have
 	// upgraded it outside Threeport
-	current, err := upgradeable.clusterKubernetesVersion()
+	current, err := upgradeable.ClusterKubernetesVersion()
 	if err != nil {
 		return 0, fmt.Errorf("failed to read the cluster's Kubernetes version: %w", err)
 	}
@@ -365,7 +365,7 @@ func executeInfraUpgrade(config upgradeConfig) {
 		quitStream = make(chan bool, 1)
 		go streamState(streamable, config.Provider.SaveState, quitStream, config.Log)
 	}
-	upgradeErr := config.Infra.upgradeInfra(config.To)
+	upgradeErr := config.Infra.UpgradeInfra(config.To)
 	if quitStream != nil {
 		quitStream <- true
 	}
@@ -407,7 +407,7 @@ func executeInfraUpgrade(config upgradeConfig) {
 	}
 
 	// the step is done only when the cluster says so
-	version, err := config.Infra.clusterKubernetesVersion()
+	version, err := config.Infra.ClusterKubernetesVersion()
 	if err != nil {
 		failed(fmt.Errorf("failed to read the cluster's Kubernetes version after the upgrade: %w", err))
 		return

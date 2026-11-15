@@ -8,11 +8,11 @@ import (
 	tpaws "github.com/threeport/threeport/pkg/aws/v0"
 )
 
-// clusterKubernetesVersion returns the Kubernetes minor version the EKS
+// ClusterKubernetesVersion returns the Kubernetes minor version the EKS
 // cluster runs: the lowest of its control plane's and its node groups'.  EKS
 // upgrades the control plane on its own when its version leaves standard
 // support, and leaves the node groups behind.
-func (i *KubernetesRuntimeInfraEKS) clusterKubernetesVersion() (string, error) {
+func (i *KubernetesRuntimeInfraEKS) ClusterKubernetesVersion() (string, error) {
 	version, err := eksControlPlaneVersion(i.AwsConfig, i.RuntimeInstanceName)
 	if err != nil {
 		return "", err
@@ -34,14 +34,14 @@ func (i *KubernetesRuntimeInfraEKS) clusterKubernetesVersion() (string, error) {
 // in for it.
 var eksNodeGroupVersion = tpaws.EksNodeGroupVersion
 
-// upgradeInfra upgrades the EKS cluster's control plane, then its node
+// UpgradeInfra upgrades the EKS cluster's control plane, then its node
 // groups, then its add-ons, to version.  A control plane already past
 // version, which EKS upgraded on its own while the node groups stayed
 // behind, is kept where it is, as are the add-ons, which follow the control
 // plane, and a node group already past it.  The stack keeps the cluster's
 // upgrade policy, as a resumed create does, and the roles the create gave
 // the cluster and its node group.
-func (i *KubernetesRuntimeInfraEKS) upgradeInfra(version string) error {
+func (i *KubernetesRuntimeInfraEKS) UpgradeInfra(version string) error {
 	i.KubernetesVersion = version
 	controlPlane, err := eksControlPlaneVersion(i.AwsConfig, i.RuntimeInstanceName)
 	if err != nil {
@@ -88,10 +88,10 @@ func (i *KubernetesRuntimeInfraEKS) upgradeInfra(version string) error {
 	return i.upgradeEbsStorageAddon(i.controlPlaneKubernetesVersion())
 }
 
-// clusterKubernetesVersion returns the Kubernetes minor version the GKE
+// ClusterKubernetesVersion returns the Kubernetes minor version the GKE
 // cluster's control plane runs.  GKE upgrades the nodes to it on its own,
 // within the maintenance window.
-func (i *KubernetesRuntimeInfraGKE) clusterKubernetesVersion() (string, error) {
+func (i *KubernetesRuntimeInfraGKE) ClusterKubernetesVersion() (string, error) {
 	release, err := i.useGCPAuth()
 	if err != nil {
 		return "", err
@@ -110,12 +110,12 @@ func (i *KubernetesRuntimeInfraGKE) clusterKubernetesVersion() (string, error) {
 	return version, nil
 }
 
-// upgradeInfra upgrades the GKE cluster's control plane to version, by
+// UpgradeInfra upgrades the GKE cluster's control plane to version, by
 // raising the minimum version it asks for.  GKE upgrades it to its release
 // channel's release of that version, and the nodes after it within the
 // maintenance window.  The stack keeps the cluster's release channel, as a
 // resumed create does.
-func (i *KubernetesRuntimeInfraGKE) upgradeInfra(version string) error {
+func (i *KubernetesRuntimeInfraGKE) UpgradeInfra(version string) error {
 	i.Version = version
 	i.stackMinMasterVersion = nil
 

@@ -25,9 +25,9 @@ var clusterAutoscalerImages = map[string]string{
 	"1.37": "registry.k8s.io/autoscaling/cluster-autoscaler:v1.37.0",
 }
 
-// clusterAutoscalerImage returns the cluster autoscaler image for a cluster
+// ClusterAutoscalerImage returns the cluster autoscaler image for a cluster
 // on a Kubernetes minor version such as "1.36".
-func clusterAutoscalerImage(kubernetesVersion string) (string, error) {
+func ClusterAutoscalerImage(kubernetesVersion string) (string, error) {
 	image, ok := clusterAutoscalerImages[kubernetesVersion]
 	if !ok {
 		return "", fmt.Errorf("no cluster autoscaler image is known for Kubernetes %s", kubernetesVersion)
@@ -48,7 +48,7 @@ func installEksClusterAutoscaler(
 	kubernetesVersion string,
 ) error {
 	// choose the image before anything is created
-	image, err := clusterAutoscalerImage(kubernetesVersion)
+	image, err := ClusterAutoscalerImage(kubernetesVersion)
 	if err != nil {
 		return err
 	}

@@ -32,7 +32,7 @@ func TestAnEksClustersVersionIsItsOldestNodeGroups(t *testing.T) {
 
 	perZone := testEksInfra(3)
 	perZone.NodeGroupPerZone = true
-	version, err := perZone.clusterKubernetesVersion()
+	version, err := perZone.ClusterKubernetesVersion()
 	require.NoError(t, err)
 	assert.Equal(t, "1.35", version)
 	assert.Equal(t, []string{"eks-test-private-node-group-0", "eks-test-private-node-group-1", "eks-test-private-node-group-2"}, asked)
@@ -46,7 +46,7 @@ func TestAnEksClustersVersionIsItsOldestNodeGroups(t *testing.T) {
 	assert.ElementsMatch(t, asked, created)
 
 	asked = nil
-	version, err = testEksInfra(3).clusterKubernetesVersion()
+	version, err = testEksInfra(3).ClusterKubernetesVersion()
 	require.NoError(t, err)
 	assert.Equal(t, "1.36", version)
 	assert.Equal(t, []string{"eks-test-private-node-group"}, asked)
@@ -73,7 +73,7 @@ func TestAnUpgradeKeepsNodeGroupsThatAreAhead(t *testing.T) {
 	infra.NodeGroupPerZone = true
 	infra.AwsConfig = nil
 	// the IAM lookup after the versions fails without an AWS config
-	_ = infra.upgradeInfra("1.36")
+	_ = infra.UpgradeInfra("1.36")
 	assert.Equal(t, "1.37", infra.controlPlaneVersion)
 	assert.Equal(t, map[string]string{"eks-test-private-node-group-0": "1.37"}, infra.nodeGroupVersions)
 

@@ -46,7 +46,7 @@ func autoscalerTestMapper() *meta.RESTMapper {
 // the minor version it is listed under.
 func TestEveryVersionThreeportCreatesHasAnAutoscalerImage(t *testing.T) {
 	for _, version := range api_v0.SupportedKubernetesVersions {
-		_, err := clusterAutoscalerImage(version)
+		_, err := ClusterAutoscalerImage(version)
 		assert.NoError(t, err, version)
 	}
 	for version, image := range clusterAutoscalerImages {
@@ -56,7 +56,7 @@ func TestEveryVersionThreeportCreatesHasAnAutoscalerImage(t *testing.T) {
 		)
 	}
 
-	_, err := clusterAutoscalerImage("1.26")
+	_, err := ClusterAutoscalerImage("1.26")
 	assert.ErrorContains(t, err, "no cluster autoscaler image is known for Kubernetes 1.26")
 }
 

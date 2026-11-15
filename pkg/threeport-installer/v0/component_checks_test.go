@@ -392,9 +392,9 @@ func TestSupportServicesOperatorInstalled(t *testing.T) {
 // guards only runs on EKS, but the check itself is ordinary API reads and is
 // covered here rather than left to a cluster nobody can reach from a test.
 func TestEksThreeportSystemServicesCurrent(t *testing.T) {
-	image136, err := clusterAutoscalerImage("1.36")
+	image136, err := ClusterAutoscalerImage("1.36")
 	require.NoError(t, err)
-	image135, err := clusterAutoscalerImage("1.35")
+	image135, err := ClusterAutoscalerImage("1.35")
 	require.NoError(t, err)
 
 	t.Run("current when the cluster autoscaler is the cluster version's release", func(t *testing.T) {

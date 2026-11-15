@@ -286,7 +286,7 @@ func EksThreeportSystemServicesCurrent(
 	mapper *meta.RESTMapper,
 	kubernetesVersion string,
 ) (bool, error) {
-	wantImage, err := clusterAutoscalerImage(kubernetesVersion)
+	wantImage, err := ClusterAutoscalerImage(kubernetesVersion)
 	if err != nil {
 		return false, err
 	}
