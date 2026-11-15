@@ -17,6 +17,7 @@ import (
 	api "github.com/threeport/threeport/pkg/api/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 var upgradeInfraYes bool
@@ -63,6 +64,24 @@ var UpgradeInfrastructureCmd = &cobra.Command{
 			cli.Error("failed to load the recorded node pool", err)
 			os.Exit(1)
 		}
+
+		// carry the recorded tier so a production cluster keeps its standard node pool
+		if controlPlaneInstance.ControlPlaneDefinitionID == nil {
+			cli.Error("failed to load the recorded tier", errors.New("control plane instance has no definition"))
+			os.Exit(1)
+		}
+		controlPlaneDefinition, err := client.GetControlPlaneDefinitionByID(
+			apiClient,
+			apiEndpoint,
+			*controlPlaneInstance.ControlPlaneDefinitionID,
+		)
+		if err != nil {
+			cli.Error("failed to load the recorded tier", err)
+			os.Exit(1)
+		}
+		infra.Tier = util.DerefString(controlPlaneDefinition.Tier)
+
+		// preview and apply the change
 		err = infra.Upgrade(cmd.Context(), acceptInfrastructureUpgrade)
 		if errors.Is(err, provider.ErrUpgradeDeclined) {
 			fmt.Println("declined.")
