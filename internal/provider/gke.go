@@ -708,7 +708,7 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 
 				Autoscaling: &gkecontainer.NodePoolAutoscalingArgs{
 					MinNodeCount:   pulumi.Int(productionStandardNodeCount),
-					MaxNodeCount:   pulumi.Int(productionStandardNodeCount),
+					MaxNodeCount:   pulumi.Int(productionStandardMaxNodeCount),
 					LocationPolicy: pulumi.String(standardNodeLocationPolicy),
 				},
 

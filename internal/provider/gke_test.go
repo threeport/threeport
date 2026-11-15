@@ -216,7 +216,7 @@ func TestGKEPulumiProgramStandardPool(t *testing.T) {
 		t.Fatal("standard node pool has no autoscaling")
 	}
 	if autoscaling["minNodeCount"] != float64(productionStandardNodeCount) ||
-		autoscaling["maxNodeCount"] != float64(productionStandardNodeCount) ||
+		autoscaling["maxNodeCount"] != float64(productionStandardMaxNodeCount) ||
 		autoscaling["locationPolicy"] != standardNodeLocationPolicy {
 		t.Errorf("autoscaling = %#v", autoscaling)
 	}
