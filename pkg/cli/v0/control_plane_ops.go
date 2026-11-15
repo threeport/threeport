@@ -175,6 +175,59 @@ func InstallModule(
 	return nil
 }
 
+// InstallThroughController records a module install when tptctl is pointed at a root
+// and names another control plane. It returns false when the caller installs on the
+// connected control plane.
+func InstallThroughController(
+	currentClient *http.Client,
+	currentEndpoint string,
+	encryptionKey string,
+	controlPlaneName string,
+	moduleName string,
+	imageNamespace string,
+	imageTag string,
+) (bool, error) {
+	// the connected control plane decides which install runs
+	self, err := client.GetSelfControlPlaneInstance(currentClient, currentEndpoint)
+	if err != nil {
+		return false, fmt.Errorf("failed to get control plane instance: %w", err)
+	}
+	delegate, err := moduleInstallDelegates(self, controlPlaneName)
+	if err != nil || !delegate {
+		return false, err
+	}
+	if err := InstallModule(
+		currentClient,
+		currentEndpoint,
+		encryptionKey,
+		controlPlaneName,
+		moduleName,
+		imageNamespace,
+		imageTag,
+	); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// moduleInstallDelegates reports that a root named another control plane.
+// A command pointed at the control plane itself installs there.
+func moduleInstallDelegates(self *api.ControlPlaneInstance, controlPlaneName string) (bool, error) {
+	// a child installs on itself
+	if self == nil || self.ParentControlPlaneInstanceID != nil {
+		if controlPlaneName != "" && (self == nil || self.Name == nil || controlPlaneName != *self.Name) {
+			return false, api.ErrRequestMustBeMadeToParent
+		}
+		return false, nil
+	}
+
+	// a root with no other name installs on itself
+	if controlPlaneName == "" || (self.Name != nil && controlPlaneName == *self.Name) {
+		return false, nil
+	}
+	return true, nil
+}
+
 // UpgradeModule records a module image.
 // wake is false when a blue-green install still has to set the source namespace.
 func UpgradeModule(
