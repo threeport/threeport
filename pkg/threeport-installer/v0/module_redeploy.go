@@ -110,6 +110,15 @@ func (cpi *ControlPlaneInstaller) redeployInstalledModule(
 		)
 	}
 
+	// a removed module namespace is not part of this control plane
+	present, err := moduleNamespacePresent(kubeClient, apiServer.Namespace)
+	if err != nil {
+		return err
+	}
+	if !present {
+		return nil
+	}
+
 	// the live broker CA is nats-ca, which the copied list does not include
 	if err := copyBrokerCASecret(kubeClient, cpi.Opts.Namespace, apiServer.Namespace); err != nil {
 		return fmt.Errorf("failed to copy the broker CA into %s: %w", apiServer.Namespace, err)
@@ -633,6 +642,18 @@ func brokerCAEntries(data map[string]string) map[string]string {
 		}
 	}
 	return entries
+}
+
+// moduleNamespacePresent reports whether the module namespace still exists.
+func moduleNamespacePresent(kubeClient dynamic.Interface, namespace string) (bool, error) {
+	_, err := kubeClient.Resource(namespaceGVR).Get(context.Background(), namespace, metav1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("failed to get namespace %s: %w", namespace, err)
+	}
+	return true, nil
 }
 
 // copyBrokerCASecret copies nats-ca from the replacement plane into the module namespace.

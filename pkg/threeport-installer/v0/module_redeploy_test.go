@@ -140,6 +140,13 @@ func TestEnsureBrokerCAMountsTheSecret(t *testing.T) {
 	require.True(t, mountNamed(mounts, brokerCASystemFile))
 }
 
+// TestMissingModuleNamespaceIsAbsent covers a removed module namespace.
+func TestMissingModuleNamespaceIsAbsent(t *testing.T) {
+	present, err := moduleNamespacePresent(testKubeClient(), "threeport-wan-aware")
+	require.NoError(t, err)
+	require.False(t, present)
+}
+
 // TestRestartPointsTheDatabaseAtTheReplacement covers a module restart
 // rewriting the database host stored in the init command.
 func TestRestartPointsTheDatabaseAtTheReplacement(t *testing.T) {
