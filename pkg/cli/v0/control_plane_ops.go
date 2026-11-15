@@ -171,6 +171,12 @@ func UpgradeModule(
 	if err != nil {
 		return fmt.Errorf("failed to get module api: %w", err)
 	}
+	if imageNamespace == "" && util.DerefString(module.ImageNamespace) == "" {
+		return fmt.Errorf(
+			"module %s has no recorded image namespace: pass --module-image-namespace",
+			moduleName,
+		)
+	}
 	module.ImageTag = &imageTag
 	if imageNamespace != "" {
 		module.ImageNamespace = &imageNamespace
