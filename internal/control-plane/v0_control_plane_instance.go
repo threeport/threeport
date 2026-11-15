@@ -1943,6 +1943,21 @@ func restoreInstalledDatabase(
 		}
 		bucket := provider.GkeBackupBucketName(*runtimeInstance.Name, projectID)
 
+		// let the source namespace's database write the backup it is stopped for
+		sourceUID, err := threeport.NewInstaller(threeport.Namespace(cpi.Opts.FromNamespace)).
+			DatabaseServiceAccountUID(kubeClient)
+		if err != nil {
+			return nil, err
+		}
+		gkeInfra := &provider.KubernetesRuntimeInfraGKE{
+			PulumiWorkspace: provider.PulumiWorkspace{RuntimeInstanceName: *runtimeInstance.Name},
+			ProjectID:       projectID,
+			BackupBucket:    bucket,
+		}
+		if err := gkeInfra.GrantDatabaseBackupAccess(sourceUID); err != nil {
+			return nil, fmt.Errorf("failed to grant backup access for source namespace %s: %w", cpi.Opts.FromNamespace, err)
+		}
+
 		// remember the bucket so the restored database check requires the schedule
 		cpi.Opts.GcpBackupBucket = bucket
 		return cpi.StopSourceAndRestore(kubeClient, bucket)
