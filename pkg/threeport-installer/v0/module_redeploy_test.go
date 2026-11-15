@@ -103,6 +103,13 @@ func TestClientCredentialRejectsAMismatch(t *testing.T) {
 	require.Error(t, err)
 }
 
+// TestBrokerCAEntriesKeepsTheCertificate copies the keys the module reads.
+func TestBrokerCAEntriesKeepsTheCertificate(t *testing.T) {
+	// drop a key the broker secret does not serve to the module
+	got := brokerCAEntries(map[string]string{"tls.crt": "cert", "tls.key": "key", "extra": "no"})
+	require.Equal(t, map[string]string{"tls.crt": "cert", "tls.key": "key"}, got)
+}
+
 // TestEnsureBrokerCAMountsTheSecret adds the broker CA once.
 func TestEnsureBrokerCAMountsTheSecret(t *testing.T) {
 	// a module deployment has no broker volume yet

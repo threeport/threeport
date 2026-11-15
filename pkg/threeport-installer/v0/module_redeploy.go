@@ -467,6 +467,10 @@ func refreshModuleTrust(
 			return false, err
 		}
 	}
+	// the live broker secret is nats-ca, and the module reads tls.crt from it
+	if err := copyBrokerCASecret(kubeClient, controlPlaneNamespace, moduleNamespace); err != nil {
+		return false, err
+	}
 	cert := util.DerefString(inst.ClientCert)
 	key := util.DerefString(inst.ClientKey)
 	if cert == "" || key == "" {
@@ -601,10 +605,40 @@ func setSecretEntries(
 const (
 	brokerCASecret     = "nats-ca-cert"
 	brokerCAKey        = "ca.crt"
+	liveBrokerCASecret = "nats-ca"
 	brokerCAVolume     = "nats-ca"
 	brokerCAMount      = "/etc/threeport/nats-ca"
 	brokerCASystemFile = "/etc/ssl/certs/threeport-nats-ca.crt"
 )
+
+// brokerCAEntries keeps the keys a module reads from the live broker secret.
+func brokerCAEntries(data map[string]string) map[string]string {
+	entries := map[string]string{}
+	for _, key := range []string{"tls.crt", "tls.key"} {
+		if data[key] != "" {
+			entries[key] = data[key]
+		}
+	}
+	return entries
+}
+
+// copyBrokerCASecret copies nats-ca from the replacement plane into the module namespace.
+func copyBrokerCASecret(kubeClient dynamic.Interface, controlPlaneNamespace, moduleNamespace string) error {
+	// read the certificate the broker presents
+	crt, err := secretData(kubeClient, controlPlaneNamespace, liveBrokerCASecret, "tls.crt")
+	if err != nil || crt == "" {
+		return err
+	}
+	key, err := secretData(kubeClient, controlPlaneNamespace, liveBrokerCASecret, "tls.key")
+	if err != nil {
+		return err
+	}
+	_, err = setSecretEntries(kubeClient, moduleNamespace, liveBrokerCASecret, brokerCAEntries(map[string]string{
+		"tls.crt": crt,
+		"tls.key": key,
+	}))
+	return err
+}
 
 // ensureBrokerCA mounts the broker CA for a module that verifies the server itself.
 // A module built before that file still uses the system pool, so the same CA is mounted there too.
