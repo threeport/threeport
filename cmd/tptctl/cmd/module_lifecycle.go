@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/threeport/threeport/internal/version"
+	api "github.com/threeport/threeport/pkg/api/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
@@ -125,6 +126,13 @@ func runModuleBlueGreenUpgrade(cmd *cobra.Command, args []string) {
 					return err
 				}
 			}
+
+			// keep the version the replaced control plane runs for a flag left empty
+			running, err := runningControlPlane(apiClient, apiEndpoint, moduleUpgradeControlPlane)
+			if err != nil {
+				return err
+			}
+			imageNamespace, imageTag := moduleBlueGreenImage(upgradeImageNamespace, upgradeImageTag, running)
 			return cli.UpgradeBlueGreen(
 				threeportConfig,
 				controlPlane,
@@ -134,8 +142,8 @@ func runModuleBlueGreenUpgrade(cmd *cobra.Command, args []string) {
 				moduleUpgradeControlPlane,
 				moduleNewControlPlaneName,
 				childTag,
-				upgradeImageNamespace,
-				upgradeImageTag,
+				imageNamespace,
+				imageTag,
 			)
 		},
 	)
@@ -144,6 +152,52 @@ func runModuleBlueGreenUpgrade(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 	cli.Complete(fmt.Sprintf("module %s upgrade started", moduleUpgradeName))
+}
+
+// runningControlPlane returns the control plane a module blue-green replaces: the
+// named child, or the connected control plane when the name is empty.
+func runningControlPlane(
+	apiClient *http.Client,
+	apiEndpoint string,
+	name string,
+) (*api.ControlPlaneInstance, error) {
+	// the connected control plane is the one replaced when no child is named
+	if name == "" {
+		self, err := client.GetSelfControlPlaneInstance(apiClient, apiEndpoint)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get control plane instance: %w", err)
+		}
+		return self, nil
+	}
+
+	child, err := client.GetControlPlaneInstanceByName(apiClient, apiEndpoint, name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get control plane %s: %w", name, err)
+	}
+	return child, nil
+}
+
+// moduleBlueGreenImage returns the image namespace and tag of the new control
+// plane. A value from its flag wins. A flag left empty takes the value the
+// replaced control plane runs, so a module upgrade leaves the control plane
+// version alone unless the caller names one. A control plane that records no
+// image leaves the value empty for the install's own default.
+func moduleBlueGreenImage(
+	flagNamespace string,
+	flagTag string,
+	running *api.ControlPlaneInstance,
+) (string, string) {
+	imageNamespace, imageTag := flagNamespace, flagTag
+	if running == nil {
+		return imageNamespace, imageTag
+	}
+	if imageNamespace == "" {
+		imageNamespace = util.DerefString(running.ImageNamespace)
+	}
+	if imageTag == "" {
+		imageTag = util.DerefString(running.ImageTag)
+	}
+	return imageNamespace, imageTag
 }
 
 // parentControlPlaneImage returns the image namespace and tag for the new control plane.
@@ -258,10 +312,10 @@ func init() {
 	UpgradeModuleBlueGreenCmd.MarkFlagRequired("new-control-plane-name")
 	UpgradeModuleBlueGreenCmd.Flags().StringVar(
 		&upgradeImageNamespace,
-		"control-plane-image-namespace", "", "Image namespace of the new control plane. Empty keeps the source namespace.",
+		"control-plane-image-namespace", "", "Image namespace of the new control plane. Empty keeps the namespace the replaced control plane runs.",
 	)
 	UpgradeModuleBlueGreenCmd.Flags().StringVar(
 		&upgradeImageTag,
-		"control-plane-image-tag", "", "Image tag of the new control plane. Empty uses this tptctl version, or the parent controller tag for a child.",
+		"control-plane-image-tag", "", "Image tag of the new control plane. Empty keeps the tag the replaced control plane runs.",
 	)
 }

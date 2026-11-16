@@ -105,29 +105,28 @@ tptctl upgrade module image \
   --module-image-tag [module image tag]
 ```
 
-Redeploy the connected control plane at this tptctl version with a new
-module image.
+Redeploy the connected control plane with a new module image.  The control
+plane keeps the image namespace and tag it runs.  Pass
+`--control-plane-image-namespace` or `--control-plane-image-tag` to change
+either one.
 
 ```bash
 tptctl upgrade module blue-green \
   --module-name [module name] \
   --module-image-tag [module image tag] \
-  --new-control-plane-name [new control plane name] \
-  --control-plane-image-namespace [image namespace] \
-  --control-plane-image-tag [image tag]
+  --new-control-plane-name [new control plane name]
 ```
 
-Ask the parent controller to redeploy a child at the controller version
-with a new module image.
+Ask the parent controller to redeploy a child with a new module image.  The
+child keeps the image namespace and tag it runs, unless you pass the same two
+flags.
 
 ```bash
 tptctl upgrade module blue-green \
   --control-plane-name [child name] \
   --module-name [module name] \
   --module-image-tag [module image tag] \
-  --new-control-plane-name [new control plane name] \
-  --control-plane-image-namespace [image namespace] \
-  --control-plane-image-tag [image tag]
+  --new-control-plane-name [new control plane name]
 ```
 
 Install the module on the connected control plane.
