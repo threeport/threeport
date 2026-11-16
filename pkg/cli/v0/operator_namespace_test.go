@@ -212,3 +212,22 @@ func TestGrantSourceDatabaseGrantsTheSourceAccount(t *testing.T) {
 		t.Fatalf("granted = %v, want the source database account's UID once", granted)
 	}
 }
+
+// TestSourceNamespaceReadsAPendingRequest covers the namespace a blue-green
+// replaces: the instance's own when nothing is pending, and the recorded source
+// when an earlier request already moved the instance to the new namespace.
+func TestSourceNamespaceReadsAPendingRequest(t *testing.T) {
+	// an instance with no request, and one a request for primary-02 left pending
+	idle := &api.ControlPlaneInstance{Namespace: util.Ptr("primary-01")}
+	pending := &api.ControlPlaneInstance{
+		Namespace:     util.Ptr("primary-02"),
+		FromNamespace: util.Ptr("primary-01"),
+	}
+
+	// assert both name primary-01 as the namespace being replaced
+	for name, instance := range map[string]*api.ControlPlaneInstance{"idle": idle, "pending": pending} {
+		if got := sourceNamespace(instance); got != "primary-01" {
+			t.Fatalf("%s: source namespace = %q, want primary-01", name, got)
+		}
+	}
+}

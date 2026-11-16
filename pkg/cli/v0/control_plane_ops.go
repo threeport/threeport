@@ -741,7 +741,7 @@ func delegateBlueGreen(
 	if err != nil {
 		return fmt.Errorf("failed to get control plane instance: %w", err)
 	}
-	namespace := util.DerefString(inst.Namespace)
+	namespace := sourceNamespace(inst)
 	if newName == "" || newName == namespace {
 		return fmt.Errorf("new namespace must differ from source namespace %s", namespace)
 	}
@@ -806,6 +806,19 @@ func delegateBlueGreen(
 	}
 	fmt.Printf("Info: recorded blue-green request for %s\n", newName)
 	return waitForChildBlueGreen(currentClient, currentEndpoint, *inst.ID, util.DerefString(inst.Name))
+}
+
+// sourceNamespace returns the namespace a blue-green request replaces. A
+// request still pending on the instance already moved its namespace to the new
+// name and recorded the replaced one as the source, so the source is read from
+// there first.
+func sourceNamespace(instance *api.ControlPlaneInstance) string {
+	// a pending request names the namespace it replaces
+	if from := util.DerefString(instance.FromNamespace); from != "" {
+		return from
+	}
+
+	return util.DerefString(instance.Namespace)
 }
 
 // decryptedProviderCredentials returns the service account JSON the API stores encrypted.
