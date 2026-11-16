@@ -664,17 +664,6 @@ func v0ControlPlaneInstanceCreated(
 	// the API answered, so a later failure leaves the source writers stopped
 	apiServing = true
 
-	// install the support services operator
-	err = threeport.InstallThreeportSupportServicesOperator(
-		dynamicKubeClient,
-		mapper,
-		threeport.SupportServicesCloud(v0.KubernetesRuntimeInfraProvider(*kubernetesRuntimeDefinition.InfraProvider)),
-		cpi.Opts.Namespace,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to install threeport support services operator: %w", err)
-	}
-
 	// check the restored database holds the control plane it was restored for
 	if cpi.Opts.FromNamespace != "" {
 		if err := cpi.AssertRestoredControlPlane(dynamicKubeClient, mapper); err != nil {
@@ -693,9 +682,8 @@ func v0ControlPlaneInstanceCreated(
 			return 0, fmt.Errorf("failed to retarget installed modules: %w", err)
 		}
 
-		// delete the source namespace unless it holds the shared support services
-		if cpi.Opts.FromNamespace != cpi.Opts.Namespace &&
-			!threeport.KeepSourceNamespace(cpi.Opts.FromNamespace) {
+		// delete the source namespace, which a child control plane never shares
+		if cpi.Opts.FromNamespace != cpi.Opts.Namespace {
 			if err := threeport.DeleteNamespaces(
 				dynamicKubeClient,
 				mapper,
@@ -703,20 +691,6 @@ func v0ControlPlaneInstanceCreated(
 			); err != nil {
 				return 0, fmt.Errorf("failed to delete source namespace %s: %w", cpi.Opts.FromNamespace, err)
 			}
-		}
-
-		// stop the replaced control plane's StatefulSets in a source namespace kept for the shared services
-		if cpi.Opts.FromNamespace != cpi.Opts.Namespace &&
-			threeport.KeepSourceNamespace(cpi.Opts.FromNamespace) {
-			scaled, err := threeport.ScaleStatefulSetsToZero(dynamicKubeClient, cpi.Opts.FromNamespace)
-			if err != nil {
-				return 0, fmt.Errorf("failed to scale down source namespace %s: %w", cpi.Opts.FromNamespace, err)
-			}
-			log.Info(
-				"kept source namespace and scaled its StatefulSets to zero",
-				"namespace", cpi.Opts.FromNamespace,
-				"statefulSets", scaled,
-			)
 		}
 	}
 

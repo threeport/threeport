@@ -14,11 +14,11 @@ import (
 	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 )
 
-// TestUpgradeLeavesTheSharedOperator calls the namespace delete the upgrade uses.
-// The shared namespace stays with its operator and its StatefulSets at zero, and
-// a dedicated namespace is deleted.
-func TestUpgradeLeavesTheSharedOperator(t *testing.T) {
-	// install the operator and a database in the shared namespace and a workload in a dedicated one
+// TestUpgradeStopsWhatRunsInTheKeptNamespace calls the namespace removal the
+// upgrade uses. The original namespace stays with its operator and its
+// StatefulSets at zero, and a dedicated namespace is deleted.
+func TestUpgradeStopsWhatRunsInTheKeptNamespace(t *testing.T) {
+	// run the operator and a database in the original namespace and a workload in a dedicated one
 	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Version: "v1"}})
 	mapper.Add(schema.GroupVersionKind{Version: "v1", Kind: "Namespace"}, meta.RESTScopeRoot)
 	var rest meta.RESTMapper = mapper
@@ -26,13 +26,19 @@ func TestUpgradeLeavesTheSharedOperator(t *testing.T) {
 	if err := removeReplacedNamespace(kube, &rest, installer.ControlPlaneNamespace, "primary-05"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := kube.Resource(deployGVR()).Namespace(installer.ControlPlaneNamespace).Get(
+
+	// the operator stays in the original namespace, stopped
+	operator, err := kube.Resource(deployGVR()).Namespace(installer.ControlPlaneNamespace).Get(
 		t.Context(), installer.SupportServicesOperatorDeployName, metav1.GetOptions{},
-	); err != nil {
+	)
+	if err != nil {
 		t.Fatal(err)
 	}
+	if replicas, _, _ := unstructured.NestedInt64(operator.Object, "spec", "replicas"); replicas != 0 {
+		t.Fatalf("original namespace operator replicas = %d, want 0", replicas)
+	}
 
-	// the replaced control plane's StatefulSets in the shared namespace are stopped
+	// the replaced control plane's StatefulSets in the original namespace are stopped
 	statefulSet, err := kube.Resource(statefulSetGVR()).Namespace(installer.ControlPlaneNamespace).Get(
 		t.Context(), "crdb", metav1.GetOptions{},
 	)
@@ -40,7 +46,7 @@ func TestUpgradeLeavesTheSharedOperator(t *testing.T) {
 		t.Fatal(err)
 	}
 	if replicas, _, _ := unstructured.NestedInt64(statefulSet.Object, "spec", "replicas"); replicas != 0 {
-		t.Fatalf("shared namespace database replicas = %d, want 0", replicas)
+		t.Fatalf("original namespace database replicas = %d, want 0", replicas)
 	}
 
 	// a dedicated source namespace is removed
@@ -55,9 +61,9 @@ func TestUpgradeLeavesTheSharedOperator(t *testing.T) {
 	}
 }
 
-// operatorCluster returns a cluster with the shared operator and a dedicated namespace.
+// operatorCluster returns a cluster with the operator and a dedicated namespace.
 func operatorCluster() dynamic.Interface {
-	// seed the shared operator and the dedicated namespace
+	// seed the operator and the dedicated namespace
 	scheme := runtime.NewScheme()
 	objects := []runtime.Object{
 		&unstructured.Unstructured{Object: map[string]interface{}{
@@ -77,6 +83,7 @@ func operatorCluster() dynamic.Interface {
 				"name":      installer.SupportServicesOperatorDeployName,
 				"namespace": installer.ControlPlaneNamespace,
 			},
+			"spec": map[string]interface{}{"replicas": int64(1)},
 		}},
 		&unstructured.Unstructured{Object: map[string]interface{}{
 			"apiVersion": "apps/v1",

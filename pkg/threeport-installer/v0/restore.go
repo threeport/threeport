@@ -1717,6 +1717,16 @@ func (cpi *ControlPlaneInstaller) InstallRestored(
 	if err := InstallThreeportCRDs(kubeClient, mapper); err != nil {
 		return true, err
 	}
+
+	// run the support services operator in this namespace, taking it over from the source
+	if err := InstallThreeportSupportServicesOperator(
+		kubeClient,
+		mapper,
+		SupportServicesCloud(api.KubernetesRuntimeInfraProvider(cpi.Opts.InfraProvider)),
+		cpi.Opts.Namespace,
+	); err != nil {
+		return true, err
+	}
 	if err := cpi.RedeployInstalledModules(kubeClient, mapper, apiClient, cpi.Opts.ExternalApiEndpoint); err != nil {
 		return true, err
 	}
@@ -1848,6 +1858,17 @@ func ScaleStatefulSetsToZero(kubeClient dynamic.Interface, namespace string) ([]
 	}
 
 	return scaled, errors.Join(scaleErrors...)
+}
+
+// ScaleSupportServicesOperatorToZero stops the support services operator in a
+// namespace. An operator that is already gone is left alone.
+func ScaleSupportServicesOperatorToZero(kubeClient dynamic.Interface, namespace string) error {
+	// stop the one deployment the operator install creates
+	return scaleDeploymentsToZero(
+		kubeClient,
+		namespace,
+		map[string]int64{SupportServicesOperatorDeployName: 0},
+	)
 }
 
 // scaleDeploymentsToZero sets each named deployment to zero replicas.

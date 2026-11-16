@@ -865,14 +865,18 @@ func removeReplacedNamespace(
 		return nil
 	}
 
-	// keep the namespace that holds the shared operator and stop what else runs in it
+	// keep the original namespace and stop what runs in it, since the new
+	// control plane now runs the operator
 	if installer.KeepSourceNamespace(namespace) {
 		scaled, err := installer.ScaleStatefulSetsToZero(kube, namespace)
 		if err != nil {
 			return fmt.Errorf("failed to scale down the kept source namespace %s: %w", namespace, err)
 		}
+		if err := installer.ScaleSupportServicesOperatorToZero(kube, namespace); err != nil {
+			return fmt.Errorf("failed to stop the support services operator in %s: %w", namespace, err)
+		}
 		fmt.Printf(
-			"Info: kept source namespace %s, which holds the shared support services operator, and scaled its StatefulSets to zero: %s\n",
+			"Info: kept source namespace %s, scaled its StatefulSets to zero (%s), and stopped its support services operator\n",
 			namespace,
 			strings.Join(scaled, ", "),
 		)
