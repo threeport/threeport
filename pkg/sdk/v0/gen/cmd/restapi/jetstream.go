@@ -32,9 +32,11 @@ func GenUtilJetstream(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f.ImportAlias("github.com/threeport/threeport/internal/terraform/notif", "terraform_notif")
 	f.ImportAlias("github.com/threeport/threeport/internal/kubernetes-workload/notif", "kubernetesworkload_notif")
 
-	f.Comment(`Initialize the NATS Jet stream context with controller streams`)
+	f.Comment(`Initialize the NATS Jet stream context with controller streams, each`)
+	f.Comment(`replicated across replicas of the message broker's servers`)
 	f.Func().Id("InitJetStream").Params(
 		Id("nc").Op("*").Qual("github.com/nats-io/nats.go", "Conn"),
+		Id("replicas").Int(),
 	).Params(
 		Op("*").Qual("github.com/nats-io/nats.go", "JetStreamContext"),
 		Error(),
@@ -69,6 +71,7 @@ func GenUtilJetstream(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							// not discard unacknowledged ones
 							Id("MaxBytes"): Qual("github.com/threeport/threeport/pkg/notifications/v0", "ControllerStreamMaxBytes"),
 							Id("Discard"):  Qual("github.com/nats-io/nats.go", "DiscardNew"),
+							Id("Replicas"): Id("replicas"),
 						},
 					),
 				)

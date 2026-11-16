@@ -25,7 +25,7 @@ const supportRuntimeName = "dev"
 
 // TestReconcilerEnsuresSupportServices runs the generated ensure calls for one runtime.
 func TestReconcilerEnsuresSupportServices(t *testing.T) {
-	// point the fixture at a kind runtime and serve its component routes
+	// point the fixture at a runtime and serve its component routes
 	h := newHarness(t)
 	stub := newSupportStub(t, h)
 	h.objMu.Lock()
@@ -130,7 +130,7 @@ type supportStub struct {
 func newSupportStub(t *testing.T, h *harness) *supportStub {
 	t.Helper()
 
-	// a kind runtime so the secrets component is installed
+	// register the runtime the components install onto
 	runtimeID := uint(7)
 	definitionID := uint(8)
 	name := supportRuntimeName
@@ -250,7 +250,7 @@ func (s *supportStub) runtimeInstance(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// runtimeDefinitionByID serves the kind provider the secrets component reads.
+// runtimeDefinitionByID serves the stored runtime definition.
 func (s *supportStub) runtimeDefinitionByID(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

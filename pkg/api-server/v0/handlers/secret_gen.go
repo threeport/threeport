@@ -250,12 +250,16 @@ func (h Handler) GetSecretDefinitions(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/secret-definitions/{id} [GET]
 func (h Handler) GetSecretDefinition(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.SecretDefinition).GetFullyQualifiedType()
-	secretDefinitionID := c.Param("id")
+	secretDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var secretDefinition api_v0.SecretDefinition
 	if result := h.RequestDB(c).
 		First(&secretDefinition, secretDefinitionID); result.Error != nil {
@@ -299,7 +303,10 @@ func (h Handler) GetSecretDefinition(c echo.Context) error {
 func (h Handler) UpdateSecretDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeSecretDefinition
 	fullyQualifiedType := new(api_v0.SecretDefinition).GetFullyQualifiedType()
-	secretDefinitionID := c.Param("id")
+	secretDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingSecretDefinition api_v0.SecretDefinition
 	if result := h.RequestDB(c).First(&existingSecretDefinition, secretDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -399,7 +406,10 @@ func (h Handler) UpdateSecretDefinition(c echo.Context) error {
 func (h Handler) ReplaceSecretDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeSecretDefinition
 	fullyQualifiedType := new(api_v0.SecretDefinition).GetFullyQualifiedType()
-	secretDefinitionID := c.Param("id")
+	secretDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingSecretDefinition api_v0.SecretDefinition
 	if result := h.RequestDB(c).First(&existingSecretDefinition, secretDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -501,13 +511,17 @@ func (h Handler) ReplaceSecretDefinition(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/secret-definitions/{id} [DELETE]
 func (h Handler) DeleteSecretDefinition(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.SecretDefinition).GetFullyQualifiedType()
-	secretDefinitionID := c.Param("id")
+	secretDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var secretDefinition api_v0.SecretDefinition
 	if result := h.RequestDB(c).Preload("SecretInstances").First(&secretDefinition, secretDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -854,12 +868,16 @@ func (h Handler) GetSecretInstances(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/secret-instances/{id} [GET]
 func (h Handler) GetSecretInstance(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.SecretInstance).GetFullyQualifiedType()
-	secretInstanceID := c.Param("id")
+	secretInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var secretInstance api_v0.SecretInstance
 	if result := h.RequestDB(c).
 		First(&secretInstance, secretInstanceID); result.Error != nil {
@@ -903,7 +921,10 @@ func (h Handler) GetSecretInstance(c echo.Context) error {
 func (h Handler) UpdateSecretInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeSecretInstance
 	fullyQualifiedType := new(api_v0.SecretInstance).GetFullyQualifiedType()
-	secretInstanceID := c.Param("id")
+	secretInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingSecretInstance api_v0.SecretInstance
 	if result := h.RequestDB(c).First(&existingSecretInstance, secretInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -1003,7 +1024,10 @@ func (h Handler) UpdateSecretInstance(c echo.Context) error {
 func (h Handler) ReplaceSecretInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeSecretInstance
 	fullyQualifiedType := new(api_v0.SecretInstance).GetFullyQualifiedType()
-	secretInstanceID := c.Param("id")
+	secretInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingSecretInstance api_v0.SecretInstance
 	if result := h.RequestDB(c).First(&existingSecretInstance, secretInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -1105,13 +1129,17 @@ func (h Handler) ReplaceSecretInstance(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/secret-instances/{id} [DELETE]
 func (h Handler) DeleteSecretInstance(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.SecretInstance).GetFullyQualifiedType()
-	secretInstanceID := c.Param("id")
+	secretInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var secretInstance api_v0.SecretInstance
 	if result := h.RequestDB(c).First(&secretInstance, secretInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {

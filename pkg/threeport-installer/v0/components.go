@@ -269,6 +269,17 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAPIDeployment(
 		return fmt.Errorf("failed to create DB initialization config map: %w", err)
 	}
 
+	// the API server connects to the message broker as the threeport user,
+	// and replicates its streams across the broker's servers
+	brokerCredentials, err := cpi.messageBrokerCredentials(kubeClient)
+	if err != nil {
+		return fmt.Errorf("failed to read the message broker credentials: %w", err)
+	}
+	brokerReplicas, err := cpi.messageBrokerReplicas(kubeClient)
+	if err != nil {
+		return err
+	}
+
 	// tell the database migrator where to back the database up to before
 	// migrating
 	if err := cpi.InstallDatabaseBackupConfig(kubeClient, mapper); err != nil {
@@ -291,6 +302,10 @@ DB_PORT=%[5]s
 DB_SSL_MODE=%[6]s
 NATS_HOST=%[7]s.%[2]s.svc.cluster.local
 NATS_PORT=4222
+NATS_USER=%[9]s
+NATS_PASSWORD=%[10]s
+NATS_CA_FILE=%[11]s
+NATS_REPLICAS=%[12]d
 THREEPORT_API_ENDPOINT=%[8]s.%[2]s.svc.cluster.local
 THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 `,
@@ -302,6 +317,10 @@ THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 					database.ThreeportDatabaseSslMode,
 					natsServiceName,
 					ThreeportAPIServiceResourceName,
+					brokerCredentials.User,
+					brokerCredentials.Password,
+					NatsClientCAFile,
+					brokerReplicas,
 				),
 			},
 		},
@@ -490,7 +509,18 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 	mapper *meta.RESTMapper,
 	authConfig *auth.AuthConfig,
 ) error {
-	controllerSecret := cpi.getControllerSecret("controller", cpi.Opts.Namespace)
+	// the controllers connect to the message broker as the threeport user,
+	// and replicate their lock buckets across the broker's servers
+	brokerCredentials, err := cpi.messageBrokerCredentials(kubeClient)
+	if err != nil {
+		return fmt.Errorf("failed to read the message broker credentials: %w", err)
+	}
+	brokerReplicas, err := cpi.messageBrokerReplicas(kubeClient)
+	if err != nil {
+		return err
+	}
+
+	controllerSecret := cpi.getControllerSecret("controller", cpi.Opts.Namespace, brokerCredentials, brokerReplicas)
 	if err := cpi.CreateOrUpdateKubeResource(controllerSecret, kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed to create controller secret: %w", err)
 	}
@@ -960,15 +990,15 @@ func (cpi *ControlPlaneInstaller) DeleteAgentRoleBindings(
 	mapper *meta.RESTMapper,
 ) error {
 	// delete the manager and proxy bindings
-	for _, suffix := range []string{
-		"threeport-agent-manager-rolebinding",
-		"threeport-agent-proxy-rolebinding",
+	for _, name := range []string{
+		cpi.agentManagerBindingName(),
+		cpi.agentProxyBindingName(),
 	} {
 		binding := kubeObject(
 			"rbac.authorization.k8s.io/v1",
 			"ClusterRoleBinding",
 			"",
-			fmt.Sprintf("%s-%s", cpi.Opts.Namespace, suffix),
+			name,
 		)
 		if err := kube.DeleteResource(binding, kubeClient, *mapper); err != nil {
 			return err
@@ -1243,7 +1273,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + cpi.Opts.ControlPlaneName + "",
+					"app.kubernetes.io/instance":   cpi.agentInstanceLabel(),
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
@@ -1265,7 +1295,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + cpi.Opts.ControlPlaneName + "",
+					"app.kubernetes.io/instance":   cpi.agentInstanceLabel(),
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
@@ -1405,7 +1435,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + cpi.Opts.ControlPlaneName + "",
+					"app.kubernetes.io/instance":   cpi.agentInstanceLabel(),
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
@@ -1436,7 +1466,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + cpi.Opts.ControlPlaneName + "",
+					"app.kubernetes.io/instance":   cpi.agentInstanceLabel(),
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
@@ -1481,7 +1511,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + cpi.Opts.ControlPlaneName + "",
+					"app.kubernetes.io/instance":   cpi.agentInstanceLabel(),
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
@@ -1516,13 +1546,13 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + cpi.Opts.ControlPlaneName + "",
+					"app.kubernetes.io/instance":   cpi.agentInstanceLabel(),
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
 					"app.kubernetes.io/managed-by": "threeport",
 				},
-				"name": fmt.Sprintf("%s-threeport-agent-manager-rolebinding", cpi.Opts.Namespace),
+				"name": cpi.agentManagerBindingName(),
 			},
 			"roleRef": map[string]interface{}{
 				"apiGroup": "rbac.authorization.k8s.io",
@@ -1550,13 +1580,13 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + cpi.Opts.ControlPlaneName + "",
+					"app.kubernetes.io/instance":   cpi.agentInstanceLabel(),
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
 					"app.kubernetes.io/managed-by": "threeport",
 				},
-				"name": fmt.Sprintf("%s-threeport-agent-proxy-rolebinding", cpi.Opts.Namespace),
+				"name": cpi.agentProxyBindingName(),
 			},
 			"roleRef": map[string]interface{}{
 				"apiGroup": "rbac.authorization.k8s.io",
@@ -1583,7 +1613,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + cpi.Opts.ControlPlaneName + "",
+					"app.kubernetes.io/instance":   cpi.agentInstanceLabel(),
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
@@ -1618,7 +1648,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + cpi.Opts.ControlPlaneName + "",
+					"app.kubernetes.io/instance":   cpi.agentInstanceLabel(),
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
@@ -1748,6 +1778,13 @@ func (cpi *ControlPlaneInstaller) UnInstallThreeportControlPlaneComponents(
 		return fmt.Errorf("failed to delete control plane role bindings: %w", err)
 	}
 
+	// the volumes behind the namespace's claims, recorded before the claims
+	// are deleted with it
+	volumes, err := volumesDeletedWithNamespace(kubeClient, cpi.Opts.Namespace)
+	if err != nil {
+		return fmt.Errorf("failed to find the control plane's persistent volumes: %w", err)
+	}
+
 	// delete the control plane namespace
 	if err := DeleteNamespaces(
 		kubeClient,
@@ -1757,8 +1794,156 @@ func (cpi *ControlPlaneInstaller) UnInstallThreeportControlPlaneComponents(
 		return fmt.Errorf("failed to delete control plane namespace: %w", err)
 	}
 
+	// The namespace is gone once its claims are, but the disks behind them
+	// are deleted after, by the storage driver. Deleting the cluster before
+	// the driver finishes leaves the disk behind, unattached and billing, so
+	// the caller is not told the control plane is gone until they are.
+	if err := waitForVolumesDeleted(kubeClient, volumes); err != nil {
+		return fmt.Errorf("control plane persistent volumes were not deleted: %w", err)
+	}
+
 	return nil
 }
+
+// persistentVolumeGVR is the cluster-scoped v1 persistentvolumes resource.
+var persistentVolumeGVR = schema.GroupVersionResource{Version: "v1", Resource: "persistentvolumes"}
+
+// volumeDeleteTimeout is how long the uninstall waits for the storage driver
+// to delete the disks behind the control plane's claims. A cloud disk is
+// detached from its node and then deleted, which takes well under this.
+var volumeDeleteTimeout = 5 * time.Minute
+
+// volumeDeletePollInterval is how often the uninstall checks whether they are
+// gone.
+var volumeDeletePollInterval = 2 * time.Second
+
+// volumesDeletedWithNamespace returns the persistent volumes bound to claims
+// in a namespace that are deleted along with their claims. A volume whose
+// reclaim policy keeps it is left out: it outlives its claim on purpose, and
+// waiting for it would never end.
+//
+// The listing is bounded by volumeDeleteTimeout, as the wait is: an API server
+// that accepts the request and never answers it would otherwise hold the
+// teardown forever, before the wait's deadline applies.
+func volumesDeletedWithNamespace(kubeClient dynamic.Interface, namespace string) ([]string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), volumeDeleteTimeout)
+	defer cancel()
+
+	list, err := kubeClient.Resource(persistentVolumeGVR).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list persistent volumes: %w", err)
+	}
+
+	var volumes []string
+	for _, volume := range list.Items {
+		claimNamespace, _, _ := unstructured.NestedString(volume.Object, "spec", "claimRef", "namespace")
+		reclaimPolicy, _, _ := unstructured.NestedString(volume.Object, "spec", "persistentVolumeReclaimPolicy")
+		if claimNamespace == namespace && reclaimPolicy == "Delete" {
+			volumes = append(volumes, volume.GetName())
+		}
+	}
+
+	return volumes, nil
+}
+
+// waitForVolumesDeleted waits until none of the named persistent volumes
+// exists. The storage driver removes a volume's object only once it has
+// deleted the disk, so a volume that is gone has no disk left behind.
+//
+// The deadline bounds the requests too, not only the polling between them: an
+// API server that accepts a request and never answers it would otherwise hold
+// the teardown forever.
+func waitForVolumesDeleted(kubeClient dynamic.Interface, volumes []string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), volumeDeleteTimeout)
+	defer cancel()
+
+	// Each pass checks the volumes the one before found still there, so a
+	// volume is named as left only while nothing has said it is gone.
+	pending := volumes
+	for {
+		var remaining []string
+		for i, name := range pending {
+			_, err := kubeClient.Resource(persistentVolumeGVR).Get(ctx, name, metav1.GetOptions{})
+			switch {
+			case k8serrors.IsNotFound(err):
+			case ctx.Err() != nil:
+				// the deadline ended this pass at this volume: it and the
+				// ones after it were still there when last checked
+				return volumesStillPresent(append(remaining, pending[i:]...), err)
+			case err != nil:
+				return fmt.Errorf("failed to check persistent volume %s: %w", name, err)
+			default:
+				remaining = append(remaining, name)
+			}
+		}
+		if len(remaining) == 0 {
+			return nil
+		}
+		pending = remaining
+
+		select {
+		case <-ctx.Done():
+			return volumesStillPresent(remaining, ctx.Err())
+		case <-time.After(volumeDeletePollInterval):
+		}
+	}
+}
+
+// volumesStillPresent reports the volumes left when the wait for them ended.
+func volumesStillPresent(volumes []string, cause error) error {
+	return fmt.Errorf(
+		"persistent volumes %s still exist after %s: %w",
+		strings.Join(volumes, ", "), volumeDeleteTimeout, cause,
+	)
+}
+
+// RetainedVolumeHandles returns the storage driver's ids for the disks behind
+// the persistent volumes of a namespace's claims that outlive their claims -
+// any reclaim policy but Delete - such as an EBS volume id. A teardown that
+// cleans up the disks a deleted cluster left behind has to leave these alone:
+// the disk keeps the tags it was provisioned with, so nothing on it says it
+// was meant to be kept.
+func RetainedVolumeHandles(ctx context.Context, kubeClient dynamic.Interface, namespace string) ([]string, error) {
+	list, err := kubeClient.Resource(persistentVolumeGVR).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list persistent volumes: %w", err)
+	}
+
+	var handles []string
+	for _, volume := range list.Items {
+		claimNamespace, _, _ := unstructured.NestedString(volume.Object, "spec", "claimRef", "namespace")
+		reclaimPolicy, _, _ := unstructured.NestedString(volume.Object, "spec", "persistentVolumeReclaimPolicy")
+		if claimNamespace != namespace || reclaimPolicy == "Delete" {
+			continue
+		}
+		if handle := volumeHandle(volume); handle != "" {
+			handles = append(handles, handle)
+		}
+	}
+
+	return handles, nil
+}
+
+// volumeHandle returns the id of the disk behind a persistent volume, from
+// its CSI driver or from the in-tree EBS volume source it was created with,
+// whose id may carry an aws://<zone>/ prefix.
+func volumeHandle(volume unstructured.Unstructured) string {
+	if handle, _, _ := unstructured.NestedString(volume.Object, "spec", "csi", "volumeHandle"); handle != "" {
+		return handle
+	}
+	if id, _, _ := unstructured.NestedString(volume.Object, "spec", "awsElasticBlockStore", "volumeID"); id != "" {
+		return id[strings.LastIndex(id, "/")+1:]
+	}
+
+	return ""
+}
+
+// namespaceDeleteAttempts and namespaceDeletePollSeconds bound the wait for a
+// namespace to be deleted: two minutes, checked every second.
+var (
+	namespaceDeleteAttempts    = 120
+	namespaceDeletePollSeconds = 1
+)
 
 // DeleteNamespace deletes a list of namespaces from a Kubernetes cluster.
 func DeleteNamespaces(
@@ -1795,7 +1980,7 @@ func DeleteNamespaces(
 
 	// wait for all namespaces to be deleted
 	for _, name := range namespaces {
-		util.Retry(120, 1, func() error {
+		if err := util.Retry(namespaceDeleteAttempts, namespaceDeletePollSeconds, func() error {
 			_, err := kube.GetResource(
 				"",
 				"",
@@ -1810,7 +1995,9 @@ func DeleteNamespaces(
 			}
 
 			return nil
-		})
+		}); err != nil {
+			return fmt.Errorf("namespace %s was not deleted: %w", name, err)
+		}
 	}
 
 	return nil
@@ -1829,6 +2016,10 @@ func (cpi *ControlPlaneInstaller) GetThreeportAPIEndpoint(
 		apiEndpoint, err := cpi.threeportAPILoadBalancerEndpoint(kubeClient, mapper)
 		if err == nil {
 			return apiEndpoint, nil
+		}
+		var permanent permanentEndpointError
+		if errors.As(err, &permanent) {
+			return "", fmt.Errorf("failed to retrieve threeport API load balancer endpoint: %w", err)
 		}
 		if time.Now().After(deadline) {
 			return "", fmt.Errorf(
@@ -1849,30 +2040,26 @@ var apiLoadBalancerTimeout = 5 * time.Minute
 // apiLoadBalancerPollInterval is how often the install checks for it.
 var apiLoadBalancerPollInterval = 5 * time.Second
 
+// permanentEndpointError is an error from threeportAPILoadBalancerEndpoint
+// that checking again cannot clear: the provider has no field for the address,
+// or the Service's status is not shaped the way Kubernetes writes it. The wait
+// returns it at once instead of repeating it until the timeout.
+type permanentEndpointError struct {
+	err error
+}
+
+func (e permanentEndpointError) Error() string { return e.err.Error() }
+
+func (e permanentEndpointError) Unwrap() error { return e.err }
+
 // threeportAPILoadBalancerEndpoint returns the address the cloud provider
 // gave the threeport API's load balancer: a hostname on EKS, an IP on OKE and
-// GKE. It errors while there is none yet.
+// GKE. It errors while there is none yet, and returns a permanentEndpointError
+// for what waiting cannot fix.
 func (cpi *ControlPlaneInstaller) threeportAPILoadBalancerEndpoint(
 	kubeClient dynamic.Interface,
 	mapper meta.RESTMapper,
 ) (string, error) {
-	apiService, err := cpi.GetThreeportAPIService(kubeClient, mapper)
-	if err != nil {
-		return "", fmt.Errorf("failed to get threeport API service resource: %w", err)
-	}
-
-	ingress, _, err := unstructured.NestedSlice(apiService.Object, "status", "loadBalancer", "ingress")
-	if err != nil {
-		return "", fmt.Errorf("failed to read threeport API load balancer ingress: %w", err)
-	}
-	if len(ingress) == 0 {
-		return "", errors.New("threeport API load balancer has no ingress yet")
-	}
-	firstIngress, ok := ingress[0].(map[string]interface{})
-	if !ok {
-		return "", errors.New("threeport API load balancer ingress is not an object")
-	}
-
 	var field string
 	switch cpi.Opts.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
@@ -1880,12 +2067,37 @@ func (cpi *ControlPlaneInstaller) threeportAPILoadBalancerEndpoint(
 	case v0.KubernetesRuntimeInfraProviderOKE, v0.KubernetesRuntimeInfraProviderGKE:
 		field = "ip"
 	default:
-		return "", fmt.Errorf("unsupported infrastructure provider: %s", cpi.Opts.InfraProvider)
+		return "", permanentEndpointError{
+			fmt.Errorf("unsupported infrastructure provider: %s", cpi.Opts.InfraProvider),
+		}
+	}
+
+	apiService, err := cpi.GetThreeportAPIService(kubeClient, mapper)
+	if err != nil {
+		return "", fmt.Errorf("failed to get threeport API service resource: %w", err)
+	}
+
+	ingress, _, err := unstructured.NestedSlice(apiService.Object, "status", "loadBalancer", "ingress")
+	if err != nil {
+		return "", permanentEndpointError{
+			fmt.Errorf("failed to read threeport API load balancer ingress: %w", err),
+		}
+	}
+	if len(ingress) == 0 {
+		return "", errors.New("threeport API load balancer has no ingress yet")
+	}
+	firstIngress, ok := ingress[0].(map[string]interface{})
+	if !ok {
+		return "", permanentEndpointError{
+			errors.New("threeport API load balancer ingress is not an object"),
+		}
 	}
 
 	apiEndpoint, _, err := unstructured.NestedString(firstIngress, field)
 	if err != nil {
-		return "", fmt.Errorf("failed to read threeport API load balancer %s: %w", field, err)
+		return "", permanentEndpointError{
+			fmt.Errorf("failed to read threeport API load balancer %s: %w", field, err),
+		}
 	}
 	if apiEndpoint == "" {
 		return "", fmt.Errorf("threeport API load balancer has no %s yet", field)
@@ -2032,6 +2244,10 @@ func (cpi *ControlPlaneInstaller) getAPIVolumes() ([]interface{}, []interface{},
 			"mountPath": "/etc/threeport/db-certs",
 		},
 	}
+
+	// the CA's certificate, which the API server verifies the message broker with
+	vols = append(vols, NatsClientCAVolume())
+	volMounts = append(volMounts, NatsClientCAVolumeMount())
 
 	additionalVolumes := make([]map[string]interface{}, 0)
 	if cpi.Opts.RestApiInfo.AdditionalVolumes != nil {
@@ -2250,6 +2466,9 @@ func (cpi *ControlPlaneInstaller) getAgentArgs() []interface{} {
 		"--metrics-bind-address=127.0.0.1:8080",
 		"--leader-elect",
 	}
+	if cpi.Opts.ControlPlaneName != "" {
+		args = append(args, fmt.Sprintf("--control-plane-name=%s", cpi.Opts.ControlPlaneName))
+	}
 	if cpi.Opts.AgentApiServer != "" {
 		args = append(args, fmt.Sprintf("--threeport-api-server=%s", cpi.Opts.AgentApiServer))
 	}
@@ -2261,7 +2480,46 @@ func (cpi *ControlPlaneInstaller) getAgentArgs() []interface{} {
 	return args
 }
 
-func (cpi *ControlPlaneInstaller) getControllerSecret(name, namespace string) *unstructured.Unstructured {
+// agentInstanceLabel returns the app.kubernetes.io/instance label value for
+// the threeport agent's resources.  The control plane name is only joined
+// when set: the compute space agent installed by a runtime instance may have
+// none, and a label value cannot end in a hyphen.
+func (cpi *ControlPlaneInstaller) agentInstanceLabel() string {
+	if cpi.Opts.ControlPlaneName == "" {
+		return "threeport-agent"
+	}
+	return "threeport-agent-" + cpi.Opts.ControlPlaneName
+}
+
+// agentManagerBindingName returns the name of the agent's manager
+// ClusterRoleBinding.  It is cluster-scoped, so it is qualified with the
+// namespace to keep agents installed in different namespaces of one cluster
+// from sharing a binding.
+func (cpi *ControlPlaneInstaller) agentManagerBindingName() string {
+	return agentManagerBindingNameFor(cpi.Opts.Namespace)
+}
+
+func agentManagerBindingNameFor(namespace string) string {
+	return fmt.Sprintf("%s-threeport-agent-manager-rolebinding", namespace)
+}
+
+// agentProxyBindingName returns the name of the agent's proxy
+// ClusterRoleBinding.  See agentManagerBindingName.
+func (cpi *ControlPlaneInstaller) agentProxyBindingName() string {
+	return agentProxyBindingNameFor(cpi.Opts.Namespace)
+}
+
+func agentProxyBindingNameFor(namespace string) string {
+	return fmt.Sprintf("%s-threeport-agent-proxy-rolebinding", namespace)
+}
+
+// getControllerSecret returns the config secret the controllers read their
+// flags from, which connects them to the API and to the message broker.
+func (cpi *ControlPlaneInstaller) getControllerSecret(
+	name, namespace string,
+	brokerCredentials *natsCredentials,
+	brokerReplicas int64,
+) *unstructured.Unstructured {
 	secret := &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "v1",
@@ -2275,7 +2533,12 @@ func (cpi *ControlPlaneInstaller) getControllerSecret(name, namespace string) *u
 				"API_SERVER":            fmt.Sprintf("%s.%s.svc.cluster.local", cpi.Opts.RestApiInfo.ServiceResourceName, cpi.Opts.Namespace),
 				"MSG_BROKER_HOST":       fmt.Sprintf("%s.%s.svc.cluster.local", natsServiceName, cpi.Opts.Namespace),
 				"MSG_BROKER_PORT":       "4222",
+				"MSG_BROKER_USER":       brokerCredentials.User,
+				"MSG_BROKER_PASSWORD":   brokerCredentials.Password,
+				"MSG_BROKER_CA_FILE":    NatsClientCAFile,
+				"MSG_BROKER_REPLICAS":   fmt.Sprint(brokerReplicas),
 				"AWS_ROLE_SESSION_NAME": util.AwsResourceManagerRoleSessionName,
+				"CONTROL_PLANE_NAME":    cpi.Opts.ControlPlaneName,
 			},
 		},
 	}
@@ -2310,6 +2573,10 @@ func (cpi *ControlPlaneInstaller) getControllerDeployment(
 	if err != nil {
 		return nil, fmt.Errorf("could not get vols for controller %s: %w", controller.Name, err)
 	}
+
+	// the CA's certificate, which the controller verifies the message broker with
+	controllerVols = append(controllerVols, NatsClientCAVolume())
+	controllerVolMounts = append(controllerVolMounts, NatsClientCAVolumeMount())
 
 	controllerArgs := cpi.getControllerArgs()
 	controllerImagePullSecrets := cpi.getImagePullSecrets(controller.ImagePullSecretName)

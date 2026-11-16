@@ -236,12 +236,16 @@ func (h Handler) GetDomainNameDefinitions(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/domain-name-definitions/{id} [GET]
 func (h Handler) GetDomainNameDefinition(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.DomainNameDefinition).GetFullyQualifiedType()
-	domainNameDefinitionID := c.Param("id")
+	domainNameDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var domainNameDefinition api_v0.DomainNameDefinition
 	if result := h.RequestDB(c).
 		First(&domainNameDefinition, domainNameDefinitionID); result.Error != nil {
@@ -285,7 +289,10 @@ func (h Handler) GetDomainNameDefinition(c echo.Context) error {
 func (h Handler) UpdateDomainNameDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeDomainNameDefinition
 	fullyQualifiedType := new(api_v0.DomainNameDefinition).GetFullyQualifiedType()
-	domainNameDefinitionID := c.Param("id")
+	domainNameDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingDomainNameDefinition api_v0.DomainNameDefinition
 	if result := h.RequestDB(c).First(&existingDomainNameDefinition, domainNameDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -363,7 +370,10 @@ func (h Handler) UpdateDomainNameDefinition(c echo.Context) error {
 func (h Handler) ReplaceDomainNameDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeDomainNameDefinition
 	fullyQualifiedType := new(api_v0.DomainNameDefinition).GetFullyQualifiedType()
-	domainNameDefinitionID := c.Param("id")
+	domainNameDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingDomainNameDefinition api_v0.DomainNameDefinition
 	if result := h.RequestDB(c).First(&existingDomainNameDefinition, domainNameDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -443,13 +453,17 @@ func (h Handler) ReplaceDomainNameDefinition(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/domain-name-definitions/{id} [DELETE]
 func (h Handler) DeleteDomainNameDefinition(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.DomainNameDefinition).GetFullyQualifiedType()
-	domainNameDefinitionID := c.Param("id")
+	domainNameDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var domainNameDefinition api_v0.DomainNameDefinition
 	if result := h.RequestDB(c).Preload("DomainNameInstances").First(&domainNameDefinition, domainNameDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -742,12 +756,16 @@ func (h Handler) GetDomainNameInstances(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/domain-name-instances/{id} [GET]
 func (h Handler) GetDomainNameInstance(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.DomainNameInstance).GetFullyQualifiedType()
-	domainNameInstanceID := c.Param("id")
+	domainNameInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var domainNameInstance api_v0.DomainNameInstance
 	if result := h.RequestDB(c).
 		First(&domainNameInstance, domainNameInstanceID); result.Error != nil {
@@ -791,7 +809,10 @@ func (h Handler) GetDomainNameInstance(c echo.Context) error {
 func (h Handler) UpdateDomainNameInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeDomainNameInstance
 	fullyQualifiedType := new(api_v0.DomainNameInstance).GetFullyQualifiedType()
-	domainNameInstanceID := c.Param("id")
+	domainNameInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingDomainNameInstance api_v0.DomainNameInstance
 	if result := h.RequestDB(c).First(&existingDomainNameInstance, domainNameInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -891,7 +912,10 @@ func (h Handler) UpdateDomainNameInstance(c echo.Context) error {
 func (h Handler) ReplaceDomainNameInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeDomainNameInstance
 	fullyQualifiedType := new(api_v0.DomainNameInstance).GetFullyQualifiedType()
-	domainNameInstanceID := c.Param("id")
+	domainNameInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingDomainNameInstance api_v0.DomainNameInstance
 	if result := h.RequestDB(c).First(&existingDomainNameInstance, domainNameInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -993,13 +1017,17 @@ func (h Handler) ReplaceDomainNameInstance(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/domain-name-instances/{id} [DELETE]
 func (h Handler) DeleteDomainNameInstance(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.DomainNameInstance).GetFullyQualifiedType()
-	domainNameInstanceID := c.Param("id")
+	domainNameInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var domainNameInstance api_v0.DomainNameInstance
 	if result := h.RequestDB(c).First(&domainNameInstance, domainNameInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -1340,12 +1368,16 @@ func (h Handler) GetGatewayDefinitions(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/gateway-definitions/{id} [GET]
 func (h Handler) GetGatewayDefinition(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.GatewayDefinition).GetFullyQualifiedType()
-	gatewayDefinitionID := c.Param("id")
+	gatewayDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var gatewayDefinition api_v0.GatewayDefinition
 	if result := h.RequestDB(c).
 		First(&gatewayDefinition, gatewayDefinitionID); result.Error != nil {
@@ -1389,7 +1421,10 @@ func (h Handler) GetGatewayDefinition(c echo.Context) error {
 func (h Handler) UpdateGatewayDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeGatewayDefinition
 	fullyQualifiedType := new(api_v0.GatewayDefinition).GetFullyQualifiedType()
-	gatewayDefinitionID := c.Param("id")
+	gatewayDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingGatewayDefinition api_v0.GatewayDefinition
 	if result := h.RequestDB(c).First(&existingGatewayDefinition, gatewayDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -1489,7 +1524,10 @@ func (h Handler) UpdateGatewayDefinition(c echo.Context) error {
 func (h Handler) ReplaceGatewayDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeGatewayDefinition
 	fullyQualifiedType := new(api_v0.GatewayDefinition).GetFullyQualifiedType()
-	gatewayDefinitionID := c.Param("id")
+	gatewayDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingGatewayDefinition api_v0.GatewayDefinition
 	if result := h.RequestDB(c).First(&existingGatewayDefinition, gatewayDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -1591,13 +1629,17 @@ func (h Handler) ReplaceGatewayDefinition(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/gateway-definitions/{id} [DELETE]
 func (h Handler) DeleteGatewayDefinition(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.GatewayDefinition).GetFullyQualifiedType()
-	gatewayDefinitionID := c.Param("id")
+	gatewayDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var gatewayDefinition api_v0.GatewayDefinition
 	if result := h.RequestDB(c).Preload("GatewayInstances").First(&gatewayDefinition, gatewayDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -1930,12 +1972,16 @@ func (h Handler) GetGatewayHttpPorts(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/gateway-http-ports/{id} [GET]
 func (h Handler) GetGatewayHttpPort(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.GatewayHttpPort).GetFullyQualifiedType()
-	gatewayHttpPortID := c.Param("id")
+	gatewayHttpPortID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var gatewayHttpPort api_v0.GatewayHttpPort
 	if result := h.RequestDB(c).
 		First(&gatewayHttpPort, gatewayHttpPortID); result.Error != nil {
@@ -1979,7 +2025,10 @@ func (h Handler) GetGatewayHttpPort(c echo.Context) error {
 func (h Handler) UpdateGatewayHttpPort(c echo.Context) error {
 	objectType := api_v0.ObjectTypeGatewayHttpPort
 	fullyQualifiedType := new(api_v0.GatewayHttpPort).GetFullyQualifiedType()
-	gatewayHttpPortID := c.Param("id")
+	gatewayHttpPortID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingGatewayHttpPort api_v0.GatewayHttpPort
 	if result := h.RequestDB(c).First(&existingGatewayHttpPort, gatewayHttpPortID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -2057,7 +2106,10 @@ func (h Handler) UpdateGatewayHttpPort(c echo.Context) error {
 func (h Handler) ReplaceGatewayHttpPort(c echo.Context) error {
 	objectType := api_v0.ObjectTypeGatewayHttpPort
 	fullyQualifiedType := new(api_v0.GatewayHttpPort).GetFullyQualifiedType()
-	gatewayHttpPortID := c.Param("id")
+	gatewayHttpPortID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingGatewayHttpPort api_v0.GatewayHttpPort
 	if result := h.RequestDB(c).First(&existingGatewayHttpPort, gatewayHttpPortID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -2137,13 +2189,17 @@ func (h Handler) ReplaceGatewayHttpPort(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/gateway-http-ports/{id} [DELETE]
 func (h Handler) DeleteGatewayHttpPort(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.GatewayHttpPort).GetFullyQualifiedType()
-	gatewayHttpPortID := c.Param("id")
+	gatewayHttpPortID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var gatewayHttpPort api_v0.GatewayHttpPort
 	if result := h.RequestDB(c).First(&gatewayHttpPort, gatewayHttpPortID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -2430,12 +2486,16 @@ func (h Handler) GetGatewayInstances(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/gateway-instances/{id} [GET]
 func (h Handler) GetGatewayInstance(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.GatewayInstance).GetFullyQualifiedType()
-	gatewayInstanceID := c.Param("id")
+	gatewayInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var gatewayInstance api_v0.GatewayInstance
 	if result := h.RequestDB(c).
 		First(&gatewayInstance, gatewayInstanceID); result.Error != nil {
@@ -2479,7 +2539,10 @@ func (h Handler) GetGatewayInstance(c echo.Context) error {
 func (h Handler) UpdateGatewayInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeGatewayInstance
 	fullyQualifiedType := new(api_v0.GatewayInstance).GetFullyQualifiedType()
-	gatewayInstanceID := c.Param("id")
+	gatewayInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingGatewayInstance api_v0.GatewayInstance
 	if result := h.RequestDB(c).First(&existingGatewayInstance, gatewayInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -2579,7 +2642,10 @@ func (h Handler) UpdateGatewayInstance(c echo.Context) error {
 func (h Handler) ReplaceGatewayInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeGatewayInstance
 	fullyQualifiedType := new(api_v0.GatewayInstance).GetFullyQualifiedType()
-	gatewayInstanceID := c.Param("id")
+	gatewayInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingGatewayInstance api_v0.GatewayInstance
 	if result := h.RequestDB(c).First(&existingGatewayInstance, gatewayInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -2681,13 +2747,17 @@ func (h Handler) ReplaceGatewayInstance(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/gateway-instances/{id} [DELETE]
 func (h Handler) DeleteGatewayInstance(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.GatewayInstance).GetFullyQualifiedType()
-	gatewayInstanceID := c.Param("id")
+	gatewayInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var gatewayInstance api_v0.GatewayInstance
 	if result := h.RequestDB(c).First(&gatewayInstance, gatewayInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -3014,12 +3084,16 @@ func (h Handler) GetGatewayTcpPorts(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/gateway-tcp-ports/{id} [GET]
 func (h Handler) GetGatewayTcpPort(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.GatewayTcpPort).GetFullyQualifiedType()
-	gatewayTcpPortID := c.Param("id")
+	gatewayTcpPortID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var gatewayTcpPort api_v0.GatewayTcpPort
 	if result := h.RequestDB(c).
 		First(&gatewayTcpPort, gatewayTcpPortID); result.Error != nil {
@@ -3063,7 +3137,10 @@ func (h Handler) GetGatewayTcpPort(c echo.Context) error {
 func (h Handler) UpdateGatewayTcpPort(c echo.Context) error {
 	objectType := api_v0.ObjectTypeGatewayTcpPort
 	fullyQualifiedType := new(api_v0.GatewayTcpPort).GetFullyQualifiedType()
-	gatewayTcpPortID := c.Param("id")
+	gatewayTcpPortID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingGatewayTcpPort api_v0.GatewayTcpPort
 	if result := h.RequestDB(c).First(&existingGatewayTcpPort, gatewayTcpPortID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -3141,7 +3218,10 @@ func (h Handler) UpdateGatewayTcpPort(c echo.Context) error {
 func (h Handler) ReplaceGatewayTcpPort(c echo.Context) error {
 	objectType := api_v0.ObjectTypeGatewayTcpPort
 	fullyQualifiedType := new(api_v0.GatewayTcpPort).GetFullyQualifiedType()
-	gatewayTcpPortID := c.Param("id")
+	gatewayTcpPortID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingGatewayTcpPort api_v0.GatewayTcpPort
 	if result := h.RequestDB(c).First(&existingGatewayTcpPort, gatewayTcpPortID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -3221,13 +3301,17 @@ func (h Handler) ReplaceGatewayTcpPort(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/gateway-tcp-ports/{id} [DELETE]
 func (h Handler) DeleteGatewayTcpPort(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.GatewayTcpPort).GetFullyQualifiedType()
-	gatewayTcpPortID := c.Param("id")
+	gatewayTcpPortID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var gatewayTcpPort api_v0.GatewayTcpPort
 	if result := h.RequestDB(c).First(&gatewayTcpPort, gatewayTcpPortID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {

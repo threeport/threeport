@@ -164,7 +164,6 @@ func (cpi *ControlPlaneInstaller) runDropMessageBrokerJob(
 	}
 
 	// remove every stream, which also removes key-value buckets stored as streams
-	script := "set -e; for stream in $(nats stream ls --names); do nats stream rm \"$stream\" --force; done"
 	fmt.Println("Info: removing every message broker stream and key-value bucket")
 
 	// create the message broker drop job
@@ -195,14 +194,15 @@ func (cpi *ControlPlaneInstaller) runDropMessageBrokerJob(
 								"securityContext": vendoredContainerSecurityContext(),
 								"image":           natsBoxImage,
 								"resources":       natsBoxResources(),
-								"env": []interface{}{
-									map[string]interface{}{
-										"name":  "NATS_URL",
-										"value": natsServiceName,
-									},
+								"env":             natsDropJobEnv(),
+								"command":         []interface{}{"/bin/sh", "-c", natsDropJobScript},
+								"volumeMounts": []interface{}{
+									NatsClientCAVolumeMount(),
 								},
-								"command": []interface{}{"/bin/sh", "-c", script},
 							},
+						},
+						"volumes": []interface{}{
+							natsDropJobCAVolume(),
 						},
 					},
 				},
@@ -590,6 +590,12 @@ func (cpi *ControlPlaneInstaller) Reinstall(
 		return err
 	}
 
+	// refuse storage the database's missing volumes can't be created on
+	// before anything is deleted, so a refusal leaves the control plane up
+	if err := cpi.checkDatabaseStorage(kubeClient); err != nil {
+		return err
+	}
+
 	// delete installer-managed stateless resources
 	if err := cpi.deleteForReinstall(kubeClient, ns); err != nil {
 		return fmt.Errorf("failed to delete control plane resources: %w", err)
@@ -745,6 +751,11 @@ func (cpi *ControlPlaneInstaller) deleteForReinstall(
 // clusterBindingFor reports whether a cluster role or binding belongs to this namespace.
 // A longer sibling namespace wins when the name starts with that sibling too.
 func clusterBindingFor(name, namespace string, namespaces []string) bool {
+	// the agent's bindings are matched whole rather than by suffix, so a
+	// sibling namespace's name cannot be mistaken for this one's
+	if name == agentManagerBindingNameFor(namespace) || name == agentProxyBindingNameFor(namespace) {
+		return true
+	}
 	if !strings.HasPrefix(name, namespace+"-") {
 		return false
 	}

@@ -3,15 +3,12 @@ package v0
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 
 	"github.com/threeport/threeport/pkg/api-server/v0/database"
@@ -109,6 +106,12 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControlPlaneDependencies(
 		return fmt.Errorf("failed in create threeport control plane namespace: %w", err)
 	}
 
+	// the message broker's CA, certificate and client credentials, which the
+	// broker and every client below mount
+	if err := cpi.ensureMessageBrokerSecrets(kubeClient); err != nil {
+		return fmt.Errorf("failed to create the message broker's certificates and credentials: %w", err)
+	}
+
 	var encryptionSecret = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "v1",
@@ -176,6 +179,13 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControlPlaneDependencies(
 		return fmt.Errorf("failed to create/update API server secret for kubernetes workload controller: %w", err)
 	}
 
+	// how many servers the broker runs: the tier's on a new install, and the
+	// count it already has on a reinstall, which doesn't change it
+	brokerReplicas, err := cpi.messageBrokerReplicas(kubeClient)
+	if err != nil {
+		return err
+	}
+
 	var natsConfig = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "v1",
@@ -190,7 +200,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControlPlaneDependencies(
 				},
 			},
 			"data": map[string]interface{}{
-				"nats.conf": natsConf(),
+				"nats.conf": natsConf(cpi.Opts.Namespace, brokerReplicas),
 			},
 		},
 	}
@@ -285,7 +295,10 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControlPlaneDependencies(
 						},
 					},
 					"spec": map[string]interface{}{
-						"volumes":         nil,
+						// the nats CLI connects over TLS as the threeport user
+						"volumes": []interface{}{
+							NatsClientCAVolume(),
+						},
 						"securityContext": natsBoxPodSecurityContext(),
 						"containers": []interface{}{
 							map[string]interface{}{
@@ -294,18 +307,15 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControlPlaneDependencies(
 								"image":           natsBoxImage,
 								"imagePullPolicy": "IfNotPresent",
 								"resources":       natsBoxResources(),
-								"env": []interface{}{
-									map[string]interface{}{
-										"name":  "NATS_URL",
-										"value": "nats-js",
-									},
-								},
+								"env":             natsCLIEnv(),
 								"command": []interface{}{
 									"tail",
 									"-f",
 									"/dev/null",
 								},
-								"volumeMounts": nil,
+								"volumeMounts": []interface{}{
+									NatsClientCAVolumeMount(),
+								},
 							},
 						},
 					},
@@ -340,7 +350,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControlPlaneDependencies(
 						"app.kubernetes.io/instance": "nats-js",
 					},
 				},
-				"replicas":            1,
+				"replicas":            brokerReplicas,
 				"serviceName":         "nats-js",
 				"podManagementPolicy": "Parallel",
 				"template": map[string]interface{}{
@@ -349,7 +359,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControlPlaneDependencies(
 							"prometheus.io/path":   "/metrics",
 							"prometheus.io/port":   "7777",
 							"prometheus.io/scrape": "true",
-							"checksum/config":      natsConfChecksum(),
+							"checksum/config":      natsConfChecksum(cpi.Opts.Namespace, brokerReplicas),
 						},
 						"labels": map[string]interface{}{
 							"app.kubernetes.io/name":     "nats",
@@ -370,12 +380,9 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControlPlaneDependencies(
 								"name":     "pid",
 								"emptyDir": map[string]interface{}{},
 							},
+							// The server's certificate, which clients verify.
+							natsServerCertVolume(),
 						},
-						//################
-						//               #
-						//  TLS Volumes  #
-						//               #
-						//################
 
 						"serviceAccountName": "nats-js",
 						// Required to be able to HUP signal and apply config
@@ -447,6 +454,10 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControlPlaneDependencies(
 										"name":  "CLUSTER_ADVERTISE",
 										"value": "$(POD_NAME).nats-js.$(POD_NAMESPACE).svc.cluster.local",
 									},
+									// The user and password the config's
+									// authorization block reads.
+									natsSecretEnv("NATS_USER", "user"),
+									natsSecretEnv("NATS_PASSWORD", "password"),
 									// keeps the Go runtime collecting before the
 									// container reaches its memory limit
 									map[string]interface{}{
@@ -467,6 +478,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControlPlaneDependencies(
 										"name":      "datadir",
 										"mountPath": "/data",
 									},
+									natsServerCertVolumeMount(),
 								},
 								//######################
 								//                     #
@@ -561,6 +573,9 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControlPlaneDependencies(
 										"name":      "datadir",
 										"mountPath": "/data",
 									},
+									// the reloader watches the files the
+									// config names, the certificate among them
+									natsServerCertVolumeMount(),
 								},
 							},
 							//#############################
@@ -606,18 +621,19 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControlPlaneDependencies(
 		},
 	}
 
-	// leave the message broker stateful set in place when it already exists
-	setPersistent(natsStatefulSet)
-	if err := cpi.CreateOrUpdateKubeResource(natsStatefulSet, kubeClient, mapper); err != nil {
-		return fmt.Errorf("failed to create/update API server secret for kubernetes workload controller: %w", err)
+	// spread a clustered broker's servers over separate nodes
+	if affinity := natsAntiAffinity(brokerReplicas); affinity != nil {
+		if err := unstructured.SetNestedField(natsStatefulSet.Object, affinity, "spec", "template", "spec", "affinity"); err != nil {
+			return fmt.Errorf("failed to set the message broker's anti-affinity: %w", err)
+		}
 	}
 
-	// the existing stateful set is left as it is, so restart the message broker
-	// when its configuration has changed
-	if cpi.Opts.CreateOrUpdateKubeResources {
-		if err := cpi.refreshNatsConfigChecksum(kubeClient); err != nil {
-			return fmt.Errorf("failed to refresh the message broker config checksum: %w", err)
-		}
+	// keep the message broker stateful set and its volume, and roll an
+	// existing one onto the current pod template, so a control plane
+	// installed before the broker required TLS moves onto it with its data
+	setPersistent(natsStatefulSet)
+	if err := cpi.createOrUpdateStatefulSet(natsStatefulSet, kubeClient, mapper); err != nil {
+		return fmt.Errorf("failed to create/update API server secret for kubernetes workload controller: %w", err)
 	}
 
 	// leave the database certs secret unchanged when credentials are absent
@@ -774,22 +790,9 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControlPlaneDependencies(
 						},
 					},
 					"spec": map[string]interface{}{
-						"affinity": crdbAntiAffinity(cpi.Opts.Tier),
-						"topologySpreadConstraints": []interface{}{
-							map[string]interface{}{
-								"labelSelector": map[string]interface{}{
-									"matchLabels": map[string]interface{}{
-										"app.kubernetes.io/name":      "cockroachdb",
-										"app.kubernetes.io/instance":  "crdb",
-										"app.kubernetes.io/component": "cockroachdb",
-									},
-								},
-								"maxSkew":           1,
-								"topologyKey":       "topology.kubernetes.io/zone",
-								"whenUnsatisfiable": "ScheduleAnyway",
-							},
-						},
-						"serviceAccountName": DatabaseServiceAccountName,
+						"affinity":                  crdbAntiAffinity(cpi.Opts.Tier),
+						"topologySpreadConstraints": crdbZoneSpread(cpi.Opts.Tier),
+						"serviceAccountName":        DatabaseServiceAccountName,
 						// No pre-stop hook is required, a SIGTERM plus some time is all that's
 						// needed for graceful shutdown of a node.
 						"terminationGracePeriodSeconds": 60,
@@ -892,6 +895,11 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControlPlaneDependencies(
 		return err
 	}
 
+	// a production database's volumes have to follow its pods across zones
+	if err := cpi.checkDatabaseStorage(kubeClient); err != nil {
+		return err
+	}
+
 	// leave the database stateful set in place when it already exists
 	setPersistent(crdbStatefulSet)
 	if err := cpi.CreateOrUpdateKubeResource(crdbStatefulSet, kubeClient, mapper); err != nil {
@@ -944,64 +952,11 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControlPlaneDependencies(
 	return nil
 }
 
-// statefulSetGVR is the apps/v1 stateful sets resource.
-var statefulSetGVR = schema.GroupVersionResource{
-	Group:    "apps",
-	Version:  "v1",
-	Resource: "statefulsets",
-}
-
-// refreshNatsConfigChecksum sets the config checksum on the pod template of an
-// existing message broker stateful set.  The stateful set is persistent, so an
-// install does not rewrite it and a new checksum would never reach it.  The
-// patch changes only that annotation and leaves the volume claim templates and
-// the stored data alone.  A stateful set that does not exist yet was just
-// created with the current checksum.
-func (cpi *ControlPlaneInstaller) refreshNatsConfigChecksum(kubeClient dynamic.Interface) error {
-	statefulSets := kubeClient.Resource(statefulSetGVR).Namespace(cpi.Opts.Namespace)
-
-	existing, err := statefulSets.Get(context.TODO(), natsServiceName, metav1.GetOptions{})
-	if k8serrors.IsNotFound(err) {
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("failed to get message broker stateful set: %w", err)
-	}
-
-	// leave a stateful set that is already current
-	checksum := natsConfChecksum()
-	current, _, _ := unstructured.NestedString(
-		existing.Object, "spec", "template", "metadata", "annotations", "checksum/config",
-	)
-	if current == checksum {
-		return nil
-	}
-
-	patch, err := json.Marshal(map[string]interface{}{
-		"spec": map[string]interface{}{
-			"template": map[string]interface{}{
-				"metadata": map[string]interface{}{
-					"annotations": map[string]interface{}{"checksum/config": checksum},
-				},
-			},
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("failed to build message broker patch: %w", err)
-	}
-	if _, err := statefulSets.Patch(
-		context.TODO(), natsServiceName, types.MergePatchType, patch, metav1.PatchOptions{},
-	); err != nil {
-		return fmt.Errorf("failed to patch message broker stateful set: %w", err)
-	}
-
-	return nil
-}
-
 // natsConf returns the message broker configuration.  The disk ceiling is set
 // explicitly, below the size of the message broker volume, so it does not
-// depend on the free space when the server starts.
-func natsConf() string {
+// depend on the free space when the server starts.  The server's TLS
+// authentication and its cluster of replicas servers follow.
+func natsConf(namespace string, replicas int64) string {
 	return fmt.Sprintf(`# NATS Clients Port
 port: 4222
 
@@ -1027,14 +982,15 @@ jetstream {
 lame_duck_grace_period: 10s
 lame_duck_duration: 30s
 store_dir: /data
-`, notifications.MessageBrokerMaxFile())
+`, notifications.MessageBrokerMaxFile()) + natsServerTLSAuthConfig + natsClusterConfig(namespace, replicas)
 }
 
 // natsConfChecksum returns a hash of the message broker configuration.  It is
-// a pod template annotation so that a configuration change restarts the pods.
-// The server does not apply a change to its JetStream limits on a reload.
-func natsConfChecksum() string {
-	return fmt.Sprintf("%x", sha256.Sum256([]byte(natsConf())))
+// a pod template annotation so that a configuration change restarts the pods:
+// the install replaces an existing stateful set's pod template, and the server
+// does not apply a change to its JetStream limits on a reload.
+func natsConfChecksum(namespace string, replicas int64) string {
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(natsConf(namespace, replicas))))
 }
 
 // getVolClaimTemplateSpec returns the spec for volume claim template for the
@@ -1130,6 +1086,35 @@ func crdbAntiAffinity(tier ControlPlaneTier) map[string]interface{} {
 					},
 				},
 			},
+		},
+	}
+}
+
+// crdbZoneSpread spreads CockroachDB pods across zones, strictly for
+// production and as a preference for development.
+//
+// The hostname anti-affinity keeps production's three replicas on three
+// nodes, but two of those nodes can be in one zone, and losing that zone
+// loses two of three replicas and the Raft majority with them.  Production
+// refuses that placement as it refuses two replicas on one node: a replica
+// that can't be placed in a zone of its own stays visibly Pending.  A skew of
+// one still admits two replicas in one zone on a cluster with only two zones,
+// so it holds a cluster that can't survive the loss of a zone to no more than
+// it can do.
+func crdbZoneSpread(tier ControlPlaneTier) []interface{} {
+	whenUnsatisfiable := "ScheduleAnyway"
+	if string(tier) == ControlPlaneTierProd {
+		whenUnsatisfiable = "DoNotSchedule"
+	}
+
+	return []interface{}{
+		map[string]interface{}{
+			"labelSelector": map[string]interface{}{
+				"matchLabels": crdbAntiAffinityLabels,
+			},
+			"maxSkew":           1,
+			"topologyKey":       "topology.kubernetes.io/zone",
+			"whenUnsatisfiable": whenUnsatisfiable,
 		},
 	}
 }

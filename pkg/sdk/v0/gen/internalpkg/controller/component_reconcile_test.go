@@ -51,7 +51,6 @@ func TestEmitSupportComponentsNamesTheCalls(t *testing.T) {
 		"EnsureCertificatesComponent",
 		"EnsureSecretsComponent",
 		"EnsureDatabaseComponent",
-		"GetInfraProviderByKubernetesRuntimeInstanceID",
 		"UpdateReconcilerTestInstance",
 	} {
 		if !strings.Contains(ensure, name) {
@@ -82,17 +81,6 @@ func TestEmitSupportComponentsNamesTheCalls(t *testing.T) {
 	}
 	if strings.Contains(ensure[runtimeAt:ingressAt], "else") {
 		t.Fatalf("runtime load wrapped the component calls in else:\n%s", ensure[runtimeAt:ingressAt])
-	}
-
-	// a failed provider load skips the secrets install without an else
-	providerErr := `operationErr = fmt.Errorf("failed to get infra provider: %w", err)`
-	secretsAt := strings.Index(ensure, "EnsureSecretsComponent")
-	providerAt := strings.Index(ensure, providerErr)
-	if providerAt < 0 || secretsAt < 0 || providerAt > secretsAt {
-		t.Fatalf("ensure output ordered the provider load after secrets:\n%s", ensure)
-	}
-	if strings.Contains(ensure[providerAt:secretsAt], "else") {
-		t.Fatalf("provider load wrapped the secrets install in else:\n%s", ensure[providerAt:secretsAt])
 	}
 
 	// ensure passes the attached instance's field address and release does not

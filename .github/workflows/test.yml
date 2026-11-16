@@ -63,7 +63,29 @@ jobs:
     - name: Verify generation is idempotent
       run: git diff --exit-code
 
+    # The provider tests that need a real Pulumi backend run against the
+    # same CLI release the aws, gcp and oci controller images carry, read
+    # from the root Dockerfile. THREEPORT_REQUIRE_PULUMI makes those tests
+    # fail rather than skip if the CLI ever goes missing from this job.
+    - name: Install the Pulumi CLI
+      env:
+        PULUMI_SKIP_UPDATE_CHECK: "true"
+      run: |
+        version=$(sed -n 's/^ARG PULUMI_VERSION=//p' Dockerfile)
+        test -n "$version"
+        release=https://github.com/pulumi/pulumi/releases/download/v${version}
+        tarball=pulumi-v${version}-linux-x64.tar.gz
+        cd "$RUNNER_TEMP"
+        curl -fsSLO "${release}/${tarball}"
+        curl -fsSL "${release}/pulumi-${version}-checksums.txt" | grep " ${tarball}$" | sha256sum --check
+        tar -xzf "$tarball"
+        echo "$RUNNER_TEMP/pulumi" >> "$GITHUB_PATH"
+        "$RUNNER_TEMP/pulumi/pulumi" version
+
     - name: Unit tests
+      env:
+        THREEPORT_REQUIRE_PULUMI: "1"
+        PULUMI_SKIP_UPDATE_CHECK: "true"
       run: mage test:unit
 
     - name: Race tests

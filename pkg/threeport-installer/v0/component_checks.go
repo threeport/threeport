@@ -78,7 +78,8 @@ func resourceInstalled(
 //
 // The CA and certificate secrets are checked for presence whatever the
 // installer can do: an agent with auth enabled and either one missing cannot
-// start, and the install creates it.
+// start, and the install creates it. So are the agent's two ClusterRoleBindings,
+// which are named for the namespace.
 func (cpi *ControlPlaneInstaller) ComputeSpaceControlPlaneComponentsCurrent(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
@@ -197,6 +198,57 @@ func (cpi *ControlPlaneInstaller) agentCurrent(
 		}
 	}
 
+	// The agent's ClusterRoleBindings are named for the namespace it is
+	// installed in. Without its own bindings an agent has no permissions - an
+	// earlier release gave every agent on a cluster the same two bindings, so
+	// an agent installed second sat behind the first one's service account.
+	// The Deployment being present does not say its bindings are, so each is
+	// checked. These names are new, so a create-only install finds them
+	// missing and creates them, which is what repairs such a cluster.
+	for _, bindingName := range []string{
+		cpi.agentManagerBindingName(),
+		cpi.agentProxyBindingName(),
+	} {
+		binding, present, err := resourceInstalled(
+			kubeClient,
+			mapper,
+			"rbac.authorization.k8s.io",
+			"v1",
+			"ClusterRoleBinding",
+			"",
+			bindingName,
+		)
+		if err != nil {
+			return false, fmt.Errorf("failed to check for the threeport agent binding %s: %w", bindingName, err)
+		}
+		if !present {
+			return false, nil
+		}
+
+		// the subject is only worth comparing when the install can replace it
+		if cpi.Opts.CreateOrUpdateKubeResources {
+			subjects, _, err := unstructured.NestedSlice(binding.Object, "subjects")
+			if err != nil {
+				return false, fmt.Errorf("failed to read the subjects of binding %s: %w", bindingName, err)
+			}
+			wantSubject := map[string]interface{}{
+				"kind":      "ServiceAccount",
+				"name":      ThreeportAgentName,
+				"namespace": cpi.Opts.Namespace,
+			}
+			matched := false
+			for _, subject := range subjects {
+				if reflect.DeepEqual(subject, wantSubject) {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				return false, nil
+			}
+		}
+	}
+
 	return true, nil
 }
 
@@ -223,13 +275,22 @@ func SupportServicesOperatorInstalled(
 	return present, nil
 }
 
-// EksThreeportSystemServicesInstalled reports whether the EKS system services
-// InstallEksThreeportSystemServices would install are already on the cluster.
-func EksThreeportSystemServicesInstalled(
+// EksThreeportSystemServicesCurrent reports whether the EKS system services
+// InstallEksThreeportSystemServices would install are already on the cluster,
+// with the cluster autoscaler's release for kubernetesVersion, the cluster's
+// minor version.  An autoscaler of another release, as an upgraded cluster has,
+// isn't current.
+func EksThreeportSystemServicesCurrent(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
+	kubernetesVersion string,
 ) (bool, error) {
-	_, present, err := resourceInstalled(
+	wantImage, err := ClusterAutoscalerImage(kubernetesVersion)
+	if err != nil {
+		return false, err
+	}
+
+	deployment, present, err := resourceInstalled(
 		kubeClient,
 		mapper,
 		"apps",
@@ -241,8 +302,18 @@ func EksThreeportSystemServicesInstalled(
 	if err != nil {
 		return false, fmt.Errorf("failed to check for the cluster autoscaler: %w", err)
 	}
+	if !present {
+		return false, nil
+	}
 
-	return present, nil
+	containers, _, _ := unstructured.NestedSlice(deployment.Object, "spec", "template", "spec", "containers")
+	for _, container := range containers {
+		if fields, ok := container.(map[string]interface{}); ok && fields["image"] == wantImage {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 // ComputeSpaceWorkloadControllerRBACCurrent reports whether every binding

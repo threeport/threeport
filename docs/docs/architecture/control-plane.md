@@ -41,6 +41,27 @@ NATS to re-queue reconciliation as needed (when unmet conditions prevent
 immediate reconciliation) and to place distributed locks on particular objects
 during reconciliation.
 
+The NATS server only accepts connections over TLS from clients that
+authenticate with a password.  The installer creates the CA that signs the
+server's certificate and the password the first time it installs the control
+plane, keeps them in secrets in the control plane namespace, and reuses them on
+every install after that.  The API, the controllers, and the controllers of
+installed modules verify the server against that CA.
+
+A development control plane runs a single NATS server.  A production control
+plane, which you ask for with `--tier production`, runs three servers on
+separate nodes, joined into one cluster.  The servers route to each other over
+TLS, and each presents its certificate from the same CA, so only a server the
+installer issued a certificate to can join.  The API creates every notification
+stream with a copy on each of the three servers, and each controller does the
+same for its lock bucket, so the control plane keeps reconciling through the
+loss of one server or its node.  The production cluster needs three
+schedulable nodes: a server that can't be placed on a node of its own stays
+`Pending` rather than sharing one.
+
+A control plane installed with a single server keeps it when it is reinstalled,
+since a reinstall doesn't change how many servers the broker runs.
+
 ## Threeport Agent
 
 The Threeport agent is a [Kubernetes
@@ -156,7 +177,7 @@ drawbacks in complex environments since templating is inherently inferior to
 general purpose programming languages.  More on this topic is discussed in the
 [Continuous Delivery & GitOps
 section](../concepts/application-orchestration.md#continuous-delivery-gitops)
-of the Application Orchestration document.  We prefer Go programs to construct
+of the Application Lifecycle Orchestration document.  We prefer Go programs to construct
 Kubernetes resources.  However, Helm support is still valuable because many open-source
 charts are available and it is already in extensive use by many teams.
 

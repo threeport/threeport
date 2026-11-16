@@ -21,8 +21,9 @@ import (
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 )
 
-// Initialize the NATS Jet stream context with controller streams
-func InitJetStream(nc *nats.Conn) (*nats.JetStreamContext, error) {
+// Initialize the NATS Jet stream context with controller streams, each
+// replicated across replicas of the message broker's servers
+func InitJetStream(nc *nats.Conn, replicas int) (*nats.JetStreamContext, error) {
 	js, err := nc.JetStream(nats.PublishAsyncMaxPending(256))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create jetstream context: %w", err)
@@ -33,6 +34,7 @@ func InitJetStream(nc *nats.Conn) (*nats.JetStreamContext, error) {
 		Discard:   nats.DiscardNew,
 		MaxBytes:  notifications.ControllerStreamMaxBytes,
 		Name:      secret_notif.SecretStreamName,
+		Replicas:  replicas,
 		Retention: nats.WorkQueuePolicy,
 		Storage:   nats.FileStorage,
 		Subjects:  secret_notif.GetSecretSubjects(),
@@ -45,6 +47,7 @@ func InitJetStream(nc *nats.Conn) (*nats.JetStreamContext, error) {
 		Discard:   nats.DiscardNew,
 		MaxBytes:  notifications.ControllerStreamMaxBytes,
 		Name:      aws_notif.AwsStreamName,
+		Replicas:  replicas,
 		Retention: nats.WorkQueuePolicy,
 		Storage:   nats.FileStorage,
 		Subjects:  aws_notif.GetAwsSubjects(),
@@ -57,6 +60,7 @@ func InitJetStream(nc *nats.Conn) (*nats.JetStreamContext, error) {
 		Discard:   nats.DiscardNew,
 		MaxBytes:  notifications.ControllerStreamMaxBytes,
 		Name:      notif.OciStreamName,
+		Replicas:  replicas,
 		Retention: nats.WorkQueuePolicy,
 		Storage:   nats.FileStorage,
 		Subjects:  notif.GetOciSubjects(),
@@ -69,6 +73,7 @@ func InitJetStream(nc *nats.Conn) (*nats.JetStreamContext, error) {
 		Discard:   nats.DiscardNew,
 		MaxBytes:  notifications.ControllerStreamMaxBytes,
 		Name:      notif1.GcpStreamName,
+		Replicas:  replicas,
 		Retention: nats.WorkQueuePolicy,
 		Storage:   nats.FileStorage,
 		Subjects:  notif1.GetGcpSubjects(),
@@ -81,6 +86,7 @@ func InitJetStream(nc *nats.Conn) (*nats.JetStreamContext, error) {
 		Discard:   nats.DiscardNew,
 		MaxBytes:  notifications.ControllerStreamMaxBytes,
 		Name:      controlplane_notif.ControlPlaneStreamName,
+		Replicas:  replicas,
 		Retention: nats.WorkQueuePolicy,
 		Storage:   nats.FileStorage,
 		Subjects:  controlplane_notif.GetControlPlaneSubjects(),
@@ -93,6 +99,7 @@ func InitJetStream(nc *nats.Conn) (*nats.JetStreamContext, error) {
 		Discard:   nats.DiscardNew,
 		MaxBytes:  notifications.ControllerStreamMaxBytes,
 		Name:      gateway_notif.GatewayStreamName,
+		Replicas:  replicas,
 		Retention: nats.WorkQueuePolicy,
 		Storage:   nats.FileStorage,
 		Subjects:  gateway_notif.GetGatewaySubjects(),
@@ -105,6 +112,7 @@ func InitJetStream(nc *nats.Conn) (*nats.JetStreamContext, error) {
 		Discard:   nats.DiscardNew,
 		MaxBytes:  notifications.ControllerStreamMaxBytes,
 		Name:      helmworkload_notif.HelmWorkloadStreamName,
+		Replicas:  replicas,
 		Retention: nats.WorkQueuePolicy,
 		Storage:   nats.FileStorage,
 		Subjects:  helmworkload_notif.GetHelmWorkloadSubjects(),
@@ -117,6 +125,7 @@ func InitJetStream(nc *nats.Conn) (*nats.JetStreamContext, error) {
 		Discard:   nats.DiscardNew,
 		MaxBytes:  notifications.ControllerStreamMaxBytes,
 		Name:      notif2.MachineRuntimeStreamName,
+		Replicas:  replicas,
 		Retention: nats.WorkQueuePolicy,
 		Storage:   nats.FileStorage,
 		Subjects:  notif2.GetMachineRuntimeSubjects(),
@@ -129,6 +138,7 @@ func InitJetStream(nc *nats.Conn) (*nats.JetStreamContext, error) {
 		Discard:   nats.DiscardNew,
 		MaxBytes:  notifications.ControllerStreamMaxBytes,
 		Name:      notif3.MachineWorkloadStreamName,
+		Replicas:  replicas,
 		Retention: nats.WorkQueuePolicy,
 		Storage:   nats.FileStorage,
 		Subjects:  notif3.GetMachineWorkloadSubjects(),
@@ -141,6 +151,7 @@ func InitJetStream(nc *nats.Conn) (*nats.JetStreamContext, error) {
 		Discard:   nats.DiscardNew,
 		MaxBytes:  notifications.ControllerStreamMaxBytes,
 		Name:      kubernetesruntime_notif.KubernetesRuntimeStreamName,
+		Replicas:  replicas,
 		Retention: nats.WorkQueuePolicy,
 		Storage:   nats.FileStorage,
 		Subjects:  kubernetesruntime_notif.GetKubernetesRuntimeSubjects(),
@@ -153,6 +164,7 @@ func InitJetStream(nc *nats.Conn) (*nats.JetStreamContext, error) {
 		Discard:   nats.DiscardNew,
 		MaxBytes:  notifications.ControllerStreamMaxBytes,
 		Name:      observability_notif.ObservabilityStreamName,
+		Replicas:  replicas,
 		Retention: nats.WorkQueuePolicy,
 		Storage:   nats.FileStorage,
 		Subjects:  observability_notif.GetObservabilitySubjects(),
@@ -165,6 +177,7 @@ func InitJetStream(nc *nats.Conn) (*nats.JetStreamContext, error) {
 		Discard:   nats.DiscardNew,
 		MaxBytes:  notifications.ControllerStreamMaxBytes,
 		Name:      terraform_notif.TerraformStreamName,
+		Replicas:  replicas,
 		Retention: nats.WorkQueuePolicy,
 		Storage:   nats.FileStorage,
 		Subjects:  terraform_notif.GetTerraformSubjects(),
@@ -177,6 +190,7 @@ func InitJetStream(nc *nats.Conn) (*nats.JetStreamContext, error) {
 		Discard:   nats.DiscardNew,
 		MaxBytes:  notifications.ControllerStreamMaxBytes,
 		Name:      kubernetesworkload_notif.KubernetesWorkloadStreamName,
+		Replicas:  replicas,
 		Retention: nats.WorkQueuePolicy,
 		Storage:   nats.FileStorage,
 		Subjects:  kubernetesworkload_notif.GetKubernetesWorkloadSubjects(),

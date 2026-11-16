@@ -236,12 +236,16 @@ func (h Handler) GetGcpGkeKubernetesRuntimeDefinitions(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/gcp-gke-kubernetes-runtime-definitions/{id} [GET]
 func (h Handler) GetGcpGkeKubernetesRuntimeDefinition(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.GcpGkeKubernetesRuntimeDefinition).GetFullyQualifiedType()
-	gcpGkeKubernetesRuntimeDefinitionID := c.Param("id")
+	gcpGkeKubernetesRuntimeDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var gcpGkeKubernetesRuntimeDefinition api_v0.GcpGkeKubernetesRuntimeDefinition
 	if result := h.RequestDB(c).
 		First(&gcpGkeKubernetesRuntimeDefinition, gcpGkeKubernetesRuntimeDefinitionID); result.Error != nil {
@@ -285,7 +289,10 @@ func (h Handler) GetGcpGkeKubernetesRuntimeDefinition(c echo.Context) error {
 func (h Handler) UpdateGcpGkeKubernetesRuntimeDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeGcpGkeKubernetesRuntimeDefinition
 	fullyQualifiedType := new(api_v0.GcpGkeKubernetesRuntimeDefinition).GetFullyQualifiedType()
-	gcpGkeKubernetesRuntimeDefinitionID := c.Param("id")
+	gcpGkeKubernetesRuntimeDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingGcpGkeKubernetesRuntimeDefinition api_v0.GcpGkeKubernetesRuntimeDefinition
 	if result := h.RequestDB(c).First(&existingGcpGkeKubernetesRuntimeDefinition, gcpGkeKubernetesRuntimeDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -363,7 +370,10 @@ func (h Handler) UpdateGcpGkeKubernetesRuntimeDefinition(c echo.Context) error {
 func (h Handler) ReplaceGcpGkeKubernetesRuntimeDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeGcpGkeKubernetesRuntimeDefinition
 	fullyQualifiedType := new(api_v0.GcpGkeKubernetesRuntimeDefinition).GetFullyQualifiedType()
-	gcpGkeKubernetesRuntimeDefinitionID := c.Param("id")
+	gcpGkeKubernetesRuntimeDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingGcpGkeKubernetesRuntimeDefinition api_v0.GcpGkeKubernetesRuntimeDefinition
 	if result := h.RequestDB(c).First(&existingGcpGkeKubernetesRuntimeDefinition, gcpGkeKubernetesRuntimeDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -443,13 +453,17 @@ func (h Handler) ReplaceGcpGkeKubernetesRuntimeDefinition(c echo.Context) error 
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/gcp-gke-kubernetes-runtime-definitions/{id} [DELETE]
 func (h Handler) DeleteGcpGkeKubernetesRuntimeDefinition(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.GcpGkeKubernetesRuntimeDefinition).GetFullyQualifiedType()
-	gcpGkeKubernetesRuntimeDefinitionID := c.Param("id")
+	gcpGkeKubernetesRuntimeDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var gcpGkeKubernetesRuntimeDefinition api_v0.GcpGkeKubernetesRuntimeDefinition
 	if result := h.RequestDB(c).Preload("GcpGkeKubernetesRuntimeInstances").First(&gcpGkeKubernetesRuntimeDefinition, gcpGkeKubernetesRuntimeDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -742,12 +756,16 @@ func (h Handler) GetGcpGkeKubernetesRuntimeInstances(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/gcp-gke-kubernetes-runtime-instances/{id} [GET]
 func (h Handler) GetGcpGkeKubernetesRuntimeInstance(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.GcpGkeKubernetesRuntimeInstance).GetFullyQualifiedType()
-	gcpGkeKubernetesRuntimeInstanceID := c.Param("id")
+	gcpGkeKubernetesRuntimeInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var gcpGkeKubernetesRuntimeInstance api_v0.GcpGkeKubernetesRuntimeInstance
 	if result := h.RequestDB(c).
 		First(&gcpGkeKubernetesRuntimeInstance, gcpGkeKubernetesRuntimeInstanceID); result.Error != nil {
@@ -791,7 +809,10 @@ func (h Handler) GetGcpGkeKubernetesRuntimeInstance(c echo.Context) error {
 func (h Handler) UpdateGcpGkeKubernetesRuntimeInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeGcpGkeKubernetesRuntimeInstance
 	fullyQualifiedType := new(api_v0.GcpGkeKubernetesRuntimeInstance).GetFullyQualifiedType()
-	gcpGkeKubernetesRuntimeInstanceID := c.Param("id")
+	gcpGkeKubernetesRuntimeInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingGcpGkeKubernetesRuntimeInstance api_v0.GcpGkeKubernetesRuntimeInstance
 	if result := h.RequestDB(c).First(&existingGcpGkeKubernetesRuntimeInstance, gcpGkeKubernetesRuntimeInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -891,7 +912,10 @@ func (h Handler) UpdateGcpGkeKubernetesRuntimeInstance(c echo.Context) error {
 func (h Handler) ReplaceGcpGkeKubernetesRuntimeInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeGcpGkeKubernetesRuntimeInstance
 	fullyQualifiedType := new(api_v0.GcpGkeKubernetesRuntimeInstance).GetFullyQualifiedType()
-	gcpGkeKubernetesRuntimeInstanceID := c.Param("id")
+	gcpGkeKubernetesRuntimeInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingGcpGkeKubernetesRuntimeInstance api_v0.GcpGkeKubernetesRuntimeInstance
 	if result := h.RequestDB(c).First(&existingGcpGkeKubernetesRuntimeInstance, gcpGkeKubernetesRuntimeInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -993,13 +1017,17 @@ func (h Handler) ReplaceGcpGkeKubernetesRuntimeInstance(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/gcp-gke-kubernetes-runtime-instances/{id} [DELETE]
 func (h Handler) DeleteGcpGkeKubernetesRuntimeInstance(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.GcpGkeKubernetesRuntimeInstance).GetFullyQualifiedType()
-	gcpGkeKubernetesRuntimeInstanceID := c.Param("id")
+	gcpGkeKubernetesRuntimeInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var gcpGkeKubernetesRuntimeInstance api_v0.GcpGkeKubernetesRuntimeInstance
 	if result := h.RequestDB(c).First(&gcpGkeKubernetesRuntimeInstance, gcpGkeKubernetesRuntimeInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -1326,12 +1354,16 @@ func (h Handler) GetGcpProviders(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/gcp-providers/{id} [GET]
 func (h Handler) GetGcpProvider(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.GcpProvider).GetFullyQualifiedType()
-	gcpProviderID := c.Param("id")
+	gcpProviderID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var gcpProvider api_v0.GcpProvider
 	if result := h.RequestDB(c).
 		First(&gcpProvider, gcpProviderID); result.Error != nil {
@@ -1375,7 +1407,10 @@ func (h Handler) GetGcpProvider(c echo.Context) error {
 func (h Handler) UpdateGcpProvider(c echo.Context) error {
 	objectType := api_v0.ObjectTypeGcpProvider
 	fullyQualifiedType := new(api_v0.GcpProvider).GetFullyQualifiedType()
-	gcpProviderID := c.Param("id")
+	gcpProviderID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingGcpProvider api_v0.GcpProvider
 	if result := h.RequestDB(c).First(&existingGcpProvider, gcpProviderID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -1453,7 +1488,10 @@ func (h Handler) UpdateGcpProvider(c echo.Context) error {
 func (h Handler) ReplaceGcpProvider(c echo.Context) error {
 	objectType := api_v0.ObjectTypeGcpProvider
 	fullyQualifiedType := new(api_v0.GcpProvider).GetFullyQualifiedType()
-	gcpProviderID := c.Param("id")
+	gcpProviderID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingGcpProvider api_v0.GcpProvider
 	if result := h.RequestDB(c).First(&existingGcpProvider, gcpProviderID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -1533,13 +1571,17 @@ func (h Handler) ReplaceGcpProvider(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/gcp-providers/{id} [DELETE]
 func (h Handler) DeleteGcpProvider(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.GcpProvider).GetFullyQualifiedType()
-	gcpProviderID := c.Param("id")
+	gcpProviderID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var gcpProvider api_v0.GcpProvider
 	if result := h.RequestDB(c).First(&gcpProvider, gcpProviderID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {

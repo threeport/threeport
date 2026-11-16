@@ -29,6 +29,9 @@ type KubernetesRuntimeDefinitionValues struct {
 	InfraProvider            *string
 	InfraProviderAccountName *string
 	HighAvailability         *bool
+	PrivateApi               *bool
+	AllowedCidrs             *[]string
+	KubernetesVersion        *string
 	Age                      *string
 }
 
@@ -68,6 +71,9 @@ func (k *KubernetesRuntimeDefinitionConfig) Get(
 				InfraProvider:            kubernetesRuntimeDefinition.InfraProvider,
 				InfraProviderAccountName: kubernetesRuntimeDefinition.InfraProviderAccountName,
 				HighAvailability:         kubernetesRuntimeDefinition.HighAvailability,
+				PrivateApi:               kubernetesRuntimeDefinition.PrivateApi,
+				AllowedCidrs:             cidrsFromJSON(kubernetesRuntimeDefinition.AllowedCidrs),
+				KubernetesVersion:        kubernetesRuntimeDefinition.KubernetesVersion,
 				Age:                      util.Ptr(util.GetAgeFormatted(kubernetesRuntimeDefinition.CreatedAt)),
 			},
 		}
@@ -97,6 +103,9 @@ func (k *KubernetesRuntimeDefinitionConfig) Create(
 		InfraProvider:            kubernetesRuntimeDefinitionValues.InfraProvider,
 		HighAvailability:         kubernetesRuntimeDefinitionValues.HighAvailability,
 		InfraProviderAccountName: kubernetesRuntimeDefinitionValues.InfraProviderAccountName,
+		PrivateApi:               kubernetesRuntimeDefinitionValues.PrivateApi,
+		AllowedCidrs:             cidrsToJSON(kubernetesRuntimeDefinitionValues.AllowedCidrs),
+		KubernetesVersion:        kubernetesRuntimeDefinitionValues.KubernetesVersion,
 	}
 
 	// create kubernetes runtime definition
@@ -117,6 +126,9 @@ func (k *KubernetesRuntimeDefinitionConfig) Create(
 			InfraProvider:            createdKubernetesRuntimeDefinition.InfraProvider,
 			InfraProviderAccountName: createdKubernetesRuntimeDefinition.InfraProviderAccountName,
 			HighAvailability:         createdKubernetesRuntimeDefinition.HighAvailability,
+			PrivateApi:               createdKubernetesRuntimeDefinition.PrivateApi,
+			AllowedCidrs:             cidrsFromJSON(createdKubernetesRuntimeDefinition.AllowedCidrs),
+			KubernetesVersion:        createdKubernetesRuntimeDefinition.KubernetesVersion,
 		},
 	}
 
@@ -162,6 +174,13 @@ func (k *KubernetesRuntimeDefinitionConfig) Replace(
 	updatedKubernetesRuntimeDefinition.InfraProvider = kubernetesRuntimeDefinitionValues.InfraProvider
 	updatedKubernetesRuntimeDefinition.HighAvailability = kubernetesRuntimeDefinitionValues.HighAvailability
 	updatedKubernetesRuntimeDefinition.InfraProviderAccountName = kubernetesRuntimeDefinitionValues.InfraProviderAccountName
+	updatedKubernetesRuntimeDefinition.PrivateApi = kubernetesRuntimeDefinitionValues.PrivateApi
+	updatedKubernetesRuntimeDefinition.AllowedCidrs = cidrsToJSON(kubernetesRuntimeDefinitionValues.AllowedCidrs)
+	// the version is recorded on create and can't change, so a config that
+	// leaves it out keeps it
+	if kubernetesRuntimeDefinitionValues.KubernetesVersion != nil {
+		updatedKubernetesRuntimeDefinition.KubernetesVersion = kubernetesRuntimeDefinitionValues.KubernetesVersion
+	}
 
 	// replace kubernetes runtime definition
 	replacedKubernetesRuntimeDefinition, err := client_v0.ReplaceKubernetesRuntimeDefinition(
@@ -181,6 +200,9 @@ func (k *KubernetesRuntimeDefinitionConfig) Replace(
 			InfraProvider:            replacedKubernetesRuntimeDefinition.InfraProvider,
 			InfraProviderAccountName: replacedKubernetesRuntimeDefinition.InfraProviderAccountName,
 			HighAvailability:         replacedKubernetesRuntimeDefinition.HighAvailability,
+			PrivateApi:               replacedKubernetesRuntimeDefinition.PrivateApi,
+			AllowedCidrs:             cidrsFromJSON(replacedKubernetesRuntimeDefinition.AllowedCidrs),
+			KubernetesVersion:        replacedKubernetesRuntimeDefinition.KubernetesVersion,
 		},
 	}
 
@@ -221,6 +243,9 @@ func (k *KubernetesRuntimeDefinitionConfig) Delete(
 			InfraProvider:            deletedKubernetesRuntimeDefinition.InfraProvider,
 			InfraProviderAccountName: deletedKubernetesRuntimeDefinition.InfraProviderAccountName,
 			HighAvailability:         deletedKubernetesRuntimeDefinition.HighAvailability,
+			PrivateApi:               deletedKubernetesRuntimeDefinition.PrivateApi,
+			AllowedCidrs:             cidrsFromJSON(deletedKubernetesRuntimeDefinition.AllowedCidrs),
+			KubernetesVersion:        deletedKubernetesRuntimeDefinition.KubernetesVersion,
 		},
 	}
 
@@ -248,6 +273,21 @@ func (k *KubernetesRuntimeDefinitionConfig) Validate() error {
 	// ensure infra provider is set
 	if kubernetesRuntimeDefinitionValues.InfraProvider == nil {
 		multiError.AppendError(errors.New("missing required field in config: InfraProvider"))
+	}
+
+	// validate the CIDR blocks allowed to reach the Kubernetes API
+	if err := validateAllowedCidrs(kubernetesRuntimeDefinitionValues.AllowedCidrs); err != nil {
+		multiError.AppendError(err)
+	}
+
+	// validate the Kubernetes version before the API is asked
+	if kubernetesRuntimeDefinitionValues.InfraProvider != nil {
+		if err := api_v0.ValidateKubernetesVersion(
+			*kubernetesRuntimeDefinitionValues.InfraProvider,
+			kubernetesRuntimeDefinitionValues.KubernetesVersion,
+		); err != nil {
+			multiError.AppendError(err)
+		}
 	}
 
 	return multiError.Error()

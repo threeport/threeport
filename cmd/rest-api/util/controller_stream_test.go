@@ -42,12 +42,12 @@ func startJetStream(t *testing.T) (*server.Server, *nats.Conn) {
 func TestInitJetStreamBoundsEveryStream(t *testing.T) {
 	_, nc := startJetStream(t)
 
-	js, err := InitJetStream(nc)
+	js, err := InitJetStream(nc, 1)
 	if err != nil {
 		t.Fatalf("failed to initialize streams: %v", err)
 	}
 	// a second start of the REST API finds the same configuration
-	if _, err := InitJetStream(nc); err != nil {
+	if _, err := InitJetStream(nc, 1); err != nil {
 		t.Fatalf("second initialization failed: %v", err)
 	}
 
@@ -75,7 +75,7 @@ func TestInitJetStreamBoundsEveryStream(t *testing.T) {
 
 func TestAcknowledgedNotificationIsRemoved(t *testing.T) {
 	_, nc := startJetStream(t)
-	js, err := InitJetStream(nc)
+	js, err := InitJetStream(nc, 1)
 	if err != nil {
 		t.Fatalf("failed to initialize streams: %v", err)
 	}
@@ -112,7 +112,7 @@ func TestAcknowledgedNotificationIsRemoved(t *testing.T) {
 // leave the new pod refused for as long as the old pod runs.
 func TestConsumerSharedDuringRollingUpdate(t *testing.T) {
 	srv, nc := startJetStream(t)
-	if _, err := InitJetStream(nc); err != nil {
+	if _, err := InitJetStream(nc, 1); err != nil {
 		t.Fatalf("failed to initialize streams: %v", err)
 	}
 
@@ -172,7 +172,7 @@ func TestConsumerSharedDuringRollingUpdate(t *testing.T) {
 // ephemeral consumers: the new pod is refused while the old pod is running.
 func TestEphemeralConsumerBlocksRollingUpdate(t *testing.T) {
 	srv, nc := startJetStream(t)
-	js, err := InitJetStream(nc)
+	js, err := InitJetStream(nc, 1)
 	if err != nil {
 		t.Fatalf("failed to initialize streams: %v", err)
 	}

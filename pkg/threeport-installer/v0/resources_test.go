@@ -87,6 +87,9 @@ func controlPlaneDeployments(t *testing.T, cpi *ControlPlaneInstaller) map[strin
 	require.NoError(t, err)
 	apiClient := testKubeClient()
 	apiMapper := testComponentMapper()
+	// the dependencies install, which runs first, leaves the message
+	// broker's secrets the API server connects with
+	require.NoError(t, cpi.ensureMessageBrokerSecrets(apiClient))
 	require.NoError(t, cpi.UpdateThreeportAPIDeployment(apiClient, &apiMapper, dbCreds))
 	deployments[ThreeportAPIServiceResourceName] = getDeployment(t, apiClient, cpi.Opts.Namespace, ThreeportAPIServiceResourceName)
 

@@ -13,6 +13,7 @@ import (
 	aws_iam "github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/go-logr/logr"
+	"gorm.io/datatypes"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
@@ -63,6 +64,50 @@ func clientCertificateRecorded(instance *v0.ControlPlaneInstance) bool {
 	return util.DerefString(instance.CACert) != "" &&
 		util.DerefString(instance.ClientCert) != "" &&
 		util.DerefString(instance.ClientKey) != ""
+}
+
+// clientEndpointReplace reports whether a stored API address is missing or is the in-cluster name.
+func clientEndpointReplace(saved, internal string) bool {
+	return saved == "" || saved == internal
+}
+
+// apiEndpointUpdate returns the address to store, and whether that address is a load balancer.
+// A service that is not a load balancer keeps the internal address.
+func apiEndpointUpdate(saved, internal, serviceType string) (string, bool) {
+	// keep an address that is already public
+	if !clientEndpointReplace(saved, internal) {
+		return saved, false
+	}
+
+	// keep the internal address when the service has no load balancer
+	if serviceType != "LoadBalancer" {
+		if saved == "" {
+			return internal, false
+		}
+		return saved, false
+	}
+	return "", true
+}
+
+// unfinishedChild reports whether create acknowledged the row and never stored its parent.
+func unfinishedChild(instance *v0.ControlPlaneInstance) bool {
+	// skip a root, which reconciles itself
+	if instance.IsSelf != nil && *instance.IsSelf {
+		return false
+	}
+
+	// skip a copied genesis record
+	if instance.Genesis != nil && *instance.Genesis {
+		return false
+	}
+
+	// skip a child that already names its parent
+	if instance.ParentControlPlaneInstanceID != nil {
+		return false
+	}
+
+	// enter when create already acknowledged the row
+	return instance.CreationAcknowledged != nil
 }
 
 // v0ControlPlaneInstanceCreated performs reconciliation when a v0 ControlPlaneInstance
@@ -143,10 +188,6 @@ func v0ControlPlaneInstanceCreated(
 		return 0, fmt.Errorf("failed to get self control plane instance: %w", err)
 	}
 
-	// determine if child deploys to a different cluster than genesis —
-	// cross-cluster needs a load balancer, same-cluster uses ClusterIP
-	sameCluster := *selfInstance.KubernetesRuntimeInstanceID == *controlPlaneInstance.KubernetesRuntimeInstanceID
-
 	// build the installer an update of this instance uses
 	cpi, err := prepareInstanceInstaller(
 		r,
@@ -159,8 +200,8 @@ func v0ControlPlaneInstanceCreated(
 	if err != nil {
 		return 0, err
 	}
-	// enable load balancer for cross-cluster cloud provider deployments
-	cpi.Opts.RestApiLoadBalancer = !sameCluster && *kubernetesRuntimeDefinition.InfraProvider != v0.KubernetesRuntimeInfraProviderKind
+	// publish the API for a client outside the cluster
+	cpi.Opts.RestApiLoadBalancer = *kubernetesRuntimeDefinition.InfraProvider != v0.KubernetesRuntimeInfraProviderKind
 
 	// The API refuses this pairing when the instance is created and when the
 	// definition is updated. It is checked once more here because those are
@@ -381,12 +422,14 @@ func v0ControlPlaneInstanceCreated(
 		}
 	}
 
+	// dial the in-cluster name until a load balancer address exists
 	_, port := cpi.GetAPIServicePort()
-	threeportAPIEndpoint := fmt.Sprintf("%s.%s:%d", cpi.Opts.RestApiInfo.ServiceResourceName, cpi.Opts.Namespace, port)
-	// keep an endpoint a retry already saved
-	endpointSaved := util.DerefString(controlPlaneInstance.ApiServerEndpoint) != ""
-	if !endpointSaved {
-		controlPlaneInstance.ApiServerEndpoint = &threeportAPIEndpoint
+	internalEndpoint := fmt.Sprintf("%s.%s:%d", cpi.Opts.RestApiInfo.ServiceResourceName, cpi.Opts.Namespace, port)
+	threeportAPIEndpoint := internalEndpoint
+
+	// record the in-cluster name when no public address is stored yet
+	if clientEndpointReplace(util.DerefString(controlPlaneInstance.ApiServerEndpoint), internalEndpoint) {
+		controlPlaneInstance.ApiServerEndpoint = &internalEndpoint
 	}
 
 	// generate encryption key
@@ -420,19 +463,17 @@ func v0ControlPlaneInstanceCreated(
 		return 0, fmt.Errorf("failed to install threeport API server: %w", err)
 	}
 
-	// for cross-cluster deployments, get the load balancer endpoint so the
-	// genesis reconciler can reach the child API across clusters. Same-cluster
-	// deployments use ClusterIP (see RestApiLoadBalancer above) and keep the
-	// in-cluster DNS endpoint already set above.
+	// point later calls at the load balancer once it has an address
 	var lbEndpoint string
 	if cpi.Opts.RestApiLoadBalancer {
 		lbEndpoint, err = cpi.GetThreeportAPIEndpoint(dynamicKubeClient, *mapper)
 		if err != nil {
 			return 0, fmt.Errorf("failed to get threeport API load balancer endpoint: %w", err)
 		}
-		_, port := cpi.GetAPIServicePort()
 		threeportAPIEndpoint = fmt.Sprintf("%s:%d", lbEndpoint, port)
-		if !endpointSaved {
+
+		// replace a missing address or the in-cluster name, and keep a stored public address
+		if clientEndpointReplace(util.DerefString(controlPlaneInstance.ApiServerEndpoint), internalEndpoint) {
 			controlPlaneInstance.ApiServerEndpoint = &threeportAPIEndpoint
 		}
 
@@ -458,9 +499,7 @@ func v0ControlPlaneInstanceCreated(
 	if cpi.Opts.AuthEnabled {
 		// determine the threeport API alt names
 		threeportApiAltNames := threeport.ThreeportApiAltNames(cpi.Opts.Namespace)
-		threeportApiAltNames = append(threeportApiAltNames, threeportAPIEndpoint)
-		// add the raw LB endpoint (IP or hostname without port) so
-		// net.ParseIP can add it as an IP SAN in the certificate
+		// add the load balancer address without the port
 		if lbEndpoint != "" {
 			threeportApiAltNames = append(threeportApiAltNames, lbEndpoint)
 		}
@@ -546,6 +585,19 @@ func v0ControlPlaneInstanceCreated(
 		return 0, fmt.Errorf("failed to install threeport support services operator: %w", err)
 	}
 
+	// record the parent and the client address before the reachability check.
+	// A failed dial still leaves the address for the CLI to read.
+	controlPlaneInstance.ParentControlPlaneInstanceID = selfInstance.ID
+	_, err = client.UpdateControlPlaneInstance(
+		r.APIClient,
+		r.APIServer,
+		controlPlaneInstance,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to update control plane runtime instance with parent: %w", err)
+	}
+
+	// check the public address, or the in-cluster name when there is no load balancer
 	cli.Info("Waiting for threeport API to start running...")
 	if err = util.Retry(30, 10, func() error {
 		_, err := client_lib.GetResponse(
@@ -564,18 +616,6 @@ func v0ControlPlaneInstanceCreated(
 		return 0, fmt.Errorf("threeport API did not come up: %w", err)
 	}
 	cli.Info("Threeport API is running")
-
-	// update the newly created instance with parent
-	controlPlaneInstance.ParentControlPlaneInstanceID = selfInstance.ID
-
-	_, err = client.UpdateControlPlaneInstance(
-		r.APIClient,
-		r.APIServer,
-		controlPlaneInstance,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to update control plane runtime instance with parent: %w", err)
-	}
 
 	if !*controlPlaneDefinition.OnboardParent {
 		return 0, nil
@@ -779,6 +819,10 @@ func v0ControlPlaneInstanceCreated(
 	self = false
 	genesisInstance.Common = v0.Common{}
 	genesisInstance.IsSelf = &self
+	// the genesis allocates network ranges from its own pool, in its own
+	// database; on the child its pool would read as one the child must keep
+	// clear of its own ranges
+	genesisInstance.NetworkCidrPool = nil
 	genesisInstance.ControlPlaneDefinitionID = &genDefID
 	genesisInstance.KubernetesRuntimeInstanceID = &genKubeRuntimeInstanceID
 	_, err = getOrCreate(
@@ -956,6 +1000,9 @@ func copyManagingParent(
 	clone.Common = v0.Common{}
 	clone.IsSelf = &notSelf
 	clone.ParentControlPlaneInstanceID = nil
+	// the parent allocates network ranges from its pool in its own database,
+	// and the child's runtime was given one of them
+	clone.NetworkCidrPool = nil
 	clone.Reconciled = &reconciled
 	clone.ControlPlaneDefinitionID = localDefinition.ID
 	clone.KubernetesRuntimeInstanceID = localRuntime.ID
@@ -970,7 +1017,8 @@ func copyManagingParent(
 	)
 }
 
-// syncManagedChild copies the image and the controller list onto the child's own row.
+// syncManagedChild copies the image, the controller list and the network
+// range pool onto the child's own row.
 func syncManagedChild(r *controller.Reconciler, instance *v0.ControlPlaneInstance) error {
 	// read the stored row, because the notification omits the certificates
 	stored, err := client.GetControlPlaneInstanceByID(r.APIClient, r.APIServer, *instance.ID)
@@ -995,12 +1043,20 @@ func syncManagedChild(r *controller.Reconciler, instance *v0.ControlPlaneInstanc
 		apis = &cleared
 	}
 
+	// send an empty pool when the pool was cleared, for the same reason
+	pool := stored.NetworkCidrPool
+	if pool == nil {
+		cleared := datatypes.JSON("[]")
+		pool = &cleared
+	}
+
 	// set the parent link when an older child was created without one
 	update := &v0.ControlPlaneInstance{
-		Common:         v0.Common{ID: childSelf.ID},
-		Apis:           apis,
-		ImageNamespace: stored.ImageNamespace,
-		ImageTag:       stored.ImageTag,
+		Common:          v0.Common{ID: childSelf.ID},
+		Apis:            apis,
+		ImageNamespace:  stored.ImageNamespace,
+		ImageTag:        stored.ImageTag,
+		NetworkCidrPool: pool,
 	}
 	if childSelf.ParentControlPlaneInstanceID == nil {
 		serving, err := client.GetSelfControlPlaneInstance(r.APIClient, r.APIServer)
@@ -1019,7 +1075,7 @@ func syncManagedChild(r *controller.Reconciler, instance *v0.ControlPlaneInstanc
 		update.ParentControlPlaneInstanceID = localParent.ID
 	}
 
-	// write the image and the controller list
+	// write the image, the controller list and the pool
 	if _, err := client.UpdateControlPlaneInstance(childClient, endpoint, update); err != nil {
 		return fmt.Errorf("failed to update control plane instance on %s: %w", *stored.Name, err)
 	}
@@ -1071,8 +1127,8 @@ func v0ControlPlaneInstanceUpdated(
 	controlPlaneInstance *v0.ControlPlaneInstance,
 	log *logr.Logger,
 ) (int64, error) {
-	// reconcile a root, or a child this control plane manages
-	if !appliesControlPlane(controlPlaneInstance) {
+	// reconcile a managed child, a root, or a child create left without a parent
+	if !appliesControlPlane(controlPlaneInstance) && !unfinishedChild(controlPlaneInstance) {
 		return 0, nil
 	}
 
@@ -1159,6 +1215,74 @@ func v0ControlPlaneInstanceUpdated(
 		}
 	}
 
+	// read the service before choosing an address.
+	// Kind has no load balancer, so its address stays as it is.
+	clientFieldsChanged := false
+	if *kubernetesRuntimeDefinition.InfraProvider != v0.KubernetesRuntimeInfraProviderKind {
+		_, clientPort := cpi.GetAPIServicePort()
+		internalEndpoint := fmt.Sprintf("%s.%s:%d", cpi.Opts.RestApiInfo.ServiceResourceName, cpi.Opts.Namespace, clientPort)
+		savedEndpoint := util.DerefString(controlPlaneInstance.ApiServerEndpoint)
+		if clientEndpointReplace(savedEndpoint, internalEndpoint) {
+			service, svcErr := cpi.GetThreeportAPIService(dynamicKubeClient, *mapper)
+			if svcErr != nil {
+				return 0, fmt.Errorf("failed to get threeport API service: %w", svcErr)
+			}
+			serviceType, _, typeErr := unstructured.NestedString(service.Object, "spec", "type")
+			if typeErr != nil {
+				return 0, fmt.Errorf("failed to get threeport API service type: %w", typeErr)
+			}
+
+			// keep the internal address when the service is not a load balancer.
+			// The service is persistent, so this reconcile does not convert it.
+			address, readLoadBalancer := apiEndpointUpdate(savedEndpoint, internalEndpoint, serviceType)
+			if readLoadBalancer {
+				lbEndpoint, lbErr := cpi.GetThreeportAPIEndpoint(dynamicKubeClient, *mapper)
+				if lbErr != nil {
+					return 0, fmt.Errorf("failed to get threeport API load balancer endpoint: %w", lbErr)
+				}
+				address = fmt.Sprintf("%s:%d", lbEndpoint, clientPort)
+			}
+			if address != savedEndpoint {
+				controlPlaneInstance.ApiServerEndpoint = &address
+				clientFieldsChanged = true
+			}
+		}
+	}
+
+	// mint a client certificate when auth is on and none is stored
+	if cpi.Opts.AuthEnabled && !clientCertificateRecorded(controlPlaneInstance) {
+		clientCertificate, clientPrivateKey, certErr := auth.GenerateCertificate(
+			authConfig.CAConfig,
+			&authConfig.CAPrivateKey,
+			"threeport-owner",
+			"",
+			"",
+		)
+		if certErr != nil {
+			return 0, fmt.Errorf("failed to generate client certificate and private key: %w", certErr)
+		}
+		clientCert := util.Base64Encode(clientCertificate)
+		clientKey := util.Base64Encode(clientPrivateKey)
+		controlPlaneInstance.CACert = &authConfig.CABase64Encoded
+		controlPlaneInstance.ClientCert = &clientCert
+		controlPlaneInstance.ClientKey = &clientKey
+		clientFieldsChanged = true
+	}
+
+	// set the parent when this row is not the root
+	sameControlPlane := controlPlaneInstance.ID != nil && selfInstance.ID != nil && *controlPlaneInstance.ID == *selfInstance.ID
+	if controlPlaneInstance.ParentControlPlaneInstanceID == nil && !sameControlPlane {
+		controlPlaneInstance.ParentControlPlaneInstanceID = selfInstance.ID
+		clientFieldsChanged = true
+	}
+
+	// write the address, the parent, and the certificate before the child API calls
+	if clientFieldsChanged {
+		if _, err = client.UpdateControlPlaneInstance(r.APIClient, r.APIServer, controlPlaneInstance); err != nil {
+			return 0, fmt.Errorf("failed to update control plane instance: %w", err)
+		}
+	}
+
 	// install added controller groups and delete dropped ones.
 	// Keep the controller that runs this reconcile on a root and on a managed child.
 	retainControlPlaneController := true
@@ -1184,7 +1308,7 @@ func v0ControlPlaneInstanceUpdated(
 		return 0, err
 	}
 
-	// copy the image and the controller list when the child has a row that can accept it
+	// copy the image, the controller list and the pool when the child has a row that can accept it
 	if controlPlaneInstance.ParentControlPlaneInstanceID != nil &&
 		(controlPlaneDefinition.OnboardParent == nil || *controlPlaneDefinition.OnboardParent) &&
 		(controlPlaneDefinition.AuthEnabled == nil || *controlPlaneDefinition.AuthEnabled) {

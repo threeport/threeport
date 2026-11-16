@@ -19,6 +19,45 @@ mage test:e2eLocal
 
 The e2e tests create and use a Threeport config located at `/tmp/e2e-threeport-config.yaml`
 
+### On AWS
+
+Two mage targets run the same suite against a control plane on AWS EKS
+instead of kind.  On top of the workload tests, they check that IAM roles for
+service accounts work on the cluster.  After the teardown, they fail if any
+AWS resource the install created is still there.
+
+They create real infrastructure that costs money for as long as it runs.
+They need `ginkgo` and the AWS CLI.
+
+`test:e2eAws` installs the released control plane images.  It takes the AWS
+region and whether to clean up afterwards, and uses the `default` AWS config
+profile:
+
+```bash
+mage test:e2eAws us-east-1 true
+```
+
+`test:e2eAwsDev` installs control plane images built from your working tree,
+so a branch can be tested on EKS before it is released.  It takes the region,
+the AWS config profile and whether to clean up:
+
+```bash
+mage test:e2eAwsDev us-east-1 my-profile true
+```
+
+- It builds the images for amd64, the architecture of the EKS nodes, from any
+  machine.
+- It pushes them to ECR in the profile's account, so it also needs Docker.
+- It creates an ECR repository for each image that doesn't have one yet.  The
+  repositories are left in place for the next run.
+
+With `false` as the last argument, the control plane and its EKS cluster are
+left running.  Remove them with:
+
+```bash
+./bin/tptctl down --name e2e-test --threeport-config /tmp/e2e-threeport-config.yaml
+```
+
 ## Integration
 
 The integration tests verify internal integrations, such as client library

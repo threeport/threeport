@@ -33,6 +33,13 @@ const (
 	// serviceAccountIDHashLength is how many hex characters of the name's hash
 	// close a service account ID
 	serviceAccountIDHashLength = 6
+	// nodeServiceAccountIDPrefix begins the ID of the service account a GKE
+	// cluster's nodes run as.  It differs from serviceAccountIDPrefix so that
+	// no runtime's node account can take the ID of a Threeport account.
+	nodeServiceAccountIDPrefix = "threeport-node-"
+	// nodeServiceAccountIDNameLength is serviceAccountIDNameLength for node
+	// accounts, one character shorter for the longer prefix
+	nodeServiceAccountIDNameLength = 8
 	// serviceAccountDisplayFormat is the display name format for all Threeport service accounts
 	serviceAccountDisplayFormat = "Threeport Service Account for %s"
 	// workloadIdentityPoolFormat is the format for Workload Identity pool names
@@ -499,17 +506,16 @@ func CreateGCPServiceAccountWithKey(projectID, accountName string) (*GCPServiceA
 		return nil, fmt.Errorf("failed to grant IAM roles: %w", err)
 	}
 
-	// create JSON key for controllers running outside GCP
+	// retry the key create while the new account is still propagating
 	keyRequest := &iam.CreateServiceAccountKeyRequest{
 		PrivateKeyType: "TYPE_GOOGLE_CREDENTIALS_FILE",
 	}
-
-	key, err := iamService.Projects.ServiceAccounts.Keys.Create(
-		fmt.Sprintf("projects/%s/serviceAccounts/%s", projectID, account.Email),
-		keyRequest,
-	).Do()
+	keyName := fmt.Sprintf("projects/%s/serviceAccounts/%s", projectID, account.Email)
+	key, err := createServiceAccountKeyWithRetry(func() (*iam.ServiceAccountKey, error) {
+		return iamService.Projects.ServiceAccounts.Keys.Create(keyName, keyRequest).Do()
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create service account key: %w", err)
+		return nil, err
 	}
 
 	// The key is base64 encoded, decode it
@@ -524,6 +530,31 @@ func CreateGCPServiceAccountWithKey(projectID, accountName string) (*GCPServiceA
 		Email:   account.Email,
 		KeyJSON: keyJSON,
 	}, nil
+}
+
+// createServiceAccountKeyWithRetry creates a key for a service account that may not be visible yet.
+// A not-found is retried, and any other error is returned.
+func createServiceAccountKeyWithRetry(create func() (*iam.ServiceAccountKey, error)) (*iam.ServiceAccountKey, error) {
+	var lastErr error
+
+	// retry a not-found key create until the account is visible
+	for attempt := 1; attempt <= iamPolicyAttempts; attempt++ {
+		key, err := create()
+		if err == nil {
+			return key, nil
+		}
+
+		lastErr = err
+		if !isNotFoundError(err) {
+			return nil, fmt.Errorf("failed to create service account key: %w", err)
+		}
+		if attempt < iamPolicyAttempts {
+			fmt.Printf("service account key create failed (attempt %d/%d): %v, retrying in %v...\n", attempt, iamPolicyAttempts, err, iamRetryDelay)
+			time.Sleep(iamRetryDelay)
+		}
+	}
+
+	return nil, fmt.Errorf("failed to create service account key after %d attempts: %w", iamPolicyAttempts, lastErr)
 }
 
 // DeleteGCPServiceAccountWithKey deletes a GCP service account that was created
@@ -946,9 +977,16 @@ func formatIAMServiceAccountCreate403Hint(projectID string) string {
 // orphans every account created under the old one. Treat it as fixed once
 // Threeport has installs.
 func formatServiceAccountID(name string) string {
+	return formatPrefixedServiceAccountID(serviceAccountIDPrefix, serviceAccountIDNameLength, name)
+}
+
+// formatPrefixedServiceAccountID is formatServiceAccountID with the prefix and
+// the length of the name's fragment given.  The prefix, the fragment, the
+// separator and the hash must fit in 30 characters.
+func formatPrefixedServiceAccountID(prefix string, nameLength int, name string) string {
 	var fragment strings.Builder
 	for _, c := range strings.ToLower(name) {
-		if fragment.Len() == serviceAccountIDNameLength {
+		if fragment.Len() == nameLength {
 			break
 		}
 		if (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') {
@@ -965,7 +1003,7 @@ func formatServiceAccountID(name string) string {
 
 	sum := sha256.Sum256([]byte(name))
 
-	return serviceAccountIDPrefix + frag + "-" + hex.EncodeToString(sum[:])[:serviceAccountIDHashLength]
+	return prefix + frag + "-" + hex.EncodeToString(sum[:])[:serviceAccountIDHashLength]
 }
 
 // isNotFoundError checks if the error is a "not found" error.
@@ -1038,11 +1076,20 @@ type crmProjectPolicies struct {
 	service *cloudresourcemanager.Service
 }
 
+// conditionalPolicyVersion is the IAM policy version that carries conditional
+// bindings.  A policy read at an older version leaves their conditions out,
+// and writing it back is refused, so a project policy is read and written at
+// this one: the project may hold conditional bindings someone else made.
+const conditionalPolicyVersion = 3
+
 func (c crmProjectPolicies) get(projectID string) (*cloudresourcemanager.Policy, error) {
-	return c.service.Projects.GetIamPolicy(projectID, &cloudresourcemanager.GetIamPolicyRequest{}).Do()
+	return c.service.Projects.GetIamPolicy(projectID, &cloudresourcemanager.GetIamPolicyRequest{
+		Options: &cloudresourcemanager.GetPolicyOptions{RequestedPolicyVersion: conditionalPolicyVersion},
+	}).Do()
 }
 
 func (c crmProjectPolicies) set(projectID string, policy *cloudresourcemanager.Policy) (*cloudresourcemanager.Policy, error) {
+	policy.Version = conditionalPolicyVersion
 	return c.service.Projects.SetIamPolicy(projectID, &cloudresourcemanager.SetIamPolicyRequest{Policy: policy}).Do()
 }
 

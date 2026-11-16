@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 
@@ -16,12 +17,15 @@ const (
 	gkeRouterTypeToken   = "gcp:compute/router:Router"
 	gkeNatTypeToken      = "gcp:compute/routerNat:RouterNat"
 	gkeProviderTypeToken = "pulumi:providers:gcp"
+	gkeAccountTypeToken  = "gcp:serviceaccount/account:Account"
+	gkeIAMMemberToken    = "gcp:projects/iAMMember:IAMMember"
 )
 
 type gkeRecordedResource struct {
-	typeToken string
-	name      string
-	inputs    map[string]any
+	typeToken    string
+	name         string
+	inputs       map[string]any
+	dependencies []string
 }
 
 type gkeRecordingMocks struct {
@@ -32,12 +36,35 @@ type gkeRecordingMocks struct {
 func (m *gkeRecordingMocks) NewResource(args pulumi.MockResourceArgs) (string, resource.PropertyMap, error) {
 	m.mu.Lock()
 	m.resources = append(m.resources, gkeRecordedResource{
-		typeToken: args.TypeToken,
-		name:      args.Name,
-		inputs:    args.Inputs.Mappable(),
+		typeToken:    args.TypeToken,
+		name:         args.Name,
+		inputs:       args.Inputs.Mappable(),
+		dependencies: args.RegisterRPC.GetDependencies(),
 	})
 	m.mu.Unlock()
-	return args.Name + "-id", args.Inputs, nil
+
+	// a service account's email and member are computed by GCP
+	outputs := args.Inputs.Copy()
+	if args.TypeToken == gkeAccountTypeToken {
+		email := fmt.Sprintf("%s@%s.iam.gserviceaccount.com",
+			args.Inputs["accountId"].StringValue(), args.Inputs["project"].StringValue())
+		outputs["email"] = resource.NewStringProperty(email)
+		outputs["member"] = resource.NewStringProperty("serviceAccount:" + email)
+	}
+	return args.Name + "-id", outputs, nil
+}
+
+// ofType returns the recorded resources of a type.
+func (m *gkeRecordingMocks) ofType(typeToken string) []gkeRecordedResource {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var found []gkeRecordedResource
+	for _, r := range m.resources {
+		if r.typeToken == typeToken {
+			found = append(found, r)
+		}
+	}
+	return found
 }
 
 func (m *gkeRecordingMocks) Call(args pulumi.MockCallArgs) (resource.PropertyMap, error) {
@@ -87,6 +114,12 @@ func TestGKEPulumiProgram_LabelableResourcesCarryProvisionedBy(t *testing.T) {
 		},
 		gkeProviderTypeToken: {
 			exemptReason: "the cloud-provider meta-resource carries no user labels",
+		},
+		gkeAccountTypeToken: {
+			exemptReason: "serviceaccount AccountArgs has no labels field",
+		},
+		gkeIAMMemberToken: {
+			exemptReason: "projects IAMMemberArgs has no labels field",
 		},
 	}
 
@@ -158,4 +191,31 @@ func gkeGCPLabels(t *testing.T, r gkeRecordedResource, path string) map[string]s
 		out[k] = s
 	}
 	return out
+}
+
+// TestTheGkeNodePoolsLocationPolicy covers how the node pool's autoscaler
+// places nodes across zones: as configured, and anywhere when unset.
+func TestTheGkeNodePoolsLocationPolicy(t *testing.T) {
+	for configured, want := range map[string]string{"": "ANY", "BALANCED": "BALANCED"} {
+		i := &KubernetesRuntimeInfraGKE{
+			PulumiWorkspace:        PulumiWorkspace{RuntimeInstanceName: "gke-location-test", ProjectName: "gke"},
+			ProjectID:              "test-project",
+			Region:                 "us-central1",
+			WorkerNodeInitialCount: 1,
+			LocationPolicy:         configured,
+		}
+		mocks := &gkeRecordingMocks{}
+		if err := pulumi.RunErr(i.pulumiProgram(), pulumi.WithMocks("gke", "test-stack", mocks)); err != nil {
+			t.Fatalf("RunErr: %v", err)
+		}
+		for _, r := range mocks.resources {
+			if r.typeToken != gkeNodePoolTypeToken {
+				continue
+			}
+			autoscaling, _ := r.inputs["autoscaling"].(map[string]any)
+			if autoscaling["locationPolicy"] != want {
+				t.Errorf("configured %q: locationPolicy is %v, want %s", configured, autoscaling["locationPolicy"], want)
+			}
+		}
+	}
 }

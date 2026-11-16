@@ -371,16 +371,16 @@ func (a *AwsEksKubernetesRuntimeInstanceConfig) Delete(
 		}
 
 		// wait for kubernetes runtime instance to be deleted
-		util.Retry(10, 1, func() error {
-			if _, err := client_v0.GetKubernetesRuntimeInstanceByName(
+		if err := pollInstanceDeleted("kubernetes runtime instance", *kubernetesRuntimeInstance.Name, 10, 1, func() error {
+			_, err := client_v0.GetKubernetesRuntimeInstanceByName(
 				apiClient,
 				apiEndpoint,
 				*kubernetesRuntimeInstance.Name,
-			); err == nil {
-				return errors.New("kubernetes runtime instance not deleted")
-			}
-			return nil
-		})
+			)
+			return err
+		}); err != nil {
+			return nil, err
+		}
 	}
 
 	// construct deleted aws eks kubernetes runtime instance config

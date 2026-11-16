@@ -236,12 +236,16 @@ func (h Handler) GetMachineWorkloadDefinitions(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/machine-workload-definitions/{id} [GET]
 func (h Handler) GetMachineWorkloadDefinition(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.MachineWorkloadDefinition).GetFullyQualifiedType()
-	machineWorkloadDefinitionID := c.Param("id")
+	machineWorkloadDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var machineWorkloadDefinition api_v0.MachineWorkloadDefinition
 	if result := h.RequestDB(c).
 		First(&machineWorkloadDefinition, machineWorkloadDefinitionID); result.Error != nil {
@@ -285,7 +289,10 @@ func (h Handler) GetMachineWorkloadDefinition(c echo.Context) error {
 func (h Handler) UpdateMachineWorkloadDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeMachineWorkloadDefinition
 	fullyQualifiedType := new(api_v0.MachineWorkloadDefinition).GetFullyQualifiedType()
-	machineWorkloadDefinitionID := c.Param("id")
+	machineWorkloadDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingMachineWorkloadDefinition api_v0.MachineWorkloadDefinition
 	if result := h.RequestDB(c).First(&existingMachineWorkloadDefinition, machineWorkloadDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -363,7 +370,10 @@ func (h Handler) UpdateMachineWorkloadDefinition(c echo.Context) error {
 func (h Handler) ReplaceMachineWorkloadDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeMachineWorkloadDefinition
 	fullyQualifiedType := new(api_v0.MachineWorkloadDefinition).GetFullyQualifiedType()
-	machineWorkloadDefinitionID := c.Param("id")
+	machineWorkloadDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingMachineWorkloadDefinition api_v0.MachineWorkloadDefinition
 	if result := h.RequestDB(c).First(&existingMachineWorkloadDefinition, machineWorkloadDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -443,13 +453,17 @@ func (h Handler) ReplaceMachineWorkloadDefinition(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/machine-workload-definitions/{id} [DELETE]
 func (h Handler) DeleteMachineWorkloadDefinition(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.MachineWorkloadDefinition).GetFullyQualifiedType()
-	machineWorkloadDefinitionID := c.Param("id")
+	machineWorkloadDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var machineWorkloadDefinition api_v0.MachineWorkloadDefinition
 	if result := h.RequestDB(c).Preload("MachineWorkloadInstances").First(&machineWorkloadDefinition, machineWorkloadDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -742,12 +756,16 @@ func (h Handler) GetMachineWorkloadInstances(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/machine-workload-instances/{id} [GET]
 func (h Handler) GetMachineWorkloadInstance(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.MachineWorkloadInstance).GetFullyQualifiedType()
-	machineWorkloadInstanceID := c.Param("id")
+	machineWorkloadInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var machineWorkloadInstance api_v0.MachineWorkloadInstance
 	if result := h.RequestDB(c).
 		First(&machineWorkloadInstance, machineWorkloadInstanceID); result.Error != nil {
@@ -791,7 +809,10 @@ func (h Handler) GetMachineWorkloadInstance(c echo.Context) error {
 func (h Handler) UpdateMachineWorkloadInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeMachineWorkloadInstance
 	fullyQualifiedType := new(api_v0.MachineWorkloadInstance).GetFullyQualifiedType()
-	machineWorkloadInstanceID := c.Param("id")
+	machineWorkloadInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingMachineWorkloadInstance api_v0.MachineWorkloadInstance
 	if result := h.RequestDB(c).First(&existingMachineWorkloadInstance, machineWorkloadInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -891,7 +912,10 @@ func (h Handler) UpdateMachineWorkloadInstance(c echo.Context) error {
 func (h Handler) ReplaceMachineWorkloadInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeMachineWorkloadInstance
 	fullyQualifiedType := new(api_v0.MachineWorkloadInstance).GetFullyQualifiedType()
-	machineWorkloadInstanceID := c.Param("id")
+	machineWorkloadInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingMachineWorkloadInstance api_v0.MachineWorkloadInstance
 	if result := h.RequestDB(c).First(&existingMachineWorkloadInstance, machineWorkloadInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -993,13 +1017,17 @@ func (h Handler) ReplaceMachineWorkloadInstance(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/machine-workload-instances/{id} [DELETE]
 func (h Handler) DeleteMachineWorkloadInstance(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.MachineWorkloadInstance).GetFullyQualifiedType()
-	machineWorkloadInstanceID := c.Param("id")
+	machineWorkloadInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var machineWorkloadInstance api_v0.MachineWorkloadInstance
 	if result := h.RequestDB(c).First(&machineWorkloadInstance, machineWorkloadInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {

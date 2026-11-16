@@ -216,26 +216,15 @@ func ReconcilerTestInstanceReconciler(r *controller.Reconciler) {
 							}
 						}
 						if operationErr == nil {
-							provider, err := tpclient.GetInfraProviderByKubernetesRuntimeInstanceID(
-								r.APIClient,
-								r.APIServer,
-								runtime.ID,
-							)
-							if err != nil {
-								operationErr = fmt.Errorf("failed to get infra provider: %w", err)
-							}
-							if operationErr == nil {
-								if err := supportservices.EnsureSecretsComponent(
-									r,
-									runtime,
-									componentObject,
-									&componentObject.SecretsComponentInstanceID,
-									client_v0.UpdateReconcilerTestInstance,
-									provider,
-									&log,
-								); err != nil {
-									operationErr = fmt.Errorf("failed to ensure secrets component: %w", err)
-								}
+							if err := supportservices.EnsureSecretsComponent(
+								r,
+								runtime,
+								componentObject,
+								&componentObject.SecretsComponentInstanceID,
+								client_v0.UpdateReconcilerTestInstance,
+								&log,
+							); err != nil {
+								operationErr = fmt.Errorf("failed to ensure secrets component: %w", err)
 							}
 						}
 						if operationErr == nil {
@@ -378,26 +367,15 @@ func ReconcilerTestInstanceReconciler(r *controller.Reconciler) {
 							}
 						}
 						if operationErr == nil {
-							provider, err := tpclient.GetInfraProviderByKubernetesRuntimeInstanceID(
-								r.APIClient,
-								r.APIServer,
-								runtime.ID,
-							)
-							if err != nil {
-								operationErr = fmt.Errorf("failed to get infra provider: %w", err)
-							}
-							if operationErr == nil {
-								if err := supportservices.EnsureSecretsComponent(
-									r,
-									runtime,
-									componentObject,
-									&componentObject.SecretsComponentInstanceID,
-									client_v0.UpdateReconcilerTestInstance,
-									provider,
-									&log,
-								); err != nil {
-									operationErr = fmt.Errorf("failed to ensure secrets component: %w", err)
-								}
+							if err := supportservices.EnsureSecretsComponent(
+								r,
+								runtime,
+								componentObject,
+								&componentObject.SecretsComponentInstanceID,
+								client_v0.UpdateReconcilerTestInstance,
+								&log,
+							); err != nil {
+								operationErr = fmt.Errorf("failed to ensure secrets component: %w", err)
 							}
 						}
 						if operationErr == nil {

@@ -112,6 +112,9 @@ func installComponent(t *testing.T, cpi *ControlPlaneInstaller, kubeClient dynam
 	if deployName == ThreeportAPIServiceResourceName {
 		dbCreds, err := auth.GenerateDbCreds(cpi.Opts.Namespace)
 		require.NoError(t, err)
+		// the dependencies install, which runs first, leaves the message
+		// broker's secrets the API server connects with
+		require.NoError(t, cpi.ensureMessageBrokerSecrets(kubeClient))
 		require.NoError(t, cpi.UpdateThreeportAPIDeployment(kubeClient, &mapper, dbCreds))
 		return
 	}

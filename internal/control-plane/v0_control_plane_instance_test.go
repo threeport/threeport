@@ -2,6 +2,7 @@ package controlplane
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -66,6 +67,114 @@ func TestAppliesControlPlane(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			assert.Equal(t, tc.want, appliesControlPlane(tc.instance))
+		})
+	}
+}
+
+// TestClientEndpointReplace reports when a stored address should become the public one.
+func TestClientEndpointReplace(t *testing.T) {
+	// an empty address and the in-cluster name are replaced
+	internal := "threeport-api-server.primary-01:443"
+	cases := []struct {
+		name     string
+		saved    string
+		internal string
+		want     bool
+	}{
+		{name: "empty", saved: "", internal: internal, want: true},
+		{name: "in-cluster name", saved: internal, internal: internal, want: true},
+		{name: "public address", saved: "34.132.193.86:443", internal: internal, want: false},
+		{name: "other host", saved: "api.example.com:443", internal: internal, want: false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, clientEndpointReplace(tc.saved, tc.internal))
+		})
+	}
+}
+
+// TestAPIEndpointUpdate keeps the internal address when the service is not a load balancer.
+func TestAPIEndpointUpdate(t *testing.T) {
+	// a ClusterIP service has no address to wait for
+	internal := "threeport-api-server.primary-01:443"
+	public := "34.132.193.86:443"
+	cases := []struct {
+		name        string
+		saved       string
+		serviceType string
+		want        string
+		readLB      bool
+	}{
+		{name: "empty clusterip", saved: "", serviceType: "ClusterIP", want: internal, readLB: false},
+		{name: "internal clusterip", saved: internal, serviceType: "ClusterIP", want: internal, readLB: false},
+		{name: "empty type", saved: "", serviceType: "", want: internal, readLB: false},
+		{name: "internal load balancer", saved: internal, serviceType: "LoadBalancer", want: "", readLB: true},
+		{name: "public load balancer", saved: public, serviceType: "LoadBalancer", want: public, readLB: false},
+		{name: "public clusterip", saved: public, serviceType: "ClusterIP", want: public, readLB: false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, readLB := apiEndpointUpdate(tc.saved, internal, tc.serviceType)
+			assert.Equal(t, tc.want, got)
+			assert.Equal(t, tc.readLB, readLB)
+		})
+	}
+}
+
+// TestUnfinishedChild reports a child whose create never stored a parent.
+func TestUnfinishedChild(t *testing.T) {
+	// a root, a copied genesis, and a finished child stay out
+	parentID := uint(7)
+	acknowledged := time.Now()
+	cases := []struct {
+		name     string
+		instance *v0.ControlPlaneInstance
+		want     bool
+	}{
+		{
+			name: "acknowledged child with no parent",
+			instance: &v0.ControlPlaneInstance{
+				IsSelf:               util.Ptr(false),
+				Genesis:              util.Ptr(false),
+				CreationAcknowledged: &acknowledged,
+			},
+			want: true,
+		},
+		{
+			name: "root",
+			instance: &v0.ControlPlaneInstance{
+				IsSelf:               util.Ptr(true),
+				CreationAcknowledged: &acknowledged,
+			},
+			want: false,
+		},
+		{
+			name: "copied genesis",
+			instance: &v0.ControlPlaneInstance{
+				IsSelf:               util.Ptr(false),
+				Genesis:              util.Ptr(true),
+				CreationAcknowledged: &acknowledged,
+			},
+			want: false,
+		},
+		{
+			name: "parent already stored",
+			instance: &v0.ControlPlaneInstance{
+				IsSelf:                       util.Ptr(false),
+				ParentControlPlaneInstanceID: &parentID,
+				CreationAcknowledged:         &acknowledged,
+			},
+			want: false,
+		},
+		{
+			name:     "not acknowledged",
+			instance: &v0.ControlPlaneInstance{IsSelf: util.Ptr(false)},
+			want:     false,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, unfinishedChild(tc.instance))
 		})
 	}
 }
