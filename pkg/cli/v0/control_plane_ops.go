@@ -695,7 +695,13 @@ func runBlueGreen(
 	if err := created.RestoreModuleScale(source.Kube, modules); err != nil {
 		return fmt.Errorf("failed to restore module scale: %w", err)
 	}
-	if err := removeReplacedNamespace(source.Kube, source.Mapper, namespace, newNamespace); err != nil {
+	if err := removeReplacedNamespace(
+		source.Kube,
+		source.Mapper,
+		namespace,
+		newNamespace,
+		runsSupportServices(source.Instance),
+	); err != nil {
 		return err
 	}
 	fmt.Printf("Info: control plane %s is up in %s\n", newName, newNamespace)
@@ -873,33 +879,39 @@ func runsSupportServices(instance *api.ControlPlaneInstance) bool {
 }
 
 // removeReplacedNamespace deletes the namespace the restore came from.
-// The namespace that holds the shared support-services operator is kept, and
-// the StatefulSets of the replaced control plane in it are scaled to zero.
+// The original namespace is kept, and the StatefulSets of the replaced control
+// plane in it are scaled to zero. Its support services operator is stopped only
+// when the new control plane took the operator over.
 func removeReplacedNamespace(
 	kube dynamic.Interface,
 	mapper *meta.RESTMapper,
 	namespace, newNamespace string,
+	stopOperator bool,
 ) error {
 	// leave a namespace that is empty or is the new control plane's
 	if namespace == "" || namespace == newNamespace {
 		return nil
 	}
 
-	// keep the original namespace and stop what runs in it, since the new
-	// control plane now runs the operator
+	// keep the original namespace and stop what runs in it
 	if installer.KeepSourceNamespace(namespace) {
 		scaled, err := installer.ScaleStatefulSetsToZero(kube, namespace)
 		if err != nil {
 			return fmt.Errorf("failed to scale down the kept source namespace %s: %w", namespace, err)
 		}
-		if err := installer.ScaleSupportServicesOperatorToZero(kube, namespace); err != nil {
-			return fmt.Errorf("failed to stop the support services operator in %s: %w", namespace, err)
-		}
 		fmt.Printf(
-			"Info: kept source namespace %s, scaled its StatefulSets to zero (%s), and stopped its support services operator\n",
+			"Info: kept source namespace %s and scaled its StatefulSets to zero: %s\n",
 			namespace,
 			strings.Join(scaled, ", "),
 		)
+
+		// stop the operator only when the new control plane runs its own
+		if stopOperator {
+			if err := installer.ScaleSupportServicesOperatorToZero(kube, namespace); err != nil {
+				return fmt.Errorf("failed to stop the support services operator in %s: %w", namespace, err)
+			}
+			fmt.Printf("Info: stopped the support services operator in %s\n", namespace)
+		}
 		return nil
 	}
 

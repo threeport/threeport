@@ -25,7 +25,7 @@ func TestUpgradeStopsWhatRunsInTheKeptNamespace(t *testing.T) {
 	mapper.Add(schema.GroupVersionKind{Version: "v1", Kind: "Namespace"}, meta.RESTScopeRoot)
 	var rest meta.RESTMapper = mapper
 	kube := operatorCluster()
-	if err := removeReplacedNamespace(kube, &rest, installer.ControlPlaneNamespace, "primary-05"); err != nil {
+	if err := removeReplacedNamespace(kube, &rest, installer.ControlPlaneNamespace, "primary-05", true); err != nil {
 		t.Fatal(err)
 	}
 
@@ -52,7 +52,7 @@ func TestUpgradeStopsWhatRunsInTheKeptNamespace(t *testing.T) {
 	}
 
 	// a dedicated source namespace is removed
-	if err := removeReplacedNamespace(kube, &rest, "primary-02", "primary-05"); err != nil {
+	if err := removeReplacedNamespace(kube, &rest, "primary-02", "primary-05", true); err != nil {
 		t.Fatal(err)
 	}
 	_, err = kube.Resource(schema.GroupVersionResource{Version: "v1", Resource: "namespaces"}).Get(
@@ -60,6 +60,42 @@ func TestUpgradeStopsWhatRunsInTheKeptNamespace(t *testing.T) {
 	)
 	if err == nil {
 		t.Fatal("dedicated source namespace stayed")
+	}
+}
+
+// TestAChildKeepsTheOperatorRunningInTheKeptNamespace covers a replaced control
+// plane that did not take the operator over: its StatefulSets stop and the
+// operator keeps running.
+func TestAChildKeepsTheOperatorRunningInTheKeptNamespace(t *testing.T) {
+	// run the operator and a database in the original namespace
+	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Version: "v1"}})
+	mapper.Add(schema.GroupVersionKind{Version: "v1", Kind: "Namespace"}, meta.RESTScopeRoot)
+	var rest meta.RESTMapper = mapper
+	kube := operatorCluster()
+
+	// remove the namespace of a control plane that does not run the operator
+	if err := removeReplacedNamespace(kube, &rest, installer.ControlPlaneNamespace, "primary-05", false); err != nil {
+		t.Fatal(err)
+	}
+
+	// assert the operator keeps its replica and the database stops
+	for resource, want := range map[string]struct {
+		gvr      schema.GroupVersionResource
+		name     string
+		replicas int64
+	}{
+		"operator": {deployGVR(), installer.SupportServicesOperatorDeployName, 1},
+		"database": {statefulSetGVR(), "crdb", 0},
+	} {
+		object, err := kube.Resource(want.gvr).Namespace(installer.ControlPlaneNamespace).Get(
+			t.Context(), want.name, metav1.GetOptions{},
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if replicas, _, _ := unstructured.NestedInt64(object.Object, "spec", "replicas"); replicas != want.replicas {
+			t.Fatalf("%s replicas = %d, want %d", resource, replicas, want.replicas)
+		}
 	}
 }
 
