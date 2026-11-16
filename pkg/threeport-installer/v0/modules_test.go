@@ -752,6 +752,29 @@ func TestModuleApiServerFromEndpoint(t *testing.T) {
 	})
 }
 
+// TestSplitModuleScalesReplacesOnlyTheRequestsModule covers which recorded
+// deployments a module upgrade replaces: those in the namespace of the module
+// the install request names. Another module's deployments stay, and an empty
+// request replaces nothing.
+func TestSplitModuleScalesReplacesOnlyTheRequestsModule(t *testing.T) {
+	// record deployments of two modules
+	scales := []ModuleDeploymentScale{
+		{Namespace: "threeport-acme", Name: "threeport-acme-core-controller", Replicas: 2},
+		{Namespace: "threeport-acme", Name: "threeport-acme-api-server", Replicas: 2},
+		{Namespace: "threeport-widget", Name: "threeport-widget-api-server", Replicas: 1},
+	}
+
+	// assert a request for one module replaces only its namespace
+	replaced, others := SplitModuleScales("example.com/acme-module-api registry.example v1", scales)
+	assert.Equal(t, scales[:2], replaced)
+	assert.Equal(t, scales[2:], others)
+
+	// assert an empty request replaces nothing
+	replaced, others = SplitModuleScales("", scales)
+	assert.Empty(t, replaced)
+	assert.Equal(t, scales, others)
+}
+
 // TestDeleteModuleNamespacesDeletesEachModuleNamespaceOnce covers the cleanup a
 // module upgrade runs before the module installer creates its workloads again:
 // every namespace that holds a recorded module deployment is deleted once, and

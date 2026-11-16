@@ -543,6 +543,35 @@ func (cpi *ControlPlaneInstaller) RestoreModuleScale(
 	return nil
 }
 
+// SplitModuleScales divides the recorded module deployments by an install
+// request. The first result holds the deployments in the namespace the request's
+// module installs into, which the install creates again. The second holds the
+// rest, which keep running. An empty or unreadable request leaves every
+// deployment in the second result.
+func SplitModuleScales(
+	request string,
+	scales []ModuleDeploymentScale,
+) ([]ModuleDeploymentScale, []ModuleDeploymentScale) {
+	// replace nothing when no module is requested
+	module, err := moduleFromInstallRequest(request)
+	if err != nil {
+		return nil, scales
+	}
+
+	// split by the namespace the request's module installs into
+	namespace := moduleWorkloadNamespace(module)
+	var replaced, others []ModuleDeploymentScale
+	for _, scale := range scales {
+		if scale.Namespace == namespace {
+			replaced = append(replaced, scale)
+			continue
+		}
+		others = append(others, scale)
+	}
+
+	return replaced, others
+}
+
 // DeleteModuleNamespaces deletes each namespace that holds a recorded module
 // deployment, so a module install creates the module's workloads again from the
 // module's own installer.

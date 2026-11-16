@@ -803,13 +803,12 @@ func runBlueGreen(
 		}
 	}
 
-	// delete the module namespaces when a module install follows, and bring the
-	// modules back otherwise
-	if util.DerefString(source.Instance.ModuleInstall) != "" {
-		if err := installer.DeleteModuleNamespaces(source.Kube, source.Mapper, modules); err != nil {
-			return err
-		}
-	} else if err := created.RestoreModuleScale(source.Kube, modules); err != nil {
+	// replace only the module being installed, and bring the others back
+	replaced, others := installer.SplitModuleScales(util.DerefString(source.Instance.ModuleInstall), modules)
+	if err := installer.DeleteModuleNamespaces(source.Kube, source.Mapper, replaced); err != nil {
+		return err
+	}
+	if err := created.RestoreModuleScale(source.Kube, others); err != nil {
 		return fmt.Errorf("failed to restore module scale: %w", err)
 	}
 
