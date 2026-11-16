@@ -11,7 +11,9 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/fake"
 
+	api "github.com/threeport/threeport/pkg/api/v0"
 	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // TestUpgradeStopsWhatRunsInTheKeptNamespace calls the namespace removal the
@@ -116,4 +118,24 @@ func deployGVR() schema.GroupVersionResource {
 func statefulSetGVR() schema.GroupVersionResource {
 	// name the StatefulSet resource
 	return schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "statefulsets"}
+}
+
+// TestOnlyAControlPlaneWithNoParentRunsSupportServices covers which control
+// planes get the support services operator in a blue-green upgrade: one with no
+// parent does, and a child, which shares its parent's, does not.
+func TestOnlyAControlPlaneWithNoParentRunsSupportServices(t *testing.T) {
+	// a control plane with no parent, a child, and no control plane at all
+	genesis := &api.ControlPlaneInstance{}
+	child := &api.ControlPlaneInstance{ParentControlPlaneInstanceID: util.Ptr(uint(1))}
+
+	// assert only the one with no parent runs the operator
+	if !runsSupportServices(genesis) {
+		t.Fatal("a control plane with no parent must run the operator")
+	}
+	if runsSupportServices(child) {
+		t.Fatal("a child control plane must not run the operator")
+	}
+	if runsSupportServices(nil) {
+		t.Fatal("a missing control plane must not run the operator")
+	}
 }

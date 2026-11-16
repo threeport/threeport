@@ -1717,16 +1717,6 @@ func (cpi *ControlPlaneInstaller) InstallRestored(
 	if err := InstallThreeportCRDs(kubeClient, mapper); err != nil {
 		return true, err
 	}
-
-	// run the support services operator in this namespace, taking it over from the source
-	if err := InstallThreeportSupportServicesOperator(
-		kubeClient,
-		mapper,
-		SupportServicesCloud(api.KubernetesRuntimeInfraProvider(cpi.Opts.InfraProvider)),
-		cpi.Opts.Namespace,
-	); err != nil {
-		return true, err
-	}
 	if err := cpi.RedeployInstalledModules(kubeClient, mapper, apiClient, cpi.Opts.ExternalApiEndpoint); err != nil {
 		return true, err
 	}

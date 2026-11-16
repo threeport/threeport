@@ -678,6 +678,19 @@ func runBlueGreen(
 		return fmt.Errorf("new control plane API is up, source writers left stopped: %w", installErr)
 	}
 
+	// run the support services operator in the new namespace, which only a
+	// control plane with no parent does
+	if runsSupportServices(source.Instance) {
+		if err := installer.InstallThreeportSupportServicesOperator(
+			source.Kube,
+			source.Mapper,
+			installer.SupportServicesCloud(api.KubernetesRuntimeInfraProvider(providerName)),
+			newNamespace,
+		); err != nil {
+			return fmt.Errorf("new control plane API is up, source writers left stopped: failed to install the support services operator: %w", err)
+		}
+	}
+
 	// bring the modules back, then remove the control plane the restore came from
 	if err := created.RestoreModuleScale(source.Kube, modules); err != nil {
 		return fmt.Errorf("failed to restore module scale: %w", err)
@@ -850,6 +863,13 @@ func childBlueGreenUpdate(id *uint, currentName, newName, sourceNamespace, tag, 
 		update.ImageNamespace = &imageNamespace
 	}
 	return update
+}
+
+// runsSupportServices reports whether a control plane runs the support
+// services operator, which only a control plane with no parent does.
+func runsSupportServices(instance *api.ControlPlaneInstance) bool {
+	// a child control plane shares its parent's operator
+	return instance != nil && instance.ParentControlPlaneInstanceID == nil
 }
 
 // removeReplacedNamespace deletes the namespace the restore came from.
