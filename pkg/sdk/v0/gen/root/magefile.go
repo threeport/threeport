@@ -349,22 +349,33 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f.Comment("stitch single-arch tags from separate runs into a multi-arch manifest list.")
 	f.Comment("Set PARALLEL_IMAGE_BUILD >= 1 to cap packaging concurrency (e.g.")
 	f.Comment("`PARALLEL_IMAGE_BUILD=4 mage build:allImages ghcr.io/foo v1 amd64,arm64`).")
+	f.Comment("Set IMAGES to a comma-separated list of component binary names to build")
+	f.Comment("only those (e.g. IMAGES=rest-api,database-migrator mage build:allImages ...).")
+	f.Comment("All components build when IMAGES is unset, and a name that matches no")
+	f.Comment("component is an error. package:allManifests ignores IMAGES, so run it only")
+	f.Comment("after an unfiltered build.")
 	f.Func().Params(Id("Build")).Id(buildAllImagesFuncName).Params(
 		Line().Id("imageRepo").String(),
 		Line().Id("imageTag").String(),
 		Line().Id("arch").String(),
 		Line(),
 	).Error().BlockFunc(func(g *Group) {
-		emitPrebuildBlock(g, allComponents)
+		g.Comment("read the optional comma-separated component selection")
+		g.Id("selection").Op(":=").Qual("os", "Getenv").Call(Lit("IMAGES"))
+		g.Line()
+
+		emitPrebuildBlock(g, allComponents, true)
 
 		g.Id("build").Op(":=").Id("Build").Values()
 		emitWrapHelper(g, Id("imageRepo"), Id("imageTag"))
-		g.Id("tasks").Op(":=").Index().Func().Params().Error().ValuesFunc(func(v *Group) {
-			for _, c := range allComponents {
-				v.Line().Id("wrap").Call(Id("build").Dot(c.PackageFuncName))
-			}
-			v.Line()
-		})
+		g.Comment("collect the packaging tasks of the selected components")
+		g.Var().Id("tasks").Index().Func().Params().Error()
+		for _, c := range allComponents {
+			g.If(imageSelectedCall(c.BinaryName)).Block(
+				Id("tasks").Op("=").Append(Id("tasks"), Id("wrap").Call(Id("build").Dot(c.PackageFuncName))),
+			)
+		}
+		g.Line()
 
 		g.Return().Qual("github.com/threeport/threeport/pkg/util/v0", "RunParallel").Call(
 			Id("parallelFromEnv").Call(),
@@ -383,7 +394,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		)
 		g.Line()
 
-		emitPrebuildBlock(g, allComponents)
+		emitPrebuildBlock(g, allComponents, false)
 
 		g.Id("build").Op(":=").Id("Build").Values()
 		emitWrapHelper(g,
@@ -1048,8 +1059,10 @@ func emitImageReleaseFunc(f *File, funcName, baseFuncName, displayName, binaryNa
 
 // emitPrebuildBlock writes the upfront BuildBinaries call shared by
 // AllImages and its Dev/Release wrappers. Expects `arch` in the caller's
-// scope; declares workingDir locally via getBuildVals.
-func emitPrebuildBlock(g *Group, components []componentSpec) {
+// scope; declares workingDir locally via getBuildVals. When filterByImages is
+// set, it also expects `selection` in the caller's scope and pre-builds only
+// the components that selection lists.
+func emitPrebuildBlock(g *Group, components []componentSpec, filterByImages bool) {
 	g.Comment("pre-compile every binary for every requested arch in one go build")
 	g.Comment("per arch (arches run in parallel) so dependency compilation is")
 	g.Comment("shared across components within an arch. Each per-image task")
@@ -1063,12 +1076,49 @@ func emitPrebuildBlock(g *Group, components []componentSpec) {
 	g.Id("arches").Op(":=").Qual("github.com/threeport/threeport/pkg/util/v0", "ParseArches").Call(Id("arch"))
 	g.Line()
 
-	g.Id("packageDirs").Op(":=").Index().String().ValuesFunc(func(v *Group) {
+	if filterByImages {
+		g.Comment("reject selected names that match no component")
+		g.If(
+			Id("unknown").Op(":=").Qual("github.com/threeport/threeport/pkg/util/v0", "UnknownImages").Call(
+				Id("selection"),
+				Index().String().ValuesFunc(func(v *Group) {
+					for _, c := range components {
+						v.Line().Lit(c.BinaryName)
+					}
+					v.Line()
+				}),
+			).Op(";").Len(Id("unknown")).Op(">").Lit(0),
+		).Block(
+			Return(Qual("fmt", "Errorf").Call(
+				Lit("IMAGES names unknown components: %s"),
+				Qual("strings", "Join").Call(Id("unknown"), Lit(", ")),
+			)),
+		)
+		g.Line()
+
+		g.Comment("collect the package dirs of the selected components")
+		g.Var().Id("packageDirs").Index().String()
 		for _, c := range components {
-			v.Line().Lit(c.PackageDir)
+			g.If(imageSelectedCall(c.BinaryName)).Block(
+				Id("packageDirs").Op("=").Append(Id("packageDirs"), Lit(c.PackageDir)),
+			)
 		}
-		v.Line()
-	})
+
+		g.Comment("fail when the selection lists no component")
+		g.If(Len(Id("packageDirs")).Op("==").Lit(0)).Block(
+			Return(Qual("fmt", "Errorf").Call(
+				Lit("IMAGES matched no component: %q"),
+				Id("selection"),
+			)),
+		)
+	} else {
+		g.Id("packageDirs").Op(":=").Index().String().ValuesFunc(func(v *Group) {
+			for _, c := range components {
+				v.Line().Lit(c.PackageDir)
+			}
+			v.Line()
+		})
+	}
 	g.Line()
 
 	g.If(Err().Op(":=").Qual(
@@ -1084,6 +1134,15 @@ func emitPrebuildBlock(g *Group, components []componentSpec) {
 		Return(Qual("fmt", "Errorf").Call(Lit("failed to pre-build binaries: %w"), Err())),
 	)
 	g.Line()
+}
+
+// imageSelectedCall returns the generated check that a component's binary name
+// is listed in the `selection` variable of the enclosing function.
+func imageSelectedCall(binaryName string) Code {
+	return Qual("github.com/threeport/threeport/pkg/util/v0", "ImageSelected").Call(
+		Id("selection"),
+		Lit(binaryName),
+	)
 }
 
 // emitWrapHelper writes a `wrap` closure into the AllImages* function
