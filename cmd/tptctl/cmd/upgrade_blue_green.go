@@ -6,12 +6,16 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/threeport/threeport/internal/version"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 )
 
 var blueGreenNewName string
+
+// upgradeDryRun stops a blue-green upgrade after its preflight checks.
+var upgradeDryRun bool
 
 // UpgradeBlueGreenCmd creates a new control plane from a backup of an existing one.
 var UpgradeBlueGreenCmd = &cobra.Command{
@@ -76,6 +80,27 @@ The source stays stopped unless the new control plane fails to come up.`,
 				os.Exit(1)
 			}
 		}
+		// check the upgrade before anything stops, using the tag the run would use
+		checkTag := upgradeImageTag
+		if checkTag == "" {
+			checkTag = childTag
+		}
+		if checkTag == "" {
+			checkTag = version.GetVersion()
+		}
+		if err := cli.PreflightBlueGreen(apiClient, apiEndpoint, cli.BlueGreenPreflight{
+			SourceName:     sourceName,
+			NewName:        blueGreenNewName,
+			ImageNamespace: upgradeImageNamespace,
+			ImageTag:       checkTag,
+		}); err != nil {
+			cli.Error("preflight failed", err)
+			os.Exit(1)
+		}
+		if upgradeDryRun {
+			cli.Complete("preflight passed, nothing changed")
+			return
+		}
 		if err := cli.UpgradeBlueGreen(
 			threeportConfig,
 			controlPlane,
@@ -121,5 +146,9 @@ func init() {
 	UpgradeBlueGreenCmd.Flags().StringVar(
 		&upgradeImageTag,
 		"control-plane-image-tag", "", "Image tag of the new control plane. Empty uses this tptctl version, or the parent controller tag for a child.",
+	)
+	UpgradeBlueGreenCmd.Flags().BoolVar(
+		&upgradeDryRun,
+		"dry-run", false, "Run the preflight checks and stop before anything changes.",
 	)
 }

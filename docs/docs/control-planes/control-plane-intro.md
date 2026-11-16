@@ -88,6 +88,16 @@ tptctl upgrade control-plane blue-green \
   --control-plane-image-tag [image tag]
 ```
 
+Either blue-green command runs preflight checks before it stops anything.  The
+checks confirm the source exists, the new name is free, no upgrade is pending,
+and the images exist in their registry.  Add `--dry-run` to run only the checks.
+
+```bash
+tptctl upgrade control-plane blue-green \
+  --new-control-plane-name [new control plane name] \
+  --dry-run
+```
+
 Patch a module image on the connected control plane.
 
 ```bash

@@ -179,3 +179,20 @@ func containerImage(t *testing.T, deployment *unstructured.Unstructured, listKey
 	t.Fatalf("container %s not found", name)
 	return ""
 }
+
+// TestModuleInstallImagesListsWhatAnInstallPulls covers the images a module
+// install pulls: the API server, the database migrator, and the plugin that runs
+// the install job. A name with no image segment returns none.
+func TestModuleInstallImagesListsWhatAnInstallPulls(t *testing.T) {
+	assert.Equal(
+		t,
+		[]string{
+			"repo.example/threeport-acme-rest-api:v1",
+			"repo.example/threeport-acme-database-migrator:v1",
+			"repo.example/threeport-acme-plugin:v1",
+		},
+		ModuleInstallImages("repo.example", "example.com/acme-module-api", "v1"),
+	)
+	assert.Empty(t, ModuleInstallImages("repo.example", "example.com/threeport-api", "v1"))
+	assert.Empty(t, ModuleInstallImages("", "example.com/acme-module-api", "v1"))
+}

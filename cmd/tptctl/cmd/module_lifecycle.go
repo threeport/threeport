@@ -122,6 +122,32 @@ func runModuleBlueGreenUpgrade(cmd *cobra.Command, args []string) {
 		cli.Error("failed to get control plane config", err)
 		os.Exit(1)
 	}
+
+	// resolve the control plane image from the one being replaced before anything is saved
+	running, err := runningControlPlane(apiClient, apiEndpoint, moduleUpgradeControlPlane)
+	if err != nil {
+		cli.Error("failed to upgrade module", err)
+		os.Exit(1)
+	}
+	imageNamespace, imageTag := moduleBlueGreenImage(upgradeImageNamespace, upgradeImageTag, running)
+
+	// check the upgrade before the module image is saved, and stop there for a dry run
+	if err := cli.PreflightBlueGreen(apiClient, apiEndpoint, cli.BlueGreenPreflight{
+		SourceName:           moduleUpgradeControlPlane,
+		NewName:              moduleNewControlPlaneName,
+		ImageNamespace:       imageNamespace,
+		ImageTag:             imageTag,
+		ModuleName:           moduleUpgradeName,
+		ModuleImageNamespace: moduleUpgradeImageNamespace,
+		ModuleImageTag:       moduleUpgradeImageTag,
+	}); err != nil {
+		cli.Error("preflight failed", err)
+		os.Exit(1)
+	}
+	if upgradeDryRun {
+		cli.Complete("preflight passed, nothing changed")
+		return
+	}
 	err = recordModuleThenInstall(
 		func() error {
 			return cli.UpgradeModule(
@@ -143,13 +169,6 @@ func runModuleBlueGreenUpgrade(cmd *cobra.Command, args []string) {
 					return err
 				}
 			}
-
-			// keep the version the replaced control plane runs for a flag left empty
-			running, err := runningControlPlane(apiClient, apiEndpoint, moduleUpgradeControlPlane)
-			if err != nil {
-				return err
-			}
-			imageNamespace, imageTag := moduleBlueGreenImage(upgradeImageNamespace, upgradeImageTag, running)
 
 			// a child reinstalls the module on its new control plane through its controller
 			moduleInstall, err := moduleBlueGreenInstall(apiClient, apiEndpoint, moduleUpgradeControlPlane)
@@ -334,6 +353,10 @@ func init() {
 		"new-control-plane-name", "", "Name of the new control plane",
 	)
 	UpgradeModuleBlueGreenCmd.MarkFlagRequired("new-control-plane-name")
+	UpgradeModuleBlueGreenCmd.Flags().BoolVar(
+		&upgradeDryRun,
+		"dry-run", false, "Run the preflight checks and stop before anything changes.",
+	)
 	UpgradeModuleBlueGreenCmd.Flags().StringVar(
 		&upgradeImageNamespace,
 		"control-plane-image-namespace", "", "Image namespace of the new control plane. Empty keeps the namespace the replaced control plane runs.",

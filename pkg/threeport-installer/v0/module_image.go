@@ -63,6 +63,29 @@ func modulePluginImage(namespace, kebab, tag string) string {
 	return moduleImage(namespace, fmt.Sprintf("%s%s-plugin", moduleImageNamePrefix, kebab), tag)
 }
 
+// ModuleInstallImages returns the images a module install pulls: the API server,
+// the database migrator, and the plugin that runs the install job. A module name
+// with no image segment, or an empty namespace or tag, returns none.
+func ModuleInstallImages(imageNamespace, moduleName, tag string) []string {
+	kebab := moduleKebab(moduleName)
+	if kebab == "" {
+		return nil
+	}
+
+	var images []string
+	for _, image := range []string{
+		moduleRestAPIImage(imageNamespace, kebab, tag),
+		moduleMigratorImage(imageNamespace, kebab, tag),
+		modulePluginImage(imageNamespace, kebab, tag),
+	} {
+		if image != "" {
+			images = append(images, image)
+		}
+	}
+
+	return images
+}
+
 // moduleAPIDeploymentName returns the module API deployment name.
 func moduleAPIDeploymentName(kebab string) string {
 	return fmt.Sprintf("%s%s-api-server", moduleImageNamePrefix, kebab)
