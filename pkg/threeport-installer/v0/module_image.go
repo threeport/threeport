@@ -63,21 +63,26 @@ func modulePluginImage(namespace, kebab, tag string) string {
 	return moduleImage(namespace, fmt.Sprintf("%s%s-plugin", moduleImageNamePrefix, kebab), tag)
 }
 
-// ModuleInstallImages returns the images a module install pulls: the API server,
-// the database migrator, and the plugin that runs the install job. A module name
-// with no image segment, or an empty namespace or tag, returns none.
-func ModuleInstallImages(imageNamespace, moduleName, tag string) []string {
+// ModuleInstallImages returns the images a module upgrade pulls: the API server
+// and the database migrator, plus the plugin that runs the install job when the
+// upgrade runs one. A module name with no image segment, or an empty namespace or
+// tag, returns none.
+func ModuleInstallImages(imageNamespace, moduleName, tag string, installJob bool) []string {
 	kebab := moduleKebab(moduleName)
 	if kebab == "" {
 		return nil
 	}
 
-	var images []string
-	for _, image := range []string{
+	candidates := []string{
 		moduleRestAPIImage(imageNamespace, kebab, tag),
 		moduleMigratorImage(imageNamespace, kebab, tag),
-		modulePluginImage(imageNamespace, kebab, tag),
-	} {
+	}
+	if installJob {
+		candidates = append(candidates, modulePluginImage(imageNamespace, kebab, tag))
+	}
+
+	var images []string
+	for _, image := range candidates {
 		if image != "" {
 			images = append(images, image)
 		}

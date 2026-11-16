@@ -198,7 +198,8 @@ func moduleUpgradeImages(
 		if plan.ModuleImageTag == "" {
 			return "", fmt.Errorf("module %s has no image tag: pass --module-image-tag", plan.ModuleName)
 		}
-		images = installer.ModuleInstallImages(namespace, plan.ModuleName, plan.ModuleImageTag)
+		// the plugin image runs only in the install job a child upgrade records
+		images = installer.ModuleInstallImages(namespace, plan.ModuleName, plan.ModuleImageTag, plan.SourceName != "")
 
 		return "", nil
 	})

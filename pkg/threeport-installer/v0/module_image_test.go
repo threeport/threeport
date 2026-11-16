@@ -180,19 +180,17 @@ func containerImage(t *testing.T, deployment *unstructured.Unstructured, listKey
 	return ""
 }
 
-// TestModuleInstallImagesListsWhatAnInstallPulls covers the images a module
-// install pulls: the API server, the database migrator, and the plugin that runs
-// the install job. A name with no image segment returns none.
-func TestModuleInstallImagesListsWhatAnInstallPulls(t *testing.T) {
-	assert.Equal(
-		t,
-		[]string{
-			"repo.example/threeport-acme-rest-api:v1",
-			"repo.example/threeport-acme-database-migrator:v1",
-			"repo.example/threeport-acme-plugin:v1",
-		},
-		ModuleInstallImages("repo.example", "example.com/acme-module-api", "v1"),
-	)
-	assert.Empty(t, ModuleInstallImages("repo.example", "example.com/threeport-api", "v1"))
-	assert.Empty(t, ModuleInstallImages("", "example.com/acme-module-api", "v1"))
+// TestModuleInstallImagesListsWhatAnUpgradePulls covers the images a module
+// upgrade pulls: the API server and the database migrator, plus the plugin only
+// when the upgrade runs an install job. A name with no image segment returns none.
+func TestModuleInstallImagesListsWhatAnUpgradePulls(t *testing.T) {
+	withJob := []string{
+		"repo.example/threeport-acme-rest-api:v1",
+		"repo.example/threeport-acme-database-migrator:v1",
+		"repo.example/threeport-acme-plugin:v1",
+	}
+	assert.Equal(t, withJob, ModuleInstallImages("repo.example", "example.com/acme-module-api", "v1", true))
+	assert.Equal(t, withJob[:2], ModuleInstallImages("repo.example", "example.com/acme-module-api", "v1", false))
+	assert.Empty(t, ModuleInstallImages("repo.example", "example.com/threeport-api", "v1", true))
+	assert.Empty(t, ModuleInstallImages("", "example.com/acme-module-api", "v1", true))
 }
