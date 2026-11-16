@@ -7,7 +7,9 @@ import "time"
 // committed write always leaves a record that a notification is due. The API
 // publishes the message to JetStream after the commit and stamps PublishedAt
 // when the publish is acknowledged. A message that is not acknowledged stays
-// pending and is retried by the outbox sweeper.
+// pending and is retried by the outbox sweeper. A message that JetStream
+// rejects in a way no retry can fix is abandoned: it stays on record, is not
+// retried and does not hold up the messages behind it.
 //
 // It is not an API object: it has no routes, is never returned to clients and
 // is not soft deleted.
@@ -15,8 +17,9 @@ type OutboxMessage struct {
 	ID uint `gorm:"primarykey"`
 
 	// The time the message was recorded. The partial index keeps the sweeper's
-	// scan for pending messages small however many published rows are retained.
-	CreatedAt time.Time `gorm:"index:idx_outbox_pending,where:published_at IS NULL"`
+	// scan for pending messages small however many published or abandoned rows
+	// are retained.
+	CreatedAt time.Time `gorm:"index:idx_outbox_pending,where:published_at IS NULL AND abandoned_at IS NULL"`
 
 	// The JetStream subject to publish the payload on.
 	Subject string `gorm:"not null"`
@@ -33,6 +36,11 @@ type OutboxMessage struct {
 
 	// The time the publish was acknowledged. Nil while the message is pending.
 	PublishedAt *time.Time
+
+	// The time the API gave up on the message because JetStream rejected it in a
+	// way a retry cannot fix, such as a payload over the server's size limit. Nil
+	// for a message that is published or still being retried.
+	AbandonedAt *time.Time
 
 	// The number of publish attempts that have failed.
 	Attempts int `gorm:"not null;default:0"`

@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
+	natsserver "github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -338,4 +339,68 @@ func TestSecretCreateWithFailedPublishLeavesNotificationOnRecord(t *testing.T) {
 	assert.Equal(t, secretnotif.SecretDefinitionCreateSubject, pending[0].Subject)
 	assert.NotContains(t, string(pending[0].Payload), `"value"`,
 		"the notification carries the encrypted data, never the plaintext")
+}
+
+// startNatsWithMaxPayload runs a NATS server with a small message limit and
+// returns a connection to it.
+func startNatsWithMaxPayload(t *testing.T, maxPayload int32) *nats.Conn {
+	t.Helper()
+
+	server, err := natsserver.NewServer(&natsserver.Options{
+		Host:       "127.0.0.1",
+		Port:       -1,
+		NoSigs:     true,
+		MaxPayload: maxPayload,
+	})
+	require.NoError(t, err)
+	go server.Start()
+	require.True(t, server.ReadyForConnections(10*time.Second))
+	t.Cleanup(server.Shutdown)
+
+	nc, err := nats.Connect(server.ClientURL())
+	require.NoError(t, err)
+	t.Cleanup(nc.Close)
+
+	return nc
+}
+
+func TestCreateTooLargeForNatsIsRejectedAndLeavesNothingBehind(t *testing.T) {
+	js := &fakeJetStream{}
+	h := newOutboxHandler(t, js)
+	h.NC = startNatsWithMaxPayload(t, 4096)
+
+	// a definition whose notification could never be published
+	c, rec := newOutboxRequest(http.MethodPost, workloadDefinitionsRoute, "",
+		fmt.Sprintf(`{"Name":"big","YAMLDocument":%q}`, strings.Repeat("a", 8192)))
+	require.NoError(t, h.AddKubernetesWorkloadDefinition(c))
+
+	assert.Equal(t, http.StatusRequestEntityTooLarge, rec.Code, rec.Body.String())
+	assert.Contains(t, rec.Body.String(), "too large")
+
+	var definitions, messages int64
+	require.NoError(t, h.DB.Model(&api_v0.KubernetesWorkloadDefinition{}).Count(&definitions).Error)
+	require.NoError(t, h.DB.Model(&api_v0.OutboxMessage{}).Count(&messages).Error)
+	assert.Zero(t, definitions, "the write rolled back: no object no controller hears about")
+	assert.Zero(t, messages)
+	assert.Empty(t, js.publishedSubjects())
+
+	// a definition that fits on the same server is unaffected
+	addWorkloadDefinition(t, h, "small")
+	assert.Equal(t, []string{notif.KubernetesWorkloadDefinitionCreateSubject}, js.publishedSubjects())
+}
+
+func TestUpdateTooLargeForNatsIsRejectedAndKeepsTheOldObject(t *testing.T) {
+	js := &fakeJetStream{}
+	h := newOutboxHandler(t, js)
+	h.NC = startNatsWithMaxPayload(t, 4096)
+	id := addWorkloadDefinition(t, h, "my-app")
+
+	c, rec := newOutboxRequest(http.MethodPatch, workloadDefinitionsRoute, fmt.Sprint(id),
+		fmt.Sprintf(`{"YAMLDocument":%q}`, strings.Repeat("b", 8192)))
+	require.NoError(t, h.UpdateKubernetesWorkloadDefinition(c))
+	assert.Equal(t, http.StatusRequestEntityTooLarge, rec.Code, rec.Body.String())
+
+	var definition api_v0.KubernetesWorkloadDefinition
+	require.NoError(t, h.DB.First(&definition, id).Error)
+	assert.Equal(t, "kind: Namespace", *definition.YAMLDocument, "the update rolled back")
 }

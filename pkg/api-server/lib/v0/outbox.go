@@ -52,6 +52,14 @@ const (
 	// to a user and not only in the API logs.
 	OutboxWarnAfterAttempts = 5
 
+	// OutboxPayloadHeadroom is the room left under the server's maximum payload
+	// for the headers a publish adds, the message id among them.
+	OutboxPayloadHeadroom = 1024
+
+	// jsErrCodeMessageExceedsMaximum is the JetStream API error code for a message
+	// larger than its stream allows. nats.go has no constant for it.
+	jsErrCodeMessageExceedsMaximum nats.ErrorCode = 10054
+
 	// outboxLastErrorMax bounds the error text stored on a message.
 	outboxLastErrorMax = 500
 
@@ -82,6 +90,11 @@ type Notifiable interface {
 	GetId() uint
 	GetFullyQualifiedType() string
 }
+
+// ErrNotificationAbandoned is wrapped by the error PublishOutboxMessage returns
+// for a message JetStream rejected in a way a retry cannot fix. The message is
+// marked abandoned and is not published again.
+var ErrNotificationAbandoned = errors.New("notification cannot be published and was abandoned")
 
 // Notification is a controller notification that a write owes.
 type Notification struct {
@@ -117,6 +130,28 @@ func NewNotification(
 		ObjectType: object.GetFullyQualifiedType(),
 		ObjectID:   object.GetId(),
 	}, nil
+}
+
+// NotificationTooLarge reports whether the notification is more than a publish
+// can carry given maxPayload, the largest message the NATS server accepts. A
+// maxPayload that is not positive means the limit is unknown and nothing is too
+// large. Such a notification can never be published, so a write that owes one
+// is better rejected than committed.
+func NotificationTooLarge(notification *Notification, maxPayload int64) bool {
+	return maxPayload > 0 &&
+		int64(len(notification.Payload))+OutboxPayloadHeadroom > maxPayload
+}
+
+// isPermanentPublishError reports whether err is a publish failure that retrying
+// cannot fix: the message is over a size limit or its subject is invalid. An
+// outage, a timeout or a missing JetStream context is not, because it passes.
+func isPermanentPublishError(err error) bool {
+	if errors.Is(err, nats.ErrMaxPayload) || errors.Is(err, nats.ErrBadSubject) {
+		return true
+	}
+
+	var apiErr *nats.APIError
+	return errors.As(err, &apiErr) && apiErr.ErrorCode == jsErrCodeMessageExceedsMaximum
 }
 
 // RecordNotification inserts the notification into the outbox using tx, which
@@ -160,6 +195,14 @@ func PublishOutboxMessage(
 		message.Payload,
 		nats.MsgId(fmt.Sprintf("outbox-%d", message.ID)),
 	); err != nil {
+		if isPermanentPublishError(err) {
+			abandonMessage(db, logger, message, err)
+			return fmt.Errorf(
+				"failed to publish notification to %s: %w: %w",
+				message.Subject, ErrNotificationAbandoned, err,
+			)
+		}
+
 		recordPublishFailure(db, logger, message, err)
 		return fmt.Errorf("failed to publish notification to %s: %w", message.Subject, err)
 	}
@@ -191,10 +234,7 @@ func recordPublishFailure(
 	publishErr error,
 ) {
 	message.Attempts++
-	message.LastError = publishErr.Error()
-	if len(message.LastError) > outboxLastErrorMax {
-		message.LastError = message.LastError[:outboxLastErrorMax]
-	}
+	message.LastError = truncateError(publishErr)
 
 	logger.Warn(
 		"failed to publish controller notification, it will be retried",
@@ -232,16 +272,84 @@ func recordPublishFailure(
 	}
 }
 
+// truncateError returns the text of err bounded to what is stored on a message.
+func truncateError(err error) string {
+	text := err.Error()
+	if len(text) > outboxLastErrorMax {
+		text = text[:outboxLastErrorMax]
+	}
+
+	return text
+}
+
+// abandonMessage gives up on a message JetStream rejected in a way a retry
+// cannot fix. The message stays on record, marked abandoned so the sweeper
+// leaves it alone and the messages behind it are not held up, and a Warning
+// event on the object says controllers were not told.
+func abandonMessage(
+	db *gorm.DB,
+	logger *zap.Logger,
+	message *v0.OutboxMessage,
+	publishErr error,
+) {
+	now := time.Now().UTC()
+	message.Attempts++
+	message.LastError = truncateError(publishErr)
+	message.AbandonedAt = &now
+
+	logger.Error(
+		"controller notification cannot be published and will not be retried",
+		zap.Uint("outboxMessageId", message.ID),
+		zap.String("subject", message.Subject),
+		zap.String("objectType", message.ObjectType),
+		zap.Uint("objectId", message.ObjectID),
+		zap.Int("payloadBytes", len(message.Payload)),
+		zap.Error(publishErr),
+	)
+
+	if err := db.Model(&v0.OutboxMessage{}).
+		Where("id = ?", message.ID).
+		Updates(map[string]interface{}{
+			"attempts":     gorm.Expr("attempts + 1"),
+			"last_error":   message.LastError,
+			"abandoned_at": now,
+		}).Error; err != nil {
+		// the message stays pending, is published again and is abandoned again
+		logger.Error(
+			"failed to mark outbox message abandoned",
+			zap.Uint("outboxMessageId", message.ID),
+			zap.Error(err),
+		)
+	}
+
+	note := fmt.Sprintf(
+		"controllers will not be notified of this change: the notification cannot be published to %s and will not be retried: %s",
+		message.Subject, message.LastError,
+	)
+	if err := recordWarning(db, message, note); err != nil {
+		logger.Error(
+			"failed to record event for abandoned notification",
+			zap.Uint("outboxMessageId", message.ID),
+			zap.Error(err),
+		)
+	}
+}
+
 // recordPublishWarning records a Warning event against the object a message is
 // about. The event's note is the same for every message on a subject so the
 // event dedup index folds a repeat into a count.
 func recordPublishWarning(db *gorm.DB, message *v0.OutboxMessage) error {
-	now := time.Now()
-	reason := outboxEventReason
-	note := fmt.Sprintf(
+	return recordWarning(db, message, fmt.Sprintf(
 		"controllers are not being notified of changes to this object: failed to publish to %s, the API server is retrying",
 		message.Subject,
-	)
+	))
+}
+
+// recordWarning records a Warning event with note against the object a message
+// is about.
+func recordWarning(db *gorm.DB, message *v0.OutboxMessage, note string) error {
+	now := time.Now()
+	reason := outboxEventReason
 	eventType := outboxEventTypeWarning
 	controller := outboxEventController
 	count := uint(1)
@@ -264,7 +372,9 @@ func recordPublishWarning(db *gorm.DB, message *v0.OutboxMessage) error {
 // SweepOutbox publishes the pending messages that handlers did not publish. It
 // takes the oldest messages first and stops at the first failure: a publish that
 // failed is likely to be followed by more, and the rest wait their turn so
-// messages go out in the order they were recorded. It reports whether a publish
+// messages go out in the order they were recorded. A message JetStream rejects
+// in a way no retry can fix is abandoned instead, and the sweep goes on past it
+// so one bad message cannot hold up the rest. It reports whether a publish
 // failed. Messages are locked while they are published, so sweepers in other
 // API replicas skip them.
 func SweepOutbox(
@@ -276,7 +386,7 @@ func SweepOutbox(
 		var messages []v0.OutboxMessage
 		if err := tx.
 			Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).
-			Where("published_at IS NULL AND created_at < ?", time.Now().UTC().Add(-OutboxSweepGracePeriod)).
+			Where("published_at IS NULL AND abandoned_at IS NULL AND created_at < ?", time.Now().UTC().Add(-OutboxSweepGracePeriod)).
 			Order("id asc").
 			Limit(OutboxSweepBatchSize).
 			Find(&messages).Error; err != nil {
@@ -285,6 +395,10 @@ func SweepOutbox(
 
 		for i := range messages {
 			if err := PublishOutboxMessage(tx, publisher, logger, &messages[i]); err != nil {
+				if errors.Is(err, ErrNotificationAbandoned) {
+					continue
+				}
+
 				// the failure is already recorded on the message. Commit what
 				// was published and recorded so far.
 				failed = true

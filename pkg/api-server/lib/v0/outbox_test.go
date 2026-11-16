@@ -28,6 +28,10 @@ type fakePublisher struct {
 	// failAll fails every call.
 	failAll bool
 
+	// failErr is the error a failing call returns. It defaults to a resource
+	// limit error, which a retry can fix.
+	failErr error
+
 	calls    int
 	subjects []string
 }
@@ -38,6 +42,9 @@ func (f *fakePublisher) Publish(subj string, data []byte, opts ...nats.PubOpt) (
 
 	f.calls++
 	if f.failAll || f.failOn[f.calls] {
+		if f.failErr != nil {
+			return nil, f.failErr
+		}
 		return nil, errors.New("nats: JetStream resource limits exceeded for server")
 	}
 	f.subjects = append(f.subjects, subj)
@@ -226,4 +233,86 @@ func TestSweepOutboxStopsAtFirstFailure(t *testing.T) {
 	assert.False(t, failed)
 	assert.Equal(t, 2, published)
 	assert.Equal(t, []string{"one", "two", "three"}, publisher.subjects)
+}
+
+func TestPublishOutboxMessageAbandonsWhatNoRetryCanFix(t *testing.T) {
+	db := newOutboxDb(t)
+	publisher := &fakePublisher{failAll: true, failErr: nats.ErrMaxPayload}
+	message := addPending(t, db, "workload.create", 0)
+
+	err := PublishOutboxMessage(db, publisher, zap.NewNop(), message)
+	require.ErrorIs(t, err, ErrNotificationAbandoned)
+	require.ErrorIs(t, err, nats.ErrMaxPayload, "the cause is still reachable")
+
+	stored := reload(t, db, message.ID)
+	assert.NotNil(t, stored.AbandonedAt, "the message is given up on")
+	assert.Nil(t, stored.PublishedAt, "and stays on record unpublished")
+	assert.Equal(t, 1, stored.Attempts)
+	assert.Contains(t, stored.LastError, "maximum payload exceeded")
+
+	var events []v0.Event
+	require.NoError(t, db.Find(&events).Error)
+	require.Len(t, events, 1, "the user is told straight away, not after five attempts")
+	assert.Equal(t, "Warning", *events[0].Type)
+	assert.Equal(t, message.ObjectID, *events[0].ObjectID)
+	assert.Contains(t, *events[0].Note, "will not be retried")
+}
+
+func TestSweepOutboxSkipsAbandonedMessageAndPublishesTheRest(t *testing.T) {
+	db := newOutboxDb(t)
+	publisher := &fakePublisher{failOn: map[int]bool{2: true}, failErr: nats.ErrMaxPayload}
+
+	one := addPending(t, db, "one", time.Minute)
+	oversized := addPending(t, db, "oversized", time.Minute)
+	three := addPending(t, db, "three", time.Minute)
+
+	published, failed, err := SweepOutbox(db, publisher, zap.NewNop())
+	require.NoError(t, err)
+	assert.False(t, failed, "an abandoned message is not an outage")
+	assert.Equal(t, 2, published)
+	assert.Equal(t, []string{"one", "three"}, publisher.subjects)
+	assert.NotNil(t, reload(t, db, one.ID).PublishedAt)
+	assert.NotNil(t, reload(t, db, three.ID).PublishedAt, "the message behind the bad one still goes out")
+	assert.NotNil(t, reload(t, db, oversized.ID).AbandonedAt)
+
+	// the abandoned message is never taken again
+	calls := publisher.calls
+	published, failed, err = SweepOutbox(db, publisher, zap.NewNop())
+	require.NoError(t, err)
+	assert.Zero(t, published)
+	assert.False(t, failed)
+	assert.Equal(t, calls, publisher.calls, "the sweeper leaves an abandoned message alone")
+}
+
+func TestIsPermanentPublishError(t *testing.T) {
+	for name, tc := range map[string]struct {
+		err       error
+		permanent bool
+	}{
+		"payload over the server limit": {nats.ErrMaxPayload, true},
+		"wrapped payload error":         {fmt.Errorf("publish: %w", nats.ErrMaxPayload), true},
+		"invalid subject":               {nats.ErrBadSubject, true},
+		"message over the stream limit": {&nats.APIError{ErrorCode: 10054, Code: 400}, true},
+		"wrapped message over stream":   {fmt.Errorf("publish: %w", &nats.APIError{ErrorCode: 10054}), true},
+		"timeout":                       {nats.ErrTimeout, false},
+		"no responders":                 {nats.ErrNoResponders, false},
+		"connection closed":             {nats.ErrConnectionClosed, false},
+		"resource limits":               {errors.New("nats: JetStream resource limits exceeded for server"), false},
+		"other JetStream error":         {&nats.APIError{ErrorCode: 10077, Code: 400}, false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			assert.Equal(t, tc.permanent, isPermanentPublishError(tc.err))
+		})
+	}
+}
+
+func TestNotificationTooLarge(t *testing.T) {
+	const limit = 4096
+	sized := func(n int) *Notification { return &Notification{Payload: make([]byte, n)} }
+
+	assert.False(t, NotificationTooLarge(sized(limit*10), 0), "an unknown limit rejects nothing")
+	assert.False(t, NotificationTooLarge(sized(limit-OutboxPayloadHeadroom), limit))
+	assert.True(t, NotificationTooLarge(sized(limit-OutboxPayloadHeadroom+1), limit),
+		"headers have to fit in the limit too")
+	assert.True(t, NotificationTooLarge(sized(limit*2), limit))
 }

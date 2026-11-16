@@ -36,8 +36,9 @@ func TestOutboxMigrationBuildsTableAndIsIdempotent(t *testing.T) {
 	assert.Contains(t, createStatement, "ttl_expiration_expression")
 	assert.Contains(t, createStatement, "published_at IS NOT NULL")
 
-	// the partial index the sweeper scans
+	// the partial index the sweeper scans, which leaves out what it will not take
 	assert.Contains(t, createStatement, "idx_outbox_pending")
+	assert.Contains(t, createStatement, "abandoned_at IS NULL")
 
 	require.NoError(t, migrations.Down000008(ctx, nil))
 	assert.False(t, db.Migrator().HasTable(&api_v0.OutboxMessage{}))

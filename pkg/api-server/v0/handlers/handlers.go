@@ -58,7 +58,8 @@ func (h Handler) Write(c echo.Context, write func(db *gorm.DB) *gorm.DB) *gorm.D
 // runs in a transaction and returns the notification to send, or nil when the
 // write needs none. The notification is recorded in the same transaction, so a
 // committed write always has a notification on record, and a rolled back write
-// leaves none. Once the transaction commits the notification is published. A
+// leaves none. A notification over the NATS server's message limit can never be
+// published, so it rolls the write back and fails it with a 413. Once the transaction commits the notification is published. A
 // publish that fails is logged and left for the outbox sweeper and does not
 // fail the write, which has committed and cannot be undone.
 //
@@ -81,6 +82,15 @@ func (h Handler) WriteNotify(
 				}
 				if notification == nil {
 					return nil
+				}
+
+				// a notification the server will not carry can never be published,
+				// so the write is rejected, not committed with no controller told
+				if h.NC != nil && apiserver_lib.NotificationTooLarge(notification, h.NC.MaxPayload()) {
+					return util.NewPayloadTooLargeError(fmt.Sprintf(
+						"object is too large: its notification is %d bytes and the message limit is %d bytes",
+						len(notification.Payload), h.NC.MaxPayload(),
+					))
 				}
 
 				message, err = apiserver_lib.RecordNotification(tx, notification)
