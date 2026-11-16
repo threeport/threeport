@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -19,6 +20,20 @@ import (
 
 // apiRequestTimeout bounds one API call so a connection to a replaced API pod cannot wait forever.
 const apiRequestTimeout = 2 * time.Minute
+
+// apiDialTimeout bounds the connection to the API, so an address nothing answers
+// on fails in seconds instead of holding the call for the whole request timeout.
+const apiDialTimeout = 10 * time.Second
+
+// apiTransport returns the transport for the API, which bounds the connection
+// and the TLS handshake to dialTimeout.
+func apiTransport(tlsConfig *tls.Config, dialTimeout time.Duration) *http.Transport {
+	return &http.Transport{
+		TLSClientConfig:     tlsConfig,
+		DialContext:         (&net.Dialer{Timeout: dialTimeout}).DialContext,
+		TLSHandshakeTimeout: dialTimeout,
+	}
+}
 
 // GetHTTPClient returns an HTTP client with TLS configuration when authEnabled
 // is true, and an HTTP client without TLS when authEnabled is false.  If used
@@ -101,9 +116,7 @@ func GetHTTPClient(
 		RootCAs:      caCertPool,
 	}
 
-	tlsTransport := &http.Transport{
-		TLSClientConfig: tlsConfig,
-	}
+	tlsTransport := apiTransport(tlsConfig, apiDialTimeout)
 
 	var apiClient *http.Client
 	var customTransport *CustomTransport
