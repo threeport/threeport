@@ -423,6 +423,7 @@ func UpgradeBlueGreen(
 	childTag string,
 	imageNamespace string,
 	imageTag string,
+	moduleInstall string,
 ) error {
 	rejectChild, updateConfig := blueGreenOptions(true)
 	return runBlueGreen(
@@ -436,6 +437,7 @@ func UpgradeBlueGreen(
 		childTag,
 		imageNamespace,
 		imageTag,
+		moduleInstall,
 		rejectChild,
 		updateConfig,
 	)
@@ -465,6 +467,7 @@ func InstallBlueGreen(
 		"",
 		util.DerefString(source.Instance.ImageNamespace),
 		util.DerefString(source.Instance.ImageTag),
+		"",
 		rejectChild,
 		updateConfig,
 	)
@@ -489,6 +492,7 @@ func runBlueGreen(
 	childTag string,
 	imageNamespace string,
 	imageTag string,
+	moduleInstall string,
 	rejectChild bool,
 	updateConfig bool,
 ) error {
@@ -501,7 +505,7 @@ func runBlueGreen(
 		return fmt.Errorf("control plane %s: %w", util.DerefString(self.Name), err)
 	}
 	if rejectChild && sourceName != "" && sourceName != util.DerefString(self.Name) {
-		return delegateBlueGreen(local, currentClient, currentEndpoint, sourceName, newName, childTag, imageNamespace, imageTag)
+		return delegateBlueGreen(local, currentClient, currentEndpoint, sourceName, newName, childTag, imageNamespace, imageTag, moduleInstall)
 	}
 
 	// the connected control plane is the source
@@ -514,7 +518,7 @@ func runBlueGreen(
 	}
 	newNamespace := newName
 	if rejectChild && source.Instance.ParentControlPlaneInstanceID != nil {
-		return delegateBlueGreen(local, currentClient, currentEndpoint, sourceName, newName, childTag, imageNamespace, imageTag)
+		return delegateBlueGreen(local, currentClient, currentEndpoint, sourceName, newName, childTag, imageNamespace, imageTag, moduleInstall)
 	}
 	namespace := util.DerefString(source.Instance.FromNamespace)
 	if namespace == "" {
@@ -799,10 +803,17 @@ func runBlueGreen(
 		}
 	}
 
-	// bring the modules back, then remove the control plane the restore came from
-	if err := created.RestoreModuleScale(source.Kube, modules); err != nil {
+	// delete the module namespaces when a module install follows, and bring the
+	// modules back otherwise
+	if util.DerefString(source.Instance.ModuleInstall) != "" {
+		if err := installer.DeleteModuleNamespaces(source.Kube, source.Mapper, modules); err != nil {
+			return err
+		}
+	} else if err := created.RestoreModuleScale(source.Kube, modules); err != nil {
 		return fmt.Errorf("failed to restore module scale: %w", err)
 	}
+
+	// remove the control plane the restore came from
 	if err := removeReplacedNamespace(
 		source.Kube,
 		source.Mapper,
@@ -827,6 +838,7 @@ func delegateBlueGreen(
 	childTag string,
 	imageNamespace string,
 	imageTag string,
+	moduleInstall string,
 ) error {
 	// load the child from the API this command is connected to
 	inst, err := client.GetControlPlaneInstanceByName(currentClient, currentEndpoint, sourceName)
@@ -892,7 +904,7 @@ func delegateBlueGreen(
 	if _, err := client.UpdateControlPlaneInstance(
 		currentClient,
 		currentEndpoint,
-		childBlueGreenUpdate(inst.ID, util.DerefString(inst.Name), newName, namespace, tag, imageNamespace),
+		childBlueGreenUpdate(inst.ID, util.DerefString(inst.Name), newName, namespace, tag, imageNamespace, moduleInstall),
 	); err != nil {
 		return fmt.Errorf("failed to record control plane %s: %w", newName, err)
 	}
@@ -977,7 +989,13 @@ func ReplacementNameTaken(sourceID uint, newName string, found *api.ControlPlane
 // childBlueGreenUpdate is the patch a child blue-green stores.
 // Name stays the current control plane until the install finishes.
 // Namespace is the new deployment, and FromNamespace is the one it replaces.
-func childBlueGreenUpdate(id *uint, currentName, newName, sourceNamespace, tag, imageNamespace string) *api.ControlPlaneInstance {
+// A module install request rides in the same patch. With it, the controller
+// deletes the module namespaces once the new control plane is up, and the
+// install job creates them again.
+func childBlueGreenUpdate(
+	id *uint,
+	currentName, newName, sourceNamespace, tag, imageNamespace, moduleInstall string,
+) *api.ControlPlaneInstance {
 	// record the new deployment and the image the controller installs
 	update := &api.ControlPlaneInstance{
 		Common:        api.Common{ID: id},
@@ -988,6 +1006,9 @@ func childBlueGreenUpdate(id *uint, currentName, newName, sourceNamespace, tag, 
 	}
 	if imageNamespace != "" {
 		update.ImageNamespace = &imageNamespace
+	}
+	if moduleInstall != "" {
+		update.ModuleInstall = &moduleInstall
 	}
 	return update
 }

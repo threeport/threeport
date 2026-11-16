@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -538,6 +539,37 @@ func (cpi *ControlPlaneInstaller) RestoreModuleScale(
 
 	// report the restore
 	fmt.Printf("Info: restored %d module deployment(s) to their original replica count\n", len(scales))
+
+	return nil
+}
+
+// DeleteModuleNamespaces deletes each namespace that holds a recorded module
+// deployment, so a module install creates the module's workloads again from the
+// module's own installer.
+func DeleteModuleNamespaces(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	scales []ModuleDeploymentScale,
+) error {
+	// collect each module namespace once
+	var namespaces []string
+	seen := map[string]bool{}
+	for _, scale := range scales {
+		if scale.Namespace == "" || seen[scale.Namespace] {
+			continue
+		}
+		seen[scale.Namespace] = true
+		namespaces = append(namespaces, scale.Namespace)
+	}
+	if len(namespaces) == 0 {
+		return nil
+	}
+
+	// delete them together
+	if err := DeleteNamespaces(kubeClient, mapper, namespaces); err != nil {
+		return fmt.Errorf("failed to delete module namespaces %s: %w", strings.Join(namespaces, ", "), err)
+	}
+	fmt.Printf("Info: deleted module namespace(s) %s\n", strings.Join(namespaces, ", "))
 
 	return nil
 }

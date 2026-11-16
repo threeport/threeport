@@ -119,7 +119,10 @@ tptctl upgrade module blue-green \
 
 Ask the parent controller to redeploy a child with a new module image.  The
 child keeps the image namespace and tag it runs, unless you pass the same two
-flags.
+flags.  Once the new control plane answers, the controller deletes the module
+namespaces and runs the module install job, so the module's workloads match its
+current installer.  This command requires `--module-image-namespace` for a
+child.
 
 ```bash
 tptctl upgrade module blue-green \

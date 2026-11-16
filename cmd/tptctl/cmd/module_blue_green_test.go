@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -27,40 +26,33 @@ func TestModuleImagePrecedesBlueGreen(t *testing.T) {
 	require.Equal(t, []string{"module", "install"}, steps)
 }
 
-// TestModuleInstallFollowsAChildBlueGreen covers the module install a child's
-// upgrade records: it runs after the blue-green, it is skipped for a control
-// plane that is not a child, and a failed blue-green records none.
-func TestModuleInstallFollowsAChildBlueGreen(t *testing.T) {
-	steps := func(child bool, blueGreenErr error) ([]string, error) {
-		var ran []string
-		err := installModuleAfterBlueGreen(
-			child,
-			func() error {
-				ran = append(ran, "blue-green")
-				return blueGreenErr
-			},
-			func() error {
-				ran = append(ran, "install")
-				return nil
-			},
-		)
-		return ran, err
-	}
+// TestAChildModuleUpgradeCarriesAnInstallRequest covers the module install
+// request a blue-green carries: a child gets one built from the module image, a
+// control plane that is not a child gets none, and a child needs both image
+// values.
+func TestAChildModuleUpgradeCarriesAnInstallRequest(t *testing.T) {
+	// set the module image the flags record, and restore the flags afterward
+	moduleUpgradeName = "acme.example/acme-module-api"
+	moduleUpgradeImageNamespace = "registry.example/repo"
+	moduleUpgradeImageTag = "v1"
+	t.Cleanup(func() {
+		moduleUpgradeName, moduleUpgradeImageNamespace, moduleUpgradeImageTag = "", "", ""
+	})
 
-	// assert a child installs after its blue-green
-	ran, err := steps(true, nil)
+	// assert a child carries the module name, image namespace, and tag
+	request, err := moduleBlueGreenInstall("primary-04")
 	require.NoError(t, err)
-	require.Equal(t, []string{"blue-green", "install"}, ran)
+	require.Equal(t, "acme.example/acme-module-api registry.example/repo v1", request)
 
-	// assert a control plane that is not a child records no install
-	ran, err = steps(false, nil)
+	// assert a control plane that is not a child carries none
+	request, err = moduleBlueGreenInstall("")
 	require.NoError(t, err)
-	require.Equal(t, []string{"blue-green"}, ran)
+	require.Empty(t, request)
 
-	// assert a failed blue-green records no install
-	ran, err = steps(true, errors.New("blue-green failed"))
+	// assert a child with no image namespace is refused
+	moduleUpgradeImageNamespace = ""
+	_, err = moduleBlueGreenInstall("primary-04")
 	require.Error(t, err)
-	require.Equal(t, []string{"blue-green"}, ran)
 }
 
 // TestModuleBlueGreenKeepsTheRunningControlPlaneImage covers the control plane

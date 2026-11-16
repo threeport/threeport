@@ -11,9 +11,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	k8stesting "k8s.io/client-go/testing"
 
@@ -748,4 +750,37 @@ func TestModuleApiServerFromEndpoint(t *testing.T) {
 		_, ok := moduleApiServerFromEndpoint(&endpoint)
 		assert.False(t, ok, "this has only one label before the suffix, not a service and a namespace")
 	})
+}
+
+// TestDeleteModuleNamespacesDeletesEachModuleNamespaceOnce covers the cleanup a
+// module upgrade runs before the module installer creates its workloads again:
+// every namespace that holds a recorded module deployment is deleted once, and
+// a namespace no module deployment names stays.
+func TestDeleteModuleNamespacesDeletesEachModuleNamespaceOnce(t *testing.T) {
+	// seed one module namespace with two deployments recorded, and one unrelated namespace
+	namespace := func(name string) *unstructured.Unstructured {
+		return &unstructured.Unstructured{Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Namespace",
+			"metadata":   map[string]interface{}{"name": name},
+		}}
+	}
+	kubeClient := testKubeClient(namespace("threeport-acme"), namespace("unrelated"))
+	mapper := testComponentMapper()
+
+	// delete the namespaces the recorded deployments name
+	require.NoError(t, DeleteModuleNamespaces(kubeClient, &mapper, []ModuleDeploymentScale{
+		{Namespace: "threeport-acme", Name: "threeport-acme-core-controller", Replicas: 2},
+		{Namespace: "threeport-acme", Name: "threeport-acme-api-server", Replicas: 2},
+	}))
+
+	// assert the module namespace is gone and the unrelated one stays
+	namespaces := schema.GroupVersionResource{Version: "v1", Resource: "namespaces"}
+	_, err := kubeClient.Resource(namespaces).Get(context.Background(), "threeport-acme", metav1.GetOptions{})
+	assert.True(t, k8serrors.IsNotFound(err), "the module namespace stayed: %v", err)
+	_, err = kubeClient.Resource(namespaces).Get(context.Background(), "unrelated", metav1.GetOptions{})
+	assert.NoError(t, err)
+
+	// assert no recorded deployments is a no-op
+	require.NoError(t, DeleteModuleNamespaces(kubeClient, &mapper, nil))
 }

@@ -87,6 +87,7 @@ The source stays stopped unless the new control plane fails to come up.`,
 			childTag,
 			upgradeImageNamespace,
 			upgradeImageTag,
+			"",
 		); err != nil {
 			cli.Error("failed to create control plane", err)
 			os.Exit(1)

@@ -146,6 +146,7 @@ func installDependenciesOn(t *testing.T, cpi *ControlPlaneInstaller, objects ...
 	succeedDropJob(fakeClient)
 	mapper := backupTestMapper()
 	dbCreds := sharedDbCreds(t, cpi.Opts.Namespace)
+	seedBrokerSecrets(t, cpi, normalizingClient{fakeClient})
 
 	return fakeClient, cpi.InstallThreeportControlPlaneDependencies(normalizingClient{fakeClient}, &mapper, "", dbCreds)
 }
@@ -247,7 +248,7 @@ func installAPIServer(t *testing.T, cpi *ControlPlaneInstaller) *dynamicfake.Fak
 	dbCreds := sharedDbCreds(t, cpi.Opts.Namespace)
 	// the dependencies install, which runs first, leaves the message
 	// broker's secrets the API server connects with
-	require.NoError(t, cpi.ensureMessageBrokerSecrets(normalizingClient{fakeClient}))
+	ensureSharedBrokerSecrets(t, cpi, normalizingClient{fakeClient})
 	require.NoError(t, cpi.UpdateThreeportAPIDeployment(normalizingClient{fakeClient}, &mapper, dbCreds))
 
 	return fakeClient

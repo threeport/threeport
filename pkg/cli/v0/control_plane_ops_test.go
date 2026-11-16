@@ -18,7 +18,7 @@ import (
 func TestChildBlueGreenUpdateStoresTheNewName(t *testing.T) {
 	// the new name is the deployment namespace, and the tag is this tptctl version
 	id := uint(7)
-	update := childBlueGreenUpdate(&id, "primary", "restored", "child-ns", "v0.7.2", "")
+	update := childBlueGreenUpdate(&id, "primary", "restored", "child-ns", "v0.7.2", "", "")
 
 	require.Equal(t, &id, update.ID)
 	require.Equal(t, "primary", *update.Name)
@@ -26,11 +26,16 @@ func TestChildBlueGreenUpdateStoresTheNewName(t *testing.T) {
 	require.Equal(t, "child-ns", *update.FromNamespace)
 	require.Equal(t, "v0.7.2", *update.ImageTag)
 	require.Nil(t, update.ImageNamespace)
+	require.Nil(t, update.ModuleInstall)
 
 	// a set namespace is the one the controller installs
-	tagged := childBlueGreenUpdate(&id, "primary", "restored", "child-ns", "built", "private.example/threeport")
+	tagged := childBlueGreenUpdate(&id, "primary", "restored", "child-ns", "built", "private.example/threeport", "")
 	require.Equal(t, "built", *tagged.ImageTag)
 	require.Equal(t, "private.example/threeport", *tagged.ImageNamespace)
+
+	// a module install request rides in the same patch
+	withModule := childBlueGreenUpdate(&id, "primary", "restored", "child-ns", "built", "", "acme.example/acme-module-api registry/repo v1")
+	require.Equal(t, "acme.example/acme-module-api registry/repo v1", *withModule.ModuleInstall)
 }
 
 // TestDecryptedProviderCredentialsReturnsTheStoredJSON covers the credential the bucket grant uses.

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -91,18 +92,24 @@ func recordModuleThenInstall(record func() error, install func() error) error {
 	return install()
 }
 
-// installModuleAfterBlueGreen records the module install once a child's new
-// control plane answers, so the module's own installer renders its workloads on
-// it. A control plane that is not a child installs nothing here.
-func installModuleAfterBlueGreen(child bool, blueGreen func() error, install func() error) error {
-	// the new control plane has to answer before an install is recorded against it
-	if err := blueGreen(); err != nil {
-		return err
+// moduleBlueGreenInstall returns the module install request a child's blue-green
+// carries, so the controller installs the module on the new control plane. A
+// control plane that is not a child returns an empty request.
+func moduleBlueGreenInstall(controlPlaneName string) (string, error) {
+	// only a child installs through its controller
+	if controlPlaneName == "" {
+		return "", nil
 	}
-	if !child {
-		return nil
+
+	// the install job needs both coordinates of the module image
+	if moduleUpgradeImageNamespace == "" || moduleUpgradeImageTag == "" {
+		return "", errors.New("--module-image-namespace and --module-image-tag are required to reinstall the module on a child")
 	}
-	return install()
+	return installer.ModuleInstallRequest(&api.ModuleApi{
+		Name:           &moduleUpgradeName,
+		ImageNamespace: &moduleUpgradeImageNamespace,
+		ImageTag:       &moduleUpgradeImageTag,
+	}), nil
 }
 
 // runModuleBlueGreenUpgrade records the module image, then requests a new control plane.
@@ -147,34 +154,24 @@ func runModuleBlueGreenUpgrade(cmd *cobra.Command, args []string) {
 				return err
 			}
 			imageNamespace, imageTag := moduleBlueGreenImage(upgradeImageNamespace, upgradeImageTag, running)
-			return installModuleAfterBlueGreen(
-				moduleUpgradeControlPlane != "",
-				func() error {
-					return cli.UpgradeBlueGreen(
-						threeportConfig,
-						controlPlane,
-						apiClient,
-						apiEndpoint,
-						encryptionKey,
-						moduleUpgradeControlPlane,
-						moduleNewControlPlaneName,
-						childTag,
-						imageNamespace,
-						imageTag,
-					)
-				},
-				func() error {
-					cli.Info(fmt.Sprintf("Recording the module install for %s", moduleNewControlPlaneName))
-					return cli.InstallModule(
-						apiClient,
-						apiEndpoint,
-						encryptionKey,
-						moduleNewControlPlaneName,
-						moduleUpgradeName,
-						moduleUpgradeImageNamespace,
-						moduleUpgradeImageTag,
-					)
-				},
+
+			// a child reinstalls the module on its new control plane through its controller
+			moduleInstall, err := moduleBlueGreenInstall(moduleUpgradeControlPlane)
+			if err != nil {
+				return err
+			}
+			return cli.UpgradeBlueGreen(
+				threeportConfig,
+				controlPlane,
+				apiClient,
+				apiEndpoint,
+				encryptionKey,
+				moduleUpgradeControlPlane,
+				moduleNewControlPlaneName,
+				childTag,
+				imageNamespace,
+				imageTag,
+				moduleInstall,
 			)
 		},
 	)

@@ -119,7 +119,7 @@ func installComponent(t *testing.T, cpi *ControlPlaneInstaller, kubeClient dynam
 		dbCreds := sharedDbCreds(t, cpi.Opts.Namespace)
 		// the dependencies install, which runs first, leaves the message
 		// broker's secrets the API server connects with
-		require.NoError(t, cpi.ensureMessageBrokerSecrets(kubeClient))
+		ensureSharedBrokerSecrets(t, cpi, kubeClient)
 		require.NoError(t, cpi.UpdateThreeportAPIDeployment(kubeClient, &mapper, dbCreds))
 		return
 	}

@@ -101,6 +101,7 @@ func natsContainers(t *testing.T) map[string]map[string]interface{} {
 		CreateOrUpdateKubeResources: true,
 	}}
 	dbCreds := sharedDbCreds(t, ControlPlaneNamespace)
+	seedBrokerSecrets(t, cpi, roundTripClient{kubeClient})
 	require.NoError(t, cpi.InstallThreeportControlPlaneDependencies(roundTripClient{kubeClient}, &mapper, "", dbCreds))
 
 	containers := map[string]map[string]interface{}{}
