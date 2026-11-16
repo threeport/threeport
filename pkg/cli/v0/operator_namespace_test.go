@@ -16,50 +16,30 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// TestUpgradeStopsWhatRunsInTheKeptNamespace calls the namespace removal the
-// upgrade uses. The original namespace stays with its operator and its
-// StatefulSets at zero, and a dedicated namespace is deleted.
-func TestUpgradeStopsWhatRunsInTheKeptNamespace(t *testing.T) {
+// TestUpgradeDeletesTheOriginalNamespaceOnceTheOperatorMoved calls the
+// namespace removal the upgrade uses. With the operator running in the new
+// control plane's namespace, the removal deletes the original namespace and a
+// dedicated one.
+func TestUpgradeDeletesTheOriginalNamespaceOnceTheOperatorMoved(t *testing.T) {
 	// run the operator and a database in the original namespace and a workload in a dedicated one
 	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Version: "v1"}})
 	mapper.Add(schema.GroupVersionKind{Version: "v1", Kind: "Namespace"}, meta.RESTScopeRoot)
 	var rest meta.RESTMapper = mapper
 	kube := operatorCluster()
-	if err := removeReplacedNamespace(kube, &rest, installer.ControlPlaneNamespace, "primary-05", true); err != nil {
-		t.Fatal(err)
-	}
 
-	// the operator stays in the original namespace, stopped
-	operator, err := kube.Resource(deployGVR()).Namespace(installer.ControlPlaneNamespace).Get(
-		t.Context(), installer.SupportServicesOperatorDeployName, metav1.GetOptions{},
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if replicas, _, _ := unstructured.NestedInt64(operator.Object, "spec", "replicas"); replicas != 0 {
-		t.Fatalf("original namespace operator replicas = %d, want 0", replicas)
-	}
+	// remove both source namespaces with the operator running in the new one
+	for _, namespace := range []string{installer.ControlPlaneNamespace, "primary-02"} {
+		if err := removeReplacedNamespace(kube, &rest, namespace, "primary-05", true); err != nil {
+			t.Fatal(err)
+		}
 
-	// the replaced control plane's StatefulSets in the original namespace are stopped
-	statefulSet, err := kube.Resource(statefulSetGVR()).Namespace(installer.ControlPlaneNamespace).Get(
-		t.Context(), "crdb", metav1.GetOptions{},
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if replicas, _, _ := unstructured.NestedInt64(statefulSet.Object, "spec", "replicas"); replicas != 0 {
-		t.Fatalf("original namespace database replicas = %d, want 0", replicas)
-	}
-
-	// a dedicated source namespace is removed
-	if err := removeReplacedNamespace(kube, &rest, "primary-02", "primary-05", true); err != nil {
-		t.Fatal(err)
-	}
-	_, err = kube.Resource(schema.GroupVersionResource{Version: "v1", Resource: "namespaces"}).Get(
-		t.Context(), "primary-02", metav1.GetOptions{},
-	)
-	if err == nil {
-		t.Fatal("dedicated source namespace stayed")
+		// assert the source namespace is gone
+		_, err := kube.Resource(schema.GroupVersionResource{Version: "v1", Resource: "namespaces"}).Get(
+			t.Context(), namespace, metav1.GetOptions{},
+		)
+		if err == nil {
+			t.Fatalf("source namespace %s stayed", namespace)
+		}
 	}
 }
 

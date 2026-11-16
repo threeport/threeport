@@ -1850,17 +1850,6 @@ func ScaleStatefulSetsToZero(kubeClient dynamic.Interface, namespace string) ([]
 	return scaled, errors.Join(scaleErrors...)
 }
 
-// ScaleSupportServicesOperatorToZero stops the support services operator in a
-// namespace. An operator that is already gone is left alone.
-func ScaleSupportServicesOperatorToZero(kubeClient dynamic.Interface, namespace string) error {
-	// stop the one deployment the operator install creates
-	return scaleDeploymentsToZero(
-		kubeClient,
-		namespace,
-		map[string]int64{SupportServicesOperatorDeployName: 0},
-	)
-}
-
 // scaleDeploymentsToZero sets each named deployment to zero replicas.
 // A deployment that is already gone is skipped.
 func scaleDeploymentsToZero(kubeClient dynamic.Interface, namespace string, names map[string]int64) error {

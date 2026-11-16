@@ -1052,22 +1052,23 @@ func runsSupportServices(instance *api.ControlPlaneInstance) bool {
 }
 
 // removeReplacedNamespace deletes the namespace the restore came from.
-// The original namespace is kept, and the StatefulSets of the replaced control
-// plane in it are scaled to zero. Its support services operator is stopped only
-// when the new control plane took the operator over.
+// The original namespace is deleted once the new control plane runs its own
+// support services operator. Until then it holds the operator the cluster
+// shares, so it is kept and the StatefulSets of the replaced control plane in
+// it are scaled to zero.
 func removeReplacedNamespace(
 	kube dynamic.Interface,
 	mapper *meta.RESTMapper,
 	namespace, newNamespace string,
-	stopOperator bool,
+	operatorMoved bool,
 ) error {
 	// leave a namespace that is empty or is the new control plane's
 	if namespace == "" || namespace == newNamespace {
 		return nil
 	}
 
-	// keep the original namespace and stop what runs in it
-	if installer.KeepSourceNamespace(namespace) {
+	// keep the original namespace while it holds the operator the cluster uses
+	if installer.KeepSourceNamespace(namespace) && !operatorMoved {
 		scaled, err := installer.ScaleStatefulSetsToZero(kube, namespace)
 		if err != nil {
 			return fmt.Errorf("failed to scale down the kept source namespace %s: %w", namespace, err)
@@ -1077,14 +1078,6 @@ func removeReplacedNamespace(
 			namespace,
 			strings.Join(scaled, ", "),
 		)
-
-		// stop the operator only when the new control plane runs its own
-		if stopOperator {
-			if err := installer.ScaleSupportServicesOperatorToZero(kube, namespace); err != nil {
-				return fmt.Errorf("failed to stop the support services operator in %s: %w", namespace, err)
-			}
-			fmt.Printf("Info: stopped the support services operator in %s\n", namespace)
-		}
 		return nil
 	}
 
