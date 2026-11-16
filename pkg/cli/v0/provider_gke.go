@@ -1,15 +1,10 @@
 package v0
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 
 	"github.com/threeport/threeport/internal/provider"
@@ -387,44 +382,6 @@ func RecordGkePool(
 	}
 
 	return nil
-}
-
-// InstalledImageNamespace reads the image namespace the control plane's API
-// server runs from, such as "us-central1-docker.pkg.dev/my-project/threeport".
-func InstalledImageNamespace(controlPlane *ControlPlane, namespace string) (string, error) {
-	// connect to the control plane's cluster
-	kubeClient, err := gkeControlPlaneKubeClient(controlPlane)
-	if err != nil {
-		return "", fmt.Errorf("failed to connect to the control plane's cluster: %w", err)
-	}
-
-	// read the API server's image
-	deployment, err := kubeClient.Resource(
-		schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
-	).Namespace(namespace).Get(context.Background(), threeport.ThreeportAPIServiceResourceName, metav1.GetOptions{})
-	if err != nil {
-		return "", fmt.Errorf("failed to get the API server in %s: %w", namespace, err)
-	}
-	containers, _, err := unstructured.NestedSlice(deployment.Object, "spec", "template", "spec", "containers")
-	if err != nil || len(containers) == 0 {
-		return "", fmt.Errorf("the API server in %s runs no container", namespace)
-	}
-	container, _ := containers[0].(map[string]interface{})
-	image, _ := container["image"].(string)
-
-	return imageNamespaceOf(image)
-}
-
-// imageNamespaceOf returns an image reference without its name and tag.
-func imageNamespaceOf(image string) (string, error) {
-	// drop a digest, then the name and tag after the last slash
-	withoutDigest, _, _ := strings.Cut(image, "@")
-	slash := strings.LastIndex(withoutDigest, "/")
-	if slash < 0 {
-		return "", fmt.Errorf("image %q names no namespace", image)
-	}
-
-	return withoutDigest[:slash], nil
 }
 
 // gkeControlPlaneKubeClient returns a client for the GKE cluster a control

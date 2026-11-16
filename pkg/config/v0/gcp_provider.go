@@ -43,12 +43,6 @@ type GcpProviderValues struct {
 	// Defaults to true when creating via tptctl.
 	SyncServiceAccount *bool
 
-	// The image namespace the control plane images are pulled from, for example us-central1-docker.pkg.dev/my-project/threeport.
-	// When it names an Artifact Registry repository, the service account created with the provider is allowed to manage access to that repository on create.
-	// Clusters the provider creates can then grant their nodes read access to it.
-	// Used only on create, and only when SyncServiceAccount is true.
-	ImageNamespace *string
-
 	// Age is a computed field showing how long ago the object was created.
 	Age *string
 }
@@ -136,7 +130,6 @@ func (g *GcpProviderConfig) Create(
 		saWithKey, err := provider.CreateGCPServiceAccountWithKey(
 			*gcpProviderValues.ProjectID,
 			*gcpProviderValues.Name,
-			util.DerefString(gcpProviderValues.ImageNamespace),
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create GCP service account: %w", err)

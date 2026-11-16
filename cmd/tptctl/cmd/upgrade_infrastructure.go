@@ -90,18 +90,6 @@ var UpgradeInfrastructureCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// let the nodes pull from the registry the control plane images come from
-		cliArgs.GetControlPlaneEnvVars()
-		imageNamespace := cliArgs.ControlPlaneImageRepo
-		if imageNamespace == "" {
-			imageNamespace, err = cli.InstalledImageNamespace(controlPlane, util.DerefString(controlPlaneInstance.Namespace))
-			if err != nil {
-				cli.Error("failed to read the installed image repository", err)
-				os.Exit(1)
-			}
-		}
-		infra.ImageNamespace = imageNamespace
-
 		// keep the egress address the cluster has
 		if err := cli.KeepRecordedNatAddress(infra, apiClient, apiEndpoint, infra.RuntimeInstanceName); err != nil {
 			cli.Error("failed to load the recorded NAT address setting", err)
@@ -158,10 +146,6 @@ func init() {
 	UpgradeInfrastructureCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
-	)
-	UpgradeInfrastructureCmd.Flags().StringVar(
-		&cliArgs.ControlPlaneImageRepo,
-		"control-plane-image-namespace", "", "Optional. Image namespace the control plane images are pulled from. On GKE the namespace is parsed to set the cluster's node permissions: when it names an Artifact Registry repository, the node service account is granted read access to that repository, and a namespace on any other registry grants nothing. Defaults to the CONTROL_PLANE_IMAGE_REPO environment variable, else the repository the control plane runs from.",
 	)
 	UpgradeInfrastructureCmd.Flags().StringVar(
 		&upgradeInfraTier,

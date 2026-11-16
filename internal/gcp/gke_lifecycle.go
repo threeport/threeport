@@ -105,17 +105,7 @@ func (g *gkeLifecycle) buildInfraFrom(
 	if err != nil {
 		return nil, fmt.Errorf("failed to get GKE definition: %w", err)
 	}
-	infra, err := buildGkeInfra(g.r, latest, def, g.log)
-	if err != nil {
-		return nil, err
-	}
-
-	// let the stack grant the nodes read access to the control plane's images
-	if latest.DeletionScheduled == nil {
-		setNodeImageNamespace(g.r, infra, g.log)
-	}
-
-	return infra, nil
+	return buildGkeInfra(g.r, latest, def, g.log)
 }
 
 // IsCreateComplete reports whether the whole create finished, not just the
