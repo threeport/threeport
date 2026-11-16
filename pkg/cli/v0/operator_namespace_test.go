@@ -29,7 +29,7 @@ func TestUpgradeDeletesTheOriginalNamespaceOnceTheOperatorMoved(t *testing.T) {
 
 	// remove both source namespaces with the operator running in the new one
 	for _, namespace := range []string{installer.ControlPlaneNamespace, "primary-02"} {
-		if err := removeReplacedNamespace(kube, &rest, namespace, "primary-05", true); err != nil {
+		if err := RemoveReplacedNamespace(kube, &rest, namespace, "primary-05", true); err != nil {
 			t.Fatal(err)
 		}
 
@@ -54,7 +54,7 @@ func TestAChildKeepsTheOperatorRunningInTheKeptNamespace(t *testing.T) {
 	kube := operatorCluster()
 
 	// remove the namespace of a control plane that does not run the operator
-	if err := removeReplacedNamespace(kube, &rest, installer.ControlPlaneNamespace, "primary-05", false); err != nil {
+	if err := RemoveReplacedNamespace(kube, &rest, installer.ControlPlaneNamespace, "primary-05", false); err != nil {
 		t.Fatal(err)
 	}
 

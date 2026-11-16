@@ -1419,10 +1419,13 @@ var saveControlPlaneInstance = client.UpdateControlPlaneInstance
 // lookupControlPlaneByName reads the row that already holds a name. Tests replace it.
 var lookupControlPlaneByName = client.GetControlPlaneInstanceByName
 
-// childBlueGreenRequested reports a new deployment was asked for this child.
+// childBlueGreenRequested reports a new deployment was asked for this child. A
+// child already renamed to its namespace has finished it, and a source
+// namespace still recorded is only waiting for its module install to succeed.
 func childBlueGreenRequested(instance *v0.ControlPlaneInstance) bool {
 	from := util.DerefString(instance.FromNamespace)
-	return from != "" && from != util.DerefString(instance.Namespace)
+	namespace := util.DerefString(instance.Namespace)
+	return from != "" && from != namespace && util.DerefString(instance.Name) != namespace
 }
 
 // blueGreenLocal returns the provider config InstallBlueGreen reads for its bucket.
@@ -1493,13 +1496,50 @@ func installChildBlueGreen(
 	if err != nil {
 		return fmt.Errorf("failed to install blue-green control plane: %w", err)
 	}
-	// take the new name and clear the request so the next reconcile does not repeat it
+	// take the new name so the next reconcile does not repeat the request. A
+	// module install keeps the source namespace recorded, so the install can
+	// remove it once it succeeds
 	instance.Name = instance.Namespace
-	instance.FromNamespace = util.Ptr("")
+	if util.DerefString(instance.ModuleInstall) == "" {
+		instance.FromNamespace = util.Ptr("")
+	}
 	_, err = saveControlPlaneInstance(r.APIClient, r.APIServer, instance)
 	if err != nil {
 		return fmt.Errorf("failed to clear blue-green request: %w", err)
 	}
+	return nil
+}
+
+// removeSourceAfterInstall removes the source namespace a child blue-green kept
+// until its module install succeeded, then clears the record of it. A control
+// plane with no source recorded has nothing to remove.
+func removeSourceAfterInstall(
+	r *controller.Reconciler,
+	controlPlaneInstance *v0.ControlPlaneInstance,
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+) error {
+	// nothing to remove when no source is waiting
+	from := util.DerefString(controlPlaneInstance.FromNamespace)
+	if from == "" || from == util.DerefString(controlPlaneInstance.Namespace) {
+		return nil
+	}
+
+	// remove the source, then clear the record so the cleanup runs once
+	if err := cli.RemoveReplacedNamespace(
+		kubeClient,
+		mapper,
+		from,
+		util.DerefString(controlPlaneInstance.Namespace),
+		false,
+	); err != nil {
+		return err
+	}
+	controlPlaneInstance.FromNamespace = util.Ptr("")
+	if _, err := saveControlPlaneInstance(r.APIClient, r.APIServer, controlPlaneInstance); err != nil {
+		return fmt.Errorf("failed to clear source namespace %s: %w", from, err)
+	}
+
 	return nil
 }
 
@@ -1629,6 +1669,11 @@ func v0ControlPlaneInstanceUpdated(
 	)
 	if err != nil {
 		return 0, err
+	}
+
+	// a source namespace kept for its module install is not a restore request
+	if !childBlueGreenRequested(controlPlaneInstance) {
+		cpi.Opts.FromNamespace = ""
 	}
 
 	// set provider values the controller install reads
@@ -1769,6 +1814,11 @@ func v0ControlPlaneInstanceUpdated(
 		case !finished:
 			moduleInstallRequeue = moduleInstallCheckSeconds
 		default:
+			// remove the source first, so a failure leaves the request stored and the
+			// next pass tries again
+			if err := removeSourceAfterInstall(r, controlPlaneInstance, dynamicKubeClient, mapper); err != nil {
+				return 0, err
+			}
 			if err := settleModuleInstall(r, controlPlaneInstance, started); err != nil {
 				return 0, err
 			}

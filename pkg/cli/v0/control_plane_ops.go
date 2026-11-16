@@ -848,8 +848,12 @@ func runBlueGreen(
 		return fmt.Errorf("failed to restore module scale: %w", err)
 	}
 
-	// remove the control plane the restore came from
-	if err := removeReplacedNamespace(
+	// remove the control plane the restore came from, unless a module install
+	// still has to show the rollout worked. The controller removes it after
+	// that install succeeds
+	if util.DerefString(source.Instance.ModuleInstall) != "" {
+		fmt.Printf("Info: keeping source namespace %s until the module install succeeds\n", namespace)
+	} else if err := RemoveReplacedNamespace(
 		source.Kube,
 		source.Mapper,
 		namespace,
@@ -1107,12 +1111,12 @@ func runsSupportServices(instance *api.ControlPlaneInstance) bool {
 	return instance != nil && instance.ParentControlPlaneInstanceID == nil
 }
 
-// removeReplacedNamespace deletes the namespace the restore came from.
+// RemoveReplacedNamespace deletes the namespace the restore came from.
 // The original namespace is deleted once the new control plane runs its own
 // support services operator. Until then it holds the operator the cluster
 // shares, so it is kept and the StatefulSets of the replaced control plane in
 // it are scaled to zero.
-func removeReplacedNamespace(
+func RemoveReplacedNamespace(
 	kube dynamic.Interface,
 	mapper *meta.RESTMapper,
 	namespace, newNamespace string,

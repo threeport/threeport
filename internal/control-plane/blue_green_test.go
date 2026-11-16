@@ -141,3 +141,74 @@ func TestTakenReplacementNameSkipsInstall(t *testing.T) {
 	require.ErrorIs(t, err, cli.ErrReplacementNameTaken)
 	require.False(t, called)
 }
+
+// TestChildBlueGreenIsRequestedOnlyBeforeTheRename checks which instances ask for
+// a new deployment: one still named for the old control plane does, and one
+// already renamed to its namespace does not, even while its source namespace
+// stays recorded for a module install.
+func TestChildBlueGreenIsRequestedOnlyBeforeTheRename(t *testing.T) {
+	// an instance that names the old control plane but the new namespace
+	old, fresh, from := "primary-05", "primary-06", "primary-05"
+	requested := &v0.ControlPlaneInstance{Name: &old, Namespace: &fresh, FromNamespace: &from}
+	require.True(t, childBlueGreenRequested(requested))
+
+	// the same instance renamed to its namespace, with its source still recorded
+	renamed := &v0.ControlPlaneInstance{Name: &fresh, Namespace: &fresh, FromNamespace: &from}
+	require.False(t, childBlueGreenRequested(renamed))
+
+	// an instance that records no source namespace
+	require.False(t, childBlueGreenRequested(&v0.ControlPlaneInstance{Name: &old, Namespace: &old}))
+}
+
+// TestChildBlueGreenWithAModuleInstallKeepsTheSourceRecorded checks that a child
+// upgrade carrying a module install request takes the new name but leaves its
+// source namespace recorded, so the install can remove it after it succeeds.
+func TestChildBlueGreenWithAModuleInstallKeepsTheSourceRecorded(t *testing.T) {
+	// a requested upgrade that carries a module install
+	from, old, fresh := "primary-05", "primary-05", "primary-06"
+	id := uint(7)
+	request := "example.com/acme-module-api registry.example v1"
+	instance := &v0.ControlPlaneInstance{
+		Common:        v0.Common{ID: &id},
+		Name:          &old,
+		Namespace:     &fresh,
+		FromNamespace: &from,
+		ModuleInstall: &request,
+	}
+	gke := v0.KubernetesRuntimeInfraProviderGKE
+	definition := &v0.KubernetesRuntimeDefinition{InfraProvider: &gke}
+	runtimeName := "runtime"
+	runtime := &v0.KubernetesRuntimeInstance{Common: v0.Common{ID: &id}, Name: &runtimeName}
+
+	oldInstall := installBlueGreen
+	oldSave := saveControlPlaneInstance
+	oldProject := lookupGkeProject
+	oldLookup := lookupControlPlaneByName
+	t.Cleanup(func() {
+		installBlueGreen = oldInstall
+		saveControlPlaneInstance = oldSave
+		lookupGkeProject = oldProject
+		lookupControlPlaneByName = oldLookup
+	})
+	lookupControlPlaneByName = func(*http.Client, string, string) (*v0.ControlPlaneInstance, error) {
+		return nil, client_lib.ErrObjectNotFound
+	}
+	lookupGkeProject = func(*http.Client, string, uint) (string, error) { return "project-1", nil }
+	installBlueGreen = func(*cli.ControlPlane, *http.Client, string, string, *cli.ControlPlaneTarget, string) error {
+		return nil
+	}
+	var saved *v0.ControlPlaneInstance
+	saveControlPlaneInstance = func(_ *http.Client, _ string, instance *v0.ControlPlaneInstance) (*v0.ControlPlaneInstance, error) {
+		saved = instance
+		return instance, nil
+	}
+
+	// run the install
+	require.NoError(t, installChildBlueGreen(&controller.Reconciler{}, instance, runtime, definition, nil, nil))
+
+	// assert the instance takes the new name and keeps the source recorded
+	require.NotNil(t, saved)
+	require.Equal(t, fresh, util.DerefString(saved.Name))
+	require.Equal(t, from, util.DerefString(saved.FromNamespace))
+	require.False(t, childBlueGreenRequested(saved))
+}

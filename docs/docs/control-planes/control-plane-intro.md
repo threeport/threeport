@@ -132,6 +132,8 @@ child keeps the image namespace and tag it runs, unless you pass the same two
 flags.  Once the new control plane answers, the controller deletes the module
 namespaces and runs the module install job, so the module's workloads match its
 current installer.  The install uses the image saved on the module record.
+The old control plane stays until the install succeeds, so a failed install
+leaves it to fall back to.
 
 ```bash
 tptctl upgrade module blue-green \
