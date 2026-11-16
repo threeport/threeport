@@ -73,6 +73,10 @@ func (cpi *ControlPlaneInstaller) InstallThreeportNetworkPolicies(
 // the rule says what it is for. Dropping the database is the one operation
 // that has to reach past the API server, because it runs while the API server
 // is scaled to zero.
+//
+// Modules are admitted by a policy of their own each, which their installer
+// creates (see ModuleDatabasePolicy). Policies that select the same pods add
+// up, so this one names no module and admits no other namespace.
 func (cpi *ControlPlaneInstaller) databasePolicy() *unstructured.Unstructured {
 	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -97,24 +101,6 @@ func (cpi *ControlPlaneInstaller) databasePolicy() *unstructured.Unstructured {
 						"ports": []interface{}{
 							tcpPort(cockroachSqlPort),
 							tcpPort(cockroachConsolePort),
-						},
-					},
-					map[string]interface{}{
-						// A module keeps its own database inside this cluster
-						// and talks to it directly: its db-init, its
-						// database-migrator and its API server all connect on
-						// the SQL port. That is intended - lander2k2 confirmed
-						// it on #617 - so the namespace a module installs into
-						// is admitted, by a label rather than by name.
-						//
-						// Only the SQL port. A module has no business on the
-						// console, and naming the narrower thing costs nothing
-						// here.
-						"from": []interface{}{
-							map[string]interface{}{"namespaceSelector": labelled(LabelModule, LabelModuleValue)},
-						},
-						"ports": []interface{}{
-							tcpPort(cockroachSqlPort),
 						},
 					},
 				},

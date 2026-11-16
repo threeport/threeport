@@ -170,18 +170,21 @@ func (o *OciProviderConfig) Replace(
 	}
 
 	// construct updated oci provider object
-	updatedOciProvider := &api.OciProvider{
-		Common: api.Common{
-			ID: existingOciProvider.ID,
-		},
-		Name:            ociProviderValues.Name,
-		UserOCID:        ociProviderValues.UserOCID,
-		CompartmentOCID: ociProviderValues.CompartmentOCID,
-		DefaultProvider: ociProviderValues.DefaultProvider,
-		DefaultRegion:   ociProviderValues.DefaultRegion,
-		KeyFingerprint:  ociProviderValues.KeyFingerprint,
-		PrivateKey:      ociProviderValues.PrivateKey,
-	}
+	// Start from the existing object, so the fields this replace does not set
+	// are kept: the reconciler's (Reconciled and the rest of Reconciliation,
+	// Status) and the ones only the API server or a controller writes. Every
+	// field a user sets through the config is assigned below unconditionally,
+	// a nil value included, so a field left out of the config is cleared
+	// rather than kept. Do not assign the reconciler's fields here: the copy
+	// already carries them.
+	updatedOciProvider := util.Ptr(*existingOciProvider)
+	updatedOciProvider.Name = ociProviderValues.Name
+	updatedOciProvider.UserOCID = ociProviderValues.UserOCID
+	updatedOciProvider.CompartmentOCID = ociProviderValues.CompartmentOCID
+	updatedOciProvider.DefaultProvider = ociProviderValues.DefaultProvider
+	updatedOciProvider.DefaultRegion = ociProviderValues.DefaultRegion
+	updatedOciProvider.KeyFingerprint = ociProviderValues.KeyFingerprint
+	updatedOciProvider.PrivateKey = ociProviderValues.PrivateKey
 
 	// replace oci provider
 	replacedOciProvider, err := client_v0.ReplaceOciProvider(

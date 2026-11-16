@@ -231,12 +231,16 @@ func (h Handler) GetEvents(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/events/{id} [GET]
 func (h Handler) GetEvent(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.Event).GetFullyQualifiedType()
-	eventID := c.Param("id")
+	eventID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var event api_v0.Event
 	if result := h.RequestDB(c).
 		First(&event, eventID); result.Error != nil {
@@ -280,7 +284,10 @@ func (h Handler) GetEvent(c echo.Context) error {
 func (h Handler) UpdateEvent(c echo.Context) error {
 	objectType := api_v0.ObjectTypeEvent
 	fullyQualifiedType := new(api_v0.Event).GetFullyQualifiedType()
-	eventID := c.Param("id")
+	eventID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingEvent api_v0.Event
 	if result := h.RequestDB(c).First(&existingEvent, eventID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -358,7 +365,10 @@ func (h Handler) UpdateEvent(c echo.Context) error {
 func (h Handler) ReplaceEvent(c echo.Context) error {
 	objectType := api_v0.ObjectTypeEvent
 	fullyQualifiedType := new(api_v0.Event).GetFullyQualifiedType()
-	eventID := c.Param("id")
+	eventID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingEvent api_v0.Event
 	if result := h.RequestDB(c).First(&existingEvent, eventID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -438,13 +448,17 @@ func (h Handler) ReplaceEvent(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/events/{id} [DELETE]
 func (h Handler) DeleteEvent(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.Event).GetFullyQualifiedType()
-	eventID := c.Param("id")
+	eventID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var event api_v0.Event
 	if result := h.RequestDB(c).First(&event, eventID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {

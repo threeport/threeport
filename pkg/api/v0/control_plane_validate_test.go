@@ -1,14 +1,18 @@
 package v0
 
 import (
+	"context"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	gorm "gorm.io/gorm"
 
+	lib "github.com/threeport/threeport/pkg/api/lib/v0"
+	auth "github.com/threeport/threeport/pkg/auth/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -194,5 +198,213 @@ func TestTierCannotBeChangedAfterCreation(t *testing.T) {
 		assert.NoError(t, db.Model(&stored).Updates(&ControlPlaneDefinition{
 			Reconciliation: Reconciliation{Reconciled: util.Ptr(true)},
 		}).Error, "a patch that does not write the tier is not changing it")
+	})
+}
+
+// storedControlPlaneInstance inserts a row and returns it as the database holds it.
+func storedControlPlaneInstance(t *testing.T, db *gorm.DB, name string, self bool) ControlPlaneInstance {
+	t.Helper()
+
+	// create the related rows the instance columns point at
+	runtimeID := runtimeOn(t, db, KubernetesRuntimeInfraProviderKind, name+"-runtime")
+	definitionID := controlPlaneDefinitionWithAuth(t, db, name+"-definition", true)
+	created := ControlPlaneInstance{
+		Instance:                    Instance{Name: util.Ptr(name)},
+		Namespace:                   util.Ptr("threeport-" + name),
+		ControlPlaneDefinitionID:    definitionID,
+		KubernetesRuntimeInstanceID: runtimeID,
+		IsSelf:                      util.Ptr(self),
+	}
+	require.NoError(t, db.Session(&gorm.Session{SkipHooks: true}).Create(&created).Error)
+
+	var loaded ControlPlaneInstance
+	require.NoError(t, db.First(&loaded, *created.ID).Error)
+	return loaded
+}
+
+// TestControlPlaneInstanceUpdateRefusesAForeignDesiredStateChange rejects a replace of a control plane this API does not serve.
+// Reconciliation stays writable, and an empty column may be filled once.
+func TestControlPlaneInstanceUpdateRefusesAForeignDesiredStateChange(t *testing.T) {
+	// store a control plane this API does not serve
+	db := setupControlPlaneAuthDB(t)
+	stored := storedControlPlaneInstance(t, db, "child", false)
+
+	refused := func(err error, field string) {
+		t.Helper()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), field)
+		var httpError *util.HttpError
+		require.ErrorAs(t, err, &httpError)
+		assert.Equal(t, http.StatusBadRequest, httpError.StatusCode)
+	}
+
+	t.Run("a controller list change is refused", func(t *testing.T) {
+		apis := "agent"
+		refused(db.Model(&stored).Updates(&ControlPlaneInstance{Apis: &apis}).Error, "Apis")
+	})
+
+	t.Run("another desired field is refused", func(t *testing.T) {
+		namespace := "threeport-other"
+		refused(db.Model(&stored).Updates(&ControlPlaneInstance{Namespace: &namespace}).Error, "Namespace")
+	})
+
+	t.Run("an empty image namespace cannot be filled", func(t *testing.T) {
+		imageNamespace := "ghcr.io/threeport"
+		refused(db.Model(&stored).Updates(&ControlPlaneInstance{
+			ImageNamespace: &imageNamespace,
+		}).Error, "ImageNamespace")
+	})
+
+	t.Run("the control plane this API serves can change its list", func(t *testing.T) {
+		self := storedControlPlaneInstance(t, db, "self", true)
+		apis := "agent"
+		require.NoError(t, db.Model(&self).Updates(&ControlPlaneInstance{Apis: &apis}).Error)
+	})
+
+	t.Run("a reconciliation patch is allowed", func(t *testing.T) {
+		reconciled := true
+		acknowledged := time.Now().UTC()
+		require.NoError(t, db.Model(&stored).Updates(&ControlPlaneInstance{
+			Reconciliation: Reconciliation{
+				Reconciled:           &reconciled,
+				CreationAcknowledged: &acknowledged,
+			},
+		}).Error)
+
+		// keep reconciliation writable after the column has a value
+		reconciled = false
+		require.NoError(t, db.Model(&stored).Updates(&ControlPlaneInstance{
+			Reconciliation: Reconciliation{Reconciled: &reconciled},
+		}).Error)
+	})
+
+	t.Run("the parent link written during create is allowed", func(t *testing.T) {
+		parent := storedControlPlaneInstance(t, db, "parent", true)
+		replacement := stored
+		replacement.ParentControlPlaneInstanceID = parent.ID
+		require.NoError(t, db.Model(&stored).Updates(&replacement).Error)
+	})
+
+	t.Run("create records the endpoint, the certs, and the parent link", func(t *testing.T) {
+		fresh := storedControlPlaneInstance(t, db, "created-child", false)
+		parent := storedControlPlaneInstance(t, db, "recorded-parent", true)
+		replacement := fresh
+		endpoint := "https://child.example"
+		cert := "cert"
+		replacement.ApiServerEndpoint = &endpoint
+		replacement.CACert = &cert
+		replacement.ClientCert = &cert
+		replacement.ClientKey = &cert
+		replacement.ParentControlPlaneInstanceID = parent.ID
+		require.NoError(t, db.Model(&fresh).Updates(&replacement).Error)
+
+		// the same certificates on a retry are unchanged
+		require.NoError(t, db.Model(&fresh).Updates(&replacement).Error)
+
+		// a column that already holds a value cannot be rewritten
+		moved := "https://child-moved.example"
+		replacement.ApiServerEndpoint = &moved
+		refused(db.Model(&fresh).Updates(&replacement).Error, "ApiServerEndpoint")
+	})
+
+	t.Run("that create record cannot also change the controller list", func(t *testing.T) {
+		fresh := storedControlPlaneInstance(t, db, "listed-child", false)
+		parent := storedControlPlaneInstance(t, db, "listed-parent", true)
+		replacement := fresh
+		endpoint := "https://listed.example"
+		apis := "agent"
+		replacement.ApiServerEndpoint = &endpoint
+		replacement.ParentControlPlaneInstanceID = parent.ID
+		replacement.Apis = &apis
+		refused(db.Model(&fresh).Updates(&replacement).Error, "Apis")
+	})
+
+	t.Run("a delete schedule is allowed", func(t *testing.T) {
+		scheduled := time.Now().UTC()
+		reconciled := false
+		require.NoError(t, db.Model(&stored).Updates(&ControlPlaneInstance{
+			Reconciliation: Reconciliation{
+				DeletionScheduled: &scheduled,
+				Reconciled:        &reconciled,
+			},
+		}).Error)
+	})
+
+	t.Run("a replace cannot claim the row serves this API", func(t *testing.T) {
+		replacement := stored
+		apis := "agent"
+		self := true
+		replacement.Apis = &apis
+		replacement.IsSelf = &self
+		refused(db.Save(&replacement).Error, "IsSelf")
+	})
+
+	t.Run("a managed row may change the image and the controller list", func(t *testing.T) {
+		// link the row, then reload so the next update sees the stored parent
+		managed := storedControlPlaneInstance(t, db, "managed", false)
+		parent := storedControlPlaneInstance(t, db, "managed-parent", true)
+		require.NoError(t, db.Model(&managed).Updates(&ControlPlaneInstance{
+			ParentControlPlaneInstanceID: parent.ID,
+		}).Error)
+		require.NoError(t, db.First(&managed, *managed.ID).Error)
+
+		apis := "agent"
+		require.NoError(t, db.Model(&managed).Updates(&ControlPlaneInstance{Apis: &apis}).Error)
+		tag := "v1.0.7"
+		require.NoError(t, db.Model(&managed).Updates(&ControlPlaneInstance{ImageTag: &tag}).Error)
+		namespace := "threeport"
+		require.NoError(t, db.Model(&managed).Updates(&ControlPlaneInstance{ImageNamespace: &namespace}).Error)
+		otherNamespace := "threeport-other"
+		refused(db.Model(&managed).Updates(&ControlPlaneInstance{Namespace: &otherNamespace}).Error, "Namespace")
+		endpoint := "https://child.example"
+		require.NoError(t, db.Model(&managed).Updates(&ControlPlaneInstance{ApiServerEndpoint: &endpoint}).Error)
+		otherEndpoint := "https://other.example"
+		refused(db.Model(&managed).Updates(&ControlPlaneInstance{ApiServerEndpoint: &otherEndpoint}).Error, "ApiServerEndpoint")
+	})
+
+	t.Run("the parent manages the row this API serves", func(t *testing.T) {
+		// the parent link is written while the row is still a root
+		owned := storedControlPlaneInstance(t, db, "owned-self", true)
+		parent := storedControlPlaneInstance(t, db, "owned-parent", true)
+		require.NoError(t, db.Model(&owned).Updates(&ControlPlaneInstance{
+			ParentControlPlaneInstanceID: parent.ID,
+		}).Error)
+		require.NoError(t, db.First(&owned, *owned.ID).Error)
+
+		apis := "agent"
+		err := db.Model(&owned).Updates(&ControlPlaneInstance{Apis: &apis}).Error
+		refused(err, "Apis")
+		assert.ErrorContains(t, err, "its parent manages")
+
+		owner := db.WithContext(lib.WithCaller(context.Background(), lib.CallerIdentity{
+			CommonName: "threeport-owner",
+		}))
+		require.NoError(t, owner.Model(&owned).Updates(&ControlPlaneInstance{Apis: &apis}).Error)
+		tag := "v1.0.7"
+		require.NoError(t, owner.Model(&owned).Updates(&ControlPlaneInstance{ImageTag: &tag}).Error)
+
+		authOff := db.WithContext(lib.WithCaller(context.Background(), lib.CallerIdentity{
+			OrganizationalUnit: auth.OUControlPlane,
+		}))
+		namespace := "threeport"
+		refused(authOff.Model(&owned).Updates(&ControlPlaneInstance{ImageNamespace: &namespace}).Error, "ImageNamespace")
+
+		alice := db.WithContext(lib.WithCaller(context.Background(), lib.CallerIdentity{
+			CommonName: "alice",
+		}))
+		other := "rest-api"
+		refused(alice.Model(&owned).Updates(&ControlPlaneInstance{Apis: &other}).Error, "Apis")
+
+		otherNamespace := "threeport-other"
+		refused(owner.Model(&owned).Updates(&ControlPlaneInstance{Namespace: &otherNamespace}).Error, "Namespace")
+
+		scheduled := time.Now().UTC()
+		reconciled := false
+		require.NoError(t, db.Model(&owned).Updates(&ControlPlaneInstance{
+			Reconciliation: Reconciliation{
+				DeletionScheduled: &scheduled,
+				Reconciled:        &reconciled,
+			},
+		}).Error)
 	})
 }

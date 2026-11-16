@@ -11,7 +11,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
+	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // deploymentWith builds the part of a deployment this command walks.
@@ -285,4 +287,46 @@ func TestTheUpgradeWaitsForTheRolloutRatherThanTheApiCall(t *testing.T) {
 			)
 		})
 	}
+}
+
+func TestPinnedComponentsWarning(t *testing.T) {
+	component := func(name, tag string) *api_v0.ControlPlaneComponent {
+		return &api_v0.ControlPlaneComponent{Name: name, ImageTag: tag}
+	}
+
+	assert.Empty(t, pinnedComponentsWarning(nil, "v0.7.1"))
+	assert.Empty(t, pinnedComponentsWarning(&api_v0.ControlPlaneInstance{}, "v0.7.1"))
+	assert.Empty(t, pinnedComponentsWarning(&api_v0.ControlPlaneInstance{
+		CustomComponentInfo: []*api_v0.ControlPlaneComponent{
+			component("rest-api", "v0.7.0"), component("agent", "v0.7.0"),
+		},
+	}, "v0.7.1"))
+
+	warning := pinnedComponentsWarning(&api_v0.ControlPlaneInstance{
+		CustomComponentInfo: []*api_v0.ControlPlaneComponent{
+			component("rest-api", "v0.7.0"), component("agent", "forked"),
+		},
+	}, "v0.7.1")
+	assert.Contains(t, warning, "agent")
+	assert.Contains(t, warning, "v0.7.1")
+	assert.NotContains(t, warning, "rest-api")
+}
+
+// The upgrade records the tag it moved everything to, and leaves the recorded
+// components as they were. A second upgrade must not report the pin the first
+// one already replaced.
+func TestPinnedComponentsWarningIgnoresPinsAnEarlierUpgradeReplaced(t *testing.T) {
+	record := []*api_v0.ControlPlaneComponent{
+		{Name: "rest-api", ImageTag: "v0.7.0"},
+		{Name: "agent", ImageTag: "forked"},
+	}
+
+	beforeUpgrade := &api_v0.ControlPlaneInstance{CustomComponentInfo: record}
+	require.NotEmpty(t, pinnedComponentsWarning(beforeUpgrade, "v0.7.1"))
+
+	afterUpgrade := &api_v0.ControlPlaneInstance{
+		CustomComponentInfo: record,
+		ImageTag:            util.Ptr("v0.7.1"),
+	}
+	assert.Empty(t, pinnedComponentsWarning(afterUpgrade, "v0.7.2"))
 }

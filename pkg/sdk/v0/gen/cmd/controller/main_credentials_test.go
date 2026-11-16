@@ -10,36 +10,27 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestControllerTemplateDoesNotLogTheConnectionString guards the template that
+// TestControllerTemplateKeepsCredentialsOutOfTheURL guards the template that
 // stamps every controller's main.
 //
-// The connection string interpolates the broker user and password, and a
-// controller's container logs are readable by anyone who can read pods in the
-// control plane namespace, so logging it hands the broker credentials to them.
-// The template is the only place to check: the fix has to hold for the twelve
-// generated mains and for any module built with `threeport-sdk create`.
-//
-// The check is a count rather than a search for a log call. natsConn belongs in
-// exactly two places - the assignment that builds it and the Connect that uses
-// it - so a third use is it reaching something else, whatever that turns out to
-// be.
-func TestControllerTemplateDoesNotLogTheConnectionString(t *testing.T) {
+// A controller's container logs are readable by anyone who can read pods in
+// the control plane namespace, so the broker credentials must never be part of
+// a string a log line or an error could carry.  The template passes them in
+// the message broker config, apart from the URL, and logs only the URL.  The
+// template is the only place to check: the fix has to hold for every
+// generated main and for any module built with `threeport-sdk create`.
+func TestControllerTemplateKeepsCredentialsOutOfTheURL(t *testing.T) {
 	template, err := os.ReadFile("main.go")
 	require.NoError(t, err)
 
 	source := string(template)
 
-	require.Contains(
-		t, source, `Lit("nats://%s:%s@%s:%s")`,
-		"the connection string is still what Connect is given; this test is about where else it goes",
-	)
-	assert.Equal(
-		t, 2, strings.Count(source, `Id("natsConn")`),
-		"natsConn belongs in the assignment and the Connect call only - it carries the broker password",
-	)
+	assert.NotContains(t, source, `@%s:%s`, "a connection string interpolates the broker credentials")
+	assert.Contains(t, source, `Id("Password"): Op("*").Id("msgBrokerPassword")`, "the password is not passed in the broker config")
+	assert.Contains(t, source, `Id("CAFile"):   Op("*").Id("msgBrokerCAFile")`, "the broker's CA is not passed, so the connection is not over TLS")
 	assert.Contains(
-		t, source, `Id("natsEndpoint")`,
-		"the redacted host:port value the log calls should use is missing",
+		t, source, `Id("natsEndpoint").Op(":=").Id("brokerConfig").Dot("URL").Call()`,
+		"what the log calls use is not the credential-free URL",
 	)
 }
 
@@ -59,7 +50,7 @@ func TestGeneratedControllersDoNotLogTheConnectionString(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if strings.Contains(string(source), `"NATSConnection", natsConn`) {
+		if strings.Contains(string(source), `"NATSConnection", natsConn`) || strings.Contains(string(source), `nats://%s:%s@`) {
 			offenders = append(offenders, path)
 		}
 

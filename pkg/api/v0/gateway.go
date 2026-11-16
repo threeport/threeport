@@ -43,6 +43,10 @@ type GatewayInstance struct {
 	Instance       `mapstructure:",squash"`
 	Reconciliation `mapstructure:",squash"`
 
+	// The shared component workloads this instance records.
+	SupportServiceIngress      `mapstructure:",squash"`
+	SupportServiceCertificates `mapstructure:",squash"`
+
 	// The kubernetes runtime where the ingress layer is installed.
 	KubernetesRuntimeInstanceID *uint `validate:"required" gorm:"not null" relationship:"requires"`
 

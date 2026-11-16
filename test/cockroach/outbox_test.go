@@ -26,8 +26,8 @@ func TestOutboxMigrationBuildsTableAndIsIdempotent(t *testing.T) {
 	//nolint:staticcheck // SA1029: the key has to match what the migration reads
 	ctx := context.WithValue(context.Background(), "gormdb", db)
 
-	require.NoError(t, migrations.Up000002(ctx, nil), "the migration builds the table")
-	require.NoError(t, migrations.Up000002(ctx, nil), "a second run finds it built and changes nothing")
+	require.NoError(t, migrations.Up000008(ctx, nil), "the migration builds the table")
+	require.NoError(t, migrations.Up000008(ctx, nil), "a second run finds it built and changes nothing")
 	require.True(t, db.Migrator().HasTable(&api_v0.OutboxMessage{}))
 
 	// only published rows expire, so a pending message is never deleted
@@ -39,7 +39,7 @@ func TestOutboxMigrationBuildsTableAndIsIdempotent(t *testing.T) {
 	// the partial index the sweeper scans
 	assert.Contains(t, createStatement, "idx_outbox_pending")
 
-	require.NoError(t, migrations.Down000002(ctx, nil))
+	require.NoError(t, migrations.Down000008(ctx, nil))
 	assert.False(t, db.Migrator().HasTable(&api_v0.OutboxMessage{}))
 }
 
@@ -102,7 +102,7 @@ func TestSweepersInDifferentReplicasDoNotPublishTheSameMessage(t *testing.T) {
 
 	//nolint:staticcheck // SA1029: the key has to match what the migration reads
 	ctx := context.WithValue(context.Background(), "gormdb", db)
-	require.NoError(t, migrations.Up000002(ctx, nil))
+	require.NoError(t, migrations.Up000008(ctx, nil))
 
 	const messages = apiserver_lib.OutboxSweepBatchSize * 2
 	for i := 0; i < messages; i++ {

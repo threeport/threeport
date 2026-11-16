@@ -200,14 +200,15 @@ func (o *ObservabilityStackDefinitionConfig) Replace(
 	}
 
 	// construct updated observability stack definition object
-	updatedObservabilityStackDefinition := &api_v0.ObservabilityStackDefinition{
-		Common: api_v0.Common{
-			ID: existingObservabilityStackDefinition.ID,
-		},
-		Definition: api_v0.Definition{
-			Name: observabilityStackDefinitionValues.Name,
-		},
-	}
+	// Start from the existing object, so the fields this replace does not set
+	// are kept: the reconciler's (Reconciled and the rest of Reconciliation,
+	// Status) and the ones only the API server or a controller writes. Every
+	// field a user sets through the config is assigned below unconditionally,
+	// a nil value included, so a field left out of the config is cleared
+	// rather than kept. Do not assign the reconciler's fields here: the copy
+	// already carries them.
+	updatedObservabilityStackDefinition := util.Ptr(*existingObservabilityStackDefinition)
+	updatedObservabilityStackDefinition.Name = observabilityStackDefinitionValues.Name
 
 	// set grafana helm values if present
 	grafanaHelmValuesDocument, err := GetValuesFromDocumentOrInline(

@@ -545,6 +545,11 @@ func matchRoute(registeredPath, requestedPath string) bool {
 	registeredPathParsed := strings.Split(registeredPath, "/")
 	requestedPathParsed := strings.Split(requestedPath, "/")
 
+	// a request path shorter than the registered one cannot be under it
+	if len(requestedPathParsed) < len(registeredPathParsed) {
+		return false
+	}
+
 	elementCount := 0
 	for elementCount < len(registeredPathParsed) {
 		if registeredPathParsed[elementCount] != requestedPathParsed[elementCount] {

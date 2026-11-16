@@ -3,6 +3,7 @@ package v0
 import (
 	"database/sql"
 	"fmt"
+	"reflect"
 	"regexp"
 	"strings"
 
@@ -478,6 +479,11 @@ func processRelationshipTaggedFieldsAfterUpdate(tx *gorm.DB, obj interface{}) er
 		return err
 	}
 
+	// skip a deleting owner so a dropped requires row stays deleted
+	if deletionMarked(updatedObj) {
+		return nil
+	}
+
 	for _, updatedObjForeignKey := range relationshipTaggedForeignKeysFor(updatedObj) {
 		// FK isn't set → no AOR needed for this column
 		if updatedObjForeignKey.ObjectID == nil {
@@ -512,6 +518,28 @@ func processRelationshipTaggedFieldsAfterUpdate(tx *gorm.DB, obj interface{}) er
 		}
 	}
 	return nil
+}
+
+// deletionMarked reports a deletion-scheduled or deletion-confirmed timestamp.
+func deletionMarked(obj interface{}) bool {
+	// read a deletion timestamp on the reloaded object
+	value := reflect.ValueOf(obj)
+	for value.Kind() == reflect.Pointer {
+		if value.IsNil() {
+			return false
+		}
+		value = value.Elem()
+	}
+	if value.Kind() != reflect.Struct {
+		return false
+	}
+	for _, name := range []string{"DeletionScheduled", "DeletionConfirmed"} {
+		field := value.FieldByName(name)
+		if field.IsValid() && !field.IsZero() {
+			return true
+		}
+	}
+	return false
 }
 
 // processRelationshipTaggedFieldsBeforeDelete rejects deletion when an

@@ -212,3 +212,14 @@ func TestValidateRelationshipCycles_StableCycleReport(t *testing.T) {
 			"reported cycle must be stable across runs")
 	}
 }
+
+// TestLoadSupportServiceFieldsFromPackageDir reads the model without a local path.
+func TestLoadSupportServiceFieldsFromPackageDir(t *testing.T) {
+	// go test starts in this package, where the relative model path is absent
+	_, err := os.Stat(filepath.Join("pkg", "api", "v0", "support_service.go"))
+	require.True(t, os.IsNotExist(err))
+
+	_, fieldTypes, err := LoadSupportServiceFields()
+	require.NoError(t, err)
+	require.Contains(t, fieldTypes["SupportServiceIngress"], "IngressComponentInstanceID")
+}

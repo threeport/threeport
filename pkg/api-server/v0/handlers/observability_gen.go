@@ -248,12 +248,16 @@ func (h Handler) GetLoggingDefinitions(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/logging-definitions/{id} [GET]
 func (h Handler) GetLoggingDefinition(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.LoggingDefinition).GetFullyQualifiedType()
-	loggingDefinitionID := c.Param("id")
+	loggingDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var loggingDefinition api_v0.LoggingDefinition
 	if result := h.RequestDB(c).
 		First(&loggingDefinition, loggingDefinitionID); result.Error != nil {
@@ -297,7 +301,10 @@ func (h Handler) GetLoggingDefinition(c echo.Context) error {
 func (h Handler) UpdateLoggingDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeLoggingDefinition
 	fullyQualifiedType := new(api_v0.LoggingDefinition).GetFullyQualifiedType()
-	loggingDefinitionID := c.Param("id")
+	loggingDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingLoggingDefinition api_v0.LoggingDefinition
 	if result := h.RequestDB(c).First(&existingLoggingDefinition, loggingDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -399,7 +406,10 @@ func (h Handler) UpdateLoggingDefinition(c echo.Context) error {
 func (h Handler) ReplaceLoggingDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeLoggingDefinition
 	fullyQualifiedType := new(api_v0.LoggingDefinition).GetFullyQualifiedType()
-	loggingDefinitionID := c.Param("id")
+	loggingDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingLoggingDefinition api_v0.LoggingDefinition
 	if result := h.RequestDB(c).First(&existingLoggingDefinition, loggingDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -499,13 +509,17 @@ func (h Handler) ReplaceLoggingDefinition(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/logging-definitions/{id} [DELETE]
 func (h Handler) DeleteLoggingDefinition(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.LoggingDefinition).GetFullyQualifiedType()
-	loggingDefinitionID := c.Param("id")
+	loggingDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var loggingDefinition api_v0.LoggingDefinition
 	if result := h.RequestDB(c).Preload("LoggingInstances").First(&loggingDefinition, loggingDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -847,12 +861,16 @@ func (h Handler) GetLoggingInstances(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/logging-instances/{id} [GET]
 func (h Handler) GetLoggingInstance(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.LoggingInstance).GetFullyQualifiedType()
-	loggingInstanceID := c.Param("id")
+	loggingInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var loggingInstance api_v0.LoggingInstance
 	if result := h.RequestDB(c).
 		First(&loggingInstance, loggingInstanceID); result.Error != nil {
@@ -896,7 +914,10 @@ func (h Handler) GetLoggingInstance(c echo.Context) error {
 func (h Handler) UpdateLoggingInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeLoggingInstance
 	fullyQualifiedType := new(api_v0.LoggingInstance).GetFullyQualifiedType()
-	loggingInstanceID := c.Param("id")
+	loggingInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingLoggingInstance api_v0.LoggingInstance
 	if result := h.RequestDB(c).First(&existingLoggingInstance, loggingInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -998,7 +1019,10 @@ func (h Handler) UpdateLoggingInstance(c echo.Context) error {
 func (h Handler) ReplaceLoggingInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeLoggingInstance
 	fullyQualifiedType := new(api_v0.LoggingInstance).GetFullyQualifiedType()
-	loggingInstanceID := c.Param("id")
+	loggingInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingLoggingInstance api_v0.LoggingInstance
 	if result := h.RequestDB(c).First(&existingLoggingInstance, loggingInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -1098,13 +1122,17 @@ func (h Handler) ReplaceLoggingInstance(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/logging-instances/{id} [DELETE]
 func (h Handler) DeleteLoggingInstance(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.LoggingInstance).GetFullyQualifiedType()
-	loggingInstanceID := c.Param("id")
+	loggingInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var loggingInstance api_v0.LoggingInstance
 	if result := h.RequestDB(c).First(&loggingInstance, loggingInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -1440,12 +1468,16 @@ func (h Handler) GetMetricsDefinitions(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/metrics-definitions/{id} [GET]
 func (h Handler) GetMetricsDefinition(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.MetricsDefinition).GetFullyQualifiedType()
-	metricsDefinitionID := c.Param("id")
+	metricsDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var metricsDefinition api_v0.MetricsDefinition
 	if result := h.RequestDB(c).
 		First(&metricsDefinition, metricsDefinitionID); result.Error != nil {
@@ -1489,7 +1521,10 @@ func (h Handler) GetMetricsDefinition(c echo.Context) error {
 func (h Handler) UpdateMetricsDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeMetricsDefinition
 	fullyQualifiedType := new(api_v0.MetricsDefinition).GetFullyQualifiedType()
-	metricsDefinitionID := c.Param("id")
+	metricsDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingMetricsDefinition api_v0.MetricsDefinition
 	if result := h.RequestDB(c).First(&existingMetricsDefinition, metricsDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -1591,7 +1626,10 @@ func (h Handler) UpdateMetricsDefinition(c echo.Context) error {
 func (h Handler) ReplaceMetricsDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeMetricsDefinition
 	fullyQualifiedType := new(api_v0.MetricsDefinition).GetFullyQualifiedType()
-	metricsDefinitionID := c.Param("id")
+	metricsDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingMetricsDefinition api_v0.MetricsDefinition
 	if result := h.RequestDB(c).First(&existingMetricsDefinition, metricsDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -1691,13 +1729,17 @@ func (h Handler) ReplaceMetricsDefinition(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/metrics-definitions/{id} [DELETE]
 func (h Handler) DeleteMetricsDefinition(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.MetricsDefinition).GetFullyQualifiedType()
-	metricsDefinitionID := c.Param("id")
+	metricsDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var metricsDefinition api_v0.MetricsDefinition
 	if result := h.RequestDB(c).Preload("MetricsInstances").First(&metricsDefinition, metricsDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -2039,12 +2081,16 @@ func (h Handler) GetMetricsInstances(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/metrics-instances/{id} [GET]
 func (h Handler) GetMetricsInstance(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.MetricsInstance).GetFullyQualifiedType()
-	metricsInstanceID := c.Param("id")
+	metricsInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var metricsInstance api_v0.MetricsInstance
 	if result := h.RequestDB(c).
 		First(&metricsInstance, metricsInstanceID); result.Error != nil {
@@ -2088,7 +2134,10 @@ func (h Handler) GetMetricsInstance(c echo.Context) error {
 func (h Handler) UpdateMetricsInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeMetricsInstance
 	fullyQualifiedType := new(api_v0.MetricsInstance).GetFullyQualifiedType()
-	metricsInstanceID := c.Param("id")
+	metricsInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingMetricsInstance api_v0.MetricsInstance
 	if result := h.RequestDB(c).First(&existingMetricsInstance, metricsInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -2190,7 +2239,10 @@ func (h Handler) UpdateMetricsInstance(c echo.Context) error {
 func (h Handler) ReplaceMetricsInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeMetricsInstance
 	fullyQualifiedType := new(api_v0.MetricsInstance).GetFullyQualifiedType()
-	metricsInstanceID := c.Param("id")
+	metricsInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingMetricsInstance api_v0.MetricsInstance
 	if result := h.RequestDB(c).First(&existingMetricsInstance, metricsInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -2290,13 +2342,17 @@ func (h Handler) ReplaceMetricsInstance(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/metrics-instances/{id} [DELETE]
 func (h Handler) DeleteMetricsInstance(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.MetricsInstance).GetFullyQualifiedType()
-	metricsInstanceID := c.Param("id")
+	metricsInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var metricsInstance api_v0.MetricsInstance
 	if result := h.RequestDB(c).First(&metricsInstance, metricsInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -2632,12 +2688,16 @@ func (h Handler) GetObservabilityDashboardDefinitions(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/observability-dashboard-definitions/{id} [GET]
 func (h Handler) GetObservabilityDashboardDefinition(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.ObservabilityDashboardDefinition).GetFullyQualifiedType()
-	observabilityDashboardDefinitionID := c.Param("id")
+	observabilityDashboardDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var observabilityDashboardDefinition api_v0.ObservabilityDashboardDefinition
 	if result := h.RequestDB(c).
 		First(&observabilityDashboardDefinition, observabilityDashboardDefinitionID); result.Error != nil {
@@ -2681,7 +2741,10 @@ func (h Handler) GetObservabilityDashboardDefinition(c echo.Context) error {
 func (h Handler) UpdateObservabilityDashboardDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeObservabilityDashboardDefinition
 	fullyQualifiedType := new(api_v0.ObservabilityDashboardDefinition).GetFullyQualifiedType()
-	observabilityDashboardDefinitionID := c.Param("id")
+	observabilityDashboardDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingObservabilityDashboardDefinition api_v0.ObservabilityDashboardDefinition
 	if result := h.RequestDB(c).First(&existingObservabilityDashboardDefinition, observabilityDashboardDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -2783,7 +2846,10 @@ func (h Handler) UpdateObservabilityDashboardDefinition(c echo.Context) error {
 func (h Handler) ReplaceObservabilityDashboardDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeObservabilityDashboardDefinition
 	fullyQualifiedType := new(api_v0.ObservabilityDashboardDefinition).GetFullyQualifiedType()
-	observabilityDashboardDefinitionID := c.Param("id")
+	observabilityDashboardDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingObservabilityDashboardDefinition api_v0.ObservabilityDashboardDefinition
 	if result := h.RequestDB(c).First(&existingObservabilityDashboardDefinition, observabilityDashboardDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -2883,13 +2949,17 @@ func (h Handler) ReplaceObservabilityDashboardDefinition(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/observability-dashboard-definitions/{id} [DELETE]
 func (h Handler) DeleteObservabilityDashboardDefinition(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.ObservabilityDashboardDefinition).GetFullyQualifiedType()
-	observabilityDashboardDefinitionID := c.Param("id")
+	observabilityDashboardDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var observabilityDashboardDefinition api_v0.ObservabilityDashboardDefinition
 	if result := h.RequestDB(c).Preload("ObservabilityDashboardInstances").First(&observabilityDashboardDefinition, observabilityDashboardDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -3231,12 +3301,16 @@ func (h Handler) GetObservabilityDashboardInstances(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/observability-dashboard-instances/{id} [GET]
 func (h Handler) GetObservabilityDashboardInstance(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.ObservabilityDashboardInstance).GetFullyQualifiedType()
-	observabilityDashboardInstanceID := c.Param("id")
+	observabilityDashboardInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var observabilityDashboardInstance api_v0.ObservabilityDashboardInstance
 	if result := h.RequestDB(c).
 		First(&observabilityDashboardInstance, observabilityDashboardInstanceID); result.Error != nil {
@@ -3280,7 +3354,10 @@ func (h Handler) GetObservabilityDashboardInstance(c echo.Context) error {
 func (h Handler) UpdateObservabilityDashboardInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeObservabilityDashboardInstance
 	fullyQualifiedType := new(api_v0.ObservabilityDashboardInstance).GetFullyQualifiedType()
-	observabilityDashboardInstanceID := c.Param("id")
+	observabilityDashboardInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingObservabilityDashboardInstance api_v0.ObservabilityDashboardInstance
 	if result := h.RequestDB(c).First(&existingObservabilityDashboardInstance, observabilityDashboardInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -3382,7 +3459,10 @@ func (h Handler) UpdateObservabilityDashboardInstance(c echo.Context) error {
 func (h Handler) ReplaceObservabilityDashboardInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeObservabilityDashboardInstance
 	fullyQualifiedType := new(api_v0.ObservabilityDashboardInstance).GetFullyQualifiedType()
-	observabilityDashboardInstanceID := c.Param("id")
+	observabilityDashboardInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingObservabilityDashboardInstance api_v0.ObservabilityDashboardInstance
 	if result := h.RequestDB(c).First(&existingObservabilityDashboardInstance, observabilityDashboardInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -3482,13 +3562,17 @@ func (h Handler) ReplaceObservabilityDashboardInstance(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/observability-dashboard-instances/{id} [DELETE]
 func (h Handler) DeleteObservabilityDashboardInstance(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.ObservabilityDashboardInstance).GetFullyQualifiedType()
-	observabilityDashboardInstanceID := c.Param("id")
+	observabilityDashboardInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var observabilityDashboardInstance api_v0.ObservabilityDashboardInstance
 	if result := h.RequestDB(c).First(&observabilityDashboardInstance, observabilityDashboardInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -3824,12 +3908,16 @@ func (h Handler) GetObservabilityStackDefinitions(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/observability-stack-definitions/{id} [GET]
 func (h Handler) GetObservabilityStackDefinition(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.ObservabilityStackDefinition).GetFullyQualifiedType()
-	observabilityStackDefinitionID := c.Param("id")
+	observabilityStackDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var observabilityStackDefinition api_v0.ObservabilityStackDefinition
 	if result := h.RequestDB(c).
 		First(&observabilityStackDefinition, observabilityStackDefinitionID); result.Error != nil {
@@ -3873,7 +3961,10 @@ func (h Handler) GetObservabilityStackDefinition(c echo.Context) error {
 func (h Handler) UpdateObservabilityStackDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeObservabilityStackDefinition
 	fullyQualifiedType := new(api_v0.ObservabilityStackDefinition).GetFullyQualifiedType()
-	observabilityStackDefinitionID := c.Param("id")
+	observabilityStackDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingObservabilityStackDefinition api_v0.ObservabilityStackDefinition
 	if result := h.RequestDB(c).First(&existingObservabilityStackDefinition, observabilityStackDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -3975,7 +4066,10 @@ func (h Handler) UpdateObservabilityStackDefinition(c echo.Context) error {
 func (h Handler) ReplaceObservabilityStackDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeObservabilityStackDefinition
 	fullyQualifiedType := new(api_v0.ObservabilityStackDefinition).GetFullyQualifiedType()
-	observabilityStackDefinitionID := c.Param("id")
+	observabilityStackDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingObservabilityStackDefinition api_v0.ObservabilityStackDefinition
 	if result := h.RequestDB(c).First(&existingObservabilityStackDefinition, observabilityStackDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -4075,13 +4169,17 @@ func (h Handler) ReplaceObservabilityStackDefinition(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/observability-stack-definitions/{id} [DELETE]
 func (h Handler) DeleteObservabilityStackDefinition(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.ObservabilityStackDefinition).GetFullyQualifiedType()
-	observabilityStackDefinitionID := c.Param("id")
+	observabilityStackDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var observabilityStackDefinition api_v0.ObservabilityStackDefinition
 	if result := h.RequestDB(c).Preload("ObservabilityStackInstances").First(&observabilityStackDefinition, observabilityStackDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -4423,12 +4521,16 @@ func (h Handler) GetObservabilityStackInstances(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/observability-stack-instances/{id} [GET]
 func (h Handler) GetObservabilityStackInstance(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.ObservabilityStackInstance).GetFullyQualifiedType()
-	observabilityStackInstanceID := c.Param("id")
+	observabilityStackInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var observabilityStackInstance api_v0.ObservabilityStackInstance
 	if result := h.RequestDB(c).
 		First(&observabilityStackInstance, observabilityStackInstanceID); result.Error != nil {
@@ -4472,7 +4574,10 @@ func (h Handler) GetObservabilityStackInstance(c echo.Context) error {
 func (h Handler) UpdateObservabilityStackInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeObservabilityStackInstance
 	fullyQualifiedType := new(api_v0.ObservabilityStackInstance).GetFullyQualifiedType()
-	observabilityStackInstanceID := c.Param("id")
+	observabilityStackInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingObservabilityStackInstance api_v0.ObservabilityStackInstance
 	if result := h.RequestDB(c).First(&existingObservabilityStackInstance, observabilityStackInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -4574,7 +4679,10 @@ func (h Handler) UpdateObservabilityStackInstance(c echo.Context) error {
 func (h Handler) ReplaceObservabilityStackInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeObservabilityStackInstance
 	fullyQualifiedType := new(api_v0.ObservabilityStackInstance).GetFullyQualifiedType()
-	observabilityStackInstanceID := c.Param("id")
+	observabilityStackInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingObservabilityStackInstance api_v0.ObservabilityStackInstance
 	if result := h.RequestDB(c).First(&existingObservabilityStackInstance, observabilityStackInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -4674,13 +4782,17 @@ func (h Handler) ReplaceObservabilityStackInstance(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/observability-stack-instances/{id} [DELETE]
 func (h Handler) DeleteObservabilityStackInstance(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.ObservabilityStackInstance).GetFullyQualifiedType()
-	observabilityStackInstanceID := c.Param("id")
+	observabilityStackInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var observabilityStackInstance api_v0.ObservabilityStackInstance
 	if result := h.RequestDB(c).First(&observabilityStackInstance, observabilityStackInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {

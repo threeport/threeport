@@ -65,7 +65,6 @@ Following is an index of package documentation:
 * [`internal/aws`](../../internal/aws/README.md)
 * [`internal/cli`](../../internal/cli/README.md)
 * [`internal/codegen`](../../internal/codegen/README.md)
-* [`internal/gateway`](../../internal/gateway/README.md)
 * [`internal/kube`](../../internal/kube/README.md)
 * [`internal/kubernetesruntime`](../../internal/kubernetesruntime/README.md)
 * [`internal/log`](../../internal/log/README.md)

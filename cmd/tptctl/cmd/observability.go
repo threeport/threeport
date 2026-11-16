@@ -55,7 +55,7 @@ var GetObservabilityStacksCmd = &cobra.Command{
 		case "v0":
 			// load observability stack values
 			observabilityStackConfig := config_v0.ObservabilityStackConfig{}
-			if observabilityConfigPath != "" {
+			if observabilityConfigPath != "" || observabilityStdin {
 				configContent, err := cli.ReadConfigContent(observabilityConfigPath, observabilityStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -316,7 +316,7 @@ var GetObservabilityStackDefinitionsCmd = &cobra.Command{
 		case "v0":
 			// load values
 			observabilityStackDefinitionConfig := config_v0.ObservabilityStackDefinitionConfig{}
-			if observabilityConfigPath != "" {
+			if observabilityConfigPath != "" || observabilityStdin {
 				configContent, err := cli.ReadConfigContent(observabilityConfigPath, observabilityStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -562,7 +562,7 @@ var DeleteObservabilityStackDefinitionCmd = &cobra.Command{
 		switch observabilityVersion {
 		case "v0":
 			var observabilityStackDefinitionConfig config_v0.ObservabilityStackDefinitionConfig
-			if observabilityConfigPath != "" {
+			if observabilityConfigPath != "" || observabilityStdin {
 				// load observability stack definition config
 				configContent, err := cli.ReadConfigContent(observabilityConfigPath, observabilityStdin)
 				if err != nil {
@@ -648,7 +648,7 @@ var GetObservabilityStackInstancesCmd = &cobra.Command{
 		case "v0":
 			// load values
 			observabilityStackInstanceConfig := config_v0.ObservabilityStackInstanceConfig{}
-			if observabilityConfigPath != "" {
+			if observabilityConfigPath != "" || observabilityStdin {
 				configContent, err := cli.ReadConfigContent(observabilityConfigPath, observabilityStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -894,7 +894,7 @@ var DeleteObservabilityStackInstanceCmd = &cobra.Command{
 		switch observabilityVersion {
 		case "v0":
 			var observabilityStackInstanceConfig config_v0.ObservabilityStackInstanceConfig
-			if observabilityConfigPath != "" {
+			if observabilityConfigPath != "" || observabilityStdin {
 				// load observability stack instance config
 				configContent, err := cli.ReadConfigContent(observabilityConfigPath, observabilityStdin)
 				if err != nil {

@@ -14,11 +14,11 @@ import (
 // the base manifests an overlay is rendered against.
 //
 // The resource definitions are the base, not the definition's YAMLDocument.
-// Editing a YAMLDocument does not regenerate them, so the two can disagree, and
-// an overlay checked against one while rendered against the other is checked
-// against manifests nothing deploys - which rejects overlays that work and
-// accepts overlays that do not. Both callers go through here so they cannot
-// drift apart.
+// An edited YAMLDocument reaches them only once the definition's update has
+// been reconciled, so until then the two can disagree, and an overlay checked
+// against one while rendered against the other is checked against manifests
+// nothing deploys - which rejects overlays that work and accepts overlays that
+// do not. Every caller goes through here so they cannot drift apart.
 func KustomizeBase(resourceDefinitions []v0.KubernetesWorkloadResourceDefinition) string {
 	var baseDocs []string
 	for _, resourceDefinition := range resourceDefinitions {

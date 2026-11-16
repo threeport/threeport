@@ -55,7 +55,7 @@ var GetKubernetesRuntimesCmd = &cobra.Command{
 		case "v0":
 			// load kubernetes runtime values
 			kubernetesRuntimeConfig := config_v0.KubernetesRuntimeConfig{}
-			if kubernetesRuntimeConfigPath != "" {
+			if kubernetesRuntimeConfigPath != "" || kubernetesRuntimeStdin {
 				configContent, err := cli.ReadConfigContent(kubernetesRuntimeConfigPath, kubernetesRuntimeStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -314,7 +314,7 @@ var GetKubernetesRuntimeDefinitionsCmd = &cobra.Command{
 		case "v0":
 			// load values
 			kubernetesRuntimeDefinitionConfig := config_v0.KubernetesRuntimeDefinitionConfig{}
-			if kubernetesRuntimeConfigPath != "" {
+			if kubernetesRuntimeConfigPath != "" || kubernetesRuntimeStdin {
 				configContent, err := cli.ReadConfigContent(kubernetesRuntimeConfigPath, kubernetesRuntimeStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -558,7 +558,7 @@ var DeleteKubernetesRuntimeDefinitionCmd = &cobra.Command{
 		switch kubernetesRuntimeVersion {
 		case "v0":
 			var kubernetesRuntimeDefinitionConfig config_v0.KubernetesRuntimeDefinitionConfig
-			if kubernetesRuntimeConfigPath != "" {
+			if kubernetesRuntimeConfigPath != "" || kubernetesRuntimeStdin {
 				// load kubernetes runtime definition config
 				configContent, err := cli.ReadConfigContent(kubernetesRuntimeConfigPath, kubernetesRuntimeStdin)
 				if err != nil {
@@ -643,7 +643,7 @@ var GetKubernetesRuntimeInstancesCmd = &cobra.Command{
 		case "v0":
 			// load values
 			kubernetesRuntimeInstanceConfig := config_v0.KubernetesRuntimeInstanceConfig{}
-			if kubernetesRuntimeConfigPath != "" {
+			if kubernetesRuntimeConfigPath != "" || kubernetesRuntimeStdin {
 				configContent, err := cli.ReadConfigContent(kubernetesRuntimeConfigPath, kubernetesRuntimeStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -887,7 +887,7 @@ var DeleteKubernetesRuntimeInstanceCmd = &cobra.Command{
 		switch kubernetesRuntimeVersion {
 		case "v0":
 			var kubernetesRuntimeInstanceConfig config_v0.KubernetesRuntimeInstanceConfig
-			if kubernetesRuntimeConfigPath != "" {
+			if kubernetesRuntimeConfigPath != "" || kubernetesRuntimeStdin {
 				// load kubernetes runtime instance config
 				configContent, err := cli.ReadConfigContent(kubernetesRuntimeConfigPath, kubernetesRuntimeStdin)
 				if err != nil {

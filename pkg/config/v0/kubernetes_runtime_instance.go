@@ -30,6 +30,7 @@ type KubernetesRuntimeInstanceValues struct {
 	DefaultRuntime              *bool
 	Location                    *string
 	ThreeportAgentImage         *string
+	NetworkCidr                 *string
 	KubernetesRuntimeDefinition *KubernetesRuntimeDefinitionValues
 	Age                         *string
 }
@@ -84,6 +85,7 @@ func (k *KubernetesRuntimeInstanceConfig) Get(
 				DefaultRuntime:              kubernetesRuntimeInstance.DefaultRuntime,
 				Location:                    kubernetesRuntimeInstance.Location,
 				ThreeportAgentImage:         kubernetesRuntimeInstance.ThreeportAgentImage,
+				NetworkCidr:                 kubernetesRuntimeInstance.NetworkCidr,
 				KubernetesRuntimeDefinition: kubernetesRuntimeDefinition,
 				Age:                         util.Ptr(util.GetAgeFormatted(kubernetesRuntimeInstance.CreatedAt)),
 			},
@@ -121,6 +123,7 @@ func (k *KubernetesRuntimeInstanceConfig) Create(
 		DefaultRuntime:                kubernetesRuntimeInstanceValues.DefaultRuntime,
 		Location:                      kubernetesRuntimeInstanceValues.Location,
 		ThreeportAgentImage:           kubernetesRuntimeInstanceValues.ThreeportAgentImage,
+		NetworkCidr:                   kubernetesRuntimeInstanceValues.NetworkCidr,
 	}
 
 	// set control plane host if provided
@@ -146,6 +149,7 @@ func (k *KubernetesRuntimeInstanceConfig) Create(
 			DefaultRuntime:              createdKubernetesRuntimeInstance.DefaultRuntime,
 			Location:                    createdKubernetesRuntimeInstance.Location,
 			ThreeportAgentImage:         createdKubernetesRuntimeInstance.ThreeportAgentImage,
+			NetworkCidr:                 createdKubernetesRuntimeInstance.NetworkCidr,
 			ThreeportControlPlaneHost:   createdKubernetesRuntimeInstance.ThreeportControlPlaneHost,
 			KubernetesRuntimeDefinition: kubernetesRuntimeInstanceValues.KubernetesRuntimeDefinition,
 		},
@@ -187,22 +191,34 @@ func (k *KubernetesRuntimeInstanceConfig) Replace(
 	}
 
 	// construct updated kubernetes runtime instance object
-	updatedKubernetesRuntimeInstance := &api_v0.KubernetesRuntimeInstance{
-		Common: api_v0.Common{
-			ID: existingKubernetesRuntimeInstance.ID,
-		},
-		Instance: api_v0.Instance{
-			Name: kubernetesRuntimeInstanceValues.Name,
-		},
-		KubernetesRuntimeDefinitionID: kubernetesRuntimeDefinition.ID,
-		DefaultRuntime:                kubernetesRuntimeInstanceValues.DefaultRuntime,
-		Location:                      kubernetesRuntimeInstanceValues.Location,
-		ThreeportAgentImage:           kubernetesRuntimeInstanceValues.ThreeportAgentImage,
-	}
+	// Start from the existing object, so the fields this replace does not set
+	// are kept: the reconciler's (Reconciled and the rest of Reconciliation,
+	// Status) and the ones only the API server or a controller writes. Every
+	// field a user sets through the config is assigned below unconditionally,
+	// a nil value included, so a field left out of the config is cleared
+	// rather than kept. Do not assign the reconciler's fields here: the copy
+	// already carries them.
+	updatedKubernetesRuntimeInstance := util.Ptr(*existingKubernetesRuntimeInstance)
+	updatedKubernetesRuntimeInstance.Name = kubernetesRuntimeInstanceValues.Name
+	updatedKubernetesRuntimeInstance.KubernetesRuntimeDefinitionID = kubernetesRuntimeDefinition.ID
+	updatedKubernetesRuntimeInstance.DefaultRuntime = kubernetesRuntimeInstanceValues.DefaultRuntime
+	updatedKubernetesRuntimeInstance.Location = kubernetesRuntimeInstanceValues.Location
+	updatedKubernetesRuntimeInstance.ThreeportAgentImage = kubernetesRuntimeInstanceValues.ThreeportAgentImage
 
-	// set control plane host if provided
+	// Whether the runtime hosts the control plane is the exception: the
+	// control plane's installer records it, and the runtime controller relies
+	// on it to leave the host's access alone. A config that does not mention
+	// it is not moving the control plane, so the recorded value is kept.
 	if kubernetesRuntimeInstanceValues.ThreeportControlPlaneHost != nil {
 		updatedKubernetesRuntimeInstance.ThreeportControlPlaneHost = kubernetesRuntimeInstanceValues.ThreeportControlPlaneHost
+	}
+
+	// So is the network range, which is set once, by a config or by the
+	// control plane when it provisions the cluster: a config that does not
+	// mention it keeps the recorded one rather than clearing it, which the API
+	// refuses.
+	if kubernetesRuntimeInstanceValues.NetworkCidr != nil {
+		updatedKubernetesRuntimeInstance.NetworkCidr = kubernetesRuntimeInstanceValues.NetworkCidr
 	}
 
 	// replace kubernetes runtime instance
@@ -223,6 +239,7 @@ func (k *KubernetesRuntimeInstanceConfig) Replace(
 			DefaultRuntime:            replacedKubernetesRuntimeInstance.DefaultRuntime,
 			Location:                  replacedKubernetesRuntimeInstance.Location,
 			ThreeportAgentImage:       replacedKubernetesRuntimeInstance.ThreeportAgentImage,
+			NetworkCidr:               replacedKubernetesRuntimeInstance.NetworkCidr,
 			ThreeportControlPlaneHost: replacedKubernetesRuntimeInstance.ThreeportControlPlaneHost,
 		},
 	}
@@ -258,12 +275,12 @@ func (k *KubernetesRuntimeInstanceConfig) Delete(
 	}
 
 	// wait for kubernetes runtime instance to be deleted
-	util.Retry(60, 1, func() error {
-		if _, err := client_v0.GetKubernetesRuntimeInstanceByName(apiClient, apiEndpoint, *kubernetesRuntimeInstanceValues.Name); err == nil {
-			return errors.New("kubernetes runtime instance not deleted")
-		}
-		return nil
-	})
+	if err := pollInstanceDeleted("kubernetes runtime instance", *kubernetesRuntimeInstanceValues.Name, 60, 1, func() error {
+		_, err := client_v0.GetKubernetesRuntimeInstanceByName(apiClient, apiEndpoint, *kubernetesRuntimeInstanceValues.Name)
+		return err
+	}); err != nil {
+		return nil, err
+	}
 
 	// construct deleted kubernetes runtime instance config
 	deletedKubernetesRuntimeInstanceConfig := &KubernetesRuntimeInstanceConfig{
@@ -272,6 +289,7 @@ func (k *KubernetesRuntimeInstanceConfig) Delete(
 			DefaultRuntime:            deletedKubernetesRuntimeInstance.DefaultRuntime,
 			Location:                  deletedKubernetesRuntimeInstance.Location,
 			ThreeportAgentImage:       deletedKubernetesRuntimeInstance.ThreeportAgentImage,
+			NetworkCidr:               deletedKubernetesRuntimeInstance.NetworkCidr,
 			ThreeportControlPlaneHost: deletedKubernetesRuntimeInstance.ThreeportControlPlaneHost,
 		},
 	}

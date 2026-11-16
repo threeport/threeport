@@ -30,6 +30,8 @@ type AwsEksKubernetesRuntimeDefinitionValues struct {
 	DefaultNodeGroupInitialSize  *int
 	DefaultNodeGroupMinimumSize  *int
 	DefaultNodeGroupMaximumSize  *int
+	KubernetesVersion            *string
+	NodeGroupPerZone             *bool
 	Age                          *string
 }
 
@@ -71,6 +73,8 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Get(
 				DefaultNodeGroupInitialSize:  awsEksKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize,
 				DefaultNodeGroupMinimumSize:  awsEksKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
 				DefaultNodeGroupMaximumSize:  awsEksKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
+				KubernetesVersion:            awsEksKubernetesRuntimeDefinition.KubernetesVersion,
+				NodeGroupPerZone:             awsEksKubernetesRuntimeDefinition.NodeGroupPerZone,
 				Age:                          util.Ptr(util.GetAgeFormatted(awsEksKubernetesRuntimeDefinition.CreatedAt)),
 			},
 		}
@@ -101,7 +105,8 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Create(
 		Reconciliation: api_v0.Reconciliation{
 			Reconciled: util.Ptr(true),
 		},
-		InfraProvider: &infraProvider,
+		InfraProvider:     &infraProvider,
+		KubernetesVersion: awsEksKubernetesRuntimeDefinitionValues.KubernetesVersion,
 	}
 
 	// create kubernetes runtime definition
@@ -120,6 +125,8 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Create(
 		DefaultNodeGroupInitialSize:   awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupInitialSize,
 		DefaultNodeGroupMinimumSize:   awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupMinimumSize,
 		DefaultNodeGroupMaximumSize:   awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupMaximumSize,
+		KubernetesVersion:             util.Ptr(api_v0.KubernetesVersionOrDefault(awsEksKubernetesRuntimeDefinitionValues.KubernetesVersion)),
+		NodeGroupPerZone:              awsEksKubernetesRuntimeDefinitionValues.NodeGroupPerZone,
 		KubernetesRuntimeDefinitionID: createdKubernetesRuntimeDefinition.ID,
 	}
 
@@ -143,6 +150,8 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Create(
 			DefaultNodeGroupInitialSize:  createdAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize,
 			DefaultNodeGroupMinimumSize:  createdAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
 			DefaultNodeGroupMaximumSize:  createdAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
+			KubernetesVersion:            createdAwsEksKubernetesRuntimeDefinition.KubernetesVersion,
+			NodeGroupPerZone:             createdAwsEksKubernetesRuntimeDefinition.NodeGroupPerZone,
 		},
 	}
 
@@ -176,19 +185,29 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Replace(
 	}
 
 	// construct updated aws eks kubernetes runtime definition object
-	updatedAwsEksKubernetesRuntimeDefinition := &api_v0.AwsEksKubernetesRuntimeDefinition{
-		Common: api_v0.Common{
-			ID: existingAwsEksKubernetesRuntimeDefinition.ID,
-		},
-		Definition: api_v0.Definition{
-			Name: awsEksKubernetesRuntimeDefinitionValues.Name,
-		},
-		ZoneCount:                     awsEksKubernetesRuntimeDefinitionValues.ZoneCount,
-		DefaultNodeGroupInstanceType:  awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupInstanceType,
-		DefaultNodeGroupInitialSize:   awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupInitialSize,
-		DefaultNodeGroupMinimumSize:   awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupMinimumSize,
-		DefaultNodeGroupMaximumSize:   awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupMaximumSize,
-		KubernetesRuntimeDefinitionID: existingAwsEksKubernetesRuntimeDefinition.KubernetesRuntimeDefinitionID,
+	// Start from the existing object, so the fields this replace does not set
+	// are kept: the reconciler's (Reconciled and the rest of Reconciliation,
+	// Status) and the ones only the API server or a controller writes. Every
+	// field a user sets through the config is assigned below unconditionally,
+	// a nil value included, so a field left out of the config is cleared
+	// rather than kept. Do not assign the reconciler's fields here: the copy
+	// already carries them.
+	updatedAwsEksKubernetesRuntimeDefinition := util.Ptr(*existingAwsEksKubernetesRuntimeDefinition)
+	updatedAwsEksKubernetesRuntimeDefinition.Name = awsEksKubernetesRuntimeDefinitionValues.Name
+	updatedAwsEksKubernetesRuntimeDefinition.ZoneCount = awsEksKubernetesRuntimeDefinitionValues.ZoneCount
+	updatedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType = awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupInstanceType
+	updatedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize = awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupInitialSize
+	updatedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize = awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupMinimumSize
+	updatedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize = awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupMaximumSize
+	// a new version upgrades the clusters, and a config that leaves it out
+	// keeps the one recorded
+	if awsEksKubernetesRuntimeDefinitionValues.KubernetesVersion != nil {
+		updatedAwsEksKubernetesRuntimeDefinition.KubernetesVersion = awsEksKubernetesRuntimeDefinitionValues.KubernetesVersion
+	}
+	// a node group per zone is set on create and can't change, so a config
+	// that leaves it out keeps it
+	if awsEksKubernetesRuntimeDefinitionValues.NodeGroupPerZone != nil {
+		updatedAwsEksKubernetesRuntimeDefinition.NodeGroupPerZone = awsEksKubernetesRuntimeDefinitionValues.NodeGroupPerZone
 	}
 
 	// replace aws eks kubernetes runtime definition
@@ -211,6 +230,8 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Replace(
 			DefaultNodeGroupInitialSize:  replacedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize,
 			DefaultNodeGroupMinimumSize:  replacedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
 			DefaultNodeGroupMaximumSize:  replacedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
+			KubernetesVersion:            replacedAwsEksKubernetesRuntimeDefinition.KubernetesVersion,
+			NodeGroupPerZone:             replacedAwsEksKubernetesRuntimeDefinition.NodeGroupPerZone,
 		},
 	}
 
@@ -263,6 +284,8 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Delete(
 			DefaultNodeGroupInitialSize:  deletedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize,
 			DefaultNodeGroupMinimumSize:  deletedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
 			DefaultNodeGroupMaximumSize:  deletedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
+			KubernetesVersion:            deletedAwsEksKubernetesRuntimeDefinition.KubernetesVersion,
+			NodeGroupPerZone:             deletedAwsEksKubernetesRuntimeDefinition.NodeGroupPerZone,
 		},
 	}
 
@@ -302,6 +325,14 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Validate() error {
 	// ensure node group maximum size is set
 	if awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupMaximumSize == nil {
 		multiError.AppendError(errors.New("missing required field in config: DefaultNodeGroupMaximumSize"))
+	}
+
+	// validate the Kubernetes version before the API is asked
+	if err := api_v0.ValidateKubernetesVersion(
+		api_v0.KubernetesRuntimeInfraProviderEKS,
+		awsEksKubernetesRuntimeDefinitionValues.KubernetesVersion,
+	); err != nil {
+		multiError.AppendError(err)
 	}
 
 	return multiError.Error()

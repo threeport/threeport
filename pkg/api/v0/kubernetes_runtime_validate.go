@@ -5,11 +5,12 @@ package v0
 import (
 	"fmt"
 
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
-	util "github.com/threeport/threeport/pkg/util/v0"
 	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 	mapping "github.com/threeport/threeport/pkg/mapping/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // KubernetesRuntimeInfraProvider indicates which infrastructure provider is being
@@ -55,7 +56,11 @@ func (k *KubernetesRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
 		)
 	}
 
-	return nil
+	if err := validateKubernetesApiAccess(*k.InfraProvider, k.PrivateApi, k.AllowedCidrs); err != nil {
+		return err
+	}
+
+	return validateKubernetesVersionCreate(*k.InfraProvider, k.KubernetesVersion)
 }
 
 // beforeUpdate validates that no immutable fields are being changed
@@ -66,12 +71,15 @@ func (k *KubernetesRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
 // per-field check is:
 //   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
 //     and PUT, handles the DB load internally
+//
 // Lower-level helpers, useful when IsFieldChanged doesn't fit:
 //   - lib.IncomingValues(tx): values being written
 //   - lib.IsFullReplace(tx): true on PUT (Save shape)
 //   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
+//
 // Import:
-//   lib "github.com/threeport/threeport/pkg/api/lib/v0"
+//
+//	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (k *KubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
 	infraChanged, err := lib.IsFieldChanged(tx, "InfraProvider")
 	if err != nil {
@@ -91,7 +99,23 @@ func (k *KubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
 			"kubernetes runtime definition high availability cannot be changed after creation",
 		)
 	}
-	return nil
+	if err := validateKubernetesRuntimeVersionUpdate(tx); err != nil {
+		return err
+	}
+
+	// InfraProvider is unchanged once past the check above, so the receiver
+	// holds it under both update shapes
+	return validateKubernetesApiAccessUpdate(
+		tx,
+		*k.InfraProvider,
+		func(value any) (*bool, *datatypes.JSON, bool) {
+			object, ok := value.(*KubernetesRuntimeDefinition)
+			if !ok {
+				return nil, nil, false
+			}
+			return object.PrivateApi, object.AllowedCidrs, true
+		},
+	)
 }
 
 // beforeDelete validates the KubernetesRuntimeDefinition before delete.
@@ -112,7 +136,26 @@ func (k *KubernetesRuntimeInstance) beforeCreate(tx *gorm.DB) error {
 		)
 	}
 
-	return nil
+	// reject a component slot supplied on create
+	// Reconciliation writes the slot after this object exists.
+	for _, slot := range []*uint{
+		k.IngressComponentInstanceID,
+		k.CertificatesComponentInstanceID,
+		k.SecretsComponentInstanceID,
+		k.DatabaseComponentInstanceID,
+	} {
+		if slot != nil {
+			return util.NewBadRequestError(
+				"kubernetes runtime instance component slots are set when the runtime is reconciled",
+			)
+		}
+	}
+
+	if _, err := ParseCidrs("EgressCidrs", k.EgressCidrs); err != nil {
+		return util.NewBadRequestError(err.Error())
+	}
+
+	return validateRuntimeNetworkCidr(tx, k.NetworkCidr, nil)
 }
 
 // beforeUpdate validates that no immutable fields are being changed
@@ -123,12 +166,15 @@ func (k *KubernetesRuntimeInstance) beforeCreate(tx *gorm.DB) error {
 // per-field check is:
 //   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
 //     and PUT, handles the DB load internally
+//
 // Lower-level helpers, useful when IsFieldChanged doesn't fit:
 //   - lib.IncomingValues(tx): values being written
 //   - lib.IsFullReplace(tx): true on PUT (Save shape)
 //   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
+//
 // Import:
-//   lib "github.com/threeport/threeport/pkg/api/lib/v0"
+//
+//	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (k *KubernetesRuntimeInstance) beforeUpdate(tx *gorm.DB) error {
 	locationChanged, err := lib.IsFieldChanged(tx, "Location")
 	if err != nil {
@@ -141,7 +187,39 @@ func (k *KubernetesRuntimeInstance) beforeUpdate(tx *gorm.DB) error {
 			"kubernetes runtime instances cannot be moved - location is immutable",
 		)
 	}
-	return nil
+
+	if err := validateCidrsUpdate(tx, "EgressCidrs", func(values any) (*datatypes.JSON, bool) {
+		incoming, ok := values.(*KubernetesRuntimeInstance)
+		if !ok {
+			return nil, false
+		}
+		return incoming.EgressCidrs, true
+	}); err != nil {
+		return err
+	}
+
+	if err := validateRuntimeNetworkCidrUpdate(tx, k); err != nil {
+		return err
+	}
+
+	// claim or clear a shared controller slot in this same transaction
+	return lib.ApplySupportServiceSlots(
+		tx,
+		*k.ID,
+		&KubernetesRuntimeInstance{},
+		[]string{
+			"IngressComponentInstanceID",
+			"CertificatesComponentInstanceID",
+			"SecretsComponentInstanceID",
+			"DatabaseComponentInstanceID",
+		},
+		KubernetesRuntimeInstance{}.TableName(),
+		KubernetesWorkloadInstance{}.TableName(),
+		AttachedObjectReference{}.TableName(),
+		(&KubernetesWorkloadInstance{}).GetFullyQualifiedType(),
+		string(RelationshipRequires),
+		ErrMsgSupportServiceSlotHeld,
+	)
 }
 
 // beforeDelete validates the KubernetesRuntimeInstance before delete.
@@ -177,4 +255,36 @@ func (k *KubernetesRuntimeInstance) afterUpdate(tx *gorm.DB) error {
 // afterDelete runs after the KubernetesRuntimeInstance is deleted.
 func (k *KubernetesRuntimeInstance) afterDelete(tx *gorm.DB) error {
 	return nil
+}
+
+// validateRuntimeNetworkCidrUpdate checks an update that changes NetworkCidr.
+// A range is set once, when the runtime is created or when the control plane
+// allocates one: a cluster's network can't be moved to another range, so a
+// change would record a range the cluster doesn't have.
+func validateRuntimeNetworkCidrUpdate(tx *gorm.DB, k *KubernetesRuntimeInstance) error {
+	changed, err := lib.IsFieldChanged(tx, "NetworkCidr")
+	if err != nil {
+		return err
+	}
+	if !changed {
+		return nil
+	}
+
+	// the row is read back and locked inside the write: a patch's receiver
+	// was loaded before the transaction began, and another update may have
+	// set the range since
+	stored, err := lib.LockObjectInDB(tx)
+	if err != nil {
+		return err
+	}
+	storedInstance, storedOk := stored.(*KubernetesRuntimeInstance)
+	incoming, incomingOk := lib.IncomingValues(tx).(*KubernetesRuntimeInstance)
+	if !storedOk || !incomingOk {
+		return fmt.Errorf("cannot validate NetworkCidr: update carries %T", lib.IncomingValues(tx))
+	}
+	if storedInstance.NetworkCidr != nil && *storedInstance.NetworkCidr != "" {
+		return util.NewBadRequestError(ErrMsgNetworkCidrImmutable)
+	}
+
+	return validateRuntimeNetworkCidr(tx, incoming.NetworkCidr, k.ID)
 }

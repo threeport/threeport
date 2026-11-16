@@ -1,0 +1,14 @@
+apiVersion: application.addons.nukleros.io/v1alpha1
+kind: DatabaseComponent
+metadata:
+  name: databasecomponent-sample
+spec:
+  #collection:
+    #name: "supportservices-sample"
+    #namespace: ""
+  namespace: "nukleros-database-system"
+  provider: "cloudnative-pg"
+  cloudNativePg:
+    image: "ghcr.io/cloudnative-pg/cloudnative-pg"
+    replicas: 2
+    version: "1.30.1"

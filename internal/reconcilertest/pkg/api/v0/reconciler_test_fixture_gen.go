@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	lib "github.com/threeport/threeport/pkg/api/lib/v0"
+	api "github.com/threeport/threeport/pkg/api/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	"time"
 )
@@ -83,6 +84,36 @@ func (rti *ReconcilerTestInstance) GetFullyQualifiedType() string {
 // if scheduled for deletion or nil if not scheduled for deletion.
 func (rti *ReconcilerTestInstance) ScheduledForDeletion() *time.Time {
 	return rti.DeletionScheduled
+}
+
+// RelationshipTaggedForeignKeys returns the relationship-tagged foreign keys on ReconcilerTestInstance.
+func (r *ReconcilerTestInstance) RelationshipTaggedForeignKeys() []api.RelationshipTaggedForeignKey {
+	return []api.RelationshipTaggedForeignKey{{
+		FieldName:    "CertificatesComponentInstanceID",
+		ObjectID:     r.CertificatesComponentInstanceID,
+		ObjectType:   new(api.KubernetesWorkloadInstance).GetFullyQualifiedType(),
+		Relationship: api.RelationshipRequires,
+	}, {
+		FieldName:    "DatabaseComponentInstanceID",
+		ObjectID:     r.DatabaseComponentInstanceID,
+		ObjectType:   new(api.KubernetesWorkloadInstance).GetFullyQualifiedType(),
+		Relationship: api.RelationshipRequires,
+	}, {
+		FieldName:    "IngressComponentInstanceID",
+		ObjectID:     r.IngressComponentInstanceID,
+		ObjectType:   new(api.KubernetesWorkloadInstance).GetFullyQualifiedType(),
+		Relationship: api.RelationshipRequires,
+	}, {
+		FieldName:    "KubernetesRuntimeInstanceID",
+		ObjectID:     r.KubernetesRuntimeInstanceID,
+		ObjectType:   new(api.KubernetesRuntimeInstance).GetFullyQualifiedType(),
+		Relationship: api.RelationshipRequires,
+	}, {
+		FieldName:    "SecretsComponentInstanceID",
+		ObjectID:     r.SecretsComponentInstanceID,
+		ObjectType:   new(api.KubernetesWorkloadInstance).GetFullyQualifiedType(),
+		Relationship: api.RelationshipRequires,
+	}}
 }
 
 // NotificationPayload returns the notification payload that is delivered to the

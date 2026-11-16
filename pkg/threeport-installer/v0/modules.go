@@ -2,7 +2,6 @@ package v0
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -10,7 +9,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 
 	client "github.com/threeport/threeport/pkg/client/v0"
@@ -98,72 +96,73 @@ func (cpi *ControlPlaneInstaller) DiscoverModuleDeployments(
 	return deployments, nil
 }
 
-// DiscoverModuleNamespaces returns the namespace of every registered,
+// DiscoverModuleApiServers returns the API server of every registered,
 // non-core module, independent of whether it has any controllers.
 //
 // DiscoverModuleDeployments finds namespaces through ModuleController rows,
 // and the SDK supports a module with no reconcilable objects at all - one
 // that registers no ModuleController. Its namespace would never surface
-// through that path, and its API server would be left unlabelled and cut off
-// from its own database the moment the network policy applies.
+// through that path, and its API server would be left without a database
+// network policy and cut off from its own database.
 //
 // Every module registers exactly one ModuleApi, controllers or not, and the
 // installer always writes its Endpoint as <service>.<namespace>.svc.cluster.local
 // (see MODULE_API_ENDPOINT in the generated installer package) - so the
-// namespace is read from there instead of inferred from a controller.
-func (cpi *ControlPlaneInstaller) DiscoverModuleNamespaces(
+// service and its namespace are read from there instead of inferred from a
+// controller.
+func (cpi *ControlPlaneInstaller) DiscoverModuleApiServers(
 	apiClient *http.Client,
 	apiEndpoint string,
-) ([]string, error) {
+) ([]ModuleApiServer, error) {
 	moduleApis, err := client.GetModuleApis(apiClient, apiEndpoint)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get registered module APIs: %w", err)
 	}
 
-	seen := map[string]bool{}
-	var namespaces []string
+	seen := map[ModuleApiServer]bool{}
+	var apiServers []ModuleApiServer
 	for _, moduleApi := range *moduleApis {
 		if moduleApi.Core != nil && *moduleApi.Core {
 			continue
 		}
 
-		namespace, ok := moduleNamespaceFromEndpoint(moduleApi.Endpoint)
-		if !ok || namespace == cpi.Opts.Namespace || seen[namespace] {
+		apiServer, ok := moduleApiServerFromEndpoint(moduleApi.Endpoint)
+		if !ok || apiServer.Namespace == cpi.Opts.Namespace || seen[apiServer] {
 			continue
 		}
-		seen[namespace] = true
-		namespaces = append(namespaces, namespace)
+		seen[apiServer] = true
+		apiServers = append(apiServers, apiServer)
 	}
 
-	return namespaces, nil
+	return apiServers, nil
 }
 
 // clusterLocalSuffix is what the installer appends after a module's
 // namespace when it writes MODULE_API_ENDPOINT.
 const clusterLocalSuffix = ".svc.cluster.local"
 
-// moduleNamespaceFromEndpoint reads the namespace out of a module's
-// registered endpoint, which the installer always writes as
+// moduleApiServerFromEndpoint reads the service and namespace out of a
+// module's registered endpoint, which the installer always writes as
 // <service>.<namespace>.svc.cluster.local.
 //
 // A nil endpoint, or one not shaped this way - an external endpoint, say, or
 // the core API's own - reports false rather than guessing: admitting the
-// wrong namespace to the database is worse than leaving one unlabelled.
-func moduleNamespaceFromEndpoint(endpoint *string) (string, bool) {
+// wrong pods to the database is worse than leaving one module out.
+func moduleApiServerFromEndpoint(endpoint *string) (ModuleApiServer, bool) {
 	if endpoint == nil {
-		return "", false
+		return ModuleApiServer{}, false
 	}
 	host, hasSuffix := strings.CutSuffix(*endpoint, clusterLocalSuffix)
 	if !hasSuffix {
-		return "", false
+		return ModuleApiServer{}, false
 	}
 
 	parts := strings.Split(host, ".")
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return "", false
+		return ModuleApiServer{}, false
 	}
 
-	return parts[1], true
+	return ModuleApiServer{Namespace: parts[1], Service: parts[0]}, true
 }
 
 // ScaleDownModules scales each named module controller deployment with a
@@ -330,76 +329,6 @@ func (cpi *ControlPlaneInstaller) setDeploymentReplicas(
 	)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return fmt.Errorf("failed to scale deployment %s/%s to %d: %w", namespace, name, replicas, err)
-	}
-
-	return nil
-}
-
-// namespaceGVR is the v1 namespaces resource, used to label the namespaces
-// modules are installed into.
-var namespaceGVR = schema.GroupVersionResource{
-	Group:    "",
-	Version:  "v1",
-	Resource: "namespaces",
-}
-
-// LabelModuleNamespaces marks the namespaces of registered modules so the
-// database network policy admits them.
-//
-// New modules carry the label from the moment they are created: the SDK
-// generates it onto the namespace. Modules installed before that do not, and
-// nothing regenerates them on their own - so without this, installing the
-// policy would cut every module already running away from its own database,
-// and the first anyone would hear of it is a module failing long after the
-// control plane reported success.
-//
-// It takes the namespaces the caller has already discovered - with
-// DiscoverModuleNamespaces, not DiscoverModuleDeployments, which only sees a
-// module through its controllers and misses one that registers none - rather
-// than reading the registry itself. Reinstall drops the control plane
-// database between discovering them and reaching here, so by this point
-// there is no registry left to ask.
-//
-// One namespace that cannot be labelled does not stop the others. A
-// namespace that has already been removed is not a failure, and one this has
-// no permission to label is better reported at the end with the rest than as
-// the one error that hid them.
-func (cpi *ControlPlaneInstaller) LabelModuleNamespaces(
-	kubeClient dynamic.Interface,
-	namespaces []string,
-) error {
-	labelled := map[string]bool{}
-	var failures []error
-	for _, namespace := range namespaces {
-		if labelled[namespace] {
-			continue
-		}
-		labelled[namespace] = true
-
-		if err := cpi.labelNamespace(kubeClient, namespace); err != nil {
-			failures = append(failures, err)
-		}
-	}
-
-	return errors.Join(failures...)
-}
-
-// labelNamespace marks one namespace as a module's. A namespace that is no
-// longer there is not an error: the registry outlives what it describes.
-func (cpi *ControlPlaneInstaller) labelNamespace(
-	kubeClient dynamic.Interface,
-	namespace string,
-) error {
-	patch := fmt.Appendf(nil, `{"metadata":{"labels":{%q:%q}}}`, LabelModule, LabelModuleValue)
-	_, err := kubeClient.Resource(namespaceGVR).Patch(
-		context.Background(),
-		namespace,
-		"application/strategic-merge-patch+json",
-		patch,
-		metav1.PatchOptions{},
-	)
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return fmt.Errorf("failed to label module namespace %s: %w", namespace, err)
 	}
 
 	return nil

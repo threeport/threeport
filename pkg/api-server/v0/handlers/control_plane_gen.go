@@ -249,12 +249,16 @@ func (h Handler) GetControlPlaneDefinitions(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/control-plane-definitions/{id} [GET]
 func (h Handler) GetControlPlaneDefinition(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.ControlPlaneDefinition).GetFullyQualifiedType()
-	controlPlaneDefinitionID := c.Param("id")
+	controlPlaneDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var controlPlaneDefinition api_v0.ControlPlaneDefinition
 	if result := h.RequestDB(c).
 		First(&controlPlaneDefinition, controlPlaneDefinitionID); result.Error != nil {
@@ -298,7 +302,10 @@ func (h Handler) GetControlPlaneDefinition(c echo.Context) error {
 func (h Handler) UpdateControlPlaneDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeControlPlaneDefinition
 	fullyQualifiedType := new(api_v0.ControlPlaneDefinition).GetFullyQualifiedType()
-	controlPlaneDefinitionID := c.Param("id")
+	controlPlaneDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingControlPlaneDefinition api_v0.ControlPlaneDefinition
 	if result := h.RequestDB(c).First(&existingControlPlaneDefinition, controlPlaneDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -400,7 +407,10 @@ func (h Handler) UpdateControlPlaneDefinition(c echo.Context) error {
 func (h Handler) ReplaceControlPlaneDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeControlPlaneDefinition
 	fullyQualifiedType := new(api_v0.ControlPlaneDefinition).GetFullyQualifiedType()
-	controlPlaneDefinitionID := c.Param("id")
+	controlPlaneDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingControlPlaneDefinition api_v0.ControlPlaneDefinition
 	if result := h.RequestDB(c).First(&existingControlPlaneDefinition, controlPlaneDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -500,13 +510,17 @@ func (h Handler) ReplaceControlPlaneDefinition(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/control-plane-definitions/{id} [DELETE]
 func (h Handler) DeleteControlPlaneDefinition(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.ControlPlaneDefinition).GetFullyQualifiedType()
-	controlPlaneDefinitionID := c.Param("id")
+	controlPlaneDefinitionID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var controlPlaneDefinition api_v0.ControlPlaneDefinition
 	if result := h.RequestDB(c).Preload("ControlPlaneInstances").First(&controlPlaneDefinition, controlPlaneDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -848,12 +862,16 @@ func (h Handler) GetControlPlaneInstances(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/control-plane-instances/{id} [GET]
 func (h Handler) GetControlPlaneInstance(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.ControlPlaneInstance).GetFullyQualifiedType()
-	controlPlaneInstanceID := c.Param("id")
+	controlPlaneInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var controlPlaneInstance api_v0.ControlPlaneInstance
 	if result := h.RequestDB(c).Preload(clause.Associations).
 		First(&controlPlaneInstance, controlPlaneInstanceID); result.Error != nil {
@@ -897,7 +915,10 @@ func (h Handler) GetControlPlaneInstance(c echo.Context) error {
 func (h Handler) UpdateControlPlaneInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeControlPlaneInstance
 	fullyQualifiedType := new(api_v0.ControlPlaneInstance).GetFullyQualifiedType()
-	controlPlaneInstanceID := c.Param("id")
+	controlPlaneInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingControlPlaneInstance api_v0.ControlPlaneInstance
 	if result := h.RequestDB(c).First(&existingControlPlaneInstance, controlPlaneInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -999,7 +1020,10 @@ func (h Handler) UpdateControlPlaneInstance(c echo.Context) error {
 func (h Handler) ReplaceControlPlaneInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeControlPlaneInstance
 	fullyQualifiedType := new(api_v0.ControlPlaneInstance).GetFullyQualifiedType()
-	controlPlaneInstanceID := c.Param("id")
+	controlPlaneInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingControlPlaneInstance api_v0.ControlPlaneInstance
 	if result := h.RequestDB(c).First(&existingControlPlaneInstance, controlPlaneInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -1099,13 +1123,17 @@ func (h Handler) ReplaceControlPlaneInstance(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/control-plane-instances/{id} [DELETE]
 func (h Handler) DeleteControlPlaneInstance(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.ControlPlaneInstance).GetFullyQualifiedType()
-	controlPlaneInstanceID := c.Param("id")
+	controlPlaneInstanceID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var controlPlaneInstance api_v0.ControlPlaneInstance
 	if result := h.RequestDB(c).First(&controlPlaneInstance, controlPlaneInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {

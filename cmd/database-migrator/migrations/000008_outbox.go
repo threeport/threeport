@@ -16,18 +16,18 @@ const outboxRetention = "1 day"
 
 // init registers the migration with goose at startup.
 func init() {
-	goose.AddMigrationNoTxContext(Up000002, Down000002)
+	goose.AddMigrationNoTxContext(Up000008, Down000008)
 }
 
-// Up000002 creates the controller notification outbox and sets a TTL on its
+// Up000008 creates the controller notification outbox and sets a TTL on its
 // published rows. An existing table is left alone so a partial run can finish.
-func Up000002(ctx context.Context, db *sql.DB) error {
+func Up000008(ctx context.Context, db *sql.DB) error {
 	gormDb, err := getGormDbFromContext(ctx)
 	if err != nil {
 		return err
 	}
 
-	if err := createMissingTables(gormDb, dbInterfaces000002()); err != nil {
+	if err := createMissingTables(gormDb, dbInterfaces000008()); err != nil {
 		return err
 	}
 
@@ -50,17 +50,17 @@ func Up000002(ctx context.Context, db *sql.DB) error {
 	return nil
 }
 
-// Down000002 drops the outbox table.
-func Down000002(ctx context.Context, db *sql.DB) error {
+// Down000008 drops the outbox table.
+func Down000008(ctx context.Context, db *sql.DB) error {
 	gormDb, err := getGormDbFromContext(ctx)
 	if err != nil {
 		return err
 	}
 
-	return dropTables(gormDb, dbInterfaces000002())
+	return dropTables(gormDb, dbInterfaces000008())
 }
 
-func dbInterfaces000002() []interface{} {
+func dbInterfaces000008() []interface{} {
 	return []interface{}{
 		&v0.OutboxMessage{},
 	}

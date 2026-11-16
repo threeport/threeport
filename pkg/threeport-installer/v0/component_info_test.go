@@ -295,3 +295,86 @@ func TestRecordedComponents_AreAcceptedAsComponentInfo(t *testing.T) {
 
 	assert.NoError(t, ValidateComponentOverrides(cpi.RecordedComponents()))
 }
+
+func TestDivergentComponents(t *testing.T) {
+	tests := []struct {
+		name     string
+		recorded []*v0.ControlPlaneComponent
+		want     []string
+	}{
+		{name: "no record"},
+		{
+			name: "every component on one tag",
+			recorded: []*v0.ControlPlaneComponent{
+				recorded("rest-api", "ghcr.io/threeport", "v0.7.0"),
+				recorded("agent", "ghcr.io/threeport", "v0.7.0"),
+				recorded("gateway-controller", "ghcr.io/threeport", "v0.7.0"),
+			},
+		},
+		{
+			name: "a pinned agent",
+			recorded: []*v0.ControlPlaneComponent{
+				recorded("rest-api", "ghcr.io/threeport", "v0.7.0"),
+				recorded("agent", "mirror.example.com", "forked"),
+				recorded("gateway-controller", "ghcr.io/threeport", "v0.7.0"),
+			},
+			want: []string{"agent"},
+		},
+		{
+			name: "several pins are all reported",
+			recorded: []*v0.ControlPlaneComponent{
+				recorded("agent", "ghcr.io/threeport", "forked"),
+				recorded("rest-api", "ghcr.io/threeport", "v0.7.0"),
+				recorded("gcp-controller", "ghcr.io/threeport", "hotfix"),
+			},
+			want: []string{"agent", "gcp-controller"},
+		},
+		{
+			name: "no rest api to compare against",
+			recorded: []*v0.ControlPlaneComponent{
+				recorded("agent", "ghcr.io/threeport", "forked"),
+				recorded("gateway-controller", "ghcr.io/threeport", "v0.7.0"),
+			},
+		},
+		{
+			name: "components the upgrade does not retag are not reported",
+			recorded: []*v0.ControlPlaneComponent{
+				recorded("rest-api", "ghcr.io/threeport", "v0.7.0"),
+				{Name: "my-controller", Additional: util.Ptr(true), ImageName: "mine", ImageNamespace: "me", ImageTag: "v1"},
+				{Name: "database-migrator"},
+				nil,
+			},
+		},
+		{
+			name: "a disabled component has nothing running to replace",
+			recorded: []*v0.ControlPlaneComponent{
+				recorded("rest-api", "ghcr.io/threeport", "v0.7.0"),
+				{Name: "gcp-controller", ImageNamespace: "ghcr.io/threeport", ImageTag: "hotfix", Enabled: util.Ptr(false)},
+				recorded("agent", "mirror.example.com", "forked"),
+			},
+			want: []string{"agent"},
+		},
+		{
+			name: "a component that is not a controller is installed whatever Enabled says",
+			recorded: []*v0.ControlPlaneComponent{
+				recorded("rest-api", "ghcr.io/threeport", "v0.7.0"),
+				{Name: "agent", ImageNamespace: "mirror.example.com", ImageTag: "forked", Enabled: util.Ptr(false)},
+			},
+			want: []string{"agent"},
+		},
+		{
+			name: "an explicitly enabled pin is reported",
+			recorded: []*v0.ControlPlaneComponent{
+				recorded("rest-api", "ghcr.io/threeport", "v0.7.0"),
+				{Name: "gcp-controller", ImageNamespace: "ghcr.io/threeport", ImageTag: "hotfix", Enabled: util.Ptr(true)},
+			},
+			want: []string{"gcp-controller"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, DivergentComponents(tt.recorded))
+		})
+	}
+}

@@ -58,7 +58,7 @@ var GetDomainNamesCmd = &cobra.Command{
 		case "v0":
 			// load domain name values
 			domainNameConfig := config_v0.DomainNameConfig{}
-			if gatewayConfigPath != "" {
+			if gatewayConfigPath != "" || gatewayStdin {
 				configContent, err := cli.ReadConfigContent(gatewayConfigPath, gatewayStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -317,7 +317,7 @@ var GetDomainNameDefinitionsCmd = &cobra.Command{
 		case "v0":
 			// load values
 			domainNameDefinitionConfig := config_v0.DomainNameDefinitionConfig{}
-			if gatewayConfigPath != "" {
+			if gatewayConfigPath != "" || gatewayStdin {
 				configContent, err := cli.ReadConfigContent(gatewayConfigPath, gatewayStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -561,7 +561,7 @@ var DeleteDomainNameDefinitionCmd = &cobra.Command{
 		switch gatewayVersion {
 		case "v0":
 			var domainNameDefinitionConfig config_v0.DomainNameDefinitionConfig
-			if gatewayConfigPath != "" {
+			if gatewayConfigPath != "" || gatewayStdin {
 				// load domain name definition config
 				configContent, err := cli.ReadConfigContent(gatewayConfigPath, gatewayStdin)
 				if err != nil {
@@ -646,7 +646,7 @@ var GetDomainNameInstancesCmd = &cobra.Command{
 		case "v0":
 			// load values
 			domainNameInstanceConfig := config_v0.DomainNameInstanceConfig{}
-			if gatewayConfigPath != "" {
+			if gatewayConfigPath != "" || gatewayStdin {
 				configContent, err := cli.ReadConfigContent(gatewayConfigPath, gatewayStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -890,7 +890,7 @@ var DeleteDomainNameInstanceCmd = &cobra.Command{
 		switch gatewayVersion {
 		case "v0":
 			var domainNameInstanceConfig config_v0.DomainNameInstanceConfig
-			if gatewayConfigPath != "" {
+			if gatewayConfigPath != "" || gatewayStdin {
 				// load domain name instance config
 				configContent, err := cli.ReadConfigContent(gatewayConfigPath, gatewayStdin)
 				if err != nil {
@@ -976,7 +976,7 @@ var GetGatewaysCmd = &cobra.Command{
 		case "v0":
 			// load gateway values
 			gatewayConfig := config_v0.GatewayConfig{}
-			if gatewayConfigPath != "" {
+			if gatewayConfigPath != "" || gatewayStdin {
 				configContent, err := cli.ReadConfigContent(gatewayConfigPath, gatewayStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -1235,7 +1235,7 @@ var GetGatewayDefinitionsCmd = &cobra.Command{
 		case "v0":
 			// load values
 			gatewayDefinitionConfig := config_v0.GatewayDefinitionConfig{}
-			if gatewayConfigPath != "" {
+			if gatewayConfigPath != "" || gatewayStdin {
 				configContent, err := cli.ReadConfigContent(gatewayConfigPath, gatewayStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -1479,7 +1479,7 @@ var DeleteGatewayDefinitionCmd = &cobra.Command{
 		switch gatewayVersion {
 		case "v0":
 			var gatewayDefinitionConfig config_v0.GatewayDefinitionConfig
-			if gatewayConfigPath != "" {
+			if gatewayConfigPath != "" || gatewayStdin {
 				// load gateway definition config
 				configContent, err := cli.ReadConfigContent(gatewayConfigPath, gatewayStdin)
 				if err != nil {
@@ -1564,7 +1564,7 @@ var GetGatewayInstancesCmd = &cobra.Command{
 		case "v0":
 			// load values
 			gatewayInstanceConfig := config_v0.GatewayInstanceConfig{}
-			if gatewayConfigPath != "" {
+			if gatewayConfigPath != "" || gatewayStdin {
 				configContent, err := cli.ReadConfigContent(gatewayConfigPath, gatewayStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -1808,7 +1808,7 @@ var DeleteGatewayInstanceCmd = &cobra.Command{
 		switch gatewayVersion {
 		case "v0":
 			var gatewayInstanceConfig config_v0.GatewayInstanceConfig
-			if gatewayConfigPath != "" {
+			if gatewayConfigPath != "" || gatewayStdin {
 				// load gateway instance config
 				configContent, err := cli.ReadConfigContent(gatewayConfigPath, gatewayStdin)
 				if err != nil {

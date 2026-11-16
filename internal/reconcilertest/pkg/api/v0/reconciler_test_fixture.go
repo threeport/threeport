@@ -23,8 +23,17 @@ type ReconcilerTestInstance struct {
 	tpapi.Instance       `mapstructure:",squash"`
 	tpapi.Reconciliation `mapstructure:",squash"`
 
+	// The shared component workloads this instance records.
+	tpapi.SupportServiceIngress      `mapstructure:",squash"`
+	tpapi.SupportServiceCertificates `mapstructure:",squash"`
+	tpapi.SupportServiceSecrets      `mapstructure:",squash"`
+	tpapi.SupportServiceDatabase     `mapstructure:",squash"`
+
 	// The status of the instance.
 	Status *string `validate:"optional"`
+
+	// The cluster the shared components install on.
+	KubernetesRuntimeInstanceID *uint `validate:"optional" relationship:"requires"`
 }
 
 // ReconcilerTestVolatileInstance is a fixture object whose generated

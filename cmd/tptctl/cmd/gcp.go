@@ -9,6 +9,7 @@ import (
 
 	cobra "github.com/spf13/cobra"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	config_v0 "github.com/threeport/threeport/pkg/config/v0"
 	yaml "sigs.k8s.io/yaml"
 )
@@ -16,6 +17,7 @@ import (
 var (
 	gcpName       string
 	gcpConfigPath string
+	gcpStdin      bool
 	gcpVersion    string
 	gcpOutput     string
 )
@@ -54,10 +56,10 @@ var GetGcpProvidersCmd = &cobra.Command{
 		case "v0":
 			// load values
 			gcpProviderConfig := config_v0.GcpProviderConfig{}
-			if gcpConfigPath != "" {
-				configContent, err := os.ReadFile(gcpConfigPath)
+			if gcpConfigPath != "" || gcpStdin {
+				configContent, err := cli.ReadConfigContent(gcpConfigPath, gcpStdin)
 				if err != nil {
-					cli.Error("failed to read config file", err)
+					cli.Error("failed to read config", err)
 					os.Exit(1)
 				}
 				if err := yaml.UnmarshalStrict(configContent, &gcpProviderConfig); err != nil {
@@ -154,9 +156,9 @@ var CreateGcpProviderCmd = &cobra.Command{
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
 		// read gcp provider config
-		configContent, err := os.ReadFile(gcpConfigPath)
+		configContent, err := cli.ReadConfigContent(gcpConfigPath, gcpStdin)
 		if err != nil {
-			cli.Error("failed to read config file", err)
+			cli.Error("failed to read config", err)
 			os.Exit(1)
 		}
 		// create gcp provider based on version
@@ -193,7 +195,10 @@ func init() {
 		&gcpConfigPath,
 		"config", "c", "", "Path to file with gcp provider config.",
 	)
-	CreateGcpProviderCmd.MarkFlagRequired("config")
+	CreateGcpProviderCmd.Flags().BoolVar(
+		&gcpStdin,
+		"stdin", false, "Read config from stdin instead of file.",
+	)
 	CreateGcpProviderCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
@@ -218,9 +223,9 @@ var ReplaceGcpProviderCmd = &cobra.Command{
 		case "v0":
 			var gcpProviderConfig config_v0.GcpProviderConfig
 			// load gcp provider config
-			configContent, err := os.ReadFile(gcpConfigPath)
+			configContent, err := cli.ReadConfigContent(gcpConfigPath, gcpStdin)
 			if err != nil {
-				cli.Error("failed to read config file", err)
+				cli.Error("failed to read config", err)
 				os.Exit(1)
 			}
 			if err := yaml.UnmarshalStrict(configContent, &gcpProviderConfig); err != nil {
@@ -253,7 +258,10 @@ func init() {
 		&gcpConfigPath,
 		"config", "c", "", "Path to file with gcp provider config.  The config file must be a complete config, i.e. the provided config will be used to replace the entire existing config for the object with a PUT request.",
 	)
-	ReplaceGcpProviderCmd.MarkFlagRequired("config")
+	ReplaceGcpProviderCmd.Flags().BoolVar(
+		&gcpStdin,
+		"stdin", false, "Read config from stdin instead of file.",
+	)
 	ReplaceGcpProviderCmd.Flags().StringVarP(
 		&gcpName,
 		"name", "n", "", "Name of existing gcp provider to replace.  If the name in the gcp provider config is different from the name provided here, the name of the existing object will be updated with the name in the config.",
@@ -292,11 +300,11 @@ var DeleteGcpProviderCmd = &cobra.Command{
 		switch gcpVersion {
 		case "v0":
 			var gcpProviderConfig config_v0.GcpProviderConfig
-			if gcpConfigPath != "" {
+			if gcpConfigPath != "" || gcpStdin {
 				// load gcp provider config
-				configContent, err := os.ReadFile(gcpConfigPath)
+				configContent, err := cli.ReadConfigContent(gcpConfigPath, gcpStdin)
 				if err != nil {
-					cli.Error("failed to read config file", err)
+					cli.Error("failed to read config", err)
 					os.Exit(1)
 				}
 				if err := yaml.UnmarshalStrict(configContent, &gcpProviderConfig); err != nil {
@@ -378,10 +386,10 @@ var GetGcpGkeKubernetesRuntimesCmd = &cobra.Command{
 		case "v0":
 			// load gcp gke kubernetes runtime values
 			gcpGkeKubernetesRuntimeConfig := config_v0.GcpGkeKubernetesRuntimeConfig{}
-			if gcpConfigPath != "" {
-				configContent, err := os.ReadFile(gcpConfigPath)
+			if gcpConfigPath != "" || gcpStdin {
+				configContent, err := cli.ReadConfigContent(gcpConfigPath, gcpStdin)
 				if err != nil {
-					cli.Error("failed to read config file", err)
+					cli.Error("failed to read config", err)
 					os.Exit(1)
 				}
 				if err := yaml.UnmarshalStrict(configContent, &gcpGkeKubernetesRuntimeConfig); err != nil {
@@ -478,9 +486,9 @@ var CreateGcpGkeKubernetesRuntimeCmd = &cobra.Command{
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
 		// read gcp gke kubernetes runtime config
-		configContent, err := os.ReadFile(gcpConfigPath)
+		configContent, err := cli.ReadConfigContent(gcpConfigPath, gcpStdin)
 		if err != nil {
-			cli.Error("failed to read config file", err)
+			cli.Error("failed to read config", err)
 			os.Exit(1)
 		}
 
@@ -529,7 +537,10 @@ func init() {
 		&gcpConfigPath,
 		"config", "c", "", "Path to file with gcp gke kubernetes runtime config.",
 	)
-	CreateGcpGkeKubernetesRuntimeCmd.MarkFlagRequired("config")
+	CreateGcpGkeKubernetesRuntimeCmd.Flags().BoolVar(
+		&gcpStdin,
+		"stdin", false, "Read config from stdin instead of file.",
+	)
 	CreateGcpGkeKubernetesRuntimeCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
@@ -555,9 +566,9 @@ var DeleteGcpGkeKubernetesRuntimeCmd = &cobra.Command{
 		}
 
 		// read gcp gke kubernetes runtime config
-		configContent, err := os.ReadFile(gcpConfigPath)
+		configContent, err := cli.ReadConfigContent(gcpConfigPath, gcpStdin)
 		if err != nil {
-			cli.Error("failed to read config file", err)
+			cli.Error("failed to read config", err)
 			os.Exit(1)
 		}
 
@@ -634,10 +645,10 @@ var GetGcpGkeKubernetesRuntimeDefinitionsCmd = &cobra.Command{
 		case "v0":
 			// load values
 			gcpGkeKubernetesRuntimeDefinitionConfig := config_v0.GcpGkeKubernetesRuntimeDefinitionConfig{}
-			if gcpConfigPath != "" {
-				configContent, err := os.ReadFile(gcpConfigPath)
+			if gcpConfigPath != "" || gcpStdin {
+				configContent, err := cli.ReadConfigContent(gcpConfigPath, gcpStdin)
 				if err != nil {
-					cli.Error("failed to read config file", err)
+					cli.Error("failed to read config", err)
 					os.Exit(1)
 				}
 				if err := yaml.UnmarshalStrict(configContent, &gcpGkeKubernetesRuntimeDefinitionConfig); err != nil {
@@ -734,9 +745,9 @@ var CreateGcpGkeKubernetesRuntimeDefinitionCmd = &cobra.Command{
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
 		// read gcp gke kubernetes runtime definition config
-		configContent, err := os.ReadFile(gcpConfigPath)
+		configContent, err := cli.ReadConfigContent(gcpConfigPath, gcpStdin)
 		if err != nil {
-			cli.Error("failed to read config file", err)
+			cli.Error("failed to read config", err)
 			os.Exit(1)
 		}
 		// create gcp gke kubernetes runtime definition based on version
@@ -773,7 +784,10 @@ func init() {
 		&gcpConfigPath,
 		"config", "c", "", "Path to file with gcp gke kubernetes runtime definition config.",
 	)
-	CreateGcpGkeKubernetesRuntimeDefinitionCmd.MarkFlagRequired("config")
+	CreateGcpGkeKubernetesRuntimeDefinitionCmd.Flags().BoolVar(
+		&gcpStdin,
+		"stdin", false, "Read config from stdin instead of file.",
+	)
 	CreateGcpGkeKubernetesRuntimeDefinitionCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
@@ -798,9 +812,9 @@ var ReplaceGcpGkeKubernetesRuntimeDefinitionCmd = &cobra.Command{
 		case "v0":
 			var gcpGkeKubernetesRuntimeDefinitionConfig config_v0.GcpGkeKubernetesRuntimeDefinitionConfig
 			// load gcp gke kubernetes runtime definition config
-			configContent, err := os.ReadFile(gcpConfigPath)
+			configContent, err := cli.ReadConfigContent(gcpConfigPath, gcpStdin)
 			if err != nil {
-				cli.Error("failed to read config file", err)
+				cli.Error("failed to read config", err)
 				os.Exit(1)
 			}
 			if err := yaml.UnmarshalStrict(configContent, &gcpGkeKubernetesRuntimeDefinitionConfig); err != nil {
@@ -833,7 +847,10 @@ func init() {
 		&gcpConfigPath,
 		"config", "c", "", "Path to file with gcp gke kubernetes runtime definition config.  The config file must be a complete config, i.e. the provided config will be used to replace the entire existing config for the object with a PUT request.",
 	)
-	ReplaceGcpGkeKubernetesRuntimeDefinitionCmd.MarkFlagRequired("config")
+	ReplaceGcpGkeKubernetesRuntimeDefinitionCmd.Flags().BoolVar(
+		&gcpStdin,
+		"stdin", false, "Read config from stdin instead of file.",
+	)
 	ReplaceGcpGkeKubernetesRuntimeDefinitionCmd.Flags().StringVarP(
 		&gcpName,
 		"name", "n", "", "Name of existing gcp gke kubernetes runtime definition to replace.  If the name in the gcp gke kubernetes runtime definition config is different from the name provided here, the name of the existing object will be updated with the name in the config.",
@@ -872,11 +889,11 @@ var DeleteGcpGkeKubernetesRuntimeDefinitionCmd = &cobra.Command{
 		switch gcpVersion {
 		case "v0":
 			var gcpGkeKubernetesRuntimeDefinitionConfig config_v0.GcpGkeKubernetesRuntimeDefinitionConfig
-			if gcpConfigPath != "" {
+			if gcpConfigPath != "" || gcpStdin {
 				// load gcp gke kubernetes runtime definition config
-				configContent, err := os.ReadFile(gcpConfigPath)
+				configContent, err := cli.ReadConfigContent(gcpConfigPath, gcpStdin)
 				if err != nil {
-					cli.Error("failed to read config file", err)
+					cli.Error("failed to read config", err)
 					os.Exit(1)
 				}
 				if err := yaml.UnmarshalStrict(configContent, &gcpGkeKubernetesRuntimeDefinitionConfig); err != nil {
@@ -957,10 +974,10 @@ var GetGcpGkeKubernetesRuntimeInstancesCmd = &cobra.Command{
 		case "v0":
 			// load values
 			gcpGkeKubernetesRuntimeInstanceConfig := config_v0.GcpGkeKubernetesRuntimeInstanceConfig{}
-			if gcpConfigPath != "" {
-				configContent, err := os.ReadFile(gcpConfigPath)
+			if gcpConfigPath != "" || gcpStdin {
+				configContent, err := cli.ReadConfigContent(gcpConfigPath, gcpStdin)
 				if err != nil {
-					cli.Error("failed to read config file", err)
+					cli.Error("failed to read config", err)
 					os.Exit(1)
 				}
 				if err := yaml.UnmarshalStrict(configContent, &gcpGkeKubernetesRuntimeInstanceConfig); err != nil {
@@ -1057,9 +1074,9 @@ var CreateGcpGkeKubernetesRuntimeInstanceCmd = &cobra.Command{
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
 		// read gcp gke kubernetes runtime instance config
-		configContent, err := os.ReadFile(gcpConfigPath)
+		configContent, err := cli.ReadConfigContent(gcpConfigPath, gcpStdin)
 		if err != nil {
-			cli.Error("failed to read config file", err)
+			cli.Error("failed to read config", err)
 			os.Exit(1)
 		}
 		// create gcp gke kubernetes runtime instance based on version
@@ -1096,7 +1113,10 @@ func init() {
 		&gcpConfigPath,
 		"config", "c", "", "Path to file with gcp gke kubernetes runtime instance config.",
 	)
-	CreateGcpGkeKubernetesRuntimeInstanceCmd.MarkFlagRequired("config")
+	CreateGcpGkeKubernetesRuntimeInstanceCmd.Flags().BoolVar(
+		&gcpStdin,
+		"stdin", false, "Read config from stdin instead of file.",
+	)
 	CreateGcpGkeKubernetesRuntimeInstanceCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
@@ -1121,9 +1141,9 @@ var ReplaceGcpGkeKubernetesRuntimeInstanceCmd = &cobra.Command{
 		case "v0":
 			var gcpGkeKubernetesRuntimeInstanceConfig config_v0.GcpGkeKubernetesRuntimeInstanceConfig
 			// load gcp gke kubernetes runtime instance config
-			configContent, err := os.ReadFile(gcpConfigPath)
+			configContent, err := cli.ReadConfigContent(gcpConfigPath, gcpStdin)
 			if err != nil {
-				cli.Error("failed to read config file", err)
+				cli.Error("failed to read config", err)
 				os.Exit(1)
 			}
 			if err := yaml.UnmarshalStrict(configContent, &gcpGkeKubernetesRuntimeInstanceConfig); err != nil {
@@ -1156,7 +1176,10 @@ func init() {
 		&gcpConfigPath,
 		"config", "c", "", "Path to file with gcp gke kubernetes runtime instance config.  The config file must be a complete config, i.e. the provided config will be used to replace the entire existing config for the object with a PUT request.",
 	)
-	ReplaceGcpGkeKubernetesRuntimeInstanceCmd.MarkFlagRequired("config")
+	ReplaceGcpGkeKubernetesRuntimeInstanceCmd.Flags().BoolVar(
+		&gcpStdin,
+		"stdin", false, "Read config from stdin instead of file.",
+	)
 	ReplaceGcpGkeKubernetesRuntimeInstanceCmd.Flags().StringVarP(
 		&gcpName,
 		"name", "n", "", "Name of existing gcp gke kubernetes runtime instance to replace.  If the name in the gcp gke kubernetes runtime instance config is different from the name provided here, the name of the existing object will be updated with the name in the config.",
@@ -1195,11 +1218,11 @@ var DeleteGcpGkeKubernetesRuntimeInstanceCmd = &cobra.Command{
 		switch gcpVersion {
 		case "v0":
 			var gcpGkeKubernetesRuntimeInstanceConfig config_v0.GcpGkeKubernetesRuntimeInstanceConfig
-			if gcpConfigPath != "" {
+			if gcpConfigPath != "" || gcpStdin {
 				// load gcp gke kubernetes runtime instance config
-				configContent, err := os.ReadFile(gcpConfigPath)
+				configContent, err := cli.ReadConfigContent(gcpConfigPath, gcpStdin)
 				if err != nil {
-					cli.Error("failed to read config file", err)
+					cli.Error("failed to read config", err)
 					os.Exit(1)
 				}
 				if err := yaml.UnmarshalStrict(configContent, &gcpGkeKubernetesRuntimeInstanceConfig); err != nil {
@@ -1214,9 +1237,33 @@ var DeleteGcpGkeKubernetesRuntimeInstanceCmd = &cobra.Command{
 				}
 			}
 
+			// record the operator's permission to orphan infrastructure the
+			// controller has no record of before the delete is attempted
+			if abandonInfrastructure {
+				confirmAbandonInfrastructure("gcp gke kubernetes runtime instance", *gcpGkeKubernetesRuntimeInstanceConfig.GcpGkeKubernetesRuntimeInstance.Name)
+				if err := gcpGkeKubernetesRuntimeInstanceConfig.SetAbandonInfrastructure(apiClient, apiEndpoint, true); err != nil {
+					cli.Error("failed to request infrastructure abandonment", err)
+					os.Exit(1)
+				}
+			}
+
 			// delete gcp gke kubernetes runtime instance
 			deletedGcpGkeKubernetesRuntimeInstance, err := gcpGkeKubernetesRuntimeInstanceConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
+				// a delete the controller is already holding or working on has
+				// picked up the abandonment request, which is all that was needed
+				if abandonInfrastructure && errors.Is(err, client_lib.ErrDeleteInProgress) {
+					cli.Complete(fmt.Sprintf("infrastructure abandonment requested for gcp gke kubernetes runtime instance %s: the controller will complete the delete", *gcpGkeKubernetesRuntimeInstanceConfig.GcpGkeKubernetesRuntimeInstance.Name))
+					return
+				}
+				// the override is only for this delete, and it stays set until
+				// changed, so a delete that never got going must not leave it
+				// on for the next plain delete
+				if abandonInfrastructure {
+					withdrawAbandonInfrastructure(err, "gcp gke kubernetes runtime instance", *gcpGkeKubernetesRuntimeInstanceConfig.GcpGkeKubernetesRuntimeInstance.Name, func() error {
+						return gcpGkeKubernetesRuntimeInstanceConfig.SetAbandonInfrastructure(apiClient, apiEndpoint, false)
+					})
+				}
 				cli.Error("failed to delete gcp gke kubernetes runtime instance", err)
 				os.Exit(1)
 			}
@@ -1247,6 +1294,7 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
+	addAbandonInfrastructureFlags(DeleteGcpGkeKubernetesRuntimeInstanceCmd)
 	DeleteGcpGkeKubernetesRuntimeInstanceCmd.Flags().StringVarP(
 		&gcpVersion,
 		"version", "v", "v0", "Version of gcp gke kubernetes runtime instances object to delete. One of: [v0]",

@@ -31,10 +31,12 @@ var UpgradeControlPlaneCmd = &cobra.Command{
 	Use:     "control-plane",
 	Example: "tptctl upgrade control-plane --version=v0.5.0",
 	Short:   "Upgrades the version of the Threeport control plane",
-	Long: `Update the image tag on existing control plane Deployments only.
+	Long: `Update the image tag on existing control plane Deployments.
 
-Does not recreate manifests, RBAC, or configmaps. Use tptctl reinstall
-for those.`,
+The one other thing it changes is what the database migrator needs to back
+the database up before migrating: the backup location, on a control plane
+with scheduled backups, and the mounts for it. Otherwise it does not
+recreate manifests, RBAC, or configmaps. Use tptctl reinstall for those.`,
 	SilenceUsage: true,
 	PreRun:       CommandPreRunFunc,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -80,14 +82,54 @@ for those.`,
 			os.Exit(1)
 		}
 
-		err = updateDeploymentImageTag(updateImageTag, *controlPlaneInstance.Namespace, dynamicKubeClient, mapper)
+		// The upgrade moves every default component to one tag. Say so before
+		// it happens when a component was pinned to another. The list endpoint
+		// leaves the recorded components out, so the instance is fetched by ID.
+		// The notice is advisory, so a failure to read the record is reported
+		// and the upgrade goes on.
+		if recordedInstance, err := client.GetControlPlaneInstanceByID(
+			apiClient,
+			apiEndpoint,
+			*controlPlaneInstance.ID,
+		); err != nil {
+			cli.Warning(fmt.Sprintf(
+				"could not read the recorded components to check for pinned images: %s", err,
+			))
+		} else if warning := pinnedComponentsWarning(recordedInstance, updateImageTag); warning != "" {
+			cli.Warning(warning)
+		}
+
+		// the bucket scheduled backups go to, which the database migrator backs
+		// up to before migrating
+		controlPlaneConfig, err := config.GetControlPlaneConfig(requestedControlPlane)
+		if err != nil {
+			cli.Error("failed to get control plane config:", err)
+			os.Exit(1)
+		}
+
+		err = updateDeploymentImageTag(
+			updateImageTag,
+			*controlPlaneInstance.Namespace,
+			cli.ScheduledBackupBucket(controlPlaneConfig),
+			dynamicKubeClient,
+			mapper,
+		)
 		if err != nil {
 			cli.Error("failed to update threeport deployment image tag", err)
 			os.Exit(1)
 		}
 
-		// children created from here on default to the images this control plane
-		// runs, so record the tag the deployments were just moved to
+		// Children created from here on default to the images this control plane
+		// runs, so record the tag the deployments were just moved to.
+		//
+		// This is the instance-wide tag, not a rewrite of the recorded
+		// components: the API cannot change a component once it is recorded, an
+		// update to an instance leaves them as they are. The instance-wide tag
+		// is applied over the recorded components when a child is created, so
+		// the child gets the tag the deployments are now on, which is what the
+		// recorded tags of the components named in the warning above no longer
+		// describe. What a component records beyond its tag, its image name and
+		// registry, is untouched by the upgrade and is still inherited.
 		if _, err := client.UpdateControlPlaneInstance(
 			apiClient,
 			apiEndpoint,
@@ -104,7 +146,55 @@ for those.`,
 	},
 }
 
-func updateDeploymentImageTag(imageTag string, namespace string, dynamicKubeClient dynamic.Interface, mapper *meta.RESTMapper) error {
+// pinnedComponentsWarning says which components of a control plane were pinned
+// to an image tag other than the rest api's, and that the upgrade is about to
+// move them to imageTag with everything else. It returns "" when nothing was
+// pinned.
+//
+// A control plane that records an instance-wide tag has been upgraded before.
+// That upgrade moved every default deployment to the tag, so the components
+// all run it and nothing is pinned any more, whatever tags the recorded
+// components still carry: the API cannot update them, so they keep the tag
+// from before the upgrade. Reading them again would warn about a pin that
+// the earlier upgrade already replaced.
+func pinnedComponentsWarning(instance *api_v0.ControlPlaneInstance, imageTag string) string {
+	if instance == nil || util.DerefString(instance.ImageTag) != "" {
+		return ""
+	}
+	pinned := installer.DivergentComponents(instance.CustomComponentInfo)
+	if len(pinned) == 0 {
+		return ""
+	}
+
+	return fmt.Sprintf(
+		"%s run a different image tag than the rest of the control plane. "+
+			"The upgrade moves every default component to %s, so those are replaced too, "+
+			"and control planes created from here on get %s for them. "+
+			"Rebuild or re-pin them after the upgrade if they must stay on their own tag.",
+		strings.Join(pinned, ", "), imageTag, imageTag,
+	)
+}
+
+func updateDeploymentImageTag(
+	imageTag string,
+	namespace string,
+	backupBucket string,
+	dynamicKubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+) error {
+	// The new database migrator backs the database up before migrating, from
+	// a location and with a certificate an API server Deployment installed
+	// before it knew to does not mount.  Moved to the new image as it is, it
+	// would find no location and migrate without a backup on a control plane
+	// that has them.  So the location goes in first, and the Deployment gets
+	// both mounts in the same update that moves it to the new image.
+	backupInstaller := &installer.ControlPlaneInstaller{}
+	backupInstaller.Opts.Namespace = namespace
+	backupInstaller.Opts.GcpBackupBucket = backupBucket
+	if err := backupInstaller.InstallDatabaseBackupConfig(dynamicKubeClient, mapper); err != nil {
+		return err
+	}
+
 	// Update Rest-Api
 	deployment, err := kube.GetResource(
 		"apps",
@@ -123,6 +213,9 @@ func updateDeploymentImageTag(imageTag string, namespace string, dynamicKubeClie
 	apiReplaced, err := updateImageTagInDeployment(deployment, imageTag, installer.ThreeportRestApi.Name)
 	if err != nil {
 		return err
+	}
+	if err := installer.PrepareDatabaseMigratorForBackups(deployment); err != nil {
+		return fmt.Errorf("failed to give the database migrator what it backs up with: %w", err)
 	}
 	deployment.SetName(installer.ThreeportRestApi.ServiceResourceName)
 

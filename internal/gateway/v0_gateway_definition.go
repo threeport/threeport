@@ -192,7 +192,7 @@ func v0GatewayDefinitionDeleted(
 // createGatewayDefinitionYamlDocument creates a YAML document containing the Kubernetes
 // manifests for a gateway definition.
 func createGatewayDefinitionYamlDocument(r *controller.Reconciler, gatewayDefinition *v0.GatewayDefinition) (string, error) {
-	// create Gloo virtual service definition
+	// create ingress definitions
 
 	manifests := []string{}
 
@@ -201,15 +201,15 @@ func createGatewayDefinitionYamlDocument(r *controller.Reconciler, gatewayDefini
 		return "", fmt.Errorf("failed to get domain info: %w", err)
 	}
 
-	// create Gloo virtual service definitions
-	virtualServices, err := getVirtualServicesYaml(r, gatewayDefinition, domain)
+	// create ingress definitions
+	virtualServices, err := getIngressesYaml(r, gatewayDefinition, domain)
 	if err != nil {
-		return "", fmt.Errorf("failed to create virtual service: %w", err)
+		return "", fmt.Errorf("failed to create ingress: %w", err)
 	}
 	manifests = append(manifests, virtualServices...)
 
-	// create Gloo tcp gateway definitions
-	tcpGateways, err := getTcpGatewaysYaml(r, gatewayDefinition)
+	// create transport server definitions
+	tcpGateways, err := getTransportServersYaml(r, gatewayDefinition)
 	if err != nil {
 		return "", fmt.Errorf("failed to create tcp gateway: %w", err)
 	}

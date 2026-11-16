@@ -10,6 +10,7 @@ import (
 	"gorm.io/datatypes"
 )
 
+// TestUpdateNamespace covers the namespace written onto a stored definition.
 func TestUpdateNamespace(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -32,6 +33,30 @@ func TestUpdateNamespace(t *testing.T) {
 			wantNS: GatewaySystemNamespace,
 		},
 		{
+			name:   "keeps an ingress operator namespace",
+			in:     datatypes.JSON(`{"kind":"Deployment","metadata":{"name":"nginx-tcp","namespace":"nukleros-ingress-system"}}`),
+			ns:     "workload-1",
+			wantNS: "nukleros-ingress-system",
+		},
+		{
+			name:   "keeps a cert-manager operator namespace",
+			in:     datatypes.JSON(`{"kind":"ServiceAccount","metadata":{"name":"cert-manager","namespace":"nukleros-certs-system"}}`),
+			ns:     "workload-1",
+			wantNS: "nukleros-certs-system",
+		},
+		{
+			name:   "keeps a secrets operator namespace",
+			in:     datatypes.JSON(`{"kind":"ServiceAccount","metadata":{"name":"external-secrets","namespace":"nukleros-secrets-system"}}`),
+			ns:     "workload-1",
+			wantNS: "nukleros-secrets-system",
+		},
+		{
+			name:   "overwrites a user namespace",
+			in:     datatypes.JSON(`{"kind":"Deployment","metadata":{"name":"app","namespace":"app"}}`),
+			ns:     "workload-1",
+			wantNS: "workload-1",
+		},
+		{
 			name:      "missing metadata returns error",
 			in:        datatypes.JSON(`{"kind":"Deployment"}`),
 			ns:        "default",
@@ -49,6 +74,7 @@ func TestUpdateNamespace(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// write the namespace and check the stored value
 			out, err := UpdateNamespace(tt.in, tt.ns)
 			if tt.wantErr {
 				if err == nil {
@@ -95,9 +121,7 @@ func TestJSONDefinitionsEqual(t *testing.T) {
 		assert.True(t, equal)
 	})
 
-	// this is the case the comparison exists for: a definition read back from
-	// the database is not guaranteed to return byte-identical to what went in,
-	// and comparing bytes would report a difference every time
+	// compare objects whose key order differs
 	t.Run("reordered keys and whitespace are equal", func(t *testing.T) {
 		equal, err := JSONDefinitionsEqual(
 			definition(`{"kind":"VirtualService","spec":{"hosts":["a"]}}`),
@@ -116,8 +140,7 @@ func TestJSONDefinitionsEqual(t *testing.T) {
 		assert.False(t, equal)
 	})
 
-	// array order carries meaning in a Kubernetes manifest, so it is a
-	// difference rather than noise
+	// compare lists whose element order differs
 	t.Run("reordered array elements are not equal", func(t *testing.T) {
 		equal, err := JSONDefinitionsEqual(
 			definition(`{"hosts":["a","b"]}`),
@@ -195,6 +218,18 @@ func TestJSONDefinitionsEqualIgnoring(t *testing.T) {
 		assert.True(t, equal)
 	})
 
+	t.Run("an int and the float from unmarshalling it compare equal", func(t *testing.T) {
+		equal, err := JSONValuesEqual([]interface{}{int64(80)}, []interface{}{float64(80)})
+		require.NoError(t, err)
+		assert.True(t, equal)
+	})
+
+	t.Run("different values do not compare equal", func(t *testing.T) {
+		equal, err := JSONValuesEqual([]interface{}{"http"}, []interface{}{"tcp"})
+		require.NoError(t, err)
+		assert.False(t, equal)
+	})
+
 	t.Run("with nothing ignored it is a plain comparison", func(t *testing.T) {
 		equal, err := JSONDefinitionsEqualIgnoring(
 			definition(`{"metadata":{"namespace":"ns-1"}}`),
@@ -203,4 +238,35 @@ func TestJSONDefinitionsEqualIgnoring(t *testing.T) {
 		require.NoError(t, err)
 		assert.False(t, equal)
 	})
+}
+
+// TestCountsTowardManagedNamespace covers which objects count toward a namespace.
+func TestCountsTowardManagedNamespace(t *testing.T) {
+	cases := []struct {
+		name string
+		in   datatypes.JSON
+		want bool
+	}{
+		{
+			name: "user object counts",
+			in:   datatypes.JSON(`{"kind":"Deployment","metadata":{"namespace":"app"}}`),
+			want: true,
+		},
+		{
+			name: "operator namespace does not count",
+			in:   datatypes.JSON(`{"kind":"Deployment","metadata":{"namespace":"nukleros-ingress-system"}}`),
+			want: false,
+		},
+		{
+			name: "gateway does not count",
+			in:   datatypes.JSON(`{"kind":"Gateway","metadata":{"namespace":""}}`),
+			want: false,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			// check whether the object counts
+			require.Equal(t, tc.want, CountsTowardManagedNamespace(tc.in))
+		})
+	}
 }

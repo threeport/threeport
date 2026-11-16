@@ -125,21 +125,8 @@ func (m *MachineRuntimeInstanceConfig) Create(
 	apiEndpoint string,
 ) (*MachineRuntimeInstanceConfig, error) {
 	// resolve *File fields into their inline counterparts before validating
-	if m.MachineRuntimeInstance.SSHKey == nil && m.MachineRuntimeInstance.SSHKeyFile != nil {
-		content, err := os.ReadFile(*m.MachineRuntimeInstance.SSHKeyFile)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read SSHKey file at %s: %w", *m.MachineRuntimeInstance.SSHKeyFile, err)
-		}
-		key := strings.TrimRight(string(content), "\n\r\t ")
-		m.MachineRuntimeInstance.SSHKey = &key
-	}
-	if m.MachineRuntimeInstance.SSHPassword == nil && m.MachineRuntimeInstance.SSHPasswordFile != nil {
-		content, err := os.ReadFile(*m.MachineRuntimeInstance.SSHPasswordFile)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read SSHPassword file at %s: %w", *m.MachineRuntimeInstance.SSHPasswordFile, err)
-		}
-		pw := strings.TrimRight(string(content), "\n\r\t ")
-		m.MachineRuntimeInstance.SSHPassword = &pw
+	if err := m.resolveFiles(); err != nil {
+		return nil, err
 	}
 
 	machineRuntimeInstanceValues := m.MachineRuntimeInstance
@@ -150,13 +137,9 @@ func (m *MachineRuntimeInstanceConfig) Create(
 	}
 
 	// look up machine runtime definition by name if provided
-	var machineRuntimeDefinitionID *uint
-	if machineRuntimeInstanceValues.MachineRuntimeDefinition != nil && machineRuntimeInstanceValues.MachineRuntimeDefinition.Name != nil {
-		machineRuntimeDefinition, err := client_v0.GetMachineRuntimeDefinitionByName(apiClient, apiEndpoint, *machineRuntimeInstanceValues.MachineRuntimeDefinition.Name)
-		if err != nil {
-			return nil, fmt.Errorf("failed to find machine runtime definition with name %s: %w", *machineRuntimeInstanceValues.MachineRuntimeDefinition.Name, err)
-		}
-		machineRuntimeDefinitionID = machineRuntimeDefinition.ID
+	machineRuntimeDefinitionID, err := m.machineRuntimeDefinitionID(apiClient, apiEndpoint)
+	if err != nil {
+		return nil, err
 	}
 
 	// construct machine runtime instance object
@@ -209,11 +192,23 @@ func (m *MachineRuntimeInstanceConfig) Replace(
 	apiEndpoint string,
 	name string,
 ) (*MachineRuntimeInstanceConfig, error) {
+	// resolve *File fields into their inline counterparts before validating,
+	// as create does
+	if err := m.resolveFiles(); err != nil {
+		return nil, err
+	}
+
 	machineRuntimeInstanceValues := m.MachineRuntimeInstance
 
 	// validate config
 	if err := m.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid machine runtime instance config: %w", err)
+	}
+
+	// look up machine runtime definition by name if provided
+	machineRuntimeDefinitionID, err := m.machineRuntimeDefinitionID(apiClient, apiEndpoint)
+	if err != nil {
+		return nil, err
 	}
 
 	// get existing machine runtime instance by name
@@ -227,19 +222,22 @@ func (m *MachineRuntimeInstanceConfig) Replace(
 	}
 
 	// construct updated machine runtime instance object
-	updatedMachineRuntimeInstance := &api_v0.MachineRuntimeInstance{
-		Common: api_v0.Common{
-			ID: existingMachineRuntimeInstance.ID,
-		},
-		Instance: api_v0.Instance{
-			Name: machineRuntimeInstanceValues.Name,
-		},
-		Hostname:    machineRuntimeInstanceValues.Hostname,
-		SSHUser:     machineRuntimeInstanceValues.SSHUser,
-		SSHKey:      machineRuntimeInstanceValues.SSHKey,
-		SSHPassword: machineRuntimeInstanceValues.SSHPassword,
-		Port:        machineRuntimeInstanceValues.Port,
-	}
+	// Start from the existing object, so the fields this replace does not set
+	// are kept: the reconciler's (Reconciled and the rest of Reconciliation,
+	// Status) and the ones only the API server or a controller writes. Every
+	// field a user sets through the config is assigned below unconditionally,
+	// a nil value included, so a field left out of the config is cleared
+	// rather than kept. Do not assign the reconciler's fields here: the copy
+	// already carries them.
+	updatedMachineRuntimeInstance := util.Ptr(*existingMachineRuntimeInstance)
+	updatedMachineRuntimeInstance.Name = machineRuntimeInstanceValues.Name
+	updatedMachineRuntimeInstance.Hostname = machineRuntimeInstanceValues.Hostname
+	updatedMachineRuntimeInstance.SSHUser = machineRuntimeInstanceValues.SSHUser
+	updatedMachineRuntimeInstance.SSHKey = machineRuntimeInstanceValues.SSHKey
+	updatedMachineRuntimeInstance.SSHPassword = machineRuntimeInstanceValues.SSHPassword
+	updatedMachineRuntimeInstance.Port = machineRuntimeInstanceValues.Port
+	updatedMachineRuntimeInstance.HostKey = machineRuntimeInstanceValues.HostKey
+	updatedMachineRuntimeInstance.MachineRuntimeDefinitionID = machineRuntimeDefinitionID
 
 	// replace machine runtime instance
 	replacedMachineRuntimeInstance, err := client_v0.ReplaceMachineRuntimeInstance(
@@ -333,4 +331,46 @@ func (m *MachineRuntimeInstanceConfig) Validate() error {
 	}
 
 	return multiError.Error()
+}
+
+// resolveFiles reads the SSH key and password from the files the config
+// names, when it does not give them inline.
+func (m *MachineRuntimeInstanceConfig) resolveFiles() error {
+	if m.MachineRuntimeInstance.SSHKey == nil && m.MachineRuntimeInstance.SSHKeyFile != nil {
+		content, err := os.ReadFile(*m.MachineRuntimeInstance.SSHKeyFile)
+		if err != nil {
+			return fmt.Errorf("failed to read SSHKey file at %s: %w", *m.MachineRuntimeInstance.SSHKeyFile, err)
+		}
+		key := strings.TrimRight(string(content), "\n\r\t ")
+		m.MachineRuntimeInstance.SSHKey = &key
+	}
+	if m.MachineRuntimeInstance.SSHPassword == nil && m.MachineRuntimeInstance.SSHPasswordFile != nil {
+		content, err := os.ReadFile(*m.MachineRuntimeInstance.SSHPasswordFile)
+		if err != nil {
+			return fmt.Errorf("failed to read SSHPassword file at %s: %w", *m.MachineRuntimeInstance.SSHPasswordFile, err)
+		}
+		pw := strings.TrimRight(string(content), "\n\r\t ")
+		m.MachineRuntimeInstance.SSHPassword = &pw
+	}
+
+	return nil
+}
+
+// machineRuntimeDefinitionID returns the ID of the machine runtime definition
+// the config names, or nil when it names none.
+func (m *MachineRuntimeInstanceConfig) machineRuntimeDefinitionID(
+	apiClient *http.Client,
+	apiEndpoint string,
+) (*uint, error) {
+	definition := m.MachineRuntimeInstance.MachineRuntimeDefinition
+	if definition == nil || definition.Name == nil {
+		return nil, nil
+	}
+
+	machineRuntimeDefinition, err := client_v0.GetMachineRuntimeDefinitionByName(apiClient, apiEndpoint, *definition.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find machine runtime definition with name %s: %w", *definition.Name, err)
+	}
+
+	return machineRuntimeDefinition.ID, nil
 }

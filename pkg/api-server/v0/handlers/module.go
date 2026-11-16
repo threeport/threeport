@@ -458,12 +458,16 @@ func (h Handler) GetModuleObjectsWithModuleApiRoutes(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/module-objects-with-module-api-routes/{id} [GET]
 func (h Handler) GetModuleObjectWithModuleApiRoutes(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.ModuleObject).GetFullyQualifiedType()
-	moduleObjectID := c.Param("id")
+	moduleObjectID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var moduleObject api_v0.ModuleObject
 	if result := h.DB.Preload("ModuleApiRoutes").First(&moduleObject, moduleObjectID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {

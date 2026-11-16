@@ -70,14 +70,14 @@ func GetKubeClientForGroupNameVersion(groupName string, groupVersion string) (*r
 // kubernetes cluster instance.
 func GetClient(
 	runtime *v0.KubernetesRuntimeInstance,
-	threeportControlPlane bool,
+	callerRunsInControlPlane bool,
 	threeportAPIClient *http.Client,
 	threeportAPIEndpoint string,
 	encryptionKey string,
 ) (dynamic.Interface, *meta.RESTMapper, error) {
 	restConfig, err := GetRestConfig(
 		runtime,
-		threeportControlPlane,
+		callerRunsInControlPlane,
 		threeportAPIClient,
 		threeportAPIEndpoint,
 		encryptionKey,
@@ -115,14 +115,14 @@ func GetClient(
 // instance.
 func GetDiscoveryClient(
 	runtime *v0.KubernetesRuntimeInstance,
-	threeportControlPlane bool,
+	callerRunsInControlPlane bool,
 	threeportAPIClient *http.Client,
 	threeportAPIEndpoint string,
 	encryptionKey string,
 ) (*discovery.DiscoveryClient, error) {
 	restConfig, err := GetRestConfig(
 		runtime,
-		threeportControlPlane,
+		callerRunsInControlPlane,
 		threeportAPIClient,
 		threeportAPIEndpoint,
 		encryptionKey,
@@ -139,24 +139,59 @@ func GetDiscoveryClient(
 	return discoveryClient, nil
 }
 
+// HostsControlPlane reports whether the runtime is the cluster the control plane runs on.
+func HostsControlPlane(runtime *v0.KubernetesRuntimeInstance) bool {
+	// an unset flag is not the control plane host
+	if runtime == nil {
+		return false
+	}
+	if runtime.ThreeportControlPlaneHost == nil {
+		return false
+	}
+	return *runtime.ThreeportControlPlaneHost
+}
+
+// serviceAccountCAFile is the CA certificate Kubernetes mounts in every pod
+// for its service account, which verifies the cluster's own API server.  It
+// is a variable so that tests can point it elsewhere.
+var serviceAccountCAFile = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+
 // GetRestConfig takes a kubernetes runtime instance and returns a REST config
 // for the kubernetes API.
 func GetRestConfig(
 	runtime *v0.KubernetesRuntimeInstance,
-	threeportControlPlane bool,
+	callerRunsInControlPlane bool,
 	threeportAPIClient *http.Client,
 	threeportAPIEndpoint string,
 	encryptionKey string,
 ) (*rest.Config, error) {
-	if runtime == nil || runtime.APIEndpoint == nil {
+	// an in-cluster caller uses the service address and the stored credential.
+	// the controller service account cannot install cluster objects.
+	kubeAPIEndpoint := ""
+	if runtime != nil && runtime.APIEndpoint != nil {
+		kubeAPIEndpoint = *runtime.APIEndpoint
+	}
+	inCluster := HostsControlPlane(runtime) && callerRunsInControlPlane
+	if inCluster {
+		kubeAPIEndpoint = "https://kubernetes.default.svc.cluster.local"
+	}
+	if kubeAPIEndpoint == "" {
 		return nil, errors.New("cannot get REST config without API endpoint")
 	}
 
-	// determine if the client is for a control plane component calling the
-	// local kube API and set endpoint as needed
-	kubeAPIEndpoint := *runtime.APIEndpoint
-	if *runtime.ThreeportControlPlaneHost && threeportControlPlane {
-		kubeAPIEndpoint = "kubernetes.default.svc.cluster.local"
+	// the CA the API's certificate is verified with: the one recorded on the
+	// runtime, or none for an endpoint whose certificate a public CA signs,
+	// such as a private GKE cluster's DNS endpoint, which the system's roots
+	// verify.  The in-cluster address serves the cluster's own certificate,
+	// so a runtime that records no CA is verified there with the pod's
+	// service account CA.
+	caCertificate := ""
+	if runtime.CACertificate != nil {
+		caCertificate = *runtime.CACertificate
+	}
+	caTLSConfig := rest.TLSClientConfig{CAData: []byte(caCertificate)}
+	if inCluster && caCertificate == "" {
+		caTLSConfig = rest.TLSClientConfig{CAFile: serviceAccountCAFile}
 	}
 
 	// OKE and GKE authenticate with a token minted per request rather than a
@@ -192,10 +227,8 @@ func GetRestConfig(
 
 		if tokenGenerator != nil {
 			return &rest.Config{
-				Host: kubeAPIEndpoint,
-				TLSClientConfig: rest.TLSClientConfig{
-					CAData: []byte(*runtime.CACertificate),
-				},
+				Host:            kubeAPIEndpoint,
+				TLSClientConfig: caTLSConfig,
 				WrapTransport: func(rt http.RoundTripper) http.RoundTripper {
 					return &tokenRefreshTransport{base: rt, tokenGenerator: tokenGenerator}
 				},
@@ -217,19 +250,15 @@ func GetRestConfig(
 		} else {
 			keyData = *runtime.CertificateKey
 		}
-		tlsConfig := rest.TLSClientConfig{
-			CertData: []byte(*runtime.Certificate),
-			KeyData:  []byte(keyData),
-			CAData:   []byte(*runtime.CACertificate),
-		}
+		tlsConfig := caTLSConfig
+		tlsConfig.CertData = []byte(*runtime.Certificate)
+		tlsConfig.KeyData = []byte(keyData)
 		restConfig = rest.Config{
 			Host:            kubeAPIEndpoint,
 			TLSClientConfig: tlsConfig,
 		}
 	case runtime.ConnectionToken != nil:
-		tlsConfig := rest.TLSClientConfig{
-			CAData: []byte(*runtime.CACertificate),
-		}
+		tlsConfig := caTLSConfig
 		var bearerToken string
 		if encryptionKey != "" {
 			token, err := encryption.Decrypt(encryptionKey, *runtime.ConnectionToken)
@@ -352,7 +381,11 @@ func buildOKETokenGenerator(
 		decryptedPrivateKey,
 		nil,
 	)
-	clusterOCID := *okeRuntimeInstance.ClusterOCID
+	// reject a runtime that has no cluster
+	clusterOCID := util.Deref(okeRuntimeInstance.ClusterOCID)
+	if clusterOCID == "" {
+		return nil, fmt.Errorf("OCI OKE runtime instance %s has no cluster OCID set", *okeRuntimeInstance.Name)
+	}
 	return func() (string, error) {
 		token, _, err := util.GenerateOkeToken(clusterOCID, configProvider)
 		return token, err

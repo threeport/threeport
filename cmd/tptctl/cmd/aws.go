@@ -9,6 +9,7 @@ import (
 
 	cobra "github.com/spf13/cobra"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	config_v0 "github.com/threeport/threeport/pkg/config/v0"
 	yaml "sigs.k8s.io/yaml"
 )
@@ -72,7 +73,7 @@ var GetAwsProvidersCmd = &cobra.Command{
 		case "v0":
 			// load values
 			awsProviderConfig := config_v0.AwsProviderConfig{}
-			if awsConfigPath != "" {
+			if awsConfigPath != "" || awsStdin {
 				configContent, err := cli.ReadConfigContent(awsConfigPath, awsStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -320,7 +321,7 @@ var DeleteAwsProviderCmd = &cobra.Command{
 		switch awsVersion {
 		case "v0":
 			var awsProviderConfig config_v0.AwsProviderConfig
-			if awsConfigPath != "" {
+			if awsConfigPath != "" || awsStdin {
 				// load aws provider config
 				configContent, err := cli.ReadConfigContent(awsConfigPath, awsStdin)
 				if err != nil {
@@ -406,7 +407,7 @@ var GetAwsEksKubernetesRuntimesCmd = &cobra.Command{
 		case "v0":
 			// load aws eks kubernetes runtime values
 			awsEksKubernetesRuntimeConfig := config_v0.AwsEksKubernetesRuntimeConfig{}
-			if awsConfigPath != "" {
+			if awsConfigPath != "" || awsStdin {
 				configContent, err := cli.ReadConfigContent(awsConfigPath, awsStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -665,7 +666,7 @@ var GetAwsEksKubernetesRuntimeDefinitionsCmd = &cobra.Command{
 		case "v0":
 			// load values
 			awsEksKubernetesRuntimeDefinitionConfig := config_v0.AwsEksKubernetesRuntimeDefinitionConfig{}
-			if awsConfigPath != "" {
+			if awsConfigPath != "" || awsStdin {
 				configContent, err := cli.ReadConfigContent(awsConfigPath, awsStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -909,7 +910,7 @@ var DeleteAwsEksKubernetesRuntimeDefinitionCmd = &cobra.Command{
 		switch awsVersion {
 		case "v0":
 			var awsEksKubernetesRuntimeDefinitionConfig config_v0.AwsEksKubernetesRuntimeDefinitionConfig
-			if awsConfigPath != "" {
+			if awsConfigPath != "" || awsStdin {
 				// load aws eks kubernetes runtime definition config
 				configContent, err := cli.ReadConfigContent(awsConfigPath, awsStdin)
 				if err != nil {
@@ -994,7 +995,7 @@ var GetAwsEksKubernetesRuntimeInstancesCmd = &cobra.Command{
 		case "v0":
 			// load values
 			awsEksKubernetesRuntimeInstanceConfig := config_v0.AwsEksKubernetesRuntimeInstanceConfig{}
-			if awsConfigPath != "" {
+			if awsConfigPath != "" || awsStdin {
 				configContent, err := cli.ReadConfigContent(awsConfigPath, awsStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -1238,7 +1239,7 @@ var DeleteAwsEksKubernetesRuntimeInstanceCmd = &cobra.Command{
 		switch awsVersion {
 		case "v0":
 			var awsEksKubernetesRuntimeInstanceConfig config_v0.AwsEksKubernetesRuntimeInstanceConfig
-			if awsConfigPath != "" {
+			if awsConfigPath != "" || awsStdin {
 				// load aws eks kubernetes runtime instance config
 				configContent, err := cli.ReadConfigContent(awsConfigPath, awsStdin)
 				if err != nil {
@@ -1257,9 +1258,33 @@ var DeleteAwsEksKubernetesRuntimeInstanceCmd = &cobra.Command{
 				}
 			}
 
+			// record the operator's permission to orphan infrastructure the
+			// controller has no record of before the delete is attempted
+			if abandonInfrastructure {
+				confirmAbandonInfrastructure("aws eks kubernetes runtime instance", *awsEksKubernetesRuntimeInstanceConfig.AwsEksKubernetesRuntimeInstance.Name)
+				if err := awsEksKubernetesRuntimeInstanceConfig.SetAbandonInfrastructure(apiClient, apiEndpoint, true); err != nil {
+					cli.Error("failed to request infrastructure abandonment", err)
+					os.Exit(1)
+				}
+			}
+
 			// delete aws eks kubernetes runtime instance
 			deletedAwsEksKubernetesRuntimeInstance, err := awsEksKubernetesRuntimeInstanceConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
+				// a delete the controller is already holding or working on has
+				// picked up the abandonment request, which is all that was needed
+				if abandonInfrastructure && errors.Is(err, client_lib.ErrDeleteInProgress) {
+					cli.Complete(fmt.Sprintf("infrastructure abandonment requested for aws eks kubernetes runtime instance %s: the controller will complete the delete", *awsEksKubernetesRuntimeInstanceConfig.AwsEksKubernetesRuntimeInstance.Name))
+					return
+				}
+				// the override is only for this delete, and it stays set until
+				// changed, so a delete that never got going must not leave it
+				// on for the next plain delete
+				if abandonInfrastructure {
+					withdrawAbandonInfrastructure(err, "aws eks kubernetes runtime instance", *awsEksKubernetesRuntimeInstanceConfig.AwsEksKubernetesRuntimeInstance.Name, func() error {
+						return awsEksKubernetesRuntimeInstanceConfig.SetAbandonInfrastructure(apiClient, apiEndpoint, false)
+					})
+				}
 				cli.Error("failed to delete aws eks kubernetes runtime instance", err)
 				os.Exit(1)
 			}
@@ -1290,6 +1315,7 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
+	addAbandonInfrastructureFlags(DeleteAwsEksKubernetesRuntimeInstanceCmd)
 	DeleteAwsEksKubernetesRuntimeInstanceCmd.Flags().StringVarP(
 		&awsVersion,
 		"version", "v", "v0", "Version of aws eks kubernetes runtime instances object to delete. One of: [v0]",

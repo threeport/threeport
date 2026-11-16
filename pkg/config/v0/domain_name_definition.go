@@ -163,17 +163,18 @@ func (d *DomainNameDefinitionConfig) Replace(
 	}
 
 	// construct updated domain name definition object
-	updatedDomainNameDefinition := &api_v0.DomainNameDefinition{
-		Common: api_v0.Common{
-			ID: existingDomainNameDefinition.ID,
-		},
-		Definition: api_v0.Definition{
-			Name: domainNameDefinitionValues.Name,
-		},
-		Domain:     domainNameDefinitionValues.Domain,
-		Zone:       domainNameDefinitionValues.Zone,
-		AdminEmail: domainNameDefinitionValues.AdminEmail,
-	}
+	// Start from the existing object, so the fields this replace does not set
+	// are kept: the reconciler's (Reconciled and the rest of Reconciliation,
+	// Status) and the ones only the API server or a controller writes. Every
+	// field a user sets through the config is assigned below unconditionally,
+	// a nil value included, so a field left out of the config is cleared
+	// rather than kept. Do not assign the reconciler's fields here: the copy
+	// already carries them.
+	updatedDomainNameDefinition := util.Ptr(*existingDomainNameDefinition)
+	updatedDomainNameDefinition.Name = domainNameDefinitionValues.Name
+	updatedDomainNameDefinition.Domain = domainNameDefinitionValues.Domain
+	updatedDomainNameDefinition.Zone = domainNameDefinitionValues.Zone
+	updatedDomainNameDefinition.AdminEmail = domainNameDefinitionValues.AdminEmail
 
 	// replace domain name definition
 	replacedDomainNameDefinition, err := client_v0.ReplaceDomainNameDefinition(

@@ -55,7 +55,7 @@ var GetHelmWorkloadsCmd = &cobra.Command{
 		case "v0":
 			// load helm workload values
 			helmWorkloadConfig := config_v0.HelmWorkloadConfig{}
-			if helmWorkloadConfigPath != "" {
+			if helmWorkloadConfigPath != "" || helmWorkloadStdin {
 				configContent, err := cli.ReadConfigContent(helmWorkloadConfigPath, helmWorkloadStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -316,7 +316,7 @@ var GetHelmWorkloadDefinitionsCmd = &cobra.Command{
 		case "v0":
 			// load values
 			helmWorkloadDefinitionConfig := config_v0.HelmWorkloadDefinitionConfig{}
-			if helmWorkloadConfigPath != "" {
+			if helmWorkloadConfigPath != "" || helmWorkloadStdin {
 				configContent, err := cli.ReadConfigContent(helmWorkloadConfigPath, helmWorkloadStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -562,7 +562,7 @@ var DeleteHelmWorkloadDefinitionCmd = &cobra.Command{
 		switch helmWorkloadVersion {
 		case "v0":
 			var helmWorkloadDefinitionConfig config_v0.HelmWorkloadDefinitionConfig
-			if helmWorkloadConfigPath != "" {
+			if helmWorkloadConfigPath != "" || helmWorkloadStdin {
 				// load helm workload definition config
 				configContent, err := cli.ReadConfigContent(helmWorkloadConfigPath, helmWorkloadStdin)
 				if err != nil {
@@ -648,7 +648,7 @@ var GetHelmWorkloadInstancesCmd = &cobra.Command{
 		case "v0":
 			// load values
 			helmWorkloadInstanceConfig := config_v0.HelmWorkloadInstanceConfig{}
-			if helmWorkloadConfigPath != "" {
+			if helmWorkloadConfigPath != "" || helmWorkloadStdin {
 				configContent, err := cli.ReadConfigContent(helmWorkloadConfigPath, helmWorkloadStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
@@ -894,7 +894,7 @@ var DeleteHelmWorkloadInstanceCmd = &cobra.Command{
 		switch helmWorkloadVersion {
 		case "v0":
 			var helmWorkloadInstanceConfig config_v0.HelmWorkloadInstanceConfig
-			if helmWorkloadConfigPath != "" {
+			if helmWorkloadConfigPath != "" || helmWorkloadStdin {
 				// load helm workload instance config
 				configContent, err := cli.ReadConfigContent(helmWorkloadConfigPath, helmWorkloadStdin)
 				if err != nil {

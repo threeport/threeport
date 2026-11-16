@@ -96,6 +96,12 @@ func GenPkg(generator *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		if err := apiserver.GenModuleRegistration(generator, sdkConfig); err != nil {
 			return fmt.Errorf("failed to generate module registration function: %w", err)
 		}
+
+		// add the swagger docs package the module API server imports, until
+		// the module generates its own
+		if err := apiserver.GenModuleSwaggerDocsPlaceholder(generator, sdkConfig); err != nil {
+			return fmt.Errorf("failed to generate placeholder swagger docs: %w", err)
+		}
 	} else {
 		// add the module registration function for core threeport
 		if err := apiserver.GenCoreModuleRegistration(generator, sdkConfig); err != nil {
@@ -125,6 +131,9 @@ func GenPkg(generator *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	if generator.Module {
 		if err := installer.GenInstaller(generator, sdkConfig); err != nil {
 			return fmt.Errorf("failed to generate installer package: %w", err)
+		}
+		if err := installer.GenInstallerDatabasePolicyTest(generator, sdkConfig); err != nil {
+			return fmt.Errorf("failed to generate installer database policy test: %w", err)
 		}
 	}
 

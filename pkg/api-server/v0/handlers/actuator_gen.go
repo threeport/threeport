@@ -231,12 +231,16 @@ func (h Handler) GetProfiles(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/profiles/{id} [GET]
 func (h Handler) GetProfile(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.Profile).GetFullyQualifiedType()
-	profileID := c.Param("id")
+	profileID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var profile api_v0.Profile
 	if result := h.RequestDB(c).
 		First(&profile, profileID); result.Error != nil {
@@ -280,7 +284,10 @@ func (h Handler) GetProfile(c echo.Context) error {
 func (h Handler) UpdateProfile(c echo.Context) error {
 	objectType := api_v0.ObjectTypeProfile
 	fullyQualifiedType := new(api_v0.Profile).GetFullyQualifiedType()
-	profileID := c.Param("id")
+	profileID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingProfile api_v0.Profile
 	if result := h.RequestDB(c).First(&existingProfile, profileID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -358,7 +365,10 @@ func (h Handler) UpdateProfile(c echo.Context) error {
 func (h Handler) ReplaceProfile(c echo.Context) error {
 	objectType := api_v0.ObjectTypeProfile
 	fullyQualifiedType := new(api_v0.Profile).GetFullyQualifiedType()
-	profileID := c.Param("id")
+	profileID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingProfile api_v0.Profile
 	if result := h.RequestDB(c).First(&existingProfile, profileID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -438,13 +448,17 @@ func (h Handler) ReplaceProfile(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/profiles/{id} [DELETE]
 func (h Handler) DeleteProfile(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.Profile).GetFullyQualifiedType()
-	profileID := c.Param("id")
+	profileID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var profile api_v0.Profile
 	if result := h.RequestDB(c).First(&profile, profileID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -717,12 +731,16 @@ func (h Handler) GetTiers(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/tiers/{id} [GET]
 func (h Handler) GetTier(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.Tier).GetFullyQualifiedType()
-	tierID := c.Param("id")
+	tierID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var tier api_v0.Tier
 	if result := h.RequestDB(c).
 		First(&tier, tierID); result.Error != nil {
@@ -766,7 +784,10 @@ func (h Handler) GetTier(c echo.Context) error {
 func (h Handler) UpdateTier(c echo.Context) error {
 	objectType := api_v0.ObjectTypeTier
 	fullyQualifiedType := new(api_v0.Tier).GetFullyQualifiedType()
-	tierID := c.Param("id")
+	tierID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingTier api_v0.Tier
 	if result := h.RequestDB(c).First(&existingTier, tierID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -844,7 +865,10 @@ func (h Handler) UpdateTier(c echo.Context) error {
 func (h Handler) ReplaceTier(c echo.Context) error {
 	objectType := api_v0.ObjectTypeTier
 	fullyQualifiedType := new(api_v0.Tier).GetFullyQualifiedType()
-	tierID := c.Param("id")
+	tierID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var existingTier api_v0.Tier
 	if result := h.RequestDB(c).First(&existingTier, tierID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -924,13 +948,17 @@ func (h Handler) ReplaceTier(c echo.Context) error {
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/tiers/{id} [DELETE]
 func (h Handler) DeleteTier(c echo.Context) error {
 	fullyQualifiedType := new(api_v0.Tier).GetFullyQualifiedType()
-	tierID := c.Param("id")
+	tierID, err := apiserver_lib.ParseObjectID(c)
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, nil, err, fullyQualifiedType)
+	}
 	var tier api_v0.Tier
 	if result := h.RequestDB(c).First(&tier, tierID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
