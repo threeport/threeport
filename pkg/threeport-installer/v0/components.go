@@ -487,7 +487,7 @@ THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 						},
 					},
 					"spec": map[string]interface{}{
-						"affinity":        componentAntiAffinity(cpi.Opts.RestApiInfo.ServiceResourceName),
+						"affinity":        ComponentAntiAffinity(cpi.Opts.RestApiInfo.ServiceResourceName),
 						"securityContext": restrictedPodSecurityContext(),
 						"initContainers":  initContainers,
 						"containers": []interface{}{
@@ -2726,7 +2726,7 @@ func (cpi *ControlPlaneInstaller) getControllerDeployment(
 						},
 					},
 					"spec": map[string]interface{}{
-						"affinity":           componentAntiAffinity(deployName),
+						"affinity":           ComponentAntiAffinity(deployName),
 						"securityContext":    restrictedPodSecurityContext(),
 						"serviceAccountName": controller.ServiceAccountName,
 						"containers": []interface{}{

@@ -607,6 +607,10 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 							}),
 						}),
 						Lit("spec"): Map(String()).Interface().Values(Dict{
+							Lit("affinity"): Qual(
+								"github.com/threeport/threeport/pkg/threeport-installer/v0",
+								"ComponentAntiAffinity",
+							).Call(Id("apiServerName")),
 							Lit("containers"): Index().Interface().Values(
 								Line().Map(String()).Interface().Values(Dict{
 									Lit("args"): Id("apiArgs"),
@@ -752,6 +756,27 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 		)
 		g.Line()
 
+		g.Comment("keep one API server pod through a voluntary disruption")
+		g.If(Err().Op(":=").Qual(
+			"github.com/threeport/threeport/pkg/threeport-installer/v0",
+			"ApplyComponentDisruptionBudget",
+		).Call(
+			Id("i").Dot("KubeClient"),
+			Id("i").Dot("KubeRestMapper"),
+			Id("i").Dot("ModuleNamespace"),
+			Id("apiServerName"),
+			Id("replicas"),
+		), Err().Op("!=").Nil()).Block(
+			Return(Qual("fmt", "Errorf").Call(
+				Lit(fmt.Sprintf(
+					"failed to apply %s API pod disruption budget: %%w",
+					moduleNameKebab,
+				)),
+				Err(),
+			)),
+		)
+		g.Line()
+
 		g.Comment(fmt.Sprintf(
 			"install %s API server service",
 			moduleNameKebab,
@@ -875,6 +900,14 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 								}).Op(",").Line(),
 							}),
 							Lit("spec"): Map(String()).Interface().Values(Dict{
+								Lit("affinity"): Qual(
+									"github.com/threeport/threeport/pkg/threeport-installer/v0",
+									"ComponentAntiAffinity",
+								).Call(Lit(fmt.Sprintf(
+									"threeport-%s-%s-controller",
+									moduleNameKebab,
+									objGroup.ControllerShortName,
+								))),
 								Lit("containers"): Index().Interface().Values(
 									Line().Map(String()).Interface().Values(Dict{
 										Lit("args"): Id("controllerArgs"),
@@ -953,6 +986,31 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 				Return(Qual("fmt", "Errorf").Call(
 					Lit(fmt.Sprintf(
 						"failed to create/update %s controller deployment: %%w",
+						objGroup.ControllerShortName,
+					)),
+					Err(),
+				)),
+			)
+			g.Line()
+
+			g.Comment("keep one controller pod through a voluntary disruption")
+			g.If(Err().Op(":=").Qual(
+				"github.com/threeport/threeport/pkg/threeport-installer/v0",
+				"ApplyComponentDisruptionBudget",
+			).Call(
+				Id("i").Dot("KubeClient"),
+				Id("i").Dot("KubeRestMapper"),
+				Id("i").Dot("ModuleNamespace"),
+				Lit(fmt.Sprintf(
+					"threeport-%s-%s-controller",
+					moduleNameKebab,
+					objGroup.ControllerShortName,
+				)),
+				Id("replicas"),
+			), Err().Op("!=").Nil()).Block(
+				Return(Qual("fmt", "Errorf").Call(
+					Lit(fmt.Sprintf(
+						"failed to apply %s controller pod disruption budget: %%w",
 						objGroup.ControllerShortName,
 					)),
 					Err(),

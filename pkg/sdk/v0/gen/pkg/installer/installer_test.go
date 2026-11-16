@@ -96,3 +96,25 @@ func TestAModuleInstallsIntoTheConnectedControlPlanesNamespace(t *testing.T) {
 	require.NotEqual(t, -1, firstCopy)
 	assert.Less(t, lookup, firstCopy, "the namespace is read after a secret was copied")
 }
+
+// TestAModuleSpreadsAndProtectsItsReplicasLikeTheControlPlane checks that the
+// generated installer gives the module API server and each controller the
+// same pod anti-affinity and disruption budget the control plane gives its own
+// components, so a node drain leaves one replica of each serving.
+func TestAModuleSpreadsAndProtectsItsReplicasLikeTheControlPlane(t *testing.T) {
+	source := generateInstaller(t)
+
+	// assert the API server and the controller each prefer separate nodes
+	assert.Equal(t, 2, strings.Count(source, "tp_installer.ComponentAntiAffinity("))
+
+	// assert each applies a budget with the replica count it deploys with
+	assert.Equal(t, 2, strings.Count(source, "tp_installer.ApplyComponentDisruptionBudget("))
+	assert.Contains(t, source, "i.KubeRestMapper, i.ModuleNamespace, apiServerName, replicas)")
+
+	// assert the budget is applied after the deployment it protects exists
+	deployment := strings.Index(source, "failed to create/update widget API deployment")
+	budget := strings.Index(source, "tp_installer.ApplyComponentDisruptionBudget(")
+	require.NotEqual(t, -1, deployment)
+	require.NotEqual(t, -1, budget)
+	assert.Less(t, deployment, budget, "the budget is applied before the API deployment")
+}
