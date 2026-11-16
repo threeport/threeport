@@ -17941,6 +17941,10 @@ const docTemplate = `{
                     "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
                     "type": "string"
                 },
+                "FromNamespace": {
+                    "description": "The namespace of the control plane this install replaces",
+                    "type": "string"
+                },
                 "Genesis": {
                     "description": "Indicates whether this is was the first control plane that was spun up in a control plane group",
                     "type": "boolean"
@@ -17964,6 +17968,10 @@ const docTemplate = `{
                 "KubernetesRuntimeInstanceID": {
                     "description": "the kubernetes runtime instance the control plane is running on",
                     "type": "integer"
+                },
+                "ModuleInstall": {
+                    "description": "The module install the parent controller runs, as name, image namespace, and tag separated by spaces",
+                    "type": "string"
                 },
                 "Name": {
                     "description": "An arbitrary name the instance",
@@ -19904,6 +19912,14 @@ const docTemplate = `{
                 },
                 "Endpoint": {
                     "description": "The module API server's endpoint to proxy requests to for module\nobjects.",
+                    "type": "string"
+                },
+                "ImageNamespace": {
+                    "description": "The repository the module's images are pulled from.",
+                    "type": "string"
+                },
+                "ImageTag": {
+                    "description": "The tag on each of the module's images.",
                     "type": "string"
                 },
                 "ModuleApiRoutes": {
