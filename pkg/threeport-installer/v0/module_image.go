@@ -58,6 +58,11 @@ func moduleControllerImage(namespace, deploymentName, tag string) string {
 	return moduleImage(namespace, path.Base(deploymentName), tag)
 }
 
+// modulePluginImage returns the module plugin image reference.
+func modulePluginImage(namespace, kebab, tag string) string {
+	return moduleImage(namespace, fmt.Sprintf("%s%s-plugin", moduleImageNamePrefix, kebab), tag)
+}
+
 // moduleAPIDeploymentName returns the module API deployment name.
 func moduleAPIDeploymentName(kebab string) string {
 	return fmt.Sprintf("%s%s-api-server", moduleImageNamePrefix, kebab)

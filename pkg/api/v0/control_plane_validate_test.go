@@ -201,7 +201,56 @@ func TestTierCannotBeChangedAfterCreation(t *testing.T) {
 	})
 }
 
-// storedControlPlaneInstance stores a control plane instance and the rows it points at.
+// TestModuleInstallKeptDropsTheClearMarker keeps an empty value after a clear.
+func TestModuleInstallKeptDropsTheClearMarker(t *testing.T) {
+	request := "example.com/example-module-api@example/v1"
+	clear := ModuleInstallClear(request)
+	assert.Equal(t, "", ModuleInstallKept("", clear))
+	assert.Equal(t, request, ModuleInstallKept(request, request))
+}
+
+// TestModuleInstallUpdateKeepsAPendingRequest rejects a second request that still sees an empty field.
+// The first update commits, and the copy loaded before that update then conflicts.
+func TestModuleInstallUpdateKeepsAPendingRequest(t *testing.T) {
+	db := setupControlPlaneAuthDB(t)
+	stored := storedControlPlaneInstance(t, db, "root", true)
+	stale := stored
+
+	// the first request is stored
+	first := "example.com/example-module-api@example/v1"
+	require.NoError(t, db.Model(&stored).Updates(&ControlPlaneInstance{ModuleInstall: &first}).Error)
+
+	// a copy that still holds the empty field cannot replace it
+	second := "example.com/example-module-api@example/v2"
+	err := db.Model(&stale).Updates(&ControlPlaneInstance{ModuleInstall: &second}).Error
+	require.Error(t, err)
+	assert.ErrorContains(t, err, ErrModuleInstallPending.Error())
+	var httpError *util.HttpError
+	require.ErrorAs(t, err, &httpError)
+	assert.Equal(t, http.StatusConflict, httpError.StatusCode)
+
+	var row ControlPlaneInstance
+	require.NoError(t, db.First(&row, *stored.ID).Error)
+	assert.Equal(t, first, util.DerefString(row.ModuleInstall))
+
+	// an empty value does not clear the stored request
+	blank := ""
+	err = db.Model(&stale).Updates(&ControlPlaneInstance{ModuleInstall: &blank}).Error
+	require.Error(t, err)
+	require.NoError(t, db.First(&row, *stored.ID).Error)
+	assert.Equal(t, first, util.DerefString(row.ModuleInstall))
+
+	// a clear names the request it finishes, and the next request is stored
+	clear := ModuleInstallClear(first)
+	require.NoError(t, db.Model(&stale).Updates(&ControlPlaneInstance{ModuleInstall: &clear}).Error)
+	require.NoError(t, db.First(&row, *stored.ID).Error)
+	assert.Empty(t, util.DerefString(row.ModuleInstall))
+	require.NoError(t, db.Model(&stale).Updates(&ControlPlaneInstance{ModuleInstall: &second}).Error)
+	require.NoError(t, db.First(&row, *stored.ID).Error)
+	assert.Equal(t, second, util.DerefString(row.ModuleInstall))
+}
+
+// storedControlPlaneInstance inserts a row and returns it as the database holds it.
 func storedControlPlaneInstance(t *testing.T, db *gorm.DB, name string, self bool) ControlPlaneInstance {
 	t.Helper()
 

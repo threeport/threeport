@@ -1587,6 +1587,51 @@ func v0ControlPlaneInstanceUpdated(
 		return 0, fmt.Errorf("failed to get kube client: %w", err)
 	}
 
+	// create a requested module install with this control plane's kube client
+	if started := util.DerefString(controlPlaneInstance.ModuleInstall); started != "" {
+		if err := threeport.InstallRequestedModule(
+			dynamicKubeClient,
+			mapper,
+			controlPlaneInstance,
+			cpi,
+		); err != nil {
+			return 0, err
+		}
+		fresh, err := client.GetControlPlaneInstanceByID(
+			r.APIClient,
+			r.APIServer,
+			*controlPlaneInstance.ID,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to reload module install request: %w", err)
+		}
+		// clear the request this run started, or store a newer one
+		stored := util.DerefString(fresh.ModuleInstall)
+		next := threeport.ModuleInstallAfterRun(stored, started)
+		write := ""
+		if next == "" {
+			write = v0.ModuleInstallClear(started)
+		} else if next != stored {
+			write = next
+		}
+		if write != "" {
+			fresh.ModuleInstall = &write
+			// keep the stored value, because a clear marker is not what the row holds
+			updated, err := client.UpdateControlPlaneInstance(
+				r.APIClient,
+				r.APIServer,
+				fresh,
+			)
+			if err != nil {
+				return 0, fmt.Errorf("failed to clear module install request: %w", err)
+			}
+			kept := v0.ModuleInstallKept(next, write)
+			updated.ModuleInstall = &kept
+			fresh = updated
+		}
+		controlPlaneInstance.ModuleInstall = fresh.ModuleInstall
+	}
+
 	// a recorded source namespace means tptctl asked for a new deployment of this child
 	if childBlueGreenRequested(controlPlaneInstance) {
 		if err := installChildBlueGreen(
@@ -1745,6 +1790,7 @@ func v0ControlPlaneInstanceUpdated(
 			moduleClient,
 			moduleEndpoint,
 			controlPlaneInstance,
+			&threeport.ControlPlaneInstaller{},
 		); err != nil {
 			return 0, fmt.Errorf("failed to reconcile module images: %w", err)
 		}

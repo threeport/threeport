@@ -46,10 +46,11 @@ func TestTheSwagVersionModulesAreToldToUseIsThreeports(t *testing.T) {
 	assert.Contains(t, string(tutorial), "go get -tool "+swagToolPackage+"@"+SwagVersion, "the SDK tutorial has to tell module authors to declare the swag version threeport pins")
 }
 
-// TestAModuleBuildsItsPluginBinaryAndNoPluginImage covers a module's magefile:
-// it has targets for the tptctl plugin binary, which a developer installs, and
-// none for a plugin container image, which nothing runs.
-func TestAModuleBuildsItsPluginBinaryAndNoPluginImage(t *testing.T) {
+// TestAModuleBuildsItsPluginBinaryAndPluginImage covers a module's magefile:
+// it has targets for the tptctl plugin binary a developer installs, and for the
+// plugin image the module install job runs. The image is named plugin, not
+// tptctl, because the job runs the module's own plugin command.
+func TestAModuleBuildsItsPluginBinaryAndPluginImage(t *testing.T) {
 	// generate a module's magefile into a scratch directory
 	t.Chdir(t.TempDir())
 	require.NoError(t, GenMagefile(
@@ -64,8 +65,12 @@ func TestAModuleBuildsItsPluginBinaryAndNoPluginImage(t *testing.T) {
 	assert.Contains(t, source, "func (Build) TptctlBin(")
 	assert.Contains(t, source, "func (Build) TptctlBinDev()")
 
-	// assert no plugin image target or image name does
+	// assert the plugin image targets and name exist
+	assert.Contains(t, source, "func (Build) PluginImage(")
+	assert.Contains(t, source, "func (Build) PluginImageDev()")
+	assert.Contains(t, source, "threeport-widget-plugin")
+
+	// assert no tptctl image name remains
 	assert.NotContains(t, source, "TptctlImage")
-	assert.NotContains(t, source, "tptctlImagePackage")
 	assert.NotContains(t, source, "threeport-widget-tptctl")
 }

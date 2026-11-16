@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -137,6 +138,97 @@ func (target *ControlPlaneTarget) clusterClient(
 	target.Mapper = mapper
 	target.RuntimeName = runtime.Name
 	return nil
+}
+
+// InstallModule records a module install for the parent controller.
+// The controller creates the job. The plugin install creates the module API row.
+func InstallModule(
+	currentClient *http.Client,
+	currentEndpoint string,
+	encryptionKey string,
+	controlPlaneName string,
+	moduleName string,
+	imageNamespace string,
+	imageTag string,
+) error {
+	// resolve the control plane the parent controller reconciles
+	target, err := resolveControlPlane(currentClient, currentEndpoint, controlPlaneName, false)
+	if err != nil {
+		return err
+	}
+
+	// one pending request at a time, so a second call cannot replace the first
+	if util.DerefString(target.Instance.ModuleInstall) != "" {
+		return api.ErrModuleInstallPending
+	}
+
+	// record the request so the parent controller creates the job
+	module := &api.ModuleApi{
+		Name:           &moduleName,
+		ImageNamespace: &imageNamespace,
+		ImageTag:       &imageTag,
+	}
+	request := installer.ModuleInstallRequest(module)
+	target.Instance.ModuleInstall = &request
+	if _, err := client.UpdateControlPlaneInstance(currentClient, currentEndpoint, target.Instance); err != nil {
+		return fmt.Errorf("failed to record module install: %w", err)
+	}
+	return nil
+}
+
+// InstallThroughController records a module install when tptctl is pointed at a root
+// and names another control plane. It returns false when the caller installs on the
+// connected control plane.
+func InstallThroughController(
+	currentClient *http.Client,
+	currentEndpoint string,
+	encryptionKey string,
+	controlPlaneName string,
+	moduleName string,
+	imageNamespace string,
+	imageTag string,
+) (bool, error) {
+	// install on the connected control plane when the controller's install job runs this
+	if os.Getenv(installer.ModuleInstallJobEnv) != "" {
+		return false, nil
+	}
+
+	// the connected control plane decides which install runs
+	self, err := client.GetSelfControlPlaneInstance(currentClient, currentEndpoint)
+	if err != nil {
+		return false, fmt.Errorf("failed to get control plane instance: %w", err)
+	}
+	delegate, err := moduleInstallDelegates(self, controlPlaneName)
+	if err != nil || !delegate {
+		return false, err
+	}
+	if err := InstallModule(
+		currentClient,
+		currentEndpoint,
+		encryptionKey,
+		controlPlaneName,
+		moduleName,
+		imageNamespace,
+		imageTag,
+	); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// moduleInstallDelegates reports that a root named another control plane.
+// A command pointed at a child is rejected.
+func moduleInstallDelegates(self *api.ControlPlaneInstance, controlPlaneName string) (bool, error) {
+	// reject a child connection before choosing an install
+	if err := api.ChildControlPlaneRequest(self); err != nil {
+		return false, err
+	}
+
+	// a root with no other name installs on itself
+	if self == nil || controlPlaneName == "" || (self.Name != nil && controlPlaneName == *self.Name) {
+		return false, nil
+	}
+	return true, nil
 }
 
 // UpgradeModule records a module image.

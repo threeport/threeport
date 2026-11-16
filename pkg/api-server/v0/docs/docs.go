@@ -17969,6 +17969,10 @@ const docTemplate = `{
                     "description": "the kubernetes runtime instance the control plane is running on",
                     "type": "integer"
                 },
+                "ModuleInstall": {
+                    "description": "The module install the parent controller runs, as name, image namespace, and tag separated by spaces",
+                    "type": "string"
+                },
                 "Name": {
                     "description": "An arbitrary name the instance",
                     "type": "string"

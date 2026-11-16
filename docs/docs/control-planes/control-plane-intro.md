@@ -130,8 +130,25 @@ tptctl upgrade module blue-green \
   --control-plane-image-tag [image tag]
 ```
 
-Generate the diff between this tptctl version's Pulumi program and the
-deployed infrastructure.  Pass `--yes` to apply it.
+Install the module on the connected control plane.
+
+```bash
+tptctl $module install \
+  --control-plane-image-namespace [image namespace] \
+  --control-plane-image-tag [image tag]
+```
+
+Ask the parent controller to install the module on a child.
+
+```bash
+tptctl $module install \
+  --control-plane-name [child name] \
+  --control-plane-image-namespace [image namespace] \
+  --control-plane-image-tag [image tag]
+```
+
+Preview the infrastructure diff and apply it if you accept.
+`--yes` skips the prompt.
 
 ```bash
 tptctl upgrade infrastructure
