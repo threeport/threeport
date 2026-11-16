@@ -189,6 +189,32 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f.Func().Params(
 		Id("i").Op("*").Id("Installer"),
 	).Id(installFuncName).Params().Error().BlockFunc(func(g *Group) {
+		g.Comment("install against the control plane the API client is connected to, so a")
+		g.Comment("child control plane's own secrets are copied and not the default's")
+		g.If(
+			Id("i").Dot("ThreeportNamespace").Op("==").Id("defaultThreeportNamespace").
+				Op("&&").Id("i").Dot("ApiClient").Op("!=").Nil().
+				Op("&&").Id("i").Dot("ApiEndpoint").Op("!=").Lit(""),
+		).Block(
+			List(Id("controlPlane"), Err()).Op(":=").Qual(
+				"github.com/threeport/threeport/pkg/client/v0",
+				"GetSelfControlPlaneInstance",
+			).Call(Id("i").Dot("ApiClient"), Id("i").Dot("ApiEndpoint")),
+			If(Err().Op("!=").Nil()).Block(
+				Return(Qual("fmt", "Errorf").Call(
+					Lit("failed to get the control plane to install into: %w"),
+					Err(),
+				)),
+			),
+			If(
+				Id("controlPlane").Dot("Namespace").Op("!=").Nil().
+					Op("&&").Op("*").Id("controlPlane").Dot("Namespace").Op("!=").Lit(""),
+			).Block(
+				Id("i").Dot("ThreeportNamespace").Op("=").Op("*").Id("controlPlane").Dot("Namespace"),
+			),
+		)
+		g.Line()
+
 		g.Comment("create namespace")
 		g.Var().Id("namespace").Op("=").Op("&").Qual(
 			"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured",

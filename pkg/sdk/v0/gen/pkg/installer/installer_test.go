@@ -77,3 +77,22 @@ func TestAModuleConnectsToTheMessageBrokerOverTLS(t *testing.T) {
 		assert.Less(t, added, at[0], "the CA's certificate is added after %s", use)
 	}
 }
+
+// TestAModuleInstallsIntoTheConnectedControlPlanesNamespace checks that the
+// generated installer reads the namespace of the control plane its API client
+// is connected to before it copies anything, and keeps a namespace it was given.
+func TestAModuleInstallsIntoTheConnectedControlPlanesNamespace(t *testing.T) {
+	source := generateInstaller(t)
+
+	// assert the lookup uses the connected control plane, only for the default
+	assert.Contains(t, source, "i.ThreeportNamespace == defaultThreeportNamespace")
+	assert.Contains(t, source, "client.GetSelfControlPlaneInstance(i.ApiClient, i.ApiEndpoint)")
+	assert.Contains(t, source, "i.ThreeportNamespace = *controlPlane.Namespace")
+
+	// assert the lookup comes before the first secret is copied
+	lookup := strings.Index(source, "GetSelfControlPlaneInstance")
+	firstCopy := strings.Index(source, "CopySecret(")
+	require.NotEqual(t, -1, lookup)
+	require.NotEqual(t, -1, firstCopy)
+	assert.Less(t, lookup, firstCopy, "the namespace is read after a secret was copied")
+}
