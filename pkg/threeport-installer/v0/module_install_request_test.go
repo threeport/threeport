@@ -48,14 +48,15 @@ func TestInstallRequestedModuleCreatesTheJob(t *testing.T) {
 		ModuleInstall:     &request,
 	}
 
-	// create the job from the stored request
-	err := InstallRequestedModule(
+	// create the job from the stored request, which has not finished
+	finished, err := InstallRequestedModule(
 		kubeClient,
 		&mapper,
 		instance,
 		NewInstaller(Namespace(namespace)),
 	)
 	require.NoError(t, err)
+	require.False(t, finished)
 	job, err := kubeClient.Resource(schema.GroupVersionResource{
 		Group: "batch", Version: "v1", Resource: "jobs",
 	}).Namespace(namespace).Get(
@@ -84,13 +85,14 @@ func TestInstallRequestedModuleSkipsAnEmptyRequest(t *testing.T) {
 	namespace := "primary-test"
 	instance := &v0.ControlPlaneInstance{Namespace: &namespace}
 
-	err := InstallRequestedModule(
+	finished, err := InstallRequestedModule(
 		kubeClient,
 		&mapper,
 		instance,
 		NewInstaller(Namespace(namespace)),
 	)
 	require.NoError(t, err)
+	require.True(t, finished)
 }
 
 // TestInstallRequestedModuleKeepsARequestForAnotherImagePending checks that a
@@ -121,7 +123,7 @@ func TestInstallRequestedModuleKeepsARequestForAnotherImagePending(t *testing.T)
 			ImageNamespace: util.Ptr("registry.example"),
 			ImageTag:       util.Ptr(tag),
 		})
-		return InstallRequestedModule(
+		_, err := InstallRequestedModule(
 			kubeClient,
 			&mapper,
 			&v0.ControlPlaneInstance{
@@ -132,14 +134,83 @@ func TestInstallRequestedModuleKeepsARequestForAnotherImagePending(t *testing.T)
 			},
 			NewInstaller(Namespace(namespace)),
 		)
+		return err
 	}
 
 	// start a job for the first image, which has not finished
 	require.NoError(t, install("abc123"))
 
-	// assert a request for the same image is satisfied by the running job
+	// assert a request for the same image waits on the running job without error
 	require.NoError(t, install("abc123"))
 
 	// assert a request for another image stays pending
 	require.ErrorIs(t, install("def456"), ErrModuleInstallRunning)
+}
+
+// TestInstallRequestedModuleFollowsTheJobToItsOutcome checks what a request does
+// at each state of its install job: a succeeded job finishes the request and is
+// removed, a failed job is replaced by a new one and the request stays pending.
+func TestInstallRequestedModuleFollowsTheJobToItsOutcome(t *testing.T) {
+	// seed the key the install config reads
+	namespace := "primary-test"
+	mapper := WorkloadRESTMapper()
+	keySecret := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "Secret",
+		"metadata": map[string]interface{}{
+			"name":      EncryptionKeySecret,
+			"namespace": namespace,
+		},
+		"data": map[string]interface{}{
+			encryption.KeyEnvVar: base64.StdEncoding.EncodeToString([]byte("example-key")),
+		},
+	}}
+	kubeClient := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme(), keySecret)
+	jobs := kubeClient.Resource(schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "jobs"}).Namespace(namespace)
+	name := "primary-test"
+	endpoint := "https://api.example"
+	request := ModuleInstallRequest(&v0.ModuleApi{
+		Name:           util.Ptr("example.com/example-module-api"),
+		ImageNamespace: util.Ptr("registry.example"),
+		ImageTag:       util.Ptr("abc123"),
+	})
+	install := func() bool {
+		finished, err := InstallRequestedModule(
+			kubeClient,
+			&mapper,
+			&v0.ControlPlaneInstance{
+				Name:              &name,
+				Namespace:         &namespace,
+				ApiServerEndpoint: &endpoint,
+				ModuleInstall:     &request,
+			},
+			NewInstaller(Namespace(namespace)),
+		)
+		require.NoError(t, err)
+		return finished
+	}
+	setStatus := func(field string) {
+		job, err := jobs.Get(context.Background(), "module-install-example", metav1.GetOptions{})
+		require.NoError(t, err)
+		require.NoError(t, unstructured.SetNestedField(job.Object, int64(1), "status", field))
+		_, err = jobs.Update(context.Background(), job, metav1.UpdateOptions{})
+		require.NoError(t, err)
+	}
+
+	// assert the first pass creates the job and is not finished
+	require.False(t, install())
+
+	// assert a failed job is replaced by a new one, with the request still pending
+	setStatus("failed")
+	require.False(t, install())
+	job, err := jobs.Get(context.Background(), "module-install-example", metav1.GetOptions{})
+	require.NoError(t, err)
+	failed, _, _ := unstructured.NestedInt64(job.Object, "status", "failed")
+	require.Zero(t, failed, "the failed job was kept instead of replaced")
+
+	// assert a succeeded job finishes the request and is removed
+	setStatus("succeeded")
+	require.True(t, install())
+	_, err = jobs.Get(context.Background(), "module-install-example", metav1.GetOptions{})
+	require.Error(t, err, "the succeeded job was kept")
 }

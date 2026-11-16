@@ -206,7 +206,8 @@ func retagModuleAPI(
 		"apps", "v1", "Deployment", namespace, name, kubeClient, *mapper,
 	)
 	if k8serrors.IsNotFound(err) {
-		return EnsureModuleInstallJob(kubeClient, mapper, inst, cpi, module)
+		_, installErr := EnsureModuleInstallJob(kubeClient, mapper, inst, cpi, module)
+		return installErr
 	}
 	if err != nil {
 		return fmt.Errorf("failed to get module API deployment %s/%s: %w", namespace, name, err)
@@ -331,83 +332,95 @@ func moduleFromInstallRequest(raw string) (*api.ModuleApi, error) {
 	}, nil
 }
 
-// InstallRequestedModule creates the install job with the caller's kube client.
-// The controller passes the client it already uses for the control plane.
+// InstallRequestedModule drives the install job for the stored request with the
+// caller's kube client, which the controller already uses for the control plane.
+// It reports whether the install finished, so the controller keeps the request
+// stored and checks again until the job succeeds.
 func InstallRequestedModule(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	inst *api.ControlPlaneInstance,
 	cpi *ControlPlaneInstaller,
-) error {
-	// leave a row that is not asking for an install
+) (bool, error) {
+	// a row that is not asking for an install has nothing left to do
 	raw := util.DerefString(inst.ModuleInstall)
 	if raw == "" {
-		return nil
+		return true, nil
 	}
 	module, err := moduleFromInstallRequest(raw)
 	if err != nil {
-		return err
+		return false, err
 	}
 	return EnsureModuleInstallJob(kubeClient, mapper, inst, cpi, module)
 }
 
-// EnsureModuleInstallJob creates the install job when the module is not already installing.
-// A finished job is replaced. A running job is left in place.
+// EnsureModuleInstallJob moves a module install toward its requested image and
+// reports whether it finished. A missing job is created. A running job for the
+// same image is left to finish, and one for another image is an error, so the
+// request stays stored until that job ends. A succeeded job for the same image
+// is removed and reported as finished. A failed job, or a finished job for
+// another image, is replaced.
 func EnsureModuleInstallJob(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	inst *api.ControlPlaneInstance,
 	cpi *ControlPlaneInstaller,
 	module *api.ModuleApi,
-) error {
-	// leave a job that is still running
+) (bool, error) {
+	// read the job for this module
 	kebab := moduleKebab(util.DerefString(module.Name))
 	namespace := controlPlaneNamespace(inst, cpi)
 	name := moduleInstallJobName(kebab)
+	wanted := modulePluginImage(
+		util.DerefString(module.ImageNamespace),
+		kebab,
+		util.DerefString(module.ImageTag),
+	)
 	existing, err := kube.GetResource(
 		"batch", "v1", "Job", namespace, name, kubeClient, *mapper,
 	)
-	if err == nil && (jobActive(existing) || !jobFinished(existing)) {
-		// a running job satisfies only a request for its own image
-		running, _ := namedContainerImage(existing, "containers", "install")
-		wanted := modulePluginImage(
-			util.DerefString(module.ImageNamespace),
-			kebab,
-			util.DerefString(module.ImageTag),
-		)
-		if running != wanted {
-			return fmt.Errorf("%w: job %s runs %s, not %s", ErrModuleInstallRunning, name, running, wanted)
-		}
-		return nil
-	}
 	if err != nil && !k8serrors.IsNotFound(err) {
-		return fmt.Errorf("failed to get module install job %s: %w", name, err)
+		return false, fmt.Errorf("failed to get module install job %s: %w", name, err)
 	}
 
-	// replace a failed job so its pods are removed
+	// act on the job that exists
 	if err == nil {
+		image, _ := namedContainerImage(existing, "containers", "install")
+		switch {
+		case !jobFinished(existing) && image != wanted:
+			return false, fmt.Errorf("%w: job %s runs %s, not %s", ErrModuleInstallRunning, name, image, wanted)
+		case !jobFinished(existing):
+			return false, nil
+		case jobSucceeded(existing) && image == wanted:
+			if err := deleteModuleInstallJob(kubeClient, namespace, name); err != nil {
+				return false, err
+			}
+			return true, nil
+		}
+
+		// replace a failed job, or one for another image, so its pods are removed
 		if err := deleteModuleInstallJob(kubeClient, namespace, name); err != nil {
-			return err
+			return false, err
 		}
 	}
 
 	// write the config the install reads, then create the job
 	if err := ensureModuleInstallAccount(kubeClient, mapper, namespace); err != nil {
-		return err
+		return false, err
 	}
 	if err := ensureModuleInstallConfig(
 		kubeClient, mapper, inst, cpi, namespace, kebab,
 	); err != nil {
-		return err
+		return false, err
 	}
 	_, err = kube.CreateResource(
 		moduleInstallJob(namespace, kebab, module), kubeClient, *mapper,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create module install job %s: %w", name, err)
+		return false, fmt.Errorf("failed to create module install job %s: %w", name, err)
 	}
 
-	return nil
+	return false, nil
 }
 
 // UninstallModule deletes the module namespace and then the module API row.
@@ -520,12 +533,6 @@ func namedContainerImage(obj *unstructured.Unstructured, listKey, containerName 
 	return "", false
 }
 
-// jobActive reports a job that still has a running pod.
-func jobActive(job *unstructured.Unstructured) bool {
-	active, _, _ := unstructured.NestedInt64(job.Object, "status", "active")
-	return active > 0
-}
-
 // jobFinished reports a job that succeeded or failed.
 func jobFinished(job *unstructured.Unstructured) bool {
 	succeeded, _, _ := unstructured.NestedInt64(job.Object, "status", "succeeded")
@@ -533,6 +540,12 @@ func jobFinished(job *unstructured.Unstructured) bool {
 		return true
 	}
 	return jobFailed(job)
+}
+
+// jobSucceeded reports whether a job finished with a succeeded pod.
+func jobSucceeded(job *unstructured.Unstructured) bool {
+	succeeded, _, _ := unstructured.NestedInt64(job.Object, "status", "succeeded")
+	return succeeded > 0
 }
 
 // jobFailed reports whether a job has failed and is neither running nor finished.
