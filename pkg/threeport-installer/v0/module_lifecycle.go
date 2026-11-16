@@ -37,6 +37,10 @@ const (
 	// moduleInstallMaxAttempts is how many jobs the controller runs for one request.
 	moduleInstallMaxAttempts = 3
 
+	// moduleInstallDeadlineSeconds is how long one install job may run. A pod that
+	// cannot pull its image never fails on its own, so the deadline fails the job.
+	moduleInstallDeadlineSeconds = int64(900)
+
 	// moduleInstallAttemptsAnnotation records which attempt a job is.
 	moduleInstallAttemptsAnnotation = "threeport.io/module-install-attempts"
 
@@ -778,7 +782,8 @@ func moduleInstallJob(namespace, kebab string, module *api.ModuleApi, attempts i
 			},
 		},
 		"spec": map[string]interface{}{
-			"backoffLimit": int64(1),
+			"backoffLimit":          int64(1),
+			"activeDeadlineSeconds": moduleInstallDeadlineSeconds,
 			"template": map[string]interface{}{
 				"metadata": map[string]interface{}{
 					"labels": map[string]interface{}{LabelMaintenance: "true"},

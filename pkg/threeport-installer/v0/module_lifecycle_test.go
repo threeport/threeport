@@ -38,3 +38,20 @@ func TestModuleInstallJobUsesTheWorkloadControllerAccount(t *testing.T) {
 		tag,
 	}, container["args"])
 }
+
+// TestModuleInstallJobHasADeadline checks the install job fails on its own when
+// it never finishes, which a pod that cannot pull its image would not.
+func TestModuleInstallJobHasADeadline(t *testing.T) {
+	// build the job and read its deadline
+	namespace := "example"
+	tag := "abc"
+	job := moduleInstallJob(namespace, "example-module", &v0.ModuleApi{
+		ImageNamespace: &namespace,
+		ImageTag:       &tag,
+	}, 1)
+	spec, ok := job.Object["spec"].(map[string]interface{})
+	require.True(t, ok)
+
+	// assert the deadline is set to the install limit
+	require.Equal(t, moduleInstallDeadlineSeconds, spec["activeDeadlineSeconds"])
+}
