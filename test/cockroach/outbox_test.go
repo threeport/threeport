@@ -44,6 +44,10 @@ func TestOutboxMigrationBuildsTableAndIsIdempotent(t *testing.T) {
 	assert.False(t, db.Migrator().HasTable(&api_v0.OutboxMessage{}))
 }
 
+// outboxMigrationVersion is the goose version of the outbox migration, the
+// number in the name of 000008_outbox.go.
+const outboxMigrationVersion = 8
+
 // TestMigratorCreatesOutboxTable runs the registered migrations the way the
 // database-migrator job does, with goose and not by calling the migration
 // functions, so it shows the outbox migration is picked up and applied by the
@@ -69,11 +73,14 @@ func TestMigratorCreatesOutboxTable(t *testing.T) {
 
 	version, err := goose.GetDBVersionContext(ctx, sqlDb)
 	require.NoError(t, err)
-	assert.EqualValues(t, 2, version, "both migrations ran")
+	assert.GreaterOrEqual(t, version, int64(outboxMigrationVersion), "every migration ran, the outbox's among them")
 
-	// an existing control plane that is already at 000001 gets the table
+	// an existing control plane that has every migration but the outbox's gets
+	// the table, with the versions before it still recorded
 	require.NoError(t, db.Migrator().DropTable(&api_v0.OutboxMessage{}))
-	require.NoError(t, db.Exec("DELETE FROM threeport_goose_db_version WHERE version_id = 2").Error)
+	require.NoError(t, db.Exec(fmt.Sprintf(
+		"DELETE FROM threeport_goose_db_version WHERE version_id = %d", outboxMigrationVersion,
+	)).Error)
 	require.NoError(t, goose.RunContext(ctx, "up", sqlDb, "."))
 	assert.True(t, db.Migrator().HasTable(&api_v0.OutboxMessage{}),
 		"an upgrade adds the table to a database that predates it")
