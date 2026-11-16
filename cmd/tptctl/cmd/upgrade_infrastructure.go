@@ -107,8 +107,12 @@ var UpgradeInfrastructureCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// record the node pool the upgrade applied
-		if err := cli.RecordGkePool(infra, apiClient, apiEndpoint, infra.RuntimeInstanceName); err != nil {
+		// record the node pool the upgrade applied, waiting for an API that a
+		// replaced node pool restarted
+		cli.Info("Recording the node pool once the control plane API answers")
+		if err := util.Retry(180, 10, func() error {
+			return cli.RecordGkePool(infra, apiClient, apiEndpoint, infra.RuntimeInstanceName)
+		}); err != nil {
 			cli.Error("failed to record the node pool", err)
 			os.Exit(1)
 		}
