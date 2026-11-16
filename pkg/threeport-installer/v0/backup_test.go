@@ -15,8 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
-
-	auth "github.com/threeport/threeport/pkg/auth/v0"
 )
 
 // normalizingClient hands every object it creates or updates to the fake
@@ -147,8 +145,7 @@ func installDependenciesOn(t *testing.T, cpi *ControlPlaneInstaller, objects ...
 	// fake cluster runs
 	succeedDropJob(fakeClient)
 	mapper := backupTestMapper()
-	dbCreds, err := auth.GenerateDbCreds(cpi.Opts.Namespace)
-	require.NoError(t, err)
+	dbCreds := sharedDbCreds(t, cpi.Opts.Namespace)
 
 	return fakeClient, cpi.InstallThreeportControlPlaneDependencies(normalizingClient{fakeClient}, &mapper, "", dbCreds)
 }
@@ -247,8 +244,7 @@ func installAPIServer(t *testing.T, cpi *ControlPlaneInstaller) *dynamicfake.Fak
 
 	fakeClient := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
 	mapper := backupTestMapper()
-	dbCreds, err := auth.GenerateDbCreds(cpi.Opts.Namespace)
-	require.NoError(t, err)
+	dbCreds := sharedDbCreds(t, cpi.Opts.Namespace)
 	// the dependencies install, which runs first, leaves the message
 	// broker's secrets the API server connects with
 	require.NoError(t, cpi.ensureMessageBrokerSecrets(normalizingClient{fakeClient}))
@@ -347,15 +343,14 @@ func TestAReinstallRecreatesTheBackupSchedule(t *testing.T) {
 	cpi := backupInstaller()
 	mapper := backupTestMapper()
 	kubeClient := installDependencies(t, cpi)
-	dbCreds, err := auth.GenerateDbCreds(cpi.Opts.Namespace)
-	require.NoError(t, err)
+	dbCreds := sharedDbCreds(t, cpi.Opts.Namespace)
 	require.NoError(t, cpi.UpdateThreeportAPIDeployment(normalizingClient{kubeClient}, &mapper, dbCreds))
 	require.Contains(t, getObject(t, kubeClient, configMapGVR, "db-create").Object["data"], DbBackupScheduleFilename)
 
 	var scaled []string
 	allowDeploymentScaleDown(kubeClient, &scaled)
 	require.NoError(t, cpi.deleteForReinstall(kubeClient, ControlPlaneNamespace))
-	_, err = kubeClient.Resource(configMapGVR).Namespace(ControlPlaneNamespace).Get(context.Background(), "db-create", metav1.GetOptions{})
+	_, err := kubeClient.Resource(configMapGVR).Namespace(ControlPlaneNamespace).Get(context.Background(), "db-create", metav1.GetOptions{})
 	require.True(t, k8serrors.IsNotFound(err), "a reinstall leaves the database init SQL in place, so this does not cover recreating it")
 
 	require.NoError(t, cpi.UpdateThreeportAPIDeployment(normalizingClient{kubeClient}, &mapper, nil))

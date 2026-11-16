@@ -11,8 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
-
-	auth "github.com/threeport/threeport/pkg/auth/v0"
 )
 
 var pdbGVR = schema.GroupVersionResource{Group: "policy", Version: "v1", Resource: "poddisruptionbudgets"}
@@ -118,8 +116,7 @@ func installComponent(t *testing.T, cpi *ControlPlaneInstaller, kubeClient dynam
 
 	mapper := testComponentMapper()
 	if deployName == ThreeportAPIServiceResourceName {
-		dbCreds, err := auth.GenerateDbCreds(cpi.Opts.Namespace)
-		require.NoError(t, err)
+		dbCreds := sharedDbCreds(t, cpi.Opts.Namespace)
 		// the dependencies install, which runs first, leaves the message
 		// broker's secrets the API server connects with
 		require.NoError(t, cpi.ensureMessageBrokerSecrets(kubeClient))
