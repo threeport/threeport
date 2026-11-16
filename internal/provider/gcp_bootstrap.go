@@ -490,9 +490,12 @@ func (i *KubernetesRuntimeInfraGKE) getServiceAccountEmail() string {
 // Parameters:
 //   - projectID: The GCP project ID where the service account will be created
 //   - accountName: A name to use for the service account (will be prefixed with "threeport-")
+//   - imageNamespace: The image namespace the control plane images come from.
+//     When it names an Artifact Registry repository, the account is allowed to
+//     manage access to it. Empty skips that grant.
 //
 // Returns the service account info including the JSON key credentials.
-func CreateGCPServiceAccountWithKey(projectID, accountName string) (*GCPServiceAccountWithKey, error) {
+func CreateGCPServiceAccountWithKey(projectID, accountName, imageNamespace string) (*GCPServiceAccountWithKey, error) {
 	ctx := context.Background()
 
 	// Ensure GCP authentication is in place (uses browser flow if needed for CLI)
@@ -529,6 +532,11 @@ func CreateGCPServiceAccountWithKey(projectID, accountName string) (*GCPServiceA
 	// grant IAM roles to the service account
 	if err := grantServiceAccountRolesForProject(crmService, projectID, account.Email); err != nil {
 		return nil, fmt.Errorf("failed to grant IAM roles: %w", err)
+	}
+
+	// let the account grant its clusters' nodes read on the image repository
+	if err := GrantImageRepositoryManager(imageNamespace, account.Email); err != nil {
+		return nil, fmt.Errorf("failed to grant the account access to the image repository: %w", err)
 	}
 
 	// retry the key create while the new account is still propagating
