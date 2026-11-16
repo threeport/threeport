@@ -214,3 +214,80 @@ func TestInstallRequestedModuleFollowsTheJobToItsOutcome(t *testing.T) {
 	_, err = jobs.Get(context.Background(), "module-install-example", metav1.GetOptions{})
 	require.Error(t, err, "the succeeded job was kept")
 }
+
+// TestInstallRequestedModuleGivesUpAfterRepeatedFailures checks the limit on a
+// failing install: each failure makes the next attempt, the third failure
+// returns ErrModuleInstallFailed and marks the job abandoned, and a later
+// request creates a new job at the first attempt.
+func TestInstallRequestedModuleGivesUpAfterRepeatedFailures(t *testing.T) {
+	// seed the key the install config reads
+	namespace := "primary-test"
+	mapper := WorkloadRESTMapper()
+	keySecret := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "Secret",
+		"metadata": map[string]interface{}{
+			"name":      EncryptionKeySecret,
+			"namespace": namespace,
+		},
+		"data": map[string]interface{}{
+			encryption.KeyEnvVar: base64.StdEncoding.EncodeToString([]byte("example-key")),
+		},
+	}}
+	kubeClient := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme(), keySecret)
+	jobs := kubeClient.Resource(schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "jobs"}).Namespace(namespace)
+	name := "primary-test"
+	endpoint := "https://api.example"
+	request := ModuleInstallRequest(&v0.ModuleApi{
+		Name:           util.Ptr("example.com/example-module-api"),
+		ImageNamespace: util.Ptr("registry.example"),
+		ImageTag:       util.Ptr("abc123"),
+	})
+	install := func() error {
+		_, err := InstallRequestedModule(
+			kubeClient,
+			&mapper,
+			&v0.ControlPlaneInstance{
+				Name:              &name,
+				Namespace:         &namespace,
+				ApiServerEndpoint: &endpoint,
+				ModuleInstall:     &request,
+			},
+			NewInstaller(Namespace(namespace)),
+		)
+		return err
+	}
+	failJob := func() {
+		job, err := jobs.Get(context.Background(), "module-install-example", metav1.GetOptions{})
+		require.NoError(t, err)
+		require.NoError(t, unstructured.SetNestedField(job.Object, int64(1), "status", "failed"))
+		_, err = jobs.Update(context.Background(), job, metav1.UpdateOptions{})
+		require.NoError(t, err)
+	}
+	attempt := func() string {
+		job, err := jobs.Get(context.Background(), "module-install-example", metav1.GetOptions{})
+		require.NoError(t, err)
+		return job.GetAnnotations()[moduleInstallAttemptsAnnotation]
+	}
+
+	// assert each failure is replaced by the next attempt
+	require.NoError(t, install())
+	require.Equal(t, "1", attempt())
+	failJob()
+	require.NoError(t, install())
+	require.Equal(t, "2", attempt())
+	failJob()
+	require.NoError(t, install())
+	require.Equal(t, "3", attempt())
+
+	// assert the third failure gives up and keeps the job for its logs
+	failJob()
+	require.ErrorIs(t, install(), ErrModuleInstallFailed)
+	job, err := jobs.Get(context.Background(), "module-install-example", metav1.GetOptions{})
+	require.NoError(t, err)
+	require.Equal(t, "true", job.GetAnnotations()[moduleInstallAbandonedAnnotation])
+
+	// assert a later request creates a new job at the first attempt
+	require.NoError(t, install())
+	require.Equal(t, "1", attempt())
+}

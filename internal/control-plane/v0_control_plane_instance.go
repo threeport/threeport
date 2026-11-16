@@ -28,6 +28,7 @@ import (
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	event "github.com/threeport/threeport/pkg/event/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -1502,6 +1503,70 @@ func installChildBlueGreen(
 	return nil
 }
 
+// settleModuleInstall clears the request a run started, or stores a newer one.
+func settleModuleInstall(
+	r *controller.Reconciler,
+	controlPlaneInstance *v0.ControlPlaneInstance,
+	started string,
+) error {
+	fresh, err := client.GetControlPlaneInstanceByID(
+		r.APIClient,
+		r.APIServer,
+		*controlPlaneInstance.ID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to reload module install request: %w", err)
+	}
+	// clear the request this run started, or store a newer one
+	stored := util.DerefString(fresh.ModuleInstall)
+	next := threeport.ModuleInstallAfterRun(stored, started)
+	write := ""
+	if next == "" {
+		write = v0.ModuleInstallClear(started)
+	} else if next != stored {
+		write = next
+	}
+	if write != "" {
+		fresh.ModuleInstall = &write
+		// keep the stored value, because a clear marker is not what the row holds
+		updated, err := client.UpdateControlPlaneInstance(
+			r.APIClient,
+			r.APIServer,
+			fresh,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to clear module install request: %w", err)
+		}
+		kept := v0.ModuleInstallKept(next, write)
+		updated.ModuleInstall = &kept
+		fresh = updated
+	}
+	controlPlaneInstance.ModuleInstall = fresh.ModuleInstall
+
+	return nil
+}
+
+// recordModuleInstallFailure records a warning event for an install the
+// controller gave up on. A failure to record is logged and does not fail the pass.
+func recordModuleInstallFailure(
+	r *controller.Reconciler,
+	controlPlaneInstance *v0.ControlPlaneInstance,
+	installErr error,
+	log *logr.Logger,
+) {
+	if recordErr := r.EventsRecorder.RecordEvent(
+		&v0.Event{
+			Note:   util.Ptr(installErr.Error()),
+			Reason: util.Ptr("ModuleInstallFailed"),
+			Type:   util.Ptr(event.TypeWarning),
+		},
+		controlPlaneInstance.GetId(),
+		controlPlaneInstance.GetFullyQualifiedType(),
+	); recordErr != nil {
+		log.Error(recordErr, "failed to record module install failure event")
+	}
+}
+
 // moduleInstallCheckSeconds is how long the controller waits before it checks a
 // running module install job again.
 const moduleInstallCheckSeconds = 30
@@ -1692,46 +1757,21 @@ func v0ControlPlaneInstanceUpdated(
 			controlPlaneInstance,
 			cpi,
 		)
-		if err != nil {
+		switch {
+		case errors.Is(err, threeport.ErrModuleInstallFailed):
+			// give up, record why, and clear the request so a corrected one is accepted
+			recordModuleInstallFailure(r, controlPlaneInstance, err, log)
+			if err := settleModuleInstall(r, controlPlaneInstance, started); err != nil {
+				return 0, err
+			}
+		case err != nil:
 			return 0, err
-		}
-		if !finished {
+		case !finished:
 			moduleInstallRequeue = moduleInstallCheckSeconds
-		}
-		if finished {
-			fresh, err := client.GetControlPlaneInstanceByID(
-				r.APIClient,
-				r.APIServer,
-				*controlPlaneInstance.ID,
-			)
-			if err != nil {
-				return 0, fmt.Errorf("failed to reload module install request: %w", err)
+		default:
+			if err := settleModuleInstall(r, controlPlaneInstance, started); err != nil {
+				return 0, err
 			}
-			// clear the request this run started, or store a newer one
-			stored := util.DerefString(fresh.ModuleInstall)
-			next := threeport.ModuleInstallAfterRun(stored, started)
-			write := ""
-			if next == "" {
-				write = v0.ModuleInstallClear(started)
-			} else if next != stored {
-				write = next
-			}
-			if write != "" {
-				fresh.ModuleInstall = &write
-				// keep the stored value, because a clear marker is not what the row holds
-				updated, err := client.UpdateControlPlaneInstance(
-					r.APIClient,
-					r.APIServer,
-					fresh,
-				)
-				if err != nil {
-					return 0, fmt.Errorf("failed to clear module install request: %w", err)
-				}
-				kept := v0.ModuleInstallKept(next, write)
-				updated.ModuleInstall = &kept
-				fresh = updated
-			}
-			controlPlaneInstance.ModuleInstall = fresh.ModuleInstall
 		}
 	}
 

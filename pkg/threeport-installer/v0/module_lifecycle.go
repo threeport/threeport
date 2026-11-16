@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -26,6 +27,22 @@ import (
 // ErrModuleInstallRunning is returned when a module install job runs a different
 // image than the one requested, so the request stays pending until that job ends.
 var ErrModuleInstallRunning = errors.New("module install is still running")
+
+// ErrModuleInstallFailed is returned when a module install job has failed as many
+// times as the controller retries, so the request is cleared and a corrected one
+// is accepted.
+var ErrModuleInstallFailed = errors.New("module install failed")
+
+const (
+	// moduleInstallMaxAttempts is how many jobs the controller runs for one request.
+	moduleInstallMaxAttempts = 3
+
+	// moduleInstallAttemptsAnnotation records which attempt a job is.
+	moduleInstallAttemptsAnnotation = "threeport.io/module-install-attempts"
+
+	// moduleInstallAbandonedAnnotation marks a failed job the controller gave up on.
+	moduleInstallAbandonedAnnotation = "threeport.io/module-install-abandoned"
+)
 
 // ModuleInstallJobEnv names the environment variable the install job sets so the
 // module plugin installs on the control plane it is connected to.
@@ -384,6 +401,7 @@ func EnsureModuleInstallJob(
 	}
 
 	// act on the job that exists
+	attempts := int64(1)
 	if err == nil {
 		image, _ := namedContainerImage(existing, "containers", "install")
 		switch {
@@ -396,6 +414,18 @@ func EnsureModuleInstallJob(
 				return false, err
 			}
 			return true, nil
+		}
+
+		// count another attempt for a job that failed on the same image, and give up at the limit
+		if jobFailed(existing) && image == wanted && !jobAbandoned(existing) {
+			previous := jobAttempts(existing)
+			if previous >= moduleInstallMaxAttempts {
+				if err := abandonModuleInstallJob(kubeClient, namespace, existing); err != nil {
+					return false, err
+				}
+				return false, fmt.Errorf("%w: job %s failed %d times", ErrModuleInstallFailed, name, previous)
+			}
+			attempts = previous + 1
 		}
 
 		// replace a failed job, or one for another image, so its pods are removed
@@ -414,7 +444,7 @@ func EnsureModuleInstallJob(
 		return false, err
 	}
 	_, err = kube.CreateResource(
-		moduleInstallJob(namespace, kebab, module), kubeClient, *mapper,
+		moduleInstallJob(namespace, kebab, module, attempts), kubeClient, *mapper,
 	)
 	if err != nil {
 		return false, fmt.Errorf("failed to create module install job %s: %w", name, err)
@@ -540,6 +570,40 @@ func jobFinished(job *unstructured.Unstructured) bool {
 		return true
 	}
 	return jobFailed(job)
+}
+
+// jobAttempts returns which attempt a job is, one for a job with no record.
+func jobAttempts(job *unstructured.Unstructured) int64 {
+	attempts, err := strconv.ParseInt(job.GetAnnotations()[moduleInstallAttemptsAnnotation], 10, 64)
+	if err != nil || attempts < 1 {
+		return 1
+	}
+
+	return attempts
+}
+
+// jobAbandoned reports a failed job the controller already gave up on.
+func jobAbandoned(job *unstructured.Unstructured) bool {
+	return job.GetAnnotations()[moduleInstallAbandonedAnnotation] == "true"
+}
+
+// abandonModuleInstallJob marks a failed job so a later request starts over. The
+// job stays, so its pod logs remain readable.
+func abandonModuleInstallJob(kubeClient dynamic.Interface, namespace string, job *unstructured.Unstructured) error {
+	annotations := job.GetAnnotations()
+	if annotations == nil {
+		annotations = map[string]string{}
+	}
+	annotations[moduleInstallAbandonedAnnotation] = "true"
+	job.SetAnnotations(annotations)
+	_, err := kubeClient.Resource(schema.GroupVersionResource{
+		Group: "batch", Version: "v1", Resource: "jobs",
+	}).Namespace(namespace).Update(context.TODO(), job, metav1.UpdateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to mark module install job %s abandoned: %w", job.GetName(), err)
+	}
+
+	return nil
 }
 
 // jobSucceeded reports whether a job finished with a succeeded pod.
@@ -692,7 +756,7 @@ func ensureModuleInstallAccount(
 }
 
 // moduleInstallJob returns the job that runs one module install.
-func moduleInstallJob(namespace, kebab string, module *api.ModuleApi) *unstructured.Unstructured {
+func moduleInstallJob(namespace, kebab string, module *api.ModuleApi, attempts int64) *unstructured.Unstructured {
 	// label the pod the database admits, mount the config, and run the install
 	return &unstructured.Unstructured{Object: map[string]interface{}{
 		"apiVersion": "batch/v1",
@@ -700,6 +764,9 @@ func moduleInstallJob(namespace, kebab string, module *api.ModuleApi) *unstructu
 		"metadata": map[string]interface{}{
 			"name":      moduleInstallJobName(kebab),
 			"namespace": namespace,
+			"annotations": map[string]interface{}{
+				moduleInstallAttemptsAnnotation: strconv.FormatInt(attempts, 10),
+			},
 		},
 		"spec": map[string]interface{}{
 			"backoffLimit": int64(1),

@@ -17,7 +17,7 @@ func TestModuleInstallJobUsesTheWorkloadControllerAccount(t *testing.T) {
 	job := moduleInstallJob(namespace, "example-module", &v0.ModuleApi{
 		ImageNamespace: &namespace,
 		ImageTag:       &tag,
-	})
+	}, 1)
 	spec, ok := job.Object["spec"].(map[string]interface{})
 	require.True(t, ok)
 	template, ok := spec["template"].(map[string]interface{})
