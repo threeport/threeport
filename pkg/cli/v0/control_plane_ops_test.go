@@ -10,9 +10,33 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 
+	api "github.com/threeport/threeport/pkg/api/v0"
 	"github.com/threeport/threeport/pkg/encryption/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
+
+// TestModuleInstallRequestComesFromTheSavedRecord covers the request a child
+// module upgrade carries: it takes the image from the module record, so a tag
+// saved with a recorded namespace is enough, and a record missing either value
+// is refused.
+func TestModuleInstallRequestComesFromTheSavedRecord(t *testing.T) {
+	// assert a record with a namespace and a tag builds a request
+	request, err := moduleInstallRequestFromRecord(&api.ModuleApi{
+		Name:           util.Ptr("example.com/acme-module-api"),
+		ImageNamespace: util.Ptr("registry.example/repo"),
+		ImageTag:       util.Ptr("v1"),
+	})
+	require.NoError(t, err)
+	require.Equal(t, "example.com/acme-module-api registry.example/repo v1", request)
+
+	// assert a record with no namespace is refused
+	_, err = moduleInstallRequestFromRecord(&api.ModuleApi{
+		Name:     util.Ptr("example.com/acme-module-api"),
+		ImageTag: util.Ptr("v1"),
+	})
+	require.Error(t, err)
+}
 
 // TestChildBlueGreenUpdateStoresTheNewName covers the patch a child blue-green records.
 func TestChildBlueGreenUpdateStoresTheNewName(t *testing.T) {

@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -95,21 +94,18 @@ func recordModuleThenInstall(record func() error, install func() error) error {
 // moduleBlueGreenInstall returns the module install request a child's blue-green
 // carries, so the controller installs the module on the new control plane. A
 // control plane that is not a child returns an empty request.
-func moduleBlueGreenInstall(controlPlaneName string) (string, error) {
+func moduleBlueGreenInstall(
+	apiClient *http.Client,
+	apiEndpoint string,
+	controlPlaneName string,
+) (string, error) {
 	// only a child installs through its controller
 	if controlPlaneName == "" {
 		return "", nil
 	}
 
-	// the install job needs both coordinates of the module image
-	if moduleUpgradeImageNamespace == "" || moduleUpgradeImageTag == "" {
-		return "", errors.New("--module-image-namespace and --module-image-tag are required to reinstall the module on a child")
-	}
-	return installer.ModuleInstallRequest(&api.ModuleApi{
-		Name:           &moduleUpgradeName,
-		ImageNamespace: &moduleUpgradeImageNamespace,
-		ImageTag:       &moduleUpgradeImageTag,
-	}), nil
+	// read the image the upgrade saved on the child's module record
+	return cli.ModuleInstallRequestFor(apiClient, apiEndpoint, controlPlaneName, moduleUpgradeName)
 }
 
 // runModuleBlueGreenUpgrade records the module image, then requests a new control plane.
@@ -156,7 +152,7 @@ func runModuleBlueGreenUpgrade(cmd *cobra.Command, args []string) {
 			imageNamespace, imageTag := moduleBlueGreenImage(upgradeImageNamespace, upgradeImageTag, running)
 
 			// a child reinstalls the module on its new control plane through its controller
-			moduleInstall, err := moduleBlueGreenInstall(moduleUpgradeControlPlane)
+			moduleInstall, err := moduleBlueGreenInstall(apiClient, apiEndpoint, moduleUpgradeControlPlane)
 			if err != nil {
 				return err
 			}

@@ -291,6 +291,42 @@ func UpgradeModule(
 	return nil
 }
 
+// ModuleInstallRequestFor returns the install request for a module from the
+// image its record holds on the named child, or on the connected control plane
+// when the name is empty. A module upgrade saves the new image there first.
+func ModuleInstallRequestFor(
+	currentClient *http.Client,
+	currentEndpoint string,
+	controlPlaneName string,
+	moduleName string,
+) (string, error) {
+	// read the module record from the API that stores it
+	target, err := resolveControlPlane(currentClient, currentEndpoint, controlPlaneName, false)
+	if err != nil {
+		return "", err
+	}
+	module, err := client.GetModuleApiByName(target.APIClient, target.APIEndpoint, moduleName)
+	if err != nil {
+		return "", fmt.Errorf("failed to get module api: %w", err)
+	}
+
+	return moduleInstallRequestFromRecord(module)
+}
+
+// moduleInstallRequestFromRecord builds an install request from a module
+// record. The install job needs both coordinates of the image.
+func moduleInstallRequestFromRecord(module *api.ModuleApi) (string, error) {
+	// refuse a record that lacks the image namespace or tag
+	if util.DerefString(module.ImageNamespace) == "" || util.DerefString(module.ImageTag) == "" {
+		return "", fmt.Errorf(
+			"module %s has no recorded image namespace or tag to reinstall",
+			util.DerefString(module.Name),
+		)
+	}
+
+	return installer.ModuleInstallRequest(module), nil
+}
+
 // BackupNamedControlPlane backs up the named control plane. A child may back itself up.
 // An empty namespace uses the instance namespace.
 // The writers are brought back up or left stopped, as writers says.
