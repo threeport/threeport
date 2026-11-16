@@ -95,6 +95,11 @@ func PreflightBlueGreen(
 
 	// checks that read the source row
 	if sourceFound {
+		if plan.SourceName != "" {
+			run.check("new name differs from the child's current name", func() (string, error) {
+				return "", refuseSameChildName(source.Instance, plan.NewName)
+			})
+		}
 		run.check("no upgrade is pending on the source", func() (string, error) {
 			return "", pendingUpgrade(source.Instance)
 		})
@@ -125,11 +130,21 @@ func PreflightBlueGreen(
 	return errors.Join(run.failures...)
 }
 
-// pendingUpgrade returns an error when the source already carries a request.
+// pendingUpgrade returns an error when the source already carries a request. A
+// child renamed to its namespace that still records a source is waiting on its
+// module install, and the way forward is a reinstall, not a second blue-green.
 func pendingUpgrade(instance *api.ControlPlaneInstance) error {
-	// a recorded source namespace means a blue-green request is waiting
+	// a recorded source namespace means an upgrade has not finished
 	from := util.DerefString(instance.FromNamespace)
-	if from != "" && from != util.DerefString(instance.Namespace) {
+	namespace := util.DerefString(instance.Namespace)
+	if from != "" && from != namespace {
+		if util.DerefString(instance.Name) == namespace {
+			return fmt.Errorf(
+				"control plane %s is waiting on its module install and keeps the old control plane %s: "+
+					"reinstall the module on it with the corrected image, which removes %s when it succeeds",
+				namespace, from, from,
+			)
+		}
 		return fmt.Errorf("a blue-green request replacing %s is already pending", from)
 	}
 	if util.DerefString(instance.ModuleInstall) != "" {

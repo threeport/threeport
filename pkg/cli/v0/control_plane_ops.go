@@ -888,6 +888,9 @@ func delegateBlueGreen(
 	if newName == "" || newName == namespace {
 		return fmt.Errorf("new namespace must differ from source namespace %s", namespace)
 	}
+	if err := refuseSameChildName(inst, newName); err != nil {
+		return err
+	}
 	if inst.KubernetesRuntimeInstanceID == nil {
 		return fmt.Errorf("control plane %s has no runtime or definition", sourceName)
 	}
@@ -949,6 +952,17 @@ func delegateBlueGreen(
 	}
 	fmt.Printf("Info: recorded blue-green request for %s\n", newName)
 	return waitForChildBlueGreen(currentClient, currentEndpoint, *inst.ID, util.DerefString(inst.Name))
+}
+
+// refuseSameChildName rejects a replacement that keeps the child's current name.
+// The controller treats a child named for its namespace as finished, so a request
+// whose new name equals the old name would never start.
+func refuseSameChildName(child *api.ControlPlaneInstance, newName string) error {
+	if newName == util.DerefString(child.Name) {
+		return fmt.Errorf("new name %s is the name control plane %s already has: choose a different name", newName, newName)
+	}
+
+	return nil
 }
 
 // sourceNamespace returns the namespace a blue-green request replaces. A

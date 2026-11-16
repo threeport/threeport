@@ -133,7 +133,10 @@ flags.  Once the new control plane answers, the controller deletes the module
 namespaces and runs the module install job, so the module's workloads match its
 current installer.  The install uses the image saved on the module record.
 The old control plane stays until the install succeeds, so a failed install
-leaves it to fall back to.
+leaves it to fall back to.  If the install fails three times, the controller records a
+`ModuleInstallFailed` event and keeps the old control plane.  Reinstall the module
+on the child with the corrected image to finish, and the old control plane is
+removed when that install succeeds.
 
 ```bash
 tptctl upgrade module blue-green \

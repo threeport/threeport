@@ -148,3 +148,43 @@ func TestPreflightRunCollectsEveryFailure(t *testing.T) {
 	assert.Contains(t, errors.Join(run.failures...).Error(), "third: bad")
 	assert.Contains(t, errors.Join(run.failures...).Error(), "fourth: worse")
 }
+
+// TestPendingUpgradeNamesTheWayForwardForAChildWaitingOnItsInstall covers the
+// state after a failed module install: a child renamed to its namespace that
+// still records its old source is refused a second blue-green, and the message
+// points at reinstalling the module, which is the recovery.
+func TestPendingUpgradeNamesTheWayForwardForAChildWaitingOnItsInstall(t *testing.T) {
+	// a renamed child that keeps its old source namespace
+	waiting := &api.ControlPlaneInstance{
+		Name:          util.Ptr("primary-06"),
+		Namespace:     util.Ptr("primary-06"),
+		FromNamespace: util.Ptr("primary-05"),
+	}
+
+	// assert the refusal names the reinstall and the kept control plane
+	err := pendingUpgrade(waiting)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "reinstall the module")
+	assert.Contains(t, err.Error(), "primary-05")
+
+	// assert a request not yet started still reports a pending replacement
+	pending := &api.ControlPlaneInstance{
+		Name:          util.Ptr("primary-05"),
+		Namespace:     util.Ptr("primary-06"),
+		FromNamespace: util.Ptr("primary-05"),
+	}
+	err = pendingUpgrade(pending)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "already pending")
+}
+
+// TestAChildCannotBeReplacedUnderItsOwnName covers the name check on a child
+// replacement: the controller treats a child named for its namespace as
+// finished, so a new name equal to the child's current name is refused.
+func TestAChildCannotBeReplacedUnderItsOwnName(t *testing.T) {
+	child := &api.ControlPlaneInstance{Name: util.Ptr("child")}
+
+	// assert the same name is refused and a different name passes
+	require.Error(t, refuseSameChildName(child, "child"))
+	require.NoError(t, refuseSameChildName(child, "child-next"))
+}

@@ -1594,9 +1594,17 @@ func recordModuleInstallFailure(
 	installErr error,
 	log *logr.Logger,
 ) {
+	// name the way forward when the old control plane is kept for recovery
+	note := installErr.Error()
+	if from := util.DerefString(controlPlaneInstance.FromNamespace); from != "" {
+		note += fmt.Sprintf(
+			"; the old control plane %s is kept. Reinstall the module on %s with the corrected image to finish",
+			from, util.DerefString(controlPlaneInstance.Name),
+		)
+	}
 	if recordErr := r.EventsRecorder.RecordEvent(
 		&v0.Event{
-			Note:   util.Ptr(installErr.Error()),
+			Note:   util.Ptr(note),
 			Reason: util.Ptr("ModuleInstallFailed"),
 			Type:   util.Ptr(event.TypeWarning),
 		},
