@@ -39,11 +39,6 @@ func TestModuleImages(t *testing.T) {
 			"v1",
 		),
 	)
-	assert.Equal(
-		t,
-		"repo.example/threeport-acme-tptctl:v1",
-		moduleTptctlImage("repo.example", "acme", "v1"),
-	)
 	assert.Equal(t, "", moduleRestAPIImage("", "acme", "v1"))
 	assert.Equal(t, "", moduleRestAPIImage("repo.example", "acme", ""))
 	assert.Equal(t, "threeport-acme-api-server", moduleAPIDeploymentName("acme"))

@@ -9,6 +9,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/mod/modfile"
+
+	sdk "github.com/threeport/threeport/pkg/sdk/v0"
+	"github.com/threeport/threeport/pkg/sdk/v0/gen"
 )
 
 // TestTheSwagVersionModulesAreToldToUseIsThreeports covers the version in the
@@ -41,4 +44,28 @@ func TestTheSwagVersionModulesAreToldToUseIsThreeports(t *testing.T) {
 	tutorial, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "..", "docs", "docs", "sdk", "tutorial.md"))
 	require.NoError(t, err)
 	assert.Contains(t, string(tutorial), "go get -tool "+swagToolPackage+"@"+SwagVersion, "the SDK tutorial has to tell module authors to declare the swag version threeport pins")
+}
+
+// TestAModuleBuildsItsPluginBinaryAndNoPluginImage covers a module's magefile:
+// it has targets for the tptctl plugin binary, which a developer installs, and
+// none for a plugin container image, which nothing runs.
+func TestAModuleBuildsItsPluginBinaryAndNoPluginImage(t *testing.T) {
+	// generate a module's magefile into a scratch directory
+	t.Chdir(t.TempDir())
+	require.NoError(t, GenMagefile(
+		&gen.Generator{Module: true, ModulePath: "example.com/widget-module"},
+		&sdk.SdkConfig{ModuleName: "Widget", ApiNamespace: "widget.example.com"},
+	))
+	generated, err := os.ReadFile(filepath.Join("magefiles", "magefile_gen.go"))
+	require.NoError(t, err)
+	source := string(generated)
+
+	// assert the plugin binary targets exist
+	assert.Contains(t, source, "func (Build) TptctlBin(")
+	assert.Contains(t, source, "func (Build) TptctlBinDev()")
+
+	// assert no plugin image target or image name does
+	assert.NotContains(t, source, "TptctlImage")
+	assert.NotContains(t, source, "tptctlImagePackage")
+	assert.NotContains(t, source, "threeport-widget-tptctl")
 }

@@ -58,11 +58,6 @@ func moduleControllerImage(namespace, deploymentName, tag string) string {
 	return moduleImage(namespace, path.Base(deploymentName), tag)
 }
 
-// moduleTptctlImage returns the module tptctl plugin image reference.
-func moduleTptctlImage(namespace, kebab, tag string) string {
-	return moduleImage(namespace, fmt.Sprintf("%s%s-tptctl", moduleImageNamePrefix, kebab), tag)
-}
-
 // moduleAPIDeploymentName returns the module API deployment name.
 func moduleAPIDeploymentName(kebab string) string {
 	return fmt.Sprintf("%s%s-api-server", moduleImageNamePrefix, kebab)
