@@ -192,7 +192,11 @@ func TestInstallRequestedModuleFollowsTheJobToItsOutcome(t *testing.T) {
 	setStatus := func(field string) {
 		job, err := jobs.Get(context.Background(), "module-install-example", metav1.GetOptions{})
 		require.NoError(t, err)
-		require.NoError(t, unstructured.SetNestedField(job.Object, int64(1), "status", field))
+		if field == "failed" {
+			require.NoError(t, unstructured.SetNestedSlice(job.Object, failedConditions(), "status", "conditions"))
+		} else {
+			require.NoError(t, unstructured.SetNestedField(job.Object, int64(1), "status", field))
+		}
 		_, err = jobs.Update(context.Background(), job, metav1.UpdateOptions{})
 		require.NoError(t, err)
 	}
@@ -205,8 +209,8 @@ func TestInstallRequestedModuleFollowsTheJobToItsOutcome(t *testing.T) {
 	require.False(t, install())
 	job, err := jobs.Get(context.Background(), "module-install-example", metav1.GetOptions{})
 	require.NoError(t, err)
-	failed, _, _ := unstructured.NestedInt64(job.Object, "status", "failed")
-	require.Zero(t, failed, "the failed job was kept instead of replaced")
+	_, conditioned, _ := unstructured.NestedSlice(job.Object, "status", "conditions")
+	require.False(t, conditioned, "the failed job was kept instead of replaced")
 
 	// assert a succeeded job finishes the request and is removed
 	setStatus("succeeded")
@@ -260,7 +264,7 @@ func TestInstallRequestedModuleGivesUpAfterRepeatedFailures(t *testing.T) {
 	failJob := func() {
 		job, err := jobs.Get(context.Background(), "module-install-example", metav1.GetOptions{})
 		require.NoError(t, err)
-		require.NoError(t, unstructured.SetNestedField(job.Object, int64(1), "status", "failed"))
+		require.NoError(t, unstructured.SetNestedSlice(job.Object, failedConditions(), "status", "conditions"))
 		_, err = jobs.Update(context.Background(), job, metav1.UpdateOptions{})
 		require.NoError(t, err)
 	}
@@ -290,4 +294,33 @@ func TestInstallRequestedModuleGivesUpAfterRepeatedFailures(t *testing.T) {
 	// assert a later request creates a new job at the first attempt
 	require.NoError(t, install())
 	require.Equal(t, "1", attempt())
+}
+
+// failedConditions returns the conditions Kubernetes sets on a job that has used
+// its retries.
+func failedConditions() []interface{} {
+	return []interface{}{map[string]interface{}{"type": "Failed", "status": "True"}}
+}
+
+// TestAJobWithAPendingRetryIsNotFailed checks that a job whose pod failed but
+// whose retry has not started is left running. Only the Failed condition marks a
+// job as failed, so the request keeps its attempt and the retry runs.
+func TestAJobWithAPendingRetryIsNotFailed(t *testing.T) {
+	// a failed pod count with no active pod and no Failed condition
+	retrying := &unstructured.Unstructured{Object: map[string]interface{}{
+		"status": map[string]interface{}{"failed": int64(1)},
+	}}
+	require.False(t, jobFailed(retrying))
+
+	// the Failed condition marks the job failed
+	exhausted := &unstructured.Unstructured{Object: map[string]interface{}{
+		"status": map[string]interface{}{"failed": int64(2), "conditions": failedConditions()},
+	}}
+	require.True(t, jobFailed(exhausted))
+
+	// a succeeded job is never failed
+	succeeded := &unstructured.Unstructured{Object: map[string]interface{}{
+		"status": map[string]interface{}{"succeeded": int64(1), "conditions": failedConditions()},
+	}}
+	require.False(t, jobFailed(succeeded))
 }

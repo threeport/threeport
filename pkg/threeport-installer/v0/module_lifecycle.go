@@ -612,21 +612,30 @@ func jobSucceeded(job *unstructured.Unstructured) bool {
 	return succeeded > 0
 }
 
-// jobFailed reports whether a job has failed and is neither running nor finished.
+// jobFailed reports whether a job has failed for good. Kubernetes sets the Failed
+// condition once the job has used its retries. A pod that failed while a retry
+// is still to start leaves the job running, so a failed count alone does not
+// count.
 func jobFailed(job *unstructured.Unstructured) bool {
-	// a succeeded or active job stays
+	// a succeeded job stays
 	succeeded, _, _ := unstructured.NestedInt64(job.Object, "status", "succeeded")
 	if succeeded > 0 {
 		return false
 	}
-	active, _, _ := unstructured.NestedInt64(job.Object, "status", "active")
-	if active > 0 {
-		return false
+
+	// a Failed condition means no retry is left
+	conditions, _, _ := unstructured.NestedSlice(job.Object, "status", "conditions")
+	for _, raw := range conditions {
+		condition, ok := raw.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if condition["type"] == "Failed" && condition["status"] == "True" {
+			return true
+		}
 	}
 
-	// only a failed count means replace the job
-	failed, _, _ := unstructured.NestedInt64(job.Object, "status", "failed")
-	return failed > 0
+	return false
 }
 
 // deleteModuleInstallJob removes a failed install job and its pods.
