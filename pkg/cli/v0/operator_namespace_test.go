@@ -175,3 +175,40 @@ func TestOnlyAControlPlaneWithNoParentRunsSupportServices(t *testing.T) {
 		t.Fatal("a missing control plane must not run the operator")
 	}
 }
+
+// TestGrantSourceDatabaseGrantsTheSourceAccount covers the grant before a
+// blue-green backup: the database account of the source namespace is granted,
+// by its UID, and a source with no database account is refused before any grant.
+func TestGrantSourceDatabaseGrantsTheSourceAccount(t *testing.T) {
+	// a source namespace whose database account has a UID
+	account := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "ServiceAccount",
+		"metadata": map[string]interface{}{
+			"name":      installer.DatabaseServiceAccountName,
+			"namespace": "primary-01",
+			"uid":       "d5b617f3-30c6-450a-b10b-b55cad429306",
+		},
+	}}
+	kube := fake.NewSimpleDynamicClient(runtime.NewScheme(), account)
+	var granted []string
+	grant := func(uid string) error {
+		granted = append(granted, uid)
+		return nil
+	}
+
+	// grant the source database, then a namespace with no database account
+	source := installer.NewInstaller(installer.Namespace("primary-01"))
+	if err := grantSourceDatabase(source, kube, grant); err != nil {
+		t.Fatal(err)
+	}
+	missing := installer.NewInstaller(installer.Namespace("primary-02"))
+	if err := grantSourceDatabase(missing, kube, grant); err == nil {
+		t.Fatal("a source with no database account must be refused")
+	}
+
+	// assert only the source's account was granted
+	if len(granted) != 1 || granted[0] != "d5b617f3-30c6-450a-b10b-b55cad429306" {
+		t.Fatalf("granted = %v, want the source database account's UID once", granted)
+	}
+}

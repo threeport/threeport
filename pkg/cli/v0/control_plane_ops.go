@@ -528,6 +528,26 @@ func runBlueGreen(
 	if err != nil {
 		return err
 	}
+
+	// let the source database write the backup it is about to take
+	if providerName == api.KubernetesRuntimeInfraProviderGKE {
+		if err := grantSourceDatabase(
+			installer.NewInstaller(installer.Namespace(namespace)),
+			source.Kube,
+			func(uid string) error {
+				return (&provider.KubernetesRuntimeInfraGKE{
+					PulumiWorkspace: provider.PulumiWorkspace{
+						RuntimeInstanceName: util.DerefString(runtimeInst.Name),
+					},
+					ProjectID:                 projectID,
+					BackupBucket:              bucket,
+					ServiceAccountCredentials: providerCredentials,
+				}).GrantDatabaseBackupAccess(uid)
+			},
+		); err != nil {
+			return err
+		}
+	}
 	replicas, modules, err := backupControlPlaneWithClient(
 		namespace,
 		bucket,
@@ -869,6 +889,28 @@ func childBlueGreenUpdate(id *uint, currentName, newName, sourceNamespace, tag, 
 		update.ImageNamespace = &imageNamespace
 	}
 	return update
+}
+
+// grantSourceDatabase grants the database account of the control plane being
+// replaced access to the backup bucket, so its backup can be written. A control
+// plane installed before it had a backup bucket has no grant of its own.
+func grantSourceDatabase(
+	source *installer.ControlPlaneInstaller,
+	kube dynamic.Interface,
+	grant func(uid string) error,
+) error {
+	// read the source database account
+	uid, err := source.DatabaseServiceAccountUID(kube)
+	if err != nil {
+		return fmt.Errorf("failed to read the source database account: %w", err)
+	}
+
+	// grant it object read and write on the bucket
+	if err := grant(uid); err != nil {
+		return fmt.Errorf("failed to grant backup access to the source database: %w", err)
+	}
+
+	return nil
 }
 
 // runsSupportServices reports whether a control plane runs the support
