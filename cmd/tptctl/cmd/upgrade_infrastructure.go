@@ -161,7 +161,7 @@ func init() {
 	)
 	UpgradeInfrastructureCmd.Flags().StringVar(
 		&cliArgs.ControlPlaneImageRepo,
-		"control-plane-image-namespace", "", "Optional. Image namespace the control plane images are pulled from. When it names an Artifact Registry repository, the cluster's node service account is granted read access to it. Defaults to the CONTROL_PLANE_IMAGE_REPO environment variable, else the repository the control plane runs from.",
+		"control-plane-image-namespace", "", "Optional. Image namespace the control plane images are pulled from. On GKE the namespace is parsed to set the cluster's node permissions: when it names an Artifact Registry repository, the node service account is granted read access to that repository, and a namespace on any other registry grants nothing. Defaults to the CONTROL_PLANE_IMAGE_REPO environment variable, else the repository the control plane runs from.",
 	)
 	UpgradeInfrastructureCmd.Flags().StringVar(
 		&upgradeInfraTier,
