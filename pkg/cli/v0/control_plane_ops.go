@@ -529,25 +529,21 @@ func runBlueGreen(
 		return err
 	}
 
-	// let the source database write the backup it is about to take
+	// let the source database write the backup it is about to take, before
+	// anything is stopped
 	if providerName == api.KubernetesRuntimeInfraProviderGKE {
-		if err := grantSourceDatabase(
-			installer.NewInstaller(installer.Namespace(namespace)),
+		if err := GrantSourceDatabaseBackup(
+			namespace,
 			source.Kube,
-			func(uid string) error {
-				return (&provider.KubernetesRuntimeInfraGKE{
-					PulumiWorkspace: provider.PulumiWorkspace{
-						RuntimeInstanceName: util.DerefString(runtimeInst.Name),
-					},
-					ProjectID:                 projectID,
-					BackupBucket:              bucket,
-					ServiceAccountCredentials: providerCredentials,
-				}).GrantDatabaseBackupAccess(uid)
-			},
+			util.DerefString(runtimeInst.Name),
+			projectID,
+			bucket,
+			providerCredentials,
 		); err != nil {
 			return err
 		}
 	}
+
 	replicas, modules, err := backupControlPlaneWithClient(
 		namespace,
 		bucket,
@@ -889,6 +885,36 @@ func childBlueGreenUpdate(id *uint, currentName, newName, sourceNamespace, tag, 
 		update.ImageNamespace = &imageNamespace
 	}
 	return update
+}
+
+// GrantSourceDatabaseBackup grants the database account of a namespace being
+// replaced access to the runtime's backup bucket, so its backup can be written.
+// Every upgrade that backs up a source calls it, since a control plane installed
+// before it had a backup bucket has no grant of its own. Credentials are the
+// runtime's own, or empty to use the caller's identity.
+func GrantSourceDatabaseBackup(
+	sourceNamespace string,
+	kube dynamic.Interface,
+	runtimeName string,
+	projectID string,
+	bucket string,
+	credentials string,
+) error {
+	// grant the account the source namespace's database runs as
+	return grantSourceDatabase(
+		installer.NewInstaller(installer.Namespace(sourceNamespace)),
+		kube,
+		func(uid string) error {
+			return (&provider.KubernetesRuntimeInfraGKE{
+				PulumiWorkspace: provider.PulumiWorkspace{
+					RuntimeInstanceName: runtimeName,
+				},
+				ProjectID:                 projectID,
+				BackupBucket:              bucket,
+				ServiceAccountCredentials: credentials,
+			}).GrantDatabaseBackupAccess(uid)
+		},
+	)
 }
 
 // grantSourceDatabase grants the database account of the control plane being
