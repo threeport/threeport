@@ -58,12 +58,24 @@ func isLocalRegistry(host string) bool {
 	return strings.HasPrefix(host, "localhost") || strings.HasPrefix(host, "127.0.0.1")
 }
 
+// isArtifactRegistryHost reports a host under Google's pkg.dev domain, with or
+// without a port.
+func isArtifactRegistryHost(host string) bool {
+	name := strings.ToLower(host)
+	if before, _, found := strings.Cut(name, ":"); found {
+		name = before
+	}
+
+	return name == "pkg.dev" || strings.HasSuffix(name, ".pkg.dev")
+}
+
 // registryCredential returns the credential for a registry host. Google Artifact
 // Registry takes the caller's Google access token. Any other registry takes none,
 // which lets a public registry answer anonymously.
 func registryCredential(ctx context.Context, host string) (auth.Credential, error) {
-	// only Artifact Registry needs a Google token
-	if !strings.HasSuffix(host, "pkg.dev") {
+	// only Artifact Registry needs a Google token, and only on a Google-owned
+	// domain, so a lookalike such as evilpkg.dev gets none
+	if !isArtifactRegistryHost(host) {
 		return auth.EmptyCredential, nil
 	}
 

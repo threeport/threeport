@@ -74,6 +74,21 @@ func TestRegistryImageExistsReadsTheRegistryAnswer(t *testing.T) {
 	assert.False(t, found)
 }
 
+// TestOnlyGoogleOwnedHostsGetAGoogleToken covers which registry hosts receive the
+// caller's Google token: Artifact Registry hosts under pkg.dev do, and a
+// lookalike domain or another registry does not.
+func TestOnlyGoogleOwnedHostsGetAGoogleToken(t *testing.T) {
+	// assert hosts under pkg.dev qualify, with or without a port
+	for _, host := range []string{"us-central1-docker.pkg.dev", "pkg.dev", "pkg.dev:443", "US-CENTRAL1-DOCKER.PKG.DEV"} {
+		assert.True(t, isArtifactRegistryHost(host), host)
+	}
+
+	// assert lookalikes and other registries do not
+	for _, host := range []string{"evilpkg.dev", "pkg.dev.evil.example", "ghcr.io", "evilpkg.dev:443", ""} {
+		assert.False(t, isArtifactRegistryHost(host), host)
+	}
+}
+
 // TestPendingUpgradeRefusesASourceWithARequest covers the check that no upgrade
 // is already waiting on the source: a recorded blue-green source namespace or a
 // stored module install refuses, and a clean source passes.
