@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -24,6 +25,42 @@ func TestModuleImagePrecedesBlueGreen(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.Equal(t, []string{"module", "install"}, steps)
+}
+
+// TestModuleInstallFollowsAChildBlueGreen covers the module install a child's
+// upgrade records: it runs after the blue-green, it is skipped for a control
+// plane that is not a child, and a failed blue-green records none.
+func TestModuleInstallFollowsAChildBlueGreen(t *testing.T) {
+	steps := func(child bool, blueGreenErr error) ([]string, error) {
+		var ran []string
+		err := installModuleAfterBlueGreen(
+			child,
+			func() error {
+				ran = append(ran, "blue-green")
+				return blueGreenErr
+			},
+			func() error {
+				ran = append(ran, "install")
+				return nil
+			},
+		)
+		return ran, err
+	}
+
+	// assert a child installs after its blue-green
+	ran, err := steps(true, nil)
+	require.NoError(t, err)
+	require.Equal(t, []string{"blue-green", "install"}, ran)
+
+	// assert a control plane that is not a child records no install
+	ran, err = steps(false, nil)
+	require.NoError(t, err)
+	require.Equal(t, []string{"blue-green"}, ran)
+
+	// assert a failed blue-green records no install
+	ran, err = steps(true, errors.New("blue-green failed"))
+	require.Error(t, err)
+	require.Equal(t, []string{"blue-green"}, ran)
 }
 
 // TestModuleBlueGreenKeepsTheRunningControlPlaneImage covers the control plane
