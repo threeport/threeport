@@ -2,6 +2,7 @@ package v0
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -21,6 +22,10 @@ import (
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
+
+// ErrModuleInstallRunning is returned when a module install job runs a different
+// image than the one requested, so the request stays pending until that job ends.
+var ErrModuleInstallRunning = errors.New("module install is still running")
 
 // ModuleInstallJobEnv names the environment variable the install job sets so the
 // module plugin installs on the control plane it is connected to.
@@ -362,10 +367,17 @@ func EnsureModuleInstallJob(
 	existing, err := kube.GetResource(
 		"batch", "v1", "Job", namespace, name, kubeClient, *mapper,
 	)
-	if err == nil && jobActive(existing) {
-		return nil
-	}
-	if err == nil && !jobFinished(existing) {
+	if err == nil && (jobActive(existing) || !jobFinished(existing)) {
+		// a running job satisfies only a request for its own image
+		running, _ := namedContainerImage(existing, "containers", "install")
+		wanted := modulePluginImage(
+			util.DerefString(module.ImageNamespace),
+			kebab,
+			util.DerefString(module.ImageTag),
+		)
+		if running != wanted {
+			return fmt.Errorf("%w: job %s runs %s, not %s", ErrModuleInstallRunning, name, running, wanted)
+		}
 		return nil
 	}
 	if err != nil && !k8serrors.IsNotFound(err) {

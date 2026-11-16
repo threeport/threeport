@@ -92,3 +92,54 @@ func TestInstallRequestedModuleSkipsAnEmptyRequest(t *testing.T) {
 	)
 	require.NoError(t, err)
 }
+
+// TestInstallRequestedModuleKeepsARequestForAnotherImagePending checks that a
+// running install job satisfies only a request for its own image. A request for
+// another image returns an error, so the controller keeps it stored until the
+// running job ends.
+func TestInstallRequestedModuleKeepsARequestForAnotherImagePending(t *testing.T) {
+	// seed the key the install config reads
+	namespace := "primary-test"
+	mapper := WorkloadRESTMapper()
+	keySecret := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "Secret",
+		"metadata": map[string]interface{}{
+			"name":      EncryptionKeySecret,
+			"namespace": namespace,
+		},
+		"data": map[string]interface{}{
+			encryption.KeyEnvVar: base64.StdEncoding.EncodeToString([]byte("example-key")),
+		},
+	}}
+	kubeClient := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme(), keySecret)
+	name := "primary-test"
+	endpoint := "https://api.example"
+	install := func(tag string) error {
+		request := ModuleInstallRequest(&v0.ModuleApi{
+			Name:           util.Ptr("example.com/example-module-api"),
+			ImageNamespace: util.Ptr("registry.example"),
+			ImageTag:       util.Ptr(tag),
+		})
+		return InstallRequestedModule(
+			kubeClient,
+			&mapper,
+			&v0.ControlPlaneInstance{
+				Name:              &name,
+				Namespace:         &namespace,
+				ApiServerEndpoint: &endpoint,
+				ModuleInstall:     &request,
+			},
+			NewInstaller(Namespace(namespace)),
+		)
+	}
+
+	// start a job for the first image, which has not finished
+	require.NoError(t, install("abc123"))
+
+	// assert a request for the same image is satisfied by the running job
+	require.NoError(t, install("abc123"))
+
+	// assert a request for another image stays pending
+	require.ErrorIs(t, install("def456"), ErrModuleInstallRunning)
+}
