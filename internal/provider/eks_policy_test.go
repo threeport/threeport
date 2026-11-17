@@ -98,6 +98,14 @@ func TestResourceManagerPolicyCoversProvisioning(t *testing.T) {
 	// what the Pulumi AWS provider calls for the resources the program
 	// declares, including the attribute read-backs it does after a create
 	pulumiProviderCalls := []string{
+		// the audit log's log group, which the stack creates before the
+		// cluster with a retention period
+		"logs:CreateLogGroup",
+		"logs:DeleteLogGroup",
+		"logs:PutRetentionPolicy",
+		"logs:DescribeLogGroups",
+		"logs:ListTagsForResource",
+		"logs:TagResource",
 		"ec2:CreateVpc",
 		"ec2:DescribeVpcs",
 		"ec2:DescribeVpcAttribute",

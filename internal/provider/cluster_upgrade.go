@@ -39,7 +39,8 @@ var eksNodeGroupVersion = tpaws.EksNodeGroupVersion
 // version, which EKS upgraded on its own while the node groups stayed
 // behind, is kept where it is, as are the add-ons, which follow the control
 // plane, and a node group already past it.  The stack keeps the cluster's
-// upgrade policy, as a resumed create does, and the roles the create gave
+// upgrade policy, access configuration, zones and the range its network
+// was laid out in, as a resumed create does, and the roles the create gave
 // the cluster and its node group.
 func (i *KubernetesRuntimeInfraEKS) UpgradeInfra(version string) error {
 	i.KubernetesVersion = version
@@ -78,8 +79,7 @@ func (i *KubernetesRuntimeInfraEKS) UpgradeInfra(version string) error {
 	if err != nil {
 		return fmt.Errorf("failed to read the stack's EKS cluster: %w", err)
 	}
-	i.keepStackSupportType(exported.Deployment)
-	i.keepStackZones(exported.Deployment)
+	i.keepStackCluster(exported.Deployment)
 
 	if err := i.upgradeStack(stack); err != nil {
 		return err
@@ -113,8 +113,8 @@ func (i *KubernetesRuntimeInfraGKE) ClusterKubernetesVersion() (string, error) {
 // UpgradeInfra upgrades the GKE cluster's control plane to version, by
 // raising the minimum version it asks for.  GKE upgrades it to its release
 // channel's release of that version, and the nodes after it within the
-// maintenance window.  The stack keeps the cluster's release channel, as a
-// resumed create does.
+// maintenance window.  The stack keeps the cluster's release channel and the
+// range its network was laid out in, as a resumed create does.
 func (i *KubernetesRuntimeInfraGKE) UpgradeInfra(version string) error {
 	i.Version = version
 	i.stackMinMasterVersion = nil
@@ -127,6 +127,7 @@ func (i *KubernetesRuntimeInfraGKE) UpgradeInfra(version string) error {
 	if err != nil {
 		return fmt.Errorf("failed to read the stack's GKE cluster: %w", err)
 	}
+	i.keepStackNetwork(exported.Deployment)
 	i.keepStackReleaseChannel(exported.Deployment)
 	// the cluster stays where it is, and its node pool keeps its zones and
 	// how its autoscaler limits the nodes

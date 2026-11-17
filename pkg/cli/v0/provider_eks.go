@@ -173,8 +173,11 @@ func DeployEksInfra(
 		DefaultNodeGroupInitialNodes: eksProfile.InitialNodeCount,
 		DefaultNodeGroupMinNodes:     eksProfile.MinNodeCount,
 		DefaultNodeGroupMaxNodes:     eksProfile.MaxNodeCount,
+		NetworkCidr:                  cpi.Opts.NetworkCidr,
 		KubernetesVersion:            v0.KubernetesVersionOrDefault(&cpi.Opts.KubernetesVersion),
 		AllowedCidrs:                 cpi.Opts.K8sApiAllowedCidrs,
+		AuditLog:                     genesisAuditLog(cpi.Opts),
+		DeletionProtection:           genesisDeletionProtection(cpi.Opts),
 	}).InitPulumiProject()
 	*kubernetesRuntimeInfra = kubernetesRuntimeInfraEKS
 	uninstaller.kubernetesRuntimeInfra = *kubernetesRuntimeInfra
@@ -344,6 +347,8 @@ func ConfigureControlPlaneWithEksConfig(
 	)
 	// the version tptctl created the cluster on, none for an existing one
 	awsEksKubernetesRuntimeDef.KubernetesVersion = kubernetesRuntimeDefResult.KubernetesVersion
+	awsEksKubernetesRuntimeDef.AuditLog = kubernetesRuntimeDefResult.AuditLog
+	awsEksKubernetesRuntimeDef.DeletionProtection = kubernetesRuntimeDefResult.DeletionProtection
 	createdAwsEksKubernetesRuntimeDef, err := client.CreateAwsEksKubernetesRuntimeDefinition(
 		apiClient,
 		threeportAPIEndpoint,
