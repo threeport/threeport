@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	SupportServicesOperatorImage = "ghcr.io/nukleros/support-services-operator:v0.10.1"
+	SupportServicesOperatorImage = "ghcr.io/nukleros/support-services-operator:v0.11.0"
 
 	// links the service account declared in the IngressComponent resource to
 	// the IRSA role internal/provider creates for it on EKS.
@@ -52,6 +52,12 @@ const (
 
 	// SupportServicesName is the object the nginx component joins.
 	SupportServicesName = "threeport-support-services"
+
+	// StorageComponentName is the object that installs the seaweedfs operator.
+	StorageComponentName = "storage-component"
+
+	// storageComponentNamespace is the namespace that operator runs in.
+	storageComponentNamespace = "nukleros-storage-system"
 
 	// SupportServicesCloudLocal is the cloud value for a cluster with no cloud iam role.
 	SupportServicesCloudLocal = "local"
@@ -195,6 +201,12 @@ func InstallThreeportSupportServicesOperator(
 		return fmt.Errorf("failed to create SupportServices object: %w", err)
 	}
 
+	// the seaweedfs operator is a storage component, not a field on support services
+	storage := storageComponentObject()
+	if _, err := kube.CreateResource(storage, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create StorageComponent object: %w", err)
+	}
+
 	return nil
 }
 
@@ -212,6 +224,27 @@ func supportServicesObject(cloud string) *unstructured.Unstructured {
 				"tier":                     "development",
 				"defaultIngressController": "nginx",
 				"cloud":                    cloud,
+			},
+		},
+	}
+}
+
+// storageComponentObject returns the StorageComponent that installs seaweedfs.
+// Collection is left unset so the operator uses the only support services collection.
+func storageComponentObject() *unstructured.Unstructured {
+	// one replica matches a single control plane
+	return &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "platform.addons.nukleros.io/v1alpha1",
+			"kind":       "StorageComponent",
+			"metadata": map[string]interface{}{
+				"name": StorageComponentName,
+			},
+			"spec": map[string]interface{}{
+				"namespace": storageComponentNamespace,
+				"seaweedfsOperator": map[string]interface{}{
+					"replicas": int64(1),
+				},
 			},
 		},
 	}

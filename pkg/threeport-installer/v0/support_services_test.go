@@ -101,3 +101,20 @@ func TestSupportServicesCloud(t *testing.T) {
 	require.Equal(t, SupportServicesCloudLocal, SupportServicesCloud(api.KubernetesRuntimeInfraProviderKind))
 	require.Equal(t, SupportServicesCloudAWS, supportServicesObject(SupportServicesCloudAWS).Object["spec"].(map[string]interface{})["cloud"])
 }
+
+// TestStorageComponentObject covers the storage component and its definition.
+func TestStorageComponentObject(t *testing.T) {
+	// the object names the seaweedfs operator namespace
+	object := storageComponentObject()
+	require.Equal(t, StorageComponentName, object.GetName())
+	require.Equal(t, storageComponentNamespace, object.Object["spec"].(map[string]interface{})["namespace"])
+	objects, err := supportServicesOperatorObjects(ControlPlaneNamespace)
+	require.NoError(t, err)
+	found := false
+	for _, item := range objects {
+		if item.GetKind() == "CustomResourceDefinition" && item.GetName() == "storagecomponents.platform.addons.nukleros.io" {
+			found = true
+		}
+	}
+	require.True(t, found)
+}
