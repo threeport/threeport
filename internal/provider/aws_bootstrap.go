@@ -170,7 +170,8 @@ const (
                 "ec2:DescribeLaunchTemplateVersions",
                 "autoscaling:DescribeTags",
                 "autoscaling:DescribeLaunchConfigurations",
-                "ec2:DescribeInstanceTypes"
+                "ec2:DescribeInstanceTypes",
+                "eks:DescribeNodegroup"
             ],
             "Resource": "*"
         }

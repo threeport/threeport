@@ -90,7 +90,7 @@ func installEksClusterAutoscaler(
 			"apiVersion": "rbac.authorization.k8s.io/v1",
 			"kind":       "ClusterRole",
 			"metadata": map[string]interface{}{
-				"name": "cluster-autoscaler",
+				"name": ClusterAutoscalerClusterRoleName,
 				"labels": map[string]interface{}{
 					"k8s-addon": "cluster-autoscaler.addons.k8s.io",
 					"k8s-app":   "cluster-autoscaler",
@@ -229,6 +229,26 @@ func installEksClusterAutoscaler(
 						"csinodes",
 						"csidrivers",
 						"csistoragecapacities",
+						"volumeattachments",
+					},
+					"verbs": []interface{}{
+						"watch",
+						"list",
+						"get",
+					},
+				},
+				// the autoscaler's scheduler simulation watches dynamic
+				// resource allocation's objects; a release that can't list
+				// them, or volumeattachments, waits for its caches forever
+				// and never scales
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"resource.k8s.io",
+					},
+					"resources": []interface{}{
+						"resourceclaims",
+						"resourceslices",
+						"deviceclasses",
 					},
 					"verbs": []interface{}{
 						"watch",

@@ -309,3 +309,21 @@ func TestMoveVpcCniPolicyNeedsARole(t *testing.T) {
 	assert.Empty(t, addon.updates)
 	assert.Empty(t, nodeRole.detached)
 }
+
+// TestAnInterruptedBindingIsWaitedFor covers a create resumed after it was
+// interrupted while EKS updated the add-on to its role: the add-on reports
+// the role but is still updating, so its service account may not carry it
+// yet.  The binding waits for it to be active before the pods are
+// recreated, and doesn't update it again.
+func TestAnInterruptedBindingIsWaitedFor(t *testing.T) {
+	fastVpcCniWaits(t)
+	roleArn := "arn:aws:iam::123456789012:role/vpc-cni-role-eks-test"
+	addon := &fakeVpcCniAddon{roleArn: roleArn, statuses: []ekstypes.AddonStatus{
+		ekstypes.AddonStatusUpdating,                             // the first look
+		ekstypes.AddonStatusUpdating, ekstypes.AddonStatusActive, // the wait
+	}}
+
+	require.NoError(t, bindVpcCniAddon(addon, "eks-test", roleArn))
+	assert.Empty(t, addon.updates, "the add-on is already on the role")
+	assert.Equal(t, 3, addon.reads, "it waited for the add-on to be active")
+}

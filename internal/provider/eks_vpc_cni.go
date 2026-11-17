@@ -110,8 +110,11 @@ func (i *KubernetesRuntimeInfraEKS) moveVpcCniPolicyToItsRole(roleArn string) er
 }
 
 // bindVpcCniAddon sets the role the cluster's vpc-cni add-on runs as, and
-// waits for the add-on to be active.  An add-on already on the role is left
-// as it is.
+// waits for the add-on to be active.  An add-on already on the role isn't
+// updated again, but one EKS is still updating, as after an update a
+// previous run was interrupted in, is waited for: until it is active, its
+// service account may not carry the role, and pods recreated then would run
+// on the node's credentials.
 func bindVpcCniAddon(eksClient eksAddonUpdater, clusterName, roleArn string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), ebsStorageAddonRequestTimeout)
 	defer cancel()
@@ -124,15 +127,17 @@ func bindVpcCniAddon(eksClient eksAddonUpdater, clusterName, roleArn string) err
 	if err != nil {
 		return fmt.Errorf("failed to describe the vpc-cni add-on: %w", err)
 	}
-	if aws.ToString(current.Addon.ServiceAccountRoleArn) == roleArn {
-		return nil
-	}
 
-	// EKS refuses to update an add-on it is still creating or updating
+	// EKS refuses to update an add-on it is still creating or updating, and
+	// one it is updating to the role may not have it on its service account
+	// yet
 	if status := current.Addon.Status; status == ekstypes.AddonStatusCreating || status == ekstypes.AddonStatusUpdating {
 		if err := waitForAddonActive(eksClient, addon); err != nil {
 			return fmt.Errorf("failed waiting for the vpc-cni add-on to be active before binding it to its role: %w", err)
 		}
+	}
+	if aws.ToString(current.Addon.ServiceAccountRoleArn) == roleArn {
+		return nil
 	}
 
 	updateCtx, cancelUpdate := context.WithTimeout(context.Background(), ebsStorageAddonRequestTimeout)

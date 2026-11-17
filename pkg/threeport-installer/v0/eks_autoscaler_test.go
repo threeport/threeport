@@ -113,6 +113,15 @@ func TestTheAutoscalerMatchesTheClustersVersionAndName(t *testing.T) {
 	// the nodes' metadata service, where it would read the region, is out
 	// of its reach
 	assert.Equal(t, []any{map[string]any{"name": "AWS_REGION", "value": "us-east-2"}}, container["env"])
+
+	// the role lets it watch what its release waits for before it scales
+	clusterRole := cluster.created["ClusterRole"]
+	require.NotNil(t, clusterRole)
+	rules, _, err := unstructured.NestedSlice(clusterRole, "rules")
+	require.NoError(t, err)
+	for _, watched := range clusterAutoscalerWatchedResources {
+		assert.True(t, rulesGrantWatch(rules, watched[0], watched[1]), "%s/%s", watched[0], watched[1])
+	}
 }
 
 // TestAnAutoscalerWithNoRegionIsNotInstalled covers an install that isn't

@@ -488,3 +488,18 @@ func TestVpcIdFromStackState(t *testing.T) {
 		assert.Empty(t, vpcId, "an empty id must not widen the search to the whole account")
 	})
 }
+
+// TestTheClusterAutoscalerCanReadItsNodeGroups covers the cluster
+// autoscaler's policy: it scales the cluster's node groups, and reads the
+// labels, taints and tags of a managed node group from EKS, which it logs a
+// denial for on every refresh without.
+func TestTheClusterAutoscalerCanReadItsNodeGroups(t *testing.T) {
+	statements := policyStatements(t, fmt.Sprintf(eksClusterAutoscalingPolicyDocumentFormat, "my-cluster"))
+	var actions []any
+	for _, statement := range statements {
+		actions = append(actions, statement["Action"].([]any)...)
+	}
+	for _, action := range []string{"autoscaling:SetDesiredCapacity", "autoscaling:DescribeAutoScalingGroups", "eks:DescribeNodegroup"} {
+		assert.Contains(t, actions, action)
+	}
+}

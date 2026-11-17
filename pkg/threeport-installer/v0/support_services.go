@@ -44,6 +44,7 @@ const (
 	// the deployments and CRD named here are what the installs in this package
 	// create, and what the checks that guard those installs look up
 	ClusterAutoscalerDeployName       = "cluster-autoscaler"
+	ClusterAutoscalerClusterRoleName  = "cluster-autoscaler"
 	SupportServicesOperatorDeployName = "support-services-operator-controller-manager"
 	ThreeportCertManagerCRDName       = "certificatescomponents.platform.addons.nukleros.io"
 
