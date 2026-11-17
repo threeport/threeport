@@ -58,6 +58,8 @@ func TestTheNodeGroupSizeIsSetOnlyWhenTheNodeGroupIsCreated(t *testing.T) {
 
 		require.Len(t, ignored[eksNodeGroupTypeToken], 1)
 		assert.Equal(t, []string{"scalingConfig.desiredSize"}, ignored[eksNodeGroupTypeToken][0])
+		// the add-ons' are covered by TestTheEksClusterRunsItsAddonsAsEksAddons
+		delete(ignored, eksAddonTypeToken)
 		assertNothingElseIgnoresChanges(t, ignored, eksNodeGroupTypeToken)
 	})
 

@@ -80,6 +80,7 @@ func (i *KubernetesRuntimeInfraEKS) UpgradeInfra(version string) error {
 	}
 	i.keepStackSupportType(exported.Deployment)
 	i.keepStackZones(exported.Deployment)
+	i.keepStackNodeGroups(exported.Deployment)
 
 	if err := i.upgradeStack(stack); err != nil {
 		return err
@@ -113,8 +114,8 @@ func (i *KubernetesRuntimeInfraGKE) ClusterKubernetesVersion() (string, error) {
 // UpgradeInfra upgrades the GKE cluster's control plane to version, by
 // raising the minimum version it asks for.  GKE upgrades it to its release
 // channel's release of that version, and the nodes after it within the
-// maintenance window.  The stack keeps the cluster's release channel, as a
-// resumed create does.
+// maintenance window.  The stack keeps the cluster's release channel, and the
+// node pool's service account and boot disk, as a resumed create does.
 func (i *KubernetesRuntimeInfraGKE) UpgradeInfra(version string) error {
 	i.Version = version
 	i.stackMinMasterVersion = nil
@@ -128,6 +129,7 @@ func (i *KubernetesRuntimeInfraGKE) UpgradeInfra(version string) error {
 		return fmt.Errorf("failed to read the stack's GKE cluster: %w", err)
 	}
 	i.keepStackReleaseChannel(exported.Deployment)
+	i.keepStackNodePool(exported.Deployment)
 
 	return i.upgradeStack(stack)
 }

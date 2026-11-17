@@ -38,15 +38,21 @@ func ClusterAutoscalerImage(kubernetesVersion string) (string, error) {
 
 // installEksClusterAutoscaler installs the cluster autoscaler RBAC and deployment.
 // clusterName is the EKS cluster's name, which the autoscaler finds its node
-// groups by, and kubernetesVersion its minor version, which the autoscaler's
-// must match. EksClusterAutoscalingRoleArn takes the account first.
+// groups by, region the AWS region the cluster is in, and kubernetesVersion
+// its minor version, which the autoscaler's must match.
+// EksClusterAutoscalingRoleArn takes the account first.
 func installEksClusterAutoscaler(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	clusterName string,
 	accountId string,
+	region string,
 	kubernetesVersion string,
 ) error {
+	if region == "" {
+		return fmt.Errorf("no AWS region to run the cluster autoscaler of %s in", clusterName)
+	}
+
 	// choose the image before anything is created
 	image, err := ClusterAutoscalerImage(kubernetesVersion)
 	if err != nil {
@@ -435,6 +441,15 @@ func installEksClusterAutoscaler(
 							map[string]interface{}{
 								"image": image,
 								"name":  "cluster-autoscaler",
+								// the nodes' metadata service is out of a pod's
+								// reach, so the region it would read from there
+								// is given
+								"env": []interface{}{
+									map[string]interface{}{
+										"name":  "AWS_REGION",
+										"value": region,
+									},
+								},
 								"resources": map[string]interface{}{
 									"limits": map[string]interface{}{
 										"cpu":    "100m",

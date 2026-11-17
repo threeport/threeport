@@ -142,6 +142,11 @@ type KubernetesRuntimeInfraGKE struct {
 	// since changing a node pool's service account replaces the node pool.
 	nodesKeepDefaultServiceAccount bool
 
+	// stackNodeDisk is set when the stack already holds the node pool, to the
+	// boot disk its nodes were created with.  The program keeps it, since a
+	// new disk type or size would recreate every node in the pool.
+	stackNodeDisk *gkeNodeDisk
+
 	// gcpProjectResolvedFromGcloudINI is true when loadGCPConfig set ProjectID from the active gcloud INI.
 	gcpProjectResolvedFromGcloudINI bool
 	// gcpRegionResolvedFromGcloudINI is true when loadGCPConfig set Region from the active gcloud INI.
@@ -290,7 +295,7 @@ func (i *KubernetesRuntimeInfraGKE) CreateInfra() (*kube.KubeConnectionInfo, err
 	}
 	i.keepStackMinMasterVersion(exported.Deployment)
 	i.keepStackReleaseChannel(exported.Deployment)
-	i.nodesKeepDefaultServiceAccount = nodePoolRunsAsDefaultServiceAccount(exported.Deployment)
+	i.keepStackNodePool(exported.Deployment)
 
 	if _, err = i.RunUp(ctx, stack); err != nil {
 		return nil, fmt.Errorf("failed to deploy stack: %w", err)
@@ -619,10 +624,11 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 
 		// the cloud-platform scope is kept: the node service account's role
 		// is what limits the nodes
+		disk := i.nodeDisk()
 		nodeConfig := &gkecontainer.NodePoolNodeConfigArgs{
 			MachineType: pulumi.String(i.MachineType),
-			DiskSizeGb:  pulumi.Int(50),
-			DiskType:    pulumi.String("pd-standard"),
+			DiskSizeGb:  pulumi.Int(disk.SizeGb),
+			DiskType:    pulumi.String(disk.Type),
 			OauthScopes: pulumi.StringArray{
 				pulumi.String("https://www.googleapis.com/auth/cloud-platform"),
 			},
@@ -722,6 +728,85 @@ func (i *KubernetesRuntimeInfraGKE) nodeServiceAccount(
 	}
 
 	return account, role, nil
+}
+
+// gkeNodeDisk is the boot disk of a node pool's nodes.
+type gkeNodeDisk struct {
+	Type   string
+	SizeGb int
+}
+
+// gkeNewNodeDisk is the boot disk a new node pool's nodes get.  A balanced
+// persistent disk is SSD backed, and its throughput grows with its size, so
+// image pulls and logs don't wait on the disk as they did on the 50 GB
+// standard disk the nodes had before.
+var gkeNewNodeDisk = gkeNodeDisk{Type: "pd-balanced", SizeGb: 100}
+
+// gkeEarlierNodeDisk is the boot disk node pools were created with before
+// gkeNewNodeDisk.  A stack-held node pool that doesn't record its disk has it.
+var gkeEarlierNodeDisk = gkeNodeDisk{Type: "pd-standard", SizeGb: 50}
+
+// keepStackNodePool records what the program keeps of the node pool the
+// stack's deployment holds, if it holds one: the service account its nodes
+// run as and their boot disk.  Changing either would replace the node pool,
+// or every node in it.
+func (i *KubernetesRuntimeInfraGKE) keepStackNodePool(deployment json.RawMessage) {
+	i.nodesKeepDefaultServiceAccount = nodePoolRunsAsDefaultServiceAccount(deployment)
+	if disk, held := nodePoolDiskInStack(deployment); held {
+		i.stackNodeDisk = &disk
+	}
+}
+
+// nodeDisk returns the boot disk the program gives the node pool's nodes:
+// the one they have, when the stack already holds the node pool, and
+// gkeNewNodeDisk otherwise.
+func (i *KubernetesRuntimeInfraGKE) nodeDisk() gkeNodeDisk {
+	if i.stackNodeDisk != nil {
+		return *i.stackNodeDisk
+	}
+
+	return gkeNewNodeDisk
+}
+
+// nodePoolDiskInStack returns the boot disk of the node pool an exported
+// deployment holds, and whether it holds one.  A disk type or size the node
+// pool doesn't record is gkeEarlierNodeDisk's, and a deployment that can't be
+// read is taken to hold a node pool with gkeEarlierNodeDisk, since a node
+// pool that is there would otherwise have its nodes recreated.
+func nodePoolDiskInStack(deployment json.RawMessage) (gkeNodeDisk, bool) {
+	var contents struct {
+		Resources []struct {
+			Type   string `json:"type"`
+			Inputs struct {
+				NodeConfig struct {
+					DiskType   string `json:"diskType"`
+					DiskSizeGb int    `json:"diskSizeGb"`
+				} `json:"nodeConfig"`
+			} `json:"inputs"`
+		} `json:"resources"`
+	}
+	if len(deployment) == 0 {
+		return gkeNodeDisk{}, false
+	}
+	if err := json.Unmarshal(deployment, &contents); err != nil {
+		return gkeEarlierNodeDisk, true
+	}
+
+	for _, resource := range contents.Resources {
+		if resource.Type != "gcp:container/nodePool:NodePool" {
+			continue
+		}
+		disk := gkeEarlierNodeDisk
+		if resource.Inputs.NodeConfig.DiskType != "" {
+			disk.Type = resource.Inputs.NodeConfig.DiskType
+		}
+		if resource.Inputs.NodeConfig.DiskSizeGb != 0 {
+			disk.SizeGb = resource.Inputs.NodeConfig.DiskSizeGb
+		}
+		return disk, true
+	}
+
+	return gkeNodeDisk{}, false
 }
 
 // nodePoolRunsAsDefaultServiceAccount reports whether an exported deployment

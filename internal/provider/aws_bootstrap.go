@@ -286,6 +286,12 @@ func (i *KubernetesRuntimeInfraEKS) irsaRoles() []eksIrsaRole {
 			serviceAccountNamespace: threeport.StorageManagerServiceAccountNamespace,
 			serviceAccountName:      threeport.StorageManagerServiceAccountName,
 		},
+		{
+			roleName:                tpaws.EksVpcCniRoleName(clusterName),
+			managedPolicyArn:        tpaws.EksCniPolicyArn,
+			serviceAccountNamespace: tpaws.EksVpcCniServiceAccountNamespace,
+			serviceAccountName:      tpaws.EksVpcCniServiceAccountName,
+		},
 	}
 }
 
@@ -330,6 +336,9 @@ func (i *KubernetesRuntimeInfraEKS) CreateClusterIam() error {
 	if err != nil {
 		return fmt.Errorf("failed to create EKS node role: %w", err)
 	}
+	// the nodes' VPC CNI plugin needs its policy until the cluster's OIDC
+	// issuer exists to give it a role of its own; CreateIrsaIam then moves it
+	// there
 	nodePolicyArns := []string{
 		tpaws.EksWorkerNodePolicyArn,
 		tpaws.EksContainerRegistryPolicyArn,
@@ -373,9 +382,10 @@ func (i *KubernetesRuntimeInfraEKS) lookupClusterIam() error {
 }
 
 // CreateIrsaIam registers the cluster's OIDC issuer as an identity provider in
-// IAM, creates the roles the cluster's add-ons assume through it, and installs
-// the EBS CSI addon bound to the storage management role.  It runs after the
-// stack because the issuer URL only exists once the cluster does.
+// IAM, creates the roles the cluster's add-ons assume through it, installs
+// the EBS CSI addon bound to the storage management role, and moves the VPC
+// CNI plugin's policy from the node role to a role of its own.  It runs after
+// the stack because the issuer URL only exists once the cluster does.
 func (i *KubernetesRuntimeInfraEKS) CreateIrsaIam() error {
 	if i.AwsConfig == nil {
 		return fmt.Errorf("cannot create the IRSA roles without an AWS config")
@@ -399,7 +409,7 @@ func (i *KubernetesRuntimeInfraEKS) CreateIrsaIam() error {
 	// the trust policy names the provider by host and path, without a scheme
 	oidcProvider := strings.TrimPrefix(oidcIssuerUrl, "https://")
 
-	var storageManagementRoleArn string
+	var storageManagementRoleArn, vpcCniRoleArn string
 	for _, irsaRole := range i.irsaRoles() {
 		trustPolicyDocument := fmt.Sprintf(
 			eksIrsaTrustPolicyFormat,
@@ -429,13 +439,20 @@ func (i *KubernetesRuntimeInfraEKS) CreateIrsaIam() error {
 			return err
 		}
 
-		if irsaRole.roleName == tpaws.EksStorageManagementRoleName(i.RuntimeInstanceName) {
+		switch irsaRole.roleName {
+		case tpaws.EksStorageManagementRoleName(i.RuntimeInstanceName):
 			storageManagementRoleArn = *role.Arn
+		case tpaws.EksVpcCniRoleName(i.RuntimeInstanceName):
+			vpcCniRoleArn = *role.Arn
 		}
 	}
 
 	if err := i.createEbsStorageAddon(ctx, storageManagementRoleArn); err != nil {
 		return fmt.Errorf("failed to create EBS storage addon: %w", err)
+	}
+
+	if err := i.moveVpcCniPolicyToItsRole(vpcCniRoleArn); err != nil {
+		return fmt.Errorf("failed to give the VPC CNI plugin a role of its own: %w", err)
 	}
 
 	return nil

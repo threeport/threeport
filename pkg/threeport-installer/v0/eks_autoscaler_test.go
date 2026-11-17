@@ -98,7 +98,7 @@ func newRecordingCluster(t *testing.T) (*recordingCluster, dynamic.Interface) {
 func TestTheAutoscalerMatchesTheClustersVersionAndName(t *testing.T) {
 	cluster, kubeClient := newRecordingCluster(t)
 	require.NoError(t, installEksClusterAutoscaler(
-		kubeClient, autoscalerTestMapper(), "existing-cluster", "123456789012", "1.35",
+		kubeClient, autoscalerTestMapper(), "existing-cluster", "123456789012", "us-east-2", "1.35",
 	))
 
 	deployment := cluster.created["Deployment"]
@@ -110,6 +110,19 @@ func TestTheAutoscalerMatchesTheClustersVersionAndName(t *testing.T) {
 	assert.Equal(t, "registry.k8s.io/autoscaling/cluster-autoscaler:v1.35.3", container["image"])
 	assert.Contains(t, container["command"],
 		"--node-group-auto-discovery=asg:tag=k8s.io/cluster-autoscaler/enabled,k8s.io/cluster-autoscaler/existing-cluster")
+	// the nodes' metadata service, where it would read the region, is out
+	// of its reach
+	assert.Equal(t, []any{map[string]any{"name": "AWS_REGION", "value": "us-east-2"}}, container["env"])
+}
+
+// TestAnAutoscalerWithNoRegionIsNotInstalled covers an install that isn't
+// told the cluster's region: it fails before it creates anything, rather than
+// leaving an autoscaler that can't reach the AWS API.
+func TestAnAutoscalerWithNoRegionIsNotInstalled(t *testing.T) {
+	cluster, kubeClient := newRecordingCluster(t)
+	err := installEksClusterAutoscaler(kubeClient, autoscalerTestMapper(), "existing-cluster", "123456789012", "", "1.35")
+	assert.ErrorContains(t, err, "no AWS region to run the cluster autoscaler of existing-cluster in")
+	assert.Empty(t, cluster.created)
 }
 
 // TestAnAutoscalerWithNoImageForTheVersionIsNotInstalled covers a cluster on
@@ -117,7 +130,7 @@ func TestTheAutoscalerMatchesTheClustersVersionAndName(t *testing.T) {
 // anything, rather than leaving an autoscaler that doesn't match.
 func TestAnAutoscalerWithNoImageForTheVersionIsNotInstalled(t *testing.T) {
 	cluster, kubeClient := newRecordingCluster(t)
-	err := installEksClusterAutoscaler(kubeClient, autoscalerTestMapper(), "old-cluster", "123456789012", "1.26")
+	err := installEksClusterAutoscaler(kubeClient, autoscalerTestMapper(), "old-cluster", "123456789012", "us-east-2", "1.26")
 	assert.ErrorContains(t, err, "no cluster autoscaler image is known for Kubernetes 1.26")
 	assert.Empty(t, cluster.created)
 }
@@ -157,7 +170,7 @@ func TestAnUpgradedClustersAutoscalerIsUpdated(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, installEksClusterAutoscaler(
-		kubeClient, autoscalerTestMapper(), "upgraded-cluster", "123456789012", "1.36",
+		kubeClient, autoscalerTestMapper(), "upgraded-cluster", "123456789012", "us-east-2", "1.36",
 	))
 
 	mu.Lock()

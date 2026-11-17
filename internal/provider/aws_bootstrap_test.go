@@ -47,9 +47,9 @@ func TestIrsaRoles(t *testing.T) {
 	infra := testEksIamInfra()
 	irsaRoles := infra.irsaRoles()
 
-	// external-dns, cert-manager, external-secrets, the cluster autoscaler and
-	// the EBS CSI driver
-	require.Len(t, irsaRoles, 5)
+	// external-dns, cert-manager, external-secrets, the cluster autoscaler,
+	// the EBS CSI driver and the VPC CNI plugin
+	require.Len(t, irsaRoles, 6)
 
 	seenRoleNames := map[string]bool{}
 	for _, irsaRole := range irsaRoles {
@@ -111,6 +111,10 @@ func TestIrsaRolesBindThreeportServiceAccounts(t *testing.T) {
 			namespace: threeport.StorageManagerServiceAccountNamespace,
 			name:      threeport.StorageManagerServiceAccountName,
 		},
+		tpaws.EksVpcCniRoleName(clusterName): {
+			namespace: "kube-system",
+			name:      "aws-node",
+		},
 	}
 
 	for _, irsaRole := range infra.irsaRoles() {
@@ -137,6 +141,7 @@ func TestIrsaRoleArnsMatchHelpers(t *testing.T) {
 		tpaws.EksSecretsManagerRoleName(clusterName):     tpaws.EksSecretsManagerRoleArn(accountId, clusterName),
 		tpaws.EksClusterAutoscalingRoleName(clusterName): tpaws.EksClusterAutoscalingRoleArn(accountId, clusterName),
 		tpaws.EksStorageManagementRoleName(clusterName):  tpaws.EksStorageManagementRoleArn(accountId, clusterName),
+		tpaws.EksVpcCniRoleName(clusterName):             tpaws.EksVpcCniRoleArn(accountId, clusterName),
 	}
 
 	for _, irsaRole := range infra.irsaRoles() {

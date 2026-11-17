@@ -361,6 +361,10 @@ func v0KubernetesRuntimeInstanceUpdated(
 		if err != nil {
 			return controller.RetryOnNetworkErr(err, "failed to get the cluster's Kubernetes version")
 		}
+		region, err := mapping.GetProviderRegionForLocation(util.AwsProvider, *kubernetesRuntimeInstance.Location)
+		if err != nil {
+			return 0, fmt.Errorf("failed to map threeport location to AWS region: %w", err)
+		}
 		systemServicesCurrent, err := threeport.EksThreeportSystemServicesCurrent(dynamicKubeClient, mapper, kubernetesVersion)
 		if err != nil {
 			return controller.RetryOnNetworkErr(err, "failed to check EKS system services")
@@ -373,6 +377,7 @@ func v0KubernetesRuntimeInstanceUpdated(
 				mapper,
 				*kubernetesRuntimeInstance.Name,
 				*awsProvider.AccountID,
+				region,
 				kubernetesVersion,
 				namespace,
 			); err != nil {
