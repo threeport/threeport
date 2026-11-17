@@ -332,9 +332,7 @@ func (i *KubernetesRuntimeInfraGKE) CreateInfra() (*kube.KubeConnectionInfo, err
 		return nil, fmt.Errorf("failed to read the stack: %w", err)
 	}
 	i.keepStackMinMasterVersion(exported.Deployment)
-	i.keepStackNetwork(exported.Deployment)
-	i.keepStackReleaseChannel(exported.Deployment)
-	i.keepStackShape(exported.Deployment)
+	i.keepStackCluster(exported.Deployment)
 	i.nodesKeepDefaultServiceAccount = nodePoolRunsAsDefaultServiceAccount(exported.Deployment)
 
 	if _, err = i.RunUp(ctx, stack); err != nil {
@@ -472,6 +470,17 @@ func (i *KubernetesRuntimeInfraGKE) maintenancePolicy() (*gkecontainer.ClusterMa
 			Recurrence: pulumi.String("FREQ=WEEKLY;BYDAY=" + v0.GkeMaintenanceWindowDaysOrDefault(&i.MaintenanceWindowDays)),
 		},
 	}, nil
+}
+
+// keepStackCluster records what the cluster the stack's deployment holds,
+// if it holds one, was created with and can't change, for the program to
+// keep, on a resumed create and on every upgrade: the range its network was
+// laid out in, its release channel, where it is, and how its node pool's
+// autoscaler limits the nodes.
+func (i *KubernetesRuntimeInfraGKE) keepStackCluster(deployment json.RawMessage) {
+	i.keepStackNetwork(deployment)
+	i.keepStackReleaseChannel(deployment)
+	i.keepStackShape(deployment)
 }
 
 // keepStackShape records where the cluster the stack's deployment holds was
