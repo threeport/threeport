@@ -130,6 +130,11 @@ type GenesisControlPlaneCLIArgs struct {
 
 	// The file holding the encryption key to install
 	EncryptionKeyFile string
+
+	// The size of the volume of each message broker server and each
+	// database node.  Empty uses the tier's.
+	MessageBrokerStorageSize string
+	DatabaseStorageSize      string
 }
 
 // Uninstaller contains the necessary information to uninstall a control plane
@@ -233,6 +238,8 @@ func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneI
 	cpi.Opts.ControlPlaneName = a.ControlPlaneName
 	cpi.Opts.InfraProvider = a.InfraProvider
 	cpi.Opts.Tier = threeport.ControlPlaneTier(a.Tier)
+	cpi.Opts.MessageBrokerStorageSize = a.MessageBrokerStorageSize
+	cpi.Opts.DatabaseStorageSize = a.DatabaseStorageSize
 	cpi.Opts.KubeconfigPath = a.KubeconfigPath
 	cpi.Opts.NumWorkerNodes = a.NumWorkerNodes
 	cpi.Opts.ProviderConfigDir = a.ProviderConfigDir
