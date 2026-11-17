@@ -73,12 +73,12 @@ func v0KubernetesRuntimeDefinitionCreated(
 			return controller.RetryOnNetworkErr(err, "failed to create new AWS EKS kubernetes runtime")
 		}
 	case v0.KubernetesRuntimeInfraProviderGKE:
-		// create a GCP GKE cluster definition
-		var zoneCount int
+		// create a GCP GKE cluster definition: a highly available cluster is
+		// regional, its control plane replicated across the region's zones and
+		// its nodes in three of them, and any other is zonal, in one zone
+		zoneCount := 1
 		if *kubernetesRuntimeDefinition.HighAvailability {
 			zoneCount = 3
-		} else {
-			zoneCount = 2
 		}
 		nodeGroupInstanceType, err := mapping.GetMachineType(
 			"gcp",

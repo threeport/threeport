@@ -32,8 +32,9 @@ type KubernetesRuntimeDefinition struct {
 	// group.
 	NodeProfile *string `validate:"optional" gorm:"default:Balanced"`
 
-	// Sets the maximum number of nodes for the default node group.
-	NodeMaximum *int `validate:"optional" gorm:"default:250"`
+	// Sets the maximum number of nodes for the default node group, across
+	// all its zones.  If unset, it is 60.
+	NodeMaximum *int `validate:"optional" gorm:"default:60"`
 
 	// If true, the Kubernetes API is not reachable from the public internet.
 	// It is reachable only from the cluster's own network, from networks

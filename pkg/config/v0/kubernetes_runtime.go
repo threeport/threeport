@@ -25,6 +25,9 @@ type KubernetesRuntimeValues struct {
 	InfraProvider             *string
 	InfraProviderAccountName  *string
 	HighAvailability          *bool
+	NodeSize                  *string
+	NodeProfile               *string
+	NodeMaximum               *int
 	PrivateApi                *bool
 	AllowedCidrs              *[]string
 	KubernetesVersion         *string
@@ -159,6 +162,9 @@ func (k *KubernetesRuntimeConfig) GetOperations(
 			InfraProvider:            kubernetesRuntimeValues.InfraProvider,
 			InfraProviderAccountName: kubernetesRuntimeValues.InfraProviderAccountName,
 			HighAvailability:         kubernetesRuntimeValues.HighAvailability,
+			NodeSize:                 kubernetesRuntimeValues.NodeSize,
+			NodeProfile:              kubernetesRuntimeValues.NodeProfile,
+			NodeMaximum:              kubernetesRuntimeValues.NodeMaximum,
 			PrivateApi:               kubernetesRuntimeValues.PrivateApi,
 			AllowedCidrs:             kubernetesRuntimeValues.AllowedCidrs,
 			KubernetesVersion:        kubernetesRuntimeValues.KubernetesVersion,
@@ -271,6 +277,9 @@ func mapToKubernetesRuntimeDefinedInstances(
 						InfraProvider:             def.KubernetesRuntimeDefinition.InfraProvider,
 						InfraProviderAccountName:  def.KubernetesRuntimeDefinition.InfraProviderAccountName,
 						HighAvailability:          def.KubernetesRuntimeDefinition.HighAvailability,
+						NodeSize:                  def.KubernetesRuntimeDefinition.NodeSize,
+						NodeProfile:               def.KubernetesRuntimeDefinition.NodeProfile,
+						NodeMaximum:               def.KubernetesRuntimeDefinition.NodeMaximum,
 						PrivateApi:                def.KubernetesRuntimeDefinition.PrivateApi,
 						AllowedCidrs:              def.KubernetesRuntimeDefinition.AllowedCidrs,
 						KubernetesVersion:         def.KubernetesRuntimeDefinition.KubernetesVersion,
