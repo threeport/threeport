@@ -107,16 +107,17 @@ type KubernetesRuntimeInfraEKS struct {
 	// from those that offer the instance type.
 	NodeGroupPerZone bool
 
-	// stackSupportType is set by CreateInfra when the stack already holds the
-	// cluster, to the support type the cluster was created with: "" for one
-	// created before it was set.  The program keeps it.
+	// stackSupportType is set when a cluster already in the stack is read, by
+	// CreateInfra or UpgradeInfra, to the support type the cluster was
+	// created with: "" for one created before it was set.  The program keeps
+	// it.
 	stackSupportType *string
 
-	// stackAccessEntries is set by CreateInfra when the stack already holds
-	// the cluster, to whether it was created with access entries.  A cluster
-	// created before them keeps its access as it is: the creator's hidden
-	// administrator access, which only the cluster's creation can grant or
-	// withhold.
+	// stackAccessEntries is set when a cluster already in the stack is read,
+	// by CreateInfra or UpgradeInfra, to whether it was created with access
+	// entries.  A cluster created before them keeps its access as it is: the
+	// creator's hidden administrator access, which only the cluster's creation
+	// can grant or withhold.
 	stackAccessEntries *bool
 
 	// controlPlaneVersion is set by UpgradeInfra to the control plane's
