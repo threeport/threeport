@@ -943,6 +943,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			PrivateApi:         privateApiField(cpi.Opts.PrivateK8sApi),
 			AllowedCidrs:       allowedCidrsJSON(cpi.Opts.K8sApiAllowedCidrs),
 			DeletionProtection: util.Ptr(genesisDeletionProtection(cpi.Opts)),
+			AuditLog:           util.Ptr(genesisAuditLog(cpi.Opts)),
 		}
 		if err := recordClusterProfile(&kubernetesRuntimeDefinition, cpi.Opts.Tier); err != nil {
 			return uninstaller.cleanOnCreateError("failed to describe the control plane's cluster", err)
@@ -1597,6 +1598,14 @@ func genesisKubernetesVersion(infraProvider string, infra provider.KubernetesRun
 	}
 
 	return &version
+}
+
+// genesisAuditLog reports whether the cluster tptctl up creates has its
+// Kubernetes API audit log enabled: a production control plane's does.  A
+// kind cluster has no provider to send it to.
+func genesisAuditLog(opts threeport.Options) bool {
+	return opts.InfraProvider != v0.KubernetesRuntimeInfraProviderKind &&
+		opts.Tier == threeport.ControlPlaneTier(threeport.ControlPlaneTierProd)
 }
 
 // genesisDeletionProtection reports whether the cluster tptctl up creates is

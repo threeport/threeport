@@ -90,6 +90,12 @@ type AwsEksKubernetesRuntimeDefinition struct {
 	// after creation, since that replaces the node groups.
 	NodeGroupPerZone *bool `validate:"optional" gorm:"default:false"`
 
+	// If true, the clusters' Kubernetes API server audit log, with its API and
+	// authenticator logs, is sent to CloudWatch Logs, in the log group
+	// /aws/eks/<cluster>/cluster, which keeps it for 90 days and is deleted
+	// with the cluster.  It can't be changed after creation.
+	AuditLog *bool `validate:"optional" gorm:"default:false"`
+
 	// If true, the runtime instances derived from this definition can't be
 	// deleted, Pulumi refuses to destroy or replace their clusters and node
 	// groups, and EKS refuses to delete the clusters through its own API.  Set

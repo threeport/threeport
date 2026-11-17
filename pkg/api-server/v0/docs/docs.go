@@ -17514,6 +17514,10 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "AuditLog": {
+                    "description": "If true, the clusters' Kubernetes API server audit log, with its API and\nauthenticator logs, is sent to CloudWatch Logs, in the log group\n/aws/eks/\u003ccluster\u003e/cluster, which keeps it for 90 days and is deleted\nwith the cluster.  It can't be changed after creation.",
+                    "type": "boolean"
+                },
                 "AwsEksKubernetesRuntimeInstances": {
                     "description": "The AWS EKS kubernetes runtime instances derived from this definition.",
                     "type": "array",
@@ -18437,6 +18441,10 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "AuditLog": {
+                    "description": "Recorded for the kubernetes runtime definition's AuditLog.  It has no\neffect on GKE, which always records the Kubernetes API's writes in\nCloud Audit Logs.  It can't be changed after creation.",
+                    "type": "boolean"
+                },
                 "DefaultNodeGroupInitialSize": {
                     "description": "The number of nodes in the default initial node group.",
                     "type": "integer"
@@ -18833,6 +18841,10 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "AuditLog": {
+                    "description": "If true, the clusters' Kubernetes API server audit log is enabled and\nsent to the infra provider's logging service: CloudWatch Logs on EKS.\nGKE always records the API's writes in Cloud Audit Logs, and OKE has no\nAPI server audit log, so it has no effect on either.  It is copied into\nthe EKS, GKE or OKE definition, and can't be changed after creation.",
+                    "type": "boolean"
                 },
                 "CreationAcknowledged": {
                     "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
@@ -20400,6 +20412,10 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "AuditLog": {
+                    "description": "Recorded for the kubernetes runtime definition's AuditLog.  It has no\neffect on OKE, which has no Kubernetes API server audit log.  It can't\nbe changed after creation.",
+                    "type": "boolean"
                 },
                 "DeletionProtection": {
                     "description": "If true, the runtime instances derived from this definition can't be\ndeleted, and Pulumi refuses to destroy or replace their clusters and\nnode pools.  OKE has no deletion protection of its own, so a cluster can\nstill be deleted in the OCI console or with the OCI CLI.  Set it to false\nto let every instance of the definition be deleted.  If unset, it is\nfalse.",

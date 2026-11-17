@@ -28,6 +28,7 @@ type GcpGkeKubernetesRuntimeValues struct {
 	DefaultNodeGroupInitialSize  *int
 	DefaultNodeGroupMinimumSize  *int
 	DefaultNodeGroupMaximumSize  *int
+	AuditLog                     *bool
 	DeletionProtection           *bool
 	KubernetesVersion            *string
 	ReleaseChannel               *string
@@ -161,6 +162,7 @@ func (g *GcpGkeKubernetesRuntimeConfig) GetOperations(
 			DefaultNodeGroupInitialSize:  g.GcpGkeKubernetesRuntime.DefaultNodeGroupInitialSize,
 			DefaultNodeGroupMinimumSize:  g.GcpGkeKubernetesRuntime.DefaultNodeGroupMinimumSize,
 			DefaultNodeGroupMaximumSize:  g.GcpGkeKubernetesRuntime.DefaultNodeGroupMaximumSize,
+			AuditLog:                     g.GcpGkeKubernetesRuntime.AuditLog,
 			DeletionProtection:           g.GcpGkeKubernetesRuntime.DeletionProtection,
 			KubernetesVersion:            g.GcpGkeKubernetesRuntime.KubernetesVersion,
 			ReleaseChannel:               g.GcpGkeKubernetesRuntime.ReleaseChannel,
@@ -276,6 +278,7 @@ func mapToGcpGkeKubernetesRuntimeDefinedInstances(
 						DefaultNodeGroupInitialSize:  def.GcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize,
 						DefaultNodeGroupMinimumSize:  def.GcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
 						DefaultNodeGroupMaximumSize:  def.GcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
+						AuditLog:                     def.GcpGkeKubernetesRuntimeDefinition.AuditLog,
 						DeletionProtection:           def.GcpGkeKubernetesRuntimeDefinition.DeletionProtection,
 						KubernetesVersion:            def.GcpGkeKubernetesRuntimeDefinition.KubernetesVersion,
 						ReleaseChannel:               def.GcpGkeKubernetesRuntimeDefinition.ReleaseChannel,

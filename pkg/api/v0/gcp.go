@@ -72,6 +72,11 @@ type GcpGkeKubernetesRuntimeDefinition struct {
 	// downgraded, or cleared.
 	KubernetesVersion *string `validate:"optional"`
 
+	// Recorded for the kubernetes runtime definition's AuditLog.  It has no
+	// effect on GKE, which always records the Kubernetes API's writes in
+	// Cloud Audit Logs.  It can't be changed after creation.
+	AuditLog *bool `validate:"optional" gorm:"default:false"`
+
 	// If true, the runtime instances derived from this definition can't be
 	// deleted, and Pulumi refuses to destroy or replace their clusters and
 	// node pools.  GKE has no deletion protection of its own, so a cluster can

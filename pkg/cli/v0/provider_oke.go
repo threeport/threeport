@@ -148,6 +148,7 @@ func ConfigureControlPlaneWithOkeConfig(
 		AllowedCidrs:           allowedCidrsJSON(kubernetesRuntimeInfraOKE.AllowedCidrs),
 		// the version tptctl created the cluster on, none for an existing one
 		KubernetesVersion:             kubernetesRuntimeDefResult.KubernetesVersion,
+		AuditLog:                      kubernetesRuntimeDefResult.AuditLog,
 		DeletionProtection:            kubernetesRuntimeDefResult.DeletionProtection,
 		KubernetesRuntimeDefinitionID: kubernetesRuntimeDefResult.ID,
 	}

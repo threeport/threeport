@@ -58,6 +58,13 @@ type KubernetesRuntimeDefinition struct {
 	// comes with its node image, so it takes none.
 	KubernetesVersion *string `validate:"optional"`
 
+	// If true, the clusters' Kubernetes API server audit log is enabled and
+	// sent to the infra provider's logging service: CloudWatch Logs on EKS.
+	// GKE always records the API's writes in Cloud Audit Logs, and OKE has no
+	// API server audit log, so it has no effect on either.  It is copied into
+	// the EKS, GKE or OKE definition, and can't be changed after creation.
+	AuditLog *bool `validate:"optional" gorm:"default:false"`
+
 	// If true, the clusters and their node groups are created protected from
 	// deletion: their runtime instances can't be deleted, and Pulumi refuses
 	// to destroy or replace them, as EKS also refuses to delete the cluster.

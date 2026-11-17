@@ -42,6 +42,11 @@ type KubernetesRuntimeInfraEKS struct {
 	// Kubernetes version of the EKS cluster.
 	KubernetesVersion string
 
+	// If true, the cluster's Kubernetes API server audit, API and
+	// authenticator logs are sent to CloudWatch Logs, in a log group the
+	// stack creates first with a retention period.
+	AuditLog bool
+
 	// If true, Pulumi refuses to destroy or replace the cluster and its node
 	// group, and EKS refuses to delete the cluster.  Delete removes the
 	// protection first.
@@ -102,10 +107,18 @@ type KubernetesRuntimeInfraEKS struct {
 	// from those that offer the instance type.
 	NodeGroupPerZone bool
 
-	// stackSupportType is set by CreateInfra when the stack already holds the
-	// cluster, to the support type the cluster was created with: "" for one
-	// created before it was set.  The program keeps it.
+	// stackSupportType is set when a cluster already in the stack is read, by
+	// CreateInfra or UpgradeInfra, to the support type the cluster was
+	// created with: "" for one created before it was set.  The program keeps
+	// it.
 	stackSupportType *string
+
+	// stackAccessEntries is set when a cluster already in the stack is read,
+	// by CreateInfra or UpgradeInfra, to whether it was created with access
+	// entries.  A cluster created before them keeps its access as it is: the
+	// creator's hidden administrator access, which only the cluster's creation
+	// can grant or withhold.
+	stackAccessEntries *bool
 
 	// controlPlaneVersion is set by UpgradeInfra to the control plane's
 	// version when it is already past the version the node group is upgraded
@@ -160,9 +173,7 @@ func (i *KubernetesRuntimeInfraEKS) CreateInfra() (*kube.KubeConnectionInfo, err
 		return nil, fmt.Errorf("failed to read the stack: %w", err)
 	}
 	i.keepStackVersion(exported.Deployment)
-	i.keepStackNetwork(exported.Deployment)
-	i.keepStackSupportType(exported.Deployment)
-	i.keepStackZones(exported.Deployment)
+	i.keepStackCluster(exported.Deployment)
 
 	if _, err := i.RunUp(context.Background(), stack); err != nil {
 		return nil, fmt.Errorf("failed to deploy stack: %w", err)
@@ -197,11 +208,34 @@ func (i *KubernetesRuntimeInfraEKS) CreatedKubernetesVersion() string {
 	return i.kubernetesVersion()
 }
 
+// keepStackCluster records what the cluster the stack's deployment holds,
+// if it holds one, was created with and can't change, for the program to
+// keep, both on a resumed create and on an upgrade: the range its network
+// was laid out in, its upgrade policy's support type, whether it has access
+// entries, and its subnets' zones.
+func (i *KubernetesRuntimeInfraEKS) keepStackCluster(deployment json.RawMessage) {
+	i.keepStackNetwork(deployment)
+	i.keepStackSupportType(deployment)
+	i.keepStackAccessEntries(deployment)
+	i.keepStackZones(deployment)
+}
+
 // keepStackSupportType records the support type of the cluster the stack's
 // deployment holds, if it holds one, for the program to keep.
 func (i *KubernetesRuntimeInfraEKS) keepStackSupportType(deployment json.RawMessage) {
 	if supportType, held := clusterInputInStack(deployment, "aws:eks/cluster:Cluster", "upgradePolicy.supportType"); held {
 		i.stackSupportType = &supportType
+	}
+}
+
+// keepStackAccessEntries records whether the cluster the stack's deployment
+// holds, if it holds one, was created with access entries, for the program
+// to keep.
+func (i *KubernetesRuntimeInfraEKS) keepStackAccessEntries(deployment json.RawMessage) {
+	if _, held := clusterInputInStack(deployment, "aws:eks/cluster:Cluster", "name"); held {
+		authenticationMode, _ := clusterInputInStack(deployment, "aws:eks/cluster:Cluster", "accessConfig.authenticationMode")
+		accessEntries := authenticationMode != ""
+		i.stackAccessEntries = &accessEntries
 	}
 }
 
@@ -980,6 +1014,23 @@ const (
 					"eks:CreateAddon",
 					"eks:DeleteAddon",
 					"eks:UpdateAddon"
+				],
+				"Resource": "*"
+			},
+			{
+				"Sid": "CloudWatchLogsPermissions",
+				"Effect": "Allow",
+				"Action": [
+					"logs:CreateLogGroup",
+					"logs:DeleteLogGroup",
+					"logs:PutRetentionPolicy",
+					"logs:DeleteRetentionPolicy",
+					"logs:DescribeLogGroups",
+					"logs:ListTagsForResource",
+					"logs:ListTagsLogGroup",
+					"logs:TagResource",
+					"logs:UntagResource",
+					"logs:TagLogGroup"
 				],
 				"Resource": "*"
 			},

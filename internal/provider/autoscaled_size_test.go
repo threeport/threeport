@@ -58,6 +58,12 @@ func TestTheNodeGroupSizeIsSetOnlyWhenTheNodeGroupIsCreated(t *testing.T) {
 
 		require.Len(t, ignored[eksNodeGroupTypeToken], 1)
 		assert.Equal(t, []string{"scalingConfig.desiredSize"}, ignored[eksNodeGroupTypeToken][0])
+
+		// the cluster's creator access is set only when a cluster is created,
+		// and changing it replaces the cluster
+		require.Len(t, ignored[eksClusterTypeToken], 1)
+		assert.Equal(t, []string{"accessConfig.bootstrapClusterCreatorAdminPermissions"}, ignored[eksClusterTypeToken][0])
+		delete(ignored, eksClusterTypeToken)
 		assertNothingElseIgnoresChanges(t, ignored, eksNodeGroupTypeToken)
 	})
 
