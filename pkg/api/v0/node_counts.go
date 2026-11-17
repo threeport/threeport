@@ -229,12 +229,21 @@ func validateKubernetesRuntimeNodeMaximum(definition *KubernetesRuntimeDefinitio
 	return nil
 }
 
+// kubernetesRuntimeDefaultNodeSize and kubernetesRuntimeDefaultNodeProfile
+// are the NodeSize and NodeProfile the database gives a kubernetes runtime
+// definition that leaves them out, as its gorm tags set them.
+const (
+	kubernetesRuntimeDefaultNodeSize    = "Medium"
+	kubernetesRuntimeDefaultNodeProfile = "Balanced"
+)
+
 // kubernetesRuntimeNetworkNodeLimit returns the largest NodeMaximum the
 // network of a kubernetes runtime definition's cluster holds, and the
 // reason, or 0 where it isn't known: the cluster the definition reconciler
 // makes of it, with the instance type its NodeSize and NodeProfile map to on
 // EKS, in three zones when highly available and two otherwise, in one node
-// group spanning them.
+// group spanning them.  A NodeSize or NodeProfile left out is the one the
+// database gives it, which the reconciler reads.
 func kubernetesRuntimeNetworkNodeLimit(definition *KubernetesRuntimeDefinition) (int, string) {
 	if definition.InfraProvider == nil {
 		return 0, ""
@@ -243,10 +252,14 @@ func kubernetesRuntimeNetworkNodeLimit(definition *KubernetesRuntimeDefinition) 
 
 	switch *definition.InfraProvider {
 	case KubernetesRuntimeInfraProviderEKS:
-		if definition.NodeSize == nil || definition.NodeProfile == nil {
-			return 0, ""
+		nodeSize, nodeProfile := kubernetesRuntimeDefaultNodeSize, kubernetesRuntimeDefaultNodeProfile
+		if definition.NodeSize != nil {
+			nodeSize = *definition.NodeSize
 		}
-		instanceType, err := mapping.GetMachineType(util.AwsProvider, *definition.NodeProfile, *definition.NodeSize)
+		if definition.NodeProfile != nil {
+			nodeProfile = *definition.NodeProfile
+		}
+		instanceType, err := mapping.GetMachineType(util.AwsProvider, nodeProfile, nodeSize)
 		if err != nil {
 			return 0, ""
 		}

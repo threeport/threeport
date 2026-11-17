@@ -80,6 +80,13 @@ func TestADefinitionsMaximumMustFitItsNetwork(t *testing.T) {
 	assert.NoError(t, session().Create(eks("per-zone", "m8i.48xlarge", 3, 52, true)).Error)
 	assert.ErrorContains(t, session().Create(eks("per-zone-over", "m8i.48xlarge", 3, 53, true)).Error,
 		"DefaultNodeGroupMaximumSize 53 is more than the 52 nodes the cluster's network holds")
+	// a zone count above the three the provider makes holds three zones of
+	// nodes, and none holds the two it makes then
+	assert.ErrorContains(t, session().Create(eks("four-zones", "m8i.48xlarge", 4, 200, false)).Error,
+		"DefaultNodeGroupMaximumSize 200 is more than the 156 nodes the cluster's network holds", "four zones are laid out as three")
+	assert.NoError(t, session().Create(eks("four-zones-fits", "m8i.48xlarge", 4, 156, false)).Error)
+	limit, _ := eksNetworkNodeLimit("m8i.48xlarge", 0, false)
+	assert.Equal(t, 104, limit, "no zone count is two zones")
 	// an instance type that isn't listed isn't checked
 	assert.NoError(t, session().Create(eks("unknown", "m5.24xlarge", 2, 1000, false)).Error)
 
@@ -144,6 +151,25 @@ func TestAKubernetesRuntimeDefinitionsNodeMaximumMustFitItsNetwork(t *testing.T)
 	assert.NoError(t, create("oke", KubernetesRuntimeInfraProviderOKE, "Large", false, 253))
 	assert.ErrorContains(t, create("oke-over", KubernetesRuntimeInfraProviderOKE, "Large", false, 254),
 		"NodeMaximum 254 is more than the 253 nodes the cluster's network holds: the cluster's /24 node subnet holds 253 nodes")
+
+	// a NodeSize or NodeProfile left out is checked as the one the
+	// database gives it, which the reconciler maps to its instance type
+	omitted := newKRD("eks-defaults", KubernetesRuntimeInfraProviderEKS, nil, nil)
+	omitted.NodeSize = util.Ptr("9XLarge")
+	omitted.NodeMaximum = util.Ptr(105)
+	assert.ErrorContains(t, db.Session(&gorm.Session{}).Create(omitted).Error,
+		"NodeMaximum 105 is more than the 104 nodes", "9XLarge with the default Balanced is m8i.48xlarge")
+	omitted = newKRD("eks-default-size", KubernetesRuntimeInfraProviderEKS, nil, nil)
+	omitted.NodeProfile = util.Ptr("Balanced")
+	omitted.NodeMaximum = util.Ptr(1819)
+	assert.ErrorContains(t, db.Session(&gorm.Session{}).Create(omitted).Error,
+		"NodeMaximum 1819 is more than the 1818 nodes", "the default Medium is t3.medium, 909 in each of two zones")
+	defaulted := newKRD("eks-defaulted", KubernetesRuntimeInfraProviderEKS, nil, nil)
+	require.NoError(t, db.Session(&gorm.Session{}).Create(defaulted).Error)
+	var stored KubernetesRuntimeDefinition
+	require.NoError(t, db.First(&stored, *defaulted.ID).Error)
+	assert.Equal(t, util.Ptr(kubernetesRuntimeDefaultNodeSize), stored.NodeSize, "the default checked is the database's")
+	assert.Equal(t, util.Ptr(kubernetesRuntimeDefaultNodeProfile), stored.NodeProfile)
 
 	// kind runs on the machine it's on, with no network to size
 	assert.NoError(t, create("kind", KubernetesRuntimeInfraProviderKind, "Large", false, 1000))

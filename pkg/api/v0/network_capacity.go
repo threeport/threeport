@@ -35,6 +35,13 @@ const (
 	eksMaxPodsSmall      = 110
 	eksMaxPodsLarge      = 250
 	eksMaxPodsLargeVcpus = 30
+
+	// eksDefaultZones and eksMaxZones are the zones an EKS cluster's nodes
+	// run in when its definition gives none, and the most they run in, as
+	// the provider lays the cluster out (internal/provider/eks_pulumi.go): a
+	// ZoneCount above it gets as many.
+	eksDefaultZones = 2
+	eksMaxZones     = 3
 )
 
 // eksInstanceNetwork is an instance type's network limits.
@@ -121,18 +128,23 @@ func eksNodesPerZone(instanceType string) (int, bool) {
 // cluster holds, and the reason, or 0 when its instance type isn't known.
 // A node group per zone holds the maximum in each zone; one node group
 // spanning the zones keeps them balanced, so its nodes are split across
-// them.
+// them: the zones the provider lays the cluster out in, which a ZoneCount
+// above eksMaxZones doesn't add to.
 func eksNetworkNodeLimit(instanceType string, zones int, nodeGroupPerZone bool) (int, string) {
 	perZone, known := eksNodesPerZone(instanceType)
 	if !known {
 		return 0, ""
 	}
+	if zones < 1 {
+		zones = eksDefaultZones
+	}
+	zones = min(zones, eksMaxZones)
 	addresses, _ := eksAddressesPerNode(instanceType)
 	reason := fmt.Sprintf(
 		"each zone's /18 private subnet has %d addresses for nodes and pods, and a %s node takes up to %d of them, so it holds %d nodes",
 		eksPrivateSubnetAddresses, instanceType, addresses, perZone,
 	)
-	if nodeGroupPerZone || zones < 1 {
+	if nodeGroupPerZone {
 		return perZone, reason + ", the most each zone's node group can have"
 	}
 
