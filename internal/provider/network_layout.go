@@ -211,13 +211,13 @@ func (i *KubernetesRuntimeInfraEKS) keepStackNetwork(deployment json.RawMessage)
 	}
 	legacy, _ := eksLayout("")
 	if vpc != legacy.Vpc {
-		i.NetworkCidr = vpc
+		i.NetworkCidr = keptRange(i.NetworkCidr, vpc)
 		return
 	}
 
 	subnets := resourceInputsInStack(deployment, "aws:ec2/subnet:Subnet", "cidrBlock")
 	if len(subnets) == 0 {
-		if i.NetworkCidr != vpc {
+		if firstSixteen(i.NetworkCidr) != vpc {
 			i.NetworkCidr = ""
 		}
 		return
@@ -225,7 +225,7 @@ func (i *KubernetesRuntimeInfraEKS) keepStackNetwork(deployment json.RawMessage)
 	legacySubnets := append(append([]string{}, legacy.PublicSubnets...), legacy.PrivateSubnets...)
 	for _, subnet := range subnets {
 		if !slices.Contains(legacySubnets, subnet) {
-			i.NetworkCidr = vpc
+			i.NetworkCidr = keptRange(i.NetworkCidr, vpc)
 			return
 		}
 	}
@@ -249,8 +249,7 @@ func (i *KubernetesRuntimeInfraGKE) keepStackNetwork(deployment json.RawMessage)
 	if err != nil {
 		return
 	}
-	address := prefix.Addr().As4()
-	i.NetworkCidr = netip.PrefixFrom(netip.AddrFrom4([4]byte{address[0], address[1], 0, 0}), v0.NetworkCidrPrefixLength).String()
+	i.NetworkCidr = keptRange(i.NetworkCidr, firstSixteen(prefix.String()))
 }
 
 // keepStackNetwork sets NetworkCidr to the range of the VCN the stack holds,
@@ -265,12 +264,36 @@ func (i *KubernetesRuntimeInfraOKE) keepStackNetwork(deployment json.RawMessage)
 		return false
 	}
 	legacy, _ := okeLayout("")
-	if vcn == legacy.Vcn && i.NetworkCidr != vcn {
+	if vcn == legacy.Vcn && firstSixteen(i.NetworkCidr) != vcn {
 		vcn = ""
 	}
-	i.NetworkCidr = vcn
+	i.NetworkCidr = keptRange(i.NetworkCidr, vcn)
 
 	return true
+}
+
+// keptRange returns the range a resumed create records for a network laid
+// out in the /16 laidOut, "" for one laid out before ranges: the range asked
+// for when laidOut is its first /16, as a range larger than a /16 is laid out
+// there and stays reserved whole, and laidOut otherwise.
+func keptRange(asked, laidOut string) string {
+	if firstSixteen(asked) == laidOut {
+		return asked
+	}
+
+	return laidOut
+}
+
+// firstSixteen returns the first /16 of a range, "" for none or one that
+// can't be read.
+func firstSixteen(cidr string) string {
+	prefix, err := netip.ParsePrefix(cidr)
+	if err != nil || !prefix.Addr().Is4() {
+		return ""
+	}
+	address := prefix.Addr().As4()
+
+	return netip.PrefixFrom(netip.AddrFrom4([4]byte{address[0], address[1], 0, 0}), v0.NetworkCidrPrefixLength).String()
 }
 
 // NetworkCidrsInInventory returns the network ranges a provider instance's
