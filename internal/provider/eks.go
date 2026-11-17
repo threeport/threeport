@@ -47,6 +47,11 @@ type KubernetesRuntimeInfraEKS struct {
 	// stack creates first with a retention period.
 	AuditLog bool
 
+	// If true, Pulumi refuses to destroy or replace the cluster and its node
+	// group, and EKS refuses to delete the cluster.  Delete removes the
+	// protection first.
+	DeletionProtection bool
+
 	// The ARN of the IAM role the EKS control plane assumes.  Created by the
 	// IAM bootstrap that runs outside the Pulumi program.
 	ClusterRoleArn string
@@ -67,6 +72,12 @@ type KubernetesRuntimeInfraEKS struct {
 
 	// The number of availability zones the EKS cluster will be deployed across.
 	ZoneCount int32
+
+	// The network range allocated to the cluster, such as "10.16.0.0/16", its
+	// KubernetesRuntimeInstance's NetworkCidr.  Its VPC and subnets are laid
+	// out in it.  If empty, the cluster gets the range every cluster got
+	// before ranges were allocated, as one created then has.
+	NetworkCidr string
 
 	// The AWS isntance type used for the default node group.
 	DefaultNodeGroupInstanceType string
@@ -155,15 +166,22 @@ func (i *KubernetesRuntimeInfraEKS) CreateInfra() (*kube.KubeConnectionInfo, err
 	}
 
 	// a create resumed on a stack that holds the cluster keeps its version
+	// and the range its network was laid out in
 	exported, err := stack.Export(context.Background())
 	if err != nil {
-		return nil, fmt.Errorf("failed to read the stack's EKS cluster: %w", err)
+		return nil, fmt.Errorf("failed to read the stack: %w", err)
 	}
 	i.keepStackVersion(exported.Deployment)
 	i.keepStackCluster(exported.Deployment)
 
 	if _, err := i.RunUp(context.Background(), stack); err != nil {
 		return nil, fmt.Errorf("failed to deploy stack: %w", err)
+	}
+
+	// EKS turns its deletion protection on only for an active cluster, which
+	// the stack leaves it
+	if err := i.setEksDeletionProtection(i.DeletionProtection); err != nil {
+		return nil, err
 	}
 
 	// the OIDC issuer the add-ons' roles are bound to is stood up with the
@@ -191,9 +209,11 @@ func (i *KubernetesRuntimeInfraEKS) CreatedKubernetesVersion() string {
 
 // keepStackCluster records what the cluster the stack's deployment holds,
 // if it holds one, was created with and can't change, for the program to
-// keep, both on a resumed create and on an upgrade: its upgrade policy's
-// support type, whether it has access entries, and its subnets' zones.
+// keep, both on a resumed create and on an upgrade: the range its network
+// was laid out in, its upgrade policy's support type, whether it has access
+// entries, and its subnets' zones.
 func (i *KubernetesRuntimeInfraEKS) keepStackCluster(deployment json.RawMessage) {
+	i.keepStackNetwork(deployment)
 	i.keepStackSupportType(deployment)
 	i.keepStackAccessEntries(deployment)
 	i.keepStackZones(deployment)
@@ -235,6 +255,12 @@ func (i *KubernetesRuntimeInfraEKS) DestroyInfra() error {
 // Delete destroys an AWS EKS cluster and the IAM resources created alongside
 // it.
 func (i *KubernetesRuntimeInfraEKS) Delete() error {
+	// EKS refuses to delete a cluster with its deletion protection on, so it
+	// is turned off first; Pulumi's is removed by the destroy
+	if err := i.setEksDeletionProtection(false); err != nil {
+		return err
+	}
+
 	if err := i.DestroyStack(); err != nil {
 		// A destroy that leaves subnets behind is usually the VPC CNI's doing:
 		// it allocates secondary interfaces on the worker nodes for pod

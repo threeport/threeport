@@ -83,6 +83,14 @@ func TestEksInfraFromApiObjects_MapsDefinitionNodeGroupFields(t *testing.T) {
 	infra, err = eksInfraFromApiObjects(instance, definition, "123456789012", awsConfig, providerCredentials, nil)
 	require.NoError(t, err)
 	assert.True(t, infra.AuditLog)
+
+	assert.False(t, infra.DeletionProtection, "a definition without it isn't protected")
+
+	// a protected definition builds a protected cluster
+	definition.DeletionProtection = util.Ptr(true)
+	infra, err = eksInfraFromApiObjects(instance, definition, "123456789012", awsConfig, providerCredentials, nil)
+	require.NoError(t, err)
+	assert.True(t, infra.DeletionProtection)
 	assert.True(t, infra.NodeGroupPerZone)
 
 	// a definition created before node groups per zone has one spanning them

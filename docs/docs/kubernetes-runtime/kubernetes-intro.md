@@ -63,6 +63,81 @@ version comes with its node image, so it takes none.
 `tptctl up` sets the version of the cluster it creates with
 `--kubernetes-version`.
 
+### Deletion Protection
+
+With `DeletionProtection: true`, the clusters of a definition on EKS, GKE or
+OKE are protected from being deleted by mistake:
+
+| Provider | Protected against deletion through |
+|---|---|
+| EKS | Threeport, Pulumi, and EKS itself: the AWS console, CLI and API refuse to delete the cluster. |
+| GKE | Threeport and Pulumi. GKE has no deletion protection of its own, so the cluster can still be deleted in the Google Cloud console or with `gcloud`. |
+| OKE | Threeport and Pulumi. OKE has no deletion protection of its own, so the cluster can still be deleted in the OCI console or with the OCI CLI. |
+
+- Threeport refuses to delete a runtime instance whose cluster is protected,
+  answering `409`, and `tptctl down` refuses to tear down a control plane
+  whose cluster is protected. Neither deletes anything. `tptctl down
+  --control-plane-only` leaves the cluster as it is, so it isn't refused.
+- Pulumi protects the cluster and its node group or node pool, so a change
+  that would destroy or replace them fails before it changes anything.
+- `tptctl upgrade infrastructure` keeps the protection the control plane
+  cluster's GKE definition records.
+
+`tptctl up --tier production` protects the cluster it creates. Otherwise it
+is off by default, so development clusters stay quick to tear down.
+
+The kubernetes runtime definition asks for it when the clusters are created,
+and it is copied into the EKS, GKE or OKE definition. That definition's
+`DeletionProtection` is the one that counts afterwards: the kubernetes runtime
+definition can't be changed once it exists.
+
+To delete a protected cluster, turn its protection off on the EKS, GKE or OKE
+definition first, here for EKS:
+
+```bash
+tptctl get aws-eks-kubernetes-runtime-definition --name <definition> -o yaml
+```
+
+Write the definition's fields to a config file, with `DeletionProtection:
+false`:
+
+```yaml
+AwsEksKubernetesRuntimeDefinition:
+  Name: <definition>
+  ZoneCount: 3
+  DefaultNodeGroupInstanceType: t3.xlarge
+  DefaultNodeGroupInitialSize: 3
+  DefaultNodeGroupMinimumSize: 3
+  DefaultNodeGroupMaximumSize: 10
+  DeletionProtection: false
+```
+
+Then replace the definition with it, and delete the runtime instance or run
+`tptctl down`:
+
+```bash
+tptctl replace aws-eks-kubernetes-runtime-definition --config definition.yaml --name <definition>
+```
+
+Use `gcp-gke-kubernetes-runtime-definition` or
+`oci-oke-kubernetes-runtime-definition` on GKE or OKE. A replace that leaves
+`DeletionProtection` out keeps it as it is.
+
+Turning protection off on a definition lets every runtime instance of it be
+deleted. Threeport removes the cluster's protection just before it destroys
+the cluster, without applying any other change to it.
+
+A cluster is protected when it is created, so protection can't be turned on
+for a definition that already has runtime instances: their clusters would
+stay unprotected while the definition said otherwise. Create the clusters to
+protect from a definition with `DeletionProtection: true`.
+
+`tptctl down --infra-only` tears down a cluster whose control plane may no
+longer be running. It checks `DeletionProtection` when the Threeport API
+answers, and refuses when the API answers with an error. When the API can't
+be reached, or doesn't answer within 30 seconds, it warns that it skipped the
+check and tears the cluster down.
+
 ### Upgrades
 
 Each provider upgrades a cluster on its own in some cases. Threeport sets
@@ -164,6 +239,72 @@ which location you would like to use.  Currently, you can reference the [source
 code](https://github.com/threeport/threeport/blob/main/pkg/mapping/v0/location.go)
 for the available Location values and which cloud provider regions they
 correspond to.
+
+### Network Ranges
+
+Each EKS, GKE and OKE cluster gets its own network range, a `/16`, recorded on
+its kubernetes runtime instance as `NetworkCidr`, so no two clusters of one
+control plane overlap and their networks can be connected. The control plane
+allocates the first free `/16` of its pool when the cluster is provisioned. A
+range set on the instance when it's created is used instead: a `/16` or larger
+that no other runtime has and no child control plane's pool holds, which
+doesn't have to be in the pool. A range larger than a `/16` is reserved whole,
+and the cluster's network is laid out in its first `/16`, since AWS and OCI
+allow no larger VPC or VCN.
+
+The pool is the control plane's `NetworkCidrPool`. By default it is
+`10.16.0.0/16` through `10.255.0.0/16`, except `10.96.0.0/16` and
+`10.244.0.0/16`, which OKE uses inside each cluster. No range may hold those,
+`172.20.0.0/16`, where EKS services get addresses, or `172.16.0.0/28`, the GKE
+control plane's private endpoint. It starts at `10.16`, clear
+of `10.0.0.0/12`, where clusters created before ranges were allocated have
+their networks, so new clusters can be connected to them. An organization that
+already uses part of `10.0.0.0/8` can give the control plane its own pool.
+
+Every range of a cluster is laid out in its block:
+
+| Provider | Ranges |
+|---|---|
+| EKS | the VPC is the block's first `/16`; a `/18` private subnet per zone at `.0.0`, `.64.0` and `.128.0`, for nodes and pods; a `/22` public subnet per zone at `.192.0`, `.196.0` and `.200.0`; services in `172.20.0.0/16` |
+| GKE | pods in the `/17` at `.0.0`, a `/25` for each of 256 nodes, which run up to 64 pods each; nodes in the `/20` at `.128.0`; services in the `/20` at `.144.0` |
+| OKE | the VCN is the block's first `/16`; the API endpoint, node and load balancer subnets where they have always been, relative to it; pods and services in `10.244.0.0/16` and `10.96.0.0/16` |
+
+`tptctl up` takes the control plane's pool with `--network-cidr-pool`, and its
+own cluster's range with `--network-cidr`, by default the pool's first block.
+With `--control-plane-only`, `--network-cidr` records the existing cluster's
+range, so no runtime is allocated it.
+
+A child control plane allocates its clusters' ranges from the
+`NetworkCidrPool` its parent gives it on the child's control plane instance.
+Without one, it allocates none, and its clusters get the network every cluster
+used to get, since the default pool is its parent's. The parent doesn't
+allocate from a child's pool, a child's pool can't overlap another child's or
+a range the parent has allocated, and it can only grow: a block can be added,
+or replaced by a larger one that holds it, but not removed, since the child may
+have allocated from it. A child that gives a child of its own a pool must give
+it one inside its own pool, since its parent keeps only that pool clear of the
+ranges it allocates.
+
+The clusters a child allocated from its pool live in the child's database, and
+may outlive the child. So when a child with a pool is deleted, its pool is
+recorded in `ReservedNetworkCidrs` on the control plane instance that
+represents its parent, and the parent doesn't allocate from it or accept a
+runtime range or child pool that overlaps it. Once the clusters allocated from
+a reserved block are gone, release it by removing it from
+`ReservedNetworkCidrs`: get the control plane instance with `tptctl get
+control-plane-instance -o yaml`, remove the block, and apply the file with
+`tptctl replace control-plane-instance`. A config file that leaves
+`ReservedNetworkCidrs` out keeps the reservations as they are. A child control
+plane releases the blocks reserved on its own instance the same way. If
+another child was deleted after you got the instance, the replace is refused,
+rather than release that child's pool without anyone asking: get the instance
+again and repeat.
+
+A cluster created before ranges were allocated keeps its network, and records
+no range. So does one whose create is resumed on a stack that holds its network
+already: it keeps the range that network was laid out in. Separate Threeport
+installations don't know each other's allocations: give their control planes
+pools that don't overlap if their clusters are to be connected.
 
 Reference:
 [KubernetesRuntimeInstance](https://pkg.go.dev/github.com/threeport/threeport/pkg/api/v0#KubernetesRuntimeInstance)

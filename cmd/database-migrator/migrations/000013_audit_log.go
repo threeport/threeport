@@ -10,7 +10,7 @@ import (
 
 // init registers the migration with goose at startup.
 func init() {
-	goose.AddMigrationNoTxContext(Up000011, Down000011)
+	goose.AddMigrationNoTxContext(Up000013, Down000013)
 }
 
 // auditLogTables are the kubernetes runtime definition tables that record
@@ -22,12 +22,12 @@ var auditLogTables = []string{
 	"v0_oci_oke_kubernetes_runtime_definitions",
 }
 
-// Up000011 adds the audit log to each kubernetes runtime definition.  A
+// Up000013 adds the audit log to each kubernetes runtime definition.  A
 // definition already there has none, as its clusters were created without
 // one.  000001 builds its tables from the current models, so a database it
 // created after the field was added has it already, and it is added only
 // where it is missing.
-func Up000011(ctx context.Context, db *sql.DB) error {
+func Up000013(ctx context.Context, db *sql.DB) error {
 	for _, table := range auditLogTables {
 		statement := fmt.Sprintf("ALTER TABLE %s ADD COLUMN IF NOT EXISTS audit_log BOOL DEFAULT false", table)
 		if _, err := db.ExecContext(ctx, statement); err != nil {
@@ -38,9 +38,9 @@ func Up000011(ctx context.Context, db *sql.DB) error {
 	return nil
 }
 
-// Down000011 removes the column from each table that has it, so it also
-// cleans up after Up000011 failing part way.
-func Down000011(ctx context.Context, db *sql.DB) error {
+// Down000013 removes the column from each table that has it, so it also
+// cleans up after Up000013 failing part way.
+func Down000013(ctx context.Context, db *sql.DB) error {
 	for _, table := range auditLogTables {
 		statement := fmt.Sprintf("ALTER TABLE %s DROP COLUMN IF EXISTS audit_log", table)
 		if _, err := db.ExecContext(ctx, statement); err != nil {

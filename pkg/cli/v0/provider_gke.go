@@ -66,6 +66,7 @@ func ConfigureControlPlaneWithGkeConfig(
 		// the version tptctl created the cluster on, none for an existing one
 		KubernetesVersion:             kubernetesRuntimeDefResult.KubernetesVersion,
 		AuditLog:                      kubernetesRuntimeDefResult.AuditLog,
+		DeletionProtection:            kubernetesRuntimeDefResult.DeletionProtection,
 		KubernetesRuntimeDefinitionID: kubernetesRuntimeDefResult.ID,
 	}
 	// a cluster tptctl didn't create, with --control-plane-only, records none
@@ -323,6 +324,32 @@ func GkeInfraForUpgrade(controlPlane *ControlPlane, tier string) (*provider.Kube
 	}
 
 	return infra, nil
+}
+
+// KeepRecordedDeletionProtection copies the cluster's GKE definition's
+// DeletionProtection onto an upgrade, so the stack keeps the cluster and its
+// node pool protected, or unprotected, as the definition records, rather
+// than as a fresh install of the tier would.
+func KeepRecordedDeletionProtection(
+	infra *provider.KubernetesRuntimeInfraGKE,
+	apiClient *http.Client,
+	apiEndpoint string,
+	clusterName string,
+) error {
+	gkeInstance, err := client.GetGcpGkeKubernetesRuntimeInstanceByName(apiClient, apiEndpoint, clusterName)
+	if err != nil {
+		return fmt.Errorf("recorded GKE instance %s was not found: %w", clusterName, err)
+	}
+	if gkeInstance.GcpGkeKubernetesRuntimeDefinitionID == nil {
+		return fmt.Errorf("recorded GKE instance %s has no definition", clusterName)
+	}
+	definition, err := client.GetGcpGkeKubernetesRuntimeDefinitionByID(apiClient, apiEndpoint, *gkeInstance.GcpGkeKubernetesRuntimeDefinitionID)
+	if err != nil {
+		return fmt.Errorf("failed to get the GKE definition of instance %s: %w", clusterName, err)
+	}
+	infra.DeletionProtection = util.PtrEqual(definition.DeletionProtection, true)
+
+	return nil
 }
 
 // KeepRecordedNatAddress copies the recorded NAT address setting onto an upgrade,

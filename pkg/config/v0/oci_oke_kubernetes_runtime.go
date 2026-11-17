@@ -29,6 +29,7 @@ type OciOkeKubernetesRuntimeValues struct {
 	AllowedCidrs           *[]string
 	KubernetesVersion      *string
 	AuditLog               *bool
+	DeletionProtection     *bool
 	Region                 *string
 	Age                    *string
 }
@@ -160,6 +161,7 @@ func (o *OciOkeKubernetesRuntimeConfig) GetOperations(
 			AllowedCidrs:           ociOkeKubernetesRuntimeValues.AllowedCidrs,
 			KubernetesVersion:      ociOkeKubernetesRuntimeValues.KubernetesVersion,
 			AuditLog:               ociOkeKubernetesRuntimeValues.AuditLog,
+			DeletionProtection:     ociOkeKubernetesRuntimeValues.DeletionProtection,
 		},
 	}
 	operations.AppendOperation(util.Operation{
@@ -268,6 +270,7 @@ func mapToOciOkeKubernetesRuntimeDefinedInstances(
 						AllowedCidrs:           def.OciOkeKubernetesRuntimeDefinition.AllowedCidrs,
 						KubernetesVersion:      def.OciOkeKubernetesRuntimeDefinition.KubernetesVersion,
 						AuditLog:               def.OciOkeKubernetesRuntimeDefinition.AuditLog,
+						DeletionProtection:     def.OciOkeKubernetesRuntimeDefinition.DeletionProtection,
 						Region:                 inst.OciOkeKubernetesRuntimeInstance.Region,
 						Age:                    inst.OciOkeKubernetesRuntimeInstance.Age,
 					},

@@ -63,6 +63,7 @@ func v0KubernetesRuntimeDefinitionCreated(
 			AllowedCidrs:                  kubernetesRuntimeDefinition.AllowedCidrs,
 			KubernetesVersion:             util.Ptr(v0.KubernetesVersionOrDefault(kubernetesRuntimeDefinition.KubernetesVersion)),
 			AuditLog:                      util.Ptr(util.Deref(kubernetesRuntimeDefinition.AuditLog)),
+			DeletionProtection:            util.Ptr(kubernetesRuntimeDefinition.DeletionProtection != nil && *kubernetesRuntimeDefinition.DeletionProtection),
 			KubernetesRuntimeDefinitionID: kubernetesRuntimeDefinition.ID,
 		}
 		_, err = client.CreateAwsEksKubernetesRuntimeDefinition(
@@ -104,6 +105,7 @@ func v0KubernetesRuntimeDefinitionCreated(
 			AllowedCidrs:                  kubernetesRuntimeDefinition.AllowedCidrs,
 			KubernetesVersion:             util.Ptr(v0.KubernetesVersionOrDefault(kubernetesRuntimeDefinition.KubernetesVersion)),
 			AuditLog:                      util.Ptr(util.Deref(kubernetesRuntimeDefinition.AuditLog)),
+			DeletionProtection:            util.Ptr(kubernetesRuntimeDefinition.DeletionProtection != nil && *kubernetesRuntimeDefinition.DeletionProtection),
 			ReleaseChannel:                util.Ptr(v0.DefaultGkeReleaseChannel),
 			MaintenanceWindowDays:         util.Ptr(v0.DefaultGkeMaintenanceWindowDays),
 			MaintenanceWindowStart:        util.Ptr(v0.DefaultGkeMaintenanceWindowStart),

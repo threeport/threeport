@@ -32,11 +32,13 @@ func DeployOkeInfra(
 			ProjectDescription:  "Oracle Kubernetes Engine (OKE) cluster for Threeport",
 			// StackConfigs set by LoadOCIConfig after region is resolved
 		},
+		NetworkCidr:            cpi.Opts.NetworkCidr,
 		WorkerNodeShape:        "VM.Standard.A1.Flex",
 		Version:                cpi.Opts.KubernetesVersion,
 		WorkerNodeInitialCount: int32(2),
 		Region:                 cpi.Opts.OciRegion,
 		AllowedCidrs:           cpi.Opts.K8sApiAllowedCidrs,
+		DeletionProtection:     genesisDeletionProtection(cpi.Opts),
 	}
 	*kubernetesRuntimeInfra = &kubernetesRuntimeInfraOKE
 	uninstaller.kubernetesRuntimeInfra = &kubernetesRuntimeInfraOKE
@@ -147,6 +149,7 @@ func ConfigureControlPlaneWithOkeConfig(
 		// the version tptctl created the cluster on, none for an existing one
 		KubernetesVersion:             kubernetesRuntimeDefResult.KubernetesVersion,
 		AuditLog:                      kubernetesRuntimeDefResult.AuditLog,
+		DeletionProtection:            kubernetesRuntimeDefResult.DeletionProtection,
 		KubernetesRuntimeDefinitionID: kubernetesRuntimeDefResult.ID,
 	}
 	createdociOkeKubernetesRuntimeDef, err := ensureOciOkeKubernetesRuntimeDefinition(

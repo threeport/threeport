@@ -11,7 +11,7 @@ import (
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
-// TestAuditLogMigratesAnExistingDatabase covers 000011 on a database built
+// TestAuditLogMigratesAnExistingDatabase covers 000013 on a database built
 // before the definitions recorded an audit log, as a deployed control plane's
 // is: it adds the column to each kubernetes runtime definition table, and a
 // definition already there reads as having none.  On a database 000001 built
@@ -42,17 +42,17 @@ func TestAuditLogMigratesAnExistingDatabase(t *testing.T) {
 	// a new install: 000001 builds the field from the models
 	require.NoError(t, migrations.Up000001(ctx, nil))
 	require.Equal(t, len(definitions), withColumn())
-	require.NoError(t, migrations.Up000011(ctx, sqlDb), "000011 finds it there")
+	require.NoError(t, migrations.Up000013(ctx, sqlDb), "000013 finds it there")
 
 	// a database built before the field, holding a definition
-	require.NoError(t, migrations.Down000011(ctx, sqlDb))
+	require.NoError(t, migrations.Down000013(ctx, sqlDb))
 	assert.Zero(t, withColumn())
-	require.NoError(t, migrations.Down000011(ctx, sqlDb), "a down migration with nothing left to remove")
+	require.NoError(t, migrations.Down000013(ctx, sqlDb), "a down migration with nothing left to remove")
 	require.NoError(t, db.Exec(
 		"INSERT INTO v0_kubernetes_runtime_definitions (name, infra_provider, created_at, updated_at) VALUES ('before', 'eks', now(), now())",
 	).Error)
 
-	require.NoError(t, migrations.Up000011(ctx, sqlDb))
+	require.NoError(t, migrations.Up000013(ctx, sqlDb))
 	assert.Equal(t, len(definitions), withColumn(), "on every kubernetes runtime definition table")
 	var auditLog *bool
 	require.NoError(t, db.Raw(

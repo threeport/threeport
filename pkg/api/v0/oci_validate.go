@@ -91,6 +91,20 @@ func (o *OciOkeKubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
 	}); err != nil {
 		return err
 	}
+	if err := validateDeletionProtectionUpdate(
+		tx,
+		func(value any) (*bool, *uint, bool) {
+			object, ok := value.(*OciOkeKubernetesRuntimeDefinition)
+			if !ok {
+				return nil, nil, false
+			}
+			return object.DeletionProtection, object.ID, true
+		},
+		&OciOkeKubernetesRuntimeInstance{},
+		"oci_oke_kubernetes_runtime_definition_id",
+	); err != nil {
+		return err
+	}
 
 	return validateKubernetesApiAccessUpdate(
 		tx,

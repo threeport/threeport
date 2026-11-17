@@ -29,6 +29,7 @@ type AwsEksKubernetesRuntimeValues struct {
 	DefaultNodeGroupMinimumSize  *int
 	DefaultNodeGroupMaximumSize  *int
 	AuditLog                     *bool
+	DeletionProtection           *bool
 	NodeGroupPerZone             *bool
 	KubernetesVersion            *string
 	Region                       *string
@@ -159,6 +160,7 @@ func (a *AwsEksKubernetesRuntimeConfig) GetOperations(
 			DefaultNodeGroupMinimumSize:  a.AwsEksKubernetesRuntime.DefaultNodeGroupMinimumSize,
 			DefaultNodeGroupMaximumSize:  a.AwsEksKubernetesRuntime.DefaultNodeGroupMaximumSize,
 			AuditLog:                     a.AwsEksKubernetesRuntime.AuditLog,
+			DeletionProtection:           a.AwsEksKubernetesRuntime.DeletionProtection,
 			NodeGroupPerZone:             a.AwsEksKubernetesRuntime.NodeGroupPerZone,
 			KubernetesVersion:            a.AwsEksKubernetesRuntime.KubernetesVersion,
 		},
@@ -271,6 +273,7 @@ func mapToAwsEksKubernetesRuntimeDefinedInstances(
 						DefaultNodeGroupMinimumSize:  def.AwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
 						DefaultNodeGroupMaximumSize:  def.AwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
 						AuditLog:                     def.AwsEksKubernetesRuntimeDefinition.AuditLog,
+						DeletionProtection:           def.AwsEksKubernetesRuntimeDefinition.DeletionProtection,
 						NodeGroupPerZone:             def.AwsEksKubernetesRuntimeDefinition.NodeGroupPerZone,
 						KubernetesVersion:            def.AwsEksKubernetesRuntimeDefinition.KubernetesVersion,
 						Region:                       inst.AwsEksKubernetesRuntimeInstance.Region,

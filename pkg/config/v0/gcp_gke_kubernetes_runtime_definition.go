@@ -32,6 +32,7 @@ type GcpGkeKubernetesRuntimeDefinitionValues struct {
 	DefaultNodeGroupMaximumSize  *int
 	KubernetesVersion            *string
 	AuditLog                     *bool
+	DeletionProtection           *bool
 	ReleaseChannel               *string
 	MaintenanceWindowDays        *string
 	MaintenanceWindowStart       *string
@@ -80,6 +81,7 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Get(
 				DefaultNodeGroupMaximumSize:  gcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
 				KubernetesVersion:            gcpGkeKubernetesRuntimeDefinition.KubernetesVersion,
 				AuditLog:                     gcpGkeKubernetesRuntimeDefinition.AuditLog,
+				DeletionProtection:           gcpGkeKubernetesRuntimeDefinition.DeletionProtection,
 				ReleaseChannel:               gcpGkeKubernetesRuntimeDefinition.ReleaseChannel,
 				MaintenanceWindowDays:        gcpGkeKubernetesRuntimeDefinition.MaintenanceWindowDays,
 				MaintenanceWindowStart:       gcpGkeKubernetesRuntimeDefinition.MaintenanceWindowStart,
@@ -114,9 +116,10 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Create(
 		Reconciliation: api_v0.Reconciliation{
 			Reconciled: util.Ptr(true),
 		},
-		InfraProvider:     &infraProvider,
-		KubernetesVersion: gcpGkeKubernetesRuntimeDefinitionValues.KubernetesVersion,
-		AuditLog:          gcpGkeKubernetesRuntimeDefinitionValues.AuditLog,
+		InfraProvider:      &infraProvider,
+		KubernetesVersion:  gcpGkeKubernetesRuntimeDefinitionValues.KubernetesVersion,
+		DeletionProtection: gcpGkeKubernetesRuntimeDefinitionValues.DeletionProtection,
+		AuditLog:           gcpGkeKubernetesRuntimeDefinitionValues.AuditLog,
 	}
 
 	// create kubernetes runtime definition
@@ -137,6 +140,7 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Create(
 		DefaultNodeGroupMaximumSize:   gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupMaximumSize,
 		KubernetesVersion:             util.Ptr(api_v0.KubernetesVersionOrDefault(gcpGkeKubernetesRuntimeDefinitionValues.KubernetesVersion)),
 		AuditLog:                      gcpGkeKubernetesRuntimeDefinitionValues.AuditLog,
+		DeletionProtection:            gcpGkeKubernetesRuntimeDefinitionValues.DeletionProtection,
 		ReleaseChannel:                util.Ptr(api_v0.GkeReleaseChannelOrDefault(gcpGkeKubernetesRuntimeDefinitionValues.ReleaseChannel)),
 		MaintenanceWindowDays:         util.Ptr(api_v0.GkeMaintenanceWindowDaysOrDefault(gcpGkeKubernetesRuntimeDefinitionValues.MaintenanceWindowDays)),
 		MaintenanceWindowStart:        util.Ptr(api_v0.GkeMaintenanceWindowStartOrDefault(gcpGkeKubernetesRuntimeDefinitionValues.MaintenanceWindowStart)),
@@ -166,6 +170,7 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Create(
 			DefaultNodeGroupMaximumSize:  createdGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
 			KubernetesVersion:            createdGcpGkeKubernetesRuntimeDefinition.KubernetesVersion,
 			AuditLog:                     createdGcpGkeKubernetesRuntimeDefinition.AuditLog,
+			DeletionProtection:           createdGcpGkeKubernetesRuntimeDefinition.DeletionProtection,
 			ReleaseChannel:               createdGcpGkeKubernetesRuntimeDefinition.ReleaseChannel,
 			MaintenanceWindowDays:        createdGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowDays,
 			MaintenanceWindowStart:       createdGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowStart,
@@ -227,6 +232,11 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Replace(
 	if gcpGkeKubernetesRuntimeDefinitionValues.AuditLog != nil {
 		updatedGcpGkeKubernetesRuntimeDefinition.AuditLog = gcpGkeKubernetesRuntimeDefinitionValues.AuditLog
 	}
+	// DeletionProtection a config leaves out is kept: only an explicit
+	// false turns it off
+	if gcpGkeKubernetesRuntimeDefinitionValues.DeletionProtection != nil {
+		updatedGcpGkeKubernetesRuntimeDefinition.DeletionProtection = gcpGkeKubernetesRuntimeDefinitionValues.DeletionProtection
+	}
 	// the release channel and maintenance window are recorded on create and
 	// can't change, so a config that leaves one out keeps it
 	if gcpGkeKubernetesRuntimeDefinitionValues.ReleaseChannel != nil {
@@ -264,6 +274,7 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Replace(
 			DefaultNodeGroupMaximumSize:  replacedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
 			KubernetesVersion:            replacedGcpGkeKubernetesRuntimeDefinition.KubernetesVersion,
 			AuditLog:                     replacedGcpGkeKubernetesRuntimeDefinition.AuditLog,
+			DeletionProtection:           replacedGcpGkeKubernetesRuntimeDefinition.DeletionProtection,
 			ReleaseChannel:               replacedGcpGkeKubernetesRuntimeDefinition.ReleaseChannel,
 			MaintenanceWindowDays:        replacedGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowDays,
 			MaintenanceWindowStart:       replacedGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowStart,
@@ -333,6 +344,7 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Delete(
 			DefaultNodeGroupMaximumSize:  deletedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
 			KubernetesVersion:            deletedGcpGkeKubernetesRuntimeDefinition.KubernetesVersion,
 			AuditLog:                     deletedGcpGkeKubernetesRuntimeDefinition.AuditLog,
+			DeletionProtection:           deletedGcpGkeKubernetesRuntimeDefinition.DeletionProtection,
 			ReleaseChannel:               deletedGcpGkeKubernetesRuntimeDefinition.ReleaseChannel,
 			MaintenanceWindowDays:        deletedGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowDays,
 			MaintenanceWindowStart:       deletedGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowStart,
