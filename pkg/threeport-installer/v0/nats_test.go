@@ -15,8 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
-
-	auth "github.com/threeport/threeport/pkg/auth/v0"
 )
 
 // roundTripClient hands every object it creates or updates to the fake client
@@ -102,8 +100,8 @@ func natsContainers(t *testing.T) map[string]map[string]interface{} {
 		AdditionalOptions:           map[string]interface{}{},
 		CreateOrUpdateKubeResources: true,
 	}}
-	dbCreds, err := auth.GenerateDbCreds(ControlPlaneNamespace)
-	require.NoError(t, err)
+	dbCreds := sharedDbCreds(t, ControlPlaneNamespace)
+	seedBrokerSecrets(t, cpi, roundTripClient{kubeClient})
 	require.NoError(t, cpi.InstallThreeportControlPlaneDependencies(roundTripClient{kubeClient}, &mapper, "", dbCreds))
 
 	containers := map[string]map[string]interface{}{}

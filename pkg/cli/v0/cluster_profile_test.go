@@ -42,15 +42,26 @@ func TestAProductionGkeClusterIsBuiltToLoseAZone(t *testing.T) {
 	assert.GreaterOrEqual(t, 3*prod.MinNodeCount, int32(3), "three replicas need three nodes in three zones")
 }
 
-// TestTheEksClusterIsTheOneTptctlHasAlwaysCreated covers the EKS cluster
-// tptctl up creates, now read from the node size mapping.
-func TestTheEksClusterIsTheOneTptctlHasAlwaysCreated(t *testing.T) {
-	profile, err := eksControlPlaneProfile()
+// TestTheEksClusterFollowsTheTier covers the EKS cluster tptctl up creates
+// for each tier: development keeps the one tptctl has always created, and
+// production spans three zones with a node group in each, on general purpose
+// instances that don't burst, with a node in each zone at all times.
+func TestTheEksClusterFollowsTheTier(t *testing.T) {
+	dev, err := eksControlPlaneProfile(threeport.ControlPlaneTier(threeport.ControlPlaneTierDev))
 	require.NoError(t, err)
 	assert.Equal(t, eksClusterProfile{
 		NodeSize: "Medium", InstanceType: "t3.medium", ZoneCount: 2,
 		InitialNodeCount: 3, MinNodeCount: 3, MaxNodeCount: 250,
-	}, profile)
+	}, dev)
+
+	prod, err := eksControlPlaneProfile(threeport.ControlPlaneTier(threeport.ControlPlaneTierProd))
+	require.NoError(t, err)
+	assert.Equal(t, eksClusterProfile{
+		NodeSize: "Large", InstanceType: "m8i.large", ZoneCount: 3, NodeGroupPerZone: true,
+		InitialNodeCount: 1, MinNodeCount: 1, MaxNodeCount: 10,
+	}, prod)
+	assert.False(t, strings.HasPrefix(prod.InstanceType, "t"), "%s is a burstable instance", prod.InstanceType)
+	assert.GreaterOrEqual(t, prod.ZoneCount*prod.MinNodeCount, int32(3), "three replicas need three nodes in three zones")
 }
 
 // TestTheGenesisDefinitionDescribesItsCluster covers the
@@ -69,7 +80,8 @@ func TestTheGenesisDefinitionDescribesItsCluster(t *testing.T) {
 	}{
 		{v0.KubernetesRuntimeInfraProviderGKE, threeport.ControlPlaneTierProd, true, "Large", 10, "e2-standard-4", util.GcpProvider},
 		{v0.KubernetesRuntimeInfraProviderGKE, threeport.ControlPlaneTierDev, true, "Medium", 10, "e2-medium", util.GcpProvider},
-		{v0.KubernetesRuntimeInfraProviderEKS, threeport.ControlPlaneTierProd, false, "Medium", 250, "t3.medium", util.AwsProvider},
+		{v0.KubernetesRuntimeInfraProviderEKS, threeport.ControlPlaneTierProd, true, "Large", 10, "m8i.large", util.AwsProvider},
+		{v0.KubernetesRuntimeInfraProviderEKS, threeport.ControlPlaneTierDev, false, "Medium", 250, "t3.medium", util.AwsProvider},
 	} {
 		t.Run(c.provider+" "+c.tier, func(t *testing.T) {
 			definition := &v0.KubernetesRuntimeDefinition{InfraProvider: util.Ptr(c.provider)}
@@ -138,4 +150,33 @@ func TestTheGenesisGkeDefinitionDescribesItsNodePool(t *testing.T) {
 	assert.Equal(t, util.Ptr(1), sent.DefaultNodeGroupMinimumSize)
 	assert.Equal(t, util.Ptr(10), sent.DefaultNodeGroupMaximumSize)
 	assert.Equal(t, util.Ptr(3), sent.ZoneCount)
+}
+
+// TestTheGenesisEksDefinitionDescribesItsCluster covers the EKS definition
+// tptctl up registers for the cluster it creates on each tier: the zones,
+// instance type and node group sizes of the cluster, and whether it runs a
+// node group in each zone.
+func TestTheGenesisEksDefinitionDescribesItsCluster(t *testing.T) {
+	for _, tier := range []string{threeport.ControlPlaneTierDev, threeport.ControlPlaneTierProd} {
+		profile, err := eksControlPlaneProfile(threeport.ControlPlaneTier(tier))
+		require.NoError(t, err)
+		infra := &provider.KubernetesRuntimeInfraEKS{
+			ZoneCount:                    profile.ZoneCount,
+			NodeGroupPerZone:             profile.NodeGroupPerZone,
+			DefaultNodeGroupInstanceType: profile.InstanceType,
+			DefaultNodeGroupInitialNodes: profile.InitialNodeCount,
+			DefaultNodeGroupMinNodes:     profile.MinNodeCount,
+			DefaultNodeGroupMaxNodes:     profile.MaxNodeCount,
+		}
+
+		definition := eksGenesisDefinition("threeport-test", infra, util.Ptr(uint(2)))
+		assert.Equal(t, "threeport-test", *definition.Name, tier)
+		assert.Equal(t, int(profile.ZoneCount), *definition.ZoneCount, tier)
+		assert.Equal(t, profile.InstanceType, *definition.DefaultNodeGroupInstanceType, tier)
+		assert.Equal(t, int(profile.InitialNodeCount), *definition.DefaultNodeGroupInitialSize, tier)
+		assert.Equal(t, int(profile.MinNodeCount), *definition.DefaultNodeGroupMinimumSize, tier)
+		assert.Equal(t, int(profile.MaxNodeCount), *definition.DefaultNodeGroupMaximumSize, tier)
+		assert.Equal(t, profile.NodeGroupPerZone, *definition.NodeGroupPerZone, tier)
+		assert.Equal(t, uint(2), *definition.KubernetesRuntimeDefinitionID, tier)
+	}
 }

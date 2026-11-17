@@ -18,4 +18,9 @@ const (
 	// Label key on a cluster-scoped binding naming the control plane namespace that
 	// owns it, so the teardown can find it once the namespace is gone
 	LabelControlPlaneNamespace = "threeport.io/control-plane-namespace"
+	// Label key naming the install a workload belongs to
+	LabelInstall = "threeport.io/install"
 )
+
+// natsBoxDeployName is the Deployment that runs the nats CLI.
+const natsBoxDeployName = "nats-js-box"

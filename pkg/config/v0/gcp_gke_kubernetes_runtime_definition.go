@@ -212,7 +212,8 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Replace(
 	updatedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize = gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupInitialSize
 	updatedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize = gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupMinimumSize
 	updatedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize = gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupMaximumSize
-	// the version a config leaves out is kept, rather than cleared
+	// a new version upgrades the clusters, and a config that leaves it out
+	// keeps the one recorded
 	if gcpGkeKubernetesRuntimeDefinitionValues.KubernetesVersion != nil {
 		updatedGcpGkeKubernetesRuntimeDefinition.KubernetesVersion = gcpGkeKubernetesRuntimeDefinitionValues.KubernetesVersion
 	}

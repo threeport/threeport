@@ -134,8 +134,17 @@ type GKEProviderConfig struct {
 	GcpProjectId string
 	GcpRegion    string
 
+	// The GKE cluster this control plane runs on. Empty means threeport- plus the control plane name.
+	ClusterName string
+
 	// The bucket a production control plane's database is backed up to.
 	BackupBucket string
+
+	// PrivateApi keeps a private GKE endpoint on an infrastructure upgrade.
+	PrivateApi *bool
+
+	// AllowedCidrs are the networks allowed to reach that endpoint.
+	AllowedCidrs []string
 
 	// ServiceAccountCleanupPending is set when teardown destroyed the cluster
 	// but could not remove the GCP service account created for it. The next
@@ -412,6 +421,11 @@ func (cfg *ThreeportConfig) SetCurrentInstance(instanceName string) {
 	viper.WriteConfig()
 }
 
+// DetermineThreeportConfigPath determines the path to the threeport config file.
+// It accepts a path to a config file provided by the user (provided by flag) and
+// if this value is received, it is returned.  If not, it checks the environment
+// variable for a config file path.  If neither are provided, it returns the default
+// path to the threeport config file.
 // DetermineThreeportConfigPath determines the path to the threeport config file.
 // It accepts a path to a config file provided by the user (provided by flag) and
 // if this value is received, it is returned.  If not, it checks the environment

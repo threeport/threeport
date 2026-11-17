@@ -258,6 +258,7 @@ func (cpi *ControlPlaneInstaller) agentCurrent(
 func SupportServicesOperatorInstalled(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
+	namespace string,
 ) (bool, error) {
 	_, present, err := resourceInstalled(
 		kubeClient,
@@ -265,7 +266,7 @@ func SupportServicesOperatorInstalled(
 		"apps",
 		"v1",
 		"Deployment",
-		ControlPlaneNamespace,
+		namespace,
 		SupportServicesOperatorDeployName,
 	)
 	if err != nil {
@@ -275,13 +276,22 @@ func SupportServicesOperatorInstalled(
 	return present, nil
 }
 
-// EksThreeportSystemServicesInstalled reports whether the EKS system services
-// InstallEksThreeportSystemServices would install are already on the cluster.
-func EksThreeportSystemServicesInstalled(
+// EksThreeportSystemServicesCurrent reports whether the EKS system services
+// InstallEksThreeportSystemServices would install are already on the cluster,
+// with the cluster autoscaler's release for kubernetesVersion, the cluster's
+// minor version.  An autoscaler of another release, as an upgraded cluster has,
+// isn't current.
+func EksThreeportSystemServicesCurrent(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
+	kubernetesVersion string,
 ) (bool, error) {
-	_, present, err := resourceInstalled(
+	wantImage, err := ClusterAutoscalerImage(kubernetesVersion)
+	if err != nil {
+		return false, err
+	}
+
+	deployment, present, err := resourceInstalled(
 		kubeClient,
 		mapper,
 		"apps",
@@ -293,8 +303,18 @@ func EksThreeportSystemServicesInstalled(
 	if err != nil {
 		return false, fmt.Errorf("failed to check for the cluster autoscaler: %w", err)
 	}
+	if !present {
+		return false, nil
+	}
 
-	return present, nil
+	containers, _, _ := unstructured.NestedSlice(deployment.Object, "spec", "template", "spec", "containers")
+	for _, container := range containers {
+		if fields, ok := container.(map[string]interface{}); ok && fields["image"] == wantImage {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 // ComputeSpaceWorkloadControllerRBACCurrent reports whether every binding

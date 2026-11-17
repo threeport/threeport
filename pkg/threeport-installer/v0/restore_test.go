@@ -15,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	k8stesting "k8s.io/client-go/testing"
 )
@@ -57,6 +58,7 @@ func TestOnlyTheSwapTouchesTheLiveDatabase(t *testing.T) {
 		assert.NotContains(t, statement, "RENAME", statement)
 	}
 	assert.Contains(t, phases.Swap, "DROP DATABASE IF EXISTS threeport_api CASCADE")
+	assert.Contains(t, phases.Swap, "CREATE USER IF NOT EXISTS threeport")
 	assert.True(t, strings.HasPrefix(phases.Prepare[len(phases.Prepare)-1], "RESTORE "))
 }
 
@@ -101,10 +103,13 @@ type restoreCluster struct {
 	jobs        []string
 	commands    map[string][]string
 	backoffs    map[string]int64
+	certSecrets map[string]string
 	jobDeleteOK bool
 	// how many more pod listings report a pod still there
 	podListsLeft int
 	podLists     int
+	// a lock holder named in a field selector is gone
+	holderGone bool
 }
 
 func newRestoreCluster(t *testing.T, outcomes map[string]jobOutcome, replicas map[string]int64) *restoreCluster {
@@ -117,6 +122,7 @@ func newRestoreCluster(t *testing.T, outcomes map[string]jobOutcome, replicas ma
 		outcomes:          outcomes,
 		commands:          map[string][]string{},
 		backoffs:          map[string]int64{},
+		certSecrets:       map[string]string{},
 		jobDeleteOK:       true,
 	}
 	for name, count := range replicas {
@@ -172,8 +178,20 @@ func newRestoreCluster(t *testing.T, outcomes map[string]jobOutcome, replicas ma
 	cluster.PrependReactor("list", "pods", func(action k8stesting.Action) (bool, runtime.Object, error) {
 		cluster.mu.Lock()
 		defer cluster.mu.Unlock()
-		cluster.podLists++
 		list := &unstructured.UnstructuredList{Object: map[string]interface{}{"apiVersion": "v1", "kind": "PodList"}}
+		// a lookup by name is the restore lock holder, not a writer pod
+		if fields := action.(k8stesting.ListAction).GetListRestrictions().Fields; fields != nil && fields.String() != "" {
+			if !cluster.holderGone {
+				name := strings.TrimPrefix(fields.String(), "metadata.name=")
+				list.Items = append(list.Items, unstructured.Unstructured{Object: map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "Pod",
+					"metadata":   map[string]interface{}{"name": name, "namespace": ControlPlaneNamespace},
+				}})
+			}
+			return true, list, nil
+		}
+		cluster.podLists++
 		if cluster.podListsLeft > 0 {
 			cluster.podListsLeft--
 			// the pod carries the labels the listing selects by, as the
@@ -212,6 +230,9 @@ func newRestoreCluster(t *testing.T, outcomes map[string]jobOutcome, replicas ma
 		}
 		cluster.commands[phase] = command
 		cluster.backoffs[phase], _, _ = unstructured.NestedInt64(job.Object, "spec", "backoffLimit")
+		volumes, _, _ := unstructured.NestedSlice(job.Object, "spec", "template", "spec", "volumes")
+		secret := volumes[0].(map[string]interface{})["secret"].(map[string]interface{})
+		cluster.certSecrets[phase] = secret["secretName"].(string)
 		outcome := cluster.outcomes[phase]
 		cluster.mu.Unlock()
 
@@ -316,9 +337,10 @@ func TestRestoreScalesTheControlPlaneDownAndBack(t *testing.T) {
 		assert.NotContains(t, annotations, replicasBeforeRestoreAnnotation, name)
 	}
 
-	phases, err := DatabaseRestoreStatements(DatabaseName, "threeport", DatabaseBackupURI(testBucket), DatabaseBackupURI(testBucket), LatestBackup)
+	phases, err := DatabaseRestoreStatements(DatabaseName, "threeport", DatabaseBackupURI(testBucket, ControlPlaneNamespace), DatabaseBackupURI(testBucket, ControlPlaneNamespace), LatestBackup)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"prepare", "swap", "backup"}, cluster.jobs)
+	assert.Equal(t, dbCredsSecretName, cluster.certSecrets["prepare"])
 	assert.Equal(t, phases.Prepare, cluster.executed("prepare"))
 	assert.Equal(t, phases.Swap, cluster.executed("swap"))
 	assert.Equal(t, phases.Backup, cluster.executed("backup"))
@@ -657,6 +679,23 @@ func TestOneRestoreAtATime(t *testing.T) {
 	require.NoError(t, restore(cluster))
 }
 
+// TestAGoneHolderLetsTheNextRestoreStart drops a lock whose holder pod is gone.
+// The next restore then runs.
+func TestAGoneHolderLetsTheNextRestoreStart(t *testing.T) {
+	// a pod lock is what a gone holder can be stolen from
+	t.Setenv("KUBERNETES_SERVICE_HOST", "1")
+	// hold the lock, then report that holder pod gone
+	cluster := newRestoreCluster(t, map[string]jobOutcome{}, productionReplicas)
+	cluster.holderGone = true
+	release, err := acquireRestoreLock(cluster, ControlPlaneNamespace)
+	require.NoError(t, err)
+
+	require.NoError(t, restore(cluster))
+
+	assert.False(t, cluster.lockHeld())
+	require.NoError(t, release())
+}
+
 // TestTheLockIsReleasedEitherWay covers the lock after a restore that
 // succeeded and one that failed: the next restore can always start.
 func TestTheLockIsReleasedEitherWay(t *testing.T) {
@@ -667,4 +706,133 @@ func TestTheLockIsReleasedEitherWay(t *testing.T) {
 	failed := newRestoreCluster(t, map[string]jobOutcome{"swap": jobFails}, productionReplicas)
 	require.Error(t, restore(failed))
 	assert.False(t, failed.lockHeld())
+}
+
+// TestHoldReplicasForRestore covers a restore install creating a deployment
+// with no pods, and recording the count the manifest asked for.
+func TestHoldReplicasForRestore(t *testing.T) {
+	// hold a deployment that a restore install would create
+	deployment := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "apps/v1",
+		"kind":       "Deployment",
+		"metadata":   map[string]interface{}{"name": "threeport-api"},
+		"spec":       map[string]interface{}{"replicas": 3},
+	}}
+	cpi := &ControlPlaneInstaller{Opts: Options{
+		Namespace:              "genesis-07",
+		FromNamespace:          "genesis-06",
+		HoldReplicasForRestore: true,
+	}}
+	client := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
+	require.NoError(t, cpi.holdReplicasForRestore(deployment, client))
+	replicas, _, err := unstructured.NestedInt64(deployment.Object, "spec", "replicas")
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), replicas)
+	assert.Equal(t, "3", deployment.GetAnnotations()[replicasBeforeRestoreAnnotation])
+
+	// leave a copied identity at its replica count
+	copied := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "apps/v1",
+		"kind":       "Deployment",
+		"metadata":   map[string]interface{}{"name": "threeport-api"},
+		"spec":       map[string]interface{}{"replicas": 3},
+	}}
+	identity := &ControlPlaneInstaller{Opts: Options{
+		Namespace:     "genesis-07",
+		FromNamespace: "genesis-06",
+	}}
+	require.NoError(t, identity.holdReplicasForRestore(copied, client))
+	kept, _, err := unstructured.NestedFieldNoCopy(copied.Object, "spec", "replicas")
+	require.NoError(t, err)
+	assert.Equal(t, 3, kept)
+	assert.Empty(t, copied.GetAnnotations()[replicasBeforeRestoreAnnotation])
+
+	// leave a normal install and a persistent deployment at their replica count
+	plain := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "apps/v1",
+		"kind":       "Deployment",
+		"metadata":   map[string]interface{}{"name": "threeport-api"},
+		"spec":       map[string]interface{}{"replicas": 3},
+	}}
+	normal := &ControlPlaneInstaller{Opts: Options{Namespace: "genesis-07"}}
+	require.NoError(t, normal.holdReplicasForRestore(plain, client))
+	kept, _, err = unstructured.NestedFieldNoCopy(plain.Object, "spec", "replicas")
+	require.NoError(t, err)
+	assert.Equal(t, 3, kept)
+	assert.Empty(t, plain.GetAnnotations()[replicasBeforeRestoreAnnotation])
+
+	persistent := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "apps/v1",
+		"kind":       "Deployment",
+		"metadata": map[string]interface{}{
+			"name":   "cockroachdb",
+			"labels": map[string]interface{}{LabelPersistent: LabelPersistentValue},
+		},
+		"spec": map[string]interface{}{"replicas": 3},
+	}}
+	require.NoError(t, cpi.holdReplicasForRestore(persistent, client))
+	kept, _, err = unstructured.NestedFieldNoCopy(persistent.Object, "spec", "replicas")
+	require.NoError(t, err)
+	assert.Equal(t, 3, kept)
+
+	// leave the deployment alone once this source has been restored
+	require.NoError(t, cpi.recordRestore(client))
+	recorded := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "apps/v1",
+		"kind":       "Deployment",
+		"metadata":   map[string]interface{}{"name": "threeport-api"},
+		"spec":       map[string]interface{}{"replicas": 3},
+	}}
+	require.NoError(t, cpi.holdReplicasForRestore(recorded, client))
+	kept, _, err = unstructured.NestedFieldNoCopy(recorded.Object, "spec", "replicas")
+	require.NoError(t, err)
+	assert.Equal(t, 3, kept)
+	assert.Empty(t, recorded.GetAnnotations()[replicasBeforeRestoreAnnotation])
+}
+
+// TestScaleStatefulSetsToZeroStopsOnlyRunningStatefulSets covers stopping the
+// database and message broker of a replaced control plane in a namespace that
+// is kept: every running StatefulSet goes to zero and is named, one already at
+// zero is left alone, and a Deployment in the namespace is not touched.
+func TestScaleStatefulSetsToZeroStopsOnlyRunningStatefulSets(t *testing.T) {
+	// set up a namespace with two running StatefulSets, a stopped one, and a Deployment
+	newWorkload := func(kind, name string, replicas int64) *unstructured.Unstructured {
+		return &unstructured.Unstructured{Object: map[string]interface{}{
+			"apiVersion": "apps/v1",
+			"kind":       kind,
+			"metadata":   map[string]interface{}{"name": name, "namespace": "kept"},
+			"spec":       map[string]interface{}{"replicas": replicas},
+		}}
+	}
+	kubeClient := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(
+		runtime.NewScheme(),
+		map[schema.GroupVersionResource]string{statefulSetGVR: "StatefulSetList"},
+		newWorkload("StatefulSet", "crdb", 3),
+		newWorkload("StatefulSet", "nats-js", 1),
+		newWorkload("StatefulSet", "stopped", 0),
+		newWorkload("Deployment", "operator", 1),
+	)
+
+	// scale the namespace's StatefulSets down
+	scaled, err := ScaleStatefulSetsToZero(kubeClient, "kept")
+	require.NoError(t, err)
+
+	// assert the running StatefulSets are named and stopped
+	assert.ElementsMatch(t, []string{"crdb", "nats-js"}, scaled)
+	for _, name := range []string{"crdb", "nats-js", "stopped"} {
+		statefulSet, err := kubeClient.Resource(statefulSetGVR).Namespace("kept").Get(
+			context.Background(), name, metav1.GetOptions{},
+		)
+		require.NoError(t, err, name)
+		replicas, _, _ := unstructured.NestedInt64(statefulSet.Object, "spec", "replicas")
+		assert.Equal(t, int64(0), replicas, name)
+	}
+
+	// assert the Deployment keeps its replicas
+	deployment, err := kubeClient.Resource(deploymentGVR).Namespace("kept").Get(
+		context.Background(), "operator", metav1.GetOptions{},
+	)
+	require.NoError(t, err)
+	replicas, _, _ := unstructured.NestedInt64(deployment.Object, "spec", "replicas")
+	assert.Equal(t, int64(1), replicas)
 }

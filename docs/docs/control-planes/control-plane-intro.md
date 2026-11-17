@@ -71,9 +71,135 @@ Review the output before deleting anything with `kubectl delete
 clusterrolebinding <name>`.  Bindings the installer made have names that start
 with the deleted control plane's namespace and end in `-threeportworkloads` or
 `-cluster-admin`.  Running `tptctl reinstall` adds the label to its bindings, so
-a later delete finds them by label.  `tptctl upgrade control-plane` only updates
-images and does not add this label.  A delete finds bindings that lack the label
+a later delete finds them by label.  `tptctl upgrade control-plane image` only
+updates images and does not add this label.  A delete finds bindings that lack the label
 by their names and subjects.
+
+## Upgrading a Child
+
+Stay connected to the parent.  A command pointed at a child is refused.
+`--control-plane-image-namespace` and `--module-image-namespace` are
+optional.
+Blue-green needs a storage bucket, and that exists only for GCP.
+The new namespace is the new control plane name.
+
+Patch the connected control plane.
+
+```bash
+tptctl upgrade control-plane image \
+  --control-plane-image-tag [image tag]
+```
+
+Patch a child.  The parent controller applies the tag.
+
+```bash
+tptctl upgrade control-plane image \
+  --control-plane-name [child name] \
+  --control-plane-image-tag [image tag]
+```
+
+Install a new deployment of the connected control plane at this tptctl
+version.
+
+```bash
+tptctl upgrade control-plane blue-green \
+  --new-control-plane-name [new control plane name] \
+  --control-plane-image-namespace [image namespace] \
+  --control-plane-image-tag [image tag]
+```
+
+Ask the parent controller to install a new deployment of a child at the
+controller version.
+
+```bash
+tptctl upgrade control-plane blue-green \
+  --control-plane-name [child name] \
+  --new-control-plane-name [new control plane name] \
+  --control-plane-image-namespace [image namespace] \
+  --control-plane-image-tag [image tag]
+```
+
+Either blue-green command runs preflight checks before it stops anything.  The
+checks confirm the source exists, the new name is free, no upgrade is pending,
+and the images exist in their registry.  Add `--dry-run` to run only the checks.
+
+```bash
+tptctl upgrade control-plane blue-green \
+  --new-control-plane-name [new control plane name] \
+  --dry-run
+```
+
+Patch a module image on the connected control plane.
+
+```bash
+tptctl upgrade module image \
+  --module-name [module name] \
+  --module-image-tag [module image tag]
+```
+
+Patch a module image on a child.
+
+```bash
+tptctl upgrade module image \
+  --control-plane-name [child name] \
+  --module-name [module name] \
+  --module-image-tag [module image tag]
+```
+
+Redeploy the connected control plane with a new module image.  The control
+plane keeps the image namespace and tag it runs.  Pass
+`--control-plane-image-namespace` or `--control-plane-image-tag` to change
+either one.
+
+```bash
+tptctl upgrade module blue-green \
+  --module-name [module name] \
+  --module-image-tag [module image tag] \
+  --new-control-plane-name [new control plane name]
+```
+
+Ask the parent controller to redeploy a child with a new module image.  The
+child keeps the image namespace and tag it runs, unless you pass the same two
+flags.  Once the new control plane answers, the controller deletes the module
+namespaces and runs the module install job, so the module's workloads match its
+current installer.  The install uses the image saved on the module record.
+The old control plane stays until the install succeeds, so a failed install
+leaves it to fall back to.  If the install fails three times, the controller records a
+`ModuleInstallFailed` event and keeps the old control plane.  Reinstall the module
+on the child with the corrected image to finish, and the old control plane is
+removed when that install succeeds.
+
+```bash
+tptctl upgrade module blue-green \
+  --control-plane-name [child name] \
+  --module-name [module name] \
+  --module-image-tag [module image tag] \
+  --new-control-plane-name [new control plane name]
+```
+
+Install the module on the connected control plane.
+
+```bash
+tptctl $module install \
+  --control-plane-image-namespace [image namespace] \
+  --control-plane-image-tag [image tag]
+```
+
+Ask the parent controller to install the module on a child.
+
+```bash
+tptctl $module install \
+  --control-plane-name [child name] \
+  --control-plane-image-namespace [image namespace] \
+  --control-plane-image-tag [image tag]
+```
+
+Preview the infrastructure diff and apply it if you accept.
+`--yes` skips the prompt.
+
+```bash
+tptctl upgrade infrastructure
+```
 
 ## Next Steps
 

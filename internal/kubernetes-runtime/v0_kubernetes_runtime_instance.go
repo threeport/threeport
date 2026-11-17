@@ -325,7 +325,11 @@ func v0KubernetesRuntimeInstanceUpdated(
 	}
 
 	// support services operator
-	operatorInstalled, err := threeport.SupportServicesOperatorInstalled(dynamicKubeClient, mapper)
+	namespace, err := controlPlaneNamespace()
+	if err != nil {
+		return controller.RetryOnNetworkErr(err, "failed to read control plane namespace")
+	}
+	operatorInstalled, err := threeport.SupportServicesOperatorInstalled(dynamicKubeClient, mapper, namespace)
 	if err != nil {
 		return controller.RetryOnNetworkErr(err, "failed to check support services operator")
 	}
@@ -335,6 +339,7 @@ func v0KubernetesRuntimeInstanceUpdated(
 		dynamicKubeClient,
 		mapper,
 		threeport.SupportServicesCloud(v0.KubernetesRuntimeInfraProvider(*kubernetesRuntimeDefinition.InfraProvider)),
+		namespace,
 	); err != nil {
 		return controller.RetryOnNetworkErr(err, "failed to install support services operator")
 	}
@@ -350,25 +355,26 @@ func v0KubernetesRuntimeInstanceUpdated(
 			return controller.RetryOnNetworkErr(err, "failed to get AWS provider by name")
 		}
 
-		// system components e.g. cluster-autoscaler
-		systemServicesInstalled, err := threeport.EksThreeportSystemServicesInstalled(dynamicKubeClient, mapper)
+		// system components e.g. cluster-autoscaler, whose version matches
+		// the cluster's, so an upgraded cluster's is brought up to it
+		kubernetesVersion, err := clusterMinorVersion(r, *kubernetesRuntimeInstance.ID, controlPlaneHost)
+		if err != nil {
+			return controller.RetryOnNetworkErr(err, "failed to get the cluster's Kubernetes version")
+		}
+		systemServicesCurrent, err := threeport.EksThreeportSystemServicesCurrent(dynamicKubeClient, mapper, kubernetesVersion)
 		if err != nil {
 			return controller.RetryOnNetworkErr(err, "failed to check EKS system services")
 		}
-		if systemServicesInstalled {
-			log.V(1).Info("EKS system services already installed, skipping install")
+		if systemServicesCurrent {
+			log.V(1).Info("EKS system services already current, skipping install")
 		} else {
-			// the cluster autoscaler's version matches the cluster's
-			kubernetesVersion, err := clusterMinorVersion(r, *kubernetesRuntimeInstance.ID, controlPlaneHost)
-			if err != nil {
-				return controller.RetryOnNetworkErr(err, "failed to get the cluster's Kubernetes version")
-			}
 			if err := threeport.InstallEksThreeportSystemServices(
 				dynamicKubeClient,
 				mapper,
 				*kubernetesRuntimeInstance.Name,
 				*awsProvider.AccountID,
 				kubernetesVersion,
+				namespace,
 			); err != nil {
 				return controller.RetryOnNetworkErr(err, "failed to install system services")
 			}

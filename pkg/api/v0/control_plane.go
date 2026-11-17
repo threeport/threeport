@@ -36,6 +36,9 @@ type ControlPlaneInstance struct {
 	// The namespace to deploy the control plane in
 	Namespace *string `validate:"required" gorm:"not null"`
 
+	// The namespace of the control plane this install replaces
+	FromNamespace *string `validate:"optional"`
+
 	// When true, indicates the control plane instance represents the control plane in which it's stored
 	IsSelf *bool `validate:"optional" gorm:"default:false"`
 
@@ -57,6 +60,9 @@ type ControlPlaneInstance struct {
 	// component named in CustomComponentInfo takes its own value instead. When
 	// neither is set a component takes the tag its parent control plane runs.
 	ImageTag *string `validate:"optional"`
+
+	// The module install the parent controller runs, as name, image namespace, and tag separated by spaces
+	ModuleInstall *string `validate:"optional"`
 
 	// The controller groups this control plane installs.
 	// Group names are separated by commas.

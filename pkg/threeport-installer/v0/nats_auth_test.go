@@ -236,6 +236,7 @@ func envValue(container map[string]interface{}, name string) string {
 func installTestDependencies(t *testing.T, kubeClient dynamic.Interface, cpi *ControlPlaneInstaller) {
 	t.Helper()
 
+	seedBrokerSecrets(t, cpi, kubeClient)
 	require.NoError(t, cpi.InstallThreeportControlPlaneDependencies(kubeClient, installerTestMapper(), "key", nil))
 }
 
@@ -298,7 +299,7 @@ func TestTheFirstInstallCreatesTheBrokerCertificatesAndCredentials(t *testing.T)
 
 func TestEveryLaterInstallReusesTheBrokerCertificatesAndCredentials(t *testing.T) {
 	_, kubeClient, cpi := newBrokerTestClient()
-	require.NoError(t, cpi.ensureMessageBrokerSecrets(kubeClient))
+	ensureSharedBrokerSecrets(t, cpi, kubeClient)
 
 	before := map[string]string{}
 	for _, item := range [][2]string{
@@ -543,7 +544,7 @@ func TestTheAPIServerConnectsOverTLSAsTheThreeportUser(t *testing.T) {
 		"metadata":   map[string]interface{}{"name": dbRootCertSecretName, "namespace": testControlPlaneNamespace},
 	}}
 	_, kubeClient, cpi := newBrokerTestClient(dbCerts)
-	require.NoError(t, cpi.ensureMessageBrokerSecrets(kubeClient))
+	ensureSharedBrokerSecrets(t, cpi, kubeClient)
 	cpi.Opts.RestApiInfo.Name = "rest-api"
 	cpi.Opts.RestApiInfo.BinaryName = "rest-api"
 	cpi.Opts.DatabaseMigratorInfo = &v0.ControlPlaneComponent{Name: "database-migrator", BinaryName: "database-migrator"}

@@ -121,3 +121,50 @@ func TestAnAutoscalerWithNoImageForTheVersionIsNotInstalled(t *testing.T) {
 	assert.ErrorContains(t, err, "no cluster autoscaler image is known for Kubernetes 1.26")
 	assert.Empty(t, cluster.created)
 }
+
+// TestAnUpgradedClustersAutoscalerIsUpdated covers installing the autoscaler
+// on a cluster that already runs one, as an upgraded cluster does: the
+// deployment is updated to the new version's release, rather than left as it
+// was.
+func TestAnUpgradedClustersAutoscalerIsUpdated(t *testing.T) {
+	var mu sync.Mutex
+	var updated map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		body, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+		isDeployment := strings.Contains(r.URL.Path, "/deployments")
+		switch {
+		case r.Method == http.MethodPost && isDeployment:
+			w.WriteHeader(http.StatusConflict)
+			_, _ = w.Write([]byte(`{"kind":"Status","apiVersion":"v1","status":"Failure","reason":"AlreadyExists","code":409}`))
+		case r.Method == http.MethodGet && isDeployment:
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"cluster-autoscaler","namespace":"kube-system","resourceVersion":"7"}}`))
+		case r.Method == http.MethodPut && isDeployment:
+			mu.Lock()
+			require.NoError(t, json.Unmarshal(body, &updated))
+			mu.Unlock()
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(body)
+		default:
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write(body)
+		}
+	}))
+	t.Cleanup(server.Close)
+	kubeClient, err := dynamic.NewForConfig(&rest.Config{Host: server.URL})
+	require.NoError(t, err)
+
+	require.NoError(t, installEksClusterAutoscaler(
+		kubeClient, autoscalerTestMapper(), "upgraded-cluster", "123456789012", "1.36",
+	))
+
+	mu.Lock()
+	defer mu.Unlock()
+	require.NotNil(t, updated, "the existing deployment was updated")
+	containers, _, err := unstructured.NestedSlice(updated, "spec", "template", "spec", "containers")
+	require.NoError(t, err)
+	assert.Equal(t, "registry.k8s.io/autoscaling/cluster-autoscaler:v1.36.2", containers[0].(map[string]any)["image"])
+	assert.Equal(t, "7", updated["metadata"].(map[string]any)["resourceVersion"])
+}
