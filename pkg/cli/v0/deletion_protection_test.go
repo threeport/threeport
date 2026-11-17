@@ -199,3 +199,32 @@ func TestTptctlDownControlPlaneOnlyLeavesAProtectedClusterAlone(t *testing.T) {
 	var protected *v0.DeletionProtectedError
 	assert.True(t, errors.As(checkTeardownProtection(server.Client(), controlPlane, instance, threeport.Options{}), &protected))
 }
+
+// TestAnInfrastructureUpgradeKeepsTheClustersProtection covers tptctl
+// upgrade infrastructure on GKE: it builds the cluster as a fresh install of
+// the tier would, so it takes DeletionProtection from the cluster's recorded
+// GKE definition, or the stack would drop the protection, or put back one
+// turned off.
+func TestAnInfrastructureUpgradeKeepsTheClustersProtection(t *testing.T) {
+	for _, protection := range []*bool{util.Ptr(true), util.Ptr(false), nil} {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			switch {
+			case strings.HasPrefix(r.URL.Path, v0.PathGcpGkeKubernetesRuntimeDefinitions+"/4"):
+				body, err := json.Marshal(map[string]any{"Data": []any{map[string]any{"ID": 4, "DeletionProtection": protection}}})
+				require.NoError(t, err)
+				_, _ = w.Write(body)
+			case strings.HasPrefix(r.URL.Path, v0.PathGcpGkeKubernetesRuntimeInstances):
+				fmt.Fprint(w, `{"Data":[{"ID":9,"GcpGkeKubernetesRuntimeDefinitionID":4}]}`)
+			default:
+				w.WriteHeader(http.StatusNotFound)
+			}
+		}))
+
+		infra := &provider.KubernetesRuntimeInfraGKE{DeletionProtection: protection == nil}
+		require.NoError(t, KeepRecordedDeletionProtection(infra, server.Client(), strings.TrimPrefix(server.URL, "http://"), "threeport-prod"))
+		server.Close()
+		assert.Equal(t, util.PtrEqual(protection, true), infra.DeletionProtection, "recorded %v", protection)
+	}
+}

@@ -80,6 +80,8 @@ OKE are protected from being deleted by mistake:
   --control-plane-only` leaves the cluster as it is, so it isn't refused.
 - Pulumi protects the cluster and its node group or node pool, so a change
   that would destroy or replace them fails before it changes anything.
+- `tptctl upgrade infrastructure` keeps the protection the control plane
+  cluster's GKE definition records.
 
 `tptctl up --tier production` protects the cluster it creates. Otherwise it
 is off by default, so development clusters stay quick to tear down.
