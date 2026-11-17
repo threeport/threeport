@@ -96,6 +96,50 @@ func TestAControlPlaneConfigSendsItsNetworkCidrPool(t *testing.T) {
 	assert.NotContains(t, bodies[2], "10.32.0.0/12")
 }
 
+// TestAReplaceReleasesOnlyTheReservationsItNames covers ReservedNetworkCidrs
+// in a control plane instance config: a replace that leaves it out keeps the
+// stored reservations, one that names blocks keeps only those, and an empty
+// list releases them all.
+func TestAReplaceReleasesOnlyTheReservationsItNames(t *testing.T) {
+	var bodies []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut {
+			raw, err := io.ReadAll(r.Body)
+			require.NoError(t, err)
+			bodies = append(bodies, string(raw))
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"Status":{"code":200},"Data":[{"ID":1,"Name":"self","ReservedNetworkCidrs":["10.32.0.0/12","10.64.0.0/12"]}]}`))
+	}))
+	defer server.Close()
+	addr := strings.TrimPrefix(server.URL, "http://")
+
+	// get shows them, so a config written from it keeps them
+	got, err := (&ControlPlaneInstanceConfig{ControlPlaneInstance: ControlPlaneInstanceValues{Name: util.Ptr("self")}}).Get(http.DefaultClient, addr)
+	require.NoError(t, err)
+	require.Len(t, *got, 1)
+	assert.Equal(t, &[]string{"10.32.0.0/12", "10.64.0.0/12"}, (*got)[0].ControlPlaneInstance.ReservedNetworkCidrs)
+
+	without := instanceConfig("none")
+	replaced, err := without.Replace(http.DefaultClient, addr, "self")
+	require.NoError(t, err)
+	assert.Equal(t, &[]string{"10.32.0.0/12", "10.64.0.0/12"}, replaced.ControlPlaneInstance.ReservedNetworkCidrs, "read back from the API")
+	one := instanceConfig("none")
+	one.ControlPlaneInstance.ReservedNetworkCidrs = &[]string{"10.64.0.0/12"}
+	_, err = one.Replace(http.DefaultClient, addr, "self")
+	require.NoError(t, err)
+	none := instanceConfig("none")
+	none.ControlPlaneInstance.ReservedNetworkCidrs = &[]string{}
+	_, err = none.Replace(http.DefaultClient, addr, "self")
+	require.NoError(t, err)
+
+	require.Len(t, bodies, 3)
+	assert.Contains(t, bodies[0], `"ReservedNetworkCidrs":["10.32.0.0/12","10.64.0.0/12"]`, "kept")
+	assert.Contains(t, bodies[1], `"ReservedNetworkCidrs":["10.64.0.0/12"]`)
+	assert.Contains(t, bodies[2], `"ReservedNetworkCidrs":[]`)
+}
+
 // TestNetworkCidrPoolJSONRoundTrips covers the conversion the config uses.
 func TestNetworkCidrPoolJSONRoundTrips(t *testing.T) {
 	pool := &[]string{"10.32.0.0/12"}

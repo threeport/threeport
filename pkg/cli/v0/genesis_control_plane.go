@@ -107,6 +107,8 @@ type GenesisControlPlaneCLIArgs struct {
 	TeardownOnFailure     bool
 	ControlPlaneOnly      bool
 	ClusterName           string
+	NetworkCidr           string
+	NetworkCidrPool       string
 	InfraOnly             bool
 	KindPortMappings      []string
 	ApiPort               int
@@ -257,6 +259,15 @@ func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneI
 		cpi.Opts.ApiPort = apiPortFromKindMappings(a.KindPortMappings)
 	}
 
+	networkCidr, networkCidrPool, err := ResolveNetworkCidrFlags(
+		a.NetworkCidr, a.NetworkCidrPool, a.InfraProvider, a.ControlPlaneOnly,
+	)
+	if err != nil {
+		return nil, err
+	}
+	cpi.Opts.NetworkCidr = networkCidr
+	cpi.Opts.NetworkCidrPool = networkCidrPool
+
 	return cpi, nil
 }
 
@@ -388,6 +399,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		if err != nil {
 			return err
 		}
+		gkeInfra.NetworkCidr = cpi.Opts.NetworkCidr
 		gkeInfra.Version = cpi.Opts.KubernetesVersion
 		gkeInfra.ProjectID = cpi.Opts.GcpProjectId
 		gkeInfra.Region = cpi.Opts.GcpRegion
@@ -596,6 +608,11 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			DefaultRuntime:            &defaultRuntime,
 			Location:                  &location,
 		}
+	}
+
+	// the cluster's network range, so no runtime is allocated it
+	if networkCidr := genesisNetworkCidr(cpi.Opts, kubernetesRuntimeInfra); networkCidr != "" {
+		kubernetesRuntimeInstance.NetworkCidr = &networkCidr
 	}
 
 	// record the cluster's egress addresses on the runtime that hosts the
@@ -1114,6 +1131,12 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		CustomComponentInfo:         componentList,
 		ControlPlaneDefinitionID:    controlPlaneDefinition.ID,
 	}
+	// the pool the control plane allocates its runtimes' network ranges from
+	networkCidrPool, err := NetworkCidrPoolJSON(cpi.Opts.NetworkCidrPool)
+	if err != nil {
+		return uninstaller.cleanOnCreateError("failed to record the network range pool", err)
+	}
+	controlPlaneInstance.NetworkCidrPool = networkCidrPool
 	// store the controller groups on the self instance
 	if cpi.Opts.Apis != "" {
 		apis := cpi.Opts.Apis

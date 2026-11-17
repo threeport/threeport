@@ -11,6 +11,7 @@ import (
 	"gorm.io/datatypes"
 
 	notif "github.com/threeport/threeport/internal/gcp/notif"
+	"github.com/threeport/threeport/internal/networkcidr"
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	gcpauth "github.com/threeport/threeport/pkg/auth/v0"
@@ -105,7 +106,17 @@ func (g *gkeLifecycle) buildInfraFrom(
 	if err != nil {
 		return nil, fmt.Errorf("failed to get GKE definition: %w", err)
 	}
-	return buildGkeInfra(g.r, latest, def, g.log)
+	infra, err := buildGkeInfra(g.r, latest, def, g.log)
+	if err != nil {
+		return nil, err
+	}
+	if infra.NetworkCidr, err = networkcidr.ClusterNetworkCidr(
+		g.r.APIClient, g.r.APIServer, latest.KubernetesRuntimeInstanceID, latest.Reconciliation, latest.ResourceInventory,
+	); err != nil {
+		return nil, fmt.Errorf("failed to get the GKE cluster's network range: %w", err)
+	}
+
+	return infra, nil
 }
 
 // IsCreateComplete reports whether the whole create finished, not just the

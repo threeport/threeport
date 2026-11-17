@@ -173,6 +173,7 @@ func DeployEksInfra(
 		DefaultNodeGroupInitialNodes: eksProfile.InitialNodeCount,
 		DefaultNodeGroupMinNodes:     eksProfile.MinNodeCount,
 		DefaultNodeGroupMaxNodes:     eksProfile.MaxNodeCount,
+		NetworkCidr:                  cpi.Opts.NetworkCidr,
 		KubernetesVersion:            v0.KubernetesVersionOrDefault(&cpi.Opts.KubernetesVersion),
 		AllowedCidrs:                 cpi.Opts.K8sApiAllowedCidrs,
 	}).InitPulumiProject()

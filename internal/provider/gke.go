@@ -48,6 +48,13 @@ type KubernetesRuntimeInfraGKE struct {
 	// control plane's.
 	Version string
 
+	// The network range allocated to the cluster, such as "10.16.0.0/16", its
+	// KubernetesRuntimeInstance's NetworkCidr.  Its nodes', pods' and
+	// services' ranges are laid out in it.  If empty, the cluster gets the
+	// ranges every cluster got before ranges were allocated, as one created
+	// then has.
+	NetworkCidr string
+
 	// The GKE release channel the cluster is enrolled in, such as "STABLE".
 	// If empty, the default channel is used.
 	ReleaseChannel string
@@ -281,14 +288,16 @@ func (i *KubernetesRuntimeInfraGKE) CreateInfra() (*kube.KubeConnectionInfo, err
 	}
 
 	// a create resumed on a stack that holds the cluster keeps its version
-	// and release channel, and one whose node pool was created before the nodes had their own
-	// service account leaves that node pool as it is
+	// and release channel and the range its network was laid out in, and one
+	// whose node pool was created before the nodes had their own service
+	// account leaves that node pool as it is
 	ctx := context.Background()
 	exported, err := stack.Export(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read the stack's GKE cluster: %w", err)
+		return nil, fmt.Errorf("failed to read the stack: %w", err)
 	}
 	i.keepStackMinMasterVersion(exported.Deployment)
+	i.keepStackNetwork(exported.Deployment)
 	i.keepStackReleaseChannel(exported.Deployment)
 	i.nodesKeepDefaultServiceAccount = nodePoolRunsAsDefaultServiceAccount(exported.Deployment)
 
@@ -479,19 +488,23 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 			return fmt.Errorf("failed to create VPC network: %w", err)
 		}
 
+		ranges, err := gkeLayout(i.NetworkCidr)
+		if err != nil {
+			return err
+		}
 		subnet, err := compute.NewSubnetwork(ctx, fmt.Sprintf("%s-subnet", i.RuntimeInstanceName), &compute.SubnetworkArgs{
 			Name:        pulumi.String(fmt.Sprintf("%s-subnet", i.RuntimeInstanceName)),
-			IpCidrRange: pulumi.String("10.0.0.0/16"),
+			IpCidrRange: pulumi.String(ranges.Nodes),
 			Region:      pulumi.String(i.Region),
 			Network:     network.ID(),
 			SecondaryIpRanges: compute.SubnetworkSecondaryIpRangeArray{
 				&compute.SubnetworkSecondaryIpRangeArgs{
 					RangeName:   pulumi.String("pods"),
-					IpCidrRange: pulumi.String("10.1.0.0/16"),
+					IpCidrRange: pulumi.String(ranges.Pods),
 				},
 				&compute.SubnetworkSecondaryIpRangeArgs{
 					RangeName:   pulumi.String("services"),
-					IpCidrRange: pulumi.String("10.2.0.0/20"),
+					IpCidrRange: pulumi.String(ranges.Services),
 				},
 			},
 		}, pulumi.Provider(gcpProvider),
@@ -551,6 +564,11 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 			return fmt.Errorf("failed to create Cloud NAT: %w", err)
 		}
 
+		var podsPerNode pulumi.IntPtrInput
+		if ranges.PodsPerNode > 0 {
+			podsPerNode = pulumi.IntPtr(ranges.PodsPerNode)
+		}
+
 		maintenancePolicy, err := i.maintenancePolicy()
 		if err != nil {
 			return err
@@ -582,6 +600,7 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 				ClusterSecondaryRangeName:  pulumi.String("pods"),
 				ServicesSecondaryRangeName: pulumi.String("services"),
 			},
+			DefaultMaxPodsPerNode: podsPerNode,
 
 			// a minimum: GKE upgrades the control plane past it on its own,
 			// to its channel's releases, within the maintenance window
