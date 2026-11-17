@@ -300,7 +300,9 @@ func installEksClusterAutoscaler(
 			},
 		},
 	}
-	if _, err := kube.CreateResource(clusterAutoscalerClusterRole, kubeClient, *mapper); err != nil {
+	// an existing cluster's role is brought up to these rules, as the
+	// autoscaler's release waits on what they grant
+	if _, err := kube.CreateOrUpdateResource(clusterAutoscalerClusterRole, kubeClient, *mapper); err != nil {
 		return fmt.Errorf("failed to create cluster autoscaler cluster role: %w", err)
 	}
 

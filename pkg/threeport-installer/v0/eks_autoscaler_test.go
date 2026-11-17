@@ -146,17 +146,31 @@ func TestAnAutoscalerWithNoImageForTheVersionIsNotInstalled(t *testing.T) {
 
 // TestAnUpgradedClustersAutoscalerIsUpdated covers installing the autoscaler
 // on a cluster that already runs one, as an upgraded cluster does: the
-// deployment is updated to the new version's release, rather than left as it
-// was.
+// deployment is updated to the new version's release, and the cluster role,
+// installed before it granted what the release waits for, to the current
+// rules, rather than either left as it was.
 func TestAnUpgradedClustersAutoscalerIsUpdated(t *testing.T) {
 	var mu sync.Mutex
-	var updated map[string]any
+	var updated, updatedRole map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		body, err := io.ReadAll(r.Body)
 		require.NoError(t, err)
 		isDeployment := strings.Contains(r.URL.Path, "/deployments")
+		isClusterRole := strings.Contains(r.URL.Path, "/clusterroles/") || strings.HasSuffix(r.URL.Path, "/clusterroles")
 		switch {
+		case r.Method == http.MethodPost && isClusterRole:
+			w.WriteHeader(http.StatusConflict)
+			_, _ = w.Write([]byte(`{"kind":"Status","apiVersion":"v1","status":"Failure","reason":"AlreadyExists","code":409}`))
+		case r.Method == http.MethodGet && isClusterRole:
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"apiVersion":"rbac.authorization.k8s.io/v1","kind":"ClusterRole","metadata":{"name":"cluster-autoscaler","resourceVersion":"3"},"rules":[{"apiGroups":["storage.k8s.io"],"resources":["storageclasses"],"verbs":["watch","list","get"]}]}`))
+		case r.Method == http.MethodPut && isClusterRole:
+			mu.Lock()
+			require.NoError(t, json.Unmarshal(body, &updatedRole))
+			mu.Unlock()
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(body)
 		case r.Method == http.MethodPost && isDeployment:
 			w.WriteHeader(http.StatusConflict)
 			_, _ = w.Write([]byte(`{"kind":"Status","apiVersion":"v1","status":"Failure","reason":"AlreadyExists","code":409}`))
@@ -189,4 +203,12 @@ func TestAnUpgradedClustersAutoscalerIsUpdated(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "registry.k8s.io/autoscaling/cluster-autoscaler:v1.36.2", containers[0].(map[string]any)["image"])
 	assert.Equal(t, "7", updated["metadata"].(map[string]any)["resourceVersion"])
+
+	require.NotNil(t, updatedRole, "the existing cluster role was updated")
+	assert.Equal(t, "3", updatedRole["metadata"].(map[string]any)["resourceVersion"])
+	rules, _, err := unstructured.NestedSlice(updatedRole, "rules")
+	require.NoError(t, err)
+	for _, watched := range clusterAutoscalerWatchedResources {
+		assert.True(t, rulesGrantWatch(rules, watched[0], watched[1]), "%s/%s", watched[0], watched[1])
+	}
 }
