@@ -49,11 +49,12 @@ func TestAReinstallKeepsScheduledBackups(t *testing.T) {
 	assert.Empty(t, ScheduledBackupBucket(&ControlPlane{Name: "eks", Provider: v0.KubernetesRuntimeInfraProviderEKS}))
 }
 
-// TestRestoreIsOnlyForGke covers the providers a restore reaches the cluster
-// on: GKE only, refused before anything is touched elsewhere.
-func TestRestoreIsOnlyForGke(t *testing.T) {
-	err := RestoreControlPlaneDatabase(&ControlPlane{Name: "eks", Provider: v0.KubernetesRuntimeInfraProviderEKS}, "some-bucket", "LATEST")
-	assert.ErrorContains(t, err, "supported for control planes on gke")
+// TestRestoreRefusesAnUnsupportedProvider checks that a provider with no
+// database backup is refused before the cluster is touched.
+func TestRestoreRefusesAnUnsupportedProvider(t *testing.T) {
+	// refuse the provider before anything else runs
+	err := RestoreControlPlaneDatabase(&ControlPlane{Name: "eks", Provider: v0.KubernetesRuntimeInfraProviderEKS}, "some-bucket", "LATEST", "", "", false)
+	assert.ErrorContains(t, err, "not supported for control planes on eks")
 }
 
 // TestRestoreNeedsTheClusterLocation covers how a restore finds the cluster:

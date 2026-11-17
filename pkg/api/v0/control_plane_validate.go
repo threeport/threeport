@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 
 	gorm "gorm.io/gorm"
 
@@ -14,6 +15,48 @@ import (
 	auth "github.com/threeport/threeport/pkg/auth/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
+
+// ErrRequestMustBeMadeToParent is the refusal to upgrade or restore a control plane its parent manages.
+var ErrRequestMustBeMadeToParent = errors.New("request must be made to parent")
+
+// ErrModuleInstallPending is the refusal to replace a module install that is still stored.
+var ErrModuleInstallPending = errors.New("a module install is already pending")
+
+// moduleInstallClearPrefix marks a clear of one request.
+// A module name does not contain a newline, so a stored request cannot match this prefix.
+const moduleInstallClearPrefix = "clear\n"
+
+// ModuleInstallKept returns the request stored after a successful update.
+// A clear marker is not stored. The column holds an empty value.
+func ModuleInstallKept(next string, write string) string {
+	// a clear leaves the column empty
+	if next == "" {
+		return ""
+	}
+	return write
+}
+
+// ModuleInstallClear is the value that clears one stored request.
+func ModuleInstallClear(started string) string {
+	// name the request this clear finishes
+	return moduleInstallClearPrefix + started
+}
+
+// ChildControlPlaneRequest rejects a command aimed at a control plane its parent manages.
+// A row this API stores for a child is the parent's own record, so it is allowed.
+func ChildControlPlaneRequest(instance *ControlPlaneInstance) error {
+	// allow a control plane with no parent
+	if instance == nil || instance.ParentControlPlaneInstanceID == nil {
+		return nil
+	}
+
+	// allow the row a parent stores for its child
+	if instance.IsSelf != nil && !*instance.IsSelf {
+		return nil
+	}
+
+	return ErrRequestMustBeMadeToParent
+}
 
 // ValidateAuthEnabledForProvider rejects a control plane served without auth
 // on anything but kind.
@@ -328,6 +371,11 @@ func validateAuthAgainstRuntime(tx *gorm.DB, instance *ControlPlaneInstance) err
 // beforeUpdate rejects a desired-state change the caller may not make.
 // Reconciliation stays writable, and an empty column may be filled once.
 func (c *ControlPlaneInstance) beforeUpdate(tx *gorm.DB) error {
+	// reject a second module install while one is stored
+	if err := rejectReplacingModuleInstall(tx); err != nil {
+		return err
+	}
+
 	// read the stored row, because a patch often omits IsSelf
 	stored, err := storedControlPlane(tx, c)
 	if err != nil {
@@ -346,9 +394,10 @@ func (c *ControlPlaneInstance) beforeUpdate(tx *gorm.DB) error {
 		return nil
 	}
 
-	// the parent may change the image, the controller list and the pool on a row it manages
-	allowLifecycle := owned && (!self || parentCaller(tx))
-	field, err := changedForeignField(tx, stored, allowLifecycle)
+	// the parent may change the image, the controller list, the pool and the restored identity
+	callerIsParent := parentCaller(tx)
+	allowLifecycle := owned && (!self || callerIsParent)
+	field, err := changedForeignField(tx, stored, allowLifecycle, callerIsParent)
 	if err != nil {
 		return err
 	}
@@ -357,14 +406,64 @@ func (c *ControlPlaneInstance) beforeUpdate(tx *gorm.DB) error {
 	}
 	if self {
 		return util.NewBadRequestError(fmt.Sprintf(
-			"cannot update %s on a control plane its parent manages",
+			"cannot update %s: %s",
 			field,
+			ErrRequestMustBeMadeToParent.Error(),
 		))
 	}
 	return util.NewBadRequestError(fmt.Sprintf(
 		"cannot update %s on a control plane this API does not serve",
 		field,
 	))
+}
+
+// rejectReplacingModuleInstall keeps a stored module install until it is cleared.
+// The lock reads the row this update writes over, so a second request waits and then conflicts.
+func rejectReplacingModuleInstall(tx *gorm.DB) error {
+	// skip a patch that does not write the request
+	changed, err := lib.IsFieldChanged(tx, "ModuleInstall")
+	if err != nil || !changed {
+		return err
+	}
+	incoming, ok := lib.IncomingValues(tx).(*ControlPlaneInstance)
+	if !ok || incoming.ModuleInstall == nil {
+		return nil
+	}
+	next := util.DerefString(incoming.ModuleInstall)
+	expected, clearing := moduleInstallBeingCleared(next)
+
+	// lock the row, then keep a different request that is already stored
+	loaded, err := lib.LockObjectInDB(tx)
+	if err != nil {
+		return err
+	}
+	stored, ok := loaded.(*ControlPlaneInstance)
+	if !ok {
+		return fmt.Errorf("loaded %T is not a control plane instance", loaded)
+	}
+	current := util.DerefString(stored.ModuleInstall)
+	if clearing {
+		if current != expected {
+			return util.NewConflictError(ErrModuleInstallPending.Error())
+		}
+		empty := ""
+		incoming.ModuleInstall = &empty
+		return nil
+	}
+	if current != "" && current != next {
+		return util.NewConflictError(ErrModuleInstallPending.Error())
+	}
+	return nil
+}
+
+// moduleInstallBeingCleared reads the request a clear names.
+func moduleInstallBeingCleared(next string) (string, bool) {
+	// read the request after the clear marker
+	expected, ok := strings.CutPrefix(next, moduleInstallClearPrefix)
+	if !ok || expected == "" {
+		return "", false
+	}
+	return expected, true
 }
 
 // storedControlPlane returns the row as stored.
@@ -388,7 +487,7 @@ func storedControlPlane(tx *gorm.DB, receiver *ControlPlaneInstance) (*ControlPl
 
 // changedForeignField returns the first column a control plane this API does not serve must keep.
 // A managed row may change the image, the controller list and the pool.
-func changedForeignField(tx *gorm.DB, stored *ControlPlaneInstance, allowLifecycle bool) (string, error) {
+func changedForeignField(tx *gorm.DB, stored *ControlPlaneInstance, allowLifecycle, managing bool) (string, error) {
 	if tx.Statement.Schema == nil {
 		return "", errors.New("control plane instance update has no schema")
 	}
@@ -408,6 +507,10 @@ func changedForeignField(tx *gorm.DB, stored *ControlPlaneInstance, allowLifecyc
 		}
 		// a managed row may change the image, the controller list and the pool
 		if allowLifecycle && blankValueIsTheSetting(field.Name) {
+			continue
+		}
+		// the managing caller may retarget a restored row
+		if managing && restoredIdentity(field.Name) {
 			continue
 		}
 		if blankValueIsTheSetting(field.Name) || !columnEmpty(field.ValueOf, storedValue) {
@@ -431,11 +534,12 @@ func parentCaller(tx *gorm.DB) bool {
 		return false
 	}
 
-	// accept the owner certificate or a control plane certificate with no organization
+	// accept the owner certificate or a control plane controller certificate
 	if caller.CommonName == "threeport-owner" {
 		return true
 	}
-	return caller.OrganizationalUnit == auth.OUControlPlane && caller.Organization == ""
+	// the installer puts the API namespace in the certificate organization
+	return caller.OrganizationalUnit == auth.OUControlPlane
 }
 
 // reconciliationColumn reports whether the column belongs to Reconciliation.
@@ -443,12 +547,23 @@ func reconciliationColumn(bindNames []string) bool {
 	return len(bindNames) > 0 && bindNames[0] == "Reconciliation"
 }
 
+// restoredIdentity reports whether a column is the name a restore copies from the source.
+func restoredIdentity(name string) bool {
+	// the source name, its namespace, and the two ids the replacement owns
+	switch name {
+	case "Name", "Namespace", "FromNamespace", "ApiServerEndpoint", "ControlPlaneDefinitionID", "KubernetesRuntimeInstanceID":
+		return true
+	default:
+		return false
+	}
+}
+
 // blankValueIsTheSetting reports whether an empty column is itself a choice.
 // An empty Apis installs every group, an empty image field inherits the
 // parent, and an empty NetworkCidrPool allocates from the default pool.
 func blankValueIsTheSetting(name string) bool {
 	switch name {
-	case "Apis", "ImageNamespace", "ImageTag", "NetworkCidrPool":
+	case "Apis", "ImageNamespace", "ImageTag", "ModuleInstall", "NetworkCidrPool":
 		return true
 	default:
 		return false
@@ -462,9 +577,15 @@ func columnEmpty(valueOf func(context.Context, reflect.Value) (interface{}, bool
 	return zero
 }
 
-// beforeDelete runs before the ControlPlaneInstance is deleted.
+// beforeDelete rejects a child deleting itself.
 func (c *ControlPlaneInstance) beforeDelete(tx *gorm.DB) error {
-	return nil
+	// load the stored row and reject a child deleting itself
+	stored, err := storedControlPlane(tx, c)
+	if err != nil {
+		return err
+	}
+
+	return ChildControlPlaneRequest(stored)
 }
 
 // afterCreate runs after the ControlPlaneInstance is created.

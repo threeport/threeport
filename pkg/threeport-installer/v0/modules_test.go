@@ -11,9 +11,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	k8stesting "k8s.io/client-go/testing"
 
@@ -319,6 +321,52 @@ func TestScaleDownModulesAndRestore(t *testing.T) {
 	}
 }
 
+// TestRestoreModuleScaleClearsTheRecordedCount covers the annotation that holds
+// a module controller's replica count while it is stopped: resuming the
+// controller sets its count and removes the annotation, so a later backup does
+// not mistake a stale count for one it recorded itself. Scaling to zero keeps it.
+func TestRestoreModuleScaleClearsTheRecordedCount(t *testing.T) {
+	// seed a running controller and capture the body of every patch
+	namespace := "example-namespace"
+	kubeClient := testKubeClient(
+		testControllerDeployment("threeport-example-controller", namespace, 2),
+	)
+	var bodies [][]byte
+	kubeClient.PrependReactor("patch", "deployments", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		patch := action.(k8stesting.PatchAction)
+		bodies = append(bodies, patch.GetPatch())
+
+		// answer without applying the patch, which the fake cannot merge
+		return true, testModuleDeployment(patch.GetName(), patch.GetNamespace(), 0), nil
+	})
+	cpi := &ControlPlaneInstaller{Opts: Options{Namespace: "threeport-control-plane"}}
+
+	// scale the controller to zero, then resume it
+	scales, err := cpi.ScaleDownModules(kubeClient, []ModuleDeploymentScale{{
+		Namespace: namespace,
+		Name:      "threeport-example-controller",
+	}})
+	require.NoError(t, err)
+	bodies = nil
+	require.NoError(t, cpi.RestoreModuleScale(kubeClient, scales))
+
+	// assert the resume patch sets the count and clears the recorded annotation
+	require.Len(t, bodies, 1)
+	var resume struct {
+		Metadata struct {
+			Annotations map[string]*string `json:"annotations"`
+		} `json:"metadata"`
+		Spec struct {
+			Replicas int64 `json:"replicas"`
+		} `json:"spec"`
+	}
+	require.NoError(t, json.Unmarshal(bodies[0], &resume))
+	require.Equal(t, int64(2), resume.Spec.Replicas)
+	cleared, present := resume.Metadata.Annotations[replicasBeforeRestoreAnnotation]
+	require.True(t, present, "the resume patch left the recorded count in place")
+	require.Nil(t, cleared)
+}
+
 // TestScaleDownModulesSkipsDeploymentsAlreadyStopped covers scale-down
 // skipping a zero-replica deployment.
 func TestScaleDownModulesSkipsDeploymentsAlreadyStopped(t *testing.T) {
@@ -350,6 +398,48 @@ func TestScaleDownModulesSkipsDeploymentsAlreadyStopped(t *testing.T) {
 		if strings.Contains(unwanted, "threeport-disabled-controller") {
 			t.Errorf("expected the stopped deployment to be left alone, got patch %s", unwanted)
 		}
+	}
+}
+
+// TestScaleDownModuleWritersStopsTheApiServer covers the API server, which
+// ScaleDownModules leaves running because it is not a controller.
+func TestScaleDownModuleWritersStopsTheApiServer(t *testing.T) {
+	// seed a controller and the API server named by the module endpoint
+	namespace := "example-namespace"
+	controller := testControllerDeployment("threeport-example-controller", namespace, 1)
+	apiServer := testModuleDeployment("example-api-server", namespace, 1)
+	unstructured.SetNestedStringMap(controller.Object, map[string]string{
+		"app.kubernetes.io/name": "threeport-example-controller",
+	}, "spec", "selector", "matchLabels")
+	unstructured.SetNestedStringMap(apiServer.Object, map[string]string{
+		"app.kubernetes.io/name": "example-api-server",
+	}, "spec", "selector", "matchLabels")
+	kubeClient := testKubeClient(controller, apiServer)
+	var patched []string
+	recordDeploymentScaling(kubeClient, &patched)
+	cpi := &ControlPlaneInstaller{Opts: Options{Namespace: "threeport-control-plane"}}
+
+	// scale both writers
+	scales, err := cpi.scaleDownModuleWriters(kubeClient, []ModuleDeploymentScale{
+		{Namespace: namespace, Name: "threeport-example-controller"},
+	}, []ModuleApiServer{
+		{Namespace: namespace, Service: "example-api-server"},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// check that the returned counts are the replicas stopped, not zero
+	if len(scales) != 2 || scales[0].Replicas != 1 || scales[1].Name != "example-api-server" || scales[1].Replicas != 1 {
+		t.Errorf("expected both writers recorded at 1 replica, got %v", scales)
+	}
+
+	// check that both deployments are scaled to zero
+	if !containsString(patched, "example-namespace/threeport-example-controller=0") {
+		t.Errorf("expected the controller to be scaled down, got %v", patched)
+	}
+	if !containsString(patched, "example-namespace/example-api-server=0") {
+		t.Errorf("expected the API server to be scaled down, got %v", patched)
 	}
 }
 
@@ -388,6 +478,67 @@ func TestScaleDownModulesLeavesOtherWorkloadsRunning(t *testing.T) {
 		if strings.Contains(unwanted, "threeport-example-rest-api") || strings.Contains(unwanted, "payments-controller") {
 			t.Errorf("expected the other workload to be left alone, got patch %s", unwanted)
 		}
+	}
+}
+
+// TestScaleDownModuleWritersStopsAControllerInTheApiNamespace covers a controller
+// that is not registered by name and lives beside the module API.
+func TestScaleDownModuleWritersStopsAControllerInTheApiNamespace(t *testing.T) {
+	// seed an unlabeled controller in the module API namespace
+	namespace := "example-namespace"
+	controller := testControllerDeployment("example-core-controller", namespace, 1)
+	unstructured.RemoveNestedField(controller.Object, "spec", "template", "metadata", "labels")
+	containers, _, _ := unstructured.NestedSlice(controller.Object, "spec", "template", "spec", "containers")
+	containers[0].(map[string]interface{})["command"] = []interface{}{"/core-controller"}
+	_ = unstructured.SetNestedSlice(controller.Object, containers, "spec", "template", "spec", "containers")
+	kubeClient := testKubeClient(controller)
+	var patched []string
+	recordDeploymentScaling(kubeClient, &patched)
+	cpi := &ControlPlaneInstaller{Opts: Options{Namespace: "threeport-control-plane"}}
+
+	// scale writers with no registered controller names
+	scales, err := cpi.scaleDownModuleWriters(kubeClient, nil, []ModuleApiServer{{
+		Namespace: namespace,
+		Service:   "missing-api",
+	}})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(scales) != 1 || scales[0].Name != "example-core-controller" || scales[0].Replicas != 1 {
+		t.Fatalf("expected the namespace controller recorded at 1 replica, got %v", scales)
+	}
+	if !containsString(patched, "example-namespace/example-core-controller=0") {
+		t.Errorf("expected the namespace controller to be scaled down, got %v", patched)
+	}
+}
+
+// TestScaleDownModulesStopsAnUnlabeledController covers a module controller
+// whose installer does not set app.kubernetes.io/name.
+func TestScaleDownModulesStopsAnUnlabeledController(t *testing.T) {
+	// seed a controller with a -controller command and no name label
+	namespace := "example-namespace"
+	controller := testControllerDeployment("example-core-controller", namespace, 1)
+	unstructured.RemoveNestedField(controller.Object, "spec", "template", "metadata", "labels")
+	containers, _, _ := unstructured.NestedSlice(controller.Object, "spec", "template", "spec", "containers")
+	containers[0].(map[string]interface{})["command"] = []interface{}{"/core-controller"}
+	_ = unstructured.SetNestedSlice(controller.Object, containers, "spec", "template", "spec", "containers")
+	kubeClient := testKubeClient(controller)
+	var patched []string
+	recordDeploymentScaling(kubeClient, &patched)
+	cpi := &ControlPlaneInstaller{Opts: Options{Namespace: "threeport-control-plane"}}
+
+	// scale the unlabeled controller
+	scales, err := cpi.ScaleDownModules(kubeClient, []ModuleDeploymentScale{
+		{Namespace: namespace, Name: "example-core-controller"},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(scales) != 1 || scales[0].Replicas != 1 {
+		t.Fatalf("expected the unlabeled controller recorded at 1 replica, got %v", scales)
+	}
+	if !containsString(patched, "example-namespace/example-core-controller=0") {
+		t.Errorf("expected the unlabeled controller to be scaled down, got %v", patched)
 	}
 }
 
@@ -645,4 +796,60 @@ func TestModuleApiServerFromEndpoint(t *testing.T) {
 		_, ok := moduleApiServerFromEndpoint(&endpoint)
 		assert.False(t, ok, "this has only one label before the suffix, not a service and a namespace")
 	})
+}
+
+// TestSplitModuleScalesReplacesOnlyTheRequestsModule covers which recorded
+// deployments a module upgrade replaces: those in the namespace of the module
+// the install request names. Another module's deployments stay, and an empty
+// request replaces nothing.
+func TestSplitModuleScalesReplacesOnlyTheRequestsModule(t *testing.T) {
+	// record deployments of two modules
+	scales := []ModuleDeploymentScale{
+		{Namespace: "threeport-acme", Name: "threeport-acme-core-controller", Replicas: 2},
+		{Namespace: "threeport-acme", Name: "threeport-acme-api-server", Replicas: 2},
+		{Namespace: "threeport-widget", Name: "threeport-widget-api-server", Replicas: 1},
+	}
+
+	// assert a request for one module replaces only its namespace
+	replaced, others := SplitModuleScales("example.com/acme-module-api registry.example v1", scales)
+	assert.Equal(t, scales[:2], replaced)
+	assert.Equal(t, scales[2:], others)
+
+	// assert an empty request replaces nothing
+	replaced, others = SplitModuleScales("", scales)
+	assert.Empty(t, replaced)
+	assert.Equal(t, scales, others)
+}
+
+// TestDeleteModuleNamespacesDeletesEachModuleNamespaceOnce covers the cleanup a
+// module upgrade runs before the module installer creates its workloads again:
+// every namespace that holds a recorded module deployment is deleted once, and
+// a namespace no module deployment names stays.
+func TestDeleteModuleNamespacesDeletesEachModuleNamespaceOnce(t *testing.T) {
+	// seed one module namespace with two deployments recorded, and one unrelated namespace
+	namespace := func(name string) *unstructured.Unstructured {
+		return &unstructured.Unstructured{Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Namespace",
+			"metadata":   map[string]interface{}{"name": name},
+		}}
+	}
+	kubeClient := testKubeClient(namespace("threeport-acme"), namespace("unrelated"))
+	mapper := testComponentMapper()
+
+	// delete the namespaces the recorded deployments name
+	require.NoError(t, DeleteModuleNamespaces(kubeClient, &mapper, []ModuleDeploymentScale{
+		{Namespace: "threeport-acme", Name: "threeport-acme-core-controller", Replicas: 2},
+		{Namespace: "threeport-acme", Name: "threeport-acme-api-server", Replicas: 2},
+	}))
+
+	// assert the module namespace is gone and the unrelated one stays
+	namespaces := schema.GroupVersionResource{Version: "v1", Resource: "namespaces"}
+	_, err := kubeClient.Resource(namespaces).Get(context.Background(), "threeport-acme", metav1.GetOptions{})
+	assert.True(t, k8serrors.IsNotFound(err), "the module namespace stayed: %v", err)
+	_, err = kubeClient.Resource(namespaces).Get(context.Background(), "unrelated", metav1.GetOptions{})
+	assert.NoError(t, err)
+
+	// assert no recorded deployments is a no-op
+	require.NoError(t, DeleteModuleNamespaces(kubeClient, &mapper, nil))
 }

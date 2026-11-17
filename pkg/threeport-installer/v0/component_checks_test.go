@@ -376,36 +376,52 @@ func TestSupportServicesOperatorInstalled(t *testing.T) {
 			deployment(ControlPlaneNamespace, SupportServicesOperatorDeployName, "operator:v1"),
 		)
 
-		installed, err := SupportServicesOperatorInstalled(client, testMapper())
+		installed, err := SupportServicesOperatorInstalled(client, testMapper(), ControlPlaneNamespace)
 		require.NoError(t, err)
 		assert.True(t, installed)
 	})
 
 	t.Run("not installed on an empty cluster", func(t *testing.T) {
-		installed, err := SupportServicesOperatorInstalled(testClient(), testMapper())
+		installed, err := SupportServicesOperatorInstalled(testClient(), testMapper(), ControlPlaneNamespace)
 		require.NoError(t, err)
 		assert.False(t, installed)
 	})
 }
 
-// TestEksThreeportSystemServicesInstalled covers the EKS check. The install it
+// TestEksThreeportSystemServicesCurrent covers the EKS check. The install it
 // guards only runs on EKS, but the check itself is ordinary API reads and is
 // covered here rather than left to a cluster nobody can reach from a test.
-func TestEksThreeportSystemServicesInstalled(t *testing.T) {
-	t.Run("installed when the cluster autoscaler is there", func(t *testing.T) {
-		client := testClient(
-			deployment(ClusterAutoscalerNamespace, ClusterAutoscalerDeployName, "autoscaler:v1"),
-		)
+func TestEksThreeportSystemServicesCurrent(t *testing.T) {
+	image136, err := ClusterAutoscalerImage("1.36")
+	require.NoError(t, err)
+	image135, err := ClusterAutoscalerImage("1.35")
+	require.NoError(t, err)
 
-		installed, err := EksThreeportSystemServicesInstalled(client, testMapper())
+	t.Run("current when the cluster autoscaler is the cluster version's release", func(t *testing.T) {
+		client := testClient(deployment(ClusterAutoscalerNamespace, ClusterAutoscalerDeployName, image136))
+
+		current, err := EksThreeportSystemServicesCurrent(client, testMapper(), "1.36")
 		require.NoError(t, err)
-		assert.True(t, installed)
+		assert.True(t, current)
 	})
 
-	t.Run("not installed on an empty cluster", func(t *testing.T) {
-		installed, err := EksThreeportSystemServicesInstalled(testClient(), testMapper())
+	t.Run("not current when an upgraded cluster has the previous version's", func(t *testing.T) {
+		client := testClient(deployment(ClusterAutoscalerNamespace, ClusterAutoscalerDeployName, image135))
+
+		current, err := EksThreeportSystemServicesCurrent(client, testMapper(), "1.36")
 		require.NoError(t, err)
-		assert.False(t, installed)
+		assert.False(t, current)
+	})
+
+	t.Run("not current on an empty cluster", func(t *testing.T) {
+		current, err := EksThreeportSystemServicesCurrent(testClient(), testMapper(), "1.36")
+		require.NoError(t, err)
+		assert.False(t, current)
+	})
+
+	t.Run("an error for a version with no autoscaler release", func(t *testing.T) {
+		_, err := EksThreeportSystemServicesCurrent(testClient(), testMapper(), "1.99")
+		assert.Error(t, err)
 	})
 }
 
@@ -825,6 +841,8 @@ func TestDeleteControlPlaneRoleBindingsLeavesOtherControlPlanes(t *testing.T) {
 		clusterRoleBinding("threeport-control-plane-threeport-agent-manager-rolebinding", "agent"),
 		clusterRoleBinding("threeport-control-plane-threeport-agent-proxy-rolebinding", "agent"),
 		clusterRoleBinding("cluster-autoscaler", "cluster-autoscaler"),
+		clusterRoleBinding(moduleInstallBindingName("child"), moduleInstallServiceAccount),
+		clusterRoleBinding(moduleInstallBindingName("threeport-control-plane"), moduleInstallServiceAccount),
 	}
 	for _, controller := range ThreeportControllerList {
 		if controller.ServiceAccountName == "" {
@@ -844,6 +862,14 @@ func TestDeleteControlPlaneRoleBindingsLeavesOtherControlPlanes(t *testing.T) {
 	// delete the child bindings, then again once they are already gone
 	require.NoError(t, cpi.DeleteControlPlaneRoleBindings(client, mapper))
 	require.NoError(t, cpi.DeleteControlPlaneRoleBindings(client, mapper))
+
+	// confirm the child module install binding is gone
+	_, present, err := resourceInstalled(
+		client, mapper, "rbac.authorization.k8s.io", "v1", "ClusterRoleBinding", "",
+		moduleInstallBindingName("child"),
+	)
+	require.NoError(t, err)
+	assert.False(t, present)
 
 	// confirm the child agent bindings are gone
 	for _, name := range []string{
@@ -876,6 +902,7 @@ func TestDeleteControlPlaneRoleBindingsLeavesOtherControlPlanes(t *testing.T) {
 	for _, name := range []string{
 		"threeport-control-plane-threeport-agent-manager-rolebinding",
 		"threeport-control-plane-threeport-agent-proxy-rolebinding",
+		moduleInstallBindingName("threeport-control-plane"),
 	} {
 		_, present, err := resourceInstalled(
 			client, mapper, "rbac.authorization.k8s.io", "v1", "ClusterRoleBinding", "", name,
@@ -900,7 +927,7 @@ func TestDeleteControlPlaneRoleBindingsLeavesOtherControlPlanes(t *testing.T) {
 	}
 
 	// confirm the unrelated binding stayed
-	_, present, err := resourceInstalled(
+	_, present, err = resourceInstalled(
 		client, mapper, "rbac.authorization.k8s.io", "v1", "ClusterRoleBinding", "", "cluster-autoscaler",
 	)
 	require.NoError(t, err)

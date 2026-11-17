@@ -1,0 +1,113 @@
+package v0
+
+import (
+	"context"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	api "github.com/threeport/threeport/pkg/api/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
+)
+
+// TestMatchRestoredSourceUsesTheSourceNamespace covers a backup row found by namespace.
+func TestMatchRestoredSourceUsesTheSourceNamespace(t *testing.T) {
+	// the backup names the namespace it was taken from
+	namespace := "primary-05"
+	name := "primary-06"
+	got, err := matchRestoredSource([]api.ControlPlaneInstance{
+		{Name: util.Ptr("genesis-11"), Namespace: util.Ptr("genesis-11")},
+		{Name: &name, Namespace: &namespace},
+	}, "primary-05", "primary-06")
+	require.NoError(t, err)
+	require.Equal(t, "primary-06", util.DerefString(got.Name))
+}
+
+// TestMatchRestoredSourceUsesTheStoredName covers a backup row found by its old name.
+func TestMatchRestoredSourceUsesTheStoredName(t *testing.T) {
+	// a renamed source keeps its old name in the backup
+	name := "primary-05"
+	got, err := matchRestoredSource([]api.ControlPlaneInstance{
+		{Name: &name, Namespace: util.Ptr("somewhere-else")},
+	}, "primary-05", "primary-06")
+	require.NoError(t, err)
+	require.Equal(t, "primary-05", util.DerefString(got.Name))
+}
+
+// TestEmptyRestoreHasNoControlPlane covers a child database that stores no control plane row.
+func TestEmptyRestoreHasNoControlPlane(t *testing.T) {
+	// the parent api holds the control plane, so an empty restore is that case
+	empty := []api.ControlPlaneInstance{}
+	require.ErrorIs(t, missingRestoredControlPlane(nil), errNoRestoredControlPlane)
+	require.ErrorIs(t, missingRestoredControlPlane(&empty), errNoRestoredControlPlane)
+	require.NoError(t, missingRestoredControlPlane(&[]api.ControlPlaneInstance{{}}))
+}
+
+// TestAPIDeploymentStoppedSkipsADial covers a retry that finds the API already scaled to zero.
+func TestAPIDeploymentStoppedSkipsADial(t *testing.T) {
+	// the API deployment is already at zero replicas
+	deployment := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "apps/v1",
+		"kind":       "Deployment",
+		"metadata": map[string]interface{}{
+			"name":      ThreeportAPIServiceResourceName,
+			"namespace": "primary-13",
+		},
+		"spec": map[string]interface{}{
+			"replicas": int64(0),
+		},
+	}}
+	kubeClient := testKubeClient(deployment)
+
+	// a stopped API must not be dialed for module discovery
+	stopped, err := apiDeploymentStopped(kubeClient, "primary-13")
+	require.NoError(t, err)
+	require.True(t, stopped)
+}
+
+// TestRememberedModuleScalesSurviveAStoppedAPI covers a retry that cannot dial the API.
+func TestRememberedModuleScalesSurviveAStoppedAPI(t *testing.T) {
+	// the first attempt stored the counts before the API was scaled to zero
+	cpi := &ControlPlaneInstaller{Opts: Options{Namespace: "primary-13"}}
+	kubeClient := testKubeClient()
+	want := []ModuleDeploymentScale{{
+		Namespace: "example",
+		Name:      "example-controller",
+		Replicas:  1,
+	}}
+	require.NoError(t, cpi.rememberModuleScales(kubeClient, want))
+
+	// the retry reads that record instead of discovering through the stopped API
+	got, err := cpi.rememberedModuleScales(kubeClient)
+	require.NoError(t, err)
+	require.Equal(t, want, got)
+}
+
+// TestRecordModuleReplicasReplacesAStaleCount covers a module scaled after an earlier backup.
+func TestRecordModuleReplicasReplacesAStaleCount(t *testing.T) {
+	// the deployment is running at five after an earlier backup stored two
+	deployment := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "apps/v1",
+		"kind":       "Deployment",
+		"metadata": map[string]interface{}{
+			"name":      "example-controller",
+			"namespace": "example",
+			"annotations": map[string]interface{}{
+				replicasBeforeRestoreAnnotation: "2",
+			},
+		},
+		"spec": map[string]interface{}{"replicas": int64(5)},
+	}}
+	kubeClient := testKubeClient(deployment)
+	cpi := &ControlPlaneInstaller{}
+	require.NoError(t, cpi.recordModuleReplicas(kubeClient, deployment, 5))
+
+	// the next stop must restore five, not the earlier two
+	updated, err := kubeClient.Resource(deploymentGVR).Namespace("example").Get(
+		context.Background(), "example-controller", metav1.GetOptions{},
+	)
+	require.NoError(t, err)
+	require.Equal(t, "5", updated.GetAnnotations()[replicasBeforeRestoreAnnotation])
+}

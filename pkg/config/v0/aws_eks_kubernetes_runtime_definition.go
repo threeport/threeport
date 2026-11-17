@@ -32,6 +32,7 @@ type AwsEksKubernetesRuntimeDefinitionValues struct {
 	DefaultNodeGroupMaximumSize  *int
 	KubernetesVersion            *string
 	AuditLog                     *bool
+	NodeGroupPerZone             *bool
 	Age                          *string
 }
 
@@ -75,6 +76,7 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Get(
 				DefaultNodeGroupMaximumSize:  awsEksKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
 				KubernetesVersion:            awsEksKubernetesRuntimeDefinition.KubernetesVersion,
 				AuditLog:                     awsEksKubernetesRuntimeDefinition.AuditLog,
+				NodeGroupPerZone:             awsEksKubernetesRuntimeDefinition.NodeGroupPerZone,
 				Age:                          util.Ptr(util.GetAgeFormatted(awsEksKubernetesRuntimeDefinition.CreatedAt)),
 			},
 		}
@@ -128,6 +130,7 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Create(
 		DefaultNodeGroupMaximumSize:   awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupMaximumSize,
 		KubernetesVersion:             util.Ptr(api_v0.KubernetesVersionOrDefault(awsEksKubernetesRuntimeDefinitionValues.KubernetesVersion)),
 		AuditLog:                      awsEksKubernetesRuntimeDefinitionValues.AuditLog,
+		NodeGroupPerZone:              awsEksKubernetesRuntimeDefinitionValues.NodeGroupPerZone,
 		KubernetesRuntimeDefinitionID: createdKubernetesRuntimeDefinition.ID,
 	}
 
@@ -153,6 +156,7 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Create(
 			DefaultNodeGroupMaximumSize:  createdAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
 			KubernetesVersion:            createdAwsEksKubernetesRuntimeDefinition.KubernetesVersion,
 			AuditLog:                     createdAwsEksKubernetesRuntimeDefinition.AuditLog,
+			NodeGroupPerZone:             createdAwsEksKubernetesRuntimeDefinition.NodeGroupPerZone,
 		},
 	}
 
@@ -200,7 +204,8 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Replace(
 	updatedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize = awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupInitialSize
 	updatedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize = awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupMinimumSize
 	updatedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize = awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupMaximumSize
-	// the version a config leaves out is kept, rather than cleared
+	// a new version upgrades the clusters, and a config that leaves it out
+	// keeps the one recorded
 	if awsEksKubernetesRuntimeDefinitionValues.KubernetesVersion != nil {
 		updatedAwsEksKubernetesRuntimeDefinition.KubernetesVersion = awsEksKubernetesRuntimeDefinitionValues.KubernetesVersion
 	}
@@ -208,6 +213,11 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Replace(
 	// leaves it out keeps it
 	if awsEksKubernetesRuntimeDefinitionValues.AuditLog != nil {
 		updatedAwsEksKubernetesRuntimeDefinition.AuditLog = awsEksKubernetesRuntimeDefinitionValues.AuditLog
+	}
+	// a node group per zone is set on create and can't change, so a config
+	// that leaves it out keeps it
+	if awsEksKubernetesRuntimeDefinitionValues.NodeGroupPerZone != nil {
+		updatedAwsEksKubernetesRuntimeDefinition.NodeGroupPerZone = awsEksKubernetesRuntimeDefinitionValues.NodeGroupPerZone
 	}
 
 	// replace aws eks kubernetes runtime definition
@@ -232,6 +242,7 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Replace(
 			DefaultNodeGroupMaximumSize:  replacedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
 			KubernetesVersion:            replacedAwsEksKubernetesRuntimeDefinition.KubernetesVersion,
 			AuditLog:                     replacedAwsEksKubernetesRuntimeDefinition.AuditLog,
+			NodeGroupPerZone:             replacedAwsEksKubernetesRuntimeDefinition.NodeGroupPerZone,
 		},
 	}
 
@@ -286,6 +297,7 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Delete(
 			DefaultNodeGroupMaximumSize:  deletedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
 			KubernetesVersion:            deletedAwsEksKubernetesRuntimeDefinition.KubernetesVersion,
 			AuditLog:                     deletedAwsEksKubernetesRuntimeDefinition.AuditLog,
+			NodeGroupPerZone:             deletedAwsEksKubernetesRuntimeDefinition.NodeGroupPerZone,
 		},
 	}
 

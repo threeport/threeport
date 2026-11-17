@@ -2,7 +2,10 @@ package v0
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -211,4 +214,89 @@ func TestEksAndGkeDefinitionsRecordTheVersionTheirClustersRun(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "1.35", sent.replaced["KubernetesVersion"], "a replace without it keeps the stored one")
 	})
+}
+
+// TestReplacingAnEksOrGkeDefinitionSendsItsVersion covers a replace from an
+// EKS or GKE config: a new version is sent on the provider definition, whose
+// update asks its clusters to be upgraded, and a config that leaves it out
+// keeps the recorded one.  The kubernetes runtime definition, which keeps the
+// version asked for at creation, isn't touched.
+func TestReplacingAnEksOrGkeDefinitionSendsItsVersion(t *testing.T) {
+	type sentRequests struct {
+		replaced map[string]any
+		patched  []map[string]any
+		paths    []string
+	}
+	serve := func(t *testing.T, path string, stored any) (string, *sentRequests) {
+		sent := &sentRequests{}
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			body, err := io.ReadAll(r.Body)
+			require.NoError(t, err)
+			var fields map[string]any
+			if len(body) > 0 {
+				require.NoError(t, json.Unmarshal(body, &fields))
+			}
+			object := any(fields)
+			switch r.Method {
+			case http.MethodGet:
+				require.True(t, strings.HasPrefix(r.URL.Path, path), r.URL.Path)
+				object = stored
+			case http.MethodPut:
+				sent.replaced = fields
+				fields["CreatedAt"] = time.Now()
+			case http.MethodPatch:
+				sent.patched = append(sent.patched, fields)
+				sent.paths = append(sent.paths, r.URL.Path)
+			}
+			respondWithObject(t, w, object)
+		}))
+		t.Cleanup(server.Close)
+		return strings.TrimPrefix(server.URL, "http://"), sent
+	}
+
+	eksStored := api_v0.AwsEksKubernetesRuntimeDefinition{
+		Common: api_v0.Common{ID: util.Ptr(uint(1))}, Definition: api_v0.Definition{Name: util.Ptr("eks-remote")},
+		KubernetesVersion: util.Ptr("1.35"), KubernetesRuntimeDefinitionID: util.Ptr(uint(5)),
+	}
+	eks := func(version *string) *AwsEksKubernetesRuntimeDefinitionConfig {
+		return &AwsEksKubernetesRuntimeDefinitionConfig{AwsEksKubernetesRuntimeDefinition: AwsEksKubernetesRuntimeDefinitionValues{
+			Name: util.Ptr("eks-remote"), ZoneCount: util.Ptr(2), DefaultNodeGroupInstanceType: util.Ptr("t3.medium"),
+			DefaultNodeGroupInitialSize: util.Ptr(1), DefaultNodeGroupMinimumSize: util.Ptr(1), DefaultNodeGroupMaximumSize: util.Ptr(3),
+			KubernetesVersion: version,
+		}}
+	}
+	gkeStored := api_v0.GcpGkeKubernetesRuntimeDefinition{
+		Common: api_v0.Common{ID: util.Ptr(uint(1))}, Definition: api_v0.Definition{Name: util.Ptr("gke-remote")},
+		KubernetesVersion: util.Ptr("1.35"), KubernetesRuntimeDefinitionID: util.Ptr(uint(5)),
+	}
+	gke := func(version *string) *GcpGkeKubernetesRuntimeDefinitionConfig {
+		values := gkeDefinitionValues(nil, nil)
+		values.KubernetesVersion = version
+		return &GcpGkeKubernetesRuntimeDefinitionConfig{GcpGkeKubernetesRuntimeDefinition: values}
+	}
+
+	for name, replace := range map[string]func(version *string) *sentRequests{
+		"EKS": func(version *string) *sentRequests {
+			endpoint, sent := serve(t, api_v0.PathAwsEksKubernetesRuntimeDefinitions, eksStored)
+			_, err := eks(version).Replace(&http.Client{}, endpoint, "eks-remote")
+			require.NoError(t, err)
+			return sent
+		},
+		"GKE": func(version *string) *sentRequests {
+			endpoint, sent := serve(t, api_v0.PathGcpGkeKubernetesRuntimeDefinitions, gkeStored)
+			_, err := gke(version).Replace(&http.Client{}, endpoint, "gke-remote")
+			require.NoError(t, err)
+			return sent
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			sent := replace(nil)
+			assert.Equal(t, "1.35", sent.replaced["KubernetesVersion"], "a config that leaves the version out keeps it")
+			assert.Empty(t, sent.patched)
+
+			sent = replace(util.Ptr("1.36"))
+			assert.Equal(t, "1.36", sent.replaced["KubernetesVersion"])
+			assert.Empty(t, sent.patched)
+		})
+	}
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/pulumi/pulumi-gcp/sdk/v8/go/gcp/serviceaccount"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
+	v0 "github.com/threeport/threeport/pkg/api/v0"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/cloudresourcemanager/v1"
@@ -30,7 +31,6 @@ import (
 	"google.golang.org/grpc/status"
 	"gorm.io/datatypes"
 
-	v0 "github.com/threeport/threeport/pkg/api/v0"
 	gcpauth "github.com/threeport/threeport/pkg/auth/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 )
@@ -93,6 +93,9 @@ type KubernetesRuntimeInfraGKE struct {
 	// This service account is used with Workload Identity to allow
 	// Threeport controllers to manage GCP resources.
 	ServiceAccountEmail string
+
+	// The namespace whose controllers impersonate the cluster account.
+	WorkloadIdentityNamespace string
 
 	// ServiceAccountCredentials contains the JSON key for a GCP service account.
 	// Used when running outside GCP (e.g., in AWS or on-prem) where Workload
@@ -247,17 +250,17 @@ func (i *KubernetesRuntimeInfraGKE) Create() (*kube.KubeConnectionInfo, error) {
 		return nil, fmt.Errorf("failed to create GCP service account: %w", err)
 	}
 
+	// provision the backup bucket first, since the stack grants the Threeport
+	// service account access to it
+	if i.ProvisionBackups {
+		if err := i.ProvisionDatabaseBackups(); err != nil {
+			return nil, fmt.Errorf("failed to provision database backups: %w", err)
+		}
+	}
+
 	connection, err := i.CreateInfra()
 	if err != nil {
 		return nil, err
-	}
-
-	// provision the database backups once the cluster, and with it the
-	// workload identity pool the backup binding names, exists
-	if i.ProvisionBackups {
-		if err := i.provisionBackups(); err != nil {
-			return nil, fmt.Errorf("failed to provision database backups: %w", err)
-		}
 	}
 
 	return connection, nil
@@ -669,6 +672,13 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 		}
 
 		exportEgressCidrs(ctx, egressAddresses)
+
+		// let the controller manage access to the backup bucket
+		if i.ProvisionBackups {
+			if err := i.controllerBucketAccess(ctx, gcpProvider); err != nil {
+				return err
+			}
+		}
 
 		return nil
 	}

@@ -12,8 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
-
-	auth "github.com/threeport/threeport/pkg/auth/v0"
 )
 
 // testComponentMapper returns a mapper for every kind the API server and agent
@@ -83,13 +81,12 @@ func controlPlaneDeployments(t *testing.T, cpi *ControlPlaneInstaller) map[strin
 
 	deployments := map[string]*unstructured.Unstructured{}
 
-	dbCreds, err := auth.GenerateDbCreds(cpi.Opts.Namespace)
-	require.NoError(t, err)
+	dbCreds := sharedDbCreds(t, cpi.Opts.Namespace)
 	apiClient := testKubeClient()
 	apiMapper := testComponentMapper()
 	// the dependencies install, which runs first, leaves the message
 	// broker's secrets the API server connects with
-	require.NoError(t, cpi.ensureMessageBrokerSecrets(apiClient))
+	ensureSharedBrokerSecrets(t, cpi, apiClient)
 	require.NoError(t, cpi.UpdateThreeportAPIDeployment(apiClient, &apiMapper, dbCreds))
 	deployments[ThreeportAPIServiceResourceName] = getDeployment(t, apiClient, cpi.Opts.Namespace, ThreeportAPIServiceResourceName)
 

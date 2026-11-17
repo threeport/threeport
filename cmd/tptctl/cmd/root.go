@@ -156,6 +156,10 @@ func initializeCommandContext(cmd *cobra.Command) error {
 		return fmt.Errorf("failed to create threeport API client: %w", err)
 	}
 
+	// remind the user which control plane the command talks to, on stderr so
+	// machine-readable output on stdout stays clean
+	fmt.Fprintf(os.Stderr, "Info: Connecting to control plane %s at %s\n", requestedControlPlane, apiEndpoint)
+
 	ctx := context.WithValue(cmd.Context(), "apiClient", apiClient)
 	ctx = context.WithValue(ctx, "config", threeportConfig)
 	ctx = context.WithValue(ctx, "apiEndpoint", apiEndpoint)

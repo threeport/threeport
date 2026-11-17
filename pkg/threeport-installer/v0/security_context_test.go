@@ -404,7 +404,7 @@ func TestEveryHandWrittenContainerDropsPrivilege(t *testing.T) {
 // Each container drops every capability, and the pod sets RuntimeDefault.
 func TestTheSupportServicesOperatorManifestDropsPrivilege(t *testing.T) {
 	// decode the manifest the installer applies
-	objects, err := supportServicesOperatorObjects()
+	objects, err := supportServicesOperatorObjects("control-plane")
 	require.NoError(t, err)
 
 	pods := 0

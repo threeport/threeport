@@ -29,6 +29,7 @@ type AwsEksKubernetesRuntimeValues struct {
 	DefaultNodeGroupMinimumSize  *int
 	DefaultNodeGroupMaximumSize  *int
 	AuditLog                     *bool
+	NodeGroupPerZone             *bool
 	KubernetesVersion            *string
 	Region                       *string
 	Reconciled                   *bool
@@ -158,6 +159,7 @@ func (a *AwsEksKubernetesRuntimeConfig) GetOperations(
 			DefaultNodeGroupMinimumSize:  a.AwsEksKubernetesRuntime.DefaultNodeGroupMinimumSize,
 			DefaultNodeGroupMaximumSize:  a.AwsEksKubernetesRuntime.DefaultNodeGroupMaximumSize,
 			AuditLog:                     a.AwsEksKubernetesRuntime.AuditLog,
+			NodeGroupPerZone:             a.AwsEksKubernetesRuntime.NodeGroupPerZone,
 			KubernetesVersion:            a.AwsEksKubernetesRuntime.KubernetesVersion,
 		},
 	}
@@ -269,6 +271,7 @@ func mapToAwsEksKubernetesRuntimeDefinedInstances(
 						DefaultNodeGroupMinimumSize:  def.AwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
 						DefaultNodeGroupMaximumSize:  def.AwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
 						AuditLog:                     def.AwsEksKubernetesRuntimeDefinition.AuditLog,
+						NodeGroupPerZone:             def.AwsEksKubernetesRuntimeDefinition.NodeGroupPerZone,
 						KubernetesVersion:            def.AwsEksKubernetesRuntimeDefinition.KubernetesVersion,
 						Region:                       inst.AwsEksKubernetesRuntimeInstance.Region,
 						Reconciled:                   inst.AwsEksKubernetesRuntimeInstance.Reconciled,

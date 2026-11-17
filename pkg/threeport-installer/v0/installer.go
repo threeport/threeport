@@ -15,6 +15,27 @@ type Options struct {
 	// Namespace of the control plane
 	Namespace string
 
+	// The namespace to copy the CA and encryption key from
+	FromNamespace string
+
+	// The control plane name stored in the backup
+	SourceName string
+
+	// Whether this install restores a database and creates deployments with no pods
+	HoldReplicasForRestore bool
+
+	// The file holding the CA certificate to install
+	CACertFile string
+
+	// The file holding the CA private key to install
+	CAKeyFile string
+
+	// The file holding the encryption key to install
+	EncryptionKeyFile string
+
+	// The choice to leave controllers stopped after a restore
+	RestoreControllersStopped bool
+
 	// A function that is run prior to installing the components for the control plane.
 	PreInstallFunction CustomInstallFunction
 

@@ -17546,12 +17546,16 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "KubernetesVersion": {
-                    "description": "The Kubernetes minor version of the clusters, such as \"1.36\": the\nKubernetesRuntimeDefinition's KubernetesVersion, or the default version\nwhen that is unset.  If unset here, the default version is used.  It\ncan't be changed after creation.",
+                    "description": "The Kubernetes minor version of the clusters, such as \"1.36\": the\nKubernetesRuntimeDefinition's KubernetesVersion, or the default version\nwhen that is unset.  If unset here, the default version is used.\nRaising it to another supported version upgrades the clusters, one minor\nversion at a time.  It can't be lowered, since a cluster can't be\ndowngraded, or cleared.",
                     "type": "string"
                 },
                 "Name": {
                     "description": "An arbitrary name for the definition.",
                     "type": "string"
+                },
+                "NodeGroupPerZone": {
+                    "description": "If true, the clusters run a node group in each zone, each with the\ndefault node group's instance type and sizes, rather than one node\ngroup spanning every zone.  The cluster autoscaler can then add a node\nin a given zone, as a pod bound to a volume there needs.  The zones are\nchosen from those that offer the instance type.  It can't be changed\nafter creation, since that replaces the node groups.",
+                    "type": "boolean"
                 },
                 "PrivateApi": {
                     "description": "If true, the Kubernetes API is not reachable from the public internet.\nSet from the KubernetesRuntimeDefinition's PrivateApi.",
@@ -17624,6 +17628,10 @@ const docTemplate = `{
                     "description": "The kubernetes runtime instance associated with the AWS EKS cluster.",
                     "type": "integer"
                 },
+                "KubernetesVersion": {
+                    "description": "The Kubernetes minor version the cluster runs, such as \"1.36\", as the\ncontroller last read it from the provider.  That is the\nlower of its control plane's and its node group's, which EKS upgrades\nseparately.",
+                    "type": "string"
+                },
                 "Name": {
                     "description": "An arbitrary name the instance",
                     "type": "string"
@@ -17646,6 +17654,30 @@ const docTemplate = `{
                 "Status": {
                     "description": "The status of the instance.\nTODO: use a custom type",
                     "type": "string"
+                },
+                "UpgradeAcknowledged": {
+                    "description": "Set by the controller when it starts upgrading the cluster to the\ndefinition's KubernetesVersion, and refreshed while the upgrade runs.",
+                    "type": "string"
+                },
+                "UpgradeFailed": {
+                    "description": "True when the last upgrade failed.  The controller tries it again after\na wait.",
+                    "type": "boolean"
+                },
+                "UpgradeRefused": {
+                    "description": "True when the controller refused to upgrade the cluster: because the\nupgrade would replace or delete any of its resources, or because\nThreeport didn't create the cluster.  It doesn't try again until the\ndefinition's KubernetesVersion changes, or this is set back to false.",
+                    "type": "boolean"
+                },
+                "UpgradeRequestedVersion": {
+                    "description": "The definition's KubernetesVersion the cluster was last asked to be\nupgraded to.  The API server sets it when an update of the EKS\ndefinition asks the cluster to upgrade, once the cluster's controller\nhas been notified, so a request it couldn't finish is made again by the\ndefinition's next update.",
+                    "type": "string"
+                },
+                "UpgradeStatus": {
+                    "description": "What the controller last did to upgrade the cluster, or why it\ncouldn't.",
+                    "type": "string"
+                },
+                "Upgrading": {
+                    "description": "True while the controller upgrades the cluster.",
+                    "type": "boolean"
                 }
             }
         },
@@ -17913,6 +17945,10 @@ const docTemplate = `{
                     "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
                     "type": "string"
                 },
+                "FromNamespace": {
+                    "description": "The namespace of the control plane this install replaces",
+                    "type": "string"
+                },
                 "Genesis": {
                     "description": "Indicates whether this is was the first control plane that was spun up in a control plane group",
                     "type": "boolean"
@@ -17936,6 +17972,10 @@ const docTemplate = `{
                 "KubernetesRuntimeInstanceID": {
                     "description": "the kubernetes runtime instance the control plane is running on",
                     "type": "integer"
+                },
+                "ModuleInstall": {
+                    "description": "The module install the parent controller runs, as name, image namespace, and tag separated by spaces",
+                    "type": "string"
                 },
                 "Name": {
                     "description": "An arbitrary name the instance",
@@ -18422,7 +18462,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "KubernetesVersion": {
-                    "description": "The Kubernetes minor version of the clusters, such as \"1.36\": the\nKubernetesRuntimeDefinition's KubernetesVersion, or the default version\nwhen that is unset.  If unset here, the default version is used.  It\ncan't be changed after creation.",
+                    "description": "The Kubernetes minor version of the clusters, such as \"1.36\": the\nKubernetesRuntimeDefinition's KubernetesVersion, or the default version\nwhen that is unset.  If unset here, the default version is used.\nRaising it to another supported version upgrades the clusters, one minor\nversion at a time.  It can't be lowered, since a cluster can't be\ndowngraded, or cleared.",
                     "type": "string"
                 },
                 "MaintenanceWindowDays": {
@@ -18516,6 +18556,10 @@ const docTemplate = `{
                     "description": "The kubernetes runtime instance associated with the GKE cluster.",
                     "type": "integer"
                 },
+                "KubernetesVersion": {
+                    "description": "The Kubernetes minor version the cluster runs, such as \"1.36\", as the\ncontroller last read it from the provider.  That is its control\nplane's: GKE upgrades its nodes to it in the maintenance window.",
+                    "type": "string"
+                },
                 "Name": {
                     "description": "An arbitrary name the instance",
                     "type": "string"
@@ -18542,6 +18586,30 @@ const docTemplate = `{
                 "Status": {
                     "description": "The status of the instance.\nTODO: use a custom type",
                     "type": "string"
+                },
+                "UpgradeAcknowledged": {
+                    "description": "Set by the controller when it starts upgrading the cluster to the\ndefinition's KubernetesVersion, and refreshed while the upgrade runs.",
+                    "type": "string"
+                },
+                "UpgradeFailed": {
+                    "description": "True when the last upgrade failed.  The controller tries it again after\na wait.",
+                    "type": "boolean"
+                },
+                "UpgradeRefused": {
+                    "description": "True when the controller refused to upgrade the cluster: because the\nupgrade would replace or delete any of its resources, or because\nThreeport didn't create the cluster.  It doesn't try again until the\ndefinition's KubernetesVersion changes, or this is set back to false.",
+                    "type": "boolean"
+                },
+                "UpgradeRequestedVersion": {
+                    "description": "The definition's KubernetesVersion the cluster was last asked to be\nupgraded to.  The API server sets it when an update of the GKE\ndefinition asks the cluster to upgrade, once the cluster's controller\nhas been notified, so a request it couldn't finish is made again by the\ndefinition's next update.",
+                    "type": "string"
+                },
+                "UpgradeStatus": {
+                    "description": "What the controller last did to upgrade the cluster, or why it\ncouldn't.",
+                    "type": "string"
+                },
+                "Upgrading": {
+                    "description": "True while the controller upgrades the cluster.",
+                    "type": "boolean"
                 }
             }
         },
@@ -18811,7 +18879,7 @@ const docTemplate = `{
                     }
                 },
                 "KubernetesVersion": {
-                    "description": "The Kubernetes minor version of the clusters, such as \"1.36\", on EKS,\nGKE and OKE.  If unset, the default version is used, and the EKS, GKE\nor OKE definition records it.  It can't be changed after creation.  A\nkind cluster's version comes with its node image, so it takes none.",
+                    "description": "The Kubernetes minor version of the clusters, such as \"1.36\", on EKS,\nGKE and OKE.  If unset, the default version is used, and the EKS, GKE\nor OKE definition records it.  It records the version asked for at\ncreation and can't be changed: the clusters are upgraded by raising the\nEKS or GKE definition's KubernetesVersion.  A kind cluster's version\ncomes with its node image, so it takes none.",
                     "type": "string"
                 },
                 "Name": {
@@ -19858,6 +19926,14 @@ const docTemplate = `{
                     "description": "The module API server's endpoint to proxy requests to for module\nobjects.",
                     "type": "string"
                 },
+                "ImageNamespace": {
+                    "description": "The repository the module's images are pulled from.",
+                    "type": "string"
+                },
+                "ImageTag": {
+                    "description": "The tag on each of the module's images.",
+                    "type": "string"
+                },
                 "ModuleApiRoutes": {
                     "description": "The routes as URL paths to proxy requests to the API server's endpoint.\nAll supported routes for an module API should be added so that it is\nproxied.",
                     "type": "array",
@@ -20898,7 +20974,7 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "v0.7.0-rc.4",
+	Version:          "v0.7.0-rc.5",
 	Host:             "",
 	BasePath:         "/",
 	Schemes:          []string{},
