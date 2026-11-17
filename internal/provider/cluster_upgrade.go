@@ -39,8 +39,8 @@ var eksNodeGroupVersion = tpaws.EksNodeGroupVersion
 // version, which EKS upgraded on its own while the node groups stayed
 // behind, is kept where it is, as are the add-ons, which follow the control
 // plane, and a node group already past it.  The stack keeps the cluster's
-// upgrade policy, as a resumed create does, and the roles the create gave
-// the cluster and its node group.
+// upgrade policy, access configuration and zones, as a resumed create does,
+// and the roles the create gave the cluster and its node group.
 func (i *KubernetesRuntimeInfraEKS) UpgradeInfra(version string) error {
 	i.KubernetesVersion = version
 	controlPlane, err := eksControlPlaneVersion(i.AwsConfig, i.RuntimeInstanceName)
@@ -78,8 +78,7 @@ func (i *KubernetesRuntimeInfraEKS) UpgradeInfra(version string) error {
 	if err != nil {
 		return fmt.Errorf("failed to read the stack's EKS cluster: %w", err)
 	}
-	i.keepStackSupportType(exported.Deployment)
-	i.keepStackZones(exported.Deployment)
+	i.keepStackCluster(exported.Deployment)
 
 	if err := i.upgradeStack(stack); err != nil {
 		return err

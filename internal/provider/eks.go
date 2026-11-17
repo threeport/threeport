@@ -160,9 +160,7 @@ func (i *KubernetesRuntimeInfraEKS) CreateInfra() (*kube.KubeConnectionInfo, err
 		return nil, fmt.Errorf("failed to read the stack's EKS cluster: %w", err)
 	}
 	i.keepStackVersion(exported.Deployment)
-	i.keepStackSupportType(exported.Deployment)
-	i.keepStackAccessEntries(exported.Deployment)
-	i.keepStackZones(exported.Deployment)
+	i.keepStackCluster(exported.Deployment)
 
 	if _, err := i.RunUp(context.Background(), stack); err != nil {
 		return nil, fmt.Errorf("failed to deploy stack: %w", err)
@@ -189,6 +187,16 @@ func (i *KubernetesRuntimeInfraEKS) keepStackVersion(deployment json.RawMessage)
 // cluster Create created or found in the stack, such as "1.36".
 func (i *KubernetesRuntimeInfraEKS) CreatedKubernetesVersion() string {
 	return i.kubernetesVersion()
+}
+
+// keepStackCluster records what the cluster the stack's deployment holds,
+// if it holds one, was created with and can't change, for the program to
+// keep, both on a resumed create and on an upgrade: its upgrade policy's
+// support type, whether it has access entries, and its subnets' zones.
+func (i *KubernetesRuntimeInfraEKS) keepStackCluster(deployment json.RawMessage) {
+	i.keepStackSupportType(deployment)
+	i.keepStackAccessEntries(deployment)
+	i.keepStackZones(deployment)
 }
 
 // keepStackSupportType records the support type of the cluster the stack's

@@ -99,3 +99,25 @@ func TestANewEksClusterIsReachedThroughAccessEntries(t *testing.T) {
 	none.keepStackAccessEntries(json.RawMessage(`{"resources": []}`))
 	assert.Nil(t, none.stackAccessEntries, "an empty stack is a new cluster")
 }
+
+// TestAnUpgradedEksClusterKeepsWhatItWasCreatedWith covers what create and
+// upgrade both keep from the stack: a cluster from before access entries
+// keeps its aws-auth ConfigMap through an upgrade, rather than being asked to
+// change to access entries alone, which EKS only allows through both, and it
+// keeps its upgrade policy and zones.
+func TestAnUpgradedEksClusterKeepsWhatItWasCreatedWith(t *testing.T) {
+	infra := testEksInfra(2)
+	infra.keepStackCluster(json.RawMessage(`{"resources": [
+		{"type": "aws:eks/cluster:Cluster", "inputs": {"name": "eks-test", "upgradePolicy": {"supportType": "EXTENDED"}}},
+		{"urn": "urn:pulumi:stack::eks::aws:ec2/subnet:Subnet::eks-test-private-subnet-0", "type": "aws:ec2/subnet:Subnet", "inputs": {"availabilityZone": "us-east-1c"}},
+		{"urn": "urn:pulumi:stack::eks::aws:ec2/subnet:Subnet::eks-test-private-subnet-1", "type": "aws:ec2/subnet:Subnet", "inputs": {"availabilityZone": "us-east-1d"}}
+	]}`))
+	require.NotNil(t, infra.stackAccessEntries)
+	assert.False(t, *infra.stackAccessEntries)
+	require.NotNil(t, infra.stackSupportType)
+	assert.Equal(t, "EXTENDED", *infra.stackSupportType)
+	assert.Equal(t, []string{"us-east-1c", "us-east-1d"}, infra.stackZones)
+
+	mocks := runEksRegistrations(t, infra)
+	assert.Nil(t, mocks.byType(eksClusterTypeToken)[0].inputs["accessConfig"], "the cluster keeps its aws-auth ConfigMap")
+}
