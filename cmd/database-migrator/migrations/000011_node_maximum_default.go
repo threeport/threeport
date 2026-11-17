@@ -10,16 +10,16 @@ import (
 
 // init registers the migration with goose at startup.
 func init() {
-	goose.AddMigrationNoTxContext(Up000010, Down000010)
+	goose.AddMigrationNoTxContext(Up000011, Down000011)
 }
 
-// Up000010 makes 60 the NodeMaximum of a kubernetes runtime definition
+// Up000011 makes 60 the NodeMaximum of a kubernetes runtime definition
 // created without one, rather than 250.  It changes only the column's
 // default: a definition already there keeps the maximum it records, and its
 // clusters keep the node groups they were created with.  Setting a default
 // is the same whether or not it is already set, so the migration is
 // idempotent.
-func Up000010(ctx context.Context, db *sql.DB) error {
+func Up000011(ctx context.Context, db *sql.DB) error {
 	statement := "ALTER TABLE v0_kubernetes_runtime_definitions ALTER COLUMN node_maximum SET DEFAULT 60"
 	if _, err := db.ExecContext(ctx, statement); err != nil {
 		return fmt.Errorf("failed to run %q: %w", statement, err)
@@ -28,8 +28,8 @@ func Up000010(ctx context.Context, db *sql.DB) error {
 	return nil
 }
 
-// Down000010 restores the default of 250.
-func Down000010(ctx context.Context, db *sql.DB) error {
+// Down000011 restores the default of 250.
+func Down000011(ctx context.Context, db *sql.DB) error {
 	statement := "ALTER TABLE v0_kubernetes_runtime_definitions ALTER COLUMN node_maximum SET DEFAULT 250"
 	if _, err := db.ExecContext(ctx, statement); err != nil {
 		return fmt.Errorf("failed to run %q: %w", statement, err)

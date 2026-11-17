@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	api "github.com/threeport/threeport/pkg/api/v0"
 	auth "github.com/threeport/threeport/pkg/auth/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
@@ -83,10 +84,20 @@ with the control plane name and a development-tier installation. Use
 			os.Exit(1)
 		}
 
+		// reject a request that reached a child control plane
+		if err := api.ChildControlPlaneRequest(controlPlaneInstance); err != nil {
+			cli.Error(err.Error(), nil)
+			os.Exit(1)
+		}
+
 		// use the instance namespace when the API records one
 		namespace := installer.ControlPlaneNamespace
 		if controlPlaneInstance.Namespace != nil && *controlPlaneInstance.Namespace != "" {
 			namespace = *controlPlaneInstance.Namespace
+		}
+		// use the namespace flag when one was given
+		if cliArgs.Namespace != "" {
+			namespace = cliArgs.Namespace
 		}
 
 		// get the kube client
@@ -310,5 +321,9 @@ func init() {
 	ReinstallCmd.Flags().StringVar(
 		&tptctlReinstallConfirm,
 		"confirm", "", "Name of the control plane whose database is being dropped. Must match --name. Required with --drop-database.",
+	)
+	ReinstallCmd.Flags().StringVar(
+		&cliArgs.Namespace,
+		"namespace", "", "Namespace to reinstall into. Defaults to the namespace recorded for the control plane.",
 	)
 }

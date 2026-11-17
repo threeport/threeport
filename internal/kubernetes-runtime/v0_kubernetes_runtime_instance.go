@@ -325,7 +325,11 @@ func v0KubernetesRuntimeInstanceUpdated(
 	}
 
 	// support services operator
-	operatorInstalled, err := threeport.SupportServicesOperatorInstalled(dynamicKubeClient, mapper)
+	namespace, err := controlPlaneNamespace()
+	if err != nil {
+		return controller.RetryOnNetworkErr(err, "failed to read control plane namespace")
+	}
+	operatorInstalled, err := threeport.SupportServicesOperatorInstalled(dynamicKubeClient, mapper, namespace)
 	if err != nil {
 		return controller.RetryOnNetworkErr(err, "failed to check support services operator")
 	}
@@ -335,6 +339,7 @@ func v0KubernetesRuntimeInstanceUpdated(
 		dynamicKubeClient,
 		mapper,
 		threeport.SupportServicesCloud(v0.KubernetesRuntimeInfraProvider(*kubernetesRuntimeDefinition.InfraProvider)),
+		namespace,
 	); err != nil {
 		return controller.RetryOnNetworkErr(err, "failed to install support services operator")
 	}
@@ -369,6 +374,7 @@ func v0KubernetesRuntimeInstanceUpdated(
 				*kubernetesRuntimeInstance.Name,
 				*awsProvider.AccountID,
 				kubernetesVersion,
+				namespace,
 			); err != nil {
 				return controller.RetryOnNetworkErr(err, "failed to install system services")
 			}

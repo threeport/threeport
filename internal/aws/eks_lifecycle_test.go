@@ -38,6 +38,7 @@ func TestEksInfraFromApiObjects_MapsDefinitionNodeGroupFields(t *testing.T) {
 		DefaultNodeGroupMinimumSize:  util.Ptr(3),
 		DefaultNodeGroupMaximumSize:  util.Ptr(7),
 		KubernetesVersion:            util.Ptr("1.35"),
+		NodeGroupPerZone:             util.Ptr(true),
 	}
 	awsConfig := &aws.Config{Region: "us-east-1"}
 	providerCredentials := tpaws.AwsProviderCredentials{
@@ -75,6 +76,13 @@ func TestEksInfraFromApiObjects_MapsDefinitionNodeGroupFields(t *testing.T) {
 	infra, err = eksInfraFromApiObjects(instance, definition, "123456789012", awsConfig, providerCredentials, nil)
 	require.NoError(t, err)
 	assert.Equal(t, v0.DefaultKubernetesVersion, infra.KubernetesVersion)
+	assert.True(t, infra.NodeGroupPerZone)
+
+	// a definition created before node groups per zone has one spanning them
+	definition.NodeGroupPerZone = nil
+	infra, err = eksInfraFromApiObjects(instance, definition, "123456789012", awsConfig, providerCredentials, nil)
+	require.NoError(t, err)
+	assert.False(t, infra.NodeGroupPerZone)
 }
 
 // TestEksInfraSatisfiesLifecycleInterfaces checks the infra object plugs into

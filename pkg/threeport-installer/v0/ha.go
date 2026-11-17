@@ -24,7 +24,14 @@ func (cpi *ControlPlaneInstaller) componentReplicas(configured int) int64 {
 	if configured > 0 {
 		return int64(configured)
 	}
-	if cpi.Opts.Tier == ControlPlaneTier(ControlPlaneTierProd) {
+
+	return ComponentReplicas(string(cpi.Opts.Tier))
+}
+
+// ComponentReplicas returns the API server and controller replica count for a tier.
+func ComponentReplicas(tier string) int64 {
+	// production keeps a second replica serving
+	if tier == ControlPlaneTierProd {
 		return productionComponentReplicas
 	}
 
@@ -50,11 +57,11 @@ func (cpi *ControlPlaneInstaller) controllerReplicas(controller v0.ControlPlaneC
 	return cpi.componentReplicas(cpi.Opts.ControllerReplicas)
 }
 
-// componentAntiAffinity returns an affinity that spreads a Deployment's pods
+// ComponentAntiAffinity returns an affinity that spreads a Deployment's pods
 // across nodes when it can, since two replicas on one node do not survive the
 // loss of that node.  It is a preference rather than a requirement, so a small
 // cluster can still schedule every replica.
-func componentAntiAffinity(deployName string) map[string]interface{} {
+func ComponentAntiAffinity(deployName string) map[string]interface{} {
 	return map[string]interface{}{
 		"podAntiAffinity": map[string]interface{}{
 			"preferredDuringSchedulingIgnoredDuringExecution": []interface{}{
@@ -74,16 +81,16 @@ func componentAntiAffinity(deployName string) map[string]interface{} {
 	}
 }
 
-// componentDisruptionBudget returns a PodDisruptionBudget that keeps one pod of
+// ComponentDisruptionBudget returns a PodDisruptionBudget that keeps one pod of
 // a Deployment running through a voluntary disruption such as a node drain.
-func (cpi *ControlPlaneInstaller) componentDisruptionBudget(deployName string) *unstructured.Unstructured {
+func ComponentDisruptionBudget(namespace, deployName string) *unstructured.Unstructured {
 	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "policy/v1",
 			"kind":       "PodDisruptionBudget",
 			"metadata": map[string]interface{}{
 				"name":      deployName,
-				"namespace": cpi.Opts.Namespace,
+				"namespace": namespace,
 			},
 			"spec": map[string]interface{}{
 				"minAvailable": int64(1),
@@ -107,7 +114,7 @@ func (cpi *ControlPlaneInstaller) applyComponentDisruptionBudget(
 	deployName string,
 	replicas int64,
 ) error {
-	budget := cpi.componentDisruptionBudget(deployName)
+	budget := ComponentDisruptionBudget(cpi.Opts.Namespace, deployName)
 
 	if replicas > 1 {
 		if err := cpi.CreateOrUpdateKubeResource(budget, kubeClient, mapper); err != nil {
@@ -118,6 +125,55 @@ func (cpi *ControlPlaneInstaller) applyComponentDisruptionBudget(
 
 	if err := kube.DeleteResource(budget, kubeClient, *mapper); err != nil {
 		return fmt.Errorf("failed to remove pod disruption budget for %s: %w", deployName, err)
+	}
+
+	return nil
+}
+
+// ApplyComponentDisruptionBudget does for a module Deployment what the control
+// plane install does for its own: it creates the budget when the Deployment runs
+// more than one replica and removes it when it runs one.
+func ApplyComponentDisruptionBudget(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	namespace string,
+	deployName string,
+	replicas int64,
+) error {
+	budget := ComponentDisruptionBudget(namespace, deployName)
+
+	if replicas > 1 {
+		if _, err := kube.CreateOrUpdateResource(budget, kubeClient, *mapper); err != nil {
+			return fmt.Errorf("failed to create pod disruption budget for %s: %w", deployName, err)
+		}
+		return nil
+	}
+
+	if err := kube.DeleteResource(budget, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to remove pod disruption budget for %s: %w", deployName, err)
+	}
+
+	return nil
+}
+
+// applyInstallPlacement labels a workload with its install.
+func applyInstallPlacement(resource *unstructured.Unstructured, namespace string) error {
+	kind := resource.GetKind()
+	if kind != "Deployment" && kind != "StatefulSet" {
+		return nil
+	}
+
+	// label the pod with this install
+	labels, _, err := unstructured.NestedStringMap(resource.Object, "spec", "template", "metadata", "labels")
+	if err != nil {
+		return fmt.Errorf("failed to read pod labels: %w", err)
+	}
+	if labels == nil {
+		labels = map[string]string{}
+	}
+	labels[LabelInstall] = namespace
+	if err := unstructured.SetNestedStringMap(resource.Object, labels, "spec", "template", "metadata", "labels"); err != nil {
+		return fmt.Errorf("failed to set pod labels: %w", err)
 	}
 
 	return nil

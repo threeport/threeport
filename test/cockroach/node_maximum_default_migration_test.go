@@ -10,7 +10,7 @@ import (
 	"github.com/threeport/threeport/cmd/database-migrator/migrations"
 )
 
-// TestNodeMaximumDefaultMigratesAnExistingDatabase covers 000010 on a
+// TestNodeMaximumDefaultMigratesAnExistingDatabase covers 000011 on a
 // database built when NodeMaximum defaulted to 250, as a deployed control
 // plane's is: a definition created without one afterwards gets 60, while a
 // definition already there keeps the maximum it records.  It changes nothing
@@ -38,14 +38,14 @@ func TestNodeMaximumDefaultMigratesAnExistingDatabase(t *testing.T) {
 	require.NoError(t, migrations.Up000001(ctx, nil))
 	insert("new-install")
 	assert.Equal(t, 60, maximum("new-install"))
-	require.NoError(t, migrations.Up000010(ctx, sqlDb), "000010 on a default already set")
+	require.NoError(t, migrations.Up000011(ctx, sqlDb), "000011 on a default already set")
 
 	// a database from before, holding a definition
-	require.NoError(t, migrations.Down000010(ctx, sqlDb))
+	require.NoError(t, migrations.Down000011(ctx, sqlDb))
 	insert("before")
 	assert.Equal(t, 250, maximum("before"))
 
-	require.NoError(t, migrations.Up000010(ctx, sqlDb))
+	require.NoError(t, migrations.Up000011(ctx, sqlDb))
 	insert("after")
 	assert.Equal(t, 250, maximum("before"), "a definition already there keeps its maximum")
 	assert.Equal(t, 60, maximum("after"))

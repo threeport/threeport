@@ -66,22 +66,27 @@ func validateNodeCounts(counts nodeCounts) error {
 }
 
 // validateNodeCountsUpdate checks the node group sizes a definition has after
-// an update, when the update sets any of them.  A PATCH's sizes are taken
-// with the stored ones it leaves as they are.  counts reads the sizes from a
-// definition.
+// an update that changes them.  A PATCH's sizes are taken with the stored
+// ones it leaves as they are.  An update that leaves the sizes and zones as
+// they are isn't checked against them: a definition created before a rule,
+// whose clusters keep the node limits they were created with, takes an
+// update of its other fields.  counts reads the sizes from a definition.
 func validateNodeCountsUpdate(tx *gorm.DB, counts func(any) (nodeCounts, bool)) error {
 	incoming, ok := counts(lib.IncomingValues(tx))
 	if !ok {
 		return fmt.Errorf("cannot validate node counts: update carries %T", lib.IncomingValues(tx))
 	}
-	if lib.IsFullReplace(tx) {
-		return validateNodeCounts(incoming)
-	}
-	if incoming.minimum == nil && incoming.initial == nil && incoming.maximum == nil && incoming.zones == 0 {
+	if !lib.IsFullReplace(tx) && incoming.minimum == nil && incoming.initial == nil && incoming.maximum == nil && incoming.zones == 0 {
 		return nil
 	}
 
-	current, err := lib.LockObjectInDB(tx)
+	var current any
+	var err error
+	if lib.IsFullReplace(tx) {
+		current, err = lib.LoadObjectFromDB(tx)
+	} else {
+		current, err = lib.LockObjectInDB(tx)
+	}
 	if err != nil {
 		return err
 	}
@@ -89,20 +94,37 @@ func validateNodeCountsUpdate(tx *gorm.DB, counts func(any) (nodeCounts, bool)) 
 	if !ok {
 		return fmt.Errorf("cannot validate node counts: loaded %T", current)
 	}
-	if incoming.minimum != nil {
-		stored.minimum = incoming.minimum
+
+	updated := incoming
+	if !lib.IsFullReplace(tx) {
+		updated = stored
+		if incoming.minimum != nil {
+			updated.minimum = incoming.minimum
+		}
+		if incoming.initial != nil {
+			updated.initial = incoming.initial
+		}
+		if incoming.maximum != nil {
+			updated.maximum = incoming.maximum
+		}
+		if incoming.zones != 0 {
+			updated.zones = incoming.zones
+		}
 	}
-	if incoming.initial != nil {
-		stored.initial = incoming.initial
-	}
-	if incoming.maximum != nil {
-		stored.maximum = incoming.maximum
-	}
-	if incoming.zones != 0 {
-		stored.zones = incoming.zones
+	if sameNodeCounts(updated, stored) {
+		return nil
 	}
 
-	return validateNodeCounts(stored)
+	return validateNodeCounts(updated)
+}
+
+// sameNodeCounts reports whether two definitions' node group sizes and zones
+// are the same.
+func sameNodeCounts(a, b nodeCounts) bool {
+	return util.Deref(a.minimum) == util.Deref(b.minimum) && (a.minimum == nil) == (b.minimum == nil) &&
+		util.Deref(a.initial) == util.Deref(b.initial) && (a.initial == nil) == (b.initial == nil) &&
+		util.Deref(a.maximum) == util.Deref(b.maximum) && (a.maximum == nil) == (b.maximum == nil) &&
+		a.zones == b.zones
 }
 
 // eksNodeCounts reads an EKS definition's node group sizes.  Its node group

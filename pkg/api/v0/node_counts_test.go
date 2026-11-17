@@ -146,3 +146,38 @@ func TestAKubernetesRuntimeDefinitionsNodeSettingsCantChangeOnEksOrGke(t *testin
 	require.NoError(t, db.Create(kind).Error)
 	assert.NoError(t, db.Session(&gorm.Session{}).Model(kind).Updates(&KubernetesRuntimeDefinition{NodeMaximum: util.Ptr(12)}).Error)
 }
+
+// TestADefinitionFromBeforeTheNodeCountRulesTakesOtherUpdates covers a GKE
+// definition created before its node limits were checked across its zones:
+// one whose maximum of 2 is less than its 3 zones, valid when the limits
+// applied to each zone.  Its clusters keep those limits, so an update that
+// leaves its sizes as they are is accepted, by patch and by replace, while
+// one that changes them is checked.
+func TestADefinitionFromBeforeTheNodeCountRulesTakesOtherUpdates(t *testing.T) {
+	db := setupKubernetesApiAccessDB(t)
+	older := &GcpGkeKubernetesRuntimeDefinition{
+		Definition: Definition{Name: util.Ptr("gke")}, ZoneCount: util.Ptr(3), DefaultNodeGroupInstanceType: util.Ptr("e2-standard-4"),
+		DefaultNodeGroupInitialSize: util.Ptr(2), DefaultNodeGroupMinimumSize: util.Ptr(0), DefaultNodeGroupMaximumSize: util.Ptr(2),
+		KubernetesRuntimeDefinitionID: util.Ptr(uint(1)),
+	}
+	require.NoError(t, db.Session(&gorm.Session{SkipHooks: true}).Create(older).Error)
+	load := func() *GcpGkeKubernetesRuntimeDefinition {
+		var loaded GcpGkeKubernetesRuntimeDefinition
+		require.NoError(t, db.First(&loaded, *older.ID).Error)
+		return &loaded
+	}
+
+	assert.NoError(t, db.Session(&gorm.Session{}).Model(load()).Updates(&GcpGkeKubernetesRuntimeDefinition{DefaultNodeGroupInstanceType: util.Ptr("e2-standard-8")}).Error)
+	assert.NoError(t, db.Session(&gorm.Session{}).Model(load()).Updates(&GcpGkeKubernetesRuntimeDefinition{DefaultNodeGroupMaximumSize: util.Ptr(2)}).Error,
+		"a patch that sends the maximum it holds")
+	replaced := load()
+	replaced.DefaultNodeGroupInstanceType = util.Ptr("e2-standard-16")
+	assert.NoError(t, db.Session(&gorm.Session{}).Save(replaced).Error, "a replace that keeps the sizes")
+
+	assert.ErrorContains(t, db.Session(&gorm.Session{}).Model(load()).Updates(&GcpGkeKubernetesRuntimeDefinition{DefaultNodeGroupInitialSize: util.Ptr(1)}).Error,
+		"DefaultNodeGroupMaximumSize 2 is less than the 3 zones", "a change to the sizes is checked")
+	changed := load()
+	changed.DefaultNodeGroupMaximumSize = util.Ptr(1)
+	changed.DefaultNodeGroupInitialSize = util.Ptr(1)
+	assert.Error(t, db.Session(&gorm.Session{}).Save(changed).Error)
+}

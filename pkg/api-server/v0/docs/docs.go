@@ -17549,6 +17549,10 @@ const docTemplate = `{
                     "description": "An arbitrary name for the definition.",
                     "type": "string"
                 },
+                "NodeGroupPerZone": {
+                    "description": "If true, the clusters run a node group in each zone, each with the\ndefault node group's instance type and sizes, rather than one node\ngroup spanning every zone.  The cluster autoscaler can then add a node\nin a given zone, as a pod bound to a volume there needs.  The zones are\nchosen from those that offer the instance type.  It can't be changed\nafter creation, since that replaces the node groups.",
+                    "type": "boolean"
+                },
                 "PrivateApi": {
                     "description": "If true, the Kubernetes API is not reachable from the public internet.\nSet from the KubernetesRuntimeDefinition's PrivateApi.",
                     "type": "boolean"
@@ -17937,6 +17941,10 @@ const docTemplate = `{
                     "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
                     "type": "string"
                 },
+                "FromNamespace": {
+                    "description": "The namespace of the control plane this install replaces",
+                    "type": "string"
+                },
                 "Genesis": {
                     "description": "Indicates whether this is was the first control plane that was spun up in a control plane group",
                     "type": "boolean"
@@ -17960,6 +17968,10 @@ const docTemplate = `{
                 "KubernetesRuntimeInstanceID": {
                     "description": "the kubernetes runtime instance the control plane is running on",
                     "type": "integer"
+                },
+                "ModuleInstall": {
+                    "description": "The module install the parent controller runs, as name, image namespace, and tag separated by spaces",
+                    "type": "string"
                 },
                 "Name": {
                     "description": "An arbitrary name the instance",
@@ -19902,6 +19914,14 @@ const docTemplate = `{
                     "description": "The module API server's endpoint to proxy requests to for module\nobjects.",
                     "type": "string"
                 },
+                "ImageNamespace": {
+                    "description": "The repository the module's images are pulled from.",
+                    "type": "string"
+                },
+                "ImageTag": {
+                    "description": "The tag on each of the module's images.",
+                    "type": "string"
+                },
                 "ModuleApiRoutes": {
                     "description": "The routes as URL paths to proxy requests to the API server's endpoint.\nAll supported routes for an module API should be added so that it is\nproxied.",
                     "type": "array",
@@ -20938,7 +20958,7 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "v0.7.0-rc.4",
+	Version:          "v0.7.0-rc.5",
 	Host:             "",
 	BasePath:         "/",
 	Schemes:          []string{},
