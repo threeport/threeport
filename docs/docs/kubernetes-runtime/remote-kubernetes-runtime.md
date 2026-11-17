@@ -97,6 +97,20 @@ include the control plane's outbound addresses in `AllowedCidrs`, or set
 through the Threeport API. The controller logs a warning when a restricted
 runtime finds none.
 
+On GKE you can instead take the Kubernetes API off the public internet with
+`PrivateApi`:
+
+```yaml
+  PrivateApi: true
+```
+
+The cluster then has no public IP endpoint. The control plane reaches it through
+GKE's DNS-based endpoint, which Google authorizes with IAM rather than by
+address, so the control plane's addresses aren't added. `AllowedCidrs` then
+lists the private networks, such as a VPN, that may reach the internal
+endpoint, up to 100. `PrivateApi` can't be changed once the runtime has been
+created, and EKS and OKE runtimes don't accept it yet.
+
 Create a `KubernetesRuntime` instance:
 ```bash
 tptctl create kubernetes-runtime --config k8s-runtime.yaml

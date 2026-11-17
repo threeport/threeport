@@ -28,6 +28,7 @@ type ControlPlaneInstanceConfig struct {
 type ControlPlaneInstanceValues struct {
 	Name                      *string
 	Namespace                 *string
+	FromNamespace             *string
 	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues
 	ControlPlaneDefinition    *ControlPlaneDefinitionValues
 	ImageNamespace            *string
@@ -98,6 +99,7 @@ func (c *ControlPlaneInstanceConfig) Get(
 			ControlPlaneInstance: ControlPlaneInstanceValues{
 				Name:                      controlPlaneInstance.Name,
 				Namespace:                 controlPlaneInstance.Namespace,
+				FromNamespace:             controlPlaneInstance.FromNamespace,
 				KubernetesRuntimeInstance: kubernetesRuntimeInstance,
 				ControlPlaneDefinition:    controlPlaneDefinition,
 				ImageNamespace:            controlPlaneInstance.ImageNamespace,
@@ -154,6 +156,7 @@ func (c *ControlPlaneInstanceConfig) Create(
 			Name: controlPlaneInstanceValues.Name,
 		},
 		Namespace:                   controlPlaneInstanceValues.Namespace,
+		FromNamespace:               controlPlaneInstanceValues.FromNamespace,
 		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
 		ImageNamespace:              controlPlaneInstanceValues.ImageNamespace,
 		ImageTag:                    controlPlaneInstanceValues.ImageTag,
@@ -180,6 +183,7 @@ func (c *ControlPlaneInstanceConfig) Create(
 			Age:                       util.Ptr(util.GetAgeFormatted(createdControlPlaneInstance.CreatedAt)),
 			Name:                      createdControlPlaneInstance.Name,
 			Namespace:                 createdControlPlaneInstance.Namespace,
+			FromNamespace:             createdControlPlaneInstance.FromNamespace,
 			KubernetesRuntimeInstance: controlPlaneInstanceValues.KubernetesRuntimeInstance,
 			ControlPlaneDefinition:    controlPlaneInstanceValues.ControlPlaneDefinition,
 			ImageNamespace:            createdControlPlaneInstance.ImageNamespace,
@@ -231,6 +235,7 @@ func (c *ControlPlaneInstanceConfig) Replace(
 	updatedControlPlaneInstance := util.Ptr(*existingControlPlaneInstance)
 	updatedControlPlaneInstance.Name = controlPlaneInstanceValues.Name
 	updatedControlPlaneInstance.Namespace = controlPlaneInstanceValues.Namespace
+	updatedControlPlaneInstance.FromNamespace = controlPlaneInstanceValues.FromNamespace
 	updatedControlPlaneInstance.ImageNamespace = controlPlaneInstanceValues.ImageNamespace
 	updatedControlPlaneInstance.ImageTag = controlPlaneInstanceValues.ImageTag
 	updatedControlPlaneInstance.NetworkCidrPool = cidrsToJSON(controlPlaneInstanceValues.NetworkCidrPool)
@@ -259,6 +264,7 @@ func (c *ControlPlaneInstanceConfig) Replace(
 			Age:                       util.Ptr(util.GetAgeFormatted(replacedControlPlaneInstance.CreatedAt)),
 			Name:                      replacedControlPlaneInstance.Name,
 			Namespace:                 replacedControlPlaneInstance.Namespace,
+			FromNamespace:             replacedControlPlaneInstance.FromNamespace,
 			KubernetesRuntimeInstance: controlPlaneInstanceValues.KubernetesRuntimeInstance,
 			ControlPlaneDefinition:    controlPlaneInstanceValues.ControlPlaneDefinition,
 			ImageNamespace:            replacedControlPlaneInstance.ImageNamespace,
@@ -337,6 +343,7 @@ func (c *ControlPlaneInstanceConfig) Delete(
 		ControlPlaneInstance: ControlPlaneInstanceValues{
 			Name:                deletedControlPlaneInstance.Name,
 			Namespace:           deletedControlPlaneInstance.Namespace,
+			FromNamespace:       deletedControlPlaneInstance.FromNamespace,
 			CustomComponentInfo: deletedControlPlaneInstance.CustomComponentInfo,
 			Genesis:             deletedControlPlaneInstance.Genesis,
 		},

@@ -98,12 +98,23 @@ definitions:
         description: |-
           The Kubernetes minor version of the clusters, such as "1.36": the
           KubernetesRuntimeDefinition's KubernetesVersion, or the default version
-          when that is unset.  If unset here, the default version is used.  It
-          can't be changed after creation.
+          when that is unset.  If unset here, the default version is used.
+          Raising it to another supported version upgrades the clusters, one minor
+          version at a time.  It can't be lowered, since a cluster can't be
+          downgraded, or cleared.
         type: string
       Name:
         description: An arbitrary name for the definition.
         type: string
+      NodeGroupPerZone:
+        description: |-
+          If true, the clusters run a node group in each zone, each with the
+          default node group's instance type and sizes, rather than one node
+          group spanning every zone.  The cluster autoscaler can then add a node
+          in a given zone, as a pod bound to a volume there needs.  The zones are
+          chosen from those that offer the instance type.  It can't be changed
+          after creation, since that replaces the node groups.
+        type: boolean
       PrivateApi:
         description: |-
           If true, the Kubernetes API is not reachable from the public internet.
@@ -186,6 +197,13 @@ definitions:
       KubernetesRuntimeInstanceID:
         description: The kubernetes runtime instance associated with the AWS EKS cluster.
         type: integer
+      KubernetesVersion:
+        description: |-
+          The Kubernetes minor version the cluster runs, such as "1.36", as the
+          controller last read it from the provider.  That is the
+          lower of its control plane's and its node group's, which EKS upgrades
+          separately.
+        type: string
       Name:
         description: An arbitrary name the instance
         type: string
@@ -206,6 +224,39 @@ definitions:
           The status of the instance.
           TODO: use a custom type
         type: string
+      UpgradeAcknowledged:
+        description: |-
+          Set by the controller when it starts upgrading the cluster to the
+          definition's KubernetesVersion, and refreshed while the upgrade runs.
+        type: string
+      UpgradeFailed:
+        description: |-
+          True when the last upgrade failed.  The controller tries it again after
+          a wait.
+        type: boolean
+      UpgradeRefused:
+        description: |-
+          True when the controller refused to upgrade the cluster: because the
+          upgrade would replace or delete any of its resources, or because
+          Threeport didn't create the cluster.  It doesn't try again until the
+          definition's KubernetesVersion changes, or this is set back to false.
+        type: boolean
+      UpgradeRequestedVersion:
+        description: |-
+          The definition's KubernetesVersion the cluster was last asked to be
+          upgraded to.  The API server sets it when an update of the EKS
+          definition asks the cluster to upgrade, once the cluster's controller
+          has been notified, so a request it couldn't finish is made again by the
+          definition's next update.
+        type: string
+      UpgradeStatus:
+        description: |-
+          What the controller last did to upgrade the cluster, or why it
+          couldn't.
+        type: string
+      Upgrading:
+        description: True while the controller upgrades the cluster.
+        type: boolean
     required:
     - AwsEksKubernetesRuntimeDefinitionID
     - AwsProviderID
@@ -466,6 +517,9 @@ definitions:
           Used to inform reconcilers that an object is being deleted so they may
           complete delete reconciliation before actually deleting the object from the database.
         type: string
+      FromNamespace:
+        description: The namespace of the control plane this install replaces
+        type: string
       Genesis:
         description: Indicates whether this is was the first control plane that was
           spun up in a control plane group
@@ -498,6 +552,10 @@ definitions:
         description: the kubernetes runtime instance the control plane is running
           on
         type: integer
+      ModuleInstall:
+        description: The module install the parent controller runs, as name, image
+          namespace, and tag separated by spaces
+        type: string
       Name:
         description: An arbitrary name the instance
         type: string
@@ -966,8 +1024,28 @@ definitions:
         description: |-
           The Kubernetes minor version of the clusters, such as "1.36": the
           KubernetesRuntimeDefinition's KubernetesVersion, or the default version
-          when that is unset.  If unset here, the default version is used.  It
-          can't be changed after creation.
+          when that is unset.  If unset here, the default version is used.
+          Raising it to another supported version upgrades the clusters, one minor
+          version at a time.  It can't be lowered, since a cluster can't be
+          downgraded, or cleared.
+        type: string
+      MaintenanceWindowDays:
+        description: |-
+          The days the clusters' maintenance window recurs on, in UTC, as an
+          RRULE writes them: such as "SA,SU".  GKE upgrades a cluster only in that
+          window, apart from an upgrade it can't defer.  If unset, "SA,SU" is used.
+          It can't be changed after creation.
+        type: string
+      MaintenanceWindowHours:
+        description: |-
+          How many hours the maintenance window lasts, from 4 to 24.  If unset, 8
+          is used.  It can't be changed after creation.
+        type: integer
+      MaintenanceWindowStart:
+        description: |-
+          The time of day the maintenance window starts on each of its days, in
+          UTC, such as "04:00".  If unset, "04:00" is used.  It can't be changed
+          after creation.
         type: string
       Name:
         description: An arbitrary name for the definition.
@@ -982,6 +1060,13 @@ definitions:
           The profile to associate with the definition.  Profile is a named
           standard configuration for a definition object.
         type: integer
+      ReleaseChannel:
+        description: |-
+          The GKE release channel of the clusters, REGULAR or STABLE.  GKE
+          upgrades their control planes and nodes to its releases on its own,
+          within the maintenance window.  If unset, REGULAR is used.  It can't be
+          changed after creation.
+        type: string
       TierID:
         description: |-
           The tier to associate with the definition.  Tier is a level of
@@ -1054,6 +1139,12 @@ definitions:
       KubernetesRuntimeInstanceID:
         description: The kubernetes runtime instance associated with the GKE cluster.
         type: integer
+      KubernetesVersion:
+        description: |-
+          The Kubernetes minor version the cluster runs, such as "1.36", as the
+          controller last read it from the provider.  That is its control
+          plane's: GKE upgrades its nodes to it in the maintenance window.
+        type: string
       Name:
         description: An arbitrary name the instance
         type: string
@@ -1083,6 +1174,39 @@ definitions:
           The status of the instance.
           TODO: use a custom type
         type: string
+      UpgradeAcknowledged:
+        description: |-
+          Set by the controller when it starts upgrading the cluster to the
+          definition's KubernetesVersion, and refreshed while the upgrade runs.
+        type: string
+      UpgradeFailed:
+        description: |-
+          True when the last upgrade failed.  The controller tries it again after
+          a wait.
+        type: boolean
+      UpgradeRefused:
+        description: |-
+          True when the controller refused to upgrade the cluster: because the
+          upgrade would replace or delete any of its resources, or because
+          Threeport didn't create the cluster.  It doesn't try again until the
+          definition's KubernetesVersion changes, or this is set back to false.
+        type: boolean
+      UpgradeRequestedVersion:
+        description: |-
+          The definition's KubernetesVersion the cluster was last asked to be
+          upgraded to.  The API server sets it when an update of the GKE
+          definition asks the cluster to upgrade, once the cluster's controller
+          has been notified, so a request it couldn't finish is made again by the
+          definition's next update.
+        type: string
+      UpgradeStatus:
+        description: |-
+          What the controller last did to upgrade the cluster, or why it
+          couldn't.
+        type: string
+      Upgrading:
+        description: True while the controller upgrades the cluster.
+        type: boolean
     required:
     - GcpGkeKubernetesRuntimeDefinitionID
     - GcpProviderID
@@ -1361,8 +1485,10 @@ definitions:
         description: |-
           The Kubernetes minor version of the clusters, such as "1.36", on EKS,
           GKE and OKE.  If unset, the default version is used, and the EKS, GKE
-          or OKE definition records it.  It can't be changed after creation.  A
-          kind cluster's version comes with its node image, so it takes none.
+          or OKE definition records it.  It records the version asked for at
+          creation and can't be changed: the clusters are upgraded by raising the
+          EKS or GKE definition's KubernetesVersion.  A kind cluster's version
+          comes with its node image, so it takes none.
         type: string
       Name:
         description: An arbitrary name for the definition.
@@ -1384,7 +1510,7 @@ definitions:
           If true, the Kubernetes API is not reachable from the public internet.
           It is reachable only from the cluster's own network, from networks
           connected to it and, on GKE, through the IAM-authorized DNS endpoint.
-          Cannot be changed after creation.
+          Supported on GKE only.  Cannot be changed after creation.
         type: boolean
       ProfileID:
         description: |-
@@ -2394,6 +2520,12 @@ definitions:
         description: |-
           The module API server's endpoint to proxy requests to for module
           objects.
+        type: string
+      ImageNamespace:
+        description: The repository the module's images are pulled from.
+        type: string
+      ImageTag:
+        description: The tag on each of the module's images.
         type: string
       ModuleApiRoutes:
         description: |-

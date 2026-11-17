@@ -4,7 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
+	serverlib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -103,16 +105,28 @@ func (o *runtimeOnboarder) copyProviderRecords(
 	from runtimeLink,
 	to runtimeLink,
 ) error {
+	var err error
 	switch infraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
-		return o.copyEksRecords(from, to)
+		err = o.copyEksRecords(from, to)
 	case v0.KubernetesRuntimeInfraProviderOKE:
-		return o.copyOkeRecords(from, to)
+		err = o.copyOkeRecords(from, to)
 	case v0.KubernetesRuntimeInfraProviderGKE:
-		return o.copyGkeRecords(from, to)
+		err = o.copyGkeRecords(from, to)
 	}
 
-	return nil
+	return childVersionHint(err)
+}
+
+// childVersionHint says why a child API refused a record, when the child runs
+// an older version than this control plane: the record carries fields the
+// child's API does not have, so the child is upgraded first.
+func childVersionHint(err error) error {
+	if err == nil || !strings.Contains(err.Error(), serverlib.ErrMsgUnsupportedFieldsNotAllowed) {
+		return err
+	}
+
+	return fmt.Errorf("the child API runs an older version than this control plane, so upgrade the child: %w", err)
 }
 
 // copyEksRecords copies the AWS records behind an EKS runtime to the child.

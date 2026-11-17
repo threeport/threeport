@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -180,6 +181,15 @@ func TestAProductionDatabasesVolumesFollowItsPods(t *testing.T) {
 		{"a named class that binds immediately", gp2Claim, []runtime.Object{bindingStorageClass("gp2", "Immediate", false)}, "storage class gp2"},
 		{"a named class that isn't there", gp2Claim, nil, ""},
 		{"no default", defaultClaim, []runtime.Object{bindingStorageClass("standard", "Immediate", false)}, ""},
+		{"the newest of two defaults, which waits", defaultClaim, []runtime.Object{
+			createdAt(bindingStorageClass("standard", "Immediate", true), 1), createdAt(bindingStorageClass("standard-rwo", "WaitForFirstConsumer", true), 2),
+		}, ""},
+		{"the newest of two defaults, which binds immediately", defaultClaim, []runtime.Object{
+			createdAt(bindingStorageClass("standard-rwo", "WaitForFirstConsumer", true), 1), createdAt(bindingStorageClass("standard", "Immediate", true), 2),
+		}, "storage class standard creates volumes"},
+		{"of two defaults created together, the first by name", defaultClaim, []runtime.Object{
+			createdAt(bindingStorageClass("b-immediate", "Immediate", true), 1), createdAt(bindingStorageClass("a-waits", "WaitForFirstConsumer", true), 1),
+		}, ""},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			err := checkDatabaseVolumeBinding(storageClassTestClient(c.classes...), c.claim)
@@ -317,4 +327,10 @@ func TestARefusedReinstallLeavesTheControlPlaneUp(t *testing.T) {
 		assert.NotContains(t, []string{"delete", "delete-collection", "patch", "update"}, action.GetVerb(),
 			"the refused reinstall changed %s", action.GetResource().Resource)
 	}
+}
+
+// createdAt sets a class's creation time to minute minutes past a fixed time.
+func createdAt(class *unstructured.Unstructured, minute int) *unstructured.Unstructured {
+	class.SetCreationTimestamp(metav1.NewTime(time.Date(2026, 1, 1, 0, minute, 0, 0, time.UTC)))
+	return class
 }

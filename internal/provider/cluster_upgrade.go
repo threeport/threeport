@@ -1,0 +1,168 @@
+package provider
+
+import (
+	"context"
+	"fmt"
+
+	api_v0 "github.com/threeport/threeport/pkg/api/v0"
+	tpaws "github.com/threeport/threeport/pkg/aws/v0"
+)
+
+// ClusterKubernetesVersion returns the Kubernetes minor version the EKS
+// cluster runs: the lowest of its control plane's and its node groups'.  EKS
+// upgrades the control plane on its own when its version leaves standard
+// support, and leaves the node groups behind.
+func (i *KubernetesRuntimeInfraEKS) ClusterKubernetesVersion() (string, error) {
+	version, err := eksControlPlaneVersion(i.AwsConfig, i.RuntimeInstanceName)
+	if err != nil {
+		return "", err
+	}
+	for _, nodeGroupName := range i.nodeGroupNames() {
+		nodeGroup, err := eksNodeGroupVersion(i.AwsConfig, i.RuntimeInstanceName, nodeGroupName)
+		if err != nil {
+			return "", err
+		}
+		if version, err = lowerKubernetesVersion(version, nodeGroup); err != nil {
+			return "", err
+		}
+	}
+
+	return version, nil
+}
+
+// eksNodeGroupVersion reads an EKS node group's minor version.  A test stands
+// in for it.
+var eksNodeGroupVersion = tpaws.EksNodeGroupVersion
+
+// UpgradeInfra upgrades the EKS cluster's control plane, then its node
+// groups, then its add-ons, to version.  A control plane already past
+// version, which EKS upgraded on its own while the node groups stayed
+// behind, is kept where it is, as are the add-ons, which follow the control
+// plane, and a node group already past it.  The stack keeps the cluster's
+// upgrade policy and the range its network was laid out in, as a resumed
+// create does, and the roles the create gave the cluster and its node group.
+func (i *KubernetesRuntimeInfraEKS) UpgradeInfra(version string) error {
+	i.KubernetesVersion = version
+	controlPlane, err := eksControlPlaneVersion(i.AwsConfig, i.RuntimeInstanceName)
+	if err != nil {
+		return err
+	}
+	if i.controlPlaneVersion, err = versionKeptForUpgrade(controlPlane, version); err != nil {
+		return err
+	}
+	// a node group already past the version keeps its own, as the control
+	// plane does
+	i.nodeGroupVersions = map[string]string{}
+	for _, nodeGroupName := range i.nodeGroupNames() {
+		nodeGroup, err := eksNodeGroupVersion(i.AwsConfig, i.RuntimeInstanceName, nodeGroupName)
+		if err != nil {
+			return err
+		}
+		keep, err := versionKeptForUpgrade(nodeGroup, version)
+		if err != nil {
+			return err
+		}
+		if keep != "" {
+			i.nodeGroupVersions[nodeGroupName] = keep
+		}
+	}
+	if err := i.lookupClusterIam(); err != nil {
+		return err
+	}
+
+	stack, err := i.SetupStack(i.pulumiProgram())
+	if err != nil {
+		return fmt.Errorf("failed to set up Pulumi workspace: %w", err)
+	}
+	exported, err := stack.Export(context.Background())
+	if err != nil {
+		return fmt.Errorf("failed to read the stack's EKS cluster: %w", err)
+	}
+	i.keepStackNetwork(exported.Deployment)
+	i.keepStackSupportType(exported.Deployment)
+	i.keepStackZones(exported.Deployment)
+
+	if err := i.upgradeStack(stack); err != nil {
+		return err
+	}
+
+	return i.upgradeEbsStorageAddon(i.controlPlaneKubernetesVersion())
+}
+
+// ClusterKubernetesVersion returns the Kubernetes minor version the GKE
+// cluster's control plane runs.  GKE upgrades the nodes to it on its own,
+// within the maintenance window.
+func (i *KubernetesRuntimeInfraGKE) ClusterKubernetesVersion() (string, error) {
+	release, err := i.useGCPAuth()
+	if err != nil {
+		return "", err
+	}
+	defer release()
+
+	cluster, err := i.getCluster(context.Background())
+	if err != nil {
+		return "", err
+	}
+	version := minorVersion(cluster.CurrentMasterVersion)
+	if version == "" {
+		return "", fmt.Errorf("GKE cluster %s reports no Kubernetes version it can be read from: %q", i.RuntimeInstanceName, cluster.CurrentMasterVersion)
+	}
+
+	return version, nil
+}
+
+// UpgradeInfra upgrades the GKE cluster's control plane to version, by
+// raising the minimum version it asks for.  GKE upgrades it to its release
+// channel's release of that version, and the nodes after it within the
+// maintenance window.  The stack keeps the cluster's release channel and the
+// range its network was laid out in, as a resumed create does.
+func (i *KubernetesRuntimeInfraGKE) UpgradeInfra(version string) error {
+	i.Version = version
+	i.stackMinMasterVersion = nil
+
+	stack, err := i.SetupStack(i.pulumiProgram())
+	if err != nil {
+		return fmt.Errorf("failed to set up Pulumi workspace: %w", err)
+	}
+	exported, err := stack.Export(context.Background())
+	if err != nil {
+		return fmt.Errorf("failed to read the stack's GKE cluster: %w", err)
+	}
+	i.keepStackNetwork(exported.Deployment)
+	i.keepStackReleaseChannel(exported.Deployment)
+
+	return i.upgradeStack(stack)
+}
+
+// eksControlPlaneVersion reads the EKS control plane's minor version.  A test
+// stands in for it.
+var eksControlPlaneVersion = tpaws.EksClusterVersion
+
+// versionKeptForUpgrade returns the version to keep the control plane, or a
+// node group, on while the cluster is upgraded to version: its own, current,
+// when it is already past version, as a downgrade would be refused, and "" to
+// upgrade it to version otherwise.
+func versionKeptForUpgrade(current, version string) (string, error) {
+	comparison, err := api_v0.CompareKubernetesVersions(current, version)
+	if err != nil {
+		return "", err
+	}
+	if comparison > 0 {
+		return current, nil
+	}
+
+	return "", nil
+}
+
+// lowerKubernetesVersion returns the older of two minor versions.
+func lowerKubernetesVersion(a, b string) (string, error) {
+	comparison, err := api_v0.CompareKubernetesVersions(a, b)
+	if err != nil {
+		return "", err
+	}
+	if comparison > 0 {
+		return b, nil
+	}
+
+	return a, nil
+}

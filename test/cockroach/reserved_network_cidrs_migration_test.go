@@ -11,7 +11,7 @@ import (
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
-// TestReservedNetworkCidrsMigrateAnExistingDatabase covers 000007 on a
+// TestReservedNetworkCidrsMigrateAnExistingDatabase covers 000011 on a
 // database built before control planes reserved their deleted children's
 // pools, as a deployed control plane's is: it adds the column with the type
 // 000001 builds it with.  On a database 000001 built with the field already,
@@ -38,14 +38,14 @@ func TestReservedNetworkCidrsMigrateAnExistingDatabase(t *testing.T) {
 	require.NoError(t, migrations.Up000001(ctx, nil))
 	require.True(t, hasColumn())
 	installed := columnType()
-	require.NoError(t, migrations.Up000007(ctx, sqlDb), "000007 finds it there")
+	require.NoError(t, migrations.Up000011(ctx, sqlDb), "000011 finds it there")
 
 	// a database built before the field
-	require.NoError(t, migrations.Down000007(ctx, sqlDb))
+	require.NoError(t, migrations.Down000011(ctx, sqlDb))
 	assert.False(t, hasColumn())
-	require.NoError(t, migrations.Down000007(ctx, sqlDb), "a down migration with nothing left to remove")
+	require.NoError(t, migrations.Down000011(ctx, sqlDb), "a down migration with nothing left to remove")
 
-	require.NoError(t, migrations.Up000007(ctx, sqlDb))
+	require.NoError(t, migrations.Up000011(ctx, sqlDb))
 	assert.True(t, hasColumn())
 	assert.Equal(t, installed, columnType(), "the type 000001 builds it with")
 }

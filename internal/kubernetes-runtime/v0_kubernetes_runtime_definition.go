@@ -102,6 +102,10 @@ func v0KubernetesRuntimeDefinitionCreated(
 			PrivateApi:                    kubernetesRuntimeDefinition.PrivateApi,
 			AllowedCidrs:                  kubernetesRuntimeDefinition.AllowedCidrs,
 			KubernetesVersion:             util.Ptr(v0.KubernetesVersionOrDefault(kubernetesRuntimeDefinition.KubernetesVersion)),
+			ReleaseChannel:                util.Ptr(v0.DefaultGkeReleaseChannel),
+			MaintenanceWindowDays:         util.Ptr(v0.DefaultGkeMaintenanceWindowDays),
+			MaintenanceWindowStart:        util.Ptr(v0.DefaultGkeMaintenanceWindowStart),
+			MaintenanceWindowHours:        util.Ptr(v0.DefaultGkeMaintenanceWindowHours),
 			KubernetesRuntimeDefinitionID: kubernetesRuntimeDefinition.ID,
 		}
 		_, err = client.CreateGcpGkeKubernetesRuntimeDefinition(

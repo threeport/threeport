@@ -66,7 +66,11 @@ func (g *GcpGkeKubernetesRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
 		return err
 	}
 
-	return validateKubernetesVersionCreate(KubernetesRuntimeInfraProviderGKE, g.KubernetesVersion)
+	if err := validateKubernetesVersionCreate(KubernetesRuntimeInfraProviderGKE, g.KubernetesVersion); err != nil {
+		return err
+	}
+
+	return validateGkeUpgradeSettingsCreate(g)
 }
 
 // beforeUpdate validates the GcpGkeKubernetesRuntimeDefinition before update.
@@ -83,7 +87,16 @@ func (g *GcpGkeKubernetesRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
 // Import:
 //   lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (g *GcpGkeKubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
-	if err := validateKubernetesVersionUpdate(tx); err != nil {
+	if err := validateKubernetesVersionUpgrade(tx, KubernetesRuntimeInfraProviderGKE, func(value any) (*string, bool) {
+		object, ok := value.(*GcpGkeKubernetesRuntimeDefinition)
+		if !ok {
+			return nil, false
+		}
+		return object.KubernetesVersion, true
+	}); err != nil {
+		return err
+	}
+	if err := validateGkeUpgradeSettingsUpdate(tx); err != nil {
 		return err
 	}
 

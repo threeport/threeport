@@ -322,3 +322,52 @@ func TestGkeAuthSourceSaysSoWhenNoIdentityApplies(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no stored service account credentials")
 }
+
+// TestAControllerReachesItsPrivateGkeClusterInCluster covers the connection a
+// controller makes to the private GKE cluster it runs on, with a token minted
+// per request: the in-cluster address, verified with the pod's service
+// account CA, since the runtime records the DNS endpoint and no CA.
+func TestAControllerReachesItsPrivateGkeClusterInCluster(t *testing.T) {
+	const managedProject = "the-managed-project"
+	encryptionKey, err := encryption.GenerateKey()
+	require.NoError(t, err)
+	stored, err := encryption.Encrypt(
+		encryptionKey,
+		serviceAccountCredentials(t, managedProject, "threeport@the-managed-project.iam.gserviceaccount.com"),
+	)
+	require.NoError(t, err)
+	ambient := filepath.Join(t.TempDir(), "ambient.json")
+	require.NoError(t, os.WriteFile(
+		ambient,
+		[]byte(serviceAccountCredentials(t, "some-other-project", "ambient@elsewhere.iam.gserviceaccount.com")),
+		0600,
+	))
+	t.Setenv("GOOGLE_APPLICATION_CREDENTIALS", ambient)
+
+	server := threeportAPI(t, v0.KubernetesRuntimeInfraProviderGKE, "the-host-project", managedProject, stored)
+	defer server.Close()
+
+	runtimeID, definitionID := uint(7), uint(1)
+	isHost := true
+	endpoint := "https://gke-0123456789abcdef-123456789012.us-central1.gke.goog"
+	noCA := ""
+	runtime := &v0.KubernetesRuntimeInstance{
+		Common:                        v0.Common{ID: &runtimeID},
+		ThreeportControlPlaneHost:     &isHost,
+		KubernetesRuntimeDefinitionID: &definitionID,
+		APIEndpoint:                   &endpoint,
+		CACertificate:                 &noCA,
+	}
+
+	config, err := GetRestConfig(runtime, true, server.Client(), strings.TrimPrefix(server.URL, "http://"), encryptionKey)
+	require.NoError(t, err)
+	require.NotNil(t, config.WrapTransport, "the GKE token generator is in place")
+	assert.Equal(t, "https://kubernetes.default.svc.cluster.local", config.Host)
+	assert.Equal(t, serviceAccountCAFile, config.CAFile)
+	assert.Empty(t, config.CAData)
+
+	config, err = GetRestConfig(runtime, false, server.Client(), strings.TrimPrefix(server.URL, "http://"), encryptionKey)
+	require.NoError(t, err)
+	assert.Equal(t, endpoint, config.Host)
+	assert.Empty(t, config.CAFile, "off the cluster the system's roots verify the DNS endpoint")
+}

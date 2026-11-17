@@ -31,6 +31,10 @@ type GcpGkeKubernetesRuntimeDefinitionValues struct {
 	DefaultNodeGroupMinimumSize  *int
 	DefaultNodeGroupMaximumSize  *int
 	KubernetesVersion            *string
+	ReleaseChannel               *string
+	MaintenanceWindowDays        *string
+	MaintenanceWindowStart       *string
+	MaintenanceWindowHours       *int
 	Age                          *string
 }
 
@@ -74,6 +78,10 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Get(
 				DefaultNodeGroupMinimumSize:  gcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
 				DefaultNodeGroupMaximumSize:  gcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
 				KubernetesVersion:            gcpGkeKubernetesRuntimeDefinition.KubernetesVersion,
+				ReleaseChannel:               gcpGkeKubernetesRuntimeDefinition.ReleaseChannel,
+				MaintenanceWindowDays:        gcpGkeKubernetesRuntimeDefinition.MaintenanceWindowDays,
+				MaintenanceWindowStart:       gcpGkeKubernetesRuntimeDefinition.MaintenanceWindowStart,
+				MaintenanceWindowHours:       gcpGkeKubernetesRuntimeDefinition.MaintenanceWindowHours,
 				Age:                          util.Ptr(util.GetAgeFormatted(gcpGkeKubernetesRuntimeDefinition.CreatedAt)),
 			},
 		}
@@ -125,6 +133,10 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Create(
 		DefaultNodeGroupMinimumSize:   gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupMinimumSize,
 		DefaultNodeGroupMaximumSize:   gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupMaximumSize,
 		KubernetesVersion:             util.Ptr(api_v0.KubernetesVersionOrDefault(gcpGkeKubernetesRuntimeDefinitionValues.KubernetesVersion)),
+		ReleaseChannel:                util.Ptr(api_v0.GkeReleaseChannelOrDefault(gcpGkeKubernetesRuntimeDefinitionValues.ReleaseChannel)),
+		MaintenanceWindowDays:         util.Ptr(api_v0.GkeMaintenanceWindowDaysOrDefault(gcpGkeKubernetesRuntimeDefinitionValues.MaintenanceWindowDays)),
+		MaintenanceWindowStart:        util.Ptr(api_v0.GkeMaintenanceWindowStartOrDefault(gcpGkeKubernetesRuntimeDefinitionValues.MaintenanceWindowStart)),
+		MaintenanceWindowHours:        util.Ptr(api_v0.GkeMaintenanceWindowHoursOrDefault(gcpGkeKubernetesRuntimeDefinitionValues.MaintenanceWindowHours)),
 		KubernetesRuntimeDefinitionID: createdKubernetesRuntimeDefinition.ID,
 	}
 
@@ -149,6 +161,10 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Create(
 			DefaultNodeGroupMinimumSize:  createdGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
 			DefaultNodeGroupMaximumSize:  createdGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
 			KubernetesVersion:            createdGcpGkeKubernetesRuntimeDefinition.KubernetesVersion,
+			ReleaseChannel:               createdGcpGkeKubernetesRuntimeDefinition.ReleaseChannel,
+			MaintenanceWindowDays:        createdGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowDays,
+			MaintenanceWindowStart:       createdGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowStart,
+			MaintenanceWindowHours:       createdGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowHours,
 		},
 	}
 
@@ -196,9 +212,24 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Replace(
 	updatedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize = gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupInitialSize
 	updatedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize = gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupMinimumSize
 	updatedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize = gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupMaximumSize
-	// the version a config leaves out is kept, rather than cleared
+	// a new version upgrades the clusters, and a config that leaves it out
+	// keeps the one recorded
 	if gcpGkeKubernetesRuntimeDefinitionValues.KubernetesVersion != nil {
 		updatedGcpGkeKubernetesRuntimeDefinition.KubernetesVersion = gcpGkeKubernetesRuntimeDefinitionValues.KubernetesVersion
+	}
+	// the release channel and maintenance window are recorded on create and
+	// can't change, so a config that leaves one out keeps it
+	if gcpGkeKubernetesRuntimeDefinitionValues.ReleaseChannel != nil {
+		updatedGcpGkeKubernetesRuntimeDefinition.ReleaseChannel = gcpGkeKubernetesRuntimeDefinitionValues.ReleaseChannel
+	}
+	if gcpGkeKubernetesRuntimeDefinitionValues.MaintenanceWindowDays != nil {
+		updatedGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowDays = gcpGkeKubernetesRuntimeDefinitionValues.MaintenanceWindowDays
+	}
+	if gcpGkeKubernetesRuntimeDefinitionValues.MaintenanceWindowStart != nil {
+		updatedGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowStart = gcpGkeKubernetesRuntimeDefinitionValues.MaintenanceWindowStart
+	}
+	if gcpGkeKubernetesRuntimeDefinitionValues.MaintenanceWindowHours != nil {
+		updatedGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowHours = gcpGkeKubernetesRuntimeDefinitionValues.MaintenanceWindowHours
 	}
 
 	// replace gcp gke kubernetes runtime definition
@@ -222,6 +253,10 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Replace(
 			DefaultNodeGroupMinimumSize:  replacedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
 			DefaultNodeGroupMaximumSize:  replacedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
 			KubernetesVersion:            replacedGcpGkeKubernetesRuntimeDefinition.KubernetesVersion,
+			ReleaseChannel:               replacedGcpGkeKubernetesRuntimeDefinition.ReleaseChannel,
+			MaintenanceWindowDays:        replacedGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowDays,
+			MaintenanceWindowStart:       replacedGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowStart,
+			MaintenanceWindowHours:       replacedGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowHours,
 		},
 	}
 
@@ -286,6 +321,10 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Delete(
 			DefaultNodeGroupMinimumSize:  deletedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
 			DefaultNodeGroupMaximumSize:  deletedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
 			KubernetesVersion:            deletedGcpGkeKubernetesRuntimeDefinition.KubernetesVersion,
+			ReleaseChannel:               deletedGcpGkeKubernetesRuntimeDefinition.ReleaseChannel,
+			MaintenanceWindowDays:        deletedGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowDays,
+			MaintenanceWindowStart:       deletedGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowStart,
+			MaintenanceWindowHours:       deletedGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowHours,
 		}
 	}
 
@@ -333,6 +372,16 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Validate() error {
 	if err := api_v0.ValidateKubernetesVersion(
 		api_v0.KubernetesRuntimeInfraProviderGKE,
 		gcpGkeKubernetesRuntimeDefinitionValues.KubernetesVersion,
+	); err != nil {
+		multiError.AppendError(err)
+	}
+
+	// validate the release channel and maintenance window before the API is asked
+	if err := api_v0.ValidateGkeUpgradeSettings(
+		gcpGkeKubernetesRuntimeDefinitionValues.ReleaseChannel,
+		gcpGkeKubernetesRuntimeDefinitionValues.MaintenanceWindowDays,
+		gcpGkeKubernetesRuntimeDefinitionValues.MaintenanceWindowStart,
+		gcpGkeKubernetesRuntimeDefinitionValues.MaintenanceWindowHours,
 	); err != nil {
 		multiError.AppendError(err)
 	}
