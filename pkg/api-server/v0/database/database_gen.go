@@ -20,7 +20,7 @@ import (
 const (
 	// Threeport database connection values
 	ThreeportDatabaseUser     = "threeport" // used by Threeport API
-	ThreeportDatabaseRootUser = "root"      // used by db-init container
+	ThreeportDatabaseRootUser = "root"      // used by the database migrator
 	ThreeportDatabaseName     = "threeport_api"
 	ThreeportDatabaseHost     = "crdb"
 	ThreeportDatabasePort     = "26257"

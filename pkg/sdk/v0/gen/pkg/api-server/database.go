@@ -29,7 +29,7 @@ func GenDatabaseInit(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		f.Const().Defs(
 			Comment("Threeport database connection values"),
 			Id("ThreeportDatabaseUser").Op("=").Lit("threeport").Comment("used by Threeport API"),
-			Id("ThreeportDatabaseRootUser").Op("=").Lit("root").Comment("used by db-init container"),
+			Id("ThreeportDatabaseRootUser").Op("=").Lit("root").Comment("used by the database migrator"),
 			Id("ThreeportDatabaseName").Op("=").Lit("threeport_api"),
 			Id("ThreeportDatabaseHost").Op("=").Lit("crdb"),
 			Id("ThreeportDatabasePort").Op("=").Lit("26257"),
@@ -139,6 +139,28 @@ func GenDatabaseInit(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		g.Line()
 
 		if gen.Module {
+			g.Comment("a module installed with a database user of its own connects with that")
+			g.Comment("user's password, verifying the database with its CA's certificate")
+			g.If(
+				List(Id("password"), Id("ok")).Op(":=").Qual("os", "LookupEnv").Call(Lit("DB_PASSWORD")),
+				Id("ok").Op("&&").Id("password").Op("!=").Lit("").Op("&&").Op("!").Id("rootDbUser"),
+			).Block(
+				Return(Qual("fmt", "Sprintf").Call(
+					Line().Lit("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s sslrootcert=%s/ca.crt TimeZone=UTC"),
+					Line().Id("requiredDbEnvVars").Index(Lit("DB_HOST")),
+					Line().Id("requiredDbEnvVars").Index(Lit("DB_PORT")),
+					Line().Id("dbUser"),
+					Line().Id("password"),
+					Line().Id("requiredDbEnvVars").Index(Lit("DB_NAME")),
+					Line().Id("requiredDbEnvVars").Index(Lit("DB_SSL_MODE")),
+					Line().Qual(
+						"github.com/threeport/threeport/pkg/api-server/v0/database",
+						"ThreeportApiDbCertsDir",
+					),
+					Line(),
+				), Id("dbEnvErrors").Dot("Error").Call()),
+			)
+			g.Line()
 			g.Id("dsn").Op(":=").Qual("fmt", "Sprintf").Call(
 				Line().Lit("host=%s port=%s user=%s dbname=%s sslmode=%s sslrootcert=%s/ca.crt sslcert=%[6]s/client.%[3]s.crt sslkey=%[6]s/client.%[3]s.key TimeZone=UTC"),
 				Line().Id("requiredDbEnvVars").Index(Lit("DB_HOST")),

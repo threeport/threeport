@@ -101,16 +101,24 @@ func moduleControllerContainerName(deploymentName string) string {
 	return strings.TrimPrefix(path.Base(deploymentName), moduleImageNamePrefix)
 }
 
-// ModuleCopiedSecretNames returns the secrets the installer copies into a module namespace.
+// ModuleCopiedSecretNames returns the secrets the installer copies into a
+// module namespace.  The database's client certificates aren't among them:
+// a module connects as its own user, with the credentials
+// EnsureModuleDatabaseUser writes.
 func ModuleCopiedSecretNames() []string {
 	return []string{
-		dbRootCertSecretName,
-		dbThreeportCertSecretName,
 		EncryptionKeySecret,
 		controllerConfigSecretName,
 		ThreeportApiConfigSecret,
 		NatsCACertSecretName,
 	}
+}
+
+// legacyModuleDatabaseSecretNames are the database client certificates a
+// module installed before modules had users of their own connects with, and
+// a redeploy still copies to it.
+func legacyModuleDatabaseSecretNames() []string {
+	return []string{dbRootCertSecretName, dbThreeportCertSecretName}
 }
 
 // ModuleApiConfigSecret returns the module API config secret.

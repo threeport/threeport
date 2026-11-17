@@ -62,8 +62,33 @@ func TestOnlyTheCoreMigratorCreatesTheBackupSchedule(t *testing.T) {
 			t.Errorf("a module's migrator contains %q", unwanted)
 		}
 	}
-	if !strings.Contains(module, "DbInitFilename") {
-		t.Error("a module's migrator no longer runs its init script")
+}
+
+// TestOnlyTheCoreMigratorInitializesTheDatabase covers the initialize
+// command, which creates the database and its user as root from an init
+// script.  The core control plane's migrator has it.  A module's doesn't:
+// the control plane creates the module's user, and the module has neither
+// root's credentials nor an init script to run.
+func TestOnlyTheCoreMigratorInitializesTheDatabase(t *testing.T) {
+	core := generateMigratorMain(t, &gen.Generator{}, &sdk.SdkConfig{})
+	for _, want := range []string{`case "initialize":`, "func initializeDb(", "DbInitFilename", `append(gooseCommands, "initialize")`} {
+		if !strings.Contains(core, want) {
+			t.Errorf("the core migrator does not contain %q", want)
+		}
+	}
+
+	module := generateMigratorMain(
+		t,
+		&gen.Generator{Module: true, ModulePath: "example.com/widget-module"},
+		&sdk.SdkConfig{ModuleName: "Widget", ApiNamespace: "widget.example.com"},
+	)
+	for _, unwanted := range []string{`"initialize"`, "initializeDb", "DbInitFilename", "DbInitLocation", "GetDsn(true)"} {
+		if strings.Contains(module, unwanted) {
+			t.Errorf("a module's migrator contains %q", unwanted)
+		}
+	}
+	if !strings.Contains(module, "return gooseCommands") {
+		t.Error("a module's migrator takes no goose command")
 	}
 }
 

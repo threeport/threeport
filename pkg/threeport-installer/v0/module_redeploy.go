@@ -133,8 +133,13 @@ func (cpi *ControlPlaneInstaller) redeployInstalledModule(
 		return fmt.Errorf("failed to copy the broker credentials into %s: %w", apiServer.Namespace, err)
 	}
 
+	secretNames, err := redeployedModuleSecrets(kubeClient, cpi.Opts.Namespace, apiServer.Namespace, kebab)
+	if err != nil {
+		return fmt.Errorf("failed to give module %s access to the database: %w", util.DerefString(moduleAPI.Name), err)
+	}
+
 	// copy the secrets the installer copies
-	for _, secretName := range ModuleCopiedSecretNames() {
+	for _, secretName := range secretNames {
 		if err := CopySecret(
 			kubeClient,
 			mapper,
@@ -961,4 +966,42 @@ func resumeRecordedController(
 		return err
 	}
 	return resumeModuleByName(kubeClient, namespace, name)
+}
+
+// redeployedModuleSecrets gives a redeployed module access to the database
+// of the control plane in threeportNamespace, and returns the secrets to copy
+// into its namespace.  A module installed with a database user of its own
+// gets one in this control plane's database.  One installed before connects
+// with the database's client certificates, which are copied with the rest.
+func redeployedModuleSecrets(kubeClient dynamic.Interface, threeportNamespace, moduleNamespace, kebab string) ([]string, error) {
+	secretNames := ModuleCopiedSecretNames()
+	ownUser, err := moduleHasOwnDatabaseUser(kubeClient, moduleNamespace)
+	if err != nil {
+		return nil, err
+	}
+	if !ownUser {
+		return append(secretNames, legacyModuleDatabaseSecretNames()...), nil
+	}
+	if _, err := EnsureModuleDatabaseUser(kubeClient, threeportNamespace, moduleNamespace, kebab); err != nil {
+		return nil, err
+	}
+
+	return secretNames, nil
+}
+
+// moduleHasOwnDatabaseUser reports whether the module in namespace connects
+// to the database as a user of its own: its namespace holds that user's
+// credentials.
+func moduleHasOwnDatabaseUser(kubeClient dynamic.Interface, namespace string) (bool, error) {
+	_, err := kubeClient.Resource(secretGVR).Namespace(namespace).Get(
+		context.Background(), ModuleDatabaseCredsSecretName, metav1.GetOptions{},
+	)
+	switch {
+	case err == nil:
+		return true, nil
+	case k8serrors.IsNotFound(err):
+		return false, nil
+	default:
+		return false, fmt.Errorf("failed to check the database credentials in %s: %w", namespace, err)
+	}
 }

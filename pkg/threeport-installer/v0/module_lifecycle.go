@@ -457,14 +457,22 @@ func EnsureModuleInstallJob(
 	return false, nil
 }
 
-// UninstallModule deletes the module namespace and then the module API row.
+// UninstallModule drops the module's database user, then deletes the module
+// namespace and the module API row.
 func UninstallModule(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	apiClient *http.Client,
 	apiEndpoint string,
+	threeportNamespace string,
 	module *api.ModuleApi,
 ) error {
+	// the module can no longer reach the database, and the control plane and
+	// other modules keep their own users
+	if err := DropModuleDatabaseUser(kubeClient, threeportNamespace, moduleKebab(util.DerefString(module.Name))); err != nil {
+		return err
+	}
+
 	// delete the workload namespace
 	namespace := moduleWorkloadNamespace(module)
 	ns := &unstructured.Unstructured{}

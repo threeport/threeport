@@ -32,6 +32,71 @@ for its distributed capabilities.  Threeport offers a global control plane so
 resilience is a primary concern.  We found CockroachDB to be the best
 implementation of a distributed SQL database.
 
+### Module Database Users
+
+A module's API server keeps its tables in the control plane's database, and
+connects to it as a database user of its own, `threeport_<module>`: for a
+module named `acme-widget`, `threeport_acme_widget`.  The control plane creates
+the user when the module is installed.  The statements that create it run in a
+Job in the control plane's namespace, with the database's root credentials,
+which never leave that namespace.  The module's namespace gets only the
+`db-module-creds` secret: the database's CA certificate, the module's user and
+its password.  The module connects with that password over TLS, and verifies
+the database's certificate with the CA's.  It doesn't use a client
+certificate: the installer doesn't keep the database CA's key after it signs
+the certificates it needs, so it can't sign one for a module.
+
+A module's user is a member of the `threeport` user, the control plane's own,
+so it can do what modules could do when they all connected as that user: run
+its migrations in the control plane's database and serve its queries.  The
+`threeport` user can use the tables a module creates.
+
+Each module's user is also a member of the `threeport_modules` role, and the
+control plane sets `sql.log.user_audit` to `threeport_modules ALL`, so
+CockroachDB records every statement a module runs in its SQL audit log, with
+the module's user: `cockroach-data/logs/cockroach-sql-audit.log` on each
+database node.  The control plane's own statements aren't recorded there.
+
+To manage one module's database access, without affecting the control plane
+or any other module:
+
+* **Rotate its password.** Delete the `db-module-user-<module>` secret in the
+  control plane's namespace, then install the module again.  The install sets
+  a new password, and the module's pods are replaced so they connect with it.
+* **Revoke its access at once.** Disable its user as root, from a database
+  node, which holds the root client certificate:
+
+    ```bash
+    kubectl exec -n threeport-control-plane crdb-0 -- \
+      /cockroach/cockroach sql --certs-dir=/cockroach/cockroach-certs --host=crdb \
+      -e "ALTER USER threeport_<module> WITH NOLOGIN"
+    ```
+
+    The module's open connections keep working until they close.  Installing
+    the module again lets it log in.
+* **Remove its user.** Once the module is removed, drop its user the same way,
+  in the `threeport_api` database.  Its tables are kept, and handed to the
+  `threeport` user:
+
+    ```sql
+    REASSIGN OWNED BY threeport_<module> TO threeport;
+    ALTER DEFAULT PRIVILEGES FOR ROLE threeport_<module> REVOKE ALL ON TABLES FROM threeport;
+    ALTER DEFAULT PRIVILEGES FOR ROLE threeport_<module> REVOKE ALL ON SEQUENCES FROM threeport;
+    DROP OWNED BY threeport_<module>;
+    DROP USER threeport_<module>;
+    ```
+
+    Then delete the `db-module-user-<module>` secret in the control plane's
+    namespace.
+
+A module installed with a version of the Threeport SDK from before modules had
+users of their own still connects as the `threeport` user, with copies of the
+database's root and `threeport` client certificates in its namespace.  To move
+it to a user of its own, update its Threeport dependency, regenerate it with
+`threeport-sdk gen`, build its images, and install it again.  Then delete the
+`db-root-cert`, `db-threeport-cert` and `db-create` objects its earlier install
+left in its namespace.
+
 ## Notification Broker
 
 The horizontal scalability of Threeport controllers is enabled by the [NATS
