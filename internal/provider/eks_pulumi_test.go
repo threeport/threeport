@@ -67,8 +67,30 @@ func (m *eksRecordingMocks) Call(args pulumi.MockCallArgs) (resource.PropertyMap
 		}, nil
 	}
 
+	if args.Token == "aws:ec2/getInstanceTypeOfferings:getInstanceTypeOfferings" {
+		zones := make([]resource.PropertyValue, 0, len(testInstanceTypeZones))
+		for _, zone := range testInstanceTypeZones {
+			zones = append(zones, resource.NewStringProperty(zone))
+		}
+		return resource.PropertyMap{
+			"locations": resource.NewArrayProperty(zones),
+		}, nil
+	}
+
+	if args.Token == "aws:eks/getAddonVersion:getAddonVersion" {
+		inputs := args.Args.Mappable()
+		return resource.PropertyMap{
+			"version": resource.NewStringProperty(fmt.Sprintf("%s-for-%s", inputs["addonName"], inputs["kubernetesVersion"])),
+		}, nil
+	}
+
 	return resource.PropertyMap{}, nil
 }
+
+// testInstanceTypeZones are the zones the mocked getInstanceTypeOfferings
+// call says offer the instance type: all but us-east-1b, as m8i isn't in
+// every zone.
+var testInstanceTypeZones = []string{"us-east-1d", "us-east-1a", "us-east-1c"}
 
 // byType returns the recorded resources of a given type.
 func (m *eksRecordingMocks) byType(typeToken string) []eksRecordedResource {
@@ -222,7 +244,8 @@ func TestEksPulumiProgram_SubnetTagsAndCidrs(t *testing.T) {
 	infra := testEksInfra(2)
 	mocks := runEksPulumiProgram(t, infra)
 
-	subnetCidrs := eksSubnetCidrs()
+	network, err := eksLayout("")
+	require.NoError(t, err)
 	publicSubnets := 0
 	privateSubnets := 0
 	for _, subnet := range mocks.byType(eksSubnetTypeToken) {
@@ -242,7 +265,7 @@ func TestEksPulumiProgram_SubnetTagsAndCidrs(t *testing.T) {
 			assert.Equal(t, "1", tags["kubernetes.io/role/elb"])
 			assert.NotContains(t, tags, "kubernetes.io/role/internal-elb")
 			assert.Equal(t, true, subnet.inputs["mapPublicIpOnLaunch"])
-			assert.Equal(t, subnetCidrs[zoneIndex*2], subnet.inputs["cidrBlock"])
+			assert.Equal(t, network.PublicSubnets[zoneIndex], subnet.inputs["cidrBlock"])
 			continue
 		}
 
@@ -250,7 +273,7 @@ func TestEksPulumiProgram_SubnetTagsAndCidrs(t *testing.T) {
 		assert.Equal(t, "1", tags["kubernetes.io/role/internal-elb"])
 		// a node in a private subnet must not get a public IP
 		assert.NotEqual(t, true, subnet.inputs["mapPublicIpOnLaunch"])
-		assert.Equal(t, subnetCidrs[zoneIndex*2+1], subnet.inputs["cidrBlock"])
+		assert.Equal(t, network.PrivateSubnets[zoneIndex], subnet.inputs["cidrBlock"])
 	}
 
 	assert.Equal(t, 2, publicSubnets)

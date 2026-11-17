@@ -6,7 +6,7 @@
         "contact": {
             "url": "https://threeport.io"
         },
-        "version": "v0.7.0-rc.4"
+        "version": "v0.7.0-rc.5"
     },
     "basePath": "/",
     "paths": {
@@ -17539,12 +17539,16 @@
                     "type": "integer"
                 },
                 "KubernetesVersion": {
-                    "description": "The Kubernetes minor version of the clusters, such as \"1.36\": the\nKubernetesRuntimeDefinition's KubernetesVersion, or the default version\nwhen that is unset.  If unset here, the default version is used.  It\ncan't be changed after creation.",
+                    "description": "The Kubernetes minor version of the clusters, such as \"1.36\": the\nKubernetesRuntimeDefinition's KubernetesVersion, or the default version\nwhen that is unset.  If unset here, the default version is used.\nRaising it to another supported version upgrades the clusters, one minor\nversion at a time.  It can't be lowered, since a cluster can't be\ndowngraded, or cleared.",
                     "type": "string"
                 },
                 "Name": {
                     "description": "An arbitrary name for the definition.",
                     "type": "string"
+                },
+                "NodeGroupPerZone": {
+                    "description": "If true, the clusters run a node group in each zone, each with the\ndefault node group's instance type and sizes, rather than one node\ngroup spanning every zone.  The cluster autoscaler can then add a node\nin a given zone, as a pod bound to a volume there needs.  The zones are\nchosen from those that offer the instance type.  It can't be changed\nafter creation, since that replaces the node groups.",
+                    "type": "boolean"
                 },
                 "PrivateApi": {
                     "description": "If true, the Kubernetes API is not reachable from the public internet.\nSet from the KubernetesRuntimeDefinition's PrivateApi.",
@@ -17617,6 +17621,10 @@
                     "description": "The kubernetes runtime instance associated with the AWS EKS cluster.",
                     "type": "integer"
                 },
+                "KubernetesVersion": {
+                    "description": "The Kubernetes minor version the cluster runs, such as \"1.36\", as the\ncontroller last read it from the provider.  That is the\nlower of its control plane's and its node group's, which EKS upgrades\nseparately.",
+                    "type": "string"
+                },
                 "Name": {
                     "description": "An arbitrary name the instance",
                     "type": "string"
@@ -17639,6 +17647,30 @@
                 "Status": {
                     "description": "The status of the instance.\nTODO: use a custom type",
                     "type": "string"
+                },
+                "UpgradeAcknowledged": {
+                    "description": "Set by the controller when it starts upgrading the cluster to the\ndefinition's KubernetesVersion, and refreshed while the upgrade runs.",
+                    "type": "string"
+                },
+                "UpgradeFailed": {
+                    "description": "True when the last upgrade failed.  The controller tries it again after\na wait.",
+                    "type": "boolean"
+                },
+                "UpgradeRefused": {
+                    "description": "True when the controller refused to upgrade the cluster: because the\nupgrade would replace or delete any of its resources, or because\nThreeport didn't create the cluster.  It doesn't try again until the\ndefinition's KubernetesVersion changes, or this is set back to false.",
+                    "type": "boolean"
+                },
+                "UpgradeRequestedVersion": {
+                    "description": "The definition's KubernetesVersion the cluster was last asked to be\nupgraded to.  The API server sets it when an update of the EKS\ndefinition asks the cluster to upgrade, once the cluster's controller\nhas been notified, so a request it couldn't finish is made again by the\ndefinition's next update.",
+                    "type": "string"
+                },
+                "UpgradeStatus": {
+                    "description": "What the controller last did to upgrade the cluster, or why it\ncouldn't.",
+                    "type": "string"
+                },
+                "Upgrading": {
+                    "description": "True while the controller upgrades the cluster.",
+                    "type": "boolean"
                 }
             }
         },
@@ -17906,6 +17938,10 @@
                     "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
                     "type": "string"
                 },
+                "FromNamespace": {
+                    "description": "The namespace of the control plane this install replaces",
+                    "type": "string"
+                },
                 "Genesis": {
                     "description": "Indicates whether this is was the first control plane that was spun up in a control plane group",
                     "type": "boolean"
@@ -17930,6 +17966,10 @@
                     "description": "the kubernetes runtime instance the control plane is running on",
                     "type": "integer"
                 },
+                "ModuleInstall": {
+                    "description": "The module install the parent controller runs, as name, image namespace, and tag separated by spaces",
+                    "type": "string"
+                },
                 "Name": {
                     "description": "An arbitrary name the instance",
                     "type": "string"
@@ -17939,7 +17979,7 @@
                     "type": "string"
                 },
                 "NetworkCidrPool": {
-                    "description": "The address blocks from which this control plane allocates a /16\nnetwork range to each Kubernetes runtime it provisions, as a JSON array\nof IPv4 CIDR blocks such as [\"10.16.0.0/12\"].  Each block must be a /16\nor larger, and the blocks must not overlap.  If empty, the default pool\nis used: 10.16.0.0/16 through 10.255.0.0/16, except 10.96.0.0/16 and\n10.244.0.0/16.  A change affects only later allocations.  On a child\ncontrol plane, the pool must be clear of the ranges its parent has\nallocated, and the parent does not allocate from it.",
+                    "description": "The address blocks from which this control plane allocates a /16\nnetwork range to each Kubernetes runtime it provisions, as a JSON array\nof IPv4 CIDR blocks such as [\"10.16.0.0/12\"].  Each block must be a /16\nor larger, and the blocks must not overlap.  If empty, the default pool\nis used: 10.16.0.0/16 through 10.255.0.0/16, except 10.96.0.0/16 and\n10.244.0.0/16.  A change affects only later allocations.  On a child\ncontrol plane, the pool must be clear of the ranges its parent has\nallocated and of its other children's pools, and the parent does not\nallocate from it.  A child's pool can only grow, since the child may\nhave allocated from any of its blocks: a block can be added, or replaced\nby a larger one that holds it.  On a control plane that is itself a\nchild, a child's pool must be inside this control plane's own pool.  A\nchild with no pool allocates no ranges, and its clusters keep the\nnetwork every cluster used to get.",
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -17955,6 +17995,13 @@
                 "Reconciled": {
                     "description": "Indicates if object is considered to be reconciled by the object's controller.",
                     "type": "boolean"
+                },
+                "ReservedNetworkCidrs": {
+                    "description": "The address blocks this control plane doesn't allocate from, and that\nno runtime's range and no child control plane's pool may overlap, as a\nJSON array of IPv4 CIDR blocks.  They are the pools of its deleted\nchildren, recorded on the instance that represents this control plane\nas each child is deleted, since the clusters a child allocated from its\npool may outlive it.  Remove a block once the clusters allocated from it\nare gone; a control plane that is itself a child releases its own.  A\nwrite that leaves out a block is refused with a conflict when the\ninstance changed after the writer read it, so a write based on an\nearlier read can't release a block reserved since: read it again.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "Status": {
                     "description": "The status of the instance.\nTODO: use a custom type",
@@ -18415,7 +18462,19 @@
                     "type": "integer"
                 },
                 "KubernetesVersion": {
-                    "description": "The Kubernetes minor version of the clusters, such as \"1.36\": the\nKubernetesRuntimeDefinition's KubernetesVersion, or the default version\nwhen that is unset.  If unset here, the default version is used.  It\ncan't be changed after creation.",
+                    "description": "The Kubernetes minor version of the clusters, such as \"1.36\": the\nKubernetesRuntimeDefinition's KubernetesVersion, or the default version\nwhen that is unset.  If unset here, the default version is used.\nRaising it to another supported version upgrades the clusters, one minor\nversion at a time.  It can't be lowered, since a cluster can't be\ndowngraded, or cleared.",
+                    "type": "string"
+                },
+                "MaintenanceWindowDays": {
+                    "description": "The days the clusters' maintenance window recurs on, in UTC, as an\nRRULE writes them: such as \"SA,SU\".  GKE upgrades a cluster only in that\nwindow, apart from an upgrade it can't defer.  If unset, \"SA,SU\" is used.\nIt can't be changed after creation.",
+                    "type": "string"
+                },
+                "MaintenanceWindowHours": {
+                    "description": "How many hours the maintenance window lasts, from 4 to 24.  If unset, 8\nis used.  It can't be changed after creation.",
+                    "type": "integer"
+                },
+                "MaintenanceWindowStart": {
+                    "description": "The time of day the maintenance window starts on each of its days, in\nUTC, such as \"04:00\".  If unset, \"04:00\" is used.  It can't be changed\nafter creation.",
                     "type": "string"
                 },
                 "Name": {
@@ -18429,6 +18488,10 @@
                 "ProfileID": {
                     "description": "The profile to associate with the definition.  Profile is a named\nstandard configuration for a definition object.",
                     "type": "integer"
+                },
+                "ReleaseChannel": {
+                    "description": "The GKE release channel of the clusters, REGULAR or STABLE.  GKE\nupgrades their control planes and nodes to its releases on its own,\nwithin the maintenance window.  If unset, REGULAR is used.  It can't be\nchanged after creation.",
+                    "type": "string"
                 },
                 "TierID": {
                     "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
@@ -18493,6 +18556,10 @@
                     "description": "The kubernetes runtime instance associated with the GKE cluster.",
                     "type": "integer"
                 },
+                "KubernetesVersion": {
+                    "description": "The Kubernetes minor version the cluster runs, such as \"1.36\", as the\ncontroller last read it from the provider.  That is its control\nplane's: GKE upgrades its nodes to it in the maintenance window.",
+                    "type": "string"
+                },
                 "Name": {
                     "description": "An arbitrary name the instance",
                     "type": "string"
@@ -18519,6 +18586,30 @@
                 "Status": {
                     "description": "The status of the instance.\nTODO: use a custom type",
                     "type": "string"
+                },
+                "UpgradeAcknowledged": {
+                    "description": "Set by the controller when it starts upgrading the cluster to the\ndefinition's KubernetesVersion, and refreshed while the upgrade runs.",
+                    "type": "string"
+                },
+                "UpgradeFailed": {
+                    "description": "True when the last upgrade failed.  The controller tries it again after\na wait.",
+                    "type": "boolean"
+                },
+                "UpgradeRefused": {
+                    "description": "True when the controller refused to upgrade the cluster: because the\nupgrade would replace or delete any of its resources, or because\nThreeport didn't create the cluster.  It doesn't try again until the\ndefinition's KubernetesVersion changes, or this is set back to false.",
+                    "type": "boolean"
+                },
+                "UpgradeRequestedVersion": {
+                    "description": "The definition's KubernetesVersion the cluster was last asked to be\nupgraded to.  The API server sets it when an update of the GKE\ndefinition asks the cluster to upgrade, once the cluster's controller\nhas been notified, so a request it couldn't finish is made again by the\ndefinition's next update.",
+                    "type": "string"
+                },
+                "UpgradeStatus": {
+                    "description": "What the controller last did to upgrade the cluster, or why it\ncouldn't.",
+                    "type": "string"
+                },
+                "Upgrading": {
+                    "description": "True while the controller upgrades the cluster.",
+                    "type": "boolean"
                 }
             }
         },
@@ -18788,7 +18879,7 @@
                     }
                 },
                 "KubernetesVersion": {
-                    "description": "The Kubernetes minor version of the clusters, such as \"1.36\", on EKS,\nGKE and OKE.  If unset, the default version is used, and the EKS, GKE\nor OKE definition records it.  It can't be changed after creation.  A\nkind cluster's version comes with its node image, so it takes none.",
+                    "description": "The Kubernetes minor version of the clusters, such as \"1.36\", on EKS,\nGKE and OKE.  If unset, the default version is used, and the EKS, GKE\nor OKE definition records it.  It records the version asked for at\ncreation and can't be changed: the clusters are upgraded by raising the\nEKS or GKE definition's KubernetesVersion.  A kind cluster's version\ncomes with its node image, so it takes none.",
                     "type": "string"
                 },
                 "Name": {
@@ -18808,7 +18899,7 @@
                     "type": "string"
                 },
                 "PrivateApi": {
-                    "description": "If true, the Kubernetes API is not reachable from the public internet.\nIt is reachable only from the cluster's own network, from networks\nconnected to it and, on GKE, through the IAM-authorized DNS endpoint.\nCannot be changed after creation.",
+                    "description": "If true, the Kubernetes API is not reachable from the public internet.\nIt is reachable only from the cluster's own network, from networks\nconnected to it and, on GKE, through the IAM-authorized DNS endpoint.\nSupported on GKE only.  Cannot be changed after creation.",
                     "type": "boolean"
                 },
                 "ProfileID": {
@@ -18935,7 +19026,7 @@
                     "type": "string"
                 },
                 "NetworkCidr": {
-                    "description": "The IPv4 network range of the cluster's network, such as 10.16.0.0/16:\nits VPC on EKS, its VCN on OKE, and its node, Pod and Service ranges on\nGKE.  No two runtimes may overlap, so that their networks can be\nconnected.  If unset when the runtime is provisioned, the control plane\nallocates the next free /16 from its NetworkCidrPool.  If set, it must be\na /16 or larger, overlap no other runtime's range and stay clear of the\nranges clusters use internally (10.96.0.0/16, 10.244.0.0/16 and\n172.20.0.0/16); it does not have to be in the pool.  Cannot be changed\nonce set.",
+                    "description": "The IPv4 network range of the cluster's network, such as 10.16.0.0/16:\nits VPC on EKS, its VCN on OKE, and its node, Pod and Service ranges on\nGKE.  No two runtimes may overlap, so that their networks can be\nconnected.  If unset when the runtime is provisioned, the control plane\nallocates the next free /16 from its NetworkCidrPool.  If set, it must be\na /16 or larger, overlap no other runtime's range and no child control\nplane's pool, and stay clear of the ranges clusters use internally\n(10.96.0.0/16, 10.244.0.0/16, 172.20.0.0/16 and 172.16.0.0/28); it does\nnot have to be in the pool.  A range larger than a /16 is reserved\nwhole, and the cluster's network is laid out in its first /16, as AWS\nand OCI networks are no larger.  Cannot be changed once set.",
                     "type": "string"
                 },
                 "Reconciled": {
@@ -19833,6 +19924,14 @@
                 },
                 "Endpoint": {
                     "description": "The module API server's endpoint to proxy requests to for module\nobjects.",
+                    "type": "string"
+                },
+                "ImageNamespace": {
+                    "description": "The repository the module's images are pulled from.",
+                    "type": "string"
+                },
+                "ImageTag": {
+                    "description": "The tag on each of the module's images.",
                     "type": "string"
                 },
                 "ModuleApiRoutes": {

@@ -32,9 +32,9 @@ const (
 	OkeAllowedCidrsLimit = 120
 )
 
-// ErrMsgPrivateApiNotSupported is the rejection of PrivateApi: true until
-// the providers can make a Kubernetes API private.
-const ErrMsgPrivateApiNotSupported = "PrivateApi is not supported yet: the Kubernetes API can be restricted with AllowedCidrs, but not yet made private"
+// ErrMsgPrivateApiNotSupported is the rejection of PrivateApi: true on a
+// provider that cannot make a Kubernetes API private yet.
+const ErrMsgPrivateApiNotSupported = "PrivateApi is supported only on GKE for now: Threeport reaches a private GKE cluster through its DNS endpoint, while a private EKS or OKE cluster needs a network path from the control plane that Threeport does not set up yet - restrict the API with AllowedCidrs instead"
 
 // ErrMsgKubernetesApiAccessImmutable is the rejection of an update that
 // changes PrivateApi or AllowedCidrs.
@@ -120,9 +120,10 @@ func validateKubernetesApiAccess(infraProvider string, privateApi *bool, allowed
 		return nil
 	}
 
-	// no provider program makes the endpoint private yet, so accepting
-	// PrivateApi would leave a cluster public that was asked to be private
-	if private {
+	// only the GKE program makes the endpoint private, so accepting
+	// PrivateApi elsewhere would leave a cluster public that was asked to
+	// be private
+	if private && infraProvider != KubernetesRuntimeInfraProviderGKE {
 		return util.NewBadRequestError(ErrMsgPrivateApiNotSupported)
 	}
 

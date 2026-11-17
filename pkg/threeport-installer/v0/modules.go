@@ -2,13 +2,18 @@ package v0
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 
 	client "github.com/threeport/threeport/pkg/client/v0"
@@ -188,9 +193,18 @@ func (cpi *ControlPlaneInstaller) ScaleDownModules(
 			)
 		}
 
-		// skip a deployment already at zero so it stays out of the record
+		// a retry keeps the count stored before the first scale to zero
 		replicas, _, _ := util.NestedInt64OrFloat64(deployment.Object, "spec", "replicas")
 		if replicas == 0 {
+			recorded, ok := recordedModuleReplicas(deployment)
+			if !ok {
+				continue
+			}
+			scales = append(scales, ModuleDeploymentScale{
+				Namespace: target.Namespace,
+				Name:      target.Name,
+				Replicas:  recorded,
+			})
 			continue
 		}
 
@@ -201,6 +215,9 @@ func (cpi *ControlPlaneInstaller) ScaleDownModules(
 		}
 
 		// scale the deployment to zero and record its prior count
+		if err := cpi.recordModuleReplicas(kubeClient, deployment, replicas); err != nil {
+			return scales, err
+		}
 		if err := cpi.setDeploymentReplicas(kubeClient, target.Namespace, target.Name, 0); err != nil {
 			return scales, err
 		}
@@ -252,6 +269,222 @@ func (cpi *ControlPlaneInstaller) ScaleDownModules(
 	return scales, nil
 }
 
+// scaleDownModuleWriters scales module controllers and API servers to zero and returns the counts it stopped.
+func (cpi *ControlPlaneInstaller) scaleDownModuleWriters(
+	kubeClient dynamic.Interface,
+	controllers []ModuleDeploymentScale,
+	apiServers []ModuleApiServer,
+) ([]ModuleDeploymentScale, error) {
+	// include controllers that live in a module API namespace but are not registered by name
+	found, err := moduleNamespaceControllers(kubeClient, apiServers, controllers)
+	if err != nil {
+		return nil, err
+	}
+	controllers = append(controllers, found...)
+
+	// scale controller deployments and keep the counts
+	scales, err := cpi.ScaleDownModules(kubeClient, controllers)
+	if err != nil {
+		return scales, err
+	}
+
+	// record each module API server, then scale it to zero
+	apiNames := map[string]map[string]int64{}
+	for _, server := range apiServers {
+		deployment, err := kubeClient.Resource(deploymentGVR).Namespace(server.Namespace).Get(
+			context.Background(), server.Service, metav1.GetOptions{},
+		)
+		if k8serrors.IsNotFound(err) {
+			continue
+		}
+		if err != nil {
+			return scales, fmt.Errorf("failed to get module API deployment %s/%s: %w", server.Namespace, server.Service, err)
+		}
+		replicas, _, _ := util.NestedInt64OrFloat64(deployment.Object, "spec", "replicas")
+		if replicas == 0 {
+			recorded, ok := recordedModuleReplicas(deployment)
+			if !ok {
+				continue
+			}
+			replicas = recorded
+		} else if err := cpi.recordModuleReplicas(kubeClient, deployment, replicas); err != nil {
+			return scales, err
+		}
+		if err := cpi.setDeploymentReplicas(kubeClient, server.Namespace, server.Service, 0); err != nil {
+			return scales, err
+		}
+		scales = append(scales, ModuleDeploymentScale{
+			Namespace: server.Namespace,
+			Name:      server.Service,
+			Replicas:  replicas,
+		})
+		if apiNames[server.Namespace] == nil {
+			apiNames[server.Namespace] = map[string]int64{}
+		}
+		apiNames[server.Namespace][server.Service] = 0
+	}
+
+	// wait until the scaled API pods are gone
+	for namespace, names := range apiNames {
+		if err := waitForPodsGone(kubeClient, namespace, names); err != nil {
+			return scales, err
+		}
+	}
+
+	return scales, nil
+}
+
+const moduleWriterScaleConfigMap = "module-writer-scales"
+
+var moduleConfigMapGVR = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+
+// recordModuleReplicas stores the count that a later retry has to restore.
+func (cpi *ControlPlaneInstaller) recordModuleReplicas(
+	kubeClient dynamic.Interface,
+	deployment *unstructured.Unstructured,
+	replicas int64,
+) error {
+	// replace a count left by an earlier backup with the live count
+	patch := fmt.Appendf(
+		nil,
+		`{"metadata":{"annotations":{%q:%q}}}`,
+		replicasBeforeRestoreAnnotation,
+		strconv.FormatInt(replicas, 10),
+	)
+	_, err := kubeClient.Resource(deploymentGVR).Namespace(deployment.GetNamespace()).Patch(
+		context.Background(),
+		deployment.GetName(),
+		types.MergePatchType,
+		patch,
+		metav1.PatchOptions{},
+	)
+	if err != nil {
+		return fmt.Errorf(
+			"failed to record replicas for %s/%s: %w",
+			deployment.GetNamespace(), deployment.GetName(), err,
+		)
+	}
+	return nil
+}
+
+// moduleNamespaceControllers returns controller deployments in each module API namespace.
+func moduleNamespaceControllers(
+	kubeClient dynamic.Interface,
+	apiServers []ModuleApiServer,
+	known []ModuleDeploymentScale,
+) ([]ModuleDeploymentScale, error) {
+	// skip names the registry already returned
+	seen := map[string]bool{}
+	for _, item := range known {
+		seen[item.Namespace+"/"+item.Name] = true
+	}
+	seenNamespace := map[string]bool{}
+	var found []ModuleDeploymentScale
+	for _, server := range apiServers {
+		if server.Namespace == "" || seenNamespace[server.Namespace] {
+			continue
+		}
+		seenNamespace[server.Namespace] = true
+
+		// list the deployments in the module namespace
+		list, err := kubeClient.Resource(deploymentGVR).Namespace(server.Namespace).List(
+			context.Background(),
+			metav1.ListOptions{},
+		)
+		if k8serrors.IsNotFound(err) {
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to list deployments in %s: %w", server.Namespace, err)
+		}
+		for i := range list.Items {
+			deployment := &list.Items[i]
+			if !moduleControllerDeployment(deployment) {
+				continue
+			}
+			key := deployment.GetNamespace() + "/" + deployment.GetName()
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			found = append(found, ModuleDeploymentScale{
+				Namespace: deployment.GetNamespace(),
+				Name:      deployment.GetName(),
+			})
+		}
+	}
+	return found, nil
+}
+
+// recordedModuleReplicas reads the count stored before a module writer was stopped.
+func recordedModuleReplicas(deployment *unstructured.Unstructured) (int64, bool) {
+	// ignore a deployment that was never stopped by this restore
+	raw := deployment.GetAnnotations()[replicasBeforeRestoreAnnotation]
+	count, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || count <= 0 {
+		return 0, false
+	}
+	return count, true
+}
+
+// rememberModuleScales stores the module writer counts in the control plane namespace.
+func (cpi *ControlPlaneInstaller) rememberModuleScales(
+	kubeClient dynamic.Interface,
+	scales []ModuleDeploymentScale,
+) error {
+	// keep an empty list so a retry can tell discovery was skipped on purpose
+	if scales == nil {
+		scales = []ModuleDeploymentScale{}
+	}
+	encoded, err := json.Marshal(scales)
+	if err != nil {
+		return fmt.Errorf("failed to encode module writer scales: %w", err)
+	}
+	object := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata": map[string]interface{}{
+			"name":      moduleWriterScaleConfigMap,
+			"namespace": cpi.Opts.Namespace,
+		},
+		"data": map[string]interface{}{"scales": string(encoded)},
+	}}
+	_, err = kubeClient.Resource(moduleConfigMapGVR).Namespace(cpi.Opts.Namespace).Create(
+		context.Background(), object, metav1.CreateOptions{},
+	)
+	if k8serrors.IsAlreadyExists(err) {
+		_, err = kubeClient.Resource(moduleConfigMapGVR).Namespace(cpi.Opts.Namespace).Update(
+			context.Background(), object, metav1.UpdateOptions{},
+		)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to store module writer scales: %w", err)
+	}
+	return nil
+}
+
+// rememberedModuleScales reads the module writer counts stored before the API was stopped.
+func (cpi *ControlPlaneInstaller) rememberedModuleScales(
+	kubeClient dynamic.Interface,
+) ([]ModuleDeploymentScale, error) {
+	// a missing record means this attempt never stopped the module writers
+	object, err := kubeClient.Resource(moduleConfigMapGVR).Namespace(cpi.Opts.Namespace).Get(
+		context.Background(), moduleWriterScaleConfigMap, metav1.GetOptions{},
+	)
+	if k8serrors.IsNotFound(err) {
+		return []ModuleDeploymentScale{}, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to read module writer scales: %w", err)
+	}
+	raw, _, _ := unstructured.NestedString(object.Object, "data", "scales")
+	var scales []ModuleDeploymentScale
+	if err := json.Unmarshal([]byte(raw), &scales); err != nil {
+		return nil, fmt.Errorf("failed to decode module writer scales: %w", err)
+	}
+	return scales, nil
+}
+
 // moduleControllerDeployment reports whether the deployment is a module
 // controller. Module installers do not stamp the managed-by label.
 func moduleControllerDeployment(deployment *unstructured.Unstructured) bool {
@@ -261,9 +494,9 @@ func moduleControllerDeployment(deployment *unstructured.Unstructured) bool {
 		return false
 	}
 
-	// require the pod label to match that name
+	// a present name label must match. An installer that stamps none is still a controller
 	labels, _, _ := unstructured.NestedStringMap(deployment.Object, "spec", "template", "metadata", "labels")
-	if labels["app.kubernetes.io/name"] != name {
+	if label := labels["app.kubernetes.io/name"]; label != "" && label != name {
 		return false
 	}
 
@@ -285,7 +518,8 @@ func moduleControllerDeployment(deployment *unstructured.Unstructured) bool {
 }
 
 // RestoreModuleScale sets each recorded deployment back to its prior replica
-// count and does not wait for pods to become ready.
+// count, removes the count recorded for the backup, and does not wait for pods
+// to become ready.
 func (cpi *ControlPlaneInstaller) RestoreModuleScale(
 	kubeClient dynamic.Interface,
 	scales []ModuleDeploymentScale,
@@ -297,7 +531,7 @@ func (cpi *ControlPlaneInstaller) RestoreModuleScale(
 
 	// restore each recorded replica count
 	for _, scale := range scales {
-		if err := cpi.setDeploymentReplicas(
+		if err := cpi.resumeDeploymentReplicas(
 			kubeClient, scale.Namespace, scale.Name, scale.Replicas,
 		); err != nil {
 			return err
@@ -306,6 +540,97 @@ func (cpi *ControlPlaneInstaller) RestoreModuleScale(
 
 	// report the restore
 	fmt.Printf("Info: restored %d module deployment(s) to their original replica count\n", len(scales))
+
+	return nil
+}
+
+// SplitModuleScales divides the recorded module deployments by an install
+// request. The first result holds the deployments in the namespace the request's
+// module installs into, which the install creates again. The second holds the
+// rest, which keep running. An empty or unreadable request leaves every
+// deployment in the second result.
+func SplitModuleScales(
+	request string,
+	scales []ModuleDeploymentScale,
+) ([]ModuleDeploymentScale, []ModuleDeploymentScale) {
+	// replace nothing when no module is requested
+	module, err := moduleFromInstallRequest(request)
+	if err != nil {
+		return nil, scales
+	}
+
+	// split by the namespace the request's module installs into
+	namespace := moduleWorkloadNamespace(module)
+	var replaced, others []ModuleDeploymentScale
+	for _, scale := range scales {
+		if scale.Namespace == namespace {
+			replaced = append(replaced, scale)
+			continue
+		}
+		others = append(others, scale)
+	}
+
+	return replaced, others
+}
+
+// DeleteModuleNamespaces deletes each namespace that holds a recorded module
+// deployment, so a module install creates the module's workloads again from the
+// module's own installer.
+func DeleteModuleNamespaces(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	scales []ModuleDeploymentScale,
+) error {
+	// collect each module namespace once
+	var namespaces []string
+	seen := map[string]bool{}
+	for _, scale := range scales {
+		if scale.Namespace == "" || seen[scale.Namespace] {
+			continue
+		}
+		seen[scale.Namespace] = true
+		namespaces = append(namespaces, scale.Namespace)
+	}
+	if len(namespaces) == 0 {
+		return nil
+	}
+
+	// delete them together
+	if err := DeleteNamespaces(kubeClient, mapper, namespaces); err != nil {
+		return fmt.Errorf("failed to delete module namespaces %s: %w", strings.Join(namespaces, ", "), err)
+	}
+	fmt.Printf("Info: deleted module namespace(s) %s\n", strings.Join(namespaces, ", "))
+
+	return nil
+}
+
+// resumeDeploymentReplicas patches a stopped deployment back to its prior
+// replica count and removes the count recorded before it stopped, in one patch.
+// A later backup then reads zero replicas with no record as a deployment it did
+// not stop. A missing deployment is success.
+func (cpi *ControlPlaneInstaller) resumeDeploymentReplicas(
+	kubeClient dynamic.Interface,
+	namespace string,
+	name string,
+	replicas int64,
+) error {
+	// set the count and null the annotation in one merge patch
+	patch := fmt.Appendf(
+		nil,
+		`{"metadata":{"annotations":{%q:null}},"spec":{"replicas":%d}}`,
+		replicasBeforeRestoreAnnotation,
+		replicas,
+	)
+	_, err := kubeClient.Resource(deploymentGVR).Namespace(namespace).Patch(
+		context.Background(),
+		name,
+		"application/strategic-merge-patch+json",
+		patch,
+		metav1.PatchOptions{},
+	)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return fmt.Errorf("failed to resume deployment %s/%s at %d: %w", namespace, name, replicas, err)
+	}
 
 	return nil
 }

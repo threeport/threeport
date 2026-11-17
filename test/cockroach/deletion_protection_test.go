@@ -20,7 +20,7 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// TestDeletionProtectionMigratesAnExistingDatabase covers 000009 on a
+// TestDeletionProtectionMigratesAnExistingDatabase covers 000012 on a
 // database built before the definitions recorded deletion protection, as a
 // deployed control plane's is: it adds the column to each kubernetes runtime
 // definition table, and a definition already there reads as unprotected.  On
@@ -51,17 +51,17 @@ func TestDeletionProtectionMigratesAnExistingDatabase(t *testing.T) {
 	// a new install: 000001 builds the field from the models
 	require.NoError(t, migrations.Up000001(ctx, nil))
 	require.Equal(t, len(definitions), withColumn())
-	require.NoError(t, migrations.Up000009(ctx, sqlDb), "000009 finds it there")
+	require.NoError(t, migrations.Up000012(ctx, sqlDb), "000012 finds it there")
 
 	// a database built before the field, holding a definition
-	require.NoError(t, migrations.Down000009(ctx, sqlDb))
+	require.NoError(t, migrations.Down000012(ctx, sqlDb))
 	assert.Zero(t, withColumn())
-	require.NoError(t, migrations.Down000009(ctx, sqlDb), "a down migration with nothing left to remove")
+	require.NoError(t, migrations.Down000012(ctx, sqlDb), "a down migration with nothing left to remove")
 	require.NoError(t, db.Exec(
 		"INSERT INTO v0_kubernetes_runtime_definitions (name, infra_provider, created_at, updated_at) VALUES ('before', 'eks', now(), now())",
 	).Error)
 
-	require.NoError(t, migrations.Up000009(ctx, sqlDb))
+	require.NoError(t, migrations.Up000012(ctx, sqlDb))
 	assert.Equal(t, len(definitions), withColumn(), "on every kubernetes runtime definition table")
 	var protected *bool
 	require.NoError(t, db.Raw(

@@ -32,6 +32,7 @@ func DeployOkeInfra(
 			ProjectDescription:  "Oracle Kubernetes Engine (OKE) cluster for Threeport",
 			// StackConfigs set by LoadOCIConfig after region is resolved
 		},
+		NetworkCidr:            cpi.Opts.NetworkCidr,
 		WorkerNodeShape:        "VM.Standard.A1.Flex",
 		Version:                cpi.Opts.KubernetesVersion,
 		WorkerNodeInitialCount: int32(2),

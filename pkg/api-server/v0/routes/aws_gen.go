@@ -12,12 +12,12 @@ import (
 func AwsEksKubernetesRuntimeDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
 	e.GET(v0.PathAwsEksKubernetesRuntimeDefinitionVersions, h.GetAwsEksKubernetesRuntimeDefinitionVersions)
 
-	e.POST(v0.PathAwsEksKubernetesRuntimeDefinitions, h.AddAwsEksKubernetesRuntimeDefinition)
-	e.GET(v0.PathAwsEksKubernetesRuntimeDefinitions, h.GetAwsEksKubernetesRuntimeDefinitions)
-	e.GET(v0.PathAwsEksKubernetesRuntimeDefinitions+"/:id", h.GetAwsEksKubernetesRuntimeDefinition)
-	e.PATCH(v0.PathAwsEksKubernetesRuntimeDefinitions+"/:id", h.UpdateAwsEksKubernetesRuntimeDefinition)
-	e.PUT(v0.PathAwsEksKubernetesRuntimeDefinitions+"/:id", h.ReplaceAwsEksKubernetesRuntimeDefinition)
-	e.DELETE(v0.PathAwsEksKubernetesRuntimeDefinitions+"/:id", h.DeleteAwsEksKubernetesRuntimeDefinition)
+	e.POST(v0.PathAwsEksKubernetesRuntimeDefinitions, h.AddAwsEksKubernetesRuntimeDefinition, h.AddAwsEksKubernetesRuntimeDefinitionMiddleware()...)
+	e.GET(v0.PathAwsEksKubernetesRuntimeDefinitions, h.GetAwsEksKubernetesRuntimeDefinitions, h.GetAwsEksKubernetesRuntimeDefinitionMiddleware()...)
+	e.GET(v0.PathAwsEksKubernetesRuntimeDefinitions+"/:id", h.GetAwsEksKubernetesRuntimeDefinition, h.GetAwsEksKubernetesRuntimeDefinitionMiddleware()...)
+	e.PATCH(v0.PathAwsEksKubernetesRuntimeDefinitions+"/:id", h.UpdateAwsEksKubernetesRuntimeDefinition, h.PatchAwsEksKubernetesRuntimeDefinitionMiddleware()...)
+	e.PUT(v0.PathAwsEksKubernetesRuntimeDefinitions+"/:id", h.ReplaceAwsEksKubernetesRuntimeDefinition, h.PutAwsEksKubernetesRuntimeDefinitionMiddleware()...)
+	e.DELETE(v0.PathAwsEksKubernetesRuntimeDefinitions+"/:id", h.DeleteAwsEksKubernetesRuntimeDefinition, h.DeleteAwsEksKubernetesRuntimeDefinitionMiddleware()...)
 }
 
 // AwsEksKubernetesRuntimeInstanceRoutes sets up all routes for the AwsEksKubernetesRuntimeInstance handlers.

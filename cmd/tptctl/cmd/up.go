@@ -119,7 +119,8 @@ control planes if they are used to create or are created by another control plan
 			cli.Error("flag validation failed:", err)
 			os.Exit(1)
 		}
-		if err := cli.ValidateK8sApiAllowedCidrsFlag(
+		if err := cli.ValidateK8sApiAccessFlags(
+			cliArgs.PrivateK8sApi,
 			cliArgs.K8sApiAllowedCidrs,
 			cliArgs.InfraProvider,
 			cliArgs.ControlPlaneOnly,
@@ -238,6 +239,14 @@ func init() {
 			strings.Join(v0.SupportedKubernetesVersions, ", "), v0.DefaultKubernetesVersion,
 		),
 	)
+	UpCmd.Flags().StringVar(
+		&cliArgs.NetworkCidrPool,
+		"network-cidr-pool", "", "Comma-separated network blocks, each a /16 or larger, the control plane allocates its Kubernetes runtimes' network ranges from, a /16 each. Defaults to 10.16.0.0/16 through 10.255.0.0/16, except 10.96.0.0/16 and 10.244.0.0/16.",
+	)
+	UpCmd.Flags().StringVar(
+		&cliArgs.NetworkCidr,
+		"network-cidr", "", "Network range, a /16 or larger, of the control plane's own cluster on eks, gke or oke. Defaults to the first block of the pool. With --control-plane-only, records the existing cluster's range so no runtime is allocated it.",
+	)
 	UpCmd.Flags().BoolVar(
 		&cliArgs.ForceOverwriteConfig,
 		"force-overwrite-config", false, "Force the overwrite of an existing Threeport instance config.  Warning: this will erase the connection info for the existing instance.  Only do this if the existing instance has already been deleted and is no longer in use.",
@@ -295,9 +304,13 @@ func init() {
 		&cliArgs.LocalRegistry,
 		"local-registry", false, "Connects a local container registry to Threeport control plane cluster.  Only applicable with provider 'kind'.",
 	)
+	UpCmd.Flags().BoolVar(
+		&cliArgs.PrivateK8sApi,
+		"private-k8s-api", false, "Turn off the public IP endpoint of the control plane cluster's Kubernetes API.  tptctl and the control plane reach it through GKE's DNS endpoint, which Google authorizes by IAM, and the cluster's network and those connected to it reach its internal endpoint.  Defaults to false.  Only applicable with provider 'gke', and not with --control-plane-only.",
+	)
 	UpCmd.Flags().StringSliceVar(
 		&cliArgs.K8sApiAllowedCidrs,
-		"k8s-api-allowed-cidrs", []string{}, "Optional. Comma-separated IPv4 CIDR blocks allowed to reach the Kubernetes API of the control plane cluster, e.g. 203.0.113.7/32.  Include this machine's public address: tptctl needs the Kubernetes API to install the control plane, and fails before installing anything if it cannot reach it.  Defaults to empty, which leaves the Kubernetes API open to every address.  Not applicable with provider 'kind' or --control-plane-only.",
+		"k8s-api-allowed-cidrs", []string{}, "Optional. Comma-separated IPv4 CIDR blocks allowed to reach the Kubernetes API of the control plane cluster, e.g. 203.0.113.7/32.  Include this machine's public address: tptctl needs the Kubernetes API to install the control plane, and fails before installing anything if it cannot reach it.  Defaults to empty, which leaves the Kubernetes API open to every address.  With --private-k8s-api, these are the private networks, such as a VPN, that may reach the internal endpoint, and this machine's address is not needed.  Not applicable with provider 'kind' or --control-plane-only.",
 	)
 	UpCmd.Flags().StringSliceVar(
 		&cliArgs.KindPortMappings,
@@ -314,5 +327,25 @@ func init() {
 			threeport.DefaultLocalAPIPortAuthEnabled,
 			threeport.DefaultLocalAPIPortAuthDisabled,
 		),
+	)
+	UpCmd.Flags().StringVar(
+		&cliArgs.Namespace,
+		"namespace", "", "Namespace to install the control plane into. Defaults to threeport-control-plane.",
+	)
+	UpCmd.Flags().StringVar(
+		&cliArgs.FromNamespace,
+		"from-namespace", "", "Namespace to copy the certificate authority and encryption key from. Only applicable with --control-plane-only, since the namespace has to exist in the cluster you install into.",
+	)
+	UpCmd.Flags().StringVar(
+		&cliArgs.CACertFile,
+		"ca-cert-file", "", "File holding the certificate authority certificate to install.",
+	)
+	UpCmd.Flags().StringVar(
+		&cliArgs.CAKeyFile,
+		"ca-key-file", "", "File holding the certificate authority private key to install.",
+	)
+	UpCmd.Flags().StringVar(
+		&cliArgs.EncryptionKeyFile,
+		"encryption-key-file", "", "File holding the encryption key to install.",
 	)
 }

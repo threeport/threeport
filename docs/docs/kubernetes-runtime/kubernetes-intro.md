@@ -47,17 +47,18 @@ clusters are created on, such as `1.36`. The supported versions are `1.35` and
 standard support on EKS, in GKE's `REGULAR` and `STABLE` release channels, and
 as a production release on OKE.
 
-- **EKS** creates the cluster and its node group on that version. The cluster
-  autoscaler's release matches it.
+- **EKS** creates the cluster and its node group on that version. Its
+  `vpc-cni`, `coredns` and `kube-proxy` run as EKS add-ons, on the versions EKS
+  gives for it, rather than the copies EKS installs with a cluster, which
+  nothing upgrades. The cluster autoscaler's release matches it.
 - **GKE** creates the control plane on the release its channel offers for that
   version, and the nodes on the control plane's. GKE upgrades both past it on
   its own.
 - **OKE** creates the cluster and its nodes on the newest release of that
   version that OKE offers and has a worker node image for the node shape.
 
-The version is recorded on the EKS, GKE or OKE definition, and it can't be
-changed once the definition exists: Threeport doesn't upgrade a cluster yet. A
-kind cluster's version comes with its node image, so it takes none.
+The version is recorded on the EKS, GKE or OKE definition. A kind cluster's
+version comes with its node image, so it takes none.
 
 `tptctl up` sets the version of the cluster it creates with
 `--kubernetes-version`.
@@ -135,6 +136,68 @@ answers, and refuses when the API answers with an error. When the API can't
 be reached, or doesn't answer within 30 seconds, it warns that it skipped the
 check and tears the cluster down.
 
+### Upgrades
+
+Each provider upgrades a cluster on its own in some cases. Threeport sets
+how:
+
+- **GKE** enrolls the cluster in a release channel, `REGULAR` by default, and
+  upgrades its control plane and nodes to that channel's releases within a
+  weekly maintenance window, apart from an upgrade GKE can't defer. The window
+  defaults to Saturday and Sunday from 04:00 to 12:00 UTC. A GKE definition
+  sets them with `ReleaseChannel` (`REGULAR` or `STABLE`),
+  `MaintenanceWindowDays` (such as `SA,SU`), `MaintenanceWindowStart` (a UTC
+  time of day, such as `04:00`) and `MaintenanceWindowHours` (4 to 24). The
+  cluster of a production control plane that `tptctl up` creates is on
+  `STABLE`. They can't be changed once the definition exists.
+- **EKS** upgrades the control plane to the next version when its version
+  leaves standard support, rather than keeping it on extended support at a
+  higher hourly charge. The node group isn't upgraded with it.
+
+### Upgrading a Cluster
+
+On EKS and GKE, raising `KubernetesVersion` on an `AwsEksKubernetesRuntime` or
+`GcpGkeKubernetesRuntime` definition upgrades its clusters to that version. Set
+it in the config file and replace the definition, or update the definition
+through the API. The new version must be a supported one, no older than the one
+it replaces: a cluster can't be downgraded. The kubernetes runtime definition
+keeps the version it was created with. OKE clusters can't be upgraded yet.
+
+The controller upgrades each cluster one minor version at a time. Each step:
+
+1. Reads the version the cluster runs from the provider, so an upgrade the
+   provider made on its own is recognized, and a cluster newer than its
+   definition isn't downgraded.
+2. Refreshes the cluster's Pulumi stack against the provider.
+3. Previews the upgrade, and refuses it, without changing anything, when it
+   would replace or delete any of the cluster's resources.
+4. Upgrades the cluster:
+   - **EKS:** the control plane, then the node group, whose nodes EKS
+     replaces one at a time, then the add-ons: `vpc-cni`, `coredns`,
+     `kube-proxy` and `aws-ebs-csi-driver`, each to the version EKS gives for
+     the new Kubernetes version. The cluster autoscaler is then updated to the
+     release for the new version. A control plane EKS has already moved past
+     the step's version, as it does when the version leaves standard support,
+     keeps its version, as do the add-ons, and only the node group is
+     upgraded.
+   - **GKE:** the control plane, to its release channel's release of the
+     version. GKE upgrades the nodes after it, within the maintenance window.
+
+Progress and failures are on the EKS or GKE runtime instance: the version the
+cluster runs in `KubernetesVersion`, and what the controller last did in
+`UpgradeStatus`. A refused or failed upgrade is also recorded as a warning
+event on the instance. A failed upgrade is tried again after 15 minutes. A
+step that failed or was interrupted after the cluster reached its version,
+such as one whose add-ons failed to update, is run again on that version to
+finish its work before the upgrade is recorded as done. A
+refused one isn't tried again until the definition asks for another version,
+or `UpgradeRefused` is set back to `false` on the instance. A step run again
+to finish an upgrade's work that is refused is recorded as failed as well,
+so once `UpgradeRefused` is set back to `false` it runs again.
+`UpgradeRequestedVersion` records the version each instance was last asked
+for. A cluster Threeport didn't create, such as one `tptctl up
+--control-plane-only` was installed on, isn't upgraded.
+
 Reference:
 [KubernetesRuntimeDefinition](https://pkg.go.dev/github.com/threeport/threeport/pkg/api/v0#KubernetesRuntimeDefinition)
 
@@ -145,6 +208,72 @@ which location you would like to use.  Currently, you can reference the [source
 code](https://github.com/threeport/threeport/blob/main/pkg/mapping/v0/location.go)
 for the available Location values and which cloud provider regions they
 correspond to.
+
+### Network Ranges
+
+Each EKS, GKE and OKE cluster gets its own network range, a `/16`, recorded on
+its kubernetes runtime instance as `NetworkCidr`, so no two clusters of one
+control plane overlap and their networks can be connected. The control plane
+allocates the first free `/16` of its pool when the cluster is provisioned. A
+range set on the instance when it's created is used instead: a `/16` or larger
+that no other runtime has and no child control plane's pool holds, which
+doesn't have to be in the pool. A range larger than a `/16` is reserved whole,
+and the cluster's network is laid out in its first `/16`, since AWS and OCI
+allow no larger VPC or VCN.
+
+The pool is the control plane's `NetworkCidrPool`. By default it is
+`10.16.0.0/16` through `10.255.0.0/16`, except `10.96.0.0/16` and
+`10.244.0.0/16`, which OKE uses inside each cluster. No range may hold those,
+`172.20.0.0/16`, where EKS services get addresses, or `172.16.0.0/28`, the GKE
+control plane's private endpoint. It starts at `10.16`, clear
+of `10.0.0.0/12`, where clusters created before ranges were allocated have
+their networks, so new clusters can be connected to them. An organization that
+already uses part of `10.0.0.0/8` can give the control plane its own pool.
+
+Every range of a cluster is laid out in its block:
+
+| Provider | Ranges |
+|---|---|
+| EKS | the VPC is the block's first `/16`; a `/18` private subnet per zone at `.0.0`, `.64.0` and `.128.0`, for nodes and pods; a `/22` public subnet per zone at `.192.0`, `.196.0` and `.200.0`; services in `172.20.0.0/16` |
+| GKE | pods in the `/17` at `.0.0`, a `/25` for each of 256 nodes, which run up to 64 pods each; nodes in the `/20` at `.128.0`; services in the `/20` at `.144.0` |
+| OKE | the VCN is the block's first `/16`; the API endpoint, node and load balancer subnets where they have always been, relative to it; pods and services in `10.244.0.0/16` and `10.96.0.0/16` |
+
+`tptctl up` takes the control plane's pool with `--network-cidr-pool`, and its
+own cluster's range with `--network-cidr`, by default the pool's first block.
+With `--control-plane-only`, `--network-cidr` records the existing cluster's
+range, so no runtime is allocated it.
+
+A child control plane allocates its clusters' ranges from the
+`NetworkCidrPool` its parent gives it on the child's control plane instance.
+Without one, it allocates none, and its clusters get the network every cluster
+used to get, since the default pool is its parent's. The parent doesn't
+allocate from a child's pool, a child's pool can't overlap another child's or
+a range the parent has allocated, and it can only grow: a block can be added,
+or replaced by a larger one that holds it, but not removed, since the child may
+have allocated from it. A child that gives a child of its own a pool must give
+it one inside its own pool, since its parent keeps only that pool clear of the
+ranges it allocates.
+
+The clusters a child allocated from its pool live in the child's database, and
+may outlive the child. So when a child with a pool is deleted, its pool is
+recorded in `ReservedNetworkCidrs` on the control plane instance that
+represents its parent, and the parent doesn't allocate from it or accept a
+runtime range or child pool that overlaps it. Once the clusters allocated from
+a reserved block are gone, release it by removing it from
+`ReservedNetworkCidrs`: get the control plane instance with `tptctl get
+control-plane-instance -o yaml`, remove the block, and apply the file with
+`tptctl replace control-plane-instance`. A config file that leaves
+`ReservedNetworkCidrs` out keeps the reservations as they are. A child control
+plane releases the blocks reserved on its own instance the same way. If
+another child was deleted after you got the instance, the replace is refused,
+rather than release that child's pool without anyone asking: get the instance
+again and repeat.
+
+A cluster created before ranges were allocated keeps its network, and records
+no range. So does one whose create is resumed on a stack that holds its network
+already: it keeps the range that network was laid out in. Separate Threeport
+installations don't know each other's allocations: give their control planes
+pools that don't overlap if their clusters are to be connected.
 
 Reference:
 [KubernetesRuntimeInstance](https://pkg.go.dev/github.com/threeport/threeport/pkg/api/v0#KubernetesRuntimeInstance)

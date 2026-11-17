@@ -33,6 +33,13 @@ const (
 	// serviceAccountIDHashLength is how many hex characters of the name's hash
 	// close a service account ID
 	serviceAccountIDHashLength = 6
+	// nodeServiceAccountIDPrefix begins the ID of the service account a GKE
+	// cluster's nodes run as.  It differs from serviceAccountIDPrefix so that
+	// no runtime's node account can take the ID of a Threeport account.
+	nodeServiceAccountIDPrefix = "threeport-node-"
+	// nodeServiceAccountIDNameLength is serviceAccountIDNameLength for node
+	// accounts, one character shorter for the longer prefix
+	nodeServiceAccountIDNameLength = 8
 	// serviceAccountDisplayFormat is the display name format for all Threeport service accounts
 	serviceAccountDisplayFormat = "Threeport Service Account for %s"
 	// workloadIdentityPoolFormat is the format for Workload Identity pool names
@@ -60,6 +67,8 @@ var threeportServiceAccountRoles = []string{
 	"roles/resourcemanager.projectIamAdmin",
 	// Service account token creator for Workload Identity
 	"roles/iam.workloadIdentityUser",
+	// backup buckets the controller grants to a restored database
+	"roles/storage.admin",
 }
 
 // ServiceAccountInfo holds information about the created GCP service account
@@ -279,22 +288,45 @@ func policyGrantsWorkloadIdentity(policy *iam.Policy, members []string) bool {
 	return true
 }
 
-// getWorkloadIdentityMembers returns the list of Kubernetes service accounts
-// that should be allowed to impersonate the GCP service account.
+// workloadIdentityNamespace returns the namespace whose controllers impersonate the cluster account.
+func (i *KubernetesRuntimeInfraGKE) workloadIdentityNamespace() string {
+	// use the install namespace when the control plane is not in the default one
+	if i.WorkloadIdentityNamespace != "" {
+		return i.WorkloadIdentityNamespace
+	}
+	return installer.ControlPlaneNamespace
+}
+
+// getWorkloadIdentityMembers returns the accounts that impersonate the cluster service account.
 func (i *KubernetesRuntimeInfraGKE) getWorkloadIdentityMembers(workloadIdentityPool string) []string {
-	// These are the Threeport controller service accounts that need GCP access
-	controllerServiceAccounts := []string{
+	// bind the controllers that call Google as the cluster account
+	namespace := i.workloadIdentityNamespace()
+	accounts := []string{
 		installer.ThreeportGcpControllerName,
+		installer.ThreeportControlPlaneControllerName,
 	}
-
-	members := make([]string, 0, len(controllerServiceAccounts))
-	for _, sa := range controllerServiceAccounts {
-		// Format: serviceAccount:PROJECT_ID.svc.id.goog[NAMESPACE/KSA_NAME]
-		member := fmt.Sprintf("serviceAccount:%s[%s/%s]", workloadIdentityPool, installer.ControlPlaneNamespace, sa)
-		members = append(members, member)
+	members := make([]string, 0, len(accounts))
+	for _, account := range accounts {
+		members = append(members, fmt.Sprintf(
+			"serviceAccount:%s[%s/%s]",
+			workloadIdentityPool,
+			namespace,
+			account,
+		))
 	}
-
 	return members
+}
+
+// BindControlPlaneWorkloadIdentity lets this namespace's controllers impersonate the cluster account.
+func (i *KubernetesRuntimeInfraGKE) BindControlPlaneWorkloadIdentity(namespace string) error {
+	// use the cluster account when the caller has not named one
+	if i.ServiceAccountEmail == "" {
+		i.ServiceAccountEmail = i.getServiceAccountEmail()
+	}
+	i.WorkloadIdentityNamespace = namespace
+
+	// add the controllers that are not already members
+	return i.configureWorkloadIdentityBindingPostCreate()
 }
 
 // validateGCPServiceAccountPropagation validates that the service account and its
@@ -970,9 +1002,16 @@ func formatIAMServiceAccountCreate403Hint(projectID string) string {
 // orphans every account created under the old one. Treat it as fixed once
 // Threeport has installs.
 func formatServiceAccountID(name string) string {
+	return formatPrefixedServiceAccountID(serviceAccountIDPrefix, serviceAccountIDNameLength, name)
+}
+
+// formatPrefixedServiceAccountID is formatServiceAccountID with the prefix and
+// the length of the name's fragment given.  The prefix, the fragment, the
+// separator and the hash must fit in 30 characters.
+func formatPrefixedServiceAccountID(prefix string, nameLength int, name string) string {
 	var fragment strings.Builder
 	for _, c := range strings.ToLower(name) {
-		if fragment.Len() == serviceAccountIDNameLength {
+		if fragment.Len() == nameLength {
 			break
 		}
 		if (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') {
@@ -989,7 +1028,7 @@ func formatServiceAccountID(name string) string {
 
 	sum := sha256.Sum256([]byte(name))
 
-	return serviceAccountIDPrefix + frag + "-" + hex.EncodeToString(sum[:])[:serviceAccountIDHashLength]
+	return prefix + frag + "-" + hex.EncodeToString(sum[:])[:serviceAccountIDHashLength]
 }
 
 // isNotFoundError checks if the error is a "not found" error.
@@ -1062,11 +1101,20 @@ type crmProjectPolicies struct {
 	service *cloudresourcemanager.Service
 }
 
+// conditionalPolicyVersion is the IAM policy version that carries conditional
+// bindings.  A policy read at an older version leaves their conditions out,
+// and writing it back is refused, so a project policy is read and written at
+// this one: the project may hold conditional bindings someone else made.
+const conditionalPolicyVersion = 3
+
 func (c crmProjectPolicies) get(projectID string) (*cloudresourcemanager.Policy, error) {
-	return c.service.Projects.GetIamPolicy(projectID, &cloudresourcemanager.GetIamPolicyRequest{}).Do()
+	return c.service.Projects.GetIamPolicy(projectID, &cloudresourcemanager.GetIamPolicyRequest{
+		Options: &cloudresourcemanager.GetPolicyOptions{RequestedPolicyVersion: conditionalPolicyVersion},
+	}).Do()
 }
 
 func (c crmProjectPolicies) set(projectID string, policy *cloudresourcemanager.Policy) (*cloudresourcemanager.Policy, error) {
+	policy.Version = conditionalPolicyVersion
 	return c.service.Projects.SetIamPolicy(projectID, &cloudresourcemanager.SetIamPolicyRequest{Policy: policy}).Do()
 }
 

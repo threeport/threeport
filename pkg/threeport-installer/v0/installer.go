@@ -15,6 +15,27 @@ type Options struct {
 	// Namespace of the control plane
 	Namespace string
 
+	// The namespace to copy the CA and encryption key from
+	FromNamespace string
+
+	// The control plane name stored in the backup
+	SourceName string
+
+	// Whether this install restores a database and creates deployments with no pods
+	HoldReplicasForRestore bool
+
+	// The file holding the CA certificate to install
+	CACertFile string
+
+	// The file holding the CA private key to install
+	CAKeyFile string
+
+	// The file holding the encryption key to install
+	EncryptionKeyFile string
+
+	// The choice to leave controllers stopped after a restore
+	RestoreControllersStopped bool
+
 	// A function that is run prior to installing the components for the control plane.
 	PreInstallFunction CustomInstallFunction
 
@@ -149,6 +170,10 @@ type Options struct {
 	// API.  Empty leaves it open to every address.
 	K8sApiAllowedCidrs []string
 
+	// If true, the control plane cluster's Kubernetes API has no public IP
+	// endpoint.  Supported on GKE only.
+	PrivateK8sApi bool
+
 	// The host port to publish the Threeport API on for a local control plane.
 	// Zero means the default for the auth setting applies.
 	ApiPort int
@@ -201,6 +226,16 @@ type Options struct {
 	// The tier written on the control plane namespace when that namespace is created
 	// A later install leaves an existing namespace, and its tier label, unchanged
 	Tier ControlPlaneTier
+
+	// NetworkCidr is the network range of the cluster tptctl up creates for
+	// the control plane, recorded on its kubernetes runtime instance, and
+	// with --control-plane-only the existing cluster's, recorded so no
+	// runtime is allocated it.  Empty records none.
+	NetworkCidr string
+
+	// NetworkCidrPool is the pool the control plane allocates its runtimes'
+	// network ranges from.  Empty is the default pool.
+	NetworkCidrPool []string
 
 	// ApiReplicas and ControllerReplicas set how many replicas the API server
 	// and each controller run.  Zero uses the tier's default: one on the
