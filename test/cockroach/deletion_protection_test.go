@@ -174,6 +174,31 @@ func TestTheApiRefusesToDeleteAProtectedCluster(t *testing.T) {
 	}
 }
 
+// TestADeleteNarrowedByIdsIsStillRefused covers a delete whose request
+// carries ?ids= naming the instance: the handler's session scopes every read
+// to those IDs, so the definitions the delete is checked against are read
+// without them, or they wouldn't be found and the protected cluster's delete
+// would go through.
+func TestADeleteNarrowedByIdsIsStillRefused(t *testing.T) {
+	db := runtimeDatabase(t, "deletion_protected_ids")
+	runtime := createEksRuntime(t, db, "deletion-protected-ids", util.Ptr(true))
+	handler := handlers.Handler{DB: db, Logger: zap.NewNop()}
+
+	for _, request := range []struct {
+		route  string
+		id     uint
+		delete func(echo.Context) error
+	}{
+		{api_v0.PathKubernetesRuntimeInstances, *runtime.instance.ID, handler.DeleteKubernetesRuntimeInstance},
+		{api_v0.PathAwsEksKubernetesRuntimeInstances, *runtime.eksInstance.ID, handler.DeleteAwsEksKubernetesRuntimeInstance},
+	} {
+		c, recorder := newAPIRequest(http.MethodDelete, request.route+"/:id", fmt.Sprint(request.id), "")
+		c.Request().URL.RawQuery = fmt.Sprintf("ids=%d", request.id)
+		require.NoError(t, request.delete(c))
+		assert.Equal(t, http.StatusConflict, recorder.Code, request.route)
+	}
+}
+
 // TestAnUnprotectedClusterCanBeDeleted covers the check the API makes on a
 // delete when nothing protects the cluster: an EKS definition with
 // DeletionProtection false or unset, and a kind runtime, which has no

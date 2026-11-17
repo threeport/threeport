@@ -92,6 +92,25 @@ func ProviderDefinitionDeletionProtection(definition any) error {
 	return &DeletionProtectedError{DefinitionType: definitionType, DefinitionName: definitionName}
 }
 
+// definitionSession returns a session to read the definitions a delete is
+// checked against.  The delete handler passes its request session, and a new
+// session is needed for two reasons:
+//   - The request session keeps the state of each query run on it, so a
+//     second read, such as the provider definition's after the kubernetes
+//     runtime definition's, would carry the first one's table and conditions.
+//   - It carries the request's query scopes: ?ids= adds an "id IN" condition
+//     and ?include_deleted=true drops the soft-delete filter.  They are meant
+//     for the object being deleted.  On a definition's read, ?ids= naming the
+//     instance would miss the definition, and the delete wouldn't be refused.
+//
+// A new session keeps the request's context without either.
+// CheckBlockingAttachedObjectReferences runs one query on the session as
+// passed, so the first reason doesn't apply to it, but ?ids= narrows its
+// read of the attached object references the same way.
+func definitionSession(db *gorm.DB) *gorm.DB {
+	return db.Session(&gorm.Session{NewDB: true})
+}
+
 // refuseProtectedDelete refuses a delete while the provider definition found
 // by query has DeletionProtection set.  A definition that isn't found
 // protects nothing.
@@ -116,7 +135,7 @@ func (k *KubernetesRuntimeInstance) RefuseDelete(db *gorm.DB) error {
 		return nil
 	}
 	var definition KubernetesRuntimeDefinition
-	if result := db.Session(&gorm.Session{NewDB: true}).First(&definition, *k.KubernetesRuntimeDefinitionID); result.Error != nil {
+	if result := definitionSession(db).First(&definition, *k.KubernetesRuntimeDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return nil
 		}
@@ -139,7 +158,7 @@ func (k *KubernetesRuntimeInstance) RefuseDelete(db *gorm.DB) error {
 	}
 
 	return refuseProtectedDelete(providerDefinition, func(dest any) *gorm.DB {
-		return db.Session(&gorm.Session{NewDB: true}).Where("kubernetes_runtime_definition_id = ?", *definition.ID).First(dest)
+		return definitionSession(db).Where("kubernetes_runtime_definition_id = ?", *definition.ID).First(dest)
 	})
 }
 
@@ -151,7 +170,7 @@ func (a *AwsEksKubernetesRuntimeInstance) RefuseDelete(db *gorm.DB) error {
 	}
 
 	return refuseProtectedDelete(&AwsEksKubernetesRuntimeDefinition{}, func(dest any) *gorm.DB {
-		return db.Session(&gorm.Session{NewDB: true}).First(dest, *a.AwsEksKubernetesRuntimeDefinitionID)
+		return definitionSession(db).First(dest, *a.AwsEksKubernetesRuntimeDefinitionID)
 	})
 }
 
@@ -163,7 +182,7 @@ func (g *GcpGkeKubernetesRuntimeInstance) RefuseDelete(db *gorm.DB) error {
 	}
 
 	return refuseProtectedDelete(&GcpGkeKubernetesRuntimeDefinition{}, func(dest any) *gorm.DB {
-		return db.Session(&gorm.Session{NewDB: true}).First(dest, *g.GcpGkeKubernetesRuntimeDefinitionID)
+		return definitionSession(db).First(dest, *g.GcpGkeKubernetesRuntimeDefinitionID)
 	})
 }
 
@@ -175,7 +194,7 @@ func (o *OciOkeKubernetesRuntimeInstance) RefuseDelete(db *gorm.DB) error {
 	}
 
 	return refuseProtectedDelete(&OciOkeKubernetesRuntimeDefinition{}, func(dest any) *gorm.DB {
-		return db.Session(&gorm.Session{NewDB: true}).First(dest, *o.OciOkeKubernetesRuntimeDefinitionID)
+		return definitionSession(db).First(dest, *o.OciOkeKubernetesRuntimeDefinitionID)
 	})
 }
 
