@@ -1,6 +1,7 @@
 package cockroach
 
 import (
+	"encoding/json"
 	"errors"
 	"sync"
 	"testing"
@@ -241,4 +242,29 @@ func TestADeletedChildsPoolStaysReservedOnCockroach(t *testing.T) {
 		NetworkCidr:                   util.Ptr("10.33.0.0/16"),
 	}).Error
 	assert.ErrorContains(t, err, "reserved for the clusters of a deleted child control plane")
+
+	// a client writes back the row it read, its time as the API sent it: one
+	// read before a second child's deletion would release that child's pool,
+	// so it is refused, and one read after keeps or releases what it names
+	read := func() *api_v0.ControlPlaneInstance {
+		var row api_v0.ControlPlaneInstance
+		require.NoError(t, db.First(&row, *self.ID).Error)
+		encoded, err := json.Marshal(row)
+		require.NoError(t, err)
+		var sent api_v0.ControlPlaneInstance
+		require.NoError(t, json.Unmarshal(encoded, &sent))
+		return &sent
+	}
+	stale := read()
+	second := controlPlane("reserved-pool-second-child", false, `["10.64.0.0/12"]`)
+	require.NoError(t, db.Delete(second).Error)
+	err = db.Omit("CreatedAt", "DeletedAt").Save(stale).Error
+	assert.ErrorContains(t, err, "ReservedNetworkCidrs leaves out 10.64.0.0/12, and the control plane instance changed after it was read")
+	current := read()
+	assert.JSONEq(t, `["10.32.0.0/12", "10.64.0.0/12"]`, string(*current.ReservedNetworkCidrs))
+	require.NoError(t, db.Omit("CreatedAt", "DeletedAt").Save(current).Error, "a row read after keeps every block")
+	current = read()
+	current.ReservedNetworkCidrs = util.Ptr(datatypes.JSON(`["10.64.0.0/12"]`))
+	require.NoError(t, db.Omit("CreatedAt", "DeletedAt").Save(current).Error, "a row read after releases what it leaves out")
+	assert.JSONEq(t, `["10.64.0.0/12"]`, string(*read().ReservedNetworkCidrs))
 }

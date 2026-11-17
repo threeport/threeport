@@ -3,6 +3,7 @@ package v0
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"net/netip"
 	"testing"
 
@@ -441,7 +442,7 @@ func TestAChildsPoolIsClearOfItsParentsRanges(t *testing.T) {
 		require.NoError(t, owner.Model(load(owned.ID)).Updates(&ControlPlaneInstance{NetworkCidrPool: poolJSON(t, "10.48.0.0/12")}).Error)
 
 		// the parent's row here allocates nothing, so it carries no pool
-		err = db.Model(load(parent.ID)).Updates(&ControlPlaneInstance{NetworkCidrPool: poolJSON(t, "10.64.0.0/12")}).Error
+		err = db.Model(load(parent.ID)).Updates(&ControlPlaneInstance{NetworkCidrPool: poolJSON(t, "10.52.0.0/14")}).Error
 		assert.ErrorContains(t, err, "cannot update NetworkCidrPool on a control plane this API does not serve")
 	})
 }
@@ -495,4 +496,90 @@ func TestADeletedChildsPoolStaysReserved(t *testing.T) {
 	require.NoError(t, db.First(&again, *self.ID).Error)
 	err = db.Model(&again).Updates(&ControlPlaneInstance{ReservedNetworkCidrs: poolJSON(t, "10.16.0.0/20")}).Error
 	assert.ErrorContains(t, err, "smaller than a /16")
+}
+
+// TestAManagedControlPlaneDelegatesOnlyFromItsOwnPool covers a control plane
+// a parent manages giving a child a pool: the parent keeps only the pool it
+// gave this control plane clear of its own allocations, so a child's pool
+// must be inside it, and a managed control plane with no pool has nothing to
+// give.  A root's children's pools may be anywhere clear of its ranges.
+func TestAManagedControlPlaneDelegatesOnlyFromItsOwnPool(t *testing.T) {
+	db := setupControlPlaneAuthDB(t)
+	parent, err := controlPlaneWithPool(t, db, "parent", false, nil)
+	require.NoError(t, err)
+	self, err := controlPlaneWithPool(t, db, "self", true, poolJSON(t, "10.32.0.0/12"))
+	require.NoError(t, err)
+	_, err = controlPlaneWithPool(t, db, "child-of-a-root", false, poolJSON(t, "10.64.0.0/12"))
+	require.NoError(t, err, "a root's pool isn't given by a parent")
+	require.NoError(t, db.Model(self).Updates(&ControlPlaneInstance{ParentControlPlaneInstanceID: parent.ID}).Error)
+
+	_, err = controlPlaneWithPool(t, db, "outside", false, poolJSON(t, "10.80.0.0/12"))
+	assert.ErrorContains(t, err, "NetworkCidrPool entry 10.80.0.0/12 is outside this control plane's own pool [10.32.0.0/12], the ranges its parent gave it")
+	_, err = controlPlaneWithPool(t, db, "partly-outside", false, poolJSON(t, "10.32.0.0/11"))
+	assert.ErrorContains(t, err, "10.32.0.0/11 is outside", "a block holding the pool isn't inside it")
+	inside, err := controlPlaneWithPool(t, db, "inside", false, poolJSON(t, "10.36.0.0/14"))
+	require.NoError(t, err)
+	var loaded ControlPlaneInstance
+	require.NoError(t, db.First(&loaded, *inside.ID).Error)
+	err = db.Model(&loaded).Updates(&ControlPlaneInstance{NetworkCidrPool: poolJSON(t, "10.36.0.0/14", "10.96.0.0/12")}).Error
+	assert.ErrorContains(t, err, "is outside this control plane's own pool", "a block added is checked too")
+
+	owner := db.WithContext(lib.WithCaller(context.Background(), lib.CallerIdentity{CommonName: "threeport-owner"}))
+	var cleared ControlPlaneInstance
+	require.NoError(t, db.First(&cleared, *self.ID).Error)
+	cleared.NetworkCidrPool = nil
+	require.NoError(t, owner.Save(&cleared).Error)
+	_, err = controlPlaneWithPool(t, db, "from-nothing", false, poolJSON(t, "10.36.0.0/16"))
+	assert.ErrorContains(t, err, "outside this control plane's own pool []", "a managed control plane with no pool gives none")
+}
+
+// TestAReservationIsntReleasedByAWriteThatPredatesIt covers a write of the
+// whole row read before a child's deletion reserved its pool: it would
+// release the pool without anyone asking, so it is refused, for the writer
+// to read the row again.  A write of the row as it is now keeps or releases
+// what it names, and a control plane a parent manages releases its own
+// reservations.
+func TestAReservationIsntReleasedByAWriteThatPredatesIt(t *testing.T) {
+	db := setupControlPlaneAuthDB(t)
+	self, err := controlPlaneWithPool(t, db, "self", true, poolJSON(t, "10.0.0.0/8"))
+	require.NoError(t, err)
+	first, err := controlPlaneWithPool(t, db, "first-child", false, poolJSON(t, "10.32.0.0/12"))
+	require.NoError(t, err)
+	second, err := controlPlaneWithPool(t, db, "second-child", false, poolJSON(t, "10.64.0.0/12"))
+	require.NoError(t, err)
+	load := func() *ControlPlaneInstance {
+		var loaded ControlPlaneInstance
+		require.NoError(t, db.First(&loaded, *self.ID).Error)
+		return &loaded
+	}
+	require.NoError(t, db.Delete(first).Error)
+
+	stale := load()
+	require.NoError(t, db.Delete(second).Error)
+	assert.JSONEq(t, `["10.32.0.0/12", "10.64.0.0/12"]`, string(*load().ReservedNetworkCidrs))
+
+	replaced := *stale
+	err = db.Save(&replaced).Error
+	assert.ErrorContains(t, err, "ReservedNetworkCidrs leaves out 10.64.0.0/12, and the control plane instance changed after it was read")
+	var conflict *util.HttpError
+	require.ErrorAs(t, err, &conflict)
+	assert.Equal(t, http.StatusConflict, conflict.StatusCode)
+	err = db.Model(load()).Updates(stale).Error
+	assert.ErrorContains(t, err, "leaves out 10.64.0.0/12", "a patch of the whole row read before")
+	assert.JSONEq(t, `["10.32.0.0/12", "10.64.0.0/12"]`, string(*load().ReservedNetworkCidrs))
+
+	current := load()
+	current.ApiServerEndpoint = util.Ptr("https://self.example")
+	require.NoError(t, db.Save(current).Error, "the row as it is now keeps every block")
+	current = load()
+	current.ReservedNetworkCidrs = poolJSON(t, "10.64.0.0/12")
+	require.NoError(t, db.Save(current).Error, "the row as it is now releases what it leaves out")
+	assert.JSONEq(t, `["10.64.0.0/12"]`, string(*load().ReservedNetworkCidrs))
+
+	// a control plane a parent manages releases its own reservations
+	parent, err := controlPlaneWithPool(t, db, "parent", false, nil)
+	require.NoError(t, err)
+	require.NoError(t, db.Model(load()).Updates(&ControlPlaneInstance{ParentControlPlaneInstanceID: parent.ID}).Error)
+	require.NoError(t, db.Model(load()).Updates(&ControlPlaneInstance{ReservedNetworkCidrs: util.Ptr(datatypes.JSON("[]"))}).Error)
+	assert.JSONEq(t, `[]`, string(*load().ReservedNetworkCidrs))
 }

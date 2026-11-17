@@ -144,7 +144,9 @@ control plane overlap and their networks can be connected. The control plane
 allocates the first free `/16` of its pool when the cluster is provisioned. A
 range set on the instance when it's created is used instead: a `/16` or larger
 that no other runtime has and no child control plane's pool holds, which
-doesn't have to be in the pool.
+doesn't have to be in the pool. A range larger than a `/16` is reserved whole,
+and the cluster's network is laid out in its first `/16`, since AWS and OCI
+allow no larger VPC or VCN.
 
 The pool is the control plane's `NetworkCidrPool`. By default it is
 `10.16.0.0/16` through `10.255.0.0/16`, except `10.96.0.0/16` and
@@ -159,9 +161,9 @@ Every range of a cluster is laid out in its block:
 
 | Provider | Ranges |
 |---|---|
-| EKS | the VPC is the block; a `/18` private subnet per zone at `.0.0`, `.64.0` and `.128.0`, for nodes and pods; a `/22` public subnet per zone at `.192.0`, `.196.0` and `.200.0`; services in `172.20.0.0/16` |
+| EKS | the VPC is the block's first `/16`; a `/18` private subnet per zone at `.0.0`, `.64.0` and `.128.0`, for nodes and pods; a `/22` public subnet per zone at `.192.0`, `.196.0` and `.200.0`; services in `172.20.0.0/16` |
 | GKE | pods in the `/17` at `.0.0`, a `/25` for each of 256 nodes, which run up to 64 pods each; nodes in the `/20` at `.128.0`; services in the `/20` at `.144.0` |
-| OKE | the VCN is the block; the API endpoint, node and load balancer subnets where they have always been, relative to it; pods and services in `10.244.0.0/16` and `10.96.0.0/16` |
+| OKE | the VCN is the block's first `/16`; the API endpoint, node and load balancer subnets where they have always been, relative to it; pods and services in `10.244.0.0/16` and `10.96.0.0/16` |
 
 `tptctl up` takes the control plane's pool with `--network-cidr-pool`, and its
 own cluster's range with `--network-cidr`, by default the pool's first block.
@@ -175,7 +177,9 @@ used to get, since the default pool is its parent's. The parent doesn't
 allocate from a child's pool, a child's pool can't overlap another child's or
 a range the parent has allocated, and it can only grow: a block can be added,
 or replaced by a larger one that holds it, but not removed, since the child may
-have allocated from it.
+have allocated from it. A child that gives a child of its own a pool must give
+it one inside its own pool, since its parent keeps only that pool clear of the
+ranges it allocates.
 
 The clusters a child allocated from its pool live in the child's database, and
 may outlive the child. So when a child with a pool is deleted, its pool is
@@ -186,7 +190,11 @@ a reserved block are gone, release it by removing it from
 `ReservedNetworkCidrs`: get the control plane instance with `tptctl get
 control-plane-instance -o yaml`, remove the block, and apply the file with
 `tptctl replace control-plane-instance`. A config file that leaves
-`ReservedNetworkCidrs` out keeps the reservations as they are.
+`ReservedNetworkCidrs` out keeps the reservations as they are. A child control
+plane releases the blocks reserved on its own instance the same way. If
+another child was deleted after you got the instance, the replace is refused,
+rather than release that child's pool without anyone asking: get the instance
+again and repeat.
 
 A cluster created before ranges were allocated keeps its network, and records
 no range. So does one whose create is resumed on a stack that holds its network

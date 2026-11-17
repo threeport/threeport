@@ -62,11 +62,18 @@ func TestAClustersNetworkIsLaidOutInItsRange(t *testing.T) {
 	assert.Equal(t, okeNetworkLayout{Vcn: "10.18.0.0/16", Public: "10.18.0.0/28", Private: "10.18.10.0/24", LoadBalancer: "10.18.20.0/24"}, oke)
 	assertDisjointInside(t, "10.18.0.0/16", []string{oke.Public, oke.Private, oke.LoadBalancer})
 
-	// a block larger than a /16 is laid out in its first /16
+	// a block larger than a /16 is laid out in its first /16, which is also
+	// the VPC or VCN, as AWS and OCI allow none larger
 	wide, err := eksLayout("10.20.0.0/15")
 	require.NoError(t, err)
-	assert.Equal(t, "10.20.0.0/15", wide.Vpc)
+	assert.Equal(t, "10.20.0.0/16", wide.Vpc)
 	assert.Equal(t, "10.20.0.0/18", wide.PrivateSubnets[0])
+	wideOke, err := okeLayout("10.20.0.0/15")
+	require.NoError(t, err)
+	assert.Equal(t, "10.20.0.0/16", wideOke.Vcn)
+	wideGke, err := gkeLayout("10.20.0.0/15")
+	require.NoError(t, err)
+	assertDisjointInside(t, "10.20.0.0/16", []string{wideGke.Pods, wideGke.Nodes, wideGke.Services})
 
 	// 172.16.0.0/16 holds the GKE control plane's private endpoint range
 	for _, bad := range []string{"10.16.1.0/16", "10.16.0.0/17", "10.96.0.0/16", "172.16.0.0/16", "not-a-range"} {

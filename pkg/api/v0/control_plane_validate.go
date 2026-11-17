@@ -389,10 +389,8 @@ func (c *ControlPlaneInstance) beforeUpdate(tx *gorm.DB) error {
 	if err := validateNetworkCidrPoolUpdate(tx, stored); err != nil {
 		return err
 	}
-	if incoming, ok := lib.IncomingValues(tx).(*ControlPlaneInstance); ok {
-		if _, err := ParseReservedNetworkCidrs(incoming.ReservedNetworkCidrs); err != nil {
-			return util.NewBadRequestError(err.Error())
-		}
+	if err := validateReservedNetworkCidrsUpdate(tx); err != nil {
+		return err
 	}
 
 	// a root accepts changes sent to the API that serves it
@@ -519,6 +517,11 @@ func changedForeignField(tx *gorm.DB, stored *ControlPlaneInstance, allowLifecyc
 		}
 		// the managing caller may retarget a restored row
 		if managing && restoredIdentity(field.Name) {
+			continue
+		}
+		// the ranges a control plane reserved for its own deleted children
+		// are its own to release, whoever manages it
+		if field.Name == "ReservedNetworkCidrs" && stored.IsSelf != nil && *stored.IsSelf {
 			continue
 		}
 		if blankValueIsTheSetting(field.Name) || !columnEmpty(field.ValueOf, storedValue) {

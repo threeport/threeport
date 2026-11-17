@@ -66,7 +66,8 @@ type okeNetworkLayout struct {
 // eksLayout returns the EKS network for a block, or the one every cluster
 // used to get when block is "".  With a block, each zone's private subnet,
 // where the nodes and, through the VPC CNI, the pods get addresses, is a /18,
-// and its public subnet, for NAT gateways and load balancers, a /22.
+// and its public subnet, for NAT gateways and load balancers, a /22.  The VPC
+// is the block's first /16, as AWS allows no larger VPC range.
 func eksLayout(block string) (eksNetworkLayout, error) {
 	if block == "" {
 		return eksNetworkLayout{
@@ -82,7 +83,7 @@ func eksLayout(block string) (eksNetworkLayout, error) {
 	}
 
 	return eksNetworkLayout{
-		Vpc:            block,
+		Vpc:            base.subnet(0, 16),
 		PrivateSubnets: []string{base.subnet(0, 18), base.subnet(64, 18), base.subnet(128, 18)},
 		PublicSubnets:  []string{base.subnet(192, 22), base.subnet(196, 22), base.subnet(200, 22)},
 		ServiceCidr:    eksServiceCidr,
@@ -112,7 +113,8 @@ func gkeLayout(block string) (gkeNetworkLayout, error) {
 
 // okeLayout returns the OKE network for a block, or the one every cluster
 // used to get when block is "".  With a block, the subnets sit where they
-// always have, relative to the block.
+// always have, relative to the block.  The VCN is the block's first /16, as
+// OCI allows no larger VCN range.
 func okeLayout(block string) (okeNetworkLayout, error) {
 	if block == "" {
 		return okeNetworkLayout{
@@ -129,7 +131,7 @@ func okeLayout(block string) (okeNetworkLayout, error) {
 	}
 
 	return okeNetworkLayout{
-		Vcn:          block,
+		Vcn:          base.subnet(0, 16),
 		Public:       base.subnet(0, 28),
 		Private:      base.subnet(10, 24),
 		LoadBalancer: base.subnet(20, 24),

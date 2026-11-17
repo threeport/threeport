@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/netip"
+	"slices"
 	"strings"
+	"time"
 
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -376,11 +378,65 @@ func reserveDeletedChildPool(tx *gorm.DB, deleted *ControlPlaneInstance) error {
 		return fmt.Errorf("failed to encode the reserved network ranges: %w", err)
 	}
 
-	// written as a column, so this control plane's own update hooks, which
-	// check changes a caller makes, don't run on it
-	if err := lib.NewCleanSession(tx).Model(&self).
-		UpdateColumn("reserved_network_cidrs", datatypes.JSON(encoded)).Error; err != nil {
+	// written as columns, so this control plane's own update hooks, which
+	// check changes a caller makes, don't run on it; the row's time is moved
+	// on, so a write that read it before is refused rather than drop the
+	// block
+	if err := lib.NewCleanSession(tx).Model(&self).UpdateColumns(map[string]any{
+		"reserved_network_cidrs": datatypes.JSON(encoded),
+		"updated_at":             time.Now(),
+	}).Error; err != nil {
 		return fmt.Errorf("failed to keep the pool of control plane instance %s reserved: %w", util.DerefString(child.Name), err)
+	}
+
+	return nil
+}
+
+// validateReservedNetworkCidrsUpdate checks an update that changes
+// ReservedNetworkCidrs.  A client writes back the whole row it read, so a
+// write made from a read taken before a child's deletion reserved its pool
+// would release that pool without anyone asking.  A write that leaves out a
+// block the row holds is refused when the row changed since the writer read
+// it, which its UpdatedAt tells, for the writer to read it again.  The row is
+// locked, so a deletion reserving a pool waits for the write, or the write
+// for it.
+func validateReservedNetworkCidrsUpdate(tx *gorm.DB) error {
+	changed, err := lib.IsFieldChanged(tx, "ReservedNetworkCidrs")
+	if err != nil || !changed {
+		return err
+	}
+	incoming, ok := lib.IncomingValues(tx).(*ControlPlaneInstance)
+	if !ok {
+		return fmt.Errorf("cannot validate ReservedNetworkCidrs: update carries %T", lib.IncomingValues(tx))
+	}
+	kept, err := ParseReservedNetworkCidrs(incoming.ReservedNetworkCidrs)
+	if err != nil {
+		return util.NewBadRequestError(err.Error())
+	}
+
+	loaded, err := lib.LockObjectInDB(tx)
+	if err != nil {
+		return err
+	}
+	stored, ok := loaded.(*ControlPlaneInstance)
+	if !ok {
+		return fmt.Errorf("loaded %T is not a control plane instance", loaded)
+	}
+	if incoming.UpdatedAt == nil || stored.UpdatedAt == nil ||
+		incoming.UpdatedAt.Truncate(time.Microsecond).Equal(stored.UpdatedAt.Truncate(time.Microsecond)) {
+		return nil
+	}
+	reserved, err := ParseReservedNetworkCidrs(stored.ReservedNetworkCidrs)
+	if err != nil {
+		return err
+	}
+	for _, block := range reserved {
+		if !slices.Contains(kept, block) {
+			return util.NewConflictError(fmt.Sprintf(
+				"ReservedNetworkCidrs leaves out %s, and the control plane instance changed after it was read: read it again and name every block to keep",
+				block,
+			))
+		}
 	}
 
 	return nil
@@ -448,7 +504,9 @@ func validateRuntimeNetworkCidr(tx *gorm.DB, networkCidr *string, id *uint) erro
 // The pool of a control plane this API does not serve, a child, must also be
 // clear of the network ranges this control plane has allocated and of the
 // other children's pools, so that no two control planes hand out the same
-// range.  id is the instance's, nil for one being created.
+// range.  On a control plane a parent manages, it must also be inside the
+// pool the parent gave this one, as the parent only keeps that pool clear of
+// its own allocations.  id is the instance's, nil for one being created.
 func validateNetworkCidrPool(tx *gorm.DB, raw *datatypes.JSON, self bool, id *uint) error {
 	pool, err := ParseNetworkCidrPool(raw)
 	if err != nil {
@@ -456,6 +514,10 @@ func validateNetworkCidrPool(tx *gorm.DB, raw *datatypes.JSON, self bool, id *ui
 	}
 	if self || len(pool) == 0 {
 		return nil
+	}
+
+	if err := validatePoolInsideManagedPool(tx, pool); err != nil {
+		return err
 	}
 
 	allocated, err := runtimeNetworkCidrs(tx, nil)
@@ -506,6 +568,54 @@ func validateNetworkCidrPool(tx *gorm.DB, raw *datatypes.JSON, self bool, id *ui
 	}
 
 	return nil
+}
+
+// validatePoolInsideManagedPool checks a child's pool is inside this control
+// plane's own, when a parent manages this one: the parent knows only the pool
+// it gave this control plane, and may allocate anything outside it.  A
+// managed control plane with no pool allocates nothing, so it has nothing to
+// give a child.
+func validatePoolInsideManagedPool(tx *gorm.DB, pool []netip.Prefix) error {
+	var self ControlPlaneInstance
+	result := lib.NewCleanSession(tx).Where("is_self = ?", true).Limit(1).Find(&self)
+	if result.Error != nil {
+		return fmt.Errorf("failed to read this control plane's instance: %w", result.Error)
+	}
+	if result.RowsAffected == 0 || self.ParentControlPlaneInstanceID == nil {
+		return nil
+	}
+	ownPool, err := ParseNetworkCidrPool(self.NetworkCidrPool)
+	if err != nil {
+		return fmt.Errorf("this control plane's network range pool can't be read: %w", err)
+	}
+
+	for _, entry := range pool {
+		inside := false
+		for _, own := range ownPool {
+			if own.Bits() <= entry.Bits() && own.Contains(entry.Addr()) {
+				inside = true
+				break
+			}
+		}
+		if !inside {
+			return util.NewBadRequestError(fmt.Sprintf(
+				"NetworkCidrPool entry %s is outside this control plane's own pool %s, the ranges its parent gave it",
+				entry, cidrList(ownPool),
+			))
+		}
+	}
+
+	return nil
+}
+
+// cidrList writes blocks as a list, or "[]" for none.
+func cidrList(blocks []netip.Prefix) string {
+	names := make([]string, len(blocks))
+	for i, block := range blocks {
+		names[i] = block.String()
+	}
+
+	return "[" + strings.Join(names, ", ") + "]"
 }
 
 // validateNetworkCidrPoolGrows checks a change to a child's pool keeps every

@@ -102,7 +102,9 @@ type KubernetesRuntimeInstance struct {
 	// a /16 or larger, overlap no other runtime's range and no child control
 	// plane's pool, and stay clear of the ranges clusters use internally
 	// (10.96.0.0/16, 10.244.0.0/16, 172.20.0.0/16 and 172.16.0.0/28); it does
-	// not have to be in the pool.  Cannot be changed once set.
+	// not have to be in the pool.  A range larger than a /16 is reserved
+	// whole, and the cluster's network is laid out in its first /16, as AWS
+	// and OCI networks are no larger.  Cannot be changed once set.
 	NetworkCidr *string `validate:"optional" gorm:"uniqueIndex:,where:deleted_at IS NULL"`
 
 	// The CA certificate used to generate the cert and key if
