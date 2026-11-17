@@ -822,7 +822,6 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 			}
 		}
 
-
 		cluster, err := gkecontainer.NewCluster(ctx, i.RuntimeInstanceName, &gkecontainer.ClusterArgs{
 			Name:           pulumi.String(i.RuntimeInstanceName),
 			Location:       pulumi.String(location),
