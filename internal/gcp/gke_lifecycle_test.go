@@ -125,6 +125,13 @@ func TestBuildGkeInfra_MapsDefinitionNodePoolFields(t *testing.T) {
 	infra, err = buildGkeInfra(r, instance, definition, nil)
 	require.NoError(t, err)
 	assert.Equal(t, api_v0.DefaultKubernetesVersion, infra.Version)
+	assert.False(t, infra.DeletionProtection, "a definition without it isn't protected")
+
+	// a protected definition builds a protected cluster
+	definition.DeletionProtection = util.Ptr(true)
+	infra, err = buildGkeInfra(r, instance, definition, nil)
+	require.NoError(t, err)
+	assert.True(t, infra.DeletionProtection)
 	assert.Equal(t, api_v0.DefaultGkeReleaseChannel, infra.ReleaseChannel)
 	assert.Equal(t, api_v0.DefaultGkeMaintenanceWindowDays, infra.MaintenanceWindowDays)
 	assert.Equal(t, api_v0.DefaultGkeMaintenanceWindowStart, infra.MaintenanceWindowStart)

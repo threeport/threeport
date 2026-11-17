@@ -90,6 +90,13 @@ type AwsEksKubernetesRuntimeDefinition struct {
 	// after creation, since that replaces the node groups.
 	NodeGroupPerZone *bool `validate:"optional" gorm:"default:false"`
 
+	// If true, the runtime instances derived from this definition can't be
+	// deleted, Pulumi refuses to destroy or replace their clusters and node
+	// groups, and EKS refuses to delete the clusters through its own API.  Set
+	// it to false to let every instance of the definition be deleted.  If
+	// unset, it is false.
+	DeletionProtection *bool `validate:"optional" gorm:"default:false"`
+
 	// The AWS EKS kubernetes runtime instances derived from this definition.
 	AwsEksKubernetesRuntimeInstances []*AwsEksKubernetesRuntimeInstance `validate:"optional,association"`
 

@@ -96,6 +96,12 @@ var UpgradeInfrastructureCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		// keep the cluster protected from deletion as its definition records
+		if err := cli.KeepRecordedDeletionProtection(infra, apiClient, apiEndpoint, infra.RuntimeInstanceName); err != nil {
+			cli.Error("failed to load the recorded deletion protection", err)
+			os.Exit(1)
+		}
+
 		// preview and apply the change
 		err = infra.Upgrade(cmd.Context(), acceptInfrastructureUpgrade)
 		if errors.Is(err, provider.ErrUpgradeDeclined) {

@@ -607,6 +607,7 @@ func buildGkeInfra(
 		MaxNodeCount:           int32(*definition.DefaultNodeGroupMaximumSize),
 		PrivateApi:             definition.PrivateApi != nil && *definition.PrivateApi,
 		Version:                v0.KubernetesVersionOrDefault(definition.KubernetesVersion),
+		DeletionProtection:     definition.DeletionProtection != nil && *definition.DeletionProtection,
 		ReleaseChannel:         v0.GkeReleaseChannelOrDefault(definition.ReleaseChannel),
 		MaintenanceWindowDays:  v0.GkeMaintenanceWindowDaysOrDefault(definition.MaintenanceWindowDays),
 		MaintenanceWindowStart: v0.GkeMaintenanceWindowStartOrDefault(definition.MaintenanceWindowStart),
@@ -675,4 +676,24 @@ func buildGkeInfra(
 	}
 
 	return infraGKE, nil
+}
+
+// DeletionRefusal returns a *v0.DeletionProtectedError while the GKE
+// definition of the cluster has DeletionProtection set.  It reads the
+// definition again, as it may have changed since the delete was scheduled.
+func (g *gkeLifecycle) DeletionRefusal() error {
+	latest, err := client.GetGcpGkeKubernetesRuntimeInstanceByID(g.r.APIClient, g.r.APIServer, g.instanceID)
+	if err != nil {
+		return fmt.Errorf("failed to get GKE instance for its deletion protection: %w", err)
+	}
+	definition, err := client.GetGcpGkeKubernetesRuntimeDefinitionByID(
+		g.r.APIClient,
+		g.r.APIServer,
+		*latest.GcpGkeKubernetesRuntimeDefinitionID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get GKE definition for its deletion protection: %w", err)
+	}
+
+	return v0.ProviderDefinitionDeletionProtection(definition)
 }

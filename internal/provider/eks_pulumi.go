@@ -487,7 +487,7 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 				ServiceIpv4Cidr: pulumi.String(network.ServiceCidr),
 			}
 		}
-		cluster, err := awseks.NewCluster(ctx, i.RuntimeInstanceName, clusterArgs)
+		cluster, err := awseks.NewCluster(ctx, i.RuntimeInstanceName, clusterArgs, pulumi.Protect(i.DeletionProtection))
 		if err != nil {
 			return fmt.Errorf("failed to create EKS cluster: %w", err)
 		}
@@ -514,7 +514,7 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 					MaxSize:     pulumi.Int(i.DefaultNodeGroupMaxNodes),
 				},
 				Tags: i.resourceTags(nodeGroupName),
-			}, pulumi.IgnoreChanges(eksNodeGroupIgnoredChanges))
+			}, pulumi.IgnoreChanges(eksNodeGroupIgnoredChanges), pulumi.Protect(i.DeletionProtection))
 			if err != nil {
 				return fmt.Errorf("failed to create EKS node group %s: %w", nodeGroupName, err)
 			}
