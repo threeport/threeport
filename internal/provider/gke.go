@@ -601,6 +601,27 @@ func (i *KubernetesRuntimeInfraGKE) initialNodeCountPerZone(nodeZones int) int {
 	return (initial + nodeZones - 1) / nodeZones
 }
 
+// checkInitialNodesFit refuses a node pool whose initial nodes, rounded up to
+// the same number in each of its zones, would be more than the whole pool's
+// maximum.  The API checks this for ZoneCount zones, but a region with fewer
+// zones up gives the node pool fewer, and more nodes in each: 3 nodes with a
+// maximum of 3 are 1 in each of 3 zones, and 2 in each of 2.
+func (i *KubernetesRuntimeInfraGKE) checkInitialNodesFit(nodeZones []string) error {
+	if i.perZoneNodeLimits() || len(nodeZones) <= 1 {
+		return nil
+	}
+	initial := i.initialNodeCountPerZone(len(nodeZones)) * len(nodeZones)
+	if initial > int(i.MaxNodeCount) {
+		return fmt.Errorf(
+			"the node pool's %d initial nodes are %d across the %d zones of region %s that are up (%s), %d in each, more than its maximum of %d nodes",
+			i.WorkerNodeInitialCount, initial, len(nodeZones), i.Region, strings.Join(nodeZones, ", "),
+			initial/len(nodeZones), i.MaxNodeCount,
+		)
+	}
+
+	return nil
+}
+
 // autoscaling returns the node pool autoscaler's limits: on the whole node
 // pool, or on each zone where the node counts are per zone.  GKE takes one
 // or the other, not both.
@@ -658,6 +679,16 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 		gcpProvider, err := gcp.NewProvider(ctx, "gcp-provider", providerArgs)
 		if err != nil {
 			return fmt.Errorf("failed to create GCP provider: %w", err)
+		}
+
+		// where the cluster and its nodes go, checked before anything is
+		// created, so a node pool that can't be made leaves no network behind
+		location, nodeLocations, err := i.clusterLocation(ctx, gcpProvider)
+		if err != nil {
+			return err
+		}
+		if err := i.checkInitialNodesFit(nodeLocations); err != nil {
+			return err
 		}
 
 		network, err := compute.NewNetwork(ctx, fmt.Sprintf("%s-vpc", i.RuntimeInstanceName), &compute.NetworkArgs{
@@ -761,10 +792,6 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 			}
 		}
 
-		location, nodeLocations, err := i.clusterLocation(ctx, gcpProvider)
-		if err != nil {
-			return err
-		}
 
 		cluster, err := gkecontainer.NewCluster(ctx, i.RuntimeInstanceName, &gkecontainer.ClusterArgs{
 			Name:           pulumi.String(i.RuntimeInstanceName),

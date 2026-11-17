@@ -25,6 +25,8 @@ type gkeZoneMocks struct {
 	mu        sync.Mutex
 	resources map[string]map[string]any
 	zoneCalls int
+	// zones are the region's zones that are up, when not the four below
+	zones []any
 }
 
 func (m *gkeZoneMocks) NewResource(args pulumi.MockResourceArgs) (string, resource.PropertyMap, error) {
@@ -46,9 +48,12 @@ func (m *gkeZoneMocks) Call(args pulumi.MockCallArgs) (resource.PropertyMap, err
 	m.zoneCalls++
 	m.mu.Unlock()
 
-	return resource.NewPropertyMapFromMap(map[string]any{
-		"names": []any{"us-central1-f", "us-central1-b", "us-central1-c", "us-central1-a"},
-	}), nil
+	zones := m.zones
+	if zones == nil {
+		zones = []any{"us-central1-f", "us-central1-b", "us-central1-c", "us-central1-a"}
+	}
+
+	return resource.NewPropertyMapFromMap(map[string]any{"names": zones}), nil
 }
 
 // runGkeZoneProgram runs the GKE program for infra and returns its cluster
@@ -116,6 +121,38 @@ func TestAGkeClustersShapeFollowsItsZoneCount(t *testing.T) {
 		assert.Equal(t, map[string]any{"minNodeCount": float64(1), "maxNodeCount": float64(10), "locationPolicy": "ANY"}, nodePool["autoscaling"])
 		assert.Zero(t, mocks.zoneCalls, "the zones aren't looked up")
 	})
+}
+
+// TestAGkeNodePoolInFewerZonesStaysUnderItsMaximum covers a region with fewer
+// zones up than the definition's ZoneCount: the initial nodes, the same
+// number in each zone, are checked against the maximum again for the zones
+// the node pool gets, and a node pool they would exceed it in is refused
+// before anything is created.
+func TestAGkeNodePoolInFewerZonesStaysUnderItsMaximum(t *testing.T) {
+	twoZonesUp := []any{"us-central1-b", "us-central1-a"}
+
+	// 3 nodes are 1 in each of 3 zones, but 2 in each of 2: 4, over 3
+	mocks := &gkeZoneMocks{zones: twoZonesUp}
+	err := pulumi.RunErr(gkeZoneInfra(3, 3, 1, 3).pulumiProgram(), pulumi.WithMocks("gke", "test-stack", mocks))
+	assert.ErrorContains(t, err,
+		"the node pool's 3 initial nodes are 4 across the 2 zones of region us-central1 that are up (us-central1-a, us-central1-b), 2 in each, more than its maximum of 3 nodes")
+	assert.Nil(t, mocks.resources["gcp:compute/network:Network"], "nothing is created, not even the network")
+	assert.Nil(t, mocks.resources[gkeClusterTypeToken])
+	assert.Nil(t, mocks.resources[gkeNodePoolTypeToken])
+
+	// a maximum they fit under is created, in the zones that are up
+	mocks = &gkeZoneMocks{zones: twoZonesUp}
+	require.NoError(t, pulumi.RunErr(gkeZoneInfra(3, 3, 1, 4).pulumiProgram(), pulumi.WithMocks("gke", "test-stack", mocks)))
+	nodePool := mocks.resources[gkeNodePoolTypeToken]
+	assert.Equal(t, []any{"us-central1-a", "us-central1-b"}, nodePool["nodeLocations"])
+	assert.Equal(t, float64(2), nodePool["nodeCount"])
+
+	// per-zone limits, as on clusters from before ZoneCount, aren't totals
+	infra := gkeZoneInfra(3, 3, 1, 3)
+	infra.stackPerZoneNodeLimits = true
+	assert.NoError(t, infra.checkInitialNodesFit([]string{"us-central1-a", "us-central1-b"}))
+	// nor is a zonal cluster's single zone split
+	assert.NoError(t, gkeZoneInfra(1, 3, 1, 3).checkInitialNodesFit(nil))
 }
 
 // TestAGkeClusterInTheStackKeepsItsShape covers a create resumed on, or an
