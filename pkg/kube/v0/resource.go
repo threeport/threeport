@@ -125,6 +125,17 @@ func CreateResource(
 			return result, nil
 		}
 		if kubeerr.IsAlreadyExists(err) {
+			// fail while the existing object is still terminating.
+			existing, getErr := kubeClient.
+				Resource(mapping.Resource).
+				Namespace(kubeObject.GetNamespace()).
+				Get(context.Background(), kubeObject.GetName(), kubemetav1.GetOptions{})
+			if getErr != nil {
+				return nil, fmt.Errorf("failed to get existing kubernetes resource:%w", getErr)
+			}
+			if existing.GetDeletionTimestamp() != nil {
+				return nil, fmt.Errorf("failed to create kubernetes resource:%w", err)
+			}
 			return kubeObject, nil
 		}
 		if !isTransientKubeError(err) {

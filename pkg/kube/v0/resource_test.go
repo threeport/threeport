@@ -213,6 +213,31 @@ func TestCreateResourceGivesUpOnPersistentTransientError(t *testing.T) {
 	}
 }
 
+// TestCreateResourceRejectsATerminatingObject covers a name whose object is
+// still deleting. AlreadyExists is not success in that case, because the
+// create did not land and the object is about to disappear.
+func TestCreateResourceRejectsATerminatingObject(t *testing.T) {
+	deployments := schema.GroupResource{Group: "apps", Resource: "deployments"}
+	existing := testDeployment()
+	now := kubemetav1.Now()
+	existing.SetDeletionTimestamp(&now)
+
+	client := &stubDynamicClient{
+		resourceClient: &stubResourceClient{
+			alwaysErr: kubeerr.NewAlreadyExists(deployments, "my-app"),
+			existing:  existing,
+		},
+	}
+
+	_, err := CreateResource(testDeployment(), client, testDeploymentMapper())
+	if err == nil {
+		t.Fatal("CreateResource against a terminating object: got nil, want error")
+	}
+	if client.resourceClient.attempts != 1 {
+		t.Fatalf("CreateResource against a terminating object: got %d attempts, want 1", client.resourceClient.attempts)
+	}
+}
+
 // TestCreateResourceDoesNotRetryDeterministicErrors covers the errors that
 // mean the request itself is wrong. Sending them again produces the same
 // answer, so CreateResource must return after a single attempt instead of
@@ -256,6 +281,9 @@ func TestCreateResourceDoesNotRetryDeterministicErrors(t *testing.T) {
 
 			client := &stubDynamicClient{
 				resourceClient: &stubResourceClient{alwaysErr: tc.err},
+			}
+			if tc.name == "already exists" {
+				client.resourceClient.existing = testDeployment()
 			}
 
 			_, err := CreateResource(testDeployment(), client, testDeploymentMapper())
