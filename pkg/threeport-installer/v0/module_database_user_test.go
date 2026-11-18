@@ -12,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 )
@@ -54,7 +55,36 @@ func moduleDatabaseTestClient() dynamic.Interface {
 		},
 	}}
 
-	return dynamicfake.NewSimpleDynamicClient(runtime.NewScheme(), threeportCerts)
+	return dynamicfake.NewSimpleDynamicClientWithCustomListKinds(
+		runtime.NewScheme(),
+		map[schema.GroupVersionResource]string{deploymentGVR: "DeploymentList"},
+		threeportCerts,
+	)
+}
+
+// moduleDeployment returns a module's API server Deployment, taking its
+// database credentials from the module's user's secret when ownUser is set,
+// and connecting with the database's client certificates otherwise.
+func moduleDeployment(ownUser bool) *unstructured.Unstructured {
+	// a module takes other variables from secrets of its own too
+	env := []interface{}{
+		map[string]interface{}{"name": "DB_HOST", "value": "crdb"},
+		map[string]interface{}{"name": "ENCRYPTION_KEY", "valueFrom": map[string]interface{}{
+			"secretKeyRef": map[string]interface{}{"name": "encryption-key", "key": "key"},
+		}},
+	}
+	if ownUser {
+		env = append(env, ModuleDatabaseEnv()...)
+	}
+
+	return &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "apps/v1",
+		"kind":       "Deployment",
+		"metadata":   map[string]interface{}{"name": "acme-widget-api-server", "namespace": testDbModuleNamespace},
+		"spec": map[string]interface{}{"template": map[string]interface{}{"spec": map[string]interface{}{
+			"containers": []interface{}{map[string]interface{}{"name": "api-server", "env": env}},
+		}}},
+	}}
 }
 
 // testSecretData returns a secret's decoded data, or nil when it's absent.
@@ -86,6 +116,10 @@ func TestAModulesDatabaseUserIsNamedForIt(t *testing.T) {
 	assert.Len(t, long, 63)
 	assert.True(t, strings.HasPrefix(long, "threeport_"))
 	assert.NotEqual(t, ModuleDatabaseUser("acme"), "threeport", "never the control plane's own user")
+	for _, name := range []string{"modules", "Modules", "audited-modules", "audited_modules"} {
+		assert.NotEqual(t, moduleDatabaseAuditRole, ModuleDatabaseUser(name), "never the audited role: %s", name)
+	}
+	assert.False(t, strings.HasPrefix(moduleDatabaseAuditRole, moduleDatabaseUserPrefix), "no module's user can be named as the audited role")
 }
 
 // TestAModulesDatabaseUserCanDoWhatModulesDidAndIsAudited covers the
@@ -99,11 +133,11 @@ func TestAModulesDatabaseUserCanDoWhatModulesDidAndIsAudited(t *testing.T) {
 	assert.Contains(t, statements, "CREATE USER IF NOT EXISTS threeport_acme")
 	assert.Contains(t, statements, "ALTER USER threeport_acme WITH LOGIN PASSWORD 'secret-password'",
 		"an existing user takes a rotated password, and logs in again after being disabled")
-	assert.Contains(t, statements, "GRANT threeport, threeport_modules TO threeport_acme")
+	assert.Contains(t, statements, "GRANT threeport, audited_modules TO threeport_acme")
 	assert.Contains(t, statements, "GRANT ALL ON DATABASE threeport_api TO threeport_acme")
 	assert.Contains(t, statements, "ALTER DEFAULT PRIVILEGES FOR ROLE threeport_acme GRANT ALL ON TABLES TO threeport")
 	assert.Contains(t, statements, "ALTER DEFAULT PRIVILEGES FOR ROLE threeport_acme GRANT ALL ON SEQUENCES TO threeport")
-	assert.Equal(t, "SET CLUSTER SETTING sql.log.user_audit = 'threeport_modules ALL'", statements[len(statements)-1])
+	assert.Equal(t, "SET CLUSTER SETTING sql.log.user_audit = 'audited_modules ALL'", statements[len(statements)-1])
 
 	drop := ModuleDatabaseDropStatements("threeport_acme")
 	assert.Equal(t, []string{
@@ -262,6 +296,21 @@ func TestARedeployedModuleKeepsHowItConnects(t *testing.T) {
 		require.NoError(t, err)
 	}
 	*jobs = nil
+
+	// an upgrade that failed after writing the user's secret, but before
+	// the Deployment took it, leaves pods on the client certificates, so
+	// they're still copied
+	deployments := kubeClient.Resource(deploymentGVR).Namespace(testDbModuleNamespace)
+	_, err = deployments.Create(context.Background(), moduleDeployment(false), metav1.CreateOptions{})
+	require.NoError(t, err)
+	stranded, err := redeployedModuleSecrets(kubeClient, testDbThreeportNamespace, testDbModuleNamespace, "acme-widget")
+	require.NoError(t, err)
+	assert.Equal(t, append(ModuleCopiedSecretNames(), dbRootCertSecretName, dbThreeportCertSecretName), stranded,
+		"the secret alone doesn't mean the pods use it")
+	assert.Empty(t, *jobs)
+
+	_, err = deployments.Update(context.Background(), moduleDeployment(true), metav1.UpdateOptions{})
+	require.NoError(t, err)
 
 	own, err := redeployedModuleSecrets(kubeClient, testDbThreeportNamespace, testDbModuleNamespace, "acme-widget")
 	require.NoError(t, err)

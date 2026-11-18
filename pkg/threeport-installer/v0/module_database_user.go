@@ -53,8 +53,9 @@ const (
 	moduleDatabaseUserMaxLength = 63
 
 	// moduleDatabaseAuditRole is the role every module's user is a member
-	// of, whose statements CockroachDB audits.
-	moduleDatabaseAuditRole = "threeport_modules"
+	// of, whose statements CockroachDB audits.  It doesn't start with
+	// moduleDatabaseUserPrefix, so no module's user can be named the same.
+	moduleDatabaseAuditRole = "audited_modules"
 
 	// moduleDatabasePasswordKey is the key of the password in the control
 	// plane's secret for a module's user.

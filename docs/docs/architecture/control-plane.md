@@ -51,8 +51,8 @@ so it can do what modules could do when they all connected as that user: run
 its migrations in the control plane's database and serve its queries.  The
 `threeport` user can use the tables a module creates.
 
-Each module's user is also a member of the `threeport_modules` role, and the
-control plane sets `sql.log.user_audit` to `threeport_modules ALL`, so
+Each module's user is also a member of the `audited_modules` role, and the
+control plane sets `sql.log.user_audit` to `audited_modules ALL`, so
 CockroachDB records every statement a module runs in its SQL audit log, with
 the module's user: `cockroach-data/logs/cockroach-sql-audit.log` on each
 database node.  The control plane's own statements aren't recorded there.

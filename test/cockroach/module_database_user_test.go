@@ -134,6 +134,14 @@ func TestModuleDatabaseUsersOnCockroach(t *testing.T) {
 	out, err = node.run(installer.ModuleDatabaseUserScript(acme, "acme-password-1"))
 	require.NoError(t, err, "creating a user again is a no-op: %s", out)
 
+	// a module named for the audited role gets a user of its own
+	modules := installer.ModuleDatabaseUser("modules")
+	out, err = node.run(installer.ModuleDatabaseUserScript(modules, "modules-password"))
+	require.NoError(t, err, out)
+	out, err = node.passwordSQL(modules, "modules-password", "SELECT current_user")
+	require.NoError(t, err, out)
+	assert.Contains(t, out, modules)
+
 	// a module connects with its password, as itself
 	out, err = node.passwordSQL(acme, "acme-password-1", "SELECT current_user")
 	require.NoError(t, err, out)
@@ -155,7 +163,7 @@ func TestModuleDatabaseUsersOnCockroach(t *testing.T) {
 	assert.Contains(t, out, "7")
 
 	// its statements are audited
-	assert.Contains(t, node.mustSQL("root", "SHOW CLUSTER SETTING sql.log.user_audit"), "threeport_modules ALL")
+	assert.Contains(t, node.mustSQL("root", "SHOW CLUSTER SETTING sql.log.user_audit"), "audited_modules ALL")
 	require.Eventually(t, func() bool {
 		log, _ := exec.Command("docker", "exec", node.container, "/bin/sh", "-c",
 			"cat /cockroach/cockroach-data/logs/cockroach-sql-audit.log").CombinedOutput()

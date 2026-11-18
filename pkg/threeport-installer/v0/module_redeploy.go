@@ -990,18 +990,49 @@ func redeployedModuleSecrets(kubeClient dynamic.Interface, threeportNamespace, m
 }
 
 // moduleHasOwnDatabaseUser reports whether the module in namespace connects
-// to the database as a user of its own: its namespace holds that user's
-// credentials.
+// to the database as a user of its own: a Deployment in its namespace takes
+// its database credentials from that user's secret.  The secret alone isn't
+// enough, as an upgrade that failed after writing it leaves the module's
+// pods connecting with the database's client certificates.
 func moduleHasOwnDatabaseUser(kubeClient dynamic.Interface, namespace string) (bool, error) {
-	_, err := kubeClient.Resource(secretGVR).Namespace(namespace).Get(
-		context.Background(), ModuleDatabaseCredsSecretName, metav1.GetOptions{},
+	deployments, err := kubeClient.Resource(deploymentGVR).Namespace(namespace).List(
+		context.Background(), metav1.ListOptions{},
 	)
-	switch {
-	case err == nil:
-		return true, nil
-	case k8serrors.IsNotFound(err):
-		return false, nil
-	default:
-		return false, fmt.Errorf("failed to check the database credentials in %s: %w", namespace, err)
+	if err != nil {
+		return false, fmt.Errorf("failed to list the deployments in %s: %w", namespace, err)
 	}
+	for _, deployment := range deployments.Items {
+		if deploymentUsesModuleDatabaseCreds(deployment) {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+// deploymentUsesModuleDatabaseCreds reports whether a Deployment's pods take
+// an environment variable from the module's database credentials.
+func deploymentUsesModuleDatabaseCreds(deployment unstructured.Unstructured) bool {
+	for _, containersField := range []string{"initContainers", "containers"} {
+		containers, _, _ := unstructured.NestedSlice(deployment.Object, "spec", "template", "spec", containersField)
+		for _, container := range containers {
+			containerMap, ok := container.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			env, _, _ := unstructured.NestedSlice(containerMap, "env")
+			for _, variable := range env {
+				variableMap, ok := variable.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				secret, _, _ := unstructured.NestedString(variableMap, "valueFrom", "secretKeyRef", "name")
+				if secret == ModuleDatabaseCredsSecretName {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
 }
