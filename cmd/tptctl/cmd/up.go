@@ -111,14 +111,12 @@ control planes if they are used to create or are created by another control plan
 			cli.Error("flag validation failed:", err)
 			os.Exit(1)
 		}
-		for flag, size := range map[string]string{
-			"message-broker-storage-size": cliArgs.MessageBrokerStorageSize,
-			"database-storage-size":       cliArgs.DatabaseStorageSize,
-		} {
-			if err := threeport.ValidateStorageSize(flag, size); err != nil {
-				cli.Error("flag validation failed:", err)
-				os.Exit(1)
-			}
+		if err := cli.ValidateStorageSizeFlags(
+			cliArgs.MessageBrokerStorageSize,
+			cliArgs.DatabaseStorageSize,
+		); err != nil {
+			cli.Error("flag validation failed:", err)
+			os.Exit(1)
 		}
 		if err := cli.ValidateKubernetesVersionFlag(
 			cliArgs.KubernetesVersion,

@@ -1636,6 +1636,17 @@ func ValidateGcpBackupRegionFlag(
 	return nil
 }
 
+// ValidateStorageSizeFlags refuses a message broker or database volume size
+// that isn't a positive Kubernetes quantity, such as 250Gi.  A size left
+// empty uses the tier's.
+func ValidateStorageSizeFlags(messageBrokerStorageSize, databaseStorageSize string) error {
+	if err := threeport.ValidateStorageSize("message-broker-storage-size", messageBrokerStorageSize); err != nil {
+		return err
+	}
+
+	return threeport.ValidateStorageSize("database-storage-size", databaseStorageSize)
+}
+
 // ResolveControlPlaneTier returns the tier tptctl up installs at: the one
 // asked for, or the default when none was. Defaulting one on a cloud provider
 // prints DefaultTierNotice, so an operator who meant production finds out as
