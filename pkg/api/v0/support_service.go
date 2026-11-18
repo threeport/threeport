@@ -24,5 +24,11 @@ type SupportServiceDatabase struct {
 	DatabaseComponentInstanceID *uint `validate:"optional" relationship:"requires;type:KubernetesWorkloadInstance"`
 }
 
+// SupportServiceStorage is the storage component a caller records.
+type SupportServiceStorage struct {
+	// The workload instance that provides object storage for this instance.
+	StorageComponentInstanceID *uint `validate:"optional" relationship:"requires;type:KubernetesWorkloadInstance"`
+}
+
 // ErrMsgSupportServiceSlotHeld is the API message when a slot write loses the compare.
 const ErrMsgSupportServiceSlotHeld = "support service slot is held"

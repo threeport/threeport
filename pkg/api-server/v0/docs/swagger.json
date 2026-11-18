@@ -19053,6 +19053,10 @@
                     "description": "The status of the instance.\nTODO: use a custom type",
                     "type": "string"
                 },
+                "StorageComponentInstanceID": {
+                    "description": "The workload that provides object storage for this runtime.",
+                    "type": "integer"
+                },
                 "ThreeportAgentImage": {
                     "description": "An alternate threeport image to use when deploying threeport agent to\nmanaged Kubernetes runtime clusters.  If not supplied, the official image\nwith the correct version will be used.",
                     "type": "string"

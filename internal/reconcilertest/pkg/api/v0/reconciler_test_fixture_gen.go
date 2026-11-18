@@ -113,6 +113,11 @@ func (r *ReconcilerTestInstance) RelationshipTaggedForeignKeys() []api.Relations
 		ObjectID:     r.SecretsComponentInstanceID,
 		ObjectType:   new(api.KubernetesWorkloadInstance).GetFullyQualifiedType(),
 		Relationship: api.RelationshipRequires,
+	}, {
+		FieldName:    "StorageComponentInstanceID",
+		ObjectID:     r.StorageComponentInstanceID,
+		ObjectType:   new(api.KubernetesWorkloadInstance).GetFullyQualifiedType(),
+		Relationship: api.RelationshipRequires,
 	}}
 }
 

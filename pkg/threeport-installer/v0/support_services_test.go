@@ -107,7 +107,9 @@ func TestStorageComponentObject(t *testing.T) {
 	// the object names the seaweedfs operator namespace
 	object := storageComponentObject()
 	require.Equal(t, StorageComponentName, object.GetName())
-	require.Equal(t, storageComponentNamespace, object.Object["spec"].(map[string]interface{})["namespace"])
+	spec := object.Object["spec"].(map[string]interface{})
+	require.Equal(t, storageComponentNamespace, spec["namespace"])
+	require.Equal(t, SupportServicesName, spec["collection"].(map[string]interface{})["name"])
 	objects, err := supportServicesOperatorObjects(ControlPlaneNamespace)
 	require.NoError(t, err)
 	found := false

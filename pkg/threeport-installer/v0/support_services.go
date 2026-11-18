@@ -55,7 +55,7 @@ const (
 	SupportServicesName = "threeport-support-services"
 
 	// StorageComponentName is the object that installs the seaweedfs operator.
-	StorageComponentName = "storage-component"
+	StorageComponentName = "storage"
 
 	// storageComponentNamespace is the namespace that operator runs in.
 	storageComponentNamespace = "nukleros-storage-system"
@@ -233,7 +233,6 @@ func supportServicesObject(cloud string) *unstructured.Unstructured {
 }
 
 // storageComponentObject returns the StorageComponent that installs seaweedfs.
-// Collection is left unset so the operator uses the only support services collection.
 func storageComponentObject() *unstructured.Unstructured {
 	// one replica matches a single control plane
 	return &unstructured.Unstructured{
@@ -244,6 +243,9 @@ func storageComponentObject() *unstructured.Unstructured {
 				"name": StorageComponentName,
 			},
 			"spec": map[string]interface{}{
+				"collection": map[string]interface{}{
+					"name": SupportServicesName,
+				},
 				"namespace": storageComponentNamespace,
 				"seaweedfsOperator": map[string]interface{}{
 					"replicas": int64(1),

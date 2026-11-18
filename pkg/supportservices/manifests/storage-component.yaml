@@ -1,0 +1,11 @@
+apiVersion: platform.addons.nukleros.io/v1alpha1
+kind: StorageComponent
+metadata:
+  name: storagecomponent-sample
+spec:
+  #collection:
+    #name: "supportservices-sample"
+    #namespace: ""
+  namespace: "nukleros-storage-system"
+  seaweedfsOperator:
+    replicas: 1

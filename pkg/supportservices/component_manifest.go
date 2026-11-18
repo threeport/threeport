@@ -22,6 +22,9 @@ var databaseComponent []byte
 //go:embed manifests/secrets-component.yaml
 var secretsComponent []byte
 
+//go:embed manifests/storage-component.yaml
+var storageComponent []byte
+
 const (
 	// IngressComponentName is the IngressComponent object this install applies.
 	IngressComponentName = "ingress"
@@ -34,6 +37,9 @@ const (
 
 	// DatabaseComponentName is the DatabaseComponent object this install applies.
 	DatabaseComponentName = "database"
+
+	// StorageComponentName is the StorageComponent object this install applies.
+	StorageComponentName = "storage"
 
 	// externalDNSName is the IngressComponent object that installs external-dns.
 	externalDNSName = "externaldns"
@@ -260,6 +266,35 @@ func databaseComponentYaml() (string, error) {
 		"name",
 	); err != nil {
 		return "", fmt.Errorf("failed to set the database component name: %w", err)
+	}
+	if err := unstructured.SetNestedField(
+		component.Object,
+		installer.SupportServicesName,
+		"spec",
+		"collection",
+		"name",
+	); err != nil {
+		return "", fmt.Errorf("failed to set the support services name: %w", err)
+	}
+	return util.UnstructuredToYaml(component)
+}
+
+// storageComponentYaml returns the storage component.
+func storageComponentYaml() (string, error) {
+	// decode the embedded component
+	component, err := util.UnstructuredFromYaml(storageComponent)
+	if err != nil {
+		return "", err
+	}
+
+	// name the component and join it to the SupportServices object
+	if err := unstructured.SetNestedField(
+		component.Object,
+		StorageComponentName,
+		"metadata",
+		"name",
+	); err != nil {
+		return "", fmt.Errorf("failed to set the storage component name: %w", err)
 	}
 	if err := unstructured.SetNestedField(
 		component.Object,

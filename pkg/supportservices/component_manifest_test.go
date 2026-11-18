@@ -78,6 +78,35 @@ func TestDatabaseComponentYaml(t *testing.T) {
 	}
 }
 
+// TestStorageComponentYaml checks the fields this install sets on the sample.
+func TestStorageComponentYaml(t *testing.T) {
+	// the sample stays free of threeport values
+	if strings.Contains(string(storageComponent), "threeport") {
+		t.Fatal("storage component sample contains a threeport value")
+	}
+
+	// render the component and read the operator fields
+	rendered, err := storageComponentYaml()
+	if err != nil {
+		t.Fatal(err)
+	}
+	component, err := util.UnstructuredFromYaml([]byte(rendered))
+	if err != nil {
+		t.Fatal(err)
+	}
+	name, _, _ := unstructured.NestedString(component.Object, "metadata", "name")
+	collection, _, _ := unstructured.NestedString(component.Object, "spec", "collection", "name")
+	namespace, _, _ := unstructured.NestedString(component.Object, "spec", "namespace")
+	replicas, _, _ := unstructured.NestedInt64(component.Object, "spec", "seaweedfsOperator", "replicas")
+	if component.GetKind() != "StorageComponent" ||
+		name != StorageComponentName ||
+		collection != "threeport-support-services" ||
+		namespace != "nukleros-storage-system" ||
+		replicas != 1 {
+		t.Fatalf("kind=%s name=%s collection=%s namespace=%s replicas=%d", component.GetKind(), name, collection, namespace, replicas)
+	}
+}
+
 // TestCertificatesComponentYaml checks the fields this install sets on the sample.
 func TestCertificatesComponentYaml(t *testing.T) {
 	// the sample stays free of threeport values

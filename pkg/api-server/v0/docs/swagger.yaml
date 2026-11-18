@@ -1718,6 +1718,9 @@ definitions:
           The status of the instance.
           TODO: use a custom type
         type: string
+      StorageComponentInstanceID:
+        description: The workload that provides object storage for this runtime.
+        type: integer
       ThreeportAgentImage:
         description: |-
           An alternate threeport image to use when deploying threeport agent to

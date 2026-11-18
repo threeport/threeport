@@ -28,6 +28,7 @@ type ReconcilerTestInstance struct {
 	tpapi.SupportServiceCertificates `mapstructure:",squash"`
 	tpapi.SupportServiceSecrets      `mapstructure:",squash"`
 	tpapi.SupportServiceDatabase     `mapstructure:",squash"`
+	tpapi.SupportServiceStorage      `mapstructure:",squash"`
 
 	// The status of the instance.
 	Status *string `validate:"optional"`

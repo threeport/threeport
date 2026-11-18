@@ -244,6 +244,7 @@ func (s *supportStub) runtimeInstance(w http.ResponseWriter, r *http.Request) {
 		copySlot(&s.runtime.CertificatesComponentInstanceID, incoming.CertificatesComponentInstanceID)
 		copySlot(&s.runtime.SecretsComponentInstanceID, incoming.SecretsComponentInstanceID)
 		copySlot(&s.runtime.DatabaseComponentInstanceID, incoming.DatabaseComponentInstanceID)
+		copySlot(&s.runtime.StorageComponentInstanceID, incoming.StorageComponentInstanceID)
 		s.write(w, http.StatusOK, s.runtime)
 	default:
 		http.NotFound(w, r)
@@ -479,7 +480,8 @@ func slotReplaces(stored, incoming *tpapi.KubernetesRuntimeInstance) bool {
 	return slotDiffers(stored.IngressComponentInstanceID, incoming.IngressComponentInstanceID) ||
 		slotDiffers(stored.CertificatesComponentInstanceID, incoming.CertificatesComponentInstanceID) ||
 		slotDiffers(stored.SecretsComponentInstanceID, incoming.SecretsComponentInstanceID) ||
-		slotDiffers(stored.DatabaseComponentInstanceID, incoming.DatabaseComponentInstanceID)
+		slotDiffers(stored.DatabaseComponentInstanceID, incoming.DatabaseComponentInstanceID) ||
+		slotDiffers(stored.StorageComponentInstanceID, incoming.StorageComponentInstanceID)
 }
 
 // slotDiffers reports that both ids are set and they are not equal.
