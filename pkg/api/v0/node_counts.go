@@ -17,14 +17,16 @@ const kubernetesRuntimeInitialNodes = 2
 
 // nodeCounts are the sizes of a definition's default node group, and the
 // number of zones its nodes run in, zero where the maximum needn't cover them.
-// instanceType and nodeGroupPerZone are an EKS node group's, which the
-// number of nodes its network holds depends on, and networkLimit returns that
-// number for the counts, zero where it isn't known, and why.
+// instanceType, nodeGroupPerZone and eksZones are an EKS cluster's node group
+// and the zones it spans, which the number of nodes its network holds depends
+// on, and networkLimit returns that number for the counts, zero where it
+// isn't known, and why.
 type nodeCounts struct {
 	minimum, initial, maximum *int
 	zones                     int
 	instanceType              *string
 	nodeGroupPerZone          *bool
+	eksZones                  *int
 	networkLimit              func(nodeCounts) (int, string)
 }
 
@@ -92,7 +94,7 @@ func validateNodeCountsUpdate(tx *gorm.DB, counts func(any) (nodeCounts, bool)) 
 		return fmt.Errorf("cannot validate node counts: update carries %T", lib.IncomingValues(tx))
 	}
 	if !lib.IsFullReplace(tx) && incoming.minimum == nil && incoming.initial == nil && incoming.maximum == nil && incoming.zones == 0 &&
-		incoming.instanceType == nil && incoming.nodeGroupPerZone == nil {
+		incoming.instanceType == nil && incoming.nodeGroupPerZone == nil && incoming.eksZones == nil {
 		return nil
 	}
 
@@ -132,6 +134,9 @@ func validateNodeCountsUpdate(tx *gorm.DB, counts func(any) (nodeCounts, bool)) 
 		if incoming.nodeGroupPerZone != nil {
 			updated.nodeGroupPerZone = incoming.nodeGroupPerZone
 		}
+		if incoming.eksZones != nil {
+			updated.eksZones = incoming.eksZones
+		}
 	}
 	if sameNodeCounts(updated, stored) {
 		return nil
@@ -147,20 +152,18 @@ func sameNodeCounts(a, b nodeCounts) bool {
 		util.Deref(a.initial) == util.Deref(b.initial) && (a.initial == nil) == (b.initial == nil) &&
 		util.Deref(a.maximum) == util.Deref(b.maximum) && (a.maximum == nil) == (b.maximum == nil) &&
 		a.zones == b.zones &&
-		util.Deref(a.instanceType) == util.Deref(b.instanceType) && util.Deref(a.nodeGroupPerZone) == util.Deref(b.nodeGroupPerZone)
+		util.Deref(a.instanceType) == util.Deref(b.instanceType) && util.Deref(a.nodeGroupPerZone) == util.Deref(b.nodeGroupPerZone) &&
+		util.Deref(a.eksZones) == util.Deref(b.eksZones)
 }
 
 // eksNodeCounts reads an EKS definition's node group sizes.  Its node group
-// spans its zones, so its maximum needn't cover them.
+// spans its zones, so its maximum needn't cover them: they only bear on the
+// network, and are read as eksZones, not zones.
 func eksNodeCounts(value any) (nodeCounts, bool) {
 	definition, ok := value.(*AwsEksKubernetesRuntimeDefinition)
 	if !ok {
 		return nodeCounts{}, false
 	}
-
-	// its zones only bear on the network, as the node group spans them, so
-	// they are read through the network limit, not zones
-	zoneCount := definition.ZoneCount
 
 	return nodeCounts{
 		minimum:          definition.DefaultNodeGroupMinimumSize,
@@ -168,11 +171,12 @@ func eksNodeCounts(value any) (nodeCounts, bool) {
 		maximum:          definition.DefaultNodeGroupMaximumSize,
 		instanceType:     definition.DefaultNodeGroupInstanceType,
 		nodeGroupPerZone: definition.NodeGroupPerZone,
+		eksZones:         definition.ZoneCount,
 		networkLimit: func(counts nodeCounts) (int, string) {
 			if counts.instanceType == nil {
 				return 0, ""
 			}
-			return eksNetworkNodeLimit(*counts.instanceType, util.Deref(zoneCount), util.Deref(counts.nodeGroupPerZone))
+			return eksNetworkNodeLimit(*counts.instanceType, util.Deref(counts.eksZones), util.Deref(counts.nodeGroupPerZone))
 		},
 	}, true
 }

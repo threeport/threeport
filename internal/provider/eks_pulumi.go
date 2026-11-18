@@ -26,12 +26,15 @@ const (
 	eksSupportType = "STANDARD"
 
 	// eksDefaultZoneCount is the number of availability zones used when the
-	// runtime definition does not ask for a specific count.
-	eksDefaultZoneCount = 2
+	// runtime definition does not ask for a specific count.  The API checks
+	// a definition's node maximum against the zones the cluster gets, so the
+	// count is the one it checks with.
+	eksDefaultZoneCount = v0.EksDefaultZoneCount
 
 	// eksMaxZoneCount caps how many availability zones the cluster spans.  It
-	// is bounded by the number of subnets the network layout carves out.
-	eksMaxZoneCount = 3
+	// is bounded by the number of subnets the network layout carves out, and
+	// is the cap the API checks a definition's node maximum with.
+	eksMaxZoneCount = v0.EksMaxZoneCount
 
 	// eksDefaultRouteCidr is the destination that sends traffic to the
 	// internet gateway from public subnets and to a NAT gateway from private

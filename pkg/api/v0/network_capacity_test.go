@@ -101,6 +101,18 @@ func TestADefinitionsMaximumMustFitItsNetwork(t *testing.T) {
 	require.NoError(t, session().Create(perZone).Error)
 	assert.ErrorContains(t, session().Model(perZone).Updates(&AwsEksKubernetesRuntimeDefinition{NodeGroupPerZone: util.Ptr(true)}).Error,
 		"DefaultNodeGroupMaximumSize 100 is more than the 52 nodes", "each zone's node group would hold the maximum")
+	// an update that only changes the zones is checked with the zones it
+	// gives the cluster
+	zones := eks("fewer-zones", "m8i.48xlarge", 2, 104, false)
+	require.NoError(t, session().Create(zones).Error)
+	assert.ErrorContains(t, session().Model(zones).Updates(&AwsEksKubernetesRuntimeDefinition{ZoneCount: util.Ptr(1)}).Error,
+		"DefaultNodeGroupMaximumSize 104 is more than the 52 nodes the cluster's network holds", "one zone holds 52")
+	assert.NoError(t, session().Model(zones).Updates(&AwsEksKubernetesRuntimeDefinition{ZoneCount: util.Ptr(3)}).Error)
+	var stored AwsEksKubernetesRuntimeDefinition
+	require.NoError(t, db.First(&stored, *zones.ID).Error)
+	assert.Equal(t, 3, *stored.ZoneCount)
+	assert.ErrorContains(t, session().Model(&stored).Updates(&AwsEksKubernetesRuntimeDefinition{DefaultNodeGroupMaximumSize: util.Ptr(157)}).Error,
+		"the 156 nodes", "a later update is checked with the stored zones")
 
 	// a GKE cluster's pod range holds 256 nodes, whatever its zones
 	gke := func(name string, zones, maximum int) *GcpGkeKubernetesRuntimeDefinition {
