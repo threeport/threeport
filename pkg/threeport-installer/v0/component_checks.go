@@ -280,7 +280,8 @@ func SupportServicesOperatorInstalled(
 // InstallEksThreeportSystemServices would install are already on the cluster,
 // with the cluster autoscaler's release for kubernetesVersion, the cluster's
 // minor version.  An autoscaler of another release, as an upgraded cluster has,
-// isn't current.
+// isn't current, nor is one whose cluster role doesn't let it watch what its
+// release waits for (see clusterAutoscalerWatchedResources).
 func EksThreeportSystemServicesCurrent(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
@@ -308,13 +309,78 @@ func EksThreeportSystemServicesCurrent(
 	}
 
 	containers, _, _ := unstructured.NestedSlice(deployment.Object, "spec", "template", "spec", "containers")
+	imageCurrent := false
 	for _, container := range containers {
 		if fields, ok := container.(map[string]interface{}); ok && fields["image"] == wantImage {
-			return true, nil
+			imageCurrent = true
+		}
+	}
+	if !imageCurrent {
+		return false, nil
+	}
+
+	clusterRole, present, err := resourceInstalled(
+		kubeClient,
+		mapper,
+		"rbac.authorization.k8s.io",
+		"v1",
+		"ClusterRole",
+		"",
+		ClusterAutoscalerClusterRoleName,
+	)
+	if err != nil {
+		return false, fmt.Errorf("failed to check the cluster autoscaler's cluster role: %w", err)
+	}
+	if !present {
+		return false, nil
+	}
+	rules, _, _ := unstructured.NestedSlice(clusterRole.Object, "rules")
+	for _, watched := range clusterAutoscalerWatchedResources {
+		if !rulesGrantWatch(rules, watched[0], watched[1]) {
+			return false, nil
 		}
 	}
 
-	return false, nil
+	return true, nil
+}
+
+// clusterAutoscalerWatchedResources are resources, by API group, the cluster
+// autoscaler's recent releases, such as 1.36, wait to have watched before
+// they scale.
+// The cluster role autoscalers were installed with before didn't grant them,
+// so such an autoscaler is installed again.
+var clusterAutoscalerWatchedResources = [][2]string{
+	{"storage.k8s.io", "volumeattachments"},
+	{"resource.k8s.io", "resourceclaims"},
+	{"resource.k8s.io", "resourceslices"},
+	{"resource.k8s.io", "deviceclasses"},
+}
+
+// rulesGrantWatch reports whether a role's rules let it list and watch a
+// resource of an API group.
+func rulesGrantWatch(rules []interface{}, apiGroup, resource string) bool {
+	has := func(values []interface{}, want string) bool {
+		for _, value := range values {
+			if value == want || value == "*" {
+				return true
+			}
+		}
+		return false
+	}
+	for _, rule := range rules {
+		fields, ok := rule.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		groups, _ := fields["apiGroups"].([]interface{})
+		resources, _ := fields["resources"].([]interface{})
+		verbs, _ := fields["verbs"].([]interface{})
+		if has(groups, apiGroup) && has(resources, resource) && has(verbs, "list") && has(verbs, "watch") {
+			return true
+		}
+	}
+
+	return false
 }
 
 // ComputeSpaceWorkloadControllerRBACCurrent reports whether every binding

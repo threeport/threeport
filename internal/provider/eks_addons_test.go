@@ -37,9 +37,11 @@ func TestTheEksClusterRunsItsAddonsAsEksAddons(t *testing.T) {
 		}
 	}
 
-	// each comes after the node group
+	// each comes after the node group, and only the vpc-cni add-on leaves the
+	// role it runs as to moveVpcCniPolicyToItsRole
 	var mu sync.Mutex
 	dependencies := map[string]int{}
+	ignored := map[string][]string{}
 	err := pulumi.RunErr(func(ctx *pulumi.Context) error {
 		if err := ctx.RegisterStackTransformation(func(args *pulumi.ResourceTransformationArgs) *pulumi.ResourceTransformationResult {
 			if args.Type != eksAddonTypeToken {
@@ -49,6 +51,7 @@ func TestTheEksClusterRunsItsAddonsAsEksAddons(t *testing.T) {
 			require.NoError(t, err)
 			mu.Lock()
 			dependencies[args.Name] = len(options.DependsOn)
+			ignored[args.Name] = options.IgnoreChanges
 			mu.Unlock()
 			return nil
 		}); err != nil {
@@ -58,6 +61,11 @@ func TestTheEksClusterRunsItsAddonsAsEksAddons(t *testing.T) {
 	}, pulumi.WithMocks("eks", "test-stack", &eksRecordingMocks{}))
 	require.NoError(t, err)
 	assert.Equal(t, map[string]int{"eks-test-vpc-cni": 1, "eks-test-coredns": 1, "eks-test-kube-proxy": 1}, dependencies)
+	assert.Equal(t, map[string][]string{
+		"eks-test-vpc-cni":    {"serviceAccountRoleArn"},
+		"eks-test-coredns":    nil,
+		"eks-test-kube-proxy": nil,
+	}, ignored)
 }
 
 // TestAnAddonsDefaultVersionIsTheOneForTheClustersVersion covers choosing the

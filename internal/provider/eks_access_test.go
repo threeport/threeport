@@ -110,13 +110,16 @@ func TestAnUpgradedEksClusterKeepsWhatItWasCreatedWith(t *testing.T) {
 	infra.keepStackCluster(json.RawMessage(`{"resources": [
 		{"type": "aws:eks/cluster:Cluster", "inputs": {"name": "eks-test", "upgradePolicy": {"supportType": "EXTENDED"}}},
 		{"urn": "urn:pulumi:stack::eks::aws:ec2/subnet:Subnet::eks-test-private-subnet-0", "type": "aws:ec2/subnet:Subnet", "inputs": {"availabilityZone": "us-east-1c"}},
-		{"urn": "urn:pulumi:stack::eks::aws:ec2/subnet:Subnet::eks-test-private-subnet-1", "type": "aws:ec2/subnet:Subnet", "inputs": {"availabilityZone": "us-east-1d"}}
+		{"urn": "urn:pulumi:stack::eks::aws:ec2/subnet:Subnet::eks-test-private-subnet-1", "type": "aws:ec2/subnet:Subnet", "inputs": {"availabilityZone": "us-east-1d"}},
+		{"type": "aws:eks/nodeGroup:NodeGroup", "inputs": {"nodeGroupName": "eks-test-private-node-group"}}
 	]}`))
 	require.NotNil(t, infra.stackAccessEntries)
 	assert.False(t, *infra.stackAccessEntries)
 	require.NotNil(t, infra.stackSupportType)
 	assert.Equal(t, "EXTENDED", *infra.stackSupportType)
 	assert.Equal(t, []string{"us-east-1c", "us-east-1d"}, infra.stackZones)
+	assert.Equal(t, map[string]bool{"eks-test-private-node-group": true}, infra.stackNodeGroupsWithoutLaunchTemplate,
+		"a node group created without a launch template keeps running without one")
 
 	mocks := runEksRegistrations(t, infra)
 	assert.Nil(t, mocks.byType(eksClusterTypeToken)[0].inputs["accessConfig"], "the cluster keeps its aws-auth ConfigMap")

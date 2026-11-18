@@ -114,8 +114,8 @@ func (i *KubernetesRuntimeInfraGKE) ClusterKubernetesVersion() (string, error) {
 // raising the minimum version it asks for.  GKE upgrades it to its release
 // channel's release of that version, and the nodes after it within the
 // maintenance window.  The stack keeps the cluster's release channel, the
-// range its network was laid out in, its location and its node limits, as a
-// resumed create does.
+// range its network was laid out in, its location, its node limits, and the
+// node pool's service account and boot disk, as a resumed create does.
 func (i *KubernetesRuntimeInfraGKE) UpgradeInfra(version string) error {
 	i.Version = version
 	i.stackMinMasterVersion = nil

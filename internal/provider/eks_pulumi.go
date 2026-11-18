@@ -3,6 +3,7 @@ package provider
 import (
 	"fmt"
 	"slices"
+	"strconv"
 
 	"github.com/pulumi/pulumi-aws/sdk/v6/go/aws"
 	"github.com/pulumi/pulumi-aws/sdk/v6/go/aws/ec2"
@@ -10,6 +11,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	tpaws "github.com/threeport/threeport/pkg/aws/v0"
 )
 
 const (
@@ -505,6 +507,10 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 		}
 
 		nodeGroupNames := i.nodeGroupNames()
+		nodeLaunchTemplate, err := i.nodeLaunchTemplate(ctx, nodeGroupNames)
+		if err != nil {
+			return err
+		}
 		nodeGroups := make([]pulumi.Resource, 0, len(nodeGroupNames))
 		for index, nodeGroupName := range nodeGroupNames {
 			// one node group spans every zone's subnet, and a node group per
@@ -525,7 +531,8 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 					MinSize:     pulumi.Int(i.DefaultNodeGroupMinNodes),
 					MaxSize:     pulumi.Int(i.DefaultNodeGroupMaxNodes),
 				},
-				Tags: i.resourceTags(nodeGroupName),
+				LaunchTemplate: i.nodeGroupLaunchTemplate(nodeLaunchTemplate, nodeGroupName),
+				Tags:           i.resourceTags(nodeGroupName),
 			}, pulumi.IgnoreChanges(eksNodeGroupIgnoredChanges), pulumi.Protect(i.DeletionProtection))
 			if err != nil {
 				return fmt.Errorf("failed to create EKS node group %s: %w", nodeGroupName, err)
@@ -540,10 +547,69 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 	}
 }
 
+// eksNodeMetadataHopLimit is how many network hops a response from the
+// nodes' instance metadata service may take.  At 1 it reaches the node and
+// not a pod's network namespace behind it, so a pod can't take the node
+// role's credentials; the add-ons that call AWS have roles of their own.
+const eksNodeMetadataHopLimit = 1
+
+// nodeLaunchTemplate adds the launch template the cluster's new node groups
+// are created from: it requires session tokens for the instance metadata
+// service, which a pod can't then reach.  It adds none when every node group
+// is one the stack holds without a launch template.
+func (i *KubernetesRuntimeInfraEKS) nodeLaunchTemplate(ctx *pulumi.Context, nodeGroupNames []string) (*ec2.LaunchTemplate, error) {
+	if !slices.ContainsFunc(nodeGroupNames, func(name string) bool {
+		return !i.stackNodeGroupsWithoutLaunchTemplate[name]
+	}) {
+		return nil, nil
+	}
+
+	name := fmt.Sprintf("%s-node-launch-template", i.RuntimeInstanceName)
+	launchTemplate, err := ec2.NewLaunchTemplate(ctx, name, &ec2.LaunchTemplateArgs{
+		Name: pulumi.String(name),
+		MetadataOptions: &ec2.LaunchTemplateMetadataOptionsArgs{
+			HttpEndpoint:            pulumi.String("enabled"),
+			HttpTokens:              pulumi.String("required"),
+			HttpPutResponseHopLimit: pulumi.Int(eksNodeMetadataHopLimit),
+		},
+		Tags: i.resourceTags(name),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create the node launch template: %w", err)
+	}
+
+	return launchTemplate, nil
+}
+
+// nodeGroupLaunchTemplate returns the launch template a node group is created
+// from: none for one the stack holds without one, and the latest version of
+// launchTemplate otherwise.
+func (i *KubernetesRuntimeInfraEKS) nodeGroupLaunchTemplate(
+	launchTemplate *ec2.LaunchTemplate,
+	nodeGroupName string,
+) awseks.NodeGroupLaunchTemplatePtrInput {
+	if launchTemplate == nil || i.stackNodeGroupsWithoutLaunchTemplate[nodeGroupName] {
+		return nil
+	}
+
+	return &awseks.NodeGroupLaunchTemplateArgs{
+		Id: launchTemplate.ID(),
+		Version: launchTemplate.LatestVersion.ApplyT(func(version int) string {
+			return strconv.Itoa(version)
+		}).(pulumi.StringOutput),
+	}
+}
+
 // eksManagedAddons are the add-ons EKS installs on a cluster it creates, as
 // copies nothing upgrades with the cluster.  The program takes them over as
 // EKS add-ons, whose versions EKS sets for the cluster's version.
 var eksManagedAddons = []string{"vpc-cni", "coredns", "kube-proxy"}
+
+// vpcCniAddonIgnoredChanges are the vpc-cni add-on's properties set outside
+// the program: the role it runs as is bound to it once the cluster's OIDC
+// issuer exists, after the stack (see moveVpcCniPolicyToItsRole), so an up
+// that doesn't ask for it leaves it there.
+var vpcCniAddonIgnoredChanges = []string{"serviceAccountRoleArn"}
 
 // eksAddonResolveConflicts takes over the copies EKS installed, and their
 // configuration, rather than failing on them.
@@ -568,6 +634,10 @@ func (i *KubernetesRuntimeInfraEKS) managedAddons(
 		}
 
 		resourceName := fmt.Sprintf("%s-%s", i.RuntimeInstanceName, addonName)
+		var ignoredChanges []string
+		if addonName == tpaws.EksVpcCniAddonName {
+			ignoredChanges = vpcCniAddonIgnoredChanges
+		}
 		if _, err := awseks.NewAddon(ctx, resourceName, &awseks.AddonArgs{
 			ClusterName:              cluster.Name,
 			AddonName:                pulumi.String(addonName),
@@ -575,7 +645,7 @@ func (i *KubernetesRuntimeInfraEKS) managedAddons(
 			ResolveConflictsOnCreate: pulumi.String(eksAddonResolveConflicts),
 			ResolveConflictsOnUpdate: pulumi.String(eksAddonResolveConflicts),
 			Tags:                     i.resourceTags(resourceName),
-		}, pulumi.DependsOn(nodeGroups)); err != nil {
+		}, pulumi.DependsOn(nodeGroups), pulumi.IgnoreChanges(ignoredChanges)); err != nil {
 			return fmt.Errorf("failed to create the %s add-on: %w", addonName, err)
 		}
 	}

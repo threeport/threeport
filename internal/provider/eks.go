@@ -113,6 +113,12 @@ type KubernetesRuntimeInfraEKS struct {
 	// it.
 	stackSupportType *string
 
+	// stackNodeGroupsWithoutLaunchTemplate is set when the stack already
+	// holds node groups created without a launch template, to their names.
+	// The program leaves them without one, since EKS replaces a node group to
+	// give it a launch template.
+	stackNodeGroupsWithoutLaunchTemplate map[string]bool
+
 	// stackAccessEntries is set when a cluster already in the stack is read,
 	// by CreateInfra or UpgradeInfra, to whether it was created with access
 	// entries.  A cluster created before them keeps its access as it is: the
@@ -212,12 +218,14 @@ func (i *KubernetesRuntimeInfraEKS) CreatedKubernetesVersion() string {
 // if it holds one, was created with and can't change, for the program to
 // keep, both on a resumed create and on an upgrade: the range its network
 // was laid out in, its upgrade policy's support type, whether it has access
-// entries, and its subnets' zones.
+// entries, its subnets' zones, and which node groups were created without a
+// launch template.
 func (i *KubernetesRuntimeInfraEKS) keepStackCluster(deployment json.RawMessage) {
 	i.keepStackNetwork(deployment)
 	i.keepStackSupportType(deployment)
 	i.keepStackAccessEntries(deployment)
 	i.keepStackZones(deployment)
+	i.keepStackNodeGroups(deployment)
 }
 
 // keepStackSupportType records the support type of the cluster the stack's
@@ -993,7 +1001,11 @@ const (
 					"ec2:DeleteSecurityGroup",
 					"ec2:AuthorizeSecurityGroupIngress",
 					"ec2:AuthorizeSecurityGroupEgress",
-					"ec2:DeleteNetworkInterface"
+					"ec2:DeleteNetworkInterface",
+					"ec2:CreateLaunchTemplate",
+					"ec2:CreateLaunchTemplateVersion",
+					"ec2:ModifyLaunchTemplate",
+					"ec2:DeleteLaunchTemplate"
 				],
 				"Resource": "*"
 			},
@@ -1121,6 +1133,33 @@ const (
 		]
 	}`
 )
+
+// keepStackNodeGroups records the node groups the stack's deployment holds
+// without a launch template, for the program to leave without one.  A
+// deployment that can't be read records none: it holds nothing the program
+// could keep.
+func (i *KubernetesRuntimeInfraEKS) keepStackNodeGroups(deployment json.RawMessage) {
+	var contents struct {
+		Resources []struct {
+			Type   string         `json:"type"`
+			Inputs map[string]any `json:"inputs"`
+		} `json:"resources"`
+	}
+	i.stackNodeGroupsWithoutLaunchTemplate = map[string]bool{}
+	if len(deployment) == 0 || json.Unmarshal(deployment, &contents) != nil {
+		return
+	}
+
+	for _, resource := range contents.Resources {
+		if resource.Type != "aws:eks/nodeGroup:NodeGroup" {
+			continue
+		}
+		name, _ := resource.Inputs["nodeGroupName"].(string)
+		if _, hasLaunchTemplate := resource.Inputs["launchTemplate"]; name != "" && !hasLaunchTemplate {
+			i.stackNodeGroupsWithoutLaunchTemplate[name] = true
+		}
+	}
+}
 
 // keepStackZones records the zones of the private subnets the stack's
 // deployment holds, in the order of their names' zone index, for the program

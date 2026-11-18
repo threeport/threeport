@@ -104,6 +104,22 @@ version comes with its node image, so it takes none.
 `tptctl up` sets the version of the cluster it creates with
 `--kubernetes-version`.
 
+### Nodes
+
+- **GKE** nodes boot from a 100 GB `pd-balanced` (SSD backed) disk.
+- **EKS** nodes are created from a launch template that requires IMDSv2
+  session tokens and limits the instance metadata service's responses to one
+  network hop, so a pod can't reach it and take the node role's credentials.
+  The add-ons that call AWS each run as an IAM role of their own through IRSA:
+  the VPC CNI plugin (`aws-node`), the EBS CSI driver, the cluster autoscaler,
+  external-dns, cert-manager and external-secrets. The VPC CNI plugin's policy,
+  `AmazonEKS_CNI_Policy`, is moved off the node role once its pods run as
+  their own role.
+
+These apply to clusters created from this release on. A node pool or node
+group that already exists keeps its boot disk and runs without a launch
+template, since changing either would replace it or recreate its nodes.
+
 ### Deletion Protection
 
 With `DeletionProtection: true`, the clusters of a definition on EKS, GKE or

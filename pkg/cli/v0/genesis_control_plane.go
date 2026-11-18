@@ -1067,6 +1067,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			mapper,
 			clusterName,
 			*callerIdentity.Account,
+			awsConfigUser.Region,
 			kubernetesVersion,
 			cpi.Opts.Namespace,
 		); err != nil {

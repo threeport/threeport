@@ -32,6 +32,15 @@ const (
 	// EksEbsStorageAddonName is the name of the EKS addon that installs the
 	// EBS CSI driver.
 	EksEbsStorageAddonName = "aws-ebs-csi-driver"
+
+	// EksVpcCniAddonName is the name of the EKS add-on that installs the
+	// Amazon VPC CNI plugin, which gives pods their VPC addresses.
+	EksVpcCniAddonName = "vpc-cni"
+
+	// EksVpcCniServiceAccountNamespace and EksVpcCniServiceAccountName name
+	// the service account the VPC CNI plugin's aws-node pods run as.
+	EksVpcCniServiceAccountNamespace = "kube-system"
+	EksVpcCniServiceAccountName      = "aws-node"
 )
 
 // IAM role and policy name prefixes.  A cluster's role is the prefix and the
@@ -46,6 +55,7 @@ const (
 	eksSecretsManagerRoleNamePrefix     = "secrets-manager-role"
 	eksClusterAutoscalingRoleNamePrefix = "ca-role"
 	eksStorageManagementRoleNamePrefix  = "csi-role"
+	eksVpcCniRoleNamePrefix             = "vpc-cni-role"
 
 	eksDnsPolicyNamePrefix                = "DNSUpdates"
 	eksDns01ChallengePolicyNamePrefix     = "DNS01Challenge"
@@ -111,6 +121,12 @@ func EksClusterAutoscalingRoleName(clusterName string) string {
 // assumes to manage volumes.
 func EksStorageManagementRoleName(clusterName string) string {
 	return fmt.Sprintf("%s-%s", eksStorageManagementRoleNamePrefix, clusterName)
+}
+
+// EksVpcCniRoleName returns the name of the role the VPC CNI plugin assumes
+// to manage the nodes' network interfaces and addresses.
+func EksVpcCniRoleName(clusterName string) string {
+	return fmt.Sprintf("%s-%s", eksVpcCniRoleNamePrefix, clusterName)
 }
 
 // EksDnsPolicyName returns the name of the customer managed policy attached to
@@ -196,4 +212,9 @@ func EksClusterAutoscalingRoleArn(accountId, clusterName string) string {
 // with.
 func EksStorageManagementRoleArn(accountId, clusterName string) string {
 	return IamRoleArn(accountId, "", EksStorageManagementRoleName(clusterName))
+}
+
+// EksVpcCniRoleArn returns the ARN the VPC CNI add-on runs as.
+func EksVpcCniRoleArn(accountId, clusterName string) string {
+	return IamRoleArn(accountId, "", EksVpcCniRoleName(clusterName))
 }

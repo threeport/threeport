@@ -336,8 +336,11 @@ func TestEveryGkeUpgradeKeepsWhatTheClusterWasCreatedWith(t *testing.T) {
 	infra.keepStackCluster(json.RawMessage(`{"resources": [
 		{"type": "gcp:container/cluster:Cluster", "inputs": {"location": "us-central1", "releaseChannel": {"channel": "STABLE"}}},
 		{"type": "gcp:compute/subnetwork:Subnetwork", "inputs": {"ipCidrRange": "10.30.128.0/20"}},
-		{"type": "gcp:container/nodePool:NodePool", "inputs": {"autoscaling": {"minNodeCount": 1, "maxNodeCount": 10}}}
+		{"type": "gcp:container/nodePool:NodePool", "inputs": {"autoscaling": {"minNodeCount": 1, "maxNodeCount": 10}, "nodeConfig": {"diskType": "pd-standard", "diskSizeGb": 50}}}
 	]}`))
+	require.NotNil(t, infra.stackNodeDisk)
+	assert.Equal(t, gkeEarlierNodeDisk, *infra.stackNodeDisk, "the node pool keeps its boot disk")
+	assert.True(t, infra.nodesKeepDefaultServiceAccount, "a node pool on the default service account keeps it")
 	require.NotNil(t, infra.stackLocation)
 	assert.Equal(t, "us-central1", *infra.stackLocation)
 	assert.True(t, infra.stackPerZoneNodeLimits)
