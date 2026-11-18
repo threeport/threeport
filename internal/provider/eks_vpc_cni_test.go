@@ -54,7 +54,11 @@ type fakeVpcCniAddon struct {
 	events   *vpcCniEvents
 }
 
-func (f *fakeVpcCniAddon) DescribeAddon(_ context.Context, input *awseks.DescribeAddonInput, _ ...func(*awseks.Options)) (*awseks.DescribeAddonOutput, error) {
+func (f *fakeVpcCniAddon) DescribeAddon(ctx context.Context, input *awseks.DescribeAddonInput, _ ...func(*awseks.Options)) (*awseks.DescribeAddonOutput, error) {
+	// a request out of time fails, as the EKS client's does
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	status := ekstypes.AddonStatusActive
@@ -70,7 +74,11 @@ func (f *fakeVpcCniAddon) DescribeAddon(_ context.Context, input *awseks.Describ
 	}}, nil
 }
 
-func (f *fakeVpcCniAddon) UpdateAddon(_ context.Context, input *awseks.UpdateAddonInput, _ ...func(*awseks.Options)) (*awseks.UpdateAddonOutput, error) {
+func (f *fakeVpcCniAddon) UpdateAddon(ctx context.Context, input *awseks.UpdateAddonInput, _ ...func(*awseks.Options)) (*awseks.UpdateAddonOutput, error) {
+	// a request out of time fails, as the EKS client's does
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.updates = append(f.updates, input)
@@ -166,13 +174,13 @@ func rollingAwsNode(clientset *fake.Clientset, events *vpcCniEvents) {
 // fastVpcCniWaits makes the waits poll quickly for a test.
 func fastVpcCniWaits(t *testing.T) {
 	t.Helper()
-	interval, timeout, addonInterval := vpcCniRolloutPollInterval, vpcCniRolloutTimeout, ebsStorageAddonPollInterval
+	interval, timeout, addonInterval := vpcCniRolloutPollInterval, vpcCniRolloutTimeout, vpcCniAddonPollInterval
 	t.Cleanup(func() {
-		vpcCniRolloutPollInterval, vpcCniRolloutTimeout, ebsStorageAddonPollInterval = interval, timeout, addonInterval
+		vpcCniRolloutPollInterval, vpcCniRolloutTimeout, vpcCniAddonPollInterval = interval, timeout, addonInterval
 	})
 	vpcCniRolloutPollInterval = time.Millisecond
 	vpcCniRolloutTimeout = 5 * time.Second
-	ebsStorageAddonPollInterval = time.Second
+	vpcCniAddonPollInterval = time.Second
 }
 
 // useVpcCniClients stands the clients in for a test.
@@ -326,4 +334,29 @@ func TestAnInterruptedBindingIsWaitedFor(t *testing.T) {
 	require.NoError(t, bindVpcCniAddon(addon, "eks-test", roleArn))
 	assert.Empty(t, addon.updates, "the add-on is already on the role")
 	assert.Equal(t, 3, addon.reads, "it waited for the add-on to be active")
+}
+
+// TestTheVpcCniAddonWaitsOnItsOwnTimes covers the waits binding the vpc-cni
+// add-on makes: they take the VPC CNI's times, so the EBS CSI add-on's,
+// which a test or a later change may tune, leave them as they are.
+func TestTheVpcCniAddonWaitsOnItsOwnTimes(t *testing.T) {
+	fastVpcCniWaits(t)
+	upgradeTimeout, requestTimeout, pollInterval := ebsStorageAddonUpgradeTimeout, ebsStorageAddonRequestTimeout, ebsStorageAddonPollInterval
+	t.Cleanup(func() {
+		ebsStorageAddonUpgradeTimeout, ebsStorageAddonRequestTimeout, ebsStorageAddonPollInterval = upgradeTimeout, requestTimeout, pollInterval
+	})
+	// waits on the EBS add-on's times would time out before the add-on is
+	// active, and every request would be out of time
+	ebsStorageAddonUpgradeTimeout = time.Nanosecond
+	ebsStorageAddonRequestTimeout = time.Nanosecond
+	ebsStorageAddonPollInterval = time.Hour
+
+	roleArn := "arn:aws:iam::123456789012:role/vpc-cni-role-eks-test"
+	addon := &fakeVpcCniAddon{statuses: []ekstypes.AddonStatus{
+		ekstypes.AddonStatusUpdating,                             // the first look
+		ekstypes.AddonStatusUpdating, ekstypes.AddonStatusActive, // the wait before binding
+		ekstypes.AddonStatusActive,                               // the wait after it
+	}}
+	require.NoError(t, bindVpcCniAddon(addon, "eks-test", roleArn))
+	assert.Len(t, addon.updates, 1)
 }

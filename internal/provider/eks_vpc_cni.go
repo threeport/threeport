@@ -27,6 +27,20 @@ var (
 
 	// vpcCniRolloutPollInterval is how often the wait asks whether they are.
 	vpcCniRolloutPollInterval = 5 * time.Second
+
+	// vpcCniAddonRequestTimeout bounds each call binding the vpc-cni add-on
+	// to its role makes: describing and updating the add-on, and detaching
+	// the policy from the node role.
+	vpcCniAddonRequestTimeout = 2 * time.Minute
+
+	// vpcCniAddonActiveTimeout bounds each wait for the vpc-cni add-on to be
+	// active: one EKS is still creating or updating, and one just updated to
+	// its role.
+	vpcCniAddonActiveTimeout = 10 * time.Minute
+
+	// vpcCniAddonPollInterval is how often a wait for the add-on asks
+	// whether it is active.
+	vpcCniAddonPollInterval = 10 * time.Second
 )
 
 // vpcCniRoleAnnotation is set on the aws-node pod template to the role the
@@ -99,7 +113,7 @@ func (i *KubernetesRuntimeInfraEKS) moveVpcCniPolicyToItsRole(roleArn string) er
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), ebsStorageAddonRequestTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), vpcCniAddonRequestTimeout)
 	defer cancel()
 
 	return detachIamPolicy(ctx,
@@ -116,7 +130,7 @@ func (i *KubernetesRuntimeInfraEKS) moveVpcCniPolicyToItsRole(roleArn string) er
 // service account may not carry the role, and pods recreated then would run
 // on the node's credentials.
 func bindVpcCniAddon(eksClient eksAddonUpdater, clusterName, roleArn string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), ebsStorageAddonRequestTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), vpcCniAddonRequestTimeout)
 	defer cancel()
 	addon := &awseks.DescribeAddonInput{
 		AddonName:   aws.String(tpaws.EksVpcCniAddonName),
@@ -132,7 +146,7 @@ func bindVpcCniAddon(eksClient eksAddonUpdater, clusterName, roleArn string) err
 	// one it is updating to the role may not have it on its service account
 	// yet
 	if status := current.Addon.Status; status == ekstypes.AddonStatusCreating || status == ekstypes.AddonStatusUpdating {
-		if err := waitForAddonActive(eksClient, addon); err != nil {
+		if err := waitForAddonActive(eksClient, addon, vpcCniAddonActiveTimeout, vpcCniAddonPollInterval); err != nil {
 			return fmt.Errorf("failed waiting for the vpc-cni add-on to be active before binding it to its role: %w", err)
 		}
 	}
@@ -140,7 +154,7 @@ func bindVpcCniAddon(eksClient eksAddonUpdater, clusterName, roleArn string) err
 		return nil
 	}
 
-	updateCtx, cancelUpdate := context.WithTimeout(context.Background(), ebsStorageAddonRequestTimeout)
+	updateCtx, cancelUpdate := context.WithTimeout(context.Background(), vpcCniAddonRequestTimeout)
 	defer cancelUpdate()
 	if _, err := eksClient.UpdateAddon(updateCtx, &awseks.UpdateAddonInput{
 		AddonName:             addon.AddonName,
@@ -150,7 +164,7 @@ func bindVpcCniAddon(eksClient eksAddonUpdater, clusterName, roleArn string) err
 	}); err != nil {
 		return fmt.Errorf("failed to bind the vpc-cni add-on to role %s: %w", roleArn, err)
 	}
-	if err := waitForAddonActive(eksClient, addon); err != nil {
+	if err := waitForAddonActive(eksClient, addon, vpcCniAddonActiveTimeout, vpcCniAddonPollInterval); err != nil {
 		return fmt.Errorf("failed waiting for the vpc-cni add-on to be active on its role: %w", err)
 	}
 

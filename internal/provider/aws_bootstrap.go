@@ -1073,7 +1073,7 @@ func (i *KubernetesRuntimeInfraEKS) upgradeEbsStorageAddon(kubernetesVersion str
 	// EKS refuses to update an add-on it is still creating or updating, as
 	// it can be right after the cluster's create
 	if status := current.Addon.Status; status == ekstypes.AddonStatusCreating || status == ekstypes.AddonStatusUpdating {
-		if err := waitForAddonActive(eksClient, addon); err != nil {
+		if err := waitForAddonActive(eksClient, addon, ebsStorageAddonUpgradeTimeout, ebsStorageAddonPollInterval); err != nil {
 			return fmt.Errorf("failed waiting for the EBS storage addon to be active before its upgrade: %w", err)
 		}
 	}
@@ -1088,23 +1088,29 @@ func (i *KubernetesRuntimeInfraEKS) upgradeEbsStorageAddon(kubernetesVersion str
 	}); err != nil {
 		return fmt.Errorf("failed to upgrade the EBS storage addon to %s: %w", version, err)
 	}
-	if err := waitForAddonActive(eksClient, addon); err != nil {
+	if err := waitForAddonActive(eksClient, addon, ebsStorageAddonUpgradeTimeout, ebsStorageAddonPollInterval); err != nil {
 		return fmt.Errorf("failed waiting for the EBS storage addon to be active on %s: %w", version, err)
 	}
 
 	return nil
 }
 
-// waitForAddonActive waits for an add-on to be active, for up to
-// ebsStorageAddonUpgradeTimeout of its own.
-func waitForAddonActive(eksClient awseks.DescribeAddonAPIClient, addon *awseks.DescribeAddonInput) error {
-	ctx, cancel := context.WithTimeout(context.Background(), ebsStorageAddonUpgradeTimeout)
+// waitForAddonActive waits for an add-on to be active, for up to timeout of
+// its own, asking every interval.  Each add-on passes its own, so tuning one
+// add-on's wait leaves the others' as they are.
+func waitForAddonActive(
+	eksClient awseks.DescribeAddonAPIClient,
+	addon *awseks.DescribeAddonInput,
+	timeout time.Duration,
+	interval time.Duration,
+) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	return awseks.NewAddonActiveWaiter(eksClient, func(options *awseks.AddonActiveWaiterOptions) {
-		options.MinDelay = ebsStorageAddonPollInterval
-		options.MaxDelay = ebsStorageAddonPollInterval
-	}).Wait(ctx, addon, ebsStorageAddonUpgradeTimeout)
+		options.MinDelay = interval
+		options.MaxDelay = interval
+	}).Wait(ctx, addon, timeout)
 }
 
 // defaultAddonVersion returns the version of an add-on EKS marks as the
