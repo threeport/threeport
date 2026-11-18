@@ -48,7 +48,7 @@ func componentUnstructured(obj runtime.Object) (*unstructured.Unstructured, erro
 // ingressComponentYaml returns the nginx operator component.
 func ingressComponentYaml() (string, error) {
 	// decode the typed component
-	component, err := componentUnstructured(ingressComponentSample())
+	component, err := componentUnstructured(ingressComponent())
 	if err != nil {
 		return "", err
 	}
@@ -125,7 +125,7 @@ func ExternalDnsYaml(
 	gcpProject,
 	txtOwnerID string,
 ) (string, error) {
-	component, err := componentUnstructured(ingressComponentSample())
+	component, err := componentUnstructured(ingressComponent())
 	if err != nil {
 		return "", err
 	}
@@ -218,7 +218,7 @@ func ExternalDnsYaml(
 // certificatesComponentYaml returns the certificates component.
 func certificatesComponentYaml() (string, error) {
 	// decode the embedded component
-	component, err := componentUnstructured(certificatesComponentSample())
+	component, err := componentUnstructured(certificatesComponent())
 	if err != nil {
 		return "", err
 	}
@@ -247,7 +247,7 @@ func certificatesComponentYaml() (string, error) {
 // databaseComponentYaml returns the database component.
 func databaseComponentYaml() (string, error) {
 	// decode the embedded component
-	component, err := componentUnstructured(databaseComponentSample())
+	component, err := componentUnstructured(databaseComponent())
 	if err != nil {
 		return "", err
 	}
@@ -276,7 +276,7 @@ func databaseComponentYaml() (string, error) {
 // storageComponentYaml returns the storage component.
 func storageComponentYaml() (string, error) {
 	// decode the embedded component
-	component, err := componentUnstructured(storageComponentSample())
+	component, err := componentUnstructured(storageComponent())
 	if err != nil {
 		return "", err
 	}
@@ -305,7 +305,7 @@ func storageComponentYaml() (string, error) {
 // secretsComponentYaml returns the external secrets component.
 func secretsComponentYaml() (string, error) {
 	// decode the embedded component
-	component, err := componentUnstructured(secretsComponentSample())
+	component, err := componentUnstructured(secretsComponent())
 	if err != nil {
 		return "", err
 	}

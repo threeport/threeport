@@ -10,23 +10,23 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// componentSampleJSON renders a typed sample so the test can scan its values.
-func componentSampleJSON(t *testing.T, sample any) string {
+// componentJSON renders a typed component so the test can scan its values.
+func componentJSON(t *testing.T, component any) string {
 	t.Helper()
 
-	// marshal the sample
-	raw, err := json.Marshal(sample)
+	// marshal the component
+	raw, err := json.Marshal(component)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return string(raw)
 }
 
-// TestIngressComponentYaml checks the fields this install sets on the sample.
+// TestIngressComponentYaml checks the fields this install sets on the component.
 func TestIngressComponentYaml(t *testing.T) {
-	// the sample stays free of threeport values
-	if strings.Contains(componentSampleJSON(t, ingressComponentSample()), "threeport") {
-		t.Fatal("ingress component sample contains a threeport value")
+	// the component stays free of threeport values
+	if strings.Contains(componentJSON(t, ingressComponent()), "threeport") {
+		t.Fatal("ingress component contains a threeport value")
 	}
 
 	// render the component and read the fields this install sets
@@ -56,11 +56,11 @@ func TestIngressComponentYaml(t *testing.T) {
 	}
 }
 
-// TestDatabaseComponentYaml checks the fields this install sets on the sample.
+// TestDatabaseComponentYaml checks the fields this install sets on the component.
 func TestDatabaseComponentYaml(t *testing.T) {
-	// the sample stays free of threeport values
-	if strings.Contains(componentSampleJSON(t, databaseComponentSample()), "threeport") {
-		t.Fatal("database component sample contains a threeport value")
+	// the component stays free of threeport values
+	if strings.Contains(componentJSON(t, databaseComponent()), "threeport") {
+		t.Fatal("database component contains a threeport value")
 	}
 
 	// render the component and read the operator fields
@@ -91,11 +91,11 @@ func TestDatabaseComponentYaml(t *testing.T) {
 	}
 }
 
-// TestStorageComponentYaml checks the fields this install sets on the sample.
+// TestStorageComponentYaml checks the fields this install sets on the component.
 func TestStorageComponentYaml(t *testing.T) {
-	// the sample stays free of threeport values
-	if strings.Contains(componentSampleJSON(t, storageComponentSample()), "threeport") {
-		t.Fatal("storage component sample contains a threeport value")
+	// the component stays free of threeport values
+	if strings.Contains(componentJSON(t, storageComponent()), "threeport") {
+		t.Fatal("storage component contains a threeport value")
 	}
 
 	// render the component and read the operator fields
@@ -120,11 +120,11 @@ func TestStorageComponentYaml(t *testing.T) {
 	}
 }
 
-// TestCertificatesComponentYaml checks the fields this install sets on the sample.
+// TestCertificatesComponentYaml checks the fields this install sets on the component.
 func TestCertificatesComponentYaml(t *testing.T) {
-	// the sample stays free of threeport values
-	if strings.Contains(componentSampleJSON(t, certificatesComponentSample()), "threeport") {
-		t.Fatal("certificates component sample contains a threeport value")
+	// the component stays free of threeport values
+	if strings.Contains(componentJSON(t, certificatesComponent()), "threeport") {
+		t.Fatal("certificates component contains a threeport value")
 	}
 
 	// render the component and read the operator fields
@@ -152,11 +152,11 @@ func TestCertificatesComponentYaml(t *testing.T) {
 	}
 }
 
-// TestSecretsComponentYaml checks the fields this install sets on the sample.
+// TestSecretsComponentYaml checks the fields this install sets on the component.
 func TestSecretsComponentYaml(t *testing.T) {
-	// the sample stays free of threeport values
-	if strings.Contains(componentSampleJSON(t, secretsComponentSample()), "threeport") {
-		t.Fatal("secrets component sample contains a threeport value")
+	// the component stays free of threeport values
+	if strings.Contains(componentJSON(t, secretsComponent()), "threeport") {
+		t.Fatal("secrets component contains a threeport value")
 	}
 
 	// render the component and read the operator fields
