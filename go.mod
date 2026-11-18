@@ -11,7 +11,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.29.2
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.55
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.338.1
-	github.com/aws/aws-sdk-go-v2/service/eks v1.57.0
+	github.com/aws/aws-sdk-go-v2/service/eks v1.102.0
 	github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2 v1.63.1
 	github.com/aws/aws-sdk-go-v2/service/iam v1.38.8
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.34.14
@@ -27,6 +27,7 @@ require (
 	github.com/go-logr/zapr v1.3.0
 	github.com/go-playground/validator/v10 v10.24.0
 	github.com/google/uuid v1.6.0
+	github.com/googleapis/gax-go/v2 v2.17.0
 	github.com/iancoleman/strcase v0.3.0
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/joho/godotenv v1.5.1
@@ -167,7 +168,6 @@ require (
 	github.com/google/s2a-go v0.1.9 // indirect
 	github.com/google/safetext v0.0.0-20240722112252-5a72de7e7962 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.11 // indirect
-	github.com/googleapis/gax-go/v2 v2.17.0 // indirect
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674 // indirect
 	github.com/gosuri/uitable v0.0.4 // indirect
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
@@ -185,7 +185,6 @@ require (
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
-	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/jmoiron/sqlx v1.4.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect

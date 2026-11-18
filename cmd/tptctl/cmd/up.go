@@ -239,6 +239,14 @@ func init() {
 			strings.Join(v0.SupportedKubernetesVersions, ", "), v0.DefaultKubernetesVersion,
 		),
 	)
+	UpCmd.Flags().StringVar(
+		&cliArgs.NetworkCidrPool,
+		"network-cidr-pool", "", "Comma-separated network blocks, each a /16 or larger, the control plane allocates its Kubernetes runtimes' network ranges from, a /16 each. Defaults to 10.16.0.0/16 through 10.255.0.0/16, except 10.96.0.0/16 and 10.244.0.0/16.",
+	)
+	UpCmd.Flags().StringVar(
+		&cliArgs.NetworkCidr,
+		"network-cidr", "", "Network range, a /16 or larger, of the control plane's own cluster on eks, gke or oke. Defaults to the first block of the pool. With --control-plane-only, records the existing cluster's range so no runtime is allocated it.",
+	)
 	UpCmd.Flags().BoolVar(
 		&cliArgs.ForceOverwriteConfig,
 		"force-overwrite-config", false, "Force the overwrite of an existing Threeport instance config.  Warning: this will erase the connection info for the existing instance.  Only do this if the existing instance has already been deleted and is no longer in use.",

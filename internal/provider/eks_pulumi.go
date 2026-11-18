@@ -25,15 +25,12 @@ const (
 	// plane to the next version instead.
 	eksSupportType = "STANDARD"
 
-	// eksVpcCidr is the CIDR block for the VPC the cluster runs in.
-	eksVpcCidr = "10.0.0.0/16"
-
 	// eksDefaultZoneCount is the number of availability zones used when the
 	// runtime definition does not ask for a specific count.
 	eksDefaultZoneCount = 2
 
 	// eksMaxZoneCount caps how many availability zones the cluster spans.  It
-	// is bounded by the number of subnet CIDRs carved out of the VPC.
+	// is bounded by the number of subnets the network layout carves out.
 	eksMaxZoneCount = 3
 
 	// eksDefaultRouteCidr is the destination that sends traffic to the
@@ -41,20 +38,6 @@ const (
 	// ones.
 	eksDefaultRouteCidr = "0.0.0.0/0"
 )
-
-// eksSubnetCidrs returns the CIDR blocks carved out of the VPC for subnets.
-// Each availability zone takes two: the public subnet first, then the private
-// one.
-func eksSubnetCidrs() []string {
-	return []string{
-		"10.0.0.0/22",
-		"10.0.4.0/22",
-		"10.0.8.0/22",
-		"10.0.12.0/22",
-		"10.0.16.0/22",
-		"10.0.20.0/22",
-	}
-}
 
 // eksNodeGroupIgnoredChanges are the node group properties Pulumi sets only when
 // it creates the node group.  The cluster autoscaler moves the desired size
@@ -326,8 +309,13 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 			return err
 		}
 
+		network, err := eksLayout(i.NetworkCidr)
+		if err != nil {
+			return err
+		}
+
 		vpc, err := ec2.NewVpc(ctx, fmt.Sprintf("%s-vpc", i.RuntimeInstanceName), &ec2.VpcArgs{
-			CidrBlock: pulumi.String(eksVpcCidr),
+			CidrBlock: pulumi.String(network.Vpc),
 			// the cluster's nodes resolve one another, and the AWS services
 			// they talk to, by DNS name
 			EnableDnsSupport:   pulumi.Bool(true),
@@ -370,7 +358,6 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 			return fmt.Errorf("failed to create public route table: %w", err)
 		}
 
-		subnetCidrs := eksSubnetCidrs()
 		privateSubnetIds := pulumi.StringArray{}
 		// the public addresses of the NAT gateways, which all outbound
 		// traffic from the nodes leaves through
@@ -384,7 +371,7 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 			publicSubnet, err := ec2.NewSubnet(ctx, publicSubnetName, &ec2.SubnetArgs{
 				VpcId:               vpc.ID(),
 				AvailabilityZone:    pulumi.String(zone),
-				CidrBlock:           pulumi.String(subnetCidrs[zoneIndex*2]),
+				CidrBlock:           pulumi.String(network.PublicSubnets[zoneIndex]),
 				MapPublicIpOnLaunch: pulumi.Bool(true),
 				Tags:                publicSubnetTags,
 			})
@@ -411,7 +398,7 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 			privateSubnet, err := ec2.NewSubnet(ctx, privateSubnetName, &ec2.SubnetArgs{
 				VpcId:            vpc.ID(),
 				AvailabilityZone: pulumi.String(zone),
-				CidrBlock:        pulumi.String(subnetCidrs[zoneIndex*2+1]),
+				CidrBlock:        pulumi.String(network.PrivateSubnets[zoneIndex]),
 				Tags:             privateSubnetTags,
 			})
 			if err != nil {
@@ -487,14 +474,34 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 		if len(allowlist) > 0 {
 			vpcConfig.PublicAccessCidrs = pulumi.ToStringArray(allowlist)
 		}
-		cluster, err := awseks.NewCluster(ctx, i.RuntimeInstanceName, &awseks.ClusterArgs{
-			Name:          pulumi.String(i.RuntimeInstanceName),
-			RoleArn:       pulumi.String(i.ClusterRoleArn),
-			Version:       pulumi.String(i.controlPlaneKubernetesVersion()),
-			UpgradePolicy: i.upgradePolicy(),
-			VpcConfig:     vpcConfig,
-			Tags:          i.resourceTags(i.RuntimeInstanceName),
-		})
+		clusterDependencies, err := i.auditLogGroup(ctx)
+		if err != nil {
+			return err
+		}
+		clusterArgs := &awseks.ClusterArgs{
+			Name:                   pulumi.String(i.RuntimeInstanceName),
+			RoleArn:                pulumi.String(i.ClusterRoleArn),
+			Version:                pulumi.String(i.controlPlaneKubernetesVersion()),
+			UpgradePolicy:          i.upgradePolicy(),
+			VpcConfig:              vpcConfig,
+			EnabledClusterLogTypes: i.clusterLogTypes(),
+			AccessConfig:           i.accessConfig(),
+			Tags:                   i.resourceTags(i.RuntimeInstanceName),
+		}
+		// a cluster created before the service range was set keeps the one
+		// EKS chose: setting it would replace the cluster
+		if network.ServiceCidr != "" {
+			clusterArgs.KubernetesNetworkConfig = &awseks.ClusterKubernetesNetworkConfigArgs{
+				ServiceIpv4Cidr: pulumi.String(network.ServiceCidr),
+			}
+		}
+		cluster, err := awseks.NewCluster(ctx, i.RuntimeInstanceName, clusterArgs,
+			pulumi.Protect(i.DeletionProtection),
+			pulumi.DependsOn(clusterDependencies),
+			// set only when a cluster is created; a cluster created before
+			// access entries keeps the creator's access as it is
+			pulumi.IgnoreChanges([]string{"accessConfig.bootstrapClusterCreatorAdminPermissions"}),
+		)
 		if err != nil {
 			return fmt.Errorf("failed to create EKS cluster: %w", err)
 		}
@@ -526,7 +533,7 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 				},
 				LaunchTemplate: i.nodeGroupLaunchTemplate(nodeLaunchTemplate, nodeGroupName),
 				Tags:           i.resourceTags(nodeGroupName),
-			}, pulumi.IgnoreChanges(eksNodeGroupIgnoredChanges))
+			}, pulumi.IgnoreChanges(eksNodeGroupIgnoredChanges), pulumi.Protect(i.DeletionProtection))
 			if err != nil {
 				return fmt.Errorf("failed to create EKS node group %s: %w", nodeGroupName, err)
 			}

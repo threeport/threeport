@@ -62,6 +62,19 @@ type OciOkeKubernetesRuntimeDefinition struct {
 	// can't be changed after creation.
 	KubernetesVersion *string `validate:"optional"`
 
+	// Recorded for the kubernetes runtime definition's AuditLog.  It has no
+	// effect on OKE, which has no Kubernetes API server audit log.  It can't
+	// be changed after creation.
+	AuditLog *bool `validate:"optional" gorm:"default:false"`
+
+	// If true, the runtime instances derived from this definition can't be
+	// deleted, and Pulumi refuses to destroy or replace their clusters and
+	// node pools.  OKE has no deletion protection of its own, so a cluster can
+	// still be deleted in the OCI console or with the OCI CLI.  Set it to false
+	// to let every instance of the definition be deleted.  If unset, it is
+	// false.
+	DeletionProtection *bool `validate:"optional" gorm:"default:false"`
+
 	// The OCI OKE kubernetes runtime instances derived from this definition.
 	OciOkeKubernetesRuntimeInstances []*OciOkeKubernetesRuntimeInstance `validate:"optional,association"`
 
