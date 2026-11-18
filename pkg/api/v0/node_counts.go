@@ -6,6 +6,7 @@ import (
 	"gorm.io/gorm"
 
 	lib "github.com/threeport/threeport/pkg/api/lib/v0"
+	mapping "github.com/threeport/threeport/pkg/mapping/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -16,9 +17,17 @@ const kubernetesRuntimeInitialNodes = 2
 
 // nodeCounts are the sizes of a definition's default node group, and the
 // number of zones its nodes run in, zero where the maximum needn't cover them.
+// instanceType, nodeGroupPerZone and eksZones are an EKS cluster's node group
+// and the zones it spans, which the number of nodes its network holds depends
+// on, and networkLimit returns that number for the counts, zero where it
+// isn't known, and why.
 type nodeCounts struct {
 	minimum, initial, maximum *int
 	zones                     int
+	instanceType              *string
+	nodeGroupPerZone          *bool
+	eksZones                  *int
+	networkLimit              func(nodeCounts) (int, string)
 }
 
 // validateNodeCounts checks a default node group's sizes: the initial size
@@ -43,6 +52,14 @@ func validateNodeCounts(counts nodeCounts) error {
 			"DefaultNodeGroupMinimumSize %d is more than DefaultNodeGroupMaximumSize %d",
 			*counts.minimum, *counts.maximum,
 		))
+	}
+	if counts.maximum != nil && counts.networkLimit != nil {
+		if limit, reason := counts.networkLimit(counts); limit > 0 && *counts.maximum > limit {
+			return util.NewBadRequestError(fmt.Sprintf(
+				"DefaultNodeGroupMaximumSize %d is more than the %d nodes the cluster's network holds: %s",
+				*counts.maximum, limit, reason,
+			))
+		}
 	}
 	if counts.maximum != nil && *counts.maximum < counts.zones {
 		return util.NewBadRequestError(fmt.Sprintf(
@@ -76,7 +93,8 @@ func validateNodeCountsUpdate(tx *gorm.DB, counts func(any) (nodeCounts, bool)) 
 	if !ok {
 		return fmt.Errorf("cannot validate node counts: update carries %T", lib.IncomingValues(tx))
 	}
-	if !lib.IsFullReplace(tx) && incoming.minimum == nil && incoming.initial == nil && incoming.maximum == nil && incoming.zones == 0 {
+	if !lib.IsFullReplace(tx) && incoming.minimum == nil && incoming.initial == nil && incoming.maximum == nil && incoming.zones == 0 &&
+		incoming.instanceType == nil && incoming.nodeGroupPerZone == nil && incoming.eksZones == nil {
 		return nil
 	}
 
@@ -110,6 +128,15 @@ func validateNodeCountsUpdate(tx *gorm.DB, counts func(any) (nodeCounts, bool)) 
 		if incoming.zones != 0 {
 			updated.zones = incoming.zones
 		}
+		if incoming.instanceType != nil {
+			updated.instanceType = incoming.instanceType
+		}
+		if incoming.nodeGroupPerZone != nil {
+			updated.nodeGroupPerZone = incoming.nodeGroupPerZone
+		}
+		if incoming.eksZones != nil {
+			updated.eksZones = incoming.eksZones
+		}
 	}
 	if sameNodeCounts(updated, stored) {
 		return nil
@@ -124,11 +151,14 @@ func sameNodeCounts(a, b nodeCounts) bool {
 	return util.Deref(a.minimum) == util.Deref(b.minimum) && (a.minimum == nil) == (b.minimum == nil) &&
 		util.Deref(a.initial) == util.Deref(b.initial) && (a.initial == nil) == (b.initial == nil) &&
 		util.Deref(a.maximum) == util.Deref(b.maximum) && (a.maximum == nil) == (b.maximum == nil) &&
-		a.zones == b.zones
+		a.zones == b.zones &&
+		util.Deref(a.instanceType) == util.Deref(b.instanceType) && util.Deref(a.nodeGroupPerZone) == util.Deref(b.nodeGroupPerZone) &&
+		util.Deref(a.eksZones) == util.Deref(b.eksZones)
 }
 
 // eksNodeCounts reads an EKS definition's node group sizes.  Its node group
-// spans its zones, so its maximum needn't cover them.
+// spans its zones, so its maximum needn't cover them: they only bear on the
+// network, and are read as eksZones, not zones.
 func eksNodeCounts(value any) (nodeCounts, bool) {
 	definition, ok := value.(*AwsEksKubernetesRuntimeDefinition)
 	if !ok {
@@ -136,9 +166,18 @@ func eksNodeCounts(value any) (nodeCounts, bool) {
 	}
 
 	return nodeCounts{
-		minimum: definition.DefaultNodeGroupMinimumSize,
-		initial: definition.DefaultNodeGroupInitialSize,
-		maximum: definition.DefaultNodeGroupMaximumSize,
+		minimum:          definition.DefaultNodeGroupMinimumSize,
+		initial:          definition.DefaultNodeGroupInitialSize,
+		maximum:          definition.DefaultNodeGroupMaximumSize,
+		instanceType:     definition.DefaultNodeGroupInstanceType,
+		nodeGroupPerZone: definition.NodeGroupPerZone,
+		eksZones:         definition.ZoneCount,
+		networkLimit: func(counts nodeCounts) (int, string) {
+			if counts.instanceType == nil {
+				return 0, ""
+			}
+			return eksNetworkNodeLimit(*counts.instanceType, util.Deref(counts.eksZones), util.Deref(counts.nodeGroupPerZone))
+		},
 	}, true
 }
 
@@ -155,6 +194,9 @@ func gkeNodeCounts(value any) (nodeCounts, bool) {
 		initial: definition.DefaultNodeGroupInitialSize,
 		maximum: definition.DefaultNodeGroupMaximumSize,
 		zones:   util.Deref(definition.ZoneCount),
+		networkLimit: func(counts nodeCounts) (int, string) {
+			return gkeNetworkNodeLimit(counts.zones)
+		},
 	}, true
 }
 
@@ -180,5 +222,61 @@ func validateKubernetesRuntimeNodeMaximum(definition *KubernetesRuntimeDefinitio
 		))
 	}
 
+	limit, reason := kubernetesRuntimeNetworkNodeLimit(definition)
+	if limit > 0 && *definition.NodeMaximum > limit {
+		return util.NewBadRequestError(fmt.Sprintf(
+			"NodeMaximum %d is more than the %d nodes the cluster's network holds: %s",
+			*definition.NodeMaximum, limit, reason,
+		))
+	}
+
 	return nil
+}
+
+// kubernetesRuntimeDefaultNodeSize and kubernetesRuntimeDefaultNodeProfile
+// are the NodeSize and NodeProfile the database gives a kubernetes runtime
+// definition that leaves them out, as its gorm tags set them.
+const (
+	kubernetesRuntimeDefaultNodeSize    = "Medium"
+	kubernetesRuntimeDefaultNodeProfile = "Balanced"
+)
+
+// kubernetesRuntimeNetworkNodeLimit returns the largest NodeMaximum the
+// network of a kubernetes runtime definition's cluster holds, and the
+// reason, or 0 where it isn't known: the cluster the definition reconciler
+// makes of it, with the instance type its NodeSize and NodeProfile map to on
+// EKS, in three zones when highly available and two otherwise, in one node
+// group spanning them.  A NodeSize or NodeProfile left out is the one the
+// database gives it, which the reconciler reads.
+func kubernetesRuntimeNetworkNodeLimit(definition *KubernetesRuntimeDefinition) (int, string) {
+	if definition.InfraProvider == nil {
+		return 0, ""
+	}
+	highlyAvailable := util.Deref(definition.HighAvailability)
+
+	switch *definition.InfraProvider {
+	case KubernetesRuntimeInfraProviderEKS:
+		nodeSize, nodeProfile := kubernetesRuntimeDefaultNodeSize, kubernetesRuntimeDefaultNodeProfile
+		if definition.NodeSize != nil {
+			nodeSize = *definition.NodeSize
+		}
+		if definition.NodeProfile != nil {
+			nodeProfile = *definition.NodeProfile
+		}
+		instanceType, err := mapping.GetMachineType(util.AwsProvider, nodeProfile, nodeSize)
+		if err != nil {
+			return 0, ""
+		}
+		zones := 2
+		if highlyAvailable {
+			zones = 3
+		}
+		return eksNetworkNodeLimit(instanceType, zones, false)
+	case KubernetesRuntimeInfraProviderGKE:
+		return gkeNetworkNodeLimit(1)
+	case KubernetesRuntimeInfraProviderOKE:
+		return okeNetworkNodeLimit()
+	}
+
+	return 0, ""
 }

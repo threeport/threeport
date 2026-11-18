@@ -57,6 +57,10 @@ zones, on both EKS and GKE. It is 60 when a definition doesn't set it. It was
 2, the number of nodes a cluster starts with, and at least 3 for a highly
 available GKE cluster, whose zones need a node each.
 
+`NodeMaximum` must also fit the cluster's network (see [Network
+Capacity](#network-capacity)). A definition whose maximum doesn't is
+refused, with how many nodes the network holds.
+
 GKE creates a node pool's initial nodes in each of its zones, so the initial
 count is divided across the zones and rounded up: a highly available GKE
 cluster starts with one node in each of its three zones. A GKE definition
@@ -362,6 +366,44 @@ no range. So does one whose create is resumed on a stack that holds its network
 already: it keeps the range that network was laid out in. Separate Threeport
 installations don't know each other's allocations: give their control planes
 pools that don't overlap if their clusters are to be connected.
+
+### Network Capacity
+
+A cluster's network caps how many nodes it can run. A definition whose
+`NodeMaximum`, or EKS or GKE definition whose `DefaultNodeGroupMaximumSize`,
+is more than its network holds is refused when it's created, or when an update
+changes its node group:
+
+| Provider | Most nodes | Why |
+|---|---|---|
+| EKS | by instance type, in each zone: 909 `t3.medium`, 136 `m8i.xlarge`, 51 `m8i.48xlarge` | each pod takes an address of its node's `/18` private subnet (16,379 addresses) through the VPC CNI |
+| GKE | 256 | each node takes a block of the pod range twice its pods per node |
+| OKE | 253 | each node takes an address of the `/24` node subnet; pods run on an overlay network |
+
+On EKS, the VPC CNI attaches whole network interfaces to a node, each taking
+all its addresses, its primary one included. A node takes the interfaces the
+pods it runs fill, and one more the VPC CNI keeps ready, up to every interface
+the instance type holds. An EKS
+managed node group runs as many pods on a node as its interfaces allow, up to
+110 on an instance type with fewer than 30 vCPUs and 250 on others. A node
+group spanning the zones keeps them balanced, so its maximum is split across
+them; a node group per zone (`NodeGroupPerZone`) holds its maximum in its own
+zone. The check covers the instance types node sizes and profiles map to; an
+EKS definition with another instance type isn't checked.
+
+VPC CNI prefix delegation, which gives each node `/28` prefixes rather than
+single addresses, isn't turned on: with a `/18` per zone, even the largest
+instance type a node size maps to holds 51 nodes in each zone, 102 across two,
+well above the default `NodeMaximum` of 60. Prefixes also need contiguous free
+blocks, which a subnet in use fragments.
+
+The capacities are those of the networks clusters get from a network range. A
+cluster created before ranges were allocated, or by a child control plane
+without a pool, has the smaller network clusters used to get: a `/22` per zone
+on EKS, which holds 1,019 addresses, about 56 `t3.medium` nodes. Its definition
+isn't checked against it. If a GKE cluster outgrows its pod range, GKE can add
+another to the cluster: see [Add Pod IPv4 address
+ranges](https://cloud.google.com/kubernetes-engine/docs/how-to/multi-pod-cidr).
 
 Reference:
 [KubernetesRuntimeInstance](https://pkg.go.dev/github.com/threeport/threeport/pkg/api/v0#KubernetesRuntimeInstance)
