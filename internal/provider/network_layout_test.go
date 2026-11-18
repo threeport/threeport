@@ -62,11 +62,18 @@ func TestAClustersNetworkIsLaidOutInItsRange(t *testing.T) {
 	assert.Equal(t, okeNetworkLayout{Vcn: "10.18.0.0/16", Public: "10.18.0.0/28", Private: "10.18.10.0/24", LoadBalancer: "10.18.20.0/24"}, oke)
 	assertDisjointInside(t, "10.18.0.0/16", []string{oke.Public, oke.Private, oke.LoadBalancer})
 
-	// a block larger than a /16 is laid out in its first /16
+	// a block larger than a /16 is laid out in its first /16, which is also
+	// the VPC or VCN, as AWS and OCI allow none larger
 	wide, err := eksLayout("10.20.0.0/15")
 	require.NoError(t, err)
-	assert.Equal(t, "10.20.0.0/15", wide.Vpc)
+	assert.Equal(t, "10.20.0.0/16", wide.Vpc)
 	assert.Equal(t, "10.20.0.0/18", wide.PrivateSubnets[0])
+	wideOke, err := okeLayout("10.20.0.0/15")
+	require.NoError(t, err)
+	assert.Equal(t, "10.20.0.0/16", wideOke.Vcn)
+	wideGke, err := gkeLayout("10.20.0.0/15")
+	require.NoError(t, err)
+	assertDisjointInside(t, "10.20.0.0/16", []string{wideGke.Pods, wideGke.Nodes, wideGke.Services})
 
 	// 172.16.0.0/16 holds the GKE control plane's private endpoint range
 	for _, bad := range []string{"10.16.1.0/16", "10.16.0.0/17", "10.96.0.0/16", "172.16.0.0/16", "not-a-range"} {
@@ -240,6 +247,41 @@ func TestAResumedCreateKeepsItsStacksNetwork(t *testing.T) {
 		assert.True(t, oke.keepStackNetwork(vcn(c.held)), c.name)
 		assert.Equal(t, c.want, oke.NetworkCidr, c.name)
 	}
+	// a range larger than a /16, laid out in its first /16, is kept whole,
+	// as it stays reserved whole, unless the network is another
+	wide := "10.20.0.0/15"
+	eksWide := &KubernetesRuntimeInfraEKS{NetworkCidr: wide}
+	eksWide.keepStackNetwork(stack("aws:ec2/vpc:Vpc", "cidrBlock", "10.20.0.0/16"))
+	assert.Equal(t, wide, eksWide.NetworkCidr, "EKS")
+	eksWide = &KubernetesRuntimeInfraEKS{NetworkCidr: wide}
+	eksWide.keepStackNetwork(stack("aws:ec2/vpc:Vpc", "cidrBlock", "10.21.0.0/16"))
+	assert.Equal(t, "10.21.0.0/16", eksWide.NetworkCidr, "EKS in another network")
+	for _, c := range []struct {
+		name    string
+		stack   []byte
+		network string
+	}{
+		{"laid out in 10.0.0.0/15's first /16", vpcAndSubnets("10.0.0.0/18", "10.0.192.0/22"), "10.0.0.0/15"},
+		{"stopped before its subnets", vpcAndSubnets(), "10.0.0.0/15"},
+		{"laid out before ranges", vpcAndSubnets("10.0.0.0/22", "10.0.4.0/22"), ""},
+	} {
+		eks := &KubernetesRuntimeInfraEKS{NetworkCidr: "10.0.0.0/15"}
+		eks.keepStackNetwork(c.stack)
+		assert.Equal(t, c.network, eks.NetworkCidr, "EKS asked for 10.0.0.0/15, %s", c.name)
+	}
+	gkeWide := &KubernetesRuntimeInfraGKE{NetworkCidr: wide}
+	gkeWide.keepStackNetwork(stack("gcp:compute/subnetwork:Subnetwork", "ipCidrRange", "10.20.128.0/20"))
+	assert.Equal(t, wide, gkeWide.NetworkCidr, "GKE")
+	gkeWide = &KubernetesRuntimeInfraGKE{NetworkCidr: wide}
+	gkeWide.keepStackNetwork(stack("gcp:compute/subnetwork:Subnetwork", "ipCidrRange", "10.21.128.0/20"))
+	assert.Equal(t, "10.21.0.0/16", gkeWide.NetworkCidr, "GKE in another network")
+	okeWide := &KubernetesRuntimeInfraOKE{NetworkCidr: wide}
+	assert.True(t, okeWide.keepStackNetwork(vcn("10.20.0.0/16")))
+	assert.Equal(t, wide, okeWide.NetworkCidr, "OKE")
+	okeWide = &KubernetesRuntimeInfraOKE{NetworkCidr: "10.0.0.0/15"}
+	assert.True(t, okeWide.keepStackNetwork(vcn("10.0.0.0/16")))
+	assert.Equal(t, "10.0.0.0/15", okeWide.NetworkCidr, "OKE asked for 10.0.0.0/15, whose first /16 is the old VCN's")
+
 	for name, deployment := range map[string]string{"a new stack": `{"resources":[]}`, "an unreadable record": `{"resources":`} {
 		oke := &KubernetesRuntimeInfraOKE{NetworkCidr: "10.16.0.0/16"}
 		assert.False(t, oke.keepStackNetwork([]byte(deployment)), name)

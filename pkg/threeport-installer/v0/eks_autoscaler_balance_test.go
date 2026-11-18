@@ -65,7 +65,7 @@ func TestTheAutoscalerBalancesANodeGroupPerZone(t *testing.T) {
 	kubeClient, err := dynamic.NewForConfig(&rest.Config{Host: server.URL})
 	require.NoError(t, err)
 
-	require.NoError(t, installEksClusterAutoscaler(kubeClient, balanceTestMapper(), "production", "123456789012", v0.DefaultKubernetesVersion))
+	require.NoError(t, installEksClusterAutoscaler(kubeClient, balanceTestMapper(), "production", "123456789012", "us-east-2", v0.DefaultKubernetesVersion))
 
 	mu.Lock()
 	defer mu.Unlock()

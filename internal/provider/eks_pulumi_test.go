@@ -53,7 +53,13 @@ func (m *eksRecordingMocks) NewResource(args pulumi.MockResourceArgs) (string, r
 	})
 	m.mu.Unlock()
 
-	return args.Name + "-id", args.Inputs, nil
+	outputs := args.Inputs
+	if args.TypeToken == "aws:ec2/launchTemplate:LaunchTemplate" {
+		outputs = args.Inputs.Copy()
+		outputs["latestVersion"] = resource.NewNumberProperty(1)
+	}
+
+	return args.Name + "-id", outputs, nil
 }
 
 func (m *eksRecordingMocks) Call(args pulumi.MockCallArgs) (resource.PropertyMap, error) {

@@ -80,8 +80,10 @@ type ControlPlaneInstance struct {
 	// allocated and of its other children's pools, and the parent does not
 	// allocate from it.  A child's pool can only grow, since the child may
 	// have allocated from any of its blocks: a block can be added, or replaced
-	// by a larger one that holds it.  A child with no pool allocates no
-	// ranges, and its clusters keep the network every cluster used to get.
+	// by a larger one that holds it.  On a control plane that is itself a
+	// child, a child's pool must be inside this control plane's own pool.  A
+	// child with no pool allocates no ranges, and its clusters keep the
+	// network every cluster used to get.
 	NetworkCidrPool *datatypes.JSON `validate:"optional" swaggertype:"array,string"`
 
 	// The address blocks this control plane doesn't allocate from, and that
@@ -90,7 +92,10 @@ type ControlPlaneInstance struct {
 	// children, recorded on the instance that represents this control plane
 	// as each child is deleted, since the clusters a child allocated from its
 	// pool may outlive it.  Remove a block once the clusters allocated from it
-	// are gone.
+	// are gone; a control plane that is itself a child releases its own.  A
+	// write that leaves out a block is refused with a conflict when the
+	// instance changed after the writer read it, so a write based on an
+	// earlier read can't release a block reserved since: read it again.
 	ReservedNetworkCidrs *datatypes.JSON `validate:"optional" swaggertype:"array,string"`
 
 	// Indicates whether this is was the first control plane that was spun up in a control plane group

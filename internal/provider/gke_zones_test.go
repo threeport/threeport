@@ -325,3 +325,26 @@ func TestAGkeRuntimesInventoryRecordsItsClustersLocation(t *testing.T) {
 		assert.Nil(t, infra.stackLocation)
 	}
 }
+
+// TestEveryGkeUpgradeKeepsWhatTheClusterWasCreatedWith covers what a resumed
+// create, the reconciler's upgrade and tptctl upgrade infrastructure all
+// keep from the stack: a tptctl upgrade rebuilds the cluster from its tier,
+// whose location may not be the one the cluster was created in, and moving
+// a cluster replaces it.
+func TestEveryGkeUpgradeKeepsWhatTheClusterWasCreatedWith(t *testing.T) {
+	infra := gkeZoneInfra(1, 2, 1, 10)
+	infra.keepStackCluster(json.RawMessage(`{"resources": [
+		{"type": "gcp:container/cluster:Cluster", "inputs": {"location": "us-central1", "releaseChannel": {"channel": "STABLE"}}},
+		{"type": "gcp:compute/subnetwork:Subnetwork", "inputs": {"ipCidrRange": "10.30.128.0/20"}},
+		{"type": "gcp:container/nodePool:NodePool", "inputs": {"autoscaling": {"minNodeCount": 1, "maxNodeCount": 10}, "nodeConfig": {"diskType": "pd-standard", "diskSizeGb": 50}}}
+	]}`))
+	require.NotNil(t, infra.stackNodeDisk)
+	assert.Equal(t, gkeEarlierNodeDisk, *infra.stackNodeDisk, "the node pool keeps its boot disk")
+	assert.True(t, infra.nodesKeepDefaultServiceAccount, "a node pool on the default service account keeps it")
+	require.NotNil(t, infra.stackLocation)
+	assert.Equal(t, "us-central1", *infra.stackLocation)
+	assert.True(t, infra.stackPerZoneNodeLimits)
+	require.NotNil(t, infra.stackReleaseChannel)
+	assert.Equal(t, "STABLE", *infra.stackReleaseChannel)
+	assert.Equal(t, "10.30.0.0/16", infra.NetworkCidr)
+}

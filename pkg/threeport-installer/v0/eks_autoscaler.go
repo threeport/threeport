@@ -38,15 +38,21 @@ func ClusterAutoscalerImage(kubernetesVersion string) (string, error) {
 
 // installEksClusterAutoscaler installs the cluster autoscaler RBAC and deployment.
 // clusterName is the EKS cluster's name, which the autoscaler finds its node
-// groups by, and kubernetesVersion its minor version, which the autoscaler's
-// must match. EksClusterAutoscalingRoleArn takes the account first.
+// groups by, region the AWS region the cluster is in, and kubernetesVersion
+// its minor version, which the autoscaler's must match.
+// EksClusterAutoscalingRoleArn takes the account first.
 func installEksClusterAutoscaler(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	clusterName string,
 	accountId string,
+	region string,
 	kubernetesVersion string,
 ) error {
+	if region == "" {
+		return fmt.Errorf("no AWS region to run the cluster autoscaler of %s in", clusterName)
+	}
+
 	// choose the image before anything is created
 	image, err := ClusterAutoscalerImage(kubernetesVersion)
 	if err != nil {
@@ -84,7 +90,7 @@ func installEksClusterAutoscaler(
 			"apiVersion": "rbac.authorization.k8s.io/v1",
 			"kind":       "ClusterRole",
 			"metadata": map[string]interface{}{
-				"name": "cluster-autoscaler",
+				"name": ClusterAutoscalerClusterRoleName,
 				"labels": map[string]interface{}{
 					"k8s-addon": "cluster-autoscaler.addons.k8s.io",
 					"k8s-app":   "cluster-autoscaler",
@@ -223,6 +229,26 @@ func installEksClusterAutoscaler(
 						"csinodes",
 						"csidrivers",
 						"csistoragecapacities",
+						"volumeattachments",
+					},
+					"verbs": []interface{}{
+						"watch",
+						"list",
+						"get",
+					},
+				},
+				// the autoscaler's scheduler simulation watches dynamic
+				// resource allocation's objects; a release that can't list
+				// them, or volumeattachments, waits for its caches forever
+				// and never scales
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"resource.k8s.io",
+					},
+					"resources": []interface{}{
+						"resourceclaims",
+						"resourceslices",
+						"deviceclasses",
 					},
 					"verbs": []interface{}{
 						"watch",
@@ -274,7 +300,9 @@ func installEksClusterAutoscaler(
 			},
 		},
 	}
-	if _, err := kube.CreateResource(clusterAutoscalerClusterRole, kubeClient, *mapper); err != nil {
+	// an existing cluster's role is brought up to these rules, as the
+	// autoscaler's release waits on what they grant
+	if _, err := kube.CreateOrUpdateResource(clusterAutoscalerClusterRole, kubeClient, *mapper); err != nil {
 		return fmt.Errorf("failed to create cluster autoscaler cluster role: %w", err)
 	}
 
@@ -435,6 +463,15 @@ func installEksClusterAutoscaler(
 							map[string]interface{}{
 								"image": image,
 								"name":  "cluster-autoscaler",
+								// the nodes' metadata service is out of a pod's
+								// reach, so the region it would read from there
+								// is given
+								"env": []interface{}{
+									map[string]interface{}{
+										"name":  "AWS_REGION",
+										"value": region,
+									},
+								},
 								"resources": map[string]interface{}{
 									"limits": map[string]interface{}{
 										"cpu":    "100m",

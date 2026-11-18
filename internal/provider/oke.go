@@ -48,6 +48,10 @@ type KubernetesRuntimeInfraOKE struct {
 	// "v1.36.4".  If empty, the default minor version is used.
 	Version string
 
+	// If true, Pulumi refuses to destroy or replace the cluster and its node
+	// pool.  The destroy removes the protection first.
+	DeletionProtection bool
+
 	// The network range allocated to the cluster, such as "10.16.0.0/16", its
 	// KubernetesRuntimeInstance's NetworkCidr.  Its VCN and subnets are laid
 	// out in it.  If empty, the cluster gets the ranges every cluster got
@@ -589,7 +593,8 @@ func (i *KubernetesRuntimeInfraOKE) CreateInfra() (*kube.KubeConnectionInfo, err
 				privateSubnet,
 				publicRouteTable,
 				privateRouteTable,
-			}))
+			}),
+			pulumi.Protect(i.DeletionProtection))
 		if err != nil {
 			return fmt.Errorf("failed to create OKE cluster: %w", err)
 		}
@@ -632,7 +637,8 @@ func (i *KubernetesRuntimeInfraOKE) CreateInfra() (*kube.KubeConnectionInfo, err
 				MemoryInGbs: pulumi.Float64(12.0),
 			},
 		}, pulumi.Provider(ociProvider),
-			pulumi.DependsOn([]pulumi.Resource{cluster}))
+			pulumi.DependsOn([]pulumi.Resource{cluster}),
+			pulumi.Protect(i.DeletionProtection))
 		if err != nil {
 			return fmt.Errorf("failed to create node pool: %w", err)
 		}

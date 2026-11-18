@@ -31,6 +31,8 @@ type KubernetesRuntimeValues struct {
 	PrivateApi                *bool
 	AllowedCidrs              *[]string
 	KubernetesVersion         *string
+	AuditLog                  *bool
+	DeletionProtection        *bool
 	Location                  *string
 	ThreeportControlPlaneHost *bool
 	DefaultRuntime            *bool
@@ -168,6 +170,8 @@ func (k *KubernetesRuntimeConfig) GetOperations(
 			PrivateApi:               kubernetesRuntimeValues.PrivateApi,
 			AllowedCidrs:             kubernetesRuntimeValues.AllowedCidrs,
 			KubernetesVersion:        kubernetesRuntimeValues.KubernetesVersion,
+			AuditLog:                 kubernetesRuntimeValues.AuditLog,
+			DeletionProtection:       kubernetesRuntimeValues.DeletionProtection,
 		},
 	}
 	operations.AppendOperation(util.Operation{
@@ -283,6 +287,8 @@ func mapToKubernetesRuntimeDefinedInstances(
 						PrivateApi:                def.KubernetesRuntimeDefinition.PrivateApi,
 						AllowedCidrs:              def.KubernetesRuntimeDefinition.AllowedCidrs,
 						KubernetesVersion:         def.KubernetesRuntimeDefinition.KubernetesVersion,
+						AuditLog:                  def.KubernetesRuntimeDefinition.AuditLog,
+						DeletionProtection:        def.KubernetesRuntimeDefinition.DeletionProtection,
 						ThreeportControlPlaneHost: inst.KubernetesRuntimeInstance.ThreeportControlPlaneHost,
 						Location:                  inst.KubernetesRuntimeInstance.Location,
 						DefaultRuntime:            inst.KubernetesRuntimeInstance.DefaultRuntime,
