@@ -131,7 +131,7 @@ type GcpGkeKubernetesRuntimeInstance struct {
 	KubernetesRuntimeInstanceID *uint `validate:"required" gorm:"not null" relationship:"marries"`
 
 	// An inventory of all GCP resources for the GKE cluster.
-	ResourceInventory *datatypes.JSON `validate:"optional"`
+	ResourceInventory *datatypes.JSON `validate:"optional" swaggertype:"object"`
 
 	// Set by an operator to allow this instance to be deleted even though its
 	// creation was confirmed and no resource inventory is recorded, or the

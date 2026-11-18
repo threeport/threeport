@@ -17440,9 +17440,6 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "datatypes.JSON": {
-            "type": "object"
-        },
         "v0.ApiObjectVersions": {
             "type": "object",
             "required": [
@@ -17499,10 +17496,191 @@ const docTemplate = `{
             }
         },
         "v0.AwsEksKubernetesRuntimeDefinition": {
-            "type": "object"
+            "type": "object",
+            "required": [
+                "DefaultNodeGroupInitialSize",
+                "DefaultNodeGroupInstanceType",
+                "DefaultNodeGroupMaximumSize",
+                "DefaultNodeGroupMinimumSize",
+                "KubernetesRuntimeDefinitionID",
+                "Name",
+                "ZoneCount"
+            ],
+            "properties": {
+                "AllowedCidrs": {
+                    "description": "The CIDR blocks allowed to reach the Kubernetes API, as a JSON array of\nIPv4 CIDR blocks.  Set from the KubernetesRuntimeDefinition's\nAllowedCidrs.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "AuditLog": {
+                    "description": "If true, the clusters' Kubernetes API server audit log, with its API and\nauthenticator logs, is sent to CloudWatch Logs, in the log group\n/aws/eks/\u003ccluster\u003e/cluster, which keeps it for 90 days and is deleted\nwith the cluster.  It can't be changed after creation.",
+                    "type": "boolean"
+                },
+                "AwsEksKubernetesRuntimeInstances": {
+                    "description": "The AWS EKS kubernetes runtime instances derived from this definition.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.AwsEksKubernetesRuntimeInstance"
+                    }
+                },
+                "DefaultNodeGroupInitialSize": {
+                    "description": "The number of nodes in the default initial node group.",
+                    "type": "integer"
+                },
+                "DefaultNodeGroupInstanceType": {
+                    "description": "The AWS instance type for the default initial node group.",
+                    "type": "string"
+                },
+                "DefaultNodeGroupMaximumSize": {
+                    "description": "The maximum number of nodes the default initial node group should have.",
+                    "type": "integer"
+                },
+                "DefaultNodeGroupMinimumSize": {
+                    "description": "The minimum number of nodes the default initial node group should have.",
+                    "type": "integer"
+                },
+                "DeletionProtection": {
+                    "description": "If true, the runtime instances derived from this definition can't be\ndeleted, Pulumi refuses to destroy or replace their clusters and node\ngroups, and EKS refuses to delete the clusters through its own API.  Set\nit to false to let every instance of the definition be deleted.  If\nunset, it is false.",
+                    "type": "boolean"
+                },
+                "KubernetesRuntimeDefinitionID": {
+                    "description": "The kubernetes runtime definition for an EKS cluster in AWS.",
+                    "type": "integer"
+                },
+                "KubernetesVersion": {
+                    "description": "The Kubernetes minor version of the clusters, such as \"1.36\": the\nKubernetesRuntimeDefinition's KubernetesVersion, or the default version\nwhen that is unset.  If unset here, the default version is used.\nRaising it to another supported version upgrades the clusters, one minor\nversion at a time.  It can't be lowered, since a cluster can't be\ndowngraded, or cleared.",
+                    "type": "string"
+                },
+                "Name": {
+                    "description": "An arbitrary name for the definition.",
+                    "type": "string"
+                },
+                "NodeGroupPerZone": {
+                    "description": "If true, the clusters run a node group in each zone, each with the\ndefault node group's instance type and sizes, rather than one node\ngroup spanning every zone.  The cluster autoscaler can then add a node\nin a given zone, as a pod bound to a volume there needs.  The zones are\nchosen from those that offer the instance type.  It can't be changed\nafter creation, since that replaces the node groups.",
+                    "type": "boolean"
+                },
+                "PrivateApi": {
+                    "description": "If true, the Kubernetes API is not reachable from the public internet.\nSet from the KubernetesRuntimeDefinition's PrivateApi.",
+                    "type": "boolean"
+                },
+                "ProfileID": {
+                    "description": "The profile to associate with the definition.  Profile is a named\nstandard configuration for a definition object.",
+                    "type": "integer"
+                },
+                "TierID": {
+                    "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
+                    "type": "integer"
+                },
+                "ZoneCount": {
+                    "description": "The number of zones the cluster should span for availability.",
+                    "type": "integer"
+                }
+            }
         },
         "v0.AwsEksKubernetesRuntimeInstance": {
-            "type": "object"
+            "type": "object",
+            "required": [
+                "AwsEksKubernetesRuntimeDefinitionID",
+                "AwsProviderID",
+                "KubernetesRuntimeInstanceID",
+                "Name"
+            ],
+            "properties": {
+                "AbandonInfrastructure": {
+                    "description": "Set by an operator to allow this instance to be deleted even though its\ncreation was confirmed and no resource inventory is recorded, or the\nrecorded inventory cannot be restored. The controller refuses that delete\notherwise, because cloud resources may still exist. Setting this orphans\nany resources the controller cannot find: they keep running and are no\nlonger tracked by Threeport. Resources it has recorded and can restore are\nstill destroyed. It is rejected on create, and once set it stays set until\nchanged, so tptctl sets it back to false if the delete fails.",
+                    "type": "boolean"
+                },
+                "AwsEksKubernetesRuntimeDefinitionID": {
+                    "description": "The definition that configures this instance.",
+                    "type": "integer"
+                },
+                "AwsProviderID": {
+                    "description": "The AWS provider in which the EKS cluster is provisioned.",
+                    "type": "integer"
+                },
+                "CreationAcknowledged": {
+                    "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
+                "CreationConfirmed": {
+                    "description": "Used by controllers to confirm deletion of an object.",
+                    "type": "string"
+                },
+                "CreationFailed": {
+                    "description": "Gets set to true if creation process fails.",
+                    "type": "boolean"
+                },
+                "DeletionAcknowledged": {
+                    "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
+                "DeletionConfirmed": {
+                    "description": "Used by controllers to confirm deletion of an object.",
+                    "type": "string"
+                },
+                "DeletionScheduled": {
+                    "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
+                    "type": "string"
+                },
+                "InterruptReconciliation": {
+                    "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
+                    "type": "boolean"
+                },
+                "KubernetesRuntimeInstanceID": {
+                    "description": "The kubernetes runtime instance associated with the AWS EKS cluster.",
+                    "type": "integer"
+                },
+                "KubernetesVersion": {
+                    "description": "The Kubernetes minor version the cluster runs, such as \"1.36\", as the\ncontroller last read it from the provider.  That is the\nlower of its control plane's and its node group's, which EKS upgrades\nseparately.",
+                    "type": "string"
+                },
+                "Name": {
+                    "description": "An arbitrary name the instance",
+                    "type": "string"
+                },
+                "Reconciled": {
+                    "description": "Indicates if object is considered to be reconciled by the object's controller.",
+                    "type": "boolean"
+                },
+                "Region": {
+                    "description": "The AWS region in which the cluster is provisioned.",
+                    "type": "string"
+                },
+                "ResourceInventory": {
+                    "description": "An inventory of all AWS resources for the EKS cluster.",
+                    "type": "object"
+                },
+                "Status": {
+                    "description": "The status of the instance.\nTODO: use a custom type",
+                    "type": "string"
+                },
+                "UpgradeAcknowledged": {
+                    "description": "Set by the controller when it starts upgrading the cluster to the\ndefinition's KubernetesVersion, and refreshed while the upgrade runs.",
+                    "type": "string"
+                },
+                "UpgradeFailed": {
+                    "description": "True when the last upgrade failed.  The controller tries it again after\na wait.",
+                    "type": "boolean"
+                },
+                "UpgradeRefused": {
+                    "description": "True when the controller refused to upgrade the cluster: because the\nupgrade would replace or delete any of its resources, or because\nThreeport didn't create the cluster.  It doesn't try again until the\ndefinition's KubernetesVersion changes, or this is set back to false.",
+                    "type": "boolean"
+                },
+                "UpgradeRequestedVersion": {
+                    "description": "The definition's KubernetesVersion the cluster was last asked to be\nupgraded to.  The API server sets it when an update of the EKS\ndefinition asks the cluster to upgrade, once the cluster's controller\nhas been notified, so a request it couldn't finish is made again by the\ndefinition's next update.",
+                    "type": "string"
+                },
+                "UpgradeStatus": {
+                    "description": "What the controller last did to upgrade the cluster, or why it\ncouldn't.",
+                    "type": "string"
+                },
+                "Upgrading": {
+                    "description": "True while the controller upgrades the cluster.",
+                    "type": "boolean"
+                }
+            }
         },
         "v0.AwsProvider": {
             "type": "object",
@@ -17566,27 +17744,15 @@ const docTemplate = `{
                 },
                 "AdditionalEnvRef": {
                     "description": "The additional env reference to be added to the environment variables of the component.",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/datatypes.JSON"
-                        }
-                    ]
+                    "type": "object"
                 },
                 "AdditionalVolumeMounts": {
                     "description": "The additional volume mounts to be added to the deployment spec of the component.",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/datatypes.JSON"
-                        }
-                    ]
+                    "type": "object"
                 },
                 "AdditionalVolumes": {
                     "description": "The additional volumes to be added to the deployment spec of the component.",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/datatypes.JSON"
-                        }
-                    ]
+                    "type": "object"
                 },
                 "BinaryName": {
                     "description": "The binary name of the component.",
@@ -18415,11 +18581,7 @@ const docTemplate = `{
                 },
                 "ResourceInventory": {
                     "description": "An inventory of all GCP resources for the GKE cluster.",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/datatypes.JSON"
-                        }
-                    ]
+                    "type": "object"
                 },
                 "Status": {
                     "description": "The status of the instance.\nTODO: use a custom type",
@@ -18500,7 +18662,7 @@ const docTemplate = `{
                     "description": "Complete kubernetes resources that will be appended to the provided\nhelm chart.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/datatypes.JSON"
+                        "type": "object"
                     }
                 },
                 "Chart": {
@@ -18584,7 +18746,7 @@ const docTemplate = `{
                     "description": "Complete kubernetes resources that will be appended to the provided\nhelm chart.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/datatypes.JSON"
+                        "type": "object"
                     }
                 },
                 "CreationAcknowledged": {
@@ -19040,11 +19202,7 @@ const docTemplate = `{
             "properties": {
                 "JSONDefinition": {
                     "description": "The individual manifest in JSON format.",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/datatypes.JSON"
-                        }
-                    ]
+                    "type": "object"
                 },
                 "KubernetesWorkloadDefinitionID": {
                     "description": "The kubernetes workload definition this resource belongs to.",
@@ -19061,11 +19219,7 @@ const docTemplate = `{
             "properties": {
                 "JSONDefinition": {
                     "description": "The individual manifest in JSON format.  This field is a superset of\nKubernetesWorkloadResourceDefinition.JSONDefinition in that it has\nnamespace management and other configuration — such as resource\nallocation management — added.",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/datatypes.JSON"
-                        }
-                    ]
+                    "type": "object"
                 },
                 "KubernetesWorkloadInstanceID": {
                     "description": "The kubernetes workload instance this resource belongs to.",
@@ -19081,11 +19235,7 @@ const docTemplate = `{
                 },
                 "RuntimeDefinition": {
                     "description": "The JSON definition of a Kubernetes resource as stored in etcd in the\nkubernetes runtime.",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/datatypes.JSON"
-                        }
-                    ]
+                    "type": "object"
                 },
                 "ScheduledForDeletion": {
                     "description": "Whether another controller has scheduled this resource for deletion",
@@ -20357,11 +20507,7 @@ const docTemplate = `{
                 },
                 "ResourceInventory": {
                     "description": "An inventory of all OCI resources for the OKE cluster.",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/datatypes.JSON"
-                        }
-                    ]
+                    "type": "object"
                 },
                 "Status": {
                     "description": "The status of the instance.\nTODO: use a custom type",
@@ -20530,11 +20676,7 @@ const docTemplate = `{
                 },
                 "Data": {
                     "description": "The secret value to be stored in the provider.",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/datatypes.JSON"
-                        }
-                    ]
+                    "type": "object"
                 },
                 "DeletionAcknowledged": {
                     "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",

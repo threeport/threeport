@@ -1,7 +1,5 @@
 basePath: /
 definitions:
-  datatypes.JSON:
-    type: object
   v0.ApiObjectVersions:
     properties:
       API:
@@ -65,8 +63,218 @@ definitions:
     - ObjectType
     type: object
   v0.AwsEksKubernetesRuntimeDefinition:
+    properties:
+      AllowedCidrs:
+        description: |-
+          The CIDR blocks allowed to reach the Kubernetes API, as a JSON array of
+          IPv4 CIDR blocks.  Set from the KubernetesRuntimeDefinition's
+          AllowedCidrs.
+        items:
+          type: string
+        type: array
+      AuditLog:
+        description: |-
+          If true, the clusters' Kubernetes API server audit log, with its API and
+          authenticator logs, is sent to CloudWatch Logs, in the log group
+          /aws/eks/<cluster>/cluster, which keeps it for 90 days and is deleted
+          with the cluster.  It can't be changed after creation.
+        type: boolean
+      AwsEksKubernetesRuntimeInstances:
+        description: The AWS EKS kubernetes runtime instances derived from this definition.
+        items:
+          $ref: '#/definitions/v0.AwsEksKubernetesRuntimeInstance'
+        type: array
+      DefaultNodeGroupInitialSize:
+        description: The number of nodes in the default initial node group.
+        type: integer
+      DefaultNodeGroupInstanceType:
+        description: The AWS instance type for the default initial node group.
+        type: string
+      DefaultNodeGroupMaximumSize:
+        description: The maximum number of nodes the default initial node group should
+          have.
+        type: integer
+      DefaultNodeGroupMinimumSize:
+        description: The minimum number of nodes the default initial node group should
+          have.
+        type: integer
+      DeletionProtection:
+        description: |-
+          If true, the runtime instances derived from this definition can't be
+          deleted, Pulumi refuses to destroy or replace their clusters and node
+          groups, and EKS refuses to delete the clusters through its own API.  Set
+          it to false to let every instance of the definition be deleted.  If
+          unset, it is false.
+        type: boolean
+      KubernetesRuntimeDefinitionID:
+        description: The kubernetes runtime definition for an EKS cluster in AWS.
+        type: integer
+      KubernetesVersion:
+        description: |-
+          The Kubernetes minor version of the clusters, such as "1.36": the
+          KubernetesRuntimeDefinition's KubernetesVersion, or the default version
+          when that is unset.  If unset here, the default version is used.
+          Raising it to another supported version upgrades the clusters, one minor
+          version at a time.  It can't be lowered, since a cluster can't be
+          downgraded, or cleared.
+        type: string
+      Name:
+        description: An arbitrary name for the definition.
+        type: string
+      NodeGroupPerZone:
+        description: |-
+          If true, the clusters run a node group in each zone, each with the
+          default node group's instance type and sizes, rather than one node
+          group spanning every zone.  The cluster autoscaler can then add a node
+          in a given zone, as a pod bound to a volume there needs.  The zones are
+          chosen from those that offer the instance type.  It can't be changed
+          after creation, since that replaces the node groups.
+        type: boolean
+      PrivateApi:
+        description: |-
+          If true, the Kubernetes API is not reachable from the public internet.
+          Set from the KubernetesRuntimeDefinition's PrivateApi.
+        type: boolean
+      ProfileID:
+        description: |-
+          The profile to associate with the definition.  Profile is a named
+          standard configuration for a definition object.
+        type: integer
+      TierID:
+        description: |-
+          The tier to associate with the definition.  Tier is a level of
+          criticality for access control.
+        type: integer
+      ZoneCount:
+        description: The number of zones the cluster should span for availability.
+        type: integer
+    required:
+    - DefaultNodeGroupInitialSize
+    - DefaultNodeGroupInstanceType
+    - DefaultNodeGroupMaximumSize
+    - DefaultNodeGroupMinimumSize
+    - KubernetesRuntimeDefinitionID
+    - Name
+    - ZoneCount
     type: object
   v0.AwsEksKubernetesRuntimeInstance:
+    properties:
+      AbandonInfrastructure:
+        description: |-
+          Set by an operator to allow this instance to be deleted even though its
+          creation was confirmed and no resource inventory is recorded, or the
+          recorded inventory cannot be restored. The controller refuses that delete
+          otherwise, because cloud resources may still exist. Setting this orphans
+          any resources the controller cannot find: they keep running and are no
+          longer tracked by Threeport. Resources it has recorded and can restore are
+          still destroyed. It is rejected on create, and once set it stays set until
+          changed, so tptctl sets it back to false if the delete fails.
+        type: boolean
+      AwsEksKubernetesRuntimeDefinitionID:
+        description: The definition that configures this instance.
+        type: integer
+      AwsProviderID:
+        description: The AWS provider in which the EKS cluster is provisioned.
+        type: integer
+      CreationAcknowledged:
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
+        type: string
+      CreationConfirmed:
+        description: Used by controllers to confirm deletion of an object.
+        type: string
+      CreationFailed:
+        description: Gets set to true if creation process fails.
+        type: boolean
+      DeletionAcknowledged:
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
+        type: string
+      DeletionConfirmed:
+        description: Used by controllers to confirm deletion of an object.
+        type: string
+      DeletionScheduled:
+        description: |-
+          Used to inform reconcilers that an object is being deleted so they may
+          complete delete reconciliation before actually deleting the object from the database.
+        type: string
+      InterruptReconciliation:
+        description: |-
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
+          spinning up more infrastructure when there is a unresolved problem.
+        type: boolean
+      KubernetesRuntimeInstanceID:
+        description: The kubernetes runtime instance associated with the AWS EKS cluster.
+        type: integer
+      KubernetesVersion:
+        description: |-
+          The Kubernetes minor version the cluster runs, such as "1.36", as the
+          controller last read it from the provider.  That is the
+          lower of its control plane's and its node group's, which EKS upgrades
+          separately.
+        type: string
+      Name:
+        description: An arbitrary name the instance
+        type: string
+      Reconciled:
+        description: Indicates if object is considered to be reconciled by the object's
+          controller.
+        type: boolean
+      Region:
+        description: The AWS region in which the cluster is provisioned.
+        type: string
+      ResourceInventory:
+        description: An inventory of all AWS resources for the EKS cluster.
+        type: object
+      Status:
+        description: |-
+          The status of the instance.
+          TODO: use a custom type
+        type: string
+      UpgradeAcknowledged:
+        description: |-
+          Set by the controller when it starts upgrading the cluster to the
+          definition's KubernetesVersion, and refreshed while the upgrade runs.
+        type: string
+      UpgradeFailed:
+        description: |-
+          True when the last upgrade failed.  The controller tries it again after
+          a wait.
+        type: boolean
+      UpgradeRefused:
+        description: |-
+          True when the controller refused to upgrade the cluster: because the
+          upgrade would replace or delete any of its resources, or because
+          Threeport didn't create the cluster.  It doesn't try again until the
+          definition's KubernetesVersion changes, or this is set back to false.
+        type: boolean
+      UpgradeRequestedVersion:
+        description: |-
+          The definition's KubernetesVersion the cluster was last asked to be
+          upgraded to.  The API server sets it when an update of the EKS
+          definition asks the cluster to upgrade, once the cluster's controller
+          has been notified, so a request it couldn't finish is made again by the
+          definition's next update.
+        type: string
+      UpgradeStatus:
+        description: |-
+          What the controller last did to upgrade the cluster, or why it
+          couldn't.
+        type: string
+      Upgrading:
+        description: True while the controller upgrades the cluster.
+        type: boolean
+    required:
+    - AwsEksKubernetesRuntimeDefinitionID
+    - AwsProviderID
+    - KubernetesRuntimeInstanceID
+    - Name
     type: object
   v0.AwsProvider:
     properties:
@@ -116,20 +324,17 @@ definitions:
           component nobody asked for.
         type: boolean
       AdditionalEnvRef:
-        allOf:
-        - $ref: '#/definitions/datatypes.JSON'
         description: The additional env reference to be added to the environment variables
           of the component.
+        type: object
       AdditionalVolumeMounts:
-        allOf:
-        - $ref: '#/definitions/datatypes.JSON'
         description: The additional volume mounts to be added to the deployment spec
           of the component.
+        type: object
       AdditionalVolumes:
-        allOf:
-        - $ref: '#/definitions/datatypes.JSON'
         description: The additional volumes to be added to the deployment spec of
           the component.
+        type: object
       BinaryName:
         description: The binary name of the component.
         type: string
@@ -987,9 +1192,8 @@ definitions:
           creation.
         type: boolean
       ResourceInventory:
-        allOf:
-        - $ref: '#/definitions/datatypes.JSON'
         description: An inventory of all GCP resources for the GKE cluster.
+        type: object
       Status:
         description: |-
           The status of the instance.
@@ -1072,7 +1276,7 @@ definitions:
           Complete kubernetes resources that will be appended to the provided
           helm chart.
         items:
-          $ref: '#/definitions/datatypes.JSON'
+          type: object
         type: array
       Chart:
         description: The name of the helm chart to use from the helm repo, e.g. wordpress
@@ -1162,7 +1366,7 @@ definitions:
           Complete kubernetes resources that will be appended to the provided
           helm chart.
         items:
-          $ref: '#/definitions/datatypes.JSON'
+          type: object
         type: array
       CreationAcknowledged:
         description: |-
@@ -1669,9 +1873,8 @@ definitions:
   v0.KubernetesWorkloadResourceDefinition:
     properties:
       JSONDefinition:
-        allOf:
-        - $ref: '#/definitions/datatypes.JSON'
         description: The individual manifest in JSON format.
+        type: object
       KubernetesWorkloadDefinitionID:
         description: The kubernetes workload definition this resource belongs to.
         type: integer
@@ -1682,13 +1885,12 @@ definitions:
   v0.KubernetesWorkloadResourceInstance:
     properties:
       JSONDefinition:
-        allOf:
-        - $ref: '#/definitions/datatypes.JSON'
         description: |-
           The individual manifest in JSON format.  This field is a superset of
           KubernetesWorkloadResourceDefinition.JSONDefinition in that it has
           namespace management and other configuration — such as resource
           allocation management — added.
+        type: object
       KubernetesWorkloadInstanceID:
         description: The kubernetes workload instance this resource belongs to.
         type: integer
@@ -1703,11 +1905,10 @@ definitions:
           kubernetes workload controller.
         type: boolean
       RuntimeDefinition:
-        allOf:
-        - $ref: '#/definitions/datatypes.JSON'
         description: |-
           The JSON definition of a Kubernetes resource as stored in etcd in the
           kubernetes runtime.
+        type: object
       ScheduledForDeletion:
         description: Whether another controller has scheduled this resource for deletion
         type: string
@@ -2950,9 +3151,8 @@ definitions:
           definition will not move a cluster.
         type: string
       ResourceInventory:
-        allOf:
-        - $ref: '#/definitions/datatypes.JSON'
         description: An inventory of all OCI resources for the OKE cluster.
+        type: object
       Status:
         description: |-
           The status of the instance.
@@ -3089,9 +3289,8 @@ definitions:
         description: Gets set to true if creation process fails.
         type: boolean
       Data:
-        allOf:
-        - $ref: '#/definitions/datatypes.JSON'
         description: The secret value to be stored in the provider.
+        type: object
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
