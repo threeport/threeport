@@ -78,6 +78,10 @@ maps from (`Large` and `Balanced` for production, `Medium` and `Balanced` for
 development). Its EKS definition records the zones, the instance type, each
 node group's sizes, and `NodeGroupPerZone`.
 
+A production cluster also sends its Kubernetes API audit log to CloudWatch
+Logs, and the control plane's kubernetes runtime definition records it with
+`AuditLog`. See [Audit Log](../kubernetes-runtime/kubernetes-intro.md#audit-log).
+
 ## Restrict Access to the Kubernetes API
 
 By default the cluster's Kubernetes API accepts connections from any address.
@@ -135,3 +139,7 @@ uninstall Threeport:
 ```bash
 tptctl down --name test
 ```
+
+A production control plane's cluster is protected from deletion, so `tptctl
+down` refuses to tear it down until you turn the protection off. See
+[Deletion Protection](../kubernetes-runtime/kubernetes-intro.md#deletion-protection).

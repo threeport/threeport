@@ -145,6 +145,29 @@ func (a *AwsEksKubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
 	}); err != nil {
 		return err
 	}
+	if err := validateAuditLogUpdate(tx, func(value any) (*bool, bool) {
+		object, ok := value.(*AwsEksKubernetesRuntimeDefinition)
+		if !ok {
+			return nil, false
+		}
+		return object.AuditLog, true
+	}); err != nil {
+		return err
+	}
+	if err := validateDeletionProtectionUpdate(
+		tx,
+		func(value any) (*bool, *uint, bool) {
+			object, ok := value.(*AwsEksKubernetesRuntimeDefinition)
+			if !ok {
+				return nil, nil, false
+			}
+			return object.DeletionProtection, object.ID, true
+		},
+		&AwsEksKubernetesRuntimeInstance{},
+		"aws_eks_kubernetes_runtime_definition_id",
+	); err != nil {
+		return err
+	}
 	nodeGroupPerZoneChanged, err := lib.IsFieldChanged(tx, "NodeGroupPerZone")
 	if err != nil {
 		return err
