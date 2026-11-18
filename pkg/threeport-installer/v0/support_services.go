@@ -54,12 +54,6 @@ const (
 	// SupportServicesName is the object the nginx component joins.
 	SupportServicesName = "threeport-support-services"
 
-	// StorageComponentName is the object that installs the seaweedfs operator.
-	StorageComponentName = "storage"
-
-	// storageComponentNamespace is the namespace that operator runs in.
-	storageComponentNamespace = "nukleros-storage-system"
-
 	// SupportServicesCloudLocal is the cloud value for a cluster with no cloud iam role.
 	SupportServicesCloudLocal = "local"
 
@@ -204,12 +198,6 @@ func InstallThreeportSupportServicesOperator(
 		return fmt.Errorf("failed to create SupportServices object: %w", err)
 	}
 
-	// the seaweedfs operator is a storage component, not a field on support services
-	storage := storageComponentObject()
-	if _, err := kube.CreateResource(storage, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to create StorageComponent object: %w", err)
-	}
-
 	return nil
 }
 
@@ -227,29 +215,6 @@ func supportServicesObject(cloud string) *unstructured.Unstructured {
 				"tier":                     "development",
 				"defaultIngressController": "nginx",
 				"cloud":                    cloud,
-			},
-		},
-	}
-}
-
-// storageComponentObject returns the StorageComponent that installs seaweedfs.
-func storageComponentObject() *unstructured.Unstructured {
-	// one replica matches a single control plane
-	return &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "platform.addons.nukleros.io/v1alpha1",
-			"kind":       "StorageComponent",
-			"metadata": map[string]interface{}{
-				"name": StorageComponentName,
-			},
-			"spec": map[string]interface{}{
-				"collection": map[string]interface{}{
-					"name": SupportServicesName,
-				},
-				"namespace": storageComponentNamespace,
-				"seaweedfsOperator": map[string]interface{}{
-					"replicas": int64(1),
-				},
 			},
 		},
 	}

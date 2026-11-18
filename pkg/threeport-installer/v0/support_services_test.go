@@ -1,9 +1,12 @@
 package v0
 
 import (
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"golang.org/x/mod/modfile"
 	kubeerr "k8s.io/apimachinery/pkg/api/errors"
 
 	api "github.com/threeport/threeport/pkg/api/v0"
@@ -102,14 +105,9 @@ func TestSupportServicesCloud(t *testing.T) {
 	require.Equal(t, SupportServicesCloudAWS, supportServicesObject(SupportServicesCloudAWS).Object["spec"].(map[string]interface{})["cloud"])
 }
 
-// TestStorageComponentObject covers the storage component and its definition.
-func TestStorageComponentObject(t *testing.T) {
-	// the object names the seaweedfs operator namespace
-	object := storageComponentObject()
-	require.Equal(t, StorageComponentName, object.GetName())
-	spec := object.Object["spec"].(map[string]interface{})
-	require.Equal(t, storageComponentNamespace, spec["namespace"])
-	require.Equal(t, SupportServicesName, spec["collection"].(map[string]interface{})["name"])
+// TestSupportServicesOperatorManifestIncludesStorage covers the storage definition.
+func TestSupportServicesOperatorManifestIncludesStorage(t *testing.T) {
+	// the operator manifest registers the storage component
 	objects, err := supportServicesOperatorObjects(ControlPlaneNamespace)
 	require.NoError(t, err)
 	found := false
@@ -119,4 +117,24 @@ func TestStorageComponentObject(t *testing.T) {
 		}
 	}
 	require.True(t, found)
+}
+
+// TestSupportServicesOperatorModuleMatchesImage checks go.mod against the image tag.
+func TestSupportServicesOperatorModuleMatchesImage(t *testing.T) {
+	// read the module requirement
+	raw, err := os.ReadFile("../../../go.mod")
+	require.NoError(t, err)
+	file, err := modfile.Parse("go.mod", raw, nil)
+	require.NoError(t, err)
+	const modulePath = "github.com/nukleros/support-services-operator"
+	var version string
+	for _, req := range file.Require {
+		if req.Mod.Path == modulePath {
+			version = req.Mod.Version
+		}
+	}
+
+	// the image tag is that same version
+	tag := SupportServicesOperatorImage[strings.LastIndex(SupportServicesOperatorImage, ":")+1:]
+	require.Equal(t, tag, version)
 }
