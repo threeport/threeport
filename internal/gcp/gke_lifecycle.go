@@ -207,7 +207,49 @@ func (g *gkeLifecycle) OnCreateConfirmed(infra provider.InfraProvider) error {
 	); err != nil {
 		return fmt.Errorf("failed to update kubernetes runtime instance with kube connection info: %w", err)
 	}
+
+	return g.recordAppliedSettings(infraGKE)
+}
+
+// gkeLifecycle applies its definition's secrets encryption, boot disk,
+// Secure Boot and intranode visibility to a cluster that doesn't run them.
+var _ provider.SettingsLifecycleProvider = (*gkeLifecycle)(nil)
+
+// recordAppliedSettings records on the instance the secrets encryption,
+// boot disk, Secure Boot and intranode visibility its cluster runs once the
+// program infra was built with has been applied.
+func (g *gkeLifecycle) recordAppliedSettings(infra *provider.KubernetesRuntimeInfraGKE) error {
+	applied := infra.AppliedSettings()
+	update := v0.GcpGkeKubernetesRuntimeInstance{
+		Common:               v0.Common{ID: &g.instanceID},
+		SecretsEncryptionKey: &applied.SecretsEncryptionKey,
+		BootDiskType:         &applied.BootDiskType,
+		BootDiskSizeGb:       &applied.BootDiskSizeGb,
+		BootDiskKmsKey:       &applied.BootDiskKmsKey,
+		SecureBoot:           &applied.SecureBoot,
+		IntranodeVisibility:  &applied.IntranodeVisibility,
+	}
+	if _, err := client.UpdateGcpGkeKubernetesRuntimeInstance(g.r.APIClient, g.r.APIServer, &update); err != nil {
+		return fmt.Errorf("failed to record the settings the cluster runs: %w", err)
+	}
+
 	return nil
+}
+
+// PendingSettings returns the names of the secrets encryption, boot disk,
+// Secure Boot and intranode visibility settings the instance's definition
+// asks for that its cluster doesn't run.
+func (g *gkeLifecycle) PendingSettings() ([]string, error) {
+	latest, err := client.GetGcpGkeKubernetesRuntimeInstanceByID(g.r.APIClient, g.r.APIServer, g.instanceID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get latest GKE instance: %w", err)
+	}
+	definition, err := client.GetGcpGkeKubernetesRuntimeDefinitionByID(g.r.APIClient, g.r.APIServer, *latest.GcpGkeKubernetesRuntimeDefinitionID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get GKE definition: %w", err)
+	}
+
+	return v0.GkePendingSettings(definition, latest), nil
 }
 
 // SaveCreateOutputs saves the final Pulumi state.
@@ -497,6 +539,16 @@ func (g *gkeLifecycle) OnUpgraded(_ provider.InfraProvider) error {
 	return nil
 }
 
+// OnSettingsApplied records the settings an upgrade step applied.
+func (g *gkeLifecycle) OnSettingsApplied(infra provider.InfraProvider) error {
+	infraGKE, ok := infra.(*provider.KubernetesRuntimeInfraGKE)
+	if !ok {
+		return fmt.Errorf("cannot record the settings %T applied", infra)
+	}
+
+	return g.recordAppliedSettings(infraGKE)
+}
+
 // PublishCreateNotification publishes a NATS notification for creation.
 func (g *gkeLifecycle) PublishCreateNotification() error {
 	notifPayload, err := g.instance.NotificationPayload(
@@ -615,6 +667,12 @@ func buildGkeInfra(
 		MaintenanceWindowHours: v0.GkeMaintenanceWindowHoursOrDefault(definition.MaintenanceWindowHours),
 		AllowedCidrs:           allowedCidrs,
 		ReserveNatAddress:      instance.ReservedNatAddress != nil && *instance.ReservedNatAddress,
+		SecretsEncryptionKey:   definition.SecretsEncryptionKey,
+		BootDiskType:           definition.BootDiskType,
+		BootDiskSizeGb:         definition.BootDiskSizeGb,
+		BootDiskKmsKey:         definition.BootDiskKmsKey,
+		SecureBoot:             definition.SecureBoot,
+		IntranodeVisibility:    definition.IntranodeVisibility,
 	}).InitPulumiProject()
 	// the cluster is found where it was created, which a zonal cluster's
 	// region alone doesn't say

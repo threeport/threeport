@@ -122,7 +122,52 @@ version comes with its node image, so it takes none.
 
 These apply to clusters created from this release on. A node pool or node
 group that already exists keeps its boot disk and runs without a launch
-template, since changing either would replace it or recreate its nodes.
+template, since changing either would replace it or recreate its nodes. A
+GKE definition can ask for another boot disk, as the next section describes.
+
+### GKE Encryption and Boot Settings
+
+A `GcpGkeKubernetesRuntime` definition can set how its clusters encrypt
+Secrets and boot their nodes. Each field is optional, and a field left out
+leaves the cluster as Threeport creates it:
+
+| Field | What it sets | Left out |
+|---|---|---|
+| `SecretsEncryptionKey` | The Cloud KMS key Secrets are encrypted with in the cluster's database | A key Google manages |
+| `BootDiskType` | The nodes' boot disk: `pd-standard`, `pd-balanced` or `pd-ssd` | `pd-balanced`, or the disk an existing node pool has |
+| `BootDiskSizeGb` | The boot disk's size, from 10 to 65536 GB | 100, or the disk an existing node pool has |
+| `BootDiskKmsKey` | The Cloud KMS key the boot disks are encrypted with | A key Google manages |
+| `SecureBoot` | Whether the nodes boot only software signed by a trusted key | Off |
+| `IntranodeVisibility` | Whether traffic between pods on one node goes through the cluster's network, where flow logs, firewall rules and Network Policies see it | Off |
+
+A key is given as its full resource name,
+`projects/PROJECT/locations/LOCATION/keyRings/RING/cryptoKeys/KEY`, in the
+cluster's region. Threeport creates neither the key nor its key ring, and the
+project's service agents need `roles/cloudkms.cryptoKeyEncrypterDecrypter` on
+it: the GKE service agent,
+`service-PROJECT_NUMBER@container-engine-robot.iam.gserviceaccount.com`, for
+`SecretsEncryptionKey`, and the Compute Engine service agent,
+`service-PROJECT_NUMBER@compute-system.iam.gserviceaccount.com`, for
+`BootDiskKmsKey`. GKE encrypts only a `pd-standard` or `pd-ssd` boot disk with
+a key of yours, so a definition with `BootDiskKmsKey` and a `BootDiskType` of
+`pd-balanced`, or none, is refused.
+
+Changing a field on a definition with clusters applies it to them, on the
+version they run, without creating new clusters:
+
+| Change | What happens to each cluster |
+|---|---|
+| `SecretsEncryptionKey` | GKE restarts the control plane and encrypts the Secrets with the key. A zonal cluster's Kubernetes API is unavailable while it restarts. The nodes stay. The key can be changed to another one, but not cleared once set. |
+| `BootDiskType` or `BootDiskSizeGb` | GKE moves the node pool's nodes onto new disks, one node at a time. |
+| `BootDiskKmsKey` or `SecureBoot` | A node pool can't change either, so a new node pool is created, and the old one is removed once it is up, its pods moving to the new one. While `DeletionProtection` is set this is refused: set it to `false`, in the same update or before it. |
+| `IntranodeVisibility` | GKE turns it on or off for the cluster, and recreates the nodes. |
+
+The controller applies the changes as it applies a version upgrade, and
+records them on the GKE runtime instance: the settings the cluster runs are
+in the instance's fields of the same names, and what the controller last did
+is in `UpgradeStatus`. A change that would replace or delete anything other
+than the node pool is refused, and isn't tried again until the definition is
+updated. A failed one is tried again after 15 minutes.
 
 ### Deletion Protection
 

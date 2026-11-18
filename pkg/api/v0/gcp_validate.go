@@ -74,6 +74,10 @@ func (g *GcpGkeKubernetesRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
 		return err
 	}
 
+	if err := validateGkeNodeSecurityCreate(g); err != nil {
+		return err
+	}
+
 	return validateGkeUpgradeSettingsCreate(g)
 }
 
@@ -110,6 +114,9 @@ func (g *GcpGkeKubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
 		return err
 	}
 	if err := validateGkeUpgradeSettingsUpdate(tx); err != nil {
+		return err
+	}
+	if err := validateGkeNodeSecurityUpdate(tx); err != nil {
 		return err
 	}
 	if err := validateDeletionProtectionUpdate(
