@@ -29,6 +29,9 @@ type KubernetesRuntimeDefinitionValues struct {
 	InfraProvider            *string
 	InfraProviderAccountName *string
 	HighAvailability         *bool
+	NodeSize                 *string
+	NodeProfile              *string
+	NodeMaximum              *int
 	PrivateApi               *bool
 	AllowedCidrs             *[]string
 	KubernetesVersion        *string
@@ -73,6 +76,9 @@ func (k *KubernetesRuntimeDefinitionConfig) Get(
 				InfraProvider:            kubernetesRuntimeDefinition.InfraProvider,
 				InfraProviderAccountName: kubernetesRuntimeDefinition.InfraProviderAccountName,
 				HighAvailability:         kubernetesRuntimeDefinition.HighAvailability,
+				NodeSize:                 kubernetesRuntimeDefinition.NodeSize,
+				NodeProfile:              kubernetesRuntimeDefinition.NodeProfile,
+				NodeMaximum:              kubernetesRuntimeDefinition.NodeMaximum,
 				PrivateApi:               kubernetesRuntimeDefinition.PrivateApi,
 				AllowedCidrs:             cidrsFromJSON(kubernetesRuntimeDefinition.AllowedCidrs),
 				KubernetesVersion:        kubernetesRuntimeDefinition.KubernetesVersion,
@@ -106,6 +112,9 @@ func (k *KubernetesRuntimeDefinitionConfig) Create(
 		},
 		InfraProvider:            kubernetesRuntimeDefinitionValues.InfraProvider,
 		HighAvailability:         kubernetesRuntimeDefinitionValues.HighAvailability,
+		NodeSize:                 kubernetesRuntimeDefinitionValues.NodeSize,
+		NodeProfile:              kubernetesRuntimeDefinitionValues.NodeProfile,
+		NodeMaximum:              kubernetesRuntimeDefinitionValues.NodeMaximum,
 		InfraProviderAccountName: kubernetesRuntimeDefinitionValues.InfraProviderAccountName,
 		PrivateApi:               kubernetesRuntimeDefinitionValues.PrivateApi,
 		AllowedCidrs:             cidrsToJSON(kubernetesRuntimeDefinitionValues.AllowedCidrs),
@@ -132,6 +141,9 @@ func (k *KubernetesRuntimeDefinitionConfig) Create(
 			InfraProvider:            createdKubernetesRuntimeDefinition.InfraProvider,
 			InfraProviderAccountName: createdKubernetesRuntimeDefinition.InfraProviderAccountName,
 			HighAvailability:         createdKubernetesRuntimeDefinition.HighAvailability,
+			NodeSize:                 createdKubernetesRuntimeDefinition.NodeSize,
+			NodeProfile:              createdKubernetesRuntimeDefinition.NodeProfile,
+			NodeMaximum:              createdKubernetesRuntimeDefinition.NodeMaximum,
 			PrivateApi:               createdKubernetesRuntimeDefinition.PrivateApi,
 			AllowedCidrs:             cidrsFromJSON(createdKubernetesRuntimeDefinition.AllowedCidrs),
 			KubernetesVersion:        createdKubernetesRuntimeDefinition.KubernetesVersion,
@@ -181,6 +193,17 @@ func (k *KubernetesRuntimeDefinitionConfig) Replace(
 	updatedKubernetesRuntimeDefinition.Name = kubernetesRuntimeDefinitionValues.Name
 	updatedKubernetesRuntimeDefinition.InfraProvider = kubernetesRuntimeDefinitionValues.InfraProvider
 	updatedKubernetesRuntimeDefinition.HighAvailability = kubernetesRuntimeDefinitionValues.HighAvailability
+	// the node size, profile and maximum a config leaves out are kept: the
+	// definition records the defaults for them
+	if kubernetesRuntimeDefinitionValues.NodeSize != nil {
+		updatedKubernetesRuntimeDefinition.NodeSize = kubernetesRuntimeDefinitionValues.NodeSize
+	}
+	if kubernetesRuntimeDefinitionValues.NodeProfile != nil {
+		updatedKubernetesRuntimeDefinition.NodeProfile = kubernetesRuntimeDefinitionValues.NodeProfile
+	}
+	if kubernetesRuntimeDefinitionValues.NodeMaximum != nil {
+		updatedKubernetesRuntimeDefinition.NodeMaximum = kubernetesRuntimeDefinitionValues.NodeMaximum
+	}
 	updatedKubernetesRuntimeDefinition.InfraProviderAccountName = kubernetesRuntimeDefinitionValues.InfraProviderAccountName
 	updatedKubernetesRuntimeDefinition.PrivateApi = kubernetesRuntimeDefinitionValues.PrivateApi
 	updatedKubernetesRuntimeDefinition.AllowedCidrs = cidrsToJSON(kubernetesRuntimeDefinitionValues.AllowedCidrs)
@@ -218,6 +241,9 @@ func (k *KubernetesRuntimeDefinitionConfig) Replace(
 			InfraProvider:            replacedKubernetesRuntimeDefinition.InfraProvider,
 			InfraProviderAccountName: replacedKubernetesRuntimeDefinition.InfraProviderAccountName,
 			HighAvailability:         replacedKubernetesRuntimeDefinition.HighAvailability,
+			NodeSize:                 replacedKubernetesRuntimeDefinition.NodeSize,
+			NodeProfile:              replacedKubernetesRuntimeDefinition.NodeProfile,
+			NodeMaximum:              replacedKubernetesRuntimeDefinition.NodeMaximum,
 			PrivateApi:               replacedKubernetesRuntimeDefinition.PrivateApi,
 			AllowedCidrs:             cidrsFromJSON(replacedKubernetesRuntimeDefinition.AllowedCidrs),
 			KubernetesVersion:        replacedKubernetesRuntimeDefinition.KubernetesVersion,
@@ -263,6 +289,9 @@ func (k *KubernetesRuntimeDefinitionConfig) Delete(
 			InfraProvider:            deletedKubernetesRuntimeDefinition.InfraProvider,
 			InfraProviderAccountName: deletedKubernetesRuntimeDefinition.InfraProviderAccountName,
 			HighAvailability:         deletedKubernetesRuntimeDefinition.HighAvailability,
+			NodeSize:                 deletedKubernetesRuntimeDefinition.NodeSize,
+			NodeProfile:              deletedKubernetesRuntimeDefinition.NodeProfile,
+			NodeMaximum:              deletedKubernetesRuntimeDefinition.NodeMaximum,
 			PrivateApi:               deletedKubernetesRuntimeDefinition.PrivateApi,
 			AllowedCidrs:             cidrsFromJSON(deletedKubernetesRuntimeDefinition.AllowedCidrs),
 			KubernetesVersion:        deletedKubernetesRuntimeDefinition.KubernetesVersion,
