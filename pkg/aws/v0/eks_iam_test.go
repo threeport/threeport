@@ -24,6 +24,7 @@ func TestEksRoleNames(t *testing.T) {
 		EksSecretsManagerRoleName(clusterName):     "secrets-manager-role-my-cluster",
 		EksClusterAutoscalingRoleName(clusterName): "ca-role-my-cluster",
 		EksStorageManagementRoleName(clusterName):  "csi-role-my-cluster",
+		EksVpcCniRoleName(clusterName):             "vpc-cni-role-my-cluster",
 	}
 	for got, want := range roleNames {
 		assert.Equal(t, want, got)

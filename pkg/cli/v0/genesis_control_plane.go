@@ -107,6 +107,8 @@ type GenesisControlPlaneCLIArgs struct {
 	TeardownOnFailure     bool
 	ControlPlaneOnly      bool
 	ClusterName           string
+	NetworkCidr           string
+	NetworkCidrPool       string
 	InfraOnly             bool
 	KindPortMappings      []string
 	ApiPort               int
@@ -257,6 +259,15 @@ func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneI
 		cpi.Opts.ApiPort = apiPortFromKindMappings(a.KindPortMappings)
 	}
 
+	networkCidr, networkCidrPool, err := ResolveNetworkCidrFlags(
+		a.NetworkCidr, a.NetworkCidrPool, a.InfraProvider, a.ControlPlaneOnly,
+	)
+	if err != nil {
+		return nil, err
+	}
+	cpi.Opts.NetworkCidr = networkCidr
+	cpi.Opts.NetworkCidrPool = networkCidrPool
+
 	return cpi, nil
 }
 
@@ -388,6 +399,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		if err != nil {
 			return err
 		}
+		gkeInfra.NetworkCidr = cpi.Opts.NetworkCidr
 		gkeInfra.Version = cpi.Opts.KubernetesVersion
 		gkeInfra.ProjectID = cpi.Opts.GcpProjectId
 		gkeInfra.Region = cpi.Opts.GcpRegion
@@ -395,6 +407,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		gkeInfra.BackupRegion = cpi.Opts.GcpBackupRegion
 		gkeInfra.PrivateApi = cpi.Opts.PrivateK8sApi
 		gkeInfra.AllowedCidrs = cpi.Opts.K8sApiAllowedCidrs
+		gkeInfra.DeletionProtection = genesisDeletionProtection(cpi.Opts)
 		kubernetesRuntimeInfraGKE := gkeInfra.InitPulumiProject()
 		kubernetesRuntimeInfra = kubernetesRuntimeInfraGKE
 		uninstaller.kubernetesRuntimeInfra = kubernetesRuntimeInfraGKE
@@ -596,6 +609,11 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			DefaultRuntime:            &defaultRuntime,
 			Location:                  &location,
 		}
+	}
+
+	// the cluster's network range, so no runtime is allocated it
+	if networkCidr := genesisNetworkCidr(cpi.Opts, kubernetesRuntimeInfra); networkCidr != "" {
+		kubernetesRuntimeInstance.NetworkCidr = &networkCidr
 	}
 
 	// record the cluster's egress addresses on the runtime that hosts the
@@ -920,10 +938,12 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			Reconciliation: v0.Reconciliation{
 				Reconciled: &defReconciled,
 			},
-			InfraProvider:     &cpi.Opts.InfraProvider,
-			KubernetesVersion: genesisKubernetesVersion(cpi.Opts.InfraProvider, kubernetesRuntimeInfra),
-			PrivateApi:        privateApiField(cpi.Opts.PrivateK8sApi),
-			AllowedCidrs:      allowedCidrsJSON(cpi.Opts.K8sApiAllowedCidrs),
+			InfraProvider:      &cpi.Opts.InfraProvider,
+			KubernetesVersion:  genesisKubernetesVersion(cpi.Opts.InfraProvider, kubernetesRuntimeInfra),
+			PrivateApi:         privateApiField(cpi.Opts.PrivateK8sApi),
+			AllowedCidrs:       allowedCidrsJSON(cpi.Opts.K8sApiAllowedCidrs),
+			DeletionProtection: util.Ptr(genesisDeletionProtection(cpi.Opts)),
+			AuditLog:           util.Ptr(genesisAuditLog(cpi.Opts)),
 		}
 		if err := recordClusterProfile(&kubernetesRuntimeDefinition, cpi.Opts.Tier); err != nil {
 			return uninstaller.cleanOnCreateError("failed to describe the control plane's cluster", err)
@@ -1047,6 +1067,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			mapper,
 			clusterName,
 			*callerIdentity.Account,
+			awsConfigUser.Region,
 			kubernetesVersion,
 			cpi.Opts.Namespace,
 		); err != nil {
@@ -1114,6 +1135,12 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		CustomComponentInfo:         componentList,
 		ControlPlaneDefinitionID:    controlPlaneDefinition.ID,
 	}
+	// the pool the control plane allocates its runtimes' network ranges from
+	networkCidrPool, err := NetworkCidrPoolJSON(cpi.Opts.NetworkCidrPool)
+	if err != nil {
+		return uninstaller.cleanOnCreateError("failed to record the network range pool", err)
+	}
+	controlPlaneInstance.NetworkCidrPool = networkCidrPool
 	// store the controller groups on the self instance
 	if cpi.Opts.Apis != "" {
 		apis := cpi.Opts.Apis
@@ -1201,6 +1228,16 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		if err != nil {
 			return fmt.Errorf("failed to retrieve kubernetes runtime instance from threeport API: %w", err)
 		}
+	}
+
+	// refuse before anything is deleted while the cluster is protected
+	if err := checkTeardownProtection(
+		apiClient,
+		threeportControlPlaneConfig,
+		kubernetesRuntimeInstance,
+		cpi.Opts,
+	); err != nil {
+		return err
 	}
 
 	var kubernetesRuntimeInfra provider.KubernetesRuntimeInfra
@@ -1562,6 +1599,22 @@ func genesisKubernetesVersion(infraProvider string, infra provider.KubernetesRun
 	}
 
 	return &version
+}
+
+// genesisAuditLog reports whether the cluster tptctl up creates has its
+// Kubernetes API audit log enabled: a production control plane's does.  A
+// kind cluster has no provider to send it to.
+func genesisAuditLog(opts threeport.Options) bool {
+	return opts.InfraProvider != v0.KubernetesRuntimeInfraProviderKind &&
+		opts.Tier == threeport.ControlPlaneTier(threeport.ControlPlaneTierProd)
+}
+
+// genesisDeletionProtection reports whether the cluster tptctl up creates is
+// protected from deletion: a production control plane's is.  A kind cluster
+// has no infrastructure to protect.
+func genesisDeletionProtection(opts threeport.Options) bool {
+	return opts.InfraProvider != v0.KubernetesRuntimeInfraProviderKind &&
+		opts.Tier == threeport.ControlPlaneTier(threeport.ControlPlaneTierProd)
 }
 
 // ValidateKubernetesVersionFlag refuses a --kubernetes-version that tptctl up

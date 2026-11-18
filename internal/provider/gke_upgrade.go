@@ -38,13 +38,15 @@ func (i *KubernetesRuntimeInfraGKE) Upgrade(ctx context.Context, accept func(str
 	}
 
 	// keep what the create path keeps on a stack that holds the cluster: its
-	// version and release channel
+	// version, release channel, the range its network was laid out in, its
+	// location and its node limits, as a cluster can't move without being
+	// replaced, and the node pool's service account and boot disk
 	exported, err := stack.Export(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to read the stack's GKE cluster: %w", err)
 	}
 	i.keepStackMinMasterVersion(exported.Deployment)
-	i.keepStackReleaseChannel(exported.Deployment)
+	i.keepStackCluster(exported.Deployment)
 
 	// preview the change
 	preview, err := stack.Preview(ctx, optpreview.Diff())

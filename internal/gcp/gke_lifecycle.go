@@ -11,6 +11,7 @@ import (
 	"gorm.io/datatypes"
 
 	notif "github.com/threeport/threeport/internal/gcp/notif"
+	"github.com/threeport/threeport/internal/networkcidr"
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	gcpauth "github.com/threeport/threeport/pkg/auth/v0"
@@ -105,7 +106,17 @@ func (g *gkeLifecycle) buildInfraFrom(
 	if err != nil {
 		return nil, fmt.Errorf("failed to get GKE definition: %w", err)
 	}
-	return buildGkeInfra(g.r, latest, def, g.log)
+	infra, err := buildGkeInfra(g.r, latest, def, g.log)
+	if err != nil {
+		return nil, err
+	}
+	if infra.NetworkCidr, err = networkcidr.ClusterNetworkCidr(
+		g.r.APIClient, g.r.APIServer, latest.KubernetesRuntimeInstanceID, latest.Reconciliation, latest.ResourceInventory,
+	); err != nil {
+		return nil, fmt.Errorf("failed to get the GKE cluster's network range: %w", err)
+	}
+
+	return infra, nil
 }
 
 // IsCreateComplete reports whether the whole create finished, not just the
@@ -590,12 +601,14 @@ func buildGkeInfra(
 		},
 		ProjectID:              *gcpProvider.ProjectID,
 		Region:                 *instance.Region,
+		ZoneCount:              int32(util.Deref(definition.ZoneCount)),
 		WorkerNodeInitialCount: int32(*definition.DefaultNodeGroupInitialSize),
 		MachineType:            *definition.DefaultNodeGroupInstanceType,
 		MinNodeCount:           int32(*definition.DefaultNodeGroupMinimumSize),
 		MaxNodeCount:           int32(*definition.DefaultNodeGroupMaximumSize),
 		PrivateApi:             definition.PrivateApi != nil && *definition.PrivateApi,
 		Version:                v0.KubernetesVersionOrDefault(definition.KubernetesVersion),
+		DeletionProtection:     definition.DeletionProtection != nil && *definition.DeletionProtection,
 		ReleaseChannel:         v0.GkeReleaseChannelOrDefault(definition.ReleaseChannel),
 		MaintenanceWindowDays:  v0.GkeMaintenanceWindowDaysOrDefault(definition.MaintenanceWindowDays),
 		MaintenanceWindowStart: v0.GkeMaintenanceWindowStartOrDefault(definition.MaintenanceWindowStart),
@@ -603,6 +616,9 @@ func buildGkeInfra(
 		AllowedCidrs:           allowedCidrs,
 		ReserveNatAddress:      instance.ReservedNatAddress != nil && *instance.ReservedNatAddress,
 	}).InitPulumiProject()
+	// the cluster is found where it was created, which a zonal cluster's
+	// region alone doesn't say
+	infraGKE.KeepInventoryLocation(instance.ResourceInventory)
 
 	// a cluster whose public endpoint is restricted also admits the control
 	// plane that manages it.  The lookup is skipped for a private cluster,
@@ -664,4 +680,24 @@ func buildGkeInfra(
 	}
 
 	return infraGKE, nil
+}
+
+// DeletionRefusal returns a *v0.DeletionProtectedError while the GKE
+// definition of the cluster has DeletionProtection set.  It reads the
+// definition again, as it may have changed since the delete was scheduled.
+func (g *gkeLifecycle) DeletionRefusal() error {
+	latest, err := client.GetGcpGkeKubernetesRuntimeInstanceByID(g.r.APIClient, g.r.APIServer, g.instanceID)
+	if err != nil {
+		return fmt.Errorf("failed to get GKE instance for its deletion protection: %w", err)
+	}
+	definition, err := client.GetGcpGkeKubernetesRuntimeDefinitionByID(
+		g.r.APIClient,
+		g.r.APIServer,
+		*latest.GcpGkeKubernetesRuntimeDefinitionID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get GKE definition for its deletion protection: %w", err)
+	}
+
+	return v0.ProviderDefinitionDeletionProtection(definition)
 }

@@ -170,7 +170,8 @@ const (
                 "ec2:DescribeLaunchTemplateVersions",
                 "autoscaling:DescribeTags",
                 "autoscaling:DescribeLaunchConfigurations",
-                "ec2:DescribeInstanceTypes"
+                "ec2:DescribeInstanceTypes",
+                "eks:DescribeNodegroup"
             ],
             "Resource": "*"
         }
@@ -286,6 +287,12 @@ func (i *KubernetesRuntimeInfraEKS) irsaRoles() []eksIrsaRole {
 			serviceAccountNamespace: threeport.StorageManagerServiceAccountNamespace,
 			serviceAccountName:      threeport.StorageManagerServiceAccountName,
 		},
+		{
+			roleName:                tpaws.EksVpcCniRoleName(clusterName),
+			managedPolicyArn:        tpaws.EksCniPolicyArn,
+			serviceAccountNamespace: tpaws.EksVpcCniServiceAccountNamespace,
+			serviceAccountName:      tpaws.EksVpcCniServiceAccountName,
+		},
 	}
 }
 
@@ -330,6 +337,9 @@ func (i *KubernetesRuntimeInfraEKS) CreateClusterIam() error {
 	if err != nil {
 		return fmt.Errorf("failed to create EKS node role: %w", err)
 	}
+	// the nodes' VPC CNI plugin needs its policy until the cluster's OIDC
+	// issuer exists to give it a role of its own; CreateIrsaIam then moves it
+	// there
 	nodePolicyArns := []string{
 		tpaws.EksWorkerNodePolicyArn,
 		tpaws.EksContainerRegistryPolicyArn,
@@ -373,9 +383,10 @@ func (i *KubernetesRuntimeInfraEKS) lookupClusterIam() error {
 }
 
 // CreateIrsaIam registers the cluster's OIDC issuer as an identity provider in
-// IAM, creates the roles the cluster's add-ons assume through it, and installs
-// the EBS CSI addon bound to the storage management role.  It runs after the
-// stack because the issuer URL only exists once the cluster does.
+// IAM, creates the roles the cluster's add-ons assume through it, installs
+// the EBS CSI addon bound to the storage management role, and moves the VPC
+// CNI plugin's policy from the node role to a role of its own.  It runs after
+// the stack because the issuer URL only exists once the cluster does.
 func (i *KubernetesRuntimeInfraEKS) CreateIrsaIam() error {
 	if i.AwsConfig == nil {
 		return fmt.Errorf("cannot create the IRSA roles without an AWS config")
@@ -399,7 +410,7 @@ func (i *KubernetesRuntimeInfraEKS) CreateIrsaIam() error {
 	// the trust policy names the provider by host and path, without a scheme
 	oidcProvider := strings.TrimPrefix(oidcIssuerUrl, "https://")
 
-	var storageManagementRoleArn string
+	var storageManagementRoleArn, vpcCniRoleArn string
 	for _, irsaRole := range i.irsaRoles() {
 		trustPolicyDocument := fmt.Sprintf(
 			eksIrsaTrustPolicyFormat,
@@ -429,13 +440,20 @@ func (i *KubernetesRuntimeInfraEKS) CreateIrsaIam() error {
 			return err
 		}
 
-		if irsaRole.roleName == tpaws.EksStorageManagementRoleName(i.RuntimeInstanceName) {
+		switch irsaRole.roleName {
+		case tpaws.EksStorageManagementRoleName(i.RuntimeInstanceName):
 			storageManagementRoleArn = *role.Arn
+		case tpaws.EksVpcCniRoleName(i.RuntimeInstanceName):
+			vpcCniRoleArn = *role.Arn
 		}
 	}
 
 	if err := i.createEbsStorageAddon(ctx, storageManagementRoleArn); err != nil {
 		return fmt.Errorf("failed to create EBS storage addon: %w", err)
+	}
+
+	if err := i.moveVpcCniPolicyToItsRole(vpcCniRoleArn); err != nil {
+		return fmt.Errorf("failed to give the VPC CNI plugin a role of its own: %w", err)
 	}
 
 	return nil
@@ -1055,7 +1073,7 @@ func (i *KubernetesRuntimeInfraEKS) upgradeEbsStorageAddon(kubernetesVersion str
 	// EKS refuses to update an add-on it is still creating or updating, as
 	// it can be right after the cluster's create
 	if status := current.Addon.Status; status == ekstypes.AddonStatusCreating || status == ekstypes.AddonStatusUpdating {
-		if err := waitForAddonActive(eksClient, addon); err != nil {
+		if err := waitForAddonActive(eksClient, addon, ebsStorageAddonUpgradeTimeout, ebsStorageAddonPollInterval); err != nil {
 			return fmt.Errorf("failed waiting for the EBS storage addon to be active before its upgrade: %w", err)
 		}
 	}
@@ -1070,23 +1088,29 @@ func (i *KubernetesRuntimeInfraEKS) upgradeEbsStorageAddon(kubernetesVersion str
 	}); err != nil {
 		return fmt.Errorf("failed to upgrade the EBS storage addon to %s: %w", version, err)
 	}
-	if err := waitForAddonActive(eksClient, addon); err != nil {
+	if err := waitForAddonActive(eksClient, addon, ebsStorageAddonUpgradeTimeout, ebsStorageAddonPollInterval); err != nil {
 		return fmt.Errorf("failed waiting for the EBS storage addon to be active on %s: %w", version, err)
 	}
 
 	return nil
 }
 
-// waitForAddonActive waits for an add-on to be active, for up to
-// ebsStorageAddonUpgradeTimeout of its own.
-func waitForAddonActive(eksClient awseks.DescribeAddonAPIClient, addon *awseks.DescribeAddonInput) error {
-	ctx, cancel := context.WithTimeout(context.Background(), ebsStorageAddonUpgradeTimeout)
+// waitForAddonActive waits for an add-on to be active, for up to timeout of
+// its own, asking every interval.  Each add-on passes its own, so tuning one
+// add-on's wait leaves the others' as they are.
+func waitForAddonActive(
+	eksClient awseks.DescribeAddonAPIClient,
+	addon *awseks.DescribeAddonInput,
+	timeout time.Duration,
+	interval time.Duration,
+) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	return awseks.NewAddonActiveWaiter(eksClient, func(options *awseks.AddonActiveWaiterOptions) {
-		options.MinDelay = ebsStorageAddonPollInterval
-		options.MaxDelay = ebsStorageAddonPollInterval
-	}).Wait(ctx, addon, ebsStorageAddonUpgradeTimeout)
+		options.MinDelay = interval
+		options.MaxDelay = interval
+	}).Wait(ctx, addon, timeout)
 }
 
 // defaultAddonVersion returns the version of an add-on EKS marks as the

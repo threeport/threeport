@@ -111,6 +111,7 @@ func TestBuildGkeInfra_MapsDefinitionNodePoolFields(t *testing.T) {
 	assert.Equal(t, int32(3), infra.MinNodeCount)
 	assert.Equal(t, int32(7), infra.MaxNodeCount)
 	assert.Equal(t, "1.35", infra.Version)
+	assert.Zero(t, infra.ZoneCount, "a definition that records no zones")
 	assert.Equal(t, "STABLE", infra.ReleaseChannel)
 	assert.Equal(t, "SU", infra.MaintenanceWindowDays)
 	assert.Equal(t, "22:00", infra.MaintenanceWindowStart)
@@ -125,10 +126,32 @@ func TestBuildGkeInfra_MapsDefinitionNodePoolFields(t *testing.T) {
 	infra, err = buildGkeInfra(r, instance, definition, nil)
 	require.NoError(t, err)
 	assert.Equal(t, api_v0.DefaultKubernetesVersion, infra.Version)
+	assert.False(t, infra.DeletionProtection, "a definition without it isn't protected")
+
+	// a protected definition builds a protected cluster
+	definition.DeletionProtection = util.Ptr(true)
+	infra, err = buildGkeInfra(r, instance, definition, nil)
+	require.NoError(t, err)
+	assert.True(t, infra.DeletionProtection)
 	assert.Equal(t, api_v0.DefaultGkeReleaseChannel, infra.ReleaseChannel)
 	assert.Equal(t, api_v0.DefaultGkeMaintenanceWindowDays, infra.MaintenanceWindowDays)
 	assert.Equal(t, api_v0.DefaultGkeMaintenanceWindowStart, infra.MaintenanceWindowStart)
 	assert.Equal(t, api_v0.DefaultGkeMaintenanceWindowHours, infra.MaintenanceWindowHours)
+
+	// the zones the definition's clusters run their nodes in
+	definition.ZoneCount = util.Ptr(3)
+	infra, err = buildGkeInfra(r, instance, definition, nil)
+	require.NoError(t, err)
+	assert.Equal(t, int32(3), infra.ZoneCount)
+	assert.Empty(t, infra.RecordedClusterLocation(), "an instance with no inventory")
+
+	// an instance's inventory records where its cluster is
+	inventory := datatypes.JSON(`{"deployment": {"resources": [{"type": "gcp:container/cluster:Cluster", "inputs": {"location": "us-central1-b"}}]}}`)
+	instance.ResourceInventory = &inventory
+	infra, err = buildGkeInfra(r, instance, definition, nil)
+	require.NoError(t, err)
+	assert.Equal(t, "us-central1-b", infra.RecordedClusterLocation())
+	instance.ResourceInventory = nil
 }
 
 // TestBuildGkeInfra_RefusesWithoutAnAccountToBind covers a provider with no

@@ -25,9 +25,14 @@ type KubernetesRuntimeValues struct {
 	InfraProvider             *string
 	InfraProviderAccountName  *string
 	HighAvailability          *bool
+	NodeSize                  *string
+	NodeProfile               *string
+	NodeMaximum               *int
 	PrivateApi                *bool
 	AllowedCidrs              *[]string
 	KubernetesVersion         *string
+	AuditLog                  *bool
+	DeletionProtection        *bool
 	Location                  *string
 	ThreeportControlPlaneHost *bool
 	DefaultRuntime            *bool
@@ -159,9 +164,14 @@ func (k *KubernetesRuntimeConfig) GetOperations(
 			InfraProvider:            kubernetesRuntimeValues.InfraProvider,
 			InfraProviderAccountName: kubernetesRuntimeValues.InfraProviderAccountName,
 			HighAvailability:         kubernetesRuntimeValues.HighAvailability,
+			NodeSize:                 kubernetesRuntimeValues.NodeSize,
+			NodeProfile:              kubernetesRuntimeValues.NodeProfile,
+			NodeMaximum:              kubernetesRuntimeValues.NodeMaximum,
 			PrivateApi:               kubernetesRuntimeValues.PrivateApi,
 			AllowedCidrs:             kubernetesRuntimeValues.AllowedCidrs,
 			KubernetesVersion:        kubernetesRuntimeValues.KubernetesVersion,
+			AuditLog:                 kubernetesRuntimeValues.AuditLog,
+			DeletionProtection:       kubernetesRuntimeValues.DeletionProtection,
 		},
 	}
 	operations.AppendOperation(util.Operation{
@@ -271,9 +281,14 @@ func mapToKubernetesRuntimeDefinedInstances(
 						InfraProvider:             def.KubernetesRuntimeDefinition.InfraProvider,
 						InfraProviderAccountName:  def.KubernetesRuntimeDefinition.InfraProviderAccountName,
 						HighAvailability:          def.KubernetesRuntimeDefinition.HighAvailability,
+						NodeSize:                  def.KubernetesRuntimeDefinition.NodeSize,
+						NodeProfile:               def.KubernetesRuntimeDefinition.NodeProfile,
+						NodeMaximum:               def.KubernetesRuntimeDefinition.NodeMaximum,
 						PrivateApi:                def.KubernetesRuntimeDefinition.PrivateApi,
 						AllowedCidrs:              def.KubernetesRuntimeDefinition.AllowedCidrs,
 						KubernetesVersion:         def.KubernetesRuntimeDefinition.KubernetesVersion,
+						AuditLog:                  def.KubernetesRuntimeDefinition.AuditLog,
+						DeletionProtection:        def.KubernetesRuntimeDefinition.DeletionProtection,
 						ThreeportControlPlaneHost: inst.KubernetesRuntimeInstance.ThreeportControlPlaneHost,
 						Location:                  inst.KubernetesRuntimeInstance.Location,
 						DefaultRuntime:            inst.KubernetesRuntimeInstance.DefaultRuntime,

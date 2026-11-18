@@ -10,6 +10,7 @@ import (
 	ociidentity "github.com/oracle/oci-go-sdk/v65/identity"
 	"gorm.io/datatypes"
 
+	"github.com/threeport/threeport/internal/networkcidr"
 	notif "github.com/threeport/threeport/internal/oci/notif"
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -88,7 +89,17 @@ func (o *okeLifecycle) BuildInfra() (provider.InfraProvider, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get OKE definition: %w", err)
 	}
-	return buildOkeInfra(o.r, latest, def, o.log)
+	infra, err := buildOkeInfra(o.r, latest, def, o.log)
+	if err != nil {
+		return nil, err
+	}
+	if infra.NetworkCidr, err = networkcidr.ClusterNetworkCidr(
+		o.r.APIClient, o.r.APIServer, latest.KubernetesRuntimeInstanceID, latest.Reconciliation, latest.ResourceInventory,
+	); err != nil {
+		return nil, fmt.Errorf("failed to get the OKE cluster's network range: %w", err)
+	}
+
+	return infra, nil
 }
 
 // IsCreateComplete checks whether the OKE cluster OCID has been set.
@@ -495,6 +506,7 @@ func buildOkeInfra(
 		WorkerNodeShape:        *definition.WorkerNodeShape,
 		WorkerNodeInitialCount: *definition.WorkerNodeInitialCount,
 		Version:                v0.KubernetesVersionOrDefault(definition.KubernetesVersion),
+		DeletionProtection:     definition.DeletionProtection != nil && *definition.DeletionProtection,
 		ServiceUserOCID:        *ociProvider.UserOCID,
 		Fingerprint:            *ociProvider.KeyFingerprint,
 		PrivateKeyPEM:          decryptedPrivateKey,
@@ -542,4 +554,24 @@ func buildOkeInfra(
 	}
 
 	return infraOKE, nil
+}
+
+// DeletionRefusal returns a *v0.DeletionProtectedError while the OKE
+// definition of the cluster has DeletionProtection set.  It reads the
+// definition again, as it may have changed since the delete was scheduled.
+func (o *okeLifecycle) DeletionRefusal() error {
+	latest, err := client.GetOciOkeKubernetesRuntimeInstanceByID(o.r.APIClient, o.r.APIServer, o.instanceID)
+	if err != nil {
+		return fmt.Errorf("failed to get OKE instance for its deletion protection: %w", err)
+	}
+	definition, err := client.GetOciOkeKubernetesRuntimeDefinitionByID(
+		o.r.APIClient,
+		o.r.APIServer,
+		*latest.OciOkeKubernetesRuntimeDefinitionID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get OKE definition for its deletion protection: %w", err)
+	}
+
+	return v0.ProviderDefinitionDeletionProtection(definition)
 }
