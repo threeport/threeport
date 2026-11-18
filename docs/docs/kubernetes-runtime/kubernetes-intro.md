@@ -376,12 +376,14 @@ changes its node group:
 
 | Provider | Most nodes | Why |
 |---|---|---|
-| EKS | by instance type, in each zone: 909 `t3.medium`, 136 `m8i.xlarge`, 52 `m8i.48xlarge` | each pod takes an address of its node's `/18` private subnet (16,379 addresses) through the VPC CNI |
+| EKS | by instance type, in each zone: 909 `t3.medium`, 136 `m8i.xlarge`, 51 `m8i.48xlarge` | each pod takes an address of its node's `/18` private subnet (16,379 addresses) through the VPC CNI |
 | GKE | 256 | each node takes a block of the pod range twice its pods per node |
 | OKE | 253 | each node takes an address of the `/24` node subnet; pods run on an overlay network |
 
-On EKS, a node takes up to the pods it runs plus the addresses of one network
-interface the VPC CNI keeps ready, and no more than its interfaces hold. An EKS
+On EKS, the VPC CNI attaches whole network interfaces to a node, each taking
+all its addresses, its primary one included. A node takes the interfaces the
+pods it runs fill, and one more the VPC CNI keeps ready, up to every interface
+the instance type holds. An EKS
 managed node group runs as many pods on a node as its interfaces allow, up to
 110 on an instance type with fewer than 30 vCPUs and 250 on others. A node
 group spanning the zones keeps them balanced, so its maximum is split across
@@ -391,7 +393,7 @@ EKS definition with another instance type isn't checked.
 
 VPC CNI prefix delegation, which gives each node `/28` prefixes rather than
 single addresses, isn't turned on: with a `/18` per zone, even the largest
-instance type a node size maps to holds 52 nodes in each zone, 104 across two,
+instance type a node size maps to holds 51 nodes in each zone, 102 across two,
 well above the default `NodeMaximum` of 60. Prefixes also need contiguous free
 blocks, which a subnet in use fragments.
 

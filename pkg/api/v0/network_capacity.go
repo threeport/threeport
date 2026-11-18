@@ -95,25 +95,33 @@ var eksInstanceNetworks = map[string]eksInstanceNetwork{
 
 // eksAddressesPerNode returns how many of its subnet's addresses a node of
 // an instance type takes at most, and whether the instance type is known.
-// The VPC CNI gives each pod an address of the node's subnet, and keeps the
-// addresses of one network interface beyond what its pods use, up to every
-// address the instance's interfaces hold.  The pods are capped as an EKS
+// The VPC CNI attaches whole network interfaces, each taking all its
+// addresses: its primary one and the secondary ones it gives pods.  With its
+// default WARM_ENI_TARGET of 1 it keeps a whole interface beyond those its
+// pods use, attaching another as soon as a pod takes an address of the last.
+// So a node takes the interfaces its pods fill, rounded up, and one more, up
+// to every interface the instance holds.  The pods are capped as an EKS
 // managed node group caps them: by the instance's interfaces, and at 110 on
-// fewer than 30 vCPUs and 250 on more.
+// fewer than 30 vCPUs and 250 on more.  Each is counted as taking an
+// address, though the few on the host's network don't.
 func eksAddressesPerNode(instanceType string) (int, bool) {
 	network, known := eksInstanceNetworks[instanceType]
 	if !known {
 		return 0, false
 	}
 
-	maxPods := network.enis*(network.addressesPerEni-1) + 2
+	podAddressesPerEni := network.addressesPerEni - 1
+	maxPods := network.enis*podAddressesPerEni + 2
 	podCap := eksMaxPodsSmall
 	if network.vcpus >= eksMaxPodsLargeVcpus {
 		podCap = eksMaxPodsLarge
 	}
 	maxPods = min(maxPods, podCap)
 
-	return min(network.enis*network.addressesPerEni, maxPods+network.addressesPerEni), true
+	podEnis := (maxPods + podAddressesPerEni - 1) / podAddressesPerEni
+	attachedEnis := min(network.enis, podEnis+1)
+
+	return attachedEnis * network.addressesPerEni, true
 }
 
 // eksNodesPerZone returns how many nodes of an instance type an EKS cluster's
