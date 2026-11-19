@@ -141,17 +141,35 @@ func TestSupportServicesOperatorModuleMatchesImage(t *testing.T) {
 
 // TestComputeSpaceInstallNamespaces covers the namespaces a reinstall removes.
 func TestComputeSpaceInstallNamespaces(t *testing.T) {
-	// the agent, the operator, and the operator's original namespace
-	names := computeSpaceInstallNamespaces(ControlPlaneNamespace, "child-control-plane", true)
-	require.ElementsMatch(t, []string{
-		supportServicesOperatorNamespace,
-		ControlPlaneNamespace,
-		"child-control-plane",
-	}, names)
+	// a child keeps its own namespace and still removes the operator's original one
+	names := computeSpaceInstallNamespaces("child-control-plane", "child-control-plane", true)
+	require.ElementsMatch(t, []string{supportServicesOperatorNamespace, "child-control-plane"}, names)
+	require.NotContains(t, names, ControlPlaneNamespace)
 
-	// a shared namespace is listed once, and a skipped agent is left out
+	// the parent lists its namespace once
 	names = computeSpaceInstallNamespaces(ControlPlaneNamespace, ControlPlaneNamespace, true)
 	require.ElementsMatch(t, []string{supportServicesOperatorNamespace, ControlPlaneNamespace}, names)
-	names = computeSpaceInstallNamespaces(ControlPlaneNamespace, ControlPlaneNamespace, false)
-	require.ElementsMatch(t, []string{supportServicesOperatorNamespace, ControlPlaneNamespace}, names)
+}
+
+// TestSupportServicesOperatorUsesControlPlaneNamespace covers one operator per control plane.
+func TestSupportServicesOperatorUsesControlPlaneNamespace(t *testing.T) {
+	for _, namespace := range []string{ControlPlaneNamespace, "child-control-plane"} {
+		objects, err := supportServicesOperatorObjects(namespace)
+		require.NoError(t, err)
+
+		// one deployment, and it lives in this control plane's namespace
+		deployments := 0
+		for _, item := range objects {
+			if item.GetNamespace() == supportServicesOperatorNamespace {
+				t.Errorf("object %s %s stayed in %s", item.GetKind(), item.GetName(), supportServicesOperatorNamespace)
+			}
+			if item.GetKind() != "Deployment" {
+				continue
+			}
+			deployments++
+			require.Equal(t, namespace, item.GetNamespace())
+			require.Equal(t, SupportServicesOperatorDeployName, item.GetName())
+		}
+		require.Equal(t, 1, deployments)
+	}
 }

@@ -286,11 +286,13 @@ func v0KubernetesRuntimeInstanceUpdated(
 	// skip a step the cluster already has.
 	// replace a managed cluster that does not, and leave the host cluster in place.
 
-	// read the namespace the operator is installed into
+	// install into the namespace this controller runs in.
+	// a child control plane uses its own namespace, not the parent's.
 	namespace, err := controlPlaneNamespace()
 	if err != nil {
 		return controller.RetryOnNetworkErr(err, "failed to read control plane namespace")
 	}
+	cpi.Opts.Namespace = namespace
 	operatorInstalled, err := threeport.SupportServicesOperatorInstalled(dynamicKubeClient, mapper, namespace)
 	if err != nil {
 		return controller.RetryOnNetworkErr(err, "failed to check support services operator")
@@ -311,7 +313,7 @@ func v0KubernetesRuntimeInstanceUpdated(
 		if err := threeport.DeleteComputeSpaceInstall(
 			dynamicKubeClient,
 			mapper,
-			cpi.Opts.Namespace,
+			namespace,
 			namespace,
 			!cpi.Opts.SkipAgent,
 		); err != nil {
