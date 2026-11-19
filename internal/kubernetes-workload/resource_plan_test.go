@@ -117,6 +117,56 @@ func TestPlanResourceDefinitions(t *testing.T) {
 		assert.Contains(t, err.Error(), "more than once")
 	})
 
+	t.Run("the same resource in two support-services namespaces is two resources", func(t *testing.T) {
+		// placement keeps both namespaces, so they are two objects
+		plan, err := planResourceDefinitions(1, nil, [][]byte{
+			[]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"settings","namespace":"nukleros-ingress-system"}}`),
+			[]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"settings","namespace":"nukleros-certs-system"}}`),
+		})
+		require.NoError(t, err)
+		assert.Len(t, plan.create, 2)
+	})
+
+	t.Run("the same resource twice in one support-services namespace is declared twice", func(t *testing.T) {
+		_, err := planResourceDefinitions(1, nil, [][]byte{
+			[]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"settings","namespace":"nukleros-certs-system"}}`),
+			[]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"settings","namespace":"nukleros-certs-system"},"data":{"a":"b"}}`),
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "/ConfigMap/nukleros-certs-system/settings more than once")
+	})
+
+	t.Run("a support-services resource and one placed in the instance's namespace are two resources", func(t *testing.T) {
+		plan, err := planResourceDefinitions(1, nil, [][]byte{
+			[]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"settings","namespace":"nukleros-certs-system"}}`),
+			[]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"settings"}}`),
+		})
+		require.NoError(t, err)
+		assert.Len(t, plan.create, 2)
+	})
+
+	t.Run("a resource moved into a support-services namespace is another resource", func(t *testing.T) {
+		plan, err := planResourceDefinitions(1, existing, [][]byte{
+			[]byte(deploymentV1),
+			[]byte(`{"apiVersion":"v1","kind":"Service","metadata":{"name":"web","namespace":"nukleros-ingress-system"}}`),
+		})
+		require.NoError(t, err)
+		require.Len(t, plan.create, 1)
+		require.Len(t, plan.remove, 1)
+		assert.Equal(t, uint(11), *plan.remove[0].ID)
+		assert.Empty(t, plan.update)
+	})
+
+	t.Run("two gateways of one name are declared twice whatever namespace they name", func(t *testing.T) {
+		// placement moves every gateway to the gateway namespace
+		_, err := planResourceDefinitions(1, nil, [][]byte{
+			[]byte(`{"apiVersion":"gateway.networking.k8s.io/v1","kind":"Gateway","metadata":{"name":"edge"}}`),
+			[]byte(`{"apiVersion":"gateway.networking.k8s.io/v1","kind":"Gateway","metadata":{"name":"edge","namespace":"team"}}`),
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "gateway.networking.k8s.io/Gateway/"+util.GatewaySystemNamespace+"/edge more than once")
+	})
+
 	t.Run("a manifest's namespace edited alone keeps its resource definition", func(t *testing.T) {
 		plan, err := planResourceDefinitions(1, existing, [][]byte{
 			[]byte(deploymentV1),
@@ -171,6 +221,7 @@ func TestPlanResourceInstances(t *testing.T) {
 		placedService := `{"apiVersion":"v1","kind":"Service","metadata":{"name":"web","namespace":"web-5"}}`
 		plan, err := planResourceInstances(
 			5,
+			"",
 			[]v0.KubernetesWorkloadResourceInstance{storedWRI(21, editedService)},
 			[]v0.KubernetesWorkloadResourceInstance{renderedWRI(`{"apiVersion":"v1","kind":"Service","metadata":{"name":"web","namespace":"team-a"}}`)},
 			[]v0.KubernetesWorkloadResourceInstance{renderedWRI(`{"apiVersion":"v1","kind":"Service","metadata":{"name":"web","namespace":"team-b"}}`)},
@@ -280,6 +331,7 @@ func TestPlanResourceInstances(t *testing.T) {
 		placedDeployment := `{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"web","namespace":"web-5"},"spec":{"replicas":3}}`
 		plan, err := planResourceInstances(
 			5,
+			"",
 			[]v0.KubernetesWorkloadResourceInstance{
 				storedWRI(20, `{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"web","namespace":"web-5"},"spec":{"replicas":1}}`),
 				storedWRI(21, `{"apiVersion":"v1","kind":"Service","metadata":{"name":"web","namespace":"web-5"}}`),
@@ -296,12 +348,110 @@ func TestPlanResourceInstances(t *testing.T) {
 	})
 }
 
+// TestResourcesAreKeyedTheSameBeforeAndAfterPlacement covers resources a
+// definition places in a support-services namespace it declares as its own:
+// placed or not, a resource has one key, so a resource the definition drops
+// is found among those the instance holds and removed, and one it keeps is
+// matched.
+func TestResourcesAreKeyedTheSameBeforeAndAfterPlacement(t *testing.T) {
+	const (
+		certs         = "nukleros-certs-system"
+		namespace     = `{"apiVersion":"v1","kind":"Namespace","metadata":{"name":"nukleros-certs-system"}}`
+		placedService = `{"apiVersion":"v1","kind":"Service","metadata":{"name":"web","namespace":"nukleros-certs-system"}}`
+		placedDeploy  = `{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"web","namespace":"nukleros-certs-system"},"spec":{"replicas":1}}`
+	)
+	for _, json := range []string{serviceWeb, placedService} {
+		key, _, err := instanceResourceKey([]byte(json), certs)
+		require.NoError(t, err)
+		assert.Equal(t, "/Service/web", key)
+	}
+	key, _, err := instanceResourceKey([]byte(placedService), "")
+	require.NoError(t, err)
+	assert.Equal(t, "/Service/nukleros-certs-system/web", key, "kept where the definition places nothing")
+
+	plan, err := planResourceInstances(
+		5,
+		certs,
+		[]v0.KubernetesWorkloadResourceInstance{storedWRI(20, namespace), storedWRI(21, placedDeploy), storedWRI(22, placedService)},
+		[]v0.KubernetesWorkloadResourceInstance{renderedWRI(namespace), renderedWRI(deploymentV1), renderedWRI(serviceWeb)},
+		[]v0.KubernetesWorkloadResourceInstance{renderedWRI(namespace), renderedWRI(deploymentV1)},
+		[]v0.KubernetesWorkloadResourceInstance{renderedWRI(namespace), renderedWRI(placedDeploy)},
+	)
+	require.NoError(t, err)
+	assert.Empty(t, plan.create, "the deployment is the one the instance holds")
+	assert.Empty(t, plan.update)
+	require.Len(t, plan.remove, 1)
+	assert.Equal(t, uint(22), *plan.remove[0].ID)
+
+	// manifests that name the namespace they are placed in: the one still
+	// declared is matched, and the dropped one removed
+	plan, err = planResourceInstances(
+		5,
+		certs,
+		[]v0.KubernetesWorkloadResourceInstance{storedWRI(20, namespace), storedWRI(21, placedDeploy), storedWRI(22, placedService)},
+		[]v0.KubernetesWorkloadResourceInstance{renderedWRI(namespace), renderedWRI(placedDeploy), renderedWRI(placedService)},
+		[]v0.KubernetesWorkloadResourceInstance{renderedWRI(namespace), renderedWRI(placedDeploy)},
+		[]v0.KubernetesWorkloadResourceInstance{renderedWRI(namespace), renderedWRI(placedDeploy)},
+	)
+	require.NoError(t, err)
+	assert.Empty(t, plan.create)
+	assert.Empty(t, plan.update)
+	require.Len(t, plan.remove, 1, "only the dropped service")
+	assert.Equal(t, uint(22), *plan.remove[0].ID)
+
+	// a resource declared again while the instance's is being deleted waits
+	// for it
+	leavingService := storedWRI(22, placedService)
+	leavingService.ScheduledForDeletion = util.Ptr(time.Now())
+	plan, err = planResourceInstances(
+		5,
+		certs,
+		[]v0.KubernetesWorkloadResourceInstance{storedWRI(20, namespace), leavingService},
+		[]v0.KubernetesWorkloadResourceInstance{renderedWRI(namespace)},
+		[]v0.KubernetesWorkloadResourceInstance{renderedWRI(namespace), renderedWRI(serviceWeb)},
+		[]v0.KubernetesWorkloadResourceInstance{renderedWRI(namespace), renderedWRI(placedService)},
+	)
+	require.NoError(t, err)
+	assert.Empty(t, plan.create, "not created beside the one being deleted")
+	assert.Equal(t, []string{"/Service/web"}, plan.leaving)
+
+	// what the instance holds tells whether a resource is namespaced, named
+	// in the namespace or not
+	var asked []string
+	isNamespaced, err := knownNamespacing(
+		[]v0.KubernetesWorkloadResourceInstance{storedWRI(23, `{"apiVersion":"batch/v1beta1","kind":"CronJob","metadata":{"name":"nightly","namespace":"nukleros-certs-system"}}`)},
+		certs,
+		func(jsonDef string) (bool, error) {
+			asked = append(asked, jsonDef)
+			return true, nil
+		},
+	)
+	require.NoError(t, err)
+	for _, cronJob := range []string{
+		`{"apiVersion":"batch/v1","kind":"CronJob","metadata":{"name":"nightly"}}`,
+		`{"apiVersion":"batch/v1","kind":"CronJob","metadata":{"name":"nightly","namespace":"nukleros-certs-system"}}`,
+	} {
+		namespaced, err := isNamespaced(cronJob)
+		require.NoError(t, err)
+		assert.True(t, namespaced)
+	}
+	assert.Empty(t, asked, "the instance holds it")
+
+	plan2, err := planResourceDefinitions(1,
+		[]v0.KubernetesWorkloadResourceDefinition{storedWRD(10, namespace), storedWRD(11, serviceWeb)},
+		[][]byte{[]byte(namespace), []byte(placedService)},
+	)
+	require.NoError(t, err)
+	assert.Empty(t, plan2.create, "naming the namespace it is placed in is the same resource")
+	assert.Empty(t, plan2.remove)
+}
+
 // planInstance plans for an instance whose resources need no namespace.
 func planInstance(
 	instanceID uint,
 	existing, before, after []v0.KubernetesWorkloadResourceInstance,
 ) (*resourceInstancePlan, error) {
-	return planResourceInstances(instanceID, existing, before, after, after)
+	return planResourceInstances(instanceID, "", existing, before, after, after)
 }
 
 // TestKnownNamespacing covers placing resources without asking the cluster
@@ -316,7 +466,7 @@ func TestKnownNamespacing(t *testing.T) {
 	isNamespaced, err := knownNamespacing([]v0.KubernetesWorkloadResourceInstance{
 		storedWRI(20, `{"apiVersion":"batch/v1beta1","kind":"CronJob","metadata":{"name":"nightly","namespace":"web-5"}}`),
 		storedWRI(21, `{"apiVersion":"rbac.authorization.k8s.io/v1","kind":"ClusterRole","metadata":{"name":"web"}}`),
-	}, ask)
+	}, "", ask)
 	require.NoError(t, err)
 
 	namespaced, err := isNamespaced(`{"apiVersion":"batch/v1","kind":"CronJob","metadata":{"name":"nightly"}}`)

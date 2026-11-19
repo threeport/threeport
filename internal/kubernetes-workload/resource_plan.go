@@ -83,6 +83,23 @@ func planResourceDefinitions(
 	existing []v0.KubernetesWorkloadResourceDefinition,
 	declared [][]byte,
 ) (*resourceDefinitionPlan, error) {
+	// each set of resources is keyed with the namespace it places them in,
+	// which a change of it refuses later
+	var existingJSON [][]byte
+	for _, resourceDefinition := range existing {
+		if resourceDefinition.JSONDefinition != nil {
+			existingJSON = append(existingJSON, *resourceDefinition.JSONDefinition)
+		}
+	}
+	existingNamespace, err := managedNamespace(existingJSON)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find the namespace of the stored kubernetes workload resource definitions: %w", err)
+	}
+	declaredNamespace, err := managedNamespace(declared)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find the namespace of the YAML document's resources: %w", err)
+	}
+
 	existingByKey := map[string]v0.KubernetesWorkloadResourceDefinition{}
 	plan := &resourceDefinitionPlan{}
 	for _, resourceDefinition := range existing {
@@ -90,7 +107,7 @@ func planResourceDefinitions(
 			plan.remove = append(plan.remove, resourceDefinition)
 			continue
 		}
-		key, isResource, err := instanceResourceKey(*resourceDefinition.JSONDefinition)
+		key, isResource, err := instanceResourceKey(*resourceDefinition.JSONDefinition, existingNamespace)
 		if err != nil {
 			return nil, fmt.Errorf("failed to identify stored kubernetes workload resource definition with ID %d: %w", *resourceDefinition.ID, err)
 		}
@@ -103,7 +120,7 @@ func planResourceDefinitions(
 
 	declaredKeys := map[string]bool{}
 	for _, jsonContent := range declared {
-		key, isResource, err := instanceResourceKey(jsonContent)
+		key, isResource, err := instanceResourceKey(jsonContent, declaredNamespace)
 		if err != nil {
 			return nil, fmt.Errorf("failed to identify resource in YAML document: %w", err)
 		}
@@ -152,11 +169,20 @@ func planResourceDefinitions(
 }
 
 // instanceResourceKey identifies a resource within one instance: by group,
-// kind and name. An instance places every namespaced resource of its definition
-// in the same namespace, so the namespace tells nothing apart there - and
-// leaving it out lets resources be matched before namespaces are set, which
-// needs no word from the cluster.
-func instanceResourceKey(jsonDefinition []byte) (key string, isResource bool, err error) {
+// kind and name, and by the namespace placement keeps for it when that isn't
+// the one the definition places its resources in. An instance places every
+// other namespaced resource of its definition in that one namespace, so it
+// tells nothing apart - and leaving it out lets resources be matched before
+// namespaces are set, which needs no word from the cluster. A Gateway and a
+// resource in a support-services namespace keep theirs (util.KeptNamespace),
+// so two of them of the same kind and name in different namespaces are
+// different objects.
+//
+// namespace is the namespace the definition's resources are placed in: the
+// Namespace it declares, or "" when threeport manages one for each instance.
+// A resource kept in that same namespace is placed there either way, so it
+// has the same key before and after placement.
+func instanceResourceKey(jsonDefinition []byte, namespace string) (key string, isResource bool, err error) {
 	var object map[string]interface{}
 	if err := json.Unmarshal(jsonDefinition, &object); err != nil {
 		return "", false, fmt.Errorf("failed to unmarshal resource json: %w", err)
@@ -168,6 +194,16 @@ func instanceResourceKey(jsonDefinition []byte) (key string, isResource bool, er
 	resource := unstructured.Unstructured{Object: object}
 	if resource.GetKind() == "" || resource.GetName() == "" {
 		return "", false, fmt.Errorf("resource has no kind or no name: %s", jsonDefinition)
+	}
+
+	if kept := util.KeptNamespace(object); kept != "" && kept != namespace {
+		return fmt.Sprintf(
+			"%s/%s/%s/%s",
+			resource.GroupVersionKind().Group,
+			resource.GetKind(),
+			kept,
+			resource.GetName(),
+		), true, nil
 	}
 
 	return fmt.Sprintf(
@@ -203,7 +239,8 @@ func (p *resourceInstancePlan) changed() bool {
 //
 // before and after are the definition's resources with this instance's
 // overlay applied, and afterPlaced is after with namespaces set, as the
-// instance deploys it. Comparing before with after tells which resources the
+// instance deploys it. namespace is the one the definition places its
+// resources in (see instanceResourceKey), which before and after share. Comparing before with after tells which resources the
 // change touched without asking the cluster about the old ones, whose API
 // version it may no longer serve. Only those resources are written:
 //
@@ -223,16 +260,17 @@ func (p *resourceInstancePlan) changed() bool {
 // v0KubernetesWorkloadInstanceUpdated apply it to the cluster.
 func planResourceInstances(
 	instanceID uint,
+	namespace string,
 	existing []v0.KubernetesWorkloadResourceInstance,
 	before []v0.KubernetesWorkloadResourceInstance,
 	after []v0.KubernetesWorkloadResourceInstance,
 	afterPlaced []v0.KubernetesWorkloadResourceInstance,
 ) (*resourceInstancePlan, error) {
-	beforeByKey, err := resourceInstancesByKey(before)
+	beforeByKey, err := resourceInstancesByKey(before, namespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to identify previously rendered resources: %w", err)
 	}
-	afterByKey, err := resourceInstancesByKey(after)
+	afterByKey, err := resourceInstancesByKey(after, namespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to identify rendered resources: %w", err)
 	}
@@ -247,18 +285,18 @@ func planResourceInstances(
 			leaving = append(leaving, resourceInstance)
 		}
 	}
-	existingByKey, err := resourceInstancesByKey(live)
+	existingByKey, err := resourceInstancesByKey(live, namespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to identify existing resource instances: %w", err)
 	}
-	leavingByKey, err := resourceInstancesByKey(leaving)
+	leavingByKey, err := resourceInstancesByKey(leaving, namespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to identify resource instances scheduled for deletion: %w", err)
 	}
 
 	plan := &resourceInstancePlan{}
 	for _, placed := range afterPlaced {
-		key, isResource, err := instanceResourceKey(*placed.JSONDefinition)
+		key, isResource, err := instanceResourceKey(*placed.JSONDefinition, namespace)
 		if err != nil {
 			return nil, fmt.Errorf("failed to identify rendered resource: %w", err)
 		}
@@ -352,6 +390,7 @@ func samePlacedRendering(left, right []byte) bool {
 // serves is placed without asking about the old version.
 func knownNamespacing(
 	existing []v0.KubernetesWorkloadResourceInstance,
+	namespace string,
 	ask func(jsonDef string) (bool, error),
 ) (func(jsonDef string) (bool, error), error) {
 	held := map[string]bool{}
@@ -359,7 +398,7 @@ func knownNamespacing(
 		if resourceInstance.JSONDefinition == nil {
 			continue
 		}
-		key, isResource, err := instanceResourceKey(*resourceInstance.JSONDefinition)
+		key, isResource, err := instanceResourceKey(*resourceInstance.JSONDefinition, namespace)
 		if err != nil {
 			return nil, fmt.Errorf("failed to identify existing resource instance: %w", err)
 		}
@@ -376,7 +415,7 @@ func knownNamespacing(
 	}
 
 	return func(jsonDef string) (bool, error) {
-		key, isResource, err := instanceResourceKey([]byte(jsonDef))
+		key, isResource, err := instanceResourceKey([]byte(jsonDef), namespace)
 		if err != nil {
 			return false, err
 		}
@@ -392,13 +431,14 @@ func knownNamespacing(
 // the Kubernetes object belongs to.
 func resourceInstancesByKey(
 	resourceInstances []v0.KubernetesWorkloadResourceInstance,
+	namespace string,
 ) (map[string]v0.KubernetesWorkloadResourceInstance, error) {
 	byKey := map[string]v0.KubernetesWorkloadResourceInstance{}
 	for _, resourceInstance := range resourceInstances {
 		if resourceInstance.JSONDefinition == nil {
 			continue
 		}
-		key, isResource, err := instanceResourceKey(*resourceInstance.JSONDefinition)
+		key, isResource, err := instanceResourceKey(*resourceInstance.JSONDefinition, namespace)
 		if err != nil {
 			return nil, err
 		}
