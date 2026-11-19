@@ -375,14 +375,24 @@ func TestComputeSpaceControlPlaneComponentsCurrent(t *testing.T) {
 
 // TestSupportServicesOperatorInstalled covers the operator check.
 func TestSupportServicesOperatorInstalled(t *testing.T) {
-	t.Run("installed when the deployment is there", func(t *testing.T) {
+	t.Run("installed when the deployment runs the image this install applies", func(t *testing.T) {
 		client := testClient(
-			deployment(ControlPlaneNamespace, SupportServicesOperatorDeployName, "operator:v1"),
+			deployment(ControlPlaneNamespace, SupportServicesOperatorDeployName, SupportServicesOperatorImage),
 		)
 
 		installed, err := SupportServicesOperatorInstalled(client, testMapper(), ControlPlaneNamespace)
 		require.NoError(t, err)
 		assert.True(t, installed)
+	})
+
+	t.Run("not installed when the deployment runs an older image", func(t *testing.T) {
+		client := testClient(
+			deployment(ControlPlaneNamespace, SupportServicesOperatorDeployName, "ghcr.io/nukleros/support-services-operator:v0.4.0"),
+		)
+
+		installed, err := SupportServicesOperatorInstalled(client, testMapper(), ControlPlaneNamespace)
+		require.NoError(t, err)
+		assert.False(t, installed)
 	})
 
 	t.Run("not installed on an empty cluster", func(t *testing.T) {

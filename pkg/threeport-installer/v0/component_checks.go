@@ -253,14 +253,13 @@ func (cpi *ControlPlaneInstaller) agentCurrent(
 }
 
 // SupportServicesOperatorInstalled reports whether the support services
-// operator InstallThreeportSupportServicesOperator would install is already
-// running on the cluster.
+// operator deployment is present and runs the image this install applies.
 func SupportServicesOperatorInstalled(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	namespace string,
 ) (bool, error) {
-	_, present, err := resourceInstalled(
+	operator, present, err := resourceInstalled(
 		kubeClient,
 		mapper,
 		"apps",
@@ -272,8 +271,16 @@ func SupportServicesOperatorInstalled(
 	if err != nil {
 		return false, fmt.Errorf("failed to check for the support services operator: %w", err)
 	}
+	if !present {
+		return false, nil
+	}
 
-	return present, nil
+	// an older image is not the install this manifest would apply
+	running, err := containerImages(operator)
+	if err != nil {
+		return false, fmt.Errorf("failed to read the support services operator image: %w", err)
+	}
+	return contains(running, SupportServicesOperatorImage), nil
 }
 
 // EksThreeportSystemServicesCurrent reports whether the EKS system services

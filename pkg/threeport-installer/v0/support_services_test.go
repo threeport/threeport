@@ -1,9 +1,12 @@
 package v0
 
 import (
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"golang.org/x/mod/modfile"
 	kubeerr "k8s.io/apimachinery/pkg/api/errors"
 
 	api "github.com/threeport/threeport/pkg/api/v0"
@@ -100,4 +103,73 @@ func TestSupportServicesCloud(t *testing.T) {
 	require.Equal(t, SupportServicesCloudGoogle, SupportServicesCloud(api.KubernetesRuntimeInfraProviderGKE))
 	require.Equal(t, SupportServicesCloudLocal, SupportServicesCloud(api.KubernetesRuntimeInfraProviderKind))
 	require.Equal(t, SupportServicesCloudAWS, supportServicesObject(SupportServicesCloudAWS).Object["spec"].(map[string]interface{})["cloud"])
+}
+
+// TestSupportServicesOperatorManifestIncludesStorage covers the storage definition.
+func TestSupportServicesOperatorManifestIncludesStorage(t *testing.T) {
+	// the operator manifest registers the storage component
+	objects, err := supportServicesOperatorObjects(ControlPlaneNamespace)
+	require.NoError(t, err)
+	found := false
+	for _, item := range objects {
+		if item.GetKind() == "CustomResourceDefinition" && item.GetName() == "storagecomponents.platform.addons.nukleros.io" {
+			found = true
+		}
+	}
+	require.True(t, found)
+}
+
+// TestSupportServicesOperatorModuleMatchesImage checks go.mod against the image tag.
+func TestSupportServicesOperatorModuleMatchesImage(t *testing.T) {
+	// read the module requirement
+	raw, err := os.ReadFile("../../../go.mod")
+	require.NoError(t, err)
+	file, err := modfile.Parse("go.mod", raw, nil)
+	require.NoError(t, err)
+	const modulePath = "github.com/nukleros/support-services-operator"
+	var version string
+	for _, req := range file.Require {
+		if req.Mod.Path == modulePath {
+			version = req.Mod.Version
+		}
+	}
+
+	// the image tag is that same version
+	tag := SupportServicesOperatorImage[strings.LastIndex(SupportServicesOperatorImage, ":")+1:]
+	require.Equal(t, tag, version)
+}
+
+// TestComputeSpaceInstallNamespaces covers the namespaces a reinstall removes.
+func TestComputeSpaceInstallNamespaces(t *testing.T) {
+	// a child removes only its own namespace
+	names := computeSpaceInstallNamespaces("child-control-plane", "child-control-plane", true)
+	require.Equal(t, []string{"child-control-plane"}, names)
+	require.NotContains(t, names, supportServicesOperatorNamespace)
+
+	// the parent lists its namespace once
+	names = computeSpaceInstallNamespaces(ControlPlaneNamespace, ControlPlaneNamespace, true)
+	require.Equal(t, []string{ControlPlaneNamespace}, names)
+}
+
+// TestSupportServicesOperatorUsesControlPlaneNamespace covers one operator per control plane.
+func TestSupportServicesOperatorUsesControlPlaneNamespace(t *testing.T) {
+	for _, namespace := range []string{ControlPlaneNamespace, "child-control-plane"} {
+		objects, err := supportServicesOperatorObjects(namespace)
+		require.NoError(t, err)
+
+		// one deployment, and it lives in this control plane's namespace
+		deployments := 0
+		for _, item := range objects {
+			if item.GetNamespace() == supportServicesOperatorNamespace {
+				t.Errorf("object %s %s stayed in %s", item.GetKind(), item.GetName(), supportServicesOperatorNamespace)
+			}
+			if item.GetKind() != "Deployment" {
+				continue
+			}
+			deployments++
+			require.Equal(t, namespace, item.GetNamespace())
+			require.Equal(t, SupportServicesOperatorDeployName, item.GetName())
+		}
+		require.Equal(t, 1, deployments)
+	}
 }
