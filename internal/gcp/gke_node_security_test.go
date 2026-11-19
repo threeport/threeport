@@ -67,6 +67,81 @@ func TestBuildGkeInfra_PassesTheNodeSecurity(t *testing.T) {
 	assert.Equal(t, definition.IntranodeVisibility, infra.IntranodeVisibility)
 }
 
+// TestBuildGkeInfra_KeepsWhatTheClusterRunsForSettingsLeftOut covers a
+// definition updated without settings its cluster runs: the program keeps
+// them, so a later upgrade doesn't replace a node pool with a boot disk key
+// and Secure Boot by one without them.  An explicit false or "" turns one
+// off, and a setting the cluster runs as its default stays unset.
+func TestBuildGkeInfra_KeepsWhatTheClusterRunsForSettingsLeftOut(t *testing.T) {
+	projectID := "some-project"
+	gcpProviderID := uint(1)
+	credentials := `{"type":"service_account","project_id":"some-project","client_email":"threeport@some-project.iam.gserviceaccount.com"}`
+	encryptionKey, storedCredentials := encryptedCredentials(t, credentials)
+	srv := gkeProviderServer(t, api_v0.GcpProvider{
+		Common:                    api_v0.Common{ID: &gcpProviderID},
+		ProjectID:                 &projectID,
+		ServiceAccountCredentials: &storedCredentials,
+	})
+	defer srv.Close()
+	build := func(
+		definition *api_v0.GcpGkeKubernetesRuntimeDefinition,
+		instance *api_v0.GcpGkeKubernetesRuntimeInstance,
+	) *provider.KubernetesRuntimeInfraGKE {
+		infra, err := buildGkeInfra(
+			&controller.Reconciler{
+				APIClient:     &http.Client{},
+				APIServer:     strings.TrimPrefix(srv.URL, "http://"),
+				EncryptionKey: encryptionKey,
+			},
+			instance,
+			definition,
+			nil,
+		)
+		require.NoError(t, err)
+		return infra
+	}
+	secured := func() *api_v0.GcpGkeKubernetesRuntimeInstance {
+		instance := testGkeInstance(&gcpProviderID)
+		instance.SecretsEncryptionKey = util.Ptr("projects/p/locations/l/keyRings/r/cryptoKeys/secrets")
+		instance.BootDiskType = util.Ptr("pd-ssd")
+		instance.BootDiskSizeGb = util.Ptr(60)
+		instance.BootDiskKmsKey = util.Ptr("projects/p/locations/l/keyRings/r/cryptoKeys/disks")
+		instance.SecureBoot = util.Ptr(true)
+		instance.IntranodeVisibility = util.Ptr(true)
+		return instance
+	}
+
+	instance := secured()
+	infra := build(testGkeDefinition(), instance)
+	assert.Equal(t, instance.SecretsEncryptionKey, infra.SecretsEncryptionKey)
+	assert.Equal(t, instance.BootDiskType, infra.BootDiskType)
+	assert.Equal(t, instance.BootDiskSizeGb, infra.BootDiskSizeGb)
+	assert.Equal(t, instance.BootDiskKmsKey, infra.BootDiskKmsKey)
+	assert.Equal(t, instance.SecureBoot, infra.SecureBoot)
+	assert.Equal(t, instance.IntranodeVisibility, infra.IntranodeVisibility)
+
+	definition := testGkeDefinition()
+	definition.BootDiskKmsKey = util.Ptr("")
+	definition.SecureBoot = util.Ptr(false)
+	definition.IntranodeVisibility = util.Ptr(false)
+	infra = build(definition, secured())
+	assert.Equal(t, util.Ptr(""), infra.BootDiskKmsKey, "turned off")
+	assert.Equal(t, util.Ptr(false), infra.SecureBoot, "turned off")
+	assert.Equal(t, util.Ptr(false), infra.IntranodeVisibility, "turned off")
+	assert.Equal(t, util.Ptr("pd-ssd"), infra.BootDiskType, "kept")
+
+	instance = testGkeInstance(&gcpProviderID)
+	instance.SecretsEncryptionKey = util.Ptr("")
+	instance.BootDiskKmsKey = util.Ptr("")
+	instance.SecureBoot = util.Ptr(false)
+	instance.IntranodeVisibility = util.Ptr(false)
+	infra = build(testGkeDefinition(), instance)
+	assert.Nil(t, infra.SecretsEncryptionKey)
+	assert.Nil(t, infra.BootDiskKmsKey)
+	assert.Nil(t, infra.SecureBoot)
+	assert.Nil(t, infra.IntranodeVisibility)
+}
+
 // TestTheGkeInstanceRecordsTheSettingsItRuns covers the settings the GKE
 // adapter reads and records: those of its definition the cluster doesn't
 // run, as the instance records them, and those a step applied, each written

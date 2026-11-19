@@ -231,6 +231,24 @@ func GkePendingSettings(definition *GcpGkeKubernetesRuntimeDefinition, instance 
 	return pending
 }
 
+// GkeSettingOrApplied returns the setting a GKE definition asks for, or,
+// when it asks for none, the one its cluster runs, unless that is its zero
+// value's default.  A field left out of a definition's update keeps what the
+// cluster runs: the node pool a later upgrade builds keeps its boot disk key
+// and Secure Boot rather than being replaced by one without them.  An
+// explicit false or "" turns one off.
+func GkeSettingOrApplied[T comparable](asked, applied *T) *T {
+	if asked != nil {
+		return asked
+	}
+	var zero T
+	if applied == nil || *applied == zero {
+		return nil
+	}
+
+	return applied
+}
+
 // pendingSetting reports whether a setting a definition asks for differs
 // from the one applied, an unrecorded one being its zero value's default.
 func pendingSetting[T comparable](asked, applied *T) bool {

@@ -667,12 +667,12 @@ func buildGkeInfra(
 		MaintenanceWindowHours: v0.GkeMaintenanceWindowHoursOrDefault(definition.MaintenanceWindowHours),
 		AllowedCidrs:           allowedCidrs,
 		ReserveNatAddress:      instance.ReservedNatAddress != nil && *instance.ReservedNatAddress,
-		SecretsEncryptionKey:   definition.SecretsEncryptionKey,
-		BootDiskType:           definition.BootDiskType,
-		BootDiskSizeGb:         definition.BootDiskSizeGb,
-		BootDiskKmsKey:         definition.BootDiskKmsKey,
-		SecureBoot:             definition.SecureBoot,
-		IntranodeVisibility:    definition.IntranodeVisibility,
+		SecretsEncryptionKey:   v0.GkeSettingOrApplied(definition.SecretsEncryptionKey, instance.SecretsEncryptionKey),
+		BootDiskType:           v0.GkeSettingOrApplied(definition.BootDiskType, instance.BootDiskType),
+		BootDiskSizeGb:         v0.GkeSettingOrApplied(definition.BootDiskSizeGb, instance.BootDiskSizeGb),
+		BootDiskKmsKey:         v0.GkeSettingOrApplied(definition.BootDiskKmsKey, instance.BootDiskKmsKey),
+		SecureBoot:             v0.GkeSettingOrApplied(definition.SecureBoot, instance.SecureBoot),
+		IntranodeVisibility:    v0.GkeSettingOrApplied(definition.IntranodeVisibility, instance.IntranodeVisibility),
 	}).InitPulumiProject()
 	// the cluster is found where it was created, which a zonal cluster's
 	// region alone doesn't say

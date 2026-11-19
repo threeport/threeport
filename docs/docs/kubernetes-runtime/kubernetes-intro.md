@@ -153,7 +153,11 @@ a key of yours, so a definition with `BootDiskKmsKey` and a `BootDiskType` of
 `pd-balanced`, or none, is refused.
 
 Changing a field on a definition with clusters applies it to them, on the
-version they run, without creating new clusters:
+version they run, without creating new clusters. A field left out of an
+update keeps what the clusters run, so a later version upgrade doesn't turn
+off a boot disk key or Secure Boot; set `SecureBoot` or
+`IntranodeVisibility` to `false`, or `BootDiskKmsKey` to `""`, to turn one
+off:
 
 | Change | What happens to each cluster |
 |---|---|
