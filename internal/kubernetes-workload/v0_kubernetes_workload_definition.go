@@ -321,7 +321,19 @@ func updateInstanceResources(
 		runtime = connected
 		return runtime, nil
 	}
-	isNamespaced, err := knownNamespacing(*existingWRIs, func(jsonDef string) (bool, error) {
+	// the namespace the definition places its resources in, which an update
+	// can't change, keys them the same way rendered and placed
+	var afterJSON [][]byte
+	for _, wrd := range after {
+		if wrd.JSONDefinition != nil {
+			afterJSON = append(afterJSON, *wrd.JSONDefinition)
+		}
+	}
+	namespace, err := managedNamespace(afterJSON)
+	if err != nil {
+		return "", err
+	}
+	isNamespaced, err := knownNamespacing(*existingWRIs, namespace, func(jsonDef string) (bool, error) {
 		connected, err := connect()
 		if err != nil {
 			return false, err
@@ -341,7 +353,7 @@ func updateInstanceResources(
 		placed = *processed
 	}
 
-	plan, err := planResourceInstances(*k8sWorkloadInstance.ID, *existingWRIs, renderedBefore, renderedAfter, placed)
+	plan, err := planResourceInstances(*k8sWorkloadInstance.ID, namespace, *existingWRIs, renderedBefore, renderedAfter, placed)
 	if err != nil {
 		return "", fmt.Errorf("failed to compare resources of kubernetes workload instance with ID %d: %w", *k8sWorkloadInstance.ID, err)
 	}
@@ -376,7 +388,7 @@ func updateInstanceResources(
 			return "", fmt.Errorf("failed to check kubernetes runtime for a resource being deleted: %w", err)
 		}
 		if terminating {
-			key, _, _ := instanceResourceKey(*wri.JSONDefinition)
+			key, _, _ := instanceResourceKey(*wri.JSONDefinition, namespace)
 			waitFor = fmt.Sprintf("deletion of %s from the cluster of kubernetes workload instance %d", key, *k8sWorkloadInstance.ID)
 		}
 	}

@@ -10,6 +10,7 @@ import (
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
+	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -133,4 +134,80 @@ metadata:
 	resourceDefinitions, err := client.GetKubernetesWorkloadResourceDefinitionsByID(apiClient, endpoint, *created.ID)
 	require.NoError(t, err)
 	assert.Len(t, *resourceDefinitions, 2, "one for each namespace")
+}
+
+// TestAResourceDroppedFromASupportServicesNamespaceTheDefinitionDeclaresIsRemoved
+// covers a kubernetes workload definition that declares a support-services
+// namespace as its own: its instance places every resource there, and a
+// resource dropped from the definition is removed from the cluster, while the
+// one it still declares stays.
+func TestAResourceDroppedFromASupportServicesNamespaceTheDefinitionDeclaresIsRemoved(t *testing.T) {
+	apiClient, endpoint, encryptionKey := threeportClient(t)
+	runtime := controlPlaneRuntime(t, apiClient, endpoint)
+	const namespace = "nukleros-certs-system"
+	configMap := func(name string) string {
+		return fmt.Sprintf("---\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: %s\ndata:\n  kept: \"yes\"\n", name)
+	}
+	namespaceDoc := fmt.Sprintf("apiVersion: v1\nkind: Namespace\nmetadata:\n  name: %s\n", namespace)
+	suffix := time.Now().Unix()
+
+	definition, err := client.CreateKubernetesWorkloadDefinition(apiClient, endpoint, &v0.KubernetesWorkloadDefinition{
+		Definition:   v0.Definition{Name: util.Ptr(fmt.Sprintf("support-services-namespace-%d", suffix))},
+		YAMLDocument: util.Ptr(namespaceDoc + configMap("kept") + configMap("dropped")),
+	})
+	require.NoError(t, err)
+	defer retryDelete(t, "kubernetes workload definition "+*definition.Name, func() error {
+		_, err := client.DeleteKubernetesWorkloadDefinition(apiClient, endpoint, *definition.ID)
+		return err
+	})
+	waitForReconciled(t, "kubernetes workload definition "+*definition.Name, func() (*bool, error) {
+		read, err := client.GetKubernetesWorkloadDefinitionByID(apiClient, endpoint, *definition.ID)
+		if err != nil {
+			return nil, err
+		}
+		return read.Reconciled, nil
+	})
+
+	instance, err := client.CreateKubernetesWorkloadInstance(apiClient, endpoint, &v0.KubernetesWorkloadInstance{
+		Instance:                       v0.Instance{Name: util.Ptr(fmt.Sprintf("support-services-namespace-%d", suffix))},
+		KubernetesWorkloadDefinitionID: definition.ID,
+		KubernetesRuntimeInstanceID:    runtime.ID,
+	})
+	require.NoError(t, err)
+	defer retryDelete(t, "kubernetes workload instance "+*instance.Name, func() error {
+		_, err := client.DeleteKubernetesWorkloadInstance(apiClient, endpoint, *instance.ID)
+		return err
+	})
+
+	kubeClient, mapper, err := kube.GetClient(runtime, false, apiClient, endpoint, encryptionKey)
+	require.NoError(t, err)
+	inCluster := func(name string) bool {
+		_, err := kube.GetResource("", "v1", "ConfigMap", namespace, name, kubeClient, *mapper)
+		return err == nil
+	}
+	require.NoError(t, util.Retry(reconcileAttempts, 2, func() error {
+		if !inCluster("kept") || !inCluster("dropped") {
+			return fmt.Errorf("config maps not in %s yet", namespace)
+		}
+		return nil
+	}), "the instance deploys both config maps to the namespace its definition declares")
+
+	_, err = client.UpdateKubernetesWorkloadDefinition(apiClient, endpoint, &v0.KubernetesWorkloadDefinition{
+		Common:       v0.Common{ID: definition.ID},
+		YAMLDocument: util.Ptr(namespaceDoc + configMap("kept")),
+	})
+	require.NoError(t, err)
+	require.NoError(t, util.Retry(reconcileAttempts, 2, func() error {
+		if inCluster("dropped") {
+			return fmt.Errorf("the dropped config map is still in %s", namespace)
+		}
+		return nil
+	}), "the dropped config map is removed from the cluster")
+	assert.True(t, inCluster("kept"), "the config map still declared stays")
+
+	resourceInstances, err := client.GetKubernetesWorkloadResourceInstancesByID(apiClient, endpoint, *instance.ID)
+	require.NoError(t, err)
+	for _, resourceInstance := range *resourceInstances {
+		assert.NotContains(t, string(*resourceInstance.JSONDefinition), `"dropped"`, "nor held by the instance")
+	}
 }

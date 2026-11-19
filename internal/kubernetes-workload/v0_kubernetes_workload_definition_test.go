@@ -346,7 +346,7 @@ func newDefinitionUpdateFixture(t *testing.T, yaml *string) *definitionUpdateFix
 				return kube.IsNamespaced(jsonDef, runtimeDiscovery)
 			},
 			terminating: func(jsonDef []byte) (bool, error) {
-				key, _, err := instanceResourceKey(jsonDef)
+				key, _, err := instanceResourceKey(jsonDef, "")
 				return fixture.terminating[key], err
 			},
 		}, nil
@@ -542,6 +542,28 @@ func TestDefinitionUpdateReachesRunningInstances(t *testing.T) {
 		require.NoError(t, fixture.update(fixture.definition.YAMLDocument))
 		assert.Empty(t, fixture.api.writes)
 	})
+}
+
+// TestDefinitionUpdateRemovesAResourceFromASupportServicesNamespaceItDeclares
+// covers a definition that declares a support-services namespace as its own:
+// its instances place every resource there, so a resource it no longer
+// declares is found in that namespace and scheduled for deletion, rather than
+// left running with nothing to find it again.
+func TestDefinitionUpdateRemovesAResourceFromASupportServicesNamespaceItDeclares(t *testing.T) {
+	const certs = `{"apiVersion":"v1","kind":"Namespace","metadata":{"name":"nukleros-certs-system"}}`
+	fixture := newDefinitionUpdateFixture(t, yamlDocument(certs, fmt.Sprintf(webDeployment, 1, "nginx:1.26"), webService))
+	_, placed := fixture.resources(t, fixture.plain)["/Service/nukleros-certs-system/web"]
+	require.True(t, placed, "the instance places the service in the namespace the definition declares")
+
+	require.NoError(t, fixture.update(yamlDocument(certs, fmt.Sprintf(webDeployment, 1, "nginx:1.26"))))
+
+	resources := fixture.resources(t, fixture.plain)
+	_, leaving := resources["leaving:/Service/nukleros-certs-system/web"]
+	assert.True(t, leaving, "the dropped resource is scheduled for deletion")
+	deployment, kept := resources["apps/Deployment/nukleros-certs-system/web"]
+	require.True(t, kept)
+	assert.True(t, *deployment.Reconciled, "the unchanged deployment is left alone")
+	assert.False(t, *fixture.api.instances[fixture.plain].Reconciled, "marked for update")
 }
 
 // TestDefinitionUpdateInterruptedIsFinishedByTheRetry covers an update that
@@ -769,6 +791,20 @@ spec:
 		assert.False(t, *cronJobs[0].Reconciled)
 	})
 
+	t.Run("editing a resource in a support-services namespace the definition declares", func(t *testing.T) {
+		// the instance holds the resource placed in that namespace, which tells
+		// it is namespaced without asking about a version no longer served
+		certs := `{"apiVersion":"v1","kind":"Namespace","metadata":{"name":"nukleros-certs-system"}}`
+		fixture := newDefinitionUpdateFixture(t, yamlDocument(certs, deployment, fmt.Sprintf(cronJob, "batch/v1beta1")))
+		fixture.retired = []string{"batch/v1beta1", "batch/v1"}
+
+		edited := strings.Replace(fmt.Sprintf(cronJob, "batch/v1beta1"), "0 3 * * *", "0 4 * * *", 1)
+		require.NoError(t, fixture.update(yamlDocument(certs, deployment, edited)))
+		cronJob, found := fixture.resources(t, fixture.plain)["batch/CronJob/nukleros-certs-system/nightly"]
+		require.True(t, found, "updated in place, in the namespace the definition declares")
+		assert.False(t, *cronJob.Reconciled)
+	})
+
 	t.Run("dropping a resource whose group is no longer served at all", func(t *testing.T) {
 		fixture := newDefinitionUpdateFixture(t, yamlDocument(deployment, fmt.Sprintf(cronJob, "batch/v1beta1")))
 		fixture.retired = []string{"batch/v1beta1", "batch/v1"}
@@ -905,7 +941,7 @@ func storedResourceKeys(t *testing.T, api *fakeThreeportAPI) []string {
 	t.Helper()
 	var keys []string
 	for _, id := range sortedIDs(api.wrds) {
-		key, isResource, err := instanceResourceKey(*api.wrds[id].JSONDefinition)
+		key, isResource, err := instanceResourceKey(*api.wrds[id].JSONDefinition, "")
 		require.NoError(t, err)
 		require.True(t, isResource)
 		keys = append(keys, key)
@@ -1001,7 +1037,7 @@ func TestDefinitionCreateRetriedWritesOnlyWhatIsMissing(t *testing.T) {
 	assert.Equal(t, []string{"apps/Deployment/web", "/Service/web"}, storedResourceKeys(t, api))
 
 	for _, id := range sortedIDs(api.wrds) {
-		key, _, err := instanceResourceKey(*api.wrds[id].JSONDefinition)
+		key, _, err := instanceResourceKey(*api.wrds[id].JSONDefinition, "")
 		require.NoError(t, err)
 		if key == "/Service/web" {
 			delete(api.wrds, id)
