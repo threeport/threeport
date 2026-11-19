@@ -221,8 +221,8 @@ func DeleteComputeSpaceInstall(
 
 // computeSpaceInstallNamespaces returns the namespaces a reinstall removes.
 func computeSpaceInstallNamespaces(agentNamespace, operatorNamespace string, includeAgent bool) []string {
-	// the operator used to live in its own namespace, so remove that too
-	names := []string{supportServicesOperatorNamespace}
+	// the control plane namespace holds the agent and the operator
+	var names []string
 	if includeAgent && agentNamespace != "" {
 		names = append(names, agentNamespace)
 	}
