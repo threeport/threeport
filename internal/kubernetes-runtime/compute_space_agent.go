@@ -1,72 +1,56 @@
 package kubernetesruntime
 
 import (
-	"errors"
 	"fmt"
-	"io/fs"
-	"os"
-	"path/filepath"
+	"net/http"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	auth "github.com/threeport/threeport/pkg/auth/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
+	client "github.com/threeport/threeport/pkg/client/v0"
+	controller "github.com/threeport/threeport/pkg/controller/v0"
 	tpi "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// computeSpaceAgentAccess is what the agent on a managed cluster needs to report
-// to the control plane that manages it.
-type computeSpaceAgentAccess struct {
-	// apiServer is the address, as host:port, the control plane's API is
-	// reachable at from the managed cluster.
-	apiServer string
+// apiAuthEnabled reports whether this controller reaches the API with client
+// certificate authentication, which is whether the control plane has auth on:
+// the controller's client is built from the same setting the API is started
+// with.  An agent on a managed cluster has to be installed to match.
+func apiAuthEnabled(apiClient *http.Client) bool {
+	if apiClient == nil {
+		return false
+	}
+	transport, ok := apiClient.Transport.(*client_lib.CustomTransport)
 
-	// authConfig is the control plane's CA, to issue the agent's client
-	// certificate from.  Nil when the control plane runs without auth.
-	authConfig *auth.AuthConfig
+	return ok && transport.IsTlsEnabled
 }
 
-// loadComputeSpaceAgentAccess reads what an agent on a managed cluster needs.
+// agentCertificateIssuer returns the call that gets a client certificate for
+// the agent on the named runtime instance from the control plane's API.
 //
-// A managed cluster does not host the control plane, so its agent cannot use the
-// API's in-cluster service: it is given the control plane's external address,
-// and when the control plane has auth enabled a client certificate issued from
-// its CA.  The address is the controller's own configuration; the CA is the
-// signing keypair mounted into this controller at signingCaDir.
-//
-// It returns nil when the control plane has no external address.  Such a
-// control plane cannot be reached from another cluster, so an agent installed
-// there could only crash-loop.
-func loadComputeSpaceAgentAccess(
-	apiServer string,
-	signingCaDir string,
-) (*computeSpaceAgentAccess, error) {
-	if apiServer == "" {
-		return nil, nil
-	}
+// The agent on a managed cluster is given a certificate by the API rather than
+// signed for here, because the CA's private key stays in the API's pod: this
+// controller holds cloud credentials and cluster-admin on every managed
+// cluster, and with the key it could also sign a certificate that any control
+// plane component would accept.  It sends only the agent's public key, and the
+// API decides the name the certificate carries.
+func agentCertificateIssuer(r *controller.Reconciler, runtimeInstanceName string) tpi.AgentCertificateIssuer {
+	return func(certificateSigningRequest string) (*v0.AgentCertificate, error) {
+		issued, err := client.CreateAgentCertificate(
+			r.APIClient,
+			r.APIServer,
+			runtimeInstanceName,
+			certificateSigningRequest,
+		)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"failed to get an agent certificate for runtime instance %s: %w",
+				runtimeInstanceName, err,
+			)
+		}
 
-	certPath := filepath.Join(signingCaDir, "tls.crt")
-	keyPath := filepath.Join(signingCaDir, "tls.key")
-	caPem, certErr := os.ReadFile(certPath)
-	caKeyPem, keyErr := os.ReadFile(keyPath)
-
-	// neither file present means the control plane has auth off and the
-	// controller was not given the signing CA
-	if errors.Is(certErr, fs.ErrNotExist) && errors.Is(keyErr, fs.ErrNotExist) {
-		return &computeSpaceAgentAccess{apiServer: apiServer}, nil
+		return issued, nil
 	}
-	if certErr != nil {
-		return nil, fmt.Errorf("failed to read the signing CA certificate: %w", certErr)
-	}
-	if keyErr != nil {
-		return nil, fmt.Errorf("failed to read the signing CA private key: %w", keyErr)
-	}
-
-	authConfig, err := auth.LoadAuthConfig(caPem, caKeyPem)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load the signing CA: %w", err)
-	}
-
-	return &computeSpaceAgentAccess{apiServer: apiServer, authConfig: authConfig}, nil
 }
 
 // setComputeSpaceAgentImage sets the agent image a managed cluster pulls.
@@ -112,14 +96,4 @@ func setComputeSpaceAgentImage(
 	}
 
 	return nil
-}
-
-// agentAuthConfig returns the CA to issue an agent certificate from, or nil when
-// there is none to issue from.
-func agentAuthConfig(access *computeSpaceAgentAccess) *auth.AuthConfig {
-	if access == nil {
-		return nil
-	}
-
-	return access.authConfig
 }
