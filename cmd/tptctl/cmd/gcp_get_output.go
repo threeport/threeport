@@ -17,7 +17,7 @@ func outputGetv0GcpProvidersCmd(
 	gcpProviders *[]config_v0.GcpProviderConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "VERSION\t NAME\t PROJECT ID\t DEFAULT PROVIDER\t DEFAULT REGION\t AGE")
+	fmt.Fprintln(writer, "VERSION\t NAME\t PROJECT ID\t DEFAULT PROVIDER\t DEFAULT REGION\t SYNC SERVICE ACCOUNT\t AGE")
 	for _, gcpProvider := range *gcpProviders {
 		projectID := ""
 		if gcpProvider.GcpProvider.ProjectID != nil {
@@ -31,6 +31,11 @@ func outputGetv0GcpProvidersCmd(
 		if gcpProvider.GcpProvider.DefaultRegion != nil {
 			defaultRegion = *gcpProvider.GcpProvider.DefaultRegion
 		}
+		// a provider with no setting predates the field and is synced
+		syncServiceAccount := true
+		if gcpProvider.GcpProvider.SyncServiceAccount != nil {
+			syncServiceAccount = *gcpProvider.GcpProvider.SyncServiceAccount
+		}
 		age := ""
 		if gcpProvider.GcpProvider.Age != nil {
 			age = *gcpProvider.GcpProvider.Age
@@ -42,6 +47,7 @@ func outputGetv0GcpProvidersCmd(
 			projectID, "\t",
 			defaultProvider, "\t",
 			defaultRegion, "\t",
+			syncServiceAccount, "\t",
 			age,
 		)
 	}
