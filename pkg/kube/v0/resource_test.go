@@ -233,8 +233,42 @@ func TestCreateResourceRejectsATerminatingObject(t *testing.T) {
 	if err == nil {
 		t.Fatal("CreateResource against a terminating object: got nil, want error")
 	}
+	if kubeerr.IsAlreadyExists(err) {
+		t.Fatal("CreateResource against a terminating object: error still unwraps to already exists")
+	}
 	if client.resourceClient.attempts != 1 {
 		t.Fatalf("CreateResource against a terminating object: got %d attempts, want 1", client.resourceClient.attempts)
+	}
+}
+
+// TestCreateResourceRetriesWhenTheExistingObjectIsGone covers a missing follow-up read.
+// The name finished deleting, so the next create is tried.
+func TestCreateResourceRetriesWhenTheExistingObjectIsGone(t *testing.T) {
+	shrinkCreateRetryDelay(t)
+
+	deployments := schema.GroupResource{Group: "apps", Resource: "deployments"}
+	client := &stubDynamicClient{
+		resourceClient: &stubResourceClient{
+			results: []stubCreateResult{
+				{err: kubeerr.NewAlreadyExists(deployments, "my-app")},
+				{object: testDeployment()},
+			},
+			getErrs: []error{
+				kubeerr.NewNotFound(deployments, "my-app"),
+			},
+		},
+	}
+
+	// create after the existing object is gone
+	result, err := CreateResource(testDeployment(), client, testDeploymentMapper())
+	if err != nil {
+		t.Fatalf("CreateResource after the existing object disappeared: got err %v, want nil", err)
+	}
+	if result == nil {
+		t.Fatal("CreateResource after the existing object disappeared: got nil object, want the created resource")
+	}
+	if client.resourceClient.attempts != 2 {
+		t.Fatalf("CreateResource after the existing object disappeared: got %d creates, want 2", client.resourceClient.attempts)
 	}
 }
 
