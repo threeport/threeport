@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -85,7 +86,8 @@ func apiAccessCidrs(t *testing.T, n int) *datatypes.JSON {
 // immutable, so the first transaction turns PrivateApi off with a write that
 // skips them, as a migration or an operator fixing the row would.  A check
 // that read the row without locking it would pass the second PATCH while the
-// first was still open, and this test would fail at that wait.
+// first was still open, and never leave it waiting in CockroachDB's lock
+// table, which the test watches for before releasing the first.
 func TestAConcurrentPatchWaitsForTheRowAPatchIsCheckedAgainst(t *testing.T) {
 	db := freshDatabase(t, "api_access_lock_check")
 	require.NoError(t, db.AutoMigrate(&api_v0.AttachedObjectReference{}, &api_v0.KubernetesRuntimeDefinition{}))
@@ -119,9 +121,15 @@ func TestAConcurrentPatchWaitsForTheRowAPatchIsCheckedAgainst(t *testing.T) {
 				Update("private_api", false).Error
 		},
 	}
+	// every query the test makes, and every wait, ends by this deadline
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	var releaseFirst sync.Once
+	defer releaseFirst.Do(func() { close(first.release) })
+
 	firstDone := make(chan error, 1)
 	go func() {
-		ctx := context.WithValue(context.Background(), apiAccessCheckedKey{}, first)
+		ctx := context.WithValue(ctx, apiAccessCheckedKey{}, first)
 		firstDone <- db.WithContext(ctx).Model(firstLoaded).
 			Updates(&api_v0.KubernetesRuntimeDefinition{AllowedCidrs: apiAccessCidrs(t, 40)}).Error
 	}()
@@ -129,7 +137,7 @@ func TestAConcurrentPatchWaitsForTheRowAPatchIsCheckedAgainst(t *testing.T) {
 	case <-first.checked:
 	case err := <-firstDone:
 		t.Fatalf("the first PATCH ended before it was checked: %v", err)
-	case <-time.After(10 * time.Second):
+	case <-ctx.Done():
 		t.Fatal("the first PATCH was not checked")
 	}
 
@@ -137,28 +145,55 @@ func TestAConcurrentPatchWaitsForTheRowAPatchIsCheckedAgainst(t *testing.T) {
 	second := &apiAccessHold{checked: make(chan struct{})}
 	secondDone := make(chan error, 1)
 	go func() {
-		ctx := context.WithValue(context.Background(), apiAccessCheckedKey{}, second)
+		ctx := context.WithValue(ctx, apiAccessCheckedKey{}, second)
 		secondDone <- db.WithContext(ctx).Model(secondLoaded).
 			Updates(&api_v0.KubernetesRuntimeDefinition{AllowedCidrs: apiAccessCidrs(t, 60)}).Error
 	}()
+
+	// the second waits in CockroachDB for the lock the first holds on the
+	// row, rather than having merely not started yet
+	statement := &gorm.Statement{DB: db}
+	require.NoError(t, statement.Parse(&api_v0.KubernetesRuntimeDefinition{}))
+	for waiting := false; !waiting; {
+		select {
+		case <-second.checked:
+			t.Fatal("the second PATCH was checked while the first held the row")
+		case err := <-secondDone:
+			t.Fatalf("the second PATCH ended while the first held the row: %v", err)
+		case <-ctx.Done():
+			t.Fatal("the second PATCH never waited for the row the first held")
+		case <-time.After(20 * time.Millisecond):
+		}
+		var waiters int64
+		err := db.WithContext(ctx).Raw(
+			"SELECT count(*) FROM crdb_internal.cluster_locks WHERE database_name = current_database() AND table_name = ? AND NOT granted",
+			statement.Schema.Table,
+		).Scan(&waiters).Error
+		if ctx.Err() != nil {
+			t.Fatal("the second PATCH never waited for the row the first held")
+		}
+		require.NoError(t, err)
+		waiting = waiters > 0
+	}
 	select {
 	case <-second.checked:
-		close(first.release)
 		t.Fatal("the second PATCH was checked while the first held the row")
-	case err := <-secondDone:
-		close(first.release)
-		t.Fatalf("the second PATCH ended while the first held the row: %v", err)
-	case <-time.After(time.Second):
+	default:
 	}
 
 	// once the first commits, the second is checked against what it wrote
-	close(first.release)
-	require.NoError(t, <-firstDone, "the first PATCH")
+	releaseFirst.Do(func() { close(first.release) })
+	select {
+	case err := <-firstDone:
+		require.NoError(t, err, "the first PATCH")
+	case <-ctx.Done():
+		t.Fatal("the first PATCH did not end once released")
+	}
 	select {
 	case err := <-secondDone:
 		require.Error(t, err, "the second PATCH is checked against the public cluster the first left")
 		assert.Contains(t, err.Error(), "AllowedCidrs has 60 entries and gke admits at most 50")
-	case <-time.After(10 * time.Second):
+	case <-ctx.Done():
 		t.Fatal("the second PATCH did not end after the first committed")
 	}
 
