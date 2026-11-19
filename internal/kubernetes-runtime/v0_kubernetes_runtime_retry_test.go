@@ -1,6 +1,8 @@
 package kubernetesruntime
 
 import (
+	"encoding/json"
+	"errors"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -36,9 +38,14 @@ const (
 	// faultDropConnection closes the connection without answering, which
 	// the client reports as a network error.
 	faultDropConnection
-	// faultServerError answers with a 500, which is not a network error.
+	// faultServerError answers with the 500 the API server sends for an
+	// internal error, which is not a network error.
 	faultServerError
 )
+
+// apiServerErrorMessage is the internal error the API answers a call
+// failed with faultServerError with.
+const apiServerErrorMessage = "database is unavailable"
 
 // runtimeAPI stands in for the Threeport API the kubernetes runtime
 // reconcilers call: the kubernetes runtime definition 3 on infraProvider with
@@ -65,7 +72,13 @@ func runtimeAPI(
 
 		if fault != faultNone && call == failing {
 			if fault == faultServerError {
-				http.Error(w, "internal server error", http.StatusInternalServerError)
+				body, err := json.Marshal(apiserver_lib.CreateResponseWithError500(
+					nil, errors.New(apiServerErrorMessage), "",
+				))
+				require.NoError(t, err)
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusInternalServerError)
+				_, _ = w.Write(body)
 				return
 			}
 			conn, _, err := w.(http.Hijacker).Hijack()
@@ -116,6 +129,19 @@ func runtimeAPI(
 	}
 }
 
+// assertServerErrorReached checks that a call failed with faultServerError
+// failed on the API's status, which carries its message, rather than on a body
+// the client could not read.
+func assertServerErrorReached(t *testing.T, fault apiFault, err error) {
+	t.Helper()
+
+	if fault != faultServerError {
+		return
+	}
+	assert.Contains(t, err.Error(), apiServerErrorMessage)
+	assert.NotContains(t, err.Error(), "failed to unmarshal")
+}
+
 // reconcileStep is one API call of a reconcile, and the message the
 // reconciler wraps its failure in.
 type reconcileStep struct {
@@ -125,8 +151,8 @@ type reconcileStep struct {
 
 // assertEachStepRetriesOnlyANetworkError fails each step of a reconcile in
 // turn.  A dropped connection requeues the object after 30 seconds, while an
-// error answer stops with no requeue; either way the error says which step
-// failed.  With nothing failed, the reconcile succeeds without a requeue.
+// error answer from the API stops with no requeue and carries the API's
+// message; either way the error says which step failed.  With nothing failed, the reconcile succeeds without a requeue.
 func assertEachStepRetriesOnlyANetworkError(
 	t *testing.T,
 	infraProvider string,
@@ -160,6 +186,7 @@ func assertEachStepRetriesOnlyANetworkError(
 				delay, err := reconcile(r)
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), step.message)
+				assertServerErrorReached(t, c.fault, err)
 				assert.Equal(t, c.wantDelay, delay)
 				assert.Equal(t, step.call, calls()[len(calls())-1], "the reconcile stops at the failed call")
 			})
@@ -343,6 +370,7 @@ func TestKubernetesRuntimeInstanceUpdatedWaitsForItsEndpoint(t *testing.T) {
 			delay, err := update(r, util.Ptr("https://remote.example.com:443"))
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), "failed to retrieve kubernetes runtime definition by ID")
+			assertServerErrorReached(t, c.fault, err)
 			assert.Equal(t, c.wantDelay, delay)
 			assert.Equal(t, []apiCall{definitionCall}, calls())
 		})
