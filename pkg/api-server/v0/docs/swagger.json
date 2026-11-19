@@ -18426,6 +18426,18 @@
                     "description": "Recorded for the kubernetes runtime definition's AuditLog.  It has no\neffect on GKE, which always records the Kubernetes API's writes in\nCloud Audit Logs.  It can't be changed after creation.",
                     "type": "boolean"
                 },
+                "BootDiskKmsKey": {
+                    "description": "The Cloud KMS key the nodes' boot disks are encrypted with, as its full\nresource name, as SecretsEncryptionKey is.  Threeport creates neither\nthe key nor its key ring: the project's Compute Engine service agent,\nservice-PROJECT_NUMBER@compute-system.iam.gserviceaccount.com, has\nroles/cloudkms.cryptoKeyEncrypterDecrypter on it.  GKE takes a key only\nfor a pd-standard or pd-ssd disk, so BootDiskType is one of those.  A\nnode pool's key can't change, so changing it on a definition with\nclusters replaces their node pools: a new one is created, and the old\none is removed once it is, its pods moving to the new one.  That can't\nbe done while DeletionProtection is set.  If unset, the disks are\nencrypted with a key Google manages.",
+                    "type": "string"
+                },
+                "BootDiskSizeGb": {
+                    "description": "The size of the nodes' boot disks in GB, from 10 to 65536.  If unset, a\nnew node pool gets 100, and one already there keeps the disk it has.\nChanging it moves every node onto a new disk, one node at a time, in\nthe node pool they are in.",
+                    "type": "integer"
+                },
+                "BootDiskType": {
+                    "description": "The type of the nodes' boot disks: pd-standard, pd-balanced or pd-ssd.\nIf unset, a new node pool gets pd-balanced, and one already there keeps\nthe disk it has.  Changing it moves every node onto a new disk, one\nnode at a time, in the node pool they are in.",
+                    "type": "string"
+                },
                 "DefaultNodeGroupInitialSize": {
                     "description": "The number of nodes in the default initial node group.",
                     "type": "integer"
@@ -18452,6 +18464,10 @@
                     "items": {
                         "$ref": "#/definitions/v0.GcpGkeKubernetesRuntimeInstance"
                     }
+                },
+                "IntranodeVisibility": {
+                    "description": "If true, traffic between pods on the same node goes through the\ncluster's network, where flow logs, firewall rules and Network\nPolicies see it.  Changing it on a definition with clusters has GKE\nrecreate their nodes.  If unset, it is off.",
+                    "type": "boolean"
                 },
                 "KubernetesRuntimeDefinitionID": {
                     "description": "The kubernetes runtime definition for a GKE cluster in GCP.",
@@ -18489,6 +18505,14 @@
                     "description": "The GKE release channel of the clusters, REGULAR or STABLE.  GKE\nupgrades their control planes and nodes to its releases on its own,\nwithin the maintenance window.  If unset, REGULAR is used.  It can't be\nchanged after creation.",
                     "type": "string"
                 },
+                "SecretsEncryptionKey": {
+                    "description": "The Cloud KMS key the clusters' Secrets are encrypted with, on top of\nthe encryption Google gives everything it stores, as the key's full\nresource name:\nprojects/PROJECT/locations/LOCATION/keyRings/RING/cryptoKeys/KEY.\nThreeport creates neither the key nor its key ring: the key is in the\nclusters' region, and the project's GKE service agent,\nservice-PROJECT_NUMBER@container-engine-robot.iam.gserviceaccount.com,\nhas roles/cloudkms.cryptoKeyEncrypterDecrypter on it.  Setting it on a\ndefinition with clusters encrypts their Secrets: GKE restarts each\ncontrol plane, so a zonal cluster's Kubernetes API is unavailable for a\nwhile, and the nodes stay.  It can be changed to another key, but not\ncleared once set.  If unset, Secrets are encrypted only with a key\nGoogle manages.",
+                    "type": "string"
+                },
+                "SecureBoot": {
+                    "description": "If true, the nodes boot only software signed by a key their firmware\ntrusts.  A node pool's Secure Boot can't change, so changing it on a\ndefinition with clusters replaces their node pools as a change of\nBootDiskKmsKey does, which can't be done while DeletionProtection is\nset.  If unset, Secure Boot is off.",
+                    "type": "boolean"
+                },
                 "TierID": {
                     "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
                     "type": "integer"
@@ -18511,6 +18535,18 @@
                 "AbandonInfrastructure": {
                     "description": "Set by an operator to allow this instance to be deleted even though its\ncreation was confirmed and no resource inventory is recorded, or the\nrecorded inventory cannot be restored. The controller refuses that delete\notherwise, because cloud resources may still exist. Setting this orphans\nany resources the controller cannot find: they keep running and are no\nlonger tracked by Threeport. Resources it has recorded and can restore are\nstill destroyed. It is rejected on create, and once set it stays set until\nchanged, so tptctl sets it back to false if the delete fails.",
                     "type": "boolean"
+                },
+                "BootDiskKmsKey": {
+                    "description": "The Cloud KMS key of the nodes' boot disks the controller last\napplied, \"\" for none.",
+                    "type": "string"
+                },
+                "BootDiskSizeGb": {
+                    "description": "The size in GB of the nodes' boot disks the controller last applied.",
+                    "type": "integer"
+                },
+                "BootDiskType": {
+                    "description": "The type of the nodes' boot disks the controller last applied.",
+                    "type": "string"
                 },
                 "CreationAcknowledged": {
                     "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
@@ -18548,6 +18584,10 @@
                     "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
                     "type": "boolean"
                 },
+                "IntranodeVisibility": {
+                    "description": "Whether the cluster has intranode visibility, as the controller last\napplied it.",
+                    "type": "boolean"
+                },
                 "KubernetesRuntimeInstanceID": {
                     "description": "The kubernetes runtime instance associated with the GKE cluster.",
                     "type": "integer"
@@ -18575,6 +18615,14 @@
                 "ResourceInventory": {
                     "description": "An inventory of all GCP resources for the GKE cluster.",
                     "type": "object"
+                },
+                "SecretsEncryptionKey": {
+                    "description": "The Cloud KMS key the cluster's Secrets are encrypted with, \"\" for\nnone, as the controller last applied the definition's\nSecretsEncryptionKey.  The definition holds what was asked for, and\nthese applied settings hold what the cluster runs, so the controller\napplies what differs.  Each is unset on a cluster none was applied to.",
+                    "type": "string"
+                },
+                "SecureBoot": {
+                    "description": "Whether the nodes boot with Secure Boot, as the controller last\napplied it.",
+                    "type": "boolean"
                 },
                 "Status": {
                     "description": "The status of the instance.\nTODO: use a custom type",

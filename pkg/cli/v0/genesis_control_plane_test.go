@@ -547,3 +547,19 @@ func TestRefreshKubeClientSuccessReplacesClient(t *testing.T) {
 	assert.Same(t, refreshed, u.dynamicKubeClient)
 	assert.Same(t, &refreshedMapper, u.mapper)
 }
+
+// TestTptctlUpSizesTheControlPlanesVolumes covers --message-broker-storage-size
+// and --database-storage-size reaching the installer, which uses the tier's
+// sizes when they are left out.
+func TestTptctlUpSizesTheControlPlanesVolumes(t *testing.T) {
+	args := &GenesisControlPlaneCLIArgs{MessageBrokerStorageSize: "100Gi", DatabaseStorageSize: "500Gi"}
+	cpi, err := args.CreateInstaller()
+	require.NoError(t, err)
+	assert.Equal(t, "100Gi", cpi.Opts.MessageBrokerStorageSize)
+	assert.Equal(t, "500Gi", cpi.Opts.DatabaseStorageSize)
+
+	cpi, err = (&GenesisControlPlaneCLIArgs{}).CreateInstaller()
+	require.NoError(t, err)
+	assert.Empty(t, cpi.Opts.MessageBrokerStorageSize)
+	assert.Empty(t, cpi.Opts.DatabaseStorageSize)
+}

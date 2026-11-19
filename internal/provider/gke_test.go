@@ -11,7 +11,6 @@ import (
 
 const (
 	gkeClusterTypeToken  = "gcp:container/cluster:Cluster"
-	gkeNodePoolTypeToken = "gcp:container/nodePool:NodePool"
 	gkeNetworkTypeToken  = "gcp:compute/network:Network"
 	gkeSubnetTypeToken   = "gcp:compute/subnetwork:Subnetwork"
 	gkeRouterTypeToken   = "gcp:compute/router:Router"
