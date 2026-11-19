@@ -83,6 +83,7 @@ func ThreeportCRDNames() []string {
 		"databasecomponents.application.addons.nukleros.io",
 		"ingresscomponents.platform.addons.nukleros.io",
 		"secretscomponents.platform.addons.nukleros.io",
+		"storagecomponents.platform.addons.nukleros.io",
 		"supportservices.setup.addons.nukleros.io",
 	}
 }
@@ -199,6 +200,47 @@ func InstallThreeportSupportServicesOperator(
 	}
 
 	return nil
+}
+
+// DeleteComputeSpaceInstall deletes the namespaces that hold the agent and the
+// support services operator, and waits until they are gone.
+func DeleteComputeSpaceInstall(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	agentNamespace string,
+	operatorNamespace string,
+	includeAgent bool,
+) error {
+	// drop the namespaces the next install creates again
+	return DeleteNamespaces(
+		kubeClient,
+		mapper,
+		computeSpaceInstallNamespaces(agentNamespace, operatorNamespace, includeAgent),
+	)
+}
+
+// computeSpaceInstallNamespaces returns the namespaces a reinstall removes.
+func computeSpaceInstallNamespaces(agentNamespace, operatorNamespace string, includeAgent bool) []string {
+	// the operator used to live in its own namespace, so remove that too
+	names := []string{supportServicesOperatorNamespace}
+	if includeAgent && agentNamespace != "" {
+		names = append(names, agentNamespace)
+	}
+	if operatorNamespace != "" {
+		names = append(names, operatorNamespace)
+	}
+
+	// drop a repeated name so one namespace is deleted once
+	seen := map[string]bool{}
+	unique := make([]string, 0, len(names))
+	for _, name := range names {
+		if seen[name] {
+			continue
+		}
+		seen[name] = true
+		unique = append(unique, name)
+	}
+	return unique
 }
 
 // supportServicesObject returns the SupportServices custom resource for a cloud.

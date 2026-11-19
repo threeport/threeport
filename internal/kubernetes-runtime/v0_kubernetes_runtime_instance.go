@@ -283,19 +283,42 @@ func v0KubernetesRuntimeInstanceUpdated(
 		return 0, err
 	}
 
-	// This function runs on every update notification for this object, and the
-	// installs below are create-or-update: re-running one is not destructive,
-	// but it is a burst of writes against a live cluster's API server, and the
-	// CRD settle below costs a reconciler worker ten seconds. So each step is
-	// skipped when the cluster already has what it would install. The checks
-	// are per step rather than one early return on Reconciled, which keeps this
-	// function usable as a repair path: a cluster missing only the support
-	// services operator still gets the operator.
+	// skip a step the cluster already has.
+	// replace a managed cluster that does not, and leave the host cluster in place.
+
+	// read the namespace the operator is installed into
+	namespace, err := controlPlaneNamespace()
+	if err != nil {
+		return controller.RetryOnNetworkErr(err, "failed to read control plane namespace")
+	}
+	operatorInstalled, err := threeport.SupportServicesOperatorInstalled(dynamicKubeClient, mapper, namespace)
+	if err != nil {
+		return controller.RetryOnNetworkErr(err, "failed to check support services operator")
+	}
 
 	// threeport control plane components
 	computeSpaceCurrent, err := cpi.ComputeSpaceControlPlaneComponentsCurrent(dynamicKubeClient, mapper)
 	if err != nil {
 		return controller.RetryOnNetworkErr(err, "failed to check compute space control plane components")
+	}
+
+	// delete the agent and operator, then install them again
+	if !isControlPlaneHost && (!computeSpaceCurrent || !operatorInstalled) {
+		log.Info(
+			"replacing compute space agent and support services operator",
+			"kubernetesRuntimeInstance", *kubernetesRuntimeInstance.Name,
+		)
+		if err := threeport.DeleteComputeSpaceInstall(
+			dynamicKubeClient,
+			mapper,
+			cpi.Opts.Namespace,
+			namespace,
+			!cpi.Opts.SkipAgent,
+		); err != nil {
+			return controller.RetryOnNetworkErr(err, "failed to delete compute space agent and support services operator")
+		}
+		computeSpaceCurrent = false
+		operatorInstalled = false
 	}
 	if computeSpaceCurrent {
 		log.V(1).Info("compute space control plane components already current, skipping install")
@@ -326,14 +349,6 @@ func v0KubernetesRuntimeInstanceUpdated(
 	}
 
 	// support services operator
-	namespace, err := controlPlaneNamespace()
-	if err != nil {
-		return controller.RetryOnNetworkErr(err, "failed to read control plane namespace")
-	}
-	operatorInstalled, err := threeport.SupportServicesOperatorInstalled(dynamicKubeClient, mapper, namespace)
-	if err != nil {
-		return controller.RetryOnNetworkErr(err, "failed to check support services operator")
-	}
 	if operatorInstalled {
 		log.V(1).Info("support services operator already installed, skipping install")
 	} else if err := threeport.InstallThreeportSupportServicesOperator(

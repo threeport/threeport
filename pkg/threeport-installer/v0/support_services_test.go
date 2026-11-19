@@ -138,3 +138,20 @@ func TestSupportServicesOperatorModuleMatchesImage(t *testing.T) {
 	tag := SupportServicesOperatorImage[strings.LastIndex(SupportServicesOperatorImage, ":")+1:]
 	require.Equal(t, tag, version)
 }
+
+// TestComputeSpaceInstallNamespaces covers the namespaces a reinstall removes.
+func TestComputeSpaceInstallNamespaces(t *testing.T) {
+	// the agent, the operator, and the operator's original namespace
+	names := computeSpaceInstallNamespaces(ControlPlaneNamespace, "child-control-plane", true)
+	require.ElementsMatch(t, []string{
+		supportServicesOperatorNamespace,
+		ControlPlaneNamespace,
+		"child-control-plane",
+	}, names)
+
+	// a shared namespace is listed once, and a skipped agent is left out
+	names = computeSpaceInstallNamespaces(ControlPlaneNamespace, ControlPlaneNamespace, true)
+	require.ElementsMatch(t, []string{supportServicesOperatorNamespace, ControlPlaneNamespace}, names)
+	names = computeSpaceInstallNamespaces(ControlPlaneNamespace, ControlPlaneNamespace, false)
+	require.ElementsMatch(t, []string{supportServicesOperatorNamespace, ControlPlaneNamespace}, names)
+}
