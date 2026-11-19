@@ -35,6 +35,12 @@ type GcpGkeKubernetesRuntimeValues struct {
 	MaintenanceWindowDays        *string
 	MaintenanceWindowStart       *string
 	MaintenanceWindowHours       *int
+	SecretsEncryptionKey         *string
+	BootDiskType                 *string
+	BootDiskSizeGb               *int
+	BootDiskKmsKey               *string
+	SecureBoot                   *bool
+	IntranodeVisibility          *bool
 	Region                       *string
 	Reconciled                   *bool
 	Age                          *string
@@ -169,6 +175,12 @@ func (g *GcpGkeKubernetesRuntimeConfig) GetOperations(
 			MaintenanceWindowDays:        g.GcpGkeKubernetesRuntime.MaintenanceWindowDays,
 			MaintenanceWindowStart:       g.GcpGkeKubernetesRuntime.MaintenanceWindowStart,
 			MaintenanceWindowHours:       g.GcpGkeKubernetesRuntime.MaintenanceWindowHours,
+			SecretsEncryptionKey:         g.GcpGkeKubernetesRuntime.SecretsEncryptionKey,
+			BootDiskType:                 g.GcpGkeKubernetesRuntime.BootDiskType,
+			BootDiskSizeGb:               g.GcpGkeKubernetesRuntime.BootDiskSizeGb,
+			BootDiskKmsKey:               g.GcpGkeKubernetesRuntime.BootDiskKmsKey,
+			SecureBoot:                   g.GcpGkeKubernetesRuntime.SecureBoot,
+			IntranodeVisibility:          g.GcpGkeKubernetesRuntime.IntranodeVisibility,
 		},
 	}
 	operations.AppendOperation(util.Operation{
@@ -285,6 +297,12 @@ func mapToGcpGkeKubernetesRuntimeDefinedInstances(
 						MaintenanceWindowDays:        def.GcpGkeKubernetesRuntimeDefinition.MaintenanceWindowDays,
 						MaintenanceWindowStart:       def.GcpGkeKubernetesRuntimeDefinition.MaintenanceWindowStart,
 						MaintenanceWindowHours:       def.GcpGkeKubernetesRuntimeDefinition.MaintenanceWindowHours,
+						SecretsEncryptionKey:         def.GcpGkeKubernetesRuntimeDefinition.SecretsEncryptionKey,
+						BootDiskType:                 def.GcpGkeKubernetesRuntimeDefinition.BootDiskType,
+						BootDiskSizeGb:               def.GcpGkeKubernetesRuntimeDefinition.BootDiskSizeGb,
+						BootDiskKmsKey:               def.GcpGkeKubernetesRuntimeDefinition.BootDiskKmsKey,
+						SecureBoot:                   def.GcpGkeKubernetesRuntimeDefinition.SecureBoot,
+						IntranodeVisibility:          def.GcpGkeKubernetesRuntimeDefinition.IntranodeVisibility,
 						Region:                       inst.GcpGkeKubernetesRuntimeInstance.Region,
 						Reconciled:                   inst.GcpGkeKubernetesRuntimeInstance.Reconciled,
 						Age:                          inst.GcpGkeKubernetesRuntimeInstance.Age,

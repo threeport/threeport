@@ -2,7 +2,9 @@ package provider
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -218,6 +220,29 @@ type KubernetesRuntimeInfraGKE struct {
 	// created with one and left off for clusters created before, whose NAT
 	// keeps the addresses Google allocates.
 	ReserveNatAddress bool
+
+	// SecretsEncryptionKey is the Cloud KMS key the cluster encrypts its
+	// Secrets with.  Unset or "" leaves the cluster's secrets encryption as
+	// it is: a new cluster's Secrets are encrypted with a key Google manages.
+	SecretsEncryptionKey *string
+
+	// BootDiskType and BootDiskSizeGb are the nodes' boot disk.  Unset, a new
+	// node pool gets gkeNewNodeDisk's, and one the stack holds keeps its own.
+	BootDiskType   *string
+	BootDiskSizeGb *int
+
+	// BootDiskKmsKey is the Cloud KMS key the nodes' boot disks are
+	// encrypted with, unset or "" for a key Google manages.
+	BootDiskKmsKey *string
+
+	// SecureBoot has the nodes boot with Secure Boot.  Unset leaves the node
+	// pool as it is: a new one's nodes boot without it.
+	SecureBoot *bool
+
+	// IntranodeVisibility has traffic between pods on a node go through the
+	// cluster's network.  Unset leaves the cluster as it is: a new one has
+	// it off.
+	IntranodeVisibility *bool
 }
 
 const (
@@ -228,6 +253,9 @@ const (
 	// account a cluster's nodes run as.  Google provides it for that account:
 	// it lets the nodes write logs and metrics.
 	gkeNodeServiceAccountRole = "roles/container.defaultNodeServiceAccount"
+
+	// gkeNodePoolTypeToken is the Pulumi type of a GKE node pool.
+	gkeNodePoolTypeToken = "gcp:container/nodePool:NodePool"
 )
 
 // InitPulumiProject fills in the Pulumi project identity and stack config, and
@@ -496,8 +524,8 @@ func (i *KubernetesRuntimeInfraGKE) keepStackShape(deployment json.RawMessage) {
 	if location, held := clusterInputInStack(deployment, "gcp:container/cluster:Cluster", "location"); held && location != "" {
 		i.stackLocation = &location
 	}
-	i.stackNodePool = stackHoldsResource(deployment, "gcp:container/nodePool:NodePool")
-	i.stackPerZoneNodeLimits = stackInputSet(deployment, "gcp:container/nodePool:NodePool", "autoscaling.maxNodeCount")
+	i.stackNodePool = stackHoldsResource(deployment, gkeNodePoolTypeToken)
+	i.stackPerZoneNodeLimits = stackInputSet(deployment, gkeNodePoolTypeToken, "autoscaling.maxNodeCount")
 }
 
 // stackHoldsResource reports whether a stack's deployment holds a resource of
@@ -868,6 +896,9 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 				WorkloadPool: pulumi.String(fmt.Sprintf("%s.svc.id.goog", i.ProjectID)),
 			},
 
+			DatabaseEncryption:        i.databaseEncryption(),
+			EnableIntranodeVisibility: pulumi.BoolPtrFromPtr(i.IntranodeVisibility),
+
 			// pulumi-gcp's own check, which duplicates Protect; GKE has no
 			// deletion protection of its own
 			DeletionProtection: pulumi.Bool(false),
@@ -895,6 +926,16 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 			WorkloadMetadataConfig: &gkecontainer.NodePoolNodeConfigWorkloadMetadataConfigArgs{
 				Mode: pulumi.String("GKE_METADATA"),
 			},
+		}
+		if key := util.DerefString(i.BootDiskKmsKey); key != "" {
+			nodeConfig.BootDiskKmsKey = pulumi.String(key)
+		}
+		if i.SecureBoot != nil {
+			// integrity monitoring is on, as GKE has it when nothing is set
+			nodeConfig.ShieldedInstanceConfig = &gkecontainer.NodePoolNodeConfigShieldedInstanceConfigArgs{
+				EnableSecureBoot:          pulumi.Bool(*i.SecureBoot),
+				EnableIntegrityMonitoring: pulumi.Bool(true),
+			}
 		}
 		nodePoolDependencies := []pulumi.Resource{cluster}
 		if !i.nodesKeepDefaultServiceAccount {
@@ -1013,14 +1054,68 @@ func (i *KubernetesRuntimeInfraGKE) keepStackNodePool(deployment json.RawMessage
 }
 
 // nodeDisk returns the boot disk the program gives the node pool's nodes:
-// the one they have, when the stack already holds the node pool, and
-// gkeNewNodeDisk otherwise.
+// the type and size BootDiskType and BootDiskSizeGb ask for, and otherwise
+// the ones they have, when the stack already holds the node pool, or
+// gkeNewNodeDisk's.  A disk asked for that differs from the one the nodes
+// have moves them onto it.
 func (i *KubernetesRuntimeInfraGKE) nodeDisk() gkeNodeDisk {
+	disk := gkeNewNodeDisk
 	if i.stackNodeDisk != nil {
-		return *i.stackNodeDisk
+		disk = *i.stackNodeDisk
+	}
+	if i.BootDiskType != nil {
+		disk.Type = *i.BootDiskType
+	}
+	if i.BootDiskSizeGb != nil {
+		disk.SizeGb = *i.BootDiskSizeGb
 	}
 
-	return gkeNewNodeDisk
+	return disk
+}
+
+// databaseEncryption returns how the cluster encrypts its Secrets: with
+// SecretsEncryptionKey, or as it does, when none is given.
+func (i *KubernetesRuntimeInfraGKE) databaseEncryption() gkecontainer.ClusterDatabaseEncryptionPtrInput {
+	key := util.DerefString(i.SecretsEncryptionKey)
+	if key == "" {
+		return nil
+	}
+
+	return &gkecontainer.ClusterDatabaseEncryptionArgs{
+		State:   pulumi.String("ENCRYPTED"),
+		KeyName: pulumi.String(key),
+	}
+}
+
+// GkeAppliedSettings are the secrets encryption, boot disk, Secure Boot and
+// intranode visibility a cluster runs once the program has been applied.
+type GkeAppliedSettings struct {
+	SecretsEncryptionKey string
+	BootDiskType         string
+	BootDiskSizeGb       int
+	BootDiskKmsKey       string
+	SecureBoot           bool
+	IntranodeVisibility  bool
+}
+
+// AppliedSettings returns the secrets encryption, boot disk, Secure Boot
+// and intranode visibility the cluster runs once the program has been
+// applied, for the instance to record.  Each that is unset is the one the
+// cluster has, which for one the program doesn't set is GKE's default:
+// Google-managed keys, Secure Boot and intranode visibility off.  A cluster
+// whose secrets encryption or intranode visibility was turned on outside
+// Threeport keeps it, and is recorded without it.
+func (i *KubernetesRuntimeInfraGKE) AppliedSettings() GkeAppliedSettings {
+	disk := i.nodeDisk()
+
+	return GkeAppliedSettings{
+		SecretsEncryptionKey: util.DerefString(i.SecretsEncryptionKey),
+		BootDiskType:         disk.Type,
+		BootDiskSizeGb:       disk.SizeGb,
+		BootDiskKmsKey:       util.DerefString(i.BootDiskKmsKey),
+		SecureBoot:           util.Deref(i.SecureBoot),
+		IntranodeVisibility:  util.Deref(i.IntranodeVisibility),
+	}
 }
 
 // nodePoolDiskInStack returns the boot disk of the node pool an exported
@@ -1048,7 +1143,7 @@ func nodePoolDiskInStack(deployment json.RawMessage) (gkeNodeDisk, bool) {
 	}
 
 	for _, resource := range contents.Resources {
-		if resource.Type != "gcp:container/nodePool:NodePool" {
+		if resource.Type != gkeNodePoolTypeToken {
 			continue
 		}
 		disk := gkeEarlierNodeDisk
@@ -1088,7 +1183,7 @@ func nodePoolRunsAsDefaultServiceAccount(deployment json.RawMessage) bool {
 	}
 
 	for _, resource := range contents.Resources {
-		if resource.Type == "gcp:container/nodePool:NodePool" && resource.Inputs.NodeConfig.ServiceAccount == "" {
+		if resource.Type == gkeNodePoolTypeToken && resource.Inputs.NodeConfig.ServiceAccount == "" {
 			return true
 		}
 	}
@@ -1501,10 +1596,34 @@ func gkeClusterReady(cluster *containerpb.Cluster) error {
 }
 
 // workerNodePoolName is the name of the node pool the stack creates for
-// workloads. The create check looks for it by this name, so it is named once.
+// workloads. The create check looks for it by this name.  A node pool can't
+// change its boot disk key or Secure Boot, so one with either gets a name of
+// its own, from a hash of the two: asking for others names another node
+// pool, which the program creates before it removes the one there, rather
+// than replacing it under the same name, which GKE would refuse while it is
+// there.  One with neither has the name every node pool had before them.
 func (i *KubernetesRuntimeInfraGKE) workerNodePoolName() string {
-	return fmt.Sprintf("%s-nodepool", i.RuntimeInstanceName)
+	name := fmt.Sprintf("%s-nodepool", i.RuntimeInstanceName)
+	key, secureBoot := util.DerefString(i.BootDiskKmsKey), util.Deref(i.SecureBoot)
+	if key == "" && !secureBoot {
+		return name
+	}
+	sum := sha256.Sum256([]byte(fmt.Sprintf("%s\x00%t", key, secureBoot)))
+	suffix := "-" + hex.EncodeToString(sum[:])[:gkeNodePoolSuffixLength]
+	if len(name)+len(suffix) > gkeMaxNodePoolNameLength {
+		name = name[:gkeMaxNodePoolNameLength-len(suffix)]
+	}
+
+	return name + suffix
 }
+
+// gkeNodePoolSuffixLength is the length of the hash a node pool with a boot
+// disk key or Secure Boot is named with, and gkeMaxNodePoolNameLength the
+// longest name GKE gives a node pool.
+const (
+	gkeNodePoolSuffixLength  = 6
+	gkeMaxNodePoolNameLength = 40
+)
 
 // gkeWorkerPoolReady returns an error unless the named worker node pool exists
 // and is RUNNING. Any other pool does not count: the cluster is created with a
