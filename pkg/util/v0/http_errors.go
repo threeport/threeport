@@ -52,6 +52,14 @@ func NewNotFoundError(message string) *HttpError {
 	}
 }
 
+// NewPayloadTooLargeError creates a new HttpError with status 413 Request Entity Too Large
+func NewPayloadTooLargeError(message string) *HttpError {
+	return &HttpError{
+		Message:    message,
+		StatusCode: http.StatusRequestEntityTooLarge,
+	}
+}
+
 // NewConflictError creates a new HttpError with status 409 Conflict
 func NewConflictError(message string) *HttpError {
 	return &HttpError{
