@@ -217,11 +217,11 @@ func InstallThroughController(
 }
 
 // moduleInstallDelegates reports that a root named another control plane.
-// A command pointed at a child is rejected.
+// A command already connected to a child installs there.
 func moduleInstallDelegates(self *api.ControlPlaneInstance, controlPlaneName string) (bool, error) {
-	// reject a child connection before choosing an install
+	// the parent controller install was never built, so a child connection installs locally
 	if err := api.ChildControlPlaneRequest(self); err != nil {
-		return false, err
+		return false, nil
 	}
 
 	// a root with no other name installs on itself
