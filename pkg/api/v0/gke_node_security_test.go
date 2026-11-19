@@ -184,6 +184,58 @@ func TestAProtectedGkeDefinitionsNodePoolsArentReplaced(t *testing.T) {
 	require.NoError(t, patch(func(g *GcpGkeKubernetesRuntimeDefinition) { g.SecureBoot = util.Ptr(false) }), "or before it")
 }
 
+// TestAGkeDefinitionCantLeaveOutTheKeyItsClustersRunOnADiskWithout covers
+// a definition updated without BootDiskKmsKey to a boot disk type GKE doesn't
+// encrypt with a key of yours while a cluster runs one: the cluster keeps the
+// key for a setting left out, so it is refused, by a replace or a patch.
+// Removing the key in the same update goes through, as does the disk once no
+// cluster runs a key.
+func TestAGkeDefinitionCantLeaveOutTheKeyItsClustersRunOnADiskWithout(t *testing.T) {
+	db := setupKubernetesApiAccessDB(t)
+	require.NoError(t, db.AutoMigrate(&GcpGkeKubernetesRuntimeInstance{}))
+	session := func() *gorm.DB { return db.Session(&gorm.Session{}) }
+
+	definition := newGkeDefinition("keyed", func(g *GcpGkeKubernetesRuntimeDefinition) { g.BootDiskType = util.Ptr("pd-ssd") })
+	require.NoError(t, db.Create(definition).Error)
+	instance := &GcpGkeKubernetesRuntimeInstance{
+		Instance:                            Instance{Name: util.Ptr("keyed")},
+		GcpProviderID:                       util.Ptr(uint(1)),
+		GcpGkeKubernetesRuntimeDefinitionID: definition.ID,
+		KubernetesRuntimeInstanceID:         util.Ptr(uint(1)),
+		BootDiskKmsKey:                      util.Ptr(testGkeBootDiskKey),
+	}
+	require.NoError(t, db.Create(instance).Error)
+	load := func() *GcpGkeKubernetesRuntimeDefinition {
+		var loaded GcpGkeKubernetesRuntimeDefinition
+		require.NoError(t, db.First(&loaded, *definition.ID).Error)
+		return &loaded
+	}
+	replace := func(set func(*GcpGkeKubernetesRuntimeDefinition)) error {
+		replaced := load()
+		set(replaced)
+		return session().Save(replaced).Error
+	}
+	patch := func(set func(*GcpGkeKubernetesRuntimeDefinition)) error {
+		update := &GcpGkeKubernetesRuntimeDefinition{}
+		set(update)
+		return session().Model(load()).Updates(update).Error
+	}
+	const want = "BootDiskType pd-balanced can't be used while the definition's clusters run a BootDiskKmsKey"
+
+	assert.ErrorContains(t, replace(func(g *GcpGkeKubernetesRuntimeDefinition) { g.BootDiskType = util.Ptr("pd-balanced") }), want, "a replace")
+	assert.ErrorContains(t, patch(func(g *GcpGkeKubernetesRuntimeDefinition) { g.BootDiskType = util.Ptr("pd-balanced") }), want, "a patch")
+	require.NoError(t, patch(func(g *GcpGkeKubernetesRuntimeDefinition) { g.BootDiskType = util.Ptr("pd-standard") }), "a disk it is encrypted on")
+	require.NoError(t, replace(func(g *GcpGkeKubernetesRuntimeDefinition) {
+		g.BootDiskType, g.BootDiskKmsKey = util.Ptr("pd-balanced"), util.Ptr("")
+	}), "the key removed with it")
+
+	require.NoError(t, patch(func(g *GcpGkeKubernetesRuntimeDefinition) { g.BootDiskType = util.Ptr("pd-ssd") }))
+	require.NoError(t, replace(func(g *GcpGkeKubernetesRuntimeDefinition) { g.BootDiskKmsKey = nil }))
+	require.NoError(t, db.Model(instance).Update("boot_disk_kms_key", "").Error)
+	require.NoError(t, replace(func(g *GcpGkeKubernetesRuntimeDefinition) { g.BootDiskType = util.Ptr("pd-balanced") }),
+		"no cluster runs a key")
+}
+
 // TestGkePendingSettingsAreThoseAClusterDoesntRun covers the settings a
 // GKE definition asks for that its instance's cluster doesn't run: each set
 // on the definition and recorded otherwise on the instance, and each set to

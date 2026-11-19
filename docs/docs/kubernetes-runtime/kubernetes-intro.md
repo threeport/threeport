@@ -157,7 +157,8 @@ version they run, without creating new clusters. A field left out of an
 update keeps what the clusters run, so a later version upgrade doesn't turn
 off a boot disk key or Secure Boot; set `SecureBoot` or
 `IntranodeVisibility` to `false`, or `BootDiskKmsKey` to `""`, to turn one
-off:
+off. For the same reason, an update that leaves out `BootDiskKmsKey` can't
+move to a `pd-balanced` disk while a cluster runs a boot disk key:
 
 | Change | What happens to each cluster |
 |---|---|

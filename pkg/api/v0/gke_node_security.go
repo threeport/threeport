@@ -184,6 +184,9 @@ func validateGkeNodeSecurityUpdate(tx *gorm.DB) error {
 	if err := validateGkeNodeSecurity(updated); err != nil {
 		return err
 	}
+	if err := validateRetainedBootDiskKmsKey(tx, updated, stored.id); err != nil {
+		return err
+	}
 
 	replacesNodePools := util.DerefString(stored.bootDiskKmsKey) != util.DerefString(updated.bootDiskKmsKey) ||
 		util.Deref(stored.secureBoot) != util.Deref(updated.secureBoot)
@@ -201,6 +204,33 @@ func validateGkeNodeSecurityUpdate(tx *gorm.DB) error {
 				"which DeletionProtection protects: set DeletionProtection to false, in this update or before it, " +
 				"to replace them",
 		)
+	}
+
+	return nil
+}
+
+// validateRetainedBootDiskKmsKey refuses a definition that leaves
+// BootDiskKmsKey out and asks for a boot disk type GKE doesn't encrypt with
+// a key of yours while any of its clusters runs one: the cluster keeps the
+// key it runs for a setting left out, so it would be asked for a disk it
+// can't have.
+func validateRetainedBootDiskKmsKey(tx *gorm.DB, updated gkeNodeSecurity, id *uint) error {
+	if updated.bootDiskKmsKey != nil || updated.bootDiskType == nil || id == nil ||
+		slices.Contains(GkeKmsKeyBootDiskTypes, *updated.bootDiskType) {
+		return nil
+	}
+	var keyed int64
+	if result := lib.NewCleanSession(tx).Model(&GcpGkeKubernetesRuntimeInstance{}).
+		Where("gcp_gke_kubernetes_runtime_definition_id = ? AND boot_disk_kms_key <> ''", *id).
+		Count(&keyed); result.Error != nil {
+		return fmt.Errorf("failed to count the definition's runtime instances with a boot disk key: %w", result.Error)
+	}
+	if keyed > 0 {
+		return util.NewBadRequestError(fmt.Sprintf(
+			"BootDiskType %s can't be used while the definition's clusters run a BootDiskKmsKey, which they keep while it is left out: "+
+				"GKE doesn't encrypt a %s boot disk with a key of yours. Set BootDiskKmsKey to \"\" to remove the key, or use one of %v",
+			*updated.bootDiskType, *updated.bootDiskType, GkeKmsKeyBootDiskTypes,
+		))
 	}
 
 	return nil
