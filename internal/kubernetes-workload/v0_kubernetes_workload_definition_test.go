@@ -28,6 +28,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	tp_errors "github.com/threeport/threeport/pkg/errors/v0"
+	event "github.com/threeport/threeport/pkg/event/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -113,6 +114,16 @@ func (f *fakeThreeportAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		wrd.ID = f.id()
 		f.wrds[*wrd.ID] = &wrd
 		respond(http.StatusCreated, wrd)
+	case r.URL.Path == v0.PathKubernetesWorkloadResourceDefinitionSets && r.Method == http.MethodPost:
+		var wrds []v0.KubernetesWorkloadResourceDefinition
+		_ = json.NewDecoder(r.Body).Decode(&wrds)
+		var created []apiserver_lib.Object
+		for _, wrd := range wrds {
+			wrd.ID = f.id()
+			f.wrds[*wrd.ID] = &wrd
+			created = append(created, wrd)
+		}
+		respond(http.StatusCreated, created...)
 	case strings.HasPrefix(r.URL.Path, v0.PathKubernetesWorkloadResourceDefinitions+"/"):
 		id := pathID(v0.PathKubernetesWorkloadResourceDefinitions)
 		wrd, found := f.wrds[id]
@@ -867,4 +878,119 @@ func TestDefinitionUpdateReachesOnlyForTheRuntimeWhenItMust(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "connection refused")
 	})
+}
+
+// createDefinition runs the definition create reconciler on a definition with
+// the YAML document given.
+func createDefinition(t *testing.T, api *fakeThreeportAPI, yaml *string) error {
+	t.Helper()
+	srv := httptest.NewServer(api)
+	t.Cleanup(srv.Close)
+	reconciler := &controller.Reconciler{APIClient: &http.Client{}, APIServer: strings.TrimPrefix(srv.URL, "http://")}
+	log := logr.Discard()
+	requeue, err := v0KubernetesWorkloadDefinitionCreated(reconciler, &v0.KubernetesWorkloadDefinition{
+		Common:       v0.Common{ID: util.Ptr(uint(1))},
+		Definition:   v0.Definition{Name: util.Ptr("web")},
+		YAMLDocument: yaml,
+	}, &log)
+	if err == nil && requeue != 0 {
+		return fmt.Errorf("create requeued for %d seconds", requeue)
+	}
+	return err
+}
+
+// storedResourceKeys returns the instanceResourceKey of each resource
+// definition the API holds, in the order they were written.
+func storedResourceKeys(t *testing.T, api *fakeThreeportAPI) []string {
+	t.Helper()
+	var keys []string
+	for _, id := range sortedIDs(api.wrds) {
+		key, isResource, err := instanceResourceKey(*api.wrds[id].JSONDefinition)
+		require.NoError(t, err)
+		require.True(t, isResource)
+		keys = append(keys, key)
+	}
+	return keys
+}
+
+// TestDefinitionCreateWritesEachResourceOnce covers a new definition: one
+// resource definition is written for each resource its YAML document
+// declares, in one write, and an empty document between them is no resource.
+func TestDefinitionCreateWritesEachResourceOnce(t *testing.T) {
+	api := newFakeThreeportAPI()
+
+	require.NoError(t, createDefinition(t, api, yamlDocument("", fmt.Sprintf(webDeployment, 1, "nginx:1.26"), webService)))
+	assert.Equal(t, []string{"apps/Deployment/web", "/Service/web"}, storedResourceKeys(t, api))
+	assert.Equal(t, []string{"POST " + v0.PathKubernetesWorkloadResourceDefinitionSets}, api.writes)
+}
+
+// TestDefinitionCreatesAnUpdateWouldRefuseAreRefused covers a new definition
+// whose YAML document an update would refuse: it is refused the same way,
+// with a warning on the definition, and nothing is written.
+func TestDefinitionCreatesAnUpdateWouldRefuseAreRefused(t *testing.T) {
+	for _, testCase := range []struct {
+		name    string
+		yaml    *string
+		message string
+	}{
+		{
+			name:    "declaring no resources at all",
+			yaml:    yamlDocument(""),
+			message: "declares no resources",
+		},
+		{
+			name:    "declaring a resource twice",
+			yaml:    yamlDocument(webService, fmt.Sprintf(webDeployment, 1, "nginx:1.26"), webService),
+			message: "declares /Service/web more than once",
+		},
+		{
+			name:    "declaring a resource without a name",
+			yaml:    yamlDocument(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"generateName":"web-"}}`),
+			message: "no kind or no name",
+		},
+		{
+			name:    "a document that isn't YAML",
+			yaml:    yamlDocument("kind: [Service"),
+			message: "failed to get JSON kube objects from YAML document",
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			api := newFakeThreeportAPI()
+
+			err := createDefinition(t, api, testCase.yaml)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), testCase.message)
+			var withEvent *tp_errors.ErrWithEvent
+			require.True(t, errors.As(err, &withEvent), "recorded as an event on the definition")
+			assert.Equal(t, "DefinitionCreateError", *withEvent.Event.Reason)
+			assert.Equal(t, event.TypeWarning, *withEvent.Event.Type)
+			assert.Empty(t, api.writes)
+		})
+	}
+}
+
+// TestDefinitionCreateRetriedWritesOnlyWhatIsMissing covers a create retried
+// after part of it succeeded, as when its resource definitions were written
+// but the definition couldn't be marked reconciled: the retry writes only
+// those still missing, never a second copy of one.
+func TestDefinitionCreateRetriedWritesOnlyWhatIsMissing(t *testing.T) {
+	yaml := yamlDocument(fmt.Sprintf(webDeployment, 1, "nginx:1.26"), webService)
+	api := newFakeThreeportAPI()
+
+	require.NoError(t, createDefinition(t, api, yaml))
+	api.writes = nil
+	require.NoError(t, createDefinition(t, api, yaml))
+	assert.Empty(t, api.writes, "all of them were written")
+	assert.Equal(t, []string{"apps/Deployment/web", "/Service/web"}, storedResourceKeys(t, api))
+
+	for _, id := range sortedIDs(api.wrds) {
+		key, _, err := instanceResourceKey(*api.wrds[id].JSONDefinition)
+		require.NoError(t, err)
+		if key == "/Service/web" {
+			delete(api.wrds, id)
+		}
+	}
+	require.NoError(t, createDefinition(t, api, yaml))
+	assert.Equal(t, []string{"POST " + v0.PathKubernetesWorkloadResourceDefinitionSets}, api.writes)
+	assert.ElementsMatch(t, []string{"apps/Deployment/web", "/Service/web"}, storedResourceKeys(t, api))
 }

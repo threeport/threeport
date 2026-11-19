@@ -16,7 +16,6 @@ import (
 	event "github.com/threeport/threeport/pkg/event/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
-	"gorm.io/datatypes"
 	kubeerr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,6 +24,17 @@ import (
 
 // v0KubernetesWorkloadDefinitionCreated performs reconciliation when a v0 kubernetes workload definition
 // has been created.
+//
+// It writes the resource definitions instances are built from, one for each
+// resource the YAML document declares. A document the update path would
+// refuse - one declaring the same resource twice, a resource without a kind
+// or name, or no resources at all - is refused here too, with a warning on the
+// definition, so the API never holds a resource definition that doesn't stand
+// for an object of its own in the cluster.
+//
+// Resource definitions are matched against those already stored, as an
+// update matches them, so a retry after part of this succeeded writes only
+// those still missing rather than a second copy of each.
 func v0KubernetesWorkloadDefinitionCreated(
 	r *controller.Reconciler,
 	k8sWorkloadDefinition *v0.KubernetesWorkloadDefinition,
@@ -33,31 +43,34 @@ func v0KubernetesWorkloadDefinitionCreated(
 	// parse YAMLDocument and get kube objects in JSON
 	jsonObjects, err := kube.GetJsonResourcesFromYamlDoc(*k8sWorkloadDefinition.YAMLDocument)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get JSON kube objects from YAML document: %w", err)
+		return 0, definitionCreateError(fmt.Sprintf("failed to get JSON kube objects from YAML document: %s", err))
 	}
 
-	// create kubernetes workload resource definition objects
-	var k8sWorkloadResourceDefinitions []v0.KubernetesWorkloadResourceDefinition
-	for _, jsonContent := range jsonObjects {
-		// unmarshal the json into the type used by API
-		var jsonDefinition datatypes.JSON
-		if err := jsonDefinition.UnmarshalJSON(jsonContent); err != nil {
-			return 0, fmt.Errorf("failed to unmarshal json to datatypes.JSON: %w", err)
-		}
-
-		// build the kubernetes workload resource definition and marshal to json
-		k8sWorkloadResourceDefinition := v0.KubernetesWorkloadResourceDefinition{
-			JSONDefinition:                 &jsonDefinition,
-			KubernetesWorkloadDefinitionID: k8sWorkloadDefinition.ID,
-		}
-		k8sWorkloadResourceDefinitions = append(k8sWorkloadResourceDefinitions, k8sWorkloadResourceDefinition)
+	// compare with the resource definitions a previous attempt stored
+	existingWRDs, err := client.GetKubernetesWorkloadResourceDefinitionsByID(
+		r.APIClient,
+		r.APIServer,
+		*k8sWorkloadDefinition.ID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get kubernetes workload resource definitions by kubernetes workload definition ID: %w", err)
+	}
+	plan, err := planResourceDefinitions(*k8sWorkloadDefinition.ID, *existingWRDs, jsonObjects)
+	if err != nil {
+		return 0, definitionCreateError(err.Error())
+	}
+	if len(plan.desired) == 0 {
+		return 0, definitionCreateError("YAML document declares no resources")
+	}
+	if len(plan.create) == 0 {
+		return 0, nil
 	}
 
 	// create kubernetes workload resource definitions in API
 	createdWRDs, err := client.CreateKubernetesWorkloadResourceDefinitions(
 		r.APIClient,
 		r.APIServer,
-		&k8sWorkloadResourceDefinitions,
+		&plan.create,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create kubernetes workload resource definitions in API: %w", err)
@@ -532,11 +545,24 @@ func namespaceDescription(namespace string) string {
 // definitionUpdateError is a definition update that cannot go ahead as written,
 // recorded as a warning on the definition so the user who wrote it sees why.
 func definitionUpdateError(message string) error {
+	return definitionError("DefinitionUpdateError", message)
+}
+
+// definitionCreateError is a new definition whose resources cannot be
+// written as it declares them, recorded as a warning on the definition so the
+// user who wrote it sees why.
+func definitionCreateError(message string) error {
+	return definitionError("DefinitionCreateError", message)
+}
+
+// definitionError is a warning recorded on the definition for the reason
+// given.
+func definitionError(reason, message string) error {
 	return &tp_errors.ErrWithEvent{
 		Message: message,
 		Event: v0.Event{
 			Type:   util.Ptr(event.TypeWarning),
-			Reason: util.Ptr("DefinitionUpdateError"),
+			Reason: util.Ptr(reason),
 			Note:   util.Ptr(message),
 		},
 	}
