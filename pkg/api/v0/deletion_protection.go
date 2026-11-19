@@ -3,6 +3,7 @@ package v0
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"gorm.io/gorm"
 
@@ -126,6 +127,31 @@ func refuseProtectedDelete(definition any, query func(dest any) *gorm.DB) error 
 	}
 
 	return nil
+}
+
+// RefuseDelete refuses to delete a control plane while a kubernetes runtime
+// instance other than the one it runs on is still stored.
+func (c *ControlPlaneInstance) RefuseDelete(db *gorm.DB) error {
+	// the runtime the control plane runs on is deleted with it
+	query := definitionSession(db).Model(&KubernetesRuntimeInstance{})
+	if c.KubernetesRuntimeInstanceID != nil {
+		query = query.Where("id <> ?", *c.KubernetesRuntimeInstanceID)
+	}
+
+	// read the names of the runtimes that would be orphaned
+	var names []string
+	if result := query.Order("name").Pluck("name", &names); result.Error != nil {
+		return fmt.Errorf("failed to read kubernetes runtime instances: %w", result.Error)
+	}
+	if len(names) == 0 {
+		return nil
+	}
+
+	return &DeleteRefusedError{Err: fmt.Errorf(
+		"control plane instance %s while kubernetes runtime instances remain: %s",
+		ErrMsgDeleteBlocked,
+		strings.Join(names, ", "),
+	)}
 }
 
 // RefuseDelete refuses to delete a runtime instance while the EKS, GKE or OKE
