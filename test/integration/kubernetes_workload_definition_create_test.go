@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	kubeerrors "k8s.io/apimachinery/pkg/api/errors"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
@@ -140,7 +141,9 @@ metadata:
 // covers a kubernetes workload definition that declares a support-services
 // namespace as its own: its instance places every resource there, and a
 // resource dropped from the definition is removed from the cluster, while the
-// one it still declares stays.
+// one it still declares stays. Deleting the instance deletes the namespace,
+// so the test runs only where that namespace does not exist yet: one created
+// by a support service is never the test's to remove.
 func TestAResourceDroppedFromASupportServicesNamespaceTheDefinitionDeclaresIsRemoved(t *testing.T) {
 	apiClient, endpoint, encryptionKey := threeportClient(t)
 	runtime := controlPlaneRuntime(t, apiClient, endpoint)
@@ -150,6 +153,14 @@ func TestAResourceDroppedFromASupportServicesNamespaceTheDefinitionDeclaresIsRem
 	}
 	namespaceDoc := fmt.Sprintf("apiVersion: v1\nkind: Namespace\nmetadata:\n  name: %s\n", namespace)
 	suffix := time.Now().Unix()
+
+	kubeClient, mapper, err := kube.GetClient(runtime, false, apiClient, endpoint, encryptionKey)
+	require.NoError(t, err)
+	_, err = kube.GetResource("", "v1", "Namespace", "", namespace, kubeClient, *mapper)
+	if err == nil {
+		t.Skipf("%s already exists on the control plane's runtime, and deleting the instance would delete it", namespace)
+	}
+	require.True(t, kubeerrors.IsNotFound(err), "looking up %s: %v", namespace, err)
 
 	definition, err := client.CreateKubernetesWorkloadDefinition(apiClient, endpoint, &v0.KubernetesWorkloadDefinition{
 		Definition:   v0.Definition{Name: util.Ptr(fmt.Sprintf("support-services-namespace-%d", suffix))},
@@ -179,8 +190,6 @@ func TestAResourceDroppedFromASupportServicesNamespaceTheDefinitionDeclaresIsRem
 		return err
 	})
 
-	kubeClient, mapper, err := kube.GetClient(runtime, false, apiClient, endpoint, encryptionKey)
-	require.NoError(t, err)
 	inCluster := func(name string) bool {
 		_, err := kube.GetResource("", "v1", "ConfigMap", namespace, name, kubeClient, *mapper)
 		return err == nil
