@@ -117,6 +117,56 @@ func TestPlanResourceDefinitions(t *testing.T) {
 		assert.Contains(t, err.Error(), "more than once")
 	})
 
+	t.Run("the same resource in two support-services namespaces is two resources", func(t *testing.T) {
+		// placement keeps both namespaces, so they are two objects
+		plan, err := planResourceDefinitions(1, nil, [][]byte{
+			[]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"settings","namespace":"nukleros-ingress-system"}}`),
+			[]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"settings","namespace":"nukleros-certs-system"}}`),
+		})
+		require.NoError(t, err)
+		assert.Len(t, plan.create, 2)
+	})
+
+	t.Run("the same resource twice in one support-services namespace is declared twice", func(t *testing.T) {
+		_, err := planResourceDefinitions(1, nil, [][]byte{
+			[]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"settings","namespace":"nukleros-certs-system"}}`),
+			[]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"settings","namespace":"nukleros-certs-system"},"data":{"a":"b"}}`),
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "/ConfigMap/nukleros-certs-system/settings more than once")
+	})
+
+	t.Run("a support-services resource and one placed in the instance's namespace are two resources", func(t *testing.T) {
+		plan, err := planResourceDefinitions(1, nil, [][]byte{
+			[]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"settings","namespace":"nukleros-certs-system"}}`),
+			[]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"settings"}}`),
+		})
+		require.NoError(t, err)
+		assert.Len(t, plan.create, 2)
+	})
+
+	t.Run("a resource moved into a support-services namespace is another resource", func(t *testing.T) {
+		plan, err := planResourceDefinitions(1, existing, [][]byte{
+			[]byte(deploymentV1),
+			[]byte(`{"apiVersion":"v1","kind":"Service","metadata":{"name":"web","namespace":"nukleros-ingress-system"}}`),
+		})
+		require.NoError(t, err)
+		require.Len(t, plan.create, 1)
+		require.Len(t, plan.remove, 1)
+		assert.Equal(t, uint(11), *plan.remove[0].ID)
+		assert.Empty(t, plan.update)
+	})
+
+	t.Run("two gateways of one name are declared twice whatever namespace they name", func(t *testing.T) {
+		// placement moves every gateway to the gateway namespace
+		_, err := planResourceDefinitions(1, nil, [][]byte{
+			[]byte(`{"apiVersion":"gateway.networking.k8s.io/v1","kind":"Gateway","metadata":{"name":"edge"}}`),
+			[]byte(`{"apiVersion":"gateway.networking.k8s.io/v1","kind":"Gateway","metadata":{"name":"edge","namespace":"team"}}`),
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "gateway.networking.k8s.io/Gateway/"+util.GatewaySystemNamespace+"/edge more than once")
+	})
+
 	t.Run("a manifest's namespace edited alone keeps its resource definition", func(t *testing.T) {
 		plan, err := planResourceDefinitions(1, existing, [][]byte{
 			[]byte(deploymentV1),

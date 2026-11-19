@@ -152,10 +152,13 @@ func planResourceDefinitions(
 }
 
 // instanceResourceKey identifies a resource within one instance: by group,
-// kind and name. An instance places every namespaced resource of its definition
-// in the same namespace, so the namespace tells nothing apart there - and
-// leaving it out lets resources be matched before namespaces are set, which
-// needs no word from the cluster.
+// kind and name, and by the namespace placement keeps for it, if any. An
+// instance places every other namespaced resource of its definition in the
+// same namespace, so that namespace tells nothing apart - and leaving it out
+// lets resources be matched before namespaces are set, which needs no word
+// from the cluster. A Gateway and a resource in a support-services namespace
+// keep theirs (util.KeptNamespace), so two of them of the same kind and name
+// in different namespaces are different objects.
 func instanceResourceKey(jsonDefinition []byte) (key string, isResource bool, err error) {
 	var object map[string]interface{}
 	if err := json.Unmarshal(jsonDefinition, &object); err != nil {
@@ -168,6 +171,16 @@ func instanceResourceKey(jsonDefinition []byte) (key string, isResource bool, er
 	resource := unstructured.Unstructured{Object: object}
 	if resource.GetKind() == "" || resource.GetName() == "" {
 		return "", false, fmt.Errorf("resource has no kind or no name: %s", jsonDefinition)
+	}
+
+	if namespace := util.KeptNamespace(object); namespace != "" {
+		return fmt.Sprintf(
+			"%s/%s/%s/%s",
+			resource.GroupVersionKind().Group,
+			resource.GetKind(),
+			namespace,
+			resource.GetName(),
+		), true, nil
 	}
 
 	return fmt.Sprintf(

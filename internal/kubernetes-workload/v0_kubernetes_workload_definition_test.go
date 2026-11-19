@@ -924,6 +924,23 @@ func TestDefinitionCreateWritesEachResourceOnce(t *testing.T) {
 	assert.Equal(t, []string{"POST " + v0.PathKubernetesWorkloadResourceDefinitionSets}, api.writes)
 }
 
+// TestDefinitionCreateKeepsResourcesInTwoSupportServicesNamespaces covers a
+// new definition declaring a resource of one kind and name in two
+// support-services namespaces: placement keeps both namespaces, so they are
+// two objects, and a resource definition is written for each.
+func TestDefinitionCreateKeepsResourcesInTwoSupportServicesNamespaces(t *testing.T) {
+	api := newFakeThreeportAPI()
+
+	require.NoError(t, createDefinition(t, api, yamlDocument(
+		`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"settings","namespace":"nukleros-ingress-system"}}`,
+		`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"settings","namespace":"nukleros-certs-system"}}`,
+	)))
+	assert.Equal(t, []string{
+		"/ConfigMap/nukleros-ingress-system/settings",
+		"/ConfigMap/nukleros-certs-system/settings",
+	}, storedResourceKeys(t, api))
+}
+
 // TestDefinitionCreatesAnUpdateWouldRefuseAreRefused covers a new definition
 // whose YAML document an update would refuse: it is refused the same way,
 // with a warning on the definition, and nothing is written.

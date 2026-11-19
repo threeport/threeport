@@ -93,3 +93,44 @@ func TestAWorkloadDefinitionAnUpdateWouldRefuseIsRefusedOnCreate(t *testing.T) {
 		})
 	}
 }
+
+// TestAWorkloadDefinitionWithAResourceInTwoSupportServicesNamespacesIsCreated
+// covers a kubernetes workload definition declaring a resource of one kind
+// and name in two support-services namespaces: placement keeps both
+// namespaces, so they are two objects, and the definition is reconciled with
+// a resource definition for each.
+func TestAWorkloadDefinitionWithAResourceInTwoSupportServicesNamespacesIsCreated(t *testing.T) {
+	apiClient, endpoint, _ := threeportClient(t)
+
+	created, err := client.CreateKubernetesWorkloadDefinition(apiClient, endpoint, &v0.KubernetesWorkloadDefinition{
+		Definition: v0.Definition{Name: util.Ptr(fmt.Sprintf("support-services-settings-%d", time.Now().Unix()))},
+		YAMLDocument: util.Ptr(`apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: settings
+  namespace: nukleros-ingress-system
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: settings
+  namespace: nukleros-certs-system
+`),
+	})
+	require.NoError(t, err)
+	defer retryDelete(t, "kubernetes workload definition "+*created.Name, func() error {
+		_, err := client.DeleteKubernetesWorkloadDefinition(apiClient, endpoint, *created.ID)
+		return err
+	})
+
+	waitForReconciled(t, "kubernetes workload definition "+*created.Name, func() (*bool, error) {
+		definition, err := client.GetKubernetesWorkloadDefinitionByID(apiClient, endpoint, *created.ID)
+		if err != nil {
+			return nil, err
+		}
+		return definition.Reconciled, nil
+	})
+	resourceDefinitions, err := client.GetKubernetesWorkloadResourceDefinitionsByID(apiClient, endpoint, *created.ID)
+	require.NoError(t, err)
+	assert.Len(t, *resourceDefinitions, 2, "one for each namespace")
+}
