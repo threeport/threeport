@@ -24,7 +24,9 @@ import (
 // with a refused or failed upgrade cleared, and its controller is notified.
 // Each instance records the version it was asked for once its controller has
 // been notified, so a request this failed to finish, an instance it couldn't
-// mark or notify, is finished by the next update of the definition.
+// mark or notify, is finished by the next update of the definition.  An
+// instance is created recording the version its cluster is created on, so an
+// update that leaves the version alone asks nothing of it.
 
 func (h *Handler) AddAwsEksKubernetesRuntimeDefinitionMiddleware() []echo.MiddlewareFunc {
 	return []echo.MiddlewareFunc{}

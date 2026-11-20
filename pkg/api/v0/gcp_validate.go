@@ -157,7 +157,24 @@ func (g *GcpGkeKubernetesRuntimeDefinition) beforeDelete(tx *gorm.DB) error {
 
 // beforeCreate validates the GcpGkeKubernetesRuntimeInstance before create.
 func (g *GcpGkeKubernetesRuntimeInstance) beforeCreate(tx *gorm.DB) error {
-	return rejectAbandonInfrastructureOnCreate(g.AbandonInfrastructure)
+	if err := rejectAbandonInfrastructureOnCreate(g.AbandonInfrastructure); err != nil {
+		return err
+	}
+
+	// the cluster is created on its definition's version, so it has been
+	// asked for it, and an update of the definition that leaves the version
+	// alone has nothing to ask of it
+	if g.UpgradeRequestedVersion != nil || g.GcpGkeKubernetesRuntimeDefinitionID == nil {
+		return nil
+	}
+	var definition GcpGkeKubernetesRuntimeDefinition
+	found, err := loadInstanceDefinition(tx, &definition, *g.GcpGkeKubernetesRuntimeDefinitionID)
+	if err != nil || !found {
+		return err
+	}
+	g.UpgradeRequestedVersion = util.Ptr(KubernetesVersionOrDefault(definition.KubernetesVersion))
+
+	return nil
 }
 
 // beforeUpdate validates the GcpGkeKubernetesRuntimeInstance before update.
