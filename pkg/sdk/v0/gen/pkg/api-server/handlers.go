@@ -10,6 +10,8 @@ import (
 	"github.com/gertd/go-pluralize"
 	"github.com/iancoleman/strcase"
 
+	lib "github.com/threeport/threeport/pkg/api/lib/v0"
+	api "github.com/threeport/threeport/pkg/api/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	sdk "github.com/threeport/threeport/pkg/sdk/v0"
 	"github.com/threeport/threeport/pkg/sdk/v0/gen"
@@ -336,7 +338,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							Comment("object scheduled for deletion and confirmed - it can be deleted"),
 							Comment("from DB"),
 							If(
-								Id("result").Op(":=").Add(wrapSerializationRetry(gen.Module, Id("db").Dot("Delete").Call(Op("&").Id(strcase.ToLowerCamel(apiObject.TypeName))))),
+								Id("result").Op(":=").Add(wrapSerializationRetry(gen.Module, deleteObject(gen, apiObject.TypeName))),
 								Id("result").Dot("Error").Op("!=").Nil(),
 							).BlockFunc(func(h *Group) {
 								if gen.Module {
@@ -380,7 +382,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					deleteObjectExecution = Comment("delete object")
 					deleteObjectExecution.Line()
 					deleteObjectExecution.If(
-						Id("result").Op(":=").Add(wrapSerializationRetry(gen.Module, Id("db").Dot("Delete").Call(Op("&").Id(strcase.ToLowerCamel(apiObject.TypeName))))),
+						Id("result").Op(":=").Add(wrapSerializationRetry(gen.Module, deleteObject(gen, apiObject.TypeName))),
 						Id("result").Dot("Error").Op("!=").Nil(),
 					).BlockFunc(func(h *Group) {
 						if gen.Module {
@@ -2382,6 +2384,31 @@ func refuseDeleteCheck(objVar string, module bool) *Statement {
 			"ResponseStatus500",
 		).Call(Id("c"), Nil(), Id("refuseErr"), Id("fullyQualifiedType"))),
 	)
+}
+
+// marriesBase reports whether typeName has a foreign key tagged
+// relationship:"marries".
+func marriesBase(generator *gen.Generator, typeName string) bool {
+	for _, group := range generator.ApiObjectGroups {
+		for _, tagMap := range group.StructTags[typeName] {
+			kind, _, _ := gen.ParseRelationshipTagValue(tagMap[string(lib.RelationshipTag)])
+			if api.Relationship(kind) == api.RelationshipMarries {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// deleteObject emits the delete of the object a delete handler removes from
+// the database.  An object that marries a base deletes it in the same
+// transaction.
+func deleteObject(generator *gen.Generator, typeName string) *Statement {
+	object := Op("&").Id(strcase.ToLowerCamel(typeName))
+	if marriesBase(generator, typeName) {
+		return Qual("github.com/threeport/threeport/pkg/api/v0", "DeleteWithMarriedBases").Call(Id("db"), object)
+	}
+	return Id("db").Dot("Delete").Call(object)
 }
 
 // wrapSerializationRetry wraps writeChain in Handler.Write so 40001 is retried.

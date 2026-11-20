@@ -6,10 +6,8 @@ import (
 	errors "errors"
 	"fmt"
 	"net/http"
-	"time"
 
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
-	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
 	mapping "github.com/threeport/threeport/pkg/mapping/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -367,60 +365,6 @@ func (o *OciOkeKubernetesRuntimeInstanceConfig) Delete(
 		},
 	); err != nil {
 		return nil, err
-	}
-
-	// get associated kubernetes runtime instance
-	kubernetesRuntimeInstance, err := client_v0.GetKubernetesRuntimeInstanceByID(
-		apiClient,
-		apiEndpoint,
-		*ociOkeKubernetesRuntimeInstance.KubernetesRuntimeInstanceID,
-	)
-	if err != nil {
-		// if the kubernetes runtime instance wasn't found, there's no more to
-		// do - return the error if something other than 'object not found'
-		if !errors.Is(err, client_lib.ErrObjectNotFound) {
-			return nil, fmt.Errorf("failed to get associated kubernetes runtime instance: %w", err)
-		}
-	}
-	// if kubernetes runtime found, remove it
-	if err == nil {
-		// update kubernetes runtime instance to set the deletion confirmed
-		// timestamp - this will allow deletion of the k8s runtime object without
-		// triggering unnecessary reconciliation
-		now := time.Now().UTC()
-		kubernetesRuntimeInstance.DeletionConfirmed = &now
-		_, err = client_v0.UpdateKubernetesRuntimeInstance(
-			apiClient,
-			apiEndpoint,
-			kubernetesRuntimeInstance,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to update associated kubernetes runtime instance to set deletion confirmed: %w", err)
-		}
-
-		// delete kubernetes runtime instance
-		_, err = client_v0.DeleteKubernetesRuntimeInstance(
-			apiClient,
-			apiEndpoint,
-			*ociOkeKubernetesRuntimeInstance.KubernetesRuntimeInstanceID,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to delete associated kubernetes runtime instance: %w", err)
-		}
-
-		// wait for kubernetes runtime instance to be deleted
-		if err := util.Retry(10, 1, func() error {
-			if _, err := client_v0.GetKubernetesRuntimeInstanceByName(
-				apiClient,
-				apiEndpoint,
-				*kubernetesRuntimeInstance.Name,
-			); err == nil {
-				return errors.New("kubernetes runtime instance not deleted")
-			}
-			return nil
-		}); err != nil {
-			return nil, fmt.Errorf("timed out waiting for kubernetes runtime instance to be deleted: %w", err)
-		}
 	}
 
 	// construct deleted oci oke kubernetes runtime instance config

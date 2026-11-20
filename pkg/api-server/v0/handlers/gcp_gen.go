@@ -481,7 +481,7 @@ func (h Handler) DeleteGcpGkeKubernetesRuntimeDefinition(c echo.Context) error {
 
 	// delete object
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-		return db.Delete(&gcpGkeKubernetesRuntimeDefinition)
+		return api_v0.DeleteWithMarriedBases(db, &gcpGkeKubernetesRuntimeDefinition)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error deleting object", zap.Error(result.Error))
 		// surface BlockedDeleteError from gorm hook - sole blocking check for non-reconciled types
@@ -1099,7 +1099,7 @@ func (h Handler) DeleteGcpGkeKubernetesRuntimeInstance(c echo.Context) error {
 			// object scheduled for deletion and confirmed - it can be deleted
 			// from DB
 			if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
-				return db.Delete(&gcpGkeKubernetesRuntimeInstance)
+				return api_v0.DeleteWithMarriedBases(db, &gcpGkeKubernetesRuntimeInstance)
 			}); result.Error != nil {
 				h.Logger.Error("handler error: error deleting object", zap.Error(result.Error))
 				// surface BlockedDeleteError from gorm hook - backstop in case an attached object reference was created after the pre-check
