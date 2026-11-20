@@ -25,8 +25,8 @@ type providerDefinitionDelete struct {
 	deleteByName func(apiClient *http.Client, apiEndpoint, name string) (*string, error)
 }
 
-// providerDefinitionDeletes are the EKS and OKE definition configs, whose
-// provider definition marries a kubernetes runtime definition as GKE's does.
+// providerDefinitionDeletes are the EKS, GKE and OKE definition configs,
+// whose provider definition marries a kubernetes runtime definition.
 var providerDefinitionDeletes = map[string]providerDefinitionDelete{
 	"eks": {
 		path: api_v0.PathAwsEksKubernetesRuntimeDefinitions,
@@ -39,6 +39,19 @@ var providerDefinitionDeletes = map[string]providerDefinitionDelete{
 				return nil, err
 			}
 			return deleted.AwsEksKubernetesRuntimeDefinition.Name, nil
+		},
+	},
+	"gke": {
+		path: api_v0.PathGcpGkeKubernetesRuntimeDefinitions,
+		deleteByName: func(apiClient *http.Client, apiEndpoint, name string) (*string, error) {
+			config := &GcpGkeKubernetesRuntimeDefinitionConfig{
+				GcpGkeKubernetesRuntimeDefinition: GcpGkeKubernetesRuntimeDefinitionValues{Name: &name},
+			}
+			deleted, err := config.Delete(apiClient, apiEndpoint)
+			if err != nil {
+				return nil, err
+			}
+			return deleted.GcpGkeKubernetesRuntimeDefinition.Name, nil
 		},
 	},
 	"oke": {
@@ -56,69 +69,43 @@ var providerDefinitionDeletes = map[string]providerDefinitionDelete{
 	},
 }
 
-// marriedDefinitionsAPI stands in for the Threeport API holding a provider
-// definition 2 named dev-01, at providerPath, married to kubernetes runtime
-// definition 9.  As the API does for a caller outside the control plane, it
-// refuses to delete the runtime definition while the provider definition
-// still references it.  runtimeDeleteStatus, when not zero, answers the
-// runtime definition delete instead.  It returns the calls it received.
-func marriedDefinitionsAPI(
-	t *testing.T,
-	providerPath string,
-	providerPresent bool,
-	runtimeDeleteStatus int,
-) (string, func() []string) {
+// providerDefinitionAPI stands in for the Threeport API holding, when
+// present, a provider definition 2 named dev-01 at providerPath, married to
+// kubernetes runtime definition 9.  It answers the provider definition's
+// lookup and delete, and refuses any other call.  It returns the calls it
+// received.
+func providerDefinitionAPI(t *testing.T, providerPath string, present bool) (string, func() []string) {
 	t.Helper()
 
-	name := "dev-01"
-	providerID, runtimeID := uint(2), uint(9)
-	provider := map[string]any{"ID": providerID, "Name": name, "KubernetesRuntimeDefinitionID": runtimeID}
-	runtime := api_v0.KubernetesRuntimeDefinition{
-		Common:     api_v0.Common{ID: &runtimeID},
-		Definition: api_v0.Definition{Name: &name},
-	}
-
+	provider := map[string]any{"ID": 2, "Name": "dev-01", "KubernetesRuntimeDefinitionID": 9}
 	var mu sync.Mutex
 	var calls []string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
-		defer mu.Unlock()
 		calls = append(calls, r.Method+" "+r.URL.Path)
+		mu.Unlock()
 
-		respond := func(status int, message string, data ...apiserver_lib.Object) {
-			body, err := json.Marshal(apiserver_lib.Response{
-				Status: apiserver_lib.Status{Code: status, Message: http.StatusText(status), Error: message},
-				Data:   append([]apiserver_lib.Object{}, data...),
-			})
-			require.NoError(t, err)
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(status)
-			_, _ = w.Write(body)
-		}
-
+		var data []apiserver_lib.Object
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == providerPath:
-			if !providerPresent {
-				respond(http.StatusOK, "")
-				return
+			if present {
+				data = append(data, provider)
 			}
-			respond(http.StatusOK, "", provider)
 		case r.Method == http.MethodDelete && r.URL.Path == providerPath+"/2":
-			providerPresent = false
-			respond(http.StatusOK, "", provider)
-		case r.Method == http.MethodDelete && r.URL.Path == api_v0.PathKubernetesRuntimeDefinitions+"/9":
-			switch {
-			case providerPresent:
-				respond(http.StatusConflict, "kubernetes runtime definition "+api_v0.ErrMsgDeleteBlocked+": it is married to a provider definition")
-			case runtimeDeleteStatus != 0:
-				respond(runtimeDeleteStatus, "runtime definition delete failed")
-			default:
-				respond(http.StatusOK, "", runtime)
-			}
+			data = append(data, provider)
 		default:
 			t.Errorf("unexpected API call %s %s", r.Method, r.URL.Path)
-			respond(http.StatusNotFound, "unexpected call")
+			http.Error(w, "unexpected call", http.StatusNotFound)
+			return
 		}
+		body, err := json.Marshal(apiserver_lib.Response{
+			Status: apiserver_lib.Status{Code: http.StatusOK, Message: "OK"},
+			Data:   data,
+		})
+		require.NoError(t, err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(body)
 	}))
 	t.Cleanup(server.Close)
 
@@ -129,16 +116,15 @@ func marriedDefinitionsAPI(
 	}
 }
 
-// TestAProviderDefinitionIsDeletedBeforeTheRuntimeDefinitionItMarries
-// covers #767: deleting an EKS or OKE kubernetes runtime definition by name
-// deletes the provider definition first, then the kubernetes runtime
-// definition at the ID the provider definition stored.  The other order is
-// refused by the API with a 409, because the provider definition still
-// references the runtime definition.
-func TestAProviderDefinitionIsDeletedBeforeTheRuntimeDefinitionItMarries(t *testing.T) {
+// TestAProviderDefinitionIsDeletedWithOneRequest covers #768: deleting an
+// EKS, GKE or OKE kubernetes runtime definition by name makes one DELETE, of
+// the provider definition.  The API deletes the kubernetes runtime definition
+// it marries in the same transaction, so the client has no second delete
+// that could fail after the first succeeded.
+func TestAProviderDefinitionIsDeletedWithOneRequest(t *testing.T) {
 	for provider, config := range providerDefinitionDeletes {
 		t.Run(provider, func(t *testing.T) {
-			endpoint, calls := marriedDefinitionsAPI(t, config.path, true, 0)
+			endpoint, calls := providerDefinitionAPI(t, config.path, true)
 
 			deletedName, err := config.deleteByName(http.DefaultClient, endpoint, "dev-01")
 			require.NoError(t, err)
@@ -146,42 +132,18 @@ func TestAProviderDefinitionIsDeletedBeforeTheRuntimeDefinitionItMarries(t *test
 			assert.Equal(t, []string{
 				"GET " + config.path,
 				"DELETE " + config.path + "/2",
-				"DELETE " + api_v0.PathKubernetesRuntimeDefinitions + "/9",
 			}, calls())
 		})
 	}
 }
 
-// TestARuntimeDefinitionAlreadyGoneDoesNotFailTheDelete covers a kubernetes
-// runtime definition that is already gone once its provider definition is
-// deleted: the delete succeeds.  Any other failure deleting it is reported.
-func TestARuntimeDefinitionAlreadyGoneDoesNotFailTheDelete(t *testing.T) {
-	for provider, config := range providerDefinitionDeletes {
-		t.Run(provider+" already gone", func(t *testing.T) {
-			endpoint, _ := marriedDefinitionsAPI(t, config.path, true, http.StatusNotFound)
-
-			_, err := config.deleteByName(http.DefaultClient, endpoint, "dev-01")
-			require.NoError(t, err)
-		})
-		t.Run(provider+" failing", func(t *testing.T) {
-			endpoint, _ := marriedDefinitionsAPI(t, config.path, true, http.StatusInternalServerError)
-
-			_, err := config.deleteByName(http.DefaultClient, endpoint, "dev-01")
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), "failed to delete associated kubernetes runtime definition")
-		})
-	}
-}
-
-// TestAMissingProviderDefinitionDeletesNothing covers deleting an EKS or OKE
-// definition whose provider definition does not exist: the config values are
-// returned and nothing is deleted, as for GKE.  Its runtime definition, if
-// a failed earlier delete left one, is not found by name: #768 deletes both
-// in one request.
+// TestAMissingProviderDefinitionDeletesNothing covers deleting an EKS, GKE or
+// OKE definition whose provider definition does not exist: the config values
+// are returned and nothing is deleted.
 func TestAMissingProviderDefinitionDeletesNothing(t *testing.T) {
 	for provider, config := range providerDefinitionDeletes {
 		t.Run(provider, func(t *testing.T) {
-			endpoint, calls := marriedDefinitionsAPI(t, config.path, false, 0)
+			endpoint, calls := providerDefinitionAPI(t, config.path, false)
 
 			deletedName, err := config.deleteByName(http.DefaultClient, endpoint, "dev-01")
 			require.NoError(t, err)

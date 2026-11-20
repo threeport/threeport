@@ -261,14 +261,14 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Replace(
 }
 
 // Delete deletes a aws eks kubernetes runtime definition from the Threeport API by name.
-// Delete removes the provider definition, then removes the runtime definition at KubernetesRuntimeDefinitionID.
+// The API deletes the kubernetes runtime definition it marries in the same request.
 func (a *AwsEksKubernetesRuntimeDefinitionConfig) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*AwsEksKubernetesRuntimeDefinitionConfig, error) {
 	awsEksKubernetesRuntimeDefinitionValues := a.AwsEksKubernetesRuntimeDefinition
 
-	// find the provider definition that holds the runtime definition id
+	// find the provider definition by name
 	awsEksKubernetesRuntimeDefinition, err := client_v0.GetAwsEksKubernetesRuntimeDefinitionByName(
 		apiClient,
 		apiEndpoint,
@@ -285,7 +285,7 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Delete(
 		return nil, fmt.Errorf("failed to find aws eks kubernetes runtime definition with name %s: %w", *awsEksKubernetesRuntimeDefinitionValues.Name, err)
 	}
 
-	// delete the provider definition so its reference stops blocking the runtime definition
+	// delete the provider definition and the kubernetes runtime definition it marries
 	deletedAwsEksKubernetesRuntimeDefinition, err := client_v0.DeleteAwsEksKubernetesRuntimeDefinition(
 		apiClient,
 		apiEndpoint,
@@ -293,18 +293,6 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Delete(
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to delete aws eks kubernetes runtime definition from Threeport API: %w", err)
-	}
-
-	// delete the runtime definition at the stored id
-	if awsEksKubernetesRuntimeDefinition.KubernetesRuntimeDefinitionID != nil {
-		_, err = client_v0.DeleteKubernetesRuntimeDefinition(
-			apiClient,
-			apiEndpoint,
-			*awsEksKubernetesRuntimeDefinition.KubernetesRuntimeDefinitionID,
-		)
-		if err != nil && !errors.Is(err, client_lib.ErrObjectNotFound) {
-			return nil, fmt.Errorf("failed to delete associated kubernetes runtime definition: %w", err)
-		}
 	}
 
 	// construct deleted aws eks kubernetes runtime definition config

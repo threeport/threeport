@@ -18,7 +18,6 @@ import (
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	encryption "github.com/threeport/threeport/pkg/encryption/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
-	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // okeLifecycle implements provider.InfraLifecycleProvider for OCI OKE
@@ -217,47 +216,9 @@ func (o *okeLifecycle) OnDeleteConfirmed(infra provider.InfraProvider) error {
 		o.log.Error(err, "failed to delete Pulumi stack state")
 	}
 
-	// clean up the associated KubernetesRuntimeInstance so it doesn't
-	// get orphaned if the CLI is interrupted during deletion
-	latest, err := client.GetOciOkeKubernetesRuntimeInstanceByID(
-		o.r.APIClient,
-		o.r.APIServer,
-		o.instanceID,
-	)
-	if err != nil {
-		o.log.Error(err, "failed to get OKE instance for KubernetesRuntimeInstance cleanup")
-		return nil
-	}
-
-	if latest.KubernetesRuntimeInstanceID != nil {
-		// mark as deletion-confirmed so the API handler allows hard-delete
-		deletionTimestamp := util.Ptr(time.Now().UTC())
-		deletedKRI := v0.KubernetesRuntimeInstance{
-			Common: v0.Common{ID: latest.KubernetesRuntimeInstanceID},
-			Reconciliation: v0.Reconciliation{
-				DeletionAcknowledged: deletionTimestamp,
-				DeletionConfirmed:    deletionTimestamp,
-				Reconciled:           util.Ptr(true),
-			},
-		}
-		if _, err := client.UpdateKubernetesRuntimeInstance(
-			o.r.APIClient,
-			o.r.APIServer,
-			&deletedKRI,
-		); err != nil {
-			o.log.Error(err, "failed to update KubernetesRuntimeInstance for deletion")
-			return nil
-		}
-
-		if _, err := client.DeleteKubernetesRuntimeInstance(
-			o.r.APIClient,
-			o.r.APIServer,
-			*latest.KubernetesRuntimeInstanceID,
-		); err != nil {
-			o.log.Error(err, "failed to delete KubernetesRuntimeInstance")
-		}
-	}
-
+	// the API deletes the parent KubernetesRuntimeInstance, which this
+	// instance marries, in the same transaction as this instance once its
+	// delete is confirmed
 	return nil
 }
 

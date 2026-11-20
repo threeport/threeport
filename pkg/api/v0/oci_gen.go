@@ -92,6 +92,17 @@ func (o *OciOkeKubernetesRuntimeDefinition) RelationshipTaggedForeignKeys() []Re
 	}}
 }
 
+// MarriedBases returns the base object each marries foreign key on OciOkeKubernetesRuntimeDefinition names, with only its ID set.
+func (o *OciOkeKubernetesRuntimeDefinition) MarriedBases() []any {
+	var bases []any
+	if o.KubernetesRuntimeDefinitionID != nil {
+		base := new(KubernetesRuntimeDefinition)
+		base.ID = o.KubernetesRuntimeDefinitionID
+		bases = append(bases, base)
+	}
+	return bases
+}
+
 // AssociationRequiredByTypes returns the fully-qualified type names of children referenced via has-many association slices on OciOkeKubernetesRuntimeDefinition.
 func (o *OciOkeKubernetesRuntimeDefinition) AssociationRequiredByTypes() []string {
 	return []string{new(OciOkeKubernetesRuntimeInstance).GetFullyQualifiedType()}
@@ -180,6 +191,17 @@ func (o *OciOkeKubernetesRuntimeInstance) RelationshipTaggedForeignKeys() []Rela
 		ObjectType:   new(OciProvider).GetFullyQualifiedType(),
 		Relationship: RelationshipRequires,
 	}}
+}
+
+// MarriedBases returns the base object each marries foreign key on OciOkeKubernetesRuntimeInstance names, with only its ID set.
+func (o *OciOkeKubernetesRuntimeInstance) MarriedBases() []any {
+	var bases []any
+	if o.KubernetesRuntimeInstanceID != nil {
+		base := new(KubernetesRuntimeInstance)
+		base.ID = o.KubernetesRuntimeInstanceID
+		bases = append(bases, base)
+	}
+	return bases
 }
 
 // NotificationPayload returns the notification payload that is delivered to the

@@ -92,6 +92,17 @@ func (g *GcpGkeKubernetesRuntimeDefinition) RelationshipTaggedForeignKeys() []Re
 	}}
 }
 
+// MarriedBases returns the base object each marries foreign key on GcpGkeKubernetesRuntimeDefinition names, with only its ID set.
+func (g *GcpGkeKubernetesRuntimeDefinition) MarriedBases() []any {
+	var bases []any
+	if g.KubernetesRuntimeDefinitionID != nil {
+		base := new(KubernetesRuntimeDefinition)
+		base.ID = g.KubernetesRuntimeDefinitionID
+		bases = append(bases, base)
+	}
+	return bases
+}
+
 // AssociationRequiredByTypes returns the fully-qualified type names of children referenced via has-many association slices on GcpGkeKubernetesRuntimeDefinition.
 func (g *GcpGkeKubernetesRuntimeDefinition) AssociationRequiredByTypes() []string {
 	return []string{new(GcpGkeKubernetesRuntimeInstance).GetFullyQualifiedType()}
@@ -180,6 +191,17 @@ func (g *GcpGkeKubernetesRuntimeInstance) RelationshipTaggedForeignKeys() []Rela
 		ObjectType:   new(KubernetesRuntimeInstance).GetFullyQualifiedType(),
 		Relationship: RelationshipMarries,
 	}}
+}
+
+// MarriedBases returns the base object each marries foreign key on GcpGkeKubernetesRuntimeInstance names, with only its ID set.
+func (g *GcpGkeKubernetesRuntimeInstance) MarriedBases() []any {
+	var bases []any
+	if g.KubernetesRuntimeInstanceID != nil {
+		base := new(KubernetesRuntimeInstance)
+		base.ID = g.KubernetesRuntimeInstanceID
+		bases = append(bases, base)
+	}
+	return bases
 }
 
 // NotificationPayload returns the notification payload that is delivered to the

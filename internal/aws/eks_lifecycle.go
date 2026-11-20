@@ -1,7 +1,6 @@
 package aws
 
 import (
-	"errors"
 	"fmt"
 	"time"
 
@@ -14,7 +13,6 @@ import (
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	tpaws "github.com/threeport/threeport/pkg/aws/v0"
-	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
@@ -243,53 +241,10 @@ func (e *eksLifecycle) SaveCreateOutputs(_ provider.InfraProvider, state *dataty
 	return nil
 }
 
-// OnDeleteConfirmed triggers deletion of the parent KubernetesRuntimeInstance
-// if it has not already been scheduled for deletion.  This handles the case
-// where an AwsEksKubernetesRuntimeInstance is deleted directly rather than via
-// the KRI deletion flow, which would otherwise leave the parent KRI orphaned.
-// In the normal flow the parent is already hard-deleted by the time this runs,
-// so a not-found response is a no-op.  GKE and OKE both do this; the
-// hand-rolled AWS reconciler did not.
+// OnDeleteConfirmed has no cleanup for EKS: the API deletes the parent
+// KubernetesRuntimeInstance, which this instance marries, in the same
+// transaction as this instance once its delete is confirmed.
 func (e *eksLifecycle) OnDeleteConfirmed(_ provider.InfraProvider) error {
-	latest, err := client.GetAwsEksKubernetesRuntimeInstanceByID(
-		e.r.APIClient,
-		e.r.APIServer,
-		e.instanceID,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to get EKS instance for parent KRI cleanup: %w", err)
-	}
-	if latest.KubernetesRuntimeInstanceID == nil {
-		return nil
-	}
-
-	kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(
-		e.r.APIClient,
-		e.r.APIServer,
-		*latest.KubernetesRuntimeInstanceID,
-	)
-	if err != nil {
-		if errors.Is(err, client_lib.ErrObjectNotFound) {
-			// the KRI deletion completed before the cluster destroy finished,
-			// which is the normal flow
-			return nil
-		}
-		return fmt.Errorf("failed to get parent KRI: %w", err)
-	}
-
-	if kubernetesRuntimeInstance.DeletionScheduled != nil {
-		// deletion already in progress via the normal KRI flow
-		return nil
-	}
-
-	if _, err := client.DeleteKubernetesRuntimeInstance(
-		e.r.APIClient,
-		e.r.APIServer,
-		*kubernetesRuntimeInstance.ID,
-	); err != nil {
-		return fmt.Errorf("failed to trigger parent KRI deletion: %w", err)
-	}
-
 	return nil
 }
 
