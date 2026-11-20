@@ -45,7 +45,6 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	pluralizeClient := pluralize.NewClient()
 
 	moduleNameKebab := strcase.ToKebab(sdkConfig.ModuleName)
-	moduleNameSnake := strcase.ToSnake(sdkConfig.ModuleName)
 	moduleNameCamel := strcase.ToCamel(sdkConfig.ModuleName)
 	moduleNameLowerCamel := strcase.ToLowerCamel(sdkConfig.ModuleName)
 
@@ -75,8 +74,6 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f.Const().Defs(
 		Id("ReleaseImageNamespace").Op("=").Lit(sdkConfig.ImageNamespace),
 		Id("DevImageNamespace").Op("=").Lit("localhost:5001"),
-		Id("DbInitFilename").Op("=").Lit("db.sql"),
-		Id("DbInitLocation").Op("=").Lit("/etc/threeport/db-create"),
 		Id("ThreeportApiConfigSecret").Op("=").Lit(installer.ThreeportApiConfigSecret),
 		Id("ModuleApiConfigSecret").Op("=").Lit("module-api-config"),
 		Id("defaultNamespace").Op("=").Lit(fmt.Sprintf(
@@ -250,7 +247,7 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		g.Line()
 
 		g.Comment("admit this module's API server, from this namespace only, to the")
-		g.Comment("control plane's database: its db-init and database-migrator init")
+		g.Comment("control plane's database: its database-migrator init")
 		g.Comment("containers and the API server itself connect to it directly")
 		g.If(Err().Op(":=").Qual(
 			"github.com/threeport/threeport/pkg/threeport-installer/v0",
@@ -375,41 +372,22 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		})
 		g.Line()
 
-		moduleDbName := fmt.Sprintf("threeport_%s_api", moduleNameSnake)
-		g.Comment("create configmap used to initialize API database")
-		g.Var().Id("dbCreateConfig").Op("=").Op("&").Qual(
-			"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured",
-			"Unstructured",
-		).Values(Dict{
-			Id("Object"): Map(String()).Interface().Values(Dict{
-				Lit("apiVersion"): Lit("v1"),
-				Lit("kind"):       Lit("ConfigMap"),
-				Lit("metadata"): Map(String()).Interface().Values(Dict{
-					Lit("name"):      Lit("db-create"),
-					Lit("namespace"): Id("i.ModuleNamespace"),
-				}),
-				Lit("data"): Map(String()).Interface().Values(Dict{
-					Line().Lit("db.sql"): Lit(fmt.Sprintf(`CREATE USER IF NOT EXISTS threeport;
-CREATE DATABASE IF NOT EXISTS %[1]s encoding='utf-8';
-GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
-				}),
-			}),
-		})
-		g.Line()
-
-		g.If(List(Id("_"), Err()).Op(":=").Qual(
-			"github.com/threeport/threeport/pkg/kube/v0",
-			"CreateOrUpdateResource",
+		g.Comment("create the module's own database user, from the control plane, which")
+		g.Comment("writes its credentials to this namespace: the database's root")
+		g.Comment("credentials stay in the control plane's namespace")
+		g.List(Id("databaseCreds"), Err()).Op(":=").Qual(
+			"github.com/threeport/threeport/pkg/threeport-installer/v0",
+			"EnsureModuleDatabaseUser",
 		).Call(
-			Id("dbCreateConfig"),
-			Id("i.KubeClient"),
-			Op("*").Id("i.KubeRestMapper"),
-		), Err().Op("!=").Nil()).Block(
+			Line().Id("i.KubeClient"),
+			Line().Id("i").Dot("ThreeportNamespace"),
+			Line().Id("i").Dot("ModuleNamespace"),
+			Line().Lit(moduleNameKebab),
+			Line(),
+		)
+		g.If(Err().Op("!=").Nil()).Block(
 			Return(Qual("fmt", "Errorf").Call(
-				Lit(fmt.Sprintf(
-					"failed to create/update %s DB initialization configmap: %%w",
-					moduleNameKebab,
-				)),
+				Lit("failed to create the module's database user: %w"),
 				Err(),
 			)),
 		)
@@ -501,17 +479,16 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 		)
 		g.Id("apiVolumes").Op(":=").Id("tpAuthVolumes")
 		g.Id("apiVolumes").Op("=").Append(Id("apiVolumes"), Map(String()).Interface().Values(Dict{
-			Lit("name"): Lit("db-root-cert"),
+			Lit("name"): Qual("github.com/threeport/threeport/pkg/threeport-installer/v0", "ModuleDatabaseCredsSecretName"),
 			Lit("secret"): Map(String()).Interface().Values(Dict{
 				Lit("defaultMode"): Lit(420),
-				Lit("secretName"):  Lit("db-root-cert"),
-			}),
-		}))
-		g.Id("apiVolumes").Op("=").Append(Id("apiVolumes"), Map(String()).Interface().Values(Dict{
-			Lit("name"): Lit("db-threeport-cert"),
-			Lit("secret"): Map(String()).Interface().Values(Dict{
-				Lit("defaultMode"): Lit(420),
-				Lit("secretName"):  Lit("db-threeport-cert"),
+				Lit("secretName"):  Qual("github.com/threeport/threeport/pkg/threeport-installer/v0", "ModuleDatabaseCredsSecretName"),
+				Lit("items"): Index().Interface().Values(
+					Map(String()).Interface().Values(Dict{
+						Lit("key"):  Lit("ca.crt"),
+						Lit("path"): Lit("ca.crt"),
+					}),
+				),
 			}),
 		}))
 		g.Id("apiVolumes").Op("=").Append(Id("apiVolumes"), Map(String()).Interface().Values(Dict{
@@ -528,13 +505,6 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 				Lit("secretName"):  Id("ModuleApiConfigSecret"),
 			}),
 		}))
-		g.Id("apiVolumes").Op("=").Append(Id("apiVolumes"), Map(String()).Interface().Values(Dict{
-			Lit("configMap"): Map(String()).Interface().Values(Dict{
-				Lit("defaultMode"): Lit(420),
-				Lit("name"):        Lit("db-create"),
-			}),
-			Lit("name"): Lit("db-create"),
-		}))
 		g.Id("apiVolumeMounts").Op(":=").Id("tpAuthVolumeMounts")
 		g.Id("apiVolumeMounts").Op("=").Append(Id("apiVolumeMounts"), Map(String()).Interface().Values(Dict{
 			Lit("mountPath"): Lit("/etc/threeport/"),
@@ -546,8 +516,14 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 		}))
 		g.Id("apiVolumeMounts").Op("=").Append(Id("apiVolumeMounts"), Map(String()).Interface().Values(Dict{
 			Lit("mountPath"): Lit("/etc/threeport/db-certs"),
-			Lit("name"):      Lit("db-threeport-cert"),
+			Lit("name"):      Qual("github.com/threeport/threeport/pkg/threeport-installer/v0", "ModuleDatabaseCredsSecretName"),
 		}))
+		g.Comment("the module connects to the database as its own user, which these")
+		g.Comment("set ahead of the control plane's config")
+		g.Id("databaseEnv").Op(":=").Qual(
+			"github.com/threeport/threeport/pkg/threeport-installer/v0",
+			"ModuleDatabaseEnv",
+		).Call()
 		g.Comment("read the control plane tier")
 		g.List(Id("controlPlaneNamespace"), Err()).Op(":=").Qual("github.com/threeport/threeport/pkg/kube/v0", "GetResource").Call(
 			Lit(""),
@@ -605,6 +581,12 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 							Lit("labels"): Map(String()).Interface().Values(Dict{
 								Line().Lit("app.kubernetes.io/name"): Id("apiServerName").Op(",").Line(),
 							}),
+							Lit("annotations"): Map(String()).Interface().Values(Dict{
+								Line().Qual(
+									"github.com/threeport/threeport/pkg/threeport-installer/v0",
+									"ModuleDatabaseCredsAnnotation",
+								): Id("databaseCreds").Op(",").Line(),
+							}),
 						}),
 						Lit("spec"): Map(String()).Interface().Values(Dict{
 							Lit("affinity"): Qual(
@@ -618,7 +600,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 										Line().Lit("/rest-api"),
 										Line(),
 									),
-									Lit("env"): Index().Interface().Values(
+									Lit("env"): Append(Index().Interface().Values(
 										Line().Map(String()).Interface().Values(Dict{
 											Line().Lit("name"):  Lit("MODULE_IMAGE_NAMESPACE"),
 											Line().Lit("value"): Id("i").Dot("ControlPlaneImageRepo"),
@@ -627,7 +609,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 											Line().Lit("name"):  Lit("MODULE_IMAGE_TAG"),
 											Line().Lit("value"): Id("i").Dot("ControlPlaneImageTag"),
 										}).Op(",").Line(),
-									),
+									), Id("databaseEnv").Op("...")),
 									Lit("envFrom"): Index().Interface().Values(
 										Line().Map(String()).Interface().Values(Dict{
 											Line().Lit("secretRef"): Map(String()).Interface().Values(Dict{
@@ -670,28 +652,6 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 							),
 							Lit("initContainers"): Index().Interface().Values(
 								Line().Map(String()).Interface().Values(Dict{
-									Lit("command"): Index().Interface().Values(
-										Line().Lit("bash"),
-										Line().Lit("-c"),
-										Line().Qual("fmt", "Sprintf").Call(
-											Lit("cockroach sql --certs-dir=/etc/threeport/db-certs --host crdb.%s.svc.cluster.local --port 26257 -f /etc/threeport/db-create/db.sql"),
-											Id("i").Dot("ThreeportNamespace"),
-										).Op(",").Line()),
-									Lit("image"):           Lit("docker.io/cockroachdb/cockroach:v23.1.14"),
-									Lit("imagePullPolicy"): Id("i").Dot("getImagePullPolicy").Call(),
-									Lit("name"):            Lit("db-init"),
-									Lit("volumeMounts"): Index().Interface().Values(
-										Line().Map(String()).Interface().Values(Dict{
-											Lit("mountPath"): Lit("/etc/threeport/db-create"),
-											Lit("name"):      Lit("db-create"),
-										}),
-										Line().Map(String()).Interface().Values(Dict{
-											Lit("mountPath"): Lit("/etc/threeport/db-certs"),
-											Lit("name"):      Lit("db-root-cert"),
-										}).Op(",").Line(),
-									),
-								}),
-								Line().Map(String()).Interface().Values(Dict{
 									Lit("args"): Index().Interface().Values(
 										Line().Lit("-env-file=/etc/threeport/env"),
 										Line().Lit("up"),
@@ -701,6 +661,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 										Line().Lit("/database-migrator"),
 										Line(),
 									),
+									Lit("env"): Id("databaseEnv"),
 									Lit("image"): Qual("fmt", "Sprintf").Call(
 										Line().Lit(fmt.Sprintf(
 											"%%s/threeport-%s-database-migrator:%%s",
@@ -719,7 +680,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 										}),
 										Line().Map(String()).Interface().Values(Dict{
 											Lit("mountPath"): Lit("/etc/threeport/db-certs"),
-											Lit("name"):      Lit("db-threeport-cert"),
+											Lit("name"):      Qual("github.com/threeport/threeport/pkg/threeport-installer/v0", "ModuleDatabaseCredsSecretName"),
 										}).Op(",").Line(),
 									),
 								}).Op(",").Line(),

@@ -118,3 +118,39 @@ func TestAModuleSpreadsAndProtectsItsReplicasLikeTheControlPlane(t *testing.T) {
 	require.NotEqual(t, -1, budget)
 	assert.Less(t, deployment, budget, "the budget is applied before the API deployment")
 }
+
+// TestAModuleConnectsToTheDatabaseAsItsOwnUser checks that the generated
+// installer never brings the database's root credentials, or the threeport
+// user's, into the module's namespace: the control plane creates the
+// module's own user, and the module's API server and migrator connect as it
+// with the credentials written to the module's namespace.  The database the
+// module used to create, which nothing connected to, is gone.
+func TestAModuleConnectsToTheDatabaseAsItsOwnUser(t *testing.T) {
+	source := generateInstaller(t)
+
+	for _, gone := range []string{"db-root-cert", "db-threeport-cert", "db-create", "db-init", "cockroach sql", "CREATE DATABASE", "DbInitLocation"} {
+		assert.NotContains(t, source, gone)
+	}
+
+	created := strings.Index(source, `tp_installer.EnsureModuleDatabaseUser(
+		i.KubeClient,
+		i.ThreeportNamespace,
+		i.ModuleNamespace,
+		"widget",
+	)`)
+	require.NotEqual(t, -1, created, "the module's user is created from the control plane")
+	deployed := strings.Index(source, "kube.CreateOrUpdateResource(widgetApiDeploy")
+	require.NotEqual(t, -1, deployed)
+	assert.Less(t, created, deployed, "the user exists before its pods connect")
+
+	assert.Regexp(t, `"annotations": map\[string\]interface\{\}\{\s+tp_installer.ModuleDatabaseCredsAnnotation: databaseCreds,`, source,
+		"rotated credentials replace the pods")
+	assert.Contains(t, source, "databaseEnv := tp_installer.ModuleDatabaseEnv()")
+	assert.Contains(t, source, "}, databaseEnv...)", "the API server connects as the module's user")
+	assert.Regexp(t, `"env": databaseEnv,\s+"image": fmt.Sprintf\(\s+"%s/threeport-widget-database-migrator:%s"`, source,
+		"the migrator connects as the module's user")
+	assert.Regexp(t, `"name": tp_installer.ModuleDatabaseCredsSecretName,\s+"secret": map\[string\]interface\{\}\{\s+"defaultMode": 420,\s+"items": \[\]interface\{\}\{map\[string\]interface\{\}\{\s+"key":  "ca.crt",\s+"path": "ca.crt",\s+\}\},`, source,
+		"only the CA's certificate is mounted")
+	assert.Len(t, regexp.MustCompile(`"mountPath": "/etc/threeport/db-certs",\s+"name":\s+tp_installer.ModuleDatabaseCredsSecretName,`).FindAllString(source, -1), 2,
+		"the API server and the migrator verify the database with it")
+}

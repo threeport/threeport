@@ -46,9 +46,9 @@ func ModuleDatabasePolicyName(moduleNamespace, apiServerName string) string {
 // ModuleDatabasePolicy returns the network policy that admits a module's API
 // server to the control plane's database, on the SQL port only.
 //
-// A module keeps its own database inside the control plane's CockroachDB, and
-// its API server's pod connects to it directly: its db-init and
-// database-migrator init containers, and the API server itself.  The policy
+// A module's tables are in the control plane's database, and its API server's
+// pod connects to it directly, as the module's own user: its
+// database-migrator init container, and the API server itself.  The policy
 // admits the pods carrying apiServerLabels in the module's namespace and
 // nothing else: the namespace is matched by the label the Kubernetes API
 // server keeps equal to its name, and the pods by their labels in that same

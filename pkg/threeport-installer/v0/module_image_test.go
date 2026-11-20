@@ -54,12 +54,15 @@ func TestModuleImages(t *testing.T) {
 	)
 }
 
-// TestModuleCopiedSecretNames checks the secrets copied into a module namespace.
+// TestModuleCopiedSecretNames checks the secrets copied into a module
+// namespace: none of the database's client certificates, the root one
+// least of all, as a module connects as its own user.  A module installed
+// before that still gets them on a redeploy.
 func TestModuleCopiedSecretNames(t *testing.T) {
-	// match the installer secret list
+	assert.NotContains(t, ModuleCopiedSecretNames(), dbRootCertSecretName)
+	assert.NotContains(t, ModuleCopiedSecretNames(), dbThreeportCertSecretName)
+	assert.Equal(t, []string{dbRootCertSecretName, dbThreeportCertSecretName}, legacyModuleDatabaseSecretNames())
 	assert.Equal(t, []string{
-		dbRootCertSecretName,
-		dbThreeportCertSecretName,
 		EncryptionKeySecret,
 		controllerConfigSecretName,
 		ThreeportApiConfigSecret,

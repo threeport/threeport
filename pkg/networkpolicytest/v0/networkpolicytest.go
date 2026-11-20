@@ -371,7 +371,7 @@ func AssertModuleDatabasePolicy(
 		t.Fatalf("expected the module's API server pod labels, got none")
 	}
 	assertAdmits(t, policy, Peer{Namespace: moduleNamespace, PodLabels: apiServerPodLabels}, cockroachSqlPort, true,
-		"the module's API server, whose db-init and database-migrator reach its database")
+		"the module's API server, whose database-migrator reaches its database")
 	assertAdmits(t, policy, Peer{Namespace: moduleNamespace, PodLabels: apiServerPodLabels}, cockroachConsolePort, false,
 		"the module's API server, on the database console's port")
 

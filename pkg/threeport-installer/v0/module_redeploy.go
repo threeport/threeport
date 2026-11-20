@@ -133,8 +133,13 @@ func (cpi *ControlPlaneInstaller) redeployInstalledModule(
 		return fmt.Errorf("failed to copy the broker credentials into %s: %w", apiServer.Namespace, err)
 	}
 
+	secretNames, err := redeployedModuleSecrets(kubeClient, cpi.Opts.Namespace, apiServer.Namespace, kebab)
+	if err != nil {
+		return fmt.Errorf("failed to give module %s access to the database: %w", util.DerefString(moduleAPI.Name), err)
+	}
+
 	// copy the secrets the installer copies
-	for _, secretName := range ModuleCopiedSecretNames() {
+	for _, secretName := range secretNames {
 		if err := CopySecret(
 			kubeClient,
 			mapper,
@@ -961,4 +966,73 @@ func resumeRecordedController(
 		return err
 	}
 	return resumeModuleByName(kubeClient, namespace, name)
+}
+
+// redeployedModuleSecrets gives a redeployed module access to the database
+// of the control plane in threeportNamespace, and returns the secrets to copy
+// into its namespace.  A module installed with a database user of its own
+// gets one in this control plane's database.  One installed before connects
+// with the database's client certificates, which are copied with the rest.
+func redeployedModuleSecrets(kubeClient dynamic.Interface, threeportNamespace, moduleNamespace, kebab string) ([]string, error) {
+	secretNames := ModuleCopiedSecretNames()
+	ownUser, err := moduleHasOwnDatabaseUser(kubeClient, moduleNamespace)
+	if err != nil {
+		return nil, err
+	}
+	if !ownUser {
+		return append(secretNames, legacyModuleDatabaseSecretNames()...), nil
+	}
+	if _, err := EnsureModuleDatabaseUser(kubeClient, threeportNamespace, moduleNamespace, kebab); err != nil {
+		return nil, err
+	}
+
+	return secretNames, nil
+}
+
+// moduleHasOwnDatabaseUser reports whether the module in namespace connects
+// to the database as a user of its own: a Deployment in its namespace takes
+// its database credentials from that user's secret.  The secret alone isn't
+// enough, as an upgrade that failed after writing it leaves the module's
+// pods connecting with the database's client certificates.
+func moduleHasOwnDatabaseUser(kubeClient dynamic.Interface, namespace string) (bool, error) {
+	deployments, err := kubeClient.Resource(deploymentGVR).Namespace(namespace).List(
+		context.Background(), metav1.ListOptions{},
+	)
+	if err != nil {
+		return false, fmt.Errorf("failed to list the deployments in %s: %w", namespace, err)
+	}
+	for _, deployment := range deployments.Items {
+		if deploymentUsesModuleDatabaseCreds(deployment) {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+// deploymentUsesModuleDatabaseCreds reports whether a Deployment's pods take
+// an environment variable from the module's database credentials.
+func deploymentUsesModuleDatabaseCreds(deployment unstructured.Unstructured) bool {
+	for _, containersField := range []string{"initContainers", "containers"} {
+		containers, _, _ := unstructured.NestedSlice(deployment.Object, "spec", "template", "spec", containersField)
+		for _, container := range containers {
+			containerMap, ok := container.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			env, _, _ := unstructured.NestedSlice(containerMap, "env")
+			for _, variable := range env {
+				variableMap, ok := variable.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				secret, _, _ := unstructured.NestedString(variableMap, "valueFrom", "secretKeyRef", "name")
+				if secret == ModuleDatabaseCredsSecretName {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
 }

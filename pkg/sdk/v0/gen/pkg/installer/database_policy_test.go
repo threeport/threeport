@@ -110,7 +110,7 @@ func nested(literal *ast.CompositeLit, keys ...string) *ast.CompositeLit {
 // module's API server deployment gives its pods and its service selects.
 // The generated test builds the policy and its expectation from the same
 // labels, so a deployment whose labels changed would pass it, and then
-// install a module whose db-init cannot reach its database.
+// install a module whose database-migrator cannot reach its database.
 func TestTheDatabasePolicyAdmitsThePodsTheApiServerRunsIn(t *testing.T) {
 	installerSource, _ := generateModuleInstaller(t)
 	file, err := parser.ParseFile(token.NewFileSet(), "installer_gen.go", installerSource, 0)
@@ -179,9 +179,9 @@ func unstructuredObject(expr ast.Expr) *ast.CompositeLit {
 }
 
 // TestTheDatabasePolicyIsInstalledBeforeTheApiServer covers the order: the
-// API server's db-init connects to the database as soon as its pod starts,
-// so the policy that admits it has to be there first, and the namespace that
-// owns the policy has to exist before it.
+// API server's database-migrator connects to the database as soon as its
+// pod starts, so the policy that admits it has to be there first, and the
+// namespace that owns the policy has to exist before it.
 func TestTheDatabasePolicyIsInstalledBeforeTheApiServer(t *testing.T) {
 	installerSource, _ := generateModuleInstaller(t)
 
@@ -192,7 +192,7 @@ func TestTheDatabasePolicyIsInstalledBeforeTheApiServer(t *testing.T) {
 	require.NotEqual(t, -1, policy, "the database policy is not installed")
 	require.NotEqual(t, -1, deployment, "the API server is not deployed")
 	assert.Less(t, namespace, policy, "the policy is owned by the namespace, which has to exist first")
-	assert.Less(t, policy, deployment, "the API server's db-init would start before the policy admitting it")
+	assert.Less(t, policy, deployment, "the API server's database-migrator would start before the policy admitting it")
 
 	assert.Contains(t, installerSource, `tp_installer.InstallModuleDatabasePolicy(
 		i.KubeClient,
