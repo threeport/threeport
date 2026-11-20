@@ -211,3 +211,84 @@ func TestEphemeralConsumerBlocksRollingUpdate(t *testing.T) {
 		time.Sleep(time.Second)
 	}
 }
+
+// TestStreamAtItsCapRefusesNewNotifications covers what the storage docs tell
+// an operator: a stream at its cap refuses new notifications and keeps the ones
+// it holds, which its controller then processes.  The cap is lowered so the
+// test does not write 256MiB.
+func TestStreamAtItsCapRefusesNewNotifications(t *testing.T) {
+	_, nc := startJetStream(t)
+	js, err := InitJetStream(nc, 1)
+	if err != nil {
+		t.Fatalf("failed to initialize streams: %v", err)
+	}
+	info, err := (*js).StreamInfo(secret_notif.SecretStreamName)
+	if err != nil {
+		t.Fatalf("failed to get stream info: %v", err)
+	}
+	cfg := info.Config
+	cfg.MaxBytes = 4 * 1024
+	if _, err := (*js).UpdateStream(&cfg); err != nil {
+		t.Fatalf("failed to lower the cap: %v", err)
+	}
+
+	subject := secret_notif.SecretDefinitionCreateSubject
+	payload := make([]byte, 512)
+	accepted := 0
+	var refused error
+	for i := 0; i < 64 && refused == nil; i++ {
+		if _, err := (*js).Publish(subject, payload); err != nil {
+			refused = err
+			break
+		}
+		accepted++
+	}
+	if refused == nil {
+		t.Fatal("the stream accepted notifications past its cap")
+	}
+	if accepted == 0 {
+		t.Fatal("the stream accepted no notification under its cap")
+	}
+
+	// the notifications it holds survive and are processed
+	sub, err := (*js).PullSubscribe(secret_notif.SecretDefinitionSubject, "SecretDefinitionReconcilerConsumer", nats.BindStream(secret_notif.SecretStreamName))
+	if err != nil {
+		t.Fatalf("failed to subscribe: %v", err)
+	}
+	msgs, err := sub.Fetch(accepted, nats.MaxWait(5*time.Second))
+	if err != nil || len(msgs) != accepted {
+		t.Fatalf("got %d of the %d held notifications: %v", len(msgs), accepted, err)
+	}
+	for _, msg := range msgs {
+		if err := msg.AckSync(); err != nil {
+			t.Fatalf("failed to acknowledge: %v", err)
+		}
+	}
+	if _, err := (*js).Publish(subject, payload); err != nil {
+		t.Errorf("the stream still refuses notifications after its controller drained it: %v", err)
+	}
+}
+
+// TestEditedStreamIsRefusedAtStartup covers the warning in the storage docs
+// against editing a stream's limits: the API server creates its streams with
+// the limits of its release, and does not start when one differs.
+func TestEditedStreamIsRefusedAtStartup(t *testing.T) {
+	_, nc := startJetStream(t)
+	js, err := InitJetStream(nc, 1)
+	if err != nil {
+		t.Fatalf("failed to initialize streams: %v", err)
+	}
+	info, err := (*js).StreamInfo(secret_notif.SecretStreamName)
+	if err != nil {
+		t.Fatalf("failed to get stream info: %v", err)
+	}
+	cfg := info.Config
+	cfg.MaxBytes *= 2
+	if _, err := (*js).UpdateStream(&cfg); err != nil {
+		t.Fatalf("failed to edit the stream: %v", err)
+	}
+
+	if _, err := InitJetStream(nc, 1); err == nil {
+		t.Error("the API server started with a stream whose limits differ from its release's")
+	}
+}

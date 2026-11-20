@@ -127,7 +127,7 @@ func TestAServerNearlyOutOfStorageIsWarnedAbout(t *testing.T) {
 	require.Len(t, recorded, 2, "%v", recorded)
 	assert.Equal(t,
 		"Warning MessageBrokerStorageNearlyFull message broker server nats-js-0 uses 86% of its JetStream storage (160.0GiB of 187.0GiB); "+
-			"it refuses messages once it is full, which stops the control plane's notifications: grow its volume before then",
+			"it refuses messages once it is full, which stops the control plane's notifications: find the stream holding the backlog with `nats stream report` before then",
 		recorded[0])
 	assert.Contains(t, recorded[1], "server nats-js-6 uses 80% of its JetStream storage (80B of 100B)", "at the threshold")
 }
