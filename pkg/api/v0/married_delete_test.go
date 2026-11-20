@@ -27,6 +27,14 @@ func marriedDeleteDB(t *testing.T) (
 	db = setupKubernetesApiAccessDB(t)
 	require.NoError(t, db.AutoMigrate(&GcpGkeKubernetesRuntimeInstance{}))
 
+	// a definition first, so no married object shares its base's ID, as on
+	// CockroachDB, where IDs are unique across tables
+	require.NoError(t, db.Create(&KubernetesRuntimeDefinition{
+		Definition:       Definition{Name: util.Ptr("filler")},
+		InfraProvider:    util.Ptr(KubernetesRuntimeInfraProviderKind),
+		HighAvailability: util.Ptr(false),
+	}).Error)
+
 	runtimeDefinition := &KubernetesRuntimeDefinition{
 		Definition:       Definition{Name: util.Ptr("dev-01")},
 		InfraProvider:    util.Ptr(KubernetesRuntimeInfraProviderGKE),
@@ -107,6 +115,37 @@ func TestADeleteRemovesTheBaseItMarriesInTheSameTransaction(t *testing.T) {
 		require.NoError(t, DeleteWithMarriedBases(withControlPlaneCaller(db), gkeInstance).Error)
 		assert.False(t, exists(t, db, &GcpGkeKubernetesRuntimeInstance{}, *gkeInstance.ID))
 		assert.False(t, exists(t, db, &KubernetesRuntimeInstance{}, *gkeInstance.KubernetesRuntimeInstanceID))
+	})
+
+	t.Run("a request narrowed to the married object's ID", func(t *testing.T) {
+		db, gkeDefinition, gkeInstance := marriedDeleteDB(t)
+		require.NoError(t, db.Delete(gkeInstance).Error)
+		runtimeInstance := &KubernetesRuntimeInstance{}
+		require.NoError(t, db.First(runtimeInstance, *gkeInstance.KubernetesRuntimeInstanceID).Error)
+		require.NoError(t, db.Delete(runtimeInstance).Error)
+
+		require.NotEqual(t, *gkeDefinition.ID, *gkeDefinition.KubernetesRuntimeDefinitionID)
+
+		// as ?ids= does, the request's scope narrows every read to the IDs it names
+		narrowed := db.Scopes(func(scoped *gorm.DB) *gorm.DB {
+			return scoped.Where("id IN ?", []uint{*gkeDefinition.ID})
+		})
+		require.NoError(t, DeleteWithMarriedBases(narrowed, gkeDefinition).Error)
+		assert.False(t, exists(t, db, &GcpGkeKubernetesRuntimeDefinition{}, *gkeDefinition.ID))
+		assert.False(t, exists(t, db, &KubernetesRuntimeDefinition{}, *gkeDefinition.KubernetesRuntimeDefinitionID),
+			"the base is found and deleted although the request names only the married object")
+	})
+
+	t.Run("a request narrowed to the married object's ID, with a base something depends on", func(t *testing.T) {
+		db, gkeDefinition, gkeInstance := marriedDeleteDB(t)
+		require.NoError(t, db.Delete(gkeInstance).Error)
+
+		narrowed := db.Scopes(func(scoped *gorm.DB) *gorm.DB {
+			return scoped.Where("id IN ?", []uint{*gkeDefinition.ID})
+		})
+		err := DeleteWithMarriedBases(narrowed, gkeDefinition).Error
+		require.ErrorAs(t, err, new(*BlockedDeleteError), "what depends on the base is found too")
+		assert.True(t, exists(t, db, &GcpGkeKubernetesRuntimeDefinition{}, *gkeDefinition.ID))
 	})
 
 	t.Run("a base already gone", func(t *testing.T) {

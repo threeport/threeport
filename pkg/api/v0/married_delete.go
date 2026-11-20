@@ -61,16 +61,21 @@ func DeleteWithMarriedBases(db *gorm.DB, obj any) *gorm.DB {
 	return result
 }
 
-// deleteMarriedBase deletes base, whose ID is set, in tx.
+// deleteMarriedBase deletes base, whose ID is set, in tx.  The request's
+// filters, such as ?ids=, name the married object, so the base is read,
+// checked and deleted in a clean session on the same transaction: under
+// them, a base with another ID would not be found, and what depends on it
+// would not be seen.
 func deleteMarriedBase(tx *gorm.DB, base any) error {
 	baseType := base.(lib.FullyQualifiedTypeProvider).GetFullyQualifiedType()
 	baseID := util.ObjectID(base)
 	if baseID == nil {
 		return nil
 	}
+	clean := lib.NewCleanSession(tx)
 
 	// a base that is gone, or that its own delete is removing, is left alone
-	loaded := tx.Limit(1).Find(base)
+	loaded := clean.Limit(1).Find(base)
 	if loaded.Error != nil {
 		return fmt.Errorf("failed to load married %s/%d: %w", baseType, *baseID, loaded.Error)
 	}
@@ -79,7 +84,7 @@ func deleteMarriedBase(tx *gorm.DB, base any) error {
 	}
 
 	// a base that refuses its delete keeps the married object too
-	if err := CheckDeleteRefused(tx, base); err != nil {
+	if err := CheckDeleteRefused(clean, base); err != nil {
 		var refused *DeleteRefusedError
 		if errors.As(err, &refused) {
 			return util.NewConflictError(fmt.Sprintf(
@@ -90,7 +95,7 @@ func deleteMarriedBase(tx *gorm.DB, base any) error {
 	}
 
 	// the base's delete hooks refuse it while anything else depends on it
-	if err := tx.Delete(base).Error; err != nil {
+	if err := clean.Delete(base).Error; err != nil {
 		return err
 	}
 

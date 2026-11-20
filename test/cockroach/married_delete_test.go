@@ -78,6 +78,29 @@ func TestADeleteRemovesTheBaseItMarriesOnCockroach(t *testing.T) {
 		require.NoError(t, handle(c))
 		return recorder.Code
 	}
+	narrowedDeleteRequest := func(t *testing.T, route string, id uint, handle func(echo.Context) error) int {
+		t.Helper()
+		c, recorder := newAPIRequest(http.MethodDelete, route+"/:id", fmt.Sprint(id), "")
+		c.Request().URL.RawQuery = fmt.Sprintf("ids=%d", id)
+		require.NoError(t, handle(c))
+		return recorder.Code
+	}
+
+	t.Run("a request narrowed by ?ids= to the married object", func(t *testing.T) {
+		runtime := createEksRuntime(t, db, "married-delete-ids", nil)
+		referenceRuntime(t, db, runtime)
+		confirmDeletion(t, db, &runtime.eksInstance)
+
+		code := narrowedDeleteRequest(t, api_v0.PathAwsEksKubernetesRuntimeInstances, *runtime.eksInstance.ID, handler.DeleteAwsEksKubernetesRuntimeInstance)
+		require.Equal(t, http.StatusOK, code)
+		assert.False(t, live(t, db, &api_v0.KubernetesRuntimeInstance{}, *runtime.instance.ID),
+			"the kubernetes runtime instance goes although the request names only the EKS instance")
+
+		code = narrowedDeleteRequest(t, api_v0.PathAwsEksKubernetesRuntimeDefinitions, *runtime.eksDefinition.ID, handler.DeleteAwsEksKubernetesRuntimeDefinition)
+		require.Equal(t, http.StatusOK, code)
+		assert.False(t, live(t, db, &api_v0.KubernetesRuntimeDefinition{}, *runtime.definition.ID),
+			"the kubernetes runtime definition goes although the request names only the EKS definition")
+	})
 
 	t.Run("one request each", func(t *testing.T) {
 		runtime := createEksRuntime(t, db, "married-delete", nil)
