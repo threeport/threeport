@@ -326,8 +326,20 @@ func updateThreeportConfigWithControlPlaneInstance(
 }
 
 // refreshStoredControlPlane copies the API address and client certificates from the control plane that manages the saved entry.
-// A manager that is missing or down, or a refresh that fails, leaves the saved entry in place.
+// A manager that is missing or down, or a refresh that fails, leaves the saved entry in place, with a warning that says why.
 func refreshStoredControlPlane(threeportConfig *cli.ThreeportConfig, resolution controlPlaneResolution, name string) error {
+	if err := refreshFromManager(threeportConfig, resolution, name); err != nil {
+		cli.Warning(fmt.Sprintf("Could not refresh control plane %s: %v. Using the saved entry.", name, err))
+	}
+	return nil
+}
+
+// refreshFromManager copies the API address and client certificates onto the
+// saved entry from the control plane that manages it.  It returns why it
+// could not: no configured control plane manages the entry, or the refreshed
+// entry could not be written.  A genesis control plane, or a config with no
+// other control plane to ask, has nothing to refresh from.
+func refreshFromManager(threeportConfig *cli.ThreeportConfig, resolution controlPlaneResolution, name string) error {
 	// a genesis control plane has no parent to read
 	if resolution.requested == nil || resolution.requested.Genesis {
 		return nil
@@ -340,7 +352,7 @@ func refreshStoredControlPlane(threeportConfig *cli.ThreeportConfig, resolution 
 	}
 
 	// use the first source that manages this saved control plane
-	apiClient, apiEndpoint, instance, found := refreshInstanceFrom(sources, func(source *cli.ControlPlane) (*http.Client, string, *v0.ControlPlaneInstance, error) {
+	apiClient, apiEndpoint, instance, err := refreshInstanceFrom(sources, func(source *cli.ControlPlane) (*http.Client, string, *v0.ControlPlaneInstance, error) {
 		sourceClient, err := threeportConfig.GetHTTPClient(source.Name)
 		if err != nil {
 			return nil, "", nil, err
@@ -361,21 +373,17 @@ func refreshStoredControlPlane(threeportConfig *cli.ThreeportConfig, resolution 
 		return sourceClient, sourceEndpoint, sourceInstance, nil
 	})
 
-	// copy the address when the manager answers
-	if found {
-		if err := updateThreeportConfigWithControlPlaneInstance(
-			apiClient,
-			apiEndpoint,
-			instance,
-			threeportConfig,
-		); err == nil {
-			return nil
-		}
+	if err != nil {
+		return fmt.Errorf("no configured control plane manages it (%w)", err)
 	}
 
-	// a missing manager or a failed refresh leaves the saved entry in place
-	cli.Warning(fmt.Sprintf("Could not refresh control plane %s. Using the saved entry.", name))
-	return nil
+	// copy the address from the manager
+	return updateThreeportConfigWithControlPlaneInstance(
+		apiClient,
+		apiEndpoint,
+		instance,
+		threeportConfig,
+	)
 }
 
 // refreshSources lists the configured control planes that can hold the saved entry.
@@ -404,21 +412,38 @@ func refreshSources(threeportConfig *cli.ThreeportConfig, resolution controlPlan
 }
 
 // refreshInstanceFrom returns the instance from the first source that has it.
-// Skip a source that is down or does not have the instance.
+// Skip a source that is down or does not have the instance.  When none has
+// it, the error says why each source didn't.
 func refreshInstanceFrom(
 	sources []*cli.ControlPlane,
 	lookup func(*cli.ControlPlane) (*http.Client, string, *v0.ControlPlaneInstance, error),
-) (*http.Client, string, *v0.ControlPlaneInstance, bool) {
+) (*http.Client, string, *v0.ControlPlaneInstance, error) {
 	// take the first source that returns the instance
+	var misses sourceErrors
 	for _, source := range sources {
 		apiClient, apiEndpoint, instance, err := lookup(source)
 		if err != nil {
+			misses = append(misses, fmt.Errorf("%s: %w", source.Name, err))
 			continue
 		}
-		return apiClient, apiEndpoint, instance, true
+		return apiClient, apiEndpoint, instance, nil
 	}
-	return nil, "", nil, false
+	return nil, "", nil, misses
 }
+
+// sourceErrors is why each control plane asked for a saved entry did not
+// return it, in the order they were asked.
+type sourceErrors []error
+
+func (e sourceErrors) Error() string {
+	messages := make([]string, len(e))
+	for i, err := range e {
+		messages[i] = err.Error()
+	}
+	return strings.Join(messages, "; ")
+}
+
+func (e sourceErrors) Unwrap() []error { return e }
 
 // refreshControlPlaneClient copies the API address and client certificates onto an existing entry.
 func refreshControlPlaneClient(existing, from *cli.ControlPlane) {
