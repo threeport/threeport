@@ -17672,7 +17672,7 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "UpgradeRequestedVersion": {
-                    "description": "The definition's KubernetesVersion the cluster was last asked to be\nupgraded to.  The API server sets it when an update of the EKS\ndefinition asks the cluster to upgrade, once the cluster's controller\nhas been notified, so a request it couldn't finish is made again by the\ndefinition's next update.",
+                    "description": "The definition's KubernetesVersion the cluster was last asked to be\nupgraded to.  The API server sets it to the version the cluster is\ncreated on when the instance is created, and when an update of the\nEKS definition asks the cluster to upgrade, once the cluster's\ncontroller has been notified, so a request it couldn't finish is made\nagain by the definition's next update.",
                     "type": "string"
                 },
                 "UpgradeStatus": {
@@ -18663,7 +18663,7 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "UpgradeRequestedVersion": {
-                    "description": "The definition's KubernetesVersion the cluster was last asked to be\nupgraded to.  The API server sets it when an update of the GKE\ndefinition asks the cluster to upgrade, once the cluster's controller\nhas been notified, so a request it couldn't finish is made again by the\ndefinition's next update.",
+                    "description": "The definition's KubernetesVersion the cluster was last asked to be\nupgraded to.  The API server sets it to the version the cluster is\ncreated on when the instance is created, and when an update of the\nGKE definition asks the cluster to upgrade, once the cluster's\ncontroller has been notified, so a request it couldn't finish is made\nagain by the definition's next update.",
                     "type": "string"
                 },
                 "UpgradeStatus": {
@@ -21045,7 +21045,7 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "v0.7.0-rc.5",
+	Version:          "v0.7.0-rc.6",
 	Host:             "",
 	BasePath:         "/",
 	Schemes:          []string{},

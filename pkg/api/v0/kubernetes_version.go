@@ -226,3 +226,16 @@ func validateKubernetesVersionUpdate(tx *gorm.DB) error {
 
 	return nil
 }
+
+// loadInstanceDefinition reads the EKS or GKE definition a new instance
+// names by id into definition, apart from the create's own clauses, and
+// reports whether it exists.  A create that names one that doesn't fails on
+// its reference instead.
+func loadInstanceDefinition(tx *gorm.DB, definition any, id uint) (bool, error) {
+	result := lib.NewCleanSession(tx).Limit(1).Find(definition, id)
+	if result.Error != nil {
+		return false, fmt.Errorf("failed to read the definition the cluster is created on: %w", result.Error)
+	}
+
+	return result.RowsAffected > 0, nil
+}
