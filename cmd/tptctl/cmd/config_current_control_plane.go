@@ -286,13 +286,16 @@ func updateThreeportConfigWithControlPlaneInstance(
 		return err
 	}
 
-	// keep the kubeconfig and the provider config on an entry that already exists
+	// keep the kubeconfig and the provider config on an entry that already
+	// exists, on a copy of it: the saved entry changes only when the config
+	// is written
 	for i := range threeportConfig.ControlPlanes {
 		if threeportConfig.ControlPlanes[i].Name != threeportControlPlaneConfig.Name {
 			continue
 		}
-		refreshControlPlaneClient(&threeportConfig.ControlPlanes[i], threeportControlPlaneConfig)
-		threeportControlPlaneConfig = &threeportConfig.ControlPlanes[i]
+		merged := threeportConfig.ControlPlanes[i]
+		refreshControlPlaneClient(&merged, threeportControlPlaneConfig)
+		threeportControlPlaneConfig = &merged
 		break
 	}
 
