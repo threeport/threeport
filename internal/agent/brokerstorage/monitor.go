@@ -43,9 +43,9 @@ const (
 // Monitor checks each message broker server's JetStream storage on an
 // interval, and records a warning event on the server's pod, and logs it,
 // when the server uses more of it than the threshold.  NATS refuses messages
-// once it uses all of it: the limit is its max_file_store, or, when that's
-// unset, as on a control plane's broker, three quarters of its volume's free
-// space when it started.
+// once it uses all of it: the limit is its max_file, or, when that's unset,
+// three quarters of its volume's free space when it started.  A control
+// plane's broker sets max_file, so the limit is the same on every volume.
 type Monitor struct {
 	// Service is the broker's headless service, which resolves to the
 	// address of each of its servers.
@@ -158,7 +158,7 @@ func (m *Monitor) Check(ctx context.Context) {
 func (m *Monitor) warn(ctx context.Context, storage ServerStorage) {
 	message := fmt.Sprintf(
 		"message broker server %s uses %.0f%% of its JetStream storage (%s of %s); it refuses messages once it is full, "+
-			"which stops the control plane's notifications: grow its volume before then",
+			"which stops the control plane's notifications: find the stream holding the backlog with `nats stream report` before then",
 		storage.Server, storage.Share()*100, formatBytes(storage.Used), formatBytes(uint64(storage.Limit)),
 	)
 	m.Log.Info(message, "server", storage.Server, "used", storage.Used, "limit", storage.Limit)

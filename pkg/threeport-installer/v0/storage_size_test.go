@@ -124,3 +124,20 @@ func TestAnInstallsVolumesTakeTheirSizes(t *testing.T) {
 	volumeType, _, _ := unstructured.NestedString(class.Object, "parameters", "type")
 	assert.Equal(t, "io2", volumeType)
 }
+
+// TestValidateMessageBrokerStorageSizeRefusesAVolumeUnderTheCeiling covers a
+// message broker volume smaller than its JetStream ceiling, which would fill
+// before the ceiling stopped the broker.
+func TestValidateMessageBrokerStorageSizeRefusesAVolumeUnderTheCeiling(t *testing.T) {
+	for _, size := range []string{"", "5Gi", "10Gi", "250Gi", "1Ti", "6G"} {
+		assert.NoError(t, ValidateMessageBrokerStorageSize("message-broker-storage-size", size), size)
+	}
+	for _, size := range []string{"1Gi", "4Gi", "4999Mi", "500Mi"} {
+		assert.ErrorContains(t,
+			ValidateMessageBrokerStorageSize("message-broker-storage-size", size),
+			"is smaller than the 5Gi the message broker needs", size)
+	}
+	// a size that is not valid is refused as ValidateStorageSize refuses it
+	assert.ErrorContains(t, ValidateMessageBrokerStorageSize("message-broker-storage-size", "lots"), "is not a size such as 250Gi")
+	assert.ErrorContains(t, ValidateMessageBrokerStorageSize("message-broker-storage-size", "0"), "greater than zero")
+}

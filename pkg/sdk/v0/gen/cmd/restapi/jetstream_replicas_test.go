@@ -3,6 +3,7 @@ package restapi
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -26,5 +27,7 @@ func TestTheAPIServerReplicatesEveryStream(t *testing.T) {
 	require.NoError(t, err)
 	added := strings.Count(string(streams), "js.AddStream(")
 	require.NotZero(t, added)
-	assert.Equal(t, added, strings.Count(string(streams), "Replicas: replicas,"), "every stream is created with the broker's replicas")
+	// gofmt aligns the stream's fields, so the spacing after the colon varies
+	replicated := regexp.MustCompile(`Replicas:\s+replicas,`).FindAllString(string(streams), -1)
+	assert.Equal(t, added, len(replicated), "every stream is created with the broker's replicas")
 }
