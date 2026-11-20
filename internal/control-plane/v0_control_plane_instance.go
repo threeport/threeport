@@ -8,12 +8,14 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	aws_iam "github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/go-logr/logr"
 	"gorm.io/datatypes"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
@@ -26,7 +28,7 @@ import (
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
-	"github.com/threeport/threeport/pkg/encryption/v0"
+	event "github.com/threeport/threeport/pkg/event/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -72,21 +74,23 @@ func clientEndpointReplace(saved, internal string) bool {
 }
 
 // apiEndpointUpdate returns the address to store, and whether that address is a load balancer.
-// A service that is not a load balancer keeps the internal address.
+// A load balancer is read every reconcile because a blue-green leaves the previous public address.
 func apiEndpointUpdate(saved, internal, serviceType string) (string, bool) {
+	// read the current load balancer even when a public address is already stored
+	if serviceType == "LoadBalancer" {
+		return "", true
+	}
+
 	// keep an address that is already public
 	if !clientEndpointReplace(saved, internal) {
 		return saved, false
 	}
 
 	// keep the internal address when the service has no load balancer
-	if serviceType != "LoadBalancer" {
-		if saved == "" {
-			return internal, false
-		}
-		return saved, false
+	if saved == "" {
+		return internal, false
 	}
-	return "", true
+	return saved, false
 }
 
 // unfinishedChild reports whether create acknowledged the row and never stored its parent.
@@ -110,13 +114,33 @@ func unfinishedChild(instance *v0.ControlPlaneInstance) bool {
 	return instance.CreationAcknowledged != nil
 }
 
-// v0ControlPlaneInstanceCreated performs reconciliation when a v0 ControlPlaneInstance
-// has been created.
+// v0ControlPlaneInstanceCreated reconciles a created v0 ControlPlaneInstance.
 func v0ControlPlaneInstanceCreated(
 	r *controller.Reconciler,
 	controlPlaneInstance *v0.ControlPlaneInstance,
 	log *logr.Logger,
-) (int64, error) {
+) (requeueDelay int64, installErr error) {
+	// track the source writers and whether the new API answers
+	var resumeSource func() error
+	apiServing := false
+
+	// bring the source writers back when this returns before the new API answers
+	defer func() {
+		if resumeSource == nil || apiServing {
+			return
+		}
+		// resume the writers, keeping the install error first
+		resumeErr := resumeSource()
+		if resumeErr == nil {
+			return
+		}
+		if installErr != nil {
+			installErr = fmt.Errorf("%w (resuming source writers: %v)", installErr, resumeErr)
+			return
+		}
+		installErr = fmt.Errorf("failed to resume source writers: %w", resumeErr)
+	}()
+
 	var notFirstRun bool
 	if controlPlaneInstance.CreationAcknowledged == nil {
 		notFirstRun = false
@@ -380,8 +404,8 @@ func v0ControlPlaneInstanceCreated(
 				return 0, fmt.Errorf("failed to create http client for new control plane: %w", err)
 			}
 		} else {
-			// get auth config
-			authConfig, err = auth.GetAuthConfig()
+			// copy or generate the CA
+			authConfig, err = cpi.AuthConfigForInstall(dynamicKubeClient, mapper)
 			if err != nil {
 				return 0, fmt.Errorf("failed to get auth config: %w", err)
 			}
@@ -432,10 +456,17 @@ func v0ControlPlaneInstanceCreated(
 		controlPlaneInstance.ApiServerEndpoint = &internalEndpoint
 	}
 
-	// generate encryption key
-	encryptionKey, err := encryption.GenerateKey()
+	// keep an installed key, otherwise copy or generate one
+	encryptionKey, err := cpi.EncryptionKeyFromNamespace(
+		dynamicKubeClient,
+		mapper,
+		cpi.Opts.Namespace,
+	)
 	if err != nil {
-		return 0, fmt.Errorf("failed to generate encryption key: %w", err)
+		encryptionKey, err = cpi.EncryptionKeyForInstall(dynamicKubeClient, mapper)
+	}
+	if err != nil {
+		return 0, fmt.Errorf("failed to get encryption key for install: %w", err)
 	}
 
 	// generate new DB client credentials
@@ -452,6 +483,30 @@ func v0ControlPlaneInstanceCreated(
 		dbCreds,
 	); err != nil {
 		return 0, fmt.Errorf("failed to install threeport control plane dependencies: %w", err)
+	}
+
+	// grant the database account access to the backup bucket
+	if err := grantInstalledDatabaseBackup(
+		r,
+		cpi,
+		dynamicKubeClient,
+		kubernetesRuntimeInstance,
+		kubernetesRuntimeDefinition,
+	); err != nil {
+		return 0, err
+	}
+
+	// stop the source writers, back up once, and restore
+	resumeSource, err = restoreInstalledDatabase(
+		r,
+		cpi,
+		dynamicKubeClient,
+		kubernetesRuntimeInstance,
+		kubernetesRuntimeDefinition,
+		util.DerefString(selfInstance.Namespace),
+	)
+	if err != nil {
+		return 0, err
 	}
 
 	// install the API
@@ -575,16 +630,6 @@ func v0ControlPlaneInstanceCreated(
 		return 0, fmt.Errorf("failed to refresh dynamic kube API client: %w", err)
 	}
 
-	// install the support services operator
-	err = threeport.InstallThreeportSupportServicesOperator(
-		dynamicKubeClient,
-		mapper,
-		threeport.SupportServicesCloud(v0.KubernetesRuntimeInfraProvider(*kubernetesRuntimeDefinition.InfraProvider)),
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to install threeport support services operator: %w", err)
-	}
-
 	// record the parent and the client address before the reachability check.
 	// A failed dial still leaves the address for the CLI to read.
 	controlPlaneInstance.ParentControlPlaneInstanceID = selfInstance.ID
@@ -617,10 +662,45 @@ func v0ControlPlaneInstanceCreated(
 	}
 	cli.Info("Threeport API is running")
 
+	// the API answered, so a later failure leaves the source writers stopped
+	apiServing = true
+
+	// check the restored database holds the control plane it was restored for
+	if cpi.Opts.FromNamespace != "" {
+		if err := cpi.AssertRestoredControlPlane(dynamicKubeClient, mapper); err != nil {
+			return 0, err
+		}
+	}
+
+	// point installed modules at this control plane
+	if cpi.Opts.FromNamespace != "" {
+		if err := cpi.RedeployInstalledModules(
+			dynamicKubeClient,
+			mapper,
+			newApiClient,
+			threeportAPIEndpoint,
+		); err != nil {
+			return 0, fmt.Errorf("failed to retarget installed modules: %w", err)
+		}
+
+		// delete the source namespace, which a child control plane never shares
+		if cpi.Opts.FromNamespace != cpi.Opts.Namespace {
+			if err := threeport.DeleteNamespaces(
+				dynamicKubeClient,
+				mapper,
+				[]string{cpi.Opts.FromNamespace},
+			); err != nil {
+				return 0, fmt.Errorf("failed to delete source namespace %s: %w", cpi.Opts.FromNamespace, err)
+			}
+		}
+	}
+
+	// stop here when the new API is not onboarded to a parent
 	if !*controlPlaneDefinition.OnboardParent {
 		return 0, nil
 	}
 
+	// copy the runtime definition to the new API
 	cloneKubernetesRuntimeDefinition := *kubernetesRuntimeDefinition
 	cloneKubernetesRuntimeDefinition.Common = v0.Common{}
 	createdKubeDef, err := getOrCreate(
@@ -704,6 +784,11 @@ func v0ControlPlaneInstanceCreated(
 	clonedRuntimeInstance.Reconciled = &reconciled
 	recordResolvedComponents(&clonedRuntimeInstance, cpi)
 
+	if cpi.Opts.FromNamespace != "" {
+		if err := retargetRestoredSelf(newApiClient, threeportAPIEndpoint, &clonedRuntimeInstance); err != nil {
+			return 0, err
+		}
+	}
 	childSelf, err := getOrCreate(
 		"control plane instance on the new threeport api",
 		func() (*v0.ControlPlaneInstance, error) {
@@ -1017,6 +1102,178 @@ func copyManagingParent(
 	)
 }
 
+// retargetRestoredSelf renames the restored self row to the replacement plane.
+// A database with no self row is left for the caller to create.
+func retargetRestoredSelf(
+	apiClient *http.Client,
+	endpoint string,
+	replacement *v0.ControlPlaneInstance,
+) error {
+	// a database with no self row is created by the caller
+	self, err := client.GetSelfControlPlaneInstance(apiClient, endpoint)
+	if err != nil {
+		if strings.Contains(err.Error(), "no local control plane instance") {
+			return nil
+		}
+		return fmt.Errorf("failed to get the restored control plane instance: %w", err)
+	}
+
+	// leave a row that already names the replacement and its definition
+	sameName := util.DerefString(self.Name) == util.DerefString(replacement.Name)
+	sameNamespace := util.DerefString(self.Namespace) == util.DerefString(replacement.Namespace)
+	sameDefinition := util.Deref(self.ControlPlaneDefinitionID) == util.Deref(replacement.ControlPlaneDefinitionID)
+	sameRuntime := util.Deref(self.KubernetesRuntimeInstanceID) == util.Deref(replacement.KubernetesRuntimeInstanceID)
+	sameEndpoint := util.DerefString(self.ApiServerEndpoint) == util.DerefString(replacement.ApiServerEndpoint)
+	if !(sameName && sameNamespace && sameDefinition && sameRuntime && sameEndpoint) {
+		// point the restored row at the replacement
+		self.Name = replacement.Name
+		self.Namespace = replacement.Namespace
+		self.ApiServerEndpoint = replacement.ApiServerEndpoint
+		self.ControlPlaneDefinitionID = replacement.ControlPlaneDefinitionID
+		self.KubernetesRuntimeInstanceID = replacement.KubernetesRuntimeInstanceID
+		if _, err := client.UpdateControlPlaneInstance(apiClient, endpoint, self); err != nil {
+			return fmt.Errorf("failed to retarget the restored control plane instance: %w", err)
+		}
+	}
+
+	// attach rows whose parent chain does not reach this self row
+	return client.ReparentDetachedControlPlanes(apiClient, endpoint, self)
+}
+
+// ensureManagingParent copies the control plane that manages this child.
+func ensureManagingParent(r *controller.Reconciler, childClient *http.Client, endpoint string) error {
+	// read the control plane this reconcile runs in
+	serving, err := client.GetSelfControlPlaneInstance(r.APIClient, r.APIServer)
+	if err != nil {
+		return fmt.Errorf("failed to get the managing control plane: %w", err)
+	}
+
+	// copy it to the child as the child's managing parent
+	onboarder := &runtimeOnboarder{
+		parent:        apiTarget{client: r.APIClient, endpoint: r.APIServer},
+		child:         apiTarget{client: childClient, endpoint: endpoint},
+		encryptionKey: r.EncryptionKey,
+	}
+	if _, err := copyManagingParent(onboarder, serving); err != nil {
+		return err
+	}
+	return nil
+}
+
+// seedMissingChild writes the host runtime and the child's own row when a
+// restore left that database empty.
+func seedMissingChild(
+	r *controller.Reconciler,
+	stored *v0.ControlPlaneInstance,
+	childClient *http.Client,
+	endpoint string,
+) error {
+	// copy the runtime this child runs on and mark it as the host
+	runtime, err := client.GetKubernetesRuntimeInstanceByID(
+		r.APIClient, r.APIServer, *stored.KubernetesRuntimeInstanceID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get kubernetes runtime instance by ID: %w", err)
+	}
+	runtimeDefinition, err := client.GetKubernetesRuntimeDefinitionByID(
+		r.APIClient, r.APIServer, *runtime.KubernetesRuntimeDefinitionID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get kubernetes runtime definition by ID: %w", err)
+	}
+	definition, err := client.GetControlPlaneDefinitionByID(
+		r.APIClient, r.APIServer, *stored.ControlPlaneDefinitionID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get control plane definition by ID: %w", err)
+	}
+
+	// clear the row identity so the child assigns its own
+	runtimeCopy := *runtime
+	runtimeCopy.Common = v0.Common{}
+	definitionCopy := *runtimeDefinition
+	definitionCopy.Common = v0.Common{}
+
+	// create the runtime definition on the child
+	createdRuntimeDefinition, err := getOrCreate(
+		"kubernetes runtime definition on the new threeport api",
+		func() (*v0.KubernetesRuntimeDefinition, error) {
+			return client.GetKubernetesRuntimeDefinitionByName(childClient, endpoint, *definitionCopy.Name)
+		},
+		func() (*v0.KubernetesRuntimeDefinition, error) {
+			return client.CreateKubernetesRuntimeDefinition(childClient, endpoint, &definitionCopy)
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	// create the runtime instance on the child, marked as host
+	onboarder := &runtimeOnboarder{
+		parent:        apiTarget{client: r.APIClient, endpoint: r.APIServer},
+		child:         apiTarget{client: childClient, endpoint: endpoint},
+		encryptionKey: r.EncryptionKey,
+	}
+	createdRuntime, err := onboarder.createRuntimeInstance(&runtimeCopy, createdRuntimeDefinition.ID, true, true)
+	if err != nil {
+		return err
+	}
+
+	// copy the provider records the runtime depends on
+	if definitionCopy.InfraProvider != nil {
+		if err := onboarder.copyProviderRecords(
+			*definitionCopy.InfraProvider,
+			runtimeLink{definitionID: *runtime.KubernetesRuntimeDefinitionID, instanceID: *runtime.ID},
+			runtimeLink{definitionID: *createdRuntimeDefinition.ID, instanceID: *createdRuntime.ID},
+		); err != nil {
+			return fmt.Errorf("failed to onboard provider records: %w", err)
+		}
+	}
+
+	// write the child's definition and its self row
+	planeCopy := *definition
+	planeCopy.Common = v0.Common{}
+	createdDefinition, err := getOrCreate(
+		"control plane definition on the new threeport api",
+		func() (*v0.ControlPlaneDefinition, error) {
+			return client.GetControlPlaneDefinitionByName(childClient, endpoint, *planeCopy.Name)
+		},
+		func() (*v0.ControlPlaneDefinition, error) {
+			return client.CreateControlPlaneDefinition(childClient, endpoint, &planeCopy)
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	// link the child to its managing parent before its own row is written
+	if err := ensureManagingParent(r, childClient, endpoint); err != nil {
+		return err
+	}
+	self := true
+	reconciled := true
+	clone := *stored
+	clone.Common = v0.Common{}
+	clone.ParentControlPlaneInstanceID = nil
+	clone.ControlPlaneDefinitionID = createdDefinition.ID
+	clone.KubernetesRuntimeInstanceID = createdRuntime.ID
+	clone.IsSelf = &self
+	clone.Reconciled = &reconciled
+	if _, err := getOrCreate(
+		"control plane instance on the new threeport api",
+		func() (*v0.ControlPlaneInstance, error) {
+			return client.GetControlPlaneInstanceByName(childClient, endpoint, *clone.Name)
+		},
+		func() (*v0.ControlPlaneInstance, error) {
+			return client.CreateControlPlaneInstance(childClient, endpoint, &clone)
+		},
+	); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // syncManagedChild copies the image, the controller list and the network
 // range pool onto the child's own row.
 func syncManagedChild(r *controller.Reconciler, instance *v0.ControlPlaneInstance) error {
@@ -1033,21 +1290,30 @@ func syncManagedChild(r *controller.Reconciler, instance *v0.ControlPlaneInstanc
 	}
 	childSelf, err := client.GetControlPlaneInstanceByName(childClient, endpoint, *stored.Name)
 	if err != nil {
+		// a restored database still names its self row after the source
+		childSelf, err = client.GetSelfControlPlaneInstance(childClient, endpoint)
+	}
+	if err != nil && strings.Contains(err.Error(), "no local control plane instance") {
+		// a restore of an empty database leaves the child with no host runtime
+		if err := seedMissingChild(r, stored, childClient, endpoint); err != nil {
+			return err
+		}
+		childSelf, err = client.GetControlPlaneInstanceByName(childClient, endpoint, *stored.Name)
+	}
+	if err != nil {
 		return fmt.Errorf("failed to get control plane instance by name: %w", err)
 	}
 
 	// send an empty controller list when Apis was cleared, because a nil field is omitted
 	apis := stored.Apis
 	if apis == nil {
-		cleared := ""
-		apis = &cleared
+		apis = util.Ptr("")
 	}
 
 	// send an empty pool when the pool was cleared, for the same reason
 	pool := stored.NetworkCidrPool
 	if pool == nil {
-		cleared := datatypes.JSON("[]")
-		pool = &cleared
+		pool = util.Ptr(datatypes.JSON("[]"))
 	}
 
 	// set the parent link when an older child was created without one
@@ -1065,6 +1331,12 @@ func syncManagedChild(r *controller.Reconciler, instance *v0.ControlPlaneInstanc
 		}
 		localParent, err := client.GetControlPlaneInstanceByName(childClient, endpoint, *serving.Name)
 		if err != nil {
+			if err := ensureManagingParent(r, childClient, endpoint); err != nil {
+				return err
+			}
+			localParent, err = client.GetControlPlaneInstanceByName(childClient, endpoint, *serving.Name)
+		}
+		if err != nil {
 			return fmt.Errorf(
 				"failed to find managing parent %s on %s: %w",
 				*serving.Name,
@@ -1076,6 +1348,16 @@ func syncManagedChild(r *controller.Reconciler, instance *v0.ControlPlaneInstanc
 	}
 
 	// write the image, the controller list and the pool
+	_, err = client.UpdateControlPlaneInstance(childClient, endpoint, update)
+	if err == nil {
+		return nil
+	}
+
+	// a child built before the pool field drops that field and retries
+	if !strings.Contains(err.Error(), "NetworkCidrPool") {
+		return fmt.Errorf("failed to update control plane instance on %s: %w", *stored.Name, err)
+	}
+	update.NetworkCidrPool = nil
 	if _, err := client.UpdateControlPlaneInstance(childClient, endpoint, update); err != nil {
 		return fmt.Errorf("failed to update control plane instance on %s: %w", *stored.Name, err)
 	}
@@ -1090,6 +1372,8 @@ func childAPIClient(instance *v0.ControlPlaneInstance) (*http.Client, string, er
 		return nil, "", fmt.Errorf("control plane %s has no api endpoint", *instance.Name)
 	}
 	endpoint := *instance.ApiServerEndpoint
+
+	// use a plain client when the child has no client certificate
 	if instance.ClientCert == nil || *instance.ClientCert == "" {
 		httpClient, err := client_lib.GetHTTPClient(false, "", "", "", "")
 		if err != nil {
@@ -1106,6 +1390,8 @@ func childAPIClient(instance *v0.ControlPlaneInstance) (*http.Client, string, er
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to decode ca cert: %w", err)
 	}
+
+	// decode the client certificate and key
 	cert, err := util.Base64Decode(*instance.ClientCert)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to decode client cert: %w", err)
@@ -1120,6 +1406,218 @@ func childAPIClient(instance *v0.ControlPlaneInstance) (*http.Client, string, er
 	}
 	return httpClient, endpoint, nil
 }
+
+// installBlueGreen is the install tptctl and the controller share. Tests replace it.
+var installBlueGreen = cli.InstallBlueGreen
+
+// lookupGkeProject reads the project id the bucket name includes. Tests replace it.
+var lookupGkeProject = gkeRuntimeProjectID
+
+// saveControlPlaneInstance writes the child row. Tests replace it.
+var saveControlPlaneInstance = client.UpdateControlPlaneInstance
+
+// lookupControlPlaneByName reads the row that already holds a name. Tests replace it.
+var lookupControlPlaneByName = client.GetControlPlaneInstanceByName
+
+// childBlueGreenRequested reports a new deployment was asked for this child. A
+// child already renamed to its namespace has finished it, and a source
+// namespace still recorded is only waiting for its module install to succeed.
+func childBlueGreenRequested(instance *v0.ControlPlaneInstance) bool {
+	from := util.DerefString(instance.FromNamespace)
+	namespace := util.DerefString(instance.Namespace)
+	return from != "" && from != namespace && util.DerefString(instance.Name) != namespace
+}
+
+// blueGreenLocal returns the provider config InstallBlueGreen reads for its bucket.
+// Every provider calls that one install. Only GKE has a bucket.
+func blueGreenLocal(
+	definition *v0.KubernetesRuntimeDefinition,
+	runtimeName string,
+	projectID string,
+) (*cli.ControlPlane, error) {
+	local := &cli.ControlPlane{Name: runtimeName}
+	providerName := ""
+	if definition != nil {
+		providerName = util.DerefString(definition.InfraProvider)
+	}
+	switch providerName {
+	case v0.KubernetesRuntimeInfraProviderGKE:
+		local.Provider = v0.KubernetesRuntimeInfraProviderGKE
+		local.GKEProviderConfig.BackupBucket = provider.GkeBackupBucketName(runtimeName, projectID)
+		return local, nil
+	default:
+		return nil, fmt.Errorf(
+			"%w: database backups are not provisioned for control planes on %s",
+			cli.ErrNoBackupBucket, providerName,
+		)
+	}
+}
+
+// installChildBlueGreen runs the same blue-green install tptctl runs for a control plane that is not a child.
+func installChildBlueGreen(
+	r *controller.Reconciler,
+	instance *v0.ControlPlaneInstance,
+	runtime *v0.KubernetesRuntimeInstance,
+	definition *v0.KubernetesRuntimeDefinition,
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+) error {
+	// the bucket name is the one tptctl computes, including the project id
+	var projectID string
+	var err error
+	if runtime.ID != nil {
+		projectID, err = lookupGkeProject(r.APIClient, r.APIServer, *runtime.ID)
+	}
+	if err != nil && definition != nil &&
+		util.PtrEqual(definition.InfraProvider, v0.KubernetesRuntimeInfraProviderGKE) {
+		return err
+	}
+	local, err := blueGreenLocal(definition, util.DerefString(runtime.Name), projectID)
+	if err != nil {
+		return err
+	}
+
+	// reject a name another control plane already holds, before the source is removed
+	newName := util.DerefString(instance.Namespace)
+	found, lookupErr := lookupControlPlaneByName(r.APIClient, r.APIServer, newName)
+	if err := cli.ReplacementNameTaken(util.Deref(instance.ID), newName, found, lookupErr); err != nil {
+		return err
+	}
+
+	// install the new deployment
+	err = installBlueGreen(
+		local,
+		r.APIClient,
+		r.APIServer,
+		r.EncryptionKey,
+		&cli.ControlPlaneTarget{Instance: instance, Kube: kubeClient, Mapper: mapper},
+		util.DerefString(instance.Namespace),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to install blue-green control plane: %w", err)
+	}
+	// take the new name so the next reconcile does not repeat the request. A
+	// module install keeps the source namespace recorded, so the install can
+	// remove it once it succeeds
+	instance.Name = instance.Namespace
+	if util.DerefString(instance.ModuleInstall) == "" {
+		instance.FromNamespace = util.Ptr("")
+	}
+	_, err = saveControlPlaneInstance(r.APIClient, r.APIServer, instance)
+	if err != nil {
+		return fmt.Errorf("failed to clear blue-green request: %w", err)
+	}
+	return nil
+}
+
+// removeSourceAfterInstall removes the source namespace a child blue-green kept
+// until its module install succeeded, then clears the record of it. A control
+// plane with no source recorded has nothing to remove.
+func removeSourceAfterInstall(
+	r *controller.Reconciler,
+	controlPlaneInstance *v0.ControlPlaneInstance,
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+) error {
+	// nothing to remove when no source is waiting
+	from := util.DerefString(controlPlaneInstance.FromNamespace)
+	if from == "" || from == util.DerefString(controlPlaneInstance.Namespace) {
+		return nil
+	}
+
+	// remove the source, then clear the record so the cleanup runs once
+	if err := cli.RemoveReplacedNamespace(
+		kubeClient,
+		mapper,
+		from,
+		util.DerefString(controlPlaneInstance.Namespace),
+		false,
+	); err != nil {
+		return err
+	}
+	controlPlaneInstance.FromNamespace = util.Ptr("")
+	if _, err := saveControlPlaneInstance(r.APIClient, r.APIServer, controlPlaneInstance); err != nil {
+		return fmt.Errorf("failed to clear source namespace %s: %w", from, err)
+	}
+
+	return nil
+}
+
+// settleModuleInstall clears the request a run started, or stores a newer one.
+func settleModuleInstall(
+	r *controller.Reconciler,
+	controlPlaneInstance *v0.ControlPlaneInstance,
+	started string,
+) error {
+	fresh, err := client.GetControlPlaneInstanceByID(
+		r.APIClient,
+		r.APIServer,
+		*controlPlaneInstance.ID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to reload module install request: %w", err)
+	}
+	// clear the request this run started, or store a newer one
+	stored := util.DerefString(fresh.ModuleInstall)
+	next := threeport.ModuleInstallAfterRun(stored, started)
+	write := ""
+	if next == "" {
+		write = v0.ModuleInstallClear(started)
+	} else if next != stored {
+		write = next
+	}
+	if write != "" {
+		fresh.ModuleInstall = &write
+		// keep the stored value, because a clear marker is not what the row holds
+		updated, err := client.UpdateControlPlaneInstance(
+			r.APIClient,
+			r.APIServer,
+			fresh,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to clear module install request: %w", err)
+		}
+		kept := v0.ModuleInstallKept(next, write)
+		updated.ModuleInstall = &kept
+		fresh = updated
+	}
+	controlPlaneInstance.ModuleInstall = fresh.ModuleInstall
+
+	return nil
+}
+
+// recordModuleInstallFailure records a warning event for an install the
+// controller gave up on. A failure to record is logged and does not fail the pass.
+func recordModuleInstallFailure(
+	r *controller.Reconciler,
+	controlPlaneInstance *v0.ControlPlaneInstance,
+	installErr error,
+	log *logr.Logger,
+) {
+	// name the way forward when the old control plane is kept for recovery
+	note := installErr.Error()
+	if from := util.DerefString(controlPlaneInstance.FromNamespace); from != "" {
+		note += fmt.Sprintf(
+			"; the old control plane %s is kept. Reinstall the module on %s with the corrected image to finish",
+			from, util.DerefString(controlPlaneInstance.Name),
+		)
+	}
+	if recordErr := r.EventsRecorder.RecordEvent(
+		&v0.Event{
+			Note:   util.Ptr(note),
+			Reason: util.Ptr("ModuleInstallFailed"),
+			Type:   util.Ptr(event.TypeWarning),
+		},
+		controlPlaneInstance.GetId(),
+		controlPlaneInstance.GetFullyQualifiedType(),
+	); recordErr != nil {
+		log.Error(recordErr, "failed to record module install failure event")
+	}
+}
+
+// moduleInstallCheckSeconds is how long the controller waits before it checks a
+// running module install job again.
+const moduleInstallCheckSeconds = 30
 
 // v0ControlPlaneInstanceUpdated performs reconciliation when a v0 ControlPlaneInstance has been updated.
 func v0ControlPlaneInstanceUpdated(
@@ -1181,6 +1679,11 @@ func v0ControlPlaneInstanceUpdated(
 		return 0, err
 	}
 
+	// a source namespace kept for its module install is not a restore request
+	if !childBlueGreenRequested(controlPlaneInstance) {
+		cpi.Opts.FromNamespace = ""
+	}
+
 	// set provider values the controller install reads
 	if err := configureProviderControllers(
 		r,
@@ -1206,6 +1709,21 @@ func v0ControlPlaneInstanceUpdated(
 		return 0, fmt.Errorf("failed to get kube client: %w", err)
 	}
 
+	// a recorded source namespace means tptctl asked for a new deployment of this child
+	if childBlueGreenRequested(controlPlaneInstance) {
+		if err := installChildBlueGreen(
+			r,
+			controlPlaneInstance,
+			kubernetesRuntimeInstance,
+			kubernetesRuntimeDefinition,
+			dynamicKubeClient,
+			mapper,
+		); err != nil {
+			return 0, err
+		}
+		return 0, nil
+	}
+
 	// sign new controller certificates with the CA already in the cluster
 	var authConfig *auth.AuthConfig
 	if cpi.Opts.AuthEnabled {
@@ -1222,30 +1740,28 @@ func v0ControlPlaneInstanceUpdated(
 		_, clientPort := cpi.GetAPIServicePort()
 		internalEndpoint := fmt.Sprintf("%s.%s:%d", cpi.Opts.RestApiInfo.ServiceResourceName, cpi.Opts.Namespace, clientPort)
 		savedEndpoint := util.DerefString(controlPlaneInstance.ApiServerEndpoint)
-		if clientEndpointReplace(savedEndpoint, internalEndpoint) {
-			service, svcErr := cpi.GetThreeportAPIService(dynamicKubeClient, *mapper)
-			if svcErr != nil {
-				return 0, fmt.Errorf("failed to get threeport API service: %w", svcErr)
-			}
-			serviceType, _, typeErr := unstructured.NestedString(service.Object, "spec", "type")
-			if typeErr != nil {
-				return 0, fmt.Errorf("failed to get threeport API service type: %w", typeErr)
-			}
+		service, svcErr := cpi.GetThreeportAPIService(dynamicKubeClient, *mapper)
+		if svcErr != nil {
+			return 0, fmt.Errorf("failed to get threeport API service: %w", svcErr)
+		}
+		serviceType, _, typeErr := unstructured.NestedString(service.Object, "spec", "type")
+		if typeErr != nil {
+			return 0, fmt.Errorf("failed to get threeport API service type: %w", typeErr)
+		}
 
-			// keep the internal address when the service is not a load balancer.
-			// The service is persistent, so this reconcile does not convert it.
-			address, readLoadBalancer := apiEndpointUpdate(savedEndpoint, internalEndpoint, serviceType)
-			if readLoadBalancer {
-				lbEndpoint, lbErr := cpi.GetThreeportAPIEndpoint(dynamicKubeClient, *mapper)
-				if lbErr != nil {
-					return 0, fmt.Errorf("failed to get threeport API load balancer endpoint: %w", lbErr)
-				}
-				address = fmt.Sprintf("%s:%d", lbEndpoint, clientPort)
+		// read the load balancer on every reconcile.
+		// A restored row still holds the previous plane's public address.
+		address, readLoadBalancer := apiEndpointUpdate(savedEndpoint, internalEndpoint, serviceType)
+		if readLoadBalancer {
+			lbEndpoint, lbErr := cpi.GetThreeportAPIEndpoint(dynamicKubeClient, *mapper)
+			if lbErr != nil {
+				return 0, fmt.Errorf("failed to get threeport API load balancer endpoint: %w", lbErr)
 			}
-			if address != savedEndpoint {
-				controlPlaneInstance.ApiServerEndpoint = &address
-				clientFieldsChanged = true
-			}
+			address = fmt.Sprintf("%s:%d", lbEndpoint, clientPort)
+		}
+		if address != "" && address != savedEndpoint {
+			controlPlaneInstance.ApiServerEndpoint = &address
+			clientFieldsChanged = true
 		}
 	}
 
@@ -1270,7 +1786,7 @@ func v0ControlPlaneInstanceUpdated(
 	}
 
 	// set the parent when this row is not the root
-	sameControlPlane := controlPlaneInstance.ID != nil && selfInstance.ID != nil && *controlPlaneInstance.ID == *selfInstance.ID
+	sameControlPlane := controlPlaneInstance.ID != nil && util.PtrEqual(selfInstance.ID, *controlPlaneInstance.ID)
 	if controlPlaneInstance.ParentControlPlaneInstanceID == nil && !sameControlPlane {
 		controlPlaneInstance.ParentControlPlaneInstanceID = selfInstance.ID
 		clientFieldsChanged = true
@@ -1280,6 +1796,40 @@ func v0ControlPlaneInstanceUpdated(
 	if clientFieldsChanged {
 		if _, err = client.UpdateControlPlaneInstance(r.APIClient, r.APIServer, controlPlaneInstance); err != nil {
 			return 0, fmt.Errorf("failed to update control plane instance: %w", err)
+		}
+	}
+
+	// drive a requested module install once the address and certificate are current,
+	// so the install job reads this control plane's own endpoint and credentials.
+	// The request stays stored until the job succeeds, and a failed job is replaced
+	moduleInstallRequeue := int64(0)
+	if started := util.DerefString(controlPlaneInstance.ModuleInstall); started != "" {
+		finished, err := threeport.InstallRequestedModule(
+			dynamicKubeClient,
+			mapper,
+			controlPlaneInstance,
+			cpi,
+		)
+		switch {
+		case errors.Is(err, threeport.ErrModuleInstallFailed):
+			// give up, record why, and clear the request so a corrected one is accepted
+			recordModuleInstallFailure(r, controlPlaneInstance, err, log)
+			if err := settleModuleInstall(r, controlPlaneInstance, started); err != nil {
+				return 0, err
+			}
+		case err != nil:
+			return 0, err
+		case !finished:
+			moduleInstallRequeue = moduleInstallCheckSeconds
+		default:
+			// remove the source first, so a failure leaves the request stored and the
+			// next pass tries again
+			if err := removeSourceAfterInstall(r, controlPlaneInstance, dynamicKubeClient, mapper); err != nil {
+				return 0, err
+			}
+			if err := settleModuleInstall(r, controlPlaneInstance, started); err != nil {
+				return 0, err
+			}
 		}
 	}
 
@@ -1317,7 +1867,47 @@ func v0ControlPlaneInstanceUpdated(
 		}
 	}
 
-	return 0, nil
+	// roll the control plane image, then the module images recorded on its api
+	if appliesControlPlane(controlPlaneInstance) {
+		if tag := util.DerefString(controlPlaneInstance.ImageTag); tag != "" {
+			err := threeport.UpdateDeploymentImageTag(
+				tag,
+				util.DerefString(controlPlaneInstance.ImageNamespace),
+				util.DerefString(controlPlaneInstance.Namespace),
+				"",
+				dynamicKubeClient,
+				mapper,
+				cpi.Opts.ControllerList,
+				false,
+			)
+			if err != nil && !k8serrors.IsNotFound(err) {
+				return 0, fmt.Errorf("failed to update control plane image tag: %w", err)
+			}
+		}
+
+		moduleClient := r.APIClient
+		moduleEndpoint := r.APIServer
+		if !sameControlPlane {
+			var err error
+			moduleClient, moduleEndpoint, err = childAPIClient(controlPlaneInstance)
+			if err != nil {
+				log.Error(err, "failed to build child api client for module images")
+				return 0, err
+			}
+		}
+		if err := threeport.ReconcileInstalledModuleImages(
+			dynamicKubeClient,
+			mapper,
+			moduleClient,
+			moduleEndpoint,
+			controlPlaneInstance,
+			&threeport.ControlPlaneInstaller{},
+		); err != nil {
+			return 0, fmt.Errorf("failed to reconcile module images: %w", err)
+		}
+	}
+
+	return moduleInstallRequeue, nil
 }
 
 // configureProviderControllers sets provider values the controller install reads.
@@ -1407,9 +1997,148 @@ func configureProviderControllers(
 			return fmt.Errorf("failed to determine the GCP project of the child's runtime: %w", err)
 		}
 		cpi.Opts.GcpProjectId = gcpProjectId
+		if dynamicKubeClient == nil || kubernetesRuntimeInstance.Name == nil {
+			return nil
+		}
+
+		// let this namespace's controllers use the cluster account
+		gkeInfra := &provider.KubernetesRuntimeInfraGKE{
+			PulumiWorkspace: provider.PulumiWorkspace{
+				RuntimeInstanceName: *kubernetesRuntimeInstance.Name,
+			},
+			ProjectID: gcpProjectId,
+		}
+		if err := gkeInfra.BindControlPlaneWorkloadIdentity(cpi.Opts.Namespace); err != nil {
+			return fmt.Errorf("failed to bind workload identity for the control plane: %w", err)
+		}
+		cpi.Opts.GcpServiceAccountEmail = gkeInfra.ServiceAccountEmail
 		return nil
 	default:
 		// kind and oke need no provider values
+		return nil
+	}
+}
+
+// restoreInstalledDatabase stops the source writers, backs that database up once, and restores it.
+// resume brings those writers back when the new API does not come up.
+func restoreInstalledDatabase(
+	r *controller.Reconciler,
+	cpi *threeport.ControlPlaneInstaller,
+	kubeClient dynamic.Interface,
+	runtimeInstance *v0.KubernetesRuntimeInstance,
+	runtimeDefinition *v0.KubernetesRuntimeDefinition,
+	selfNamespace string,
+) (func() error, error) {
+	// skip a fresh install
+	if cpi.Opts.FromNamespace == "" {
+		return nil, nil
+	}
+
+	// a new namespace has to differ from the source
+	if cpi.Opts.FromNamespace == cpi.Opts.Namespace {
+		return nil, fmt.Errorf(
+			"new namespace must differ from source namespace %s",
+			cpi.Opts.FromNamespace,
+		)
+	}
+
+	// scaling this namespace to zero stops the reconcile and the parent API
+	if cpi.Opts.FromNamespace == selfNamespace {
+		return nil, fmt.Errorf(
+			"refusing to stop writers in %s: this reconcile runs there",
+			cpi.Opts.FromNamespace,
+		)
+	}
+
+	// restore for this provider
+	providerName := ""
+	if runtimeDefinition != nil {
+		providerName = util.DerefString(runtimeDefinition.InfraProvider)
+	}
+	switch providerName {
+	case v0.KubernetesRuntimeInfraProviderGKE:
+		if runtimeInstance == nil || runtimeInstance.Name == nil || runtimeInstance.ID == nil {
+			return nil, fmt.Errorf(
+				"restore from %s needs the runtime instance name and id",
+				cpi.Opts.FromNamespace,
+			)
+		}
+		if kubeClient == nil {
+			return nil, fmt.Errorf("restore from %s needs a kube client", cpi.Opts.FromNamespace)
+		}
+
+		// read the runtime backup bucket
+		projectID, err := gkeRuntimeProjectID(r.APIClient, r.APIServer, *runtimeInstance.ID)
+		if err != nil {
+			return nil, err
+		}
+		bucket := provider.GkeBackupBucketName(*runtimeInstance.Name, projectID)
+
+		// let the source namespace's database write the backup it is stopped for,
+		// unless the restore is already recorded as complete and the source may be gone
+		restored, err := cpi.RestoreRecorded(kubeClient)
+		if err != nil {
+			return nil, err
+		}
+		if !restored {
+			if err := cli.GrantSourceDatabaseBackup(cpi.Opts.FromNamespace, kubeClient, *runtimeInstance.Name, projectID, bucket, ""); err != nil {
+				return nil, err
+			}
+		}
+
+		// remember the bucket so the restored database check requires the schedule
+		cpi.Opts.GcpBackupBucket = bucket
+		return cpi.StopSourceAndRestore(kubeClient, bucket)
+	default:
+		// kind, eks, and oke have no backup to restore
+		return nil, fmt.Errorf("restore from %s is only supported on GKE", cpi.Opts.FromNamespace)
+	}
+}
+
+// grantInstalledDatabaseBackup gives the database account access to the runtime backup bucket, and leaves any other runtime unchanged.
+func grantInstalledDatabaseBackup(
+	r *controller.Reconciler,
+	cpi *threeport.ControlPlaneInstaller,
+	kubeClient dynamic.Interface,
+	runtimeInstance *v0.KubernetesRuntimeInstance,
+	runtimeDefinition *v0.KubernetesRuntimeDefinition,
+) error {
+	// grant the database account for this provider
+	providerName := ""
+	if runtimeDefinition != nil {
+		providerName = util.DerefString(runtimeDefinition.InfraProvider)
+	}
+	switch providerName {
+	case v0.KubernetesRuntimeInfraProviderGKE:
+		if runtimeInstance == nil || runtimeInstance.Name == nil || runtimeInstance.ID == nil {
+			return errors.New("a GKE control plane needs the runtime instance name and id")
+		}
+		if kubeClient == nil {
+			return errors.New("a GKE control plane needs a kube client")
+		}
+
+		// read the project and the database account
+		projectID, err := gkeRuntimeProjectID(r.APIClient, r.APIServer, *runtimeInstance.ID)
+		if err != nil {
+			return err
+		}
+		uid, err := cpi.DatabaseServiceAccountUID(kubeClient)
+		if err != nil {
+			return err
+		}
+
+		// grant object read and write on the runtime bucket
+		gkeInfra := &provider.KubernetesRuntimeInfraGKE{
+			PulumiWorkspace: provider.PulumiWorkspace{RuntimeInstanceName: *runtimeInstance.Name},
+			ProjectID:       projectID,
+			BackupBucket:    provider.GkeBackupBucketName(*runtimeInstance.Name, projectID),
+		}
+		if err := gkeInfra.GrantDatabaseBackupAccess(uid); err != nil {
+			return fmt.Errorf("failed to grant backup access for %s: %w", cpi.Opts.Namespace, err)
+		}
+		return nil
+	default:
+		// kind, eks, and oke have no backup bucket
 		return nil
 	}
 }
@@ -1429,6 +2158,10 @@ func prepareInstanceInstaller(
 	cpi.Opts.InThreeport = true
 	cpi.Opts.CreateOrUpdateKubeResources = createOrUpdate
 	cpi.Opts.InfraProvider = *kubernetesRuntimeDefinition.InfraProvider
+	cpi.Opts.FromNamespace = util.DerefString(controlPlaneInstance.FromNamespace)
+	if childBlueGreenRequested(controlPlaneInstance) {
+		cpi.Opts.HoldReplicasForRestore = true
+	}
 	if controlPlaneDefinition.AuthEnabled != nil {
 		cpi.Opts.AuthEnabled = *controlPlaneDefinition.AuthEnabled
 	}

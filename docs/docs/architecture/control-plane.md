@@ -62,6 +62,11 @@ schedulable nodes: a server that can't be placed on a node of its own stays
 A control plane installed with a single server keeps it when it is reinstalled,
 since a reinstall doesn't change how many servers the broker runs.
 
+Each server stores its streams on a volume of its own: 5Gi on a development
+control plane and 250Gi on production. The Threeport agent warns with an event
+when a server's storage is nearly full. See [Control Plane
+Storage](../control-planes/storage.md).
+
 ## Threeport Agent
 
 The Threeport agent is a [Kubernetes

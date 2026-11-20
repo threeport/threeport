@@ -164,6 +164,9 @@ func TestTheConnectRoleStaysWhileAnotherPrivateThreeportClusterRemains(t *testin
 	assert.True(t, privateThreeportClusterOtherThan([]*containerpb.Cluster{
 		gkeCluster("going", "us-central1", true, true), gkeCluster("going", "us-east1", true, true),
 	}, "going", "us-central1"), "a cluster of the same name in another region")
+	assert.False(t, privateThreeportClusterOtherThan([]*containerpb.Cluster{
+		gkeCluster("going", "us-central1-b", true, true),
+	}, "going", "us-central1"), "the one going, zonal in one of the region's zones")
 	assert.True(t, privateThreeportClusterOtherThan([]*containerpb.Cluster{
 		{Name: "older", Location: "us-central1", ResourceLabels: GcpResourceLabels("older"),
 			PrivateClusterConfig: &containerpb.PrivateClusterConfig{EnablePrivateEndpoint: true}},

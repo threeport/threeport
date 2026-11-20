@@ -28,7 +28,6 @@ import (
 	tpaws "github.com/threeport/threeport/pkg/aws/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
-	"github.com/threeport/threeport/pkg/encryption/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	mapping "github.com/threeport/threeport/pkg/mapping/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
@@ -108,12 +107,34 @@ type GenesisControlPlaneCLIArgs struct {
 	TeardownOnFailure     bool
 	ControlPlaneOnly      bool
 	ClusterName           string
+	NetworkCidr           string
+	NetworkCidrPool       string
 	InfraOnly             bool
 	KindPortMappings      []string
 	ApiPort               int
 	LocalRegistry         bool
 	K8sApiAllowedCidrs    []string
 	PrivateK8sApi         bool
+
+	// The namespace to install into
+	Namespace string
+
+	// The namespace to copy the CA and encryption key from and to schedule away from
+	FromNamespace string
+
+	// The file holding the CA certificate to install
+	CACertFile string
+
+	// The file holding the CA private key to install
+	CAKeyFile string
+
+	// The file holding the encryption key to install
+	EncryptionKeyFile string
+
+	// The size of the volume of each message broker server and each
+	// database node.  Empty uses the tier's.
+	MessageBrokerStorageSize string
+	DatabaseStorageSize      string
 }
 
 // Uninstaller contains the necessary information to uninstall a control plane
@@ -192,6 +213,13 @@ func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneI
 	}
 
 	cpi.Opts.AuthEnabled = a.AuthEnabled
+	if a.Namespace != "" {
+		cpi.Opts.Namespace = a.Namespace
+	}
+	cpi.Opts.FromNamespace = a.FromNamespace
+	cpi.Opts.CACertFile = a.CACertFile
+	cpi.Opts.CAKeyFile = a.CAKeyFile
+	cpi.Opts.EncryptionKeyFile = a.EncryptionKeyFile
 	cpi.Opts.AwsConfigProfile = a.AwsConfigProfile
 	cpi.Opts.AwsConfigEnv = a.AwsConfigEnv
 	cpi.Opts.AwsRegion = a.AwsRegion
@@ -210,6 +238,8 @@ func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneI
 	cpi.Opts.ControlPlaneName = a.ControlPlaneName
 	cpi.Opts.InfraProvider = a.InfraProvider
 	cpi.Opts.Tier = threeport.ControlPlaneTier(a.Tier)
+	cpi.Opts.MessageBrokerStorageSize = a.MessageBrokerStorageSize
+	cpi.Opts.DatabaseStorageSize = a.DatabaseStorageSize
 	cpi.Opts.KubeconfigPath = a.KubeconfigPath
 	cpi.Opts.NumWorkerNodes = a.NumWorkerNodes
 	cpi.Opts.ProviderConfigDir = a.ProviderConfigDir
@@ -236,6 +266,15 @@ func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneI
 		cpi.Opts.ApiPort = apiPortFromKindMappings(a.KindPortMappings)
 	}
 
+	networkCidr, networkCidrPool, err := ResolveNetworkCidrFlags(
+		a.NetworkCidr, a.NetworkCidrPool, a.InfraProvider, a.ControlPlaneOnly,
+	)
+	if err != nil {
+		return nil, err
+	}
+	cpi.Opts.NetworkCidr = networkCidr
+	cpi.Opts.NetworkCidrPool = networkCidrPool
+
 	return cpi, nil
 }
 
@@ -252,6 +291,11 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	cpi := customInstaller
 	if customInstaller == nil {
 		cpi = threeport.NewInstaller()
+	}
+
+	// reject an install identity the flags cannot satisfy
+	if err := threeport.ValidateInstallIdentity(cpi.Opts); err != nil {
+		return err
 	}
 
 	// emit warning if auth is disabled
@@ -358,33 +402,20 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	case v0.KubernetesRuntimeInfraProviderGKE:
 		// the node pool this CLI-driven bootstrap path creates for the tier;
 		// it has no GcpGkeKubernetesRuntimeDefinition to read it from
-		gkeProfile, err := gkeControlPlaneProfile(cpi.Opts.Tier)
+		gkeInfra, err := gkeInfraForTier(runtimeInstanceName(cpi.Opts), cpi.Opts.Tier)
 		if err != nil {
 			return err
 		}
-		kubernetesRuntimeInfraGKE := (&provider.KubernetesRuntimeInfraGKE{
-			PulumiWorkspace: provider.PulumiWorkspace{
-				RuntimeInstanceName: runtimeInstanceName(cpi.Opts),
-			},
-			Version:                cpi.Opts.KubernetesVersion,
-			ReleaseChannel:         gkeReleaseChannel(cpi.Opts.Tier),
-			WorkerNodeInitialCount: gkeProfile.InitialNodeCount,
-			MachineType:            gkeProfile.MachineType,
-			MinNodeCount:           gkeProfile.MinNodeCount,
-			MaxNodeCount:           gkeProfile.MaxNodeCount,
-			LocationPolicy:         gkeProfile.LocationPolicy,
-			ProjectID:              cpi.Opts.GcpProjectId,
-			Region:                 cpi.Opts.GcpRegion,
-			// a production control plane backs its database up to a
-			// bucket in another region
-			ProvisionBackups: cpi.Opts.Tier == threeport.ControlPlaneTier(threeport.ControlPlaneTierProd),
-			BackupRegion:     cpi.Opts.GcpBackupRegion,
-			PrivateApi:       cpi.Opts.PrivateK8sApi,
-			AllowedCidrs:     cpi.Opts.K8sApiAllowedCidrs,
-			// the control plane's outbound traffic comes from one address,
-			// which clusters it manages admit
-			ReserveNatAddress: true,
-		}).InitPulumiProject()
+		gkeInfra.NetworkCidr = cpi.Opts.NetworkCidr
+		gkeInfra.Version = cpi.Opts.KubernetesVersion
+		gkeInfra.ProjectID = cpi.Opts.GcpProjectId
+		gkeInfra.Region = cpi.Opts.GcpRegion
+		gkeInfra.WorkloadIdentityNamespace = cpi.Opts.Namespace
+		gkeInfra.BackupRegion = cpi.Opts.GcpBackupRegion
+		gkeInfra.PrivateApi = cpi.Opts.PrivateK8sApi
+		gkeInfra.AllowedCidrs = cpi.Opts.K8sApiAllowedCidrs
+		gkeInfra.DeletionProtection = genesisDeletionProtection(cpi.Opts)
+		kubernetesRuntimeInfraGKE := gkeInfra.InitPulumiProject()
 		kubernetesRuntimeInfra = kubernetesRuntimeInfraGKE
 		uninstaller.kubernetesRuntimeInfra = kubernetesRuntimeInfraGKE
 
@@ -393,6 +424,8 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			c.GKEProviderConfig = GKEProviderConfig{
 				GcpProjectId: cpi.Opts.GcpProjectId,
 				GcpRegion:    cpi.Opts.GcpRegion,
+				PrivateApi:   privateApiField(cpi.Opts.PrivateK8sApi),
+				AllowedCidrs: cpi.Opts.K8sApiAllowedCidrs,
 			}
 		}); err != nil {
 			return fmt.Errorf("failed to update threeport config: %w", err)
@@ -403,8 +436,15 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			if err != nil {
 				return fmt.Errorf("failed to get connection info for GKE kubernetes runtime: %w", err)
 			}
+			if err := kubernetesRuntimeInfraGKE.BindControlPlaneWorkloadIdentity(cpi.Opts.Namespace); err != nil {
+				return fmt.Errorf("failed to bind workload identity for the control plane: %w", err)
+			}
+			cpi.Opts.GcpServiceAccountEmail = kubernetesRuntimeInfraGKE.ServiceAccountEmail
+			// use the cluster's backup bucket, creating it when this cluster has none
 			if kubernetesRuntimeInfraGKE.ProvisionBackups {
-				Warning("database backups are provisioned only when tptctl creates the GKE cluster, so this control plane has none")
+				if err := kubernetesRuntimeInfraGKE.ProvisionDatabaseBackups(); err != nil {
+					return fmt.Errorf("failed to provision database backups for the GKE kubernetes runtime: %w", err)
+				}
 			}
 		} else {
 			kubeConnectionInfo, err = kubernetesRuntimeInfra.Create()
@@ -414,29 +454,30 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 
 			// pass the GCP service account email to the installer for Workload Identity configuration
 			cpi.Opts.GcpServiceAccountEmail = kubernetesRuntimeInfraGKE.ServiceAccountEmail
+		}
 
-			// record the project and region the cluster was created in, which
-			// the flags may have left empty for the environment or the gcloud
-			// defaults to fill in, so a later restore finds this cluster
-			// rather than whatever those defaults say by then
-			if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *ControlPlane) {
-				c.GKEProviderConfig.GcpProjectId = kubernetesRuntimeInfraGKE.ProjectID
-				c.GKEProviderConfig.GcpRegion = kubernetesRuntimeInfraGKE.Region
-			}); err != nil {
-				return fmt.Errorf("failed to record the GKE project and region in threeport config: %w", err)
-			}
+		// record the project, region, and cluster the connection resolved.
+		// Empty flags are filled from gcloud, and a later restore reads these values.
+		if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *ControlPlane) {
+			c.GKEProviderConfig.GcpProjectId = kubernetesRuntimeInfraGKE.ProjectID
+			c.GKEProviderConfig.GcpRegion = kubernetesRuntimeInfraGKE.Region
+			c.GKEProviderConfig.ClusterName = runtimeInstanceName(cpi.Opts)
+		}); err != nil {
+			return fmt.Errorf("failed to record the GKE project and region in threeport config: %w", err)
+		}
 
-			// pass the backup bucket to the installer, and record it for a
-			// later restore and for teardown
-			if kubernetesRuntimeInfraGKE.BackupBucket != "" {
+		// record the backup bucket for restore and teardown.
+		// A replacement leaves the schedule until restore, because its first run is immediate.
+		if kubernetesRuntimeInfraGKE.BackupBucket != "" {
+			if cpi.Opts.FromNamespace == "" {
 				cpi.Opts.GcpBackupBucket = kubernetesRuntimeInfraGKE.BackupBucket
-				if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *ControlPlane) {
-					c.GKEProviderConfig.BackupBucket = kubernetesRuntimeInfraGKE.BackupBucket
-				}); err != nil {
-					return fmt.Errorf("failed to record the backup bucket in threeport config: %w", err)
-				}
-				Info(fmt.Sprintf("database backups go to gs://%s", kubernetesRuntimeInfraGKE.BackupBucket))
 			}
+			if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *ControlPlane) {
+				c.GKEProviderConfig.BackupBucket = kubernetesRuntimeInfraGKE.BackupBucket
+			}); err != nil {
+				return fmt.Errorf("failed to record the backup bucket in threeport config: %w", err)
+			}
+			Info(fmt.Sprintf("database backups go to gs://%s", kubernetesRuntimeInfraGKE.BackupBucket))
 		}
 	}
 
@@ -469,19 +510,6 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	// if infra only, do not deploy control plane
 	if cpi.Opts.InfraOnly {
 		return nil
-	}
-
-	// generate encryption key
-	encryptionKey, err := encryption.GenerateKey()
-	if err != nil {
-		return uninstaller.cleanOnCreateError("failed to generate encryption key", err)
-	}
-
-	// update threeport config with encryption key
-	if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *ControlPlane) {
-		c.EncryptionKey = encryptionKey
-	}); err != nil {
-		return uninstaller.cleanOnCreateError("failed to update threeport config", err)
 	}
 
 	// the kubernetes runtime instance is the default compute space kubernetes runtime to be added
@@ -590,6 +618,11 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		}
 	}
 
+	// the cluster's network range, so no runtime is allocated it
+	if networkCidr := genesisNetworkCidr(cpi.Opts, kubernetesRuntimeInfra); networkCidr != "" {
+		kubernetesRuntimeInstance.NetworkCidr = &networkCidr
+	}
+
 	// record the cluster's egress addresses on the runtime that hosts the
 	// control plane
 	kubernetesRuntimeInstance.EgressCidrs = provider.EgressCidrsJSON(egressCidrs)
@@ -641,6 +674,17 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		return uninstaller.cleanOnCreateError("failed to check for the control plane namespace", err)
 	}
 
+	// copy or generate the encryption key once the cluster client exists
+	encryptionKey, err := cpi.EncryptionKeyForInstall(dynamicKubeClient, mapper)
+	if err != nil {
+		return uninstaller.cleanOnCreateError("failed to get the encryption key", err)
+	}
+	if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *ControlPlane) {
+		c.EncryptionKey = encryptionKey
+	}); err != nil {
+		return uninstaller.cleanOnCreateError("failed to update threeport config", err)
+	}
+
 	// generate new DB client credentials
 	dbCreds, err := auth.GenerateDbCreds(cpi.Opts.Namespace)
 	if err != nil {
@@ -658,9 +702,8 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		return uninstaller.cleanOnCreateError("failed to install threeport control plane dependencies", err)
 	}
 
-	// let the database write its backups, now that the account it runs as
-	// exists and before the API server's start creates the backup schedule
-	if gkeInfra, ok := kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraGKE); ok && cpi.Opts.GcpBackupBucket != "" {
+	// grant the database its backup bucket before the API starts the schedule
+	if gkeInfra, ok := kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraGKE); ok && gkeInfra.BackupBucket != "" {
 		uid, err := cpi.DatabaseServiceAccountUID(dynamicKubeClient)
 		if err != nil {
 			return uninstaller.cleanOnCreateError("failed to read the database service account", err)
@@ -674,9 +717,16 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	var authConfig *auth.AuthConfig
 	var clientCredentials *Credential
 	if cpi.Opts.AuthEnabled {
-		// generate certificate authority
-		Info("Generating certificate authority for threeport API")
-		authConfig, err = auth.GetAuthConfig()
+		// take the certificate authority from the install options
+		switch {
+		case cpi.Opts.FromNamespace != "":
+			Info("Copying certificate authority from " + cpi.Opts.FromNamespace)
+		case cpi.Opts.CACertFile != "":
+			Info("Loading certificate authority from file")
+		default:
+			Info("Generating certificate authority for threeport API")
+		}
+		authConfig, err = cpi.AuthConfigForInstall(dynamicKubeClient, mapper)
 		if err != nil {
 			return uninstaller.cleanOnCreateError("failed to get auth config", err)
 		}
@@ -895,10 +945,12 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			Reconciliation: v0.Reconciliation{
 				Reconciled: &defReconciled,
 			},
-			InfraProvider:     &cpi.Opts.InfraProvider,
-			KubernetesVersion: genesisKubernetesVersion(cpi.Opts.InfraProvider, kubernetesRuntimeInfra),
-			PrivateApi:        privateApiField(cpi.Opts.PrivateK8sApi),
-			AllowedCidrs:      allowedCidrsJSON(cpi.Opts.K8sApiAllowedCidrs),
+			InfraProvider:      &cpi.Opts.InfraProvider,
+			KubernetesVersion:  genesisKubernetesVersion(cpi.Opts.InfraProvider, kubernetesRuntimeInfra),
+			PrivateApi:         privateApiField(cpi.Opts.PrivateK8sApi),
+			AllowedCidrs:       allowedCidrsJSON(cpi.Opts.K8sApiAllowedCidrs),
+			DeletionProtection: util.Ptr(genesisDeletionProtection(cpi.Opts)),
+			AuditLog:           util.Ptr(genesisAuditLog(cpi.Opts)),
 		}
 		if err := recordClusterProfile(&kubernetesRuntimeDefinition, cpi.Opts.Tier); err != nil {
 			return uninstaller.cleanOnCreateError("failed to describe the control plane's cluster", err)
@@ -1000,6 +1052,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		dynamicKubeClient,
 		mapper,
 		threeport.SupportServicesCloud(controlPlane.InfraProvider),
+		cpi.Opts.Namespace,
 	)
 	if err != nil {
 		return uninstaller.cleanOnCreateError("failed to install threeport support services operator", err)
@@ -1021,7 +1074,9 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			mapper,
 			clusterName,
 			*callerIdentity.Account,
+			awsConfigUser.Region,
 			kubernetesVersion,
+			cpi.Opts.Namespace,
 		); err != nil {
 			return uninstaller.cleanOnCreateError("failed to install system services", err)
 		}
@@ -1087,6 +1142,12 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		CustomComponentInfo:         componentList,
 		ControlPlaneDefinitionID:    controlPlaneDefinition.ID,
 	}
+	// the pool the control plane allocates its runtimes' network ranges from
+	networkCidrPool, err := NetworkCidrPoolJSON(cpi.Opts.NetworkCidrPool)
+	if err != nil {
+		return uninstaller.cleanOnCreateError("failed to record the network range pool", err)
+	}
+	controlPlaneInstance.NetworkCidrPool = networkCidrPool
 	// store the controller groups on the self instance
 	if cpi.Opts.Apis != "" {
 		apis := cpi.Opts.Apis
@@ -1174,6 +1235,16 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		if err != nil {
 			return fmt.Errorf("failed to retrieve kubernetes runtime instance from threeport API: %w", err)
 		}
+	}
+
+	// refuse before anything is deleted while the cluster is protected
+	if err := checkTeardownProtection(
+		apiClient,
+		threeportControlPlaneConfig,
+		kubernetesRuntimeInstance,
+		cpi.Opts,
+	); err != nil {
+		return err
 	}
 
 	var kubernetesRuntimeInfra provider.KubernetesRuntimeInfra
@@ -1537,6 +1608,22 @@ func genesisKubernetesVersion(infraProvider string, infra provider.KubernetesRun
 	return &version
 }
 
+// genesisAuditLog reports whether the cluster tptctl up creates has its
+// Kubernetes API audit log enabled: a production control plane's does.  A
+// kind cluster has no provider to send it to.
+func genesisAuditLog(opts threeport.Options) bool {
+	return opts.InfraProvider != v0.KubernetesRuntimeInfraProviderKind &&
+		opts.Tier == threeport.ControlPlaneTier(threeport.ControlPlaneTierProd)
+}
+
+// genesisDeletionProtection reports whether the cluster tptctl up creates is
+// protected from deletion: a production control plane's is.  A kind cluster
+// has no infrastructure to protect.
+func genesisDeletionProtection(opts threeport.Options) bool {
+	return opts.InfraProvider != v0.KubernetesRuntimeInfraProviderKind &&
+		opts.Tier == threeport.ControlPlaneTier(threeport.ControlPlaneTierProd)
+}
+
 // ValidateKubernetesVersionFlag refuses a --kubernetes-version that tptctl up
 // can't create a cluster on: one Threeport doesn't support on the provider,
 // or one given with --control-plane-only, whose cluster already exists.
@@ -1577,6 +1664,17 @@ func ValidateGcpBackupRegionFlag(
 	}
 
 	return nil
+}
+
+// ValidateStorageSizeFlags refuses a message broker or database volume size
+// that isn't a positive Kubernetes quantity, such as 250Gi.  A size left
+// empty uses the tier's.
+func ValidateStorageSizeFlags(messageBrokerStorageSize, databaseStorageSize string) error {
+	if err := threeport.ValidateMessageBrokerStorageSize("message-broker-storage-size", messageBrokerStorageSize); err != nil {
+		return err
+	}
+
+	return threeport.ValidateStorageSize("database-storage-size", databaseStorageSize)
 }
 
 // ResolveControlPlaneTier returns the tier tptctl up installs at: the one

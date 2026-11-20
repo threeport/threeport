@@ -2379,11 +2379,19 @@ func (Build) AllBinsRelease() error {
 // stitch single-arch tags from separate runs into a multi-arch manifest list.
 // Set PARALLEL_IMAGE_BUILD >= 1 to cap packaging concurrency (e.g.
 // `PARALLEL_IMAGE_BUILD=4 mage build:allImages ghcr.io/foo v1 amd64,arm64`).
+// Set IMAGES to a comma-separated list of component binary names to build
+// only those (e.g. IMAGES=rest-api,database-migrator mage build:allImages ...).
+// All components build when IMAGES is unset, and a name that matches no
+// component is an error. package:allManifests ignores IMAGES, so run it only
+// after an unfiltered build.
 func (Build) AllImages(
 	imageRepo string,
 	imageTag string,
 	arch string,
 ) error {
+	// read the optional comma-separated component selection
+	selection := os.Getenv("IMAGES")
+
 	// pre-compile every binary for every requested arch in one go build
 	// per arch (arches run in parallel) so dependency compilation is
 	// shared across components within an arch. Each per-image task
@@ -2395,23 +2403,81 @@ func (Build) AllImages(
 
 	arches := util.ParseArches(arch)
 
-	packageDirs := []string{
-		"cmd/rest-api",
-		"cmd/database-migrator",
-		"cmd/agent",
-		"cmd/secret-controller",
-		"cmd/aws-controller",
-		"cmd/oci-controller",
-		"cmd/gcp-controller",
-		"cmd/control-plane-controller",
-		"cmd/gateway-controller",
-		"cmd/helm-workload-controller",
-		"cmd/machine-runtime-controller",
-		"cmd/machine-workload-controller",
-		"cmd/kubernetes-runtime-controller",
-		"cmd/observability-controller",
-		"cmd/terraform-controller",
-		"cmd/kubernetes-workload-controller",
+	// reject selected names that match no component
+	if unknown := util.UnknownImages(selection, []string{
+		"rest-api",
+		"database-migrator",
+		"agent",
+		"secret-controller",
+		"aws-controller",
+		"oci-controller",
+		"gcp-controller",
+		"control-plane-controller",
+		"gateway-controller",
+		"helm-workload-controller",
+		"machine-runtime-controller",
+		"machine-workload-controller",
+		"kubernetes-runtime-controller",
+		"observability-controller",
+		"terraform-controller",
+		"kubernetes-workload-controller",
+	}); len(unknown) > 0 {
+		return fmt.Errorf("IMAGES names unknown components: %s", strings.Join(unknown, ", "))
+	}
+
+	// collect the package dirs of the selected components
+	var packageDirs []string
+	if util.ImageSelected(selection, "rest-api") {
+		packageDirs = append(packageDirs, "cmd/rest-api")
+	}
+	if util.ImageSelected(selection, "database-migrator") {
+		packageDirs = append(packageDirs, "cmd/database-migrator")
+	}
+	if util.ImageSelected(selection, "agent") {
+		packageDirs = append(packageDirs, "cmd/agent")
+	}
+	if util.ImageSelected(selection, "secret-controller") {
+		packageDirs = append(packageDirs, "cmd/secret-controller")
+	}
+	if util.ImageSelected(selection, "aws-controller") {
+		packageDirs = append(packageDirs, "cmd/aws-controller")
+	}
+	if util.ImageSelected(selection, "oci-controller") {
+		packageDirs = append(packageDirs, "cmd/oci-controller")
+	}
+	if util.ImageSelected(selection, "gcp-controller") {
+		packageDirs = append(packageDirs, "cmd/gcp-controller")
+	}
+	if util.ImageSelected(selection, "control-plane-controller") {
+		packageDirs = append(packageDirs, "cmd/control-plane-controller")
+	}
+	if util.ImageSelected(selection, "gateway-controller") {
+		packageDirs = append(packageDirs, "cmd/gateway-controller")
+	}
+	if util.ImageSelected(selection, "helm-workload-controller") {
+		packageDirs = append(packageDirs, "cmd/helm-workload-controller")
+	}
+	if util.ImageSelected(selection, "machine-runtime-controller") {
+		packageDirs = append(packageDirs, "cmd/machine-runtime-controller")
+	}
+	if util.ImageSelected(selection, "machine-workload-controller") {
+		packageDirs = append(packageDirs, "cmd/machine-workload-controller")
+	}
+	if util.ImageSelected(selection, "kubernetes-runtime-controller") {
+		packageDirs = append(packageDirs, "cmd/kubernetes-runtime-controller")
+	}
+	if util.ImageSelected(selection, "observability-controller") {
+		packageDirs = append(packageDirs, "cmd/observability-controller")
+	}
+	if util.ImageSelected(selection, "terraform-controller") {
+		packageDirs = append(packageDirs, "cmd/terraform-controller")
+	}
+	if util.ImageSelected(selection, "kubernetes-workload-controller") {
+		packageDirs = append(packageDirs, "cmd/kubernetes-workload-controller")
+	}
+	// fail when the selection lists no component
+	if len(packageDirs) == 0 {
+		return fmt.Errorf("IMAGES matched no component: %q", selection)
 	}
 
 	if err := util.BuildBinaries(
@@ -2429,24 +2495,57 @@ func (Build) AllImages(
 			return fn(workingDir, imageRepo, imageTag, arch)
 		}
 	}
-	tasks := []func() error{
-		wrap(build.restApiImagePackage),
-		wrap(build.dbMigratorImagePackage),
-		wrap(build.agentImagePackage),
-		wrap(build.secretControllerImagePackage),
-		wrap(build.awsControllerImagePackage),
-		wrap(build.ociControllerImagePackage),
-		wrap(build.gcpControllerImagePackage),
-		wrap(build.controlPlaneControllerImagePackage),
-		wrap(build.gatewayControllerImagePackage),
-		wrap(build.helmWorkloadControllerImagePackage),
-		wrap(build.machineRuntimeControllerImagePackage),
-		wrap(build.machineWorkloadControllerImagePackage),
-		wrap(build.kubernetesRuntimeControllerImagePackage),
-		wrap(build.observabilityControllerImagePackage),
-		wrap(build.terraformControllerImagePackage),
-		wrap(build.kubernetesWorkloadControllerImagePackage),
+	// collect the packaging tasks of the selected components
+	var tasks []func() error
+	if util.ImageSelected(selection, "rest-api") {
+		tasks = append(tasks, wrap(build.restApiImagePackage))
 	}
+	if util.ImageSelected(selection, "database-migrator") {
+		tasks = append(tasks, wrap(build.dbMigratorImagePackage))
+	}
+	if util.ImageSelected(selection, "agent") {
+		tasks = append(tasks, wrap(build.agentImagePackage))
+	}
+	if util.ImageSelected(selection, "secret-controller") {
+		tasks = append(tasks, wrap(build.secretControllerImagePackage))
+	}
+	if util.ImageSelected(selection, "aws-controller") {
+		tasks = append(tasks, wrap(build.awsControllerImagePackage))
+	}
+	if util.ImageSelected(selection, "oci-controller") {
+		tasks = append(tasks, wrap(build.ociControllerImagePackage))
+	}
+	if util.ImageSelected(selection, "gcp-controller") {
+		tasks = append(tasks, wrap(build.gcpControllerImagePackage))
+	}
+	if util.ImageSelected(selection, "control-plane-controller") {
+		tasks = append(tasks, wrap(build.controlPlaneControllerImagePackage))
+	}
+	if util.ImageSelected(selection, "gateway-controller") {
+		tasks = append(tasks, wrap(build.gatewayControllerImagePackage))
+	}
+	if util.ImageSelected(selection, "helm-workload-controller") {
+		tasks = append(tasks, wrap(build.helmWorkloadControllerImagePackage))
+	}
+	if util.ImageSelected(selection, "machine-runtime-controller") {
+		tasks = append(tasks, wrap(build.machineRuntimeControllerImagePackage))
+	}
+	if util.ImageSelected(selection, "machine-workload-controller") {
+		tasks = append(tasks, wrap(build.machineWorkloadControllerImagePackage))
+	}
+	if util.ImageSelected(selection, "kubernetes-runtime-controller") {
+		tasks = append(tasks, wrap(build.kubernetesRuntimeControllerImagePackage))
+	}
+	if util.ImageSelected(selection, "observability-controller") {
+		tasks = append(tasks, wrap(build.observabilityControllerImagePackage))
+	}
+	if util.ImageSelected(selection, "terraform-controller") {
+		tasks = append(tasks, wrap(build.terraformControllerImagePackage))
+	}
+	if util.ImageSelected(selection, "kubernetes-workload-controller") {
+		tasks = append(tasks, wrap(build.kubernetesWorkloadControllerImagePackage))
+	}
+
 	return util.RunParallel(parallelFromEnv(), tasks)
 }
 

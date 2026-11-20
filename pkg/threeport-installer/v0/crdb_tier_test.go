@@ -19,6 +19,22 @@ func TestCrdbReplicasMatchesTheTier(t *testing.T) {
 	}
 }
 
+// TestCrdbResourcesMatchTheTier covers the memory each tier gives CockroachDB.
+func TestCrdbResourcesMatchTheTier(t *testing.T) {
+	devLimit := crdbResources(ControlPlaneTierDev)["limits"].(map[string]interface{})["memory"]
+	if devLimit != "1Gi" {
+		t.Errorf("expected development memory limit 1Gi, got %v", devLimit)
+	}
+
+	prod := crdbResources(ControlPlaneTierProd)
+	if prod["limits"].(map[string]interface{})["memory"] != "2Gi" {
+		t.Errorf("expected production memory limit 2Gi, got %v", prod["limits"])
+	}
+	if prod["requests"].(map[string]interface{})["memory"] != "2Gi" {
+		t.Errorf("expected production memory request 2Gi, got %v", prod["requests"])
+	}
+}
+
 // TestCrdbStartCommandMatchesTheTier covers the command each tier actually
 // starts with, not just its replica count.
 //

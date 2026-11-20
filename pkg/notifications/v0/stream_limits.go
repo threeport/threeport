@@ -19,18 +19,15 @@ const (
 	// depend on the free space when the server starts.
 	MessageBrokerMaxFileGiB = 4
 
-	// MessageBrokerVolumeGiB is the size of the message broker volume in GiB.
-	MessageBrokerVolumeGiB = 5
+	// MessageBrokerMinVolumeGiB is the smallest message broker volume in GiB
+	// that holds MessageBrokerMaxFileGiB of JetStream storage with room left
+	// for the file system and the server's own files.  A smaller volume fills
+	// before the ceiling is reached.
+	MessageBrokerMinVolumeGiB = 5
 )
 
 // MessageBrokerMaxFile returns the max_file value for the message broker
 // configuration, e.g. "4Gi".
 func MessageBrokerMaxFile() string {
 	return fmt.Sprintf("%dGi", MessageBrokerMaxFileGiB)
-}
-
-// MessageBrokerVolumeSize returns the message broker volume size as a
-// Kubernetes quantity, e.g. "5Gi".
-func MessageBrokerVolumeSize() string {
-	return fmt.Sprintf("%dGi", MessageBrokerVolumeGiB)
 }

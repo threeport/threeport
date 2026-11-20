@@ -10,6 +10,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+
+	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
 // defaultStorageClassAnnotation marks the StorageClass a claim that names
@@ -121,6 +123,53 @@ func EnsureEksDefaultStorageClass(kubeClient dynamic.Interface) (bool, error) {
 	}
 
 	return true, nil
+}
+
+// ControlPlaneStorageClassName is the StorageClass the volumes of a control
+// plane's message broker and database are created from on EKS.  The gp2
+// class EKS creates doesn't allow volume expansion, so a volume created from
+// it can't be grown in place.
+const ControlPlaneStorageClassName = "threeport-control-plane"
+
+// controlPlaneStorageClass returns the StorageClass of a control plane's
+// volumes on EKS: gp3 EBS volumes from the EBS CSI driver threeport installs
+// as an add-on, created in the zone their pod is scheduled to, as a
+// production database spread across zones needs, and expandable in place.
+func controlPlaneStorageClass() *unstructured.Unstructured {
+	return &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "storage.k8s.io/v1",
+		"kind":       "StorageClass",
+		"metadata": map[string]interface{}{
+			"name": ControlPlaneStorageClassName,
+			"labels": map[string]interface{}{
+				LabelManagedBy: LabelManagedByValue,
+			},
+		},
+		"provisioner": "ebs.csi.aws.com",
+		"parameters": map[string]interface{}{
+			"type": "gp3",
+		},
+		"reclaimPolicy":        "Delete",
+		"volumeBindingMode":    "WaitForFirstConsumer",
+		"allowVolumeExpansion": true,
+	}}
+}
+
+// ensureControlPlaneStorageClass creates the StorageClass a control plane's
+// volumes are created from on EKS, unless it's there.  One that's there is
+// left as it is: a StorageClass's parameters can't be changed, and another
+// control plane on the cluster may use it.
+func (cpi *ControlPlaneInstaller) ensureControlPlaneStorageClass(kubeClient dynamic.Interface) error {
+	if cpi.Opts.InfraProvider != v0.KubernetesRuntimeInfraProviderEKS {
+		return nil
+	}
+
+	_, err := kubeClient.Resource(storageClassGVR).Create(context.TODO(), controlPlaneStorageClass(), metav1.CreateOptions{})
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
+		return fmt.Errorf("failed to create storage class %s: %w", ControlPlaneStorageClassName, err)
+	}
+
+	return nil
 }
 
 // persistentVolumeClaimGVR is the core v1 persistentvolumeclaims resource.

@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
@@ -34,11 +35,16 @@ func TestNatsConfSetsDiskCeiling(t *testing.T) {
 	if !strings.Contains(conf, "max_file: 4Gi") {
 		t.Errorf("nats.conf does not set max_file to 4Gi:\n%s", conf)
 	}
-	if notifications.MessageBrokerMaxFileGiB >= notifications.MessageBrokerVolumeGiB {
+	if notifications.MessageBrokerMaxFileGiB >= notifications.MessageBrokerMinVolumeGiB {
 		t.Errorf(
-			"max_file %dGi is not below the %dGi volume",
-			notifications.MessageBrokerMaxFileGiB, notifications.MessageBrokerVolumeGiB,
+			"max_file %dGi is not below the %dGi smallest volume",
+			notifications.MessageBrokerMaxFileGiB, notifications.MessageBrokerMinVolumeGiB,
 		)
+	}
+	// the development tier gets the smallest volume the broker accepts
+	dev := resource.MustParse(devMessageBrokerStorageSize)
+	if dev.Cmp(*resource.NewQuantity(int64(notifications.MessageBrokerMinVolumeGiB)<<30, resource.BinarySI)) < 0 {
+		t.Errorf("the development volume %s is smaller than the message broker's minimum", devMessageBrokerStorageSize)
 	}
 
 	streams := int64(notifications.ControllerStreamCount) * notifications.ControllerStreamMaxBytes

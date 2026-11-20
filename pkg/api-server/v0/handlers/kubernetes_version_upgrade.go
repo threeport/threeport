@@ -139,7 +139,10 @@ func (h Handler) RequestAwsEksUpgrades(next echo.HandlerFunc) echo.HandlerFunc {
 }
 
 // RequestGcpGkeUpgrades asks the instances of an updated GKE definition to
-// upgrade their clusters to its KubernetesVersion.
+// upgrade their clusters to its KubernetesVersion, and to apply its secrets
+// encryption, boot disk, Secure Boot and intranode visibility.  An instance
+// whose cluster doesn't run those settings is asked on every update of the
+// definition, which clears a refusal to apply them.
 func (h Handler) RequestGcpGkeUpgrades(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		err := next(c)
@@ -162,7 +165,8 @@ func (h Handler) RequestGcpGkeUpgrades(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 		for i := range instances {
 			instance := &instances[i]
-			if util.DerefString(instance.UpgradeRequestedVersion) == version {
+			versionRequested := util.DerefString(instance.UpgradeRequestedVersion) == version
+			if versionRequested && len(v0.GkePendingSettings(&definition, instance)) == 0 {
 				continue
 			}
 			request := v0.GcpGkeKubernetesRuntimeInstance{

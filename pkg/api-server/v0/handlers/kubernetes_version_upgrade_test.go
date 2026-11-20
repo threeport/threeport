@@ -232,3 +232,60 @@ func TestAnUpgradeRequestWhoseNotificationFailedIsAskedAgain(t *testing.T) {
 	assert.Len(t, stream.published, 1)
 	assert.Equal(t, util.Ptr("1.36"), requested())
 }
+
+// TestAGkeDefinitionUpdateAsksForTheSettingsItsClustersDontRun covers the
+// update of a GKE definition whose instances run its version: one whose
+// cluster doesn't run the definition's secrets encryption, boot disk,
+// Secure Boot or intranode visibility is marked unreconciled, has a refused
+// or failed upgrade cleared, and its controller is notified, on each update
+// until its cluster runs them, keeping the version it was asked for.  One
+// whose cluster runs them is left alone.
+func TestAGkeDefinitionUpdateAsksForTheSettingsItsClustersDontRun(t *testing.T) {
+	h, stream := newUpgradeHandler(t)
+	seed := h.DB.Session(&gorm.Session{SkipHooks: true})
+	require.NoError(t, seed.Create(&api.GcpGkeKubernetesRuntimeDefinition{
+		Common: api.Common{ID: util.Ptr(uint(3))}, Definition: api.Definition{Name: util.Ptr("gke")},
+		ZoneCount: util.Ptr(3), DefaultNodeGroupInstanceType: util.Ptr("e2-medium"), DefaultNodeGroupInitialSize: util.Ptr(1),
+		DefaultNodeGroupMinimumSize: util.Ptr(1), DefaultNodeGroupMaximumSize: util.Ptr(3),
+		KubernetesRuntimeDefinitionID: util.Ptr(uint(1)), KubernetesVersion: util.Ptr("1.36"),
+		SecureBoot: util.Ptr(true),
+	}).Error)
+	instance := func(id uint, secureBoot bool) *api.GcpGkeKubernetesRuntimeInstance {
+		return &api.GcpGkeKubernetesRuntimeInstance{
+			Common:                              api.Common{ID: util.Ptr(id)},
+			Instance:                            api.Instance{Name: util.Ptr(fmt.Sprintf("gke-%d", id))},
+			Reconciliation:                      api.Reconciliation{Reconciled: util.Ptr(true)},
+			GcpGkeKubernetesRuntimeDefinitionID: util.Ptr(uint(3)),
+			GcpProviderID:                       util.Ptr(uint(1)),
+			KubernetesRuntimeInstanceID:         util.Ptr(id),
+			UpgradeRequestedVersion:             util.Ptr("1.36"),
+			UpgradeRefused:                      util.Ptr(true),
+			UpgradeFailed:                       util.Ptr(true),
+			SecureBoot:                          util.Ptr(secureBoot),
+		}
+	}
+	require.NoError(t, seed.Create(instance(21, false)).Error)
+	require.NoError(t, seed.Create(instance(22, true)).Error)
+	load := func(id uint) api.GcpGkeKubernetesRuntimeInstance {
+		var loaded api.GcpGkeKubernetesRuntimeInstance
+		require.NoError(t, h.DB.First(&loaded, id).Error)
+		return loaded
+	}
+
+	runDefinitionUpdate(t, h.RequestGcpGkeUpgrades, "3", http.StatusOK)
+	asked := load(21)
+	assert.False(t, *asked.Reconciled)
+	assert.False(t, *asked.UpgradeRefused, "a refusal to apply them is cleared")
+	assert.False(t, *asked.UpgradeFailed)
+	assert.Equal(t, "1.36", *asked.UpgradeRequestedVersion)
+	assert.True(t, *load(22).Reconciled, "it runs them")
+	assert.True(t, *load(22).UpgradeRefused)
+	require.Len(t, stream.published, 1)
+
+	runDefinitionUpdate(t, h.RequestGcpGkeUpgrades, "3", http.StatusOK)
+	assert.Len(t, stream.published, 2, "asked again until its cluster runs them")
+
+	require.NoError(t, seed.Model(&api.GcpGkeKubernetesRuntimeInstance{}).Where("id = ?", 21).Update("secure_boot", true).Error)
+	runDefinitionUpdate(t, h.RequestGcpGkeUpgrades, "3", http.StatusOK)
+	assert.Len(t, stream.published, 2, "and not once it does")
+}

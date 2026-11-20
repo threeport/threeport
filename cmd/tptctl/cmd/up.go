@@ -111,6 +111,13 @@ control planes if they are used to create or are created by another control plan
 			cli.Error("flag validation failed:", err)
 			os.Exit(1)
 		}
+		if err := cli.ValidateStorageSizeFlags(
+			cliArgs.MessageBrokerStorageSize,
+			cliArgs.DatabaseStorageSize,
+		); err != nil {
+			cli.Error("flag validation failed:", err)
+			os.Exit(1)
+		}
 		if err := cli.ValidateKubernetesVersionFlag(
 			cliArgs.KubernetesVersion,
 			cliArgs.InfraProvider,
@@ -233,11 +240,27 @@ func init() {
 		"gcp-backup-region", "", "Google Cloud region of the bucket a production control plane on gke backs its database up to. Must differ from --gcp-region. Defaults to another region on the same continent.",
 	)
 	UpCmd.Flags().StringVar(
+		&cliArgs.MessageBrokerStorageSize,
+		"message-broker-storage-size", "", "Size of the volume each of the control plane's message broker servers stores its data on, such as 250Gi. Defaults to 5Gi on the development tier and 250Gi on production.",
+	)
+	UpCmd.Flags().StringVar(
+		&cliArgs.DatabaseStorageSize,
+		"database-storage-size", "", "Size of the volume each of the control plane's database nodes stores its data on, such as 1Ti. Defaults to 20Gi on the development tier and 1Ti on production.",
+	)
+	UpCmd.Flags().StringVar(
 		&cliArgs.KubernetesVersion,
 		"kubernetes-version", "", fmt.Sprintf(
 			"Kubernetes minor version of the cluster tptctl creates on eks, gke or oke. One of %s. Defaults to %s.",
 			strings.Join(v0.SupportedKubernetesVersions, ", "), v0.DefaultKubernetesVersion,
 		),
+	)
+	UpCmd.Flags().StringVar(
+		&cliArgs.NetworkCidrPool,
+		"network-cidr-pool", "", "Comma-separated network blocks, each a /16 or larger, the control plane allocates its Kubernetes runtimes' network ranges from, a /16 each. Defaults to 10.16.0.0/16 through 10.255.0.0/16, except 10.96.0.0/16 and 10.244.0.0/16.",
+	)
+	UpCmd.Flags().StringVar(
+		&cliArgs.NetworkCidr,
+		"network-cidr", "", "Network range, a /16 or larger, of the control plane's own cluster on eks, gke or oke. Defaults to the first block of the pool. With --control-plane-only, records the existing cluster's range so no runtime is allocated it.",
 	)
 	UpCmd.Flags().BoolVar(
 		&cliArgs.ForceOverwriteConfig,
@@ -319,5 +342,25 @@ func init() {
 			threeport.DefaultLocalAPIPortAuthEnabled,
 			threeport.DefaultLocalAPIPortAuthDisabled,
 		),
+	)
+	UpCmd.Flags().StringVar(
+		&cliArgs.Namespace,
+		"namespace", "", "Namespace to install the control plane into. Defaults to threeport-control-plane.",
+	)
+	UpCmd.Flags().StringVar(
+		&cliArgs.FromNamespace,
+		"from-namespace", "", "Namespace to copy the certificate authority and encryption key from. Only applicable with --control-plane-only, since the namespace has to exist in the cluster you install into.",
+	)
+	UpCmd.Flags().StringVar(
+		&cliArgs.CACertFile,
+		"ca-cert-file", "", "File holding the certificate authority certificate to install.",
+	)
+	UpCmd.Flags().StringVar(
+		&cliArgs.CAKeyFile,
+		"ca-key-file", "", "File holding the certificate authority private key to install.",
+	)
+	UpCmd.Flags().StringVar(
+		&cliArgs.EncryptionKeyFile,
+		"encryption-key-file", "", "File holding the encryption key to install.",
 	)
 }

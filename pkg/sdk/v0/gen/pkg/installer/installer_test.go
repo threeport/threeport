@@ -77,3 +77,44 @@ func TestAModuleConnectsToTheMessageBrokerOverTLS(t *testing.T) {
 		assert.Less(t, added, at[0], "the CA's certificate is added after %s", use)
 	}
 }
+
+// TestAModuleInstallsIntoTheConnectedControlPlanesNamespace checks that the
+// generated installer reads the namespace of the control plane its API client
+// is connected to before it copies anything, and keeps a namespace it was given.
+func TestAModuleInstallsIntoTheConnectedControlPlanesNamespace(t *testing.T) {
+	source := generateInstaller(t)
+
+	// assert the lookup uses the connected control plane, only for the default
+	assert.Contains(t, source, "i.ThreeportNamespace == defaultThreeportNamespace")
+	assert.Contains(t, source, "client.GetSelfControlPlaneInstance(i.ApiClient, i.ApiEndpoint)")
+	assert.Contains(t, source, "i.ThreeportNamespace = *controlPlane.Namespace")
+
+	// assert the lookup comes before the first secret is copied
+	lookup := strings.Index(source, "GetSelfControlPlaneInstance")
+	firstCopy := strings.Index(source, "CopySecret(")
+	require.NotEqual(t, -1, lookup)
+	require.NotEqual(t, -1, firstCopy)
+	assert.Less(t, lookup, firstCopy, "the namespace is read after a secret was copied")
+}
+
+// TestAModuleSpreadsAndProtectsItsReplicasLikeTheControlPlane checks that the
+// generated installer gives the module API server and each controller the
+// same pod anti-affinity and disruption budget the control plane gives its own
+// components, so a node drain leaves one replica of each serving.
+func TestAModuleSpreadsAndProtectsItsReplicasLikeTheControlPlane(t *testing.T) {
+	source := generateInstaller(t)
+
+	// assert the API server and the controller each prefer separate nodes
+	assert.Equal(t, 2, strings.Count(source, "tp_installer.ComponentAntiAffinity("))
+
+	// assert each applies a budget with the replica count it deploys with
+	assert.Equal(t, 2, strings.Count(source, "tp_installer.ApplyComponentDisruptionBudget("))
+	assert.Contains(t, source, "i.KubeRestMapper, i.ModuleNamespace, apiServerName, replicas)")
+
+	// assert the budget is applied after the deployment it protects exists
+	deployment := strings.Index(source, "failed to create/update widget API deployment")
+	budget := strings.Index(source, "tp_installer.ApplyComponentDisruptionBudget(")
+	require.NotEqual(t, -1, deployment)
+	require.NotEqual(t, -1, budget)
+	assert.Less(t, deployment, budget, "the budget is applied before the API deployment")
+}

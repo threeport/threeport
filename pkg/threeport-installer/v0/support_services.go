@@ -44,6 +44,7 @@ const (
 	// the deployments and CRD named here are what the installs in this package
 	// create, and what the checks that guard those installs look up
 	ClusterAutoscalerDeployName       = "cluster-autoscaler"
+	ClusterAutoscalerClusterRoleName  = "cluster-autoscaler"
 	SupportServicesOperatorDeployName = "support-services-operator-controller-manager"
 	ThreeportCertManagerCRDName       = "certificatescomponents.platform.addons.nukleros.io"
 
@@ -62,6 +63,13 @@ const (
 	// SupportServicesCloudAWS is the cloud value for an eks cluster.
 	SupportServicesCloudAWS = "aws"
 )
+
+// KeepSourceNamespace reports a namespace that holds the shared support-services operator.
+// Deleting it removes the operator for every control plane on the cluster.
+func KeepSourceNamespace(namespace string) bool {
+	// keep the namespace the operator deployment is installed into
+	return namespace == ControlPlaneNamespace
+}
 
 // ThreeportCRDNames are the custom resource definitions InstallThreeportCRDs
 // creates. The install and the check that guards it read the same list, so a CRD
@@ -87,7 +95,7 @@ func InstallThreeportCRDs(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 ) error {
-	objects, err := supportServicesOperatorObjects()
+	objects, err := supportServicesOperatorObjects(ControlPlaneNamespace)
 	if err != nil {
 		return err
 	}
@@ -106,25 +114,28 @@ func InstallThreeportCRDs(
 }
 
 // InstallEksThreeportSystemServices installs the support services CRDs and operator.
-// clusterName is the EKS cluster's name and kubernetesVersion its minor version,
-// such as "1.36", for the cluster autoscaler.
+// clusterName is the EKS cluster's name, region its AWS region and
+// kubernetesVersion its minor version, such as "1.36", for the cluster
+// autoscaler.
 func InstallEksThreeportSystemServices(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	clusterName string,
 	accountID string,
+	region string,
 	kubernetesVersion string,
+	namespace string,
 ) error {
 	// install the definitions, then the operator that reconciles them
 	if err := InstallThreeportCRDs(kubeClient, mapper); err != nil {
 		return err
 	}
-	if err := InstallThreeportSupportServicesOperator(kubeClient, mapper, SupportServicesCloudAWS); err != nil {
+	if err := InstallThreeportSupportServicesOperator(kubeClient, mapper, SupportServicesCloudAWS, namespace); err != nil {
 		return err
 	}
 
 	// the autoscaler is not part of the operator manifest
-	return installEksClusterAutoscaler(kubeClient, mapper, clusterName, accountID, kubernetesVersion)
+	return installEksClusterAutoscaler(kubeClient, mapper, clusterName, accountID, region, kubernetesVersion)
 }
 
 // SupportServicesCloud maps an infra provider to a SupportServices cloud value.
@@ -147,16 +158,23 @@ func InstallThreeportSupportServicesOperator(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	cloud string,
+	namespace string,
 ) error {
 	// install the operator, then the support services object
-	objects, err := supportServicesOperatorObjects()
+	objects, err := supportServicesOperatorObjects(namespace)
 	if err != nil {
 		return err
 	}
 
-	// the namespace threeport-control-plane already exists
+	// create the operator namespace from the manifest
 	for _, object := range objects {
-		if object.GetKind() == "CustomResourceDefinition" || object.GetKind() == "Namespace" {
+		if object.GetKind() == "CustomResourceDefinition" {
+			continue
+		}
+		if object.GetKind() == "Namespace" {
+			if _, err := kube.CreateResource(object, kubeClient, *mapper); err != nil && !kubeerr.IsAlreadyExists(err) {
+				return fmt.Errorf("failed to install support services operator namespace: %w", err)
+			}
 			continue
 		}
 		if object.GetKind() == "Deployment" {
@@ -279,7 +297,7 @@ func waitForDeploymentGone(object *unstructured.Unstructured, kubeClient dynamic
 }
 
 // supportServicesOperatorObjects decodes the embedded install manifest.
-func supportServicesOperatorObjects() ([]*unstructured.Unstructured, error) {
+func supportServicesOperatorObjects(namespace string) ([]*unstructured.Unstructured, error) {
 	raw, err := supportServicesOperatorYAML.ReadFile("assets/support-services-operator.yaml")
 	if err != nil {
 		return nil, fmt.Errorf("failed to read support services operator manifest: %w", err)
@@ -297,7 +315,7 @@ func supportServicesOperatorObjects() ([]*unstructured.Unstructured, error) {
 		if object == nil {
 			continue
 		}
-		prepared := prepareSupportServicesOperatorObject(object)
+		prepared := prepareSupportServicesOperatorObject(object, namespace)
 		if prepared == nil {
 			continue
 		}
@@ -308,12 +326,13 @@ func supportServicesOperatorObjects() ([]*unstructured.Unstructured, error) {
 }
 
 // prepareSupportServicesOperatorObject sets the namespace and the controller image.
-func prepareSupportServicesOperatorObject(object map[string]interface{}) map[string]interface{} {
+func prepareSupportServicesOperatorObject(object map[string]interface{}, namespace string) map[string]interface{} {
 	kind, _ := object["kind"].(string)
 	if kind == "Namespace" {
-		return nil
+		rewriteNamespace(object, namespace)
+		return object
 	}
-	rewriteNamespace(object)
+	rewriteNamespace(object, namespace)
 	if kind == "Deployment" {
 		setManagerImage(object)
 	}
@@ -321,19 +340,19 @@ func prepareSupportServicesOperatorObject(object map[string]interface{}) map[str
 }
 
 // rewriteNamespace writes the control plane namespace onto each object.
-func rewriteNamespace(value interface{}) {
+func rewriteNamespace(value interface{}, namespace string) {
 	switch typed := value.(type) {
 	case map[string]interface{}:
 		for key, child := range typed {
 			if text, ok := child.(string); ok && text == supportServicesOperatorNamespace {
-				typed[key] = ControlPlaneNamespace
+				typed[key] = namespace
 				continue
 			}
-			rewriteNamespace(child)
+			rewriteNamespace(child, namespace)
 		}
 	case []interface{}:
 		for _, child := range typed {
-			rewriteNamespace(child)
+			rewriteNamespace(child, namespace)
 		}
 	}
 }
