@@ -464,18 +464,52 @@ func TestStopModuleWritersUsesTheSavedCountsWhenTheAPIHasNoPods(t *testing.T) {
 	require.Equal(t, want, got)
 }
 
-// TestStopModuleWritersSkipsDiscoveryWithoutAControllerCertificate covers a
-// control plane that has no controller certificate to dial the API with.
-func TestStopModuleWritersSkipsDiscoveryWithoutAControllerCertificate(t *testing.T) {
-	// seed a running API and no controller certificate
-	api := testManagedDeployment(ThreeportAPIServiceResourceName, "primary-13")
-	kubeClient := testKubeClient(api)
+// TestStopModuleWritersFindsWritersWithoutAControllerCertificate covers a
+// workstation that finds module writers without dialing the API.
+func TestStopModuleWritersFindsWritersWithoutAControllerCertificate(t *testing.T) {
+	// seed a running API, a module controller, and the policy that names its API server
+	namespace := "example"
+	apiServerName := "example-api-server"
+	policy := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "networking.k8s.io/v1",
+		"kind":       "NetworkPolicy",
+		"metadata": map[string]interface{}{
+			"name":      ModuleDatabasePolicyName(namespace, apiServerName),
+			"namespace": "primary-13",
+		},
+	}}
+	apiServer := testModuleDeployment(apiServerName, namespace, 1)
+	// select the API server pods by name so the scale-down wait can find them
+	unstructured.SetNestedStringMap(apiServer.Object, map[string]string{
+		"app.kubernetes.io/name": apiServerName,
+	}, "spec", "selector", "matchLabels")
+	kubeClient := testKubeClient(
+		testManagedDeployment(ThreeportAPIServiceResourceName, "primary-13"),
+		testControllerDeployment("example-controller", namespace, 1),
+		testControllerDeployment("threeport-rest-controller", "primary-13", 1),
+		apiServer,
+		policy,
+	)
+	var patched []string
+	recordDeploymentScaling(kubeClient, &patched)
 	cpi := &ControlPlaneInstaller{Opts: Options{Namespace: "primary-13"}}
 
-	// return no writers rather than failing the restore
+	// discover the writers without a controller certificate
 	got, err := cpi.stopModuleWritersForRestore(kubeClient)
 	require.NoError(t, err)
-	require.Empty(t, got)
+	require.ElementsMatch(t, []ModuleDeploymentScale{
+		{
+			Namespace: namespace,
+			Name:      "example-controller",
+			Replicas:  1,
+		},
+		{
+			Namespace: namespace,
+			Name:      apiServerName,
+			Replicas:  1,
+		},
+	}, got)
+	require.NotContains(t, strings.Join(patched, "\n"), "primary-13/threeport-rest-controller")
 }
 
 // TestResumeModuleWritersRestoresTheSavedCount covers bringing a module writer back.

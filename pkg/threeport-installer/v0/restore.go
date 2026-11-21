@@ -219,7 +219,7 @@ func backupSource(backup string) (string, error) {
 }
 
 // stopModuleWritersForRestore stops module writers outside the control plane namespace and returns those counts.
-// When the API has no pods, this returns the counts saved earlier. When the controller certificate is absent, this returns none.
+// When the API deployment is already stopped, this returns the counts saved earlier.
 func (cpi *ControlPlaneInstaller) stopModuleWritersForRestore(
 	kubeClient dynamic.Interface,
 ) ([]ModuleDeploymentScale, error) {
@@ -232,28 +232,19 @@ func (cpi *ControlPlaneInstaller) stopModuleWritersForRestore(
 		return cpi.rememberedModuleScales(kubeClient)
 	}
 
-	// skip discovery when the controller certificate is absent
-	cert, err := cpi.getSecret(kubeClient, controllerCertSecretName(ThreeportControlPlaneControllerName))
+	// list module controller deployments outside this namespace
+	controllers, err := cpi.moduleControllerDeployments(kubeClient)
 	if err != nil {
 		return nil, err
-	}
-	if cert == nil {
-		return []ModuleDeploymentScale{}, nil
 	}
 
-	// discover the writers and stop them before the control plane API stops
-	apiClient, endpoint, err := cpi.controllerAPIClient(kubeClient)
+	// read module API servers from database policies
+	apiServers, err := cpi.moduleApiServersFromPolicies(kubeClient)
 	if err != nil {
 		return nil, err
 	}
-	controllers, err := cpi.DiscoverModuleDeployments(apiClient, endpoint)
-	if err != nil {
-		return nil, fmt.Errorf("failed to discover registered module deployments: %w", err)
-	}
-	apiServers, err := cpi.DiscoverModuleApiServers(apiClient, endpoint)
-	if err != nil {
-		return nil, fmt.Errorf("failed to discover module API servers: %w", err)
-	}
+
+	// stop the writers before the control plane API stops
 	scales, err := cpi.scaleDownModuleWriters(kubeClient, controllers, apiServers)
 	if scales == nil {
 		scales = []ModuleDeploymentScale{}

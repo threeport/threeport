@@ -485,6 +485,67 @@ func (cpi *ControlPlaneInstaller) recordModuleReplicas(
 	return nil
 }
 
+// moduleControllerDeployments returns module controller deployments outside the control plane namespace.
+func (cpi *ControlPlaneInstaller) moduleControllerDeployments(
+	kubeClient dynamic.Interface,
+) ([]ModuleDeploymentScale, error) {
+	// list every deployment, then keep module controllers in other namespaces
+	list, err := kubeClient.Resource(deploymentGVR).Namespace(metav1.NamespaceAll).List(
+		context.Background(),
+		metav1.ListOptions{},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list deployments: %w", err)
+	}
+	var deployments []ModuleDeploymentScale
+	for i := range list.Items {
+		deployment := &list.Items[i]
+		if deployment.GetNamespace() == "" ||
+			deployment.GetNamespace() == cpi.Opts.Namespace {
+			continue
+		}
+		if !moduleControllerDeployment(deployment) {
+			continue
+		}
+		deployments = append(deployments, ModuleDeploymentScale{
+			Namespace: deployment.GetNamespace(),
+			Name:      deployment.GetName(),
+		})
+	}
+
+	return deployments, nil
+}
+
+// moduleApiServersFromPolicies returns module API servers named by database policies in the control plane namespace.
+func (cpi *ControlPlaneInstaller) moduleApiServersFromPolicies(
+	kubeClient dynamic.Interface,
+) ([]ModuleApiServer, error) {
+	// list the policies that admit module API servers to the database
+	list, err := kubeClient.Resource(networkPolicyGVR).Namespace(cpi.Opts.Namespace).List(
+		context.Background(),
+		metav1.ListOptions{},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list database policies in %s: %w", cpi.Opts.Namespace, err)
+	}
+
+	// skip this namespace, a repeated server, and a name that does not parse
+	seen := map[ModuleApiServer]bool{}
+	var servers []ModuleApiServer
+	for i := range list.Items {
+		server, ok := moduleApiServerFromPolicyName(list.Items[i].GetName())
+		if !ok ||
+			server.Namespace == cpi.Opts.Namespace ||
+			seen[server] {
+			continue
+		}
+		seen[server] = true
+		servers = append(servers, server)
+	}
+
+	return servers, nil
+}
+
 // moduleNamespaceControllers returns controller deployments in each module API namespace.
 func moduleNamespaceControllers(
 	kubeClient dynamic.Interface,
