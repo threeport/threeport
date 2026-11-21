@@ -34,3 +34,41 @@ func TestChildRuntimeNamesOmitsTheHost(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []string{"workload"}, names)
 }
+
+// TestChildRuntimeNamesAllowsNoSelfRow covers a child that stores no self row and no runtimes.
+func TestChildRuntimeNamesAllowsNoSelfRow(t *testing.T) {
+	// a child created without onboarding answers the self query with an empty list
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"Data":[]}`))
+	}))
+	t.Cleanup(server.Close)
+
+	// an empty runtime list leaves the delete allowed
+	names, err := childRuntimeNames(&api_v0.ControlPlaneInstance{
+		ApiServerEndpoint: util.Ptr(strings.TrimPrefix(server.URL, "http://")),
+	})
+	require.NoError(t, err)
+	assert.Empty(t, names)
+}
+
+// TestChildRuntimeNamesReportsRuntimesWhenNoSelfRow covers a child that stores a runtime and no self row.
+func TestChildRuntimeNamesReportsRuntimesWhenNoSelfRow(t *testing.T) {
+	// the self query is empty and one workload runtime remains
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.Contains(r.URL.RawQuery, "isself=true") {
+			_, _ = w.Write([]byte(`{"Data":[]}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"Data":[{"ID":2,"Name":"workload"}]}`))
+	}))
+	t.Cleanup(server.Close)
+
+	// that runtime still blocks the delete
+	names, err := childRuntimeNames(&api_v0.ControlPlaneInstance{
+		ApiServerEndpoint: util.Ptr(strings.TrimPrefix(server.URL, "http://")),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"workload"}, names)
+}

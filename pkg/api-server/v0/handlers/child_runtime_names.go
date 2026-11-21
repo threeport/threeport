@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"sort"
@@ -35,10 +36,14 @@ func childRuntimeNames(controlPlane *api_v0.ControlPlaneInstance) ([]string, err
 		return nil, err
 	}
 
-	// the host runtime's id belongs to the child's database
+	// read the child's runtimes, and its host id when a self row exists
 	self, err := client.GetSelfControlPlaneInstance(httpClient, *readable.ApiServerEndpoint)
-	if err != nil {
+	var hostID *uint
+	if err != nil && !errors.Is(err, client.ErrNoLocalControlPlane) {
 		return nil, fmt.Errorf("failed to read the child control plane: %w", err)
+	}
+	if err == nil {
+		hostID = self.KubernetesRuntimeInstanceID
 	}
 	runtimes, err := client.GetKubernetesRuntimeInstances(httpClient, *readable.ApiServerEndpoint)
 	if err != nil {
@@ -47,7 +52,6 @@ func childRuntimeNames(controlPlane *api_v0.ControlPlaneInstance) ([]string, err
 
 	// keep every runtime except the one the child runs on
 	var names []string
-	hostID := self.KubernetesRuntimeInstanceID
 	for _, runtime := range *runtimes {
 		if hostID != nil && runtime.ID != nil && *runtime.ID == *hostID {
 			continue
