@@ -1,0 +1,107 @@
+package handlers
+
+import (
+	"fmt"
+	"net/http"
+	"sort"
+
+	api_lib "github.com/threeport/threeport/pkg/api/lib/v0"
+	api_v0 "github.com/threeport/threeport/pkg/api/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
+	client "github.com/threeport/threeport/pkg/client/v0"
+	encryption "github.com/threeport/threeport/pkg/encryption/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
+)
+
+// init registers the reader the delete check uses for a child's runtimes.
+func init() {
+	api_v0.ChildRuntimeNames = childRuntimeNames
+}
+
+// childRuntimeNames lists the kubernetes runtimes a child manages, other than the one it runs on.
+func childRuntimeNames(controlPlane *api_v0.ControlPlaneInstance) ([]string, error) {
+	// a child with no endpoint has no database of its own yet
+	if controlPlane.ApiServerEndpoint == nil || *controlPlane.ApiServerEndpoint == "" {
+		return nil, nil
+	}
+
+	// decrypt the client key before opening a connection
+	readable, err := decryptedControlPlane(controlPlane)
+	if err != nil {
+		return nil, err
+	}
+	httpClient, err := controlPlaneHTTPClient(readable)
+	if err != nil {
+		return nil, err
+	}
+
+	// the host runtime's id belongs to the child's database
+	self, err := client.GetSelfControlPlaneInstance(httpClient, *readable.ApiServerEndpoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the child control plane: %w", err)
+	}
+	runtimes, err := client.GetKubernetesRuntimeInstances(httpClient, *readable.ApiServerEndpoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read kubernetes runtime instances: %w", err)
+	}
+
+	// keep every runtime except the one the child runs on
+	var names []string
+	hostID := self.KubernetesRuntimeInstanceID
+	for _, runtime := range *runtimes {
+		if hostID != nil && runtime.ID != nil && *runtime.ID == *hostID {
+			continue
+		}
+		if runtime.Name != nil {
+			names = append(names, *runtime.Name)
+		}
+	}
+	sort.Strings(names)
+	return names, nil
+}
+
+// decryptedControlPlane returns a copy whose client key is plaintext.
+func decryptedControlPlane(controlPlane *api_v0.ControlPlaneInstance) (*api_v0.ControlPlaneInstance, error) {
+	readable := *controlPlane
+	if controlPlane.ClientKey == nil {
+		return &readable, nil
+	}
+
+	// copy the key so decryption does not rewrite the stored row
+	key := *controlPlane.ClientKey
+	readable.ClientKey = &key
+	encryptionKey, err := encryption.KeyFromEnv()
+	if err != nil {
+		return nil, err
+	}
+	if _, err := api_lib.DecryptValues(&readable, encryptionKey); err != nil {
+		return nil, err
+	}
+	return &readable, nil
+}
+
+// controlPlaneHTTPClient builds a client for the control plane this row manages.
+func controlPlaneHTTPClient(controlPlane *api_v0.ControlPlaneInstance) (*http.Client, error) {
+	// use a plain client when the child has no client certificate
+	if controlPlane.ClientCert == nil || *controlPlane.ClientCert == "" {
+		return client_lib.GetHTTPClient(false, "", "", "", "")
+	}
+
+	// decode the certificates the create path stored as base64
+	if controlPlane.CACert == nil || controlPlane.ClientKey == nil {
+		return nil, fmt.Errorf("control plane %s is missing a client certificate", util.DerefString(controlPlane.Name))
+	}
+	ca, err := util.Base64Decode(*controlPlane.CACert)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode ca cert: %w", err)
+	}
+	cert, err := util.Base64Decode(*controlPlane.ClientCert)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode client cert: %w", err)
+	}
+	key, err := util.Base64Decode(*controlPlane.ClientKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode client key: %w", err)
+	}
+	return client_lib.GetHTTPClient(true, ca, cert, key, "")
+}

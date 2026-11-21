@@ -129,12 +129,16 @@ func refuseProtectedDelete(definition any, query func(dest any) *gorm.DB) error 
 	return nil
 }
 
-// RefuseDelete refuses to delete the control plane this database serves while another kubernetes runtime is stored.
-// It allows a child, because that child's runtimes are not in this database.
+// ChildRuntimeNames lists the kubernetes runtime names a control plane manages, other than the one it runs on.
+// The API server sets it. Those runtimes are stored in that control plane's own database.
+var ChildRuntimeNames func(*ControlPlaneInstance) ([]string, error)
+
+// RefuseDelete refuses to delete a control plane while a kubernetes runtime it manages is stored.
+// The runtime it runs on does not count.
 func (c *ControlPlaneInstance) RefuseDelete(db *gorm.DB) error {
-	// allow a child, whose runtimes are not in this database
+	// a child's runtimes are in its own database, not this one
 	if c.IsSelf == nil || !*c.IsSelf {
-		return nil
+		return refuseChildRuntimes(c)
 	}
 
 	// the runtime the control plane runs on is deleted with it
@@ -148,6 +152,27 @@ func (c *ControlPlaneInstance) RefuseDelete(db *gorm.DB) error {
 	if result := query.Order("name").Pluck("name", &names); result.Error != nil {
 		return fmt.Errorf("failed to read kubernetes runtime instances: %w", result.Error)
 	}
+	return runtimeDeleteRefused(names)
+}
+
+// refuseChildRuntimes refuses deletion while the child still manages a kubernetes runtime.
+func refuseChildRuntimes(c *ControlPlaneInstance) error {
+	// this database cannot see the child's runtimes until a reader is registered
+	if ChildRuntimeNames == nil {
+		return nil
+	}
+
+	// read the names of the runtimes the child manages
+	names, err := ChildRuntimeNames(c)
+	if err != nil {
+		return fmt.Errorf("failed to read the child control plane's kubernetes runtime instances: %w", err)
+	}
+	return runtimeDeleteRefused(names)
+}
+
+// runtimeDeleteRefused refuses deletion when names is not empty.
+func runtimeDeleteRefused(names []string) error {
+	// an empty list leaves the delete allowed
 	if len(names) == 0 {
 		return nil
 	}
