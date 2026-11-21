@@ -20,6 +20,7 @@ import (
 	k8stesting "k8s.io/client-go/testing"
 
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
+	"github.com/threeport/threeport/pkg/api-server/v0/database"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
@@ -518,6 +519,75 @@ func TestStopModuleWritersFindsWritersWithoutAControllerCertificate(t *testing.T
 	patchedNames := strings.Join(patched, "\n")
 	require.NotContains(t, patchedNames, controlPlane+"/"+otherController)
 	require.NotContains(t, patchedNames, otherControlPlane+"/"+otherController)
+}
+
+// TestStopModuleWritersStopsAModuleWithoutADatabasePolicy covers a module whose init command names this control plane.
+// Another control plane's module, and this control plane's own controller, stay running.
+func TestStopModuleWritersStopsAModuleWithoutADatabasePolicy(t *testing.T) {
+	// seed this control plane, an older module that names its database, and another control plane's module
+	controlPlane := "primary-13"
+	otherControlPlane := "primary-14"
+	namespace := "legacy"
+	otherNamespace := "other-legacy"
+	apiServerName := "legacy-api-server"
+	controllerName := "legacy-controller"
+	otherController := "threeport-rest-controller"
+	apiServer := testModuleDeployment(apiServerName, namespace, 1)
+	setDatabaseInitCommand(apiServer, controlPlane)
+	unstructured.SetNestedStringMap(apiServer.Object, map[string]string{
+		"app.kubernetes.io/name": apiServerName,
+	}, "spec", "selector", "matchLabels")
+	otherAPI := testModuleDeployment("other-api-server", otherNamespace, 1)
+	setDatabaseInitCommand(otherAPI, otherControlPlane)
+	ownController := testControllerDeployment(otherController, controlPlane, 1)
+	setDatabaseInitCommand(ownController, controlPlane)
+	kubeClient := testKubeClient(
+		testManagedDeployment(ThreeportAPIServiceResourceName, controlPlane),
+		testControllerDeployment(controllerName, namespace, 1),
+		ownController,
+		testControllerDeployment(otherController, otherControlPlane, 1),
+		testControllerDeployment("other-controller", otherNamespace, 1),
+		apiServer,
+		otherAPI,
+	)
+	var patched []string
+	recordDeploymentScaling(kubeClient, &patched)
+	cpi := &ControlPlaneInstaller{Opts: Options{Namespace: controlPlane}}
+
+	// stop the older module without a database policy
+	got, err := cpi.stopModuleWritersForRestore(kubeClient)
+	require.NoError(t, err)
+	require.ElementsMatch(t, []ModuleDeploymentScale{
+		{
+			Namespace: namespace,
+			Name:      controllerName,
+			Replicas:  1,
+		},
+		{
+			Namespace: namespace,
+			Name:      apiServerName,
+			Replicas:  1,
+		},
+	}, got)
+
+	// leave the other module and both control planes running
+	patchedNames := strings.Join(patched, "\n")
+	require.NotContains(t, patchedNames, otherNamespace+"/")
+	require.NotContains(t, patchedNames, controlPlane+"/"+otherController)
+	require.NotContains(t, patchedNames, otherControlPlane+"/"+otherController)
+}
+
+// setDatabaseInitCommand writes the database address a module init command carries.
+func setDatabaseInitCommand(deployment *unstructured.Unstructured, controlPlaneNamespace string) {
+	// name this control plane's database the way the module installer does
+	_ = unstructured.SetNestedSlice(deployment.Object, []interface{}{
+		map[string]interface{}{
+			"name": "db-init",
+			"command": []interface{}{
+				"cockroach sql --host " + database.ThreeportDatabaseHost + "." + controlPlaneNamespace + ".svc.cluster.local",
+			},
+		},
+	}, "spec", "template", "spec", "initContainers")
 }
 
 // TestResumeModuleWritersRestoresTheSavedCount covers bringing a module writer back.
