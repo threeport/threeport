@@ -209,6 +209,82 @@ func backupSource(backup string) (string, error) {
 	return fmt.Sprintf("'%s'", backup), nil
 }
 
+// stopModuleWritersForRestore stops module writers outside the control plane namespace and returns those counts.
+// When the API has no pods, this returns the counts saved earlier. When the controller certificate is absent, this returns none.
+func (cpi *ControlPlaneInstaller) stopModuleWritersForRestore(
+	kubeClient dynamic.Interface,
+) ([]ModuleDeploymentScale, error) {
+	// read the saved counts when the API has no pods
+	stopped, err := apiDeploymentStopped(kubeClient, cpi.Opts.Namespace)
+	if err != nil {
+		return nil, err
+	}
+	if stopped {
+		return cpi.rememberedModuleScales(kubeClient)
+	}
+
+	// skip discovery when the controller certificate is absent
+	cert, err := cpi.getSecret(kubeClient, controllerCertSecretName(ThreeportControlPlaneControllerName))
+	if err != nil {
+		return nil, err
+	}
+	if cert == nil {
+		return []ModuleDeploymentScale{}, nil
+	}
+
+	// discover the writers and stop them before the control plane API stops
+	apiClient, endpoint, err := cpi.controllerAPIClient(kubeClient)
+	if err != nil {
+		return nil, err
+	}
+	controllers, err := cpi.DiscoverModuleDeployments(apiClient, endpoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to discover registered module deployments: %w", err)
+	}
+	apiServers, err := cpi.DiscoverModuleApiServers(apiClient, endpoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to discover module API servers: %w", err)
+	}
+	scales, err := cpi.scaleDownModuleWriters(kubeClient, controllers, apiServers)
+	if scales == nil {
+		scales = []ModuleDeploymentScale{}
+	}
+	if saveErr := cpi.rememberModuleScales(kubeClient, scales); saveErr != nil {
+		return scales, saveErr
+	}
+
+	return scales, err
+}
+
+// resumeModuleWriters sets each module writer back to the count saved before the restore.
+func (cpi *ControlPlaneInstaller) resumeModuleWriters(
+	kubeClient dynamic.Interface,
+	scales []ModuleDeploymentScale,
+) error {
+	// bring each recorded writer back
+	var resumeErrors []error
+	for _, scale := range scales {
+		if err := cpi.resumeDeploymentReplicas(kubeClient, scale.Namespace, scale.Name, scale.Replicas); err != nil {
+			resumeErrors = append(resumeErrors, err)
+		}
+	}
+
+	return errors.Join(resumeErrors...)
+}
+
+// resumeRestoreWriters sets the control plane deployments and the module writers back to the counts saved before the restore.
+func (cpi *ControlPlaneInstaller) resumeRestoreWriters(
+	kubeClient dynamic.Interface,
+	namespace string,
+	replicas map[string]int64,
+	moduleScales []ModuleDeploymentScale,
+) error {
+	return errors.Join(
+		cpi.scaleDeployments(kubeClient, namespace, replicas),
+		cpi.resumeModuleWriters(kubeClient, moduleScales),
+	)
+}
+
 // RestoreDatabase replaces the control plane database with a backup from
 // sourceBucket.  scheduleBucket is where the control plane's scheduled
 // backups go, which the restore takes a fresh full backup into; empty when
@@ -323,6 +399,18 @@ func (cpi *ControlPlaneInstaller) restoreDatabaseLocked(
 		return err
 	}
 
+	// stop module writers in their own namespaces before the control plane API stops
+	moduleScales, err := cpi.stopModuleWritersForRestore(kubeClient)
+	if err != nil {
+		if swapStarted {
+			return err
+		}
+		if resumeErr := cpi.resumeModuleWriters(kubeClient, moduleScales); resumeErr != nil {
+			return errors.Join(err, resumeErr)
+		}
+		return err
+	}
+
 	// stop everything that writes to the database, and wait until none of
 	// its pods is left: one not ready can still be writing, such as an API
 	// server pod running its database migrator or one being terminated.  A
@@ -340,7 +428,7 @@ func (cpi *ControlPlaneInstaller) restoreDatabaseLocked(
 				scaleDownErr,
 			)
 		}
-		if err := cpi.scaleDeployments(kubeClient, namespace, replicas); err != nil {
+		if err := cpi.resumeRestoreWriters(kubeClient, namespace, replicas, moduleScales); err != nil {
 			return errors.Join(scaleDownErr, err)
 		}
 		return scaleDownErr
@@ -361,7 +449,7 @@ func (cpi *ControlPlaneInstaller) restoreDatabaseLocked(
 		if errors.Is(err, errRestoreJobNotStopped) {
 			return fmt.Errorf("%w; the control plane is left scaled down until it is", prepareErr)
 		}
-		if err := cpi.scaleDeployments(kubeClient, namespace, replicas); err != nil {
+		if err := cpi.resumeRestoreWriters(kubeClient, namespace, replicas, moduleScales); err != nil {
 			return errors.Join(prepareErr, err)
 		}
 		return prepareErr
@@ -375,7 +463,7 @@ func (cpi *ControlPlaneInstaller) restoreDatabaseLocked(
 		if swapStarted {
 			return prepareErr
 		}
-		if err := cpi.scaleDeployments(kubeClient, namespace, replicas); err != nil {
+		if err := cpi.resumeRestoreWriters(kubeClient, namespace, replicas, moduleScales); err != nil {
 			return errors.Join(prepareErr, err)
 		}
 		return prepareErr
@@ -403,7 +491,7 @@ func (cpi *ControlPlaneInstaller) restoreDatabaseLocked(
 		}
 	}
 
-	if err := cpi.scaleDeployments(kubeClient, namespace, replicas); err != nil {
+	if err := cpi.resumeRestoreWriters(kubeClient, namespace, replicas, moduleScales); err != nil {
 		return errors.Join(backupErr, err)
 	}
 

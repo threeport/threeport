@@ -443,6 +443,59 @@ func TestScaleDownModuleWritersStopsTheApiServer(t *testing.T) {
 	}
 }
 
+// TestStopModuleWritersUsesTheSavedCountsWhenTheAPIHasNoPods covers a retry
+// after the API is already scaled to zero.
+func TestStopModuleWritersUsesTheSavedCountsWhenTheAPIHasNoPods(t *testing.T) {
+	// seed an API deployment with no pods and a saved writer count
+	api := testManagedDeployment(ThreeportAPIServiceResourceName, "primary-13")
+	require.NoError(t, unstructured.SetNestedField(api.Object, int64(0), "spec", "replicas"))
+	kubeClient := testKubeClient(api)
+	cpi := &ControlPlaneInstaller{Opts: Options{Namespace: "primary-13"}}
+	want := []ModuleDeploymentScale{{
+		Namespace: "example",
+		Name:      "example-controller",
+		Replicas:  1,
+	}}
+	require.NoError(t, cpi.rememberModuleScales(kubeClient, want))
+
+	// read the saved counts instead of dialing the API
+	got, err := cpi.stopModuleWritersForRestore(kubeClient)
+	require.NoError(t, err)
+	require.Equal(t, want, got)
+}
+
+// TestStopModuleWritersSkipsDiscoveryWithoutAControllerCertificate covers a
+// control plane that has no controller certificate to dial the API with.
+func TestStopModuleWritersSkipsDiscoveryWithoutAControllerCertificate(t *testing.T) {
+	// seed a running API and no controller certificate
+	api := testManagedDeployment(ThreeportAPIServiceResourceName, "primary-13")
+	kubeClient := testKubeClient(api)
+	cpi := &ControlPlaneInstaller{Opts: Options{Namespace: "primary-13"}}
+
+	// return no writers rather than failing the restore
+	got, err := cpi.stopModuleWritersForRestore(kubeClient)
+	require.NoError(t, err)
+	require.Empty(t, got)
+}
+
+// TestResumeModuleWritersRestoresTheSavedCount covers bringing a module writer back.
+func TestResumeModuleWritersRestoresTheSavedCount(t *testing.T) {
+	// seed a stopped module writer and record the patch
+	namespace := "example"
+	kubeClient := testKubeClient(testModuleDeployment("example-controller", namespace, 0))
+	var patched []string
+	recordDeploymentScaling(kubeClient, &patched)
+	cpi := &ControlPlaneInstaller{Opts: Options{Namespace: "primary-13"}}
+
+	// set the writer back to the saved count
+	require.NoError(t, cpi.resumeModuleWriters(kubeClient, []ModuleDeploymentScale{{
+		Namespace: namespace,
+		Name:      "example-controller",
+		Replicas:  2,
+	}}))
+	require.Equal(t, []string{"example/example-controller=2"}, patched)
+}
+
 // TestScaleDownModulesLeavesOtherWorkloadsRunning covers a registered name
 // that points at a workload other than a module controller.
 func TestScaleDownModulesLeavesOtherWorkloadsRunning(t *testing.T) {
