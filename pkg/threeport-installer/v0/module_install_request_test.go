@@ -3,6 +3,7 @@ package v0
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -59,12 +60,14 @@ func TestInstallRequestedModuleCreatesTheJob(t *testing.T) {
 		ModuleInstall:     &request,
 	}
 
-	// create the job from the stored request, which has not finished
+	// create the job from the stored request on a control plane with no controllers
+	cpi := NewInstaller(Namespace(namespace))
+	cpi.Opts.ControllerList = nil
 	finished, err := InstallRequestedModule(
 		kubeClient,
 		&mapper,
 		instance,
-		NewInstaller(Namespace(namespace)),
+		cpi,
 	)
 	require.NoError(t, err)
 	require.False(t, finished)
@@ -79,8 +82,19 @@ func TestInstallRequestedModuleCreatesTheJob(t *testing.T) {
 	// assert the config secret sits in the control plane namespace, beside the job
 	require.True(t, resourceExists(t, kubeClient, secretsResource, namespace, installSecretName))
 
-	// assert the job brings no account or binding of its own
-	require.False(t, resourceExists(t, kubeClient, serviceAccountsResource, namespace, "module-install"))
+	// assert the job runs as the control plane controller account, with no deployment
+	account := ThreeportControlPlaneControllerName
+	require.True(t, resourceExists(t, kubeClient, serviceAccountsResource, namespace, account))
+	require.True(t, resourceExists(
+		t, kubeClient, roleBindingsResource, "", namespace+"-"+account+"-threeportworkloads",
+	))
+	require.True(t, resourceExists(
+		t, kubeClient, roleBindingsResource, "", namespace+"-"+account+"-"+clusterAdminClusterRoleName,
+	))
+	require.True(t, resourceExists(t, kubeClient, clusterRolesResource, "", threeportWorkloadsClusterRoleName))
+	require.False(t, resourceExists(t, kubeClient, deploymentsResource, namespace, account))
+
+	// assert the job brings no account of its own
 	require.False(t, resourceExists(t, kubeClient, serviceAccountsResource, namespace, "module-install"))
 	require.False(t, resourceExists(t, kubeClient, roleBindingsResource, "", "module-install-primary-test"))
 }
@@ -90,8 +104,12 @@ func TestInstallRequestedModuleCreatesTheJob(t *testing.T) {
 var (
 	secretsResource         = schema.GroupVersionResource{Version: "v1", Resource: "secrets"}
 	serviceAccountsResource = schema.GroupVersionResource{Version: "v1", Resource: "serviceaccounts"}
+	deploymentsResource     = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
 	roleBindingsResource    = schema.GroupVersionResource{
 		Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "clusterrolebindings",
+	}
+	clusterRolesResource = schema.GroupVersionResource{
+		Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "clusterroles",
 	}
 )
 
@@ -118,6 +136,56 @@ func resourceExists(
 	require.NoError(t, err)
 
 	return true
+}
+
+// TestControlPlaneControllerAccountBindsTheWorkloadIdentityUser covers a GKE
+// control plane. The account annotation names the Google service account, and
+// each binding lists the user the apiserver authenticates.
+func TestControlPlaneControllerAccountBindsTheWorkloadIdentityUser(t *testing.T) {
+	// create the account on a control plane that lists no controllers
+	namespace := "primary-test"
+	mapper := WorkloadRESTMapper()
+	kubeClient := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
+	cpi := NewInstaller(Namespace(namespace))
+	cpi.Opts.ControllerList = nil
+	cpi.Opts.InfraProvider = v0.KubernetesRuntimeInfraProviderGKE
+	cpi.Opts.GcpProjectId = "demo-project"
+	cpi.Opts.GcpServiceAccountEmail = "cp@demo-project.iam.gserviceaccount.com"
+	require.NoError(t, cpi.ensureControlPlaneControllerAccount(kubeClient, &mapper, namespace))
+	require.NoError(t, cpi.ensureControlPlaneControllerAccount(kubeClient, &mapper, namespace))
+
+	// assert the account annotation names the Google service account
+	account, err := kubeClient.Resource(serviceAccountsResource).Namespace(namespace).Get(
+		context.Background(), ThreeportControlPlaneControllerName, metav1.GetOptions{},
+	)
+	require.NoError(t, err)
+	require.Equal(t, cpi.Opts.GcpServiceAccountEmail, account.GetAnnotations()["iam.gke.io/gcp-service-account"])
+
+	// assert both bindings include the workload identity user
+	user := fmt.Sprintf(
+		"serviceAccount:%s.svc.id.goog[%s/%s]",
+		cpi.Opts.GcpProjectId, namespace, ThreeportControlPlaneControllerName,
+	)
+	for _, suffix := range []string{"threeportworkloads", clusterAdminClusterRoleName} {
+		binding, err := kubeClient.Resource(roleBindingsResource).Get(
+			context.Background(),
+			fmt.Sprintf("%s-%s-%s", namespace, ThreeportControlPlaneControllerName, suffix),
+			metav1.GetOptions{},
+		)
+		require.NoError(t, err)
+		subjects, _, err := unstructured.NestedSlice(binding.Object, "subjects")
+		require.NoError(t, err)
+		require.Len(t, subjects, 2)
+		got, ok := subjects[1].(map[string]interface{})
+		require.True(t, ok)
+		require.Equal(t, "User", got["kind"])
+		require.Equal(t, user, got["name"])
+	}
+
+	// assert the call creates no controller deployment
+	require.False(t, resourceExists(
+		t, kubeClient, deploymentsResource, namespace, ThreeportControlPlaneControllerName,
+	))
 }
 
 // TestModuleInstallAfterRunKeepsAReplacement checks a different request stays stored.

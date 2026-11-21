@@ -63,6 +63,12 @@ const (
 	// The secret name is the job name plus moduleInstallSecretSuffix, so the job
 	// name stops short of the limit by that many characters.
 	moduleInstallNameLimit = 63
+
+	// threeportWorkloadsClusterRoleName is the cluster role that grants workload access.
+	threeportWorkloadsClusterRoleName = "threeport-controllers-threeportworkloads"
+
+	// clusterAdminClusterRoleName is the cluster role that grants cluster admin.
+	clusterAdminClusterRoleName = "cluster-admin"
 )
 
 // ModuleInstallJobEnv names the environment variable the install job sets so the
@@ -386,6 +392,134 @@ func InstallRequestedModule(
 	return EnsureModuleInstallJob(kubeClient, mapper, inst, cpi, module)
 }
 
+// ensureControlPlaneControllerAccount creates the account a module install job runs as.
+// It also creates that account's cluster role bindings, and it creates no controller deployment.
+func (cpi *ControlPlaneInstaller) ensureControlPlaneControllerAccount(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	namespace string,
+) error {
+	account := ThreeportControlPlaneControllerName
+
+	// create the role the workloads binding grants
+	role := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "rbac.authorization.k8s.io/v1",
+		"kind":       "ClusterRole",
+		"metadata": map[string]interface{}{
+			"name": threeportWorkloadsClusterRoleName,
+		},
+		"rules": []interface{}{
+			map[string]interface{}{
+				"apiGroups": []interface{}{"control-plane.threeport.io"},
+				"resources": []interface{}{"threeportworkloads"},
+				"verbs": []interface{}{
+					"create",
+					"delete",
+					"get",
+					"list",
+					"patch",
+					"update",
+					"watch",
+				},
+			},
+		},
+	}}
+	if _, err := kube.CreateOrUpdateResource(role, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create threeport controllers threeportworkloads cluster role: %w", err)
+	}
+
+	// create the account in the control plane namespace
+	metadata := map[string]interface{}{
+		"name":      account,
+		"namespace": namespace,
+	}
+	if cpi.Opts.GcpServiceAccountEmail != "" {
+		metadata["annotations"] = map[string]interface{}{
+			"iam.gke.io/gcp-service-account": cpi.Opts.GcpServiceAccountEmail,
+		}
+	}
+	serviceAccount := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "ServiceAccount",
+		"metadata":   metadata,
+	}}
+	if _, err := kube.CreateOrUpdateResource(serviceAccount, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create controller service account: %w", err)
+	}
+
+	// grant the account the workloads role and cluster admin
+	subjects := controllerAccountSubjects(cpi, namespace, account)
+	if err := ensureControllerClusterRoleBinding(
+		kubeClient,
+		mapper,
+		fmt.Sprintf("%s-%s-threeportworkloads", namespace, account),
+		threeportWorkloadsClusterRoleName,
+		subjects,
+	); err != nil {
+		return err
+	}
+
+	return ensureControllerClusterRoleBinding(
+		kubeClient,
+		mapper,
+		fmt.Sprintf("%s-%s-%s", namespace, account, clusterAdminClusterRoleName),
+		clusterAdminClusterRoleName,
+		subjects,
+	)
+}
+
+// controllerAccountSubjects returns the subjects for the control plane controller account.
+// On GKE the apiserver authenticates the pod as a user, so the subjects include that user.
+func controllerAccountSubjects(cpi *ControlPlaneInstaller, namespace, account string) []interface{} {
+	// start with the account in the control plane namespace
+	subjects := []interface{}{
+		map[string]interface{}{
+			"kind":      "ServiceAccount",
+			"name":      account,
+			"namespace": namespace,
+		},
+	}
+
+	// add the user a GKE apiserver authenticates the pod as
+	if cpi.Opts.InfraProvider == api.KubernetesRuntimeInfraProviderGKE && cpi.Opts.GcpProjectId != "" {
+		subjects = append(subjects, map[string]interface{}{
+			"kind":     "User",
+			"name":     fmt.Sprintf("serviceAccount:%s.svc.id.goog[%s/%s]", cpi.Opts.GcpProjectId, namespace, account),
+			"apiGroup": "rbac.authorization.k8s.io",
+		})
+	}
+
+	return subjects
+}
+
+// ensureControllerClusterRoleBinding creates or updates one cluster role binding.
+func ensureControllerClusterRoleBinding(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	name, role string,
+	subjects []interface{},
+) error {
+	// write the binding
+	binding := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "rbac.authorization.k8s.io/v1",
+		"kind":       "ClusterRoleBinding",
+		"metadata": map[string]interface{}{
+			"name": name,
+		},
+		"roleRef": map[string]interface{}{
+			"apiGroup": "rbac.authorization.k8s.io",
+			"kind":     "ClusterRole",
+			"name":     role,
+		},
+		"subjects": subjects,
+	}}
+	if _, err := kube.CreateOrUpdateResource(binding, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create cluster role binding %s: %w", name, err)
+	}
+
+	return nil
+}
+
 // EnsureModuleInstallJob moves a module install toward its requested image and
 // reports whether it finished. A missing job is created. A running job for the
 // same image is left to finish, and one for another image is an error, so the
@@ -476,7 +610,10 @@ func EnsureModuleInstallJob(
 		}
 	}
 
-	// write the config the install reads, then create the job
+	// create the account the job runs as, then write its config and the job
+	if err := cpi.ensureControlPlaneControllerAccount(kubeClient, mapper, namespace); err != nil {
+		return false, err
+	}
 	if err := ensureModuleInstallConfig(
 		kubeClient, mapper, inst, cpi, namespace, secretName,
 	); err != nil {
@@ -535,6 +672,10 @@ func WorkloadRESTMapper() meta.RESTMapper {
 	mapper.Add(schema.GroupVersionKind{Version: "v1", Kind: "Namespace"}, meta.RESTScopeRoot)
 	mapper.Add(
 		schema.GroupVersionKind{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRoleBinding"},
+		meta.RESTScopeRoot,
+	)
+	mapper.Add(
+		schema.GroupVersionKind{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRole"},
 		meta.RESTScopeRoot,
 	)
 	mapper.Add(
