@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -66,26 +67,23 @@ func databaseBackupURI(bucket, namespace, databaseName string) string {
 // moduleDatabaseNamePattern matches a database name that can be pasted into SQL.
 var moduleDatabaseNamePattern = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 
-// databaseBackupStatements returns one backup of the control plane database
-// and one backup of each module database.
+// databaseBackupStatements returns one backup of the control plane database and each module database.
+// They share the control plane collection, so one backup path selects all of them.
 func databaseBackupStatements(bucket, namespace string, moduleDatabases []string) ([]string, error) {
-	// back up the control plane database into its own collection
-	statements := []string{
-		fmt.Sprintf("BACKUP DATABASE %s INTO '%s';", DatabaseName, DatabaseBackupURI(bucket, namespace)),
-	}
-
-	// back up each module database into its own collection
+	// keep the control plane database first, then each module database
+	names := []string{DatabaseName}
 	for _, name := range moduleDatabases {
 		if !moduleDatabaseNamePattern.MatchString(name) || name == DatabaseName {
 			return nil, fmt.Errorf("module database name %q is not a sql identifier", name)
 		}
-		statements = append(statements, fmt.Sprintf(
-			"BACKUP DATABASE %s INTO '%s';",
-			name,
-			databaseBackupURI(bucket, namespace, name),
-		))
+		names = append(names, name)
 	}
-	return statements, nil
+
+	return []string{fmt.Sprintf(
+		"BACKUP DATABASE %s INTO '%s';",
+		strings.Join(names, ", "),
+		DatabaseBackupURI(bucket, namespace),
+	)}, nil
 }
 
 // backupScheduleBucket returns the bucket the migrator should schedule.

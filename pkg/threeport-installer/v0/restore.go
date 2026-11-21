@@ -157,7 +157,7 @@ func DatabaseRestoreStatements(databaseName, ownerName, sourceURI, scheduleURI, 
 }
 
 // withModuleDatabaseRestores adds a restore of each module database.
-// Each one is read from its own collection and written back to its own.
+// Each one is read from the control plane collection, which holds every database in one backup.
 func withModuleDatabaseRestores(
 	phases RestorePhases,
 	moduleDatabases []string,
@@ -168,29 +168,30 @@ func withModuleDatabaseRestores(
 	scheduleNamespace string,
 	backup string,
 ) (RestorePhases, error) {
-	// restore each module database after the control plane database
+	// restore each module database from the same backup as the control plane database
+	sourceURI := DatabaseBackupURI(sourceBucket, sourceNamespace)
 	for _, name := range moduleDatabases {
 		if !moduleDatabaseNamePattern.MatchString(name) || name == DatabaseName {
 			return RestorePhases{}, fmt.Errorf("module database name %q is not a sql identifier", name)
 		}
-		scheduleURI := ""
-		if scheduleBucket != "" {
-			scheduleURI = databaseBackupURI(scheduleBucket, scheduleNamespace, name)
-		}
-		next, err := DatabaseRestoreStatements(
-			name,
-			owner,
-			databaseBackupURI(sourceBucket, sourceNamespace, name),
-			scheduleURI,
-			backup,
-		)
+		next, err := DatabaseRestoreStatements(name, owner, sourceURI, "", backup)
 		if err != nil {
 			return RestorePhases{}, err
 		}
 		phases.Prepare = append(phases.Prepare, next.Prepare...)
 		phases.Swap = append(phases.Swap, next.Swap...)
-		phases.Backup = append(phases.Backup, next.Backup...)
 	}
+
+	// take one backup of every restored database into the schedule collection
+	if scheduleBucket != "" {
+		names := append([]string{DatabaseName}, moduleDatabases...)
+		phases.Backup = []string{fmt.Sprintf(
+			"BACKUP DATABASE %s INTO '%s'",
+			strings.Join(names, ", "),
+			DatabaseBackupURI(scheduleBucket, scheduleNamespace),
+		)}
+	}
+
 	return phases, nil
 }
 
@@ -1734,9 +1735,6 @@ func (cpi *ControlPlaneInstaller) scaleDownAndBackup(
 		return replicas, err
 	}
 	fmt.Println(DatabaseBackupURI(bucket, cpi.Opts.Namespace))
-	for _, name := range moduleDatabases {
-		fmt.Println(databaseBackupURI(bucket, cpi.Opts.Namespace, name))
-	}
 	fmt.Println("Info: database backup complete")
 
 	return replicas, nil

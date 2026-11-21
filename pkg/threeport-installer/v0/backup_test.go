@@ -241,12 +241,11 @@ func TestTheBackupScheduleIsCreatedOnlyWithABucket(t *testing.T) {
 // TestDatabaseBackupStatementsIncludesEachModuleDatabase covers a backup of
 // the control plane database and one module database.
 func TestDatabaseBackupStatementsIncludesEachModuleDatabase(t *testing.T) {
-	// each database is backed up into its own collection
+	// both databases share the control plane collection and one backup path
 	got, err := databaseBackupStatements("bucket", "primary-02", []string{"threeport_acme_api"})
 	require.NoError(t, err)
 	assert.Equal(t, []string{
-		"BACKUP DATABASE threeport_api INTO 'gs://bucket/primary-02/threeport_api?AUTH=implicit';",
-		"BACKUP DATABASE threeport_acme_api INTO 'gs://bucket/primary-02/threeport_acme_api?AUTH=implicit';",
+		"BACKUP DATABASE threeport_api, threeport_acme_api INTO 'gs://bucket/primary-02/threeport_api?AUTH=implicit';",
 	}, got)
 
 	// the control plane database is not backed up a second time
