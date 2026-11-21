@@ -285,7 +285,7 @@ func TestAnUpdateIsCheckedAgainstWhatTheDefinitionWillHold(t *testing.T) {
 			name: "patch an unrelated field over a stored list", provider: KubernetesRuntimeInfraProviderEKS,
 			stored: rawJSON(`["203.0.113.0/24"]`),
 			update: func(db *gorm.DB, loaded KubernetesRuntimeDefinition) error {
-				return db.Model(&loaded).Updates(&KubernetesRuntimeDefinition{NodeSize: util.Ptr("Large")}).Error
+				return db.Model(&loaded).Updates(&KubernetesRuntimeDefinition{InfraProviderAccountName: util.Ptr("other-account")}).Error
 			},
 		},
 		{
@@ -309,7 +309,7 @@ func TestAnUpdateIsCheckedAgainstWhatTheDefinitionWillHold(t *testing.T) {
 			name: "replace keeping the list", provider: KubernetesRuntimeInfraProviderEKS,
 			stored: rawJSON(`["203.0.113.0/24"]`),
 			update: func(db *gorm.DB, loaded KubernetesRuntimeDefinition) error {
-				loaded.NodeSize = util.Ptr("Large")
+				loaded.InfraProviderAccountName = util.Ptr("other-account")
 				loaded.AllowedCidrs = rawJSON(`[ "203.0.113.0/24" ]`)
 				return db.Save(&loaded).Error
 			},

@@ -455,6 +455,13 @@ func (w *PulumiWorkspace) DestroyStack() error {
 		}
 	}
 
+	// a protected resource is only ever destroyed here, on purpose, so its
+	// protection is removed in the state rather than by applying the program,
+	// which could change something else on the way
+	if err := unprotectStack(ctx, stack); err != nil {
+		return fmt.Errorf("failed to remove the stack's deletion protection: %w", err)
+	}
+
 	// destroy the stack
 	_, err = w.RunDestroy(ctx, stack)
 	if err != nil {
@@ -467,6 +474,94 @@ func (w *PulumiWorkspace) DestroyStack() error {
 	}
 
 	return nil
+}
+
+// unprotectStack clears the protect flag of every resource in the stack's
+// state, as "pulumi state unprotect --all" does, so a destroy can remove the
+// resources Pulumi protects from deletion.  The state is written back only
+// when a resource was protected.
+func unprotectStack(ctx context.Context, stack auto.Stack) error {
+	return unprotectStackResources(ctx, stack, func(string) bool { return true })
+}
+
+// unprotectStackResources clears the protect flag of the resources in the
+// stack's state whose URN selected returns true for, as unprotectStack does
+// for every resource.
+func unprotectStackResources(ctx context.Context, stack auto.Stack, selected func(urn string) bool) error {
+	exported, err := stack.Export(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to export the stack: %w", err)
+	}
+	deployment, changed, err := unprotectDeploymentResources(exported.Deployment, selected)
+	if err != nil {
+		return err
+	}
+	if !changed {
+		return nil
+	}
+	exported.Deployment = deployment
+	if err := stack.Import(ctx, exported); err != nil {
+		return fmt.Errorf("failed to import the unprotected stack: %w", err)
+	}
+
+	return nil
+}
+
+// unprotectDeployment returns an exported deployment with no resource
+// protected, and whether any was.  Everything else in it is kept as it was.
+func unprotectDeployment(deployment json.RawMessage) (json.RawMessage, bool, error) {
+	return unprotectDeploymentResources(deployment, func(string) bool { return true })
+}
+
+// unprotectDeploymentResources returns an exported deployment with none of
+// the resources whose URN selected returns true for protected, and whether
+// any was.  Everything else in it is kept as it was.
+func unprotectDeploymentResources(deployment json.RawMessage, selected func(urn string) bool) (json.RawMessage, bool, error) {
+	if len(deployment) == 0 {
+		return deployment, false, nil
+	}
+	var contents map[string]json.RawMessage
+	if err := json.Unmarshal(deployment, &contents); err != nil {
+		return nil, false, fmt.Errorf("failed to read the stack's deployment: %w", err)
+	}
+	if len(contents["resources"]) == 0 {
+		return deployment, false, nil
+	}
+	var resources []map[string]json.RawMessage
+	if err := json.Unmarshal(contents["resources"], &resources); err != nil {
+		return nil, false, fmt.Errorf("failed to read the stack's resources: %w", err)
+	}
+
+	changed := false
+	for _, resource := range resources {
+		var urn string
+		if raw, ok := resource["urn"]; ok {
+			_ = json.Unmarshal(raw, &urn)
+		}
+		if !selected(urn) {
+			continue
+		}
+		var protected bool
+		if raw, ok := resource["protect"]; ok && json.Unmarshal(raw, &protected) == nil && protected {
+			delete(resource, "protect")
+			changed = true
+		}
+	}
+	if !changed {
+		return deployment, false, nil
+	}
+
+	unprotectedResources, err := json.Marshal(resources)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to write the stack's resources: %w", err)
+	}
+	contents["resources"] = unprotectedResources
+	unprotected, err := json.Marshal(contents)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to write the stack's deployment: %w", err)
+	}
+
+	return unprotected, true, nil
 }
 
 // DeleteStackState deletes the Pulumi stack state directory.

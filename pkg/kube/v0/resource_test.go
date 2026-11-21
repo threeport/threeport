@@ -213,6 +213,121 @@ func TestCreateResourceGivesUpOnPersistentTransientError(t *testing.T) {
 	}
 }
 
+// TestCreateResourceRejectsATerminatingObject covers a name whose object is
+// still deleting. AlreadyExists is not success in that case, because the
+// create did not land and the object is about to disappear.
+func TestCreateResourceRejectsATerminatingObject(t *testing.T) {
+	deployments := schema.GroupResource{Group: "apps", Resource: "deployments"}
+	existing := testDeployment()
+	now := kubemetav1.Now()
+	existing.SetDeletionTimestamp(&now)
+
+	client := &stubDynamicClient{
+		resourceClient: &stubResourceClient{
+			alwaysErr: kubeerr.NewAlreadyExists(deployments, "my-app"),
+			existing:  existing,
+		},
+	}
+
+	_, err := CreateResource(testDeployment(), client, testDeploymentMapper())
+	if err == nil {
+		t.Fatal("CreateResource against a terminating object: got nil, want error")
+	}
+	if kubeerr.IsAlreadyExists(err) {
+		t.Fatal("CreateResource against a terminating object: error still unwraps to already exists")
+	}
+	if client.resourceClient.attempts != 1 {
+		t.Fatalf("CreateResource against a terminating object: got %d attempts, want 1", client.resourceClient.attempts)
+	}
+}
+
+// TestCreateResourceRetriesWhenTheExistingObjectIsGone covers a missing follow-up read.
+// The name finished deleting, so the next create is tried.
+func TestCreateResourceRetriesWhenTheExistingObjectIsGone(t *testing.T) {
+	shrinkCreateRetryDelay(t)
+
+	deployments := schema.GroupResource{Group: "apps", Resource: "deployments"}
+	client := &stubDynamicClient{
+		resourceClient: &stubResourceClient{
+			results: []stubCreateResult{
+				{err: kubeerr.NewAlreadyExists(deployments, "my-app")},
+				{object: testDeployment()},
+			},
+			getErrs: []error{
+				kubeerr.NewNotFound(deployments, "my-app"),
+			},
+		},
+	}
+
+	// create after the existing object is gone
+	result, err := CreateResource(testDeployment(), client, testDeploymentMapper())
+	if err != nil {
+		t.Fatalf("CreateResource after the existing object disappeared: got err %v, want nil", err)
+	}
+	if result == nil {
+		t.Fatal("CreateResource after the existing object disappeared: got nil object, want the created resource")
+	}
+	if client.resourceClient.attempts != 2 {
+		t.Fatalf("CreateResource after the existing object disappeared: got %d creates, want 2", client.resourceClient.attempts)
+	}
+}
+
+// TestCreateResourceRetriesATransientGet covers an AlreadyExists whose
+// follow-up read hits a temporary apiserver error. The read stays in the
+// same retry budget as the create.
+func TestCreateResourceRetriesATransientGet(t *testing.T) {
+	shrinkCreateRetryDelay(t)
+
+	deployments := schema.GroupResource{Group: "apps", Resource: "deployments"}
+	client := &stubDynamicClient{
+		resourceClient: &stubResourceClient{
+			alwaysErr: kubeerr.NewAlreadyExists(deployments, "my-app"),
+			existing:  testDeployment(),
+			getErrs: []error{
+				kubeerr.NewServiceUnavailable("apiserver busy"),
+			},
+		},
+	}
+
+	_, err := CreateResource(testDeployment(), client, testDeploymentMapper())
+	if err != nil {
+		t.Fatalf("CreateResource after a transient get: got err %v, want nil", err)
+	}
+	if client.resourceClient.attempts != 2 {
+		t.Fatalf("CreateResource after a transient get: got %d creates, want 2", client.resourceClient.attempts)
+	}
+	if client.resourceClient.gets != 2 {
+		t.Fatalf("CreateResource after a transient get: got %d gets, want 2", client.resourceClient.gets)
+	}
+}
+
+// TestCreateResourceDoesNotRetryATerminalGet covers an AlreadyExists whose
+// follow-up read fails for a reason that will not change on the next try.
+func TestCreateResourceDoesNotRetryATerminalGet(t *testing.T) {
+	shrinkCreateRetryDelay(t)
+
+	deployments := schema.GroupResource{Group: "apps", Resource: "deployments"}
+	client := &stubDynamicClient{
+		resourceClient: &stubResourceClient{
+			alwaysErr: kubeerr.NewAlreadyExists(deployments, "my-app"),
+			getErrs: []error{
+				kubeerr.NewForbidden(deployments, "my-app", errors.New("not allowed")),
+			},
+		},
+	}
+
+	_, err := CreateResource(testDeployment(), client, testDeploymentMapper())
+	if err == nil {
+		t.Fatal("CreateResource after a forbidden get: got nil, want error")
+	}
+	if client.resourceClient.attempts != 1 {
+		t.Fatalf("CreateResource after a forbidden get: got %d creates, want 1", client.resourceClient.attempts)
+	}
+	if client.resourceClient.gets != 1 {
+		t.Fatalf("CreateResource after a forbidden get: got %d gets, want 1", client.resourceClient.gets)
+	}
+}
+
 // TestCreateResourceDoesNotRetryDeterministicErrors covers the errors that
 // mean the request itself is wrong. Sending them again produces the same
 // answer, so CreateResource must return after a single attempt instead of
@@ -256,6 +371,9 @@ func TestCreateResourceDoesNotRetryDeterministicErrors(t *testing.T) {
 
 			client := &stubDynamicClient{
 				resourceClient: &stubResourceClient{alwaysErr: tc.err},
+			}
+			if tc.name == "already exists" {
+				client.resourceClient.existing = testDeployment()
 			}
 
 			_, err := CreateResource(testDeployment(), client, testDeploymentMapper())
@@ -340,6 +458,8 @@ type stubResourceClient struct {
 	alwaysErr error
 	attempts  int
 	existing  *unstructured.Unstructured
+	getErrs   []error
+	gets      int
 	updates   []*unstructured.Unstructured
 	created   []*unstructured.Unstructured
 }
@@ -379,6 +499,15 @@ func (r *stubResourceClient) Get(
 	options kubemetav1.GetOptions,
 	subresources ...string,
 ) (*unstructured.Unstructured, error) {
+	r.gets++
+	if len(r.getErrs) > 0 {
+		getErr := r.getErrs[0]
+		r.getErrs = r.getErrs[1:]
+		if getErr != nil {
+			return nil, getErr
+		}
+	}
+
 	// return the stored account
 	if r.existing == nil {
 		return nil, fmt.Errorf("service account %s not found", name)

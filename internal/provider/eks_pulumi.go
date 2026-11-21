@@ -3,6 +3,7 @@ package provider
 import (
 	"fmt"
 	"slices"
+	"strconv"
 
 	"github.com/pulumi/pulumi-aws/sdk/v6/go/aws"
 	"github.com/pulumi/pulumi-aws/sdk/v6/go/aws/ec2"
@@ -10,6 +11,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	tpaws "github.com/threeport/threeport/pkg/aws/v0"
 )
 
 const (
@@ -23,36 +25,22 @@ const (
 	// plane to the next version instead.
 	eksSupportType = "STANDARD"
 
-	// eksVpcCidr is the CIDR block for the VPC the cluster runs in.
-	eksVpcCidr = "10.0.0.0/16"
-
 	// eksDefaultZoneCount is the number of availability zones used when the
-	// runtime definition does not ask for a specific count.
-	eksDefaultZoneCount = 2
+	// runtime definition does not ask for a specific count.  The API checks
+	// a definition's node maximum against the zones the cluster gets, so the
+	// count is the one it checks with.
+	eksDefaultZoneCount = v0.EksDefaultZoneCount
 
 	// eksMaxZoneCount caps how many availability zones the cluster spans.  It
-	// is bounded by the number of subnet CIDRs carved out of the VPC.
-	eksMaxZoneCount = 3
+	// is bounded by the number of subnets the network layout carves out, and
+	// is the cap the API checks a definition's node maximum with.
+	eksMaxZoneCount = v0.EksMaxZoneCount
 
 	// eksDefaultRouteCidr is the destination that sends traffic to the
 	// internet gateway from public subnets and to a NAT gateway from private
 	// ones.
 	eksDefaultRouteCidr = "0.0.0.0/0"
 )
-
-// eksSubnetCidrs returns the CIDR blocks carved out of the VPC for subnets.
-// Each availability zone takes two: the public subnet first, then the private
-// one.
-func eksSubnetCidrs() []string {
-	return []string{
-		"10.0.0.0/22",
-		"10.0.4.0/22",
-		"10.0.8.0/22",
-		"10.0.12.0/22",
-		"10.0.16.0/22",
-		"10.0.20.0/22",
-	}
-}
 
 // eksNodeGroupIgnoredChanges are the node group properties Pulumi sets only when
 // it creates the node group.  The cluster autoscaler moves the desired size
@@ -324,8 +312,13 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 			return err
 		}
 
+		network, err := eksLayout(i.NetworkCidr)
+		if err != nil {
+			return err
+		}
+
 		vpc, err := ec2.NewVpc(ctx, fmt.Sprintf("%s-vpc", i.RuntimeInstanceName), &ec2.VpcArgs{
-			CidrBlock: pulumi.String(eksVpcCidr),
+			CidrBlock: pulumi.String(network.Vpc),
 			// the cluster's nodes resolve one another, and the AWS services
 			// they talk to, by DNS name
 			EnableDnsSupport:   pulumi.Bool(true),
@@ -368,7 +361,6 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 			return fmt.Errorf("failed to create public route table: %w", err)
 		}
 
-		subnetCidrs := eksSubnetCidrs()
 		privateSubnetIds := pulumi.StringArray{}
 		// the public addresses of the NAT gateways, which all outbound
 		// traffic from the nodes leaves through
@@ -382,7 +374,7 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 			publicSubnet, err := ec2.NewSubnet(ctx, publicSubnetName, &ec2.SubnetArgs{
 				VpcId:               vpc.ID(),
 				AvailabilityZone:    pulumi.String(zone),
-				CidrBlock:           pulumi.String(subnetCidrs[zoneIndex*2]),
+				CidrBlock:           pulumi.String(network.PublicSubnets[zoneIndex]),
 				MapPublicIpOnLaunch: pulumi.Bool(true),
 				Tags:                publicSubnetTags,
 			})
@@ -409,7 +401,7 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 			privateSubnet, err := ec2.NewSubnet(ctx, privateSubnetName, &ec2.SubnetArgs{
 				VpcId:            vpc.ID(),
 				AvailabilityZone: pulumi.String(zone),
-				CidrBlock:        pulumi.String(subnetCidrs[zoneIndex*2+1]),
+				CidrBlock:        pulumi.String(network.PrivateSubnets[zoneIndex]),
 				Tags:             privateSubnetTags,
 			})
 			if err != nil {
@@ -485,19 +477,43 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 		if len(allowlist) > 0 {
 			vpcConfig.PublicAccessCidrs = pulumi.ToStringArray(allowlist)
 		}
-		cluster, err := awseks.NewCluster(ctx, i.RuntimeInstanceName, &awseks.ClusterArgs{
-			Name:          pulumi.String(i.RuntimeInstanceName),
-			RoleArn:       pulumi.String(i.ClusterRoleArn),
-			Version:       pulumi.String(i.controlPlaneKubernetesVersion()),
-			UpgradePolicy: i.upgradePolicy(),
-			VpcConfig:     vpcConfig,
-			Tags:          i.resourceTags(i.RuntimeInstanceName),
-		})
+		clusterDependencies, err := i.auditLogGroup(ctx)
+		if err != nil {
+			return err
+		}
+		clusterArgs := &awseks.ClusterArgs{
+			Name:                   pulumi.String(i.RuntimeInstanceName),
+			RoleArn:                pulumi.String(i.ClusterRoleArn),
+			Version:                pulumi.String(i.controlPlaneKubernetesVersion()),
+			UpgradePolicy:          i.upgradePolicy(),
+			VpcConfig:              vpcConfig,
+			EnabledClusterLogTypes: i.clusterLogTypes(),
+			AccessConfig:           i.accessConfig(),
+			Tags:                   i.resourceTags(i.RuntimeInstanceName),
+		}
+		// a cluster created before the service range was set keeps the one
+		// EKS chose: setting it would replace the cluster
+		if network.ServiceCidr != "" {
+			clusterArgs.KubernetesNetworkConfig = &awseks.ClusterKubernetesNetworkConfigArgs{
+				ServiceIpv4Cidr: pulumi.String(network.ServiceCidr),
+			}
+		}
+		cluster, err := awseks.NewCluster(ctx, i.RuntimeInstanceName, clusterArgs,
+			pulumi.Protect(i.DeletionProtection),
+			pulumi.DependsOn(clusterDependencies),
+			// set only when a cluster is created; a cluster created before
+			// access entries keeps the creator's access as it is
+			pulumi.IgnoreChanges([]string{"accessConfig.bootstrapClusterCreatorAdminPermissions"}),
+		)
 		if err != nil {
 			return fmt.Errorf("failed to create EKS cluster: %w", err)
 		}
 
 		nodeGroupNames := i.nodeGroupNames()
+		nodeLaunchTemplate, err := i.nodeLaunchTemplate(ctx, nodeGroupNames)
+		if err != nil {
+			return err
+		}
 		nodeGroups := make([]pulumi.Resource, 0, len(nodeGroupNames))
 		for index, nodeGroupName := range nodeGroupNames {
 			// one node group spans every zone's subnet, and a node group per
@@ -518,8 +534,9 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 					MinSize:     pulumi.Int(i.DefaultNodeGroupMinNodes),
 					MaxSize:     pulumi.Int(i.DefaultNodeGroupMaxNodes),
 				},
-				Tags: i.resourceTags(nodeGroupName),
-			}, pulumi.IgnoreChanges(eksNodeGroupIgnoredChanges))
+				LaunchTemplate: i.nodeGroupLaunchTemplate(nodeLaunchTemplate, nodeGroupName),
+				Tags:           i.resourceTags(nodeGroupName),
+			}, pulumi.IgnoreChanges(eksNodeGroupIgnoredChanges), pulumi.Protect(i.DeletionProtection))
 			if err != nil {
 				return fmt.Errorf("failed to create EKS node group %s: %w", nodeGroupName, err)
 			}
@@ -533,10 +550,69 @@ func (i *KubernetesRuntimeInfraEKS) pulumiProgram() pulumi.RunFunc {
 	}
 }
 
+// eksNodeMetadataHopLimit is how many network hops a response from the
+// nodes' instance metadata service may take.  At 1 it reaches the node and
+// not a pod's network namespace behind it, so a pod can't take the node
+// role's credentials; the add-ons that call AWS have roles of their own.
+const eksNodeMetadataHopLimit = 1
+
+// nodeLaunchTemplate adds the launch template the cluster's new node groups
+// are created from: it requires session tokens for the instance metadata
+// service, which a pod can't then reach.  It adds none when every node group
+// is one the stack holds without a launch template.
+func (i *KubernetesRuntimeInfraEKS) nodeLaunchTemplate(ctx *pulumi.Context, nodeGroupNames []string) (*ec2.LaunchTemplate, error) {
+	if !slices.ContainsFunc(nodeGroupNames, func(name string) bool {
+		return !i.stackNodeGroupsWithoutLaunchTemplate[name]
+	}) {
+		return nil, nil
+	}
+
+	name := fmt.Sprintf("%s-node-launch-template", i.RuntimeInstanceName)
+	launchTemplate, err := ec2.NewLaunchTemplate(ctx, name, &ec2.LaunchTemplateArgs{
+		Name: pulumi.String(name),
+		MetadataOptions: &ec2.LaunchTemplateMetadataOptionsArgs{
+			HttpEndpoint:            pulumi.String("enabled"),
+			HttpTokens:              pulumi.String("required"),
+			HttpPutResponseHopLimit: pulumi.Int(eksNodeMetadataHopLimit),
+		},
+		Tags: i.resourceTags(name),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create the node launch template: %w", err)
+	}
+
+	return launchTemplate, nil
+}
+
+// nodeGroupLaunchTemplate returns the launch template a node group is created
+// from: none for one the stack holds without one, and the latest version of
+// launchTemplate otherwise.
+func (i *KubernetesRuntimeInfraEKS) nodeGroupLaunchTemplate(
+	launchTemplate *ec2.LaunchTemplate,
+	nodeGroupName string,
+) awseks.NodeGroupLaunchTemplatePtrInput {
+	if launchTemplate == nil || i.stackNodeGroupsWithoutLaunchTemplate[nodeGroupName] {
+		return nil
+	}
+
+	return &awseks.NodeGroupLaunchTemplateArgs{
+		Id: launchTemplate.ID(),
+		Version: launchTemplate.LatestVersion.ApplyT(func(version int) string {
+			return strconv.Itoa(version)
+		}).(pulumi.StringOutput),
+	}
+}
+
 // eksManagedAddons are the add-ons EKS installs on a cluster it creates, as
 // copies nothing upgrades with the cluster.  The program takes them over as
 // EKS add-ons, whose versions EKS sets for the cluster's version.
 var eksManagedAddons = []string{"vpc-cni", "coredns", "kube-proxy"}
+
+// vpcCniAddonIgnoredChanges are the vpc-cni add-on's properties set outside
+// the program: the role it runs as is bound to it once the cluster's OIDC
+// issuer exists, after the stack (see moveVpcCniPolicyToItsRole), so an up
+// that doesn't ask for it leaves it there.
+var vpcCniAddonIgnoredChanges = []string{"serviceAccountRoleArn"}
 
 // eksAddonResolveConflicts takes over the copies EKS installed, and their
 // configuration, rather than failing on them.
@@ -561,6 +637,10 @@ func (i *KubernetesRuntimeInfraEKS) managedAddons(
 		}
 
 		resourceName := fmt.Sprintf("%s-%s", i.RuntimeInstanceName, addonName)
+		var ignoredChanges []string
+		if addonName == tpaws.EksVpcCniAddonName {
+			ignoredChanges = vpcCniAddonIgnoredChanges
+		}
 		if _, err := awseks.NewAddon(ctx, resourceName, &awseks.AddonArgs{
 			ClusterName:              cluster.Name,
 			AddonName:                pulumi.String(addonName),
@@ -568,7 +648,7 @@ func (i *KubernetesRuntimeInfraEKS) managedAddons(
 			ResolveConflictsOnCreate: pulumi.String(eksAddonResolveConflicts),
 			ResolveConflictsOnUpdate: pulumi.String(eksAddonResolveConflicts),
 			Tags:                     i.resourceTags(resourceName),
-		}, pulumi.DependsOn(nodeGroups)); err != nil {
+		}, pulumi.DependsOn(nodeGroups), pulumi.IgnoreChanges(ignoredChanges)); err != nil {
 			return fmt.Errorf("failed to create the %s add-on: %w", addonName, err)
 		}
 	}

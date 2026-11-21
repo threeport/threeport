@@ -1096,6 +1096,17 @@ func (cpi *ControlPlaneInstaller) DeleteControlPlaneRoleBindings(
 		return err
 	}
 
+	// delete the module install binding
+	binding := kubeObject(
+		"rbac.authorization.k8s.io/v1",
+		"ClusterRoleBinding",
+		"",
+		moduleInstallBindingName(cpi.Opts.Namespace),
+	)
+	if err := kube.DeleteResource(binding, kubeClient, *mapper); err != nil {
+		return err
+	}
+
 	// delete each controller's bindings
 	for _, controller := range ThreeportControllerList {
 		if err := cpi.deleteControllerRoleBindings(kubeClient, mapper, *controller); err != nil {
@@ -1420,6 +1431,9 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 				map[string]interface{}{
 					"apiGroups": []interface{}{
 						"",
+						// the events the agent records, such as a warning
+						// that the message broker's storage is nearly full
+						"events.k8s.io",
 					},
 					"resources": []interface{}{
 						"events",
@@ -2553,6 +2567,13 @@ func (cpi *ControlPlaneInstaller) getAgentArgs() []interface{} {
 	}
 	if cpi.Opts.AgentApiServer != "" {
 		args = append(args, fmt.Sprintf("--threeport-api-server=%s", cpi.Opts.AgentApiServer))
+	} else {
+		// the agent on the control plane's own cluster warns before the
+		// control plane's message broker runs out of storage
+		args = append(args,
+			fmt.Sprintf("--message-broker-service=%s", natsServiceName),
+			fmt.Sprintf("--message-broker-namespace=%s", cpi.Opts.Namespace),
+		)
 	}
 	// disable auth if authConfig is not set on non-dev deployment
 	if !cpi.Opts.AuthEnabled {

@@ -518,7 +518,8 @@ func moduleControllerDeployment(deployment *unstructured.Unstructured) bool {
 }
 
 // RestoreModuleScale sets each recorded deployment back to its prior replica
-// count and does not wait for pods to become ready.
+// count, removes the count recorded for the backup, and does not wait for pods
+// to become ready.
 func (cpi *ControlPlaneInstaller) RestoreModuleScale(
 	kubeClient dynamic.Interface,
 	scales []ModuleDeploymentScale,
@@ -530,7 +531,7 @@ func (cpi *ControlPlaneInstaller) RestoreModuleScale(
 
 	// restore each recorded replica count
 	for _, scale := range scales {
-		if err := cpi.setDeploymentReplicas(
+		if err := cpi.resumeDeploymentReplicas(
 			kubeClient, scale.Namespace, scale.Name, scale.Replicas,
 		); err != nil {
 			return err
@@ -599,6 +600,37 @@ func DeleteModuleNamespaces(
 		return fmt.Errorf("failed to delete module namespaces %s: %w", strings.Join(namespaces, ", "), err)
 	}
 	fmt.Printf("Info: deleted module namespace(s) %s\n", strings.Join(namespaces, ", "))
+
+	return nil
+}
+
+// resumeDeploymentReplicas patches a stopped deployment back to its prior
+// replica count and removes the count recorded before it stopped, in one patch.
+// A later backup then reads zero replicas with no record as a deployment it did
+// not stop. A missing deployment is success.
+func (cpi *ControlPlaneInstaller) resumeDeploymentReplicas(
+	kubeClient dynamic.Interface,
+	namespace string,
+	name string,
+	replicas int64,
+) error {
+	// set the count and null the annotation in one merge patch
+	patch := fmt.Appendf(
+		nil,
+		`{"metadata":{"annotations":{%q:null}},"spec":{"replicas":%d}}`,
+		replicasBeforeRestoreAnnotation,
+		replicas,
+	)
+	_, err := kubeClient.Resource(deploymentGVR).Namespace(namespace).Patch(
+		context.Background(),
+		name,
+		"application/strategic-merge-patch+json",
+		patch,
+		metav1.PatchOptions{},
+	)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return fmt.Errorf("failed to resume deployment %s/%s at %d: %w", namespace, name, replicas, err)
+	}
 
 	return nil
 }

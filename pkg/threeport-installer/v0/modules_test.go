@@ -321,6 +321,52 @@ func TestScaleDownModulesAndRestore(t *testing.T) {
 	}
 }
 
+// TestRestoreModuleScaleClearsTheRecordedCount covers the annotation that holds
+// a module controller's replica count while it is stopped: resuming the
+// controller sets its count and removes the annotation, so a later backup does
+// not mistake a stale count for one it recorded itself. Scaling to zero keeps it.
+func TestRestoreModuleScaleClearsTheRecordedCount(t *testing.T) {
+	// seed a running controller and capture the body of every patch
+	namespace := "example-namespace"
+	kubeClient := testKubeClient(
+		testControllerDeployment("threeport-example-controller", namespace, 2),
+	)
+	var bodies [][]byte
+	kubeClient.PrependReactor("patch", "deployments", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		patch := action.(k8stesting.PatchAction)
+		bodies = append(bodies, patch.GetPatch())
+
+		// answer without applying the patch, which the fake cannot merge
+		return true, testModuleDeployment(patch.GetName(), patch.GetNamespace(), 0), nil
+	})
+	cpi := &ControlPlaneInstaller{Opts: Options{Namespace: "threeport-control-plane"}}
+
+	// scale the controller to zero, then resume it
+	scales, err := cpi.ScaleDownModules(kubeClient, []ModuleDeploymentScale{{
+		Namespace: namespace,
+		Name:      "threeport-example-controller",
+	}})
+	require.NoError(t, err)
+	bodies = nil
+	require.NoError(t, cpi.RestoreModuleScale(kubeClient, scales))
+
+	// assert the resume patch sets the count and clears the recorded annotation
+	require.Len(t, bodies, 1)
+	var resume struct {
+		Metadata struct {
+			Annotations map[string]*string `json:"annotations"`
+		} `json:"metadata"`
+		Spec struct {
+			Replicas int64 `json:"replicas"`
+		} `json:"spec"`
+	}
+	require.NoError(t, json.Unmarshal(bodies[0], &resume))
+	require.Equal(t, int64(2), resume.Spec.Replicas)
+	cleared, present := resume.Metadata.Annotations[replicasBeforeRestoreAnnotation]
+	require.True(t, present, "the resume patch left the recorded count in place")
+	require.Nil(t, cleared)
+}
+
 // TestScaleDownModulesSkipsDeploymentsAlreadyStopped covers scale-down
 // skipping a zero-replica deployment.
 func TestScaleDownModulesSkipsDeploymentsAlreadyStopped(t *testing.T) {

@@ -98,7 +98,7 @@ func newRecordingCluster(t *testing.T) (*recordingCluster, dynamic.Interface) {
 func TestTheAutoscalerMatchesTheClustersVersionAndName(t *testing.T) {
 	cluster, kubeClient := newRecordingCluster(t)
 	require.NoError(t, installEksClusterAutoscaler(
-		kubeClient, autoscalerTestMapper(), "existing-cluster", "123456789012", "1.35",
+		kubeClient, autoscalerTestMapper(), "existing-cluster", "123456789012", "us-east-2", "1.35",
 	))
 
 	deployment := cluster.created["Deployment"]
@@ -110,6 +110,28 @@ func TestTheAutoscalerMatchesTheClustersVersionAndName(t *testing.T) {
 	assert.Equal(t, "registry.k8s.io/autoscaling/cluster-autoscaler:v1.35.3", container["image"])
 	assert.Contains(t, container["command"],
 		"--node-group-auto-discovery=asg:tag=k8s.io/cluster-autoscaler/enabled,k8s.io/cluster-autoscaler/existing-cluster")
+	// the nodes' metadata service, where it would read the region, is out
+	// of its reach
+	assert.Equal(t, []any{map[string]any{"name": "AWS_REGION", "value": "us-east-2"}}, container["env"])
+
+	// the role lets it watch what its release waits for before it scales
+	clusterRole := cluster.created["ClusterRole"]
+	require.NotNil(t, clusterRole)
+	rules, _, err := unstructured.NestedSlice(clusterRole, "rules")
+	require.NoError(t, err)
+	for _, watched := range clusterAutoscalerWatchedResources {
+		assert.True(t, rulesGrantWatch(rules, watched[0], watched[1]), "%s/%s", watched[0], watched[1])
+	}
+}
+
+// TestAnAutoscalerWithNoRegionIsNotInstalled covers an install that isn't
+// told the cluster's region: it fails before it creates anything, rather than
+// leaving an autoscaler that can't reach the AWS API.
+func TestAnAutoscalerWithNoRegionIsNotInstalled(t *testing.T) {
+	cluster, kubeClient := newRecordingCluster(t)
+	err := installEksClusterAutoscaler(kubeClient, autoscalerTestMapper(), "existing-cluster", "123456789012", "", "1.35")
+	assert.ErrorContains(t, err, "no AWS region to run the cluster autoscaler of existing-cluster in")
+	assert.Empty(t, cluster.created)
 }
 
 // TestAnAutoscalerWithNoImageForTheVersionIsNotInstalled covers a cluster on
@@ -117,24 +139,38 @@ func TestTheAutoscalerMatchesTheClustersVersionAndName(t *testing.T) {
 // anything, rather than leaving an autoscaler that doesn't match.
 func TestAnAutoscalerWithNoImageForTheVersionIsNotInstalled(t *testing.T) {
 	cluster, kubeClient := newRecordingCluster(t)
-	err := installEksClusterAutoscaler(kubeClient, autoscalerTestMapper(), "old-cluster", "123456789012", "1.26")
+	err := installEksClusterAutoscaler(kubeClient, autoscalerTestMapper(), "old-cluster", "123456789012", "us-east-2", "1.26")
 	assert.ErrorContains(t, err, "no cluster autoscaler image is known for Kubernetes 1.26")
 	assert.Empty(t, cluster.created)
 }
 
 // TestAnUpgradedClustersAutoscalerIsUpdated covers installing the autoscaler
 // on a cluster that already runs one, as an upgraded cluster does: the
-// deployment is updated to the new version's release, rather than left as it
-// was.
+// deployment is updated to the new version's release, and the cluster role,
+// installed before it granted what the release waits for, to the current
+// rules, rather than either left as it was.
 func TestAnUpgradedClustersAutoscalerIsUpdated(t *testing.T) {
 	var mu sync.Mutex
-	var updated map[string]any
+	var updated, updatedRole map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		body, err := io.ReadAll(r.Body)
 		require.NoError(t, err)
 		isDeployment := strings.Contains(r.URL.Path, "/deployments")
+		isClusterRole := strings.Contains(r.URL.Path, "/clusterroles/") || strings.HasSuffix(r.URL.Path, "/clusterroles")
 		switch {
+		case r.Method == http.MethodPost && isClusterRole:
+			w.WriteHeader(http.StatusConflict)
+			_, _ = w.Write([]byte(`{"kind":"Status","apiVersion":"v1","status":"Failure","reason":"AlreadyExists","code":409}`))
+		case r.Method == http.MethodGet && isClusterRole:
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"apiVersion":"rbac.authorization.k8s.io/v1","kind":"ClusterRole","metadata":{"name":"cluster-autoscaler","resourceVersion":"3"},"rules":[{"apiGroups":["storage.k8s.io"],"resources":["storageclasses"],"verbs":["watch","list","get"]}]}`))
+		case r.Method == http.MethodPut && isClusterRole:
+			mu.Lock()
+			require.NoError(t, json.Unmarshal(body, &updatedRole))
+			mu.Unlock()
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(body)
 		case r.Method == http.MethodPost && isDeployment:
 			w.WriteHeader(http.StatusConflict)
 			_, _ = w.Write([]byte(`{"kind":"Status","apiVersion":"v1","status":"Failure","reason":"AlreadyExists","code":409}`))
@@ -157,7 +193,7 @@ func TestAnUpgradedClustersAutoscalerIsUpdated(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, installEksClusterAutoscaler(
-		kubeClient, autoscalerTestMapper(), "upgraded-cluster", "123456789012", "1.36",
+		kubeClient, autoscalerTestMapper(), "upgraded-cluster", "123456789012", "us-east-2", "1.36",
 	))
 
 	mu.Lock()
@@ -167,4 +203,12 @@ func TestAnUpgradedClustersAutoscalerIsUpdated(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "registry.k8s.io/autoscaling/cluster-autoscaler:v1.36.2", containers[0].(map[string]any)["image"])
 	assert.Equal(t, "7", updated["metadata"].(map[string]any)["resourceVersion"])
+
+	require.NotNil(t, updatedRole, "the existing cluster role was updated")
+	assert.Equal(t, "3", updatedRole["metadata"].(map[string]any)["resourceVersion"])
+	rules, _, err := unstructured.NestedSlice(updatedRole, "rules")
+	require.NoError(t, err)
+	for _, watched := range clusterAutoscalerWatchedResources {
+		assert.True(t, rulesGrantWatch(rules, watched[0], watched[1]), "%s/%s", watched[0], watched[1])
+	}
 }

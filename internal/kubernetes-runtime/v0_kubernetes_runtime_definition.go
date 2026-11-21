@@ -62,6 +62,8 @@ func v0KubernetesRuntimeDefinitionCreated(
 			PrivateApi:                    kubernetesRuntimeDefinition.PrivateApi,
 			AllowedCidrs:                  kubernetesRuntimeDefinition.AllowedCidrs,
 			KubernetesVersion:             util.Ptr(v0.KubernetesVersionOrDefault(kubernetesRuntimeDefinition.KubernetesVersion)),
+			AuditLog:                      util.Ptr(util.Deref(kubernetesRuntimeDefinition.AuditLog)),
+			DeletionProtection:            util.Ptr(kubernetesRuntimeDefinition.DeletionProtection != nil && *kubernetesRuntimeDefinition.DeletionProtection),
 			KubernetesRuntimeDefinitionID: kubernetesRuntimeDefinition.ID,
 		}
 		_, err = client.CreateAwsEksKubernetesRuntimeDefinition(
@@ -73,12 +75,12 @@ func v0KubernetesRuntimeDefinitionCreated(
 			return controller.RetryOnNetworkErr(err, "failed to create new AWS EKS kubernetes runtime")
 		}
 	case v0.KubernetesRuntimeInfraProviderGKE:
-		// create a GCP GKE cluster definition
-		var zoneCount int
+		// create a GCP GKE cluster definition: a highly available cluster is
+		// regional, its control plane replicated across the region's zones and
+		// its nodes in three of them, and any other is zonal, in one zone
+		zoneCount := 1
 		if *kubernetesRuntimeDefinition.HighAvailability {
 			zoneCount = 3
-		} else {
-			zoneCount = 2
 		}
 		nodeGroupInstanceType, err := mapping.GetMachineType(
 			"gcp",
@@ -102,6 +104,8 @@ func v0KubernetesRuntimeDefinitionCreated(
 			PrivateApi:                    kubernetesRuntimeDefinition.PrivateApi,
 			AllowedCidrs:                  kubernetesRuntimeDefinition.AllowedCidrs,
 			KubernetesVersion:             util.Ptr(v0.KubernetesVersionOrDefault(kubernetesRuntimeDefinition.KubernetesVersion)),
+			AuditLog:                      util.Ptr(util.Deref(kubernetesRuntimeDefinition.AuditLog)),
+			DeletionProtection:            util.Ptr(kubernetesRuntimeDefinition.DeletionProtection != nil && *kubernetesRuntimeDefinition.DeletionProtection),
 			ReleaseChannel:                util.Ptr(v0.DefaultGkeReleaseChannel),
 			MaintenanceWindowDays:         util.Ptr(v0.DefaultGkeMaintenanceWindowDays),
 			MaintenanceWindowStart:        util.Ptr(v0.DefaultGkeMaintenanceWindowStart),

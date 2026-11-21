@@ -17514,6 +17514,10 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "AuditLog": {
+                    "description": "If true, the clusters' Kubernetes API server audit log, with its API and\nauthenticator logs, is sent to CloudWatch Logs, in the log group\n/aws/eks/\u003ccluster\u003e/cluster, which keeps it for 90 days and is deleted\nwith the cluster.  It can't be changed after creation.",
+                    "type": "boolean"
+                },
                 "AwsEksKubernetesRuntimeInstances": {
                     "description": "The AWS EKS kubernetes runtime instances derived from this definition.",
                     "type": "array",
@@ -17536,6 +17540,10 @@ const docTemplate = `{
                 "DefaultNodeGroupMinimumSize": {
                     "description": "The minimum number of nodes the default initial node group should have.",
                     "type": "integer"
+                },
+                "DeletionProtection": {
+                    "description": "If true, the runtime instances derived from this definition can't be\ndeleted, Pulumi refuses to destroy or replace their clusters and node\ngroups, and EKS refuses to delete the clusters through its own API.  Set\nit to false to let every instance of the definition be deleted.  If\nunset, it is false.",
+                    "type": "boolean"
                 },
                 "KubernetesRuntimeDefinitionID": {
                     "description": "The kubernetes runtime definition for an EKS cluster in AWS.",
@@ -17982,7 +17990,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "NetworkCidrPool": {
-                    "description": "The address blocks from which this control plane allocates a /16\nnetwork range to each Kubernetes runtime it provisions, as a JSON array\nof IPv4 CIDR blocks such as [\"10.16.0.0/12\"].  Each block must be a /16\nor larger, and the blocks must not overlap.  If empty, the default pool\nis used: 10.16.0.0/16 through 10.255.0.0/16, except 10.96.0.0/16 and\n10.244.0.0/16.  A change affects only later allocations.  On a child\ncontrol plane, the pool must be clear of the ranges its parent has\nallocated, and the parent does not allocate from it.",
+                    "description": "The address blocks from which this control plane allocates a /16\nnetwork range to each Kubernetes runtime it provisions, as a JSON array\nof IPv4 CIDR blocks such as [\"10.16.0.0/12\"].  Each block must be a /16\nor larger, and the blocks must not overlap.  If empty, the default pool\nis used: 10.16.0.0/16 through 10.255.0.0/16, except 10.96.0.0/16 and\n10.244.0.0/16.  A change affects only later allocations.  On a child\ncontrol plane, the pool must be clear of the ranges its parent has\nallocated and of its other children's pools, and the parent does not\nallocate from it.  A child's pool can only grow, since the child may\nhave allocated from any of its blocks: a block can be added, or replaced\nby a larger one that holds it.  On a control plane that is itself a\nchild, a child's pool must be inside this control plane's own pool.  A\nchild with no pool allocates no ranges, and its clusters keep the\nnetwork every cluster used to get.",
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -17998,6 +18006,13 @@ const docTemplate = `{
                 "Reconciled": {
                     "description": "Indicates if object is considered to be reconciled by the object's controller.",
                     "type": "boolean"
+                },
+                "ReservedNetworkCidrs": {
+                    "description": "The address blocks this control plane doesn't allocate from, and that\nno runtime's range and no child control plane's pool may overlap, as a\nJSON array of IPv4 CIDR blocks.  They are the pools of its deleted\nchildren, recorded on the instance that represents this control plane\nas each child is deleted, since the clusters a child allocated from its\npool may outlive it.  Remove a block once the clusters allocated from it\nare gone; a control plane that is itself a child releases its own.  A\nwrite that leaves out a block is refused with a conflict when the\ninstance changed after the writer read it, so a write based on an\nearlier read can't release a block reserved since: read it again.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "Status": {
                     "description": "The status of the instance.\nTODO: use a custom type",
@@ -18426,6 +18441,22 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "AuditLog": {
+                    "description": "Recorded for the kubernetes runtime definition's AuditLog.  It has no\neffect on GKE, which always records the Kubernetes API's writes in\nCloud Audit Logs.  It can't be changed after creation.",
+                    "type": "boolean"
+                },
+                "BootDiskKmsKey": {
+                    "description": "The Cloud KMS key the nodes' boot disks are encrypted with, as its full\nresource name, as SecretsEncryptionKey is.  Threeport creates neither\nthe key nor its key ring: the project's Compute Engine service agent,\nservice-PROJECT_NUMBER@compute-system.iam.gserviceaccount.com, has\nroles/cloudkms.cryptoKeyEncrypterDecrypter on it.  GKE takes a key only\nfor a pd-standard or pd-ssd disk, so BootDiskType is one of those.  A\nnode pool's key can't change, so changing it on a definition with\nclusters replaces their node pools: a new one is created, and the old\none is removed once it is, its pods moving to the new one.  That can't\nbe done while DeletionProtection is set.  If unset, the disks are\nencrypted with a key Google manages.",
+                    "type": "string"
+                },
+                "BootDiskSizeGb": {
+                    "description": "The size of the nodes' boot disks in GB, from 10 to 65536.  If unset, a\nnew node pool gets 100, and one already there keeps the disk it has.\nChanging it moves every node onto a new disk, one node at a time, in\nthe node pool they are in.",
+                    "type": "integer"
+                },
+                "BootDiskType": {
+                    "description": "The type of the nodes' boot disks: pd-standard, pd-balanced or pd-ssd.\nIf unset, a new node pool gets pd-balanced, and one already there keeps\nthe disk it has.  Changing it moves every node onto a new disk, one\nnode at a time, in the node pool they are in.",
+                    "type": "string"
+                },
                 "DefaultNodeGroupInitialSize": {
                     "description": "The number of nodes in the default initial node group.",
                     "type": "integer"
@@ -18442,12 +18473,20 @@ const docTemplate = `{
                     "description": "The minimum number of nodes the default initial node group should have.",
                     "type": "integer"
                 },
+                "DeletionProtection": {
+                    "description": "If true, the runtime instances derived from this definition can't be\ndeleted, and Pulumi refuses to destroy or replace their clusters and\nnode pools.  GKE has no deletion protection of its own, so a cluster can\nstill be deleted in the Google Cloud console or with gcloud.  Set it to\nfalse to let every instance of the definition be deleted.  If unset, it\nis false.",
+                    "type": "boolean"
+                },
                 "GcpGkeKubernetesRuntimeInstances": {
                     "description": "The GCP GKE kubernetes runtime instances derived from this definition.",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/v0.GcpGkeKubernetesRuntimeInstance"
                     }
+                },
+                "IntranodeVisibility": {
+                    "description": "If true, traffic between pods on the same node goes through the\ncluster's network, where flow logs, firewall rules and Network\nPolicies see it.  Changing it on a definition with clusters has GKE\nrecreate their nodes.  If unset, it is off.",
+                    "type": "boolean"
                 },
                 "KubernetesRuntimeDefinitionID": {
                     "description": "The kubernetes runtime definition for a GKE cluster in GCP.",
@@ -18485,6 +18524,14 @@ const docTemplate = `{
                     "description": "The GKE release channel of the clusters, REGULAR or STABLE.  GKE\nupgrades their control planes and nodes to its releases on its own,\nwithin the maintenance window.  If unset, REGULAR is used.  It can't be\nchanged after creation.",
                     "type": "string"
                 },
+                "SecretsEncryptionKey": {
+                    "description": "The Cloud KMS key the clusters' Secrets are encrypted with, on top of\nthe encryption Google gives everything it stores, as the key's full\nresource name:\nprojects/PROJECT/locations/LOCATION/keyRings/RING/cryptoKeys/KEY.\nThreeport creates neither the key nor its key ring: the key is in the\nclusters' region, and the project's GKE service agent,\nservice-PROJECT_NUMBER@container-engine-robot.iam.gserviceaccount.com,\nhas roles/cloudkms.cryptoKeyEncrypterDecrypter on it.  Setting it on a\ndefinition with clusters encrypts their Secrets: GKE restarts each\ncontrol plane, so a zonal cluster's Kubernetes API is unavailable for a\nwhile, and the nodes stay.  It can be changed to another key, but not\ncleared once set.  If unset, Secrets are encrypted only with a key\nGoogle manages.",
+                    "type": "string"
+                },
+                "SecureBoot": {
+                    "description": "If true, the nodes boot only software signed by a key their firmware\ntrusts.  A node pool's Secure Boot can't change, so changing it on a\ndefinition with clusters replaces their node pools as a change of\nBootDiskKmsKey does, which can't be done while DeletionProtection is\nset.  If unset, Secure Boot is off.",
+                    "type": "boolean"
+                },
                 "TierID": {
                     "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
                     "type": "integer"
@@ -18507,6 +18554,18 @@ const docTemplate = `{
                 "AbandonInfrastructure": {
                     "description": "Set by an operator to allow this instance to be deleted even though its\ncreation was confirmed and no resource inventory is recorded, or the\nrecorded inventory cannot be restored. The controller refuses that delete\notherwise, because cloud resources may still exist. Setting this orphans\nany resources the controller cannot find: they keep running and are no\nlonger tracked by Threeport. Resources it has recorded and can restore are\nstill destroyed. It is rejected on create, and once set it stays set until\nchanged, so tptctl sets it back to false if the delete fails.",
                     "type": "boolean"
+                },
+                "BootDiskKmsKey": {
+                    "description": "The Cloud KMS key of the nodes' boot disks the controller last\napplied, \"\" for none.",
+                    "type": "string"
+                },
+                "BootDiskSizeGb": {
+                    "description": "The size in GB of the nodes' boot disks the controller last applied.",
+                    "type": "integer"
+                },
+                "BootDiskType": {
+                    "description": "The type of the nodes' boot disks the controller last applied.",
+                    "type": "string"
                 },
                 "CreationAcknowledged": {
                     "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
@@ -18544,6 +18603,10 @@ const docTemplate = `{
                     "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
                     "type": "boolean"
                 },
+                "IntranodeVisibility": {
+                    "description": "Whether the cluster has intranode visibility, as the controller last\napplied it.",
+                    "type": "boolean"
+                },
                 "KubernetesRuntimeInstanceID": {
                     "description": "The kubernetes runtime instance associated with the GKE cluster.",
                     "type": "integer"
@@ -18574,6 +18637,14 @@ const docTemplate = `{
                     "items": {
                         "type": "integer"
                     }
+                },
+                "SecretsEncryptionKey": {
+                    "description": "The Cloud KMS key the cluster's Secrets are encrypted with, \"\" for\nnone, as the controller last applied the definition's\nSecretsEncryptionKey.  The definition holds what was asked for, and\nthese applied settings hold what the cluster runs, so the controller\napplies what differs.  Each is unset on a cluster none was applied to.",
+                    "type": "string"
+                },
+                "SecureBoot": {
+                    "description": "Whether the nodes boot with Secure Boot, as the controller last\napplied it.",
+                    "type": "boolean"
                 },
                 "Status": {
                     "description": "The status of the instance.\nTODO: use a custom type",
@@ -18819,6 +18890,10 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "AuditLog": {
+                    "description": "If true, the clusters' Kubernetes API server audit log is enabled and\nsent to the infra provider's logging service: CloudWatch Logs on EKS.\nGKE always records the API's writes in Cloud Audit Logs, and OKE has no\nAPI server audit log, so it has no effect on either.  It is copied into\nthe EKS, GKE or OKE definition, and can't be changed after creation.",
+                    "type": "boolean"
+                },
                 "CreationAcknowledged": {
                     "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
                     "type": "string"
@@ -18838,6 +18913,10 @@ const docTemplate = `{
                 "DeletionConfirmed": {
                     "description": "Used by controllers to confirm deletion of an object.",
                     "type": "string"
+                },
+                "DeletionProtection": {
+                    "description": "If true, the clusters and their node groups are created protected from\ndeletion: their runtime instances can't be deleted, and Pulumi refuses\nto destroy or replace them, as EKS also refuses to delete the cluster.\nIt is copied into the EKS, GKE or OKE definition, whose\nDeletionProtection is the one that counts afterwards: this definition\ncan't be changed once that one exists.",
+                    "type": "boolean"
                 },
                 "DeletionScheduled": {
                     "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
@@ -18875,7 +18954,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "NodeMaximum": {
-                    "description": "Sets the maximum number of nodes for the default node group.",
+                    "description": "Sets the maximum number of nodes for the default node group, across\nall its zones.  If unset, it is 60.",
                     "type": "integer"
                 },
                 "NodeProfile": {
@@ -19014,7 +19093,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "NetworkCidr": {
-                    "description": "The IPv4 network range of the cluster's network, such as 10.16.0.0/16:\nits VPC on EKS, its VCN on OKE, and its node, Pod and Service ranges on\nGKE.  No two runtimes may overlap, so that their networks can be\nconnected.  If unset when the runtime is provisioned, the control plane\nallocates the next free /16 from its NetworkCidrPool.  If set, it must be\na /16 or larger, overlap no other runtime's range and stay clear of the\nranges clusters use internally (10.96.0.0/16, 10.244.0.0/16 and\n172.20.0.0/16); it does not have to be in the pool.  Cannot be changed\nonce set.",
+                    "description": "The IPv4 network range of the cluster's network, such as 10.16.0.0/16:\nits VPC on EKS, its VCN on OKE, and its node, Pod and Service ranges on\nGKE.  No two runtimes may overlap, so that their networks can be\nconnected.  If unset when the runtime is provisioned, the control plane\nallocates the next free /16 from its NetworkCidrPool.  If set, it must be\na /16 or larger, overlap no other runtime's range and no child control\nplane's pool, and stay clear of the ranges clusters use internally\n(10.96.0.0/16, 10.244.0.0/16, 172.20.0.0/16 and 172.16.0.0/28); it does\nnot have to be in the pool.  A range larger than a /16 is reserved\nwhole, and the cluster's network is laid out in its first /16, as AWS\nand OCI networks are no larger.  Cannot be changed once set.",
                     "type": "string"
                 },
                 "Reconciled": {
@@ -20382,6 +20461,14 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "AuditLog": {
+                    "description": "Recorded for the kubernetes runtime definition's AuditLog.  It has no\neffect on OKE, which has no Kubernetes API server audit log.  It can't\nbe changed after creation.",
+                    "type": "boolean"
+                },
+                "DeletionProtection": {
+                    "description": "If true, the runtime instances derived from this definition can't be\ndeleted, and Pulumi refuses to destroy or replace their clusters and\nnode pools.  OKE has no deletion protection of its own, so a cluster can\nstill be deleted in the OCI console or with the OCI CLI.  Set it to false\nto let every instance of the definition be deleted.  If unset, it is\nfalse.",
+                    "type": "boolean"
+                },
                 "KubernetesRuntimeDefinitionID": {
                     "description": "The kubernetes runtime definition for an OKE cluster in OCI.",
                     "type": "integer"
@@ -20958,7 +21045,7 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "v0.7.0-rc.4",
+	Version:          "v0.7.0-rc.5",
 	Host:             "",
 	BasePath:         "/",
 	Schemes:          []string{},

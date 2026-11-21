@@ -55,7 +55,10 @@ The `InfraProviderAccountName` references the name of the AWS account we
 created above.
 
 The `HighAvailability` field determines the number of availability zones (AZs) the
-cluster will be installed across.  When `false` it will installed across two AZs.
+cluster will be installed across: three when `true`, and two when `false`.  On
+GKE, `false` makes a zonal cluster in one zone.  `NodeMaximum` limits the nodes
+in the whole cluster, 60 if it isn't set.  See [High Availability and Node
+Counts](kubernetes-intro.md#high-availability-and-node-counts).
 
 The `Location` field tells Threeport where to install the Kubernetes cluster.
 `NorthAmerica:NewYork` is a Threeport abstraction that allows users to reference
