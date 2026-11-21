@@ -21,7 +21,6 @@ import (
 
 const controlPlaneControllerDeploy = "threeport-" + installer.ThreeportControlPlaneControllerName
 
-var moduleUpgradeControlPlane string
 var moduleUpgradeName string
 var moduleUpgradeImageNamespace string
 var moduleUpgradeImageTag string
@@ -71,7 +70,7 @@ func runModuleImageUpgrade(cmd *cobra.Command, args []string) {
 		apiClient,
 		apiEndpoint,
 		encryptionKey,
-		moduleUpgradeControlPlane,
+		upgradeOldControlPlaneName,
 		moduleUpgradeName,
 		moduleUpgradeImageNamespace,
 		moduleUpgradeImageTag,
@@ -125,7 +124,7 @@ func runModuleBlueGreenUpgrade(cmd *cobra.Command, args []string) {
 	}
 
 	// resolve the control plane image from the one being replaced before anything is saved
-	running, err := runningControlPlane(apiClient, apiEndpoint, moduleUpgradeControlPlane)
+	running, err := runningControlPlane(apiClient, apiEndpoint, upgradeOldControlPlaneName)
 	if err != nil {
 		cli.Error("failed to upgrade module", err)
 		os.Exit(1)
@@ -138,7 +137,7 @@ func runModuleBlueGreenUpgrade(cmd *cobra.Command, args []string) {
 
 	// check the upgrade before the module image is saved, and stop there for a dry run
 	if err := cli.PreflightBlueGreen(apiClient, apiEndpoint, cli.BlueGreenPreflight{
-		SourceName:           moduleUpgradeControlPlane,
+		SourceName:           upgradeOldControlPlaneName,
 		NewName:              moduleNewControlPlaneName,
 		ImageNamespace:       imageNamespace,
 		ImageTag:             imageTag,
@@ -159,7 +158,7 @@ func runModuleBlueGreenUpgrade(cmd *cobra.Command, args []string) {
 				apiClient,
 				apiEndpoint,
 				encryptionKey,
-				moduleUpgradeControlPlane,
+				upgradeOldControlPlaneName,
 				moduleUpgradeName,
 				moduleUpgradeImageNamespace,
 				moduleUpgradeImageTag,
@@ -168,7 +167,7 @@ func runModuleBlueGreenUpgrade(cmd *cobra.Command, args []string) {
 		},
 		func() error {
 			childTag := ""
-			if moduleUpgradeControlPlane != "" {
+			if upgradeOldControlPlaneName != "" {
 				_, childTag, err = parentControlPlaneImage(apiClient, apiEndpoint, encryptionKey, true)
 				if err != nil {
 					return err
@@ -176,7 +175,7 @@ func runModuleBlueGreenUpgrade(cmd *cobra.Command, args []string) {
 			}
 
 			// a child reinstalls the module on its new control plane through its controller
-			moduleInstall, err := moduleBlueGreenInstall(apiClient, apiEndpoint, moduleUpgradeControlPlane)
+			moduleInstall, err := moduleBlueGreenInstall(apiClient, apiEndpoint, upgradeOldControlPlaneName)
 			if err != nil {
 				return err
 			}
@@ -186,7 +185,7 @@ func runModuleBlueGreenUpgrade(cmd *cobra.Command, args []string) {
 				apiClient,
 				apiEndpoint,
 				encryptionKey,
-				moduleUpgradeControlPlane,
+				upgradeOldControlPlaneName,
 				moduleNewControlPlaneName,
 				childTag,
 				imageNamespace,
@@ -410,9 +409,13 @@ func init() {
 		&moduleUpgradeImageTag,
 		"module-image-tag", "", "Image tag of the module",
 	)
+	UpgradeModuleCmd.PersistentFlags().StringVarP(
+		&cliArgs.ControlPlaneName,
+		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
 	UpgradeModuleCmd.PersistentFlags().StringVar(
-		&moduleUpgradeControlPlane,
-		"control-plane-name", "", "Name of a child control plane. Empty uses the connected control plane.",
+		&upgradeOldControlPlaneName,
+		upgradeOldControlPlaneFlag, "", upgradeOldControlPlaneHelp,
 	)
 	UpgradeModuleCmd.MarkPersistentFlagRequired("module-name")
 	UpgradeModuleCmd.MarkPersistentFlagRequired("module-image-tag")
