@@ -58,4 +58,16 @@ func TestModuleBlueGreenKeepsTheRunningControlPlaneImage(t *testing.T) {
 	imageNamespace, imageTag = moduleBlueGreenImage("", "", &api.ControlPlaneInstance{})
 	require.Equal(t, "", imageNamespace)
 	require.Equal(t, "", imageTag)
+
+	// assert recorded component images fill empty instance fields
+	recorded := &api.ControlPlaneInstance{
+		CustomComponentInfo: []*api.ControlPlaneComponent{{
+			Name:           "rest-api",
+			ImageNamespace: "registry.example/threeport",
+			ImageTag:       "recorded1",
+		}},
+	}
+	imageNamespace, imageTag = moduleBlueGreenImage("", "", recorded)
+	require.Equal(t, "registry.example/threeport", imageNamespace)
+	require.Equal(t, "recorded1", imageTag)
 }

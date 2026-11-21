@@ -2233,6 +2233,12 @@ func v0ControlPlaneInstanceDeleted(
 	if err := cpi.DeleteControlPlaneRoleBindings(deleteDynamicClient, deleteMapper); err != nil {
 		return 0, fmt.Errorf("failed to delete control plane role bindings: %w", err)
 	}
+	if err := threeport.DeleteModuleInstallObjects(
+		deleteDynamicClient,
+		*controlPlaneInstance.Namespace,
+	); err != nil {
+		return 0, fmt.Errorf("failed to delete module install jobs: %w", err)
+	}
 
 	var namespace = &unstructured.Unstructured{
 		Object: map[string]interface{}{

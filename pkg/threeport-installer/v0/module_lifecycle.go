@@ -2,10 +2,11 @@ package v0
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -47,6 +48,21 @@ const (
 
 	// moduleInstallAbandonedAnnotation marks a failed job the controller gave up on.
 	moduleInstallAbandonedAnnotation = "threeport.io/module-install-abandoned"
+
+	// moduleInstallLabel marks the job and the config secret so child deletion can
+	// remove them without knowing the module name.
+	moduleInstallLabel = "threeport.io/module-install"
+
+	// moduleInstallNamePrefix is the start of every install job name.
+	moduleInstallNamePrefix = "module-install-"
+
+	// moduleInstallSecretSuffix is appended to the job name for its config secret.
+	moduleInstallSecretSuffix = "-config"
+
+	// moduleInstallNameLimit is the Kubernetes limit for a Job or Secret name.
+	// The secret name is the job name plus moduleInstallSecretSuffix, so the job
+	// name stops short of the limit by that many characters.
+	moduleInstallNameLimit = 63
 )
 
 // ModuleInstallJobEnv names the environment variable the install job sets so the
@@ -57,27 +73,7 @@ const (
 	moduleInstallConfigKey  = "config.yaml"
 	moduleInstallConfigPath = "/root/.threeport/config.yaml"
 	moduleWorkloadPrefix    = "threeport-"
-
-	// podNamespacePath is where Kubernetes mounts a pod's own namespace.
-	podNamespacePath = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
 )
-
-// readParentNamespace returns the namespace this controller runs in, which is the
-// parent control plane's. The install job runs there under the controller's own
-// account, so it needs no cluster role of its own. It is a variable so a test can
-// replace the read of the pod namespace file.
-var readParentNamespace = func() (string, error) {
-	namespace, err := os.ReadFile(podNamespacePath)
-	if err != nil {
-		return "", fmt.Errorf("failed to read the controller namespace: %w", err)
-	}
-	trimmed := strings.TrimSpace(string(namespace))
-	if trimmed == "" {
-		return "", errors.New("controller namespace is empty")
-	}
-
-	return trimmed, nil
-}
 
 // moduleInstallConfigFile is the config the install job reads.
 // The field names match the CLI config, which has no yaml tags.
@@ -405,13 +401,9 @@ func EnsureModuleInstallJob(
 ) (bool, error) {
 	// read the job for this module
 	kebab := moduleKebab(util.DerefString(module.Name))
-	childNamespace := controlPlaneNamespace(inst, cpi)
-	namespace, err := readParentNamespace()
-	if err != nil {
-		return false, err
-	}
-	name := moduleInstallJobName(kebab, childNamespace)
-	secretName := moduleInstallSecretName(kebab, childNamespace)
+	namespace := controlPlaneNamespace(inst, cpi)
+	name := moduleInstallJobName(kebab, namespace)
+	secretName := moduleInstallSecretName(kebab, namespace)
 	wanted := modulePluginImage(
 		util.DerefString(module.ImageNamespace),
 		kebab,
@@ -426,6 +418,7 @@ func EnsureModuleInstallJob(
 
 	// act on the job that exists
 	attempts := int64(1)
+	replaceAbandoned := false
 	if err == nil {
 		image, _ := namedContainerImage(existing, "containers", "install")
 		switch {
@@ -434,21 +427,38 @@ func EnsureModuleInstallJob(
 		case !jobFinished(existing):
 			return false, nil
 		case jobSucceeded(existing) && image == wanted:
-			// remove the job and the credentials it mounted
-			if err := deleteModuleInstallJob(kubeClient, namespace, name); err != nil {
-				return false, err
-			}
+			// remove the credentials first, so a failed delete leaves the finished job
 			if err := deleteModuleInstallConfig(kubeClient, namespace, secretName); err != nil {
 				return false, err
 			}
+			if err := deleteModuleInstallJob(kubeClient, namespace, name); err != nil {
+				return false, err
+			}
 			return true, nil
+		case jobFailed(existing) && image == wanted && jobAbandoned(existing):
+			// a secret that is still there is the failed cleanup, so the job stays
+			_, secretErr := kubeClient.Resource(schema.GroupVersionResource{
+				Version: "v1", Resource: "secrets",
+			}).Namespace(namespace).Get(context.TODO(), secretName, metav1.GetOptions{})
+			if secretErr == nil {
+				if err := deleteModuleInstallConfig(kubeClient, namespace, secretName); err != nil {
+					return false, err
+				}
+				return false, fmt.Errorf("%w: job %s failed %d times", ErrModuleInstallFailed, name, jobAttempts(existing))
+			}
+			if !k8serrors.IsNotFound(secretErr) {
+				return false, fmt.Errorf("failed to get module install config %s: %w", secretName, secretErr)
+			}
+			replaceAbandoned = true
+			attempts = 1
 		}
 
-		// count another attempt for a job that failed on the same image, and give up at the limit
-		if jobFailed(existing) && image == wanted && !jobAbandoned(existing) {
+		// count another attempt for a job that failed on the same image, and give up at the limit.
+		// an abandoned job whose secret is already gone is a new request, counted above
+		if !replaceAbandoned && jobFailed(existing) && image == wanted {
 			previous := jobAttempts(existing)
 			if previous >= moduleInstallMaxAttempts {
-				// keep the job for its logs and remove the credentials it mounted
+				// mark the job before deleting the secret, so a failed delete does not start over
 				if err := abandonModuleInstallJob(kubeClient, namespace, existing); err != nil {
 					return false, err
 				}
@@ -473,7 +483,7 @@ func EnsureModuleInstallJob(
 		return false, err
 	}
 	_, err = kube.CreateResource(
-		moduleInstallJob(namespace, childNamespace, kebab, module, attempts), kubeClient, *mapper,
+		moduleInstallJob(namespace, kebab, module, attempts), kubeClient, *mapper,
 	)
 	if err != nil {
 		return false, fmt.Errorf("failed to create module install job %s: %w", name, err)
@@ -549,15 +559,34 @@ func moduleWorkloadNamespace(module *api.ModuleApi) string {
 	return moduleWorkloadPrefix + moduleKebab(util.DerefString(module.Name))
 }
 
-// moduleInstallJobName returns the install job name for one module on one child.
-// Jobs from every child share the parent namespace, so the name carries the child.
-func moduleInstallJobName(kebab, childNamespace string) string {
-	return "module-install-" + kebab + "-" + childNamespace
+// moduleInstallJobName returns the install job name for one module on one control plane.
+// The name keeps a short hash of both inputs and stays short enough that the
+// config secret, which appends moduleInstallSecretSuffix, still fits in 63 characters.
+func moduleInstallJobName(kebab, namespace string) string {
+	sum := sha256.Sum256([]byte(kebab + "\n" + namespace))
+	hash := hex.EncodeToString(sum[:4])
+	room := moduleInstallNameLimit - len(moduleInstallSecretSuffix) - len(moduleInstallNamePrefix) - 1 - len(hash)
+	readable := kebab
+	if len(readable) > room {
+		readable = strings.TrimRight(readable[:room], "-")
+	}
+	if readable == "" {
+		return moduleInstallNamePrefix + hash
+	}
+
+	return moduleInstallNamePrefix + readable + "-" + hash
 }
 
-// moduleInstallSecretName returns the config secret name for one module on one child.
-func moduleInstallSecretName(kebab, childNamespace string) string {
-	return moduleInstallJobName(kebab, childNamespace) + "-config"
+// moduleInstallSecretName returns the config secret name for one module on one control plane.
+func moduleInstallSecretName(kebab, namespace string) string {
+	return moduleInstallJobName(kebab, namespace) + moduleInstallSecretSuffix
+}
+
+// modulePluginCommand returns the path of the plugin binary in the image.
+// The image build uses '_' wherever the module name uses '-'.
+func modulePluginCommand(kebab string) string {
+	// match the binary name the image copies in
+	return "/" + strings.ReplaceAll(kebab, "-", "_")
 }
 
 // controlPlaneNamespace returns the namespace the control plane runs in.
@@ -681,6 +710,39 @@ func deleteModuleInstallConfig(kubeClient dynamic.Interface, namespace, name str
 	return nil
 }
 
+// DeleteModuleInstallObjects removes the install jobs and config secrets in one namespace.
+// Child deletion calls it before the namespace delete, so a running install stops.
+func DeleteModuleInstallObjects(kubeClient dynamic.Interface, namespace string) error {
+	// delete each labeled job, which removes its pods
+	selector := moduleInstallLabel + "=true"
+	jobs, err := kubeClient.Resource(schema.GroupVersionResource{
+		Group: "batch", Version: "v1", Resource: "jobs",
+	}).Namespace(namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: selector})
+	if err != nil {
+		return fmt.Errorf("failed to list module install jobs: %w", err)
+	}
+	for _, job := range jobs.Items {
+		if err := deleteModuleInstallJob(kubeClient, namespace, job.GetName()); err != nil {
+			return err
+		}
+	}
+
+	// delete each labeled config secret
+	secrets, err := kubeClient.Resource(schema.GroupVersionResource{
+		Version: "v1", Resource: "secrets",
+	}).Namespace(namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: selector})
+	if err != nil {
+		return fmt.Errorf("failed to list module install secrets: %w", err)
+	}
+	for _, secret := range secrets.Items {
+		if err := deleteModuleInstallConfig(kubeClient, namespace, secret.GetName()); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // deleteModuleInstallJob removes a failed install job and its pods.
 func deleteModuleInstallJob(kubeClient dynamic.Interface, namespace, name string) error {
 	// background deletion removes the pods with the job
@@ -718,6 +780,9 @@ func ensureModuleInstallConfig(
 		"metadata": map[string]interface{}{
 			"name":      secretName,
 			"namespace": jobNamespace,
+			"labels": map[string]interface{}{
+				moduleInstallLabel: "true",
+			},
 		},
 		"data": map[string]interface{}{
 			moduleInstallConfigKey: util.Base64Encode(string(configYAML)),
@@ -765,7 +830,7 @@ func moduleInstallConfig(
 
 // moduleInstallJob returns the job that runs one module install.
 func moduleInstallJob(
-	namespace, childNamespace, kebab string,
+	namespace, kebab string,
 	module *api.ModuleApi,
 	attempts int64,
 ) *unstructured.Unstructured {
@@ -774,8 +839,11 @@ func moduleInstallJob(
 		"apiVersion": "batch/v1",
 		"kind":       "Job",
 		"metadata": map[string]interface{}{
-			"name":      moduleInstallJobName(kebab, childNamespace),
+			"name":      moduleInstallJobName(kebab, namespace),
 			"namespace": namespace,
+			"labels": map[string]interface{}{
+				moduleInstallLabel: "true",
+			},
 			"annotations": map[string]interface{}{
 				moduleInstallAttemptsAnnotation: strconv.FormatInt(attempts, 10),
 			},
@@ -793,7 +861,7 @@ func moduleInstallJob(
 					"containers": []interface{}{
 						map[string]interface{}{
 							"name":    "install",
-							"command": []interface{}{"/" + kebab},
+							"command": []interface{}{modulePluginCommand(kebab)},
 							"image": modulePluginImage(
 								util.DerefString(module.ImageNamespace),
 								kebab,
@@ -824,7 +892,7 @@ func moduleInstallJob(
 						map[string]interface{}{
 							"name": "config",
 							"secret": map[string]interface{}{
-								"secretName": moduleInstallSecretName(kebab, childNamespace),
+								"secretName": moduleInstallSecretName(kebab, namespace),
 							},
 						},
 					},

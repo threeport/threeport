@@ -240,7 +240,41 @@ func moduleBlueGreenImage(
 	if imageTag == "" {
 		imageTag = util.DerefString(running.ImageTag)
 	}
+	if imageNamespace == "" {
+		imageNamespace = recordedComponentValue(running.CustomComponentInfo, true)
+	}
+	if imageTag == "" {
+		imageTag = recordedComponentValue(running.CustomComponentInfo, false)
+	}
 	return imageNamespace, imageTag
+}
+
+// recordedComponentValue returns the image namespace or tag recorded on every
+// component. An empty result means the components do not share one value.
+func recordedComponentValue(components []*api.ControlPlaneComponent, namespace bool) string {
+	// keep a value only when every recorded component agrees
+	value := ""
+	for _, component := range components {
+		if component == nil {
+			continue
+		}
+		next := component.ImageTag
+		if namespace {
+			next = component.ImageNamespace
+		}
+		if next == "" {
+			continue
+		}
+		if value == "" {
+			value = next
+			continue
+		}
+		if value != next {
+			return ""
+		}
+	}
+
+	return value
 }
 
 // parentControlPlaneImage returns the image namespace and tag for the new control plane.

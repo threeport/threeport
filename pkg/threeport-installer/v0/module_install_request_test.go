@@ -19,17 +19,17 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// installJobName is the job the tests expect for the example module on the
-// primary-test control plane.
-const installJobName = "module-install-example-primary-test"
+// installControlPlaneNamespace is the namespace the example control plane runs in.
+const installControlPlaneNamespace = "primary-test"
+
+// installJobName is the job the tests expect for the example module on that control plane.
+var installJobName = moduleInstallJobName("example", installControlPlaneNamespace)
 
 // installSecretName is the config secret that job mounts.
-const installSecretName = "module-install-example-primary-test-config"
+var installSecretName = moduleInstallSecretName("example", installControlPlaneNamespace)
 
 // TestInstallRequestedModuleCreatesTheJob checks the stored request becomes a job.
 func TestInstallRequestedModuleCreatesTheJob(t *testing.T) {
-	runInParentNamespace(t)
-
 	// seed the encryption key the install config reads
 	namespace := "primary-test"
 	mapper := WorkloadRESTMapper()
@@ -70,18 +70,17 @@ func TestInstallRequestedModuleCreatesTheJob(t *testing.T) {
 	require.False(t, finished)
 	job, err := kubeClient.Resource(schema.GroupVersionResource{
 		Group: "batch", Version: "v1", Resource: "jobs",
-	}).Namespace(testParentNamespace).Get(
+	}).Namespace(installControlPlaneNamespace).Get(
 		context.Background(), installJobName, metav1.GetOptions{},
 	)
 	require.NoError(t, err)
 	require.Equal(t, installJobName, job.GetName())
 
-	// assert the config secret sits beside the job in the parent namespace, not in the child's
-	require.True(t, resourceExists(t, kubeClient, secretsResource, testParentNamespace, installSecretName))
-	require.False(t, resourceExists(t, kubeClient, secretsResource, namespace, installSecretName))
+	// assert the config secret sits in the control plane namespace, beside the job
+	require.True(t, resourceExists(t, kubeClient, secretsResource, namespace, installSecretName))
 
 	// assert the job brings no account or binding of its own
-	require.False(t, resourceExists(t, kubeClient, serviceAccountsResource, testParentNamespace, "module-install"))
+	require.False(t, resourceExists(t, kubeClient, serviceAccountsResource, namespace, "module-install"))
 	require.False(t, resourceExists(t, kubeClient, serviceAccountsResource, namespace, "module-install"))
 	require.False(t, resourceExists(t, kubeClient, roleBindingsResource, "", "module-install-primary-test"))
 }
@@ -155,7 +154,6 @@ func TestInstallRequestedModuleSkipsAnEmptyRequest(t *testing.T) {
 // another image returns an error, so the controller keeps it stored until the
 // running job ends.
 func TestInstallRequestedModuleKeepsARequestForAnotherImagePending(t *testing.T) {
-	runInParentNamespace(t)
 
 	// seed the key the install config reads
 	namespace := "primary-test"
@@ -208,7 +206,6 @@ func TestInstallRequestedModuleKeepsARequestForAnotherImagePending(t *testing.T)
 // at each state of its install job: a succeeded job finishes the request and is
 // removed, a failed job is replaced by a new one and the request stays pending.
 func TestInstallRequestedModuleFollowsTheJobToItsOutcome(t *testing.T) {
-	runInParentNamespace(t)
 
 	// seed the key the install config reads
 	namespace := "primary-test"
@@ -225,7 +222,7 @@ func TestInstallRequestedModuleFollowsTheJobToItsOutcome(t *testing.T) {
 		},
 	}}
 	kubeClient := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme(), keySecret)
-	jobs := kubeClient.Resource(schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "jobs"}).Namespace(testParentNamespace)
+	jobs := kubeClient.Resource(schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "jobs"}).Namespace(installControlPlaneNamespace)
 	name := "primary-test"
 	endpoint := "https://api.example"
 	request := ModuleInstallRequest(&v0.ModuleApi{
@@ -272,12 +269,12 @@ func TestInstallRequestedModuleFollowsTheJobToItsOutcome(t *testing.T) {
 	require.False(t, conditioned, "the failed job was kept instead of replaced")
 
 	// assert a succeeded job finishes the request and is removed with its config secret
-	require.True(t, resourceExists(t, kubeClient, secretsResource, testParentNamespace, installSecretName))
+	require.True(t, resourceExists(t, kubeClient, secretsResource, installControlPlaneNamespace, installSecretName))
 	setStatus("succeeded")
 	require.True(t, install())
 	_, err = jobs.Get(context.Background(), installJobName, metav1.GetOptions{})
 	require.Error(t, err, "the succeeded job was kept")
-	require.False(t, resourceExists(t, kubeClient, secretsResource, testParentNamespace, installSecretName), "the config secret was kept")
+	require.False(t, resourceExists(t, kubeClient, secretsResource, installControlPlaneNamespace, installSecretName), "the config secret was kept")
 }
 
 // TestInstallRequestedModuleGivesUpAfterRepeatedFailures checks the limit on a
@@ -285,7 +282,6 @@ func TestInstallRequestedModuleFollowsTheJobToItsOutcome(t *testing.T) {
 // returns ErrModuleInstallFailed and marks the job abandoned, and a later
 // request creates a new job at the first attempt.
 func TestInstallRequestedModuleGivesUpAfterRepeatedFailures(t *testing.T) {
-	runInParentNamespace(t)
 
 	// seed the key the install config reads
 	namespace := "primary-test"
@@ -302,7 +298,7 @@ func TestInstallRequestedModuleGivesUpAfterRepeatedFailures(t *testing.T) {
 		},
 	}}
 	kubeClient := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme(), keySecret)
-	jobs := kubeClient.Resource(schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "jobs"}).Namespace(testParentNamespace)
+	jobs := kubeClient.Resource(schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "jobs"}).Namespace(installControlPlaneNamespace)
 	name := "primary-test"
 	endpoint := "https://api.example"
 	request := ModuleInstallRequest(&v0.ModuleApi{
@@ -355,7 +351,7 @@ func TestInstallRequestedModuleGivesUpAfterRepeatedFailures(t *testing.T) {
 	require.Equal(t, "true", job.GetAnnotations()[moduleInstallAbandonedAnnotation])
 
 	// assert the give-up removes the config secret, which holds the child's credentials
-	require.False(t, resourceExists(t, kubeClient, secretsResource, testParentNamespace, installSecretName), "the config secret was kept")
+	require.False(t, resourceExists(t, kubeClient, secretsResource, installControlPlaneNamespace, installSecretName), "the config secret was kept")
 
 	// assert a later request creates a new job at the first attempt
 	require.NoError(t, install())

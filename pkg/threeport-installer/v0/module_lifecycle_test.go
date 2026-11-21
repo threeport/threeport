@@ -1,6 +1,7 @@
 package v0
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -8,27 +9,13 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
-// testParentNamespace is the namespace the tests run the parent controller in.
-const testParentNamespace = "genesis-test"
-
-// runInParentNamespace makes the install code read testParentNamespace as the
-// namespace its controller runs in, and restores the reader when the test ends.
-func runInParentNamespace(t *testing.T) {
-	t.Helper()
-
-	// stand in for the pod namespace file
-	previous := readParentNamespace
-	readParentNamespace = func() (string, error) { return testParentNamespace, nil }
-	t.Cleanup(func() { readParentNamespace = previous })
-}
-
 // moduleInstallPod returns the pod spec and the install container of a job.
 func moduleInstallPod(t *testing.T, kebab, tag string) (map[string]interface{}, map[string]interface{}) {
 	t.Helper()
 
 	// build the job for a child in the primary-test namespace
 	imageNamespace := "registry.example"
-	job := moduleInstallJob(testParentNamespace, "primary-test", kebab, &v0.ModuleApi{
+	job := moduleInstallJob("primary-test", kebab, &v0.ModuleApi{
 		ImageNamespace: &imageNamespace,
 		ImageTag:       &tag,
 	}, 1)
@@ -59,6 +46,7 @@ func TestModuleInstallJobRunsAsTheParentControllerAccount(t *testing.T) {
 
 	// assert the container starts the module binary, which the plugin image has no entrypoint for
 	require.Equal(t, []interface{}{"/example"}, container["command"])
+	require.Equal(t, "/my_module", modulePluginCommand("my-module"))
 	require.Equal(t, []interface{}{
 		"install",
 		"--control-plane-image-namespace",
@@ -73,17 +61,17 @@ func TestModuleInstallJobRunsAsTheParentControllerAccount(t *testing.T) {
 	require.Equal(t, int64(0), securityContext["runAsUser"])
 }
 
-// TestModuleInstallJobNamesAreUniquePerChild covers two children installing the
-// same module through one parent: each gets its own job and config secret in the
-// parent namespace.
+// TestModuleInstallJobNamesAreUniquePerChild covers two control planes installing
+// the same module: each gets its own job name, and a long name still fits.
 func TestModuleInstallJobNamesAreUniquePerChild(t *testing.T) {
-	// assert the job name carries the child namespace
-	require.Equal(t, "module-install-example-primary-a", moduleInstallJobName("example", "primary-a"))
+	// assert two namespaces do not share a job name
 	require.NotEqual(t, moduleInstallJobName("example", "primary-a"), moduleInstallJobName("example", "primary-b"))
-
-	// assert the config secret name carries it too
-	require.Equal(t, "module-install-example-primary-a-config", moduleInstallSecretName("example", "primary-a"))
 	require.NotEqual(t, moduleInstallSecretName("example", "primary-a"), moduleInstallSecretName("example", "primary-b"))
+
+	// assert a long module name and the default namespace stay within the secret limit
+	name := moduleInstallJobName(strings.Repeat("a", 26), "threeport-control-plane")
+	require.LessOrEqual(t, len(moduleInstallSecretName(strings.Repeat("a", 26), "threeport-control-plane")), moduleInstallNameLimit)
+	require.LessOrEqual(t, len(name), moduleInstallNameLimit)
 }
 
 // TestModuleInstallJobHasADeadline checks the install job fails on its own when
@@ -92,7 +80,7 @@ func TestModuleInstallJobHasADeadline(t *testing.T) {
 	// build the job and read its deadline
 	namespace := "example"
 	tag := "abc"
-	job := moduleInstallJob(testParentNamespace, "primary-test", "example-module", &v0.ModuleApi{
+	job := moduleInstallJob("primary-test", "example-module", &v0.ModuleApi{
 		ImageNamespace: &namespace,
 		ImageTag:       &tag,
 	}, 1)
