@@ -76,10 +76,16 @@ const (
 const ModuleInstallJobEnv = "THREEPORT_MODULE_INSTALL_JOB"
 
 const (
-	moduleInstallConfigKey  = "config.yaml"
-	moduleInstallConfigPath = "/root/.threeport/config.yaml"
-	moduleWorkloadPrefix    = "threeport-"
+	moduleInstallConfigKey      = "config.yaml"
+	moduleInstallConfigPath     = "/root/.threeport/config.yaml"
+	moduleWorkloadPrefix        = "threeport-"
+	moduleInstallServiceAccount = "module-install"
 )
+
+// moduleInstallBindingName returns the cluster role binding name for one control plane.
+func moduleInstallBindingName(namespace string) string {
+	return moduleInstallServiceAccount + "-" + namespace
+}
 
 // moduleInstallConfigFile is the config the install job reads.
 // The field names match the CLI config, which has no yaml tags.
