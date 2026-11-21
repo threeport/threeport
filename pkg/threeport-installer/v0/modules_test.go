@@ -464,18 +464,22 @@ func TestStopModuleWritersUsesTheSavedCountsWhenTheAPIHasNoPods(t *testing.T) {
 	require.Equal(t, want, got)
 }
 
-// TestStopModuleWritersFindsWritersWithoutAControllerCertificate covers a
-// workstation that finds module writers without dialing the API.
+// TestStopModuleWritersFindsWritersWithoutAControllerCertificate covers a workstation that finds module writers without dialing the API.
+// A controller that belongs to another control plane stays running.
 func TestStopModuleWritersFindsWritersWithoutAControllerCertificate(t *testing.T) {
-	// seed a running API, a module controller, and the policy that names its API server
+	// seed this control plane, the module its policy names, and another control plane's controller
+	controlPlane := "primary-13"
+	otherControlPlane := "primary-14"
 	namespace := "example"
 	apiServerName := "example-api-server"
+	controllerName := "example-controller"
+	otherController := "threeport-rest-controller"
 	policy := &unstructured.Unstructured{Object: map[string]interface{}{
 		"apiVersion": "networking.k8s.io/v1",
 		"kind":       "NetworkPolicy",
 		"metadata": map[string]interface{}{
 			"name":      ModuleDatabasePolicyName(namespace, apiServerName),
-			"namespace": "primary-13",
+			"namespace": controlPlane,
 		},
 	}}
 	apiServer := testModuleDeployment(apiServerName, namespace, 1)
@@ -484,15 +488,16 @@ func TestStopModuleWritersFindsWritersWithoutAControllerCertificate(t *testing.T
 		"app.kubernetes.io/name": apiServerName,
 	}, "spec", "selector", "matchLabels")
 	kubeClient := testKubeClient(
-		testManagedDeployment(ThreeportAPIServiceResourceName, "primary-13"),
-		testControllerDeployment("example-controller", namespace, 1),
-		testControllerDeployment("threeport-rest-controller", "primary-13", 1),
+		testManagedDeployment(ThreeportAPIServiceResourceName, controlPlane),
+		testControllerDeployment(controllerName, namespace, 1),
+		testControllerDeployment(otherController, controlPlane, 1),
+		testControllerDeployment(otherController, otherControlPlane, 1),
 		apiServer,
 		policy,
 	)
 	var patched []string
 	recordDeploymentScaling(kubeClient, &patched)
-	cpi := &ControlPlaneInstaller{Opts: Options{Namespace: "primary-13"}}
+	cpi := &ControlPlaneInstaller{Opts: Options{Namespace: controlPlane}}
 
 	// discover the writers without a controller certificate
 	got, err := cpi.stopModuleWritersForRestore(kubeClient)
@@ -500,7 +505,7 @@ func TestStopModuleWritersFindsWritersWithoutAControllerCertificate(t *testing.T
 	require.ElementsMatch(t, []ModuleDeploymentScale{
 		{
 			Namespace: namespace,
-			Name:      "example-controller",
+			Name:      controllerName,
 			Replicas:  1,
 		},
 		{
@@ -509,7 +514,10 @@ func TestStopModuleWritersFindsWritersWithoutAControllerCertificate(t *testing.T
 			Replicas:  1,
 		},
 	}, got)
-	require.NotContains(t, strings.Join(patched, "\n"), "primary-13/threeport-rest-controller")
+	// leave each control plane's own controller running
+	patchedNames := strings.Join(patched, "\n")
+	require.NotContains(t, patchedNames, controlPlane+"/"+otherController)
+	require.NotContains(t, patchedNames, otherControlPlane+"/"+otherController)
 }
 
 // TestResumeModuleWritersRestoresTheSavedCount covers bringing a module writer back.
