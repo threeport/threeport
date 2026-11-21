@@ -100,6 +100,17 @@ func TestModuleDatabaseNamesSkipTheControlPlaneDatabase(t *testing.T) {
 	require.Equal(t, []string{"threeport_my_module_api"}, names)
 }
 
+// TestModuleDatabaseNamesUseTheRegisteredShortName covers an SDK registration.
+// The registered name carries the API namespace, and the database uses the short name.
+func TestModuleDatabaseNamesUseTheRegisteredShortName(t *testing.T) {
+	// a registered module API name derives the database the installer creates
+	names, err := moduleDatabaseNames([]api.ModuleApi{
+		{Name: util.Ptr("example.com/my-module-module-api")},
+	})
+	require.NoError(t, err)
+	require.Equal(t, []string{"threeport_my_module_api"}, names)
+}
+
 // TestRememberedModuleDatabasesSurviveAStoppedAPI covers a retry that cannot list databases.
 func TestRememberedModuleDatabasesSurviveAStoppedAPI(t *testing.T) {
 	// the first attempt stored the names before the API was scaled to zero

@@ -364,7 +364,12 @@ func moduleDatabaseNames(moduleApis []api.ModuleApi) ([]string, error) {
 		if moduleName == "" {
 			continue
 		}
-		name := moduleDatabaseName(moduleName)
+		// the registered name is namespace/short-module-api, and the database uses the short name
+		shortName := moduleKebab(moduleName)
+		if shortName == "" {
+			shortName = moduleName
+		}
+		name := moduleDatabaseName(shortName)
 		if name == DatabaseName || seen[name] {
 			continue
 		}
