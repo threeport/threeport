@@ -139,18 +139,6 @@ func TestSupportServicesOperatorModuleMatchesImage(t *testing.T) {
 	require.Equal(t, tag, version)
 }
 
-// TestComputeSpaceInstallNamespaces covers the namespaces a reinstall removes.
-func TestComputeSpaceInstallNamespaces(t *testing.T) {
-	// a child removes only its own namespace
-	names := computeSpaceInstallNamespaces("child-control-plane", "child-control-plane", true)
-	require.Equal(t, []string{"child-control-plane"}, names)
-	require.NotContains(t, names, supportServicesOperatorNamespace)
-
-	// the parent lists its namespace once
-	names = computeSpaceInstallNamespaces(ControlPlaneNamespace, ControlPlaneNamespace, true)
-	require.Equal(t, []string{ControlPlaneNamespace}, names)
-}
-
 // TestSupportServicesOperatorUsesControlPlaneNamespace covers one operator per control plane.
 func TestSupportServicesOperatorUsesControlPlaneNamespace(t *testing.T) {
 	for _, namespace := range []string{ControlPlaneNamespace, "child-control-plane"} {

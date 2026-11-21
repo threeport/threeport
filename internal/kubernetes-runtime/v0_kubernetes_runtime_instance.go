@@ -284,7 +284,7 @@ func v0KubernetesRuntimeInstanceUpdated(
 	}
 
 	// skip a step the cluster already has.
-	// replace a managed cluster that does not, and leave the host cluster in place.
+	// update a managed cluster that does not, and leave its namespace in place.
 
 	// install into the namespace this controller runs in.
 	// a child control plane uses its own namespace, not the parent's.
@@ -304,24 +304,6 @@ func v0KubernetesRuntimeInstanceUpdated(
 		return controller.RetryOnNetworkErr(err, "failed to check compute space control plane components")
 	}
 
-	// delete the agent and operator, then install them again
-	if !isControlPlaneHost && (!computeSpaceCurrent || !operatorInstalled) {
-		log.Info(
-			"replacing compute space agent and support services operator",
-			"kubernetesRuntimeInstance", *kubernetesRuntimeInstance.Name,
-		)
-		if err := threeport.DeleteComputeSpaceInstall(
-			dynamicKubeClient,
-			mapper,
-			namespace,
-			namespace,
-			!cpi.Opts.SkipAgent,
-		); err != nil {
-			return controller.RetryOnNetworkErr(err, "failed to delete compute space agent and support services operator")
-		}
-		computeSpaceCurrent = false
-		operatorInstalled = false
-	}
 	if computeSpaceCurrent {
 		log.V(1).Info("compute space control plane components already current, skipping install")
 	} else {
