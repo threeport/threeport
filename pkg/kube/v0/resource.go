@@ -100,6 +100,7 @@ func GetResource(
 // CreateResource takes an unstructured object, dynamic client interface and rest
 // mapper and creates the resource in the target Kubernetes cluster.  If the
 // object already exists, it returns the object.
+// A terminating object returns an error that is not an already-exists status.
 func CreateResource(
 	kubeObject *unstructured.Unstructured,
 	kubeClient dynamic.Interface,
@@ -125,6 +126,29 @@ func CreateResource(
 			return result, nil
 		}
 		if kubeerr.IsAlreadyExists(err) {
+			// read the existing object so a terminating one is not success
+			existing, getErr := kubeClient.
+				Resource(mapping.Resource).
+				Namespace(kubeObject.GetNamespace()).
+				Get(context.Background(), kubeObject.GetName(), kubemetav1.GetOptions{})
+			if kubeerr.IsNotFound(getErr) || isTransientKubeError(getErr) {
+				err = getErr
+				if attempt < createRetryAttempts-1 {
+					time.Sleep(delay)
+					delay *= 2
+				}
+				continue
+			}
+			if getErr != nil {
+				return nil, fmt.Errorf("failed to get existing kubernetes resource:%w", getErr)
+			}
+			if existing.GetDeletionTimestamp() != nil {
+				return nil, fmt.Errorf(
+					"failed to create kubernetes resource: %s/%s is terminating",
+					kubeObject.GetNamespace(),
+					kubeObject.GetName(),
+				)
+			}
 			return kubeObject, nil
 		}
 		if !isTransientKubeError(err) {

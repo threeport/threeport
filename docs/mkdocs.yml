@@ -60,6 +60,7 @@ nav:
     - Control Planes:
       - 'Introduction': 'control-planes/control-plane-intro.md'
       - 'Backup and Restore': 'control-planes/backup-restore.md'
+      - 'Storage': 'control-planes/storage.md'
   - SDK:
     - 'SDK Introduction': 'sdk/sdk-intro.md'
     - 'SDK Install': 'sdk/install.md'

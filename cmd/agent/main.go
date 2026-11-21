@@ -39,6 +39,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
+	"github.com/threeport/threeport/internal/agent/brokerstorage"
 	"github.com/threeport/threeport/internal/agent/controller"
 	"github.com/threeport/threeport/internal/agent/notify"
 	controlplanev1alpha1 "github.com/threeport/threeport/pkg/agent/api/v1alpha1"
@@ -67,9 +68,13 @@ func main() {
 	var threeportAPIServer string
 	var authEnabled bool
 	var controlPlaneName string
+	var messageBrokerService string
+	var messageBrokerNamespace string
 	flag.StringVar(&threeportAPIServer, "threeport-api-server", "threeport-api-server", "Threepoort REST API server endpoint")
 	flag.BoolVar(&authEnabled, "auth-enabled", true, "Enable client certificate authentication (default is true)")
 	flag.StringVar(&controlPlaneName, "control-plane-name", "", "Name of the control plane this agent serves.  Only ThreeportWorkloads labeled with this control plane's name, or with no control plane label, are cached.  If unset, all ThreeportWorkloads are handled.")
+	flag.StringVar(&messageBrokerService, "message-broker-service", "", "Headless service of the control plane's message broker, whose servers' storage is checked, and warned about with an event when nearly full.  If unset, it isn't checked.")
+	flag.StringVar(&messageBrokerNamespace, "message-broker-namespace", "", "Namespace of the message broker's service.")
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -206,6 +211,20 @@ func main() {
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder
+
+	// warn before the control plane's message broker runs out of storage
+	if messageBrokerService != "" {
+		if err := mgr.Add(&brokerstorage.Monitor{
+			Service:    messageBrokerService,
+			Namespace:  messageBrokerNamespace,
+			Recorder:   mgr.GetEventRecorder("threeport-agent"),
+			KubeClient: clientset,
+			Log:        ctrl.Log.WithName("message-broker-storage"),
+		}); err != nil {
+			setupLog.Error(err, "unable to add the message broker storage check to manager")
+			os.Exit(1)
+		}
+	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")

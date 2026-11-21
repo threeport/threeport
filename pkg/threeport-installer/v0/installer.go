@@ -237,6 +237,15 @@ type Options struct {
 	// network ranges from.  Empty is the default pool.
 	NetworkCidrPool []string
 
+	// MessageBrokerStorageSize and DatabaseStorageSize set the volume each
+	// message broker server and each database node stores its data on, as
+	// Kubernetes quantities such as 250Gi.  Empty uses the tier's default:
+	// 5Gi and 20Gi on the development tier, 250Gi and 1Ti on production.
+	// They size the volumes a new install creates: an install's existing
+	// volumes keep their size, and are grown by resizing their claims.
+	MessageBrokerStorageSize string
+	DatabaseStorageSize      string
+
 	// ApiReplicas and ControllerReplicas set how many replicas the API server
 	// and each controller run.  Zero uses the tier's default: one on the
 	// development tier and two on production.

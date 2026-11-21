@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -95,6 +96,23 @@ type UpgradeLifecycleProvider interface {
 
 	// OnUpgraded performs provider-specific work after a successful upgrade.
 	OnUpgraded(infra InfraProvider) error
+}
+
+// SettingsLifecycleProvider is an UpgradeLifecycleProvider whose clusters
+// also run settings of their definition, which every upgrade step applies
+// along with the version it upgrades to, and a step on the version the
+// cluster runs applies when only they differ.
+type SettingsLifecycleProvider interface {
+	UpgradeLifecycleProvider
+
+	// PendingSettings returns the names of the definition's settings the
+	// cluster doesn't run, as the instance records them, none when it runs
+	// them all.
+	PendingSettings() ([]string, error)
+
+	// OnSettingsApplied records on the instance the settings the cluster
+	// runs once an upgrade step has applied infra's program.
+	OnSettingsApplied(infra InfraProvider) error
 }
 
 // UpgradeableInfra is an InfraProvider whose cluster can be upgraded.
@@ -226,6 +244,32 @@ func handleUpgrade(p UpgradeLifecycleProvider, snap *ReconciliationSnapshot, log
 			return 0, nil
 		}
 
+		// a cluster on its version may still not run the definition's other
+		// settings, which a step on that version applies.  One refused waits
+		// for the definition to change, as a refused upgrade does, and a
+		// cluster Threeport didn't create has no stack to apply them with.
+		if settings, ok := p.(SettingsLifecycleProvider); ok && !upgrade.Refused && HasInventory(snap.ResourceInventory) {
+			pending, err := settings.PendingSettings()
+			if err != nil {
+				return 0, fmt.Errorf("failed to read the settings the cluster doesn't run: %w", err)
+			}
+			if len(pending) > 0 {
+				config := upgradeConfig{
+					Provider:      p,
+					Infra:         upgradeable,
+					ExistingState: snap.ResourceInventory,
+					From:          current,
+					To:            current,
+					Settings:      pending,
+					Log:           log,
+				}
+				if err := p.AckUpgrade("upgrading " + config.step()); err != nil {
+					return 0, fmt.Errorf("failed to acknowledge the upgrade: %w", err)
+				}
+				return launchInfraUpgrade(config)
+			}
+		}
+
 		if current != upgrade.RecordedVersion || status != upgrade.Status {
 			if err := p.RecordUpgradeStatus(current, status); err != nil {
 				return 0, fmt.Errorf("failed to record the cluster's Kubernetes version: %w", err)
@@ -283,11 +327,20 @@ type upgradeConfig struct {
 	From          string
 	To            string
 	Log           *logr.Logger
+
+	// The names of the definition's settings a step on the version the
+	// cluster runs applies, none for a step that upgrades it.
+	Settings []string
 }
 
-// step describes the upgrade step, as "from Kubernetes 1.35 to 1.36", or as
-// "to Kubernetes 1.36" for one run again on the version the cluster runs.
+// step describes the upgrade step, as "from Kubernetes 1.35 to 1.36", as
+// "to Kubernetes 1.36" for one run again on the version the cluster runs, or
+// as "to the definition's SecureBoot on Kubernetes 1.36" for one that applies
+// settings.
 func (c upgradeConfig) step() string {
+	if len(c.Settings) > 0 {
+		return fmt.Sprintf("to the definition's %s on Kubernetes %s", strings.Join(c.Settings, ", "), c.To)
+	}
 	if c.From == c.To {
 		return fmt.Sprintf("to Kubernetes %s", c.To)
 	}
@@ -422,13 +475,24 @@ func executeInfraUpgrade(config upgradeConfig) {
 		return
 	}
 
+	// the step applied the definition's settings along with the version
+	if settings, ok := config.Provider.(SettingsLifecycleProvider); ok {
+		if err := settings.OnSettingsApplied(config.Infra); err != nil {
+			failed(fmt.Errorf("failed to record the settings the upgrade applied: %w", err))
+			return
+		}
+	}
 	if err := config.Provider.OnUpgraded(config.Infra); err != nil {
 		failed(fmt.Errorf("failed to finish the upgrade: %w", err))
 		return
 	}
+	status := upgradedStatus(config.From, version)
+	if len(config.Settings) > 0 {
+		status = "upgraded " + config.step()
+	}
 	finishUpgrade(config, UpgradeOutcome{
 		Version: version,
-		Status:  upgradedStatus(config.From, version),
+		Status:  status,
 	})
 }
 
@@ -527,12 +591,27 @@ func (w *PulumiWorkspace) previewDestructiveSteps(ctx context.Context, stack aut
 // this previews the up, and runs it unless the preview replaces or deletes
 // anything.
 func (w *PulumiWorkspace) upgradeStack(stack auto.Stack) error {
+	return w.upgradeStackAllowing(stack, nil)
+}
+
+// refusedSteps returns the replacements and deletions of steps an upgrade
+// refuses: those not in allowed.
+func refusedSteps(steps, allowed []string) []string {
+	return slices.DeleteFunc(slices.Clone(steps), func(step string) bool {
+		return slices.Contains(allowed, step)
+	})
+}
+
+// upgradeStackAllowing upgrades a stack as upgradeStack does, apart from the
+// replacements and deletions in allowed, each as destructiveSteps describes
+// it, which the up makes.
+func (w *PulumiWorkspace) upgradeStackAllowing(stack auto.Stack, allowed []string) error {
 	ctx := context.Background()
 	steps, err := w.previewDestructiveSteps(ctx, stack)
 	if err != nil {
 		return err
 	}
-	if len(steps) > 0 {
+	if steps = refusedSteps(steps, allowed); len(steps) > 0 {
 		return &UpgradeRefusedError{Steps: steps}
 	}
 

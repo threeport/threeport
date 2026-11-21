@@ -481,11 +481,18 @@ func (w *PulumiWorkspace) DestroyStack() error {
 // resources Pulumi protects from deletion.  The state is written back only
 // when a resource was protected.
 func unprotectStack(ctx context.Context, stack auto.Stack) error {
+	return unprotectStackResources(ctx, stack, func(string) bool { return true })
+}
+
+// unprotectStackResources clears the protect flag of the resources in the
+// stack's state whose URN selected returns true for, as unprotectStack does
+// for every resource.
+func unprotectStackResources(ctx context.Context, stack auto.Stack, selected func(urn string) bool) error {
 	exported, err := stack.Export(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to export the stack: %w", err)
 	}
-	deployment, changed, err := unprotectDeployment(exported.Deployment)
+	deployment, changed, err := unprotectDeploymentResources(exported.Deployment, selected)
 	if err != nil {
 		return err
 	}
@@ -503,6 +510,13 @@ func unprotectStack(ctx context.Context, stack auto.Stack) error {
 // unprotectDeployment returns an exported deployment with no resource
 // protected, and whether any was.  Everything else in it is kept as it was.
 func unprotectDeployment(deployment json.RawMessage) (json.RawMessage, bool, error) {
+	return unprotectDeploymentResources(deployment, func(string) bool { return true })
+}
+
+// unprotectDeploymentResources returns an exported deployment with none of
+// the resources whose URN selected returns true for protected, and whether
+// any was.  Everything else in it is kept as it was.
+func unprotectDeploymentResources(deployment json.RawMessage, selected func(urn string) bool) (json.RawMessage, bool, error) {
 	if len(deployment) == 0 {
 		return deployment, false, nil
 	}
@@ -520,6 +534,13 @@ func unprotectDeployment(deployment json.RawMessage) (json.RawMessage, bool, err
 
 	changed := false
 	for _, resource := range resources {
+		var urn string
+		if raw, ok := resource["urn"]; ok {
+			_ = json.Unmarshal(raw, &urn)
+		}
+		if !selected(urn) {
+			continue
+		}
 		var protected bool
 		if raw, ok := resource["protect"]; ok && json.Unmarshal(raw, &protected) == nil && protected {
 			delete(resource, "protect")

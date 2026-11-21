@@ -111,6 +111,13 @@ control planes if they are used to create or are created by another control plan
 			cli.Error("flag validation failed:", err)
 			os.Exit(1)
 		}
+		if err := cli.ValidateStorageSizeFlags(
+			cliArgs.MessageBrokerStorageSize,
+			cliArgs.DatabaseStorageSize,
+		); err != nil {
+			cli.Error("flag validation failed:", err)
+			os.Exit(1)
+		}
 		if err := cli.ValidateKubernetesVersionFlag(
 			cliArgs.KubernetesVersion,
 			cliArgs.InfraProvider,
@@ -231,6 +238,14 @@ func init() {
 	UpCmd.Flags().StringVar(
 		&cliArgs.GcpBackupRegion,
 		"gcp-backup-region", "", "Google Cloud region of the bucket a production control plane on gke backs its database up to. Must differ from --gcp-region. Defaults to another region on the same continent.",
+	)
+	UpCmd.Flags().StringVar(
+		&cliArgs.MessageBrokerStorageSize,
+		"message-broker-storage-size", "", "Size of the volume each of the control plane's message broker servers stores its data on, such as 250Gi. Defaults to 5Gi on the development tier and 250Gi on production.",
+	)
+	UpCmd.Flags().StringVar(
+		&cliArgs.DatabaseStorageSize,
+		"database-storage-size", "", "Size of the volume each of the control plane's database nodes stores its data on, such as 1Ti. Defaults to 20Gi on the development tier and 1Ti on production.",
 	)
 	UpCmd.Flags().StringVar(
 		&cliArgs.KubernetesVersion,

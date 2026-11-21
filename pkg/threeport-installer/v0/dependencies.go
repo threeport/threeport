@@ -11,6 +11,7 @@ import (
 	"k8s.io/client-go/dynamic"
 
 	"github.com/threeport/threeport/pkg/api-server/v0/database"
+	v0 "github.com/threeport/threeport/pkg/api/v0"
 	auth "github.com/threeport/threeport/pkg/auth/v0"
 	"github.com/threeport/threeport/pkg/encryption/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
@@ -102,6 +103,12 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControlPlaneDependencies(
 ) error {
 	if err := cpi.CreateThreeportControlPlaneNamespace(kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed in create threeport control plane namespace: %w", err)
+	}
+
+	// the class the message broker's and database's volumes are created
+	// from, where the cluster's own doesn't allow growing them
+	if err := cpi.ensureControlPlaneStorageClass(kubeClient); err != nil {
+		return err
 	}
 
 	// the message broker's CA, certificate and client credentials, which the
@@ -636,7 +643,7 @@ store_dir: /data
 						"metadata": map[string]interface{}{
 							"name": "datadir",
 						},
-						"spec": cpi.getVolClaimTemplateSpec("5Gi"),
+						"spec": cpi.getVolClaimTemplateSpec(cpi.messageBrokerStorageSize()),
 					},
 				},
 			},
@@ -905,7 +912,7 @@ store_dir: /data
 								"app.kubernetes.io/instance": "crdb",
 							},
 						},
-						"spec": cpi.getVolClaimTemplateSpec("20Gi"),
+						"spec": cpi.getVolClaimTemplateSpec(cpi.databaseStorageSize()),
 					},
 				},
 			},
@@ -991,8 +998,8 @@ func (cpi *ControlPlaneInstaller) getVolClaimTemplateSpec(
 		},
 	}
 
-	if cpi.Opts.InfraProvider == "eks" {
-		volClaimTemplateSpec["storageClassName"] = "gp2"
+	if cpi.Opts.InfraProvider == v0.KubernetesRuntimeInfraProviderEKS {
+		volClaimTemplateSpec["storageClassName"] = ControlPlaneStorageClassName
 	}
 
 	return volClaimTemplateSpec
