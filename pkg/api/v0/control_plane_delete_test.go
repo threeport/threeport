@@ -16,7 +16,10 @@ func TestControlPlaneInstanceRefuseDelete(t *testing.T) {
 
 	// the host runtime does not block the delete
 	host := createValidKRI(t, db, "Local")
-	plane := &ControlPlaneInstance{KubernetesRuntimeInstanceID: host.ID}
+	plane := &ControlPlaneInstance{
+		IsSelf:                      util.Ptr(true),
+		KubernetesRuntimeInstanceID: host.ID,
+	}
 	err := plane.RefuseDelete(db)
 	require.NoError(t, err)
 
@@ -36,4 +39,46 @@ func TestControlPlaneInstanceRefuseDelete(t *testing.T) {
 	// a deleted runtime does not block the delete
 	require.NoError(t, db.Delete(owned).Error)
 	require.NoError(t, plane.RefuseDelete(db))
+}
+
+// TestControlPlaneInstanceRefuseDeleteFromParent allows a parent to delete a
+// child while the parent's own runtime is still stored.
+func TestControlPlaneInstanceRefuseDeleteFromParent(t *testing.T) {
+	db := setupKubernetesRuntimeValidateDB(t)
+
+	// the parent and the child run on different runtimes
+	parentHost := createValidKRI(t, db, "Local")
+	childHost := &KubernetesRuntimeInstance{
+		Instance:                      Instance{Name: util.Ptr("child-host")},
+		Location:                      util.Ptr("Local"),
+		KubernetesRuntimeDefinitionID: parentHost.KubernetesRuntimeDefinitionID,
+	}
+	require.NoError(t, db.Create(childHost).Error)
+	child := &ControlPlaneInstance{
+		IsSelf:                      util.Ptr(false),
+		KubernetesRuntimeInstanceID: childHost.ID,
+	}
+
+	// the parent's runtime does not block the child's delete
+	require.NoError(t, child.RefuseDelete(db))
+
+	// a workload runtime stored for the parent does not block the child either
+	workload := &KubernetesRuntimeInstance{
+		Instance:                      Instance{Name: util.Ptr("workload")},
+		Location:                      util.Ptr("Local"),
+		KubernetesRuntimeDefinitionID: parentHost.KubernetesRuntimeDefinitionID,
+	}
+	require.NoError(t, db.Create(workload).Error)
+	require.NoError(t, child.RefuseDelete(db))
+
+	// those runtimes do block deletion of the parent
+	err := (&ControlPlaneInstance{
+		IsSelf:                      util.Ptr(true),
+		KubernetesRuntimeInstanceID: parentHost.ID,
+	}).RefuseDelete(db)
+	var refused *DeleteRefusedError
+	require.ErrorAs(t, err, &refused)
+	assert.Contains(t, err.Error(), "workload")
+	assert.Contains(t, err.Error(), "child-host")
+	assert.NotContains(t, err.Error(), "test-kri")
 }

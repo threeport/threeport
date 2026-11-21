@@ -129,9 +129,14 @@ func refuseProtectedDelete(definition any, query func(dest any) *gorm.DB) error 
 	return nil
 }
 
-// RefuseDelete refuses to delete a control plane while a kubernetes runtime
-// instance other than the one it runs on is still stored.
+// RefuseDelete refuses to delete the control plane this database serves while another kubernetes runtime is stored.
+// It allows a child, because that child's runtimes are not in this database.
 func (c *ControlPlaneInstance) RefuseDelete(db *gorm.DB) error {
+	// allow a child, whose runtimes are not in this database
+	if c.IsSelf == nil || !*c.IsSelf {
+		return nil
+	}
+
 	// the runtime the control plane runs on is deleted with it
 	query := definitionSession(db).Model(&KubernetesRuntimeInstance{})
 	if c.KubernetesRuntimeInstanceID != nil {
