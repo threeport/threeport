@@ -17744,15 +17744,24 @@ const docTemplate = `{
                 },
                 "AdditionalEnvRef": {
                     "description": "The additional env reference to be added to the environment variables of the component.",
-                    "type": "object"
+                    "type": "array",
+                    "items": {
+                        "type": "object"
+                    }
                 },
                 "AdditionalVolumeMounts": {
                     "description": "The additional volume mounts to be added to the deployment spec of the component.",
-                    "type": "object"
+                    "type": "array",
+                    "items": {
+                        "type": "object"
+                    }
                 },
                 "AdditionalVolumes": {
                     "description": "The additional volumes to be added to the deployment spec of the component.",
-                    "type": "object"
+                    "type": "array",
+                    "items": {
+                        "type": "object"
+                    }
                 },
                 "BinaryName": {
                     "description": "The binary name of the component.",
@@ -21013,7 +21022,7 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "v0.7.0-rc.5",
+	Version:          "v0.7.0-rc.6",
 	Host:             "",
 	BasePath:         "/",
 	Schemes:          []string{},

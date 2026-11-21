@@ -326,15 +326,21 @@ definitions:
       AdditionalEnvRef:
         description: The additional env reference to be added to the environment variables
           of the component.
-        type: object
+        items:
+          type: object
+        type: array
       AdditionalVolumeMounts:
         description: The additional volume mounts to be added to the deployment spec
           of the component.
-        type: object
+        items:
+          type: object
+        type: array
       AdditionalVolumes:
         description: The additional volumes to be added to the deployment spec of
           the component.
-        type: object
+        items:
+          type: object
+        type: array
       BinaryName:
         description: The binary name of the component.
         type: string
@@ -3675,7 +3681,7 @@ info:
   description: Core API server for the Threeport application orchestration control
     plane.
   title: Threeport RESTful API
-  version: v0.7.0-rc.5
+  version: v0.7.0-rc.6
 paths:
   /attached-object-references/versions:
     get:

@@ -6,7 +6,7 @@
         "contact": {
             "url": "https://threeport.io"
         },
-        "version": "v0.7.0-rc.5"
+        "version": "v0.7.0-rc.6"
     },
     "basePath": "/",
     "paths": {
@@ -17737,15 +17737,24 @@
                 },
                 "AdditionalEnvRef": {
                     "description": "The additional env reference to be added to the environment variables of the component.",
-                    "type": "object"
+                    "type": "array",
+                    "items": {
+                        "type": "object"
+                    }
                 },
                 "AdditionalVolumeMounts": {
                     "description": "The additional volume mounts to be added to the deployment spec of the component.",
-                    "type": "object"
+                    "type": "array",
+                    "items": {
+                        "type": "object"
+                    }
                 },
                 "AdditionalVolumes": {
                     "description": "The additional volumes to be added to the deployment spec of the component.",
-                    "type": "object"
+                    "type": "array",
+                    "items": {
+                        "type": "object"
+                    }
                 },
                 "BinaryName": {
                     "description": "The binary name of the component.",

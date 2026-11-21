@@ -49,11 +49,11 @@ type ControlPlaneComponent struct {
 	ImagePullSecretName string `validate:"optional"`
 
 	// The additional volumes to be added to the deployment spec of the component.
-	AdditionalVolumes *datatypes.JSON `validate:"optional" swaggertype:"object"`
+	AdditionalVolumes *datatypes.JSON `validate:"optional" swaggertype:"array,object"`
 
 	// The additional volume mounts to be added to the deployment spec of the component.
-	AdditionalVolumeMounts *datatypes.JSON `validate:"optional" swaggertype:"object"`
+	AdditionalVolumeMounts *datatypes.JSON `validate:"optional" swaggertype:"array,object"`
 
 	// The additional env reference to be added to the environment variables of the component.
-	AdditionalEnvRef *datatypes.JSON `validate:"optional" swaggertype:"object"`
+	AdditionalEnvRef *datatypes.JSON `validate:"optional" swaggertype:"array,object"`
 }
