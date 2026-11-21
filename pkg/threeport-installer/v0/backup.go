@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,12 +49,43 @@ const (
 // DatabaseBackupURI returns the location in a GCS bucket the database is backed up to.
 // The default namespace keeps the collection written before each control plane had its own.
 func DatabaseBackupURI(bucket, namespace string) string {
+	return databaseBackupURI(bucket, namespace, DatabaseName)
+}
+
+// databaseBackupURI returns the collection one database is backed up to.
+// A collection holds backups of one database, so each database has its own.
+func databaseBackupURI(bucket, namespace, databaseName string) string {
 	// keep the original collection for the default namespace
-	location := DatabaseName
+	location := databaseName
 	if namespace != "" && namespace != ControlPlaneNamespace {
-		location = namespace + "/" + DatabaseName
+		location = namespace + "/" + databaseName
 	}
 	return fmt.Sprintf("gs://%s/%s?AUTH=implicit", bucket, location)
+}
+
+// moduleDatabaseNamePattern matches a database name that can be pasted into SQL.
+var moduleDatabaseNamePattern = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
+
+// databaseBackupStatements returns one backup of the control plane database
+// and one backup of each module database.
+func databaseBackupStatements(bucket, namespace string, moduleDatabases []string) ([]string, error) {
+	// back up the control plane database into its own collection
+	statements := []string{
+		fmt.Sprintf("BACKUP DATABASE %s INTO '%s';", DatabaseName, DatabaseBackupURI(bucket, namespace)),
+	}
+
+	// back up each module database into its own collection
+	for _, name := range moduleDatabases {
+		if !moduleDatabaseNamePattern.MatchString(name) || name == DatabaseName {
+			return nil, fmt.Errorf("module database name %q is not a sql identifier", name)
+		}
+		statements = append(statements, fmt.Sprintf(
+			"BACKUP DATABASE %s INTO '%s';",
+			name,
+			databaseBackupURI(bucket, namespace, name),
+		))
+	}
+	return statements, nil
 }
 
 // backupScheduleBucket returns the bucket the migrator should schedule.

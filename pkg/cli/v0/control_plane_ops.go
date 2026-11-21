@@ -800,6 +800,13 @@ func runBlueGreen(
 	)
 	if installErr != nil && !apiUp {
 		fmt.Printf("Info: new control plane is unhealthy, resuming writers in %s\n", namespace)
+		// drop the saved restore so the next backup is not skipped
+		if clearErr := created.ClearRestoreRecord(source.Kube); clearErr != nil {
+			return fmt.Errorf(
+				"failed to install restored control plane: %w (clear restore record: %v)",
+				installErr, clearErr,
+			)
+		}
 		resumeErr := resumeSourceWriters(source, namespace, replicas, modules)
 		if resumeErr != nil {
 			return fmt.Errorf("failed to install restored control plane: %w (resuming source writers: %v)", installErr, resumeErr)
