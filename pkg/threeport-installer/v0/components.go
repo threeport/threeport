@@ -891,7 +891,15 @@ GRANT ALL ON DATABASE threeport_api TO threeport;
 `,
 	}
 	if cpi.Opts.GcpBackupBucket != "" {
-		data[DbBackupScheduleFilename] = DatabaseBackupScheduleSQL(DatabaseBackupURI(cpi.Opts.GcpBackupBucket, cpi.Opts.Namespace))
+		schedule, err := DatabaseBackupScheduleSQL(
+			DatabaseBackupURI(cpi.Opts.GcpBackupBucket, cpi.Opts.Namespace),
+			nil,
+		)
+		// keep the init script when a schedule statement fails
+		if err != nil {
+			return data
+		}
+		data[DbBackupScheduleFilename] = schedule
 	}
 
 	return data

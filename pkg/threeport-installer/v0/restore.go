@@ -184,12 +184,20 @@ func withModuleDatabaseRestores(
 
 	// take one backup of every restored database into the schedule collection
 	if scheduleBucket != "" {
+		uri := DatabaseBackupURI(scheduleBucket, scheduleNamespace)
 		names := append([]string{DatabaseName}, moduleDatabases...)
 		phases.Backup = []string{fmt.Sprintf(
 			"BACKUP DATABASE %s INTO '%s'",
 			strings.Join(names, ", "),
-			DatabaseBackupURI(scheduleBucket, scheduleNamespace),
+			uri,
 		)}
+
+		// point the schedule at those databases
+		schedule, err := replaceBackupScheduleStatements(uri, moduleDatabases)
+		if err != nil {
+			return RestorePhases{}, err
+		}
+		phases.Backup = append(phases.Backup, schedule...)
 	}
 
 	return phases, nil

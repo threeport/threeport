@@ -112,9 +112,15 @@ func TestModuleRestoreKeepsTheControlPlaneStatementFirst(t *testing.T) {
 		"RESTORE DATABASE threeport_acme_api FROM LATEST IN 'gs://bucket/primary-02/threeport_api?AUTH=implicit'",
 	)
 	require.NotContains(t, joined, "threeport_acme_api?AUTH")
+
+	// the backup sets the schedule to the same databases
 	require.Equal(
 		t,
-		[]string{"BACKUP DATABASE threeport_api, threeport_acme_api INTO 'gs://bucket/primary-03/threeport_api?AUTH=implicit'"},
+		[]string{
+			"BACKUP DATABASE threeport_api, threeport_acme_api INTO 'gs://bucket/primary-03/threeport_api?AUTH=implicit'",
+			"DROP SCHEDULES WITH x AS (SHOW SCHEDULES) SELECT id FROM x WHERE label = 'threeport_api_backup';",
+			"CREATE SCHEDULE threeport_api_backup FOR BACKUP DATABASE threeport_api, threeport_acme_api INTO 'gs://bucket/primary-03/threeport_api?AUTH=implicit' RECURRING '@hourly' FULL BACKUP '@daily' WITH SCHEDULE OPTIONS ignore_existing_backups;",
+		},
 		phases.Backup,
 	)
 }
@@ -149,6 +155,9 @@ func TestModuleRestoreKeepsASpecificBackupOnTheCoreCollection(t *testing.T) {
 		"RESTORE DATABASE threeport_acme_api FROM '/2026/10/20-050726.51' IN 'gs://bucket/primary-02/threeport_api?AUTH=implicit'",
 	)
 	require.NotContains(t, joined, "threeport_acme_api?AUTH")
+
+	// a restore with no schedule takes no backup
+	require.Empty(t, phases.Backup)
 }
 
 // jobOutcome is how a fake restore Job ends.

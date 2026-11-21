@@ -67,23 +67,66 @@ func databaseBackupURI(bucket, namespace, databaseName string) string {
 // moduleDatabaseNamePattern matches a database name that can be pasted into SQL.
 var moduleDatabaseNamePattern = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 
-// databaseBackupStatements returns one backup of the control plane database and each module database.
-// They share the control plane collection, so one backup path selects all of them.
-func databaseBackupStatements(bucket, namespace string, moduleDatabases []string) ([]string, error) {
+// databaseBackupTargets returns the databases a backup statement names.
+func databaseBackupTargets(moduleDatabases []string) (string, error) {
 	// keep the control plane database first, then each module database
 	names := []string{DatabaseName}
 	for _, name := range moduleDatabases {
 		if !moduleDatabaseNamePattern.MatchString(name) || name == DatabaseName {
-			return nil, fmt.Errorf("module database name %q is not a sql identifier", name)
+			return "", fmt.Errorf("module database name %q is not a sql identifier", name)
 		}
 		names = append(names, name)
 	}
 
-	return []string{fmt.Sprintf(
-		"BACKUP DATABASE %s INTO '%s';",
-		strings.Join(names, ", "),
-		DatabaseBackupURI(bucket, namespace),
-	)}, nil
+	return strings.Join(names, ", "), nil
+}
+
+// databaseBackupStatements returns one backup of the control plane database and each module database.
+// A backup schedule includes each module database when the backup does.
+func databaseBackupStatements(bucket, namespace string, moduleDatabases []string) ([]string, error) {
+	// back up every database into the control plane collection
+	targets, err := databaseBackupTargets(moduleDatabases)
+	if err != nil {
+		return nil, err
+	}
+	uri := DatabaseBackupURI(bucket, namespace)
+	statements := []string{fmt.Sprintf("BACKUP DATABASE %s INTO '%s';", targets, uri)}
+	if len(moduleDatabases) == 0 {
+		return statements, nil
+	}
+
+	// point the schedule at the same databases
+	replacement, err := replaceBackupScheduleStatements(uri, moduleDatabases)
+	if err != nil {
+		return nil, err
+	}
+
+	return append(statements, replacement...), nil
+}
+
+// replaceBackupScheduleStatements returns the statements that set a backup schedule to these databases.
+// The schedule's first run follows the recurrence.
+func replaceBackupScheduleStatements(uri string, moduleDatabases []string) ([]string, error) {
+	targets, err := databaseBackupTargets(moduleDatabases)
+	if err != nil {
+		return nil, err
+	}
+
+	// drop the schedule, then create it for these databases
+	return []string{
+		fmt.Sprintf(
+			"DROP SCHEDULES WITH x AS (SHOW SCHEDULES) SELECT id FROM x WHERE label = '%s';",
+			DatabaseBackupScheduleLabel,
+		),
+		fmt.Sprintf(
+			"CREATE SCHEDULE %s FOR BACKUP DATABASE %s INTO '%s' RECURRING '%s' FULL BACKUP '%s' WITH SCHEDULE OPTIONS ignore_existing_backups;",
+			DatabaseBackupScheduleLabel,
+			targets,
+			uri,
+			DatabaseBackupRecurrence,
+			DatabaseFullBackupRecurrence,
+		),
+	}, nil
 }
 
 // backupScheduleBucket returns the bucket the migrator should schedule.
@@ -96,18 +139,22 @@ func (cpi *ControlPlaneInstaller) backupScheduleBucket(bucket string) string {
 	return bucket
 }
 
-// DatabaseBackupScheduleSQL returns the CREATE SCHEDULE statement for uri.
-// The schedule runs immediately, keeps an existing schedule, and ignores backups already stored at uri.
-func DatabaseBackupScheduleSQL(uri string) string {
+// DatabaseBackupScheduleSQL returns the statement that creates a backup schedule for uri.
+// The schedule includes each named database, runs immediately, and leaves an existing schedule in place.
+func DatabaseBackupScheduleSQL(uri string, moduleDatabases []string) (string, error) {
 	// ignore backups already at uri, or a restore that wrote one cannot create the schedule
+	targets, err := databaseBackupTargets(moduleDatabases)
+	if err != nil {
+		return "", err
+	}
 	return fmt.Sprintf(
 		"CREATE SCHEDULE IF NOT EXISTS %s FOR BACKUP DATABASE %s INTO '%s' RECURRING '%s' FULL BACKUP '%s' WITH SCHEDULE OPTIONS first_run = 'now', ignore_existing_backups;\n",
 		DatabaseBackupScheduleLabel,
-		DatabaseName,
+		targets,
 		uri,
 		DatabaseBackupRecurrence,
 		DatabaseFullBackupRecurrence,
-	)
+	), nil
 }
 
 // installDatabaseServiceAccount creates the Kubernetes service account the
