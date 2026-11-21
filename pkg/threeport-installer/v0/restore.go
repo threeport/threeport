@@ -218,7 +218,7 @@ func backupSource(backup string) (string, error) {
 	return fmt.Sprintf("'%s'", backup), nil
 }
 
-// stopModuleWritersForRestore stops module writers named by this control plane's database policies and returns those counts.
+// stopModuleWritersForRestore stops this control plane's module writers and returns those counts.
 // When the API deployment is already stopped, this returns the counts saved earlier.
 func (cpi *ControlPlaneInstaller) stopModuleWritersForRestore(
 	kubeClient dynamic.Interface,
@@ -238,7 +238,14 @@ func (cpi *ControlPlaneInstaller) stopModuleWritersForRestore(
 		return nil, err
 	}
 
-	// stop writers only in the namespaces those policies name
+	// include a module whose init command names this database and has no policy
+	hosted, err := cpi.moduleApiServersFromDatabaseHost(kubeClient)
+	if err != nil {
+		return nil, err
+	}
+	apiServers = appendModuleApiServers(apiServers, hosted)
+
+	// stop writers only in the namespaces those modules use
 	scales, err := cpi.scaleDownModuleWriters(kubeClient, nil, apiServers)
 	if scales == nil {
 		scales = []ModuleDeploymentScale{}

@@ -19,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 
+	"github.com/threeport/threeport/pkg/api-server/v0/database"
 	api "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -513,6 +514,80 @@ func (cpi *ControlPlaneInstaller) moduleApiServersFromPolicies(
 	}
 
 	return servers, nil
+}
+
+// moduleApiServersFromDatabaseHost returns module API servers whose command names this control plane's database.
+// A module installed before it had a database policy still carries that command.
+func (cpi *ControlPlaneInstaller) moduleApiServersFromDatabaseHost(
+	kubeClient dynamic.Interface,
+) ([]ModuleApiServer, error) {
+	// list every deployment
+	host := database.ThreeportDatabaseHost + "." + cpi.Opts.Namespace + clusterLocalSuffix
+	list, err := kubeClient.Resource(deploymentGVR).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list deployments while finding module writers: %w", err)
+	}
+
+	// skip this namespace and a deployment that does not name this database
+	seen := map[ModuleApiServer]bool{}
+	var servers []ModuleApiServer
+	for i := range list.Items {
+		deployment := &list.Items[i]
+		namespace := deployment.GetNamespace()
+		if namespace == "" ||
+			namespace == cpi.Opts.Namespace ||
+			!deploymentCommandContains(deployment, host) {
+			continue
+		}
+		server := ModuleApiServer{Namespace: namespace, Service: deployment.GetName()}
+		if seen[server] {
+			continue
+		}
+		seen[server] = true
+		servers = append(servers, server)
+	}
+
+	return servers, nil
+}
+
+// deploymentCommandContains reports whether a container command or argument contains text.
+func deploymentCommandContains(deployment *unstructured.Unstructured, text string) bool {
+	// check each container command and its arguments
+	for _, listKey := range []string{"containers", "initContainers"} {
+		containers, _, _ := unstructured.NestedSlice(deployment.Object, "spec", "template", "spec", listKey)
+		for _, raw := range containers {
+			container, ok := raw.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			for _, field := range []string{"command", "args"} {
+				values, _, _ := unstructured.NestedStringSlice(container, field)
+				for _, value := range values {
+					if strings.Contains(value, text) {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
+// appendModuleApiServers adds module API servers that are not already listed.
+func appendModuleApiServers(base, extra []ModuleApiServer) []ModuleApiServer {
+	// skip a repeated server
+	seen := map[ModuleApiServer]bool{}
+	for _, server := range base {
+		seen[server] = true
+	}
+	for _, server := range extra {
+		if server.Namespace == "" || seen[server] {
+			continue
+		}
+		seen[server] = true
+		base = append(base, server)
+	}
+	return base
 }
 
 // moduleNamespaceControllers returns controller deployments in each module API namespace.
