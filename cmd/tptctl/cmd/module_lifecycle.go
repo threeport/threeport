@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -129,7 +130,11 @@ func runModuleBlueGreenUpgrade(cmd *cobra.Command, args []string) {
 		cli.Error("failed to upgrade module", err)
 		os.Exit(1)
 	}
-	imageNamespace, imageTag := moduleBlueGreenImage(upgradeImageNamespace, upgradeImageTag, running)
+	imageNamespace, imageTag, err := moduleBlueGreenImage(upgradeImageNamespace, upgradeImageTag, running)
+	if err != nil {
+		cli.Error("failed to resolve control plane image", err)
+		os.Exit(1)
+	}
 
 	// check the upgrade before the module image is saved, and stop there for a dry run
 	if err := cli.PreflightBlueGreen(apiClient, apiEndpoint, cli.BlueGreenPreflight{
@@ -225,14 +230,15 @@ func runningControlPlane(
 // replaced control plane runs, so a module upgrade leaves the control plane
 // version alone unless the caller names one. A control plane that records no
 // image leaves the value empty for the install's own default.
+// Recorded component values that disagree return an error.
 func moduleBlueGreenImage(
 	flagNamespace string,
 	flagTag string,
 	running *api.ControlPlaneInstance,
-) (string, string) {
+) (string, string, error) {
 	imageNamespace, imageTag := flagNamespace, flagTag
 	if running == nil {
-		return imageNamespace, imageTag
+		return imageNamespace, imageTag, nil
 	}
 	if imageNamespace == "" {
 		imageNamespace = util.DerefString(running.ImageNamespace)
@@ -246,7 +252,35 @@ func moduleBlueGreenImage(
 	if imageTag == "" {
 		imageTag = recordedComponentValue(running.CustomComponentInfo, false)
 	}
-	return imageNamespace, imageTag
+
+	// reject recorded values that do not share one namespace or one tag
+	if imageNamespace == "" && componentFieldRecorded(running.CustomComponentInfo, true) {
+		return "", "", errors.New("recorded component image namespaces differ: pass --control-plane-image-namespace")
+	}
+	if imageTag == "" && componentFieldRecorded(running.CustomComponentInfo, false) {
+		return "", "", errors.New("recorded component image tags differ: pass --control-plane-image-tag")
+	}
+
+	return imageNamespace, imageTag, nil
+}
+
+// componentFieldRecorded reports whether any component records an image namespace or tag.
+func componentFieldRecorded(components []*api.ControlPlaneComponent, namespace bool) bool {
+	// report the first component that records this field
+	for _, component := range components {
+		if component == nil {
+			continue
+		}
+		value := component.ImageTag
+		if namespace {
+			value = component.ImageNamespace
+		}
+		if value != "" {
+			return true
+		}
+	}
+
+	return false
 }
 
 // recordedComponentValue returns the image namespace or tag recorded on every
