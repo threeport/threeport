@@ -6,10 +6,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -17,8 +19,17 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
+// installJobName is the job the tests expect for the example module on the
+// primary-test control plane.
+const installJobName = "module-install-example-primary-test"
+
+// installSecretName is the config secret that job mounts.
+const installSecretName = "module-install-example-primary-test-config"
+
 // TestInstallRequestedModuleCreatesTheJob checks the stored request becomes a job.
 func TestInstallRequestedModuleCreatesTheJob(t *testing.T) {
+	runInParentNamespace(t)
+
 	// seed the encryption key the install config reads
 	namespace := "primary-test"
 	mapper := WorkloadRESTMapper()
@@ -59,11 +70,55 @@ func TestInstallRequestedModuleCreatesTheJob(t *testing.T) {
 	require.False(t, finished)
 	job, err := kubeClient.Resource(schema.GroupVersionResource{
 		Group: "batch", Version: "v1", Resource: "jobs",
-	}).Namespace(namespace).Get(
-		context.Background(), "module-install-example", metav1.GetOptions{},
+	}).Namespace(testParentNamespace).Get(
+		context.Background(), installJobName, metav1.GetOptions{},
 	)
 	require.NoError(t, err)
-	require.Equal(t, "module-install-example", job.GetName())
+	require.Equal(t, installJobName, job.GetName())
+
+	// assert the config secret sits beside the job in the parent namespace, not in the child's
+	require.True(t, resourceExists(t, kubeClient, secretsResource, testParentNamespace, installSecretName))
+	require.False(t, resourceExists(t, kubeClient, secretsResource, namespace, installSecretName))
+
+	// assert the job brings no account or binding of its own
+	require.False(t, resourceExists(t, kubeClient, serviceAccountsResource, testParentNamespace, "module-install"))
+	require.False(t, resourceExists(t, kubeClient, serviceAccountsResource, namespace, "module-install"))
+	require.False(t, resourceExists(t, kubeClient, roleBindingsResource, "", "module-install-primary-test"))
+}
+
+// secretsResource, serviceAccountsResource, and roleBindingsResource name the
+// kinds the install tests look for.
+var (
+	secretsResource         = schema.GroupVersionResource{Version: "v1", Resource: "secrets"}
+	serviceAccountsResource = schema.GroupVersionResource{Version: "v1", Resource: "serviceaccounts"}
+	roleBindingsResource    = schema.GroupVersionResource{
+		Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "clusterrolebindings",
+	}
+)
+
+// resourceExists reports whether an object is present. An empty namespace reads
+// a cluster-scoped object.
+func resourceExists(
+	t *testing.T,
+	client dynamic.Interface,
+	resource schema.GroupVersionResource,
+	namespace, name string,
+) bool {
+	t.Helper()
+
+	// read the object and tell a missing one from a failed read
+	var err error
+	if namespace == "" {
+		_, err = client.Resource(resource).Get(context.Background(), name, metav1.GetOptions{})
+	} else {
+		_, err = client.Resource(resource).Namespace(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	}
+	if k8serrors.IsNotFound(err) {
+		return false
+	}
+	require.NoError(t, err)
+
+	return true
 }
 
 // TestModuleInstallAfterRunKeepsAReplacement checks a different request stays stored.
@@ -100,6 +155,8 @@ func TestInstallRequestedModuleSkipsAnEmptyRequest(t *testing.T) {
 // another image returns an error, so the controller keeps it stored until the
 // running job ends.
 func TestInstallRequestedModuleKeepsARequestForAnotherImagePending(t *testing.T) {
+	runInParentNamespace(t)
+
 	// seed the key the install config reads
 	namespace := "primary-test"
 	mapper := WorkloadRESTMapper()
@@ -151,6 +208,8 @@ func TestInstallRequestedModuleKeepsARequestForAnotherImagePending(t *testing.T)
 // at each state of its install job: a succeeded job finishes the request and is
 // removed, a failed job is replaced by a new one and the request stays pending.
 func TestInstallRequestedModuleFollowsTheJobToItsOutcome(t *testing.T) {
+	runInParentNamespace(t)
+
 	// seed the key the install config reads
 	namespace := "primary-test"
 	mapper := WorkloadRESTMapper()
@@ -166,7 +225,7 @@ func TestInstallRequestedModuleFollowsTheJobToItsOutcome(t *testing.T) {
 		},
 	}}
 	kubeClient := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme(), keySecret)
-	jobs := kubeClient.Resource(schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "jobs"}).Namespace(namespace)
+	jobs := kubeClient.Resource(schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "jobs"}).Namespace(testParentNamespace)
 	name := "primary-test"
 	endpoint := "https://api.example"
 	request := ModuleInstallRequest(&v0.ModuleApi{
@@ -190,7 +249,7 @@ func TestInstallRequestedModuleFollowsTheJobToItsOutcome(t *testing.T) {
 		return finished
 	}
 	setStatus := func(field string) {
-		job, err := jobs.Get(context.Background(), "module-install-example", metav1.GetOptions{})
+		job, err := jobs.Get(context.Background(), installJobName, metav1.GetOptions{})
 		require.NoError(t, err)
 		if field == "failed" {
 			require.NoError(t, unstructured.SetNestedSlice(job.Object, failedConditions(), "status", "conditions"))
@@ -207,16 +266,18 @@ func TestInstallRequestedModuleFollowsTheJobToItsOutcome(t *testing.T) {
 	// assert a failed job is replaced by a new one, with the request still pending
 	setStatus("failed")
 	require.False(t, install())
-	job, err := jobs.Get(context.Background(), "module-install-example", metav1.GetOptions{})
+	job, err := jobs.Get(context.Background(), installJobName, metav1.GetOptions{})
 	require.NoError(t, err)
 	_, conditioned, _ := unstructured.NestedSlice(job.Object, "status", "conditions")
 	require.False(t, conditioned, "the failed job was kept instead of replaced")
 
-	// assert a succeeded job finishes the request and is removed
+	// assert a succeeded job finishes the request and is removed with its config secret
+	require.True(t, resourceExists(t, kubeClient, secretsResource, testParentNamespace, installSecretName))
 	setStatus("succeeded")
 	require.True(t, install())
-	_, err = jobs.Get(context.Background(), "module-install-example", metav1.GetOptions{})
+	_, err = jobs.Get(context.Background(), installJobName, metav1.GetOptions{})
 	require.Error(t, err, "the succeeded job was kept")
+	require.False(t, resourceExists(t, kubeClient, secretsResource, testParentNamespace, installSecretName), "the config secret was kept")
 }
 
 // TestInstallRequestedModuleGivesUpAfterRepeatedFailures checks the limit on a
@@ -224,6 +285,8 @@ func TestInstallRequestedModuleFollowsTheJobToItsOutcome(t *testing.T) {
 // returns ErrModuleInstallFailed and marks the job abandoned, and a later
 // request creates a new job at the first attempt.
 func TestInstallRequestedModuleGivesUpAfterRepeatedFailures(t *testing.T) {
+	runInParentNamespace(t)
+
 	// seed the key the install config reads
 	namespace := "primary-test"
 	mapper := WorkloadRESTMapper()
@@ -239,7 +302,7 @@ func TestInstallRequestedModuleGivesUpAfterRepeatedFailures(t *testing.T) {
 		},
 	}}
 	kubeClient := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme(), keySecret)
-	jobs := kubeClient.Resource(schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "jobs"}).Namespace(namespace)
+	jobs := kubeClient.Resource(schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "jobs"}).Namespace(testParentNamespace)
 	name := "primary-test"
 	endpoint := "https://api.example"
 	request := ModuleInstallRequest(&v0.ModuleApi{
@@ -262,14 +325,14 @@ func TestInstallRequestedModuleGivesUpAfterRepeatedFailures(t *testing.T) {
 		return err
 	}
 	failJob := func() {
-		job, err := jobs.Get(context.Background(), "module-install-example", metav1.GetOptions{})
+		job, err := jobs.Get(context.Background(), installJobName, metav1.GetOptions{})
 		require.NoError(t, err)
 		require.NoError(t, unstructured.SetNestedSlice(job.Object, failedConditions(), "status", "conditions"))
 		_, err = jobs.Update(context.Background(), job, metav1.UpdateOptions{})
 		require.NoError(t, err)
 	}
 	attempt := func() string {
-		job, err := jobs.Get(context.Background(), "module-install-example", metav1.GetOptions{})
+		job, err := jobs.Get(context.Background(), installJobName, metav1.GetOptions{})
 		require.NoError(t, err)
 		return job.GetAnnotations()[moduleInstallAttemptsAnnotation]
 	}
@@ -287,9 +350,12 @@ func TestInstallRequestedModuleGivesUpAfterRepeatedFailures(t *testing.T) {
 	// assert the third failure gives up and keeps the job for its logs
 	failJob()
 	require.ErrorIs(t, install(), ErrModuleInstallFailed)
-	job, err := jobs.Get(context.Background(), "module-install-example", metav1.GetOptions{})
+	job, err := jobs.Get(context.Background(), installJobName, metav1.GetOptions{})
 	require.NoError(t, err)
 	require.Equal(t, "true", job.GetAnnotations()[moduleInstallAbandonedAnnotation])
+
+	// assert the give-up removes the config secret, which holds the child's credentials
+	require.False(t, resourceExists(t, kubeClient, secretsResource, testParentNamespace, installSecretName), "the config secret was kept")
 
 	// assert a later request creates a new job at the first attempt
 	require.NoError(t, install())
