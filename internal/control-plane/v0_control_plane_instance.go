@@ -1279,8 +1279,8 @@ func seedMissingChild(
 	return nil
 }
 
-// syncManagedChild copies the image, the controller list and the network
-// range pool onto the child's own row.
+// syncManagedChild copies the image, the controller list, the network range
+// pool, and the serving genesis onto the child.
 func syncManagedChild(r *controller.Reconciler, instance *v0.ControlPlaneInstance) error {
 	// read the stored row, because the notification omits the certificates
 	stored, err := client.GetControlPlaneInstanceByID(r.APIClient, r.APIServer, *instance.ID)
@@ -1307,6 +1307,17 @@ func syncManagedChild(r *controller.Reconciler, instance *v0.ControlPlaneInstanc
 	}
 	if err != nil {
 		return fmt.Errorf("failed to get control plane instance by name: %w", err)
+	}
+
+	// write the serving genesis onto the child's copy
+	genesis, err := client.GetGenesisControlPlaneInstance(r.APIClient, r.APIServer)
+	if err != nil && !errors.Is(err, client.ErrNoGenesisControlPlane) {
+		return fmt.Errorf("failed to get genesis control plane: %w", err)
+	}
+	if err == nil {
+		if err := client.RefreshRestoredGenesis(childClient, endpoint, genesis); err != nil {
+			return err
+		}
 	}
 
 	// send an empty controller list when Apis was cleared, because a nil field is omitted
