@@ -373,6 +373,32 @@ func TestComputeSpaceControlPlaneComponentsCurrent(t *testing.T) {
 	})
 }
 
+// TestRuntimeOperatorsStale covers the check that decides whether to replace the runtime namespace.
+func TestRuntimeOperatorsStale(t *testing.T) {
+	t.Run("stale when the operator image is behind", func(t *testing.T) {
+		cpi := NewInstaller()
+		cpi.Opts.Namespace = RuntimeNamespace
+		cpi.Opts.SkipAgent = true
+		client := testClient(
+			deployment(RuntimeNamespace, SupportServicesOperatorDeployName, "ghcr.io/nukleros/support-services-operator:v0.4.0"),
+		)
+
+		stale, err := cpi.RuntimeOperatorsStale(client, testMapper())
+		require.NoError(t, err)
+		assert.True(t, stale)
+	})
+
+	t.Run("not stale when the operator is missing", func(t *testing.T) {
+		cpi := NewInstaller()
+		cpi.Opts.Namespace = RuntimeNamespace
+		cpi.Opts.SkipAgent = true
+
+		stale, err := cpi.RuntimeOperatorsStale(testClient(), testMapper())
+		require.NoError(t, err)
+		assert.False(t, stale)
+	})
+}
+
 // TestSupportServicesOperatorInstalled covers the operator check.
 func TestSupportServicesOperatorInstalled(t *testing.T) {
 	t.Run("installed when the deployment runs the image this install applies", func(t *testing.T) {

@@ -80,6 +80,10 @@ const (
 	// installed
 	ControlPlaneNamespace = "threeport-control-plane"
 
+	// The namespace for one runtime's agent and support services operator.
+	// A control plane that shares the cluster stays in its own namespace.
+	RuntimeNamespace = "threeport-runtime"
+
 	ControlPlaneName = "threeport"
 
 	// The maximum length of a threeport instance name is currently limited by

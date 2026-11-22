@@ -139,13 +139,13 @@ func TestSupportServicesOperatorModuleMatchesImage(t *testing.T) {
 	require.Equal(t, tag, version)
 }
 
-// TestSupportServicesOperatorUsesControlPlaneNamespace covers one operator per control plane.
-func TestSupportServicesOperatorUsesControlPlaneNamespace(t *testing.T) {
-	for _, namespace := range []string{ControlPlaneNamespace, "child-control-plane"} {
+// TestSupportServicesOperatorUsesRuntimeNamespace covers one operator in the runtime namespace.
+func TestSupportServicesOperatorUsesRuntimeNamespace(t *testing.T) {
+	for _, namespace := range []string{RuntimeNamespace} {
 		objects, err := supportServicesOperatorObjects(namespace)
 		require.NoError(t, err)
 
-		// one deployment, and it lives in this control plane's namespace
+		// one deployment, and it lives in the runtime namespace
 		deployments := 0
 		for _, item := range objects {
 			if item.GetNamespace() == supportServicesOperatorNamespace {

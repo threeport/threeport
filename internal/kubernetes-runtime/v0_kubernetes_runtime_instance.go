@@ -10,6 +10,11 @@ import (
 	"strings"
 	"time"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/client-go/dynamic"
+
 	"github.com/go-logr/logr"
 
 	"github.com/threeport/threeport/internal/agent"
@@ -236,6 +241,10 @@ func v0KubernetesRuntimeInstanceUpdated(
 	// control plane and uses the API's in-cluster service; this install leaves
 	// it as it is.
 	isControlPlaneHost := runtimeHostsControlPlane(kubernetesRuntimeInstance)
+	// leave the host cluster's agent with the control plane
+	if isControlPlaneHost {
+		cpi.Opts.SkipAgent = true
+	}
 	var agentAccess *computeSpaceAgentAccess
 	if !isControlPlaneHost {
 		agentAccess, err = loadComputeSpaceAgentAccess(
@@ -283,16 +292,22 @@ func v0KubernetesRuntimeInstanceUpdated(
 		return 0, err
 	}
 
-	// skip a step the cluster already has.
-	// update a managed cluster that does not, and leave its namespace in place.
-
-	// install into the namespace this controller runs in.
-	// a child control plane uses its own namespace, not the parent's.
-	namespace, err := controlPlaneNamespace()
-	if err != nil {
-		return controller.RetryOnNetworkErr(err, "failed to read control plane namespace")
-	}
+	// install the agent and the operator in the runtime namespace
+	namespace := threeport.RuntimeNamespace
 	cpi.Opts.Namespace = namespace
+
+	// delete that namespace on a workload cluster when an image is behind.
+	// The cluster the control plane runs on updates these in place.
+	stale, err := cpi.RuntimeOperatorsStale(dynamicKubeClient, mapper)
+	if err != nil {
+		return controller.RetryOnNetworkErr(err, "failed to compare the agent and support services operator images")
+	}
+	if !isControlPlaneHost && stale {
+		if err := deleteRuntimeNamespace(dynamicKubeClient, mapper); err != nil {
+			return controller.RetryOnNetworkErr(err, "failed to delete the runtime namespace")
+		}
+	}
+
 	operatorInstalled, err := threeport.SupportServicesOperatorInstalled(dynamicKubeClient, mapper, namespace)
 	if err != nil {
 		return controller.RetryOnNetworkErr(err, "failed to check support services operator")
@@ -365,6 +380,10 @@ func v0KubernetesRuntimeInstanceUpdated(
 		if err != nil {
 			return 0, fmt.Errorf("failed to map threeport location to AWS region: %w", err)
 		}
+		systemNamespace, err := controlPlaneNamespace()
+		if err != nil {
+			return controller.RetryOnNetworkErr(err, "failed to read control plane namespace")
+		}
 		systemServicesCurrent, err := threeport.EksThreeportSystemServicesCurrent(dynamicKubeClient, mapper, kubernetesVersion)
 		if err != nil {
 			return controller.RetryOnNetworkErr(err, "failed to check EKS system services")
@@ -379,7 +398,7 @@ func v0KubernetesRuntimeInstanceUpdated(
 				*awsProvider.AccountID,
 				region,
 				kubernetesVersion,
-				namespace,
+				systemNamespace,
 			); err != nil {
 				return controller.RetryOnNetworkErr(err, "failed to install system services")
 			}
@@ -665,6 +684,47 @@ func holdProtectedDelete(
 	}
 
 	return protectedDeleteRequeueSeconds
+}
+
+// deleteRuntimeNamespace deletes the namespace the agent and the operator share.
+// It waits until the API reports that namespace missing, so the reinstall writes into a new one.
+func deleteRuntimeNamespace(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+) error {
+	namespace := &unstructured.Unstructured{}
+	namespace.SetAPIVersion("v1")
+	namespace.SetKind("Namespace")
+	namespace.SetName(threeport.RuntimeNamespace)
+
+	// delete the namespace, counting a missing one as already gone
+	if err := kube.DeleteResource(namespace, kubeClient, *mapper); err != nil {
+		return err
+	}
+
+	// poll until the API reports the namespace missing
+	deadline := time.Now().Add(30 * time.Second)
+	for {
+		_, err := kube.GetResource(
+			"",
+			"v1",
+			"Namespace",
+			"",
+			threeport.RuntimeNamespace,
+			kubeClient,
+			*mapper,
+		)
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("failed to check whether %s is gone: %w", threeport.RuntimeNamespace, err)
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("namespace %s is still deleting", threeport.RuntimeNamespace)
+		}
+		time.Sleep(time.Second)
+	}
 }
 
 // runtimeHostsControlPlane reports whether a runtime instance is the cluster the

@@ -283,6 +283,73 @@ func SupportServicesOperatorInstalled(
 	return contains(running, SupportServicesOperatorImage), nil
 }
 
+// RuntimeOperatorsStale reports whether a present agent or operator runs an image this install would replace.
+// A missing deployment is not stale.
+func (cpi *ControlPlaneInstaller) RuntimeOperatorsStale(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+) (bool, error) {
+	// the agent is compared only when this install would put one there
+	if !cpi.Opts.SkipAgent {
+		wantImage := cpi.getImage(
+			cpi.Opts.AgentInfo.Name,
+			cpi.Opts.AgentInfo.ImageName,
+			cpi.Opts.AgentInfo.ImageNamespace,
+			cpi.Opts.AgentInfo.ImageTag,
+		)
+		stale, err := deploymentImageStale(
+			kubeClient,
+			mapper,
+			cpi.Opts.Namespace,
+			ThreeportAgentDeployName,
+			wantImage,
+		)
+		if err != nil || stale {
+			return stale, err
+		}
+	}
+
+	return deploymentImageStale(
+		kubeClient,
+		mapper,
+		cpi.Opts.Namespace,
+		SupportServicesOperatorDeployName,
+		SupportServicesOperatorImage,
+	)
+}
+
+// deploymentImageStale reports whether a present deployment runs an image other than wantImage.
+func deploymentImageStale(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	namespace string,
+	name string,
+	wantImage string,
+) (bool, error) {
+	// read the deployment. A missing one is not stale.
+	deployment, present, err := resourceInstalled(
+		kubeClient,
+		mapper,
+		"apps",
+		"v1",
+		"Deployment",
+		namespace,
+		name,
+	)
+	if err != nil {
+		return false, fmt.Errorf("failed to check for %s: %w", name, err)
+	}
+	if !present {
+		return false, nil
+	}
+
+	running, err := containerImages(deployment)
+	if err != nil {
+		return false, fmt.Errorf("failed to read the %s image: %w", name, err)
+	}
+	return !contains(running, wantImage), nil
+}
+
 // EksThreeportSystemServicesCurrent reports whether the EKS system services
 // InstallEksThreeportSystemServices would install are already on the cluster,
 // with the cluster autoscaler's release for kubernetesVersion, the cluster's
