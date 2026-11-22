@@ -182,7 +182,7 @@ func moduleInstallTargetNamespace(module *api.ModuleApi, moduleNamespace string)
 }
 
 // RejectExistingModuleNamespace returns an error when another control plane owns the namespace.
-// A namespace this control plane labeled, or an unlabeled one that holds the named API deployment, is left for the install to update.
+// A namespace this control plane labeled, or an unlabeled one whose API deployment names this database, is left for the install to update.
 func RejectExistingModuleNamespace(
 	kubeClient dynamic.Interface,
 	namespace, owner, apiDeployment string,
@@ -201,9 +201,9 @@ func RejectExistingModuleNamespace(
 		return nil
 	}
 
-	// adopt an unlabeled namespace that already holds this module's API
+	// adopt an unlabeled namespace whose API deployment names this database
 	if existing.GetLabels()[ModuleNamespaceOwnerLabel] == "" {
-		holds, holdsErr := namespaceHoldsAPIDeployment(kubeClient, namespace, apiDeployment)
+		holds, holdsErr := namespaceHoldsAPIDeployment(kubeClient, namespace, apiDeployment, owner)
 		if holdsErr != nil {
 			return holdsErr
 		}
@@ -216,15 +216,17 @@ func RejectExistingModuleNamespace(
 	return fmt.Errorf("%w: %s", ErrModuleNamespaceExists, namespace)
 }
 
-// namespaceHoldsAPIDeployment reports whether the namespace holds the named deployment.
-func namespaceHoldsAPIDeployment(kubeClient dynamic.Interface, namespace, name string) (bool, error) {
-	// an empty name is not this module's API deployment
-	if name == "" {
+// namespaceHoldsAPIDeployment reports whether the named deployment records this control plane's database.
+func namespaceHoldsAPIDeployment(
+	kubeClient dynamic.Interface, namespace, name, owner string,
+) (bool, error) {
+	// an empty name or owner has nothing to match
+	if name == "" || owner == "" {
 		return false, nil
 	}
 
 	// read the API deployment
-	_, err := kubeClient.Resource(deploymentGVR).Namespace(namespace).Get(
+	deployment, err := kubeClient.Resource(deploymentGVR).Namespace(namespace).Get(
 		context.Background(),
 		name,
 		metav1.GetOptions{},
@@ -235,7 +237,9 @@ func namespaceHoldsAPIDeployment(kubeClient dynamic.Interface, namespace, name s
 	if err != nil {
 		return false, fmt.Errorf("failed to get deployment %s/%s: %w", namespace, name, err)
 	}
-	return true, nil
+
+	// match the database service this control plane's modules record
+	return deploymentCommandContains(deployment, controlPlaneDatabaseHost(owner)), nil
 }
 
 // InstallRequestedModule drives the install job for the stored request with the

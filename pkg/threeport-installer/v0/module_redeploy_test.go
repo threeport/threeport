@@ -193,7 +193,9 @@ func TestRejectExistingModuleNamespaceReportsAnotherOwner(t *testing.T) {
 	other := testModuleNamespace("threeport-example", "uid")
 	other.SetLabels(map[string]string{ModuleNamespaceOwnerLabel: "genesis-test"})
 	err = RejectExistingModuleNamespace(
-		testKubeClient(other, testNamedDeployment("threeport-example", apiDeployment)),
+		testKubeClient(other, testNamedDeployment(
+			"threeport-example", apiDeployment, controlPlaneDatabaseHost("primary-test"),
+		)),
 		"threeport-example",
 		"primary-test",
 		apiDeployment,
@@ -211,23 +213,38 @@ func TestRejectExistingModuleNamespaceReportsAnotherOwner(t *testing.T) {
 // TestRejectExistingModuleNamespaceAdoptsAnUnlabeledModule covers a namespace
 // created before installs wrote an owner label.
 func TestRejectExistingModuleNamespaceAdoptsAnUnlabeledModule(t *testing.T) {
-	// an unlabeled namespace that holds this module's API is left for the install
+	// an unlabeled namespace whose API deployment names this database is left for the install
 	apiDeployment := moduleAPIDeploymentName("example")
+	host := controlPlaneDatabaseHost("primary-test")
 	require.NoError(t, RejectExistingModuleNamespace(
 		testKubeClient(
 			testModuleNamespace("threeport-example", "uid"),
-			testNamedDeployment("threeport-example", apiDeployment),
+			testNamedDeployment("threeport-example", apiDeployment, host),
 		),
 		"threeport-example",
 		"primary-test",
 		apiDeployment,
 	))
 
-	// a deployment that only names this database stays taken
+	// the same API deployment for another control plane stays taken
 	err := RejectExistingModuleNamespace(
 		testKubeClient(
 			testModuleNamespace("threeport-example", "uid"),
-			testNamedDeployment("threeport-example", "other-module-api-server"),
+			testNamedDeployment(
+				"threeport-example", apiDeployment, controlPlaneDatabaseHost("other-plane"),
+			),
+		),
+		"threeport-example",
+		"primary-test",
+		apiDeployment,
+	)
+	require.ErrorIs(t, err, ErrModuleNamespaceExists)
+
+	// a deployment that only names this database stays taken
+	err = RejectExistingModuleNamespace(
+		testKubeClient(
+			testModuleNamespace("threeport-example", "uid"),
+			testNamedDeployment("threeport-example", "other-module-api-server", host),
 		),
 		"threeport-example",
 		"primary-test",
@@ -236,8 +253,8 @@ func TestRejectExistingModuleNamespaceAdoptsAnUnlabeledModule(t *testing.T) {
 	require.ErrorIs(t, err, ErrModuleNamespaceExists)
 }
 
-// testNamedDeployment returns a deployment whose command names this database.
-func testNamedDeployment(namespace, name string) *unstructured.Unstructured {
+// testNamedDeployment returns a deployment whose command names host.
+func testNamedDeployment(namespace, name, host string) *unstructured.Unstructured {
 	// name this database in the container command
 	return &unstructured.Unstructured{Object: map[string]interface{}{
 		"apiVersion": "apps/v1",
@@ -253,7 +270,7 @@ func testNamedDeployment(namespace, name string) *unstructured.Unstructured {
 						map[string]interface{}{
 							"name": "api",
 							"command": []interface{}{
-								"cockroach sql --host " + controlPlaneDatabaseHost("primary-test"),
+								"cockroach sql --host " + host,
 							},
 						},
 					},
