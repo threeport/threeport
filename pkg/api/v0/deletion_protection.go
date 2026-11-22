@@ -157,9 +157,9 @@ func (c *ControlPlaneInstance) RefuseDelete(db *gorm.DB) error {
 
 // refuseChildRuntimes refuses deletion while the child still manages a kubernetes runtime.
 func refuseChildRuntimes(c *ControlPlaneInstance) error {
-	// this database cannot see the child's runtimes until a reader is registered
+	// a missing reader cannot see the child's runtimes
 	if ChildRuntimeNames == nil {
-		return nil
+		return errors.New("failed to read the child control plane's kubernetes runtime instances")
 	}
 
 	// read the names of the runtimes the child manages

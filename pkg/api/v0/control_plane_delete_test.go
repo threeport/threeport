@@ -59,7 +59,18 @@ func TestControlPlaneInstanceRefuseDeleteFromParent(t *testing.T) {
 		KubernetesRuntimeInstanceID: childHost.ID,
 	}
 
-	// the parent's runtime does not block the child's delete
+	// a missing reader is an error, not an allowed delete
+	err := child.RefuseDelete(db)
+	require.Error(t, err)
+	var missing *DeleteRefusedError
+	require.NotErrorAs(t, err, &missing)
+
+	// an empty reader allows the delete while the parent's runtime remains
+	previous := ChildRuntimeNames
+	t.Cleanup(func() { ChildRuntimeNames = previous })
+	ChildRuntimeNames = func(*ControlPlaneInstance) ([]string, error) {
+		return nil, nil
+	}
 	require.NoError(t, child.RefuseDelete(db))
 
 	// a workload runtime stored for the parent does not block the child either
@@ -72,12 +83,10 @@ func TestControlPlaneInstanceRefuseDeleteFromParent(t *testing.T) {
 	require.NoError(t, child.RefuseDelete(db))
 
 	// a runtime the child itself manages does block the delete
-	previous := ChildRuntimeNames
-	t.Cleanup(func() { ChildRuntimeNames = previous })
 	ChildRuntimeNames = func(*ControlPlaneInstance) ([]string, error) {
 		return []string{"owned-by-child"}, nil
 	}
-	err := child.RefuseDelete(db)
+	err = child.RefuseDelete(db)
 	var childRefused *DeleteRefusedError
 	require.ErrorAs(t, err, &childRefused)
 	assert.Contains(t, err.Error(), "owned-by-child")
