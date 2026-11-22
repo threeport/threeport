@@ -6,11 +6,9 @@ import (
 	"net/http"
 	"sort"
 
-	api_lib "github.com/threeport/threeport/pkg/api/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
-	encryption "github.com/threeport/threeport/pkg/encryption/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -26,18 +24,14 @@ func childRuntimeNames(controlPlane *api_v0.ControlPlaneInstance) ([]string, err
 		return nil, nil
 	}
 
-	// decrypt the client key before opening a connection
-	readable, err := decryptedControlPlane(controlPlane)
-	if err != nil {
-		return nil, err
-	}
-	httpClient, err := controlPlaneHTTPClient(readable)
+	// open a client for the child's api
+	httpClient, err := controlPlaneHTTPClient(controlPlane)
 	if err != nil {
 		return nil, err
 	}
 
 	// read the child's runtimes, and its host id when a self row exists
-	self, err := client.GetSelfControlPlaneInstance(httpClient, *readable.ApiServerEndpoint)
+	self, err := client.GetSelfControlPlaneInstance(httpClient, *controlPlane.ApiServerEndpoint)
 	var hostID *uint
 	if err != nil && !errors.Is(err, client.ErrNoLocalControlPlane) {
 		return nil, fmt.Errorf("failed to read the child control plane: %w", err)
@@ -45,7 +39,7 @@ func childRuntimeNames(controlPlane *api_v0.ControlPlaneInstance) ([]string, err
 	if err == nil {
 		hostID = self.KubernetesRuntimeInstanceID
 	}
-	runtimes, err := client.GetKubernetesRuntimeInstances(httpClient, *readable.ApiServerEndpoint)
+	runtimes, err := client.GetKubernetesRuntimeInstances(httpClient, *controlPlane.ApiServerEndpoint)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read kubernetes runtime instances: %w", err)
 	}
@@ -62,26 +56,6 @@ func childRuntimeNames(controlPlane *api_v0.ControlPlaneInstance) ([]string, err
 	}
 	sort.Strings(names)
 	return names, nil
-}
-
-// decryptedControlPlane returns a copy whose client key is plaintext.
-func decryptedControlPlane(controlPlane *api_v0.ControlPlaneInstance) (*api_v0.ControlPlaneInstance, error) {
-	readable := *controlPlane
-	if controlPlane.ClientKey == nil {
-		return &readable, nil
-	}
-
-	// copy the key so decryption does not rewrite the stored row
-	key := *controlPlane.ClientKey
-	readable.ClientKey = &key
-	encryptionKey, err := encryption.KeyFromEnv()
-	if err != nil {
-		return nil, err
-	}
-	if _, err := api_lib.DecryptValues(&readable, encryptionKey); err != nil {
-		return nil, err
-	}
-	return &readable, nil
 }
 
 // controlPlaneHTTPClient builds a client for the control plane this row manages.
