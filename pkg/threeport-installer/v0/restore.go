@@ -1812,10 +1812,11 @@ func refreshManagedChildGenesis(apiClient *http.Client, endpoint string, self *a
 		}
 		if err != nil {
 			fmt.Printf("Info: leaving the genesis copy on %s for a later reconcile: %v\n", name, err)
-			// mark the child unreconciled so the controller retries the copy
+			// mark the child unreconciled without the row read before the call
 			unreconciled := false
-			instance.Reconciled = &unreconciled
-			if _, updateErr := client.UpdateControlPlaneInstance(apiClient, endpoint, instance); updateErr != nil {
+			update := &api.ControlPlaneInstance{Common: api.Common{ID: instance.ID}}
+			update.Reconciled = &unreconciled
+			if _, updateErr := client.UpdateControlPlaneInstance(apiClient, endpoint, update); updateErr != nil {
 				fmt.Printf("Info: could not queue reconcile for %s: %v\n", name, updateErr)
 			}
 		}

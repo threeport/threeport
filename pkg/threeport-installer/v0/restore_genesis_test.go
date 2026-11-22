@@ -79,7 +79,10 @@ func TestRefreshManagedChildGenesisLeavesAnUnreachableChild(t *testing.T) {
 			if readErr != nil {
 				t.Error(readErr)
 			}
-			if strings.Contains(strings.ReplaceAll(string(body), " ", ""), `"Reconciled":false`) {
+			compact := strings.ReplaceAll(string(body), " ", "")
+			if strings.Contains(compact, `"Reconciled":false`) &&
+				!strings.Contains(compact, "old-tag") &&
+				!strings.Contains(compact, "child-01") {
 				queued = true
 			}
 			w.WriteHeader(http.StatusOK)
@@ -93,12 +96,12 @@ func TestRefreshManagedChildGenesisLeavesAnUnreachableChild(t *testing.T) {
 		}
 		fmt.Fprint(w, `{"Meta":{"Pagination":{"HasMore":false}},"Data":[
 			{"ID":1,"Name":"parent-02","Genesis":true,"IsSelf":true},
-			{"ID":2,"Name":"child-01","Reconciled":true,"ParentControlPlaneInstanceID":1,"ApiServerEndpoint":"127.0.0.1:1"}
+			{"ID":2,"Name":"child-01","ImageTag":"old-tag","Reconciled":true,"ParentControlPlaneInstanceID":1,"ApiServerEndpoint":"127.0.0.1:1"}
 		]}`)
 	}))
 	t.Cleanup(parent.Close)
 
-	// finish the restore and mark the child for another reconcile
+	// finish the restore and mark the child without its listed image
 	selfID := uint(1)
 	self := &api.ControlPlaneInstance{ID: &selfID}
 	err := refreshManagedChildGenesis(
