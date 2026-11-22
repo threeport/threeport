@@ -211,6 +211,29 @@ func (g *gkeLifecycle) OnCreateConfirmed(infra provider.InfraProvider) error {
 	return g.recordAppliedSettings(infraGKE)
 }
 
+// markRuntimeForReconcile clears Reconciled on the kubernetes runtime instance this cluster owns.
+// That controller installs the support services, and it runs only when its own row changes.
+func (g *gkeLifecycle) markRuntimeForReconcile() error {
+	// a delete, or a row with no runtime yet, has nothing to rerun
+	if g.instance.DeletionScheduled != nil || g.instance.KubernetesRuntimeInstanceID == nil {
+		return nil
+	}
+
+	// write only the flag. The runtime controller sets it back once it finishes.
+	_, err := client.UpdateKubernetesRuntimeInstance(
+		g.r.APIClient,
+		g.r.APIServer,
+		&v0.KubernetesRuntimeInstance{
+			Common:         v0.Common{ID: g.instance.KubernetesRuntimeInstanceID},
+			Reconciliation: v0.Reconciliation{Reconciled: util.Ptr(false)},
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to mark the kubernetes runtime instance for another pass: %w", err)
+	}
+	return nil
+}
+
 // gkeLifecycle applies its definition's secrets encryption, boot disk,
 // Secure Boot and intranode visibility to a cluster that doesn't run them.
 var _ provider.SettingsLifecycleProvider = (*gkeLifecycle)(nil)
