@@ -108,7 +108,7 @@ func TestAModuleRefusesANamespaceAnotherControlPlaneOwns(t *testing.T) {
 	require.NotEqual(t, -1, reject)
 	require.NotEqual(t, -1, create)
 	assert.Less(t, reject, create)
-	assert.Regexp(t, regexp.MustCompile(`RejectExistingModuleNamespace\(\s*i\.KubeClient,\s*i\.ModuleNamespace,\s*i\.ThreeportNamespace,`), source)
+	assert.Regexp(t, regexp.MustCompile(`RejectExistingModuleNamespace\(\s*i\.KubeClient,\s*i\.ModuleNamespace,\s*i\.ThreeportNamespace,\s*apiServerName,`), source)
 
 	// assert the created namespace records that control plane
 	assert.Contains(t, source, "tp_installer.ModuleNamespaceOwnerLabel: i.ThreeportNamespace")

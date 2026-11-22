@@ -542,9 +542,9 @@ func TestModuleInstallRequestStoresANamespace(t *testing.T) {
 	require.Equal(t, "example.com/example-module-api registry.example abc123", stored)
 }
 
-// TestEnsureModuleInstallJobKeepsTheEndpointNamespace checks a repair with no
-// namespace argument still installs where the module endpoint records.
-func TestEnsureModuleInstallJobKeepsTheEndpointNamespace(t *testing.T) {
+// TestEnsureModuleInstallJobPassesTheGivenNamespace checks the job passes the
+// namespace it was given.
+func TestEnsureModuleInstallJobPassesTheGivenNamespace(t *testing.T) {
 	// seed the key, and a module whose endpoint names a custom namespace
 	namespace := installControlPlaneNamespace
 	mapper := WorkloadRESTMapper()
@@ -566,10 +566,56 @@ func TestEnsureModuleInstallJobKeepsTheEndpointNamespace(t *testing.T) {
 	cpi := NewInstaller(Namespace(namespace))
 	cpi.Opts.ControllerList = nil
 
-	// create the job in the recorded namespace
-	finished, err := EnsureModuleInstallJob(kubeClient, &mapper, instance, cpi, module, "")
+	// create the job in the namespace the caller already decided
+	finished, err := EnsureModuleInstallJob(
+		kubeClient, &mapper, instance, cpi, module, "custom-ns",
+	)
 	require.NoError(t, err)
 	require.False(t, finished)
+	job, err := kubeClient.Resource(schema.GroupVersionResource{
+		Group: "batch", Version: "v1", Resource: "jobs",
+	}).Namespace(namespace).Get(context.Background(), installJobName, metav1.GetOptions{})
+	require.NoError(t, err)
+	require.Equal(t, []string{
+		"install",
+		"--control-plane-image-namespace",
+		"registry.example",
+		"--control-plane-image-tag",
+		"abc123",
+		"--" + ModuleNamespaceFlag,
+		"custom-ns",
+	}, installContainerArgs(t, job))
+}
+
+// TestRetagModuleAPIInstallsWhereTheEndpointRecords checks a missing API
+// deployment is installed in the namespace the endpoint records.
+func TestRetagModuleAPIInstallsWhereTheEndpointRecords(t *testing.T) {
+	// seed the key, and a module whose endpoint names a custom namespace
+	namespace := installControlPlaneNamespace
+	mapper := WorkloadRESTMapper()
+	kubeClient := testKubeClient(installKeySecret(namespace))
+	endpoint := "example-api.custom-ns.svc.cluster.local"
+	module := &v0.ModuleApi{
+		Name:           util.Ptr("example.com/example-module-api"),
+		ImageNamespace: util.Ptr("registry.example"),
+		ImageTag:       util.Ptr("abc123"),
+		Endpoint:       &endpoint,
+	}
+	name := namespace
+	apiEndpoint := "https://api.example"
+	instance := &v0.ControlPlaneInstance{
+		Name:              &name,
+		Namespace:         &namespace,
+		ApiServerEndpoint: &apiEndpoint,
+	}
+	cpi := NewInstaller(Namespace(namespace))
+	cpi.Opts.ControllerList = nil
+
+	// install the missing deployment where the endpoint records
+	err := retagModuleAPI(
+		kubeClient, &mapper, instance, cpi, module, "registry.example", "abc123", namespace,
+	)
+	require.NoError(t, err)
 	job, err := kubeClient.Resource(schema.GroupVersionResource{
 		Group: "batch", Version: "v1", Resource: "jobs",
 	}).Namespace(namespace).Get(context.Background(), installJobName, metav1.GetOptions{})

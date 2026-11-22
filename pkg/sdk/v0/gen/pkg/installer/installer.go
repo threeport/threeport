@@ -223,6 +223,7 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			Line().Id("i.KubeClient"),
 			Line().Id("i").Dot("ModuleNamespace"),
 			Line().Id("i").Dot("ThreeportNamespace"),
+			Line().Id("apiServerName"),
 			Line(),
 		).Op(";").Err().Op("!=").Nil()).Block(
 			Return(Err()),

@@ -175,82 +175,85 @@ func TestMissingModuleNamespaceIsAbsent(t *testing.T) {
 // TestRejectExistingModuleNamespaceReportsAnotherOwner covers the namespace check.
 func TestRejectExistingModuleNamespaceReportsAnotherOwner(t *testing.T) {
 	// an absent namespace is free to install into
-	require.NoError(t, RejectExistingModuleNamespace(testKubeClient(), "threeport-example", "primary-test"))
+	apiDeployment := moduleAPIDeploymentName("example")
+	require.NoError(t, RejectExistingModuleNamespace(
+		testKubeClient(), "threeport-example", "primary-test", apiDeployment,
+	))
 
-	// a namespace with no owner label is taken
+	// a namespace with no owner label and no API deployment is taken
 	err := RejectExistingModuleNamespace(
 		testKubeClient(testModuleNamespace("threeport-example", "uid")),
 		"threeport-example",
 		"primary-test",
+		apiDeployment,
 	)
 	require.ErrorIs(t, err, ErrModuleNamespaceExists)
 
 	// a namespace labeled for another control plane is taken
 	other := testModuleNamespace("threeport-example", "uid")
 	other.SetLabels(map[string]string{ModuleNamespaceOwnerLabel: "genesis-test"})
-	err = RejectExistingModuleNamespace(testKubeClient(other), "threeport-example", "primary-test")
+	err = RejectExistingModuleNamespace(
+		testKubeClient(other, testNamedDeployment("threeport-example", apiDeployment)),
+		"threeport-example",
+		"primary-test",
+		apiDeployment,
+	)
 	require.ErrorIs(t, err, ErrModuleNamespaceExists)
 
 	// a namespace this control plane labeled is left for the install
 	owned := testModuleNamespace("threeport-example", "uid")
 	owned.SetLabels(map[string]string{ModuleNamespaceOwnerLabel: "primary-test"})
-	require.NoError(t, RejectExistingModuleNamespace(testKubeClient(owned), "threeport-example", "primary-test"))
+	require.NoError(t, RejectExistingModuleNamespace(
+		testKubeClient(owned), "threeport-example", "primary-test", apiDeployment,
+	))
 }
 
 // TestRejectExistingModuleNamespaceAdoptsAnUnlabeledModule covers a namespace
 // created before installs wrote an owner label.
 func TestRejectExistingModuleNamespaceAdoptsAnUnlabeledModule(t *testing.T) {
-	// an unlabeled namespace whose command names this database is left for the install
-	host := controlPlaneDatabaseHost("primary-test")
+	// an unlabeled namespace that holds this module's API is left for the install
+	apiDeployment := moduleAPIDeploymentName("example")
 	require.NoError(t, RejectExistingModuleNamespace(
 		testKubeClient(
 			testModuleNamespace("threeport-example", "uid"),
-			testDeploymentNamingDatabase("threeport-example", host),
+			testNamedDeployment("threeport-example", apiDeployment),
 		),
 		"threeport-example",
 		"primary-test",
+		apiDeployment,
 	))
 
-	// a command that names another database stays taken
+	// a deployment that only names this database stays taken
 	err := RejectExistingModuleNamespace(
 		testKubeClient(
 			testModuleNamespace("threeport-example", "uid"),
-			testDeploymentNamingDatabase("threeport-example", controlPlaneDatabaseHost("other-plane")),
+			testNamedDeployment("threeport-example", "other-module-api-server"),
 		),
 		"threeport-example",
 		"primary-test",
-	)
-	require.ErrorIs(t, err, ErrModuleNamespaceExists)
-
-	// a label for another control plane stays taken
-	other := testModuleNamespace("threeport-example", "uid")
-	other.SetLabels(map[string]string{ModuleNamespaceOwnerLabel: "genesis-test"})
-	err = RejectExistingModuleNamespace(
-		testKubeClient(other, testDeploymentNamingDatabase("threeport-example", host)),
-		"threeport-example",
-		"primary-test",
+		apiDeployment,
 	)
 	require.ErrorIs(t, err, ErrModuleNamespaceExists)
 }
 
-// testDeploymentNamingDatabase returns a deployment whose init command names host.
-func testDeploymentNamingDatabase(namespace, host string) *unstructured.Unstructured {
-	// name this database in the init command
+// testNamedDeployment returns a deployment whose command names this database.
+func testNamedDeployment(namespace, name string) *unstructured.Unstructured {
+	// name this database in the container command
 	return &unstructured.Unstructured{Object: map[string]interface{}{
 		"apiVersion": "apps/v1",
 		"kind":       "Deployment",
 		"metadata": map[string]interface{}{
-			"name":      "threeport-example-api-server",
+			"name":      name,
 			"namespace": namespace,
 		},
 		"spec": map[string]interface{}{
 			"template": map[string]interface{}{
 				"spec": map[string]interface{}{
-					"initContainers": []interface{}{
+					"containers": []interface{}{
 						map[string]interface{}{
-							"name": "db-init",
+							"name": "api",
 							"command": []interface{}{
-								"cockroach sql --host " + host,
+								"cockroach sql --host " + controlPlaneDatabaseHost("primary-test"),
 							},
 						},
 					},
