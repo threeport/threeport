@@ -1,6 +1,12 @@
 package v0
 
 import (
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	api "github.com/threeport/threeport/pkg/api/v0"
@@ -112,6 +118,68 @@ func TestRefreshCopiedGenesisWritesTheCurrentIdentity(t *testing.T) {
 	_, changed = refreshCopiedGenesis(updated, current)
 	if changed {
 		t.Fatal("matching genesis row was marked changed")
+	}
+}
+
+// TestRefreshRestoredGenesisLeavesADatabaseWithoutAGenesisRow covers a restore with nothing to write.
+func TestRefreshRestoredGenesisLeavesADatabaseWithoutAGenesisRow(t *testing.T) {
+	// a caller with no current genesis makes no request
+	if err := RefreshRestoredGenesis(nil, "", nil); err != nil {
+		t.Fatal(err)
+	}
+
+	// an empty database is left for the caller to create
+	server := emptyDataServer(t)
+	defer server.Close()
+	_, err := GetGenesisControlPlaneInstance(server.Client(), apiAddr(server))
+	if !errors.Is(err, ErrNoGenesisControlPlane) {
+		t.Fatalf("missing genesis row: %v", err)
+	}
+	current := &api.ControlPlaneInstance{Name: util.Ptr("genesis-current")}
+	if err := RefreshRestoredGenesis(server.Client(), apiAddr(server), current); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestRefreshRestoredGenesisWritesTheServingName covers a copied row taking the current name.
+func TestRefreshRestoredGenesisWritesTheServingName(t *testing.T) {
+	// serve the copied name, then the name the patch writes
+	const serving = "genesis-current"
+	name := "genesis-05"
+	patches := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPatch {
+			patches++
+			payload, readErr := io.ReadAll(r.Body)
+			if readErr != nil {
+				t.Error(readErr)
+			}
+			if !strings.Contains(string(payload), serving) {
+				t.Errorf("patch body %s", payload)
+			}
+			name = serving
+		}
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, `{"Meta":{"ObjectCount":1},"Data":[{"ID":4,"Name":%q,"Genesis":true,"IsSelf":false}],"Status":{"code":200,"message":"OK"}}`, name)
+	}))
+	defer server.Close()
+
+	// write the serving name onto the copied row
+	current := &api.ControlPlaneInstance{Name: util.Ptr(serving)}
+	if err := RefreshRestoredGenesis(server.Client(), apiAddr(server), current); err != nil {
+		t.Fatal(err)
+	}
+	if patches != 1 {
+		t.Fatalf("patches %d", patches)
+	}
+
+	// a second call leaves the matching row alone
+	if err := RefreshRestoredGenesis(server.Client(), apiAddr(server), current); err != nil {
+		t.Fatal(err)
+	}
+	if patches != 1 {
+		t.Fatalf("second call patches %d", patches)
 	}
 }
 
