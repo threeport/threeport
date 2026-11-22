@@ -380,10 +380,6 @@ func v0KubernetesRuntimeInstanceUpdated(
 		if err != nil {
 			return 0, fmt.Errorf("failed to map threeport location to AWS region: %w", err)
 		}
-		systemNamespace, err := controlPlaneNamespace()
-		if err != nil {
-			return controller.RetryOnNetworkErr(err, "failed to read control plane namespace")
-		}
 		systemServicesCurrent, err := threeport.EksThreeportSystemServicesCurrent(dynamicKubeClient, mapper, kubernetesVersion)
 		if err != nil {
 			return controller.RetryOnNetworkErr(err, "failed to check EKS system services")
@@ -398,7 +394,7 @@ func v0KubernetesRuntimeInstanceUpdated(
 				*awsProvider.AccountID,
 				region,
 				kubernetesVersion,
-				systemNamespace,
+				namespace,
 			); err != nil {
 				return controller.RetryOnNetworkErr(err, "failed to install system services")
 			}
