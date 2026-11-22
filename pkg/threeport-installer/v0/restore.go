@@ -1768,7 +1768,68 @@ func (cpi *ControlPlaneInstaller) retargetRestoredSelf(apiClient *http.Client, e
 		return err
 	}
 
+	// write that genesis row onto each child that has an api address
+	if err := refreshManagedChildGenesis(apiClient, endpoint, self); err != nil {
+		return err
+	}
+
 	return nil
+}
+
+// refreshManagedChildGenesis writes the genesis row this API is serving onto each child.
+// Leave a child with no API address until it has one.
+func refreshManagedChildGenesis(apiClient *http.Client, endpoint string, self *api.ControlPlaneInstance) error {
+	// a restore with no self id has no children to update
+	if self == nil || self.ID == nil {
+		return nil
+	}
+
+	// read the genesis row this restore wrote
+	current, err := client.GetGenesisControlPlaneInstance(apiClient, endpoint)
+	if err != nil {
+		if errors.Is(err, client.ErrNoGenesisControlPlane) {
+			return nil
+		}
+		return fmt.Errorf("failed to get genesis control plane: %w", err)
+	}
+
+	// read the rows this database holds
+	instances, err := client.GetControlPlaneInstances(apiClient, endpoint)
+	if err != nil {
+		return fmt.Errorf("failed to get control plane instances: %w", err)
+	}
+
+	// write the serving genesis onto each managed child
+	var updateErrors []error
+	for i := range *instances {
+		instance := &(*instances)[i]
+		if !managedChild(self, instance) {
+			continue
+		}
+		childClient, err := HTTPClientForInstance(instance)
+		if err != nil {
+			updateErrors = append(updateErrors, fmt.Errorf("failed to reach control plane %s: %w", util.DerefString(instance.Name), err))
+			continue
+		}
+		if err := client.RefreshRestoredGenesis(childClient, util.DerefString(instance.ApiServerEndpoint), current); err != nil {
+			updateErrors = append(updateErrors, fmt.Errorf("failed to refresh genesis on %s: %w", util.DerefString(instance.Name), err))
+		}
+	}
+	return errors.Join(updateErrors...)
+}
+
+// managedChild reports a control plane this one manages that has an API address.
+func managedChild(self, instance *api.ControlPlaneInstance) bool {
+	// skip self, a row with no id, and a row with no address
+	if instance == nil || instance.ID == nil || self == nil || self.ID == nil || *instance.ID == *self.ID {
+		return false
+	}
+	if util.DerefString(instance.ApiServerEndpoint) == "" {
+		return false
+	}
+
+	// the parent link is this control plane
+	return instance.ParentControlPlaneInstanceID != nil && *instance.ParentControlPlaneInstanceID == *self.ID
 }
 
 // restoredSourceInstance returns the backup's own control plane when no row is marked self.
