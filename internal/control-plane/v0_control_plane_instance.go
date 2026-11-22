@@ -910,6 +910,11 @@ func v0ControlPlaneInstanceCreated(
 	genesisInstance.NetworkCidrPool = nil
 	genesisInstance.ControlPlaneDefinitionID = &genDefID
 	genesisInstance.KubernetesRuntimeInstanceID = &genKubeRuntimeInstanceID
+
+	// rename the restored genesis row before a lookup by the current name
+	if err := client.RefreshRestoredGenesis(newApiClient, threeportAPIEndpoint, genesisInstance); err != nil {
+		return 0, err
+	}
 	_, err = getOrCreate(
 		"genesis control plane instance on the new threeport api",
 		func() (*v0.ControlPlaneInstance, error) {

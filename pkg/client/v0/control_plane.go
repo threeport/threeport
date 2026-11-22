@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
@@ -127,4 +128,74 @@ func GetGenesisControlPlaneInstance(apiClient *http.Client, apiAddr string) (*v0
 	}
 
 	return &(*controlPlaneInstances)[0], nil
+}
+
+// RefreshCopiedGenesis copies the current genesis name, namespace, address, and image onto a restored row.
+// A self row is left unchanged, and the stored definition and runtime stay.
+func RefreshCopiedGenesis(stored, current *v0.ControlPlaneInstance) (*v0.ControlPlaneInstance, bool) {
+	// leave the replacement's own row alone
+	if stored == nil ||
+		current == nil ||
+		(stored.IsSelf != nil && *stored.IsSelf) {
+		return stored, false
+	}
+
+	// copy the identity and credentials the parent is serving now
+	changed := copyControlPlaneString(&stored.Name, current.Name)
+	changed = copyControlPlaneString(&stored.Namespace, current.Namespace) || changed
+	changed = copyControlPlaneString(&stored.ApiServerEndpoint, current.ApiServerEndpoint) || changed
+	changed = copyControlPlaneString(&stored.ImageNamespace, current.ImageNamespace) || changed
+	changed = copyControlPlaneString(&stored.ImageTag, current.ImageTag) || changed
+	changed = copyControlPlaneString(&stored.CACert, current.CACert) || changed
+	changed = copyControlPlaneString(&stored.ClientCert, current.ClientCert) || changed
+	changed = copyControlPlaneString(&stored.ClientKey, current.ClientKey) || changed
+	return stored, changed
+}
+
+// RefreshRestoredGenesis writes the current genesis onto the restored copy.
+// A database with no genesis row is left for the caller to create.
+func RefreshRestoredGenesis(apiClient *http.Client, apiAddr string, current *v0.ControlPlaneInstance) error {
+	// a caller with no current genesis leaves the restored row alone
+	if current == nil {
+		return nil
+	}
+	stored, err := GetGenesisControlPlaneInstance(apiClient, apiAddr)
+	if err != nil {
+		if strings.Contains(err.Error(), "no local control plane instance") {
+			return nil
+		}
+		return fmt.Errorf("failed to get restored genesis control plane: %w", err)
+	}
+
+	// write the row when its name, address, or image moved
+	updated, changed := RefreshCopiedGenesis(stored, current)
+	if !changed {
+		return nil
+	}
+	if _, err := UpdateControlPlaneInstance(apiClient, apiAddr, updated); err != nil {
+		return fmt.Errorf("failed to refresh restored genesis control plane: %w", err)
+	}
+	return nil
+}
+
+// copyControlPlaneString copies a non-empty value onto dest and reports whether it changed.
+func copyControlPlaneString(dest **string, value *string) bool {
+	// an empty current value does not wipe a stored one
+	next := ""
+	if value != nil {
+		next = *value
+	}
+	if next == "" {
+		return false
+	}
+	current := ""
+	if *dest != nil {
+		current = **dest
+	}
+	if next == current {
+		return false
+	}
+	copied := next
+	*dest = &copied
+	return true
 }

@@ -1763,6 +1763,11 @@ func (cpi *ControlPlaneInstaller) retargetRestoredSelf(apiClient *http.Client, e
 		return err
 	}
 
+	// write the current genesis onto the copied row
+	if err := client.RefreshRestoredGenesis(apiClient, endpoint, cpi.Genesis); err != nil {
+		return err
+	}
+
 	return nil
 }
 

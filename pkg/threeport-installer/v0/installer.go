@@ -267,6 +267,9 @@ type Options struct {
 
 type ControlPlaneInstaller struct {
 	Opts Options
+
+	// The current genesis row a restore writes onto the copied row
+	Genesis *v0.ControlPlaneInstance
 }
 
 func (cpi *ControlPlaneInstaller) SetAllImageRepo(imageRepo string) {
