@@ -150,6 +150,7 @@ func InstallModule(
 	moduleName string,
 	imageNamespace string,
 	imageTag string,
+	moduleNamespace ...string,
 ) error {
 	// resolve the control plane the parent controller reconciles
 	target, err := resolveControlPlane(currentClient, currentEndpoint, controlPlaneName, false)
@@ -168,7 +169,13 @@ func InstallModule(
 		ImageNamespace: &imageNamespace,
 		ImageTag:       &imageTag,
 	}
-	request := installer.ModuleInstallRequest(module)
+
+	// keep a module namespace when one was passed
+	namespace := ""
+	if len(moduleNamespace) > 0 {
+		namespace = moduleNamespace[0]
+	}
+	request := installer.ModuleInstallRequest(module, namespace)
 	target.Instance.ModuleInstall = &request
 	if _, err := client.UpdateControlPlaneInstance(currentClient, currentEndpoint, target.Instance); err != nil {
 		return fmt.Errorf("failed to record module install: %w", err)
@@ -187,6 +194,7 @@ func InstallThroughController(
 	moduleName string,
 	imageNamespace string,
 	imageTag string,
+	moduleNamespace ...string,
 ) (bool, error) {
 	// install on the connected control plane when the controller's install job runs this
 	if os.Getenv(installer.ModuleInstallJobEnv) != "" {
@@ -210,6 +218,7 @@ func InstallThroughController(
 		moduleName,
 		imageNamespace,
 		imageTag,
+		moduleNamespace...,
 	); err != nil {
 		return false, err
 	}
@@ -800,6 +809,13 @@ func runBlueGreen(
 	)
 	if installErr != nil && !apiUp {
 		fmt.Printf("Info: new control plane is unhealthy, resuming writers in %s\n", namespace)
+		// drop the saved restore so the next backup is not skipped
+		if clearErr := created.ClearRestoreRecord(source.Kube); clearErr != nil {
+			return fmt.Errorf(
+				"failed to install restored control plane: %w (clear restore record: %v)",
+				installErr, clearErr,
+			)
+		}
 		resumeErr := resumeSourceWriters(source, namespace, replicas, modules)
 		if resumeErr != nil {
 			return fmt.Errorf("failed to install restored control plane: %w (resuming source writers: %v)", installErr, resumeErr)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -27,6 +28,16 @@ var namespaceGVR = schema.GroupVersionResource{Version: "v1", Resource: "namespa
 // serviceGVR is the v1 services resource.
 var serviceGVR = schema.GroupVersionResource{Version: "v1", Resource: "services"}
 
+// networkPolicyGVR is the networking.k8s.io/v1 networkpolicies resource.
+var networkPolicyGVR = schema.GroupVersionResource{
+	Group:    "networking.k8s.io",
+	Version:  "v1",
+	Resource: "networkpolicies",
+}
+
+// moduleDatabasePolicyPrefix starts the name of a module database policy.
+const moduleDatabasePolicyPrefix = "threeport-database-access."
+
 // ModuleDatabasePolicyName returns the name of the network policy that admits
 // a module's API server to the control plane's database.
 //
@@ -40,7 +51,25 @@ var serviceGVR = schema.GroupVersionResource{Version: "v1", Resource: "services"
 // same name - with a dash, namespace a-b and service c would collide with
 // namespace a and service b-c.
 func ModuleDatabasePolicyName(moduleNamespace, apiServerName string) string {
-	return "threeport-database-access." + moduleNamespace + "." + apiServerName
+	return moduleDatabasePolicyPrefix + moduleNamespace + "." + apiServerName
+}
+
+// moduleApiServerFromPolicyName reads a module namespace and API service from a database policy name.
+func moduleApiServerFromPolicyName(name string) (ModuleApiServer, bool) {
+	// reject a name that omits the prefix, the namespace, or the service
+	rest, found := strings.CutPrefix(name, moduleDatabasePolicyPrefix)
+	if !found {
+		return ModuleApiServer{}, false
+	}
+	namespace, service, found := strings.Cut(rest, ".")
+	if !found ||
+		namespace == "" ||
+		service == "" ||
+		strings.Contains(service, ".") {
+		return ModuleApiServer{}, false
+	}
+
+	return ModuleApiServer{Namespace: namespace, Service: service}, true
 }
 
 // ModuleDatabasePolicy returns the network policy that admits a module's API

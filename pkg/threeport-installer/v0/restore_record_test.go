@@ -21,7 +21,7 @@ func TestClearRestoreRecordLetsTheNextRestoreStart(t *testing.T) {
 	}
 
 	// drop the record before the source writers resume
-	if err := cpi.clearRestoreRecord(client); err != nil {
+	if err := cpi.ClearRestoreRecord(client); err != nil {
 		t.Fatal(err)
 	}
 	recorded, err = cpi.RestoreRecorded(client)
