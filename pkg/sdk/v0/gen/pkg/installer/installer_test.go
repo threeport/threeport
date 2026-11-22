@@ -63,11 +63,12 @@ func TestAModuleConnectsToTheMessageBrokerOverTLS(t *testing.T) {
 	// the broker's settings from before it required TLS
 	assert.NotContains(t, source, "func copySecret(")
 
-	assert.Contains(t, source, "tpAuthVolumes = append(tpAuthVolumes, tp_installer.NatsClientCAVolume())")
-	assert.Contains(t, source, "tpAuthVolumeMounts = append(tpAuthVolumeMounts, tp_installer.NatsClientCAVolumeMount())")
+	assert.Contains(t, source, "tpAuthVolumes = append(tpAuthVolumes, tp_installer.ModuleBrokerCAVolume())")
+	assert.Contains(t, source, "tpAuthVolumeMounts = append(tpAuthVolumeMounts, tp_installer.ModuleBrokerCAVolumeMount())")
+	assert.Contains(t, source, "tpAuthVolumeMounts = append(tpAuthVolumeMounts, tp_installer.ModuleBrokerCASystemVolumeMount())")
 
 	// the CA's certificate is added before either deployment takes the volumes
-	added := strings.Index(source, "tp_installer.NatsClientCAVolume()")
+	added := strings.Index(source, "tp_installer.ModuleBrokerCAVolume()")
 	for _, use := range []*regexp.Regexp{
 		regexp.MustCompile(`apiVolumes := tpAuthVolumes`),
 		regexp.MustCompile(`"volumes":\s+tpAuthVolumes`),

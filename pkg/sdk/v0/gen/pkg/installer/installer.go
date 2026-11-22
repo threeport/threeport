@@ -500,14 +500,18 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 		)
 		g.Line()
 
-		g.Comment("the module API server and controller verify the message broker with its CA's certificate")
+		g.Comment("mount the broker CA under the volume name the controller reconcile checks")
 		g.Id("tpAuthVolumes").Op("=").Append(
 			Id("tpAuthVolumes"),
-			Qual("github.com/threeport/threeport/pkg/threeport-installer/v0", "NatsClientCAVolume").Call(),
+			Qual("github.com/threeport/threeport/pkg/threeport-installer/v0", "ModuleBrokerCAVolume").Call(),
 		)
 		g.Id("tpAuthVolumeMounts").Op("=").Append(
 			Id("tpAuthVolumeMounts"),
-			Qual("github.com/threeport/threeport/pkg/threeport-installer/v0", "NatsClientCAVolumeMount").Call(),
+			Qual("github.com/threeport/threeport/pkg/threeport-installer/v0", "ModuleBrokerCAVolumeMount").Call(),
+		)
+		g.Id("tpAuthVolumeMounts").Op("=").Append(
+			Id("tpAuthVolumeMounts"),
+			Qual("github.com/threeport/threeport/pkg/threeport-installer/v0", "ModuleBrokerCASystemVolumeMount").Call(),
 		)
 		g.Line()
 

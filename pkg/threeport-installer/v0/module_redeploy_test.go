@@ -131,13 +131,38 @@ func TestEnsureBrokerCAMountsTheSecret(t *testing.T) {
 
 	volumes, _, err := unstructured.NestedSlice(deployment.Object, "spec", "template", "spec", "volumes")
 	require.NoError(t, err)
-	require.True(t, namedObject(volumes, brokerCAVolume))
+	require.True(t, namedObject(volumes, ModuleBrokerCAVolumeName))
 	containers, _, err := unstructured.NestedSlice(deployment.Object, "spec", "template", "spec", "containers")
 	require.NoError(t, err)
 	mounts, _, err := unstructured.NestedSlice(containers[0].(map[string]interface{}), "volumeMounts")
 	require.NoError(t, err)
-	require.True(t, mountNamed(mounts, brokerCAMount))
-	require.True(t, mountNamed(mounts, brokerCASystemFile))
+	require.True(t, mountNamed(mounts, NatsClientCAPath))
+	require.True(t, mountNamed(mounts, ModuleBrokerCASystemFile))
+}
+
+// TestEnsureBrokerCALeavesTheInstallMount checks the mounts a module install
+// creates are the ones the reconcile looks for.
+func TestEnsureBrokerCALeavesTheInstallMount(t *testing.T) {
+	// a module install already has the volume and both mounts
+	deployment := &unstructured.Unstructured{Object: map[string]interface{}{
+		"spec": map[string]interface{}{
+			"template": map[string]interface{}{
+				"spec": map[string]interface{}{
+					"volumes": []interface{}{ModuleBrokerCAVolume()},
+					"containers": []interface{}{
+						map[string]interface{}{
+							"name": "api",
+							"volumeMounts": []interface{}{
+								ModuleBrokerCAVolumeMount(),
+								ModuleBrokerCASystemVolumeMount(),
+							},
+						},
+					},
+				},
+			},
+		},
+	}}
+	require.False(t, ensureBrokerCA(deployment))
 }
 
 // TestMissingModuleNamespaceIsAbsent covers a removed module namespace.
