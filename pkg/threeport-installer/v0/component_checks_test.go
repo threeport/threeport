@@ -881,6 +881,9 @@ func TestDeleteControlPlaneRoleBindingsLeavesOtherControlPlanes(t *testing.T) {
 	require.NoError(t, cpi.DeleteControlPlaneRoleBindings(client, mapper))
 	require.NoError(t, cpi.DeleteControlPlaneRoleBindings(client, mapper))
 
+	// confirm the module install binding name
+	require.Equal(t, "module-install-child", moduleInstallBindingName("child"))
+
 	// confirm the child module install binding is gone
 	_, present, err := resourceInstalled(
 		client, mapper, "rbac.authorization.k8s.io", "v1", "ClusterRoleBinding", "",
@@ -920,7 +923,6 @@ func TestDeleteControlPlaneRoleBindingsLeavesOtherControlPlanes(t *testing.T) {
 	for _, name := range []string{
 		"threeport-control-plane-threeport-agent-manager-rolebinding",
 		"threeport-control-plane-threeport-agent-proxy-rolebinding",
-		moduleInstallBindingName("threeport-control-plane"),
 	} {
 		_, present, err := resourceInstalled(
 			client, mapper, "rbac.authorization.k8s.io", "v1", "ClusterRoleBinding", "", name,
@@ -928,6 +930,14 @@ func TestDeleteControlPlaneRoleBindingsLeavesOtherControlPlanes(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, present)
 	}
+
+	// confirm the other control plane's module install binding stayed
+	_, present, err = resourceInstalled(
+		client, mapper, "rbac.authorization.k8s.io", "v1", "ClusterRoleBinding", "",
+		moduleInstallBindingName("threeport-control-plane"),
+	)
+	require.NoError(t, err)
+	assert.True(t, present)
 
 	// confirm the other control plane's controller bindings stayed
 	for _, controller := range ThreeportControllerList {

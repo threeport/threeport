@@ -63,7 +63,7 @@ Patch a child.  The parent controller applies the tag.
 
 ```bash
 tptctl upgrade control-plane image \
-  --control-plane-name [child name] \
+  --old-control-plane-name [child name] \
   --control-plane-image-tag [image tag]
 ```
 
@@ -82,7 +82,7 @@ controller version.
 
 ```bash
 tptctl upgrade control-plane blue-green \
-  --control-plane-name [child name] \
+  --old-control-plane-name [child name] \
   --new-control-plane-name [new control plane name] \
   --control-plane-image-namespace [image namespace] \
   --control-plane-image-tag [image tag]
@@ -110,7 +110,7 @@ Patch a module image on a child.
 
 ```bash
 tptctl upgrade module image \
-  --control-plane-name [child name] \
+  --old-control-plane-name [child name] \
   --module-name [module name] \
   --module-image-tag [module image tag]
 ```
@@ -140,7 +140,7 @@ removed when that install succeeds.
 
 ```bash
 tptctl upgrade module blue-green \
-  --control-plane-name [child name] \
+  --old-control-plane-name [child name] \
   --module-name [module name] \
   --module-image-tag [module image tag] \
   --new-control-plane-name [new control plane name]

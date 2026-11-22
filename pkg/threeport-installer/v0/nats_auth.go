@@ -49,13 +49,23 @@ const (
 	// natsServerCertsPath is where the server mounts its certificate.
 	natsServerCertsPath = "/etc/nats-certs"
 
+	// natsCACertKey is the data key of the certificate in NatsCACertSecretName.
+	natsCACertKey = "ca.crt"
+
 	// NatsClientCAPath is where a client mounts the CA's certificate, and
 	// NatsClientCAFile the certificate's path.
 	NatsClientCAPath = "/etc/threeport/nats-ca"
-	NatsClientCAFile = NatsClientCAPath + "/ca.crt"
+	NatsClientCAFile = NatsClientCAPath + "/" + natsCACertKey
 
 	// natsClientCAVolumeName is the client volume of the CA's certificate.
 	natsClientCAVolumeName = "nats-ca-cert"
+
+	// ModuleBrokerCAVolumeName is the broker CA volume a module install creates.
+	// The controller looks up the volume by this name.
+	ModuleBrokerCAVolumeName = "nats-ca"
+
+	// ModuleBrokerCASystemFile is the system-pool path an older module reads.
+	ModuleBrokerCASystemFile = "/etc/ssl/certs/threeport-nats-ca.crt"
 
 	// natsPasswordBytes is how many random bytes a password is made from.
 	natsPasswordBytes = 32
@@ -370,6 +380,38 @@ func NatsClientCAVolumeMount() map[string]interface{} {
 	return map[string]interface{}{
 		"name":      natsClientCAVolumeName,
 		"mountPath": NatsClientCAPath,
+		"readOnly":  true,
+	}
+}
+
+// ModuleBrokerCAVolume returns the broker CA volume a module install creates.
+func ModuleBrokerCAVolume() map[string]interface{} {
+	// use the volume name the controller reconcile looks up
+	return map[string]interface{}{
+		"name": ModuleBrokerCAVolumeName,
+		"secret": map[string]interface{}{
+			"secretName": NatsCACertSecretName,
+		},
+	}
+}
+
+// ModuleBrokerCAVolumeMount returns the mount where a module reads the broker CA.
+func ModuleBrokerCAVolumeMount() map[string]interface{} {
+	// mount the certificate where NATS_CA_FILE points
+	return map[string]interface{}{
+		"name":      ModuleBrokerCAVolumeName,
+		"mountPath": NatsClientCAPath,
+		"readOnly":  true,
+	}
+}
+
+// ModuleBrokerCASystemVolumeMount returns the system-pool mount an older module reads.
+func ModuleBrokerCASystemVolumeMount() map[string]interface{} {
+	// mount the same certificate where the system pool scans
+	return map[string]interface{}{
+		"name":      ModuleBrokerCAVolumeName,
+		"mountPath": ModuleBrokerCASystemFile,
+		"subPath":   natsCACertKey,
 		"readOnly":  true,
 	}
 }

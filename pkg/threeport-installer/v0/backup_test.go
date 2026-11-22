@@ -238,6 +238,30 @@ func TestTheBackupScheduleIsCreatedOnlyWithABucket(t *testing.T) {
 	assert.NotContains(t, strings.ToUpper(withBucket[DbInitFilename].(string)), "SCHEDULE")
 }
 
+// TestDatabaseBackupStatementsIncludesEachModuleDatabase covers a backup that
+// includes one module database and sets the backup schedule to the same databases.
+func TestDatabaseBackupStatementsIncludesEachModuleDatabase(t *testing.T) {
+	// both databases share one collection, and the schedule includes both
+	got, err := databaseBackupStatements("bucket", "primary-02", []string{"threeport_acme_api"})
+	require.NoError(t, err)
+	assert.Equal(t, []string{
+		"BACKUP DATABASE threeport_api, threeport_acme_api INTO 'gs://bucket/primary-02/threeport_api?AUTH=implicit';",
+		"DROP SCHEDULES WITH x AS (SHOW SCHEDULES) SELECT id FROM x WHERE label = 'threeport_api_backup';",
+		"CREATE SCHEDULE threeport_api_backup FOR BACKUP DATABASE threeport_api, threeport_acme_api INTO 'gs://bucket/primary-02/threeport_api?AUTH=implicit' RECURRING '@hourly' FULL BACKUP '@daily' WITH SCHEDULE OPTIONS ignore_existing_backups;",
+	}, got)
+
+	// a backup with no module database leaves the schedule unchanged
+	coreOnly, err := databaseBackupStatements("bucket", "primary-02", nil)
+	require.NoError(t, err)
+	assert.Equal(t, []string{
+		"BACKUP DATABASE threeport_api INTO 'gs://bucket/primary-02/threeport_api?AUTH=implicit';",
+	}, coreOnly)
+
+	// the control plane database is not backed up a second time
+	_, err = databaseBackupStatements("bucket", "primary-02", []string{DatabaseName})
+	require.Error(t, err)
+}
+
 // installAPIServer installs the API server into a fake cluster and returns
 // it.
 func installAPIServer(t *testing.T, cpi *ControlPlaneInstaller) *dynamicfake.FakeDynamicClient {
@@ -356,5 +380,10 @@ func TestAReinstallRecreatesTheBackupSchedule(t *testing.T) {
 
 	require.NoError(t, cpi.UpdateThreeportAPIDeployment(normalizingClient{kubeClient}, &mapper, nil))
 	data := getObject(t, kubeClient, configMapGVR, "db-create").Object["data"].(map[string]interface{})
-	assert.Equal(t, DatabaseBackupScheduleSQL(DatabaseBackupURI(cpi.Opts.GcpBackupBucket, cpi.Opts.Namespace)), data[DbBackupScheduleFilename])
+	schedule, err := DatabaseBackupScheduleSQL(
+		DatabaseBackupURI(cpi.Opts.GcpBackupBucket, cpi.Opts.Namespace),
+		nil,
+	)
+	require.NoError(t, err)
+	assert.Equal(t, schedule, data[DbBackupScheduleFilename])
 }

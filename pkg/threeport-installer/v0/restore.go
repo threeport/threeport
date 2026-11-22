@@ -156,6 +156,53 @@ func DatabaseRestoreStatements(databaseName, ownerName, sourceURI, scheduleURI, 
 	return phases, nil
 }
 
+// withModuleDatabaseRestores adds a restore of each module database.
+// Each one is read from the control plane collection, which holds every database in one backup.
+func withModuleDatabaseRestores(
+	phases RestorePhases,
+	moduleDatabases []string,
+	owner string,
+	sourceBucket string,
+	sourceNamespace string,
+	scheduleBucket string,
+	scheduleNamespace string,
+	backup string,
+) (RestorePhases, error) {
+	// restore each module database from the same backup as the control plane database
+	sourceURI := DatabaseBackupURI(sourceBucket, sourceNamespace)
+	for _, name := range moduleDatabases {
+		if !moduleDatabaseNamePattern.MatchString(name) || name == DatabaseName {
+			return RestorePhases{}, fmt.Errorf("module database name %q is not a sql identifier", name)
+		}
+		next, err := DatabaseRestoreStatements(name, owner, sourceURI, "", backup)
+		if err != nil {
+			return RestorePhases{}, err
+		}
+		phases.Prepare = append(phases.Prepare, next.Prepare...)
+		phases.Swap = append(phases.Swap, next.Swap...)
+	}
+
+	// take one backup of every restored database into the schedule collection
+	if scheduleBucket != "" {
+		uri := DatabaseBackupURI(scheduleBucket, scheduleNamespace)
+		names := append([]string{DatabaseName}, moduleDatabases...)
+		phases.Backup = []string{fmt.Sprintf(
+			"BACKUP DATABASE %s INTO '%s'",
+			strings.Join(names, ", "),
+			uri,
+		)}
+
+		// point the schedule at those databases
+		schedule, err := replaceBackupScheduleStatements(uri, moduleDatabases)
+		if err != nil {
+			return RestorePhases{}, err
+		}
+		phases.Backup = append(phases.Backup, schedule...)
+	}
+
+	return phases, nil
+}
+
 // backupSource returns how a RESTORE statement names a backup.
 func backupSource(backup string) (string, error) {
 	if backup == "" || strings.EqualFold(backup, LatestBackup) {
@@ -169,6 +216,74 @@ func backupSource(backup string) (string, error) {
 	}
 
 	return fmt.Sprintf("'%s'", backup), nil
+}
+
+// stopModuleWritersForRestore stops this control plane's module writers and returns those counts.
+// When the API deployment is already stopped, this returns the counts saved earlier.
+func (cpi *ControlPlaneInstaller) stopModuleWritersForRestore(
+	kubeClient dynamic.Interface,
+) ([]ModuleDeploymentScale, error) {
+	// read the saved counts when the API has no pods
+	stopped, err := apiDeploymentStopped(kubeClient, cpi.Opts.Namespace)
+	if err != nil {
+		return nil, err
+	}
+	if stopped {
+		return cpi.rememberedModuleScales(kubeClient)
+	}
+
+	// read the module namespaces from database policies in this namespace
+	apiServers, err := cpi.moduleApiServersFromPolicies(kubeClient)
+	if err != nil {
+		return nil, err
+	}
+
+	// include a module whose init command names this database and has no policy
+	hosted, err := cpi.moduleApiServersFromDatabaseHost(kubeClient)
+	if err != nil {
+		return nil, err
+	}
+	apiServers = appendModuleApiServers(apiServers, hosted)
+
+	// stop writers only in the namespaces those modules use
+	scales, err := cpi.scaleDownModuleWriters(kubeClient, nil, apiServers)
+	if scales == nil {
+		scales = []ModuleDeploymentScale{}
+	}
+	if saveErr := cpi.rememberModuleScales(kubeClient, scales); saveErr != nil {
+		return scales, saveErr
+	}
+
+	return scales, err
+}
+
+// resumeModuleWriters sets each module writer back to the count saved before the restore.
+func (cpi *ControlPlaneInstaller) resumeModuleWriters(
+	kubeClient dynamic.Interface,
+	scales []ModuleDeploymentScale,
+) error {
+	// bring each recorded writer back
+	var resumeErrors []error
+	for _, scale := range scales {
+		if err := cpi.resumeDeploymentReplicas(kubeClient, scale.Namespace, scale.Name, scale.Replicas); err != nil {
+			resumeErrors = append(resumeErrors, err)
+		}
+	}
+
+	return errors.Join(resumeErrors...)
+}
+
+// resumeRestoreWriters sets the control plane deployments and the module writers back to the counts saved before the restore.
+func (cpi *ControlPlaneInstaller) resumeRestoreWriters(
+	kubeClient dynamic.Interface,
+	namespace string,
+	replicas map[string]int64,
+	moduleScales []ModuleDeploymentScale,
+) error {
+	return errors.Join(
+		cpi.scaleDeployments(kubeClient, namespace, replicas),
+		cpi.resumeModuleWriters(kubeClient, moduleScales),
+	)
 }
 
 // RestoreDatabase replaces the control plane database with a backup from
@@ -214,6 +329,27 @@ func (cpi *ControlPlaneInstaller) RestoreDatabase(
 	)
 	if err != nil {
 		return err
+	}
+
+	// restore module databases recorded on the source before its API stopped
+	moduleDatabases, recorded, err := readModuleDatabases(kubeClient, sourceNamespace)
+	if err != nil {
+		return err
+	}
+	if recorded {
+		phases, err = withModuleDatabaseRestores(
+			phases,
+			moduleDatabases,
+			database.ThreeportDatabaseUser,
+			sourceBucket,
+			sourceNamespace,
+			scheduleBucket,
+			cpi.Opts.Namespace,
+			backup,
+		)
+		if err != nil {
+			return err
+		}
 	}
 	namespace := cpi.Opts.Namespace
 
@@ -264,6 +400,18 @@ func (cpi *ControlPlaneInstaller) restoreDatabaseLocked(
 		return err
 	}
 
+	// stop module writers in their own namespaces before the control plane API stops
+	moduleScales, err := cpi.stopModuleWritersForRestore(kubeClient)
+	if err != nil {
+		if swapStarted {
+			return err
+		}
+		if resumeErr := cpi.resumeModuleWriters(kubeClient, moduleScales); resumeErr != nil {
+			return errors.Join(err, resumeErr)
+		}
+		return err
+	}
+
 	// stop everything that writes to the database, and wait until none of
 	// its pods is left: one not ready can still be writing, such as an API
 	// server pod running its database migrator or one being terminated.  A
@@ -281,7 +429,7 @@ func (cpi *ControlPlaneInstaller) restoreDatabaseLocked(
 				scaleDownErr,
 			)
 		}
-		if err := cpi.scaleDeployments(kubeClient, namespace, replicas); err != nil {
+		if err := cpi.resumeRestoreWriters(kubeClient, namespace, replicas, moduleScales); err != nil {
 			return errors.Join(scaleDownErr, err)
 		}
 		return scaleDownErr
@@ -302,7 +450,7 @@ func (cpi *ControlPlaneInstaller) restoreDatabaseLocked(
 		if errors.Is(err, errRestoreJobNotStopped) {
 			return fmt.Errorf("%w; the control plane is left scaled down until it is", prepareErr)
 		}
-		if err := cpi.scaleDeployments(kubeClient, namespace, replicas); err != nil {
+		if err := cpi.resumeRestoreWriters(kubeClient, namespace, replicas, moduleScales); err != nil {
 			return errors.Join(prepareErr, err)
 		}
 		return prepareErr
@@ -316,7 +464,7 @@ func (cpi *ControlPlaneInstaller) restoreDatabaseLocked(
 		if swapStarted {
 			return prepareErr
 		}
-		if err := cpi.scaleDeployments(kubeClient, namespace, replicas); err != nil {
+		if err := cpi.resumeRestoreWriters(kubeClient, namespace, replicas, moduleScales); err != nil {
 			return errors.Join(prepareErr, err)
 		}
 		return prepareErr
@@ -344,7 +492,7 @@ func (cpi *ControlPlaneInstaller) restoreDatabaseLocked(
 		}
 	}
 
-	if err := cpi.scaleDeployments(kubeClient, namespace, replicas); err != nil {
+	if err := cpi.resumeRestoreWriters(kubeClient, namespace, replicas, moduleScales); err != nil {
 		return errors.Join(backupErr, err)
 	}
 
@@ -1270,12 +1418,31 @@ func (cpi *ControlPlaneInstaller) stopWritersAndBackupLocked(
 		return nil, nil, err
 	}
 	var scales []ModuleDeploymentScale
+	var databases []string
 	if stopped {
+		// read the counts and databases stored before the API stopped
 		scales, err = cpi.rememberedModuleScales(kubeClient)
 		if err != nil {
 			return nil, nil, err
 		}
+		var recorded bool
+		databases, recorded, err = readModuleDatabases(kubeClient, cpi.Opts.Namespace)
+		if err != nil {
+			return nil, scales, err
+		}
+		if !recorded {
+			return nil, scales, errors.New("failed to back up module databases: they were not recorded before the api stopped")
+		}
 	} else {
+		// record the module databases before the API is stopped
+		databases, err = cpi.discoverModuleDatabases(apiClient, apiEndpoint)
+		if err != nil {
+			return nil, nil, err
+		}
+		if err := rememberModuleDatabases(kubeClient, cpi.Opts.Namespace, databases); err != nil {
+			return nil, nil, err
+		}
+		// discover and stop the module writers
 		controllers, err := cpi.DiscoverModuleDeployments(apiClient, apiEndpoint)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to discover registered module deployments: %w", err)
@@ -1297,7 +1464,7 @@ func (cpi *ControlPlaneInstaller) stopWritersAndBackupLocked(
 	}
 
 	// scale the control plane writers to zero and back up
-	replicas, err := cpi.scaleDownAndBackup(kubeClient, bucket)
+	replicas, err := cpi.scaleDownAndBackup(kubeClient, bucket, databases)
 	return replicas, scales, err
 }
 
@@ -1457,15 +1624,15 @@ func (cpi *ControlPlaneInstaller) StopSourceAndRestore(
 	}
 	return func() error {
 		// drop the saved source before the writers resume
-		if err := cpi.clearRestoreRecord(kubeClient); err != nil {
+		if err := cpi.ClearRestoreRecord(kubeClient); err != nil {
 			return err
 		}
 		return source.ResumeWriters(kubeClient, replicas, scales)
 	}, nil
 }
 
-// clearRestoreRecord drops the saved source so a later restore takes a new backup.
-func (cpi *ControlPlaneInstaller) clearRestoreRecord(kubeClient dynamic.Interface) error {
+// ClearRestoreRecord drops the saved source so a later restore takes a new backup.
+func (cpi *ControlPlaneInstaller) ClearRestoreRecord(kubeClient dynamic.Interface) error {
 	// delete the config map that names the restored source
 	err := kubeClient.Resource(configMapResource).Namespace(cpi.Opts.Namespace).Delete(
 		context.Background(),
@@ -1492,7 +1659,7 @@ func resumeSourceWriters(
 	cause error,
 ) error {
 	// the source is writing again, so the saved snapshot cannot be reused
-	if err := replacement.clearRestoreRecord(kubeClient); err != nil {
+	if err := replacement.ClearRestoreRecord(kubeClient); err != nil {
 		return fmt.Errorf("%w (clear restore record: %v)", cause, err)
 	}
 	if resumeErr := source.ResumeWriters(kubeClient, replicas, scales); resumeErr != nil {
@@ -1501,11 +1668,12 @@ func resumeSourceWriters(
 	return cause
 }
 
-// scaleDownAndBackup records writer counts, scales them to zero, and backs up the database.
+// scaleDownAndBackup records writer counts, scales them to zero, and backs up the databases.
 // The writers stay stopped.
 func (cpi *ControlPlaneInstaller) scaleDownAndBackup(
 	kubeClient dynamic.Interface,
 	bucket string,
+	moduleDatabases []string,
 ) (map[string]int64, error) {
 	// record the counts before any deployment is scaled
 	replicas, err := cpi.recordReplicasBeforeRestore(kubeClient, cpi.Opts.Namespace)
@@ -1552,19 +1720,21 @@ func (cpi *ControlPlaneInstaller) scaleDownAndBackup(
 		return replicas, err
 	}
 
-	// back up once, with no writer left to change the database
-	uri := DatabaseBackupURI(bucket, cpi.Opts.Namespace)
-	statement := fmt.Sprintf("BACKUP DATABASE %s INTO '%s';", DatabaseName, uri)
+	// back up the control plane database and each module database
+	statements, err := databaseBackupStatements(bucket, cpi.Opts.Namespace, moduleDatabases)
+	if err != nil {
+		return replicas, err
+	}
 	if err := runRestorePhase(
 		kubeClient,
 		cpi.Opts.Namespace,
 		backupJobName,
-		[]string{statement},
+		statements,
 		restoreDatabaseJobBackoffLimit,
 	); err != nil {
 		return replicas, err
 	}
-	fmt.Println(uri)
+	fmt.Println(DatabaseBackupURI(bucket, cpi.Opts.Namespace))
 	fmt.Println("Info: database backup complete")
 
 	return replicas, nil

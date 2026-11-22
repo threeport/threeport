@@ -9,6 +9,9 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
+// ErrNoLocalControlPlane is returned when a control plane stores no local row.
+var ErrNoLocalControlPlane = errors.New("no local control plane instance")
+
 // GetControlPlaneInstancesByControlPlaneDefinitionID fetches control plane
 // instances by control plane definition ID.
 func GetControlPlaneInstancesByControlPlaneDefinitionID(apiClient *http.Client, apiAddr string, id uint) (*[]v0.ControlPlaneInstance, error) {
@@ -29,7 +32,7 @@ func GetSelfControlPlaneInstance(apiClient *http.Client, apiAddr string) (*v0.Co
 
 	switch {
 	case len(*controlPlaneInstances) < 1:
-		return &v0.ControlPlaneInstance{}, errors.New("no local control plane instance")
+		return &v0.ControlPlaneInstance{}, ErrNoLocalControlPlane
 	case len(*controlPlaneInstances) > 1:
 		return &v0.ControlPlaneInstance{}, errors.New(fmt.Sprintf("more than one local control plane instance %d returned", len(*controlPlaneInstances)))
 	}

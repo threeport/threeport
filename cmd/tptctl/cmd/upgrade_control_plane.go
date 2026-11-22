@@ -23,6 +23,15 @@ import (
 // upgradeImageTag is the image tag the command writes.
 var upgradeImageTag string
 
+// upgradeOldControlPlaneName names the control plane an upgrade changes.
+// An empty value changes the connected control plane.
+var upgradeOldControlPlaneName string
+
+const (
+	upgradeOldControlPlaneFlag = "old-control-plane-name"
+	upgradeOldControlPlaneHelp = "Name of the control plane this upgrade changes. Empty changes the connected control plane."
+)
+
 // upgradeImageNamespace is the image repo to record when the flag is set.
 var upgradeImageNamespace string
 
@@ -71,7 +80,7 @@ recreate manifests, RBAC, or configmaps. Use tptctl reinstall for those.`,
 		// reject a child connection, then select the named descendant
 		controlPlaneInstance, err = upgradeRollTarget(
 			controlPlaneInstance,
-			cliArgs.ControlPlaneName,
+			upgradeOldControlPlaneName,
 			func(name string) (*api_v0.ControlPlaneInstance, error) {
 				return client.GetControlPlaneInstanceByName(apiClient, apiEndpoint, name)
 			},
@@ -85,12 +94,12 @@ recreate manifests, RBAC, or configmaps. Use tptctl reinstall for those.`,
 		}
 
 		// record the child and let its controller roll the deployments
-		if cliArgs.ControlPlaneName != "" {
+		if upgradeOldControlPlaneName != "" {
 			if err := recordControlPlaneImage(apiClient, apiEndpoint, controlPlaneInstance.ID); err != nil {
 				cli.Error("failed to record control plane image", err)
 				os.Exit(1)
 			}
-			cli.Complete(fmt.Sprintf("recorded image %s on %s", upgradeImageTag, cliArgs.ControlPlaneName))
+			cli.Complete(fmt.Sprintf("recorded image %s on %s", upgradeImageTag, upgradeOldControlPlaneName))
 			return
 		}
 
@@ -271,6 +280,10 @@ func init() {
 	upgradeControlPlaneCmd.PersistentFlags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	upgradeControlPlaneCmd.PersistentFlags().StringVar(
+		&upgradeOldControlPlaneName,
+		upgradeOldControlPlaneFlag, "", upgradeOldControlPlaneHelp,
 	)
 
 	UpgradeControlPlaneCmd.Flags().StringVar(
