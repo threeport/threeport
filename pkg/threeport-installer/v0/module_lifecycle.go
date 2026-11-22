@@ -363,7 +363,7 @@ func ModuleInstallAfterRun(stored string, started string) string {
 }
 
 // ModuleInstallRequest is the value stored for the parent controller to run.
-// A namespace passed in, or the one the module endpoint records, is stored after the image tag.
+// A namespace that differs from the default is stored after the image tag.
 func ModuleInstallRequest(module *api.ModuleApi, moduleNamespace ...string) string {
 	// keep the name, image namespace, and tag, then a module namespace when one is set
 	parts := []string{
@@ -375,10 +375,7 @@ func ModuleInstallRequest(module *api.ModuleApi, moduleNamespace ...string) stri
 	if len(moduleNamespace) > 0 {
 		namespace = moduleNamespace[0]
 	}
-	if namespace == "" {
-		namespace = recordedModuleNamespace(module)
-	}
-	if namespace != "" {
+	if namespace = installNamespace(module, namespace); namespace != "" {
 		parts = append(parts, namespace)
 	}
 	return strings.Join(parts, " ")
@@ -642,10 +639,8 @@ func EnsureModuleInstallJob(
 	module *api.ModuleApi,
 	moduleNamespace string,
 ) (bool, error) {
-	// use the namespace the module endpoint records when the caller did not pass one
-	if moduleNamespace == "" {
-		moduleNamespace = recordedModuleNamespace(module)
-	}
+	// omit the default namespace so an older plugin still accepts the install
+	moduleNamespace = installNamespace(module, moduleNamespace)
 
 	// read the job for this module
 	kebab := moduleKebab(util.DerefString(module.Name))
@@ -815,6 +810,26 @@ func WorkloadRESTMapper() meta.RESTMapper {
 	return mapper
 }
 
+// installNamespace returns the namespace to pass to an install.
+// The default namespace is left empty so an older plugin still runs.
+func installNamespace(module *api.ModuleApi, moduleNamespace string) string {
+	// use the recorded namespace when the caller did not pass one
+	if moduleNamespace == "" {
+		moduleNamespace = recordedModuleNamespace(module)
+	}
+
+	// drop the default namespace so the install flag stays off
+	if moduleNamespace == defaultModuleNamespace(module) {
+		return ""
+	}
+	return moduleNamespace
+}
+
+// defaultModuleNamespace returns the namespace an install uses when none is set.
+func defaultModuleNamespace(module *api.ModuleApi) string {
+	return moduleWorkloadPrefix + moduleKebab(util.DerefString(module.Name))
+}
+
 // recordedModuleNamespace returns the namespace the module endpoint records.
 func recordedModuleNamespace(module *api.ModuleApi) string {
 	// read the namespace the endpoint records
@@ -831,7 +846,7 @@ func moduleWorkloadNamespace(module *api.ModuleApi) string {
 		return namespace
 	}
 
-	return moduleWorkloadPrefix + moduleKebab(util.DerefString(module.Name))
+	return defaultModuleNamespace(module)
 }
 
 // moduleInstallJobName returns the install job name for one module on one control plane.
