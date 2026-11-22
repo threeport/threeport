@@ -183,6 +183,92 @@ func TestRefreshRestoredGenesisWritesTheServingName(t *testing.T) {
 	}
 }
 
+// TestRefreshRestoredGenesisKeepsTheNameWhenTheImageIsRefused checks the name is stored when the image update is refused.
+func TestRefreshRestoredGenesisKeepsTheNameWhenTheImageIsRefused(t *testing.T) {
+	// serve the old image, accept the name, and refuse the new image
+	const serving = "genesis-06"
+	const oldTag = "v0.7.0-rc.5"
+	const newTag = "v0.7.0-rc.6"
+	patches := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPatch {
+			patches++
+			payload, readErr := io.ReadAll(r.Body)
+			if readErr != nil {
+				t.Error(readErr)
+			}
+			body := string(payload)
+			if patches == 1 {
+				if !strings.Contains(body, serving) || strings.Contains(body, newTag) {
+					t.Errorf("name patch %s", body)
+				}
+				w.WriteHeader(http.StatusOK)
+				fmt.Fprintf(w, `{"Meta":{"ObjectCount":1},"Data":[{"ID":4,"Name":%q,"ImageTag":%q,"Genesis":true,"IsSelf":false}],"Status":{"code":200,"message":"OK"}}`, serving, oldTag)
+				return
+			}
+			if !strings.Contains(body, newTag) {
+				t.Errorf("image patch %s", body)
+			}
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, `{"Status":{"code":400,"error":"cannot update ImageTag on a control plane this API does not serve"}}`)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, `{"Meta":{"ObjectCount":1},"Data":[{"ID":4,"Name":"genesis-05","ImageTag":%q,"Genesis":true,"IsSelf":false}],"Status":{"code":200,"message":"OK"}}`, oldTag)
+	}))
+	defer server.Close()
+
+	// store the name and continue when the image is refused
+	current := &api.ControlPlaneInstance{
+		Name:     util.Ptr(serving),
+		ImageTag: util.Ptr(newTag),
+	}
+	if err := RefreshRestoredGenesis(server.Client(), apiAddr(server), current); err != nil {
+		t.Fatal(err)
+	}
+	if patches != 2 {
+		t.Fatalf("patches %d", patches)
+	}
+}
+
+// TestRefreshRestoredGenesisReturnsAnImageWriteFailure checks an image update error is returned.
+func TestRefreshRestoredGenesisReturnsAnImageWriteFailure(t *testing.T) {
+	// accept the name and fail the image write
+	const serving = "genesis-06"
+	const oldTag = "v0.7.0-rc.5"
+	const newTag = "v0.7.0-rc.6"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPatch {
+			payload, readErr := io.ReadAll(r.Body)
+			if readErr != nil {
+				t.Error(readErr)
+			}
+			if strings.Contains(string(payload), newTag) {
+				w.WriteHeader(http.StatusInternalServerError)
+				fmt.Fprint(w, `{"Status":{"code":500,"error":"database unavailable"}}`)
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprintf(w, `{"Meta":{"ObjectCount":1},"Data":[{"ID":4,"Name":%q,"ImageTag":%q,"Genesis":true,"IsSelf":false}],"Status":{"code":200,"message":"OK"}}`, serving, oldTag)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, `{"Meta":{"ObjectCount":1},"Data":[{"ID":4,"Name":"genesis-05","ImageTag":%q,"Genesis":true,"IsSelf":false}],"Status":{"code":200,"message":"OK"}}`, oldTag)
+	}))
+	defer server.Close()
+
+	// return the image update error
+	current := &api.ControlPlaneInstance{
+		Name:     util.Ptr(serving),
+		ImageTag: util.Ptr(newTag),
+	}
+	if err := RefreshRestoredGenesis(server.Client(), apiAddr(server), current); err == nil {
+		t.Fatal("image update error was ignored")
+	}
+}
+
 // rows builds the id map parentChainReaches walks.
 func rows(self uint, selfParent *uint, primary uint, primaryParent *uint) map[uint]api.ControlPlaneInstance {
 	// map each id to its parent

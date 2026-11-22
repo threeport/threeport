@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
@@ -142,16 +143,28 @@ func refreshCopiedGenesis(stored, current *v0.ControlPlaneInstance) (*v0.Control
 		return stored, false
 	}
 
-	// copy the identity and credentials the parent is serving now
+	// copy the name, then the image and certificates
+	changed := copyControlPlaneIdentity(stored, current)
+	changed = copyControlPlaneImage(stored, current) || changed
+	return stored, changed
+}
+
+// copyControlPlaneIdentity copies the name, namespace, and API address.
+func copyControlPlaneIdentity(stored, current *v0.ControlPlaneInstance) bool {
+	// copy each field the release base already accepts
 	changed := copyControlPlaneString(&stored.Name, current.Name)
 	changed = copyControlPlaneString(&stored.Namespace, current.Namespace) || changed
-	changed = copyControlPlaneString(&stored.ApiServerEndpoint, current.ApiServerEndpoint) || changed
-	changed = copyControlPlaneString(&stored.ImageNamespace, current.ImageNamespace) || changed
+	return copyControlPlaneString(&stored.ApiServerEndpoint, current.ApiServerEndpoint) || changed
+}
+
+// copyControlPlaneImage copies the image and the client certificates.
+func copyControlPlaneImage(stored, current *v0.ControlPlaneInstance) bool {
+	// copy each field a release-base api can refuse
+	changed := copyControlPlaneString(&stored.ImageNamespace, current.ImageNamespace)
 	changed = copyControlPlaneString(&stored.ImageTag, current.ImageTag) || changed
 	changed = copyControlPlaneString(&stored.CACert, current.CACert) || changed
 	changed = copyControlPlaneString(&stored.ClientCert, current.ClientCert) || changed
-	changed = copyControlPlaneString(&stored.ClientKey, current.ClientKey) || changed
-	return stored, changed
+	return copyControlPlaneString(&stored.ClientKey, current.ClientKey) || changed
 }
 
 // RefreshRestoredGenesis writes the current genesis onto the restored copy.
@@ -172,15 +185,43 @@ func RefreshRestoredGenesis(apiClient *http.Client, apiAddr string, current *v0.
 		return fmt.Errorf("failed to get restored genesis control plane: %w", err)
 	}
 
-	// write the row when a copied field moved
-	updated, changed := refreshCopiedGenesis(stored, current)
-	if !changed {
+	// leave the replacement's own row alone
+	if stored == nil || (stored.IsSelf != nil && *stored.IsSelf) {
 		return nil
 	}
-	if _, err := UpdateControlPlaneInstance(apiClient, apiAddr, updated); err != nil {
+
+	// write the name and address before the image
+	if copyControlPlaneIdentity(stored, current) {
+		if _, err := UpdateControlPlaneInstance(apiClient, apiAddr, stored); err != nil {
+			return fmt.Errorf("failed to refresh restored genesis control plane: %w", err)
+		}
+	}
+
+	// write the image and certificates when the child api accepts them
+	if !copyControlPlaneImage(stored, current) {
+		return nil
+	}
+	if _, err := UpdateControlPlaneInstance(apiClient, apiAddr, stored); err != nil {
+		if releaseBaseRejectsGenesisImage(err) {
+			return nil
+		}
 		return fmt.Errorf("failed to refresh restored genesis control plane: %w", err)
 	}
 	return nil
+}
+
+// releaseBaseRejectsGenesisImage reports a release-base API refusing the image or a certificate.
+func releaseBaseRejectsGenesisImage(err error) bool {
+	// match the column named in the bad request
+	if err == nil {
+		return false
+	}
+	for _, field := range []string{"ImageNamespace", "ImageTag", "CACert", "ClientCert", "ClientKey"} {
+		if strings.Contains(err.Error(), "cannot update "+field) {
+			return true
+		}
+	}
+	return false
 }
 
 // copyControlPlaneString copies a non-empty input argument onto the stored field.
