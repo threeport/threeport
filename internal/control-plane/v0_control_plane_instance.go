@@ -911,7 +911,7 @@ func v0ControlPlaneInstanceCreated(
 	genesisInstance.ControlPlaneDefinitionID = &genDefID
 	genesisInstance.KubernetesRuntimeInstanceID = &genKubeRuntimeInstanceID
 
-	// rename the restored genesis row before a lookup by the current name
+	// write the serving genesis onto the restored row before the name lookup
 	if err := client.RefreshRestoredGenesis(newApiClient, threeportAPIEndpoint, genesisInstance); err != nil {
 		return 0, err
 	}

@@ -49,7 +49,7 @@ func TestReparentDetachedSkipsAncestors(t *testing.T) {
 
 // TestRefreshCopiedGenesisWritesTheCurrentIdentity covers a restored genesis row and a self row.
 func TestRefreshCopiedGenesisWritesTheCurrentIdentity(t *testing.T) {
-	// a copied genesis row takes the current name, address, and image
+	// a copied genesis row takes the current name, address, image, and certificate
 	definitionID := uint(12)
 	stored := &api.ControlPlaneInstance{
 		ID:                          util.Ptr(uint(4)),
@@ -71,7 +71,7 @@ func TestRefreshCopiedGenesisWritesTheCurrentIdentity(t *testing.T) {
 		CACert:            util.Ptr("ca-current"),
 		ClientKey:         util.Ptr(""),
 	}
-	updated, changed := RefreshCopiedGenesis(stored, current)
+	updated, changed := refreshCopiedGenesis(stored, current)
 	if !changed {
 		t.Fatal("restored genesis row was left unchanged")
 	}
@@ -103,13 +103,13 @@ func TestRefreshCopiedGenesisWritesTheCurrentIdentity(t *testing.T) {
 	// the replacement's own row stays as it is
 	self := true
 	own := &api.ControlPlaneInstance{IsSelf: &self, Name: util.Ptr("primary-14")}
-	kept, changed := RefreshCopiedGenesis(own, current)
+	kept, changed := refreshCopiedGenesis(own, current)
 	if changed || kept.Name == nil || *kept.Name != "primary-14" {
 		t.Fatal("self row was treated as the copied genesis row")
 	}
 
 	// a row that already matches is not written again
-	_, changed = RefreshCopiedGenesis(updated, current)
+	_, changed = refreshCopiedGenesis(updated, current)
 	if changed {
 		t.Fatal("matching genesis row was marked changed")
 	}

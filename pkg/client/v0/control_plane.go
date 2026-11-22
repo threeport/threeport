@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
@@ -113,6 +112,9 @@ func parentChainReaches(byID map[uint]v0.ControlPlaneInstance, start uint, ances
 	return false
 }
 
+// ErrNoGenesisControlPlane is returned when the database has no genesis row.
+var ErrNoGenesisControlPlane = errors.New("no local control plane instance")
+
 // GetGenesisControlPlaneInstance fetches the genesis control instance
 func GetGenesisControlPlaneInstance(apiClient *http.Client, apiAddr string) (*v0.ControlPlaneInstance, error) {
 	controlPlaneInstances, err := GetControlPlaneInstancesByQueryString(apiClient, apiAddr, "genesis=true")
@@ -122,7 +124,7 @@ func GetGenesisControlPlaneInstance(apiClient *http.Client, apiAddr string) (*v0
 
 	switch {
 	case len(*controlPlaneInstances) < 1:
-		return &v0.ControlPlaneInstance{}, errors.New("no local control plane instance")
+		return &v0.ControlPlaneInstance{}, ErrNoGenesisControlPlane
 	case len(*controlPlaneInstances) > 1:
 		return &v0.ControlPlaneInstance{}, errors.New(fmt.Sprintf("more than one local control plane instance %d returned", len(*controlPlaneInstances)))
 	}
@@ -130,9 +132,9 @@ func GetGenesisControlPlaneInstance(apiClient *http.Client, apiAddr string) (*v0
 	return &(*controlPlaneInstances)[0], nil
 }
 
-// RefreshCopiedGenesis copies the current genesis name, namespace, address, and image onto a restored row.
-// A self row is left unchanged, and the stored definition and runtime stay.
-func RefreshCopiedGenesis(stored, current *v0.ControlPlaneInstance) (*v0.ControlPlaneInstance, bool) {
+// refreshCopiedGenesis copies the serving genesis onto a restored row.
+// The self row, definition, and runtime stay, and an empty value does not wipe.
+func refreshCopiedGenesis(stored, current *v0.ControlPlaneInstance) (*v0.ControlPlaneInstance, bool) {
 	// leave the replacement's own row alone
 	if stored == nil ||
 		current == nil ||
@@ -155,20 +157,23 @@ func RefreshCopiedGenesis(stored, current *v0.ControlPlaneInstance) (*v0.Control
 // RefreshRestoredGenesis writes the current genesis onto the restored copy.
 // A database with no genesis row is left for the caller to create.
 func RefreshRestoredGenesis(apiClient *http.Client, apiAddr string, current *v0.ControlPlaneInstance) error {
-	// a caller with no current genesis leaves the restored row alone
+	// leave the restored row alone when the caller has no current genesis
 	if current == nil {
 		return nil
 	}
+
+	// read the genesis row the backup restored
 	stored, err := GetGenesisControlPlaneInstance(apiClient, apiAddr)
 	if err != nil {
-		if strings.Contains(err.Error(), "no local control plane instance") {
+		// leave a database with no genesis row for the caller to create
+		if errors.Is(err, ErrNoGenesisControlPlane) {
 			return nil
 		}
 		return fmt.Errorf("failed to get restored genesis control plane: %w", err)
 	}
 
-	// write the row when its name, address, or image moved
-	updated, changed := RefreshCopiedGenesis(stored, current)
+	// write the row when a copied field moved
+	updated, changed := refreshCopiedGenesis(stored, current)
 	if !changed {
 		return nil
 	}
@@ -178,9 +183,9 @@ func RefreshRestoredGenesis(apiClient *http.Client, apiAddr string, current *v0.
 	return nil
 }
 
-// copyControlPlaneString copies a non-empty value onto dest and reports whether it changed.
+// copyControlPlaneString copies a non-empty input argument onto the stored field.
 func copyControlPlaneString(dest **string, value *string) bool {
-	// an empty current value does not wipe a stored one
+	// leave an empty current value in place
 	next := ""
 	if value != nil {
 		next = *value
