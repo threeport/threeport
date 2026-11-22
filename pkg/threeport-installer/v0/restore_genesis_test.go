@@ -67,3 +67,33 @@ func TestRefreshManagedChildGenesisWritesTheServingName(t *testing.T) {
 		t.Fatalf("patches %d", patches)
 	}
 }
+
+// TestRefreshManagedChildGenesisLeavesAnUnreachableChild checks an offline child does not fail the restore.
+func TestRefreshManagedChildGenesisLeavesAnUnreachableChild(t *testing.T) {
+	// list one managed child whose API address accepts nothing
+	parent := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		if strings.Contains(r.URL.RawQuery, "genesis=true") {
+			fmt.Fprint(w, `{"Data":[{"ID":1,"Name":"parent-02","Genesis":true,"IsSelf":true}]}`)
+			return
+		}
+		fmt.Fprint(w, `{"Meta":{"Pagination":{"HasMore":false}},"Data":[
+			{"ID":1,"Name":"parent-02","Genesis":true,"IsSelf":true},
+			{"ID":2,"Name":"child-01","ParentControlPlaneInstanceID":1,"ApiServerEndpoint":"127.0.0.1:1"}
+		]}`)
+	}))
+	t.Cleanup(parent.Close)
+
+	// finish the restore and leave the copy for a later reconcile
+	selfID := uint(1)
+	self := &api.ControlPlaneInstance{ID: &selfID}
+	err := refreshManagedChildGenesis(
+		parent.Client(),
+		strings.TrimPrefix(parent.URL, "http://"),
+		self,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+}

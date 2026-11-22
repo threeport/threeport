@@ -1768,7 +1768,7 @@ func (cpi *ControlPlaneInstaller) retargetRestoredSelf(apiClient *http.Client, e
 		return err
 	}
 
-	// write that genesis row onto each child that has an api address
+	// write that genesis row onto each child that answers
 	if err := refreshManagedChildGenesis(apiClient, endpoint, self); err != nil {
 		return err
 	}
@@ -1777,7 +1777,7 @@ func (cpi *ControlPlaneInstaller) retargetRestoredSelf(apiClient *http.Client, e
 }
 
 // refreshManagedChildGenesis writes the genesis row this API is serving onto each child.
-// Leave a child with no API address until it has one.
+// Leave a child with no API address, or one that does not answer, for a later reconcile.
 func refreshManagedChildGenesis(apiClient *http.Client, endpoint string, self *api.ControlPlaneInstance) error {
 	// a restore with no self id has no children to update
 	if self == nil || self.ID == nil {
@@ -1799,23 +1799,22 @@ func refreshManagedChildGenesis(apiClient *http.Client, endpoint string, self *a
 		return fmt.Errorf("failed to get control plane instances: %w", err)
 	}
 
-	// write the serving genesis onto each managed child
-	var updateErrors []error
+	// write the serving genesis onto each managed child that answers
 	for i := range *instances {
 		instance := &(*instances)[i]
 		if !managedChild(self, instance) {
 			continue
 		}
+		name := util.DerefString(instance.Name)
 		childClient, err := HTTPClientForInstance(instance)
-		if err != nil {
-			updateErrors = append(updateErrors, fmt.Errorf("failed to reach control plane %s: %w", util.DerefString(instance.Name), err))
-			continue
+		if err == nil {
+			err = client.RefreshRestoredGenesis(childClient, util.DerefString(instance.ApiServerEndpoint), current)
 		}
-		if err := client.RefreshRestoredGenesis(childClient, util.DerefString(instance.ApiServerEndpoint), current); err != nil {
-			updateErrors = append(updateErrors, fmt.Errorf("failed to refresh genesis on %s: %w", util.DerefString(instance.Name), err))
+		if err != nil {
+			fmt.Printf("Info: leaving the genesis copy on %s for a later reconcile: %v\n", name, err)
 		}
 	}
-	return errors.Join(updateErrors...)
+	return nil
 }
 
 // managedChild reports a control plane this one manages that has an API address.
