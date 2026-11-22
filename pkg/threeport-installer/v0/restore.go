@@ -1777,7 +1777,7 @@ func (cpi *ControlPlaneInstaller) retargetRestoredSelf(apiClient *http.Client, e
 }
 
 // refreshManagedChildGenesis writes the genesis row this API is serving onto each child.
-// Leave a child with no API address, or one that does not answer, for a later reconcile.
+// A child that does not answer is marked unreconciled so the controller retries the copy.
 func refreshManagedChildGenesis(apiClient *http.Client, endpoint string, self *api.ControlPlaneInstance) error {
 	// a restore with no self id has no children to update
 	if self == nil || self.ID == nil {
@@ -1812,6 +1812,12 @@ func refreshManagedChildGenesis(apiClient *http.Client, endpoint string, self *a
 		}
 		if err != nil {
 			fmt.Printf("Info: leaving the genesis copy on %s for a later reconcile: %v\n", name, err)
+			// mark the child unreconciled so the controller retries the copy
+			unreconciled := false
+			instance.Reconciled = &unreconciled
+			if _, updateErr := client.UpdateControlPlaneInstance(apiClient, endpoint, instance); updateErr != nil {
+				fmt.Printf("Info: could not queue reconcile for %s: %v\n", name, updateErr)
+			}
 		}
 	}
 	return nil

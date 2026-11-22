@@ -71,8 +71,21 @@ func TestRefreshManagedChildGenesisWritesTheServingName(t *testing.T) {
 // TestRefreshManagedChildGenesisLeavesAnUnreachableChild checks an offline child does not fail the restore.
 func TestRefreshManagedChildGenesisLeavesAnUnreachableChild(t *testing.T) {
 	// list one managed child whose API address accepts nothing
+	queued := false
 	parent := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPatch {
+			body, readErr := io.ReadAll(r.Body)
+			if readErr != nil {
+				t.Error(readErr)
+			}
+			if strings.Contains(strings.ReplaceAll(string(body), " ", ""), `"Reconciled":false`) {
+				queued = true
+			}
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprint(w, `{"Data":[{"ID":2,"Reconciled":false}]}`)
+			return
+		}
 		w.WriteHeader(http.StatusOK)
 		if strings.Contains(r.URL.RawQuery, "genesis=true") {
 			fmt.Fprint(w, `{"Data":[{"ID":1,"Name":"parent-02","Genesis":true,"IsSelf":true}]}`)
@@ -80,12 +93,12 @@ func TestRefreshManagedChildGenesisLeavesAnUnreachableChild(t *testing.T) {
 		}
 		fmt.Fprint(w, `{"Meta":{"Pagination":{"HasMore":false}},"Data":[
 			{"ID":1,"Name":"parent-02","Genesis":true,"IsSelf":true},
-			{"ID":2,"Name":"child-01","ParentControlPlaneInstanceID":1,"ApiServerEndpoint":"127.0.0.1:1"}
+			{"ID":2,"Name":"child-01","Reconciled":true,"ParentControlPlaneInstanceID":1,"ApiServerEndpoint":"127.0.0.1:1"}
 		]}`)
 	}))
 	t.Cleanup(parent.Close)
 
-	// finish the restore and leave the copy for a later reconcile
+	// finish the restore and mark the child for another reconcile
 	selfID := uint(1)
 	self := &api.ControlPlaneInstance{ID: &selfID}
 	err := refreshManagedChildGenesis(
@@ -95,5 +108,8 @@ func TestRefreshManagedChildGenesisLeavesAnUnreachableChild(t *testing.T) {
 	)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if !queued {
+		t.Fatal("child was not marked unreconciled")
 	}
 }
