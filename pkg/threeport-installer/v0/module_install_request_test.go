@@ -79,6 +79,9 @@ func TestInstallRequestedModuleCreatesTheJob(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, installJobName, job.GetName())
 
+	// assert a request with no namespace leaves the flag off the job
+	require.NotContains(t, installContainerArgs(t, job), "--"+ModuleNamespaceFlag)
+
 	// assert the config secret sits in the control plane namespace, beside the job
 	require.True(t, resourceExists(t, kubeClient, secretsResource, namespace, installSecretName))
 
@@ -453,4 +456,162 @@ func TestAJobWithAPendingRetryIsNotFailed(t *testing.T) {
 		"status": map[string]interface{}{"succeeded": int64(1), "conditions": failedConditions()},
 	}}
 	require.False(t, jobFailed(succeeded))
+}
+
+// installContainerArgs reads the install container arguments from a job.
+func installContainerArgs(t *testing.T, job *unstructured.Unstructured) []string {
+	t.Helper()
+
+	// read the install container
+	containers, _, err := unstructured.NestedSlice(job.Object, "spec", "template", "spec", "containers")
+	require.NoError(t, err)
+	require.NotEmpty(t, containers)
+	container := containers[0].(map[string]interface{})
+	raw, _, err := unstructured.NestedSlice(container, "args")
+	require.NoError(t, err)
+
+	// copy each argument out as a string
+	args := make([]string, len(raw))
+	for i, arg := range raw {
+		args[i] = fmt.Sprint(arg)
+	}
+	return args
+}
+
+// installKeySecret returns the encryption key the install config reads.
+func installKeySecret(namespace string) *unstructured.Unstructured {
+	return &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "Secret",
+		"metadata": map[string]interface{}{
+			"name":      EncryptionKeySecret,
+			"namespace": namespace,
+		},
+		"data": map[string]interface{}{
+			encryption.KeyEnvVar: base64.StdEncoding.EncodeToString([]byte("example-key")),
+		},
+	}}
+}
+
+// installExampleRequest returns a stored install for the example module.
+func installExampleRequest(moduleNamespace string) string {
+	return ModuleInstallRequest(&v0.ModuleApi{
+		Name:           util.Ptr("example.com/example-module-api"),
+		ImageNamespace: util.Ptr("registry.example"),
+		ImageTag:       util.Ptr("abc123"),
+	}, moduleNamespace)
+}
+
+// TestModuleInstallRequestStoresANamespace checks the stored request shape.
+func TestModuleInstallRequestStoresANamespace(t *testing.T) {
+	// a request with no namespace stays three fields
+	stored := installExampleRequest("")
+	require.Equal(t, "example.com/example-module-api registry.example abc123", stored)
+	_, moduleNamespace, err := moduleFromInstallRequest(stored)
+	require.NoError(t, err)
+	require.Empty(t, moduleNamespace)
+
+	// a namespace is stored after the tag and read back
+	stored = installExampleRequest("threeport-example-b")
+	require.Equal(t, "example.com/example-module-api registry.example abc123 threeport-example-b", stored)
+	_, moduleNamespace, err = moduleFromInstallRequest(stored)
+	require.NoError(t, err)
+	require.Equal(t, "threeport-example-b", moduleNamespace)
+}
+
+// TestInstallRequestedModuleRejectsATakenNamespace checks that a taken namespace stops a new install.
+func TestInstallRequestedModuleRejectsATakenNamespace(t *testing.T) {
+	// seed the default namespace with no owner label
+	namespace := installControlPlaneNamespace
+	mapper := WorkloadRESTMapper()
+	kubeClient := testKubeClient(testModuleNamespace("threeport-example", "uid"))
+	request := installExampleRequest("")
+	name := namespace
+	endpoint := "https://api.example"
+	instance := &v0.ControlPlaneInstance{
+		Name:              &name,
+		Namespace:         &namespace,
+		ApiServerEndpoint: &endpoint,
+		ModuleInstall:     &request,
+	}
+	cpi := NewInstaller(Namespace(namespace))
+	cpi.Opts.ControllerList = nil
+
+	// refuse the install and leave the job uncreated
+	finished, err := InstallRequestedModule(kubeClient, &mapper, instance, cpi)
+	require.ErrorIs(t, err, ErrModuleNamespaceExists)
+	require.False(t, finished)
+	require.False(t, resourceExists(t, kubeClient, schema.GroupVersionResource{
+		Group: "batch", Version: "v1", Resource: "jobs",
+	}, namespace, installJobName))
+}
+
+// TestInstallRequestedModuleAcceptsAnotherNamespace checks that a free namespace still installs.
+func TestInstallRequestedModuleAcceptsAnotherNamespace(t *testing.T) {
+	// seed the default namespace, and leave the named namespace absent
+	namespace := installControlPlaneNamespace
+	mapper := WorkloadRESTMapper()
+	kubeClient := testKubeClient(
+		testModuleNamespace("threeport-example", "uid"),
+		installKeySecret(namespace),
+	)
+	request := installExampleRequest("threeport-example-b")
+	name := namespace
+	endpoint := "https://api.example"
+	instance := &v0.ControlPlaneInstance{
+		Name:              &name,
+		Namespace:         &namespace,
+		ApiServerEndpoint: &endpoint,
+		ModuleInstall:     &request,
+	}
+	cpi := NewInstaller(Namespace(namespace))
+	cpi.Opts.ControllerList = nil
+
+	// create the job and pass the named namespace
+	finished, err := InstallRequestedModule(kubeClient, &mapper, instance, cpi)
+	require.NoError(t, err)
+	require.False(t, finished)
+	job, err := kubeClient.Resource(schema.GroupVersionResource{
+		Group: "batch", Version: "v1", Resource: "jobs",
+	}).Namespace(namespace).Get(context.Background(), installJobName, metav1.GetOptions{})
+	require.NoError(t, err)
+	require.Equal(t, []string{
+		"install",
+		"--control-plane-image-namespace",
+		"registry.example",
+		"--control-plane-image-tag",
+		"abc123",
+		"--" + ModuleNamespaceFlag,
+		"threeport-example-b",
+	}, installContainerArgs(t, job))
+}
+
+// TestInstallRequestedModuleKeepsItsOwnNamespace checks that a retry continues
+// when this control plane already labeled the namespace.
+func TestInstallRequestedModuleKeepsItsOwnNamespace(t *testing.T) {
+	// seed the default namespace labeled for this control plane
+	namespace := installControlPlaneNamespace
+	owned := testModuleNamespace("threeport-example", "uid")
+	owned.SetLabels(map[string]string{ModuleNamespaceOwnerLabel: namespace})
+	mapper := WorkloadRESTMapper()
+	kubeClient := testKubeClient(owned, installKeySecret(namespace))
+	request := installExampleRequest("")
+	name := namespace
+	endpoint := "https://api.example"
+	instance := &v0.ControlPlaneInstance{
+		Name:              &name,
+		Namespace:         &namespace,
+		ApiServerEndpoint: &endpoint,
+		ModuleInstall:     &request,
+	}
+	cpi := NewInstaller(Namespace(namespace))
+	cpi.Opts.ControllerList = nil
+
+	// create the job without the namespace flag
+	finished, err := InstallRequestedModule(kubeClient, &mapper, instance, cpi)
+	require.NoError(t, err)
+	require.False(t, finished)
+	require.True(t, resourceExists(t, kubeClient, schema.GroupVersionResource{
+		Group: "batch", Version: "v1", Resource: "jobs",
+	}, namespace, installJobName))
 }

@@ -97,6 +97,22 @@ func TestAModuleInstallsIntoTheConnectedControlPlanesNamespace(t *testing.T) {
 	assert.Less(t, lookup, firstCopy, "the namespace is read after a secret was copied")
 }
 
+// TestAModuleRefusesANamespaceAnotherControlPlaneOwns checks the generated installer rejects a taken namespace first.
+func TestAModuleRefusesANamespaceAnotherControlPlaneOwns(t *testing.T) {
+	source := generateInstaller(t)
+
+	// assert the rejection uses the connected control plane and comes first
+	reject := strings.Index(source, "tp_installer.RejectExistingModuleNamespace(")
+	create := strings.Index(source, "create namespace")
+	require.NotEqual(t, -1, reject)
+	require.NotEqual(t, -1, create)
+	assert.Less(t, reject, create)
+	assert.Regexp(t, regexp.MustCompile(`RejectExistingModuleNamespace\(\s*i\.KubeClient,\s*i\.ModuleNamespace,\s*i\.ThreeportNamespace,`), source)
+
+	// assert the created namespace records that control plane
+	assert.Contains(t, source, "tp_installer.ModuleNamespaceOwnerLabel: i.ThreeportNamespace")
+}
+
 // TestAModuleSpreadsAndProtectsItsReplicasLikeTheControlPlane checks that the
 // generated installer gives the module API server and each controller the
 // same pod anti-affinity and disruption budget the control plane gives its own

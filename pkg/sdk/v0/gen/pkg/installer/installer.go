@@ -215,6 +215,20 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		)
 		g.Line()
 
+		g.Comment("refuse a namespace another control plane owns")
+		g.If(Err().Op(":=").Qual(
+			"github.com/threeport/threeport/pkg/threeport-installer/v0",
+			"RejectExistingModuleNamespace",
+		).Call(
+			Line().Id("i.KubeClient"),
+			Line().Id("i").Dot("ModuleNamespace"),
+			Line().Id("i").Dot("ThreeportNamespace"),
+			Line(),
+		).Op(";").Err().Op("!=").Nil()).Block(
+			Return(Err()),
+		)
+		g.Line()
+
 		g.Comment("create namespace")
 		g.Var().Id("namespace").Op("=").Op("&").Qual(
 			"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured",
@@ -224,7 +238,13 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				Lit("apiVersion"): Lit("v1"),
 				Lit("kind"):       Lit("Namespace"),
 				Lit("metadata"): Map(String()).Interface().Values(Dict{
-					Line().Lit("name"): Id("i.ModuleNamespace").Op(",").Line(),
+					Lit("name"): Id("i.ModuleNamespace"),
+					Lit("labels"): Map(String()).Interface().Values(Dict{
+						Qual(
+							"github.com/threeport/threeport/pkg/threeport-installer/v0",
+							"ModuleNamespaceOwnerLabel",
+						): Id("i").Dot("ThreeportNamespace"),
+					}),
 				}),
 			}).Op(",").Line(),
 		})

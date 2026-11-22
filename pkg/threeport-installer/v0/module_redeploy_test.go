@@ -147,6 +147,31 @@ func TestMissingModuleNamespaceIsAbsent(t *testing.T) {
 	require.False(t, present)
 }
 
+// TestRejectExistingModuleNamespaceReportsAnotherOwner covers the namespace check.
+func TestRejectExistingModuleNamespaceReportsAnotherOwner(t *testing.T) {
+	// an absent namespace is free to install into
+	require.NoError(t, RejectExistingModuleNamespace(testKubeClient(), "threeport-example", "primary-test"))
+
+	// a namespace with no owner label is taken
+	err := RejectExistingModuleNamespace(
+		testKubeClient(testModuleNamespace("threeport-example", "uid")),
+		"threeport-example",
+		"primary-test",
+	)
+	require.ErrorIs(t, err, ErrModuleNamespaceExists)
+
+	// a namespace labeled for another control plane is taken
+	other := testModuleNamespace("threeport-example", "uid")
+	other.SetLabels(map[string]string{ModuleNamespaceOwnerLabel: "genesis-test"})
+	err = RejectExistingModuleNamespace(testKubeClient(other), "threeport-example", "primary-test")
+	require.ErrorIs(t, err, ErrModuleNamespaceExists)
+
+	// a namespace this control plane labeled is left for the install
+	owned := testModuleNamespace("threeport-example", "uid")
+	owned.SetLabels(map[string]string{ModuleNamespaceOwnerLabel: "primary-test"})
+	require.NoError(t, RejectExistingModuleNamespace(testKubeClient(owned), "threeport-example", "primary-test"))
+}
+
 // TestRestartPointsTheDatabaseAtTheReplacement covers a module restart
 // rewriting the database host stored in the init command.
 func TestRestartPointsTheDatabaseAtTheReplacement(t *testing.T) {

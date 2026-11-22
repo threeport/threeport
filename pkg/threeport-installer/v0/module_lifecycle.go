@@ -35,6 +35,16 @@ var ErrModuleInstallRunning = errors.New("module install is still running")
 // is accepted.
 var ErrModuleInstallFailed = errors.New("module install failed")
 
+// ErrModuleNamespaceExists is returned when a module install finds its namespace
+// already present, so a second control plane does not install into it.
+var ErrModuleNamespaceExists = errors.New("module namespace already exists")
+
+// ModuleNamespaceFlag is the install flag that sets the module's namespace.
+const ModuleNamespaceFlag = "module-namespace"
+
+// ModuleNamespaceOwnerLabel records the control plane namespace that installed the module.
+const ModuleNamespaceOwnerLabel = "threeport.io/module-owner"
+
 const (
 	// moduleInstallMaxAttempts is how many jobs the controller runs for one request.
 	moduleInstallMaxAttempts = 3
@@ -250,7 +260,7 @@ func retagModuleAPI(
 		"apps", "v1", "Deployment", namespace, name, kubeClient, *mapper,
 	)
 	if k8serrors.IsNotFound(err) {
-		_, installErr := EnsureModuleInstallJob(kubeClient, mapper, inst, cpi, module)
+		_, installErr := EnsureModuleInstallJob(kubeClient, mapper, inst, cpi, module, "")
 		return installErr
 	}
 	if err != nil {
@@ -353,27 +363,72 @@ func ModuleInstallAfterRun(stored string, started string) string {
 }
 
 // ModuleInstallRequest is the value stored for the parent controller to run.
-func ModuleInstallRequest(module *api.ModuleApi) string {
-	// keep the three fields in an order the controller can split
-	return strings.Join([]string{
+// A non-empty module namespace is stored after the image tag.
+func ModuleInstallRequest(module *api.ModuleApi, moduleNamespace ...string) string {
+	// keep the name, image namespace, and tag, then a module namespace when one is set
+	parts := []string{
 		util.DerefString(module.Name),
 		util.DerefString(module.ImageNamespace),
 		util.DerefString(module.ImageTag),
-	}, " ")
+	}
+	if len(moduleNamespace) > 0 && moduleNamespace[0] != "" {
+		parts = append(parts, moduleNamespace[0])
+	}
+	return strings.Join(parts, " ")
 }
 
-// moduleFromInstallRequest reads the stored name, image namespace, and tag.
-func moduleFromInstallRequest(raw string) (*api.ModuleApi, error) {
+// moduleFromInstallRequest reads the stored name, image namespace, tag, and
+// module namespace. The module namespace is empty when the request has none.
+func moduleFromInstallRequest(raw string) (*api.ModuleApi, string, error) {
 	// reject a request that is missing one of the three fields
-	parts := strings.SplitN(raw, " ", 3)
-	if len(parts) != 3 || parts[0] == "" || parts[1] == "" || parts[2] == "" {
-		return nil, fmt.Errorf("module install request %q is missing a field", raw)
+	parts := strings.Split(raw, " ")
+	if len(parts) < 3 || len(parts) > 4 || parts[0] == "" || parts[1] == "" || parts[2] == "" {
+		return nil, "", fmt.Errorf("module install request %q is missing a field", raw)
+	}
+
+	// read a module namespace when the request stored one
+	moduleNamespace := ""
+	if len(parts) == 4 {
+		if parts[3] == "" {
+			return nil, "", fmt.Errorf("module install request %q is missing a field", raw)
+		}
+		moduleNamespace = parts[3]
 	}
 	return &api.ModuleApi{
 		Name:           &parts[0],
 		ImageNamespace: &parts[1],
 		ImageTag:       &parts[2],
-	}, nil
+	}, moduleNamespace, nil
+}
+
+// moduleInstallTargetNamespace returns the namespace an install writes into.
+func moduleInstallTargetNamespace(module *api.ModuleApi, moduleNamespace string) string {
+	// a non-empty moduleNamespace replaces threeport- plus the module name
+	if moduleNamespace != "" {
+		return moduleNamespace
+	}
+	return moduleWorkloadNamespace(module)
+}
+
+// RejectExistingModuleNamespace returns an error when another control plane owns the namespace.
+// A namespace this control plane already labeled is left for the install to update.
+func RejectExistingModuleNamespace(kubeClient dynamic.Interface, namespace, owner string) error {
+	// read the namespace the install would create
+	existing, err := kubeClient.Resource(namespaceGVR).Get(context.Background(), namespace, metav1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("failed to get namespace %s: %w", namespace, err)
+	}
+
+	// allow a namespace this control plane already owns
+	if owner != "" && existing.GetLabels()[ModuleNamespaceOwnerLabel] == owner {
+		return nil
+	}
+
+	// report a namespace owned by another control plane
+	return fmt.Errorf("%w: %s", ErrModuleNamespaceExists, namespace)
 }
 
 // InstallRequestedModule drives the install job for the stored request with the
@@ -391,11 +446,11 @@ func InstallRequestedModule(
 	if raw == "" {
 		return true, nil
 	}
-	module, err := moduleFromInstallRequest(raw)
+	module, moduleNamespace, err := moduleFromInstallRequest(raw)
 	if err != nil {
 		return false, err
 	}
-	return EnsureModuleInstallJob(kubeClient, mapper, inst, cpi, module)
+	return EnsureModuleInstallJob(kubeClient, mapper, inst, cpi, module, moduleNamespace)
 }
 
 // ensureControlPlaneControllerAccount creates the account a module install job runs as.
@@ -538,6 +593,7 @@ func EnsureModuleInstallJob(
 	inst *api.ControlPlaneInstance,
 	cpi *ControlPlaneInstaller,
 	module *api.ModuleApi,
+	moduleNamespace string,
 ) (bool, error) {
 	// read the job for this module
 	kebab := moduleKebab(util.DerefString(module.Name))
@@ -616,6 +672,17 @@ func EnsureModuleInstallJob(
 		}
 	}
 
+	// refuse a namespace another control plane owns
+	if k8serrors.IsNotFound(err) {
+		if err := RejectExistingModuleNamespace(
+			kubeClient,
+			moduleInstallTargetNamespace(module, moduleNamespace),
+			namespace,
+		); err != nil {
+			return false, err
+		}
+	}
+
 	// create the account the job runs as, then write its config and the job
 	if err := cpi.ensureControlPlaneControllerAccount(kubeClient, mapper, namespace); err != nil {
 		return false, err
@@ -626,7 +693,7 @@ func EnsureModuleInstallJob(
 		return false, err
 	}
 	_, err = kube.CreateResource(
-		moduleInstallJob(namespace, kebab, module, attempts), kubeClient, *mapper,
+		moduleInstallJob(namespace, kebab, module, moduleNamespace, attempts), kubeClient, *mapper,
 	)
 	if err != nil {
 		return false, fmt.Errorf("failed to create module install job %s: %w", name, err)
@@ -979,8 +1046,21 @@ func moduleInstallConfig(
 func moduleInstallJob(
 	namespace, kebab string,
 	module *api.ModuleApi,
+	moduleNamespace string,
 	attempts int64,
 ) *unstructured.Unstructured {
+	// pass a module namespace only when the request named one
+	args := []interface{}{
+		"install",
+		"--control-plane-image-namespace",
+		util.DerefString(module.ImageNamespace),
+		"--control-plane-image-tag",
+		util.DerefString(module.ImageTag),
+	}
+	if moduleNamespace != "" {
+		args = append(args, "--"+ModuleNamespaceFlag, moduleNamespace)
+	}
+
 	// label the pod the database admits, mount the config, and run the install
 	return &unstructured.Unstructured{Object: map[string]interface{}{
 		"apiVersion": "batch/v1",
@@ -1014,13 +1094,7 @@ func moduleInstallJob(
 								kebab,
 								util.DerefString(module.ImageTag),
 							),
-							"args": []interface{}{
-								"install",
-								"--control-plane-image-namespace",
-								util.DerefString(module.ImageNamespace),
-								"--control-plane-image-tag",
-								util.DerefString(module.ImageTag),
-							},
+							"args":            args,
 							"securityContext": map[string]interface{}{"runAsUser": int64(0)},
 							"env": []interface{}{
 								map[string]interface{}{"name": "HOME", "value": "/root"},

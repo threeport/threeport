@@ -18,7 +18,7 @@ func moduleInstallPod(t *testing.T, kebab, tag string) (map[string]interface{}, 
 	job := moduleInstallJob("primary-test", kebab, &v0.ModuleApi{
 		ImageNamespace: &imageNamespace,
 		ImageTag:       &tag,
-	}, 1)
+	}, "", 1)
 	spec, ok := job.Object["spec"].(map[string]interface{})
 	require.True(t, ok)
 	template, ok := spec["template"].(map[string]interface{})
@@ -83,7 +83,7 @@ func TestModuleInstallJobHasADeadline(t *testing.T) {
 	job := moduleInstallJob("primary-test", "example-module", &v0.ModuleApi{
 		ImageNamespace: &namespace,
 		ImageTag:       &tag,
-	}, 1)
+	}, "", 1)
 	spec, ok := job.Object["spec"].(map[string]interface{})
 	require.True(t, ok)
 

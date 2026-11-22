@@ -777,13 +777,13 @@ func SplitModuleScales(
 	scales []ModuleDeploymentScale,
 ) ([]ModuleDeploymentScale, []ModuleDeploymentScale) {
 	// replace nothing when no module is requested
-	module, err := moduleFromInstallRequest(request)
+	module, moduleNamespace, err := moduleFromInstallRequest(request)
 	if err != nil {
 		return nil, scales
 	}
 
 	// split by the namespace the request's module installs into
-	namespace := moduleWorkloadNamespace(module)
+	namespace := moduleInstallTargetNamespace(module, moduleNamespace)
 	var replaced, others []ModuleDeploymentScale
 	for _, scale := range scales {
 		if scale.Namespace == namespace {

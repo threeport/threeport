@@ -984,6 +984,19 @@ func TestSplitModuleScalesReplacesOnlyTheRequestsModule(t *testing.T) {
 	replaced, others = SplitModuleScales("", scales)
 	assert.Empty(t, replaced)
 	assert.Equal(t, scales, others)
+
+	// assert a named namespace replaces that namespace, not the module default
+	named := append(scales, ModuleDeploymentScale{
+		Namespace: "threeport-example-b",
+		Name:      "threeport-example-api-server",
+		Replicas:  1,
+	})
+	replaced, others = SplitModuleScales(
+		"example.com/acme-module-api registry.example v1 threeport-example-b",
+		named,
+	)
+	assert.Equal(t, named[3:], replaced)
+	assert.Equal(t, named[:3], others)
 }
 
 // TestDeleteModuleNamespacesDeletesEachModuleNamespaceOnce covers the cleanup a
