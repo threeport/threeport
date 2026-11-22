@@ -363,7 +363,7 @@ func ModuleInstallAfterRun(stored string, started string) string {
 }
 
 // ModuleInstallRequest is the value stored for the parent controller to run.
-// A non-empty module namespace is stored after the image tag.
+// A namespace passed in, or the one the module endpoint records, is stored after the image tag.
 func ModuleInstallRequest(module *api.ModuleApi, moduleNamespace ...string) string {
 	// keep the name, image namespace, and tag, then a module namespace when one is set
 	parts := []string{
@@ -371,8 +371,15 @@ func ModuleInstallRequest(module *api.ModuleApi, moduleNamespace ...string) stri
 		util.DerefString(module.ImageNamespace),
 		util.DerefString(module.ImageTag),
 	}
-	if len(moduleNamespace) > 0 && moduleNamespace[0] != "" {
-		parts = append(parts, moduleNamespace[0])
+	namespace := ""
+	if len(moduleNamespace) > 0 {
+		namespace = moduleNamespace[0]
+	}
+	if namespace == "" {
+		namespace = recordedModuleNamespace(module)
+	}
+	if namespace != "" {
+		parts = append(parts, namespace)
 	}
 	return strings.Join(parts, " ")
 }
@@ -411,7 +418,7 @@ func moduleInstallTargetNamespace(module *api.ModuleApi, moduleNamespace string)
 }
 
 // RejectExistingModuleNamespace returns an error when another control plane owns the namespace.
-// A namespace this control plane already labeled is left for the install to update.
+// A namespace this control plane labeled, or an unlabeled one whose workloads name this database, is left for the install to update.
 func RejectExistingModuleNamespace(kubeClient dynamic.Interface, namespace, owner string) error {
 	// read the namespace the install would create
 	existing, err := kubeClient.Resource(namespaceGVR).Get(context.Background(), namespace, metav1.GetOptions{})
@@ -427,8 +434,48 @@ func RejectExistingModuleNamespace(kubeClient dynamic.Interface, namespace, owne
 		return nil
 	}
 
+	// adopt an unlabeled namespace whose workloads already name this database
+	if existing.GetLabels()[ModuleNamespaceOwnerLabel] == "" {
+		names, namesErr := namespaceNamesDatabase(kubeClient, namespace, owner)
+		if namesErr != nil {
+			return namesErr
+		}
+		if names {
+			return nil
+		}
+	}
+
 	// report a namespace owned by another control plane
 	return fmt.Errorf("%w: %s", ErrModuleNamespaceExists, namespace)
+}
+
+// namespaceNamesDatabase reports whether a workload in the namespace names this control plane's database.
+func namespaceNamesDatabase(kubeClient dynamic.Interface, namespace, owner string) (bool, error) {
+	// an empty owner has no database name to match
+	if owner == "" {
+		return false, nil
+	}
+
+	// list the deployments in the namespace
+	list, err := kubeClient.Resource(deploymentGVR).Namespace(namespace).List(
+		context.Background(),
+		metav1.ListOptions{},
+	)
+	if k8serrors.IsNotFound(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("failed to list deployments in %s: %w", namespace, err)
+	}
+
+	// match the database service this control plane's modules record
+	host := controlPlaneDatabaseHost(owner)
+	for i := range list.Items {
+		if deploymentCommandContains(&list.Items[i], host) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // InstallRequestedModule drives the install job for the stored request with the
@@ -595,6 +642,11 @@ func EnsureModuleInstallJob(
 	module *api.ModuleApi,
 	moduleNamespace string,
 ) (bool, error) {
+	// use the namespace the module endpoint records when the caller did not pass one
+	if moduleNamespace == "" {
+		moduleNamespace = recordedModuleNamespace(module)
+	}
+
 	// read the job for this module
 	kebab := moduleKebab(util.DerefString(module.Name))
 	namespace := controlPlaneNamespace(inst, cpi)
@@ -763,11 +815,20 @@ func WorkloadRESTMapper() meta.RESTMapper {
 	return mapper
 }
 
+// recordedModuleNamespace returns the namespace the module endpoint records.
+func recordedModuleNamespace(module *api.ModuleApi) string {
+	// read the namespace the endpoint records
+	if server, ok := moduleApiServerFromEndpoint(module.Endpoint); ok {
+		return server.Namespace
+	}
+	return ""
+}
+
 // moduleWorkloadNamespace returns the namespace the module workloads run in.
 func moduleWorkloadNamespace(module *api.ModuleApi) string {
 	// prefer the namespace the module endpoint records
-	if server, ok := moduleApiServerFromEndpoint(module.Endpoint); ok && server.Namespace != "" {
-		return server.Namespace
+	if namespace := recordedModuleNamespace(module); namespace != "" {
+		return namespace
 	}
 
 	return moduleWorkloadPrefix + moduleKebab(util.DerefString(module.Name))

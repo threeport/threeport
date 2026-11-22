@@ -197,6 +197,69 @@ func TestRejectExistingModuleNamespaceReportsAnotherOwner(t *testing.T) {
 	require.NoError(t, RejectExistingModuleNamespace(testKubeClient(owned), "threeport-example", "primary-test"))
 }
 
+// TestRejectExistingModuleNamespaceAdoptsAnUnlabeledModule covers a namespace
+// created before installs wrote an owner label.
+func TestRejectExistingModuleNamespaceAdoptsAnUnlabeledModule(t *testing.T) {
+	// an unlabeled namespace whose command names this database is left for the install
+	host := controlPlaneDatabaseHost("primary-test")
+	require.NoError(t, RejectExistingModuleNamespace(
+		testKubeClient(
+			testModuleNamespace("threeport-example", "uid"),
+			testDeploymentNamingDatabase("threeport-example", host),
+		),
+		"threeport-example",
+		"primary-test",
+	))
+
+	// a command that names another database stays taken
+	err := RejectExistingModuleNamespace(
+		testKubeClient(
+			testModuleNamespace("threeport-example", "uid"),
+			testDeploymentNamingDatabase("threeport-example", controlPlaneDatabaseHost("other-plane")),
+		),
+		"threeport-example",
+		"primary-test",
+	)
+	require.ErrorIs(t, err, ErrModuleNamespaceExists)
+
+	// a label for another control plane stays taken
+	other := testModuleNamespace("threeport-example", "uid")
+	other.SetLabels(map[string]string{ModuleNamespaceOwnerLabel: "genesis-test"})
+	err = RejectExistingModuleNamespace(
+		testKubeClient(other, testDeploymentNamingDatabase("threeport-example", host)),
+		"threeport-example",
+		"primary-test",
+	)
+	require.ErrorIs(t, err, ErrModuleNamespaceExists)
+}
+
+// testDeploymentNamingDatabase returns a deployment whose init command names host.
+func testDeploymentNamingDatabase(namespace, host string) *unstructured.Unstructured {
+	// name this database in the init command
+	return &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "apps/v1",
+		"kind":       "Deployment",
+		"metadata": map[string]interface{}{
+			"name":      "threeport-example-api-server",
+			"namespace": namespace,
+		},
+		"spec": map[string]interface{}{
+			"template": map[string]interface{}{
+				"spec": map[string]interface{}{
+					"initContainers": []interface{}{
+						map[string]interface{}{
+							"name": "db-init",
+							"command": []interface{}{
+								"cockroach sql --host " + host,
+							},
+						},
+					},
+				},
+			},
+		},
+	}}
+}
+
 // TestRestartPointsTheDatabaseAtTheReplacement covers a module restart
 // rewriting the database host stored in the init command.
 func TestRestartPointsTheDatabaseAtTheReplacement(t *testing.T) {

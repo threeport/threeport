@@ -522,7 +522,7 @@ func (cpi *ControlPlaneInstaller) moduleApiServersFromDatabaseHost(
 	kubeClient dynamic.Interface,
 ) ([]ModuleApiServer, error) {
 	// list every deployment
-	host := database.ThreeportDatabaseHost + "." + cpi.Opts.Namespace + clusterLocalSuffix
+	host := controlPlaneDatabaseHost(cpi.Opts.Namespace)
 	list, err := kubeClient.Resource(deploymentGVR).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list deployments while finding module writers: %w", err)
@@ -548,6 +548,11 @@ func (cpi *ControlPlaneInstaller) moduleApiServersFromDatabaseHost(
 	}
 
 	return servers, nil
+}
+
+// controlPlaneDatabaseHost returns the database service a module command records.
+func controlPlaneDatabaseHost(namespace string) string {
+	return database.ThreeportDatabaseHost + "." + namespace + clusterLocalSuffix
 }
 
 // deploymentCommandContains reports whether a container command or argument contains text.

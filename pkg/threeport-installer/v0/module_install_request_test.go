@@ -517,6 +517,64 @@ func TestModuleInstallRequestStoresANamespace(t *testing.T) {
 	_, moduleNamespace, err = moduleFromInstallRequest(stored)
 	require.NoError(t, err)
 	require.Equal(t, "threeport-example-b", moduleNamespace)
+
+	// an endpoint namespace is stored when the caller passes none
+	endpoint := "example-api.custom-ns.svc.cluster.local"
+	recorded := &v0.ModuleApi{
+		Name:           util.Ptr("example.com/example-module-api"),
+		ImageNamespace: util.Ptr("registry.example"),
+		ImageTag:       util.Ptr("abc123"),
+		Endpoint:       &endpoint,
+	}
+	stored = ModuleInstallRequest(recorded)
+	require.Equal(t, "example.com/example-module-api registry.example abc123 custom-ns", stored)
+
+	// a passed namespace wins over the endpoint
+	stored = ModuleInstallRequest(recorded, "threeport-example-b")
+	require.Equal(t, "example.com/example-module-api registry.example abc123 threeport-example-b", stored)
+}
+
+// TestEnsureModuleInstallJobKeepsTheEndpointNamespace checks a repair with no
+// namespace argument still installs where the module endpoint records.
+func TestEnsureModuleInstallJobKeepsTheEndpointNamespace(t *testing.T) {
+	// seed the key, and a module whose endpoint names a custom namespace
+	namespace := installControlPlaneNamespace
+	mapper := WorkloadRESTMapper()
+	kubeClient := testKubeClient(installKeySecret(namespace))
+	endpoint := "example-api.custom-ns.svc.cluster.local"
+	module := &v0.ModuleApi{
+		Name:           util.Ptr("example.com/example-module-api"),
+		ImageNamespace: util.Ptr("registry.example"),
+		ImageTag:       util.Ptr("abc123"),
+		Endpoint:       &endpoint,
+	}
+	name := namespace
+	apiEndpoint := "https://api.example"
+	instance := &v0.ControlPlaneInstance{
+		Name:              &name,
+		Namespace:         &namespace,
+		ApiServerEndpoint: &apiEndpoint,
+	}
+	cpi := NewInstaller(Namespace(namespace))
+	cpi.Opts.ControllerList = nil
+
+	// create the job in the recorded namespace
+	finished, err := EnsureModuleInstallJob(kubeClient, &mapper, instance, cpi, module, "")
+	require.NoError(t, err)
+	require.False(t, finished)
+	job, err := kubeClient.Resource(schema.GroupVersionResource{
+		Group: "batch", Version: "v1", Resource: "jobs",
+	}).Namespace(namespace).Get(context.Background(), installJobName, metav1.GetOptions{})
+	require.NoError(t, err)
+	require.Equal(t, []string{
+		"install",
+		"--control-plane-image-namespace",
+		"registry.example",
+		"--control-plane-image-tag",
+		"abc123",
+		"--" + ModuleNamespaceFlag,
+		"custom-ns",
+	}, installContainerArgs(t, job))
 }
 
 // TestInstallRequestedModuleRejectsATakenNamespace checks that a taken namespace stops a new install.
