@@ -591,6 +591,13 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 		return fmt.Errorf("failed to create controller secret: %w", err)
 	}
 
+	// module install jobs run as the control plane controller's account, so
+	// a control plane installed with the account they ran as in
+	// v0.7.0-rc.5 and rc.6 loses it, and its binding to cluster-admin
+	if err := cpi.removeLegacyModuleInstallAccount(kubeClient, mapper); err != nil {
+		return err
+	}
+
 	// ClusterRole granting all controllers CRUD on ThreeportWorkload resources.
 	// ThreeportWorkload is cluster-scoped, so a ClusterRole is required.
 	threeportWorkloadClusterRole := &unstructured.Unstructured{
@@ -1104,14 +1111,10 @@ func (cpi *ControlPlaneInstaller) DeleteControlPlaneRoleBindings(
 		return err
 	}
 
-	// delete the module install binding
-	binding := kubeObject(
-		"rbac.authorization.k8s.io/v1",
-		"ClusterRoleBinding",
-		"",
-		moduleInstallBindingName(cpi.Opts.Namespace),
-	)
-	if err := kube.DeleteResource(binding, kubeClient, *mapper); err != nil {
+	// delete the cluster-admin binding of the account module install jobs
+	// ran as in v0.7.0-rc.5 and rc.6, which a control plane installed with
+	// them may still have
+	if err := cpi.removeLegacyModuleInstallAccount(kubeClient, mapper); err != nil {
 		return err
 	}
 

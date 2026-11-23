@@ -859,8 +859,9 @@ func TestDeleteControlPlaneRoleBindingsLeavesOtherControlPlanes(t *testing.T) {
 		clusterRoleBinding("threeport-control-plane-threeport-agent-manager-rolebinding", "agent"),
 		clusterRoleBinding("threeport-control-plane-threeport-agent-proxy-rolebinding", "agent"),
 		clusterRoleBinding("cluster-autoscaler", "cluster-autoscaler"),
-		clusterRoleBinding(moduleInstallBindingName("child"), moduleInstallServiceAccount),
-		clusterRoleBinding(moduleInstallBindingName("threeport-control-plane"), moduleInstallServiceAccount),
+		// the module install bindings v0.7.0-rc.5 and rc.6 created
+		clusterRoleBinding(legacyModuleInstallBindingName("child"), legacyModuleInstallServiceAccount),
+		clusterRoleBinding(legacyModuleInstallBindingName("threeport-control-plane"), legacyModuleInstallServiceAccount),
 	}
 	for _, controller := range ThreeportControllerList {
 		if controller.ServiceAccountName == "" {
@@ -881,13 +882,13 @@ func TestDeleteControlPlaneRoleBindingsLeavesOtherControlPlanes(t *testing.T) {
 	require.NoError(t, cpi.DeleteControlPlaneRoleBindings(client, mapper))
 	require.NoError(t, cpi.DeleteControlPlaneRoleBindings(client, mapper))
 
-	// confirm the module install binding name
-	require.Equal(t, "module-install-child", moduleInstallBindingName("child"))
+	// confirm the name v0.7.0-rc.5 and rc.6 gave the module install binding
+	require.Equal(t, "module-install-child", legacyModuleInstallBindingName("child"))
 
-	// confirm the child module install binding is gone
+	// confirm the child's legacy module install binding is gone
 	_, present, err := resourceInstalled(
 		client, mapper, "rbac.authorization.k8s.io", "v1", "ClusterRoleBinding", "",
-		moduleInstallBindingName("child"),
+		legacyModuleInstallBindingName("child"),
 	)
 	require.NoError(t, err)
 	assert.False(t, present)
@@ -931,10 +932,10 @@ func TestDeleteControlPlaneRoleBindingsLeavesOtherControlPlanes(t *testing.T) {
 		assert.True(t, present)
 	}
 
-	// confirm the other control plane's module install binding stayed
+	// confirm the other control plane's legacy module install binding stayed
 	_, present, err = resourceInstalled(
 		client, mapper, "rbac.authorization.k8s.io", "v1", "ClusterRoleBinding", "",
-		moduleInstallBindingName("threeport-control-plane"),
+		legacyModuleInstallBindingName("threeport-control-plane"),
 	)
 	require.NoError(t, err)
 	assert.True(t, present)
