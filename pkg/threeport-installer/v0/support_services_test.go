@@ -8,12 +8,15 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/mod/modfile"
 	kubeerr "k8s.io/apimachinery/pkg/api/errors"
-
-	api "github.com/threeport/threeport/pkg/api/v0"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
+	dynamicfake "k8s.io/client-go/dynamic/fake"
 	k8stesting "k8s.io/client-go/testing"
+
+	api "github.com/threeport/threeport/pkg/api/v0"
 )
 
 // selector returns a deployment selector for the app label.
@@ -160,4 +163,222 @@ func TestSupportServicesOperatorUsesRuntimeNamespace(t *testing.T) {
 		}
 		require.Equal(t, 1, deployments)
 	}
+}
+
+// TestMayUpdateSupportServicesOperator covers which control plane may install the operator.
+func TestMayUpdateSupportServicesOperator(t *testing.T) {
+	// a missing binding is a claim, and a named one matches only that name
+	may, err := MayUpdateSupportServicesOperator("primary", "", false)
+	require.NoError(t, err)
+	require.True(t, may)
+	may, err = MayUpdateSupportServicesOperator("primary", "primary", true)
+	require.NoError(t, err)
+	require.True(t, may)
+	may, err = MayUpdateSupportServicesOperator("primary", "other", true)
+	require.NoError(t, err)
+	require.False(t, may)
+	may, err = MayUpdateSupportServicesOperator("primary", "", true)
+	require.NoError(t, err)
+	require.False(t, may)
+	_, err = MayUpdateSupportServicesOperator("", "", false)
+	require.Error(t, err)
+}
+
+// TestSupportServicesOperatorOwnerReadsTheBinding covers the name stored on the manager binding.
+func TestSupportServicesOperatorOwnerReadsTheBinding(t *testing.T) {
+	// a labeled binding, an unlabeled one, and none
+	labeled := managerBinding("primary", "kept")
+	unlabeled := managerBinding("", "kept")
+	for _, tc := range []struct {
+		name  string
+		have  []runtime.Object
+		owner string
+		found bool
+	}{
+		{name: "labeled", have: []runtime.Object{labeled}, owner: "primary", found: true},
+		{name: "unlabeled", have: []runtime.Object{unlabeled}, owner: "", found: true},
+		{name: "missing", have: nil, owner: "", found: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			owner, found, err := SupportServicesOperatorOwner(testClient(tc.have...), testMapper())
+			require.NoError(t, err)
+			require.Equal(t, tc.owner, owner)
+			require.Equal(t, tc.found, found)
+		})
+	}
+}
+
+// TestInstallSupportServicesOperatorLeavesAForeignBinding covers a binding this control plane does not own.
+func TestInstallSupportServicesOperatorLeavesAForeignBinding(t *testing.T) {
+	// install against a binding named for another control plane, and one with no name
+	for _, owner := range []string{"other", ""} {
+		binding := managerBinding(owner, "kept")
+		kubeClient := testClient(binding)
+		err := InstallThreeportSupportServicesOperator(
+			kubeClient,
+			testMapper(),
+			SupportServicesCloudLocal,
+			RuntimeNamespace,
+			"primary",
+		)
+		require.NoError(t, err)
+		got, found, err := SupportServicesOperatorOwner(kubeClient, testMapper())
+		require.NoError(t, err)
+		require.True(t, found)
+		require.Equal(t, owner, got)
+		require.Equal(t, "kept", bindingSubjectNamespace(t, bindingFrom(t, kubeClient)))
+	}
+}
+
+// TestInstallSupportServicesOperatorClaimsAMissingBinding covers the first install.
+func TestInstallSupportServicesOperatorClaimsAMissingBinding(t *testing.T) {
+	// install where no manager binding exists
+	objects, err := supportServicesOperatorObjects(RuntimeNamespace)
+	require.NoError(t, err)
+	mapper := manifestMapper(objects)
+	kubeClient := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
+	err = InstallThreeportSupportServicesOperator(
+		kubeClient,
+		mapper,
+		SupportServicesCloudLocal,
+		RuntimeNamespace,
+		"primary",
+	)
+	require.NoError(t, err)
+
+	// the binding names this control plane and the runtime namespace
+	owner, found, err := SupportServicesOperatorOwner(kubeClient, mapper)
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Equal(t, "primary", owner)
+	require.Equal(t, RuntimeNamespace, bindingSubjectNamespace(t, bindingFrom(t, kubeClient)))
+}
+
+// TestInstallSupportServicesOperatorUpdatesItsOwnBinding covers a binding this control plane already owns.
+func TestInstallSupportServicesOperatorUpdatesItsOwnBinding(t *testing.T) {
+	// install over a binding that already names this control plane
+	objects, err := supportServicesOperatorObjects(RuntimeNamespace)
+	require.NoError(t, err)
+	mapper := manifestMapper(objects)
+	kubeClient := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme(), managerBinding("primary", "old"))
+	err = InstallThreeportSupportServicesOperator(
+		kubeClient,
+		mapper,
+		SupportServicesCloudLocal,
+		RuntimeNamespace,
+		"primary",
+	)
+	require.NoError(t, err)
+
+	// the subject moves to the runtime namespace and the name stays
+	owner, found, err := SupportServicesOperatorOwner(kubeClient, mapper)
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Equal(t, "primary", owner)
+	require.Equal(t, RuntimeNamespace, bindingSubjectNamespace(t, bindingFrom(t, kubeClient)))
+}
+
+// TestRecordSupportServicesOperatorReplacementNamesTheReplacement covers a blue-green handoff.
+func TestRecordSupportServicesOperatorReplacementNamesTheReplacement(t *testing.T) {
+	// hand a binding named for the source to the replacement
+	binding := managerBinding("source", "kept")
+	kubeClient := testClient(binding)
+	err := RecordSupportServicesOperatorReplacement(kubeClient, testMapper(), "source", "replacement")
+	require.NoError(t, err)
+	owner, found, err := SupportServicesOperatorOwner(kubeClient, testMapper())
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Equal(t, "replacement", owner)
+	require.Equal(t, "kept", bindingSubjectNamespace(t, bindingFrom(t, kubeClient)))
+
+	// leave a binding named for someone else, and one with no name
+	for _, owner := range []string{"other", ""} {
+		kubeClient = testClient(managerBinding(owner, "kept"))
+		err = RecordSupportServicesOperatorReplacement(kubeClient, testMapper(), "source", "replacement")
+		require.NoError(t, err)
+		got, found, err := SupportServicesOperatorOwner(kubeClient, testMapper())
+		require.NoError(t, err)
+		require.True(t, found)
+		require.Equal(t, owner, got)
+	}
+}
+
+// managerBinding returns the operator manager binding with one subject namespace.
+func managerBinding(owner, subjectNamespace string) *unstructured.Unstructured {
+	// set the owner when the binding has one
+	metadata := map[string]interface{}{"name": SupportServicesOperatorManagerBindingName}
+	if owner != "" {
+		metadata["labels"] = map[string]interface{}{LabelControlPlane: owner}
+	}
+	return &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "rbac.authorization.k8s.io/v1",
+		"kind":       "ClusterRoleBinding",
+		"metadata":   metadata,
+		"subjects": []interface{}{
+			map[string]interface{}{
+				"kind":      "ServiceAccount",
+				"name":      "support-services-operator-controller-manager",
+				"namespace": subjectNamespace,
+			},
+		},
+	}}
+}
+
+// bindingFrom reads the operator manager binding back from the client.
+func bindingFrom(t *testing.T, kubeClient dynamic.Interface) *unstructured.Unstructured {
+	t.Helper()
+	binding, found, err := resourceInstalled(
+		kubeClient,
+		testMapper(),
+		"rbac.authorization.k8s.io",
+		"v1",
+		"ClusterRoleBinding",
+		"",
+		SupportServicesOperatorManagerBindingName,
+	)
+	require.NoError(t, err)
+	require.True(t, found)
+	return binding
+}
+
+// bindingSubjectNamespace returns the namespace of the binding's first subject.
+func bindingSubjectNamespace(t *testing.T, binding *unstructured.Unstructured) string {
+	t.Helper()
+	subjects, _, err := unstructured.NestedSlice(binding.Object, "subjects")
+	require.NoError(t, err)
+	require.NotEmpty(t, subjects)
+	namespace, _, err := unstructured.NestedString(subjects[0].(map[string]interface{}), "namespace")
+	require.NoError(t, err)
+	return namespace
+}
+
+// manifestMapper maps every kind in the operator manifest.
+func manifestMapper(objects []*unstructured.Unstructured) *meta.RESTMapper {
+	// register each object so the install can create it
+	seen := map[schema.GroupVersion]struct{}{}
+	var groups []schema.GroupVersion
+	for _, object := range objects {
+		gv := object.GroupVersionKind().GroupVersion()
+		if _, ok := seen[gv]; ok {
+			continue
+		}
+		seen[gv] = struct{}{}
+		groups = append(groups, gv)
+	}
+	groups = append(groups, schema.GroupVersion{Group: "setup.addons.nukleros.io", Version: "v1alpha1"})
+	mapper := meta.NewDefaultRESTMapper(groups)
+	for _, object := range objects {
+		scope := meta.RESTScopeNamespace
+		if object.GetNamespace() == "" {
+			scope = meta.RESTScopeRoot
+		}
+		mapper.Add(object.GroupVersionKind(), scope)
+	}
+	mapper.Add(schema.GroupVersionKind{
+		Group:   "setup.addons.nukleros.io",
+		Version: "v1alpha1",
+		Kind:    "SupportServices",
+	}, meta.RESTScopeRoot)
+	var rest meta.RESTMapper = mapper
+	return &rest
 }

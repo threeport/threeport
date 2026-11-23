@@ -78,8 +78,11 @@ func TestResumeDropsTheSavedRestoreSoTheRetryBacksUpAgain(t *testing.T) {
 // support-services operator lives in.
 func TestKeepSourceNamespaceSkipsTheSharedOperator(t *testing.T) {
 	// keep the shared operator namespace and delete a dedicated one
-	if !KeepSourceNamespace(ControlPlaneNamespace) {
+	if !KeepSourceNamespace(RuntimeNamespace) {
 		t.Fatal("shared operator namespace would be deleted")
+	}
+	if KeepSourceNamespace(ControlPlaneNamespace) {
+		t.Fatal("control plane namespace would be kept")
 	}
 	if KeepSourceNamespace("primary-02") {
 		t.Fatal("dedicated namespace would be kept")

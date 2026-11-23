@@ -292,31 +292,44 @@ func v0KubernetesRuntimeInstanceUpdated(
 		return 0, err
 	}
 
-	// a host cluster keeps the operator in the control plane namespace
+	// the operator is one per cluster, in the runtime namespace
 	namespace := threeport.RuntimeNamespace
-	if isControlPlaneHost {
-		namespace, err = controlPlaneNamespace()
-		if err != nil {
-			return 0, fmt.Errorf("failed to determine the control plane namespace: %w", err)
-		}
-	}
 	cpi.Opts.Namespace = namespace
 
-	// delete that namespace on a workload cluster when an image is behind.
-	// The cluster the control plane runs on updates these in place.
+	// read the control plane that may update the operator
+	owner, found, err := threeport.SupportServicesOperatorOwner(dynamicKubeClient, mapper)
+	if err != nil {
+		return controller.RetryOnNetworkErr(err, "failed to read the support services operator owner")
+	}
+	ownsOperator, err := threeport.MayUpdateSupportServicesOperator(cpi.Opts.ControlPlaneName, owner, found)
+	if err != nil {
+		return 0, err
+	}
+	if !ownsOperator {
+		log.Info(
+			"support services operator belongs to another control plane",
+			"kubernetesRuntimeInstance", *kubernetesRuntimeInstance.Name,
+			"controlPlane", owner,
+		)
+	}
+
+	// delete the runtime namespace when this control plane's operator image is behind
 	stale, err := cpi.RuntimeOperatorsStale(dynamicKubeClient, mapper)
 	if err != nil {
 		return controller.RetryOnNetworkErr(err, "failed to compare the agent and support services operator images")
 	}
-	if !isControlPlaneHost && stale {
+	if ownsOperator && stale {
 		if err := deleteRuntimeNamespace(dynamicKubeClient, mapper); err != nil {
 			return controller.RetryOnNetworkErr(err, "failed to delete the runtime namespace")
 		}
 	}
 
-	operatorInstalled, err := threeport.SupportServicesOperatorInstalled(dynamicKubeClient, mapper, namespace)
-	if err != nil {
-		return controller.RetryOnNetworkErr(err, "failed to check support services operator")
+	var operatorInstalled bool
+	if ownsOperator {
+		operatorInstalled, err = threeport.SupportServicesOperatorInstalled(dynamicKubeClient, mapper, namespace)
+		if err != nil {
+			return controller.RetryOnNetworkErr(err, "failed to check support services operator")
+		}
 	}
 
 	// threeport control plane components
@@ -354,55 +367,58 @@ func v0KubernetesRuntimeInstanceUpdated(
 	}
 
 	// support services operator
-	if operatorInstalled {
+	if ownsOperator && operatorInstalled {
 		log.V(1).Info("support services operator already installed, skipping install")
-	} else if err := threeport.InstallThreeportSupportServicesOperator(
-		dynamicKubeClient,
-		mapper,
-		threeport.SupportServicesCloud(v0.KubernetesRuntimeInfraProvider(*kubernetesRuntimeDefinition.InfraProvider)),
-		namespace,
-	); err != nil {
-		return controller.RetryOnNetworkErr(err, "failed to install support services operator")
+	} else if ownsOperator {
+		if err := threeport.InstallThreeportSupportServicesOperator(
+			dynamicKubeClient,
+			mapper,
+			threeport.SupportServicesCloud(v0.KubernetesRuntimeInfraProvider(*kubernetesRuntimeDefinition.InfraProvider)),
+			namespace,
+			cpi.Opts.ControlPlaneName,
+		); err != nil {
+			return controller.RetryOnNetworkErr(err, "failed to install support services operator")
+		}
 	}
 
 	if *kubernetesRuntimeDefinition.InfraProvider == v0.KubernetesRuntimeInfraProviderEKS {
-		// get aws provider
-		awsProvider, err := client.GetAwsProviderByName(
-			r.APIClient,
-			r.APIServer,
-			*kubernetesRuntimeDefinition.InfraProviderAccountName,
-		)
-		if err != nil {
-			return controller.RetryOnNetworkErr(err, "failed to get AWS provider by name")
-		}
-
-		// system components e.g. cluster-autoscaler, whose version matches
-		// the cluster's, so an upgraded cluster's is brought up to it
-		kubernetesVersion, err := clusterMinorVersion(r, *kubernetesRuntimeInstance.ID, controlPlaneHost)
-		if err != nil {
-			return controller.RetryOnNetworkErr(err, "failed to get the cluster's Kubernetes version")
-		}
-		region, err := mapping.GetProviderRegionForLocation(util.AwsProvider, *kubernetesRuntimeInstance.Location)
-		if err != nil {
-			return 0, fmt.Errorf("failed to map threeport location to AWS region: %w", err)
-		}
-		systemServicesCurrent, err := threeport.EksThreeportSystemServicesCurrent(dynamicKubeClient, mapper, kubernetesVersion)
-		if err != nil {
-			return controller.RetryOnNetworkErr(err, "failed to check EKS system services")
-		}
-		if systemServicesCurrent {
-			log.V(1).Info("EKS system services already current, skipping install")
-		} else {
-			if err := threeport.InstallEksThreeportSystemServices(
-				dynamicKubeClient,
-				mapper,
-				*kubernetesRuntimeInstance.Name,
-				*awsProvider.AccountID,
-				region,
-				kubernetesVersion,
-				namespace,
-			); err != nil {
-				return controller.RetryOnNetworkErr(err, "failed to install system services")
+		// update the autoscaler when this control plane owns the operator
+		if ownsOperator {
+			awsProvider, err := client.GetAwsProviderByName(
+				r.APIClient,
+				r.APIServer,
+				*kubernetesRuntimeDefinition.InfraProviderAccountName,
+			)
+			if err != nil {
+				return controller.RetryOnNetworkErr(err, "failed to get AWS provider by name")
+			}
+			kubernetesVersion, err := clusterMinorVersion(r, *kubernetesRuntimeInstance.ID, controlPlaneHost)
+			if err != nil {
+				return controller.RetryOnNetworkErr(err, "failed to get the cluster's Kubernetes version")
+			}
+			region, err := mapping.GetProviderRegionForLocation(util.AwsProvider, *kubernetesRuntimeInstance.Location)
+			if err != nil {
+				return 0, fmt.Errorf("failed to map threeport location to AWS region: %w", err)
+			}
+			systemServicesCurrent, err := threeport.EksThreeportSystemServicesCurrent(dynamicKubeClient, mapper, kubernetesVersion)
+			if err != nil {
+				return controller.RetryOnNetworkErr(err, "failed to check EKS system services")
+			}
+			if systemServicesCurrent {
+				log.V(1).Info("EKS system services already current, skipping install")
+			} else {
+				if err := threeport.InstallEksThreeportSystemServices(
+					dynamicKubeClient,
+					mapper,
+					*kubernetesRuntimeInstance.Name,
+					*awsProvider.AccountID,
+					region,
+					kubernetesVersion,
+					namespace,
+					cpi.Opts.ControlPlaneName,
+				); err != nil {
+					return controller.RetryOnNetworkErr(err, "failed to install system services")
+				}
 			}
 		}
 
@@ -688,7 +704,7 @@ func holdProtectedDelete(
 	return protectedDeleteRequeueSeconds
 }
 
-// deleteRuntimeNamespace deletes the namespace the agent and the operator share.
+// deleteRuntimeNamespace deletes the runtime namespace.
 // It waits until the API reports that namespace missing, so the reinstall writes into a new one.
 func deleteRuntimeNamespace(
 	kubeClient dynamic.Interface,

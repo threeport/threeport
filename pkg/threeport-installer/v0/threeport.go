@@ -80,8 +80,8 @@ const (
 	// installed
 	ControlPlaneNamespace = "threeport-control-plane"
 
-	// The namespace for one runtime's agent and support services operator.
-	// A control plane that shares the cluster stays in its own namespace.
+	// Namespace for the support services operator and the workload-cluster agent.
+	// A host cluster keeps its agent in the control plane namespace.
 	RuntimeNamespace = "threeport-runtime"
 
 	ControlPlaneName = "threeport"
