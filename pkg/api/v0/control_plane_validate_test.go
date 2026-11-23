@@ -461,6 +461,47 @@ func TestControlPlaneInstanceUpdateRefusesAForeignDesiredStateChange(t *testing.
 			},
 		}).Error)
 	})
+
+	t.Run("the owner refreshes a copied genesis row", func(t *testing.T) {
+		// store a copy that already has an image and a certificate
+		copied := storedControlPlaneInstance(t, db, "copied-genesis", false)
+		oldTag := "old"
+		oldCert := "old-cert"
+		require.NoError(t, db.Session(&gorm.Session{SkipHooks: true}).Model(&copied).Updates(&ControlPlaneInstance{
+			ImageTag: &oldTag,
+			CACert:   &oldCert,
+		}).Error)
+		require.NoError(t, db.First(&copied, *copied.ID).Error)
+
+		// the owner writes the serving name, image, and certificate
+		owner := db.WithContext(lib.WithCaller(context.Background(), lib.CallerIdentity{
+			CommonName: "threeport-owner",
+		}))
+		name := "genesis-current"
+		tag := "current"
+		cert := "current-cert"
+		require.NoError(t, owner.Model(&copied).Updates(&ControlPlaneInstance{
+			Name:     &name,
+			ImageTag: &tag,
+			CACert:   &cert,
+		}).Error)
+
+		// the stored row keeps the serving name, image, and certificate
+		require.NoError(t, db.First(&copied, *copied.ID).Error)
+		require.NotNil(t, copied.Name)
+		require.Equal(t, name, *copied.Name)
+		require.NotNil(t, copied.ImageTag)
+		require.Equal(t, tag, *copied.ImageTag)
+		require.NotNil(t, copied.CACert)
+		require.Equal(t, cert, *copied.CACert)
+
+		// another caller cannot rewrite the image
+		alice := db.WithContext(lib.WithCaller(context.Background(), lib.CallerIdentity{
+			CommonName: "alice",
+		}))
+		other := "alice"
+		refused(alice.Model(&copied).Updates(&ControlPlaneInstance{ImageTag: &other}).Error, "ImageTag")
+	})
 }
 
 // TestChildControlPlaneRequest rejects a command aimed at the control plane a parent manages.

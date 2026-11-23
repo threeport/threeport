@@ -1933,7 +1933,79 @@ func (cpi *ControlPlaneInstaller) retargetRestoredSelf(apiClient *http.Client, e
 		return err
 	}
 
+	// write the current genesis onto the copied row
+	if err := client.RefreshRestoredGenesis(apiClient, endpoint, cpi.Genesis); err != nil {
+		return err
+	}
+
+	// write that genesis row onto each child that answers
+	if err := refreshManagedChildGenesis(apiClient, endpoint, self); err != nil {
+		return err
+	}
+
 	return nil
+}
+
+// refreshManagedChildGenesis writes the genesis row this API is serving onto each child.
+// A child that does not answer is marked unreconciled so the controller retries the copy.
+func refreshManagedChildGenesis(apiClient *http.Client, endpoint string, self *api.ControlPlaneInstance) error {
+	// a restore with no self id has no children to update
+	if self == nil || self.ID == nil {
+		return nil
+	}
+
+	// read the genesis row this restore wrote
+	current, err := client.GetGenesisControlPlaneInstance(apiClient, endpoint)
+	if err != nil {
+		if errors.Is(err, client.ErrNoGenesisControlPlane) {
+			return nil
+		}
+		return fmt.Errorf("failed to get genesis control plane: %w", err)
+	}
+
+	// read the rows this database holds
+	instances, err := client.GetControlPlaneInstances(apiClient, endpoint)
+	if err != nil {
+		return fmt.Errorf("failed to get control plane instances: %w", err)
+	}
+
+	// write the serving genesis onto each managed child that answers
+	for i := range *instances {
+		instance := &(*instances)[i]
+		if !managedChild(self, instance) {
+			continue
+		}
+		name := util.DerefString(instance.Name)
+		childClient, err := HTTPClientForInstance(instance)
+		if err == nil {
+			err = client.RefreshRestoredGenesis(childClient, util.DerefString(instance.ApiServerEndpoint), current)
+		}
+		if err != nil {
+			fmt.Printf("Info: leaving the genesis copy on %s for a later reconcile: %v\n", name, err)
+			// mark the child unreconciled without the row read before the call
+			unreconciled := false
+			update := &api.ControlPlaneInstance{Common: api.Common{ID: instance.ID}}
+			update.Reconciled = &unreconciled
+			if _, updateErr := client.UpdateControlPlaneInstance(apiClient, endpoint, update); updateErr != nil {
+				fmt.Printf("Info: could not queue reconcile for %s: %v\n", name, updateErr)
+			}
+		}
+	}
+	return nil
+}
+
+// managedChild reports a control plane this one manages that has an API address.
+func managedChild(self, instance *api.ControlPlaneInstance) bool {
+	// skip self, a row with no id, and a row with no address
+	if instance == nil || instance.ID == nil || self == nil || self.ID == nil || *instance.ID == *self.ID {
+		return false
+	}
+	if util.DerefString(instance.ApiServerEndpoint) == "" {
+		return false
+	}
+
+	// the parent link is this control plane
+	return instance.ParentControlPlaneInstanceID != nil && *instance.ParentControlPlaneInstanceID == *self.ID
 }
 
 // restoredSourceInstance returns the backup's own control plane when no row is marked self.

@@ -664,6 +664,12 @@ func runBlueGreen(
 		}
 	}
 
+	// read the current genesis while this api still answers
+	genesis, err := client.GetGenesisControlPlaneInstance(parentClient, parentEndpoint)
+	if err != nil {
+		return fmt.Errorf("failed to get genesis control plane: %w", err)
+	}
+
 	// stop the writers and take one backup
 	bucket, err := RestoreBackupBucket(local, "")
 	if err != nil {
@@ -716,6 +722,7 @@ func runBlueGreen(
 	created.Opts.GcpProjectId = projectID
 	created.Opts.GcpBackupBucket = bucket
 	created.Opts.HoldReplicasForRestore = true
+	created.Genesis = genesis
 	if tier := util.DerefString(definition.Tier); tier != "" {
 		created.Opts.Tier = installer.ControlPlaneTier(tier)
 	}
