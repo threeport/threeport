@@ -1874,10 +1874,9 @@ func v0ControlPlaneInstanceUpdated(
 		return 0, err
 	}
 
-	// copy the image, the controller list and the pool when the child has a row that can accept it
+	// copy the image, the controller list, the pool, and the serving genesis
 	if controlPlaneInstance.ParentControlPlaneInstanceID != nil &&
-		(controlPlaneDefinition.OnboardParent == nil || *controlPlaneDefinition.OnboardParent) &&
-		(controlPlaneDefinition.AuthEnabled == nil || *controlPlaneDefinition.AuthEnabled) {
+		(controlPlaneDefinition.OnboardParent == nil || *controlPlaneDefinition.OnboardParent) {
 		if err := syncManagedChild(r, controlPlaneInstance); err != nil {
 			return 0, err
 		}

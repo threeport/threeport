@@ -532,7 +532,7 @@ func changedForeignField(tx *gorm.DB, stored *ControlPlaneInstance, allowLifecyc
 }
 
 // parentCaller reports whether the request is the control plane that manages this one.
-// Authentication off has no certificate name, so it is rejected.
+// Authentication off has no certificate name. CaptureCaller still marks that request with the control plane unit.
 func parentCaller(tx *gorm.DB) bool {
 	// read the caller the API stored on this request
 	if tx.Statement == nil || tx.Statement.Context == nil {
@@ -540,16 +540,11 @@ func parentCaller(tx *gorm.DB) bool {
 	}
 	caller := lib.Caller(tx.Statement.Context)
 
-	// reject a caller with no certificate name, which is authentication off
-	if caller.CommonName == "" {
-		return false
-	}
-
-	// accept the owner certificate or a control plane controller certificate
+	// accept the owner certificate
 	if caller.CommonName == "threeport-owner" {
 		return true
 	}
-	// the installer puts the API namespace in the certificate organization
+	// accept a control plane certificate, and authentication off, which uses the same unit
 	return caller.OrganizationalUnit == auth.OUControlPlane
 }
 
