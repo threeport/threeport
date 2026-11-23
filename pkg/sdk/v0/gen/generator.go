@@ -1119,6 +1119,7 @@ var supportServiceEmbed = map[string]bool{
 	"SupportServiceCertificates": true,
 	"SupportServiceSecrets":      true,
 	"SupportServiceDatabase":     true,
+	"SupportServiceStorage":      true,
 }
 
 // kubernetesRuntimeInstanceID is the field a support service embed requires.

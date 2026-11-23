@@ -151,6 +151,13 @@ func TestEnsureComponentRejectsAMissingRuntime(t *testing.T) {
 			want: "database component runtime is missing",
 		},
 		{
+			name: "storage",
+			call: func() error {
+				return EnsureStorageComponent(nil, nil, gateway, nil, noopGatewayUpdate, nil)
+			},
+			want: "storage component runtime is missing",
+		},
+		{
 			name: "release ingress",
 			call: func() error {
 				return ReleaseIngressComponent(nil, nil, gateway)

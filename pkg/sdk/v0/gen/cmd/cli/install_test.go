@@ -9,6 +9,7 @@ import (
 
 	sdk "github.com/threeport/threeport/pkg/sdk/v0"
 	"github.com/threeport/threeport/pkg/sdk/v0/gen"
+	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 )
 
 // TestGenPluginInstallCmd_PreRunUsesLocalFunc is a regression test for a bug
@@ -96,5 +97,14 @@ func TestGenPluginInstallCmd_PreRunUsesLocalFunc(t *testing.T) {
 	}
 	if !regexp.MustCompile(`if delegated \{\s+cli\.Complete\("module install started"\)\s+return\s+\}`).MatchString(text) {
 		t.Error("generated install.go does not return after a delegated install")
+	}
+	if !strings.Contains(text, `"`+installer.ModuleNamespaceFlag+`"`) {
+		t.Error("generated install.go does not register --module-namespace")
+	}
+	if !strings.Contains(text, "moduleNamespace,") {
+		t.Error("generated install.go does not pass the module namespace to the controller")
+	}
+	if !strings.Contains(text, "inst.ModuleNamespace = moduleNamespace") {
+		t.Error("generated install.go does not set the installer namespace from the flag")
 	}
 }

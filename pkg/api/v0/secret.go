@@ -12,7 +12,7 @@ type SecretDefinition struct {
 	AwsProviderID *uint `validate:"optional" relationship:"requires"`
 
 	// The secret value to be stored in the provider.
-	Data *datatypes.JSON `validate:"required" persist:"false"`
+	Data *datatypes.JSON `validate:"required" persist:"false" swaggertype:"object"`
 
 	// The associated secret instances that are deployed from this definition.
 	SecretInstances []*SecretInstance `validate:"optional,association"`

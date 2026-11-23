@@ -33,6 +33,7 @@ func supportComponents(
 		{"CertificatesComponentInstanceID", "certificates"},
 		{"SecretsComponentInstanceID", "secrets"},
 		{"DatabaseComponentInstanceID", "database"},
+		{"StorageComponentInstanceID", "storage"},
 	}
 	var found []string
 	for _, item := range order {
@@ -168,6 +169,8 @@ func exportComponent(component string) string {
 		return "Database"
 	case "secrets":
 		return "Secrets"
+	case "storage":
+		return "Storage"
 	default:
 		return ""
 	}

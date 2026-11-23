@@ -21,7 +21,10 @@ func TestTheBackupScheduleRunsAfterTheInitScript(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open defaultdb: %v", err)
 	}
-	schedule := installer.DatabaseBackupScheduleSQL(testBackupURI)
+	schedule, err := installer.DatabaseBackupScheduleSQL(testBackupURI, nil)
+	if err != nil {
+		t.Fatalf("backup schedule: %v", err)
+	}
 
 	for start := 0; start < 2; start++ {
 		if err := root.Exec(schedule).Error; err != nil {
@@ -64,9 +67,13 @@ func TestTheBackupScheduleFailsInTheInitScript(t *testing.T) {
 		t.Fatalf("open defaultdb: %v", err)
 	}
 
+	schedule, err := installer.DatabaseBackupScheduleSQL("nodelocal://1/check", nil)
+	if err != nil {
+		t.Fatalf("backup schedule: %v", err)
+	}
 	script := "CREATE DATABASE IF NOT EXISTS backup_target_check;\n" +
 		strings.ReplaceAll(
-			strings.ReplaceAll(installer.DatabaseBackupScheduleSQL("nodelocal://1/check"), installer.DatabaseName, "backup_target_check"),
+			strings.ReplaceAll(schedule, installer.DatabaseName, "backup_target_check"),
 			installer.DatabaseBackupScheduleLabel, "backup_target_check",
 		)
 	if err := root.Exec(script).Error; err == nil {

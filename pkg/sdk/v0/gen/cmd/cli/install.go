@@ -12,6 +12,7 @@ import (
 	sdk "github.com/threeport/threeport/pkg/sdk/v0"
 	"github.com/threeport/threeport/pkg/sdk/v0/gen"
 	"github.com/threeport/threeport/pkg/sdk/v0/util"
+	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 )
 
 // GenPluginInstallCmd generates the install command for an extension module's tptctl
@@ -38,6 +39,7 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		Id("controlPlaneImageRepo").String(),
 		Id("controlPlaneImageTag").String(),
 		Id("installControlPlaneName").String(),
+		Id("moduleNamespace").String(),
 		Id("imagePullSecretFile").String(),
 	)
 
@@ -136,6 +138,7 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				Line().Lit(moduleAPIName),
 				Line().Id("controlPlaneImageRepo"),
 				Line().Id("controlPlaneImageTag"),
+				Line().Id("moduleNamespace"),
 				Line(),
 			),
 			If(Err().Op("!=").Nil()).Block(
@@ -199,6 +202,10 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			Id("inst").Dot("ApiClient").Op("=").Id("apiClient"),
 			Id("inst").Dot("ApiEndpoint").Op("=").Id("apiEndpoint"),
 			Id("inst").Dot("ImagePullSecretFile").Op("=").Id("imagePullSecretFile"),
+			Comment("use a module namespace when the flag names one"),
+			If(Id("moduleNamespace").Op("!=").Lit("")).Block(
+				Id("inst").Dot("ModuleNamespace").Op("=").Id("moduleNamespace"),
+			),
 			Line(),
 
 			Comment("install extension module"),
@@ -273,6 +280,15 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				Lit("control-plane-name"),
 				Lit(""),
 				Lit("Name of a child control plane. Empty installs on the connected control plane."),
+			),
+			Line(),
+		),
+		Id("installCmd").Dot("Flags").Call().Dot("StringVar").Call(
+			Line().Op("&").Id("moduleNamespace"),
+			Line().List(
+				Lit(installer.ModuleNamespaceFlag),
+				Lit(""),
+				Lit("Kubernetes namespace to install the module into. Empty uses threeport- followed by the module name."),
 			),
 			Line(),
 		),
