@@ -624,6 +624,81 @@ func (r *recordingRecorder) RecordEvent(event *api_v0.Event, objectID uint, full
 // HandleEventOverride is unused by the lifecycle.
 func (r *recordingRecorder) HandleEventOverride(*api_v0.Event, uint, string, error, *logr.Logger) {}
 
+// TestGkeRuntimeUpdate_WaitsToRerunTheRuntime covers an update that is still
+// waiting, and one that has nothing left to do.
+func TestGkeRuntimeUpdate_WaitsToRerunTheRuntime(t *testing.T) {
+	id := uint(7)
+	runtimeID := uint(42)
+	name := "cluster"
+	now := time.Now().UTC()
+	passed := &api_v0.GcpGkeKubernetesRuntimeInstance{
+		Common:                      api_v0.Common{ID: &id},
+		Instance:                    api_v0.Instance{Name: &name},
+		KubernetesRuntimeInstanceID: &runtimeID,
+	}
+
+	// a scheduled delete is an update with nothing left to apply
+	cases := []struct {
+		name      string
+		stored    api_v0.GcpGkeKubernetesRuntimeInstance
+		wantPatch bool
+		wantWait  bool
+	}{
+		{
+			name:      "creation not confirmed",
+			stored:    *passed,
+			wantPatch: false,
+			wantWait:  true,
+		},
+		{
+			name: "nothing left to apply",
+			stored: api_v0.GcpGkeKubernetesRuntimeInstance{
+				Common:                      api_v0.Common{ID: &id},
+				Instance:                    api_v0.Instance{Name: &name},
+				Reconciliation:              api_v0.Reconciliation{DeletionScheduled: &now},
+				KubernetesRuntimeInstanceID: &runtimeID,
+			},
+			wantPatch: true,
+			wantWait:  false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			patched := false
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				// a patch is the runtime being asked to run again
+				if r.Method == http.MethodPatch {
+					patched = true
+				}
+				body, err := json.Marshal(apiserver_lib.Response{
+					Status: apiserver_lib.Status{Code: http.StatusOK, Message: "OK"},
+					Data:   []apiserver_lib.Object{tc.stored},
+				})
+				require.NoError(t, err)
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write(body)
+			}))
+			defer srv.Close()
+
+			log := logr.Discard()
+			requeue, err := v0GcpGkeKubernetesRuntimeInstanceUpdated(
+				&controller.Reconciler{
+					APIClient: &http.Client{},
+					APIServer: strings.TrimPrefix(srv.URL, "http://"),
+				},
+				passed,
+				&log,
+			)
+
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantPatch, patched)
+			assert.Equal(t, tc.wantWait, requeue > 0)
+		})
+	}
+}
+
 // TestMarkRuntimeForReconcile_ClearsReconciled covers the write that makes the
 // owned runtime run again after this cluster is updated.
 func TestMarkRuntimeForReconcile_ClearsReconciled(t *testing.T) {
