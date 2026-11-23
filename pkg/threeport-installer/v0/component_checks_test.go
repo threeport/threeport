@@ -373,16 +373,52 @@ func TestComputeSpaceControlPlaneComponentsCurrent(t *testing.T) {
 	})
 }
 
+// TestRuntimeOperatorsStale covers the check that decides whether to replace the runtime namespace.
+func TestRuntimeOperatorsStale(t *testing.T) {
+	t.Run("stale when the operator image is behind", func(t *testing.T) {
+		cpi := NewInstaller()
+		cpi.Opts.Namespace = RuntimeNamespace
+		cpi.Opts.SkipAgent = true
+		client := testClient(
+			deployment(RuntimeNamespace, SupportServicesOperatorDeployName, "ghcr.io/nukleros/support-services-operator:v0.4.0"),
+		)
+
+		stale, err := cpi.RuntimeOperatorsStale(client, testMapper())
+		require.NoError(t, err)
+		assert.True(t, stale)
+	})
+
+	t.Run("not stale when the operator is missing", func(t *testing.T) {
+		cpi := NewInstaller()
+		cpi.Opts.Namespace = RuntimeNamespace
+		cpi.Opts.SkipAgent = true
+
+		stale, err := cpi.RuntimeOperatorsStale(testClient(), testMapper())
+		require.NoError(t, err)
+		assert.False(t, stale)
+	})
+}
+
 // TestSupportServicesOperatorInstalled covers the operator check.
 func TestSupportServicesOperatorInstalled(t *testing.T) {
-	t.Run("installed when the deployment is there", func(t *testing.T) {
+	t.Run("installed when the deployment runs the image this install applies", func(t *testing.T) {
 		client := testClient(
-			deployment(ControlPlaneNamespace, SupportServicesOperatorDeployName, "operator:v1"),
+			deployment(ControlPlaneNamespace, SupportServicesOperatorDeployName, SupportServicesOperatorImage),
 		)
 
 		installed, err := SupportServicesOperatorInstalled(client, testMapper(), ControlPlaneNamespace)
 		require.NoError(t, err)
 		assert.True(t, installed)
+	})
+
+	t.Run("not installed when the deployment runs an older image", func(t *testing.T) {
+		client := testClient(
+			deployment(ControlPlaneNamespace, SupportServicesOperatorDeployName, "ghcr.io/nukleros/support-services-operator:v0.4.0"),
+		)
+
+		installed, err := SupportServicesOperatorInstalled(client, testMapper(), ControlPlaneNamespace)
+		require.NoError(t, err)
+		assert.False(t, installed)
 	})
 
 	t.Run("not installed on an empty cluster", func(t *testing.T) {
@@ -881,6 +917,9 @@ func TestDeleteControlPlaneRoleBindingsLeavesOtherControlPlanes(t *testing.T) {
 	require.NoError(t, cpi.DeleteControlPlaneRoleBindings(client, mapper))
 	require.NoError(t, cpi.DeleteControlPlaneRoleBindings(client, mapper))
 
+	// confirm the module install binding name
+	require.Equal(t, "module-install-child", moduleInstallBindingName("child"))
+
 	// confirm the child module install binding is gone
 	_, present, err := resourceInstalled(
 		client, mapper, "rbac.authorization.k8s.io", "v1", "ClusterRoleBinding", "",
@@ -920,7 +959,6 @@ func TestDeleteControlPlaneRoleBindingsLeavesOtherControlPlanes(t *testing.T) {
 	for _, name := range []string{
 		"threeport-control-plane-threeport-agent-manager-rolebinding",
 		"threeport-control-plane-threeport-agent-proxy-rolebinding",
-		moduleInstallBindingName("threeport-control-plane"),
 	} {
 		_, present, err := resourceInstalled(
 			client, mapper, "rbac.authorization.k8s.io", "v1", "ClusterRoleBinding", "", name,
@@ -928,6 +966,14 @@ func TestDeleteControlPlaneRoleBindingsLeavesOtherControlPlanes(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, present)
 	}
+
+	// confirm the other control plane's module install binding stayed
+	_, present, err = resourceInstalled(
+		client, mapper, "rbac.authorization.k8s.io", "v1", "ClusterRoleBinding", "",
+		moduleInstallBindingName("threeport-control-plane"),
+	)
+	require.NoError(t, err)
+	assert.True(t, present)
 
 	// confirm the other control plane's controller bindings stayed
 	for _, controller := range ThreeportControllerList {

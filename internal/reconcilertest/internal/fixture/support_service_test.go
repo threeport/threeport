@@ -32,17 +32,17 @@ func TestReconcilerEnsuresSupportServices(t *testing.T) {
 	h.obj.KubernetesRuntimeInstanceID = stub.runtime.ID
 	h.objMu.Unlock()
 
-	// each publish is one pass, and the database pass is the fourth
+	// each publish is one pass, and storage is the fifth create
 	var posts int
 	var databaseSlot *uint
 	for pass := 0; pass < 8; pass++ {
 		h.publish(notifications.NotificationOperationCreated)
 		posts, _, databaseSlot = stub.progress()
-		if posts == 4 && databaseSlot != nil {
+		if posts == 5 && databaseSlot != nil {
 			break
 		}
 	}
-	require.Equal(t, 4, posts)
+	require.Equal(t, 5, posts)
 	require.NotNil(t, databaseSlot)
 
 	// the create wrote each manifest once, before a later sync appends it
@@ -50,16 +50,18 @@ func TestReconcilerEnsuresSupportServices(t *testing.T) {
 	require.Equal(t, 1, strings.Count(stub.createdYAML(supportservices.CertificatesComponentName+"-"+supportRuntimeName), "kind: CertificatesComponent"))
 	require.Equal(t, 1, strings.Count(stub.createdYAML(supportservices.SecretsComponentName+"-"+supportRuntimeName), "kind: SecretsComponent"))
 	require.Equal(t, 1, strings.Count(stub.createdYAML(supportservices.DatabaseComponentName+"-"+supportRuntimeName), "kind: DatabaseComponent"))
+	require.Equal(t, 1, strings.Count(stub.createdYAML(supportservices.StorageComponentName+"-"+supportRuntimeName), "kind: StorageComponent"))
 	require.Equal(t, 1, stub.countNamed(supportservices.IngressComponentName+"-"+supportRuntimeName))
 	require.Equal(t, 1, stub.countNamed(supportservices.CertificatesComponentName+"-"+supportRuntimeName))
 	require.Equal(t, 1, stub.countNamed(supportservices.SecretsComponentName+"-"+supportRuntimeName))
 	require.Equal(t, 1, stub.countNamed(supportservices.DatabaseComponentName+"-"+supportRuntimeName))
+	require.Equal(t, 1, stub.countNamed(supportservices.StorageComponentName+"-"+supportRuntimeName))
 
 	// a reconciled pass creates nothing more
 	stored := *databaseSlot
 	h.publish(notifications.NotificationOperationCreated)
 	posts, _, databaseSlot = stub.progress()
-	require.Equal(t, 4, posts)
+	require.Equal(t, 5, posts)
 	require.NotNil(t, databaseSlot)
 	require.Equal(t, stored, *databaseSlot)
 }
@@ -244,6 +246,7 @@ func (s *supportStub) runtimeInstance(w http.ResponseWriter, r *http.Request) {
 		copySlot(&s.runtime.CertificatesComponentInstanceID, incoming.CertificatesComponentInstanceID)
 		copySlot(&s.runtime.SecretsComponentInstanceID, incoming.SecretsComponentInstanceID)
 		copySlot(&s.runtime.DatabaseComponentInstanceID, incoming.DatabaseComponentInstanceID)
+		copySlot(&s.runtime.StorageComponentInstanceID, incoming.StorageComponentInstanceID)
 		s.write(w, http.StatusOK, s.runtime)
 	default:
 		http.NotFound(w, r)
@@ -479,7 +482,8 @@ func slotReplaces(stored, incoming *tpapi.KubernetesRuntimeInstance) bool {
 	return slotDiffers(stored.IngressComponentInstanceID, incoming.IngressComponentInstanceID) ||
 		slotDiffers(stored.CertificatesComponentInstanceID, incoming.CertificatesComponentInstanceID) ||
 		slotDiffers(stored.SecretsComponentInstanceID, incoming.SecretsComponentInstanceID) ||
-		slotDiffers(stored.DatabaseComponentInstanceID, incoming.DatabaseComponentInstanceID)
+		slotDiffers(stored.DatabaseComponentInstanceID, incoming.DatabaseComponentInstanceID) ||
+		slotDiffers(stored.StorageComponentInstanceID, incoming.StorageComponentInstanceID)
 }
 
 // slotDiffers reports that both ids are set and they are not equal.

@@ -59,6 +59,13 @@ func TestControllerSecretCarriesControlPlaneName(t *testing.T) {
 	secret := cpi.getControllerSecret("controller", cpi.Opts.Namespace, &natsCredentials{User: NatsUser, Password: "tpSecret"}, 1)
 	data := secret.Object["stringData"].(map[string]interface{})
 	assert.Equal(t, "my-control-plane", data["CONTROL_PLANE_NAME"])
+	_, replaced := data[ControllerConfigReplacedControlPlaneKey]
+	assert.False(t, replaced)
+
+	cpi.Opts.SourceName = "old-control-plane"
+	secret = cpi.getControllerSecret("controller", cpi.Opts.Namespace, &natsCredentials{User: NatsUser, Password: "tpSecret"}, 1)
+	data = secret.Object["stringData"].(map[string]interface{})
+	assert.Equal(t, "old-control-plane", data[ControllerConfigReplacedControlPlaneKey])
 }
 
 // TestTheControlPlanesAgentChecksItsMessageBroker covers the agent on the

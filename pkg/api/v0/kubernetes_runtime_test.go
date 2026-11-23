@@ -148,6 +148,7 @@ func TestKubernetesRuntimeInstance_beforeCreate_RejectsComponentSlot(t *testing.
 		{CertificatesComponentInstanceID: &id},
 		{SecretsComponentInstanceID: &id},
 		{DatabaseComponentInstanceID: &id},
+		{StorageComponentInstanceID: &id},
 	}
 	for _, slot := range cases {
 		instance := slot

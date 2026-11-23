@@ -45,17 +45,79 @@ func TestModuleBlueGreenKeepsTheRunningControlPlaneImage(t *testing.T) {
 	}
 
 	// assert both empty flags take the running namespace and tag
-	imageNamespace, imageTag := moduleBlueGreenImage("", "", running)
+	imageNamespace, imageTag, err := moduleBlueGreenImage("", "", running)
+	require.NoError(t, err)
 	require.Equal(t, "registry.example/threeport", imageNamespace)
 	require.Equal(t, "abc12345", imageTag)
 
 	// assert a set flag wins and the other flag still takes the running value
-	imageNamespace, imageTag = moduleBlueGreenImage("", "def67890", running)
+	imageNamespace, imageTag, err = moduleBlueGreenImage("", "def67890", running)
+	require.NoError(t, err)
 	require.Equal(t, "registry.example/threeport", imageNamespace)
 	require.Equal(t, "def67890", imageTag)
 
 	// assert a control plane that records no image leaves both values empty
-	imageNamespace, imageTag = moduleBlueGreenImage("", "", &api.ControlPlaneInstance{})
+	imageNamespace, imageTag, err = moduleBlueGreenImage("", "", &api.ControlPlaneInstance{})
+	require.NoError(t, err)
 	require.Equal(t, "", imageNamespace)
 	require.Equal(t, "", imageTag)
+
+	// assert recorded component images fill empty instance fields
+	recorded := &api.ControlPlaneInstance{
+		CustomComponentInfo: []*api.ControlPlaneComponent{{
+			Name:           "rest-api",
+			ImageNamespace: "registry.example/threeport",
+			ImageTag:       "recorded1",
+		}},
+	}
+	imageNamespace, imageTag, err = moduleBlueGreenImage("", "", recorded)
+	require.NoError(t, err)
+	require.Equal(t, "registry.example/threeport", imageNamespace)
+	require.Equal(t, "recorded1", imageTag)
+}
+
+// TestModuleBlueGreenRejectsDifferingComponentImages covers recorded component
+// images that do not share one tag or one namespace.
+func TestModuleBlueGreenRejectsDifferingComponentImages(t *testing.T) {
+	// seed two components whose tags disagree and whose namespaces agree
+	tags := &api.ControlPlaneInstance{
+		CustomComponentInfo: []*api.ControlPlaneComponent{
+			{Name: "rest-api", ImageNamespace: "registry.example/threeport", ImageTag: "a"},
+			{Name: "agent", ImageNamespace: "registry.example/threeport", ImageTag: "b"},
+		},
+	}
+
+	// assert empty flags reject the disagreeing tags
+	_, _, err := moduleBlueGreenImage("", "", tags)
+	require.EqualError(t, err, "recorded component image tags differ: pass --control-plane-image-tag")
+
+	// assert a set tag wins and the shared namespace is kept
+	imageNamespace, imageTag, err := moduleBlueGreenImage("", "def67890", tags)
+	require.NoError(t, err)
+	require.Equal(t, "registry.example/threeport", imageNamespace)
+	require.Equal(t, "def67890", imageTag)
+
+	// seed two components whose namespaces disagree
+	namespaces := &api.ControlPlaneInstance{
+		CustomComponentInfo: []*api.ControlPlaneComponent{
+			{Name: "rest-api", ImageNamespace: "one.example", ImageTag: "a"},
+			{Name: "agent", ImageNamespace: "two.example", ImageTag: "a"},
+		},
+	}
+
+	// assert empty flags reject the disagreeing namespaces
+	_, _, err = moduleBlueGreenImage("", "", namespaces)
+	require.EqualError(t, err, "recorded component image namespaces differ: pass --control-plane-image-namespace")
+
+	// assert a blank component tag does not count as a disagreement
+	partial := &api.ControlPlaneInstance{
+		CustomComponentInfo: []*api.ControlPlaneComponent{
+			{Name: "rest-api", ImageNamespace: "registry.example/threeport", ImageTag: "only"},
+			{Name: "agent", ImageNamespace: "registry.example/threeport"},
+		},
+	}
+	imageNamespace, imageTag, err = moduleBlueGreenImage("", "", partial)
+	require.NoError(t, err)
+	require.Equal(t, "registry.example/threeport", imageNamespace)
+	require.Equal(t, "only", imageTag)
 }
