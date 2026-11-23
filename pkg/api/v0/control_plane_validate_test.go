@@ -601,13 +601,6 @@ func TestControlPlaneFleetMatrix(t *testing.T) {
 	}))
 	cleared := ""
 	require.NoError(t, controller.Model(child).Updates(&ControlPlaneInstance{FromNamespace: &cleared}).Error)
-
-	// authentication off has the control plane unit and no certificate name
-	authOff := db.WithContext(lib.WithCaller(context.Background(), lib.CallerIdentity{
-		OrganizationalUnit: auth.OUControlPlane,
-	}))
-	authOffName := "fleet-parent-auth-off"
-	require.NoError(t, authOff.Model(parentOfChild).Updates(&ControlPlaneInstance{Instance: Instance{Name: &authOffName}}).Error)
 }
 
 // controlPlaneRow inserts a control plane with the parent and self flags under test.
