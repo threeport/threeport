@@ -47,6 +47,13 @@ func UpdateDeploymentImageTag(
 		return err
 	}
 
+	// an image upgrade moves a control plane past v0.7.0-rc.5 and rc.6 as an
+	// install does, so it removes the account module install jobs ran as
+	// then, and its binding to cluster-admin, which nothing uses since
+	if err := backupInstaller.removeLegacyModuleInstallAccount(dynamicKubeClient, mapper); err != nil {
+		return err
+	}
+
 	// Update Rest-Api
 	deployment, err := kube.GetResource(
 		"apps",
