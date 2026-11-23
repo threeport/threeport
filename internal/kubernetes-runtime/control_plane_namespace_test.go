@@ -6,6 +6,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 )
 
 // setControlPlaneNamespace stands in for the pod's namespace file and returns a
@@ -40,6 +42,28 @@ func TestControlPlaneNamespace_UnreadableIsAnError(t *testing.T) {
 
 	_, err := controlPlaneNamespace()
 	require.Error(t, err)
+}
+
+// TestSupportServicesNamespace_HostKeepsTheControlPlaneNamespace covers a runtime
+// that hosts the control plane.
+func TestSupportServicesNamespace_HostKeepsTheControlPlaneNamespace(t *testing.T) {
+	setControlPlaneNamespace(t, func() (string, error) { return "threeport-control-plane", nil })
+
+	namespace, err := supportServicesNamespace(true)
+	require.NoError(t, err)
+	assert.Equal(t, "threeport-control-plane", namespace)
+}
+
+// TestSupportServicesNamespace_ManagedClusterUsesTheRuntimeNamespace covers a
+// cluster that does not host the control plane.
+func TestSupportServicesNamespace_ManagedClusterUsesTheRuntimeNamespace(t *testing.T) {
+	setControlPlaneNamespace(t, func() (string, error) {
+		return "", errors.New("a managed cluster does not read the controller namespace")
+	})
+
+	namespace, err := supportServicesNamespace(false)
+	require.NoError(t, err)
+	assert.Equal(t, threeport.RuntimeNamespace, namespace)
 }
 
 // TestReadControlPlaneNamespace_OutsideAPod covers the real read where there is
