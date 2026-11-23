@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -624,9 +623,9 @@ func (r *recordingRecorder) RecordEvent(event *api_v0.Event, objectID uint, full
 // HandleEventOverride is unused by the lifecycle.
 func (r *recordingRecorder) HandleEventOverride(*api_v0.Event, uint, string, error, *logr.Logger) {}
 
-// TestGkeRuntimeUpdate_WaitsToRerunTheRuntime covers an update that is still
-// waiting, and one that has nothing left to do.
-func TestGkeRuntimeUpdate_WaitsToRerunTheRuntime(t *testing.T) {
+// TestGkeRuntimeUpdate_LeavesTheOwnedRuntime covers an update still waiting on
+// creation, and a scheduled delete. Neither patches the owned runtime.
+func TestGkeRuntimeUpdate_LeavesTheOwnedRuntime(t *testing.T) {
 	id := uint(7)
 	runtimeID := uint(42)
 	name := "cluster"
@@ -639,27 +638,24 @@ func TestGkeRuntimeUpdate_WaitsToRerunTheRuntime(t *testing.T) {
 
 	// a scheduled delete is an update with nothing left to apply
 	cases := []struct {
-		name      string
-		stored    api_v0.GcpGkeKubernetesRuntimeInstance
-		wantPatch bool
-		wantWait  bool
+		name     string
+		stored   api_v0.GcpGkeKubernetesRuntimeInstance
+		wantWait bool
 	}{
 		{
-			name:      "creation not confirmed",
-			stored:    *passed,
-			wantPatch: false,
-			wantWait:  true,
+			name:     "creation not confirmed",
+			stored:   *passed,
+			wantWait: true,
 		},
 		{
-			name: "nothing left to apply",
+			name: "scheduled delete",
 			stored: api_v0.GcpGkeKubernetesRuntimeInstance{
 				Common:                      api_v0.Common{ID: &id},
 				Instance:                    api_v0.Instance{Name: &name},
 				Reconciliation:              api_v0.Reconciliation{DeletionScheduled: &now},
 				KubernetesRuntimeInstanceID: &runtimeID,
 			},
-			wantPatch: true,
-			wantWait:  false,
+			wantWait: false,
 		},
 	}
 
@@ -693,79 +689,10 @@ func TestGkeRuntimeUpdate_WaitsToRerunTheRuntime(t *testing.T) {
 			)
 
 			require.NoError(t, err)
-			assert.Equal(t, tc.wantPatch, patched)
+			assert.False(t, patched)
 			assert.Equal(t, tc.wantWait, requeue > 0)
 		})
 	}
-}
-
-// TestMarkRuntimeForReconcile_ClearsReconciled covers the write that makes the
-// owned runtime run again after this cluster is updated.
-func TestMarkRuntimeForReconcile_ClearsReconciled(t *testing.T) {
-	runtimeID := uint(42)
-	var gotMethod, gotPath string
-	var gotBody map[string]any
-
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotMethod = r.Method
-		gotPath = r.URL.Path
-		raw, err := io.ReadAll(r.Body)
-		require.NoError(t, err)
-		require.NoError(t, json.Unmarshal(raw, &gotBody))
-
-		body, err := json.Marshal(apiserver_lib.Response{
-			Status: apiserver_lib.Status{Code: http.StatusOK, Message: "OK"},
-			Data:   []apiserver_lib.Object{api_v0.KubernetesRuntimeInstance{}},
-		})
-		require.NoError(t, err)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write(body)
-	}))
-	defer srv.Close()
-
-	lifecycle := &gkeLifecycle{
-		r: &controller.Reconciler{
-			APIClient: &http.Client{},
-			APIServer: strings.TrimPrefix(srv.URL, "http://"),
-		},
-		instance: &api_v0.GcpGkeKubernetesRuntimeInstance{
-			KubernetesRuntimeInstanceID: &runtimeID,
-		},
-	}
-
-	require.NoError(t, lifecycle.markRuntimeForReconcile())
-	assert.Equal(t, http.MethodPatch, gotMethod)
-	assert.Equal(t, api_v0.PathKubernetesRuntimeInstances+"/42", gotPath)
-	assert.Equal(t, false, gotBody["Reconciled"])
-}
-
-// TestMarkRuntimeForReconcile_SkipsWhenThereIsNothingToRerun covers a delete
-// and a cluster that does not own a runtime yet.
-func TestMarkRuntimeForReconcile_SkipsWhenThereIsNothingToRerun(t *testing.T) {
-	called := false
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		called = true
-	}))
-	defer srv.Close()
-
-	now := time.Now().UTC()
-	runtimeID := uint(42)
-	cases := []*api_v0.GcpGkeKubernetesRuntimeInstance{
-		{Reconciliation: api_v0.Reconciliation{DeletionScheduled: &now}, KubernetesRuntimeInstanceID: &runtimeID},
-		{},
-	}
-	for _, instance := range cases {
-		lifecycle := &gkeLifecycle{
-			r: &controller.Reconciler{
-				APIClient: &http.Client{},
-				APIServer: strings.TrimPrefix(srv.URL, "http://"),
-			},
-			instance: instance,
-		}
-		require.NoError(t, lifecycle.markRuntimeForReconcile())
-	}
-	assert.False(t, called)
 }
 
 // TestGkeLifecycle_RecordWarning covers the Warning event reaching the

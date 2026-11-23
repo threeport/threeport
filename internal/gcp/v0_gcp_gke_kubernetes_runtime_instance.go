@@ -41,19 +41,7 @@ func v0GcpGkeKubernetesRuntimeInstanceUpdated(
 	p := newGkeLifecycleProvider(r, gcpGkeKubernetesRuntimeInstance, &reconLog)
 
 	// reconcile the cluster
-	requeue, err := provider.HandleInfraUpdate(p, &reconLog)
-	if err != nil {
-		return requeue, err
-	}
-
-	// rerun the owned runtime once this update is finished.
-	// A pass that asks to be called again has not changed the cluster yet.
-	if requeue == 0 {
-		if err := p.markRuntimeForReconcile(); err != nil {
-			return 0, err
-		}
-	}
-	return requeue, nil
+	return provider.HandleInfraUpdate(p, &reconLog)
 }
 
 // v0GcpGkeKubernetesRuntimeInstanceDeleted performs reconciliation when a v0 GcpGkeKubernetesRuntimeInstance
