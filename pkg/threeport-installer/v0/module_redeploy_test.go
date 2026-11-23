@@ -131,13 +131,38 @@ func TestEnsureBrokerCAMountsTheSecret(t *testing.T) {
 
 	volumes, _, err := unstructured.NestedSlice(deployment.Object, "spec", "template", "spec", "volumes")
 	require.NoError(t, err)
-	require.True(t, namedObject(volumes, brokerCAVolume))
+	require.True(t, namedObject(volumes, ModuleBrokerCAVolumeName))
 	containers, _, err := unstructured.NestedSlice(deployment.Object, "spec", "template", "spec", "containers")
 	require.NoError(t, err)
 	mounts, _, err := unstructured.NestedSlice(containers[0].(map[string]interface{}), "volumeMounts")
 	require.NoError(t, err)
-	require.True(t, mountNamed(mounts, brokerCAMount))
-	require.True(t, mountNamed(mounts, brokerCASystemFile))
+	require.True(t, mountNamed(mounts, NatsClientCAPath))
+	require.True(t, mountNamed(mounts, ModuleBrokerCASystemFile))
+}
+
+// TestEnsureBrokerCALeavesTheInstallMount checks the mounts a module install
+// creates are the ones the reconcile looks for.
+func TestEnsureBrokerCALeavesTheInstallMount(t *testing.T) {
+	// a module install already has the volume and both mounts
+	deployment := &unstructured.Unstructured{Object: map[string]interface{}{
+		"spec": map[string]interface{}{
+			"template": map[string]interface{}{
+				"spec": map[string]interface{}{
+					"volumes": []interface{}{ModuleBrokerCAVolume()},
+					"containers": []interface{}{
+						map[string]interface{}{
+							"name": "api",
+							"volumeMounts": []interface{}{
+								ModuleBrokerCAVolumeMount(),
+								ModuleBrokerCASystemVolumeMount(),
+							},
+						},
+					},
+				},
+			},
+		},
+	}}
+	require.False(t, ensureBrokerCA(deployment))
 }
 
 // TestMissingModuleNamespaceIsAbsent covers a removed module namespace.
@@ -145,6 +170,114 @@ func TestMissingModuleNamespaceIsAbsent(t *testing.T) {
 	present, err := moduleNamespacePresent(testKubeClient(), "threeport-example")
 	require.NoError(t, err)
 	require.False(t, present)
+}
+
+// TestRejectExistingModuleNamespaceReportsAnotherOwner covers the namespace check.
+func TestRejectExistingModuleNamespaceReportsAnotherOwner(t *testing.T) {
+	// an absent namespace is free to install into
+	apiDeployment := moduleAPIDeploymentName("example")
+	require.NoError(t, RejectExistingModuleNamespace(
+		testKubeClient(), "threeport-example", "primary-test", apiDeployment,
+	))
+
+	// a namespace with no owner label and no API deployment is taken
+	err := RejectExistingModuleNamespace(
+		testKubeClient(testModuleNamespace("threeport-example", "uid")),
+		"threeport-example",
+		"primary-test",
+		apiDeployment,
+	)
+	require.ErrorIs(t, err, ErrModuleNamespaceExists)
+
+	// a namespace labeled for another control plane is taken
+	other := testModuleNamespace("threeport-example", "uid")
+	other.SetLabels(map[string]string{ModuleNamespaceOwnerLabel: "genesis-test"})
+	err = RejectExistingModuleNamespace(
+		testKubeClient(other, testNamedDeployment(
+			"threeport-example", apiDeployment, controlPlaneDatabaseHost("primary-test"),
+		)),
+		"threeport-example",
+		"primary-test",
+		apiDeployment,
+	)
+	require.ErrorIs(t, err, ErrModuleNamespaceExists)
+
+	// a namespace this control plane labeled is left for the install
+	owned := testModuleNamespace("threeport-example", "uid")
+	owned.SetLabels(map[string]string{ModuleNamespaceOwnerLabel: "primary-test"})
+	require.NoError(t, RejectExistingModuleNamespace(
+		testKubeClient(owned), "threeport-example", "primary-test", apiDeployment,
+	))
+}
+
+// TestRejectExistingModuleNamespaceAdoptsAnUnlabeledModule covers a namespace
+// created before installs wrote an owner label.
+func TestRejectExistingModuleNamespaceAdoptsAnUnlabeledModule(t *testing.T) {
+	// an unlabeled namespace whose API deployment names this database is left for the install
+	apiDeployment := moduleAPIDeploymentName("example")
+	host := controlPlaneDatabaseHost("primary-test")
+	require.NoError(t, RejectExistingModuleNamespace(
+		testKubeClient(
+			testModuleNamespace("threeport-example", "uid"),
+			testNamedDeployment("threeport-example", apiDeployment, host),
+		),
+		"threeport-example",
+		"primary-test",
+		apiDeployment,
+	))
+
+	// the same API deployment for another control plane stays taken
+	err := RejectExistingModuleNamespace(
+		testKubeClient(
+			testModuleNamespace("threeport-example", "uid"),
+			testNamedDeployment(
+				"threeport-example", apiDeployment, controlPlaneDatabaseHost("other-plane"),
+			),
+		),
+		"threeport-example",
+		"primary-test",
+		apiDeployment,
+	)
+	require.ErrorIs(t, err, ErrModuleNamespaceExists)
+
+	// a deployment that only names this database stays taken
+	err = RejectExistingModuleNamespace(
+		testKubeClient(
+			testModuleNamespace("threeport-example", "uid"),
+			testNamedDeployment("threeport-example", "other-module-api-server", host),
+		),
+		"threeport-example",
+		"primary-test",
+		apiDeployment,
+	)
+	require.ErrorIs(t, err, ErrModuleNamespaceExists)
+}
+
+// testNamedDeployment returns a deployment whose command names host.
+func testNamedDeployment(namespace, name, host string) *unstructured.Unstructured {
+	// name this database in the container command
+	return &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "apps/v1",
+		"kind":       "Deployment",
+		"metadata": map[string]interface{}{
+			"name":      name,
+			"namespace": namespace,
+		},
+		"spec": map[string]interface{}{
+			"template": map[string]interface{}{
+				"spec": map[string]interface{}{
+					"containers": []interface{}{
+						map[string]interface{}{
+							"name": "api",
+							"command": []interface{}{
+								"cockroach sql --host " + host,
+							},
+						},
+					},
+				},
+			},
+		},
+	}}
 }
 
 // TestRestartPointsTheDatabaseAtTheReplacement covers a module restart

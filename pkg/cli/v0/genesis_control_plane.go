@@ -1052,7 +1052,8 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		dynamicKubeClient,
 		mapper,
 		threeport.SupportServicesCloud(controlPlane.InfraProvider),
-		cpi.Opts.Namespace,
+		threeport.RuntimeNamespace,
+		cpi.Opts.ControlPlaneName,
 	)
 	if err != nil {
 		return uninstaller.cleanOnCreateError("failed to install threeport support services operator", err)
@@ -1076,7 +1077,8 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			*callerIdentity.Account,
 			awsConfigUser.Region,
 			kubernetesVersion,
-			cpi.Opts.Namespace,
+			threeport.RuntimeNamespace,
+			cpi.Opts.ControlPlaneName,
 		); err != nil {
 			return uninstaller.cleanOnCreateError("failed to install system services", err)
 		}

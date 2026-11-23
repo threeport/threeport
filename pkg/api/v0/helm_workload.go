@@ -31,7 +31,7 @@ type HelmWorkloadDefinition struct {
 
 	// Complete kubernetes resources that will be appended to the provided
 	// helm chart.
-	AdditionalResources *datatypes.JSONSlice[datatypes.JSON] `validate:"optional"`
+	AdditionalResources *datatypes.JSONSlice[datatypes.JSON] `validate:"optional" swaggertype:"array,object"`
 }
 
 // HelmWorkloadInstance is a deployed instance of a helm chart with the runtime
@@ -56,5 +56,5 @@ type HelmWorkloadInstance struct {
 
 	// Complete kubernetes resources that will be appended to the provided
 	// helm chart.
-	AdditionalResources *datatypes.JSONSlice[datatypes.JSON] `validate:"optional"`
+	AdditionalResources *datatypes.JSONSlice[datatypes.JSON] `validate:"optional" swaggertype:"array,object"`
 }

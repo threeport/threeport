@@ -119,6 +119,7 @@ func testKubeClient(objects ...runtime.Object) *dynamicfake.FakeDynamicClient {
 		{Group: "apps", Version: "v1", Kind: "DeploymentList"},
 		{Group: "apps", Version: "v1", Kind: "StatefulSetList"},
 		{Group: "batch", Version: "v1", Kind: "JobList"},
+		{Group: "networking.k8s.io", Version: "v1", Kind: "NetworkPolicyList"},
 		{Group: "storage.k8s.io", Version: "v1", Kind: "StorageClassList"},
 	} {
 		scheme.AddKnownTypeWithName(listKind, &unstructured.UnstructuredList{})

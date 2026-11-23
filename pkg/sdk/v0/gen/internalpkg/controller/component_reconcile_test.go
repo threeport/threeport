@@ -11,7 +11,7 @@ import (
 
 // TestSupportComponentsReadsWorkloadFields checks the field scan.
 func TestSupportComponentsReadsWorkloadFields(t *testing.T) {
-	// the fixture declares a runtime and all four workloads
+	// the fixture declares a runtime and every shared workload
 	tags := map[string]map[string]map[string]string{
 		"ReconcilerTestInstance": {
 			"KubernetesRuntimeInstanceID": {"relationship": "requires"},
@@ -27,10 +27,13 @@ func TestSupportComponentsReadsWorkloadFields(t *testing.T) {
 			"DatabaseComponentInstanceID": {
 				"relationship": "requires;type:KubernetesWorkloadInstance",
 			},
+			"StorageComponentInstanceID": {
+				"relationship": "requires;type:KubernetesWorkloadInstance",
+			},
 		},
 	}
 	got := supportComponents(tags, "ReconcilerTestInstance")
-	want := []string{"ingress", "certificates", "secrets", "database"}
+	want := []string{"ingress", "certificates", "secrets", "database", "storage"}
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Fatalf("supportComponents() = %v, want %v", got, want)
 	}
@@ -44,13 +47,14 @@ func TestSupportComponentsReadsWorkloadFields(t *testing.T) {
 
 // TestEmitSupportComponentsNamesTheCalls checks the generated call names.
 func TestEmitSupportComponentsNamesTheCalls(t *testing.T) {
-	components := []string{"ingress", "certificates", "secrets", "database"}
+	components := []string{"ingress", "certificates", "secrets", "database", "storage"}
 	ensure := renderComponents(t, components, false)
 	for _, name := range []string{
 		"EnsureIngressComponent",
 		"EnsureCertificatesComponent",
 		"EnsureSecretsComponent",
 		"EnsureDatabaseComponent",
+		"EnsureStorageComponent",
 		"UpdateReconcilerTestInstance",
 	} {
 		if !strings.Contains(ensure, name) {
@@ -63,6 +67,7 @@ func TestEmitSupportComponentsNamesTheCalls(t *testing.T) {
 		"ReleaseCertificatesComponent",
 		"ReleaseSecretsComponent",
 		"ReleaseDatabaseComponent",
+		"ReleaseStorageComponent",
 	} {
 		if !strings.Contains(release, name) {
 			t.Fatalf("release output missing %s:\n%s", name, release)
@@ -89,6 +94,7 @@ func TestEmitSupportComponentsNamesTheCalls(t *testing.T) {
 		"&componentObject.CertificatesComponentInstanceID",
 		"&componentObject.SecretsComponentInstanceID",
 		"&componentObject.DatabaseComponentInstanceID",
+		"&componentObject.StorageComponentInstanceID",
 	} {
 		if !strings.Contains(ensure, field) {
 			t.Fatalf("ensure output missing %s:\n%s", field, ensure)
