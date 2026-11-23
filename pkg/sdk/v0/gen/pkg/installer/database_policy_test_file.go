@@ -40,9 +40,9 @@ func GenInstallerDatabasePolicyTest(gen *gen.Generator, sdkConfig *sdk.SdkConfig
 
 	f.Comment("TestOnlyTheModuleApiServerReachesTheDatabase checks the network policy")
 	f.Comment("the installer creates in the control plane's namespace: it admits the")
-	f.Comment("module API server's pods, whose db-init and database-migrator init")
-	f.Comment("containers connect to the module's database too, from the module's")
-	f.Comment("namespace and on the SQL port, and keeps every other pod out.")
+	f.Comment("module API server's pods, whose database-migrator init container")
+	f.Comment("connects to the database too, from the module's namespace and on the")
+	f.Comment("SQL port, and keeps every other pod out.")
 	f.Func().Id("TestOnlyTheModuleApiServerReachesTheDatabase").Params(
 		Id("t").Op("*").Qual("testing", "T"),
 	).Block(

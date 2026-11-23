@@ -297,7 +297,7 @@ func TestRestartPointsTheDatabaseAtTheReplacement(t *testing.T) {
 				"spec": map[string]interface{}{
 					"initContainers": []interface{}{
 						map[string]interface{}{
-							"name": "db-init",
+							"name": "database-migrator",
 							"command": []interface{}{
 								"--host crdb.primary-12.svc.cluster.local",
 							},

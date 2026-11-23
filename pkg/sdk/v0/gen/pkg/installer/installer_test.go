@@ -135,3 +135,31 @@ func TestAModuleSpreadsAndProtectsItsReplicasLikeTheControlPlane(t *testing.T) {
 	require.NotEqual(t, -1, budget)
 	assert.Less(t, deployment, budget, "the budget is applied before the API deployment")
 }
+
+// TestAModuleCreatesNoDatabaseOfItsOwn covers #825: a module's tables are in
+// the control plane's database, so its installer creates no database of its
+// own.  It has no db-create ConfigMap, no db-init init container running
+// CockroachDB's client as root, and doesn't copy or mount the database's
+// root client certificate.  The database-migrator is the API server's only
+// init container, and still connects with the threeport user's certificate.
+// The installer removes what an earlier install of the module left.
+func TestAModuleCreatesNoDatabaseOfItsOwn(t *testing.T) {
+	generated := generateInstaller(t)
+
+	for _, unwanted := range []string{
+		"db-create", "db-init", "db-root-cert", "cockroachdb/cockroach",
+		"CREATE DATABASE", "_api encoding", "DbInitFilename", "DbInitLocation",
+	} {
+		assert.NotContains(t, generated, unwanted)
+	}
+	assert.Contains(t, generated, `"db-threeport-cert"`, "the migrator and API server connect as the threeport user")
+	assert.Equal(t, 1, strings.Count(generated, `"initContainers"`))
+	assert.Contains(t, generated, `"name":            "database-migrator"`)
+	assert.Contains(t, generated, "tp_installer.RemoveStaleModuleDatabaseInit(")
+
+	// the cleanup follows the API deployment that no longer mounts them
+	apply := strings.Index(generated, "failed to create/update widget API deployment")
+	cleanup := strings.Index(generated, "tp_installer.RemoveStaleModuleDatabaseInit(")
+	require.Positive(t, apply)
+	assert.Greater(t, cleanup, apply)
+}

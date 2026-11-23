@@ -215,10 +215,11 @@ func (cpi *ControlPlaneInstaller) redeployInstalledModule(
 	}
 
 	// restart each controller
-	if moduleAPI.ID == nil {
-		return nil
+	var controllers []string
+	if moduleAPI.ID != nil {
+		controllers = controllersByAPI[*moduleAPI.ID]
 	}
-	for _, deploymentName := range controllersByAPI[*moduleAPI.ID] {
+	for _, deploymentName := range controllers {
 		namespace, recorded, splitErr := splitDeploymentName(deploymentName)
 		if splitErr != nil {
 			return fmt.Errorf("module %s: %w", util.DerefString(moduleAPI.Name), splitErr)
@@ -244,7 +245,9 @@ func (cpi *ControlPlaneInstaller) redeployInstalledModule(
 		}
 	}
 
-	return nil
+	// the deployments no longer mount what a module's own database was
+	// created with
+	return RemoveStaleModuleDatabaseInit(kubeClient, cpi.Opts.Namespace, apiServer.Namespace)
 }
 
 // recordedModuleImages returns the repository and tag stored on a module API.
@@ -305,6 +308,11 @@ func restartModuleDeployment(
 	if err := restoreStoppedReplicas(deployment); err != nil {
 		return fmt.Errorf("failed to restore replicas on deployment %s/%s: %w", namespace, name, err)
 	}
+
+	// a module installed when modules created a database of their own
+	// leaves the init container that created it, which mounts the
+	// database's root client certificate
+	dropModuleDatabaseInit(deployment)
 
 	// set each recorded image
 	for listKey, image := range images {

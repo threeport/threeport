@@ -56,15 +56,16 @@ func TestModuleImages(t *testing.T) {
 
 // TestModuleCopiedSecretNames checks the secrets copied into a module namespace.
 func TestModuleCopiedSecretNames(t *testing.T) {
-	// match the installer secret list
+	// match the installer secret list, which leaves the database's root
+	// client certificate in the control plane's namespace
 	assert.Equal(t, []string{
-		dbRootCertSecretName,
 		dbThreeportCertSecretName,
 		EncryptionKeySecret,
 		controllerConfigSecretName,
 		ThreeportApiConfigSecret,
 		NatsCACertSecretName,
 	}, ModuleCopiedSecretNames())
+	assert.NotContains(t, ModuleCopiedSecretNames(), dbRootCertSecretName)
 }
 
 // TestModuleApiConfigSecret checks the module API config secret contents.

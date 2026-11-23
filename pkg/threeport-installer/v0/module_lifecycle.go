@@ -179,7 +179,7 @@ func retagModuleAPI(
 	}
 
 	// restart onto the recorded images
-	return restartModuleDeployment(
+	if err := restartModuleDeployment(
 		kubeClient,
 		namespace,
 		name,
@@ -193,7 +193,13 @@ func retagModuleAPI(
 			"initContainers": moduleMigratorContainerName,
 		},
 		time.Now().UTC(),
-	)
+	); err != nil {
+		return err
+	}
+
+	// the deployment no longer mounts what a module's own database was
+	// created with
+	return RemoveStaleModuleDatabaseInit(kubeClient, controlPlaneNamespace, namespace)
 }
 
 // retagModuleController restarts one controller deployment when its image differs.

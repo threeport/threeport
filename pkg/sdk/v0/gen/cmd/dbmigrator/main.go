@@ -126,21 +126,25 @@ func GenDbMigratorMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		),
 		Line(),
 
-		Switch(Id("command")).Block(
-			Case(Lit("initialize")).Block(
-				If(Id("err").Op(":=").Id("initializeDb").Call(Id("logger")), Id("err").Op("!=").Nil()).Block(
-					Id("returnErr").Call(Lit("failed to initialize database and user"), Id("err")),
-				),
-				Qual("os", "Exit").Call(Lit(0)),
-			),
-			Default().Block(
+		Switch(Id("command")).BlockFunc(func(g *Group) {
+			// a module's tables are in the control plane's database, which the
+			// control plane initializes, so a module's migrator only migrates
+			if !gen.Module {
+				g.Case(Lit("initialize")).Block(
+					If(Id("err").Op(":=").Id("initializeDb").Call(Id("logger")), Id("err").Op("!=").Nil()).Block(
+						Id("returnErr").Call(Lit("failed to initialize database and user"), Id("err")),
+					),
+					Qual("os", "Exit").Call(Lit(0)),
+				)
+			}
+			g.Default().Block(
 				If(Id("err").Op(":=").Id("migrateDb").Call(
 					Id("command"), Id("arguments"), Id("logger"),
 				), Id("err").Op("!=").Nil()).Block(
 					Id("returnErr").Call(Lit("failed to migrate database schema"), Id("err")),
 				),
-			),
-		),
+			)
+		}),
 		Line(),
 
 		Qual("os", "Exit").Call(Lit(0)),
@@ -369,84 +373,87 @@ func GenDbMigratorMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		f.Line()
 	}
 
-	f.Comment("initializeDb creates the database and user using root database user.")
-	f.Func().Id("initializeDb").Params(
-		Id("logger").Qual("go.uber.org/zap", "Logger"),
-	).Params(Error()).Block(
-		List(Id("dsn"), Id("err")).Op(":=").Qual(apiServerDbPath, "GetDsn").Call(True()),
-		If(Id("err").Op("!=").Nil()).Block(
-			Return(Qual("fmt", "Errorf").Call(Lit("failed to get data source string: %w"), Id("err"))),
-		),
-		Line(),
-
-		Comment("at deployment time, this is the first database connection made so we"),
-		Comment("retry the connection for 5 min before returning an error"),
-		Var().Id("connAttemptsMax").Op("=").Lit(30),
-		Var().Id("connAttemptIntervalSeconds").Op("=").Lit(10),
-		Var().Id("connAttempts").Op("=").Lit(0),
-		Var().Id("gormDb").Op("*").Qual("gorm.io/gorm", "DB"),
-		Var().Id("dbConnErr").Error(),
-		For(Id("connAttempts").Op("<").Id("connAttemptsMax")).Block(
-			List(Id("db"), Id("err")).Op(":=").Qual("gorm.io/gorm", "Open").Call(
-				Qual("gorm.io/driver/postgres", "Open").Call(Id("dsn")),
-				Op("&").Qual("gorm.io/gorm", "Config").Values(Dict{
-					Id("Logger"): Op("&").Qual(apiServerDbPath, "ZapLogger").Values(Dict{
-						Id("Logger"): Op("&").Id("logger"),
-					}),
-					Id("NowFunc"): Func().Params().Qual("time", "Time").Block(
-						Id("utc").Op(",").Op("_").Op(":=").Qual("time", "LoadLocation").Call(Lit("UTC")),
-						Return(Qual("time", "Now").Call().Dot("In").Call(Id("utc")).Dot("Truncate").Call(
-							Qual("time", "Microsecond"),
-						)),
-					),
-				}),
-			),
+	// a module has no database of its own to initialize
+	if !gen.Module {
+		f.Comment("initializeDb creates the database and user using root database user.")
+		f.Func().Id("initializeDb").Params(
+			Id("logger").Qual("go.uber.org/zap", "Logger"),
+		).Params(Error()).Block(
+			List(Id("dsn"), Id("err")).Op(":=").Qual(apiServerDbPath, "GetDsn").Call(True()),
 			If(Id("err").Op("!=").Nil()).Block(
-				Id("logger").Dot("Info").Call(Qual("fmt", "Sprintf").Call(
-					Line().Lit("failed to make DB connection, retrying in %d seconds"),
-					Line().Id("connAttemptIntervalSeconds"),
-					Line(),
-				)),
-				Id("dbConnErr").Op("=").Id("err"),
-			).Else().Block(
-				Id("gormDb").Op("=").Id("db"),
-				Break(),
+				Return(Qual("fmt", "Errorf").Call(Lit("failed to get data source string: %w"), Id("err"))),
 			),
-			Id("connAttempts").Op("++"),
-			Qual("time", "Sleep").Call(Qual("time", "Second").Op("*").Qual("time", "Duration").Call(
-				Id("connAttemptIntervalSeconds"),
-			)),
-		),
-		If(Id("gormDb").Op("==").Nil()).Block(
-			Return(Qual("fmt", "Errorf").Call(
-				Lit("timed out after 5 mim attempting to make database connection: %w"), Id("dbConnErr"),
-			)),
-		),
-		Line(),
+			Line(),
 
-		Comment("execute SQL init script"),
-		Id("sqlFile").Op(":=").Qual("path/filepath", "Join").Call(
-			Qual(installerPath, "DbInitLocation"), Qual(installerPath, "DbInitFilename"),
-		),
-		List(Id("sqlScript"), Id("err")).Op(":=").Qual("io/ioutil", "ReadFile").Call(Id("sqlFile")),
-		If(Id("err").Op("!=").Nil()).Block(
-			Id("returnErr").Call(Lit("failed to read SQL init script"), Id("err")),
-		),
-		If(Id("err").Op(":=").Id("gormDb").Dot("Exec").Call(String().Call(
-			Id("sqlScript"),
-		)).Dot("Error"), Id("err").Op("!=").Nil()).Block(
-			Id("returnErr").Call(Lit("failed to execute SQL init script"), Id("err")),
-		),
-		Line(),
+			Comment("at deployment time, this is the first database connection made so we"),
+			Comment("retry the connection for 5 min before returning an error"),
+			Var().Id("connAttemptsMax").Op("=").Lit(30),
+			Var().Id("connAttemptIntervalSeconds").Op("=").Lit(10),
+			Var().Id("connAttempts").Op("=").Lit(0),
+			Var().Id("gormDb").Op("*").Qual("gorm.io/gorm", "DB"),
+			Var().Id("dbConnErr").Error(),
+			For(Id("connAttempts").Op("<").Id("connAttemptsMax")).Block(
+				List(Id("db"), Id("err")).Op(":=").Qual("gorm.io/gorm", "Open").Call(
+					Qual("gorm.io/driver/postgres", "Open").Call(Id("dsn")),
+					Op("&").Qual("gorm.io/gorm", "Config").Values(Dict{
+						Id("Logger"): Op("&").Qual(apiServerDbPath, "ZapLogger").Values(Dict{
+							Id("Logger"): Op("&").Id("logger"),
+						}),
+						Id("NowFunc"): Func().Params().Qual("time", "Time").Block(
+							Id("utc").Op(",").Op("_").Op(":=").Qual("time", "LoadLocation").Call(Lit("UTC")),
+							Return(Qual("time", "Now").Call().Dot("In").Call(Id("utc")).Dot("Truncate").Call(
+								Qual("time", "Microsecond"),
+							)),
+						),
+					}),
+				),
+				If(Id("err").Op("!=").Nil()).Block(
+					Id("logger").Dot("Info").Call(Qual("fmt", "Sprintf").Call(
+						Line().Lit("failed to make DB connection, retrying in %d seconds"),
+						Line().Id("connAttemptIntervalSeconds"),
+						Line(),
+					)),
+					Id("dbConnErr").Op("=").Id("err"),
+				).Else().Block(
+					Id("gormDb").Op("=").Id("db"),
+					Break(),
+				),
+				Id("connAttempts").Op("++"),
+				Qual("time", "Sleep").Call(Qual("time", "Second").Op("*").Qual("time", "Duration").Call(
+					Id("connAttemptIntervalSeconds"),
+				)),
+			),
+			If(Id("gormDb").Op("==").Nil()).Block(
+				Return(Qual("fmt", "Errorf").Call(
+					Lit("timed out after 5 mim attempting to make database connection: %w"), Id("dbConnErr"),
+				)),
+			),
+			Line(),
 
-		backupScheduleCall,
-		Line(),
+			Comment("execute SQL init script"),
+			Id("sqlFile").Op(":=").Qual("path/filepath", "Join").Call(
+				Qual(installerPath, "DbInitLocation"), Qual(installerPath, "DbInitFilename"),
+			),
+			List(Id("sqlScript"), Id("err")).Op(":=").Qual("io/ioutil", "ReadFile").Call(Id("sqlFile")),
+			If(Id("err").Op("!=").Nil()).Block(
+				Id("returnErr").Call(Lit("failed to read SQL init script"), Id("err")),
+			),
+			If(Id("err").Op(":=").Id("gormDb").Dot("Exec").Call(String().Call(
+				Id("sqlScript"),
+			)).Dot("Error"), Id("err").Op("!=").Nil()).Block(
+				Id("returnErr").Call(Lit("failed to execute SQL init script"), Id("err")),
+			),
+			Line(),
 
-		Id("logger").Dot("Info").Call(Lit("database successfully initialized")),
-		Line(),
+			backupScheduleCall,
+			Line(),
 
-		Return(Nil()),
-	)
+			Id("logger").Dot("Info").Call(Lit("database successfully initialized")),
+			Line(),
+
+			Return(Nil()),
+		)
+	}
 
 	if !gen.Module {
 		f.Comment("createBackupSchedule creates the database backup schedule when the install")
@@ -502,11 +509,7 @@ func GenDbMigratorMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	)
 	f.Line()
 
-	f.Comment("usage prints the usage info for database-migrator")
-	f.Func().Id("usage").Params().Block(
-		Id("args").Op(":=").Id("validArgs").Call(),
-		Qual("fmt", "Printf").Call(
-			Lit(`database-migrator initializes and manages the database schema for the Threeport API
+	usageText := `database-migrator initializes and manages the database schema for the Threeport API
 
 usage: database-migrator [-env-file /path/to/environment_file] <arguments>
 
@@ -518,14 +521,35 @@ examples:
 
 	Run database migrations to apply database schema:
 	database-migrator -env-file=/etc/threeport/env up
-`), Id("args"),
+`
+	validArgs := Append(Id("gooseCommands"), Lit("initialize"))
+	if gen.Module {
+		usageText = `database-migrator manages the database schema of this module's tables in the
+Threeport API's database
+
+usage: database-migrator [-env-file /path/to/environment_file] <arguments>
+
+valid arguments: %s
+
+examples:
+	Run database migrations to apply database schema:
+	database-migrator -env-file=/etc/threeport/env up
+`
+		validArgs = Id("gooseCommands")
+	}
+
+	f.Comment("usage prints the usage info for database-migrator")
+	f.Func().Id("usage").Params().Block(
+		Id("args").Op(":=").Id("validArgs").Call(),
+		Qual("fmt", "Printf").Call(
+			Lit(usageText), Id("args"),
 		),
 	)
 	f.Line()
 
 	f.Comment("validArgs returns all valid arguments to database-migrator")
 	f.Func().Id("validArgs").Params().Index().String().Block(
-		Return(Append(Id("gooseCommands"), Lit("initialize"))),
+		Return(validArgs),
 	)
 
 	// write code to file if not excluded by SDK config
