@@ -292,11 +292,8 @@ func v0KubernetesRuntimeInstanceUpdated(
 		return 0, err
 	}
 
-	// choose the namespace this runtime's operator is installed in
-	namespace, err := supportServicesNamespace(isControlPlaneHost)
-	if err != nil {
-		return 0, fmt.Errorf("failed to determine the support services namespace: %w", err)
-	}
+	// install the agent and the operator in the runtime namespace
+	namespace := threeport.RuntimeNamespace
 	cpi.Opts.Namespace = namespace
 
 	// delete that namespace on a workload cluster when an image is behind.
@@ -745,18 +742,6 @@ func isGkeControlPlaneHost(
 
 // serviceAccountNamespacePath is where Kubernetes mounts a pod's own namespace.
 const serviceAccountNamespacePath = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
-
-// supportServicesNamespace returns the namespace this runtime's support services operator runs in.
-// A cluster hosting the control plane keeps that operator beside the control plane.
-func supportServicesNamespace(hostsControlPlane bool) (string, error) {
-	// a managed cluster gets its own namespace
-	if !hostsControlPlane {
-		return threeport.RuntimeNamespace, nil
-	}
-
-	// the host keeps the operator where the control plane already runs
-	return controlPlaneNamespace()
-}
 
 // controlPlaneNamespace returns the namespace this controller runs in.
 //
