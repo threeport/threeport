@@ -239,6 +239,18 @@ func ReconcilerTestInstanceReconciler(r *controller.Reconciler) {
 								operationErr = fmt.Errorf("failed to ensure database component: %w", err)
 							}
 						}
+						if operationErr == nil {
+							if err := supportservices.EnsureStorageComponent(
+								r,
+								runtime,
+								componentObject,
+								&componentObject.StorageComponentInstanceID,
+								client_v0.UpdateReconcilerTestInstance,
+								&log,
+							); err != nil {
+								operationErr = fmt.Errorf("failed to ensure storage component: %w", err)
+							}
+						}
 					}
 					if operationErr == nil {
 						requeueDelay, err := v0ReconcilerTestInstanceCreated(
@@ -390,6 +402,18 @@ func ReconcilerTestInstanceReconciler(r *controller.Reconciler) {
 								operationErr = fmt.Errorf("failed to ensure database component: %w", err)
 							}
 						}
+						if operationErr == nil {
+							if err := supportservices.EnsureStorageComponent(
+								r,
+								runtime,
+								componentObject,
+								&componentObject.StorageComponentInstanceID,
+								client_v0.UpdateReconcilerTestInstance,
+								&log,
+							); err != nil {
+								operationErr = fmt.Errorf("failed to ensure storage component: %w", err)
+							}
+						}
 					}
 					if operationErr == nil {
 						requeueDelay, err := v0ReconcilerTestInstanceUpdated(
@@ -534,6 +558,15 @@ func ReconcilerTestInstanceReconciler(r *controller.Reconciler) {
 									componentObject,
 								); err != nil {
 									operationErr = fmt.Errorf("failed to release database component: %w", err)
+								}
+							}
+							if operationErr == nil {
+								if err := supportservices.ReleaseStorageComponent(
+									r,
+									runtime,
+									componentObject,
+								); err != nil {
+									operationErr = fmt.Errorf("failed to release storage component: %w", err)
 								}
 							}
 						}

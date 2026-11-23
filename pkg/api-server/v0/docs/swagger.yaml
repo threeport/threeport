@@ -231,9 +231,7 @@ definitions:
         type: string
       ResourceInventory:
         description: An inventory of all AWS resources for the EKS cluster.
-        items:
-          type: integer
-        type: array
+        type: object
       Status:
         description: |-
           The status of the instance.
@@ -329,19 +327,19 @@ definitions:
         description: The additional env reference to be added to the environment variables
           of the component.
         items:
-          type: integer
+          type: object
         type: array
       AdditionalVolumeMounts:
         description: The additional volume mounts to be added to the deployment spec
           of the component.
         items:
-          type: integer
+          type: object
         type: array
       AdditionalVolumes:
         description: The additional volumes to be added to the deployment spec of
           the component.
         items:
-          type: integer
+          type: object
         type: array
       BinaryName:
         description: The binary name of the component.
@@ -1276,9 +1274,7 @@ definitions:
         type: boolean
       ResourceInventory:
         description: An inventory of all GCP resources for the GKE cluster.
-        items:
-          type: integer
-        type: array
+        type: object
       SecretsEncryptionKey:
         description: |-
           The Cloud KMS key the cluster's Secrets are encrypted with, "" for
@@ -1374,9 +1370,7 @@ definitions:
           Complete kubernetes resources that will be appended to the provided
           helm chart.
         items:
-          items:
-            type: integer
-          type: array
+          type: object
         type: array
       Chart:
         description: The name of the helm chart to use from the helm repo, e.g. wordpress
@@ -1466,9 +1460,7 @@ definitions:
           Complete kubernetes resources that will be appended to the provided
           helm chart.
         items:
-          items:
-            type: integer
-          type: array
+          type: object
         type: array
       CreationAcknowledged:
         description: |-
@@ -1806,6 +1798,9 @@ definitions:
           The status of the instance.
           TODO: use a custom type
         type: string
+      StorageComponentInstanceID:
+        description: The workload that provides object storage for this runtime.
+        type: integer
       ThreeportAgentImage:
         description: |-
           An alternate threeport image to use when deploying threeport agent to
@@ -1973,9 +1968,7 @@ definitions:
     properties:
       JSONDefinition:
         description: The individual manifest in JSON format.
-        items:
-          type: integer
-        type: array
+        type: object
       KubernetesWorkloadDefinitionID:
         description: The kubernetes workload definition this resource belongs to.
         type: integer
@@ -1991,9 +1984,7 @@ definitions:
           KubernetesWorkloadResourceDefinition.JSONDefinition in that it has
           namespace management and other configuration — such as resource
           allocation management — added.
-        items:
-          type: integer
-        type: array
+        type: object
       KubernetesWorkloadInstanceID:
         description: The kubernetes workload instance this resource belongs to.
         type: integer
@@ -2011,9 +2002,7 @@ definitions:
         description: |-
           The JSON definition of a Kubernetes resource as stored in etcd in the
           kubernetes runtime.
-        items:
-          type: integer
-        type: array
+        type: object
       ScheduledForDeletion:
         description: Whether another controller has scheduled this resource for deletion
         type: string
@@ -3257,9 +3246,7 @@ definitions:
         type: string
       ResourceInventory:
         description: An inventory of all OCI resources for the OKE cluster.
-        items:
-          type: integer
-        type: array
+        type: object
       Status:
         description: |-
           The status of the instance.
@@ -3397,9 +3384,7 @@ definitions:
         type: boolean
       Data:
         description: The secret value to be stored in the provider.
-        items:
-          type: integer
-        type: array
+        type: object
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion

@@ -253,14 +253,13 @@ func (cpi *ControlPlaneInstaller) agentCurrent(
 }
 
 // SupportServicesOperatorInstalled reports whether the support services
-// operator InstallThreeportSupportServicesOperator would install is already
-// running on the cluster.
+// operator deployment is present and runs the image this install applies.
 func SupportServicesOperatorInstalled(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	namespace string,
 ) (bool, error) {
-	_, present, err := resourceInstalled(
+	operator, present, err := resourceInstalled(
 		kubeClient,
 		mapper,
 		"apps",
@@ -272,8 +271,83 @@ func SupportServicesOperatorInstalled(
 	if err != nil {
 		return false, fmt.Errorf("failed to check for the support services operator: %w", err)
 	}
+	if !present {
+		return false, nil
+	}
 
-	return present, nil
+	// an older image is not the install this manifest would apply
+	running, err := containerImages(operator)
+	if err != nil {
+		return false, fmt.Errorf("failed to read the support services operator image: %w", err)
+	}
+	return contains(running, SupportServicesOperatorImage), nil
+}
+
+// RuntimeOperatorsStale reports whether a present agent or operator runs an image this install would replace.
+// A missing deployment is not stale.
+func (cpi *ControlPlaneInstaller) RuntimeOperatorsStale(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+) (bool, error) {
+	// the agent is compared only when this install would put one there
+	if !cpi.Opts.SkipAgent {
+		wantImage := cpi.getImage(
+			cpi.Opts.AgentInfo.Name,
+			cpi.Opts.AgentInfo.ImageName,
+			cpi.Opts.AgentInfo.ImageNamespace,
+			cpi.Opts.AgentInfo.ImageTag,
+		)
+		stale, err := deploymentImageStale(
+			kubeClient,
+			mapper,
+			cpi.Opts.Namespace,
+			ThreeportAgentDeployName,
+			wantImage,
+		)
+		if err != nil || stale {
+			return stale, err
+		}
+	}
+
+	return deploymentImageStale(
+		kubeClient,
+		mapper,
+		cpi.Opts.Namespace,
+		SupportServicesOperatorDeployName,
+		SupportServicesOperatorImage,
+	)
+}
+
+// deploymentImageStale reports whether a present deployment runs an image other than wantImage.
+func deploymentImageStale(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	namespace string,
+	name string,
+	wantImage string,
+) (bool, error) {
+	// read the deployment. A missing one is not stale.
+	deployment, present, err := resourceInstalled(
+		kubeClient,
+		mapper,
+		"apps",
+		"v1",
+		"Deployment",
+		namespace,
+		name,
+	)
+	if err != nil {
+		return false, fmt.Errorf("failed to check for %s: %w", name, err)
+	}
+	if !present {
+		return false, nil
+	}
+
+	running, err := containerImages(deployment)
+	if err != nil {
+		return false, fmt.Errorf("failed to read the %s image: %w", name, err)
+	}
+	return !contains(running, wantImage), nil
 }
 
 // EksThreeportSystemServicesCurrent reports whether the EKS system services

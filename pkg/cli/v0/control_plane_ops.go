@@ -849,14 +849,23 @@ func runBlueGreen(
 		return fmt.Errorf("new control plane API is up, source writers left stopped: %w", installErr)
 	}
 
-	// run the support services operator in the new namespace, which only a
-	// control plane with no parent does
+	// run the support services operator in the runtime namespace.
+	// The control plane being replaced hands it to this one.
 	if runsSupportServices(source.Instance) {
+		if err := installer.RecordSupportServicesOperatorReplacement(
+			source.Kube,
+			source.Mapper,
+			util.DerefString(source.Instance.Name),
+			newName,
+		); err != nil {
+			return fmt.Errorf("new control plane API is up, source writers left stopped: failed to record the support services operator owner: %w", err)
+		}
 		if err := installer.InstallThreeportSupportServicesOperator(
 			source.Kube,
 			source.Mapper,
 			installer.SupportServicesCloud(api.KubernetesRuntimeInfraProvider(providerName)),
-			newNamespace,
+			installer.RuntimeNamespace,
+			newName,
 		); err != nil {
 			return fmt.Errorf("new control plane API is up, source writers left stopped: failed to install the support services operator: %w", err)
 		}

@@ -39,6 +39,8 @@ func v0GcpGkeKubernetesRuntimeInstanceUpdated(
 	)
 
 	p := newGkeLifecycleProvider(r, gcpGkeKubernetesRuntimeInstance, &reconLog)
+
+	// reconcile the cluster
 	return provider.HandleInfraUpdate(p, &reconLog)
 }
 
