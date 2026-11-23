@@ -100,7 +100,7 @@ type OciOkeKubernetesRuntimeInstance struct {
 	OciOkeKubernetesRuntimeDefinitionID *uint `validate:"required" gorm:"not null" relationship:"requires"`
 
 	// An inventory of all OCI resources for the OKE cluster.
-	ResourceInventory *datatypes.JSON `validate:"optional"`
+	ResourceInventory *datatypes.JSON `validate:"optional" swaggertype:"object"`
 
 	// Set by an operator to allow this instance to be deleted even though its
 	// creation was confirmed and no resource inventory is recorded, or the

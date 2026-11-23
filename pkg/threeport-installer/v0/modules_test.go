@@ -20,6 +20,7 @@ import (
 	k8stesting "k8s.io/client-go/testing"
 
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
+	"github.com/threeport/threeport/pkg/api-server/v0/database"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
@@ -443,6 +444,170 @@ func TestScaleDownModuleWritersStopsTheApiServer(t *testing.T) {
 	}
 }
 
+// TestStopModuleWritersUsesTheSavedCountsWhenTheAPIHasNoPods covers a retry
+// after the API is already scaled to zero.
+func TestStopModuleWritersUsesTheSavedCountsWhenTheAPIHasNoPods(t *testing.T) {
+	// seed an API deployment with no pods and a saved writer count
+	api := testManagedDeployment(ThreeportAPIServiceResourceName, "primary-13")
+	require.NoError(t, unstructured.SetNestedField(api.Object, int64(0), "spec", "replicas"))
+	kubeClient := testKubeClient(api)
+	cpi := &ControlPlaneInstaller{Opts: Options{Namespace: "primary-13"}}
+	want := []ModuleDeploymentScale{{
+		Namespace: "example",
+		Name:      "example-controller",
+		Replicas:  1,
+	}}
+	require.NoError(t, cpi.rememberModuleScales(kubeClient, want))
+
+	// read the saved counts instead of dialing the API
+	got, err := cpi.stopModuleWritersForRestore(kubeClient)
+	require.NoError(t, err)
+	require.Equal(t, want, got)
+}
+
+// TestStopModuleWritersFindsWritersWithoutAControllerCertificate covers a workstation that finds module writers without dialing the API.
+// A controller that belongs to another control plane stays running.
+func TestStopModuleWritersFindsWritersWithoutAControllerCertificate(t *testing.T) {
+	// seed this control plane, the module its policy names, and another control plane's controller
+	controlPlane := "primary-13"
+	otherControlPlane := "primary-14"
+	namespace := "example"
+	apiServerName := "example-api-server"
+	controllerName := "example-controller"
+	otherController := "threeport-rest-controller"
+	policy := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "networking.k8s.io/v1",
+		"kind":       "NetworkPolicy",
+		"metadata": map[string]interface{}{
+			"name":      ModuleDatabasePolicyName(namespace, apiServerName),
+			"namespace": controlPlane,
+		},
+	}}
+	apiServer := testModuleDeployment(apiServerName, namespace, 1)
+	// select the API server pods by name so the scale-down wait can find them
+	unstructured.SetNestedStringMap(apiServer.Object, map[string]string{
+		"app.kubernetes.io/name": apiServerName,
+	}, "spec", "selector", "matchLabels")
+	kubeClient := testKubeClient(
+		testManagedDeployment(ThreeportAPIServiceResourceName, controlPlane),
+		testControllerDeployment(controllerName, namespace, 1),
+		testControllerDeployment(otherController, controlPlane, 1),
+		testControllerDeployment(otherController, otherControlPlane, 1),
+		apiServer,
+		policy,
+	)
+	var patched []string
+	recordDeploymentScaling(kubeClient, &patched)
+	cpi := &ControlPlaneInstaller{Opts: Options{Namespace: controlPlane}}
+
+	// discover the writers without a controller certificate
+	got, err := cpi.stopModuleWritersForRestore(kubeClient)
+	require.NoError(t, err)
+	require.ElementsMatch(t, []ModuleDeploymentScale{
+		{
+			Namespace: namespace,
+			Name:      controllerName,
+			Replicas:  1,
+		},
+		{
+			Namespace: namespace,
+			Name:      apiServerName,
+			Replicas:  1,
+		},
+	}, got)
+	// leave each control plane's own controller running
+	patchedNames := strings.Join(patched, "\n")
+	require.NotContains(t, patchedNames, controlPlane+"/"+otherController)
+	require.NotContains(t, patchedNames, otherControlPlane+"/"+otherController)
+}
+
+// TestStopModuleWritersStopsAModuleWithoutADatabasePolicy covers a module whose init command names this control plane.
+// Another control plane's module, and this control plane's own controller, stay running.
+func TestStopModuleWritersStopsAModuleWithoutADatabasePolicy(t *testing.T) {
+	// seed this control plane, an older module that names its database, and another control plane's module
+	controlPlane := "primary-13"
+	otherControlPlane := "primary-14"
+	namespace := "legacy"
+	otherNamespace := "other-legacy"
+	apiServerName := "legacy-api-server"
+	controllerName := "legacy-controller"
+	otherController := "threeport-rest-controller"
+	apiServer := testModuleDeployment(apiServerName, namespace, 1)
+	setDatabaseInitCommand(apiServer, controlPlane)
+	unstructured.SetNestedStringMap(apiServer.Object, map[string]string{
+		"app.kubernetes.io/name": apiServerName,
+	}, "spec", "selector", "matchLabels")
+	otherAPI := testModuleDeployment("other-api-server", otherNamespace, 1)
+	setDatabaseInitCommand(otherAPI, otherControlPlane)
+	ownController := testControllerDeployment(otherController, controlPlane, 1)
+	setDatabaseInitCommand(ownController, controlPlane)
+	kubeClient := testKubeClient(
+		testManagedDeployment(ThreeportAPIServiceResourceName, controlPlane),
+		testControllerDeployment(controllerName, namespace, 1),
+		ownController,
+		testControllerDeployment(otherController, otherControlPlane, 1),
+		testControllerDeployment("other-controller", otherNamespace, 1),
+		apiServer,
+		otherAPI,
+	)
+	var patched []string
+	recordDeploymentScaling(kubeClient, &patched)
+	cpi := &ControlPlaneInstaller{Opts: Options{Namespace: controlPlane}}
+
+	// stop the older module without a database policy
+	got, err := cpi.stopModuleWritersForRestore(kubeClient)
+	require.NoError(t, err)
+	require.ElementsMatch(t, []ModuleDeploymentScale{
+		{
+			Namespace: namespace,
+			Name:      controllerName,
+			Replicas:  1,
+		},
+		{
+			Namespace: namespace,
+			Name:      apiServerName,
+			Replicas:  1,
+		},
+	}, got)
+
+	// leave the other module and both control planes running
+	patchedNames := strings.Join(patched, "\n")
+	require.NotContains(t, patchedNames, otherNamespace+"/")
+	require.NotContains(t, patchedNames, controlPlane+"/"+otherController)
+	require.NotContains(t, patchedNames, otherControlPlane+"/"+otherController)
+}
+
+// setDatabaseInitCommand writes the database address a module init command carries.
+func setDatabaseInitCommand(deployment *unstructured.Unstructured, controlPlaneNamespace string) {
+	// name this control plane's database the way the module installer does
+	_ = unstructured.SetNestedSlice(deployment.Object, []interface{}{
+		map[string]interface{}{
+			"name": "db-init",
+			"command": []interface{}{
+				"cockroach sql --host " + database.ThreeportDatabaseHost + "." + controlPlaneNamespace + ".svc.cluster.local",
+			},
+		},
+	}, "spec", "template", "spec", "initContainers")
+}
+
+// TestResumeModuleWritersRestoresTheSavedCount covers bringing a module writer back.
+func TestResumeModuleWritersRestoresTheSavedCount(t *testing.T) {
+	// seed a stopped module writer and record the patch
+	namespace := "example"
+	kubeClient := testKubeClient(testModuleDeployment("example-controller", namespace, 0))
+	var patched []string
+	recordDeploymentScaling(kubeClient, &patched)
+	cpi := &ControlPlaneInstaller{Opts: Options{Namespace: "primary-13"}}
+
+	// set the writer back to the saved count
+	require.NoError(t, cpi.resumeModuleWriters(kubeClient, []ModuleDeploymentScale{{
+		Namespace: namespace,
+		Name:      "example-controller",
+		Replicas:  2,
+	}}))
+	require.Equal(t, []string{"example/example-controller=2"}, patched)
+}
+
 // TestScaleDownModulesLeavesOtherWorkloadsRunning covers a registered name
 // that points at a workload other than a module controller.
 func TestScaleDownModulesLeavesOtherWorkloadsRunning(t *testing.T) {
@@ -819,6 +984,19 @@ func TestSplitModuleScalesReplacesOnlyTheRequestsModule(t *testing.T) {
 	replaced, others = SplitModuleScales("", scales)
 	assert.Empty(t, replaced)
 	assert.Equal(t, scales, others)
+
+	// assert a named namespace replaces that namespace, not the module default
+	named := append(scales, ModuleDeploymentScale{
+		Namespace: "threeport-example-b",
+		Name:      "threeport-example-api-server",
+		Replicas:  1,
+	})
+	replaced, others = SplitModuleScales(
+		"example.com/acme-module-api registry.example v1 threeport-example-b",
+		named,
+	)
+	assert.Equal(t, named[3:], replaced)
+	assert.Equal(t, named[:3], others)
 }
 
 // TestDeleteModuleNamespacesDeletesEachModuleNamespaceOnce covers the cleanup a

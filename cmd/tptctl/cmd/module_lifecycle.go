@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -20,7 +21,6 @@ import (
 
 const controlPlaneControllerDeploy = "threeport-" + installer.ThreeportControlPlaneControllerName
 
-var moduleUpgradeControlPlane string
 var moduleUpgradeName string
 var moduleUpgradeImageNamespace string
 var moduleUpgradeImageTag string
@@ -70,7 +70,7 @@ func runModuleImageUpgrade(cmd *cobra.Command, args []string) {
 		apiClient,
 		apiEndpoint,
 		encryptionKey,
-		moduleUpgradeControlPlane,
+		upgradeOldControlPlaneName,
 		moduleUpgradeName,
 		moduleUpgradeImageNamespace,
 		moduleUpgradeImageTag,
@@ -124,16 +124,20 @@ func runModuleBlueGreenUpgrade(cmd *cobra.Command, args []string) {
 	}
 
 	// resolve the control plane image from the one being replaced before anything is saved
-	running, err := runningControlPlane(apiClient, apiEndpoint, moduleUpgradeControlPlane)
+	running, err := runningControlPlane(apiClient, apiEndpoint, upgradeOldControlPlaneName)
 	if err != nil {
 		cli.Error("failed to upgrade module", err)
 		os.Exit(1)
 	}
-	imageNamespace, imageTag := moduleBlueGreenImage(upgradeImageNamespace, upgradeImageTag, running)
+	imageNamespace, imageTag, err := moduleBlueGreenImage(upgradeImageNamespace, upgradeImageTag, running)
+	if err != nil {
+		cli.Error("failed to resolve control plane image", err)
+		os.Exit(1)
+	}
 
 	// check the upgrade before the module image is saved, and stop there for a dry run
 	if err := cli.PreflightBlueGreen(apiClient, apiEndpoint, cli.BlueGreenPreflight{
-		SourceName:           moduleUpgradeControlPlane,
+		SourceName:           upgradeOldControlPlaneName,
 		NewName:              moduleNewControlPlaneName,
 		ImageNamespace:       imageNamespace,
 		ImageTag:             imageTag,
@@ -154,7 +158,7 @@ func runModuleBlueGreenUpgrade(cmd *cobra.Command, args []string) {
 				apiClient,
 				apiEndpoint,
 				encryptionKey,
-				moduleUpgradeControlPlane,
+				upgradeOldControlPlaneName,
 				moduleUpgradeName,
 				moduleUpgradeImageNamespace,
 				moduleUpgradeImageTag,
@@ -163,7 +167,7 @@ func runModuleBlueGreenUpgrade(cmd *cobra.Command, args []string) {
 		},
 		func() error {
 			childTag := ""
-			if moduleUpgradeControlPlane != "" {
+			if upgradeOldControlPlaneName != "" {
 				_, childTag, err = parentControlPlaneImage(apiClient, apiEndpoint, encryptionKey, true)
 				if err != nil {
 					return err
@@ -171,7 +175,7 @@ func runModuleBlueGreenUpgrade(cmd *cobra.Command, args []string) {
 			}
 
 			// a child reinstalls the module on its new control plane through its controller
-			moduleInstall, err := moduleBlueGreenInstall(apiClient, apiEndpoint, moduleUpgradeControlPlane)
+			moduleInstall, err := moduleBlueGreenInstall(apiClient, apiEndpoint, upgradeOldControlPlaneName)
 			if err != nil {
 				return err
 			}
@@ -181,7 +185,7 @@ func runModuleBlueGreenUpgrade(cmd *cobra.Command, args []string) {
 				apiClient,
 				apiEndpoint,
 				encryptionKey,
-				moduleUpgradeControlPlane,
+				upgradeOldControlPlaneName,
 				moduleNewControlPlaneName,
 				childTag,
 				imageNamespace,
@@ -225,14 +229,15 @@ func runningControlPlane(
 // replaced control plane runs, so a module upgrade leaves the control plane
 // version alone unless the caller names one. A control plane that records no
 // image leaves the value empty for the install's own default.
+// Recorded component values that disagree return an error.
 func moduleBlueGreenImage(
 	flagNamespace string,
 	flagTag string,
 	running *api.ControlPlaneInstance,
-) (string, string) {
+) (string, string, error) {
 	imageNamespace, imageTag := flagNamespace, flagTag
 	if running == nil {
-		return imageNamespace, imageTag
+		return imageNamespace, imageTag, nil
 	}
 	if imageNamespace == "" {
 		imageNamespace = util.DerefString(running.ImageNamespace)
@@ -240,7 +245,69 @@ func moduleBlueGreenImage(
 	if imageTag == "" {
 		imageTag = util.DerefString(running.ImageTag)
 	}
-	return imageNamespace, imageTag
+	if imageNamespace == "" {
+		imageNamespace = recordedComponentValue(running.CustomComponentInfo, true)
+	}
+	if imageTag == "" {
+		imageTag = recordedComponentValue(running.CustomComponentInfo, false)
+	}
+
+	// reject recorded values that do not share one namespace or one tag
+	if imageNamespace == "" && componentFieldRecorded(running.CustomComponentInfo, true) {
+		return "", "", errors.New("recorded component image namespaces differ: pass --control-plane-image-namespace")
+	}
+	if imageTag == "" && componentFieldRecorded(running.CustomComponentInfo, false) {
+		return "", "", errors.New("recorded component image tags differ: pass --control-plane-image-tag")
+	}
+
+	return imageNamespace, imageTag, nil
+}
+
+// componentFieldRecorded reports whether any component records an image namespace or tag.
+func componentFieldRecorded(components []*api.ControlPlaneComponent, namespace bool) bool {
+	// report the first component that records this field
+	for _, component := range components {
+		if component == nil {
+			continue
+		}
+		value := component.ImageTag
+		if namespace {
+			value = component.ImageNamespace
+		}
+		if value != "" {
+			return true
+		}
+	}
+
+	return false
+}
+
+// recordedComponentValue returns the image namespace or tag recorded on every
+// component. An empty result means the components do not share one value.
+func recordedComponentValue(components []*api.ControlPlaneComponent, namespace bool) string {
+	// keep a value only when every recorded component agrees
+	value := ""
+	for _, component := range components {
+		if component == nil {
+			continue
+		}
+		next := component.ImageTag
+		if namespace {
+			next = component.ImageNamespace
+		}
+		if next == "" {
+			continue
+		}
+		if value == "" {
+			value = next
+			continue
+		}
+		if value != next {
+			return ""
+		}
+	}
+
+	return value
 }
 
 // parentControlPlaneImage returns the image namespace and tag for the new control plane.
@@ -342,9 +409,13 @@ func init() {
 		&moduleUpgradeImageTag,
 		"module-image-tag", "", "Image tag of the module",
 	)
+	UpgradeModuleCmd.PersistentFlags().StringVarP(
+		&cliArgs.ControlPlaneName,
+		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
 	UpgradeModuleCmd.PersistentFlags().StringVar(
-		&moduleUpgradeControlPlane,
-		"control-plane-name", "", "Name of a child control plane. Empty uses the connected control plane.",
+		&upgradeOldControlPlaneName,
+		upgradeOldControlPlaneFlag, "", upgradeOldControlPlaneHelp,
 	)
 	UpgradeModuleCmd.MarkPersistentFlagRequired("module-name")
 	UpgradeModuleCmd.MarkPersistentFlagRequired("module-image-tag")

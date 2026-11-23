@@ -63,11 +63,12 @@ func TestAModuleConnectsToTheMessageBrokerOverTLS(t *testing.T) {
 	// the broker's settings from before it required TLS
 	assert.NotContains(t, source, "func copySecret(")
 
-	assert.Contains(t, source, "tpAuthVolumes = append(tpAuthVolumes, tp_installer.NatsClientCAVolume())")
-	assert.Contains(t, source, "tpAuthVolumeMounts = append(tpAuthVolumeMounts, tp_installer.NatsClientCAVolumeMount())")
+	assert.Contains(t, source, "tpAuthVolumes = append(tpAuthVolumes, tp_installer.ModuleBrokerCAVolume())")
+	assert.Contains(t, source, "tpAuthVolumeMounts = append(tpAuthVolumeMounts, tp_installer.ModuleBrokerCAVolumeMount())")
+	assert.Contains(t, source, "tpAuthVolumeMounts = append(tpAuthVolumeMounts, tp_installer.ModuleBrokerCASystemVolumeMount())")
 
 	// the CA's certificate is added before either deployment takes the volumes
-	added := strings.Index(source, "tp_installer.NatsClientCAVolume()")
+	added := strings.Index(source, "tp_installer.ModuleBrokerCAVolume()")
 	for _, use := range []*regexp.Regexp{
 		regexp.MustCompile(`apiVolumes := tpAuthVolumes`),
 		regexp.MustCompile(`"volumes":\s+tpAuthVolumes`),
@@ -95,6 +96,22 @@ func TestAModuleInstallsIntoTheConnectedControlPlanesNamespace(t *testing.T) {
 	require.NotEqual(t, -1, lookup)
 	require.NotEqual(t, -1, firstCopy)
 	assert.Less(t, lookup, firstCopy, "the namespace is read after a secret was copied")
+}
+
+// TestAModuleRefusesANamespaceAnotherControlPlaneOwns checks the generated installer rejects a taken namespace first.
+func TestAModuleRefusesANamespaceAnotherControlPlaneOwns(t *testing.T) {
+	source := generateInstaller(t)
+
+	// assert the rejection uses the connected control plane and comes first
+	reject := strings.Index(source, "tp_installer.RejectExistingModuleNamespace(")
+	create := strings.Index(source, "create namespace")
+	require.NotEqual(t, -1, reject)
+	require.NotEqual(t, -1, create)
+	assert.Less(t, reject, create)
+	assert.Regexp(t, regexp.MustCompile(`RejectExistingModuleNamespace\(\s*i\.KubeClient,\s*i\.ModuleNamespace,\s*i\.ThreeportNamespace,\s*apiServerName,`), source)
+
+	// assert the created namespace records that control plane
+	assert.Contains(t, source, "tp_installer.ModuleNamespaceOwnerLabel: i.ThreeportNamespace")
 }
 
 // TestAModuleSpreadsAndProtectsItsReplicasLikeTheControlPlane checks that the

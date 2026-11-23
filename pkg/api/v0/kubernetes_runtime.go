@@ -166,6 +166,9 @@ type KubernetesRuntimeInstance struct {
 	// The workload that provides a database for this runtime.
 	DatabaseComponentInstanceID *uint `validate:"optional"`
 
+	// The workload that provides object storage for this runtime.
+	StorageComponentInstanceID *uint `validate:"optional"`
+
 	// An alternate threeport image to use when deploying threeport agent to
 	// managed Kubernetes runtime clusters.  If not supplied, the official image
 	// with the correct version will be used.

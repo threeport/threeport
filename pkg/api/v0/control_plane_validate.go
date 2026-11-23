@@ -558,11 +558,21 @@ func reconciliationColumn(bindNames []string) bool {
 	return len(bindNames) > 0 && bindNames[0] == "Reconciliation"
 }
 
-// restoredIdentity reports whether a column is the name a restore copies from the source.
+// restoredIdentity reports whether a column is part of the identity a restore copies.
 func restoredIdentity(name string) bool {
-	// the source name, its namespace, and the two ids the replacement owns
+	// match the copied name, address, image, credentials, and the two ids the replacement owns
 	switch name {
-	case "Name", "Namespace", "FromNamespace", "ApiServerEndpoint", "ControlPlaneDefinitionID", "KubernetesRuntimeInstanceID":
+	case "Name",
+		"Namespace",
+		"FromNamespace",
+		"ApiServerEndpoint",
+		"ControlPlaneDefinitionID",
+		"KubernetesRuntimeInstanceID",
+		"ImageNamespace",
+		"ImageTag",
+		"CACert",
+		"ClientCert",
+		"ClientKey":
 		return true
 	default:
 		return false

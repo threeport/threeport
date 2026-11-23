@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/iancoleman/strcase"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -16,6 +19,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 
+	"github.com/threeport/threeport/pkg/api-server/v0/database"
+	api "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -336,6 +341,120 @@ func (cpi *ControlPlaneInstaller) scaleDownModuleWriters(
 
 const moduleWriterScaleConfigMap = "module-writer-scales"
 
+const (
+	moduleDatabaseConfigMap = "module-databases"
+	moduleDatabaseConfigKey = "databases"
+)
+
+// moduleDatabaseName returns the database created for a module.
+func moduleDatabaseName(moduleName string) string {
+	return fmt.Sprintf("threeport_%s_api", strcase.ToSnake(moduleName))
+}
+
+// moduleDatabaseNames returns the database of each module that keeps its own.
+// A core module shares the control plane database and is left out.
+func moduleDatabaseNames(moduleApis []api.ModuleApi) ([]string, error) {
+	// skip the control plane database and repeated names
+	seen := map[string]bool{}
+	var names []string
+	for _, moduleApi := range moduleApis {
+		if moduleApi.Core != nil && *moduleApi.Core {
+			continue
+		}
+		moduleName := util.DerefString(moduleApi.Name)
+		if moduleName == "" {
+			continue
+		}
+		// the registered name is namespace/short-module-api, and the database uses the short name
+		shortName := moduleKebab(moduleName)
+		if shortName == "" {
+			shortName = moduleName
+		}
+		name := moduleDatabaseName(shortName)
+		if name == DatabaseName || seen[name] {
+			continue
+		}
+		if !moduleDatabaseNamePattern.MatchString(name) {
+			return nil, fmt.Errorf("module database name %q is not a sql identifier", name)
+		}
+		seen[name] = true
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names, nil
+}
+
+// discoverModuleDatabases returns the module databases registered with the API.
+func (cpi *ControlPlaneInstaller) discoverModuleDatabases(
+	apiClient *http.Client,
+	apiEndpoint string,
+) ([]string, error) {
+	// read the registered module APIs
+	moduleApis, err := client.GetModuleApis(apiClient, apiEndpoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get registered module APIs: %w", err)
+	}
+	if moduleApis == nil {
+		return []string{}, nil
+	}
+	return moduleDatabaseNames(*moduleApis)
+}
+
+// rememberModuleDatabases stores the module databases in the control plane namespace.
+// An empty list is stored so a retry can tell that none were registered.
+func rememberModuleDatabases(kubeClient dynamic.Interface, namespace string, names []string) error {
+	// keep an empty list so a retry can tell discovery found none
+	if names == nil {
+		names = []string{}
+	}
+	encoded, err := json.Marshal(names)
+	if err != nil {
+		return fmt.Errorf("failed to encode module databases: %w", err)
+	}
+	object := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata": map[string]interface{}{
+			"name":      moduleDatabaseConfigMap,
+			"namespace": namespace,
+		},
+		"data": map[string]interface{}{moduleDatabaseConfigKey: string(encoded)},
+	}}
+	_, err = kubeClient.Resource(moduleConfigMapGVR).Namespace(namespace).Create(
+		context.Background(), object, metav1.CreateOptions{},
+	)
+	if k8serrors.IsAlreadyExists(err) {
+		_, err = kubeClient.Resource(moduleConfigMapGVR).Namespace(namespace).Update(
+			context.Background(), object, metav1.UpdateOptions{},
+		)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to store module databases: %w", err)
+	}
+	return nil
+}
+
+// readModuleDatabases reads the module databases stored before the API was stopped.
+// The second result is false when that record was never written.
+func readModuleDatabases(kubeClient dynamic.Interface, namespace string) ([]string, bool, error) {
+	// a missing record means this attempt never listed the module databases
+	object, err := kubeClient.Resource(moduleConfigMapGVR).Namespace(namespace).Get(
+		context.Background(), moduleDatabaseConfigMap, metav1.GetOptions{},
+	)
+	if k8serrors.IsNotFound(err) {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to read module databases: %w", err)
+	}
+	raw, _, _ := unstructured.NestedString(object.Object, "data", moduleDatabaseConfigKey)
+	var names []string
+	if err := json.Unmarshal([]byte(raw), &names); err != nil {
+		return nil, false, fmt.Errorf("failed to decode module databases: %w", err)
+	}
+	return names, true, nil
+}
+
 var moduleConfigMapGVR = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
 
 // recordModuleReplicas stores the count that a later retry has to restore.
@@ -365,6 +484,115 @@ func (cpi *ControlPlaneInstaller) recordModuleReplicas(
 		)
 	}
 	return nil
+}
+
+// moduleApiServersFromPolicies returns module API servers named by database policies in the control plane namespace.
+func (cpi *ControlPlaneInstaller) moduleApiServersFromPolicies(
+	kubeClient dynamic.Interface,
+) ([]ModuleApiServer, error) {
+	// list the policies that admit module API servers to the database
+	list, err := kubeClient.Resource(networkPolicyGVR).Namespace(cpi.Opts.Namespace).List(
+		context.Background(),
+		metav1.ListOptions{},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list database policies in %s: %w", cpi.Opts.Namespace, err)
+	}
+
+	// skip this namespace, a repeated server, and a name that does not parse
+	seen := map[ModuleApiServer]bool{}
+	var servers []ModuleApiServer
+	for i := range list.Items {
+		server, ok := moduleApiServerFromPolicyName(list.Items[i].GetName())
+		if !ok ||
+			server.Namespace == cpi.Opts.Namespace ||
+			seen[server] {
+			continue
+		}
+		seen[server] = true
+		servers = append(servers, server)
+	}
+
+	return servers, nil
+}
+
+// moduleApiServersFromDatabaseHost returns module API servers whose command names this control plane's database.
+// A module installed before it had a database policy still carries that command.
+func (cpi *ControlPlaneInstaller) moduleApiServersFromDatabaseHost(
+	kubeClient dynamic.Interface,
+) ([]ModuleApiServer, error) {
+	// list every deployment
+	host := controlPlaneDatabaseHost(cpi.Opts.Namespace)
+	list, err := kubeClient.Resource(deploymentGVR).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list deployments while finding module writers: %w", err)
+	}
+
+	// skip this namespace and a deployment that does not name this database
+	seen := map[ModuleApiServer]bool{}
+	var servers []ModuleApiServer
+	for i := range list.Items {
+		deployment := &list.Items[i]
+		namespace := deployment.GetNamespace()
+		if namespace == "" ||
+			namespace == cpi.Opts.Namespace ||
+			!deploymentCommandContains(deployment, host) {
+			continue
+		}
+		server := ModuleApiServer{Namespace: namespace, Service: deployment.GetName()}
+		if seen[server] {
+			continue
+		}
+		seen[server] = true
+		servers = append(servers, server)
+	}
+
+	return servers, nil
+}
+
+// controlPlaneDatabaseHost returns the database service a module command records.
+func controlPlaneDatabaseHost(namespace string) string {
+	return database.ThreeportDatabaseHost + "." + namespace + clusterLocalSuffix
+}
+
+// deploymentCommandContains reports whether a container command or argument contains text.
+func deploymentCommandContains(deployment *unstructured.Unstructured, text string) bool {
+	// check each container command and its arguments
+	for _, listKey := range []string{"containers", "initContainers"} {
+		containers, _, _ := unstructured.NestedSlice(deployment.Object, "spec", "template", "spec", listKey)
+		for _, raw := range containers {
+			container, ok := raw.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			for _, field := range []string{"command", "args"} {
+				values, _, _ := unstructured.NestedStringSlice(container, field)
+				for _, value := range values {
+					if strings.Contains(value, text) {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
+// appendModuleApiServers adds module API servers that are not already listed.
+func appendModuleApiServers(base, extra []ModuleApiServer) []ModuleApiServer {
+	// skip a repeated server
+	seen := map[ModuleApiServer]bool{}
+	for _, server := range base {
+		seen[server] = true
+	}
+	for _, server := range extra {
+		if server.Namespace == "" || seen[server] {
+			continue
+		}
+		seen[server] = true
+		base = append(base, server)
+	}
+	return base
 }
 
 // moduleNamespaceControllers returns controller deployments in each module API namespace.
@@ -554,13 +782,13 @@ func SplitModuleScales(
 	scales []ModuleDeploymentScale,
 ) ([]ModuleDeploymentScale, []ModuleDeploymentScale) {
 	// replace nothing when no module is requested
-	module, err := moduleFromInstallRequest(request)
+	module, moduleNamespace, err := moduleFromInstallRequest(request)
 	if err != nil {
 		return nil, scales
 	}
 
 	// split by the namespace the request's module installs into
-	namespace := moduleWorkloadNamespace(module)
+	namespace := moduleInstallTargetNamespace(module, moduleNamespace)
 	var replaced, others []ModuleDeploymentScale
 	for _, scale := range scales {
 		if scale.Namespace == namespace {

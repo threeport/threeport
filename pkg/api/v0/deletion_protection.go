@@ -3,6 +3,7 @@ package v0
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"gorm.io/gorm"
 
@@ -126,6 +127,61 @@ func refuseProtectedDelete(definition any, query func(dest any) *gorm.DB) error 
 	}
 
 	return nil
+}
+
+// ChildRuntimeNames lists the kubernetes runtime names a control plane manages, other than the one it runs on.
+// The API server sets it. Those runtimes are stored in that control plane's own database.
+var ChildRuntimeNames func(*ControlPlaneInstance) ([]string, error)
+
+// RefuseDelete refuses to delete a control plane while a kubernetes runtime it manages is stored.
+// The runtime it runs on does not count.
+func (c *ControlPlaneInstance) RefuseDelete(db *gorm.DB) error {
+	// a child's runtimes are in its own database, not this one
+	if c.IsSelf == nil || !*c.IsSelf {
+		return refuseChildRuntimes(c)
+	}
+
+	// the runtime the control plane runs on is deleted with it
+	query := definitionSession(db).Model(&KubernetesRuntimeInstance{})
+	if c.KubernetesRuntimeInstanceID != nil {
+		query = query.Where("id <> ?", *c.KubernetesRuntimeInstanceID)
+	}
+
+	// read the names of the runtimes that would be orphaned
+	var names []string
+	if result := query.Order("name").Pluck("name", &names); result.Error != nil {
+		return fmt.Errorf("failed to read kubernetes runtime instances: %w", result.Error)
+	}
+	return runtimeDeleteRefused(names)
+}
+
+// refuseChildRuntimes refuses deletion while the child still manages a kubernetes runtime.
+func refuseChildRuntimes(c *ControlPlaneInstance) error {
+	// a missing reader cannot see the child's runtimes
+	if ChildRuntimeNames == nil {
+		return errors.New("failed to read the child control plane's kubernetes runtime instances")
+	}
+
+	// read the names of the runtimes the child manages
+	names, err := ChildRuntimeNames(c)
+	if err != nil {
+		return fmt.Errorf("failed to read the child control plane's kubernetes runtime instances: %w", err)
+	}
+	return runtimeDeleteRefused(names)
+}
+
+// runtimeDeleteRefused refuses deletion when names is not empty.
+func runtimeDeleteRefused(names []string) error {
+	// an empty list leaves the delete allowed
+	if len(names) == 0 {
+		return nil
+	}
+
+	return &DeleteRefusedError{Err: fmt.Errorf(
+		"control plane instance %s while kubernetes runtime instances remain: %s",
+		ErrMsgDeleteBlocked,
+		strings.Join(names, ", "),
+	)}
 }
 
 // RefuseDelete refuses to delete a runtime instance while the EKS, GKE or OKE

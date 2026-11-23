@@ -2035,6 +2035,7 @@ rules:
   - certificatescomponents
   - ingresscomponents
   - secretscomponents
+  - storagecomponents
   verbs:
   - create
   - delete
@@ -2049,6 +2050,7 @@ rules:
   - certificatescomponents/status
   - ingresscomponents/status
   - secretscomponents/status
+  - storagecomponents/status
   verbs:
   - get
   - patch
@@ -2417,3 +2419,194 @@ spec:
       serviceAccountName: support-services-operator-controller-manager
       terminationGracePeriodSeconds: 10
       volumes: []
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: (unknown)
+  name: storagecomponents.platform.addons.nukleros.io
+spec:
+  group: platform.addons.nukleros.io
+  names:
+    kind: StorageComponent
+    listKind: StorageComponentList
+    plural: storagecomponents
+    singular: storagecomponent
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: StorageComponent is the Schema for the storagecomponents API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: StorageComponentSpec defines the desired state of StorageComponent.
+            properties:
+              collection:
+                description: |-
+                  Specifies a reference to the collection to use for this workload.
+                  Requires the name and namespace input to find the collection.
+                  If no collection field is set, default to selecting the only
+                  workload collection in the cluster, which will result in an error
+                  if not exactly one collection is found.
+                properties:
+                  name:
+                    description: |-
+                      Required if specifying collection.  The name of the collection
+                      within a specific collection.namespace to reference.
+                    type: string
+                  namespace:
+                    description: |-
+                      (Default: "") The namespace where the collection exists.  Required only if
+                      the collection is namespace scoped and not cluster scoped.
+                    type: string
+                required:
+                - name
+                type: object
+              namespace:
+                default: nukleros-storage-system
+                description: |-
+                  (Default: "nukleros-storage-system")
+
+                  Namespace to install the seaweedfs-operator into.  This component installs only
+                  the operator: SeaweedFS clusters, buckets and S3 identities are created by its
+                  consumers, usually in their own namespaces.
+                type: string
+              seaweedfsOperator:
+                default: {}
+                properties:
+                  image:
+                    default: chrislusf/seaweedfs-operator
+                    description: |-
+                      (Default: "chrislusf/seaweedfs-operator")
+
+                      Image repo and name to use for seaweedfs-operator.
+                    type: string
+                  replicas:
+                    default: 2
+                    description: |-
+                      (Default: 2)
+
+                      Number of replicas to use for the seaweedfs-operator deployment.
+                    type: integer
+                  version:
+                    default: 1.0.42
+                    description: |-
+                      (Default: "1.0.42")
+
+                      Version of seaweedfs-operator to use.
+                    type: string
+                type: object
+            type: object
+          status:
+            description: StorageComponentStatus defines the observed state of StorageComponent.
+            properties:
+              conditions:
+                items:
+                  description: |-
+                    PhaseCondition describes an event that has occurred during a phase
+                    of the controller reconciliation loop.
+                  properties:
+                    lastModified:
+                      description: LastModified defines the time in which this component
+                        was updated.
+                      type: string
+                    message:
+                      description: Message defines a helpful message from the phase.
+                      type: string
+                    phase:
+                      description: Phase defines the phase in which the condition
+                        was set.
+                      type: string
+                    state:
+                      description: PhaseState defines the current state of the phase.
+                      enum:
+                      - Complete
+                      - Reconciling
+                      - Failed
+                      - Pending
+                      type: string
+                  required:
+                  - lastModified
+                  - message
+                  - phase
+                  - state
+                  type: object
+                type: array
+              created:
+                type: boolean
+              dependenciesSatisfied:
+                type: boolean
+              resources:
+                items:
+                  description: ChildResource is the resource and its condition as
+                    stored on the workload custom resource's status field.
+                  properties:
+                    condition:
+                      description: ResourceCondition defines the current condition
+                        of this resource.
+                      properties:
+                        created:
+                          description: Created defines whether this object has been
+                            successfully created or not.
+                          type: boolean
+                        lastModified:
+                          description: LastModified defines the time in which this
+                            resource was updated.
+                          type: string
+                        message:
+                          description: Message defines a helpful message from the
+                            resource phase.
+                          type: string
+                      required:
+                      - created
+                      type: object
+                    group:
+                      description: Group defines the API Group of the resource.
+                      type: string
+                    kind:
+                      description: Kind defines the kind of the resource.
+                      type: string
+                    name:
+                      description: Name defines the name of the resource from the
+                        metadata.name field.
+                      type: string
+                    namespace:
+                      description: Namespace defines the namespace in which this resource
+                        exists in.
+                      type: string
+                    version:
+                      description: Version defines the API Version of the resource.
+                      type: string
+                  required:
+                  - group
+                  - kind
+                  - name
+                  - namespace
+                  - version
+                  type: object
+                type: array
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
