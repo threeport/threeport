@@ -322,14 +322,10 @@ func updateInstanceResources(
 		return runtime, nil
 	}
 	// the namespace the definition places its resources in, which an update
-	// can't change, keys them the same way rendered and placed
-	var afterJSON [][]byte
-	for _, wrd := range after {
-		if wrd.JSONDefinition != nil {
-			afterJSON = append(afterJSON, *wrd.JSONDefinition)
-		}
-	}
-	namespace, err := managedNamespace(afterJSON)
+	// can't change, keys them the same way rendered and placed.  It is read
+	// from the rendered resources, as placement reads it: this instance's
+	// overlay may rename the Namespace the definition declares
+	namespace, err := renderedNamespace(renderedAfter, renderedBefore)
 	if err != nil {
 		return "", err
 	}

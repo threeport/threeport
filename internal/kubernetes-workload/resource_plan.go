@@ -51,6 +51,28 @@ func managedNamespace(jsonDefinitions [][]byte) (string, error) {
 	return "", nil
 }
 
+// renderedNamespace returns the Namespace an instance's rendered resources
+// declare, as managedNamespace does for a definition's: from the first of
+// renderings that declares one.  The resources are read as the instance's
+// overlay rendered them, which placement keys them by, so an overlay that
+// renames the Namespace keys them by the new name.
+func renderedNamespace(renderings ...[]v0.KubernetesWorkloadResourceInstance) (string, error) {
+	for _, rendered := range renderings {
+		var jsonDefinitions [][]byte
+		for _, resource := range rendered {
+			if resource.JSONDefinition != nil {
+				jsonDefinitions = append(jsonDefinitions, *resource.JSONDefinition)
+			}
+		}
+		namespace, err := managedNamespace(jsonDefinitions)
+		if err != nil || namespace != "" {
+			return namespace, err
+		}
+	}
+
+	return "", nil
+}
+
 // resourceDefinitionPlan is the set of writes that brings a workload
 // definition's resource definitions in line with its YAML document.
 type resourceDefinitionPlan struct {

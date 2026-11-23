@@ -1047,3 +1047,61 @@ func TestDefinitionCreateRetriedWritesOnlyWhatIsMissing(t *testing.T) {
 	assert.Equal(t, []string{"POST " + v0.PathKubernetesWorkloadResourceDefinitionSets}, api.writes)
 	assert.ElementsMatch(t, []string{"apps/Deployment/web", "/Service/web"}, storedResourceKeys(t, api))
 }
+
+// TestDefinitionUpdateRemovesAResourceFromTheNamespaceAnOverlayRenames covers
+// an instance whose overlay renames the Namespace its definition declares,
+// here to a support-services namespace: its resources are placed by the
+// rendered name, so they are keyed by it too.  A Service dropped from the
+// definition is scheduled for deletion on that instance, rather than its
+// resource definition going while the Service keeps running.
+func TestDefinitionUpdateRemovesAResourceFromTheNamespaceAnOverlayRenames(t *testing.T) {
+	const team = `{"apiVersion":"v1","kind":"Namespace","metadata":{"name":"team"}}`
+	const renameOverlay = `
+patches:
+- target:
+    kind: Namespace
+    name: team
+  patch: |-
+    - op: replace
+      path: /metadata/name
+      value: nukleros-certs-system
+`
+	fixture := newDefinitionUpdateFixture(t, yamlDocument(team, fmt.Sprintf(webDeployment, 1, "nginx:1.26"), webService))
+
+	// an instance deployed with the overlay, as the instance reconciler
+	// deploys it
+	var wrds []v0.KubernetesWorkloadResourceDefinition
+	for _, wrd := range fixture.api.wrds {
+		wrds = append(wrds, *wrd)
+	}
+	renamed := &v0.KubernetesWorkloadInstance{
+		Common:                         v0.Common{ID: fixture.api.id()},
+		Instance:                       v0.Instance{Name: util.Ptr("renamed")},
+		Reconciliation:                 v0.Reconciliation{Reconciled: util.Ptr(true)},
+		KubernetesWorkloadDefinitionID: fixture.definition.ID,
+		KubernetesRuntimeInstanceID:    util.Ptr(uint(9)),
+		KustomizeOverlay:               util.Ptr(renameOverlay),
+	}
+	fixture.api.instances[*renamed.ID] = renamed
+	wris, err := instanceResources(renamed, wrds)
+	require.NoError(t, err)
+	processed, err := kube.SetNamespaces(&wris, renamed.Name, renamed.ID, fakeKubeDiscovery(t))
+	require.NoError(t, err)
+	for _, wri := range *processed {
+		wri.ID = fixture.api.id()
+		wri.Reconciled = util.Ptr(true)
+		fixture.api.wris[*wri.ID] = &wri
+	}
+	_, placed := fixture.resources(t, *renamed.ID)["/Service/nukleros-certs-system/web"]
+	require.True(t, placed, "the instance places the service in the namespace its overlay renames to")
+	fixture.api.writes = nil
+
+	require.NoError(t, fixture.update(yamlDocument(team, fmt.Sprintf(webDeployment, 1, "nginx:1.26"))))
+
+	resources := fixture.resources(t, *renamed.ID)
+	_, leaving := resources["leaving:/Service/nukleros-certs-system/web"]
+	assert.True(t, leaving, "the dropped service is scheduled for deletion")
+	_, kept := resources["apps/Deployment/nukleros-certs-system/web"]
+	assert.True(t, kept)
+	assert.False(t, *fixture.api.instances[*renamed.ID].Reconciled, "marked for update")
+}
