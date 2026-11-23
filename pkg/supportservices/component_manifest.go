@@ -1,26 +1,14 @@
 package supportservices
 
 import (
-	_ "embed"
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
-
-//go:embed manifests/ingress-component.yaml
-var ingressComponent []byte
-
-//go:embed manifests/certificates-component.yaml
-var certificatesComponent []byte
-
-//go:embed manifests/database-component.yaml
-var databaseComponent []byte
-
-//go:embed manifests/secrets-component.yaml
-var secretsComponent []byte
 
 const (
 	// IngressComponentName is the IngressComponent object this install applies.
@@ -35,6 +23,9 @@ const (
 	// DatabaseComponentName is the DatabaseComponent object this install applies.
 	DatabaseComponentName = "database"
 
+	// StorageComponentName is the StorageComponent object this install applies.
+	StorageComponentName = "storage"
+
 	// externalDNSName is the IngressComponent object that installs external-dns.
 	externalDNSName = "externaldns"
 
@@ -45,10 +36,19 @@ const (
 	externalDNSZoneType = "public"
 )
 
+// componentUnstructured converts a typed component into the map the setters edit.
+func componentUnstructured(obj runtime.Object) (*unstructured.Unstructured, error) {
+	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+	if err != nil {
+		return nil, err
+	}
+	return &unstructured.Unstructured{Object: raw}, nil
+}
+
 // ingressComponentYaml returns the nginx operator component.
 func ingressComponentYaml() (string, error) {
-	// decode the embedded component
-	component, err := util.UnstructuredFromYaml(ingressComponent)
+	// decode the typed component
+	component, err := componentUnstructured(ingressComponent())
 	if err != nil {
 		return "", err
 	}
@@ -125,7 +125,7 @@ func ExternalDnsYaml(
 	gcpProject,
 	txtOwnerID string,
 ) (string, error) {
-	component, err := util.UnstructuredFromYaml(ingressComponent)
+	component, err := componentUnstructured(ingressComponent())
 	if err != nil {
 		return "", err
 	}
@@ -218,7 +218,7 @@ func ExternalDnsYaml(
 // certificatesComponentYaml returns the certificates component.
 func certificatesComponentYaml() (string, error) {
 	// decode the embedded component
-	component, err := util.UnstructuredFromYaml(certificatesComponent)
+	component, err := componentUnstructured(certificatesComponent())
 	if err != nil {
 		return "", err
 	}
@@ -247,7 +247,7 @@ func certificatesComponentYaml() (string, error) {
 // databaseComponentYaml returns the database component.
 func databaseComponentYaml() (string, error) {
 	// decode the embedded component
-	component, err := util.UnstructuredFromYaml(databaseComponent)
+	component, err := componentUnstructured(databaseComponent())
 	if err != nil {
 		return "", err
 	}
@@ -273,10 +273,39 @@ func databaseComponentYaml() (string, error) {
 	return util.UnstructuredToYaml(component)
 }
 
+// storageComponentYaml returns the storage component.
+func storageComponentYaml() (string, error) {
+	// decode the embedded component
+	component, err := componentUnstructured(storageComponent())
+	if err != nil {
+		return "", err
+	}
+
+	// name the component and join it to the SupportServices object
+	if err := unstructured.SetNestedField(
+		component.Object,
+		StorageComponentName,
+		"metadata",
+		"name",
+	); err != nil {
+		return "", fmt.Errorf("failed to set the storage component name: %w", err)
+	}
+	if err := unstructured.SetNestedField(
+		component.Object,
+		installer.SupportServicesName,
+		"spec",
+		"collection",
+		"name",
+	); err != nil {
+		return "", fmt.Errorf("failed to set the support services name: %w", err)
+	}
+	return util.UnstructuredToYaml(component)
+}
+
 // secretsComponentYaml returns the external secrets component.
 func secretsComponentYaml() (string, error) {
 	// decode the embedded component
-	component, err := util.UnstructuredFromYaml(secretsComponent)
+	component, err := componentUnstructured(secretsComponent())
 	if err != nil {
 		return "", err
 	}

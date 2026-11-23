@@ -17,6 +17,8 @@ const (
 	LabelTier = "threeport.io/tier"
 	// Label key naming the install a workload belongs to
 	LabelInstall = "threeport.io/install"
+	// Label key naming the control plane that may update the support services operator
+	LabelControlPlane = "threeport.io/control-plane"
 )
 
 // natsBoxDeployName is the Deployment that runs the nats CLI.

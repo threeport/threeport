@@ -25,10 +25,11 @@ var UpgradeBlueGreenCmd = &cobra.Command{
 
 The new control plane runs this tptctl version in a namespace of the same name.
 --control-plane-image-namespace and --control-plane-image-tag override that image. Omit them to keep the default.
-A --control-plane-name selects a child. The controller installs the image recorded on that child.
+--control-plane-name selects the control plane the command connects to.
+--old-control-plane-name selects a child. The controller installs the image recorded on that child.
 The source stays stopped unless the new control plane fails to come up.`,
 	SilenceUsage: true,
-	PreRun:       blueGreenPreRun,
+	PreRun:       CommandPreRunFunc,
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, threeportConfig, apiEndpoint, requestedControlPlane := GetClientContext(cmd)
 
@@ -45,10 +46,10 @@ The source stays stopped unless the new control plane fails to come up.`,
 
 		// a name is a descendant, and the controller installs it
 		sourceName := ""
-		if cliArgs.ControlPlaneName != "" {
+		if upgradeOldControlPlaneName != "" {
 			if _, err := upgradeRollTarget(
 				self,
-				cliArgs.ControlPlaneName,
+				upgradeOldControlPlaneName,
 				func(name string) (*api_v0.ControlPlaneInstance, error) {
 					return client.GetControlPlaneInstanceByName(apiClient, apiEndpoint, name)
 				},
@@ -59,7 +60,7 @@ The source stays stopped unless the new control plane fails to come up.`,
 				cli.Error("failed to create control plane", err)
 				os.Exit(1)
 			}
-			sourceName = cliArgs.ControlPlaneName
+			sourceName = upgradeOldControlPlaneName
 		}
 
 		controlPlane, err := threeportConfig.GetControlPlaneConfig(requestedControlPlane)
@@ -119,16 +120,6 @@ The source stays stopped unless the new control plane fails to come up.`,
 		}
 		cli.Complete(fmt.Sprintf("control plane %s created", blueGreenNewName))
 	},
-}
-
-// blueGreenPreRun connects to the current control plane.
-// blueGreenPreRun keeps the name flag from retargeting that client.
-func blueGreenPreRun(cmd *cobra.Command, args []string) {
-	// connect as the current control plane, then restore the child name
-	name := cliArgs.ControlPlaneName
-	cliArgs.ControlPlaneName = ""
-	CommandPreRunFunc(cmd, args)
-	cliArgs.ControlPlaneName = name
 }
 
 // init registers the blue-green upgrade command and its flags.

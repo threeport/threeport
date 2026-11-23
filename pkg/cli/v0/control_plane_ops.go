@@ -150,6 +150,7 @@ func InstallModule(
 	moduleName string,
 	imageNamespace string,
 	imageTag string,
+	moduleNamespace ...string,
 ) error {
 	// resolve the control plane the parent controller reconciles
 	target, err := resolveControlPlane(currentClient, currentEndpoint, controlPlaneName, false)
@@ -168,7 +169,13 @@ func InstallModule(
 		ImageNamespace: &imageNamespace,
 		ImageTag:       &imageTag,
 	}
-	request := installer.ModuleInstallRequest(module)
+
+	// keep a module namespace when one was passed
+	namespace := ""
+	if len(moduleNamespace) > 0 {
+		namespace = moduleNamespace[0]
+	}
+	request := installer.ModuleInstallRequest(module, namespace)
 	target.Instance.ModuleInstall = &request
 	if _, err := client.UpdateControlPlaneInstance(currentClient, currentEndpoint, target.Instance); err != nil {
 		return fmt.Errorf("failed to record module install: %w", err)
@@ -187,6 +194,7 @@ func InstallThroughController(
 	moduleName string,
 	imageNamespace string,
 	imageTag string,
+	moduleNamespace ...string,
 ) (bool, error) {
 	// install on the connected control plane when the controller's install job runs this
 	if os.Getenv(installer.ModuleInstallJobEnv) != "" {
@@ -210,6 +218,7 @@ func InstallThroughController(
 		moduleName,
 		imageNamespace,
 		imageTag,
+		moduleNamespace...,
 	); err != nil {
 		return false, err
 	}
@@ -217,11 +226,11 @@ func InstallThroughController(
 }
 
 // moduleInstallDelegates reports that a root named another control plane.
-// A command pointed at a child is rejected.
+// A command already connected to a child installs there.
 func moduleInstallDelegates(self *api.ControlPlaneInstance, controlPlaneName string) (bool, error) {
-	// reject a child connection before choosing an install
+	// the parent controller install was never built, so a child connection installs locally
 	if err := api.ChildControlPlaneRequest(self); err != nil {
-		return false, err
+		return false, nil
 	}
 
 	// a root with no other name installs on itself
@@ -655,6 +664,12 @@ func runBlueGreen(
 		}
 	}
 
+	// read the current genesis while this api still answers
+	genesis, err := client.GetGenesisControlPlaneInstance(parentClient, parentEndpoint)
+	if err != nil {
+		return fmt.Errorf("failed to get genesis control plane: %w", err)
+	}
+
 	// stop the writers and take one backup
 	bucket, err := RestoreBackupBucket(local, "")
 	if err != nil {
@@ -707,6 +722,7 @@ func runBlueGreen(
 	created.Opts.GcpProjectId = projectID
 	created.Opts.GcpBackupBucket = bucket
 	created.Opts.HoldReplicasForRestore = true
+	created.Genesis = genesis
 	if tier := util.DerefString(definition.Tier); tier != "" {
 		created.Opts.Tier = installer.ControlPlaneTier(tier)
 	}
@@ -800,6 +816,13 @@ func runBlueGreen(
 	)
 	if installErr != nil && !apiUp {
 		fmt.Printf("Info: new control plane is unhealthy, resuming writers in %s\n", namespace)
+		// drop the saved restore so the next backup is not skipped
+		if clearErr := created.ClearRestoreRecord(source.Kube); clearErr != nil {
+			return fmt.Errorf(
+				"failed to install restored control plane: %w (clear restore record: %v)",
+				installErr, clearErr,
+			)
+		}
 		resumeErr := resumeSourceWriters(source, namespace, replicas, modules)
 		if resumeErr != nil {
 			return fmt.Errorf("failed to install restored control plane: %w (resuming source writers: %v)", installErr, resumeErr)
@@ -826,14 +849,23 @@ func runBlueGreen(
 		return fmt.Errorf("new control plane API is up, source writers left stopped: %w", installErr)
 	}
 
-	// run the support services operator in the new namespace, which only a
-	// control plane with no parent does
+	// run the support services operator in the runtime namespace.
+	// The control plane being replaced hands it to this one.
 	if runsSupportServices(source.Instance) {
+		if err := installer.RecordSupportServicesOperatorReplacement(
+			source.Kube,
+			source.Mapper,
+			util.DerefString(source.Instance.Name),
+			newName,
+		); err != nil {
+			return fmt.Errorf("new control plane API is up, source writers left stopped: failed to record the support services operator owner: %w", err)
+		}
 		if err := installer.InstallThreeportSupportServicesOperator(
 			source.Kube,
 			source.Mapper,
 			installer.SupportServicesCloud(api.KubernetesRuntimeInfraProvider(providerName)),
-			newNamespace,
+			installer.RuntimeNamespace,
+			newName,
 		); err != nil {
 			return fmt.Errorf("new control plane API is up, source writers left stopped: failed to install the support services operator: %w", err)
 		}

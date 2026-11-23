@@ -588,7 +588,7 @@ func refreshModuleTrust(
 
 	// copy the broker CA the module mounts, then the client pair in one write
 	if natsCA != "" {
-		if _, err := setSecretData(kubeClient, moduleNamespace, brokerCASecret, brokerCAKey, natsCA); err != nil {
+		if _, err := setSecretData(kubeClient, moduleNamespace, NatsCACertSecretName, natsCACertKey, natsCA); err != nil {
 			return false, err
 		}
 	}
@@ -728,12 +728,7 @@ func setSecretEntries(
 }
 
 const (
-	brokerCASecret     = "nats-ca-cert"
-	brokerCAKey        = "ca.crt"
 	liveBrokerCASecret = "nats-ca"
-	brokerCAVolume     = "nats-ca"
-	brokerCAMount      = "/etc/threeport/nats-ca"
-	brokerCASystemFile = "/etc/ssl/certs/threeport-nats-ca.crt"
 )
 
 // brokerCAEntries keeps the keys a module reads from the live broker secret.
@@ -788,13 +783,8 @@ func ensureBrokerCA(deployment *unstructured.Unstructured) bool {
 	// add the secret volume when the deployment does not already have it
 	changed := false
 	volumes, _, _ := unstructured.NestedSlice(spec, "volumes")
-	if !namedObject(volumes, brokerCAVolume) {
-		volumes = append(volumes, map[string]interface{}{
-			"name": brokerCAVolume,
-			"secret": map[string]interface{}{
-				"secretName": brokerCASecret,
-			},
-		})
+	if !namedObject(volumes, ModuleBrokerCAVolumeName) {
+		volumes = append(volumes, ModuleBrokerCAVolume())
 		_ = unstructured.SetNestedSlice(spec, volumes, "volumes")
 		changed = true
 	}
@@ -808,21 +798,12 @@ func ensureBrokerCA(deployment *unstructured.Unstructured) bool {
 		}
 		mounts, _, _ := unstructured.NestedSlice(container, "volumeMounts")
 		added := false
-		if !mountNamed(mounts, brokerCAMount) {
-			mounts = append(mounts, map[string]interface{}{
-				"name":      brokerCAVolume,
-				"mountPath": brokerCAMount,
-				"readOnly":  true,
-			})
+		if !mountNamed(mounts, NatsClientCAPath) {
+			mounts = append(mounts, ModuleBrokerCAVolumeMount())
 			added = true
 		}
-		if !mountNamed(mounts, brokerCASystemFile) {
-			mounts = append(mounts, map[string]interface{}{
-				"name":      brokerCAVolume,
-				"mountPath": brokerCASystemFile,
-				"subPath":   brokerCAKey,
-				"readOnly":  true,
-			})
+		if !mountNamed(mounts, ModuleBrokerCASystemFile) {
+			mounts = append(mounts, ModuleBrokerCASystemVolumeMount())
 			added = true
 		}
 		if !added {

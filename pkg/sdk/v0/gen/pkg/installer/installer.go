@@ -215,6 +215,21 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		)
 		g.Line()
 
+		g.Comment("refuse a namespace another control plane owns")
+		g.If(Err().Op(":=").Qual(
+			"github.com/threeport/threeport/pkg/threeport-installer/v0",
+			"RejectExistingModuleNamespace",
+		).Call(
+			Line().Id("i.KubeClient"),
+			Line().Id("i").Dot("ModuleNamespace"),
+			Line().Id("i").Dot("ThreeportNamespace"),
+			Line().Id("apiServerName"),
+			Line(),
+		).Op(";").Err().Op("!=").Nil()).Block(
+			Return(Err()),
+		)
+		g.Line()
+
 		g.Comment("create namespace")
 		g.Var().Id("namespace").Op("=").Op("&").Qual(
 			"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured",
@@ -224,7 +239,13 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				Lit("apiVersion"): Lit("v1"),
 				Lit("kind"):       Lit("Namespace"),
 				Lit("metadata"): Map(String()).Interface().Values(Dict{
-					Line().Lit("name"): Id("i.ModuleNamespace").Op(",").Line(),
+					Lit("name"): Id("i.ModuleNamespace"),
+					Lit("labels"): Map(String()).Interface().Values(Dict{
+						Qual(
+							"github.com/threeport/threeport/pkg/threeport-installer/v0",
+							"ModuleNamespaceOwnerLabel",
+						): Id("i").Dot("ThreeportNamespace"),
+					}),
 				}),
 			}).Op(",").Line(),
 		})
@@ -480,14 +501,18 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 		)
 		g.Line()
 
-		g.Comment("the module API server and controller verify the message broker with its CA's certificate")
+		g.Comment("mount the broker CA under the volume name the controller reconcile checks")
 		g.Id("tpAuthVolumes").Op("=").Append(
 			Id("tpAuthVolumes"),
-			Qual("github.com/threeport/threeport/pkg/threeport-installer/v0", "NatsClientCAVolume").Call(),
+			Qual("github.com/threeport/threeport/pkg/threeport-installer/v0", "ModuleBrokerCAVolume").Call(),
 		)
 		g.Id("tpAuthVolumeMounts").Op("=").Append(
 			Id("tpAuthVolumeMounts"),
-			Qual("github.com/threeport/threeport/pkg/threeport-installer/v0", "NatsClientCAVolumeMount").Call(),
+			Qual("github.com/threeport/threeport/pkg/threeport-installer/v0", "ModuleBrokerCAVolumeMount").Call(),
+		)
+		g.Id("tpAuthVolumeMounts").Op("=").Append(
+			Id("tpAuthVolumeMounts"),
+			Qual("github.com/threeport/threeport/pkg/threeport-installer/v0", "ModuleBrokerCASystemVolumeMount").Call(),
 		)
 		g.Line()
 
