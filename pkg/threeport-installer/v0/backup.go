@@ -91,11 +91,9 @@ func databaseBackupStatements(bucket, namespace string, moduleDatabases []string
 	}
 	uri := DatabaseBackupURI(bucket, namespace)
 	statements := []string{fmt.Sprintf("BACKUP DATABASE %s INTO '%s';", targets, uri)}
-	if len(moduleDatabases) == 0 {
-		return statements, nil
-	}
 
-	// point the schedule at the same databases
+	// point the schedule at the same databases, which also drops from it a
+	// module database an earlier backup added and that may be gone
 	replacement, err := replaceBackupScheduleStatements(uri, moduleDatabases)
 	if err != nil {
 		return nil, err

@@ -1435,10 +1435,7 @@ func (cpi *ControlPlaneInstaller) stopWritersAndBackupLocked(
 		}
 	} else {
 		// record the module databases before the API is stopped
-		databases, err = cpi.discoverModuleDatabases(apiClient, apiEndpoint)
-		if err != nil {
-			return nil, nil, err
-		}
+		databases = cpi.discoverModuleDatabases()
 		if err := rememberModuleDatabases(kubeClient, cpi.Opts.Namespace, databases); err != nil {
 			return nil, nil, err
 		}
