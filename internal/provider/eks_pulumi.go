@@ -19,12 +19,6 @@ const (
 	// cluster when the runtime definition does not pin one.
 	DefaultEksKubernetesVersion = v0.DefaultKubernetesVersion
 
-	// eksSupportType is what happens to the cluster when its version leaves
-	// EKS standard support.  EKS's own default, EXTENDED, keeps it on that
-	// version at a higher hourly charge.  STANDARD has AWS upgrade the control
-	// plane to the next version instead.
-	eksSupportType = "STANDARD"
-
 	// eksDefaultZoneCount is the number of availability zones used when the
 	// runtime definition does not ask for a specific count.  The API checks
 	// a definition's node maximum against the zones the cluster gets, so the
@@ -255,11 +249,15 @@ func (i *KubernetesRuntimeInfraEKS) nodeGroupNames() []string {
 }
 
 // upgradePolicy returns the cluster's upgrade policy: the cluster's, when the
-// stack already holds it, and eksSupportType otherwise.  A cluster in extended
-// support can't leave it, so one created before the policy was set keeps the
-// one EKS gave it.
+// stack already holds it, and SupportType, or STANDARD when it is empty,
+// otherwise.  EKS's own default, EXTENDED, keeps a cluster on its version at
+// a higher hourly charge once it leaves standard support; STANDARD has AWS
+// upgrade the control plane to the next version instead.  A cluster in
+// extended support can't leave it, so one created before the policy was set
+// keeps the one EKS gave it, and a cluster keeps the support type it was
+// created with.
 func (i *KubernetesRuntimeInfraEKS) upgradePolicy() awseks.ClusterUpgradePolicyPtrInput {
-	supportType := eksSupportType
+	supportType := v0.EksSupportTypeOrDefault(&i.SupportType)
 	if i.stackSupportType != nil {
 		if *i.stackSupportType == "" {
 			return nil

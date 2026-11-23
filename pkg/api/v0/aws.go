@@ -82,6 +82,14 @@ type AwsEksKubernetesRuntimeDefinition struct {
 	// version at a time.  It can't be lowered, since a cluster can't be
 	// downgraded, or cleared.
 	KubernetesVersion *string `validate:"optional"`
+
+	// What happens to the clusters when their Kubernetes version leaves EKS
+	// standard support: STANDARD, where AWS upgrades their control planes to
+	// the next version, or EXTENDED, where they stay on that version in
+	// extended support, at a higher hourly charge.  If unset, STANDARD is
+	// used.  It can't be changed after creation.
+	SupportType *string `validate:"optional"`
+
 	// If true, the clusters run a node group in each zone, each with the
 	// default node group's instance type and sizes, rather than one node
 	// group spanning every zone.  The cluster autoscaler can then add a node

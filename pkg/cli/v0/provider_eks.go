@@ -347,6 +347,7 @@ func ConfigureControlPlaneWithEksConfig(
 	)
 	// the version tptctl created the cluster on, none for an existing one
 	awsEksKubernetesRuntimeDef.KubernetesVersion = kubernetesRuntimeDefResult.KubernetesVersion
+	recordEksSupportType(&awsEksKubernetesRuntimeDef, kubernetesRuntimeInfraEKS.CreatedSupportType(), cpi.Opts.ControlPlaneOnly)
 	awsEksKubernetesRuntimeDef.AuditLog = kubernetesRuntimeDefResult.AuditLog
 	awsEksKubernetesRuntimeDef.DeletionProtection = kubernetesRuntimeDefResult.DeletionProtection
 	createdAwsEksKubernetesRuntimeDef, err := client.CreateAwsEksKubernetesRuntimeDefinition(
@@ -391,6 +392,22 @@ func ConfigureControlPlaneWithEksConfig(
 	}
 
 	return nil
+}
+
+// recordEksSupportType records on an EKS definition the support type tptctl
+// up created its cluster with: the infra's CreatedSupportType, which a
+// create resumed on a stack that already held the cluster kept.  A cluster
+// tptctl didn't create, with --control-plane-only, and one whose support
+// type EKS chose, "", record none.
+func recordEksSupportType(
+	definition *v0.AwsEksKubernetesRuntimeDefinition,
+	supportType string,
+	controlPlaneOnly bool,
+) {
+	if controlPlaneOnly || supportType == "" {
+		return
+	}
+	definition.SupportType = &supportType
 }
 
 // eksGenesisDefinition returns the EKS definition tptctl up registers for the

@@ -119,6 +119,9 @@ func (a *AwsEksKubernetesRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
 	if err := validateKubernetesApiAccess(KubernetesRuntimeInfraProviderEKS, a.PrivateApi, a.AllowedCidrs); err != nil {
 		return err
 	}
+	if err := validateEksSupportTypeCreate(a); err != nil {
+		return err
+	}
 
 	return validateKubernetesVersionCreate(KubernetesRuntimeInfraProviderEKS, a.KubernetesVersion)
 }
@@ -140,6 +143,9 @@ func (a *AwsEksKubernetesRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
 //
 //	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (a *AwsEksKubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
+	if err := validateEksSupportTypeUpdate(tx); err != nil {
+		return err
+	}
 	if err := validateKubernetesVersionUpgrade(tx, KubernetesRuntimeInfraProviderEKS, func(value any) (*string, bool) {
 		object, ok := value.(*AwsEksKubernetesRuntimeDefinition)
 		if !ok {

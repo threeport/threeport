@@ -674,6 +674,7 @@ func eksInfraFromApiObjects(
 		DefaultNodeGroupMinNodes:     int32(*definition.DefaultNodeGroupMinimumSize),
 		DefaultNodeGroupMaxNodes:     int32(*definition.DefaultNodeGroupMaximumSize),
 		KubernetesVersion:            v0.KubernetesVersionOrDefault(definition.KubernetesVersion),
+		SupportType:                  v0.EksSupportTypeOrDefault(definition.SupportType),
 		AuditLog:                     definition.AuditLog != nil && *definition.AuditLog,
 		DeletionProtection:           definition.DeletionProtection != nil && *definition.DeletionProtection,
 		NodeGroupPerZone:             definition.NodeGroupPerZone != nil && *definition.NodeGroupPerZone,

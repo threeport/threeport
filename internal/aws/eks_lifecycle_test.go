@@ -77,6 +77,13 @@ func TestEksInfraFromApiObjects_MapsDefinitionNodeGroupFields(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, v0.DefaultKubernetesVersion, infra.KubernetesVersion)
 	assert.False(t, infra.AuditLog, "a definition without an audit log")
+	assert.Equal(t, "STANDARD", infra.SupportType, "a definition created before support types were recorded")
+
+	// a definition's support type reaches the cluster's upgrade policy
+	definition.SupportType = util.Ptr("EXTENDED")
+	infra, err = eksInfraFromApiObjects(instance, definition, "123456789012", awsConfig, providerCredentials, nil)
+	require.NoError(t, err)
+	assert.Equal(t, "EXTENDED", infra.SupportType)
 
 	// a definition with an audit log builds a cluster with one
 	definition.AuditLog = util.Ptr(true)
