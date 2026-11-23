@@ -211,7 +211,24 @@ func (a *AwsEksKubernetesRuntimeDefinition) beforeDelete(tx *gorm.DB) error {
 
 // beforeCreate validates the AwsEksKubernetesRuntimeInstance before create.
 func (a *AwsEksKubernetesRuntimeInstance) beforeCreate(tx *gorm.DB) error {
-	return rejectAbandonInfrastructureOnCreate(a.AbandonInfrastructure)
+	if err := rejectAbandonInfrastructureOnCreate(a.AbandonInfrastructure); err != nil {
+		return err
+	}
+
+	// the cluster is created on its definition's version, so it has been
+	// asked for it, and an update of the definition that leaves the version
+	// alone has nothing to ask of it
+	if a.UpgradeRequestedVersion != nil || a.AwsEksKubernetesRuntimeDefinitionID == nil {
+		return nil
+	}
+	var definition AwsEksKubernetesRuntimeDefinition
+	found, err := loadInstanceDefinition(tx, &definition, *a.AwsEksKubernetesRuntimeDefinitionID)
+	if err != nil || !found {
+		return err
+	}
+	a.UpgradeRequestedVersion = util.Ptr(KubernetesVersionOrDefault(definition.KubernetesVersion))
+
+	return nil
 }
 
 // beforeUpdate validates the AwsEksKubernetesRuntimeInstance before update.

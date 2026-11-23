@@ -259,10 +259,11 @@ definitions:
       UpgradeRequestedVersion:
         description: |-
           The definition's KubernetesVersion the cluster was last asked to be
-          upgraded to.  The API server sets it when an update of the EKS
-          definition asks the cluster to upgrade, once the cluster's controller
-          has been notified, so a request it couldn't finish is made again by the
-          definition's next update.
+          upgraded to.  The API server sets it to the version the cluster is
+          created on when the instance is created, and when an update of the
+          EKS definition asks the cluster to upgrade, once the cluster's
+          controller has been notified, so a request it couldn't finish is made
+          again by the definition's next update.
         type: string
       UpgradeStatus:
         description: |-
@@ -1317,10 +1318,11 @@ definitions:
       UpgradeRequestedVersion:
         description: |-
           The definition's KubernetesVersion the cluster was last asked to be
-          upgraded to.  The API server sets it when an update of the GKE
-          definition asks the cluster to upgrade, once the cluster's controller
-          has been notified, so a request it couldn't finish is made again by the
-          definition's next update.
+          upgraded to.  The API server sets it to the version the cluster is
+          created on when the instance is created, and when an update of the
+          GKE definition asks the cluster to upgrade, once the cluster's
+          controller has been notified, so a request it couldn't finish is made
+          again by the definition's next update.
         type: string
       UpgradeStatus:
         description: |-
