@@ -296,6 +296,19 @@ func v0KubernetesRuntimeInstanceUpdated(
 	namespace := threeport.RuntimeNamespace
 	cpi.Opts.Namespace = namespace
 
+	// hand a binding this control plane replaced to its own name
+	replaced := os.Getenv(threeport.ControllerConfigReplacedControlPlaneKey)
+	if replaced != "" {
+		if err := threeport.RecordSupportServicesOperatorReplacement(
+			dynamicKubeClient,
+			mapper,
+			replaced,
+			cpi.Opts.ControlPlaneName,
+		); err != nil {
+			return controller.RetryOnNetworkErr(err, "failed to record the support services operator owner")
+		}
+	}
+
 	// read the control plane that may update the operator
 	owner, found, err := threeport.SupportServicesOperatorOwner(dynamicKubeClient, mapper)
 	if err != nil {

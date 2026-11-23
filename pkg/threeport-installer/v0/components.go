@@ -39,6 +39,10 @@ const (
 	// its cluster.  Controllers read it from their environment.
 	ControllerConfigExternalApiEndpointKey = "API_EXTERNAL_ENDPOINT"
 
+	// ControllerConfigReplacedControlPlaneKey is the controller config secret key for the name this install replaced.
+	// Controllers read it from the environment.
+	ControllerConfigReplacedControlPlaneKey = "CONTROL_PLANE_REPLACED"
+
 	// SigningCaMountPath is where the kubernetes runtime controller finds the
 	// control plane's CA certificate and private key, which it signs agent
 	// client certificates with.
@@ -2650,6 +2654,12 @@ func (cpi *ControlPlaneInstaller) getControllerSecret(
 	if cpi.Opts.ExternalApiEndpoint != "" {
 		stringData := secret.Object["stringData"].(map[string]interface{})
 		stringData[ControllerConfigExternalApiEndpointKey] = cpi.Opts.ExternalApiEndpoint
+	}
+
+	// the control plane this install replaced, so its controllers can take that name's clusters
+	if cpi.Opts.SourceName != "" {
+		stringData := secret.Object["stringData"].(map[string]interface{})
+		stringData[ControllerConfigReplacedControlPlaneKey] = cpi.Opts.SourceName
 	}
 
 	return secret
