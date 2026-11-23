@@ -292,8 +292,14 @@ func v0KubernetesRuntimeInstanceUpdated(
 		return 0, err
 	}
 
-	// install the agent and the operator in the runtime namespace
+	// a host cluster keeps the operator in the control plane namespace
 	namespace := threeport.RuntimeNamespace
+	if isControlPlaneHost {
+		namespace, err = controlPlaneNamespace()
+		if err != nil {
+			return 0, fmt.Errorf("failed to determine the control plane namespace: %w", err)
+		}
+	}
 	cpi.Opts.Namespace = namespace
 
 	// delete that namespace on a workload cluster when an image is behind.
