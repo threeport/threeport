@@ -166,6 +166,7 @@ func (k *KubernetesRuntimeInstance) beforeCreate(tx *gorm.DB) error {
 		k.CertificatesComponentInstanceID,
 		k.SecretsComponentInstanceID,
 		k.DatabaseComponentInstanceID,
+		k.StorageComponentInstanceID,
 	} {
 		if slot != nil {
 			return util.NewBadRequestError(
@@ -235,6 +236,7 @@ func (k *KubernetesRuntimeInstance) beforeUpdate(tx *gorm.DB) error {
 			"CertificatesComponentInstanceID",
 			"SecretsComponentInstanceID",
 			"DatabaseComponentInstanceID",
+			"StorageComponentInstanceID",
 		},
 		KubernetesRuntimeInstance{}.TableName(),
 		KubernetesWorkloadInstance{}.TableName(),

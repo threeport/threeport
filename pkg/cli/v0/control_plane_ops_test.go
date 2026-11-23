@@ -30,6 +30,28 @@ func TestModuleInstallRequestComesFromTheSavedRecord(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "example.com/acme-module-api registry.example/repo v1", request)
 
+	// assert an endpoint namespace is stored after the tag
+	endpoint := "example-api.custom-ns.svc.cluster.local"
+	request, err = moduleInstallRequestFromRecord(&api.ModuleApi{
+		Name:           util.Ptr("example.com/acme-module-api"),
+		ImageNamespace: util.Ptr("registry.example/repo"),
+		ImageTag:       util.Ptr("v1"),
+		Endpoint:       &endpoint,
+	})
+	require.NoError(t, err)
+	require.Equal(t, "example.com/acme-module-api registry.example/repo v1 custom-ns", request)
+
+	// assert the default namespace is left off the request
+	endpoint = "example-api.threeport-acme.svc.cluster.local"
+	request, err = moduleInstallRequestFromRecord(&api.ModuleApi{
+		Name:           util.Ptr("example.com/acme-module-api"),
+		ImageNamespace: util.Ptr("registry.example/repo"),
+		ImageTag:       util.Ptr("v1"),
+		Endpoint:       &endpoint,
+	})
+	require.NoError(t, err)
+	require.Equal(t, "example.com/acme-module-api registry.example/repo v1", request)
+
 	// assert a record with no namespace is refused
 	_, err = moduleInstallRequestFromRecord(&api.ModuleApi{
 		Name:     util.Ptr("example.com/acme-module-api"),

@@ -143,6 +143,39 @@ func EnsureDatabaseComponent[T componentAttacher](
 	)
 }
 
+// EnsureStorageComponent attaches an API instance to the storage component of the support services operator.
+// The shared workload is named storage-<runtime>.
+func EnsureStorageComponent[T componentAttacher](
+	r *controller.Reconciler,
+	runtime *api.KubernetesRuntimeInstance,
+	attacher T,
+	field **uint,
+	update objectUpdate[T],
+	log *logr.Logger,
+) error {
+	// require the runtime before reading its storage workload id
+	if err := requireRuntime(runtime, "storage component", true); err != nil {
+		return err
+	}
+
+	// store the storage workload id on the attached API instance
+	record := recordComponentID(r, attacher, field, update)
+
+	// install the storage component and sync its manifest after reconcile
+	return ensure(
+		r,
+		runtime,
+		&runtime.StorageComponentInstanceID,
+		"storage component",
+		fmt.Sprintf("%s-%s", StorageComponentName, *runtime.Name),
+		storageColumn,
+		record,
+		nil,
+		storageComponentYaml,
+		log,
+	)
+}
+
 // ReleaseIngressComponent detaches an API instance from the ingress component of the support services operator.
 // It deletes the shared workload when the runtime still stores that workload id.
 func ReleaseIngressComponent[T componentAttacher](
@@ -201,6 +234,21 @@ func ReleaseDatabaseComponent[T componentAttacher](
 	}
 
 	return releaseComponent(r, runtime, &runtime.DatabaseComponentInstanceID, "database component", databaseColumn, attacher)
+}
+
+// ReleaseStorageComponent detaches an API instance from the storage component of the support services operator.
+// It deletes the shared workload when the runtime still stores that workload id.
+func ReleaseStorageComponent[T componentAttacher](
+	r *controller.Reconciler,
+	runtime *api.KubernetesRuntimeInstance,
+	attacher T,
+) error {
+	// require the runtime before reading its storage workload id
+	if err := requireRuntime(runtime, "storage component", false); err != nil {
+		return err
+	}
+
+	return releaseComponent(r, runtime, &runtime.StorageComponentInstanceID, "storage component", storageColumn, attacher)
 }
 
 // ensure installs one support services operator component when the runtime stores no workload id for it.

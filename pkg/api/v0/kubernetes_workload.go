@@ -32,7 +32,7 @@ type KubernetesWorkloadResourceDefinition struct {
 	Common `swaggerignore:"true" mapstructure:",squash"`
 
 	// The individual manifest in JSON format.
-	JSONDefinition *datatypes.JSON `validate:"required" gorm:"not null"`
+	JSONDefinition *datatypes.JSON `validate:"required" gorm:"not null" swaggertype:"object"`
 
 	// The kubernetes workload definition this resource belongs to.
 	KubernetesWorkloadDefinitionID *uint `validate:"required" gorm:"not null"`
@@ -77,7 +77,7 @@ type KubernetesWorkloadResourceInstance struct {
 	// KubernetesWorkloadResourceDefinition.JSONDefinition in that it has
 	// namespace management and other configuration — such as resource
 	// allocation management — added.
-	JSONDefinition *datatypes.JSON `validate:"required" gorm:"not null"`
+	JSONDefinition *datatypes.JSON `validate:"required" gorm:"not null" swaggertype:"object"`
 
 	// The kubernetes workload instance this resource belongs to.
 	KubernetesWorkloadInstanceID *uint `validate:"required" gorm:"not null"`
@@ -92,7 +92,7 @@ type KubernetesWorkloadResourceInstance struct {
 
 	// The JSON definition of a Kubernetes resource as stored in etcd in the
 	// kubernetes runtime.
-	RuntimeDefinition *datatypes.JSON `validate:"optional"`
+	RuntimeDefinition *datatypes.JSON `validate:"optional" swaggertype:"object"`
 
 	// Whether another controller has scheduled this resource for deletion
 	ScheduledForDeletion *time.Time `validate:"optional"`
