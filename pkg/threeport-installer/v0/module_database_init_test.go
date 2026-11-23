@@ -342,3 +342,57 @@ func TestARedeployedModuleLosesWhatItsDatabaseWasCreatedWith(t *testing.T) {
 	_, err = kubeClient.Resource(secretGVR).Namespace(controlPlane).Get(context.Background(), "db-root-cert", metav1.GetOptions{})
 	assert.NoError(t, err, "the control plane's own is kept")
 }
+
+// TestAFailedModuleCleanupIsRetriedOnceTheImagesAreCurrent covers an image
+// upgrade whose cleanup fails after it restarted the module's API
+// Deployment onto the new images: the next reconcile finds the images
+// current, and still removes what the module's own database was created
+// with, rather than leaving the root certificate's copy for good.
+func TestAFailedModuleCleanupIsRetriedOnceTheImagesAreCurrent(t *testing.T) {
+	namespace := installControlPlaneNamespace
+	deployment := legacyModuleAPIDeployment("custom-ns")
+	deployment.SetName("threeport-example-api-server")
+	spec, _, _ := unstructured.NestedMap(deployment.Object, "spec", "template", "spec")
+	spec["initContainers"].([]interface{})[1].(map[string]interface{})["image"] = "registry.example/threeport-example-database-migrator:old"
+	spec["containers"].([]interface{})[0].(map[string]interface{})["image"] = "registry.example/threeport-example-rest-api:old"
+	require.NoError(t, unstructured.SetNestedMap(deployment.Object, spec, "spec", "template", "spec"))
+	mapper := WorkloadRESTMapper()
+	kubeClient := testKubeClient(append(staleModuleObjects("custom-ns"), deployment, installKeySecret(namespace))...)
+	failures := 1
+	kubeClient.PrependReactor("delete", "secrets", func(k8stesting.Action) (bool, runtime.Object, error) {
+		if failures == 0 {
+			return false, nil, nil
+		}
+		failures--
+		return true, nil, errors.New("connection refused")
+	})
+	endpoint := "example-api.custom-ns.svc.cluster.local"
+	module := &v0.ModuleApi{
+		Name:           util.Ptr("example.com/example-module-api"),
+		ImageNamespace: util.Ptr("registry.example"),
+		ImageTag:       util.Ptr("new"),
+		Endpoint:       &endpoint,
+	}
+	name := namespace
+	apiEndpoint := "https://api.example"
+	instance := &v0.ControlPlaneInstance{Name: &name, Namespace: &namespace, ApiServerEndpoint: &apiEndpoint}
+	cpi := NewInstaller(Namespace(namespace))
+	cpi.Opts.ControllerList = nil
+	certificateLeft := func() bool {
+		_, err := kubeClient.Resource(secretGVR).Namespace("custom-ns").Get(context.Background(), "db-root-cert", metav1.GetOptions{})
+		return err == nil
+	}
+
+	err := retagModuleAPI(kubeClient, &mapper, instance, cpi, module, "registry.example", "new", namespace)
+	require.ErrorContains(t, err, "connection refused")
+	assert.True(t, certificateLeft())
+	stored, err := kubeClient.Resource(deploymentGVR).Namespace("custom-ns").Get(
+		context.Background(), "threeport-example-api-server", metav1.GetOptions{},
+	)
+	require.NoError(t, err)
+	current, _ := namedContainerImage(stored, "containers", moduleAPIContainerName)
+	require.Equal(t, "registry.example/threeport-example-rest-api:new", current, "restarted onto the new images first")
+
+	require.NoError(t, retagModuleAPI(kubeClient, &mapper, instance, cpi, module, "registry.example", "new", namespace))
+	assert.False(t, certificateLeft(), "the retry removes it, with the images already current")
+}
