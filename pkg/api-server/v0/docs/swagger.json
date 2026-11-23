@@ -6,7 +6,7 @@
         "contact": {
             "url": "https://threeport.io"
         },
-        "version": "v0.7.0-rc.5"
+        "version": "v0.7.0-rc.6"
     },
     "basePath": "/",
     "paths": {
@@ -17643,10 +17643,7 @@
                 },
                 "ResourceInventory": {
                     "description": "An inventory of all AWS resources for the EKS cluster.",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "object"
                 },
                 "Status": {
                     "description": "The status of the instance.\nTODO: use a custom type",
@@ -17742,21 +17739,21 @@
                     "description": "The additional env reference to be added to the environment variables of the component.",
                     "type": "array",
                     "items": {
-                        "type": "integer"
+                        "type": "object"
                     }
                 },
                 "AdditionalVolumeMounts": {
                     "description": "The additional volume mounts to be added to the deployment spec of the component.",
                     "type": "array",
                     "items": {
-                        "type": "integer"
+                        "type": "object"
                     }
                 },
                 "AdditionalVolumes": {
                     "description": "The additional volumes to be added to the deployment spec of the component.",
                     "type": "array",
                     "items": {
-                        "type": "integer"
+                        "type": "object"
                     }
                 },
                 "BinaryName": {
@@ -18626,10 +18623,7 @@
                 },
                 "ResourceInventory": {
                     "description": "An inventory of all GCP resources for the GKE cluster.",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "object"
                 },
                 "SecretsEncryptionKey": {
                     "description": "The Cloud KMS key the cluster's Secrets are encrypted with, \"\" for\nnone, as the controller last applied the definition's\nSecretsEncryptionKey.  The definition holds what was asked for, and\nthese applied settings hold what the cluster runs, so the controller\napplies what differs.  Each is unset on a cluster none was applied to.",
@@ -18718,10 +18712,7 @@
                     "description": "Complete kubernetes resources that will be appended to the provided\nhelm chart.",
                     "type": "array",
                     "items": {
-                        "type": "array",
-                        "items": {
-                            "type": "integer"
-                        }
+                        "type": "object"
                     }
                 },
                 "Chart": {
@@ -18805,10 +18796,7 @@
                     "description": "Complete kubernetes resources that will be appended to the provided\nhelm chart.",
                     "type": "array",
                     "items": {
-                        "type": "array",
-                        "items": {
-                            "type": "integer"
-                        }
+                        "type": "object"
                     }
                 },
                 "CreationAcknowledged": {
@@ -19101,6 +19089,10 @@
                     "description": "The status of the instance.\nTODO: use a custom type",
                     "type": "string"
                 },
+                "StorageComponentInstanceID": {
+                    "description": "The workload that provides object storage for this runtime.",
+                    "type": "integer"
+                },
                 "ThreeportAgentImage": {
                     "description": "An alternate threeport image to use when deploying threeport agent to\nmanaged Kubernetes runtime clusters.  If not supplied, the official image\nwith the correct version will be used.",
                     "type": "string"
@@ -19260,10 +19252,7 @@
             "properties": {
                 "JSONDefinition": {
                     "description": "The individual manifest in JSON format.",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "object"
                 },
                 "KubernetesWorkloadDefinitionID": {
                     "description": "The kubernetes workload definition this resource belongs to.",
@@ -19280,10 +19269,7 @@
             "properties": {
                 "JSONDefinition": {
                     "description": "The individual manifest in JSON format.  This field is a superset of\nKubernetesWorkloadResourceDefinition.JSONDefinition in that it has\nnamespace management and other configuration — such as resource\nallocation management — added.",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "object"
                 },
                 "KubernetesWorkloadInstanceID": {
                     "description": "The kubernetes workload instance this resource belongs to.",
@@ -19299,10 +19285,7 @@
                 },
                 "RuntimeDefinition": {
                     "description": "The JSON definition of a Kubernetes resource as stored in etcd in the\nkubernetes runtime.",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "object"
                 },
                 "ScheduledForDeletion": {
                     "description": "Whether another controller has scheduled this resource for deletion",
@@ -20574,10 +20557,7 @@
                 },
                 "ResourceInventory": {
                     "description": "An inventory of all OCI resources for the OKE cluster.",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "object"
                 },
                 "Status": {
                     "description": "The status of the instance.\nTODO: use a custom type",
@@ -20746,10 +20726,7 @@
                 },
                 "Data": {
                     "description": "The secret value to be stored in the provider.",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "object"
                 },
                 "DeletionAcknowledged": {
                     "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",

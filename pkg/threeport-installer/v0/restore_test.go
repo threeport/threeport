@@ -73,9 +73,91 @@ func TestTheFreshBackupGoesWhereTheScheduleWrites(t *testing.T) {
 	assert.Contains(t, phases.Prepare[1], "IN 'gs://copy/threeport_api'")
 	assert.Equal(t, []string{"BACKUP DATABASE threeport_api INTO 'gs://scheduled/threeport_api'"}, phases.Backup)
 
+	// a restore with no schedule takes no backup
 	withoutSchedule, err := DatabaseRestoreStatements(DatabaseName, "threeport", "gs://copy/threeport_api", "", LatestBackup)
 	require.NoError(t, err)
 	assert.Empty(t, withoutSchedule.Backup)
+}
+
+// TestModuleRestoreKeepsTheControlPlaneStatementFirst covers a module database
+// restored after the control plane database, from the same collection.
+func TestModuleRestoreKeepsTheControlPlaneStatementFirst(t *testing.T) {
+	// the control plane statements stay first
+	core, err := DatabaseRestoreStatements(
+		DatabaseName,
+		"threeport",
+		DatabaseBackupURI("bucket", "primary-02"),
+		"",
+		LatestBackup,
+	)
+	require.NoError(t, err)
+	phases, err := withModuleDatabaseRestores(
+		core,
+		[]string{"threeport_acme_api"},
+		"threeport",
+		"bucket",
+		"primary-02",
+		"bucket",
+		"primary-03",
+		LatestBackup,
+	)
+	require.NoError(t, err)
+	require.Equal(t, core.Prepare[0], phases.Prepare[0])
+
+	// the module database uses the control plane collection and backup path
+	joined := strings.Join(phases.Prepare, "\n")
+	require.Contains(
+		t,
+		joined,
+		"RESTORE DATABASE threeport_acme_api FROM LATEST IN 'gs://bucket/primary-02/threeport_api?AUTH=implicit'",
+	)
+	require.NotContains(t, joined, "threeport_acme_api?AUTH")
+
+	// the backup sets the schedule to the same databases
+	require.Equal(
+		t,
+		[]string{
+			"BACKUP DATABASE threeport_api, threeport_acme_api INTO 'gs://bucket/primary-03/threeport_api?AUTH=implicit'",
+			"DROP SCHEDULES WITH x AS (SHOW SCHEDULES) SELECT id FROM x WHERE label = 'threeport_api_backup';",
+			"CREATE SCHEDULE threeport_api_backup FOR BACKUP DATABASE threeport_api, threeport_acme_api INTO 'gs://bucket/primary-03/threeport_api?AUTH=implicit' RECURRING '@hourly' FULL BACKUP '@daily' WITH SCHEDULE OPTIONS ignore_existing_backups;",
+		},
+		phases.Backup,
+	)
+}
+
+// TestModuleRestoreKeepsASpecificBackupOnTheCoreCollection covers a selected
+// backup path. The path belongs to the control plane collection.
+func TestModuleRestoreKeepsASpecificBackupOnTheCoreCollection(t *testing.T) {
+	// restore the module database from the selected path in the control plane collection
+	core, err := DatabaseRestoreStatements(
+		DatabaseName,
+		"threeport",
+		DatabaseBackupURI("bucket", "primary-02"),
+		"",
+		"/2026/10/20-050726.51",
+	)
+	require.NoError(t, err)
+	phases, err := withModuleDatabaseRestores(
+		core,
+		[]string{"threeport_acme_api"},
+		"threeport",
+		"bucket",
+		"primary-02",
+		"",
+		"",
+		"/2026/10/20-050726.51",
+	)
+	require.NoError(t, err)
+	joined := strings.Join(phases.Prepare, "\n")
+	require.Contains(
+		t,
+		joined,
+		"RESTORE DATABASE threeport_acme_api FROM '/2026/10/20-050726.51' IN 'gs://bucket/primary-02/threeport_api?AUTH=implicit'",
+	)
+	require.NotContains(t, joined, "threeport_acme_api?AUTH")
+
+	// a restore with no schedule takes no backup
+	require.Empty(t, phases.Backup)
 }
 
 // jobOutcome is how a fake restore Job ends.
