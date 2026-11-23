@@ -33,6 +33,9 @@ const (
 
 	// databaseColumn is the runtime field that stores the database workload
 	databaseColumn = "DatabaseComponentInstanceID"
+
+	// storageColumn is the runtime field that stores the storage workload
+	storageColumn = "StorageComponentInstanceID"
 )
 
 // isComponentReconciled reports whether that workload instance has reconciled.
@@ -212,6 +215,8 @@ func componentColumn(runtime *api.KubernetesRuntimeInstance, column string) (**u
 		return &runtime.SecretsComponentInstanceID, nil
 	case databaseColumn:
 		return &runtime.DatabaseComponentInstanceID, nil
+	case storageColumn:
+		return &runtime.StorageComponentInstanceID, nil
 	default:
 		return nil, fmt.Errorf("unknown support service column %s", column)
 	}

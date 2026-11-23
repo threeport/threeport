@@ -85,6 +85,48 @@ func TestRememberedModuleScalesSurviveAStoppedAPI(t *testing.T) {
 	require.Equal(t, want, got)
 }
 
+// TestModuleDatabaseNamesSkipTheControlPlaneDatabase covers a module that
+// keeps its own database and a core module that does not.
+func TestModuleDatabaseNamesSkipTheControlPlaneDatabase(t *testing.T) {
+	// a core module and a repeated name are left out
+	core := true
+	names, err := moduleDatabaseNames([]api.ModuleApi{
+		{Name: util.Ptr("threeport"), Core: &core},
+		{Name: util.Ptr("my-module")},
+		{Name: util.Ptr("")},
+		{Name: util.Ptr("my-module")},
+	})
+	require.NoError(t, err)
+	require.Equal(t, []string{"threeport_my_module_api"}, names)
+}
+
+// TestModuleDatabaseNamesUseTheRegisteredShortName covers an SDK registration.
+// The registered name carries the API namespace, and the database uses the short name.
+func TestModuleDatabaseNamesUseTheRegisteredShortName(t *testing.T) {
+	// a registered module API name derives the database the installer creates
+	names, err := moduleDatabaseNames([]api.ModuleApi{
+		{Name: util.Ptr("example.com/my-module-module-api")},
+	})
+	require.NoError(t, err)
+	require.Equal(t, []string{"threeport_my_module_api"}, names)
+}
+
+// TestRememberedModuleDatabasesSurviveAStoppedAPI covers a retry that cannot list databases.
+func TestRememberedModuleDatabasesSurviveAStoppedAPI(t *testing.T) {
+	// the first attempt stored the names before the API was scaled to zero
+	kubeClient := testKubeClient()
+	require.NoError(t, rememberModuleDatabases(kubeClient, "primary-13", []string{"threeport_my_module_api"}))
+
+	// the retry reads that record, and a missing record is not an empty list
+	got, recorded, err := readModuleDatabases(kubeClient, "primary-13")
+	require.NoError(t, err)
+	require.True(t, recorded)
+	require.Equal(t, []string{"threeport_my_module_api"}, got)
+	_, recorded, err = readModuleDatabases(kubeClient, "missing")
+	require.NoError(t, err)
+	require.False(t, recorded)
+}
+
 // TestRecordModuleReplicasReplacesAStaleCount covers a module scaled after an earlier backup.
 func TestRecordModuleReplicasReplacesAStaleCount(t *testing.T) {
 	// the deployment is running at five after an earlier backup stored two

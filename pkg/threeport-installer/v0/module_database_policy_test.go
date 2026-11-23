@@ -21,7 +21,6 @@ import (
 const testPolicyControlPlaneNamespace = "threeport-control-plane"
 
 var (
-	networkPolicyGVR   = schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1", Resource: "networkpolicies"}
 	testApiServerName  = "threeport-test-api-server"
 	testApiServerPods  = map[string]string{"app.kubernetes.io/name": testApiServerName}
 	testModuleNsName   = "threeport-test"

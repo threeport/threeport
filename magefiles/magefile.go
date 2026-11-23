@@ -1099,6 +1099,7 @@ func addModuleSupportServices() error {
 		"\t" + alias + ".SupportServiceCertificates `mapstructure:\",squash\"`\n" +
 		"\t" + alias + ".SupportServiceSecrets `mapstructure:\",squash\"`\n" +
 		"\t" + alias + ".SupportServiceDatabase `mapstructure:\",squash\"`\n" +
+		"\t" + alias + ".SupportServiceStorage `mapstructure:\",squash\"`\n" +
 		"\n" +
 		"\t// The cluster the shared components install on.\n" +
 		"\tKubernetesRuntimeInstanceID *uint `validate:\"optional\" relationship:\"requires\"`\n"
