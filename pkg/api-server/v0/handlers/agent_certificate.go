@@ -136,8 +136,10 @@ func issueAgentCertificate(
 		return nil, util.NewForbiddenError("only the kubernetes runtime controller may request an agent certificate")
 	}
 
-	if err := auth.ValidateRuntimeName(request.RuntimeInstanceName); err != nil {
-		return nil, util.NewBadRequestError(err.Error())
+	// any name the API accepts for a runtime instance gets a certificate:
+	// AgentCommonName makes one into a common name rather than refusing it
+	if request.RuntimeInstanceName == "" {
+		return nil, util.NewBadRequestError("runtime instance name is empty")
 	}
 	if request.CertificateSigningRequest == "" {
 		return nil, util.NewBadRequestError("certificate signing request is empty")

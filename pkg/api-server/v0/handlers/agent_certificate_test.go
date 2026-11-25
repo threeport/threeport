@@ -136,6 +136,36 @@ func TestIssueAgentCertificateIssuesFromTheCa(t *testing.T) {
 	assert.Equal(t, auth.CNKubernetesRuntimeController, fields["requestedBy"])
 }
 
+// TestIssueAgentCertificateForAnyRuntimeName covers a runtime whose name is not
+// one a certificate common name holds as it is.  The API accepts any non-empty
+// name for a runtime instance, so refusing one would leave that cluster without
+// an agent, with the controller failing on every pass.
+func TestIssueAgentCertificateForAnyRuntimeName(t *testing.T) {
+	_, csr := agentTestMaterial(t)
+	caDir := writeSigningCa(t)
+
+	for _, name := range []string{"_east", "my cluster", "east,CN=threeport-owner", "東京"} {
+		t.Run(name, func(t *testing.T) {
+			certificate, err := issueAgentCertificate(
+				context.Background(),
+				caDir,
+				runtimeController,
+				api_v0.AgentCertificateRequest{RuntimeInstanceName: name, CertificateSigningRequest: csr},
+				runtimeExistsFor(name),
+				zap.NewNop(),
+			)
+			require.NoError(t, err)
+
+			block, _ := pem.Decode([]byte(certificate.Certificate))
+			require.NotNil(t, block)
+			cert, err := x509.ParseCertificate(block.Bytes)
+			require.NoError(t, err)
+			assert.Equal(t, auth.AgentCommonName(name), cert.Subject.CommonName)
+			assert.True(t, strings.HasPrefix(cert.Subject.CommonName, auth.AgentCommonNamePrefix+"-"))
+		})
+	}
+}
+
 // TestIssueAgentCertificateRefusals covers every request that gets no
 // certificate, and the status each owes the caller.
 func TestIssueAgentCertificateRefusals(t *testing.T) {
@@ -175,7 +205,6 @@ func TestIssueAgentCertificateRefusals(t *testing.T) {
 		{"no caller", caDir, api_lib.CallerIdentity{}, valid, http.StatusForbidden},
 		{"auth disabled, no CA mounted", t.TempDir(), runtimeController, valid, http.StatusConflict},
 		{"empty runtime name", caDir, runtimeController, withName(""), http.StatusBadRequest},
-		{"runtime name that is not a name", caDir, runtimeController, withName("east,CN=threeport-owner"), http.StatusBadRequest},
 		{"empty request", caDir, runtimeController, withCsr(""), http.StatusBadRequest},
 		{"oversized request", caDir, runtimeController, withCsr(strings.Repeat("a", maxCertificateRequestLength+1)), http.StatusBadRequest},
 		{"request that is not a request", caDir, runtimeController, withCsr("junk"), http.StatusBadRequest},

@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -165,6 +166,7 @@ func TestSignClientCertificateRequestRejectsBadRequests(t *testing.T) {
 // TestAgentCommonName covers the name an agent's certificate carries.
 func TestAgentCommonName(t *testing.T) {
 	assert.Equal(t, "threeport-agent-east", AgentCommonName("east"))
+	assert.Equal(t, "threeport-agent-dev-21.gke_1", AgentCommonName("dev-21.gke_1"))
 
 	// a name that already fits is kept whole
 	fits := strings.Repeat("a", maxCommonNameLength-len(AgentCommonNamePrefix)-1)
@@ -179,13 +181,67 @@ func TestAgentCommonName(t *testing.T) {
 	assert.Equal(t, AgentCommonName(long), AgentCommonName(long), "the same name always gives the same common name")
 }
 
-// TestValidateRuntimeName covers which runtime names may enter a common name.
-func TestValidateRuntimeName(t *testing.T) {
-	for _, ok := range []string{"east", "dev-21", "gke_prod.1", "A1"} {
-		assert.NoError(t, ValidateRuntimeName(ok), ok)
+// TestAgentCommonNameForAnyName covers the runtime names the API accepts and a
+// certificate common name cannot hold as they are.  The API takes any non-empty
+// string as a runtime instance name, so none may be refused: a runtime whose
+// agent could not be given a certificate would never get its agent.
+func TestAgentCommonNameForAnyName(t *testing.T) {
+	safe := regexp.MustCompile(`^threeport-agent-[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
+
+	names := []string{
+		"_east",
+		"-east",
+		".east",
+		"east ",
+		"my cluster",
+		"east/west",
+		"a,CN=threeport-owner",
+		"a\nb",
+		"a\x00b",
+		"café",
+		"東京",
+		"\xff\xfe",
+		"___",
+		" ",
+		"east,OU=database",
+		strings.Repeat("é", 200),
+		strings.Repeat("a b", 100),
 	}
-	for _, bad := range []string{"", "-lead", ".lead", "has space", "a/b", "a\nb", "a,CN=threeport-owner", strings.Repeat("a", 254)} {
-		assert.Error(t, ValidateRuntimeName(bad), bad)
+	seen := map[string]string{}
+	for _, name := range names {
+		commonName := AgentCommonName(name)
+
+		assert.Regexp(t, safe, commonName, "name %q", name)
+		assert.LessOrEqual(t, len(commonName), maxCommonNameLength, "name %q", name)
+		assert.Equal(t, commonName, AgentCommonName(name), "name %q is not stable", name)
+		if previous, taken := seen[commonName]; taken {
+			t.Errorf("names %q and %q share the common name %q", previous, name, commonName)
+		}
+		seen[commonName] = name
+	}
+
+	// names that differ only in what was changed stay distinct from each other
+	// and from the name that is already clean
+	east := AgentCommonName("east")
+	for _, name := range []string{"_east", "-east", ".east", "east ", " east", "east_"} {
+		assert.NotEqual(t, east, AgentCommonName(name), "name %q", name)
+	}
+	assert.NotEqual(t, AgentCommonName("_east"), AgentCommonName("-east"))
+
+	// what is readable of the name is kept
+	assert.True(t, strings.HasPrefix(AgentCommonName("_east"), "threeport-agent-east-"))
+	assert.True(t, strings.HasPrefix(AgentCommonName("my cluster"), "threeport-agent-my-cluster-"))
+
+	// a name with nothing readable in it is only a hash
+	assert.Regexp(t, `^threeport-agent-[0-9a-f]{8}$`, AgentCommonName("東京"))
+
+	// and the result is a common name a certificate can carry
+	ca := testAuthConfig(t)
+	csr, _ := testRequest(t)
+	for _, name := range names {
+		certPem, _, err := SignClientCertificateRequest(ca, csr, AgentCommonName(name), "threeport.io", OUControlPlane)
+		require.NoError(t, err, "name %q", name)
+		assert.Equal(t, AgentCommonName(name), parseCertificate(t, certPem).Subject.CommonName)
 	}
 }
 

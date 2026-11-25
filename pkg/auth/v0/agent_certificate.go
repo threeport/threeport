@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"math/big"
 	"regexp"
+	"strings"
 	"time"
 )
 
@@ -35,45 +36,55 @@ const (
 // a server can tell a request it should refuse from a fault of its own.
 var ErrInvalidCertificateRequest = errors.New("invalid certificate request")
 
-// runtimeNamePattern is what a runtime instance name has to look like to be
-// part of a common name.
-var runtimeNamePattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
-
-// ValidateRuntimeName reports whether name can be used to build an agent's
-// common name.
-func ValidateRuntimeName(name string) error {
-	if name == "" {
-		return fmt.Errorf("runtime instance name is empty")
-	}
-	if len(name) > 253 {
-		return fmt.Errorf("runtime instance name is longer than 253 characters")
-	}
-	if !runtimeNamePattern.MatchString(name) {
-		return fmt.Errorf("runtime instance name %q has characters a certificate common name cannot take", name)
-	}
-
-	return nil
-}
+// agentNamePattern is what a runtime instance name has to look like to be used
+// in a common name as it is.
+var agentNamePattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 
 // AgentCommonName returns the common name of the client certificate issued to
 // the agent on the named runtime instance, so each runtime's agent is
-// distinguishable in the API's logs.  The name is always AgentCommonNamePrefix
-// followed by a dash and the runtime name, which is what keeps an issued
-// certificate from ever carrying another component's name.  A runtime name too
-// long to leave the result within the 64 characters RFC 5280 allows is
-// shortened and given a hash of the whole name, so two long names still differ.
-// The name has to pass ValidateRuntimeName.
+// distinguishable in the API's logs.  It is AgentCommonNamePrefix followed by a
+// dash and a form of the runtime name, which is what keeps an issued
+// certificate from ever carrying another component's name.
+//
+// It works for any name the API accepts for a runtime instance, which is any
+// non-empty string.  A name that is already made of letters, digits, dots,
+// underscores and dashes, and short enough to leave the result within the 64
+// characters RFC 5280 allows, is used as it is.  Any other name is made into
+// one: unsupported characters become dashes, the result is cut to fit, and a
+// hash of the whole name is added, so two names that differ only in what was
+// changed still get different common names.
 func AgentCommonName(runtimeName string) string {
 	prefix := AgentCommonNamePrefix + "-"
-	if len(prefix)+len(runtimeName) <= maxCommonNameLength {
+	maxName := maxCommonNameLength - len(prefix)
+	if len(runtimeName) <= maxName && agentNamePattern.MatchString(runtimeName) {
 		return prefix + runtimeName
 	}
 
 	sum := sha256.Sum256([]byte(runtimeName))
-	suffix := "-" + hex.EncodeToString(sum[:4])
-	keep := maxCommonNameLength - len(prefix) - len(suffix)
+	hash := hex.EncodeToString(sum[:4])
 
-	return prefix + runtimeName[:keep] + suffix
+	// the readable part is what is left of the name once it is safe to print
+	var readable strings.Builder
+	for _, char := range runtimeName {
+		switch {
+		case char >= 'a' && char <= 'z', char >= 'A' && char <= 'Z', char >= '0' && char <= '9',
+			char == '.', char == '_', char == '-':
+			readable.WriteRune(char)
+		default:
+			readable.WriteRune('-')
+		}
+	}
+	// a name starts with a letter or digit, and the hash follows after a dash
+	name := strings.TrimLeft(readable.String(), "-._")
+	if keep := maxName - len(hash) - 1; len(name) > keep {
+		name = name[:keep]
+	}
+	name = strings.TrimRight(name, "-._")
+	if name == "" {
+		return prefix + hash
+	}
+
+	return prefix + name + "-" + hash
 }
 
 // GenerateCertificateRequest generates an RSA private key and a certificate
