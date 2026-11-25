@@ -58,7 +58,11 @@ func (o *OciProvider) beforeDelete(tx *gorm.DB) error {
 
 // beforeCreate validates the OciOkeKubernetesRuntimeDefinition before create.
 func (o *OciOkeKubernetesRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
-	return validateKubernetesApiAccess(KubernetesRuntimeInfraProviderOKE, o.PrivateApi, o.AllowedCidrs)
+	if err := validateKubernetesApiAccess(KubernetesRuntimeInfraProviderOKE, o.PrivateApi, o.AllowedCidrs); err != nil {
+		return err
+	}
+
+	return validateKubernetesVersionCreate(KubernetesRuntimeInfraProviderOKE, o.KubernetesVersion)
 }
 
 // beforeUpdate validates the OciOkeKubernetesRuntimeDefinition before update.
@@ -75,6 +79,33 @@ func (o *OciOkeKubernetesRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
 // Import:
 //   lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (o *OciOkeKubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
+	if err := validateKubernetesVersionUpdate(tx); err != nil {
+		return err
+	}
+	if err := validateAuditLogUpdate(tx, func(value any) (*bool, bool) {
+		object, ok := value.(*OciOkeKubernetesRuntimeDefinition)
+		if !ok {
+			return nil, false
+		}
+		return object.AuditLog, true
+	}); err != nil {
+		return err
+	}
+	if err := validateDeletionProtectionUpdate(
+		tx,
+		func(value any) (*bool, *uint, bool) {
+			object, ok := value.(*OciOkeKubernetesRuntimeDefinition)
+			if !ok {
+				return nil, nil, false
+			}
+			return object.DeletionProtection, object.ID, true
+		},
+		&OciOkeKubernetesRuntimeInstance{},
+		"oci_oke_kubernetes_runtime_definition_id",
+	); err != nil {
+		return err
+	}
+
 	return validateKubernetesApiAccessUpdate(
 		tx,
 		KubernetesRuntimeInfraProviderOKE,

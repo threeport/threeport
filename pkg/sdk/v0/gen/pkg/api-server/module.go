@@ -709,6 +709,8 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		g.If(Id("err").Op("!=").Nil()).Block(
 			Return(Id("err")),
 		)
+		g.Id("imageNamespace").Op(":=").Qual("os", "Getenv").Call(Lit("MODULE_IMAGE_NAMESPACE"))
+		g.Id("imageTag").Op(":=").Qual("os", "Getenv").Call(Lit("MODULE_IMAGE_TAG"))
 		g.If(Id("createFresh")).Block(
 			Comment("register the module in the Threeport API with the ModuleApi object"),
 			Qual("log", "Printf").Call(
@@ -732,6 +734,18 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					"ApiNamespace",
 				)),
 			}),
+			If(Id("imageNamespace").Op("!=").Lit("")).Block(
+				Id("moduleApi").Dot("ImageNamespace").Op("=").Qual(
+					"github.com/threeport/threeport/pkg/util/v0",
+					"Ptr",
+				).Call(Id("imageNamespace")),
+			),
+			If(Id("imageTag").Op("!=").Lit("")).Block(
+				Id("moduleApi").Dot("ImageTag").Op("=").Qual(
+					"github.com/threeport/threeport/pkg/util/v0",
+					"Ptr",
+				).Call(Id("imageTag")),
+			),
 			List(Id("createdModApi"), Id("createErr")).Op(":=").Qual(
 				"github.com/threeport/threeport/pkg/client/v0",
 				"CreateModuleApi",
@@ -747,6 +761,36 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				)),
 			),
 			Id("existingModApi").Op("=").Id("createdModApi"),
+		)
+		g.If(Op("!").Id("createFresh").Op("&&").Parens(
+			Id("imageNamespace").Op("!=").Lit("").Op("||").Id("imageTag").Op("!=").Lit(""),
+		)).Block(
+			If(Id("imageNamespace").Op("!=").Lit("")).Block(
+				Id("existingModApi").Dot("ImageNamespace").Op("=").Qual(
+					"github.com/threeport/threeport/pkg/util/v0",
+					"Ptr",
+				).Call(Id("imageNamespace")),
+			),
+			If(Id("imageTag").Op("!=").Lit("")).Block(
+				Id("existingModApi").Dot("ImageTag").Op("=").Qual(
+					"github.com/threeport/threeport/pkg/util/v0",
+					"Ptr",
+				).Call(Id("imageTag")),
+			),
+			List(Id("_"), Id("updateErr")).Op(":=").Qual(
+				"github.com/threeport/threeport/pkg/client/v0",
+				"UpdateModuleApi",
+			).Call(
+				Id("tpApiClient"),
+				Id("tpApiAddr"),
+				Id("existingModApi"),
+			),
+			If(Id("updateErr").Op("!=").Nil()).Block(
+				Return(Qual("fmt", "Errorf").Call(
+					Lit("failed to record module image coordinates: %w"),
+					Id("updateErr"),
+				)),
+			),
 		)
 
 		for _, objGroup := range gen.ApiObjectGroups {

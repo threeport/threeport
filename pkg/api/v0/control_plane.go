@@ -1,5 +1,7 @@
 package v0
 
+import "gorm.io/datatypes"
+
 // ControlPlaneDefinition is the configuration for a Threeport Control Plane.
 type ControlPlaneDefinition struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
@@ -34,6 +36,9 @@ type ControlPlaneInstance struct {
 	// The namespace to deploy the control plane in
 	Namespace *string `validate:"required" gorm:"not null"`
 
+	// The namespace of the control plane this install replaces
+	FromNamespace *string `validate:"optional"`
+
 	// When true, indicates the control plane instance represents the control plane in which it's stored
 	IsSelf *bool `validate:"optional" gorm:"default:false"`
 
@@ -56,11 +61,42 @@ type ControlPlaneInstance struct {
 	// neither is set a component takes the tag its parent control plane runs.
 	ImageTag *string `validate:"optional"`
 
+	// The module install the parent controller runs, as name, image namespace, and tag separated by spaces
+	ModuleInstall *string `validate:"optional"`
+
 	// The controller groups this control plane installs.
 	// Group names are separated by commas.
 	// An empty or omitted value installs every controller.
 	// The value 'none' installs no controllers.
 	Apis *string `validate:"optional"`
+
+	// The address blocks from which this control plane allocates a /16
+	// network range to each Kubernetes runtime it provisions, as a JSON array
+	// of IPv4 CIDR blocks such as ["10.16.0.0/12"].  Each block must be a /16
+	// or larger, and the blocks must not overlap.  If empty, the default pool
+	// is used: 10.16.0.0/16 through 10.255.0.0/16, except 10.96.0.0/16 and
+	// 10.244.0.0/16.  A change affects only later allocations.  On a child
+	// control plane, the pool must be clear of the ranges its parent has
+	// allocated and of its other children's pools, and the parent does not
+	// allocate from it.  A child's pool can only grow, since the child may
+	// have allocated from any of its blocks: a block can be added, or replaced
+	// by a larger one that holds it.  On a control plane that is itself a
+	// child, a child's pool must be inside this control plane's own pool.  A
+	// child with no pool allocates no ranges, and its clusters keep the
+	// network every cluster used to get.
+	NetworkCidrPool *datatypes.JSON `validate:"optional" swaggertype:"array,string"`
+
+	// The address blocks this control plane doesn't allocate from, and that
+	// no runtime's range and no child control plane's pool may overlap, as a
+	// JSON array of IPv4 CIDR blocks.  They are the pools of its deleted
+	// children, recorded on the instance that represents this control plane
+	// as each child is deleted, since the clusters a child allocated from its
+	// pool may outlive it.  Remove a block once the clusters allocated from it
+	// are gone; a control plane that is itself a child releases its own.  A
+	// write that leaves out a block is refused with a conflict when the
+	// instance changed after the writer read it, so a write based on an
+	// earlier read can't release a block reserved since: read it again.
+	ReservedNetworkCidrs *datatypes.JSON `validate:"optional" swaggertype:"array,string"`
 
 	// Indicates whether this is was the first control plane that was spun up in a control plane group
 	Genesis *bool `validate:"optional" gorm:"default:false"`

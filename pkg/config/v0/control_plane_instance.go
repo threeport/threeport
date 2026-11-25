@@ -28,10 +28,13 @@ type ControlPlaneInstanceConfig struct {
 type ControlPlaneInstanceValues struct {
 	Name                      *string
 	Namespace                 *string
+	FromNamespace             *string
 	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues
 	ControlPlaneDefinition    *ControlPlaneDefinitionValues
 	ImageNamespace            *string
 	ImageTag                  *string
+	NetworkCidrPool           *[]string
+	ReservedNetworkCidrs      *[]string
 	Apis                      *string
 	CustomComponentInfo       []*api_v0.ControlPlaneComponent
 	Genesis                   *bool
@@ -96,10 +99,13 @@ func (c *ControlPlaneInstanceConfig) Get(
 			ControlPlaneInstance: ControlPlaneInstanceValues{
 				Name:                      controlPlaneInstance.Name,
 				Namespace:                 controlPlaneInstance.Namespace,
+				FromNamespace:             controlPlaneInstance.FromNamespace,
 				KubernetesRuntimeInstance: kubernetesRuntimeInstance,
 				ControlPlaneDefinition:    controlPlaneDefinition,
 				ImageNamespace:            controlPlaneInstance.ImageNamespace,
 				ImageTag:                  controlPlaneInstance.ImageTag,
+				NetworkCidrPool:           cidrsFromJSON(controlPlaneInstance.NetworkCidrPool),
+				ReservedNetworkCidrs:      cidrsFromJSON(controlPlaneInstance.ReservedNetworkCidrs),
 				Apis:                      controlPlaneInstance.Apis,
 				CustomComponentInfo:       controlPlaneInstance.CustomComponentInfo,
 				Genesis:                   controlPlaneInstance.Genesis,
@@ -150,9 +156,12 @@ func (c *ControlPlaneInstanceConfig) Create(
 			Name: controlPlaneInstanceValues.Name,
 		},
 		Namespace:                   controlPlaneInstanceValues.Namespace,
+		FromNamespace:               controlPlaneInstanceValues.FromNamespace,
 		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
 		ImageNamespace:              controlPlaneInstanceValues.ImageNamespace,
 		ImageTag:                    controlPlaneInstanceValues.ImageTag,
+		NetworkCidrPool:             cidrsToJSON(controlPlaneInstanceValues.NetworkCidrPool),
+		ReservedNetworkCidrs:        cidrsToJSON(controlPlaneInstanceValues.ReservedNetworkCidrs),
 		Apis:                        controlPlaneInstanceValues.Apis,
 		CustomComponentInfo:         controlPlaneInstanceValues.CustomComponentInfo,
 		ControlPlaneDefinitionID:    controlPlaneDefinition.ID,
@@ -174,10 +183,13 @@ func (c *ControlPlaneInstanceConfig) Create(
 			Age:                       util.Ptr(util.GetAgeFormatted(createdControlPlaneInstance.CreatedAt)),
 			Name:                      createdControlPlaneInstance.Name,
 			Namespace:                 createdControlPlaneInstance.Namespace,
+			FromNamespace:             createdControlPlaneInstance.FromNamespace,
 			KubernetesRuntimeInstance: controlPlaneInstanceValues.KubernetesRuntimeInstance,
 			ControlPlaneDefinition:    controlPlaneInstanceValues.ControlPlaneDefinition,
 			ImageNamespace:            createdControlPlaneInstance.ImageNamespace,
 			ImageTag:                  createdControlPlaneInstance.ImageTag,
+			NetworkCidrPool:           cidrsFromJSON(createdControlPlaneInstance.NetworkCidrPool),
+			ReservedNetworkCidrs:      cidrsFromJSON(createdControlPlaneInstance.ReservedNetworkCidrs),
 			Apis:                      createdControlPlaneInstance.Apis,
 			CustomComponentInfo:       createdControlPlaneInstance.CustomComponentInfo,
 			Genesis:                   createdControlPlaneInstance.Genesis,
@@ -223,8 +235,16 @@ func (c *ControlPlaneInstanceConfig) Replace(
 	updatedControlPlaneInstance := util.Ptr(*existingControlPlaneInstance)
 	updatedControlPlaneInstance.Name = controlPlaneInstanceValues.Name
 	updatedControlPlaneInstance.Namespace = controlPlaneInstanceValues.Namespace
+	updatedControlPlaneInstance.FromNamespace = controlPlaneInstanceValues.FromNamespace
 	updatedControlPlaneInstance.ImageNamespace = controlPlaneInstanceValues.ImageNamespace
 	updatedControlPlaneInstance.ImageTag = controlPlaneInstanceValues.ImageTag
+	updatedControlPlaneInstance.NetworkCidrPool = cidrsToJSON(controlPlaneInstanceValues.NetworkCidrPool)
+	// a reservation is released only by naming what stays, so a config that
+	// leaves the field out keeps the stored one rather than releasing every
+	// deleted child's pool
+	if controlPlaneInstanceValues.ReservedNetworkCidrs != nil {
+		updatedControlPlaneInstance.ReservedNetworkCidrs = cidrsToJSON(controlPlaneInstanceValues.ReservedNetworkCidrs)
+	}
 	updatedControlPlaneInstance.Apis = controlPlaneInstanceValues.Apis
 	updatedControlPlaneInstance.CustomComponentInfo = controlPlaneInstanceValues.CustomComponentInfo
 
@@ -244,10 +264,13 @@ func (c *ControlPlaneInstanceConfig) Replace(
 			Age:                       util.Ptr(util.GetAgeFormatted(replacedControlPlaneInstance.CreatedAt)),
 			Name:                      replacedControlPlaneInstance.Name,
 			Namespace:                 replacedControlPlaneInstance.Namespace,
+			FromNamespace:             replacedControlPlaneInstance.FromNamespace,
 			KubernetesRuntimeInstance: controlPlaneInstanceValues.KubernetesRuntimeInstance,
 			ControlPlaneDefinition:    controlPlaneInstanceValues.ControlPlaneDefinition,
 			ImageNamespace:            replacedControlPlaneInstance.ImageNamespace,
 			ImageTag:                  replacedControlPlaneInstance.ImageTag,
+			NetworkCidrPool:           cidrsFromJSON(replacedControlPlaneInstance.NetworkCidrPool),
+			ReservedNetworkCidrs:      cidrsFromJSON(replacedControlPlaneInstance.ReservedNetworkCidrs),
 			Apis:                      replacedControlPlaneInstance.Apis,
 			CustomComponentInfo:       replacedControlPlaneInstance.CustomComponentInfo,
 			Genesis:                   replacedControlPlaneInstance.Genesis,
@@ -320,6 +343,7 @@ func (c *ControlPlaneInstanceConfig) Delete(
 		ControlPlaneInstance: ControlPlaneInstanceValues{
 			Name:                deletedControlPlaneInstance.Name,
 			Namespace:           deletedControlPlaneInstance.Namespace,
+			FromNamespace:       deletedControlPlaneInstance.FromNamespace,
 			CustomComponentInfo: deletedControlPlaneInstance.CustomComponentInfo,
 			Genesis:             deletedControlPlaneInstance.Genesis,
 		},

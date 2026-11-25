@@ -1,0 +1,651 @@
+package v0
+
+import (
+	"encoding/json"
+	"fmt"
+	"net/netip"
+	"slices"
+	"strings"
+	"time"
+
+	"gorm.io/datatypes"
+	"gorm.io/gorm"
+
+	lib "github.com/threeport/threeport/pkg/api/lib/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
+)
+
+// ErrMsgNetworkCidrImmutable is the rejection of an update that changes a
+// kubernetes runtime instance's NetworkCidr once it is set.
+const ErrMsgNetworkCidrImmutable = "NetworkCidr cannot be changed once set: a cluster's network can't be moved to another range"
+
+// NetworkCidrPrefixLength is the size of the network range a control plane
+// allocates to each Kubernetes runtime it provisions: a /16.  A range set on a
+// runtime by hand may be larger.
+const NetworkCidrPrefixLength = 16
+
+// DefaultNetworkCidrPool is the pool a control plane allocates from when its
+// ControlPlaneInstance sets no NetworkCidrPool: 10.16.0.0/16 through
+// 10.255.0.0/16.  It starts at 10.16 to stay clear of 10.0.0.0/12, which holds
+// every range that clusters provisioned before allocation use, so that new
+// clusters can be peered with them.  The cluster-internal ranges inside it,
+// 10.96.0.0/16 and 10.244.0.0/16, are skipped as in any pool, which leaves 238
+// blocks.
+var DefaultNetworkCidrPool = []string{
+	"10.16.0.0/12",
+	"10.32.0.0/11",
+	"10.64.0.0/10",
+	"10.128.0.0/9",
+}
+
+// ClusterInternalCidrs are the ranges a cluster uses only inside itself, the
+// same on every cluster.  They are not routed outside it, but a cluster could
+// not reach a peer whose network overlaps them, so no network range may.
+var ClusterInternalCidrs = []string{
+	// OKE services
+	"10.96.0.0/16",
+	// OKE pods
+	"10.244.0.0/16",
+	// EKS services
+	"172.20.0.0/16",
+	// GKE control plane's private endpoint
+	"172.16.0.0/28",
+}
+
+// ParseNetworkCidr reads a network range for a Kubernetes runtime: an IPv4
+// CIDR block, written as its network address, no smaller than a /16 and clear
+// of ClusterInternalCidrs.
+func ParseNetworkCidr(field, cidr string) (netip.Prefix, error) {
+	prefix, err := parseNetworkBlock(field, cidr)
+	if err != nil {
+		return netip.Prefix{}, err
+	}
+	for _, internal := range clusterInternalPrefixes() {
+		if prefix.Overlaps(internal) {
+			return netip.Prefix{}, fmt.Errorf(
+				"%s %s overlaps %s, which clusters use internally",
+				field, cidr, internal,
+			)
+		}
+	}
+
+	return prefix, nil
+}
+
+// ParseNetworkCidrPool reads a NetworkCidrPool: a JSON array of IPv4 CIDR
+// blocks, each no smaller than a /16, none overlapping another.  A pool may
+// include cluster-internal ranges, which allocation skips.  An unset or empty
+// pool holds no blocks.
+func ParseNetworkCidrPool(raw *datatypes.JSON) ([]netip.Prefix, error) {
+	cidrs, err := ParseCidrs("NetworkCidrPool", raw)
+	if err != nil {
+		return nil, err
+	}
+
+	pool := make([]netip.Prefix, 0, len(cidrs))
+	for _, cidr := range cidrs {
+		prefix, err := parseNetworkBlock("NetworkCidrPool entry", cidr)
+		if err != nil {
+			return nil, err
+		}
+		for _, earlier := range pool {
+			if prefix.Overlaps(earlier) {
+				return nil, fmt.Errorf("NetworkCidrPool entries %s and %s overlap", earlier, prefix)
+			}
+		}
+		pool = append(pool, prefix)
+	}
+
+	return pool, nil
+}
+
+// NetworkCidrPoolOrDefault returns the pool a control plane allocates from:
+// its NetworkCidrPool, or DefaultNetworkCidrPool when that is empty.
+func NetworkCidrPoolOrDefault(raw *datatypes.JSON) ([]netip.Prefix, error) {
+	pool, err := ParseNetworkCidrPool(raw)
+	if err != nil {
+		return nil, err
+	}
+	if len(pool) > 0 {
+		return pool, nil
+	}
+
+	defaultPool := make([]netip.Prefix, len(DefaultNetworkCidrPool))
+	for i, cidr := range DefaultNetworkCidrPool {
+		defaultPool[i] = netip.MustParsePrefix(cidr)
+	}
+
+	return defaultPool, nil
+}
+
+// AllocateNetworkCidr returns the first /16 in pool, in the pool's order, that
+// overlaps none of the ranges in use and none of ClusterInternalCidrs.  The
+// ranges in use are the other runtimes' network ranges and the pools of the
+// control plane's children, which allocate from those themselves.
+func AllocateNetworkCidr(pool []netip.Prefix, inUse []netip.Prefix) (netip.Prefix, error) {
+	unavailable := append(clusterInternalPrefixes(), inUse...)
+	for _, entry := range pool {
+		for block := netip.PrefixFrom(entry.Addr(), NetworkCidrPrefixLength); entry.Contains(block.Addr()); block = nextBlock(block) {
+			if !overlapsAny(block, unavailable) {
+				return block, nil
+			}
+			if block.Addr() == lastBlockAddr {
+				break
+			}
+		}
+	}
+
+	entries := make([]string, len(pool))
+	for i, entry := range pool {
+		entries[i] = entry.String()
+	}
+	return netip.Prefix{}, fmt.Errorf(
+		"no /%d is left to allocate in the network CIDR pool %s",
+		NetworkCidrPrefixLength, strings.Join(entries, ", "),
+	)
+}
+
+// lastBlockAddr is the address of the last /16 in the IPv4 space, after which
+// there is no next block.
+var lastBlockAddr = netip.MustParseAddr("255.255.0.0")
+
+// nextBlock returns the /16 after block.
+func nextBlock(block netip.Prefix) netip.Prefix {
+	addr := block.Addr().As4()
+	value := uint32(addr[0])<<24 | uint32(addr[1])<<16
+	value += 1 << (32 - NetworkCidrPrefixLength)
+	next := netip.AddrFrom4([4]byte{byte(value >> 24), byte(value >> 16), 0, 0})
+
+	return netip.PrefixFrom(next, NetworkCidrPrefixLength)
+}
+
+// parseNetworkBlock reads an IPv4 CIDR block written as its network address
+// and no smaller than a /16.
+func parseNetworkBlock(field, cidr string) (netip.Prefix, error) {
+	prefix, err := netip.ParsePrefix(cidr)
+	if err != nil {
+		return netip.Prefix{}, fmt.Errorf("%s %q is not a CIDR block: %w", field, cidr, err)
+	}
+	if !prefix.Addr().Is4() {
+		return netip.Prefix{}, fmt.Errorf("%s %q is not an IPv4 CIDR block", field, cidr)
+	}
+	if prefix.Masked() != prefix {
+		return netip.Prefix{}, fmt.Errorf(
+			"%s %q has host bits set, write it as %q",
+			field, cidr, prefix.Masked().String(),
+		)
+	}
+	if prefix.Bits() > NetworkCidrPrefixLength {
+		return netip.Prefix{}, fmt.Errorf(
+			"%s %s is smaller than a /%d", field, cidr, NetworkCidrPrefixLength,
+		)
+	}
+
+	return prefix, nil
+}
+
+// clusterInternalPrefixes returns ClusterInternalCidrs as prefixes.
+func clusterInternalPrefixes() []netip.Prefix {
+	prefixes := make([]netip.Prefix, len(ClusterInternalCidrs))
+	for i, cidr := range ClusterInternalCidrs {
+		prefixes[i] = netip.MustParsePrefix(cidr)
+	}
+
+	return prefixes
+}
+
+// overlapsAny reports whether prefix overlaps any of others.
+func overlapsAny(prefix netip.Prefix, others []netip.Prefix) bool {
+	for _, other := range others {
+		if prefix.Overlaps(other) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// runtimeNetworkCidr is the network range a kubernetes runtime instance
+// holds.
+type runtimeNetworkCidr struct {
+	name   string
+	prefix netip.Prefix
+}
+
+// runtimeNetworkCidrs returns the network ranges the kubernetes runtime
+// instances hold, leaving out the one with excludeID.  It reads them in the
+// write's transaction, so that a concurrent write that changes them conflicts
+// with this one instead of slipping past the check.
+func runtimeNetworkCidrs(tx *gorm.DB, excludeID *uint) ([]runtimeNetworkCidr, error) {
+	query := lib.NewCleanSession(tx).Model(&KubernetesRuntimeInstance{}).Where("network_cidr IS NOT NULL")
+	if excludeID != nil {
+		query = query.Where("id <> ?", *excludeID)
+	}
+	var rows []KubernetesRuntimeInstance
+	if err := query.Select("name", "network_cidr").Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("failed to read the kubernetes runtime instances' network ranges: %w", err)
+	}
+
+	ranges := make([]runtimeNetworkCidr, 0, len(rows))
+	for _, row := range rows {
+		if row.NetworkCidr == nil || *row.NetworkCidr == "" {
+			continue
+		}
+		prefix, err := netip.ParsePrefix(*row.NetworkCidr)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"kubernetes runtime instance %s holds network range %q, which is not a CIDR block: %w",
+				util.DerefString(row.Name), *row.NetworkCidr, err,
+			)
+		}
+		ranges = append(ranges, runtimeNetworkCidr{name: util.DerefString(row.Name), prefix: prefix})
+	}
+
+	return ranges, nil
+}
+
+// childNetworkCidrPool is the pool of a control plane this API does not
+// serve, a child, which allocates ranges from it in its own database.
+type childNetworkCidrPool struct {
+	name string
+	pool []netip.Prefix
+}
+
+// childNetworkCidrPools returns the pools of the control plane instances this
+// API does not serve, leaving out the one with excludeID.  The rows a child
+// keeps for its parent and for the genesis control plane carry no pool.  It
+// reads them in the write's transaction, as runtimeNetworkCidrs does.
+func childNetworkCidrPools(tx *gorm.DB, excludeID *uint) ([]childNetworkCidrPool, error) {
+	query := lib.NewCleanSession(tx).Model(&ControlPlaneInstance{}).
+		Where("network_cidr_pool IS NOT NULL").
+		Where("is_self IS NULL OR is_self = ?", false)
+	if excludeID != nil {
+		query = query.Where("id <> ?", *excludeID)
+	}
+	var rows []ControlPlaneInstance
+	if err := query.Select("name", "network_cidr_pool").Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("failed to read the child control planes' network range pools: %w", err)
+	}
+
+	pools := make([]childNetworkCidrPool, 0, len(rows))
+	for _, row := range rows {
+		pool, err := ParseNetworkCidrPool(row.NetworkCidrPool)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"control plane instance %s holds a network range pool that can't be read: %w",
+				util.DerefString(row.Name), err,
+			)
+		}
+		if len(pool) > 0 {
+			pools = append(pools, childNetworkCidrPool{name: util.DerefString(row.Name), pool: pool})
+		}
+	}
+
+	return pools, nil
+}
+
+// ParseReservedNetworkCidrs reads a control plane instance's
+// ReservedNetworkCidrs: a JSON array of IPv4 CIDR blocks, each no smaller
+// than a /16.  They may overlap, as the pools of two children deleted at
+// different times can't, but a list edited by hand might.
+func ParseReservedNetworkCidrs(raw *datatypes.JSON) ([]netip.Prefix, error) {
+	cidrs, err := ParseCidrs("ReservedNetworkCidrs", raw)
+	if err != nil {
+		return nil, err
+	}
+
+	reserved := make([]netip.Prefix, 0, len(cidrs))
+	for _, cidr := range cidrs {
+		prefix, err := parseNetworkBlock("ReservedNetworkCidrs entry", cidr)
+		if err != nil {
+			return nil, err
+		}
+		reserved = append(reserved, prefix)
+	}
+
+	return reserved, nil
+}
+
+// reservedNetworkCidrs returns the blocks this control plane has reserved for
+// the clusters of its deleted children, from the instance that represents it.
+// It reads them in the write's transaction, as runtimeNetworkCidrs does.
+func reservedNetworkCidrs(tx *gorm.DB) ([]netip.Prefix, error) {
+	var rows []ControlPlaneInstance
+	if err := lib.NewCleanSession(tx).Model(&ControlPlaneInstance{}).
+		Where("is_self = ?", true).
+		Where("reserved_network_cidrs IS NOT NULL").
+		Select("reserved_network_cidrs").
+		Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("failed to read the reserved network ranges: %w", err)
+	}
+
+	var reserved []netip.Prefix
+	for _, row := range rows {
+		blocks, err := ParseReservedNetworkCidrs(row.ReservedNetworkCidrs)
+		if err != nil {
+			return nil, fmt.Errorf("this control plane's reserved network ranges can't be read: %w", err)
+		}
+		reserved = append(reserved, blocks...)
+	}
+
+	return reserved, nil
+}
+
+// reserveDeletedChildPool adds the pool of a child control plane being
+// deleted to the reserved network ranges of the instance that represents this
+// control plane.  The clusters the child allocated from its pool are in the
+// child's database, which this one can't see, and may outlive the child, so
+// the pool stays out of this control plane's allocations and of the ranges
+// and pools it accepts until an operator releases it.
+func reserveDeletedChildPool(tx *gorm.DB, deleted *ControlPlaneInstance) error {
+	if deleted.ID == nil {
+		return nil
+	}
+	var child ControlPlaneInstance
+	if err := lib.NewCleanSession(tx).First(&child, *deleted.ID).Error; err != nil {
+		return fmt.Errorf("failed to read the control plane instance being deleted: %w", err)
+	}
+	if child.IsSelf != nil && *child.IsSelf {
+		return nil
+	}
+	pool, err := ParseNetworkCidrPool(child.NetworkCidrPool)
+	if err != nil || len(pool) == 0 {
+		return err
+	}
+
+	var self ControlPlaneInstance
+	if err := lib.NewCleanSession(tx).Where("is_self = ?", true).First(&self).Error; err != nil {
+		return fmt.Errorf(
+			"failed to find this control plane's instance to keep the pool of control plane instance %s reserved: %w",
+			util.DerefString(child.Name), err,
+		)
+	}
+	reserved, err := ParseReservedNetworkCidrs(self.ReservedNetworkCidrs)
+	if err != nil {
+		return err
+	}
+	blocks := make([]string, 0, len(reserved)+len(pool))
+	for _, block := range reserved {
+		blocks = append(blocks, block.String())
+	}
+	// the API refuses a child's pool that overlaps a reserved block, so none
+	// of the pool is reserved already
+	for _, block := range pool {
+		blocks = append(blocks, block.String())
+	}
+	encoded, err := json.Marshal(blocks)
+	if err != nil {
+		return fmt.Errorf("failed to encode the reserved network ranges: %w", err)
+	}
+
+	// written as columns, so this control plane's own update hooks, which
+	// check changes a caller makes, don't run on it; the row's time is moved
+	// on, so a write that read it before is refused rather than drop the
+	// block
+	if err := lib.NewCleanSession(tx).Model(&self).UpdateColumns(map[string]any{
+		"reserved_network_cidrs": datatypes.JSON(encoded),
+		"updated_at":             time.Now(),
+	}).Error; err != nil {
+		return fmt.Errorf("failed to keep the pool of control plane instance %s reserved: %w", util.DerefString(child.Name), err)
+	}
+
+	return nil
+}
+
+// validateReservedNetworkCidrsUpdate checks an update that changes
+// ReservedNetworkCidrs.  A client writes back the whole row it read, so a
+// write made from a read taken before a child's deletion reserved its pool
+// would release that pool without anyone asking.  A write that leaves out a
+// block the row holds is refused when the row changed since the writer read
+// it, which its UpdatedAt tells, for the writer to read it again.  The row is
+// locked, so a deletion reserving a pool waits for the write, or the write
+// for it.
+func validateReservedNetworkCidrsUpdate(tx *gorm.DB) error {
+	changed, err := lib.IsFieldChanged(tx, "ReservedNetworkCidrs")
+	if err != nil || !changed {
+		return err
+	}
+	incoming, ok := lib.IncomingValues(tx).(*ControlPlaneInstance)
+	if !ok {
+		return fmt.Errorf("cannot validate ReservedNetworkCidrs: update carries %T", lib.IncomingValues(tx))
+	}
+	kept, err := ParseReservedNetworkCidrs(incoming.ReservedNetworkCidrs)
+	if err != nil {
+		return util.NewBadRequestError(err.Error())
+	}
+
+	loaded, err := lib.LockObjectInDB(tx)
+	if err != nil {
+		return err
+	}
+	stored, ok := loaded.(*ControlPlaneInstance)
+	if !ok {
+		return fmt.Errorf("loaded %T is not a control plane instance", loaded)
+	}
+	if incoming.UpdatedAt == nil || stored.UpdatedAt == nil ||
+		incoming.UpdatedAt.Truncate(time.Microsecond).Equal(stored.UpdatedAt.Truncate(time.Microsecond)) {
+		return nil
+	}
+	reserved, err := ParseReservedNetworkCidrs(stored.ReservedNetworkCidrs)
+	if err != nil {
+		return err
+	}
+	for _, block := range reserved {
+		if !slices.Contains(kept, block) {
+			return util.NewConflictError(fmt.Sprintf(
+				"ReservedNetworkCidrs leaves out %s, and the control plane instance changed after it was read: read it again and name every block to keep",
+				block,
+			))
+		}
+	}
+
+	return nil
+}
+
+// validateRuntimeNetworkCidr checks a kubernetes runtime instance's network
+// range: a valid range, overlapping no other instance's, no child control
+// plane's pool, from which the child may allocate the same range to a runtime
+// this database doesn't hold, and no range reserved for a deleted child's
+// clusters.
+func validateRuntimeNetworkCidr(tx *gorm.DB, networkCidr *string, id *uint) error {
+	if networkCidr == nil {
+		return nil
+	}
+	prefix, err := ParseNetworkCidr("NetworkCidr", *networkCidr)
+	if err != nil {
+		return util.NewBadRequestError(err.Error())
+	}
+
+	others, err := runtimeNetworkCidrs(tx, id)
+	if err != nil {
+		return err
+	}
+	for _, other := range others {
+		if prefix.Overlaps(other.prefix) {
+			return util.NewBadRequestError(fmt.Sprintf(
+				"NetworkCidr %s overlaps %s, the network range of kubernetes runtime instance %s",
+				prefix, other.prefix, other.name,
+			))
+		}
+	}
+
+	children, err := childNetworkCidrPools(tx, nil)
+	if err != nil {
+		return err
+	}
+	for _, child := range children {
+		for _, entry := range child.pool {
+			if prefix.Overlaps(entry) {
+				return util.NewBadRequestError(fmt.Sprintf(
+					"NetworkCidr %s overlaps %s, in the network range pool of child control plane %s",
+					prefix, entry, child.name,
+				))
+			}
+		}
+	}
+
+	reserved, err := reservedNetworkCidrs(tx)
+	if err != nil {
+		return err
+	}
+	for _, block := range reserved {
+		if prefix.Overlaps(block) {
+			return util.NewBadRequestError(fmt.Sprintf(
+				"NetworkCidr %s overlaps %s, reserved for the clusters of a deleted child control plane",
+				prefix, block,
+			))
+		}
+	}
+
+	return nil
+}
+
+// validateNetworkCidrPool checks a control plane instance's NetworkCidrPool.
+// The pool of a control plane this API does not serve, a child, must also be
+// clear of the network ranges this control plane has allocated and of the
+// other children's pools, so that no two control planes hand out the same
+// range.  On a control plane a parent manages, it must also be inside the
+// pool the parent gave this one, as the parent only keeps that pool clear of
+// its own allocations.  id is the instance's, nil for one being created.
+func validateNetworkCidrPool(tx *gorm.DB, raw *datatypes.JSON, self bool, id *uint) error {
+	pool, err := ParseNetworkCidrPool(raw)
+	if err != nil {
+		return util.NewBadRequestError(err.Error())
+	}
+	if self || len(pool) == 0 {
+		return nil
+	}
+
+	if err := validatePoolInsideManagedPool(tx, pool); err != nil {
+		return err
+	}
+
+	allocated, err := runtimeNetworkCidrs(tx, nil)
+	if err != nil {
+		return err
+	}
+	for _, entry := range pool {
+		for _, runtime := range allocated {
+			if entry.Overlaps(runtime.prefix) {
+				return util.NewBadRequestError(fmt.Sprintf(
+					"NetworkCidrPool entry %s overlaps %s, the network range of kubernetes runtime instance %s",
+					entry, runtime.prefix, runtime.name,
+				))
+			}
+		}
+	}
+
+	siblings, err := childNetworkCidrPools(tx, id)
+	if err != nil {
+		return err
+	}
+	for _, entry := range pool {
+		for _, sibling := range siblings {
+			for _, other := range sibling.pool {
+				if entry.Overlaps(other) {
+					return util.NewBadRequestError(fmt.Sprintf(
+						"NetworkCidrPool entry %s overlaps %s, in the network range pool of child control plane %s",
+						entry, other, sibling.name,
+					))
+				}
+			}
+		}
+	}
+
+	reserved, err := reservedNetworkCidrs(tx)
+	if err != nil {
+		return err
+	}
+	for _, entry := range pool {
+		for _, block := range reserved {
+			if entry.Overlaps(block) {
+				return util.NewBadRequestError(fmt.Sprintf(
+					"NetworkCidrPool entry %s overlaps %s, reserved for the clusters of a deleted child control plane",
+					entry, block,
+				))
+			}
+		}
+	}
+
+	return nil
+}
+
+// validatePoolInsideManagedPool checks a child's pool is inside this control
+// plane's own, when a parent manages this one: the parent knows only the pool
+// it gave this control plane, and may allocate anything outside it.  A
+// managed control plane with no pool allocates nothing, so it has nothing to
+// give a child.
+func validatePoolInsideManagedPool(tx *gorm.DB, pool []netip.Prefix) error {
+	var self ControlPlaneInstance
+	result := lib.NewCleanSession(tx).Where("is_self = ?", true).Limit(1).Find(&self)
+	if result.Error != nil {
+		return fmt.Errorf("failed to read this control plane's instance: %w", result.Error)
+	}
+	if result.RowsAffected == 0 || self.ParentControlPlaneInstanceID == nil {
+		return nil
+	}
+	ownPool, err := ParseNetworkCidrPool(self.NetworkCidrPool)
+	if err != nil {
+		return fmt.Errorf("this control plane's network range pool can't be read: %w", err)
+	}
+
+	for _, entry := range pool {
+		inside := false
+		for _, own := range ownPool {
+			if own.Bits() <= entry.Bits() && own.Contains(entry.Addr()) {
+				inside = true
+				break
+			}
+		}
+		if !inside {
+			return util.NewBadRequestError(fmt.Sprintf(
+				"NetworkCidrPool entry %s is outside this control plane's own pool %s, the ranges its parent gave it",
+				entry, cidrList(ownPool),
+			))
+		}
+	}
+
+	return nil
+}
+
+// cidrList writes blocks as a list, or "[]" for none.
+func cidrList(blocks []netip.Prefix) string {
+	names := make([]string, len(blocks))
+	for i, block := range blocks {
+		names[i] = block.String()
+	}
+
+	return "[" + strings.Join(names, ", ") + "]"
+}
+
+// validateNetworkCidrPoolGrows checks a change to a child's pool keeps every
+// block it held: the child may have allocated ranges from any of them, which
+// this database doesn't hold, so a block can be added, or replaced by a
+// larger one that holds it, but not removed.
+func validateNetworkCidrPoolGrows(stored, incoming *datatypes.JSON) error {
+	old, err := ParseNetworkCidrPool(stored)
+	if err != nil {
+		return err
+	}
+	pool, err := ParseNetworkCidrPool(incoming)
+	if err != nil {
+		return util.NewBadRequestError(err.Error())
+	}
+	for _, block := range old {
+		held := false
+		for _, entry := range pool {
+			if entry.Bits() <= block.Bits() && entry.Contains(block.Addr()) {
+				held = true
+				break
+			}
+		}
+		if !held {
+			return util.NewBadRequestError(fmt.Sprintf(
+				"NetworkCidrPool must keep %s: a child control plane's pool can only grow, since the child may have allocated ranges from it",
+				block,
+			))
+		}
+	}
+
+	return nil
+}

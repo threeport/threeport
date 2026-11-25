@@ -11,6 +11,7 @@ import (
 	"k8s.io/client-go/dynamic"
 
 	"github.com/threeport/threeport/pkg/api-server/v0/database"
+	v0 "github.com/threeport/threeport/pkg/api/v0"
 	auth "github.com/threeport/threeport/pkg/auth/v0"
 	"github.com/threeport/threeport/pkg/encryption/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
@@ -104,6 +105,12 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControlPlaneDependencies(
 		return fmt.Errorf("failed in create threeport control plane namespace: %w", err)
 	}
 
+	// the class the message broker's and database's volumes are created
+	// from, where the cluster's own doesn't allow growing them
+	if err := cpi.ensureControlPlaneStorageClass(kubeClient); err != nil {
+		return err
+	}
+
 	// the message broker's CA, certificate and client credentials, which the
 	// broker and every client below mount
 	if err := cpi.ensureMessageBrokerSecrets(kubeClient); err != nil {
@@ -115,7 +122,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControlPlaneDependencies(
 			"apiVersion": "v1",
 			"kind":       "Secret",
 			"metadata": map[string]interface{}{
-				"name":      "encryption-key",
+				"name":      EncryptionKeySecret,
 				"namespace": cpi.Opts.Namespace,
 			},
 			"stringData": map[string]interface{}{
@@ -296,7 +303,7 @@ store_dir: /data
 			"apiVersion": "apps/v1",
 			"kind":       "Deployment",
 			"metadata": map[string]interface{}{
-				"name":      "nats-js-box",
+				"name":      natsBoxDeployName,
 				"namespace": cpi.Opts.Namespace,
 				"labels": map[string]interface{}{
 					"app":   "nats-js-box",
@@ -636,7 +643,7 @@ store_dir: /data
 						"metadata": map[string]interface{}{
 							"name": "datadir",
 						},
-						"spec": cpi.getVolClaimTemplateSpec("5Gi"),
+						"spec": cpi.getVolClaimTemplateSpec(cpi.messageBrokerStorageSize()),
 					},
 				},
 			},
@@ -812,22 +819,9 @@ store_dir: /data
 						},
 					},
 					"spec": map[string]interface{}{
-						"affinity": crdbAntiAffinity(cpi.Opts.Tier),
-						"topologySpreadConstraints": []interface{}{
-							map[string]interface{}{
-								"labelSelector": map[string]interface{}{
-									"matchLabels": map[string]interface{}{
-										"app.kubernetes.io/name":      "cockroachdb",
-										"app.kubernetes.io/instance":  "crdb",
-										"app.kubernetes.io/component": "cockroachdb",
-									},
-								},
-								"maxSkew":           1,
-								"topologyKey":       "topology.kubernetes.io/zone",
-								"whenUnsatisfiable": "ScheduleAnyway",
-							},
-						},
-						"serviceAccountName": DatabaseServiceAccountName,
+						"affinity":                  crdbAntiAffinity(cpi.Opts.Tier),
+						"topologySpreadConstraints": crdbZoneSpread(cpi.Opts.Tier),
+						"serviceAccountName":        DatabaseServiceAccountName,
 						// No pre-stop hook is required, a SIGTERM plus some time is all that's
 						// needed for graceful shutdown of a node.
 						"terminationGracePeriodSeconds": 60,
@@ -839,6 +833,7 @@ store_dir: /data
 								"securityContext": restrictedContainerSecurityContext(),
 								"image":           fmt.Sprintf("docker.io/cockroachdb/cockroach:%s", DatabaseImageTag),
 								"imagePullPolicy": "IfNotPresent",
+								"resources":       crdbResources(cpi.Opts.Tier),
 								"args": []interface{}{
 									"shell",
 									"-ecx",
@@ -917,7 +912,7 @@ store_dir: /data
 								"app.kubernetes.io/instance": "crdb",
 							},
 						},
-						"spec": cpi.getVolClaimTemplateSpec("20Gi"),
+						"spec": cpi.getVolClaimTemplateSpec(cpi.databaseStorageSize()),
 					},
 				},
 			},
@@ -927,6 +922,11 @@ store_dir: /data
 	// the database runs as its own service account, which is what its
 	// backups are written as
 	if err := cpi.installDatabaseServiceAccount(kubeClient, mapper); err != nil {
+		return err
+	}
+
+	// a production database's volumes have to follow its pods across zones
+	if err := cpi.checkDatabaseStorage(kubeClient); err != nil {
 		return err
 	}
 
@@ -998,8 +998,8 @@ func (cpi *ControlPlaneInstaller) getVolClaimTemplateSpec(
 		},
 	}
 
-	if cpi.Opts.InfraProvider == "eks" {
-		volClaimTemplateSpec["storageClassName"] = "gp2"
+	if cpi.Opts.InfraProvider == v0.KubernetesRuntimeInfraProviderEKS {
+		volClaimTemplateSpec["storageClassName"] = ControlPlaneStorageClassName
 	}
 
 	return volClaimTemplateSpec
@@ -1079,6 +1079,47 @@ func crdbAntiAffinity(tier ControlPlaneTier) map[string]interface{} {
 	}
 }
 
+// crdbZoneSpread spreads CockroachDB pods across zones, strictly for
+// production and as a preference for development.
+//
+// The hostname anti-affinity keeps production's three replicas on three
+// nodes, but two of those nodes can be in one zone, and losing that zone
+// loses two of three replicas and the Raft majority with them.  Production
+// refuses that placement as it refuses two replicas on one node: a replica
+// that can't be placed in a zone of its own stays visibly Pending.  A skew of
+// one still admits two replicas in one zone on a cluster with only two zones,
+// so it holds a cluster that can't survive the loss of a zone to no more than
+// it can do.
+func crdbZoneSpread(tier ControlPlaneTier) []interface{} {
+	whenUnsatisfiable := "ScheduleAnyway"
+	if string(tier) == ControlPlaneTierProd {
+		whenUnsatisfiable = "DoNotSchedule"
+	}
+
+	return []interface{}{
+		map[string]interface{}{
+			"labelSelector": map[string]interface{}{
+				"matchLabels": crdbAntiAffinityLabels,
+			},
+			"maxSkew":           1,
+			"topologyKey":       "topology.kubernetes.io/zone",
+			"whenUnsatisfiable": whenUnsatisfiable,
+		},
+	}
+}
+
+// crdbResources returns the CockroachDB container's requests and limits.
+// A 1Gi limit leaves nothing after the 25 percent cache and SQL reservations.
+func crdbResources(tier ControlPlaneTier) map[string]interface{} {
+	// development stays inside a kind node
+	if string(tier) != ControlPlaneTierProd {
+		return containerResources("10m", "256Mi", "500m", "1Gi")
+	}
+
+	// production keeps a gigabyte after the cache and SQL reservations
+	return containerResources("100m", "2Gi", "2", "2Gi")
+}
+
 // crdbStartCommand returns the shell command each CockroachDB container
 // starts with.
 //
@@ -1156,8 +1197,7 @@ const crdbAlreadyInitializedMarker = "already been initialized"
 // failure, so the one-time step does not become a reason every later
 // install attempt fails.
 //
-// The job mounts db-certs rather than db-root-cert, even though the latter
-// is what the other one-shot admin jobs in this package use. db-root-cert is
+// The job mounts db-certs rather than db-root-cert. db-root-cert is
 // created later, by UpdateThreeportAPIDeployment, which runs only after this
 // whole function returns - a fresh install waiting on this job for a secret
 // that does not exist yet would never create it, and would time out instead

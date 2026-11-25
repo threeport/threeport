@@ -10,6 +10,7 @@ import (
 	"gorm.io/datatypes"
 
 	notif "github.com/threeport/threeport/internal/aws/notif"
+	"github.com/threeport/threeport/internal/networkcidr"
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	tpaws "github.com/threeport/threeport/pkg/aws/v0"
@@ -18,6 +19,7 @@ import (
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // eksLifecycle implements provider.InfraLifecycleProvider for AWS EKS runtime
@@ -121,6 +123,11 @@ func (e *eksLifecycle) buildInfraFrom(
 	if err != nil {
 		return nil, err
 	}
+	if infra.NetworkCidr, err = networkcidr.ClusterNetworkCidr(
+		e.r.APIClient, e.r.APIServer, latest.KubernetesRuntimeInstanceID, latest.Reconciliation, latest.ResourceInventory,
+	); err != nil {
+		return nil, fmt.Errorf("failed to get the EKS cluster's network range: %w", err)
+	}
 	e.infra = infra
 
 	return infra, nil
@@ -190,6 +197,16 @@ func (e *eksLifecycle) OnCreateConfirmed(infra provider.InfraProvider) error {
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
+	}
+
+	// record the addresses the cluster's outbound traffic comes from, which
+	// clusters this one may come to manage as a control plane host admit
+	egressCidrs, err := provider.EgressCidrsFromState(latest.ResourceInventory)
+	if err != nil {
+		return fmt.Errorf("failed to read the cluster's egress addresses: %w", err)
+	}
+	if len(egressCidrs) > 0 {
+		kubernetesRuntimeInstance.EgressCidrs = provider.EgressCidrsJSON(egressCidrs)
 	}
 
 	kubeRuntimeReconciled := false
@@ -417,6 +434,112 @@ func (e *eksLifecycle) RecordWarning(reason, note string) error {
 	)
 }
 
+// GetUpgrade fetches the instance's upgrade state from the API.
+func (e *eksLifecycle) GetUpgrade() (*provider.UpgradeSnapshot, error) {
+	latest, err := client.GetAwsEksKubernetesRuntimeInstanceByID(e.r.APIClient, e.r.APIServer, e.instanceID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get latest EKS instance: %w", err)
+	}
+
+	return &provider.UpgradeSnapshot{
+		RecordedVersion: util.DerefString(latest.KubernetesVersion),
+		Acknowledged:    latest.UpgradeAcknowledged,
+		Upgrading:       latest.Upgrading != nil && *latest.Upgrading,
+		Failed:          latest.UpgradeFailed != nil && *latest.UpgradeFailed,
+		Refused:         latest.UpgradeRefused != nil && *latest.UpgradeRefused,
+		Status:          util.DerefString(latest.UpgradeStatus),
+	}, nil
+}
+
+// GetUpgradeTarget fetches the version the instance's definition asks for.
+func (e *eksLifecycle) GetUpgradeTarget() (string, error) {
+	latest, err := client.GetAwsEksKubernetesRuntimeInstanceByID(e.r.APIClient, e.r.APIServer, e.instanceID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get latest EKS instance: %w", err)
+	}
+	definition, err := client.GetAwsEksKubernetesRuntimeDefinitionByID(e.r.APIClient, e.r.APIServer, *latest.AwsEksKubernetesRuntimeDefinitionID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get EKS definition: %w", err)
+	}
+
+	return v0.KubernetesVersionOrDefault(definition.KubernetesVersion), nil
+}
+
+// RecordUpgradeStatus records the version the cluster runs and what the
+// controller found.
+func (e *eksLifecycle) RecordUpgradeStatus(version, status string) error {
+	update := v0.AwsEksKubernetesRuntimeInstance{
+		Common:        v0.Common{ID: &e.instanceID},
+		UpgradeStatus: &status,
+	}
+	if version != "" {
+		update.KubernetesVersion = &version
+	}
+	_, err := client.UpdateAwsEksKubernetesRuntimeInstance(e.r.APIClient, e.r.APIServer, &update)
+	return err
+}
+
+// AckUpgrade records that an upgrade started.
+func (e *eksLifecycle) AckUpgrade(status string) error {
+	timestamp := time.Now().UTC()
+	update := v0.AwsEksKubernetesRuntimeInstance{
+		Common:              v0.Common{ID: &e.instanceID},
+		UpgradeAcknowledged: &timestamp,
+		Upgrading:           util.Ptr(true),
+		UpgradeFailed:       util.Ptr(false),
+		UpgradeRefused:      util.Ptr(false),
+		UpgradeStatus:       &status,
+	}
+	_, err := client.UpdateAwsEksKubernetesRuntimeInstance(e.r.APIClient, e.r.APIServer, &update)
+	return err
+}
+
+// RefreshUpgradeAck updates UpgradeAcknowledged to prevent stale detection.
+func (e *eksLifecycle) RefreshUpgradeAck() error {
+	timestamp := time.Now().UTC()
+	update := v0.AwsEksKubernetesRuntimeInstance{
+		Common:              v0.Common{ID: &e.instanceID},
+		UpgradeAcknowledged: &timestamp,
+	}
+	_, err := client.UpdateAwsEksKubernetesRuntimeInstance(e.r.APIClient, e.r.APIServer, &update)
+	return err
+}
+
+// FinishUpgrade records how an upgrade ended.
+func (e *eksLifecycle) FinishUpgrade(outcome provider.UpgradeOutcome) error {
+	update := v0.AwsEksKubernetesRuntimeInstance{
+		Common:         v0.Common{ID: &e.instanceID},
+		Upgrading:      util.Ptr(false),
+		UpgradeFailed:  util.Ptr(outcome.Failed),
+		UpgradeRefused: util.Ptr(outcome.Refused),
+		UpgradeStatus:  &outcome.Status,
+	}
+	if outcome.Version != "" {
+		update.KubernetesVersion = &outcome.Version
+	}
+	_, err := client.UpdateAwsEksKubernetesRuntimeInstance(e.r.APIClient, e.r.APIServer, &update)
+	return err
+}
+
+// OnUpgraded marks the kubernetes runtime instance unreconciled, so its
+// controller brings the cluster autoscaler, whose release follows the
+// cluster's version, up to the upgraded one.
+func (e *eksLifecycle) OnUpgraded(_ provider.InfraProvider) error {
+	latest, err := client.GetAwsEksKubernetesRuntimeInstanceByID(e.r.APIClient, e.r.APIServer, e.instanceID)
+	if err != nil {
+		return fmt.Errorf("failed to get EKS instance: %w", err)
+	}
+	update := v0.KubernetesRuntimeInstance{
+		Common:         v0.Common{ID: latest.KubernetesRuntimeInstanceID},
+		Reconciliation: v0.Reconciliation{Reconciled: util.Ptr(false)},
+	}
+	if _, err := client.UpdateKubernetesRuntimeInstance(e.r.APIClient, e.r.APIServer, &update); err != nil {
+		return fmt.Errorf("failed to mark the kubernetes runtime instance unreconciled: %w", err)
+	}
+
+	return nil
+}
+
 // PublishCreateNotification publishes a NATS notification for creation.
 func (e *eksLifecycle) PublishCreateNotification() error {
 	notifPayload, err := e.instance.NotificationPayload(
@@ -490,7 +613,7 @@ func buildEksInfra(
 		return nil, fmt.Errorf("failed to resolve AWS provider credentials: %w", err)
 	}
 
-	return eksInfraFromApiObjects(
+	infraEKS, err := eksInfraFromApiObjects(
 		instance,
 		definition,
 		*awsProvider.AccountID,
@@ -498,6 +621,27 @@ func buildEksInfra(
 		*providerCredentials,
 		log,
 	)
+	if err != nil {
+		return nil, err
+	}
+
+	// a cluster whose API is restricted also admits the control plane that
+	// manages it; the lookup is skipped for a cluster being deleted, which
+	// does not provision anything
+	if len(infraEKS.AllowedCidrs) > 0 && instance.DeletionScheduled == nil {
+		controlPlaneEgressCidrs, err := provider.ControlPlaneEgressCidrs(
+			r.APIClient,
+			r.APIServer,
+			*instance.KubernetesRuntimeInstanceID,
+			log,
+		)
+		if err != nil {
+			return nil, err
+		}
+		infraEKS.ControlPlaneEgressCidrs = controlPlaneEgressCidrs
+	}
+
+	return infraEKS, nil
 }
 
 // eksInfraFromApiObjects maps the runtime instance and definition onto the
@@ -529,6 +673,30 @@ func eksInfraFromApiObjects(
 		DefaultNodeGroupInitialNodes: int32(*definition.DefaultNodeGroupInitialSize),
 		DefaultNodeGroupMinNodes:     int32(*definition.DefaultNodeGroupMinimumSize),
 		DefaultNodeGroupMaxNodes:     int32(*definition.DefaultNodeGroupMaximumSize),
+		KubernetesVersion:            v0.KubernetesVersionOrDefault(definition.KubernetesVersion),
+		AuditLog:                     definition.AuditLog != nil && *definition.AuditLog,
+		DeletionProtection:           definition.DeletionProtection != nil && *definition.DeletionProtection,
+		NodeGroupPerZone:             definition.NodeGroupPerZone != nil && *definition.NodeGroupPerZone,
 		AllowedCidrs:                 allowedCidrs,
 	}).InitPulumiProject(), nil
+}
+
+// DeletionRefusal returns a *v0.DeletionProtectedError while the EKS
+// definition of the cluster has DeletionProtection set.  It reads the
+// definition again, as it may have changed since the delete was scheduled.
+func (e *eksLifecycle) DeletionRefusal() error {
+	latest, err := client.GetAwsEksKubernetesRuntimeInstanceByID(e.r.APIClient, e.r.APIServer, e.instanceID)
+	if err != nil {
+		return fmt.Errorf("failed to get EKS instance for its deletion protection: %w", err)
+	}
+	definition, err := client.GetAwsEksKubernetesRuntimeDefinitionByID(
+		e.r.APIClient,
+		e.r.APIServer,
+		*latest.AwsEksKubernetesRuntimeDefinitionID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get EKS definition for its deletion protection: %w", err)
+	}
+
+	return v0.ProviderDefinitionDeletionProtection(definition)
 }

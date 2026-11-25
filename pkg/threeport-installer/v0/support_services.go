@@ -3,6 +3,7 @@ package v0
 import (
 	"bytes"
 	"embed"
+	"errors"
 	"fmt"
 	"reflect"
 
@@ -18,7 +19,7 @@ import (
 )
 
 const (
-	SupportServicesOperatorImage = "ghcr.io/nukleros/support-services-operator:v0.10.1"
+	SupportServicesOperatorImage = "ghcr.io/nukleros/support-services-operator:v0.11.0"
 
 	// links the service account declared in the IngressComponent resource to
 	// the IRSA role internal/provider creates for it on EKS.
@@ -43,9 +44,11 @@ const (
 
 	// the deployments and CRD named here are what the installs in this package
 	// create, and what the checks that guard those installs look up
-	ClusterAutoscalerDeployName       = "cluster-autoscaler"
-	SupportServicesOperatorDeployName = "support-services-operator-controller-manager"
-	ThreeportCertManagerCRDName       = "certificatescomponents.platform.addons.nukleros.io"
+	ClusterAutoscalerDeployName               = "cluster-autoscaler"
+	ClusterAutoscalerClusterRoleName          = "cluster-autoscaler"
+	SupportServicesOperatorDeployName         = "support-services-operator-controller-manager"
+	SupportServicesOperatorManagerBindingName = "support-services-operator-manager-rolebinding"
+	ThreeportCertManagerCRDName               = "certificatescomponents.platform.addons.nukleros.io"
 
 	supportServicesOperatorNamespace = "support-services-operator-system"
 	supportServicesOperatorImage     = "controller:latest"
@@ -63,6 +66,13 @@ const (
 	SupportServicesCloudAWS = "aws"
 )
 
+// KeepSourceNamespace reports the namespace the shared support-services operator runs in.
+// Deleting it removes the operator for every control plane on the cluster.
+func KeepSourceNamespace(namespace string) bool {
+	// keep the namespace the operator deployment is installed into
+	return namespace == RuntimeNamespace
+}
+
 // ThreeportCRDNames are the custom resource definitions InstallThreeportCRDs
 // creates. The install and the check that guards it read the same list, so a CRD
 // added to one is not missed by the other - and a check that missed one would
@@ -75,6 +85,7 @@ func ThreeportCRDNames() []string {
 		"databasecomponents.application.addons.nukleros.io",
 		"ingresscomponents.platform.addons.nukleros.io",
 		"secretscomponents.platform.addons.nukleros.io",
+		"storagecomponents.platform.addons.nukleros.io",
 		"supportservices.setup.addons.nukleros.io",
 	}
 }
@@ -87,7 +98,7 @@ func InstallThreeportCRDs(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 ) error {
-	objects, err := supportServicesOperatorObjects()
+	objects, err := supportServicesOperatorObjects(ControlPlaneNamespace)
 	if err != nil {
 		return err
 	}
@@ -106,22 +117,35 @@ func InstallThreeportCRDs(
 }
 
 // InstallEksThreeportSystemServices installs the support services CRDs and operator.
+// clusterName is the EKS cluster's name, region its AWS region and
+// kubernetesVersion its minor version, such as "1.36", for the cluster
+// autoscaler.
 func InstallEksThreeportSystemServices(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	clusterName string,
 	accountID string,
+	region string,
+	kubernetesVersion string,
+	namespace string,
+	controlPlaneName string,
 ) error {
 	// install the definitions, then the operator that reconciles them
 	if err := InstallThreeportCRDs(kubeClient, mapper); err != nil {
 		return err
 	}
-	if err := InstallThreeportSupportServicesOperator(kubeClient, mapper, SupportServicesCloudAWS); err != nil {
+	if err := InstallThreeportSupportServicesOperator(
+		kubeClient,
+		mapper,
+		SupportServicesCloudAWS,
+		namespace,
+		controlPlaneName,
+	); err != nil {
 		return err
 	}
 
 	// the autoscaler is not part of the operator manifest
-	return installEksClusterAutoscaler(kubeClient, mapper, clusterName, accountID)
+	return installEksClusterAutoscaler(kubeClient, mapper, clusterName, accountID, region, kubernetesVersion)
 }
 
 // SupportServicesCloud maps an infra provider to a SupportServices cloud value.
@@ -139,21 +163,128 @@ func SupportServicesCloud(infraProvider api.KubernetesRuntimeInfraProvider) stri
 	}
 }
 
+// SupportServicesOperatorOwner returns the control plane named on the operator's manager binding.
+// A missing binding returns an empty name and false.
+func SupportServicesOperatorOwner(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+) (string, bool, error) {
+	// read the cluster role binding the operator's manager uses
+	binding, found, err := resourceInstalled(
+		kubeClient,
+		mapper,
+		"rbac.authorization.k8s.io",
+		"v1",
+		"ClusterRoleBinding",
+		"",
+		SupportServicesOperatorManagerBindingName,
+	)
+	if err != nil {
+		return "", false, fmt.Errorf("failed to read the support services operator binding: %w", err)
+	}
+	if !found {
+		return "", false, nil
+	}
+
+	return binding.GetLabels()[LabelControlPlane], true, nil
+}
+
+// MayUpdateSupportServicesOperator reports whether controlPlaneName may install the operator.
+// A missing binding may be claimed. Another name, or no name, may not.
+func MayUpdateSupportServicesOperator(controlPlaneName, owner string, found bool) (bool, error) {
+	// an unlabeled install would have no control plane that may update it
+	if controlPlaneName == "" {
+		return false, errors.New("support services operator control plane name must be set")
+	}
+	if !found {
+		return true, nil
+	}
+
+	return owner == controlPlaneName, nil
+}
+
+// RecordSupportServicesOperatorReplacement names the replacement on the operator binding.
+// A binding named for another control plane, or for none, is left as it is.
+func RecordSupportServicesOperatorReplacement(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	fromName string,
+	toName string,
+) error {
+	// an empty replacement would clear the control plane that may update the operator
+	if toName == "" {
+		return errors.New("support services operator control plane name must be set")
+	}
+
+	// read the control plane the binding already names
+	binding, found, err := resourceInstalled(
+		kubeClient,
+		mapper,
+		"rbac.authorization.k8s.io",
+		"v1",
+		"ClusterRoleBinding",
+		"",
+		SupportServicesOperatorManagerBindingName,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to read the support services operator binding: %w", err)
+	}
+	if !found {
+		return nil
+	}
+	owner := binding.GetLabels()[LabelControlPlane]
+	if owner == "" || owner == toName || owner != fromName {
+		return nil
+	}
+
+	// name the replacement, and leave the subject alone
+	labels := binding.GetLabels()
+	labels[LabelControlPlane] = toName
+	binding.SetLabels(labels)
+	if _, err := kube.CreateOrUpdateResource(binding, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to record the support services operator owner: %w", err)
+	}
+
+	return nil
+}
+
 // InstallThreeportSupportServicesOperator installs the support services operator.
+// A binding named for another control plane is left as it is.
 func InstallThreeportSupportServicesOperator(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	cloud string,
+	namespace string,
+	controlPlaneName string,
 ) error {
+	// leave a binding this control plane does not own
+	owner, found, err := SupportServicesOperatorOwner(kubeClient, mapper)
+	if err != nil {
+		return err
+	}
+	mayUpdate, err := MayUpdateSupportServicesOperator(controlPlaneName, owner, found)
+	if err != nil {
+		return err
+	}
+	if !mayUpdate {
+		return nil
+	}
+
 	// install the operator, then the support services object
-	objects, err := supportServicesOperatorObjects()
+	objects, err := supportServicesOperatorObjects(namespace)
 	if err != nil {
 		return err
 	}
 
-	// the namespace threeport-control-plane already exists
+	// create the operator namespace from the manifest
 	for _, object := range objects {
-		if object.GetKind() == "CustomResourceDefinition" || object.GetKind() == "Namespace" {
+		if object.GetKind() == "CustomResourceDefinition" {
+			continue
+		}
+		if object.GetKind() == "Namespace" {
+			if _, err := kube.CreateResource(object, kubeClient, *mapper); err != nil && !kubeerr.IsAlreadyExists(err) {
+				return fmt.Errorf("failed to install support services operator namespace: %w", err)
+			}
 			continue
 		}
 		if object.GetKind() == "Deployment" {
@@ -166,6 +297,15 @@ func InstallThreeportSupportServicesOperator(
 		install := kube.CreateResource
 		if object.GetKind() == "ClusterRole" || object.GetKind() == "ClusterRoleBinding" {
 			install = kube.CreateOrUpdateResource
+		}
+		if object.GetKind() == "ClusterRoleBinding" && object.GetName() == SupportServicesOperatorManagerBindingName {
+			// name the control plane that may update this operator
+			labels := object.GetLabels()
+			if labels == nil {
+				labels = map[string]string{}
+			}
+			labels[LabelControlPlane] = controlPlaneName
+			object.SetLabels(labels)
 		}
 		if _, err := install(object, kubeClient, *mapper); err != nil {
 			return fmt.Errorf("failed to install support services operator object %s: %w", object.GetName(), err)
@@ -276,7 +416,7 @@ func waitForDeploymentGone(object *unstructured.Unstructured, kubeClient dynamic
 }
 
 // supportServicesOperatorObjects decodes the embedded install manifest.
-func supportServicesOperatorObjects() ([]*unstructured.Unstructured, error) {
+func supportServicesOperatorObjects(namespace string) ([]*unstructured.Unstructured, error) {
 	raw, err := supportServicesOperatorYAML.ReadFile("assets/support-services-operator.yaml")
 	if err != nil {
 		return nil, fmt.Errorf("failed to read support services operator manifest: %w", err)
@@ -294,7 +434,7 @@ func supportServicesOperatorObjects() ([]*unstructured.Unstructured, error) {
 		if object == nil {
 			continue
 		}
-		prepared := prepareSupportServicesOperatorObject(object)
+		prepared := prepareSupportServicesOperatorObject(object, namespace)
 		if prepared == nil {
 			continue
 		}
@@ -305,12 +445,13 @@ func supportServicesOperatorObjects() ([]*unstructured.Unstructured, error) {
 }
 
 // prepareSupportServicesOperatorObject sets the namespace and the controller image.
-func prepareSupportServicesOperatorObject(object map[string]interface{}) map[string]interface{} {
+func prepareSupportServicesOperatorObject(object map[string]interface{}, namespace string) map[string]interface{} {
 	kind, _ := object["kind"].(string)
 	if kind == "Namespace" {
-		return nil
+		rewriteNamespace(object, namespace)
+		return object
 	}
-	rewriteNamespace(object)
+	rewriteNamespace(object, namespace)
 	if kind == "Deployment" {
 		setManagerImage(object)
 	}
@@ -318,19 +459,19 @@ func prepareSupportServicesOperatorObject(object map[string]interface{}) map[str
 }
 
 // rewriteNamespace writes the control plane namespace onto each object.
-func rewriteNamespace(value interface{}) {
+func rewriteNamespace(value interface{}, namespace string) {
 	switch typed := value.(type) {
 	case map[string]interface{}:
 		for key, child := range typed {
 			if text, ok := child.(string); ok && text == supportServicesOperatorNamespace {
-				typed[key] = ControlPlaneNamespace
+				typed[key] = namespace
 				continue
 			}
-			rewriteNamespace(child)
+			rewriteNamespace(child, namespace)
 		}
 	case []interface{}:
 		for _, child := range typed {
-			rewriteNamespace(child)
+			rewriteNamespace(child, namespace)
 		}
 	}
 }

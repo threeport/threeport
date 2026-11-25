@@ -15,25 +15,43 @@ import (
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 )
 
-// ValidateK8sApiAllowedCidrsFlag checks --k8s-api-allowed-cidrs: the blocks
-// must be valid and within the provider's limit, and the flag applies only
-// to a cluster tptctl creates on a cloud provider.
-func ValidateK8sApiAllowedCidrsFlag(cidrs []string, infraProvider string, controlPlaneOnly bool) error {
+// ValidateK8sApiAccessFlags checks --private-k8s-api and
+// --k8s-api-allowed-cidrs: they apply only to a cluster tptctl creates on a
+// cloud provider, a private Kubernetes API only to GKE for now, and the
+// blocks must be valid and within the provider's limit.
+func ValidateK8sApiAccessFlags(privateApi bool, cidrs []string, infraProvider string, controlPlaneOnly bool) error {
+	for _, flag := range []struct {
+		name string
+		set  bool
+	}{
+		{"--private-k8s-api", privateApi},
+		{"--k8s-api-allowed-cidrs", len(cidrs) > 0},
+	} {
+		if !flag.set {
+			continue
+		}
+		if infraProvider == v0.KubernetesRuntimeInfraProviderKind {
+			return fmt.Errorf("%s is not supported with infrastructure provider 'kind'", flag.name)
+		}
+		if controlPlaneOnly {
+			return fmt.Errorf("%s is not supported with --control-plane-only, since tptctl does not create the cluster", flag.name)
+		}
+	}
+
+	if privateApi && infraProvider != v0.KubernetesRuntimeInfraProviderGKE {
+		return fmt.Errorf(
+			"--private-k8s-api is supported only with infrastructure provider 'gke' for now, not %q - restrict the Kubernetes API with --k8s-api-allowed-cidrs instead",
+			infraProvider,
+		)
+	}
+
 	if len(cidrs) == 0 {
 		return nil
 	}
-
-	if infraProvider == v0.KubernetesRuntimeInfraProviderKind {
-		return errors.New("--k8s-api-allowed-cidrs is not supported with infrastructure provider 'kind'")
-	}
-	if controlPlaneOnly {
-		return errors.New("--k8s-api-allowed-cidrs is not supported with --control-plane-only, since tptctl does not create the cluster")
-	}
-
 	if _, err := v0.ParseCidrs("--k8s-api-allowed-cidrs", allowedCidrsJSON(cidrs)); err != nil {
 		return err
 	}
-	limit, _ := v0.AllowedCidrsLimit(infraProvider, false)
+	limit, _ := v0.AllowedCidrsLimit(infraProvider, privateApi)
 	if len(cidrs) > limit {
 		return fmt.Errorf(
 			"--k8s-api-allowed-cidrs has %d entries and %s admits at most %d",
@@ -42,6 +60,17 @@ func ValidateK8sApiAllowedCidrsFlag(cidrs []string, infraProvider string, contro
 	}
 
 	return nil
+}
+
+// privateApiField returns a definition's PrivateApi for --private-k8s-api:
+// set only when the flag is, so that a public cluster's definition is sent
+// as it was before the flag existed.
+func privateApiField(privateApi bool) *bool {
+	if !privateApi {
+		return nil
+	}
+
+	return &privateApi
 }
 
 // allowedCidrsJSON returns cidrs as the JSON array the API stores, or nil
@@ -121,16 +150,17 @@ func withUnreachableClusterCleanup(err error, controlPlaneName string, teardownO
 // install uses: the one a prior run saved under the control plane's name, or
 // a new one when the cluster was provisioned outside of tptctl.
 //
-// The cluster keeps the Kubernetes API allowlist it was created with, which
-// --k8s-api-allowed-cidrs can't name on this path.  The saved list is put back
-// in opts, so that the config entry keeps it and the kubernetes runtime
-// definition records it.
+// The cluster keeps the Kubernetes API access it was created with, which
+// --private-k8s-api and --k8s-api-allowed-cidrs can't name on this path.  The
+// saved access is put back in opts, so that the config entry keeps it and the
+// kubernetes runtime definition records it.
 func reusedControlPlaneConfig(threeportConfig *ThreeportConfig, opts *threeport.Options) *ControlPlane {
 	existingConfig, err := threeportConfig.GetControlPlaneConfig(opts.ControlPlaneName)
 	if err != nil {
 		return &ControlPlane{}
 	}
 	opts.K8sApiAllowedCidrs = existingConfig.K8sApiAllowedCidrs
+	opts.PrivateK8sApi = existingConfig.PrivateK8sApi
 
 	return existingConfig
 }

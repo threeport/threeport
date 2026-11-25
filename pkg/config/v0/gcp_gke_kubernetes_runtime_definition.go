@@ -30,6 +30,19 @@ type GcpGkeKubernetesRuntimeDefinitionValues struct {
 	DefaultNodeGroupInitialSize  *int
 	DefaultNodeGroupMinimumSize  *int
 	DefaultNodeGroupMaximumSize  *int
+	KubernetesVersion            *string
+	AuditLog                     *bool
+	DeletionProtection           *bool
+	ReleaseChannel               *string
+	MaintenanceWindowDays        *string
+	MaintenanceWindowStart       *string
+	MaintenanceWindowHours       *int
+	SecretsEncryptionKey         *string
+	BootDiskType                 *string
+	BootDiskSizeGb               *int
+	BootDiskKmsKey               *string
+	SecureBoot                   *bool
+	IntranodeVisibility          *bool
 	Age                          *string
 }
 
@@ -72,6 +85,19 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Get(
 				DefaultNodeGroupInitialSize:  gcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize,
 				DefaultNodeGroupMinimumSize:  gcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
 				DefaultNodeGroupMaximumSize:  gcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
+				KubernetesVersion:            gcpGkeKubernetesRuntimeDefinition.KubernetesVersion,
+				AuditLog:                     gcpGkeKubernetesRuntimeDefinition.AuditLog,
+				DeletionProtection:           gcpGkeKubernetesRuntimeDefinition.DeletionProtection,
+				ReleaseChannel:               gcpGkeKubernetesRuntimeDefinition.ReleaseChannel,
+				MaintenanceWindowDays:        gcpGkeKubernetesRuntimeDefinition.MaintenanceWindowDays,
+				MaintenanceWindowStart:       gcpGkeKubernetesRuntimeDefinition.MaintenanceWindowStart,
+				MaintenanceWindowHours:       gcpGkeKubernetesRuntimeDefinition.MaintenanceWindowHours,
+				SecretsEncryptionKey:         gcpGkeKubernetesRuntimeDefinition.SecretsEncryptionKey,
+				BootDiskType:                 gcpGkeKubernetesRuntimeDefinition.BootDiskType,
+				BootDiskSizeGb:               gcpGkeKubernetesRuntimeDefinition.BootDiskSizeGb,
+				BootDiskKmsKey:               gcpGkeKubernetesRuntimeDefinition.BootDiskKmsKey,
+				SecureBoot:                   gcpGkeKubernetesRuntimeDefinition.SecureBoot,
+				IntranodeVisibility:          gcpGkeKubernetesRuntimeDefinition.IntranodeVisibility,
 				Age:                          util.Ptr(util.GetAgeFormatted(gcpGkeKubernetesRuntimeDefinition.CreatedAt)),
 			},
 		}
@@ -102,7 +128,10 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Create(
 		Reconciliation: api_v0.Reconciliation{
 			Reconciled: util.Ptr(true),
 		},
-		InfraProvider: &infraProvider,
+		InfraProvider:      &infraProvider,
+		KubernetesVersion:  gcpGkeKubernetesRuntimeDefinitionValues.KubernetesVersion,
+		DeletionProtection: gcpGkeKubernetesRuntimeDefinitionValues.DeletionProtection,
+		AuditLog:           gcpGkeKubernetesRuntimeDefinitionValues.AuditLog,
 	}
 
 	// create kubernetes runtime definition
@@ -121,6 +150,19 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Create(
 		DefaultNodeGroupInitialSize:   gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupInitialSize,
 		DefaultNodeGroupMinimumSize:   gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupMinimumSize,
 		DefaultNodeGroupMaximumSize:   gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupMaximumSize,
+		KubernetesVersion:             util.Ptr(api_v0.KubernetesVersionOrDefault(gcpGkeKubernetesRuntimeDefinitionValues.KubernetesVersion)),
+		AuditLog:                      gcpGkeKubernetesRuntimeDefinitionValues.AuditLog,
+		DeletionProtection:            gcpGkeKubernetesRuntimeDefinitionValues.DeletionProtection,
+		ReleaseChannel:                util.Ptr(api_v0.GkeReleaseChannelOrDefault(gcpGkeKubernetesRuntimeDefinitionValues.ReleaseChannel)),
+		MaintenanceWindowDays:         util.Ptr(api_v0.GkeMaintenanceWindowDaysOrDefault(gcpGkeKubernetesRuntimeDefinitionValues.MaintenanceWindowDays)),
+		MaintenanceWindowStart:        util.Ptr(api_v0.GkeMaintenanceWindowStartOrDefault(gcpGkeKubernetesRuntimeDefinitionValues.MaintenanceWindowStart)),
+		MaintenanceWindowHours:        util.Ptr(api_v0.GkeMaintenanceWindowHoursOrDefault(gcpGkeKubernetesRuntimeDefinitionValues.MaintenanceWindowHours)),
+		SecretsEncryptionKey:          gcpGkeKubernetesRuntimeDefinitionValues.SecretsEncryptionKey,
+		BootDiskType:                  gcpGkeKubernetesRuntimeDefinitionValues.BootDiskType,
+		BootDiskSizeGb:                gcpGkeKubernetesRuntimeDefinitionValues.BootDiskSizeGb,
+		BootDiskKmsKey:                gcpGkeKubernetesRuntimeDefinitionValues.BootDiskKmsKey,
+		SecureBoot:                    gcpGkeKubernetesRuntimeDefinitionValues.SecureBoot,
+		IntranodeVisibility:           gcpGkeKubernetesRuntimeDefinitionValues.IntranodeVisibility,
 		KubernetesRuntimeDefinitionID: createdKubernetesRuntimeDefinition.ID,
 	}
 
@@ -144,6 +186,19 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Create(
 			DefaultNodeGroupInitialSize:  createdGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize,
 			DefaultNodeGroupMinimumSize:  createdGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
 			DefaultNodeGroupMaximumSize:  createdGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
+			KubernetesVersion:            createdGcpGkeKubernetesRuntimeDefinition.KubernetesVersion,
+			AuditLog:                     createdGcpGkeKubernetesRuntimeDefinition.AuditLog,
+			DeletionProtection:           createdGcpGkeKubernetesRuntimeDefinition.DeletionProtection,
+			ReleaseChannel:               createdGcpGkeKubernetesRuntimeDefinition.ReleaseChannel,
+			MaintenanceWindowDays:        createdGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowDays,
+			MaintenanceWindowStart:       createdGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowStart,
+			MaintenanceWindowHours:       createdGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowHours,
+			SecretsEncryptionKey:         createdGcpGkeKubernetesRuntimeDefinition.SecretsEncryptionKey,
+			BootDiskType:                 createdGcpGkeKubernetesRuntimeDefinition.BootDiskType,
+			BootDiskSizeGb:               createdGcpGkeKubernetesRuntimeDefinition.BootDiskSizeGb,
+			BootDiskKmsKey:               createdGcpGkeKubernetesRuntimeDefinition.BootDiskKmsKey,
+			SecureBoot:                   createdGcpGkeKubernetesRuntimeDefinition.SecureBoot,
+			IntranodeVisibility:          createdGcpGkeKubernetesRuntimeDefinition.IntranodeVisibility,
 		},
 	}
 
@@ -191,6 +246,55 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Replace(
 	updatedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize = gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupInitialSize
 	updatedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize = gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupMinimumSize
 	updatedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize = gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupMaximumSize
+	// a new version upgrades the clusters, and a config that leaves it out
+	// keeps the one recorded
+	if gcpGkeKubernetesRuntimeDefinitionValues.KubernetesVersion != nil {
+		updatedGcpGkeKubernetesRuntimeDefinition.KubernetesVersion = gcpGkeKubernetesRuntimeDefinitionValues.KubernetesVersion
+	}
+	// the audit log is set on create and can't change, so a config that
+	// leaves it out keeps it
+	if gcpGkeKubernetesRuntimeDefinitionValues.AuditLog != nil {
+		updatedGcpGkeKubernetesRuntimeDefinition.AuditLog = gcpGkeKubernetesRuntimeDefinitionValues.AuditLog
+	}
+	// DeletionProtection a config leaves out is kept: only an explicit
+	// false turns it off
+	if gcpGkeKubernetesRuntimeDefinitionValues.DeletionProtection != nil {
+		updatedGcpGkeKubernetesRuntimeDefinition.DeletionProtection = gcpGkeKubernetesRuntimeDefinitionValues.DeletionProtection
+	}
+	// the release channel and maintenance window are recorded on create and
+	// can't change, so a config that leaves one out keeps it
+	if gcpGkeKubernetesRuntimeDefinitionValues.ReleaseChannel != nil {
+		updatedGcpGkeKubernetesRuntimeDefinition.ReleaseChannel = gcpGkeKubernetesRuntimeDefinitionValues.ReleaseChannel
+	}
+	if gcpGkeKubernetesRuntimeDefinitionValues.MaintenanceWindowDays != nil {
+		updatedGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowDays = gcpGkeKubernetesRuntimeDefinitionValues.MaintenanceWindowDays
+	}
+	if gcpGkeKubernetesRuntimeDefinitionValues.MaintenanceWindowStart != nil {
+		updatedGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowStart = gcpGkeKubernetesRuntimeDefinitionValues.MaintenanceWindowStart
+	}
+	if gcpGkeKubernetesRuntimeDefinitionValues.MaintenanceWindowHours != nil {
+		updatedGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowHours = gcpGkeKubernetesRuntimeDefinitionValues.MaintenanceWindowHours
+	}
+	// the encryption and boot settings a config leaves out are kept, and
+	// one it changes is applied to the clusters
+	if gcpGkeKubernetesRuntimeDefinitionValues.SecretsEncryptionKey != nil {
+		updatedGcpGkeKubernetesRuntimeDefinition.SecretsEncryptionKey = gcpGkeKubernetesRuntimeDefinitionValues.SecretsEncryptionKey
+	}
+	if gcpGkeKubernetesRuntimeDefinitionValues.BootDiskType != nil {
+		updatedGcpGkeKubernetesRuntimeDefinition.BootDiskType = gcpGkeKubernetesRuntimeDefinitionValues.BootDiskType
+	}
+	if gcpGkeKubernetesRuntimeDefinitionValues.BootDiskSizeGb != nil {
+		updatedGcpGkeKubernetesRuntimeDefinition.BootDiskSizeGb = gcpGkeKubernetesRuntimeDefinitionValues.BootDiskSizeGb
+	}
+	if gcpGkeKubernetesRuntimeDefinitionValues.BootDiskKmsKey != nil {
+		updatedGcpGkeKubernetesRuntimeDefinition.BootDiskKmsKey = gcpGkeKubernetesRuntimeDefinitionValues.BootDiskKmsKey
+	}
+	if gcpGkeKubernetesRuntimeDefinitionValues.SecureBoot != nil {
+		updatedGcpGkeKubernetesRuntimeDefinition.SecureBoot = gcpGkeKubernetesRuntimeDefinitionValues.SecureBoot
+	}
+	if gcpGkeKubernetesRuntimeDefinitionValues.IntranodeVisibility != nil {
+		updatedGcpGkeKubernetesRuntimeDefinition.IntranodeVisibility = gcpGkeKubernetesRuntimeDefinitionValues.IntranodeVisibility
+	}
 
 	// replace gcp gke kubernetes runtime definition
 	replacedGcpGkeKubernetesRuntimeDefinition, err := client_v0.ReplaceGcpGkeKubernetesRuntimeDefinition(
@@ -212,6 +316,19 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Replace(
 			DefaultNodeGroupInitialSize:  replacedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize,
 			DefaultNodeGroupMinimumSize:  replacedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
 			DefaultNodeGroupMaximumSize:  replacedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
+			KubernetesVersion:            replacedGcpGkeKubernetesRuntimeDefinition.KubernetesVersion,
+			AuditLog:                     replacedGcpGkeKubernetesRuntimeDefinition.AuditLog,
+			DeletionProtection:           replacedGcpGkeKubernetesRuntimeDefinition.DeletionProtection,
+			ReleaseChannel:               replacedGcpGkeKubernetesRuntimeDefinition.ReleaseChannel,
+			MaintenanceWindowDays:        replacedGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowDays,
+			MaintenanceWindowStart:       replacedGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowStart,
+			MaintenanceWindowHours:       replacedGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowHours,
+			SecretsEncryptionKey:         replacedGcpGkeKubernetesRuntimeDefinition.SecretsEncryptionKey,
+			BootDiskType:                 replacedGcpGkeKubernetesRuntimeDefinition.BootDiskType,
+			BootDiskSizeGb:               replacedGcpGkeKubernetesRuntimeDefinition.BootDiskSizeGb,
+			BootDiskKmsKey:               replacedGcpGkeKubernetesRuntimeDefinition.BootDiskKmsKey,
+			SecureBoot:                   replacedGcpGkeKubernetesRuntimeDefinition.SecureBoot,
+			IntranodeVisibility:          replacedGcpGkeKubernetesRuntimeDefinition.IntranodeVisibility,
 		},
 	}
 
@@ -275,6 +392,19 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Delete(
 			DefaultNodeGroupInitialSize:  deletedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize,
 			DefaultNodeGroupMinimumSize:  deletedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
 			DefaultNodeGroupMaximumSize:  deletedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
+			KubernetesVersion:            deletedGcpGkeKubernetesRuntimeDefinition.KubernetesVersion,
+			AuditLog:                     deletedGcpGkeKubernetesRuntimeDefinition.AuditLog,
+			DeletionProtection:           deletedGcpGkeKubernetesRuntimeDefinition.DeletionProtection,
+			ReleaseChannel:               deletedGcpGkeKubernetesRuntimeDefinition.ReleaseChannel,
+			MaintenanceWindowDays:        deletedGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowDays,
+			MaintenanceWindowStart:       deletedGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowStart,
+			MaintenanceWindowHours:       deletedGcpGkeKubernetesRuntimeDefinition.MaintenanceWindowHours,
+			SecretsEncryptionKey:         deletedGcpGkeKubernetesRuntimeDefinition.SecretsEncryptionKey,
+			BootDiskType:                 deletedGcpGkeKubernetesRuntimeDefinition.BootDiskType,
+			BootDiskSizeGb:               deletedGcpGkeKubernetesRuntimeDefinition.BootDiskSizeGb,
+			BootDiskKmsKey:               deletedGcpGkeKubernetesRuntimeDefinition.BootDiskKmsKey,
+			SecureBoot:                   deletedGcpGkeKubernetesRuntimeDefinition.SecureBoot,
+			IntranodeVisibility:          deletedGcpGkeKubernetesRuntimeDefinition.IntranodeVisibility,
 		}
 	}
 
@@ -316,6 +446,24 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Validate() error {
 	// ensure node group maximum size is set
 	if gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupMaximumSize == nil {
 		multiError.AppendError(errors.New("missing required field in config: DefaultNodeGroupMaximumSize"))
+	}
+
+	// validate the Kubernetes version before the API is asked
+	if err := api_v0.ValidateKubernetesVersion(
+		api_v0.KubernetesRuntimeInfraProviderGKE,
+		gcpGkeKubernetesRuntimeDefinitionValues.KubernetesVersion,
+	); err != nil {
+		multiError.AppendError(err)
+	}
+
+	// validate the release channel and maintenance window before the API is asked
+	if err := api_v0.ValidateGkeUpgradeSettings(
+		gcpGkeKubernetesRuntimeDefinitionValues.ReleaseChannel,
+		gcpGkeKubernetesRuntimeDefinitionValues.MaintenanceWindowDays,
+		gcpGkeKubernetesRuntimeDefinitionValues.MaintenanceWindowStart,
+		gcpGkeKubernetesRuntimeDefinitionValues.MaintenanceWindowHours,
+	); err != nil {
+		multiError.AppendError(err)
 	}
 
 	return multiError.Error()

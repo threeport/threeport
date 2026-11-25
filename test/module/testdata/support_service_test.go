@@ -31,9 +31,10 @@ func TestGeneratedReconcilerEnsuresSupportServices(t *testing.T) {
 	require.NoError(t, err)
 	text := string(body)
 
-	// the four ensure calls are present
+	// each ensure call is present
 	require.Contains(t, text, "EnsureIngressComponent(")
 	require.Contains(t, text, "EnsureCertificatesComponent(")
 	require.Contains(t, text, "EnsureSecretsComponent(")
 	require.Contains(t, text, "EnsureDatabaseComponent(")
+	require.Contains(t, text, "EnsureStorageComponent(")
 }

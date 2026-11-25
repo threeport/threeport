@@ -8,6 +8,7 @@ import (
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
+	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -61,7 +62,23 @@ func (g *GcpProvider) beforeDelete(tx *gorm.DB) error {
 
 // beforeCreate validates the GcpGkeKubernetesRuntimeDefinition before create.
 func (g *GcpGkeKubernetesRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
-	return validateKubernetesApiAccess(KubernetesRuntimeInfraProviderGKE, g.PrivateApi, g.AllowedCidrs)
+	counts, _ := gkeNodeCounts(g)
+	if err := validateNodeCounts(counts); err != nil {
+		return err
+	}
+	if err := validateKubernetesApiAccess(KubernetesRuntimeInfraProviderGKE, g.PrivateApi, g.AllowedCidrs); err != nil {
+		return err
+	}
+
+	if err := validateKubernetesVersionCreate(KubernetesRuntimeInfraProviderGKE, g.KubernetesVersion); err != nil {
+		return err
+	}
+
+	if err := validateGkeNodeSecurityCreate(g); err != nil {
+		return err
+	}
+
+	return validateGkeUpgradeSettingsCreate(g)
 }
 
 // beforeUpdate validates the GcpGkeKubernetesRuntimeDefinition before update.
@@ -78,6 +95,48 @@ func (g *GcpGkeKubernetesRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
 // Import:
 //   lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (g *GcpGkeKubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
+	if err := validateKubernetesVersionUpgrade(tx, KubernetesRuntimeInfraProviderGKE, func(value any) (*string, bool) {
+		object, ok := value.(*GcpGkeKubernetesRuntimeDefinition)
+		if !ok {
+			return nil, false
+		}
+		return object.KubernetesVersion, true
+	}); err != nil {
+		return err
+	}
+	if err := validateAuditLogUpdate(tx, func(value any) (*bool, bool) {
+		object, ok := value.(*GcpGkeKubernetesRuntimeDefinition)
+		if !ok {
+			return nil, false
+		}
+		return object.AuditLog, true
+	}); err != nil {
+		return err
+	}
+	if err := validateGkeUpgradeSettingsUpdate(tx); err != nil {
+		return err
+	}
+	if err := validateGkeNodeSecurityUpdate(tx); err != nil {
+		return err
+	}
+	if err := validateDeletionProtectionUpdate(
+		tx,
+		func(value any) (*bool, *uint, bool) {
+			object, ok := value.(*GcpGkeKubernetesRuntimeDefinition)
+			if !ok {
+				return nil, nil, false
+			}
+			return object.DeletionProtection, object.ID, true
+		},
+		&GcpGkeKubernetesRuntimeInstance{},
+		"gcp_gke_kubernetes_runtime_definition_id",
+	); err != nil {
+		return err
+	}
+	if err := validateNodeCountsUpdate(tx, gkeNodeCounts); err != nil {
+		return err
+	}
+
 	return validateKubernetesApiAccessUpdate(
 		tx,
 		KubernetesRuntimeInfraProviderGKE,
@@ -115,8 +174,44 @@ func (g *GcpGkeKubernetesRuntimeInstance) beforeCreate(tx *gorm.DB) error {
 // Import:
 //   lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (g *GcpGkeKubernetesRuntimeInstance) beforeUpdate(tx *gorm.DB) error {
+	// ReservedNatAddress decides how the cluster's Cloud NAT is provisioned,
+	// so changing it would change the cluster's outbound addresses under it
+	changed, err := lib.IsFieldChanged(tx, "ReservedNatAddress")
+	if err != nil {
+		return err
+	}
+	if !changed {
+		return nil
+	}
+
+	// a patch's receiver is the stored row, while a replace's receiver is
+	// the incoming object, so the stored row is read back for a replace
+	stored := tx.Statement.Model
+	if lib.IsFullReplace(tx) {
+		if stored, err = lib.LoadObjectFromDB(tx); err != nil {
+			return err
+		}
+	}
+	storedInstance, storedOk := stored.(*GcpGkeKubernetesRuntimeInstance)
+	incomingInstance, incomingOk := lib.IncomingValues(tx).(*GcpGkeKubernetesRuntimeInstance)
+	if !storedOk || !incomingOk {
+		return fmt.Errorf(
+			"cannot check ReservedNatAddress: update carries %T",
+			lib.IncomingValues(tx),
+		)
+	}
+
+	reserved := func(value *bool) bool { return value != nil && *value }
+	if reserved(storedInstance.ReservedNatAddress) != reserved(incomingInstance.ReservedNatAddress) {
+		return util.NewBadRequestError(ErrMsgReservedNatAddressImmutable)
+	}
+
 	return nil
 }
+
+// ErrMsgReservedNatAddressImmutable is the rejection of an update that
+// changes a GKE runtime instance's ReservedNatAddress.
+const ErrMsgReservedNatAddressImmutable = "ReservedNatAddress cannot be changed after creation: it would change the cluster's outbound addresses"
 
 // beforeDelete validates the GcpGkeKubernetesRuntimeInstance before delete.
 func (g *GcpGkeKubernetesRuntimeInstance) beforeDelete(tx *gorm.DB) error {

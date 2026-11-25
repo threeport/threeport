@@ -49,6 +49,10 @@ func testMapper() *meta.RESTMapper {
 		meta.RESTScopeRoot,
 	)
 	defaultMapper.Add(
+		schema.GroupVersionKind{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRole"},
+		meta.RESTScopeRoot,
+	)
+	defaultMapper.Add(
 		schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Secret"},
 		meta.RESTScopeNamespace,
 	)
@@ -369,43 +373,109 @@ func TestComputeSpaceControlPlaneComponentsCurrent(t *testing.T) {
 	})
 }
 
-// TestSupportServicesOperatorInstalled covers the operator check.
-func TestSupportServicesOperatorInstalled(t *testing.T) {
-	t.Run("installed when the deployment is there", func(t *testing.T) {
+// TestRuntimeOperatorsStale covers the check that decides whether to replace the runtime namespace.
+func TestRuntimeOperatorsStale(t *testing.T) {
+	t.Run("stale when the operator image is behind", func(t *testing.T) {
+		cpi := NewInstaller()
+		cpi.Opts.Namespace = RuntimeNamespace
+		cpi.Opts.SkipAgent = true
 		client := testClient(
-			deployment(ControlPlaneNamespace, SupportServicesOperatorDeployName, "operator:v1"),
+			deployment(RuntimeNamespace, SupportServicesOperatorDeployName, "ghcr.io/nukleros/support-services-operator:v0.4.0"),
 		)
 
-		installed, err := SupportServicesOperatorInstalled(client, testMapper())
+		stale, err := cpi.RuntimeOperatorsStale(client, testMapper())
+		require.NoError(t, err)
+		assert.True(t, stale)
+	})
+
+	t.Run("not stale when the operator is missing", func(t *testing.T) {
+		cpi := NewInstaller()
+		cpi.Opts.Namespace = RuntimeNamespace
+		cpi.Opts.SkipAgent = true
+
+		stale, err := cpi.RuntimeOperatorsStale(testClient(), testMapper())
+		require.NoError(t, err)
+		assert.False(t, stale)
+	})
+}
+
+// TestSupportServicesOperatorInstalled covers the operator check.
+func TestSupportServicesOperatorInstalled(t *testing.T) {
+	t.Run("installed when the deployment runs the image this install applies", func(t *testing.T) {
+		client := testClient(
+			deployment(ControlPlaneNamespace, SupportServicesOperatorDeployName, SupportServicesOperatorImage),
+		)
+
+		installed, err := SupportServicesOperatorInstalled(client, testMapper(), ControlPlaneNamespace)
 		require.NoError(t, err)
 		assert.True(t, installed)
 	})
 
+	t.Run("not installed when the deployment runs an older image", func(t *testing.T) {
+		client := testClient(
+			deployment(ControlPlaneNamespace, SupportServicesOperatorDeployName, "ghcr.io/nukleros/support-services-operator:v0.4.0"),
+		)
+
+		installed, err := SupportServicesOperatorInstalled(client, testMapper(), ControlPlaneNamespace)
+		require.NoError(t, err)
+		assert.False(t, installed)
+	})
+
 	t.Run("not installed on an empty cluster", func(t *testing.T) {
-		installed, err := SupportServicesOperatorInstalled(testClient(), testMapper())
+		installed, err := SupportServicesOperatorInstalled(testClient(), testMapper(), ControlPlaneNamespace)
 		require.NoError(t, err)
 		assert.False(t, installed)
 	})
 }
 
-// TestEksThreeportSystemServicesInstalled covers the EKS check. The install it
+// TestEksThreeportSystemServicesCurrent covers the EKS check. The install it
 // guards only runs on EKS, but the check itself is ordinary API reads and is
 // covered here rather than left to a cluster nobody can reach from a test.
-func TestEksThreeportSystemServicesInstalled(t *testing.T) {
-	t.Run("installed when the cluster autoscaler is there", func(t *testing.T) {
-		client := testClient(
-			deployment(ClusterAutoscalerNamespace, ClusterAutoscalerDeployName, "autoscaler:v1"),
-		)
+func TestEksThreeportSystemServicesCurrent(t *testing.T) {
+	image136, err := ClusterAutoscalerImage("1.36")
+	require.NoError(t, err)
+	image135, err := ClusterAutoscalerImage("1.35")
+	require.NoError(t, err)
 
-		installed, err := EksThreeportSystemServicesInstalled(client, testMapper())
+	t.Run("current when the cluster autoscaler is the cluster version's release", func(t *testing.T) {
+		client := testClient(deployment(ClusterAutoscalerNamespace, ClusterAutoscalerDeployName, image136), autoscalerClusterRole(true))
+
+		current, err := EksThreeportSystemServicesCurrent(client, testMapper(), "1.36")
 		require.NoError(t, err)
-		assert.True(t, installed)
+		assert.True(t, current)
 	})
 
-	t.Run("not installed on an empty cluster", func(t *testing.T) {
-		installed, err := EksThreeportSystemServicesInstalled(testClient(), testMapper())
+	t.Run("not current when an upgraded cluster has the previous version's", func(t *testing.T) {
+		client := testClient(deployment(ClusterAutoscalerNamespace, ClusterAutoscalerDeployName, image135))
+
+		current, err := EksThreeportSystemServicesCurrent(client, testMapper(), "1.36")
 		require.NoError(t, err)
-		assert.False(t, installed)
+		assert.False(t, current)
+	})
+
+	t.Run("not current when its cluster role doesn't let it watch what it waits for", func(t *testing.T) {
+		// as every autoscaler installed before the role granted them: it
+		// waits for its caches forever and never scales
+		for _, role := range []*unstructured.Unstructured{autoscalerClusterRole(false), nil} {
+			objects := []runtime.Object{deployment(ClusterAutoscalerNamespace, ClusterAutoscalerDeployName, image136)}
+			if role != nil {
+				objects = append(objects, role)
+			}
+			current, err := EksThreeportSystemServicesCurrent(testClient(objects...), testMapper(), "1.36")
+			require.NoError(t, err)
+			assert.False(t, current)
+		}
+	})
+
+	t.Run("not current on an empty cluster", func(t *testing.T) {
+		current, err := EksThreeportSystemServicesCurrent(testClient(), testMapper(), "1.36")
+		require.NoError(t, err)
+		assert.False(t, current)
+	})
+
+	t.Run("an error for a version with no autoscaler release", func(t *testing.T) {
+		_, err := EksThreeportSystemServicesCurrent(testClient(), testMapper(), "1.99")
+		assert.Error(t, err)
 	})
 }
 
@@ -825,6 +895,8 @@ func TestDeleteControlPlaneRoleBindingsLeavesOtherControlPlanes(t *testing.T) {
 		clusterRoleBinding("threeport-control-plane-threeport-agent-manager-rolebinding", "agent"),
 		clusterRoleBinding("threeport-control-plane-threeport-agent-proxy-rolebinding", "agent"),
 		clusterRoleBinding("cluster-autoscaler", "cluster-autoscaler"),
+		clusterRoleBinding(moduleInstallBindingName("child"), moduleInstallServiceAccount),
+		clusterRoleBinding(moduleInstallBindingName("threeport-control-plane"), moduleInstallServiceAccount),
 	}
 	for _, controller := range ThreeportControllerList {
 		if controller.ServiceAccountName == "" {
@@ -844,6 +916,17 @@ func TestDeleteControlPlaneRoleBindingsLeavesOtherControlPlanes(t *testing.T) {
 	// delete the child bindings, then again once they are already gone
 	require.NoError(t, cpi.DeleteControlPlaneRoleBindings(client, mapper))
 	require.NoError(t, cpi.DeleteControlPlaneRoleBindings(client, mapper))
+
+	// confirm the module install binding name
+	require.Equal(t, "module-install-child", moduleInstallBindingName("child"))
+
+	// confirm the child module install binding is gone
+	_, present, err := resourceInstalled(
+		client, mapper, "rbac.authorization.k8s.io", "v1", "ClusterRoleBinding", "",
+		moduleInstallBindingName("child"),
+	)
+	require.NoError(t, err)
+	assert.False(t, present)
 
 	// confirm the child agent bindings are gone
 	for _, name := range []string{
@@ -884,6 +967,14 @@ func TestDeleteControlPlaneRoleBindingsLeavesOtherControlPlanes(t *testing.T) {
 		assert.True(t, present)
 	}
 
+	// confirm the other control plane's module install binding stayed
+	_, present, err = resourceInstalled(
+		client, mapper, "rbac.authorization.k8s.io", "v1", "ClusterRoleBinding", "",
+		moduleInstallBindingName("threeport-control-plane"),
+	)
+	require.NoError(t, err)
+	assert.True(t, present)
+
 	// confirm the other control plane's controller bindings stayed
 	for _, controller := range ThreeportControllerList {
 		if controller.ServiceAccountName == "" {
@@ -900,9 +991,58 @@ func TestDeleteControlPlaneRoleBindingsLeavesOtherControlPlanes(t *testing.T) {
 	}
 
 	// confirm the unrelated binding stayed
-	_, present, err := resourceInstalled(
+	_, present, err = resourceInstalled(
 		client, mapper, "rbac.authorization.k8s.io", "v1", "ClusterRoleBinding", "", "cluster-autoscaler",
 	)
 	require.NoError(t, err)
 	assert.True(t, present)
+}
+
+// autoscalerClusterRole returns the cluster autoscaler's cluster role, with
+// the rules for what recent releases watch, or as it was installed before.
+func autoscalerClusterRole(watchesEverything bool) *unstructured.Unstructured {
+	rules := []interface{}{
+		map[string]interface{}{
+			"apiGroups": []interface{}{"storage.k8s.io"},
+			"resources": []interface{}{"storageclasses", "csinodes", "csidrivers", "csistoragecapacities"},
+			"verbs":     []interface{}{"watch", "list", "get"},
+		},
+	}
+	if watchesEverything {
+		rules = []interface{}{
+			map[string]interface{}{
+				"apiGroups": []interface{}{"storage.k8s.io"},
+				"resources": []interface{}{"storageclasses", "csinodes", "csidrivers", "csistoragecapacities", "volumeattachments"},
+				"verbs":     []interface{}{"watch", "list", "get"},
+			},
+			map[string]interface{}{
+				"apiGroups": []interface{}{"resource.k8s.io"},
+				"resources": []interface{}{"resourceclaims", "resourceslices", "deviceclasses"},
+				"verbs":     []interface{}{"watch", "list", "get"},
+			},
+		}
+	}
+
+	return &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "rbac.authorization.k8s.io/v1",
+		"kind":       "ClusterRole",
+		"metadata":   map[string]interface{}{"name": ClusterAutoscalerClusterRoleName},
+		"rules":      rules,
+	}}
+}
+
+// TestRulesGrantWatch covers reading a role's rules for a resource it must
+// list and watch.
+func TestRulesGrantWatch(t *testing.T) {
+	rule := func(groups, resources, verbs []interface{}) []interface{} {
+		return []interface{}{map[string]interface{}{"apiGroups": groups, "resources": resources, "verbs": verbs}}
+	}
+	all := []interface{}{"get", "list", "watch"}
+	assert.True(t, rulesGrantWatch(rule([]interface{}{"resource.k8s.io"}, []interface{}{"resourceslices"}, all), "resource.k8s.io", "resourceslices"))
+	assert.True(t, rulesGrantWatch(rule([]interface{}{"*"}, []interface{}{"*"}, []interface{}{"*"}), "resource.k8s.io", "resourceslices"))
+	assert.False(t, rulesGrantWatch(rule([]interface{}{"storage.k8s.io"}, []interface{}{"resourceslices"}, all), "resource.k8s.io", "resourceslices"), "another group")
+	assert.False(t, rulesGrantWatch(rule([]interface{}{"resource.k8s.io"}, []interface{}{"resourceclaims"}, all), "resource.k8s.io", "resourceslices"), "another resource")
+	assert.False(t, rulesGrantWatch(rule([]interface{}{"resource.k8s.io"}, []interface{}{"resourceslices"}, []interface{}{"get", "list"}), "resource.k8s.io", "resourceslices"), "no watch")
+	assert.False(t, rulesGrantWatch(rule([]interface{}{"resource.k8s.io"}, []interface{}{"resourceslices"}, []interface{}{"get", "watch"}), "resource.k8s.io", "resourceslices"), "no list")
+	assert.False(t, rulesGrantWatch([]interface{}{"not a rule"}, "resource.k8s.io", "resourceslices"))
 }

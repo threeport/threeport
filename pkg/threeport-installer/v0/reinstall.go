@@ -2,9 +2,7 @@ package v0
 
 import (
 	"context"
-	"crypto/x509"
 	"encoding/base64"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"net"
@@ -590,6 +588,12 @@ func (cpi *ControlPlaneInstaller) Reinstall(
 		return err
 	}
 
+	// refuse storage the database's missing volumes can't be created on
+	// before anything is deleted, so a refusal leaves the control plane up
+	if err := cpi.checkDatabaseStorage(kubeClient); err != nil {
+		return err
+	}
+
 	// delete installer-managed stateless resources
 	if err := cpi.deleteForReinstall(kubeClient, ns); err != nil {
 		return fmt.Errorf("failed to delete control plane resources: %w", err)
@@ -877,66 +881,7 @@ func (cpi *ControlPlaneInstaller) LoadAuthConfigFromCluster(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 ) (*auth.AuthConfig, error) {
-	// read the api ca secret
-	secret, err := kube.GetResource(
-		"", "v1", "Secret",
-		cpi.Opts.Namespace, ThreeportApiCaSecret,
-		kubeClient, *mapper,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load api-ca secret: %w", err)
-	}
-
-	// read the cert and key fields
-	caB64, _, err := unstructured.NestedString(secret.Object, "data", "tls.crt")
-	if err != nil || caB64 == "" {
-		return nil, errors.New("tls.crt not found in api-ca secret")
-	}
-	keyB64, _, err := unstructured.NestedString(secret.Object, "data", "tls.key")
-	if err != nil || keyB64 == "" {
-		return nil, errors.New("tls.key not found in api-ca secret")
-	}
-
-	// decode the cert and key
-	caPem, err := base64.StdEncoding.DecodeString(caB64)
-	if err != nil {
-		return nil, fmt.Errorf("failed to base64-decode ca cert: %w", err)
-	}
-	keyPem, err := base64.StdEncoding.DecodeString(keyB64)
-	if err != nil {
-		return nil, fmt.Errorf("failed to base64-decode ca key: %w", err)
-	}
-
-	// parse the certificate
-	caBlock, _ := pem.Decode(caPem)
-	if caBlock == nil {
-		return nil, errors.New("ca cert pem block not found")
-	}
-	caCert, err := x509.ParseCertificate(caBlock.Bytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse ca cert: %w", err)
-	}
-
-	// parse the private key
-	keyBlock, _ := pem.Decode(keyPem)
-	if keyBlock == nil {
-		return nil, errors.New("ca key pem block not found")
-	}
-	caKey, err := x509.ParsePKCS1PrivateKey(keyBlock.Bytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse ca key: %w", err)
-	}
-
-	// return the auth config with raw and base64 forms
-	return &auth.AuthConfig{
-		CAConfig:                  caCert,
-		CAPrivateKey:              *caKey,
-		CA:                        caBlock.Bytes,
-		CAPemEncoded:              string(caPem),
-		CABase64Encoded:           util.Base64Encode(string(caPem)),
-		CAPrivateKeyPemEncoded:    string(keyPem),
-		CAPrivateKeyBase64Encoded: util.Base64Encode(string(keyPem)),
-	}, nil
+	return cpi.loadAuthConfigFromNamespace(kubeClient, mapper, cpi.Opts.Namespace)
 }
 
 // DetectAuthEnabled reports whether the installed API was started with auth.

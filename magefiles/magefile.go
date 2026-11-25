@@ -28,13 +28,17 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// Cockroach runs test/cockroach against a docker CockroachDB.
+// Cockroach runs test/cockroach against a docker CockroachDB.  The suite
+// takes longer with each migration, since every migration's test builds a
+// database of its own and TestEveryMigrationRollsBack walks them all, so it
+// outgrew go test's default timeout of ten minutes.
 func (Test) Cockroach() error {
 	cmd := "go"
 	args := []string{
 		"test",
 		"-v",
 		"-count=1",
+		"-timeout=30m",
 		"./test/cockroach",
 	}
 	if err := util.RunCommandStreamOutput(cmd, args...); err != nil {
@@ -1095,6 +1099,7 @@ func addModuleSupportServices() error {
 		"\t" + alias + ".SupportServiceCertificates `mapstructure:\",squash\"`\n" +
 		"\t" + alias + ".SupportServiceSecrets `mapstructure:\",squash\"`\n" +
 		"\t" + alias + ".SupportServiceDatabase `mapstructure:\",squash\"`\n" +
+		"\t" + alias + ".SupportServiceStorage `mapstructure:\",squash\"`\n" +
 		"\n" +
 		"\t// The cluster the shared components install on.\n" +
 		"\tKubernetesRuntimeInstanceID *uint `validate:\"optional\" relationship:\"requires\"`\n"

@@ -10,6 +10,11 @@ import (
 	"strings"
 	"time"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/client-go/dynamic"
+
 	"github.com/go-logr/logr"
 
 	"github.com/threeport/threeport/internal/agent"
@@ -17,6 +22,7 @@ import (
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	event "github.com/threeport/threeport/pkg/event/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	mapping "github.com/threeport/threeport/pkg/mapping/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
@@ -133,6 +139,8 @@ func v0KubernetesRuntimeInstanceCreated(
 			Region:                              &region,
 			KubernetesRuntimeInstanceID:         kubernetesRuntimeInstance.ID,
 			GcpGkeKubernetesRuntimeDefinitionID: gcpGkeKubernetesRuntimeDefinition.ID,
+			// a new cluster sends its outbound traffic from a reserved address
+			ReservedNatAddress: util.Ptr(true),
 		}
 		_, err = client.CreateGcpGkeKubernetesRuntimeInstance(
 			r.APIClient,
@@ -233,6 +241,10 @@ func v0KubernetesRuntimeInstanceUpdated(
 	// control plane and uses the API's in-cluster service; this install leaves
 	// it as it is.
 	isControlPlaneHost := runtimeHostsControlPlane(kubernetesRuntimeInstance)
+	// leave the host cluster's agent with the control plane
+	if isControlPlaneHost {
+		cpi.Opts.SkipAgent = true
+	}
 	var issueAgentCertificate threeport.AgentCertificateIssuer
 	if !isControlPlaneHost {
 		apiServer := os.Getenv(threeport.ControllerConfigExternalApiEndpointKey)
@@ -279,20 +291,65 @@ func v0KubernetesRuntimeInstanceUpdated(
 		return 0, err
 	}
 
-	// This function runs on every update notification for this object, and the
-	// installs below are create-or-update: re-running one is not destructive,
-	// but it is a burst of writes against a live cluster's API server, and the
-	// CRD settle below costs a reconciler worker ten seconds. So each step is
-	// skipped when the cluster already has what it would install. The checks
-	// are per step rather than one early return on Reconciled, which keeps this
-	// function usable as a repair path: a cluster missing only the support
-	// services operator still gets the operator.
+	// the operator is one per cluster, in the runtime namespace
+	namespace := threeport.RuntimeNamespace
+	cpi.Opts.Namespace = namespace
+
+	// hand a binding this control plane replaced to its own name
+	replaced := os.Getenv(threeport.ControllerConfigReplacedControlPlaneKey)
+	if replaced != "" {
+		if err := threeport.RecordSupportServicesOperatorReplacement(
+			dynamicKubeClient,
+			mapper,
+			replaced,
+			cpi.Opts.ControlPlaneName,
+		); err != nil {
+			return controller.RetryOnNetworkErr(err, "failed to record the support services operator owner")
+		}
+	}
+
+	// read the control plane that may update the operator
+	owner, found, err := threeport.SupportServicesOperatorOwner(dynamicKubeClient, mapper)
+	if err != nil {
+		return controller.RetryOnNetworkErr(err, "failed to read the support services operator owner")
+	}
+	ownsOperator, err := threeport.MayUpdateSupportServicesOperator(cpi.Opts.ControlPlaneName, owner, found)
+	if err != nil {
+		return 0, err
+	}
+	if !ownsOperator {
+		log.Info(
+			"support services operator belongs to another control plane",
+			"kubernetesRuntimeInstance", *kubernetesRuntimeInstance.Name,
+			"controlPlane", owner,
+		)
+	}
+
+	// delete the runtime namespace when this control plane's operator image is behind
+	stale, err := cpi.RuntimeOperatorsStale(dynamicKubeClient, mapper)
+	if err != nil {
+		return controller.RetryOnNetworkErr(err, "failed to compare the agent and support services operator images")
+	}
+	if ownsOperator && stale {
+		if err := deleteRuntimeNamespace(dynamicKubeClient, mapper); err != nil {
+			return controller.RetryOnNetworkErr(err, "failed to delete the runtime namespace")
+		}
+	}
+
+	var operatorInstalled bool
+	if ownsOperator {
+		operatorInstalled, err = threeport.SupportServicesOperatorInstalled(dynamicKubeClient, mapper, namespace)
+		if err != nil {
+			return controller.RetryOnNetworkErr(err, "failed to check support services operator")
+		}
+	}
 
 	// threeport control plane components
 	computeSpaceCurrent, err := cpi.ComputeSpaceControlPlaneComponentsCurrent(dynamicKubeClient, mapper)
 	if err != nil {
 		return controller.RetryOnNetworkErr(err, "failed to check compute space control plane components")
 	}
+
 	if computeSpaceCurrent {
 		log.V(1).Info("compute space control plane components already current, skipping install")
 	} else {
@@ -321,45 +378,59 @@ func v0KubernetesRuntimeInstanceUpdated(
 	}
 
 	// support services operator
-	operatorInstalled, err := threeport.SupportServicesOperatorInstalled(dynamicKubeClient, mapper)
-	if err != nil {
-		return controller.RetryOnNetworkErr(err, "failed to check support services operator")
-	}
-	if operatorInstalled {
+	if ownsOperator && operatorInstalled {
 		log.V(1).Info("support services operator already installed, skipping install")
-	} else if err := threeport.InstallThreeportSupportServicesOperator(
-		dynamicKubeClient,
-		mapper,
-		threeport.SupportServicesCloud(v0.KubernetesRuntimeInfraProvider(*kubernetesRuntimeDefinition.InfraProvider)),
-	); err != nil {
-		return controller.RetryOnNetworkErr(err, "failed to install support services operator")
+	} else if ownsOperator {
+		if err := threeport.InstallThreeportSupportServicesOperator(
+			dynamicKubeClient,
+			mapper,
+			threeport.SupportServicesCloud(v0.KubernetesRuntimeInfraProvider(*kubernetesRuntimeDefinition.InfraProvider)),
+			namespace,
+			cpi.Opts.ControlPlaneName,
+		); err != nil {
+			return controller.RetryOnNetworkErr(err, "failed to install support services operator")
+		}
 	}
 
 	if *kubernetesRuntimeDefinition.InfraProvider == v0.KubernetesRuntimeInfraProviderEKS {
-		// get aws provider
-		awsProvider, err := client.GetAwsProviderByName(
-			r.APIClient,
-			r.APIServer,
-			*kubernetesRuntimeDefinition.InfraProviderAccountName,
-		)
-		if err != nil {
-			return controller.RetryOnNetworkErr(err, "failed to get AWS provider by name")
-		}
-
-		// system components e.g. cluster-autoscaler
-		systemServicesInstalled, err := threeport.EksThreeportSystemServicesInstalled(dynamicKubeClient, mapper)
-		if err != nil {
-			return controller.RetryOnNetworkErr(err, "failed to check EKS system services")
-		}
-		if systemServicesInstalled {
-			log.V(1).Info("EKS system services already installed, skipping install")
-		} else if err := threeport.InstallEksThreeportSystemServices(
-			dynamicKubeClient,
-			mapper,
-			*kubernetesRuntimeInstance.Name,
-			*awsProvider.AccountID,
-		); err != nil {
-			return controller.RetryOnNetworkErr(err, "failed to install system services")
+		// update the autoscaler when this control plane owns the operator
+		if ownsOperator {
+			awsProvider, err := client.GetAwsProviderByName(
+				r.APIClient,
+				r.APIServer,
+				*kubernetesRuntimeDefinition.InfraProviderAccountName,
+			)
+			if err != nil {
+				return controller.RetryOnNetworkErr(err, "failed to get AWS provider by name")
+			}
+			kubernetesVersion, err := clusterMinorVersion(r, *kubernetesRuntimeInstance.ID, controlPlaneHost)
+			if err != nil {
+				return controller.RetryOnNetworkErr(err, "failed to get the cluster's Kubernetes version")
+			}
+			region, err := mapping.GetProviderRegionForLocation(util.AwsProvider, *kubernetesRuntimeInstance.Location)
+			if err != nil {
+				return 0, fmt.Errorf("failed to map threeport location to AWS region: %w", err)
+			}
+			systemServicesCurrent, err := threeport.EksThreeportSystemServicesCurrent(dynamicKubeClient, mapper, kubernetesVersion)
+			if err != nil {
+				return controller.RetryOnNetworkErr(err, "failed to check EKS system services")
+			}
+			if systemServicesCurrent {
+				log.V(1).Info("EKS system services already current, skipping install")
+			} else {
+				if err := threeport.InstallEksThreeportSystemServices(
+					dynamicKubeClient,
+					mapper,
+					*kubernetesRuntimeInstance.Name,
+					*awsProvider.AccountID,
+					region,
+					kubernetesVersion,
+					namespace,
+					cpi.Opts.ControlPlaneName,
+				); err != nil {
+					return controller.RetryOnNetworkErr(err, "failed to install system services")
+				}
+			}
 		}
 
 		// a claim that names no storage class has nothing to bind to on EKS
@@ -501,6 +572,20 @@ func v0KubernetesRuntimeInstanceDeleted(
 			return controller.RetryOnNetworkErr(err, "failed to get aws eks runtime instance by kubernetes runtime instance ID")
 		}
 
+		// a protected cluster waits until its definition is no longer
+		// protected
+		awsEksDefinition, err := client.GetAwsEksKubernetesRuntimeDefinitionByID(
+			r.APIClient,
+			r.APIServer,
+			*awsEksKubernetesRuntimeInstance.AwsEksKubernetesRuntimeDefinitionID,
+		)
+		if err != nil {
+			return controller.RetryOnNetworkErr(err, "failed to get aws eks runtime definition for its deletion protection")
+		}
+		if err := v0.ProviderDefinitionDeletionProtection(awsEksDefinition); err != nil {
+			return holdProtectedDelete(r, kubernetesRuntimeInstance, err, log), nil
+		}
+
 		// delete AWS EKS runtime instance
 		_, err = client.DeleteAwsEksKubernetesRuntimeInstance(
 			r.APIClient,
@@ -527,6 +612,20 @@ func v0KubernetesRuntimeInstanceDeleted(
 				return 0, nil
 			}
 			return controller.RetryOnNetworkErr(err, "failed to get GCP GKE runtime instance by kubernetes runtime instance ID")
+		}
+
+		// a protected cluster waits until its definition is no longer
+		// protected
+		gcpGkeDefinition, err := client.GetGcpGkeKubernetesRuntimeDefinitionByID(
+			r.APIClient,
+			r.APIServer,
+			*gcpGkeKubernetesRuntimeInstance.GcpGkeKubernetesRuntimeDefinitionID,
+		)
+		if err != nil {
+			return controller.RetryOnNetworkErr(err, "failed to get GCP GKE runtime definition for its deletion protection")
+		}
+		if err := v0.ProviderDefinitionDeletionProtection(gcpGkeDefinition); err != nil {
+			return holdProtectedDelete(r, kubernetesRuntimeInstance, err, log), nil
 		}
 
 		// delete GCP GKE runtime instance
@@ -557,6 +656,20 @@ func v0KubernetesRuntimeInstanceDeleted(
 			return controller.RetryOnNetworkErr(err, "failed to get OCI OKE runtime instance by kubernetes runtime instance ID")
 		}
 
+		// a protected cluster waits until its definition is no longer
+		// protected
+		ociOkeDefinition, err := client.GetOciOkeKubernetesRuntimeDefinitionByID(
+			r.APIClient,
+			r.APIServer,
+			*ociOkeKubernetesRuntimeInstance.OciOkeKubernetesRuntimeDefinitionID,
+		)
+		if err != nil {
+			return controller.RetryOnNetworkErr(err, "failed to get OCI OKE runtime definition for its deletion protection")
+		}
+		if err := v0.ProviderDefinitionDeletionProtection(ociOkeDefinition); err != nil {
+			return holdProtectedDelete(r, kubernetesRuntimeInstance, err, log), nil
+		}
+
 		// delete OCI OKE runtime instance
 		_, err = client.DeleteOciOkeKubernetesRuntimeInstance(
 			r.APIClient,
@@ -569,6 +682,78 @@ func v0KubernetesRuntimeInstanceDeleted(
 	}
 
 	return 0, nil
+}
+
+// protectedDeleteRequeueSeconds is how often a delete held by deletion
+// protection is looked at again.
+const protectedDeleteRequeueSeconds int64 = 60
+
+// holdProtectedDelete holds the delete of a runtime instance whose EKS, GKE
+// or OKE definition was protected after the delete was scheduled, recording
+// why on the instance, and returns when to look at it again.
+func holdProtectedDelete(
+	r *controller.Reconciler,
+	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
+	protectedErr error,
+	log *logr.Logger,
+) int64 {
+	log.Info("delete held", "reason", protectedErr.Error())
+	if r.EventsRecorder != nil {
+		if err := r.EventsRecorder.RecordEvent(
+			&v0.Event{
+				Note:   util.Ptr(event.TruncateNote(protectedErr.Error())),
+				Reason: util.Ptr(event.ReasonDeleteFailed),
+				Type:   util.Ptr(event.TypeWarning),
+			},
+			*kubernetesRuntimeInstance.ID,
+			kubernetesRuntimeInstance.GetFullyQualifiedType(),
+		); err != nil {
+			log.Error(err, "failed to record warning event for held delete")
+		}
+	}
+
+	return protectedDeleteRequeueSeconds
+}
+
+// deleteRuntimeNamespace deletes the runtime namespace.
+// It waits until the API reports that namespace missing, so the reinstall writes into a new one.
+func deleteRuntimeNamespace(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+) error {
+	namespace := &unstructured.Unstructured{}
+	namespace.SetAPIVersion("v1")
+	namespace.SetKind("Namespace")
+	namespace.SetName(threeport.RuntimeNamespace)
+
+	// delete the namespace, counting a missing one as already gone
+	if err := kube.DeleteResource(namespace, kubeClient, *mapper); err != nil {
+		return err
+	}
+
+	// poll until the API reports the namespace missing
+	deadline := time.Now().Add(30 * time.Second)
+	for {
+		_, err := kube.GetResource(
+			"",
+			"v1",
+			"Namespace",
+			"",
+			threeport.RuntimeNamespace,
+			kubeClient,
+			*mapper,
+		)
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("failed to check whether %s is gone: %w", threeport.RuntimeNamespace, err)
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("namespace %s is still deleting", threeport.RuntimeNamespace)
+		}
+		time.Sleep(time.Second)
+	}
 }
 
 // runtimeHostsControlPlane reports whether a runtime instance is the cluster the
@@ -641,4 +826,22 @@ func GetCloudProviderForInfraProvider(input string) (string, error) {
 	default:
 		return "", fmt.Errorf("failed to get provider, infra provider %s not supported", input)
 	}
+}
+
+// clusterMinorVersion returns the Kubernetes minor version a runtime's API
+// server runs, such as "1.36".  It reads the runtime from the API rather than
+// taking a copy: building a client refreshes an expiring EKS token on the
+// copy it is given, leaving the token there unencrypted, and a REST config
+// built from that copy again would fail to decrypt it.
+func clusterMinorVersion(r *controller.Reconciler, runtimeID uint, controlPlaneHost bool) (string, error) {
+	runtime, err := client.GetKubernetesRuntimeInstanceByID(r.APIClient, r.APIServer, runtimeID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
+	}
+	discoveryClient, err := kube.GetDiscoveryClient(runtime, controlPlaneHost, r.APIClient, r.APIServer, r.EncryptionKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to create discovery client: %w", err)
+	}
+
+	return kube.ServerMinorVersion(discoveryClient)
 }

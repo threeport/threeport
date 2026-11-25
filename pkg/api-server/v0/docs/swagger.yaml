@@ -89,6 +89,13 @@ definitions:
         items:
           type: string
         type: array
+      AuditLog:
+        description: |-
+          If true, the clusters' Kubernetes API server audit log, with its API and
+          authenticator logs, is sent to CloudWatch Logs, in the log group
+          /aws/eks/<cluster>/cluster, which keeps it for 90 days and is deleted
+          with the cluster.  It can't be changed after creation.
+        type: boolean
       AwsEksKubernetesRuntimeInstances:
         description: The AWS EKS kubernetes runtime instances derived from this definition.
         items:
@@ -108,12 +115,38 @@ definitions:
         description: The minimum number of nodes the default initial node group should
           have.
         type: integer
+      DeletionProtection:
+        description: |-
+          If true, the runtime instances derived from this definition can't be
+          deleted, Pulumi refuses to destroy or replace their clusters and node
+          groups, and EKS refuses to delete the clusters through its own API.  Set
+          it to false to let every instance of the definition be deleted.  If
+          unset, it is false.
+        type: boolean
       KubernetesRuntimeDefinitionID:
         description: The kubernetes runtime definition for an EKS cluster in AWS.
         type: integer
+      KubernetesVersion:
+        description: |-
+          The Kubernetes minor version of the clusters, such as "1.36": the
+          KubernetesRuntimeDefinition's KubernetesVersion, or the default version
+          when that is unset.  If unset here, the default version is used.
+          Raising it to another supported version upgrades the clusters, one minor
+          version at a time.  It can't be lowered, since a cluster can't be
+          downgraded, or cleared.
+        type: string
       Name:
         description: An arbitrary name for the definition.
         type: string
+      NodeGroupPerZone:
+        description: |-
+          If true, the clusters run a node group in each zone, each with the
+          default node group's instance type and sizes, rather than one node
+          group spanning every zone.  The cluster autoscaler can then add a node
+          in a given zone, as a pod bound to a volume there needs.  The zones are
+          chosen from those that offer the instance type.  It can't be changed
+          after creation, since that replaces the node groups.
+        type: boolean
       PrivateApi:
         description: |-
           If true, the Kubernetes API is not reachable from the public internet.
@@ -196,6 +229,13 @@ definitions:
       KubernetesRuntimeInstanceID:
         description: The kubernetes runtime instance associated with the AWS EKS cluster.
         type: integer
+      KubernetesVersion:
+        description: |-
+          The Kubernetes minor version the cluster runs, such as "1.36", as the
+          controller last read it from the provider.  That is the
+          lower of its control plane's and its node group's, which EKS upgrades
+          separately.
+        type: string
       Name:
         description: An arbitrary name the instance
         type: string
@@ -208,14 +248,45 @@ definitions:
         type: string
       ResourceInventory:
         description: An inventory of all AWS resources for the EKS cluster.
-        items:
-          type: integer
-        type: array
+        type: object
       Status:
         description: |-
           The status of the instance.
           TODO: use a custom type
         type: string
+      UpgradeAcknowledged:
+        description: |-
+          Set by the controller when it starts upgrading the cluster to the
+          definition's KubernetesVersion, and refreshed while the upgrade runs.
+        type: string
+      UpgradeFailed:
+        description: |-
+          True when the last upgrade failed.  The controller tries it again after
+          a wait.
+        type: boolean
+      UpgradeRefused:
+        description: |-
+          True when the controller refused to upgrade the cluster: because the
+          upgrade would replace or delete any of its resources, or because
+          Threeport didn't create the cluster.  It doesn't try again until the
+          definition's KubernetesVersion changes, or this is set back to false.
+        type: boolean
+      UpgradeRequestedVersion:
+        description: |-
+          The definition's KubernetesVersion the cluster was last asked to be
+          upgraded to.  The API server sets it when an update of the EKS
+          definition asks the cluster to upgrade, once the cluster's controller
+          has been notified, so a request it couldn't finish is made again by the
+          definition's next update.
+        type: string
+      UpgradeStatus:
+        description: |-
+          What the controller last did to upgrade the cluster, or why it
+          couldn't.
+        type: string
+      Upgrading:
+        description: True while the controller upgrades the cluster.
+        type: boolean
     required:
     - AwsEksKubernetesRuntimeDefinitionID
     - AwsProviderID
@@ -273,19 +344,19 @@ definitions:
         description: The additional env reference to be added to the environment variables
           of the component.
         items:
-          type: integer
+          type: object
         type: array
       AdditionalVolumeMounts:
         description: The additional volume mounts to be added to the deployment spec
           of the component.
         items:
-          type: integer
+          type: object
         type: array
       AdditionalVolumes:
         description: The additional volumes to be added to the deployment spec of
           the component.
         items:
-          type: integer
+          type: object
         type: array
       BinaryName:
         description: The binary name of the component.
@@ -476,6 +547,9 @@ definitions:
           Used to inform reconcilers that an object is being deleted so they may
           complete delete reconciliation before actually deleting the object from the database.
         type: string
+      FromNamespace:
+        description: The namespace of the control plane this install replaces
+        type: string
       Genesis:
         description: Indicates whether this is was the first control plane that was
           spun up in a control plane group
@@ -508,12 +582,35 @@ definitions:
         description: the kubernetes runtime instance the control plane is running
           on
         type: integer
+      ModuleInstall:
+        description: The module install the parent controller runs, as name, image
+          namespace, and tag separated by spaces
+        type: string
       Name:
         description: An arbitrary name the instance
         type: string
       Namespace:
         description: The namespace to deploy the control plane in
         type: string
+      NetworkCidrPool:
+        description: |-
+          The address blocks from which this control plane allocates a /16
+          network range to each Kubernetes runtime it provisions, as a JSON array
+          of IPv4 CIDR blocks such as ["10.16.0.0/12"].  Each block must be a /16
+          or larger, and the blocks must not overlap.  If empty, the default pool
+          is used: 10.16.0.0/16 through 10.255.0.0/16, except 10.96.0.0/16 and
+          10.244.0.0/16.  A change affects only later allocations.  On a child
+          control plane, the pool must be clear of the ranges its parent has
+          allocated and of its other children's pools, and the parent does not
+          allocate from it.  A child's pool can only grow, since the child may
+          have allocated from any of its blocks: a block can be added, or replaced
+          by a larger one that holds it.  On a control plane that is itself a
+          child, a child's pool must be inside this control plane's own pool.  A
+          child with no pool allocates no ranges, and its clusters keep the
+          network every cluster used to get.
+        items:
+          type: string
+        type: array
       Parent:
         $ref: '#/definitions/v0.ControlPlaneInstance'
       ParentControlPlaneInstanceID:
@@ -525,6 +622,21 @@ definitions:
         description: Indicates if object is considered to be reconciled by the object's
           controller.
         type: boolean
+      ReservedNetworkCidrs:
+        description: |-
+          The address blocks this control plane doesn't allocate from, and that
+          no runtime's range and no child control plane's pool may overlap, as a
+          JSON array of IPv4 CIDR blocks.  They are the pools of its deleted
+          children, recorded on the instance that represents this control plane
+          as each child is deleted, since the clusters a child allocated from its
+          pool may outlive it.  Remove a block once the clusters allocated from it
+          are gone; a control plane that is itself a child releases its own.  A
+          write that leaves out a block is refused with a conflict when the
+          instance changed after the writer read it, so a write based on an
+          earlier read can't release a block reserved since: read it again.
+        items:
+          type: string
+        type: array
       Status:
         description: |-
           The status of the instance.
@@ -921,6 +1033,40 @@ definitions:
         items:
           type: string
         type: array
+      AuditLog:
+        description: |-
+          Recorded for the kubernetes runtime definition's AuditLog.  It has no
+          effect on GKE, which always records the Kubernetes API's writes in
+          Cloud Audit Logs.  It can't be changed after creation.
+        type: boolean
+      BootDiskKmsKey:
+        description: |-
+          The Cloud KMS key the nodes' boot disks are encrypted with, as its full
+          resource name, as SecretsEncryptionKey is.  Threeport creates neither
+          the key nor its key ring: the project's Compute Engine service agent,
+          service-PROJECT_NUMBER@compute-system.iam.gserviceaccount.com, has
+          roles/cloudkms.cryptoKeyEncrypterDecrypter on it.  GKE takes a key only
+          for a pd-standard or pd-ssd disk, so BootDiskType is one of those.  A
+          node pool's key can't change, so changing it on a definition with
+          clusters replaces their node pools: a new one is created, and the old
+          one is removed once it is, its pods moving to the new one.  That can't
+          be done while DeletionProtection is set.  If unset, the disks are
+          encrypted with a key Google manages.
+        type: string
+      BootDiskSizeGb:
+        description: |-
+          The size of the nodes' boot disks in GB, from 10 to 65536.  If unset, a
+          new node pool gets 100, and one already there keeps the disk it has.
+          Changing it moves every node onto a new disk, one node at a time, in
+          the node pool they are in.
+        type: integer
+      BootDiskType:
+        description: |-
+          The type of the nodes' boot disks: pd-standard, pd-balanced or pd-ssd.
+          If unset, a new node pool gets pd-balanced, and one already there keeps
+          the disk it has.  Changing it moves every node onto a new disk, one
+          node at a time, in the node pool they are in.
+        type: string
       DefaultNodeGroupInitialSize:
         description: The number of nodes in the default initial node group.
         type: integer
@@ -935,14 +1081,57 @@ definitions:
         description: The minimum number of nodes the default initial node group should
           have.
         type: integer
+      DeletionProtection:
+        description: |-
+          If true, the runtime instances derived from this definition can't be
+          deleted, and Pulumi refuses to destroy or replace their clusters and
+          node pools.  GKE has no deletion protection of its own, so a cluster can
+          still be deleted in the Google Cloud console or with gcloud.  Set it to
+          false to let every instance of the definition be deleted.  If unset, it
+          is false.
+        type: boolean
       GcpGkeKubernetesRuntimeInstances:
         description: The GCP GKE kubernetes runtime instances derived from this definition.
         items:
           $ref: '#/definitions/v0.GcpGkeKubernetesRuntimeInstance'
         type: array
+      IntranodeVisibility:
+        description: |-
+          If true, traffic between pods on the same node goes through the
+          cluster's network, where flow logs, firewall rules and Network
+          Policies see it.  Changing it on a definition with clusters has GKE
+          recreate their nodes.  If unset, it is off.
+        type: boolean
       KubernetesRuntimeDefinitionID:
         description: The kubernetes runtime definition for a GKE cluster in GCP.
         type: integer
+      KubernetesVersion:
+        description: |-
+          The Kubernetes minor version of the clusters, such as "1.36": the
+          KubernetesRuntimeDefinition's KubernetesVersion, or the default version
+          when that is unset.  If unset here, the default version is used.
+          Raising it to another supported version upgrades the clusters, one minor
+          version at a time.  It can't be lowered, since a cluster can't be
+          downgraded, or cleared.
+        type: string
+      MaintenanceWindowDays:
+        description: |-
+          The days the clusters' maintenance window recurs on, in UTC, as an
+          RRULE writes them: such as "SA,SU".  GKE upgrades a cluster only in that
+          window, apart from an upgrade it can't defer.  If unset, "SA,SU" is used.
+          It can't be changed after creation.
+        type: string
+      MaintenanceWindowHours:
+        description: |-
+          How many hours the maintenance window lasts, from 4 to 24.  If unset, 8
+          is used.  It can't be changed after creation.
+        type: integer
+      MaintenanceWindowStart:
+        description: |-
+          The time of day the maintenance window starts on each of its days, in
+          UTC, such as "04:00".  If unset, "04:00" is used.  It can't be changed
+          after creation.
+        type: string
       Name:
         description: An arbitrary name for the definition.
         type: string
@@ -956,6 +1145,37 @@ definitions:
           The profile to associate with the definition.  Profile is a named
           standard configuration for a definition object.
         type: integer
+      ReleaseChannel:
+        description: |-
+          The GKE release channel of the clusters, REGULAR or STABLE.  GKE
+          upgrades their control planes and nodes to its releases on its own,
+          within the maintenance window.  If unset, REGULAR is used.  It can't be
+          changed after creation.
+        type: string
+      SecretsEncryptionKey:
+        description: |-
+          The Cloud KMS key the clusters' Secrets are encrypted with, on top of
+          the encryption Google gives everything it stores, as the key's full
+          resource name:
+          projects/PROJECT/locations/LOCATION/keyRings/RING/cryptoKeys/KEY.
+          Threeport creates neither the key nor its key ring: the key is in the
+          clusters' region, and the project's GKE service agent,
+          service-PROJECT_NUMBER@container-engine-robot.iam.gserviceaccount.com,
+          has roles/cloudkms.cryptoKeyEncrypterDecrypter on it.  Setting it on a
+          definition with clusters encrypts their Secrets: GKE restarts each
+          control plane, so a zonal cluster's Kubernetes API is unavailable for a
+          while, and the nodes stay.  It can be changed to another key, but not
+          cleared once set.  If unset, Secrets are encrypted only with a key
+          Google manages.
+        type: string
+      SecureBoot:
+        description: |-
+          If true, the nodes boot only software signed by a key their firmware
+          trusts.  A node pool's Secure Boot can't change, so changing it on a
+          definition with clusters replaces their node pools as a change of
+          BootDiskKmsKey does, which can't be done while DeletionProtection is
+          set.  If unset, Secure Boot is off.
+        type: boolean
       TierID:
         description: |-
           The tier to associate with the definition.  Tier is a level of
@@ -986,6 +1206,17 @@ definitions:
           still destroyed. It is rejected on create, and once set it stays set until
           changed, so tptctl sets it back to false if the delete fails.
         type: boolean
+      BootDiskKmsKey:
+        description: |-
+          The Cloud KMS key of the nodes' boot disks the controller last
+          applied, "" for none.
+        type: string
+      BootDiskSizeGb:
+        description: The size in GB of the nodes' boot disks the controller last applied.
+        type: integer
+      BootDiskType:
+        description: The type of the nodes' boot disks the controller last applied.
+        type: string
       CreationAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
@@ -1025,9 +1256,20 @@ definitions:
           situation where future reconciliation could be descructive such as
           spinning up more infrastructure when there is a unresolved problem.
         type: boolean
+      IntranodeVisibility:
+        description: |-
+          Whether the cluster has intranode visibility, as the controller last
+          applied it.
+        type: boolean
       KubernetesRuntimeInstanceID:
         description: The kubernetes runtime instance associated with the GKE cluster.
         type: integer
+      KubernetesVersion:
+        description: |-
+          The Kubernetes minor version the cluster runs, such as "1.36", as the
+          controller last read it from the provider.  That is its control
+          plane's: GKE upgrades its nodes to it in the maintenance window.
+        type: string
       Name:
         description: An arbitrary name the instance
         type: string
@@ -1038,16 +1280,69 @@ definitions:
       Region:
         description: The GCP region in which the cluster is provisioned.
         type: string
+      ReservedNatAddress:
+        description: |-
+          If true, the cluster's Cloud NAT uses an address reserved for it, so
+          that its outbound traffic comes from one address that does not change
+          and is recorded as the kubernetes runtime instance's EgressCidrs.  Set
+          on clusters created since Threeport reserves one; clusters created
+          before keep the addresses Google allocates.  Cannot be changed after
+          creation.
+        type: boolean
       ResourceInventory:
         description: An inventory of all GCP resources for the GKE cluster.
-        items:
-          type: integer
-        type: array
+        type: object
+      SecretsEncryptionKey:
+        description: |-
+          The Cloud KMS key the cluster's Secrets are encrypted with, "" for
+          none, as the controller last applied the definition's
+          SecretsEncryptionKey.  The definition holds what was asked for, and
+          these applied settings hold what the cluster runs, so the controller
+          applies what differs.  Each is unset on a cluster none was applied to.
+        type: string
+      SecureBoot:
+        description: |-
+          Whether the nodes boot with Secure Boot, as the controller last
+          applied it.
+        type: boolean
       Status:
         description: |-
           The status of the instance.
           TODO: use a custom type
         type: string
+      UpgradeAcknowledged:
+        description: |-
+          Set by the controller when it starts upgrading the cluster to the
+          definition's KubernetesVersion, and refreshed while the upgrade runs.
+        type: string
+      UpgradeFailed:
+        description: |-
+          True when the last upgrade failed.  The controller tries it again after
+          a wait.
+        type: boolean
+      UpgradeRefused:
+        description: |-
+          True when the controller refused to upgrade the cluster: because the
+          upgrade would replace or delete any of its resources, or because
+          Threeport didn't create the cluster.  It doesn't try again until the
+          definition's KubernetesVersion changes, or this is set back to false.
+        type: boolean
+      UpgradeRequestedVersion:
+        description: |-
+          The definition's KubernetesVersion the cluster was last asked to be
+          upgraded to.  The API server sets it when an update of the GKE
+          definition asks the cluster to upgrade, once the cluster's controller
+          has been notified, so a request it couldn't finish is made again by the
+          definition's next update.
+        type: string
+      UpgradeStatus:
+        description: |-
+          What the controller last did to upgrade the cluster, or why it
+          couldn't.
+        type: string
+      Upgrading:
+        description: True while the controller upgrades the cluster.
+        type: boolean
     required:
     - GcpGkeKubernetesRuntimeDefinitionID
     - GcpProviderID
@@ -1092,9 +1387,7 @@ definitions:
           Complete kubernetes resources that will be appended to the provided
           helm chart.
         items:
-          items:
-            type: integer
-          type: array
+          type: object
         type: array
       Chart:
         description: The name of the helm chart to use from the helm repo, e.g. wordpress
@@ -1184,9 +1477,7 @@ definitions:
           Complete kubernetes resources that will be appended to the provided
           helm chart.
         items:
-          items:
-            type: integer
-          type: array
+          type: object
         type: array
       CreationAcknowledged:
         description: |-
@@ -1266,6 +1557,14 @@ definitions:
         items:
           type: string
         type: array
+      AuditLog:
+        description: |-
+          If true, the clusters' Kubernetes API server audit log is enabled and
+          sent to the infra provider's logging service: CloudWatch Logs on EKS.
+          GKE always records the API's writes in Cloud Audit Logs, and OKE has no
+          API server audit log, so it has no effect on either.  It is copied into
+          the EKS, GKE or OKE definition, and can't be changed after creation.
+        type: boolean
       CreationAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
@@ -1287,6 +1586,15 @@ definitions:
       DeletionConfirmed:
         description: Used by controllers to confirm deletion of an object.
         type: string
+      DeletionProtection:
+        description: |-
+          If true, the clusters and their node groups are created protected from
+          deletion: their runtime instances can't be deleted, and Pulumi refuses
+          to destroy or replace them, as EKS also refuses to delete the cluster.
+          It is copied into the EKS, GKE or OKE definition, whose
+          DeletionProtection is the one that counts afterwards: this definition
+          can't be changed once that one exists.
+        type: boolean
       DeletionScheduled:
         description: |-
           Used to inform reconcilers that an object is being deleted so they may
@@ -1322,11 +1630,22 @@ definitions:
         items:
           $ref: '#/definitions/v0.KubernetesRuntimeInstance'
         type: array
+      KubernetesVersion:
+        description: |-
+          The Kubernetes minor version of the clusters, such as "1.36", on EKS,
+          GKE and OKE.  If unset, the default version is used, and the EKS, GKE
+          or OKE definition records it.  It records the version asked for at
+          creation and can't be changed: the clusters are upgraded by raising the
+          EKS or GKE definition's KubernetesVersion.  A kind cluster's version
+          comes with its node image, so it takes none.
+        type: string
       Name:
         description: An arbitrary name for the definition.
         type: string
       NodeMaximum:
-        description: Sets the maximum number of nodes for the default node group.
+        description: |-
+          Sets the maximum number of nodes for the default node group, across
+          all its zones.  If unset, it is 60.
         type: integer
       NodeProfile:
         description: |-
@@ -1342,7 +1661,7 @@ definitions:
           If true, the Kubernetes API is not reachable from the public internet.
           It is reachable only from the cluster's own network, from networks
           connected to it and, on GKE, through the IAM-authorized DNS endpoint.
-          Cannot be changed after creation.
+          Supported on GKE only.  Cannot be changed after creation.
         type: boolean
       ProfileID:
         description: |-
@@ -1470,6 +1789,20 @@ definitions:
       Name:
         description: An arbitrary name the instance
         type: string
+      NetworkCidr:
+        description: |-
+          The IPv4 network range of the cluster's network, such as 10.16.0.0/16:
+          its VPC on EKS, its VCN on OKE, and its node, Pod and Service ranges on
+          GKE.  No two runtimes may overlap, so that their networks can be
+          connected.  If unset when the runtime is provisioned, the control plane
+          allocates the next free /16 from its NetworkCidrPool.  If set, it must be
+          a /16 or larger, overlap no other runtime's range and no child control
+          plane's pool, and stay clear of the ranges clusters use internally
+          (10.96.0.0/16, 10.244.0.0/16, 172.20.0.0/16 and 172.16.0.0/28); it does
+          not have to be in the pool.  A range larger than a /16 is reserved
+          whole, and the cluster's network is laid out in its first /16, as AWS
+          and OCI networks are no larger.  Cannot be changed once set.
+        type: string
       Reconciled:
         description: Indicates if object is considered to be reconciled by the object's
           controller.
@@ -1482,6 +1815,9 @@ definitions:
           The status of the instance.
           TODO: use a custom type
         type: string
+      StorageComponentInstanceID:
+        description: The workload that provides object storage for this runtime.
+        type: integer
       ThreeportAgentImage:
         description: |-
           An alternate threeport image to use when deploying threeport agent to
@@ -1649,9 +1985,7 @@ definitions:
     properties:
       JSONDefinition:
         description: The individual manifest in JSON format.
-        items:
-          type: integer
-        type: array
+        type: object
       KubernetesWorkloadDefinitionID:
         description: The kubernetes workload definition this resource belongs to.
         type: integer
@@ -1667,9 +2001,7 @@ definitions:
           KubernetesWorkloadResourceDefinition.JSONDefinition in that it has
           namespace management and other configuration — such as resource
           allocation management — added.
-        items:
-          type: integer
-        type: array
+        type: object
       KubernetesWorkloadInstanceID:
         description: The kubernetes workload instance this resource belongs to.
         type: integer
@@ -1687,9 +2019,7 @@ definitions:
         description: |-
           The JSON definition of a Kubernetes resource as stored in etcd in the
           kubernetes runtime.
-        items:
-          type: integer
-        type: array
+        type: object
       ScheduledForDeletion:
         description: Whether another controller has scheduled this resource for deletion
         type: string
@@ -2341,6 +2671,12 @@ definitions:
           The module API server's endpoint to proxy requests to for module
           objects.
         type: string
+      ImageNamespace:
+        description: The repository the module's images are pulled from.
+        type: string
+      ImageTag:
+        description: The tag on each of the module's images.
+        type: string
       ModuleApiRoutes:
         description: |-
           The routes as URL paths to proxy requests to the API server's endpoint.
@@ -2793,9 +3129,31 @@ definitions:
         items:
           type: string
         type: array
+      AuditLog:
+        description: |-
+          Recorded for the kubernetes runtime definition's AuditLog.  It has no
+          effect on OKE, which has no Kubernetes API server audit log.  It can't
+          be changed after creation.
+        type: boolean
+      DeletionProtection:
+        description: |-
+          If true, the runtime instances derived from this definition can't be
+          deleted, and Pulumi refuses to destroy or replace their clusters and
+          node pools.  OKE has no deletion protection of its own, so a cluster can
+          still be deleted in the OCI console or with the OCI CLI.  Set it to false
+          to let every instance of the definition be deleted.  If unset, it is
+          false.
+        type: boolean
       KubernetesRuntimeDefinitionID:
         description: The kubernetes runtime definition for an OKE cluster in OCI.
         type: integer
+      KubernetesVersion:
+        description: |-
+          The Kubernetes minor version of the clusters, such as "1.36": the
+          KubernetesRuntimeDefinition's KubernetesVersion, or the default version
+          when that is unset.  If unset here, the default version is used.  It
+          can't be changed after creation.
+        type: string
       Name:
         description: An arbitrary name for the definition.
         type: string
@@ -2905,9 +3263,7 @@ definitions:
         type: string
       ResourceInventory:
         description: An inventory of all OCI resources for the OKE cluster.
-        items:
-          type: integer
-        type: array
+        type: object
       Status:
         description: |-
           The status of the instance.
@@ -3045,9 +3401,7 @@ definitions:
         type: boolean
       Data:
         description: The secret value to be stored in the provider.
-        items:
-          type: integer
-        type: array
+        type: object
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
@@ -3344,7 +3698,7 @@ info:
   description: Core API server for the Threeport application orchestration control
     plane.
   title: Threeport RESTful API
-  version: v0.7.0-rc.3
+  version: v0.7.0-rc.6
 paths:
   /attached-object-references/versions:
     get:

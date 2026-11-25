@@ -56,6 +56,25 @@ type OciOkeKubernetesRuntimeDefinition struct {
 	// AllowedCidrs.
 	AllowedCidrs *datatypes.JSON `validate:"optional" swaggertype:"array,string"`
 
+	// The Kubernetes minor version of the clusters, such as "1.36": the
+	// KubernetesRuntimeDefinition's KubernetesVersion, or the default version
+	// when that is unset.  If unset here, the default version is used.  It
+	// can't be changed after creation.
+	KubernetesVersion *string `validate:"optional"`
+
+	// Recorded for the kubernetes runtime definition's AuditLog.  It has no
+	// effect on OKE, which has no Kubernetes API server audit log.  It can't
+	// be changed after creation.
+	AuditLog *bool `validate:"optional" gorm:"default:false"`
+
+	// If true, the runtime instances derived from this definition can't be
+	// deleted, and Pulumi refuses to destroy or replace their clusters and
+	// node pools.  OKE has no deletion protection of its own, so a cluster can
+	// still be deleted in the OCI console or with the OCI CLI.  Set it to false
+	// to let every instance of the definition be deleted.  If unset, it is
+	// false.
+	DeletionProtection *bool `validate:"optional" gorm:"default:false"`
+
 	// The OCI OKE kubernetes runtime instances derived from this definition.
 	OciOkeKubernetesRuntimeInstances []*OciOkeKubernetesRuntimeInstance `validate:"optional,association"`
 
@@ -81,7 +100,7 @@ type OciOkeKubernetesRuntimeInstance struct {
 	OciOkeKubernetesRuntimeDefinitionID *uint `validate:"required" gorm:"not null" relationship:"requires"`
 
 	// An inventory of all OCI resources for the OKE cluster.
-	ResourceInventory *datatypes.JSON `validate:"optional"`
+	ResourceInventory *datatypes.JSON `validate:"optional" swaggertype:"object"`
 
 	// Set by an operator to allow this instance to be deleted even though its
 	// creation was confirmed and no resource inventory is recorded, or the

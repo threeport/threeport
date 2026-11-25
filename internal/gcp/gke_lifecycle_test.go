@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
@@ -96,6 +97,11 @@ func TestBuildGkeInfra_MapsDefinitionNodePoolFields(t *testing.T) {
 		DefaultNodeGroupInitialSize:  &initialSize,
 		DefaultNodeGroupMinimumSize:  &minSize,
 		DefaultNodeGroupMaximumSize:  &maxSize,
+		KubernetesVersion:            util.Ptr("1.35"),
+		ReleaseChannel:               util.Ptr("STABLE"),
+		MaintenanceWindowDays:        util.Ptr("SU"),
+		MaintenanceWindowStart:       util.Ptr("22:00"),
+		MaintenanceWindowHours:       util.Ptr(6),
 	}
 
 	infra, err := buildGkeInfra(r, instance, definition, nil)
@@ -105,6 +111,48 @@ func TestBuildGkeInfra_MapsDefinitionNodePoolFields(t *testing.T) {
 	assert.Equal(t, int32(2), infra.WorkerNodeInitialCount)
 	assert.Equal(t, int32(3), infra.MinNodeCount)
 	assert.Equal(t, int32(7), infra.MaxNodeCount)
+	assert.Equal(t, "1.35", infra.Version)
+	assert.Zero(t, infra.ZoneCount, "a definition that records no zones")
+	assert.Equal(t, "STABLE", infra.ReleaseChannel)
+	assert.Equal(t, "SU", infra.MaintenanceWindowDays)
+	assert.Equal(t, "22:00", infra.MaintenanceWindowStart)
+	assert.Equal(t, 6, infra.MaintenanceWindowHours)
+
+	// a definition created before these were recorded gets the defaults
+	definition.KubernetesVersion = nil
+	definition.ReleaseChannel = nil
+	definition.MaintenanceWindowDays = nil
+	definition.MaintenanceWindowStart = nil
+	definition.MaintenanceWindowHours = nil
+	infra, err = buildGkeInfra(r, instance, definition, nil)
+	require.NoError(t, err)
+	assert.Equal(t, api_v0.DefaultKubernetesVersion, infra.Version)
+	assert.False(t, infra.DeletionProtection, "a definition without it isn't protected")
+
+	// a protected definition builds a protected cluster
+	definition.DeletionProtection = util.Ptr(true)
+	infra, err = buildGkeInfra(r, instance, definition, nil)
+	require.NoError(t, err)
+	assert.True(t, infra.DeletionProtection)
+	assert.Equal(t, api_v0.DefaultGkeReleaseChannel, infra.ReleaseChannel)
+	assert.Equal(t, api_v0.DefaultGkeMaintenanceWindowDays, infra.MaintenanceWindowDays)
+	assert.Equal(t, api_v0.DefaultGkeMaintenanceWindowStart, infra.MaintenanceWindowStart)
+	assert.Equal(t, api_v0.DefaultGkeMaintenanceWindowHours, infra.MaintenanceWindowHours)
+
+	// the zones the definition's clusters run their nodes in
+	definition.ZoneCount = util.Ptr(3)
+	infra, err = buildGkeInfra(r, instance, definition, nil)
+	require.NoError(t, err)
+	assert.Equal(t, int32(3), infra.ZoneCount)
+	assert.Empty(t, infra.RecordedClusterLocation(), "an instance with no inventory")
+
+	// an instance's inventory records where its cluster is
+	inventory := datatypes.JSON(`{"deployment": {"resources": [{"type": "gcp:container/cluster:Cluster", "inputs": {"location": "us-central1-b"}}]}}`)
+	instance.ResourceInventory = &inventory
+	infra, err = buildGkeInfra(r, instance, definition, nil)
+	require.NoError(t, err)
+	assert.Equal(t, "us-central1-b", infra.RecordedClusterLocation())
+	instance.ResourceInventory = nil
 }
 
 // TestBuildGkeInfra_RefusesWithoutAnAccountToBind covers a provider with no
@@ -575,6 +623,78 @@ func (r *recordingRecorder) RecordEvent(event *api_v0.Event, objectID uint, full
 // HandleEventOverride is unused by the lifecycle.
 func (r *recordingRecorder) HandleEventOverride(*api_v0.Event, uint, string, error, *logr.Logger) {}
 
+// TestGkeRuntimeUpdate_LeavesTheOwnedRuntime covers an update still waiting on
+// creation, and a scheduled delete. Neither patches the owned runtime.
+func TestGkeRuntimeUpdate_LeavesTheOwnedRuntime(t *testing.T) {
+	id := uint(7)
+	runtimeID := uint(42)
+	name := "cluster"
+	now := time.Now().UTC()
+	passed := &api_v0.GcpGkeKubernetesRuntimeInstance{
+		Common:                      api_v0.Common{ID: &id},
+		Instance:                    api_v0.Instance{Name: &name},
+		KubernetesRuntimeInstanceID: &runtimeID,
+	}
+
+	// a scheduled delete is an update with nothing left to apply
+	cases := []struct {
+		name     string
+		stored   api_v0.GcpGkeKubernetesRuntimeInstance
+		wantWait bool
+	}{
+		{
+			name:     "creation not confirmed",
+			stored:   *passed,
+			wantWait: true,
+		},
+		{
+			name: "scheduled delete",
+			stored: api_v0.GcpGkeKubernetesRuntimeInstance{
+				Common:                      api_v0.Common{ID: &id},
+				Instance:                    api_v0.Instance{Name: &name},
+				Reconciliation:              api_v0.Reconciliation{DeletionScheduled: &now},
+				KubernetesRuntimeInstanceID: &runtimeID,
+			},
+			wantWait: false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			patched := false
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				// a patch is the runtime being asked to run again
+				if r.Method == http.MethodPatch {
+					patched = true
+				}
+				body, err := json.Marshal(apiserver_lib.Response{
+					Status: apiserver_lib.Status{Code: http.StatusOK, Message: "OK"},
+					Data:   []apiserver_lib.Object{tc.stored},
+				})
+				require.NoError(t, err)
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write(body)
+			}))
+			defer srv.Close()
+
+			log := logr.Discard()
+			requeue, err := v0GcpGkeKubernetesRuntimeInstanceUpdated(
+				&controller.Reconciler{
+					APIClient: &http.Client{},
+					APIServer: strings.TrimPrefix(srv.URL, "http://"),
+				},
+				passed,
+				&log,
+			)
+
+			require.NoError(t, err)
+			assert.False(t, patched)
+			assert.Equal(t, tc.wantWait, requeue > 0)
+		})
+	}
+}
+
 // TestGkeLifecycle_RecordWarning covers the Warning event reaching the
 // instance's events, bound to the right object type and ID.
 func TestGkeLifecycle_RecordWarning(t *testing.T) {
@@ -719,4 +839,79 @@ func TestGkeIsCreateComplete_GcpErrorPropagates(t *testing.T) {
 func jsonPtr(s string) *datatypes.JSON {
 	j := datatypes.JSON(s)
 	return &j
+}
+
+// TestBuildGkeInfra_APrivateClusterIsBuiltPrivate covers #729: a definition
+// with PrivateApi builds a private cluster, with its AllowedCidrs on the
+// internal endpoint and without looking up the control plane's addresses,
+// which the control plane does not need to reach it through the DNS
+// endpoint.
+func TestBuildGkeInfra_APrivateClusterIsBuiltPrivate(t *testing.T) {
+	projectID := "some-project"
+	gcpProviderID := uint(1)
+	serviceAccountCredentials := `{"type":"service_account","project_id":"some-project","client_email":"threeport@some-project.iam.gserviceaccount.com"}`
+	encryptionKey, storedCredentials := encryptedCredentials(t, serviceAccountCredentials)
+	gcpProvider := api_v0.GcpProvider{
+		Common:                    api_v0.Common{ID: &gcpProviderID},
+		ProjectID:                 &projectID,
+		ServiceAccountCredentials: &storedCredentials,
+	}
+
+	runtimeLookups := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "kubernetes-runtime-instances") {
+			runtimeLookups++
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		body, err := json.Marshal(apiserver_lib.Response{
+			Status: apiserver_lib.Status{Code: http.StatusOK, Message: "OK"},
+			Data:   []apiserver_lib.Object{gcpProvider},
+		})
+		require.NoError(t, err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+
+	r := &controller.Reconciler{
+		APIClient:     &http.Client{},
+		APIServer:     strings.TrimPrefix(srv.URL, "http://"),
+		EncryptionKey: encryptionKey,
+	}
+
+	instanceName := "private-instance"
+	region := "us-east1"
+	runtimeInstanceID := uint(7)
+	instance := &api_v0.GcpGkeKubernetesRuntimeInstance{
+		Instance:                    api_v0.Instance{Name: &instanceName},
+		Region:                      &region,
+		GcpProviderID:               &gcpProviderID,
+		KubernetesRuntimeInstanceID: &runtimeInstanceID,
+	}
+	machineType := "e2-standard-4"
+	size := 1
+	privateApi := true
+	allowedCidrs := []byte(`["10.8.0.0/16"]`)
+	definition := &api_v0.GcpGkeKubernetesRuntimeDefinition{
+		DefaultNodeGroupInstanceType: &machineType,
+		DefaultNodeGroupInitialSize:  &size,
+		DefaultNodeGroupMinimumSize:  &size,
+		DefaultNodeGroupMaximumSize:  &size,
+		PrivateApi:                   &privateApi,
+		AllowedCidrs:                 (*datatypes.JSON)(&allowedCidrs),
+	}
+
+	infra, err := buildGkeInfra(r, instance, definition, nil)
+	require.NoError(t, err)
+	assert.True(t, infra.PrivateApi)
+	assert.Equal(t, []string{"10.8.0.0/16"}, infra.AllowedCidrs)
+	assert.Empty(t, infra.ControlPlaneEgressCidrs)
+	assert.Zero(t, runtimeLookups, "a private cluster does not look up the control plane's addresses")
+
+	privateApi = false
+	_, err = buildGkeInfra(r, instance, definition, nil)
+	require.Error(t, err, "a public one does, which this server fails")
+	assert.Equal(t, 1, runtimeLookups)
 }

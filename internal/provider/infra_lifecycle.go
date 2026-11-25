@@ -275,6 +275,15 @@ type InfraLifecycleProvider interface {
 	PublishDeleteNotification() error
 }
 
+// DeletionGuard is implemented by an InfraLifecycleProvider whose cluster can
+// be protected from deletion.  DeletionRefusal returns a
+// *api_v0.DeletionProtectedError while the cluster is protected, and nil when
+// it may be destroyed.  The API refuses a delete of a protected cluster before
+// scheduling it, and this catches a protection set after that.
+type DeletionGuard interface {
+	DeletionRefusal() error
+}
+
 // HandleInfraCreate implements the create state machine for any infrastructure
 // provider. It checks reconciliation state, manages ack/confirm transitions,
 // and launches the create goroutine when needed.
@@ -395,20 +404,29 @@ func HandleInfraCreate(p InfraLifecycleProvider, log *logr.Logger) (int64, error
 const createUnconfirmedRequeueSeconds = 120
 
 // HandleInfraUpdate handles an update notification for an infrastructure
-// instance.  The create and delete handlers own an instance's lifecycle, so an
-// update has nothing to reconcile once the creation is confirmed.  Until then
-// it asks to be requeued: the reconciler marks the instance reconciled when a
-// handler returns with no requeue, and an update notification arrives with
-// every acknowledgement and streamed state write, long before the create has
-// run.
+// instance.  The create and delete handlers own an instance's lifecycle.  Once
+// the creation is confirmed, an instance whose cluster can be upgraded has it
+// upgraded to its definition's Kubernetes version, and any other has nothing
+// to reconcile.  Until then it asks to be requeued: the reconciler marks the
+// instance reconciled when a handler returns with no requeue, and an update
+// notification arrives with every acknowledgement and streamed state write,
+// long before the create has run.
 func HandleInfraUpdate(p InfraLifecycleProvider, log *logr.Logger) (int64, error) {
 	snap, err := p.GetReconciliation()
 	if err != nil {
 		return 0, fmt.Errorf("failed to get reconciliation state: %w", err)
 	}
 
-	// a delete has nothing to wait for, and a confirmed create is done
-	if snap.DeletionScheduled != nil || snap.CreationConfirmed != nil {
+	// a delete has nothing to wait for
+	if snap.DeletionScheduled != nil {
+		return 0, nil
+	}
+
+	// a confirmed create is done, apart from an upgrade
+	if snap.CreationConfirmed != nil {
+		if upgradeable, ok := p.(UpgradeLifecycleProvider); ok {
+			return handleUpgrade(upgradeable, snap, log)
+		}
 		return 0, nil
 	}
 
@@ -443,6 +461,18 @@ func HandleInfraDelete(p InfraLifecycleProvider, log *logr.Logger) (int64, error
 		snap.CreationConfirmed == nil {
 		log.Info("create operation still in progress, requeueing delete")
 		return 60, nil
+	}
+
+	// the same for an upgrade, which runs on the same stack
+	if upgradeable, ok := p.(UpgradeLifecycleProvider); ok {
+		upgrade, err := upgradeable.GetUpgrade()
+		if err != nil {
+			return 0, fmt.Errorf("failed to get upgrade state: %w", err)
+		}
+		if upgrade.Upgrading && upgrade.Acknowledged != nil && !checkStaleAck(*upgrade.Acknowledged) {
+			log.Info("upgrade still in progress, requeueing delete")
+			return 60, nil
+		}
 	}
 
 	// record a Warning event, falling back to the log when that fails
@@ -519,6 +549,18 @@ func HandleInfraDelete(p InfraLifecycleProvider, log *logr.Logger) (int64, error
 			// fall through to re-launch
 		} else {
 			return 60, nil
+		}
+	}
+
+	// hold a delete while the cluster is protected, as it may have been since
+	// the delete was scheduled
+	if guard, ok := p.(DeletionGuard); ok {
+		if err := guard.DeletionRefusal(); err != nil {
+			var protected *api_v0.DeletionProtectedError
+			if errors.As(err, &protected) {
+				return hold(err)
+			}
+			return 0, fmt.Errorf("failed to check the cluster's deletion protection: %w", err)
 		}
 	}
 

@@ -1,6 +1,7 @@
 package supportservices
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -9,11 +10,23 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// TestIngressComponentYaml checks the fields this install sets on the sample.
+// componentJSON renders a typed component so the test can scan its values.
+func componentJSON(t *testing.T, component any) string {
+	t.Helper()
+
+	// marshal the component
+	raw, err := json.Marshal(component)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(raw)
+}
+
+// TestIngressComponentYaml checks the fields this install sets on the component.
 func TestIngressComponentYaml(t *testing.T) {
-	// the sample stays free of threeport values
-	if strings.Contains(string(ingressComponent), "threeport") {
-		t.Fatal("ingress component sample contains a threeport value")
+	// the component stays free of threeport values
+	if strings.Contains(componentJSON(t, ingressComponent()), "threeport") {
+		t.Fatal("ingress component contains a threeport value")
 	}
 
 	// render the component and read the fields this install sets
@@ -43,11 +56,11 @@ func TestIngressComponentYaml(t *testing.T) {
 	}
 }
 
-// TestDatabaseComponentYaml checks the fields this install sets on the sample.
+// TestDatabaseComponentYaml checks the fields this install sets on the component.
 func TestDatabaseComponentYaml(t *testing.T) {
-	// the sample stays free of threeport values
-	if strings.Contains(string(databaseComponent), "threeport") {
-		t.Fatal("database component sample contains a threeport value")
+	// the component stays free of threeport values
+	if strings.Contains(componentJSON(t, databaseComponent()), "threeport") {
+		t.Fatal("database component contains a threeport value")
 	}
 
 	// render the component and read the operator fields
@@ -78,11 +91,40 @@ func TestDatabaseComponentYaml(t *testing.T) {
 	}
 }
 
-// TestCertificatesComponentYaml checks the fields this install sets on the sample.
+// TestStorageComponentYaml checks the fields this install sets on the component.
+func TestStorageComponentYaml(t *testing.T) {
+	// the component stays free of threeport values
+	if strings.Contains(componentJSON(t, storageComponent()), "threeport") {
+		t.Fatal("storage component contains a threeport value")
+	}
+
+	// render the component and read the operator fields
+	rendered, err := storageComponentYaml()
+	if err != nil {
+		t.Fatal(err)
+	}
+	component, err := util.UnstructuredFromYaml([]byte(rendered))
+	if err != nil {
+		t.Fatal(err)
+	}
+	name, _, _ := unstructured.NestedString(component.Object, "metadata", "name")
+	collection, _, _ := unstructured.NestedString(component.Object, "spec", "collection", "name")
+	namespace, _, _ := unstructured.NestedString(component.Object, "spec", "namespace")
+	replicas, _, _ := unstructured.NestedInt64(component.Object, "spec", "seaweedfsOperator", "replicas")
+	if component.GetKind() != "StorageComponent" ||
+		name != StorageComponentName ||
+		collection != "threeport-support-services" ||
+		namespace != "nukleros-storage-system" ||
+		replicas != 1 {
+		t.Fatalf("kind=%s name=%s collection=%s namespace=%s replicas=%d", component.GetKind(), name, collection, namespace, replicas)
+	}
+}
+
+// TestCertificatesComponentYaml checks the fields this install sets on the component.
 func TestCertificatesComponentYaml(t *testing.T) {
-	// the sample stays free of threeport values
-	if strings.Contains(string(certificatesComponent), "threeport") {
-		t.Fatal("certificates component sample contains a threeport value")
+	// the component stays free of threeport values
+	if strings.Contains(componentJSON(t, certificatesComponent()), "threeport") {
+		t.Fatal("certificates component contains a threeport value")
 	}
 
 	// render the component and read the operator fields
@@ -110,11 +152,11 @@ func TestCertificatesComponentYaml(t *testing.T) {
 	}
 }
 
-// TestSecretsComponentYaml checks the fields this install sets on the sample.
+// TestSecretsComponentYaml checks the fields this install sets on the component.
 func TestSecretsComponentYaml(t *testing.T) {
-	// the sample stays free of threeport values
-	if strings.Contains(string(secretsComponent), "threeport") {
-		t.Fatal("secrets component sample contains a threeport value")
+	// the component stays free of threeport values
+	if strings.Contains(componentJSON(t, secretsComponent()), "threeport") {
+		t.Fatal("secrets component contains a threeport value")
 	}
 
 	// render the component and read the operator fields

@@ -82,6 +82,8 @@ func TestAGkeClusterAdmitsOnlyItsAllowedCidrs(t *testing.T) {
 			map[string]any{"cidrBlock": "198.51.100.7/32"},
 		}, config["cidrBlocks"])
 		assert.Equal(t, false, config["gcpPublicCidrsAccessEnabled"])
+		assert.NotContains(t, config, "privateEndpointEnforcementEnabled",
+			"a public cluster's nodes reach the API through the internal endpoint, which the list leaves alone")
 
 		privateCluster, ok := inputs["privateClusterConfig"].(map[string]any)
 		require.True(t, ok)
@@ -98,13 +100,15 @@ func TestAGkeClusterAdmitsOnlyItsAllowedCidrs(t *testing.T) {
 func okeApiRuleSources(t *testing.T, allowedCidrs []string) []any {
 	t.Helper()
 	infra := &KubernetesRuntimeInfraOKE{AllowedCidrs: allowedCidrs}
+	apiRules, err := infra.publicKubeApiIngressRules()
+	require.NoError(t, err)
 
 	mocks := &gkeRecordingMocks{}
 	require.NoError(t, pulumi.RunErr(func(ctx *pulumi.Context) error {
 		_, err := core.NewSecurityList(ctx, "public", &core.SecurityListArgs{
 			CompartmentId:        pulumi.String("compartment"),
 			VcnId:                pulumi.String("vcn"),
-			IngressSecurityRules: infra.publicKubeApiIngressRules(),
+			IngressSecurityRules: apiRules,
 		})
 		return err
 	}, pulumi.WithMocks("oke", "test-stack", mocks)))
@@ -129,4 +133,117 @@ func okeApiRuleSources(t *testing.T, allowedCidrs []string) []any {
 func TestAnOkeClusterAdmitsOnlyItsAllowedCidrs(t *testing.T) {
 	assert.Equal(t, []any{"203.0.113.0/24", "198.51.100.7/32"}, okeApiRuleSources(t, []string{"203.0.113.0/24", "198.51.100.7/32"}))
 	assert.Equal(t, []any{"0.0.0.0/0"}, okeApiRuleSources(t, nil))
+}
+
+// gkeResources runs the GKE program and returns what it registered, keyed
+// by type token.
+func gkeResources(t *testing.T, infra *KubernetesRuntimeInfraGKE) map[string][]gkeRecordedResource {
+	t.Helper()
+	mocks := &gkeRecordingMocks{}
+	require.NoError(t, pulumi.RunErr(infra.pulumiProgram(), pulumi.WithMocks("gke", "test-stack", mocks)))
+	byType := map[string][]gkeRecordedResource{}
+	for _, recorded := range mocks.resources {
+		byType[recorded.typeToken] = append(byType[recorded.typeToken], recorded)
+	}
+	return byType
+}
+
+// testGkeInfra returns a GKE infra object for the program tests.
+func testGkeInfra() *KubernetesRuntimeInfraGKE {
+	return &KubernetesRuntimeInfraGKE{
+		PulumiWorkspace:        PulumiWorkspace{RuntimeInstanceName: "gke-egress-test", ProjectName: "gke"},
+		ProjectID:              "test-project",
+		Region:                 "us-central1",
+		WorkerNodeInitialCount: 1,
+	}
+}
+
+// TestANewGkeClusterSendsItsTrafficFromAReservedAddress covers #729's
+// recorded addresses on GKE: a cluster created with ReserveNatAddress gives
+// its Cloud NAT one reserved address, and a cluster created before keeps the
+// addresses Google allocates, so running its program again leaves its NAT
+// as it is.
+func TestANewGkeClusterSendsItsTrafficFromAReservedAddress(t *testing.T) {
+	t.Run("reserved", func(t *testing.T) {
+		infra := testGkeInfra()
+		infra.ReserveNatAddress = true
+		resources := gkeResources(t, infra)
+
+		addresses := resources["gcp:compute/address:Address"]
+		require.Len(t, addresses, 1)
+		assert.Equal(t, "gke-egress-test-nat-ip", addresses[0].inputs["name"])
+		assert.Equal(t, "EXTERNAL", addresses[0].inputs["addressType"])
+		assert.Equal(t, "us-central1", addresses[0].inputs["region"])
+		labels, ok := addresses[0].inputs["labels"].(map[string]any)
+		require.True(t, ok, "the reserved address is labelled like the cluster")
+		for key, value := range GcpResourceLabels(infra.RuntimeInstanceName) {
+			assert.Equal(t, value, labels[key])
+		}
+
+		nats := resources[gkeNatTypeToken]
+		require.Len(t, nats, 1)
+		assert.Equal(t, "MANUAL_ONLY", nats[0].inputs["natIpAllocateOption"])
+		assert.Len(t, nats[0].inputs["natIps"], 1)
+	})
+	t.Run("created before", func(t *testing.T) {
+		resources := gkeResources(t, testGkeInfra())
+
+		assert.Empty(t, resources["gcp:compute/address:Address"])
+		nats := resources[gkeNatTypeToken]
+		require.Len(t, nats, 1)
+		assert.Equal(t, "AUTO_ONLY", nats[0].inputs["natIpAllocateOption"])
+		assert.NotContains(t, nats[0].inputs, "natIps")
+	})
+}
+
+// TestARestrictedClusterAdmitsTheControlPlaneThatManagesIt covers #729's
+// workload clusters: the control plane's addresses join AllowedCidrs on each
+// provider, and a combined list longer than the provider admits stops the
+// program before it provisions anything.
+func TestARestrictedClusterAdmitsTheControlPlaneThatManagesIt(t *testing.T) {
+	allowed := []string{"203.0.113.0/24"}
+	controlPlane := []string{"198.51.100.20/32"}
+	want := []string{"203.0.113.0/24", "198.51.100.20/32"}
+
+	t.Run("EKS", func(t *testing.T) {
+		infra := testEksInfra(2)
+		infra.AllowedCidrs, infra.ControlPlaneEgressCidrs = allowed, controlPlane
+		assert.Equal(t, []any{want[0], want[1]}, eksClusterVpcConfig(t, infra)["publicAccessCidrs"])
+
+		infra.AllowedCidrs = blocksForTest(40)
+		err := pulumi.RunErr(infra.pulumiProgram(), pulumi.WithMocks("eks", "test-stack", &eksRecordingMocks{}))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "leave at most 39 entries in AllowedCidrs")
+	})
+	t.Run("GKE", func(t *testing.T) {
+		infra := testGkeInfra()
+		infra.AllowedCidrs, infra.ControlPlaneEgressCidrs = allowed, controlPlane
+		clusters := gkeResources(t, infra)[gkeClusterTypeToken]
+		require.Len(t, clusters, 1)
+		config := clusters[0].inputs["masterAuthorizedNetworksConfig"].(map[string]any)
+		assert.Equal(t, []any{
+			map[string]any{"cidrBlock": want[0]},
+			map[string]any{"cidrBlock": want[1]},
+		}, config["cidrBlocks"])
+
+		infra.AllowedCidrs = blocksForTest(50)
+		err := pulumi.RunErr(infra.pulumiProgram(), pulumi.WithMocks("gke", "test-stack", &gkeRecordingMocks{}))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "gke admits at most 50")
+	})
+	t.Run("OKE", func(t *testing.T) {
+		infra := &KubernetesRuntimeInfraOKE{AllowedCidrs: allowed, ControlPlaneEgressCidrs: controlPlane}
+		rules, err := infra.publicKubeApiIngressRules()
+		require.NoError(t, err)
+		require.Len(t, rules, 2)
+
+		infra.AllowedCidrs = blocksForTest(120)
+		_, err = infra.publicKubeApiIngressRules()
+		assert.ErrorContains(t, err, "oke admits at most 120")
+	})
+	t.Run("an unrestricted cluster stays open", func(t *testing.T) {
+		infra := testEksInfra(2)
+		infra.ControlPlaneEgressCidrs = controlPlane
+		assert.NotContains(t, eksClusterVpcConfig(t, infra), "publicAccessCidrs")
+	})
 }

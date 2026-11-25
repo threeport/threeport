@@ -28,6 +28,10 @@ type AwsEksKubernetesRuntimeValues struct {
 	DefaultNodeGroupInitialSize  *int
 	DefaultNodeGroupMinimumSize  *int
 	DefaultNodeGroupMaximumSize  *int
+	AuditLog                     *bool
+	DeletionProtection           *bool
+	NodeGroupPerZone             *bool
+	KubernetesVersion            *string
 	Region                       *string
 	Reconciled                   *bool
 	Age                          *string
@@ -155,6 +159,10 @@ func (a *AwsEksKubernetesRuntimeConfig) GetOperations(
 			DefaultNodeGroupInitialSize:  a.AwsEksKubernetesRuntime.DefaultNodeGroupInitialSize,
 			DefaultNodeGroupMinimumSize:  a.AwsEksKubernetesRuntime.DefaultNodeGroupMinimumSize,
 			DefaultNodeGroupMaximumSize:  a.AwsEksKubernetesRuntime.DefaultNodeGroupMaximumSize,
+			AuditLog:                     a.AwsEksKubernetesRuntime.AuditLog,
+			DeletionProtection:           a.AwsEksKubernetesRuntime.DeletionProtection,
+			NodeGroupPerZone:             a.AwsEksKubernetesRuntime.NodeGroupPerZone,
+			KubernetesVersion:            a.AwsEksKubernetesRuntime.KubernetesVersion,
 		},
 	}
 	operations.AppendOperation(util.Operation{
@@ -264,6 +272,10 @@ func mapToAwsEksKubernetesRuntimeDefinedInstances(
 						DefaultNodeGroupInitialSize:  def.AwsEksKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize,
 						DefaultNodeGroupMinimumSize:  def.AwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
 						DefaultNodeGroupMaximumSize:  def.AwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
+						AuditLog:                     def.AwsEksKubernetesRuntimeDefinition.AuditLog,
+						DeletionProtection:           def.AwsEksKubernetesRuntimeDefinition.DeletionProtection,
+						NodeGroupPerZone:             def.AwsEksKubernetesRuntimeDefinition.NodeGroupPerZone,
+						KubernetesVersion:            def.AwsEksKubernetesRuntimeDefinition.KubernetesVersion,
 						Region:                       inst.AwsEksKubernetesRuntimeInstance.Region,
 						Reconciled:                   inst.AwsEksKubernetesRuntimeInstance.Reconciled,
 						Age:                          inst.AwsEksKubernetesRuntimeInstance.Age,

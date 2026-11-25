@@ -26,12 +26,14 @@ type ControlPlaneConfig struct {
 type ControlPlaneValues struct {
 	Name                      *string
 	Namespace                 *string
+	FromNamespace             *string
 	AuthEnabled               *bool
 	OnboardParent             *bool
 	Tier                      *string
 	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues
 	ImageNamespace            *string
 	ImageTag                  *string
+	NetworkCidrPool           *[]string
 	Apis                      *string
 	CustomComponentInfo       []*api_v0.ControlPlaneComponent
 	Genesis                   *bool
@@ -257,9 +259,11 @@ func (c *ControlPlaneConfig) GetOperations(
 		ControlPlaneInstance: ControlPlaneInstanceValues{
 			Name:                      c.ControlPlane.Name,
 			Namespace:                 c.ControlPlane.Namespace,
+			FromNamespace:             c.ControlPlane.FromNamespace,
 			KubernetesRuntimeInstance: c.ControlPlane.KubernetesRuntimeInstance,
 			ImageNamespace:            c.ControlPlane.ImageNamespace,
 			ImageTag:                  c.ControlPlane.ImageTag,
+			NetworkCidrPool:           c.ControlPlane.NetworkCidrPool,
 			Apis:                      c.ControlPlane.Apis,
 			CustomComponentInfo:       c.ControlPlane.CustomComponentInfo,
 			ControlPlaneDefinition: &ControlPlaneDefinitionValues{
@@ -323,12 +327,14 @@ func mapToControlPlaneDefinedInstances(
 					ControlPlane: ControlPlaneValues{
 						Name:                      inst.ControlPlaneInstance.Name,
 						Namespace:                 inst.ControlPlaneInstance.Namespace,
+						FromNamespace:             inst.ControlPlaneInstance.FromNamespace,
 						AuthEnabled:               def.ControlPlaneDefinition.AuthEnabled,
 						OnboardParent:             def.ControlPlaneDefinition.OnboardParent,
 						Tier:                      def.ControlPlaneDefinition.Tier,
 						KubernetesRuntimeInstance: inst.ControlPlaneInstance.KubernetesRuntimeInstance,
 						ImageNamespace:            inst.ControlPlaneInstance.ImageNamespace,
 						ImageTag:                  inst.ControlPlaneInstance.ImageTag,
+						NetworkCidrPool:           inst.ControlPlaneInstance.NetworkCidrPool,
 						Apis:                      inst.ControlPlaneInstance.Apis,
 						CustomComponentInfo:       inst.ControlPlaneInstance.CustomComponentInfo,
 						Genesis:                   inst.ControlPlaneInstance.Genesis,

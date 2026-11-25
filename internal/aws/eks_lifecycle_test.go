@@ -37,6 +37,8 @@ func TestEksInfraFromApiObjects_MapsDefinitionNodeGroupFields(t *testing.T) {
 		DefaultNodeGroupInitialSize:  util.Ptr(2),
 		DefaultNodeGroupMinimumSize:  util.Ptr(3),
 		DefaultNodeGroupMaximumSize:  util.Ptr(7),
+		KubernetesVersion:            util.Ptr("1.35"),
+		NodeGroupPerZone:             util.Ptr(true),
 	}
 	awsConfig := &aws.Config{Region: "us-east-1"}
 	providerCredentials := tpaws.AwsProviderCredentials{
@@ -67,6 +69,35 @@ func TestEksInfraFromApiObjects_MapsDefinitionNodeGroupFields(t *testing.T) {
 	assert.Equal(t, int32(2), infra.DefaultNodeGroupInitialNodes)
 	assert.Equal(t, int32(3), infra.DefaultNodeGroupMinNodes)
 	assert.Equal(t, int32(7), infra.DefaultNodeGroupMaxNodes)
+	assert.Equal(t, "1.35", infra.KubernetesVersion)
+
+	// a definition created before versions were recorded gets the default
+	definition.KubernetesVersion = nil
+	infra, err = eksInfraFromApiObjects(instance, definition, "123456789012", awsConfig, providerCredentials, nil)
+	require.NoError(t, err)
+	assert.Equal(t, v0.DefaultKubernetesVersion, infra.KubernetesVersion)
+	assert.False(t, infra.AuditLog, "a definition without an audit log")
+
+	// a definition with an audit log builds a cluster with one
+	definition.AuditLog = util.Ptr(true)
+	infra, err = eksInfraFromApiObjects(instance, definition, "123456789012", awsConfig, providerCredentials, nil)
+	require.NoError(t, err)
+	assert.True(t, infra.AuditLog)
+
+	assert.False(t, infra.DeletionProtection, "a definition without it isn't protected")
+
+	// a protected definition builds a protected cluster
+	definition.DeletionProtection = util.Ptr(true)
+	infra, err = eksInfraFromApiObjects(instance, definition, "123456789012", awsConfig, providerCredentials, nil)
+	require.NoError(t, err)
+	assert.True(t, infra.DeletionProtection)
+	assert.True(t, infra.NodeGroupPerZone)
+
+	// a definition created before node groups per zone has one spanning them
+	definition.NodeGroupPerZone = nil
+	infra, err = eksInfraFromApiObjects(instance, definition, "123456789012", awsConfig, providerCredentials, nil)
+	require.NoError(t, err)
+	assert.False(t, infra.NodeGroupPerZone)
 }
 
 // TestEksInfraSatisfiesLifecycleInterfaces checks the infra object plugs into

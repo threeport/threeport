@@ -15,8 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
-
-	auth "github.com/threeport/threeport/pkg/auth/v0"
 )
 
 // normalizingClient hands every object it creates or updates to the fake
@@ -121,24 +119,36 @@ func backupInstaller() *ControlPlaneInstaller {
 func installDependencies(t *testing.T, cpi *ControlPlaneInstaller) *dynamicfake.FakeDynamicClient {
 	t.Helper()
 
-	// a reinstall lists what it deletes
+	fakeClient, err := installDependenciesOn(t, cpi)
+	require.NoError(t, err)
+
+	return fakeClient
+}
+
+// installDependenciesOn installs the control plane dependencies into a fake
+// cluster holding objects, and returns the cluster and the install's error.
+func installDependenciesOn(t *testing.T, cpi *ControlPlaneInstaller, objects ...runtime.Object) (*dynamicfake.FakeDynamicClient, error) {
+	t.Helper()
+
+	// a reinstall lists what it deletes, and a production install the
+	// storage classes
 	listKinds := map[schema.GroupVersionResource]string{
 		{Version: "v1", Resource: "namespaces"}: "NamespaceList",
 		{Version: "v1", Resource: "pods"}:       "PodList",
+		storageClassGVR:                         "StorageClassList",
 	}
 	for _, target := range deleteTargets {
 		listKinds[target.gvr] = "List"
 	}
-	fakeClient := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), listKinds)
+	fakeClient := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), listKinds, objects...)
 	// a production install bootstraps the database with a job, which no
 	// fake cluster runs
 	succeedDropJob(fakeClient)
 	mapper := backupTestMapper()
-	dbCreds, err := auth.GenerateDbCreds(cpi.Opts.Namespace)
-	require.NoError(t, err)
-	require.NoError(t, cpi.InstallThreeportControlPlaneDependencies(normalizingClient{fakeClient}, &mapper, "", dbCreds))
+	dbCreds := sharedDbCreds(t, cpi.Opts.Namespace)
+	seedBrokerSecrets(t, cpi, normalizingClient{fakeClient})
 
-	return fakeClient
+	return fakeClient, cpi.InstallThreeportControlPlaneDependencies(normalizingClient{fakeClient}, &mapper, "", dbCreds)
 }
 
 // getObject reads an object back from the fake cluster.
@@ -214,7 +224,7 @@ func TestTheBackupScheduleIsCreatedOnlyWithABucket(t *testing.T) {
 	assert.Equal(t,
 		"CREATE SCHEDULE IF NOT EXISTS threeport_api_backup FOR BACKUP DATABASE threeport_api "+
 			"INTO 'gs://threeport-prod-backups-acme-prod/threeport_api?AUTH=implicit' "+
-			"RECURRING '@hourly' FULL BACKUP '@daily' WITH SCHEDULE OPTIONS first_run = 'now';\n",
+			"RECURRING '@hourly' FULL BACKUP '@daily' WITH SCHEDULE OPTIONS first_run = 'now', ignore_existing_backups;\n",
 		withBucket[DbBackupScheduleFilename],
 	)
 
@@ -228,6 +238,30 @@ func TestTheBackupScheduleIsCreatedOnlyWithABucket(t *testing.T) {
 	assert.NotContains(t, strings.ToUpper(withBucket[DbInitFilename].(string)), "SCHEDULE")
 }
 
+// TestDatabaseBackupStatementsIncludesEachModuleDatabase covers a backup that
+// includes one module database and sets the backup schedule to the same databases.
+func TestDatabaseBackupStatementsIncludesEachModuleDatabase(t *testing.T) {
+	// both databases share one collection, and the schedule includes both
+	got, err := databaseBackupStatements("bucket", "primary-02", []string{"threeport_acme_api"})
+	require.NoError(t, err)
+	assert.Equal(t, []string{
+		"BACKUP DATABASE threeport_api, threeport_acme_api INTO 'gs://bucket/primary-02/threeport_api?AUTH=implicit';",
+		"DROP SCHEDULES WITH x AS (SHOW SCHEDULES) SELECT id FROM x WHERE label = 'threeport_api_backup';",
+		"CREATE SCHEDULE threeport_api_backup FOR BACKUP DATABASE threeport_api, threeport_acme_api INTO 'gs://bucket/primary-02/threeport_api?AUTH=implicit' RECURRING '@hourly' FULL BACKUP '@daily' WITH SCHEDULE OPTIONS ignore_existing_backups;",
+	}, got)
+
+	// a backup with no module database leaves the schedule unchanged
+	coreOnly, err := databaseBackupStatements("bucket", "primary-02", nil)
+	require.NoError(t, err)
+	assert.Equal(t, []string{
+		"BACKUP DATABASE threeport_api INTO 'gs://bucket/primary-02/threeport_api?AUTH=implicit';",
+	}, coreOnly)
+
+	// the control plane database is not backed up a second time
+	_, err = databaseBackupStatements("bucket", "primary-02", []string{DatabaseName})
+	require.Error(t, err)
+}
+
 // installAPIServer installs the API server into a fake cluster and returns
 // it.
 func installAPIServer(t *testing.T, cpi *ControlPlaneInstaller) *dynamicfake.FakeDynamicClient {
@@ -235,11 +269,10 @@ func installAPIServer(t *testing.T, cpi *ControlPlaneInstaller) *dynamicfake.Fak
 
 	fakeClient := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
 	mapper := backupTestMapper()
-	dbCreds, err := auth.GenerateDbCreds(cpi.Opts.Namespace)
-	require.NoError(t, err)
+	dbCreds := sharedDbCreds(t, cpi.Opts.Namespace)
 	// the dependencies install, which runs first, leaves the message
 	// broker's secrets the API server connects with
-	require.NoError(t, cpi.ensureMessageBrokerSecrets(normalizingClient{fakeClient}))
+	ensureSharedBrokerSecrets(t, cpi, normalizingClient{fakeClient})
 	require.NoError(t, cpi.UpdateThreeportAPIDeployment(normalizingClient{fakeClient}, &mapper, dbCreds))
 
 	return fakeClient
@@ -300,6 +333,8 @@ func TestTheMigratorCanBackUp(t *testing.T) {
 		switch volume["name"] {
 		case dbMigratorCertsVolumeName:
 			certSources, _, _ = unstructured.NestedSlice(volume, "projected", "sources")
+			mode, _, _ := unstructured.NestedInt64(volume, "projected", "defaultMode")
+			assert.Equal(t, int64(dbClientKeyFileMode), mode)
 		case DbBackupConfigName:
 			backupOptional, _, _ = unstructured.NestedBool(volume, "configMap", "optional")
 		}
@@ -333,18 +368,22 @@ func TestAReinstallRecreatesTheBackupSchedule(t *testing.T) {
 	cpi := backupInstaller()
 	mapper := backupTestMapper()
 	kubeClient := installDependencies(t, cpi)
-	dbCreds, err := auth.GenerateDbCreds(cpi.Opts.Namespace)
-	require.NoError(t, err)
+	dbCreds := sharedDbCreds(t, cpi.Opts.Namespace)
 	require.NoError(t, cpi.UpdateThreeportAPIDeployment(normalizingClient{kubeClient}, &mapper, dbCreds))
 	require.Contains(t, getObject(t, kubeClient, configMapGVR, "db-create").Object["data"], DbBackupScheduleFilename)
 
 	var scaled []string
 	allowDeploymentScaleDown(kubeClient, &scaled)
 	require.NoError(t, cpi.deleteForReinstall(kubeClient, ControlPlaneNamespace))
-	_, err = kubeClient.Resource(configMapGVR).Namespace(ControlPlaneNamespace).Get(context.Background(), "db-create", metav1.GetOptions{})
+	_, err := kubeClient.Resource(configMapGVR).Namespace(ControlPlaneNamespace).Get(context.Background(), "db-create", metav1.GetOptions{})
 	require.True(t, k8serrors.IsNotFound(err), "a reinstall leaves the database init SQL in place, so this does not cover recreating it")
 
 	require.NoError(t, cpi.UpdateThreeportAPIDeployment(normalizingClient{kubeClient}, &mapper, nil))
 	data := getObject(t, kubeClient, configMapGVR, "db-create").Object["data"].(map[string]interface{})
-	assert.Equal(t, DatabaseBackupScheduleSQL(DatabaseBackupURI(cpi.Opts.GcpBackupBucket)), data[DbBackupScheduleFilename])
+	schedule, err := DatabaseBackupScheduleSQL(
+		DatabaseBackupURI(cpi.Opts.GcpBackupBucket, cpi.Opts.Namespace),
+		nil,
+	)
+	require.NoError(t, err)
+	assert.Equal(t, schedule, data[DbBackupScheduleFilename])
 }

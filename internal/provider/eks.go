@@ -5,7 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/url"
+	"slices"
+	"strconv"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
@@ -38,6 +42,16 @@ type KubernetesRuntimeInfraEKS struct {
 	// Kubernetes version of the EKS cluster.
 	KubernetesVersion string
 
+	// If true, the cluster's Kubernetes API server audit, API and
+	// authenticator logs are sent to CloudWatch Logs, in a log group the
+	// stack creates first with a retention period.
+	AuditLog bool
+
+	// If true, Pulumi refuses to destroy or replace the cluster and its node
+	// group, and EKS refuses to delete the cluster.  Delete removes the
+	// protection first.
+	DeletionProtection bool
+
 	// The ARN of the IAM role the EKS control plane assumes.  Created by the
 	// IAM bootstrap that runs outside the Pulumi program.
 	ClusterRoleArn string
@@ -59,6 +73,12 @@ type KubernetesRuntimeInfraEKS struct {
 	// The number of availability zones the EKS cluster will be deployed across.
 	ZoneCount int32
 
+	// The network range allocated to the cluster, such as "10.16.0.0/16", its
+	// KubernetesRuntimeInstance's NetworkCidr.  Its VPC and subnets are laid
+	// out in it.  If empty, the cluster gets the range every cluster got
+	// before ranges were allocated, as one created then has.
+	NetworkCidr string
+
 	// The AWS isntance type used for the default node group.
 	DefaultNodeGroupInstanceType string
 
@@ -74,6 +94,57 @@ type KubernetesRuntimeInfraEKS struct {
 	// The CIDR blocks allowed to reach the Kubernetes API's public endpoint.
 	// Empty leaves it open to every address.
 	AllowedCidrs []string
+
+	// The public addresses of the control plane that manages the cluster,
+	// admitted along with AllowedCidrs when those are set.
+	ControlPlaneEgressCidrs []string
+
+	// NodeGroupPerZone makes the cluster's nodes run in a node group per
+	// availability zone, each with the default node group's instance type and
+	// node counts, rather than one node group spanning every zone.  The
+	// cluster autoscaler can then add a node in a given zone, as a pod bound to
+	// a volume there needs, and keep the zones balanced.  The zones are chosen
+	// from those that offer the instance type.
+	NodeGroupPerZone bool
+
+	// stackSupportType is set when a cluster already in the stack is read, by
+	// CreateInfra or UpgradeInfra, to the support type the cluster was
+	// created with: "" for one created before it was set.  The program keeps
+	// it.
+	stackSupportType *string
+
+	// stackNodeGroupsWithoutLaunchTemplate is set when the stack already
+	// holds node groups created without a launch template, to their names.
+	// The program leaves them without one, since EKS replaces a node group to
+	// give it a launch template.
+	stackNodeGroupsWithoutLaunchTemplate map[string]bool
+
+	// stackAccessEntries is set when a cluster already in the stack is read,
+	// by CreateInfra or UpgradeInfra, to whether it was created with access
+	// entries.  A cluster created before them keeps its access as it is: the
+	// creator's hidden administrator access, which only the cluster's creation
+	// can grant or withhold.
+	stackAccessEntries *bool
+
+	// controlPlaneVersion is set by UpgradeInfra to the control plane's
+	// version when it is already past the version the node group is upgraded
+	// to, as when EKS upgraded it on its own at the end of standard support.
+	// The program keeps the control plane, and the add-ons, which follow it,
+	// on it rather than ask EKS for a downgrade, which it refuses.
+	controlPlaneVersion string
+
+	// nodeGroupVersions is set by UpgradeInfra to the versions of the node
+	// groups already past the version the cluster is upgraded to, by name, as
+	// a node group EKS or an operator upgraded on its own is.  The program
+	// keeps each on its version rather than ask EKS for a downgrade.
+	nodeGroupVersions map[string]string
+
+	// stackZones is set by CreateInfra and UpgradeInfra when the stack
+	// already holds the cluster's subnets, to their zones in order, "" where
+	// the stack holds no subnet.  The program keeps them: a subnet's zone can't change without replacing it,
+	// and the zones the region offers, or that offer the node instance type,
+	// change over time.
+	stackZones []string
 }
 
 // Create provisions an AWS EKS cluster for threeport workloads and returns the
@@ -86,6 +157,9 @@ func (i *KubernetesRuntimeInfraEKS) Create() (*kube.KubeConnectionInfo, error) {
 // networking, the cluster and its node group with Pulumi, and then creates the
 // IAM that only exists once the cluster does.
 func (i *KubernetesRuntimeInfraEKS) CreateInfra() (*kube.KubeConnectionInfo, error) {
+	if err := checkKubeApiAllowlist(v0.KubernetesRuntimeInfraProviderEKS, i.AllowedCidrs, i.ControlPlaneEgressCidrs); err != nil {
+		return nil, err
+	}
 
 	// EKS will not create a cluster or a node group without the roles they
 	// assume, so these come before the stack
@@ -97,8 +171,24 @@ func (i *KubernetesRuntimeInfraEKS) CreateInfra() (*kube.KubeConnectionInfo, err
 	if err != nil {
 		return nil, fmt.Errorf("failed to set up Pulumi workspace: %w", err)
 	}
+
+	// a create resumed on a stack that holds the cluster keeps its version
+	// and the range its network was laid out in
+	exported, err := stack.Export(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the stack: %w", err)
+	}
+	i.keepStackVersion(exported.Deployment)
+	i.keepStackCluster(exported.Deployment)
+
 	if _, err := i.RunUp(context.Background(), stack); err != nil {
 		return nil, fmt.Errorf("failed to deploy stack: %w", err)
+	}
+
+	// EKS turns its deletion protection on only for an active cluster, which
+	// the stack leaves it
+	if err := i.setEksDeletionProtection(i.DeletionProtection); err != nil {
+		return nil, err
 	}
 
 	// the OIDC issuer the add-ons' roles are bound to is stood up with the
@@ -108,6 +198,53 @@ func (i *KubernetesRuntimeInfraEKS) CreateInfra() (*kube.KubeConnectionInfo, err
 	}
 
 	return i.GetConnection()
+}
+
+// keepStackVersion sets KubernetesVersion to the version of the cluster the
+// stack's deployment holds, if it holds one.
+func (i *KubernetesRuntimeInfraEKS) keepStackVersion(deployment json.RawMessage) {
+	if version, held := clusterInputInStack(deployment, "aws:eks/cluster:Cluster", "version"); held && version != "" {
+		i.KubernetesVersion = version
+	}
+}
+
+// CreatedKubernetesVersion returns the Kubernetes minor version of the
+// cluster Create created or found in the stack, such as "1.36".
+func (i *KubernetesRuntimeInfraEKS) CreatedKubernetesVersion() string {
+	return i.kubernetesVersion()
+}
+
+// keepStackCluster records what the cluster the stack's deployment holds,
+// if it holds one, was created with and can't change, for the program to
+// keep, both on a resumed create and on an upgrade: the range its network
+// was laid out in, its upgrade policy's support type, whether it has access
+// entries, its subnets' zones, and which node groups were created without a
+// launch template.
+func (i *KubernetesRuntimeInfraEKS) keepStackCluster(deployment json.RawMessage) {
+	i.keepStackNetwork(deployment)
+	i.keepStackSupportType(deployment)
+	i.keepStackAccessEntries(deployment)
+	i.keepStackZones(deployment)
+	i.keepStackNodeGroups(deployment)
+}
+
+// keepStackSupportType records the support type of the cluster the stack's
+// deployment holds, if it holds one, for the program to keep.
+func (i *KubernetesRuntimeInfraEKS) keepStackSupportType(deployment json.RawMessage) {
+	if supportType, held := clusterInputInStack(deployment, "aws:eks/cluster:Cluster", "upgradePolicy.supportType"); held {
+		i.stackSupportType = &supportType
+	}
+}
+
+// keepStackAccessEntries records whether the cluster the stack's deployment
+// holds, if it holds one, was created with access entries, for the program
+// to keep.
+func (i *KubernetesRuntimeInfraEKS) keepStackAccessEntries(deployment json.RawMessage) {
+	if _, held := clusterInputInStack(deployment, "aws:eks/cluster:Cluster", "name"); held {
+		authenticationMode, _ := clusterInputInStack(deployment, "aws:eks/cluster:Cluster", "accessConfig.authenticationMode")
+		accessEntries := authenticationMode != ""
+		i.stackAccessEntries = &accessEntries
+	}
 }
 
 // DeployInfra runs CreateInfra and discards the connection info.  It satisfies
@@ -127,6 +264,12 @@ func (i *KubernetesRuntimeInfraEKS) DestroyInfra() error {
 // Delete destroys an AWS EKS cluster and the IAM resources created alongside
 // it.
 func (i *KubernetesRuntimeInfraEKS) Delete() error {
+	// EKS refuses to delete a cluster with its deletion protection on, so it
+	// is turned off first; Pulumi's is removed by the destroy
+	if err := i.setEksDeletionProtection(false); err != nil {
+		return err
+	}
+
 	if err := i.DestroyStack(); err != nil {
 		// A destroy that leaves subnets behind is usually the VPC CNI's doing:
 		// it allocates secondary interfaces on the worker nodes for pod
@@ -858,7 +1001,11 @@ const (
 					"ec2:DeleteSecurityGroup",
 					"ec2:AuthorizeSecurityGroupIngress",
 					"ec2:AuthorizeSecurityGroupEgress",
-					"ec2:DeleteNetworkInterface"
+					"ec2:DeleteNetworkInterface",
+					"ec2:CreateLaunchTemplate",
+					"ec2:CreateLaunchTemplateVersion",
+					"ec2:ModifyLaunchTemplate",
+					"ec2:DeleteLaunchTemplate"
 				],
 				"Resource": "*"
 			},
@@ -879,6 +1026,23 @@ const (
 					"eks:CreateAddon",
 					"eks:DeleteAddon",
 					"eks:UpdateAddon"
+				],
+				"Resource": "*"
+			},
+			{
+				"Sid": "CloudWatchLogsPermissions",
+				"Effect": "Allow",
+				"Action": [
+					"logs:CreateLogGroup",
+					"logs:DeleteLogGroup",
+					"logs:PutRetentionPolicy",
+					"logs:DeleteRetentionPolicy",
+					"logs:DescribeLogGroups",
+					"logs:ListTagsForResource",
+					"logs:ListTagsLogGroup",
+					"logs:TagResource",
+					"logs:UntagResource",
+					"logs:TagLogGroup"
 				],
 				"Resource": "*"
 			},
@@ -969,3 +1133,75 @@ const (
 		]
 	}`
 )
+
+// keepStackNodeGroups records the node groups the stack's deployment holds
+// without a launch template, for the program to leave without one.  A
+// deployment that can't be read records none: it holds nothing the program
+// could keep.
+func (i *KubernetesRuntimeInfraEKS) keepStackNodeGroups(deployment json.RawMessage) {
+	var contents struct {
+		Resources []struct {
+			Type   string         `json:"type"`
+			Inputs map[string]any `json:"inputs"`
+		} `json:"resources"`
+	}
+	i.stackNodeGroupsWithoutLaunchTemplate = map[string]bool{}
+	if len(deployment) == 0 || json.Unmarshal(deployment, &contents) != nil {
+		return
+	}
+
+	for _, resource := range contents.Resources {
+		if resource.Type != "aws:eks/nodeGroup:NodeGroup" {
+			continue
+		}
+		name, _ := resource.Inputs["nodeGroupName"].(string)
+		if _, hasLaunchTemplate := resource.Inputs["launchTemplate"]; name != "" && !hasLaunchTemplate {
+			i.stackNodeGroupsWithoutLaunchTemplate[name] = true
+		}
+	}
+}
+
+// keepStackZones records the zones of the private subnets the stack's
+// deployment holds, in the order of their names' zone index, for the program
+// to keep.
+func (i *KubernetesRuntimeInfraEKS) keepStackZones(deployment json.RawMessage) {
+	var contents struct {
+		Resources []struct {
+			Urn    string         `json:"urn"`
+			Type   string         `json:"type"`
+			Inputs map[string]any `json:"inputs"`
+		} `json:"resources"`
+	}
+	if len(deployment) == 0 || json.Unmarshal(deployment, &contents) != nil {
+		return
+	}
+
+	zonesByIndex := map[int]string{}
+	prefix := fmt.Sprintf("::%s-private-subnet-", i.RuntimeInstanceName)
+	for _, resource := range contents.Resources {
+		if resource.Type != "aws:ec2/subnet:Subnet" {
+			continue
+		}
+		position := strings.LastIndex(resource.Urn, prefix)
+		if position < 0 {
+			continue
+		}
+		index, err := strconv.Atoi(resource.Urn[position+len(prefix):])
+		zone, _ := resource.Inputs["availabilityZone"].(string)
+		if err != nil || zone == "" {
+			continue
+		}
+		zonesByIndex[index] = zone
+	}
+
+	if len(zonesByIndex) == 0 {
+		return
+	}
+	// a zone whose subnet the stack doesn't hold, as after a create that
+	// stopped part way, is left "" for the program to choose
+	zones := make([]string, slices.Max(slices.Collect(maps.Keys(zonesByIndex)))+1)
+	for index, zone := range zonesByIndex {
+		zones[index] = zone
+	}
+	i.stackZones = zones
+}

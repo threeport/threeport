@@ -222,6 +222,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					deleteObjectExecution.Comment("if scheduled but not reconciled, return 409 (controller is working on it)")
 					deleteObjectExecution.Line()
 					deleteObjectExecution.If(Id(strcase.ToLowerCamel(apiObject.TypeName)).Dot("DeletionScheduled").Op("==").Nil()).Block(
+						refuseDeleteCheck(strcase.ToLowerCamel(apiObject.TypeName), gen.Module),
 						Comment("schedule for deletion"),
 						Id("reconciled").Op(":=").Lit(false),
 						Id("timestamp").Op(":=").Qual("time", "Now").Call().Dot("UTC").Call(),
@@ -2343,6 +2344,44 @@ func emitPreCheckBlockingRefs(s *Statement, objVar string, module bool) {
 		).Call(Id("c"), Nil(), Id("checkErr"), Id("fullyQualifiedType"))),
 	)
 	s.Line()
+}
+
+// refuseDeleteCheck emits the check of an object that implements
+// DeleteRefuser, which can refuse its own delete before it is scheduled: a
+// *DeleteRefusedError is answered with a 409 and any other error with a 500.
+// It runs only for a delete not yet scheduled, so one the controller is
+// carrying out is finished.
+func refuseDeleteCheck(objVar string, module bool) *Statement {
+	requestDB := Do(func(s *Statement) {
+		if module {
+			s.Id("h").Dot("Handler")
+		} else {
+			s.Id("h")
+		}
+	}).Dot("RequestDB").Call(Id("c"))
+
+	return Comment("refuse a delete the object itself refuses, such as a protected one").Line().If(
+		Id("refuseErr").Op(":=").Qual(
+			"github.com/threeport/threeport/pkg/api/v0",
+			"CheckDeleteRefused",
+		).Call(requestDB, Op("&").Id(objVar)),
+		Id("refuseErr").Op("!=").Nil(),
+	).Block(
+		Var().Id("refusedErr").Op("*").Qual(
+			"github.com/threeport/threeport/pkg/api/v0",
+			"DeleteRefusedError",
+		),
+		If(Qual("errors", "As").Call(Id("refuseErr"), Op("&").Id("refusedErr"))).Block(
+			Return(Qual(
+				"github.com/threeport/threeport/pkg/api-server/lib/v0",
+				"ResponseStatus409",
+			).Call(Id("c"), Nil(), Id("refusedErr"), Id("fullyQualifiedType"))),
+		),
+		Return(Qual(
+			"github.com/threeport/threeport/pkg/api-server/lib/v0",
+			"ResponseStatus500",
+		).Call(Id("c"), Nil(), Id("refuseErr"), Id("fullyQualifiedType"))),
+	)
 }
 
 // wrapSerializationRetry wraps writeChain in Handler.Write so 40001 is retried.

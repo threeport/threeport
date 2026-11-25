@@ -56,7 +56,14 @@ func (k *KubernetesRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
 		)
 	}
 
-	return validateKubernetesApiAccess(*k.InfraProvider, k.PrivateApi, k.AllowedCidrs)
+	if err := validateKubernetesApiAccess(*k.InfraProvider, k.PrivateApi, k.AllowedCidrs); err != nil {
+		return err
+	}
+	if err := validateKubernetesRuntimeNodeMaximum(k); err != nil {
+		return err
+	}
+
+	return validateKubernetesVersionCreate(*k.InfraProvider, k.KubernetesVersion)
 }
 
 // beforeUpdate validates that no immutable fields are being changed
@@ -95,10 +102,19 @@ func (k *KubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
 			"kubernetes runtime definition high availability cannot be changed after creation",
 		)
 	}
+	// on EKS and GKE, the node size, profile and maximum are copied into the
+	// provider definition when it is created, and nothing applies a change
+	// to them afterwards
+	if err := validateKubernetesRuntimeNodeSettingsUpdate(tx); err != nil {
+		return err
+	}
+	if err := validateKubernetesRuntimeVersionUpdate(tx); err != nil {
+		return err
+	}
 
 	// InfraProvider is unchanged once past the check above, so the receiver
 	// holds it under both update shapes
-	return validateKubernetesApiAccessUpdate(
+	if err := validateKubernetesApiAccessUpdate(
 		tx,
 		*k.InfraProvider,
 		func(value any) (*bool, *datatypes.JSON, bool) {
@@ -108,7 +124,21 @@ func (k *KubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
 			}
 			return object.PrivateApi, object.AllowedCidrs, true
 		},
-	)
+	); err != nil {
+		return err
+	}
+
+	if err := validateAuditLogUpdate(tx, func(value any) (*bool, bool) {
+		object, ok := value.(*KubernetesRuntimeDefinition)
+		if !ok {
+			return nil, false
+		}
+		return object.AuditLog, true
+	}); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // beforeDelete validates the KubernetesRuntimeDefinition before delete.
@@ -136,6 +166,7 @@ func (k *KubernetesRuntimeInstance) beforeCreate(tx *gorm.DB) error {
 		k.CertificatesComponentInstanceID,
 		k.SecretsComponentInstanceID,
 		k.DatabaseComponentInstanceID,
+		k.StorageComponentInstanceID,
 	} {
 		if slot != nil {
 			return util.NewBadRequestError(
@@ -148,7 +179,7 @@ func (k *KubernetesRuntimeInstance) beforeCreate(tx *gorm.DB) error {
 		return util.NewBadRequestError(err.Error())
 	}
 
-	return nil
+	return validateRuntimeNetworkCidr(tx, k.NetworkCidr, nil)
 }
 
 // beforeUpdate validates that no immutable fields are being changed
@@ -191,6 +222,10 @@ func (k *KubernetesRuntimeInstance) beforeUpdate(tx *gorm.DB) error {
 		return err
 	}
 
+	if err := validateRuntimeNetworkCidrUpdate(tx, k); err != nil {
+		return err
+	}
+
 	// claim or clear a shared controller slot in this same transaction
 	return lib.ApplySupportServiceSlots(
 		tx,
@@ -201,6 +236,7 @@ func (k *KubernetesRuntimeInstance) beforeUpdate(tx *gorm.DB) error {
 			"CertificatesComponentInstanceID",
 			"SecretsComponentInstanceID",
 			"DatabaseComponentInstanceID",
+			"StorageComponentInstanceID",
 		},
 		KubernetesRuntimeInstance{}.TableName(),
 		KubernetesWorkloadInstance{}.TableName(),
@@ -243,5 +279,70 @@ func (k *KubernetesRuntimeInstance) afterUpdate(tx *gorm.DB) error {
 
 // afterDelete runs after the KubernetesRuntimeInstance is deleted.
 func (k *KubernetesRuntimeInstance) afterDelete(tx *gorm.DB) error {
+	return nil
+}
+
+// validateRuntimeNetworkCidrUpdate checks an update that changes NetworkCidr.
+// A range is set once, when the runtime is created or when the control plane
+// allocates one: a cluster's network can't be moved to another range, so a
+// change would record a range the cluster doesn't have.
+func validateRuntimeNetworkCidrUpdate(tx *gorm.DB, k *KubernetesRuntimeInstance) error {
+	changed, err := lib.IsFieldChanged(tx, "NetworkCidr")
+	if err != nil {
+		return err
+	}
+	if !changed {
+		return nil
+	}
+
+	// the row is read back and locked inside the write: a patch's receiver
+	// was loaded before the transaction began, and another update may have
+	// set the range since
+	stored, err := lib.LockObjectInDB(tx)
+	if err != nil {
+		return err
+	}
+	storedInstance, storedOk := stored.(*KubernetesRuntimeInstance)
+	incoming, incomingOk := lib.IncomingValues(tx).(*KubernetesRuntimeInstance)
+	if !storedOk || !incomingOk {
+		return fmt.Errorf("cannot validate NetworkCidr: update carries %T", lib.IncomingValues(tx))
+	}
+	if storedInstance.NetworkCidr != nil && *storedInstance.NetworkCidr != "" {
+		return util.NewBadRequestError(ErrMsgNetworkCidrImmutable)
+	}
+
+	return validateRuntimeNetworkCidr(tx, incoming.NetworkCidr, k.ID)
+}
+
+// validateKubernetesRuntimeNodeSettingsUpdate refuses an update that changes
+// the NodeSize, NodeProfile or NodeMaximum of a kubernetes runtime definition
+// on EKS or GKE.  The definition reconciler turns them into the EKS or GKE
+// definition's node group when it creates it, and nothing applies a change to
+// them afterwards, so a change would be saved without taking effect.  On kind
+// and OKE they make nothing, and changing them is left alone.
+func validateKubernetesRuntimeNodeSettingsUpdate(tx *gorm.DB) error {
+	current, err := lib.LoadObjectFromDB(tx)
+	if err != nil {
+		return err
+	}
+	stored, ok := current.(*KubernetesRuntimeDefinition)
+	if !ok || stored.InfraProvider == nil ||
+		(*stored.InfraProvider != KubernetesRuntimeInfraProviderEKS && *stored.InfraProvider != KubernetesRuntimeInfraProviderGKE) {
+		return nil
+	}
+
+	for _, field := range []string{"NodeSize", "NodeProfile", "NodeMaximum"} {
+		changed, err := lib.IsFieldChanged(tx, field)
+		if err != nil {
+			return err
+		}
+		if changed {
+			return util.NewBadRequestError(fmt.Sprintf(
+				"kubernetes runtime definition %s cannot be changed after creation: change the node group sizes on its EKS or GKE definition",
+				field,
+			))
+		}
+	}
+
 	return nil
 }

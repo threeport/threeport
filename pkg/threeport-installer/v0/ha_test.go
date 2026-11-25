@@ -11,8 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
-
-	auth "github.com/threeport/threeport/pkg/auth/v0"
 )
 
 var pdbGVR = schema.GroupVersionResource{Group: "policy", Version: "v1", Resource: "poddisruptionbudgets"}
@@ -33,6 +31,14 @@ func replicas(t *testing.T, deployment *unstructured.Unstructured) int64 {
 	require.True(t, found, "%s sets no replicas", deployment.GetName())
 
 	return count
+}
+
+// TestComponentReplicas checks the tier default a module install uses.
+func TestComponentReplicas(t *testing.T) {
+	// production runs two and every other tier runs one
+	assert.Equal(t, int64(productionComponentReplicas), ComponentReplicas(ControlPlaneTierProd))
+	assert.Equal(t, int64(1), ComponentReplicas(ControlPlaneTierDev))
+	assert.Equal(t, int64(1), ComponentReplicas(""))
 }
 
 // TestReplicasFollowTheTier covers the issue's own split: production runs the
@@ -110,11 +116,10 @@ func installComponent(t *testing.T, cpi *ControlPlaneInstaller, kubeClient dynam
 
 	mapper := testComponentMapper()
 	if deployName == ThreeportAPIServiceResourceName {
-		dbCreds, err := auth.GenerateDbCreds(cpi.Opts.Namespace)
-		require.NoError(t, err)
+		dbCreds := sharedDbCreds(t, cpi.Opts.Namespace)
 		// the dependencies install, which runs first, leaves the message
 		// broker's secrets the API server connects with
-		require.NoError(t, cpi.ensureMessageBrokerSecrets(kubeClient))
+		ensureSharedBrokerSecrets(t, cpi, kubeClient)
 		require.NoError(t, cpi.UpdateThreeportAPIDeployment(kubeClient, &mapper, dbCreds))
 		return
 	}
@@ -172,12 +177,38 @@ func TestProductionComponentsGetADisruptionBudgetThatSelectsTheirPods(t *testing
 func TestASingleReplicaComponentHasNoDisruptionBudget(t *testing.T) {
 	for _, name := range componentsWithBudgets {
 		cpi := tierInstaller(ControlPlaneTierDev)
-		kubeClient := testKubeClient(cpi.componentDisruptionBudget(name))
+		kubeClient := testKubeClient(ComponentDisruptionBudget(cpi.Opts.Namespace, name))
 		installComponent(t, cpi, kubeClient, name)
 
 		_, err := kubeClient.Resource(pdbGVR).Namespace(ControlPlaneNamespace).Get(context.Background(), name, metav1.GetOptions{})
 		assert.True(t, k8serrors.IsNotFound(err), "%s keeps a disruption budget with one replica: %v", name, err)
 	}
+}
+
+// TestAModuleDeploymentGetsTheDisruptionBudgetTheControlPlaneGives covers the
+// helper a module's installer calls: a budget for a deployment that runs two
+// replicas, selecting its own pods, and none for one that runs a single replica.
+func TestAModuleDeploymentGetsTheDisruptionBudgetTheControlPlaneGives(t *testing.T) {
+	const namespace = "threeport-acme"
+	const name = "threeport-acme-api-server"
+
+	// apply a budget for two replicas and assert it selects the deployment's pods
+	kubeClient := testKubeClient()
+	mapper := testComponentMapper()
+	require.NoError(t, ApplyComponentDisruptionBudget(kubeClient, &mapper, namespace, name, 2))
+	budget, err := kubeClient.Resource(pdbGVR).Namespace(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	require.NoError(t, err)
+	minAvailable, _, err := unstructured.NestedInt64(budget.Object, "spec", "minAvailable")
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), minAvailable)
+	selector, _, err := unstructured.NestedStringMap(budget.Object, "spec", "selector", "matchLabels")
+	require.NoError(t, err)
+	assert.Equal(t, map[string]string{"app.kubernetes.io/name": name}, selector)
+
+	// apply it again for one replica and assert the budget is removed
+	require.NoError(t, ApplyComponentDisruptionBudget(kubeClient, &mapper, namespace, name, 1))
+	_, err = kubeClient.Resource(pdbGVR).Namespace(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	assert.True(t, k8serrors.IsNotFound(err), "a single replica keeps its budget: %v", err)
 }
 
 // TestReplicasPreferSeparateNodes covers what a second replica is for: two

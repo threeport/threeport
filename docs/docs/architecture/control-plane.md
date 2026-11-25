@@ -62,6 +62,11 @@ schedulable nodes: a server that can't be placed on a node of its own stays
 A control plane installed with a single server keeps it when it is reinstalled,
 since a reinstall doesn't change how many servers the broker runs.
 
+Each server stores its streams on a volume of its own: 5Gi on a development
+control plane and 250Gi on production. The Threeport agent warns with an event
+when a server's storage is nearly full. See [Control Plane
+Storage](../control-planes/storage.md).
+
 ## Threeport Agent
 
 The Threeport agent is a [Kubernetes
@@ -177,7 +182,7 @@ drawbacks in complex environments since templating is inherently inferior to
 general purpose programming languages.  More on this topic is discussed in the
 [Continuous Delivery & GitOps
 section](../concepts/application-orchestration.md#continuous-delivery-gitops)
-of the Application Orchestration document.  We prefer Go programs to construct
+of the Application Lifecycle Orchestration document.  We prefer Go programs to construct
 Kubernetes resources.  However, Helm support is still valuable because many open-source
 charts are available and it is already in extensive use by many teams.
 

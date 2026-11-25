@@ -105,6 +105,8 @@ func restrictedPodSecurityContext() map[string]interface{} {
 		"runAsNonRoot": true,
 		"runAsUser":    nonRootUID,
 		"runAsGroup":   nonRootGID,
+		// the kubelet gives secret volumes to this group, so a root-owned key at 0640 is readable
+		"fsGroup": nonRootGID,
 		"seccompProfile": map[string]interface{}{
 			"type": "RuntimeDefault",
 		},

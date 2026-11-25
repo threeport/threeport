@@ -1,6 +1,8 @@
 package v0
 
 import (
+	"time"
+
 	"gorm.io/datatypes"
 )
 
@@ -73,6 +75,34 @@ type AwsEksKubernetesRuntimeDefinition struct {
 	// AllowedCidrs.
 	AllowedCidrs *datatypes.JSON `validate:"optional" swaggertype:"array,string"`
 
+	// The Kubernetes minor version of the clusters, such as "1.36": the
+	// KubernetesRuntimeDefinition's KubernetesVersion, or the default version
+	// when that is unset.  If unset here, the default version is used.
+	// Raising it to another supported version upgrades the clusters, one minor
+	// version at a time.  It can't be lowered, since a cluster can't be
+	// downgraded, or cleared.
+	KubernetesVersion *string `validate:"optional"`
+	// If true, the clusters run a node group in each zone, each with the
+	// default node group's instance type and sizes, rather than one node
+	// group spanning every zone.  The cluster autoscaler can then add a node
+	// in a given zone, as a pod bound to a volume there needs.  The zones are
+	// chosen from those that offer the instance type.  It can't be changed
+	// after creation, since that replaces the node groups.
+	NodeGroupPerZone *bool `validate:"optional" gorm:"default:false"`
+
+	// If true, the clusters' Kubernetes API server audit log, with its API and
+	// authenticator logs, is sent to CloudWatch Logs, in the log group
+	// /aws/eks/<cluster>/cluster, which keeps it for 90 days and is deleted
+	// with the cluster.  It can't be changed after creation.
+	AuditLog *bool `validate:"optional" gorm:"default:false"`
+
+	// If true, the runtime instances derived from this definition can't be
+	// deleted, Pulumi refuses to destroy or replace their clusters and node
+	// groups, and EKS refuses to delete the clusters through its own API.  Set
+	// it to false to let every instance of the definition be deleted.  If
+	// unset, it is false.
+	DeletionProtection *bool `validate:"optional" gorm:"default:false"`
+
 	// The AWS EKS kubernetes runtime instances derived from this definition.
 	AwsEksKubernetesRuntimeInstances []*AwsEksKubernetesRuntimeInstance `validate:"optional,association"`
 
@@ -96,7 +126,7 @@ type AwsEksKubernetesRuntimeInstance struct {
 	AwsEksKubernetesRuntimeDefinitionID *uint `validate:"required" gorm:"not null" relationship:"requires"`
 
 	// An inventory of all AWS resources for the EKS cluster.
-	ResourceInventory *datatypes.JSON `validate:"optional"`
+	ResourceInventory *datatypes.JSON `validate:"optional" swaggertype:"object"`
 
 	// Set by an operator to allow this instance to be deleted even though its
 	// creation was confirmed and no resource inventory is recorded, or the
@@ -107,6 +137,40 @@ type AwsEksKubernetesRuntimeInstance struct {
 	// still destroyed. It is rejected on create, and once set it stays set until
 	// changed, so tptctl sets it back to false if the delete fails.
 	AbandonInfrastructure *bool `validate:"optional" gorm:"default:false"`
+
+	// The Kubernetes minor version the cluster runs, such as "1.36", as the
+	// controller last read it from the provider.  That is the
+	// lower of its control plane's and its node group's, which EKS upgrades
+	// separately.
+	KubernetesVersion *string `validate:"optional"`
+
+	// The definition's KubernetesVersion the cluster was last asked to be
+	// upgraded to.  The API server sets it when an update of the EKS
+	// definition asks the cluster to upgrade, once the cluster's controller
+	// has been notified, so a request it couldn't finish is made again by the
+	// definition's next update.
+	UpgradeRequestedVersion *string `validate:"optional"`
+
+	// Set by the controller when it starts upgrading the cluster to the
+	// definition's KubernetesVersion, and refreshed while the upgrade runs.
+	UpgradeAcknowledged *time.Time `validate:"optional"`
+
+	// True while the controller upgrades the cluster.
+	Upgrading *bool `validate:"optional" gorm:"default:false"`
+
+	// True when the last upgrade failed.  The controller tries it again after
+	// a wait.
+	UpgradeFailed *bool `validate:"optional" gorm:"default:false"`
+
+	// True when the controller refused to upgrade the cluster: because the
+	// upgrade would replace or delete any of its resources, or because
+	// Threeport didn't create the cluster.  It doesn't try again until the
+	// definition's KubernetesVersion changes, or this is set back to false.
+	UpgradeRefused *bool `validate:"optional" gorm:"default:false"`
+
+	// What the controller last did to upgrade the cluster, or why it
+	// couldn't.
+	UpgradeStatus *string `validate:"optional"`
 
 	// The kubernetes runtime instance associated with the AWS EKS cluster.
 	KubernetesRuntimeInstanceID *uint `validate:"required" gorm:"not null" relationship:"marries"`

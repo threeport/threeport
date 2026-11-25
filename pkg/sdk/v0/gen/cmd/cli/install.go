@@ -12,6 +12,7 @@ import (
 	sdk "github.com/threeport/threeport/pkg/sdk/v0"
 	"github.com/threeport/threeport/pkg/sdk/v0/gen"
 	"github.com/threeport/threeport/pkg/sdk/v0/util"
+	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 )
 
 // GenPluginInstallCmd generates the install command for an extension module's tptctl
@@ -21,6 +22,11 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f.HeaderComment(sdk.HeaderCommentGenMod)
 
 	installerPkg := fmt.Sprintf("%s/pkg/installer/v0", gen.ModulePath)
+	moduleAPIName := fmt.Sprintf(
+		"%s/%s-module-api",
+		sdkConfig.ApiNamespace,
+		strcase.ToKebab(sdkConfig.ModuleName),
+	)
 
 	f.ImportAlias("github.com/threeport/threeport/cmd/tptctl/cmd", "tptctl_cmd")
 	f.ImportAlias("github.com/threeport/threeport/pkg/cli/v0", "cli")
@@ -32,6 +38,8 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		Id("debug").Bool(),
 		Id("controlPlaneImageRepo").String(),
 		Id("controlPlaneImageTag").String(),
+		Id("installControlPlaneName").String(),
+		Id("moduleNamespace").String(),
 		Id("imagePullSecretFile").String(),
 	)
 
@@ -50,7 +58,7 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			"Install the %s module to an existing Threeport control plane",
 			sdkConfig.ModuleName,
 		)),
-		Id("PreRun"): Id("CommandPreRunFunc"),
+		Id("PreRun"):       Id("CommandPreRunFunc"),
 		Id("SilenceUsage"): Lit(true),
 		Id("Run"): Func().Params(Id("cmd").Op("*").Qual(
 			"github.com/spf13/cobra",
@@ -118,6 +126,37 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			),
 			Line(),
 
+			Comment("record the install on a child when this command is pointed at a parent"),
+			List(Id("delegated"), Err()).Op(":=").Qual(
+				"github.com/threeport/threeport/pkg/cli/v0",
+				"InstallThroughController",
+			).Call(
+				Line().Id("apiClient"),
+				Line().Id("apiEndpoint"),
+				Line().Id("encryptionKey"),
+				Line().Id("installControlPlaneName"),
+				Line().Lit(moduleAPIName),
+				Line().Id("controlPlaneImageRepo"),
+				Line().Id("controlPlaneImageTag"),
+				Line().Id("moduleNamespace"),
+				Line(),
+			),
+			If(Err().Op("!=").Nil()).Block(
+				Qual(
+					"github.com/threeport/threeport/pkg/cli/v0",
+					"Error",
+				).Call(Lit("failed to install module"), Id("err")),
+				Qual("os", "Exit").Call(Lit(1)),
+			),
+			If(Id("delegated")).Block(
+				Qual(
+					"github.com/threeport/threeport/pkg/cli/v0",
+					"Complete",
+				).Call(Lit("module install started")),
+				Return(),
+			),
+			Line(),
+
 			Comment("determine if auth is enabled on control plane"),
 			List(Id("authEnabled"), Err()).Op(":=").Id("threeportConfig").Dot("GetThreeportAuthEnabled").Call(
 				Id("requestedControlPlane"),
@@ -163,6 +202,10 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			Id("inst").Dot("ApiClient").Op("=").Id("apiClient"),
 			Id("inst").Dot("ApiEndpoint").Op("=").Id("apiEndpoint"),
 			Id("inst").Dot("ImagePullSecretFile").Op("=").Id("imagePullSecretFile"),
+			Comment("use a module namespace when the flag names one"),
+			If(Id("moduleNamespace").Op("!=").Lit("")).Block(
+				Id("inst").Dot("ModuleNamespace").Op("=").Id("moduleNamespace"),
+			),
 			Line(),
 
 			Comment("install extension module"),
@@ -228,6 +271,24 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					"GetVersion",
 				).Call(),
 				Lit("Image tag for threeport control plane images."),
+			),
+			Line(),
+		),
+		Id("installCmd").Dot("Flags").Call().Dot("StringVar").Call(
+			Line().Op("&").Id("installControlPlaneName"),
+			Line().List(
+				Lit("control-plane-name"),
+				Lit(""),
+				Lit("Name of a child control plane. Empty installs on the connected control plane."),
+			),
+			Line(),
+		),
+		Id("installCmd").Dot("Flags").Call().Dot("StringVar").Call(
+			Line().Op("&").Id("moduleNamespace"),
+			Line().List(
+				Lit(installer.ModuleNamespaceFlag),
+				Lit(""),
+				Lit("Kubernetes namespace to install the module into. Empty uses threeport- followed by the module name."),
 			),
 			Line(),
 		),

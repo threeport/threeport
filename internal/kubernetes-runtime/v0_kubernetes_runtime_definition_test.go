@@ -85,3 +85,256 @@ func TestTheProviderDefinitionCarriesTheKubernetesApiAccess(t *testing.T) {
 		})
 	}
 }
+
+// TestTheProviderDefinitionRecordsTheKubernetesVersion covers the version on
+// the EKS or GKE definition the reconciler creates: the one the kubernetes
+// runtime definition asks for, or the default, so the provider definition
+// records the version its clusters are created on.
+func TestTheProviderDefinitionRecordsTheKubernetesVersion(t *testing.T) {
+	for _, c := range []struct {
+		provider string
+		path     string
+		asked    *string
+		want     string
+	}{
+		{v0.KubernetesRuntimeInfraProviderEKS, v0.PathAwsEksKubernetesRuntimeDefinitions, util.Ptr("1.35"), "1.35"},
+		{v0.KubernetesRuntimeInfraProviderGKE, v0.PathGcpGkeKubernetesRuntimeDefinitions, util.Ptr("1.35"), "1.35"},
+		{v0.KubernetesRuntimeInfraProviderEKS, v0.PathAwsEksKubernetesRuntimeDefinitions, nil, v0.DefaultKubernetesVersion},
+		{v0.KubernetesRuntimeInfraProviderGKE, v0.PathGcpGkeKubernetesRuntimeDefinitions, nil, v0.DefaultKubernetesVersion},
+	} {
+		t.Run(c.provider+" "+c.want, func(t *testing.T) {
+			api := machinetest.NewAPIStub(t)
+			var sent map[string]any
+			api.Mux.HandleFunc(c.path, func(w http.ResponseWriter, r *http.Request) {
+				body, err := io.ReadAll(r.Body)
+				require.NoError(t, err)
+				require.NoError(t, json.Unmarshal(body, &sent))
+				machinetest.WriteResponse(t, w, http.StatusCreated, []apiserver_lib.Object{sent})
+			})
+			r := &controller.Reconciler{APIClient: api.Client, APIServer: api.Addr}
+			log := logr.Discard()
+
+			definition := &v0.KubernetesRuntimeDefinition{
+				Common:            v0.Common{ID: util.Ptr(uint(7))},
+				Definition:        v0.Definition{Name: util.Ptr("remote")},
+				Reconciliation:    v0.Reconciliation{Reconciled: util.Ptr(false)},
+				InfraProvider:     util.Ptr(c.provider),
+				HighAvailability:  util.Ptr(false),
+				NodeSize:          util.Ptr("Medium"),
+				NodeProfile:       util.Ptr("Balanced"),
+				NodeMaximum:       util.Ptr(10),
+				KubernetesVersion: c.asked,
+			}
+			_, err := v0KubernetesRuntimeDefinitionCreated(r, definition, &log)
+			require.NoError(t, err)
+			assert.Equal(t, c.want, sent["KubernetesVersion"])
+		})
+	}
+}
+
+// TestTheProviderDefinitionRecordsItsDeletionProtection covers the EKS or GKE
+// definition the reconciler creates: it is protected when the kubernetes
+// runtime definition asks for it, and records false otherwise, since its
+// DeletionProtection is the one deletes are checked against.
+func TestTheProviderDefinitionRecordsItsDeletionProtection(t *testing.T) {
+	for _, c := range []struct {
+		provider string
+		path     string
+		asked    *bool
+		want     bool
+	}{
+		{v0.KubernetesRuntimeInfraProviderEKS, v0.PathAwsEksKubernetesRuntimeDefinitions, util.Ptr(true), true},
+		{v0.KubernetesRuntimeInfraProviderGKE, v0.PathGcpGkeKubernetesRuntimeDefinitions, util.Ptr(true), true},
+		{v0.KubernetesRuntimeInfraProviderEKS, v0.PathAwsEksKubernetesRuntimeDefinitions, util.Ptr(false), false},
+		{v0.KubernetesRuntimeInfraProviderGKE, v0.PathGcpGkeKubernetesRuntimeDefinitions, nil, false},
+	} {
+		t.Run(c.provider, func(t *testing.T) {
+			api := machinetest.NewAPIStub(t)
+			var sent map[string]any
+			api.Mux.HandleFunc(c.path, func(w http.ResponseWriter, r *http.Request) {
+				body, err := io.ReadAll(r.Body)
+				require.NoError(t, err)
+				require.NoError(t, json.Unmarshal(body, &sent))
+				machinetest.WriteResponse(t, w, http.StatusCreated, []apiserver_lib.Object{sent})
+			})
+			r := &controller.Reconciler{APIClient: api.Client, APIServer: api.Addr}
+			log := logr.Discard()
+
+			definition := &v0.KubernetesRuntimeDefinition{
+				Common:             v0.Common{ID: util.Ptr(uint(7))},
+				Definition:         v0.Definition{Name: util.Ptr("remote")},
+				Reconciliation:     v0.Reconciliation{Reconciled: util.Ptr(false)},
+				InfraProvider:      util.Ptr(c.provider),
+				HighAvailability:   util.Ptr(false),
+				NodeSize:           util.Ptr("Medium"),
+				NodeProfile:        util.Ptr("Balanced"),
+				NodeMaximum:        util.Ptr(10),
+				DeletionProtection: c.asked,
+			}
+			_, err := v0KubernetesRuntimeDefinitionCreated(r, definition, &log)
+			require.NoError(t, err)
+			assert.Equal(t, c.want, sent["DeletionProtection"])
+		})
+	}
+}
+
+// TestTheGkeDefinitionRecordsItsUpgradeSettings covers the release channel
+// and maintenance window on the GKE definition the reconciler creates: the
+// defaults, recorded so the definition shows when its clusters are upgraded.
+func TestTheGkeDefinitionRecordsItsUpgradeSettings(t *testing.T) {
+	api := machinetest.NewAPIStub(t)
+	var sent map[string]any
+	api.Mux.HandleFunc(v0.PathGcpGkeKubernetesRuntimeDefinitions, func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+		require.NoError(t, json.Unmarshal(body, &sent))
+		machinetest.WriteResponse(t, w, http.StatusCreated, []apiserver_lib.Object{sent})
+	})
+	r := &controller.Reconciler{APIClient: api.Client, APIServer: api.Addr}
+	log := logr.Discard()
+
+	definition := &v0.KubernetesRuntimeDefinition{
+		Common:           v0.Common{ID: util.Ptr(uint(7))},
+		Definition:       v0.Definition{Name: util.Ptr("remote")},
+		Reconciliation:   v0.Reconciliation{Reconciled: util.Ptr(false)},
+		InfraProvider:    util.Ptr(v0.KubernetesRuntimeInfraProviderGKE),
+		HighAvailability: util.Ptr(false),
+		NodeSize:         util.Ptr("Medium"),
+		NodeProfile:      util.Ptr("Balanced"),
+		NodeMaximum:      util.Ptr(10),
+	}
+	_, err := v0KubernetesRuntimeDefinitionCreated(r, definition, &log)
+	require.NoError(t, err)
+	assert.Equal(t, "REGULAR", sent["ReleaseChannel"])
+	assert.Equal(t, "SA,SU", sent["MaintenanceWindowDays"])
+	assert.Equal(t, "04:00", sent["MaintenanceWindowStart"])
+	assert.Equal(t, float64(8), sent["MaintenanceWindowHours"])
+}
+
+// TestANewGkeWorkloadClusterReservesItsNatAddress covers the GKE instance
+// the reconciler creates for a new kubernetes runtime instance: it is a new
+// cluster, so its Cloud NAT gets a reserved address that the cluster's
+// EgressCidrs record.
+func TestANewGkeWorkloadClusterReservesItsNatAddress(t *testing.T) {
+	api := machinetest.NewAPIStub(t)
+	api.Mux.HandleFunc(v0.PathKubernetesRuntimeDefinitions+"/3", func(w http.ResponseWriter, r *http.Request) {
+		machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{v0.KubernetesRuntimeDefinition{
+			Common:                   v0.Common{ID: util.Ptr(uint(3))},
+			InfraProvider:            util.Ptr(v0.KubernetesRuntimeInfraProviderGKE),
+			InfraProviderAccountName: util.Ptr("gcp-account"),
+		}})
+	})
+	api.Mux.HandleFunc(v0.PathGcpGkeKubernetesRuntimeDefinitions, func(w http.ResponseWriter, r *http.Request) {
+		machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{v0.GcpGkeKubernetesRuntimeDefinition{
+			Common: v0.Common{ID: util.Ptr(uint(2))},
+		}})
+	})
+	api.Mux.HandleFunc(v0.PathGcpProviders, func(w http.ResponseWriter, r *http.Request) {
+		machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{v0.GcpProvider{
+			Common: v0.Common{ID: util.Ptr(uint(1))}, Name: util.Ptr("gcp-account"),
+		}})
+	})
+	var sent v0.GcpGkeKubernetesRuntimeInstance
+	api.Mux.HandleFunc(v0.PathGcpGkeKubernetesRuntimeInstances, func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, http.MethodPost, r.Method)
+		assert.NoError(t, json.NewDecoder(r.Body).Decode(&sent))
+		machinetest.WriteResponse(t, w, http.StatusCreated, []apiserver_lib.Object{sent})
+	})
+	r := &controller.Reconciler{APIClient: api.Client, APIServer: api.Addr}
+	log := logr.Discard()
+
+	_, err := v0KubernetesRuntimeInstanceCreated(r, &v0.KubernetesRuntimeInstance{
+		Common:                        v0.Common{ID: util.Ptr(uint(4))},
+		Instance:                      v0.Instance{Name: util.Ptr("gke-remote")},
+		Reconciliation:                v0.Reconciliation{Reconciled: util.Ptr(false)},
+		Location:                      util.Ptr("NorthAmerica:NewYork"),
+		KubernetesRuntimeDefinitionID: util.Ptr(uint(3)),
+	}, &log)
+	require.NoError(t, err)
+	assert.Equal(t, util.Ptr(true), sent.ReservedNatAddress)
+}
+
+// TestTheGkeDefinitionsZonesFollowHighAvailability covers the GKE definition
+// the reconciler creates: a highly available cluster is regional with nodes
+// in three zones, and any other is zonal, in one.  EKS keeps two zones for a
+// cluster that isn't highly available.
+func TestTheGkeDefinitionsZonesFollowHighAvailability(t *testing.T) {
+	for _, c := range []struct {
+		provider         string
+		path             string
+		highAvailability bool
+		zones            float64
+	}{
+		{v0.KubernetesRuntimeInfraProviderGKE, v0.PathGcpGkeKubernetesRuntimeDefinitions, true, 3},
+		{v0.KubernetesRuntimeInfraProviderGKE, v0.PathGcpGkeKubernetesRuntimeDefinitions, false, 1},
+		{v0.KubernetesRuntimeInfraProviderEKS, v0.PathAwsEksKubernetesRuntimeDefinitions, true, 3},
+		{v0.KubernetesRuntimeInfraProviderEKS, v0.PathAwsEksKubernetesRuntimeDefinitions, false, 2},
+	} {
+		api := machinetest.NewAPIStub(t)
+		var sent map[string]any
+		api.Mux.HandleFunc(c.path, func(w http.ResponseWriter, r *http.Request) {
+			body, err := io.ReadAll(r.Body)
+			require.NoError(t, err)
+			require.NoError(t, json.Unmarshal(body, &sent))
+			machinetest.WriteResponse(t, w, http.StatusCreated, []apiserver_lib.Object{sent})
+		})
+		r := &controller.Reconciler{APIClient: api.Client, APIServer: api.Addr}
+		log := logr.Discard()
+
+		_, err := v0KubernetesRuntimeDefinitionCreated(r, &v0.KubernetesRuntimeDefinition{
+			Common:           v0.Common{ID: util.Ptr(uint(7))},
+			Definition:       v0.Definition{Name: util.Ptr("remote")},
+			Reconciliation:   v0.Reconciliation{Reconciled: util.Ptr(false)},
+			InfraProvider:    util.Ptr(c.provider),
+			HighAvailability: util.Ptr(c.highAvailability),
+			NodeSize:         util.Ptr("Medium"),
+			NodeProfile:      util.Ptr("Balanced"),
+			NodeMaximum:      util.Ptr(60),
+		}, &log)
+		require.NoError(t, err)
+		assert.Equal(t, c.zones, sent["ZoneCount"], "%s highly available %t", c.provider, c.highAvailability)
+		assert.Equal(t, float64(60), sent["DefaultNodeGroupMaximumSize"])
+	}
+}
+
+// TestTheProviderDefinitionRecordsItsAuditLog covers the EKS or GKE
+// definition the reconciler creates: it has an audit log when the kubernetes
+// runtime definition asks for one, and records false otherwise.
+func TestTheProviderDefinitionRecordsItsAuditLog(t *testing.T) {
+	for _, c := range []struct {
+		provider string
+		path     string
+		asked    *bool
+		want     bool
+	}{
+		{v0.KubernetesRuntimeInfraProviderEKS, v0.PathAwsEksKubernetesRuntimeDefinitions, util.Ptr(true), true},
+		{v0.KubernetesRuntimeInfraProviderGKE, v0.PathGcpGkeKubernetesRuntimeDefinitions, util.Ptr(true), true},
+		{v0.KubernetesRuntimeInfraProviderEKS, v0.PathAwsEksKubernetesRuntimeDefinitions, nil, false},
+		{v0.KubernetesRuntimeInfraProviderGKE, v0.PathGcpGkeKubernetesRuntimeDefinitions, util.Ptr(false), false},
+	} {
+		api := machinetest.NewAPIStub(t)
+		var sent map[string]any
+		api.Mux.HandleFunc(c.path, func(w http.ResponseWriter, r *http.Request) {
+			body, err := io.ReadAll(r.Body)
+			require.NoError(t, err)
+			require.NoError(t, json.Unmarshal(body, &sent))
+			machinetest.WriteResponse(t, w, http.StatusCreated, []apiserver_lib.Object{sent})
+		})
+		r := &controller.Reconciler{APIClient: api.Client, APIServer: api.Addr}
+		log := logr.Discard()
+
+		_, err := v0KubernetesRuntimeDefinitionCreated(r, &v0.KubernetesRuntimeDefinition{
+			Common:           v0.Common{ID: util.Ptr(uint(7))},
+			Definition:       v0.Definition{Name: util.Ptr("remote")},
+			Reconciliation:   v0.Reconciliation{Reconciled: util.Ptr(false)},
+			InfraProvider:    util.Ptr(c.provider),
+			HighAvailability: util.Ptr(false),
+			NodeSize:         util.Ptr("Medium"),
+			NodeProfile:      util.Ptr("Balanced"),
+			NodeMaximum:      util.Ptr(10),
+			AuditLog:         c.asked,
+		}, &log)
+		require.NoError(t, err)
+		assert.Equal(t, c.want, sent["AuditLog"], c.provider)
+	}
+}

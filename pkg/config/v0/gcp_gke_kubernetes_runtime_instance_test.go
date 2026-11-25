@@ -40,6 +40,7 @@ func TestGcpGkeKubernetesRuntimeInstanceConfig_Replace_PreservesForeignKeys(t *t
 		GcpProviderID:                       &gcpProviderID,
 		KubernetesRuntimeInstanceID:         &kubernetesRuntimeInstanceID,
 		GcpGkeKubernetesRuntimeDefinitionID: &definitionID,
+		ReservedNatAddress:                  util.Ptr(true),
 	}
 
 	// handlerErrCh carries errors from the handler goroutine back to the test
@@ -78,6 +79,7 @@ func TestGcpGkeKubernetesRuntimeInstanceConfig_Replace_PreservesForeignKeys(t *t
 
 			assert.Equal(t, &gcpProviderID, payload.GcpProviderID, "GcpProviderID must be preserved in the replace payload")
 			assert.Equal(t, &kubernetesRuntimeInstanceID, payload.KubernetesRuntimeInstanceID, "KubernetesRuntimeInstanceID must be preserved in the replace payload")
+			assert.Equal(t, util.Ptr(true), payload.ReservedNatAddress, "ReservedNatAddress cannot change, so a replace must carry it over")
 			assert.Equal(t, &definitionID, payload.GcpGkeKubernetesRuntimeDefinitionID, "GcpGkeKubernetesRuntimeDefinitionID must be preserved in the replace payload")
 
 			// the client strips CreatedAt from the outgoing PUT payload since

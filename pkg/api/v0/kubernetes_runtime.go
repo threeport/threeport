@@ -32,13 +32,14 @@ type KubernetesRuntimeDefinition struct {
 	// group.
 	NodeProfile *string `validate:"optional" gorm:"default:Balanced"`
 
-	// Sets the maximum number of nodes for the default node group.
-	NodeMaximum *int `validate:"optional" gorm:"default:250"`
+	// Sets the maximum number of nodes for the default node group, across
+	// all its zones.  If unset, it is 60.
+	NodeMaximum *int `validate:"optional" gorm:"default:60"`
 
 	// If true, the Kubernetes API is not reachable from the public internet.
 	// It is reachable only from the cluster's own network, from networks
 	// connected to it and, on GKE, through the IAM-authorized DNS endpoint.
-	// Cannot be changed after creation.
+	// Supported on GKE only.  Cannot be changed after creation.
 	PrivateApi *bool `validate:"optional" gorm:"default:false"`
 
 	// The CIDR blocks allowed to reach the Kubernetes API, as a JSON array of
@@ -49,6 +50,29 @@ type KubernetesRuntimeDefinition struct {
 	// GKE up to 50 (100 with PrivateApi) and OKE up to 120.  Cannot be
 	// changed after creation.
 	AllowedCidrs *datatypes.JSON `validate:"optional" swaggertype:"array,string"`
+
+	// The Kubernetes minor version of the clusters, such as "1.36", on EKS,
+	// GKE and OKE.  If unset, the default version is used, and the EKS, GKE
+	// or OKE definition records it.  It records the version asked for at
+	// creation and can't be changed: the clusters are upgraded by raising the
+	// EKS or GKE definition's KubernetesVersion.  A kind cluster's version
+	// comes with its node image, so it takes none.
+	KubernetesVersion *string `validate:"optional"`
+
+	// If true, the clusters' Kubernetes API server audit log is enabled and
+	// sent to the infra provider's logging service: CloudWatch Logs on EKS.
+	// GKE always records the API's writes in Cloud Audit Logs, and OKE has no
+	// API server audit log, so it has no effect on either.  It is copied into
+	// the EKS, GKE or OKE definition, and can't be changed after creation.
+	AuditLog *bool `validate:"optional" gorm:"default:false"`
+
+	// If true, the clusters and their node groups are created protected from
+	// deletion: their runtime instances can't be deleted, and Pulumi refuses
+	// to destroy or replace them, as EKS also refuses to delete the cluster.
+	// It is copied into the EKS, GKE or OKE definition, whose
+	// DeletionProtection is the one that counts afterwards: this definition
+	// can't be changed once that one exists.
+	DeletionProtection *bool `validate:"optional" gorm:"default:false"`
 
 	// TODO: add fields for location limitations
 	// LocationsAllowed
@@ -85,6 +109,19 @@ type KubernetesRuntimeInstance struct {
 	// addresses of the runtime that hosts the control plane, so that the
 	// control plane can reach them.
 	EgressCidrs *datatypes.JSON `validate:"optional" swaggertype:"array,string"`
+
+	// The IPv4 network range of the cluster's network, such as 10.16.0.0/16:
+	// its VPC on EKS, its VCN on OKE, and its node, Pod and Service ranges on
+	// GKE.  No two runtimes may overlap, so that their networks can be
+	// connected.  If unset when the runtime is provisioned, the control plane
+	// allocates the next free /16 from its NetworkCidrPool.  If set, it must be
+	// a /16 or larger, overlap no other runtime's range and no child control
+	// plane's pool, and stay clear of the ranges clusters use internally
+	// (10.96.0.0/16, 10.244.0.0/16, 172.20.0.0/16 and 172.16.0.0/28); it does
+	// not have to be in the pool.  A range larger than a /16 is reserved
+	// whole, and the cluster's network is laid out in its first /16, as AWS
+	// and OCI networks are no larger.  Cannot be changed once set.
+	NetworkCidr *string `validate:"optional" gorm:"uniqueIndex:,where:deleted_at IS NULL"`
 
 	// The CA certificate used to generate the cert and key if
 	// self-signed.
@@ -128,6 +165,9 @@ type KubernetesRuntimeInstance struct {
 
 	// The workload that provides a database for this runtime.
 	DatabaseComponentInstanceID *uint `validate:"optional"`
+
+	// The workload that provides object storage for this runtime.
+	StorageComponentInstanceID *uint `validate:"optional"`
 
 	// An alternate threeport image to use when deploying threeport agent to
 	// managed Kubernetes runtime clusters.  If not supplied, the official image

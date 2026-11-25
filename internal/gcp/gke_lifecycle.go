@@ -11,6 +11,7 @@ import (
 	"gorm.io/datatypes"
 
 	notif "github.com/threeport/threeport/internal/gcp/notif"
+	"github.com/threeport/threeport/internal/networkcidr"
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	gcpauth "github.com/threeport/threeport/pkg/auth/v0"
@@ -105,7 +106,17 @@ func (g *gkeLifecycle) buildInfraFrom(
 	if err != nil {
 		return nil, fmt.Errorf("failed to get GKE definition: %w", err)
 	}
-	return buildGkeInfra(g.r, latest, def, g.log)
+	infra, err := buildGkeInfra(g.r, latest, def, g.log)
+	if err != nil {
+		return nil, err
+	}
+	if infra.NetworkCidr, err = networkcidr.ClusterNetworkCidr(
+		g.r.APIClient, g.r.APIServer, latest.KubernetesRuntimeInstanceID, latest.Reconciliation, latest.ResourceInventory,
+	); err != nil {
+		return nil, fmt.Errorf("failed to get the GKE cluster's network range: %w", err)
+	}
+
+	return infra, nil
 }
 
 // IsCreateComplete reports whether the whole create finished, not just the
@@ -173,6 +184,16 @@ func (g *gkeLifecycle) OnCreateConfirmed(infra provider.InfraProvider) error {
 		return fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
 	}
 
+	// record the addresses the cluster's outbound traffic comes from, which
+	// clusters this one may come to manage as a control plane host admit
+	egressCidrs, err := provider.EgressCidrsFromState(latest.ResourceInventory)
+	if err != nil {
+		return fmt.Errorf("failed to read the cluster's egress addresses: %w", err)
+	}
+	if len(egressCidrs) > 0 {
+		kubernetesRuntimeInstance.EgressCidrs = provider.EgressCidrsJSON(egressCidrs)
+	}
+
 	kubeRuntimeReconciled := false
 	kubernetesRuntimeInstance.APIEndpoint = &kubeConnectionInfo.APIEndpoint
 	kubernetesRuntimeInstance.CACertificate = &kubeConnectionInfo.CACertificate
@@ -186,7 +207,49 @@ func (g *gkeLifecycle) OnCreateConfirmed(infra provider.InfraProvider) error {
 	); err != nil {
 		return fmt.Errorf("failed to update kubernetes runtime instance with kube connection info: %w", err)
 	}
+
+	return g.recordAppliedSettings(infraGKE)
+}
+
+// gkeLifecycle applies its definition's secrets encryption, boot disk,
+// Secure Boot and intranode visibility to a cluster that doesn't run them.
+var _ provider.SettingsLifecycleProvider = (*gkeLifecycle)(nil)
+
+// recordAppliedSettings records on the instance the secrets encryption,
+// boot disk, Secure Boot and intranode visibility its cluster runs once the
+// program infra was built with has been applied.
+func (g *gkeLifecycle) recordAppliedSettings(infra *provider.KubernetesRuntimeInfraGKE) error {
+	applied := infra.AppliedSettings()
+	update := v0.GcpGkeKubernetesRuntimeInstance{
+		Common:               v0.Common{ID: &g.instanceID},
+		SecretsEncryptionKey: &applied.SecretsEncryptionKey,
+		BootDiskType:         &applied.BootDiskType,
+		BootDiskSizeGb:       &applied.BootDiskSizeGb,
+		BootDiskKmsKey:       &applied.BootDiskKmsKey,
+		SecureBoot:           &applied.SecureBoot,
+		IntranodeVisibility:  &applied.IntranodeVisibility,
+	}
+	if _, err := client.UpdateGcpGkeKubernetesRuntimeInstance(g.r.APIClient, g.r.APIServer, &update); err != nil {
+		return fmt.Errorf("failed to record the settings the cluster runs: %w", err)
+	}
+
 	return nil
+}
+
+// PendingSettings returns the names of the secrets encryption, boot disk,
+// Secure Boot and intranode visibility settings the instance's definition
+// asks for that its cluster doesn't run.
+func (g *gkeLifecycle) PendingSettings() ([]string, error) {
+	latest, err := client.GetGcpGkeKubernetesRuntimeInstanceByID(g.r.APIClient, g.r.APIServer, g.instanceID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get latest GKE instance: %w", err)
+	}
+	definition, err := client.GetGcpGkeKubernetesRuntimeDefinitionByID(g.r.APIClient, g.r.APIServer, *latest.GcpGkeKubernetesRuntimeDefinitionID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get GKE definition: %w", err)
+	}
+
+	return v0.GkePendingSettings(definition, latest), nil
 }
 
 // SaveCreateOutputs saves the final Pulumi state.
@@ -383,6 +446,109 @@ func (g *gkeLifecycle) RecordWarning(reason, note string) error {
 	)
 }
 
+// GetUpgrade fetches the instance's upgrade state from the API.
+func (g *gkeLifecycle) GetUpgrade() (*provider.UpgradeSnapshot, error) {
+	latest, err := client.GetGcpGkeKubernetesRuntimeInstanceByID(g.r.APIClient, g.r.APIServer, g.instanceID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get latest GKE instance: %w", err)
+	}
+
+	return &provider.UpgradeSnapshot{
+		RecordedVersion: util.DerefString(latest.KubernetesVersion),
+		Acknowledged:    latest.UpgradeAcknowledged,
+		Upgrading:       latest.Upgrading != nil && *latest.Upgrading,
+		Failed:          latest.UpgradeFailed != nil && *latest.UpgradeFailed,
+		Refused:         latest.UpgradeRefused != nil && *latest.UpgradeRefused,
+		Status:          util.DerefString(latest.UpgradeStatus),
+	}, nil
+}
+
+// GetUpgradeTarget fetches the version the instance's definition asks for.
+func (g *gkeLifecycle) GetUpgradeTarget() (string, error) {
+	latest, err := client.GetGcpGkeKubernetesRuntimeInstanceByID(g.r.APIClient, g.r.APIServer, g.instanceID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get latest GKE instance: %w", err)
+	}
+	definition, err := client.GetGcpGkeKubernetesRuntimeDefinitionByID(g.r.APIClient, g.r.APIServer, *latest.GcpGkeKubernetesRuntimeDefinitionID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get GKE definition: %w", err)
+	}
+
+	return v0.KubernetesVersionOrDefault(definition.KubernetesVersion), nil
+}
+
+// RecordUpgradeStatus records the version the cluster runs and what the
+// controller found.
+func (g *gkeLifecycle) RecordUpgradeStatus(version, status string) error {
+	update := v0.GcpGkeKubernetesRuntimeInstance{
+		Common:        v0.Common{ID: &g.instanceID},
+		UpgradeStatus: &status,
+	}
+	if version != "" {
+		update.KubernetesVersion = &version
+	}
+	_, err := client.UpdateGcpGkeKubernetesRuntimeInstance(g.r.APIClient, g.r.APIServer, &update)
+	return err
+}
+
+// AckUpgrade records that an upgrade started.
+func (g *gkeLifecycle) AckUpgrade(status string) error {
+	timestamp := time.Now().UTC()
+	update := v0.GcpGkeKubernetesRuntimeInstance{
+		Common:              v0.Common{ID: &g.instanceID},
+		UpgradeAcknowledged: &timestamp,
+		Upgrading:           util.Ptr(true),
+		UpgradeFailed:       util.Ptr(false),
+		UpgradeRefused:      util.Ptr(false),
+		UpgradeStatus:       &status,
+	}
+	_, err := client.UpdateGcpGkeKubernetesRuntimeInstance(g.r.APIClient, g.r.APIServer, &update)
+	return err
+}
+
+// RefreshUpgradeAck updates UpgradeAcknowledged to prevent stale detection.
+func (g *gkeLifecycle) RefreshUpgradeAck() error {
+	timestamp := time.Now().UTC()
+	update := v0.GcpGkeKubernetesRuntimeInstance{
+		Common:              v0.Common{ID: &g.instanceID},
+		UpgradeAcknowledged: &timestamp,
+	}
+	_, err := client.UpdateGcpGkeKubernetesRuntimeInstance(g.r.APIClient, g.r.APIServer, &update)
+	return err
+}
+
+// FinishUpgrade records how an upgrade ended.
+func (g *gkeLifecycle) FinishUpgrade(outcome provider.UpgradeOutcome) error {
+	update := v0.GcpGkeKubernetesRuntimeInstance{
+		Common:         v0.Common{ID: &g.instanceID},
+		Upgrading:      util.Ptr(false),
+		UpgradeFailed:  util.Ptr(outcome.Failed),
+		UpgradeRefused: util.Ptr(outcome.Refused),
+		UpgradeStatus:  &outcome.Status,
+	}
+	if outcome.Version != "" {
+		update.KubernetesVersion = &outcome.Version
+	}
+	_, err := client.UpdateGcpGkeKubernetesRuntimeInstance(g.r.APIClient, g.r.APIServer, &update)
+	return err
+}
+
+// OnUpgraded has nothing to do: GKE upgrades the nodes, and Threeport runs no
+// component whose version follows the cluster's.
+func (g *gkeLifecycle) OnUpgraded(_ provider.InfraProvider) error {
+	return nil
+}
+
+// OnSettingsApplied records the settings an upgrade step applied.
+func (g *gkeLifecycle) OnSettingsApplied(infra provider.InfraProvider) error {
+	infraGKE, ok := infra.(*provider.KubernetesRuntimeInfraGKE)
+	if !ok {
+		return fmt.Errorf("cannot record the settings %T applied", infra)
+	}
+
+	return g.recordAppliedSettings(infraGKE)
+}
+
 // PublishCreateNotification publishes a NATS notification for creation.
 func (g *gkeLifecycle) PublishCreateNotification() error {
 	notifPayload, err := g.instance.NotificationPayload(
@@ -487,12 +653,47 @@ func buildGkeInfra(
 		},
 		ProjectID:              *gcpProvider.ProjectID,
 		Region:                 *instance.Region,
+		ZoneCount:              int32(util.Deref(definition.ZoneCount)),
 		WorkerNodeInitialCount: int32(*definition.DefaultNodeGroupInitialSize),
 		MachineType:            *definition.DefaultNodeGroupInstanceType,
 		MinNodeCount:           int32(*definition.DefaultNodeGroupMinimumSize),
 		MaxNodeCount:           int32(*definition.DefaultNodeGroupMaximumSize),
+		PrivateApi:             definition.PrivateApi != nil && *definition.PrivateApi,
+		Version:                v0.KubernetesVersionOrDefault(definition.KubernetesVersion),
+		DeletionProtection:     definition.DeletionProtection != nil && *definition.DeletionProtection,
+		ReleaseChannel:         v0.GkeReleaseChannelOrDefault(definition.ReleaseChannel),
+		MaintenanceWindowDays:  v0.GkeMaintenanceWindowDaysOrDefault(definition.MaintenanceWindowDays),
+		MaintenanceWindowStart: v0.GkeMaintenanceWindowStartOrDefault(definition.MaintenanceWindowStart),
+		MaintenanceWindowHours: v0.GkeMaintenanceWindowHoursOrDefault(definition.MaintenanceWindowHours),
 		AllowedCidrs:           allowedCidrs,
+		ReserveNatAddress:      instance.ReservedNatAddress != nil && *instance.ReservedNatAddress,
+		SecretsEncryptionKey:   v0.GkeSettingOrApplied(definition.SecretsEncryptionKey, instance.SecretsEncryptionKey),
+		BootDiskType:           v0.GkeSettingOrApplied(definition.BootDiskType, instance.BootDiskType),
+		BootDiskSizeGb:         v0.GkeSettingOrApplied(definition.BootDiskSizeGb, instance.BootDiskSizeGb),
+		BootDiskKmsKey:         v0.GkeSettingOrApplied(definition.BootDiskKmsKey, instance.BootDiskKmsKey),
+		SecureBoot:             v0.GkeSettingOrApplied(definition.SecureBoot, instance.SecureBoot),
+		IntranodeVisibility:    v0.GkeSettingOrApplied(definition.IntranodeVisibility, instance.IntranodeVisibility),
 	}).InitPulumiProject()
+	// the cluster is found where it was created, which a zonal cluster's
+	// region alone doesn't say
+	infraGKE.KeepInventoryLocation(instance.ResourceInventory)
+
+	// a cluster whose public endpoint is restricted also admits the control
+	// plane that manages it.  The lookup is skipped for a private cluster,
+	// which the control plane reaches through its DNS endpoint, and for a
+	// cluster being deleted, which does not provision anything.
+	if len(allowedCidrs) > 0 && !infraGKE.PrivateApi && instance.DeletionScheduled == nil {
+		controlPlaneEgressCidrs, err := provider.ControlPlaneEgressCidrs(
+			r.APIClient,
+			r.APIServer,
+			*instance.KubernetesRuntimeInstanceID,
+			log,
+		)
+		if err != nil {
+			return nil, err
+		}
+		infraGKE.ControlPlaneEgressCidrs = controlPlaneEgressCidrs
+	}
 
 	// The workload identity binding made after the cluster is created names this
 	// account, so it has to be known before any of the cluster is provisioned -
@@ -537,4 +738,24 @@ func buildGkeInfra(
 	}
 
 	return infraGKE, nil
+}
+
+// DeletionRefusal returns a *v0.DeletionProtectedError while the GKE
+// definition of the cluster has DeletionProtection set.  It reads the
+// definition again, as it may have changed since the delete was scheduled.
+func (g *gkeLifecycle) DeletionRefusal() error {
+	latest, err := client.GetGcpGkeKubernetesRuntimeInstanceByID(g.r.APIClient, g.r.APIServer, g.instanceID)
+	if err != nil {
+		return fmt.Errorf("failed to get GKE instance for its deletion protection: %w", err)
+	}
+	definition, err := client.GetGcpGkeKubernetesRuntimeDefinitionByID(
+		g.r.APIClient,
+		g.r.APIServer,
+		*latest.GcpGkeKubernetesRuntimeDefinitionID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get GKE definition for its deletion protection: %w", err)
+	}
+
+	return v0.ProviderDefinitionDeletionProtection(definition)
 }
