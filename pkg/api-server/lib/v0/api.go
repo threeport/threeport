@@ -61,6 +61,10 @@ func ResponseStatus409(c echo.Context, params *PageRequestParams, error error, o
 	return c.JSON(http.StatusConflict, CreateResponseWithError409(params, error, objectType))
 }
 
+func ResponseStatus413(c echo.Context, params *PageRequestParams, error error, objectType string) error {
+	return c.JSON(http.StatusRequestEntityTooLarge, CreateResponseWithError413(params, error, objectType))
+}
+
 func ResponseStatus500(c echo.Context, params *PageRequestParams, error error, objectType string) error {
 	return c.JSON(http.StatusInternalServerError, CreateResponseWithError500(params, error, objectType))
 }
@@ -100,6 +104,8 @@ func ResponseStatusErr(id int, c echo.Context, params *PageRequestParams, error 
 		return ResponseStatus404(c, params, error, objectType)
 	case 409:
 		return ResponseStatus409(c, params, error, objectType)
+	case 413:
+		return ResponseStatus413(c, params, error, objectType)
 	case 500:
 		return ResponseStatus500(c, params, error, objectType)
 	}

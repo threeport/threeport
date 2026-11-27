@@ -3,11 +3,14 @@
 package secret
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/go-logr/logr"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
+	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 )
 
@@ -18,6 +21,25 @@ func v0SecretDefinitionCreated(
 	secretDefinition *v0.SecretDefinition,
 	log *logr.Logger,
 ) (int64, error) {
+	// the notification is a snapshot, and a create can reach here long after it
+	// was sent: it is redelivered when the API could not mark it published, and
+	// requeued while it fails. Pushing the secret then would bring back one the
+	// user has since deleted, so check what the definition is now. Only the
+	// current state is read from the API. The secret's data is never stored
+	// there, so the push takes it from the notification.
+	current, err := client.GetSecretDefinitionByID(r.APIClient, r.APIServer, *secretDefinition.ID)
+	if err != nil {
+		if errors.Is(err, client_lib.ErrObjectNotFound) {
+			log.Info("secret definition no longer exists - skipping create")
+			return 0, nil
+		}
+		return 0, fmt.Errorf("failed to get the current secret definition: %w", err)
+	}
+	if current.ScheduledForDeletion() != nil {
+		log.Info("secret definition is scheduled for deletion - skipping create")
+		return 0, nil
+	}
+
 	// configure secret definition config
 	secretDefinitionConfig := &SecretDefinitionConfig{
 		r:                r,

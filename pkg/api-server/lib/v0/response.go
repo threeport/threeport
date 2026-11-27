@@ -208,6 +208,11 @@ func CreateResponseWithError409(params *PageRequestParams, error error, objectTy
 	return CreateResponseErrorWithStatus(params, CreateStatus(http.StatusConflict, http.StatusText(http.StatusConflict), error.Error()), objectType)
 }
 
+// CreateResponseWithError413 creates a Response object with the a 413 status, given params, error, and object type.
+func CreateResponseWithError413(params *PageRequestParams, error error, objectType string) *Response {
+	return CreateResponseErrorWithStatus(params, CreateStatus(http.StatusRequestEntityTooLarge, http.StatusText(http.StatusRequestEntityTooLarge), error.Error()), objectType)
+}
+
 // CreateResponseWithError500 creates a Response object with the a 500 status, given params, error, and object type.
 func CreateResponseWithError500(params *PageRequestParams, error error, objectType string) *Response {
 	return CreateResponseErrorWithStatus(params, CreateStatus(http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), sanitizeInternalError(error)), objectType)
