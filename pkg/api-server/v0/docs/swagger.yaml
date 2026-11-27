@@ -3681,7 +3681,7 @@ info:
   description: Core API server for the Threeport application orchestration control
     plane.
   title: Threeport RESTful API
-  version: v0.7.0-rc.6
+  version: v0.7.0-rc.8
 paths:
   /attached-object-references/versions:
     get:
