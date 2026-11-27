@@ -1,7 +1,6 @@
 package v0
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -2018,22 +2017,14 @@ func ensureBootstrapKubernetesRuntime(
 	return def, inst, nil
 }
 
-// WaitForThreeportAPI retries a version request until the api returns 200.
-// A ready rest-api deployment does not mean that endpoint answers.
+// WaitForThreeportAPI retries a version request until the api answers with a
+// version.  A ready rest-api deployment does not mean that endpoint answers.
 func WaitForThreeportAPI(apiClient *http.Client, apiEndpoint string) error {
 	// retry the version request for up to five minutes
 	attemptsMax := 60
 	waitDurationSeconds := 5
 	if err := util.Retry(attemptsMax, waitDurationSeconds, func() error {
-		_, err := client_lib.GetResponse(
-			apiClient,
-			fmt.Sprintf("%s/version", apiEndpoint),
-			http.MethodGet,
-			new(bytes.Buffer),
-			map[string]string{},
-			http.StatusOK,
-		)
-		if err != nil {
+		if _, err := client.GetRestApiVersion(apiClient, apiEndpoint); err != nil {
 			Info(fmt.Sprintf("Connection attempt result: %s", err))
 			return fmt.Errorf("failed to get threeport API version: %w", err)
 		}

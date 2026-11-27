@@ -2,6 +2,7 @@ package v0
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -92,6 +93,48 @@ func TestGetResponse_ConflictCauses(t *testing.T) {
 			for _, not := range tc.wantNotIs {
 				assert.Falsef(t, errors.Is(err, not), "did not expect errors.Is(..., %v), got %v", not, err)
 			}
+		})
+	}
+}
+
+// TestApiUrl covers the scheme chosen for each kind of client: plain http
+// unless the transport is set up for TLS.
+func TestApiUrl(t *testing.T) {
+	cases := []struct {
+		name   string
+		client *http.Client
+		want   string
+	}{
+		{
+			name:   "a client with no transport calls over http",
+			client: &http.Client{},
+			want:   "http://localhost:80/version",
+		},
+		{
+			name:   "auth disabled calls over http",
+			client: &http.Client{Transport: &CustomTransport{IsTlsEnabled: false}},
+			want:   "http://localhost:80/version",
+		},
+		{
+			name:   "auth enabled calls over https",
+			client: &http.Client{Transport: &CustomTransport{IsTlsEnabled: true}},
+			want:   "https://localhost:80/version",
+		},
+		{
+			name:   "a plain transport with TLS config calls over https",
+			client: &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{}}},
+			want:   "https://localhost:80/version",
+		},
+		{
+			name:   "a plain transport without TLS config calls over http",
+			client: &http.Client{Transport: &http.Transport{}},
+			want:   "http://localhost:80/version",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, ApiUrl(tc.client, "localhost:80/version"))
 		})
 	}
 }
