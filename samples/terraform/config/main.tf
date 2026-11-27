@@ -10,7 +10,7 @@ terraform {
 }
 
 provider "aws" {
-  region  = var.region
+  region = var.region
 }
 
 resource "aws_db_subnet_group" "wordpress-db-subnet-group" {
@@ -37,7 +37,7 @@ resource "aws_security_group_rule" "wordpress-db-ingress" {
   security_group_id        = aws_security_group.wordpress-db-sg.id
   source_security_group_id = var.app_security_group
   from_port                = var.db_port
-  protocol              = "tcp"
+  protocol                 = "tcp"
   to_port                  = var.db_port
 }
 

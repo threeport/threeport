@@ -28,8 +28,8 @@ func TestParseStructTag(t *testing.T) {
 			name:      "malformed pair still yields key with empty value",
 			tagString: "`json:\"a\" badpair yaml:\"b\"`",
 			want: map[string]string{
-				"json":     "a",
-				"badpair":  "",
+				"json":    "a",
+				"badpair": "",
 				// reflect.StructTag treats the full tag as invalid once malformed,
 				// so subsequent keys are present but return empty values.
 				"yaml": "",
@@ -50,4 +50,3 @@ func TestParseStructTag(t *testing.T) {
 		})
 	}
 }
-

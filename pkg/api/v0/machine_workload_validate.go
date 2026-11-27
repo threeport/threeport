@@ -9,8 +9,8 @@ import (
 
 	"gorm.io/gorm"
 
-	util "github.com/threeport/threeport/pkg/util/v0"
 	lib "github.com/threeport/threeport/pkg/api/lib/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // envKeyRegex matches a valid POSIX environment variable name.
@@ -54,12 +54,15 @@ func (m *MachineWorkloadDefinition) beforeCreate(tx *gorm.DB) error {
 // per-field check is:
 //   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
 //     and PUT, handles the DB load internally
+//
 // Lower-level helpers, useful when IsFieldChanged doesn't fit:
 //   - lib.IncomingValues(tx): values being written
 //   - lib.IsFullReplace(tx): true on PUT (Save shape)
 //   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
+//
 // Import:
-//   lib "github.com/threeport/threeport/pkg/api/lib/v0"
+//
+//	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (m *MachineWorkloadDefinition) beforeUpdate(tx *gorm.DB) error {
 	changed, err := lib.IsFieldChanged(tx, "Env")
 	if err != nil {
@@ -93,12 +96,15 @@ func (m *MachineWorkloadInstance) beforeCreate(tx *gorm.DB) error {
 // per-field check is:
 //   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
 //     and PUT, handles the DB load internally
+//
 // Lower-level helpers, useful when IsFieldChanged doesn't fit:
 //   - lib.IncomingValues(tx): values being written
 //   - lib.IsFullReplace(tx): true on PUT (Save shape)
 //   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
+//
 // Import:
-//   lib "github.com/threeport/threeport/pkg/api/lib/v0"
+//
+//	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (m *MachineWorkloadInstance) beforeUpdate(tx *gorm.DB) error {
 	changed, err := lib.IsFieldChanged(tx, "Env")
 	if err != nil {

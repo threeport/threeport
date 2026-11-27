@@ -355,7 +355,7 @@ func TestTheVpcCniAddonWaitsOnItsOwnTimes(t *testing.T) {
 	addon := &fakeVpcCniAddon{statuses: []ekstypes.AddonStatus{
 		ekstypes.AddonStatusUpdating,                             // the first look
 		ekstypes.AddonStatusUpdating, ekstypes.AddonStatusActive, // the wait before binding
-		ekstypes.AddonStatusActive,                               // the wait after it
+		ekstypes.AddonStatusActive, // the wait after it
 	}}
 	require.NoError(t, bindVpcCniAddon(addon, "eks-test", roleArn))
 	assert.Len(t, addon.updates, 1)

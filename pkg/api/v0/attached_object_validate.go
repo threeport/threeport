@@ -5,8 +5,8 @@ package v0
 import (
 	"gorm.io/gorm"
 
-	util "github.com/threeport/threeport/pkg/util/v0"
 	lib "github.com/threeport/threeport/pkg/api/lib/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // beforeCreate runs before the AttachedObjectReference is created.
@@ -21,12 +21,15 @@ func (a *AttachedObjectReference) beforeCreate(tx *gorm.DB) error {
 // per-field check is:
 //   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
 //     and PUT, handles the DB load internally
+//
 // Lower-level helpers, useful when IsFieldChanged doesn't fit:
 //   - lib.IncomingValues(tx): values being written
 //   - lib.IsFullReplace(tx): true on PUT (Save shape)
 //   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
+//
 // Import:
-//   lib "github.com/threeport/threeport/pkg/api/lib/v0"
+//
+//	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (a *AttachedObjectReference) beforeUpdate(tx *gorm.DB) error {
 	// Relationship is the lifecycle dial; silently widening or narrowing it
 	// post-create would change blocking behavior of an existing reference

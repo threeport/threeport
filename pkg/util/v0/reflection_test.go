@@ -95,4 +95,3 @@ func TestGetObjectFieldValue(t *testing.T) {
 		}
 	})
 }
-

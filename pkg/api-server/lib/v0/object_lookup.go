@@ -227,4 +227,3 @@ func FilterQualifiedTypes(qualifiedTypes []string, namespace, version string) []
 	}
 	return out
 }
-
