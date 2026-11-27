@@ -61,7 +61,7 @@ func Execute() {
 		validated := true
 		for _, cmd := range rootCmd.Commands() {
 			if cmd.Use == filepath.Base(plug) {
-				cli.Warning(fmt.Sprintf(
+				startupWarning(fmt.Sprintf(
 					"plugin '%s' conflicts with core 'tptctl %s' command - plugin ignored",
 					plug,
 					cmd.Use,
@@ -207,15 +207,20 @@ func GetClientContext(cmd *cobra.Command) (*http.Client, *cli.ThreeportConfig, s
 	return apiClient, threeportConfig, apiEndpoint, requestedControlPlane
 }
 
+// startupWarning prints a warning while tptctl starts up, before the command
+// runs.  It goes to stderr because stdout belongs to the command, and the
+// output of commands such as tptctl version -o json has to be parseable.
+func startupWarning(message string) {
+	fmt.Fprintf(os.Stderr, "Warning: %s\n", message)
+}
+
 // loadPlugins loads all tptctl plugins in the plugin dir.
 func loadPlugins(pluginDir string) []string {
 	// check if plugin dir exists
 	if _, err := os.Stat(pluginDir); err != nil {
 		if os.IsNotExist(err) {
-			// plugin dir does not exist - assume no plugins installed.  This
-			// goes to stderr because it is printed before every command,
-			// including those with machine-readable output on stdout.
-			fmt.Fprintln(os.Stderr, "Warning: no plugins installed")
+			// plugin dir does not exist - assume no plugins installed
+			startupWarning("no plugins installed")
 			return []string{}
 		} else {
 			cli.Error("failed to check for plugin directory", err)
